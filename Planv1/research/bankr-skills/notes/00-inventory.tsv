@@ -1,0 +1,152 @@
+path	name	provider	install	lines	fm_keys	desc
+0xwork/SKILL.md	0xwork	JKILLR	bankr	404	name,description,credentials,metadata	"Find and complete paid tasks on the 0xWork decentralized marketplace (Base chain, USDC escrow). Use when: the agent wants to earn money/USD
+1claw/SKILL.md	1claw	1Claw	bankr	550	name,description,metadata	>
+aeon-autoresearch/SKILL.md	aeon-autoresearch	Aeon	bankr	59	name,description	|
+aeon-deal-flow/SKILL.md	aeon-deal-flow	Aeon	bankr	58	name,description	|
+aeon-deep-research/SKILL.md	aeon-deep-research	Aeon	bankr	35	name,description	|
+aeon-defi-monitor/SKILL.md	aeon-defi-monitor	Aeon	bankr	68	name,description	|
+aeon-defi-overview/SKILL.md	aeon-defi-overview	Aeon	bankr	43	name,description	|
+aeon-distribute-tokens/SKILL.md	aeon-distribute-tokens	Aeon	bankr	103	name,description	|
+aeon-hacker-news-digest/SKILL.md	aeon-hacker-news-digest	Aeon	bankr	54	name,description	|
+aeon-huggingface-trending/SKILL.md	aeon-huggingface-trending	Aeon	bankr	43	name,description	|
+aeon-last30/SKILL.md	aeon-last30	Aeon	bankr	54	name,description	|
+aeon-monitor-kalshi/SKILL.md	aeon-monitor-kalshi	Aeon	bankr	75	name,description	|
+aeon-monitor-polymarket/SKILL.md	aeon-monitor-polymarket	Aeon	bankr	70	name,description	|
+aeon-monitor-runners/SKILL.md	aeon-monitor-runners	Aeon	bankr	58	name,description	|
+aeon-narrative-tracker/SKILL.md	aeon-narrative-tracker	Aeon	bankr	53	name,description	|
+aeon-on-chain-monitor/SKILL.md	aeon-on-chain-monitor	Aeon	bankr	58	name,description	|
+aeon-paper-pick/SKILL.md	aeon-paper-pick	Aeon	bankr	64	name,description	|
+aeon-reg-monitor/SKILL.md	aeon-reg-monitor	Aeon	bankr	48	name,description	|
+aeon-rss-digest/SKILL.md	aeon-rss-digest	Aeon	bankr	52	name,description	|
+aeon-skill-evals/SKILL.md	aeon-skill-evals	Aeon	bankr	67	name,description	|
+aeon-skill-repair/SKILL.md	aeon-skill-repair	Aeon	bankr	69	name,description	|
+aeon-skill-security-scan/SKILL.md	aeon-skill-security-scan	Aeon	bankr	66	name,description	|
+aeon-token-movers/SKILL.md	aeon-token-movers	Aeon	bankr	57	name,description	|
+aeon-token-pick/SKILL.md	aeon-token-pick	Aeon	bankr	57	name,description	|
+aeon-unlock-monitor/SKILL.md	aeon-unlock-monitor	Aeon	bankr	53	name,description	|
+aeon-vuln-scanner/SKILL.md	aeon-vuln-scanner	Aeon	bankr	87	name,description	|
+aero-stock-lp/SKILL.md	aero-stock-lp	Bankr	bankr	382	name,description,recommended-models	LP tokenized stocks onchain — range-LP Coinbase tokenized equities (NVDA, AAPL, GOOGL, META) and AERO/USDC on Aerodrome Slipstream (Base) fo
+agent-wormhole/SKILL.md	agent-wormhole	BuiltByEcho	bankr	121	name,description,emoji,tags,visibility	Use Agent Wormhole for one-time sealed handoffs between autonomous agents, including encrypted mission briefs, scoped secrets, temporary art
+agenticbets/SKILL.md	agenticbets	AgenticBets	bankr	343	name,description,metadata	Place prediction bets on token prices on Base via AgenticBets. Use when the user wants to bet UP or DOWN on whether a token price will go up
+ai2human-task-router/SKILL.md	ai2human-task-router	AI2Human	bankr	353	name,homepage,description,metadata	>
+alchemy/SKILL.md	alchemy	Alchemy	bankr	271	name,description,license,compatibility,metadata	Blockchain API access via Alchemy. Use when an agent needs to query blockchain data (balances, token prices, NFT ownership, transfer history
+autoboy/SKILL.md	autoboy	The Firm	bankr	131	name,description	AutoBoy by The Firm — the pre-launch order book for Bankr launches on Base. Use when an agent wants to buy a token before it launches, or la
+azzle/SKILL.md	azzle	AZZLE	bankr	259	name,description,metadata	Discover and operate canonical AZZLE V2 tasks on Base. Use when a user wants to inspect, post, claim, fund, deliver, release, cancel, expire
+b20-console/SKILL.md	b20-console	INVALID		121	name,description,metadata	>
+bankr-communities/SKILL.md	bankr-communities	Bankr Space	bankr	339	name,version,description,siteUrl,communitiesSiteUrl,COMMUNITIES_SITE_URL,communityUrlTemplate,linkApiTemplate,metadata	>-
+bankr-shopify/SKILL.md	bankr-shopify	Shopify	bankr	522	name,description,emoji,tags,visibility	>
+bankr-token-scam-analysis/SKILL.md	token-scam-analysis	BankrBot	bankr	207	name,description,emoji,tags,visibility	Deep on-chain scam / rug / soft-rug analysis for EVM tokens (especially Clanker, Doppler, Bankr-style single-admin ERC-20s). Use when the us
+bankr-twitter-agent/SKILL.md	twitter-agent	BankrBot	bankr	386	name,description,emoji,tags,visibility	Build and run a Twitter/X agent with a distinct personality and automated workflows
+bankr/SKILL.md	bankr	BankrBot	bankr	1600	name,description,metadata	AI-powered crypto trading agent, wallet API, and LLM gateway via natural language. Use when the user wants to trade crypto, trade tokenized 
+base-account/SKILL.md	Base Account	Base	external	11	name,description,metadata	"ERC-4337 smart wallet integration — Sign in with Base, one-tap USDC payments, gas sponsorship via paymasters, sub accounts, and spend permi
+base-deploy/SKILL.md	Base Deploy	Base	external	11	name,description,metadata	"Deploy and verify smart contracts on Base with Foundry — testnet faucet access via CDP, encrypted keystore management, BaseScan verificatio
+base-minikit/SKILL.md	MiniKit to Farcaster	Base	external	11	name,description,metadata	"Migrate Mini Apps from MiniKit (OnchainKit) to native Farcaster SDK — async context patterns, hook-by-hook mappings, FrameProvider setup, a
+base-network/SKILL.md	Base Network	Base	external	11	name,description,metadata	"Base Mainnet and Sepolia network configuration — RPC endpoints, chain IDs, explorer URLs, and wallet setup for Base blockchain development.
+base-node/SKILL.md	Base Node	Base	external	11	name,description,metadata	"Run a production Base node with Reth client — hardware sizing, port configuration, snapshot bootstrapping, security hardening, and sync mon
+base/SKILL.md	base	Base	bankr	4	name,description	Placeholder for Base skill.
+based-mining/SKILL.md	based-mining	BasedMiningCo	bankr	873	name,description,tags	>-
+berry-juicer/SKILL.md	berry-juicer	Berry Finance	bankr	285	name,description,metadata	Single-sided token-supply yield on Base, paid as AI inference. Use when an agent or user wants to deposit a portion of an ERC-20 token's sup
+blueagent/SKILL.md	blueagent-x402	BlueAgent	bankr	136	name,description,metadata	>
+botchan/SKILL.md	botchan	Botchan	bankr	351	name,description	CLI for the onchain agent messaging layer on the Base blockchain, built on Net Protocol. Explore other agents, post to feeds, send direct me
+capacitr/SKILL.md	capacitr	Capacitr	bankr	337	name,description,emoji,tags,visibility,credentials,metadata	|
+cattown/SKILL.md	cattown	Cat Town	bankr	806	name,description	Interact with Cat Town — a Farcaster-native game world on Base. Covers KIBBLE staking (stake, claim, unlock, unstake, leaderboard, deposit h
+checkr/SKILL.md	checkr	checkr	bankr	107	name,description	|
+clanker/SKILL.md	clanker	Clanker	bankr	463	name,description	Deploy ERC20 tokens on Base, Ethereum, Arbitrum, and other EVM chains using the Clanker SDK. Use when the user wants to deploy a new token, 
+codegrid/SKILL.md	codegrid	CodeGrid	bankr	100	name,description,metadata	>-
+coffer/SKILL.md	coffer	Soteria Labs	bankr	206	name,description,tags,version,visibility,metadata	Earn fees by depositing ETH into the Coffer Vault, a multi-strategy managed liquidity vault. Query and transact Coffer, run by Soteria Labs 
+coinhero/SKILL.md	coinhero	CoinHero	bankr	366	name,description,metadata	List tokens on CoinHero via consignment deals on Base — deposit ERC-20 inventory, earn USDC when the protocol buys your token for CoinHero c
+cortx/SKILL.md	cortx	CORTX	bankr	131	name,description	Check whether an x402 payment endpoint is reliably delivering value before an agent spends USDC on it. Runs a 7-stage verification using rea
+darksol-random-oracle/SKILL.md	darksol-random-oracle	DARKSOL	bankr	227	name,description,metadata	Bankr-compatible skill for DARKSOL Random Oracle, an on-chain verifiable RNG API on Base. Use when an agent needs random numbers, coin flips
+defi-native/SKILL.md	defi-native	Emily Lai	bankr	54	name,description,metadata	Makes an agent crypto-native for onchain capital markets. Use for ANY question about DeFi, vaults, curators, yield, stablecoins, synthetic d
+delu-oracle/SKILL.md	delu-oracle	deluonchain	bankr	119	name,version,description,tags,visibility,metadata	Full-cognition token analysis for Base EVM tokens via the deluagent oracle. Pass a CA or cashtag, get back a flat decision header (action, c
+endaoment/SKILL.md	endaoment	Endaoment	bankr	87	name,description	Donate to charities onchain via Endaoment. Use when the user wants to donate crypto to charity, make a charitable contribution, give to nonp
+ens-primary-name/SKILL.md	ens-primary-name	ENS	bankr	122	name,description	Set your primary ENS name on Base and other L2s. Use when user wants to set their ENS name, configure reverse resolution, set primary name, 
+erc-8004/SKILL.md	erc-8004	8004.org	bankr	164	name,description	Register AI agents on Ethereum mainnet using ERC-8004 (Trustless Agents). Use when the user wants to register their agent identity on-chain,
+ethskills-addresses/SKILL.md	Contract Addresses	EthSkills	external	11	name,description,metadata	"Verified contract addresses for Uniswap, Aave, Safe, USDC, ENS, Chainlink, Lido, Aerodrome, and more — across mainnet and major L2s. All ve
+ethskills-audit/SKILL.md	Smart Contract Audit	EthSkills	external	11	name,description,metadata	"500+ item EVM smart contract audit system across 19 domains. Runs parallel specialist agents, synthesizes findings, and files GitHub issues
+ethskills-building-blocks/SKILL.md	Building Blocks	EthSkills	external	11	name,description,metadata	"DeFi legos and protocol composability — Uniswap V4 hooks, Aave flash loans, ERC-4626 vaults, Aerodrome on Base, GMX/Pendle on Arbitrum. Dom
+ethskills-frontend-playbook/SKILL.md	Frontend Playbook	EthSkills	external	11	name,description,metadata	"Complete build-to-production pipeline for Ethereum dApps — fork mode setup, IPFS deployment, Vercel config, ENS subdomain setup, and a full
+ethskills-frontend-ux/SKILL.md	Frontend UX	EthSkills	external	11	name,description,metadata	"Frontend UX rules for Ethereum dApps — mandatory patterns for onchain buttons, four-state connect flows, token approval sequences, address 
+ethskills-gas/SKILL.md	Gas & Costs	EthSkills	external	11	name,description,metadata	"Current Ethereum gas prices and real transaction costs in 2026 — counters the misconception that Ethereum is expensive. Covers mainnet vs L
+ethskills-indexing/SKILL.md	Indexing	EthSkills	external	11	name,description,metadata	"How to read and query onchain data — events, The Graph, Dune, Ponder, Multicall3, and WebSocket subscriptions. Why you cannot loop through 
+ethskills-l2s/SKILL.md	Layer 2s	EthSkills	external	11	name,description,metadata	"Ethereum L2 landscape — Arbitrum, Optimism, Base, zkSync, Unichain, Celo. How they work, how to deploy, how to bridge, and which to use whe
+ethskills-orchestration/SKILL.md	Orchestration	EthSkills	external	11	name,description,metadata	"How an AI agent plans, builds, and deploys a complete Ethereum dApp. Three-phase build system: local fork, live testnet, production. Includ
+ethskills-qa/SKILL.md	QA Checklist	EthSkills	external	11	name,description,metadata	"Pre-ship audit checklist for Ethereum dApps. Ship-blocking checks and should-fix checks covering wallet connection, button flows, contract 
+ethskills-security/SKILL.md	Security	EthSkills	external	11	name,description,metadata	"Solidity vulnerabilities, defensive code patterns, and a pre-deployment audit checklist. Covers reentrancy, oracle manipulation, token deci
+ethskills-standards/SKILL.md	Standards	EthSkills	external	11	name,description,metadata	"Ethereum token and protocol standards — ERC-20, ERC-721, ERC-1155, ERC-4337, ERC-8004 agent identity, EIP-7702, EIP-3009 gasless transfers,
+ethskills-testing/SKILL.md	Testing	EthSkills	external	11	name,description,metadata	"Smart contract testing with Foundry — unit tests, fuzz testing, fork testing against live state, and invariant testing. What to test, what 
+ethskills-tools/SKILL.md	Tools	EthSkills	external	11	name,description,metadata	"Current Ethereum dev tools in 2026 — Foundry, Scaffold-ETH 2, abi.ninja, Blockscout MCP, x402 SDKs, RPC providers, and block explorers. Wha
+ethskills-wallets/SKILL.md	Wallets	EthSkills	external	11	name,description,metadata	"Ethereum wallet creation, EOAs, smart contract wallets, Safe multisig, EIP-7702, and account abstraction. Includes AI agent key safety rule
+ethskills-why/SKILL.md	Why Ethereum	EthSkills	external	11	name,description,metadata	"Why build on Ethereum — the AI agent angle with ERC-8004 identity, x402 payments, composability, and permissionless deployment. Corrects co
+gem-miner/SKILL.md	gem-miner	Gem Miner	bankr	95	name,description,metadata	Stake $GEM tokens on Gem Miner (gemminer.app) to earn yield and unlock the in-game earn/cashout system. Use when the user wants to stake GEM
+github-vesting/SKILL.md	github-vesting	Proof of Dev	bankr	219	name,description,tags,version	GitHub-gated token vesting on proofofdev.xyz — lock ANY ERC-20 on Base via API at api.proofofdev.xyz, link GitHub, repo claims. Use for gith
+gitlawb/SKILL.md	gitlawb	gitlawb	bankr	449	name,description,metadata	>
+gmfarcaster/SKILL.md	gmfarcaster	GM Farcaster	bankr	106	name,description	Answer questions about the GM Farcaster podcast archive (Farcaster, Base, and the wider crypto-social ecosystem) using the paid Warpee Knowl
+grantr/SKILL.md	grantr	Grantr	bankr	115	name,description	Use Grantr MCP for account-safe Grantr backend workflows: Grantr vaults, Morpho savings, Bankr wallet interop, Fileverse documents, portfoli
+harness-capu/SKILL.md	harness-capu	Capminal	bankr	285	name,description,metadata	Fund OpenCAP inference from Capminal with staked CAPU on Base. Buy or mint CAPU, stake it for daily inference credit, create a wallet-owned 
+harness-collaboration/SKILL.md	harness-collaboration	Harness	bankr	249	name,description,tags,version,visibility,metadata	For Bankr agents operating a Harness-provisioned wallet. Follow the Harness Collaboration Protocol when a prompt begins with "HARNESS COLLAB
+harness-venice/SKILL.md	harness-venice	Venice	bankr	187	name,description,tags,version,visibility,metadata	Fund Venice AI inference (venice.ai) with staked DIEM on Base. Buy DIEM, stake it on the DIEM token contract for a daily API allowance, and 
+harness/SKILL.md	harness	Harness	bankr	92	name,description,tags,version,visibility,metadata	Connect this Bankr account to the user's Harness account (tryharness.ai) and manage everything Harness-side from here. Pair with a signed wa
+helixa/SKILL.md	helixa	Helixa	bankr	311	name,description,metadata	Helixa — Onchain identity, reputation, and Cred Scores for AI agents on Base. Use when an agent wants to mint an identity NFT, check its Cre
+hermesone/SKILL.md	hermesone	Hermes One	bankr	151	name,description,license,compatibility,metadata	Install, update, and manage the Hermes One desktop app via the `hermesone` npm package. Use when a user wants to set up Hermes One, install 
+hoodmarkets/SKILL.md	hoodmarkets	hood.markets	bankr	362	name,description,tags,version	Launch, buy, sell, and claim fees for hood.markets tokens on Robinhood Chain (4663) via api.hood.markets. Use for hoodmarkets, hood.markets,
+hunch-bazaar/SKILL.md	hunch-bazaar	Hunch	external	30	name,description,metadata	>
+hunch/SKILL.md	hunch	Hunch	external	23	name,description,metadata	>
+hydrex/SKILL.md	hydrex	Hydrex	bankr	407	name,description,metadata	Interact with Hydrex liquidity pools on Base. Use when the user wants to lock HYDX for voting power, check voting power for gauge voting, vo
+juicebox-v6/SKILL.md	juicebox-v6	Juicebox	bankr	53	name,description	Build, inspect, configure, and safely transact with Juicebox V6 projects, terminals, rulesets, hooks, tiered NFTs, Revnets, Croptop, Bendyst
+lienfi/SKILL.md	lienfi	LienFi	bankr	388	name,description,emoji,tags,visibility	Research and buy tokenized US tax lien certificates on LienFi (Base, USDC) — screen the live book by NET yield with no credential, then, onc
+litcoin/SKILL.md	litcoin-miner	tekkaadan	bankr	383	name,description,license,compatibility,metadata	"Mine, stake, claim, and manage LITCOIN end-to-end through Bankr. Hosted mining via @bankrbot: 'start a research miner for me' deploys a ser
+lonestaroracle-data/SKILL.md	lonestaroracle-data	LoneStarOracle	bankr	95	name,description,tags,version,visibility,metadata	Live pay-per-call data for crypto and DeFi protocol risk, funding rates, open interest, liquidations, stablecoin health, macro, equities, an
+megapot/SKILL.md	megapot	Megapot	bankr	98	name,description,tags,version,visibility,metadata	On-chain USDC lottery on Base with daily drawings. Buy tickets (quick-pick or custom numbers), check the jackpot and drawing state, claim wi
+metr-merchant-payments/SKILL.md	metr-merchant-payments	godcandleprints	bankr	222	name,description,tags	Claim and withdraw payments from Metr (metrpay.com) merchant account.
+moltycash/SKILL.md	moltycash	MoltyCash	bankr	238	name,description,metadata	>
+nexus-trading-labs/SKILL.md	nexus	Nexus Trading Labs	bankr	286	name,description,metadata	Non-custodial perpetual DEX on Arbitrum with an autonomous trading agent. Use when user says buy, sell, trade, long, short, open position, c
+neynar/SKILL.md	neynar	Neynar	bankr	257	name,description,metadata	Interact with Farcaster via Neynar API. Use when the user wants to read Farcaster feeds, look up users, post casts, search content, or inter
+nookplot/SKILL.md	nookplot	nookprotocol	bankr	206	name,description,license,compatibility,author,version	Decentralized coordination network for AI agents on Base (Ethereum L2). Use when an agent needs to register an on-chain identity, publish co
+onair-shoutout/SKILL.md	onair-shoutout	GM Farcaster	bankr	153	name,description	Submit a sponsor message to be read live on air on the GM Farcaster show, via the paid On-Air Shoutout API. Use this when the user wants to 
+onchainkit/SKILL.md	onchainkit	Coinbase	bankr	364	name,description	Build onchain applications with React components and TypeScript utilities from Coinbase's OnchainKit. Use when users want to create crypto w
+opensea/SKILL.md	opensea	OpenSea	bankr	35	name,description,license,compatibility,metadata	Query NFT and token data, trade NFTs on Seaport, swap ERC20 tokens via DEX aggregator, configure wallet signing providers, and build/registe
+opensea/opensea-api/SKILL.md	opensea-api	OpenSea	bankr	516	name,description,homepage,repository,license,env,dependencies	Query OpenSea marketplace data via the official CLI, MCP server, or shell scripts. Get floor prices, collection stats, NFT details, token da
+opensea/opensea-marketplace/SKILL.md	opensea-marketplace	OpenSea	bankr	171	name,description,homepage,repository,license,env,dependencies	Buy and sell NFTs on OpenSea's Seaport marketplace. Fulfill listings, accept offers, create new orders, cross-chain purchases, and sweep mul
+opensea/opensea-swaps/SKILL.md	opensea-swaps	OpenSea	bankr	145	name,description,homepage,repository,license,env,dependencies	Swap ERC20 tokens across supported chains via OpenSea's cross-chain DEX aggregator. Get quotes with optimal routing, check token balances, a
+opensea/opensea-tool-sdk/SKILL.md	opensea-tool-sdk	OpenSea	bankr	343	name,description,homepage,repository,license,env,dependencies	Build, register, and gate AI-callable tool endpoints using the OpenSea Tool Registry (ERC-8257) on Base. Scaffold HTTPS tools with JSON Sche
+opensea/opensea-wallet/SKILL.md	opensea-wallet	OpenSea	bankr	172	name,description,homepage,repository,license,env,dependencies	Set up and configure wallet signing providers for OpenSea transactions. Supports Privy, Turnkey, Fireblocks, Bankr, and local private keys. 
+orlix/SKILL.md	orlix	Orlix AI	bankr	242	name,description,metadata	Personal AI Operating System on Base. Use when an agent wants to analyze any Base token (live price, risk verdict, liquidity), chat with 19 
+pantheon-staking/SKILL.md	pantheon-staking	Pantheon	bankr	198	name,description,tags,version,visibility,metadata	Stake creator coins into Pantheon vaults on Base and Robinhood Chain, view staking positions, and claim monthly rewards. Use when the user m
+pi-fire-science/SKILL.md	pi-fire-science	Pattern Integrity / Pi Fire Science	external	140	name,description	>-
+pmfi-parbitrage/SKILL.md	pmfi-parbitrage	PMFI	bankr	167	name,description,metadata	Deposit Base USDC into PMFI pARBITRAGE and withdraw pARB back to USDC through Bankr.
+polygraph/SKILL.md	polygraph	Polygraph	bankr	245	name,description,emoji,tags,visibility	Behavioral trust grades (A–F) for MCP servers. Use when an agent needs to check whether an MCP server is safe before using it, verify an onc
+productclank/SKILL.md	productclank-campaigns	ProductClank	bankr	582	name,description,license,metadata,compatibility	Community-powered growth for builders. Boost amplifies your social posts with authentic community engagement (replies, likes, reposts). Disc
+qrcoin/SKILL.md	qrcoin	QRCoin	bankr	167	name,description,metadata	Interact with QR Coin auctions on Base. Use when the user wants to participate in qrcoin.fun QR code auctions — check auction status, view c
+quicknode/SKILL.md	quicknode	Quicknode	bankr	171	name,description	Blockchain RPC and data access via Quicknode. Use when an agent needs to read onchain data (balances, token prices, transaction status, gas 
+quotient/SKILL.md	quotient	Quotient	bankr	379	name,description,emoji,tags,version,visibility,metadata,credentials	>
+rhagent/SKILL.md	rhagent	Rhagent	bankr	1534	name,description,homepage,license,metadata,tags,visibility	>
+rider-battle/SKILL.md	rider-battle	INVALID		152	name,description,tags,version,visibility,metadata	Create and accept $RIDER wager battles in the Bankr CryptoRider game on Base, claim winnings or refunds, see open challenges, and view month
+signa/SKILL.md	signa	SIGNA	bankr	155	name,description,metadata	|
+signals/SKILL.md	signals	Axiom	bankr	360	name,description	>
+siwa/SKILL.md	siwa	Builder's Garden	bankr	57	name,version,description,metadata	>
+skills/bankr-twitter-agent/SKILL.md			NOCATALOG	537		
+skopos/SKILL.md	skopos	Skopos	bankr	202	name,description	Non-custodial crypto copilot with a free chat API, a pay-per-call x402 API, and an MCP server. Use whenever the user (or your agent) needs a
+sleuth-ai/SKILL.md	sleuth-ai	Sleuth AI	bankr	192	name,description	|
+splits/SKILL.md	splits	Splits	bankr	184	name,description,tags,version,visibility,metadata	"Use Splits with Bankr for onchain treasury operations: secure assets, process revenue, manage operating subaccounts, pay expenses, govern c
+stakr/SKILL.md	stakr-protocol	Stakr	bankr	124	name,description	Interact with the Stakr protocol — ERC-4626 vaults with multi-reward staking. Use when the user or an agent needs to work with Stakr vaults,
+starchild-dao/SKILL.md	starchild-dao	Starchild	bankr	103	name,description,emoji,tags,visibility	Read, propose, and vote in the Starchild DAO — the hold-to-govern commons for the $STARCHILD token on Base. Voting weight is simply how much
+suwappu-dex/SKILL.md	suwappu-dex	Suwappu	bankr	83	name,description,homepage,metadata	"Cross-chain token swaps, quotes, portfolio and prices across 14 chains via the Suwappu DEX MCP server. Read-only by default; swap execution
+symbiosis/SKILL.md	symbiosis	Symbiosis Finance	bankr	156	name,description,metadata	Cross-chain token swaps across 54+ blockchains via Symbiosis protocol. Use when the user wants to swap or bridge tokens between any chains —
+trails/SKILL.md		Polygon	bankr	117		
+trustlayer-sybil-scanner/SKILL.md	trustlayer-sybil-scanner	TrustLayer	bankr	172	name,description,version,tags,metadata	Feedback forensics for ERC-8004 agents. Detects Sybil rings, fake reviews, rating manipulation, and reputation laundering across 20 chains. 
+uniswap-cca/SKILL.md	Uniswap CCA	Uniswap	external	11	name,description,metadata	"Configure and deploy Continuous Clearing Auction (CCA) smart contracts — guided parameter setup, convex supply schedule generation, Q96 pri
+uniswap-driver/SKILL.md	Uniswap Driver	Uniswap	external	11	name,description,metadata	"Plan Uniswap swaps and liquidity positions then execute via deep links — verify tokens on-chain, research market conditions, and generate p
+uniswap-hooks/SKILL.md	Uniswap Hooks	Uniswap	external	11	name,description,metadata	"Security-first assistance for building Uniswap v4 hooks — threat modeling, permission flags analysis, NoOp attack prevention, delta account
+uniswap-trading/SKILL.md	Uniswap Trading	Uniswap	external	11	name,description,metadata	"Integrate Uniswap swaps into frontends, backends, and smart contracts — V2/V3/V4 support via Trading API, Universal Router, or direct contr
+uniswap-viem/SKILL.md	Uniswap Viem	Uniswap	external	11	name,description,metadata	"EVM blockchain integration using viem and wagmi — wallet connection, contract reads/writes, real-time event subscriptions, multicall, and m
+urizen/SKILL.md	urizen	URIZEN	bankr	106	name,description	>
+veil/SKILL.md	veil	Veil Cash	bankr	142	name,description,metadata	Privacy and shielded transactions on Base via Veil Cash (veil.cash). Deposit ETH or USDC into private pools, withdraw/transfer privately usi
+versa/SKILL.md	versa-deploy	Versa Labs	bankr	101	name,description,license,compatibility,metadata	"Deploy, manage, or withdraw from an AI agent vault on Versa — the onchain adversarial AI arena on Base. Use when an agent wants to deploy i
+voidly-pay/SKILL.md	voidly-pay	Voidly	bankr	841	name,description,metadata	>
+wake-token-spotter-analysis/SKILL.md	wake-token-spotter-analysis	WakeOnBase	bankr	481	name,description,metadata	Get the WAKE engine's analysis of any Base token by contract address. Returns a transparent 0-100 score across five criteria (deployer quali
+waybackclaw/SKILL.md	waybackclaw	WaybackClaw	bankr	199	name,version,description,homepage,metadata	Trust + memory layer for Bankr agents. Write a verifiable behavioral track record (decisions, hallucinations) for free, and check the risk/r
+yoink/SKILL.md	yoink	Yoink	bankr	76	name,description,metadata	Play Yoink, an onchain capture-the-flag game on Base. Yoink the flag from the current holder, check game stats and leaderboards, view player
+zapper/SKILL.md	zapper	Zapper	bankr	4	name,description	Placeholder for Zapper skill.
+zerion/SKILL.md	zerion	Zerion	bankr	569	name,description	Interpreted crypto wallet data for AI agents. Use when an agent needs portfolio values, token positions, DeFi positions, NFT holdings, trans
+zyfai/SKILL.md	zyfai	Zyfai	bankr	794	name,description	Earn yield on any Ethereum wallet on Base, Arbitrum, and Plasma. Use when a user wants passive DeFi yield on their funds. Deploys a non-cust
