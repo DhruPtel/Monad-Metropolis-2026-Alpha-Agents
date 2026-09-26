@@ -1,0 +1,1478 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Agent trading platform — risk review and revised build</title><style>
+:root{--ink:#242126;--muted:#6c6668;--paper:#faf8f3;--red:#6b0f1a;--line:#ded8cd}*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:var(--paper);color:var(--ink);font:16px/1.65 Georgia,serif}nav{position:fixed;left:0;top:0;bottom:0;width:235px;background:#232126;color:#fff;padding:34px 22px;font:13px/1.5 Arial,sans-serif}nav .brand{font-size:11px;letter-spacing:2px;color:#cfb8bb;margin-bottom:30px}nav a{display:block;color:#eee8e5;text-decoration:none;padding:12px 8px;border-bottom:1px solid #454047}nav a:hover{background:#433138}nav p{color:#bbb0b2;font-size:12px;margin-top:30px}main{max-width:1215px;margin-left:235px;padding:50px 64px 90px}.cover{padding:25px 0 45px;border-bottom:3px solid var(--red)}.eyebrow{font:11px/1.4 Arial,sans-serif;letter-spacing:2px;text-transform:uppercase;color:var(--red)}.cover h1{font-size:48px;line-height:1.12;letter-spacing:-1.4px;max-width:800px;margin:18px 0 24px}.cover .lead{font-size:22px;line-height:1.5;max-width:790px}.cover .meta{font:12px/1.6 Arial,sans-serif;color:var(--muted)}.summary{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:30px 0 0}.summary div{border:1px solid var(--line);padding:18px;background:#fffdfa;font:12px/1.5 Arial,sans-serif}.summary b{display:block;font-size:24px;color:var(--red);margin-bottom:4px}.document{padding-top:65px;scroll-margin-top:22px}.document>h1{font-size:34px;line-height:1.2;margin:15px 0 24px}.document h2{font-size:25px;line-height:1.3;margin:40px 0 14px;padding-top:8px;border-top:1px solid var(--line);scroll-margin-top:20px}.document h3{font-size:19px;line-height:1.4;margin-top:29px;color:var(--red)}p{margin:13px 0}li{margin-bottom:8px}a{color:var(--red);text-underline-offset:3px}code{font:12px/1.6 monospace;background:#eee9e0;padding:2px 4px;overflow-wrap:anywhere}pre{background:#27252b;color:#f4ede4;border-radius:4px;padding:20px;overflow:auto}pre code{background:transparent;color:inherit;padding:0}.table-wrap{overflow:auto;margin:20px 0}table{border-collapse:collapse;width:100%;font:12px/1.6 Arial,sans-serif;min-width:620px}th{background:#ece5dc;color:#44222a;text-align:left;font-size:11px;letter-spacing:.25px}td,th{padding:12px;vertical-align:top;border-bottom:1px solid var(--line)}tr:nth-child(even) td{background:#f4f0e9}td:first-child{font-weight:600}figure{margin:25px 0;padding:15px;background:white;border:1px solid var(--line)}figure svg{display:block;max-width:100%;height:auto;margin:auto}footer{border-top:2px solid var(--red);margin-top:50px;padding-top:20px;font:12px Arial,sans-serif;color:var(--muted)}@media(max-width:900px){nav{position:static;width:100%;padding:15px 20px}nav .brand{margin-bottom:10px}nav a{display:inline-block;padding:8px}nav p{display:none}main{margin:0;padding:25px 20px}.cover h1{font-size:36px}.summary{grid-template-columns:1fr}body{font-size:15px}}@media print{nav{display:none}main{margin:0;max-width:none;padding:0}.document{break-before:page;padding-top:0}.table-wrap{overflow:visible}table{min-width:0}tr{break-inside:avoid}h2,h3{break-after:avoid}.cover h1{font-size:36px}a{color:inherit}.diagram svg{max-height:650px}.summary{grid-template-columns:repeat(3,1fr)}}
+</style></head><body><nav><div class="brand">ARCHITECTURE REVIEW<br>24 SEPTEMBER 2026</div><a href="#review">Risk review</a><a href="#overview">Revised overview</a><a href="#architecture">Technical plan</a><a href="#manual">Build manual</a><p>Four supplied documents reviewed.<br>Primary sources checked.<br>No implementation or live trading tested.</p></nav><main><header class="cover"><div class="eyebrow">Risk manager + build manager review</div><h1>Build the financial controls<br>before the autonomous trader.</h1><p class="lead">The agent-and-skill concept can work as a product. The current plan leaves custody, valuation, permissions and recovery insufficiently defined for live pooled capital.</p><div class="meta">AUTONOMOUS AGENT NFT PLATFORM · PROPOSED REVISION 2<br>Document review and dependency verification — not a code audit or evidence of profitability.</div><div class="summary"><div><b>25</b>Prioritized failure scenarios</div><div><b>8</b>Critical architecture findings</div><div><b>G0–G8</b>Evidence-based build and release gates</div></div></header><section id="review" class="document"><div class="eyebrow">01 / Risk review</div><h1>Risk review: autonomous agent trading platform</h1>
+<p>Review date: 24 September 2026. Inputs: project-overview.md (O), build-manual.md (B), technical-report.html (T), design-brief.md (D). Read in the requested order, with D used to check product promises. Recommendations below are proposed changes, not claims that the original requirements have been abandoned.</p>
+<h2 id="review-1">Verdict</h2>
+<p>The product concept is coherent; the capital-management architecture is not yet executable. The documents describe many useful components but omit the rules that keep those components safe when ownership changes, transactions time out, prices move, code is replaced, or funds become illiquid. I would proceed with implementation discovery and a bounded demonstration. I would not treat this plan as authorization-ready for public deposits or unattended leveraged trading.</p>
+<p>The strongest foundation is the slow research loop separated from deterministic execution, private skill distribution, and visible build history. The weakest claim is that those pieces collectively produce an improving, self-funding, verifiable trading agent. None of profitability, continuous safety, strategy confidentiality, or execution provenance follows automatically from the selected tooling.</p>
+<p>This is a document and dependency review, not a code audit. No contracts, test results, deployed bytecode, provider accounts, live transaction receipts, or strategy dataset were supplied or tested. External evidence below establishes documented capabilities only. Severity ranks the consequence if a failure occurs; it is not an invented estimate of probability.</p>
+<h2 id="review-2">The decisions that must change first</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Priority</th>
+<th>Decision</th>
+<th>Why it precedes development</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Critical</td>
+<td>Separate personal capital, public pool, and operating expenses</td>
+<td>Database labels cannot isolate custody, liabilities, or withdrawal rights.</td>
+</tr>
+<tr>
+<td>Critical</td>
+<td>Specify exactly what the executor permits and how risk is measured</td>
+<td>“Approved adapter” and “daily loss limit” are not implementable safety specifications.</td>
+</tr>
+<tr>
+<td>Critical</td>
+<td>Make transfer, unequip, pause, expiry, and recovery explicit state transitions</td>
+<td>A valid old permission or resting order can outlive the UI state.</td>
+</tr>
+<tr>
+<td>Critical</td>
+<td>Separate contract simulation from strategy validation</td>
+<td>A fork shows executable behavior at a state; it does not establish predictive edge.</td>
+</tr>
+<tr>
+<td>Critical</td>
+<td>Preserve a separately funded emergency path</td>
+<td>Turning everything off when billing is empty can leave debt and orders unmanaged.</td>
+</tr>
+<tr>
+<td>High</td>
+<td>Replace “proof of what ran” with clearly scoped attestations</td>
+<td>Code hashes and platform signatures do not independently verify private execution.</td>
+</tr>
+<tr>
+<td>High</td>
+<td>Gate arbitrary generated code behind a release process</td>
+<td>A bot can pass a favorable test while retaining malicious or incorrect behavior.</td>
+</tr>
+<tr>
+<td>High</td>
+<td>Start with a precisely specified economic strategy</td>
+<td>The architecture currently has no demonstrated reason to earn more than its costs.</td>
+</tr>
+</tbody></table></div>
+<h2 id="review-3">Contradictions inside the supplied files</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>References</th>
+<th>Conflict</th>
+<th>Resolution proposed</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>O “Money”; B §2.2; T §§8,13</td>
+<td>Owner capital is in the wallet in T, two balances inside one vault in B; withdrawals are “at any time” in O and conditional on locks elsewhere.</td>
+<td>Separate PersonalAccount and StrategyVault; define redeemable liquidity and queued exits explicitly.</td>
+</tr>
+<tr>
+<td>B §§1.2,3.2</td>
+<td>Ownership is read only through the indexer in one section, directly from chain in another.</td>
+<td>Indexer for discovery/UI; block-tagged chain checks and onchain validation for authorization.</td>
+</tr>
+<tr>
+<td>B §§1.3,3.2,11</td>
+<td>Only the sandbox supposedly sees plaintext, but the orchestrator decrypts and the audit worker reads it.</td>
+<td>Document the actual plaintext boundary, including model providers and telemetry.</td>
+</tr>
+<tr>
+<td>T §§5,16; B §11</td>
+<td>Encrypted upload precedes audit in T; plaintext review precedes encryption in B.</td>
+<td>TLS upload to isolated quarantine; review exact package bytes; encrypt the reviewed immutable artifact.</td>
+</tr>
+<tr>
+<td>O “The agent”; T §6; D product rules</td>
+<td>Strict form input conflicts with a free-text goal translator.</td>
+<td>Use validated fields for initial release; any later text translator produces a separate untrusted proposal.</td>
+</tr>
+<tr>
+<td>T §20; B §14</td>
+<td>Audit, billing, and risk sentinel come after trading/private skills, yet the security and self-funding story depends on them.</td>
+<td>Minimal budgets, audit gate, emergency handling, and observability precede unattended execution.</td>
+</tr>
+<tr>
+<td>D Configure; T §§13–15</td>
+<td>D omits the expanded CFO dashboard, multiple goals, workflows, and approval lifecycle.</td>
+<td>Treat D as incomplete; add these views with real operating states and backend contracts.</td>
+</tr>
+<tr>
+<td>T §8</td>
+<td><code>withdraw(uint256 shares)</code> is described as ERC-4626-style.</td>
+<td>Use standard <code>withdraw(assets,receiver,owner)</code> and <code>redeem(shares,receiver,owner)</code>, or explicitly label a custom interface. [S1]</td>
+</tr>
+<tr>
+<td>T §3; B §2.2</td>
+<td>Custom AgentNFT plus ERC-8004 registration implies two identities without a binding/ownership design.</td>
+<td>Define the canonical product identity, registry ID mapping, control of the registry NFT, and transfer synchronization.</td>
+</tr>
+</tbody></table></div>
+<h2 id="review-4">Critical failure scenarios</h2>
+<h3>R01 — Shared custody breaks the personal/public boundary</h3>
+<p><strong>Evidence:</strong> B §§2.2,5.3 and T §13. <strong>Failure:</strong> the debt guardian adds “long-term growth” collateral while public depositors request redemptions. If balances share a fungible account or collateral position, the personal loan can encumber pool assets despite separate database labels. An owner-controlled token-bound account with arbitrary execution must not have unrestricted withdrawal authority over depositor capital.</p>
+<p><strong>Fix:</strong> physically separate PersonalAccount, StrategyVault, and OperatingEscrow. No public funds as personal collateral; no cross-account netting. Public vault management authority permits constrained strategy actions, never arbitrary transfers to the owner. Identify the address that owns each lending position and order-book subaccount. <strong>Closure:</strong> adversarial integration tests show that a personal repayment, owner transfer, billing debit, and compromised operator cannot debit the public pool. Owner withdrawals remain possible only against valid owned shares.</p>
+<h3>R02 — The executor is a label, not yet a security boundary</h3>
+<p><strong>Evidence:</strong> B §2.2, T §8. <strong>Failure:</strong> an approved router accepts arbitrary recipients, multicalls, callbacks, permit signatures, or unlimited approvals. A compromised bot uses valid calldata to transfer value out, buy an attacker-controlled illiquid asset, or leave dangerous allowances. A per-call limit is bypassed through repeated small calls.</p>
+<p><strong>Fix:</strong> typed action schemas; pinned adapter versions, target contracts and selectors; fixed account recipients; asset/market allowlists; bounded approvals; aggregate exposure and turnover reservations; deadlines; action IDs; policy/build/ownership epochs. Do not expose general delegatecall or generic arbitrary router execution. Inspect downstream upgradeability as well as adapter code hashes. <strong>Closure:</strong> malicious-recipient, approval, callback, multicall, repeat-call, asset-substitution, and stale-policy tests all reject. A valid approved venue still carries market and protocol risk.</p>
+<h3>R03 — A daily loss limit cannot guarantee maximum loss</h3>
+<p><strong>Evidence:</strong> O “Money”, B §2.2, T §8. <strong>Failure:</strong> a held asset gaps down, a lending oracle updates late, or a perp liquidates without any executor call. A 3% trigger can be crossed before the next permitted action. Checking wallet balances alone misses debt, unrealized PnL, pending fills, and locked margin. Refusing all trades after the breach can also prevent closing risk.</p>
+<p><strong>Fix:</strong> define valuation, numeraire, observation time, cash-flow adjustment, and loss window. Enforce measurable pre-trade limits onchain; use a separate sentinel for continuously observed risk. Breach stops new exposure and permits bounded risk reduction. Present the limit as a circuit-breaker trigger, never a loss guarantee. <strong>Closure:</strong> gap, stale-price, donation/deposit, midnight-reset, liquidation, and blocked-exit scenarios produce accurate breach states and no unsafe new positions.</p>
+<h3>R04 — Withdrawability, NAV, and performance fees are unspecified</h3>
+<p><strong>Evidence:</strong> O “Money”; B §2.2; T §8. <strong>Failure:</strong> a depositor redeems at a price including uncollectible rewards or optimistic perp marks; remaining investors absorb forced-exit costs. A withdrawal competes with orders reserving the same cash. New deposits dilute the owner&#39;s required stake. A raw-assets high-water mark mistakes deposits for profits.</p>
+<p><strong>Fix:</strong> define net asset value (NAV), liability and fee accruals, haircuts, realizable liquidity, order reserves, deposit capacity, and an exit queue. ERC-4626 is an interface, not this accounting implementation; asynchronous request/claim flows have a separate extension, ERC-7540. [S1,S2] Crystallize fees using a defined per-share or series/equalization method. A single global high-water mark can disadvantage entrants who join below a prior peak. <strong>Closure:</strong> changing deposits, partial redemption, donation attacks, first deposit, zero shares, rounding, loss/recovery, locked funds, and fee dilution all reconcile. Hyperliquid&#39;s own documented model includes lockups and venue-specific liquidation of positions for withdrawals; it is not a portable cross-protocol liquidity guarantee. [S3,S4]</p>
+<h3>R05 — “Backtest on a fork” is not a strategy evaluation system</h3>
+<p><strong>Evidence:</strong> B §4.5, T §§6–7. <strong>Failure:</strong> historical events are replayed against today&#39;s state, causing future information leakage; fictitious limit fills ignore queue position; market impact disappears because the bot&#39;s hypothetical trades do not change later history. Repeated LLM revisions overfit the same test window. The generated bot can alter the test harness or output its own metrics.</p>
+<p><strong>Fix:</strong> separate transaction correctness tests, point-in-time historical simulation, and forward shadow/canary trading. Preserve data availability timestamps, protocol versions, prices, costs and fill assumptions. The evaluator and hidden holdout are outside the candidate sandbox&#39;s write authority. Count all evaluated candidates, including failures. Judge net results against cash/hold/simple fixed-policy baselines, not merely the previous bot. <strong>Closure:</strong> known losing and future-looking candidates fail; reported metrics reproduce from immutable fills and datasets. No historical order-book data means no credible order-book backtest claim.</p>
+<h3>R06 — Billing pause can abandon live financial obligations</h3>
+<p><strong>Evidence:</strong> B §7.3 explicitly stops the bot and workflows at zero balance. <strong>Failure:</strong> a debt guardian stops with an open leveraged position; resting orders continue filling; fees or gas reserves run out during an unwind. Settling usage every few hours also permits spending that was never funded.</p>
+<p><strong>Fix:</strong> reserve budget before work starts. Separate research/trading permissions from a prepaid emergency worker and gas reserve. Use <code>RESTRICTED</code>, <code>REDUCE_ONLY</code>, and <code>EXIT_PENDING</code> before full shutdown. Keep deterministic position monitoring alive while obligations exist, with an explicit operator funding policy if the reserve is insufficient. <strong>Closure:</strong> drain operating credits during an open position and demonstrate cancellation, bounded exit, reconciliation, and an actionable residual-risk alert.</p>
+<h3>R07 — Ownership and permission revocation are incomplete</h3>
+<p><strong>Evidence:</strong> O transfer promise; B §§2.3,3.1,4.8; T §§3–4. <strong>Failure:</strong> an NFT changes hands while an old approval, session wallet, workflow, or bot still operates. An unequipped paid skill survives inside generated code or memory. Raw ERC-1155 transfers bypass slot limits and allow unsolicited tokens to alter a build. Revoking a key does not cancel existing orders or allowances.</p>
+<p><strong>Fix:</strong> explicit active-build registry distinct from inventory; immutable skill-version selection; owner/config epochs checked on every action; atomic transfer invalidation; cancel-and-reconcile handover; fresh buyer authorization. On unequip, invalidate the active build and stop using derived artifacts; technical deletion cannot prove that a model has “forgotten” a strategy. Define creator license rights for derivatives. <strong>Closure:</strong> transfer and unequip during a pending trade/approval reject stale actions and preserve exits. On Solana this is especially concrete: Metaplex documents broad execution-delegate authority and persistence across asset transfers. [S5]</p>
+<h3>R08 — Generated code leaves the protected environment</h3>
+<p><strong>Evidence:</strong> B §§3.4,4.2–4.3,4.5. <strong>Failure:</strong> a malicious skill writes a bot that passes tests, then runs in a less restricted always-on container. It leaks skill-derived code, probes internal services, mines compute, or exploits a signer endpoint. Auditing the original skill does not audit every later generated artifact.</p>
+<p><strong>Fix:</strong> treat both build outputs and live bots as untrusted. Enforce isolation, resource caps, explicit network routes, and scoped API authentication in both environments. Prefer generated parameters/DSL over arbitrary live code in the initial release; retain arbitrary generation as a gated capability. Build reproducibly, scan the actual artifact, sign its digest, and promote only through an independent controller. <strong>Closure:</strong> malicious generated bot fixtures cannot reach keys, other agents, internal metadata, arbitrary network targets, or modify evaluator results.</p>
+<h2 id="review-5">High-risk and underexplored areas</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>ID / evidence</th>
+<th>Failure and consequence</th>
+<th>Recommended control / evidence needed</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>R09 — T §11, O proof claim</td>
+<td>Platform can sign a false account of which hidden code ran. Hashes only commit bytes; a registered identity does not verify performance.</td>
+<td>Name claim classes: chain-confirmed outcome, reproducible accounting, platform-attested build, independently attested runtime. Retain signed manifests, tx links, and verifier trust assumptions. TEE adds a hardware trust boundary, not proof of trading quality.</td>
+</tr>
+<tr>
+<td>R10 — B §§3,11,12</td>
+<td>LLM provider, gateway, Langfuse, backups, support staff, audit logs, or allowed RPC/API request fields expose private skills. No-chat and a narrator cannot close every channel.</td>
+<td>Data-flow inventory; creator consent to model-provider processing; metadata-only traces by default; retention and access rules; typed read proxies; block direct sandbox chain writes. Canary-secret exfiltration tests including encoded output and approved-domain abuse.</td>
+</tr>
+<tr>
+<td>R11 — B §§4.6–4.7</td>
+<td>Simulation, threat screen, remote signing, and RPC submission exceed the opportunity window. A simulated success becomes a failed or adverse real fill.</td>
+<td>Measure the whole decision-to-inclusion path under load. Maintain a slower validated path and a separately gated deterministic fast path with onchain protections and short-lived bounds. No sub-block claim until measured.</td>
+</tr>
+<tr>
+<td>R12 — B §§1.2,5.1,8</td>
+<td>Queue retry submits a second trade; indexer lag grants a sold skill; two bot versions spend the same cash.</td>
+<td>Durable action ledger, transactional outbox, per-account fencing, idempotent action IDs, chain reconciliation, and explicit pending reserves. BullMQ retries require application-level idempotency. [S6]</td>
+</tr>
+<tr>
+<td>R13 — B §§5.1–5.4, T §14</td>
+<td>Debt guardian, rebalancer, sweep, and bot act independently. Guardian adds volatile collateral while sweep removes repayment cash.</td>
+<td>One portfolio coordinator with priority: emergency, exits, committed workflows, discretionary trades. Protocol-specific liquidation metrics; protected emergency buckets; mutually exclusive reservations. Model partially completed refinance and failed second legs.</td>
+</tr>
+<tr>
+<td>R14 — B §5.2</td>
+<td>Approval UI authorizes an action that changes before execution; narrator omits recipient or leverage.</td>
+<td>Owner signs or authenticates an immutable intent hash, maximum amounts, account, chain, policy epoch and expiry. Requote outside bounds requires new approval. Render material amounts deterministically; narrator is explanatory only.</td>
+</tr>
+<tr>
+<td>R15 — B §§2.2,6.1</td>
+<td>Oracle choice left for later, though it defines risk, NAV, slippage and allowable assets.</td>
+<td>Per-asset oracle specification: address/feed, decimals, freshness, confidence/deviation checks, update cost, fallback, and failure behavior. Do not mark USDC as always $1 in USD risk reports. Oracle directories establish providers, not coverage or suitability. [S7]</td>
+</tr>
+<tr>
+<td>R16 — O skills, B §2.2</td>
+<td>Creators get paid for being equipped, not demonstrated contribution. Late equip captures old profits; splitting one skill into many captures more royalties. Limited NFT supply does not cap capital using a strategy.</td>
+<td>Fixed aggregate fee ceiling, versioned fee schedules, active-build epochs, explicit allocation rules and strategy capacity limits. Do not describe association as causal attribution. Freeze economics for existing deposits or provide a governed migration/exit.</td>
+</tr>
+<tr>
+<td>R17 — B §7, O self-funding</td>
+<td>Profitable pool lacks enough owner&#39;s fee income to run the agent; all startup/service costs are omitted. Offchain metering hash proves integrity, not honest billing.</td>
+<td>Prepaid capped operating escrow, deduplicated usage receipts, per-provider reconciliation and user spend ceilings. Separate treasury cash flow from trading PnL and track fixed cost allocation.</td>
+</tr>
+<tr>
+<td>R18 — B §9, T §12</td>
+<td>Privy session wallet, TBA, vault, USDC payer, and x402 signer are treated as one wallet. An EOA signing for a smart account may not match the supported payment scheme.</td>
+<td>Prove the exact payer/token/domain/signature/facilitator tuple. Use a dedicated capped commerce wallet if needed, disclose its control, and keep it out of trading capital. Handle paid-but-undelivered responses with stable request IDs.</td>
+</tr>
+<tr>
+<td>R19 — O discovery/economy</td>
+<td>Public settled transactions already expose the “real-time” feed. Copying loses price and queue priority; two agents can recursively copy each other.</td>
+<td>Sell normalization, evidence, or actionable analysis, not secrecy of public fills. Include source IDs, TTL, max slippage, copy-depth limits and independent risk approval. Model revenue from external demand separately from seeded agents.</td>
+</tr>
+<tr>
+<td>R20 — D stats and leaderboard</td>
+<td>Hover deltas suggest a skill guarantees return; median equipped-agent returns are confounded by capital, time and other skills. “30d” may be shown before 30 days exist.</td>
+<td>Separate live, simulated and scenario metrics; show observation period/sample and costs; use “not enough data.” Use comparable cohorts and survival-inclusive histories. Verified publisher is identity, not audited safety or proven alpha.</td>
+</tr>
+<tr>
+<td>R21 — T §§18–19, B §§13–14</td>
+<td>Copying repos creates fixes that diverge; generic chain adapter hides Solana account locking, CPI permissions, expiry and PDA behavior.</td>
+<td>Shared versioned core plus chain-specific conformance tests; capability flags, not pretend parity. Keep chain/environment IDs on every object. Validate hackathon rules separately; supplied weights and reuse rules are not verified here.</td>
+</tr>
+<tr>
+<td>R22 — B §§2.2,12</td>
+<td>Admin can change adapters/policies or cannot recover during platform failure; global pause traps withdrawals.</td>
+<td>Role matrix, scoped pauses, immediate revocation and delayed privilege expansion, owner exits independent of hosted UI, key-loss and backup recovery drills. Avoid upgradeable custody in the first release unless essential.</td>
+</tr>
+<tr>
+<td>R23 — T §13, B §5.5</td>
+<td>FIFO buy/sell table cannot reconcile deposits with unknown basis, staking receipts, wrapping, gas, bridges, liquidation, rewards or debt.</td>
+<td>Complete transaction ledger first; provenance-aware lots and explicit unknown basis; reconcile owner capital separately from pooled shares. Label CSV an activity/cost-basis aid; jurisdictional treatment remains undecided.</td>
+</tr>
+<tr>
+<td>R24 — B §§2.2,11; D creator portal</td>
+<td>“Audited” badge and creator stake imply coverage without defined malicious conduct, appeal, slash authority, or adequate stake.</td>
+<td>Publish review scope, immutable reviewed hash, dependency pinning, remediation process and adjudication rules. Stake is an incentive, not insurance. Curate initial listings; hostile packages include archive traversal and dependency install scripts.</td>
+</tr>
+<tr>
+<td>R25 — O positioning, T §20</td>
+<td>No first customer or testable source of edge. Return-target slider can push an optimizer toward unsupported leverage.</td>
+<td>First persona: an experienced owner managing a bounded onchain allocation. Treat return target as aspiration; hard risk constraints always win. Document strategy entry/exit, benchmark, capacity and invalidation before coding its bot.</td>
+</tr>
+</tbody></table></div>
+<h2 id="review-6">Dependency verification: what the evidence actually supports</h2>
+<p>All checks were web-documentation checks on 24 September 2026. “Documented” does not mean installed, funded, tested, or safe in this application.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Dependency</th>
+<th>Result</th>
+<th>Build consequence</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Monad Foundry</td>
+<td>Current official page confirms upstream Foundry v1.8+ Monad support, explicit local network setting and fork detection. Search snippets still surfaced the older custom fork. [S8]</td>
+<td>Original claim is supported. Pin toolchain and historical hardfork/block; do not replace it based on stale search snippets.</td>
+</tr>
+<tr>
+<td>ERC-6551 on Monad</td>
+<td>Official guide documents canonical v3 stack on both networks, explicit viem chain object and SDK caveats. [S9]</td>
+<td>Supported at documentation level; still test deployed bytecode, session permissions and transfer behavior.</td>
+</tr>
+<tr>
+<td>ERC-8004</td>
+<td>Monad guide labels Validation Registry “coming soon.” The EIP defines its own identity NFT, registration schema, wallet verification and feedback restrictions. [S10,S11]</td>
+<td>Do not build P0 around validation availability; app build-card JSON is not by itself a compliant registration file. Keep platform attestations separately.</td>
+</tr>
+<tr>
+<td>x402</td>
+<td>Monad guide now recommends <code>@x402/evm &gt;=2.22.0</code>, including mainnet USDC domain configuration; testnet requires explicit asset setup. [S12]</td>
+<td>The plan&#39;s 2.12-era floor is insufficient as the current integration instruction. Pin a tested compatible package set and verify mainnet/testnet independently.</td>
+</tr>
+<tr>
+<td>Privy</td>
+<td>Official security page documents policy controls on transactions and calldata. [S13]</td>
+<td>Capability exists; composed contract calls, typed signing, policy-admin privileges and gas sponsorship still require exact-path tests.</td>
+</tr>
+<tr>
+<td>Metaplex agents</td>
+<td>Official docs confirm PDA wallet and delegates, but broad authority and persistent delegate records across transfers. [S5]</td>
+<td>Solana is not security-equivalent to a narrowly capped session key without additional program-level enforcement.</td>
+</tr>
+<tr>
+<td>E2B</td>
+<td>Official material documents egress controls and secret handling; some proxy/identity capabilities are private beta. [S14]</td>
+<td>Prove availability on the selected account/SDK. The exact header-injection API and session economics in B are not validated here. Use a controlled broker if needed; never silently relax isolation.</td>
+</tr>
+<tr>
+<td>Hermes</td>
+<td>Official repository confirms the proposed framework exists. [S15]</td>
+<td>Headless sandbox operation, disabled shell/network tools, gateway compatibility, memory export and restart are untested. Pin and spike before coupling it to custody.</td>
+</tr>
+<tr>
+<td>Envio</td>
+<td>Official Monad page documents chain indexing. [S16]</td>
+<td>Event access is supported, not a ready-made historical state/queue/impact simulator.</td>
+</tr>
+<tr>
+<td>Tenderly</td>
+<td>Official matrix is dynamically loaded; retrieved page did not expose a usable Monad product row. [S17]</td>
+<td>Simulation, fork, RPC, traces and alerts remain separate acceptance probes; this is uncertainty, not evidence of absence.</td>
+</tr>
+<tr>
+<td>Protocol deployments, feeds, Enso, Blockaid, FastLane</td>
+<td>No exact application-specific manifest or measured round trips supplied.</td>
+<td>Remain unverified for this build. A directory listing, launch article, or SDK method name does not close these dependencies.</td>
+</tr>
+<tr>
+<td>X pricing, E2B prices, competition weights, reuse eligibility</td>
+<td>Not verified in this review.</td>
+<td>Remove hardcoded assumptions from acceptance criteria; confirm before purchase/submission. They are not substitutes for resolving custody and execution blockers.</td>
+</tr>
+</tbody></table></div>
+<h2 id="review-7">Economics and trading validity</h2>
+<p>There is currently no defined strategy edge. Start with one strategy whose entry, exit, data latency, costs and failure conditions are written down. A bounded spot rebalance is a useful correctness baseline, but is not evidence of alpha. If market making is the desired first trading product, capture order-book history and implement inventory limits, adverse-selection measurement, partial fills and cancel/fill races before optimizing it. Lending APY scanning is slower portfolio allocation; it cannot validate the fast-trading thesis.</p>
+<p>The self-funding equation depends on who pays. Let A be pool capital, r monthly net trading return before performance fee and operating cost, f the performance fee rate, s the owner&#39;s fraction of that fee after creator shares, and C monthly agent cost. When only the owner&#39;s fee pays expenses, the optimistic break-even is A ≥ C/(r f s), assuming profitable eligible crystallization and sufficient cash. <strong>Illustration, not a forecast:</strong> C=$100, r=1%, f=10%, s=50% implies A=$200,000. A losing month produces no such funding. Initial sale proceeds, subsidies and unrealized PnL must not be counted as recurring trading income.</p>
+<p>The launch protocol list is a catalogue of opportunities, not a strategy. Each added venue expands position valuation, approvals, exit mechanics, accounting and incident response. Add venues only when their whole position lifecycle passes conformance tests. The proposed smaller first release is a capital-risk recommendation, not a critique of the team&#39;s size or calendar.</p>
+<h2 id="review-8">Recommended build direction</h2>
+<p>Preserve agent ownership, skill NFTs, private runtime, evolution history, discovery, workflows, pooled participation, signals, creator economics, 3D configuration and the Solana branch. Change when each is permitted to touch capital. The companion overview gives the resulting product; the technical plan specifies boundaries and data contracts; the build manual provides dependency-ordered work packages and acceptance gates.</p>
+<p>The critical path is: custody and permissions → valuation and exits → deterministic trade lifecycle → reconciliation and emergency recovery → private skill entitlement → independent evaluation and controlled bot promotion → pooled accounting → commerce and broader automation. Build the UI against those states as they stabilize. A compelling demo can show a rejected risky action and a successful recovery; it does not need invented evidence of profitability.</p>
+<h2 id="review-9">Primary source register</h2>
+<ul>
+<li><strong>S1:</strong> <a href="https://eips.ethereum.org/EIPS/eip-4626">ERC-4626 Tokenized Vaults</a> — interface semantics and withdrawal limits.</li>
+<li><strong>S2:</strong> <a href="https://eips.ethereum.org/EIPS/eip-7540">ERC-7540 Asynchronous Vaults</a> — request and claim model.</li>
+<li><strong>S3:</strong> <a href="https://hyperliquid.gitbook.io/hyperliquid-docs/hypercore/vaults/for-vault-depositors-legacy">Hyperliquid vault depositors, legacy</a> — lockups in the referenced model.</li>
+<li><strong>S4:</strong> <a href="https://hyperliquid.gitbook.io/hyperliquid-docs/hypercore/vaults/for-vault-leaders-legacy">Hyperliquid vault leaders, legacy</a> — stake and position handling on withdrawals.</li>
+<li><strong>S5:</strong> <a href="https://www.metaplex.com/docs/agents/what-is-an-agent">Metaplex: What is an agent?</a> — delegation and transfer semantics.</li>
+<li><strong>S6:</strong> <a href="https://docs.bullmq.io/patterns/idempotent-jobs">BullMQ idempotent jobs</a> — application responsibility on retry.</li>
+<li><strong>S7:</strong> <a href="https://docs.monad.xyz/tooling-and-infra/oracles">Monad oracles</a> — provider support, not asset suitability.</li>
+<li><strong>S8:</strong> <a href="https://docs.monad.xyz/tooling-and-infra/toolkits/foundry">Monad Foundry</a> — current toolchain guidance.</li>
+<li><strong>S9:</strong> <a href="https://docs.monad.xyz/guides/erc-6551">Monad ERC-6551</a> — canonical account deployment and SDK use.</li>
+<li><strong>S10:</strong> <a href="https://docs.monad.xyz/guides/erc-8004">Monad ERC-8004</a> — documented registry availability.</li>
+<li><strong>S11:</strong> <a href="https://eips.ethereum.org/EIPS/eip-8004">ERC-8004</a> — registration, ownership and feedback specification.</li>
+<li><strong>S12:</strong> <a href="https://docs.monad.xyz/guides/x402">Monad x402</a> — package and payment-domain configuration.</li>
+<li><strong>S13:</strong> <a href="https://docs.privy.io/security/wallet-infrastructure/policy-and-controls">Privy policies and controls</a> — policy capability.</li>
+<li><strong>S14:</strong> <a href="https://e2b.dev/enterprise">E2B enterprise security and deployment</a> — isolation, egress and capability availability.</li>
+<li><strong>S15:</strong> <a href="https://github.com/NousResearch/hermes-agent">Nous Research Hermes Agent</a> — framework source.</li>
+<li><strong>S16:</strong> <a href="https://envio.dev/chains/monad">Envio Monad</a> — indexing support.</li>
+<li><strong>S17:</strong> <a href="https://docs.tenderly.co/platform/supported-networks">Tenderly supported networks</a> — product-specific verification still required.</li>
+</ul>
+<p>No legal classification is concluded here. Pooled discretionary management, paid strategies and public distribution require a jurisdiction-specific launch decision before outside deposits; the user&#39;s jurisdiction and offering structure are unspecified.</p>
+</section>
+<section id="overview" class="document"><div class="eyebrow">02 / Revised overview</div><h1>Revised project overview</h1>
+<p>Proposed revision 2 · 24 September 2026 · Companion to the risk review and technical/build documents.</p>
+<h2 id="overview-1">What the product is</h2>
+<p>A platform for owning and configuring onchain financial agents. An agent is represented by an NFT; skills are licensed capabilities represented by NFTs and visualized as mechanical parts. The agent researches opportunities, proposes changes to a deterministic strategy, and executes only within a defined capital mandate. Owners see positions, costs, risk, build history and what happened onchain.</p>
+<p>The initial customer hypothesis is an experienced onchain user who wants a bounded allocation managed with transparent controls. It is not yet a validated customer segment. The initial product promise is controlled automation and a traceable decision-to-trade record. Profitability, self-improvement, secrecy against all observers and maximum-loss guarantees are not established.</p>
+<p>The robotic creature and equipment concept remains the main configuration interface. Equipping a skill changes permitted capabilities and the proposed build. It does not immediately improve financial statistics. Those changes are measured through evaluation and later live results.</p>
+<h2 id="overview-2">The three capital compartments</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Compartment</th>
+<th>Purpose</th>
+<th>Who bears its results</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Personal account</td>
+<td>Owner&#39;s goal portfolios, lending positions and CFO workflows</td>
+<td>Owner only</td>
+</tr>
+<tr>
+<td>Strategy vault</td>
+<td>One published strategy with defined assets, fees, risk mandate and exit rules</td>
+<td>Vault shareholders</td>
+</tr>
+<tr>
+<td>Operating escrow and commerce wallet</td>
+<td>Research, hosting, gas and bounded paid services</td>
+<td>Explicitly authorized payer; no automatic pool subsidy</td>
+</tr>
+</tbody></table></div>
+<p>One agent can coordinate these accounts, but money, liabilities, approvals and accounting remain separate. An NFT transfer moves the agent&#39;s ownership and any disclosed transferable property; it never turns public depositors&#39; capital into the buyer&#39;s freely withdrawable money. Personal assets can be withdrawn before sale. Existing mandates, fee entitlements and third-party shares require explicit handling.</p>
+<h2 id="overview-3">How an agent operates</h2>
+<p>The research worker gathers point-in-time data, maintains the Thesis Board, and proposes a strategy configuration or new bot artifact. External content and skills are untrusted input. The research worker never receives transaction signing authority.</p>
+<p>An independent evaluator checks code safety, transaction behavior, historical performance where valid data exists, stress scenarios and live shadow results. Passing a test means meeting a recorded criterion, not proving future profit. An approved candidate becomes a canary with bounded capital before wider activation.</p>
+<p>The deterministic runtime creates typed transaction intents. A shared portfolio coordinator reserves funds and arbitrates between trades, withdrawals and workflows. The signing service and onchain executor independently enforce their parts of the mandate. Settlement is recorded only after receipts and position reconciliation, not when an RPC returns a transaction hash.</p>
+<p>A separate risk worker can stop new exposure, cancel orders and attempt bounded exits. If ordinary billing runs low, research stops first. Emergency monitoring and gas use their own reserve while obligations remain. If a venue is frozen or a chain is unavailable, the system shows unresolved exposure instead of saying the account is safe.</p>
+<h2 id="overview-4">Skills, privacy and ownership</h2>
+<p>Owning a skill permits activation of a specific immutable version. Inventory and active equipment are separate. Activating or removing skills creates a new build configuration with compatibility checks, slot limits and recorded fee terms. Removing a skill invalidates dependent active builds; software cannot prove that all derived knowledge has been erased.</p>
+<p>Creators upload into an isolated review process. Approved packages are encrypted and released only to authorized runtimes. The platform and selected model/compute providers remain within the confidentiality trust boundary. The interface uses structured input and narrowly defined outputs to reduce leakage. These are protective controls, not cryptographic secrecy from the platform.</p>
+<p>Creator compensation consists of disclosed sale revenue and, where enabled, a pre-agreed share of a capped performance fee. Equipped-agent performance is observational evidence; it does not prove that a particular skill caused a return. Creator stakes and review badges do not insure depositors.</p>
+<h2 id="overview-5">Product scope and release gates</h2>
+<p>These are proposed sequencing decisions. Deferred features remain requirements of the broader product.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Capability</th>
+<th>Hackathon evidence</th>
+<th>Owner-capital release</th>
+<th>Public-capital release</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Agent NFT, skill ownership, mechanical configuration</td>
+<td>Real mint/equip/build transitions</td>
+<td>Transfer and revocation proven</td>
+<td>Manager handover preserves depositor rights</td>
+</tr>
+<tr>
+<td>Research and evolving bots</td>
+<td>Real proposal, evaluation and rejected candidate; simulation labeled</td>
+<td>Approved templates/DSL first; generated artifacts gated</td>
+<td>Same controls with independent review and immutable mandates</td>
+</tr>
+<tr>
+<td>Trading</td>
+<td>Deterministic full round trip; real venue only after probes</td>
+<td>One spot strategy and narrowly allowed assets</td>
+<td>Only strategies with complete NAV and exit support</td>
+</tr>
+<tr>
+<td>Vault deposits and fees</td>
+<td>Demonstrate on testnet/fork; mainnet owner-only canary separately</td>
+<td>Owner funds only until pooled gates pass</td>
+<td>Open deposits after accounting, recovery and offering review</td>
+</tr>
+<tr>
+<td>CFO workflows</td>
+<td>Real workflow/approval states; unsupported protocols simulated visibly</td>
+<td>Personal account rebalance/sweep; debt only after guardian tests</td>
+<td>Personal and public policy remain separate</td>
+</tr>
+<tr>
+<td>Marketplace and creator royalties</td>
+<td>Curated private skills; testable fee allocation</td>
+<td>Versioned licenses and reviewed artifacts</td>
+<td>Permissionless listings only after abuse handling</td>
+</tr>
+<tr>
+<td>x402 and signals</td>
+<td>One actual capped purchase if supported; seeded activity labeled</td>
+<td>Bounded commerce account and retry handling</td>
+<td>External usage tracked separately from internal purchases</td>
+</tr>
+<tr>
+<td>Leaderboard and social layer</td>
+<td>Watchers and provenance-labeled metrics</td>
+<td>Live history and costs</td>
+<td>Comparable cohorts; no fabricated history</td>
+</tr>
+<tr>
+<td>Solana</td>
+<td>Shared specifications, separate validation track</td>
+<td>Chain-specific custody and lifecycle tests</td>
+<td>Independent launch approval; no assumed EVM parity</td>
+</tr>
+</tbody></table></div>
+<h2 id="overview-6">What people see</h2>
+<p>Configure shows skill inventory, active build, proposed build, evaluated scenarios and real permissions. Deploy means submitting a candidate for the next allowed release stage. If activation awaits evaluation, approval or reconciliation, the button and status say so.</p>
+<p>Agent profiles distinguish chain-confirmed trades, platform-attested builds, simulated results and live performance. A return always has a period, capital basis, cost treatment and risk measure. Insufficient history remains blank or explicitly limited; 30-day sample figures never become live defaults.</p>
+<p>The vault panel shows NAV and its freshness, withdrawable assets, queued exits, fees, owner stake, strategy capacity and manager-change rules. The personal CFO dashboard shows goals, liabilities, pending approvals, known/unknown cost basis and which account will pay for an action. The owner dashboard includes an emergency view with outstanding orders, positions, approvals and operating runway.</p>
+<h2 id="overview-7">What establishes success</h2>
+<p>For the demo: one reproducible end-to-end agent cycle, one blocked unsafe action, one safe interruption/recovery, and independently traceable transaction/accounting records. Five agent characters can share this proven machinery; their interactions are demo activity, not external traction.</p>
+<p>For a trading product: reproducible net performance against a stated baseline, measured execution costs and capacity, resilient exits, and customers willing to pay for the service. More agents, more models and faster blocks do not establish those outcomes by themselves.</p>
+<p>The platform keeps the original character-building and agent-economy idea. Its financial foundation becomes a precise statement of authority, accounting, execution and recovery that every new skill must respect.</p>
+</section>
+<section id="architecture" class="document"><div class="eyebrow">03 / Technical plan</div><h1>Revised technical plan</h1>
+<p>Proposed revision 2 · 24 September 2026. This is a target architecture and acceptance specification, not an audited implementation. Risk IDs refer to risk-review.md; source references refer to its primary-source register.</p>
+<h2 id="architecture-1">1. Architectural decisions</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Decision</th>
+<th>Proposed implementation</th>
+<th>Rationale</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Capital isolation</td>
+<td>Separate PersonalAccount, StrategyVault, OperatingEscrow and capped commerce wallet</td>
+<td>R01, R04, R06, R18</td>
+</tr>
+<tr>
+<td>First execution strategy</td>
+<td>Owner-funded, unlevered spot allocation with one validated venue; simple fixed baseline</td>
+<td>Proves the trading lifecycle without pretending to establish alpha</td>
+</tr>
+<tr>
+<td>First pooled strategy</td>
+<td>Restricted strategy with independently reconstructible NAV and demonstrable exits; single-asset lending is a candidate, not assumed available</td>
+<td>Public spot/perp portfolios require additional valuation/exit work</td>
+</tr>
+<tr>
+<td>Private skills</td>
+<td>Immutable encrypted packages with explicit activation and short-lived runtime access</td>
+<td>Inventory alone does not define the build</td>
+</tr>
+<tr>
+<td>Brain authority</td>
+<td>Research and proposal APIs only</td>
+<td>No key access or direct production deployment</td>
+</tr>
+<tr>
+<td>Code evolution</td>
+<td>Parameters/DSL first; arbitrary generated artifacts retained behind stronger evaluation and isolation</td>
+<td>Preserves evolution while making live authorization finite</td>
+</tr>
+<tr>
+<td>Operational ledger</td>
+<td>Postgres action/position/accounting ledger; chain is settlement authority; Redis only dispatches work</td>
+<td>Retry and recovery cannot depend on queue state alone</td>
+</tr>
+<tr>
+<td>Risk</td>
+<td>Onchain action constraints plus independent offchain monitoring and emergency execution</td>
+<td>Triggered limits cannot guarantee portfolio losses</td>
+</tr>
+<tr>
+<td>Proofs</td>
+<td>Public outcome evidence and scoped platform attestations; optional later independent runtime attestation</td>
+<td>Do not claim signatures verify private computation</td>
+</tr>
+<tr>
+<td>Chain portability</td>
+<td>Shared domain packages with distinct EVM/Solana implementations and conformance suites</td>
+<td>Avoid divergent copies and false security equivalence</td>
+</tr>
+</tbody></table></div>
+<h2 id="architecture-2">2. Trust and money boundaries</h2>
+<figure class="diagram">
+
+<!-- Generated by graphviz version 14.1.3 (20260303.0454)
+ -->
+<!-- Title: G Pages: 1 -->
+<svg width="484pt" height="888pt"
+ viewBox="0.00 0.00 484.00 888.00" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+<g id="diagram0-graph0" class="graph" transform="scale(1 1) rotate(0) translate(18 870)">
+<title>G</title>
+<!-- owner -->
+<g id="diagram0-node1" class="node">
+<title>owner</title>
+<path fill="#f4f0e8" stroke="#c5bfb4" d="M87.89,-716C87.89,-716 12,-716 12,-716 6,-716 0,-710 0,-704 0,-704 0,-692 0,-692 0,-686 6,-680 12,-680 12,-680 87.89,-680 87.89,-680 93.89,-680 99.89,-686 99.89,-692 99.89,-692 99.89,-704 99.89,-704 99.89,-710 93.89,-716 87.89,-716"/>
+<text xml:space="preserve" text-anchor="middle" x="49.95" y="-694.7" font-family="Arial" font-size="11.00">Owner controls</text>
+</g>
+<!-- api -->
+<g id="diagram0-node2" class="node">
+<title>api</title>
+<path fill="#f4f0e8" stroke="#c5bfb4" d="M79.03,-648C79.03,-648 20.86,-648 20.86,-648 14.86,-648 8.86,-642 8.86,-636 8.86,-636 8.86,-624 8.86,-624 8.86,-618 14.86,-612 20.86,-612 20.86,-612 79.03,-612 79.03,-612 85.03,-612 91.03,-618 91.03,-624 91.03,-624 91.03,-636 91.03,-636 91.03,-642 85.03,-648 79.03,-648"/>
+<text xml:space="preserve" text-anchor="middle" x="49.95" y="-626.7" font-family="Arial" font-size="11.00">Control API</text>
+</g>
+<!-- owner&#45;&gt;api -->
+<g id="diagram0-edge1" class="edge">
+<title>owner&#45;&gt;api</title>
+<path fill="none" stroke="#817565" d="M49.95,-679.66C49.95,-672.44 49.95,-663.92 49.95,-656.04"/>
+<polygon fill="#817565" stroke="#817565" points="52.22,-656.47 49.95,-649.97 47.67,-656.47 52.22,-656.47"/>
+</g>
+<!-- policy -->
+<g id="diagram0-node9" class="node">
+<title>policy</title>
+<path fill="#f4f0e8" stroke="#c5bfb4" d="M147.6,-580C147.6,-580 50.29,-580 50.29,-580 44.29,-580 38.29,-574 38.29,-568 38.29,-568 38.29,-556 38.29,-556 38.29,-550 44.29,-544 50.29,-544 50.29,-544 147.6,-544 147.6,-544 153.6,-544 159.6,-550 159.6,-556 159.6,-556 159.6,-568 159.6,-568 159.6,-574 153.6,-580 147.6,-580"/>
+<text xml:space="preserve" text-anchor="middle" x="98.95" y="-558.7" font-family="Arial" font-size="11.00">Versioned mandate</text>
+</g>
+<!-- api&#45;&gt;policy -->
+<g id="diagram0-edge2" class="edge">
+<title>api&#45;&gt;policy</title>
+<path fill="none" stroke="#817565" d="M62.82,-611.66C68.51,-603.99 75.3,-594.85 81.44,-586.58"/>
+<polygon fill="#817565" stroke="#817565" points="83.04,-588.24 85.08,-581.67 79.38,-585.53 83.04,-588.24"/>
+</g>
+<!-- sources -->
+<g id="diagram0-node3" class="node">
+<title>sources</title>
+<path fill="#f4f0e8" stroke="#c5bfb4" d="M301.86,-852C301.86,-852 170.03,-852 170.03,-852 164.03,-852 158.03,-846 158.03,-840 158.03,-840 158.03,-828 158.03,-828 158.03,-822 164.03,-816 170.03,-816 170.03,-816 301.86,-816 301.86,-816 307.86,-816 313.86,-822 313.86,-828 313.86,-828 313.86,-840 313.86,-840 313.86,-846 307.86,-852 301.86,-852"/>
+<text xml:space="preserve" text-anchor="middle" x="235.95" y="-830.7" font-family="Arial" font-size="11.00">Untrusted skills + research</text>
+</g>
+<!-- brain -->
+<g id="diagram0-node4" class="node">
+<title>brain</title>
+<path fill="#f4f0e8" stroke="#c5bfb4" d="M297.13,-784C297.13,-784 174.76,-784 174.76,-784 168.76,-784 162.76,-778 162.76,-772 162.76,-772 162.76,-760 162.76,-760 162.76,-754 168.76,-748 174.76,-748 174.76,-748 297.13,-748 297.13,-748 303.13,-748 309.13,-754 309.13,-760 309.13,-760 309.13,-772 309.13,-772 309.13,-778 303.13,-784 297.13,-784"/>
+<text xml:space="preserve" text-anchor="middle" x="235.95" y="-762.7" font-family="Arial" font-size="11.00">Isolated research worker</text>
+</g>
+<!-- sources&#45;&gt;brain -->
+<g id="diagram0-edge4" class="edge">
+<title>sources&#45;&gt;brain</title>
+<path fill="none" stroke="#817565" d="M235.95,-815.66C235.95,-808.44 235.95,-799.92 235.95,-792.04"/>
+<polygon fill="#817565" stroke="#817565" points="238.22,-792.47 235.95,-785.97 233.67,-792.47 238.22,-792.47"/>
+</g>
+<!-- eval -->
+<g id="diagram0-node5" class="node">
+<title>eval</title>
+<path fill="#f4f0e8" stroke="#c5bfb4" d="M291.64,-716C291.64,-716 180.25,-716 180.25,-716 174.25,-716 168.25,-710 168.25,-704 168.25,-704 168.25,-692 168.25,-692 168.25,-686 174.25,-680 180.25,-680 180.25,-680 291.64,-680 291.64,-680 297.64,-680 303.64,-686 303.64,-692 303.64,-692 303.64,-704 303.64,-704 303.64,-710 297.64,-716 291.64,-716"/>
+<text xml:space="preserve" text-anchor="middle" x="235.95" y="-694.7" font-family="Arial" font-size="11.00">Independent evaluator</text>
+</g>
+<!-- brain&#45;&gt;eval -->
+<g id="diagram0-edge5" class="edge">
+<title>brain&#45;&gt;eval</title>
+<path fill="none" stroke="#817565" d="M235.95,-747.66C235.95,-740.44 235.95,-731.92 235.95,-724.04"/>
+<polygon fill="#817565" stroke="#817565" points="238.22,-724.47 235.95,-717.97 233.67,-724.47 238.22,-724.47"/>
+</g>
+<!-- release -->
+<g id="diagram0-node6" class="node">
+<title>release</title>
+<path fill="#f4f0e8" stroke="#c5bfb4" d="M281.23,-648C281.23,-648 190.66,-648 190.66,-648 184.66,-648 178.66,-642 178.66,-636 178.66,-636 178.66,-624 178.66,-624 178.66,-618 184.66,-612 190.66,-612 190.66,-612 281.23,-612 281.23,-612 287.23,-612 293.23,-618 293.23,-624 293.23,-624 293.23,-636 293.23,-636 293.23,-642 287.23,-648 281.23,-648"/>
+<text xml:space="preserve" text-anchor="middle" x="235.95" y="-626.7" font-family="Arial" font-size="11.00">Release controller</text>
+</g>
+<!-- eval&#45;&gt;release -->
+<g id="diagram0-edge6" class="edge">
+<title>eval&#45;&gt;release</title>
+<path fill="none" stroke="#817565" d="M235.95,-679.66C235.95,-672.44 235.95,-663.92 235.95,-656.04"/>
+<polygon fill="#817565" stroke="#817565" points="238.22,-656.47 235.95,-649.97 233.67,-656.47 238.22,-656.47"/>
+</g>
+<!-- bot -->
+<g id="diagram0-node7" class="node">
+<title>bot</title>
+<path fill="#f4f0e8" stroke="#c5bfb4" d="M277.86,-580C277.86,-580 194.03,-580 194.03,-580 188.03,-580 182.03,-574 182.03,-568 182.03,-568 182.03,-556 182.03,-556 182.03,-550 188.03,-544 194.03,-544 194.03,-544 277.86,-544 277.86,-544 283.86,-544 289.86,-550 289.86,-556 289.86,-556 289.86,-568 289.86,-568 289.86,-574 283.86,-580 277.86,-580"/>
+<text xml:space="preserve" text-anchor="middle" x="235.95" y="-558.7" font-family="Arial" font-size="11.00">Deterministic bot</text>
+</g>
+<!-- release&#45;&gt;bot -->
+<g id="diagram0-edge7" class="edge">
+<title>release&#45;&gt;bot</title>
+<path fill="none" stroke="#817565" d="M235.95,-611.66C235.95,-604.44 235.95,-595.92 235.95,-588.04"/>
+<polygon fill="#817565" stroke="#817565" points="238.22,-588.47 235.95,-581.97 233.67,-588.47 238.22,-588.47"/>
+</g>
+<!-- coord -->
+<g id="diagram0-node8" class="node">
+<title>coord</title>
+<path fill="#ead5d7" stroke="#6b0f1a" d="M273.13,-512C273.13,-512 172.76,-512 172.76,-512 166.76,-512 160.76,-506 160.76,-500 160.76,-500 160.76,-488 160.76,-488 160.76,-482 166.76,-476 172.76,-476 172.76,-476 273.13,-476 273.13,-476 279.13,-476 285.13,-482 285.13,-488 285.13,-488 285.13,-500 285.13,-500 285.13,-506 279.13,-512 273.13,-512"/>
+<text xml:space="preserve" text-anchor="middle" x="222.95" y="-490.7" font-family="Arial" font-size="11.00">Portfolio coordinator</text>
+</g>
+<!-- bot&#45;&gt;coord -->
+<g id="diagram0-edge8" class="edge">
+<title>bot&#45;&gt;coord</title>
+<path fill="none" stroke="#817565" d="M232.53,-543.66C231.11,-536.44 229.43,-527.92 227.88,-520.04"/>
+<polygon fill="#817565" stroke="#817565" points="230.16,-519.88 226.68,-513.94 225.7,-520.76 230.16,-519.88"/>
+</g>
+<!-- signer -->
+<g id="diagram0-node11" class="node">
+<title>signer</title>
+<path fill="#f4f0e8" stroke="#c5bfb4" d="M251.17,-444C251.17,-444 166.72,-444 166.72,-444 160.72,-444 154.72,-438 154.72,-432 154.72,-432 154.72,-420 154.72,-420 154.72,-414 160.72,-408 166.72,-408 166.72,-408 251.17,-408 251.17,-408 257.17,-408 263.17,-414 263.17,-420 263.17,-420 263.17,-432 263.17,-432 263.17,-438 257.17,-444 251.17,-444"/>
+<text xml:space="preserve" text-anchor="middle" x="208.95" y="-422.7" font-family="Arial" font-size="11.00">Restricted signer</text>
+</g>
+<!-- coord&#45;&gt;signer -->
+<g id="diagram0-edge10" class="edge">
+<title>coord&#45;&gt;signer</title>
+<path fill="none" stroke="#817565" d="M219.27,-475.66C217.74,-468.44 215.93,-459.92 214.26,-452.04"/>
+<polygon fill="#817565" stroke="#817565" points="216.54,-451.82 212.96,-445.93 212.09,-452.77 216.54,-451.82"/>
+</g>
+<!-- policy&#45;&gt;coord -->
+<g id="diagram0-edge3" class="edge">
+<title>policy&#45;&gt;coord</title>
+<path fill="none" stroke="#817565" d="M131.52,-543.66C147.35,-535.24 166.5,-525.05 183.17,-516.17"/>
+<polygon fill="#817565" stroke="#817565" points="184.15,-518.23 188.82,-513.17 182.01,-514.21 184.15,-518.23"/>
+</g>
+<!-- sentinel -->
+<g id="diagram0-node10" class="node">
+<title>sentinel</title>
+<path fill="#f4f0e8" stroke="#c5bfb4" d="M233.08,-36C233.08,-36 168.81,-36 168.81,-36 162.81,-36 156.81,-30 156.81,-24 156.81,-24 156.81,-12 156.81,-12 156.81,-6 162.81,0 168.81,0 168.81,0 233.08,0 233.08,0 239.08,0 245.08,-6 245.08,-12 245.08,-12 245.08,-24 245.08,-24 245.08,-30 239.08,-36 233.08,-36"/>
+<text xml:space="preserve" text-anchor="middle" x="200.95" y="-14.7" font-family="Arial" font-size="11.00">Risk sentinel</text>
+</g>
+<!-- sentinel&#45;&gt;coord -->
+<g id="diagram0-edge9" class="edge">
+<title>sentinel&#45;&gt;coord</title>
+<path fill="none" stroke="#817565" d="M224.92,-36.46C253.65,-59.59 297.95,-103.32 297.95,-153 297.95,-359 297.95,-359 297.95,-359 297.95,-398.25 294.14,-410.34 273.95,-444 268.1,-453.75 259.8,-462.86 251.6,-470.52"/>
+<polygon fill="#817565" stroke="#817565" points="250.41,-468.53 247.09,-474.57 253.45,-471.92 250.41,-468.53"/>
+</g>
+<!-- executor -->
+<g id="diagram0-node12" class="node">
+<title>executor</title>
+<path fill="#ead5d7" stroke="#6b0f1a" d="M252.01,-376C252.01,-376 163.88,-376 163.88,-376 157.88,-376 151.88,-370 151.88,-364 151.88,-364 151.88,-352 151.88,-352 151.88,-346 157.88,-340 163.88,-340 163.88,-340 252.01,-340 252.01,-340 258.01,-340 264.01,-346 264.01,-352 264.01,-352 264.01,-364 264.01,-364 264.01,-370 258.01,-376 252.01,-376"/>
+<text xml:space="preserve" text-anchor="middle" x="207.95" y="-354.7" font-family="Arial" font-size="11.00">Onchain executor</text>
+</g>
+<!-- signer&#45;&gt;executor -->
+<g id="diagram0-edge11" class="edge">
+<title>signer&#45;&gt;executor</title>
+<path fill="none" stroke="#817565" d="M208.68,-407.66C208.57,-400.44 208.44,-391.92 208.32,-384.04"/>
+<polygon fill="#817565" stroke="#817565" points="210.61,-384.43 208.23,-377.97 206.06,-384.5 210.61,-384.43"/>
+</g>
+<!-- personal -->
+<g id="diagram0-node13" class="node">
+<title>personal</title>
+<path fill="#f4f0e8" stroke="#c5bfb4" d="M252.4,-308C252.4,-308 165.49,-308 165.49,-308 159.49,-308 153.49,-302 153.49,-296 153.49,-296 153.49,-284 153.49,-284 153.49,-278 159.49,-272 165.49,-272 165.49,-272 252.4,-272 252.4,-272 258.4,-272 264.4,-278 264.4,-284 264.4,-284 264.4,-296 264.4,-296 264.4,-302 258.4,-308 252.4,-308"/>
+<text xml:space="preserve" text-anchor="middle" x="208.95" y="-286.7" font-family="Arial" font-size="11.00">Personal account</text>
+</g>
+<!-- executor&#45;&gt;personal -->
+<g id="diagram0-edge12" class="edge">
+<title>executor&#45;&gt;personal</title>
+<path fill="none" stroke="#817565" d="M208.21,-339.66C208.32,-332.44 208.45,-323.92 208.57,-316.04"/>
+<polygon fill="#817565" stroke="#817565" points="210.83,-316.5 208.66,-309.97 206.28,-316.43 210.83,-316.5"/>
+</g>
+<!-- pool -->
+<g id="diagram0-node14" class="node">
+<title>pool</title>
+<path fill="#f4f0e8" stroke="#c5bfb4" d="M119.53,-308C119.53,-308 50.36,-308 50.36,-308 44.36,-308 38.36,-302 38.36,-296 38.36,-296 38.36,-284 38.36,-284 38.36,-278 44.36,-272 50.36,-272 50.36,-272 119.53,-272 119.53,-272 125.53,-272 131.53,-278 131.53,-284 131.53,-284 131.53,-296 131.53,-296 131.53,-302 125.53,-308 119.53,-308"/>
+<text xml:space="preserve" text-anchor="middle" x="84.95" y="-286.7" font-family="Arial" font-size="11.00">Strategy vault</text>
+</g>
+<!-- executor&#45;&gt;pool -->
+<g id="diagram0-edge13" class="edge">
+<title>executor&#45;&gt;pool</title>
+<path fill="none" stroke="#817565" d="M175.63,-339.66C159.93,-331.24 140.94,-321.05 124.4,-312.17"/>
+<polygon fill="#817565" stroke="#817565" points="125.61,-310.24 118.81,-309.17 123.46,-314.25 125.61,-310.24"/>
+</g>
+<!-- venues -->
+<g id="diagram0-node15" class="node">
+<title>venues</title>
+<path fill="#f4f0e8" stroke="#c5bfb4" d="M204.5,-240C204.5,-240 97.39,-240 97.39,-240 91.39,-240 85.39,-234 85.39,-228 85.39,-228 85.39,-216 85.39,-216 85.39,-210 91.39,-204 97.39,-204 97.39,-204 204.5,-204 204.5,-204 210.5,-204 216.5,-210 216.5,-216 216.5,-216 216.5,-228 216.5,-228 216.5,-234 210.5,-240 204.5,-240"/>
+<text xml:space="preserve" text-anchor="middle" x="150.95" y="-218.7" font-family="Arial" font-size="11.00">Pinned venue actions</text>
+</g>
+<!-- personal&#45;&gt;venues -->
+<g id="diagram0-edge14" class="edge">
+<title>personal&#45;&gt;venues</title>
+<path fill="none" stroke="#817565" d="M193.71,-271.66C186.83,-263.84 178.62,-254.49 171.24,-246.09"/>
+<polygon fill="#817565" stroke="#817565" points="173.28,-244.97 167.28,-241.59 169.86,-247.98 173.28,-244.97"/>
+</g>
+<!-- pool&#45;&gt;venues -->
+<g id="diagram0-edge15" class="edge">
+<title>pool&#45;&gt;venues</title>
+<path fill="none" stroke="#817565" d="M102.29,-271.66C110.11,-263.84 119.45,-254.49 127.86,-246.09"/>
+<polygon fill="#817565" stroke="#817565" points="129.43,-247.73 132.42,-241.52 126.22,-244.51 129.43,-247.73"/>
+</g>
+<!-- rec -->
+<g id="diagram0-node16" class="node">
+<title>rec</title>
+<path fill="#f4f0e8" stroke="#c5bfb4" d="M186.15,-172C186.15,-172 115.74,-172 115.74,-172 109.74,-172 103.74,-166 103.74,-160 103.74,-160 103.74,-148 103.74,-148 103.74,-142 109.74,-136 115.74,-136 115.74,-136 186.15,-136 186.15,-136 192.15,-136 198.15,-142 198.15,-148 198.15,-148 198.15,-160 198.15,-160 198.15,-166 192.15,-172 186.15,-172"/>
+<text xml:space="preserve" text-anchor="middle" x="150.95" y="-150.7" font-family="Arial" font-size="11.00">Reconciliation</text>
+</g>
+<!-- venues&#45;&gt;rec -->
+<g id="diagram0-edge16" class="edge">
+<title>venues&#45;&gt;rec</title>
+<path fill="none" stroke="#817565" d="M150.95,-203.66C150.95,-196.44 150.95,-187.92 150.95,-180.04"/>
+<polygon fill="#817565" stroke="#817565" points="153.22,-180.47 150.95,-173.97 148.67,-180.47 153.22,-180.47"/>
+</g>
+<!-- ledger -->
+<g id="diagram0-node17" class="node">
+<title>ledger</title>
+<path fill="#f4f0e8" stroke="#c5bfb4" d="M197.32,-104C197.32,-104 104.58,-104 104.58,-104 98.58,-104 92.58,-98 92.58,-92 92.58,-92 92.58,-80 92.58,-80 92.58,-74 98.58,-68 104.58,-68 104.58,-68 197.32,-68 197.32,-68 203.32,-68 209.32,-74 209.32,-80 209.32,-80 209.32,-92 209.32,-92 209.32,-98 203.32,-104 197.32,-104"/>
+<text xml:space="preserve" text-anchor="middle" x="150.95" y="-82.7" font-family="Arial" font-size="11.00">Ledger + evidence</text>
+</g>
+<!-- rec&#45;&gt;ledger -->
+<g id="diagram0-edge17" class="edge">
+<title>rec&#45;&gt;ledger</title>
+<path fill="none" stroke="#817565" d="M150.95,-135.66C150.95,-128.44 150.95,-119.92 150.95,-112.04"/>
+<polygon fill="#817565" stroke="#817565" points="153.22,-112.47 150.95,-105.97 148.67,-112.47 153.22,-112.47"/>
+</g>
+<!-- ledger&#45;&gt;api -->
+<g id="diagram0-edge19" class="edge">
+<title>ledger&#45;&gt;api</title>
+<path fill="none" stroke="#817565" d="M108.03,-104.35C64.64,-125.06 3.95,-164.19 3.95,-221 3.95,-495 3.95,-495 3.95,-495 3.95,-535.24 22.74,-578.78 36.3,-604.97"/>
+<polygon fill="#817565" stroke="#817565" points="34.2,-605.86 39.25,-610.54 38.22,-603.73 34.2,-605.86"/>
+</g>
+<!-- ledger&#45;&gt;sentinel -->
+<g id="diagram0-edge18" class="edge">
+<title>ledger&#45;&gt;sentinel</title>
+<path fill="none" stroke="#817565" d="M164.08,-67.66C169.89,-59.99 176.82,-50.85 183.09,-42.58"/>
+<polygon fill="#817565" stroke="#817565" points="184.7,-44.22 186.81,-37.66 181.07,-41.47 184.7,-44.22"/>
+</g>
+<!-- ops -->
+<g id="diagram0-node18" class="node">
+<title>ops</title>
+<path fill="#f4f0e8" stroke="#c5bfb4" d="M436.01,-852C436.01,-852 347.88,-852 347.88,-852 341.88,-852 335.88,-846 335.88,-840 335.88,-840 335.88,-828 335.88,-828 335.88,-822 341.88,-816 347.88,-816 347.88,-816 436.01,-816 436.01,-816 442.01,-816 448.01,-822 448.01,-828 448.01,-828 448.01,-840 448.01,-840 448.01,-846 442.01,-852 436.01,-852"/>
+<text xml:space="preserve" text-anchor="middle" x="391.95" y="-830.7" font-family="Arial" font-size="11.00">Operating escrow</text>
+</g>
+<!-- bill -->
+<g id="diagram0-node19" class="node">
+<title>bill</title>
+<path fill="#f4f0e8" stroke="#c5bfb4" d="M435.7,-784C435.7,-784 348.19,-784 348.19,-784 342.19,-784 336.19,-778 336.19,-772 336.19,-772 336.19,-760 336.19,-760 336.19,-754 342.19,-748 348.19,-748 348.19,-748 435.7,-748 435.7,-748 441.7,-748 447.7,-754 447.7,-760 447.7,-760 447.7,-772 447.7,-772 447.7,-778 441.7,-784 435.7,-784"/>
+<text xml:space="preserve" text-anchor="middle" x="391.95" y="-762.7" font-family="Arial" font-size="11.00">Usage settlement</text>
+</g>
+<!-- ops&#45;&gt;bill -->
+<g id="diagram0-edge20" class="edge">
+<title>ops&#45;&gt;bill</title>
+<path fill="none" stroke="#817565" d="M391.95,-815.66C391.95,-808.44 391.95,-799.92 391.95,-792.04"/>
+<polygon fill="#817565" stroke="#817565" points="394.22,-792.47 391.95,-785.97 389.67,-792.47 394.22,-792.47"/>
+</g>
+</g>
+</svg>
+</figure>
+<p>The arrows into both capital accounts represent separately scoped execution, not transfers between accounts. Pool shares belong to depositors. Platform services and model providers remain trusted for confidentiality and availability; signing and custody restrictions limit their authority but do not make the platform trustless.</p>
+<h2 id="architecture-3">3. Onchain components and authority</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Component</th>
+<th>Stores or enforces</th>
+<th>Explicit exclusions</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>AgentNFT</td>
+<td>Tier, token ownership, ownership epoch; transfer increments epoch and invalidates old active authority</td>
+<td>Does not own all depositor capital</td>
+</tr>
+<tr>
+<td>Token-bound inventory</td>
+<td>Skill NFTs and disclosed owner property</td>
+<td>Never unrestricted custody for a public pool</td>
+</tr>
+<tr>
+<td>IdentityBinder</td>
+<td>AgentNFT ↔ registry/token ID mapping; owns the secondary ERC-8004 identity NFT and exposes constrained metadata updates</td>
+<td>Cannot independently sell the registry identity or grant trading rights</td>
+</tr>
+<tr>
+<td>SkillRegistry + SkillNFT</td>
+<td>Immutable package/version digest, publisher, reviewed status, supply/license terms, capability declarations</td>
+<td>Publisher cannot self-authorize arbitrary adapters</td>
+</tr>
+<tr>
+<td>BuildRegistry</td>
+<td>Active/proposed version, exact skills, policy hash, fee schedule, configuration epoch</td>
+<td>Raw token transfers do not activate a build</td>
+</tr>
+<tr>
+<td>PersonalAccount</td>
+<td>Owner assets and bounded delegated execution; may be the TBA only after exact permission tests</td>
+<td>Owner&#39;s direct control is outside guarantees offered against a delegated bot</td>
+</tr>
+<tr>
+<td>StrategyVault</td>
+<td>Shares, NAV rules, deposit/exit limits, strategy mandate, owner stake, fee logic</td>
+<td>Manager cannot freely withdraw, change beneficiary, cross-collateralize or widen mandate</td>
+</tr>
+<tr>
+<td>Executor + adapters</td>
+<td>Typed actions, recipients, authority, cumulative limits, expiries, receipt events</td>
+<td>No generic arbitrary call/delegatecall from a skill</td>
+</tr>
+<tr>
+<td>ProtocolRegistry</td>
+<td>Approved adapter versions, underlying contracts/markets, risk status and exit-only status</td>
+<td>Upgrade to an underlying protocol is not automatically trusted</td>
+</tr>
+<tr>
+<td>OperatingEscrow</td>
+<td>Prepaid balance, authorized charges, period limits, settlement nonce</td>
+<td>No unlimited allowance to arbitrary metering amounts</td>
+</tr>
+<tr>
+<td>AttestationRegistry</td>
+<td>Platform-signed manifest and outcome references</td>
+<td>No assertion of independent execution verification</td>
+</tr>
+</tbody></table></div>
+<p><strong>Identity resolution:</strong> the custom AgentNFT remains the product ownership token. The IdentityBinder owns the separate registry token permanently and maps it to that AgentNFT. This is an application-specific binding, not behavior supplied automatically by ERC-8004. Its metadata controller checks current product ownership; ownership-change events invalidate API sessions and runtime mandates. Register a standards-compliant discovery document and link the richer build card from it. Prove wallet-control signatures with the actual account implementation. No pool logic depends on external identity/reputation services being available. Verify registry ABI/address and the binding proof before advertising full interoperability.</p>
+<p><strong>Management of public capital:</strong> identify the manager through the agent, but freeze the pool&#39;s asset universe, aggregate fee ceiling and withdrawal rules. Privilege expansion needs the published governance/exit process. Transferring the agent triggers restricted management and successor acceptance, not an automatic change in depositor rights. For the first public release, block manager transfer while a handover remains incomplete; any transfer restriction must be disclosed before mint/deposit.</p>
+<p><strong>Roles:</strong> NFT owner configures personal mandates; pool controller operates only within its fixed mandate; signer executes allowed intents; emergency guardian can revoke and reduce risk but cannot redirect money; adapter curator proposes additions; administrative expansion uses a separate delayed multisig role. Immediate pause/revocation is allowed. Deployment keys are absent from bots and research workers.</p>
+<h2 id="architecture-4">4. Exact action contract</h2>
+<p>Every domain action has a canonical, versioned encoding. Suggested fields below are a schema design, not an existing SDK API:</p>
+<pre><code class="language-json">{
+  &quot;schemaVersion&quot;: 1,
+  &quot;environment&quot;: &quot;monad-mainnet&quot;,
+  &quot;chainId&quot;: &quot;143&quot;,
+  &quot;agentId&quot;: &quot;product-contract/token-id&quot;,
+  &quot;accountId&quot;: &quot;specific-capital-account&quot;,
+  &quot;actionId&quot;: &quot;unique-id&quot;,
+  &quot;ownershipEpoch&quot;: 3,
+  &quot;configEpoch&quot;: 8,
+  &quot;policyHash&quot;: &quot;digest&quot;,
+  &quot;buildHash&quot;: &quot;digest&quot;,
+  &quot;adapterId&quot;: &quot;pinned-adapter-version&quot;,
+  &quot;actionType&quot;: &quot;swapExactInput&quot;,
+  &quot;assetIn&quot;: &quot;contract-address&quot;,
+  &quot;assetOut&quot;: &quot;contract-address&quot;,
+  &quot;amountInAtomic&quot;: &quot;1000000&quot;,
+  &quot;minimumOutAtomic&quot;: &quot;integer-string&quot;,
+  &quot;recipient&quot;: &quot;same-capital-account&quot;,
+  &quot;maxGasBudgetAtomic&quot;: &quot;integer-string&quot;,
+  &quot;expiresAt&quot;: &quot;unix-seconds&quot;,
+  &quot;stateBlockHash&quot;: &quot;observed-block-hash&quot;,
+  &quot;approvalHash&quot;: &quot;optional-bounded-owner-approval&quot;
+}
+</code></pre>
+<p>Amounts use integer base units with an audited asset metadata registry. Addresses, not symbols, identify assets. <code>stateBlockHash</code> records observation provenance; it is not a promise that the state is unchanged at execution. Onchain deadlines, independent prices and bounds handle state movement.</p>
+<p>Pipeline: validate schema → load current account/policy/epoch → reserve cash/exposure/gas → verify explicit approval if required → simulate exact calldata where required → compare predicted effects with intent → sign through restricted provider → submit → track/reconcile → release or convert reservation → journal outcome. Before signing and again onchain, reject stale authority, wrong account/chain, used action ID, expired quote, forbidden recipient/asset and exceeded limits.</p>
+<p>The signer uses authenticated service identity derived from the runtime lease, never a caller-supplied agent ID. Privy destination restrictions alone cannot validate all internal effects. Policies also restrict typed-message signing, approvals, value, chain, selectors and policy administration. x402 authorization has its own narrower domain and budget.</p>
+<h2 id="architecture-5">5. Transaction and order lifecycle</h2>
+<figure class="diagram">
+
+<!-- Generated by graphviz version 14.1.3 (20260303.0454)
+ -->
+<!-- Title: G Pages: 1 -->
+<svg width="385pt" height="466pt"
+ viewBox="0.00 0.00 385.00 466.00" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+<g id="diagram1-graph0" class="graph" transform="scale(1 1) rotate(0) translate(18 448)">
+<title>G</title>
+<!-- p -->
+<g id="diagram1-node1" class="node">
+<title>p</title>
+<path fill="#f4f0e8" stroke="#c5bfb4" d="M281.67,-430C281.67,-430 232.67,-430 232.67,-430 226.67,-430 220.67,-424 220.67,-418 220.67,-418 220.67,-406 220.67,-406 220.67,-400 226.67,-394 232.67,-394 232.67,-394 281.67,-394 281.67,-394 287.67,-394 293.67,-400 293.67,-406 293.67,-406 293.67,-418 293.67,-418 293.67,-424 287.67,-430 281.67,-430"/>
+<text xml:space="preserve" text-anchor="middle" x="257.17" y="-408.7" font-family="Arial" font-size="11.00">Proposed</text>
+</g>
+<!-- r -->
+<g id="diagram1-node2" class="node">
+<title>r</title>
+<path fill="#f4f0e8" stroke="#c5bfb4" d="M227.67,-351.2C227.67,-351.2 178.67,-351.2 178.67,-351.2 172.67,-351.2 166.67,-345.2 166.67,-339.2 166.67,-339.2 166.67,-327.2 166.67,-327.2 166.67,-321.2 172.67,-315.2 178.67,-315.2 178.67,-315.2 227.67,-315.2 227.67,-315.2 233.67,-315.2 239.67,-321.2 239.67,-327.2 239.67,-327.2 239.67,-339.2 239.67,-339.2 239.67,-345.2 233.67,-351.2 227.67,-351.2"/>
+<text xml:space="preserve" text-anchor="middle" x="203.17" y="-329.9" font-family="Arial" font-size="11.00">Reserved</text>
+</g>
+<!-- p&#45;&gt;r -->
+<g id="diagram1-edge1" class="edge">
+<title>p&#45;&gt;r</title>
+<path fill="none" stroke="#817565" d="M244.92,-393.57C237.53,-383.07 228.02,-369.54 219.94,-358.05"/>
+<polygon fill="#817565" stroke="#817565" points="221.85,-356.8 216.25,-352.8 218.12,-359.42 221.85,-356.8"/>
+<text xml:space="preserve" text-anchor="middle" x="260.42" y="-369.9" font-family="Arial" font-size="9.00">policy passes</text>
+</g>
+<!-- x -->
+<g id="diagram1-node8" class="node">
+<title>x</title>
+<path fill="#f4f0e8" stroke="#c5bfb4" d="M310.46,-114.8C310.46,-114.8 219.88,-114.8 219.88,-114.8 213.88,-114.8 207.88,-108.8 207.88,-102.8 207.88,-102.8 207.88,-90.8 207.88,-90.8 207.88,-84.8 213.88,-78.8 219.88,-78.8 219.88,-78.8 310.46,-78.8 310.46,-78.8 316.46,-78.8 322.46,-84.8 322.46,-90.8 322.46,-90.8 322.46,-102.8 322.46,-102.8 322.46,-108.8 316.46,-114.8 310.46,-114.8"/>
+<text xml:space="preserve" text-anchor="middle" x="265.17" y="-93.5" font-family="Arial" font-size="11.00">Rejected / expired</text>
+</g>
+<!-- p&#45;&gt;x -->
+<g id="diagram1-edge2" class="edge">
+<title>p&#45;&gt;x</title>
+<path fill="none" stroke="#817565" d="M287.26,-393.54C306.23,-380.06 327.17,-359.46 327.17,-334.2 327.17,-334.2 327.17,-334.2 327.17,-174.6 327.17,-152.97 312.09,-133.99 296.81,-120.32"/>
+<polygon fill="#817565" stroke="#817565" points="298.32,-118.62 291.9,-116.14 295.37,-122.08 298.32,-118.62"/>
+<text xml:space="preserve" text-anchor="middle" x="338.17" y="-251.7" font-family="Arial" font-size="9.00">reject</text>
+</g>
+<!-- a -->
+<g id="diagram1-node3" class="node">
+<title>a</title>
+<path fill="#f4f0e8" stroke="#c5bfb4" d="M271.54,-272.4C271.54,-272.4 182.8,-272.4 182.8,-272.4 176.8,-272.4 170.8,-266.4 170.8,-260.4 170.8,-260.4 170.8,-248.4 170.8,-248.4 170.8,-242.4 176.8,-236.4 182.8,-236.4 182.8,-236.4 271.54,-236.4 271.54,-236.4 277.54,-236.4 283.54,-242.4 283.54,-248.4 283.54,-248.4 283.54,-260.4 283.54,-260.4 283.54,-266.4 277.54,-272.4 271.54,-272.4"/>
+<text xml:space="preserve" text-anchor="middle" x="227.17" y="-251.1" font-family="Arial" font-size="11.00">Awaiting approval</text>
+</g>
+<!-- r&#45;&gt;a -->
+<g id="diagram1-edge3" class="edge">
+<title>r&#45;&gt;a</title>
+<path fill="none" stroke="#817565" d="M230.77,-315.02C235.79,-310.53 240.33,-305.23 243.17,-299.2 246.05,-293.09 245.35,-286.32 243.11,-279.96"/>
+<polygon fill="#817565" stroke="#817565" points="245.23,-279.14 240.5,-274.13 241.08,-280.99 245.23,-279.14"/>
+<text xml:space="preserve" text-anchor="middle" x="265.08" y="-291.1" font-family="Arial" font-size="9.00">if required</text>
+</g>
+<!-- s -->
+<g id="diagram1-node4" class="node">
+<title>s</title>
+<path fill="#f4f0e8" stroke="#c5bfb4" d="M136.89,-272.4C136.89,-272.4 85.45,-272.4 85.45,-272.4 79.45,-272.4 73.45,-266.4 73.45,-260.4 73.45,-260.4 73.45,-248.4 73.45,-248.4 73.45,-242.4 79.45,-236.4 85.45,-236.4 85.45,-236.4 136.89,-236.4 136.89,-236.4 142.89,-236.4 148.89,-242.4 148.89,-248.4 148.89,-248.4 148.89,-260.4 148.89,-260.4 148.89,-266.4 142.89,-272.4 136.89,-272.4"/>
+<text xml:space="preserve" text-anchor="middle" x="111.17" y="-251.1" font-family="Arial" font-size="11.00">Submitted</text>
+</g>
+<!-- r&#45;&gt;s -->
+<g id="diagram1-edge6" class="edge">
+<title>r&#45;&gt;s</title>
+<path fill="none" stroke="#817565" d="M166.34,-321.77C153.51,-316.66 139.85,-309.36 129.89,-299.2 124.61,-293.82 120.72,-286.73 117.9,-279.82"/>
+<polygon fill="#817565" stroke="#817565" points="120.11,-279.25 115.76,-273.91 115.83,-280.8 120.11,-279.25"/>
+<text xml:space="preserve" text-anchor="middle" x="153.03" y="-291.1" font-family="Arial" font-size="9.00">sign + send</text>
+</g>
+<!-- a&#45;&gt;r -->
+<g id="diagram1-edge4" class="edge">
+<title>a&#45;&gt;r</title>
+<path fill="none" stroke="#817565" d="M195.6,-272.82C190.37,-277.19 185.67,-282.38 182.64,-288.4 179.42,-294.79 180.62,-301.78 183.65,-308.26"/>
+<polygon fill="#817565" stroke="#817565" points="181.57,-309.21 186.78,-313.72 185.52,-306.95 181.57,-309.21"/>
+<text xml:space="preserve" text-anchor="middle" x="210.4" y="-291.1" font-family="Arial" font-size="9.00">valid approval</text>
+</g>
+<!-- a&#45;&gt;x -->
+<g id="diagram1-edge5" class="edge">
+<title>a&#45;&gt;x</title>
+<path fill="none" stroke="#817565" d="M231.38,-236.15C238.12,-208.58 251.33,-154.45 259.09,-122.69"/>
+<polygon fill="#817565" stroke="#817565" points="261.25,-123.45 260.58,-116.59 256.83,-122.37 261.25,-123.45"/>
+<text xml:space="preserve" text-anchor="middle" x="261.95" y="-172.9" font-family="Arial" font-size="9.00">expiry</text>
+</g>
+<!-- u -->
+<g id="diagram1-node5" class="node">
+<title>u</title>
+<path fill="#f2e3c9" stroke="#c5bfb4" d="M139.06,-193.6C139.06,-193.6 91.28,-193.6 91.28,-193.6 85.28,-193.6 79.28,-187.6 79.28,-181.6 79.28,-181.6 79.28,-169.6 79.28,-169.6 79.28,-163.6 85.28,-157.6 91.28,-157.6 91.28,-157.6 139.06,-157.6 139.06,-157.6 145.06,-157.6 151.06,-163.6 151.06,-169.6 151.06,-169.6 151.06,-181.6 151.06,-181.6 151.06,-187.6 145.06,-193.6 139.06,-193.6"/>
+<text xml:space="preserve" text-anchor="middle" x="115.17" y="-172.3" font-family="Arial" font-size="11.00">Unknown</text>
+</g>
+<!-- s&#45;&gt;u -->
+<g id="diagram1-edge7" class="edge">
+<title>s&#45;&gt;u</title>
+<path fill="none" stroke="#817565" d="M112.08,-235.97C112.6,-225.86 113.28,-212.94 113.86,-201.75"/>
+<polygon fill="#817565" stroke="#817565" points="116.12,-202.08 114.19,-195.47 111.58,-201.84 116.12,-202.08"/>
+<text xml:space="preserve" text-anchor="middle" x="128.17" y="-212.3" font-family="Arial" font-size="9.00">timeout</text>
+</g>
+<!-- i -->
+<g id="diagram1-node6" class="node">
+<title>i</title>
+<path fill="#f4f0e8" stroke="#c5bfb4" d="M61.92,-114.8C61.92,-114.8 18.42,-114.8 18.42,-114.8 12.42,-114.8 6.42,-108.8 6.42,-102.8 6.42,-102.8 6.42,-90.8 6.42,-90.8 6.42,-84.8 12.42,-78.8 18.42,-78.8 18.42,-78.8 61.92,-78.8 61.92,-78.8 67.92,-78.8 73.92,-84.8 73.92,-90.8 73.92,-90.8 73.92,-102.8 73.92,-102.8 73.92,-108.8 67.92,-114.8 61.92,-114.8"/>
+<text xml:space="preserve" text-anchor="middle" x="40.17" y="-93.5" font-family="Arial" font-size="11.00">Included</text>
+</g>
+<!-- s&#45;&gt;i -->
+<g id="diagram1-edge8" class="edge">
+<title>s&#45;&gt;i</title>
+<path fill="none" stroke="#817565" d="M83.54,-236.05C68.88,-225.48 51.76,-210.73 41.16,-193.6 26.15,-169.37 23.22,-158.87 28.17,-130.8 28.65,-128.06 29.35,-125.24 30.16,-122.47"/>
+<polygon fill="#817565" stroke="#817565" points="32.17,-123.62 32.05,-116.74 27.85,-122.19 32.17,-123.62"/>
+<text xml:space="preserve" text-anchor="middle" x="54.66" y="-172.9" font-family="Arial" font-size="9.00">receipt</text>
+</g>
+<!-- u&#45;&gt;i -->
+<g id="diagram1-edge9" class="edge">
+<title>u&#45;&gt;i</title>
+<path fill="none" stroke="#817565" d="M110.51,-157.39C107.5,-148.68 102.87,-138.38 96.17,-130.8 91.82,-125.88 86.55,-121.49 81.01,-117.64"/>
+<polygon fill="#817565" stroke="#817565" points="82.38,-115.82 75.68,-114.2 79.91,-119.64 82.38,-115.82"/>
+<text xml:space="preserve" text-anchor="middle" x="121.55" y="-133.5" font-family="Arial" font-size="9.00">reconcile</text>
+</g>
+<!-- u&#45;&gt;x -->
+<g id="diagram1-edge10" class="edge">
+<title>u&#45;&gt;x</title>
+<path fill="none" stroke="#817565" d="M141.01,-157.13C154.09,-148.65 170.39,-138.64 185.64,-130.8 194.13,-126.43 203.35,-122.19 212.39,-118.28"/>
+<polygon fill="#817565" stroke="#817565" points="213.1,-120.45 218.19,-115.81 211.32,-116.26 213.1,-120.45"/>
+<text xml:space="preserve" text-anchor="middle" x="216.9" y="-133.5" font-family="Arial" font-size="9.00">definitive failure</text>
+</g>
+<!-- i&#45;&gt;u -->
+<g id="diagram1-edge11" class="edge">
+<title>i&#45;&gt;u</title>
+<path fill="none" stroke="#817565" d="M33.95,-115.29C32.03,-123.87 31.57,-133.98 36.64,-141.6 44.65,-153.66 58.01,-161.32 71.47,-166.18"/>
+<polygon fill="#817565" stroke="#817565" points="70.59,-168.29 77.48,-168.14 72,-163.96 70.59,-168.29"/>
+<text xml:space="preserve" text-anchor="middle" x="63.9" y="-133.5" font-family="Arial" font-size="9.00">disagreement</text>
+</g>
+<!-- c -->
+<g id="diagram1-node7" class="node">
+<title>c</title>
+<path fill="#dce8df" stroke="#c5bfb4" d="M68.34,-36C68.34,-36 12,-36 12,-36 6,-36 0,-30 0,-24 0,-24 0,-12 0,-12 0,-6 6,0 12,0 12,0 68.34,0 68.34,0 74.34,0 80.34,-6 80.34,-12 80.34,-12 80.34,-24 80.34,-24 80.34,-30 74.34,-36 68.34,-36"/>
+<text xml:space="preserve" text-anchor="middle" x="40.17" y="-14.7" font-family="Arial" font-size="11.00">Reconciled</text>
+</g>
+<!-- i&#45;&gt;c -->
+<g id="diagram1-edge12" class="edge">
+<title>i&#45;&gt;c</title>
+<path fill="none" stroke="#817565" d="M40.17,-78.37C40.17,-68.26 40.17,-55.34 40.17,-44.15"/>
+<polygon fill="#817565" stroke="#817565" points="42.45,-44.37 40.17,-37.87 37.9,-44.37 42.45,-44.37"/>
+<text xml:space="preserve" text-anchor="middle" x="75.94" y="-54.7" font-family="Arial" font-size="9.00">positions checked</text>
+</g>
+</g>
+</svg>
+</figure>
+<p>One fenced transaction writer per signing account/chain manages nonces and replacements. A timed-out request is <code>Unknown</code>, not failed. Persist intent, signed transaction identifier/hash when available, nonce, provider request ID and submission attempts before retry decisions. Reconcile provider state and chain receipts; replacement uses the same logical action and controlled nonce, not a new purchase.</p>
+<p>For CLOB venues, transaction inclusion may mean order placement rather than fill. Maintain separate order records: open, partial, filled, cancel-requested, canceled, rejected. Track cumulative fills, remaining quantity, fees, locked balances and order IDs. Cancel/fill races settle from venue state. Open orders remain reserved until cancellation or fill is confirmed.</p>
+<p>The indexer stores block height/hash and canonical receipt references. API projections show their watermark. Critical checks use fresh chain/venue reads and enforce maximum lag. Canonical disagreement, missing logs or sequence gaps stop new exposure. Periodic full balance/position scans catch external transfers and events missed by incremental indexing. Redis retries do not constitute transaction idempotency.</p>
+<h2 id="architecture-6">6. Capital accounting and exit model</h2>
+<p>Maintain double-entry journals for cash, spot inventory, protocol claims, collateral, debt, fees, realized/unrealized PnL and share liabilities/equity as appropriate to the ledger model. Track external flows independently. This is an internal control ledger, not a claim of statutory financial-statement compliance.</p>
+<p><strong>NAV policy:</strong> cash + conservatively valued supported assets/claims + receivable PnL − debt − accrued costs − known exit obligations. Avoid counting collateral both as wallet tokens and a protocol claim. Pending settlement and rewards have explicit treatment; do not include rewards at a freely realizable price when no executable market exists. Every valuation has a source, block, age, confidence and policy version. NAV can be unavailable; stale values never become authoritative merely because the UI needs a number.</p>
+<p><strong>Daily PnL:</strong> for a window, ending equity − starting equity − external deposits + external withdrawals, with fees/cost treatment explicit. Percentage return uses an external-flow-aware method; show time-weighted strategy returns separately from investor-specific results. Use both calendar reporting and a rolling/cumulative circuit breaker so a day boundary cannot automatically restore risk after a loss.</p>
+<p><strong>Pool implementation:</strong> retain standard ERC-4626 signatures for a synchronous vault. <code>maxWithdraw</code> and <code>maxRedeem</code> reflect actual available liquidity. Do not disguise a delayed withdrawal as an immediately redeemable claim. For illiquid strategies, implement a reviewed request/claim design compatible with ERC-7540 if that interoperability is required. Specify request ordering, share locking, valuation at fulfillment, partial fills, cancellation rights and exit-cost allocation. Keep queued shares exposed to the documented strategy risk until their claim is fixed; prevent double redemption. Account-level emergency pause should block new risk/deposits while allowing safe claims and cancellation.</p>
+<p><strong>Owner stake:</strong> enforce the minimum through deposits as well as owner withdrawals and share transfers. A new external deposit can dilute the owner below 5%; cap it or require simultaneous owner funding. Price the stake consistently and specify whether earned fee shares count. Lock/track manager stake across agent transfers.</p>
+<p><strong>Fees:</strong> implement no performance fees on live public funds until the method passes accounting tests. Proposed first method: epoch-based crystallization with fixed build fee schedule and a documented series/equalization approach for entrants below a previous high-water mark. Bind creator splits to the earning epoch, never the equipped set at payout time. Fee ceilings bound the total, and absent/retired creators receive via claimable balances rather than blocking settlement. If fee assets F are represented by newly minted shares, with pre-fee assets A and shares S, the idealized mint is F·S/(A−F); define rounding and invalid cases. Do not charge a second expense already deducted from NAV.</p>
+<p><strong>Protocol-specific exits:</strong> AMM swap, cancel/settle CLOB, repay/release collateral, close perp/release margin, and unstake/wait/claim are different operations. Each adapter must expose supported position reads, value inputs, liquid capacity, exit steps, worst-case conditions and residual obligations. No new venue is enabled on the strength of an entry transaction alone.</p>
+<h2 id="architecture-7">7. Risk controls and emergency behavior</h2>
+<p>Hard controls include asset/venue allowlists, recipient invariants, maximum order size, gross/net exposure, leverage (zero initially), turnover, pending reservations, deadlines, gas spending and mandate epochs. Risk units and aggregation windows are explicit. Offchain labels such as “Conservative” map to versioned numeric policies and never bypass these controls.</p>
+<p>Prices for risk checks cannot come solely from the same manipulable pool being traded. Configure decimals, staleness, confidence/deviation bounds, stablecoin depeg treatment and supported fallback per asset. If the chosen oracle cannot support safe bounds for an asset, disable new exposure to that asset. Fallback should not silently lower safety. A pure liability repayment may be permitted without a price if its asset and amount bounds are independently safe; unknown price must not open an unrestricted emergency swap path.</p>
+<p>Modes: <code>UNCONFIGURED</code>, <code>READY</code>, <code>RUNNING</code>, <code>RESTRICTED</code>, <code>REDUCE_ONLY</code>, <code>EXIT_PENDING</code>, <code>PAUSED</code>, <code>INCIDENT</code>. Research and candidate evaluation have their own lifecycle. Distinguish operator heartbeat, chain health, price freshness and account risk. A “Paused” process can still have market exposure, so show it separately.</p>
+<p>The emergency worker is deterministic, separately budgeted, and does not depend on an LLM, marketplace, or normal Redis backlog. It has narrow cancel/repay/close permissions and cannot choose a new destination. A protocol exploit may make its normal exit method dangerous; permit adapter-specific emergency disable and owner/admin escalation. No blanket instruction to sell everything at any price.</p>
+<p>Transfer or skill removal revokes new risk through epoch invalidation, while limited exit permissions remain for existing positions. Do not require retaining a paid license to safely unwind an old position. API revocation happens promptly, but onchain authority checks provide the financial boundary if the indexer is late.</p>
+<h2 id="architecture-8">8. Private skills, evaluation and release</h2>
+<p>Canonical package manifest includes publisher signature, immutable version, license, supported runtime/schema versions, dependency hashes, declared capabilities, artifact digest and review result. Safe unpacking rejects traversal, symlinks escaping the root, oversized archives and install-time execution. A later skill update creates a new immutable version, never silently replaces the current bytes.</p>
+<p>Encrypt reviewed packages with envelope encryption and authenticated metadata binding tenant, package ID and version. Key broker verifies current entitlement and authenticated runtime lease before decrypting. Audit, key broker, runtime, model provider and any retained traces are included in the plaintext exposure model. Do not claim no human can decrypt merely because one service identity currently has KMS permission; administrators can often alter IAM or workloads.</p>
+<p>Research worker communicates through typed brokers. It cannot broadcast arbitrary RPC calls, upload arbitrary data through approved APIs, install packages from the internet during live execution, or see signer/provider secrets. Fetch web documents through a broker that strips active content, marks them untrusted and protects internal addresses. Narrow output schemas reduce but do not mathematically eliminate covert leakage through decisions. Live bot isolation must be at least as carefully constrained as the build environment.</p>
+<p>Candidate manifest: source/artifact digest, dependency lock digest, runtime image, parent version, exact skills, goals/policy digest, dataset snapshot, evaluation configuration, random seeds where applicable and evaluator version. Model name/provider and request identifiers aid provenance; LLM output need not be reproducible for deterministic evaluation of the frozen output.</p>
+<p>Promotion stages: compile/schema → static and adversarial checks → fork integration → historical evaluation where supportable → fresh shadow observations → capital-capped canary → active. Evaluation thresholds are set before candidate search and cannot be edited by the brain. Unchanged or worse candidates remain rejected; preserve trial count to expose selection bias. Candidate runtime never writes its own authoritative performance results.</p>
+<p>Deployment sequence: persist approved artifact → commit pending build → quiesce old risk-increasing actions → reconcile outstanding orders → checkpoint → activate new onchain epoch → grant new fenced runtime lease → health check. If deployment fails after epoch activation, remain restricted and restore the last safe artifact under a new explicit epoch. Never leave two versions authorized as a workaround. A database hash comparison is not sufficient concurrency control.</p>
+<h2 id="architecture-9">9. Workflows and CFO</h2>
+<p>Workflow specs define immutable version, trigger, account, preconditions, required capabilities, reservation rules, steps, timeouts, approval policy and compensation/exit behavior. Bound loops and model calls. The portfolio coordinator arbitrates all capital actions, including manual controls and bots; priority is emergency, exits, already committed workflow steps, then new discretionary actions.</p>
+<p>Goal buckets are accounting labels only unless a hard guarantee is needed. If an emergency-fund bucket must never collateralize a strategy, encode a capital reservation/mandate or separate account. A UI label alone cannot enforce this.</p>
+<p>Liability adapters translate each venue&#39;s actual collateral rules, liquidation metrics, interest, available repayment asset and withdrawal constraints. A generic <code>health_factor</code> field must be unavailable where the venue has no equivalent rather than fabricated. Debt refinance plans either prove atomic completion, use a tested flash-loan route, or explicitly manage interim exposure with bounded steps and fallback. Auto collateral addition cannot consume a protected bucket.</p>
+<p>Approval binds account, asset addresses, maximum input, minimum output, fees, leverage, time window, policy and intent digest. Use deterministic fields for financial facts. An LLM narrator may explain the proposal but cannot change its authority. Expired conditions trigger reevaluation, not automatic release of an old approval.</p>
+<p>The activity/cost-basis ledger records provenance for imports, transfers, wraps, claims, rewards, gas and disposals, with unknown basis preserved. Public-pool shares and personal underlying lots remain distinct. A jurisdiction-specific tax engine is outside this release.</p>
+<h2 id="architecture-10">10. Billing, commerce and economics</h2>
+<p>Reserve estimated maximum cost before research/build/data jobs, bound token/time limits, then reconcile actual usage. Each receipt has agent/account, provider request ID, usage type, units, tariff version, period and idempotency key. Settlement uses a unique sequence and onchain period ceiling; repeated settlement cannot charge twice. Unsupported or disputed usage remains visible rather than becoming an opaque hash-only debit.</p>
+<p>Normal operating balance, emergency service reserve and transaction gas are separate meters. Forecast minimum remaining runway and stop optional workloads early. Auto-top-up spends only the explicitly authorized owner&#39;s available funds or crystallized fee entitlement. Public gross trading proceeds are not the owner&#39;s profits.</p>
+<p>Prove x402 for the exact payer design. A capped EOA commerce wallet may be the initial supported implementation if TBA signatures are incompatible; its funding, ownership, session permissions and transfers remain explicit. Bind payment to resource/request ID, price, chain, token, payee and expiration. Verification does not replace settlement accounting. Persist delivery status; retries retrieve a purchased result or follow a documented refund/credit process. Reconcile facilitator receipts independently. Never enable generic typed-data signing from an agent.</p>
+<p>Paid signals carry source agent/build, underlying tx/block, settlement status, timestamp, TTL and ancestry. Buyers treat them as input to their own policy, not as executable instructions. Block recursive auto-copy cycles, cap correlated exposure and stop stale signals. Escrow for larger jobs remains a separate gated contract with acceptance criteria, evaluator/dispute role, timeout and refund semantics; verify the exact standard implementation before naming compatibility.</p>
+<h2 id="architecture-11">11. Data, services and infrastructure</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Service group</th>
+<th>Responsibilities</th>
+<th>Failure response</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Web/API/control</td>
+<td>Auth, config, approvals, creator portal, projections</td>
+<td>Owner emergency instructions remain independently available</td>
+</tr>
+<tr>
+<td>Indexer/reconciler/accounting</td>
+<td>Canonical events, position snapshots, NAV, journals, metrics</td>
+<td>Freeze new exposure on missing/stale authoritative state</td>
+</tr>
+<tr>
+<td>Execution/signing/sentinel</td>
+<td>Reservations, typed policy checks, nonce management, safety mode</td>
+<td>Fail closed for new risk; retain bounded exit path</td>
+</tr>
+<tr>
+<td>Research/build/evaluation</td>
+<td>Isolated skills, datasets, candidate assessment, manifests</td>
+<td>Current approved deterministic strategy continues only while safety state is healthy</td>
+</tr>
+<tr>
+<td>Billing/key broker/artifact store</td>
+<td>Prepaid usage, immutable artifacts, authorized key access</td>
+<td>No new costly jobs or releases; never widen permissions</td>
+</tr>
+</tbody></table></div>
+<p>These are logical boundaries; the initial deployment can use a modular API and worker processes rather than a dozen independently deployed microservices. The signer, untrusted runtime and evaluator need actual security isolation regardless of deployment convenience.</p>
+<p>Use separate Postgres schemas/roles for chain projections, application operations and accounting. The indexer owns its tables; application services do not mutate its derived truth. Key tables: agents, ownership_epochs, active_builds, skill_versions, runtime_leases, account_policies, intents, reservations, submissions, orders, fills, position_snapshots, valuation_snapshots, journal_entries, vault_requests, fee_epochs, workflow_runs, approvals, usage_receipts, payment_deliveries and attestations.</p>
+<p>Outbox records are created in the same database transaction as requested work. Workers claim with fencing and version checks. Audit trails retain rejected actions and errors without raw confidential prompts. Every record includes environment and chain; local forks also have a distinct environment identifier even when their chain ID imitates mainnet. Never point a mainnet signer at a fork RPC or vice versa.</p>
+<p>Lock software versions and image digests. Store deployment manifests containing chain, address, ABI digest, bytecode/implementation digest, deployment block, owner/admin and capabilities. Manage secrets through service identity and narrow permissions. Back up the action/accounting ledger and encrypted artifacts with recovery tests; rebuilding only from events cannot restore offchain approvals, meter receipts or private source history.</p>
+<h2 id="architecture-12">12. Design amendments and acceptance</h2>
+<p>Add states for awaiting approval, evaluated, canary, restricted, stale data, partially filled, exit pending and incident. Show account identity and environment on financial actions. In 3D views, distinguish proposed equipment from the running build and retain a lightweight static fallback so GPU failure never blocks withdrawal.</p>
+<p>Do not render markdown/HTML from creator uploads or research without sanitization. Authenticated APIs verify current resource ownership; guessable agent IDs cannot expose private source, approvals or billing. Upload URLs, logs and backtest endpoints are tenant-scoped and rate-limited. Web authorization and onchain ownership are rechecked across transfer.</p>
+<p>Metrics show live/simulated mode, sample period, costs, exposure, drawdown and data age. A publisher signature, static review, platform attestation and runtime attestation are four different badges. Demo-generated activity is labeled at origin and excluded from external demand/traction totals.</p>
+<p>The platform is ready for a bounded owner canary only after the build manual&#39;s G0–G5 gates. Public deposits additionally require G6 and strategy-specific launch review. The Solana release passes its own G8 conformance gate; an EVM test result cannot satisfy it.</p>
+</section>
+<section id="manual" class="document"><div class="eyebrow">04 / Build manual</div><h1>Revised build manual</h1>
+<p>Proposed revision 2 · 24 September 2026. Read with revised-technical-plan.md and risk-review.md. Work packages below are dependency-ordered; they are not time or staffing estimates. Roles are responsibilities that one person may fill, with independent review where capital safety requires it.</p>
+<h2 id="manual-1">1. Rules for the build</h2>
+<p>Requirements remain traceable. A missing dependency changes a feature&#39;s release status, not the definition of success. Keep the NFT/skill product, private runtime, bot evolution, CFO/workflows, pooled capital, marketplace, social layer, commerce and Solana ambitions in the backlog. Never mark a mocked or fork-only integration as mainnet complete.</p>
+<p>Replace the original “Use / Research” labels with <code>PROPOSED</code>, <code>DOCUMENTED</code>, <code>SPIKE_PASSED</code>, <code>INTEGRATED</code>, and <code>RELEASED</code>. Evidence advances a dependency. Every provider/network combination is separate. Pin the versions that passed rather than using unbounded “latest” instructions.</p>
+<p>A work package closes with an artifact, a reproducible acceptance result and a named remaining limitation. If a dependency fails, preserve the failing evidence and apply the listed fallback. A new security boundary or capital permission requires an architecture decision record before implementation.</p>
+<h2 id="manual-2">2. Repository and boundaries</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Location</th>
+<th>Contents</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>apps/web</code></td>
+<td>Next.js views, real operating states, wallet UI, 3D fallback</td>
+</tr>
+<tr>
+<td><code>apps/control-api</code></td>
+<td>Auth, config, approvals, creator uploads, build cards</td>
+</tr>
+<tr>
+<td><code>services/execution</code></td>
+<td>Policy validation, reservations, nonce writer, submission lifecycle</td>
+</tr>
+<tr>
+<td><code>services/risk</code></td>
+<td>Independent sentinel and emergency worker</td>
+</tr>
+<tr>
+<td><code>services/reconciliation</code></td>
+<td>Receipts, venue position reads, accounting and NAV</td>
+</tr>
+<tr>
+<td><code>services/research</code></td>
+<td>Pinned Hermes wrapper, typed MCP/data access, Thesis Board</td>
+</tr>
+<tr>
+<td><code>services/evaluation</code></td>
+<td>Trusted harness, frozen datasets, stress/shadow/canary assessment</td>
+</tr>
+<tr>
+<td><code>services/releases</code></td>
+<td>Artifact approval, quiesce/activation, runtime leases and rollback</td>
+</tr>
+<tr>
+<td><code>services/skills</code></td>
+<td>Quarantine, safe unpack, scans, encryption and key broker</td>
+</tr>
+<tr>
+<td><code>services/billing</code></td>
+<td>Reservations, provider receipts, capped onchain settlement</td>
+</tr>
+<tr>
+<td><code>packages/domain</code></td>
+<td>IDs, integer amounts, epochs, actions, events, state transitions</td>
+</tr>
+<tr>
+<td><code>packages/policy</code></td>
+<td>Shared semantic policy, independent onchain tests of equivalent rules</td>
+</tr>
+<tr>
+<td><code>packages/skills</code></td>
+<td>Package manifest, version/license/dependency rules</td>
+</tr>
+<tr>
+<td><code>packages/workflows</code></td>
+<td>Declarative schema, finite-step execution and approvals</td>
+</tr>
+<tr>
+<td><code>packages/accounting</code></td>
+<td>Journals, valuation policy, fee rules and metrics</td>
+</tr>
+<tr>
+<td><code>chains/monad</code></td>
+<td>Contracts, adapters, indexer, address/ABI manifests</td>
+</tr>
+<tr>
+<td><code>chains/solana</code></td>
+<td>Programs, PDA/delegate policy, indexer and chain-specific adapters</td>
+</tr>
+<tr>
+<td><code>infra</code></td>
+<td>Environment configs, isolated runtime images, secret roles, backups</td>
+</tr>
+<tr>
+<td><code>evidence</code></td>
+<td>Dependency probes, test artifacts, deployment manifests, demo receipts</td>
+</tr>
+<tr>
+<td><code>docs/adr</code></td>
+<td>Approved architecture decisions and requirement traceability</td>
+</tr>
+</tbody></table></div>
+<p>Share code through one workspace or versioned shared packages if submission rules require separate repositories. Do not copy mutable core folders between chains without a release/version mechanism. Initial service boundaries may be processes/modules; isolate untrusted code, signer and evaluator from the beginning.</p>
+<h2 id="manual-3">3. G0 — Freeze semantics and prove external capabilities</h2>
+<p><strong>Responsible roles:</strong> build lead, execution engineer, risk/accounting reviewer. <strong>Depends on:</strong> supplied product requirements only. <strong>Output:</strong> decisions, capability matrix and reproducible probes. No user-fund deployment is part of this document review.</p>
+<p>Resolve the first strategy, asset universe, numeraire, loss trigger, capital compartments, fees, exit rights, manager transfer policy and privacy claim. Pick actual contract addresses and immutable versions from official sources. If a pool structure remains undecided, keep public deposit enablement blocked while owner-only execution proceeds.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Probe</th>
+<th>Must demonstrate</th>
+<th>Failure path</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Chain/toolchain</td>
+<td>Record chain ID, head/hash, fixed historical fork block, Foundry version and hardfork; execute a known fixture locally</td>
+<td>Pin supported toolchain/provider; do not infer simulation compatibility</td>
+</tr>
+<tr>
+<td>ERC-6551</td>
+<td>Account creation, ownership reads, exact delegated operation, rejection, revocation and NFT transfer</td>
+<td>Use explicit bounded account module; disable unsupported transfer/runtime claims</td>
+</tr>
+<tr>
+<td>ERC-8004</td>
+<td>Register, read standards-compliant metadata, map secondary ID, verify payment wallet, exercise update rights</td>
+<td>Use app identity and platform attestations; mark external registration unavailable</td>
+</tr>
+<tr>
+<td>Privy/signing</td>
+<td>Exact executor call allowed; forbidden recipient, wrong chain, approval and typed-message domains rejected; signer unavailable behavior</td>
+<td>Owner-signed test flows until restricted delegation is proven</td>
+</tr>
+<tr>
+<td>Selected swap adapter</td>
+<td>Read → quote → simulate → execute → receipt → balance reconcile → reverse/exit at a fixed fork state</td>
+<td>Choose another venue only with the same full probe; preserve unavailable status</td>
+</tr>
+<tr>
+<td>Selected lending/CLOB adapter</td>
+<td>Enter, read position, accrue/partial fill, cancel or withdraw and reconcile</td>
+<td>Keep off live allowlist; entry-only support does not pass</td>
+</tr>
+<tr>
+<td>Price feed</td>
+<td>Actual feed/address, decimals, timestamp, deviation/stale handling and depeg fixture</td>
+<td>Disable unsupported assets/new risk</td>
+</tr>
+<tr>
+<td>Historical provider</td>
+<td>Required block range, logs/state/order-book granularity, timestamps and gap detection</td>
+<td>Use contract tests and forward shadow; mark historical return unavailable</td>
+</tr>
+<tr>
+<td>Tenderly</td>
+<td>Chain-specific simulation endpoint, sender context, trace/effects, bundle support if needed, latency and failure</td>
+<td>Validated local/other simulation path; postpone fast execution if too slow</td>
+</tr>
+<tr>
+<td>Hermes + E2B</td>
+<td>Headless task through gateway, restricted tools/egress, controlled credentials, checkpoint, termination and restore</td>
+<td>Minimal constrained model loop; never relax network/key rules for compatibility</td>
+</tr>
+<tr>
+<td>x402</td>
+<td>Exact token/network/domain and payer signature; verify, settle, deliver, retry and wrong-chain rejection</td>
+<td>Dedicated capped payer if supported; otherwise visible simulated demo only</td>
+</tr>
+<tr>
+<td>Admin/recovery</td>
+<td>Owner can revoke and see recovery instructions without normal web app; emergency worker can fund a bounded exit</td>
+<td>Stop mainnet authorization until corrected</td>
+</tr>
+</tbody></table></div>
+<p>Record each probe as: claim, source URL and retrieval date, package commit/version, environment, method, sanitized inputs, observed output, failure details, evidence path, remaining assumptions, reviewer. A source link is never a substitute for the observed output.</p>
+<p><strong>Gate G0:</strong> all dependencies used by the first capital path pass; unrelated future features may remain unresolved. Confirm official hackathon eligibility, weights, prior-work disclosure and mainnet requirements before submission; the original report&#39;s assertions are not treated as verified rules.</p>
+<h2 id="manual-4">4. G1 — Implement custody, policy and exit primitives</h2>
+<p><strong>Responsible:</strong> contract/execution engineer; risk reviewer. <strong>Depends:</strong> G0 capital path. <strong>Output:</strong> contracts, role matrix, manifests and adversarial tests.</p>
+<p>Build AgentNFT epoch handling, inventory, BuildRegistry, personal custody, minimal vault shell, Executor, ProtocolRegistry and one action-specific adapter. Build operating escrow caps and emergency permissions now. Implement assets/markets/recipient limits and aggregate reservations; do not wait for the frontend to decide the authority model.</p>
+<p>Keep public deposits disabled until G6. Vault contract tests can use multiple funded actors on a local fork/testnet without implying public launch readiness. Fix normal <code>withdraw</code>/<code>redeem</code> semantics and safe transfer/rounding behavior before clients integrate.</p>
+<p>Required invariant families: unauthorized accounts cannot move assets; public assets never finance personal obligations; stale epochs fail; an action executes at most once; recipient remains the authorized capital account; privilege reduction does not disable safe exit; total supply and claims reconcile; fee/deposit rounding favors neither an attacker nor an unbounded fee recipient; adapter upgrades cannot silently expand permission.</p>
+<p><strong>Gate G1:</strong> negative authorization tests, fuzz/invariant tests and exact venue exit integration pass; static analysis findings are triaged. Slither is one check, not the security review.</p>
+<h2 id="manual-5">5. G2 — Build deterministic execution and reconciliation</h2>
+<p><strong>Responsible:</strong> backend/execution and accounting engineers. <strong>Depends:</strong> G1. <strong>Output:</strong> action ledger, chain projection, journal and a repeatable trade round trip.</p>
+<p>Implement transactional outbox, fenced writer, nonce handling, submission states, receipt finality policy and full position reconciliation. The same coordinator services manual trades, bots and workflows. Use fresh authoritative state for financial decisions; indexer tables serve projections and history.</p>
+<p>Persist before remote effects. Crash a worker after sending a transaction but before writing success; restart it and show that it reconciles rather than spends twice. Repeat for billing and signal purchase. Duplicate queue jobs and overlapping schedules must converge on one logical action.</p>
+<p>Build a deterministic baseline strategy that reads state, creates a typed intent, executes under caps and records costs. Show the difference between a placed order and a fill. Record gas failures and rejected actions in economics. Track MON gas separately from USDC capital and invoice balances.</p>
+<p><strong>Gate G2:</strong> deposit → trade → exit → owner withdrawal reconciles; duplicate/reordered/missing events, dropped RPC response, process restart and stale indexer produce correct state. UI is permitted to show “unknown” while reconciliation runs.</p>
+<h2 id="manual-6">6. G3 — Add independent risk operations</h2>
+<p><strong>Responsible:</strong> risk/execution owner. <strong>Depends:</strong> G2. <strong>Output:</strong> incident state machine, emergency worker, dashboards and recovery runbooks.</p>
+<p>Implement price freshness checks, cash-flow-aware loss triggers, pending exposure accounting, protected reserves and adapter-specific reduce-only behavior. Separate market risk from operational health. Make breach reasons visible: stale feed, insufficient gas, signer down, insufficient exit liquidity, unknown submission, mandate expired.</p>
+<p>Run drills with funded positions: kill bot; kill normal queue; expire key; remove billing credit; delay price feed; prevent withdrawal at venue; partially fill an order during cancel; transfer agent; disable an adapter after an upstream incident. Ensure response preserves bounded exits without opening arbitrary transfer authority.</p>
+<p><strong>Gate G3:</strong> no unattended capital path remains without monitoring, funded response and explicit residual-risk state. Publish recovery steps using contract addresses and exact supported methods after implementation; do not invent commands before ABI exists.</p>
+<h2 id="manual-7">7. G4 — Private skills and real product configuration</h2>
+<p><strong>Responsible:</strong> runtime/security and frontend owners. <strong>Depends:</strong> G1–G3 for financial activation. <strong>Output:</strong> upload-to-activation flow with versioned rights.</p>
+<p>Implement safe upload quarantine, package signature/digest, scans and review of exact bytes, immutable encrypted storage and entitlement-checked key release. Separate inventory transfers from active equipment. Add slot/dependency/synergy checks; synergies compose pre-approved capabilities and cannot grant arbitrary protocol rights.</p>
+<p>Configure UI distinguishes proposed versus active build. Removing a skill invalidates its dependent running build; pending trades are fenced while existing positions retain exit-only support. Fee terms are snapshotted. Test ownership races before/after key release, cross-agent reads, malicious archives and canary secret leakage through allowed paths and telemetry.</p>
+<p>Keep initial marketplace curated. Creator stake, dispute, royalty and revocation rules must be public before collecting them. Show “reviewed package” with scope rather than a blanket audited/safe badge.</p>
+<p><strong>Gate G4:</strong> user can mint, acquire skill, propose equipment, activate approved capability, remove it, and transfer ownership without stale authority or confidential payload exposure in normal logs. Residual confidentiality trust is disclosed.</p>
+<h2 id="manual-8">8. G5 — Research, independent evaluation and controlled evolution</h2>
+<p><strong>Responsible:</strong> research/quant and runtime owners; evaluator review outside candidate control. <strong>Depends:</strong> G2–G4. <strong>Output:</strong> proposal-to-canary release with auditable rejection and rollback.</p>
+<p>Integrate the minimal research loop and Thesis Board. Every observation stores event time, retrieval time and source. Budget scans/dives/challenges before dispatch. Research can mark uncertain data; an LLM confidence number never becomes a trading probability without calibration.</p>
+<p>Use the following evaluation ladder:</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Layer</th>
+<th>Question answered</th>
+<th>Required evidence</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Deterministic unit/policy</td>
+<td>Does the strategy obey its specified rules?</td>
+<td>Fixed fixtures, boundary cases, malicious actions</td>
+</tr>
+<tr>
+<td>Fork integration</td>
+<td>Do exact protocol calls and exits work at this state?</td>
+<td>Block, toolchain, address manifests, receipts/effects</td>
+</tr>
+<tr>
+<td>Historical evaluation</td>
+<td>Does the strategy survive plausible point-in-time market paths?</td>
+<td>Frozen data, latency/fill/cost model, holdout, candidate count</td>
+</tr>
+<tr>
+<td>Stress suite</td>
+<td>What happens under severe adverse conditions?</td>
+<td>Gaps, depeg, missing data, liquidity loss, outages, fee spikes</td>
+</tr>
+<tr>
+<td>Shadow</td>
+<td>Does the live input/decision path behave without spending?</td>
+<td>Fresh chronological observations and hypothetical fills with stated limits</td>
+</tr>
+<tr>
+<td>Canary</td>
+<td>Does a strictly bounded real position match expectations?</td>
+<td>Actual receipts, fills, costs, accounting, exit and guard results</td>
+</tr>
+</tbody></table></div>
+<p>Predeclare promotion thresholds in the strategy manifest: max drawdown/exposure, turnover, net performance relative to baseline, minimum observations, cost tolerance, and safety failures allowed (zero for custody/authorization). The appropriate financial sample size depends on the strategy; do not invent a universal trade-count threshold. If evidence is insufficient, stay in shadow instead of lowering the gate.</p>
+<p>Start evolution with bounded parameters or reviewed DSL templates. Arbitrary bot generation must additionally pass supply-chain checks, sandbox escape/exfiltration tests and independent artifact approval. Commit/release active epochs only through the release controller, with rollback drill and single active runtime lease.</p>
+<p><strong>Gate G5:</strong> a legitimate candidate can progress, a seeded overfit/malicious candidate is rejected, and a failed deployment rolls back without duplicate authority. G0–G5 permit consideration of an owner-only canary; they do not authorize public deposits or establish profitability.</p>
+<h2 id="manual-9">9. G6 — Pool accounting and public participation</h2>
+<p><strong>Responsible:</strong> accounting/risk, contracts and launch owner. <strong>Depends:</strong> G0–G5 plus strategy-specific NAV/exit evidence. <strong>Output:</strong> tested share accounting, fees, exit rules and public mandate.</p>
+<p>Select a complete NAV and liquidity model before enabling the pool&#39;s strategy. Implement deposits, minimum owner stake under dilution, asynchronous requests if needed, fee crystallization/equalization, creator epoch splits, pending fees and transfer handover. Exercise at least three investors entering at different valuations, including below an old high-water mark; losing/recovering epochs; owner sale; withdrawals during partial fills; donations; first/last share; and unavailable redemption liquidity.</p>
+<p>Have a reviewer independently reconstruct balances, NAV and fee allocations from the evidence ledger. Review contract and operational security outside the implementation author. Resolve offering/jurisdiction questions for the actual public structure; this manual makes no legal classification. Public enablement is an explicit deployment parameter with a recorded launch decision.</p>
+<p><strong>Gate G6:</strong> no unexplained ledger difference, no inaccessible required exit path under supported conditions, no unresolved critical security finding, and clear handling of unsupported conditions. “Everyone can deposit” remains disabled until this gate closes.</p>
+<h2 id="manual-10">10. G7 — CFO, marketplace economics and agent commerce</h2>
+<p>This work package contains separate releases; each can be completed independently after its stated predecessors.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Module</th>
+<th>Prerequisites</th>
+<th>Deliverable and acceptance</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Personal goals/rebalancer/sweep</td>
+<td>G2–G3</td>
+<td>One coordinator; protected buckets; replay-safe steps; rebalance and guardian contention test</td>
+</tr>
+<tr>
+<td>Debt guardian and refinance</td>
+<td>Lending exit probes, G3</td>
+<td>Protocol-specific risk metric; repayment funds; partial refinance recovery; no public collateral</td>
+</tr>
+<tr>
+<td>Approvals and CFO dashboard</td>
+<td>G2, domain policy</td>
+<td>Exact immutable proposal, expiry/requote, owner transfer invalidation, deterministic financial fields</td>
+</tr>
+<tr>
+<td>Cost-basis export/monthly report</td>
+<td>Reconciled personal ledger</td>
+<td>Unknown basis shown; wraps/rewards/gas handled as classified events; export reconciles to positions</td>
+</tr>
+<tr>
+<td>Billing and self-top-up</td>
+<td>G2–G3</td>
+<td>Receipt idempotency, budget reservations, tariff version, period ceiling; top-up only from authorized source</td>
+</tr>
+<tr>
+<td>Creator performance splits</td>
+<td>G6 fee semantics</td>
+<td>Fee-epoch rights survive equip/unequip and creator withdrawal; total ceiling enforced</td>
+</tr>
+<tr>
+<td>x402 signal service</td>
+<td>G0 payer probe, G2, billing</td>
+<td>One real purchase/delivery/retry cycle; settlement receipt; exact payer and spend cap</td>
+</tr>
+<tr>
+<td>Auto-copy</td>
+<td>Signal service, risk coordinator</td>
+<td>TTL, independent sizing, ancestry/cycle rejection, correlated exposure caps</td>
+</tr>
+<tr>
+<td>Workflow marketplace/builder</td>
+<td>Workflow engine, G4 review</td>
+<td>Validated finite specs, required skills and account scope; hostile spec rejected</td>
+</tr>
+<tr>
+<td>Escrow jobs</td>
+<td>Commerce ledger, verified standard</td>
+<td>Specified evaluator, acceptance, timeout and refund; no assumption that x402 supplies these</td>
+</tr>
+<tr>
+<td>Social/gallery/leaderboard</td>
+<td>Reconciled metrics</td>
+<td>Separate test/demo/live data; cohort period and costs; seeded traffic excluded from external demand</td>
+</tr>
+</tbody></table></div>
+<p>These functions were not removed. The gates specify the missing work that makes each real rather than a UI promise.</p>
+<h2 id="manual-11">11. G8 — Solana port and conformance</h2>
+<p><strong>Responsible:</strong> Solana implementation owner. <strong>Depends:</strong> stable shared action/accounting schema and Solana-specific G0 probes. <strong>Output:</strong> independent chain layer and evidence.</p>
+<p>Map ownership, account scope, authority epochs, action idempotency, token precision, payment signatures, receipts and position reads. Do not model PDA ownership as an EOA key. Metaplex delegation requires additional restrictions because it may authorize broad downstream actions and persists across asset transfers according to current documentation.</p>
+<p>Test transfer/revoke with prior token approvals, authority changes and pending workflows. Reconcile account locks, transaction expiry, priority fees, CPI and token-account ownership in the actual implementation. Clone-account local tests validate chosen snapshots; they do not supply historical strategy realism. Public deployment passes the same capital/risk invariants with Solana-native mechanisms.</p>
+<h2 id="manual-12">12. Cross-component contract tests</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Handoff</th>
+<th>Contract to test</th>
+<th>Failure that must be visible</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Owner → API</td>
+<td>Authenticated action + current ownership/epoch</td>
+<td>Old owner request after NFT sale</td>
+</tr>
+<tr>
+<td>API → queue</td>
+<td>Database outbox + stable action ID</td>
+<td>Crash between database commit and enqueue</td>
+</tr>
+<tr>
+<td>Chain → indexer → UI</td>
+<td>Block/hash/sequence + watermark</td>
+<td>Gap, duplicate, lag or canonicality disagreement</td>
+</tr>
+<tr>
+<td>Inventory → runtime</td>
+<td>Explicit build + exact skill/version + runtime lease</td>
+<td>Unequipped/sold skill still active</td>
+</tr>
+<tr>
+<td>Research → evaluator</td>
+<td>Immutable candidate; independent measurements</td>
+<td>Candidate tampers with metrics or holdout</td>
+</tr>
+<tr>
+<td>Evaluator → deployer</td>
+<td>Signed approval + artifact digest + policy version</td>
+<td>Artifact changed after evaluation</td>
+</tr>
+<tr>
+<td>Bot/workflow → coordinator</td>
+<td>Same account/exposure reservation rules</td>
+<td>Two workers allocate the same funds</td>
+</tr>
+<tr>
+<td>Coordinator → signer</td>
+<td>Scoped identity, typed intent and approval</td>
+<td>Different calldata or recipient signed</td>
+</tr>
+<tr>
+<td>Signer → chain</td>
+<td>Nonce/action ID + pending-state reconciliation</td>
+<td>Timeout causes duplicate economic action</td>
+</tr>
+<tr>
+<td>Adapter → accounting</td>
+<td>Receipt + balance/position delta</td>
+<td>Placement mistaken for fill or collateral counted twice</td>
+</tr>
+<tr>
+<td>Billing → lifecycle</td>
+<td>Reserved spend + emergency mode transition</td>
+<td>Billing exhaustion abandons debt</td>
+</tr>
+<tr>
+<td>Commerce → data delivery</td>
+<td>Payment/request binding + delivery state</td>
+<td>Paid user charged twice or never served</td>
+</tr>
+</tbody></table></div>
+<h2 id="manual-13">13. Release fixtures and incident runbooks</h2>
+<p>Minimum release fixtures cover: unauthorized execute; malicious recipient; revoked key; agent transfer; skill removal; stale price; depeg; repeated small trades breaching aggregate cap; indexer outage; duplicate worker; dropped submission response; partial fill/cancel race; billing exhaustion; gas exhaustion; late owner approval; failed deployment after commit; source/data leakage; empty-vault donation; fee recovery after loss; queued withdrawal; and snapshot/backup restore. Add protocol-specific tests when a new position type is enabled.</p>
+<p>Each incident runbook has detection, immediate permitted actions, what must stop, how to reconcile, who owns recovery and a resumption condition. Required runbooks: signer compromise, malicious adapter, confidential skill leakage, market/liquidity shock, chain/provider outage, billing exhaustion, accounting mismatch and manager handover. Restoration must preserve action IDs and nonce state; restoring an old database cannot authorize already executed work again.</p>
+<p>Report p50/p95/p99 execution stages and missed deadlines under the intended agent count. Establish service targets from strategy needs and measured providers. If the signing/simulation path cannot meet the opportunity window, choose a slower strategy or prove a separate bounded fast path; never silently skip required checks.</p>
+<h2 id="manual-14">14. Demo and presentation contract</h2>
+<p>Show one agent mint/configuration, a licensed skill activation, a real research proposal, an evaluation with a rejected alternative, a policy-approved trade, a reconciled outcome, and one emergency/recovery case. Add a real x402 payment if G0/G7 pass. Five agents can illustrate different builds; each uses the same proven path.</p>
+<p>Keep mainnet, testnet, fork and backtest visibly distinct. Do not aggregate synthetic volume with live transactions. Do not extrapolate a few hours into 30-day realized performance. Export a judge evidence bundle with contract addresses, transaction links, pinned build hashes, test receipts, environment labels and known limitations. Validate competition rules from their current official source before submission.</p>
+<h2 id="manual-15">15. Change control and cut order</h2>
+<p>Every feature PR states requirement IDs, changed authority/accounting boundaries, migration effect, test evidence and rollback. Pin dependency changes with the updated probe; changing an ABI, fee rule, oracle or runtime permission is a release change. Record a deployment manifest and source commit for each environment. A passing UI build is not evidence of financial correctness.</p>
+<p>If dependencies fail, cut visual complexity, broad social sources, additional venues, open creator uploads, arbitrary live code, auto-copy, escrow and the second chain before weakening custody, accounting, emergency handling or data provenance. Keep required product features tracked as deferred, with their failed gate and next proof. Never substitute unlimited permissions or optimistic accounting to preserve a demo claim.</p>
+<p>The next concrete implementation step is G0 plus the personal-capital/one-venue slice of G1. Its output should let a reviewer answer: whose funds, who can authorize, what exact action, what happens if it fails, and how can the owner exit?</p>
+</section><footer>Prepared from the supplied overview, build manual, technical report and design brief. Original inputs remain the reference for the proposed revisions.</footer></main></body></html>

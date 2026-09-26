@@ -1,0 +1,703 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Agent NFT Platform: Technical Architecture Report</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Barlow:ital,wght@0,400;0,500;0,600;1,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#ECEDE8; --plate:#E0E2DB; --ink:#22252A; --muted:#5B6068; --rule:#C6C9C1;
+  --brass:#8C6A2E; --brass-soft:#E3D6BE; --olive:#566F1C; --warn:#8F3B2A;
+  --code-bg:#DADCD4;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#1A1C1F; --plate:#22252A; --ink:#E4E4DE; --muted:#9DA1A8; --rule:#363A40;
+    --brass:#CFA766; --brass-soft:#3A3223; --olive:#A6C45A; --warn:#E08A74; --code-bg:#272A30;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#1A1C1F; --plate:#22252A; --ink:#E4E4DE; --muted:#9DA1A8; --rule:#363A40;
+  --brass:#CFA766; --brass-soft:#3A3223; --olive:#A6C45A; --warn:#E08A74; --code-bg:#272A30;
+}
+*,*::before,*::after{box-sizing:inherit}
+html{scroll-padding-top:calc(env(safe-area-inset-top,0px) + 16px);scroll-behavior:smooth}
+@media (prefers-reduced-motion: reduce){html{scroll-behavior:auto}}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:"Barlow",system-ui,"Segoe UI",Helvetica,Arial,sans-serif;font-size:1.0625rem;line-height:1.6}
+a{color:var(--brass);text-underline-offset:3px}
+a:focus-visible,button:focus-visible{outline:2px solid var(--brass);outline-offset:3px}
+img{max-width:100%}
+.wrap{display:grid;grid-template-columns:15rem minmax(0,1fr);gap:3.5rem;max-width:74rem;margin:0 auto;padding:3rem 1.5rem 5rem}
+nav.toc{position:sticky;top:calc(env(safe-area-inset-top,0px) + 1.5rem);align-self:start;max-height:calc(100vh - 3rem);overflow:auto;font-size:.92rem;padding-right:.5rem}
+nav.toc p{font-family:"Chakra Petch",sans-serif;font-weight:600;margin:0 0 .6rem;color:var(--muted)}
+nav.toc ol{list-style:none;margin:0;padding:0}
+nav.toc li{margin:.15rem 0}
+nav.toc a{color:var(--ink);text-decoration:none;display:flex;gap:.6rem;padding:.2rem 0}
+nav.toc a span{color:var(--brass);font-family:"Chakra Petch",sans-serif;min-width:1.6rem}
+nav.toc a:hover{color:var(--brass)}
+main{min-width:0;max-width:46rem}
+h1,h2,h3,h4{font-family:"Chakra Petch","Barlow",sans-serif;line-height:1.2;color:var(--ink)}
+h1{font-size:clamp(2.2rem,5vw,3.4rem);font-weight:700;margin:0 0 1.2rem;letter-spacing:-.01em}
+h2{font-size:1.75rem;font-weight:600;margin:4rem 0 1rem;padding-top:1.2rem;border-top:2px solid var(--ink);display:flex;gap:.9rem;align-items:baseline}
+h2 .n{color:var(--brass);font-size:1.1rem}
+h3{font-size:1.25rem;font-weight:600;margin:2.4rem 0 .6rem}
+h4{font-size:1.02rem;font-weight:600;margin:1.6rem 0 .4rem;color:var(--muted)}
+p,ul,ol{margin:0 0 1rem}
+ul,ol{padding-left:1.3rem}
+li{margin:.3rem 0}
+strong{font-weight:600}
+.lede{font-size:1.2rem;line-height:1.55;color:var(--ink);max-width:40rem}
+.plate{position:relative;background:var(--plate);border:1px solid var(--rule);border-radius:6px 22px 6px 6px;padding:1.4rem 1.6rem 1.3rem;margin:2rem 0 1rem;display:grid;grid-template-columns:repeat(auto-fit,minmax(10rem,1fr));gap:1rem 2rem}
+.plate::before,.plate::after{content:"";position:absolute;width:9px;height:9px;border-radius:50%;background:radial-gradient(circle at 35% 35%,var(--paper),var(--rule) 70%);border:1px solid var(--rule)}
+.plate::before{top:10px;left:10px}.plate::after{bottom:10px;right:10px}
+.plate div{font-size:.95rem}
+.plate dt{color:var(--muted);font-size:.85rem;margin-bottom:.15rem}
+.plate dd{margin:0;font-family:"Chakra Petch",sans-serif;font-weight:600;font-size:1.02rem}
+.note{border-left:3px solid var(--brass);background:var(--brass-soft);padding:.9rem 1.1rem;margin:1.4rem 0;border-radius:0 6px 6px 0}
+.note.warn{border-left-color:var(--warn)}
+.note p:last-child{margin-bottom:0}
+.tbl{overflow-x:auto;margin:1.2rem 0 1.6rem;border:1px solid var(--rule);border-radius:6px}
+table{border-collapse:collapse;width:100%;font-size:.95rem;min-width:36rem}
+th,td{text-align:left;vertical-align:top;padding:.65rem .8rem;border-bottom:1px solid var(--rule)}
+th{font-family:"Chakra Petch",sans-serif;font-weight:600;background:var(--plate)}
+tr:last-child td{border-bottom:0}
+td:first-child{font-weight:600;white-space:nowrap}
+code{font-family:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;font-size:.86em;background:var(--code-bg);padding:.08em .35em;border-radius:3px;overflow-wrap:anywhere}
+pre{font-family:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;font-size:.84rem;line-height:1.5;background:var(--code-bg);border:1px solid var(--rule);border-radius:6px;padding:1rem 1.1rem;overflow-x:auto;margin:1rem 0 1.4rem}
+pre code{background:none;padding:0}
+pre.mermaid{background:var(--plate);text-align:center;font-family:"Barlow",sans-serif}
+.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(15rem,1fr));gap:1rem;margin:1.2rem 0}
+.cell{border:1px solid var(--rule);border-radius:6px;padding:1rem 1.1rem;background:transparent}
+.cell h4{margin-top:0;color:var(--ink)}
+.cell p:last-child,.cell ul:last-child{margin-bottom:0}
+.tag{display:inline-block;font-family:"Chakra Petch",sans-serif;font-size:.8rem;font-weight:600;padding:.05rem .5rem;border-radius:3px;border:1px solid currentColor;margin-right:.35rem}
+.tag.p0{color:var(--olive)}.tag.p1{color:var(--brass)}.tag.p2{color:var(--muted)}
+.src li{font-size:.92rem;overflow-wrap:anywhere}
+footer{margin-top:4rem;color:var(--muted);font-size:.9rem;border-top:1px solid var(--rule);padding-top:1rem}
+@media (max-width:900px){
+  .wrap{grid-template-columns:1fr;gap:1.5rem;padding:2rem 1.1rem 4rem}
+  nav.toc{position:static;max-height:none;border:1px solid var(--rule);border-radius:6px;padding:1rem}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+<nav class="toc" aria-label="Contents">
+  <p>Contents</p>
+  <ol>
+    <li><a href="#summary"><span>1</span>Summary</a></li>
+    <li><a href="#overview"><span>2</span>System overview</a></li>
+    <li><a href="#identity"><span>3</span>Agent NFT and wallet</a></li>
+    <li><a href="#skills"><span>4</span>Skill NFTs</a></li>
+    <li><a href="#security"><span>5</span>Skill security pipeline</a></li>
+    <li><a href="#runtime"><span>6</span>Agent runtime</a></li>
+    <li><a href="#discovery"><span>7</span>Discovery engine</a></li>
+    <li><a href="#execution"><span>8</span>Vaults and execution</a></li>
+    <li><a href="#billing"><span>9</span>Billing and self-funding</a></li>
+    <li><a href="#social"><span>10</span>Feedback and social layer</a></li>
+    <li><a href="#proofs"><span>11</span>Proofs and verifiability</a></li>
+    <li><a href="#economy"><span>12</span>Agent economy</a></li>
+    <li><a href="#cfo"><span>13</span>Onchain CFO layer</a></li>
+    <li><a href="#workflows"><span>14</span>Workflows</a></li>
+    <li><a href="#frontend"><span>15</span>Frontend</a></li>
+    <li><a href="#flows"><span>16</span>How it fits together</a></li>
+    <li><a href="#stack"><span>17</span>Tech stack</a></li>
+    <li><a href="#dual"><span>18</span>Monad and Solana split</a></li>
+    <li><a href="#demo"><span>19</span>Demo architecture</a></li>
+    <li><a href="#priority"><span>20</span>Build priority</a></li>
+    <li><a href="#risks"><span>21</span>Risks and open questions</a></li>
+    <li><a href="#sources"><span>22</span>Sources</a></li>
+  </ol>
+</nav>
+
+<main>
+<header>
+  <h1>Technical architecture report</h1>
+  <p class="lede">An autonomous financial management platform where each AI agent is an NFT you customize like a game character. Skill NFTs are robotic components that measurably improve the agent, and other people and agents watch, follow, and invest in the agents that perform.</p>
+  <dl class="plate">
+    <div><dt>Project</dt><dd>Name to be decided</dd></div>
+    <div><dt>Revision</dt><dd>1, September 23, 2026</dd></div>
+    <div><dt>Primary target</dt><dd>Monad Metropolis, Onchain Finance and Trading</dd></div>
+    <div><dt>Second target</dt><dd>Colosseum (Solana), separate codebase</dd></div>
+  </dl>
+</header>
+
+<h2 id="summary"><span class="n">1</span>Summary</h2>
+<p>The platform is six systems working together:</p>
+<ol>
+  <li><strong>Identity and ownership.</strong> Agent NFTs with their own wallets, and skill NFTs that are equipped by moving them into those wallets.</li>
+  <li><strong>Agent runtime.</strong> A slow LLM brain that researches, writes, and improves trading bots, and a fast bot that executes at block speed.</li>
+  <li><strong>Capital and execution.</strong> Hyperliquid-style agent vaults, an executor contract with hard limits, and a registry of approved protocols.</li>
+  <li><strong>Marketplace and social layer.</strong> Skill marketplace, build cards, watchers, deposits, and paid signal feeds that give owners fast feedback.</li>
+  <li><strong>Onchain CFO.</strong> Goals-based portfolios, debt management, light tax lot tracking, and workflows that run it all, with built-in and marketplace workflows.</li>
+  <li><strong>Economics.</strong> Each agent pays its own hosting and inference from its wallet, so the platform runs without the team funding it.</li>
+</ol>
+<p>The guiding rule across all of it: <strong>configuration and results are public, logic is private, and proofs connect the two.</strong></p>
+
+<h2 id="overview"><span class="n">2</span>System overview</h2>
+<p>Everything splits into a thin onchain layer that holds ownership, money, and proofs, and an offchain layer that holds private logic and does the thinking.</p>
+<pre class="mermaid">
+%%{init: {'theme':'neutral'}}%%
+flowchart TB
+  subgraph FE[Frontend]
+    CFG[Configure build]
+    MKT[Skill marketplace]
+    DIR[Agent directory and 3D gallery]
+    VLT[Vaults and leaderboard]
+  end
+  subgraph OC[Onchain layer]
+    AN[AgentNFT plus token-bound wallet]
+    SK[SkillNFT and SkillRegistry]
+    AV[AgentVault]
+    EX[Executor and ProtocolRegistry]
+    BL[Billing]
+    PR[Proof and reputation registry]
+  end
+  subgraph RT[Agent runtime, per agent]
+    BR[LLM brain]
+    SB[Build sandbox]
+    BOT[Bot runner]
+  end
+  subgraph PL[Platform services]
+    IDX[Indexer]
+    GW[LLM gateway and metering]
+    DS[Discovery data sources]
+    SEC[Skill audit pipeline]
+    KMS[Encrypted skill store and keys]
+  end
+  FE --> IDX
+  FE --> OC
+  BR --> SB --> BOT
+  BOT --> EX --> AV
+  BR --> GW
+  BR --> DS
+  KMS --> SB
+  SEC --> SK
+  IDX --> OC
+  GW --> BL
+  BOT --> PR
+</pre>
+<div class="cols">
+  <div class="cell"><h4>Onchain holds</h4><ul><li>Who owns which agent and skill</li><li>All user capital and fee splits</li><li>Hashes of skills and bot versions</li><li>Billing balances</li></ul></div>
+  <div class="cell"><h4>Offchain holds</h4><ul><li>Encrypted skill code and instructions</li><li>Agent reasoning and research</li><li>Bot source code</li><li>Market data and indexes</li></ul></div>
+</div>
+<h2 id="identity"><span class="n">3</span>Agent NFT and wallet</h2>
+<h3>What it is</h3>
+<p>Each agent is an ERC-721 token minted in a tier (base, medium, pro). The tier sets the number of skill slots, the default model budget, and the 3D base model. Every agent NFT gets an ERC-6551 token-bound account, which becomes the agent's wallet. Whoever holds the NFT controls the wallet, so selling the agent moves its skills, funds, and history in one transfer.</p>
+<h3>How it works on Monad</h3>
+<ul>
+  <li>The canonical Tokenbound ERC-6551 v3 stack is already live on Monad mainnet (chain 143) and testnet (chain 10143) at the standard addresses. The registry is <code>0x000000006551c19487814612e58FE06813775758</code>, and the standard <code>@tokenbound/sdk</code> works with only a config change.</li>
+  <li>Each agent is also registered in the <strong>ERC-8004 Identity Registry</strong>, which Monad supports with an official guide. The token URI points to an "agent card", which becomes the public build card. This makes agents discoverable by any ERC-8004-aware tool, not just ours.</li>
+  <li>The agent's signing key is never the NFT owner's key. The owner authorizes a platform-managed session key to act for the token-bound account, within limits set by the vault and executor (section 8).</li>
+</ul>
+<h3>How it works on Solana</h3>
+<p>Solana has a native equivalent. A Metaplex Core asset registered in the Metaplex Agent Registry gets an identity record plus a built-in PDA wallet called the Asset Signer. Execution is delegated to an offchain operator, which the owner can revoke at any time with <code>RevokeExecutionV1</code>. Metaplex's DAS API now indexes agent fields, including an <code>isAgent</code> filter, across Helius, Triton, QuickNode, and Alchemy.</p>
+<h4>Contract sketch (Monad)</h4>
+<pre><code>contract AgentNFT is ERC721 {
+  enum Tier { Base, Medium, Pro }
+  mapping(uint256 =&gt; Tier) public tierOf;
+  function mint(Tier tier) external payable returns (uint256 id);
+  function slotsOf(uint256 id) external view returns (uint8);
+  // on mint: createAccount() on the 6551 registry, register in ERC-8004
+}</code></pre>
+
+<h2 id="skills"><span class="n">4</span>Skill NFTs</h2>
+<h3>What they are</h3>
+<p>Skills are ERC-1155 tokens (one token ID per skill, with a capped supply for rarity). An agent has a skill equipped when its token-bound wallet holds that token. Unequipping moves it back to the owner, which is also how skills get resold.</p>
+<h3>Skill package format</h3>
+<p>A skill is a folder in the SKILL.md format used by Bankr, Hermes, Claude Code, and other agent tools: a <code>SKILL.md</code> with YAML frontmatter, plus optional tools, templates, and reference code. Using the common format means builders already know how to write them.</p>
+<pre><code>---
+name: kuru-market-maker
+version: 1.2.0
+type: strategy            # strategy (paid, private) or protocol (free, verified)
+unlocks_adapters: [kuru_clob]
+synergy_tags: [orderbook, fast-exec]
+---
+Instructions the agent follows when this skill is equipped...
+tools/        # MCP tools or scripts the agent can call
+reference/    # templates and reference bot code</code></pre>
+<h3>SkillRegistry (onchain)</h3>
+<p>One record per skill: publisher address, code hash, current version, price, supply, creator stake, verified-publisher flag, royalty share of performance fees, and the adapters it unlocks.</p>
+<h3>Storage and privacy</h3>
+<ul>
+  <li>Skill folders are encrypted at rest in object storage with a per-skill key held in a key management service.</li>
+  <li>Keys are only released to an agent's sandbox after the runtime confirms onchain that the agent's wallet holds the skill.</li>
+  <li>The owner never receives the plaintext. The LLM sees the instructions, but the owner has no chat channel to extract them (section 6).</li>
+</ul>
+<h3>Two skill types</h3>
+<div class="cols">
+  <div class="cell"><h4>Protocol skills</h4><p>Published by a protocol (for example an official Hedera or Kuru skill). Any price, usually free. Signed by a known publisher key, which shows a verified badge.</p></div>
+  <div class="cell"><h4>Strategy skills</h4><p>Published by independent developers. Paid, private, limited supply. Creator posts a stake that can be slashed. Earns a share of performance fees from agents that equip it.</p></div>
+</div>
+<h3>Synergies</h3>
+<p>A synergy table maps skill combinations to a bonus, such as a lending skill plus a perps skill unlocking a basis-trading tool. The runtime checks the equipped set and mounts the bonus tool when a combo is present. The table lives offchain for the hackathon and can move onchain later.</p>
+
+<h2 id="security"><span class="n">5</span>Skill security pipeline</h2>
+<p>Uploaded skill code runs next to user funds, so safety is layered. The audit step filters, and the runtime limits are the hard guarantees.</p>
+<ol>
+  <li><strong>Upload.</strong> Creator uploads the encrypted skill through the creator portal. The code hash is committed to the SkillRegistry.</li>
+  <li><strong>Audit agent.</strong> Static checks plus an LLM review flag key access attempts, hidden network calls, data exfiltration, obfuscated logic, and instructions that try to override platform rules.</li>
+  <li><strong>Stake.</strong> Paid skill creators lock collateral. For the hackathon, slashing is decided by an admin multisig.</li>
+  <li><strong>Listing.</strong> Skill appears in the marketplace with its audit status.</li>
+</ol>
+<h4>Runtime protections, always on</h4>
+<ul>
+  <li>Skills never see keys. Signing happens outside the sandbox.</li>
+  <li>Sandbox network egress goes through an allowlist proxy, so skills can't send data out.</li>
+  <li>Every transaction passes wallet policy checks (Privy's policy engine supports transfer limits, contract allowlists, recipient restrictions, and time windows) and then the onchain executor's limits.</li>
+  <li>A transaction screen checks for malicious contracts and unusual patterns before signing, following Bankr's security-layer approach.</li>
+</ul>
+
+<h2 id="runtime"><span class="n">6</span>Agent runtime</h2>
+<h3>Two loops</h3>
+<p>An LLM cannot react inside a 400ms block, so each agent is split in two.</p>
+<div class="cols">
+  <div class="cell"><h4>Slow loop: the brain</h4><p>Runs every few minutes to hours. Reads equipped skills, runs discovery, writes and edits bot code, backtests, and decides whether to deploy a new version.</p></div>
+  <div class="cell"><h4>Fast loop: the bot</h4><p>Plain compiled code (TypeScript or Rust) that watches blocks and fires trades through the executor. No LLM calls, so it is fast and nearly free to run.</p></div>
+</div>
+<pre class="mermaid">
+%%{init: {'theme':'neutral'}}%%
+flowchart LR
+  G[Owner goals, structured] --> B[Brain]
+  S[Equipped skills] --> B
+  D[Discovery data] --> B
+  B --> W[Write or edit bot code]
+  W --> T[Backtest on Monad fork]
+  T -->|beats current version| C[Commit version hash onchain]
+  T -->|worse| B
+  C --> R[Deploy to bot runner]
+  R --> X[Executor contract]
+  R -->|live metrics| B
+</pre>
+<h3>Components</h3>
+<ul>
+  <li><strong>Brain framework: Hermes Agent.</strong> Nous Research's open-source, MIT-licensed agent. It has persistent memory, a skills system, MCP support, scheduled tasks, and works with OpenRouter, OpenAI, Anthropic, or custom endpoints. Its built-in self-improvement loop matches the "agent gets better" story. Virtuals offers Hermes as one of its two hosted runtimes, which is a useful signal. We run one Hermes instance per agent, configured with our tools and the agent's decrypted skills.</li>
+  <li><strong>Build sandbox: E2B.</strong> Firecracker microVMs built for AI agents. Used for writing and testing code. Sessions cap at 1 hour on the free tier and 24 hours on the $150/month Pro plan, so E2B is for building and testing, not for 24/7 bots.</li>
+  <li><strong>Bot runner: persistent containers.</strong> Long-running bots live in small always-on containers (Fly Machines or a similar service). Each bot only gets the executor address and a session key with capped permissions.</li>
+  <li><strong>Fork testing: Foundry.</strong> Foundry v1.8 and later include first-class Monad execution. <code>anvil --fork-url https://rpc.monad.xyz</code> forks mainnet and automatically applies Monad's gas model and hardfork. Agents test against real protocol contracts with fake capital.</li>
+  <li><strong>Chain tools.</strong> Exposed to the brain as MCP tools. On Monad, <code>monad-agent-kit</code> prepares unsigned transactions and never exposes the private key to the agent. Our own adapters wrap each registry protocol.</li>
+</ul>
+<h3>User input: one-way goals</h3>
+<p>There is no chat. The owner sets goals in a structured form. A separate goal-translator model turns any free text into a strict config, so the brain never sees raw user text and can't be prompted to leak skills.</p>
+<pre><code>{
+  "goal": "grow",
+  "target_return_30d": 0.04,
+  "risk": "balanced",
+  "max_position_pct": 0.25,
+  "daily_loss_limit_pct": 0.03,
+  "allowed_assets": ["MON","USDC","WETH","aprMON"]
+}</code></pre>
+<h3>Output: activity feed and research notes</h3>
+<p>A separate narrator model reads only the agent's actions and outcomes, never its skills, and writes short plain-English entries like "Moved 40% of the vault to Morpho at 8.2%."</p>
+
+<h2 id="discovery"><span class="n">7</span>Discovery engine</h2>
+<p>Discovery copies how a careful human researcher works: scan wide, dig deep, be skeptical, test small, then step back and check the big picture.</p>
+<pre class="mermaid">
+%%{init: {'theme':'neutral'}}%%
+flowchart LR
+  A[Scan] --> B[Dive]
+  B --> C[Challenge]
+  C -->|survives| D[Test]
+  C -->|killed| TB[(Thesis Board)]
+  D --> E[Zoom out]
+  E --> A
+  B --> TB
+  D --> TB
+  E --> TB
+</pre>
+<div class="tbl"><table>
+<thead><tr><th>Stage</th><th>What happens</th><th>Model and cadence</th></tr></thead>
+<tbody>
+<tr><td>Scan</td><td>Pull candidate opportunities from market data and social sources into a shortlist.</td><td>Cheap model, roughly hourly</td></tr>
+<tr><td>Dive</td><td>Read docs, whitepaper, and deep dives; check onchain reality (TVL flows, depositor concentration, audits, exit liquidity). Each dive has a token and time budget.</td><td>Strong model, as budget allows</td></tr>
+<tr><td>Challenge</td><td>A separate skeptic model tries to kill the idea: where the yield comes from, what breaks it, whether we can exit at size.</td><td>Strong model, per candidate</td></tr>
+<tr><td>Test</td><td>Backtest on a Monad fork, then probation with small capital before scaling.</td><td>Sandbox, then live</td></tr>
+<tr><td>Zoom out</td><td>Review the whole portfolio against the owner's goals. Can close live positions.</td><td>Strong model, daily plus triggered by big events</td></tr>
+</tbody></table></div>
+<h3>Thesis Board</h3>
+<p>The agent's research memory. Theses expire, so the agent is never married to an idea.</p>
+<pre><code>{
+  "id": "th_0142",
+  "title": "aprMON loop via Morpho",
+  "status": "testing",   // watching | diving | rejected | testing | live | retired
+  "evidence_for": ["staking yield plus MEV share", "deep MON/aprMON liquidity"],
+  "evidence_against": ["depeg risk during market stress"],
+  "confidence": 0.62,
+  "expires_at": "2026-10-07",
+  "recheck_trigger": "aprMON discount above 1.5%"
+}</code></pre>
+<p>Owners see statuses and outcomes. Full reasoning stays private.</p>
+<h3>Data sources</h3>
+<div class="tbl"><table>
+<thead><tr><th>Source</th><th>Use</th><th>Status</th></tr></thead>
+<tbody>
+<tr><td>DefiLlama Yields API</td><td>Pool APYs (base and reward), 30-day mean, IL risk, TVL. Covers Monad. Refreshes about hourly.</td><td>Chosen</td></tr>
+<tr><td>Envio HyperSync</td><td>Fast historical and live event data on Monad mainnet for backtests and signals. Endpoint <code>https://monad.hypersync.xyz</code>.</td><td>Chosen</td></tr>
+<tr><td>Dune</td><td>Deeper analytics queries. Listed in Monad's infra directory.</td><td>Chosen</td></tr>
+<tr><td>Protocol APIs and SDKs</td><td>Rates, orderbooks, and positions from each registry protocol.</td><td>Per adapter</td></tr>
+<tr><td>X</td><td>Sentiment, launches, and narratives.</td><td>Open: API access and cost</td></tr>
+<tr><td>CoinGecko, Token Terminal</td><td>Prices, market data, protocol revenue.</td><td>Open: pick plan</td></tr>
+<tr><td>Web research API</td><td>Reading docs, blogs, and whitepapers.</td><td>Open: pick provider</td></tr>
+</tbody></table></div>
+<h3>Research skills</h3>
+<p>Skills can upgrade the loop itself: an analyst skill for better dives, a risk skill that sharpens the skeptic, or a data skill that adds a paid source. This gives the marketplace a category beyond trading strategies.</p>
+<h2 id="execution"><span class="n">8</span>Vaults and execution</h2>
+<h3>AgentVault</h3>
+<p>Modeled on Hyperliquid user vaults, where the leader keeps at least 5% of the vault, earns a 10% profit share, can trade depositor funds but never withdraw them, and depositors can leave at any time.</p>
+<ul>
+  <li>One vault per agent, with ERC-4626-style share accounting.</li>
+  <li>The agent owner seeds it and must keep a minimum stake (default 5%).</li>
+  <li>Performance fee charged only above a high-water mark, split between the owner and the creators of equipped skills. Depositors keep the rest.</li>
+  <li>Anyone can deposit. Withdrawals always available, with an optional short lock set at vault creation.</li>
+  <li>Every trade and position is public. Logic is not.</li>
+</ul>
+<pre><code>interface IAgentVault {
+  function deposit(uint256 assets, address receiver) external returns (uint256 shares);
+  function withdraw(uint256 shares) external returns (uint256 assets);
+  function execute(bytes32 adapterId, bytes calldata data) external; // executor only
+  function highWaterMark() external view returns (uint256);
+  function feeSplit() external view returns (uint16 owner, uint16 skillCreators);
+}</code></pre>
+<h3>Executor and ProtocolRegistry</h3>
+<ul>
+  <li>The bot's session key can only call the executor. The executor pulls from the vault and calls approved adapters.</li>
+  <li>Hard limits per call: max size, max slippage, per-day loss limit taken from the owner's goals.</li>
+  <li>Atomic strategies (arbs, backruns) revert if profit is below a minimum, so failed attempts only cost gas.</li>
+  <li>The ProtocolRegistry lists approved adapters. An adapter is only callable by an agent if its tier or an equipped skill unlocks it.</li>
+  <li>An owner or admin pause switch stops an agent instantly.</li>
+</ul>
+<h3>Launch protocol registry (Monad)</h3>
+<div class="tbl"><table>
+<thead><tr><th>Protocol</th><th>Category</th><th>Why</th></tr></thead>
+<tbody>
+<tr><td>Uniswap</td><td>Spot AMM</td><td>Largest liquidity hub on Monad; default swap venue</td></tr>
+<tr><td>Kuru</td><td>Spot CLOB</td><td>Fully onchain order book with an aggregator; best fit for fast skills</td></tr>
+<tr><td>Perpl</td><td>Perps CLOB</td><td>Fully onchain perps order book, launched February 2026</td></tr>
+<tr><td>Morpho, Curvance</td><td>Lending</td><td>The two lending anchors of Monad TVL</td></tr>
+<tr><td>Aave</td><td>Lending</td><td>Live on Monad since July 2026 with major stablecoins and ETH/BTC assets</td></tr>
+<tr><td>aPriori, Kintsu</td><td>Liquid staking</td><td>Yield legs (aprMON includes an MEV share)</td></tr>
+</tbody></table></div>
+<h3>Signing</h3>
+<p>Privy server wallets hold the session keys. Privy supports Monad mainnet and testnet with gas sponsorship, supports Solana, and enforces policies at the infrastructure level rather than relying on the agent to behave. Privy is also subsidizing Monad testnet usage for builders.</p>
+
+<h2 id="billing"><span class="n">9</span>Billing and self-funding</h2>
+<p>Borrowed from Virtuals Console, where hosting is charged monthly from the agent wallet, inference is pay per use, and the agent may be paused when the wallet runs dry.</p>
+<ul>
+  <li><strong>What gets metered:</strong> LLM tokens, sandbox minutes, bot runner uptime, and paid data calls.</li>
+  <li><strong>LLM gateway:</strong> our own OpenAI-compatible proxy in front of a model router. It tags every call with an agent ID, applies the price plus markup, and enforces per-agent budgets.</li>
+  <li><strong>Billing contract:</strong> the agent wallet approves an allowance. The metering service settles debits in batches. At zero balance the runtime pauses the agent.</li>
+  <li><strong>Auto top-up:</strong> owners can let vault profits refill the billing balance, so a profitable agent funds itself.</li>
+  <li><strong>Platform revenue:</strong> markup on usage, mint fees, primary skill sales, and marketplace royalties. This covers hosting so the platform runs without the team paying for it.</li>
+</ul>
+
+<h2 id="social"><span class="n">10</span>Feedback and social layer</h2>
+<p>Money is the long-term signal but it moves too slowly to keep owners engaged. The fast signal is <strong>demand</strong>: other people and other agents choosing your agent, the way views work for a creator.</p>
+<div class="tbl"><table>
+<thead><tr><th>Signal</th><th>How it's recorded</th><th>Anti-gaming rule</th></tr></thead>
+<tbody>
+<tr><td>Deposits</td><td>Vault deposit events</td><td>Only counts after a minimum hold period</td></tr>
+<tr><td>Watchers</td><td>Onchain follow event from a wallet or an agent's token-bound account</td><td>Human watchers must hold an agent or have deposited</td></tr>
+<tr><td>Signal buyers</td><td>x402 payments for real-time feeds</td><td>Payments from wallets sharing a funding source are filtered</td></tr>
+<tr><td>Build copies</td><td>Skill purchases matching a public build</td><td>Self-purchases excluded</td></tr>
+</tbody></table></div>
+<p>The gaming risk is real: an audit of Virtuals' revenue leaderboard found agents looping purchases through shell wallets, including four of the top eight.</p>
+<h3>Following and copying</h3>
+<ul>
+  <li><strong>Follow is view-only.</strong> Free, shows the agent's trades and build card.</li>
+  <li><strong>Signal feed.</strong> Every agent publishes trades after they settle. Delayed feed is free.</li>
+  <li><strong>Real-time and auto-copy.</strong> Paid per call via x402. Published only after settlement so followers can't front-run.</li>
+</ul>
+<h3>Build cards</h3>
+<p>Public profile of an agent: 3D model, tier, equipped skills, goal profile, verified stats, evolution timeline, and demand counters. Served as the ERC-8004 agent card.</p>
+<pre><code>{
+  "agent": "eip155:143:0xAgentNFT/7",
+  "tier": "base",
+  "skills": ["kuru-market-maker@1.2.0", "risk-shield@0.4.1"],
+  "risk": "balanced",
+  "stats": { "return_30d": 0.031, "max_drawdown": 0.042, "win_rate": 0.58 },
+  "bot_version": "0x9f3a...c21e",
+  "demand": { "watchers": 41, "depositors": 6, "signal_buyers": 2 }
+}</code></pre>
+<h3>Instant feedback on builds</h3>
+<p>When an owner changes a build, the runtime runs a quick backtest on a fork and shows the new build against the old one before deploying. This is the "hit publish" moment in the loop.</p>
+
+<h2 id="proofs"><span class="n">11</span>Proofs and verifiability</h2>
+<p>Anyone can verify that a build card is real without seeing any code.</p>
+<ol>
+  <li>Skill code hashes are committed at upload. Bot version hashes are committed at every deploy.</li>
+  <li>The runtime signs EIP-712 attestations such as "agent 7 ran bot version H with skills A and B and produced these trades."</li>
+  <li>Attestations and outcomes are posted to the ERC-8004 Reputation and Validation registries, which are designed for exactly this kind of track record and third-party validation.</li>
+  <li>Later: run the runtime in a TEE so attestations are hardware-backed instead of signed by us.</li>
+</ol>
+
+<h2 id="economy"><span class="n">12</span>Agent economy</h2>
+<ul>
+  <li><strong>Per-call payments: x402.</strong> Monad runs an official x402 facilitator on testnet and mainnet, and Monad Foundation joined the x402 Foundation. Note the version detail: the Monad facilitator only supports x402 v2 and up, and for the "upto" scheme use <code>@x402/evm</code> 2.12.0, since 2.9 to 2.11 point to a proxy that isn't deployed on Monad.</li>
+  <li><strong>On Solana:</strong> x402 supports Metaplex Core agents, paying from the agent's PDA wallet.</li>
+  <li><strong>Escrowed jobs:</strong> for bigger services, an escrow contract following ERC-8183, the standard Virtuals' ACP implements. One comparison lists ACP's networks as Base, Ethereum, Polygon, Arbitrum, and BNB Chain, so on Monad we deploy our own compatible escrow.</li>
+  <li><strong>Demo:</strong> the five agents buy signals and services from each other, which also creates visible demand on build cards.</li>
+</ul>
+
+<h2 id="cfo"><span class="n">13</span>Onchain CFO layer</h2>
+<p>The agent is positioned as an onchain CFO. It does not stop at finding a better yield. It understands what each dollar is for, builds a portfolio around the owner's goals, watches it continuously, rebalances as things change, and manages debt as carefully as assets. Meta's Muse is a useful reference for the feel: it turns long-term goals into action plans, works in the background and checks back in when done, and gives users more guidance than a blank-canvas chatbot. We apply the same idea to onchain money.</p>
+<h3>Goals engine</h3>
+<p>The single goals form becomes a list of goals. Each goal has an amount, a horizon, a priority, and a risk profile, and each gets its own bucket inside the agent's wallet. Short-term buckets sit in low-risk stablecoin lending, while long-term buckets can take more market exposure. The zoom-out stage of discovery watches every bucket and rebalances when a bucket drifts past its threshold or when a goal changes.</p>
+<pre><code>{
+  "goals": [
+    { "name": "Emergency fund", "target": 5000, "horizon": "short",  "risk": "conservative", "priority": 1 },
+    { "name": "House deposit",  "target": 40000, "horizon": "medium", "risk": "balanced", "deadline": "2029-06" },
+    { "name": "Long-term growth","target": null, "horizon": "long",   "risk": "aggressive" }
+  ],
+  "rebalance": { "drift_threshold_pct": 5, "min_interval_hours": 24 }
+}</code></pre>
+<h3>Liability manager</h3>
+<p>Onchain debt is managed as actively as assets. The agent monitors loans on Aave, Morpho, and Curvance, tracks health factors so positions never get close to liquidation, refinances debt to a cheaper market when the rate gap beats the cost of moving, and repays early when idle cash earns less than the loan costs. This is the onchain version of mortgage prepayment and refinancing logic, and it is fully executable.</p>
+<p>Offchain liabilities such as mortgages and credit cards live in banks. Reading them requires a bank data aggregator, and acting on them requires applications and identity checks an agent cannot do on its own. These stay out of the hackathon build and can come later as read-only recommendations.</p>
+<h3>Tax lots (kept light)</h3>
+<p>The agent keeps a simple cost-basis ledger of every lot it buys in the owner's own wallet. The dashboard shows unrealized gains and losses per position, the agent can flag harvesting opportunities for the owner to approve, and the owner can export a lot report. Harvesting only applies to the owner's own capital, not pooled vaults, since depositors own vault shares rather than the underlying trades. Tax rules vary by country, so the output is a report, not advice.</p>
+<h3>Owner capital and public vaults</h3>
+<p>Goals, liabilities, and tax lots apply to the owner's own capital in the agent's wallet. The public vault is a separate strategy that depositors can join. One agent can run both, with the executor keeping the two balances and their limits separate.</p>
+
+<h2 id="workflows"><span class="n">14</span>Workflows</h2>
+<h3>Skills versus workflows</h3>
+<p>A skill is a capability: something the agent knows how to do, like routing a loan or trading on an order book. A workflow is a playbook: when to act, in what order, under which conditions, and whether the owner needs to approve. Skills are the parts, and workflows are the routines that put them to work.</p>
+<h3>How a workflow is built</h3>
+<p>A workflow is a declarative spec with a trigger, conditions, steps, guardrails, and an approval policy. Steps call skills and tools, and can include an LLM step when judgment is needed. A workflow runner on the platform's job queue executes specs deterministically, so routine management is cheap and predictable and only uses the LLM where it adds value. A durable workflow engine such as Temporal or Inngest is an option if long-running retries become a problem.</p>
+<pre><code>name: debt-guardian
+requires_skills: [lending-router]
+trigger:
+  type: condition
+  check: health_factor &lt; 1.6
+  poll: every_block
+steps:
+  - if: idle_stable_balance &gt; repay_needed
+    do: repay(amount: repay_needed)
+  - else:
+    do: add_collateral(from_bucket: "long-term growth", max_pct: 10)
+guardrails:
+  max_action_usd: 2000
+approval:
+  mode: notify          # auto | notify | require_approval
+  require_approval_above_usd: 2000</code></pre>
+<h3>Approvals and check-ins</h3>
+<p>Workflows can act automatically, act and notify, or propose and wait for approval. Proposals appear as structured cards with Approve and Reject buttons, written by the narrator model from the proposed action alone. This keeps the owner in control without opening a chat channel that could leak skills.</p>
+<h3>Built-in CFO workflows</h3>
+<p>Every tier ships with a core set so the agent is useful from day one:</p>
+<div class="tbl"><table>
+<thead><tr><th>Workflow</th><th>What it does</th><th>Default approval</th></tr></thead>
+<tbody>
+<tr><td>Goal planner</td><td>Turns goals into buckets and a starting allocation</td><td>Require approval</td></tr>
+<tr><td>Rebalancer</td><td>Restores bucket targets when drift passes the threshold</td><td>Notify</td></tr>
+<tr><td>Idle cash sweep</td><td>Moves idle stablecoins into the best approved lending rate</td><td>Auto</td></tr>
+<tr><td>Debt guardian</td><td>Protects health factor by repaying or adding collateral</td><td>Auto, notify</td></tr>
+<tr><td>Debt refinancer</td><td>Moves a loan to a cheaper market when the saving beats the cost</td><td>Require approval</td></tr>
+<tr><td>Risk sentinel</td><td>De-risks on depegs, exploits, or sharp drawdowns</td><td>Auto, notify</td></tr>
+<tr><td>Recurring buys</td><td>Scheduled buys into chosen assets or buckets</td><td>Auto</td></tr>
+<tr><td>Tax lot tracker</td><td>Records lots, flags harvest opportunities, exports reports</td><td>Require approval</td></tr>
+<tr><td>Monthly CFO report</td><td>Net worth, goal progress, liabilities, fees paid</td><td>Auto</td></tr>
+</tbody></table></div>
+<h3>Workflows on the marketplace</h3>
+<p>Workflows are a third marketplace item alongside agents and skills, sold as NFTs in the same way. A workflow lists the skills it requires, and the marketplace shows whether the buyer's agent can run it. Creators choose whether the workflow's steps are visible, like a public recipe, or private like a strategy skill. Owners can also build their own workflows from templates in a simple builder.</p>
+
+<h2 id="frontend"><span class="n">15</span>Frontend</h2>
+<div class="tbl"><table>
+<thead><tr><th>Page</th><th>What it does</th></tr></thead>
+<tbody>
+<tr><td>Configure</td><td>3D agent with skill slots, skill inventory, stat sheet with preview deltas, synergy box, multi-goal controls, backtest and deploy buttons</td></tr>
+<tr><td>Marketplace</td><td>Browse and buy skills; filter by type, rarity, verified publisher, performance; creator royalty info</td></tr>
+<tr><td>Agent gallery</td><td>Browse agents as 3D models with build cards underneath; follow and watch</td></tr>
+<tr><td>Agent profile</td><td>Build card, evolution timeline, Thesis Board statuses, activity feed, vault stats, deposit button, signal feed</td></tr>
+<tr><td>Vaults and leaderboard</td><td>Rank agents by return, drawdown, TVL, and demand; seasonal leagues by tier</td></tr>
+<tr><td>CFO dashboard</td><td>Net worth, goal buckets and progress, liabilities with health factors, tax lot summary, pending approvals</td></tr>
+<tr><td>Workflows</td><td>Installed workflows with triggers and approval modes, a template-based builder, and workflow listings in the marketplace</td></tr>
+<tr><td>Creator portal</td><td>Upload skills and workflows, see audit status, set price and supply, post stake, view earnings</td></tr>
+</tbody></table></div>
+<p>Risk and drawdown are shown as clearly as returns on every page. That is what the Design and Craft criterion scores.</p>
+<h2 id="flows"><span class="n">16</span>How it fits together</h2>
+<h3>Mint and equip</h3>
+<ol>
+  <li>User mints an AgentNFT. The mint creates its token-bound wallet and registers it in ERC-8004.</li>
+  <li>User buys skill NFTs and drags them onto slots. Each equip is a transfer into the agent's wallet.</li>
+  <li>The indexer sees the transfer. The runtime releases the skill keys to that agent's sandbox.</li>
+  <li>User sets goals, funds the billing balance, seeds the vault, and presses deploy.</li>
+</ol>
+<h3>One agent cycle</h3>
+<pre class="mermaid">
+%%{init: {'theme':'neutral'}}%%
+sequenceDiagram
+  participant Brain
+  participant Data as Discovery data
+  participant Sandbox
+  participant Chain as Monad
+  participant Bot
+  Brain->>Data: Scan and dive
+  Brain->>Brain: Challenge, update Thesis Board
+  Brain->>Sandbox: Write new bot version
+  Sandbox->>Sandbox: Backtest on mainnet fork
+  Sandbox-->>Brain: Metrics vs current version
+  Brain->>Chain: Commit version hash
+  Brain->>Bot: Deploy new version
+  Bot->>Chain: Trade through Executor and Vault
+  Chain-->>Brain: Fills and PnL
+  Brain->>Chain: Post signed attestation
+</pre>
+<h3>Deposit and fees</h3>
+<ol>
+  <li>A depositor finds an agent in the gallery and deposits into its vault.</li>
+  <li>The bot trades vault funds through the executor.</li>
+  <li>On withdrawal or fee settlement, profits above the high-water mark are split: depositor, owner, and skill creators.</li>
+  <li>If enabled, part of the owner's share refills the agent's billing balance.</li>
+</ol>
+<h3>Skill upload</h3>
+<ol>
+  <li>Creator uploads an encrypted skill in the creator portal and sets price, supply, and royalty.</li>
+  <li>The code hash is committed. The audit agent reviews it.</li>
+  <li>Paid skill creators post a stake. The skill is listed.</li>
+</ol>
+<h3>Signal purchase</h3>
+<ol>
+  <li>Agent B's discovery scans the Agent Directory and finds Agent A's build card.</li>
+  <li>Agent B follows Agent A (onchain event, counts as a watcher).</li>
+  <li>Agent B pays per call via x402 for A's real-time post-trade feed.</li>
+  <li>Agent A's build card shows a new signal buyer.</li>
+</ol>
+
+<h2 id="stack"><span class="n">17</span>Tech stack</h2>
+<div class="tbl"><table>
+<thead><tr><th>Layer</th><th>Monad build</th><th>Solana build</th></tr></thead>
+<tbody>
+<tr><td>Contracts</td><td>Solidity, Foundry v1.8+ with Monad execution, OpenZeppelin</td><td>Rust with Anchor, Metaplex Core</td></tr>
+<tr><td>Agent identity and wallet</td><td>ERC-721 plus canonical ERC-6551 (Tokenbound v3), ERC-8004 registries</td><td>Metaplex Core asset, Agent Registry, Asset Signer PDA, execution delegate</td></tr>
+<tr><td>Skills</td><td>ERC-1155 plus SkillRegistry</td><td>Core assets held by the agent's PDA, plus a registry program</td></tr>
+<tr><td>Key management</td><td>Privy server wallets with policies</td><td>Privy server wallets with policies</td></tr>
+<tr><td>Agent brain</td><td colspan="2">Hermes Agent (Python), one instance per agent, models via our LLM gateway</td></tr>
+<tr><td>Chain tools</td><td>monad-agent-kit plus our own MCP adapters</td><td>Solana Agent Kit (60+ actions incl. Jupiter, Drift, Orca, Meteora); Bankr optional</td></tr>
+<tr><td>Workflow runner</td><td colspan="2">Declarative workflow specs executed on the job queue; Temporal or Inngest if durability is needed</td></tr>
+<tr><td>Build sandbox</td><td colspan="2">E2B microVMs</td></tr>
+<tr><td>Bot runner</td><td colspan="2">Persistent containers (Fly Machines or similar)</td></tr>
+<tr><td>Fork testing</td><td>anvil fork of Monad mainnet</td><td>Local validator with cloned mainnet accounts</td></tr>
+<tr><td>Indexing</td><td>Envio HyperIndex and HyperSync</td><td>Helius or another DAS provider</td></tr>
+<tr><td>Market data</td><td colspan="2">DefiLlama, Dune, protocol APIs; X, CoinGecko, Token Terminal to be decided</td></tr>
+<tr><td>Payments</td><td>x402 via Monad facilitator (v2+)</td><td>x402 with Metaplex Core agents</td></tr>
+<tr><td>Backend</td><td colspan="2">TypeScript (Node) services, Postgres, Redis job queue, object storage for encrypted skills, cloud KMS</td></tr>
+<tr><td>Frontend</td><td>Next.js, React, wagmi and viem, Privy auth, React Three Fiber for 3D (GLB models)</td><td>Same app, Solana wallet adapter instead of wagmi</td></tr>
+</tbody></table></div>
+<div class="note"><p>Enso is worth a look before writing every adapter by hand. It maps onchain interactions to a shared routing engine and is listed in Monad's infra directory. If it covers the registry protocols, it could replace several adapters.</p></div>
+
+<h2 id="dual"><span class="n">18</span>Monad and Solana split</h2>
+<p>Two repos, one design. Build the core chain-agnostic from the start with a thin adapter per chain.</p>
+<div class="cols">
+  <div class="cell"><h4>Shared core (copy between repos)</h4><ul><li>Agent runtime and Hermes config</li><li>Skill format, encryption, audit agent</li><li>Discovery engine and Thesis Board</li><li>LLM gateway and metering</li><li>Frontend components and 3D assets</li></ul></div>
+  <div class="cell"><h4>Chain layer (rewrite per chain)</h4><ul><li>Agent, skill, vault, executor, billing contracts</li><li>Wallet and identity bindings</li><li>Protocol adapters</li><li>Indexer config</li><li>Payment settlement</li></ul></div>
+</div>
+<p>Keep the core behind interfaces like <code>ChainAdapter.getEquippedSkills(agentId)</code>, <code>ChainAdapter.execute(agentId, intent)</code>, and <code>ChainAdapter.commitVersion(agentId, hash)</code> so each repo only swaps the implementation.</p>
+<div class="note"><p>Colosseum allows pre-existing code if all prior development is disclosed. Disclose the sister build on both submissions, and confirm Monad's rules. On Solana, expect judges to compare directly against ClawPump.</p></div>
+
+<h2 id="demo"><span class="n">19</span>Demo architecture</h2>
+<ul>
+  <li><strong>Five agents</strong> with different tiers and builds, released with small real capital on Monad mainnet.</li>
+  <li><strong>Mainnet fork</strong> for the sandbox testing loop and for generating extra simulated volume.</li>
+  <li><strong>Seeded marketplace</strong> with both protocol skills and strategy skills.</li>
+  <li><strong>Live moments for the video:</strong> equip a skill and watch the stat sheet change; watch an agent reject a thesis with a reason; watch a new bot version deploy; watch one agent buy another's signal and the demand counter tick up.</li>
+</ul>
+<h4>Mapping to the judging criteria</h4>
+<div class="tbl"><table>
+<thead><tr><th>Criterion</th><th>Weight</th><th>What covers it</th></tr></thead>
+<tbody>
+<tr><td>Technical execution</td><td>20%</td><td>Real vault settlement, executor limits, live trades on Monad, onchain proofs</td></tr>
+<tr><td>Design and craft</td><td>20%</td><td>Configure page, clear risk display, readable activity feed</td></tr>
+<tr><td>Originality</td><td>15%</td><td>Private skills as tradable strategy IP, priced by verified performance, with fast execution</td></tr>
+<tr><td>Founder and market readiness</td><td>25%</td><td>Needs a named first user. Still open.</td></tr>
+<tr><td>Traction and path forward</td><td>20%</td><td>Demo trade counts, simulated volume, a concrete TVL target and launch plan</td></tr>
+</tbody></table></div>
+
+<h2 id="priority"><span class="n">20</span>Build priority</h2>
+<p>Ordered by what the demo cannot work without. No time estimates.</p>
+<h4><span class="tag p0">P0</span>Must have</h4>
+<ul>
+  <li>AgentNFT with 6551 wallet, SkillNFT, equip by transfer</li>
+  <li>AgentVault and Executor with limits, two or three adapters (Uniswap, Kuru or Morpho)</li>
+  <li>Runtime: Hermes brain, E2B sandbox, fork backtests, bot runner, version commits</li>
+  <li>Discovery: scan and dive with DefiLlama and HyperSync, basic Thesis Board</li>
+  <li>Configure page, agent profile, marketplace</li>
+  <li>Encrypted skill storage with onchain ownership checks</li>
+  <li>Goals engine with buckets, workflow runner, and core workflows: goal planner, rebalancer, idle cash sweep, debt guardian</li>
+</ul>
+<h4><span class="tag p1">P1</span>Should have</h4>
+<ul>
+  <li>Billing contract and LLM gateway metering</li>
+  <li>Watchers, deposits, and signal feed with x402</li>
+  <li>Build cards via ERC-8004, signed attestations</li>
+  <li>Audit agent and creator portal</li>
+  <li>Synergies, leaderboard, 3D gallery</li>
+  <li>CFO dashboard, approval cards, debt refinancer, risk sentinel, tax lot tracker, monthly report</li>
+  <li>Workflows as marketplace items</li>
+</ul>
+<h4><span class="tag p2">P2</span>Could have</h4>
+<ul>
+  <li>Challenge and zoom-out stages at full depth, X and Token Terminal sources</li>
+  <li>Auto-copy trades, ERC-8183 escrow jobs</li>
+  <li>Creator stake slashing, seasons</li>
+  <li>TEE runtime</li>
+  <li>Custom workflow builder, offchain liabilities as read-only recommendations</li>
+</ul>
+
+<h2 id="risks"><span class="n">21</span>Risks and open questions</h2>
+<div class="tbl"><table>
+<thead><tr><th>Risk</th><th>Mitigation</th></tr></thead>
+<tbody>
+<tr><td>Skill leakage through the LLM</td><td>No chat, goal translator, narrator model, egress allowlist</td></tr>
+<tr><td>Malicious skills</td><td>Audit agent, no key access, policy engine plus executor limits, stake</td></tr>
+<tr><td>MEV profits unlikely against professional searchers</td><td>Present MEV as a skill the agent visibly improves at, not the headline number</td></tr>
+<tr><td>Thin testnet protocol coverage</td><td>Small mainnet capital plus mainnet fork</td></tr>
+<tr><td>E2B session caps</td><td>E2B only for building and testing; bots on persistent containers</td></tr>
+<tr><td>x402 version mismatch on Monad</td><td>Use x402 v2 and <code>@x402/evm</code> 2.12.0</td></tr>
+<tr><td>Users trusting the platform with keys and skill code</td><td>Policy-limited session keys, onchain limits, TEE later</td></tr>
+<tr><td>Pooled vaults may carry regulatory questions</td><td>Worth checking before any public launch beyond the hackathon</td></tr>
+</tbody></table></div>
+<h4>Open decisions</h4>
+<ul>
+  <li>Project name and first named user</li>
+  <li>X data access, CoinGecko and Token Terminal plans, web research provider</li>
+  <li>Enso versus hand-built adapters; monad-agent-kit versus Coinbase AgentKit</li>
+  <li>Confirm ACP chain support directly</li>
+  <li>Exact ERC-8004 registry addresses on Monad</li>
+</ul>
+
+<h2 id="sources"><span class="n">22</span>Sources</h2>
+<ul class="src">
+  <li><a href="https://docs.monad.xyz/guides/erc-6551">Monad docs: ERC-6551 on Monad</a></li>
+  <li><a href="https://docs.monad.xyz/guides/erc-8004">Monad docs: ERC-8004 on Monad</a></li>
+  <li><a href="https://docs.monad.xyz/guides/x402">Monad docs: x402 with Monad facilitator</a></li>
+  <li><a href="https://blog.monad.xyz/blog/monad-foundation-joins-x402-foundation">Monad blog: Monad Foundation joins x402 Foundation</a></li>
+  <li><a href="https://docs.monad.xyz/tooling-and-infra/toolkits/foundry">Monad docs: Foundry</a></li>
+  <li><a href="https://docs.envio.dev/docs/HyperIndex/monad">Envio: Monad indexing</a></li>
+  <li><a href="https://github.com/stakeme-team/monad-agent-kit">monad-agent-kit</a></li>
+  <li><a href="https://docs.privy.io/wallets/gas-and-asset-management/gas/overview">Privy: gas sponsorship networks</a></li>
+  <li><a href="https://www.privy.io/agent-wallets">Privy: agent wallets</a></li>
+  <li><a href="https://github.com/NousResearch/hermes-agent">Hermes Agent</a></li>
+  <li><a href="https://betterstack.com/community/comparisons/best-sandbox-runners/">Better Stack: sandbox runner comparison (E2B)</a></li>
+  <li><a href="https://www.metaplex.com/docs/agents/what-is-an-agent">Metaplex: agents on Solana</a></li>
+  <li><a href="https://solanacompass.com/news/metaplex-das-now-indexes-on-chain-ai-agents-across-all-major-solana-rpc-providers">Solana Compass: DAS indexes agents</a></li>
+  <li><a href="https://github.com/sendaifun/solana-agent-kit">Solana Agent Kit</a></li>
+  <li><a href="https://hyperliquid.gitbook.io/hyperliquid-docs/hypercore/vaults/for-vault-leaders-legacy">Hyperliquid docs: vault leaders</a></li>
+  <li><a href="https://whitepaper.virtuals.io/about-virtuals/ai-agent-identity-and-banking-layer/agent-console.md">Virtuals: Agent Console</a></li>
+  <li><a href="https://docs.bankr.bot/skills/overview">Bankr docs: skills</a></li>
+  <li><a href="https://dev.to/meshledger/agent-payment-protocols-compared-x402-vs-acp-vs-escrow-based-settlement-56l4">x402 vs ACP comparison</a></li>
+  <li><a href="https://www.monad.xyz/blog/aave-live-on-monad">Monad blog: Aave live on Monad</a></li>
+  <li><a href="https://blog.monad.xyz/blog/monad-home-high-frequency-finance">Monad blog: Kuru and Perpl</a></li>
+  <li><a href="https://about.fb.com/news/2026/09/introducing-muse-personal-ai-agent/">Meta: Introducing Muse</a></li>
+  <li><a href="https://colosseum.com/hackathon">Colosseum: hackathon rules</a></li>
+</ul>
+
+<footer>Revision 2. Draft for review. Items marked open need a decision before build.</footer>
+</main>
+</div>
+</body>
+</html>
