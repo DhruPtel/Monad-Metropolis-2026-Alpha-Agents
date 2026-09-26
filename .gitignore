@@ -1,0 +1,37 @@
+# Secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+keystore/
+
+# Node
+node_modules/
+.next/
+dist/
+build/
+
+# Foundry
+out/
+cache/
+broadcast/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# Agent state
+.hermes/
+agent-state/
+
+# Third-party clones used for research
+clones/
+scratch/
+
+# OS and editor
+.DS_Store
+.vscode/
+.idea/
+*.log
