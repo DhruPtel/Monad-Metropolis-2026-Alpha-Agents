@@ -103,6 +103,21 @@ Configuration is loaded by `@alpha-agents/config` (`packages/config`). A service
 
 **`.env.example`** lists every variable the full build needs, grouped by service, with whether it is secret, which environments read it, and the unit that first uses it. It is generated from the registry in `packages/config/src/variables.ts`: edit the registry, then run `pnpm run env:example`. A test fails if the two drift. Copy it to `.env` and fill in only what the units you run need.
 
+## Shared packages
+
+Every service imports its rules from one place under `packages/`:
+
+| Package                    | What it defines                                                                                                                                                                    |
+| -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `@alpha-agents/config`     | Environments, the config loader and the mainnet signing guard                                                                                                                      |
+| `@alpha-agents/domain`     | Amounts (bigints with the scale in the type), IDs, tiers, accounts, assets, the canonical mode model, the tool registry, typed intents, reason codes, records and the address book |
+| `@alpha-agents/policy`     | The launch hard limits and the offchain pre-checks; the Executor contract stays the final authority                                                                                |
+| `@alpha-agents/skills`     | The skill.json manifest schema and its validator against the tool registry                                                                                                         |
+| `@alpha-agents/workflows`  | The workflow spec schema and validator                                                                                                                                             |
+| `@alpha-agents/accounting` | Journal, valuation and credits types                                                                                                                                               |
+
+The address book (`packages/domain/src/address-book.ts`) lists every external contract the plan names, per environment, with its source, a status and any open question. An entry is `verified` only if it had code on the local fork at the pinned block; `pnpm test:fork` re-checks every verified entry, and `signingAddress` refuses anything unverified. The policy reason codes and their messages are in `packages/domain/src/reasons.ts`, and the limits table is in `packages/policy/README.md`.
+
 ## Secret scanning
 
 ```sh
