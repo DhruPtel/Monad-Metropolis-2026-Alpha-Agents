@@ -1,0 +1,16 @@
+{
+  "name": "@alpha-agents/config",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Environment IDs and the validated, secret-safe configuration loader for every service.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p ."
+  },
+  "dependencies": {
+    "zod": "4.6.5"
+  }
+}

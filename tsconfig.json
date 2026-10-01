@@ -4,7 +4,9 @@
     "noEmit": true,
     "allowJs": true,
     "checkJs": true,
-    "types": ["node"]
+    "types": ["node"],
+    "allowImportingTsExtensions": true,
+    "erasableSyntaxOnly": true
   },
   "include": ["*.ts", "*.js", "scripts/**/*.js"]
 }
