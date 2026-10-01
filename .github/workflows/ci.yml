@@ -117,7 +117,7 @@ jobs:
         run: pnpm --filter @alpha-agents/web build
 
       - name: Component tests
-        run: pnpm exec vitest run --project web
+        run: pnpm exec vitest run --project ui
 
       - name: Screenshot and accessibility tests
         working-directory: apps/web

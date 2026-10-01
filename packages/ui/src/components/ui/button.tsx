@@ -2,7 +2,7 @@ import { type VariantProps, cva } from "class-variance-authority";
 import { LoaderCircle } from "lucide-react";
 import { Slot } from "radix-ui";
 import type { ComponentProps } from "react";
-import { cn } from "@/lib/utils";
+import { cn } from "../../lib/utils";
 
 const buttonVariants = cva(
   [

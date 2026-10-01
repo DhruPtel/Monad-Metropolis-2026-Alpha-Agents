@@ -1,0 +1,41 @@
+{
+  "name": "@alpha-agents/ui",
+  "version": "0.0.0",
+  "private": true,
+  "description": "The Alpha Agents design system: tokens, base components and product components.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./styles.css": "./src/styles.css"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p ."
+  },
+  "dependencies": {
+    "@alpha-agents/domain": "workspace:*",
+    "class-variance-authority": "0.7.1",
+    "cn": "0.4.0",
+    "lucide-react": "1.49.0",
+    "radix-ui": "1.6.7",
+    "shadcn": "4.21.1",
+    "sonner": "2.0.8",
+    "tailwindcss": "4.3.3",
+    "tw-animate-css": "1.4.0"
+  },
+  "peerDependencies": {
+    "react": "19.3.0",
+    "react-dom": "19.3.0"
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "7.0.1",
+    "@testing-library/react": "16.3.3",
+    "@testing-library/user-event": "14.6.7",
+    "@types/node": "22.20.4",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@vitejs/plugin-react": "6.1.1",
+    "jsdom": "30.1.1",
+    "react": "19.3.0",
+    "react-dom": "19.3.0"
+  }
+}

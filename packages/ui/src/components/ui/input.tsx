@@ -1,5 +1,5 @@
 import { type ComponentProps, type ReactNode, useId } from "react";
-import { cn } from "@/lib/utils";
+import { cn } from "../../lib/utils";
 
 /** Shared look for text-like controls: Input and the Select trigger. */
 export const fieldControl = cn(

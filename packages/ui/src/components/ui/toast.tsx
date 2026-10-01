@@ -2,7 +2,7 @@
 
 import { CircleAlert, CircleCheck, Info, type LucideIcon } from "lucide-react";
 import { Toaster as Sonner, toast } from "sonner";
-import { cn } from "@/lib/utils";
+import { cn } from "../../lib/utils";
 
 export type ToastTone = "info" | "success" | "error";
 

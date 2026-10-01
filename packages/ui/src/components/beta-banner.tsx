@@ -1,5 +1,5 @@
 import { FlaskConical } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn } from "../lib/utils";
 
 /** The "unaudited beta" label (D-145). The app shell shows it on every page. */
 function BetaBanner({ environment, className }: { environment: string; className?: string }) {

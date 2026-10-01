@@ -1,0 +1,25 @@
+// The Alpha Agents design system: tokens (./styles.css), base components and
+// product components, shared by apps/web and apps/console.
+export * from "./components/address-display";
+export * from "./components/amount-display";
+export * from "./components/beta-banner";
+export * from "./components/demand-counter";
+export * from "./components/reason-message";
+export * from "./components/risk-badge";
+export * from "./components/stat-bar";
+export * from "./components/status-pill";
+export * from "./components/ui/badge";
+export * from "./components/ui/button";
+export * from "./components/ui/card";
+export * from "./components/ui/dialog";
+export * from "./components/ui/empty-state";
+export * from "./components/ui/input";
+export * from "./components/ui/select";
+export * from "./components/ui/skeleton";
+export * from "./components/ui/slider";
+export * from "./components/ui/table";
+export * from "./components/ui/tabs";
+export * from "./components/ui/toast";
+export * from "./components/ui/tooltip";
+export * from "./lib/utils";
+export * from "./tokens";

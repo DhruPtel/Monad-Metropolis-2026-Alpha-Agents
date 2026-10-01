@@ -1,6 +1,6 @@
 import { REJECTION_MESSAGES, type RejectionCode } from "@alpha-agents/domain";
 import { CircleSlash } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn } from "../lib/utils";
 
 interface ReasonMessageProps {
   code: RejectionCode;

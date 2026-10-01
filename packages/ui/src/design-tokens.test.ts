@@ -1,14 +1,19 @@
-import { readFileSync, readdirSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join, relative } from "node:path";
 import { describe, expect, it } from "vitest";
-import { COLOR_TOKENS } from "./lib/tokens";
+import { COLOR_TOKENS } from "./tokens";
 
 /**
  * Guards the design system: raw colors, sizes and fonts live only in
- * src/app/globals.css. Everything else uses token utilities.
+ * packages/ui/src/styles.css. Every component in packages/ui and every page in
+ * the apps uses token utilities.
  */
 const SRC = join(__dirname);
-const css = readFileSync(join(SRC, "app/globals.css"), "utf8");
+const ROOT = join(SRC, "../../..");
+const css = readFileSync(join(SRC, "styles.css"), "utf8");
+const SCANNED = [SRC, join(ROOT, "apps/web/src"), join(ROOT, "apps/console/src")].filter((d) =>
+  existsSync(d),
+);
 
 function sourceFiles(dir: string): string[] {
   return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
@@ -34,14 +39,14 @@ const RAW_VALUE_RULES: readonly [string, RegExp][] = [
 ];
 
 describe("no raw values outside the token file", () => {
-  const files = sourceFiles(SRC);
+  const files = SCANNED.flatMap(sourceFiles);
 
   it("finds the component and page sources", () => {
     expect(files.some((f) => f.endsWith("components/ui/button.tsx"))).toBe(true);
-    expect(files.some((f) => f.endsWith("app/design/design-system.tsx"))).toBe(true);
+    expect(files.some((f) => f.endsWith("apps/web/src/app/design/design-system.tsx"))).toBe(true);
   });
 
-  it.each(files.map((f) => [relative(SRC, f), f]))("%s uses only tokens", (_, file) => {
+  it.each(files.map((f) => [relative(ROOT, f), f]))("%s uses only tokens", (_, file) => {
     const source = readFileSync(file, "utf8");
     const found = RAW_VALUE_RULES.flatMap(([rule, pattern]) => {
       const match = source.match(pattern);
@@ -92,8 +97,8 @@ describe("token file", () => {
 });
 
 describe("/design shows every component", () => {
-  const design = readFileSync(join(SRC, "app/design/design-system.tsx"), "utf8");
-  const componentFiles = sourceFiles(join(SRC, "components")).filter((f) => !f.includes("/shell/"));
+  const design = readFileSync(join(ROOT, "apps/web/src/app/design/design-system.tsx"), "utf8");
+  const componentFiles = sourceFiles(join(SRC, "components"));
 
   it.each(componentFiles.map((f) => [relative(SRC, f), f]))(
     "%s is on the design page",

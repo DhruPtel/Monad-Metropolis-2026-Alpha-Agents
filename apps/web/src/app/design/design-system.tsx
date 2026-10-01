@@ -3,25 +3,24 @@
 import { ACCOUNT_MODES, AGENT_STATES, DISPLAY_FLAGS, REJECTION_CODES } from "@alpha-agents/domain";
 import { Bot, Boxes, Copy, Eye, Radio, Users } from "lucide-react";
 import type { ReactNode } from "react";
-import { AddressDisplay } from "@/components/address-display";
-import { AmountDisplay } from "@/components/amount-display";
-import { BetaBanner } from "@/components/beta-banner";
-import { DemandCounter } from "@/components/demand-counter";
-import { ReasonMessage } from "@/components/reason-message";
-import { RISK_LEVELS, RiskBadge } from "@/components/risk-badge";
-import { StatBar } from "@/components/stat-bar";
-import { StatusPill } from "@/components/status-pill";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import {
+  AddressDisplay,
+  AmountDisplay,
+  BetaBanner,
+  DemandCounter,
+  ReasonMessage,
+  RISK_LEVELS,
+  RiskBadge,
+  StatBar,
+  StatusPill,
+  Badge,
+  Button,
   Card,
   CardContent,
   CardDescription,
   CardFooter,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card";
-import {
   Dialog,
   DialogClose,
   DialogContent,
@@ -31,20 +30,17 @@ import {
   DialogSurface,
   DialogTitle,
   DialogTrigger,
-} from "@/components/ui/dialog";
-import { EmptyState } from "@/components/ui/empty-state";
-import { Field, Input } from "@/components/ui/input";
-import {
+  EmptyState,
+  Field,
+  Input,
   Select,
   SelectContent,
   SelectItem,
   SelectMenuPreview,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Slider } from "@/components/ui/slider";
-import {
+  Skeleton,
+  Slider,
   Table,
   TableBody,
   TableCaption,
@@ -52,12 +48,23 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ToastSurface, toast } from "@/components/ui/toast";
-import { Tooltip, TooltipContent, TooltipSurface, TooltipTrigger } from "@/components/ui/tooltip";
-import { cn } from "@/lib/utils";
-import { COLOR_TOKENS, RADIUS_SCALE, SHADOW_SCALE, SPACING_SCALE, TYPE_SCALE } from "@/lib/tokens";
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+  ToastSurface,
+  toast,
+  Tooltip,
+  TooltipContent,
+  TooltipSurface,
+  TooltipTrigger,
+  cn,
+  COLOR_TOKENS,
+  RADIUS_SCALE,
+  SHADOW_SCALE,
+  SPACING_SCALE,
+  TYPE_SCALE,
+} from "@alpha-agents/ui";
 
 // Sample data from the design brief (Planv1/design-brief.md).
 const AGENT_WALLET = "0x2FE5ccb0d7Ea195FEb87987d3573F9fcCE2b5D57";

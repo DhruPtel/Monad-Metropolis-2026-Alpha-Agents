@@ -1,6 +1,6 @@
 /**
  * The token manifest for the /design page: every semantic token, by name. The
- * values live only in src/app/globals.css; this file lists names, never values,
+ * values live only in packages/ui/src/styles.css; this file lists names, never values,
  * and a test checks every name here is defined there.
  */
 export const COLOR_TOKENS = [

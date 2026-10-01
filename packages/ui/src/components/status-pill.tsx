@@ -1,5 +1,5 @@
 import { type AccountMode, type AgentState, type DisplayFlag } from "@alpha-agents/domain";
-import { Badge, type BadgeTone } from "@/components/ui/badge";
+import { Badge, type BadgeTone } from "./ui/badge";
 
 /**
  * Renders the canonical mode model of FINAL_PLAN 4.12 straight from

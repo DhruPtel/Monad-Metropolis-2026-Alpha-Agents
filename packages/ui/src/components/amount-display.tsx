@@ -1,5 +1,5 @@
 import { type FormatAmountOptions, formatAmount } from "@alpha-agents/domain";
-import { cn } from "@/lib/utils";
+import { cn } from "../lib/utils";
 
 interface AmountDisplayProps extends FormatAmountOptions {
   /** The amount in base units, for example USDC with 6 decimals. */

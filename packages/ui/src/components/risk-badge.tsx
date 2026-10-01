@@ -1,5 +1,5 @@
-import { Badge, type BadgeTone } from "@/components/ui/badge";
-import { cn } from "@/lib/utils";
+import { Badge, type BadgeTone } from "./ui/badge";
+import { cn } from "../lib/utils";
 
 export const RISK_LEVELS = ["conservative", "balanced", "aggressive"] as const;
 export type RiskLevel = (typeof RISK_LEVELS)[number];

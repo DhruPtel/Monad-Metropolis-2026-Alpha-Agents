@@ -8,3 +8,4 @@ Shared TypeScript packages used across apps and services. Each is TypeScript run
 - `skills` (P0-U5): the skill.json manifest schema and validator.
 - `workflows` (P0-U5): the workflow spec schema and validator.
 - `accounting` (P0-U5): journal, valuation and credits types.
+- `ui` (P0-U6, moved here in P0-U4): the design system shared by apps/web and apps/console.

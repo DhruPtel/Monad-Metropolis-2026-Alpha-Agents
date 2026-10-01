@@ -4,11 +4,15 @@ import { Bell, Menu, Wallet, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { type ReactNode, useState } from "react";
-import { BetaBanner } from "@/components/beta-banner";
-import { Button } from "@/components/ui/button";
-import { toast } from "@/components/ui/toast";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { cn } from "@/lib/utils";
+import {
+  BetaBanner,
+  Button,
+  toast,
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+  cn,
+} from "@alpha-agents/ui";
 
 export const NAV_ITEMS = [
   { href: "/", label: "Dashboard" },

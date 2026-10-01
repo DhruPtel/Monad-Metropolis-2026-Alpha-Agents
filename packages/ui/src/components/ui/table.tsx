@@ -1,5 +1,5 @@
 import type { ComponentProps } from "react";
-import { cn } from "@/lib/utils";
+import { cn } from "../../lib/utils";
 
 /** `label` names the scrollable region for screen readers and keyboard users. */
 function Table({ className, label, ...props }: ComponentProps<"table"> & { label: string }) {

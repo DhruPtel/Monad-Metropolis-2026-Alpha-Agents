@@ -2,7 +2,7 @@
 
 import { Slider as SliderPrimitive } from "radix-ui";
 import type { ComponentProps } from "react";
-import { cn } from "@/lib/utils";
+import { cn } from "../../lib/utils";
 
 interface SliderProps extends ComponentProps<typeof SliderPrimitive.Root> {
   /** Accessible name for each thumb. */

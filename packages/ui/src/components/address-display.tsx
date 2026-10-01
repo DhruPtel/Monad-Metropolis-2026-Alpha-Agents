@@ -3,7 +3,7 @@
 import { shortenAddress } from "@alpha-agents/domain";
 import { Check, Copy } from "lucide-react";
 import { useState } from "react";
-import { cn } from "@/lib/utils";
+import { cn } from "../lib/utils";
 
 interface AddressDisplayProps {
   address: string;

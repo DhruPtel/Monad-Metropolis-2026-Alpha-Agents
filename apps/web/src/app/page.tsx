@@ -1,7 +1,6 @@
 import { LayoutDashboard } from "lucide-react";
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
-import { EmptyState } from "@/components/ui/empty-state";
+import { Button, EmptyState } from "@alpha-agents/ui";
 
 export default function DashboardPage() {
   return (

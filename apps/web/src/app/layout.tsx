@@ -4,9 +4,7 @@ import { GeistSans } from "geist/font/sans";
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { AppShell } from "@/components/shell/app-shell";
-import { Toaster } from "@/components/ui/toast";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { cn } from "@/lib/utils";
+import { Toaster, TooltipProvider, cn } from "@alpha-agents/ui";
 import "./globals.css";
 
 export const metadata: Metadata = {

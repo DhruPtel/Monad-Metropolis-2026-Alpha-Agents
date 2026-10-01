@@ -19,11 +19,11 @@ export default defineConfig({
         test: {
           name: "node",
           include: ["**/*.{test,spec}.?(c|m)[jt]s?(x)"],
-          // apps/web runs in its own jsdom project; its e2e specs run in Playwright.
-          exclude: [...ignored, "apps/web/**"],
+          // packages/ui runs in its own jsdom project; the apps' e2e specs run in Playwright.
+          exclude: [...ignored, "packages/ui/**", "apps/web/**", "apps/console/**"],
         },
       },
-      "apps/web/vitest.config.ts",
+      "packages/ui/vitest.config.ts",
     ],
   },
 });

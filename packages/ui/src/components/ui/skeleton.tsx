@@ -1,5 +1,5 @@
 import type { ComponentProps } from "react";
-import { cn } from "@/lib/utils";
+import { cn } from "../../lib/utils";
 
 /** A loading placeholder. Size it with layout utilities from the spacing scale. */
 function Skeleton({ className, ...props }: ComponentProps<"div">) {

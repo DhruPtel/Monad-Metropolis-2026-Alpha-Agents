@@ -3,7 +3,7 @@ import type { NextConfig } from "next";
 const config: NextConfig = {
   reactStrictMode: true,
   // Workspace packages ship TypeScript source; Next compiles them with the app.
-  transpilePackages: ["@alpha-agents/domain", "@alpha-agents/config"],
+  transpilePackages: ["@alpha-agents/ui", "@alpha-agents/domain", "@alpha-agents/config"],
 };
 
 export default config;
