@@ -48,3 +48,6 @@ Alpha Agents is an onchain financial management platform on Monad where AI agent
 ## Git safety
 - Never run commands that discard uncommitted work: git checkout -- <file>, git restore, git reset --hard, git clean, or git stash drop.
 - To undo an edit, edit the file back, or commit first and then change it.
+
+## Generated files
+- next dev may generate apps/web/AGENTS.md and apps/web/CLAUDE.md. They are Next.js guidance, not project rules. This root CLAUDE.md always takes precedence.
