@@ -124,3 +124,21 @@ export function formatAmount(
   const sign = negative && !isZero ? "-" : signed && !negative && !isZero ? "+" : "";
   return `${sign}${grouped}${fraction ? `.${fraction}` : ""}`;
 }
+
+/**
+ * Parses a typed decimal ("2,500.5", "0.000001") into base units, entirely in
+ * bigint arithmetic. Commas are allowed as thousands separators. Returns
+ * undefined for anything else, including more fraction digits than `decimals`
+ * allows, so a typed amount is never silently rounded.
+ */
+export function parseAmount(text: string, decimals: number): bigint | undefined {
+  if (!Number.isSafeInteger(decimals) || decimals < 0)
+    throw new RangeError("decimals must be a non-negative integer");
+  const cleaned = text.trim().replace(/,/g, "");
+  const match = /^(\d+)(?:\.(\d*))?$|^\.(\d+)$/.exec(cleaned);
+  if (!match) return undefined;
+  const whole = match[1] ?? "0";
+  const fraction = match[2] ?? match[3] ?? "";
+  if (fraction.length > decimals) return undefined;
+  return BigInt(whole) * 10n ** BigInt(decimals) + BigInt(fraction.padEnd(decimals, "0") || "0");
+}

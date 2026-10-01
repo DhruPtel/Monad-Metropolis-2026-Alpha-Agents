@@ -27,7 +27,7 @@ function AddressDisplay({ address, label, forceState, className }: AddressDispla
 
   return (
     <span data-slot="address" className={cn("inline-flex items-center gap-1.5", className)}>
-      <span className="numeric text-sm text-foreground" title={address}>
+      <span className="numeric text-sm whitespace-nowrap text-foreground" title={address}>
         {shortenAddress(address)}
       </span>
       <button

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatAmount, shortenAddress } from "./index.ts";
+import { formatAmount, parseAmount, shortenAddress } from "./index.ts";
 
 describe("formatAmount", () => {
   it.each([
@@ -38,5 +38,28 @@ describe("shortenAddress", () => {
   it("leaves short or non-hex values alone", () => {
     expect(shortenAddress("0x1234")).toBe("0x1234");
     expect(shortenAddress("not an address")).toBe("not an address");
+  });
+});
+
+describe("parseAmount", () => {
+  it.each([
+    ["2,500.5", 6, 2_500_500_000n],
+    ["0.000001", 6, 1n],
+    [".5", 6, 500_000n],
+    ["12", 18, 12n * 10n ** 18n],
+    ["  7.  ", 6, 7_000_000n],
+    ["1234567890123456789012345", 0, 1234567890123456789012345n],
+  ] as const)("parses %j with %i decimals", (text, decimals, expected) => {
+    expect(parseAmount(text, decimals)).toBe(expected);
+  });
+
+  it.each(["", "-1", "1e6", "1.0000001", "abc", "1..2", "0x10"])("rejects %j", (text) => {
+    expect(parseAmount(text, 6)).toBeUndefined();
+  });
+
+  it("round-trips with formatAmount", () => {
+    expect(formatAmount(parseAmount("12,480.25", 6) ?? 0n, 6, { minFractionDigits: 2 })).toBe(
+      "12,480.25",
+    );
   });
 });
