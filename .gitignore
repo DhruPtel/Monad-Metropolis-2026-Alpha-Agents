@@ -69,3 +69,8 @@ next-env.d.ts
 test-results/
 playwright-report/
 blob-report/
+
+# Written by `next dev` only when it detects an AI coding agent (Next.js 16,
+# next/dist/server/lib/generate-agent-files.js); not project content.
+apps/web/AGENTS.md
+apps/web/CLAUDE.md
