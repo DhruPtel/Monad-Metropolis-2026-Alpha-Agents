@@ -19,6 +19,7 @@ Alpha Agents is an onchain financial management platform on Monad where AI agent
 - Never use em dashes in any document.
 
 ## Commits
+- All units commit directly to main. No branch per unit.
 - Commit locally and incrementally during a unit: after every few files, at each point where the code builds and its tests pass.
 - Message format: type(scope): short summary [unit ID]
   Types: feat, fix, test, docs, refactor, chore

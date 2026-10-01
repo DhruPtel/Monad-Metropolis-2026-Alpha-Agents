@@ -194,6 +194,12 @@ Every decision below is self-contained: the row states the decision itself. The 
 | D-145 | Beta guard: a mint allowlist in AgentNFT, a depositor allowlist and per-account caps in AccountFactory, an API-level allowlist, and the "unaudited beta" label on every page, on build cards, in the API environment field (`mainnet-beta`) and in the README. Adding to an allowlist and enabling it are instant; only the admin timelock can disable one. No exit is ever gated by an allowlist or a cap. The dev console kill switch is wired to the guardian key at PB-U1 | owner decision, orientation |
 | D-146 | Before every end-of-phase playtest, a seam sweep: every unit in the phase names what calls its output by a route a real user would take; a unit whose only caller is a test or a demo script is a finding. Carried from the Alpha Markets lessons | owner decision, orientation |
 
+### 1.9 Owner decisions during the build
+
+| ID | Decision | Source |
+|---|---|---|
+| D-147 | Owner decision: all units commit directly to `main` in small, incremental commits; there is no branch per unit. This replaces "one branch per unit" in the session rules of `BUILD_PLAN.md` section 1. The Solana track keeps its separate branch (D-004, D-123). The owner pushes | Planv2/units/P0-U1-repo-and-tooling.md |
+
 ---
 
 ## 2. Resolved conflicts
