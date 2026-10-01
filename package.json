@@ -35,6 +35,7 @@
     "vitest": "^5.0.3"
   },
   "dependencies": {
-    "@alpha-agents/config": "workspace:^"
+    "@alpha-agents/config": "workspace:^",
+    "@alpha-agents/domain": "workspace:^"
   }
 }

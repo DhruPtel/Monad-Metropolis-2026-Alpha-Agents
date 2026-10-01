@@ -9,6 +9,10 @@ export type EnvironmentId = (typeof ENVIRONMENT_IDS)[number];
 
 export const DEFAULT_ENVIRONMENT: EnvironmentId = "local";
 
+/** The environment ID stamped on every record, by APP_ENV value. */
+export const ENVIRONMENT_LABELS = ["fork", "testnet", "mainnet-beta"] as const;
+export type EnvironmentLabel = (typeof ENVIRONMENT_LABELS)[number];
+
 export const MONAD_MAINNET_CHAIN_ID = 143;
 export const MONAD_TESTNET_CHAIN_ID = 10143;
 
@@ -17,7 +21,7 @@ export const LOCAL_FORK_RPC_URL = "http://127.0.0.1:8545";
 
 export interface Environment {
   readonly id: EnvironmentId;
-  readonly label: "fork" | "testnet" | "mainnet-beta";
+  readonly label: EnvironmentLabel;
   readonly chainId: number;
   readonly description: string;
   /**

@@ -11,6 +11,9 @@ importers:
       '@alpha-agents/config':
         specifier: workspace:^
         version: link:packages/config
+      '@alpha-agents/domain':
+        specifier: workspace:^
+        version: link:packages/domain
     devDependencies:
       '@eslint/js':
         specifier: ^10.0.1
@@ -39,6 +42,15 @@ importers:
 
   packages/config:
     dependencies:
+      zod:
+        specifier: 4.6.5
+        version: 4.6.5
+
+  packages/domain:
+    dependencies:
+      '@alpha-agents/config':
+        specifier: workspace:^
+        version: link:../config
       zod:
         specifier: 4.6.5
         version: 4.6.5

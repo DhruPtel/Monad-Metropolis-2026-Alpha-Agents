@@ -2,12 +2,14 @@ export {
   DEFAULT_ENVIRONMENT,
   ENVIRONMENTS,
   ENVIRONMENT_IDS,
+  ENVIRONMENT_LABELS,
   LOCAL_FORK_RPC_URL,
   MONAD_MAINNET_CHAIN_ID,
   MONAD_TESTNET_CHAIN_ID,
   isEnvironmentId,
   type Environment,
   type EnvironmentId,
+  type EnvironmentLabel,
 } from "./environments.ts";
 export { renderEnvExample } from "./env-example.ts";
 export {

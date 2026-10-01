@@ -1,0 +1,54 @@
+/**
+ * Rejection reason codes: the enum the chain tools server, the Executor's
+ * `IntentRejected` event and the policy pre-checks share (FINAL_PLAN 4.4.2).
+ * They feed "why the agent did not trade", so each has an owner-facing message.
+ *
+ * `DEADLINE_TOO_FAR` is the one addition to the plan's list: the Executor
+ * requires `deadline <= block.timestamp + 120`, and the plan names only the
+ * expired side.
+ */
+export const REJECTION_CODES = [
+  "ASSET_NOT_ALLOWED",
+  "VENUE_NOT_ALLOWED",
+  "TRADE_SIZE_EXCEEDED",
+  "CONCENTRATION_CAP",
+  "USDC_FLOOR",
+  "SLIPPAGE_TOO_HIGH",
+  "DAILY_TRADE_LIMIT",
+  "TURNOVER_CAP",
+  "ORACLE_STALE",
+  "ORACLE_POOL_DEVIATION",
+  "INSUFFICIENT_BALANCE",
+  "REDUCE_ONLY_MODE",
+  "PAUSED",
+  "EPOCH_MISMATCH",
+  "SIMULATION_FAILED",
+  "DEADLINE_EXPIRED",
+  "DEADLINE_TOO_FAR",
+  "EXECUTOR_REVERTED",
+] as const;
+export type RejectionCode = (typeof REJECTION_CODES)[number];
+
+/** Owner-facing text for each code, phrased as the reason the agent did not trade. */
+export const REJECTION_MESSAGES: Readonly<Record<RejectionCode, string>> = {
+  ASSET_NOT_ALLOWED: "The trade involves an asset that is not on the allowed list.",
+  VENUE_NOT_ALLOWED: "The trading venue is not registered or is paused.",
+  TRADE_SIZE_EXCEEDED: "The trade is larger than 10% of the account's value.",
+  CONCENTRATION_CAP:
+    "After the trade, more than 40% of the account would be in one non-USDC asset.",
+  USDC_FLOOR: "After the trade, less than 10% of the account would be in USDC.",
+  SLIPPAGE_TOO_HIGH:
+    "The allowed slippage is above 0.5%, or the quote is worse than the oracle price allows.",
+  DAILY_TRADE_LIMIT: "The account already made 20 trades in the last 24 hours.",
+  TURNOVER_CAP: "The trade would take 24-hour turnover above 100% of the account's value.",
+  ORACLE_STALE: "The price feed is more than 5 minutes old, so prices cannot be trusted.",
+  ORACLE_POOL_DEVIATION: "The pool price is more than 2% away from the oracle price.",
+  INSUFFICIENT_BALANCE: "The account does not hold enough of the asset being sold.",
+  REDUCE_ONLY_MODE: "The account is in reduce-only mode, so only sales into USDC are allowed.",
+  PAUSED: "The account is paused, so no new trades are allowed.",
+  EPOCH_MISMATCH: "The agent changed owner or configuration, or a vault handover is in progress.",
+  SIMULATION_FAILED: "A dry run of the trade failed before it was sent.",
+  DEADLINE_EXPIRED: "The trade's deadline passed before it could be executed.",
+  DEADLINE_TOO_FAR: "The trade's deadline is more than 2 minutes away.",
+  EXECUTOR_REVERTED: "The onchain Executor rejected the trade.",
+};
