@@ -15,7 +15,7 @@ IN SCOPE
 3. Fork smoke test in chains/monad/test/fork/: confirm the fork reports chain ID 143, the block number equals the pinned block, and the canonical ERC-6551 registry at 0x000000006551c19487814612e58FE06813775758 has deployed code. Fork tests are skipped cleanly when MONAD_RPC_URL is not set.
 4. Docker Compose file in infra/ for Postgres 16 and Redis 7: named volumes, health checks, ports bound to 127.0.0.1 only, and development-only credentials with safe defaults.
 5. Root scripts:
-   - pnpm doctor: checks Node, pnpm, forge, anvil, docker, and that Docker is reachable and MONAD_RPC_URL is set. Never print the URL or any secret value.
+   - pnpm run doctor: checks Node, pnpm, forge, anvil, docker, and that Docker is reachable and MONAD_RPC_URL is set. Never print the URL or any secret value.
    - pnpm dev:up: starts Postgres, Redis, and the anvil fork.
    - pnpm dev:status: reports health for each (Postgres accepting connections, Redis responding, anvil chain ID and block number).
    - pnpm dev:down: stops everything.
@@ -31,7 +31,7 @@ DELIVERABLES
 Foundry project with the fork smoke test, pinned fork config, Docker Compose file, the five root scripts, .env.example, updated CI, updated README, and a DECISIONS entry for the dependency method.
 
 ACCEPTANCE TESTS
-- pnpm doctor passes and prints no secrets.
+- pnpm run doctor passes and prints no secrets.
 - pnpm dev:up starts all three services, and pnpm dev:status shows each healthy, with anvil reporting chain ID 143 at the pinned block.
 - The fork smoke test passes locally against the running fork.
 - pnpm dev:down stops everything; pnpm dev:reset wipes volumes after confirming.
@@ -43,7 +43,7 @@ ACCEPTANCE TESTS
 
 HOW THE OWNER TESTS IT
 1. Open Docker Desktop.
-2. Run pnpm doctor, then pnpm dev:up, then pnpm dev:status.
+2. Run pnpm run doctor, then pnpm dev:up, then pnpm dev:status.
 3. Run the fork smoke test with the command given in the README.
 4. Run pnpm dev:down.
 5. After pushing, confirm both CI jobs pass in the Actions tab.
