@@ -55,6 +55,12 @@ importers:
         specifier: 4.6.5
         version: 4.6.5
 
+  packages/policy:
+    dependencies:
+      '@alpha-agents/domain':
+        specifier: workspace:^
+        version: link:../domain
+
 packages:
 
   '@cacheable/memory@2.2.0':
