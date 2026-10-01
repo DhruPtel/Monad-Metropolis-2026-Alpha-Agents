@@ -24,6 +24,7 @@ export default defineConfig({
         },
       },
       "packages/ui/vitest.config.ts",
+      "apps/console/vitest.config.ts",
     ],
   },
 });
