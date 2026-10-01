@@ -1,9 +1,16 @@
 import type { ComponentProps } from "react";
 import { cn } from "@/lib/utils";
 
-function Table({ className, ...props }: ComponentProps<"table">) {
+/** `label` names the scrollable region for screen readers and keyboard users. */
+function Table({ className, label, ...props }: ComponentProps<"table"> & { label: string }) {
   return (
-    <div data-slot="table-container" className="relative w-full overflow-x-auto rounded-lg border">
+    <div
+      data-slot="table-container"
+      role="region"
+      aria-label={label}
+      tabIndex={0}
+      className="relative w-full overflow-x-auto rounded-lg border outline-none is-focus:focus-ring"
+    >
       <table
         data-slot="table"
         className={cn("w-full caption-bottom text-sm", className)}

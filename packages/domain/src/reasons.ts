@@ -43,7 +43,7 @@ export const REJECTION_MESSAGES: Readonly<Record<RejectionCode, string>> = {
     "The allowed slippage is above 0.5%, or the quote is worse than the oracle price allows.",
   DAILY_TRADE_LIMIT: "The account already made 20 trades in the last 24 hours.",
   TURNOVER_CAP: "The trade would take 24-hour turnover above 100% of the account's value.",
-  ORACLE_STALE: "The price feed is more than 5 minutes old, so prices cannot be trusted.",
+  ORACLE_STALE: "The price feed is 5 minutes old or older, so prices cannot be trusted.",
   ORACLE_POOL_DEVIATION: "The pool price is more than 2% away from the oracle price.",
   INSUFFICIENT_BALANCE: "The account does not hold enough of the asset being sold.",
   REDUCE_ONLY_MODE: "The account is in reduce-only mode, so only sales into USDC are allowed.",

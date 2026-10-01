@@ -22,7 +22,9 @@
     "dev:reset": "node scripts/dev.js reset",
     "test:fork": "node scripts/test-fork.js",
     "env:example": "node scripts/env-example.js",
-    "secrets:scan": "node scripts/secrets-scan.js"
+    "secrets:scan": "node scripts/secrets-scan.js",
+    "dev:web": "pnpm --filter @alpha-agents/web dev",
+    "test:web:e2e": "node scripts/web-e2e.js"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
