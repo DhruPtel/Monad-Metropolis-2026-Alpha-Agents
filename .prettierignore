@@ -1,0 +1,18 @@
+# Dependencies, build output and caches
+node_modules/
+dist/
+build/
+coverage/
+.next/
+out/
+cache/
+broadcast/
+pnpm-lock.yaml
+
+# Plan documents, tracking files and research are hand-formatted
+Planv1/
+Planv2/
+Reference/
+LOGS.md
+LESSONS.md
+CLAUDE.md
