@@ -34,7 +34,7 @@ function fail(message) {
 
 function requireDocker() {
   const daemon = run("docker", ["info", "--format", "{{.ServerVersion}}"]);
-  if (!daemon.ok) fail("Docker is not reachable. Start Docker Desktop, then run pnpm doctor.");
+  if (!daemon.ok) fail("Docker is not reachable. Start Docker Desktop, then run pnpm run doctor.");
 }
 
 /** @returns {number | undefined} the runner PID if it is alive */
@@ -108,7 +108,7 @@ async function startAnvil() {
   process.stdout.write(" failed\n");
   console.error(anvilLogTail());
   await stopAnvil();
-  fail("anvil did not start; see the log above and run pnpm doctor");
+  fail("anvil did not start; see the log above and run pnpm run doctor");
 }
 
 async function stopAnvil() {
@@ -129,7 +129,7 @@ async function stopAnvil() {
 async function up() {
   requireDocker();
   if (classifyRpcUrl(process.env.MONAD_RPC_URL) !== "ok") {
-    fail("MONAD_RPC_URL is not set in .env. Run pnpm doctor for details.");
+    fail("MONAD_RPC_URL is not set in .env. Run pnpm run doctor for details.");
   }
   console.log("postgres, redis: starting");
   if (!runInherit("docker", [...composeArgs, "up", "-d", "--wait"])) {
