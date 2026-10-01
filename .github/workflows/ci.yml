@@ -91,7 +91,7 @@ jobs:
         run: node scripts/secrets-scan.js
 
   web:
-    name: Web build, component and screenshot tests
+    name: Web and console build, component and screenshot tests
     runs-on: ubuntu-latest
     # The same Playwright image scripts/web-e2e.js uses locally, so screenshots match.
     container:
@@ -117,8 +117,26 @@ jobs:
         run: pnpm --filter @alpha-agents/web build
 
       - name: Component tests
-        run: pnpm exec vitest run --project ui
+        run: pnpm exec vitest run --project ui --project console
 
-      - name: Screenshot and accessibility tests
+      - name: Web screenshot and accessibility tests
         working-directory: apps/web
         run: node node_modules/@playwright/test/cli.js test
+
+      - name: Build the dev console
+        run: pnpm --filter @alpha-agents/console build
+
+      - name: Console screenshot and accessibility tests
+        working-directory: apps/console
+        run: node node_modules/@playwright/test/cli.js test
+
+      - name: Upload Playwright diffs
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: playwright-diffs
+          path: |
+            apps/web/test-results/
+            apps/console/test-results/
+          if-no-files-found: ignore
+          retention-days: 14
