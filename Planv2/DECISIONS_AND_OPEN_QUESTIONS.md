@@ -199,6 +199,7 @@ Every decision below is self-contained: the row states the decision itself. The 
 | ID | Decision | Source |
 |---|---|---|
 | D-147 | Owner decision: all units commit directly to `main` in small, incremental commits; there is no branch per unit. This replaces "one branch per unit" in the session rules of `BUILD_PLAN.md` section 1. The Solana track keeps its separate branch (D-004, D-123). The owner pushes | Planv2/units/P0-U1-repo-and-tooling.md |
+| D-148 | Solidity dependencies install with Soldeer, Foundry's built-in package manager, not git submodules or `forge install`, so no nested git repository enters this repository. Versions are exact (forge-std 1.16.2 at P0-U2), `chains/*/soldeer.lock` is committed with each dependency's checksum and integrity hash, `dependencies/` is gitignored, remappings are written by hand in `remappings.txt` and not regenerated, and CI restores dependencies with `forge soldeer install` | Planv2/units/P0-U2-local-environment.md |
 
 ---
 
