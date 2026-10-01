@@ -29,3 +29,10 @@ What happened: `pnpm test:fork` failed in `setUp` with "vm.createSelectFork: can
 Cause: Foundry 1.8 builds network-specific EVMs. forge defaults to `ethereum` unless told otherwise, while anvil detects `monad` from the forked chain ID (anvil_nodeInfo reported network monad, hardfork MonadTen).
 Fix: Set `network = "monad"` in `chains/monad/foundry.toml`, so every forge command (build, test, scripts, CI) uses the Monad EVM (b0b91c2).
 Lesson: Every Foundry project for a non-Ethereum chain sets `network` in foundry.toml, and fork work confirms the EVM family through anvil_nodeInfo rather than chain ID alone.
+
+## L-4: A commit added a drift test without the generated file it checks
+Unit: P0-U3
+What happened: Commit ba76c22 added the config package with a test that compares the committed .env.example against the registry, but the regenerated .env.example was committed separately in the next commit (f51f7ab). Checked out on its own, ba76c22 fails that one test; every later commit passes.
+Cause: The commits were split by topic (package, then template) after both files were already changed, without re-running the tests on what each commit actually contained.
+Fix: f51f7ab committed the generated file, and all tests pass from there. History is not rewritten (CLAUDE.md), so ba76c22 stays as it is.
+Lesson: A generated file goes in the same commit as the test that checks it, and the test suite runs against exactly what is staged before each commit.
