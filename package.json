@@ -13,7 +13,7 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "typecheck": "tsc --noEmit && pnpm -r --if-present typecheck",
+    "typecheck": "tsc --noEmit && pnpm -r typecheck",
     "test": "vitest run",
     "doctor": "node scripts/doctor.js",
     "dev:up": "node scripts/dev.js up",
