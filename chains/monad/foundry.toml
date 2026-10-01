@@ -5,6 +5,8 @@ script = "script"
 out = "out"
 libs = ["dependencies"]
 solc_version = "0.8.37"
+# Every contract targets Monad, so forge uses the Monad EVM (and can fork chain 143).
+network = "monad"
 # Tests read the pinned fork config; nothing else on disk.
 fs_permissions = [{ access = "read", path = "./fork.json" }]
 
