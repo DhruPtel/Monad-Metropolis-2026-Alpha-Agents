@@ -50,3 +50,24 @@ What happened: To prove the CI pin test could fail, the SHA pin on actions/check
 Cause: `git checkout -- <file>` restores the file from the index, not from the state before the experiment, and the pins had not been committed yet.
 Fix: The pins were re-applied with the same edit, the guard test passed, and they were committed in a3cdd8a.
 Lesson: Undo a deliberate breakage by reversing that exact edit, or by restoring a copy saved first in the scratchpad, never with `git checkout` on a file that has uncommitted changes.
+
+## L-7: Screenshot tests passed a changed token
+Unit: P0-U6
+What happened: Changing the brass token from #c9a35c to #c9a35d left the /design screenshot diff exactly as large as before the change (1,298 and 1,390 pixels, all from an unrelated copy change), so the token edit itself was invisible to the test that is meant to catch token changes.
+Cause: `maxDiffPixels: 0` limits how many pixels may differ, but Playwright first decides whether a pixel differs with a per-pixel color `threshold` that defaults to 0.2, which absorbs small color changes.
+Fix: The config sets `threshold: 0` as well. Rendering is deterministic inside the pinned Playwright image (three runs matched exactly), and the one-unit brass change now fails both screenshots (13,897 and 16,689 pixels).
+Lesson: A visual regression test is proven only by watching the smallest change it must catch make it fail; set every tolerance, not just the pixel count.
+
+## L-8: Button asChild broke the build with two children
+Unit: P0-U6
+What happened: `next build` failed prerendering `/` with "Slot failed to slot onto its children. Expected a single React element child".
+Cause: Button always rendered `{loading ? spinner : null}{children}`, so with `asChild` the Radix Slot received two children (a null and the link) instead of one element.
+Fix: With `asChild` the Button passes its child through alone; a component test renders a link through `asChild` (0eb7545, bc0df75).
+Lesson: A component that supports `asChild` must hand Slot exactly its child and nothing else, and needs a test that uses it.
+
+## L-9: The muted red token failed contrast on the overlay surface
+Unit: P0-U6
+What happened: The axe scan of /design reported a serious color-contrast violation: red drawdown text on the selected table row, 4.46:1 against the 4.5:1 AA minimum.
+Cause: #e06a62 passed on the page background but not on `surface-overlay`, one of the surfaces negative values sit on.
+Fix: The palette red moved to #e57068, about 4.8:1 on the overlay surface and 4.9:1 on the error surface; axe now reports no serious or critical violations (b560520).
+Lesson: Check a text color's contrast against every surface token it can appear on, not only the page background; the axe scan of /design does this for every rendered pair.
