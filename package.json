@@ -19,7 +19,8 @@
     "dev:up": "node scripts/dev.js up",
     "dev:status": "node scripts/dev.js status",
     "dev:down": "node scripts/dev.js down",
-    "dev:reset": "node scripts/dev.js reset"
+    "dev:reset": "node scripts/dev.js reset",
+    "test:fork": "node scripts/test-fork.js"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

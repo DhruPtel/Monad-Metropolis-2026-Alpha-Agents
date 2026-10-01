@@ -94,6 +94,12 @@ if (state === "ok" && rpcUrl) {
   } catch (err) {
     report(false, "RPC chain ID", err instanceof RpcError ? err.message : "request failed");
   }
+  try {
+    const latest = hexToNumber(await rpc(rpcUrl, "eth_blockNumber"));
+    report(true, "RPC latest block", `${latest} (pinned ${blockNumber})`);
+  } catch (err) {
+    report(false, "RPC latest block", err instanceof RpcError ? err.message : "request failed");
+  }
   // eth_getBalance is valid for every address at every block, so an error here
   // means the RPC no longer serves state at the pinned block, never "no contract".
   try {
