@@ -44,3 +44,31 @@ jobs:
 
       - name: Test
         run: pnpm test
+
+  foundry:
+    name: Foundry build and non-fork tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Read pinned Foundry version
+        id: foundry-version
+        run: echo "version=$(cat .foundry-version)" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: ${{ steps.foundry-version.outputs.version }}
+
+      - name: Install dependencies
+        working-directory: chains/monad
+        run: forge soldeer install
+
+      - name: Build
+        working-directory: chains/monad
+        run: forge build
+
+      - name: Test (fork tests excluded)
+        working-directory: chains/monad
+        run: forge test --no-match-path 'test/fork/**' -vv
