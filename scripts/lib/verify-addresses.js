@@ -4,7 +4,7 @@
 // serves at the recorded block. Read-only calls to the local fork only.
 import { ADDRESS_BOOK } from "@alpha-agents/domain";
 import { ANVIL_URL } from "./config.js";
-import { hexToNumber, rpc } from "./rpc.js";
+import { hexToNumber, rpc } from "@alpha-agents/devenv";
 
 const DECIMALS_SELECTOR = "0x313ce567";
 

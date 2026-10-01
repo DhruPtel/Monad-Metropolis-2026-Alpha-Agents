@@ -13,8 +13,7 @@ import {
   readFoundryVersion,
 } from "./lib/config.js";
 import { NVMRC_PATH } from "./lib/paths.js";
-import { run } from "./lib/proc.js";
-import { RpcError, hexToNumber, rpc } from "./lib/rpc.js";
+import { RpcError, hexToNumber, rpc, run } from "@alpha-agents/devenv";
 
 loadRootEnv();
 

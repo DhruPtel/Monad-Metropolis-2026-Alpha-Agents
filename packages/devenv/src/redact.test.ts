@@ -1,6 +1,5 @@
-// @ts-check
 import { describe, expect, it } from "vitest";
-import { redact } from "./redact.js";
+import { redact } from "./redact.ts";
 
 describe("redact", () => {
   it("removes the full URL", () => {

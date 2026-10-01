@@ -6,7 +6,7 @@ import { spawn } from "node:child_process";
 import { createWriteStream, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { ANVIL_HOST, ANVIL_PORT, loadRootEnv, readForkConfig } from "./lib/config.js";
 import { ANVIL_LOG_PATH, ANVIL_PID_PATH, DEV_DIR, MONAD_DIR } from "./lib/paths.js";
-import { redact } from "./lib/redact.js";
+import { redact } from "@alpha-agents/devenv";
 
 loadRootEnv();
 const secrets = [process.env.MONAD_RPC_URL];

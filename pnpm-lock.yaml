@@ -11,6 +11,9 @@ importers:
       '@alpha-agents/config':
         specifier: workspace:^
         version: link:packages/config
+      '@alpha-agents/devenv':
+        specifier: workspace:^
+        version: link:packages/devenv
       '@alpha-agents/domain':
         specifier: workspace:^
         version: link:packages/domain
@@ -103,6 +106,15 @@ importers:
       zod:
         specifier: 4.6.5
         version: 4.6.5
+
+  packages/devenv:
+    dependencies:
+      '@alpha-agents/config':
+        specifier: workspace:^
+        version: link:../config
+      '@alpha-agents/domain':
+        specifier: workspace:^
+        version: link:../domain
 
   packages/domain:
     dependencies:

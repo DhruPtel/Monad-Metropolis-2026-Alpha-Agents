@@ -1,15 +1,11 @@
-// @ts-check
-
 const REPLACEMENT = "<redacted>";
 
 /**
- * Returns every substring of an RPC URL that could carry a credential:
- * the whole URL, the host (some providers put the key in a subdomain),
- * the path, path segments and query values.
- * @param {string} rawUrl
- * @returns {string[]}
+ * Returns every substring of an RPC URL that could carry a credential: the
+ * whole URL, the host (some providers put the key in a subdomain), the path,
+ * path segments and query values.
  */
-export function secretFragments(rawUrl) {
+export function secretFragments(rawUrl: string): string[] {
   const trimmed = rawUrl.trim();
   if (trimmed === "") return [];
   const fragments = new Set([trimmed]);
@@ -33,13 +29,8 @@ export function secretFragments(rawUrl) {
   return [...fragments].filter((f) => f.length > 0).sort((a, b) => b.length - a.length);
 }
 
-/**
- * Replaces every credential-bearing fragment of each secret in text.
- * @param {string} text
- * @param {(string | undefined)[]} secrets
- * @returns {string}
- */
-export function redact(text, secrets) {
+/** Replaces every credential-bearing fragment of each secret in text. */
+export function redact(text: string, secrets: readonly (string | undefined)[]): string {
   let out = text;
   for (const secret of secrets) {
     if (!secret) continue;

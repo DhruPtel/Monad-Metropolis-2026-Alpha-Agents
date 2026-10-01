@@ -1,0 +1,17 @@
+{
+  "name": "@alpha-agents/devenv",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Local environment logic shared by the root scripts and the dev console: RPC client, health checks, the local-fork guard, fork controls and test funds.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p ."
+  },
+  "dependencies": {
+    "@alpha-agents/config": "workspace:^",
+    "@alpha-agents/domain": "workspace:^"
+  }
+}

@@ -38,6 +38,7 @@
   },
   "dependencies": {
     "@alpha-agents/config": "workspace:^",
+    "@alpha-agents/devenv": "workspace:^",
     "@alpha-agents/domain": "workspace:^"
   }
 }

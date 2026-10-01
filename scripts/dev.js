@@ -8,24 +8,20 @@ import { createInterface } from "node:readline/promises";
 import { setTimeout as sleep } from "node:timers/promises";
 import { ConfigError } from "@alpha-agents/config";
 import {
-  ANVIL_URL,
-  MONAD_MAINNET_CHAIN_ID,
-  loadLocalConfig,
-  loadRootEnv,
-  readForkConfig,
-} from "./lib/config.js";
+  anvilState,
+  composeArgs as stackComposeArgs,
+  redact,
+  run,
+  runInherit,
+  stackHealth,
+} from "@alpha-agents/devenv";
+import { ANVIL_URL, loadLocalConfig, loadRootEnv } from "./lib/config.js";
 import { ANVIL_LOG_PATH, ANVIL_PID_PATH, COMPOSE_FILE, ROOT } from "./lib/paths.js";
-import { run, runInherit } from "./lib/proc.js";
-import { redact } from "./lib/redact.js";
-import { hexToNumber, rpc } from "./lib/rpc.js";
 
 loadRootEnv();
 
 const ANVIL_START_TIMEOUT_MS = 120_000;
-const composeArgs = ["compose", "-f", COMPOSE_FILE];
-
-/** @param {string[]} args */
-const compose = (args) => run("docker", [...composeArgs, ...args], { timeoutMs: 60_000 });
+const composeArgs = stackComposeArgs(COMPOSE_FILE);
 
 /** @param {string} message */
 function fail(message) {
@@ -56,33 +52,6 @@ function runnerPid() {
     return undefined;
   }
   return pid;
-}
-
-/** @returns {Promise<{ chainId: number, blockNumber: number } | undefined>} */
-async function anvilState() {
-  try {
-    const chainId = hexToNumber(await rpc(ANVIL_URL, "eth_chainId", [], 3_000));
-    const blockNumber = hexToNumber(await rpc(ANVIL_URL, "eth_blockNumber", [], 3_000));
-    return { chainId, blockNumber };
-  } catch {
-    return undefined;
-  }
-}
-
-/**
- * The EVM family anvil runs, from anvil_nodeInfo. Only `network` is read: the
- * same response carries the fork URL, which must never be printed.
- * @returns {Promise<string | undefined>}
- */
-async function anvilNetwork() {
-  try {
-    const info = /** @type {{ network?: unknown } | null} */ (
-      await rpc(ANVIL_URL, "anvil_nodeInfo", [], 3_000)
-    );
-    return typeof info?.network === "string" ? info.network : undefined;
-  } catch {
-    return undefined;
-  }
 }
 
 function anvilLogTail() {
@@ -159,56 +128,17 @@ async function up() {
   return status();
 }
 
-/** @returns {Promise<boolean>} */
+/**
+ * Health of Postgres, Redis and the anvil fork, from packages/devenv, the same
+ * checks the dev console shows.
+ * @returns {Promise<boolean>}
+ */
 async function status() {
-  let healthy = true;
-  /**
-   * @param {boolean} ok
-   * @param {string} name
-   * @param {string} detail
-   */
-  const line = (ok, name, detail) => {
-    if (!ok) healthy = false;
-    console.log(`${ok ? "UP  " : "DOWN"}  ${name.padEnd(9)} ${detail}`);
-  };
-
-  const dockerUp = run("docker", ["info", "--format", "{{.ServerVersion}}"]).ok;
-  if (!dockerUp) {
-    line(false, "postgres", "Docker not reachable");
-    line(false, "redis", "Docker not reachable");
-  } else {
-    const pg = compose([
-      "exec",
-      "-T",
-      "postgres",
-      "pg_isready",
-      "-U",
-      "alpha",
-      "-d",
-      "alpha_agents",
-    ]);
-    line(pg.ok, "postgres", pg.ok ? "accepting connections" : "not accepting connections");
-    const redis = compose(["exec", "-T", "redis", "redis-cli", "ping"]);
-    const pong = redis.ok && redis.stdout.trim() === "PONG";
-    line(pong, "redis", pong ? "PONG" : "not responding");
+  const health = await stackHealth(ANVIL_URL);
+  for (const service of health.services) {
+    console.log(`${service.up ? "UP  " : "DOWN"}  ${service.name.padEnd(9)} ${service.detail}`);
   }
-
-  const { blockNumber: pinned } = readForkConfig();
-  const anvil = await anvilState();
-  if (anvil === undefined) {
-    line(false, "anvil", `no response at ${ANVIL_URL}`);
-  } else {
-    const network = await anvilNetwork();
-    const ok =
-      anvil.chainId === MONAD_MAINNET_CHAIN_ID &&
-      anvil.blockNumber >= pinned &&
-      network === "monad";
-    const atPin = anvil.blockNumber === pinned ? "at pinned block" : `pinned block is ${pinned}`;
-    const net =
-      network === "monad" ? "network monad" : `network ${network ?? "unknown"}, want monad`;
-    line(ok, "anvil", `chain ID ${anvil.chainId}, ${net}, block ${anvil.blockNumber} (${atPin})`);
-  }
-  return healthy;
+  return health.healthy;
 }
 
 async function down() {
