@@ -35,3 +35,25 @@ scratch/
 .vscode/
 .idea/
 *.log
+
+# pnpm
+.pnpm-store/
+.pnpm-debug.log*
+
+# Test coverage
+coverage/
+*.lcov
+.nyc_output/
+
+# Tool caches
+.eslintcache
+.prettiercache
+*.tsbuildinfo
+.vitest/
+.turbo/
+
+# Windows download markers created by WSL copies
+*:Zone.Identifier
+
+# Lessons file from a different project (Alpha Markets), kept locally only
+Reference/
