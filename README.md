@@ -56,7 +56,7 @@ Prerequisites:
 ```sh
 pnpm run doctor   # check prerequisites; never prints the RPC URL
 pnpm dev:up       # start Postgres, Redis and the anvil fork
-pnpm dev:status   # health of each service, and anvil's chain ID and block
+pnpm dev:status   # health of each service, and anvil's chain ID, network and block
 pnpm test:fork    # fork smoke tests against the running fork
 pnpm dev:down     # stop everything; database volumes are kept
 pnpm dev:reset    # stop everything and delete the database volumes (asks first)
@@ -66,7 +66,7 @@ Use `pnpm run doctor`, not `pnpm doctor`: `doctor` is a built-in pnpm command an
 
 | Service  | Address                                                             |
 | -------- | ------------------------------------------------------------------- |
-| anvil    | `http://127.0.0.1:8545`, chain ID 143                               |
+| anvil    | `http://127.0.0.1:8545`, chain ID 143, network monad                |
 | Postgres | `postgres://alpha:alpha_local_dev_only@127.0.0.1:5432/alpha_agents` |
 | Redis    | `redis://127.0.0.1:6380`                                            |
 
@@ -81,3 +81,32 @@ The fork starts at the block in `chains/monad/fork.json`, so every run sees the 
 3. Set `blockNumber` in `chains/monad/fork.json` to that number, rounded down a little.
 4. `pnpm run doctor`, then `pnpm dev:up` and `pnpm test:fork`.
 5. Commit the new `fork.json` and record the new block in `LOGS.md`.
+
+## Environments and configuration
+
+Every service runs in one of three environments, chosen by `APP_ENV` (default `local`):
+
+| `APP_ENV` | Label          | Chain                | Chain RPC                      |
+| --------- | -------------- | -------------------- | ------------------------------ |
+| `local`   | `fork`         | anvil fork of 143    | `http://127.0.0.1:8545`, fixed |
+| `testnet` | `testnet`      | Monad testnet, 10143 | `MONAD_TESTNET_RPC_URL`        |
+| `beta`    | `mainnet-beta` | Monad mainnet, 143   | `MONAD_RPC_URL`                |
+
+Configuration is loaded by `@alpha-agents/config` (`packages/config`). A service calls `loadConfig({ name, signs, requires })` at startup. The loader:
+
+- validates every variable of the selected environment, and reads no other variable, so a local or testnet process never loads a mainnet key reference;
+- fails at once with a `ConfigError` that names each missing or invalid variable and never contains a value;
+- treats an empty value, or one left as its `.env.example` placeholder, as not set, which is an error for a required variable;
+- wraps every secret in `Secret`, which prints as `[redacted]`; `summarizeConfig(config)` is safe to log.
+
+**Mainnet guard.** With `APP_ENV=beta`, a service that signs transactions refuses to start unless `BETA_SIGNING_ENABLED=true` is set exactly. The flag is rejected in any other environment. Local signing always targets the loopback fork, and a testnet RPC equal to the mainnet URL is rejected. Services also call `assertChainId` with the chain ID their RPC reports before signing.
+
+**`.env.example`** lists every variable the full build needs, grouped by service, with whether it is secret, which environments read it, and the unit that first uses it. It is generated from the registry in `packages/config/src/variables.ts`: edit the registry, then run `pnpm run env:example`. A test fails if the two drift. Copy it to `.env` and fill in only what the units you run need.
+
+## Secret scanning
+
+```sh
+pnpm run secrets:scan   # run before every push
+```
+
+This runs gitleaks (pinned by image digest, in Docker) over the full history of every branch and over uncommitted and staged changes. Output is redacted, and gitignored files such as `.env` are never read. CI runs the same scan. Rules are the gitleaks defaults (`.gitleaks.toml`); a verified false positive is added to `.gitleaksignore` by fingerprint, with its reason. If a real secret is ever found, rotate it first: removing it from history does not make it safe.
