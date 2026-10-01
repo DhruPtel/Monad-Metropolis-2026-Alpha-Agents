@@ -1,3 +1,4 @@
+export * from "./console-guard.ts";
 export * from "./controls.ts";
 export * from "./fork-pin.ts";
 export * from "./guard.ts";

@@ -1,0 +1,34 @@
+{
+  "name": "@alpha-agents/console",
+  "version": "0.0.0",
+  "private": true,
+  "description": "The local-only dev console for inspecting and controlling the development environment. Never deployed.",
+  "type": "module",
+  "scripts": {
+    "dev": "next dev --hostname 127.0.0.1 --port 3001",
+    "build": "next build",
+    "start": "next start --hostname 127.0.0.1 --port 3001",
+    "typecheck": "tsc --noEmit -p ."
+  },
+  "dependencies": {
+    "@alpha-agents/config": "workspace:*",
+    "@alpha-agents/devenv": "workspace:*",
+    "@alpha-agents/domain": "workspace:*",
+    "@alpha-agents/policy": "workspace:*",
+    "@alpha-agents/ui": "workspace:*",
+    "geist": "1.7.2",
+    "lucide-react": "1.49.0",
+    "next": "16.3.8",
+    "react": "19.3.0",
+    "react-dom": "19.3.0"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "4.13.0",
+    "@playwright/test": "1.63.0",
+    "@tailwindcss/postcss": "4.3.3",
+    "@types/node": "22.20.4",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "tailwindcss": "4.3.3"
+  }
+}
