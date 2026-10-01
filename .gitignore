@@ -63,3 +63,9 @@ chains/*/dependencies/
 
 # Local dev environment runtime files (anvil PID and redacted log)
 .dev/
+
+# Next.js generated types and Playwright output
+next-env.d.ts
+test-results/
+playwright-report/
+blob-report/
