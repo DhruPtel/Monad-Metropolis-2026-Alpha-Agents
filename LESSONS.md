@@ -71,3 +71,24 @@ What happened: The axe scan of /design reported a serious color-contrast violati
 Cause: #e06a62 passed on the page background but not on `surface-overlay`, one of the surfaces negative values sit on.
 Fix: The palette red moved to #e57068, about 4.8:1 on the overlay surface and 4.9:1 on the error surface; axe now reports no serious or critical violations (b560520).
 Lesson: Check a text color's contrast against every surface token it can appear on, not only the page background; the axe scan of /design does this for every rendered pair.
+
+## L-10: A missing receipt was read as a reverted transaction
+Unit: P0-U4
+What happened: Minting test USDC failed with "transaction reverted on the fork" although the same calls succeeded by hand, and the minter allowance showed the first transaction had in fact executed.
+Cause: `eth_getTransactionReceipt` was called once, immediately after `eth_sendTransaction`. Anvil returns the hash before the receipt is queryable, so the first read returned null, and the code treated "no receipt yet" as "failed". This is Alpha Markets lesson 6: state read too early after a write is indistinguishable from state never established.
+Fix: `waitForReceipt` polls until the receipt exists (up to 15 seconds), and only a receipt with status other than 0x1 counts as a revert (907e19d).
+Lesson: After any write, poll for the authoritative record and distinguish "not yet" from "failed"; a single read is never a verdict.
+
+## L-11: pkill matched its own shell and killed the command
+Unit: P0-U4
+What happened: Twice, a command that stopped a server with `pkill -f 'next start ...'` (or `'next dev ...'`) and then did more work exited with code 144, and none of the later steps ran; the first time, three new files were never written.
+Cause: `pkill -f` matches full command lines, and the shell running the command contained the same pattern text, so pkill killed the shell along with the server.
+Fix: Servers are stopped by the PID that `ss -ltnp` reports for their port, then the remaining steps run as a separate command.
+Lesson: Stop a process by its PID, never with a `pkill -f` pattern that also appears in the command doing the killing.
+
+## L-12: getByRole("alert") also matched Next.js's route announcer
+Unit: P0-U4
+What happened: The console e2e test for a refused fork action failed with a strict-mode violation: `getByRole("alert")` resolved to two elements, one of them empty.
+Cause: Next.js renders a hidden route announcer with role alert on every page, so a page-level alert query is never unique.
+Fix: The action error message carries `data-testid="action-error"` and the test targets that (913c58d).
+Lesson: In a Next.js app, target your own alerts by test ID, not by role alone.
