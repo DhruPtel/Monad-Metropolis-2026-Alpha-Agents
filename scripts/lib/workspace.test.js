@@ -32,3 +32,15 @@ describe("workspace packages", () => {
     expect(existsSync(join(ROOT, dir, "tsconfig.json"))).toBe(true);
   });
 });
+
+describe("CI workflow", () => {
+  const ci = readFileSync(join(ROOT, ".github/workflows/ci.yml"), "utf8");
+  const uses = ci.split("\n").filter((line) => /^\s*(-\s*)?uses:/.test(line));
+
+  it("pins every action to a full commit SHA with its version tag in a comment", () => {
+    expect(uses.length).toBeGreaterThan(0);
+    for (const line of uses) {
+      expect(line.trim()).toMatch(/uses: [\w.-]+\/[\w.-]+@[0-9a-f]{40} # v\d+\.\d+\.\d+$/);
+    }
+  });
+});
