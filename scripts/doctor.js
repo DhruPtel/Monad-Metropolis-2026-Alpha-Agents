@@ -1,10 +1,12 @@
 // @ts-check
 // Checks that every prerequisite of the local environment is in place.
-// Prints the state of MONAD_RPC_URL but never its value.
+// Validates the local config through packages/config, which names problem
+// variables but never prints a value.
 import { readFileSync } from "node:fs";
+import { ConfigError, Secret } from "@alpha-agents/config";
 import {
   MONAD_MAINNET_CHAIN_ID,
-  classifyRpcUrl,
+  loadLocalConfig,
   loadRootEnv,
   parseFoundryVersion,
   readForkConfig,
@@ -71,19 +73,30 @@ report(
       : "not reachable (is Docker Desktop running?)",
 );
 
-// MONAD_RPC_URL: report its state, never its value.
-const rpcUrl = process.env.MONAD_RPC_URL;
-const state = classifyRpcUrl(rpcUrl);
-const stateText = {
-  ok: "set",
-  unset: "not set (add it to .env)",
-  placeholder: "still the .env.example placeholder",
-  invalid: "set but not an http(s) URL",
-};
-report(state === "ok", "MONAD_RPC_URL", stateText[state]);
+// Shared config for APP_ENV=local, including MONAD_RPC_URL as the fork upstream.
+/** @type {string | undefined} */
+let rpcUrl;
+try {
+  const config = loadLocalConfig();
+  const upstream = config.values.MONAD_RPC_URL;
+  rpcUrl = upstream instanceof Secret ? upstream.reveal() : undefined;
+  report(true, "config (APP_ENV=local)", "valid; MONAD_RPC_URL set");
+} catch (err) {
+  if (!(err instanceof ConfigError)) throw err;
+  report(false, "config (APP_ENV=local)", "invalid:");
+  for (const issue of err.issues) console.log(`      - ${issue.variable} ${issue.problem}`);
+}
 
-if (state === "ok" && rpcUrl) {
-  const { blockNumber } = readForkConfig();
+/** @type {number | undefined} */
+let blockNumber;
+try {
+  blockNumber = readForkConfig().blockNumber;
+  report(true, "fork pin", `block ${blockNumber} in chains/monad/fork.json`);
+} catch (err) {
+  report(false, "fork pin", err instanceof Error ? err.message : "unreadable");
+}
+
+if (rpcUrl && blockNumber !== undefined) {
   try {
     const chainId = hexToNumber(await rpc(rpcUrl, "eth_chainId"));
     report(

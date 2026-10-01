@@ -1,11 +1,24 @@
 // @ts-check
 import { existsSync, readFileSync } from "node:fs";
+import {
+  ConfigError,
+  LOCAL_FORK_RPC_URL,
+  MONAD_MAINNET_CHAIN_ID,
+  loadConfig,
+} from "@alpha-agents/config";
 import { ENV_PATH, FORK_CONFIG_PATH, FOUNDRY_VERSION_PATH } from "./paths.js";
 
-export const MONAD_MAINNET_CHAIN_ID = 143;
-export const ANVIL_HOST = "127.0.0.1";
-export const ANVIL_PORT = 8545;
-export const ANVIL_URL = `http://${ANVIL_HOST}:${ANVIL_PORT}`;
+export { MONAD_MAINNET_CHAIN_ID };
+export const ANVIL_URL = LOCAL_FORK_RPC_URL;
+const anvilUrl = new URL(ANVIL_URL);
+export const ANVIL_HOST = anvilUrl.hostname;
+export const ANVIL_PORT = Number(anvilUrl.port);
+
+/**
+ * Monad mainnet passed this height before P0-U2 (October 2026). A pin below it is
+ * a placeholder or a typo. Same floor as ForkConfigTest in chains/monad.
+ */
+export const MIN_PLAUSIBLE_BLOCK = 100_000_000;
 
 /**
  * @typedef {{ chainId: number, blockNumber: number }} ForkConfig
@@ -26,8 +39,13 @@ export function parseForkConfig(text) {
   if (chainId !== MONAD_MAINNET_CHAIN_ID) {
     throw new Error(`fork.json chainId must be ${MONAD_MAINNET_CHAIN_ID}`);
   }
-  if (typeof blockNumber !== "number" || !Number.isSafeInteger(blockNumber) || blockNumber <= 0) {
-    throw new Error("fork.json blockNumber must be a positive integer");
+  if (typeof blockNumber !== "number" || !Number.isSafeInteger(blockNumber)) {
+    throw new Error("fork.json blockNumber must be an integer");
+  }
+  if (blockNumber < MIN_PLAUSIBLE_BLOCK) {
+    throw new Error(
+      `fork.json blockNumber is below ${MIN_PLAUSIBLE_BLOCK}; it looks like a placeholder`,
+    );
   }
   return { chainId, blockNumber };
 }
@@ -59,21 +77,16 @@ export function loadRootEnv() {
 }
 
 /**
- * Classifies MONAD_RPC_URL without ever returning its value.
- * A placeholder copied from .env.example or an empty value counts as unset.
- * @param {string | undefined} value
- * @returns {"ok" | "unset" | "placeholder" | "invalid"}
+ * Loads the shared config for the dev scripts, which run only the local fork and
+ * need MONAD_RPC_URL as its upstream. Throws ConfigError, which never holds a value.
+ * @param {Readonly<Record<string, string | undefined>>} [source]
  */
-export function classifyRpcUrl(value) {
-  const trimmed = value?.trim() ?? "";
-  if (trimmed === "") return "unset";
-  let url;
-  try {
-    url = new URL(trimmed);
-  } catch {
-    return "invalid";
+export function loadLocalConfig(source = process.env) {
+  const appEnv = source.APP_ENV?.trim();
+  if (appEnv !== undefined && appEnv !== "local") {
+    throw new ConfigError("The dev scripts run only the local environment:", [
+      { variable: "APP_ENV", problem: "must be local or unset for the dev scripts" },
+    ]);
   }
-  if (url.protocol !== "https:" && url.protocol !== "http:") return "invalid";
-  if (url.hostname.endsWith(".example")) return "placeholder";
-  return "ok";
+  return loadConfig({ name: "the dev scripts", requires: ["MONAD_RPC_URL"] }, source);
 }

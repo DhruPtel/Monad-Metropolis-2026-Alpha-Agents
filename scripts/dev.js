@@ -6,10 +6,11 @@ import { spawn } from "node:child_process";
 import { existsSync, readFileSync, rmSync } from "node:fs";
 import { createInterface } from "node:readline/promises";
 import { setTimeout as sleep } from "node:timers/promises";
+import { ConfigError } from "@alpha-agents/config";
 import {
   ANVIL_URL,
   MONAD_MAINNET_CHAIN_ID,
-  classifyRpcUrl,
+  loadLocalConfig,
   loadRootEnv,
   readForkConfig,
 } from "./lib/config.js";
@@ -63,6 +64,22 @@ async function anvilState() {
     const chainId = hexToNumber(await rpc(ANVIL_URL, "eth_chainId", [], 3_000));
     const blockNumber = hexToNumber(await rpc(ANVIL_URL, "eth_blockNumber", [], 3_000));
     return { chainId, blockNumber };
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * The EVM family anvil runs, from anvil_nodeInfo. Only `network` is read: the
+ * same response carries the fork URL, which must never be printed.
+ * @returns {Promise<string | undefined>}
+ */
+async function anvilNetwork() {
+  try {
+    const info = /** @type {{ network?: unknown } | null} */ (
+      await rpc(ANVIL_URL, "anvil_nodeInfo", [], 3_000)
+    );
+    return typeof info?.network === "string" ? info.network : undefined;
   } catch {
     return undefined;
   }
@@ -128,8 +145,11 @@ async function stopAnvil() {
 
 async function up() {
   requireDocker();
-  if (classifyRpcUrl(process.env.MONAD_RPC_URL) !== "ok") {
-    fail("MONAD_RPC_URL is not set in .env. Run pnpm run doctor for details.");
+  try {
+    loadLocalConfig();
+  } catch (err) {
+    if (!(err instanceof ConfigError)) throw err;
+    fail(`${err.message}\nRun pnpm run doctor for details.`);
   }
   console.log("postgres, redis: starting");
   if (!runInherit("docker", [...composeArgs, "up", "-d", "--wait"])) {
@@ -178,9 +198,15 @@ async function status() {
   if (anvil === undefined) {
     line(false, "anvil", `no response at ${ANVIL_URL}`);
   } else {
-    const ok = anvil.chainId === MONAD_MAINNET_CHAIN_ID && anvil.blockNumber >= pinned;
+    const network = await anvilNetwork();
+    const ok =
+      anvil.chainId === MONAD_MAINNET_CHAIN_ID &&
+      anvil.blockNumber >= pinned &&
+      network === "monad";
     const atPin = anvil.blockNumber === pinned ? "at pinned block" : `pinned block is ${pinned}`;
-    line(ok, "anvil", `chain ID ${anvil.chainId}, block ${anvil.blockNumber} (${atPin})`);
+    const net =
+      network === "monad" ? "network monad" : `network ${network ?? "unknown"}, want monad`;
+    line(ok, "anvil", `chain ID ${anvil.chainId}, ${net}, block ${anvil.blockNumber} (${atPin})`);
   }
   return healthy;
 }
