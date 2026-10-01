@@ -44,3 +44,7 @@ Alpha Agents is an onchain financial management platform on Monad where AI agent
 - Every unit that adds user-facing behavior also builds its UI in the same unit, using only components and tokens from the design system. No one-off styling.
 - If a needed component does not exist, add it to the design system and the /design page first, then use it.
 - Playtests always include a visual check of the pages touched by the phase.
+
+## Git safety
+- Never run commands that discard uncommitted work: git checkout -- <file>, git restore, git reset --hard, git clean, or git stash drop.
+- To undo an edit, edit the file back, or commit first and then change it.
