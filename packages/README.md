@@ -9,3 +9,4 @@ Shared TypeScript packages used across apps and services. Each is TypeScript run
 - `workflows` (P0-U5): the workflow spec schema and validator.
 - `accounting` (P0-U5): journal, valuation and credits types.
 - `ui` (P0-U6, moved here in P0-U4): the design system shared by apps/web and apps/console.
+- `devenv` (P0-U4): local environment logic shared by the root scripts and the dev console: RPC client, health, the local-fork guard, fork controls and test funds.

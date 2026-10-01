@@ -134,6 +134,26 @@ pnpm test:web:e2e -- --update   # rewrite the screenshot baselines after an inte
 - **States.** Components style hover and focus through the `is-hover` and `is-focus` variants, which also match `data-force="hover"` or `"focus"`, so `/design` can show every state without a pointer.
 - **Tests.** Component tests run in Vitest under jsdom (`pnpm test`). Screenshot tests of `/design` at 1440px and 380px and an axe scan run in the Playwright 1.63.0 image pinned by digest, locally and in CI, and compare pixels exactly. A new component is added to the design system and to `/design` before any page uses it.
 
+## Dev console
+
+`apps/console` is an internal, local-only console for the development environment. It is a separate app, so its code is never part of the product deployment, and it is built only from `packages/ui`.
+
+```sh
+pnpm dev:all             # dev:up, then the console at http://127.0.0.1:3001
+pnpm dev:console         # the console alone (the stack must already be up)
+pnpm test:console:e2e    # screenshot and accessibility tests of every page, in Docker
+pnpm test:console:live   # the owner's flows against the running stack (needs a browser that can reach 127.0.0.1)
+pnpm dev:down            # stop the stack when done
+```
+
+- **Local only.** It refuses to start or build unless `APP_ENV` is `local` (or unset), always binds to 127.0.0.1, and answers only requests addressed to 127.0.0.1 or localhost. Every action that changes chain state first checks that the target is the anvil fork on 127.0.0.1 (host 127.0.0.1, an `anvil/` client, chain 143) and refuses otherwise; a remote RPC is never contacted. Secrets never appear: configuration is shown only through `summarizeConfig`.
+- **Environment.** Postgres, Redis and anvil health (chain ID, network, current and pinned block) from `packages/devenv`, the same checks `pnpm dev:status` prints, and the redacted configuration.
+- **Fork controls.** Snapshot, revert, mine blocks, advance time, and reset to the pinned block; revert and reset ask first.
+- **Test funds.** Set any address's MON balance, and give it USDC minted through the real USDC contract on the fork by a fork-only test minter; balances are read back from the chain.
+- **Address book.** Every entry per environment with its status, source and open question.
+- **Policy sandbox.** Build a swap and an account, run `packages/policy`, and read the result as "why the agent did not trade" messages. Presets break each launch limit.
+- **Agents.** Empty until P1-U4, with typed extension points for listing, resetting and triggering agents, and the kill switch placeholder for PB-U1.
+
 ## Secret scanning
 
 ```sh
