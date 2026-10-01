@@ -86,3 +86,41 @@ export const BpsSchema = z
   .min(0)
   .max(BPS_DENOMINATOR)
   .transform((v) => v as Bps);
+
+export interface FormatAmountOptions {
+  /** Digits kept after the point; extra digits are cut, never rounded up. Default 2. */
+  readonly maxFractionDigits?: number;
+  /** Digits always shown after the point, padding with zeros. Default 0. */
+  readonly minFractionDigits?: number;
+  /** Prefix positive values with "+". Default false. */
+  readonly signed?: boolean;
+}
+
+/**
+ * Formats a base-unit amount as a decimal string with thousands separators,
+ * entirely in bigint arithmetic. `formatAmount(1234567890n, 6)` is "1,234.56".
+ * Truncates toward zero so a display never overstates a balance.
+ */
+export function formatAmount(
+  amount: bigint,
+  decimals: number,
+  options: FormatAmountOptions = {},
+): string {
+  const { maxFractionDigits = 2, minFractionDigits = 0, signed = false } = options;
+  if (!Number.isSafeInteger(decimals) || decimals < 0)
+    throw new RangeError("decimals must be a non-negative integer");
+  if (minFractionDigits > maxFractionDigits)
+    throw new RangeError("minFractionDigits exceeds maxFractionDigits");
+  const negative = amount < 0n;
+  const abs = negative ? -amount : amount;
+  const scale = 10n ** BigInt(decimals);
+  const whole = abs / scale;
+  let fraction = (abs % scale).toString().padStart(decimals, "0").slice(0, maxFractionDigits);
+  while (fraction.length > minFractionDigits && fraction.endsWith("0"))
+    fraction = fraction.slice(0, -1);
+  fraction = fraction.padEnd(minFractionDigits, "0");
+  const grouped = whole.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  const isZero = whole === 0n && /^0*$/.test(fraction);
+  const sign = negative && !isZero ? "-" : signed && !negative && !isZero ? "+" : "";
+  return `${sign}${grouped}${fraction ? `.${fraction}` : ""}`;
+}

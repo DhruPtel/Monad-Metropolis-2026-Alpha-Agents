@@ -54,3 +54,9 @@ export const Bytes32Schema = z
 /** A Unix time in whole seconds. */
 export type UnixSeconds = number;
 export const UnixSecondsSchema = z.number().int().nonnegative();
+
+/** `0x754704Bc...b603` shortened to `0x7547…b603` for display. The full address stays available for copying. */
+export function shortenAddress(address: string, visible = 4): string {
+  if (!/^0x[0-9a-fA-F]+$/.test(address) || address.length <= 2 + visible * 2) return address;
+  return `${address.slice(0, 2 + visible)}…${address.slice(-visible)}`;
+}
