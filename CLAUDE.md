@@ -39,3 +39,8 @@ Alpha Agents is an onchain financial management platform on Monad where AI agent
    - What the owner should check or try
    - Open issues for the next unit
    - The command for the owner to push: git push
+
+## Frontend rule
+- Every unit that adds user-facing behavior also builds its UI in the same unit, using only components and tokens from the design system. No one-off styling.
+- If a needed component does not exist, add it to the design system and the /design page first, then use it.
+- Playtests always include a visual check of the pages touched by the phase.
