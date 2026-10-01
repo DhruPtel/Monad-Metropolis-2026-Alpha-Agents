@@ -44,3 +44,17 @@ describe("CI workflow", () => {
     }
   });
 });
+
+describe("Playwright image", () => {
+  it("is the same pinned image locally and in CI, matching @playwright/test", () => {
+    const ci = readFileSync(join(ROOT, ".github/workflows/ci.yml"), "utf8");
+    const local = readFileSync(join(ROOT, "scripts/web-e2e.js"), "utf8");
+    const pin = /mcr\.microsoft\.com\/playwright:v([\d.]+)-noble@sha256:[0-9a-f]{64}/;
+    const ciImage = ci.match(pin);
+    const localImage = local.match(pin);
+    expect(ciImage?.[0]).toBeDefined();
+    expect(ciImage?.[0]).toBe(localImage?.[0]);
+    const web = JSON.parse(readFileSync(join(ROOT, "apps/web/package.json"), "utf8"));
+    expect(web.devDependencies["@playwright/test"]).toBe(ciImage?.[1]);
+  });
+});
