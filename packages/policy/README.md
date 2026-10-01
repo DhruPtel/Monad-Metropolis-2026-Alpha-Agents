@@ -20,8 +20,8 @@ The launch hard limits as typed constants (`LAUNCH_LIMITS`) and pure functions t
 
 Rules every check follows:
 
-- A maximum passes at exactly its value and fails one unit above; a minimum passes at exactly its value and fails one unit below.
-- A swap whose output is USDC is exempt from the 40% and 10% checks, and is the only swap allowed in `REDUCE_ONLY` and `WIND_DOWN`. Nothing trades in `PAUSED`, and the agent does not trade a vault in `HANDOVER` (`EPOCH_MISMATCH`).
+- A maximum passes at exactly its value and fails one unit above; a minimum passes at exactly its value and fails one unit below. Oracle age is the exception: a price must be strictly under 300 seconds old, so exactly 300 fails (D-151).
+- A swap whose output is USDC is exempt from the 40% and 10% checks, and is the only swap allowed in `REDUCE_ONLY` and `WIND_DOWN`. Nothing trades in `PAUSED`, and the agent does not trade a vault in `HANDOVER` (`VAULT_IN_HANDOVER`, D-152).
 - A missing, future-dated, non-positive or stale oracle price fails closed.
 - Every failing rule is reported, each with a code, the owner-facing message from `REJECTION_MESSAGES` in packages/domain, and a detail line.
 - All arithmetic is bigint; no amount passes through floating point.

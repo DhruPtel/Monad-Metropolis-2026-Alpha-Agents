@@ -161,7 +161,7 @@ describe("reduce-only exemption: output USDC", () => {
     );
     expect(
       codes(checkSwap(sellWmon(usdc(1_000n)), fixtureState({ mode: "HANDOVER" }), NOW)),
-    ).toEqual(["EPOCH_MISMATCH"]);
+    ).toEqual(["VAULT_IN_HANDOVER"]);
   });
 });
 
@@ -273,9 +273,9 @@ describe("oracle under 5 minutes old and within 2% of the pool", () => {
     });
   it.each([
     [299, true],
-    [300, true],
+    [300, false],
     [301, false],
-  ])("age %is", (age, ok) => {
+  ])("age %is (must be strictly under 300s)", (age, ok) => {
     expect(codes(checkSwap(fixtureSwap(), oracle(age, WMON_PRICE_E18), NOW))).toEqual(
       ok ? [] : ["ORACLE_STALE"],
     );

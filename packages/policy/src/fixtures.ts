@@ -116,14 +116,14 @@ export const BREACH_FIXTURES: readonly BreachFixture[] = [
     { maxTradeBps: 10_000 },
   ),
   breach(
-    "oracle older than 5 minutes",
+    "oracle 5 minutes old or older",
     "ORACLE_STALE",
     {},
     {
       oracle: {
         WMON: {
           priceE18: WMON_PRICE_E18,
-          updatedAt: FIXTURE_NOW - 301,
+          updatedAt: FIXTURE_NOW - 300,
           poolPriceE18: WMON_PRICE_E18,
         },
       },
@@ -145,6 +145,7 @@ export const BREACH_FIXTURES: readonly BreachFixture[] = [
   ),
   breach("buy in REDUCE_ONLY", "REDUCE_ONLY_MODE", {}, { mode: "REDUCE_ONLY" }),
   breach("any trade while PAUSED", "PAUSED", {}, { mode: "PAUSED" }),
+  breach("agent swap on a vault in handover", "VAULT_IN_HANDOVER", {}, { mode: "HANDOVER" }),
   breach("buy an asset off the allowlist", "ASSET_NOT_ALLOWED", {}, { buyAllowlist: ["USDC"] }),
   breach(
     "sell more than held",

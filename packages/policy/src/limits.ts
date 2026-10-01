@@ -10,7 +10,9 @@
  * default and the fixture the server pre-checks and the contract tests share.
  *
  * Boundaries: a maximum passes at exactly its value and fails one unit above;
- * a minimum passes at exactly its value and fails one unit below.
+ * a minimum passes at exactly its value and fails one unit below. The one
+ * exception is oracle age, which must be strictly under the limit: "under 5
+ * minutes old" means a price exactly 300 seconds old fails (D-151).
  */
 export interface PolicyLimits {
   /** Max value of one trade, as a share of account NAV. */
@@ -29,7 +31,7 @@ export interface PolicyLimits {
   readonly windowSeconds: number;
   /** Max distance from now to an intent's deadline. */
   readonly deadlineSeconds: number;
-  /** Max age of an oracle price. */
+  /** Oracle prices must be strictly younger than this. */
   readonly oracleMaxAgeSeconds: number;
   /** Max distance between the pool price and the oracle price. */
   readonly oracleMaxDeviationBps: number;

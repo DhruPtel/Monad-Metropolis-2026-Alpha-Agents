@@ -75,9 +75,12 @@ export function checkOracle(
   const age = now - reading.updatedAt;
   if (reading.priceE18 <= 0n)
     return [reject("ORACLE_STALE", `${asset} oracle price is not positive`)];
-  if (age < 0 || age > limits.oracleMaxAgeSeconds) {
+  if (age < 0 || age >= limits.oracleMaxAgeSeconds) {
     return [
-      reject("ORACLE_STALE", `${asset} oracle age ${age}s, limit ${limits.oracleMaxAgeSeconds}s`),
+      reject(
+        "ORACLE_STALE",
+        `${asset} oracle age ${age}s, must be under ${limits.oracleMaxAgeSeconds}s`,
+      ),
     ];
   }
   const diff =
@@ -136,7 +139,9 @@ function gates(state: AccountState, increasesRisk: boolean): Rejection[] {
   const out: Rejection[] = [];
   const mode: AccountMode = state.mode;
   if (mode === "PAUSED") out.push(reject("PAUSED", "account mode PAUSED"));
-  if (mode === "HANDOVER") out.push(reject("EPOCH_MISMATCH", "vault handover in progress"));
+  if (mode === "HANDOVER") {
+    out.push(reject("VAULT_IN_HANDOVER", "the vault's new owner has not accepted management yet"));
+  }
   if ((mode === "REDUCE_ONLY" || mode === "WIND_DOWN") && increasesRisk) {
     out.push(reject("REDUCE_ONLY_MODE", `account mode ${mode}; only output to USDC is allowed`));
   }
