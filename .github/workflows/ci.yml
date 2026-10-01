@@ -72,3 +72,20 @@ jobs:
       - name: Test (fork tests excluded)
         working-directory: chains/monad
         run: forge test --no-match-path 'test/fork/**' -vv
+
+  secrets:
+    name: Secret scan (gitleaks, full history)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out full history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      - name: Scan
+        run: node scripts/secrets-scan.js

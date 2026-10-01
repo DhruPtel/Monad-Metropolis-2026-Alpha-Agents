@@ -1,0 +1,5 @@
+# Verified false positives, one gitleaks fingerprint per line, each with its reason.
+#
+# Planv1 spike plan: "sk-master-spike" is a placeholder LiteLLM master key in an
+# example config, not a credential (checked in P0-U3).
+6df32f993e6167545dffbb64c27264161ba4ccae:Planv1/research/hermes/09-spike-plan.md:curl-auth-header:53

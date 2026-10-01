@@ -1,0 +1,7 @@
+# Secret scanning config for gitleaks, run by `pnpm run secrets:scan` and the CI
+# secrets job. Uses the full default rule set; nothing is allowlisted here.
+# A verified false positive goes in .gitleaksignore by fingerprint, with a reason.
+title = "Alpha Agents"
+
+[extend]
+useDefault = true

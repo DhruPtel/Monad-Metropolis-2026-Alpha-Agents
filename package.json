@@ -21,7 +21,8 @@
     "dev:down": "node scripts/dev.js down",
     "dev:reset": "node scripts/dev.js reset",
     "test:fork": "node scripts/test-fork.js",
-    "env:example": "node scripts/env-example.js"
+    "env:example": "node scripts/env-example.js",
+    "secrets:scan": "node scripts/secrets-scan.js"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
