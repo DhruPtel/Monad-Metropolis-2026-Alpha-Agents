@@ -57,3 +57,9 @@ coverage/
 
 # Lessons file from a different project (Alpha Markets), kept locally only
 Reference/
+
+# Soldeer dependencies, restored from soldeer.lock
+chains/*/dependencies/
+
+# Local dev environment runtime files (anvil PID and redacted log)
+.dev/

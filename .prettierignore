@@ -16,3 +16,7 @@ Reference/
 LOGS.md
 LESSONS.md
 CLAUDE.md
+
+# Soldeer dependencies and local dev runtime files
+dependencies/
+.dev/
