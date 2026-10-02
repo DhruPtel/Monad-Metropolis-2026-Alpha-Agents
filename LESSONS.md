@@ -92,3 +92,24 @@ What happened: The console e2e test for a refused fork action failed with a stri
 Cause: Next.js renders a hidden route announcer with role alert on every page, so a page-level alert query is never unique.
 Fix: The action error message carries `data-testid="action-error"` and the test targets that (913c58d).
 Lesson: In a Next.js app, target your own alerts by test ID, not by role alone.
+
+## L-13: The live console tests could never reach the console from Docker
+Unit: P0-U4 (housekeeping)
+What happened: `pnpm test:console:live` failed all three tests with `net::ERR_CONNECTION_REFUSED` at http://127.0.0.1:3001 while the console answered 200 to curl on the same address.
+Cause: The script ran Playwright in the pinned image with `--network=host`, but Docker Desktop on WSL2 runs containers in its own VM, so the container's 127.0.0.1 is not the distro's. The P0-U4 session saw this and logged the spec as not verified instead of fixing the runner.
+Fix: `--live` now runs Playwright on the host's Chromium, installed once per machine (the README gives the command); the screenshot tests stay in the pinned image (97a8f33).
+Lesson: Run a test that must reach a local service on the same network namespace as that service, and keep the pinned image only for tests whose output depends on the rendering environment.
+
+## L-14: A table query missed the table because the label is on its region
+Unit: P0-U4 (housekeeping)
+What happened: Once the live tests could run, the snapshot test failed waiting for `getByRole("table", { name: "Snapshots" })`, although the page showed the snapshot row.
+Cause: The design system's Table puts its `label` on the scrollable wrapper with role region, not on the table element, so no table has that accessible name. The spec had never run.
+Fix: The test finds the region by name and the table inside it (501d02c).
+Lesson: Query a design system Table through its labeled region, and never count a spec as written until it has run and passed once.
+
+## L-15: The live funds test passed only on its first run
+Unit: P0-U4 (housekeeping)
+What happened: The second run of `pnpm test:console:live` failed on the USDC check: expected "1,234.56", received "3,703.68" and then "4,938.24".
+Cause: Giving USDC mints on top of the current balance, and the test used one fixed address on a fork that keeps state between runs, so each run added to the previous runs' balance.
+Fix: Each run uses a fresh random address (501d02c); three further runs passed.
+Lesson: A test against shared, persistent state runs at least twice before it counts as passing, and uses fresh identifiers or restores what it changed.
