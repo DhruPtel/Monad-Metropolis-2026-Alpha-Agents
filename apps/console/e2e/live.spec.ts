@@ -1,10 +1,15 @@
+import { randomBytes } from "node:crypto";
 import { expect, test } from "@playwright/test";
 
 /**
  * The owner's checks, against the running stack (pnpm dev:all), driven through
  * the real UI. Run with: pnpm test:console:live
  */
-const ADDRESS = "0x00000000000000000000000000000000000c0de1";
+/**
+ * A fresh address per run: USDC is minted on top of the existing balance, so a
+ * fixed address already holds the previous run's USDC on a fork that keeps state.
+ */
+const ADDRESS = `0x${randomBytes(20).toString("hex")}`;
 
 test("the environment panel shows every service up", async ({ page }) => {
   await page.goto("/");
@@ -19,7 +24,7 @@ test("snapshot, advance a day, revert: the block and time return", async ({ page
   const startTime = (await time.textContent()) ?? "";
 
   await page.getByRole("button", { name: "Take snapshot" }).click();
-  await expect(page.getByRole("table", { name: "Snapshots" })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Snapshots" }).getByRole("table")).toBeVisible();
 
   await page.getByRole("button", { name: "Advance" }).click();
   await expect(time).not.toHaveText(startTime);
