@@ -7,7 +7,10 @@
 //     .env (an empty file is mounted over it), exactly as CI does.
 //   node scripts/web-e2e.js --app console --live
 //     Drives the running console and fork (pnpm dev:all) through the real
-//     fork-control and test-fund flows, using the host's network.
+//     fork-control and test-fund flows. This runs on the host, not in the
+//     image: Docker Desktop on WSL2 does not share the distro's loopback with
+//     --network=host, and the live tests take no screenshots, so the host's
+//     Chromium is enough (install it once with the command in the README).
 import { spawnSync } from "node:child_process";
 import { join } from "node:path";
 import { ROOT } from "./lib/paths.js";
@@ -29,10 +32,24 @@ if (live && app !== "console") {
   process.exit(1);
 }
 
-const run = (/** @type {string} */ cmd, /** @type {string[]} */ cmdArgs) =>
-  spawnSync(cmd, cmdArgs, { stdio: "inherit", cwd: ROOT }).status ?? 1;
+const run = (
+  /** @type {string} */ cmd,
+  /** @type {string[]} */ cmdArgs,
+  /** @type {{ cwd?: string, env?: NodeJS.ProcessEnv }} */ options = {},
+) => spawnSync(cmd, cmdArgs, { stdio: "inherit", cwd: ROOT, ...options }).status ?? 1;
 
-if (!live && run("pnpm", ["--filter", `@alpha-agents/${app}`, "build"]) !== 0) process.exit(1);
+const playwrightCli = join("node_modules", "@playwright", "test", "cli.js");
+
+if (live) {
+  process.exit(
+    run("node", [playwrightCli, "test"], {
+      cwd: join(ROOT, "apps", app),
+      env: { ...process.env, LIVE_CONSOLE_URL: "http://127.0.0.1:3001" },
+    }),
+  );
+}
+
+if (run("pnpm", ["--filter", `@alpha-agents/${app}`, "build"]) !== 0) process.exit(1);
 
 const uid = process.getuid?.() ?? 1000;
 const gid = process.getgid?.() ?? 1000;
@@ -40,9 +57,8 @@ const status = run("docker", [
   "run",
   "--rm",
   "--ipc=host",
-  ...(live
-    ? ["--network=host", "-e", "LIVE_CONSOLE_URL=http://127.0.0.1:3001"]
-    : ["-v", "/dev/null:/work/.env:ro"]),
+  "-v",
+  "/dev/null:/work/.env:ro",
   "--user",
   `${uid}:${gid}`,
   "-e",
@@ -55,7 +71,7 @@ const status = run("docker", [
   `/work/apps/${app}`,
   PLAYWRIGHT_IMAGE,
   "node",
-  join("node_modules", "@playwright", "test", "cli.js"),
+  playwrightCli,
   "test",
   ...(update ? ["--update-snapshots"] : []),
 ]);

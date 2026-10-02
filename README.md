@@ -142,9 +142,11 @@ pnpm test:web:e2e -- --update   # rewrite the screenshot baselines after an inte
 pnpm dev:all             # dev:up, then the console at http://127.0.0.1:3001
 pnpm dev:console         # the console alone (the stack must already be up)
 pnpm test:console:e2e    # screenshot and accessibility tests of every page, in Docker
-pnpm test:console:live   # the owner's flows against the running stack (needs a browser that can reach 127.0.0.1)
+pnpm test:console:live   # the owner's flows against the running stack, on the host's Chromium
 pnpm dev:down            # stop the stack when done
 ```
+
+`test:console:live` runs Playwright on the host rather than in the pinned image, because Docker Desktop on WSL2 does not share the distro's 127.0.0.1 with `--network=host`; it takes no screenshots, so the host browser is enough. Install it once with `pnpm --filter @alpha-agents/console exec playwright install chromium` The headless browser needs no extra system packages on the development machine; `pnpm --filter @alpha-agents/console exec playwright install-deps --dry-run chromium` lists the optional ones (GPU and Xvfb, for headed runs), which need sudo to install.
 
 - **Local only.** It refuses to start or build unless `APP_ENV` is `local` (or unset), always binds to 127.0.0.1, and answers only requests addressed to 127.0.0.1 or localhost. Every action that changes chain state first checks that the target is the anvil fork on 127.0.0.1 (host 127.0.0.1, an `anvil/` client, chain 143) and refuses otherwise; a remote RPC is never contacted. Secrets never appear: configuration is shown only through `summarizeConfig`.
 - **Environment.** Postgres, Redis and anvil health (chain ID, network, current and pinned block) from `packages/devenv`, the same checks `pnpm dev:status` prints, and the redacted configuration.
