@@ -17,6 +17,7 @@ export default tseslint.config(
       "Planv2/**",
       "Reference/**",
       "**/dependencies/**",
+      "clones/**",
     ],
   },
   js.configs.recommended,

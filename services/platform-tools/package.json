@@ -1,0 +1,17 @@
+{
+  "name": "@alpha-agents/platform-tools",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Platform tools MCP server. P1-U1 ships a stub with complete_stage only; P1-U7 adds the real tools.",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p ."
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.32.0",
+    "zod": "4.6.5"
+  }
+}

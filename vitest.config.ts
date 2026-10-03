@@ -8,6 +8,7 @@ const ignored = [
   "Planv1/**",
   "Planv2/**",
   "Reference/**",
+  "clones/**",
 ];
 
 export default defineConfig({
