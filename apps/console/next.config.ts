@@ -11,6 +11,8 @@ assertConsoleEnvironment();
 
 const config: NextConfig = {
   reactStrictMode: true,
+  // Stop `next dev` writing AGENTS.md and CLAUDE.md when it detects an AI agent.
+  agentRules: false,
   transpilePackages: [
     "@alpha-agents/ui",
     "@alpha-agents/devenv",
