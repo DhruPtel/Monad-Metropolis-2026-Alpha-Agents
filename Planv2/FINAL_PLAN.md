@@ -1022,12 +1022,13 @@ Custom skills are core, not an add-on: at the hackathon beta the marketplace alr
 | Page | Unit |
 |---|---|
 | Landing, with live counters and the beta banner | P1-U10 |
-| Mint | P1-U10 |
+| Mint | P1-U10, with P1-U11's mint flow and tier bodies |
 | My Agents, with "Fund your agent" | P1-U9 |
 | Portfolio | P2-U7 |
 | Goal form | P3-U1, embedded in configure by P6-U6 |
 | Agent profile (build card, research board, feeds, "why the agent did not trade") | P5-U1, with research cards from P3-U5 and the feed from P2-U7 |
-| Configure, 3D | P6-U6 |
+| Agent portal: the Configure layout, panels and cards, the animated 3D model with a base body per tier, skill slots on named sockets, wallet connection, the mint flow, the ownership check and the agent card | P1-U11 (D-155) |
+| Configure, 3D, wired to BuildRegistry | P6-U6, on P1-U11's portal |
 | Vault panel and deposit and withdraw modal | P7-U4 |
 | Agent gallery | P7-U7 |
 | Leaderboard | P7-U6 |
