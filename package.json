@@ -28,7 +28,8 @@
     "dev:console": "node scripts/console.js dev",
     "dev:all": "pnpm dev:up && pnpm dev:console",
     "test:console:e2e": "node scripts/web-e2e.js --app console",
-    "test:console:live": "node scripts/web-e2e.js --app console --live"
+    "test:console:live": "node scripts/web-e2e.js --app console --live",
+    "spike:hermes:local": "node services/orchestrator/src/spike/local-smoke.ts"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
