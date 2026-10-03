@@ -14,18 +14,18 @@ Status: unaudited beta. Mainnet access is limited to allowlisted testers with ca
 
 ## Repository layout
 
-| Folder             | Purpose                                                                                                     |
-| ------------------ | ----------------------------------------------------------------------------------------------------------- |
-| `apps/web`         | Web frontend                                                                                                |
-| `apps/control-api` | Control API and auth                                                                                        |
-| `services/`        | Backend services: orchestrator, tool servers, runners, sentinel, signer, indexer                            |
-| `packages/`        | Shared TypeScript packages: domain, policy, skills, workflows, accounting                                   |
-| `chains/monad`     | Monad contracts, deployment scripts and chain adapter                                                       |
-| `chains/solana`    | Solana version, built after the Monad chain layer                                                           |
-| `infra/`           | Local environment, environment templates and deployment config                                              |
-| `evidence/`        | Evidence bundle: addresses, transaction links, build hashes, test receipts                                  |
-| `docs/adr/`        | Architecture decision records                                                                               |
-| `Planv2/`          | The plan: `FINAL_PLAN.md`, `BUILD_PLAN.md`, `DECISIONS_AND_OPEN_QUESTIONS.md`, and unit prompts in `units/` |
+| Folder             | Purpose                                                                                                                                           |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `apps/web`         | Web frontend                                                                                                                                      |
+| `apps/control-api` | Control API and auth                                                                                                                              |
+| `services/`        | Backend services: orchestrator, tool servers, runners, sentinel, signer, indexer                                                                  |
+| `packages/`        | Shared TypeScript packages: domain, policy, skills, workflows, accounting                                                                         |
+| `chains/monad`     | Monad contracts, deployment scripts and chain adapter                                                                                             |
+| `chains/solana`    | Solana version, built after the Monad chain layer                                                                                                 |
+| `infra/`           | Local environment, environment templates and deployment config                                                                                    |
+| `evidence/`        | Evidence bundle: addresses, transaction links, build hashes, test receipts                                                                        |
+| `docs/adr/`        | Architecture decision records                                                                                                                     |
+| `Planv2/`          | The plan: `FINAL_PLAN.md`, `BUILD_PLAN.md`, `DECISIONS_AND_OPEN_QUESTIONS.md`; prompts of units before P0-U4 in `units/` (later units: `LOGS.md`) |
 
 Build progress is recorded in `LOGS.md` and bugs fixed in `LESSONS.md`.
 

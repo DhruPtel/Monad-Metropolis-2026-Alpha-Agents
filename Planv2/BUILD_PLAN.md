@@ -10,7 +10,7 @@ Companion to `FINAL_PLAN.md` (what we are building) and `DECISIONS_AND_OPEN_QUES
 
 Carried from `PHASES.md > How every phase works`, `> Unit prompt template` and `> Rules for every Claude Code session`, amended by the planning answers and the orientation decisions.
 
-**One unit at a time.** Each unit has its own prompt, is built and tested alone in its own session, and is reviewed by the owner before the next unit starts. No session builds more than one unit and no prompt describes a whole phase. The prompts of the units built before P0-U4 are stored in `Planv2/units/`, one file per unit (`Assumption` A-25). From P0-U4 on, unit prompts no longer need to be saved there; the unit's `LOGS.md` entry and commits are its record (owner decision, P0-U4 housekeeping).
+**One unit at a time.** Each unit has its own prompt, is built and tested alone in its own session, and is reviewed by the owner before the next unit starts. No session builds more than one unit and no prompt describes a whole phase. The prompts of the units built before P0-U4 are stored in `Planv2/units/`, one file per unit (`Assumption` A-25). From P0-U4 on, unit prompts are not saved there; the unit's `LOGS.md` entry and commits are its record (D-158, which supersedes A-25).
 
 **Every phase runs five steps.** Build (one unit per session, in the order of section 4), stabilize (the phase's tests pass together, bugs logged and fixed), mid-phase playtest (once the core pieces are built and connected; terminal output is acceptable), end-of-phase playtest (once the feature is fully assembled; the owner uses it as a real user and writes notes), tune (small adjustments, no new features). Section 3 and section 4 mark where each playtest falls. A phase is locked before the next starts, with one exception for the hackathon beta: a phase is beta-locked when its beta units (section 4) have passed their playtests; its remaining units are built after Phase B in phase order, and the phase is fully locked then.
 
@@ -50,9 +50,11 @@ flowchart TB
   DOM[Shared domain and policy packages P0-U5]
   DS[Web foundation and design system P0-U6]
   DEV[Dev console P0-U4]
+  TUNE[Design tuning P0-U7]
   ENV[Local environment and fork P0-U2]
   HERM[Hermes and E2B spike P1-U1]
   NFT[AgentNFT and token-bound accounts P1-U3]
+  PORT[Prototype port: portal, 3D model, NFT connector P1-U11]
   IDX[Indexer and API P1-U4]
   PROV[Agent provisioning P1-U5]
   CRED[Credits: funding address and metering P1-U6]
@@ -111,6 +113,12 @@ flowchart TB
   SOL[Solana track S-U1 to S-U5]
   DOM --> DS
   DS --> DEV
+  DS --> TUNE
+  TUNE --> PORT
+  NFT --> PORT
+  PORT --> PAGES1
+  PORT --> ART
+  PORT --> CFG
   DS --> PAGES1
   DS --> PUI
   DOM --> NFT
@@ -233,7 +241,7 @@ Each phase lists its goal, build units (ID, name, components touched, dependenci
 | Hosting: a long-running host for the orchestrator, tool servers, sentinel and bot runner; managed Postgres and Redis; a web host | account | P1-U4 for the API; PB-U1 for mainnet | Serverless function ceilings silently kill long model calls (section 8, lesson 18) |
 | Domain name | account | PB-U1 | |
 | IPFS or Arweave pinning (Pinata or equivalent) | account, key | P6-U5 | Q-26 |
-| Image-to-3D tool with a commercial license, Blender, glTF Transform | tool | P6-U1 | Q-25 |
+| Image-to-3D tool with a commercial license, Blender, glTF Transform | tool | P1-U11 | Q-25, resolved for the bee model by D-157 (Meshy, UniRig) |
 | x402 facilitator on Monad, testnet and mainnet endpoints | endpoint | P5-U4 testnet; P8-U4 mainnet | Q-20 |
 | Mainnet funds: small MON and USDC for the canary and the founders' dry run | funds | PB-U1 | Bounded by the beta caps |
 | Hackathon registrations: Monad Metropolis (Onchain Finance and Trading track) and Colosseum | account | PB-U2 | Deadline October 13, 2026 |
@@ -248,10 +256,11 @@ Each phase lists its goal, build units (ID, name, components touched, dependenci
 | P0-U5 | Shared domain and policy packages | `packages/domain` (IDs, integer base-unit amounts with the scale in the type name, epochs, action and event types, the canonical account modes and agent states from `FINAL_PLAN.md > 4.12`, environment labels), `packages/policy` (the hard-limit semantics as pure functions with fixtures shared by the server pre-checks and the contract tests), `packages/skills` (manifest schema; the canonical tool registry from `FINAL_PLAN.md > 4.4.5` is defined in `packages/domain` and re-exported here, D-153), `packages/workflows` (spec schema), `packages/accounting` (journal and valuation types) | P0-U1 | Schemas validate the fixtures; the policy package rejects each hard-limit breach fixture; amounts never pass through floating point; a skill manifest naming a tool outside the registry fails validation |
 | P0-U6 | Web foundation and design system | `apps/web` (Next.js App Router, TypeScript, Tailwind CSS, shadcn/ui, self-hosted fonts); design tokens defined once as CSS variables (dark theme, structured for a light theme later); base components with every state, including the domain-driven StatusPill, ReasonMessage, AmountDisplay and AddressDisplay and the BetaBanner; the app shell; a `/design` page showing every token and component (D-150) | P0-U1, P0-U3, P0-U5 | `/design` shows every token and component in every state; no component uses a raw color, size or font value; StatusPill and ReasonMessage render every canonical mode and reason code from `packages/domain`; Playwright screenshot tests at desktop and 380px pass in the pinned Playwright image; no serious axe violation |
 | P0-U4 | Dev console | Internal admin page, local only: environment health, fork controls, test funds, address book, policy sandbox; kill switch placeholder wired in PB-U1; built only from the P0-U6 design system components (D-150). The agents panel is an extension point: listing agents from the database with status, spend and last action is delivered in P1-U4, resetting an agent in P1-U5, and triggering a no-op task in P1-U8 | P0-U1, P0-U6 | Console loads every panel; test funds and fork controls work on the fork; the console refuses non-local environments. Agent listing, reset and the no-op task trigger are tested in P1-U4, P1-U5 and P1-U8 |
+| P0-U7 | Design tuning | The token changes of `Planv2/notes/prototype-review.md` section 2.3 applied to `packages/ui` (D-154): the palette and semantic tokens (cool graphite, off-white, ash, lime, lime-dim, red, brass, amber, steel; `primary-muted`, `warning`, `rare`, `viewer-glow`), flat cards and the new shadow set, the type scale shifted down with the `2xs` step and label tracking, a 13px body with tabular numbers, the new radii, motion tokens with the `slot-pulse` and `status-pulse` keyframes and the reduced-motion rule; Inter and JetBrains Mono through `next/font/google`, served from our origin, in `apps/web` and `apps/console`; `COLOR_TOKENS` and `SHADOW_SCALE` updated; Button sizes 28, 36 and 40px, a `secondary-accent` Button variant, `Tag` and `SectionLabel`; `/design` updated; every web and console screenshot re-baselined. Built after P1-U1 and before P1-U2 | P0-U6, P0-U4 | The token guard passes; `/design` shows every new token and component in every state; no serious or critical axe violation on `/design` or any console page, and any token that fails AA on a surface it appears on is adjusted and the change recorded (L-9); web and console screenshot tests pass in the pinned Playwright image after re-baselining, and a one-unit change to a token fails them (L-7); no font is fetched from a third-party origin at runtime |
 
 **Playtests.** Mid-phase after P0-U2: one command boots the stack and the fork answers chain 143, in the terminal. End-of-phase after P0-U4: the stack boots, the fork runs, the dev console loads in the browser.
 
-**What changed and why.** Phase 0 now starts with the owner setup checklist so no later unit stalls on a missing account or key (owner decision, orientation). P0-U5 is new: the revised technical plan and every research note assume shared domain, policy, skill and workflow schemas that the server, the contracts' tests and the audit service all use; without them the "read limits from the Executor, never hard-code" rule has no place to live (`preview.html > Revised build manual > 2`, `notes/monad-agent-kit.md > 4`). P0-U3 gains environment IDs on every record (`preview.html > Revised technical plan > 11`). Tracking moved from `plans/` to `LOGS.md` and `LESSONS.md` (owner decision, orientation).
+**What changed and why.** Phase 0 now starts with the owner setup checklist so no later unit stalls on a missing account or key (owner decision, orientation). P0-U5 is new: the revised technical plan and every research note assume shared domain, policy, skill and workflow schemas that the server, the contracts' tests and the audit service all use; without them the "read limits from the Executor, never hard-code" rule has no place to live (`preview.html > Revised build manual > 2`, `notes/monad-agent-kit.md > 4`). P0-U3 gains environment IDs on every record (`preview.html > Revised technical plan > 11`). Tracking moved from `plans/` to `LOGS.md` and `LESSONS.md` (owner decision, orientation). P0-U7 is new: the Apiary prototype became the visual spec, and its token values and fonts are applied to the design system before the Phase 1 pages are built (D-154).
 
 ### Phase 1: The agent comes alive
 
@@ -268,11 +277,12 @@ Each phase lists its goal, build units (ID, name, components touched, dependenci
 | P1-U7 | Minimal tool servers and narrator | Data tools server with `web_search` and `read_url` only (metered), platform tools server with `get_goals_and_limits` (goal stub), `complete_stage`, `write_thesis` stub; narrator v1 that renders action log entries with a boundary validator that rejects any digit in narration text not taken from the action log or ledger; shared conventions from `FINAL_PLAN.md > 4.4.1` (identity from the token, error shapes, structured output, lint rule) | P1-U6 | MK-S4 tenant isolation and MK-K01 fuzz pass for the servers that exist; a call without the injected token gets 401; every paid call has a ledger row with `cacheHit`; a narration containing a number not in the source record is rejected |
 | P1-U8 | First task | A scheduled Scan-style task using `web_search`, driven by the orchestrator, ending in `complete_stage`; the narrator writes an activity entry; the dev console triggers a no-op task (P0-U4 extension point) | P1-U7 | The task runs on schedule, spends credits visibly, produces one feed entry, and stops when credits reach zero |
 | P1-U9 | My Agents page | Status and agent state, the single "Fund your agent" action showing two balances (Credits at the funding address, Trading in the PersonalAccount once it exists) with the funding address and a QR code, spend breakdown by kind, refund unspent credits, activity feed, pause | P1-U8 | Page shows live values from the ledger and the chain projection with their watermark; sending USDC to the shown address updates Credits with no further action |
-| P1-U10 | Landing page and mint page | Landing page with live counters (agents minted, credits funded, trades settled once Phase 2 exists) from the indexer with their watermark and the "unaudited beta" banner; mint page with the three tier cards (slots 3, 5, 8), the base body per tier, price in USDC, supply, allowlist state, and the mint transaction | P1-U9, P1-U3 | Counters match the indexer; a non-allowlisted wallet sees why it cannot mint; a mint from the page produces an agent that appears on My Agents |
+| P1-U10 | Landing page and mint page | Landing page with live counters (agents minted, credits funded, trades settled once Phase 2 exists) from the indexer with their watermark and the "unaudited beta" banner; mint page with the three tier cards (slots 3, 5, 8), the base body per tier from P1-U11, price in USDC, supply, allowlist state, and the mint transaction through P1-U11's mint flow | P1-U9, P1-U3, P1-U11 | Counters match the indexer; a non-allowlisted wallet sees why it cannot mint; a mint from the page produces an agent that appears on My Agents |
+| P1-U11 | Prototype port: agent portal, 3D model and NFT connector | Exactly the scope of D-155, with the prototype as the visual spec and nothing else from it (D-156). The agent portal in `apps/web`: the Configure page layout, panels and cards, rebuilt on `packages/ui`. The visual style: outlines, borders and panel framing (corner marks, readouts) as tokens and design-system components, added to `/design` first. The 3D model: three, React Three Fiber and drei, loaded with `next/dynamic` and `ssr: false` only on routes that show the model; the rigged body with its animations, the scene (lights, environment, platform shader with colors read from tokens), a base body per tier, the scene cloned per viewer, no production logging, the tuning panel in development only, a static fallback without WebGL; the asset pipeline documented (image-to-3D, UniRig, Blender, glTF Transform), with named socket empties parented to the body, head and abdomen bones, unused skin attributes pruned and a file size budget set. Skill slots: the prototype's hexagon slot markers, each anchored with drei `Html` to a named socket so it follows the model, the count taken from the agent's tier (3, 5, 8), empty until skills exist. The NFT connector: wallet connection through Privy (P1-U2); the mint flow on AgentNFT (P1-U3) with its button states (USDC approval, signing, pending with an explorer link, success, rejected in wallet, error, allowlist refusal with its reason) and the new agent parsed from `AgentMinted`; the ownership check (a fresh `ownerOf` read before owner controls show, re-read on account or chain change); the agent NFT in its card (token ID, tier, owner, token-bound account, environment label) | P0-U7, P1-U2, P1-U3 | Every base body loads with its named sockets, and each slot marker stays on its socket while the model orbits and animates; the slot count matches the tier; a mint from the portal on the fork or testnet produces an agent shown in its card with its tier and token-bound account; every mint button state renders, a rejected signature shows "Rejected in wallet", and a non-allowlisted wallet sees why it cannot mint; a wallet that does not own the agent sees no owner controls, and an account switch removes them; three, React Three Fiber and drei are absent from the bundles of routes without the model; the static fallback renders without WebGL; the GLB is within the budget; the token guard, screenshots at 1440px and 380px and axe pass; no prototype contract, RainbowKit, mock data, backtest button or unlabeled number is present |
 
-**Playtests.** Mid-phase after P1-U6: mint an agent on testnet from the dev console, send test USDC to its funding address, watch credits appear and a metered call debit them, in the terminal. End-of-phase after P1-U10: connect a wallet, mint from the mint page, fund from My Agents, trigger or wait for a task, see the balance drop, read the entry, see the agent pause when credits run out. Look at minting feel, credit display, spend breakdown clarity, feed wording, step latency (`PHASES.md > Phase 1`).
+**Playtests.** Mid-phase after P1-U6: mint an agent on testnet from the dev console, send test USDC to its funding address, watch credits appear and a metered call debit them, in the terminal. End-of-phase after P1-U10: connect a wallet, mint from the mint page, open the agent portal and see the agent's card, its tier body animating and its empty slots on their sockets, fund from My Agents, trigger or wait for a task, see the balance drop, read the entry, see the agent pause when credits run out. Look at minting feel, the portal and 3D model, credit display, spend breakdown clarity, feed wording, step latency (`PHASES.md > Phase 1`).
 
-**What changed and why.** P1-U7 is split out of the old P1-U7 "First task" so that the tool servers (which every later phase extends) are a unit of their own; the old first task becomes P1-U8 and the page P1-U9. P1-U3 gains the epoch bump, the escrow-only transfer restriction and the no-nesting guard now, because retrofitting them into a deployed NFT is impossible (`planning answer`, `notes/tokenbound.md > 3.2`), and the beta mint allowlist (D-133). P1-U4 indexes Tokenbound guardian events because the public RPC caps `eth_getLogs` (`notes/tokenbound.md > 6`), and USDC transfers because credits are now attributed from them. P1-U5 uses a KMS funding address rather than a Privy server wallet (`planning answer`). P1-U6 replaces the Billing contract and its allowance and batch-settlement flow with the funding address model (owner decision, orientation; D-144). P1-U10 is new so the landing and mint pages have an owning unit (D-139).
+**What changed and why.** P1-U7 is split out of the old P1-U7 "First task" so that the tool servers (which every later phase extends) are a unit of their own; the old first task becomes P1-U8 and the page P1-U9. P1-U3 gains the epoch bump, the escrow-only transfer restriction and the no-nesting guard now, because retrofitting them into a deployed NFT is impossible (`planning answer`, `notes/tokenbound.md > 3.2`), and the beta mint allowlist (D-133). P1-U4 indexes Tokenbound guardian events because the public RPC caps `eth_getLogs` (`notes/tokenbound.md > 6`), and USDC transfers because credits are now attributed from them. P1-U5 uses a KMS funding address rather than a Privy server wallet (`planning answer`). P1-U6 replaces the Billing contract and its allowance and batch-settlement flow with the funding address model (owner decision, orientation; D-144). P1-U10 is new so the landing and mint pages have an owning unit (D-139). P1-U11 is new: it ports the Apiary prototype's portal, 3D model, socket-anchored slots and NFT connector onto our design system, Privy and AgentNFT, takes over the body, scene and sockets of the reduced P6-U1, and gives P1-U10 its mint flow and tier bodies (D-155, D-156).
 
 ### Phase 2: First trades
 
@@ -355,16 +365,16 @@ Each phase lists its goal, build units (ID, name, components touched, dependenci
 
 | Unit | Name | Components touched | Depends on | Acceptance tests |
 |---|---|---|---|---|
-| P6-U1 | 3D asset pipeline | Concept art to base models per tier, socket naming convention, skill part models for the nine launch skills plus one generic part for creator skills without art, GLB export and compression, thumbnails, loading in React Three Fiber | P0-U1 | Every base body loads with named sockets; every skill part parents to its socket; a creator skill with no art shows the generic part; file sizes within the budget set in the unit |
+| P6-U1 | 3D asset pipeline | Builds on P1-U11's bodies, sockets, scene and documented pipeline (D-155): skill part models for the nine launch skills plus one generic part for creator skills without art, each modeled with its origin at the attachment point and parented at runtime to its socket; further base bodies; lower-detail thumbnails; GLB compression within P1-U11's budget | P1-U11 | Every skill part parents to its socket and follows the animated model; a creator skill with no art shows the generic part; thumbnails render; file sizes within the budget |
 | P6-U2 | SkillNFT, SkillRegistry, PublisherRegistry, WorkflowNFT, BuildRegistry | Contracts per `FINAL_PLAN.md > 4.1.3` to `> 4.1.5`: content-hash versions, statuses, onchain copies of slot cost, tier, type and privacy, transfer restrictions for agent accounts, publisher keys and verification, BuildRegistry with slots 3, 5, 8 by sum of slot cost, holdings and status checks, config epoch bump, epoch log, built-in workflows registered | P1-U3 | A version with a reused number and a different hash is rejected; a revoked version cannot be activated; an operator transfer out of an agent account reverts; slot overflow reverts; `setBuild` by a non-owner reverts; a build change kills stale intents (ZR-Z17 extended) |
 | P6-U3 | Skill packaging, privacy and loader | Validator for F1 to F8, frontmatter generator, canonical content hash verified as bytes, publisher signing, envelope encryption with authenticated metadata, key broker gated on ownership and the runtime lease, loader that materializes exactly the active build and refuses tampered or revoked versions, decryption into the per-cycle tmpfs | P6-U2, P1-U5 | B-01 negatives; B-05 version swap (only the new version reaches the model, tampered hash refused, revoked refused, mid-session rule applied at the next run); H-13 and B-04 leak table shows no marker on disk after teardown, none in tool arguments outside the platform, none in the owner feed |
 | P6-U4 | Audit pipeline and creator upload service | Quarantine and safe unpack, S1 to S15, L1 to L8 on a separate model, the dynamic test sandbox (canaries, sinkhole, mock tools, evals), human review queue, continuous checks and version diffs, revocation path, invite registration in PublisherRegistry; the upload API the creator portal (P8-U2) fronts | P6-U3 | B-03: the clean skill passes, the synthetic risky skill is blocked with every planted pattern caught including the paraphrased override, calibration results recorded with the false-positive rate on defensive text; an invited creator's signed package moves from upload to a listed version with an attestation |
 | P6-U5 | Launch skills as NFTs and premium data | The nine skills published through the pipeline as platform skills with attestations, all at `required_tier: base` (D-127); the premium curated data tool set for pro tier gated by the token; the swap skill named for the chosen venue | P6-U4, P3-U7 | Each of the nine passes the pipeline; a pro agent sees the premium tools and a base agent does not (MK-S6); the effect of an equipped skill is visible in the next cycle's tool calls |
-| P6-U6 | Configure page | 3D agent with sockets, drag-equip from inventory, proposed versus active build, capability deltas, slot arithmetic by tier, goal form embedded, "Activate build" sending `setBuild`, build history | P6-U5, P6-U1 | Equip, activate, see the capability used, unequip, confirm it is gone at the next cycle; the running build and the proposal are visually distinct; the static fallback renders without WebGL |
+| P6-U6 | Configure page | Wires P1-U11's portal, model and socket slots to BuildRegistry (D-155): skill inventory, drag-equip from inventory into the slots, equipped parts from P6-U1, proposed versus active build, capability deltas, slot arithmetic by tier and slot cost, goal form embedded, "Activate build" sending `setBuild`, build history | P6-U5, P6-U1, P1-U11 | Equip, activate, see the capability used, unequip, confirm it is gone at the next cycle; the running build and the proposal are visually distinct; the static fallback renders without WebGL |
 
 **Playtests.** Mid-phase after P6-U3: mint a skill NFT on testnet, move it into an agent's account, activate a build, and watch the loader mount exactly that skill in the next cycle, in the terminal. End-of-phase after P6-U6: equip a skill on the configure page, see the build change, see the new capability used in the next research cycle, unequip it, confirm it is gone. Look at equip feedback, slot layout, capability descriptions, build history (`PHASES.md > Phase 6`).
 
-**What changed and why.** Unit IDs now follow the build order (orientation fix 8): the 3D pipeline is U1 because it has no dependency beyond the repo and its parts are needed by the configure page, then contracts, packaging, audit, the nine skills as NFTs, and the configure page last, because listing the nine skills should pass the same audit the creator portal uses. P6-U2 absorbs PublisherRegistry, WorkflowNFT and the transfer restrictions from the Tokenbound and Bankr notes (`planning answer`). A-01 is accepted: all nine skills are base tier (owner decision, orientation).
+**What changed and why.** Unit IDs now follow the build order (orientation fix 8): the 3D pipeline is U1 because it has no dependency beyond the repo and its parts are needed by the configure page, then contracts, packaging, audit, the nine skills as NFTs, and the configure page last, because listing the nine skills should pass the same audit the creator portal uses. P6-U2 absorbs PublisherRegistry, WorkflowNFT and the transfer restrictions from the Tokenbound and Bankr notes (`planning answer`). A-01 is accepted: all nine skills are base tier (owner decision, orientation). P6-U1 and P6-U6 now build on P1-U11, which ports the prototype's bodies, scene, sockets and portal layout in Phase 1; P6-U1 keeps the parts and thumbnails, and P6-U6 the BuildRegistry wiring (D-155).
 
 ### Phase 7: Vaults and social
 
@@ -458,98 +468,100 @@ One unit per session, in this order. The "Hackathon beta" column is the cut line
 | 6 | P0-U4 | Dev console | Internal control page for every playtest, built from the design system | P0-U1, P0-U6 | Full |
 | | Playtest 0-end | | One command boots everything, the console loads | after P0-U4 | |
 | 7 | P1-U1 | Hermes and E2B spike | Prove the wrapped runtime, in-sandbox tools and egress injection | P0-U2 | Full |
-| 8 | P1-U2 | Wallet login | Privy login with ownership-bound sessions | P0-U1 | Full |
-| 9 | P1-U3 | AgentNFT and token-bound accounts | Mint with atomic account creation, epochs, escrow-only transfers, beta mint allowlist | P0-U5, P0-U2 | Full |
-| 10 | P1-U4 | Indexer and API basics | Chain projections with watermarks, funding address transfers indexed | P1-U3 | Full |
-| 11 | P1-U5 | Agent provisioning | Config rendering, keys, sandbox lifecycle, export and restore | P1-U1, P1-U4 | Full |
-| 12 | P1-U6 | Credits | Funding address credits, metering v1, sweeps, refunds, budgets, zero-credits rule | P1-U5 | Full |
+| 8 | P0-U7 | Design tuning | The prototype's token values and fonts in the design system | P0-U6, P0-U4 | Full |
+| 9 | P1-U2 | Wallet login | Privy login with ownership-bound sessions | P0-U1 | Full |
+| 10 | P1-U3 | AgentNFT and token-bound accounts | Mint with atomic account creation, epochs, escrow-only transfers, beta mint allowlist | P0-U5, P0-U2 | Full |
+| 11 | P1-U11 | Prototype port: agent portal, 3D model and NFT connector | The portal, the animated tier bodies, socket-anchored slots and the mint and ownership flow | P0-U7, P1-U2, P1-U3 | Full |
+| 12 | P1-U4 | Indexer and API basics | Chain projections with watermarks, funding address transfers indexed | P1-U3 | Full |
+| 13 | P1-U5 | Agent provisioning | Config rendering, keys, sandbox lifecycle, export and restore | P1-U1, P1-U4 | Full |
+| 14 | P1-U6 | Credits | Funding address credits, metering v1, sweeps, refunds, budgets, zero-credits rule | P1-U5 | Full |
 | | Playtest 1-mid | | Mint from the console, send test USDC to the funding address, see credits and a metered debit, terminal | after P1-U6 | |
-| 13 | P1-U7 | Minimal tool servers and narrator | Identity-bound tool servers and the narrator with its digit validator | P1-U6 | Full |
-| 14 | P1-U8 | First task | A scheduled task that spends credits and produces a feed entry | P1-U7 | Full |
-| 15 | P1-U9 | My Agents page | "Fund your agent" with Credits and Trading balances, status and spend | P1-U8 | Full |
-| 16 | P1-U10 | Landing page and mint page | Live counters, beta banner, tier cards, mint | P1-U9, P1-U3 | Reduced: counters limited to agents minted, credits funded and trades settled |
+| 15 | P1-U7 | Minimal tool servers and narrator | Identity-bound tool servers and the narrator with its digit validator | P1-U6 | Full |
+| 16 | P1-U8 | First task | A scheduled task that spends credits and produces a feed entry | P1-U7 | Full |
+| 17 | P1-U9 | My Agents page | "Fund your agent" with Credits and Trading balances, status and spend | P1-U8 | Full |
+| 18 | P1-U10 | Landing page and mint page | Live counters, beta banner, tier cards, mint | P1-U9, P1-U3, P1-U11 | Reduced: counters limited to agents minted, credits funded and trades settled |
 | | Playtest 1-end | | Connect, mint from the page, fund, watch a task, pause at zero, in the web app | after P1-U10 | |
-| 17 | P2-U0 | Venue and oracle spikes | Choose the venue, measure feeds, settle fork fidelity | P0-U2 | Full |
-| 18 | P2-U1 | Custody core and PersonalAccount | The capital contract in single-owner mode, canonical modes, per-account cap | P0-U5, P1-U3 | Full |
-| 19 | P2-U3 | Oracle adapter and circuit breaker | Fail-closed prices, deviation, breaker transitions | P2-U0, P2-U1 | Full |
-| 20 | P2-U2 | Executor, ProtocolRegistry and adapter | Typed intents with every hard limit | P2-U0, P2-U1, P2-U3 | Full |
+| 19 | P2-U0 | Venue and oracle spikes | Choose the venue, measure feeds, settle fork fidelity | P0-U2 | Full |
+| 20 | P2-U1 | Custody core and PersonalAccount | The capital contract in single-owner mode, canonical modes, per-account cap | P0-U5, P1-U3 | Full |
+| 21 | P2-U3 | Oracle adapter and circuit breaker | Fail-closed prices, deviation, breaker transitions | P2-U0, P2-U1 | Full |
+| 22 | P2-U2 | Executor, ProtocolRegistry and adapter | Typed intents with every hard limit | P2-U0, P2-U1, P2-U3 | Full |
 | | Playtest 2-mid | | Deposit, swap through the Executor, see a limit breach revert, withdraw on the fork by script | after P2-U2 | |
-| 21 | P2-U4 | KMS signer, grants and execution ledger | Sign only the four transaction kinds; reconcile everything | P2-U2 | Full |
-| 22 | P2-U5 | Chain tools server | Intents, never calldata; limits read from the Executor | P2-U4, P1-U7 | Full |
-| 23 | P2-U6 | Trade flow | Arming, automatic trades, settlement after receipt, reasons | P2-U5 | Full |
-| 24 | P2-U7 | Portfolio UI | Positions, history, deposit and withdraw, cards, blocked-trade reasons | P2-U6 | Full |
-| 25 | P2-U8 | Chain adapter interface and conformance suite | The seam the Solana branch implements | P2-U5 | No |
+| 23 | P2-U4 | KMS signer, grants and execution ledger | Sign only the four transaction kinds; reconcile everything | P2-U2 | Full |
+| 24 | P2-U5 | Chain tools server | Intents, never calldata; limits read from the Executor | P2-U4, P1-U7 | Full |
+| 25 | P2-U6 | Trade flow | Arming, automatic trades, settlement after receipt, reasons | P2-U5 | Full |
+| 26 | P2-U7 | Portfolio UI | Positions, history, deposit and withdraw, cards, blocked-trade reasons | P2-U6 | Full |
+| 27 | P2-U8 | Chain adapter interface and conformance suite | The seam the Solana branch implements | P2-U5 | No |
 | | Playtest 2-end | | The Phase 2 checkpoint in the web app on testnet and the fork | after P2-U7 for the beta, again after P2-U8 | |
-| 26 | P3-U1 | Goals form and goal translator | Structured input to template parameters | P2-U6 | Full |
-| 27 | P3-U2 | Data tools server | Metered, sanitized external reads | P1-U7 | Reduced: the tools the nine skills declare plus `web_search` and `read_url`; `ohlcv`, `hypersync_events` and the premium set after Phase B |
-| 28 | P3-U3 | Strategy templates and tool registry | Templates with bounds; every registry ID live | P2-U5, P3-U2 | Full |
-| 29 | P3-U7 | Launch skills as built-in folders | Nine skills mounted and selectable | P3-U3, P1-U1 | Full |
-| 30 | P3-U4 | Discovery loop | Five stages as separate runs | P3-U3, P3-U7 | Reduced: all five stages; Dives capped at two candidates per cycle; H-42 and H-43 documented after Phase B |
+| 28 | P3-U1 | Goals form and goal translator | Structured input to template parameters | P2-U6 | Full |
+| 29 | P3-U2 | Data tools server | Metered, sanitized external reads | P1-U7 | Reduced: the tools the nine skills declare plus `web_search` and `read_url`; `ohlcv`, `hypersync_events` and the premium set after Phase B |
+| 30 | P3-U3 | Strategy templates and tool registry | Templates with bounds; every registry ID live | P2-U5, P3-U2 | Full |
+| 31 | P3-U7 | Launch skills as built-in folders | Nine skills mounted and selectable | P3-U3, P1-U1 | Full |
+| 32 | P3-U4 | Discovery loop | Five stages as separate runs | P3-U3, P3-U7 | Reduced: all five stages; Dives capped at two candidates per cycle; H-42 and H-43 documented after Phase B |
 | | Playtest 3-mid | | One full cycle in the terminal, every stage ending in its tool call, cost recorded | after P3-U4 | |
-| 31 | P3-U5 | Thesis Board | Research memory on the platform | P3-U4 | Reduced: storage and tools in full; profile cards show status, confidence and expiry only |
-| 32 | P3-U6 | Parameter proposals | Bounded parameter changes with approval | P3-U5 | Reduced: evaluator and states in full; approval through a card on the portfolio page until P4-U3 |
+| 33 | P3-U5 | Thesis Board | Research memory on the platform | P3-U4 | Reduced: storage and tools in full; profile cards show status, confidence and expiry only |
+| 34 | P3-U6 | Parameter proposals | Bounded parameter changes with approval | P3-U5 | Reduced: evaluator and states in full; approval through a card on the portfolio page until P4-U3 |
 | | Playtest 3-end | | The Phase 3 checkpoint in the web app | after P3-U6 | |
-| 33 | P4-U1 | Workflow runner and portfolio coordinator | Declarative routines with reservations | P3-U6 | No |
-| 34 | P4-U2 | Risk Sentinel service | Deterministic watcher with its own tighten-only key | P2-U6, P2-U4, P2-U3 | Full |
+| 35 | P4-U1 | Workflow runner and portfolio coordinator | Declarative routines with reservations | P3-U6 | No |
+| 36 | P4-U2 | Risk Sentinel service | Deterministic watcher with its own tighten-only key | P2-U6, P2-U4, P2-U3 | Full |
 | | Playtest 4-mid | | Simulated price drop and stalled feed trip the sentinel on the fork, exits still work, terminal | after P4-U2 | |
-| 35 | P4-U3 | Built-in workflows | Rebalancer, Recurring Buys, parameter review, guardrail rule | P4-U1, P4-U2 | No |
-| 36 | P4-U4 | CFO dashboard | Net worth, goal progress, approvals, emergency view | P4-U3 | No |
-| 37 | P4-U5 | Reports | Narrator reports from ledger data | P4-U4 | No |
-| 38 | P4-U6 | Tax lot ledger | Personal cost basis and export | P2-U6 | No |
-| 39 | P4-U7 | Notifications | Alerts for the events that matter | P4-U4 | No |
-| 40 | P4-U8 | Workflows page | Installed workflows, triggers, approval modes | P4-U3 | No |
+| 37 | P4-U3 | Built-in workflows | Rebalancer, Recurring Buys, parameter review, guardrail rule | P4-U1, P4-U2 | No |
+| 38 | P4-U4 | CFO dashboard | Net worth, goal progress, approvals, emergency view | P4-U3 | No |
+| 39 | P4-U5 | Reports | Narrator reports from ledger data | P4-U4 | No |
+| 40 | P4-U6 | Tax lot ledger | Personal cost basis and export | P2-U6 | No |
+| 41 | P4-U7 | Notifications | Alerts for the events that matter | P4-U4 | No |
+| 42 | P4-U8 | Workflows page | Installed workflows, triggers, approval modes | P4-U3 | No |
 | | Playtest 4-end | | The Phase 4 checkpoint in the web app | after P4-U8 | |
-| 41 | P5-U1 | Directory, build cards, agent profile page, IdentityBinder | Discoverable agents with a public profile and ERC-8004 identity | P3-U5, P2-U7, P1-U3 | Reduced: build cards, profile page with feed, research board and "why the agent did not trade", `directory_search`; IdentityBinder after Phase B unless Q-13 is answered first |
-| 42 | P5-U2 | Structured agent messages | Fixed message types, untrusted handling | P5-U1 | Reduced: `offer_signal`, `accept` and `decline` only |
-| 43 | P5-U3 | Signal feed | Post-settlement publication, delayed free, real-time priced | P5-U2 | Reduced: the delayed feed window is a fixed constant |
-| 44 | P5-U4 | x402 payer and first purchases | One real capped purchase cycle | P5-U3, P2-U4 | Full |
+| 43 | P5-U1 | Directory, build cards, agent profile page, IdentityBinder | Discoverable agents with a public profile and ERC-8004 identity | P3-U5, P2-U7, P1-U3 | Reduced: build cards, profile page with feed, research board and "why the agent did not trade", `directory_search`; IdentityBinder after Phase B unless Q-13 is answered first |
+| 44 | P5-U2 | Structured agent messages | Fixed message types, untrusted handling | P5-U1 | Reduced: `offer_signal`, `accept` and `decline` only |
+| 45 | P5-U3 | Signal feed | Post-settlement publication, delayed free, real-time priced | P5-U2 | Reduced: the delayed feed window is a fixed constant |
+| 46 | P5-U4 | x402 payer and first purchases | One real capped purchase cycle | P5-U3, P2-U4 | Full |
 | | Playtest 5-mid | | One agent buys another's signal on testnet, delivery and receipt in the terminal | after P5-U4 | |
-| 45 | P5-U5 | Buyer agent | A skeptical evaluator with a budget | P5-U4 | No |
-| 46 | P5-U6 | Trial and renewal | Net value after costs, renew or cancel | P5-U5 | No |
-| 47 | P5-U7 | Value report | Pricing and product evidence, labeled simulated | P5-U6 | No |
+| 47 | P5-U5 | Buyer agent | A skeptical evaluator with a budget | P5-U4 | No |
+| 48 | P5-U6 | Trial and renewal | Net value after costs, renew or cancel | P5-U5 | No |
+| 49 | P5-U7 | Value report | Pricing and product evidence, labeled simulated | P5-U6 | No |
 | | Playtest 5-end | | The Phase 5 checkpoint | after P5-U7 | |
-| 48 | P6-U1 | 3D asset pipeline | Bodies, sockets, parts, thumbnails | P0-U1 | Reduced: one base body with a color variant per tier; sockets; parts for the nine launch skills; one generic part for creator skills without art |
-| 49 | P6-U2 | SkillNFT, registries, BuildRegistry | Skill ownership, versions, active builds | P1-U3 | Full |
-| 50 | P6-U3 | Skill packaging, privacy and loader | Validate, hash, sign, encrypt, mount only the active build | P6-U2, P1-U5 | Full |
+| 50 | P6-U1 | 3D asset pipeline | Parts on P1-U11's sockets, thumbnails | P1-U11 | Reduced: parts for the nine launch skills; one generic part for creator skills without art; the base body per tier and the sockets come from P1-U11 (D-155) |
+| 51 | P6-U2 | SkillNFT, registries, BuildRegistry | Skill ownership, versions, active builds | P1-U3 | Full |
+| 52 | P6-U3 | Skill packaging, privacy and loader | Validate, hash, sign, encrypt, mount only the active build | P6-U2, P1-U5 | Full |
 | | Playtest 6-mid | | Mint a skill NFT on testnet, equip, activate a build, the loader mounts exactly that skill, terminal | after P6-U3 | |
-| 51 | P6-U4 | Audit pipeline and creator upload service | Block what must be blocked; accept invited uploads | P6-U3 | Reduced: F1 to F8, S1 to S15 and L1 to L8 automated; the dynamic test reduced to a sandbox load with canaries and an egress log check; human review is the owner's approval; appeals and continuous re-checks after Phase B |
-| 52 | P6-U5 | Launch skills as NFTs and premium data | Nine skills listed; pro data gated | P6-U4, P3-U7 | Reduced: nine skills published; the premium data set after Phase B |
-| 53 | P6-U6 | Configure page | The 3D build experience wired to BuildRegistry | P6-U5, P6-U1 | Reduced: click-to-equip instead of drag; capability deltas and build history as lists |
+| 53 | P6-U4 | Audit pipeline and creator upload service | Block what must be blocked; accept invited uploads | P6-U3 | Reduced: F1 to F8, S1 to S15 and L1 to L8 automated; the dynamic test reduced to a sandbox load with canaries and an egress log check; human review is the owner's approval; appeals and continuous re-checks after Phase B |
+| 54 | P6-U5 | Launch skills as NFTs and premium data | Nine skills listed; pro data gated | P6-U4, P3-U7 | Reduced: nine skills published; the premium data set after Phase B |
+| 55 | P6-U6 | Configure page | P1-U11's portal wired to BuildRegistry | P6-U5, P6-U1, P1-U11 | Reduced: click-to-equip instead of drag; capability deltas and build history as lists |
 | | Playtest 6-end | | Equip a skill on the 3D configure page, activate, see it used, unequip | after P6-U6 | |
-| 54 | P7-U1 | StrategyVault core | The public vault | P2-U1, P2-U3 | Full |
-| 55 | P7-U2 | Vault Executor integration and backstops | Trading for vault accounts with independent backstops | P7-U1, P2-U2 | Full |
+| 56 | P7-U1 | StrategyVault core | The public vault | P2-U1, P2-U3 | Full |
+| 57 | P7-U2 | Vault Executor integration and backstops | Trading for vault accounts with independent backstops | P7-U1, P2-U2 | Full |
 | | Playtest 7-mid | | Deposit, vault swap, USDC exit and `redeemInKind` on the fork by script, with everything else etched to revert | after P7-U2 | |
-| 56 | P7-U3 | Vault invariant and spike suite | Offline exit and accounting proofs | P7-U2 | Reduced: M-13, M-01 to M-03, M-07 to M-12, M-24, MV-S1, MV-S3 and MV-S8 pass before PB-U1; M-34 and M-31 before P9-U3 |
-| 57 | P7-U4 | AccountFactory, caps, allowlists and vault UI | Deploy, cap, allowlist, assert, show | P7-U3 | Full |
-| 58 | P7-U5 | Watchers and demand signals | Free follows with anti-gaming | P5-U1 | No |
-| 59 | P7-U6 | Leaderboard | Honest ranking | P7-U5 | No |
-| 60 | P7-U7 | Agent gallery | Public grid of build cards | P5-U1 | Reduced: card grid with tier and status filters only |
+| 58 | P7-U3 | Vault invariant and spike suite | Offline exit and accounting proofs | P7-U2 | Reduced: M-13, M-01 to M-03, M-07 to M-12, M-24, MV-S1, MV-S3 and MV-S8 pass before PB-U1; M-34 and M-31 before P9-U3 |
+| 59 | P7-U4 | AccountFactory, caps, allowlists and vault UI | Deploy, cap, allowlist, assert, show | P7-U3 | Full |
+| 60 | P7-U5 | Watchers and demand signals | Free follows with anti-gaming | P5-U1 | No |
+| 61 | P7-U6 | Leaderboard | Honest ranking | P7-U5 | No |
+| 62 | P7-U7 | Agent gallery | Public grid of build cards | P5-U1 | Reduced: card grid with tier and status filters only |
 | | Playtest 7-end | | Deposit into another wallet's vault, withdraw both ways, browse the gallery | after P7-U4 and P7-U7 for the beta, again after P7-U7 with P7-U5 and P7-U6 | |
-| 61 | P8-U1 | AgentEscrow and item escrow | Every sale of an agent, skill or workflow | P6-U2, P7-U1 | Reduced: item escrow (primary and secondary skill and workflow sales) in full; agent `list`, `cancel` and `buy` after Phase B; the AgentNFT escrow address stays unset until then |
-| 62 | P8-U2 | Marketplace and creator portal | Listings, sales, creator flows | P8-U1, P6-U4 | Reduced: marketplace grid, skill detail, primary sale, resale listing, creator upload with findings and status, art upload; appeals, the earnings dashboard and derived performance labels after Phase B |
+| 63 | P8-U1 | AgentEscrow and item escrow | Every sale of an agent, skill or workflow | P6-U2, P7-U1 | Reduced: item escrow (primary and secondary skill and workflow sales) in full; agent `list`, `cancel` and `buy` after Phase B; the AgentNFT escrow address stays unset until then |
+| 64 | P8-U2 | Marketplace and creator portal | Listings, sales, creator flows | P8-U1, P6-U4 | Reduced: marketplace grid, skill detail, primary sale, resale listing, creator upload with findings and status, art upload; appeals, the earnings dashboard and derived performance labels after Phase B |
 | | Playtest 8-mid | | A creator uploads a custom skill, it passes the pipeline, is listed, bought and equipped on testnet | after P8-U2 | |
-| 63 | P8-U3 | Agent sale flow end to end | Old owner loses everything but PersonalAccount funds | P8-U1 | No |
-| 64 | P8-U4 | Agent economy for users | Signal purchases for users' agents on mainnet configuration | P5-U4, P8-U2 | Reduced: x402 mainnet configuration verified and one user-agent purchase; internal and external totals separate |
+| 65 | P8-U3 | Agent sale flow end to end | Old owner loses everything but PersonalAccount funds | P8-U1 | No |
+| 66 | P8-U4 | Agent economy for users | Signal purchases for users' agents on mainnet configuration | P5-U4, P8-U2 | Reduced: x402 mainnet configuration verified and one user-agent purchase; internal and external totals separate |
 | | Playtest 8-end | | The Phase 8 checkpoint | after P8-U4 for the beta with P8-U3 skipped, again after P8-U3 | |
-| 65 | PB-U1 | Beta guard and mainnet beta deployment | Allowlists, caps, label, manifests, assertion, kill switch, alerts, canary | every unit marked Full or Reduced above | Full |
+| 67 | PB-U1 | Beta guard and mainnet beta deployment | Allowlists, caps, label, manifests, assertion, kill switch, alerts, canary | every unit marked Full or Reduced above | Full |
 | | Playtest B | | The beta dry run on mainnet by the founders, then by the allowlisted testers | after PB-U1, before PB-U2 | |
-| 66 | PB-U2 | Hackathon submission deliverables | Repo access, videos, link, logo, evidence bundle labeled beta | PB-U1 | Full |
+| 68 | PB-U2 | Hackathon submission deliverables | Repo access, videos, link, logo, evidence bundle labeled beta | PB-U1 | Full |
 | | Completion pass | | Every unit marked No or Reduced is completed in phase order, each with its own prompt and `LOGS.md` entry; each phase's end-of-phase playtest is repeated when the phase is complete | after PB-U2 | |
-| 67 | P9-U1 | Safety modes and emergency reserve | Agent states, account modes and a funded emergency path | P4-U2 | Public launch |
-| 68 | P9-U2 | Monitoring, kill switch, runbooks, fixtures | Operate it safely | P8-U3, P7-U4 | Public launch |
+| 69 | P9-U1 | Safety modes and emergency reserve | Agent states, account modes and a funded emergency path | P4-U2 | Public launch |
+| 70 | P9-U2 | Monitoring, kill switch, runbooks, fixtures | Operate it safely | P8-U3, P7-U4 | Public launch |
 | | Playtest 9-mid | | Drills and release fixtures in the terminal | after P9-U2 | |
-| 69 | P9-U3 | External reviews and legal gate | Independent eyes before public money | P9-U2 | Public launch |
-| 70 | P9-U4 | Public launch deployment and dry run | Allowlists off, caps raised, canary, founders' funds | P9-U3 | Public launch |
-| 71 | P9-U5 | Public deposits enablement | The recorded launch decision | P9-U4 | Public launch |
-| 72 | P9-U6 | Evidence bundle refresh | Evidence and README current for public launch | P9-U4, P5-U7 | Public launch |
+| 71 | P9-U3 | External reviews and legal gate | Independent eyes before public money | P9-U2 | Public launch |
+| 72 | P9-U4 | Public launch deployment and dry run | Allowlists off, caps raised, canary, founders' funds | P9-U3 | Public launch |
+| 73 | P9-U5 | Public deposits enablement | The recorded launch decision | P9-U4 | Public launch |
+| 74 | P9-U6 | Evidence bundle refresh | Evidence and README current for public launch | P9-U4, P5-U7 | Public launch |
 | | Playtest 9-end | | A full dry run on mainnet with the founders' funds before opening to anyone else | after P9-U5 | |
-| 73 | S-U1 | Solana probes | Metaplex, PDA, delegate, venue, feed facts | P2-U8 | Solana track |
-| 74 | S-U2 | Solana programs | Agent, custody, executor, vault, escrow | S-U1, P7-U3, P8-U1 | Solana track |
-| 75 | S-U3 | Identity and delegate restriction | Program-restricted delegate | S-U2 | Solana track |
-| 76 | S-U4 | Chain adapter, tools, indexer, payer | The Solana implementation of the seam | S-U2 | Solana track |
-| 77 | S-U5 | Conformance and launch approval | Independent Solana gate | S-U4, P9-U3 | Solana track |
+| 75 | S-U1 | Solana probes | Metaplex, PDA, delegate, venue, feed facts | P2-U8 | Solana track |
+| 76 | S-U2 | Solana programs | Agent, custody, executor, vault, escrow | S-U1, P7-U3, P8-U1 | Solana track |
+| 77 | S-U3 | Identity and delegate restriction | Program-restricted delegate | S-U2 | Solana track |
+| 78 | S-U4 | Chain adapter, tools, indexer, payer | The Solana implementation of the seam | S-U2 | Solana track |
+| 79 | S-U5 | Conformance and launch approval | Independent Solana gate | S-U4, P9-U3 | Solana track |
 
-**Beta units in one list.** Full: P0-U1 to P0-U5, P1-U1 to P1-U9, P2-U0 to P2-U7, P3-U1, P3-U3, P3-U7, P4-U2, P5-U4, P6-U2, P6-U3, P7-U1, P7-U2, P7-U4, PB-U1, PB-U2. Reduced: P1-U10, P3-U2, P3-U4, P3-U5, P3-U6, P5-U1, P5-U2, P5-U3, P6-U1, P6-U4, P6-U5, P6-U6, P7-U3, P7-U7, P8-U1, P8-U2, P8-U4. Not in the beta: P2-U8, P4-U1, P4-U3 to P4-U8, P5-U5 to P5-U7, P7-U5, P7-U6, P8-U3, all of Phase 9, the Solana track.
+**Beta units in one list.** Full: P0-U1 to P0-U7, P1-U1 to P1-U9, P1-U11, P2-U0 to P2-U7, P3-U1, P3-U3, P3-U7, P4-U2, P5-U4, P6-U2, P6-U3, P7-U1, P7-U2, P7-U4, PB-U1, PB-U2. Reduced: P1-U10, P3-U2, P3-U4, P3-U5, P3-U6, P5-U1, P5-U2, P5-U3, P6-U1, P6-U4, P6-U5, P6-U6, P7-U3, P7-U7, P8-U1, P8-U2, P8-U4. Not in the beta: P2-U8, P4-U1, P4-U3 to P4-U8, P5-U5 to P5-U7, P7-U5, P7-U6, P8-U3, all of Phase 9, the Solana track.
 
 ---
 
