@@ -24,6 +24,8 @@ import {
 } from "./status-pill";
 import { Button } from "./ui/button";
 import { Field, Input } from "./ui/input";
+import { SectionLabel } from "./ui/section-label";
+import { Tag } from "./ui/tag";
 
 describe("StatusPill renders every canonical value from packages/domain", () => {
   it("has a rendering for every account mode, agent state and display flag, and nothing else", () => {
@@ -89,6 +91,53 @@ describe("Button", () => {
       </Button>,
     );
     expect(screen.getByRole("link", { name: "Open" })).toHaveAttribute("data-slot", "button");
+  });
+});
+
+describe("Button sizes and the secondary-accent variant", () => {
+  it.each([
+    ["sm", "h-7"],
+    ["md", "h-9"],
+    ["lg", "h-10"],
+    ["icon", "size-9"],
+  ] as const)("size %s is %s (28, 36 and 40px, D-154)", (size, height) => {
+    render(<Button size={size}>Run</Button>);
+    expect(screen.getByRole("button", { name: "Run" })).toHaveClass(height);
+  });
+
+  it("secondary-accent is a lime outline on a transparent fill", () => {
+    render(<Button variant="secondary-accent">Run agent test</Button>);
+    expect(screen.getByRole("button", { name: "Run agent test" })).toHaveClass(
+      "border-primary-muted",
+      "bg-transparent",
+      "text-primary",
+    );
+  });
+});
+
+describe("Tag", () => {
+  it.each([
+    ["neutral", "text-foreground-muted"],
+    ["rare", "text-rare"],
+    ["legendary", "text-detail"],
+    ["accent", "text-primary"],
+    ["warning", "text-warning"],
+  ] as const)("tone %s uses %s", (tone, textClass) => {
+    render(<Tag tone={tone}>Label</Tag>);
+    expect(screen.getByText("Label")).toHaveClass(textClass, "rounded-xs");
+  });
+});
+
+describe("SectionLabel", () => {
+  it("is a heading at the chosen level", () => {
+    render(<SectionLabel as="h2">Equipped</SectionLabel>);
+    const heading = screen.getByRole("heading", { level: 2, name: "Equipped" });
+    expect(heading).toHaveClass("uppercase", "tracking-label", "font-mono");
+  });
+
+  it("defaults to h3", () => {
+    render(<SectionLabel>What this agent does</SectionLabel>);
+    expect(screen.getByRole("heading", { level: 3 })).toHaveTextContent("What this agent does");
   });
 });
 

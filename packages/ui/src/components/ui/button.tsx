@@ -19,16 +19,19 @@ const buttonVariants = cva(
           "border-transparent bg-primary text-on-primary is-hover:bg-primary-hover is-hover:shadow-glow",
         secondary:
           "border-border-strong bg-surface-raised text-foreground is-hover:border-foreground-subtle is-hover:bg-surface-overlay",
+        "secondary-accent":
+          "border-primary-muted bg-transparent text-primary is-hover:border-primary is-hover:bg-primary/10",
         ghost:
           "border-transparent bg-transparent text-foreground-muted is-hover:bg-surface-raised is-hover:text-foreground",
         danger:
           "border-negative bg-negative-surface text-negative is-hover:bg-negative is-hover:text-on-negative",
       },
+      // 28, 36 and 40px, from the prototype (D-154); icon buttons match md.
       size: {
-        sm: "h-8 px-3 text-xs",
-        md: "h-10 px-4 text-sm",
-        lg: "h-12 px-6 text-base",
-        icon: "size-10",
+        sm: "h-7 px-2.5 text-xs [&_svg]:size-3.5",
+        md: "h-9 px-3.5 text-sm",
+        lg: "h-10 px-4 text-sm",
+        icon: "size-9",
       },
     },
     defaultVariants: { variant: "primary", size: "md" },

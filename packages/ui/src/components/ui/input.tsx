@@ -3,7 +3,7 @@ import { cn } from "../../lib/utils";
 
 /** Shared look for text-like controls: Input and the Select trigger. */
 export const fieldControl = cn(
-  "flex h-10 w-full min-w-0 rounded-md border border-border-strong bg-surface-raised px-3 text-sm text-foreground",
+  "flex h-9 w-full min-w-0 rounded-md border border-border-strong bg-surface-raised px-3 text-sm text-foreground",
   "transition-colors outline-none placeholder:text-foreground-subtle",
   "is-hover:border-foreground-subtle is-focus:focus-ring",
   "disabled:cursor-not-allowed disabled:opacity-50",

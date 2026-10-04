@@ -33,6 +33,7 @@ import {
   EmptyState,
   Field,
   Input,
+  SectionLabel,
   Select,
   SelectContent,
   SelectItem,
@@ -52,6 +53,7 @@ import {
   TabsContent,
   TabsList,
   TabsTrigger,
+  Tag,
   ToastSurface,
   toast,
   Tooltip,
@@ -60,6 +62,7 @@ import {
   TooltipTrigger,
   cn,
   COLOR_TOKENS,
+  MOTION_TOKENS,
   RADIUS_SCALE,
   SHADOW_SCALE,
   SPACING_SCALE,
@@ -213,7 +216,7 @@ function TokensSection() {
             ))}
           </div>
         </Specimen>
-        <Specimen name="Shadow and border">
+        <Specimen name="Shadow and border" note="Cards are flat: raised is none, only a border.">
           <div className="flex flex-wrap gap-4">
             {SHADOW_SCALE.map((s) => (
               <div key={s.name} className="flex flex-col items-center gap-1">
@@ -227,15 +230,42 @@ function TokensSection() {
           </div>
         </Specimen>
       </div>
+      <Specimen
+        name="Motion"
+        note="Transitions use the fast duration and snap easing; every animation stops when the viewer prefers reduced motion."
+      >
+        <div className="flex flex-col gap-3">
+          <ul className="flex flex-col gap-1">
+            {MOTION_TOKENS.map((token) => (
+              <li key={token.name} className="flex flex-wrap items-baseline gap-x-3">
+                <span className="numeric text-sm text-foreground">--{token.name}</span>
+                <span className="text-xs text-foreground-muted">{token.use}</span>
+              </li>
+            ))}
+          </ul>
+          <div className="flex flex-wrap items-center gap-6">
+            <State label="slot-pulse (empty slot)">
+              <span
+                aria-hidden
+                className="size-4 animate-slot-pulse rounded-xs border border-primary-muted"
+              />
+            </State>
+            <State label="status-pulse (live status dot)">
+              <span aria-hidden className="size-2 animate-status-pulse rounded-full bg-primary" />
+            </State>
+          </div>
+        </div>
+      </Specimen>
     </Section>
   );
 }
 
 function ActionsSection() {
-  const variants = ["primary", "secondary", "ghost", "danger"] as const;
+  const variants = ["primary", "secondary", "secondary-accent", "ghost", "danger"] as const;
   const labels = {
     primary: "Deploy build",
     secondary: "Run check",
+    "secondary-accent": "Run agent test",
     ghost: "View profile",
     danger: "Pause agent",
   };
@@ -270,14 +300,60 @@ function ActionsSection() {
           </div>
         </Specimen>
       ))}
-      <Specimen name="Button sizes">
+      <Specimen name="Button sizes" note="28, 36 and 40px tall; icon buttons match medium.">
         <div className="flex flex-wrap items-center gap-3">
-          <Button size="sm">Small</Button>
-          <Button size="md">Medium</Button>
-          <Button size="lg">Large</Button>
+          <Button size="sm">Small, 28px</Button>
+          <Button size="md">Medium, 36px</Button>
+          <Button size="lg">Large, 40px</Button>
           <Button size="icon" variant="secondary" aria-label="Copy">
             <Copy aria-hidden />
           </Button>
+        </div>
+      </Specimen>
+    </Section>
+  );
+}
+
+function LabelsSection() {
+  const tones = [
+    { tone: "neutral", label: "Common" },
+    { tone: "rare", label: "Rare" },
+    { tone: "legendary", label: "Legendary" },
+    { tone: "accent", label: "Equipped" },
+    { tone: "warning", label: "Expiring" },
+  ] as const;
+  return (
+    <Section id="labels" title="Tags and labels">
+      <Specimen
+        name="Tag"
+        note="Rarity and category. Square 3px corners, 18px (small) or 22px (medium) tall; no status meaning."
+      >
+        <div className={STATE_GRID}>
+          {tones.map(({ tone, label }) => (
+            <State key={tone} label={tone}>
+              <Tag tone={tone}>{label}</Tag>
+              <Tag tone={tone} size="md">
+                {label}
+              </Tag>
+            </State>
+          ))}
+        </div>
+      </Specimen>
+      <Specimen
+        name="Section label"
+        note="Mono, uppercase, label tracking; a real heading at the level the page needs."
+      >
+        <div className="flex max-w-dialog flex-col gap-2 rounded-lg border bg-surface p-4">
+          <SectionLabel as="h4">What this agent does</SectionLabel>
+          <p className="text-sm text-foreground">
+            Scans USDC and MON every cycle and rebalances inside its bands.
+          </p>
+          <SectionLabel as="h4">Equipped</SectionLabel>
+          <div className="flex flex-wrap gap-2">
+            <Tag tone="legendary">Legendary</Tag>
+            <Tag tone="rare">Rare</Tag>
+            <Tag>Common</Tag>
+          </div>
         </div>
       </Specimen>
     </Section>
@@ -304,7 +380,7 @@ function FormsSection() {
           <Field label="Daily loss limit" error="Must be at most 10% of the account">
             {(control) => <Input {...control} defaultValue="25,000" />}
           </Field>
-          <Field label="Loading">{() => <Skeleton className="h-10 w-full" />}</Field>
+          <Field label="Loading">{() => <Skeleton className="h-9 w-full" />}</Field>
         </div>
       </Specimen>
       <Specimen
@@ -781,6 +857,7 @@ function DesignSystem() {
       </header>
       <TokensSection />
       <ActionsSection />
+      <LabelsSection />
       <FormsSection />
       <OverlaysSection />
       <DataSection />
