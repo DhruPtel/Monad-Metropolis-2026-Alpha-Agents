@@ -1,18 +1,19 @@
 "use client";
 
-import { Bell, Menu, Wallet, X } from "lucide-react";
+import { Bell, Menu, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { type ReactNode, useState } from "react";
 import {
   BetaBanner,
   Button,
+  Tag,
   toast,
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
+  WalletButton,
+  WrongChainPrompt,
   cn,
 } from "@alpha-agents/ui";
+import { chainName, useWalletSession } from "@/auth/session";
 
 export const NAV_ITEMS = [
   { href: "/", label: "Dashboard" },
@@ -46,6 +47,9 @@ function ChainIndicator({ environment }: { environment: string }) {
 function AppShell({ environment, children }: { environment: string; children: ReactNode }) {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
+  const wallet = useWalletSession();
+  const walletChain = chainName(wallet.chainId, wallet.target);
+  const wrongChain = wallet.state === "wrong-chain";
 
   const links = (onNavigate?: () => void) =>
     NAV_ITEMS.map((item) => (
@@ -91,24 +95,15 @@ function AppShell({ environment, children }: { environment: string; children: Re
             >
               <Bell aria-hidden />
             </Button>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={() =>
-                    toast.info("Wallet login is not available yet", {
-                      description: "It arrives in P1-U2.",
-                    })
-                  }
-                >
-                  <Wallet aria-hidden />
-                  <span className="hidden sm:inline">Connect wallet</span>
-                  <span className="sm:hidden">Connect</span>
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Placeholder: wallet login arrives in P1-U2</TooltipContent>
-            </Tooltip>
+            <WalletButton
+              state={wallet.state}
+              address={wallet.address}
+              chainName={walletChain}
+              errorMessage={wallet.errorMessage}
+              onConnect={wallet.connect}
+              onDisconnect={wallet.disconnect}
+              onSwitchChain={wallet.switchChain}
+            />
             <Button
               variant="ghost"
               size="icon"
@@ -135,7 +130,25 @@ function AppShell({ environment, children }: { environment: string; children: Re
           </nav>
         ) : null}
       </header>
-      <main className="mx-auto w-full max-w-content flex-1 px-4 py-8 md:px-6">{children}</main>
+      <main className="mx-auto flex w-full max-w-content flex-1 flex-col gap-6 px-4 py-8 md:px-6">
+        {wallet.mock ? (
+          <Tag tone="warning" size="md">
+            Test build: mock wallet
+          </Tag>
+        ) : null}
+        {wrongChain ? (
+          <WrongChainPrompt
+            targetChainName={wallet.target.name}
+            currentChainName={walletChain}
+            switching={wallet.switching}
+            onSwitchChain={wallet.switchChain}
+          />
+        ) : null}
+        {/* On the wrong chain the page stays visible but inert: nothing can be clicked or focused. */}
+        <div inert={wrongChain} className="flex flex-1 flex-col">
+          {children}
+        </div>
+      </main>
     </div>
   );
 }

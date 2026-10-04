@@ -4,6 +4,7 @@ const ignored = [
   "**/node_modules/**",
   "**/dist/**",
   "**/.next/**",
+  "**/.next-e2e/**",
   "**/dependencies/**",
   "Planv1/**",
   "Planv2/**",

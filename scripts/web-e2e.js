@@ -49,7 +49,13 @@ if (live) {
   );
 }
 
-if (run("pnpm", ["--filter", `@alpha-agents/${app}`, "build"]) !== 0) process.exit(1);
+// The web app is built twice, real and test (mock wallet), and both are checked;
+// Playwright then serves the test build (P1-U2).
+const buildStatus =
+  app === "web"
+    ? run("node", [join("scripts", "check-web-build.js")])
+    : run("pnpm", ["--filter", `@alpha-agents/${app}`, "build"]);
+if (buildStatus !== 0) process.exit(1);
 
 const uid = process.getuid?.() ?? 1000;
 const gid = process.getgid?.() ?? 1000;

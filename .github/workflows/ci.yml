@@ -113,8 +113,8 @@ jobs:
       - name: Install
         run: pnpm install --frozen-lockfile
 
-      - name: Build
-        run: pnpm --filter @alpha-agents/web build
+      - name: Build the web app, real and test, and check what each contains
+        run: node scripts/check-web-build.js
 
       - name: Component tests
         run: pnpm exec vitest run --project ui --project console

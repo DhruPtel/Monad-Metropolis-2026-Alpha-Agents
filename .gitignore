@@ -9,6 +9,7 @@ keystore/
 # Node
 node_modules/
 .next/
+.next-e2e/
 dist/
 build/
 

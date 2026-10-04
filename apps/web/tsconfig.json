@@ -9,8 +9,15 @@
     "incremental": true,
     "allowImportingTsExtensions": true,
     "types": ["node"],
-    "plugins": [{ "name": "next" }],
-    "paths": { "@/*": ["./src/*"] }
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
+    "paths": {
+      "@/*": ["./src/*"],
+      "#wallet-provider": ["./src/auth/privy-wallet-provider.tsx"]
+    }
   },
   "include": [
     "next-env.d.ts",
@@ -20,5 +27,5 @@
     "*.ts",
     ".next/types/**/*.ts"
   ],
-  "exclude": ["node_modules"]
+  "exclude": ["node_modules", ".next-e2e"]
 }

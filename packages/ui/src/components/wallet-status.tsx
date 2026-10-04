@@ -22,15 +22,15 @@ export type WalletState = (typeof WALLET_STATES)[number];
 interface WalletButtonProps {
   readonly state: WalletState;
   /** The connected address; shown in the wrong-chain and connected states. */
-  readonly address?: string;
+  readonly address?: string | undefined;
   /** The wallet's current chain, by name, in the connected state. */
-  readonly chainName?: string;
+  readonly chainName?: string | undefined;
   /** Owner-facing reason in the error state. */
-  readonly errorMessage?: string;
-  readonly onConnect?: () => void;
-  readonly onDisconnect?: () => void;
-  readonly onSwitchChain?: () => void;
-  readonly className?: string;
+  readonly errorMessage?: string | undefined;
+  readonly onConnect?: (() => void) | undefined;
+  readonly onDisconnect?: (() => void) | undefined;
+  readonly onSwitchChain?: (() => void) | undefined;
+  readonly className?: string | undefined;
 }
 
 function ChainChip({ name, tone }: { name: string; tone: "ok" | "wrong" }) {
@@ -135,11 +135,11 @@ interface WrongChainPromptProps {
   /** The chain this app needs, by name. */
   readonly targetChainName: string;
   /** The chain the wallet is on, by name or ID, if known. */
-  readonly currentChainName?: string;
+  readonly currentChainName?: string | undefined;
   /** True while the wallet is asking the user to approve the switch. */
-  readonly switching?: boolean;
-  readonly onSwitchChain?: () => void;
-  readonly className?: string;
+  readonly switching?: boolean | undefined;
+  readonly onSwitchChain?: (() => void) | undefined;
+  readonly className?: string | undefined;
 }
 
 /**

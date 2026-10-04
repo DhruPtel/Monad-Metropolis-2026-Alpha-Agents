@@ -11,6 +11,7 @@ export default tseslint.config(
       "**/build/**",
       "**/coverage/**",
       "**/.next/**",
+      "**/.next-e2e/**",
       "**/out/**",
       "**/cache/**",
       "Planv1/**",
