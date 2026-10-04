@@ -27,6 +27,11 @@ export interface WalletSession {
   readonly ready: boolean;
   /** True in a test build with the mock wallet; the shell labels it on screen. */
   readonly mock: boolean;
+  /**
+   * False when login cannot work at all (PRIVY_APP_ID unset or malformed): the
+   * shell then says "Login unavailable" and offers no retry that would do nothing.
+   */
+  readonly configured: boolean;
   connect(): void;
   disconnect(): void;
   switchChain(): void;

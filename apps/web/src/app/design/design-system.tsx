@@ -391,9 +391,22 @@ function WalletSection() {
                 address={AGENT_WALLET}
                 chainName="Monad (local fork)"
                 errorMessage="The wallet rejected the login request."
+                // A retryable error shows "Try again" only when there is an action to run.
+                onConnect={() => undefined}
               />
             </div>
           ))}
+          <div
+            data-testid="login-state-unavailable"
+            className="flex flex-col gap-2 rounded-lg border bg-surface p-3"
+          >
+            <span className="text-xs text-foreground-muted">Error, login unavailable</span>
+            <WalletButton
+              state="error"
+              errorLabel="Login unavailable"
+              errorMessage="Wallet login is not configured."
+            />
+          </div>
         </div>
       </Specimen>
       <Specimen

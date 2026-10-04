@@ -105,6 +105,14 @@ for (const state of STATES) {
   });
 }
 
+test("the login-unavailable state matches its screenshot", async ({ page }) => {
+  await page.goto("/design");
+  await page.evaluate(() => document.fonts.ready);
+  await expect(page.getByTestId("login-state-unavailable")).toHaveScreenshot(
+    "login-unavailable.png",
+  );
+});
+
 test("the wrong-chain prompt matches its screenshot", async ({ page }) => {
   await page.goto("/design");
   await page.evaluate(() => document.fonts.ready);

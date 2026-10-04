@@ -64,6 +64,7 @@ function PrivySessionBridge({
     switching,
     ready: state === "connected",
     mock: false,
+    configured: true,
     connect: () => {
       setError(undefined);
       setPending(true);
@@ -90,10 +91,12 @@ function UnconfiguredSession({
   const session: WalletSession = {
     state: "error",
     target: appChain(environment),
-    errorMessage: "Wallet login is not configured: set PRIVY_APP_ID for this app.",
+    errorMessage:
+      "Wallet login is not configured: set a 25-character PRIVY_APP_ID in the root .env and start the app with pnpm dev:web.",
     switching: false,
     ready: false,
     mock: false,
+    configured: false,
     connect: () => undefined,
     disconnect: () => undefined,
     switchChain: () => undefined,

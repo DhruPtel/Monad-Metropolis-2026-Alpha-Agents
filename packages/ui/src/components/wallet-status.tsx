@@ -27,6 +27,12 @@ interface WalletButtonProps {
   readonly chainName?: string | undefined;
   /** Owner-facing reason in the error state. */
   readonly errorMessage?: string | undefined;
+  /**
+   * The short error label. Defaults to "Login failed". Without `onConnect` the
+   * error cannot be retried (for example, login is not configured), so no retry
+   * button is shown and the label stays visible at every width.
+   */
+  readonly errorLabel?: string | undefined;
   readonly onConnect?: (() => void) | undefined;
   readonly onDisconnect?: (() => void) | undefined;
   readonly onSwitchChain?: (() => void) | undefined;
@@ -56,6 +62,7 @@ function WalletButton({
   address,
   chainName,
   errorMessage,
+  errorLabel = "Login failed",
   onConnect,
   onDisconnect,
   onSwitchChain,
@@ -106,16 +113,22 @@ function WalletButton({
         return (
           <>
             <span
-              className="hidden items-center gap-1.5 text-xs text-negative sm:inline-flex"
+              className={cn(
+                "items-center gap-1.5 text-xs whitespace-nowrap text-negative",
+                onConnect ? "hidden sm:inline-flex" : "inline-flex",
+              )}
               title={errorMessage}
             >
               <AlertTriangle aria-hidden className="size-3.5" />
-              Login failed
+              {errorLabel}
+              {errorMessage ? <span className="sr-only">: {errorMessage}</span> : null}
             </span>
-            <Button variant="secondary" size="sm" onClick={onConnect}>
-              <RotateCcw aria-hidden />
-              Try again
-            </Button>
+            {onConnect ? (
+              <Button variant="secondary" size="sm" onClick={onConnect}>
+                <RotateCcw aria-hidden />
+                Try again
+              </Button>
+            ) : null}
           </>
         );
     }

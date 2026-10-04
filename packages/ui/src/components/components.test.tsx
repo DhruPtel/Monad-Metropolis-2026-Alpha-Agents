@@ -199,6 +199,21 @@ describe("WalletButton", () => {
   });
 });
 
+describe("WalletButton when login cannot be retried", () => {
+  it("says login is unavailable, explains why, and offers no dead retry button", () => {
+    render(
+      <WalletButton
+        state="error"
+        errorLabel="Login unavailable"
+        errorMessage="Wallet login is not configured."
+      />,
+    );
+    expect(screen.getByText("Login unavailable")).toBeVisible();
+    expect(screen.getByText(/Wallet login is not configured/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /try again/i })).toBeNull();
+  });
+});
+
 describe("WrongChainPrompt", () => {
   it("is an alert that names both chains and switches", async () => {
     const onSwitchChain = vi.fn();

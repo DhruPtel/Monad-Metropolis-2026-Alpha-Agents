@@ -103,7 +103,8 @@ function AppShell({ environment, children }: { environment: string; children: Re
               address={wallet.address}
               chainName={walletChain}
               errorMessage={wallet.errorMessage}
-              onConnect={wallet.connect}
+              errorLabel={wallet.configured ? undefined : "Login unavailable"}
+              onConnect={wallet.configured ? wallet.connect : undefined}
               onDisconnect={wallet.disconnect}
               onSwitchChain={wallet.switchChain}
             />

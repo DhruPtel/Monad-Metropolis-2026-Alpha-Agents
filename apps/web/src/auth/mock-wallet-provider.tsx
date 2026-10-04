@@ -80,6 +80,7 @@ export function WalletProvider({
     switching: false,
     ready: state === "connected",
     mock: true,
+    configured: true,
     connect: () => {
       setMock({ status: "connecting" });
       const fail = failNext;
