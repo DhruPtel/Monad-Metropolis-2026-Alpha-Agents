@@ -21,3 +21,5 @@ CLAUDE.md
 # Soldeer dependencies and local dev runtime files
 dependencies/
 .dev/
+# Generated spike evidence, kept byte for byte so its printed sha256 still matches
+evidence/
