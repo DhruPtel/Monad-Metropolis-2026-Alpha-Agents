@@ -1,0 +1,24 @@
+# LiteLLM gateway: every agent model call goes through it with a per-agent virtual key
+# (FINAL_PLAN 4.3.4). Provider keys are read here only, from the root .env; they never
+# reach a sandbox. Aliases, not vendor model names, are what agents see. Q-08 decides the
+# final provider list; the spike uses one provider.
+model_list:
+  - model_name: scan-cheap
+    litellm_params:
+      model: anthropic/claude-haiku-4-5-20251001
+      api_key: os.environ/ANTHROPIC_API_KEY
+  - model_name: research-strong
+    litellm_params:
+      model: anthropic/claude-sonnet-5-5
+      api_key: os.environ/ANTHROPIC_API_KEY
+
+litellm_settings:
+  # Hermes sends optional parameters (reasoning effort, for example) that some routes reject.
+  drop_params: true
+  # No prompt or response bodies in logs or the spend table.
+  turn_off_message_logging: true
+
+general_settings:
+  master_key: os.environ/LITELLM_MASTER_KEY
+  database_url: os.environ/DATABASE_URL
+  store_prompts_in_spend_logs: false

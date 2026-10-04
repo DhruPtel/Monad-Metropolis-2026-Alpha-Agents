@@ -9,6 +9,8 @@ services:
       POSTGRES_USER: alpha
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-alpha_local_dev_only}
       POSTGRES_DB: alpha_agents
+    # Hard memory caps keep the stack bounded on a 16 GB machine shared with WSL and a browser.
+    mem_limit: 512m
     ports:
       - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
     volumes:
@@ -33,6 +35,38 @@ services:
       interval: 2s
       timeout: 3s
       retries: 30
+    restart: unless-stopped
+
+  # Started only with the `agent` profile (P1-U1 spike, later the orchestrator), so the base
+  # stack runs without model provider keys. Reads LITELLM_MASTER_KEY and the provider keys from
+  # the root .env, passed with --env-file (empty defaults, so interpolating the base stack never
+  # needs them; the spike checks they are set); virtual keys live in the litellm schema.
+  litellm:
+    profiles: ["agent"]
+    image: ghcr.io/berriai/litellm:v1.103.2@sha256:f63fb81b831b170ec16851e23c36ac5bf52ef106b271406429524a2ed730bbfd
+    command: ["--config", "/etc/litellm/config.yaml", "--port", "4000"]
+    environment:
+      LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      DATABASE_URL: postgresql://alpha:${POSTGRES_PASSWORD:-alpha_local_dev_only}@postgres:5432/alpha_agents?schema=litellm
+      LITELLM_TELEMETRY: "False"
+    mem_limit: 1g
+    volumes:
+      - ./litellm/config.yaml:/etc/litellm/config.yaml:ro
+    ports:
+      - "127.0.0.1:${LITELLM_PORT:-4000}:4000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          'python3 -c "import urllib.request; urllib.request.urlopen(''http://127.0.0.1:4000/health/liveliness'')"',
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 60
     restart: unless-stopped
 
 volumes:
