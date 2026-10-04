@@ -1,7 +1,7 @@
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join, relative } from "node:path";
 import { describe, expect, it } from "vitest";
-import { COLOR_TOKENS } from "./tokens";
+import { COLOR_TOKENS, MOTION_TOKENS, SHADOW_SCALE } from "./tokens";
 
 /**
  * Guards the design system: raw colors, sizes and fonts live only in
@@ -78,9 +78,18 @@ describe("token file", () => {
     expect(css).toContain(`--color-${name}: var(--${name});`);
   });
 
-  it("starts from the design brief's graphite and lime", () => {
-    expect(css).toContain("--palette-graphite-900: #121412;");
-    expect(css).toContain("--palette-lime: #b6ff3b;");
+  it("uses the prototype's graphite and lime (D-154)", () => {
+    expect(css).toContain("--palette-graphite-950: #0e1013;");
+    expect(css).toContain("--palette-graphite-900: #14161a;");
+    expect(css).toContain("--palette-lime: #b6ff2e;");
+  });
+
+  it("keeps cards flat and defines every shadow and motion token it lists", () => {
+    expect(css).toContain("--shadow-raised: none;");
+    for (const { name } of SHADOW_SCALE)
+      expect(css).toContain(`--shadow-${name}: var(--shadow-${name});`);
+    for (const { name } of MOTION_TOKENS) expect(css).toMatch(new RegExp(`^\\s*--${name}:`, "m"));
+    expect(css).toContain("prefers-reduced-motion: reduce");
   });
 
   it("removes Tailwind's defaults so only tokens compile", () => {

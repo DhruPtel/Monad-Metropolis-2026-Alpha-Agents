@@ -49,11 +49,11 @@ export const AGENT_STATE_RENDERING: Readonly<Record<AgentState, Rendering>> = {
 export const DISPLAY_FLAG_RENDERING: Readonly<Record<DisplayFlag, Rendering>> = {
   awaiting_approval: {
     label: "Awaiting approval",
-    tone: "detail",
+    tone: "warning",
     meaning: "Waiting for the owner to approve",
   },
   evaluated: { label: "Evaluated", tone: "neutral", meaning: "Checked and recorded" },
-  stale_data: { label: "Stale data", tone: "negative", meaning: "Some data is out of date" },
+  stale_data: { label: "Stale data", tone: "warning", meaning: "Some data is out of date" },
   partially_settled: {
     label: "Partially settled",
     tone: "detail",

@@ -14,10 +14,14 @@ export const COLOR_TOKENS = [
   { name: "border", use: "Dividers and card edges" },
   { name: "border-strong", use: "Control edges" },
   { name: "primary", use: "Primary actions and active states, lime" },
+  { name: "primary-muted", use: "Outlines of secondary lime actions, dim lime" },
   { name: "positive", use: "Positive values, lime" },
   { name: "negative", use: "Losses and errors only, muted red" },
   { name: "negative-surface", use: "Background behind an error" },
-  { name: "detail", use: "Secondary detail, brass" },
+  { name: "detail", use: "Secondary detail and Legendary rarity, brass" },
+  { name: "warning", use: "Stale data, awaiting approval, load failures, amber" },
+  { name: "rare", use: "Rare rarity, steel" },
+  { name: "viewer-glow", use: "Centre of the 3D viewer background" },
 ] as const;
 
 export const TYPE_SCALE = [
@@ -25,9 +29,10 @@ export const TYPE_SCALE = [
   { name: "2xl", className: "text-2xl", sample: "Section title" },
   { name: "xl", className: "text-xl", sample: "Panel title" },
   { name: "lg", className: "text-lg", sample: "Dialog title" },
-  { name: "base", className: "text-base", sample: "Body text and card titles" },
-  { name: "sm", className: "text-sm", sample: "Controls, tables and descriptions" },
+  { name: "base", className: "text-base", sample: "Card titles and lead text" },
+  { name: "sm", className: "text-sm", sample: "Body text, controls and tables (13px)" },
   { name: "xs", className: "text-xs", sample: "Captions, badges and codes" },
+  { name: "2xs", className: "text-2xs", sample: "Section labels, chips and tags" },
 ] as const;
 
 /** Spacing utilities are multiples of --space-unit (0.25rem). */
@@ -44,6 +49,7 @@ export const SPACING_SCALE = [
 ] as const;
 
 export const RADIUS_SCALE = [
+  { name: "xs", className: "rounded-xs" },
   { name: "sm", className: "rounded-sm" },
   { name: "md", className: "rounded-md" },
   { name: "lg", className: "rounded-lg" },
@@ -51,8 +57,18 @@ export const RADIUS_SCALE = [
   { name: "full", className: "rounded-full" },
 ] as const;
 
+/** Cards are flat (`raised` is none); shadows are for floating things and selection. */
 export const SHADOW_SCALE = [
   { name: "raised", className: "shadow-raised" },
   { name: "overlay", className: "shadow-overlay" },
+  { name: "panel", className: "shadow-panel" },
   { name: "glow", className: "shadow-glow" },
+  { name: "selected", className: "shadow-selected" },
+] as const;
+
+/** Motion: transitions default to the fast duration and snap easing; animations stop under reduced motion. */
+export const MOTION_TOKENS = [
+  { name: "motion-fast", use: "Default transition, 140ms" },
+  { name: "motion-medium", use: "Panels and layout, 180ms" },
+  { name: "motion-ease", use: "Snap easing for every transition" },
 ] as const;
