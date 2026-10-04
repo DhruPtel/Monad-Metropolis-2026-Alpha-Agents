@@ -74,7 +74,9 @@ function AppShell({ environment, children }: { environment: string; children: Re
             className="flex items-center gap-2 rounded-md outline-none is-focus:focus-ring"
           >
             <span aria-hidden className="size-3 rotate-45 rounded-sm border-2 border-primary" />
-            <span className="text-base font-semibold tracking-tight">Alpha Agents</span>
+            <span className="text-base font-semibold tracking-tight whitespace-nowrap">
+              Alpha Agents
+            </span>
           </Link>
           <nav aria-label="Main" className="hidden items-center gap-1 lg:flex">
             {links()}
@@ -86,6 +88,7 @@ function AppShell({ environment, children }: { environment: string; children: Re
             <Button
               variant="ghost"
               size="icon"
+              className="hidden sm:inline-flex"
               aria-label="Notifications"
               onClick={() =>
                 toast.info("No notifications yet", {
@@ -145,7 +148,10 @@ function AppShell({ environment, children }: { environment: string; children: Re
           />
         ) : null}
         {/* On the wrong chain the page stays visible but inert: nothing can be clicked or focused. */}
-        <div inert={wrongChain} className="flex flex-1 flex-col">
+        <div
+          inert={wrongChain}
+          className={cn("flex flex-1 flex-col transition-opacity", wrongChain && "opacity-50")}
+        >
           {children}
         </div>
       </main>
