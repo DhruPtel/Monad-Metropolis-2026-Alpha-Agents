@@ -141,3 +141,59 @@ What happened: A previous session crashed the machine (a suspected RAM fault) wh
 Cause: All cleanup is in-process. On a hard stop nothing runs: the cloudflared child can be orphaned (its kill hook is on the parent's exit event), the sandbox lives until its own 20-minute timeout, E2B secrets (where the plan has them) and LiteLLM virtual keys persist with no expiry, and the scan copy stays in /tmp.
 Fix: None in code this unit. The bounds that do hold: the sandbox timeout caps its lifetime at 20 minutes, every resource carries the run tag (sandbox metadata, `p1u1-` secret names, key aliases), and this session checked by hand before and after the runs that no sandbox, secret, cloudflared process or scan copy was left. The spike's virtual keys remain in the litellm schema (budget 0.5 USD and 1e-7 USD, reachable only through the local gateway).
 Lesson: Every cloud resource gets a hard lifetime set at creation and a run tag, and the next run starts with a sweep that removes tagged leftovers, because in-process teardown cannot cover a crash.
+
+## L-20: An address book entry had an invalid EIP-55 checksum
+Unit: P2-U0
+What happened: The first spike run stopped with `Address "0xf5F15f188AbCb0d165D1Edb7f37F7d6fA2fCebec" is invalid` from viem, reading the Chainlink USDC/USD proxy.
+Cause: The address was copied into FINAL_PLAN, the Morpho note and the address book in mixed case with one wrong letter (`AbCb` for `AbCB`). Mixed case is a checksum, so viem and every EIP-55 client reject it, while our own code compared lowercase and never noticed.
+Fix: All three copies use the correct case, and a domain test requires every address in the book to be valid EIP-55 or all lowercase; it failed on this entry before the fix (bd9b534).
+Lesson: Validate every mixed-case address with a strict EIP-55 check when it enters the codebase, not when a library first rejects it.
+
+## L-21: A rate limit was treated as a range that was too large
+Unit: P2-U0
+What happened: The full-history v4 pool scan failed with HTTP 429 from Monad's public RPC, after first splitting the failing ranges into ever smaller requests.
+Cause: The log fetcher halved a block range on any error, so a rate limit produced more, smaller requests, at a concurrency of 8.
+Fix: A 429 now waits with exponential backoff and retries the same range; only other errors split it; concurrency is 2, and block headers come from the keyed RPC (a54e678).
+Lesson: Classify an RPC error before reacting: back off on rate limits, and change the request only for errors that are about the request.
+
+## L-22: Stopping the spike with SIGTERM left anvil running
+Unit: P2-U0
+What happened: After the spike was stopped by PID, its anvil fork on port 8547 was still running and had to be killed separately.
+Cause: The driver stopped anvil from a `process.on("exit")` handler, but Node does not fire the exit event when a signal ends the process. This is the L-19 gap again, at small scale.
+Fix: The driver also stops anvil on SIGINT and SIGTERM before exiting (a54e678).
+Lesson: A process that starts a child process must stop it on signals as well as on exit, and a test run checks that nothing is left (`pgrep`) afterwards.
+
+## L-23: The v4 pool cache failed to serialize a BigInt
+Unit: P2-U0
+What happened: A run finished the full-history v4 scan, then died with "Do not know how to serialize a BigInt" while writing its cache, losing the scan.
+Cause: The cache record spread every decoded event argument, including `sqrtPriceX96`, which viem decodes as a BigInt.
+Fix: The record lists its fields explicitly and converts numbers (a54e678).
+Lesson: Build any record that is written to JSON field by field from decoded chain data, never by spreading decoded arguments.
+
+## L-24: Two v4 pools shared one venue id
+Unit: P2-U0
+What happened: Two different hooked v4 pools both got the id `uniswap-v4-mon-8388608-60-hooked`, and their quotes and maximum sizes were reported as identical.
+Cause: The id held currency, fee and tick spacing, but not the hook address, and every later table was keyed by that id.
+Fix: Hooked ids include the hook address prefix, the driver refuses to continue on a duplicate id, and the run was repeated from scratch (a54e678).
+Lesson: When results are keyed by a derived id, assert the ids are unique before using them.
+
+## L-25: Long notes pushed the address book table off screen on mobile
+Unit: P2-U0
+What happened: After adding the Kuru entries, the console's mobile address book screenshot came out shorter, not longer, and the image showed the Address and Status columns pushed out of view.
+Cause: The notes held full 40-character implementation addresses, which cannot wrap, so the Entry column grew to the width of the screen.
+Fix: The notes are short and the implementation addresses live in `evidence/p2-u0/` (ba07eb5); the screenshots were re-baselined only after looking at both images.
+Lesson: Look at a failed screenshot before re-baselining it; a size change in the unexpected direction is a layout bug, not a new baseline.
+
+## L-26: Quoting through the fork was too slow to finish
+Unit: P2-U0
+What happened: A run spent over 30 minutes in the quote stage with no output, and was stopped.
+Cause: Each quote on the anvil fork made anvil fetch every crossed tick's storage slot from the free-tier RPC one request at a time, and the size search went up to $1,000,000.
+Fix: Uniswap quotes are `eth_call` at the pinned block on the keyed RPC (one request each, same result), only Kuru's simulation stays on the fork, the search stops at $50,000, the stage prints progress, and its results are cached per block (a54e678).
+Lesson: Run read-only calls against the pinned block directly, keep the fork for calls that need state changes, and print progress in any stage that can run for minutes.
+
+## L-27: A generated evidence file was committed before the secrets scan
+Unit: P2-U0
+What happened: `pnpm run secrets:scan` failed after the evidence commit: gitleaks' generic-api-key rule matched four `"token0"` keys in `evidence/p2-u0/data.json`.
+Cause: Every value was the public WMON address, so these were false positives, but the scan ran only after the commit, so the fingerprints are now in history.
+Fix: The four fingerprints are in `.gitleaksignore` with the reason (a354f85).
+Lesson: Run the secrets scan on staged changes before committing any generated data file.
