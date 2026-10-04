@@ -44,3 +44,14 @@ test("the navigation collapses into a menu on narrow screens", async ({ page }, 
   );
   await expect(page.locator("#mobile-nav").getByRole("link", { name: "Gallery" })).toBeVisible();
 });
+
+test("loads every font from its own origin", async ({ page }) => {
+  const fonts: string[] = [];
+  page.on("request", (request) => {
+    if (request.resourceType() === "font") fonts.push(request.url());
+  });
+  await openDesign(page);
+  const origin = new URL(page.url()).origin;
+  expect(fonts.length).toBeGreaterThan(0);
+  expect(fonts.filter((url) => new URL(url).origin !== origin)).toEqual([]);
+});

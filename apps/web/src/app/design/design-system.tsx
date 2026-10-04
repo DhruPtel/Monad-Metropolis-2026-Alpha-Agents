@@ -174,7 +174,7 @@ function TokensSection() {
       </Specimen>
       <Specimen
         name="Type scale"
-        note="Geist Sans for interface text, Geist Mono for every number, amount and address."
+        note="Inter for interface text, JetBrains Mono for every number, amount and address. Body text is 13px with tabular figures."
       >
         <div className="flex flex-col gap-3">
           {TYPE_SCALE.map((step) => (

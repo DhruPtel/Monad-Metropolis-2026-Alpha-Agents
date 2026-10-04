@@ -16,7 +16,6 @@
     "@alpha-agents/domain": "workspace:*",
     "@alpha-agents/policy": "workspace:*",
     "@alpha-agents/ui": "workspace:*",
-    "geist": "1.7.2",
     "lucide-react": "1.49.0",
     "next": "16.3.8",
     "react": "19.3.0",

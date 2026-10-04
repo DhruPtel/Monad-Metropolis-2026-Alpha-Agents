@@ -1,10 +1,9 @@
 import { DEFAULT_ENVIRONMENT, ENVIRONMENTS, isEnvironmentId } from "@alpha-agents/config";
-import { GeistMono } from "geist/font/mono";
-import { GeistSans } from "geist/font/sans";
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { AppShell } from "@/components/shell/app-shell";
 import { Toaster, TooltipProvider, cn } from "@alpha-agents/ui";
+import { inter, jetbrainsMono } from "./fonts";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -20,7 +19,7 @@ function environmentLabel(): string {
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en" data-theme="dark" className={cn(GeistSans.variable, GeistMono.variable)}>
+    <html lang="en" data-theme="dark" className={cn(inter.variable, jetbrainsMono.variable)}>
       <body>
         <TooltipProvider delayDuration={200}>
           <AppShell environment={environmentLabel()}>{children}</AppShell>

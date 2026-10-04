@@ -57,3 +57,15 @@ test("fork actions refuse when no anvil fork answers", async ({ page }) => {
   await page.getByRole("button", { name: "Take snapshot" }).click();
   await expect(page.getByTestId("action-error")).toContainText("is not the local anvil fork");
 });
+
+test("loads every font from its own origin", async ({ page }) => {
+  const fonts: string[] = [];
+  page.on("request", (request) => {
+    if (request.resourceType() === "font") fonts.push(request.url());
+  });
+  await page.goto("/");
+  await page.evaluate(() => document.fonts.ready);
+  const origin = new URL(page.url()).origin;
+  expect(fonts.length).toBeGreaterThan(0);
+  expect(fonts.filter((url) => new URL(url).origin !== origin)).toEqual([]);
+});
