@@ -142,7 +142,7 @@ const MAINNET: readonly AddressEntry[] = [
     id: "chainlink_usdc_usd",
     label: "Chainlink USDC/USD",
     kind: "price_feed",
-    address: "0xf5F15f188AbCb0d165D1Edb7f37F7d6fA2fCebec",
+    address: "0xf5F15f188AbCB0d165D1Edb7f37F7d6fA2fCebec",
     status: "verified",
     verification: fork(9571, 8),
     source: FINAL_BOOK,

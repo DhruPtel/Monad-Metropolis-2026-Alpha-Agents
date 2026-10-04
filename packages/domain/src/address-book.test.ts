@@ -1,4 +1,5 @@
 import { ENVIRONMENT_IDS } from "@alpha-agents/config";
+import { isAddress } from "viem";
 import { describe, expect, it } from "vitest";
 import {
   ADDRESS_BOOK,
@@ -14,6 +15,16 @@ describe("address book", () => {
   it.each(ENVIRONMENT_IDS)("has every entry exactly once for %s", (env) => {
     const ids = ADDRESS_BOOK[env].map((e) => e.id);
     expect([...ids].sort()).toEqual([...ADDRESS_BOOK_IDS].sort());
+  });
+
+  it("writes every address in valid EIP-55 checksum case or all lowercase", () => {
+    // A mixed-case address with a wrong checksum is rejected by viem and every EIP-55 client.
+    for (const env of ENVIRONMENT_IDS) {
+      for (const e of ADDRESS_BOOK[env]) {
+        if (e.address === null) continue;
+        expect(isAddress(e.address, { strict: true }), `${env} ${e.id} ${e.address}`).toBe(true);
+      }
+    }
   });
 
   it("gives every entry a source, a status and a note", () => {
