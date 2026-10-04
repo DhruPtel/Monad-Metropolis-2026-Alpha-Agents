@@ -31,7 +31,8 @@
     "test:console:live": "node scripts/web-e2e.js --app console --live",
     "spike:hermes:local": "node services/orchestrator/src/spike/local-smoke.ts",
     "spike:hermes:template": "node services/orchestrator/src/spike/build-template.ts",
-    "spike:hermes": "node services/orchestrator/src/spike/run-spike.ts"
+    "spike:hermes": "node services/orchestrator/src/spike/run-spike.ts",
+    "spike:venues": "node scripts/spikes/p2-u0/run.ts"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
