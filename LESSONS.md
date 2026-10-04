@@ -218,3 +218,31 @@ What happened: At 380px, the /design tab "Medium (hover)" and the console's "loc
 Cause: The tab trigger had a fixed height but allowed wrapping, and the list had no way to overflow.
 Fix: Labels never wrap and the tab list scrolls sideways on narrow screens; a component test checks both (ecb49b9).
 Lesson: A component with a fixed height must also stop its text wrapping and say what happens on overflow.
+
+## L-31: A malformed Privy app ID failed the production build
+Unit: P1-U2
+What happened: The first real build for the build check failed prerendering "/" with "Cannot initialize the Privy provider with an invalid Privy app ID".
+Cause: PrivyProvider throws during render unless the app ID is exactly 25 characters, and the layout passed any non-empty PRIVY_APP_ID through, so one bad value broke every page at build time.
+Fix: `privyAppId` (apps/web/src/auth/privy-app-id.ts) passes only a 25-character ID that is not the .env.example placeholder; anything else renders the "wallet login is not configured" state, with tests (14111d4).
+Lesson: Validate a third-party ID against the SDK's own rule before handing it over, and turn a bad value into a visible not-configured state instead of a failed render.
+
+## L-32: loadConfig made a service that never touches the chain require an RPC URL
+Unit: P1-U2
+What happened: Built on `loadConfig`, the web session check would have refused to start on testnet or beta without MONAD_TESTNET_RPC_URL or MONAD_RPC_URL, although it only verifies Privy tokens.
+Cause: `loadConfig` always added the environment's RPC variable to the required set, on the assumption that every service uses the chain.
+Fix: ServiceSpec gains `usesChain: false`, which leaves the RPC optional and `rpcUrl` null when unset; the default is unchanged, and tests cover both (8717d31).
+Lesson: A shared loader's built-in requirements must be things every caller needs; anything only most callers need is an option.
+
+## L-33: The full-page /design screenshot timed out after the page grew
+Unit: P1-U2
+What happened: With the wallet section added, the two /design screenshot tests failed even with `--update`, reporting "Failed to re-generate expected. Timeout 5000ms exceeded."
+Cause: The page content was stable, but capturing a full page this long takes over the 5-second default `expect` timeout on a loaded machine.
+Fix: The two full-page captures pass `timeout: 30_000`; every run since passes, with and without `--update` (21182e2).
+Lesson: When a screenshot fails to regenerate, read the call log before suspecting instability; give full-page captures of long pages an explicit timeout.
+
+## L-34: The connected wallet pushed the brand onto two lines on mobile
+Unit: P1-U2
+What happened: The 380px screenshot of the connected shell showed "Alpha Agents" broken over two lines next to the address, copy and disconnect buttons.
+Cause: The brand text could wrap, and the header held a placeholder notifications button on every width, so the real wallet controls ran out of room.
+Fix: The brand never wraps and the notifications button hides below the small breakpoint (240b94b).
+Lesson: Every new header control gets a screenshot at the narrowest width in its widest state before it is called done.

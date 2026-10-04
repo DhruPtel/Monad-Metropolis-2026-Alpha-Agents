@@ -98,3 +98,35 @@ Summary: Step 0 recorded D-166 to D-171 (venue Uniswap v4 hookless MON/USDC 0.05
 Suggestions: `viewer-glow`, `rare`, `shadow-panel`, `shadow-selected` and the pulse animations have no user outside /design until P1-U11; the console's panel headings could adopt SectionLabel in a later unit (no page redesign was in scope); the review's half-pixel sizes (10.5, 11.5, 12.5px) collapse onto 11, 12 and 13px, so the owner's side-by-side comparison may notice small differences in label sizes.
 Bugs: L-28, L-29, L-30.
 Commit: 5e17678, dc28ca9, 29a9403, 9d96e61, 1af8b5e, ecb49b9, 265a350, 4930908, plus the log commit.
+
+## 2026-10-04, P1-U2, Privy login
+Status: partial (built and tested against the mock wallet; the real Privy and MetaMask path has not run, because `.env` has no PRIVY_APP_ID or PRIVY_APP_SECRET)
+Summary: Step 0 recorded D-172 to D-177, plus Q-42 to Q-45, in DECISIONS_AND_OPEN_QUESTIONS.md, and added the W-7 load and capacity session before PB-U1, renumbering the later rows of BUILD_PLAN section 4. The decisions:
+- D-172: a 1,000-agent supply cap, enforced in the contract.
+- D-173: free mint; the minter pays only gas. This supersedes the mint half of D-026.
+- D-174: one agent per wallet, enforced in the contract.
+- D-175: allowlist-only minting in the beta, with a claim gate open for public launch.
+- D-176: revenue from the credit markup, skill sales and marketplace royalties; mint fees are not a revenue source.
+- D-177: a design target of 100,000 users and 1,000 active agents, with no component assuming a single machine or process.
+The open questions:
+- Q-42: the public-launch claim gate.
+- Q-43: how the 1,000 agents are split across tiers.
+- Q-44: the E2B plan's concurrent sandbox limit.
+- Q-45: whether one agent per wallet also limits holding, which would affect buying through the escrow.
+The unit:
+- Login: the app shell's wallet button is real. It uses Privy with MetaMask only (no embedded wallets; OKX stays deferred to W-6) and wagmi on the one chain the build targets, which `APP_CHAINS` in packages/config picks from APP_ENV. Browsers use Monad's public RPCs or the local fork, never a keyed URL.
+- Login states: WalletButton and WrongChainPrompt cover logged out, connecting, wrong chain, connected and error. Both are in packages/ui and on /design.
+- Wrong chain: the shell shows the switch prompt and makes the page inert and dimmed until the wallet switches. `WalletSession.ready` gates later actions.
+- Server check: `GET /api/session` verifies a Privy access token with @privy-io/node. It answers 200 with the user and session, 401 for a missing or invalid token, or 503 when Privy is not configured. The secret is read only on the server.
+- Mock wallet: test builds swap in a mock wallet only with `ALPHA_E2E_MOCK_WALLET=1` on local, into a separate `.next-e2e`, labeled "Test build: mock wallet". `scripts/check-web-build.js`, now run by `test:web:e2e` and CI, proves the real build holds neither the mock nor a sentinel app secret.
+- Checks: lint, format, typecheck, 699 vitest tests, web e2e 30 of 30, console e2e 30 of 30, the build check, test:fork, forge build and the secrets scan pass.
+Notes for the owner:
+- Setup: to test with MetaMask, add a Privy app's 25-character PRIVY_APP_ID and PRIVY_APP_SECRET to `.env`, enable wallet login with MetaMask, and allow http://localhost:3000 in the Privy dashboard.
+- Local fork caveat: the local fork uses chain ID 143, the same as Monad mainnet, so the app cannot tell a wallet pointed at mainnet from one pointed at the fork. For local testing, MetaMask's chain-143 network must use http://127.0.0.1:8545.
+- Unmet peer dependencies: Privy pulls Solana packages that expect TypeScript 5 (we have 6; types only, never imported, `skipLibCheck` is on), and an old `use-sync-external-store` that lists React 18 at most (a shim that defers to React 19's built-in hook). Both are inside Privy's dependency tree and are left as they are.
+- viem versions: apps/web uses viem 2.56.5, which @privy-io/wagmi pins exactly; the root stays on 2.57.2.
+Suggestions:
+- BUILD_PLAN's P1-U2 row also asks for an API session bound to current ownership and epoch. That belongs to the API unit (P1-U4) and should be moved there.
+- The header shows both the app's environment chip and the wallet's chain chip; a later shell pass could merge them.
+Bugs: L-31, L-32, L-33, L-34.
+Commit: 6a802b4, 5e5b3cd, 8717d31, 14111d4, 240b94b, 21182e2, plus the log commit.
