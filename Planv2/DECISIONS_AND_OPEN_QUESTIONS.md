@@ -217,6 +217,12 @@ Every decision below is self-contained: the row states the decision itself. The 
 | D-163 | Owner decision: P1-U1 is done for the demo spine. The spike passed its eleven checks (`evidence/p1-u1/spike-2026-10-04T04-52-28.545Z.json`); its unchecked items (H-01, H-04, H-05, H-09, H-12, H-16, H-21, H-22, H-33, the B-04 marker leak table and MK-S1a) move to widening session W-1, before PB-U1 | LOGS.md (P1-U1 entry) |
 | D-164 | Owner decision: Q-04 is resolved for the beta. E2B egress-rule header injection with literal header values is accepted, because E2B Secrets return 403 for this team. The injected values are per-agent gate tokens, never provider keys; provider keys stay in LiteLLM. Revisit if E2B Secrets become available to the team | LOGS.md (P1-U1 entry), L-16 |
 | D-165 | Owner decision: the L-19 startup sweep (remove sandboxes, secrets and tunnels left by an earlier run, found by run tag) and deleting LiteLLM virtual keys in teardown belong to P1-U5 | LESSONS.md (L-19) |
+| D-166 | Owner decision: Q-01 is resolved. The launch venue is the hookless Uniswap v4 MON/USDC 0.05% pool (pool ID `0x18a9fc874581f3ba12b7898f80a683c66fd5877fd74b26a85ba9a3a79c549954`, fee 500, tick spacing 10, no hooks). The fallback is the Uniswap v3 USDC/WMON 0.3% pool `0x659bd0bc4167ba25c62e05656f78043e7ed4a9da` | evidence/p2-u0/SUMMARY.md |
+| D-167 | Owner decision: accounts hold WMON, never native MON. Because the chosen pool trades native MON, the venue adapter unwraps WMON, swaps and rewraps atomically inside one Executor call, so no native MON ever rests in an account or vault | evidence/p2-u0/SUMMARY.md |
+| D-168 | Owner decision: Q-02 is resolved. Oracle staleness is set per feed: MON/USD 300 seconds (strict, D-151); USDC/USD 3,900 seconds, used only as the depeg guard, never as a trade gate; ETH/USD stays off the buy list because it cannot meet the 5-minute target | evidence/p2-u0/SUMMARY.md |
+| D-169 | Owner decision: the 2% pool versus oracle deviation rule stays as it is | evidence/p2-u0/SUMMARY.md |
+| D-170 | Owner decision: Q-03 is resolved. The USDC at `0x754704Bc059F8C67012fEd69BC8A327a5aafb603` is Circle's official USDC on Monad (Circle's address list names it; FiatToken proxy with pause and blacklist roles) | evidence/p2-u0/SUMMARY.md |
+| D-171 | Owner decision: the second RPC provider that P2-U4 adds must serve `eth_getLogs` over wide block ranges; the current keyed provider's free tier allows 10 blocks per request | evidence/p2-u0/SUMMARY.md, LOGS.md (P2-U0 entry) |
 
 ---
 
@@ -327,9 +333,9 @@ Resolved in the orientation session and struck from the open list: A-01 (all nin
 
 | ID | Question | Who decides | What it blocks |
 |---|---|---|---|
-| Q-01 | Which venue: Uniswap v3, Uniswap v4 or Kuru, by measured depth at the reference size inside 0.5% slippage | Founders after spike MK-K05 | P2-U2 adapter, the swap skill's name, `get_quote` shape |
-| Q-02 | Chainlink MON/USD heartbeat and deviation on Monad; is the 5-minute staleness target meetable, and what spread and band parameters follow | Execution engineer after M-33, M-28, MV-S8 | P2-U3, P7-U1 |
-| Q-03 | Is `0x7547...b603` Circle's official USDC on Monad, and does it carry blacklist and pause functions | Founders (confirm with Circle) | P5-U4 x402 token; MV-S1 credit design |
+| Q-01 | Which venue: Uniswap v3, Uniswap v4 or Kuru, by measured depth at the reference size inside 0.5% slippage. Resolved by D-166 (Uniswap v4 hookless MON/USDC 0.05%; fallback v3 USDC/WMON 0.3%) | Founders after spike MK-K05 | P2-U2 adapter, the swap skill's name, `get_quote` shape |
+| Q-02 | Chainlink MON/USD heartbeat and deviation on Monad; is the 5-minute staleness target meetable, and what spread and band parameters follow. Staleness resolved by D-168 (per feed: MON/USD 300 s, USDC/USD 3,900 s for the depeg guard); spread and band parameters stay open for M-28 and MV-S8 | Execution engineer after M-33, M-28, MV-S8 | P2-U3, P7-U1 |
+| Q-03 | Is `0x7547...b603` Circle's official USDC on Monad, and does it carry blacklist and pause functions. Resolved by D-170 (Circle's official USDC, with pause and blacklist roles) | Founders (confirm with Circle) | P5-U4 x402 token; MV-S1 credit design |
 | Q-04 | Is E2B per-host egress header injection available on the chosen plan, and which second factor (IP allowlist, mTLS, HMAC header) proves a request came through E2B. Resolved for the beta by D-164 (literal-value egress-rule injection of per-agent gate tokens); the second factor stays open for public launch | Runtime engineer after MK-S1b | P1-U1; fallback is a platform egress proxy |
 | Q-05 | Hermes unknowns at 085d9ee: MCP config keys, `structuredContent` handling, `list_changed`, tool call timeout, index truncation at 57 characters, `requires_tools` with MCP tools, `skill_manage` write paths, cross-session caching after a version swap | Runtime engineer after H-01 to H-16, B-02, B-05 | P1-U1, P3-U7, P6-U3 |
 | Q-06 | Does the model still obey goals and limits when they arrive wrapped as untrusted tool results | Runtime engineer after H-26 | P3-U4 |
@@ -349,7 +355,7 @@ Resolved in the orientation session and struck from the open list: A-01 (all nin
 | Q-20 | Exact x402 payer tuple on Monad mainnet: payer address, token, domain, signature scheme, facilitator | Execution engineer after P5-U4 on testnet and P8-U4 on mainnet | P8-U4 |
 | Q-21 | Per-tier priority fee caps and gas caps from the latency spike | Execution engineer after MK-S7 | P2-U4, P9-U2 |
 | Q-22 | Emergency reserve sizing and funding policy | Founders | P9-U1 |
-| Q-23 | RPC providers (two) for Monad with latency and rate limits; the bot runner host by latency to the RPC | Runtime engineer | P1-U5, P2-U4 |
+| Q-23 | RPC providers (two) for Monad with latency and rate limits; the bot runner host by latency to the RPC. The second provider must serve wide `eth_getLogs` ranges (D-171) | Runtime engineer | P1-U5, P2-U4 |
 | Q-24 | Web search provider (Exa or Tavily), X API budget, whether Token Terminal covers Monad | Founders | P3-U2 |
 | Q-25 | Image-to-3D tool with commercial license and hard-surface quality. Resolved for the bee model by D-157 (Meshy on a plan that allows commercial use, the UniRig rig, the concept art source recorded by the owner); open only for any later asset made with another tool or plan | Art track | P1-U11, P6-U1 |
 | Q-26 | IPFS or Arweave for public token metadata and art | Founders | P6-U5, P8-U2 |
@@ -361,7 +367,7 @@ Resolved in the orientation session and struck from the open list: A-01 (all nin
 | Q-32 | How the buyer agent's willingness to pay maps to launch prices for real-time signals | Founders after P5-U7 | P8-U4 pricing |
 | Q-33 | Which monitoring stack replaces Langfuse for metadata-only tracing | Runtime engineer | P9-U2 |
 | Q-34 | Report templates and notification frequency defaults after the Phase 4 playtest | Founders | P4-U5, P4-U7 tuning |
-| Q-35 | Uniswap v4 hook policy (hookless only) and the size guard threshold, if v4 is chosen | Execution engineer | P2-U2, P7-U1 |
+| Q-35 | Uniswap v4 hook policy (hookless only) and the size guard threshold, if v4 is chosen. v4 is chosen (D-166), so hookless only applies; the size guard threshold is open | Execution engineer | P2-U2, P7-U1 |
 | Q-36 | The beta allowlist (which testers and wallets) and the beta cap values: platform total, per PersonalAccount, per vault | Founders | PB-U1 |
 | Q-37 | Hosting: which long-running host runs the orchestrator, tool servers, sentinel and bot runner, which managed Postgres and Redis, and which web host; serverless function ceilings rule out request-scoped functions for anything that calls a model | Founders | Phase 0 checklist, P1-U4, PB-U1 |
 | Q-38 | Which Hermes commit to pin at P1-U1: 085d9ee or a newer commit that passes the spike | Runtime engineer after H-01 to H-16 | P1-U1 |

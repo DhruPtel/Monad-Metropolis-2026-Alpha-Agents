@@ -45,7 +45,7 @@ Agreed during planning (`planning answer`): launch is sold on control, ownership
 | Capital accounts | PersonalAccount (owner's own money) and public StrategyVault; funding address for credits, gas and x402 | Nothing else holds capital |
 | Credits | One funding address per agent; any USDC sent to it is the agent's credit balance, attributed automatically; the agent spends it on inference, tool and data calls and x402 purchases; LLM activity pauses at zero while the deterministic runner, breaker and sentinel keep working | A Billing contract, allowances, batch settlement by the owner |
 | Assets | USDC and wrapped MON | WETH and a liquid staking token once liquidity and feeds allow |
-| Venue | One of Uniswap v3, Uniswap v4 or Kuru, chosen by the depth spike | Second venue |
+| Venue | The hookless Uniswap v4 MON/USDC 0.05% pool, chosen by the depth spike (D-166); fallback Uniswap v3 USDC/WMON 0.3% | Second venue |
 | Strategies | Band allocation (target WMON weight with rebalance bands inside the limits) and DCA (scheduled USDC to WMON buys) | Lending, borrowing, leverage, LP positions, perps, CFO debt features |
 | Agent runtime | Hermes Agent locked to a tested commit (`085d9ee` at planning, re-pinnable once the spike passes again), wrapped and unmodified, in E2B with in-sandbox code execution and file tools and no network beyond the gateway and our tool servers; our orchestrator owns scheduling and the discovery loop | Hermes self-improvement, skill writing, memory writes outside the approved paths, browser and web toolsets, bot evolution |
 | Skills | Nine platform-authored skills as NFTs; custom skills from invited creators through the creator portal; the audit pipeline; primary sales, resale and equipping through the marketplace | Permissionless uploads, synergies and set bonuses, lending and LP skills |
@@ -209,20 +209,20 @@ Address book used throughout (verified by read-only RPC on 2026-09-25; re-verify
 
 | Item | Address on Monad 143 | Note |
 |---|---|---|
-| USDC | `0x754704Bc059F8C67012fEd69BC8A327a5aafb603` | FiatToken v2.2 surface; that it is Circle's official USDC is inferred, not confirmed |
+| USDC | `0x754704Bc059F8C67012fEd69BC8A327a5aafb603` | Circle's official USDC on Monad (D-170): FiatToken proxy with pause and blacklist roles |
 | WMON | `0x3bd359C1119dA7Da1D913D1C4D2B7c461115433A` | Returned by SwapRouter02 `WETH9()` |
-| Chainlink MON/USD | `0xBcD78f76005B7515837af6b50c7C52BCf73822fb` | 8 decimals; heartbeat and deviation unknown |
-| Chainlink USDC/USD | `0xf5F15f188AbCB0d165D1Edb7f37F7d6fA2fCebec` | Used for the depeg guard only |
+| Chainlink MON/USD | `0xBcD78f76005B7515837af6b50c7C52BCf73822fb` | 8 decimals; 1 h heartbeat, 0.02% deviation, updates about every 30 s; staleness 300 s (D-168) |
+| Chainlink USDC/USD | `0xf5F15f188AbCB0d165D1Edb7f37F7d6fA2fCebec` | Depeg guard only; updates on its 1 h heartbeat; staleness 3,900 s (D-168) |
 | ERC-6551 registry | `0x000000006551c19487814612e58FE06813775758` | Canonical |
 | Tokenbound AccountProxy | `0x55266d75D1a14E4572138116aF39863Ed6596E7F` | The implementation argument for `createAccount` |
 | Tokenbound AccountV3Upgradable | `0x41C8f39463A868d3A88af00cd0fe7102F30E44eC` | Expected implementation in every agent TBA |
 | Tokenbound AccountGuardian | `0x2FE5ccb0d7Ea195FEb87987d3573F9fcCE2b5D57` | Owned by the Tokenbound Safe `0x781b6A527482828bB04F33563797d4b696ddF328`, nonce 0 |
 | Uniswap v3 SwapRouter02 | `0xfe31f71c1b106eac32f1a19239c9a9a72ddfb900` | Candidate venue |
 | Uniswap v3 factory | `0x204faca1764b154221e35c0d20abb3c525710498` | USDC/WMON 0.3% pool `0x659bd0bc4167ba25c62e05656f78043e7ed4a9da` held about 608,500 USDC |
-| Uniswap v4 PoolManager | `0x188d586ddcf52439676ca21a244753fa19f9ea8e` | Candidate venue; pools unmeasured; StateView `0x77395f3b2e73ae90843717371294fa97cc419d64` |
+| Uniswap v4 PoolManager | `0x188d586ddcf52439676ca21a244753fa19f9ea8e` | Launch venue (D-166): hookless MON/USDC 0.05% pool `0x18a9fc874581f3ba12b7898f80a683c66fd5877fd74b26a85ba9a3a79c549954`; StateView `0x77395f3b2e73ae90843717371294fa97cc419d64` |
 | Permit2 | `0x000000000022D473030F116dDEE9F6B43aC78BA3` | Never approved by any account we control |
 
-Kuru has no address or measurement in any research run; the depth spike must supply them (`planning answer`).
+The depth spike (P2-U0, `evidence/p2-u0/SUMMARY.md`) supplied the quoters and Kuru's contracts, now in the address book in `packages/domain`; Kuru was measured and not chosen.
 
 ### 4.1 Onchain contracts
 
@@ -361,13 +361,13 @@ PersonalAccount specifics: one clone per `(agentId, owner)`, deployed by Account
 
 **Data it owns.** Adapter records and statuses.
 
-**Decisions and constraints.** Typed intents; the adapter set is the allowlist (`notes/tokenbound.md > 4` item 12). Venue chosen by the depth spike among Uniswap v3, Uniswap v4 and Kuru; v3 is the only option the research de-risked (`planning answer`, `notes/zodiac-roles.md > 7` item 1). Hookless v4 pools only if v4 wins (`notes/morpho-vault.md > 3.3`). Never expose router side doors (`sweepToken`, `unwrapWETH9`, `refundETH`, `pull`, `multicall`) and never use recipient constants `address(1)` or `address(2)` (`notes/zodiac-roles.md > 3`). Code-hash pinning because address-plus-selector keying keeps passing after a proxy upgrade (`notes/zodiac-roles.md > 7` item 15). No Permit2 approvals from any account we control; choose routes that take direct router approvals (`notes/tokenbound.md > 7` item 18).
+**Decisions and constraints.** Typed intents; the adapter set is the allowlist (`notes/tokenbound.md > 4` item 12). The depth spike chose the hookless Uniswap v4 MON/USDC 0.05% pool, with the Uniswap v3 USDC/WMON 0.3% pool as fallback (D-166); hookless v4 pools only (`notes/morpho-vault.md > 3.3`). Accounts hold WMON, never native MON: the adapter unwraps, swaps against the native MON pool and rewraps atomically inside one Executor call (D-167). Never expose router side doors (`sweepToken`, `unwrapWETH9`, `refundETH`, `pull`, `multicall`) and never use recipient constants `address(1)` or `address(2)` (`notes/zodiac-roles.md > 3`). Code-hash pinning because address-plus-selector keying keeps passing after a proxy upgrade (`notes/zodiac-roles.md > 7` item 15). No Permit2 approvals from any account we control; choose routes that take direct router approvals (`notes/tokenbound.md > 7` item 18).
 
 #### 4.1.9 Oracle adapter
 
 **Purpose.** One wrapper per feed that enforces staleness and decimals once and is reused by the Executor, vault deposits, vault USDC exits and the circuit breaker, plus the pool-price deviation check.
 
-**What it does.** Reads Chainlink push feeds (MON/USD at launch; USDC/USD only for a depeg guard), rejects `answer <= 0`, a stale `updatedAt`, a decimals mismatch, or a reverting feed, and returns a price in USDC terms with USDC treated as 1. Reads the traded pool's spot price and computes the pairwise deviation `abs(pool - oracle) / oracle`, which must be at most 2%. Staleness is per feed and set from the measured heartbeat; the 5-minute rule from the register is the target, and if a heartbeat exceeds it the asset is dropped from the buy allowlist rather than the rule loosened (`conversation decision`, `planning answer`). Assets without a reliable feed are dropped from the allowlist.
+**What it does.** Reads Chainlink push feeds (MON/USD at launch; USDC/USD only for a depeg guard), rejects `answer <= 0`, a stale `updatedAt`, a decimals mismatch, or a reverting feed, and returns a price in USDC terms with USDC treated as 1. Reads the traded pool's spot price and computes the pairwise deviation `abs(pool - oracle) / oracle`, which must be at most 2%. Staleness is per feed and set from the measured heartbeat; the 5-minute rule from the register is the target, and if a heartbeat exceeds it the asset is dropped from the buy allowlist rather than the rule loosened (`conversation decision`, `planning answer`). Measured in P2-U0 and set by D-168: MON/USD 300 seconds (strict, D-151); USDC/USD 3,900 seconds, for the depeg guard only; ETH/USD off the buy list. Assets without a reliable feed are dropped from the allowlist.
 
 **Depends on.** Chainlink feed contracts on Monad, the venue pool (for the spot read), the admin timelock (feed changes).
 
@@ -1376,7 +1376,7 @@ The narrator filter removes literal skill text and canary strings before anythin
 | Rolling 20 trades per 24 hours | Ring buffer of 20 timestamps per account, never reset | | Slot reservation at `pending` | | | `tradesLeft24h`, `nextSlotFreesAt` |
 | Rolling 24-hour turnover cap, 100% of NAV (`planning answer`) | Rolling sum per account | | Pre-check | | | Shows turnover left |
 | 2-minute deadlines | Requires `block.timestamp <= deadline <= block.timestamp + 120`; deadline forwarded to the venue | | Deadline set at signing | | | |
-| Oracle under 5 minutes old and within 2% of pool price | Rejects on `tradable == false` | Deposits and USDC exits use the same adapter | `get_prices.tradable` with reason | Monitors freshness | Enforces staleness per feed and pairwise deviation; drops assets without a reliable feed | Shows data age |
+| Oracle fresher than its per-feed bound (MON/USD under 5 minutes, D-168) and within 2% of pool price | Rejects on `tradable == false` | Deposits and USDC exits use the same adapter | `get_prices.tradable` with reason | Monitors freshness | Enforces staleness per feed and pairwise deviation; drops assets without a reliable feed | Shows data age |
 | Circuit breaker: 10% drop from the 7-day peak reduce-only, 20% pause | Reads `mode`; allows only USDC output in `REDUCE_ONLY`; blocks new risk in `PAUSED` | Tracks the per-share peak through `poke()`; holds the mode | `get_limits.mode` | Continuous observation; sets `REDUCE_ONLY` or `PAUSED` through its own sentinel key; sets agent state `INCIDENT` | Prices | Shows mode and reasons; owner unpause after review, after one lockup period for public vaults (`planning answer`) |
 | Recipient always the source account | Adapter sets recipient to the account; post-check on the account's balance delta; no recipient field exists | Post-trade invariant | Schema forbids any recipient or address field | | | |
 | Exact approvals only | Pull exact, approve exact, reset to zero, `allowance == 0` post-check; never Permit2 | Post-trade invariant: no allowance left | | | | |
