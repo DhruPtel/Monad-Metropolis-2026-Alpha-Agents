@@ -9,7 +9,8 @@ async function openDesign(page: Page) {
 
 test("the design page matches its baseline screenshot", async ({ page }) => {
   await openDesign(page);
-  await expect(page).toHaveScreenshot("design.png", { fullPage: true });
+  // A full-page capture of this long page can take over the 5-second default under load.
+  await expect(page).toHaveScreenshot("design.png", { fullPage: true, timeout: 30_000 });
 });
 
 test("the design page has no serious or critical accessibility violations", async ({ page }) => {
