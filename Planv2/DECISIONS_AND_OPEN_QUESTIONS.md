@@ -37,7 +37,7 @@ Every decision below is self-contained: the row states the decision itself. The 
 | D-023 | Creator uploads invite-only at launch with the creator portal live | planning answer |
 | D-024 | WorkflowNFT contract plus platform-published built-ins at launch; third-party workflow listings deferred | planning answer |
 | D-025 | Skills resell only through the marketplace escrow | planning answer |
-| D-026 | Mint and skill prices in USDC; MON only for gas | planning answer |
+| D-026 | Mint and skill prices in USDC; MON only for gas. The mint price is superseded by D-173 (minting is free); skill prices stay in USDC | planning answer |
 | D-027 | Watchers stored offchain, free, no gas, with the anti-gaming rules | planning answer, technical-report.html section 10 |
 | D-028 | Leaderboard at launch with "not enough data" states; seasons and leagues deferred | planning answer |
 | D-029 | Band allocation is a target WMON weight with rebalance bands inside the limits; DCA is scheduled USDC to WMON buys | planning answer |
@@ -223,6 +223,12 @@ Every decision below is self-contained: the row states the decision itself. The 
 | D-169 | Owner decision: the 2% pool versus oracle deviation rule stays as it is | evidence/p2-u0/SUMMARY.md |
 | D-170 | Owner decision: Q-03 is resolved. The USDC at `0x754704Bc059F8C67012fEd69BC8A327a5aafb603` is Circle's official USDC on Monad (Circle's address list names it; FiatToken proxy with pause and blacklist roles) | evidence/p2-u0/SUMMARY.md |
 | D-171 | Owner decision: the second RPC provider that P2-U4 adds must serve `eth_getLogs` over wide block ranges; the current keyed provider's free tier allows 10 blocks per request | evidence/p2-u0/SUMMARY.md, LOGS.md (P2-U0 entry) |
+| D-172 | Owner decision: AgentNFT has a hard maximum supply of 1,000 agents in total, across all tiers, enforced in the contract | Owner decision (P1-U2 unit prompt, 2026-10-04) |
+| D-173 | Owner decision: minting is free. AgentNFT has no mint price; the minter pays only gas. This supersedes the mint half of D-026 (skill prices stay in USDC) | Owner decision (P1-U2 unit prompt, 2026-10-04) |
+| D-174 | Owner decision: one agent per wallet, enforced in the contract. Whether this limits minting only or also holding (which would affect agent sales through the escrow) is Q-45 | Owner decision (P1-U2 unit prompt, 2026-10-04) |
+| D-175 | Owner decision: during the beta, minting is allowlist-only (D-145). For public launch, a claim gate such as a signed claim from the API is an open design item (Q-42) | Owner decision (P1-U2 unit prompt, 2026-10-04) |
+| D-176 | Owner decision: platform revenue comes from the credit markup, skill sales and marketplace royalties. Mint fees are not a revenue source | Owner decision (P1-U2 unit prompt, 2026-10-04) |
+| D-177 | Owner decision: the platform is designed for 100,000 users and 1,000 active agents, and no component may assume a single machine or process. A load and capacity test session, W-7, runs in the widening pass before PB-U1: concurrent agent cycles against E2B and LiteLLM limits, database load and API read traffic. The E2B plan's concurrent sandbox limit is Q-44 | Owner decision (P1-U2 unit prompt, 2026-10-04) |
 
 ---
 
@@ -374,6 +380,10 @@ Resolved in the orientation session and struck from the open list: A-01 (all nin
 | Q-39 | The configuration keys at the pinned commit that enable the terminal, code execution and file toolsets inside the sandbox, and how their working directory is pinned to `/workspace`; confirmed by reading who consumes each key, not the schema | Runtime engineer after H-05 and H-12 | P1-U1 |
 | Q-40 | Gas sponsorship mechanics: the top-up threshold, the per-agent advance cap during zero credits, and whether the platform gas treasury is one address or one per environment | Founders | P1-U6, P2-U4 |
 | Q-41 | The creator invited for the beta and the custom skill they will publish, so the creator loop in `FINAL_PLAN.md > 2.1` item 9 has a real author | Founders | P8-U2, PB-U1 |
+| Q-42 | The public-launch claim gate for minting (for example a signed claim from the API), replacing the beta allowlist (D-175) | Founders and contract engineer | P9-U4 public launch |
+| Q-43 | How the 1,000 agents (D-172) are allocated across the base, medium and pro tiers | Owner | P1-U3 (any per-tier cap), P1-U10 mint page |
+| Q-44 | The E2B plan's concurrent sandbox limit, against the 1,000 active agent target (D-177) | Runtime engineer with E2B | P1-U5, W-7 |
+| Q-45 | Does "one agent per wallet" (D-174) limit minting only, or also holding, which would block a wallet that already has an agent from buying one through the escrow | Owner | P1-U3, P8-U1 |
 
 ---
 

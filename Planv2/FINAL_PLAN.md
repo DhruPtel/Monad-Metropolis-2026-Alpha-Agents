@@ -52,6 +52,8 @@ Agreed during planning (`planning answer`): launch is sold on control, ownership
 | Workflows | Runner plus built-ins: Rebalancer, Recurring Buys, Parameter change review; the Risk Sentinel service with its own tighten-only key; WorkflowNFT contract with built-ins registered | Third-party workflow listings, workflow builder |
 | Social | Watchers (free, view-only), delayed signal feed (free), real-time signals (paid via x402), leaderboard, agent directory, structured agent messages, buyer agent | Auto-copy trades, seasons and leagues |
 | Marketplace | Primary skill sales, skill resale, agent sales, all through our escrow | OpenSea and Blur sales, custom account implementation |
+| Revenue | The credit markup, skill sales and marketplace royalties (D-176); minting an agent is free, the minter pays only gas (D-173) | Mint fees |
+| Scale | Designed for 100,000 users and 1,000 active agents; no component assumes a single machine or process; load and capacity tested before mainnet (D-177, W-7) | |
 | Fees | Mechanism built, rate zero, per-depositor entry prices recorded from day one; on activation charged in kind, proportionally, against the same high-water mark | Fee activation, creator royalty share of fees |
 | Goal input | Structured form only: template, risk preset, allowed assets, optional stricter limits, model choice, credit settings | Free text, chat, multi-goal buckets, target return, daily loss limit |
 
@@ -65,7 +67,7 @@ Done comes in two stages (owner decision, orientation). The hackathon beta is wh
 
 Deployed on Monad mainnet as a guarded beta: allowlisted wallets only, small platform-wide and per-account deposit caps, and a clear "unaudited beta" label throughout the product. External audits and the legal gate are not required for this stage, because access is limited to allowlisted testers with capped funds. Testnet is used for anything not ready for mainnet, clearly labeled on screen and in the evidence bundle. The beta is done when an allowlisted tester can do all of the following, and the founders have done each once on mainnet or on labeled testnet:
 
-1. Connect a wallet through Privy and mint an agent from the mint page, paying in USDC.
+1. Connect a wallet through Privy and mint an agent from the mint page, free apart from gas (allowlisted wallets, one agent per wallet).
 2. Fund credits by sending USDC to the agent's funding address from the "Fund your agent" action, and see the balance and per-call spend.
 3. Set a goal with the structured form.
 4. Arm the agent, then watch it research and make at least one real trade within the hard limits.
@@ -82,7 +84,7 @@ The cut line that maps these to units, with every reduced unit described, is `BU
 The public launch is done when all of the following are true on Monad mainnet with the allowlists off, the caps raised, and the gates in 2.4 passed.
 
 1. Connect a wallet through Privy (MetaMask and OKX supported) and see the landing page with live counters (`PHASES.md > Phase 1`, `design-brief.md > 1`).
-2. Mint an agent in one of three tiers, paying in USDC, and receive an NFT whose token-bound account is created and initialized in the same transaction (`planning answer`, `notes/tokenbound.md > 3.2`).
+2. Mint an agent in one of three tiers for free (the minter pays only gas; D-173), and receive an NFT whose token-bound account is created and initialized in the same transaction (`planning answer`, `notes/tokenbound.md > 3.2`).
 3. Fund the agent's credits by sending USDC to its funding address, see the balance, see per-call spend, and see LLM activity pause cleanly at zero while the deterministic runner, the circuit breaker and the sentinel keep working (`PHASES.md > Phase 1`, owner decision, orientation).
 4. Set a goal with the structured form: template, risk preset, allowed assets, optional stricter limits, model choice, credit settings (`planning answer`).
 5. Deposit USDC into the PersonalAccount and withdraw it directly from the contract at any time, with the platform down (`conversation decision`, `PHASES.md > Phase 2`).
@@ -230,17 +232,17 @@ The depth spike (P2-U0, `evidence/p2-u0/SUMMARY.md`) supplied the quoters and Ku
 
 **Purpose.** The product ownership token. Whoever holds it owns the agent, its skills, its build history and its platform authority.
 
-**What it does.** Mints an ERC-721 with a tier per token (base, medium, pro). On mint it calls the canonical registry to create the token-bound account and initializes the proxy in the same transaction, so no uninitialized window exists. On every transfer, including into and out of the escrow, it increments `ownerEpoch[agentId]` and records `epochStartedAt`. It refuses transfers to any agent token-bound account (no agent may own an agent) and refuses to burn while the token-bound account holds anything. At launch it allows transfers only by the marketplace escrow; all other transfers revert. Mint price is paid in USDC. During the hackathon beta a mint allowlist is on: only allowlisted wallets can mint, and only the admin timelock can turn the allowlist off (owner decision, orientation).
+**What it does.** Mints an ERC-721 with a tier per token (base, medium, pro). On mint it calls the canonical registry to create the token-bound account and initializes the proxy in the same transaction, so no uninitialized window exists. On every transfer, including into and out of the escrow, it increments `ownerEpoch[agentId]` and records `epochStartedAt`. It refuses transfers to any agent token-bound account (no agent may own an agent) and refuses to burn while the token-bound account holds anything. At launch it allows transfers only by the marketplace escrow; all other transfers revert. Minting is free: there is no mint price and the minter pays only gas (D-173). The contract caps total supply at 1,000 agents across all tiers (D-172) and allows one agent per wallet (D-174). During the hackathon beta a mint allowlist is on: only allowlisted wallets can mint, and only the admin timelock can turn the allowlist off (owner decision, orientation).
 
 **Depends on.** ERC-6551 registry and Tokenbound AccountProxy; the escrow address (set once, behind the admin timelock).
 
 **Depended on by.** Everything that resolves ownership or authority: token-bound accounts (`ownerOf` is their whole control model), BuildRegistry, Executor (epoch checks), custody core, escrow, IdentityBinder, indexer, orchestrator.
 
-**Interfaces.** `mint(tier) payable-in-USDC returns agentId`; `ownerOf(agentId)`; `ownerEpoch(agentId) -> uint64`; `epochStartedAt(agentId) -> uint64`; `tier(agentId) -> uint8`; `tbaOf(agentId) -> address`; `slotsOf(agentId) -> uint8` (3, 5, 8). Events: `AgentMinted(agentId, owner, tier, tba)`, `OwnerEpochBumped(agentId, epoch, from, to)`. Admin: `setEscrow(address)`, `setMintAllowlist(address, bool)` and `setMintAllowlistEnabled(bool)` through the timelock (adding to the allowlist and enabling it are instant; disabling waits the timelock).
+**Interfaces.** `mint(tier) returns agentId` (no payment); `MAX_SUPPLY() -> 1000`; `totalMinted()`; `ownerOf(agentId)`; `ownerEpoch(agentId) -> uint64`; `epochStartedAt(agentId) -> uint64`; `tier(agentId) -> uint8`; `tbaOf(agentId) -> address`; `slotsOf(agentId) -> uint8` (3, 5, 8). Events: `AgentMinted(agentId, owner, tier, tba)`, `OwnerEpochBumped(agentId, epoch, from, to)`. Admin: `setEscrow(address)`, `setMintAllowlist(address, bool)` and `setMintAllowlistEnabled(bool)` through the timelock (adding to the allowlist and enabling it are instant; disabling waits the timelock).
 
-**Data it owns.** Token ownership, tier, ownership epoch and its start time, the escrow allowlist, the mint allowlist and its flag.
+**Data it owns.** Token ownership, tier, ownership epoch and its start time, the minted count against the 1,000 cap, which wallets have an agent, the escrow allowlist, the mint allowlist and its flag.
 
-**Decisions and constraints.** Epoch bump on every `_update`, not on "owner differs", so a token returning to a previous owner never revives old authority (`conversation decision`, `notes/tokenbound.md > 3.6`). Escrow-only transfers enforced onchain, not by UI warning (`planning answer`). Slots 3, 5, 8 (`planning answer`). A distinct 3D body per tier is visual only (`planning answer`). `ownerOf` must never be changeable by surprise because the token-bound account reads it live on every authorization (`notes/tokenbound.md > 3.2`). Atomic create plus initialize closes the uninitialized-proxy window in which ERC-1155 transfers revert (`notes/tokenbound.md > 2.6`).
+**Decisions and constraints.** Epoch bump on every `_update`, not on "owner differs", so a token returning to a previous owner never revives old authority (`conversation decision`, `notes/tokenbound.md > 3.6`). Escrow-only transfers enforced onchain, not by UI warning (`planning answer`). Slots 3, 5, 8 (`planning answer`). A distinct 3D body per tier is visual only (`planning answer`). `ownerOf` must never be changeable by surprise because the token-bound account reads it live on every authorization (`notes/tokenbound.md > 3.2`). Atomic create plus initialize closes the uninitialized-proxy window in which ERC-1155 transfers revert (`notes/tokenbound.md > 2.6`). Supply cap, free mint and one agent per wallet are owner decisions (D-172 to D-174); the public-launch claim gate that replaces the allowlist is open (Q-42), and so is the tier allocation of the 1,000 (Q-43).
 
 #### 4.1.2 Token-bound accounts (ERC-6551, canonical Tokenbound v3)
 
@@ -1015,7 +1017,7 @@ Custom skills are core, not an add-on: at the hackathon beta the marketplace alr
 
 **Purpose.** The game-like configuration experience on top of a trading-terminal-grade view of money.
 
-**Pages** (`design-brief.md`, amended by `preview.html > Revised technical plan > 12` and the answers): landing; mint (three tier cards with slots 3, 5, 8, the 3D base body per tier, price in USDC, supply); configure (3D agent on a platform with sockets, drag-equip from the skill inventory, proposed versus active build, capability deltas instead of return deltas, the goal form, "Activate build"; no backtest button); portfolio (positions, trade history, deposit and withdraw, the arming card, blocked-trade explanations); CFO dashboard (net worth, single goal progress, pending approvals, an emergency view with mode, exposure, outstanding intents and operating runway); agent gallery; agent profile (build card, performance with drawdown under return, research board with statuses, activity feed, signal feed, "why the agent did not trade"); vault panel and deposit and withdraw modal (NAV and freshness, lockup, leader stake, mode, handover state, in-kind option, claimable credits); leaderboard; My Agents (status and agent state, the single "Fund your agent" action showing two balances, Credits at the funding address and Trading in the PersonalAccount, with the address and a QR code for the first and a deposit transaction for the second, spend breakdown, refund of unspent credits, pause, feed); marketplace and skill detail; creator portal; workflows page (installed built-ins, triggers, approval modes); dev console (internal: every agent's status, spend, last action, pause, kill switch).
+**Pages** (`design-brief.md`, amended by `preview.html > Revised technical plan > 12` and the answers): landing; mint (three tier cards with slots 3, 5, 8, the 3D base body per tier, free mint, the supply left of 1,000); configure (3D agent on a platform with sockets, drag-equip from the skill inventory, proposed versus active build, capability deltas instead of return deltas, the goal form, "Activate build"; no backtest button); portfolio (positions, trade history, deposit and withdraw, the arming card, blocked-trade explanations); CFO dashboard (net worth, single goal progress, pending approvals, an emergency view with mode, exposure, outstanding intents and operating runway); agent gallery; agent profile (build card, performance with drawdown under return, research board with statuses, activity feed, signal feed, "why the agent did not trade"); vault panel and deposit and withdraw modal (NAV and freshness, lockup, leader stake, mode, handover state, in-kind option, claimable credits); leaderboard; My Agents (status and agent state, the single "Fund your agent" action showing two balances, Credits at the funding address and Trading in the PersonalAccount, with the address and a QR code for the first and a deposit transaction for the second, spend breakdown, refund of unspent credits, pause, feed); marketplace and skill detail; creator portal; workflows page (installed built-ins, triggers, approval modes); dev console (internal: every agent's status, spend, last action, pause, kill switch).
 
 **Owning units.** Every page has one unit that builds it (orientation fix 6):
 
@@ -1120,7 +1122,7 @@ sequenceDiagram
   participant ORC as Orchestrator
   participant BR as BuildRegistry
   participant TBA as Token-bound account
-  O->>NFT: mint(tier) paying USDC
+  O->>NFT: mint(tier), free apart from gas
   NFT->>REG: createAccount(AccountProxy, salt 0, 143, AgentNFT, id)
   NFT->>TBA: initialize(AccountV3Upgradable)
   NFT-->>IDX: AgentMinted(agentId, owner, tier, tba)
