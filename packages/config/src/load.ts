@@ -18,6 +18,12 @@ export interface ServiceSpec {
   readonly signs?: boolean;
   /** Variables this service cannot start without, beyond the environment's chain RPC. */
   readonly requires?: readonly VariableName[];
+  /**
+   * False for a service that never reads or writes the chain (the web session
+   * check): the environment's RPC is then not required, and `rpcUrl` is null when
+   * it is not set. Defaults to true.
+   */
+  readonly usesChain?: boolean;
 }
 
 export interface Config {
@@ -25,8 +31,11 @@ export interface Config {
   readonly service: string;
   /** True only for a signing service that passed the mainnet guard. */
   readonly signing: boolean;
-  /** The chain RPC for this environment. Local is always the loopback anvil fork. */
-  readonly rpcUrl: Secret;
+  /**
+   * The chain RPC for this environment. Local is always the loopback anvil fork.
+   * Null only for a service with `usesChain: false` whose RPC is not set.
+   */
+  readonly rpcUrl: Secret | null;
   /** Every variable of this environment that is set; secrets are wrapped in Secret. */
   readonly values: Readonly<Partial<Record<VariableName, ConfigValue>>>;
 }
@@ -107,7 +116,8 @@ export function loadConfig(service: ServiceSpec, source: EnvSource = process.env
   const issues: ConfigIssue[] = [];
 
   const required = new Set<string>(service.requires ?? []);
-  if ("variable" in environment.rpc) required.add(environment.rpc.variable);
+  if (service.usesChain !== false && "variable" in environment.rpc)
+    required.add(environment.rpc.variable);
 
   const specs: readonly VariableSpec[] = VARIABLES;
   const inScope = specs.filter((spec) => spec.environments.includes(environment.id));
@@ -163,7 +173,7 @@ export function loadConfig(service: ServiceSpec, source: EnvSource = process.env
   const rpcUrl =
     "fixedUrl" in environment.rpc
       ? new Secret(environment.rpc.fixedUrl)
-      : (values[environment.rpc.variable as VariableName] as Secret);
+      : ((values[environment.rpc.variable as VariableName] as Secret | undefined) ?? null);
   return {
     environment,
     service: service.name,

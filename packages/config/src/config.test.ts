@@ -41,7 +41,7 @@ describe("environment selection", () => {
   it("defaults to local, the anvil fork of chain 143", () => {
     const config = loadConfig({ name: "test" }, {});
     expect(config.environment).toMatchObject({ id: "local", label: "fork", chainId: 143 });
-    expect(config.rpcUrl.reveal()).toBe(LOCAL_FORK_RPC_URL);
+    expect(config.rpcUrl?.reveal()).toBe(LOCAL_FORK_RPC_URL);
   });
 
   it("loads a valid testnet config on chain 10143", () => {
@@ -50,13 +50,13 @@ describe("environment selection", () => {
       { APP_ENV: "testnet", MONAD_TESTNET_RPC_URL: TESTNET_RPC },
     );
     expect(config.environment).toMatchObject({ id: "testnet", label: "testnet", chainId: 10143 });
-    expect(config.rpcUrl.reveal()).toBe(TESTNET_RPC);
+    expect(config.rpcUrl?.reveal()).toBe(TESTNET_RPC);
   });
 
   it("loads a valid beta config on chain 143", () => {
     const config = loadConfig({ name: "test" }, { APP_ENV: "beta", MONAD_RPC_URL: MAINNET_RPC });
     expect(config.environment).toMatchObject({ id: "beta", label: "mainnet-beta", chainId: 143 });
-    expect(config.rpcUrl.reveal()).toBe(MAINNET_RPC);
+    expect(config.rpcUrl?.reveal()).toBe(MAINNET_RPC);
   });
 
   it.each([
@@ -94,6 +94,25 @@ describe("missing and invalid variables", () => {
   it("names a missing variable a service requires", () => {
     const err = loadError(() => loadConfig({ name: "sandbox", requires: ["E2B_API_KEY"] }, {}));
     expect(err.issues).toEqual([{ variable: "E2B_API_KEY", problem: "is not set" }]);
+  });
+
+  it("does not require the chain RPC for a service that never uses the chain", () => {
+    const config = loadConfig(
+      { name: "web session check", usesChain: false, requires: ["PRIVY_APP_SECRET"] },
+      { APP_ENV: "beta", PRIVY_APP_SECRET: "privy-secret-for-tests" },
+    );
+    expect(config.rpcUrl).toBeNull();
+    expect(config.values.PRIVY_APP_SECRET).toBeInstanceOf(Secret);
+  });
+
+  it("still requires the chain RPC by default", () => {
+    const err = loadError(() =>
+      loadConfig(
+        { name: "test", requires: ["PRIVY_APP_SECRET"] },
+        { APP_ENV: "beta", PRIVY_APP_SECRET: "x" },
+      ),
+    );
+    expect(err.issues.map((i) => i.variable)).toEqual(["MONAD_RPC_URL"]);
   });
 
   it("reports every problem at once", () => {
@@ -206,7 +225,7 @@ describe("mainnet guard", () => {
   it("local signing always targets the loopback fork, even with a mainnet RPC set", () => {
     const config = loadConfig({ name: "signer", signs: true }, { MONAD_RPC_URL: MAINNET_RPC });
     expect(config.signing).toBe(true);
-    expect(config.rpcUrl.reveal()).toBe(LOCAL_FORK_RPC_URL);
+    expect(config.rpcUrl?.reveal()).toBe(LOCAL_FORK_RPC_URL);
   });
 
   it("refuses a testnet RPC that is the mainnet URL", () => {

@@ -14,10 +14,17 @@
     "@alpha-agents/config": "workspace:^",
     "@alpha-agents/domain": "workspace:*",
     "@alpha-agents/ui": "workspace:*",
+    "@privy-io/node": "0.35.0",
+    "@privy-io/react-auth": "3.47.0",
+    "@privy-io/wagmi": "4.0.18",
+    "@tanstack/react-query": "5.104.1",
     "lucide-react": "1.49.0",
     "next": "16.3.8",
     "react": "19.3.0",
-    "react-dom": "19.3.0"
+    "react-dom": "19.3.0",
+    "server-only": "0.0.1",
+    "viem": "2.56.5",
+    "wagmi": "3.7.7"
   },
   "devDependencies": {
     "@axe-core/playwright": "4.13.0",
@@ -26,6 +33,7 @@
     "@types/node": "22.20.4",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
+    "jose": "6.2.12",
     "tailwindcss": "4.3.3"
   }
 }
