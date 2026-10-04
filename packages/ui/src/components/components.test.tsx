@@ -25,6 +25,7 @@ import {
 import { Button } from "./ui/button";
 import { Field, Input } from "./ui/input";
 import { SectionLabel } from "./ui/section-label";
+import { Tabs, TabsList, TabsTrigger } from "./ui/tabs";
 import { Tag } from "./ui/tag";
 
 describe("StatusPill renders every canonical value from packages/domain", () => {
@@ -125,6 +126,21 @@ describe("Tag", () => {
   ] as const)("tone %s uses %s", (tone, textClass) => {
     render(<Tag tone={tone}>Label</Tag>);
     expect(screen.getByText("Label")).toHaveClass(textClass, "rounded-xs");
+  });
+});
+
+describe("Tabs", () => {
+  it("keeps every label on one line and lets the list scroll on narrow screens", () => {
+    render(
+      <Tabs defaultValue="local">
+        <TabsList aria-label="Environment">
+          <TabsTrigger value="local">local (fork)</TabsTrigger>
+          <TabsTrigger value="beta">beta (mainnet-beta)</TabsTrigger>
+        </TabsList>
+      </Tabs>,
+    );
+    expect(screen.getByRole("tablist")).toHaveClass("overflow-x-auto", "max-w-full");
+    for (const tab of screen.getAllByRole("tab")) expect(tab).toHaveClass("whitespace-nowrap");
   });
 });
 

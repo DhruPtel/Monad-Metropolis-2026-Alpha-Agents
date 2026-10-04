@@ -10,7 +10,11 @@ function TabsList({ className, ...props }: ComponentProps<typeof TabsPrimitive.L
   return (
     <TabsPrimitive.List
       data-slot="tabs-list"
-      className={cn("inline-flex items-center gap-1 rounded-lg border bg-surface p-1", className)}
+      // Labels never wrap; on a narrow screen the list scrolls sideways instead.
+      className={cn(
+        "inline-flex max-w-full items-center gap-1 overflow-x-auto rounded-lg border bg-surface p-1",
+        className,
+      )}
       {...props}
     />
   );
@@ -21,7 +25,7 @@ function TabsTrigger({ className, ...props }: ComponentProps<typeof TabsPrimitiv
     <TabsPrimitive.Trigger
       data-slot="tabs-trigger"
       className={cn(
-        "inline-flex h-8 items-center justify-center rounded-md px-3 text-sm font-medium text-foreground-muted",
+        "inline-flex h-8 shrink-0 items-center justify-center rounded-md px-3 text-sm font-medium whitespace-nowrap text-foreground-muted",
         "transition-colors outline-none",
         "is-hover:text-foreground is-focus:focus-ring",
         "data-active:bg-surface-overlay data-active:text-primary",
