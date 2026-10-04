@@ -13,6 +13,9 @@
 
 export const MODEL_KEY_PLACEHOLDER = "injected-outside-the-sandbox";
 
+/** The E2B template built from infra/e2b/hermes.Dockerfile, named for the pinned Hermes commit. */
+export const TEMPLATE_NAME = "alpha-agents-hermes-085d9ee";
+
 export interface HermesRenderInput {
   /** Base URL of the model gateway as the sandbox sees it, ending in /v1. */
   readonly gatewayBaseUrl: string;
