@@ -3,3 +3,10 @@
 # Planv1 spike plan: "sk-master-spike" is a placeholder LiteLLM master key in an
 # example config, not a credential (checked in P0-U3).
 6df32f993e6167545dffbb64c27264161ba4ccae:Planv1/research/hermes/09-spike-plan.md:curl-auth-header:53
+#
+# P2-U0 evidence: the JSON key "token0" trips generic-api-key; each value is the
+# public WMON token address 0x3bd359C1119dA7Da1D913D1C4D2B7c461115433A (checked in P2-U0).
+de87bc78d275ad04e87c7cd631adc5fdac4809bc:evidence/p2-u0/data.json:generic-api-key:1178
+de87bc78d275ad04e87c7cd631adc5fdac4809bc:evidence/p2-u0/data.json:generic-api-key:1201
+de87bc78d275ad04e87c7cd631adc5fdac4809bc:evidence/p2-u0/data.json:generic-api-key:1224
+de87bc78d275ad04e87c7cd631adc5fdac4809bc:evidence/p2-u0/data.json:generic-api-key:1247
