@@ -197,3 +197,24 @@ What happened: `pnpm run secrets:scan` failed after the evidence commit: gitleak
 Cause: Every value was the public WMON address, so these were false positives, but the scan ran only after the commit, so the fingerprints are now in history.
 Fix: The four fingerprints are in `.gitleaksignore` with the reason (a354f85).
 Lesson: Run the secrets scan on staged changes before committing any generated data file.
+
+## L-28: The fork integration tests timed out under load
+Unit: P0-U7
+What happened: With the dev fork running, `pnpm test` failed one test out of 614 on one run and passed on the next five. Running the suite next to two app builds reproduced it twice: "reports the stack's anvil as the monad fork" (13.2 s) and "resets to the pinned block" (5.4 s) hit "Test timed out in 5000ms".
+Cause: These tests make real calls (Docker for stack health, anvil to the upstream RPC for `anvil_reset`) under vitest's 5-second default, which a loaded machine exceeds. They skip when the fork is down, so most runs never exercised them.
+Fix: The suite and its snapshot hooks allow 60 seconds; three runs under concurrent builds pass (4930908).
+Lesson: A test that does real network or process I/O gets an explicit timeout sized for a loaded machine, and a test that failed once is rerun under load before it is called flaky.
+
+## L-29: The prototype's palette failed contrast where our components use it
+Unit: P0-U7
+What happened: After applying the token changes from `Planv2/notes/prototype-review.md` 2.3, axe reported serious color-contrast violations on /design: every reason code and subtle amount, the danger button, the negative pills and the drawdown column.
+Cause: The review measured contrast only against `surface`. Red #d9534f is 3.84:1 on `surface-overlay` and 3.86:1 on `negative-surface`, and the interpolated ash-dim #6e727a is 3.75:1 even on `surface`, while our components use `foreground-subtle` for essential text. This is L-9 again.
+Fix: Red is #de6764 and ash-dim is #888c93, the smallest changes that pass 4.5:1 on every surface they sit on; "stale data" and "awaiting approval" use the new amber warning tone (dc28ca9).
+Lesson: Before adopting a proposed palette, compute every text token against every surface token it can appear on, not just the one the proposal measured.
+
+## L-30: Long tab labels spilled out of their trigger on mobile
+Unit: P0-U7
+What happened: At 380px, the /design tab "Medium (hover)" and the console's "local (fork)" wrapped onto two lines inside a fixed 32px tab, so the text overflowed the trigger. The console case already existed with Geist; Inter's wider letters made it show on /design too.
+Cause: The tab trigger had a fixed height but allowed wrapping, and the list had no way to overflow.
+Fix: Labels never wrap and the tab list scrolls sideways on narrow screens; a component test checks both (ecb49b9).
+Lesson: A component with a fixed height must also stop its text wrapping and say what happens on overflow.

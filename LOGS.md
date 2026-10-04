@@ -81,3 +81,20 @@ Summary: Step 0 recorded D-163 (P1-U1 done for the demo spine, its unchecked ite
 Suggestions: decide Q-01, Q-02 and Q-03 and record them; make `oracleMaxAgeSeconds` per feed in packages/policy (FINAL_PLAN 4.1.9 already says per feed); re-quote in P2-U2 before pinning the adapter, and check the v4 pool's liquidity concentration; FINAL_PLAN and the asset model say WMON while the best pool and Kuru use native MON, which P2-U2 must settle; optionally tighten the 2% deviation rule to 1% (0.12% of minutes would be refused); the Permit2 route (TB-T04) is answered in passing, and fork fidelity and EIP-1153 remain for W-1; the configured RPC is Alchemy's free tier (10-block logs), so P2-U4's second provider (Q-23) should have wider log ranges.
 Bugs: L-20, L-21, L-22, L-23, L-24, L-25, L-26, L-27.
 Commit: 1c75397, bd9b534, ba07eb5, a54e678, de87bc7, a354f85, plus the log commit.
+
+## 2026-10-04, P0-U7, Design tuning
+Status: done
+Summary: Step 0 recorded D-166 to D-171 (venue Uniswap v4 hookless MON/USDC 0.05% with v3 0.3% as fallback; accounts hold WMON with an atomic unwrap, swap and rewrap; per-feed staleness; the 2% rule stays; Q-03 resolved; a wide-log-range second RPC), with BUILD_PLAN and FINAL_PLAN updated. Q-02's spread and band parameters stay open.
+- Tokens: the design system now matches the prototype. Every token change in `prototype-review.md` 2.3 is applied: cool graphite with a 950 page layer, flat 6px cards, the new shadow set, a 13px tabular body with a `2xs` step and label tracking, 3px to 8px radii, and motion tokens with `slot-pulse`, `status-pulse` and the reduced-motion rule.
+- Contrast fixes (L-29): two values differ from the review because they failed AA where our components use them: red is #de6764 (proposed #d9534f) and ash-dim is #888c93 (proposed #6e727a). "Stale data" and "awaiting approval" now use the new amber warning tone.
+- Fonts: Inter and JetBrains Mono load through `next/font/google` and are served from our origin, and a test in each app checks every font request is same-origin.
+- Components: Button is 28, 36 and 40px with a `secondary-accent` variant, and inputs and selects are 36px to match. Tag and SectionLabel are new. `/design` shows every new token, the motion tokens and every new component in every state.
+- Tabs fix (L-30): tab labels no longer spill out on mobile.
+- Policy: per-feed staleness replaces the single oracle age: MON/USD 300 s and USDC/USD 3,900 s, both strictly under, with `PRICE_FEED` and `checkFeedAge` (tests at 299, 300, 301, 3,899, 3,900 and 3,901). The console sandbox now labels its field as the MON/USD age.
+- Visual check and baselines: every web and console page was inspected at both widths before re-baselining. The baselines are in their own commit, and a one-unit brass change fails them (L-7).
+- Fork test timeouts (L-28): the fork integration tests were timing out under load and now allow real I/O time.
+- Checks: lint, format, typecheck, 614 vitest tests (also three runs under build load), web e2e 8 of 8, console e2e 30 of 30, console live 3 of 3, test:fork, forge build and the secrets scan pass.
+- Commit order: as the owner asked, the baselines are a separate commit, so the screenshot tests fail on the four commits between dc28ca9 and 265a350. The policy commit came before the baselines because it changes a console label.
+Suggestions: `viewer-glow`, `rare`, `shadow-panel`, `shadow-selected` and the pulse animations have no user outside /design until P1-U11; the console's panel headings could adopt SectionLabel in a later unit (no page redesign was in scope); the review's half-pixel sizes (10.5, 11.5, 12.5px) collapse onto 11, 12 and 13px, so the owner's side-by-side comparison may notice small differences in label sizes.
+Bugs: L-28, L-29, L-30.
+Commit: 5e17678, dc28ca9, 29a9403, 9d96e61, 1af8b5e, ecb49b9, 265a350, 4930908, plus the log commit.
