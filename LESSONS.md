@@ -246,3 +246,17 @@ What happened: The 380px screenshot of the connected shell showed "Alpha Agents"
 Cause: The brand text could wrap, and the header held a placeholder notifications button on every width, so the real wallet controls ran out of room.
 Fix: The brand never wraps and the notifications button hides below the small breakpoint (240b94b).
 Lesson: Every new header control gets a screenshot at the narrowest width in its widest state before it is called done.
+
+## L-35: pnpm dev:web never loaded the root .env
+Unit: P1-U2 (fix after handoff)
+What happened: With PRIVY_APP_ID and PRIVY_APP_SECRET set in the root .env, the wallet button still read "Login failed" and /api/session answered 503 not_configured. A Next.js env check from apps/web loaded no env files and saw PRIVY_APP_ID unset.
+Cause: Next.js reads .env files only from the app's own folder, and `pnpm dev:web` ran `next dev` in apps/web directly. P1-U2 saw the 503 in dev and accepted it, because .env had no Privy values then, so the configured path was never tried.
+Fix: `pnpm dev:web` runs scripts/web.js, which loads the root .env before starting Next, as scripts/console.js does for the console; with it, /api/session answers 401 and the Privy modal opens (9538cf9).
+Lesson: Prove configuration reaches the process by setting a value and watching it take effect; a "not configured" result with nothing set proves nothing.
+
+## L-36: The not-configured wallet state looked like a failed login with a dead button
+Unit: P1-U2 (fix after handoff)
+What happened: Without a usable PRIVY_APP_ID the wallet button read "Login failed" with "Try again", which did nothing; the reason was only in a hover tooltip, and on mobile only the dead button showed.
+Cause: The not-configured session reused the ordinary error state, whose retry button ran a no-op.
+Fix: WalletButton shows "Try again" only when there is an action to run; the not-configured state reads "Login unavailable" at every width, with the reason for screen readers and the fix in the tooltip (4dd673f).
+Lesson: Never render a control whose action is a no-op; a state the user cannot fix from the page must say so and say where it is fixed.

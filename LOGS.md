@@ -130,3 +130,16 @@ Suggestions:
 - The header shows both the app's environment chip and the wallet's chain chip; a later shell pass could merge them.
 Bugs: L-31, L-32, L-33, L-34.
 Commit: 6a802b4, 5e5b3cd, 8717d31, 14111d4, 240b94b, 21182e2, plus the log commit.
+
+## 2026-10-04, P1-U2, Privy login diagnosis and fixes
+Status: done (the login code path now works up to the MetaMask step; a real MetaMask login still needs the owner's browser and a real app secret)
+Summary: The owner saw "Login failed" with a "Try again" that did nothing.
+- Findings in .env: PRIVY_APP_ID is 25 characters, lowercase and digits, as Privy requires. PRIVY_APP_SECRET is 40 characters, but 36 of them are asterisks: it is the dashboard's masked copy. Privy's API rejects it with 401 "Invalid app ID or app secret.", the same as a deliberately wrong control secret, so every real login would fail server-side.
+- Root cause of the button: `pnpm dev:web` never loaded the root .env (L-35), so the app ran as not configured and /api/session answered 503. That state showed a misleading "Login failed" with a dead button (L-36). Both are fixed (9538cf9, 4dd673f).
+- With the fix: /api/session answers 401 (configured), the button reads "Connect wallet", and clicking it opens Privy's "Log in or sign up" modal with MetaMask, with no console errors and every auth.privy.io request answering 200 on localhost.
+- 127.0.0.1: Privy never started, and the dev server refused its live-reload connection, so use localhost.
+- The wallet button is in the shell header on every route, including the unbuilt ones that return 404.
+- Checks: lint, format, typecheck, 700 vitest tests, web e2e 32 of 32, console e2e 30 of 30 and the secrets scan pass.
+- The owner must paste the full app secret into .env and use http://localhost:3000.
+Bugs: L-35, L-36.
+Commit: 9538cf9, 4dd673f, plus the log commit.
