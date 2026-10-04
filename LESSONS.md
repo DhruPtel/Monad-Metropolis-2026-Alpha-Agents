@@ -113,3 +113,31 @@ What happened: The second run of `pnpm test:console:live` failed on the USDC che
 Cause: Giving USDC mints on top of the current balance, and the test used one fixed address on a fork that keeps state between runs, so each run added to the previous runs' balance.
 Fix: Each run uses a fresh random address (501d02c); three further runs passed.
 Lesson: A test against shared, persistent state runs at least twice before it counts as passing, and uses fresh identifiers or restores what it changed.
+
+## L-16: The spike assumed E2B Secrets, which this team cannot use
+Unit: P1-U1
+What happened: Before the cloud run, listing E2B secrets returned "403: Secrets are not available for this team", so the spike would have failed at `Secret.create`, after LiteLLM, the tools server and the tunnel were already up.
+Cause: The driver was written against the Secrets API (`Secret.fill` in the egress rules) without first checking that the account's plan offers it; Q-04 was still open.
+Fix: A probe with a throwaway sandbox showed that an egress transform with a literal header value is injected by E2B's proxy and never appears inside the sandbox. The driver tries Secrets first and falls back to literal values on that 403, recording `credentialPath` in the report (da1ab0b).
+Lesson: Before writing code against a paid-plan cloud feature, call it once with a throwaway value and read the answer, and keep a recorded fallback for a 403.
+
+## L-17: LiteLLM spend read right after the run showed zero
+Unit: P1-U1
+What happened: The first cloud run failed `modelCallsOnAgentKey`: the agent key reported spend 0 while its spend log already had two rows, and the budget key, read later in the same run, showed its spend.
+Cause: LiteLLM writes key spend to the database in batches, so the read straight after the run came before the write. This is L-10 again: state read too early after a write looks like state never written.
+Fix: The driver polls `/key/info` and `/spend/logs` (up to 60 seconds) until spend is above zero and there is a log row for every call the gate saw succeed (da1ab0b).
+Lesson: Treat any spend, usage or billing counter as eventually consistent and poll it to a settled value before checking it.
+
+## L-18: Adding /run to the sandbox scan crashed the scan
+Unit: P1-U1
+What happened: The first cloud run ended with "EACCES: permission denied, scandir '.../run/systemd/inaccessible/dir'" in the secret scan step, after every other check had run.
+Cause: `/run` was added to the archive in this session; it holds directories with mode 000, and tar keeps that mode on extraction, so the local scanner could not read its own copy.
+Fix: The driver runs `chmod -R u+rwX` on the extracted copy before scanning, and removes the copy in teardown (da1ab0b).
+Lesson: When a scan extracts files from another system, normalize permissions on the copy first, and run a widened scan once before relying on it.
+
+## L-19: Teardown does not survive a hard kill or a machine crash
+Unit: P1-U1
+What happened: A previous session crashed the machine (a suspected RAM fault) while a spike run could have been live. The driver's teardown runs on normal exit, an error, SIGINT, SIGTERM and its 30-minute deadline, but a SIGKILL, an out-of-memory kill, a WSL crash or a power loss skips it entirely.
+Cause: All cleanup is in-process. On a hard stop nothing runs: the cloudflared child can be orphaned (its kill hook is on the parent's exit event), the sandbox lives until its own 20-minute timeout, E2B secrets (where the plan has them) and LiteLLM virtual keys persist with no expiry, and the scan copy stays in /tmp.
+Fix: None in code this unit. The bounds that do hold: the sandbox timeout caps its lifetime at 20 minutes, every resource carries the run tag (sandbox metadata, `p1u1-` secret names, key aliases), and this session checked by hand before and after the runs that no sandbox, secret, cloudflared process or scan copy was left. The spike's virtual keys remain in the litellm schema (budget 0.5 USD and 1e-7 USD, reachable only through the local gateway).
+Lesson: Every cloud resource gets a hard lifetime set at creation and a run tag, and the next run starts with a sweep that removes tagged leftovers, because in-process teardown cannot cover a crash.
