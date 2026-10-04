@@ -19,7 +19,7 @@ import {
   valueUsdcE6,
   withinBps,
 } from "@alpha-agents/domain";
-import { LAUNCH_LIMITS, type PolicyLimits } from "./limits.ts";
+import { LAUNCH_LIMITS, type OracleFeed, PRICE_FEED, type PolicyLimits } from "./limits.ts";
 import type { AccountState, PastTrade, Rejection } from "./state.ts";
 
 /**
@@ -62,6 +62,24 @@ export function navUsdcE6(state: AccountState): UsdcE6 {
   return nav as UsdcE6;
 }
 
+/**
+ * Freshness of one feed: its age must be strictly under the feed's bound (D-151,
+ * D-168). A timestamp from the future fails closed. The depeg guard calls this
+ * for USDC/USD; checkOracle calls it for the feed that prices an asset.
+ */
+export function checkFeedAge(
+  feed: OracleFeed,
+  updatedAt: UnixSeconds,
+  now: UnixSeconds,
+  limits: PolicyLimits = LAUNCH_LIMITS,
+): Rejection | null {
+  const age = now - updatedAt;
+  const max = limits.oracleMaxAgeSeconds[feed];
+  if (age < 0 || age >= max)
+    return reject("ORACLE_STALE", `${feed} oracle age ${age}s, must be under ${max}s`);
+  return null;
+}
+
 /** Oracle freshness and pool deviation for one non-USDC asset. A missing reading fails closed. */
 export function checkOracle(
   state: AccountState,
@@ -71,18 +89,12 @@ export function checkOracle(
 ): Rejection[] {
   if (isBase(asset)) return [];
   const reading = state.oracle[asset];
-  if (!reading) return [reject("ORACLE_STALE", `no oracle reading for ${asset}`)];
-  const age = now - reading.updatedAt;
+  const feed = PRICE_FEED[asset];
+  if (!reading || !feed) return [reject("ORACLE_STALE", `no oracle reading for ${asset}`)];
   if (reading.priceE18 <= 0n)
     return [reject("ORACLE_STALE", `${asset} oracle price is not positive`)];
-  if (age < 0 || age >= limits.oracleMaxAgeSeconds) {
-    return [
-      reject(
-        "ORACLE_STALE",
-        `${asset} oracle age ${age}s, must be under ${limits.oracleMaxAgeSeconds}s`,
-      ),
-    ];
-  }
+  const stale = checkFeedAge(feed, reading.updatedAt, now, limits);
+  if (stale) return [stale];
   const diff =
     reading.poolPriceE18 > reading.priceE18
       ? reading.poolPriceE18 - reading.priceE18

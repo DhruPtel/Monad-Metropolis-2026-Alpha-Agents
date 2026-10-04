@@ -158,7 +158,11 @@ export function PolicySandbox() {
           </CardHeader>
           <CardContent>
             {text("wmonPrice", "WMON price (USDC)")}
-            {text("oracleAgeSeconds", "Oracle age (seconds)", "Must be under 300")}
+            {text(
+              "oracleAgeSeconds",
+              "MON/USD oracle age (seconds)",
+              `Must be under ${LAUNCH_LIMITS.oracleMaxAgeSeconds.MON_USD}`,
+            )}
             {text(
               "poolDeviationBps",
               "Pool vs oracle (bps)",

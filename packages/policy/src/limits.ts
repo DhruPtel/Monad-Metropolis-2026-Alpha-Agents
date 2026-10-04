@@ -12,8 +12,22 @@
  * Boundaries: a maximum passes at exactly its value and fails one unit above;
  * a minimum passes at exactly its value and fails one unit below. The one
  * exception is oracle age, which must be strictly under the limit: "under 5
- * minutes old" means a price exactly 300 seconds old fails (D-151).
+ * minutes old" means a price exactly 300 seconds old fails (D-151). Oracle age
+ * is bounded per feed (D-168), and every feed's bound is strict.
  */
+import type { AssetId } from "@alpha-agents/domain";
+
+/** The Chainlink feeds the pre-checks read (FINAL_PLAN 4.1.9). */
+export const ORACLE_FEEDS = ["MON_USD", "USDC_USD"] as const;
+export type OracleFeed = (typeof ORACLE_FEEDS)[number];
+
+/**
+ * The feed that prices each non-USDC asset. USDC is priced at exactly 1 and has
+ * no entry: USDC/USD drives only the depeg guard, never a trade gate (D-168).
+ */
+export const PRICE_FEED: Readonly<Partial<Record<AssetId, OracleFeed>>> = Object.freeze({
+  WMON: "MON_USD",
+});
 export interface PolicyLimits {
   /** Max value of one trade, as a share of account NAV. */
   readonly maxTradeBps: number;
@@ -31,8 +45,8 @@ export interface PolicyLimits {
   readonly windowSeconds: number;
   /** Max distance from now to an intent's deadline. */
   readonly deadlineSeconds: number;
-  /** Oracle prices must be strictly younger than this. */
-  readonly oracleMaxAgeSeconds: number;
+  /** Per feed: a price must be strictly younger than its feed's bound. */
+  readonly oracleMaxAgeSeconds: Readonly<Record<OracleFeed, number>>;
   /** Max distance between the pool price and the oracle price. */
   readonly oracleMaxDeviationBps: number;
   /** Drawdown from the 7-day peak at which the account becomes REDUCE_ONLY. */
@@ -54,7 +68,10 @@ export const LAUNCH_LIMITS: PolicyLimits = Object.freeze({
   maxTurnoverBps: 10_000, // 100% of NAV per rolling 24 hours
   windowSeconds: DAY,
   deadlineSeconds: 120, // 2-minute deadlines
-  oracleMaxAgeSeconds: 300, // oracle price under 5 minutes old
+  oracleMaxAgeSeconds: Object.freeze({
+    MON_USD: 300, // under 5 minutes old; updates about every 30 s (P2-U0)
+    USDC_USD: 3_900, // depeg guard only; hourly heartbeat plus 5 minutes (P2-U0)
+  }),
   oracleMaxDeviationBps: 200, // within 2% of the pool price
   breakerReduceOnlyBps: 1_000, // 10% drop from the 7-day peak
   breakerPauseBps: 2_000, // 20% drop from the 7-day peak

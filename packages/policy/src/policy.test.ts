@@ -7,6 +7,7 @@ import {
   REJECTION_CODES,
   type RebalanceIntent,
   type SwapIntent,
+  type UnixSeconds,
 } from "@alpha-agents/domain";
 import { describe, expect, it } from "vitest";
 import {
@@ -14,10 +15,13 @@ import {
   BREACH_FIXTURES,
   FIXTURE_NOW as NOW,
   LAUNCH_LIMITS,
+  ORACLE_FEEDS,
+  PRICE_FEED,
   type PolicyResult,
   WMON_PRICE_E18,
   breakerMode,
   checkDeadline,
+  checkFeedAge,
   checkRebalance,
   checkSwap,
   drawdownBps,
@@ -50,7 +54,7 @@ describe("launch limits", () => {
       maxTurnoverBps: 10_000,
       windowSeconds: 86_400,
       deadlineSeconds: 120,
-      oracleMaxAgeSeconds: 300,
+      oracleMaxAgeSeconds: { MON_USD: 300, USDC_USD: 3_900 },
       oracleMaxDeviationBps: 200,
       breakerReduceOnlyBps: 1_000,
       breakerPauseBps: 2_000,
@@ -261,6 +265,37 @@ describe("2-minute deadlines", () => {
     [NOW + 121, "DEADLINE_TOO_FAR"],
   ])("deadline %i", (deadline, code) => {
     expect(checkDeadline(deadline, NOW)?.code).toBe(code);
+  });
+});
+
+describe("oracle staleness is set per feed (D-168)", () => {
+  it("prices WMON from MON/USD and gives USDC no price feed", () => {
+    expect(PRICE_FEED).toEqual({ WMON: "MON_USD" });
+    expect(Object.keys(LAUNCH_LIMITS.oracleMaxAgeSeconds).sort()).toEqual([...ORACLE_FEEDS].sort());
+  });
+
+  it.each([
+    ["MON_USD", 299, true],
+    ["MON_USD", 300, false],
+    ["MON_USD", 301, false],
+    ["USDC_USD", 3_899, true],
+    ["USDC_USD", 3_900, false],
+    ["USDC_USD", 3_901, false],
+  ] as const)("%s at age %is passes: %s (strictly under the bound, D-151)", (feed, age, ok) => {
+    const result = checkFeedAge(feed, (NOW - age) as UnixSeconds, NOW);
+    expect(result?.code ?? null).toBe(ok ? null : "ORACLE_STALE");
+  });
+
+  it("fails a feed timestamp from the future", () => {
+    expect(checkFeedAge("USDC_USD", (NOW + 1) as UnixSeconds, NOW)?.code).toBe("ORACLE_STALE");
+  });
+
+  it("reads each feed's own bound, so changing USDC/USD never moves MON/USD", () => {
+    const limits = { ...LAUNCH_LIMITS, oracleMaxAgeSeconds: { MON_USD: 300, USDC_USD: 60 } };
+    expect(checkFeedAge("USDC_USD", (NOW - 60) as UnixSeconds, NOW, limits)?.code).toBe(
+      "ORACLE_STALE",
+    );
+    expect(checkFeedAge("MON_USD", (NOW - 299) as UnixSeconds, NOW, limits)).toBeNull();
   });
 });
 
