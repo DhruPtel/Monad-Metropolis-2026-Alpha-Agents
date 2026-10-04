@@ -30,7 +30,7 @@ describe("address book", () => {
   it("gives every entry a source, a status and a note", () => {
     for (const env of ENVIRONMENT_IDS) {
       for (const e of ADDRESS_BOOK[env]) {
-        expect(e.source, `${env} ${e.id}`).toMatch(/^Planv2\//);
+        expect(e.source, `${env} ${e.id}`).toMatch(/^(Planv2\/|https:\/\/)/);
         expect(["verified", "unverified"]).toContain(e.status);
         expect(e.note.length).toBeGreaterThan(0);
         if (e.openQuestion !== null) expect(e.openQuestion).toMatch(/^Q-\d{2}$/);
@@ -63,12 +63,8 @@ describe("address book", () => {
   });
 
   it("keeps entries with no known address unverified with their open question", () => {
-    expect(addressEntry("beta", "kuru")).toMatchObject({
-      address: null,
-      status: "unverified",
-      openQuestion: "Q-01",
-    });
     expect(addressEntry("beta", "erc8004_identity_registry")).toMatchObject({
+      address: null,
       status: "unverified",
       openQuestion: "Q-13",
     });
@@ -83,8 +79,12 @@ describe("signing block for unverified addresses", () => {
   });
 
   it.each([
-    ["beta", "kuru", /kuru is unverified in beta.*Q-01.*no known address/],
-    ["beta", "erc8004_identity_registry", /Q-13/],
+    [
+      "beta",
+      "erc8004_identity_registry",
+      /erc8004_identity_registry is unverified in beta.*Q-13.*no known address/,
+    ],
+    ["testnet", "kuru_router", /kuru_router is unverified in testnet/],
     ["testnet", "usdc", /usdc is unverified in testnet/],
     ["testnet", "erc6551_registry", /erc6551_registry is unverified in testnet/],
   ] as const)("refuses %s %s", (env, id, message) => {

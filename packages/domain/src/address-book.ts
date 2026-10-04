@@ -4,7 +4,9 @@ import type { Address } from "./ids.ts";
 /**
  * The address book: every external contract and token the plan references, per
  * environment. Rules (P0-U5):
- * - Only addresses that appear in Planv2 or its research. None is recalled.
+ * - Only addresses that appear in Planv2 or its research, or in a venue's or feed's
+ *   official documentation with the page URL recorded as the source (P2-U0). None is
+ *   recalled.
  * - Each entry records its source and a status. An entry is `verified` only if
  *   it had deployed code on the local fork of Monad mainnet at the pinned block
  *   (`pnpm test:fork` re-checks every verified entry). `local` and `beta` share
@@ -33,13 +35,17 @@ export const ADDRESS_BOOK_IDS = [
   "create2_deployer",
   "uniswap_v3_swap_router02",
   "uniswap_v3_factory",
+  "uniswap_v3_quoter_v2",
   "uniswap_v3_pool_usdc_wmon_3000",
   "uniswap_v3_pool_usdc_weth_3000",
   "uniswap_v4_pool_manager",
   "uniswap_v4_state_view",
+  "uniswap_v4_quoter",
   "uniswap_universal_router",
   "permit2",
-  "kuru",
+  "kuru_router",
+  "kuru_margin_account",
+  "kuru_market_mon_usdc",
   "erc8004_identity_registry",
 ] as const;
 export type AddressBookId = (typeof ADDRESS_BOOK_IDS)[number];
@@ -91,6 +97,10 @@ const FINAL_BOOK = "Planv2/FINAL_PLAN.md > 4. Components > Address book";
 const TOKENBOUND = "Planv2/notes/tokenbound.md > 2.6 Deployment and trust";
 const MORPHO = "Planv2/notes/morpho-vault.md > 2.5 Monad facts the research verified onchain";
 const ZODIAC = "Planv2/notes/zodiac-roles.md > 2. Facts the final plan must carry";
+const UNI_V3_DOCS =
+  "https://developers.uniswap.org/docs/protocols/v3/deployments/v3-monad-deployments";
+const UNI_V4_DOCS = "https://developers.uniswap.org/docs/protocols/v4/deployments";
+const KURU_DOCS = "https://docs.kuru.io/contracts/Contract-addresses";
 
 /** Monad mainnet, chain 143: used by `beta`, and by `local` through the fork. */
 const MAINNET: readonly AddressEntry[] = [
@@ -103,7 +113,7 @@ const MAINNET: readonly AddressEntry[] = [
     verification: fork(1798, 6),
     source: FINAL_BOOK,
     openQuestion: "Q-03",
-    note: "FiatToken v2.2 surface; that it is Circle's official USDC is inferred, not confirmed",
+    note: "FiatToken proxy; Circle lists this address as Monad USDC (P2-U0)",
   },
   {
     id: "wmon",
@@ -136,7 +146,7 @@ const MAINNET: readonly AddressEntry[] = [
     verification: fork(9571, 8),
     source: FINAL_BOOK,
     openQuestion: "Q-02",
-    note: "8 decimals; heartbeat and deviation unknown",
+    note: "8 decimals; 1 h heartbeat, 0.02% deviation, updates about every 30 s (P2-U0)",
   },
   {
     id: "chainlink_usdc_usd",
@@ -147,7 +157,7 @@ const MAINNET: readonly AddressEntry[] = [
     verification: fork(9571, 8),
     source: FINAL_BOOK,
     openQuestion: "Q-02",
-    note: "Used for the depeg guard only",
+    note: "Depeg guard only; updates on its 1 h heartbeat (P2-U0)",
   },
   {
     id: "chainlink_eth_usd",
@@ -271,6 +281,17 @@ const MAINNET: readonly AddressEntry[] = [
     note: "Candidate venue",
   },
   {
+    id: "uniswap_v3_quoter_v2",
+    label: "Uniswap v3 QuoterV2",
+    kind: "venue",
+    address: "0x661e93cca42afacb172121ef892830ca3b70f08d",
+    status: "verified",
+    verification: fork(8273),
+    source: UNI_V3_DOCS,
+    openQuestion: "Q-01",
+    note: "Read-only quotes; used by the P2-U0 depth spike",
+  },
+  {
     id: "uniswap_v3_pool_usdc_wmon_3000",
     label: "Uniswap v3 USDC/WMON 0.3% pool",
     kind: "pool",
@@ -315,6 +336,17 @@ const MAINNET: readonly AddressEntry[] = [
     note: "Read-only view for v4 pool state",
   },
   {
+    id: "uniswap_v4_quoter",
+    label: "Uniswap v4 Quoter",
+    kind: "venue",
+    address: "0xa222dd357a9076d1091ed6aa2e16c9742dd26891",
+    status: "verified",
+    verification: fork(6118),
+    source: UNI_V4_DOCS,
+    openQuestion: "Q-01",
+    note: "Read-only quotes by pool key; used by the P2-U0 depth spike",
+  },
+  {
     id: "uniswap_universal_router",
     label: "Uniswap UniversalRouter",
     kind: "venue",
@@ -337,15 +369,37 @@ const MAINNET: readonly AddressEntry[] = [
     note: "Never approved by any account we control",
   },
   {
-    id: "kuru",
-    label: "Kuru",
+    id: "kuru_router",
+    label: "Kuru Router (market factory)",
     kind: "venue",
-    address: null,
-    status: "unverified",
-    verification: null,
-    source: FINAL_BOOK,
+    address: "0xd651346d7c789536ebf06dc72aE3C8502cd695CC",
+    status: "verified",
+    verification: fork(141),
+    source: KURU_DOCS,
     openQuestion: "Q-01",
-    note: "No address in any research run; the depth spike (P2-U0) must supply it",
+    note: "Upgradeable proxy (implementation in evidence/p2-u0); takes direct ERC-20 approvals",
+  },
+  {
+    id: "kuru_margin_account",
+    label: "Kuru MarginAccount",
+    kind: "venue",
+    address: "0x2A68ba1833cDf93fa9Da1EEbd7F46242aD8E90c5",
+    status: "verified",
+    verification: fork(141),
+    source: KURU_DOCS,
+    openQuestion: "Q-01",
+    note: "Upgradeable proxy (implementation in evidence/p2-u0)",
+  },
+  {
+    id: "kuru_market_mon_usdc",
+    label: "Kuru MON-USDC market",
+    kind: "pool",
+    address: "0x065C9d28E428A0db40191a54d33d5b7c71a9C394",
+    status: "verified",
+    verification: fork(141),
+    source: KURU_DOCS,
+    openQuestion: "Q-01",
+    note: "Orderbook with an AMM vault; native MON base, USDC quote; upgradeable proxy",
   },
   {
     id: "erc8004_identity_registry",
