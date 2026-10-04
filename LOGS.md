@@ -143,3 +143,9 @@ Summary: The owner saw "Login failed" with a "Try again" that did nothing.
 - The owner must paste the full app secret into .env and use http://localhost:3000.
 Bugs: L-35, L-36.
 Commit: 9538cf9, 4dd673f, plus the log commit.
+
+## 2026-10-04, P1-U2, Privy login verified by the owner
+Status: done (closes the partial status of the P1-U2 entry above)
+Summary: The owner verified real Privy login with MetaMask at http://localhost:3000, with the real app secret in .env: connect works, the address is shown, the wrong-chain prompt appears when MetaMask is on another network, and disconnect works. This completes the P1-U2 acceptance items that the mock wallet could not cover. No code changed in this entry.
+Bugs: none.
+Commit: the log commit only.
