@@ -27,6 +27,7 @@ import { Field, Input } from "./ui/input";
 import { SectionLabel } from "./ui/section-label";
 import { Tabs, TabsList, TabsTrigger } from "./ui/tabs";
 import { Tag } from "./ui/tag";
+import { WALLET_STATES, WalletButton, WrongChainPrompt } from "./wallet-status";
 
 describe("StatusPill renders every canonical value from packages/domain", () => {
   it("has a rendering for every account mode, agent state and display flag, and nothing else", () => {
@@ -141,6 +142,83 @@ describe("Tabs", () => {
     );
     expect(screen.getByRole("tablist")).toHaveClass("overflow-x-auto", "max-w-full");
     for (const tab of screen.getAllByRole("tab")) expect(tab).toHaveClass("whitespace-nowrap");
+  });
+});
+
+describe("WalletButton", () => {
+  const ADDRESS = "0x2FE5ccb0d7Ea195FEb87987d3573F9fcCE2b5D57";
+
+  it.each(WALLET_STATES)("renders the %s state", (state) => {
+    const { container } = render(
+      <WalletButton state={state} address={ADDRESS} chainName="Monad" errorMessage="Rejected" />,
+    );
+    expect(container.querySelector("[data-slot=wallet-button]")).toHaveAttribute(
+      "data-state",
+      state,
+    );
+  });
+
+  it("connects from the logged-out state", async () => {
+    const onConnect = vi.fn();
+    render(<WalletButton state="logged-out" onConnect={onConnect} />);
+    await userEvent.click(screen.getByRole("button", { name: /connect/i }));
+    expect(onConnect).toHaveBeenCalledOnce();
+  });
+
+  it("shows the address and chain when connected, and disconnects", async () => {
+    const onDisconnect = vi.fn();
+    render(
+      <WalletButton
+        state="connected"
+        address={ADDRESS}
+        chainName="Monad"
+        onDisconnect={onDisconnect}
+      />,
+    );
+    expect(screen.getByText("0x2FE5…5D57")).toBeInTheDocument();
+    expect(screen.getByText("Monad")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Disconnect" }));
+    expect(onDisconnect).toHaveBeenCalledOnce();
+  });
+
+  it("is busy and not clickable while connecting", () => {
+    render(<WalletButton state="connecting" />);
+    expect(screen.getByRole("button", { name: /connecting/i })).toBeDisabled();
+  });
+
+  it("offers a network switch on the wrong chain and a retry on error", async () => {
+    const onSwitchChain = vi.fn();
+    const { unmount } = render(<WalletButton state="wrong-chain" onSwitchChain={onSwitchChain} />);
+    await userEvent.click(screen.getByRole("button", { name: "Switch network" }));
+    expect(onSwitchChain).toHaveBeenCalledOnce();
+    unmount();
+    const onConnect = vi.fn();
+    render(<WalletButton state="error" errorMessage="Rejected" onConnect={onConnect} />);
+    await userEvent.click(screen.getByRole("button", { name: /try again/i }));
+    expect(onConnect).toHaveBeenCalledOnce();
+  });
+});
+
+describe("WrongChainPrompt", () => {
+  it("is an alert that names both chains and switches", async () => {
+    const onSwitchChain = vi.fn();
+    render(
+      <WrongChainPrompt
+        targetChainName="Monad"
+        currentChainName="Ethereum"
+        onSwitchChain={onSwitchChain}
+      />,
+    );
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Your wallet is on Ethereum. Nothing can continue until it is on Monad.",
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Switch to Monad" }));
+    expect(onSwitchChain).toHaveBeenCalledOnce();
+  });
+
+  it("blocks a second request while the wallet is switching", () => {
+    render(<WrongChainPrompt targetChainName="Monad" switching />);
+    expect(screen.getByRole("button", { name: "Switch to Monad" })).toBeDisabled();
   });
 });
 

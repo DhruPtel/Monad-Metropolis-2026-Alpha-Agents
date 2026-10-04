@@ -13,6 +13,9 @@ import {
   RiskBadge,
   StatBar,
   StatusPill,
+  WALLET_STATES,
+  WalletButton,
+  WrongChainPrompt,
   Badge,
   Button,
   Card,
@@ -354,6 +357,52 @@ function LabelsSection() {
             <Tag tone="rare">Rare</Tag>
             <Tag>Common</Tag>
           </div>
+        </div>
+      </Specimen>
+    </Section>
+  );
+}
+
+const WALLET_STATE_LABELS = {
+  "logged-out": "Logged out",
+  connecting: "Connecting",
+  "wrong-chain": "Wrong chain",
+  connected: "Connected",
+  error: "Error",
+} as const;
+
+function WalletSection() {
+  return (
+    <Section id="wallet" title="Wallet and login">
+      <Specimen
+        name="Wallet button"
+        note="The app shell's wallet control in every login state. On narrow screens the chain chip and error text hide; the action stays."
+      >
+        <div className="flex flex-col gap-4">
+          {WALLET_STATES.map((state) => (
+            <div
+              key={state}
+              data-testid={`login-state-${state}`}
+              className="flex flex-col gap-2 rounded-lg border bg-surface p-3"
+            >
+              <span className="text-xs text-foreground-muted">{WALLET_STATE_LABELS[state]}</span>
+              <WalletButton
+                state={state}
+                address={AGENT_WALLET}
+                chainName="Monad (local fork)"
+                errorMessage="The wallet rejected the login request."
+              />
+            </div>
+          ))}
+        </div>
+      </Specimen>
+      <Specimen
+        name="Wrong chain prompt"
+        note="Shown above every page while the wallet is on another chain; nothing proceeds until it switches."
+      >
+        <div className="flex flex-col gap-4" data-testid="login-state-wrong-chain-prompt">
+          <WrongChainPrompt targetChainName="Monad (local fork)" currentChainName="Ethereum" />
+          <WrongChainPrompt targetChainName="Monad (local fork)" switching />
         </div>
       </Specimen>
     </Section>
@@ -858,6 +907,7 @@ function DesignSystem() {
       <TokensSection />
       <ActionsSection />
       <LabelsSection />
+      <WalletSection />
       <FormsSection />
       <OverlaysSection />
       <DataSection />

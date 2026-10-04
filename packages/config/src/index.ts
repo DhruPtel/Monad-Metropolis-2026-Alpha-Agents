@@ -31,3 +31,4 @@ export {
   type VariableName,
   type VariableSpec,
 } from "./variables.ts";
+export { APP_CHAINS, appChain, webEnvironment, type AppChain } from "./chains.ts";
