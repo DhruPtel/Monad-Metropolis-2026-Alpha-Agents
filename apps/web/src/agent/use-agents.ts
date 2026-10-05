@@ -7,7 +7,8 @@ import { useWalletSession } from "@/auth/session";
 import { AGENT_NFT_ABI, type MintClaim, agentNftDeployment } from "./agent-nft";
 import { type AgentView, chainClient, ownedAgents, readAgent } from "./chain";
 import { type MintProgress, runMint } from "./mint-flow";
-import { checkWalletNetwork } from "./network-check";
+import { type Rpc, checkWalletNetwork } from "./network-check";
+import { waitForReceiptOnAppNetwork } from "./receipt-watch";
 
 /** How often ownership is re-read from the chain while the page is open. */
 const OWNERSHIP_POLL_MS = 15_000;
@@ -90,13 +91,14 @@ export function useMint(environment: EnvironmentId, onChange: () => void): Mint 
     const address = wallet.address;
     if (running.current || !wallet.ready || !address || !deployment) return;
     running.current = true;
+    const appRpc: Rpc = (method, params) => client.request({ method, params } as never);
     void runMint(
       {
         wallet: address,
         checkNetwork: () =>
           checkWalletNetwork({
             wallet: wallet.walletRequest,
-            app: (method, params) => client.request({ method, params } as never),
+            app: appRpc,
             target: wallet.target,
             walletChainId: wallet.chainId,
             contract: deployment.address,
@@ -121,8 +123,14 @@ export function useMint(environment: EnvironmentId, onChange: () => void): Mint 
             args: [BigInt(claim.deadline), claim.nonce, claim.signature],
           }),
         waitForMint: async (hash: Hex) => {
-          // Polls for the receipt: no receipt yet is not a failure (L-10).
-          const receipt = await client.waitForTransactionReceipt({ hash, pollingInterval: 500 });
+          // Waits on the app's RPC, and names a send to another network (L-53).
+          await waitForReceiptOnAppNetwork({
+            hash,
+            app: appRpc,
+            wallet: wallet.walletRequest,
+            appNetwork: wallet.target.name,
+          });
+          const receipt = await client.getTransactionReceipt({ hash });
           if (receipt.status !== "success") throw new Error("the mint transaction reverted");
           const [minted] = parseEventLogs({
             abi: AGENT_NFT_ABI,

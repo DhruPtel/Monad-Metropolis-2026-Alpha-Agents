@@ -2,6 +2,7 @@ import { ContractFunctionRevertedError, encodeErrorResult } from "viem";
 import { describe, expect, it } from "vitest";
 import { AGENT_NFT_ABI, type MintClaim } from "./agent-nft";
 import { type MintFlowDeps, type MintProgress, runMint } from "./mint-flow";
+import { SentElsewhereError } from "./receipt-watch";
 
 const WALLET = "0x960f4063b0242aD076978759f3A52c0140300891";
 const HASH = `0x${"12".repeat(32)}` as const;
@@ -118,6 +119,15 @@ describe("the mint flow", () => {
     const expired = await run(deps({ sendMint: () => Promise.reject(revert("ClaimExpired")) }));
     expect(expired.result.state).toBe("error");
     expect(expired.result.message).toMatch(/expired/);
+  });
+
+  it("says the wallet sent the mint elsewhere instead of that it failed (L-53)", async () => {
+    const { result, states } = await run(
+      deps({ waitForMint: () => Promise.reject(new SentElsewhereError("Monad (local fork)")) }),
+    );
+    expect(states).toEqual(["claiming", "signing", "minting", "error"]);
+    expect(result.message).toContain("sent the transaction to a different network");
+    expect(result.message).not.toContain("The mint transaction failed");
   });
 
   it("is an error when the transaction fails after sending", async () => {
