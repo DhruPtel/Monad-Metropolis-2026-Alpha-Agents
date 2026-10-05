@@ -39,28 +39,71 @@ function configured(name) {
   return value;
 }
 
+/** How many times a local deploy runs before a transient fork error fails it. */
+export const LOCAL_DEPLOY_ATTEMPTS = 3;
+
 /**
- * Runs the forge script and returns the deployed address.
+ * True for forge output that failed on the fork's upstream RPC rather than on
+ * the deployment: anvil fetches fork state lazily, and the upstream sometimes
+ * fails a fetch ("could not get block data", "failed to fetch grandparent
+ * block", "Resource not found", a rate limit or a timeout). Running the deploy again can clear these (L-43).
+ * @param {string} output
+ */
+export function isTransientForkError(output) {
+  return /could not get block data|failed to fetch (grand)?parent block|resource not found|\b429\b|too many requests|timed? ?out/i.test(
+    output,
+  );
+}
+
+/**
+ * Explicit fees for a local deploy: a legacy gas price of twice the latest
+ * block's base fee plus 2 gwei, read from anvil itself. With them forge never
+ * calls eth_feeHistory, which makes anvil fetch old blocks from the upstream
+ * and was the call that failed on a fresh fork (L-43). Even with both EIP-1559
+ * fee flags set, forge 1.8 still called it once.
+ * @returns {Promise<string[]>}
+ */
+export async function localFeeArgs() {
+  const block = /** @type {{ baseFeePerGas?: string } | null} */ (
+    await rpc(ANVIL_URL, "eth_getBlockByNumber", ["latest", false])
+  );
+  const baseFee = BigInt(block?.baseFeePerGas ?? "0x0");
+  return ["--legacy", "--with-gas-price", String(baseFee * 2n + 2_000_000_000n)];
+}
+
+/**
+ * Runs the forge script and returns the deployed address. A run that fails
+ * with a transient fork error is repeated, up to `attempts` runs in all; the
+ * script finds a contract an earlier run already deployed, so a repeat is safe.
  * @param {string[]} extraArgs
  * @param {Record<string, string>} env
  */
-function runForgeScript(extraArgs, env, quiet = false) {
-  const result = spawnSync(
-    "forge",
-    ["script", "script/DeployAgentNFT.s.sol:DeployAgentNFT", "--broadcast", ...extraArgs],
-    { cwd: MONAD_DIR, env: { ...process.env, ...env }, encoding: "utf8" },
-  );
-  const output = `${result.stdout ?? ""}${result.stderr ?? ""}`;
-  // Print forge's output, minus any line that could echo a key.
-  if (!quiet || result.status !== 0) {
-    for (const line of output.split("\n")) {
-      if (!/private.?key/i.test(line)) console.log(line);
+function runForgeScript(extraArgs, env, quiet = false, attempts = 1) {
+  for (let attempt = 1; ; attempt++) {
+    const result = spawnSync(
+      "forge",
+      ["script", "script/DeployAgentNFT.s.sol:DeployAgentNFT", "--broadcast", ...extraArgs],
+      { cwd: MONAD_DIR, env: { ...process.env, ...env }, encoding: "utf8" },
+    );
+    const output = `${result.stdout ?? ""}${result.stderr ?? ""}`;
+    const retry = result.status !== 0 && attempt < attempts && isTransientForkError(output);
+    // Print forge's output, minus any line that could echo a key.
+    if ((!quiet || result.status !== 0) && !retry) {
+      for (const line of output.split("\n")) {
+        if (!/private.?key/i.test(line)) console.log(line);
+      }
     }
+    if (retry) {
+      console.log(
+        `forge script hit a transient fork error; retrying (${attempt + 1} of ${attempts})`,
+      );
+      continue;
+    }
+    if (result.status !== 0) throw new Error("forge script failed");
+    const address = /AGENT_NFT_ADDRESS\s+(0x[0-9a-fA-F]{40})/.exec(output)?.[1];
+    if (!address) throw new Error("forge script did not report the AgentNFT address");
+    return address;
   }
-  if (result.status !== 0) throw new Error("forge script failed");
-  const address = /AGENT_NFT_ADDRESS\s+(0x[0-9a-fA-F]{40})/.exec(output)?.[1];
-  if (!address) throw new Error("forge script did not report the AgentNFT address");
-  return address;
 }
 
 /**
@@ -70,7 +113,14 @@ function runForgeScript(extraArgs, env, quiet = false) {
 export async function deployLocal(options = {}) {
   await assertLocalFork(ANVIL_URL);
   const address = runForgeScript(
-    ["--rpc-url", ANVIL_URL, "--unlocked", "--sender", LOCAL_ROLES.admin],
+    [
+      "--rpc-url",
+      ANVIL_URL,
+      "--unlocked",
+      "--sender",
+      LOCAL_ROLES.admin,
+      ...(await localFeeArgs()),
+    ],
     {
       AGENT_NFT_ADMIN: LOCAL_ROLES.admin,
       AGENT_NFT_CLAIM_SIGNER: LOCAL_ROLES.claimSigner,
@@ -79,6 +129,7 @@ export async function deployLocal(options = {}) {
       AGENT_NFT_ENTROPY: ENTROPY.local,
     },
     options.quiet,
+    LOCAL_DEPLOY_ATTEMPTS,
   );
   if (options.quiet) return address;
   console.log(`\nAgentNFT on the local fork: ${address}`);
