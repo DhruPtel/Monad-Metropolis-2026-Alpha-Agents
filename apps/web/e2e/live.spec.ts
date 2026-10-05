@@ -1,8 +1,19 @@
 import { type Page, expect, test } from "@playwright/test";
-import { rpc } from "@alpha-agents/devenv";
+import {
+  dumpForkState,
+  loadForkState,
+  readForkConfig,
+  resetToBlock,
+  rpc,
+} from "@alpha-agents/devenv";
 import { LOCAL_FORK_RPC_URL } from "@alpha-agents/config";
 import { deployLocal } from "../../../scripts/lib/agent-nft.js";
-import { impersonate, revealLocal } from "../../../scripts/lib/agent-reveal.js";
+import {
+  REVEAL_ABI,
+  impersonate,
+  publicClient,
+  revealLocal,
+} from "../../../scripts/lib/agent-reveal.js";
 import { MOCK_WALLET_ADDRESS } from "../src/auth/mock-wallet-constants";
 import { THREE_MARKER, scriptsLoaded } from "./bundles";
 import { disableWebgl } from "./webgl";
@@ -23,6 +34,32 @@ const OTHER_WALLET = "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC" as const;
 
 let snapshot = "";
 let nft = "" as `0x${string}`;
+// The fork as the suite found it, when it had to start from a fresh one.
+let found = "";
+
+/**
+ * The bee is a 1-of-1 in the deck: once a playtest mints it, no bee is left
+ * for the 3D tests. Then the suite saves the fork, resets it to the pin and
+ * deploys fresh, and puts the saved fork back afterwards (L-58, L-60).
+ */
+test.beforeAll(async () => {
+  const deployed = (await deployLocal({ quiet: true })) as `0x${string}`;
+  const beesLeft = await publicClient.readContract({
+    address: deployed,
+    abi: REVEAL_ABI,
+    functionName: "remainingOf",
+    args: [BEE],
+  });
+  if (beesLeft > 0n) return;
+  found = await dumpForkState();
+  await resetToBlock(readForkConfig().blockNumber);
+});
+
+test.afterAll(async () => {
+  if (!found) return;
+  await resetToBlock(readForkConfig().blockNumber);
+  await loadForkState(found);
+});
 
 test.beforeEach(async () => {
   nft = (await deployLocal({ quiet: true })) as `0x${string}`;
@@ -50,6 +87,13 @@ async function mintAgent(page: Page): Promise<bigint> {
 
 test("mint, reveal as a bee, and view it in 3D with slots on its sockets", async ({ page }) => {
   const log = scriptsLoaded(page);
+  // The dev overlay's issues (L-59): no console error or uncaught error while
+  // the model loads, walks in and its slot markers follow their sockets.
+  const problems: string[] = [];
+  page.on("console", (m) => {
+    if (m.type() === "error") problems.push(`console: ${m.text().slice(0, 300)}`);
+  });
+  page.on("pageerror", (e) => problems.push(`pageerror: ${e.message.slice(0, 300)}`));
   const agentId = await mintAgent(page);
   await revealLocal(nft, { agentId, species: BEE });
 
@@ -74,6 +118,8 @@ test("mint, reveal as a bee, and view it in 3D with slots on its sockets", async
   // The walk-in moves the model, and the slot moves with its socket. A short
   // sample of the 2.4 s walk-in is enough and keeps the 3D rendering brief.
   const first = page.getByTestId("slot-anchor-0");
+  // Markers stay hidden until the scene has placed them on their sockets.
+  await expect(first).toBeVisible({ timeout: 30_000 });
   const before = await first.boundingBox();
   await page.waitForTimeout(600);
   const after = await first.boundingBox();
@@ -85,6 +131,13 @@ test("mint, reveal as a bee, and view it in 3D with slots on its sockets", async
   // page does load three.js, and the marker finds it.
   const scripts = await log.settled();
   expect(scripts.some((s) => s.body.includes(THREE_MARKER))).toBe(true);
+
+  // Unmounting the viewer must not throw either: an account without the agent
+  // makes React remove the 3D stage in place.
+  await page.evaluate((address) => window.__mockWallet?.setAccount(address), OTHER_WALLET);
+  await expect(page.getByTestId("agent-canvas")).toHaveCount(0, { timeout: 30_000 });
+  await page.waitForTimeout(500);
+  expect(problems).toEqual([]);
 });
 
 test("a species without a model shows its 2D art with the slots on it", async ({ page }) => {

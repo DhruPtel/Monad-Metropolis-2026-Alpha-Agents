@@ -1,10 +1,9 @@
 "use client";
 
-import { Html, useGLTF } from "@react-three/drei";
-import { createPortal, useFrame } from "@react-three/fiber";
-import { SlotHex } from "@alpha-agents/ui";
-import { useEffect, useMemo, useRef } from "react";
-import { type Group, MathUtils, type Object3D } from "three";
+import { useGLTF } from "@react-three/drei";
+import { useFrame } from "@react-three/fiber";
+import { type RefObject, useEffect, useMemo, useRef } from "react";
+import { type Group, MathUtils, Vector3 } from "three";
 import { clone as cloneSkinned } from "three/examples/jsm/utils/SkeletonUtils.js";
 import {
   ANIM_CONFIG,
@@ -40,7 +39,12 @@ interface AnimatedModelProps {
   readonly sockets: readonly string[];
   readonly animation: AnimationControl;
   readonly wingColor: string;
-  readonly highlightedSlot: number | null;
+  /**
+   * The slot markers, plain DOM elements in slot order that the viewer owns
+   * over the canvas. Each frame moves each one to its socket's place on
+   * screen and shows it.
+   */
+  readonly anchors: RefObject<(HTMLElement | null)[]>;
 }
 
 type SeqPhase = "approach" | "settle" | "idle";
@@ -49,16 +53,12 @@ type SeqPhase = "approach" | "settle" | "idle";
  * One agent model: loaded once by drei (meshopt decoded locally, never Draco
  * from a CDN), then cloned for this viewer so two viewers never share a
  * skeleton. The select sequence walks it in, settles, lifts off and hovers.
- * A slot marker is portaled into each named socket, so it moves with the bone
- * the socket hangs from as the model walks, hovers and the camera orbits.
+ * Each frame, every slot marker is moved to its named socket's position on
+ * screen, so it follows the bone the socket hangs from as the model walks,
+ * hovers and the camera orbits. The markers are DOM the viewer owns, not
+ * drei Html roots, so mounting and unmounting them never races React.
  */
-export function AnimatedModel({
-  url,
-  sockets,
-  animation,
-  wingColor,
-  highlightedSlot,
-}: AnimatedModelProps) {
+export function AnimatedModel({ url, sockets, animation, wingColor, anchors }: AnimatedModelProps) {
   const { scene: shared } = useGLTF(url, false, true);
   const scene = useMemo(() => cloneSkinned(shared), [shared]);
   const rig = useMemo(() => buildRig(scene), [scene]);
@@ -68,6 +68,8 @@ export function AnimatedModel({
     () => sockets.map((name) => scene.getObjectByName(name) ?? null),
     [scene, sockets],
   );
+  // Reused every frame to project a socket to the screen.
+  const socketPoint = useMemo(() => new Vector3(), []);
   useEffect(() => rig.restore, [rig]);
   useEffect(() => cue.dispose, [cue]);
 
@@ -262,6 +264,23 @@ export function AnimatedModel({
       const hoverBob = C.hover.bobAmp * Math.sin(t * C.hover.bobHz * TAU) * lift;
       liftRef.current.position.set(0, PLATFORM_Y + C.hover.height * lift + hoverBob, -back);
     }
+
+    // Slot markers: each socket's world position, projected to the canvas.
+    const { camera, size } = state;
+    socketNodes.forEach((node, i) => {
+      const el = anchors.current?.[i];
+      if (!el) return;
+      if (!node) {
+        el.style.visibility = "hidden";
+        return;
+      }
+      node.getWorldPosition(socketPoint).project(camera);
+      const x = ((socketPoint.x + 1) / 2) * size.width;
+      const y = ((1 - socketPoint.y) / 2) * size.height;
+      el.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px) translate(-50%, -50%)`;
+      // Behind the camera, a projected point is mirrored: hide it instead.
+      el.style.visibility = socketPoint.z < 1 ? "visible" : "hidden";
+    });
   });
 
   return (
@@ -272,36 +291,6 @@ export function AnimatedModel({
           <primitive object={cue.group} />
         </group>
       </group>
-      {socketNodes.map((node, i) =>
-        node ? (
-          <SocketSlot
-            key={sockets[i] ?? i}
-            node={node}
-            index={i}
-            highlighted={highlightedSlot === i}
-          />
-        ) : null,
-      )}
     </group>
-  );
-}
-
-/** A slot marker living inside its socket node, so it follows the bone. */
-function SocketSlot({
-  node,
-  index,
-  highlighted,
-}: {
-  node: Object3D;
-  index: number;
-  highlighted: boolean;
-}) {
-  return createPortal(
-    <Html center zIndexRange={[20, 0]} className="pointer-events-none">
-      <div data-testid={`slot-anchor-${index}`}>
-        <SlotHex index={index} state={highlighted ? "highlighted" : "empty"} />
-      </div>
-    </Html>,
-    node,
   );
 }

@@ -1,8 +1,17 @@
 "use client";
 
-import { Environment, Html, Lightformer, OrbitControls, useGLTF } from "@react-three/drei";
+import { Environment, Lightformer, OrbitControls, useGLTF } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
-import { Component, type ReactNode, Suspense, useEffect, useMemo, useRef, useState } from "react";
+import {
+  Component,
+  type ReactNode,
+  type RefObject,
+  Suspense,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { Color, DoubleSide, MathUtils, type ShaderMaterial } from "three";
 import { type AnimationControl, AnimatedModel } from "./animated-model";
 import type { SceneColors } from "./scene-colors";
@@ -10,21 +19,17 @@ import { PLATFORM_RADIUS, PLATFORM_Y } from "./stage";
 
 const IDLE_RESUME_MS = 3000;
 
-/** Small text at the model's position, in the DOM so it stays crisp. */
-function SceneNote({ children, tone }: { children: ReactNode; tone: "muted" | "warning" }) {
-  return (
-    <Html center className="pointer-events-none">
-      <span
-        className={
-          tone === "warning"
-            ? "font-mono text-2xs whitespace-nowrap text-warning"
-            : "font-mono text-2xs whitespace-nowrap text-foreground-muted"
-        }
-      >
-        {children}
-      </span>
-    </Html>
-  );
+/**
+ * Tells the viewer the model is loading while it is mounted (the Suspense
+ * fallback). The viewer shows the note in its own DOM: a drei Html fallback
+ * mounted a second React root that Suspense unmounted mid-render (L-59).
+ */
+function LoadingSignal({ onChange }: { onChange: (loading: boolean) => void }) {
+  useEffect(() => {
+    onChange(true);
+    return () => onChange(false);
+  }, [onChange]);
+  return null;
 }
 
 /** Catches a failed model load so the rest of the scene keeps rendering. Keyed by url. */
@@ -42,7 +47,8 @@ class ModelBoundary extends Component<
     this.props.onError();
   }
   override render() {
-    if (this.state.failed) return <SceneNote tone="warning">Failed to load model</SceneNote>;
+    // The viewer switches to the 2D art through onError; nothing to draw here.
+    if (this.state.failed) return null;
     return this.props.children;
   }
 }
@@ -172,6 +178,9 @@ export interface AgentSceneProps {
   readonly reducedMotion: boolean;
   readonly colors: SceneColors;
   readonly onModelError: () => void;
+  /** The slot markers the viewer owns, in slot order (animated-model.tsx). */
+  readonly anchors: RefObject<(HTMLElement | null)[]>;
+  readonly onLoadingChange: (loading: boolean) => void;
 }
 
 export function AgentScene({
@@ -182,6 +191,8 @@ export function AgentScene({
   reducedMotion,
   colors,
   onModelError,
+  anchors,
+  onLoadingChange,
 }: AgentSceneProps) {
   return (
     <>
@@ -214,13 +225,13 @@ export function AgentScene({
         />
       </Environment>
       <ModelBoundary key={modelUrl} url={modelUrl} onError={onModelError}>
-        <Suspense fallback={<SceneNote tone="muted">Loading model</SceneNote>}>
+        <Suspense fallback={<LoadingSignal onChange={onLoadingChange} />}>
           <AnimatedModel
             url={modelUrl}
             sockets={sockets}
             animation={animation}
             wingColor={colors.wing}
-            highlightedSlot={highlightedSlot}
+            anchors={anchors}
           />
         </Suspense>
       </ModelBoundary>
