@@ -2,6 +2,10 @@
 // Builds apps/web twice and checks what each build contains (P1-U2):
 // 1. The real build (.next), made with a throwaway PRIVY_APP_SECRET, must not
 //    contain that secret anywhere, nor the mock wallet's marker.
+//    Both builds also get a throwaway LOCAL_CLAIM_SIGNER_PRIVATE_KEY with
+//    APP_ENV=local, and it must appear in neither: the claim route reads the
+//    key on the server at request time, so no build output, and in particular
+//    no browser bundle (static/), may hold it (P1-U11).
 // 2. The test build (.next-e2e, ALPHA_E2E_MOCK_WALLET=1) must contain the mock
 //    wallet, so the Playwright tests really run against it.
 // Used by `pnpm test:web:e2e` (scripts/web-e2e.js) and the CI web job.
@@ -42,6 +46,7 @@ function filesContaining(dir, needle) {
 }
 
 const secret = `check-${randomBytes(16).toString("hex")}`;
+const claimKey = `0x${randomBytes(32).toString("hex")}`;
 let failed = false;
 /** @param {string} what @param {string[]} hits @param {boolean} expected */
 function report(what, hits, expected) {
@@ -52,17 +57,41 @@ function report(what, hits, expected) {
   if (!ok) failed = true;
 }
 
+/**
+ * The claim signer key, with or without its 0x prefix, in a build: first the
+ * browser bundles on their own, then everything else the build wrote.
+ * @param {".next" | ".next-e2e"} distDir
+ */
+function reportClaimKey(distDir) {
+  for (const form of [claimKey, claimKey.slice(2)]) {
+    const prefix = form === claimKey ? "" : " (without 0x)";
+    report(
+      `the claim signer key${prefix} is in no browser bundle of ${distDir}`,
+      filesContaining(join(WEB, distDir, "static"), form),
+      false,
+    );
+    report(
+      `the claim signer key${prefix} is nowhere in ${distDir}`,
+      filesContaining(join(WEB, distDir), form),
+      false,
+    );
+  }
+}
+
 console.log("building the real web app (.next)");
 build({
   ALPHA_E2E_MOCK_WALLET: "",
+  APP_ENV: "local",
   PRIVY_APP_ID: "checkbuild000000000000000",
   PRIVY_APP_SECRET: secret,
+  LOCAL_CLAIM_SIGNER_PRIVATE_KEY: claimKey,
 });
 report(
   "the Privy app secret is nowhere in the real build",
   filesContaining(join(WEB, ".next"), secret),
   false,
 );
+reportClaimKey(".next");
 report(
   "the mock wallet is not in the real build",
   filesContaining(join(WEB, ".next"), MOCK_MARKER),
@@ -70,7 +99,12 @@ report(
 );
 
 console.log("building the test web app (.next-e2e, mock wallet)");
-build({ ALPHA_E2E_MOCK_WALLET: "1", PRIVY_APP_SECRET: secret });
+build({
+  ALPHA_E2E_MOCK_WALLET: "1",
+  APP_ENV: "local",
+  PRIVY_APP_SECRET: secret,
+  LOCAL_CLAIM_SIGNER_PRIVATE_KEY: claimKey,
+});
 report(
   "the test build contains the mock wallet",
   filesContaining(join(WEB, ".next-e2e"), MOCK_MARKER),
@@ -81,5 +115,7 @@ report(
   filesContaining(join(WEB, ".next-e2e"), secret),
   false,
 );
+
+reportClaimKey(".next-e2e");
 
 process.exit(failed ? 1 : 0);
