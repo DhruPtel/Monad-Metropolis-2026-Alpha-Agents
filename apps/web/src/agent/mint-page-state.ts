@@ -1,4 +1,5 @@
 import type { MintPanelState, WalletState } from "@alpha-agents/ui";
+import type { EligibilityReason } from "@/api/client";
 import type { MintProgress } from "./mint-flow";
 
 /**
@@ -8,12 +9,17 @@ import type { MintProgress } from "./mint-flow";
  */
 export type WalletMintRead =
   | { readonly status: "loading" }
-  | { readonly status: "error" }
+  | { readonly status: "error"; readonly message?: string | undefined }
+  /** The API cannot check this wallet here (not deployed, or minting not configured). */
+  | { readonly status: "unavailable"; readonly message: string }
   | {
       readonly status: "ready";
       readonly hasMinted: boolean;
-      /** The agent this wallet minted, with its species (0 until revealed), if found. */
+      /** The agent this wallet minted, with its species (0 until revealed), if indexed yet. */
       readonly agent?: { readonly id: bigint; readonly species: number } | undefined;
+      /** The control API's eligibility answer, checked before the user clicks. */
+      readonly reason: EligibilityReason;
+      readonly message: string;
     };
 
 export interface MintPageInputs {
@@ -33,6 +39,8 @@ export interface MintPageView {
   readonly state: MintPanelState;
   /** The agent to show, for already-minted, awaiting-reveal and revealed. */
   readonly agent?: { readonly id: bigint; readonly species: number };
+  /** Why minting is closed, for unavailable and not-eligible. */
+  readonly message?: string;
 }
 
 export function mintPageView(input: MintPageInputs): MintPageView {
@@ -65,12 +73,18 @@ export function mintPageView(input: MintPageInputs): MintPageView {
 
   if (walletMint.status === "loading") return { state: "loading" };
   if (walletMint.status === "error") return { state: "read-error" };
+  if (walletMint.status === "unavailable")
+    return { state: "unavailable", message: walletMint.message };
   if (walletMint.hasMinted) {
     return walletMint.agent
       ? { state: "already-minted", agent: walletMint.agent }
       : { state: "already-minted" };
   }
   if (input.soldOut === "loading") return { state: "loading" };
-  if (input.soldOut === true) return { state: "sold-out" };
+  if (input.soldOut === true || walletMint.reason === "sold_out") return { state: "sold-out" };
+  // Checked before the click (P1-U4): a wallet off the allowlist is told so up front.
+  if (walletMint.reason === "not_allowlisted") {
+    return { state: "not-eligible", message: walletMint.message };
+  }
   return { state: "ready" };
 }

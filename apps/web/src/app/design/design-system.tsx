@@ -645,7 +645,7 @@ function AgentSection() {
       </Specimen>
       <Specimen
         name="Mint panel"
-        note="The mint page's panel in every state around the mint button: not open here, logged out, connecting, wrong network, checking, a failed read, ready, already minted, sold out, waiting for reveal and revealed."
+        note="The mint page's panel in every state around the mint button: not open here, logged out, connecting, wrong network, checking, a failed read, not eligible (checked before the click), ready, already minted, sold out, waiting for reveal and revealed."
       >
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3" data-testid="mint-panels">
           {MINT_PANEL_STATES.map((state) => (
@@ -670,7 +670,11 @@ function AgentSection() {
                     : { id: 14n, tier: "pro", speciesName: "Bee", image: "/species/bee.webp" }
                 }
                 agentHref="/design#agents"
-                message="AgentNFT is not deployed on Monad Testnet yet."
+                message={
+                  state === "not-eligible"
+                    ? "This wallet is not on the beta mint allowlist."
+                    : "AgentNFT is not deployed on Monad Testnet yet."
+                }
                 targetNetwork="Monad (local fork)"
                 walletNetwork="Ethereum"
                 maxSupply="1,000"

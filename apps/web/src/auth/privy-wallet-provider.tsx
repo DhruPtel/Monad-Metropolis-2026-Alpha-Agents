@@ -1,6 +1,7 @@
 "use client";
 
-import { appChain, type EnvironmentId } from "@alpha-agents/config";
+import type { EnvironmentId } from "@alpha-agents/config";
+import { webAppChain } from "./app-chain";
 import { type PrivyErrorCode, PrivyProvider, useLogin, usePrivy } from "@privy-io/react-auth";
 import { createConfig, WagmiProvider } from "@privy-io/wagmi";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -32,7 +33,7 @@ function PrivySessionBridge({
   environment: EnvironmentId;
   children: ReactNode;
 }) {
-  const target = appChain(environment);
+  const target = webAppChain(environment);
   const { ready, authenticated, logout, getAccessToken } = usePrivy();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string>();
@@ -117,7 +118,7 @@ function UnconfiguredSession({
 }) {
   const session: WalletSession = {
     state: "error",
-    target: appChain(environment),
+    target: webAppChain(environment),
     errorMessage:
       "Wallet login is not configured: set a 25-character PRIVY_APP_ID in the root .env and start the app with pnpm dev:web.",
     switching: false,
@@ -139,8 +140,8 @@ function UnconfiguredSession({
  * embedded wallets, and the one chain this build targets.
  */
 export function WalletProvider({ appId, environment, children }: WalletProviderProps) {
-  const target = appChain(environment);
-  const chain = useMemo(() => viemChain(appChain(environment)), [environment]);
+  const target = webAppChain(environment);
+  const chain = useMemo(() => viemChain(webAppChain(environment)), [environment]);
   // Privy's chain type is not viem's, so it gets the same chain as a plain literal.
   const privyChain = {
     id: target.id,

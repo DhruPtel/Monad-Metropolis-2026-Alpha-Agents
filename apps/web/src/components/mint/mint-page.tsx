@@ -21,6 +21,7 @@ import {
   TierCard,
 } from "@alpha-agents/ui";
 import { RotateCcw } from "lucide-react";
+import Link from "next/link";
 import { type ReactNode, useCallback } from "react";
 import { chainName, useWalletSession } from "@/auth/session";
 import { agentNftDeployment } from "@/agent/agent-nft";
@@ -208,7 +209,8 @@ export function MintPage({ environment }: { environment: EnvironmentId }) {
             }}
             agent={view.agent ? panelAgent(view.agent) : undefined}
             agentHref={agentId !== undefined ? `/configure?agent=${agentId.toString()}` : undefined}
-            message={`AgentNFT is not deployed on ${envLabel} yet.`}
+            message={view.message ?? `AgentNFT is not deployed on ${envLabel} yet.`}
+            linkAs={Link}
             targetNetwork={wallet.target.name}
             walletNetwork={chainName(wallet.chainId, wallet.target)}
             maxSupply={summary ? formatCount(summary.maxSupply) : undefined}

@@ -10,7 +10,8 @@
  * fails if MOCK_WALLET_MARKER appears in a real build. The shell labels the page
  * "Test build: mock wallet" whenever this provider is active.
  */
-import { appChain, type EnvironmentId } from "@alpha-agents/config";
+import type { EnvironmentId } from "@alpha-agents/config";
+import { webAppChain } from "./app-chain";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { type Address, createWalletClient, http } from "viem";
 import { deriveState, viemChain, type WalletSession, WalletSessionContext } from "./session";
@@ -81,7 +82,7 @@ export function WalletProvider({
   readonly environment: EnvironmentId;
   readonly children: ReactNode;
 }) {
-  const target = appChain(environment);
+  const target = webAppChain(environment);
   const [mock, setMock] = useState<MockState>({ status: "logged-out" });
   const [failNext, setFailNext] = useState(false);
   const [account, setAccount] = useState<Address>(MOCK_WALLET_ADDRESS);

@@ -11,10 +11,15 @@ const config: NextConfig = {
   // Workspace packages ship TypeScript source; Next compiles them with the app.
   transpilePackages: ["@alpha-agents/ui", "@alpha-agents/domain", "@alpha-agents/config"],
   distDir: wallet.distDir,
+  // Inlined at build time: a test build points the browser at the test fork
+  // and the test stack's control API (D-200); a normal build uses the defaults.
+  env: {
+    LOCAL_FORK_PORT: process.env.LOCAL_FORK_PORT ?? "",
+    CONTROL_API_URL: process.env.CONTROL_API_URL ?? "",
+  },
   turbopack: {
     resolveAlias: {
       "#wallet-provider": wallet.providerModule,
-      "#server-identity": wallet.identityModule,
     },
   },
 };

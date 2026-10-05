@@ -19,8 +19,7 @@
     ],
     "paths": {
       "@/*": ["./src/*"],
-      "#wallet-provider": ["./src/auth/privy-wallet-provider.tsx"],
-      "#server-identity": ["./src/server/identity-privy.ts"]
+      "#wallet-provider": ["./src/auth/privy-wallet-provider.tsx"]
     }
   },
   "include": [

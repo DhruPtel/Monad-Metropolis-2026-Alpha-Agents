@@ -1,7 +1,7 @@
 "use client";
 
 import { ArrowRight, RotateCcw, Wallet } from "lucide-react";
-import type { ReactNode } from "react";
+import type { ComponentType, ReactNode } from "react";
 import { Button } from "../ui/button";
 import { Card } from "../ui/card";
 import { SectionLabel } from "../ui/section-label";
@@ -24,6 +24,7 @@ export const MINT_PANEL_STATES = [
   "wrong-network",
   "loading",
   "read-error",
+  "not-eligible",
   "ready",
   "already-minted",
   "sold-out",
@@ -31,6 +32,9 @@ export const MINT_PANEL_STATES = [
   "revealed",
 ] as const;
 export type MintPanelState = (typeof MINT_PANEL_STATES)[number];
+
+/** A link component that takes an href, such as Next's Link. */
+export type LinkComponent = ComponentType<{ href: string; children?: ReactNode }>;
 
 export interface MintPanelAgent {
   readonly id: bigint;
@@ -48,8 +52,13 @@ interface MintPanelProps {
   readonly agent?: MintPanelAgent | undefined;
   /** Where the agent is configured, for example "/configure?agent=7". */
   readonly agentHref?: string | undefined;
-  /** For unavailable: why minting is not open here. */
+  /** For unavailable and not-eligible: why this wallet cannot mint here. */
   readonly message?: string | undefined;
+  /**
+   * The link component for the agent link: the app passes its router's Link
+   * for client-side navigation; a plain anchor otherwise.
+   */
+  readonly linkAs?: LinkComponent | undefined;
   /** The network the app needs, and the one the wallet is on, for wrong-network. */
   readonly targetNetwork?: string | undefined;
   readonly walletNetwork?: string | undefined;
@@ -71,12 +80,15 @@ function AgentPreview({
   agent,
   href,
   revealNote,
+  linkAs,
 }: {
   agent: MintPanelAgent;
   href: string | undefined;
   revealNote: ReactNode;
+  linkAs?: LinkComponent | undefined;
 }) {
   const id = agent.id.toString();
+  const LinkAs = linkAs ?? "a";
   return (
     <div className="flex flex-col gap-3 rounded-md border bg-surface-raised p-3 sm:flex-row sm:items-center">
       <SpeciesArt
@@ -108,9 +120,9 @@ function AgentPreview({
         )}
         {href ? (
           <Button asChild variant="secondary" size="sm" className="w-fit">
-            <a href={href}>
+            <LinkAs href={href}>
               Open agent #{id} <ArrowRight aria-hidden />
-            </a>
+            </LinkAs>
           </Button>
         ) : null}
       </div>
@@ -128,7 +140,7 @@ function Lead({ title, children }: { title: string; children?: ReactNode }) {
 }
 
 function MintPanel(props: MintPanelProps) {
-  const { state, mint, agent, agentHref, revealNote, className } = props;
+  const { state, mint, agent, agentHref, revealNote, linkAs, className } = props;
   let body: ReactNode;
   switch (state) {
     case "unavailable":
@@ -186,6 +198,14 @@ function MintPanel(props: MintPanelProps) {
         </>
       );
       break;
+    case "not-eligible":
+      body = (
+        <Lead title="This wallet cannot mint">
+          {props.message ?? "This wallet is not on the beta mint allowlist."} Try another wallet, or
+          ask to be added during the beta.
+        </Lead>
+      );
+      break;
     case "sold-out":
       body = (
         <Lead title="Sold out">
@@ -200,7 +220,9 @@ function MintPanel(props: MintPanelProps) {
           <Lead title="This wallet has minted its agent">
             One agent per wallet: this wallet cannot mint again.
           </Lead>
-          {agent ? <AgentPreview agent={agent} href={agentHref} revealNote={revealNote} /> : null}
+          {agent ? (
+            <AgentPreview agent={agent} href={agentHref} revealNote={revealNote} linkAs={linkAs} />
+          ) : null}
         </>
       );
       break;
@@ -217,7 +239,9 @@ function MintPanel(props: MintPanelProps) {
       body = (
         <>
           {mint ? <MintButton {...mint} className={cn("sm:max-w-xs", mint.className)} /> : null}
-          {agent ? <AgentPreview agent={agent} href={agentHref} revealNote={revealNote} /> : null}
+          {agent ? (
+            <AgentPreview agent={agent} href={agentHref} revealNote={revealNote} linkAs={linkAs} />
+          ) : null}
         </>
       );
       break;

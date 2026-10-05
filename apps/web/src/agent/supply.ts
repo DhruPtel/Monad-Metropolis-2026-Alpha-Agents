@@ -1,10 +1,9 @@
 import { SPECIES, type Species, TIER_IDS, type Tier, slotsFor } from "@alpha-agents/domain";
-import type { PublicClient } from "viem";
-import { AGENT_NFT_ABI, type AgentNftDeployment } from "./agent-nft";
 
 /**
- * The mint page's supply figures (P1-U10), from AgentNFT's own reads: the cap,
- * the minted count, and the deck's remaining slots per species.
+ * The mint page's supply figures (P1-U10): the cap, the minted count, and the
+ * deck's remaining slots per species, as AgentNFT holds them, read from the
+ * control API's index since P1-U4.
  *
  * The deck shrinks at reveal, not at mint, so a tier's remaining count still
  * includes agents that are minted and waiting for their reveal. The odds of
@@ -93,23 +92,3 @@ export function formatOdds(odds: number | null): string {
 }
 
 export const formatCount = (n: number) => n.toLocaleString("en-US");
-
-/** Reads the supply from AgentNFT through the app's chain client. */
-export async function readSupply(
-  client: PublicClient,
-  deployment: AgentNftDeployment,
-): Promise<SupplyReading> {
-  const target = { address: deployment.address, abi: AGENT_NFT_ABI } as const;
-  const [maxSupply, totalMinted, ...remaining] = await Promise.all([
-    client.readContract({ ...target, functionName: "MAX_SUPPLY" }),
-    client.readContract({ ...target, functionName: "totalMinted" }),
-    ...SPECIES.map((s) =>
-      client.readContract({ ...target, functionName: "remainingOf", args: [s.index] }),
-    ),
-  ]);
-  return {
-    maxSupply: Number(maxSupply),
-    totalMinted: Number(totalMinted),
-    remaining: remaining.map(Number),
-  };
-}

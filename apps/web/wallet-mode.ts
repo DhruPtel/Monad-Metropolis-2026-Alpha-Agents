@@ -14,11 +14,6 @@ export interface WalletBuildMode {
   readonly mock: boolean;
   /** The module that "#wallet-provider" resolves to, relative to apps/web. */
   readonly providerModule: string;
-  /**
-   * The module that "#server-identity" resolves to: who a session token
-   * belongs to and which wallets they linked (P1-U11 claim route).
-   */
-  readonly identityModule: string;
   readonly distDir: ".next" | ".next-e2e";
 }
 
@@ -30,7 +25,6 @@ export function walletBuildMode(
     return {
       mock: false,
       providerModule: "./src/auth/privy-wallet-provider.tsx",
-      identityModule: "./src/server/identity-privy.ts",
       distDir: ".next",
     };
   }
@@ -44,7 +38,6 @@ export function walletBuildMode(
   return {
     mock: true,
     providerModule: "./src/auth/mock-wallet-provider.tsx",
-    identityModule: "./src/server/identity-mock.ts",
     distDir: ".next-e2e",
   };
 }

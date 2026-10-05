@@ -226,4 +226,30 @@ describe("MintPanel", () => {
     await userEvent.click(screen.getByRole("button", { name: "Try again" }));
     expect(onRetry).toHaveBeenCalledOnce();
   });
+
+  it("not eligible says why, before any click, and offers no mint", () => {
+    render(
+      <MintPanel state="not-eligible" message="This wallet is not on the beta mint allowlist." />,
+    );
+    expect(screen.getByText("This wallet cannot mint")).toBeInTheDocument();
+    expect(screen.getByText(/not on the beta mint allowlist/)).toBeInTheDocument();
+    expect(screen.queryByRole("button")).toBeNull();
+  });
+
+  it("renders the agent link with the app's link component", () => {
+    const AppLink = ({ href, children }: { href: string; children?: React.ReactNode }) => (
+      <a href={href} data-app-link="">
+        {children}
+      </a>
+    );
+    render(
+      <MintPanel
+        state="already-minted"
+        agent={REVEALED}
+        agentHref="/configure?agent=7"
+        linkAs={AppLink}
+      />,
+    );
+    expect(screen.getByRole("link", { name: "Open agent #7" })).toHaveAttribute("data-app-link");
+  });
 });

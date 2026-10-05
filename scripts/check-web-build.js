@@ -3,9 +3,11 @@
 // 1. The real build (.next), made with a throwaway PRIVY_APP_SECRET, must not
 //    contain that secret anywhere, nor the mock wallet's marker.
 //    Both builds also get a throwaway CLAIM_SIGNER_PRIVATE_KEY with
-//    APP_ENV=local, and it must appear in neither: the claim route reads the
-//    key on the server at request time, so no build output, and in particular
-//    no browser bundle (static/), may hold it (P1-U11).
+//    APP_ENV=local, and it must appear in neither: the claim signer lives in
+//    the control API (P1-U4, D-198), so no web build output, and in particular
+//    no browser bundle (static/), may ever hold it.
+//    The real build never takes the test stack's LOCAL_FORK_PORT or
+//    CONTROL_API_URL, so it can never be served pointing at a test fork.
 // 2. The test build (.next-e2e, ALPHA_E2E_MOCK_WALLET=1) must contain the mock
 //    wallet, so the Playwright tests really run against it.
 // Used by `pnpm test:web:e2e` (scripts/web-e2e.js) and the CI web job.
@@ -82,6 +84,8 @@ console.log("building the real web app (.next)");
 build({
   ALPHA_E2E_MOCK_WALLET: "",
   APP_ENV: "local",
+  LOCAL_FORK_PORT: "",
+  CONTROL_API_URL: "",
   PRIVY_APP_ID: "checkbuild000000000000000",
   PRIVY_APP_SECRET: secret,
   CLAIM_SIGNER_PRIVATE_KEY: claimKey,
