@@ -31,7 +31,7 @@ contract MonadForkSmokeTest is Test {
     function test_ForkStartsAtPinnedBlock() public {
         assertGe(block.number, pinnedBlock);
         vm.rollFork(pinnedBlock);
-        assertEq(block.number, pinnedBlock);
+        assertEq(vm.getBlockNumber(), pinnedBlock);
         assertGt(ERC6551_REGISTRY.code.length, 0, "pinned block state is served");
     }
 

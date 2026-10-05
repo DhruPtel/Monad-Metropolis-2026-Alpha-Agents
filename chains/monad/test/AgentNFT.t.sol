@@ -474,6 +474,42 @@ contract AgentNFTMetadataTest is AgentNFTBase {
         assertEq(nft.imageBaseURI(), "ipfs://bafynew/");
     }
 
+    function _decodeDataUri(string memory uri) internal pure returns (string memory) {
+        string memory prefix = "data:application/json;base64,";
+        return string(_base64Decode(_slice(uri, bytes(prefix).length, bytes(uri).length)));
+    }
+
+    function test_ContractURIDescribesTheCollection() public view {
+        string memory json = _decodeDataUri(nft.contractURI());
+        assertEq(
+            json,
+            string.concat(
+                '{"name":"Alpha Agents","description":"1,000 AI agents on Monad, each an NFT with its own token-bound account.",',
+                '"image":"ipfs://bafyimages/collection.png","seller_fee_basis_points":500,"fee_recipient":"',
+                vm.toString(treasury),
+                '"}'
+            )
+        );
+        assertEq(json.readString(".name"), "Alpha Agents");
+        assertEq(json.readUint(".seller_fee_basis_points"), 500);
+        assertEq(json.readAddress(".fee_recipient"), treasury);
+    }
+
+    function test_ContractURIFollowsImageLinkAndTreasury() public {
+        address newTreasury = makeAddr("collection treasury");
+        vm.startPrank(admin);
+        vm.expectEmit(address(nft));
+        emit AgentNFT.ContractURIUpdated();
+        nft.setTreasury(newTreasury);
+        vm.expectEmit(address(nft));
+        emit AgentNFT.ContractURIUpdated();
+        nft.setImageBaseURI("ipfs://bafycollection/");
+        vm.stopPrank();
+        string memory json = _decodeDataUri(nft.contractURI());
+        assertEq(json.readString(".image"), "ipfs://bafycollection/collection.png");
+        assertEq(json.readAddress(".fee_recipient"), newTreasury);
+    }
+
     function test_ImageLinkThatWouldBreakJsonIsRejected() public {
         string[6] memory bad = ["", "ipfs://no-slash", 'ipfs://a"b/', "ipfs://a\\b/", "ipfs://a b/", "ipfs://a\nb/"];
         vm.startPrank(admin);

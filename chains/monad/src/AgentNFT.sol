@@ -115,6 +115,8 @@ contract AgentNFT is ERC721, ERC2981, IERC4906, Ownable2Step, EIP712 {
     event ClaimRequiredSet(bool required);
     event ClaimSignerSet(address indexed previousSigner, address indexed newSigner);
     event ImageBaseURISet(string uri);
+    /// ERC-7572: the collection metadata changed.
+    event ContractURIUpdated();
     event ImageBaseURIFrozen(string uri);
     event TreasurySet(address indexed previousTreasury, address indexed newTreasury);
     event EscrowSet(address indexed escrow);
@@ -443,6 +445,22 @@ contract AgentNFT is ERC721, ERC2981, IERC4906, Ownable2Step, EIP712 {
         return string.concat("data:application/json;base64,", Base64.encode(bytes(json)));
     }
 
+    /// ERC-7572 collection metadata (D-192), built onchain from the image
+    /// link and the treasury, so it needs no setter of its own.
+    function contractURI() external view returns (string memory) {
+        string memory json = string.concat(
+            '{"name":"Alpha Agents","description":"1,000 AI agents on Monad, each an NFT with its own token-bound account.",',
+            '"image":"',
+            imageBaseURI,
+            'collection.png","seller_fee_basis_points":',
+            uint256(ROYALTY_BPS).toString(),
+            ',"fee_recipient":"',
+            Strings.toChecksumHexString(treasury),
+            '"}'
+        );
+        return string.concat("data:application/json;base64,", Base64.encode(bytes(json)));
+    }
+
     function _tierName(uint8 tier) internal pure returns (string memory) {
         if (tier == TIER_BASE) return "Base";
         if (tier == TIER_MEDIUM) return "Medium";
@@ -537,6 +555,7 @@ contract AgentNFT is ERC721, ERC2981, IERC4906, Ownable2Step, EIP712 {
         imageBaseURI = uri;
         emit ImageBaseURISet(uri);
         emit BatchMetadataUpdate(1, MAX_SUPPLY);
+        emit ContractURIUpdated();
     }
 
     /// Freezes the image base link forever.
@@ -551,6 +570,7 @@ contract AgentNFT is ERC721, ERC2981, IERC4906, Ownable2Step, EIP712 {
         emit TreasurySet(treasury, newTreasury);
         treasury = newTreasury;
         _setDefaultRoyalty(newTreasury, ROYALTY_BPS);
+        emit ContractURIUpdated();
     }
 
     /// Sets the marketplace escrow, once. Until then only minting moves tokens.
