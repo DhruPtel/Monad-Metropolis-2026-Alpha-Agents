@@ -10,3 +10,8 @@ de87bc78d275ad04e87c7cd631adc5fdac4809bc:evidence/p2-u0/data.json:generic-api-ke
 de87bc78d275ad04e87c7cd631adc5fdac4809bc:evidence/p2-u0/data.json:generic-api-key:1201
 de87bc78d275ad04e87c7cd631adc5fdac4809bc:evidence/p2-u0/data.json:generic-api-key:1224
 de87bc78d275ad04e87c7cd631adc5fdac4809bc:evidence/p2-u0/data.json:generic-api-key:1247
+#
+# P1-U3 fork test: the constant name TOKENBOUND_SAFE trips generic-api-key; the
+# value is the public Tokenbound Safe address 0x781b6A527482828bB04F33563797d4b696ddF328
+# from the address book (checked in P1-U3).
+d8645c8bebef724285bbbd4c18b5d6b0332409de:chains/monad/test/fork/AgentNFTFork.t.sol:generic-api-key:74
