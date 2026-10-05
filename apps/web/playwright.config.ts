@@ -1,33 +1,20 @@
 import { defineConfig } from "@playwright/test";
-import { bytesToHex } from "viem";
-import { mnemonicToAccount } from "viem/accounts";
 
 /**
  * Two modes:
  * - default: screenshot and accessibility tests, inside the pinned Playwright
  *   image (scripts/web-e2e.js locally, the web job in CI), so fonts and
  *   rendering match and the committed baselines compare exactly. No chain is
- *   reachable there; portal specs answer the chain's RPC themselves.
- * - live (LIVE_WEB=1, `pnpm test:web:live`): on the host, against the running
- *   local fork (L-13), the end-to-end mint, reveal and view flow.
+ *   reachable there; the specs answer the chain's RPC and the control API themselves.
+ * - live (LIVE_WEB=1, `pnpm test:web:live`): on the host (L-13), against a
+ *   test stack of its own that scripts/web-e2e.js starts (D-200): a fork on
+ *   8546, a throwaway database, the indexer and the control API on 4101. The
+ *   end-to-end mint through the API, reveal and view flow.
  * Both serve the test build (.next-e2e), which has the mock wallet in place of
  * Privy; scripts/check-web-build.js builds it first.
  */
 const live = process.env.LIVE_WEB === "1";
 const PORT = live ? 3102 : 3100;
-
-/**
- * Live only: AgentNFT's local claim signer is anvil account 1, from anvil's
- * public development mnemonic. Derived here at start, never written or printed.
- */
-function localClaimSignerKey(): string {
-  const account = mnemonicToAccount("test test test test test test test test test test test junk", {
-    addressIndex: 1,
-  });
-  const key = account.getHdKey().privateKey;
-  if (!key) throw new Error("could not derive the local claim signer");
-  return bytesToHex(key);
-}
 
 export default defineConfig({
   testDir: "e2e",
@@ -76,7 +63,6 @@ export default defineConfig({
     env: {
       ALPHA_E2E_MOCK_WALLET: "1",
       APP_ENV: "local",
-      ...(live ? { CLAIM_SIGNER_PRIVATE_KEY: localClaimSignerKey() } : {}),
     },
     command: `node node_modules/next/dist/bin/next start --port ${PORT} --hostname 127.0.0.1`,
     url: `http://127.0.0.1:${PORT}/design`,

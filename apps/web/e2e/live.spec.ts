@@ -1,76 +1,60 @@
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { type Page, expect, test } from "@playwright/test";
-import {
-  dumpForkState,
-  loadForkState,
-  readForkConfig,
-  resetToBlock,
-  rpc,
-} from "@alpha-agents/devenv";
-import { LOCAL_FORK_RPC_URL } from "@alpha-agents/config";
+import { LOCAL_FORK_RPC_URL, localForkRpcUrl } from "@alpha-agents/config";
+import { createDb } from "@alpha-agents/db";
+import { rpc } from "@alpha-agents/devenv";
+import { AGENT_NFT_ABI, SPECIES } from "@alpha-agents/domain";
+import { bytesToHex } from "viem";
+import { mnemonicToAccount } from "viem/accounts";
 import { deployLocal } from "../../../scripts/lib/agent-nft.js";
-import {
-  REVEAL_ABI,
-  impersonate,
-  publicClient,
-  revealLocal,
-} from "../../../scripts/lib/agent-reveal.js";
+import { impersonate, publicClient, revealLocal } from "../../../scripts/lib/agent-reveal.js";
 import { MOCK_WALLET_ADDRESS } from "../src/auth/mock-wallet-constants";
-import { AGENT_NFT_ABI, agentNftDeployment } from "../src/agent/agent-nft";
-import { formatCount, formatOdds, readSupply, summarizeSupply } from "../src/agent/supply";
+import { formatCount, formatOdds, summarizeSupply } from "../src/agent/supply";
 import { THREE_MARKER, scriptsLoaded } from "./bundles";
 import { disableWebgl } from "./webgl";
 
 /**
- * The end-to-end agent flow on the local fork (P1-U11), with the mock wallet:
- * connect, mint through the dev claim route, reveal with the dev reveal path,
- * and view the agent in the portal. Run with `pnpm test:web:live` after
- * `pnpm dev:up`. Each test snapshots the fork first and reverts it after, so
- * the mock wallet can mint again on the next run (L-15).
+ * The end-to-end agent flow (P1-U11, P1-U4) on a test stack of its own that
+ * scripts/web-e2e.js starts (D-200): an anvil fork on 8546, a throwaway
+ * database, the real indexer and the control API on 4101 with the mock
+ * wallet's identity, and AgentNFT deployed with the mock wallet allowlisted.
+ * Pages read the index through the API; the claim comes from the API; the
+ * mint goes straight to the chain. Run with `pnpm test:web:live`.
  *
- * The reveal delivers a random number chosen so the agent draws a given
- * species: the bee has the only 3D model, and reveals are otherwise random.
+ * Each test snapshots the test fork and reverts it after, so the mock wallet
+ * can mint again. The indexer sees each revert as a rewind or reorg and rolls
+ * its index back, which every next test relies on.
  */
+const FORK = localForkRpcUrl(process.env);
+// Never the playtest fork: this suite mints, reverts and reveals the only bee.
+if (FORK === LOCAL_FORK_RPC_URL) {
+  throw new Error("the live suite runs only on its test fork; use pnpm test:web:live");
+}
 const BEE = 14;
 const ANT = 3;
 const OTHER_WALLET = "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC" as const;
+const db = createDb(process.env.TEST_DATABASE_URL ?? "postgres://unset", { max: 1 });
 
 let snapshot = "";
 let nft = "" as `0x${string}`;
-// The fork as the suite found it, when it had to start from a fresh one.
-let found = "";
 
-/**
- * The bee is a 1-of-1 in the deck: once a playtest mints it, no bee is left
- * for the 3D tests. Then the suite saves the fork, resets it to the pin and
- * deploys fresh, and puts the saved fork back afterwards (L-58, L-60).
- */
 test.beforeAll(async () => {
-  const deployed = (await deployLocal({ quiet: true })) as `0x${string}`;
-  const beesLeft = await publicClient.readContract({
-    address: deployed,
-    abi: REVEAL_ABI,
-    functionName: "remainingOf",
-    args: [BEE],
-  });
-  if (beesLeft > 0n) return;
-  found = await dumpForkState();
-  await resetToBlock(readForkConfig().blockNumber);
+  // Already deployed by the stack; this returns its address.
+  nft = (await deployLocal({ quiet: true })) as `0x${string}`;
 });
 
 test.afterAll(async () => {
-  if (!found) return;
-  await resetToBlock(readForkConfig().blockNumber);
-  await loadForkState(found);
+  await db.destroy();
 });
 
 test.beforeEach(async () => {
-  nft = (await deployLocal({ quiet: true })) as `0x${string}`;
-  snapshot = String(await rpc(LOCAL_FORK_RPC_URL, "evm_snapshot", []));
+  snapshot = String(await rpc(FORK, "evm_snapshot", []));
   await impersonate(MOCK_WALLET_ADDRESS);
 });
 
 test.afterEach(async () => {
-  if (snapshot) await rpc(LOCAL_FORK_RPC_URL, "evm_revert", [snapshot]);
+  if (snapshot) await rpc(FORK, "evm_revert", [snapshot]);
 });
 
 /** Connects the mock wallet, mints, and returns the new agent's ID. */
@@ -192,20 +176,39 @@ test("switching to an account that does not own the agent removes it", async ({ 
   );
 });
 
-test("mint from /mint: supply and odds match the contract, then open the agent", async ({
+/** The supply as AgentNFT answers it, read straight from the contract. */
+async function contractSupply() {
+  const read = (functionName: "totalMinted" | "MAX_SUPPLY") =>
+    publicClient.readContract({ address: nft, abi: AGENT_NFT_ABI, functionName });
+  const remaining = await Promise.all(
+    SPECIES.map((s) =>
+      publicClient.readContract({
+        address: nft,
+        abi: AGENT_NFT_ABI,
+        functionName: "remainingOf",
+        args: [s.index],
+      }),
+    ),
+  );
+  return summarizeSupply({
+    maxSupply: Number(await read("MAX_SUPPLY")),
+    totalMinted: Number(await read("totalMinted")),
+    remaining: remaining.map(Number),
+  });
+}
+
+test("mint from /mint through the API claim: supply and odds match the contract, then open the agent", async ({
   page,
 }) => {
   const problems: string[] = [];
   page.on("pageerror", (e) => problems.push(`pageerror: ${e.message.slice(0, 300)}`));
-  const deployment = agentNftDeployment("local");
-  if (!deployment) throw new Error("AgentNFT has no verified local address");
-  expect(deployment.address.toLowerCase()).toBe(nft.toLowerCase());
-  const expected = summarizeSupply(await readSupply(publicClient as never, deployment));
+  const expected = await contractSupply();
 
   await page.goto("/mint");
   const mintPage = page.getByTestId("mint-page");
   const panel = page.locator("[data-slot=mint-panel]");
   const supply = mintPage.getByRole("region", { name: "Supply" });
+  // The page's numbers come from the index, through the API.
   await expect(supply.getByRole("meter", { name: "Minted" })).toHaveAttribute(
     "aria-valuetext",
     `${formatCount(expected.minted)} of ${formatCount(expected.maxSupply)}`,
@@ -221,10 +224,15 @@ test("mint from /mint: supply and odds match the contract, then open the agent",
     ).toHaveAttribute("aria-valuetext", `${formatCount(t.remaining)} of ${formatCount(t.total)}`);
   }
 
+  const claims: string[] = [];
+  page.on("request", (r) => {
+    if (r.url().includes("/v1/mint/claim")) claims.push(r.url());
+  });
   await panel.getByRole("button", { name: "Connect wallet" }).click();
   await expect(panel).toHaveAttribute("data-state", "ready", { timeout: 30_000 });
   await panel.getByRole("button", { name: "Mint an agent" }).click();
   await expect(panel).toHaveAttribute("data-state", "awaiting-reveal", { timeout: 30_000 });
+  expect(claims).toHaveLength(1);
   const status = panel.getByRole("status").filter({ hasText: /minted/ });
   const id = /Agent #(\d+) minted/.exec((await status.textContent()) ?? "")?.[1];
   if (!id) throw new Error("no agent ID in the mint status");
@@ -236,23 +244,27 @@ test("mint from /mint: supply and odds match the contract, then open the agent",
     args: [agentId],
   });
   expect(owner.toLowerCase()).toBe(MOCK_WALLET_ADDRESS.toLowerCase());
-  // The supply follows the mint.
+  // The index follows the mint.
   await expect(supply.getByRole("meter", { name: "Minted" })).toHaveAttribute(
     "aria-valuetext",
     `${formatCount(expected.minted + 1)} of ${formatCount(expected.maxSupply)}`,
     { timeout: 30_000 },
   );
+  const issued = await db
+    .selectFrom("platform.mint_claims")
+    .select("wallet")
+    .where("wallet", "=", MOCK_WALLET_ADDRESS.toLowerCase())
+    .execute();
+  expect(issued.length).toBeGreaterThan(0);
 
   await revealLocal(nft, { agentId, species: ANT });
   await expect(panel).toHaveAttribute("data-state", "revealed", { timeout: 30_000 });
   await expect(panel.getByRole("status")).toContainText(`Agent #${id} is Base · Ant`);
 
+  // Client-side navigation: the wallet stays connected, no page load.
   await panel.getByRole("link", { name: `Open agent #${id}` }).click();
   await expect(page).toHaveURL(new RegExp(`/configure\\?agent=${id}$`));
-  // The link loads the page afresh; the mock wallet, unlike a Privy session,
-  // does not survive a page load, so it connects again.
   const portal = page.getByTestId("agent-portal");
-  await portal.getByRole("button", { name: "Connect wallet" }).click();
   await expect(portal.getByRole("heading", { level: 1, name: `Alpha Agent #${id}` })).toBeVisible({
     timeout: 30_000,
   });
@@ -270,4 +282,58 @@ test("mint from /mint: supply and odds match the contract, then open the agent",
     { timeout: 30_000 },
   );
   expect(problems).toEqual([]);
+});
+
+test("a wallet off the allowlist is told before it clicks, and the API refuses its claim", async ({
+  page,
+}) => {
+  const wallet = MOCK_WALLET_ADDRESS.toLowerCase();
+  await db.deleteFrom("platform.mint_allowlist").where("wallet", "=", wallet).execute();
+  try {
+    const claims: string[] = [];
+    page.on("request", (r) => {
+      if (r.url().includes("/v1/mint/claim")) claims.push(r.url());
+    });
+    await page.goto("/mint");
+    const panel = page.locator("[data-slot=mint-panel]");
+    await panel.getByRole("button", { name: "Connect wallet" }).click();
+    await expect(panel).toHaveAttribute("data-state", "not-eligible", { timeout: 30_000 });
+    await expect(panel).toContainText("This wallet is not on the beta mint allowlist.");
+    await expect(panel.getByRole("button", { name: /Mint/ })).toHaveCount(0);
+    expect(claims).toEqual([]);
+
+    // And the claim endpoint itself refuses, whatever a page does.
+    const res = await page.request.post(`${process.env.CONTROL_API_URL}/v1/mint/claim`, {
+      headers: { authorization: "Bearer mock-token-alpha-agents-mock-wallet-e2e-only" },
+      data: { wallet: MOCK_WALLET_ADDRESS },
+    });
+    expect([res.status(), ((await res.json()) as { error: string }).error]).toEqual([
+      403,
+      "not_allowlisted",
+    ]);
+  } finally {
+    await db
+      .insertInto("platform.mint_allowlist")
+      .values({ wallet, note: "live suite mock wallet" })
+      .onConflict((oc) => oc.column("wallet").doNothing())
+      .execute();
+  }
+});
+
+test("the claim signer key appears in no service log and no page", async ({ page }) => {
+  const key = mnemonicToAccount("test test test test test test test test test test test junk", {
+    addressIndex: 1,
+  }).getHdKey().privateKey;
+  if (!key) throw new Error("no key");
+  const hex = bytesToHex(key).slice(2);
+  for (const name of ["test-control-api.log", "test-indexer.log"]) {
+    const log = readFileSync(
+      fileURLToPath(new URL(`../../../.dev/${name}`, import.meta.url)),
+      "utf8",
+    );
+    expect(log.length).toBeGreaterThan(0);
+    expect(log.toLowerCase()).not.toContain(hex);
+  }
+  await page.goto("/mint");
+  expect((await page.content()).toLowerCase()).not.toContain(hex);
 });

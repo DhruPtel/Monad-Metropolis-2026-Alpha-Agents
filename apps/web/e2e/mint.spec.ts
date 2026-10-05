@@ -3,7 +3,8 @@ import AxeBuilder from "@axe-core/playwright";
 import { SPECIES } from "@alpha-agents/domain";
 import { type Locator, type Page, expect, test } from "@playwright/test";
 import { MOCK_WALLET_ADDRESS } from "../src/auth/mock-wallet-constants";
-import { AGENT_NFT, FakeChain } from "./fake-chain";
+import { FakeApi } from "./fake-api";
+import { FakeChain } from "./fake-chain";
 
 /**
  * The mint page (P1-U10), against the test build with the mock wallet, in the
@@ -19,8 +20,9 @@ const walletButton = (page: Page) => page.locator("header [data-slot=wallet-butt
 const tierCard = (page: Page, name: string) =>
   mintPage(page).getByRole("region", { name: `${name} tier` });
 
-async function open(page: Page, chain: FakeChain) {
+async function open(page: Page, chain: FakeChain, api = new FakeApi(chain)) {
   await chain.install(page);
+  await api.install(page);
   await page.goto("/mint");
   await page.evaluate(() => document.fonts.ready);
   await expect(page.getByTestId("tier-odds")).toHaveCount(3);
@@ -30,22 +32,6 @@ async function connect(page: Page) {
   await panel(page).getByRole("button", { name: "Connect wallet" }).click();
   await page.mouse.move(0, 0);
   await expect(walletButton(page)).toHaveAttribute("data-state", "connected");
-}
-
-/** A claim the claim route would sign; the fake chain does not check it. */
-async function fakeClaim(page: Page) {
-  await page.route("**/api/mint-claim", (route) =>
-    route.fulfill({
-      contentType: "application/json",
-      body: JSON.stringify({
-        wallet: MOCK_WALLET_ADDRESS,
-        nonce: `0x${"ab".repeat(32)}`,
-        deadline: "4102444800",
-        signature: `0x${"cd".repeat(65)}`,
-        contract: AGENT_NFT,
-      }),
-    }),
-  );
 }
 
 /** Scrolls to the top, parks the pointer, waits for no hover and every image, and captures with the header hidden. */
@@ -58,6 +44,17 @@ async function capture(page: Page, target: Locator, name: string) {
   await page.waitForFunction(() =>
     [...document.images].every((img) => img.complete && img.naturalWidth > 0),
   );
+  // A full repaint first: after state changes only parts of the page were
+  // repainted, and an antialiased edge composited over a partial repaint can
+  // differ by a pixel or two from run to run (L-65).
+  await page.evaluate(async () => {
+    const frames = () =>
+      new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    document.documentElement.style.opacity = "0.99";
+    await frames();
+    document.documentElement.style.opacity = "";
+    await frames();
+  });
   await expect(target).toHaveScreenshot(name, {
     stylePath: fileURLToPath(new URL("./portal-capture.css", import.meta.url)),
     timeout: 30_000,
@@ -114,14 +111,27 @@ test.describe("states, screenshots and accessibility", () => {
     expect(await blockingViolations(page)).toEqual([]);
   });
 
-  test("no claim available: the claim route's reason is shown", async ({ page }) => {
-    // The pinned image has no claim signer, so the route refuses with its reason.
-    await open(page, new FakeChain());
+  test("not eligible: a wallet off the allowlist is told before it clicks", async ({ page }) => {
+    const chain = new FakeChain();
+    const api = new FakeApi(chain, { allowlist: [] });
+    await open(page, chain, api);
+    await connect(page);
+    await expect(panel(page)).toHaveAttribute("data-state", "not-eligible");
+    await expect(panel(page)).toContainText("This wallet is not on the beta mint allowlist.");
+    await expect(panel(page).getByRole("button")).toHaveCount(0);
+    expect(api.claims).toEqual([]);
+    await capture(page, panel(page), "mint-not-eligible.png");
+    expect(await blockingViolations(page)).toEqual([]);
+  });
+
+  test("no claim available: the API's reason is shown at the click", async ({ page }) => {
+    const chain = new FakeChain();
+    await open(page, chain, new FakeApi(chain, { signer: false }));
     await connect(page);
     await panel(page).getByRole("button", { name: "Mint an agent" }).click();
     await expect(panel(page).getByRole("button", { name: "Mint unavailable" })).toBeDisabled();
     await expect(panel(page).getByRole("status")).toContainText(
-      "Minting is not configured: set CLAIM_SIGNER_PRIVATE_KEY",
+      "Minting is not configured: set CLAIM_SIGNER_PRIVATE_KEY for the control API.",
     );
     await capture(page, panel(page), "mint-no-claim.png");
     expect(await blockingViolations(page)).toEqual([]);
@@ -130,7 +140,6 @@ test.describe("states, screenshots and accessibility", () => {
   test("minting, then waiting for reveal, then revealed", async ({ page }) => {
     const chain = new FakeChain();
     chain.holdReceipts = true;
-    await fakeClaim(page);
     await open(page, chain);
     await connect(page);
     await panel(page).getByRole("button", { name: "Mint an agent" }).click();
@@ -253,7 +262,7 @@ test.describe("network guard", () => {
     await elsewhere.install(page, "9545");
     let claimRequests = 0;
     page.on("request", (r) => {
-      if (r.url().includes("/api/mint-claim")) claimRequests++;
+      if (r.url().includes("/v1/mint/claim")) claimRequests++;
     });
     await open(page, new FakeChain());
     await connect(page);
@@ -267,7 +276,9 @@ test.describe("network guard", () => {
 });
 
 test("the nav links to the mint page", async ({ page }, info) => {
-  await new FakeChain().install(page);
+  const chain = new FakeChain();
+  await chain.install(page);
+  await new FakeApi(chain).install(page);
   await page.goto("/configure");
   if (info.project.name === "mobile") await page.getByRole("button", { name: "Open menu" }).click();
   await page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Mint" }).click();

@@ -3,7 +3,8 @@ import AxeBuilder from "@axe-core/playwright";
 import { type Page, expect, test } from "@playwright/test";
 import { MOCK_WALLET_ADDRESS } from "../src/auth/mock-wallet-constants";
 import { THREE_MARKER, scriptsLoaded } from "./bundles";
-import { AGENT_NFT, FakeChain } from "./fake-chain";
+import { FakeApi } from "./fake-api";
+import { FakeChain } from "./fake-chain";
 import { disableWebgl } from "./webgl";
 
 /**
@@ -18,8 +19,9 @@ const OTHER_WALLET = "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC" as const;
 const portal = (page: Page) => page.getByTestId("agent-portal");
 const walletButton = (page: Page) => page.locator("header [data-slot=wallet-button]");
 
-async function open(page: Page, chain: FakeChain, path = "/configure") {
+async function open(page: Page, chain: FakeChain, path = "/configure", api = new FakeApi(chain)) {
   await chain.install(page);
+  await api.install(page);
   await page.goto(path);
   await page.evaluate(() => document.fonts.ready);
 }
@@ -167,14 +169,14 @@ test.describe("ownership", () => {
 });
 
 test.describe("minting", () => {
-  test("a wallet without a claim sees why it cannot mint", async ({ page }) => {
-    // The pinned image has no claim signer, so the route refuses with its reason.
-    await open(page, new FakeChain());
+  test("a wallet off the allowlist sees why it cannot mint", async ({ page }) => {
+    const chain = new FakeChain();
+    await open(page, chain, "/configure", new FakeApi(chain, { allowlist: [] }));
     await connect(page);
     await portal(page).getByRole("button", { name: "Mint an agent" }).click();
     await expect(portal(page).getByRole("button", { name: "Mint unavailable" })).toBeDisabled();
     await expect(portal(page).getByRole("status")).toContainText(
-      "Minting is not configured: set CLAIM_SIGNER_PRIVATE_KEY",
+      "This wallet is not on the beta mint allowlist.",
     );
   });
 
@@ -185,7 +187,7 @@ test.describe("minting", () => {
     await elsewhere.install(page, "9545");
     let claimRequests = 0;
     page.on("request", (r) => {
-      if (r.url().includes("/api/mint-claim")) claimRequests++;
+      if (r.url().includes("/v1/mint/claim")) claimRequests++;
     });
     await open(page, new FakeChain());
     await connect(page);
@@ -202,18 +204,6 @@ test.describe("minting", () => {
   });
 
   test("a declined signature shows Rejected in wallet", async ({ page }) => {
-    await page.route("**/api/mint-claim", (route) =>
-      route.fulfill({
-        contentType: "application/json",
-        body: JSON.stringify({
-          wallet: MOCK_WALLET_ADDRESS,
-          nonce: `0x${"ab".repeat(32)}`,
-          deadline: "4102444800",
-          signature: `0x${"cd".repeat(65)}`,
-          contract: AGENT_NFT,
-        }),
-      }),
-    );
     await open(page, new FakeChain());
     await connect(page);
     await page.evaluate(() => window.__mockWallet?.rejectNextWrite());
@@ -229,6 +219,7 @@ test.describe("bundles", () => {
     const chain = new FakeChain();
     chain.mint(7n, MOCK_WALLET_ADDRESS, ANT);
     await chain.install(page);
+    await new FakeApi(chain).install(page);
     // Every statically imported chunk loads before the load event; the model's
     // chunk is a dynamic import that only the 3D stage would request.
     for (const path of ["/", "/design"]) {
