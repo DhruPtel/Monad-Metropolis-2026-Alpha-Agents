@@ -10,24 +10,14 @@
 //                                  species and its decoded tokenURI JSON
 //
 // It deploys AgentNFT first if the fork has none (pnpm deploy:agent-nft).
-import { randomBytes } from "node:crypto";
 import { LOCAL_FORK_CHAIN_ID } from "@alpha-agents/config";
-import { NotLocalForkError, rpc } from "@alpha-agents/devenv";
-import {
-  createPublicClient,
-  createWalletClient,
-  defineChain,
-  http,
-  parseAbi,
-  parseEventLogs,
-} from "viem";
-import { generatePrivateKey, mnemonicToAccount, privateKeyToAccount } from "viem/accounts";
-import { LOCAL_ROLES, deployLocal } from "./lib/agent-nft.js";
+import { NotLocalForkError } from "@alpha-agents/devenv";
+import { createPublicClient, defineChain, http, parseAbi } from "viem";
+import { deployLocal } from "./lib/agent-nft.js";
+import { mintLocal } from "./lib/agent-mint.js";
 import { revealLocal } from "./lib/agent-reveal.js";
 import { ANVIL_URL, loadRootEnv } from "./lib/config.js";
 
-/** Anvil's default development mnemonic; account 1 is the local claim signer. */
-const ANVIL_MNEMONIC = "test test test test test test test test test test test junk";
 const TIERS = ["unrevealed", "base", "medium", "pro"];
 
 const abi = parseAbi([
@@ -58,66 +48,9 @@ const chain = defineChain({
 const transport = http(ANVIL_URL);
 const publicClient = createPublicClient({ chain, transport });
 
-/**
- * Sends a transaction from an unlocked or impersonated address and waits for
- * the receipt, failing on a revert (L-10: poll for the receipt, never guess).
- * @param {`0x${string}`} from
- * @param {{ address: `0x${string}`, abi: typeof abi, functionName: string, args?: readonly unknown[], value?: bigint }} request
- */
-async function send(from, request) {
-  const wallet = createWalletClient({ chain, transport, account: from });
-  // The request is built from this file's own ABI; viem's per-function
-  // typing does not survive the generic parameter, so it is loosened here.
-  const hash = await wallet.writeContract(
-    /** @type {any} */ ({ ...request, account: from, chain }),
-  );
-  const receipt = await publicClient.waitForTransactionReceipt({ hash });
-  if (receipt.status !== "success") throw new Error(`transaction ${hash} reverted`);
-  return receipt;
-}
-
-/** @param {`0x${string}`} address */
-async function impersonate(address) {
-  await rpc(ANVIL_URL, "anvil_impersonateAccount", [address]);
-  await rpc(ANVIL_URL, "anvil_setBalance", [address, "0x56BC75E2D63100000"]); // 100 MON
-}
-
 /** @param {`0x${string}`} nft */
 async function mint(nft) {
-  const minter = privateKeyToAccount(generatePrivateKey()).address;
-  const signer = mnemonicToAccount(ANVIL_MNEMONIC, { addressIndex: 1 });
-  if (signer.address !== LOCAL_ROLES.claimSigner) throw new Error("unexpected local claim signer");
-  const nonce = /** @type {`0x${string}`} */ (`0x${randomBytes(32).toString("hex")}`);
-  const deadline = BigInt(Math.floor(Date.now() / 1000) + 3600);
-  // The platform API will sign these claims (P1-U4); locally anvil account 1 does.
-  const signature = await signer.signTypedData({
-    domain: {
-      name: "AlphaAgents AgentNFT",
-      version: "1",
-      chainId: LOCAL_FORK_CHAIN_ID,
-      verifyingContract: nft,
-    },
-    types: {
-      MintClaim: [
-        { name: "wallet", type: "address" },
-        { name: "nonce", type: "bytes32" },
-        { name: "deadline", type: "uint64" },
-      ],
-    },
-    primaryType: "MintClaim",
-    message: { wallet: minter, nonce, deadline },
-  });
-  await impersonate(minter);
-  const receipt = await send(minter, {
-    address: nft,
-    abi,
-    functionName: "mintWithClaim",
-    args: [deadline, nonce, signature],
-  });
-  await rpc(ANVIL_URL, "anvil_stopImpersonatingAccount", [minter]);
-  const [minted] = parseEventLogs({ abi, logs: receipt.logs, eventName: "AgentMinted" });
-  if (!minted) throw new Error("mint emitted no AgentMinted event");
-  const id = minted.args.agentId;
+  const { agentId: id, minter, receipt } = await mintLocal(nft);
   const tba = await publicClient.readContract({
     address: nft,
     abi,
