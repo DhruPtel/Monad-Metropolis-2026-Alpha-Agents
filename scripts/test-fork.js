@@ -1,17 +1,18 @@
 // @ts-check
-// Runs the fork smoke tests against the local anvil fork started by `pnpm dev:up`,
-// deploys our own contracts there (deterministic and idempotent), then checks
-// every verified address book entry against the same fork.
-// Forge does not read the root .env, and the fork tests skip themselves when
-// MONAD_RPC_URL is unset, so this loads .env and refuses to run instead of
-// letting a skipped suite look like a pass.
+// pnpm test:fork: the forge fork tests, an AgentNFT deploy and the address
+// book check, on a fork of their own on port 8546 (D-200), started here and
+// stopped afterwards. The playtest fork on 8545 is never touched: a run there
+// used to need snapshots, and a restored state dump has no history (L-63).
+import { ConfigError, LOCAL_TEST_FORK_PORT } from "@alpha-agents/config";
+import { startTestFork } from "@alpha-agents/devenv";
 import { spawnSync } from "node:child_process";
-import { ConfigError } from "@alpha-agents/config";
-import { revertToSnapshot, takeSnapshot } from "@alpha-agents/devenv";
-import { deployLocal } from "./lib/agent-nft.js";
-import { loadLocalConfig, loadRootEnv } from "./lib/config.js";
-import { MONAD_DIR } from "./lib/paths.js";
-import { verifyAddressBook } from "./lib/verify-addresses.js";
+
+// Every library below reads the fork's port from here when it loads.
+process.env.LOCAL_FORK_PORT = String(LOCAL_TEST_FORK_PORT);
+const { loadLocalConfig, loadRootEnv } = await import("./lib/config.js");
+const { deployLocal } = await import("./lib/agent-nft.js");
+const { verifyAddressBook } = await import("./lib/verify-addresses.js");
+const { MONAD_DIR } = await import("./lib/paths.js");
 
 loadRootEnv();
 try {
@@ -21,32 +22,35 @@ try {
   console.error(`error: ${err.message}`);
   process.exit(1);
 }
-const result = spawnSync("forge", ["test", "--match-path", "test/fork/**", "-vv"], {
-  cwd: MONAD_DIR,
-  stdio: "inherit",
-  env: process.env,
-});
-if (result.error) console.error("error: forge not found on PATH");
 
-// Our own contracts are recorded in the address book at their deterministic
-// local addresses; deploy them first (a no-op when already deployed).
-// The snapshot is reverted afterwards, so the check leaves the fork as it found it.
-console.log("\nAgentNFT on the local fork:");
-const snapshot = await takeSnapshot();
-let deployed = true;
+console.log(`starting a test fork on port ${LOCAL_TEST_FORK_PORT}`);
+const fork = await startTestFork();
+let status;
 try {
-  console.log(await deployLocal({ quiet: true }));
-} catch (err) {
-  deployed = false;
-  console.error(`error: ${err instanceof Error ? err.message : String(err)}`);
+  const result = spawnSync("forge", ["test", "--match-path", "test/fork/**", "-vv"], {
+    cwd: MONAD_DIR,
+    stdio: "inherit",
+    env: { ...process.env, LOCAL_FORK_URL: fork.url },
+  });
+  if (result.error) console.error("error: forge not found on PATH");
+
+  console.log("\nAgentNFT on the test fork:");
+  let deployed = true;
+  try {
+    console.log(await deployLocal({ quiet: true }));
+  } catch (err) {
+    deployed = false;
+    console.error(`error: ${err instanceof Error ? err.message : String(err)}`);
+  }
+
+  console.log("\naddress book (packages/domain) against the test fork:");
+  const book = await verifyAddressBook();
+  for (const line of book.lines) console.log(line);
+  console.log(
+    book.ok ? "address book: every verified entry matches the fork" : "address book: MISMATCH",
+  );
+  status = result.status === 0 && deployed && book.ok ? 0 : 1;
+} finally {
+  await fork.stop();
 }
-
-console.log("\naddress book (packages/domain) against the local fork:");
-const book = await verifyAddressBook();
-await revertToSnapshot(snapshot);
-for (const line of book.lines) console.log(line);
-console.log(
-  book.ok ? "address book: every verified entry matches the fork" : "address book: MISMATCH",
-);
-
-process.exit(result.status === 0 && deployed && book.ok ? 0 : 1);
+process.exit(status ?? 1);

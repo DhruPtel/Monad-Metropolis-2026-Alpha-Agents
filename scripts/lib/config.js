@@ -2,15 +2,16 @@
 import { existsSync, readFileSync } from "node:fs";
 import {
   ConfigError,
-  LOCAL_FORK_RPC_URL,
   MONAD_MAINNET_CHAIN_ID,
   loadConfig,
+  localForkRpcUrl,
 } from "@alpha-agents/config";
 import { readForkConfig as readDevenvForkConfig } from "@alpha-agents/devenv";
 import { ENV_PATH, FORK_CONFIG_PATH, FOUNDRY_VERSION_PATH } from "./paths.js";
 
 export { MONAD_MAINNET_CHAIN_ID };
-export const ANVIL_URL = LOCAL_FORK_RPC_URL;
+/** The fork the scripts use: the playtest fork, or a test fork when LOCAL_FORK_PORT says so (D-200). */
+export const ANVIL_URL = localForkRpcUrl(process.env);
 const anvilUrl = new URL(ANVIL_URL);
 export const ANVIL_HOST = anvilUrl.hostname;
 export const ANVIL_PORT = Number(anvilUrl.port);

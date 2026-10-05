@@ -88,7 +88,7 @@ contract AgentNFTForkTest is Test {
             vm.skip(true);
             return;
         }
-        vm.createSelectFork(LOCAL_FORK_URL);
+        vm.createSelectFork(vm.envOr("LOCAL_FORK_URL", LOCAL_FORK_URL));
         nft = new AgentNFT(
             admin,
             makeAddr("fork signer"),

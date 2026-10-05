@@ -7,3 +7,4 @@ export * from "./paths.ts";
 export * from "./proc.ts";
 export * from "./redact.ts";
 export * from "./rpc.ts";
+export * from "./test-fork.ts";

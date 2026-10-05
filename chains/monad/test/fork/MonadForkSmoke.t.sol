@@ -19,7 +19,7 @@ contract MonadForkSmokeTest is Test {
             return;
         }
         pinnedBlock = vm.parseJsonUint(vm.readFile("./fork.json"), ".blockNumber");
-        vm.createSelectFork(LOCAL_FORK_URL);
+        vm.createSelectFork(vm.envOr("LOCAL_FORK_URL", LOCAL_FORK_URL));
     }
 
     function test_ChainIdIsTheLocalFork() public view {
