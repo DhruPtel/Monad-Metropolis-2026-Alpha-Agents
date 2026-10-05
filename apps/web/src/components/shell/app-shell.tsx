@@ -149,6 +149,7 @@ function AppShell({ environment, children }: { environment: string; children: Re
             currentChainName={walletChain}
             switching={wallet.switching}
             onSwitchChain={wallet.switchChain}
+            status={wallet.switchStatus}
           />
         ) : null}
         {/* On the wrong chain the page stays visible but inert: nothing can be clicked or focused. */}

@@ -1,7 +1,7 @@
 "use client";
 
 import { type AppChain, APP_CHAINS } from "@alpha-agents/config";
-import type { WalletState } from "@alpha-agents/ui";
+import type { SwitchStatus, WalletState } from "@alpha-agents/ui";
 import { createContext, useContext } from "react";
 import { type Abi, type Address, defineChain, type Chain, type Hex } from "viem";
 
@@ -42,7 +42,13 @@ export interface WalletSession {
   readonly configured: boolean;
   connect(): void;
   disconnect(): void;
+  /**
+   * Asks the wallet to switch to the target chain, adding it if the wallet
+   * does not know it; the outcome lands in `switchStatus` (P1-U11).
+   */
   switchChain(): void;
+  /** The last switch's progress, or why it did not switch; undefined otherwise. */
+  readonly switchStatus?: SwitchStatus | undefined;
   /** A Privy access token for the server session check, or null when logged out. */
   getAccessToken(): Promise<string | null>;
   /**

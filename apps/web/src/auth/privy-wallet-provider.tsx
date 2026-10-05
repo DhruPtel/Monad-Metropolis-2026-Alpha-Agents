@@ -4,10 +4,12 @@ import { appChain, type EnvironmentId } from "@alpha-agents/config";
 import { type PrivyErrorCode, PrivyProvider, useLogin, usePrivy } from "@privy-io/react-auth";
 import { createConfig, WagmiProvider } from "@privy-io/wagmi";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { type ReactNode, useMemo, useState } from "react";
-import { http, useAccount, useSwitchChain, useWriteContract } from "wagmi";
+import { type ReactNode, useCallback, useMemo, useState } from "react";
+import { http, useAccount, useWriteContract } from "wagmi";
 import type { EIP1193Provider } from "viem";
 import { deriveState, viemChain, type WalletSession, WalletSessionContext } from "./session";
+import { useChainSwitch } from "./use-chain-switch";
+import { useWalletChainId } from "./use-wallet-chain";
 
 interface WalletProviderProps {
   /** The public Privy app ID, or undefined when login is not configured. */
@@ -44,9 +46,23 @@ function PrivySessionBridge({
       setError(loginErrorMessage(code));
     },
   });
-  const { address, chainId, connector } = useAccount();
-  const { switchChain, isPending: switching } = useSwitchChain();
+  const { address, chainId: wagmiChainId, connector } = useAccount();
   const { writeContractAsync } = useWriteContract();
+  // The wallet's provider decides, not wagmi's cached connection (P1-U11).
+  const walletRequest = useCallback(
+    async (method: string, params: readonly unknown[]) => {
+      if (!connector) throw new Error("The wallet is not connected.");
+      const provider = (await connector.getProvider()) as EIP1193Provider;
+      return provider.request({ method, params } as never);
+    },
+    [connector],
+  );
+  const chainId = useWalletChainId(connector, wagmiChainId);
+  const chainSwitch = useChainSwitch(
+    connector ? walletRequest : undefined,
+    target,
+    chainId === target.id,
+  );
 
   const state = deriveState({
     initializing: !ready,
@@ -63,7 +79,8 @@ function PrivySessionBridge({
     ...(chainId !== undefined ? { chainId } : {}),
     target,
     ...(error ? { errorMessage: error } : {}),
-    switching,
+    switching: chainSwitch.busy,
+    switchStatus: chainSwitch.status,
     ready: state === "connected",
     mock: false,
     configured: true,
@@ -76,7 +93,7 @@ function PrivySessionBridge({
       setError(undefined);
       void logout();
     },
-    switchChain: () => switchChain({ chainId: target.id }),
+    switchChain: chainSwitch.run,
     getAccessToken: () => (authenticated ? getAccessToken() : Promise.resolve(null)),
     writeContract: (request) =>
       // The ABI is the caller's own; wagmi's per-function typing does not survive
@@ -85,11 +102,7 @@ function PrivySessionBridge({
         ...request,
         chainId: target.id,
       } as unknown as Parameters<typeof writeContractAsync>[0]),
-    walletRequest: async (method, params) => {
-      if (!connector) throw new Error("The wallet is not connected.");
-      const provider = (await connector.getProvider()) as EIP1193Provider;
-      return provider.request({ method, params } as never);
-    },
+    walletRequest,
   };
   return <WalletSessionContext.Provider value={session}>{children}</WalletSessionContext.Provider>;
 }

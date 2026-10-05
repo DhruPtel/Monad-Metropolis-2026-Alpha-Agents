@@ -147,3 +147,60 @@ test("the header fits on one row at every desktop width, logged out and connecte
   }
   expect(overflowing).toEqual([]);
 });
+
+test.describe("network switch outcomes", () => {
+  const prompt = (page: Page) => page.getByRole("alert").filter({ hasText: `Switch to ${TARGET}` });
+
+  /** Connects, then puts the wallet on Monad Testnet, as in the owner's playtest. */
+  async function onTestnet(page: Page, behavior: string) {
+    await open(page);
+    await connect(page);
+    await page.evaluate((b) => {
+      window.__mockWallet?.setSwitchBehavior(b as never);
+      window.__mockWallet?.setChainId(10143);
+    }, behavior);
+    await expect(prompt(page)).toContainText("Your wallet is on Monad Testnet.");
+  }
+
+  for (const [behavior, phase] of [
+    ["approve", `Approve the switch to ${TARGET} in your wallet.`],
+    ["unknown-chain", `Approve adding ${TARGET} in your wallet.`],
+  ] as const) {
+    test(`switches when the wallet approves (${behavior})`, async ({ page }) => {
+      await onTestnet(page, behavior);
+      await prompt(page)
+        .getByRole("button", { name: `Switch to ${TARGET}` })
+        .click();
+      // Pending in the wallet is said while it waits.
+      await expect(prompt(page).getByRole("status")).toContainText(phase);
+      await expect(walletButton(page)).toHaveAttribute("data-state", "connected");
+      await expect(prompt(page)).toHaveCount(0);
+      await expect(page.getByText(`Switched to ${TARGET}`)).toBeVisible();
+    });
+  }
+
+  for (const [behavior, message] of [
+    ["reject", "You declined the network switch in your wallet."],
+    ["reject-add", `You declined adding ${TARGET} in your wallet.`],
+    ["already-pending", "Your wallet already has a request open."],
+    ["stay", "Your wallet still reports Monad Testnet."],
+  ] as const) {
+    test(`says why it did not switch (${behavior})`, async ({ page }) => {
+      await onTestnet(page, behavior);
+      const button = prompt(page).getByRole("button", { name: `Switch to ${TARGET}` });
+      await button.click();
+      await expect(prompt(page).getByRole("status")).toContainText(message);
+      await expect(walletButton(page)).toHaveAttribute("data-state", "wrong-chain");
+      await expect(button).toBeEnabled();
+    });
+  }
+
+  test("the header's Switch network button runs the same switch", async ({ page }, info) => {
+    test.skip(info.project.name !== "desktop", "the header button is labelled on desktop");
+    await onTestnet(page, "reject");
+    await walletButton(page).getByRole("button", { name: "Switch network" }).click();
+    await expect(prompt(page).getByRole("status")).toContainText(
+      "You declined the network switch in your wallet.",
+    );
+  });
+});
