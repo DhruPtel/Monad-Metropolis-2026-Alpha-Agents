@@ -238,6 +238,7 @@ Every decision below is self-contained: the row states the decision itself. The 
 | D-184 | Owner decision: minting uses an EIP-712 claim signed by the platform API, with an expiry and replay protection. The admin can turn claim-required mode on or off; with it off, minting is open but still one per wallet. This replaces the beta mint allowlist of D-145 and D-175, resolves Q-42, and the API's claim signer service stays out of P1-U3 | Owner decision (P1-U3 unit prompt, 2026-10-04) |
 | D-185 | Owner decision: 5% royalties on resale through ERC-2981, paid to the platform treasury address | Owner decision (P1-U3 unit prompt, 2026-10-04) |
 | D-186 | Owner decision: the onchain token name is "Alpha Agent #<id>". Generated display names live offchain | Owner decision (P1-U3 unit prompt, 2026-10-04) |
+| D-187 | AgentNFT's reveal uses Pyth Entropy v2 (mainnet `0xD458261E832415CFd3BAE5E416FdF3230ce6F134`, testnet `0x825c0390f379C631f3Cf11A82a37D20BddF93c07`, default provider) with batch reveals: anyone can request a reveal for every agent minted so far, the Entropy callback only stores the random number, and anyone can apply it in mint order, each agent drawing uniformly from the remaining deck. One request at a time, no cancel, and a re-request only after an hour without a callback. `blockhash` and `prevrandao` are rejected because Monad's leader knows or chooses them and Monad documents no randomness for `prevrandao`; Chainlink VRF is not on Monad. Residual trust: the Entropy provider could withhold a callback | evidence/p1-u3/RANDOMNESS.md |
 
 ---
 
