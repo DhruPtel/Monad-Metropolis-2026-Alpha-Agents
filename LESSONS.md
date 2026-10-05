@@ -260,3 +260,45 @@ What happened: Without a usable PRIVY_APP_ID the wallet button read "Login faile
 Cause: The not-configured session reused the ordinary error state, whose retry button ran a no-op.
 Fix: WalletButton shows "Try again" only when there is an action to run; the not-configured state reads "Login unavailable" at every width, with the reason for screen readers and the fix in the tooltip (4dd673f).
 Lesson: Never render a control whose action is a no-op; a state the user cannot fix from the page must say so and say where it is fixed.
+
+## L-37: A hex string's length was recorded as a contract's code size
+Unit: P1-U3
+What happened: The randomness research and the address book recorded Pyth Entropy as 357 bytes of code. The address book check failed on it: the fork serves 177 bytes.
+Cause: The size came from `cast code <address> | wc -c`, which counts the hex characters, the 0x prefix and the newline, not bytes.
+Fix: Both records say 177 bytes, confirmed with `cast codesize` on mainnet and testnet (b7e4092, 6676ec2).
+Lesson: Measure code size with `cast codesize` or `eth_getCode` divided into bytes, never by counting characters of printed hex.
+
+## L-38: Printing anvil's node info exposed the RPC key in the session
+Unit: P1-U3
+What happened: A throwaway probe logged the result of `anvil_nodeInfo` to check the fork block. The output included the upstream MONAD_RPC_URL, API key included, in the session transcript. Nothing was written to a file or committed, and the probe was deleted at once.
+Cause: anvil's node info carries its fork configuration, including the full upstream URL, and the probe printed the raw result without considering what it held.
+Fix: No code change; the probe was never committed and the fork smoke test uses `vm.rollFork` instead. The owner was told so they can decide whether to rotate the key.
+Lesson: Never print a raw RPC or node-info response from a process that was started with a secret; read the one field needed, and treat anything describing the fork's upstream as secret.
+
+## L-39: Foundry expectations bound to the wrong call or event
+Unit: P1-U3
+What happened: Two new tests failed for the wrong reason. `vm.expectRevert` before `new AgentNFT(..., nft.ACCOUNT_REGISTRY(), ...)` reported "next call did not revert", and `vm.expectEmit` before a helper that approved and then transferred reported "Approval != expected OwnerEpochBumped".
+Cause: Both cheatcodes bind to the next external call or the next event. Arguments are evaluated first, so the getter was the next call, and the helper's `approve` emitted its event before the transfer.
+Fix: The constructor test reads the getters into locals before `expectRevert`, and the epoch test approves before `expectEmit` (d8645c8).
+Lesson: Put nothing between `expectRevert` or `expectEmit` and the call under test, including external calls in its arguments and helpers that emit events first.
+
+## L-40: Default fuzz and invariant settings made the suite run past ten minutes
+Unit: P1-U3
+What happened: The first `forge test` run with the AgentNFT suites did not finish in ten minutes and was stopped.
+Cause: The default 256 fuzz runs were applied to tests that mint up to 1,100 agents per run, and the default invariant depth let each run mint hundreds of agents while every invariant read every agent.
+Fix: The heavy fuzz tests set their run counts inline (8 and 12), and the invariant profile uses 48 runs at depth 60; the whole suite takes about 13 seconds, and a full-supply fuzz test still mints and reveals all 1,000 every run (35a03d8, d8645c8).
+Lesson: Size a fuzz or invariant test's run count to the cost of one run, and confirm the deep states are reached with a probe instead of raising the count.
+
+## L-41: The fork smoke test failed on any fork that had been used
+Unit: P1-U3
+What happened: After minting on the dev fork, `pnpm test:fork` failed `test_BlockNumberIsPinnedBlock`: 109670006 != 109670000.
+Cause: The test required the anvil head to equal the pin, but any local transaction, deploy or mined block moves the head while the fork still starts at the pin.
+Fix: The test checks the head is at or after the pin and that rolling back to the pin serves its state, and test:fork deploys AgentNFT inside a snapshot it reverts (879a941, 6676ec2).
+Lesson: A test of a shared dev environment asserts the property that must hold after normal use, not the state of a fresh start.
+
+## L-42: Process slips this unit repeated from earlier lessons
+Unit: P1-U3
+What happened: Four earlier lessons repeated. L-27: the fork test was committed before the secrets scan, and gitleaks flagged a public address constant (d8645c8). Worse, a later command piped the scan through `tail`, so its failure did not stop the commits that followed (b7e4092 and 879a941 went in while the history scan was failing). L-4: bc7e180's test reads an address book entry added in the next commit, so that commit alone fails one test file. L-11: a `pkill -f` pattern matched its own shell. None caused lasting damage.
+Cause: Haste in the commit and cleanup steps, and a pipeline that hid the scanner's exit code.
+Fix: The false positive is in `.gitleaksignore` with its reason (5c19f9f); every later commit ran the scan with its exit code checked (`secrets:scan > file && git commit`); bc7e180's gap closes in 6676ec2. History is not rewritten.
+Lesson: Run the secrets scan and the tests on exactly what is staged, gate the commit on their exit codes rather than on piped output, and stop processes by PID.

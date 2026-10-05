@@ -149,3 +149,40 @@ Status: done (closes the partial status of the P1-U2 entry above)
 Summary: The owner verified real Privy login with MetaMask at http://localhost:3000, with the real app secret in .env: connect works, the address is shown, the wrong-chain prompt appears when MetaMask is on another network, and disconnect works. This completes the P1-U2 acceptance items that the mock wallet could not cover. No code changed in this entry.
 Bugs: none.
 Commit: the log commit only.
+
+## 2026-10-04, P1-U3, AgentNFT
+Status: done (local fork). Testnet is not deployed, because `.env` has no MONAD_TESTNET_RPC_URL or TESTNET_DEPLOYER_PRIVATE_KEY.
+Summary: Step 0 recorded D-178 to D-186 and resolved Q-42, Q-43 and Q-45:
+- Tiers: 600 base, 300 medium, 100 pro, assigned randomly at reveal.
+- Species: 25 with exact counts, listed in `packages/domain`.
+- Mint: two-step, free, one mint per wallet, with signed claims and an admin switch for claim-required mode.
+- Metadata and royalties: onchain metadata with a freezable image link, 3D models offchain, 5% royalties, and "Alpha Agent #<id>" as the token name.
+D-187 records the randomness choice: Pyth Entropy v2 with batch reveals.
+- Research: Entropy is deployed on Monad mainnet and testnet and verified on the fork. Chainlink VRF is not on Monad. `blockhash` and `prevrandao` are known to, or chosen by, Monad's block leader (`evidence/p1-u3/RANDOMNESS.md`).
+- Contract: `chains/monad/src/AgentNFT.sol` (OpenZeppelin 5.7.0 through Soldeer).
+  - Supply: a packed deck of exact counts, drawn uniformly at reveal.
+  - Minting: `mint` (open mode) and `mintWithClaim` (EIP-712, with expiry, single-use nonce and wallet binding).
+  - Accounts: the Tokenbound account is created and initialized at mint. The implementation slot is checked, so a front-run creation cannot block a mint.
+  - Reveal: `requestReveal` (anyone, pays the fee) and a callback that only stores the number. `reveal(maxCount)` lets anyone apply it in mint order. One request is pending at a time, and a re-request is allowed only after an hour with no delivery.
+  - Transfers: escrow-only (the escrow is set once). They never go to an agent account, and each one bumps the epoch. There is no burn.
+  - Metadata: tokenURI is JSON built onchain. ERC-2981 royalties at 5%, ERC-4906 events.
+  - Admin powers: exactly the listed ones, and renounce is disabled.
+- Tests: 67 unit, fuzz, invariant and attack tests. These include minting and revealing all 1,000 under random randomness with exact counts, invariants over random sequences with stale and repeated deliveries, and an ABI check that the state-changing functions are exactly the intended set. Eight fork tests cover spikes TB-1, TB-2, TB-3, TB-5, TB-8, TB-9b and TB-9c against the real registry, account and Entropy.
+- Account addresses: `tokenboundAccountAddress` in packages/domain equals @tokenbound/sdk and the registry's `account()` on the fork.
+- Deploy: `pnpm deploy:agent-nft` (deterministic CREATE2 with a state assertion; local, or testnet with credentials; mainnet refused), and `pnpm agent-nft:local mint | reveal | show <id>`.
+- Address book: gains Pyth Entropy and the local AgentNFT (`0x08e05A0e5400CcF847f1B94A49b35E75C2f8DAf9`, verified for local only). The console's address book screenshots were re-baselined after a visual check.
+- Gas (`evidence/p1-u3/GAS.md`): a claim mint is about 334,000 gas, a reveal about 20,000 per agent, and a request about 175,000 plus the 1.4 MON fee.
+- Checks: lint, format, typecheck, 713 vitest tests, forge build, 67 forge tests, test:fork (11 tests and the address book), console e2e 30 of 30, and the secrets scan pass. Web e2e passed 32 of 32 on three runs; one earlier run had a 1-pixel difference in `shell-wrong-chain.png` (a P1-U2 test this unit did not touch).
+- Security note: a probe printed anvil's node info, which includes the upstream RPC URL with its key, into the session output (L-38). Nothing was written or committed. The owner may want to rotate that key.
+Suggestions:
+- Claims: the API claim signer service has no owning unit yet (PB-U1 needs it); P1-U4 is the natural home.
+- Reveal keeper: something must call `requestReveal` and `reveal` after mints (the orchestrator in P1-U5, or a small keeper), and fund the 1.4 MON fee per batch.
+- 3D models: P1-U11 still says "a base body per tier". With 25 species (D-182) the owner should decide whether there are 25 models or one body per tier mapped from species.
+- Images: upload the 25 species images and `unrevealed.png` to IPFS, then `setImageBaseURI` and `freezeImageBaseURI`.
+- Admin: make it a TimelockController or Safe at mainnet deployment (PB-U1). The contract has no built-in delay, so D-145's "only the timelock can disable" holds only if the admin is a timelock.
+- Before any mainnet deployment, since the contract cannot change afterwards: decide whether to add a collection-level `contractURI`. Also note that the runtime code is 32,759 bytes (fine on Monad's 128 KB limit; any port to another EVM must split it).
+- Residual risks: the Entropy provider could withhold a callback and force a re-request after an hour (provider trust, not a minter path). If Tokenbound's Safe ever trusts a second implementation (Q-14), someone could pre-initialize the next agent's account with it and block minting.
+- Testnet: add MONAD_TESTNET_RPC_URL and a funded TESTNET_DEPLOYER_PRIVATE_KEY to `.env`, then run `pnpm deploy:agent-nft testnet` and record the address in the book.
+- Flake: watch `shell-wrong-chain.png` for repeated 1-pixel flakes.
+Bugs: L-37, L-38, L-39, L-40, L-41, L-42.
+Commit: 898a37c, acf1482, 35a03d8, d8645c8, b7e4092, 879a941, 5c19f9f, bc7e180, 6676ec2, 05c559e, dc38186, plus the log commit.
