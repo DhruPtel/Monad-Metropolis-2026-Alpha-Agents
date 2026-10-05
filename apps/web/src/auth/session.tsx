@@ -51,6 +51,12 @@ export interface WalletSession {
    * `isUserRejection`.
    */
   writeContract(request: ContractWrite): Promise<Hex>;
+  /**
+   * Sends a read-only JSON-RPC request through the wallet's own provider, so
+   * it is answered by whatever RPC the wallet uses for its current network,
+   * which can differ from the app's (L-53). Rejects when no wallet is connected.
+   */
+  walletRequest(method: string, params: readonly unknown[]): Promise<unknown>;
 }
 
 /** True when an error means the user declined in their wallet (EIP-1193 code 4001). */

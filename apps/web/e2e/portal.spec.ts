@@ -178,6 +178,28 @@ test.describe("minting", () => {
     );
   });
 
+  test("a wallet on another network is stopped before the claim (L-53)", async ({ page }) => {
+    // The wallet reports the fork's chain ID, but its RPC is another network:
+    // far ahead of the fork's head, without AgentNFT, as Monad mainnet was.
+    const elsewhere = new FakeChain({ head: 110_830_344n, hashSeed: "aa", agentNft: false });
+    await elsewhere.install(page, "9545");
+    let claimRequests = 0;
+    page.on("request", (r) => {
+      if (r.url().includes("/api/mint-claim")) claimRequests++;
+    });
+    await open(page, new FakeChain());
+    await connect(page);
+    await page.evaluate(() => window.__mockWallet?.setRpcUrl("http://127.0.0.1:9545"));
+    await portal(page).getByRole("button", { name: "Mint an agent" }).click();
+    const status = portal(page).getByRole("status");
+    await expect(status).toContainText(
+      "Your wallet is on a network that reports chain 143143, not Monad (local fork)",
+    );
+    await expect(status).toContainText("Nothing was sent");
+    await expect(status).toContainText("RPC URL http://127.0.0.1:8545");
+    expect(claimRequests).toBe(0);
+  });
+
   test("a declined signature shows Rejected in wallet", async ({ page }) => {
     await page.route("**/api/mint-claim", (route) =>
       route.fulfill({

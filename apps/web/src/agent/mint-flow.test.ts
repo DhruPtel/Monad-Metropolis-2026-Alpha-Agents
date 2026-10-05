@@ -16,6 +16,7 @@ const CLAIM: MintClaim = {
 function deps(overrides: Partial<MintFlowDeps> = {}): MintFlowDeps {
   return {
     wallet: WALLET,
+    checkNetwork: async () => ({ ok: true }),
     requestClaim: async () => ({ status: 200, body: CLAIM }),
     sendMint: async () => HASH,
     waitForMint: async () => 7n,
@@ -45,6 +46,29 @@ describe("the mint flow", () => {
     const { result, states } = await run(deps());
     expect(states).toEqual(["claiming", "signing", "minting", "awaiting-reveal", "revealed"]);
     expect(result).toEqual({ state: "revealed", agentId: 7n, species: 14, hash: HASH });
+  });
+
+  it("stops before the claim when the wallet is on another network", async () => {
+    let claimed = false;
+    let sent = false;
+    const { result, states } = await run(
+      deps({
+        checkNetwork: async () => ({
+          ok: false,
+          reason: "different-blocks",
+          message: "Your wallet is on Monad mainnet, not Monad (local fork)",
+        }),
+        requestClaim: async () => ((claimed = true), { status: 200, body: CLAIM }),
+        sendMint: async () => ((sent = true), HASH),
+      }),
+    );
+    expect(states).toEqual(["claiming", "error"]);
+    expect(result).toEqual({
+      state: "error",
+      message: "Your wallet is on Monad mainnet, not Monad (local fork)",
+    });
+    expect(claimed).toBe(false);
+    expect(sent).toBe(false);
   });
 
   it("sends exactly the claim the route returned", async () => {

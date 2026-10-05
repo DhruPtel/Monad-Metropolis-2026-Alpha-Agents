@@ -37,8 +37,26 @@ const HEAD = FIRST_BLOCK + 100n;
 const hex = (n: bigint) => `0x${n.toString(16)}` as Hex;
 const same = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
 
+export interface FakeChainOptions {
+  /** The latest block. Defaults to just after AgentNFT's deployment block. */
+  readonly head?: bigint;
+  /** Makes this chain's block hashes differ from another fake chain's. */
+  readonly hashSeed?: string;
+  /** Whether AgentNFT has code here (false: a chain it was never deployed on). */
+  readonly agentNft?: boolean;
+}
+
 export class FakeChain {
   readonly agents = new Map<bigint, FakeAgent>();
+  private readonly head: bigint;
+  private readonly hashSeed: string;
+  private readonly agentNft: boolean;
+
+  constructor(options: FakeChainOptions = {}) {
+    this.head = options.head ?? HEAD;
+    this.hashSeed = options.hashSeed ?? "f0";
+    this.agentNft = options.agentNft ?? true;
+  }
 
   /** Mints an agent to a wallet, revealed as `species` (0 for unrevealed). */
   mint(id: bigint, owner: Address, species: number): FakeAgent {
@@ -55,11 +73,27 @@ export class FakeChain {
   }
 
   /** Answers the page's requests to the fork's RPC from now on. */
-  async install(page: Page): Promise<void> {
+  /**
+   * Answers the page's requests to an RPC on 127.0.0.1 from now on: the fork's
+   * port by default, or another port standing in for a wallet's other network.
+   */
+  async install(page: Page, port = "8545"): Promise<void> {
     await page.route(
-      (url) => url.hostname === "127.0.0.1" && url.port === "8545",
+      (url) => url.hostname === "127.0.0.1" && url.port === port,
       (route) => this.answer(route),
     );
+  }
+
+  /** A block header: the hash depends on this chain's seed and the number. */
+  private block(tag: unknown) {
+    const number = tag === "latest" ? this.head : BigInt(String(tag));
+    if (number > this.head) return null;
+    return {
+      number: hex(number),
+      hash: `0x${this.hashSeed}${number.toString(16).padStart(62, "0")}`,
+      timestamp: hex(1_790_000_000n + number),
+      transactions: [],
+    };
   }
 
   private async answer(route: Route): Promise<void> {
@@ -79,7 +113,14 @@ export class FakeChain {
       case "eth_chainId":
         return ok(hex(BigInt(LOCAL_FORK_CHAIN_ID)));
       case "eth_blockNumber":
-        return ok(hex(HEAD));
+        return ok(hex(this.head));
+      case "eth_getBlockByNumber":
+        return ok(this.block(request.params[0]));
+      case "eth_getCode": {
+        const [address] = request.params as [Address];
+        // Any non-empty runtime stands in for AgentNFT's.
+        return ok(this.agentNft && same(address, AGENT_NFT) ? "0x6080604052" : "0x");
+      }
       case "eth_getLogs":
         return ok(this.transferLogs(request.params[0] as LogFilter));
       case "eth_call": {

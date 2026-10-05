@@ -6,6 +6,7 @@ import { createConfig, WagmiProvider } from "@privy-io/wagmi";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { type ReactNode, useMemo, useState } from "react";
 import { http, useAccount, useSwitchChain, useWriteContract } from "wagmi";
+import type { EIP1193Provider } from "viem";
 import { deriveState, viemChain, type WalletSession, WalletSessionContext } from "./session";
 
 interface WalletProviderProps {
@@ -43,7 +44,7 @@ function PrivySessionBridge({
       setError(loginErrorMessage(code));
     },
   });
-  const { address, chainId } = useAccount();
+  const { address, chainId, connector } = useAccount();
   const { switchChain, isPending: switching } = useSwitchChain();
   const { writeContractAsync } = useWriteContract();
 
@@ -84,6 +85,11 @@ function PrivySessionBridge({
         ...request,
         chainId: target.id,
       } as unknown as Parameters<typeof writeContractAsync>[0]),
+    walletRequest: async (method, params) => {
+      if (!connector) throw new Error("The wallet is not connected.");
+      const provider = (await connector.getProvider()) as EIP1193Provider;
+      return provider.request({ method, params } as never);
+    },
   };
   return <WalletSessionContext.Provider value={session}>{children}</WalletSessionContext.Provider>;
 }
@@ -110,6 +116,7 @@ function UnconfiguredSession({
     switchChain: () => undefined,
     getAccessToken: () => Promise.resolve(null),
     writeContract: () => Promise.reject(new Error("Wallet login is not configured.")),
+    walletRequest: () => Promise.reject(new Error("Wallet login is not configured.")),
   };
   return <WalletSessionContext.Provider value={session}>{children}</WalletSessionContext.Provider>;
 }

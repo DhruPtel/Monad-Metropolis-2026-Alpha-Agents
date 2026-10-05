@@ -2,6 +2,7 @@ import type { MintState } from "@alpha-agents/ui";
 import { type Address, BaseError, ContractFunctionRevertedError, type Hex } from "viem";
 import { isUserRejection } from "@/auth/session";
 import type { MintClaim } from "./agent-nft";
+import type { NetworkCheck } from "./network-check";
 
 /**
  * The mint, step by step (P1-U11): ask the claim route for a claim, have the
@@ -11,6 +12,11 @@ import type { MintClaim } from "./agent-nft";
  */
 export interface MintFlowDeps {
   readonly wallet: Address;
+  /**
+   * Confirms the wallet is on the network the app reads (network-check.ts),
+   * before a claim is requested or anything is sent (L-53).
+   */
+  readonly checkNetwork: () => Promise<NetworkCheck>;
   /** POSTs to /api/mint-claim; resolves to the HTTP status and JSON body. */
   readonly requestClaim: (wallet: Address) => Promise<{ status: number; body: unknown }>;
   /** Sends mintWithClaim from the wallet; resolves to the transaction hash. */
@@ -55,6 +61,13 @@ export async function runMint(
   };
 
   report({ state: "claiming" });
+  const network = await deps.checkNetwork().catch((): NetworkCheck => ({
+    ok: false,
+    reason: "wallet-unreachable",
+    message: "Could not check which network your wallet is on. Try again.",
+  }));
+  if (!network.ok) return finish({ state: "error", message: network.message });
+
   let claim: MintClaim;
   try {
     const { status, body } = await deps.requestClaim(deps.wallet);

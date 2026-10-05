@@ -41,6 +41,11 @@ export interface MockWalletHandle {
   setAccount(address: Address): void;
   /** Makes the next transaction fail as declined in the wallet (EIP-1193 4001). */
   rejectNextWrite(): void;
+  /**
+   * Points the wallet's network at another RPC, as a MetaMask network whose
+   * RPC URL is not the app's does (L-53): reads and sends go there.
+   */
+  setRpcUrl(url: string): void;
 }
 
 /** What MetaMask throws when the user declines a request. */
@@ -67,6 +72,7 @@ export function WalletProvider({
   const [failNext, setFailNext] = useState(false);
   const [account, setAccount] = useState<Address>(MOCK_WALLET_ADDRESS);
   const [rejectNext, setRejectNext] = useState(false);
+  const [rpcUrl, setRpcUrl] = useState(target.browserRpcUrl);
 
   useEffect(() => {
     window.__mockWallet = {
@@ -75,6 +81,7 @@ export function WalletProvider({
       failNextLogin: () => setFailNext(true),
       setAccount: (address) => setAccount(address),
       rejectNextWrite: () => setRejectNext(true),
+      setRpcUrl: (url) => setRpcUrl(url),
     };
     return () => {
       delete window.__mockWallet;
@@ -116,8 +123,9 @@ export function WalletProvider({
     switchChain: () =>
       setMock((m) => (m.status === "connected" ? { ...m, chainId: target.id } : m)),
     getAccessToken: () => Promise.resolve(mock.status === "connected" ? MOCK_ACCESS_TOKEN : null),
-    // Sends from the mock address through the fork's RPC (eth_sendTransaction);
-    // the end-to-end test makes anvil impersonate and fund that address first.
+    // Sends from the mock address through the wallet's RPC, the fork's unless a
+    // test points it elsewhere (eth_sendTransaction); the end-to-end test makes
+    // anvil impersonate and fund that address first.
     writeContract: (request) => {
       if (mock.status !== "connected") {
         return Promise.reject(new Error("The wallet is not connected."));
@@ -128,10 +136,21 @@ export function WalletProvider({
       }
       const client = createWalletClient({
         chain: viemChain(target),
-        transport: http(target.browserRpcUrl),
+        transport: http(rpcUrl),
         account,
       });
       return client.writeContract(request as unknown as Parameters<typeof client.writeContract>[0]);
+    },
+    walletRequest: async (method, params) => {
+      if (mock.status !== "connected") throw new Error("The wallet is not connected.");
+      const res = await fetch(rpcUrl, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
+      });
+      const body = (await res.json()) as { result?: unknown; error?: { message?: string } };
+      if (body.error) throw new Error(body.error.message ?? `${method} failed`);
+      return body.result;
     },
   };
   return <WalletSessionContext.Provider value={session}>{children}</WalletSessionContext.Provider>;

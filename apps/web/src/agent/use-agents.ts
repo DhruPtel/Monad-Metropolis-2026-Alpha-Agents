@@ -7,6 +7,7 @@ import { useWalletSession } from "@/auth/session";
 import { AGENT_NFT_ABI, type MintClaim, agentNftDeployment } from "./agent-nft";
 import { type AgentView, chainClient, ownedAgents, readAgent } from "./chain";
 import { type MintProgress, runMint } from "./mint-flow";
+import { checkWalletNetwork } from "./network-check";
 
 /** How often ownership is re-read from the chain while the page is open. */
 const OWNERSHIP_POLL_MS = 15_000;
@@ -92,6 +93,14 @@ export function useMint(environment: EnvironmentId, onChange: () => void): Mint 
     void runMint(
       {
         wallet: address,
+        checkNetwork: () =>
+          checkWalletNetwork({
+            wallet: wallet.walletRequest,
+            app: (method, params) => client.request({ method, params } as never),
+            target: wallet.target,
+            walletChainId: wallet.chainId,
+            contract: deployment.address,
+          }),
         requestClaim: async (forWallet: Address) => {
           const token = await wallet.getAccessToken();
           const res = await fetch("/api/mint-claim", {
