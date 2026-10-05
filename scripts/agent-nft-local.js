@@ -119,7 +119,7 @@ async function mint(nft) {
     functionName: "tbaOf",
     args: [id],
   });
-  console.log(`minted agent ${id} to fresh wallet ${minter}`);
+  console.log(`minted agent ${id} to fresh wallet ${minter} (gas ${receipt.gasUsed})`);
   console.log(`token-bound account ${tba}`);
   console.log(`unrevealed; next: pnpm agent-nft:local reveal`);
 }
@@ -170,7 +170,13 @@ async function reveal(nft) {
     await rpc(ANVIL_URL, "anvil_stopImpersonatingAccount", [ENTROPY.local]);
     console.log(`delivered random number ${randomNumber} as Pyth Entropy`);
   }
-  await send(LOCAL_ROLES.admin, { address: nft, abi, functionName: "reveal", args: [1000n] });
+  const applied = await send(LOCAL_ROLES.admin, {
+    address: nft,
+    abi,
+    functionName: "reveal",
+    args: [1000n],
+  });
+  console.log(`applied the reveal (gas ${applied.gasUsed})`);
   for (let id = BigInt(next); id <= BigInt(batchLast); id++) {
     console.log(await describe(nft, id));
   }

@@ -57,7 +57,7 @@ Prerequisites:
 pnpm run doctor   # check prerequisites; never prints the RPC URL
 pnpm dev:up       # start Postgres, Redis and the anvil fork
 pnpm dev:status   # health of each service, and anvil's chain ID, network and block
-pnpm test:fork    # fork smoke tests against the running fork
+pnpm test:fork    # fork tests and the address book check against the running fork
 pnpm dev:down     # stop everything; database volumes are kept
 pnpm dev:reset    # stop everything and delete the database volumes (asks first)
 ```
@@ -107,16 +107,30 @@ Configuration is loaded by `@alpha-agents/config` (`packages/config`). A service
 
 Every service imports its rules from one place under `packages/`:
 
-| Package                    | What it defines                                                                                                                                                                    |
-| -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `@alpha-agents/config`     | Environments, the config loader and the mainnet signing guard                                                                                                                      |
-| `@alpha-agents/domain`     | Amounts (bigints with the scale in the type), IDs, tiers, accounts, assets, the canonical mode model, the tool registry, typed intents, reason codes, records and the address book |
-| `@alpha-agents/policy`     | The launch hard limits and the offchain pre-checks; the Executor contract stays the final authority                                                                                |
-| `@alpha-agents/skills`     | The skill.json manifest schema and its validator against the tool registry                                                                                                         |
-| `@alpha-agents/workflows`  | The workflow spec schema and validator                                                                                                                                             |
-| `@alpha-agents/accounting` | Journal, valuation and credits types                                                                                                                                               |
+| Package                    | What it defines                                                                                                                                                                                                            |
+| -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `@alpha-agents/config`     | Environments, the config loader and the mainnet signing guard                                                                                                                                                              |
+| `@alpha-agents/domain`     | Amounts (bigints with the scale in the type), IDs, tiers, species, accounts, assets, the canonical mode model, the tool registry, typed intents, reason codes, records, token-bound account addresses and the address book |
+| `@alpha-agents/policy`     | The launch hard limits and the offchain pre-checks; the Executor contract stays the final authority                                                                                                                        |
+| `@alpha-agents/skills`     | The skill.json manifest schema and its validator against the tool registry                                                                                                                                                 |
+| `@alpha-agents/workflows`  | The workflow spec schema and validator                                                                                                                                                                                     |
+| `@alpha-agents/accounting` | Journal, valuation and credits types                                                                                                                                                                                       |
 
-The address book (`packages/domain/src/address-book.ts`) lists every external contract the plan names, per environment, with its source, a status and any open question. An entry is `verified` only if it had code on the local fork at the pinned block; `pnpm test:fork` re-checks every verified entry, and `signingAddress` refuses anything unverified. The policy reason codes and their messages are in `packages/domain/src/reasons.ts`, and the limits table is in `packages/policy/README.md`.
+The address book (`packages/domain/src/address-book.ts`) lists every external contract the plan names, and every contract we deploy, per environment, with its source, a status and any open question. An external entry is `verified` only if it had code on the local fork at the pinned block. Our own contracts are verified only for `local`, at their deterministic fork address: `pnpm test:fork` deploys them inside a snapshot, checks them, and reverts. `signingAddress` refuses anything unverified. The policy reason codes and their messages are in `packages/domain/src/reasons.ts`, and the limits table is in `packages/policy/README.md`.
+
+## AgentNFT (P1-U3)
+
+`chains/monad/src/AgentNFT.sol` is the agent NFT: 1,000 agents across 25 species, a free two-step mint (mint, then a reveal from Pyth Entropy), one mint per wallet behind a signed claim, a Tokenbound account per agent, ownership epochs, escrow-only transfers, onchain metadata and 5% royalties. The randomness research is `evidence/p1-u3/RANDOMNESS.md` and the gas report `evidence/p1-u3/GAS.md`.
+
+```sh
+pnpm deploy:agent-nft           # deploy to the local fork (deterministic; a second run finds it)
+pnpm deploy:agent-nft testnet   # Monad testnet, with MONAD_TESTNET_RPC_URL and TESTNET_DEPLOYER_PRIVATE_KEY in .env
+pnpm agent-nft:local mint       # mint with a claim signed by the local signer, from a fresh wallet
+pnpm agent-nft:local reveal     # request a reveal, deliver a number as Entropy, apply it
+pnpm agent-nft:local show 1     # print agent 1 and its decoded tokenURI
+```
+
+Locally, anvil account 0 is the admin, account 1 the claim signer and account 2 the treasury. Entropy's keeper does not serve the fork, so the helper delivers the random number by impersonating the Entropy contract; the request itself goes to the real Entropy contract.
 
 ## Web app and design system
 
