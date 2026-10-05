@@ -5,7 +5,9 @@ import { SlotHex } from "./slot-hex";
  * An agent's 2D art (P1-U11): the species image, or a placeholder styled by
  * tier when the species has no art yet, or the unrevealed placeholder before
  * reveal. With `slots`, the skill slots sit on the art, which is how a species
- * without a 3D model shows them (D-188).
+ * without a 3D model shows them (D-188). A placeholder with slots moves its
+ * label and note into a caption below the art, so a slot never covers text,
+ * however small the art is drawn.
  */
 export type ArtTier = "base" | "medium" | "pro";
 
@@ -22,9 +24,15 @@ interface SpeciesArtProps {
 }
 
 const TIER_FRAME: Readonly<Record<ArtTier, string>> = {
-  base: "border-border-strong text-foreground-muted",
-  medium: "border-rare/60 text-rare",
-  pro: "border-detail/60 text-detail",
+  base: "border-border-strong",
+  medium: "border-rare/60",
+  pro: "border-detail/60",
+};
+
+const TIER_TEXT: Readonly<Record<ArtTier, string>> = {
+  base: "text-foreground-muted",
+  medium: "text-rare",
+  pro: "text-detail",
 };
 
 const TIER_LABEL: Readonly<Record<ArtTier, string>> = {
@@ -44,12 +52,40 @@ export function slotPositionsOnArt(count: number): { left: string; top: string }
   });
 }
 
-function Placeholder({ tier, speciesName }: { tier: ArtTier | null; speciesName: string | null }) {
+/** The placeholder's words: the tier and species (or "Unrevealed") and the note. */
+function PlaceholderText({
+  tier,
+  speciesName,
+}: {
+  tier: ArtTier | null;
+  speciesName: string | null;
+}) {
+  return (
+    <>
+      <span className="font-mono text-2xs tracking-label uppercase">
+        {tier ? `${TIER_LABEL[tier]} · ${speciesName ?? ""}` : "Unrevealed"}
+      </span>
+      {tier ? <span className="text-2xs text-foreground-subtle">Art coming soon</span> : null}
+    </>
+  );
+}
+
+function Placeholder({
+  tier,
+  speciesName,
+  withText,
+}: {
+  tier: ArtTier | null;
+  speciesName: string | null;
+  withText: boolean;
+}) {
   return (
     <div
       className={cn(
         "flex size-full flex-col items-center justify-center gap-2 rounded-md border bg-surface",
-        tier ? TIER_FRAME[tier] : "border-dashed border-primary-muted text-primary",
+        tier
+          ? [TIER_FRAME[tier], TIER_TEXT[tier]]
+          : "border-dashed border-primary-muted text-primary",
       )}
     >
       <svg viewBox="0 0 44 44" aria-hidden className="size-16 opacity-80">
@@ -63,38 +99,48 @@ function Placeholder({ tier, speciesName }: { tier: ArtTier | null; speciesName:
           </text>
         )}
       </svg>
-      <span className="font-mono text-2xs tracking-label uppercase">
-        {tier ? `${TIER_LABEL[tier]} · ${speciesName ?? ""}` : "Unrevealed"}
-      </span>
-      {tier ? <span className="text-2xs text-foreground-subtle">Art coming soon</span> : null}
+      {withText ? <PlaceholderText tier={tier} speciesName={speciesName} /> : null}
     </div>
   );
 }
 
 function SpeciesArt({ image, speciesName, tier, slots = 0, className }: SpeciesArtProps) {
   const alt = speciesName ? `${speciesName} agent` : "Unrevealed agent";
+  const caption = !image && slots > 0;
   return (
-    <div data-slot="species-art" className={cn("relative aspect-square w-full", className)}>
-      {image ? (
-        // A plain img: the art is a small static file served by the app.
-        <img src={image} alt={alt} className="size-full rounded-md object-cover" />
-      ) : (
-        <div role="img" aria-label={alt} className="size-full">
-          <Placeholder tier={tier} speciesName={speciesName} />
-        </div>
-      )}
-      {slots > 0 ? (
-        <ul aria-label="Skill slots" className="absolute inset-0">
-          {slotPositionsOnArt(slots).map((pos, i) => (
-            <li
-              key={i}
-              className="absolute -translate-x-1/2 -translate-y-1/2"
-              style={{ left: pos.left, top: pos.top }}
-            >
-              <SlotHex index={i} state="empty" />
-            </li>
-          ))}
-        </ul>
+    <div data-slot="species-art" className={cn("flex w-full flex-col gap-2", className)}>
+      <div className="relative aspect-square w-full">
+        {image ? (
+          // A plain img: the art is a small static file served by the app.
+          <img src={image} alt={alt} className="size-full rounded-md object-cover" />
+        ) : (
+          <div role="img" aria-label={alt} className="size-full">
+            <Placeholder tier={tier} speciesName={speciesName} withText={!caption} />
+          </div>
+        )}
+        {slots > 0 ? (
+          <ul aria-label="Skill slots" className="absolute inset-0">
+            {slotPositionsOnArt(slots).map((pos, i) => (
+              <li
+                key={i}
+                className="absolute -translate-x-1/2 -translate-y-1/2"
+                style={{ left: pos.left, top: pos.top }}
+              >
+                <SlotHex index={i} state="empty" />
+              </li>
+            ))}
+          </ul>
+        ) : null}
+      </div>
+      {caption ? (
+        <p
+          className={cn(
+            "flex flex-col items-center gap-1 text-center",
+            tier ? TIER_TEXT[tier] : "text-primary",
+          )}
+        >
+          <PlaceholderText tier={tier} speciesName={speciesName} />
+        </p>
       ) : null}
     </div>
   );

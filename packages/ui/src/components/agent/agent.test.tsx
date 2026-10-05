@@ -48,6 +48,17 @@ describe("SpeciesArt", () => {
     expect(within(list).getAllByRole("img", { name: /^Slot \d: empty$/ })).toHaveLength(n);
   });
 
+  it("moves a placeholder's words below the art when slots sit on it", () => {
+    render(<SpeciesArt image={null} speciesName="Ant" tier="base" slots={3} />);
+    const art = screen.getByRole("img", { name: "Ant agent" });
+    expect(art).not.toHaveTextContent("Base · Ant");
+    expect(art).not.toHaveTextContent("Art coming soon");
+    const caption = screen.getByText("Base · Ant").closest("p");
+    expect(caption).not.toBeNull();
+    expect(caption).toHaveTextContent("Art coming soon");
+    expect(art.parentElement?.contains(caption)).toBe(false);
+  });
+
   it("spreads slots round the art, slot 1 at the top centre, all inside it", () => {
     const positions = slotPositionsOnArt(8);
     expect(positions[0]).toEqual({ left: "50.00%", top: "10.00%" });

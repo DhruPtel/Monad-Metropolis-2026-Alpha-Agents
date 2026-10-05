@@ -56,3 +56,38 @@ test("loads every font from its own origin", async ({ page }) => {
   expect(fonts.length).toBeGreaterThan(0);
   expect(fonts.filter((url) => new URL(url).origin !== origin)).toEqual([]);
 });
+
+/** True when two boxes overlap by more than a hairline. */
+function overlaps(
+  a: { x: number; y: number; width: number; height: number },
+  b: { x: number; y: number; width: number; height: number },
+) {
+  const x = Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x);
+  const y = Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y);
+  return x > 0.5 && y > 0.5;
+}
+
+test("slot markers on the species art never cover its label or note", async ({ page }) => {
+  await openDesign(page);
+  const arts = page.getByTestId("species-art").locator("[data-slot=species-art]");
+  const count = await arts.count();
+  expect(count).toBeGreaterThan(0);
+  const covered: string[] = [];
+  for (let i = 0; i < count; i++) {
+    const art = arts.nth(i);
+    const texts = art.getByText(/ · |Art coming soon|Unrevealed/);
+    const slots = art.locator("[data-slot=slot-hex]");
+    for (let t = 0; t < (await texts.count()); t++) {
+      const text = texts.nth(t);
+      const textBox = await text.boundingBox();
+      if (!textBox) continue;
+      for (let s = 0; s < (await slots.count()); s++) {
+        const slotBox = await slots.nth(s).boundingBox();
+        if (slotBox && overlaps(textBox, slotBox)) {
+          covered.push(`art ${i + 1}: slot ${s + 1} covers "${await text.textContent()}"`);
+        }
+      }
+    }
+  }
+  expect(covered).toEqual([]);
+});
