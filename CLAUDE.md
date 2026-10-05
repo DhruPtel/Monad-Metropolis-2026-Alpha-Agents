@@ -12,6 +12,7 @@ Alpha Agents is an onchain financial management platform on Monad where AI agent
 ## Working rules
 - Build one unit at a time, exactly as scoped in its unit prompt. Put anything out of scope in the LOGS.md entry as a suggestion.
 - Read LESSONS.md before starting any unit.
+- Before any unit that touches wallets, networks, or transactions, read the "Wallets and networks: read first" section at the top of LESSONS.md, and follow its rules checklist.
 - Testnet and local forks only. Never use real funds or mainnet keys unless a unit prompt explicitly says so.
 - Never print, log, or commit secrets. Keys live only in .env, which is gitignored.
 - Clean-room rule: no code copied from BoringVault, Morpho, Zodiac, monad-agent-kit, or Bankr. Patterns only.

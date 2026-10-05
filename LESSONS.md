@@ -1,6 +1,93 @@
 # Alpha Agents: Lessons
 
-One entry for every bug found and fixed, newest at the bottom. Every unit session reads this file first. Append only. Format:
+## Wallets and networks: read first
+
+Pinned above the numbered lessons by owner decision (D-196): the one exception to this file being newest at the bottom. Read it before any unit that touches wallets, networks or transactions. Marked "verified" means checked on chain, in code or in git; "reported" means the owner saw it in the browser.
+
+### What happened (2026-10-05, Pacific time)
+
+1. 11:50: P1-U11 was handed off. The local fork answered chain ID 143, the same as Monad mainnet.
+2. 12:01: the owner minted on /configure with MetaMask. MetaMask showed the transaction confirmed; the app said "The mint transaction failed." Verified: the fork had no transaction from the wallet. On Monad mainnet, where the wallet held 0 MON, a type-4 transaction (0x8bcc3d10...) sent by a relayer carried the mint call to the AgentNFT address, which has no code on mainnet, so it "succeeded" doing nothing. It also set an EIP-7702 delegation on the owner's mainnet account to 0x63c0c19a...e32b, which is still there.
+3. 12:19 to 12:32: the fork moved to its own chain ID, 143143 (56d4df0), the app gained a wallet network guard (789af6d) and a named "sent to a different network" failure (4c49dab), and the README gained the MetaMask network steps (1dd5cc0).
+4. Reported: MetaMask would not change the existing chain 143 entry's chain ID, the renamed entry kept intercepting, and the network could not be added from the site; it had to be added by hand. The switch buttons then did nothing while the app said the wallet was on Monad Testnet.
+5. 13:03: the switch flow was rebuilt to reach the wallet and show every outcome (e28f012, c07da24).
+6. Reported: the owner moved to OKX, which had taken over `window.ethereum`. With OKX correctly on the fork, the guard blocked the mint with a message that contradicted itself.
+7. 13:27: the guard was rebuilt on a fixed block (ead099e). A unit test run during the task had reset the fork and removed AgentNFT (L-58); the live suite's setup redeployed it.
+8. The owner minted and revealed. Verified: agent 1 on the fork is the bee (species 14), owned by 0x683e...5f76.
+
+### Root causes
+
+**1. The fork shared chain ID 143 with Monad mainnet** (L-53, D-195).
+- How it showed up: a confirmed transaction in MetaMask, nothing on the fork, and an EIP-7702 delegation on the owner's mainnet account.
+- Why: wallets and their services pick the network by chain ID. With no MON on chain 143, MetaMask sent the transaction through its gasless relay, which runs on MetaMask's servers for Monad mainnet whatever custom RPC is set, and upgraded the account to a smart account to do it.
+- Fix: the fork answers 143143 and keeps Monad's EVM (`--network monad`); the app checks the wallet's network before sending and names a transaction that landed elsewhere.
+
+**2. MetaMask's network model kept the old entry in the way** (reported).
+- How it showed up: the renamed chain 143 entry kept taking requests meant for the fork.
+- Why: MetaMask cannot change a saved network's chain ID, keeps a network per site separately from the one in its main view, and does not let two networks share one RPC URL, so an entry for 143 pointed at 127.0.0.1:8545 blocks a new entry for 143143 on the same URL.
+- Fix: keep chain 143 on Monad's official RPC, add the fork as its own network (README "Wallet on the local fork"), and the switch flow now tells the user when MetaMask still reports another network for the site.
+
+**3. A site cannot add a network whose RPC is http** (reported).
+- How it showed up: no add prompt for the fork; it had to be added by hand.
+- Why: MetaMask accepted wallet_addEthereumChain from the site only with an https RPC URL (reported), and the fork is http://127.0.0.1:8545. Privy's own add path also sends an empty explorer URL, which is not a valid URL.
+- Fix: the README gives the exact network to add by hand, and when the wallet refuses to add the local network the switch message now gives those settings too; the app's add request has no empty explorer URL.
+
+**4. A second extension silently owned `window.ethereum`** (reported).
+- How it showed up: console tests run in the browser talked to OKX instead of MetaMask, and the "MetaMask" session behaved like OKX.
+- Why: every wallet extension competes for `window.ethereum`, and the last one to load wins; OKX can also present itself as MetaMask. Verified: our app code has never used `window.ethereum` (none in the tree or in git history); every wallet call goes through the connected connector's provider.
+- Fix: no app change was needed; the rule below keeps it that way, and console checks must use the connected provider, not `window.ethereum`.
+
+**5. The switch buttons ignored their results** (L-55).
+- How it showed up: clicking did nothing and no prompt appeared.
+- Why: the buttons fired wagmi's `switchChain` and dropped the promise; wagmi waits for a chainChanged event that may never come, and errors went to hook state nothing showed. The mock wallet switched instantly, so tests never saw it.
+- Fix: `switchWalletChain` asks the wallet's provider, adds the chain on 4902, confirms with eth_chainId, and the prompt shows every outcome; the app reads the chain from the provider and keeps wagmi in step.
+
+**6. The network guard compared "latest" blocks** (L-57).
+- How it showed up: a correct OKX setup was blocked with "Your wallet is on a network that reports chain 143143, not Monad (local fork)".
+- Why: wallets cache and poll "latest" on their own schedule, a block from an earlier fork run has another hash, a wallet that did not answer was counted as another network, and two different failures shared one message. Verified: the pinned block's hash is identical on the fork and on mainnet, because the fork copies mainnet's history, so a block check alone cannot tell them apart.
+- Fix: the guard checks the chain ID, the hash of one fixed block (the pin) and AgentNFT's code, all through the wallet's provider, with one plain message per failure.
+
+**7. Test runs reset the shared fork** (L-58).
+- How it showed up: AgentNFT disappeared from the running fork during a task; a playtest would lose its deployment, balances and agents.
+- Why: the fork integration test calls anvil_reset, and a reset clears every snapshot, so the suite's revert could not bring anything back.
+- Fix: the suite dumps the fork's state first and the reset test loads it back, asserting the head, AgentNFT's code and a balance match; the `afterAll` restores again if needed. Verified on the owner's fork with agent 1 on it: two runs left it identical.
+
+**8. The masked Privy secret failed only on a later server path** (reported; consistent with the code).
+- How it showed up: login worked, and a later server step that used the secret failed.
+- Why: the session check verifies tokens with the key Privy publishes for the app ID, which needs no secret; the claim route's linked-wallet lookup is the first call that uses the secret. A dashboard copy with asterisks passes the first and fails the second. Verified today: `.env` holds a 105-character secret with no asterisks.
+- Fix: the claim route answers 503 `privy_unavailable` with "check PRIVY_APP_SECRET ... not the dashboard's masked copy" instead of a bare 500.
+
+### Rules for every unit that touches wallets or transactions
+
+- [ ] Never use `window.ethereum` once a wallet is connected; use the connected connector's provider.
+- [ ] Send, read receipts and check the network through that same provider, and read the app's own state through the app's RPC; compare them only on fixed data (chain ID, a fixed block, contract code), never on "latest".
+- [ ] Never let a local or test chain share a real chain's ID.
+- [ ] Map wallet error codes to plain messages: 4001 declined, 4902 unknown chain (add it, then switch), -32002 a request is already open, -32603 with an inner 4902 as unknown chain; show any other error's text.
+- [ ] Never fail silently: every wallet request shows that it is waiting, what happened, or why it failed, and every message says which check failed.
+- [ ] Confirm a wallet action by reading the wallet's state afterwards (a switch by eth_chainId, a send by its receipt).
+- [ ] Give the mock wallet the real wallet's failure modes, and test each one.
+- [ ] Tests must leave shared dev state as they found it: snapshot and revert, or dump and load around a reset.
+
+### Mainnet and testnet risks for real users
+
+| Risk | What goes wrong | How the app must handle it |
+| ---- | --------------- | -------------------------- |
+| Several wallets installed | The wrong extension answers, or Privy's MetaMask option opens another wallet that imitates it | Use EIP-6963 discovery through Privy, show the connected wallet's name and address, and run every call through the connected provider |
+| Smart accounts and EIP-7702 delegations | An address has code; contracts that call receiver hooks or check `code.length` treat it as a contract; signatures may be smart-account signatures | AgentNFT mints with `_mint` (no receiver hook) and its agent-account check falls back to "not an agent" for other code (verified in the source); verify signatures that may come from smart accounts with EIP-1271 as well as ECDSA; show when a wallet is delegated |
+| Gas sponsorship relays | The wallet sends through its own relayer: the transaction hash, the sender and the timing differ from a direct send, and it may go to another network | Confirm the network before sending, follow the receipt on the app's network, and say plainly when it landed somewhere else |
+| Users on the wrong network | Actions go to another chain or fail | Block actions until the chain ID matches, offer one switch with every outcome shown, and confirm the switch by reading the chain |
+| Wallets behave differently | 4902 arrives wrapped (-32603), add prompts differ or are missing, some switch without an event, some refuse http RPCs | Handle every known code shape, confirm by reading state rather than waiting for events, and test each supported wallet |
+| A real network's public RPC lags | The app's RPC is a block behind the wallet's | Compare only fixed data, and wait a grace period before calling a receipt missing |
+
+### Wallet compatibility test before the beta
+
+Before PB-U1, on Monad testnet, run the mint, the network switch and a transfer with: MetaMask with smart accounts off; MetaMask with smart accounts on and an EIP-7702 delegation; OKX alone; MetaMask and OKX installed together (each chosen in turn); and one mobile wallet through WalletConnect. For each, check: the connected wallet's name and address; the network check and every switch outcome (approve, decline, unknown chain, request already open); that the mint lands on testnet and appears in the portal; that a gas-sponsored send is detected and either works or is explained; and that the console shows no errors. It is part of the widening pass W-1 in BUILD_PLAN.md.
+
+---
+
+## Numbered lessons
+
+One entry for every bug found and fixed, newest at the bottom (the pinned section above is the one exception, D-196). Every unit session reads this file first. Append only. Format:
 
 ## L-[number]: [short title]
 Unit: [unit ID]
@@ -414,3 +501,17 @@ What happened: AgentNFT had code on the running fork at the start of this task a
 Cause: `pnpm test` includes packages/devenv's fork integration test "resets to the pinned block", which calls anvil_reset on the shared dev fork whenever one is running, and a reset removes every block after the pin. The test then snapshots the reset state for its cleanup, so it does not restore what was there.
 Fix: None in code: the owner's fork was redeployed by the live suite's setup, and the guard now says "Deploy it with pnpm deploy:agent-nft" when AgentNFT is missing on the app's side. The reset test should restore the fork it found (snapshot before resetting and revert after) in a later unit.
 Lesson: A test that resets shared state must put back what it found, and running the unit suite during a playtest is a state change, not a read.
+
+## L-59: drei Html roots in the 3D viewer raced React
+Unit: P1-U11 (fix after handoff)
+What happened: The Next.js dev overlay on /configure showed "3 Issues". Read from the dev server's own error report (its /_next/mcp get_errors tool), they were: "Attempted to synchronously unmount a root while React was already rendering" from the viewer's loading note; "Failed to execute 'removeChild' on 'Node'"; and a missing `key` warning inside Privy's PrivyProvider.
+Cause: drei's Html mounts a separate React root for each element. The loading note was a Suspense fallback, so React unmounted it in the middle of a render, and Html's cleanup unmounted its root synchronously; the slot markers were Html too, and their cleanup removed nodes React had already removed with the canvas wrapper. The key warning comes from Privy's own minified component and is not in our code.
+Fix: The viewer no longer uses drei Html: slot markers and the loading note are DOM in an overlay Viewer3D owns, moved each frame from the projected socket positions. The live bee test fails on any console or page error from load to unmount (a099230). The Privy warning is left to Privy.
+Lesson: Do not mount drei Html (or any second React root) in a Suspense fallback or anything React may unmount mid-render; draw overlays as DOM the component owns, and assert a clean console in the test that renders them.
+
+## L-60: The live suite only worked while the 1-of-1 bee was unminted
+Unit: P1-U11 (fix after handoff)
+What happened: After the owner revealed agent 1 as the bee, the live suite failed two tests with "species 14 has no slot left on this fork".
+Cause: The deck holds exactly one bee, and the bee tests ask the reveal for it; per-test snapshots cannot give back a bee the playtest minted before the suite started. This is L-15 again: a test that depends on persistent shared state passes only on a fresh fork.
+Fix: When no bee is left, the suite dumps the fork, resets it to the pin, runs on a fresh deployment, then resets again and loads the dump back; the run left the owner's fork identical, agent 1 included (a099230).
+Lesson: A test that needs a scarce on-chain item must check it is available and set up its own when it is not, then restore the shared state it changed.

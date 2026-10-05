@@ -259,3 +259,20 @@ Suggestions:
 - Make the fork integration test's reset restore the fork it found (L-58).
 Bugs: L-57, L-58 (found, not fixed).
 Commit: ead099e, plus the log commit.
+
+## 2026-10-05, P1-U11 (fix after handoff), Wallets and networks: read first
+Status: done
+Summary: The owner asked for a pinned summary of the local mint incident at the top of LESSONS.md (D-196), plus three fixes.
+- Diagnosis: from LOGS, LESSONS L-53 to L-58, git history, the code, the chain and the dev server's error report. Two of the owner's points were corrected by evidence: no app code has ever used `window.ethereum` (none in the tree or in git history; console tests in the browser did), and `.env` now holds a 105-character Privy secret with no asterisks. The owner's mainnet account still carries the EIP-7702 delegation to 0x63c0c19a...e32b.
+- LESSONS.md: "Wallets and networks: read first" sits above the numbered lessons: the timeline, eight root causes (each with how it showed up, why and the fix, marked verified or reported), the rules checklist, mainnet and testnet risks with how the app handles each, and the wallet compatibility test. Lessons L-59 and L-60 are new.
+- Plan: D-196 records the exception and the compatibility test; BUILD_PLAN's W-1 row runs the test on testnet before PB-U1; CLAUDE.md requires reading the section before any unit that touches wallets, networks or transactions.
+- L-58 fixed (2b60371): tests that reset the fork restore it from a full state dump; resets retry the L-51 failure. Checked on the owner's fork with agent 1 (the bee): the integration suite twice, the full unit suite and the live suite left it identical.
+- Dev overlay "3 Issues" (L-59, a099230): two were real viewer bugs from drei Html roots and are fixed; the third is a missing `key` warning inside Privy's PrivyProvider, not our code, and is left as it is.
+- Messages (c448e96): the claim route names a Privy secret failure (503 privy_unavailable); a refused network add gives the settings to add it by hand.
+- Live suite (L-60): independent of whether the 1-of-1 bee was minted.
+- Checks: lint, format, typecheck and 854 vitest tests (each commit gated on its own tree by the checks' exit codes); web e2e 72 passed with 2 desktop-only skips and no screenshot changes; the live suite 4 of 4 with no console or page errors. The owner approved stopping their `pnpm dev:web` before the heavy suites.
+Suggestions:
+- Report the PrivyProvider key warning to Privy, or recheck it after the next Privy upgrade.
+- The owner may want to remove the EIP-7702 delegation on 0x683e...5f76 (MetaMask: switch back to a regular account).
+Bugs: L-58 (fixed), L-59, L-60.
+Commit: 2b60371, a099230, c448e96, plus the docs commit.
