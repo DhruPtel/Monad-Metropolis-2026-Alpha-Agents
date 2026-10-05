@@ -8,6 +8,7 @@ export * from "./modes.ts";
 export * from "./reasons.ts";
 export * from "./records.ts";
 export * from "./species.ts";
+export * from "./species-assets.ts";
 export * from "./tiers.ts";
 export * from "./tokenbound.ts";
 export * from "./tools.ts";

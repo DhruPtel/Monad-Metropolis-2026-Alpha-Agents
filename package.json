@@ -34,13 +34,19 @@
     "spike:hermes": "node services/orchestrator/src/spike/run-spike.ts",
     "spike:venues": "node scripts/spikes/p2-u0/run.ts",
     "deploy:agent-nft": "node scripts/deploy-agent-nft.js",
-    "agent-nft:local": "node scripts/agent-nft-local.js"
+    "agent-nft:local": "node scripts/agent-nft-local.js",
+    "assets:build-bee": "node scripts/assets/build-bee-model.ts",
+    "assets:check": "node scripts/assets/check-models.ts"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@gltf-transform/core": "4.5.1",
+    "@gltf-transform/extensions": "4.5.1",
+    "@gltf-transform/functions": "4.5.1",
     "@types/node": "^22",
     "eslint": "^10.11.0",
     "globals": "^17.12.0",
+    "meshoptimizer": "1.3.0",
     "prettier": "^3.9.9",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.71.0",
