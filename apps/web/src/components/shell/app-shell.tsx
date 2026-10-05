@@ -30,7 +30,7 @@ const isActive = (pathname: string, href: string) =>
   href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(`${href}/`);
 
 const navLink = cn(
-  "rounded-md px-2.5 py-2 text-sm font-medium whitespace-nowrap text-foreground-muted transition-colors outline-none",
+  "rounded-md px-2 py-2 text-sm font-medium whitespace-nowrap text-foreground-muted transition-colors outline-none",
   "is-hover:text-foreground is-focus:focus-ring",
   "aria-[current=page]:text-primary",
 );
