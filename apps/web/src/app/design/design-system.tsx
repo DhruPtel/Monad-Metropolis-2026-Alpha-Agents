@@ -5,7 +5,14 @@ import { Bot, Boxes, Copy, Eye, Radio, Users } from "lucide-react";
 import type { ReactNode } from "react";
 import {
   AddressDisplay,
+  AgentCard,
   AmountDisplay,
+  MINT_STATES,
+  MintButton,
+  SLOT_STATES,
+  SlotHex,
+  SpeciesArt,
+  ViewerFrame,
   BetaBanner,
   DemandCounter,
   ReasonMessage,
@@ -416,6 +423,147 @@ function WalletSection() {
         <div className="flex flex-col gap-4" data-testid="login-state-wrong-chain-prompt">
           <WrongChainPrompt targetChainName="Monad (local fork)" currentChainName="Ethereum" />
           <WrongChainPrompt targetChainName="Monad (local fork)" switching />
+        </div>
+      </Specimen>
+    </Section>
+  );
+}
+
+const MINT_STATE_LABELS: Readonly<Record<(typeof MINT_STATES)[number], string>> = {
+  idle: "Idle",
+  claiming: "Getting the claim",
+  signing: "Signing in the wallet",
+  minting: "Minting",
+  "awaiting-reveal": "Waiting for reveal",
+  revealed: "Revealed",
+  rejected: "Rejected in wallet",
+  "claim-refused": "Claim refused",
+  error: "Error",
+};
+
+/** A token-bound account address for the specimens; not a real agent's. */
+const SAMPLE_TBA = "0x6148e658098A14df34Cc79dB6b4128Dc367C7d3E";
+
+function AgentSection() {
+  return (
+    <Section id="agents" title="Agents">
+      <Specimen
+        name="Slot marker"
+        note="The skill slot hexagon. On a 3D model each one rides a named socket; without a model they sit on the art."
+      >
+        <div className="flex flex-wrap gap-6" data-testid="slot-states">
+          {SLOT_STATES.map((state, i) => (
+            <State key={state} label={state}>
+              <SlotHex index={i} state={state} skillName="Momentum scanner" />
+            </State>
+          ))}
+        </div>
+      </Specimen>
+      <Specimen
+        name="Species art"
+        note="The species image, a placeholder styled by tier while a species has no art, and the unrevealed placeholder. With slots, the tier's slots sit on the art."
+      >
+        <div
+          className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5"
+          data-testid="species-art"
+        >
+          <State label="Image, pro, 8 slots">
+            <SpeciesArt image="/species/bee.webp" speciesName="Bee" tier="pro" slots={8} />
+          </State>
+          <State label="Placeholder, base">
+            <SpeciesArt image={null} speciesName="Ant" tier="base" slots={3} />
+          </State>
+          <State label="Placeholder, medium">
+            <SpeciesArt image={null} speciesName="Firefly" tier="medium" slots={5} />
+          </State>
+          <State label="Placeholder, pro">
+            <SpeciesArt image={null} speciesName="Scorpion" tier="pro" />
+          </State>
+          <State label="Unrevealed">
+            <SpeciesArt image={null} speciesName={null} tier={null} />
+          </State>
+        </div>
+      </Specimen>
+      <Specimen
+        name="Viewer frame"
+        note="The frame around the agent viewer: radial background, corner marks, a badge, tools and readouts. The 3D canvas, or the art, goes inside."
+      >
+        <div className="h-80" data-testid="viewer-frame">
+          <ViewerFrame
+            label="Agent viewer"
+            badge={<Tag size="md">#14 Bee</Tag>}
+            tools={
+              <Tag tone="accent" size="md">
+                2D
+              </Tag>
+            }
+            readoutLeft="Pro · Bee"
+            readoutRight="slots 0/8"
+          >
+            <div className="flex size-full items-center justify-center p-10">
+              <SpeciesArt
+                image={null}
+                speciesName="Ant"
+                tier="base"
+                slots={3}
+                className="max-w-56"
+              />
+            </div>
+          </ViewerFrame>
+        </div>
+      </Specimen>
+      <Specimen
+        name="Mint button"
+        note="Every state of minting: the claim, the wallet, the transaction, the reveal, and the three ways it ends early."
+      >
+        <div className={STATE_GRID}>
+          {MINT_STATES.map((state) => (
+            <div key={state} data-testid={`mint-state-${state}`}>
+              <State label={MINT_STATE_LABELS[state]}>
+                <MintButton
+                  state={state}
+                  agentId={14n}
+                  revealedAs="Pro · Bee"
+                  message={
+                    state === "claim-refused"
+                      ? "This wallet has already minted an agent"
+                      : "The transaction reverted"
+                  }
+                  onMint={() => undefined}
+                  onDismiss={() => undefined}
+                />
+              </State>
+            </div>
+          ))}
+        </div>
+      </Specimen>
+      <Specimen
+        name="Agent card"
+        note="An agent NFT: token ID, tier, species, art, token-bound account and owner, with the environment. Before reveal the tier and species say so."
+      >
+        <div className="grid gap-4 sm:grid-cols-2" data-testid="agent-cards">
+          <AgentCard
+            agentId={14n}
+            tier="pro"
+            speciesName="Bee"
+            image="/species/bee.webp"
+            slots={8}
+            tba={SAMPLE_TBA}
+            owner={AGENT_WALLET}
+            ownerEpoch={0n}
+            environment="local fork"
+          />
+          <AgentCard
+            agentId={15n}
+            tier={null}
+            speciesName={null}
+            image={null}
+            slots={0}
+            tba={SAMPLE_TBA}
+            owner={AGENT_WALLET}
+            ownerEpoch={0n}
+            environment="local fork"
+          />
         </div>
       </Specimen>
     </Section>
@@ -921,6 +1069,7 @@ function DesignSystem() {
       <ActionsSection />
       <LabelsSection />
       <WalletSection />
+      <AgentSection />
       <FormsSection />
       <OverlaysSection />
       <DataSection />

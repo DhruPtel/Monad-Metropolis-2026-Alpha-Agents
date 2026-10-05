@@ -22,6 +22,13 @@ export const COLOR_TOKENS = [
   { name: "warning", use: "Stale data, awaiting approval, load failures, amber" },
   { name: "rare", use: "Rare rarity, steel" },
   { name: "viewer-glow", use: "Centre of the 3D viewer background" },
+  { name: "viewer-key-light", use: "3D scene: warm key light" },
+  { name: "viewer-rim-light", use: "3D scene: cool rim light" },
+  { name: "viewer-fill-light", use: "3D scene: overhead fill for reflections" },
+  { name: "viewer-platform", use: "3D scene: platform disc" },
+  { name: "viewer-grid", use: "3D scene: platform grid" },
+  { name: "viewer-grid-major", use: "3D scene: platform major grid line" },
+  { name: "viewer-wing", use: "3D scene: wing-stroke cue" },
 ] as const;
 
 export const TYPE_SCALE = [

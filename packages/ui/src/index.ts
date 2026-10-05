@@ -1,6 +1,11 @@
 // The Alpha Agents design system: tokens (./styles.css), base components and
 // product components, shared by apps/web and apps/console.
 export * from "./components/address-display";
+export * from "./components/agent/agent-card";
+export * from "./components/agent/mint-button";
+export * from "./components/agent/slot-hex";
+export * from "./components/agent/species-art";
+export * from "./components/agent/viewer-frame";
 export * from "./components/amount-display";
 export * from "./components/beta-banner";
 export * from "./components/demand-counter";

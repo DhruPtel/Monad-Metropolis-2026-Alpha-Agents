@@ -46,6 +46,12 @@
   --palette-amber: #e0a800;
   --palette-steel: #8fa9c4;
   --palette-black-scrim: rgb(0 0 0 / 0.6);
+  /* 3D scene only (P1-U11): the prototype's warm key and cool rim lights, the
+     olive major grid line and the pale wing-stroke cue. */
+  --palette-warm-light: #fff2de;
+  --palette-cool-light: #9db4e6;
+  --palette-olive: #3a4a24;
+  --palette-mist: #dde8f5;
 
   /* Type: dense, with a 13px body (text-sm). */
   --type-2xs: 0.6875rem;
@@ -130,6 +136,15 @@
   --rare: var(--palette-steel);
   /* Centre of the 3D viewer's radial background. */
   --viewer-glow: var(--palette-graphite-850);
+  /* The 3D scene reads these at runtime (apps/web viewer): lights, the platform
+     disc, its two grid scales and the wing-stroke cue. */
+  --viewer-key-light: var(--palette-warm-light);
+  --viewer-rim-light: var(--palette-cool-light);
+  --viewer-fill-light: var(--palette-offwhite);
+  --viewer-platform: var(--palette-graphite-850);
+  --viewer-grid: var(--palette-graphite-700);
+  --viewer-grid-major: var(--palette-olive);
+  --viewer-wing: var(--palette-mist);
 
   --focus-ring: var(--palette-lime);
 
@@ -172,6 +187,13 @@
   --color-warning: var(--warning);
   --color-rare: var(--rare);
   --color-viewer-glow: var(--viewer-glow);
+  --color-viewer-key-light: var(--viewer-key-light);
+  --color-viewer-rim-light: var(--viewer-rim-light);
+  --color-viewer-fill-light: var(--viewer-fill-light);
+  --color-viewer-platform: var(--viewer-platform);
+  --color-viewer-grid: var(--viewer-grid);
+  --color-viewer-grid-major: var(--viewer-grid-major);
+  --color-viewer-wing: var(--viewer-wing);
   --color-focus-ring: var(--focus-ring);
   --color-transparent: transparent;
   --color-current: currentColor;
@@ -212,6 +234,8 @@
   --shadow-panel: var(--shadow-panel);
   --shadow-glow: var(--shadow-glow);
   --shadow-selected: var(--shadow-selected);
+  /* A lit slot marker's glow (drop-shadow follows the hexagon's outline). */
+  --drop-shadow-glow: 0 0 7px rgb(182 255 46 / 0.55);
 
   /* transition-* utilities default to the fast duration and the snap easing. */
   --default-transition-duration: var(--motion-fast);
@@ -302,4 +326,9 @@
 @utility numeric {
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
+}
+
+/* The 3D viewer's background: a soft radial glow from the centre (P1-U11). */
+@utility viewer-surface {
+  background: radial-gradient(ellipse at 50% 45%, var(--viewer-glow), var(--background) 72%);
 }
