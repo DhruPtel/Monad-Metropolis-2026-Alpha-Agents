@@ -20,6 +20,12 @@ interface SpeciesArtProps {
   readonly tier: ArtTier | null;
   /** Slot markers to place on the art (the tier's slot count), or 0 for none. */
   readonly slots?: number;
+  /**
+   * A thumbnail beside the species name (the mint page's tier cards): the
+   * placeholder shows only its outline, and the art is hidden from screen
+   * readers, since the name next to it says the same. Takes no slots.
+   */
+  readonly compact?: boolean;
   readonly className?: string;
 }
 
@@ -74,21 +80,28 @@ function Placeholder({
   tier,
   speciesName,
   withText,
+  compact = false,
 }: {
   tier: ArtTier | null;
   speciesName: string | null;
   withText: boolean;
+  compact?: boolean;
 }) {
   return (
     <div
       className={cn(
-        "flex size-full flex-col items-center justify-center gap-2 rounded-md border bg-surface",
+        "flex size-full flex-col items-center justify-center gap-2 border bg-surface",
+        compact ? "rounded-sm" : "rounded-md",
         tier
           ? [TIER_FRAME[tier], TIER_TEXT[tier]]
           : "border-dashed border-primary-muted text-primary",
       )}
     >
-      <svg viewBox="0 0 44 44" aria-hidden className="size-16 opacity-80">
+      <svg
+        viewBox="0 0 44 44"
+        aria-hidden
+        className={cn("opacity-80", compact ? "size-1/2" : "size-16")}
+      >
         <polygon
           points="22,2 39.32,12 39.32,32 22,42 4.68,32 4.68,12"
           className="fill-none stroke-current stroke-[1.25]"
@@ -104,7 +117,30 @@ function Placeholder({
   );
 }
 
-function SpeciesArt({ image, speciesName, tier, slots = 0, className }: SpeciesArtProps) {
+function SpeciesArt({
+  image,
+  speciesName,
+  tier,
+  slots = 0,
+  compact = false,
+  className,
+}: SpeciesArtProps) {
+  if (compact) {
+    return (
+      <div
+        data-slot="species-art"
+        data-compact=""
+        aria-hidden
+        className={cn("aspect-square", className)}
+      >
+        {image ? (
+          <img src={image} alt="" className="size-full rounded-sm object-cover" />
+        ) : (
+          <Placeholder tier={tier} speciesName={speciesName} withText={false} compact />
+        )}
+      </div>
+    );
+  }
   const alt = speciesName ? `${speciesName} agent` : "Unrevealed agent";
   const caption = !image && slots > 0;
   return (

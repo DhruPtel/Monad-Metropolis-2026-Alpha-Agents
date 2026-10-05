@@ -7,11 +7,14 @@ import {
   AddressDisplay,
   AgentCard,
   AmountDisplay,
+  MINT_PANEL_STATES,
   MINT_STATES,
   MintButton,
+  MintPanel,
   SLOT_STATES,
   SlotHex,
   SpeciesArt,
+  TierCard,
   ViewerFrame,
   BetaBanner,
   DemandCounter,
@@ -593,6 +596,90 @@ function AgentSection() {
             ownerEpoch={0n}
             environment="local fork"
           />
+        </div>
+      </Specimen>
+      <Specimen
+        name="Tier card"
+        note="One tier on the mint page: its slots, supply, what is left and the chance per mint, with its species. One-of-ones are marked. Informational: the tier is drawn at reveal."
+      >
+        <div className="grid gap-4 lg:grid-cols-3" data-testid="tier-cards">
+          <TierCard
+            tier="base"
+            slots={3}
+            total="600"
+            remaining={null}
+            remainingBps={0}
+            odds={null}
+            species={[
+              { name: "Ant", image: null, total: 120, remaining: null },
+              { name: "Tick", image: null, total: 120, remaining: null },
+            ]}
+          />
+          <TierCard
+            tier="medium"
+            slots={5}
+            total="300"
+            remaining="0"
+            remainingBps={0}
+            odds="0%"
+            soldOut
+            species={[
+              { name: "Firefly", image: null, total: 37, remaining: 0 },
+              { name: "Moth", image: null, total: 38, remaining: 0 },
+            ]}
+          />
+          <TierCard
+            tier="pro"
+            slots={8}
+            total="100"
+            remaining="98"
+            remainingBps={9800}
+            odds="9.8%"
+            species={[
+              { name: "Bee", image: "/species/bee.webp", total: 1, remaining: 0 },
+              { name: "Praying mantis", image: null, total: 1, remaining: 1 },
+              { name: "Dragonfly", image: null, total: 12, remaining: 11 },
+            ]}
+          />
+        </div>
+      </Specimen>
+      <Specimen
+        name="Mint panel"
+        note="The mint page's panel in every state around the mint button: not open here, logged out, connecting, wrong network, checking, a failed read, ready, already minted, sold out, waiting for reveal and revealed."
+      >
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3" data-testid="mint-panels">
+          {MINT_PANEL_STATES.map((state) => (
+            <div key={state} className="flex flex-col gap-2" data-testid={`mint-panel-${state}`}>
+              <span className="text-xs text-foreground-muted">{state}</span>
+              <MintPanel
+                state={state}
+                mint={{
+                  state:
+                    state === "revealed"
+                      ? "revealed"
+                      : state === "awaiting-reveal"
+                        ? "awaiting-reveal"
+                        : "idle",
+                  agentId: 14n,
+                  revealedAs: "Pro · Bee",
+                  onMint: () => undefined,
+                }}
+                agent={
+                  state === "awaiting-reveal"
+                    ? { id: 14n, tier: null, speciesName: null, image: null }
+                    : { id: 14n, tier: "pro", speciesName: "Bee", image: "/species/bee.webp" }
+                }
+                agentHref="/design#agents"
+                message="AgentNFT is not deployed on Monad Testnet yet."
+                targetNetwork="Monad (local fork)"
+                walletNetwork="Ethereum"
+                maxSupply="1,000"
+                revealNote="On the local fork, reveal it with pnpm agent-nft:local reveal."
+                onConnect={() => undefined}
+                onRetry={() => undefined}
+              />
+            </div>
+          ))}
         </div>
       </Specimen>
     </Section>

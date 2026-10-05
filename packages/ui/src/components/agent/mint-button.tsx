@@ -37,7 +37,7 @@ const BUTTON_LABEL: Readonly<Record<MintState, string>> = {
 
 const BUSY: ReadonlySet<MintState> = new Set(["claiming", "signing", "minting"]);
 
-interface MintButtonProps {
+export interface MintButtonProps {
   readonly state: MintState;
   /** The minted agent, once known. */
   readonly agentId?: bigint | undefined;
