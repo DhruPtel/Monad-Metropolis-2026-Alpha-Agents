@@ -12,10 +12,16 @@
  */
 import { appChain, type EnvironmentId } from "@alpha-agents/config";
 import { type ReactNode, useEffect, useState } from "react";
-import { deriveState, type WalletSession, WalletSessionContext } from "./session";
+import { createWalletClient, http } from "viem";
+import { deriveState, viemChain, type WalletSession, WalletSessionContext } from "./session";
 
-export const MOCK_WALLET_MARKER = "alpha-agents-mock-wallet-e2e-only";
-export const MOCK_WALLET_ADDRESS = "0x00000000000000000000000000000000000e2e01";
+import {
+  MOCK_ACCESS_TOKEN,
+  MOCK_WALLET_ADDRESS,
+  MOCK_WALLET_MARKER,
+} from "./mock-wallet-constants";
+
+export { MOCK_WALLET_ADDRESS, MOCK_WALLET_MARKER };
 const CONNECT_DELAY_MS = 150;
 
 interface MockState {
@@ -96,8 +102,20 @@ export function WalletProvider({
     disconnect: () => setMock({ status: "logged-out" }),
     switchChain: () =>
       setMock((m) => (m.status === "connected" ? { ...m, chainId: target.id } : m)),
-    getAccessToken: () =>
-      Promise.resolve(mock.status === "connected" ? `mock-token-${MOCK_WALLET_MARKER}` : null),
+    getAccessToken: () => Promise.resolve(mock.status === "connected" ? MOCK_ACCESS_TOKEN : null),
+    // Sends from the mock address through the fork's RPC (eth_sendTransaction);
+    // the end-to-end test makes anvil impersonate and fund that address first.
+    writeContract: (request) => {
+      if (mock.status !== "connected") {
+        return Promise.reject(new Error("The wallet is not connected."));
+      }
+      const client = createWalletClient({
+        chain: viemChain(target),
+        transport: http(target.browserRpcUrl),
+        account: MOCK_WALLET_ADDRESS,
+      });
+      return client.writeContract(request as unknown as Parameters<typeof client.writeContract>[0]);
+    },
   };
   return <WalletSessionContext.Provider value={session}>{children}</WalletSessionContext.Provider>;
 }

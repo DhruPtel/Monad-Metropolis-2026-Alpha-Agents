@@ -3,7 +3,15 @@
 import { type AppChain, APP_CHAINS } from "@alpha-agents/config";
 import type { WalletState } from "@alpha-agents/ui";
 import { createContext, useContext } from "react";
-import { defineChain, type Chain } from "viem";
+import { type Abi, type Address, defineChain, type Chain, type Hex } from "viem";
+
+/** A contract call for the wallet to sign and send (P1-U11: the mint). */
+export interface ContractWrite {
+  readonly address: Address;
+  readonly abi: Abi;
+  readonly functionName: string;
+  readonly args: readonly unknown[];
+}
 
 /**
  * The signed-in wallet as the rest of the app sees it (P1-U2). Two providers
@@ -37,6 +45,21 @@ export interface WalletSession {
   switchChain(): void;
   /** A Privy access token for the server session check, or null when logged out. */
   getAccessToken(): Promise<string | null>;
+  /**
+   * Asks the wallet to sign and send a contract call on the target chain and
+   * resolves to the transaction hash. Rejects if the user declines; see
+   * `isUserRejection`.
+   */
+  writeContract(request: ContractWrite): Promise<Hex>;
+}
+
+/** True when an error means the user declined in their wallet (EIP-1193 code 4001). */
+export function isUserRejection(error: unknown): boolean {
+  for (let e: unknown = error; e && typeof e === "object"; e = (e as { cause?: unknown }).cause) {
+    const { code, name } = e as { code?: unknown; name?: unknown };
+    if (code === 4001 || name === "UserRejectedRequestError") return true;
+  }
+  return false;
 }
 
 export const WalletSessionContext = createContext<WalletSession | null>(null);

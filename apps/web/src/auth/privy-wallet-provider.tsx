@@ -5,7 +5,7 @@ import { type PrivyErrorCode, PrivyProvider, useLogin, usePrivy } from "@privy-i
 import { createConfig, WagmiProvider } from "@privy-io/wagmi";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { type ReactNode, useMemo, useState } from "react";
-import { http, useAccount, useSwitchChain } from "wagmi";
+import { http, useAccount, useSwitchChain, useWriteContract } from "wagmi";
 import { deriveState, viemChain, type WalletSession, WalletSessionContext } from "./session";
 
 interface WalletProviderProps {
@@ -45,6 +45,7 @@ function PrivySessionBridge({
   });
   const { address, chainId } = useAccount();
   const { switchChain, isPending: switching } = useSwitchChain();
+  const { writeContractAsync } = useWriteContract();
 
   const state = deriveState({
     initializing: !ready,
@@ -76,6 +77,13 @@ function PrivySessionBridge({
     },
     switchChain: () => switchChain({ chainId: target.id }),
     getAccessToken: () => (authenticated ? getAccessToken() : Promise.resolve(null)),
+    writeContract: (request) =>
+      // The ABI is the caller's own; wagmi's per-function typing does not survive
+      // the generic request, so it is passed through as wagmi's parameters.
+      writeContractAsync({
+        ...request,
+        chainId: target.id,
+      } as unknown as Parameters<typeof writeContractAsync>[0]),
   };
   return <WalletSessionContext.Provider value={session}>{children}</WalletSessionContext.Provider>;
 }
@@ -101,6 +109,7 @@ function UnconfiguredSession({
     disconnect: () => undefined,
     switchChain: () => undefined,
     getAccessToken: () => Promise.resolve(null),
+    writeContract: () => Promise.reject(new Error("Wallet login is not configured.")),
   };
   return <WalletSessionContext.Provider value={session}>{children}</WalletSessionContext.Provider>;
 }
