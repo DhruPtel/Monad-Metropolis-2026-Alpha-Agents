@@ -515,3 +515,31 @@ What happened: After the owner revealed agent 1 as the bee, the live suite faile
 Cause: The deck holds exactly one bee, and the bee tests ask the reveal for it; per-test snapshots cannot give back a bee the playtest minted before the suite started. This is L-15 again: a test that depends on persistent shared state passes only on a fresh fork.
 Fix: When no bee is left, the suite dumps the fork, resets it to the pin, runs on a fresh deployment, then resets again and loads the dump back; the run left the owner's fork identical, agent 1 included (a099230).
 Lesson: A test that needs a scarce on-chain item must check it is available and set up its own when it is not, then restore the shared state it changed.
+
+## L-61: The mint button lagged the panel's reveal
+Unit: P1-U10
+What happened: In the first screenshot run, the panel could show a revealed agent while its mint button still said "Waiting for reveal".
+Cause: Two independent polls saw the reveal: the mint flow's (every 2 seconds) and the page's wallet read (every 3 seconds). The panel took whichever came first, and the button took only the mint flow's.
+Fix: The button's state and its "Pro · Bee" text come from the panel's view, so both change together (f10aea3).
+Lesson: When two reads can report the same event, derive every view of it from one combined value, never from each read separately.
+
+## L-62: One more nav link overflowed the desktop header
+Unit: P1-U10
+What happened: After Mint was added to the nav, the header test (from L-50) failed: the connected header was 29px too wide at 1280px and 1440px.
+Cause: The inline nav had no slack left at the xl breakpoint when connected, and each link added about 60px.
+Fix: Nav links use 8px instead of 10px side padding, which saves 32px; the test passes at 1024, 1279, 1280 and 1440px (fb20706). The slack left is small, so the next link needs a layout change, not tighter padding.
+Lesson: The L-50 measurement test earns its keep: run it whenever the nav changes, and plan for the header's next item before the slack runs out.
+
+## L-63: A fork restored from a state dump has no history
+Unit: P1-U10 (found, not fixed)
+What happened: `pnpm test:fork` ran its 12 forge fork tests and then failed the address book step with "eth_getCode: JSON-RPC error -32602". Every state read below the head (code or balance at block 109670000 or 109670004) answered "BlockOutOfRangeError: block height is 109670005 but requested was 109670000". Block headers, the pinned block's hash included, still served, so the app and the wallet network guard were unaffected.
+Cause: The L-58 and L-60 restores reset the fork and call `anvil_loadState` with a full dump. A throwaway, non-fork anvil showed that a loaded state serves the head and block headers but no historical state: after mining 3 blocks, a dump, a reset and a load, the balance at block 1 fails the same way while the head works. The owner's fork has been restored this way since P1-U11's runs, and this unit's suite runs restored it again.
+Fix: None in code. `test:fork` passes on a fresh fork, run inside the same dump, reset and load, which left the owner's fork as found. The LOGS entry suggests restoring without losing history.
+Lesson: Know what a restore does not bring back: a state dump restores state, not history, so any check that reads at a past block must run before the restore or on its own fork.
+
+## L-64: Three slips in new e2e tests
+Unit: P1-U10
+What happened: Three new tests failed for test reasons, not app reasons. `filter({ hasText: "Bee" })` also matched "Hercules beetle". An owner check compared a checksummed address with the mixed-case mock address and failed on case alone. The live test followed the agent link and found /configure logged out. Separately, the revealed panel capture differed by a 4 by 3 pixel patch at its rounded corner.
+Cause: `hasText` with a string is a case-insensitive substring match; addresses must be compared without case; the link is a full page load, and the mock wallet, unlike a Privy session, does not survive one. The capture differed because an earlier, taller state left the page scrolled, and an antialiased edge rasterizes differently at another offset (L-44).
+Fix: An anchored regex, a lowercase comparison, a reconnect on /configure, and a scroll to the top before every capture; the mint spec then passed three runs in a row and the live suite four (3e03e4a, b5c5b9b).
+Lesson: Match names with anchored patterns, compare addresses without case, remember which state survives a page load in the mock, and fix the scroll offset before an element capture.

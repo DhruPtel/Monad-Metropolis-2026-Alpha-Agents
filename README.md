@@ -165,7 +165,7 @@ Use http://localhost:3000 (not 127.0.0.1; Privy is allowed on localhost only), a
 1. `pnpm dev:up`, then `pnpm deploy:agent-nft` (it prints `AgentNFT on the local fork: 0x60cacA6dE327331b321E140Ae19AcbCc4188Be6E`). A fork started before D-195 answers 143: `pnpm run doctor` says so, and `pnpm dev:down` then `pnpm dev:up` restarts it.
 2. In MetaMask, add the network above by hand (Settings, Networks, Add network, Add a network manually), and select it.
 3. Fund your address on the fork: `cast rpc anvil_setBalance <your address> 0x56BC75E2D63100000 --rpc-url http://127.0.0.1:8545` (100 MON, fork only).
-4. `pnpm dev:web`, open http://localhost:3000/configure, connect, and mint. Before a claim is requested, the app checks through MetaMask that the wallet sees the fork's latest block and AgentNFT's code, and stops with the wallet's real network named if not.
+4. `pnpm dev:web`, open http://localhost:3000/mint, connect, and mint, then follow the link to your agent on /configure. Reveal it with `pnpm agent-nft:local reveal`. Before a claim is requested, the app checks through MetaMask the wallet's chain ID, the pinned block's hash and AgentNFT's code, and stops with the failed check named if one differs.
 
 Do not point MetaMask's Monad (chain 143) network at `http://127.0.0.1:8545`: keep it on Monad's official RPC. On chain 143, a mint went to Monad mainnet through MetaMask's gasless relay, which MetaMask offered because the account had no MON there; the relay runs on MetaMask's servers for chain 143, not through the RPC set in the wallet (L-53).
 
