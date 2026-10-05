@@ -1,0 +1,22 @@
+{
+  "name": "@alpha-agents/db",
+  "version": "0.0.0",
+  "private": true,
+  "description": "The Postgres schema, migrations and typed client shared by the indexer and the control API (D-199).",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./testing": "./src/testing.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p ."
+  },
+  "dependencies": {
+    "@alpha-agents/config": "workspace:^",
+    "kysely": "0.29.6",
+    "pg": "8.23.1"
+  },
+  "devDependencies": {
+    "@types/pg": "8.23.1"
+  }
+}

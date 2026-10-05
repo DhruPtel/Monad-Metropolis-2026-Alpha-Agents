@@ -20,6 +20,9 @@
     "dev:status": "node scripts/dev.js status",
     "dev:down": "node scripts/dev.js down",
     "dev:reset": "node scripts/dev.js reset",
+    "db:migrate": "node scripts/db.js migrate",
+    "db:reset": "node scripts/db.js reset",
+    "allowlist": "node scripts/allowlist.js",
     "test:fork": "node scripts/test-fork.js",
     "env:example": "node scripts/env-example.js",
     "secrets:scan": "node scripts/secrets-scan.js",
@@ -56,6 +59,7 @@
   },
   "dependencies": {
     "@alpha-agents/config": "workspace:^",
+    "@alpha-agents/db": "workspace:^",
     "@alpha-agents/devenv": "workspace:^",
     "@alpha-agents/domain": "workspace:^"
   }
