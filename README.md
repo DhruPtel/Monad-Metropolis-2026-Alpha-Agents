@@ -57,7 +57,7 @@ Prerequisites:
 pnpm run doctor   # check prerequisites; never prints the RPC URL
 pnpm dev:up       # start Postgres, Redis and the anvil fork
 pnpm dev:status   # health of each service, and anvil's chain ID, network and block
-pnpm test:fork    # fork tests and the address book check against the running fork
+pnpm test:fork    # fork tests and the address book check, on a fork of their own on 8546
 pnpm dev:down     # stop everything; database volumes are kept
 pnpm dev:reset    # stop everything and delete the database volumes (asks first)
 ```
@@ -71,6 +71,8 @@ Use `pnpm run doctor`, not `pnpm doctor`: `doctor` is a built-in pnpm command an
 | Redis    | `redis://127.0.0.1:6380`                                            |
 
 Ports bind to 127.0.0.1 only. The Postgres credentials are for local development only. Postgres and Redis ports can be changed with `POSTGRES_PORT` and `REDIS_PORT` in `.env`; Redis defaults to 6380 because a system Redis often holds 6379. anvil writes its log, with the RPC URL redacted, to `.dev/anvil.log`.
+
+Tests that reset a chain or need a fresh deck (`pnpm test:fork`, the fork controls test, the indexer's fork test and `pnpm test:web:live`) start their own anvil fork on another port (8546, or 8548 for the indexer test) and stop it afterwards, so the playtest fork on 8545 is never reset (D-200). Their logs, with the RPC URL redacted, go to `.dev/test-fork-<port>.log`.
 
 ### The pinned fork block
 
@@ -118,7 +120,7 @@ Every service imports its rules from one place under `packages/`:
 | `@alpha-agents/workflows`  | The workflow spec schema and validator                                                                                                                                                                                     |
 | `@alpha-agents/accounting` | Journal, valuation and credits types                                                                                                                                                                                       |
 
-The address book (`packages/domain/src/address-book.ts`) lists every external contract the plan names, and every contract we deploy, per environment, with its source, a status and any open question. An external entry is `verified` only if it had code on the local fork at the pinned block. Our own contracts are verified only for `local`, at their deterministic fork address: `pnpm test:fork` deploys them inside a snapshot, checks them, and reverts. `signingAddress` refuses anything unverified. The policy reason codes and their messages are in `packages/domain/src/reasons.ts`, and the limits table is in `packages/policy/README.md`.
+The address book (`packages/domain/src/address-book.ts`) lists every external contract the plan names, and every contract we deploy, per environment, with its source, a status and any open question. An external entry is `verified` only if it had code on the local fork at the pinned block. Our own contracts are verified only for `local`, at their deterministic fork address: `pnpm test:fork` starts a fork of its own on port 8546, deploys them there and checks them. `signingAddress` refuses anything unverified. The policy reason codes and their messages are in `packages/domain/src/reasons.ts`, and the limits table is in `packages/policy/README.md`.
 
 ## AgentNFT (P1-U3)
 
@@ -165,9 +167,40 @@ Use http://localhost:3000 (not 127.0.0.1; Privy is allowed on localhost only), a
 1. `pnpm dev:up`, then `pnpm deploy:agent-nft` (it prints `AgentNFT on the local fork: 0x60cacA6dE327331b321E140Ae19AcbCc4188Be6E`). A fork started before D-195 answers 143: `pnpm run doctor` says so, and `pnpm dev:down` then `pnpm dev:up` restarts it.
 2. In MetaMask, add the network above by hand (Settings, Networks, Add network, Add a network manually), and select it.
 3. Fund your address on the fork: `cast rpc anvil_setBalance <your address> 0x56BC75E2D63100000 --rpc-url http://127.0.0.1:8545` (100 MON, fork only).
-4. `pnpm dev:web`, open http://localhost:3000/mint, connect, and mint, then follow the link to your agent on /configure. Reveal it with `pnpm agent-nft:local reveal`. Before a claim is requested, the app checks through MetaMask the wallet's chain ID, the pinned block's hash and AgentNFT's code, and stops with the failed check named if one differs.
+4. Start the indexer and the control API (see "Indexer and control API" below), and put your address on the mint allowlist: `pnpm allowlist add <your address>`.
+5. `pnpm dev:web`, open http://localhost:3000/mint, connect, and mint, then follow the link to your agent on /configure. Reveal it with `pnpm agent-nft:local reveal`. A wallet off the allowlist is told so before it can click. Before a claim is requested, the app checks through MetaMask the wallet's chain ID, the pinned block's hash and AgentNFT's code, and stops with the failed check named if one differs.
 
 Do not point MetaMask's Monad (chain 143) network at `http://127.0.0.1:8545`: keep it on Monad's official RPC. On chain 143, a mint went to Monad mainnet through MetaMask's gasless relay, which MetaMask offered because the account had no MON there; the relay runs on MetaMask's servers for chain 143, not through the RPC set in the wallet (L-53).
+
+## Indexer and control API (P1-U4)
+
+The indexer (`services/indexer`) polls the chain's logs into Postgres: every AgentNFT event, the agents projection, and USDC transfers into and out of agents' token-bound accounts, each with its block number and hash, behind a watermark that also holds the last block's hash. A reorg or a rewound fork is detected, rolled back to the newest block the chain still has, and recorded in `indexer.incidents` (D-197). The control API (`apps/control-api`, Hono) serves agents and supply from that index, owner sessions bound to the wallet and ownership epoch, mint eligibility, and the mint claim, signed with `CLAIM_SIGNER_PRIVATE_KEY` for a linked wallet on the allowlist that has not minted (D-198).
+
+```sh
+pnpm db:migrate                 # apply migrations (the indexer and API also do this at start)
+pnpm dev:indexer                # index the local fork; --once to catch up and exit
+pnpm dev:api                    # the control API on http://127.0.0.1:4100
+pnpm allowlist add <address> [note]   # put a wallet on the mint allowlist
+pnpm allowlist remove <address>
+pnpm allowlist list
+pnpm db:reset                   # local only: drop and re-create the indexer and platform schemas
+```
+
+The API needs `CLAIM_SIGNER_PRIVATE_KEY` in `.env` to sign claims: on the local fork it is anvil account 1, AgentNFT's local claim signer (it was named `LOCAL_CLAIM_SIGNER_PRIVATE_KEY` before P1-U4; rename the line). It moves to a KMS signer before the beta. With `PRIVY_APP_ID` and `PRIVY_APP_SECRET` set, the API verifies Privy logins; `API_SESSION_SECRET` has a local default and must be set to a random value anywhere else.
+
+| Route                                 | What it answers                                                    |
+| ------------------------------------- | ------------------------------------------------------------------ |
+| `GET /health`                         | environment, AgentNFT and the index watermark                      |
+| `GET /v1/supply`                      | minted count and remaining slots per species, from the index       |
+| `GET /v1/agents?owner=` or `?minter=` | agents from the index                                              |
+| `GET /v1/agents/:id`                  | one agent                                                          |
+| `GET /v1/session`                     | the Privy user and their linked wallets                            |
+| `POST /v1/agents/:id/session`         | an owner session for the agent's current owner and ownership epoch |
+| `GET /v1/agents/:id/owner`            | the owner-only view, rechecked against the chain on every call     |
+| `GET /v1/mint/eligibility?wallet=`    | eligible, or why not: not allowlisted, already minted, sold out    |
+| `POST /v1/mint/claim`                 | the signed EIP-712 mint claim, or the reason it is refused         |
+
+`pnpm test:web:live` starts its own stack: a fork on 8546, a throwaway database, the indexer and the API on 4101, and the web test build pointed at them.
 
 ## Dev console
 
