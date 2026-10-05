@@ -10,4 +10,5 @@ Core types shared by every service:
 - `intents.ts`: strict swap and rebalance intents (never calldata) and the signable Executor form.
 - `reasons.ts`: rejection reason codes with owner-facing messages.
 - `records.ts`: record and event schemas, each carrying the environment label.
+- `tokenbound.ts`: `tokenboundAccountAddress`, the ERC-6551 address of an agent's account, checked against @tokenbound/sdk and the canonical registry on the fork.
 - `address-book.ts`: every external address per environment, with source, status and open question. Only `signingAddress` returns a `VerifiedAddress`, and it refuses unverified entries. `pnpm test:fork` re-checks every verified entry against the local fork.

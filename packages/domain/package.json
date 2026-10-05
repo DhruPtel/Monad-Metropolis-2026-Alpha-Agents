@@ -2,7 +2,7 @@
   "name": "@alpha-agents/domain",
   "version": "0.0.0",
   "private": true,
-  "description": "Core domain types, the canonical mode model, the tool registry, typed intents and the address book.",
+  "description": "Core domain types, the canonical mode model, the tool registry, typed intents, the species list, token-bound account addresses and the address book.",
   "type": "module",
   "exports": {
     ".": "./src/index.ts"
@@ -12,9 +12,10 @@
   },
   "dependencies": {
     "@alpha-agents/config": "workspace:^",
+    "viem": "2.57.2",
     "zod": "4.6.5"
   },
   "devDependencies": {
-    "viem": "2.57.2"
+    "@tokenbound/sdk": "0.5.5"
   }
 }
