@@ -172,10 +172,13 @@ export function MintPage({ environment }: { environment: EnvironmentId }) {
     progress,
   });
 
-  const revealedAs =
-    progress.species !== undefined
-      ? `${TIER_NAME[speciesByIndex(progress.species).tier]} · ${speciesByIndex(progress.species).name}`
-      : undefined;
+  // The panel may see the reveal through its own read before the mint flow's
+  // poll does; the button then follows the panel, so the two never disagree.
+  const revealedSpecies = view.state === "revealed" ? view.agent?.species : undefined;
+  const revealedAs = revealedSpecies
+    ? `${TIER_NAME[speciesByIndex(revealedSpecies).tier]} · ${speciesByIndex(revealedSpecies).name}`
+    : undefined;
+  const mintState = view.state === "revealed" ? "revealed" : progress.state;
   const agentId = view.agent?.id;
 
   return (
@@ -196,8 +199,8 @@ export function MintPage({ environment }: { environment: EnvironmentId }) {
           <MintPanel
             state={view.state}
             mint={{
-              state: progress.state,
-              agentId: progress.agentId,
+              state: mintState,
+              agentId: progress.agentId ?? agentId,
               revealedAs,
               message: progress.message,
               onMint: wallet.ready ? mint : undefined,
