@@ -4,6 +4,7 @@ import {
   ENVIRONMENT_IDS,
   type Environment,
   isEnvironmentId,
+  localForkRpcUrl,
 } from "./environments.ts";
 import { Secret } from "./secret.ts";
 import { VARIABLES, type VariableName, type VariableSpec } from "./variables.ts";
@@ -172,7 +173,7 @@ export function loadConfig(service: ServiceSpec, source: EnvSource = process.env
 
   const rpcUrl =
     "fixedUrl" in environment.rpc
-      ? new Secret(environment.rpc.fixedUrl)
+      ? new Secret(localForkRpcUrl(source))
       : ((values[environment.rpc.variable as VariableName] as Secret | undefined) ?? null);
   return {
     environment,

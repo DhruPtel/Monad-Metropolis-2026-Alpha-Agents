@@ -174,7 +174,7 @@ test.describe("minting", () => {
     await portal(page).getByRole("button", { name: "Mint an agent" }).click();
     await expect(portal(page).getByRole("button", { name: "Mint unavailable" })).toBeDisabled();
     await expect(portal(page).getByRole("status")).toContainText(
-      "Minting is not configured: set LOCAL_CLAIM_SIGNER_PRIVATE_KEY",
+      "Minting is not configured: set CLAIM_SIGNER_PRIVATE_KEY",
     );
   });
 

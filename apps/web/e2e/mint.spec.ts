@@ -121,7 +121,7 @@ test.describe("states, screenshots and accessibility", () => {
     await panel(page).getByRole("button", { name: "Mint an agent" }).click();
     await expect(panel(page).getByRole("button", { name: "Mint unavailable" })).toBeDisabled();
     await expect(panel(page).getByRole("status")).toContainText(
-      "Minting is not configured: set LOCAL_CLAIM_SIGNER_PRIVATE_KEY",
+      "Minting is not configured: set CLAIM_SIGNER_PRIVATE_KEY",
     );
     await capture(page, panel(page), "mint-no-claim.png");
     expect(await blockingViolations(page)).toEqual([]);

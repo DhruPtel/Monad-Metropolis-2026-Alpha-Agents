@@ -76,7 +76,7 @@ export default defineConfig({
     env: {
       ALPHA_E2E_MOCK_WALLET: "1",
       APP_ENV: "local",
-      ...(live ? { LOCAL_CLAIM_SIGNER_PRIVATE_KEY: localClaimSignerKey() } : {}),
+      ...(live ? { CLAIM_SIGNER_PRIVATE_KEY: localClaimSignerKey() } : {}),
     },
     command: `node node_modules/next/dist/bin/next start --port ${PORT} --hostname 127.0.0.1`,
     url: `http://127.0.0.1:${PORT}/design`,

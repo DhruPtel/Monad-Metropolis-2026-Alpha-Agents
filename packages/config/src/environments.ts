@@ -27,8 +27,28 @@ export const MONAD_TESTNET_CHAIN_ID = 10143;
  */
 export const LOCAL_FORK_CHAIN_ID = 143143;
 
-/** The anvil fork started by `pnpm dev:up`. Local services sign only against this. */
+/** The anvil fork started by `pnpm dev:up`: the playtest fork. */
 export const LOCAL_FORK_RPC_URL = "http://127.0.0.1:8545";
+
+/** The port tests run their own fork on, never the playtest fork's (D-200). */
+export const LOCAL_TEST_FORK_PORT = 8546;
+
+/**
+ * The loopback fork this process uses: the playtest fork, or the test fork
+ * when LOCAL_FORK_PORT says so (D-200). Always loopback, so local signing can
+ * never reach a remote chain.
+ */
+export function localForkRpcUrl(
+  source: Readonly<Record<string, string | undefined>> = process.env,
+): string {
+  const raw = source.LOCAL_FORK_PORT?.trim();
+  if (!raw) return LOCAL_FORK_RPC_URL;
+  const port = Number(raw);
+  if (!/^\d{1,5}$/.test(raw) || port < 1 || port > 65535) {
+    throw new Error("LOCAL_FORK_PORT must be a port number from 1 to 65535");
+  }
+  return `http://127.0.0.1:${port}`;
+}
 
 export interface Environment {
   readonly id: EnvironmentId;

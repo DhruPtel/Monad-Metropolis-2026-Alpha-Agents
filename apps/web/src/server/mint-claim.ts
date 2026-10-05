@@ -68,7 +68,7 @@ export async function mintClaimResponse(request: Request, deps: MintClaimDeps): 
     return error(
       503,
       "not_configured",
-      "Minting is not configured: set LOCAL_CLAIM_SIGNER_PRIVATE_KEY and the Privy keys in .env, and deploy AgentNFT to the fork.",
+      "Minting is not configured: set CLAIM_SIGNER_PRIVATE_KEY and the Privy keys in .env, and deploy AgentNFT to the fork.",
     );
   }
   const token = bearerToken(request);

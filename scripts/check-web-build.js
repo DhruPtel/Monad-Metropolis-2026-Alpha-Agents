@@ -2,7 +2,7 @@
 // Builds apps/web twice and checks what each build contains (P1-U2):
 // 1. The real build (.next), made with a throwaway PRIVY_APP_SECRET, must not
 //    contain that secret anywhere, nor the mock wallet's marker.
-//    Both builds also get a throwaway LOCAL_CLAIM_SIGNER_PRIVATE_KEY with
+//    Both builds also get a throwaway CLAIM_SIGNER_PRIVATE_KEY with
 //    APP_ENV=local, and it must appear in neither: the claim route reads the
 //    key on the server at request time, so no build output, and in particular
 //    no browser bundle (static/), may hold it (P1-U11).
@@ -84,7 +84,7 @@ build({
   APP_ENV: "local",
   PRIVY_APP_ID: "checkbuild000000000000000",
   PRIVY_APP_SECRET: secret,
-  LOCAL_CLAIM_SIGNER_PRIVATE_KEY: claimKey,
+  CLAIM_SIGNER_PRIVATE_KEY: claimKey,
 });
 report(
   "the Privy app secret is nowhere in the real build",
@@ -103,7 +103,7 @@ build({
   ALPHA_E2E_MOCK_WALLET: "1",
   APP_ENV: "local",
   PRIVY_APP_SECRET: secret,
-  LOCAL_CLAIM_SIGNER_PRIVATE_KEY: claimKey,
+  CLAIM_SIGNER_PRIVATE_KEY: claimKey,
 });
 report(
   "the test build contains the mock wallet",

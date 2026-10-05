@@ -154,6 +154,19 @@ export const VARIABLES = [
     example: "6380",
     commented: true,
   },
+  {
+    name: "LOCAL_FORK_PORT",
+    group: "Local Docker services",
+    description:
+      "Port of the local anvil fork the services use: 8545 is the playtest fork (pnpm dev:up); tests set 8546 for their own fork (D-200)",
+    secret: false,
+    firstUsedBy: "P1-U4",
+    environments: ["local"],
+    ...port,
+    example: "8545",
+    commented: true,
+    localDefault: "8545",
+  },
 
   // Database and queue
   {
@@ -395,22 +408,61 @@ export const VARIABLES = [
     example: "your-privy-app-secret",
   },
   {
-    name: "LOCAL_CLAIM_SIGNER_PRIVATE_KEY",
+    name: "CLAIM_SIGNER_PRIVATE_KEY",
     group: "Wallet login",
     description:
-      "Local fork only: the dev mint-claim signer, anvil account 1 (AgentNFT's local claim signer); the real signer is P1-U4's",
+      "The control API's mint-claim signer key, AgentNFT's claimSigner (anvil account 1 on the local fork); local and testnet only, KMS before the beta (D-198). Was LOCAL_CLAIM_SIGNER_PRIVATE_KEY",
     secret: true,
-    firstUsedBy: "P1-U11",
-    environments: ["local"],
+    firstUsedBy: "P1-U4",
+    environments: ["local", "testnet"],
     ...privateKey,
     example: "0x0000000000000000000000000000000000000000000000000000000000000000",
+  },
+  {
+    name: "API_SESSION_SECRET",
+    group: "Wallet login",
+    description:
+      "Signs the control API's short-lived owner sessions (wallet, agent, ownership epoch); at least 32 characters. The default is for the local fork only: set a random one elsewhere",
+    secret: true,
+    firstUsedBy: "P1-U4",
+    environments: ALL,
+    schema: z.string().regex(/^\S{32,}$/),
+    expected: "at least 32 characters without spaces",
+    example: "local-fork-only-api-session-secret-0123456789",
+    commented: true,
+    localDefault: "local-fork-only-api-session-secret-0123456789",
   },
 
   // Indexer and monitoring
   {
+    name: "CONTROL_API_PORT",
+    group: "Indexer and monitoring",
+    description: "Port the control API listens on",
+    secret: false,
+    firstUsedBy: "P1-U4",
+    environments: ALL,
+    ...port,
+    example: "4100",
+    commented: true,
+    localDefault: "4100",
+  },
+  {
+    name: "CONTROL_API_URL",
+    group: "Indexer and monitoring",
+    description: "Base URL of the control API, as the web app and the dev console call it",
+    secret: false,
+    firstUsedBy: "P1-U4",
+    environments: ALL,
+    ...httpUrl,
+    example: "http://127.0.0.1:4100",
+    commented: true,
+    localDefault: "http://127.0.0.1:4100",
+  },
+  {
     name: "ENVIO_API_TOKEN",
     group: "Indexer and monitoring",
-    description: "Envio HyperIndex and HyperSync API token",
+    description:
+      "Envio HyperSync API token, for a later HyperSync log source; the RPC poller does not use it (D-197)",
     secret: true,
     firstUsedBy: "P1-U4",
     environments: ALL,

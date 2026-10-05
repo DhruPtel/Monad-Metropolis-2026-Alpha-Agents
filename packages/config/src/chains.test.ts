@@ -55,3 +55,27 @@ describe("webEnvironment", () => {
     expect(() => webEnvironment("mainnet")).toThrow(/APP_ENV "mainnet"/);
   });
 });
+
+describe("the local fork's port (D-200)", () => {
+  it("is the playtest fork unless LOCAL_FORK_PORT says otherwise", async () => {
+    const { localForkRpcUrl, LOCAL_FORK_RPC_URL, LOCAL_TEST_FORK_PORT } =
+      await import("./index.ts");
+    expect(localForkRpcUrl({})).toBe(LOCAL_FORK_RPC_URL);
+    expect(localForkRpcUrl({ LOCAL_FORK_PORT: String(LOCAL_TEST_FORK_PORT) })).toBe(
+      "http://127.0.0.1:8546",
+    );
+    expect(() => localForkRpcUrl({ LOCAL_FORK_PORT: "x" })).toThrow(/LOCAL_FORK_PORT/);
+    expect(() => localForkRpcUrl({ LOCAL_FORK_PORT: "70000" })).toThrow(/LOCAL_FORK_PORT/);
+  });
+
+  it("moves the local service RPC and the local browser chain, and nothing else", async () => {
+    const { appChain, loadConfig } = await import("./index.ts");
+    expect(loadConfig({ name: "t" }, { LOCAL_FORK_PORT: "8546" }).rpcUrl?.reveal()).toBe(
+      "http://127.0.0.1:8546",
+    );
+    expect(appChain("local", "http://127.0.0.1:8546").browserRpcUrl).toBe("http://127.0.0.1:8546");
+    expect(appChain("testnet", "http://127.0.0.1:8546").browserRpcUrl).toBe(
+      "https://testnet-rpc.monad.xyz",
+    );
+  });
+});

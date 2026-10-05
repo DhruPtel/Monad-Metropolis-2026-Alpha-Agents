@@ -15,14 +15,14 @@ import { type ClaimSigner, mintClaimResponse } from "@/server/mint-claim";
 // Signs a mint claim for the caller's own wallet, on the local fork only (D-194).
 export const dynamic = "force-dynamic";
 
-/** The local dev signer from LOCAL_CLAIM_SIGNER_PRIVATE_KEY, read at request time, never bundled. */
+/** The local dev signer from CLAIM_SIGNER_PRIVATE_KEY, read at request time, never bundled. */
 function localSigner(): ClaimSigner | null {
   try {
     const config = loadConfig(
-      { name: "web claim route", usesChain: false, requires: ["LOCAL_CLAIM_SIGNER_PRIVATE_KEY"] },
+      { name: "web claim route", usesChain: false, requires: ["CLAIM_SIGNER_PRIVATE_KEY"] },
       process.env,
     );
-    const key = (config.values.LOCAL_CLAIM_SIGNER_PRIVATE_KEY as Secret).reveal() as `0x${string}`;
+    const key = (config.values.CLAIM_SIGNER_PRIVATE_KEY as Secret).reveal() as `0x${string}`;
     return privateKeyToAccount(key);
   } catch {
     return null;

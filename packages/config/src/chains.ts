@@ -71,7 +71,11 @@ export function webEnvironment(appEnv: string | undefined): EnvironmentId {
   return value;
 }
 
-/** The chain for an environment. */
-export function appChain(environment: EnvironmentId): AppChain {
-  return APP_CHAINS[environment];
+/**
+ * The chain for an environment. A local build may point at another loopback
+ * fork (the test fork, D-200) with `localRpcUrl`; other environments ignore it.
+ */
+export function appChain(environment: EnvironmentId, localRpcUrl?: string): AppChain {
+  const chain = APP_CHAINS[environment];
+  return environment === "local" && localRpcUrl ? { ...chain, browserRpcUrl: localRpcUrl } : chain;
 }
