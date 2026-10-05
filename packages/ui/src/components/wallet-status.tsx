@@ -144,6 +144,16 @@ function WalletButton({
   );
 }
 
+/**
+ * What happened to the last network switch (P1-U11): waiting in the wallet,
+ * or how it ended when it did not switch. Shown under the prompt so a switch
+ * button never fails silently.
+ */
+export interface SwitchStatus {
+  readonly tone: "muted" | "negative";
+  readonly text: string;
+}
+
 interface WrongChainPromptProps {
   /** The chain this app needs, by name. */
   readonly targetChainName: string;
@@ -152,6 +162,8 @@ interface WrongChainPromptProps {
   /** True while the wallet is asking the user to approve the switch. */
   readonly switching?: boolean | undefined;
   readonly onSwitchChain?: (() => void) | undefined;
+  /** The last switch's progress or outcome, if any. */
+  readonly status?: SwitchStatus | undefined;
   readonly className?: string | undefined;
 }
 
@@ -164,6 +176,7 @@ function WrongChainPrompt({
   currentChainName,
   switching = false,
   onSwitchChain,
+  status,
   className,
 }: WrongChainPromptProps) {
   return (
@@ -184,6 +197,18 @@ function WrongChainPrompt({
             : "Your wallet is on another network. "}
           Nothing can continue until it is on {targetChainName}.
         </p>
+        {status ? (
+          <p
+            role="status"
+            data-slot="switch-status"
+            className={cn(
+              "pt-1 text-xs break-words",
+              status.tone === "negative" ? "text-negative" : "text-foreground-muted",
+            )}
+          >
+            {status.text}
+          </p>
+        ) : null}
       </div>
       <Button variant="primary" size="md" loading={switching} onClick={onSwitchChain}>
         Switch to {targetChainName}

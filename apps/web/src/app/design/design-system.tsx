@@ -425,6 +425,35 @@ function WalletSection() {
           <WrongChainPrompt targetChainName="Monad (local fork)" switching />
         </div>
       </Specimen>
+      <Specimen
+        name="Network switch outcomes"
+        note="The switch button never fails silently: the prompt says the request is waiting in the wallet, that it was declined, or why it failed. A successful switch removes the prompt and shows a toast."
+      >
+        <div className="flex flex-col gap-4" data-testid="switch-outcomes">
+          <WrongChainPrompt
+            targetChainName="Monad (local fork)"
+            currentChainName="Monad Testnet"
+            switching
+            status={{
+              tone: "muted",
+              text: "Approve adding Monad (local fork) in your wallet. Waiting for the wallet.",
+            }}
+          />
+          <WrongChainPrompt
+            targetChainName="Monad (local fork)"
+            currentChainName="Monad Testnet"
+            status={{ tone: "negative", text: "You declined the network switch in your wallet." }}
+          />
+          <WrongChainPrompt
+            targetChainName="Monad (local fork)"
+            currentChainName="Monad Testnet"
+            status={{
+              tone: "negative",
+              text: "Your wallet still reports Monad Testnet. MetaMask can keep a separate network for each site: open MetaMask on this page and choose Monad (local fork).",
+            }}
+          />
+        </div>
+      </Specimen>
     </Section>
   );
 }
