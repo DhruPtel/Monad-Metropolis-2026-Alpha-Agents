@@ -25,6 +25,7 @@
     "secrets:scan": "node scripts/secrets-scan.js",
     "dev:web": "node scripts/web.js dev",
     "test:web:e2e": "node scripts/web-e2e.js",
+    "test:web:live": "node scripts/web-e2e.js --app web --live",
     "dev:console": "node scripts/console.js dev",
     "dev:all": "pnpm dev:up && pnpm dev:console",
     "test:console:e2e": "node scripts/web-e2e.js --app console",

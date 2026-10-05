@@ -8,6 +8,9 @@
     "noEmit": true,
     "incremental": true,
     "allowImportingTsExtensions": true,
+    // The live e2e spec imports the fork helpers in scripts/lib, which are JS
+    // with JSDoc types (checked by the root tsconfig); this reads those types.
+    "allowJs": true,
     "types": ["node"],
     "plugins": [
       {

@@ -6,6 +6,7 @@
 //     Builds the app, then runs its screenshot and accessibility tests with no
 //     .env (an empty file is mounted over it), exactly as CI does.
 //   node scripts/web-e2e.js --app console --live
+//   node scripts/web-e2e.js --app web --live   (pnpm test:web:live: mint, reveal and view on the fork)
 //     Drives the running console and fork (pnpm dev:all) through the real
 //     fork-control and test-fund flows. This runs on the host, not in the
 //     image: Docker Desktop on WSL2 does not share the distro's loopback with
@@ -27,10 +28,6 @@ if (app !== "web" && app !== "console") {
 }
 const update = args.includes("--update");
 const live = args.includes("--live");
-if (live && app !== "console") {
-  console.error("error: --live applies to the console only");
-  process.exit(1);
-}
 
 const run = (
   /** @type {string} */ cmd,
@@ -40,11 +37,24 @@ const run = (
 
 const playwrightCli = join("node_modules", "@playwright", "test", "cli.js");
 
-if (live) {
+if (live && app === "console") {
   process.exit(
     run("node", [playwrightCli, "test"], {
       cwd: join(ROOT, "apps", app),
       env: { ...process.env, LIVE_CONSOLE_URL: "http://127.0.0.1:3001" },
+    }),
+  );
+}
+
+// The web app's live test (P1-U11) runs on the host, where it can reach the
+// local fork (L-13): it builds and checks the test build, then serves it and
+// drives the mint, reveal and view flow against the fork.
+if (live && app === "web") {
+  if (run("node", [join("scripts", "check-web-build.js")]) !== 0) process.exit(1);
+  process.exit(
+    run("node", [playwrightCli, "test"], {
+      cwd: join(ROOT, "apps", app),
+      env: { ...process.env, LIVE_WEB: "1" },
     }),
   );
 }

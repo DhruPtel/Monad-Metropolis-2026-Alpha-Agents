@@ -1,13 +1,33 @@
 import { defineConfig } from "@playwright/test";
+import { bytesToHex } from "viem";
+import { mnemonicToAccount } from "viem/accounts";
 
 /**
- * Screenshot and accessibility tests for /design. They run inside the pinned
- * Playwright image (scripts/web-e2e.js locally, the web job in CI), so fonts and
- * rendering match and the committed baselines compare exactly. The app must be
- * built first (scripts/check-web-build.js); this serves the test build, which
- * has the mock wallet in place of Privy.
+ * Two modes:
+ * - default: screenshot and accessibility tests, inside the pinned Playwright
+ *   image (scripts/web-e2e.js locally, the web job in CI), so fonts and
+ *   rendering match and the committed baselines compare exactly. No chain is
+ *   reachable there; portal specs answer the chain's RPC themselves.
+ * - live (LIVE_WEB=1, `pnpm test:web:live`): on the host, against the running
+ *   local fork (L-13), the end-to-end mint, reveal and view flow.
+ * Both serve the test build (.next-e2e), which has the mock wallet in place of
+ * Privy; scripts/check-web-build.js builds it first.
  */
-const PORT = 3100;
+const live = process.env.LIVE_WEB === "1";
+const PORT = live ? 3102 : 3100;
+
+/**
+ * Live only: AgentNFT's local claim signer is anvil account 1, from anvil's
+ * public development mnemonic. Derived here at start, never written or printed.
+ */
+function localClaimSignerKey(): string {
+  const account = mnemonicToAccount("test test test test test test test test test test test junk", {
+    addressIndex: 1,
+  });
+  const key = account.getHdKey().privateKey;
+  if (!key) throw new Error("could not derive the local claim signer");
+  return bytesToHex(key);
+}
 
 export default defineConfig({
   testDir: "e2e",
@@ -22,13 +42,42 @@ export default defineConfig({
     toHaveScreenshot: { maxDiffPixels: 0, threshold: 0, animations: "disabled", caret: "hide" },
   },
   use: { baseURL: `http://127.0.0.1:${PORT}`, colorScheme: "dark" },
-  projects: [
-    { name: "desktop", use: { browserName: "chromium", viewport: { width: 1440, height: 900 } } },
-    { name: "mobile", use: { browserName: "chromium", viewport: { width: 380, height: 800 } } },
-  ],
+  ...(live
+    ? {
+        testMatch: "live.spec.ts",
+        projects: [
+          {
+            // The only suite that renders WebGL: the smallest viewport that
+            // still shows the side panels (the lg breakpoint), at 1x scale.
+            name: "live",
+            use: {
+              browserName: "chromium",
+              viewport: { width: 1024, height: 640 },
+              deviceScaleFactor: 1,
+            },
+          },
+        ],
+      }
+    : {
+        testIgnore: "live.spec.ts",
+        projects: [
+          {
+            name: "desktop",
+            use: { browserName: "chromium", viewport: { width: 1440, height: 900 } },
+          },
+          {
+            name: "mobile",
+            use: { browserName: "chromium", viewport: { width: 380, height: 800 } },
+          },
+        ],
+      }),
   webServer: {
     // Serves the test build (.next-e2e) with the mock wallet; see wallet-mode.ts.
-    env: { ALPHA_E2E_MOCK_WALLET: "1" },
+    env: {
+      ALPHA_E2E_MOCK_WALLET: "1",
+      APP_ENV: "local",
+      ...(live ? { LOCAL_CLAIM_SIGNER_PRIVATE_KEY: localClaimSignerKey() } : {}),
+    },
     command: `node node_modules/next/dist/bin/next start --port ${PORT} --hostname 127.0.0.1`,
     url: `http://127.0.0.1:${PORT}/design`,
     reuseExistingServer: false,

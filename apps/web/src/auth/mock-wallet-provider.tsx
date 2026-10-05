@@ -12,7 +12,7 @@
  */
 import { appChain, type EnvironmentId } from "@alpha-agents/config";
 import { type ReactNode, useEffect, useState } from "react";
-import { createWalletClient, http } from "viem";
+import { type Address, createWalletClient, http } from "viem";
 import { deriveState, viemChain, type WalletSession, WalletSessionContext } from "./session";
 
 import {
@@ -37,6 +37,15 @@ export interface MockWalletHandle {
   setChainId(chainId: number): void;
   /** Makes the next connect fail, as a rejected login does. */
   failNextLogin(): void;
+  /** Moves the connected wallet to another account, as MetaMask's account switch does. */
+  setAccount(address: Address): void;
+  /** Makes the next transaction fail as declined in the wallet (EIP-1193 4001). */
+  rejectNextWrite(): void;
+}
+
+/** What MetaMask throws when the user declines a request. */
+function userRejected(): Error {
+  return Object.assign(new Error("User rejected the request."), { code: 4001 });
 }
 
 declare global {
@@ -56,12 +65,16 @@ export function WalletProvider({
   const target = appChain(environment);
   const [mock, setMock] = useState<MockState>({ status: "logged-out" });
   const [failNext, setFailNext] = useState(false);
+  const [account, setAccount] = useState<Address>(MOCK_WALLET_ADDRESS);
+  const [rejectNext, setRejectNext] = useState(false);
 
   useEffect(() => {
     window.__mockWallet = {
       marker: MOCK_WALLET_MARKER,
       setChainId: (chainId) => setMock((m) => (m.status === "connected" ? { ...m, chainId } : m)),
       failNextLogin: () => setFailNext(true),
+      setAccount: (address) => setAccount(address),
+      rejectNextWrite: () => setRejectNext(true),
     };
     return () => {
       delete window.__mockWallet;
@@ -73,13 +86,13 @@ export function WalletProvider({
     error: mock.error,
     pending: mock.status === "connecting",
     authenticated: mock.status === "connected",
-    address: mock.status === "connected" ? MOCK_WALLET_ADDRESS : undefined,
+    address: mock.status === "connected" ? account : undefined,
     chainId: mock.chainId,
     targetChainId: target.id,
   });
   const session: WalletSession = {
     state,
-    ...(mock.status === "connected" ? { address: MOCK_WALLET_ADDRESS } : {}),
+    ...(mock.status === "connected" ? { address: account } : {}),
     ...(mock.chainId !== undefined ? { chainId: mock.chainId } : {}),
     target,
     ...(mock.error ? { errorMessage: mock.error } : {}),
@@ -109,10 +122,14 @@ export function WalletProvider({
       if (mock.status !== "connected") {
         return Promise.reject(new Error("The wallet is not connected."));
       }
+      if (rejectNext) {
+        setRejectNext(false);
+        return Promise.reject(userRejected());
+      }
       const client = createWalletClient({
         chain: viemChain(target),
         transport: http(target.browserRpcUrl),
-        account: MOCK_WALLET_ADDRESS,
+        account,
       });
       return client.writeContract(request as unknown as Parameters<typeof client.writeContract>[0]);
     },
