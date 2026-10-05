@@ -9,6 +9,7 @@ import { defineConfig } from "@playwright/test";
  */
 const live = process.env.LIVE_CONSOLE_URL;
 const PORT = 3101;
+const FIXTURE_API_PORT = 4199;
 
 export default defineConfig({
   testDir: "e2e",
@@ -46,11 +47,22 @@ export default defineConfig({
             use: { browserName: "chromium", viewport: { width: 380, height: 800 } },
           },
         ],
-        webServer: {
-          command: `node node_modules/next/dist/bin/next start --hostname 127.0.0.1 --port ${PORT}`,
-          url: `http://127.0.0.1:${PORT}/addresses`,
-          reuseExistingServer: false,
-          timeout: 60_000,
-        },
+        webServer: [
+          {
+            // The agents panel's data (fixture-api.mjs): a fixed answer, not the real API.
+            command: `node e2e/fixture-api.mjs`,
+            url: `http://127.0.0.1:${FIXTURE_API_PORT}/health`,
+            env: { FIXTURE_API_PORT: String(FIXTURE_API_PORT) },
+            reuseExistingServer: false,
+            timeout: 30_000,
+          },
+          {
+            command: `node node_modules/next/dist/bin/next start --hostname 127.0.0.1 --port ${PORT}`,
+            url: `http://127.0.0.1:${PORT}/addresses`,
+            env: { CONTROL_API_URL: `http://127.0.0.1:${FIXTURE_API_PORT}` },
+            reuseExistingServer: false,
+            timeout: 60_000,
+          },
+        ],
       }),
 });
