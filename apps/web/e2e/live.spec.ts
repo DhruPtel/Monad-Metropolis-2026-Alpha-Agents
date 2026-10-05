@@ -15,6 +15,8 @@ import {
   revealLocal,
 } from "../../../scripts/lib/agent-reveal.js";
 import { MOCK_WALLET_ADDRESS } from "../src/auth/mock-wallet-constants";
+import { AGENT_NFT_ABI, agentNftDeployment } from "../src/agent/agent-nft";
+import { formatCount, formatOdds, readSupply, summarizeSupply } from "../src/agent/supply";
 import { THREE_MARKER, scriptsLoaded } from "./bundles";
 import { disableWebgl } from "./webgl";
 
@@ -188,4 +190,84 @@ test("switching to an account that does not own the agent removes it", async ({ 
   await expect(portal.getByRole("complementary", { name: "Agent overview" })).not.toContainText(
     `#${agentId}`,
   );
+});
+
+test("mint from /mint: supply and odds match the contract, then open the agent", async ({
+  page,
+}) => {
+  const problems: string[] = [];
+  page.on("pageerror", (e) => problems.push(`pageerror: ${e.message.slice(0, 300)}`));
+  const deployment = agentNftDeployment("local");
+  if (!deployment) throw new Error("AgentNFT has no verified local address");
+  expect(deployment.address.toLowerCase()).toBe(nft.toLowerCase());
+  const expected = summarizeSupply(await readSupply(publicClient as never, deployment));
+
+  await page.goto("/mint");
+  const mintPage = page.getByTestId("mint-page");
+  const panel = page.locator("[data-slot=mint-panel]");
+  const supply = mintPage.getByRole("region", { name: "Supply" });
+  await expect(supply.getByRole("meter", { name: "Minted" })).toHaveAttribute(
+    "aria-valuetext",
+    `${formatCount(expected.minted)} of ${formatCount(expected.maxSupply)}`,
+    { timeout: 30_000 },
+  );
+  await expect(page.getByTestId("tier-odds")).toHaveText(
+    expected.tiers.map((t) => formatOdds(t.odds)),
+  );
+  for (const t of expected.tiers) {
+    const name = { base: "Base", medium: "Medium", pro: "Pro" }[t.tier];
+    await expect(
+      mintPage.getByRole("region", { name: `${name} tier` }).getByRole("meter"),
+    ).toHaveAttribute("aria-valuetext", `${formatCount(t.remaining)} of ${formatCount(t.total)}`);
+  }
+
+  await panel.getByRole("button", { name: "Connect wallet" }).click();
+  await expect(panel).toHaveAttribute("data-state", "ready", { timeout: 30_000 });
+  await panel.getByRole("button", { name: "Mint an agent" }).click();
+  await expect(panel).toHaveAttribute("data-state", "awaiting-reveal", { timeout: 30_000 });
+  const status = panel.getByRole("status").filter({ hasText: /minted/ });
+  const id = /Agent #(\d+) minted/.exec((await status.textContent()) ?? "")?.[1];
+  if (!id) throw new Error("no agent ID in the mint status");
+  const agentId = BigInt(id);
+  const owner = await publicClient.readContract({
+    address: nft,
+    abi: AGENT_NFT_ABI,
+    functionName: "ownerOf",
+    args: [agentId],
+  });
+  expect(owner.toLowerCase()).toBe(MOCK_WALLET_ADDRESS.toLowerCase());
+  // The supply follows the mint.
+  await expect(supply.getByRole("meter", { name: "Minted" })).toHaveAttribute(
+    "aria-valuetext",
+    `${formatCount(expected.minted + 1)} of ${formatCount(expected.maxSupply)}`,
+    { timeout: 30_000 },
+  );
+
+  await revealLocal(nft, { agentId, species: ANT });
+  await expect(panel).toHaveAttribute("data-state", "revealed", { timeout: 30_000 });
+  await expect(panel.getByRole("status")).toContainText(`Agent #${id} is Base · Ant`);
+
+  await panel.getByRole("link", { name: `Open agent #${id}` }).click();
+  await expect(page).toHaveURL(new RegExp(`/configure\\?agent=${id}$`));
+  // The link loads the page afresh; the mock wallet, unlike a Privy session,
+  // does not survive a page load, so it connects again.
+  const portal = page.getByTestId("agent-portal");
+  await portal.getByRole("button", { name: "Connect wallet" }).click();
+  await expect(portal.getByRole("heading", { level: 1, name: `Alpha Agent #${id}` })).toBeVisible({
+    timeout: 30_000,
+  });
+  await expect(page.getByTestId("stage-mode")).toHaveAttribute("data-mode", "2d");
+
+  // A second visit: one per wallet, so the page shows the agent, not a mint.
+  await page.goto("/mint");
+  await page
+    .locator("[data-slot=mint-panel]")
+    .getByRole("button", { name: "Connect wallet" })
+    .click();
+  await expect(page.locator("[data-slot=mint-panel]")).toHaveAttribute(
+    "data-state",
+    "already-minted",
+    { timeout: 30_000 },
+  );
+  expect(problems).toEqual([]);
 });
