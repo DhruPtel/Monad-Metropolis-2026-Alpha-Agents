@@ -11,7 +11,12 @@ const config: NextConfig = {
   // Workspace packages ship TypeScript source; Next compiles them with the app.
   transpilePackages: ["@alpha-agents/ui", "@alpha-agents/domain", "@alpha-agents/config"],
   distDir: wallet.distDir,
-  turbopack: { resolveAlias: { "#wallet-provider": wallet.providerModule } },
+  turbopack: {
+    resolveAlias: {
+      "#wallet-provider": wallet.providerModule,
+      "#server-identity": wallet.identityModule,
+    },
+  },
 };
 
 export default config;

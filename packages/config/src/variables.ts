@@ -394,6 +394,17 @@ export const VARIABLES = [
     ...token,
     example: "your-privy-app-secret",
   },
+  {
+    name: "LOCAL_CLAIM_SIGNER_PRIVATE_KEY",
+    group: "Wallet login",
+    description:
+      "Local fork only: the dev mint-claim signer, anvil account 1 (AgentNFT's local claim signer); the real signer is P1-U4's",
+    secret: true,
+    firstUsedBy: "P1-U11",
+    environments: ["local"],
+    ...privateKey,
+    example: "0x0000000000000000000000000000000000000000000000000000000000000000",
+  },
 
   // Indexer and monitoring
   {

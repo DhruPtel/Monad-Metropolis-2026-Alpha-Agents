@@ -8,6 +8,7 @@ describe("the wallet a web build contains", () => {
       expect(walletBuildMode(env)).toEqual({
         mock: false,
         providerModule: "./src/auth/privy-wallet-provider.tsx",
+        identityModule: "./src/server/identity-privy.ts",
         distDir: ".next",
       });
     },
@@ -21,6 +22,7 @@ describe("the wallet a web build contains", () => {
       expect(walletBuildMode(env)).toEqual({
         mock: true,
         providerModule: "./src/auth/mock-wallet-provider.tsx",
+        identityModule: "./src/server/identity-mock.ts",
         distDir: ".next-e2e",
       });
     }
