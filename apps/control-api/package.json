@@ -1,0 +1,23 @@
+{
+  "name": "@alpha-agents/control-api",
+  "version": "0.0.0",
+  "private": true,
+  "description": "The control API: agents and supply from the index, owner sessions, the mint allowlist and the mint claim signer (P1-U4).",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p ."
+  },
+  "dependencies": {
+    "@alpha-agents/config": "workspace:^",
+    "@alpha-agents/db": "workspace:^",
+    "@alpha-agents/domain": "workspace:^",
+    "@hono/node-server": "2.1.3",
+    "@privy-io/node": "0.35.0",
+    "hono": "4.13.13",
+    "jose": "6.2.12",
+    "viem": "2.57.2"
+  }
+}

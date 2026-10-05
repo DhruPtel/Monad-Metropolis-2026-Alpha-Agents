@@ -28,6 +28,7 @@
     "secrets:scan": "node scripts/secrets-scan.js",
     "dev:web": "node scripts/web.js dev",
     "dev:indexer": "node services/indexer/src/main.ts",
+    "dev:api": "node apps/control-api/src/main.ts",
     "test:web:e2e": "node scripts/web-e2e.js",
     "test:web:live": "node scripts/web-e2e.js --app web --live",
     "dev:console": "node scripts/console.js dev",

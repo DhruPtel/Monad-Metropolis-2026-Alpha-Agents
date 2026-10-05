@@ -1,0 +1,437 @@
+import { ENVIRONMENTS } from "@alpha-agents/config";
+import { createTestDatabase, databaseAvailable, type TestDatabase } from "@alpha-agents/db/testing";
+import { CLAIM_TYPES, SPECIES, claimDomain } from "@alpha-agents/domain";
+import { type Address, type Hex, getAddress, verifyTypedData } from "viem";
+import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { type ApiDeps, createApp } from "./app.ts";
+import type { ChainReader } from "./chain.ts";
+import type { Identity } from "./identity.ts";
+
+const available = await databaseAvailable();
+
+const NFT = "0x60cacA6dE327331b321E140Ae19AcbCc4188Be6E" as Address;
+const ALICE = "0x1111111111111111111111111111111111111111" as Address;
+const BOB = "0x2222222222222222222222222222222222222222" as Address;
+const CAROL = "0x3333333333333333333333333333333333333333" as Address;
+const SECRET = "test-only-api-session-secret-0123456789abcdef";
+const env = ENVIRONMENTS.local;
+
+/** Two users: alice links ALICE and CAROL, bob links BOB. */
+const identity: Identity & { down: boolean } = {
+  down: false,
+  async verify(token) {
+    if (token === "alice-token")
+      return { userId: "did:privy:alice", sessionId: "s1", expiresAt: 0 };
+    if (token === "bob-token") return { userId: "did:privy:bob", sessionId: "s2", expiresAt: 0 };
+    throw new Error("bad token");
+  },
+  async walletsOf(session) {
+    if (this.down) throw new Error("privy down");
+    return session.userId === "did:privy:alice" ? [ALICE, CAROL] : [BOB];
+  },
+};
+
+/** The chain as a test sets it. */
+const chain = {
+  minted: new Set<string>(),
+  total: 1,
+  max: 1000,
+  owners: new Map<bigint, { owner: Address; epoch: bigint }>(),
+  reads: 0,
+};
+const chainReader: ChainReader = {
+  async hasMinted(wallet) {
+    chain.reads++;
+    return chain.minted.has(wallet.toLowerCase());
+  },
+  async totalMinted() {
+    chain.reads++;
+    return chain.total;
+  },
+  async maxSupply() {
+    return chain.max;
+  },
+  async ownership(agentId) {
+    chain.reads++;
+    return chain.owners.get(agentId) ?? null;
+  },
+};
+
+describe.skipIf(!available)("the control API (needs pnpm dev:up for Postgres)", () => {
+  let t: TestDatabase;
+  let now = 1_790_000_000_000;
+  const signerKey = generatePrivateKey();
+  const signer = privateKeyToAccount(signerKey);
+  let nonce = 0;
+
+  const deps = (over: Partial<ApiDeps> = {}): ApiDeps => ({
+    db: t.db,
+    environment: env,
+    deployment: { address: NFT, fromBlock: 109_670_001n, referenceBlock: 109_670_000n },
+    chain: chainReader,
+    identity,
+    signer,
+    sessionSecret: SECRET,
+    allowOrigin: (o) => o === "http://localhost:3000",
+    now: () => now,
+    randomNonce: () => `0x${(++nonce).toString(16).padStart(64, "0")}` as Hex,
+    cacheMs: 0,
+    ...over,
+  });
+  const call = (
+    path: string,
+    init: RequestInit & { token?: string } = {},
+    over: Partial<ApiDeps> = {},
+  ) => {
+    const headers = new Headers(init.headers);
+    if (init.token) headers.set("authorization", `Bearer ${init.token}`);
+    return createApp(deps(over)).request(path, { ...init, headers });
+  };
+  const json = async (res: Response) => (await res.json()) as Record<string, unknown>;
+
+  async function seedAgents() {
+    await t.db
+      .insertInto("indexer.watermarks")
+      .values({
+        chain_id: env.chainId,
+        source: "agent_nft",
+        block_number: 109_670_009,
+        block_hash: "0xabc",
+      })
+      .execute();
+    const agent = (id: number, owner: Address, species: number) => ({
+      chain_id: env.chainId,
+      agent_id: id,
+      owner: owner.toLowerCase(),
+      tba: `0x${"7ba".padEnd(37, "0")}${id.toString(16).padStart(3, "0")}`,
+      species,
+      tier: species === 0 ? 0 : species <= 5 ? 1 : species <= 13 ? 2 : 3,
+      owner_epoch: 0,
+      minted_block: 109_670_001 + id,
+      minted_tx: `0x${id.toString(16).padStart(64, "a")}`,
+      block_number: 109_670_001 + id,
+      block_hash: `0x${id.toString(16).padStart(64, "b")}`,
+    });
+    await t.db
+      .insertInto("indexer.agents")
+      .values([agent(1, ALICE, 14), agent(2, BOB, 3), agent(3, ALICE, 0)])
+      .execute();
+    // Agent 2 was minted by CAROL and later moved to BOB.
+    const minted = (id: number, owner: Address) => ({
+      chain_id: env.chainId,
+      contract: NFT.toLowerCase(),
+      block_number: 109_670_001 + id,
+      block_hash: "0x0",
+      tx_hash: `0x${id}`,
+      log_index: 1,
+      event_name: "AgentMinted",
+      args: JSON.stringify({ agentId: String(id), owner: getAddress(owner), tba: "0x0" }),
+    });
+    await t.db
+      .insertInto("indexer.agent_nft_events")
+      .values([minted(1, ALICE), minted(2, CAROL), minted(3, ALICE)])
+      .execute();
+  }
+
+  beforeAll(async () => {
+    t = await createTestDatabase("api");
+    await seedAgents();
+  }, 60_000);
+  afterAll(async () => {
+    await t?.drop();
+  }, 60_000);
+  beforeEach(async () => {
+    identity.down = false;
+    chain.minted.clear();
+    chain.total = 3;
+    chain.max = 1000;
+    chain.owners = new Map([
+      [1n, { owner: ALICE, epoch: 0n }],
+      [2n, { owner: BOB, epoch: 2n }],
+    ]);
+    await t.db.deleteFrom("platform.mint_allowlist").execute();
+    await t.db.deleteFrom("platform.mint_claims").execute();
+  });
+
+  describe("index reads", () => {
+    it("health names the environment, AgentNFT and the watermark", async () => {
+      const body = await json(await call("/health"));
+      expect(body).toMatchObject({ ok: true, environment: "fork", chainId: 143143, agentNft: NFT });
+      expect(body.watermark).toMatchObject({ block: 109_670_009, hash: "0xabc" });
+    });
+
+    it("supply: minted count and each species' remaining slots, as remainingOf would say", async () => {
+      const body = await json(await call("/v1/supply"));
+      expect(body).toMatchObject({ environment: "fork", maxSupply: 1000, totalMinted: 3 });
+      const remaining = body.remaining as number[];
+      expect(remaining).toHaveLength(25);
+      expect(remaining[13]).toBe(0); // the bee, revealed
+      expect(remaining[2]).toBe(119); // one ant revealed
+      expect(remaining.reduce((a, b) => a + b, 0)).toBe(998); // the unrevealed agent still holds a slot
+      expect(remaining.map((r, i) => r <= (SPECIES[i]?.count ?? 0))).not.toContain(false);
+      expect((body.watermark as { block: number }).block).toBe(109_670_009);
+    });
+
+    it("agents by owner, by minter, and by ID, with checksummed addresses", async () => {
+      const byOwner = await json(await call(`/v1/agents?owner=${ALICE.toLowerCase()}`));
+      expect((byOwner.agents as { agentId: string }[]).map((a) => a.agentId)).toEqual(["1", "3"]);
+      const byMinter = await json(await call(`/v1/agents?minter=${CAROL}`));
+      expect(byMinter.agents).toMatchObject([
+        { agentId: "2", owner: BOB, tier: "base", species: 3 },
+      ]);
+      const all = await json(await call("/v1/agents"));
+      expect((all.agents as unknown[]).length).toBe(3);
+      const one = await json(await call("/v1/agents/1"));
+      expect(one.agent).toMatchObject({
+        agentId: "1",
+        owner: ALICE,
+        species: 14,
+        tier: "pro",
+        ownerEpoch: "0",
+      });
+      expect((await json(await call("/v1/agents/3"))).agent).toMatchObject({
+        species: 0,
+        tier: null,
+      });
+    });
+
+    it("an unknown agent is 404, a bad address 400, an unknown route 404", async () => {
+      expect((await call("/v1/agents/99")).status).toBe(404);
+      expect((await call("/v1/agents?owner=nope")).status).toBe(400);
+      expect((await call("/v1/nothing")).status).toBe(404);
+    });
+
+    it("caches index reads for the configured moment", async () => {
+      const app = createApp(deps({ cacheMs: 5_000 }));
+      const first = await json(await app.request("/v1/supply"));
+      await t.db
+        .updateTable("indexer.agents")
+        .set({ species: 3, tier: 1 })
+        .where("agent_id", "=", 3)
+        .execute();
+      expect(await json(await app.request("/v1/supply"))).toEqual(first);
+      now += 6_000;
+      const later = await json(await app.request("/v1/supply"));
+      expect((later.remaining as number[])[2]).toBe(118);
+      await t.db
+        .updateTable("indexer.agents")
+        .set({ species: 0, tier: 0 })
+        .where("agent_id", "=", 3)
+        .execute();
+    });
+
+    it("reads no contract: the index answers", async () => {
+      const before = chain.reads;
+      await call("/v1/supply");
+      await call(`/v1/agents?owner=${ALICE}`);
+      await call("/v1/agents/1");
+      expect(chain.reads).toBe(before);
+    });
+  });
+
+  describe("session", () => {
+    it("names the caller and their linked wallets", async () => {
+      const body = await json(await call("/v1/session", { token: "alice-token" }));
+      expect(body).toMatchObject({ userId: "did:privy:alice", wallets: [ALICE, CAROL] });
+    });
+
+    it("refuses a missing or invalid token alike, and says when login is not set up", async () => {
+      expect((await call("/v1/session")).status).toBe(401);
+      const bad = await call("/v1/session", { token: "forged" });
+      expect([bad.status, (await json(bad)).error]).toEqual([401, "invalid_token"]);
+      const off = await call("/v1/session", { token: "alice-token" }, { identity: null });
+      expect([off.status, (await json(off)).error]).toEqual([503, "not_configured"]);
+    });
+
+    it("names a Privy outage instead of failing blindly", async () => {
+      identity.down = true;
+      const res = await call("/v1/session", { token: "alice-token" });
+      expect([res.status, (await json(res)).error]).toEqual([503, "privy_unavailable"]);
+    });
+  });
+
+  describe("mint eligibility and claims", () => {
+    const allow = (wallet: Address) =>
+      t.db
+        .insertInto("platform.mint_allowlist")
+        .values({ wallet: wallet.toLowerCase(), note: null })
+        .execute();
+    const eligibility = (wallet: Address, token = "alice-token") =>
+      call(`/v1/mint/eligibility?wallet=${wallet}`, { token });
+    const claim = (
+      wallet: unknown,
+      token: string | null = "alice-token",
+      over: Partial<ApiDeps> = {},
+    ) =>
+      call(
+        "/v1/mint/claim",
+        {
+          method: "POST",
+          ...(token ? { token } : {}),
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ wallet }),
+        },
+        over,
+      );
+    const claims = () => t.db.selectFrom("platform.mint_claims").selectAll().execute();
+
+    it("a wallet not on the allowlist is not eligible, and the claim is refused", async () => {
+      expect(await json(await eligibility(ALICE))).toMatchObject({
+        wallet: ALICE,
+        eligible: false,
+        reason: "not_allowlisted",
+      });
+      const res = await claim(ALICE);
+      expect([res.status, (await json(res)).error]).toEqual([403, "not_allowlisted"]);
+      expect(await claims()).toEqual([]);
+    });
+
+    it("an allowlisted wallet is eligible and gets a claim the signer signed for it", async () => {
+      await allow(ALICE);
+      expect(await json(await eligibility(ALICE))).toMatchObject({
+        eligible: true,
+        reason: "eligible",
+      });
+      const res = await claim(ALICE.toLowerCase());
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as {
+        wallet: Address;
+        nonce: Hex;
+        deadline: string;
+        signature: Hex;
+        contract: Address;
+      };
+      expect(body).toMatchObject({
+        wallet: ALICE,
+        contract: NFT,
+        deadline: String(Math.floor(now / 1000) + 600),
+      });
+      const valid = await verifyTypedData({
+        address: signer.address,
+        domain: claimDomain(143143, NFT),
+        types: CLAIM_TYPES,
+        primaryType: "MintClaim",
+        message: { wallet: ALICE, nonce: body.nonce, deadline: BigInt(body.deadline) },
+        signature: body.signature,
+      });
+      expect(valid).toBe(true);
+      expect(await claims()).toMatchObject([
+        { nonce: body.nonce, wallet: ALICE.toLowerCase(), user_id: "did:privy:alice" },
+      ]);
+    });
+
+    it("a wallet that already minted (read fresh from the chain) is refused", async () => {
+      await allow(ALICE);
+      chain.minted.add(ALICE.toLowerCase());
+      expect(await json(await eligibility(ALICE))).toMatchObject({
+        eligible: false,
+        reason: "already_minted",
+      });
+      const res = await claim(ALICE);
+      expect([res.status, (await json(res)).error]).toEqual([409, "already_minted"]);
+      expect(await claims()).toEqual([]);
+    });
+
+    it("sold out is refused", async () => {
+      await allow(ALICE);
+      chain.total = 1000;
+      expect((await json(await eligibility(ALICE))).reason).toBe("sold_out");
+      expect((await claim(ALICE)).status).toBe(409);
+    });
+
+    it("an invalid or missing session is refused", async () => {
+      await allow(ALICE);
+      expect((await claim(ALICE, "forged")).status).toBe(401);
+      expect((await claim(ALICE, null)).status).toBe(401);
+      expect((await eligibility(ALICE, "forged")).status).toBe(401);
+      expect(await claims()).toEqual([]);
+    });
+
+    it("a wallet linked to someone else is refused, even when allowlisted", async () => {
+      await allow(BOB);
+      const res = await claim(BOB, "alice-token");
+      expect([res.status, (await json(res)).error]).toEqual([403, "wallet_not_linked"]);
+      expect((await eligibility(BOB, "alice-token")).status).toBe(403);
+    });
+
+    it("a missing wallet is a bad request; no signer or no deployment is 503", async () => {
+      expect((await claim(undefined)).status).toBe(400);
+      await allow(ALICE);
+      const noKey = await claim(ALICE, "alice-token", { signer: null });
+      expect([noKey.status, (await json(noKey)).error]).toEqual([503, "not_configured"]);
+      const notDeployed = await claim(ALICE, "alice-token", { deployment: null, chain: null });
+      expect([notDeployed.status, (await json(notDeployed)).error]).toEqual([503, "not_deployed"]);
+    });
+  });
+
+  describe("owner sessions", () => {
+    const start = async (agent: number, token: string) =>
+      call(`/v1/agents/${agent}/session`, { method: "POST", token });
+    const ownerView = (agent: number, session: string) =>
+      call(`/v1/agents/${agent}/owner`, { headers: { "x-owner-session": session } });
+
+    it("the owner gets a session tied to the current owner and epoch, and uses it", async () => {
+      const res = await start(2, "bob-token");
+      const body = await json(res);
+      expect(body).toMatchObject({ wallet: BOB, agentId: "2", ownerEpoch: "2" });
+      const view = await ownerView(2, body.token as string);
+      expect(view.status).toBe(200);
+      expect(await json(view)).toMatchObject({
+        wallet: BOB,
+        ownerEpoch: "2",
+        agent: { agentId: "2" },
+      });
+    });
+
+    it("someone who does not own the agent gets no session", async () => {
+      const res = await start(2, "alice-token");
+      expect([res.status, (await json(res)).error]).toEqual([403, "not_owner"]);
+      expect((await start(77, "alice-token")).status).toBe(404);
+      expect((await start(2, "forged")).status).toBe(401);
+    });
+
+    it("a transfer ends the session: a new epoch or a new owner makes it stale", async () => {
+      const { token } = await json(await start(2, "bob-token"));
+      chain.owners.set(2n, { owner: BOB, epoch: 3n }); // out to the escrow and back
+      const epoch = await ownerView(2, token as string);
+      expect([epoch.status, (await json(epoch)).error]).toEqual([403, "session_stale"]);
+      chain.owners.set(2n, { owner: CAROL, epoch: 2n });
+      expect((await ownerView(2, token as string)).status).toBe(403);
+    });
+
+    it("an expired, forged or other agent's session is refused", async () => {
+      const { token } = await json(await start(1, "alice-token"));
+      expect((await ownerView(2, token as string)).status).toBe(403);
+      expect((await call("/v1/agents/1/owner")).status).toBe(401);
+      expect((await ownerView(1, "not-a-jwt")).status).toBe(401);
+      const other = await createApp(
+        deps({ sessionSecret: "another-secret-0123456789abcdef0123" }),
+      ).request("/v1/agents/1/owner", { headers: { "x-owner-session": token as string } });
+      expect(other.status).toBe(401);
+      now += 16 * 60 * 1000;
+      expect((await ownerView(1, token as string)).status).toBe(401);
+    });
+  });
+
+  describe("CORS and errors", () => {
+    it("answers the web app's origin and no other", async () => {
+      const ok = await call("/v1/supply", { headers: { origin: "http://localhost:3000" } });
+      expect(ok.headers.get("access-control-allow-origin")).toBe("http://localhost:3000");
+      const other = await call("/v1/supply", { headers: { origin: "https://evil.example" } });
+      expect(other.headers.get("access-control-allow-origin")).toBeNull();
+    });
+
+    it("an internal error says nothing about the database", async () => {
+      const broken = {
+        ...t.db,
+        selectFrom: () => {
+          throw new Error("connect to postgres://alpha:pw@host failed");
+        },
+      };
+      const res = await call("/v1/supply", {}, { db: broken as never });
+      expect(res.status).toBe(500);
+      expect(await res.text()).not.toMatch(/postgres|pw@/);
+    });
+  });
+});

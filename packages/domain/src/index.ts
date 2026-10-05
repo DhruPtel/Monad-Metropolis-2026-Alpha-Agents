@@ -1,4 +1,5 @@
 export * from "./accounts.ts";
+export * from "./agent-nft.ts";
 export * from "./address-book.ts";
 export * from "./amounts.ts";
 export * from "./assets.ts";
