@@ -59,3 +59,31 @@ export async function ownedAgents(
     .filter((v) => isAddressEqual(v.owner, wallet))
     .sort((a, b) => (a.id < b.id ? -1 : 1));
 }
+
+/**
+ * The agent a wallet minted, from its `AgentMinted` event (one per wallet),
+ * with its species read fresh; null when the wallet has minted nothing.
+ */
+export async function mintedAgent(
+  client: PublicClient,
+  deployment: AgentNftDeployment,
+  wallet: Address,
+): Promise<{ id: bigint; species: number } | null> {
+  const [log] = await client.getContractEvents({
+    address: deployment.address,
+    abi: AGENT_NFT_ABI,
+    eventName: "AgentMinted",
+    args: { owner: wallet },
+    fromBlock: deployment.fromBlock,
+    toBlock: "latest",
+  });
+  const id = log?.args.agentId;
+  if (id === undefined) return null;
+  const species = await client.readContract({
+    address: deployment.address,
+    abi: AGENT_NFT_ABI,
+    functionName: "speciesOf",
+    args: [id],
+  });
+  return { id, species };
+}

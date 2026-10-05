@@ -15,6 +15,8 @@ export const AGENT_NFT_ABI = parseAbi([
   "function speciesOf(uint256 agentId) view returns (uint8)",
   "function tbaOf(uint256 agentId) view returns (address)",
   "function totalMinted() view returns (uint16)",
+  "function MAX_SUPPLY() view returns (uint256)",
+  "function remainingOf(uint8 species) view returns (uint256)",
   "event Transfer(address indexed from, address indexed to, uint256 indexed tokenId)",
   "event AgentMinted(uint256 indexed agentId, address indexed owner, address tba)",
   "error AlreadyMinted(address wallet)",

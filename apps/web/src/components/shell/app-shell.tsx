@@ -21,6 +21,7 @@ export const NAV_ITEMS = [
   { href: "/marketplace", label: "Marketplace" },
   { href: "/leaderboard", label: "Leaderboard" },
   { href: "/agents", label: "My Agents" },
+  { href: "/mint", label: "Mint" },
   { href: "/configure", label: "Configure" },
   { href: "/create", label: "Create" },
 ] as const;
