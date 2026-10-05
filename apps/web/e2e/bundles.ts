@@ -12,18 +12,33 @@ export interface LoadedScript {
   readonly body: string;
 }
 
-/**
- * Collects every script the page loads from now on. The array fills as
- * responses arrive; read it after the page has settled.
- */
-export function scriptsLoaded(page: Page): LoadedScript[] {
+export interface ScriptLog {
+  /** Every script loaded so far whose body has been read. */
+  readonly scripts: LoadedScript[];
+  /** Resolves once every script response seen so far has been read. */
+  settled(): Promise<LoadedScript[]>;
+}
+
+/** Collects every script the page loads from now on. */
+export function scriptsLoaded(page: Page): ScriptLog {
   const scripts: LoadedScript[] = [];
+  const pending: Promise<void>[] = [];
   page.on("response", (response) => {
     if (response.request().resourceType() !== "script") return;
-    response.text().then(
-      (body) => scripts.push({ url: response.url(), body }),
-      () => undefined,
+    pending.push(
+      response.text().then(
+        (body) => {
+          scripts.push({ url: response.url(), body });
+        },
+        () => undefined,
+      ),
     );
   });
-  return scripts;
+  return {
+    scripts,
+    settled: async () => {
+      await Promise.all(pending);
+      return scripts;
+    },
+  };
 }

@@ -49,7 +49,7 @@ async function mintAgent(page: Page): Promise<bigint> {
 }
 
 test("mint, reveal as a bee, and view it in 3D with slots on its sockets", async ({ page }) => {
-  const scripts = scriptsLoaded(page);
+  const log = scriptsLoaded(page);
   const agentId = await mintAgent(page);
   await revealLocal(nft, { agentId, species: BEE });
 
@@ -83,6 +83,7 @@ test("mint, reveal as a bee, and view it in 3D with slots on its sockets", async
 
   // The positive control for the bundle test in portal.spec.ts: the model's
   // page does load three.js, and the marker finds it.
+  const scripts = await log.settled();
   expect(scripts.some((s) => s.body.includes(THREE_MARKER))).toBe(true);
 });
 

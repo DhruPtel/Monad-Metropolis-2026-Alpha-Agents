@@ -1,0 +1,5 @@
+/* Portal captures only (portal.spec.ts): hide the shell's sticky header, which
+ would otherwise sit over the top of a portal taller than the viewport. */
+header.sticky {
+  visibility: hidden !important;
+}
