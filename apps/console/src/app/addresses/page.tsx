@@ -21,7 +21,7 @@ export default function AddressBookPage() {
     <div className="flex flex-col gap-6">
       <PanelHeader
         title="Address book"
-        description="Every external contract the plan names, per environment, from packages/domain. Only verified entries can be used for signing."
+        description="Every external contract the plan names and every contract we deploy, per environment, from packages/domain. Only verified entries can be used for signing."
       />
       <Tabs defaultValue="local">
         <TabsList aria-label="Environment">

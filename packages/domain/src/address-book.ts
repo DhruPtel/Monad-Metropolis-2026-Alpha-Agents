@@ -47,11 +47,20 @@ export const ADDRESS_BOOK_IDS = [
   "kuru_margin_account",
   "kuru_market_mon_usdc",
   "erc8004_identity_registry",
+  "pyth_entropy",
+  "agent_nft",
 ] as const;
 export type AddressBookId = (typeof ADDRESS_BOOK_IDS)[number];
 
 export type AddressKind =
-  "token" | "price_feed" | "account_standard" | "venue" | "pool" | "infrastructure";
+  | "token"
+  | "price_feed"
+  | "account_standard"
+  | "venue"
+  | "pool"
+  | "infrastructure"
+  | "randomness"
+  | "platform";
 
 /** What the fork check observed. */
 export interface ForkVerification {
@@ -60,6 +69,12 @@ export interface ForkVerification {
   readonly codeSize: number;
   /** `decimals()` as read on the fork, for tokens and feeds. */
   readonly decimals?: number;
+  /**
+   * Set for our own contracts: the command that deploys them to the fork.
+   * They do not exist at the pinned block, so the fork check runs that
+   * command (it is deterministic and idempotent) and checks the latest block.
+   */
+  readonly deployedBy?: string;
 }
 
 interface EntryCommon {
@@ -101,6 +116,8 @@ const UNI_V3_DOCS =
   "https://developers.uniswap.org/docs/protocols/v3/deployments/v3-monad-deployments";
 const UNI_V4_DOCS = "https://developers.uniswap.org/docs/protocols/v4/deployments";
 const KURU_DOCS = "https://docs.kuru.io/contracts/Contract-addresses";
+const PYTH_ENTROPY_REGISTRY =
+  "https://github.com/pyth-network/pyth-crosschain contract_manager/src/store/contracts/EvmEntropyContracts.json";
 
 /** Monad mainnet, chain 143: used by `beta`, and by `local` through the fork. */
 const MAINNET: readonly AddressEntry[] = [
@@ -412,6 +429,17 @@ const MAINNET: readonly AddressEntry[] = [
     openQuestion: "Q-13",
     note: "Address and ABI on Monad unknown",
   },
+  {
+    id: "pyth_entropy",
+    label: "Pyth Entropy v2",
+    kind: "randomness",
+    address: "0xD458261E832415CFd3BAE5E416FdF3230ce6F134",
+    status: "verified",
+    verification: fork(177),
+    source: PYTH_ENTROPY_REGISTRY,
+    openQuestion: null,
+    note: "AgentNFT reveal randomness (D-187); default provider 0x52De...6506, fee 1.4 MON",
+  },
 ];
 
 const NOT_IN_RESEARCH = "No testnet address appears in Planv2 or its research; P1-U3 supplies it";
@@ -450,13 +478,61 @@ const TESTNET: readonly AddressEntry[] = MAINNET.map((m): AddressEntry => {
       note: "The research found no code at the Safe address on testnet; the testnet guardian is frozen at defaults",
     };
   }
+  if (m.id === "pyth_entropy") {
+    return {
+      ...m,
+      address: "0x825c0390f379C631f3Cf11A82a37D20BddF93c07",
+      status: "unverified",
+      verification: null,
+      note: "Pyth's registry entry monad_testnet; code and the testnet default provider seen by a read-only call in P1-U3, not fork-checked",
+    };
+  }
   return { ...m, address: null, status: "unverified", verification: null, note: NOT_IN_RESEARCH };
 });
 
+/**
+ * Our own contracts, per environment. A local deployment is verified only for
+ * `local`, never for `beta`, so a fork address can never be signed for on
+ * mainnet.
+ */
+const AGENT_NFT_SOURCE = "Planv2/FINAL_PLAN.md > 4.1.1 AgentNFT";
+const AGENT_NFT_LOCAL: AddressEntry = {
+  id: "agent_nft",
+  label: "AgentNFT",
+  kind: "platform",
+  address: "0x08e05A0e5400CcF847f1B94A49b35E75C2f8DAf9",
+  status: "verified",
+  verification: {
+    chainId: 143,
+    block: FORK_BLOCK,
+    codeSize: 32759,
+    deployedBy: "pnpm deploy:agent-nft",
+  },
+  source: AGENT_NFT_SOURCE,
+  openQuestion: null,
+  note: "Deterministic CREATE2 deployment with anvil roles (P1-U3); local fork only",
+};
+const agentNftUndeployed = (note: string): AddressEntry => ({
+  id: "agent_nft",
+  label: "AgentNFT",
+  kind: "platform",
+  address: null,
+  status: "unverified",
+  verification: null,
+  source: AGENT_NFT_SOURCE,
+  openQuestion: null,
+  note,
+});
+
 export const ADDRESS_BOOK: Readonly<Record<EnvironmentId, readonly AddressEntry[]>> = {
-  local: MAINNET,
-  testnet: TESTNET,
-  beta: MAINNET,
+  local: [...MAINNET, AGENT_NFT_LOCAL],
+  testnet: [
+    ...TESTNET,
+    agentNftUndeployed(
+      "Not deployed: needs MONAD_TESTNET_RPC_URL and a funded TESTNET_DEPLOYER_PRIVATE_KEY",
+    ),
+  ],
+  beta: [...MAINNET, agentNftUndeployed("Mainnet deployment belongs to PB-U1")],
 };
 
 export function addressEntry(environment: EnvironmentId, id: AddressBookId): AddressEntry {

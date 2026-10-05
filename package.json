@@ -32,7 +32,9 @@
     "spike:hermes:local": "node services/orchestrator/src/spike/local-smoke.ts",
     "spike:hermes:template": "node services/orchestrator/src/spike/build-template.ts",
     "spike:hermes": "node services/orchestrator/src/spike/run-spike.ts",
-    "spike:venues": "node scripts/spikes/p2-u0/run.ts"
+    "spike:venues": "node scripts/spikes/p2-u0/run.ts",
+    "deploy:agent-nft": "node scripts/deploy-agent-nft.js",
+    "agent-nft:local": "node scripts/agent-nft-local.js"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

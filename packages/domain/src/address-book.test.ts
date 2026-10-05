@@ -49,9 +49,34 @@ describe("address book", () => {
     }
   });
 
-  it("uses the same mainnet entries for local and beta, and none verified on testnet", () => {
-    expect(ADDRESS_BOOK.local).toBe(ADDRESS_BOOK.beta);
+  it("uses the same external entries for local and beta, and none verified on testnet", () => {
+    const external = (env: "local" | "beta") =>
+      ADDRESS_BOOK[env].filter((e) => e.kind !== "platform");
+    expect(external("local")).toEqual(external("beta"));
     expect(ADDRESS_BOOK.testnet.filter((e) => e.status === "verified")).toEqual([]);
+  });
+
+  it("never verifies a fork deployment of our own contracts for beta", () => {
+    expect(addressEntry("local", "agent_nft")).toMatchObject({ status: "verified" });
+    expect(addressEntry("beta", "agent_nft")).toMatchObject({
+      address: null,
+      status: "unverified",
+    });
+    expect(() => signingAddress("beta", "agent_nft")).toThrow(UnverifiedAddressError);
+    for (const env of ENVIRONMENT_IDS) {
+      for (const e of ADDRESS_BOOK[env]) {
+        if (e.status === "verified" && e.verification.deployedBy !== undefined) {
+          expect(env, e.id).toBe("local");
+          expect(e.kind).toBe("platform");
+        }
+      }
+    }
+  });
+
+  it("lists every id exactly once per environment", () => {
+    for (const env of ENVIRONMENT_IDS) {
+      expect(ADDRESS_BOOK[env].map((e) => e.id).sort()).toEqual([...ADDRESS_BOOK_IDS].sort());
+    }
   });
 
   it("records token decimals as read on the fork", () => {
