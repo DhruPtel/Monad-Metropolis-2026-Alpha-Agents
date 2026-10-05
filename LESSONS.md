@@ -372,3 +372,17 @@ What happened: A stray Playwright run against the main repo's older build left t
 Cause: Playwright writes a missing snapshot on any run and fails that test; only mismatches need --update.
 Fix: The ten were overwritten with the verified worktree baselines and compared byte for byte before they were committed (71297bc).
 Lesson: After any Playwright run, check git status for new snapshot files, and never commit one without knowing which build made it.
+
+## L-53: MetaMask's gasless relay sent a local mint to Monad mainnet
+Unit: P1-U11 (fix after handoff)
+What happened: In the owner's playtest, MetaMask showed the mint as submitted and confirmed, but the app said "The mint transaction failed." The fork had no transaction from the wallet (nonce 0, no agent). On Monad mainnet the wallet, which held 0 MON there, had nonce 1: a type-4 transaction sent by another address at 19:01:42 UTC carried the mint calldata to the AgentNFT address, which has no code on mainnet, so it "succeeded" doing nothing. It also set an EIP-7702 delegation on the owner's mainnet account to 0x63c0c19a...e32b.
+Cause: The local fork used chain ID 143, the same as Monad mainnet, so the app and MetaMask could not tell them apart. With no MON on chain 143, MetaMask sent the transaction through its gasless relay, which works on Monad mainnet whatever RPC the wallet has set, and the app then waited for the receipt on the fork, where it never appeared, and reported a generic failure.
+Fix: The fork answers its own chain ID, 143143, with Monad's EVM kept by `--network monad` (56d4df0, D-195), so a wallet on mainnet is now the wrong chain. Before a mint, the app checks through the wallet's own provider that the wallet sees the app's latest block and AgentNFT's code, and stops with the wallet's network named (789af6d). A transaction the app's RPC never sees is checked on the wallet's network and reported as sent elsewhere (4c49dab). The README gives the MetaMask network for 143143.
+Lesson: A local chain must never share a chain ID with a real network, because the wallet, not the app, decides where a transaction goes; and an app must confirm the wallet sees its chain before asking it to send anything.
+
+## L-54: A fork test silently skipped because it detected the fork by chain ID
+Unit: P1-U11 (fix after handoff)
+What happened: After the fork moved to chain 143143, the unit suite reported one skipped test where it had none: the Tokenbound registry check in packages/domain, which compares our account address helper with the real registry on the fork.
+Cause: The test decided whether a fork was running by comparing eth_chainId with "0x8f" (143), so on the new fork it skipped as if no fork were up, and its addresses still used chain 143 although agents on the fork are bound to block.chainid, 143143.
+Fix: It detects the fork by LOCAL_FORK_CHAIN_ID and computes accounts with it; it runs and passes against the registry on the fork (56d4df0).
+Lesson: Read the skipped count after any change to the environment, and detect a test environment from the same constant the code uses, never a literal.

@@ -210,3 +210,23 @@ Suggestions:
 - Real MetaMask minting needs the real claim signer and allowlist (P1-U4) for testnet; locally it uses the dev route.
 Bugs: L-43, L-44, L-45, L-46, L-47, L-48, L-49, L-50, L-51 (found, not fixed), L-52.
 Commit: 6e00c96, 8db4ba0, e1dd1f2, 98d753b, 04464b1, 88999f1, 9a770dd, be153aa, d7a3da6, 832acc0, 7dc65d0, a2fd0f3, 52fccd0, 48daf11, 71297bc, cfc3f83, 26d15a5, plus the log commit.
+
+## 2026-10-05, P1-U11 (fix after handoff), Local fork chain ID and wallet network guard
+Status: done
+Summary: The owner's playtest mint went to Monad mainnet: the fork shared chain ID 143 with mainnet, and MetaMask, with no MON on chain 143, sent it through its gasless relay, which also set an EIP-7702 delegation on the owner's mainnet account (L-53). D-195 records the fix.
+- Feasibility first: a probe anvil with `--chain-id 143143 --network monad` reported network monad and hardfork MonadTen. forge forked it under `network = "monad"` and deployed a 30,000-byte contract, which only Monad's size limit allows; a plain Ethereum anvil refused the same deploy with CreateContractSizeLimit. 143143 is in none of the 2,792 chains on chainid.network.
+- Chain ID (56d4df0): `LOCAL_FORK_CHAIN_ID` in packages/config sets the local environment's chain, so the wagmi chain, the claim route's EIP-712 domain and the mock wallet follow it. The anvil runner passes `--chain-id` and `--network monad`. The local-fork guard, dev:status and a new doctor check expect 143143 and tell an old fork on 143 to restart. The deploy script accepts the fork or testnet, not mainnet. The reveal simulator seeds with 143143, AgentNFT's local address book entry is verified on 143143 (mainnet entries stay 143, the state the fork copies, and `fork.json` keeps 143 as the chain copied), and the forge fork tests bind accounts to block.chainid. A new fork smoke test checks Monad's contract size limit. The console's environment and address book captures show 143143.
+- Network guard (789af6d): before a claim is requested, the app compares the wallet's latest block and AgentNFT's code, read through the wallet's own provider, with the app's RPC, and stops with the wallet's network named.
+- Named failure (4c49dab): a mint the app's RPC never sees is looked up on the wallet's network and reported as sent to a different network, not as failed.
+- Docs: D-195; L-53 and L-54; the README's new MetaMask section and environment tables.
+- Checks: lint, format, typecheck, 838 vitest tests (none skipped, fork up), test:fork (12 forge fork tests and the address book on 143143), forge 81 of 81, the web build check and web e2e 59 passed (1 desktop-only skip), the live suite 4 of 4 on 143143 (twice, before and after the receipt change), console e2e 30 of 30, and the secrets scan pass.
+Notes for the owner:
+- Mainnet account: the EIP-7702 delegation on 0x683e...5f76 to 0x63c0c19a...e32b stays until removed in MetaMask. It holds 0 MON on mainnet now. Check the delegate on an explorer, and switch the account back to a regular account if the upgrade was not intended.
+- The fork was restarted as 143143, which cleared its state; redeploy with `pnpm deploy:agent-nft`.
+- `.env` has Windows line endings (CRLF). The project's loader reads it correctly, but a shell `source .env` does not.
+- Commit 56d4df0 is tagged `[D-195]` instead of the unit ID `[P1-U11]`; history is not rewritten.
+Suggestions:
+- L-51 (the anvil_reset fork cache bug) now fails about every other reset; a later unit could try `--no-storage-caching` or a newer Foundry.
+- The network guard runs before minting only; P1-U4 and later units that send transactions should call `checkWalletNetwork` too.
+Bugs: L-53, L-54.
+Commit: 56d4df0, 789af6d, 4c49dab, plus the docs commit.

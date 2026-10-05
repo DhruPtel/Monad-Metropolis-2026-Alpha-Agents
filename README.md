@@ -66,7 +66,7 @@ Use `pnpm run doctor`, not `pnpm doctor`: `doctor` is a built-in pnpm command an
 
 | Service  | Address                                                             |
 | -------- | ------------------------------------------------------------------- |
-| anvil    | `http://127.0.0.1:8545`, chain ID 143, network monad                |
+| anvil    | `http://127.0.0.1:8545`, chain ID 143143, network monad             |
 | Postgres | `postgres://alpha:alpha_local_dev_only@127.0.0.1:5432/alpha_agents` |
 | Redis    | `redis://127.0.0.1:6380`                                            |
 
@@ -86,11 +86,13 @@ The fork starts at the block in `chains/monad/fork.json`, so every run sees the 
 
 Every service runs in one of three environments, chosen by `APP_ENV` (default `local`):
 
-| `APP_ENV` | Label          | Chain                | Chain RPC                      |
-| --------- | -------------- | -------------------- | ------------------------------ |
-| `local`   | `fork`         | anvil fork of 143    | `http://127.0.0.1:8545`, fixed |
-| `testnet` | `testnet`      | Monad testnet, 10143 | `MONAD_TESTNET_RPC_URL`        |
-| `beta`    | `mainnet-beta` | Monad mainnet, 143   | `MONAD_RPC_URL`                |
+| `APP_ENV` | Label          | Chain                        | Chain RPC                      |
+| --------- | -------------- | ---------------------------- | ------------------------------ |
+| `local`   | `fork`         | anvil fork of 143, as 143143 | `http://127.0.0.1:8545`, fixed |
+| `testnet` | `testnet`      | Monad testnet, 10143         | `MONAD_TESTNET_RPC_URL`        |
+| `beta`    | `mainnet-beta` | Monad mainnet, 143           | `MONAD_RPC_URL`                |
+
+The local fork copies Monad mainnet's state at the pinned block and runs Monad's EVM (`--network monad`, hardfork MonadTen), but answers its own chain ID, **143143**, so no wallet can mistake Monad mainnet for it (D-195, L-53). `chains/monad/fork.json`'s `chainId` is the chain it copies, 143.
 
 Configuration is loaded by `@alpha-agents/config` (`packages/config`). A service calls `loadConfig({ name, signs, requires })` at startup. The loader:
 
@@ -147,6 +149,25 @@ pnpm test:web:e2e -- --update   # rewrite the screenshot baselines after an inte
 - **Components.** Base components in `packages/ui/src/components/ui` (Button, Card, Input and Field, Select, Slider, Tabs, Dialog, Tooltip, Toast, Skeleton, Table, EmptyState, Badge) and product components in `packages/ui/src/components`: StatusPill and ReasonMessage render straight from `packages/domain`, AmountDisplay and AddressDisplay use its `formatAmount` and `shortenAddress`, plus StatBar, RiskBadge, DemandCounter and BetaBanner. The app shell shows the beta banner on every page.
 - **States.** Components style hover and focus through the `is-hover` and `is-focus` variants, which also match `data-force="hover"` or `"focus"`, so `/design` can show every state without a pointer.
 - **Tests.** Component tests run in Vitest under jsdom (`pnpm test`). Screenshot tests of `/design` at 1440px and 380px and an axe scan run in the Playwright 1.63.0 image pinned by digest, locally and in CI, and compare pixels exactly. A new component is added to the design system and to `/design` before any page uses it.
+
+### Wallet on the local fork (MetaMask)
+
+Use http://localhost:3000 (not 127.0.0.1; Privy is allowed on localhost only), and give MetaMask a network of its own for the fork:
+
+| Field              | Value                   |
+| ------------------ | ----------------------- |
+| Network name       | `Monad (local fork)`    |
+| Default RPC URL    | `http://127.0.0.1:8545` |
+| Chain ID           | `143143`                |
+| Currency symbol    | `MON`                   |
+| Block explorer URL | leave empty             |
+
+1. `pnpm dev:up`, then `pnpm deploy:agent-nft` (it prints `AgentNFT on the local fork: 0x60cacA6dE327331b321E140Ae19AcbCc4188Be6E`). A fork started before D-195 answers 143: `pnpm run doctor` says so, and `pnpm dev:down` then `pnpm dev:up` restarts it.
+2. In MetaMask, add the network above by hand (Settings, Networks, Add network, Add a network manually), and select it.
+3. Fund your address on the fork: `cast rpc anvil_setBalance <your address> 0x56BC75E2D63100000 --rpc-url http://127.0.0.1:8545` (100 MON, fork only).
+4. `pnpm dev:web`, open http://localhost:3000/configure, connect, and mint. Before a claim is requested, the app checks through MetaMask that the wallet sees the fork's latest block and AgentNFT's code, and stops with the wallet's real network named if not.
+
+Do not point MetaMask's Monad (chain 143) network at `http://127.0.0.1:8545`: keep it on Monad's official RPC. On chain 143, a mint went to Monad mainnet through MetaMask's gasless relay, which MetaMask offered because the account had no MON there; the relay runs on MetaMask's servers for chain 143, not through the RPC set in the wallet (L-53).
 
 ## Dev console
 
