@@ -21,12 +21,12 @@ import {
   parseEventLogs,
 } from "viem";
 import { generatePrivateKey, mnemonicToAccount, privateKeyToAccount } from "viem/accounts";
-import { ENTROPY, LOCAL_ROLES, deployLocal } from "./lib/agent-nft.js";
+import { LOCAL_ROLES, deployLocal } from "./lib/agent-nft.js";
+import { revealLocal } from "./lib/agent-reveal.js";
 import { ANVIL_URL, loadRootEnv } from "./lib/config.js";
 
 /** Anvil's default development mnemonic; account 1 is the local claim signer. */
 const ANVIL_MNEMONIC = "test test test test test test test test test test test junk";
-const ENTROPY_PROVIDER = "0x52DeaA1c84233F7bb8C8A45baeDE41091c616506";
 const TIERS = ["unrevealed", "base", "medium", "pro"];
 
 const abi = parseAbi([
@@ -47,7 +47,6 @@ const abi = parseAbi([
   "function tokenURI(uint256) view returns (string)",
   "event AgentMinted(uint256 indexed agentId, address indexed owner, address tba)",
 ]);
-const entropyAbi = parseAbi(["function getFeeV2() view returns (uint128)"]);
 
 const chain = defineChain({
   id: 143,
@@ -126,60 +125,13 @@ async function mint(nft) {
 
 /** @param {`0x${string}`} nft */
 async function reveal(nft) {
-  const [minted, next] = await Promise.all([
-    publicClient.readContract({ address: nft, abi, functionName: "totalMinted" }),
-    publicClient.readContract({ address: nft, abi, functionName: "nextToReveal" }),
-  ]);
-  let [sequence, , batchLast, seedReady] = await publicClient.readContract({
-    address: nft,
-    abi,
-    functionName: "pendingReveal",
-  });
-  if (sequence === 0n) {
-    if (next > minted) {
-      console.log("nothing to reveal: every minted agent is revealed");
-      return;
-    }
-    const fee = await publicClient.readContract({
-      address: ENTROPY.local,
-      abi: entropyAbi,
-      functionName: "getFeeV2",
-    });
-    await send(LOCAL_ROLES.admin, {
-      address: nft,
-      abi,
-      functionName: "requestReveal",
-      value: fee,
-    });
-    [sequence, , batchLast, seedReady] = await publicClient.readContract({
-      address: nft,
-      abi,
-      functionName: "pendingReveal",
-    });
-    console.log(`requested reveal ${sequence} for agents ${next} to ${batchLast} (fee ${fee} wei)`);
+  const result = await revealLocal(nft);
+  if (!result) {
+    console.log("nothing to reveal: every minted agent is revealed");
+    return;
   }
-  if (!seedReady) {
-    const randomNumber = /** @type {`0x${string}`} */ (`0x${randomBytes(32).toString("hex")}`);
-    await impersonate(ENTROPY.local);
-    await send(ENTROPY.local, {
-      address: nft,
-      abi,
-      functionName: "_entropyCallback",
-      args: [sequence, ENTROPY_PROVIDER, randomNumber],
-    });
-    await rpc(ANVIL_URL, "anvil_stopImpersonatingAccount", [ENTROPY.local]);
-    console.log(`delivered random number ${randomNumber} as Pyth Entropy`);
-  }
-  const applied = await send(LOCAL_ROLES.admin, {
-    address: nft,
-    abi,
-    functionName: "reveal",
-    args: [1000n],
-  });
-  console.log(`applied the reveal (gas ${applied.gasUsed})`);
-  for (let id = BigInt(next); id <= BigInt(batchLast); id++) {
-    console.log(await describe(nft, id));
-  }
+  console.log(`delivered random number ${result.randomNumber} as Pyth Entropy and applied it`);
+  for (let id = result.first; id <= result.last; id++) console.log(await describe(nft, id));
 }
 
 /**
