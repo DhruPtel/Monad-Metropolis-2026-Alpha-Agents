@@ -130,7 +130,9 @@ export function AgentStage({
           reducedMotion={reducedMotion}
           onFailure={onFailure}
         />
-      ) : mode === "checking" ? null : (
+      ) : mode === "checking" || overlay ? null : (
+        // Behind a gate (no wallet, no agent, not yet revealed) the frame stays
+        // empty: the gate says what is happening, and no art shows through it.
         art
       )}
     </ViewerFrame>
