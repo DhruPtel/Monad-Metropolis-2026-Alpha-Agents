@@ -186,3 +186,27 @@ Suggestions:
 - Flake: watch `shell-wrong-chain.png` for repeated 1-pixel flakes.
 Bugs: L-37, L-38, L-39, L-40, L-41, L-42.
 Commit: 898a37c, acf1482, 35a03d8, d8645c8, b7e4092, 879a941, 5c19f9f, bc7e180, 6676ec2, 05c559e, dc38186, plus the log commit.
+
+## 2026-10-05, P1-U11, Prototype port: agent portal, 3D model and NFT connector
+Status: done (local fork). The work spanned a WSL crash: the uncommitted work was reviewed against the unit scope, committed in parts, and finished in a second session. Testnet is not deployed (D-193).
+Summary: Step 0 recorded D-188 to D-194 (cffecdb): a 3D model per species through a manifest, only the bee in 3D this unit, commercial rights to the Meshy models, batched reveals, contractURI and the Safe admin before mainnet, testnet deferred, and a minimal local claim signer and dev reveal path.
+- Contract: AgentNFT gains an ERC-7572 `contractURI` built onchain (6e00c96).
+- Assets: `SPECIES_ASSETS` in packages/domain, one entry per species; the bee GLB built from the prototype's rigged model (1.90 MB, 25,229 triangles, eight sockets on the thorax, head and abdomen bones); `pnpm assets:check` validates every model, and broken models fail it; the pipeline is in docs/assets.md (8db4ba0).
+- Design system: SlotHex, SpeciesArt, ViewerFrame, MintButton (all nine states) and AgentCard, plus viewer tokens for the scene's lights, platform, grid and wing cue, all on /design (98d753b). A placeholder with slots now captions its words below the art (52fccd0).
+- Wallet: the session can send contract calls through Privy and wagmi, or from the mock wallet in test builds; a declined request reads as "Rejected in wallet" (04464b1).
+- Claim route: `POST /api/mint-claim` signs AgentNFT's EIP-712 claim with LOCAL_CLAIM_SIGNER_PRIVATE_KEY, local only (404 elsewhere), for the caller's own linked wallet (88999f1). The build check now fails if a throwaway claim key appears in any browser bundle or anywhere in either build, and a deliberate leak made it fail (d7a3da6). In `pnpm dev:web` the route answers 401 to an unauthenticated caller with Privy configured, and in the mock-wallet dev build it returned a claim that recovers to anvil account 1, the contract's local signer.
+- Mint flow: a pure state machine from claim to reveal, with tests for every state (9a770dd). Dev reveal: `scripts/lib/agent-reveal.js`, which can also pick the species an agent draws, for tests (be153aa).
+- Portal: /configure shows the wallet's agents from Transfer logs, kept only while a fresh `ownerOf` returns the wallet, re-read on account or chain change and every 15 seconds; the viewer loads three, React Three Fiber and drei through next/dynamic only for a species with a model when WebGL works, with the bee walking in and hovering and a slot on each socket, and otherwise the 2D art with slots and a "3D unavailable" note (7dc65d0). Nothing is drawn behind a gate (48daf11). Configure is in the nav (cfc3f83).
+- Fork deploy: the local deploy no longer fails on a fresh fork (L-43, 832acc0).
+- Tests: `pnpm test:web:live` mints, reveals and views on the real fork: the bee in 3D with slots that move with their sockets and three.js loaded, an ant in 2D, the bee without WebGL, and an account switch (a2fd0f3). `portal.spec.ts` runs in CI against a fake AgentNFT RPC: five portal states captured and axe-scanned at 1440px and 380px, three ownership checks, the claim refusal and the declined signature, and three.js absent from /, /design and a 2D /configure (71297bc). A header test measures the nav at four widths (cfc3f83).
+- Heavy work: Playwright runs one worker, and CLAUDE.md has a Heavy work section (e1dd1f2). Every heavy suite in this unit ran alone, with free memory checked first.
+- Checks on 26d15a5: lint, format, typecheck, 819 vitest tests (fork up), test:fork (11 forge fork tests and the address book), the live suite 4 of 4 twice, forge build and 69 forge tests (2 fork tests skip without the fork), the web build check (12 of 12) and web e2e 57 passed (1 desktop-only test skipped on mobile), console e2e 30 of 30, assets:check and the secrets scan pass. Console live was not run (it needs the console dev server, and the console is unchanged apart from shared tokens).
+- Commit order: cfc3f83 alone fails the three desktop nav screenshots, which 26d15a5 refreshes, as asked.
+Suggestions:
+- The scope's development-only tuning panel was not built; the scene has none, so none ships. W-3 can add it with the walk-in work.
+- `pnpm dev:up` failed to start anvil on several restarts with "Resource not found" from the upstream; a bounded retry in the anvil runner would help.
+- anvil_reset fails after the fork has been used because of a Foundry 1.8.3 cache bug (L-51); a later unit could try `--no-storage-caching` or a newer Foundry.
+- The header shows the environment chip and the wallet's chain chip together; merging them would free room (P1-U2 suggestion).
+- Real MetaMask minting needs the real claim signer and allowlist (P1-U4) for testnet; locally it uses the dev route.
+Bugs: L-43, L-44, L-45, L-46, L-47, L-48, L-49, L-50, L-51 (found, not fixed), L-52.
+Commit: 6e00c96, 8db4ba0, e1dd1f2, 98d753b, 04464b1, 88999f1, 9a770dd, be153aa, d7a3da6, 832acc0, 7dc65d0, a2fd0f3, 52fccd0, 48daf11, 71297bc, cfc3f83, 26d15a5, plus the log commit.

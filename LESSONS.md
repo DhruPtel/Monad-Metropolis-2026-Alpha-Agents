@@ -302,3 +302,73 @@ What happened: Four earlier lessons repeated. L-27: the fork test was committed 
 Cause: Haste in the commit and cleanup steps, and a pipeline that hid the scanner's exit code.
 Fix: The false positive is in `.gitleaksignore` with its reason (5c19f9f); every later commit ran the scan with its exit code checked (`secrets:scan > file && git commit`); bc7e180's gap closes in 6676ec2. History is not rewritten.
 Lesson: Run the secrets scan and the tests on exactly what is staged, gate the commit on their exit codes rather than on piped output, and stop processes by PID.
+
+## L-43: The first AgentNFT deploy on a fresh fork failed in forge's fee estimate
+Unit: P1-U11
+What happened: On a freshly started fork, `pnpm agent-nft:local mint` (which deploys first) and later the live test's `deployLocal` failed with "Failed to fetch fee history for EIP-1559 estimation ... could not get block data"; running it again worked. One fresh-fork deploy later failed differently, with "failed to fetch grandparent block ... does not exist".
+Cause: forge estimates EIP-1559 fees with eth_feeHistory, which makes anvil fetch old blocks lazily from the upstream RPC, and the upstream sometimes fails those fetches. Passing both EIP-1559 fee flags still left one eth_feeHistory call (counted in anvil's log).
+Fix: The local deploy sends legacy transactions at an explicit gas price read from anvil's latest block, so forge never calls eth_feeHistory, and a run that fails with a transient fork error is repeated up to three runs in all, which is safe because the deploy script skips a contract already at its CREATE2 address (832acc0). Seven fresh-fork deploys then made no eth_feeHistory call.
+Lesson: When a tool fails intermittently against a fork, count the RPC methods it sends in anvil's log, remove the call that reaches the upstream, and retry only errors classified as transient, only around an idempotent step.
+
+## L-44: Login specimen screenshots changed when /design grew above them
+Unit: P1-U11
+What happened: After the agent section and new viewer tokens were added to /design, five login screenshots (element captures of the wallet specimens, mostly loading spinners) differed by 7 to 1,139 pixels, although the specimens look identical. The failures were deterministic, and HEAD still passed them unchanged.
+Cause: The new token rows moved the specimens 234px (desktop) and 546px (mobile) down the page, and antialiased, rotated content such as a spinner rasterizes differently at another page offset, which a threshold-0 comparison sees.
+Fix: The five were re-baselined in the same commit as the change that moved them, after checking they were visually identical, that the change was deterministic, and that HEAD passed (98d753b).
+Lesson: A content change above an element capture can change it; prove the new pixels come from the change (run HEAD, run twice) before re-baselining, and say so in the commit.
+
+## L-45: Slot markers covered the species art's label and note
+Unit: P1-U11
+What happened: At 380px, the /design species art drew its slot hexagons over the placeholder's "BASE · ANT" label and its "Art coming soon" note; a new geometry test showed they also touched the note at 1440px.
+Cause: The slots ride a ring at 40% of the art's size with a fixed 44px hexagon, while the words sat in the centre of the same square, so on a small square the ring crossed the words. The screenshot baseline had accepted it.
+Fix: A placeholder with slots puts its words in a caption below the art; a /design test fails if any slot box overlaps any label or note at either width, and it failed before the fix (52fccd0).
+Lesson: When markers are positioned in proportion to a box but have a fixed size, keep text out of the area they can reach, and check overlap with a geometry test rather than by eye.
+
+## L-46: test.use with launchOptions inside a describe stopped the live suite
+Unit: P1-U11
+What happened: The live suite would not start: "Cannot use({ launchOptions }) in a describe group, because it forces a new worker."
+Cause: The no-WebGL test turned WebGL off with browser launch flags inside a describe, which needs a second browser, and the suite runs one worker.
+Fix: An init script makes every webgl and webgl2 context request return null for that test, which is also usable in the screenshot suite (a2fd0f3).
+Lesson: Simulate a missing browser capability per page with an init script rather than per browser with launch flags.
+
+## L-47: An untracked, untyped spec failed the web build
+Unit: P1-U11
+What happened: The first claim-key leak probe build failed in `next build` with TS7016 errors from `e2e/live.spec.ts`, a file that was not yet committed, importing `scripts/lib/*.js`.
+Cause: `next build` typechecks every file the web tsconfig includes, untracked ones too, and the web tsconfig had no allowJs, so the JSDoc-typed scripts were untyped there.
+Fix: The web tsconfig sets allowJs, so it reads the JSDoc types the root tsconfig already checks; a throwaway misuse proved the imports are typed (a2fd0f3).
+Lesson: Typecheck work in progress before a build, since the build sees it, and prove an import is typed by misusing it once.
+
+## L-48: The unrevealed placeholder showed through the portal's gates
+Unit: P1-U11
+What happened: With no wallet, no agent or an unrevealed agent, the viewer's dashed "UNREVEALED" placeholder showed through the gate's translucent panel, under its button.
+Cause: The stage always drew the art, and the gate sits on top of it at 90% opacity.
+Fix: The stage draws no art while a gate covers it (48daf11).
+Lesson: Look at every state of a page in the visual check, including the empty ones, before baselining it.
+
+## L-49: Portal captures were covered by the header and caught a hover state
+Unit: P1-U11
+What happened: Mobile captures of the portal hid "Alpha Agent #7" under the shell's sticky header, and one capture failed on the next run by 5 to 27 pixels: the Mint button in its hover colour in one run and not the other.
+Cause: An element taller than the viewport is captured by scrolling, and the sticky header stays over it. The test clicked "Connect wallet", and the Mint button then appeared under the pointer.
+Fix: Captures hide the sticky header with a stylePath file, the test moves the pointer off right after the click and waits for no hovered button; three runs in a row match (71297bc).
+Lesson: Before an element capture, park the pointer, wait for no :hover, and hide fixed or sticky chrome that can overlap the element.
+
+## L-50: The desktop nav never fitted below 1280px
+Unit: P1-U11
+What happened: Adding Configure made "My Agents" wrap onto two lines in the connected header at 1440px. Measuring showed the inline nav had overflowed from 1024px to 1279px all along (66px logged out at 1024, 242px connected), hidden because labels could wrap and no test used those widths.
+Cause: The nav showed inline from lg (1024px) with wrapping labels, and the screenshots covered only 1440 and 380.
+Fix: Labels never wrap, the inline nav starts at xl (1280px), link padding is 10px, and a test measures the header row at 1024, 1279, 1280 and 1440px, logged out and connected; it failed on the old header (cfc3f83).
+Lesson: This is L-30 and L-34 again: a row of controls needs a measured no-overflow test at every breakpoint edge, not only screenshots at two widths.
+
+## L-51: anvil_reset fails after the fork has been used
+Unit: P1-U11 (found, not fixed)
+What happened: `resets to the pinned block` in packages/devenv failed on several runs today with "anvil_reset: JSON-RPC error -32603", then passed on the next run. It looked like the upstream flakes of L-43.
+Cause: anvil's log says "failed to invalidate fork cache at ~/.foundry/cache/rpc/monad/109670000/storage-<hash>.json: Not a directory": anvil 1.8.3 stores each block's cache as one zstd file but tries to invalidate a path inside it as if it were a directory. It hits the first reset after the fork was used.
+Fix: None in code: it is a Foundry bug outside this unit. Commit gates that hit it were rerun and passed; the owner can watch it or try `--no-storage-caching` in a later unit.
+Lesson: Read the server's own log for the message behind a bare JSON-RPC error code before classifying the failure.
+
+## L-52: A Playwright run without --update still wrote baselines
+Unit: P1-U11
+What happened: A stray Playwright run against the main repo's older build left ten untracked configure-*.png baselines there, from before the gate fix.
+Cause: Playwright writes a missing snapshot on any run and fails that test; only mismatches need --update.
+Fix: The ten were overwritten with the verified worktree baselines and compared byte for byte before they were committed (71297bc).
+Lesson: After any Playwright run, check git status for new snapshot files, and never commit one without knowing which build made it.
