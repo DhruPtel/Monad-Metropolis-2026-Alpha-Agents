@@ -13,6 +13,7 @@ export default defineConfig({
   testDir: "e2e",
   snapshotPathTemplate: "{testDir}/__screenshots__/{arg}-{projectName}{ext}",
   fullyParallel: false,
+  workers: 1,
   forbidOnly: true,
   timeout: 120_000,
   retries: 0,

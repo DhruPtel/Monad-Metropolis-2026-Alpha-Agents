@@ -49,5 +49,11 @@ Alpha Agents is an onchain financial management platform on Monad where AI agent
 - Never run commands that discard uncommitted work: git checkout -- <file>, git restore, git reset --hard, git clean, or git stash drop.
 - To undo an edit, edit the file back, or commit first and then change it.
 
+## Heavy work
+- Heavy suites are Playwright (web and console, screenshot or live), full builds, and anything that renders 3D.
+- Run them one at a time: never in parallel with each other or with a dev server.
+- Check free -h before starting one, and do not start it if available memory is low.
+- Playwright runs with one worker for the web and console suites, locally and in CI.
+
 ## Never print secrets indirectly
 - Never print output that may contain environment values, such as anvil node info, process environments, or full config dumps. Redact or filter before printing.
