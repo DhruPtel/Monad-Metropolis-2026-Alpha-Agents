@@ -4,12 +4,15 @@ import {
   advanceTime,
   anvilState,
   balancesOf,
+  dumpForkState,
   forkClock,
+  loadForkState,
   mineBlocks,
   mintTestUsdc,
   readForkConfig,
   resetToBlock,
   revertToSnapshot,
+  rpc,
   setMonBalance,
   stackHealth,
   takeSnapshot,
@@ -18,7 +21,8 @@ import {
 /**
  * Integration tests against the running local fork (`pnpm dev:up`). They skip
  * cleanly when no anvil fork answers at 127.0.0.1:8545, as in CI. The suite
- * snapshots first and reverts at the end, so it leaves the fork as it found it.
+ * snapshots first and reverts at the end, and the reset test, which a snapshot
+ * cannot survive, restores the fork it found from a full state dump (L-58).
  */
 const fork = await anvilState();
 const pinned = readForkConfig().blockNumber;
@@ -32,11 +36,26 @@ describe.skipIf(fork === undefined)(
   { timeout: SLOW_IO_MS },
   () => {
     let outer = "";
+    // What the suite found: a playtest's deployed AgentNFT, funded wallets and
+    // minted agents must all survive the run.
+    let found = { state: "", head: 0, admin: "", agentNftCode: "" };
+    const ADMIN = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266";
+    const AGENT_NFT = "0x60cacA6dE327331b321E140Ae19AcbCc4188Be6E";
     beforeAll(async () => {
       outer = await takeSnapshot();
+      found = {
+        state: await dumpForkState(),
+        head: (await forkClock()).blockNumber,
+        admin: String(await rpc(LOCAL_FORK_RPC_URL, "eth_getBalance", [ADMIN, "latest"])),
+        agentNftCode: String(await rpc(LOCAL_FORK_RPC_URL, "eth_getCode", [AGENT_NFT, "latest"])),
+      };
     }, SLOW_IO_MS);
     afterAll(async () => {
       await revertToSnapshot(outer);
+      // If a reset went through but its restore did not, put the fork back now.
+      if (found.state && (await forkClock()).blockNumber !== found.head) {
+        await loadForkState(found.state);
+      }
     }, SLOW_IO_MS);
 
     it("reports the stack's anvil as the monad fork", async () => {
@@ -80,12 +99,22 @@ describe.skipIf(fork === undefined)(
       expect((await balancesOf(TEST_ADDRESS)).usdcE6).toBe(start + 2_501_000_000n);
     });
 
-    it("resets to the pinned block", async () => {
+    it("resets to the pinned block, then restores the fork it found", async () => {
       await mineBlocks(4);
       const clock = await resetToBlock(pinned);
       expect(clock.blockNumber).toBe(pinned);
       expect((await balancesOf(TEST_ADDRESS)).usdcE6).toBe(0n);
-      // A reset clears snapshots, so take a fresh one for afterAll to revert to.
+
+      // A reset clears every snapshot, so the fork comes back from the dump.
+      await loadForkState(found.state);
+      expect((await forkClock()).blockNumber).toBe(found.head);
+      expect(String(await rpc(LOCAL_FORK_RPC_URL, "eth_getBalance", [ADMIN, "latest"]))).toBe(
+        found.admin,
+      );
+      expect(String(await rpc(LOCAL_FORK_RPC_URL, "eth_getCode", [AGENT_NFT, "latest"]))).toBe(
+        found.agentNftCode,
+      );
+      // A fresh snapshot of the restored fork for afterAll to revert to.
       outer = await takeSnapshot();
     });
 

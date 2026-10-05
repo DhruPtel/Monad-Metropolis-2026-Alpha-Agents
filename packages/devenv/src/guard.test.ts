@@ -10,6 +10,8 @@ import {
   assertLocalFork,
   mineBlocks,
   mintTestUsdc,
+  dumpForkState,
+  loadForkState,
   resetToBlock,
   revertToSnapshot,
   setMonBalance,
@@ -106,6 +108,8 @@ describe("local-fork guard", () => {
       () => mineBlocks(1, remote),
       () => advanceTime(60, remote),
       () => resetToBlock(109_670_000, remote),
+      () => dumpForkState(remote),
+      () => loadForkState("0x00", remote),
       () => setMonBalance(address, 1n, remote),
       () => mintTestUsdc(address, 1n, remote),
     ]) {

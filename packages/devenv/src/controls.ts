@@ -71,9 +71,15 @@ export async function advanceTime(
   return forkClock(url);
 }
 
+/** How many times a reset is tried: anvil 1.8.3 fails about every other one (L-51). */
+export const RESET_ATTEMPTS = 3;
+
 /**
  * Resets the fork to the pinned block. Only the block number is sent: anvil
  * keeps its existing upstream, so the RPC URL (a secret) is never handled here.
+ * A failed reset changes nothing, so it is tried again, up to RESET_ATTEMPTS:
+ * anvil 1.8.3 often fails one with "failed to invalidate fork cache" and
+ * succeeds on the next (L-51).
  */
 export async function resetToBlock(
   blockNumber: number,
@@ -82,8 +88,44 @@ export async function resetToBlock(
   if (!Number.isSafeInteger(blockNumber) || blockNumber < 1)
     throw new Error("block number must be a positive integer");
   await assertLocalFork(url);
-  await rpc(url, "anvil_reset", [{ forking: { blockNumber } }], 120_000);
+  for (let attempt = 1; ; attempt++) {
+    try {
+      await rpc(url, "anvil_reset", [{ forking: { blockNumber } }], 120_000);
+      break;
+    } catch (error) {
+      if (attempt >= RESET_ATTEMPTS) throw error;
+      await new Promise((resolve) => setTimeout(resolve, 1_000));
+    }
+  }
   return forkClock(url);
+}
+
+/**
+ * The fork's whole state as anvil serializes it: accounts, code, storage,
+ * balances, and the blocks, transactions and logs mined since the pin. Taken
+ * before anything destructive so it can be put back (L-58).
+ */
+export async function dumpForkState(url: string = LOCAL_FORK_RPC_URL): Promise<string> {
+  await assertLocalFork(url);
+  const state = await rpc(url, "anvil_dumpState", [], 120_000);
+  if (typeof state !== "string" || !/^0x[0-9a-fA-F]*$/.test(state)) {
+    throw new Error("anvil_dumpState did not return hex");
+  }
+  return state;
+}
+
+/**
+ * Loads a dumpForkState result back. After a reset to the pinned block this
+ * restores the fork as it was: deployed contracts such as AgentNFT, wallet
+ * balances, and the blocks and logs the app reads agents from.
+ */
+export async function loadForkState(
+  state: string,
+  url: string = LOCAL_FORK_RPC_URL,
+): Promise<void> {
+  if (!/^0x[0-9a-fA-F]*$/.test(state)) throw new Error("state must be hex from dumpForkState");
+  await assertLocalFork(url);
+  await rpc(url, "anvil_loadState", [state], 120_000);
 }
 
 const ADDRESS = /^0x[0-9a-fA-F]{40}$/;
