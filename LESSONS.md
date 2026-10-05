@@ -543,3 +543,52 @@ What happened: Three new tests failed for test reasons, not app reasons. `filter
 Cause: `hasText` with a string is a case-insensitive substring match; addresses must be compared without case; the link is a full page load, and the mock wallet, unlike a Privy session, does not survive one. The capture differed because an earlier, taller state left the page scrolled, and an antialiased edge rasterizes differently at another offset (L-44).
 Fix: An anchored regex, a lowercase comparison, a reconnect on /configure, and a scroll to the top before every capture; the mint spec then passed three runs in a row and the live suite four (3e03e4a, b5c5b9b).
 Lesson: Match names with anchored patterns, compare addresses without case, remember which state survives a page load in the mock, and fix the scroll offset before an element capture.
+
+## L-65: Panel captures differed by an antialiased corner between runs
+Unit: P1-U4
+What happened: Mint panel screenshots failed on some runs and passed on others, by 1 to 15 pixels at the panel's top-left corner, one color level each. The layout was identical in every run (same bounding box, scroll and page height).
+Cause: After the panel changed state, the browser repainted only part of the page, and the rounded corner's antialiased pixels were composited differently depending on which partial repaints had happened. A first guess, the scrollbar changing the page width, was wrong: reserving the gutter made the mobile layout 15px narrower than a phone's, and it was removed.
+Fix: Before each mint panel capture, the root's opacity is toggled across two animation frames, forcing a full repaint; four runs in a row then matched (95fc33f).
+Lesson: When a capture differs by a few edge pixels with an unchanged layout, force a full repaint before capturing instead of loosening the comparison; and measure (bounding box, scroll, width) before acting on a theory.
+
+## L-66: Staged deletions were swept into an unrelated commit
+Unit: P1-U4
+What happened: Commit af4de72 (the indexer's fork test) also deleted the web dev claim route and the web server code, because `git rm` had staged those deletions earlier while the replacement code was still unstaged. Between af4de72 and be04bf0 the web mint posts to a route that no longer exists.
+Cause: `git rm` stages at once, and the commit gate checked the files added for that commit but not the whole staged set.
+Fix: None to history (it is not rewritten); the gap is noted in the log, and later commits read the staged list before committing.
+Lesson: Delete files with plain `rm` and stage them with the commit they belong to, and read `git diff --cached --stat` before every commit.
+
+## L-67: A failed migration left a test database behind
+Unit: P1-U4
+What happened: Two `alpha_agents_db_*` databases stayed on the development Postgres after the first test runs failed.
+Cause: createTestDatabase created the database and then migrated it; when the migration threw, the caller never received the handle that drops it.
+Fix: A failed migration drops the database before rethrowing; the leftovers were dropped by hand (3072750).
+Lesson: A helper that creates a shared resource must clean it up on its own failure paths, before it hands the caller a handle.
+
+## L-68: A default parameter turned "no token" into a valid token
+Unit: P1-U4
+What happened: The API test "an invalid or missing session is refused" got 200 for the missing case.
+Cause: The test helper's token parameter had a default, `"alice-token"`, and passing `undefined` to a parameter with a default uses the default.
+Fix: The helper takes `null` for no token (b8b6168).
+Lesson: Use `null`, never `undefined`, to mean "absent" for a parameter that has a default.
+
+## L-69: Parameter properties would not run under Node's type stripping
+Unit: P1-U4
+What happened: Typecheck rejected two classes with `erasableSyntaxOnly`; the services run TypeScript directly with Node, which would also have refused them at runtime.
+Cause: Constructor parameter properties (`constructor(private readonly id: number)`) emit code, which type stripping cannot do.
+Fix: Plain fields assigned in the constructor (246d65f).
+Lesson: In code Node runs as TypeScript, use only erasable syntax: no parameter properties, enums or namespaces.
+
+## L-70: test:fork's first run after other fork tests times out
+Unit: P1-U4 (found, not fixed)
+What happened: On its own fork, `pnpm test:fork` passes 12 of 12 in under a second when run on its own, but its first run right after other fork tests (pnpm test's fork tests or the live suite) fails test_GasForMintAndReveal, or two tests, after about 95 seconds, with forge's "failed to get account ... operation timed out" from the test fork. The next run passes.
+Cause: Not established. The fresh fork must fetch every account and slot those tests touch from the upstream, which the playtest fork had in memory; the warm runs read Foundry's shared fork cache. Ruled out: the upstream was answering in under 250 ms; a 300-second forge RPC timeout only made the failure slower; retrying forge on the same fork failed every test (the fork stopped answering); keeping the other forks off the shared cache (`--no-storage-caching`) did not help.
+Fix: None; all experiments were edited back. test:fork is reported as passing on its own and failing on its first run after other fork tests.
+Lesson: Moving a heavy fork test from a long-lived fork to a fresh one moves its upstream fetching into the test; measure a fresh fork's cold run before relying on it.
+
+## L-71: An in-memory fixture invented an event the contract never emits
+Unit: P1-U4
+What happened: The indexer's in-memory fixtures had a mint emit OwnerEpochBumped with epoch 1; indexing the real fork showed agent 1 at epoch 0 and no such event in its mint.
+Cause: The fixture was written from memory of the plan, not from a real transaction; AgentNFT bumps the epoch only on transfers, never on a mint.
+Fix: Fixtures emit Transfer and AgentMinted for a mint, and the expected epochs and counts were corrected (246d65f).
+Lesson: Build event fixtures from a real transaction's logs, and run the code against a real chain at least once before trusting its fixture tests.
