@@ -104,6 +104,16 @@ describe("the dev mint claim route", () => {
     expect(body.error).toBe("wallet_not_linked");
   });
 
+  it("says when Privy rejects the server's app secret, instead of a bare 500", async () => {
+    const { status, body } = await call(
+      post({ wallet: WALLET }),
+      deps({ walletsOf: () => Promise.reject(new Error("401 Invalid app ID or app secret")) }),
+    );
+    expect(status).toBe(503);
+    expect(body.error).toBe("privy_unavailable");
+    expect(body.message).toContain("PRIVY_APP_SECRET");
+  });
+
   it("refuses a wallet that has already minted", async () => {
     const { status, body } = await call(
       post({ wallet: WALLET }),

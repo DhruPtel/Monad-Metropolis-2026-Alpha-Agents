@@ -47,7 +47,8 @@ export type MintClaimError =
   | "invalid_token"
   | "bad_request"
   | "wallet_not_linked"
-  | "already_minted";
+  | "already_minted"
+  | "privy_unavailable";
 
 const json = (status: number, body: unknown) =>
   new Response(JSON.stringify(body), {
@@ -91,7 +92,18 @@ export async function mintClaimResponse(request: Request, deps: MintClaimDeps): 
   }
   const wallet = getAddress(raw);
 
-  const linked = await deps.walletsOf(session);
+  // Looking up linked wallets is the first call that uses the Privy app
+  // secret: a masked or wrong secret passes token checks and fails only here.
+  let linked: readonly string[];
+  try {
+    linked = await deps.walletsOf(session);
+  } catch {
+    return error(
+      503,
+      "privy_unavailable",
+      "The server could not look up your linked wallets with Privy. Check PRIVY_APP_SECRET in .env: it must be the full app secret, not the dashboard's masked copy.",
+    );
+  }
   if (
     !linked.some((w) => isAddress(w, { strict: false }) && isAddressEqual(getAddress(w), wallet))
   ) {

@@ -103,9 +103,15 @@ export async function switchWalletChain({
     } catch (addError) {
       if (isUserRejection(addError)) return declined(`adding ${target.name}`);
       if (isRequestAlreadyPending(addError)) return { outcome: "failed", message: PENDING_MESSAGE };
+      // A local network has an http RPC, which a wallet may refuse to add from
+      // a site; then it has to be added by hand (README, D-196).
+      const byHand =
+        target.environment === "local"
+          ? ` Add it by hand in your wallet: network name ${target.name}, RPC URL ${target.browserRpcUrl}, chain ID ${target.id}, currency ${target.nativeCurrency.symbol}.`
+          : "";
       return {
         outcome: "failed",
-        message: `Your wallet could not add ${target.name}: ${text(addError)}`,
+        message: `Your wallet could not add ${target.name}: ${text(addError).replace(/\.$/, "")}.${byHand}`,
       };
     }
   }

@@ -129,7 +129,7 @@ describe("switchWalletChain", () => {
     expect(result).toEqual({
       outcome: "failed",
       message:
-        "Your wallet could not add Monad (local fork): Expected an array with at least one valid string HTTPS url",
+        "Your wallet could not add Monad (local fork): Expected an array with at least one valid string HTTPS url. Add it by hand in your wallet: network name Monad (local fork), RPC URL http://127.0.0.1:8545, chain ID 143143, currency MON.",
     });
   });
 
