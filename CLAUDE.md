@@ -48,3 +48,6 @@ Alpha Agents is an onchain financial management platform on Monad where AI agent
 ## Git safety
 - Never run commands that discard uncommitted work: git checkout -- <file>, git restore, git reset --hard, git clean, or git stash drop.
 - To undo an edit, edit the file back, or commit first and then change it.
+
+## Never print secrets indirectly
+- Never print output that may contain environment values, such as anvil node info, process environments, or full config dumps. Redact or filter before printing.
