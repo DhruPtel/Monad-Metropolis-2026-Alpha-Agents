@@ -1,9 +1,11 @@
 import { LOCAL_FORK_CHAIN_ID } from "@alpha-agents/config";
+import { AGENT_MAX_SUPPLY, SPECIES } from "@alpha-agents/domain";
 import type { Page, Route } from "@playwright/test";
 import {
   type Address,
   type Hex,
   decodeFunctionData,
+  encodeAbiParameters,
   encodeEventTopics,
   encodeFunctionResult,
   zeroAddress,
@@ -13,10 +15,13 @@ import { AGENT_NFT_ABI, agentNftDeployment } from "../src/agent/agent-nft";
 /**
  * A stand-in for the local fork's JSON-RPC, for the screenshot suite, which
  * runs in the pinned Playwright image where no fork is reachable. It answers
- * exactly the reads the portal makes of AgentNFT (Transfer logs, ownerOf,
- * speciesOf, tbaOf, ownerEpoch, hasMinted, totalMinted) from an in-memory
- * set of agents, which a test changes to move ownership. The live suite
- * (live.spec.ts) runs the same pages against the real fork.
+ * exactly the reads the portal and the mint page make of AgentNFT (Transfer
+ * and AgentMinted logs, ownerOf, speciesOf, tbaOf, ownerEpoch, hasMinted,
+ * totalMinted, MAX_SUPPLY, remainingOf) from an in-memory set of agents,
+ * which a test changes to move ownership or reveal an agent. It also takes a
+ * `mintWithClaim` sent by the mock wallet, and can hold the receipt so a test
+ * sees the mint in flight. The live suite (live.spec.ts) runs the same pages
+ * against the real fork.
  */
 export interface FakeAgent {
   readonly id: bigint;
@@ -48,6 +53,15 @@ export interface FakeChainOptions {
 
 export class FakeChain {
   readonly agents = new Map<bigint, FakeAgent>();
+  /**
+   * The supply as a test sets it: the minted count and the deck per species
+   * (25 counts). Unset, both follow the agents: every agent is minted, and
+   * each revealed one has left the deck.
+   */
+  supply: { totalMinted: number; remaining: number[] } | null = null;
+  /** While true, a sent mint has no receipt yet: the mint stays in flight. */
+  holdReceipts = false;
+  private readonly sent = new Map<Hex, bigint>();
   private readonly head: bigint;
   private readonly hashSeed: string;
   private readonly agentNft: boolean;
@@ -72,7 +86,22 @@ export class FakeChain {
     return agent;
   }
 
-  /** Answers the page's requests to the fork's RPC from now on. */
+  /** Sets the supply: the minted count and the deck per species (25 counts). */
+  setSupply(totalMinted: number, remaining: number[]): void {
+    if (remaining.length !== SPECIES.length) throw new Error("remaining needs 25 counts");
+    this.supply = { totalMinted, remaining };
+  }
+
+  private totalMinted(): number {
+    return this.supply?.totalMinted ?? this.agents.size;
+  }
+
+  private remainingOf(species: number): number {
+    if (this.supply) return this.supply.remaining[species - 1] ?? 0;
+    const drawn = [...this.agents.values()].filter((a) => a.species === species).length;
+    return (SPECIES[species - 1]?.count ?? 0) - drawn;
+  }
+
   /**
    * Answers the page's requests to an RPC on 127.0.0.1 from now on: the fork's
    * port by default, or another port standing in for a wallet's other network.
@@ -92,6 +121,8 @@ export class FakeChain {
       number: hex(number),
       hash: `0x${this.hashSeed}${number.toString(16).padStart(62, "0")}`,
       timestamp: hex(1_790_000_000n + number),
+      baseFeePerGas: "0x1",
+      gasLimit: "0x1c9c380",
       transactions: [],
     };
   }
@@ -122,7 +153,19 @@ export class FakeChain {
         return ok(this.agentNft && same(address, AGENT_NFT) ? "0x6080604052" : "0x");
       }
       case "eth_getLogs":
-        return ok(this.transferLogs(request.params[0] as LogFilter));
+        return ok(this.logs(request.params[0] as LogFilter));
+      // What a wallet client asks before it sends: any fee and gas will do.
+      case "eth_estimateGas":
+        return ok("0x30000");
+      case "eth_maxPriorityFeePerGas":
+      case "eth_gasPrice":
+        return ok("0x1");
+      case "eth_getTransactionCount":
+        return ok("0x0");
+      case "eth_sendTransaction":
+        return ok(this.send(request.params[0] as { from: Address; to: Address; data: Hex }));
+      case "eth_getTransactionReceipt":
+        return ok(this.receipt(request.params[0] as Hex));
       case "eth_call": {
         const call = request.params[0] as { to: Address; data: Hex };
         if (!same(call.to, AGENT_NFT)) return ok("0x");
@@ -138,7 +181,9 @@ export class FakeChain {
     const { functionName, args } = decodeFunctionData({ abi: AGENT_NFT_ABI, data });
     const encode = (result: unknown) =>
       encodeFunctionResult({ abi: AGENT_NFT_ABI, functionName, result } as never);
-    if (functionName === "totalMinted") return encode(this.agents.size);
+    if (functionName === "totalMinted") return encode(this.totalMinted());
+    if (functionName === "MAX_SUPPLY") return encode(BigInt(AGENT_MAX_SUPPLY));
+    if (functionName === "remainingOf") return encode(BigInt(this.remainingOf(Number(args[0]))));
     if (functionName === "hasMinted") {
       const wallet = args[0] as Address;
       return encode([...this.agents.values()].some((a) => same(a.receivedBy[0] ?? "", wallet)));
@@ -159,37 +204,108 @@ export class FakeChain {
     }
   }
 
-  private transferLogs(filter: LogFilter) {
-    const to = filter.topics?.[2];
+  /** A mint from the mock wallet: a new unrevealed agent for the sender. */
+  private send(tx: { from: Address; to: Address; data: Hex }): Hex {
+    const { functionName } = decodeFunctionData({ abi: AGENT_NFT_ABI, data: tx.data });
+    if (!same(tx.to, AGENT_NFT) || functionName !== "mintWithClaim") {
+      throw new Error(`the fake chain does not take ${functionName}`);
+    }
+    const id = BigInt(this.agents.size + 1);
+    this.mint(id, tx.from, 0);
+    const hash = `0x${id.toString(16).padStart(64, "c")}` as Hex;
+    this.sent.set(hash, id);
+    return hash;
+  }
+
+  private receipt(hash: Hex) {
+    const id = this.sent.get(hash);
+    const agent = id === undefined ? undefined : this.agents.get(id);
+    if (!agent || this.holdReceipts) return null;
+    const block = { blockNumber: hex(this.head), blockHash: `0x${"b".repeat(64)}` };
+    return {
+      ...block,
+      transactionHash: hash,
+      transactionIndex: "0x0",
+      from: agent.receivedBy[0],
+      to: AGENT_NFT,
+      contractAddress: null,
+      cumulativeGasUsed: "0x30000",
+      gasUsed: "0x30000",
+      effectiveGasPrice: "0x1",
+      logsBloom: `0x${"0".repeat(512)}`,
+      status: "0x1",
+      type: "0x2",
+      logs: this.agentLogs(agent, 0).map((log, i) => ({
+        ...log,
+        ...block,
+        transactionHash: hash,
+        logIndex: hex(BigInt(i)),
+      })),
+    };
+  }
+
+  /** An agent's Transfer events (mint first) and its AgentMinted event. */
+  private agentLogs(agent: FakeAgent, first: number) {
     const logs = [];
-    let index = 0;
-    for (const agent of this.agents.values()) {
-      let from: Address = zeroAddress;
-      for (const holder of agent.receivedBy) {
-        const topics = encodeEventTopics({
-          abi: AGENT_NFT_ABI,
-          eventName: "Transfer",
-          args: { from, to: holder, tokenId: agent.id },
-        });
-        const toTopic = topics[2];
-        if (!to || (typeof toTopic === "string" && same(toTopic, to))) {
-          logs.push({
-            address: AGENT_NFT,
-            topics,
-            data: "0x",
-            blockNumber: hex(FIRST_BLOCK + BigInt(index)),
-            blockHash: `0x${(index + 1).toString(16).padStart(64, "0")}`,
-            transactionHash: `0x${(index + 1).toString(16).padStart(64, "a")}`,
-            transactionIndex: "0x0",
-            logIndex: hex(BigInt(index)),
-            removed: false,
-          });
-        }
-        from = holder;
-        index++;
+    let from: Address = zeroAddress;
+    let index = first;
+    const entry = (topics: (Hex | Hex[] | null)[], data: Hex) => ({
+      address: AGENT_NFT,
+      topics,
+      data,
+      blockNumber: hex(FIRST_BLOCK + BigInt(index)),
+      blockHash: `0x${(index + 1).toString(16).padStart(64, "0")}`,
+      transactionHash: `0x${(index + 1).toString(16).padStart(64, "a")}`,
+      transactionIndex: "0x0",
+      logIndex: hex(BigInt(index)),
+      removed: false,
+    });
+    for (const holder of agent.receivedBy) {
+      logs.push(
+        entry(
+          encodeEventTopics({
+            abi: AGENT_NFT_ABI,
+            eventName: "Transfer",
+            args: { from, to: holder, tokenId: agent.id },
+          }),
+          "0x",
+        ),
+      );
+      if (from === zeroAddress) {
+        logs.push(
+          entry(
+            encodeEventTopics({
+              abi: AGENT_NFT_ABI,
+              eventName: "AgentMinted",
+              args: { agentId: agent.id, owner: holder },
+            }),
+            encodeAbiParameters([{ type: "address" }], [agent.tba]),
+          ),
+        );
       }
+      from = holder;
+      index++;
     }
     return logs;
+  }
+
+  /** Every log matching the filter's topics (null matches anything). */
+  private logs(filter: LogFilter) {
+    const wanted = filter.topics ?? [];
+    const matches = (topics: (Hex | Hex[] | null)[]) =>
+      wanted.every((w, i) => {
+        if (w === null || w === undefined) return true;
+        const t = topics[i];
+        return typeof t === "string" && same(t, w);
+      });
+    let index = 0;
+    const all = [];
+    for (const agent of this.agents.values()) {
+      const logs = this.agentLogs(agent, index);
+      index += agent.receivedBy.length;
+      all.push(...logs);
+    }
+    return all.filter((log) => matches(log.topics));
   }
 }
 
