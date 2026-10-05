@@ -1,0 +1,19 @@
+{
+  "name": "@alpha-agents/indexer",
+  "version": "0.0.0",
+  "private": true,
+  "description": "The chain indexer: a log poller that projects AgentNFT and agent USDC transfers into Postgres with block hashes, a watermark and reorg rollback (P1-U4, D-197).",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p ."
+  },
+  "dependencies": {
+    "@alpha-agents/config": "workspace:^",
+    "@alpha-agents/db": "workspace:^",
+    "@alpha-agents/domain": "workspace:^",
+    "viem": "2.57.2"
+  }
+}
