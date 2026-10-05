@@ -386,3 +386,17 @@ What happened: After the fork moved to chain 143143, the unit suite reported one
 Cause: The test decided whether a fork was running by comparing eth_chainId with "0x8f" (143), so on the new fork it skipped as if no fork were up, and its addresses still used chain 143 although agents on the fork are bound to block.chainid, 143143.
 Fix: It detects the fork by LOCAL_FORK_CHAIN_ID and computes accounts with it; it runs and passes against the registry on the fork (56d4df0).
 Lesson: Read the skipped count after any change to the environment, and detect a test environment from the same constant the code uses, never a literal.
+
+## L-55: The network switch buttons failed silently
+Unit: P1-U11 (fix after handoff)
+What happened: In the owner's playtest, "Switch network" and "Switch to Monad (local fork)" did nothing and no MetaMask prompt appeared, while the app said the wallet was on Monad Testnet and MetaMask's main view showed the fork network selected with 100 MON.
+Cause: The buttons called wagmi's `switchChain` and dropped its result. wagmi's injected connector sends the request and then waits for a chainChanged event, which a wallet that accepts the request without changing networks never sends, and any error went to hook state that nothing displayed. The app's chain was wagmi's cached connection chain, which can differ from the network MetaMask uses for this site (MetaMask can keep one per site, separate from the one in its main view). Privy's own switch path would also have failed for an unknown chain: it adds chains with an empty explorer URL. The mock wallet switched instantly, so no test ever exercised any of this. The owner's console lines were not available, so which of these MetaMask hit is not confirmed.
+Fix: `switchWalletChain` asks the wallet's provider directly, adds the chain on 4902 with valid parameters, confirms with eth_chainId, and returns an outcome the wrong-chain prompt shows: waiting, declined, already pending, failed with the wallet's error, or still on the old network with how to fix the site's network. The app reads the chain from the provider (connect, chainChanged, window focus) and moves wagmi's connection to it. The mock wallet answers switches the way MetaMask can, and tests cover each outcome (e28f012, c07da24).
+Lesson: Never fire a wallet request without showing its outcome, confirm a wallet action by reading the wallet's state afterwards, and give the mock wallet the failure modes of the real one.
+
+## L-56: A commit went in while its staged tests had failed
+Unit: P1-U11 (fix after handoff)
+What happened: c07da24 was committed although the staged test run had one failure. The failure was the known anvil reset bug (L-51), and the committed tree then passed 851 of 851 twice, so no broken code went in. In the same task a heavy Playwright run started while the owner's `next dev` was running, against the Heavy work rule.
+Cause: The gate was `check-staged.sh | grep ... && git commit`, so the commit depended on grep's exit code, not the checks'; this is L-42 again. The process list was printed before the heavy run but not acted on.
+Fix: The committed tree was rechecked with the script's own exit code; later gates write the output to a file and test the exit code first.
+Lesson: Gate a commit on the check's own exit code, never a pipeline's, and treat a dev server in the process list as a stop before any heavy suite.

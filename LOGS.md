@@ -230,3 +230,18 @@ Suggestions:
 - The network guard runs before minting only; P1-U4 and later units that send transactions should call `checkWalletNetwork` too.
 Bugs: L-53, L-54.
 Commit: 56d4df0, 789af6d, 4c49dab, plus the docs commit.
+
+## 2026-10-05, P1-U11 (fix after handoff), Network switch buttons
+Status: done (verified with the mock wallet and unit tests; a real MetaMask switch still needs the owner's browser)
+Summary: The owner reported that both switch buttons did nothing and no MetaMask prompt appeared, while the app said the wallet was on Monad Testnet. The console output in the request was the placeholder, so the diagnosis is from the code and the installed Privy and wagmi sources.
+- Registration: chain 143143 was already in the wagmi chain list and in Privy's `defaultChain` and `supportedChains` (all from `appChain(environment)`); nothing there was missed.
+- Cause (L-55): the buttons fired wagmi's `switchChain` and dropped its result, and wagmi's injected connector waits for a chainChanged event that may never come. The app's chain was wagmi's cached connection chain, which can differ from MetaMask's per-site network. Privy's own switch path would also add an unknown chain with an empty explorer URL. The mock wallet switched instantly, so none of this was tested.
+- Fix: `switchWalletChain` (apps/web/src/auth/switch-chain.ts) asks the wallet's provider to switch, adds the chain on 4902 (also -32603 wrapping 4902) with the fork's RPC, chain ID and MON, switches again, and confirms with eth_chainId. WrongChainPrompt shows the outcome: waiting in the wallet, declined, a request already open, failed with the wallet's error, or still on the old network with how to fix MetaMask's per-site network; a switch shows a toast. `useWalletChainId` reads the chain from the provider on connect, chainChanged and window focus and moves wagmi's connection to it.
+- Design system: WrongChainPrompt's status line and a "Network switch outcomes" specimen on /design, added first (e28f012).
+- Tests: 10 unit tests for the switch (approve, unknown chain, 4902 wrapped as -32603, declined switch, declined add, request already open, add error, other error, accepted but still on the old network, add parameters); 13 end-to-end tests with the mock wallet answering as MetaMask can (two approve paths and four failures at both widths, and the header button on desktop).
+- Checks: lint, format, typecheck, 851 vitest tests on the committed tree (twice), and web e2e 72 passed with 2 skipped (desktop-only tests on mobile), after a visual check of the two changed /design captures.
+- Process: c07da24's gate passed through a grep pipeline while one staged test (the L-51 anvil reset) had failed; the committed tree was rechecked and passes (L-56). One web e2e run overlapped the owner's running `next dev`, against the Heavy work rule.
+Notes for the owner:
+- MetaMask can keep a network per site. If the app still shows another network, open MetaMask while on localhost:3000 and choose Monad (local fork) for this site, or press the switch button: the prompt now says what happened.
+Bugs: L-55, L-56.
+Commit: e28f012, c07da24, plus the log commit.
