@@ -7,8 +7,15 @@ libs = ["dependencies"]
 solc_version = "0.8.37"
 # Every contract targets Monad, so forge uses the Monad EVM (and can fork chain 143).
 network = "monad"
-# Tests read the pinned fork config; nothing else on disk.
-fs_permissions = [{ access = "read", path = "./fork.json" }]
+# Tests read the pinned fork config and the build output (the AgentNFT ABI check); nothing else on disk.
+fs_permissions = [{ access = "read", path = "./fork.json" }, { access = "read", path = "./out" }]
+
+[profile.default.invariant]
+# Each run mints up to 40 agents per call and the invariants read every
+# agent, so fewer, deeper runs keep the suite to a few minutes.
+runs = 48
+depth = 60
+fail_on_revert = false
 
 [rpc_endpoints]
 # Resolved from the environment only; the URL is never written to a file.
@@ -22,4 +29,5 @@ recursive_deps = false
 
 [dependencies]
 forge-std = "1.16.2"
+"@openzeppelin-contracts" = "5.7.0"
 
