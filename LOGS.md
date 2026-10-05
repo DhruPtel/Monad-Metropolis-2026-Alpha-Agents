@@ -245,3 +245,17 @@ Notes for the owner:
 - MetaMask can keep a network per site. If the app still shows another network, open MetaMask while on localhost:3000 and choose Monad (local fork) for this site, or press the switch button: the prompt now says what happened.
 Bugs: L-55, L-56.
 Commit: e28f012, c07da24, plus the log commit.
+
+## 2026-10-05, P1-U11 (fix after handoff), Wallet network guard false positive
+Status: done (the guard passes on the real fork in the live suite; an OKX check still needs the owner's browser)
+Summary: With OKX correctly on the local fork, the guard blocked the mint with "Your wallet is on a network that reports chain 143143, not Monad (local fork)".
+- Diagnosis (L-57): the old check failed in one of two places that gave the same text: the wallet's "latest" block against the app's block at that number (unreliable: wallets cache "latest", and a block from the earlier fork run has another hash), or a wallet answer to eth_getCode that was an error, counted as a mismatch. Which one OKX hit cannot be told from the text, which was itself the defect.
+- Fix (ead099e): the chain ID through the wallet's provider must equal the app's; the pinned block's hash must be the same through the wallet and the app; AgentNFT must have code through the wallet. The pinned block's hash is identical on the fork and Monad mainnet (checked through both RPCs: 0x2ea4dc88...), so the chain ID and code checks catch mainnet. Each failure names what failed; a silent wallet is reported as silent; a missing deployment on the app's side says to run pnpm deploy:agent-nft.
+- Wallet calls: every one goes through the connected connector's provider (walletRequest); nothing in apps/web or packages/ui uses window.ethereum.
+- AgentNFT: deployed on the running fork (34,459 bytes at 0x60cacA6dE327331b321E140Ae19AcbCc4188Be6E). It was missing before the live run because this task's `pnpm test` reset the fork (L-58); the live suite's setup redeployed it.
+- Tests: 9 guard unit tests, including a stale latest block on the right network (passes), Monad mainnet on 143 (fails on the chain ID) and 143143 on another node (fails on the pinned block); the portal guard test at both widths.
+- Checks: lint, format, typecheck and 853 vitest tests before the final comment-only edit (the unit suite was not rerun after it, to avoid resetting the owner's fork again); web e2e 72 passed with 2 skipped (desktop-only); the live mint, reveal and view suite 4 of 4 on the running fork. With the owner's approval, their `pnpm dev:web` was stopped first, so the heavy suites ran one at a time with no dev server.
+Suggestions:
+- Make the fork integration test's reset restore the fork it found (L-58).
+Bugs: L-57, L-58 (found, not fixed).
+Commit: ead099e, plus the log commit.

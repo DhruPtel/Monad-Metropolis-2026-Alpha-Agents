@@ -400,3 +400,17 @@ What happened: c07da24 was committed although the staged test run had one failur
 Cause: The gate was `check-staged.sh | grep ... && git commit`, so the commit depended on grep's exit code, not the checks'; this is L-42 again. The process list was printed before the heavy run but not acted on.
 Fix: The committed tree was rechecked with the script's own exit code; later gates write the output to a file and test the exit code first.
 Lesson: Gate a commit on the check's own exit code, never a pipeline's, and treat a dev server in the process list as a stop before any heavy suite.
+
+## L-57: The network guard compared "latest" blocks and blocked a correct wallet
+Unit: P1-U11 (fix after handoff)
+What happened: With OKX on the local fork (chain ID 143143, RPC http://127.0.0.1:8545), the mint stopped with "Your wallet is on a network that reports chain 143143, not Monad (local fork), which this app reads", a message that contradicts itself.
+Cause: checkWalletNetwork took the wallet's latest block and required the app's RPC to have the same hash at that number. A wallet caches and polls "latest" on its own schedule; after today's fork restart a cached block 109670001 from the earlier run also has another hash. It also counted a wallet that could not answer a request as a different network. Both failures produced the same text, so the OKX report cannot say which one fired.
+Fix: The guard checks the chain ID through the wallet's provider, the hash of one fixed block (the pinned block) through both sides, and AgentNFT's code through the wallet; each failure has its own plain message, and a silent wallet is reported as silent (ead099e). The pinned block's hash is identical on the fork and on mainnet (checked through both RPCs), so the chain ID and the code check carry the mainnet case.
+Lesson: Never compare "latest" block data between a wallet and the app; compare a fixed block, and give each failed comparison its own message so a report says which one failed.
+
+## L-58: Running the unit suite undeploys AgentNFT from the dev fork
+Unit: P1-U11 (found, not fixed)
+What happened: AgentNFT had code on the running fork at the start of this task and none before the live suite ran; the fork was back at the pinned block. Nothing else was lost, because the fork held only the deployment.
+Cause: `pnpm test` includes packages/devenv's fork integration test "resets to the pinned block", which calls anvil_reset on the shared dev fork whenever one is running, and a reset removes every block after the pin. The test then snapshots the reset state for its cleanup, so it does not restore what was there.
+Fix: None in code: the owner's fork was redeployed by the live suite's setup, and the guard now says "Deploy it with pnpm deploy:agent-nft" when AgentNFT is missing on the app's side. The reset test should restore the fork it found (snapshot before resetting and revert after) in a later unit.
+Lesson: A test that resets shared state must put back what it found, and running the unit suite during a playtest is a state change, not a read.
