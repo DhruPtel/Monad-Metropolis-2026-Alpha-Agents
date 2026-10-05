@@ -4,6 +4,7 @@ import {
   appChain,
   ENVIRONMENT_IDS,
   ENVIRONMENTS,
+  LOCAL_FORK_CHAIN_ID,
   LOCAL_FORK_RPC_URL,
   MONAD_MAINNET_CHAIN_ID,
   MONAD_TESTNET_CHAIN_ID,
@@ -12,7 +13,7 @@ import {
 
 describe("the web app's chain per environment", () => {
   it.each([
-    ["local", MONAD_MAINNET_CHAIN_ID, LOCAL_FORK_RPC_URL, "Monad (local fork)"],
+    ["local", LOCAL_FORK_CHAIN_ID, LOCAL_FORK_RPC_URL, "Monad (local fork)"],
     ["testnet", MONAD_TESTNET_CHAIN_ID, "https://testnet-rpc.monad.xyz", "Monad Testnet"],
     ["beta", MONAD_MAINNET_CHAIN_ID, "https://rpc.monad.xyz", "Monad"],
   ] as const)("%s targets chain %i at %s", (env, id, rpc, name) => {

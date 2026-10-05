@@ -114,7 +114,8 @@ contract AgentNFTForkTest is Test {
     /// TB-1: mint creates the account at the registry's address, initialized
     /// to AccountV3Upgradable, owned by the minter, bound to the agent.
     function test_MintCreatesCanonicalAccount() public {
-        address predicted = IERC6551Registry(REGISTRY).account(ACCOUNT_PROXY, bytes32(0), 143, address(nft), 1);
+        address predicted =
+            IERC6551Registry(REGISTRY).account(ACCOUNT_PROXY, bytes32(0), block.chainid, address(nft), 1);
         assertEq(predicted.code.length, 0, "not deployed before mint");
         uint256 id = _mint(alice);
         address tba = nft.tbaOf(id);
@@ -127,7 +128,7 @@ contract AgentNFTForkTest is Test {
         );
         assertEq(ITokenboundV3(tba).owner(), alice);
         (uint256 chainId, address tokenContract, uint256 tokenId) = ITokenboundAccount(tba).token();
-        assertEq(chainId, 143);
+        assertEq(chainId, block.chainid, "bound to the fork's chain (143143)");
         assertEq(tokenContract, address(nft));
         assertEq(tokenId, 1);
     }
@@ -135,7 +136,8 @@ contract AgentNFTForkTest is Test {
     /// A front-runner who creates and initializes the account first cannot
     /// block the mint.
     function test_FrontRunAccountCreationDoesNotBlockMint() public {
-        address tba = IERC6551Registry(REGISTRY).createAccount(ACCOUNT_PROXY, bytes32(0), 143, address(nft), 1);
+        address tba =
+            IERC6551Registry(REGISTRY).createAccount(ACCOUNT_PROXY, bytes32(0), block.chainid, address(nft), 1);
         ITokenboundAccount(tba).initialize(ACCOUNT_IMPLEMENTATION);
         vm.expectRevert();
         ITokenboundAccount(tba).initialize(ACCOUNT_IMPLEMENTATION);

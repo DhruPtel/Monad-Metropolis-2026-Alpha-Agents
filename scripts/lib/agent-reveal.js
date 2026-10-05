@@ -6,6 +6,7 @@
 // Local fork only: every call goes through the local-fork guard first. The
 // real reveal keeper is P1-U5's.
 import { randomBytes } from "node:crypto";
+import { LOCAL_FORK_CHAIN_ID } from "@alpha-agents/config";
 import { assertLocalFork, rpc } from "@alpha-agents/devenv";
 import {
   createPublicClient,
@@ -35,7 +36,7 @@ export const REVEAL_ABI = parseAbi([
 const ENTROPY_ABI = parseAbi(["function getFeeV2() view returns (uint128)"]);
 
 const chain = defineChain({
-  id: 143,
+  id: LOCAL_FORK_CHAIN_ID,
   name: "Monad (local fork)",
   nativeCurrency: { name: "MON", symbol: "MON", decimals: 18 },
   rpcUrls: { default: { http: [ANVIL_URL] } },
@@ -65,8 +66,9 @@ export async function impersonate(address) {
 
 /**
  * The species each agent of a batch would draw from a random number, exactly
- * as AgentNFT.reveal does it: seed = keccak(randomNumber, sequence, chainid,
- * contract); for each agent in order, draw = keccak(seed, id) mod remaining,
+ * as AgentNFT.reveal does it on the fork: seed = keccak(randomNumber, sequence,
+ * block.chainid, contract), where block.chainid is the fork's 143143; for each
+ * agent in order, draw = keccak(seed, id) mod remaining,
  * walking the deck's remaining counts in species order.
  * @param {{ randomNumber: `0x${string}`, sequence: bigint, nft: `0x${string}`, first: bigint, last: bigint, deck: bigint[], remaining: bigint }} args
  * @returns {Map<bigint, number>}
@@ -75,7 +77,7 @@ export function simulateReveal({ randomNumber, sequence, nft, first, last, deck,
   const seed = keccak256(
     encodeAbiParameters(
       [{ type: "bytes32" }, { type: "uint64" }, { type: "uint256" }, { type: "address" }],
-      [randomNumber, sequence, 143n, nft],
+      [randomNumber, sequence, BigInt(LOCAL_FORK_CHAIN_ID), nft],
     ),
   );
   const counts = [...deck];

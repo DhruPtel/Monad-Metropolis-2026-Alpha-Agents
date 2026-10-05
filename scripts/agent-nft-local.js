@@ -11,6 +11,7 @@
 //
 // It deploys AgentNFT first if the fork has none (pnpm deploy:agent-nft).
 import { randomBytes } from "node:crypto";
+import { LOCAL_FORK_CHAIN_ID } from "@alpha-agents/config";
 import { NotLocalForkError, rpc } from "@alpha-agents/devenv";
 import {
   createPublicClient,
@@ -49,7 +50,7 @@ const abi = parseAbi([
 ]);
 
 const chain = defineChain({
-  id: 143,
+  id: LOCAL_FORK_CHAIN_ID,
   name: "Monad (local fork)",
   nativeCurrency: { name: "MON", symbol: "MON", decimals: 18 },
   rpcUrls: { default: { http: [ANVIL_URL] } },
@@ -90,7 +91,12 @@ async function mint(nft) {
   const deadline = BigInt(Math.floor(Date.now() / 1000) + 3600);
   // The platform API will sign these claims (P1-U4); locally anvil account 1 does.
   const signature = await signer.signTypedData({
-    domain: { name: "AlphaAgents AgentNFT", version: "1", chainId: 143, verifyingContract: nft },
+    domain: {
+      name: "AlphaAgents AgentNFT",
+      version: "1",
+      chainId: LOCAL_FORK_CHAIN_ID,
+      verifyingContract: nft,
+    },
     types: {
       MintClaim: [
         { name: "wallet", type: "address" },

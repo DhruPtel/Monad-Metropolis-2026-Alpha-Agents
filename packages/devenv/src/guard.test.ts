@@ -1,6 +1,7 @@
 import { spawnSync } from "node:child_process";
 import { type Server, createServer } from "node:http";
 import type { AddressInfo } from "node:net";
+import { LOCAL_FORK_CHAIN_ID } from "@alpha-agents/config";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
   NotLocalForkError,
@@ -41,16 +42,35 @@ async function listen(server: Server): Promise<string> {
 describe("local-fork guard", () => {
   const geth = fakeNode("Geth/v1.14.0-stable/linux-amd64", "0x8f");
   const wrongChain = fakeNode("anvil/v1.8.3", "0x279f");
+  // An anvil still started as Monad mainnet's 143, before D-195.
+  const oldFork = fakeNode("anvil/v1.8.3", "0x8f");
+  const localFork = fakeNode("anvil/v1.8.3", `0x${LOCAL_FORK_CHAIN_ID.toString(16)}`);
   let gethUrl = "";
   let wrongChainUrl = "";
+  let oldForkUrl = "";
+  let localForkUrl = "";
 
   beforeAll(async () => {
     gethUrl = await listen(geth.server);
     wrongChainUrl = await listen(wrongChain.server);
+    oldForkUrl = await listen(oldFork.server);
+    localForkUrl = await listen(localFork.server);
   });
   afterAll(() => {
     geth.server.close();
     wrongChain.server.close();
+    oldFork.server.close();
+    localFork.server.close();
+  });
+
+  it("accepts anvil on 127.0.0.1 answering the local fork's chain, 143143", async () => {
+    await expect(assertLocalFork(localForkUrl)).resolves.toBeUndefined();
+  });
+
+  it("refuses an anvil still on Monad mainnet's 143 and says to restart it", async () => {
+    await expect(assertLocalFork(oldForkUrl)).rejects.toThrow(
+      /chain ID is 143, not 143143; this fork was started as chain 143, restart it/,
+    );
   });
 
   it.each([

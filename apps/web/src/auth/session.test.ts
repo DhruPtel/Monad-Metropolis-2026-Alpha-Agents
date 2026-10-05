@@ -32,6 +32,14 @@ describe("chains", () => {
     expect(chain.rpcUrls.default.http).toEqual([APP_CHAINS[env].browserRpcUrl]);
   });
 
+  it("treats a wallet on Monad mainnet as the wrong chain for the local fork (L-53)", () => {
+    const local = APP_CHAINS.local;
+    expect(local.id).toBe(143143);
+    expect(deriveState({ ...base, chainId: 143, targetChainId: local.id })).toBe("wrong-chain");
+    expect(chainName(143, local)).toBe("Monad");
+    expect(chainName(local.id, local)).toBe("Monad (local fork)");
+  });
+
   it("names the wallet's chain", () => {
     const target = APP_CHAINS.testnet;
     expect(chainName(10143, target)).toBe("Monad Testnet");

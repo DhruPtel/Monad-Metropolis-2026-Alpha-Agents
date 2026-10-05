@@ -1,4 +1,4 @@
-import { ENVIRONMENT_IDS } from "@alpha-agents/config";
+import { ENVIRONMENT_IDS, LOCAL_FORK_CHAIN_ID, MONAD_MAINNET_CHAIN_ID } from "@alpha-agents/config";
 import { isAddress } from "viem";
 import { describe, expect, it } from "vitest";
 import {
@@ -38,12 +38,16 @@ describe("address book", () => {
     }
   });
 
-  it("marks verified only entries with an address and a chain 143 fork observation", () => {
+  it("marks verified only entries with an address and a fork observation", () => {
     for (const env of ENVIRONMENT_IDS) {
       for (const e of ADDRESS_BOOK[env]) {
         if (e.status !== "verified") continue;
         expect(e.address).toMatch(/^0x[0-9a-fA-F]{40}$/);
-        expect(e.verification.chainId).toBe(143);
+        // Mainnet state at the pin is chain 143; our own contracts live only
+        // on the local fork, chain 143143 (D-195).
+        expect(e.verification.chainId).toBe(
+          e.kind === "platform" ? LOCAL_FORK_CHAIN_ID : MONAD_MAINNET_CHAIN_ID,
+        );
         expect(e.verification.codeSize).toBeGreaterThan(0);
       }
     }

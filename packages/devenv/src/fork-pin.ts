@@ -9,6 +9,10 @@ import { localPaths } from "./paths.ts";
 export const MIN_PLAUSIBLE_BLOCK = 100_000_000;
 
 export interface ForkPin {
+  /**
+   * The chain the fork copies: Monad mainnet, 143. Not the fork's own chain ID,
+   * which is LOCAL_FORK_CHAIN_ID (143143, D-195).
+   */
   readonly chainId: number;
   readonly blockNumber: number;
 }

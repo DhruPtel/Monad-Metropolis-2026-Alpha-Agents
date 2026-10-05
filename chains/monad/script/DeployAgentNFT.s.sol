@@ -32,8 +32,16 @@ contract DeployAgentNFT is Script {
         address entropy;
     }
 
+    /// The local fork's own chain ID (D-195); it runs Monad mainnet's state and EVM.
+    uint256 internal constant LOCAL_FORK_CHAIN_ID = 143143;
+    uint256 internal constant MONAD_TESTNET_CHAIN_ID = 10143;
+
     function run() external returns (AgentNFT nft) {
-        require(block.chainid == 143 || block.chainid == 10143, "not Monad mainnet fork or testnet");
+        // Mainnet (143) is added deliberately at the beta deployment (PB-U1).
+        require(
+            block.chainid == LOCAL_FORK_CHAIN_ID || block.chainid == MONAD_TESTNET_CHAIN_ID,
+            "not the local fork (143143) or Monad testnet"
+        );
         Config memory c = Config({
             admin: vm.envAddress("AGENT_NFT_ADMIN"),
             claimSigner: vm.envAddress("AGENT_NFT_CLAIM_SIGNER"),

@@ -1,4 +1,4 @@
-import { LOCAL_FORK_RPC_URL } from "@alpha-agents/config";
+import { LOCAL_FORK_CHAIN_ID, LOCAL_FORK_RPC_URL } from "@alpha-agents/config";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
   advanceTime,
@@ -43,7 +43,7 @@ describe.skipIf(fork === undefined)(
       const health = await stackHealth();
       const anvil = health.services.find((s) => s.name === "anvil");
       expect(anvil?.up).toBe(true);
-      expect(health.anvil).toMatchObject({ chainId: 143, network: "monad" });
+      expect(health.anvil).toMatchObject({ chainId: LOCAL_FORK_CHAIN_ID, network: "monad" });
     });
 
     it("mines blocks", async () => {

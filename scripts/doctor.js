@@ -3,7 +3,7 @@
 // Validates the local config through packages/config, which names problem
 // variables but never prints a value.
 import { readFileSync } from "node:fs";
-import { ConfigError, Secret } from "@alpha-agents/config";
+import { ConfigError, LOCAL_FORK_CHAIN_ID, LOCAL_FORK_RPC_URL, Secret } from "@alpha-agents/config";
 import {
   MONAD_MAINNET_CHAIN_ID,
   loadLocalConfig,
@@ -127,6 +127,21 @@ if (rpcUrl && blockNumber !== undefined) {
       `${blockNumber}: ${err instanceof RpcError ? err.message : "request failed"}; re-pin (see README)`,
     );
   }
+}
+
+// The running fork, if any, must answer its own chain ID (D-195). A fork
+// still on 143 was started before that change and must be restarted.
+try {
+  const forkChainId = hexToNumber(await rpc(LOCAL_FORK_RPC_URL, "eth_chainId", [], 3_000));
+  report(
+    forkChainId === LOCAL_FORK_CHAIN_ID,
+    "local fork chain ID",
+    forkChainId === LOCAL_FORK_CHAIN_ID
+      ? String(forkChainId)
+      : `${forkChainId} (want ${LOCAL_FORK_CHAIN_ID}; restart with pnpm dev:down then pnpm dev:up)`,
+  );
+} catch {
+  console.log(`INFO  ${"local fork".padEnd(26)} not running (pnpm dev:up starts it)`);
 }
 
 console.log(failures === 0 ? "\nAll checks passed." : `\n${failures} check(s) failed.`);

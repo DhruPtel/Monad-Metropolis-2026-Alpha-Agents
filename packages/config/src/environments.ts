@@ -16,6 +16,17 @@ export type EnvironmentLabel = (typeof ENVIRONMENT_LABELS)[number];
 export const MONAD_MAINNET_CHAIN_ID = 143;
 export const MONAD_TESTNET_CHAIN_ID = 10143;
 
+/**
+ * The local fork's own chain ID (D-195). The fork copies Monad mainnet's state
+ * at the pinned block and runs Monad's EVM (anvil --network monad), but it
+ * answers 143143, not 143, so a wallet can never mistake Monad mainnet for the
+ * fork: with both on 143, MetaMask sent a local mint to mainnet through its
+ * gasless relay (L-53). 143143 is in no public chain registry. Contracts on
+ * the fork see this ID in block.chainid, so EIP-712 claims and Tokenbound
+ * accounts use it too.
+ */
+export const LOCAL_FORK_CHAIN_ID = 143143;
+
 /** The anvil fork started by `pnpm dev:up`. Local services sign only against this. */
 export const LOCAL_FORK_RPC_URL = "http://127.0.0.1:8545";
 
@@ -36,8 +47,9 @@ export const ENVIRONMENTS: Readonly<Record<EnvironmentId, Environment>> = {
   local: {
     id: "local",
     label: "fork",
-    chainId: MONAD_MAINNET_CHAIN_ID,
-    description: "anvil fork of Monad mainnet at the pinned block, on this machine",
+    chainId: LOCAL_FORK_CHAIN_ID,
+    description:
+      "anvil fork of Monad mainnet at the pinned block, on this machine, as chain 143143",
     rpc: { fixedUrl: LOCAL_FORK_RPC_URL },
   },
   testnet: {

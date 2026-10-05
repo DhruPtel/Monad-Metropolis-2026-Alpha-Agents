@@ -6,7 +6,8 @@ import {Test} from "forge-std/Test.sol";
 /// Smoke test against the local anvil fork started by `pnpm dev:up`.
 /// Skipped when MONAD_RPC_URL is not set, because then no fork can be running.
 contract MonadForkSmokeTest is Test {
-    uint256 internal constant MONAD_MAINNET_CHAIN_ID = 143;
+    /// The fork's own chain ID (D-195), distinct from Monad mainnet's 143.
+    uint256 internal constant LOCAL_FORK_CHAIN_ID = 143143;
     address internal constant ERC6551_REGISTRY = 0x000000006551c19487814612e58FE06813775758;
     string internal constant LOCAL_FORK_URL = "http://127.0.0.1:8545";
 
@@ -21,8 +22,22 @@ contract MonadForkSmokeTest is Test {
         vm.createSelectFork(LOCAL_FORK_URL);
     }
 
-    function test_ChainIdIsMonadMainnet() public view {
-        assertEq(block.chainid, MONAD_MAINNET_CHAIN_ID);
+    function test_ChainIdIsTheLocalFork() public view {
+        assertEq(block.chainid, LOCAL_FORK_CHAIN_ID);
+    }
+
+    /// With its own chain ID the fork must still run Monad's EVM (L-3): a
+    /// 30,000-byte contract is over Ethereum's EIP-170 limit of 24,576 bytes
+    /// and under Monad's 128 KB, so it deploys only under Monad rules.
+    function test_AppliesMonadContractSizeLimit() public {
+        // Initcode: PUSH2 30000, PUSH1 0, RETURN, so the runtime is 30,000 zero bytes.
+        bytes memory init = hex"6175306000f3";
+        address big;
+        assembly {
+            big := create(0, add(init, 0x20), mload(init))
+        }
+        assertTrue(big != address(0), "a 30,000-byte deploy was refused: not Monad rules");
+        assertEq(big.code.length, 30_000);
     }
 
     /// The fork starts at the pinned block. Using the dev fork (minting,

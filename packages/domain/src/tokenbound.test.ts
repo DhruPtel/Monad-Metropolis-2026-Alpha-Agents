@@ -1,5 +1,5 @@
 import { TokenboundClient } from "@tokenbound/sdk";
-import { LOCAL_FORK_RPC_URL } from "@alpha-agents/config";
+import { LOCAL_FORK_CHAIN_ID, LOCAL_FORK_RPC_URL } from "@alpha-agents/config";
 import {
   type Address,
   createPublicClient,
@@ -12,9 +12,11 @@ import {
 import { describe, expect, it } from "vitest";
 import { addressEntry, signingAddress, tokenboundAccountAddress } from "./index.ts";
 
+// The local fork: Monad mainnet's state as chain 143143 (D-195). Agents
+// minted there are bound to 143143, the block.chainid AgentNFT sees.
 const monad = defineChain({
-  id: 143,
-  name: "Monad",
+  id: LOCAL_FORK_CHAIN_ID,
+  name: "Monad (local fork)",
   nativeCurrency: { name: "MON", symbol: "MON", decimals: 18 },
   rpcUrls: { default: { http: [LOCAL_FORK_RPC_URL] } },
 });
@@ -27,7 +29,7 @@ const ours = (tokenContract: Address, tokenId: bigint) =>
   tokenboundAccountAddress({
     registry,
     implementation: proxy,
-    chainId: 143,
+    chainId: LOCAL_FORK_CHAIN_ID,
     tokenContract,
     tokenId,
   });
@@ -57,7 +59,7 @@ describe("token-bound account address (ERC-6551, Tokenbound v3)", () => {
       tokenboundAccountAddress({
         registry,
         implementation: signingAddress("local", "tokenbound_account_v3_upgradable"),
-        chainId: 143,
+        chainId: LOCAL_FORK_CHAIN_ID,
         tokenContract: agentNft,
         tokenId: 1n,
       }),
@@ -83,7 +85,8 @@ async function forkUp(): Promise<boolean> {
       body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "eth_chainId", params: [] }),
       signal: AbortSignal.timeout(2_000),
     });
-    return ((await res.json()) as { result?: string }).result === "0x8f";
+    const result = ((await res.json()) as { result?: string }).result;
+    return result !== undefined && Number.parseInt(result, 16) === LOCAL_FORK_CHAIN_ID;
   } catch {
     return false;
   }
@@ -103,7 +106,7 @@ describe.skipIf(!(await forkUp()))(
           address: registry,
           abi,
           functionName: "account",
-          args: [proxy, `0x${"00".repeat(32)}`, 143n, agentNft, tokenId],
+          args: [proxy, `0x${"00".repeat(32)}`, BigInt(LOCAL_FORK_CHAIN_ID), agentNft, tokenId],
         });
         expect(isAddressEqual(onchain, ours(agentNft, tokenId))).toBe(true);
       }

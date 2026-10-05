@@ -1,4 +1,4 @@
-import type { EnvironmentId } from "@alpha-agents/config";
+import { type EnvironmentId, LOCAL_FORK_CHAIN_ID } from "@alpha-agents/config";
 import type { Address } from "./ids.ts";
 
 /**
@@ -64,6 +64,12 @@ export type AddressKind =
 
 /** What the fork check observed. */
 export interface ForkVerification {
+  /**
+   * The chain whose state the check observed. Mainnet contracts are checked as
+   * Monad mainnet's state at the pinned block (143), which the local fork
+   * copies and beta uses. Our own contracts exist only on the local fork, so
+   * they record its own chain ID, 143143 (D-195).
+   */
   readonly chainId: number;
   readonly block: number;
   readonly codeSize: number;
@@ -503,7 +509,7 @@ const AGENT_NFT_LOCAL: AddressEntry = {
   address: "0x60cacA6dE327331b321E140Ae19AcbCc4188Be6E",
   status: "verified",
   verification: {
-    chainId: 143,
+    chainId: LOCAL_FORK_CHAIN_ID,
     block: FORK_BLOCK,
     codeSize: 34459,
     deployedBy: "pnpm deploy:agent-nft",

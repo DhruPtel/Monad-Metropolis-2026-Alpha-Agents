@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs";
-import type { EnvironmentId } from "@alpha-agents/config";
+import { type EnvironmentId, LOCAL_FORK_CHAIN_ID } from "@alpha-agents/config";
 import { type Address, recoverTypedDataAddress } from "viem";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import { describe, expect, it } from "vitest";
@@ -25,7 +25,7 @@ function deps(overrides: Partial<MintClaimDeps> = {}): MintClaimDeps {
     walletsOf: async () => [WALLET.toLowerCase()],
     signer,
     contract: CONTRACT,
-    chainId: 143,
+    chainId: LOCAL_FORK_CHAIN_ID,
     hasMinted: async () => false,
     now: () => NOW_MS,
     randomNonce: () => NONCE,
@@ -57,7 +57,7 @@ describe("the dev mint claim route", () => {
     expect(claim).toMatchObject({ wallet: WALLET, nonce: NONCE, contract: CONTRACT });
     expect(claim.deadline).toBe(String(NOW_MS / 1000 + CLAIM_TTL_SECONDS));
     const recovered = await recoverTypedDataAddress({
-      domain: claimDomain(143, CONTRACT),
+      domain: claimDomain(LOCAL_FORK_CHAIN_ID, CONTRACT),
       types: CLAIM_TYPES,
       primaryType: "MintClaim",
       message: { wallet: WALLET, nonce: NONCE, deadline: BigInt(claim.deadline) },
@@ -129,7 +129,7 @@ describe("the claim matches AgentNFT", () => {
   );
 
   it("uses the contract's EIP-712 name, version and claim type", () => {
-    const domain = claimDomain(143, CONTRACT);
+    const domain = claimDomain(LOCAL_FORK_CHAIN_ID, CONTRACT);
     expect(source).toContain(`EIP712("${domain.name}", "${domain.version}")`);
     const fields = CLAIM_TYPES.MintClaim.map((f) => `${f.type} ${f.name}`).join(",");
     expect(source).toContain(`keccak256("MintClaim(${fields})")`);

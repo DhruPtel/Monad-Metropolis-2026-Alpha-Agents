@@ -38,9 +38,9 @@ function renderings(value: unknown): string {
 }
 
 describe("environment selection", () => {
-  it("defaults to local, the anvil fork of chain 143", () => {
+  it("defaults to local, the anvil fork of chain 143 running as chain 143143", () => {
     const config = loadConfig({ name: "test" }, {});
-    expect(config.environment).toMatchObject({ id: "local", label: "fork", chainId: 143 });
+    expect(config.environment).toMatchObject({ id: "local", label: "fork", chainId: 143143 });
     expect(config.rpcUrl?.reveal()).toBe(LOCAL_FORK_RPC_URL);
   });
 
@@ -323,7 +323,7 @@ describe("no secret value leaks", () => {
     expect(summary).toMatchObject({
       appEnv: "local",
       environment: "fork",
-      chainId: 143,
+      chainId: 143143,
       signing: true,
     });
   });

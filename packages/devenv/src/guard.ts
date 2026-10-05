@@ -1,4 +1,8 @@
-import { LOCAL_FORK_RPC_URL, MONAD_MAINNET_CHAIN_ID } from "@alpha-agents/config";
+import {
+  LOCAL_FORK_CHAIN_ID,
+  LOCAL_FORK_RPC_URL,
+  MONAD_MAINNET_CHAIN_ID,
+} from "@alpha-agents/config";
 import { hexToNumber, rpc } from "./rpc.ts";
 
 /**
@@ -7,7 +11,7 @@ import { hexToNumber, rpc } from "./rpc.ts";
  * 1. the URL's host is exactly 127.0.0.1 (checked before any request, so a
  *    remote RPC is never contacted);
  * 2. the node says it is anvil (web3_clientVersion "anvil/...");
- * 3. it serves chain 143, the Monad mainnet fork.
+ * 3. it serves the local fork's own chain, 143143 (D-195).
  */
 export class NotLocalForkError extends Error {
   constructor(reason: string) {
@@ -37,7 +41,11 @@ export async function assertLocalFork(url: string = LOCAL_FORK_RPC_URL): Promise
     throw new NotLocalForkError("the node is not anvil");
   }
   const chainId = hexToNumber(await rpc(url, "eth_chainId", [], 3_000));
-  if (chainId !== MONAD_MAINNET_CHAIN_ID) {
-    throw new NotLocalForkError(`chain ID is ${chainId}, not ${MONAD_MAINNET_CHAIN_ID}`);
+  if (chainId !== LOCAL_FORK_CHAIN_ID) {
+    const hint =
+      chainId === MONAD_MAINNET_CHAIN_ID
+        ? "; this fork was started as chain 143, restart it with pnpm dev:down then pnpm dev:up"
+        : "";
+    throw new NotLocalForkError(`chain ID is ${chainId}, not ${LOCAL_FORK_CHAIN_ID}${hint}`);
   }
 }

@@ -1,4 +1,4 @@
-import { LOCAL_FORK_RPC_URL, MONAD_MAINNET_CHAIN_ID } from "@alpha-agents/config";
+import { LOCAL_FORK_CHAIN_ID, LOCAL_FORK_RPC_URL } from "@alpha-agents/config";
 import { readForkConfig } from "./fork-pin.ts";
 import { localPaths } from "./paths.ts";
 import { run } from "./proc.ts";
@@ -105,7 +105,7 @@ export async function stackHealth(url: string = LOCAL_FORK_RPC_URL): Promise<Sta
     services.push({ name: "anvil", up: false, detail: `no response at ${url}` });
   } else {
     const up =
-      anvil.chainId === MONAD_MAINNET_CHAIN_ID &&
+      anvil.chainId === LOCAL_FORK_CHAIN_ID &&
       anvil.network === "monad" &&
       pinnedBlock !== undefined &&
       anvil.blockNumber >= pinnedBlock;
@@ -117,10 +117,14 @@ export async function stackHealth(url: string = LOCAL_FORK_RPC_URL): Promise<Sta
       anvil.network === "monad"
         ? "network monad"
         : `network ${anvil.network ?? "unknown"}, want monad`;
+    const chain =
+      anvil.chainId === LOCAL_FORK_CHAIN_ID
+        ? `chain ID ${anvil.chainId}`
+        : `chain ID ${anvil.chainId}, want ${LOCAL_FORK_CHAIN_ID} (restart the fork)`;
     services.push({
       name: "anvil",
       up,
-      detail: `chain ID ${anvil.chainId}, ${net}, block ${anvil.blockNumber} (${atPin})`,
+      detail: `${chain}, ${net}, block ${anvil.blockNumber} (${atPin})`,
     });
   }
 

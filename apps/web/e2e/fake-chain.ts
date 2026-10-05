@@ -1,3 +1,4 @@
+import { LOCAL_FORK_CHAIN_ID } from "@alpha-agents/config";
 import type { Page, Route } from "@playwright/test";
 import {
   type Address,
@@ -76,7 +77,7 @@ export class FakeChain {
     });
     switch (request.method) {
       case "eth_chainId":
-        return ok(hex(143n));
+        return ok(hex(BigInt(LOCAL_FORK_CHAIN_ID)));
       case "eth_blockNumber":
         return ok(hex(HEAD));
       case "eth_getLogs":
