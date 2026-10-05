@@ -120,3 +120,30 @@ test("the wrong-chain prompt matches its screenshot", async ({ page }) => {
     "login-wrong-chain-prompt.png",
   );
 });
+
+test("the header fits on one row at every desktop width, logged out and connected", async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== "desktop", "measures desktop widths");
+  const overflowing: string[] = [];
+  for (const width of [1024, 1279, 1280, 1440]) {
+    await page.setViewportSize({ width, height: 900 });
+    for (const connected of [false, true]) {
+      await open(page, "/design");
+      if (connected) await connect(page);
+      const row = await page.evaluate(() => {
+        const header = document.querySelector("header.sticky > div");
+        const links = [...document.querySelectorAll("nav[aria-label=Main] a")];
+        const twoLines = links.filter((a) => a.getClientRects().length > 1 || a.clientHeight > 40);
+        return header
+          ? { overflow: header.scrollWidth - header.clientWidth, wrapped: twoLines.length }
+          : null;
+      });
+      const state = connected ? "connected" : "logged out";
+      if (!row) overflowing.push(`${width} ${state}: no header row`);
+      else if (row.overflow > 0 || row.wrapped > 0)
+        overflowing.push(`${width} ${state}: ${row.overflow}px over, ${row.wrapped} wrapped`);
+    }
+  }
+  expect(overflowing).toEqual([]);
+});

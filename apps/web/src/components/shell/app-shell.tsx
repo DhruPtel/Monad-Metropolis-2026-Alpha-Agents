@@ -21,6 +21,7 @@ export const NAV_ITEMS = [
   { href: "/marketplace", label: "Marketplace" },
   { href: "/leaderboard", label: "Leaderboard" },
   { href: "/agents", label: "My Agents" },
+  { href: "/configure", label: "Configure" },
   { href: "/create", label: "Create" },
 ] as const;
 
@@ -28,7 +29,7 @@ const isActive = (pathname: string, href: string) =>
   href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(`${href}/`);
 
 const navLink = cn(
-  "rounded-md px-3 py-2 text-sm font-medium text-foreground-muted transition-colors outline-none",
+  "rounded-md px-2.5 py-2 text-sm font-medium whitespace-nowrap text-foreground-muted transition-colors outline-none",
   "is-hover:text-foreground is-focus:focus-ring",
   "aria-[current=page]:text-primary",
 );
@@ -78,7 +79,9 @@ function AppShell({ environment, children }: { environment: string; children: Re
               Alpha Agents
             </span>
           </Link>
-          <nav aria-label="Main" className="hidden items-center gap-1 lg:flex">
+          {/* Inline from xl: below 1280px the links and the wallet controls do not fit
+              on one row, so the menu holds the links. */}
+          <nav aria-label="Main" className="hidden items-center gap-1 xl:flex">
             {links()}
           </nav>
           <div className="ml-auto flex items-center gap-2">
@@ -111,7 +114,7 @@ function AppShell({ environment, children }: { environment: string; children: Re
             <Button
               variant="ghost"
               size="icon"
-              className="lg:hidden"
+              className="xl:hidden"
               aria-label={menuOpen ? "Close menu" : "Open menu"}
               aria-expanded={menuOpen}
               aria-controls="mobile-nav"
@@ -125,7 +128,7 @@ function AppShell({ environment, children }: { environment: string; children: Re
           <nav
             id="mobile-nav"
             aria-label="Main"
-            className="flex flex-col gap-1 border-t px-4 py-3 lg:hidden"
+            className="flex flex-col gap-1 border-t px-4 py-3 xl:hidden"
           >
             {links(() => setMenuOpen(false))}
             <span className="pt-2 sm:hidden">
