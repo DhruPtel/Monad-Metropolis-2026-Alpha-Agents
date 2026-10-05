@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
   AGENT_MAX_SUPPLY,
@@ -50,5 +51,39 @@ describe("species (D-178, D-179)", () => {
     expect(speciesByIndex(25).name).toBe("Cicada");
     expect(() => speciesByIndex(0)).toThrow(RangeError);
     expect(() => speciesByIndex(26)).toThrow(RangeError);
+  });
+});
+
+describe("AgentNFT's species table matches this list", () => {
+  const source = readFileSync(
+    new URL("../../../chains/monad/src/AgentNFT.sol", import.meta.url),
+    "utf8",
+  );
+
+  it("names and slugs every species in the same order", () => {
+    const table = source.slice(
+      source.indexOf("// SPECIES TABLE START"),
+      source.indexOf("// SPECIES TABLE END"),
+    );
+    const rows = [...table.matchAll(/if \(s == (\d+)\) return \("([^"]+)", "([^"]+)"\);/g)].map(
+      (m) => ({ index: Number(m[1]), name: m[2], slug: m[3] }),
+    );
+    expect(rows).toEqual(SPECIES.map(({ index, name, slug }) => ({ index, name, slug })));
+  });
+
+  it("packs the same counts into the initial deck", () => {
+    const deck = /INITIAL_DECK = (0x[0-9a-f]+);/.exec(source)?.[1];
+    const expected = SPECIES.reduce(
+      (acc, s) => acc | (BigInt(s.count) << BigInt(8 * (s.index - 1))),
+      0n,
+    );
+    expect(deck && BigInt(deck)).toBe(expected);
+  });
+
+  it("puts tier boundaries at species 5 and 13, as the contract does", () => {
+    expect(source).toContain("if (species <= 5) return TIER_BASE;");
+    expect(source).toContain("if (species <= 13) return TIER_MEDIUM;");
+    expect(SPECIES.filter((s) => s.tier === "base").at(-1)?.index).toBe(5);
+    expect(SPECIES.filter((s) => s.tier === "medium").at(-1)?.index).toBe(13);
   });
 });
