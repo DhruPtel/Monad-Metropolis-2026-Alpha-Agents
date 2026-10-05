@@ -25,8 +25,14 @@ contract MonadForkSmokeTest is Test {
         assertEq(block.chainid, MONAD_MAINNET_CHAIN_ID);
     }
 
-    function test_BlockNumberIsPinnedBlock() public view {
+    /// The fork starts at the pinned block. Using the dev fork (minting,
+    /// deploying, the console's mine-blocks) adds local blocks on top, so the
+    /// head is at or after the pin, and the pinned block itself is served.
+    function test_ForkStartsAtPinnedBlock() public {
+        assertGe(block.number, pinnedBlock);
+        vm.rollFork(pinnedBlock);
         assertEq(block.number, pinnedBlock);
+        assertGt(ERC6551_REGISTRY.code.length, 0, "pinned block state is served");
     }
 
     /// An RPC that cannot serve state at the pinned block fails the fork with an error;

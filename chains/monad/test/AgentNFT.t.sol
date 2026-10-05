@@ -314,8 +314,10 @@ contract AgentNFTTransferTest is AgentNFTBase {
         address carol = freshWallet();
         uint64 expected;
         address[4] memory path = [address(escrow), bob, carol, alice];
+        uint256 t = 1_800_000_000;
         for (uint256 i = 0; i < path.length; ++i) {
-            vm.warp(block.timestamp + 1 days);
+            t += 1 days;
+            vm.warp(t);
             address from = nft.ownerOf(1);
             ++expected;
             if (from != address(escrow)) {
@@ -326,7 +328,7 @@ contract AgentNFTTransferTest is AgentNFTBase {
             emit AgentNFT.OwnerEpochBumped(1, expected, from, path[i]);
             escrow.move(nft, from, path[i], 1);
             assertEq(nft.ownerEpoch(1), expected);
-            assertEq(nft.epochStartedAt(1), block.timestamp);
+            assertEq(nft.epochStartedAt(1), t);
         }
         // Back to the first owner, with a new epoch: old authority never revives.
         assertEq(nft.ownerOf(1), alice);
