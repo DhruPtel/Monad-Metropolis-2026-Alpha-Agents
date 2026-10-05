@@ -56,7 +56,7 @@ describe("the mint flow", () => {
       deps({
         checkNetwork: async () => ({
           ok: false,
-          reason: "different-blocks",
+          reason: "different-block",
           message: "Your wallet is on Monad mainnet, not Monad (local fork)",
         }),
         requestClaim: async () => ((claimed = true), { status: 200, body: CLAIM }),

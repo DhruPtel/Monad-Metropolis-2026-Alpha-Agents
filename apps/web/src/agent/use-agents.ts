@@ -100,7 +100,7 @@ export function useMint(environment: EnvironmentId, onChange: () => void): Mint 
             wallet: wallet.walletRequest,
             app: appRpc,
             target: wallet.target,
-            walletChainId: wallet.chainId,
+            referenceBlock: deployment.referenceBlock,
             contract: deployment.address,
           }),
         requestClaim: async (forWallet: Address) => {

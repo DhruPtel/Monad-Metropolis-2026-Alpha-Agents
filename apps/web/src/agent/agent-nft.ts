@@ -28,6 +28,11 @@ export interface AgentNftDeployment {
   readonly address: Address;
   /** The first block worth scanning for its events. */
   readonly fromBlock: bigint;
+  /**
+   * The block the address book checked it at (the fork's pinned block): a
+   * fixed block the wallet's network must agree on (network-check.ts, L-57).
+   */
+  readonly referenceBlock: bigint;
 }
 
 /**
@@ -39,7 +44,11 @@ export function agentNftDeployment(environment: EnvironmentId): AgentNftDeployme
   if (entry.status !== "verified") return null;
   // Our contracts are deployed after the pinned fork block, so the scan starts
   // one block later and never asks the fork's upstream for history.
-  return { address: entry.address as Address, fromBlock: BigInt(entry.verification.block + 1) };
+  return {
+    address: entry.address as Address,
+    fromBlock: BigInt(entry.verification.block + 1),
+    referenceBlock: BigInt(entry.verification.block),
+  };
 }
 
 export const CLAIM_TYPES = {

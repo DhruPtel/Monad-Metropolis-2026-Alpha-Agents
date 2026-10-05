@@ -179,8 +179,8 @@ test.describe("minting", () => {
   });
 
   test("a wallet on another network is stopped before the claim (L-53)", async ({ page }) => {
-    // The wallet reports the fork's chain ID, but its RPC is another network:
-    // far ahead of the fork's head, without AgentNFT, as Monad mainnet was.
+    // The wallet reports the fork's chain ID, but its RPC is a different node:
+    // its pinned block has another hash, and AgentNFT is not there.
     const elsewhere = new FakeChain({ head: 110_830_344n, hashSeed: "aa", agentNft: false });
     await elsewhere.install(page, "9545");
     let claimRequests = 0;
@@ -193,8 +193,9 @@ test.describe("minting", () => {
     await portal(page).getByRole("button", { name: "Mint an agent" }).click();
     const status = portal(page).getByRole("status");
     await expect(status).toContainText(
-      "Your wallet is on a network that reports chain 143143, not Monad (local fork)",
+      "Your wallet's network uses chain ID 143143 but is a different node from the one this app reads",
     );
+    await expect(status).toContainText("at block 109670000");
     await expect(status).toContainText("Nothing was sent");
     await expect(status).toContainText("RPC URL http://127.0.0.1:8545");
     expect(claimRequests).toBe(0);

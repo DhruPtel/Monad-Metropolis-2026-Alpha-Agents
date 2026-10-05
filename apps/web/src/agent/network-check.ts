@@ -3,105 +3,137 @@ import type { Address } from "viem";
 import { chainName } from "@/auth/session";
 
 /**
- * Is the wallet on the network the app reads? (P1-U11, L-53)
+ * Is the wallet on the network the app reads? (P1-U11, L-53, L-57)
  *
- * A wallet chooses its own RPC for a chain ID, so the chain ID alone does not
- * prove the wallet and the app see the same chain: with the local fork and
- * Monad mainnet both on 143, MetaMask sent a local mint to mainnet. Before an
- * action, this asks the wallet's own provider for its latest block and for
- * AgentNFT's code, and requires the app's RPC to have that same block (same
- * hash) and the same code. The wallet's latest block is used, not an old one:
- * the fork copies mainnet's history, so blocks at or below the pin match.
+ * A wallet chooses its own RPC for a chain, so the app checks through the
+ * wallet's own provider, in this order:
+ * 1. its chain ID equals the app's: catches Monad mainnet (143) for the fork;
+ * 2. one fixed block, the pinned block, has the same hash through the wallet
+ *    and through the app: catches a node that answers the right chain ID but
+ *    is another chain or a fork of another block. A fixed block, because a
+ *    wallet caches and polls "latest" on its own schedule (L-57); the pinned
+ *    block alone cannot tell the fork from mainnet, whose history it copies,
+ *    which is what checks 1 and 3 are for;
+ * 3. AgentNFT has code through the wallet: catches a node forked at the same
+ *    block without our deployment, and mainnet, where it does not exist.
+ * A wallet that cannot answer is reported as such, never as another network.
  */
 export type Rpc = (method: string, params: readonly unknown[]) => Promise<unknown>;
 
 export interface NetworkCheckInput {
-  /** Requests answered by the wallet's own provider (its RPC for this network). */
+  /** Requests answered by the connected wallet's own provider. */
   readonly wallet: Rpc;
   /** Requests answered by the RPC the app reads. */
   readonly app: Rpc;
   readonly target: AppChain;
-  /** The chain ID the wallet reports. */
-  readonly walletChainId: number | undefined;
+  /** A block both sides must agree on: the fork's pinned block. */
+  readonly referenceBlock: bigint;
   /** A contract the app relies on, deployed on the target network. */
   readonly contract: Address;
-  /** Waits between tries while the app's RPC catches up with the wallet's. */
-  readonly sleep?: (ms: number) => Promise<void>;
 }
+
+export type NetworkCheckFailure =
+  | "wallet-unreachable"
+  | "wrong-chain-id"
+  | "different-block"
+  | "no-contract-in-wallet"
+  | "no-contract-in-app";
 
 export type NetworkCheck =
   | { readonly ok: true }
-  | {
-      readonly ok: false;
-      readonly reason: "wallet-unreachable" | "different-blocks" | "different-code";
-      readonly message: string;
-    };
+  | { readonly ok: false; readonly reason: NetworkCheckFailure; readonly message: string };
 
-/** Tries, one second apart, for the app's RPC to reach the wallet's block. */
-const CATCH_UP_TRIES = 3;
-
-interface RawBlock {
-  readonly number?: string;
-  readonly hash?: string;
+/** The wallet's network, named for the user, by its chain ID. */
+export function walletNetworkName(walletChainId: number, target: AppChain): string {
+  if (walletChainId === MONAD_MAINNET_CHAIN_ID) return "Monad mainnet (chain ID 143)";
+  const name = chainName(walletChainId, target);
+  // chainName falls back to "chain N"; with the ID appended that would repeat it.
+  const known = name && name !== `chain ${walletChainId}` ? name : "another network";
+  return `${known} (chain ID ${walletChainId})`;
 }
 
-/** The wallet's network, named for the user. */
-export function walletNetworkName(walletChainId: number | undefined, target: AppChain): string {
-  if (walletChainId === undefined) return "an unknown network";
-  if (walletChainId === MONAD_MAINNET_CHAIN_ID) return "Monad mainnet";
-  if (walletChainId === target.id) return `a network that reports chain ${walletChainId}`;
-  return chainName(walletChainId, target) ?? `chain ${walletChainId}`;
-}
-
-/** What the user should change in the wallet, for the target network. */
+/** What the user should set in the wallet, for the target network. */
 function fixFor(target: AppChain): string {
   return target.environment === "local"
-    ? `Switch the wallet to ${target.name}: chain ID ${target.id}, RPC URL ${target.browserRpcUrl}.`
-    : `Switch the wallet to ${target.name} (chain ID ${target.id}) using its official RPC.`;
+    ? `In your wallet, use ${target.name}: chain ID ${target.id}, RPC URL ${target.browserRpcUrl}.`
+    : `In your wallet, use ${target.name} (chain ID ${target.id}) with its official RPC.`;
 }
 
+const short = (hash: string) => `${hash.slice(0, 10)}…`;
+
 export async function checkWalletNetwork(input: NetworkCheckInput): Promise<NetworkCheck> {
-  const { wallet, app, target, walletChainId, contract } = input;
-  const sleep = input.sleep ?? ((ms) => new Promise<void>((r) => setTimeout(r, ms)));
-  const mismatch = (reason: "different-blocks" | "different-code"): NetworkCheck => ({
+  const { wallet, app, target, referenceBlock, contract } = input;
+  const fail = (reason: NetworkCheckFailure, message: string): NetworkCheck => ({
     ok: false,
     reason,
-    message: `Your wallet is on ${walletNetworkName(walletChainId, target)}, not ${target.name}, which this app reads. Nothing was sent. ${fixFor(target)}`,
+    message,
   });
+  const silent = (method: string) =>
+    fail(
+      "wallet-unreachable",
+      `Your wallet did not answer ${method}, so the app cannot confirm which network it is on. Nothing was sent. Unlock your wallet and try again.`,
+    );
 
-  let latest: RawBlock | null;
+  // 1. Chain ID, from the wallet's own provider.
+  let walletChainId: number;
   try {
-    latest = (await wallet("eth_getBlockByNumber", ["latest", false])) as RawBlock | null;
+    walletChainId = Number(await wallet("eth_chainId", []));
   } catch {
-    return {
-      ok: false,
-      reason: "wallet-unreachable",
-      message: "Your wallet did not answer a network check. Unlock it and try again.",
-    };
+    return silent("a request for its chain ID");
   }
-  if (!latest?.number || !latest.hash) return mismatch("different-blocks");
-
-  let ours: RawBlock | null = null;
-  for (let tries = 0; tries < CATCH_UP_TRIES; tries++) {
-    ours = (await app("eth_getBlockByNumber", [latest.number, false]).catch(
-      () => null,
-    )) as RawBlock | null;
-    if (ours) break;
-    if (tries < CATCH_UP_TRIES - 1) await sleep(1_000);
-  }
-  if (!ours?.hash || ours.hash.toLowerCase() !== latest.hash.toLowerCase()) {
-    return mismatch("different-blocks");
+  if (walletChainId !== target.id) {
+    return fail(
+      "wrong-chain-id",
+      `Your wallet is on ${walletNetworkName(walletChainId, target)}, but this app uses ${target.name} (chain ID ${target.id}). Nothing was sent. ${fixFor(target)}`,
+    );
   }
 
-  const [walletCode, appCode] = await Promise.all([
-    wallet("eth_getCode", [contract, "latest"]).catch(() => null),
-    app("eth_getCode", [contract, "latest"]).catch(() => null),
-  ]);
-  if (
-    typeof walletCode !== "string" ||
-    walletCode.toLowerCase() !== String(appCode).toLowerCase()
-  ) {
-    return mismatch("different-code");
+  // 2. One fixed block, through both.
+  const blockTag = `0x${referenceBlock.toString(16)}`;
+  let walletBlock: { hash?: string } | null;
+  try {
+    walletBlock = (await wallet("eth_getBlockByNumber", [blockTag, false])) as {
+      hash?: string;
+    } | null;
+  } catch {
+    return silent(`a request for block ${referenceBlock}`);
+  }
+  const appBlock = (await app("eth_getBlockByNumber", [blockTag, false]).catch(() => null)) as {
+    hash?: string;
+  } | null;
+  if (!appBlock?.hash) {
+    return fail(
+      "different-block",
+      `This app could not read block ${referenceBlock} from ${target.name} at ${target.browserRpcUrl}. Nothing was sent. Check that the fork is running (pnpm dev:up).`,
+    );
+  }
+  if (walletBlock?.hash?.toLowerCase() !== appBlock.hash.toLowerCase()) {
+    const seen = walletBlock?.hash ? `block ${short(walletBlock.hash)}` : "no such block";
+    return fail(
+      "different-block",
+      `Your wallet's network uses chain ID ${target.id} but is a different node from the one this app reads: at block ${referenceBlock} it has ${seen}, the app has block ${short(appBlock.hash)}. Nothing was sent. ${fixFor(target)}`,
+    );
+  }
+
+  // 3. AgentNFT's code, through the wallet (and the app, to blame the right side).
+  const appCode = await app("eth_getCode", [contract, "latest"]).catch(() => null);
+  if (typeof appCode !== "string" || appCode === "0x") {
+    return fail(
+      "no-contract-in-app",
+      `AgentNFT is not deployed at ${contract} on ${target.name}. Nothing was sent. ${target.environment === "local" ? "Deploy it with pnpm deploy:agent-nft." : "It is not available on this network yet."}`,
+    );
+  }
+  let walletCode: unknown;
+  try {
+    walletCode = await wallet("eth_getCode", [contract, "latest"]);
+  } catch {
+    return silent("a request for AgentNFT's code");
+  }
+  if (typeof walletCode !== "string" || walletCode === "0x") {
+    return fail(
+      "no-contract-in-wallet",
+      `Your wallet's network has no AgentNFT at ${contract}, although it matches ${target.name}'s chain ID and history, so it is another node without our deployment. Nothing was sent. ${fixFor(target)}`,
+    );
   }
   return { ok: true };
 }
