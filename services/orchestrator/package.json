@@ -10,6 +10,7 @@
   "dependencies": {
     "@alpha-agents/config": "workspace:^",
     "@alpha-agents/db": "workspace:^",
+    "@alpha-agents/devenv": "workspace:^",
     "@alpha-agents/domain": "workspace:^",
     "@alpha-agents/platform-tools": "workspace:^",
     "@hono/node-server": "2.1.3",

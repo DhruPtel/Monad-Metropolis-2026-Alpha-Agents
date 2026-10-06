@@ -379,6 +379,9 @@ importers:
       '@alpha-agents/db':
         specifier: workspace:^
         version: link:../../packages/db
+      '@alpha-agents/devenv':
+        specifier: workspace:^
+        version: link:../../packages/devenv
       '@alpha-agents/domain':
         specifier: workspace:^
         version: link:../../packages/domain
