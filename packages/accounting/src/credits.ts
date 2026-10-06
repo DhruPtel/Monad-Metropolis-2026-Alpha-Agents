@@ -108,6 +108,11 @@ export function usageEntry(b: Base, charge: bigint): JournalEntry {
   };
 }
 
+/** Takes back a usage charge for a call that was not served (D-215): the usage entry negated. */
+export function usageReversalEntry(b: Base, charge: bigint): JournalEntry {
+  return { ...usageEntry(b, -charge), kind: "usage_reversed" };
+}
+
 /** A refund: the credits and held balance leave the funding address for the owner. */
 export function refundEntry(b: Base, credits: bigint, held: bigint): JournalEntry {
   return {

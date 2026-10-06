@@ -53,6 +53,7 @@ export const JOURNAL_KINDS = [
   "usage_metered",
   "deposit_held",
   "deposit_reversed",
+  "usage_reversed",
 ] as const;
 
 const signedRaw = z

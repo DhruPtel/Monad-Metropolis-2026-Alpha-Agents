@@ -10,6 +10,7 @@ import {
   spendable,
   splitDeposit,
   usageEntry,
+  usageReversalEntry,
   usdToPicos,
 } from "./credits.ts";
 import { JournalEntrySchema } from "./journal.ts";
@@ -103,6 +104,19 @@ describe("credit journal entries balance (D-208)", () => {
       held: 0n,
       unsettled: 0n,
       fundingAddress: 0n,
+    });
+  });
+
+  it("reverses a tool call's usage charge exactly", () => {
+    const deposit = depositEntry(base(10), 1_000_000n, 0n);
+    const charge = usageEntry(base(11), 10_000n);
+    const back = valid(usageReversalEntry(base(12), 10_000n));
+    expect(back.kind).toBe("usage_reversed");
+    expect(agentCredits([...deposit.lines, ...charge.lines, ...back.lines])).toEqual({
+      credits: 1_000_000n,
+      held: 0n,
+      unsettled: 0n,
+      fundingAddress: 1_000_000n,
     });
   });
 
