@@ -139,19 +139,21 @@ export async function stopGroup(pid) {
 export async function stopRecorded() {
   const state = readState();
   if (!state) return [];
+  // The supervisor first, so it knows the exits that follow are a stop, not a crash.
+  if (state.supervisor !== process.pid && alive(state.supervisor)) {
+    try {
+      process.kill(state.supervisor, "SIGTERM");
+    } catch {
+      // gone
+    }
+    await new Promise((r) => setTimeout(r, 500));
+  }
   const stopped = [];
   // Newest first: the console and web before the services they read.
   for (const s of [...state.services].reverse()) {
     if (alive(s.pid)) {
       await stopGroup(s.pid);
       stopped.push(s.name);
-    }
-  }
-  if (state.supervisor !== process.pid && alive(state.supervisor)) {
-    try {
-      process.kill(state.supervisor, "SIGTERM");
-    } catch {
-      // gone
     }
   }
   rmSync(STATE_PATH, { force: true });

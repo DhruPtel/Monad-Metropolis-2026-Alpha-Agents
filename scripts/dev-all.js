@@ -115,7 +115,8 @@ for (const service of SERVICES) {
     cwd: ROOT,
     detached: true,
     stdio: ["ignore", "pipe", "pipe"],
-    env: { ...process.env, FORCE_COLOR: "0" },
+    // Plain text in the combined log: Next.js honours NO_COLOR, not FORCE_COLOR=0.
+    env: { ...process.env, FORCE_COLOR: "0", NO_COLOR: "1" },
   });
   if (!child.pid) fail(`${service.name} did not start`);
   state.services.push({ name: service.name, pid: /** @type {number} */ (child.pid) });
