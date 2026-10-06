@@ -20,6 +20,8 @@ const PLAYBOOK_SOURCE = resolve(import.meta.dirname, "../../playbooks");
 export interface SandboxRuntime {
   /** Base URL of the model gateway as the sandbox sees it, ending in /v1. */
   readonly gatewayBaseUrl: string;
+  /** Origin of the tool servers as the sandbox sees it (the gate: /mcp/data, /mcp/platform). */
+  readonly toolsOrigin: string;
   readonly apiServerKey: string;
 }
 
@@ -41,10 +43,17 @@ export function materialize(config: AgentConfig, runtime: SandboxRuntime): Sandb
     throw new Error("the API server key must be 32+ characters");
   if (!/^https?:\/\/[^\s]+\/v1$/.test(runtime.gatewayBaseUrl))
     throw new Error("the gateway URL must be an http(s) URL ending in /v1");
+  if (!/^https?:\/\/[^\s/]+$/.test(runtime.toolsOrigin))
+    throw new Error("the tools origin must be an http(s) origin with no path");
+  const mcp = config.hermes.mcp_servers;
   const hermes = {
     ...config.hermes,
     providers: {
       gw: { ...config.hermes.providers.gw, base_url: runtime.gatewayBaseUrl },
+    },
+    mcp_servers: {
+      data: { ...mcp.data, url: `${runtime.toolsOrigin}/mcp/data` },
+      platform: { ...mcp.platform, url: `${runtime.toolsOrigin}/mcp/platform` },
     },
   };
   // JSON is valid YAML, so Hermes reads this as config.yaml without a YAML library here.

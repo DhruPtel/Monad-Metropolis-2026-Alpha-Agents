@@ -101,12 +101,17 @@ async function must(sbx: SandboxHandle, cmd: string, user: "root" | "user" = "us
 export async function bootHermes(
   sbx: SandboxHandle,
   config: AgentConfig,
-  gatewayBaseUrl: string,
+  /** The gate as the sandbox sees it: the model under /v1, the tool servers under /mcp. */
+  gateOrigin: string,
   redactor: Redactor,
 ): Promise<HermesRuns> {
   const apiServerKey = randomToken();
   redactor.add(apiServerKey);
-  const files = materialize(config, { gatewayBaseUrl, apiServerKey });
+  const files = materialize(config, {
+    gatewayBaseUrl: `${gateOrigin}/v1`,
+    toolsOrigin: gateOrigin,
+    apiServerKey,
+  });
   await must(
     sbx,
     `mkdir -p ${PLAYBOOKS_DIR} ${EQUIPPED_DIR} ${WORKSPACE_DIR} && chown user:user ${WORKSPACE_DIR}`,
@@ -157,7 +162,7 @@ export async function runNoopTask(ctx: TaskContext, taskId: string): Promise<voi
     ctx.log(`task ${taskId}: sandbox ${sbx.id} started for agent ${ref.agentId}`);
 
     const t1 = Date.now();
-    const runs = await bootHermes(sbx, config, `https://${host}/v1`, ctx.redactor);
+    const runs = await bootHermes(sbx, config, `https://${host}`, ctx.redactor);
     await runs.waitHealthy(180_000);
     const bootMs = Date.now() - t1;
 

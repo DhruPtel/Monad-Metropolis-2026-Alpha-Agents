@@ -15,6 +15,7 @@ const agent = (tier: AgentIdentity["tier"], agentId = 7): AgentIdentity => ({
 });
 const runtime = {
   gatewayBaseUrl: "https://gate.example.test/v1",
+  toolsOrigin: "https://gate.example.test",
   apiServerKey: "k".repeat(48),
 };
 
@@ -57,13 +58,16 @@ describe("agent config layers (D-204)", () => {
       "terminal",
       "code_execution",
       "file",
+      "data",
+      "platform",
     ]);
     expect(hermes.terminal.cwd).toBe("/workspace");
     expect(hermes.skills).toMatchObject({ write_approval: true, creation_nudge_interval: 0 });
     expect(hermes.curator.enabled).toBe(false);
     expect(hermes.approvals.unattended_mode).toBe("deny");
     expect(hermes.hooks.pre_tool_call[0]?.matcher).toBe("^skill_manage$");
-    expect(hermes.mcp_servers).toEqual({});
+    expect(Object.keys(hermes.mcp_servers)).toEqual(["data", "platform"]);
+    expect(hermes.mcp_servers.platform.supports_parallel_tool_calls).toBe(false);
   });
 
   it("hashes deterministically, and differently per tier and generation", () => {
@@ -115,6 +119,37 @@ describe("materializing a config for a sandbox", () => {
     const parsed = JSON.parse(rest.join("\n")) as { providers: { gw: { base_url: string } } };
     expect(parsed.providers.gw.base_url).toBe(runtime.gatewayBaseUrl);
     expect(text).not.toContain(runtime.apiServerKey);
+  });
+
+  it("names the data and platform MCP servers on the gate, with sampling and elicitation off", () => {
+    const parsed = JSON.parse(
+      (files.home["config.yaml"] ?? "").split("\n").slice(1).join("\n"),
+    ) as {
+      mcp_servers: Record<string, Record<string, unknown>>;
+      platform_toolsets: { api_server: string[] };
+    };
+    expect(parsed.mcp_servers).toEqual({
+      data: {
+        url: `${runtime.toolsOrigin}/mcp/data`,
+        sampling: { enabled: false },
+        elicitation: { enabled: false },
+        tools: { resources: false, prompts: false },
+        supports_parallel_tool_calls: true,
+      },
+      platform: {
+        url: `${runtime.toolsOrigin}/mcp/platform`,
+        sampling: { enabled: false },
+        elicitation: { enabled: false },
+        tools: { resources: false, prompts: false },
+        supports_parallel_tool_calls: false,
+      },
+    });
+    expect(parsed.platform_toolsets.api_server).toEqual(
+      expect.arrayContaining(["data", "platform"]),
+    );
+    expect(() => materialize(config, { ...runtime, toolsOrigin: "https://x.test/mcp" })).toThrow(
+      /origin/,
+    );
   });
 
   it("writes .env with the placeholder model key and this sandbox's API server key", () => {

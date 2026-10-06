@@ -35,7 +35,10 @@ export const DISABLED_TOOLSETS = [
   "session_search",
 ] as const;
 
-/** The toolsets the API server offers the agent. Our three MCP servers join with P1-U7. */
+/** Our MCP tool servers (D-213); the chain tools server joins with P2-U5. */
+export const MCP_SERVER_NAMES = ["data", "platform"] as const;
+
+/** The toolsets the API server offers the agent, including our MCP servers. */
 export const API_SERVER_TOOLSETS = [
   "todo",
   "memory",
@@ -43,7 +46,23 @@ export const API_SERVER_TOOLSETS = [
   "terminal",
   "code_execution",
   "file",
+  ...MCP_SERVER_NAMES,
 ] as const;
+
+/**
+ * One MCP server's settings (FINAL_PLAN 4.3.2): sampling and elicitation off,
+ * no resources or prompts, parallel calls only on the data server. The URL is
+ * not stored: it is added at sandbox start, like the gateway's.
+ */
+const mcpServer = (parallel: boolean) =>
+  z
+    .object({
+      sampling: z.object({ enabled: z.literal(false) }).strict(),
+      elicitation: z.object({ enabled: z.literal(false) }).strict(),
+      tools: z.object({ resources: z.literal(false), prompts: z.literal(false) }).strict(),
+      supports_parallel_tool_calls: z.literal(parallel),
+    })
+    .strict();
 
 const exactly = <T extends readonly string[]>(values: T) =>
   z
@@ -143,7 +162,7 @@ export const HermesSettingsSchema = z
       })
       .strict(),
     hooks_auto_accept: z.literal(true),
-    mcp_servers: z.object({}).strict(),
+    mcp_servers: z.object({ data: mcpServer(true), platform: mcpServer(false) }).strict(),
   })
   .strict();
 
