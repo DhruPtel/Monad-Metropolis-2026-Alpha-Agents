@@ -159,8 +159,6 @@ export async function startUpstreamProxy(o: UpstreamProxyOptions): Promise<Upstr
   };
 }
 
-const PROXY_MAIN = fileURLToPath(new URL("./upstream-proxy-main.ts", import.meta.url));
-
 /**
  * Starts the proxy in a process of its own (L-91) and resolves once it
  * listens. Its log lines go to `log`; it stops with `stop()`, on this
@@ -171,7 +169,10 @@ export async function startUpstreamProxyProcess(o: {
   readonly upstreams: readonly string[];
   readonly log?: (line: string) => void;
 }): Promise<{ readonly url: string; stop(): Promise<void> }> {
-  const child = spawn(process.execPath, [PROXY_MAIN], {
+  // Resolved here, not at import: Next.js bundles this package into the console,
+  // where import.meta.url is not a file URL and a top-level call would break the build.
+  const main = fileURLToPath(new URL("./upstream-proxy-main.ts", import.meta.url));
+  const child = spawn(process.execPath, [main], {
     env: { ...process.env, UPSTREAM_PROXY_URLS: JSON.stringify(o.upstreams) },
     stdio: ["ignore", "pipe", "pipe", "ipc"],
   });
