@@ -18,7 +18,14 @@
  *
  * Needs MONAD_RPC_URL, E2B_API_KEY, LITELLM_MASTER_KEY, REVEAL_KEEPER_PRIVATE_KEY,
  * cloudflared and LiteLLM running (pnpm dev:litellm). Spends a few cents of model
- * credit. Writes a redacted report to evidence/p1-u5/.
+ * credit. Writes a redacted report to evidence/p1-u6/.
+ *
+ * P1-U6 adds credits: zero credits refuse LLM work; a deposit to the funding
+ * address is credited with no other step; a task's metered charge comes off
+ * the credits; a refund pays the owner on chain; a run that drains the credits
+ * ends as billing with exactly one refused call; deterministic work continues
+ * while the agent is restricted; and the ledger balances and matches the
+ * funding address on chain.
  */
 import { type ChildProcess, spawn } from "node:child_process";
 import { randomBytes } from "node:crypto";
@@ -26,16 +33,24 @@ import { createWriteStream, existsSync, mkdirSync, readFileSync, writeFileSync }
 import { join, resolve } from "node:path";
 import { Secret, loadConfig } from "@alpha-agents/config";
 import { createTestDatabase } from "@alpha-agents/db/testing";
-import { localPaths, secretFragments, startTestFork } from "@alpha-agents/devenv";
+import {
+  balancesOf,
+  localPaths,
+  mintTestUsdc,
+  secretFragments,
+  startTestFork,
+} from "@alpha-agents/devenv";
 import { addressEntry } from "@alpha-agents/domain";
 import { Indexer, RpcLogSource } from "@alpha-agents/indexer";
 import { type Hex, createPublicClient, http, parseAbi } from "viem";
+import { Ledger } from "./credits/ledger.ts";
 import { LiteLLMAdmin } from "./gateway-admin.ts";
 import { aliasPrefix } from "./provisioner.ts";
 import { OrchestratorQueue } from "./queue.ts";
 import { E2BProvider } from "./sandbox.ts";
 import { Redactor, decryptSecret } from "./secrets.ts";
 import { Store } from "./store.ts";
+import { must } from "./testing.ts";
 import { tunnelPidFile } from "./tunnel.ts";
 
 const ROOT = resolve(import.meta.dirname, "../../..");
@@ -58,7 +73,7 @@ const reveal = (n: keyof typeof config.values) => (config.values[n] as Secret).r
 const namespace = `live-${randomBytes(3).toString("hex")}`;
 const runTag = new Date().toISOString().replaceAll(":", "-");
 const checks: Record<string, boolean> = {};
-const report: Record<string, unknown> = { unit: "P1-U5", namespace, runTag, checks };
+const report: Record<string, unknown> = { unit: "P1-U5 and P1-U6", namespace, runTag, checks };
 const secrets: string[] = [];
 for (const v of Object.values(config.values))
   if (v instanceof Secret)
@@ -90,11 +105,13 @@ async function main(): Promise<number> {
   cleanup.push(() => fork.stop());
   const { deployLocal } = await import("../../../scripts/lib/agent-nft.js");
   const { mintLocal } = (await import("../../../scripts/lib/agent-mint.js")) as {
-    mintLocal: (nft: Hex) => Promise<{ agentId: bigint }>;
+    mintLocal: (nft: Hex) => Promise<{ agentId: bigint; minter: Hex }>;
   };
   const nft = (await deployLocal({ quiet: true })) as Hex;
   const entry = addressEntry("local", "agent_nft");
   if (entry.status !== "verified") throw new Error("address book: agent_nft");
+  const usdc = addressEntry("local", "usdc");
+  if (usdc.status !== "verified") throw new Error("address book: usdc");
   const t = await createTestDatabase("orch_live");
   cleanup.push(() => t.drop());
   const store = new Store(t.db);
@@ -104,12 +121,15 @@ async function main(): Promise<number> {
     target: {
       chainId: 143143,
       agentNft: nft,
-      usdc: null,
+      usdc: usdc.address as Hex,
       startBlock: entry.verification.block + 1,
     },
     maxRange: 2_000,
     confirmations: 0,
-    log: () => undefined,
+    log: (line) => {
+      logLines.push(line);
+      logStream.write(`[indexer] ${redactor.redact(line)}\n`);
+    },
   });
   const stopIndexer = new AbortController();
   const indexing = indexer.run(stopIndexer.signal, 500);
@@ -244,6 +264,64 @@ async function main(): Promise<number> {
   if (stored?.keyCiphertext)
     secrets.push(decryptSecret(stored.keyCiphertext, reveal("ORCHESTRATOR_SECRET")));
 
+  // ---- P1-U6: credits ----
+  const ledger = new Ledger(t.db);
+  interface CreditsRow {
+    agentId: string;
+    fundingAddress: string | null;
+    creditsUsdcE6: string;
+    spendableUsdcE6: string;
+    heldUsdcE6: string;
+    restricted: boolean;
+  }
+  const creditsOf = async (id: number) =>
+    ((await api("/v1/credits")).body.agents as CreditsRow[]).find((a) => a.agentId === String(id));
+  const fundingOf = async (id: number) =>
+    must(
+      await waitFor("a funding address", 30_000, async () => (await creditsOf(id))?.fundingAddress),
+    ) as Hex;
+  const fund = async (id: number, amountE6: bigint) =>
+    mintTestUsdc(await fundingOf(id), amountE6, fork.url);
+  /** The ledger's funding address balance must equal the address's USDC on chain. */
+  const reconciled = async (id: number) => {
+    const onchain = (await balancesOf(await fundingOf(id), fork.url)).usdcE6;
+    const books = await ledger.balances(143143, id);
+    return { onchain, books: books.fundingAddress, ok: onchain === books.fundingAddress };
+  };
+
+  step("credits: zero refuses LLM work; a deposit is credited with no other step");
+  const zero = await api(`/v1/agents/${agentId}/tasks/noop`, { method: "POST" });
+  check(
+    "with no credits the agent is RESTRICTED and an LLM task is refused",
+    zero.status === 409 &&
+      zero.body.error === "credits_exhausted" &&
+      (await creditsOf(agentId))?.restricted === true,
+    `${zero.status} ${String(zero.body.error)}`,
+  );
+  const fundedAt = Date.now();
+  await fund(agentId, 1_000_000n);
+  const credited = await waitFor("the deposit to be credited", 60_000, async () => {
+    const c = await creditsOf(agentId);
+    return c && c.spendableUsdcE6 === "1000000" ? c : null;
+  }).catch(async (err: unknown) => {
+    const rows = await t.db.selectFrom("indexer.usdc_transfers").selectAll().execute();
+    const wm = await indexer.watermark();
+    console.log(
+      `indexed USDC transfers: ${JSON.stringify(rows)}; watermark ${wm.number}; head ${await client.getBlockNumber()}`,
+    );
+    throw err;
+  });
+  const budgeted = await waitFor("the gateway budget", 30_000, async () => {
+    const rt = await store.runtime({ chainId: 143143, agentId });
+    return rt && Number(rt.budgetUsd) === 0.8 ? rt : null;
+  });
+  report.deposit = { msToCredit: Date.now() - fundedAt, credited, budgetUsd: budgeted.budgetUsd };
+  check(
+    "USDC sent to the funding address appears as credits with no other action",
+    credited.restricted === false,
+    `${Date.now() - fundedAt} ms; key budget ${budgeted.budgetUsd} USD`,
+  );
+
   step("the no-op task end to end");
   const queued = await api(`/v1/agents/${agentId}/tasks/noop`, { method: "POST" });
   const taskId = String(queued.body.taskId);
@@ -273,6 +351,48 @@ async function main(): Promise<number> {
       (await provider.list({ app: "alpha-agents", namespace })).length === 0 ? true : null,
     ).catch(() => false);
   check("the sandbox stopped", r.sandboxStopped === true && (await noneLeft()));
+  // Every request LiteLLM logged with a cost must become exactly one receipt (L-17: its log lags).
+  const liveKey = must(
+    decryptSecret(
+      must(must(await store.runtime({ chainId: 143143, agentId })).keyCiphertext),
+      reveal("ORCHESTRATOR_SECRET"),
+    ),
+  );
+  let gatewayRows: { requestId: string; spendUsd: number }[] = [];
+  const metered = await waitFor("metering", 120_000, async () => {
+    gatewayRows = await gateway.spendLogs(liveKey);
+    const costed = gatewayRows
+      .filter((x) => x.spendUsd > 0)
+      .map((x) => x.requestId)
+      .sort();
+    const receipts = await t.db
+      .selectFrom("platform.usage_receipts")
+      .select(["request_id", "charge_usdc_e6"])
+      .where("agent_id", "=", agentId)
+      .execute();
+    const got = receipts.map((x) => x.request_id).sort();
+    return costed.length > 0 && JSON.stringify(costed) === JSON.stringify(got) ? receipts : null;
+  });
+  report.gatewayLog = {
+    rows: gatewayRows.length,
+    costed: gatewayRows.filter((x) => x.spendUsd > 0).length,
+    gateCallsOk: r.modelCallsOk,
+  };
+  const charged = metered.reduce((a, x) => a + BigInt(x.charge_usdc_e6), 0n);
+  const afterTask = must(await creditsOf(agentId));
+  report.metering = {
+    receipts: metered.length,
+    chargedUsdcE6: charged.toString(),
+    after: afterTask,
+  };
+  check(
+    "the task reduced credits by exactly the metered amount, and the ledger balances",
+    charged > 0n &&
+      BigInt(afterTask.creditsUsdcE6) === 1_000_000n - charged &&
+      (await ledger.balanced(143143)) &&
+      (await reconciled(agentId)).ok,
+    `${metered.length} receipts, ${charged} USDC units charged`,
+  );
 
   step("hard kill while a sandbox runs, then the startup sweep");
   const second = await api(`/v1/agents/${agentId}/tasks/noop`, { method: "POST" });
@@ -340,6 +460,115 @@ async function main(): Promise<number> {
     !(await gateway.hasAlias(runtime.keyAlias)) && (await gateway.hasAlias(reset.keyAlias)),
     `${runtime.keyAlias} -> ${reset.keyAlias}`,
   );
+
+  step("refund to the current owner");
+  const owner = minted.minter;
+  const ownerBefore = (await balancesOf(owner, fork.url)).usdcE6;
+  const before = must(await creditsOf(agentId));
+  const asked = await api(`/v1/agents/${agentId}/refund`, { method: "POST" });
+  const refunded = await waitFor("the refund", 120_000, async () => {
+    const v = (await api(`/v1/refunds/${String(asked.body.refundId)}`)).body;
+    return v.status === "sent" || v.status === "refused" || v.status === "failed" ? v : null;
+  });
+  const ownerAfter = (await balancesOf(owner, fork.url)).usdcE6;
+  report.refund = { refund: refunded, ownerGainedUsdcE6: (ownerAfter - ownerBefore).toString() };
+  check(
+    "a refund returns the remaining credits as USDC to the current owner",
+    refunded.status === "sent" &&
+      ownerAfter - ownerBefore === BigInt(before.creditsUsdcE6) &&
+      (await creditsOf(agentId))?.restricted === true &&
+      (await reconciled(agentId)).ok,
+    `${ownerAfter - ownerBefore} USDC units to ${owner.slice(0, 8)}...`,
+  );
+
+  step("drain to zero during a run: billing, no retries");
+  // Credits run out while a task waits: a small balance lets the task be queued, then the
+  // agent's own key spends it (as an earlier run would) before the sandbox's first model call.
+  await fund(agentId, 2_000n); // 0.002 USDC
+  await waitFor("the small deposit", 60_000, async () =>
+    (await creditsOf(agentId))?.spendableUsdcE6 === "2000" ? true : null,
+  );
+  const drainId = String(
+    (await api(`/v1/agents/${agentId}/tasks/noop`, { method: "POST" })).body.taskId,
+  );
+  const currentKey = must(
+    decryptSecret(
+      must(must(await store.runtime({ chainId: 143143, agentId })).keyCiphertext),
+      reveal("ORCHESTRATOR_SECRET"),
+    ),
+  );
+  secrets.push(currentKey);
+  const spendNow = await fetch(`${litellmUrl}/v1/chat/completions`, {
+    method: "POST",
+    headers: { authorization: `Bearer ${currentKey}`, "content-type": "application/json" },
+    // About 600 output tokens: more than the 0.0016 USD of provider cost 0.002 USDC buys.
+    body: JSON.stringify({
+      model: "scan-cheap",
+      messages: [{ role: "user", content: "Write about 450 words on how honeybees make honey." }],
+      max_tokens: 700,
+    }),
+  });
+  await waitFor("the outside call to be metered", 120_000, async () =>
+    (await creditsOf(agentId))?.restricted ? true : null,
+  );
+  const drained = await waitFor("the draining task", 420_000, async () => {
+    const v = (await api(`/v1/tasks/${drainId}`)).body as unknown as TaskView;
+    return v.status === "succeeded" || v.status === "failed" ? v : null;
+  });
+  const dr = drained.result ?? {};
+  const gated = (dr.gatedCalls ?? []) as string[];
+  const completions = gated.filter((c) => c.includes("/chat/completions"));
+  report.drain = { outsideCall: spendNow.status, task: drained };
+  check(
+    "at zero the next call is refused and the run ends as billing, with no retries",
+    drained.status === "failed" &&
+      String(drained.error).startsWith("billing") &&
+      dr.stopReason === "billing" &&
+      completions.length === 1 &&
+      completions[0]?.endsWith(" 402") === true,
+    `gated calls: ${gated.join(", ") || "none"}`,
+  );
+  await waitFor("metering of the last call", 90_000, async () =>
+    (await creditsOf(agentId))?.restricted ? true : null,
+  );
+  const again = await api(`/v1/agents/${agentId}/tasks/noop`, { method: "POST" });
+  check(
+    "afterwards the agent stays RESTRICTED and LLM tasks are refused",
+    again.status === 409 && again.body.error === "credits_exhausted",
+  );
+
+  step("while restricted, deterministic work keeps running");
+  const second2 = await mintLocal(nft);
+  const other = Number(second2.agentId);
+  const otherReady = await waitFor(
+    "the next agent's reveal and provisioning",
+    120_000,
+    async () => {
+      const rs = (await api("/v1/runtimes")).body.runtimes as RuntimeView[];
+      return rs.find((x) => x.agentId === String(other) && x.status === "ready");
+    },
+  );
+  await fund(agentId, 3_000_000n);
+  const refilled = await waitFor("a deposit while restricted", 60_000, async () => {
+    const c = await creditsOf(agentId);
+    return c && !c.restricted ? c : null;
+  });
+  check(
+    "the keeper, provisioning and deposits keep working while an agent is restricted",
+    otherReady.status === "ready" && BigInt(refilled.spendableUsdcE6) > 0n,
+    `agent ${other} provisioned; agent ${agentId} has ${refilled.spendableUsdcE6} again`,
+  );
+  check(
+    "the ledger balances and matches the funding address on chain",
+    (await ledger.balanced(143143)) && (await reconciled(agentId)).ok,
+    JSON.stringify(await reconciled(agentId), (_k, v) => (typeof v === "bigint" ? String(v) : v)),
+  );
+
+  for (const id of [agentId, other]) {
+    const rt = await store.runtime({ chainId: 143143, agentId: id });
+    if (rt?.keyCiphertext)
+      secrets.push(decryptSecret(rt.keyCiphertext, reveal("ORCHESTRATOR_SECRET")));
+  }
   await stopChild(orch, "SIGTERM");
   await gateway.deleteAliases(await gateway.listAliases(aliasPrefix(namespace)));
   check(
@@ -369,11 +598,11 @@ try {
   const text = redactor.redact(
     JSON.stringify(report, (_k, v) => (typeof v === "bigint" ? String(v) : v), 2),
   );
-  const dir = join(ROOT, "evidence/p1-u5");
+  const dir = join(ROOT, "evidence/p1-u6");
   mkdirSync(dir, { recursive: true });
   writeFileSync(join(dir, `live-${runTag}.json`), `${text}\n`);
   console.log(
-    `\nreport: evidence/p1-u5/live-${runTag}.json; orchestrator log: ${logPath.slice(ROOT.length + 1)}`,
+    `\nreport: evidence/p1-u6/live-${runTag}.json; orchestrator log: ${logPath.slice(ROOT.length + 1)}`,
   );
 }
 process.exit(code);

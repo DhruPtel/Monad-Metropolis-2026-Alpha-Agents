@@ -40,6 +40,8 @@ export interface NoopResult extends Record<string, unknown> {
   readonly modelCallsRefusedForCredits: number;
   /** "billing" when the run ended because credits ran out. */
   readonly stopReason: "completed" | "billing" | "failed";
+  /** Each request the gate forwarded or refused, in order: method, path and status, nothing else. */
+  readonly gatedCalls: readonly string[];
   readonly sandboxStopped: boolean;
   readonly timingsMs: {
     readonly sandbox: number;
@@ -186,6 +188,7 @@ export async function runNoopTask(ctx: TaskContext, taskId: string): Promise<voi
       modelCalls: calls.length,
       modelCallsOk: calls.filter((c) => c.status === 200).length,
       modelCallsRefusedForCredits: calls.filter((c) => c.status === 402).length,
+      gatedCalls: calls.map((c) => `${c.method} ${c.path} ${c.status}`),
       stopReason:
         final.status === "completed"
           ? "completed"
