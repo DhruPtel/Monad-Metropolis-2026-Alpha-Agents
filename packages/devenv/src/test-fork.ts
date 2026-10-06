@@ -16,6 +16,13 @@ import {
 import { readForkConfig } from "./fork-pin.ts";
 import { localPaths } from "./paths.ts";
 import { redact } from "./redact.ts";
+import {
+  FORK_START_ATTEMPTS,
+  backoffMs,
+  forkUpstreams,
+  servesBlock,
+  upstreamFor,
+} from "./upstream.ts";
 
 /**
  * A fork of its own for tests (D-200): the same fork as `pnpm dev:up` (Monad
@@ -41,18 +48,9 @@ export interface TestForkOptions {
   readonly timeoutMs?: number;
 }
 
-/** The fork's upstream, from the environment or the root .env; null when neither has it. */
+/** The fork's primary upstream, from the environment or the root .env; null when neither has it. */
 export function testForkUpstream(env: NodeJS.ProcessEnv = process.env): string | null {
-  const fromEnv = env.MONAD_RPC_URL?.trim();
-  if (fromEnv) return fromEnv;
-  const envFile = localPaths().env;
-  if (!existsSync(envFile)) return null;
-  const match = /^MONAD_RPC_URL=(.*)$/m.exec(readFileSync(envFile, "utf8"));
-  const value = match?.[1]
-    ?.trim()
-    .replace(/^["']|["']$/g, "")
-    .replace(/\r$/, "");
-  return value || null;
+  return forkUpstreams(env)[0] ?? null;
 }
 
 async function chainIdAt(url: string): Promise<number | null> {
@@ -96,8 +94,9 @@ export async function startTestFork(options: TestForkOptions = {}): Promise<Test
   const url = `http://127.0.0.1:${port}`;
   if (url === LOCAL_FORK_RPC_URL)
     throw new Error("a test fork never runs on the playtest fork's port, 8545");
-  const upstream = testForkUpstream(options.env);
-  if (!upstream) throw new Error("a test fork needs MONAD_RPC_URL (in the environment or .env)");
+  const upstreams = forkUpstreams(options.env);
+  if (upstreams.length === 0)
+    throw new Error("a test fork needs MONAD_RPC_URL (in the environment or .env)");
 
   const paths = localPaths();
   mkdirSync(paths.devDir, { recursive: true });
@@ -116,12 +115,26 @@ export async function startTestFork(options: TestForkOptions = {}): Promise<Test
 
   const { blockNumber } = readForkConfig(paths.forkConfig);
   const log = createWriteStream(join(paths.devDir, `test-fork-${port}.log`), { flags: "w" });
-  const write = (chunk: Buffer) => log.write(redact(chunk.toString("utf8"), [upstream]));
-  const deadline = Date.now() + (options.timeoutMs ?? 90_000);
+  const write = (chunk: Buffer) => log.write(redact(chunk.toString("utf8"), upstreams));
+  const deadline = Date.now() + (options.timeoutMs ?? 180_000);
+  const giveUp = () => {
+    log.end();
+    return new Error(`the test fork on port ${port} did not start; see .dev/test-fork-${port}.log`);
+  };
 
-  // anvil sometimes fails its first fetch from the upstream ("Resource not
-  // found"); a bounded retry is enough.
+  // The upstream sometimes answers the pinned block as missing (L-87): ask for
+  // it before each attempt, back off between attempts, and alternate with the
+  // secondary upstream when there is one (D-220).
   for (let attempt = 1; ; attempt++) {
+    const upstream = upstreamFor(upstreams, attempt);
+    const which = upstreams.indexOf(upstream) === 0 ? "primary" : "secondary";
+    if (!(await servesBlock(upstream, blockNumber))) {
+      log.write(`attempt ${attempt}: the ${which} upstream did not serve block ${blockNumber}\n`);
+      if (attempt >= FORK_START_ATTEMPTS || Date.now() >= deadline) throw giveUp();
+      await new Promise((r) => setTimeout(r, backoffMs(attempt)));
+      continue;
+    }
+    log.write(`attempt ${attempt}: starting anvil on the ${which} upstream\n`);
     const child = spawn(
       "anvil",
       [
@@ -179,11 +192,7 @@ export async function startTestFork(options: TestForkOptions = {}): Promise<Test
       await new Promise((r) => setTimeout(r, 300));
     }
     await stop();
-    if (attempt >= 3 || Date.now() >= deadline) {
-      log.end();
-      throw new Error(
-        `the test fork on port ${port} did not start; see .dev/test-fork-${port}.log`,
-      );
-    }
+    if (attempt >= FORK_START_ATTEMPTS || Date.now() >= deadline) throw giveUp();
+    await new Promise((r) => setTimeout(r, backoffMs(attempt)));
   }
 }

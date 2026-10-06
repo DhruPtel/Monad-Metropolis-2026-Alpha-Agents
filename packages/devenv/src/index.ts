@@ -8,3 +8,4 @@ export * from "./proc.ts";
 export * from "./redact.ts";
 export * from "./rpc.ts";
 export * from "./test-fork.ts";
+export * from "./upstream.ts";

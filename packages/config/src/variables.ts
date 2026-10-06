@@ -102,10 +102,11 @@ export const VARIABLES = [
   {
     name: "MONAD_RPC_URL_SECONDARY",
     group: "Chain RPC",
-    description: "Second Monad mainnet RPC provider, for failover and cross-checks (Q-23)",
+    description:
+      "Second Monad mainnet RPC provider, for failover and cross-checks (Q-23); local forks fall back to it (D-220)",
     secret: true,
-    firstUsedBy: "P2-U4",
-    environments: ["beta"],
+    firstUsedBy: "P1-U9",
+    environments: ALL,
     ...httpUrl,
     example: "https://your-second-monad-mainnet-rpc.example/your-api-key",
   },

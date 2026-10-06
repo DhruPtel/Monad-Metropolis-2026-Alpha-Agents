@@ -59,7 +59,10 @@ function anvilLogTail() {
   if (!existsSync(ANVIL_LOG_PATH)) return "(no anvil log)";
   const lines = readFileSync(ANVIL_LOG_PATH, "utf8").trimEnd().split("\n");
   // The runner already redacts; redact again in case the log came from elsewhere.
-  return redact(lines.slice(-15).join("\n"), [process.env.MONAD_RPC_URL]);
+  return redact(lines.slice(-15).join("\n"), [
+    process.env.MONAD_RPC_URL,
+    process.env.MONAD_RPC_URL_SECONDARY,
+  ]);
 }
 
 async function startAnvil() {
