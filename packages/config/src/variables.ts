@@ -357,6 +357,24 @@ export const VARIABLES = [
     localDefault: "4200",
   },
   {
+    name: "SCAN_INTERVAL_MINUTES",
+    group: "Agent runtime",
+    description:
+      "Minutes between scheduled Scans of a funded agent (D-216); each Scan spends the agent's credits",
+    secret: false,
+    firstUsedBy: "P1-U7",
+    environments: ALL,
+    schema: z
+      .string()
+      .regex(/^\d{1,6}$/)
+      .transform(Number)
+      .pipe(z.number().int().min(5).max(100_000)),
+    expected: "a whole number of minutes from 5 to 100000",
+    example: "360",
+    commented: true,
+    localDefault: "360",
+  },
+  {
     name: "ORCHESTRATOR_URL",
     group: "Agent runtime",
     description: "Base URL of the orchestrator's internal API, as the dev console calls it",
@@ -548,25 +566,14 @@ export const VARIABLES = [
 
   // Research data
   {
-    name: "SEARCH_PROVIDER",
+    name: "TAVILY_API_KEY",
     group: "Research data",
-    description: "Web search provider (Q-24)",
-    secret: false,
-    firstUsedBy: "P1-U7",
-    environments: ALL,
-    ...oneOf(["exa", "tavily"]),
-    example: "exa",
-    commented: true,
-  },
-  {
-    name: "SEARCH_API_KEY",
-    group: "Research data",
-    description: "Web search API key",
+    description: "Tavily API key for web_search and read_url on the data tools server (D-214)",
     secret: true,
     firstUsedBy: "P1-U7",
     environments: ALL,
     ...token,
-    example: "your-search-api-key",
+    example: "your-tavily-api-key",
   },
   {
     name: "X_API_BEARER_TOKEN",

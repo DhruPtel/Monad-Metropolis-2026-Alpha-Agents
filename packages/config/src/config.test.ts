@@ -76,10 +76,10 @@ describe("environment selection", () => {
   it("parses typed values", () => {
     const { values } = loadConfig(
       { name: "test" },
-      { POSTGRES_PORT: "15432", SEARCH_PROVIDER: "tavily", APP_PUBLIC_URL: "https://app.test" },
+      { POSTGRES_PORT: "15432", SCAN_INTERVAL_MINUTES: "30", APP_PUBLIC_URL: "https://app.test" },
     );
     expect(values.POSTGRES_PORT).toBe(15432);
-    expect(values.SEARCH_PROVIDER).toBe("tavily");
+    expect(values.SCAN_INTERVAL_MINUTES).toBe(30);
     expect(values.APP_PUBLIC_URL).toBe("https://app.test");
   });
 });
@@ -159,7 +159,8 @@ describe("missing and invalid variables", () => {
   it.each([
     ["MONAD_RPC_URL", "ftp://rpc.test/x", "an http(s) URL"],
     ["POSTGRES_PORT", "99999", "a port number"],
-    ["SEARCH_PROVIDER", "google", "one of exa, tavily"],
+    ["APP_ENV", "staging", "one of local, testnet, beta"],
+    ["SCAN_INTERVAL_MINUTES", "2", "from 5 to 100000"],
     ["HERMES_API_SERVER_KEY", "too-short", "32 or more characters"],
   ])("names invalid %s and the expected format", (name, value, expected) => {
     const err = loadError(() => loadConfig({ name: "test" }, { [name]: value }));
