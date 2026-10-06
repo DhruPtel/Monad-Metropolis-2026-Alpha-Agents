@@ -662,3 +662,52 @@ What happened: The live check's "run ends as billing" step passed its count of o
 Cause: The no-op task's "model calls" counted every `/v1` request through the gate, and the drain call was sized by guess rather than by its cost.
 Fix: The task result lists each gated call's method, path and status, the check requires the one chat completion to be the 402, and the drain call is sized to cost more than the balance; the check then passed with the completion refused and no retry (1c55146).
 Lesson: Assert on the specific request a claim is about, and size a test's spending by its measured cost, not by assumption.
+
+## L-82: Escapes for invisible characters were written as the characters
+Unit: P1-U7
+What happened: Lint failed on the new data tools server with "Irregular whitespace not allowed" in web-content.ts and "Unexpected control character" in its test, although both had been written with `\u`-style escapes. The files held the literal zero-width, bidirectional and BEL characters, and the tests had passed with them.
+Cause: The escapes became the characters themselves when the files were written, so the source carried characters a reader cannot see (the Trojan Source class of problem), which lint rightly rejects.
+Fix: The lines were rewritten with escapes by a script that writes the backslash sequences literally, and a grep for non-ASCII bytes in the new sources finds none (efc4b35).
+Lesson: Write invisible and control characters only as escapes, and grep new source files for non-ASCII bytes before committing them.
+
+## L-83: A scripted edit changed the first match, in the wrong class
+Unit: P1-U7
+What happened: An edit meant to make the narrator derive its key with `narratorKeyFor` looked for `this.key = ` and replaced the first occurrence, which was in the LiteLLM model client's constructor. The grep printed after the edit showed it; every test still passed, because every narrator test used a fake model.
+Cause: The script found the line by its first index instead of asserting a unique pattern (L-78 again), and nothing tested the real model client.
+Fix: The client's line was put back and the narrator's changed, both with uniqueness assertions; a new test checks that the real client sends the narrator's own key and the `narrator` alias to a local server.
+Lesson: A scripted edit names a pattern that occurs exactly once and asserts it, and a component that every test fakes needs one test of its real implementation.
+
+## L-84: The startup sweep would have deleted the narrator's key
+Unit: P1-U7 (found before it caused a failure)
+What happened: The narrator's LiteLLM key is a platform key in the orchestrator's namespace (`aa-<namespace>-narrator`), and P1-U5's startup sweep deletes every key with the namespace prefix that no agent runtime owns.
+Cause: The sweep's rule assumed every key in a namespace belongs to a runtime.
+Fix: The sweep keeps the narrator's alias, and the sweep test plants one and checks it survives (aa29711).
+Lesson: When a new kind of resource joins a namespace that a cleanup sweeps, add it to the sweep's keep list and its test in the same change.
+
+## L-85: Stopping dev:all signalled pnpm's shell, not the supervisor
+Unit: P1-U7
+What happened: Before the Playwright suites, `kill -TERM` on the first PID that `pgrep -f 'node scripts/dev-all.js'` printed ended the background command, but the web app, console, API, indexer and orchestrator kept listening.
+Cause: The first match was pnpm's `sh -c` wrapper, whose command line holds the same text; the supervisor was its child and never got the signal.
+Fix: The supervisor itself (the parent of the services) was signalled; it stopped every service, and the ports were checked free before any suite ran.
+Lesson: Choose the PID to stop by its role (the parent of the services, from `ps -o pid,ppid,cmd`), and confirm the ports are free afterwards instead of trusting the exit of the command that was started.
+
+## L-86: A console capture flickered at its corners once it moved (L-65 again)
+Unit: P1-U7
+What happened: After the new activity section moved the console's no-op result card down the page, its capture failed by 3 to 26 corner pixels, one color level each, and after a re-baseline the next run failed the same way.
+Cause: L-65's partial-repaint antialiasing. Its fix, a full repaint before the capture, was applied only to the web suite.
+Fix: The console spec forces a full repaint (root opacity across two animation frames) before its element captures; after one re-baseline, two runs in a row passed (c158e3c).
+Lesson: When a fix for a capture flake lands in one suite, apply it to every suite that captures elements.
+
+## L-87: The upstream RPC sometimes answers the pinned block as missing
+Unit: P1-U7 (found, not fixed)
+What happened: The keeper's fork test in one commit gate and the first live check run both failed with "the test fork ... did not start"; the fork log said "Failed to get block for block number: 109670000 ... non-archive node". A probe of 12 requests for the pinned block got 10 blocks and 2 empty answers (HTTP 200, null result).
+Cause: The upstream behind MONAD_RPC_URL is load balanced, and some of its nodes do not keep the pinned block, so a new fork's first fetch fails at random. startTestFork's three attempts usually, but not always, ride it out.
+Fix: None in code; the gate and the live check were run again and passed. The LOGS entry suggests a retry with backoff, or the secondary RPC, for fork start.
+Lesson: Classify a failure by the server's own log before rerunning (L-51), and record an environment flake once, with its measured rate, rather than rerunning past it silently.
+
+## L-88: A finished Scan did not yet have its activity entry
+Unit: P1-U7
+What happened: The first full live run passed every Scan check except the narrator's: the check found no activity entry for a Scan whose task already read "succeeded". The orchestrator's log showed the narrator writing it 15 to 30 seconds later. The same run's check names also read "activity scanEntry", because a regex rename of a variable had also rewritten the word inside strings.
+Cause: The Scan marked its task finished and only then called the narrator, so "finished" did not mean "narrated" (L-10 again: state read right after a write it does not wait for). The rename matched whole words without telling code from text.
+Fix: The Scan narrates before it marks the task finished, on the failure path too, so a finished Scan always has its entry; the check names were corrected by hand.
+Lesson: When a step's result is promised alongside a status, write the result before the status, and rename identifiers with the type checker's help rather than a word regex.
