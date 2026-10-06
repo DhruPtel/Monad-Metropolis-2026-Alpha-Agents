@@ -17,6 +17,31 @@ jobs:
   check:
     name: Lint, format, typecheck, test
     runs-on: ubuntu-latest
+    # The database, indexer, control API and orchestrator tests need Postgres and Redis; they
+    # skip without them. Same images as infra/compose.yaml, on the ports the local defaults use.
+    services:
+      postgres:
+        image: postgres:16.15-alpine3.24@sha256:721873c34ceb9f8d8fc265984940dc982404c105f19ad51be9fdc5970a6080ea
+        env:
+          POSTGRES_USER: alpha
+          POSTGRES_PASSWORD: alpha_local_dev_only
+          POSTGRES_DB: alpha_agents
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U alpha -d alpha_agents"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 30
+      redis:
+        image: redis:7.4.11-alpine3.21@sha256:858f009f9709ce576febc734aa78b8f6d624b82571f9ddb6bda4377c833b3499
+        ports:
+          - 6380:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 30
     steps:
       - name: Check out
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
@@ -44,6 +69,10 @@ jobs:
 
       - name: Test
         run: pnpm test
+
+      - name: Check that the database tests ran
+        # A skipped suite looks like a pass; fail if Postgres was not reachable to the tests.
+        run: pnpm exec vitest run packages/db services/orchestrator/src/provisioning.test.ts --reporter=verbose 2>&1 | tee db-tests.log && ! grep -q "skipped" db-tests.log
 
   foundry:
     name: Foundry build and non-fork tests
