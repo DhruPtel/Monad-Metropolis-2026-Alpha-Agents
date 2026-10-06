@@ -246,6 +246,16 @@ The orchestrator schedules a Scan for every provisioned agent with at least 0.05
 
 To try it: run `pnpm dev:all`, open the console's Agents page, press "Fund 5 USDC" on a provisioned agent, wait for its credits to show, then "Run Scan". The result card shows the stage record, tool calls and spend; the agent's activity entry and tool call history appear below the table once the Scan ends (about a minute). After changing `infra/litellm/config.yaml`, restart LiteLLM so it knows the `narrator` alias.
 
+## My Agents (P1-U9)
+
+`/agents` in the web app shows every agent the connected wallet owns (D-218): its art (3D stays on /configure), tier, species and what it is doing (waiting for reveal, setting up, ready, running, or paused with no credits, when research stops and safety checks keep running); "Fund your agent" with the funding address, a copy button, a QR code of the address, the credits balance, any USDC held above the 50 USDC beta cap, and a Trading placeholder until Phase 2; 24-hour spend and recent charges; and the narrator's activity entries. "Run Scan now" and "Refund credits" each ask for confirmation first: the Scan shows its estimated cost (about 0.15 to 0.30 USDC, Assumption A-31), and the refund shows the ownership epoch it is tied to.
+
+The page asks the control API for an owner session per agent and reads `GET /v1/agents/:id/summary`, which only the owner can read; `POST /v1/agents/:id/scan` records an owner's Scan, which the orchestrator queues within two seconds (D-219). `pnpm test:web:live:agents` runs the whole owner path on a stack of its own with the orchestrator: mint, fund by a plain USDC transfer, a Scan from the page, its entry, a refund paid on chain, and another wallet seeing none of it.
+
+To try it: `pnpm dev:all`, open http://localhost:3000/agents, log in with the wallet that owns an agent (mint one first if needed), send test USDC to the funding address shown (or press "Fund 5 USDC" in the dev console), then run a Scan and read its entry.
+
+Fork starts ask the upstream for the pinned block first, retry up to six times with backoff, and alternate with `MONAD_RPC_URL_SECONDARY` when it is set (D-220), because the main provider sometimes answers that block as missing (L-87).
+
 ## Dev console
 
 `apps/console` is an internal, local-only console for the development environment. It is a separate app, so its code is never part of the product deployment, and it is built only from `packages/ui`.

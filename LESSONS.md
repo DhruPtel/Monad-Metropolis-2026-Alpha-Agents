@@ -711,3 +711,17 @@ What happened: The first full live run passed every Scan check except the narrat
 Cause: The Scan marked its task finished and only then called the narrator, so "finished" did not mean "narrated" (L-10 again: state read right after a write it does not wait for). The rename matched whole words without telling code from text.
 Fix: The Scan narrates before it marks the task finished, on the failure path too, so a finished Scan always has its entry; the check names were corrected by hand.
 Lesson: When a step's result is promised alongside a status, write the result before the status, and rename identifiers with the type checker's help rather than a word regex.
+
+## L-89: The reveal watch's 404s failed the live bee test at random
+Unit: P1-U9 (seen in P1-U7 and P1-U9)
+What happened: The web live suite's bee test failed once in P1-U7 and once in P1-U9 on a single browser console error, "Failed to load resource: the server responded with a status of 404", and passed on the next run each time. The message named no URL.
+Cause: After a mint, the page watched for the reveal by polling `GET /v1/agents/:id`, which answers 404 until the indexer has seen the mint, and the browser logs every failed load as a console error, which the test counts (L-59). Whether the first poll beat the indexer decided the run.
+Fix: The reveal watch reads the minter's agent list, which answers 200 and is empty until the mint is indexed; the live test also records the status and URL of any failed response, so a recurrence names itself. Two runs in a row then passed (42828ff).
+Lesson: Poll for something that does not exist yet through a route that answers "none" with 200, and make a test that counts console errors also record which request failed.
+
+## L-90: The /design scan once found a scrollable tab list it could not focus
+Unit: P1-U9 (found, not fixed)
+What happened: In the `--update` run of the web suite, the mobile /design scan reported "serious scrollable-region-focusable: .max-w-full", the tab list. The run before it and the two runs after it passed, and the tab list has not changed since P0-U7.
+Cause: Not established. The tab list scrolls sideways when its labels are wider than 380px, and axe flags a scrolling region whose focusable children it does not count; when that happens depends on layout timing.
+Fix: None. The LOGS entry suggests making the scrolling tab list focusable itself (tabIndex 0 with a label), which satisfies the rule whatever the timing.
+Lesson: Record an accessibility finding that does not reproduce with its exact selector, rather than rerunning past it, so its cause can be pinned when it returns.
