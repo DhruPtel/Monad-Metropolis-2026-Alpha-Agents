@@ -9,3 +9,4 @@ export * from "./redact.ts";
 export * from "./rpc.ts";
 export * from "./test-fork.ts";
 export * from "./upstream.ts";
+export * from "./upstream-proxy.ts";

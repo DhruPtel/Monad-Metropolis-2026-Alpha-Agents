@@ -13,7 +13,7 @@ import {
   forkUpstreams,
   redact,
   servesBlock,
-  upstreamFor,
+  startUpstreamProxy,
 } from "@alpha-agents/devenv";
 
 loadRootEnv();
@@ -37,6 +37,14 @@ if (upstreams.length === 0) {
 let anvil = null;
 let stopping = false;
 let ready = false;
+
+// anvil reaches the upstream through a retrying proxy in this process (L-91):
+// a node that answers the pinned block as missing is asked again. The runner
+// never blocks its event loop, so the proxy can live here.
+const proxy =
+  upstreams.length > 0
+    ? await startUpstreamProxy({ upstreams, log: (line) => log.write(`${line}\n`) })
+    : null;
 
 /** True once anvil answers on its port as the local fork. */
 async function answers() {
@@ -63,16 +71,16 @@ async function answers() {
  */
 async function launch(attempt) {
   if (stopping) return finish(0);
-  const upstream = upstreamFor(upstreams, attempt);
-  const which = upstreams.indexOf(upstream) === 0 ? "primary" : "secondary";
+  const which = upstreams.length > 1 ? "primary and secondary" : "primary";
   const retry = (/** @type {string} */ why) => {
     log.write(`attempt ${attempt}: ${why}\n`);
     if (attempt >= FORK_START_ATTEMPTS) return finish(1);
     setTimeout(() => void launch(attempt + 1), backoffMs(attempt));
   };
-  if (!(await servesBlock(upstream, blockNumber)))
-    return retry(`the ${which} upstream did not serve block ${blockNumber}`);
-  log.write(`attempt ${attempt}: starting anvil on the ${which} upstream\n`);
+  if (!proxy) return finish(1);
+  if (!(await servesBlock(proxy.url, blockNumber)))
+    return retry(`the upstream did not serve block ${blockNumber}`);
+  log.write(`attempt ${attempt}: starting anvil through the retrying proxy (${which} upstream)\n`);
   // `--fork-url monad` resolves the alias in chains/monad/foundry.toml from
   // MONAD_RPC_URL, so the URL never appears in the process argument list.
   // The fork answers its own chain ID, 143143, not Monad mainnet's 143, so no
@@ -94,10 +102,13 @@ async function launch(attempt) {
       ANVIL_HOST,
       "--port",
       String(ANVIL_PORT),
+      // The proxy may retry for up to about 35 s; anvil waits longer than that for it.
+      "--timeout",
+      "90000",
     ],
     {
       cwd: MONAD_DIR,
-      env: { ...process.env, MONAD_RPC_URL: upstream },
+      env: { ...process.env, MONAD_RPC_URL: proxy.url },
       stdio: ["ignore", "pipe", "pipe"],
     },
   );

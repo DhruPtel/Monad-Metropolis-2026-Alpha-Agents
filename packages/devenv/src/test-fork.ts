@@ -16,13 +16,8 @@ import {
 import { readForkConfig } from "./fork-pin.ts";
 import { localPaths } from "./paths.ts";
 import { redact } from "./redact.ts";
-import {
-  FORK_START_ATTEMPTS,
-  backoffMs,
-  forkUpstreams,
-  servesBlock,
-  upstreamFor,
-} from "./upstream.ts";
+import { FORK_START_ATTEMPTS, backoffMs, forkUpstreams, servesBlock } from "./upstream.ts";
+import { startUpstreamProxyProcess } from "./upstream-proxy.ts";
 
 /**
  * A fork of its own for tests (D-200): the same fork as `pnpm dev:up` (Monad
@@ -117,7 +112,15 @@ export async function startTestFork(options: TestForkOptions = {}): Promise<Test
   const log = createWriteStream(join(paths.devDir, `test-fork-${port}.log`), { flags: "w" });
   const write = (chunk: Buffer) => log.write(redact(chunk.toString("utf8"), upstreams));
   const deadline = Date.now() + (options.timeoutMs ?? 180_000);
+  // anvil reaches the upstream through a retrying proxy (L-91): a node that
+  // answers the pinned block as missing is asked again, not believed.
+  // In a process of its own: a caller blocked in spawnSync (forge) must not stall anvil.
+  const proxy = await startUpstreamProxyProcess({
+    upstreams,
+    log: (line) => log.write(`${line}\n`),
+  });
   const giveUp = () => {
+    void proxy.stop();
     log.end();
     return new Error(`the test fork on port ${port} did not start; see .dev/test-fork-${port}.log`);
   };
@@ -126,15 +129,15 @@ export async function startTestFork(options: TestForkOptions = {}): Promise<Test
   // it before each attempt, back off between attempts, and alternate with the
   // secondary upstream when there is one (D-220).
   for (let attempt = 1; ; attempt++) {
-    const upstream = upstreamFor(upstreams, attempt);
-    const which = upstreams.indexOf(upstream) === 0 ? "primary" : "secondary";
-    if (!(await servesBlock(upstream, blockNumber))) {
-      log.write(`attempt ${attempt}: the ${which} upstream did not serve block ${blockNumber}\n`);
+    if (!(await servesBlock(proxy.url, blockNumber))) {
+      log.write(`attempt ${attempt}: the upstream did not serve block ${blockNumber}\n`);
       if (attempt >= FORK_START_ATTEMPTS || Date.now() >= deadline) throw giveUp();
       await new Promise((r) => setTimeout(r, backoffMs(attempt)));
       continue;
     }
-    log.write(`attempt ${attempt}: starting anvil on the ${which} upstream\n`);
+    log.write(
+      `attempt ${attempt}: starting anvil through the retrying proxy (${upstreams.length > 1 ? "primary and secondary" : "primary"} upstream)\n`,
+    );
     const child = spawn(
       "anvil",
       [
@@ -150,10 +153,13 @@ export async function startTestFork(options: TestForkOptions = {}): Promise<Test
         "127.0.0.1",
         "--port",
         String(port),
+        // The proxy may retry for up to about 35 s; anvil waits longer than that for it.
+        "--timeout",
+        "90000",
       ],
       {
         cwd: paths.monadDir,
-        env: { ...process.env, ...options.env, MONAD_RPC_URL: upstream },
+        env: { ...process.env, ...options.env, MONAD_RPC_URL: proxy.url },
         stdio: ["ignore", "pipe", "pipe"],
       },
     );
@@ -185,6 +191,7 @@ export async function startTestFork(options: TestForkOptions = {}): Promise<Test
           port,
           stop: async () => {
             await stop();
+            await proxy.stop();
             log.end();
           },
         };
