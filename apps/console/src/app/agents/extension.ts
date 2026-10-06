@@ -93,6 +93,15 @@ export interface AgentList {
   readonly devActions: boolean;
   /** The block the index had reached, or null before its first range. */
   readonly watermark: { readonly block: number; readonly updatedAt: string } | null;
+  /** D-221: the local fork's reveal steering by species slug; null anywhere else. */
+  readonly steering: RevealSteeringView | null;
+}
+
+export interface RevealSteeringView {
+  /** Agent #1's species on a fresh fork (LOCAL_FIRST_REVEAL_SPECIES), or null for random. */
+  readonly firstReveal: string | null;
+  /** The species the next reveal is steered to, once, or null. */
+  readonly nextReveal: string | null;
 }
 
 export interface AgentsSource {
@@ -104,6 +113,8 @@ export interface AgentsSource {
   triggerTask?(agentId: AgentId, task: TaskKind): Promise<string>;
   /** P1-U5: one task's status and structured result. */
   task?(taskId: string): Promise<TaskView>;
+  /** D-221: steer the next reveal on the local fork to a species slug, or clear it with null. */
+  setNextReveal?(species: string | null): Promise<RevealSteeringView>;
   /** P1-U6: asks for a refund of the agent's credits to its current owner. */
   refund?(agentId: AgentId): Promise<string>;
   refundStatus?(refundId: string): Promise<RefundView>;
@@ -167,6 +178,18 @@ export function orchestratorSource(baseUrl: string, fetchFn: typeof fetch = fetc
     async refundStatus(refundId: string): Promise<RefundView> {
       return (await call(`/v1/refunds/${encodeURIComponent(refundId)}`)) as unknown as RefundView;
     },
+    async steering(): Promise<RevealSteeringView | null> {
+      const body = await call("/v1/keeper");
+      return (body.steering as RevealSteeringView | null | undefined) ?? null;
+    },
+    async setNextReveal(species: string | null): Promise<RevealSteeringView> {
+      const body = await call("/v1/keeper/next-reveal", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ species }),
+      });
+      return body.steering as RevealSteeringView;
+    },
     async toolCalls(agentId: string): Promise<ToolCallView[]> {
       const body = await call(`/v1/agents/${agentId}/tool-calls`);
       return (body.calls ?? []) as ToolCallView[];
@@ -198,6 +221,7 @@ export function apiAgentsSource(
           resetAgent: orch.resetAgent,
           refund: orch.refund,
           refundStatus: orch.refundStatus,
+          setNextReveal: orch.setNextReveal,
         }
       : {}),
     async listAgents() {
@@ -209,6 +233,7 @@ export function apiAgentsSource(
       };
       const runtimes = orch ? await orch.runtimes().catch(() => null) : null;
       const credits = runtimes && orch ? await orch.credits().catch(() => []) : [];
+      const steering = runtimes && orch ? await orch.steering().catch(() => null) : null;
       // P1-U7: activity from the control API and tool calls from the orchestrator, for each
       // provisioned agent; a failed read shows as none rather than failing the page.
       const activity = new Map<string, ActivityItem[]>();
@@ -228,6 +253,7 @@ export function apiAgentsSource(
       return {
         orchestrator: runtimes !== null,
         devActions: runtimes?.devActions ?? false,
+        steering,
         watermark: body.watermark
           ? { block: body.watermark.block, updatedAt: body.watermark.updatedAt }
           : null,

@@ -106,7 +106,7 @@ export function AgentActions({
   enabled: boolean;
   /** P1-U6: no credits, so LLM tasks are refused (D-129). */
   restricted?: boolean;
-  /** P1-U7: enough credits for a Scan (0.05 USDC, D-216). */
+  /** P1-U7: enough credits for a Scan (the minimum, D-222). */
   canScan?: boolean;
 }) {
   const ctx = useContext(TasksContext);
@@ -152,7 +152,7 @@ export function AgentActions({
         size="sm"
         variant="secondary"
         disabled={!ready || !canScan || pending}
-        title={canScan ? undefined : "A Scan needs at least 0.05 USDC of credits"}
+        title={canScan ? undefined : "A Scan needs at least 0.15 USDC of credits"}
         onClick={() => runTask("scan")}
       >
         Run Scan

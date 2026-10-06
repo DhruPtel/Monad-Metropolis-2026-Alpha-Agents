@@ -175,6 +175,18 @@ test.describe("agents panel controls (P1-U5)", () => {
     await expect(result).toContainText("0.0120 USDC");
   });
 
+  test("steers the next local reveal to a species (D-221)", async ({ page }) => {
+    const control = page.getByTestId("reveal-control");
+    await expect(control).toContainText("Agent #1 on a fresh fork reveals as Bee");
+    await expect(control.getByTestId("next-reveal")).toHaveText("Next reveal: random.");
+    await control.getByRole("combobox").click();
+    await page.getByRole("option", { name: "Praying mantis" }).click();
+    await control.getByRole("button", { name: "Reveal next as Praying mantis" }).click();
+    await expect(control.getByTestId("next-reveal")).toHaveText("Next reveal: Praying mantis.");
+    await control.getByRole("button", { name: "Clear" }).click();
+    await expect(control.getByTestId("next-reveal")).toHaveText("Next reveal: random.");
+  });
+
   test("resets an agent after a confirmation", async ({ page }) => {
     await row(page, /^Alpha Agent #1$/)
       .getByRole("button", { name: "Reset" })

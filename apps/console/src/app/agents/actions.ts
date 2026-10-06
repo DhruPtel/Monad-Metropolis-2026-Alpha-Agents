@@ -3,7 +3,7 @@
 import { mintTestUsdc } from "@alpha-agents/devenv";
 import type { AgentId } from "@alpha-agents/domain";
 import { type ActionResult, attempt } from "@/lib/action-result";
-import { type RefundView, type TaskView, agentsSource } from "./extension";
+import { type RefundView, type RevealSteeringView, type TaskView, agentsSource } from "./extension";
 
 // The orchestrator offers these only on the local stack (D-205); its messages carry no secret.
 
@@ -20,12 +20,25 @@ export async function runNoopTaskAction(id: string): Promise<ActionResult<string
   });
 }
 
-/** P1-U7: queues a Scan now (D-216); refused below 0.05 USDC of credits or while one is open. */
+/** P1-U7: queues a Scan now (D-216); refused below the Scan minimum (D-222) or while one is open. */
 export async function runScanAction(id: string): Promise<ActionResult<string>> {
   return attempt(async () => {
     const source = agentsSource();
     if (!source.triggerTask) throw new Error("The orchestrator is not configured.");
     return source.triggerTask(agentId(id), "scan");
+  });
+}
+
+/** D-221: the species of the next reveal on the local fork, once; null clears it. */
+export async function setNextRevealAction(
+  species: string | null,
+): Promise<ActionResult<RevealSteeringView>> {
+  return attempt(async () => {
+    const source = agentsSource();
+    if (!source.setNextReveal) throw new Error("The orchestrator is not configured.");
+    if (species !== null && !/^[a-z][a-z-]{1,30}$/.test(species))
+      throw new Error("That is not a species.");
+    return source.setNextReveal(species);
   });
 }
 

@@ -188,6 +188,9 @@ const scanTask = JSON.stringify({
   },
 });
 
+// D-221: the local fork's steering; the next reveal is set by the console.
+let steering = { firstReveal: "bee", nextReveal: null };
+
 const routes = {
   "GET /health": [200, body],
   "GET /v1/agents": [200, body],
@@ -205,6 +208,20 @@ const routes = {
 };
 
 createServer((req, res) => {
+  if (req.url === "/v1/keeper")
+    return res
+      .writeHead(200, { "content-type": "application/json" })
+      .end(JSON.stringify({ running: true, recent: [], steering }));
+  if (req.method === "POST" && req.url === "/v1/keeper/next-reveal") {
+    let raw = "";
+    req.on("data", (c) => (raw += c));
+    req.on("end", () => {
+      const { species } = JSON.parse(raw || "{}");
+      steering = { ...steering, nextReveal: species ?? null };
+      res.writeHead(200, { "content-type": "application/json" }).end(JSON.stringify({ steering }));
+    });
+    return;
+  }
   const [status, reply] = routes[`${req.method} ${req.url}`] ?? [
     404,
     JSON.stringify({ error: "not_found" }),

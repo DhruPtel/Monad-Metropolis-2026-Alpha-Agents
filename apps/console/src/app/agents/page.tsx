@@ -1,3 +1,4 @@
+import { SCAN_MIN_CREDITS_USDC_E6 } from "@alpha-agents/accounting";
 import {
   ActivityFeed,
   AddressDisplay,
@@ -25,14 +26,13 @@ import {
 import { Bot, PlugZap } from "lucide-react";
 import { PanelHeader } from "@/components/panel-header";
 import { AgentActions, AgentTasks, CreditActions } from "./agent-tasks";
+import { RevealControl } from "./reveal-control";
 import { type AgentList, type AgentRow, PLANNED_AGENT_ACTIONS, agentsSource } from "./extension";
 
 // Read from the control API on every visit, never at build time.
 export const dynamic = "force-dynamic";
 
 const TIER_TONE = { base: "neutral", medium: "rare", pro: "legendary" } as const;
-/** D-216: a Scan needs at least 0.05 USDC of credits. */
-const SCAN_MIN_CREDITS_E6 = 50_000n;
 
 /** P1-U7: each provisioned agent's activity entries and its last tool calls. */
 function AgentActivity({ agents }: { agents: readonly AgentRow[] }) {
@@ -249,7 +249,7 @@ export default async function AgentsPage() {
                           runtime={a.runtime}
                           enabled={list.orchestrator && list.devActions}
                           restricted={a.credits?.restricted ?? false}
-                          canScan={(a.credits?.spendable ?? 0n) >= SCAN_MIN_CREDITS_E6}
+                          canScan={(a.credits?.spendable ?? 0n) >= SCAN_MIN_CREDITS_USDC_E6}
                         />
                         <CreditActions
                           agentId={a.agentId.toString()}
@@ -269,6 +269,7 @@ export default async function AgentsPage() {
           </div>
         </AgentTasks>
       )}
+      {list?.devActions && list.steering ? <RevealControl steering={list.steering} /> : null}
       <Card>
         <CardHeader>
           <CardTitle>Planned controls</CardTitle>

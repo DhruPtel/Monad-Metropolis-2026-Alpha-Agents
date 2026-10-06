@@ -282,3 +282,44 @@ describe("activity, tool calls and the Scan (P1-U7)", () => {
     expect(scanFields(null)).toEqual([]);
   });
 });
+
+describe("steered reveals on the local fork (D-221)", () => {
+  it("reads the steering from the keeper and sets the next reveal", async () => {
+    const calls: string[] = [];
+    const fetchFn = routes(
+      {
+        "/v1/agents": [200, AGENTS],
+        "/v1/credits": [200, { enabled: true, agents: [] }],
+        "/v1/runtimes": [200, { devActions: true, runtimes: [] }],
+        "/v1/keeper": [
+          200,
+          { running: true, recent: [], steering: { firstReveal: "bee", nextReveal: null } },
+        ],
+        "/v1/keeper/next-reveal": [
+          200,
+          { steering: { firstReveal: "bee", nextReveal: "praying-mantis" } },
+        ],
+      },
+      calls,
+    );
+    const source = apiAgentsSource("http://api", fetchFn, "http://orch");
+    expect((await source.listAgents()).steering).toEqual({ firstReveal: "bee", nextReveal: null });
+    expect(await source.setNextReveal?.("praying-mantis")).toEqual({
+      firstReveal: "bee",
+      nextReveal: "praying-mantis",
+    });
+    expect(calls).toContain("POST http://orch/v1/keeper/next-reveal");
+  });
+
+  it("has no steering where the orchestrator offers none", async () => {
+    const fetchFn = routes({
+      "/v1/agents": [200, AGENTS],
+      "/v1/credits": [200, { enabled: true, agents: [] }],
+      "/v1/runtimes": [200, { devActions: false, runtimes: [] }],
+      "/v1/keeper": [200, { running: true, recent: [], steering: null }],
+    });
+    expect(
+      (await apiAgentsSource("http://api", fetchFn, "http://orch").listAgents()).steering,
+    ).toBeNull();
+  });
+});
