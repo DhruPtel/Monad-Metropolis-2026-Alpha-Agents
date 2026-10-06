@@ -374,6 +374,12 @@ importers:
       '@alpha-agents/config':
         specifier: workspace:^
         version: link:../../packages/config
+      '@alpha-agents/db':
+        specifier: workspace:^
+        version: link:../../packages/db
+      '@alpha-agents/domain':
+        specifier: workspace:^
+        version: link:../../packages/domain
       '@alpha-agents/platform-tools':
         specifier: workspace:^
         version: link:../platform-tools
