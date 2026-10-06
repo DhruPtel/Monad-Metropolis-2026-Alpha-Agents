@@ -24,6 +24,22 @@ export const LEDGER_ACCOUNTS = [
   "venue",
   "platform_treasury",
   "gas_treasury",
+  // Credits (P1-U6, D-208). Balances are signed: assets positive, what the platform owes
+  // negative. funding_address is the USDC the agent's funding address holds;
+  // agent_credits is the spendable credit the platform owes the agent; held_deposits is
+  // USDC above the beta cap, owed back and not spendable; usage_unsettled is metered usage
+  // not yet swept to the treasury.
+  "agent_credits",
+  "held_deposits",
+  "usage_unsettled",
+] as const;
+
+/** Accounts that belong to one agent: their lines carry its ID. */
+export const AGENT_ACCOUNTS = [
+  "funding_address",
+  "agent_credits",
+  "held_deposits",
+  "usage_unsettled",
 ] as const;
 
 export const JOURNAL_KINDS = [
@@ -34,6 +50,9 @@ export const JOURNAL_KINDS = [
   "usage_settled",
   "credits_refunded",
   "gas_topup",
+  "usage_metered",
+  "deposit_held",
+  "deposit_reversed",
 ] as const;
 
 const signedRaw = z
@@ -48,8 +67,21 @@ const JournalLineSchema = z
     asset: z.union([AssetIdSchema, z.literal("NATIVE")]),
     /** Positive into the account, negative out of it. */
     amountRaw: signedRaw,
+    /** The agent an agent-scoped account belongs to (AGENT_ACCOUNTS). */
+    agentId: z.number().int().positive().optional(),
   })
-  .strict();
+  .strict()
+  .superRefine((line, ctx) => {
+    const scoped = (AGENT_ACCOUNTS as readonly string[]).includes(line.account);
+    if (scoped && line.agentId === undefined)
+      ctx.addIssue({
+        code: "custom",
+        path: ["agentId"],
+        message: `${line.account} needs an agentId`,
+      });
+    if (!scoped && line.agentId !== undefined)
+      ctx.addIssue({ code: "custom", path: ["agentId"], message: `${line.account} has no agent` });
+  });
 
 export const JournalEntrySchema = z
   .object({

@@ -27,9 +27,14 @@ describe.skipIf(!available)("database migrations (needs pnpm dev:up)", () => {
       "indexer.watermarks",
       "platform.agent_runtimes",
       "platform.agent_tasks",
+      "platform.funding_addresses",
+      "platform.ledger_entries",
+      "platform.ledger_lines",
       "platform.mint_allowlist",
       "platform.mint_claims",
+      "platform.refunds",
       "platform.sandbox_leases",
+      "platform.usage_receipts",
     ]);
   });
 

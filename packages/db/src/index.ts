@@ -3,6 +3,7 @@ import { type Migration, Migrator } from "kysely/migration";
 import pg from "pg";
 import * as initial from "./migrations/0001_initial.ts";
 import * as orchestrator from "./migrations/0002_orchestrator.ts";
+import * as credits from "./migrations/0003_credits.ts";
 import type { Database } from "./schema.ts";
 
 export type * from "./schema.ts";
@@ -13,6 +14,7 @@ export type Db = Kysely<Database>;
 export const MIGRATIONS: Readonly<Record<string, Migration>> = {
   "0001_initial": initial,
   "0002_orchestrator": orchestrator,
+  "0003_credits": credits,
 };
 
 const INT8 = 20;

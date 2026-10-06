@@ -75,6 +75,8 @@ export interface UsdcTransferTable {
   /** The agent whose token-bound account sent or received it. */
   agent_id: number;
   direction: "in" | "out";
+  /** The agent's side of the transfer: its token-bound account or its funding address (P1-U6). */
+  account: ColumnType<"tba" | "funding", "tba" | "funding" | undefined, "tba" | "funding">;
 }
 
 /** Reorgs, rewinds and gaps the indexer found, kept for the console and the logs. */
@@ -167,6 +169,72 @@ export interface AgentTaskTable {
   finished_at: Timestamp | null;
 }
 
+/** Each agent's funding address (D-207). */
+export interface FundingAddressTable {
+  chain_id: number;
+  agent_id: number;
+  address: string;
+  derivation_path: string;
+  created_at: Timestamp;
+}
+
+/** The double-entry credit ledger (D-208). */
+export interface LedgerEntryTable {
+  entry_id: string;
+  chain_id: number;
+  agent_id: number;
+  kind: string;
+  idempotency_key: string;
+  occurred_at: Timestamp;
+  source: ColumnType<Record<string, unknown>, string, string>;
+  created_at: Timestamp;
+}
+
+export interface LedgerLineTable {
+  entry_id: string;
+  line_no: number;
+  chain_id: number;
+  agent_id: number | null;
+  account: string;
+  asset: string;
+  /** Signed raw amount, numeric as a string. */
+  amount: ColumnType<string, string, string>;
+}
+
+/** One metered LiteLLM request (FINAL_PLAN 4.3.5). */
+export interface UsageReceiptTable {
+  key_alias: string;
+  request_id: string;
+  chain_id: number;
+  agent_id: number;
+  model: string;
+  provider_picos: ColumnType<string, string, string>;
+  charge_usdc_e6: ColumnType<string, string, string>;
+  called_at: Timestamp | null;
+  entry_id: string;
+  metered_at: Timestamp;
+}
+
+export type RefundStatus = "requested" | "signed" | "sent" | "refused" | "failed";
+
+/** A refund request (D-210); the signed transaction is stored before it is broadcast. */
+export interface RefundTable {
+  refund_id: string;
+  chain_id: number;
+  agent_id: number;
+  owner: string;
+  owner_epoch: number;
+  requested_by: "owner" | "console";
+  status: RefundStatus;
+  credits_usdc_e6: ColumnType<string | null, string | null, string | null>;
+  held_usdc_e6: ColumnType<string | null, string | null, string | null>;
+  raw_tx: string | null;
+  tx_hash: string | null;
+  reason: string | null;
+  created_at: Timestamp;
+  updated_at: Timestamp;
+}
+
 export interface Database {
   "indexer.watermarks": WatermarkTable;
   "indexer.indexed_blocks": IndexedBlockTable;
@@ -179,4 +247,9 @@ export interface Database {
   "platform.agent_runtimes": AgentRuntimeTable;
   "platform.sandbox_leases": SandboxLeaseTable;
   "platform.agent_tasks": AgentTaskTable;
+  "platform.funding_addresses": FundingAddressTable;
+  "platform.ledger_entries": LedgerEntryTable;
+  "platform.ledger_lines": LedgerLineTable;
+  "platform.usage_receipts": UsageReceiptTable;
+  "platform.refunds": RefundTable;
 }

@@ -394,6 +394,19 @@ export const VARIABLES = [
     example: "0x0000000000000000000000000000000000000000000000000000000000000000",
   },
 
+  {
+    name: "FUNDING_ADDRESS_SEED",
+    group: "Agent runtime",
+    description:
+      "Platform seed every agent's funding address is derived from (D-207); held only by the orchestrator. One per environment, never reused. Local and testnet only, KMS keys before the beta",
+    secret: true,
+    firstUsedBy: "P1-U6",
+    environments: ["local", "testnet"],
+    schema: z.string().regex(/^0x[0-9a-fA-F]{64}$/),
+    expected: "a 0x-prefixed 32-byte hex seed",
+    example: "0x0000000000000000000000000000000000000000000000000000000000000000",
+  },
+
   // Model gateway
   {
     name: "LITELLM_BASE_URL",
