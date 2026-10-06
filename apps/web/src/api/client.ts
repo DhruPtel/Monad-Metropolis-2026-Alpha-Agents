@@ -86,6 +86,69 @@ const toAgent = (a: AgentJson): ApiAgent => ({
   ownerEpoch: BigInt(a.ownerEpoch),
 });
 
+export interface OwnerSession {
+  readonly token: string;
+  /** Unix seconds. */
+  readonly expiresAt: number;
+  readonly wallet: Address;
+  readonly ownerEpoch: bigint;
+}
+
+export type RunStatus =
+  "awaiting_reveal" | "provisioning" | "ready" | "running" | "restricted" | "failed" | "stopped";
+
+/** GET /v1/agents/:id/summary, as the API sends it (amounts are decimal strings). */
+export interface AgentSummaryJson {
+  readonly runStatus: RunStatus;
+  readonly wallet: string;
+  readonly ownerEpoch: string;
+  readonly credits: {
+    readonly fundingAddress: string;
+    readonly creditsUsdcE6: string;
+    readonly spendableUsdcE6: string;
+    readonly heldUsdcE6: string;
+    readonly restricted: boolean;
+  } | null;
+  readonly spent24hUsdcE6: string;
+  readonly charges: readonly {
+    readonly entryId: string;
+    readonly at: string;
+    readonly kind: "model" | "tool" | "reversal";
+    readonly label: string;
+    readonly amountUsdcE6: string;
+  }[];
+  readonly latestScan: {
+    readonly taskId: string;
+    readonly status: "queued" | "running" | "succeeded" | "failed";
+    readonly stopReason: string | null;
+    readonly error: string | null;
+    readonly requestedBy: string | null;
+    readonly createdAt: string;
+    readonly finishedAt: string | null;
+  } | null;
+  readonly scan: {
+    readonly minimumUsdcE6: string;
+    readonly estimateUsdcE6: { readonly low: string; readonly high: string };
+  };
+}
+
+export interface ActivityJson {
+  readonly entryId: string;
+  readonly kind: string;
+  readonly text: string;
+  readonly renderedBy: "narrator" | "template";
+  readonly at: string;
+}
+
+export interface RefundJson {
+  readonly refundId: string;
+  readonly status: "requested" | "signed" | "sent" | "refused" | "failed";
+  readonly creditsUsdcE6: string | null;
+  readonly heldUsdcE6: string | null;
+  readonly txHash: string | null;
+  readonly reason: string | null;
+}
+
 const auth = (token: string | null): HeadersInit =>
   token ? { authorization: `Bearer ${token}` } : {};
 
@@ -112,6 +175,54 @@ export const api = {
   async eligibility(wallet: Address, token: string | null): Promise<Eligibility> {
     return call<Eligibility>(`/v1/mint/eligibility?wallet=${wallet}`, { headers: auth(token) });
   },
+  // --- My Agents (P1-U9, D-218) ---
+
+  /** An owner session for one agent, from the caller's login (P1-U4). */
+  async ownerSession(agentId: bigint, token: string | null): Promise<OwnerSession> {
+    const body = await call<{
+      token: string;
+      expiresAt: number;
+      wallet: string;
+      ownerEpoch: string;
+    }>(`/v1/agents/${agentId.toString()}/session`, { method: "POST", headers: auth(token) });
+    return {
+      token: body.token,
+      expiresAt: body.expiresAt,
+      wallet: getAddress(body.wallet),
+      ownerEpoch: BigInt(body.ownerEpoch),
+    };
+  },
+  /** The owner-only summary: run status, credits, spend, charges and the latest Scan. */
+  async summary(agentId: bigint, session: string): Promise<AgentSummaryJson> {
+    return call<AgentSummaryJson>(`/v1/agents/${agentId.toString()}/summary`, {
+      headers: { "x-owner-session": session },
+    });
+  },
+  /** The narrator's entries, newest first (public, D-217). */
+  async activity(agentId: bigint): Promise<ActivityJson[]> {
+    return (await call<{ entries: ActivityJson[] }>(`/v1/agents/${agentId.toString()}/activity`))
+      .entries;
+  },
+  async requestRefund(agentId: bigint, session: string): Promise<string> {
+    const body = await call<{ refundId: string }>(
+      `/v1/agents/${agentId.toString()}/credits/refund`,
+      { method: "POST", headers: { "x-owner-session": session } },
+    );
+    return body.refundId;
+  },
+  async refund(agentId: bigint, refundId: string): Promise<RefundJson> {
+    return call<RefundJson>(
+      `/v1/agents/${agentId.toString()}/credits/refunds/${encodeURIComponent(refundId)}`,
+    );
+  },
+  async requestScan(agentId: bigint, session: string): Promise<string> {
+    const body = await call<{ taskId: string }>(`/v1/agents/${agentId.toString()}/scan`, {
+      method: "POST",
+      headers: { "x-owner-session": session },
+    });
+    return body.taskId;
+  },
+
   /** POSTs for a mint claim; resolves to the status and body, as the mint flow expects. */
   async claim(wallet: Address, token: string | null): Promise<{ status: number; body: unknown }> {
     try {

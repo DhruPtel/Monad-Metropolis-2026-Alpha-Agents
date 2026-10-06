@@ -12,6 +12,103 @@ import { AGENT_NFT, type FakeChain } from "./fake-chain";
  */
 export const FAKE_API_PORT = "4100";
 
+/** One agent's owner-only summary and activity as the fake serves them (P1-U9). */
+export interface FakeDashboard {
+  runStatus: string;
+  credits: {
+    fundingAddress: string;
+    creditsUsdcE6: string;
+    spendableUsdcE6: string;
+    heldUsdcE6: string;
+    restricted: boolean;
+  } | null;
+  spent24hUsdcE6: string;
+  charges: { entryId: string; at: string; kind: string; label: string; amountUsdcE6: string }[];
+  latestScan: {
+    taskId: string;
+    status: string;
+    stopReason: string | null;
+    error: string | null;
+    requestedBy: string | null;
+    createdAt: string;
+    finishedAt: string | null;
+  } | null;
+  activity: { entryId: string; kind: string; text: string; renderedBy: string; at: string }[];
+}
+
+export const FUNDING_ADDRESS = "0x9F8e2B1C0d3a4E5f60718293A4B5c6D7E8f90a1B";
+
+/** A funded, provisioned agent with charges and two entries, at fixed times. */
+export function fundedDashboard(over: Partial<FakeDashboard> = {}): FakeDashboard {
+  return {
+    runStatus: "ready",
+    credits: {
+      fundingAddress: FUNDING_ADDRESS,
+      creditsUsdcE6: "4994400",
+      spendableUsdcE6: "4994400",
+      heldUsdcE6: "2000000",
+      restricted: false,
+    },
+    spent24hUsdcE6: "171600",
+    charges: [
+      {
+        entryId: "c4",
+        at: "2026-10-06T16:41:20.000Z",
+        kind: "model",
+        label: "scan-cheap",
+        amountUsdcE6: "137600",
+      },
+      {
+        entryId: "c3",
+        at: "2026-10-06T16:41:05.000Z",
+        kind: "tool",
+        label: "read_url",
+        amountUsdcE6: "2000",
+      },
+      {
+        entryId: "c2",
+        at: "2026-10-06T16:40:40.000Z",
+        kind: "reversal",
+        label: "web_search",
+        amountUsdcE6: "-10000",
+      },
+      {
+        entryId: "c1",
+        at: "2026-10-06T16:40:30.000Z",
+        kind: "tool",
+        label: "web_search",
+        amountUsdcE6: "10000",
+      },
+    ],
+    latestScan: {
+      taskId: "scan-0",
+      status: "succeeded",
+      stopReason: "COMPLETED",
+      error: null,
+      requestedBy: "schedule",
+      createdAt: "2026-10-06T16:40:00.000Z",
+      finishedAt: "2026-10-06T16:41:30.000Z",
+    },
+    activity: [
+      {
+        entryId: "a2",
+        kind: "scan",
+        text: "Agent #7 searched for Monad DEX volume and network upgrades, read 1 page and flagged WMON at 55% confidence. Tools cost 0.012 USDC.",
+        renderedBy: "narrator",
+        at: "2026-10-06T16:41:30.000Z",
+      },
+      {
+        entryId: "a1",
+        kind: "scan",
+        text: "Agent #7 finished a Scan. It ran 1 web search and read 0 pages. It found no candidates. Tools cost 0.01 USDC; 5.1 USDC of credits left.",
+        renderedBy: "template",
+        at: "2026-10-06T10:41:30.000Z",
+      },
+    ],
+    ...over,
+  };
+}
+
 export interface FakeApiOptions {
   /** Wallets on the mint allowlist (lowercase). Defaults to every wallet. */
   readonly allowlist?: readonly string[] | "everyone";
@@ -32,6 +129,10 @@ export class FakeApi {
   signer: boolean;
   /** Claims the fake issued, for tests that check none was asked for. */
   readonly claims: Address[] = [];
+  /** P1-U9: each agent's owner-only summary and activity; a minted agent without one is "setting up". */
+  readonly dashboards = new Map<bigint, FakeDashboard>();
+  /** Owner-only requests, for tests that check another wallet made none. */
+  readonly ownerCalls: string[] = [];
 
   constructor(chain: FakeChain, options: FakeApiOptions = {}) {
     this.chain = chain;
@@ -140,6 +241,25 @@ export class FakeApi {
         ? reply(200, { ...meta, agent })
         : reply(404, { error: "not_found", message: "Not in the index." });
     }
+    const mine = /^\/v1\/agents\/(\d+)\/(session|summary|scan|credits\/refund)$/.exec(url.pathname);
+    if (mine?.[1] && mine[2]) return this.owner(BigInt(mine[1]), mine[2], request, reply, meta);
+    const activity = /^\/v1\/agents\/(\d+)\/activity$/.exec(url.pathname);
+    if (activity?.[1]) {
+      const d = this.dashboards.get(BigInt(activity[1]));
+      return reply(200, { ...meta, agentId: activity[1], entries: d?.activity ?? [] });
+    }
+    const refund = /^\/v1\/agents\/(\d+)\/credits\/refunds\/([\w-]+)$/.exec(url.pathname);
+    if (refund?.[1]) {
+      return reply(200, {
+        refundId: refund[2],
+        agentId: refund[1],
+        status: "sent",
+        creditsUsdcE6: "4994400",
+        heldUsdcE6: "2000000",
+        txHash: `0x${"ef".repeat(32)}`,
+        reason: null,
+      });
+    }
     if (url.pathname === "/v1/mint/eligibility") {
       if (!authed) return reply(401, { error: "invalid_token", message: "Log in first." });
       return reply(200, this.eligibility(url.searchParams.get("wallet") ?? ""));
@@ -169,5 +289,116 @@ export class FakeApi {
       });
     }
     return reply(404, { error: "not_found", message: "No such route." });
+  }
+
+  /**
+   * The owner-only routes. A session names the agent and the wallet that owns
+   * it now; a transfer makes it stale, as in the real API. A Scan reads as
+   * queued once, then completed with a new entry and charge; a refund is sent
+   * at once and leaves the agent without credits.
+   */
+  private owner(
+    id: bigint,
+    action: string,
+    request: ReturnType<Route["request"]>,
+    reply: (status: number, body: unknown) => Promise<void>,
+    meta: Record<string, unknown>,
+  ): Promise<void> {
+    const agent = this.chain.agents.get(id);
+    if (!agent) return reply(404, { error: "not_found", message: "No such agent." });
+    this.ownerCalls.push(`${action} ${id.toString()}`);
+    const session = `fake-session-${id.toString()}-${agent.owner.toLowerCase()}-${agent.ownerEpoch.toString()}`;
+    if (action === "session") {
+      if (request.headers()["authorization"] !== `Bearer ${MOCK_ACCESS_TOKEN}`)
+        return reply(401, { error: "invalid_token", message: "Log in first." });
+      return reply(200, {
+        token: session,
+        expiresAt: 4_102_444_800,
+        wallet: getAddress(agent.owner),
+        agentId: id.toString(),
+        ownerEpoch: agent.ownerEpoch.toString(),
+      });
+    }
+    if (request.headers()["x-owner-session"] !== session)
+      return reply(403, {
+        error: "session_stale",
+        message: `Agent #${id.toString()} changed hands.`,
+      });
+    const d =
+      this.dashboards.get(id) ??
+      ({
+        runStatus: agent.species === 0 ? "awaiting_reveal" : "provisioning",
+        credits: null,
+        spent24hUsdcE6: "0",
+        charges: [],
+        latestScan: null,
+        activity: [],
+      } satisfies FakeDashboard);
+    if (action === "summary") {
+      const body = {
+        ...meta,
+        agentId: id.toString(),
+        wallet: getAddress(agent.owner),
+        ownerEpoch: agent.ownerEpoch.toString(),
+        runStatus: d.runStatus,
+        credits: d.credits,
+        spent24hUsdcE6: d.spent24hUsdcE6,
+        charges: d.charges,
+        latestScan: d.latestScan,
+        scan: { minimumUsdcE6: "50000", estimateUsdcE6: { low: "150000", high: "300000" } },
+      };
+      if (d.latestScan?.status === "queued") {
+        // Served queued once; the next read finds it finished, narrated and charged.
+        d.latestScan = {
+          ...d.latestScan,
+          status: "succeeded",
+          stopReason: "COMPLETED",
+          finishedAt: "2026-10-06T17:02:00.000Z",
+        };
+        d.activity = [
+          {
+            entryId: "a-new",
+            kind: "scan",
+            text: `Agent #${id.toString()} ran 2 web searches, read 1 page and flagged WMON at 60% confidence. Tools cost 0.022 USDC.`,
+            renderedBy: "narrator",
+            at: "2026-10-06T17:02:00.000Z",
+          },
+          ...d.activity,
+        ];
+      }
+      return reply(200, body);
+    }
+    if (action === "scan") {
+      if (!d.credits || BigInt(d.credits.spendableUsdcE6) < 50_000n)
+        return reply(409, {
+          error: "credits_low",
+          message: "A Scan needs at least 0.05 USDC of credits. Add USDC to the funding address.",
+        });
+      d.latestScan = {
+        taskId: "scan-new",
+        status: "queued",
+        stopReason: null,
+        error: null,
+        requestedBy: "owner",
+        createdAt: "2026-10-06T17:00:00.000Z",
+        finishedAt: null,
+      };
+      return reply(202, { taskId: "scan-new" });
+    }
+    // The refund: sent at once; the agent is left with nothing to spend.
+    if (d.credits)
+      d.credits = {
+        ...d.credits,
+        creditsUsdcE6: "0",
+        spendableUsdcE6: "0",
+        heldUsdcE6: "0",
+        restricted: true,
+      };
+    d.runStatus = "restricted";
+    return reply(202, {
+      refundId: "refund-1",
+      wallet: getAddress(agent.owner),
+      ownerEpoch: agent.ownerEpoch.toString(),
+    });
   }
 }
