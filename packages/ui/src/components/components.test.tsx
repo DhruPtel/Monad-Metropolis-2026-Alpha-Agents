@@ -140,7 +140,11 @@ describe("Tabs", () => {
         </TabsList>
       </Tabs>,
     );
-    expect(screen.getByRole("tablist")).toHaveClass("overflow-x-auto", "max-w-full");
+    // The scrolling wrapper is focusable and labelled (D-223, L-90); the list itself is not the scroller.
+    const scroller = screen.getByRole("group", { name: "Environment, scrolls sideways" });
+    expect(scroller).toHaveClass("overflow-x-auto", "max-w-full");
+    expect(scroller.getAttribute("tabindex")).toBe("0");
+    expect(scroller).toContainElement(screen.getByRole("tablist"));
     for (const tab of screen.getAllByRole("tab")) expect(tab).toHaveClass("whitespace-nowrap");
   });
 });

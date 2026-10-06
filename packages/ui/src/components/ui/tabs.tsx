@@ -6,17 +6,29 @@ import { cn } from "../../lib/utils";
 
 const Tabs = TabsPrimitive.Root;
 
+/**
+ * Labels never wrap; on a narrow screen the list scrolls sideways instead.
+ * The scrolling happens in a wrapper that is itself focusable and labelled
+ * (D-223, L-90): Radix manages the list's own tabindex for roving focus and
+ * sets it to -1 at moments, so the list cannot be the focusable scroller.
+ */
 function TabsList({ className, ...props }: ComponentProps<typeof TabsPrimitive.List>) {
+  const label = props["aria-label"];
   return (
-    <TabsPrimitive.List
-      data-slot="tabs-list"
-      // Labels never wrap; on a narrow screen the list scrolls sideways instead.
-      className={cn(
-        "inline-flex max-w-full items-center gap-1 overflow-x-auto rounded-lg border bg-surface p-1",
-        className,
-      )}
-      {...props}
-    />
+    <div
+      data-slot="tabs-scroll"
+      role="group"
+      aria-label={label ? `${label}, scrolls sideways` : "Tabs, scrolls sideways"}
+      tabIndex={0}
+      // The frame is on the scroller, so it keeps both ends when the tabs overflow.
+      className="inline-flex max-w-full overflow-x-auto rounded-lg border bg-surface p-1 outline-none is-focus:focus-ring"
+    >
+      <TabsPrimitive.List
+        data-slot="tabs-list"
+        className={cn("inline-flex items-center gap-1", className)}
+        {...props}
+      />
+    </div>
   );
 }
 
