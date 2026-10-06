@@ -12,8 +12,10 @@ import {
 /**
  * Extension points for the agents panel. P1-U4 lists agents from the control
  * API's index; P1-U5 adds each agent's runtime from the orchestrator and the
- * controls to reset an agent and run the no-op task; later units add state,
- * spend and last action.
+ * controls to reset an agent and run the no-op task; P1-U6 adds each agent's
+ * funding address, credits, 24-hour spend and RESTRICTED state, and the
+ * controls to fund it with test USDC and refund its credits; later units add
+ * the last action.
  */
 export interface AgentRow {
   readonly agentId: AgentId;
@@ -30,6 +32,27 @@ export interface AgentRow {
   /** P1-U5: whether the orchestrator has provisioned it. */
   readonly runtime: RuntimeStatus;
   readonly latestTask: TaskView | null;
+  /** P1-U6: null when the orchestrator does not answer or has no funding address yet. */
+  readonly credits: CreditsView | null;
+}
+
+/** An agent's credits as the orchestrator reports them (GET /v1/credits), in USDC base units. */
+export interface CreditsView {
+  readonly fundingAddress: string;
+  readonly credits: bigint;
+  readonly spendable: bigint;
+  readonly held: bigint;
+  readonly restricted: boolean;
+}
+
+/** A refund as the orchestrator reports it. */
+export interface RefundView {
+  readonly refundId: string;
+  readonly status: "requested" | "signed" | "sent" | "refused" | "failed";
+  readonly creditsUsdcE6: string | null;
+  readonly heldUsdcE6: string | null;
+  readonly txHash: string | null;
+  readonly reason: string | null;
 }
 
 /** A task as the orchestrator reports it (GET /v1/tasks/:id). */
@@ -60,6 +83,19 @@ export interface AgentsSource {
   triggerTask?(agentId: AgentId, task: "noop"): Promise<string>;
   /** P1-U5: one task's status and structured result. */
   task?(taskId: string): Promise<TaskView>;
+  /** P1-U6: asks for a refund of the agent's credits to its current owner. */
+  refund?(agentId: AgentId): Promise<string>;
+  refundStatus?(refundId: string): Promise<RefundView>;
+}
+
+interface ApiCredits {
+  agentId: string;
+  fundingAddress: string | null;
+  creditsUsdcE6: string;
+  spendableUsdcE6: string;
+  heldUsdcE6: string;
+  restricted: boolean;
+  spent24hUsdcE6: string;
 }
 
 /** The planned agent actions, shown disabled until their unit lands. */
@@ -99,6 +135,17 @@ export function orchestratorSource(baseUrl: string, fetchFn: typeof fetch = fetc
     async resetAgent(agentId: AgentId): Promise<void> {
       await call(`/v1/agents/${agentId.toString()}/reset`, { method: "POST" });
     },
+    async credits(): Promise<ApiCredits[]> {
+      const body = await call("/v1/credits");
+      return (body.agents ?? []) as ApiCredits[];
+    },
+    async refund(agentId: AgentId): Promise<string> {
+      const body = await call(`/v1/agents/${agentId.toString()}/refund`, { method: "POST" });
+      return String(body.refundId);
+    },
+    async refundStatus(refundId: string): Promise<RefundView> {
+      return (await call(`/v1/refunds/${encodeURIComponent(refundId)}`)) as unknown as RefundView;
+    },
   };
 }
 
@@ -124,6 +171,8 @@ export function apiAgentsSource(
           triggerTask: orch.triggerTask,
           task: orch.task,
           resetAgent: orch.resetAgent,
+          refund: orch.refund,
+          refundStatus: orch.refundStatus,
         }
       : {}),
     async listAgents() {
@@ -134,6 +183,7 @@ export function apiAgentsSource(
         watermark: { block: number; updatedAt: string } | null;
       };
       const runtimes = orch ? await orch.runtimes().catch(() => null) : null;
+      const credits = runtimes && orch ? await orch.credits().catch(() => []) : [];
       return {
         orchestrator: runtimes !== null,
         devActions: runtimes?.devActions ?? false,
@@ -142,20 +192,31 @@ export function apiAgentsSource(
           : null,
         agents: body.agents.map((a) => {
           const species = a.species === 0 ? null : speciesByIndex(a.species);
+          const c = credits.find((x) => x.agentId === a.agentId);
+          const runtime =
+            runtimes?.runtimes.find((r) => r.agentId === a.agentId)?.status ?? "not_provisioned";
           return {
             agentId: BigInt(a.agentId) as AgentId,
             name: `Alpha Agent #${a.agentId}`,
             owner: a.owner,
             tier: species?.tier ?? null,
             speciesName: species?.name ?? null,
-            // No build or runtime exists yet (P1-U5, P6): every agent is unconfigured.
-            state: "UNCONFIGURED",
-            // Credits arrive with funding addresses (P1-U6).
-            spendUsdcE6: usdcE6(0n),
+            // D-129: a provisioned agent with no credits is RESTRICTED; goals and builds come later.
+            state: runtime === "ready" && c?.restricted ? "RESTRICTED" : "UNCONFIGURED",
+            spendUsdcE6: usdcE6(BigInt(c?.spent24hUsdcE6 ?? "0")),
             lastAction: null,
-            runtime:
-              runtimes?.runtimes.find((r) => r.agentId === a.agentId)?.status ?? "not_provisioned",
+            runtime,
             latestTask: runtimes?.runtimes.find((r) => r.agentId === a.agentId)?.latestTask ?? null,
+            credits:
+              c && c.fundingAddress
+                ? {
+                    fundingAddress: c.fundingAddress,
+                    credits: BigInt(c.creditsUsdcE6),
+                    spendable: BigInt(c.spendableUsdcE6),
+                    held: BigInt(c.heldUsdcE6),
+                    restricted: c.restricted,
+                  }
+                : null,
           };
         }),
       };

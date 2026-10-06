@@ -45,6 +45,7 @@ describe("runtimes and tasks from the orchestrator (P1-U5)", () => {
     const task = { taskId: "t1", agentId: "1", status: "succeeded", result: null, error: null };
     const fetchFn = routes({
       "/v1/agents": [200, AGENTS],
+      "/v1/credits": [200, { enabled: true, agents: [] }],
       "/v1/runtimes": [
         200,
         { devActions: true, runtimes: [{ agentId: "1", status: "ready", latestTask: task }] },
@@ -56,11 +57,76 @@ describe("runtimes and tasks from the orchestrator (P1-U5)", () => {
     expect(list.agents[0]?.latestTask).toEqual(task);
   });
 
+  it("adds credits, 24-hour spend and RESTRICTED for a provisioned agent with none (P1-U6)", async () => {
+    const credit = (agentId: string, spendable: string, held = "0") => ({
+      agentId,
+      fundingAddress: `0x${agentId.padStart(40, "f")}`,
+      creditsUsdcE6: spendable,
+      spendableUsdcE6: spendable,
+      heldUsdcE6: held,
+      restricted: spendable === "0",
+      spent24hUsdcE6: "5600",
+    });
+    const fetchFn = routes({
+      "/v1/agents": [200, AGENTS],
+      "/v1/runtimes": [
+        200,
+        {
+          devActions: true,
+          runtimes: [
+            { agentId: "1", status: "ready", latestTask: null },
+            { agentId: "2", status: "ready", latestTask: null },
+          ],
+        },
+      ],
+      "/v1/credits": [
+        200,
+        { enabled: true, agents: [credit("1", "4994400", "2000000"), credit("2", "0")] },
+      ],
+    });
+    const list = await apiAgentsSource("http://api", fetchFn, "http://orch").listAgents();
+    expect(
+      list.agents.map((a) => [a.state, a.spendUsdcE6, a.credits?.spendable, a.credits?.held]),
+    ).toEqual([
+      ["UNCONFIGURED", 5600n, 4994400n, 2000000n],
+      ["RESTRICTED", 5600n, 0n, 0n],
+    ]);
+    expect(list.agents[0]?.credits?.fundingAddress).toBe(`0x${"1".padStart(40, "f")}`);
+  });
+
+  it("asks the orchestrator for a refund and reads its status", async () => {
+    const calls: string[] = [];
+    const orch = orchestratorSource(
+      "http://orch",
+      routes(
+        {
+          "/v1/agents/1/refund": [202, { refundId: "r1" }],
+          "/v1/agents/2/refund": [
+            409,
+            { error: "refund_open", message: "agent 2 already has a refund in progress" },
+          ],
+          "/v1/refunds/r1": [
+            200,
+            { refundId: "r1", status: "sent", creditsUsdcE6: "4994400", heldUsdcE6: "0" },
+          ],
+        },
+        calls,
+      ),
+    );
+    expect(await orch.refund(1n as never)).toBe("r1");
+    await expect(orch.refund(2n as never)).rejects.toThrow(
+      "agent 2 already has a refund in progress",
+    );
+    expect((await orch.refundStatus("r1")).status).toBe("sent");
+    expect(calls[0]).toBe("POST http://orch/v1/agents/1/refund");
+  });
+
   it("still lists agents when the orchestrator is down, with actions off", async () => {
     const fetchFn = routes({ "/v1/agents": [200, AGENTS] });
     const list = await apiAgentsSource("http://api", fetchFn, "http://orch").listAgents();
     expect(list).toMatchObject({ orchestrator: false, devActions: false });
     expect(list.agents.map((a) => a.runtime)).toEqual(["not_provisioned", "not_provisioned"]);
+    expect(list.agents.map((a) => a.credits)).toEqual([null, null]);
   });
 
   it("queues the no-op task and a reset, reads a task, and passes the orchestrator's words on", async () => {

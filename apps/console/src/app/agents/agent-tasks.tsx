@@ -22,7 +22,14 @@ import {
   useState,
   useTransition,
 } from "react";
-import { resetAgentAction, runNoopTaskAction, taskAction } from "./actions";
+import {
+  fundAgentAction,
+  refundAgentAction,
+  refundStatusAction,
+  resetAgentAction,
+  runNoopTaskAction,
+  taskAction,
+} from "./actions";
 import type { TaskView } from "./extension";
 import { noopFields } from "./task-fields";
 
@@ -74,15 +81,18 @@ export function AgentActions({
   name,
   runtime,
   enabled,
+  restricted = false,
 }: {
   agentId: string;
   name: string;
   runtime: RuntimeStatus;
   enabled: boolean;
+  /** P1-U6: no credits, so LLM tasks are refused (D-129). */
+  restricted?: boolean;
 }) {
   const ctx = useContext(TasksContext);
   const [pending, start] = useTransition();
-  const ready = enabled && runtime === "ready";
+  const ready = enabled && runtime === "ready" && !restricted;
 
   const run = () =>
     start(async () => {
@@ -141,6 +151,94 @@ export function AgentActions({
               <Button variant="danger" onClick={reset}>
                 Reset
               </Button>
+            </DialogClose>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+/**
+ * P1-U6: fund the agent with test USDC (sent to its funding address on the
+ * local fork, credited by the indexer and orchestrator with no other step),
+ * and refund its credits to its current owner, after a confirmation.
+ */
+export function CreditActions({
+  agentId,
+  name,
+  enabled,
+  hasCredits,
+}: {
+  agentId: string;
+  name: string;
+  enabled: boolean;
+  hasCredits: boolean;
+}) {
+  const [pending, start] = useTransition();
+
+  const fund = () =>
+    start(async () => {
+      const r = await fundAgentAction(agentId);
+      if (r.ok)
+        toast.success(`Sent 5 test USDC to ${name}'s funding address`, {
+          description: "It shows as credits once the indexer sees the transfer.",
+        });
+      else toast.error("Funding failed", { description: r.error });
+    });
+
+  const refund = () =>
+    start(async () => {
+      const r = await refundAgentAction(agentId);
+      if (!r.ok) {
+        toast.error("The refund did not start", { description: r.error });
+        return;
+      }
+      toast.info(`Refund for ${name} requested`);
+      for (let i = 0; i < 60; i += 1) {
+        await new Promise((resolve) => setTimeout(resolve, 2_000));
+        const s = await refundStatusAction(r.value);
+        if (!s.ok) continue;
+        if (s.value.status === "sent") {
+          const total = BigInt(s.value.creditsUsdcE6 ?? "0") + BigInt(s.value.heldUsdcE6 ?? "0");
+          toast.success(`Refunded ${(Number(total) / 1e6).toFixed(2)} USDC to ${name}'s owner`);
+          return;
+        }
+        if (s.value.status === "refused" || s.value.status === "failed") {
+          toast.error(`The refund was ${s.value.status}`, {
+            description: s.value.reason ?? undefined,
+          });
+          return;
+        }
+      }
+      toast.info("The refund is still in progress");
+    });
+
+  return (
+    <div className="flex flex-nowrap gap-2">
+      <Button size="sm" variant="secondary" disabled={!enabled || pending} onClick={fund}>
+        Fund 5 USDC
+      </Button>
+      <Dialog>
+        <DialogTrigger asChild>
+          <Button size="sm" variant="secondary" disabled={!enabled || !hasCredits || pending}>
+            Refund
+          </Button>
+        </DialogTrigger>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Refund {name}&apos;s credits?</DialogTitle>
+            <DialogDescription>
+              Sends its remaining credits, and any USDC held above the cap, from its funding address
+              to its current owner. It stays restricted until it is funded again.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button variant="secondary">Cancel</Button>
+            </DialogClose>
+            <DialogClose asChild>
+              <Button onClick={refund}>Refund</Button>
             </DialogClose>
           </DialogFooter>
         </DialogContent>

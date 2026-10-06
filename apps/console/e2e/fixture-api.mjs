@@ -2,7 +2,8 @@
 // (P1-U4, P1-U5): the agents panel renders on the server, so it is served this
 // instead of the real services, and the capture is the same on every run. Two
 // agents: a revealed, provisioned bee and an unrevealed agent. The no-op task
-// for agent 1 is queued, then reads as succeeded with a fixed result.
+// for agent 1 is queued, then reads as succeeded with a fixed result; agent 1
+// has credits and its refund is sent at once (P1-U6).
 import { createServer } from "node:http";
 import process from "node:process";
 
@@ -64,6 +65,46 @@ const task = JSON.stringify({
   },
 });
 
+// P1-U6: agent 1 has credits (and 2 USDC held above the cap); agent 2 has a funding address and none.
+const credits = JSON.stringify({
+  enabled: true,
+  agents: [
+    {
+      agentId: "1",
+      fundingAddress: "0x9f8e2b1c0d3a4e5f60718293a4b5c6d7e8f90a1b",
+      creditsUsdcE6: "4994400",
+      spendableUsdcE6: "4994400",
+      heldUsdcE6: "2000000",
+      unsettledUsdcE6: "5600",
+      fundingAddressUsdcE6: "7000000",
+      restricted: false,
+      spent24hUsdcE6: "5600",
+      recent: [],
+    },
+    {
+      agentId: "2",
+      fundingAddress: "0x1a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d",
+      creditsUsdcE6: "0",
+      spendableUsdcE6: "0",
+      heldUsdcE6: "0",
+      unsettledUsdcE6: "0",
+      fundingAddressUsdcE6: "0",
+      restricted: true,
+      spent24hUsdcE6: "0",
+      recent: [],
+    },
+  ],
+});
+const refund = JSON.stringify({
+  refundId: "fixture-refund",
+  agentId: "1",
+  status: "sent",
+  creditsUsdcE6: "4994400",
+  heldUsdcE6: "2000000",
+  txHash: `0x${"ef".repeat(32)}`,
+  reason: null,
+});
+
 const routes = {
   "GET /health": [200, body],
   "GET /v1/agents": [200, body],
@@ -71,6 +112,9 @@ const routes = {
   "POST /v1/agents/1/tasks/noop": [202, JSON.stringify({ taskId: "fixture-task" })],
   "GET /v1/tasks/fixture-task": [200, task],
   "POST /v1/agents/1/reset": [202, JSON.stringify({ queued: true })],
+  "GET /v1/credits": [200, credits],
+  "POST /v1/agents/1/refund": [202, JSON.stringify({ refundId: "fixture-refund" })],
+  "GET /v1/refunds/fixture-refund": [200, refund],
 };
 
 createServer((req, res) => {

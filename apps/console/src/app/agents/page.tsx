@@ -10,6 +10,7 @@ import {
   CardTitle,
   EmptyState,
   RuntimeStatusBadge,
+  StatusPill,
   Table,
   TableBody,
   TableCell,
@@ -20,7 +21,7 @@ import {
 } from "@alpha-agents/ui";
 import { Bot, PlugZap } from "lucide-react";
 import { PanelHeader } from "@/components/panel-header";
-import { AgentActions, AgentTasks } from "./agent-tasks";
+import { AgentActions, AgentTasks, CreditActions } from "./agent-tasks";
 import { type AgentList, PLANNED_AGENT_ACTIONS, agentsSource } from "./extension";
 
 // Read from the control API on every visit, never at build time.
@@ -43,7 +44,7 @@ export default async function AgentsPage() {
     <div className="flex flex-col gap-6">
       <PanelHeader
         title="Agents"
-        description="Every agent on the local stack from the control API's index, with its runtime from the orchestrator, its state, spend and last action, and controls to run the no-op task or reset it."
+        description="Every agent on the local stack from the control API's index, with its funding address and credits, its runtime from the orchestrator, its state, spend and last action, and controls to fund it, run the no-op task, refund its credits or reset it."
       />
       {list === null ? (
         <EmptyState
@@ -75,9 +76,9 @@ export default async function AgentsPage() {
                 <TableRow>
                   <TableHead scope="col">Agent</TableHead>
                   <TableHead scope="col">Tier</TableHead>
-                  <TableHead scope="col">Owner</TableHead>
-                  <TableHead scope="col">Runtime</TableHead>
-                  <TableHead scope="col">State</TableHead>
+                  <TableHead scope="col">Owner and funding address</TableHead>
+                  <TableHead scope="col">Credits</TableHead>
+                  <TableHead scope="col">Runtime and state</TableHead>
                   <TableHead scope="col">Spend, 24h</TableHead>
                   <TableHead scope="col">Last action</TableHead>
                   <TableHead scope="col">Actions</TableHead>
@@ -88,8 +89,8 @@ export default async function AgentsPage() {
                   <TableRow key={a.agentId.toString()}>
                     <TableCell>
                       <span className="flex flex-col">
-                        <span className="font-medium">{a.name}</span>
-                        <span className="text-xs text-foreground-muted">
+                        <span className="font-medium whitespace-nowrap">{a.name}</span>
+                        <span className="text-xs whitespace-nowrap text-foreground-muted">
                           {a.speciesName ?? "Waiting for reveal"}
                         </span>
                       </span>
@@ -102,31 +103,83 @@ export default async function AgentsPage() {
                       )}
                     </TableCell>
                     <TableCell>
-                      <AddressDisplay address={a.owner} label={`Owner of ${a.name}`} />
+                      <span className="flex flex-col gap-1">
+                        <AddressDisplay address={a.owner} label={`Owner of ${a.name}`} />
+                        {a.credits ? (
+                          <AddressDisplay
+                            address={a.credits.fundingAddress}
+                            label={`Funding address of ${a.name}`}
+                          />
+                        ) : (
+                          <span className="text-xs text-foreground-muted">
+                            No funding address yet
+                          </span>
+                        )}
+                      </span>
                     </TableCell>
                     <TableCell>
-                      {list.orchestrator ? (
-                        <RuntimeStatusBadge status={a.runtime} />
+                      {a.credits ? (
+                        <span className="flex flex-col gap-1">
+                          <AmountDisplay
+                            value={a.credits.spendable}
+                            decimals={6}
+                            maxFractionDigits={4}
+                            symbol="USDC"
+                          />
+                          {a.credits.held > 0n ? (
+                            <Badge
+                              tone="warning"
+                              title="Deposited above the 50 USDC beta cap; returned by a refund"
+                            >
+                              <AmountDisplay value={a.credits.held} decimals={6} symbol="USDC" />{" "}
+                              held
+                            </Badge>
+                          ) : null}
+                        </span>
                       ) : (
                         <span className="text-xs text-foreground-muted">Unknown</span>
                       )}
                     </TableCell>
                     <TableCell>
-                      <Badge>{a.state}</Badge>
+                      <span className="flex flex-col items-start gap-1">
+                        {list.orchestrator ? (
+                          <RuntimeStatusBadge status={a.runtime} />
+                        ) : (
+                          <span className="text-xs text-foreground-muted">Runtime unknown</span>
+                        )}
+                        <StatusPill kind="agent_state" value={a.state} />
+                      </span>
                     </TableCell>
                     <TableCell>
-                      <AmountDisplay value={a.spendUsdcE6} decimals={6} symbol="USDC" />
+                      {/* Model calls cost fractions of a cent: four decimals, truncated, never overstated. */}
+                      <AmountDisplay
+                        value={a.spendUsdcE6}
+                        decimals={6}
+                        maxFractionDigits={4}
+                        symbol="USDC"
+                      />
                     </TableCell>
                     <TableCell className="text-xs text-foreground-muted">
                       {a.lastAction ?? "None yet"}
                     </TableCell>
                     <TableCell>
-                      <AgentActions
-                        agentId={a.agentId.toString()}
-                        name={a.name}
-                        runtime={a.runtime}
-                        enabled={list.orchestrator && list.devActions}
-                      />
+                      <div className="flex flex-col items-start gap-2">
+                        <AgentActions
+                          agentId={a.agentId.toString()}
+                          name={a.name}
+                          runtime={a.runtime}
+                          enabled={list.orchestrator && list.devActions}
+                          restricted={a.credits?.restricted ?? false}
+                        />
+                        <CreditActions
+                          agentId={a.agentId.toString()}
+                          name={a.name}
+                          enabled={list.orchestrator && list.devActions && a.credits !== null}
+                          hasCredits={
+                            (a.credits?.spendable ?? 0n) > 0n || (a.credits?.held ?? 0n) > 0n
+                          }
+                        />
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}

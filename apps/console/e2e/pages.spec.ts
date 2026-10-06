@@ -93,6 +93,32 @@ test.describe("agents panel controls (P1-U5)", () => {
     await expect(result).toHaveScreenshot("agents-task-result.png");
   });
 
+  test("shows funding addresses, credits, held deposits and the RESTRICTED state (P1-U6)", async ({
+    page,
+  }) => {
+    const bee = row(page, /^Alpha Agent #1$/);
+    const unrevealed = row(page, /^Alpha Agent #2$/);
+    await expect(bee).toContainText("4.9944");
+    await expect(bee).toContainText("held");
+    await expect(bee.getByRole("button", { name: "Refund" })).toBeEnabled();
+    await expect(unrevealed.getByRole("button", { name: "Refund" })).toBeDisabled();
+    await expect(bee.getByRole("button", { name: "Fund 5 USDC" })).toBeEnabled();
+  });
+
+  test("refunds an agent's credits after a confirmation and says how much went back", async ({
+    page,
+  }) => {
+    await row(page, /^Alpha Agent #1$/)
+      .getByRole("button", { name: "Refund" })
+      .click();
+    const dialog = page.getByRole("dialog", { name: "Refund Alpha Agent #1's credits?" });
+    await expect(dialog).toContainText("to its current owner");
+    await dialog.getByRole("button", { name: "Refund" }).click();
+    await expect(page.getByText("Refunded 6.99 USDC to Alpha Agent #1's owner")).toBeVisible({
+      timeout: 10_000,
+    });
+  });
+
   test("resets an agent after a confirmation", async ({ page }) => {
     await row(page, /^Alpha Agent #1$/)
       .getByRole("button", { name: "Reset" })
