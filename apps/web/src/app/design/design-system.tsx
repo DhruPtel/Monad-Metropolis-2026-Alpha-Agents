@@ -21,6 +21,9 @@ import {
   ReasonMessage,
   RISK_LEVELS,
   RiskBadge,
+  RUNTIME_STATUSES,
+  RuntimeStatusBadge,
+  TaskResult,
   StatBar,
   StatusPill,
   WALLET_STATES,
@@ -678,12 +681,48 @@ function AgentSection() {
                 targetNetwork="Monad (local fork)"
                 walletNetwork="Ethereum"
                 maxSupply="1,000"
-                revealNote="On the local fork, reveal it with pnpm agent-nft:local reveal."
+                revealNote="On the local fork, the reveal keeper reveals it within about 15 seconds."
                 onConnect={() => undefined}
                 onRetry={() => undefined}
               />
             </div>
           ))}
+        </div>
+      </Specimen>
+      <Specimen
+        name="Runtime status"
+        note="Whether the orchestrator has provisioned an agent: its config rendered and its LiteLLM key created (P1-U5)."
+      >
+        <div className="flex flex-wrap gap-2">
+          {RUNTIME_STATUSES.map((status) => (
+            <RuntimeStatusBadge key={status} status={status} />
+          ))}
+        </div>
+      </Specimen>
+      <Specimen
+        name="Task result"
+        note="A task run in an agent's sandbox, with its structured result; the dev console's no-op task uses it."
+      >
+        <div className="grid gap-4 lg:grid-cols-2">
+          <TaskResult
+            title="No-op task, Alpha Agent #7"
+            status="succeeded"
+            fields={[
+              { label: "Reply", value: "NOOP_OK" },
+              { label: "Tier", value: "Medium, 5 slots, tier-medium@0" },
+              { label: "Model calls", value: "1 of 1 succeeded" },
+              { label: "Sandbox", value: "Stopped" },
+              { label: "Time", value: "Sandbox 0.7 s, Hermes 12.7 s, run 3.1 s" },
+            ]}
+          />
+          <div className="flex flex-col gap-4">
+            <TaskResult title="No-op task, Alpha Agent #8" status="running" />
+            <TaskResult
+              title="No-op task, Alpha Agent #9"
+              status="failed"
+              error="Agent 9 already has a sandbox running."
+            />
+          </div>
         </div>
       </Specimen>
     </Section>
