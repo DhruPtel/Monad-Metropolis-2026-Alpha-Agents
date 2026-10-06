@@ -16,6 +16,7 @@ import {
   stackHealth,
 } from "@alpha-agents/devenv";
 import { ANVIL_URL, loadLocalConfig, loadRootEnv } from "./lib/config.js";
+import { stopRecorded } from "./lib/dev-all.js";
 import { ANVIL_LOG_PATH, ANVIL_PID_PATH, COMPOSE_FILE, ROOT } from "./lib/paths.js";
 
 loadRootEnv();
@@ -142,9 +143,14 @@ async function status() {
 }
 
 async function down() {
+  // Everything pnpm dev:all started (D-211), by PID, before the stack under it.
+  const stopped = await stopRecorded();
+  if (stopped.length > 0) console.log(`dev:all services: stopped ${stopped.join(", ")}`);
   await stopAnvil();
   if (run("docker", ["info", "--format", "{{.ServerVersion}}"]).ok) {
-    if (!runInherit("docker", [...composeArgs, "down"])) fail("docker compose down failed");
+    // The agent profile too, so LiteLLM stops with the rest.
+    if (!runInherit("docker", [...composeArgs, "--profile", "agent", "down"]))
+      fail("docker compose down failed");
   } else {
     console.log("postgres, redis: Docker not reachable, nothing to stop");
   }
