@@ -284,7 +284,7 @@ describe("no secret value leaks", () => {
   const markerFor = (name: string) => `LEAKCHECK${name.replace(/_/g, "")}`;
   const validSecret = (name: string): string => {
     const marker = markerFor(name);
-    if (name.endsWith("PRIVATE_KEY"))
+    if (name.endsWith("PRIVATE_KEY") || name.endsWith("_SEED"))
       return `0x${Buffer.from(marker).toString("hex").padEnd(64, "0").slice(0, 64)}`;
     if (name.startsWith("DATABASE")) return `postgres://u:${marker}@db.test:5432/db`;
     if (name.startsWith("REDIS")) return `redis://:${marker}@cache.test:6379`;
