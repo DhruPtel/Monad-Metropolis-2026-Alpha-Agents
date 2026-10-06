@@ -114,14 +114,15 @@ Configuration is loaded by `@alpha-agents/config` (`packages/config`). A service
 
 Every service imports its rules from one place under `packages/`:
 
-| Package                    | What it defines                                                                                                                                                                                                            |
-| -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `@alpha-agents/config`     | Environments, the config loader and the mainnet signing guard                                                                                                                                                              |
-| `@alpha-agents/domain`     | Amounts (bigints with the scale in the type), IDs, tiers, species, accounts, assets, the canonical mode model, the tool registry, typed intents, reason codes, records, token-bound account addresses and the address book |
-| `@alpha-agents/policy`     | The launch hard limits and the offchain pre-checks; the Executor contract stays the final authority                                                                                                                        |
-| `@alpha-agents/skills`     | The skill.json manifest schema and its validator against the tool registry                                                                                                                                                 |
-| `@alpha-agents/workflows`  | The workflow spec schema and validator                                                                                                                                                                                     |
-| `@alpha-agents/accounting` | Journal, valuation and credits types                                                                                                                                                                                       |
+| Package                     | What it defines                                                                                                                                                                                                            |
+| --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `@alpha-agents/config`      | Environments, the config loader and the mainnet signing guard                                                                                                                                                              |
+| `@alpha-agents/domain`      | Amounts (bigints with the scale in the type), IDs, tiers, species, accounts, assets, the canonical mode model, the tool registry, typed intents, reason codes, records, token-bound account addresses and the address book |
+| `@alpha-agents/policy`      | The launch hard limits and the offchain pre-checks; the Executor contract stays the final authority                                                                                                                        |
+| `@alpha-agents/skills`      | The skill.json manifest schema and its validator against the tool registry                                                                                                                                                 |
+| `@alpha-agents/workflows`   | The workflow spec schema and validator                                                                                                                                                                                     |
+| `@alpha-agents/accounting`  | Journal, valuation and credits types                                                                                                                                                                                       |
+| `@alpha-agents/tool-server` | The tool servers' shared conventions: identity from the injected token, typed errors, the identity field lint                                                                                                              |
 
 The address book (`packages/domain/src/address-book.ts`) lists every external contract the plan names, and every contract we deploy, per environment, with its source, a status and any open question. An external entry is `verified` only if it had code on the local fork at the pinned block. Our own contracts are verified only for `local`, at their deterministic fork address: `pnpm test:fork` starts a fork of its own on port 8546, deploys them there and checks them. `signingAddress` refuses anything unverified. The policy reason codes and their messages are in `packages/domain/src/reasons.ts`, and the limits table is in `packages/policy/README.md`.
 
@@ -231,6 +232,19 @@ At zero credits the agent is RESTRICTED (D-129, D-209): the gate answers its mod
 The current owner can ask for the remaining credits back, with an owner session, at `POST /v1/agents/:id/credits/refund`. The orchestrator checks the owner and ownership epoch on chain again, then sends the credits and any held USDC from the funding address to that owner. A request made before a sale is refused, so credits stay with the agent (D-210). `GET /v1/agents/:id/credits` shows the funding address and balances. In the dev console, "Fund 5 USDC" sends test USDC to an agent's funding address and "Refund" pays its owner.
 
 `pnpm test:orchestrator:live` checks all of it on a fork of its own: a deposit credited, a task's charge metered, a refund paid on chain, a run that runs out of credits ending as billing, and the ledger matching the funding address on chain.
+
+## Tool servers, the Scan and the narrator (P1-U7)
+
+Agents do research through two MCP tool servers that run inside the orchestrator, behind the gate, so a sandbox still reaches one host (D-213):
+
+- **Data tools** (`services/data-tools`): `web_search` and `read_url`, both through Tavily (`TAVILY_API_KEY`, D-214). Every call is charged to the agent before it runs, from the price table (Assumption A-29: 0.01 USDC per search, 0.002 USDC per page), and refused at zero credits; a call Tavily does not answer is reversed. `read_url` refuses private, loopback, link-local, internal and cloud metadata addresses before any request. Results are marked as untrusted web content, never instructions.
+- **Platform tools** (`services/platform-tools`): `complete_stage`, once per stage per run, and `write_thesis`, which stores the run's research notes (private: never served to owners).
+
+Neither server takes an agent in any input: each finds the agent from the lease's gate token, the one value E2B injects at egress (`packages/tool-server`).
+
+The orchestrator schedules a Scan for every provisioned agent with at least 0.05 USDC of credits, every `SCAN_INTERVAL_MINUTES` (360 by default, D-216). A Scan is one Hermes run: the agent searches, reads pages, saves notes and ends with `complete_stage`; the stored stage record is the result. Afterwards the narrator, a separate model on its own LiteLLM key, writes a short activity entry from the platform's own records, and the entry is kept only if every number in it appears in those records; otherwise a fixed template writes it (D-217). `GET /v1/agents/:id/activity` on the control API serves the entries.
+
+To try it: run `pnpm dev:all`, open the console's Agents page, press "Fund 5 USDC" on a provisioned agent, wait for its credits to show, then "Run Scan". The result card shows the stage record, tool calls and spend; the agent's activity entry and tool call history appear below the table once the Scan ends (about a minute). After changing `infra/litellm/config.yaml`, restart LiteLLM so it knows the `narrator` alias.
 
 ## Dev console
 

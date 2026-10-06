@@ -31,6 +31,7 @@ import { findCloudflared } from "./tunnel.ts";
  *
  *   --namespace=<name>  sweep namespace for tags, key aliases and the queue (default: APP_ENV)
  *   --no-keeper         do not run the reveal keeper
+ *   --scan-interval-seconds=<n>  scheduled Scan cadence in seconds, local only (the live check)
  *
  * Reads DATABASE_URL, REDIS_URL, LITELLM_BASE_URL, LITELLM_MASTER_KEY,
  * ORCHESTRATOR_SECRET, ORCHESTRATOR_PORT, E2B_API_KEY,
@@ -172,8 +173,14 @@ const tavilyKey = reveal("TAVILY_API_KEY");
 const web = tavilyKey ? new TavilyProvider(tavilyKey) : null;
 if (!web)
   log("TAVILY_API_KEY is not set: web_search and read_url answer that they are not configured");
-const scanMinutes = Number(values.SCAN_INTERVAL_MINUTES ?? 360);
-if (credits) log(`scheduled Scans every ${scanMinutes} minutes for agents with credits`);
+const scanSeconds = arg("scan-interval-seconds");
+if (scanSeconds !== undefined && (env.id !== "local" || !/^[1-9]\d{0,5}$/.test(scanSeconds)))
+  die("--scan-interval-seconds takes a whole number of seconds, and only with APP_ENV=local");
+const scanIntervalMs =
+  scanSeconds !== undefined
+    ? Number(scanSeconds) * 1_000
+    : Number(values.SCAN_INTERVAL_MINUTES ?? 360) * 60_000;
+if (credits) log(`scheduled Scans every ${scanIntervalMs / 1_000} seconds for agents with credits`);
 
 const db = createDb(reveal("DATABASE_URL") ?? "", { max: 10 });
 await migrateToLatest(db);
@@ -195,7 +202,7 @@ const orchestrator = new Orchestrator({
   log,
   credits,
   web,
-  scanIntervalMs: scanMinutes * 60_000,
+  scanIntervalMs,
 });
 await orchestrator.start();
 

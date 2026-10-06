@@ -173,6 +173,12 @@ export class LiteLLMNarratorModel implements NarratorModel {
   }
 }
 
+/** The narrator key's value, derived so a restarted orchestrator finds the same key. */
+export function narratorKeyFor(secret: string, namespace: string): string {
+  const mac = createHmac("sha256", secret).update(`narrator:${namespace}`).digest("hex");
+  return `sk-narrator-${mac.slice(0, 40)}`;
+}
+
 export interface NarratorOptions {
   readonly store: Store;
   readonly gateway: GatewayAdmin;
@@ -209,7 +215,7 @@ export class Narrator {
 
   constructor(options: NarratorOptions) {
     this.o = options;
-    this.key = `sk-narrator-${createHmac("sha256", options.secret).update(`narrator:${options.namespace}`).digest("hex").slice(0, 40)}`;
+    this.key = narratorKeyFor(options.secret, options.namespace);
     options.redactor.add(this.key);
     this.model = options.model ?? new LiteLLMNarratorModel(options.litellmUrl, this.key);
   }

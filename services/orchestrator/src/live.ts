@@ -18,7 +18,7 @@
  *
  * Needs MONAD_RPC_URL, E2B_API_KEY, LITELLM_MASTER_KEY, REVEAL_KEEPER_PRIVATE_KEY,
  * cloudflared and LiteLLM running (pnpm dev:litellm). Spends a few cents of model
- * credit. Writes a redacted report to evidence/p1-u6/.
+ * credit. Writes a redacted report to evidence/p1-u7/.
  *
  * P1-U6 adds credits: zero credits refuse LLM work; a deposit to the funding
  * address is credited with no other step; a task's metered charge comes off
@@ -26,12 +26,20 @@
  * ends as billing with exactly one refused call; deterministic work continues
  * while the agent is restricted; and the ledger balances and matches the
  * funding address on chain.
+ *
+ * P1-U7 adds the Scan, with real Tavily and a real model: the orchestrator,
+ * restarted with a 15-second cadence, schedules a Scan for each funded agent;
+ * each uses web_search and read_url and ends with a schema-valid stage record;
+ * every tool call is charged to the agent whose token made it; the narrator's
+ * entry passes the number validator and a wrong number is rejected; and at
+ * zero credits a Scan is refused. Needs TAVILY_API_KEY too.
  */
 import { type ChildProcess, spawn } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { createWriteStream, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { Secret, loadConfig } from "@alpha-agents/config";
+import { sql } from "@alpha-agents/db";
 import { createTestDatabase } from "@alpha-agents/db/testing";
 import {
   balancesOf,
@@ -44,6 +52,7 @@ import { addressEntry } from "@alpha-agents/domain";
 import { Indexer, RpcLogSource } from "@alpha-agents/indexer";
 import { type Hex, createPublicClient, http, parseAbi } from "viem";
 import { Ledger } from "./credits/ledger.ts";
+import { type ScanFacts, narratorKeyFor, validateNarration } from "./narrator.ts";
 import { LiteLLMAdmin } from "./gateway-admin.ts";
 import { aliasPrefix } from "./provisioner.ts";
 import { OrchestratorQueue } from "./queue.ts";
@@ -67,13 +76,19 @@ const config = loadConfig({
     "LITELLM_MASTER_KEY",
     "REVEAL_KEEPER_PRIVATE_KEY",
     "ORCHESTRATOR_SECRET",
+    "TAVILY_API_KEY",
   ],
 });
 const reveal = (n: keyof typeof config.values) => (config.values[n] as Secret).reveal();
 const namespace = `live-${randomBytes(3).toString("hex")}`;
 const runTag = new Date().toISOString().replaceAll(":", "-");
 const checks: Record<string, boolean> = {};
-const report: Record<string, unknown> = { unit: "P1-U5 and P1-U6", namespace, runTag, checks };
+const report: Record<string, unknown> = {
+  unit: "P1-U5, P1-U6 and P1-U7",
+  namespace,
+  runTag,
+  checks,
+};
 const secrets: string[] = [];
 for (const v of Object.values(config.values))
   if (v instanceof Secret)
@@ -154,10 +169,10 @@ async function main(): Promise<number> {
     await gateway.deleteAliases(await gateway.listAliases(aliasPrefix(namespace)));
   });
 
-  const startOrchestrator = (label: string): ChildProcess => {
+  const startOrchestrator = (label: string, extra: string[] = []): ChildProcess => {
     const child = spawn(
       process.execPath,
-      ["services/orchestrator/src/main.ts", `--namespace=${namespace}`],
+      ["services/orchestrator/src/main.ts", `--namespace=${namespace}`, ...extra],
       {
         cwd: ROOT,
         env: {
@@ -564,6 +579,148 @@ async function main(): Promise<number> {
     JSON.stringify(await reconciled(agentId), (_k, v) => (typeof v === "bigint" ? String(v) : v)),
   );
 
+  // ---- P1-U7: scheduled Scans with real Tavily and a real model ----
+  step("the scheduler queues a Scan for each funded agent; web_search, read_url, complete_stage");
+  secrets.push(narratorKeyFor(reveal("ORCHESTRATOR_SECRET"), namespace));
+  await fund(other, 1_000_000n);
+  await waitFor("the second agent's deposit", 60_000, async () =>
+    (await creditsOf(other))?.spendableUsdcE6 === "1000000" ? true : null,
+  );
+  await stopChild(orch, "SIGTERM");
+  // Both agents are funded and have never scanned: due once their first credit is 15 s old.
+  orch = startOrchestrator("scans", ["--scan-interval-seconds=15"]);
+  await waitFor("the orchestrator", 60_000, async () => (await api("/health")).status === 200);
+  const scanTasks = await waitFor("the scheduler to queue both Scans", 120_000, async () => {
+    const rows = await t.db
+      .selectFrom("platform.agent_tasks")
+      .select(["task_id", "agent_id"])
+      .where("kind", "=", "scan")
+      .execute();
+    return rows.length >= 2 ? rows : null;
+  });
+  const scans = new Map<number, TaskView & { taskId: string }>();
+  for (const row of scanTasks) {
+    const v = await waitFor(`agent ${row.agent_id}'s Scan`, 600_000, async () => {
+      const x = (await api(`/v1/tasks/${row.task_id}`)).body as unknown as TaskView;
+      return x.status === "succeeded" || x.status === "failed" ? x : null;
+    });
+    scans.set(row.agent_id, { ...v, taskId: row.task_id });
+  }
+  const otherScan = must(scans.get(other));
+  const os = (otherScan.result ?? {}) as {
+    stopReason?: string;
+    leaseId?: string;
+    stage?: { outcome: string; schemaValid: boolean; candidates: unknown[] } | null;
+    toolCalls?: { tool: string; status: string; errorCode: string | null; chargeUsdcE6: string }[];
+    modelCalls?: number;
+  };
+  const used = (tool: string) =>
+    (os.toolCalls ?? []).filter((c) => c.tool === tool && c.status === "succeeded").length;
+  report.scans = Object.fromEntries([...scans].map(([id, v]) => [id, v]));
+  check(
+    "the scheduler queued a Scan for each funded agent with no manual step",
+    scans.has(other) && scans.has(agentId) && scanTasks.length === 2,
+    scanTasks.map((x) => `agent ${x.agent_id}`).join(", "),
+  );
+  check(
+    "a funded agent's Scan used web_search and read_url and returned a schema-valid result",
+    otherScan.status === "succeeded" &&
+      os.stopReason === "COMPLETED" &&
+      os.stage?.schemaValid === true &&
+      used("web_search") > 0 &&
+      used("read_url") > 0,
+    `${otherScan.status}; ${used("web_search")} searches, ${used("read_url")} pages; ${os.stage?.outcome ?? "no stage"}; ${otherScan.error ?? ""}`,
+  );
+  // Every paid call is charged to the agent whose lease token made it, and nothing else.
+  const charges = await t.db
+    .selectFrom("platform.tool_calls as c")
+    .innerJoin("platform.sandbox_leases as l", "l.lease_id", "c.lease_id")
+    .leftJoin("platform.ledger_entries as e", "e.entry_id", "c.entry_id")
+    .select([
+      "c.agent_id as callAgent",
+      "l.agent_id as leaseAgent",
+      "e.agent_id as entryAgent",
+      "c.status",
+      "c.charge_usdc_e6",
+      "c.reversal_entry_id",
+      "c.server",
+    ])
+    .execute();
+  const paid = charges.filter((c) => c.server === "data" && c.status !== "refused");
+  const toolSpendOf = (id: number) =>
+    paid
+      .filter((c) => c.callAgent === id && c.status === "succeeded")
+      .reduce((a, c) => a + BigInt(c.charge_usdc_e6), 0n);
+  const ledgerToolSpend = async (id: number) => {
+    const rows = await t.db
+      .selectFrom("platform.ledger_entries as e")
+      .innerJoin("platform.ledger_lines as l", "l.entry_id", "e.entry_id")
+      .select(["l.amount"])
+      .where("e.agent_id", "=", id)
+      .where("l.account", "=", "agent_credits")
+      .where(sql<boolean>`e.source->>'kind' in ('tool_call', 'tool_call_failed')`)
+      .execute();
+    return rows.reduce((a, r) => a + BigInt(r.amount), 0n);
+  };
+  report.toolCharges = {
+    calls: charges.length,
+    paid: paid.length,
+    byAgent: { [agentId]: toolSpendOf(agentId), [other]: toolSpendOf(other) },
+  };
+  check(
+    "each tool call is charged to the right agent, and the ledger holds exactly those charges",
+    paid.length > 0 &&
+      charges.every((c) => c.callAgent === c.leaseAgent) &&
+      paid.every((c) => c.entryAgent === c.callAgent) &&
+      (await ledgerToolSpend(other)) === toolSpendOf(other) &&
+      (await ledgerToolSpend(agentId)) === toolSpendOf(agentId) &&
+      (await ledger.balanced(143143)) &&
+      (await reconciled(other)).ok,
+    `${paid.length} paid calls; agent ${other} ${toolSpendOf(other)}, agent ${agentId} ${toolSpendOf(agentId)} USDC units`,
+  );
+  const activity = (await api(`/v1/agents/${other}/activity`)).body.entries as {
+    taskId: string;
+    text: string;
+    renderedBy: string;
+  }[];
+  const scanEntry = await t.db
+    .selectFrom("platform.activity_entries")
+    .selectAll()
+    .where("task_id", "=", otherScan.taskId)
+    .executeTakeFirst();
+  const facts = scanEntry?.facts as unknown as ScanFacts | undefined;
+  report.activity = {
+    entry: scanEntry?.text,
+    renderedBy: scanEntry?.rendered_by,
+    rejections: scanEntry?.rejections,
+  };
+  check(
+    "the narrator wrote an activity entry that passes the number validator",
+    scanEntry !== undefined &&
+      facts !== undefined &&
+      validateNarration(scanEntry.text, facts).ok &&
+      activity.some((a) => a.taskId === otherScan.taskId && a.text === scanEntry.text),
+    `${scanEntry?.rendered_by ?? "none"}: ${scanEntry?.text ?? ""}`,
+  );
+  const wrong = `${(scanEntry?.text ?? "").slice(0, 200)} It spent 987654 USDC.`;
+  const verdict = facts ? validateNarration(wrong, facts) : { ok: true as const };
+  check(
+    "the same entry with a deliberately wrong number is rejected",
+    !verdict.ok && /987654/.test(verdict.ok ? "" : verdict.reason),
+    verdict.ok ? "accepted" : verdict.reason,
+  );
+  const refundOther = await api(`/v1/agents/${other}/refund`, { method: "POST" });
+  await waitFor("the second agent's refund", 120_000, async () => {
+    const v = (await api(`/v1/refunds/${String(refundOther.body.refundId)}`)).body;
+    return v.status === "sent" ? v : null;
+  });
+  const broke = await api(`/v1/agents/${other}/tasks/scan`, { method: "POST" });
+  check(
+    "at zero credits a Scan is refused",
+    broke.status === 409 && broke.body.error === "credits_exhausted",
+    `${broke.status} ${String(broke.body.error)}`,
+  );
+
   for (const id of [agentId, other]) {
     const rt = await store.runtime({ chainId: 143143, agentId: id });
     if (rt?.keyCiphertext)
@@ -598,11 +755,11 @@ try {
   const text = redactor.redact(
     JSON.stringify(report, (_k, v) => (typeof v === "bigint" ? String(v) : v), 2),
   );
-  const dir = join(ROOT, "evidence/p1-u6");
+  const dir = join(ROOT, "evidence/p1-u7");
   mkdirSync(dir, { recursive: true });
   writeFileSync(join(dir, `live-${runTag}.json`), `${text}\n`);
   console.log(
-    `\nreport: evidence/p1-u6/live-${runTag}.json; orchestrator log: ${logPath.slice(ROOT.length + 1)}`,
+    `\nreport: evidence/p1-u7/live-${runTag}.json; orchestrator log: ${logPath.slice(ROOT.length + 1)}`,
   );
 }
 process.exit(code);

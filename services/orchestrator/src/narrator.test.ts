@@ -5,12 +5,17 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { Ledger } from "./credits/ledger.ts";
 import { CreditService } from "./credits/service.ts";
 import { MemoryGateway } from "./gateway-admin.ts";
+import { createServer } from "node:http";
+import type { AddressInfo } from "node:net";
 import {
+  LiteLLMNarratorModel,
   MAX_ENTRY_CHARS,
+  NARRATOR_MODEL,
   Narrator,
   type NarratorModel,
   type ScanFacts,
   formatUsdc,
+  narratorKeyFor,
   numbersIn,
   percentOfBps,
   templateEntry,
@@ -101,6 +106,33 @@ describe("narration numbers", () => {
       expect(text.length).toBeLessThanOrEqual(MAX_ENTRY_CHARS);
       expect(validateNarration(text, facts)).toEqual({ ok: true });
     }
+  });
+});
+
+describe("the narrator's model client", () => {
+  it("calls the narrator alias with the narrator's own key, derived per namespace", async () => {
+    const seen: { auth: string | undefined; body: { model: string; messages: unknown[] } }[] = [];
+    const server = createServer((req, res) => {
+      let raw = "";
+      req.on("data", (c: Buffer) => (raw += c.toString()));
+      req.on("end", () => {
+        seen.push({ auth: req.headers.authorization, body: JSON.parse(raw) });
+        res.writeHead(200, { "content-type": "application/json" });
+        res.end(
+          JSON.stringify({ choices: [{ message: { content: "Agent #7 ran 2 web searches." } }] }),
+        );
+      });
+    });
+    await new Promise<void>((r) => server.listen(0, "127.0.0.1", r));
+    const url = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+    const key = narratorKeyFor("s".repeat(40), "unit");
+    expect(key).not.toBe(narratorKeyFor("s".repeat(40), "other"));
+    const text = await new LiteLLMNarratorModel(url, key).complete("system", "facts");
+    server.close();
+    expect(text).toBe("Agent #7 ran 2 web searches.");
+    expect(seen[0]?.auth).toBe(`Bearer ${key}`);
+    expect(seen[0]?.body.model).toBe(NARRATOR_MODEL);
+    expect(seen[0]?.body.messages).toHaveLength(2);
   });
 });
 
