@@ -161,6 +161,12 @@ export interface AgentTaskTable {
   agent_id: number;
   kind: "noop" | "scan";
   status: "queued" | "running" | "succeeded" | "failed";
+  /** P1-U9 (D-219): who asked for it; null for tasks from before 0005. */
+  requested_by: ColumnType<
+    "owner" | "console" | "schedule" | null,
+    "owner" | "console" | "schedule" | null | undefined,
+    "owner" | "console" | "schedule" | null
+  >;
   lease_id: string | null;
   result: ColumnType<Record<string, unknown> | null, string | null, string | null>;
   error: string | null;

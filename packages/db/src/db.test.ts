@@ -110,6 +110,16 @@ describe.skipIf(!available)("database migrations (needs pnpm dev:up)", () => {
         .execute();
     await task("t-scan", "scan");
     await expect(task("t-other", "trade")).rejects.toThrow(/agent_tasks_kind_check/);
+    // One queued or running Scan per agent (D-219); a finished one frees the slot.
+    await expect(task("t-scan-2", "scan")).rejects.toThrow(/agent_tasks_one_open_scan/);
+    await t.db
+      .updateTable("platform.agent_tasks")
+      .set({ status: "succeeded" })
+      .where("task_id", "=", "t-scan")
+      .execute();
+    await task("t-scan-2", "scan");
+    await task("t-noop", "noop");
+    await task("t-noop-2", "noop");
   });
 
   it("reset drops everything and migrates again", async () => {
