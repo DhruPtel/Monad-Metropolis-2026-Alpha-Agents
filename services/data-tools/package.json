@@ -1,0 +1,18 @@
+{
+  "name": "@alpha-agents/data-tools",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Data tools MCP server (FINAL_PLAN 4.4.3): web_search and read_url through Tavily, metered per call, with private addresses refused (P1-U7, D-214).",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p ."
+  },
+  "dependencies": {
+    "@alpha-agents/tool-server": "workspace:^",
+    "@modelcontextprotocol/sdk": "1.32.0",
+    "zod": "4.6.5"
+  }
+}
