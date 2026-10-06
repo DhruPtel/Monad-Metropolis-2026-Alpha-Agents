@@ -404,6 +404,34 @@ describe.skipIf(!available)("the control API (needs pnpm dev:up for Postgres)", 
       expect((await ownerView(2, token as string)).status).toBe(403);
     });
 
+    it("serves an agent's activity entries, newest first, without their facts (P1-U7)", async () => {
+      for (const [i, text] of ["Agent #2 ran 1 web search.", "Agent #2 read 1 page."].entries())
+        await t.db
+          .insertInto("platform.activity_entries")
+          .values({
+            entry_id: `act-${i}`,
+            chain_id: env.chainId,
+            agent_id: 2,
+            task_id: `task-${i}`,
+            kind: "scan",
+            text,
+            rendered_by: i === 0 ? "narrator" : "template",
+            facts: JSON.stringify({ searches: [{ query: "PRIVATE_QUERY_TEXT" }] }),
+            rejections: "[]",
+            created_at: new Date(Date.now() + i * 1000),
+          })
+          .execute();
+      const res = await call("/v1/agents/2/activity");
+      expect(res.status).toBe(200);
+      const body = await json(res);
+      expect(body.entries).toEqual([
+        expect.objectContaining({ text: "Agent #2 read 1 page.", renderedBy: "template" }),
+        expect.objectContaining({ text: "Agent #2 ran 1 web search.", renderedBy: "narrator" }),
+      ]);
+      expect(JSON.stringify(body)).not.toContain("PRIVATE_QUERY_TEXT");
+      expect(await json(await call("/v1/agents/9/activity"))).toMatchObject({ entries: [] });
+    });
+
     describe("credits (P1-U6)", () => {
       const FUNDING = "0x00000000000000000000000000000000000f00d2";
       const credit = async (amount: bigint, account = "agent_credits", n = 1) => {

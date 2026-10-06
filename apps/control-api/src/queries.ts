@@ -185,6 +185,39 @@ export async function readCredits(
   };
 }
 
+export interface ActivityJson {
+  readonly entryId: string;
+  readonly kind: "scan";
+  /** The narrator's text, validated against its facts, or the fixed template's (D-217). */
+  readonly text: string;
+  readonly renderedBy: "narrator" | "template";
+  readonly at: string;
+}
+
+/** An agent's activity entries, newest first. The facts behind them are never served. */
+export async function readActivity(
+  db: Db,
+  chainId: number,
+  agentId: number,
+  limit = 20,
+): Promise<ActivityJson[]> {
+  const rows = await db
+    .selectFrom("platform.activity_entries")
+    .select(["entry_id", "kind", "text", "rendered_by", "created_at"])
+    .where("chain_id", "=", chainId)
+    .where("agent_id", "=", agentId)
+    .orderBy("created_at", "desc")
+    .limit(limit)
+    .execute();
+  return rows.map((r) => ({
+    entryId: r.entry_id,
+    kind: r.kind,
+    text: r.text,
+    renderedBy: r.rendered_by,
+    at: new Date(r.created_at).toISOString(),
+  }));
+}
+
 /** Records a refund request under the owner's wallet and epoch; "open" when one is in flight. */
 export async function insertRefund(
   db: Db,

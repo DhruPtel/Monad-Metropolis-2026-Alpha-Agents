@@ -16,6 +16,7 @@ import {
   insertRefund,
   isAllowlisted,
   listAgents,
+  readActivity,
   readCredits,
   readRefund,
   readSupply,
@@ -285,6 +286,18 @@ export function createApp(deps: ApiDeps): Hono {
       ownerEpoch: owner.epoch.toString(),
       agent,
     });
+  });
+
+  // --- Activity (P1-U7, D-217) ---------------------------------------------
+
+  /** An agent's activity feed: public, as on the agent profile (FINAL_PLAN 4.10). */
+  app.get("/v1/agents/:id{[0-9]+}/activity", async (c) => {
+    const agentId = Number(c.req.param("id"));
+    const entries = await cached(`activity:${agentId}`, () =>
+      readActivity(deps.db, chainId, agentId),
+    );
+    c.header("cache-control", "public, max-age=1");
+    return c.json({ ...(await meta()), agentId: String(agentId), entries });
   });
 
   // --- Credits (P1-U6, D-208, D-210) ---------------------------------------
