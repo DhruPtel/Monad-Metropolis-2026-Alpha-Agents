@@ -168,7 +168,7 @@ test.describe("every state, captured and scanned", () => {
     await expect(c.getByTestId("restricted-note")).toContainText("Safety checks keep running");
     await expect(c.getByRole("button", { name: "Run Scan now" })).toBeDisabled();
     await expect(c.getByRole("button", { name: "Refund credits" })).toBeDisabled();
-    await expect(c.getByTestId("scan-unavailable")).toContainText("at least 0.05 USDC");
+    await expect(c.getByTestId("scan-unavailable")).toContainText("at least 0.15 USDC");
     await capture(page, main(page), "agents-restricted.png");
     expect(await blockingViolations(page)).toEqual([]);
   });
@@ -238,7 +238,7 @@ test.describe("owner actions", () => {
     await c.getByRole("button", { name: "Run Scan now" }).click();
     await page.getByRole("dialog").getByRole("button", { name: "Run Scan" }).click();
     await expect(c.getByTestId("scan-result")).toHaveText(
-      "A Scan needs at least 0.05 USDC of credits. Add USDC to the funding address.",
+      "A Scan needs at least 0.15 USDC of credits. Add USDC to the funding address.",
     );
     await expect(c.getByTestId("scan-result")).toHaveAttribute("data-action-state", "error");
   });

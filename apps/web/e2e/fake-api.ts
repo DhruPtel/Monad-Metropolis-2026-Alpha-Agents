@@ -345,7 +345,7 @@ export class FakeApi {
         spent24hUsdcE6: d.spent24hUsdcE6,
         charges: d.charges,
         latestScan: d.latestScan,
-        scan: { minimumUsdcE6: "50000", estimateUsdcE6: { low: "150000", high: "300000" } },
+        scan: { minimumUsdcE6: "150000", estimateUsdcE6: { low: "150000", high: "300000" } },
       };
       if (d.latestScan?.status === "queued") {
         // Served queued once; the next read finds it finished, narrated and charged.
@@ -369,10 +369,10 @@ export class FakeApi {
       return reply(200, body);
     }
     if (action === "scan") {
-      if (!d.credits || BigInt(d.credits.spendableUsdcE6) < 50_000n)
+      if (!d.credits || BigInt(d.credits.spendableUsdcE6) < 150_000n)
         return reply(409, {
           error: "credits_low",
-          message: "A Scan needs at least 0.05 USDC of credits. Add USDC to the funding address.",
+          message: "A Scan needs at least 0.15 USDC of credits. Add USDC to the funding address.",
         });
       d.latestScan = {
         taskId: "scan-new",

@@ -34,7 +34,7 @@ const summary = (over: Partial<AgentSummaryJson> = {}, spendable = "4994400", he
       },
     ],
     latestScan: null,
-    scan: { minimumUsdcE6: "50000", estimateUsdcE6: { low: "150000", high: "300000" } },
+    scan: { minimumUsdcE6: "150000", estimateUsdcE6: { low: "150000", high: "300000" } },
     ...over,
   });
 
@@ -79,9 +79,9 @@ describe("what an owner can do now", () => {
     expect(scanAvailability(summary({ latestScan: scanTask("running") }))).toMatchObject({
       reason: "A Scan is already queued or running.",
     });
-    expect(scanAvailability(summary({}, "49999"))).toMatchObject({
+    expect(scanAvailability(summary({}, "149999"))).toMatchObject({
       enabled: false,
-      reason: "A Scan needs at least 0.05 USDC of credits. Add USDC to the funding address.",
+      reason: "A Scan needs at least 0.15 USDC of credits. Add USDC to the funding address.",
     });
     expect(scanAvailability(summary({ latestScan: scanTask("succeeded", "COMPLETED") }))).toEqual({
       enabled: true,

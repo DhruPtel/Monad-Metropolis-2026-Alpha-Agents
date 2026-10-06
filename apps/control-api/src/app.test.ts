@@ -560,7 +560,7 @@ describe.skipIf(!available)("the control API (needs pnpm dev:up for Postgres)", 
           credits: { spendableUsdcE6: "1000000", restricted: false },
           spent24hUsdcE6: "22000",
           latestScan: null,
-          scan: { minimumUsdcE6: "50000", estimateUsdcE6: { low: "150000", high: "300000" } },
+          scan: { minimumUsdcE6: "150000", estimateUsdcE6: { low: "150000", high: "300000" } },
         });
         expect(
           (body.charges as { kind: string; label: string; amountUsdcE6: string }[]).map((c) => [
@@ -616,11 +616,11 @@ describe.skipIf(!available)("the control API (needs pnpm dev:up for Postgres)", 
         const session = await bobSession();
         const none = await scan(2, session);
         expect([none.status, (await json(none)).error]).toEqual([409, "not_provisioned"]);
-        await seedBob(40_000n);
+        await seedBob(140_000n);
         const low = await scan(2, session);
         const lowBody = await json(low);
         expect([low.status, lowBody.error]).toEqual([409, "credits_low"]);
-        expect(lowBody.message).toMatch(/at least 0.05 USDC/);
+        expect(lowBody.message).toMatch(/at least 0.15 USDC/);
         await t.db.deleteFrom("platform.ledger_lines").execute();
         await t.db.deleteFrom("platform.ledger_entries").execute();
         await t.db.deleteFrom("platform.agent_runtimes").execute();
