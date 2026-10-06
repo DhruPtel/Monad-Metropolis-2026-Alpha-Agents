@@ -29,6 +29,8 @@
     "dev:web": "node scripts/web.js dev",
     "dev:indexer": "node services/indexer/src/main.ts",
     "dev:api": "node apps/control-api/src/main.ts",
+    "dev:orchestrator": "node services/orchestrator/src/main.ts",
+    "dev:litellm": "docker compose -f infra/compose.yaml --env-file .env --profile agent up -d --wait litellm",
     "test:web:e2e": "node scripts/web-e2e.js",
     "test:web:live": "node scripts/web-e2e.js --app web --live",
     "dev:console": "node scripts/console.js dev",

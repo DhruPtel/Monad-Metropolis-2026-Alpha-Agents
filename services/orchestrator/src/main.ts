@@ -1,0 +1,190 @@
+import { existsSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { serve } from "@hono/node-server";
+import {
+  ConfigError,
+  type ConfigValue,
+  Secret,
+  assertChainId,
+  loadConfig,
+} from "@alpha-agents/config";
+import { createDb, migrateToLatest } from "@alpha-agents/db";
+import { localPaths, secretFragments } from "@alpha-agents/devenv";
+import { addressEntry } from "@alpha-agents/domain";
+import { type Hex, createPublicClient, http } from "viem";
+import { createApi } from "./api.ts";
+import { LiteLLMAdmin } from "./gateway-admin.ts";
+import { KEEPER_POLICY, RevealKeeper } from "./keeper.ts";
+import { ViemRevealChain } from "./keeper-chain.ts";
+import { Orchestrator } from "./orchestrator.ts";
+import { NAMESPACE_PATTERN } from "./provisioner.ts";
+import { E2BProvider } from "./sandbox.ts";
+import { Redactor, createLog, errorText } from "./secrets.ts";
+import { Store } from "./store.ts";
+import { findCloudflared } from "./tunnel.ts";
+
+/**
+ * The orchestrator process (P1-U5): `pnpm dev:orchestrator`.
+ *
+ *   --namespace=<name>  sweep namespace for tags, key aliases and the queue (default: APP_ENV)
+ *   --no-keeper         do not run the reveal keeper
+ *
+ * Reads DATABASE_URL, REDIS_URL, LITELLM_BASE_URL, LITELLM_MASTER_KEY,
+ * ORCHESTRATOR_SECRET, ORCHESTRATOR_PORT, E2B_API_KEY and
+ * REVEAL_KEEPER_PRIVATE_KEY. Every secret value is registered with the log's
+ * redactor before anything is logged, and none is ever printed.
+ */
+const ENV_PATH = fileURLToPath(new URL("../../../.env", import.meta.url));
+if (existsSync(ENV_PATH)) process.loadEnvFile(ENV_PATH);
+
+const redactor = new Redactor();
+const log = createLog("orchestrator", redactor);
+const die = (message: string): never => {
+  console.error(`error: ${redactor.redact(message)}`);
+  process.exit(1);
+};
+const arg = (name: string) =>
+  process.argv.find((a) => a.startsWith(`--${name}=`))?.slice(name.length + 3);
+
+function loadOrDie() {
+  try {
+    return loadConfig({
+      name: "orchestrator",
+      requires: [
+        "DATABASE_URL",
+        "REDIS_URL",
+        "LITELLM_BASE_URL",
+        "LITELLM_MASTER_KEY",
+        "ORCHESTRATOR_SECRET",
+        "ORCHESTRATOR_PORT",
+      ],
+    });
+  } catch (err) {
+    if (!(err instanceof ConfigError)) throw err;
+    return die(err.message);
+  }
+}
+const config = loadOrDie();
+const values = config.values;
+// Every credential-bearing part of every secret, except loopback hosts (not secrets, and in
+// every local log line).
+const protect = (value: string) => {
+  for (const f of secretFragments(value))
+    if (!/^(127\.0\.0\.1|localhost)(:\d+)?$/.test(f)) redactor.add(f);
+};
+for (const v of Object.values(values) as ConfigValue[])
+  if (v instanceof Secret) protect(v.reveal());
+const rpcUrl = config.rpcUrl?.reveal() ?? die("the orchestrator needs the chain RPC");
+protect(rpcUrl);
+const reveal = (name: keyof typeof values) => (values[name] as Secret | undefined)?.reveal();
+
+const env = config.environment;
+const namespace = arg("namespace") ?? env.id;
+if (!NAMESPACE_PATTERN.test(namespace)) die(`invalid --namespace ${namespace}`);
+const secret = reveal("ORCHESTRATOR_SECRET") ?? die("ORCHESTRATOR_SECRET is not set");
+if (env.id !== "local" && secret.startsWith("local-fork-only"))
+  die(`ORCHESTRATOR_SECRET is the local default; set a random one for ${env.label}`);
+
+const client = createPublicClient({ transport: http(rpcUrl) });
+try {
+  assertChainId(config, await client.getChainId());
+} catch (err) {
+  die(err instanceof ConfigError ? err.message : "could not reach the chain RPC");
+}
+const nft = addressEntry(env.id, "agent_nft");
+if (nft.status !== "verified")
+  die(`AgentNFT is not deployed on ${env.label} (address book: unverified)`);
+const entropy = addressEntry(env.id, "pyth_entropy");
+
+const litellmUrl = String(values.LITELLM_BASE_URL);
+const gateway = new LiteLLMAdmin(litellmUrl, reveal("LITELLM_MASTER_KEY") ?? "");
+let ready = false;
+for (let i = 0; i < 15 && !(ready = await gateway.ready()); i += 1)
+  await new Promise((r) => setTimeout(r, 2_000));
+if (!ready)
+  die(
+    `LiteLLM is not answering at ${litellmUrl}. Start it with: ` +
+      "docker compose -f infra/compose.yaml --env-file .env --profile agent up -d --wait litellm",
+  );
+
+const e2bKey = reveal("E2B_API_KEY");
+const provider = e2bKey ? new E2BProvider(e2bKey) : null;
+if (!provider) log("E2B_API_KEY is not set: provisioning runs, sandboxes and tasks do not");
+let cloudflared: string | null = null;
+try {
+  cloudflared = findCloudflared();
+} catch {
+  log("cloudflared is not installed: sandboxes cannot reach the gate, so tasks will fail");
+}
+
+let keeper: RevealKeeper | null = null;
+const keeperKey = env.id === "beta" ? undefined : reveal("REVEAL_KEEPER_PRIVATE_KEY");
+if (process.argv.includes("--no-keeper")) log("reveal keeper off (--no-keeper)");
+else if (!keeperKey) log("REVEAL_KEEPER_PRIVATE_KEY is not set: the reveal keeper is off");
+else if (entropy.status !== "verified")
+  log(`no Pyth Entropy on ${env.label}: the reveal keeper is off`);
+else {
+  const chain = new ViemRevealChain({
+    rpcUrl,
+    chainId: env.chainId,
+    agentNft: nft.address as Hex,
+    entropy: entropy.address as Hex,
+    privateKey: keeperKey as Hex,
+    localFork: env.id === "local",
+  });
+  keeper = new RevealKeeper({
+    chain,
+    policy: env.id === "local" ? KEEPER_POLICY.local : KEEPER_POLICY.remote,
+    log: createLog("keeper", redactor),
+    redactor,
+  });
+  log(`reveal keeper on: wallet ${chain.address}, window ${env.id === "local" ? 10 : 60} s`);
+}
+
+const db = createDb(reveal("DATABASE_URL") ?? "", { max: 10 });
+await migrateToLatest(db);
+const store = new Store(db);
+const orchestrator = new Orchestrator({
+  store,
+  gateway,
+  provider,
+  keeper,
+  chainId: env.chainId,
+  namespace,
+  redisUrl: reveal("REDIS_URL") ?? "",
+  secret,
+  litellmUrl,
+  devDir: localPaths().devDir,
+  cloudflared,
+  startingBudgetUsd: 1,
+  redactor,
+  log,
+});
+await orchestrator.start();
+
+const port = Number(values.ORCHESTRATOR_PORT);
+const api = createApi({
+  orchestrator,
+  store,
+  chainId: env.chainId,
+  devActions: env.id === "local",
+});
+const server = serve({ fetch: api.fetch, port, hostname: "127.0.0.1" });
+log(`internal API on http://127.0.0.1:${port} (dev actions ${env.id === "local" ? "on" : "off"})`);
+
+let stopping = false;
+const shutdown = async (signal: string) => {
+  if (stopping) return process.exit(1);
+  stopping = true;
+  log(`${signal}: stopping (send it again to exit at once)`);
+  try {
+    server.close();
+    await orchestrator.stop();
+    await db.destroy();
+  } catch (err) {
+    log(`shutdown error: ${errorText(err, redactor)}`);
+  }
+  process.exit(0);
+};
+process.on("SIGINT", () => void shutdown("SIGINT"));
+process.on("SIGTERM", () => void shutdown("SIGTERM"));
