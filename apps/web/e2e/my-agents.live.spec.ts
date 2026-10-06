@@ -108,7 +108,9 @@ test("an owner funds an agent, runs a Scan, reads its entry and refunds it; anot
   const refunded = /Refunded ([\d.]+) USDC/.exec((await result.textContent()) ?? "")?.[1];
   const after = (await balancesOf(MOCK_WALLET_ADDRESS, FORK)).usdcE6;
   expect(after - before).toBeGreaterThan(0n);
-  expect(Number(after - before) / 1e6).toBeCloseTo(Number(refunded), 4);
+  // The page truncates to four decimals (never overstating); compare in those units exactly.
+  const [whole = "0", frac = ""] = String(refunded).split(".");
+  expect((after - before) / 100n).toBe(BigInt(whole) * 10_000n + BigInt(frac.padEnd(4, "0")));
   await expect(card.getByText("Paused: no credits")).toBeVisible({ timeout: 60_000 });
 
   // No key or token reaches the page.
