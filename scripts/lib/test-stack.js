@@ -4,6 +4,11 @@
 // indexer and control API as child processes, all pointed at them. The
 // playtest fork on 8545 and the development database are never touched.
 //
+// With `orchestrator` (P1-U9, the My Agents live run) it also starts the
+// orchestrator in a namespace of its own: the reveal keeper, provisioning,
+// credits, the tool servers and Scans, with real LiteLLM, E2B and Tavily. Its
+// LiteLLM keys and any tagged sandbox are removed when the stack stops.
+//
 // The caller sets LOCAL_FORK_PORT before importing anything that reads the
 // fork's address (scripts/lib/config.js reads it when it loads).
 import { spawn } from "node:child_process";
@@ -45,9 +50,9 @@ async function waitFor(url, timeoutMs) {
 }
 
 /**
- * @param {{ forkPort: number, apiPort: number }} options
+ * @param {{ forkPort: number, apiPort: number, orchestrator?: { port: number, namespace: string } }} options
  */
-export async function startTestStack({ forkPort, apiPort }) {
+export async function startTestStack({ forkPort, apiPort, orchestrator }) {
   if (process.env.LOCAL_FORK_PORT !== String(forkPort)) {
     throw new Error(`set LOCAL_FORK_PORT=${forkPort} before starting the test stack`);
   }
@@ -78,12 +83,42 @@ export async function startTestStack({ forkPort, apiPort }) {
     };
     const logDir = join(ROOT, ".dev");
     mkdirSync(logDir, { recursive: true });
-    for (const [name, entry] of /** @type {const} */ ([
-      ["indexer", "services/indexer/src/main.ts"],
-      ["control-api", "apps/control-api/src/main.ts"],
-    ])) {
+    /** @type {[string, string[]][]} */
+    const children = [
+      ["indexer", ["services/indexer/src/main.ts"]],
+      ["control-api", ["apps/control-api/src/main.ts"]],
+    ];
+    if (orchestrator) {
+      const { LiteLLMAdmin } = await import("../../services/orchestrator/src/gateway-admin.ts");
+      const { aliasPrefix } = await import("../../services/orchestrator/src/provisioner.ts");
+      const { E2BProvider } = await import("../../services/orchestrator/src/sandbox.ts");
+      const gateway = new LiteLLMAdmin(
+        process.env.LITELLM_BASE_URL ?? "http://127.0.0.1:4000",
+        process.env.LITELLM_MASTER_KEY ?? "",
+      );
+      if (!(await gateway.ready())) throw new Error("LiteLLM is not running: pnpm dev:litellm");
+      // Registered before the orchestrator starts, so it runs after the orchestrator has stopped.
+      cleanups.push(async () => {
+        await gateway.deleteAliases(await gateway.listAliases(aliasPrefix(orchestrator.namespace)));
+        const e2b = process.env.E2B_API_KEY ? new E2BProvider(process.env.E2B_API_KEY) : null;
+        for (const sbx of (await e2b?.list({
+          app: "alpha-agents",
+          namespace: orchestrator.namespace,
+        })) ?? [])
+          await e2b?.kill(sbx.id);
+      });
+      children.push([
+        "orchestrator",
+        ["services/orchestrator/src/main.ts", `--namespace=${orchestrator.namespace}`],
+      ]);
+    }
+    for (const [name, args] of children) {
       const log = createWriteStream(join(logDir, `test-${name}.log`), { flags: "w" });
-      const child = spawn("node", [entry], { cwd: ROOT, env, stdio: ["ignore", "pipe", "pipe"] });
+      const child = spawn("node", args, {
+        cwd: ROOT,
+        env: orchestrator ? { ...env, ORCHESTRATOR_PORT: String(orchestrator.port) } : env,
+        stdio: ["ignore", "pipe", "pipe"],
+      });
       child.stdout.pipe(log);
       child.stderr.pipe(log);
       cleanups.push(async () => {
@@ -98,6 +133,7 @@ export async function startTestStack({ forkPort, apiPort }) {
     }
     const apiUrl = `http://127.0.0.1:${apiPort}`;
     await waitFor(`${apiUrl}/health`, 60_000);
+    if (orchestrator) await waitFor(`http://127.0.0.1:${orchestrator.port}/health`, 90_000);
     return { fork, db, nft, apiUrl, databaseUrl: db.url, stop };
   } catch (err) {
     await stop();

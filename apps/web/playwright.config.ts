@@ -14,6 +14,8 @@ import { defineConfig } from "@playwright/test";
  * Privy; scripts/check-web-build.js builds it first.
  */
 const live = process.env.LIVE_WEB === "1";
+/** Which live spec runs: the mint and view flow, or My Agents with the orchestrator (P1-U9). */
+const liveSpec = process.env.LIVE_SPEC ?? "live.spec.ts";
 const PORT = live ? 3102 : 3100;
 
 export default defineConfig({
@@ -31,7 +33,7 @@ export default defineConfig({
   use: { baseURL: `http://127.0.0.1:${PORT}`, colorScheme: "dark" },
   ...(live
     ? {
-        testMatch: "live.spec.ts",
+        testMatch: liveSpec,
         projects: [
           {
             // The only suite that renders WebGL: the smallest viewport that
@@ -46,7 +48,7 @@ export default defineConfig({
         ],
       }
     : {
-        testIgnore: "live.spec.ts",
+        testIgnore: ["live.spec.ts", "*.live.spec.ts"],
         projects: [
           {
             name: "desktop",

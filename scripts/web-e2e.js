@@ -7,6 +7,7 @@
 //     .env (an empty file is mounted over it), exactly as CI does.
 //   node scripts/web-e2e.js --app console --live
 //   node scripts/web-e2e.js --app web --live   (pnpm test:web:live: mint through the API, reveal and view, on a test stack of its own)
+//   node scripts/web-e2e.js --app web --live --agents   (pnpm test:web:live:agents: My Agents with the orchestrator, real E2B, Tavily and a model)
 //     Drives the running console and fork (pnpm dev:all) through the real
 //     fork-control and test-fund flows. This runs on the host, not in the
 //     image: Docker Desktop on WSL2 does not share the distro's loopback with
@@ -20,6 +21,8 @@ import { ROOT } from "./lib/paths.js";
 export const PLAYWRIGHT_IMAGE =
   "mcr.microsoft.com/playwright:v1.63.0-noble@sha256:eff16c30e6f3f4af0a03fa4b706120d5e9b0891c344a27d64559aff5900a4a27";
 
+/** The My Agents live run's orchestrator port, beside the development one on 4200. */
+const LIVE_ORCHESTRATOR_PORT = 4252;
 /** The live suite's control API port, beside the development API on 4100. */
 const LIVE_API_PORT = 4101;
 
@@ -32,6 +35,8 @@ if (app !== "web" && app !== "console") {
 }
 const update = args.includes("--update");
 const live = args.includes("--live");
+// P1-U9: the My Agents live run, on the same kind of stack plus the orchestrator.
+const agents = args.includes("--agents");
 
 const run = (
   /** @type {string} */ cmd,
@@ -65,14 +70,30 @@ if (live && app === "web") {
   console.log(
     `starting the live test stack: fork on ${LOCAL_TEST_FORK_PORT}, API on ${LIVE_API_PORT}`,
   );
-  const stack = await startTestStack({ forkPort: LOCAL_TEST_FORK_PORT, apiPort: LIVE_API_PORT });
+  const stack = await startTestStack({
+    forkPort: LOCAL_TEST_FORK_PORT,
+    apiPort: LIVE_API_PORT,
+    ...(agents
+      ? {
+          orchestrator: {
+            port: LIVE_ORCHESTRATOR_PORT,
+            namespace: `live-web-${Math.random().toString(16).slice(2, 8)}`,
+          },
+        }
+      : {}),
+  });
   let status;
   try {
     // Asynchronous, so the stack's piped logs keep flowing while the tests run.
     const child = spawn("node", [playwrightCli, "test"], {
       stdio: "inherit",
       cwd: join(ROOT, "apps", app),
-      env: { ...process.env, LIVE_WEB: "1", TEST_DATABASE_URL: stack.databaseUrl },
+      env: {
+        ...process.env,
+        LIVE_WEB: "1",
+        LIVE_SPEC: agents ? "my-agents.live.spec.ts" : "live.spec.ts",
+        TEST_DATABASE_URL: stack.databaseUrl,
+      },
     });
     status = await new Promise((resolve) => child.on("exit", (code) => resolve(code ?? 1)));
   } finally {

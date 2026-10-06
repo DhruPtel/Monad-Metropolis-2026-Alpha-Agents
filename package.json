@@ -33,6 +33,7 @@
     "dev:litellm": "docker compose -f infra/compose.yaml --env-file .env --profile agent up -d --wait litellm",
     "test:web:e2e": "node scripts/web-e2e.js",
     "test:web:live": "node scripts/web-e2e.js --app web --live",
+    "test:web:live:agents": "node scripts/web-e2e.js --app web --live --agents",
     "test:orchestrator:live": "node services/orchestrator/src/live.ts",
     "dev:console": "node scripts/console.js dev",
     "dev:all": "node scripts/dev-all.js",
