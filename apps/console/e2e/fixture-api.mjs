@@ -1,7 +1,8 @@
-// A fixed control API for the console's screenshot tests (P1-U4): the agents
-// panel renders on the server, so it is served this instead of the real API,
-// and the capture is the same on every run. Two agents: a revealed bee and an
-// unrevealed agent.
+// A fixed control API and orchestrator for the console's screenshot tests
+// (P1-U4, P1-U5): the agents panel renders on the server, so it is served this
+// instead of the real services, and the capture is the same on every run. Two
+// agents: a revealed, provisioned bee and an unrevealed agent. The no-op task
+// for agent 1 is queued, then reads as succeeded with a fixed result.
 import { createServer } from "node:http";
 import process from "node:process";
 
@@ -38,8 +39,45 @@ const body = JSON.stringify({
   ],
 });
 
+const runtimes = JSON.stringify({
+  devActions: true,
+  runtimes: [{ agentId: "1", status: "ready", latestTask: null }],
+});
+const task = JSON.stringify({
+  taskId: "fixture-task",
+  agentId: "1",
+  kind: "noop",
+  status: "succeeded",
+  error: null,
+  result: {
+    kind: "noop",
+    agentId: 1,
+    tier: "pro",
+    slots: 8,
+    playbook: "tier-pro@0",
+    replied: "NOOP_OK",
+    modelCalls: 2,
+    modelCallsOk: 2,
+    sandboxStopped: true,
+    timingsMs: { sandbox: 824, hermesBoot: 13667, run: 10159, total: 32427 },
+    configHash: "92f01aabdc6097af43a687ebb497b03b1dba8cfbbb74e14cea6d2ceedf5a1eca",
+  },
+});
+
+const routes = {
+  "GET /health": [200, body],
+  "GET /v1/agents": [200, body],
+  "GET /v1/runtimes": [200, runtimes],
+  "POST /v1/agents/1/tasks/noop": [202, JSON.stringify({ taskId: "fixture-task" })],
+  "GET /v1/tasks/fixture-task": [200, task],
+  "POST /v1/agents/1/reset": [202, JSON.stringify({ queued: true })],
+};
+
 createServer((req, res) => {
-  const ok = req.url === "/v1/agents" || req.url === "/health";
-  res.writeHead(ok ? 200 : 404, { "content-type": "application/json" });
-  res.end(ok ? body : JSON.stringify({ error: "not_found" }));
+  const [status, reply] = routes[`${req.method} ${req.url}`] ?? [
+    404,
+    JSON.stringify({ error: "not_found" }),
+  ];
+  res.writeHead(status, { "content-type": "application/json" });
+  res.end(reply);
 }).listen(PORT, "127.0.0.1");

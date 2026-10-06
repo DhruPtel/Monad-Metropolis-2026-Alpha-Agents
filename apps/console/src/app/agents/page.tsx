@@ -9,6 +9,7 @@ import {
   CardHeader,
   CardTitle,
   EmptyState,
+  RuntimeStatusBadge,
   Table,
   TableBody,
   TableCell,
@@ -19,6 +20,7 @@ import {
 } from "@alpha-agents/ui";
 import { Bot, PlugZap } from "lucide-react";
 import { PanelHeader } from "@/components/panel-header";
+import { AgentActions, AgentTasks } from "./agent-tasks";
 import { type AgentList, PLANNED_AGENT_ACTIONS, agentsSource } from "./extension";
 
 // Read from the control API on every visit, never at build time.
@@ -29,7 +31,7 @@ const TIER_NAME = { base: "Base", medium: "Medium", pro: "Pro" } as const;
 
 async function load(): Promise<AgentList | null> {
   try {
-    return await agentsSource.listAgents();
+    return await agentsSource().listAgents();
   } catch {
     return null;
   }
@@ -41,7 +43,7 @@ export default async function AgentsPage() {
     <div className="flex flex-col gap-6">
       <PanelHeader
         title="Agents"
-        description="Every agent on the local stack from the control API's index, with its state, spend and last action, and controls to reset it or trigger a task."
+        description="Every agent on the local stack from the control API's index, with its runtime from the orchestrator, its state, spend and last action, and controls to run the no-op task or reset it."
       />
       {list === null ? (
         <EmptyState
@@ -56,58 +58,82 @@ export default async function AgentsPage() {
           description="Mint one from the web app's mint page; it appears here once the indexer sees it."
         />
       ) : (
-        <div className="flex flex-col gap-3" data-testid="agents-list">
-          <p className="text-sm text-foreground-muted">
-            <span className="numeric text-foreground">{list.agents.length}</span> agents, indexed to
-            block <span className="numeric text-foreground">{list.watermark?.block ?? "none"}</span>
-            .
-          </p>
-          <Table label="Agents">
-            <TableHeader>
-              <TableRow>
-                <TableHead scope="col">Agent</TableHead>
-                <TableHead scope="col">Tier</TableHead>
-                <TableHead scope="col">Owner</TableHead>
-                <TableHead scope="col">State</TableHead>
-                <TableHead scope="col">Spend, 24h</TableHead>
-                <TableHead scope="col">Last action</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {list.agents.map((a) => (
-                <TableRow key={a.agentId.toString()}>
-                  <TableCell>
-                    <span className="flex flex-col">
-                      <span className="font-medium">{a.name}</span>
-                      <span className="text-xs text-foreground-muted">
-                        {a.speciesName ?? "Waiting for reveal"}
-                      </span>
-                    </span>
-                  </TableCell>
-                  <TableCell>
-                    {a.tier ? (
-                      <Tag tone={TIER_TONE[a.tier]}>{TIER_NAME[a.tier]}</Tag>
-                    ) : (
-                      <span className="text-xs text-foreground-muted">Unrevealed</span>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <AddressDisplay address={a.owner} label={`Owner of ${a.name}`} />
-                  </TableCell>
-                  <TableCell>
-                    <Badge>{a.state}</Badge>
-                  </TableCell>
-                  <TableCell>
-                    <AmountDisplay value={a.spendUsdcE6} decimals={6} symbol="USDC" />
-                  </TableCell>
-                  <TableCell className="text-xs text-foreground-muted">
-                    {a.lastAction ?? "None yet"}
-                  </TableCell>
+        <AgentTasks>
+          <div className="flex flex-col gap-3" data-testid="agents-list">
+            <p className="text-sm text-foreground-muted">
+              <span className="numeric text-foreground">{list.agents.length}</span> agents, indexed
+              to block{" "}
+              <span className="numeric text-foreground">{list.watermark?.block ?? "none"}</span>.{" "}
+              {list.orchestrator
+                ? list.devActions
+                  ? null
+                  : "The orchestrator offers no actions outside the local stack."
+                : "The orchestrator is not running: start it with pnpm dev:orchestrator to see runtimes and run tasks."}
+            </p>
+            <Table label="Agents">
+              <TableHeader>
+                <TableRow>
+                  <TableHead scope="col">Agent</TableHead>
+                  <TableHead scope="col">Tier</TableHead>
+                  <TableHead scope="col">Owner</TableHead>
+                  <TableHead scope="col">Runtime</TableHead>
+                  <TableHead scope="col">State</TableHead>
+                  <TableHead scope="col">Spend, 24h</TableHead>
+                  <TableHead scope="col">Last action</TableHead>
+                  <TableHead scope="col">Actions</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
+              </TableHeader>
+              <TableBody>
+                {list.agents.map((a) => (
+                  <TableRow key={a.agentId.toString()}>
+                    <TableCell>
+                      <span className="flex flex-col">
+                        <span className="font-medium">{a.name}</span>
+                        <span className="text-xs text-foreground-muted">
+                          {a.speciesName ?? "Waiting for reveal"}
+                        </span>
+                      </span>
+                    </TableCell>
+                    <TableCell>
+                      {a.tier ? (
+                        <Tag tone={TIER_TONE[a.tier]}>{TIER_NAME[a.tier]}</Tag>
+                      ) : (
+                        <span className="text-xs text-foreground-muted">Unrevealed</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <AddressDisplay address={a.owner} label={`Owner of ${a.name}`} />
+                    </TableCell>
+                    <TableCell>
+                      {list.orchestrator ? (
+                        <RuntimeStatusBadge status={a.runtime} />
+                      ) : (
+                        <span className="text-xs text-foreground-muted">Unknown</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <Badge>{a.state}</Badge>
+                    </TableCell>
+                    <TableCell>
+                      <AmountDisplay value={a.spendUsdcE6} decimals={6} symbol="USDC" />
+                    </TableCell>
+                    <TableCell className="text-xs text-foreground-muted">
+                      {a.lastAction ?? "None yet"}
+                    </TableCell>
+                    <TableCell>
+                      <AgentActions
+                        agentId={a.agentId.toString()}
+                        name={a.name}
+                        runtime={a.runtime}
+                        enabled={list.orchestrator && list.devActions}
+                      />
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </AgentTasks>
       )}
       <Card>
         <CardHeader>

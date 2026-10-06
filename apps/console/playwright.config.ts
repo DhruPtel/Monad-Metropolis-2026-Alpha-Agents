@@ -49,7 +49,7 @@ export default defineConfig({
         ],
         webServer: [
           {
-            // The agents panel's data (fixture-api.mjs): a fixed answer, not the real API.
+            // The agents panel's data (fixture-api.mjs): fixed answers, not the real API and orchestrator.
             command: `node e2e/fixture-api.mjs`,
             url: `http://127.0.0.1:${FIXTURE_API_PORT}/health`,
             env: { FIXTURE_API_PORT: String(FIXTURE_API_PORT) },
@@ -59,7 +59,10 @@ export default defineConfig({
           {
             command: `node node_modules/next/dist/bin/next start --hostname 127.0.0.1 --port ${PORT}`,
             url: `http://127.0.0.1:${PORT}/addresses`,
-            env: { CONTROL_API_URL: `http://127.0.0.1:${FIXTURE_API_PORT}` },
+            env: {
+              CONTROL_API_URL: `http://127.0.0.1:${FIXTURE_API_PORT}`,
+              ORCHESTRATOR_URL: `http://127.0.0.1:${FIXTURE_API_PORT}`,
+            },
             reuseExistingServer: false,
             timeout: 60_000,
           },

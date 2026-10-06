@@ -58,6 +58,52 @@ test("fork actions refuse when no anvil fork answers", async ({ page }) => {
   await expect(page.getByTestId("action-error")).toContainText("is not the local anvil fork");
 });
 
+test.describe("agents panel controls (P1-U5)", () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto("/agents");
+    await page.evaluate(() => document.fonts.ready);
+  });
+
+  const row = (page: import("@playwright/test").Page, name: RegExp) =>
+    page.getByRole("row").filter({ has: page.getByText(name) });
+
+  test("shows each agent's runtime and offers the no-op task only when provisioned", async ({
+    page,
+  }) => {
+    const bee = row(page, /^Alpha Agent #1$/);
+    const unrevealed = row(page, /^Alpha Agent #2$/);
+    await expect(bee.getByText("Provisioned")).toBeVisible();
+    await expect(unrevealed.getByText("Not provisioned")).toBeVisible();
+    await expect(bee.getByRole("button", { name: "Run no-op task" })).toBeEnabled();
+    await expect(unrevealed.getByRole("button", { name: "Run no-op task" })).toBeDisabled();
+    await expect(unrevealed.getByRole("button", { name: "Reset" })).toBeDisabled();
+  });
+
+  test("runs the no-op task and shows its structured result", async ({ page }) => {
+    await row(page, /^Alpha Agent #1$/)
+      .getByRole("button", { name: "Run no-op task" })
+      .click();
+    const result = page.getByTestId("task-result");
+    await expect(result).toHaveAttribute("data-task-status", "queued");
+    await expect(result).toHaveAttribute("data-task-status", "succeeded", { timeout: 10_000 });
+    await expect(result).toContainText("NOOP_OK");
+    await expect(result).toContainText("Pro, 8 slots, tier-pro@0");
+    await expect(result).toContainText("2 of 2 succeeded");
+    await page.mouse.move(0, 0);
+    await expect(result).toHaveScreenshot("agents-task-result.png");
+  });
+
+  test("resets an agent after a confirmation", async ({ page }) => {
+    await row(page, /^Alpha Agent #1$/)
+      .getByRole("button", { name: "Reset" })
+      .click();
+    const dialog = page.getByRole("dialog", { name: "Reset Alpha Agent #1?" });
+    await expect(dialog).toContainText("deletes its LiteLLM key");
+    await dialog.getByRole("button", { name: "Reset" }).click();
+    await expect(page.getByText("Alpha Agent #1 is being reset")).toBeVisible();
+  });
+});
+
 test("loads every font from its own origin", async ({ page }) => {
   const fonts: string[] = [];
   page.on("request", (request) => {
