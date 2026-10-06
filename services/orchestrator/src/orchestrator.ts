@@ -4,9 +4,10 @@ import { type FundingKeys, ensureFundingAddresses } from "./credits/funding.ts";
 import { Ledger } from "./credits/ledger.ts";
 import { type RefundChain, RefundService } from "./credits/refunds.ts";
 import { CreditService } from "./credits/service.ts";
+import type { WebProvider } from "@alpha-agents/data-tools";
 import { type Gate, startGate } from "./gate.ts";
+import { gateResolver } from "./gate-resolver.ts";
 import type { GatewayAdmin } from "./gateway-admin.ts";
-import { TIER_IDS } from "@alpha-agents/domain";
 import { RevealKeeper } from "./keeper.ts";
 import { LeaseManager } from "./leases.ts";
 import { runNoopTask } from "./noop.ts";
@@ -17,6 +18,7 @@ import { HERMES_TEMPLATE, type SandboxProvider } from "./sandbox.ts";
 import { type Log, type Redactor, errorText, randomToken } from "./secrets.ts";
 import type { AgentRef, Store } from "./store.ts";
 import { startupSweep, type SweepReport } from "./sweep.ts";
+import { type ToolServers, startToolServers } from "./tools/servers.ts";
 import { type Tunnel, startTunnel, tunnelPidFile } from "./tunnel.ts";
 
 /**
@@ -63,6 +65,11 @@ export interface OrchestratorOptions {
   /** P1-U6 credits; null runs the orchestrator without them (P1-U5 tests). */
   readonly credits: CreditsOptions | null;
   readonly creditsMs?: number;
+  /**
+   * P1-U7: the web provider behind the data tools (Tavily), or null when it is not
+   * configured. The tool servers run whenever credits do, since every paid call is metered.
+   */
+  readonly web?: WebProvider | null;
 }
 
 export class Orchestrator {
@@ -79,6 +86,7 @@ export class Orchestrator {
   private readonly controller = new AbortController();
   private readonly loops: Promise<void>[] = [];
   private gate: Gate | null = null;
+  private tools: ToolServers | null = null;
   private tunnel: Promise<Tunnel> | null = null;
 
   constructor(options: OrchestratorOptions) {
@@ -150,25 +158,22 @@ export class Orchestrator {
       redactor: this.o.redactor,
       log: this.o.log,
     });
+    if (this.credits && this.o.credits)
+      this.tools = await startToolServers({
+        store: this.o.store,
+        ledger: this.ledger,
+        credits: this.credits,
+        environment: this.o.credits.environment,
+        provider: this.o.web ?? null,
+        log: this.o.log,
+      });
     this.gate = await startGate({
       litellmUrl: this.o.litellmUrl,
       probeToken: this.probeToken,
-      resolve: async (hash) => {
-        const lease = await this.o.store.leaseByTokenHash(hash);
-        if (!lease) return null;
-        const runtime = await this.o.store.runtime(lease);
-        const virtualKey = runtime ? this.provisioner.virtualKey(runtime) : null;
-        if (!runtime || !virtualKey) return null;
-        const creditsExhausted = this.credits
-          ? (await this.credits.creditsOf(lease.agentId)).restricted
-          : false;
-        return {
-          lease,
-          virtualKey,
-          tier: TIER_IDS[runtime.tier - 1] ?? "unknown",
-          creditsExhausted,
-        };
-      },
+      resolve: gateResolver(this.o.store, this.provisioner, this.credits),
+      ...(this.tools
+        ? { tools: { data: this.tools.data.url, platform: this.tools.platform.url } }
+        : {}),
     });
     this.queue.start((job) => this.handle(job));
     this.every(this.o.reconcileMs ?? 1_000, "reconcile", async () => {
@@ -304,6 +309,7 @@ export class Orchestrator {
         await this.leases.release(lease.leaseId, "orchestrator stopped");
     if (this.tunnel) await (await this.tunnel.catch(() => null))?.close();
     await this.gate?.close();
+    await this.tools?.close();
     this.o.log(`stopped ${this.runTag}`);
   }
 

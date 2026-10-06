@@ -19,6 +19,10 @@ import type { Lease } from "./store.ts";
  * leaves this process for E2B or the sandbox. Every `x-alpha-*` and
  * authorization header from the sandbox is dropped, so a sandbox cannot choose
  * whose key is used. The log holds method, path, status and duration only.
+ *
+ * P1-U7 (D-213): `/mcp/data` and `/mcp/platform` go to the tool servers, with
+ * the lease's gate token as the bearer. Each tool server resolves the agent
+ * from that token itself, so the gate never vouches for an identity.
  */
 export const GATE_HEADER = "x-alpha-gate";
 
@@ -66,6 +70,8 @@ export interface GateOptions {
   readonly resolve: (tokenHash: string) => Promise<GateCredentials | null>;
   /** A per-process token that may only call /healthz, for the host's own tunnel check. */
   readonly probeToken: string;
+  /** The tool servers' MCP endpoints (D-213), or none before they start. */
+  readonly tools?: { readonly data: string; readonly platform: string };
 }
 
 export interface Gate {
@@ -83,11 +89,8 @@ const same = (a: string, b: string) => {
   return x.length === y.length && timingSafeEqual(x, y);
 };
 
-function forwardHeaders(
-  headers: IncomingHttpHeaders,
-  target: URL,
-  creds: GateCredentials,
-): Record<string, string | string[]> {
+/** The sandbox's headers minus anything that could carry or claim an identity. */
+function sandboxHeaders(headers: IncomingHttpHeaders): Record<string, string | string[]> {
   const out: Record<string, string | string[]> = {};
   for (const [name, value] of Object.entries(headers)) {
     if (value === undefined) continue;
@@ -96,6 +99,15 @@ function forwardHeaders(
     if (name === "connection" || name === "keep-alive" || name === "transfer-encoding") continue;
     out[name] = value;
   }
+  return out;
+}
+
+function forwardHeaders(
+  headers: IncomingHttpHeaders,
+  target: URL,
+  creds: GateCredentials,
+): Record<string, string | string[]> {
+  const out = sandboxHeaders(headers);
   out.host = target.host;
   out.authorization = `Bearer ${creds.virtualKey}`;
   out["x-agent-id"] = `${creds.lease.chainId}-${creds.lease.agentId}`;
@@ -142,7 +154,38 @@ export async function startGate(options: GateOptions, port = 0): Promise<Gate> {
       if (!creds) return reply(401, { error: "unauthorized" });
       leaseId = creds.lease.leaseId;
       if (path === "/healthz") return reply(200, { ok: true });
-      // Tool servers join here with P1-U7 (/mcp); until then the gate serves the model only.
+      const toolServer =
+        path === "/mcp/data"
+          ? options.tools?.data
+          : path === "/mcp/platform"
+            ? options.tools?.platform
+            : undefined;
+      if (toolServer) {
+        const target = new URL(toolServer);
+        const proxied = httpRequest(
+          target,
+          {
+            method: req.method,
+            headers: {
+              ...sandboxHeaders(req.headers),
+              host: target.host,
+              authorization: `Bearer ${token}`,
+            },
+          },
+          (up) => {
+            const status = up.statusCode ?? 502;
+            res.writeHead(status, up.headers);
+            up.on("end", () => record(status));
+            up.pipe(res);
+          },
+        );
+        proxied.on("error", () => {
+          if (!res.headersSent) reply(502, { error: "tool server unavailable" });
+          else res.end();
+        });
+        req.pipe(proxied);
+        return;
+      }
       if (!path.startsWith("/v1/")) return reply(404, { error: "not found" });
       if (creds.creditsExhausted) return reply(402, CREDITS_EXHAUSTED_BODY);
 
