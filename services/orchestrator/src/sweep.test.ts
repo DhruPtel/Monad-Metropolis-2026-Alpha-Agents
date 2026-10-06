@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { type TestDatabase, createTestDatabase, databaseAvailable } from "@alpha-agents/db/testing";
@@ -103,6 +103,12 @@ describe.skipIf(!dbUp)("the startup sweep after a hard kill (L-19)", { timeout: 
     const tunnel = spawn("bash", ["-c", "exec -a cloudflared sleep 120"], { stdio: "ignore" });
     const pidFile = tunnelPidFile(dir, "unit");
     writeFileSync(pidFile, String(tunnel.pid));
+    // Until bash has exec'd, /proc shows another command line, which the sweep rightly leaves alone.
+    for (let i = 0; i < 100; i += 1) {
+      const cmdline = readFileSync(`/proc/${must(tunnel.pid)}/cmdline`, "utf8");
+      if (cmdline.startsWith("cloudflared")) break;
+      await new Promise((r) => setTimeout(r, 20));
+    }
 
     const report = await startupSweep({
       store,
