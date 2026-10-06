@@ -143,8 +143,9 @@ export function AgentPortal({ environment }: { environment: EnvironmentId }) {
       <Gate title={`Agent #${selected.id.toString()} is minted and waiting for its reveal.`}>
         {environment === "local" ? (
           <p className="text-xs text-foreground-muted">
-            On the local fork, reveal it with{" "}
-            <span className="numeric">pnpm agent-nft:local reveal</span>.
+            On the local fork, the reveal keeper in{" "}
+            <span className="numeric whitespace-nowrap">pnpm dev:orchestrator</span> reveals it
+            within about 15 seconds.
           </p>
         ) : null}
         {progress.state !== "idle" ? mintButton : null}

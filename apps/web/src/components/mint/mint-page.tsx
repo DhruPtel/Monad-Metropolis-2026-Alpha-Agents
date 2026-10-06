@@ -217,8 +217,9 @@ export function MintPage({ environment }: { environment: EnvironmentId }) {
             revealNote={
               environment === "local" ? (
                 <>
-                  On the local fork, reveal it with{" "}
-                  <span className="numeric">pnpm agent-nft:local reveal</span>.
+                  On the local fork, the reveal keeper in{" "}
+                  <span className="numeric whitespace-nowrap">pnpm dev:orchestrator</span> reveals
+                  it within about 15 seconds.
                 </>
               ) : undefined
             }
