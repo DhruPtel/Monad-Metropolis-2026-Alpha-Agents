@@ -254,7 +254,13 @@ The page asks the control API for an owner session per agent and reads `GET /v1/
 
 To try it: `pnpm dev:all`, open http://localhost:3000/agents, log in with the wallet that owns an agent (mint one first if needed), send test USDC to the funding address shown (or press "Fund 5 USDC" in the dev console), then run a Scan and read its entry.
 
-Fork starts ask the upstream for the pinned block first, retry up to six times with backoff, and alternate with `MONAD_RPC_URL_SECONDARY` when it is set (D-220), because the main provider sometimes answers that block as missing (L-87).
+Forks reach the upstream through a retrying proxy (`packages/devenv`, L-91): a node that answers the pinned block as missing, or "not found", is asked again with backoff, alternating with `MONAD_RPC_URL_SECONDARY` when it is set (D-220). Fork starts also check the pinned block first and retry up to six times.
+
+### The Bee on the local fork (D-221)
+
+On the local fork the reveal keeper plays Pyth Entropy, so it can choose the number it delivers. `LOCAL_FIRST_REVEAL_SPECIES` (default `bee`, or `random`) makes agent #1 on a fresh fork reveal as that species, and the dev console's "Reveal next as" card steers the next reveal of any unrevealed agent, once. Both exist only with `APP_ENV=local`: any other environment refuses to start with a species set, and testnet and mainnet reveals always take Pyth Entropy's number.
+
+To get the Bee on a fresh fork: `pnpm dev:down` (this discards the fork's state), `pnpm dev:all`, `pnpm deploy:agent-nft`, then mint at http://localhost:3000/mint; agent #1 reveals as the Bee within about 15 seconds. On a fork that already has agents, choose "Bee" in the console's "Reveal next as" before the next mint.
 
 ## Dev console
 

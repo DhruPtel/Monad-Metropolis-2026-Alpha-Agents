@@ -725,3 +725,31 @@ What happened: In the `--update` run of the web suite, the mobile /design scan r
 Cause: Not established. The tab list scrolls sideways when its labels are wider than 380px, and axe flags a scrolling region whose focusable children it does not count; when that happens depends on layout timing.
 Fix: None. The LOGS entry suggests making the scrolling tab list focusable itself (tabIndex 0 with a label), which satisfies the rule whatever the timing.
 Lesson: Record an accessibility finding that does not reproduce with its exact selector, rather than rerunning past it, so its cause can be pinned when it returns.
+
+## L-91: Retries around anvil could not fix a fork whose upstream lies, and a proxy in the caller's process stalled
+Unit: P1 tuning
+What happened: After D-220's retries, the keeper's fork test still failed to start its fork: six attempts, three passing the pinned-block check and then failing inside anvil with "Resource not found". A probe showed why: requests for the pinned block with its transactions, which anvil sends, came back null half the time (the hash-only form a sixth of the time). A retrying proxy fixed the start, but every AgentNFT deploy then timed out with "MPP HTTP request ... operation timed out".
+Cause: Some nodes behind the load-balanced upstream lack the pinned block and answer null, and anvil takes one answer as final, so a whole-start retry needs every one of anvil's requests to land on a good node. The proxy then ran in the test's own process, and the deploy helper runs forge through spawnSync, which blocks that process's event loop, so the proxy could not answer anvil while forge waited on anvil. Two smaller slips in the proxy were found on the way: Node's default 5-second keep-alive closing sockets anvil reuses, and retrying null transaction receipts, which anvil asks about for its own local transactions.
+Fix: Forks reach the upstream through a retrying JSON-RPC proxy (null block lookups, not-found errors, rate limits, 5xx and dropped connections, with backoff, alternating with the secondary), run as a child process for test forks and in-process in the playtest fork's runner, with a long keep-alive, retries limited to block lookups, and anvil's own timeout raised above the proxy's budget (562dc23). The deploy then took 8 seconds, and the keeper's fork test passed.
+Lesson: Retry at the layer that sees the bad answer, not around the program that receives it; and never host a server in a process that may block in a synchronous child call.
+
+## L-92: A shared package's import-time path broke the console's build
+Unit: P1 tuning
+What happened: The console's `next build` failed collecting /fork with "The path argument must be of type string or an instance of URL. Received an instance of URL", pointing at the upstream proxy's `fileURLToPath(new URL(..., import.meta.url))`.
+Cause: `packages/devenv` is bundled into the console, where `import.meta.url` is not a file URL, and the call ran at import, so any page that imported the package failed. Node-only tests and typecheck could not see it.
+Fix: The path is resolved inside the function that spawns the proxy (2d14053); the console builds again.
+Lesson: Code in a package that a bundler also consumes does nothing environment-specific at import; and a change to a shared package is not done until every app that imports it has built.
+
+## L-93: L-90 resolved: Radix owns the tab list's tabindex
+Unit: P1 tuning
+What happened: L-90's intermittent "scrollable-region-focusable" on the scrolling tab list. A probe showed Radix's roving-focus root sets the list's own tabindex, and sets it to -1 while no tab has registered or while focus tabs back out; with every tab at -1 too, a scan at that moment sees an unfocusable scroller. A first fix put the list in a focusable wrapper but left the list's border on the list, so the wrapper clipped the frame's right edge when the tabs overflowed, which the address book capture showed at 380px.
+Cause: Two owners of one attribute: the scroll container's focusability and Radix's roving tabindex.
+Fix: Tab lists scroll inside a focusable, labelled wrapper that also carries the frame; the list keeps Radix's tabindex (f809788). Every tab capture is pixel-identical to before, and the /design scans passed at both widths.
+Lesson: Do not set an attribute a library manages; wrap the element, and keep visual framing on the element that clips.
+
+## L-94: A live check compared a truncated amount within a tolerance truncation can exceed
+Unit: P1 tuning
+What happened: The My Agents live run failed its refund check: the page said 0.9299 USDC, the chain showed 0.92997, and `toBeCloseTo(..., 4)` allows only 0.00005.
+Cause: The page truncates to four decimals, never rounding up, so the difference can approach 0.0001; the test assumed rounding.
+Fix: The check compares the chain amount truncated to four decimals with the page's figure exactly (36d53d7); the next run passed.
+Lesson: Check a displayed amount with the display's own rule (truncation here), not with a tolerance.
