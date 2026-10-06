@@ -6,7 +6,7 @@ import type { ColumnType, Generated } from "kysely";
  *   carries the block number and hash it came from, so a reorg can be rolled
  *   back exactly (P1-U4, D-197).
  * - `platform`: state the platform owns, such as the mint allowlist and the
- *   claims it issued.
+ *   claims it issued, and the orchestrator's runtimes, leases and tasks (P1-U5).
  *
  * Addresses and hashes are stored lowercase; the API checksums addresses on the
  * way out. Block numbers, agent IDs and epochs are int8, read back as JS
@@ -108,6 +108,65 @@ export interface MintClaimTable {
   issued_at: Timestamp;
 }
 
+export type RuntimeStatus =
+  "provisioning" | "ready" | "deprovisioning" | "deprovisioned" | "failed";
+
+/** One provisioned agent (P1-U5, D-202). */
+export interface AgentRuntimeTable {
+  chain_id: number;
+  agent_id: number;
+  /** Bumped by a reset, so a reprovisioned agent gets a new key alias. */
+  generation: number;
+  status: RuntimeStatus;
+  tier: number;
+  species: number;
+  /** The rendered, validated Hermes configuration document (no secrets). */
+  config: ColumnType<Record<string, unknown>, string, string>;
+  config_hash: string;
+  key_alias: string;
+  /** The LiteLLM virtual key, AES-256-GCM encrypted; null once deleted (D-203). */
+  key_ciphertext: string | null;
+  /** USD, numeric as a string. */
+  budget_usd: ColumnType<string, string, string>;
+  last_error: string | null;
+  created_at: Timestamp;
+  updated_at: Timestamp;
+  provisioned_at: Timestamp | null;
+  deprovisioned_at: Timestamp | null;
+}
+
+/** A sandbox lease: at most one active per agent (partial unique index). */
+export interface SandboxLeaseTable {
+  lease_id: string;
+  chain_id: number;
+  agent_id: number;
+  run_tag: string;
+  namespace: string;
+  purpose: string;
+  sandbox_id: string | null;
+  /** sha256 hex of the gate token; the token is never stored. */
+  gate_token_hash: string;
+  status: "active" | "ended";
+  started_at: Timestamp;
+  expires_at: Timestamp;
+  ended_at: Timestamp | null;
+  end_reason: string | null;
+}
+
+export interface AgentTaskTable {
+  task_id: string;
+  chain_id: number;
+  agent_id: number;
+  kind: "noop";
+  status: "queued" | "running" | "succeeded" | "failed";
+  lease_id: string | null;
+  result: ColumnType<Record<string, unknown> | null, string | null, string | null>;
+  error: string | null;
+  created_at: Timestamp;
+  started_at: Timestamp | null;
+  finished_at: Timestamp | null;
+}
+
 export interface Database {
   "indexer.watermarks": WatermarkTable;
   "indexer.indexed_blocks": IndexedBlockTable;
@@ -117,4 +176,7 @@ export interface Database {
   "indexer.incidents": IncidentTable;
   "platform.mint_allowlist": MintAllowlistTable;
   "platform.mint_claims": MintClaimTable;
+  "platform.agent_runtimes": AgentRuntimeTable;
+  "platform.sandbox_leases": SandboxLeaseTable;
+  "platform.agent_tasks": AgentTaskTable;
 }

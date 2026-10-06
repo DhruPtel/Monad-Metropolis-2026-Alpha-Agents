@@ -2,6 +2,7 @@ import { Kysely, PostgresDialect, sql } from "kysely";
 import { type Migration, Migrator } from "kysely/migration";
 import pg from "pg";
 import * as initial from "./migrations/0001_initial.ts";
+import * as orchestrator from "./migrations/0002_orchestrator.ts";
 import type { Database } from "./schema.ts";
 
 export type * from "./schema.ts";
@@ -11,6 +12,7 @@ export type Db = Kysely<Database>;
 /** Every migration, in order. A new one is added here and never edited once committed. */
 export const MIGRATIONS: Readonly<Record<string, Migration>> = {
   "0001_initial": initial,
+  "0002_orchestrator": orchestrator,
 };
 
 const INT8 = 20;

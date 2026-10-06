@@ -25,8 +25,11 @@ describe.skipIf(!available)("database migrations (needs pnpm dev:up)", () => {
       "indexer.indexed_blocks",
       "indexer.usdc_transfers",
       "indexer.watermarks",
+      "platform.agent_runtimes",
+      "platform.agent_tasks",
       "platform.mint_allowlist",
       "platform.mint_claims",
+      "platform.sandbox_leases",
     ]);
   });
 
@@ -54,6 +57,26 @@ describe.skipIf(!available)("database migrations (needs pnpm dev:up)", () => {
     await expect(
       t.db.insertInto("platform.mint_allowlist").values({ wallet: "0xABC", note: null }).execute(),
     ).rejects.toThrow();
+  });
+
+  it("allows one active sandbox lease per agent, and any number of ended ones", async () => {
+    const lease = (id: string, status: "active" | "ended") => ({
+      lease_id: id,
+      chain_id: 1,
+      agent_id: 7,
+      run_tag: "r",
+      namespace: "test",
+      purpose: "noop",
+      gate_token_hash: id,
+      status,
+      expires_at: new Date(Date.now() + 60_000),
+    });
+    const insert = (id: string, status: "active" | "ended") =>
+      t.db.insertInto("platform.sandbox_leases").values(lease(id, status)).execute();
+    await insert("a", "active");
+    await expect(insert("b", "active")).rejects.toThrow(/sandbox_leases_one_active/);
+    await insert("c", "ended");
+    await insert("d", "ended");
   });
 
   it("reset drops everything and migrates again", async () => {
