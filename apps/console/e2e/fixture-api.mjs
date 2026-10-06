@@ -3,7 +3,9 @@
 // instead of the real services, and the capture is the same on every run. Two
 // agents: a revealed, provisioned bee and an unrevealed agent. The no-op task
 // for agent 1 is queued, then reads as succeeded with a fixed result; agent 1
-// has credits and its refund is sent at once (P1-U6).
+// has credits and its refund is sent at once (P1-U6). P1-U7: agent 1 has two
+// activity entries and five tool calls (answered, refused and failed), and its
+// Scan reads as succeeded with a fixed result.
 import { createServer } from "node:http";
 import process from "node:process";
 
@@ -105,6 +107,87 @@ const refund = JSON.stringify({
   reason: null,
 });
 
+// P1-U7: activity entries (control API) and tool calls (orchestrator) for agent 1.
+const activity = JSON.stringify({
+  agentId: "1",
+  entries: [
+    {
+      entryId: "act-2",
+      kind: "scan",
+      text: "Agent #1 searched for Monad DEX volume and network upgrades, read 1 page and flagged WMON at 55% confidence. Tools cost 0.022 USDC.",
+      renderedBy: "narrator",
+      at: "2026-10-06T16:42:00.000Z",
+    },
+    {
+      entryId: "act-1",
+      kind: "scan",
+      text: "Agent #1's Scan did not finish (deadline). It ran 1 web search and read 0 pages. Tools cost 0.01 USDC; 4.9944 USDC of credits left.",
+      renderedBy: "template",
+      at: "2026-10-06T10:42:00.000Z",
+    },
+  ],
+});
+const call = (callId, tool, target, status, errorCode, chargeUsdcE6, minute) => ({
+  callId,
+  leaseId: "fixture-lease",
+  server: tool === "complete_stage" || tool === "write_thesis" ? "platform" : "data",
+  tool,
+  target,
+  status,
+  errorCode,
+  chargeUsdcE6,
+  reversed: status === "failed",
+  cacheHit: false,
+  results: null,
+  startedAt: `2026-10-06T16:${minute}:00.000Z`,
+});
+const toolCalls = JSON.stringify({
+  agentId: "1",
+  calls: [
+    call("c6", "complete_stage", "SCAN", "succeeded", null, "0", "41"),
+    call("c5", "write_thesis", "SCAN", "succeeded", null, "0", "41"),
+    call("c4", "read_url", "169.254.169.254", "refused", "PRIVATE_ADDRESS", "0", "40"),
+    call("c3", "read_url", "news.example", "succeeded", null, "2000", "40"),
+    call(
+      "c2",
+      "web_search",
+      "monad network upgrade",
+      "failed",
+      "UPSTREAM_UNAVAILABLE",
+      "10000",
+      "39",
+    ),
+    call("c1", "web_search", "monad dex volume", "succeeded", null, "10000", "39"),
+  ],
+});
+const scanTask = JSON.stringify({
+  taskId: "fixture-scan",
+  agentId: "1",
+  kind: "scan",
+  status: "succeeded",
+  error: null,
+  result: {
+    kind: "scan",
+    stopReason: "COMPLETED",
+    stage: {
+      stageId: "stage-fixture",
+      outcome: "DONE",
+      schemaValid: true,
+      candidates: [{ asset: "WMON", thesisCode: "DEX_VOLUME_UP", confidenceBps: 5500 }],
+    },
+    toolCalls: [
+      { tool: "web_search", status: "succeeded", errorCode: null, chargeUsdcE6: "10000" },
+      { tool: "read_url", status: "succeeded", errorCode: null, chargeUsdcE6: "2000" },
+      { tool: "write_thesis", status: "succeeded", errorCode: null, chargeUsdcE6: "0" },
+      { tool: "complete_stage", status: "succeeded", errorCode: null, chargeUsdcE6: "0" },
+    ],
+    toolChargeUsdcE6: "12000",
+    modelCalls: 7,
+    sandboxStopped: true,
+    timingsMs: { sandbox: 912, hermesBoot: 14210, run: 38150, total: 61420 },
+  },
+});
+
 const routes = {
   "GET /health": [200, body],
   "GET /v1/agents": [200, body],
@@ -115,6 +198,10 @@ const routes = {
   "GET /v1/credits": [200, credits],
   "POST /v1/agents/1/refund": [202, JSON.stringify({ refundId: "fixture-refund" })],
   "GET /v1/refunds/fixture-refund": [200, refund],
+  "GET /v1/agents/1/activity": [200, activity],
+  "GET /v1/agents/1/tool-calls": [200, toolCalls],
+  "POST /v1/agents/1/tasks/scan": [202, JSON.stringify({ taskId: "fixture-scan" })],
+  "GET /v1/tasks/fixture-scan": [200, scanTask],
 };
 
 createServer((req, res) => {

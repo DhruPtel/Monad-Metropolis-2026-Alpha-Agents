@@ -1,4 +1,5 @@
 import {
+  ActivityFeed,
   AddressDisplay,
   AmountDisplay,
   Badge,
@@ -10,6 +11,7 @@ import {
   CardTitle,
   EmptyState,
   RuntimeStatusBadge,
+  SectionLabel,
   StatusPill,
   Table,
   TableBody,
@@ -18,16 +20,90 @@ import {
   TableHeader,
   TableRow,
   Tag,
+  ToolCallStatusBadge,
 } from "@alpha-agents/ui";
 import { Bot, PlugZap } from "lucide-react";
 import { PanelHeader } from "@/components/panel-header";
 import { AgentActions, AgentTasks, CreditActions } from "./agent-tasks";
-import { type AgentList, PLANNED_AGENT_ACTIONS, agentsSource } from "./extension";
+import { type AgentList, type AgentRow, PLANNED_AGENT_ACTIONS, agentsSource } from "./extension";
 
 // Read from the control API on every visit, never at build time.
 export const dynamic = "force-dynamic";
 
 const TIER_TONE = { base: "neutral", medium: "rare", pro: "legendary" } as const;
+/** D-216: a Scan needs at least 0.05 USDC of credits. */
+const SCAN_MIN_CREDITS_E6 = 50_000n;
+
+/** P1-U7: each provisioned agent's activity entries and its last tool calls. */
+function AgentActivity({ agents }: { agents: readonly AgentRow[] }) {
+  if (agents.length === 0) return null;
+  return (
+    <section
+      aria-labelledby="activity-heading"
+      className="flex flex-col gap-4"
+      data-testid="agent-activity"
+    >
+      <SectionLabel as="h2" id="activity-heading">
+        Activity and tool calls
+      </SectionLabel>
+      {agents.map((a) => (
+        <Card key={a.agentId.toString()}>
+          <CardHeader>
+            <CardTitle>{a.name}</CardTitle>
+            <CardDescription>
+              Entries the narrator wrote from the agent's records, newest first, and its last tool
+              calls with what each was charged.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
+            <ActivityFeed
+              label={`Activity of ${a.name}`}
+              entries={a.activity.slice(0, 5)}
+              empty="No activity yet: run a Scan."
+            />
+            {a.toolCalls.length === 0 ? (
+              <p className="text-sm text-foreground-muted">No tool calls yet.</p>
+            ) : (
+              <Table label={`Tool calls of ${a.name}`}>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead scope="col">Tool</TableHead>
+                    <TableHead scope="col">Query or host</TableHead>
+                    <TableHead scope="col">Status</TableHead>
+                    <TableHead scope="col">Charge</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {a.toolCalls.slice(0, 12).map((c) => (
+                    <TableRow key={c.callId}>
+                      <TableCell className="font-mono text-xs whitespace-nowrap">
+                        {c.tool}
+                      </TableCell>
+                      <TableCell className="max-w-64 text-xs break-words text-foreground-muted">
+                        {c.target ?? "None"}
+                      </TableCell>
+                      <TableCell>
+                        <ToolCallStatusBadge status={c.status} code={c.errorCode} />
+                      </TableCell>
+                      <TableCell>
+                        <AmountDisplay
+                          value={c.status === "succeeded" ? BigInt(c.chargeUsdcE6) : 0n}
+                          decimals={6}
+                          maxFractionDigits={4}
+                          symbol="USDC"
+                        />
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </CardContent>
+        </Card>
+      ))}
+    </section>
+  );
+}
 const TIER_NAME = { base: "Base", medium: "Medium", pro: "Pro" } as const;
 
 async function load(): Promise<AgentList | null> {
@@ -44,7 +120,7 @@ export default async function AgentsPage() {
     <div className="flex flex-col gap-6">
       <PanelHeader
         title="Agents"
-        description="Every agent on the local stack from the control API's index, with its funding address and credits, its runtime from the orchestrator, its state, spend and last action, and controls to fund it, run the no-op task, refund its credits or reset it."
+        description="Every agent on the local stack from the control API's index, with its funding address and credits, its runtime from the orchestrator, its state, spend and last action, and controls to fund it, run the no-op task or a Scan, refund its credits or reset it. Below the table: each provisioned agent's activity entries and tool calls."
       />
       {list === null ? (
         <EmptyState
@@ -160,7 +236,10 @@ export default async function AgentsPage() {
                       />
                     </TableCell>
                     <TableCell className="text-xs text-foreground-muted">
-                      {a.lastAction ?? "None yet"}
+                      {/* The latest activity entry; the whole entry is below the table. */}
+                      <span className="line-clamp-3 max-w-56" title={a.lastAction ?? undefined}>
+                        {a.lastAction ?? "None yet"}
+                      </span>
                     </TableCell>
                     <TableCell>
                       <div className="flex flex-col items-start gap-2">
@@ -170,6 +249,7 @@ export default async function AgentsPage() {
                           runtime={a.runtime}
                           enabled={list.orchestrator && list.devActions}
                           restricted={a.credits?.restricted ?? false}
+                          canScan={(a.credits?.spendable ?? 0n) >= SCAN_MIN_CREDITS_E6}
                         />
                         <CreditActions
                           agentId={a.agentId.toString()}
@@ -185,6 +265,7 @@ export default async function AgentsPage() {
                 ))}
               </TableBody>
             </Table>
+            <AgentActivity agents={list.agents.filter((a) => a.runtime === "ready")} />
           </div>
         </AgentTasks>
       )}

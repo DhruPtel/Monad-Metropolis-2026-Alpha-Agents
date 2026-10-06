@@ -28,20 +28,36 @@ import {
   refundStatusAction,
   resetAgentAction,
   runNoopTaskAction,
+  runScanAction,
   taskAction,
 } from "./actions";
-import type { TaskView } from "./extension";
-import { noopFields } from "./task-fields";
+import type { TaskKind, TaskView } from "./extension";
+import { noopFields, scanFields } from "./task-fields";
 
 /**
  * The agents panel's controls (P1-U5): run the no-op task on one agent and
- * watch it finish, or reset an agent's runtime. The task's result shows in one
- * TaskResult card under the table, polled every two seconds until it ends.
+ * watch it finish, or reset an agent's runtime. P1-U7 adds the Scan. The
+ * task's result shows in one TaskResult card under the table, polled every two
+ * seconds until it ends.
  */
 interface Shown {
   readonly name: string;
+  readonly kind: TaskKind;
   readonly task: TaskView;
 }
+
+const TASK_TEXT: Record<TaskKind, { title: string; description: string }> = {
+  noop: {
+    title: "No-op task",
+    description:
+      "Starts the agent's sandbox, runs one trivial Hermes task through the gate and LiteLLM, then stops the sandbox.",
+  },
+  scan: {
+    title: "Scan",
+    description:
+      "The agent searches the web and reads pages through the metered data tools, saves its notes, and ends with complete_stage; the narrator then writes its activity entry.",
+  },
+};
 
 const TasksContext = createContext<{ show: (s: Shown) => void } | null>(null);
 
@@ -65,10 +81,10 @@ export function AgentTasks({ children }: { children: ReactNode }) {
       {children}
       {shown ? (
         <TaskResult
-          title={`No-op task, ${shown.name}`}
-          description="Starts the agent's sandbox, runs one trivial Hermes task through the gate and LiteLLM, then stops the sandbox."
+          title={`${TASK_TEXT[shown.kind].title}, ${shown.name}`}
+          description={TASK_TEXT[shown.kind].description}
           status={shown.task.status}
-          fields={noopFields(shown.task.result)}
+          fields={(shown.kind === "scan" ? scanFields : noopFields)(shown.task.result)}
           error={shown.task.error}
         />
       ) : null}
@@ -82,6 +98,7 @@ export function AgentActions({
   runtime,
   enabled,
   restricted = false,
+  canScan = false,
 }: {
   agentId: string;
   name: string;
@@ -89,23 +106,29 @@ export function AgentActions({
   enabled: boolean;
   /** P1-U6: no credits, so LLM tasks are refused (D-129). */
   restricted?: boolean;
+  /** P1-U7: enough credits for a Scan (0.05 USDC, D-216). */
+  canScan?: boolean;
 }) {
   const ctx = useContext(TasksContext);
   const [pending, start] = useTransition();
   const ready = enabled && runtime === "ready" && !restricted;
 
-  const run = () =>
+  const runTask = (kind: TaskKind) =>
     start(async () => {
-      const r = await runNoopTaskAction(agentId);
+      const r = await (kind === "scan" ? runScanAction : runNoopTaskAction)(agentId);
       if (!r.ok) {
-        toast.error("The no-op task did not start", { description: r.error });
+        toast.error(`The ${TASK_TEXT[kind].title.toLowerCase()} did not start`, {
+          description: r.error,
+        });
         return;
       }
       ctx?.show({
         name,
+        kind,
         task: { taskId: r.value, agentId, status: "queued", result: null, error: null },
       });
     });
+  const run = () => runTask("noop");
 
   const reset = () =>
     start(async () => {
@@ -124,6 +147,15 @@ export function AgentActions({
         loading={pending}
       >
         Run no-op task
+      </Button>
+      <Button
+        size="sm"
+        variant="secondary"
+        disabled={!ready || !canScan || pending}
+        title={canScan ? undefined : "A Scan needs at least 0.05 USDC of credits"}
+        onClick={() => runTask("scan")}
+      >
+        Run Scan
       </Button>
       <Dialog>
         <DialogTrigger asChild>

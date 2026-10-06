@@ -20,6 +20,15 @@ export async function runNoopTaskAction(id: string): Promise<ActionResult<string
   });
 }
 
+/** P1-U7: queues a Scan now (D-216); refused below 0.05 USDC of credits or while one is open. */
+export async function runScanAction(id: string): Promise<ActionResult<string>> {
+  return attempt(async () => {
+    const source = agentsSource();
+    if (!source.triggerTask) throw new Error("The orchestrator is not configured.");
+    return source.triggerTask(agentId(id), "scan");
+  });
+}
+
 export async function taskAction(taskId: string): Promise<ActionResult<TaskView>> {
   return attempt(async () => {
     const source = agentsSource();

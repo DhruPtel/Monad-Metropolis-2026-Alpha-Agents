@@ -1,5 +1,5 @@
 import { loadConfig } from "@alpha-agents/config";
-import type { RuntimeStatus, TaskStatus } from "@alpha-agents/ui";
+import type { ActivityItem, RuntimeStatus, TaskStatus, ToolCallStatus } from "@alpha-agents/ui";
 import {
   type AgentId,
   type AgentState,
@@ -14,8 +14,9 @@ import {
  * API's index; P1-U5 adds each agent's runtime from the orchestrator and the
  * controls to reset an agent and run the no-op task; P1-U6 adds each agent's
  * funding address, credits, 24-hour spend and RESTRICTED state, and the
- * controls to fund it with test USDC and refund its credits; later units add
- * the last action.
+ * controls to fund it with test USDC and refund its credits; P1-U7 adds the
+ * Scan, each agent's activity entries (the last one is its last action) and
+ * its tool call history.
  */
 export interface AgentRow {
   readonly agentId: AgentId;
@@ -34,7 +35,26 @@ export interface AgentRow {
   readonly latestTask: TaskView | null;
   /** P1-U6: null when the orchestrator does not answer or has no funding address yet. */
   readonly credits: CreditsView | null;
+  /** P1-U7: activity entries from the control API, newest first. */
+  readonly activity: readonly ActivityItem[];
+  /** P1-U7: tool calls from the orchestrator, newest first. */
+  readonly toolCalls: readonly ToolCallView[];
 }
+
+/** One tool call as the orchestrator reports it (GET /v1/agents/:id/tool-calls). */
+export interface ToolCallView {
+  readonly callId: string;
+  readonly tool: string;
+  /** The query, the URL's host, or the stage: never page or note text. */
+  readonly target: string | null;
+  readonly status: ToolCallStatus;
+  readonly errorCode: string | null;
+  readonly chargeUsdcE6: string;
+  readonly reversed: boolean;
+  readonly startedAt: string;
+}
+
+export type TaskKind = "noop" | "scan";
 
 /** An agent's credits as the orchestrator reports them (GET /v1/credits), in USDC base units. */
 export interface CreditsView {
@@ -59,6 +79,7 @@ export interface RefundView {
 export interface TaskView {
   readonly taskId: string;
   readonly agentId: string;
+  readonly kind?: TaskKind;
   readonly status: TaskStatus;
   readonly result: Record<string, unknown> | null;
   readonly error: string | null;
@@ -79,8 +100,8 @@ export interface AgentsSource {
   listAgents(): Promise<AgentList>;
   /** P1-U5: a new runtime generation with a new key and a fresh config. */
   resetAgent?(agentId: AgentId): Promise<void>;
-  /** P1-U5: queues a task for one agent (the no-op task); returns its ID. */
-  triggerTask?(agentId: AgentId, task: "noop"): Promise<string>;
+  /** P1-U5: queues a task for one agent (the no-op task, or P1-U7's Scan); returns its ID. */
+  triggerTask?(agentId: AgentId, task: TaskKind): Promise<string>;
   /** P1-U5: one task's status and structured result. */
   task?(taskId: string): Promise<TaskView>;
   /** P1-U6: asks for a refund of the agent's credits to its current owner. */
@@ -125,7 +146,7 @@ export function orchestratorSource(baseUrl: string, fetchFn: typeof fetch = fetc
       const body = await call("/v1/runtimes");
       return { devActions: body.devActions === true, runtimes: body.runtimes as ApiRuntime[] };
     },
-    async triggerTask(agentId: AgentId, task: "noop"): Promise<string> {
+    async triggerTask(agentId: AgentId, task: TaskKind): Promise<string> {
       const body = await call(`/v1/agents/${agentId.toString()}/tasks/${task}`, { method: "POST" });
       return String(body.taskId);
     },
@@ -145,6 +166,10 @@ export function orchestratorSource(baseUrl: string, fetchFn: typeof fetch = fetc
     },
     async refundStatus(refundId: string): Promise<RefundView> {
       return (await call(`/v1/refunds/${encodeURIComponent(refundId)}`)) as unknown as RefundView;
+    },
+    async toolCalls(agentId: string): Promise<ToolCallView[]> {
+      const body = await call(`/v1/agents/${agentId}/tool-calls`);
+      return (body.calls ?? []) as ToolCallView[];
     },
   };
 }
@@ -184,6 +209,22 @@ export function apiAgentsSource(
       };
       const runtimes = orch ? await orch.runtimes().catch(() => null) : null;
       const credits = runtimes && orch ? await orch.credits().catch(() => []) : [];
+      // P1-U7: activity from the control API and tool calls from the orchestrator, for each
+      // provisioned agent; a failed read shows as none rather than failing the page.
+      const activity = new Map<string, ActivityItem[]>();
+      const toolCalls = new Map<string, ToolCallView[]>();
+      for (const r of runtimes?.runtimes ?? []) {
+        const [a, t] = await Promise.all([
+          fetchFn(`${baseUrl}/v1/agents/${r.agentId}/activity`, { cache: "no-store" })
+            .then(async (res) =>
+              res.ok ? (((await res.json()) as { entries?: ActivityItem[] }).entries ?? []) : [],
+            )
+            .catch(() => []),
+          orch ? orch.toolCalls(r.agentId).catch(() => []) : [],
+        ]);
+        activity.set(r.agentId, a);
+        toolCalls.set(r.agentId, t);
+      }
       return {
         orchestrator: runtimes !== null,
         devActions: runtimes?.devActions ?? false,
@@ -204,7 +245,7 @@ export function apiAgentsSource(
             // D-129: a provisioned agent with no credits is RESTRICTED; goals and builds come later.
             state: runtime === "ready" && c?.restricted ? "RESTRICTED" : "UNCONFIGURED",
             spendUsdcE6: usdcE6(BigInt(c?.spent24hUsdcE6 ?? "0")),
-            lastAction: null,
+            lastAction: activity.get(a.agentId)?.[0]?.text ?? null,
             runtime,
             latestTask: runtimes?.runtimes.find((r) => r.agentId === a.agentId)?.latestTask ?? null,
             credits:
@@ -217,6 +258,8 @@ export function apiAgentsSource(
                     restricted: c.restricted,
                   }
                 : null,
+            activity: activity.get(a.agentId) ?? [],
+            toolCalls: toolCalls.get(a.agentId) ?? [],
           };
         }),
       };

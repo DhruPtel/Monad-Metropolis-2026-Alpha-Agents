@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { noopFields } from "./task-fields";
+import { noopFields, scanFields } from "./task-fields";
 import { apiAgentsSource, orchestratorSource } from "./extension";
 
 const reply = (status: number, body: unknown) =>
@@ -182,5 +182,103 @@ describe("runtimes and tasks from the orchestrator (P1-U5)", () => {
       ["Config", "92f01aabdc60"],
     ]);
     expect(noopFields(null)).toEqual([]);
+  });
+});
+
+describe("activity, tool calls and the Scan (P1-U7)", () => {
+  it("adds each provisioned agent's activity and tool calls, and its last action", async () => {
+    const entry = {
+      entryId: "a1",
+      kind: "scan",
+      text: "Agent #1 ran 2 web searches.",
+      renderedBy: "narrator",
+      at: "2026-10-06T16:00:00.000Z",
+    };
+    const call = {
+      callId: "c1",
+      tool: "web_search",
+      target: "monad news",
+      status: "succeeded",
+      errorCode: null,
+      chargeUsdcE6: "10000",
+      reversed: false,
+      startedAt: "2026-10-06T15:59:00.000Z",
+    };
+    const calls: string[] = [];
+    const fetchFn = routes(
+      {
+        "/v1/agents": [200, AGENTS],
+        "/v1/credits": [200, { enabled: true, agents: [] }],
+        "/v1/runtimes": [
+          200,
+          { devActions: true, runtimes: [{ agentId: "1", status: "ready", latestTask: null }] },
+        ],
+        "/v1/agents/1/activity": [200, { entries: [entry] }],
+        "/v1/agents/1/tool-calls": [200, { calls: [call] }],
+      },
+      calls,
+    );
+    const list = await apiAgentsSource("http://api", fetchFn, "http://orch").listAgents();
+    expect(list.agents[0]).toMatchObject({
+      lastAction: "Agent #1 ran 2 web searches.",
+      activity: [entry],
+      toolCalls: [call],
+    });
+    // Activity comes from the control API, tool calls from the orchestrator, only for runtimes.
+    expect(calls).toContain("GET http://api/v1/agents/1/activity");
+    expect(calls).toContain("GET http://orch/v1/agents/1/tool-calls");
+    expect(calls.some((c) => c.includes("/agents/2/"))).toBe(false);
+    expect(list.agents[1]).toMatchObject({ lastAction: null, activity: [], toolCalls: [] });
+  });
+
+  it("shows no activity rather than failing when those reads fail", async () => {
+    const fetchFn = routes({
+      "/v1/agents": [200, AGENTS],
+      "/v1/credits": [200, { enabled: true, agents: [] }],
+      "/v1/runtimes": [
+        200,
+        { devActions: true, runtimes: [{ agentId: "1", status: "ready", latestTask: null }] },
+      ],
+    });
+    const list = await apiAgentsSource("http://api", fetchFn, "http://orch").listAgents();
+    expect(list.agents[0]).toMatchObject({ activity: [], toolCalls: [], lastAction: null });
+  });
+
+  it("queues a Scan through the orchestrator", async () => {
+    const calls: string[] = [];
+    const orch = orchestratorSource(
+      "http://orch",
+      routes({ "/v1/agents/1/tasks/scan": [202, { taskId: "scan-1" }] }, calls),
+    );
+    expect(await orch.triggerTask(1n as never, "scan")).toBe("scan-1");
+    expect(calls).toEqual(["POST http://orch/v1/agents/1/tasks/scan"]);
+  });
+
+  it("shows a Scan's outcome, stage record, tool calls and spend", () => {
+    const fields = scanFields({
+      stopReason: "COMPLETED",
+      stage: {
+        outcome: "DONE",
+        schemaValid: true,
+        candidates: [{ asset: "WMON", thesisCode: "DEX_VOLUME_UP", confidenceBps: 5500 }],
+      },
+      toolCalls: [
+        { tool: "web_search", status: "succeeded" },
+        { tool: "read_url", status: "refused" },
+        { tool: "read_url", status: "succeeded" },
+        { tool: "complete_stage", status: "succeeded" },
+      ],
+      toolChargeUsdcE6: "12000",
+      modelCalls: 6,
+      sandboxStopped: true,
+      timingsMs: { sandbox: 900, hermesBoot: 13000, run: 41000 },
+    });
+    const row = (label: string) => fields.find((f) => f.label === label)?.value;
+    expect(row("Outcome")).toBe("Completed with complete_stage");
+    expect(row("Stage record")).toBe("DONE, schema-valid");
+    expect(row("Candidates")).toBe("WMON DEX_VOLUME_UP (55%)");
+    expect(row("Tool calls")).toBe("1 search, 1 page read, 4 calls in all");
+    expect(row("Tool spend")).toBe("0.0120 USDC");
+    expect(scanFields(null)).toEqual([]);
   });
 });
