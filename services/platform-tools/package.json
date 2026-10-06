@@ -2,7 +2,7 @@
   "name": "@alpha-agents/platform-tools",
   "version": "0.0.0",
   "private": true,
-  "description": "Platform tools MCP server. P1-U1 ships a stub with complete_stage only; P1-U7 adds the real tools.",
+  "description": "Platform tools MCP server (FINAL_PLAN 4.4.4), thin: complete_stage once per stage per lease, and the write_thesis stub (P1-U7, D-213).",
   "type": "module",
   "exports": {
     ".": "./src/index.ts"
@@ -11,6 +11,7 @@
     "typecheck": "tsc --noEmit -p ."
   },
   "dependencies": {
+    "@alpha-agents/tool-server": "workspace:^",
     "@modelcontextprotocol/sdk": "1.32.0",
     "zod": "4.6.5"
   }

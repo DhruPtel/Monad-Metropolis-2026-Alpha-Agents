@@ -33,3 +33,27 @@ export const completeStageOutput = {
 
 export const CompleteStageOutput = z.strictObject(completeStageOutput);
 export type CompleteStageOutput = z.infer<typeof CompleteStageOutput>;
+
+/**
+ * The `write_thesis` stub (D-160): the agent's research notes for a stage. The
+ * notes are private research, never served to owners; only their count reaches
+ * the narrator.
+ */
+export const WriteThesisInput = z.strictObject({
+  stage: z.enum(STAGES),
+  title: z.string().trim().min(3).max(120),
+  notes: z.string().trim().min(1).max(4_000),
+  sources: z
+    .array(z.url({ protocol: /^https?$/ }).max(2_048))
+    .max(10)
+    .default([]),
+});
+export type WriteThesisInput = z.infer<typeof WriteThesisInput>;
+
+export const WriteThesisOutput = z.strictObject({
+  noteId: z.string().regex(/^note-[0-9a-f-]{36}$/),
+  stage: z.enum(STAGES),
+  accepted: z.literal(true),
+  sourceCount: z.int().min(0).max(10),
+});
+export type WriteThesisOutput = z.infer<typeof WriteThesisOutput>;

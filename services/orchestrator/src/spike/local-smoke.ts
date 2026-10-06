@@ -22,7 +22,8 @@ import { createServer, request as httpRequest } from "node:http";
 import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { startPlatformTools } from "@alpha-agents/platform-tools";
+import { MemoryPlatformStore, startPlatformTools } from "@alpha-agents/platform-tools";
+import { staticResolver } from "@alpha-agents/tool-server/testing";
 import { GATE_HEADER, LLM_KEY_HEADER, startGate, TOOL_TOKEN_HEADER } from "./gate.ts";
 import { renderHermesFiles } from "./hermes-config.ts";
 import { HermesRuns } from "./hermes-runs.ts";
@@ -46,7 +47,13 @@ async function main() {
   const gateSecret = secret();
   const toolToken = secret();
   const llmKey = `sk-local-${secret()}`;
-  const tools = await startPlatformTools({ token: toolToken });
+  const toolStore = new MemoryPlatformStore();
+  const tools = await startPlatformTools({
+    resolve: staticResolver({
+      [toolToken]: { chainId: 0, agentId: 1, tier: "base", leaseId: "spike" },
+    }),
+    store: toolStore,
+  });
   const model = await startMockModel();
   const gate = await startGate({ gateSecret, litellmUrl: model.url, platformToolsUrl: tools.url });
 
@@ -125,7 +132,7 @@ async function main() {
         {
           run: { id: first.runId, status: final.status, failure: final.failure },
           replay: { sameRun: replay.runId === first.runId, replayedHeader: replay.replayed },
-          stagesRecorded: tools.stages.map((s) => s.input),
+          stagesRecorded: toolStore.stages.map((s) => s.input),
           modelRequests: model.requests.length,
           modelAuthorization: [...new Set(model.requests.map((r) => r.authorization))],
           toolsOffered: model.requests[0]?.tools,

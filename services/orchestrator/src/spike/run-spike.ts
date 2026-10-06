@@ -29,7 +29,12 @@ import { homedir, tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { CommandExitError, Sandbox, Secret, SecretError } from "e2b";
 import { loadConfig, type Secret as ConfigSecret } from "@alpha-agents/config";
-import { CompleteStageOutput, startPlatformTools } from "@alpha-agents/platform-tools";
+import {
+  CompleteStageOutput,
+  MemoryPlatformStore,
+  startPlatformTools,
+} from "@alpha-agents/platform-tools";
+import { staticResolver } from "@alpha-agents/tool-server/testing";
 import {
   GATE_HEADER,
   LLM_KEY_HEADER,
@@ -188,7 +193,13 @@ async function main(): Promise<number> {
     secrets.agentVirtualKey = agentKey;
 
     console.log("2/6 tools server, gate, tunnel");
-    const tools = await startPlatformTools({ token: toolToken });
+    const toolStore = new MemoryPlatformStore();
+    const tools = await startPlatformTools({
+      resolve: staticResolver({
+        [toolToken]: { chainId: 0, agentId: 1, tier: "base", leaseId: "spike" },
+      }),
+      store: toolStore,
+    });
     cleanup.push(() => tools.close());
     const gate = await startGate({ gateSecret, litellmUrl, platformToolsUrl: tools.url });
     cleanup.push(() => gate.close());
@@ -358,14 +369,14 @@ async function main(): Promise<number> {
     checks.runCompleted = final.status === "completed";
     checks.idempotentReplay = replay.runId === first.runId;
 
-    const stage = tools.stages[0];
+    const stage = toolStore.stages[0];
     const parsed = stage ? CompleteStageOutput.safeParse(stage.output) : undefined;
     report.completeStage = {
-      calls: tools.stages.length,
+      calls: toolStore.stages.length,
       input: stage?.input ?? null,
       outputValid: parsed?.success ?? false,
     };
-    checks.completeStageSchemaValid = tools.stages.length >= 1 && parsed?.success === true;
+    checks.completeStageSchemaValid = toolStore.stages.length >= 1 && parsed?.success === true;
     checks.skillUsed = stage?.input.candidates.some((c) => c.thesisCode === "MARKER_K7Q2") ?? false;
 
     const after = (await sh(sbx, `find ${HH} -type f | sort`)).stdout.split("\n").filter(Boolean);

@@ -1,28 +1,48 @@
-import { randomUUID, timingSafeEqual } from "node:crypto";
-import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
-import type { AddressInfo } from "node:net";
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
-import type { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
-import { CompleteStageInput, CompleteStageOutput } from "./schema.ts";
+import { randomUUID } from "node:crypto";
+import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import {
+  type AgentIdentity,
+  type IdentityResolver,
+  ToolError,
+  type ToolServer,
+  errorFrom,
+  okResult,
+  startToolServer,
+} from "@alpha-agents/tool-server";
+import {
+  CompleteStageInput,
+  CompleteStageOutput,
+  WriteThesisInput,
+  WriteThesisOutput,
+} from "./schema.ts";
 
-export interface StageRecord {
-  readonly receivedAt: string;
-  readonly input: CompleteStageInput;
-  readonly output: CompleteStageOutput;
+/**
+ * The platform tools server (FINAL_PLAN 4.4.4), thin (D-213): `complete_stage`
+ * ends a stage with codes only and is recorded once per stage per lease, and
+ * `write_thesis` stores the stage's research notes (the D-160 stub). Both act
+ * only for the agent and lease the injected token names. They are free: no
+ * upstream is paid, so nothing is charged.
+ */
+export interface PlatformStore {
+  /** Records the stage; false when this lease already completed it. */
+  recordStage(
+    identity: AgentIdentity,
+    input: CompleteStageInput,
+    output: CompleteStageOutput,
+  ): Promise<boolean>;
+  writeThesis(
+    identity: AgentIdentity,
+    input: WriteThesisInput,
+    output: WriteThesisOutput,
+  ): Promise<void>;
 }
 
 export interface PlatformToolsOptions {
-  /** The per-agent tool token. Requests must carry it as a bearer token. */
-  readonly token: string;
-  /** Builds the tool's structured output. Tests replace it to prove invalid output is rejected. */
+  readonly resolve: IdentityResolver;
+  readonly store: PlatformStore;
+  readonly port?: number;
+  /** Builds complete_stage's output. Tests replace it to prove invalid output is rejected. */
   readonly buildOutput?: (input: CompleteStageInput) => unknown;
-}
-
-export interface PlatformToolsServer {
-  readonly url: string;
-  readonly stages: readonly StageRecord[];
-  close(): Promise<void>;
 }
 
 function defaultOutput(input: CompleteStageInput): CompleteStageOutput {
@@ -35,15 +55,11 @@ function defaultOutput(input: CompleteStageInput): CompleteStageOutput {
   };
 }
 
-function bearerMatches(req: IncomingMessage, token: string): boolean {
-  const header = req.headers.authorization ?? "";
-  const expected = Buffer.from(`Bearer ${token}`);
-  const given = Buffer.from(header);
-  return given.length === expected.length && timingSafeEqual(given, expected);
-}
-
-function buildMcp(options: PlatformToolsOptions, stages: StageRecord[]): McpServer {
-  const mcp = new McpServer({ name: "platform", version: "0.0.0" });
+export function registerPlatformTools(
+  mcp: McpServer,
+  identity: AgentIdentity,
+  options: Pick<PlatformToolsOptions, "store" | "buildOutput">,
+): void {
   const build = options.buildOutput ?? defaultOutput;
   mcp.registerTool(
     "complete_stage",
@@ -54,60 +70,102 @@ function buildMcp(options: PlatformToolsOptions, stages: StageRecord[]): McpServ
       // object, which silently strips unknown fields instead of rejecting them.
       inputSchema: CompleteStageInput,
       outputSchema: CompleteStageOutput,
+      annotations: { idempotentHint: false },
     },
-    (input) => {
-      const output = build(input) as CompleteStageOutput;
-      stages.push({ receivedAt: new Date().toISOString(), input, output });
-      return {
-        content: [{ type: "text", text: JSON.stringify(output) }],
-        structuredContent: { ...output },
-      };
+    async (input) => {
+      try {
+        const output = build(input) as CompleteStageOutput;
+        // Checked before it is stored, so a malformed output is never recorded.
+        const valid = CompleteStageOutput.safeParse(output);
+        if (!valid.success) throw new Error("complete_stage built an invalid output");
+        if (!(await options.store.recordStage(identity, input, valid.data)))
+          throw new ToolError(
+            "DUPLICATE_REQUEST",
+            `The ${input.stage} stage is already complete for this run.`,
+            false,
+          );
+        return okResult({ ...valid.data });
+      } catch (err) {
+        return errorFrom(err);
+      }
     },
   );
-  return mcp;
+  mcp.registerTool(
+    "write_thesis",
+    {
+      description:
+        "Save research notes for this stage: a short title, your notes and the source URLs. Notes stay private to the platform; owners never see them.",
+      inputSchema: WriteThesisInput,
+      outputSchema: WriteThesisOutput,
+    },
+    async (input) => {
+      try {
+        const output: WriteThesisOutput = {
+          noteId: `note-${randomUUID()}`,
+          stage: input.stage,
+          accepted: true,
+          sourceCount: input.sources.length,
+        };
+        await options.store.writeThesis(identity, input, output);
+        return okResult({ ...output });
+      } catch (err) {
+        return errorFrom(err);
+      }
+    },
+  );
 }
 
-function reject(res: ServerResponse, status: number, message: string): void {
-  res.writeHead(status, { "content-type": "application/json" });
-  res.end(JSON.stringify({ error: message }));
-}
+/** Every input schema the server registers, for the identity field lint. */
+export const PLATFORM_TOOL_INPUTS = {
+  complete_stage: CompleteStageInput,
+  write_thesis: WriteThesisInput,
+} as const;
 
-/** Starts the stub platform tools server on 127.0.0.1. Stateless: one MCP server per request. */
-export async function startPlatformTools(
-  options: PlatformToolsOptions,
-  port = 0,
-): Promise<PlatformToolsServer> {
-  if (options.token.length < 32) throw new Error("the tool token must be at least 32 characters");
-  const stages: StageRecord[] = [];
-  const server: Server = createServer((req, res) => {
-    const path = new URL(req.url ?? "/", "http://localhost").pathname;
-    if (path !== "/mcp") return reject(res, 404, "not found");
-    if (!bearerMatches(req, options.token)) return reject(res, 401, "unauthorized");
-    const mcp = buildMcp(options, stages);
-    // No session ID generator: stateless mode, one server and transport per request.
-    const transport = new StreamableHTTPServerTransport({});
-    res.on("close", () => {
-      void transport.close();
-      void mcp.close();
-    });
-    mcp
-      // The SDK's own types disagree under exactOptionalPropertyTypes (optional callbacks
-      // declared without `| undefined`); the object is the SDK's transport, unchanged.
-      .connect(transport as Transport)
-      .then(() => transport.handleRequest(req, res))
-      .catch(() => {
-        if (!res.headersSent) reject(res, 500, "internal error");
-      });
+export async function startPlatformTools(options: PlatformToolsOptions): Promise<ToolServer> {
+  return startToolServer({
+    name: "platform",
+    resolve: options.resolve,
+    register: (mcp, identity) => registerPlatformTools(mcp, identity, options),
+    ...(options.port === undefined ? {} : { port: options.port }),
   });
-  await new Promise<void>((resolve) => server.listen(port, "127.0.0.1", resolve));
-  const { port: bound } = server.address() as AddressInfo;
-  return {
-    url: `http://127.0.0.1:${bound}/mcp`,
-    stages,
-    close: () =>
-      new Promise<void>((resolve, reject_) => {
-        server.closeAllConnections();
-        server.close((err) => (err ? reject_(err) : resolve()));
-      }),
-  };
+}
+
+export interface StageRecord {
+  readonly receivedAt: string;
+  readonly identity: AgentIdentity;
+  readonly input: CompleteStageInput;
+  readonly output: CompleteStageOutput;
+}
+
+/** The platform store in memory, for tests and the P1-U1 spike. */
+export class MemoryPlatformStore implements PlatformStore {
+  readonly stages: StageRecord[] = [];
+  readonly notes: {
+    identity: AgentIdentity;
+    input: WriteThesisInput;
+    output: WriteThesisOutput;
+  }[] = [];
+
+  async recordStage(
+    identity: AgentIdentity,
+    input: CompleteStageInput,
+    output: CompleteStageOutput,
+  ): Promise<boolean> {
+    if (
+      this.stages.some(
+        (s) => s.identity.leaseId === identity.leaseId && s.input.stage === input.stage,
+      )
+    )
+      return false;
+    this.stages.push({ receivedAt: new Date().toISOString(), identity, input, output });
+    return true;
+  }
+
+  async writeThesis(
+    identity: AgentIdentity,
+    input: WriteThesisInput,
+    output: WriteThesisOutput,
+  ): Promise<void> {
+    this.notes.push({ identity, input, output });
+  }
 }
