@@ -7,6 +7,11 @@ model_list:
     litellm_params:
       model: anthropic/claude-haiku-4-5-20251001
       api_key: os.environ/ANTHROPIC_API_KEY
+  # The narrator's own alias (D-217): a separate model name, so it can change on its own.
+  - model_name: narrator
+    litellm_params:
+      model: anthropic/claude-haiku-4-5-20251001
+      api_key: os.environ/ANTHROPIC_API_KEY
   - model_name: research-strong
     litellm_params:
       model: anthropic/claude-sonnet-5-5

@@ -85,6 +85,13 @@ describe.skipIf(!dbUp)("the startup sweep after a hard kill (L-19)", { timeout: 
       maxBudgetUsd: 1,
       metadata: {},
     });
+    gateway.keys.set("aa-unit-narrator", {
+      key: "k",
+      alias: "aa-unit-narrator",
+      models: [],
+      maxBudgetUsd: 1,
+      metadata: {},
+    });
     gateway.keys.set("aa-other-143143-1-g1", {
       key: "k",
       alias: "aa-other-143143-1-g1",
@@ -137,11 +144,12 @@ describe.skipIf(!dbUp)("the startup sweep after a hard kill (L-19)", { timeout: 
     });
     expect(await store.leaseByTokenHash(lease.gateTokenHash)).toBeNull();
     expect(must(await store.task("task-1")).status).toBe("failed");
-    // Live runtimes keep their keys; other namespaces are untouched.
+    // Live runtimes and the narrator keep their keys; other namespaces are untouched.
     expect([...gateway.keys.keys()].sort()).toEqual([
       "aa-other-143143-1-g1",
       "aa-unit-143143-1-g1",
       "aa-unit-143143-2-g1",
+      "aa-unit-narrator",
     ]);
     // A second sweep finds nothing.
     const again = await startupSweep({

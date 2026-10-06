@@ -57,6 +57,9 @@ export function keyAliasFor(namespace: string, ref: AgentRef, generation: number
 /** The alias prefix of every key this namespace owns, for the sweep. */
 export const aliasPrefix = (namespace: string): string => `aa-${namespace}-`;
 
+/** The narrator's own key (D-217): a platform key in the namespace that the sweep keeps. */
+export const narratorAlias = (namespace: string): string => `aa-${namespace}-narrator`;
+
 const tierName = (tier: number): Tier => {
   const name = TIER_IDS[tier - 1];
   if (!name) throw new Error(`tier ${tier} is not a revealed tier`);

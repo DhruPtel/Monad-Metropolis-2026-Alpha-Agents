@@ -47,9 +47,11 @@ export interface Lease extends AgentRef {
   readonly endReason: string | null;
 }
 
+export type TaskKind = "noop" | "scan";
+
 export interface Task extends AgentRef {
   readonly taskId: string;
-  readonly kind: "noop";
+  readonly kind: TaskKind;
   readonly status: "queued" | "running" | "succeeded" | "failed";
   readonly leaseId: string | null;
   readonly result: Record<string, unknown> | null;
@@ -132,7 +134,7 @@ interface TaskRow {
   task_id: string;
   chain_id: number;
   agent_id: number;
-  kind: "noop";
+  kind: TaskKind;
   status: Task["status"];
   lease_id: string | null;
   result: Record<string, unknown> | null;
@@ -463,7 +465,7 @@ export class Store {
 
   // ---- tasks ----
 
-  async insertTask(taskId: string, ref: AgentRef, kind: "noop"): Promise<Task> {
+  async insertTask(taskId: string, ref: AgentRef, kind: TaskKind): Promise<Task> {
     const row = await this.db
       .insertInto("platform.agent_tasks")
       .values({

@@ -1,5 +1,5 @@
 import type { GatewayAdmin } from "./gateway-admin.ts";
-import { aliasPrefix } from "./provisioner.ts";
+import { aliasPrefix, narratorAlias } from "./provisioner.ts";
 import type { SandboxProvider } from "./sandbox.ts";
 import { type Log, type Redactor, errorText } from "./secrets.ts";
 import type { Store } from "./store.ts";
@@ -14,7 +14,8 @@ import { stopTunnelFromPidFile } from "./tunnel.ts";
  * 1. the tunnel named by the namespace's PID file;
  * 2. every sandbox tagged with the namespace (leases do not survive a restart);
  * 3. every active lease, which also revokes its gate token, and tasks left running;
- * 4. every LiteLLM key with the namespace's alias prefix that no live runtime owns.
+ * 4. every LiteLLM key with the namespace's alias prefix that no live runtime owns,
+ *    except the narrator's (D-217).
  */
 export interface SweepReport {
   readonly tunnel: number | null;
@@ -81,6 +82,7 @@ export async function startupSweep(o: SweepOptions): Promise<SweepReport> {
       for (const chainId of await chainIds(o.store))
         for (const rt of await o.store.runtimes(chainId))
           if (rt.status !== "deprovisioned") owned.add(rt.keyAlias);
+      owned.add(narratorAlias(o.namespace));
       const orphans = (await o.gateway.listAliases(aliasPrefix(o.namespace))).filter(
         (a) => !owned.has(a),
       );
