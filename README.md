@@ -55,12 +55,15 @@ Prerequisites:
 
 ```sh
 pnpm run doctor   # check prerequisites; never prints the RPC URL
-pnpm dev:up       # start Postgres, Redis and the anvil fork
+pnpm dev:all      # everything: the stack, LiteLLM, indexer, API, orchestrator, web and console
+pnpm dev:up       # start Postgres, Redis and the anvil fork only
 pnpm dev:status   # health of each service, and anvil's chain ID, network and block
 pnpm test:fork    # fork tests and the address book check, on a fork of their own on 8546
-pnpm dev:down     # stop everything; database volumes are kept
+pnpm dev:down     # stop everything dev:all started, anvil and every container; volumes are kept
 pnpm dev:reset    # stop everything and delete the database volumes (asks first)
 ```
+
+`pnpm dev:all` runs every service in one terminal, each output line labeled with its service (indexer, api, orchestrator, web, console) and also written to `.dev/dev-all.log`. It refuses to start while a heavy suite (Playwright, a production build) is running or when less than 2 GiB of memory is available; `--force` overrides both. Ctrl-C stops the services and leaves the stack running; `pnpm dev:down`, from any terminal, stops the services by PID, then anvil and the containers, LiteLLM included (D-211). anvil keeps its state in memory only, so `pnpm dev:down` loses everything on the fork: deployments, mints and balances. Redeploy with `pnpm deploy:agent-nft` after the next `pnpm dev:up`.
 
 Use `pnpm run doctor`, not `pnpm doctor`: `doctor` is a built-in pnpm command and runs pnpm's own checks instead.
 
@@ -219,16 +222,26 @@ It needs `LITELLM_MASTER_KEY`, and for sandboxes `E2B_API_KEY` and cloudflared i
 - **Internal API.** `GET /v1/runtimes`, `GET /v1/tasks/:id` and `GET /v1/keeper`; on the local fork only, `POST /v1/agents/:id/tasks/noop` and `POST /v1/agents/:id/reset` (D-205).
 - `--namespace=<name>` keeps a test run's queue, tags and key aliases apart from the development one (default: the `APP_ENV` value); `--no-keeper` turns the keeper off.
 
+## Credits (P1-U6)
+
+Each agent has a funding address: an account the orchestrator derives from `FUNDING_ADDRESS_SEED` (a random seed in `.env`, one per environment; KMS keys replace it before the beta, D-207). USDC sent to it is the agent's credits, with no other step: the indexer sees the transfer and the orchestrator credits it in the double-entry ledger in Postgres (D-208). Model calls are metered from LiteLLM's spend log at provider cost plus 25% (Assumption A-27), and each agent's LiteLLM budget is kept equal to what its remaining credits buy. Spendable credits are capped at 50 USDC per agent for the beta (Assumption A-28): the part of a deposit above the cap is held, flagged, never spent, and returned by a refund.
+
+At zero credits the agent is RESTRICTED (D-129, D-209): the gate answers its model calls with HTTP 402 `insufficient_quota`, which Hermes treats as billing and does not retry, and LLM tasks are refused. Everything deterministic keeps running: the reveal keeper, provisioning, deposits, metering and refunds.
+
+The current owner can ask for the remaining credits back, with an owner session, at `POST /v1/agents/:id/credits/refund`. The orchestrator checks the owner and ownership epoch on chain again, then sends the credits and any held USDC from the funding address to that owner. A request made before a sale is refused, so credits stay with the agent (D-210). `GET /v1/agents/:id/credits` shows the funding address and balances. In the dev console, "Fund 5 USDC" sends test USDC to an agent's funding address and "Refund" pays its owner.
+
+`pnpm test:orchestrator:live` checks all of it on a fork of its own: a deposit credited, a task's charge metered, a refund paid on chain, a run that runs out of credits ending as billing, and the ledger matching the funding address on chain.
+
 ## Dev console
 
 `apps/console` is an internal, local-only console for the development environment. It is a separate app, so its code is never part of the product deployment, and it is built only from `packages/ui`.
 
 ```sh
-pnpm dev:all             # dev:up, then the console at http://127.0.0.1:3001
+pnpm dev:all             # every service, the console at http://127.0.0.1:3001 among them
 pnpm dev:console         # the console alone (the stack must already be up)
 pnpm test:console:e2e    # screenshot and accessibility tests of every page, in Docker
 pnpm test:console:live   # the owner's flows against the running stack, on the host's Chromium
-pnpm dev:down            # stop the stack when done
+pnpm dev:down            # stop everything when done
 ```
 
 `test:console:live` runs Playwright on the host rather than in the pinned image, because Docker Desktop on WSL2 does not share the distro's 127.0.0.1 with `--network=host`; it takes no screenshots, so the host browser is enough. Install it once with `pnpm --filter @alpha-agents/console exec playwright install chromium` The headless browser needs no extra system packages on the development machine; `pnpm --filter @alpha-agents/console exec playwright install-deps --dry-run chromium` lists the optional ones (GPU and Xvfb, for headed runs), which need sudo to install.

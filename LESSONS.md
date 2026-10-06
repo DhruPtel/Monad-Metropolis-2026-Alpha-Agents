@@ -620,3 +620,45 @@ What happened: test_GasForMintAndReveal failed after about 96 seconds on its fir
 Cause: The test minted 50 agents to 50 new wallets, each creating a new account, so forge asked the cold fork for about a hundred unknown accounts, each of which the fork fetched from the upstream one at a time; the reads outran forge's timeout.
 Fix: The test mints and reveals 10 agents, which still measures the reveal's fixed and per-agent gas (27,000 per agent), and `pnpm test:fork` reruns forge once on a fresh fork when a run fails with an error L-43's classifier calls a transient upstream fetch (8bad7c2, D-206). Six cold runs after the keeper's fork test took 10 to 14 seconds; five passed at once, and one hit L-43's "failed to fetch grandparent block" in setUp before the retry was added. Run right after the full unit suite (three forks of its own), the first forge run still timed out in two tests on the same fetch error after 47 seconds, and the retry on a fresh fork passed 12 of 12: the lighter test makes the timeout rarer and faster, and the retry is what makes the command reliable.
 Lesson: Size a fork test by the number of new accounts it makes the fork fetch, not only by its gas, measure it cold, and keep a bounded, classified retry for the upstream fetches no test size removes.
+
+## L-76: The sweep test killed its fake tunnel before it was a tunnel
+Unit: P1-U6
+What happened: The P1-U5 sweep test failed once in a commit gate: the sweep reported no tunnel stopped. It passed when run alone.
+Cause: The test spawned `bash -c "exec -a cloudflared sleep 120"` and swept at once. Until bash has exec'd, /proc shows the parent's command line, and the sweep, correctly, will not stop a process that is not cloudflared. Under load the sweep ran first.
+Fix: The test waits until /proc shows the process as cloudflared before sweeping (60296bc); three runs in a row passed.
+Lesson: A test that prepares a process for code that inspects it must wait until the process is in the state it means to test, not just spawned.
+
+## L-77: A commit went in while its gate had failed, again
+Unit: P1-U6
+What happened: e996526 was committed although its gate reported "GATE FAIL" (the L-76 test). This is L-42 and L-56 again.
+Cause: To stop the shell expanding a `**/*.fork.test.ts` argument, the commit helper wrapped the gate in `set -f; gate; set +f`, and the next line read `rc=$?`, the exit code of `set +f`, which is always 0.
+Fix: The helper reads the gate's code on the same line, `gate; rc=$?; set +f`, checked with a deliberate failure; the failing test was fixed in the next commit (60296bc). History is not rewritten.
+Lesson: Capture an exit code immediately after the command it belongs to, and prove a commit gate stops a failing commit before trusting it.
+
+## L-78: Scripted edits that matched nothing failed silently
+Unit: P1-U6
+What happened: Two scripted text replacements did nothing without an error. One left the live check's indexer with `usdc: null`, so deposits were never indexed and the check timed out waiting for credits; finding why took two live runs. Another, earlier, replicated a block of a new file thousands of times (94,922 lines) before it was rewritten whole.
+Cause: Python's `str.replace` returns the text unchanged when the pattern is absent; prettier had reformatted the target object onto several lines since the pattern was written.
+Fix: The live check sets USDC (1c55146); the corrupted file was rewritten whole before it was committed. Replacements in scripts now assert their pattern is present once.
+Lesson: Every scripted edit asserts its pattern matched exactly once, and a new file is checked for size and content after a scripted change.
+
+## L-79: A "use server" file exported a constant and broke the console build
+Unit: P1-U6
+What happened: The console's production build failed with "Only async functions are allowed to be exported in a 'use server' file", followed by every server action reported as missing.
+Cause: The fund action's amount was an exported `const` in actions.ts, which Next.js forbids in a server actions module.
+Fix: The constant is module-private (a6858ca).
+Lesson: Export only async functions from a "use server" file, and build the app (not only typecheck it) before calling a server action change done.
+
+## L-80: Small spend showed as zero, and a wide table hid its actions
+Unit: P1-U6
+What happened: In the first console captures, 24-hour spend of 0.0056 USDC read "0 USDC", and at 1440px the new Fund and Refund buttons were cut off at the table's right edge while agent names wrapped onto three lines.
+Cause: AmountDisplay truncates to two decimals by default, and a model call costs fractions of a cent; ten columns were wider than the page.
+Fix: Credits and spend show four decimals (still truncated, never overstated); related values share a column, names do not wrap, and the action groups stack (a6858ca). The captures were checked by eye at both widths before baselining.
+Lesson: Pick display precision from the size of the values shown, and look at a table's capture at the widest and narrowest widths whenever it gains a column.
+
+## L-81: The first drain check measured the wrong call
+Unit: P1-U6
+What happened: The live check's "run ends as billing" step passed its count of one 402 while the run had in fact completed: the refused request was a free `GET /v1/models`, and the model completion had been served. The next attempt "spent" the agent's balance with a 5-token call costing 0.00003 USD, far less than the 0.0016 USD the balance bought, so nothing was drained.
+Cause: The no-op task's "model calls" counted every `/v1` request through the gate, and the drain call was sized by guess rather than by its cost.
+Fix: The task result lists each gated call's method, path and status, the check requires the one chat completion to be the 402, and the drain call is sized to cost more than the balance; the check then passed with the completion refused and no retry (1c55146).
+Lesson: Assert on the specific request a claim is about, and size a test's spending by its measured cost, not by assumption.
