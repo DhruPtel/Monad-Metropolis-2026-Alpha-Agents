@@ -139,7 +139,10 @@ export function useMint(environment: EnvironmentId, onChange: () => void): Mint 
         waitForReveal: async (agentId: bigint) => {
           for (;;) {
             if (!mounted.current) throw new Error("left the page");
-            const view = await api.agent(agentId).catch(() => null);
+            // The minter's list answers 200, empty until the index has the mint; the
+            // single-agent route answers 404 until then, which the browser logs as an error.
+            const listed = await api.agents({ minter: address }).catch(() => []);
+            const view = listed.find((a) => a.id === agentId);
             if (view && view.species !== 0) {
               onChangeRef.current();
               return view.species;

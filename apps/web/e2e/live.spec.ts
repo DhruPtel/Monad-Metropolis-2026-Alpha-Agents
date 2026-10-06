@@ -79,6 +79,10 @@ test("mint, reveal as a bee, and view it in 3D with slots on its sockets", async
   page.on("console", (m) => {
     if (m.type() === "error") problems.push(`console: ${m.text().slice(0, 300)}`);
   });
+  // A failed load's console message has no URL; this names it.
+  page.on("response", (r) => {
+    if (r.status() >= 400) problems.push(`response: ${r.status()} ${r.url().slice(0, 200)}`);
+  });
   page.on("pageerror", (e) => problems.push(`pageerror: ${e.message.slice(0, 300)}`));
   const agentId = await mintAgent(page);
   await revealLocal(nft, { agentId, species: BEE });
