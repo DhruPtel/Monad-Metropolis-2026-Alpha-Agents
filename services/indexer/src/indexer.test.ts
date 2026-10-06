@@ -98,6 +98,38 @@ describe.skipIf(!available)("the indexer (needs pnpm dev:up for Postgres)", () =
     expect(wm.hash).toBe((await chain.block(START + 5))?.hash.toLowerCase());
   });
 
+  it("indexes USDC into and out of a funding address, marked as such (P1-U6)", async () => {
+    const funding = `0x${"f0".repeat(19)}01`;
+    await t.db
+      .insertInto("platform.funding_addresses")
+      .values({
+        chain_id: CHAIN,
+        agent_id: 1,
+        address: funding,
+        derivation_path: "m/44'/60'/0'/0/1",
+      })
+      .execute();
+    try {
+      chain.mine(...mintLogs(NFT, 1n, ALICE, tba(1)));
+      chain.mine(usdcLog(USDC, FUNDER, funding as `0x${string}`, 3_000_000n));
+      chain.mine(usdcLog(USDC, funding as `0x${string}`, ALICE, 1_000_000n));
+      chain.mine(usdcLog(USDC, FUNDER, tba(1), 5n));
+      await indexer().catchUp();
+      const rows = await t.db
+        .selectFrom("indexer.usdc_transfers")
+        .select(["agent_id", "direction", "account", "value"])
+        .orderBy("block_number")
+        .execute();
+      expect(rows).toEqual([
+        { agent_id: 1, direction: "in", account: "funding", value: "3000000" },
+        { agent_id: 1, direction: "out", account: "funding", value: "1000000" },
+        { agent_id: 1, direction: "in", account: "tba", value: "5" },
+      ]);
+    } finally {
+      await t.db.deleteFrom("platform.funding_addresses").execute();
+    }
+  });
+
   it("stores the block number and hash with every record", async () => {
     const at = chain.mine(...mintLogs(NFT, 1n, ALICE, tba(1)));
     await indexer().catchUp();

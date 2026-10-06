@@ -28,7 +28,7 @@ export const WATERMARK_SOURCE = "agent_nft";
 export interface IndexerTarget {
   readonly chainId: number;
   readonly agentNft: Hex;
-  /** USDC, for transfers into and out of agents' token-bound accounts; null to skip. */
+  /** USDC, for transfers into and out of agents' token-bound accounts and funding addresses; null to skip. */
   readonly usdc: Hex | null;
   /** The first block to index: the block after AgentNFT's deployment block or pin. */
   readonly startBlock: number;
@@ -211,11 +211,15 @@ export class Indexer {
     return { kind: "gap", from, to, detail };
   }
 
-  private async usdcLogs(from: number, to: number, tbas: readonly string[]): Promise<RawLog[]> {
+  private async usdcLogs(
+    from: number,
+    to: number,
+    addresses: readonly string[],
+  ): Promise<RawLog[]> {
     const usdc = this.target.usdc;
-    if (!usdc || tbas.length === 0) return [];
+    if (!usdc || addresses.length === 0) return [];
     const out: RawLog[] = [];
-    for (const group of chunks(tbas, ADDRESS_CHUNK)) {
+    for (const group of chunks(addresses, ADDRESS_CHUNK)) {
       const padded = group.map(
         (a) => encodeEventTopics({ abi: USDC_TRANSFER_ABI, args: { from: a as Hex } })[1] as Hex,
       );
@@ -274,9 +278,20 @@ export class Indexer {
       .select(["agent_id", "tba"])
       .where("chain_id", "=", this.chainId)
       .execute();
-    const tbaToAgent = new Map<string, number>(known.map((r) => [r.tba, r.agent_id]));
-    for (const d of drafts.values()) if (d.tba) tbaToAgent.set(d.tba, d.agentId);
-    const usdcLogs = await this.usdcLogs(from, to, [...tbaToAgent.keys()]);
+    // Each watched address's agent and kind: token-bound accounts, and the funding addresses
+    // the orchestrator derives and records (P1-U6, D-207), whose incoming USDC is credits.
+    const watched = new Map<string, { agentId: number; account: "tba" | "funding" }>(
+      known.map((r) => [r.tba, { agentId: r.agent_id, account: "tba" }]),
+    );
+    for (const d of drafts.values())
+      if (d.tba) watched.set(d.tba, { agentId: d.agentId, account: "tba" });
+    const funding = await this.db
+      .selectFrom("platform.funding_addresses")
+      .select(["agent_id", "address"])
+      .where("chain_id", "=", this.chainId)
+      .execute();
+    for (const f of funding) watched.set(f.address, { agentId: f.agent_id, account: "funding" });
+    const usdcLogs = await this.usdcLogs(from, to, [...watched.keys()]);
 
     // The range end's hash, read after the logs: the next step checks it is still canonical.
     const end = await this.source.block(to);
@@ -311,6 +326,7 @@ export class Indexer {
         value: string;
         agent_id: number;
         direction: "in" | "out";
+        account: "tba" | "funding";
       }
     >();
     for (const l of usdcLogs) {
@@ -325,8 +341,8 @@ export class Indexer {
         ["in", toAddr],
         ["out", fromAddr],
       ] as const) {
-        const agentId = tbaToAgent.get(account);
-        if (agentId === undefined) continue;
+        const hit = watched.get(account);
+        if (hit === undefined) continue;
         const key = `${l.transactionHash}:${l.logIndex}:${direction}`;
         transfers.set(key, {
           chain_id: this.chainId,
@@ -337,8 +353,9 @@ export class Indexer {
           from_address: fromAddr,
           to_address: toAddr,
           value: decoded.args.value.toString(),
-          agent_id: agentId,
+          agent_id: hit.agentId,
           direction,
+          account: hit.account,
         });
       }
     }
