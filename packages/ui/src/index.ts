@@ -5,6 +5,7 @@ export * from "./components/agent/agent-card";
 export * from "./components/agent/mint-button";
 export * from "./components/agent/mint-panel";
 export * from "./components/agent/runtime";
+export * from "./components/agent/activity";
 export * from "./components/agent/slot-hex";
 export * from "./components/agent/species-art";
 export * from "./components/agent/tier-card";
