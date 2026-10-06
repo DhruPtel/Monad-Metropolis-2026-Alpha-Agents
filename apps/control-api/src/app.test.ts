@@ -152,6 +152,10 @@ describe.skipIf(!available)("the control API (needs pnpm dev:up for Postgres)", 
     ]);
     await t.db.deleteFrom("platform.mint_allowlist").execute();
     await t.db.deleteFrom("platform.mint_claims").execute();
+    await t.db.deleteFrom("platform.refunds").execute();
+    await t.db.deleteFrom("platform.ledger_lines").execute();
+    await t.db.deleteFrom("platform.ledger_entries").execute();
+    await t.db.deleteFrom("platform.funding_addresses").execute();
   });
 
   describe("index reads", () => {
@@ -398,6 +402,110 @@ describe.skipIf(!available)("the control API (needs pnpm dev:up for Postgres)", 
       expect([epoch.status, (await json(epoch)).error]).toEqual([403, "session_stale"]);
       chain.owners.set(2n, { owner: CAROL, epoch: 2n });
       expect((await ownerView(2, token as string)).status).toBe(403);
+    });
+
+    describe("credits (P1-U6)", () => {
+      const FUNDING = "0x00000000000000000000000000000000000f00d2";
+      const credit = async (amount: bigint, account = "agent_credits", n = 1) => {
+        const id = `00000000-0000-4000-8000-${n.toString().padStart(12, "0")}`;
+        await t.db
+          .insertInto("platform.ledger_entries")
+          .values({
+            entry_id: id,
+            chain_id: env.chainId,
+            agent_id: 2,
+            kind: "credits_received",
+            idempotency_key: `test:${n}`,
+            occurred_at: new Date(),
+            source: "{}",
+          })
+          .execute();
+        await t.db
+          .insertInto("platform.ledger_lines")
+          .values([
+            {
+              entry_id: id,
+              line_no: 0,
+              chain_id: env.chainId,
+              agent_id: 2,
+              account: "funding_address",
+              asset: "USDC",
+              amount: amount.toString(),
+            },
+            {
+              entry_id: id,
+              line_no: 1,
+              chain_id: env.chainId,
+              agent_id: 2,
+              account,
+              asset: "USDC",
+              amount: (-amount).toString(),
+            },
+          ])
+          .execute();
+      };
+      const refund = (session: string) =>
+        call("/v1/agents/2/credits/refund", {
+          method: "POST",
+          headers: { "x-owner-session": session },
+        });
+
+      beforeEach(async () => {
+        await t.db
+          .insertInto("platform.funding_addresses")
+          .values({
+            chain_id: env.chainId,
+            agent_id: 2,
+            address: FUNDING,
+            derivation_path: "m/44'/60'/0'/0/2",
+          })
+          .execute();
+      });
+
+      it("shows the funding address and balances from the ledger, to anyone", async () => {
+        await credit(7_000_000n);
+        await credit(2_000_000n, "held_deposits", 2);
+        const res = await call("/v1/agents/2/credits");
+        expect(res.status).toBe(200);
+        expect(await json(res)).toMatchObject({
+          fundingAddress: "0x00000000000000000000000000000000000F00d2",
+          creditsUsdcE6: "7000000",
+          spendableUsdcE6: "7000000",
+          heldUsdcE6: "2000000",
+          restricted: false,
+        });
+        expect((await call("/v1/agents/9/credits")).status).toBe(404);
+      });
+
+      it("records the owner's refund under their wallet and epoch, one at a time", async () => {
+        const { token } = await json(await start(2, "bob-token"));
+        const res = await refund(token as string);
+        expect(res.status).toBe(202);
+        const body = await json(res);
+        expect(body).toMatchObject({ wallet: BOB, ownerEpoch: "2" });
+        const row = await t.db.selectFrom("platform.refunds").selectAll().executeTakeFirstOrThrow();
+        expect(row).toMatchObject({
+          owner: BOB.toLowerCase(),
+          owner_epoch: 2,
+          status: "requested",
+          requested_by: "owner",
+        });
+        const again = await refund(token as string);
+        expect([again.status, (await json(again)).error]).toEqual([409, "refund_open"]);
+        const seen = await call(`/v1/agents/2/credits/refunds/${String(body.refundId)}`);
+        expect(await json(seen)).toMatchObject({ status: "requested", owner: BOB });
+      });
+
+      it("refuses a refund without a session, from someone else, or after the agent changed hands", async () => {
+        expect((await call("/v1/agents/2/credits/refund", { method: "POST" })).status).toBe(401);
+        const { token: alice } = await json(await start(1, "alice-token"));
+        expect((await refund(alice as string)).status).toBe(403);
+        const { token } = await json(await start(2, "bob-token"));
+        chain.owners.set(2n, { owner: BOB, epoch: 3n }); // a stale ownership epoch
+        const stale = await refund(token as string);
+        expect([stale.status, (await json(stale)).error]).toEqual([403, "session_stale"]);
+        expect(await t.db.selectFrom("platform.refunds").selectAll().execute()).toEqual([]);
+      });
     });
 
     it("an expired, forged or other agent's session is refused", async () => {

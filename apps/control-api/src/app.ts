@@ -13,8 +13,11 @@ import {
   type SupplyJson,
   type WatermarkView,
   getAgent,
+  insertRefund,
   isAllowlisted,
   listAgents,
+  readCredits,
+  readRefund,
   readSupply,
   readWatermark,
 } from "./queries.ts";
@@ -58,6 +61,7 @@ export type ApiError =
   | "wallet_not_linked"
   | "not_owner"
   | "session_stale"
+  | "refund_open"
   | Eligibility;
 
 const fail = (c: Context, status: number, error: ApiError, message: string) =>
@@ -219,8 +223,15 @@ export function createApp(deps: ApiDeps): Hono {
     });
   });
 
-  /** The owner-only view of an agent: the gate every later owner-only action uses. */
-  app.get("/v1/agents/:id{[0-9]+}/owner", async (c) => {
+  /**
+   * The owner check every owner-only action uses: a valid owner session for
+   * this agent, and a fresh chain read that still shows the session's wallet
+   * as owner at the session's ownership epoch.
+   */
+  async function ownerOnly(
+    c: Context,
+    agentId: bigint,
+  ): Promise<{ wallet: Address; epoch: bigint } | Response> {
     const token = c.req.header("x-owner-session");
     if (!token)
       return fail(c, 401, "missing_token", "Start an owner session for this agent first.");
@@ -235,7 +246,6 @@ export function createApp(deps: ApiDeps): Hono {
         "The owner session is invalid or expired; start a new one.",
       );
     }
-    const agentId = BigInt(c.req.param("id"));
     if (claims.agentId !== agentId || claims.chainId !== chainId) {
       return fail(c, 403, "not_owner", "This owner session is for another agent.");
     }
@@ -259,14 +269,61 @@ export function createApp(deps: ApiDeps): Hono {
         `Agent #${agentId} changed hands since this session began; it has ended.`,
       );
     }
+    return { wallet: claims.wallet, epoch: ownership.epoch };
+  }
+
+  /** The owner-only view of an agent: the gate every later owner-only action uses. */
+  app.get("/v1/agents/:id{[0-9]+}/owner", async (c) => {
+    const agentId = BigInt(c.req.param("id"));
+    const owner = await ownerOnly(c, agentId);
+    if (owner instanceof Response) return owner;
     const agent = await getAgent(deps.db, chainId, Number(agentId));
     return c.json({
       ...(await meta()),
       agentId: agentId.toString(),
-      wallet: claims.wallet,
-      ownerEpoch: ownership.epoch.toString(),
+      wallet: owner.wallet,
+      ownerEpoch: owner.epoch.toString(),
       agent,
     });
+  });
+
+  // --- Credits (P1-U6, D-208, D-210) ---------------------------------------
+
+  /** An agent's funding address and credits. Public: the funding address's USDC is on chain anyway. */
+  app.get("/v1/agents/:id{[0-9]+}/credits", async (c) => {
+    const agentId = Number(c.req.param("id"));
+    const view = await readCredits(deps.db, chainId, agentId);
+    if (!view) return fail(c, 404, "not_found", `Agent #${agentId} has no funding address yet.`);
+    return c.json({ ...(await meta()), agentId: String(agentId), ...view });
+  });
+
+  /**
+   * The owner asks for their agent's remaining credits back. The request is
+   * recorded under the session's wallet and ownership epoch; the orchestrator
+   * rechecks both on chain before it pays, so a sale in between refuses it.
+   */
+  app.post("/v1/agents/:id{[0-9]+}/credits/refund", async (c) => {
+    const agentId = BigInt(c.req.param("id"));
+    const owner = await ownerOnly(c, agentId);
+    if (owner instanceof Response) return owner;
+    const result = await insertRefund(deps.db, chainId, Number(agentId), owner.wallet, owner.epoch);
+    if (result === "open")
+      return fail(c, 409, "refund_open", `Agent #${agentId} already has a refund in progress.`);
+    return c.json(
+      { refundId: result, wallet: owner.wallet, ownerEpoch: owner.epoch.toString() },
+      202,
+    );
+  });
+
+  app.get("/v1/agents/:id{[0-9]+}/credits/refunds/:refundId", async (c) => {
+    const refund = await readRefund(
+      deps.db,
+      chainId,
+      Number(c.req.param("id")),
+      c.req.param("refundId"),
+    );
+    if (!refund) return fail(c, 404, "not_found", "No such refund for this agent.");
+    return c.json(refund);
   });
 
   // --- Mint eligibility and claims (D-198) ---------------------------------
