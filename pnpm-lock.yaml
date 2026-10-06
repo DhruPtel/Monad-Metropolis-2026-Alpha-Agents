@@ -406,6 +406,10 @@ importers:
       zod:
         specifier: 4.6.5
         version: 4.6.5
+    devDependencies:
+      '@alpha-agents/indexer':
+        specifier: workspace:^
+        version: link:../indexer
 
   services/platform-tools:
     dependencies:

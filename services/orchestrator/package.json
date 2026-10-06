@@ -19,5 +19,8 @@
     "hono": "4.13.13",
     "viem": "2.57.2",
     "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "@alpha-agents/indexer": "workspace:^"
   }
 }
