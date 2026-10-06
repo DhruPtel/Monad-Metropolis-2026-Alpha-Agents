@@ -5,6 +5,7 @@ import { mnemonicToAccount } from "viem/accounts";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { KEEPER_POLICY, RevealKeeper } from "./keeper.ts";
 import { ViemRevealChain } from "./keeper-chain.ts";
+import { RevealSteering } from "./reveal-steer.ts";
 import { Redactor } from "./secrets.ts";
 
 /**
@@ -45,6 +46,8 @@ describe.skipIf(upstream === null)("the reveal keeper on a real fork", { timeout
     const privateKey = `0x${Buffer.from(hd.privateKey ?? new Uint8Array()).toString("hex")}` as Hex;
     const entropy = addressEntry("local", "pyth_entropy");
     if (entropy.status !== "verified") throw new Error("address book: pyth_entropy");
+    const steering = new RevealSteering(14);
+    const lines: string[] = [];
     const chain = new ViemRevealChain({
       rpcUrl: fork.url,
       chainId: 143143,
@@ -52,10 +55,12 @@ describe.skipIf(upstream === null)("the reveal keeper on a real fork", { timeout
       entropy: entropy.address as Hex,
       privateKey,
       localFork: true,
+      // D-221: the fork's default steering, agent #1 as the Bee.
+      steering,
+      log: (l) => lines.push(l),
     });
     const redactor = new Redactor();
     redactor.add(privateKey);
-    const lines: string[] = [];
     let now = 0;
     const keeper = new RevealKeeper({
       chain,
@@ -97,6 +102,23 @@ describe.skipIf(upstream === null)("the reveal keeper on a real fork", { timeout
       });
       expect(species).toBeGreaterThan(0);
     }
+    const revealedAs = (id: bigint) =>
+      client.readContract({ address: nft, abi: speciesOf, functionName: "speciesOf", args: [id] });
+    // The real contract, fed the steered number, revealed agent #1 as the Bee (D-221).
+    expect(ids[0]).toBe(1n);
+    expect(await revealedAs(1n)).toBe(14);
+    expect(lines.some((l) => /steering agent #1's reveal to Bee/.test(l))).toBe(true);
+
+    // The console's "Reveal next as": the next mint reveals as the praying mantis, once.
+    steering.setNext(15);
+    const fourth = (await mintLocal(nft)).agentId;
+    expect((await keeper.tick()).kind).toBe("waiting");
+    now += 12_000;
+    expect(await keeper.tick()).toMatchObject({ kind: "requested", first: 4, last: 4 });
+    expect((await keeper.tick()).kind).toBe("delivered");
+    expect(await keeper.tick()).toMatchObject({ kind: "revealed", upTo: 4 });
+    expect(await revealedAs(fourth)).toBe(15);
+    expect(steering.nextSpecies).toBeNull();
     expect(lines.join("\n")).not.toContain(privateKey.slice(2));
   });
 });

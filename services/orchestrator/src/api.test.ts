@@ -5,6 +5,7 @@ import { MemoryGateway } from "./gateway-admin.ts";
 import { LeaseManager } from "./leases.ts";
 import { CreditsExhaustedError, type Orchestrator, ScanOpenError } from "./orchestrator.ts";
 import { Provisioner } from "./provisioner.ts";
+import { RevealSteering } from "./reveal-steer.ts";
 import { MemoryProvider } from "./sandbox.ts";
 import { Redactor } from "./secrets.ts";
 import { Store } from "./store.ts";
@@ -178,6 +179,33 @@ describe.skipIf(!dbUp)("the orchestrator's internal API (D-205)", { timeout: 60_
       expect.objectContaining({ text: "Agent #1 ran 1 web search.", renderedBy: "narrator" }),
     ]);
     expect((await api(false).request("/v1/agents/x/activity")).status).toBe(400);
+  });
+
+  it("chooses the next local reveal only with steering and dev actions (D-221)", async () => {
+    const post = (devActions: boolean, orch: Orchestrator, species: unknown) =>
+      createApi({ orchestrator: orch, store, chainId: CHAIN, devActions }).request(
+        "/v1/keeper/next-reveal",
+        { method: "POST", body: JSON.stringify({ species }) },
+      );
+    // No steering (every environment but the local fork): nothing to set, and none shown.
+    expect((await post(true, orchestrator, "bee")).status).toBe(404);
+    expect(await (await api(true).request("/v1/keeper")).json()).toMatchObject({ steering: null });
+    const steering = new RevealSteering(14);
+    const local = {
+      ...orchestrator,
+      keeper: null,
+      revealSteering: steering,
+    } as unknown as Orchestrator;
+    // Without dev actions the route does not exist, even with steering.
+    expect((await post(false, local, "bee")).status).toBe(404);
+    const set = await post(true, local, "praying-mantis");
+    expect(await set.json()).toEqual({
+      steering: { firstReveal: "bee", nextReveal: "praying-mantis" },
+    });
+    expect(steering.nextSpecies).toBe(15);
+    expect((await post(true, local, "unicorn")).status).toBe(400);
+    await post(true, local, null);
+    expect(steering.nextSpecies).toBeNull();
   });
 
   it("has no write routes without dev actions (outside APP_ENV=local)", async () => {

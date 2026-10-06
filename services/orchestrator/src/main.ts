@@ -11,7 +11,7 @@ import {
 import { TavilyProvider } from "@alpha-agents/data-tools";
 import { createDb, migrateToLatest } from "@alpha-agents/db";
 import { localPaths, secretFragments } from "@alpha-agents/devenv";
-import { addressEntry } from "@alpha-agents/domain";
+import { SPECIES, addressEntry } from "@alpha-agents/domain";
 import { type Hex, createPublicClient, http } from "viem";
 import { createApi } from "./api.ts";
 import { FundingKeys } from "./credits/funding.ts";
@@ -22,6 +22,7 @@ import { ViemRevealChain } from "./keeper-chain.ts";
 import { Orchestrator } from "./orchestrator.ts";
 import { NAMESPACE_PATTERN } from "./provisioner.ts";
 import { E2BProvider } from "./sandbox.ts";
+import { type RevealSteering, revealSteeringFor } from "./reveal-steer.ts";
 import { Redactor, createLog, errorText } from "./secrets.ts";
 import { Store } from "./store.ts";
 import { findCloudflared } from "./tunnel.ts";
@@ -122,6 +123,17 @@ try {
   log("cloudflared is not installed: sandboxes cannot reach the gate, so tasks will fail");
 }
 
+// D-221: steered reveals on the local fork only; null in every other environment.
+let steering: RevealSteering | null = null;
+try {
+  steering = revealSteeringFor(env.id, values.LOCAL_FIRST_REVEAL_SPECIES as string | undefined);
+} catch (err) {
+  die(errorText(err, redactor));
+}
+if (steering)
+  log(
+    `local fork: agent #1 reveals as ${steering.firstSpecies === null ? "random" : (SPECIES[steering.firstSpecies - 1]?.name ?? "?")} on a fresh fork; the dev console can choose the next reveal`,
+  );
 let keeper: RevealKeeper | null = null;
 const keeperKey = env.id === "beta" ? undefined : reveal("REVEAL_KEEPER_PRIVATE_KEY");
 if (process.argv.includes("--no-keeper")) log("reveal keeper off (--no-keeper)");
@@ -136,6 +148,8 @@ else {
     entropy: entropy.address as Hex,
     privateKey: keeperKey as Hex,
     localFork: env.id === "local",
+    ...(steering ? { steering } : {}),
+    log: createLog("keeper", redactor),
   });
   keeper = new RevealKeeper({
     chain,
@@ -203,6 +217,7 @@ const orchestrator = new Orchestrator({
   credits,
   web,
   scanIntervalMs,
+  revealSteering: steering,
 });
 await orchestrator.start();
 

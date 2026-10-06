@@ -223,6 +223,42 @@ describe("mainnet guard", () => {
     ]);
   });
 
+  it("steers local reveals to the Bee by default, and only locally (D-221)", () => {
+    expect(loadConfig({ name: "orchestrator" }, {}).values.LOCAL_FIRST_REVEAL_SPECIES).toBe("bee");
+    expect(
+      loadConfig({ name: "orchestrator" }, { LOCAL_FIRST_REVEAL_SPECIES: "random" }).values
+        .LOCAL_FIRST_REVEAL_SPECIES,
+    ).toBe("random");
+    // On testnet and beta it is never a value at all: not loaded, not defaulted.
+    const testnet = loadConfig(
+      { name: "orchestrator" },
+      { APP_ENV: "testnet", MONAD_TESTNET_RPC_URL: TESTNET_RPC },
+    );
+    expect(testnet.values.LOCAL_FIRST_REVEAL_SPECIES).toBeUndefined();
+    expect(loadConfig({ name: "api" }, beta).values.LOCAL_FIRST_REVEAL_SPECIES).toBeUndefined();
+  });
+
+  it.each([
+    ["testnet", { APP_ENV: "testnet", MONAD_TESTNET_RPC_URL: TESTNET_RPC }],
+    ["beta", beta],
+  ] as const)(
+    "refuses to start %s with LOCAL_FIRST_REVEAL_SPECIES naming a species",
+    (_name, base) => {
+      const err = loadError(() =>
+        loadConfig({ name: "orchestrator" }, { ...base, LOCAL_FIRST_REVEAL_SPECIES: "bee" }),
+      );
+      expect(err.issues.map((i) => i.variable)).toContain("LOCAL_FIRST_REVEAL_SPECIES");
+      expect(err.message).toMatch(/only with APP_ENV=local/);
+    },
+  );
+
+  it("refuses a local LOCAL_FIRST_REVEAL_SPECIES that is not a slug", () => {
+    const err = loadError(() =>
+      loadConfig({ name: "orchestrator" }, { LOCAL_FIRST_REVEAL_SPECIES: "Bee!" }),
+    );
+    expect(err.issues[0]?.variable).toBe("LOCAL_FIRST_REVEAL_SPECIES");
+  });
+
   it("local signing always targets the loopback fork, even with a mainnet RPC set", () => {
     const config = loadConfig({ name: "signer", signs: true }, { MONAD_RPC_URL: MAINNET_RPC });
     expect(config.signing).toBe(true);

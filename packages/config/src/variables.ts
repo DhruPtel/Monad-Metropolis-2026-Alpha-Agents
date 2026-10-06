@@ -412,6 +412,20 @@ export const VARIABLES = [
     ...privateKey,
     example: "0x0000000000000000000000000000000000000000000000000000000000000000",
   },
+  {
+    name: "LOCAL_FIRST_REVEAL_SPECIES",
+    group: "Agent runtime",
+    description:
+      "Local fork only (D-221): the species agent #1 reveals as on a fresh fork, as a slug (bee), or random. The keeper steers its simulated Entropy number; any other environment refuses to start with this set",
+    secret: false,
+    firstUsedBy: "P1-U9",
+    environments: ["local"],
+    schema: z.string().regex(/^(random|[a-z][a-z-]{1,30})$/),
+    expected: "a species slug such as bee, or random",
+    example: "random",
+    commented: true,
+    localDefault: "bee",
+  },
 
   {
     name: "FUNDING_ADDRESS_SEED",

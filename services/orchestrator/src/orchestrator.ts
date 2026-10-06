@@ -9,6 +9,7 @@ import { type Gate, startGate } from "./gate.ts";
 import { gateResolver } from "./gate-resolver.ts";
 import type { GatewayAdmin } from "./gateway-admin.ts";
 import { RevealKeeper } from "./keeper.ts";
+import type { RevealSteering } from "./reveal-steer.ts";
 import { LeaseManager } from "./leases.ts";
 import { Narrator } from "./narrator.ts";
 import { type TaskContext, runNoopTask } from "./noop.ts";
@@ -82,6 +83,8 @@ export interface OrchestratorOptions {
   readonly scanIntervalMs?: number;
   /** How often the scheduler looks for due Scans; 0 turns scheduling off (tests). */
   readonly scheduleMs?: number;
+  /** D-221: steered reveals, on the local fork only; null elsewhere. */
+  readonly revealSteering?: RevealSteering | null;
 }
 
 export class Orchestrator {
@@ -171,6 +174,11 @@ export class Orchestrator {
 
   get keeper(): RevealKeeper | null {
     return this.o.keeper;
+  }
+
+  /** The local fork's reveal steering (D-221), or null in every other environment. */
+  get revealSteering(): RevealSteering | null {
+    return this.o.revealSteering ?? null;
   }
 
   async start(): Promise<void> {

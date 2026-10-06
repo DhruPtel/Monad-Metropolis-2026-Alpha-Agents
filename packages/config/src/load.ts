@@ -192,6 +192,16 @@ function checkGuards(
   values: Partial<Record<VariableName, ConfigValue>>,
   issues: ConfigIssue[],
 ): void {
+  // Steered reveals exist only with the local fork's simulated randomness (D-221).
+  // Anywhere else a set value means a local .env reached a real network: refuse.
+  const steer = source.LOCAL_FIRST_REVEAL_SPECIES?.trim();
+  if (environment.id !== "local" && steer && steer !== "random") {
+    issues.push({
+      variable: "LOCAL_FIRST_REVEAL_SPECIES",
+      problem: `is set, but steered reveals exist only with APP_ENV=local; on ${environment.id} reveals use real Pyth Entropy. Remove it`,
+    });
+  }
+
   if (environment.id === "beta") {
     if (service.signs === true && values.BETA_SIGNING_ENABLED !== true) {
       issues.push({

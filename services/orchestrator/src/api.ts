@@ -1,5 +1,6 @@
+import { SCAN_MIN_CREDITS_USDC_E6 } from "@alpha-agents/accounting";
 import { sql } from "@alpha-agents/db";
-import { TIER_IDS } from "@alpha-agents/domain";
+import { SPECIES, TIER_IDS } from "@alpha-agents/domain";
 import { Hono } from "hono";
 import { RefundOpenError } from "./credits/refunds.ts";
 import { CreditsExhaustedError, type Orchestrator, ScanOpenError } from "./orchestrator.ts";
@@ -181,16 +182,24 @@ export function createApi(o: ApiOptions): Hono {
     });
   });
 
+  /** D-221: the local fork's reveal steering, by slug; null when there is none (any other environment). */
+  const steeringView = () => {
+    const s = o.orchestrator.revealSteering;
+    if (!s) return null;
+    const slug = (i: number | null) => (i === null ? null : (SPECIES[i - 1]?.slug ?? null));
+    return { firstReveal: slug(s.firstSpecies), nextReveal: slug(s.nextSpecies) };
+  };
+
   app.get("/v1/keeper", (c) => {
     const keeper = o.orchestrator.keeper;
-    if (!keeper) return c.json({ running: false, recent: [] });
+    if (!keeper) return c.json({ running: false, recent: [], steering: steeringView() });
     const recent = keeper.actions
       .filter((a) => a.kind !== "idle" && a.kind !== "waiting")
       .slice(-20)
       .map((a) =>
         JSON.parse(JSON.stringify(a, (_k, v) => (typeof v === "bigint" ? String(v) : v))),
       );
-    return c.json({ running: true, recent });
+    return c.json({ running: true, recent, steering: steeringView() });
   });
 
   /**
@@ -267,6 +276,31 @@ export function createApi(o: ApiOptions): Hono {
   });
 
   if (o.devActions) {
+    /**
+     * D-221: choose the species of the next reveal on the local fork, once
+     * (`{ "species": "bee" }`, or null to clear). Only with dev actions on and
+     * steering present, which is the local fork only.
+     */
+    app.post("/v1/keeper/next-reveal", async (c) => {
+      const steering = o.orchestrator.revealSteering;
+      if (!steering)
+        return c.json(
+          { error: "not_local", message: "Steered reveals exist only on the local fork." },
+          404,
+        );
+      const body = (await c.req.json().catch(() => null)) as { species?: unknown } | null;
+      const raw = body?.species;
+      if (raw === null) {
+        steering.setNext(null);
+        return c.json({ steering: steeringView() });
+      }
+      const species = typeof raw === "string" ? SPECIES.find((s) => s.slug === raw) : undefined;
+      if (!species)
+        return c.json({ error: "bad_species", message: "Name a species by its slug." }, 400);
+      steering.setNext(species.index);
+      return c.json({ steering: steeringView() });
+    });
+
     /** P1-U7: queue a Scan now (D-216); the scheduler also queues them on its cadence. */
     app.post("/v1/agents/:agentId/tasks/scan", async (c) => {
       const ref = agentRef(c.req.param("agentId"), o.chainId);
@@ -291,7 +325,7 @@ export function createApi(o: ApiOptions): Hono {
           return c.json(
             {
               error: "credits_exhausted",
-              message: `Agent ${ref.agentId} needs at least 0.05 USDC of credits for a Scan.`,
+              message: `Agent ${ref.agentId} needs at least ${Number(SCAN_MIN_CREDITS_USDC_E6) / 1e6} USDC of credits for a Scan.`,
             },
             409,
           );
