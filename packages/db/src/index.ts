@@ -4,6 +4,7 @@ import pg from "pg";
 import * as initial from "./migrations/0001_initial.ts";
 import * as orchestrator from "./migrations/0002_orchestrator.ts";
 import * as credits from "./migrations/0003_credits.ts";
+import * as tools from "./migrations/0004_tools.ts";
 import type { Database } from "./schema.ts";
 
 export type * from "./schema.ts";
@@ -15,6 +16,7 @@ export const MIGRATIONS: Readonly<Record<string, Migration>> = {
   "0001_initial": initial,
   "0002_orchestrator": orchestrator,
   "0003_credits": credits,
+  "0004_tools": tools,
 };
 
 const INT8 = 20;

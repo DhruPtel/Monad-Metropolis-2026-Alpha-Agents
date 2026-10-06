@@ -25,6 +25,7 @@ describe.skipIf(!available)("database migrations (needs pnpm dev:up)", () => {
       "indexer.indexed_blocks",
       "indexer.usdc_transfers",
       "indexer.watermarks",
+      "platform.activity_entries",
       "platform.agent_runtimes",
       "platform.agent_tasks",
       "platform.funding_addresses",
@@ -34,6 +35,9 @@ describe.skipIf(!available)("database migrations (needs pnpm dev:up)", () => {
       "platform.mint_claims",
       "platform.refunds",
       "platform.sandbox_leases",
+      "platform.stage_records",
+      "platform.thesis_notes",
+      "platform.tool_calls",
       "platform.usage_receipts",
     ]);
   });
@@ -82,6 +86,30 @@ describe.skipIf(!available)("database migrations (needs pnpm dev:up)", () => {
     await expect(insert("b", "active")).rejects.toThrow(/sandbox_leases_one_active/);
     await insert("c", "ended");
     await insert("d", "ended");
+  });
+
+  it("keeps one stage record per stage per lease, and accepts scan tasks", async () => {
+    const record = (id: string, lease: string) => ({
+      stage_id: id,
+      chain_id: 1,
+      agent_id: 7,
+      lease_id: lease,
+      stage: "SCAN",
+      outcome: "DONE",
+      candidates: "[]",
+    });
+    await t.db.insertInto("platform.stage_records").values(record("s1", "L1")).execute();
+    await expect(
+      t.db.insertInto("platform.stage_records").values(record("s2", "L1")).execute(),
+    ).rejects.toThrow(/stage_records_once/);
+    await t.db.insertInto("platform.stage_records").values(record("s3", "L2")).execute();
+    const task = (id: string, kind: string) =>
+      t.db
+        .insertInto("platform.agent_tasks")
+        .values({ task_id: id, chain_id: 1, agent_id: 7, kind: kind as "scan", status: "queued" })
+        .execute();
+    await task("t-scan", "scan");
+    await expect(task("t-other", "trade")).rejects.toThrow(/agent_tasks_kind_check/);
   });
 
   it("reset drops everything and migrates again", async () => {

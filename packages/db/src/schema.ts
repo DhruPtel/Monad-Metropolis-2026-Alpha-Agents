@@ -159,7 +159,7 @@ export interface AgentTaskTable {
   task_id: string;
   chain_id: number;
   agent_id: number;
-  kind: "noop";
+  kind: "noop" | "scan";
   status: "queued" | "running" | "succeeded" | "failed";
   lease_id: string | null;
   result: ColumnType<Record<string, unknown> | null, string | null, string | null>;
@@ -235,6 +235,67 @@ export interface RefundTable {
   updated_at: Timestamp;
 }
 
+/** One tool call in the action log (D-213, D-215). */
+export interface ToolCallTable {
+  call_id: string;
+  chain_id: number;
+  agent_id: number;
+  lease_id: string;
+  server: "data" | "platform";
+  tool: string;
+  input: ColumnType<Record<string, unknown>, string, string>;
+  status: "running" | "succeeded" | "failed" | "refused";
+  error_code: string | null;
+  charge_usdc_e6: ColumnType<string, string | undefined, string>;
+  entry_id: string | null;
+  reversal_entry_id: string | null;
+  cache_hit: ColumnType<boolean, boolean | undefined, boolean>;
+  provider: string | null;
+  summary: ColumnType<Record<string, unknown> | null, string | null, string | null>;
+  started_at: Timestamp;
+  finished_at: Timestamp | null;
+}
+
+/** One `complete_stage` call: at most one per stage per lease. */
+export interface StageRecordTable {
+  stage_id: string;
+  chain_id: number;
+  agent_id: number;
+  lease_id: string;
+  stage: string;
+  outcome: string;
+  candidates: ColumnType<unknown[], string, string>;
+  created_at: Timestamp;
+}
+
+/** The `write_thesis` stub's notes: private research, never served to owners. */
+export interface ThesisNoteTable {
+  note_id: string;
+  chain_id: number;
+  agent_id: number;
+  lease_id: string;
+  stage: string;
+  title: string;
+  notes: string;
+  sources: ColumnType<string[], string, string>;
+  created_at: Timestamp;
+}
+
+/** An owner-readable activity entry (D-217). */
+export interface ActivityEntryTable {
+  entry_id: string;
+  chain_id: number;
+  agent_id: number;
+  task_id: string;
+  kind: "scan";
+  text: string;
+  rendered_by: "narrator" | "template";
+  facts: ColumnType<Record<string, unknown>, string, string>;
+  rejections: ColumnType<string[], string, string>;
+  model: string | null;
+  created_at: Timestamp;
+}
+
 export interface Database {
   "indexer.watermarks": WatermarkTable;
   "indexer.indexed_blocks": IndexedBlockTable;
@@ -252,4 +313,8 @@ export interface Database {
   "platform.ledger_lines": LedgerLineTable;
   "platform.usage_receipts": UsageReceiptTable;
   "platform.refunds": RefundTable;
+  "platform.tool_calls": ToolCallTable;
+  "platform.stage_records": StageRecordTable;
+  "platform.thesis_notes": ThesisNoteTable;
+  "platform.activity_entries": ActivityEntryTable;
 }
