@@ -27,6 +27,11 @@ import {
   ActivityFeed,
   TOOL_CALL_STATUSES,
   ToolCallStatusBadge,
+  FundAgentPanel,
+  QrCode,
+  RUN_STATUSES,
+  RunStatusBadge,
+  SpendPanel,
   StatBar,
   StatusPill,
   WALLET_STATES,
@@ -765,6 +770,77 @@ function AgentSection() {
             ]}
           />
           <ActivityFeed label="Activity of Alpha Agent #8" entries={[]} empty="No Scans yet." />
+        </div>
+      </Specimen>
+      <Specimen
+        name="Run status"
+        note="What an owner's agent is doing, on My Agents (P1-U9); the meaning is in the title. Paused means research only: safety keeps running."
+      >
+        <div className="flex flex-wrap gap-2">
+          {RUN_STATUSES.map((status) => (
+            <RunStatusBadge key={status} status={status} />
+          ))}
+        </div>
+      </Specimen>
+      <Specimen
+        name="QR code"
+        note="Encodes exactly the value given, an address, in the tokens: dark modules on a light quiet zone, which every scanner reads."
+      >
+        <QrCode
+          value="0x9F8e2B1C0d3a4E5f60718293A4B5c6D7E8f90a1B"
+          label="QR code of an example funding address"
+          className="max-w-32"
+        />
+      </Specimen>
+      <Specimen
+        name="Fund your agent"
+        note="The funding address with its copy button and QR code, the credits it holds, USDC held above the beta cap, and the Trading placeholder until Phase 2 (P1-U9)."
+      >
+        <div className="grid gap-6 lg:grid-cols-2">
+          <FundAgentPanel
+            agentName="Alpha Agent #7"
+            funding={{
+              fundingAddress: "0x9F8e2B1C0d3a4E5f60718293A4B5c6D7E8f90a1B",
+              spendableUsdcE6: 4_994_400n,
+              heldUsdcE6: 2_000_000n,
+            }}
+          />
+          <FundAgentPanel agentName="Alpha Agent #8" funding={null} />
+        </div>
+      </Specimen>
+      <Specimen
+        name="Spend"
+        note="Credits spent in the last 24 hours and the recent charges: model calls, tool calls, and charges given back for tool calls that were not answered."
+      >
+        <div className="grid gap-6 lg:grid-cols-2">
+          <SpendPanel
+            agentName="Alpha Agent #7"
+            spent24hUsdcE6={22_000n}
+            charges={[
+              {
+                entryId: "c3",
+                at: "2026-10-06T16:42:00.000Z",
+                kind: "reversal",
+                label: "web_search",
+                amountUsdcE6: -12_000n,
+              },
+              {
+                entryId: "c2",
+                at: "2026-10-06T16:41:00.000Z",
+                kind: "tool",
+                label: "web_search",
+                amountUsdcE6: 12_000n,
+              },
+              {
+                entryId: "c1",
+                at: "2026-10-06T16:40:00.000Z",
+                kind: "model",
+                label: "scan-cheap",
+                amountUsdcE6: 10_000n,
+              },
+            ]}
+          />
+          <SpendPanel agentName="Alpha Agent #8" spent24hUsdcE6={0n} charges={[]} />
         </div>
       </Specimen>
     </Section>

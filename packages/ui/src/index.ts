@@ -35,3 +35,4 @@ export * from "./components/ui/toast";
 export * from "./components/ui/tooltip";
 export * from "./lib/utils";
 export * from "./tokens";
+export * from "./components/agent/my-agent";
