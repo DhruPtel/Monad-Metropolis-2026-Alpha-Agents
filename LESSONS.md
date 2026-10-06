@@ -592,3 +592,31 @@ What happened: The indexer's in-memory fixtures had a mint emit OwnerEpochBumped
 Cause: The fixture was written from memory of the plan, not from a real transaction; AgentNFT bumps the epoch only on transfers, never on a mint.
 Fix: Fixtures emit Transfer and AgentMinted for a mint, and the expected epochs and counts were corrected (246d65f).
 Lesson: Build event fixtures from a real transaction's logs, and run the code against a real chain at least once before trusting its fixture tests.
+
+## L-72: Blocking advisory locks deadlocked the connection pool
+Unit: P1-U5
+What happened: The provisioning test that calls provision five times at once hung until it was stopped, and the stopped run left a test database behind (dropped by hand).
+Cause: withAgentLock took a pooled connection and blocked in `pg_advisory_lock` on it. With a pool of 4, four waiters held every connection, so the lock holder could not get one for its own queries and never released the lock.
+Fix: The lock is a `pg_try_advisory_lock` loop that returns its connection between tries, with a deadline (12ee0d2); the concurrent test passes in under a second.
+Lesson: Never block on a lock while holding a pooled connection that the lock holder may need; wait without holding one, and test the concurrent path with more callers than the pool has connections.
+
+## L-73: LiteLLM's /key/info still returned a deleted key
+Unit: P1-U5 (found before it caused a failure)
+What happened: A probe deleted a throwaway virtual key by alias, then asked /key/info: it answered 200 with the key's details, also five seconds later, while /key/list by alias returned nothing and a call with the key got 401.
+Cause: /key/info answers from LiteLLM's key cache, which a delete does not clear at once. It is L-17 again: a counter or record read through a cache right after a write is not the truth.
+Fix: The orchestrator decides whether a key exists only through /key/list by alias (12ee0d2), and the live check confirms deletion the same way.
+Lesson: Before relying on an admin read to confirm a delete, delete something and read it back through that exact call; use the listing, not the cached detail view.
+
+## L-74: pnpm add rewrote peer resolutions across the whole lockfile
+Unit: P1-U5
+What happened: Adding two workspace links with `pnpm install --offline`, and later BullMQ, viem and Hono with `pnpm add`, changed 700 to 800 unrelated lockfile lines each time, adding or dropping `typescript@6.0.3` peer suffixes and moving the web app's viem onto zod 3.25 instead of 4.6.
+Cause: pnpm 9 re-resolves optional peers for every importer when it writes the lockfile, and the result flips between two valid forms; earlier units committed this churn (be04bf0 changed 288 such lines).
+Fix: The lockfile was merged at the text level: HEAD's entries kept exactly, the orchestrator's importer block added with HEAD's resolutions, and only package and snapshot entries for packages HEAD did not have; `pnpm install --frozen-lockfile` accepted each result (12ee0d2, f2cd946).
+Lesson: Read the lockfile diff after every dependency change, and keep a commit's lockfile changes to the packages it adds.
+
+## L-75: L-70 resolved: a cold test fork's upstream fetches timed out the gas test
+Unit: P1-U5
+What happened: test_GasForMintAndReveal failed after about 96 seconds on its first run after other fork tests, with forge's "failed to get account ... operation timed out" from the test fork (reproduced in this unit).
+Cause: The test minted 50 agents to 50 new wallets, each creating a new account, so forge asked the cold fork for about a hundred unknown accounts, each of which the fork fetched from the upstream one at a time; the reads outran forge's timeout.
+Fix: The test mints and reveals 10 agents, which still measures the reveal's fixed and per-agent gas (27,000 per agent), and `pnpm test:fork` reruns forge once on a fresh fork when a run fails with an error L-43's classifier calls a transient upstream fetch (8bad7c2, D-206). Six cold runs after the keeper's fork test took 10 to 14 seconds; five passed at once, and one hit L-43's "failed to fetch grandparent block" in setUp before the retry was added. Run right after the full unit suite (three forks of its own), the first forge run still timed out in two tests on the same fetch error after 47 seconds, and the retry on a fresh fork passed 12 of 12: the lighter test makes the timeout rarer and faster, and the retry is what makes the command reliable.
+Lesson: Size a fork test by the number of new accounts it makes the fork fetch, not only by its gas, measure it cold, and keep a bounded, classified retry for the upstream fetches no test size removes.

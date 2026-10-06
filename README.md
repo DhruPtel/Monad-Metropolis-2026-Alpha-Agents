@@ -72,7 +72,7 @@ Use `pnpm run doctor`, not `pnpm doctor`: `doctor` is a built-in pnpm command an
 
 Ports bind to 127.0.0.1 only. The Postgres credentials are for local development only. Postgres and Redis ports can be changed with `POSTGRES_PORT` and `REDIS_PORT` in `.env`; Redis defaults to 6380 because a system Redis often holds 6379. anvil writes its log, with the RPC URL redacted, to `.dev/anvil.log`.
 
-Tests that reset a chain or need a fresh deck (`pnpm test:fork`, the fork controls test, the indexer's fork test and `pnpm test:web:live`) start their own anvil fork on another port (8546, or 8548 for the indexer test) and stop it afterwards, so the playtest fork on 8545 is never reset (D-200). Their logs, with the RPC URL redacted, go to `.dev/test-fork-<port>.log`.
+Tests that reset a chain or need a fresh deck (`pnpm test:fork`, the fork controls test, the indexer's and keeper's fork tests, `pnpm test:web:live` and `pnpm test:orchestrator:live`) start their own anvil fork on another port (8546; 8548 for the indexer test, 8549 for the keeper test, 8550 for the orchestrator live check) and stop it afterwards, so the playtest fork on 8545 is never reset (D-200). Their logs, with the RPC URL redacted, go to `.dev/test-fork-<port>.log`.
 
 ### The pinned fork block
 
@@ -168,7 +168,7 @@ Use http://localhost:3000 (not 127.0.0.1; Privy is allowed on localhost only), a
 2. In MetaMask, add the network above by hand (Settings, Networks, Add network, Add a network manually), and select it.
 3. Fund your address on the fork: `cast rpc anvil_setBalance <your address> 0x56BC75E2D63100000 --rpc-url http://127.0.0.1:8545` (100 MON, fork only).
 4. Start the indexer and the control API (see "Indexer and control API" below), and put your address on the mint allowlist: `pnpm allowlist add <your address>`.
-5. `pnpm dev:web`, open http://localhost:3000/mint, connect, and mint, then follow the link to your agent on /configure. Reveal it with `pnpm agent-nft:local reveal`. A wallet off the allowlist is told so before it can click. Before a claim is requested, the app checks through MetaMask the wallet's chain ID, the pinned block's hash and AgentNFT's code, and stops with the failed check named if one differs.
+5. `pnpm dev:web`, open http://localhost:3000/mint, connect, and mint, then follow the link to your agent on /configure. With `pnpm dev:orchestrator` running, the reveal keeper reveals it within about 15 seconds. A wallet off the allowlist is told so before it can click. Before a claim is requested, the app checks through MetaMask the wallet's chain ID, the pinned block's hash and AgentNFT's code, and stops with the failed check named if one differs.
 
 Do not point MetaMask's Monad (chain 143) network at `http://127.0.0.1:8545`: keep it on Monad's official RPC. On chain 143, a mint went to Monad mainnet through MetaMask's gasless relay, which MetaMask offered because the account had no MON there; the relay runs on MetaMask's servers for chain 143, not through the RPC set in the wallet (L-53).
 
@@ -202,6 +202,23 @@ The API needs `CLAIM_SIGNER_PRIVATE_KEY` in `.env` to sign claims: on the local 
 
 `pnpm test:web:live` starts its own stack: a fork on 8546, a throwaway database, the indexer and the API on 4101, and the web test build pointed at them.
 
+## Orchestrator and reveal keeper (P1-U5)
+
+The orchestrator (`services/orchestrator`) sets up every revealed agent to run and runs the AgentNFT reveal keeper. It reconciles the indexer's agents with its own records every second: a revealed agent is provisioned (its Hermes config rendered from the base template, its tier's overlay and its own overrides, then a LiteLLM virtual key with a starting budget, all recorded in `platform.agent_runtimes`), and an agent a reorg removed is deprovisioned (its key deleted). Work goes through a Redis queue with deterministic job IDs, and each agent's provisioning runs under a Postgres lock, so a repeated event never provisions twice (D-202). The keeper waits 10 seconds after it first sees an unrevealed agent (60 seconds on testnet and beta) so mints share one Entropy request, then reveals them; on the local fork it delivers the random number as Entropy itself (D-201).
+
+```sh
+pnpm dev:litellm                # the LiteLLM gateway (compose profile agent), once
+pnpm dev:orchestrator           # provisioning, the keeper, leases and the internal API on 127.0.0.1:4200
+pnpm test:orchestrator:live     # live end to end on its own stack (E2B, LiteLLM, a real model; a few cents)
+```
+
+It needs `LITELLM_MASTER_KEY`, and for sandboxes `E2B_API_KEY` and cloudflared in `~/.local/bin`. `REVEAL_KEEPER_PRIVATE_KEY` is the keeper's wallet (anvil account 3 on the local fork; any funded account elsewhere, KMS before the beta); without it the keeper is off. `ORCHESTRATOR_SECRET` encrypts the agents' virtual keys at rest and has a local default.
+
+- **Sandbox leases.** At most one active sandbox per agent, enforced by Postgres, with a 10-minute lease that is also the sandbox's own E2B timeout. E2B's egress rule injects only the lease's gate token; the gate, inside the orchestrator, attaches the agent's own LiteLLM key, so the key never reaches E2B or the sandbox (D-203). A Cloudflare quick tunnel carries the sandbox's requests to the local gate.
+- **Startup sweep.** Every start removes what a killed earlier run left in its namespace: the tunnel (by its PID file in `.dev/`), tagged sandboxes, active leases and their gate tokens, tasks left running, and LiteLLM keys no live agent owns (L-19).
+- **Internal API.** `GET /v1/runtimes`, `GET /v1/tasks/:id` and `GET /v1/keeper`; on the local fork only, `POST /v1/agents/:id/tasks/noop` and `POST /v1/agents/:id/reset` (D-205).
+- `--namespace=<name>` keeps a test run's queue, tags and key aliases apart from the development one (default: the `APP_ENV` value); `--no-keeper` turns the keeper off.
+
 ## Dev console
 
 `apps/console` is an internal, local-only console for the development environment. It is a separate app, so its code is never part of the product deployment, and it is built only from `packages/ui`.
@@ -222,7 +239,7 @@ pnpm dev:down            # stop the stack when done
 - **Test funds.** Set any address's MON balance, and give it USDC minted through the real USDC contract on the fork by a fork-only test minter; balances are read back from the chain.
 - **Address book.** Every entry per environment with its status, source and open question.
 - **Policy sandbox.** Build a swap and an account, run `packages/policy`, and read the result as "why the agent did not trade" messages. Presets break each launch limit.
-- **Agents.** Empty until P1-U4, with typed extension points for listing, resetting and triggering agents, and the kill switch placeholder for PB-U1.
+- **Agents.** Every agent from the control API's index with its runtime from the orchestrator. "Run no-op task" starts the agent's sandbox, runs one trivial Hermes task through the gate and LiteLLM, shows the structured result and stops the sandbox; "Reset" deletes the agent's key and provisions it again. The kill switch placeholder waits for PB-U1.
 
 ## Secret scanning
 
