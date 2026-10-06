@@ -7,7 +7,7 @@ import type { LeaseManager } from "./leases.ts";
 import type { SandboxHandle, SandboxProvider } from "./sandbox.ts";
 import { type Log, type Redactor, errorText, randomToken } from "./secrets.ts";
 import { HermesRuns, type HttpCall } from "./spike/hermes-runs.ts";
-import type { AgentRef, Store } from "./store.ts";
+import type { AgentRef, Runtime, Store } from "./store.ts";
 
 /**
  * The dev console's no-op task (P0-U4 extension point): start the agent's
@@ -134,6 +134,57 @@ export async function bootHermes(
   return new HermesRuns(`http://127.0.0.1:${API_SERVER_PORT}`, apiServerKey, sandboxCall(sbx));
 }
 
+/** A running agent sandbox under a lease, with Hermes healthy inside it. */
+export interface AgentSandbox {
+  readonly runtime: Runtime;
+  readonly config: AgentConfig;
+  readonly leaseId: string;
+  readonly sbx: SandboxHandle;
+  readonly runs: HermesRuns;
+  readonly sandboxMs: number;
+  readonly bootMs: number;
+}
+
+/**
+ * Takes the agent's lease for a task, starts its sandbox with the lease's gate
+ * token injected at egress, and boots Hermes. `onLease` receives the lease ID
+ * as soon as it exists, so the caller can release it if a later step fails.
+ */
+export async function openAgentSandbox(
+  ctx: TaskContext,
+  taskId: string,
+  ref: AgentRef,
+  purpose: string,
+  leaseMs: number,
+  onLease: (leaseId: string) => void,
+): Promise<AgentSandbox> {
+  const runtime = await ctx.store.runtime(ref);
+  if (runtime?.status !== "ready") throw new Error(`agent ${ref.agentId} is not provisioned`);
+  const config = runtime.config as unknown as AgentConfig;
+  const grant = await ctx.leases.acquire(ref, purpose, leaseMs);
+  const leaseId = grant.lease.leaseId;
+  onLease(leaseId);
+  await ctx.store.setTaskLease(taskId, leaseId);
+  const host = await ctx.tunnelHost();
+
+  const t0 = Date.now();
+  const sbx = await ctx.provider.create({
+    template: ctx.template,
+    timeoutMs: ctx.leases.remainingMs(grant.lease),
+    metadata: ctx.leases.sandboxTags(grant.lease),
+    allowHost: host,
+    injectHeaders: { [GATE_HEADER]: grant.gateToken },
+  });
+  await ctx.leases.attachSandbox(leaseId, sbx.id);
+  const sandboxMs = Date.now() - t0;
+  ctx.log(`task ${taskId}: sandbox ${sbx.id} started for agent ${ref.agentId}`);
+
+  const t1 = Date.now();
+  const runs = await bootHermes(sbx, config, `https://${host}`, ctx.redactor);
+  await runs.waitHealthy(180_000);
+  return { runtime, config, leaseId, sbx, runs, sandboxMs, bootMs: Date.now() - t1 };
+}
+
 export async function runNoopTask(ctx: TaskContext, taskId: string): Promise<void> {
   const task = await ctx.store.task(taskId);
   if (!task || !(await ctx.store.startTask(taskId))) return;
@@ -141,30 +192,11 @@ export async function runNoopTask(ctx: TaskContext, taskId: string): Promise<voi
   const started = Date.now();
   let leaseId: string | null = null;
   try {
-    const runtime = await ctx.store.runtime(ref);
-    if (runtime?.status !== "ready") throw new Error(`agent ${ref.agentId} is not provisioned`);
-    const config = runtime.config as unknown as AgentConfig;
-    const grant = await ctx.leases.acquire(ref, "noop", NOOP_LEASE_MS);
-    leaseId = grant.lease.leaseId;
-    await ctx.store.setTaskLease(taskId, leaseId);
-    const host = await ctx.tunnelHost();
-
-    const t0 = Date.now();
-    const sbx = await ctx.provider.create({
-      template: ctx.template,
-      timeoutMs: ctx.leases.remainingMs(grant.lease),
-      metadata: ctx.leases.sandboxTags(grant.lease),
-      allowHost: host,
-      injectHeaders: { [GATE_HEADER]: grant.gateToken },
+    const opened = await openAgentSandbox(ctx, taskId, ref, "noop", NOOP_LEASE_MS, (id) => {
+      leaseId = id;
     });
-    await ctx.leases.attachSandbox(leaseId, sbx.id);
-    const sandboxMs = Date.now() - t0;
-    ctx.log(`task ${taskId}: sandbox ${sbx.id} started for agent ${ref.agentId}`);
-
-    const t1 = Date.now();
-    const runs = await bootHermes(sbx, config, `https://${host}`, ctx.redactor);
-    await runs.waitHealthy(180_000);
-    const bootMs = Date.now() - t1;
+    const { runtime, config, sbx, runs, sandboxMs, bootMs } = opened;
+    leaseId = opened.leaseId;
 
     const t2 = Date.now();
     const agent = `${ref.chainId}-${ref.agentId}`;

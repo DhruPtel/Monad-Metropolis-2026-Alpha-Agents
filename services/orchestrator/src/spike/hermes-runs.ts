@@ -106,6 +106,13 @@ export class HermesRuns {
     };
   }
 
+  /** Asks Hermes to stop a run (an orchestrator deadline, FINAL_PLAN 4.3.1). */
+  async stop(runId: string): Promise<void> {
+    const reply = await this.call("POST", `${this.baseUrl}/v1/runs/${runId}/stop`, this.auth());
+    if (reply.status >= 300)
+      throw new Error(`POST /v1/runs/${runId}/stop returned ${reply.status}`);
+  }
+
   async waitFinished(runId: string, timeoutMs: number): Promise<RunState> {
     const deadline = Date.now() + timeoutMs;
     while (Date.now() < deadline) {
