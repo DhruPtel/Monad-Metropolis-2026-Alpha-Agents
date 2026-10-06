@@ -24,6 +24,9 @@ import {
   RUNTIME_STATUSES,
   RuntimeStatusBadge,
   TaskResult,
+  ActivityFeed,
+  TOOL_CALL_STATUSES,
+  ToolCallStatusBadge,
   StatBar,
   StatusPill,
   WALLET_STATES,
@@ -723,6 +726,45 @@ function AgentSection() {
               error="Agent 9 already has a sandbox running."
             />
           </div>
+        </div>
+      </Specimen>
+      <Specimen
+        name="Tool call status"
+        note="Each tool call an agent made: answered and charged, failed with its charge reversed, or refused before it ran (P1-U7). The code, if any, is in the title."
+      >
+        <div className="flex flex-wrap gap-2">
+          {TOOL_CALL_STATUSES.map((status) => (
+            <ToolCallStatusBadge
+              key={status}
+              status={status}
+              code={status === "refused" ? "PRIVATE_ADDRESS" : null}
+            />
+          ))}
+        </div>
+      </Specimen>
+      <Specimen
+        name="Activity feed"
+        note="The narrator's owner-readable entries, newest first; every number in an entry is checked against the agent's records, and a fixed template writes the entry when a narration is rejected (P1-U7)."
+      >
+        <div className="grid gap-4 lg:grid-cols-2">
+          <ActivityFeed
+            label="Activity of Alpha Agent #7"
+            entries={[
+              {
+                entryId: "e2",
+                text: "Alpha Agent #7 finished a Scan. It ran 2 web searches and read 1 page. Candidates: WMON DEX_VOLUME_UP (55%). Tools cost 0.022 USDC; 4.978 USDC of credits left.",
+                at: "2026-10-06T16:42:00.000Z",
+                renderedBy: "template",
+              },
+              {
+                entryId: "e1",
+                text: "Agent #7 searched for Monad DEX volume twice, read one report and flagged WMON at 55% confidence; tools cost 0.022 USDC.",
+                at: "2026-10-06T10:42:00.000Z",
+                renderedBy: "narrator",
+              },
+            ]}
+          />
+          <ActivityFeed label="Activity of Alpha Agent #8" entries={[]} empty="No Scans yet." />
         </div>
       </Specimen>
     </Section>
