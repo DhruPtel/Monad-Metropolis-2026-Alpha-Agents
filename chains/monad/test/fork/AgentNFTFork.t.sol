@@ -239,6 +239,10 @@ contract AgentNFTForkTest is Test {
         }
     }
 
+    /// Ten agents, not fifty (L-70): every fresh minter and its new account is fetched from
+    /// the upstream through anvil, and fifty of them timed out forge's fork reads on a cold
+    /// test fork. A reveal's cost is the same fixed part plus the same work per agent, so
+    /// reveal(1) and reveal(9) still give both; the keeper reveals 50 per transaction (D-201).
     function test_GasForMintAndReveal() public {
         address minter = makeAddr("gas minter");
         vm.prank(minter);
@@ -246,7 +250,7 @@ contract AgentNFTForkTest is Test {
         nft.mint();
         console.log("mint gas (fork, real registry and account)", g - gasleft());
 
-        for (uint256 i = 0; i < 49; ++i) {
+        for (uint256 i = 0; i < 9; ++i) {
             _mint(makeAddr(string.concat("gas minter ", vm.toString(i))));
         }
         uint256 fee = IEntropyV2(ENTROPY).getFeeV2();
@@ -260,8 +264,11 @@ contract AgentNFTForkTest is Test {
         nft.reveal(1);
         console.log("reveal gas, 1 agent", g - gasleft());
         g = gasleft();
-        nft.reveal(49);
-        console.log("reveal gas, 49 agents", g - gasleft());
+        nft.reveal(9);
+        uint256 nine = g - gasleft();
+        console.log("reveal gas, 9 agents", nine);
+        console.log("reveal gas per agent, from 9", nine / 9);
+        assertEq(nft.nextToReveal(), 11, "all ten revealed");
     }
 
     receive() external payable {}
