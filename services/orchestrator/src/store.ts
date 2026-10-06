@@ -48,6 +48,8 @@ export interface Lease extends AgentRef {
 }
 
 export type TaskKind = "noop" | "scan";
+/** Who asked for a task (D-219). */
+export type TaskRequester = "owner" | "console" | "schedule";
 
 export interface Task extends AgentRef {
   readonly taskId: string;
@@ -157,6 +159,14 @@ const toTask = (r: TaskRow): Task => ({
   startedAt: r.started_at,
   finishedAt: r.finished_at,
 });
+
+/** A Scan is already queued or running for the agent (the partial unique index, D-219). */
+export class OpenScanExistsError extends Error {
+  constructor(agentId: number) {
+    super(`Agent ${agentId} already has a Scan queued or running.`);
+    this.name = "OpenScanExistsError";
+  }
+}
 
 /** A lease is refused because the agent already has an active one. */
 export class LeaseHeldError extends Error {
@@ -465,7 +475,16 @@ export class Store {
 
   // ---- tasks ----
 
-  async insertTask(taskId: string, ref: AgentRef, kind: TaskKind): Promise<Task> {
+  /**
+   * Records a queued task. A second open Scan for the agent breaks the partial
+   * unique index (D-219) and throws OpenScanExistsError.
+   */
+  async insertTask(
+    taskId: string,
+    ref: AgentRef,
+    kind: TaskKind,
+    requestedBy: TaskRequester = "console",
+  ): Promise<Task> {
     const row = await this.db
       .insertInto("platform.agent_tasks")
       .values({
@@ -474,10 +493,29 @@ export class Store {
         agent_id: ref.agentId,
         kind,
         status: "queued",
+        requested_by: requestedBy,
       })
       .returningAll()
-      .executeTakeFirstOrThrow();
+      .executeTakeFirstOrThrow()
+      .catch((err: unknown) => {
+        if (err instanceof Error && /agent_tasks_one_open_scan/.test(err.message))
+          throw new OpenScanExistsError(ref.agentId);
+        throw err;
+      });
     return toTask(row as TaskRow);
+  }
+
+  /** Queued Scan tasks, oldest first, for the orchestrator to put on its queue (D-219). */
+  async queuedScans(chainId: number): Promise<Task[]> {
+    const rows = await this.db
+      .selectFrom("platform.agent_tasks")
+      .selectAll()
+      .where("chain_id", "=", chainId)
+      .where("kind", "=", "scan")
+      .where("status", "=", "queued")
+      .orderBy("created_at")
+      .execute();
+    return rows.map((r) => toTask(r as TaskRow));
   }
 
   async task(taskId: string): Promise<Task | null> {

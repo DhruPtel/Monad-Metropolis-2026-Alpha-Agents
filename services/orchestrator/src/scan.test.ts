@@ -327,6 +327,22 @@ describe.skipIf(!dbUp)("the Scan task (needs Postgres)", { timeout: 60_000 }, ()
           .select(["kind", "status"])
           .execute();
         expect(scans).toEqual([{ kind: "scan", status: "queued" }]);
+        const scheduled = await t.db
+          .selectFrom("platform.agent_tasks")
+          .select("requested_by")
+          .executeTakeFirstOrThrow();
+        expect(scheduled.requested_by).toBe("schedule");
+        // A second open Scan is refused by the database too, however it is inserted (D-219).
+        await expect(store.insertTask("owner-2", ref, "scan", "owner")).rejects.toThrow(
+          /already has a Scan/,
+        );
+        // An owner's Scan, recorded in Postgres as the control API records it, reaches the queue.
+        await t.db.deleteFrom("platform.agent_tasks").execute();
+        await o.queue.obliterate();
+        await store.insertTask("owner-1", ref, "scan", "owner");
+        expect(await o.queueRequestedScans()).toBe(1);
+        expect(await o.queueRequestedScans()).toBe(1); // still queued: added once, by job ID
+        expect(await o.queue.pending()).toBe(1);
       } finally {
         await o.queue.obliterate();
         await o.queue.close();

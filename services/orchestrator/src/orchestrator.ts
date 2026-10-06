@@ -18,7 +18,7 @@ import { reconcileOnce } from "./reconciler.ts";
 import { SCAN_MIN_CREDITS_USDC_E6, runScanTask, scanDue } from "./scan.ts";
 import { HERMES_TEMPLATE, type SandboxProvider } from "./sandbox.ts";
 import { type Log, type Redactor, errorText, randomToken } from "./secrets.ts";
-import type { AgentRef, Store } from "./store.ts";
+import { type AgentRef, OpenScanExistsError, type Store, type TaskRequester } from "./store.ts";
 import { startupSweep, type SweepReport } from "./sweep.ts";
 import { type ToolServers, startToolServers } from "./tools/servers.ts";
 import { type Tunnel, startTunnel, tunnelPidFile } from "./tunnel.ts";
@@ -39,12 +39,7 @@ export interface CreditsOptions {
 }
 
 /** A Scan was asked for while one is already queued or running for the agent (D-216). */
-export class ScanOpenError extends Error {
-  constructor(agentId: number) {
-    super(`Agent ${agentId} already has a Scan queued or running.`);
-    this.name = "ScanOpenError";
-  }
-}
+export { OpenScanExistsError as ScanOpenError } from "./store.ts";
 
 /** D-216's default cadence: 360 minutes between scheduled Scans. */
 export const DEFAULT_SCAN_INTERVAL_MS = 360 * 60_000;
@@ -220,6 +215,10 @@ export class Orchestrator {
         await this.refunds?.tick();
       });
     }
+    if (this.credits)
+      this.every(2_000, "requested scans", async () => {
+        await this.queueRequestedScans();
+      });
     if (this.credits && (this.o.scheduleMs ?? 30_000) > 0)
       this.every(this.o.scheduleMs ?? 30_000, "scan scheduler", async () => {
         await this.scheduleScans();
@@ -336,17 +335,30 @@ export class Orchestrator {
    * Queues a Scan (D-216): from the dev console at once, or from the scheduler.
    * Refused without enough credits or while one is already open.
    */
-  async enqueueScan(ref: AgentRef): Promise<string> {
+  async enqueueScan(ref: AgentRef, requestedBy: TaskRequester = "console"): Promise<string> {
     const runtime = await this.o.store.runtime(ref);
     if (runtime?.status !== "ready") throw new Error(`agent ${ref.agentId} is not provisioned`);
     if (!this.credits) throw new Error("credits are not configured");
     if ((await this.credits.creditsOf(ref.agentId)).spendable < SCAN_MIN_CREDITS_USDC_E6)
       throw new CreditsExhaustedError(ref.agentId);
-    if (await this.openScan(ref)) throw new ScanOpenError(ref.agentId);
+    if (await this.openScan(ref)) throw new OpenScanExistsError(ref.agentId);
     const taskId = randomUUID();
-    await this.o.store.insertTask(taskId, ref, "scan");
+    await this.o.store.insertTask(taskId, ref, "scan", requestedBy);
     await this.queue.add({ kind: "scan", ref, taskId });
     return taskId;
+  }
+
+  /**
+   * Puts every queued Scan task on the queue (D-219): the control API records
+   * an owner's Scan in Postgres only. Job IDs are the task IDs, so a task
+   * already on the queue is not added twice, and a task a worker has started
+   * is no longer queued.
+   */
+  async queueRequestedScans(): Promise<number> {
+    const queued = await this.o.store.queuedScans(this.o.chainId);
+    for (const task of queued)
+      await this.queue.add({ kind: "scan", ref: task, taskId: task.taskId });
+    return queued.length;
   }
 
   private async openScan(ref: AgentRef): Promise<boolean> {
@@ -391,7 +403,7 @@ export class Orchestrator {
         firstCreditAt: firstCredit?.at ? new Date(firstCredit.at) : null,
       });
       if (!due) continue;
-      await this.enqueueScan(r);
+      await this.enqueueScan(r, "schedule");
       queued.push(r.agentId);
       this.o.log(`agent ${r.agentId}: scheduled a Scan`);
     }

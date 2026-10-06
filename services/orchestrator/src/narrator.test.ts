@@ -211,6 +211,8 @@ describe.skipIf(!dbUp)("the narrator (needs Postgres)", { timeout: 60_000 }, () 
     const lease = `lease-${task}`;
     await store.insertTask(taskId, { chainId: CHAIN, agentId: 7 }, "scan");
     await store.setTaskLease(taskId, lease);
+    // A Scan is narrated at its end; finished, it frees the agent's one open Scan (D-219).
+    await store.finishTask(taskId, { result: {} });
     if (funded)
       await ledger.post(
         depositEntry(
