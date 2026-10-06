@@ -268,3 +268,211 @@ export async function readRefund(db: Db, chainId: number, agentId: number, refun
     reason: r.reason,
   };
 }
+
+// --- My Agents (P1-U9, D-218) ---------------------------------------------
+
+/** What an owner sees an agent doing (D-218). */
+export type RunStatus =
+  "awaiting_reveal" | "provisioning" | "ready" | "running" | "restricted" | "failed" | "stopped";
+
+export interface ChargeJson {
+  readonly entryId: string;
+  readonly at: string;
+  /** A model call, a tool call, or a charge given back for a tool call that was not answered. */
+  readonly kind: "model" | "tool" | "reversal";
+  /** The model alias or the tool name. */
+  readonly label: string;
+  /** Credits taken (positive) or given back (negative), in USDC base units. */
+  readonly amountUsdcE6: string;
+}
+
+export interface ScanJson {
+  readonly taskId: string;
+  readonly status: "queued" | "running" | "succeeded" | "failed";
+  readonly stopReason: string | null;
+  readonly error: string | null;
+  readonly requestedBy: string | null;
+  readonly createdAt: string;
+  readonly finishedAt: string | null;
+}
+
+export interface SummaryJson {
+  readonly runStatus: RunStatus;
+  readonly credits: CreditsJson | null;
+  readonly spent24hUsdcE6: string;
+  readonly charges: readonly ChargeJson[];
+  readonly latestScan: ScanJson | null;
+}
+
+/** The run status from the index, the runtime, the agent's lease and its credits. */
+export async function readRunStatus(
+  db: Db,
+  chainId: number,
+  agentId: number,
+  credits: CreditsJson | null,
+): Promise<RunStatus> {
+  const agent = await db
+    .selectFrom("indexer.agents")
+    .select("species")
+    .where("chain_id", "=", chainId)
+    .where("agent_id", "=", agentId)
+    .executeTakeFirst();
+  if (!agent || agent.species === 0) return "awaiting_reveal";
+  const runtime = await db
+    .selectFrom("platform.agent_runtimes")
+    .select("status")
+    .where("chain_id", "=", chainId)
+    .where("agent_id", "=", agentId)
+    .executeTakeFirst();
+  if (!runtime || runtime.status === "provisioning") return "provisioning";
+  if (runtime.status === "failed") return "failed";
+  if (runtime.status !== "ready") return "stopped";
+  const lease = await db
+    .selectFrom("platform.sandbox_leases")
+    .select("lease_id")
+    .where("chain_id", "=", chainId)
+    .where("agent_id", "=", agentId)
+    .where("status", "=", "active")
+    .executeTakeFirst();
+  if (lease) return "running";
+  return credits?.restricted !== false ? "restricted" : "ready";
+}
+
+/** Usage charges and their reversals, newest first, from the credit ledger. */
+export async function readCharges(
+  db: Db,
+  chainId: number,
+  agentId: number,
+  limit = 20,
+): Promise<ChargeJson[]> {
+  const rows = await db
+    .selectFrom("platform.ledger_entries as e")
+    .innerJoin("platform.ledger_lines as l", (j) =>
+      j.onRef("l.entry_id", "=", "e.entry_id").on("l.account", "=", "agent_credits"),
+    )
+    .leftJoin("platform.tool_calls as c", (j) =>
+      j.on(sql<boolean>`c.call_id = e.source->>'callId'`),
+    )
+    .select([
+      "e.entry_id",
+      "e.kind",
+      "e.created_at",
+      "l.amount",
+      sql<string | null>`e.source->>'kind'`.as("source_kind"),
+      sql<string | null>`e.source->>'model'`.as("model"),
+      "c.tool",
+    ])
+    .where("e.chain_id", "=", chainId)
+    .where("e.agent_id", "=", agentId)
+    .where("e.kind", "in", ["usage_metered", "usage_reversed"])
+    .orderBy("e.created_at", "desc")
+    .limit(limit)
+    .execute();
+  return rows.map((r) => ({
+    entryId: r.entry_id,
+    at: new Date(r.created_at).toISOString(),
+    kind:
+      r.kind === "usage_reversed" ? "reversal" : r.source_kind === "tool_call" ? "tool" : "model",
+    label: r.tool ?? r.model ?? "model",
+    // A usage line adds to agent_credits (what the platform owes falls): a positive amount is a charge.
+    amountUsdcE6: BigInt(r.amount).toString(),
+  }));
+}
+
+/** Net credits spent in the last 24 hours: charges less reversals. */
+export async function readSpent24h(db: Db, chainId: number, agentId: number): Promise<bigint> {
+  const row = await db
+    .selectFrom("platform.ledger_entries as e")
+    .innerJoin("platform.ledger_lines as l", (j) =>
+      j.onRef("l.entry_id", "=", "e.entry_id").on("l.account", "=", "agent_credits"),
+    )
+    .select(sql<string | null>`sum(l.amount)`.as("total"))
+    .where("e.chain_id", "=", chainId)
+    .where("e.agent_id", "=", agentId)
+    .where("e.kind", "in", ["usage_metered", "usage_reversed"])
+    .where("e.created_at", ">", new Date(Date.now() - 24 * 3_600_000))
+    .executeTakeFirst();
+  return BigInt(row?.total ?? "0");
+}
+
+export async function readLatestScan(
+  db: Db,
+  chainId: number,
+  agentId: number,
+): Promise<ScanJson | null> {
+  const row = await db
+    .selectFrom("platform.agent_tasks")
+    .selectAll()
+    .where("chain_id", "=", chainId)
+    .where("agent_id", "=", agentId)
+    .where("kind", "=", "scan")
+    .orderBy("created_at", "desc")
+    .limit(1)
+    .executeTakeFirst();
+  if (!row) return null;
+  return {
+    taskId: row.task_id,
+    status: row.status,
+    stopReason:
+      typeof (row.result as { stopReason?: unknown } | null)?.stopReason === "string"
+        ? String((row.result as { stopReason: string }).stopReason)
+        : null,
+    error: row.error,
+    requestedBy: row.requested_by,
+    createdAt: new Date(row.created_at).toISOString(),
+    finishedAt: row.finished_at ? new Date(row.finished_at).toISOString() : null,
+  };
+}
+
+export async function readSummary(db: Db, chainId: number, agentId: number): Promise<SummaryJson> {
+  const credits = await readCredits(db, chainId, agentId);
+  return {
+    runStatus: await readRunStatus(db, chainId, agentId, credits),
+    credits,
+    spent24hUsdcE6: (await readSpent24h(db, chainId, agentId)).toString(),
+    charges: await readCharges(db, chainId, agentId),
+    latestScan: await readLatestScan(db, chainId, agentId),
+  };
+}
+
+export type ScanRequest =
+  | { readonly taskId: string }
+  | { readonly refused: "not_provisioned" | "credits_low" | "scan_open" };
+
+/** Records an owner's Scan for the orchestrator to queue (D-219), after its checks. */
+export async function requestScan(
+  db: Db,
+  chainId: number,
+  agentId: number,
+  minimumUsdcE6: bigint,
+): Promise<ScanRequest> {
+  const runtime = await db
+    .selectFrom("platform.agent_runtimes")
+    .select("status")
+    .where("chain_id", "=", chainId)
+    .where("agent_id", "=", agentId)
+    .executeTakeFirst();
+  if (runtime?.status !== "ready") return { refused: "not_provisioned" };
+  const credits = await readCredits(db, chainId, agentId);
+  if (!credits || BigInt(credits.spendableUsdcE6) < minimumUsdcE6)
+    return { refused: "credits_low" };
+  const taskId = randomUUID();
+  try {
+    await db
+      .insertInto("platform.agent_tasks")
+      .values({
+        task_id: taskId,
+        chain_id: chainId,
+        agent_id: agentId,
+        kind: "scan",
+        status: "queued",
+        requested_by: "owner",
+      })
+      .execute();
+  } catch (err) {
+    if (err instanceof Error && /agent_tasks_one_open_scan/.test(err.message))
+      return { refused: "scan_open" };
+    throw err;
+  }
+  return { taskId };
+}

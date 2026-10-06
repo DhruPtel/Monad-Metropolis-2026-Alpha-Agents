@@ -117,6 +117,9 @@ importers:
 
   apps/control-api:
     dependencies:
+      '@alpha-agents/accounting':
+        specifier: workspace:^
+        version: link:../../packages/accounting
       '@alpha-agents/config':
         specifier: workspace:^
         version: link:../../packages/config

@@ -1,3 +1,4 @@
+import { SCAN_MIN_CREDITS_USDC_E6 } from "@alpha-agents/accounting";
 import { CompleteStageOutput } from "@alpha-agents/platform-tools";
 import type { Narrator } from "./narrator.ts";
 import { type TaskContext, openAgentSandbox } from "./noop.ts";
@@ -33,7 +34,7 @@ export const SCAN_LEASE_MS = 12 * 60_000;
 /** The orchestrator's deadline for the run; Hermes's own budget is shorter (240 s). */
 export const SCAN_DEADLINE_MS = 6 * 60_000;
 /** D-216: an agent is scheduled only with at least this much spendable (0.05 USDC). */
-export const SCAN_MIN_CREDITS_USDC_E6 = 50_000n;
+export { SCAN_MIN_CREDITS_USDC_E6 } from "@alpha-agents/accounting";
 
 export type ScanStop = "COMPLETED" | "BILLING" | "DEADLINE" | "NO_STAGE_RECORD" | "FAILED";
 

@@ -1,3 +1,4 @@
+import { SCAN_COST_ESTIMATE_USDC_E6, SCAN_MIN_CREDITS_USDC_E6 } from "@alpha-agents/accounting";
 import type { Environment } from "@alpha-agents/config";
 import type { Db } from "@alpha-agents/db";
 import type { AgentNftDeployment } from "@alpha-agents/domain";
@@ -18,6 +19,8 @@ import {
   listAgents,
   readActivity,
   readCredits,
+  readSummary,
+  requestScan,
   readRefund,
   readSupply,
   readWatermark,
@@ -63,6 +66,9 @@ export type ApiError =
   | "not_owner"
   | "session_stale"
   | "refund_open"
+  | "not_provisioned"
+  | "credits_low"
+  | "scan_open"
   | Eligibility;
 
 const fail = (c: Context, status: number, error: ApiError, message: string) =>
@@ -337,6 +343,49 @@ export function createApp(deps: ApiDeps): Hono {
     );
     if (!refund) return fail(c, 404, "not_found", "No such refund for this agent.");
     return c.json(refund);
+  });
+
+  // --- My Agents (P1-U9, D-218, D-219) -------------------------------------
+
+  /**
+   * Everything the owner's My Agents card needs that is not public: what the
+   * agent is doing, its spend and charges, and its latest Scan. Owner only.
+   */
+  app.get("/v1/agents/:id{[0-9]+}/summary", async (c) => {
+    const agentId = BigInt(c.req.param("id"));
+    const owner = await ownerOnly(c, agentId);
+    if (owner instanceof Response) return owner;
+    const summary = await readSummary(deps.db, chainId, Number(agentId));
+    return c.json({
+      ...(await meta()),
+      agentId: agentId.toString(),
+      wallet: owner.wallet,
+      ownerEpoch: owner.epoch.toString(),
+      ...summary,
+      scan: {
+        minimumUsdcE6: SCAN_MIN_CREDITS_USDC_E6.toString(),
+        estimateUsdcE6: {
+          low: SCAN_COST_ESTIMATE_USDC_E6.low.toString(),
+          high: SCAN_COST_ESTIMATE_USDC_E6.high.toString(),
+        },
+      },
+    });
+  });
+
+  /** The owner asks for a Scan now; the orchestrator queues it within seconds (D-219). */
+  app.post("/v1/agents/:id{[0-9]+}/scan", async (c) => {
+    const agentId = BigInt(c.req.param("id"));
+    const owner = await ownerOnly(c, agentId);
+    if (owner instanceof Response) return owner;
+    const result = await requestScan(deps.db, chainId, Number(agentId), SCAN_MIN_CREDITS_USDC_E6);
+    if ("taskId" in result) return c.json({ taskId: result.taskId }, 202);
+    const minimum = `${Number(SCAN_MIN_CREDITS_USDC_E6) / 1e6}`;
+    const message = {
+      not_provisioned: `Agent #${agentId} is not set up to run yet; try again in a minute.`,
+      credits_low: `A Scan needs at least ${minimum} USDC of credits. Add USDC to the funding address.`,
+      scan_open: `Agent #${agentId} already has a Scan queued or running.`,
+    }[result.refused];
+    return fail(c, 409, result.refused, message);
   });
 
   // --- Mint eligibility and claims (D-198) ---------------------------------

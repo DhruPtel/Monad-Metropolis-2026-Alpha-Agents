@@ -19,6 +19,14 @@ export const CREDIT_MARKUP_BPS = 12_500n;
 /** Assumption A-28: the beta cap on an agent's spendable credits, 50 USDC (D-144 beta guard). */
 export const CREDIT_CAP_USDC_E6 = 50_000_000n as UsdcE6;
 
+/** D-216: a Scan runs only with at least this much spendable (0.05 USDC). */
+export const SCAN_MIN_CREDITS_USDC_E6 = 50_000n as UsdcE6;
+/** A-31: what a Scan costs, measured in P1-U7's live run, shown before an owner runs one. */
+export const SCAN_COST_ESTIMATE_USDC_E6 = {
+  low: 150_000n as UsdcE6,
+  high: 300_000n as UsdcE6,
+} as const;
+
 const PICOS_PER_MICRO = 1_000_000n;
 
 /** A LiteLLM cost in USD (a float in its API) as integer picodollars. */

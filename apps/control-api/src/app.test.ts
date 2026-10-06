@@ -156,6 +156,10 @@ describe.skipIf(!available)("the control API (needs pnpm dev:up for Postgres)", 
     await t.db.deleteFrom("platform.ledger_lines").execute();
     await t.db.deleteFrom("platform.ledger_entries").execute();
     await t.db.deleteFrom("platform.funding_addresses").execute();
+    await t.db.deleteFrom("platform.agent_tasks").execute();
+    await t.db.deleteFrom("platform.sandbox_leases").execute();
+    await t.db.deleteFrom("platform.agent_runtimes").execute();
+    await t.db.deleteFrom("platform.tool_calls").execute();
   });
 
   describe("index reads", () => {
@@ -430,6 +434,222 @@ describe.skipIf(!available)("the control API (needs pnpm dev:up for Postgres)", 
       ]);
       expect(JSON.stringify(body)).not.toContain("PRIVATE_QUERY_TEXT");
       expect(await json(await call("/v1/agents/9/activity"))).toMatchObject({ entries: [] });
+    });
+
+    describe("My Agents: the owner's summary and Scans (P1-U9)", () => {
+      const summary = (agent: number, session: string | null) =>
+        call(`/v1/agents/${agent}/summary`, {
+          headers: session ? { "x-owner-session": session } : {},
+        });
+      const scan = (agent: number, session: string) =>
+        call(`/v1/agents/${agent}/scan`, {
+          method: "POST",
+          headers: { "x-owner-session": session },
+        });
+      const bobSession = async () => (await json(await start(2, "bob-token"))).token as string;
+
+      /** Agent 2's runtime, funding address and a ledger with a deposit, charges and a reversal. */
+      async function seedBob(spendable: bigint, runtime = "ready") {
+        await t.db
+          .insertInto("platform.agent_runtimes")
+          .values({
+            chain_id: env.chainId,
+            agent_id: 2,
+            generation: 1,
+            status: runtime as "ready",
+            tier: 1,
+            species: 3,
+            config: "{}",
+            config_hash: "h",
+            key_alias: "aa-unit-2",
+            budget_usd: "0",
+          })
+          .execute();
+        await t.db
+          .insertInto("platform.funding_addresses")
+          .values({
+            chain_id: env.chainId,
+            agent_id: 2,
+            address: "0x00000000000000000000000000000000000f00d2",
+            derivation_path: "m/44'/60'/0'/0/2",
+          })
+          .execute();
+        let n = 0;
+        const entry = async (
+          kind: string,
+          creditsDelta: bigint,
+          source: Record<string, unknown>,
+        ) => {
+          n += 1;
+          const id = `00000000-0000-4000-8000-${n.toString().padStart(12, "0")}`;
+          await t.db
+            .insertInto("platform.ledger_entries")
+            .values({
+              entry_id: id,
+              chain_id: env.chainId,
+              agent_id: 2,
+              kind,
+              idempotency_key: `k${n}`,
+              occurred_at: new Date(),
+              source: JSON.stringify(source),
+              created_at: new Date(Date.now() + n * 1000),
+            })
+            .execute();
+          // Credits owed are negative on agent_credits; the other side keeps the entry balanced.
+          await t.db
+            .insertInto("platform.ledger_lines")
+            .values([
+              {
+                entry_id: id,
+                line_no: 0,
+                chain_id: env.chainId,
+                agent_id: 2,
+                account: "agent_credits",
+                asset: "USDC",
+                amount: (-creditsDelta).toString(),
+              },
+              {
+                entry_id: id,
+                line_no: 1,
+                chain_id: env.chainId,
+                agent_id: 2,
+                account: kind === "credits_received" ? "funding_address" : "usage_unsettled",
+                asset: "USDC",
+                amount: creditsDelta.toString(),
+              },
+            ])
+            .execute();
+        };
+        await entry("credits_received", spendable + 22_000n, { kind: "usdc_transfer" });
+        await entry("usage_metered", -10_000n, { kind: "litellm_request", model: "scan-cheap" });
+        await t.db
+          .insertInto("platform.tool_calls")
+          .values({
+            call_id: "call-1",
+            chain_id: env.chainId,
+            agent_id: 2,
+            lease_id: "L",
+            server: "data",
+            tool: "web_search",
+            input: "{}",
+            status: "failed",
+          })
+          .execute();
+        await entry("usage_metered", -12_000n, {
+          kind: "tool_call",
+          callId: "call-1",
+          tool: "web_search",
+        });
+        await entry("usage_reversed", 12_000n, { kind: "tool_call_failed", callId: "call-1" });
+        await entry("usage_metered", -12_000n, {
+          kind: "tool_call",
+          callId: "call-1",
+          tool: "web_search",
+        });
+      }
+
+      it("shows the owner the run status, credits, spend, charges and the Scan estimate", async () => {
+        await seedBob(1_000_000n);
+        const res = await summary(2, await bobSession());
+        expect(res.status).toBe(200);
+        const body = await json(res);
+        expect(body).toMatchObject({
+          agentId: "2",
+          wallet: BOB,
+          runStatus: "ready",
+          credits: { spendableUsdcE6: "1000000", restricted: false },
+          spent24hUsdcE6: "22000",
+          latestScan: null,
+          scan: { minimumUsdcE6: "50000", estimateUsdcE6: { low: "150000", high: "300000" } },
+        });
+        expect(
+          (body.charges as { kind: string; label: string; amountUsdcE6: string }[]).map((c) => [
+            c.kind,
+            c.label,
+            c.amountUsdcE6,
+          ]),
+        ).toEqual([
+          ["tool", "web_search", "12000"],
+          ["reversal", "web_search", "-12000"],
+          ["tool", "web_search", "12000"],
+          ["model", "scan-cheap", "10000"],
+        ]);
+      });
+
+      it("reports running while a lease is active, restricted at zero, and waiting before reveal", async () => {
+        await seedBob(0n);
+        const session = await bobSession();
+        expect((await json(await summary(2, session))).runStatus).toBe("restricted");
+        await t.db
+          .insertInto("platform.sandbox_leases")
+          .values({
+            lease_id: "lease-1",
+            chain_id: env.chainId,
+            agent_id: 2,
+            run_tag: "r",
+            namespace: "unit",
+            purpose: "scan",
+            gate_token_hash: "h",
+            status: "active",
+            expires_at: new Date(Date.now() + 60_000),
+          })
+          .execute();
+        expect((await json(await summary(2, session))).runStatus).toBe("running");
+        chain.owners.set(3n, { owner: ALICE, epoch: 0n });
+        const alice = (await json(await start(3, "alice-token"))).token as string;
+        expect((await json(await summary(3, alice))).runStatus).toBe("awaiting_reveal");
+      });
+
+      it("never shows another wallet an owner's summary, nor lets it run a Scan", async () => {
+        await seedBob(1_000_000n);
+        expect((await summary(2, null)).status).toBe(401);
+        // Alice owns agent 1, not 2: her session for agent 1 does not open agent 2.
+        const alice = (await json(await start(1, "alice-token"))).token as string;
+        const crossed = await summary(2, alice);
+        expect([crossed.status, (await json(crossed)).error]).toEqual([403, "not_owner"]);
+        expect((await scan(2, alice)).status).toBe(403);
+        expect((await start(2, "alice-token")).status).toBe(403);
+        expect(await t.db.selectFrom("platform.agent_tasks").selectAll().execute()).toEqual([]);
+      });
+
+      it("queues the owner's Scan once, and says why one is refused", async () => {
+        const session = await bobSession();
+        const none = await scan(2, session);
+        expect([none.status, (await json(none)).error]).toEqual([409, "not_provisioned"]);
+        await seedBob(40_000n);
+        const low = await scan(2, session);
+        const lowBody = await json(low);
+        expect([low.status, lowBody.error]).toEqual([409, "credits_low"]);
+        expect(lowBody.message).toMatch(/at least 0.05 USDC/);
+        await t.db.deleteFrom("platform.ledger_lines").execute();
+        await t.db.deleteFrom("platform.ledger_entries").execute();
+        await t.db.deleteFrom("platform.agent_runtimes").execute();
+        await t.db.deleteFrom("platform.funding_addresses").execute();
+        await t.db.deleteFrom("platform.tool_calls").execute();
+        await seedBob(1_000_000n);
+        const ok = await scan(2, session);
+        expect(ok.status).toBe(202);
+        const { taskId } = await json(ok);
+        const again = await scan(2, session);
+        expect([again.status, (await json(again)).error]).toEqual([409, "scan_open"]);
+        const tasks = await t.db.selectFrom("platform.agent_tasks").selectAll().execute();
+        expect(tasks).toMatchObject([
+          { task_id: taskId, kind: "scan", status: "queued", requested_by: "owner" },
+        ]);
+        expect((await json(await summary(2, session))).latestScan).toMatchObject({
+          taskId,
+          status: "queued",
+          requestedBy: "owner",
+        });
+      });
+
+      it("ends with the session: a transfer makes the summary and the Scan stale", async () => {
+        await seedBob(1_000_000n);
+        const session = await bobSession();
+        chain.owners.set(2n, { owner: CAROL, epoch: 3n });
+        expect((await json(await summary(2, session))).error).toBe("session_stale");
+        expect((await json(await scan(2, session))).error).toBe("session_stale");
+      });
     });
 
     describe("credits (P1-U6)", () => {
