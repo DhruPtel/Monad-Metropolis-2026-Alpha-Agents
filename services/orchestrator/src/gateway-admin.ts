@@ -22,6 +22,18 @@ export interface GatewayAdmin {
   listAliases(prefix: string): Promise<string[]>;
   /** Deletes keys by alias; aliases that do not exist are ignored. */
   deleteAliases(aliases: readonly string[]): Promise<void>;
+  /** The key's request log: one row per call, failed calls with spend 0 (P1-U6). */
+  spendLogs(key: string): Promise<SpendRow[]>;
+  /** Sets the key's budget in USD of provider cost; LiteLLM refuses calls once spend reaches it. */
+  setBudget(key: string, maxBudgetUsd: number): Promise<void>;
+}
+
+export interface SpendRow {
+  readonly requestId: string;
+  /** Provider cost in USD, as LiteLLM computes it. */
+  readonly spendUsd: number;
+  readonly model: string;
+  readonly startTime: string | null;
 }
 
 export class GatewayError extends Error {
@@ -34,6 +46,32 @@ export class GatewayError extends Error {
 }
 
 export class LiteLLMAdmin implements GatewayAdmin {
+  async spendLogs(key: string): Promise<SpendRow[]> {
+    const reply = await this.call("GET", `/spend/logs?api_key=${encodeURIComponent(key)}`);
+    if (reply.status !== 200)
+      throw new GatewayError(`LiteLLM /spend/logs returned ${reply.status}`, reply.status);
+    const rows = reply.json() as {
+      request_id?: string;
+      spend?: number;
+      model?: string;
+      startTime?: string;
+    }[];
+    return rows
+      .filter((r) => typeof r.request_id === "string" && r.request_id.length > 0)
+      .map((r) => ({
+        requestId: r.request_id as string,
+        spendUsd: typeof r.spend === "number" && r.spend > 0 ? r.spend : 0,
+        model: r.model ?? "",
+        startTime: r.startTime ?? null,
+      }));
+  }
+
+  async setBudget(key: string, maxBudgetUsd: number): Promise<void> {
+    const reply = await this.call("POST", "/key/update", { key, max_budget: maxBudgetUsd });
+    if (reply.status !== 200)
+      throw new GatewayError(`LiteLLM /key/update returned ${reply.status}`, reply.status);
+  }
+
   private readonly baseUrl: string;
   private readonly masterKey: string;
 
@@ -118,6 +156,27 @@ export class LiteLLMAdmin implements GatewayAdmin {
 /** An in-memory gateway for tests: aliases are unique, as LiteLLM enforces. */
 export class MemoryGateway implements GatewayAdmin {
   readonly keys = new Map<string, CreateKeyRequest>();
+  /** Spend rows per key value, as LiteLLM would log them. */
+  readonly spend = new Map<string, SpendRow[]>();
+  /** Budgets set per key value. */
+  readonly budgets = new Map<string, number>();
+
+  /** Records a call made with a key, as LiteLLM's spend log would. */
+  logCall(key: string, requestId: string, spendUsd: number): void {
+    const rows = this.spend.get(key) ?? [];
+    rows.push({ requestId, spendUsd, model: "scan-cheap", startTime: null });
+    this.spend.set(key, rows);
+  }
+
+  async spendLogs(key: string): Promise<SpendRow[]> {
+    return [...(this.spend.get(key) ?? [])];
+  }
+
+  async setBudget(key: string, maxBudgetUsd: number): Promise<void> {
+    this.calls.push(`budget ${maxBudgetUsd}`);
+    this.budgets.set(key, maxBudgetUsd);
+  }
+
   readonly calls: string[] = [];
   /** Set to make the next createKey fail after storing the key (a lost reply). */
   failAfterCreate = false;
@@ -127,6 +186,7 @@ export class MemoryGateway implements GatewayAdmin {
     if (this.keys.has(r.alias))
       throw new GatewayError("Unique key aliases across all keys are required.", 400);
     this.keys.set(r.alias, r);
+    this.budgets.set(r.key, r.maxBudgetUsd);
     if (this.failAfterCreate) {
       this.failAfterCreate = false;
       throw new GatewayError("connection reset after create", 502);

@@ -519,14 +519,17 @@ export class Store {
 
   async finishTask(
     taskId: string,
-    outcome: { result: Record<string, unknown> } | { error: string },
+    outcome:
+      { result: Record<string, unknown> } | { error: string; result?: Record<string, unknown> },
   ): Promise<void> {
+    const failed = "error" in outcome;
     await this.db
       .updateTable("platform.agent_tasks")
       .set({
-        status: "result" in outcome ? "succeeded" : "failed",
-        result: "result" in outcome ? JSON.stringify(outcome.result) : null,
-        error: "error" in outcome ? outcome.error : null,
+        status: failed ? "failed" : "succeeded",
+        // A failed task may still carry its structured result (a billing stop, P1-U6).
+        result: outcome.result ? JSON.stringify(outcome.result) : null,
+        error: failed ? outcome.error : null,
         finished_at: sql`now()`,
       })
       .where("task_id", "=", taskId)

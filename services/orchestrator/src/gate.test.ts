@@ -1,7 +1,7 @@
 import { createServer, type IncomingHttpHeaders } from "node:http";
 import type { AddressInfo } from "node:net";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { type Gate, GATE_HEADER, startGate } from "./gate.ts";
+import { CREDITS_EXHAUSTED_BODY, type Gate, GATE_HEADER, startGate } from "./gate.ts";
 import { sha256Hex } from "./secrets.ts";
 import type { Lease } from "./store.ts";
 
@@ -34,11 +34,33 @@ describe("the gate (D-203)", () => {
       sha256Hex("token-agent-2-bbbbbbbbbbbbbbbbbbbbbbbb"),
       { lease: lease("L2", 2), virtualKey: "sk-agent-two", tier: "base" },
     ],
+    [
+      sha256Hex("token-agent-3-dddddddddddddddddddddddd"),
+      { lease: lease("L3", 3), virtualKey: "sk-agent-three", tier: "base", creditsExhausted: true },
+    ],
   ]);
 
   beforeAll(async () => {
     upstream = createServer((req, res) => {
       seen.push(req.headers);
+      if (req.url === "/v1/budget") {
+        // LiteLLM's refusal once a key's spend reaches its budget (H-10, P1-U6 probe).
+        res.writeHead(429, { "content-type": "application/json" });
+        return res.end(
+          JSON.stringify({
+            error: {
+              message:
+                "Budget has been exceeded! Key=k (sk-...abcd) Current cost: 2.9e-05, Max budget: 1e-05",
+              type: "budget_exceeded",
+              code: "429",
+            },
+          }),
+        );
+      }
+      if (req.url === "/v1/busy") {
+        res.writeHead(429, { "content-type": "application/json" });
+        return res.end(JSON.stringify({ error: { message: "rate limited", type: "rate_limit" } }));
+      }
       res.writeHead(200, { "content-type": "application/json" });
       res.end(JSON.stringify({ path: req.url }));
     });
@@ -93,6 +115,29 @@ describe("the gate (D-203)", () => {
       (await call("/mcp", { [GATE_HEADER]: "token-agent-1-aaaaaaaaaaaaaaaaaaaaaaaa" })).status,
     ).toBe(404);
     expect(seen.length).toBe(before);
+  });
+
+  it("answers 402 insufficient_quota at zero credits without calling LiteLLM (D-209)", async () => {
+    const before = seen.length;
+    const res = await call("/v1/chat/completions", {
+      [GATE_HEADER]: "token-agent-3-dddddddddddddddddddddddd",
+    });
+    expect(res.status).toBe(402);
+    expect(await res.json()).toEqual(CREDITS_EXHAUSTED_BODY);
+    expect(seen.length).toBe(before);
+    expect(gate.callsFor("L3").map((c) => c.status)).toEqual([402]);
+  });
+
+  it("turns LiteLLM's budget refusal into the same 402, and passes other errors on", async () => {
+    const headers = { [GATE_HEADER]: "token-agent-1-aaaaaaaaaaaaaaaaaaaaaaaa" };
+    const refused = await call("/v1/budget", headers);
+    expect(refused.status).toBe(402);
+    const body = await refused.text();
+    expect(JSON.parse(body)).toEqual(CREDITS_EXHAUSTED_BODY);
+    expect(body).not.toMatch(/sk-|Current cost/);
+    const busy = await call("/v1/busy", headers);
+    expect(busy.status).toBe(429);
+    expect(await busy.json()).toMatchObject({ error: { type: "rate_limit" } });
   });
 
   it("lets the probe token reach /healthz and nothing else", async () => {

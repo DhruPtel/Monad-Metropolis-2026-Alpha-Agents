@@ -36,6 +36,10 @@ export interface NoopResult extends Record<string, unknown> {
   /** Model calls the gate forwarded to LiteLLM for this lease, and how many succeeded. */
   readonly modelCalls: number;
   readonly modelCallsOk: number;
+  /** Model calls the gate refused with 402 because credits ran out (P1-U6, D-209). */
+  readonly modelCallsRefusedForCredits: number;
+  /** "billing" when the run ended because credits ran out. */
+  readonly stopReason: "completed" | "billing" | "failed";
   readonly sandboxStopped: boolean;
   readonly timingsMs: {
     readonly sandbox: number;
@@ -181,6 +185,13 @@ export async function runNoopTask(ctx: TaskContext, taskId: string): Promise<voi
       answeredNoopOk: /\bNOOP_OK\b/.test(replied),
       modelCalls: calls.length,
       modelCallsOk: calls.filter((c) => c.status === 200).length,
+      modelCallsRefusedForCredits: calls.filter((c) => c.status === 402).length,
+      stopReason:
+        final.status === "completed"
+          ? "completed"
+          : calls.some((c) => c.status === 402)
+            ? "billing"
+            : "failed",
       sandboxStopped: lease?.status === "ended",
       timingsMs: {
         sandbox: sandboxMs,
@@ -189,9 +200,16 @@ export async function runNoopTask(ctx: TaskContext, taskId: string): Promise<voi
         total: Date.now() - started,
       },
     };
-    if (final.status !== "completed") {
+    if (result.stopReason === "billing") {
+      const n = result.modelCallsRefusedForCredits;
+      await ctx.store.finishTask(taskId, {
+        error: `billing: the agent's credits ran out; the gate refused ${n} model call${n === 1 ? "" : "s"} with 402 and the run ended ${final.status}`,
+        result,
+      });
+    } else if (final.status !== "completed") {
       await ctx.store.finishTask(taskId, {
         error: `the Hermes run ended ${final.status}: ${ctx.redactor.redact(String(final.failure ?? "")).slice(0, 200)}`,
+        result,
       });
     } else {
       await ctx.store.finishTask(taskId, { result });

@@ -35,7 +35,30 @@ export interface GateCredentials {
   readonly lease: Lease;
   readonly virtualKey: string;
   readonly tier: string;
+  /** P1-U6: the agent has no spendable credits; model calls get 402 without reaching LiteLLM. */
+  readonly creditsExhausted?: boolean;
 }
+
+/**
+ * The answer to a model call when credits are gone (D-209): HTTP 402 with
+ * `insufficient_quota`, which the pinned Hermes classifies as billing and does
+ * not retry (agent/turn_api_error.py). LiteLLM's own refusal, 429
+ * `budget_exceeded` (spike H-10, which Hermes retried as a rate limit), is
+ * replaced by the same answer. No "try again" wording: Hermes reads a 402 that
+ * says so as a temporary limit.
+ */
+export const CREDITS_EXHAUSTED_BODY = {
+  error: {
+    message:
+      "Credits exhausted: this agent has no credits left. Its owner adds USDC to its funding address.",
+    type: "insufficient_quota",
+    code: "insufficient_quota",
+  },
+};
+
+/** LiteLLM's budget refusal, as it words it (seen in H-10 and in P1-U6's probe). */
+export const isBudgetRefusal = (status: number, body: string): boolean =>
+  (status === 429 || status === 400) && /budget_exceeded|budget has been exceeded/i.test(body);
 
 export interface GateOptions {
   readonly litellmUrl: string;
@@ -121,6 +144,7 @@ export async function startGate(options: GateOptions, port = 0): Promise<Gate> {
       if (path === "/healthz") return reply(200, { ok: true });
       // Tool servers join here with P1-U7 (/mcp); until then the gate serves the model only.
       if (!path.startsWith("/v1/")) return reply(404, { error: "not found" });
+      if (creds.creditsExhausted) return reply(402, CREDITS_EXHAUSTED_BODY);
 
       const target = new URL(req.url ?? "/", litellm);
       const proxied = httpRequest(
@@ -128,9 +152,22 @@ export async function startGate(options: GateOptions, port = 0): Promise<Gate> {
         { method: req.method, headers: forwardHeaders(req.headers, target, creds) },
         (up) => {
           const status = up.statusCode ?? 502;
-          res.writeHead(status, up.headers);
-          up.on("end", () => record(status));
-          up.pipe(res);
+          if (status < 400) {
+            res.writeHead(status, up.headers);
+            up.on("end", () => record(status));
+            up.pipe(res);
+            return;
+          }
+          // Errors are small: read them, so a budget refusal can become a 402.
+          const chunks: Buffer[] = [];
+          up.on("data", (c: Buffer) => chunks.push(c));
+          up.on("end", () => {
+            const body = Buffer.concat(chunks).toString("utf8");
+            if (isBudgetRefusal(status, body)) return reply(402, CREDITS_EXHAUSTED_BODY);
+            record(status);
+            res.writeHead(status, up.headers);
+            res.end(body);
+          });
         },
       );
       proxied.on("error", () => {

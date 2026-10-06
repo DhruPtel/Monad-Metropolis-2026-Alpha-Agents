@@ -1,6 +1,7 @@
 import { TIER_IDS } from "@alpha-agents/domain";
 import { Hono } from "hono";
-import type { Orchestrator } from "./orchestrator.ts";
+import { RefundOpenError } from "./credits/refunds.ts";
+import { CreditsExhaustedError, type Orchestrator } from "./orchestrator.ts";
 import type { Runtime, Store, Task } from "./store.ts";
 
 /**
@@ -89,6 +90,76 @@ export function createApi(o: ApiOptions): Hono {
     return task ? c.json(taskView(task)) : c.json({ error: "not_found" }, 404);
   });
 
+  /** P1-U6: every indexed agent's funding address, credits and recent ledger entries. */
+  app.get("/v1/credits", async (c) => {
+    const credits = o.orchestrator.credits;
+    if (!credits) return c.json({ enabled: false, agents: [] });
+    const rows = await o.store.db
+      .selectFrom("indexer.agents as a")
+      .leftJoin("platform.funding_addresses as f", (j) =>
+        j.onRef("f.chain_id", "=", "a.chain_id").onRef("f.agent_id", "=", "a.agent_id"),
+      )
+      .select(["a.agent_id", "f.address"])
+      .where("a.chain_id", "=", o.chainId)
+      .orderBy("a.agent_id")
+      .execute();
+    const agents = [];
+    for (const r of rows) {
+      const v = await credits.creditsOf(r.agent_id);
+      const recent = await o.orchestrator.ledger.recent(o.chainId, r.agent_id, 5);
+      agents.push({
+        agentId: String(r.agent_id),
+        fundingAddress: r.address,
+        creditsUsdcE6: v.credits.toString(),
+        spendableUsdcE6: v.spendable.toString(),
+        heldUsdcE6: v.held.toString(),
+        unsettledUsdcE6: v.unsettled.toString(),
+        fundingAddressUsdcE6: v.fundingAddress.toString(),
+        restricted: v.restricted,
+        recent: recent.map((e) => ({
+          kind: e.kind,
+          creditsDeltaUsdcE6: e.creditsDelta.toString(),
+          at: e.occurredAt.toISOString(),
+        })),
+      });
+    }
+    return c.json({ enabled: true, agents });
+  });
+
+  app.get("/v1/refunds/:refundId", async (c) => {
+    const r = await o.store.db
+      .selectFrom("platform.refunds")
+      .select([
+        "refund_id",
+        "agent_id",
+        "owner",
+        "owner_epoch",
+        "status",
+        "credits_usdc_e6",
+        "held_usdc_e6",
+        "tx_hash",
+        "reason",
+        "created_at",
+        "updated_at",
+      ])
+      .where("refund_id", "=", c.req.param("refundId"))
+      .executeTakeFirst();
+    if (!r) return c.json({ error: "not_found" }, 404);
+    return c.json({
+      refundId: r.refund_id,
+      agentId: String(r.agent_id),
+      owner: r.owner,
+      ownerEpoch: String(r.owner_epoch),
+      status: r.status,
+      creditsUsdcE6: r.credits_usdc_e6,
+      heldUsdcE6: r.held_usdc_e6,
+      txHash: r.tx_hash,
+      reason: r.reason,
+      createdAt: r.created_at.toISOString(),
+      updatedAt: r.updated_at.toISOString(),
+    });
+  });
+
   app.get("/v1/keeper", (c) => {
     const keeper = o.orchestrator.keeper;
     if (!keeper) return c.json({ running: false, recent: [] });
@@ -117,8 +188,41 @@ export function createApi(o: ApiOptions): Hono {
           { error: "lease_held", message: `Agent ${ref.agentId} already has a sandbox running.` },
           409,
         );
-      const taskId = await o.orchestrator.enqueueNoop(ref);
-      return c.json({ taskId }, 202);
+      try {
+        const taskId = await o.orchestrator.enqueueNoop(ref);
+        return c.json({ taskId }, 202);
+      } catch (err) {
+        if (err instanceof CreditsExhaustedError)
+          return c.json({ error: "credits_exhausted", message: err.message }, 409);
+        throw err;
+      }
+    });
+
+    /** The console's refund: for the agent's current owner and epoch, read from the chain. */
+    app.post("/v1/agents/:agentId/refund", async (c) => {
+      const ref = agentRef(c.req.param("agentId"), o.chainId);
+      if (!ref) return c.json({ error: "bad_agent_id" }, 400);
+      const refunds = o.orchestrator.refunds;
+      if (!refunds) return c.json({ error: "not_configured", message: "Refunds are off." }, 503);
+      const ownership = await o.orchestrator.ownership(ref.agentId);
+      if (!ownership)
+        return c.json({ error: "not_found", message: `Agent ${ref.agentId} does not exist.` }, 404);
+      try {
+        const refundId = await refunds.request(
+          ref.agentId,
+          ownership.owner,
+          ownership.epoch,
+          "console",
+        );
+        return c.json(
+          { refundId, owner: ownership.owner, ownerEpoch: String(ownership.epoch) },
+          202,
+        );
+      } catch (err) {
+        if (err instanceof RefundOpenError)
+          return c.json({ error: "refund_open", message: err.message }, 409);
+        throw err;
+      }
     });
 
     app.post("/v1/agents/:agentId/reset", async (c) => {

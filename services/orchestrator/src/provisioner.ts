@@ -29,8 +29,17 @@ export interface ProvisionerOptions {
   readonly secret: string;
   readonly redactor: Redactor;
   readonly log: Log;
-  /** USD on a new key until credits set budgets (P1-U6). */
+  /** USD on a new key when no credits service is wired (unit tests). */
   readonly startingBudgetUsd: number;
+  /**
+   * P1-U6: a new key's budget from the agent's credits (D-208), and a hook that
+   * meters the old key's last calls before it is deleted. Both run under the
+   * agent's lock, so they must not take it themselves.
+   */
+  readonly credits?: {
+    budgetForLocked(agentId: number, keyAlias: string): Promise<number>;
+    meterLocked(agentId: number): Promise<number>;
+  };
   readonly overrides?: (ref: AgentRef) => AgentOverrides;
 }
 
@@ -99,6 +108,9 @@ export class Provisioner {
       : `sk-aa-${randomBytes(24).toString("hex")}`;
     this.o.redactor.add(key);
 
+    const budgetUsd = this.o.credits
+      ? await this.o.credits.budgetForLocked(ref.agentId, alias)
+      : this.o.startingBudgetUsd;
     const { config, hash } = renderAgentConfig(
       {
         chainId: ref.chainId,
@@ -118,7 +130,7 @@ export class Provisioner {
       configHash: hash,
       keyAlias: alias,
       keyCiphertext: encryptSecret(key, this.o.secret),
-      budgetUsd: this.o.startingBudgetUsd.toFixed(6),
+      budgetUsd: budgetUsd.toFixed(6),
     });
 
     try {
@@ -128,7 +140,7 @@ export class Provisioner {
             key,
             alias,
             models: [config.hermes.model.default],
-            maxBudgetUsd: this.o.startingBudgetUsd,
+            maxBudgetUsd: budgetUsd,
             metadata: {
               app: "alpha-agents",
               namespace: this.o.namespace,
@@ -166,6 +178,16 @@ export class Provisioner {
     if (!runtime || runtime.status === "deprovisioned") return false;
     await this.o.store.setRuntimeStatus(ref, "deprovisioning");
     await this.o.leases.releaseForAgent(ref, `deprovisioned: ${reason}`);
+    // The key's last calls are charged before it goes (P1-U6).
+    if (this.o.credits && runtime.status === "ready") {
+      try {
+        await this.o.credits.meterLocked(ref.agentId);
+      } catch (err) {
+        this.o.log(
+          `agent ${ref.agentId}: metering before delete failed: ${errorText(err, this.o.redactor)}`,
+        );
+      }
+    }
     await this.o.gateway.deleteAliases([runtime.keyAlias]);
     if (await this.o.gateway.hasAlias(runtime.keyAlias))
       throw new Error(`agent ${ref.agentId}: key ${runtime.keyAlias} still exists after delete`);

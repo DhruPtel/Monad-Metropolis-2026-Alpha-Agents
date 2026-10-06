@@ -1,4 +1,9 @@
 import { randomUUID } from "node:crypto";
+import type { JournalEntry } from "@alpha-agents/accounting";
+import { type FundingKeys, ensureFundingAddresses } from "./credits/funding.ts";
+import { Ledger } from "./credits/ledger.ts";
+import { type RefundChain, RefundService } from "./credits/refunds.ts";
+import { CreditService } from "./credits/service.ts";
 import { type Gate, startGate } from "./gate.ts";
 import type { GatewayAdmin } from "./gateway-admin.ts";
 import { TIER_IDS } from "@alpha-agents/domain";
@@ -17,9 +22,26 @@ import { type Tunnel, startTunnel, tunnelPidFile } from "./tunnel.ts";
 /**
  * Wires the orchestrator's parts into one service (D-202): the startup sweep,
  * the queue worker, the reconciler (every second), the reveal keeper (every two
- * seconds), the lease reaper, and the gate with its tunnel, started on the
- * first task that needs a sandbox.
+ * seconds), the lease reaper, the gate with its tunnel, started on the first
+ * task that needs a sandbox, and credits (P1-U6): funding addresses, deposits,
+ * metering, budget sync and refunds, every two seconds.
  */
+export interface CreditsOptions {
+  readonly keys: FundingKeys;
+  /** Null where AgentNFT or USDC is not deployed: refunds then stay requested. */
+  readonly refundChain: RefundChain | null;
+  readonly environment: JournalEntry["environment"];
+  readonly cap?: bigint;
+}
+
+/** An LLM task was asked for an agent with no spendable credits (D-129). */
+export class CreditsExhaustedError extends Error {
+  constructor(agentId: number) {
+    super(`Agent ${agentId} has no credits left: add USDC to its funding address.`);
+    this.name = "CreditsExhaustedError";
+  }
+}
+
 export interface OrchestratorOptions {
   readonly store: Store;
   readonly gateway: GatewayAdmin;
@@ -38,6 +60,9 @@ export interface OrchestratorOptions {
   readonly template?: string;
   readonly reconcileMs?: number;
   readonly keeperMs?: number;
+  /** P1-U6 credits; null runs the orchestrator without them (P1-U5 tests). */
+  readonly credits: CreditsOptions | null;
+  readonly creditsMs?: number;
 }
 
 export class Orchestrator {
@@ -45,6 +70,9 @@ export class Orchestrator {
   readonly leases: LeaseManager;
   readonly provisioner: Provisioner;
   readonly queue: OrchestratorQueue;
+  readonly ledger: Ledger;
+  readonly credits: CreditService | null;
+  readonly refunds: RefundService | null;
   readonly probeToken = randomToken();
   sweep: SweepReport | null = null;
   private readonly o: OrchestratorOptions;
@@ -65,6 +93,35 @@ export class Orchestrator {
       redactor,
       log,
     });
+    this.ledger = new Ledger(store.db);
+    const c = options.credits;
+    this.credits = c
+      ? new CreditService({
+          store,
+          ledger: this.ledger,
+          gateway: options.gateway,
+          chainId: options.chainId,
+          environment: c.environment,
+          keyOf: (runtime) => this.provisioner.virtualKey(runtime),
+          redactor,
+          log,
+          ...(c.cap === undefined ? {} : { cap: c.cap }),
+        })
+      : null;
+    this.refunds =
+      c && c.refundChain && this.credits
+        ? new RefundService({
+            store,
+            ledger: this.ledger,
+            credits: this.credits,
+            keys: c.keys,
+            chain: c.refundChain,
+            chainId: options.chainId,
+            environment: c.environment,
+            redactor,
+            log,
+          })
+        : null;
     this.provisioner = new Provisioner({
       store,
       gateway: options.gateway,
@@ -74,6 +131,7 @@ export class Orchestrator {
       redactor,
       log,
       startingBudgetUsd: options.startingBudgetUsd,
+      ...(this.credits ? { credits: this.credits } : {}),
     });
     this.queue = new OrchestratorQueue({ redisUrl: options.redisUrl, namespace, log, redactor });
   }
@@ -101,7 +159,15 @@ export class Orchestrator {
         const runtime = await this.o.store.runtime(lease);
         const virtualKey = runtime ? this.provisioner.virtualKey(runtime) : null;
         if (!runtime || !virtualKey) return null;
-        return { lease, virtualKey, tier: TIER_IDS[runtime.tier - 1] ?? "unknown" };
+        const creditsExhausted = this.credits
+          ? (await this.credits.creditsOf(lease.agentId)).restricted
+          : false;
+        return {
+          lease,
+          virtualKey,
+          tier: TIER_IDS[runtime.tier - 1] ?? "unknown",
+          creditsExhausted,
+        };
       },
     });
     this.queue.start((job) => this.handle(job));
@@ -111,6 +177,14 @@ export class Orchestrator {
     this.every(15_000, "lease reaper", async () => {
       await this.leases.reapExpired();
     });
+    if (this.o.credits) {
+      const keys = this.o.credits.keys;
+      this.every(this.o.creditsMs ?? 2_000, "credits", async () => {
+        await ensureFundingAddresses(this.o.store, keys, this.o.chainId);
+        await this.credits?.tick();
+        await this.refunds?.tick();
+      });
+    }
     if (this.o.keeper) {
       const keeper = this.o.keeper;
       this.loops.push(keeper.run(this.controller.signal, this.o.keeperMs ?? 2_000));
@@ -200,10 +274,20 @@ export class Orchestrator {
   async enqueueNoop(ref: AgentRef): Promise<string> {
     const runtime = await this.o.store.runtime(ref);
     if (runtime?.status !== "ready") throw new Error(`agent ${ref.agentId} is not provisioned`);
+    // D-129: LLM work stops at zero credits; deterministic work does not come through here.
+    if (this.credits && (await this.credits.creditsOf(ref.agentId)).restricted)
+      throw new CreditsExhaustedError(ref.agentId);
     const taskId = randomUUID();
     await this.o.store.insertTask(taskId, ref, "noop");
     await this.queue.add({ kind: "noop", ref, taskId });
     return taskId;
+  }
+
+  /** The agent's owner and ownership epoch, read from the chain. */
+  async ownership(agentId: number) {
+    const chain = this.o.credits?.refundChain;
+    if (!chain) throw new Error("refunds are not configured");
+    return chain.ownership(agentId);
   }
 
   async enqueueReset(ref: AgentRef): Promise<void> {

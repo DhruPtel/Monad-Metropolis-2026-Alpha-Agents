@@ -13,6 +13,8 @@ import { localPaths, secretFragments } from "@alpha-agents/devenv";
 import { addressEntry } from "@alpha-agents/domain";
 import { type Hex, createPublicClient, http } from "viem";
 import { createApi } from "./api.ts";
+import { FundingKeys } from "./credits/funding.ts";
+import { ViemRefundChain } from "./credits/refunds.ts";
 import { LiteLLMAdmin } from "./gateway-admin.ts";
 import { KEEPER_POLICY, RevealKeeper } from "./keeper.ts";
 import { ViemRevealChain } from "./keeper-chain.ts";
@@ -30,8 +32,8 @@ import { findCloudflared } from "./tunnel.ts";
  *   --no-keeper         do not run the reveal keeper
  *
  * Reads DATABASE_URL, REDIS_URL, LITELLM_BASE_URL, LITELLM_MASTER_KEY,
- * ORCHESTRATOR_SECRET, ORCHESTRATOR_PORT, E2B_API_KEY and
- * REVEAL_KEEPER_PRIVATE_KEY. Every secret value is registered with the log's
+ * ORCHESTRATOR_SECRET, ORCHESTRATOR_PORT, E2B_API_KEY,
+ * REVEAL_KEEPER_PRIVATE_KEY and FUNDING_ADDRESS_SEED (P1-U6). Every secret value is registered with the log's
  * redactor before anything is logged, and none is ever printed.
  */
 const ENV_PATH = fileURLToPath(new URL("../../../.env", import.meta.url));
@@ -141,6 +143,28 @@ else {
   log(`reveal keeper on: wallet ${chain.address}, window ${env.id === "local" ? 10 : 60} s`);
 }
 
+// Credits (P1-U6): funding addresses from the seed, refunds through the chain.
+const seed = env.id === "beta" ? undefined : reveal("FUNDING_ADDRESS_SEED");
+const usdc = addressEntry(env.id, "usdc");
+let credits = null;
+if (!seed) log("FUNDING_ADDRESS_SEED is not set: credits, deposits and refunds are off");
+else {
+  const keys = new FundingKeys(seed as Hex);
+  const refundChain =
+    usdc.status === "verified"
+      ? new ViemRefundChain({
+          rpcUrl,
+          chainId: env.chainId,
+          agentNft: nft.address as Hex,
+          usdc: usdc.address as Hex,
+          localFork: env.id === "local",
+        })
+      : null;
+  if (!refundChain) log(`no USDC in the address book for ${env.label}: refunds stay requested`);
+  credits = { keys, refundChain, environment: env.label };
+  log("credits on: funding addresses, deposits, metering, budgets and refunds");
+}
+
 const db = createDb(reveal("DATABASE_URL") ?? "", { max: 10 });
 await migrateToLatest(db);
 const store = new Store(db);
@@ -159,6 +183,7 @@ const orchestrator = new Orchestrator({
   startingBudgetUsd: 1,
   redactor,
   log,
+  credits,
 });
 await orchestrator.start();
 
