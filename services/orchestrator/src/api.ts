@@ -1,3 +1,4 @@
+import { sql } from "@alpha-agents/db";
 import { TIER_IDS } from "@alpha-agents/domain";
 import { Hono } from "hono";
 import { RefundOpenError } from "./credits/refunds.ts";
@@ -107,6 +108,13 @@ export function createApi(o: ApiOptions): Hono {
     for (const r of rows) {
       const v = await credits.creditsOf(r.agent_id);
       const recent = await o.orchestrator.ledger.recent(o.chainId, r.agent_id, 5);
+      const spent = await o.store.db
+        .selectFrom("platform.usage_receipts")
+        .select(sql<string | null>`sum(charge_usdc_e6)`.as("total"))
+        .where("chain_id", "=", o.chainId)
+        .where("agent_id", "=", r.agent_id)
+        .where("metered_at", ">", new Date(Date.now() - 24 * 3_600_000))
+        .executeTakeFirst();
       agents.push({
         agentId: String(r.agent_id),
         fundingAddress: r.address,
@@ -116,6 +124,7 @@ export function createApi(o: ApiOptions): Hono {
         unsettledUsdcE6: v.unsettled.toString(),
         fundingAddressUsdcE6: v.fundingAddress.toString(),
         restricted: v.restricted,
+        spent24hUsdcE6: spent?.total ?? "0",
         recent: recent.map((e) => ({
           kind: e.kind,
           creditsDeltaUsdcE6: e.creditsDelta.toString(),
