@@ -8,6 +8,7 @@ import {
   assertChainId,
   loadConfig,
 } from "@alpha-agents/config";
+import { TavilyProvider } from "@alpha-agents/data-tools";
 import { createDb, migrateToLatest } from "@alpha-agents/db";
 import { localPaths, secretFragments } from "@alpha-agents/devenv";
 import { addressEntry } from "@alpha-agents/domain";
@@ -33,7 +34,8 @@ import { findCloudflared } from "./tunnel.ts";
  *
  * Reads DATABASE_URL, REDIS_URL, LITELLM_BASE_URL, LITELLM_MASTER_KEY,
  * ORCHESTRATOR_SECRET, ORCHESTRATOR_PORT, E2B_API_KEY,
- * REVEAL_KEEPER_PRIVATE_KEY and FUNDING_ADDRESS_SEED (P1-U6). Every secret value is registered with the log's
+ * REVEAL_KEEPER_PRIVATE_KEY, FUNDING_ADDRESS_SEED (P1-U6), TAVILY_API_KEY and
+ * SCAN_INTERVAL_MINUTES (P1-U7). Every secret value is registered with the log's
  * redactor before anything is logged, and none is ever printed.
  */
 const ENV_PATH = fileURLToPath(new URL("../../../.env", import.meta.url));
@@ -165,6 +167,14 @@ else {
   log("credits on: funding addresses, deposits, metering, budgets and refunds");
 }
 
+// Tools (P1-U7): web_search and read_url through Tavily; Scans on the configured cadence.
+const tavilyKey = reveal("TAVILY_API_KEY");
+const web = tavilyKey ? new TavilyProvider(tavilyKey) : null;
+if (!web)
+  log("TAVILY_API_KEY is not set: web_search and read_url answer that they are not configured");
+const scanMinutes = Number(values.SCAN_INTERVAL_MINUTES ?? 360);
+if (credits) log(`scheduled Scans every ${scanMinutes} minutes for agents with credits`);
+
 const db = createDb(reveal("DATABASE_URL") ?? "", { max: 10 });
 await migrateToLatest(db);
 const store = new Store(db);
@@ -184,6 +194,8 @@ const orchestrator = new Orchestrator({
   redactor,
   log,
   credits,
+  web,
+  scanIntervalMs: scanMinutes * 60_000,
 });
 await orchestrator.start();
 

@@ -2,14 +2,15 @@ import { sql } from "@alpha-agents/db";
 import { TIER_IDS } from "@alpha-agents/domain";
 import { Hono } from "hono";
 import { RefundOpenError } from "./credits/refunds.ts";
-import { CreditsExhaustedError, type Orchestrator } from "./orchestrator.ts";
+import { CreditsExhaustedError, type Orchestrator, ScanOpenError } from "./orchestrator.ts";
 import type { Runtime, Store, Task } from "./store.ts";
 
 /**
  * The orchestrator's internal API (D-205), on loopback only. Reads serve the
  * dev console: runtimes with their lease and latest task, one task, and the
- * keeper's recent actions. The write routes (run the no-op task, reset an
- * agent) exist only when `devActions` is on, which main.ts allows only with
+ * keeper's recent actions, and (P1-U7) each agent's tool calls and activity
+ * entries. The write routes (run the no-op task or a Scan, reset an agent)
+ * exist only when `devActions` is on, which main.ts allows only with
  * APP_ENV=local. Nothing here returns a key, a token or a ciphertext.
  */
 export interface ApiOptions {
@@ -108,12 +109,22 @@ export function createApi(o: ApiOptions): Hono {
     for (const r of rows) {
       const v = await credits.creditsOf(r.agent_id);
       const recent = await o.orchestrator.ledger.recent(o.chainId, r.agent_id, 5);
+      const since = new Date(Date.now() - 24 * 3_600_000);
       const spent = await o.store.db
         .selectFrom("platform.usage_receipts")
         .select(sql<string | null>`sum(charge_usdc_e6)`.as("total"))
         .where("chain_id", "=", o.chainId)
         .where("agent_id", "=", r.agent_id)
-        .where("metered_at", ">", new Date(Date.now() - 24 * 3_600_000))
+        .where("metered_at", ">", since)
+        .executeTakeFirst();
+      // P1-U7: paid tool calls that were answered (failed calls are reversed).
+      const toolSpent = await o.store.db
+        .selectFrom("platform.tool_calls")
+        .select(sql<string | null>`sum(charge_usdc_e6)`.as("total"))
+        .where("chain_id", "=", o.chainId)
+        .where("agent_id", "=", r.agent_id)
+        .where("status", "=", "succeeded")
+        .where("started_at", ">", since)
         .executeTakeFirst();
       agents.push({
         agentId: String(r.agent_id),
@@ -124,7 +135,8 @@ export function createApi(o: ApiOptions): Hono {
         unsettledUsdcE6: v.unsettled.toString(),
         fundingAddressUsdcE6: v.fundingAddress.toString(),
         restricted: v.restricted,
-        spent24hUsdcE6: spent?.total ?? "0",
+        spent24hUsdcE6: (BigInt(spent?.total ?? "0") + BigInt(toolSpent?.total ?? "0")).toString(),
+        toolSpent24hUsdcE6: toolSpent?.total ?? "0",
         recent: recent.map((e) => ({
           kind: e.kind,
           creditsDeltaUsdcE6: e.creditsDelta.toString(),
@@ -181,7 +193,114 @@ export function createApi(o: ApiOptions): Hono {
     return c.json({ running: true, recent });
   });
 
+  /**
+   * P1-U7: an agent's recent tool calls, for the console's history. Inputs are
+   * reduced to what the console shows (the query, or the URL's host); page
+   * text and note text are never stored here.
+   */
+  app.get("/v1/agents/:agentId/tool-calls", async (c) => {
+    const ref = agentRef(c.req.param("agentId"), o.chainId);
+    if (!ref) return c.json({ error: "bad_agent_id" }, 400);
+    const rows = await o.store.db
+      .selectFrom("platform.tool_calls")
+      .selectAll()
+      .where("chain_id", "=", ref.chainId)
+      .where("agent_id", "=", ref.agentId)
+      .orderBy("started_at", "desc")
+      .limit(50)
+      .execute();
+    return c.json({
+      agentId: String(ref.agentId),
+      calls: rows.map((r) => {
+        const input = r.input as { query?: unknown; url?: unknown; stage?: unknown };
+        let target: string | null = null;
+        if (typeof input.query === "string") target = input.query.slice(0, 120);
+        else if (typeof input.url === "string")
+          try {
+            target = new URL(input.url).hostname;
+          } catch {
+            target = "invalid URL";
+          }
+        else if (typeof input.stage === "string") target = input.stage;
+        return {
+          callId: r.call_id,
+          leaseId: r.lease_id,
+          server: r.server,
+          tool: r.tool,
+          target,
+          status: r.status,
+          errorCode: r.error_code,
+          chargeUsdcE6: r.charge_usdc_e6,
+          reversed: r.reversal_entry_id !== null,
+          cacheHit: r.cache_hit,
+          results: (r.summary as { results?: unknown } | null)?.results ?? null,
+          startedAt: new Date(r.started_at).toISOString(),
+        };
+      }),
+    });
+  });
+
+  /** P1-U7: an agent's activity entries, newest first (D-217). */
+  app.get("/v1/agents/:agentId/activity", async (c) => {
+    const ref = agentRef(c.req.param("agentId"), o.chainId);
+    if (!ref) return c.json({ error: "bad_agent_id" }, 400);
+    const rows = await o.store.db
+      .selectFrom("platform.activity_entries")
+      .select(["entry_id", "task_id", "kind", "text", "rendered_by", "rejections", "created_at"])
+      .where("chain_id", "=", ref.chainId)
+      .where("agent_id", "=", ref.agentId)
+      .orderBy("created_at", "desc")
+      .limit(20)
+      .execute();
+    return c.json({
+      agentId: String(ref.agentId),
+      entries: rows.map((r) => ({
+        entryId: r.entry_id,
+        taskId: r.task_id,
+        kind: r.kind,
+        text: r.text,
+        renderedBy: r.rendered_by,
+        rejected: r.rejections.length,
+        at: new Date(r.created_at).toISOString(),
+      })),
+    });
+  });
+
   if (o.devActions) {
+    /** P1-U7: queue a Scan now (D-216); the scheduler also queues them on its cadence. */
+    app.post("/v1/agents/:agentId/tasks/scan", async (c) => {
+      const ref = agentRef(c.req.param("agentId"), o.chainId);
+      if (!ref) return c.json({ error: "bad_agent_id" }, 400);
+      const runtime = await o.store.runtime(ref);
+      if (runtime?.status !== "ready")
+        return c.json(
+          { error: "not_provisioned", message: `Agent ${ref.agentId} is not provisioned yet.` },
+          409,
+        );
+      const held = await o.store.activeLease(ref);
+      if (held)
+        return c.json(
+          { error: "lease_held", message: `Agent ${ref.agentId} already has a sandbox running.` },
+          409,
+        );
+      try {
+        const taskId = await o.orchestrator.enqueueScan(ref);
+        return c.json({ taskId }, 202);
+      } catch (err) {
+        if (err instanceof CreditsExhaustedError)
+          return c.json(
+            {
+              error: "credits_exhausted",
+              message: `Agent ${ref.agentId} needs at least 0.05 USDC of credits for a Scan.`,
+            },
+            409,
+          );
+        if (err instanceof ScanOpenError)
+          return c.json({ error: "scan_open", message: err.message }, 409);
+        throw err;
+      }
+    });
+
     app.post("/v1/agents/:agentId/tasks/noop", async (c) => {
       const ref = agentRef(c.req.param("agentId"), o.chainId);
       if (!ref) return c.json({ error: "bad_agent_id" }, 400);

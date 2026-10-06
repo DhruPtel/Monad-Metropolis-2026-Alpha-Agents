@@ -10,10 +10,12 @@ import { gateResolver } from "./gate-resolver.ts";
 import type { GatewayAdmin } from "./gateway-admin.ts";
 import { RevealKeeper } from "./keeper.ts";
 import { LeaseManager } from "./leases.ts";
-import { runNoopTask } from "./noop.ts";
+import { Narrator } from "./narrator.ts";
+import { type TaskContext, runNoopTask } from "./noop.ts";
 import { Provisioner } from "./provisioner.ts";
 import { type JobData, OrchestratorQueue } from "./queue.ts";
 import { reconcileOnce } from "./reconciler.ts";
+import { SCAN_MIN_CREDITS_USDC_E6, runScanTask, scanDue } from "./scan.ts";
 import { HERMES_TEMPLATE, type SandboxProvider } from "./sandbox.ts";
 import { type Log, type Redactor, errorText, randomToken } from "./secrets.ts";
 import type { AgentRef, Store } from "./store.ts";
@@ -35,6 +37,17 @@ export interface CreditsOptions {
   readonly environment: JournalEntry["environment"];
   readonly cap?: bigint;
 }
+
+/** A Scan was asked for while one is already queued or running for the agent (D-216). */
+export class ScanOpenError extends Error {
+  constructor(agentId: number) {
+    super(`Agent ${agentId} already has a Scan queued or running.`);
+    this.name = "ScanOpenError";
+  }
+}
+
+/** D-216's default cadence: 360 minutes between scheduled Scans. */
+export const DEFAULT_SCAN_INTERVAL_MS = 360 * 60_000;
 
 /** An LLM task was asked for an agent with no spendable credits (D-129). */
 export class CreditsExhaustedError extends Error {
@@ -70,6 +83,10 @@ export interface OrchestratorOptions {
    * configured. The tool servers run whenever credits do, since every paid call is metered.
    */
   readonly web?: WebProvider | null;
+  /** Minutes between scheduled Scans, as milliseconds (SCAN_INTERVAL_MINUTES, D-216). */
+  readonly scanIntervalMs?: number;
+  /** How often the scheduler looks for due Scans; 0 turns scheduling off (tests). */
+  readonly scheduleMs?: number;
 }
 
 export class Orchestrator {
@@ -80,6 +97,7 @@ export class Orchestrator {
   readonly ledger: Ledger;
   readonly credits: CreditService | null;
   readonly refunds: RefundService | null;
+  readonly narrator: Narrator | null;
   readonly probeToken = randomToken();
   sweep: SweepReport | null = null;
   private readonly o: OrchestratorOptions;
@@ -130,6 +148,18 @@ export class Orchestrator {
             log,
           })
         : null;
+    this.narrator = this.credits
+      ? new Narrator({
+          store,
+          gateway: options.gateway,
+          credits: this.credits,
+          namespace,
+          litellmUrl: options.litellmUrl,
+          secret: options.secret,
+          redactor,
+          log,
+        })
+      : null;
     this.provisioner = new Provisioner({
       store,
       gateway: options.gateway,
@@ -190,6 +220,10 @@ export class Orchestrator {
         await this.refunds?.tick();
       });
     }
+    if (this.credits && (this.o.scheduleMs ?? 30_000) > 0)
+      this.every(this.o.scheduleMs ?? 30_000, "scan scheduler", async () => {
+        await this.scheduleScans();
+      });
     if (this.o.keeper) {
       const keeper = this.o.keeper;
       this.loops.push(keeper.run(this.controller.signal, this.o.keeperMs ?? 2_000));
@@ -225,20 +259,23 @@ export class Orchestrator {
       case "reset":
         return this.provisioner.reset(job.ref);
       case "noop":
-        return runNoopTask(
-          {
-            store: this.o.store,
-            leases: this.leases,
-            provider: this.o.provider ?? unavailableProvider,
-            template: this.o.template ?? HERMES_TEMPLATE,
-            tunnelHost: () => this.tunnelHost(),
-            gate: this.requireGate(),
-            redactor: this.o.redactor,
-            log: this.o.log,
-          },
-          job.taskId,
-        );
+        return runNoopTask(this.taskContext(), job.taskId);
+      case "scan":
+        return runScanTask({ ...this.taskContext(), narrator: this.narrator }, job.taskId);
     }
+  }
+
+  private taskContext(): TaskContext {
+    return {
+      store: this.o.store,
+      leases: this.leases,
+      provider: this.o.provider ?? unavailableProvider,
+      template: this.o.template ?? HERMES_TEMPLATE,
+      tunnelHost: () => this.tunnelHost(),
+      gate: this.requireGate(),
+      redactor: this.o.redactor,
+      log: this.o.log,
+    };
   }
 
   private requireGate(): Gate {
@@ -293,6 +330,72 @@ export class Orchestrator {
     const chain = this.o.credits?.refundChain;
     if (!chain) throw new Error("refunds are not configured");
     return chain.ownership(agentId);
+  }
+
+  /**
+   * Queues a Scan (D-216): from the dev console at once, or from the scheduler.
+   * Refused without enough credits or while one is already open.
+   */
+  async enqueueScan(ref: AgentRef): Promise<string> {
+    const runtime = await this.o.store.runtime(ref);
+    if (runtime?.status !== "ready") throw new Error(`agent ${ref.agentId} is not provisioned`);
+    if (!this.credits) throw new Error("credits are not configured");
+    if ((await this.credits.creditsOf(ref.agentId)).spendable < SCAN_MIN_CREDITS_USDC_E6)
+      throw new CreditsExhaustedError(ref.agentId);
+    if (await this.openScan(ref)) throw new ScanOpenError(ref.agentId);
+    const taskId = randomUUID();
+    await this.o.store.insertTask(taskId, ref, "scan");
+    await this.queue.add({ kind: "scan", ref, taskId });
+    return taskId;
+  }
+
+  private async openScan(ref: AgentRef): Promise<boolean> {
+    const open = await this.o.store.db
+      .selectFrom("platform.agent_tasks")
+      .select("task_id")
+      .where("chain_id", "=", ref.chainId)
+      .where("agent_id", "=", ref.agentId)
+      .where("kind", "=", "scan")
+      .where("status", "in", ["queued", "running"])
+      .executeTakeFirst();
+    return open !== undefined;
+  }
+
+  /** One scheduler pass: queues a Scan for every provisioned agent that is due (D-216). */
+  async scheduleScans(now = new Date()): Promise<number[]> {
+    if (!this.credits) return [];
+    const queued: number[] = [];
+    const db = this.o.store.db;
+    for (const r of await this.o.store.runtimes(this.o.chainId)) {
+      if (r.status !== "ready") continue;
+      const last = await db
+        .selectFrom("platform.agent_tasks")
+        .select((eb) => eb.fn.max("created_at").as("at"))
+        .where("chain_id", "=", r.chainId)
+        .where("agent_id", "=", r.agentId)
+        .where("kind", "=", "scan")
+        .executeTakeFirst();
+      const firstCredit = await db
+        .selectFrom("platform.ledger_entries")
+        .select((eb) => eb.fn.min("created_at").as("at"))
+        .where("chain_id", "=", r.chainId)
+        .where("agent_id", "=", r.agentId)
+        .where("kind", "in", ["credits_received", "deposit_held"])
+        .executeTakeFirst();
+      const due = scanDue({
+        now,
+        intervalMs: this.o.scanIntervalMs ?? DEFAULT_SCAN_INTERVAL_MS,
+        spendable: (await this.credits.creditsOf(r.agentId)).spendable,
+        openScan: await this.openScan(r),
+        lastScanAt: last?.at ? new Date(last.at) : null,
+        firstCreditAt: firstCredit?.at ? new Date(firstCredit.at) : null,
+      });
+      if (!due) continue;
+      await this.enqueueScan(r);
+      queued.push(r.agentId);
+      this.o.log(`agent ${r.agentId}: scheduled a Scan`);
+    }
+    return queued;
   }
 
   async enqueueReset(ref: AgentRef): Promise<void> {

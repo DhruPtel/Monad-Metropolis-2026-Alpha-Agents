@@ -3,7 +3,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createApi } from "./api.ts";
 import { MemoryGateway } from "./gateway-admin.ts";
 import { LeaseManager } from "./leases.ts";
-import type { Orchestrator } from "./orchestrator.ts";
+import { CreditsExhaustedError, type Orchestrator, ScanOpenError } from "./orchestrator.ts";
 import { Provisioner } from "./provisioner.ts";
 import { MemoryProvider } from "./sandbox.ts";
 import { Redactor } from "./secrets.ts";
@@ -17,6 +17,7 @@ describe.skipIf(!dbUp)("the orchestrator's internal API (D-205)", { timeout: 60_
   let store: Store;
   let leases: LeaseManager;
   const queued: string[] = [];
+  let scanRefusal: Error | null = null;
   const orchestrator = {
     runTag: "run-test",
     keeper: null,
@@ -26,6 +27,11 @@ describe.skipIf(!dbUp)("the orchestrator's internal API (D-205)", { timeout: 60_
     },
     enqueueReset: async (ref: { agentId: number }) => {
       queued.push(`reset ${ref.agentId}`);
+    },
+    enqueueScan: async (ref: { agentId: number }) => {
+      if (scanRefusal) throw scanRefusal;
+      queued.push(`scan ${ref.agentId}`);
+      return "scan-1";
     },
   } as unknown as Orchestrator;
 
@@ -100,6 +106,78 @@ describe.skipIf(!dbUp)("the orchestrator's internal API (D-205)", { timeout: 60_
     const res = await api(true).request("/v1/agents/1/reset", { method: "POST" });
     expect(res.status).toBe(202);
     expect(queued.at(-1)).toBe("reset 1");
+  });
+
+  it("queues a Scan, and names why one is refused", async () => {
+    const post = () => api(true).request("/v1/agents/1/tasks/scan", { method: "POST" });
+    const ok = await post();
+    expect(ok.status).toBe(202);
+    expect(await ok.json()).toEqual({ taskId: "scan-1" });
+    scanRefusal = new CreditsExhaustedError(1);
+    const broke = await post();
+    expect(broke.status).toBe(409);
+    expect(await broke.json()).toMatchObject({ error: "credits_exhausted" });
+    scanRefusal = new ScanOpenError(1);
+    expect(await (await post()).json()).toMatchObject({ error: "scan_open" });
+    scanRefusal = null;
+    expect((await api(true).request("/v1/agents/2/tasks/scan", { method: "POST" })).status).toBe(
+      409,
+    );
+    expect((await api(false).request("/v1/agents/1/tasks/scan", { method: "POST" })).status).toBe(
+      404,
+    );
+  });
+
+  it("lists tool calls with the query or host only, and activity entries", async () => {
+    const call = (id: string, tool: string, input: unknown) =>
+      t.db
+        .insertInto("platform.tool_calls")
+        .values({
+          call_id: id,
+          chain_id: CHAIN,
+          agent_id: 1,
+          lease_id: "L",
+          server: "data",
+          tool,
+          input: JSON.stringify(input),
+          status: "succeeded",
+          charge_usdc_e6: "10000",
+          summary: JSON.stringify({ results: 3 }),
+        })
+        .execute();
+    await call("c1", "web_search", { query: "monad news" });
+    await call("c2", "read_url", { url: "https://news.example/path?secret=1" });
+    await t.db
+      .insertInto("platform.activity_entries")
+      .values({
+        entry_id: "a1",
+        chain_id: CHAIN,
+        agent_id: 1,
+        task_id: "scan-1",
+        kind: "scan",
+        text: "Agent #1 ran 1 web search.",
+        rendered_by: "narrator",
+        facts: "{}",
+        rejections: "[]",
+      })
+      .execute();
+    const calls = (await (await api(false).request("/v1/agents/1/tool-calls")).json()) as {
+      calls: { tool: string; target: string; chargeUsdcE6: string; results: number }[];
+    };
+    expect(calls.calls.map((c) => [c.tool, c.target])).toEqual(
+      expect.arrayContaining([
+        ["web_search", "monad news"],
+        ["read_url", "news.example"],
+      ]),
+    );
+    expect(JSON.stringify(calls)).not.toContain("secret=1");
+    const activity = (await (await api(false).request("/v1/agents/1/activity")).json()) as {
+      entries: { text: string; renderedBy: string }[];
+    };
+    expect(activity.entries).toEqual([
+      expect.objectContaining({ text: "Agent #1 ran 1 web search.", renderedBy: "narrator" }),
+    ]);
+    expect((await api(false).request("/v1/agents/x/activity")).status).toBe(400);
   });
 
   it("has no write routes without dev actions (outside APP_ENV=local)", async () => {
