@@ -139,6 +139,8 @@ export class FakeApi {
   readonly dashboards = new Map<bigint, FakeDashboard>();
   /** Owner-only requests, for tests that check another wallet made none. */
   readonly ownerCalls: string[] = [];
+  /** Requests refused because the token's wallet was not the one asked about, as "path wallet". */
+  readonly notLinked: string[] = [];
 
   constructor(chain: FakeChain, options: FakeApiOptions = {}) {
     this.chain = chain;
@@ -228,11 +230,13 @@ export class FakeApi {
     const url = new URL(request.url());
     const meta = { environment: "fork", chainId: 143143, watermark: this.watermark() };
     const linked = linkedWallet(request.headers()["authorization"]);
-    const notLinked = () =>
-      reply(403, {
+    const notLinked = (wallet: string) => {
+      this.notLinked.push(`${url.pathname} ${wallet}`);
+      return reply(403, {
         error: "wallet_not_linked",
         message: "That wallet is not linked to your login.",
       });
+    };
 
     if (url.pathname === "/v1/supply") return reply(200, { ...meta, ...this.supply() });
     if (url.pathname === "/v1/agents") {
@@ -274,13 +278,13 @@ export class FakeApi {
     if (url.pathname === "/v1/mint/eligibility") {
       if (!linked) return reply(401, { error: "invalid_token", message: "Log in first." });
       const wallet = url.searchParams.get("wallet") ?? "";
-      if (!same(wallet, linked)) return notLinked();
+      if (!same(wallet, linked)) return notLinked(wallet);
       return reply(200, this.eligibility(wallet));
     }
     if (url.pathname === "/v1/mint/claim") {
       if (!linked) return reply(401, { error: "invalid_token", message: "Log in first." });
       const wallet = String((request.postDataJSON() as { wallet?: string } | null)?.wallet ?? "");
-      if (!same(wallet, linked)) return notLinked();
+      if (!same(wallet, linked)) return notLinked(wallet);
       const e = this.eligibility(wallet);
       if (!e.eligible)
         return reply(e.reason === "not_allowlisted" ? 403 : 409, {

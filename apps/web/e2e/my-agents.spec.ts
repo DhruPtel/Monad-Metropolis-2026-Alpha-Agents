@@ -257,6 +257,9 @@ test.describe("owner only", () => {
     await expect(card(page, 7)).toBeVisible();
 
     await page.evaluate((address) => window.__mockWallet?.setAccount(address), OTHER_WALLET);
+    await expect(walletButton(page)).toHaveAttribute("data-state", "logged-out");
+    await expect(card(page, 7)).toHaveCount(0);
+    await connect(page);
     await expect(main(page).getByText("No agents in this wallet yet")).toBeVisible();
     await expect(card(page, 7)).toHaveCount(0);
     await expect(main(page)).not.toContainText(FUNDING_ADDRESS.slice(0, 6));

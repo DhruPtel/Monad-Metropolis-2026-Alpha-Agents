@@ -126,6 +126,10 @@ test("mint, reveal as a bee, and view it in 3D with slots on its sockets", async
   // makes React remove the 3D stage in place.
   await page.evaluate((address) => window.__mockWallet?.setAccount(address), OTHER_WALLET);
   await expect(page.getByTestId("agent-canvas")).toHaveCount(0, { timeout: 30_000 });
+  await expect(page.locator("header [data-slot=wallet-button]")).toHaveAttribute(
+    "data-state",
+    "logged-out",
+  );
   await page.waitForTimeout(500);
   expect(problems).toEqual([]);
 });
@@ -170,7 +174,16 @@ test("switching to an account that does not own the agent removes it", async ({ 
     timeout: 30_000,
   });
 
+  // The switch ends the old account's session; logging in again uses the new one.
   await page.evaluate((address) => window.__mockWallet?.setAccount(address), OTHER_WALLET);
+  await expect(page.locator("header [data-slot=wallet-button]")).toHaveAttribute(
+    "data-state",
+    "logged-out",
+  );
+  await expect(
+    portal.getByRole("heading", { level: 1, name: `Alpha Agent #${agentId}` }),
+  ).toHaveCount(0);
+  await portal.getByRole("button", { name: "Connect wallet" }).click();
   await expect(portal.getByText("No agent in this wallet yet")).toBeVisible({ timeout: 30_000 });
   await expect(
     portal.getByRole("heading", { level: 1, name: `Alpha Agent #${agentId}` }),

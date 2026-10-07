@@ -1,5 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { type Page, expect, test } from "@playwright/test";
+import { repaint } from "./repaint";
 
 /**
  * Login in the app shell (P1-U2), against the test build: the mock wallet stands
@@ -47,9 +48,14 @@ test("connect shows the address and chain, and disconnect logs out", async ({ pa
   await open(page);
   await connect(page);
   await expect(walletButton(page).getByText(SHORT_ADDRESS)).toBeVisible();
+  // At 1440 the header also holds the nav, so the wallet's name takes the chain chip's place.
   const chip = walletButton(page).getByText(TARGET);
-  if (info.project.name === "desktop") await expect(chip).toBeVisible();
-  else await expect(chip).toBeHidden();
+  const name = walletButton(page).getByText("MetaMask");
+  await expect(chip).toBeHidden();
+  if (info.project.name === "desktop") await expect(name).toBeVisible();
+  else await expect(name).toBeHidden();
+  await page.mouse.move(0, 0);
+  await repaint(page);
   await expect(page.locator("header")).toHaveScreenshot("shell-connected.png");
 
   await walletButton(page).getByRole("button", { name: "Disconnect" }).click();
@@ -71,6 +77,7 @@ test("a wallet on the wrong chain is blocked until it switches", async ({ page }
   await pageLink.focus();
   await expect(pageLink).not.toBeFocused();
   expect(await blockingViolations(page)).toEqual([]);
+  await repaint(page);
   await expect(page).toHaveScreenshot("shell-wrong-chain.png", { fullPage: true, timeout: 30_000 });
 
   await prompt.getByRole("button", { name: `Switch to ${TARGET}` }).click();
@@ -105,6 +112,14 @@ for (const state of STATES) {
   });
 }
 
+for (const name of ["connecting-cancel", "connected-okx", "waiting-notice"]) {
+  test(`the ${name} login specimen matches its screenshot`, async ({ page }) => {
+    await page.goto("/design");
+    await page.evaluate(() => document.fonts.ready);
+    await expect(page.getByTestId(`login-state-${name}`)).toHaveScreenshot(`login-${name}.png`);
+  });
+}
+
 test("the login-unavailable state matches its screenshot", async ({ page }) => {
   await page.goto("/design");
   await page.evaluate(() => document.fonts.ready);
@@ -130,7 +145,11 @@ test("the header fits on one row at every desktop width, logged out and connecte
     await page.setViewportSize({ width, height: 900 });
     for (const connected of [false, true]) {
       await open(page, "/design");
-      if (connected) await connect(page);
+      // OKX Wallet: the longest wallet name the button shows.
+      if (connected) {
+        await page.evaluate(() => window.__mockWallet?.chooseOnConnect("okx"));
+        await connect(page);
+      }
       const row = await page.evaluate(() => {
         const header = document.querySelector("header.sticky > div");
         const links = [...document.querySelectorAll("nav[aria-label=Main] a")];
@@ -143,6 +162,8 @@ test("the header fits on one row at every desktop width, logged out and connecte
       if (!row) overflowing.push(`${width} ${state}: no header row`);
       else if (row.overflow > 0 || row.wrapped > 0)
         overflowing.push(`${width} ${state}: ${row.overflow}px over, ${row.wrapped} wrapped`);
+      // The login outlives a reload, as Privy's does: log out for the next width.
+      if (connected) await walletButton(page).getByRole("button", { name: "Disconnect" }).click();
     }
   }
   expect(overflowing).toEqual([]);

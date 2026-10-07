@@ -91,7 +91,7 @@ if (live && app === "web") {
       env: {
         ...process.env,
         LIVE_WEB: "1",
-        LIVE_SPEC: agents ? "my-agents.live.spec.ts" : "live.spec.ts",
+        LIVE_SPEC: process.env.LIVE_SPEC ?? (agents ? "my-agents.live.spec.ts" : "live.spec.ts"),
         TEST_DATABASE_URL: stack.databaseUrl,
       },
     });

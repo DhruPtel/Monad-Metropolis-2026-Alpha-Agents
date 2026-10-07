@@ -117,7 +117,14 @@ test("an owner funds an agent, runs a Scan, reads its entry and refunds it; anot
   expect(await page.content()).not.toMatch(/sk-[A-Za-z0-9]{12,}|tvly-/);
 
   // Another wallet: no card, and the owner-only summary needs the owner's session.
+  // The switch ends the owner's session at once; logging in again uses the other account.
   await page.evaluate((address) => window.__mockWallet?.setAccount(address), OTHER_WALLET);
+  await expect(page.locator("header [data-slot=wallet-button]")).toHaveAttribute(
+    "data-state",
+    "logged-out",
+  );
+  await expect(card).toHaveCount(0);
+  await page.getByRole("main").getByRole("button", { name: "Connect wallet" }).click();
   await expect(page.getByRole("main").getByText("No agents in this wallet yet")).toBeVisible({
     timeout: 30_000,
   });

@@ -5,6 +5,7 @@ import { MOCK_WALLET_ADDRESS } from "../src/auth/mock-wallet-constants";
 import { THREE_MARKER, scriptsLoaded } from "./bundles";
 import { FakeApi } from "./fake-api";
 import { FakeChain } from "./fake-chain";
+import { repaint } from "./repaint";
 import { disableWebgl } from "./webgl";
 
 /**
@@ -42,6 +43,7 @@ async function connect(page: Page) {
 async function capture(page: Page, name: string) {
   await page.mouse.move(0, 0);
   await page.waitForFunction(() => document.querySelector("button:hover, a:hover") === null);
+  await repaint(page);
   await expect(portal(page)).toHaveScreenshot(name, {
     stylePath: fileURLToPath(new URL("./portal-capture.css", import.meta.url)),
   });
@@ -135,7 +137,13 @@ test.describe("ownership", () => {
     await connect(page);
     await expect(heading(page, 7)).toBeVisible();
 
+    // The switch ends the session at once (it belonged to the old account),
+    // and the agent goes with it; logging in again uses the new account.
     await page.evaluate((address) => window.__mockWallet?.setAccount(address), OTHER_WALLET);
+    await expect(walletButton(page)).toHaveAttribute("data-state", "logged-out");
+    await expect(page.getByText(/switched to 0x3C44\.\.\.93BC/)).toBeVisible();
+    await expect(heading(page, 7)).toHaveCount(0);
+    await connect(page);
     await expect(portal(page).getByText("No agent in this wallet yet")).toBeVisible();
     await expect(heading(page, 7)).toHaveCount(0);
     await expect(portal(page).getByRole("region", { name: "Slots" })).toHaveCount(0);
