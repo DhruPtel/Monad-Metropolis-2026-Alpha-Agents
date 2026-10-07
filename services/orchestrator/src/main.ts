@@ -172,8 +172,37 @@ else {
   log(`reveal keeper on: wallet ${chain.address}, window ${env.id === "local" ? 10 : 60} s`);
 }
 
-// Credits (P1-U6): funding addresses from the seed, refunds through the chain.
 const seed = env.id === "beta" ? undefined : reveal("FUNDING_ADDRESS_SEED");
+// The signer (P2-U4): Executor swaps, and refunds and settlements (D-261), from session keys
+// derived from the funding seed (D-243) on the fork and testnet; the beta waits for KMS keys
+// (D-244, PB-U1). It starts before credits, which hand it every refund.
+let signerWorker: SignerWorker | null = null;
+if (!seed) log("signer off: FUNDING_ADDRESS_SEED is not set");
+else if (env.id === "beta") log("signer off: the beta signs with KMS keys (D-244), bound in PB-U1");
+else {
+  try {
+    const secondary = reveal("MONAD_RPC_URL_SECONDARY");
+    const treasury = values.PLATFORM_TREASURY_ADDRESS as string | undefined;
+    signerWorker = new SignerWorker({
+      db,
+      environment: env.id,
+      rpcUrl,
+      ...(secondary ? { secondaryRpcUrl: secondary } : {}),
+      seed: seed as Hex,
+      ...(treasury ? { treasury: treasury as Hex } : {}),
+      log: createLog("signer", redactor),
+    });
+    await signerWorker.start();
+    log(
+      `signer on: chain ${signerWorker.signer.pinnedChainId}, Executor swaps and USDC refunds${treasury ? " and settlements" : ""}`,
+    );
+  } catch (err) {
+    signerWorker = null;
+    log(`signer off: ${errorText(err, redactor)}`);
+  }
+}
+
+// Credits (P1-U6): funding addresses from the seed, refunds through the signer (D-261).
 const usdc = addressEntry(env.id, "usdc");
 let credits = null;
 if (!seed) log("FUNDING_ADDRESS_SEED is not set: credits, deposits and refunds are off");
@@ -186,36 +215,18 @@ else {
           chainId: env.chainId,
           agentNft: nft.address as Hex,
           usdc: usdc.address as Hex,
-          localFork: env.id === "local",
         })
       : null;
   if (!refundChain) log(`no USDC in the address book for ${env.label}: refunds stay requested`);
-  credits = { keys, refundChain, environment: env.label };
+  if (!signerWorker)
+    log("refunds wait: the signer is off, and every refund goes through it (D-261)");
+  credits = {
+    keys,
+    refundChain,
+    refundSigner: signerWorker?.signer ?? null,
+    environment: env.label,
+  };
   log("credits on: funding addresses, deposits, metering, budgets and refunds");
-}
-
-// The signer (P2-U4): Executor swaps only, from session keys derived from the funding seed
-// (D-243) on the fork and testnet; the beta waits for KMS keys (D-244, PB-U1).
-let signerWorker: SignerWorker | null = null;
-if (!seed) log("signer off: FUNDING_ADDRESS_SEED is not set");
-else if (env.id === "beta") log("signer off: the beta signs with KMS keys (D-244), bound in PB-U1");
-else {
-  try {
-    const secondary = reveal("MONAD_RPC_URL_SECONDARY");
-    signerWorker = new SignerWorker({
-      db,
-      environment: env.id,
-      rpcUrl,
-      ...(secondary ? { secondaryRpcUrl: secondary } : {}),
-      seed: seed as Hex,
-      log: createLog("signer", redactor),
-    });
-    await signerWorker.start();
-    log(`signer on: chain ${signerWorker.signer.pinnedChainId}, the Executor's swap only`);
-  } catch (err) {
-    signerWorker = null;
-    log(`signer off: ${errorText(err, redactor)}`);
-  }
 }
 
 // Tools (P1-U7): web_search and read_url through Tavily; Scans on the configured cadence.

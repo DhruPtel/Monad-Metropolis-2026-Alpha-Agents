@@ -6,21 +6,17 @@ import {
   reversalEntry,
   shareOf,
 } from "@alpha-agents/accounting";
-import { readContributionWeights } from "@alpha-agents/db";
-import { assertLocalFork, rpc } from "@alpha-agents/devenv";
+import { type Db, readContributionWeights } from "@alpha-agents/db";
 import { AGENT_NFT_ABI } from "@alpha-agents/domain";
 import {
   type Chain,
   type Hex,
   createPublicClient,
   defineChain,
-  encodeFunctionData,
   http,
   isAddressEqual,
-  keccak256,
   parseAbi,
 } from "viem";
-import type { HDAccount } from "viem/accounts";
 import type { Log, Redactor } from "../secrets.ts";
 import { errorText } from "../secrets.ts";
 import type { AgentRef, Store } from "../store.ts";
@@ -29,23 +25,27 @@ import type { Ledger } from "./ledger.ts";
 import type { CreditService } from "./service.ts";
 
 /**
- * Refunds (D-210, D-242). A request names the owner and ownership epoch it was
- * made under. Processing rechecks both on chain and refunds only the owner's
- * own share of the agent's spendable credits and held deposits (D-242): the
- * owner's contributions to the funding address, less those earlier refunds
- * consumed, over everyone's. Other contributors' shares stay with the agent.
- * It pays from the funding address to that owner, and
- * writes the signed transaction and the ledger entry in one database
- * transaction before broadcasting, so a restart rebroadcasts the same
- * transaction instead of paying twice. A request whose owner or epoch no
- * longer matches is refused: credits stay with the agent across a sale.
+ * Refunds (D-210, D-242, D-261). A request names the owner and ownership
+ * epoch it was made under. Processing rechecks both on chain and refunds only
+ * the owner's own share of the agent's spendable credits and held deposits
+ * (D-242): the owner's contributions to the funding address, less those
+ * earlier refunds consumed, over everyone's. Other contributors' shares stay
+ * with the agent. A request whose owner or epoch no longer matches is
+ * refused: credits stay with the agent across a sale.
+ *
+ * The transfer goes through the signer's outbox (D-261), like every platform
+ * transaction: the ledger entry and the outbox row are written in one
+ * database transaction, and the signer then signs with the next fenced nonce,
+ * resolves a lost answer as unknown rather than failed, and checks the
+ * recipient is still the agent's owner when it signs. This service follows
+ * the outbox row: reconciled means sent; failed means nothing left the
+ * funding address, so the ledger entry is reversed. A refund signed before
+ * D-261 keeps its own raw transaction and is finished the old way.
  */
 export interface RefundChain {
   ownership(agentId: number): Promise<{ owner: Hex; epoch: bigint } | null>;
   usdcBalance(address: Hex): Promise<bigint>;
-  /** Signs a USDC transfer from the account; nothing is sent. */
-  signTransfer(account: HDAccount, to: Hex, amount: bigint): Promise<{ raw: Hex; hash: Hex }>;
-  /** Broadcasts a signed transaction; a transaction the node already has is not an error. */
+  /** Broadcasts a signed transaction (a refund signed before D-261); a transaction the node already has is not an error. */
   broadcast(raw: Hex): Promise<void>;
   /** Waits for the receipt: true for success, false for a revert. */
   receipt(hash: Hex, timeoutMs: number): Promise<boolean>;
@@ -64,7 +64,6 @@ export class ViemRefundChain implements RefundChain {
     chainId: number;
     agentNft: Hex;
     usdc: Hex;
-    localFork: boolean;
   };
 
   constructor(o: ViemRefundChain["o"]) {
@@ -110,42 +109,6 @@ export class ViemRefundChain implements RefundChain {
     });
   }
 
-  async signTransfer(account: HDAccount, to: Hex, amount: bigint) {
-    const data = encodeFunctionData({
-      abi: USDC_ABI,
-      functionName: "transfer",
-      args: [to, amount],
-    });
-    const [nonce, gasPrice, gas] = await Promise.all([
-      this.pub.getTransactionCount({ address: account.address, blockTag: "pending" }),
-      this.pub.getGasPrice(),
-      this.pub.estimateGas({ account: account.address, to: this.o.usdc, data }),
-    ]);
-    const fee = gasPrice * 2n;
-    const limit = (gas * 3n) / 2n;
-    if (this.o.localFork) {
-      // Gas top-ups are a later unit (A-19); on the local fork the funding address gets MON here.
-      const balance = await this.pub.getBalance({ address: account.address });
-      if (balance < fee * limit) {
-        await assertLocalFork(this.o.rpcUrl);
-        await rpc(this.o.rpcUrl, "anvil_setBalance", [
-          account.address,
-          `0x${(fee * limit * 10n).toString(16)}`,
-        ]);
-      }
-    }
-    const raw = await account.signTransaction({
-      type: "legacy",
-      chainId: this.o.chainId,
-      to: this.o.usdc,
-      data,
-      nonce,
-      gas: limit,
-      gasPrice: fee,
-    });
-    return { raw, hash: keccak256(raw) };
-  }
-
   async broadcast(raw: Hex): Promise<void> {
     try {
       await this.pub.sendRawTransaction({ serializedTransaction: raw });
@@ -163,12 +126,32 @@ export class ViemRefundChain implements RefundChain {
   }
 }
 
+/** The part of the signer refunds use (packages/signer's Signer). */
+export interface RefundSigner {
+  acceptTransfer(
+    agentId: number,
+    t: { kind: "usdc_refund"; to: Hex; amount: bigint; actionKey: string },
+    db?: Db,
+  ): Promise<{ txId: string; status: string; reasonCode: string | null }>;
+  transaction(txId: string): Promise<
+    | {
+        status: string;
+        reason_code: string | null;
+        reason: string | null;
+        tx_hash: string | null;
+      }
+    | undefined
+  >;
+}
+
 export interface RefundOptions {
   readonly store: Store;
   readonly ledger: Ledger;
   readonly credits: CreditService;
   readonly keys: FundingKeys;
   readonly chain: RefundChain;
+  /** The signer every refund goes through (D-261). Null: requests wait, nothing is signed. */
+  readonly signer: RefundSigner | null;
   readonly chainId: number;
   readonly environment: Parameters<typeof refundEntry>[0]["environment"];
   readonly redactor: Redactor;
@@ -211,29 +194,73 @@ export class RefundService {
     const row = await this.row(refundId);
     if (!row) return;
     const ref: AgentRef = { chainId: this.o.chainId, agentId: row.agent_id };
-    await this.o.store.withAgentLock(ref, async () => {
-      const current = await this.row(refundId);
-      if (current?.status === "requested") await this.signLocked(refundId);
-    });
-    const signed = await this.row(refundId);
-    if (signed?.status === "signed" && signed.raw_tx && signed.tx_hash) {
-      await this.o.chain.broadcast(signed.raw_tx as Hex);
-      const ok = await this.o.chain.receipt(signed.tx_hash as Hex, 120_000);
+    if (row.status === "requested") {
+      if (!this.o.signer) return; // the signer is off: the request waits
       await this.o.store.withAgentLock(ref, async () => {
-        if (ok) {
-          await this.set(refundId, { status: "sent" });
-          this.o.log(`agent ${row.agent_id}: refund ${refundId} sent (tx ${signed.tx_hash})`);
-        } else {
-          // The transfer reverted: nothing left the funding address, so the entry is reversed.
-          await this.reverseLocked(refundId, row.agent_id);
-          await this.set(refundId, { status: "failed", reason: "the refund transfer reverted" });
-          this.o.log(
-            `agent ${row.agent_id}: refund ${refundId} reverted on chain; ledger restored`,
-          );
-        }
-        await this.o.credits.syncBudgetLocked(row.agent_id);
+        const current = await this.row(refundId);
+        if (current?.status === "requested") await this.signLocked(refundId);
       });
+      return;
     }
+    if (row.status !== "signed") return;
+    if (row.signer_tx_id) return this.follow(refundId, row.agent_id, row.signer_tx_id);
+    if (row.raw_tx && row.tx_hash) return this.finishLegacy(refundId, row.agent_id, row);
+  }
+
+  /** Follows the refund's outbox row: reconciled is sent, failed restores the ledger, anything else waits. */
+  private async follow(refundId: string, agentId: number, txId: string): Promise<void> {
+    const tx = await this.o.signer?.transaction(txId);
+    if (!tx) return;
+    const ref: AgentRef = { chainId: this.o.chainId, agentId };
+    if (tx.status === "reconciled" || (tx.status === "confirmed" && tx.reason_code)) {
+      await this.o.store.withAgentLock(ref, async () => {
+        await this.set(refundId, {
+          status: "sent",
+          ...(tx.reason_code ? { reason: `${tx.reason_code}: ${tx.reason ?? ""}` } : {}),
+          txHash: tx.tx_hash,
+        });
+        await this.o.credits.syncBudgetLocked(agentId);
+      });
+      this.o.log(`agent ${agentId}: refund ${refundId} sent (tx ${tx.tx_hash})`);
+      return;
+    }
+    if (tx.status !== "failed") return;
+    await this.o.store.withAgentLock(ref, async () => {
+      // Failed in the outbox means it never landed (refused, rejected, dropped, nonce
+      // consumed by another) or it reverted: nothing left the funding address.
+      await this.reverseLocked(refundId, agentId);
+      await this.set(refundId, {
+        status: "failed",
+        reason: `${tx.reason_code ?? "FAILED"}: ${tx.reason ?? "the signer could not send it"}`,
+        txHash: tx.tx_hash,
+      });
+      await this.o.credits.syncBudgetLocked(agentId);
+    });
+    this.o.log(
+      `agent ${agentId}: refund ${refundId} failed in the signer (${tx.reason_code}); ledger restored`,
+    );
+  }
+
+  /** A refund signed before D-261 kept its raw transaction: rebroadcast it and settle on its receipt. */
+  private async finishLegacy(
+    refundId: string,
+    agentId: number,
+    signed: { raw_tx: string | null; tx_hash: string | null },
+  ): Promise<void> {
+    const ref: AgentRef = { chainId: this.o.chainId, agentId };
+    await this.o.chain.broadcast(signed.raw_tx as Hex);
+    const ok = await this.o.chain.receipt(signed.tx_hash as Hex, 120_000);
+    await this.o.store.withAgentLock(ref, async () => {
+      if (ok) {
+        await this.set(refundId, { status: "sent" });
+        this.o.log(`agent ${agentId}: refund ${refundId} sent (tx ${signed.tx_hash})`);
+      } else {
+        await this.reverseLocked(refundId, agentId);
+        await this.set(refundId, { status: "failed", reason: "the refund transfer reverted" });
+        this.o.log(`agent ${agentId}: refund ${refundId} reverted on chain; ledger restored`);
+      }
+      await this.o.credits.syncBudgetLocked(agentId);
+    });
   }
 
   private async signLocked(refundId: string): Promise<void> {
@@ -271,7 +298,8 @@ export class RefundService {
       });
       return;
     }
-    const signed = await this.o.chain.signTransfer(account, now.owner, total);
+    const signer = this.o.signer;
+    if (!signer) return;
     await this.o.ledger.post(
       refundEntry(
         {
@@ -291,17 +319,21 @@ export class RefundService {
           kind: "refund",
           refundId,
           to: now.owner.toLowerCase(),
-          txHash: signed.hash,
           contributionBasis: share.basis.toString(),
         },
       },
       async (trx) => {
+        // The outbox row and the ledger entry commit together (D-261).
+        const accepted = await signer.acceptTransfer(
+          r.agent_id,
+          { kind: "usdc_refund", to: now.owner, amount: total, actionKey: `refund:${refundId}` },
+          trx,
+        );
         await trx
           .updateTable("platform.refunds")
           .set({
             status: "signed",
-            raw_tx: signed.raw,
-            tx_hash: signed.hash,
+            signer_tx_id: accepted.txId,
             credits_usdc_e6: credits.toString(),
             held_usdc_e6: held.toString(),
             contribution_basis_usdc_e6: share.basis.toString(),
@@ -365,11 +397,16 @@ export class RefundService {
 
   private async set(
     refundId: string,
-    v: { status: "sent" | "refused" | "failed"; reason?: string },
+    v: { status: "sent" | "refused" | "failed"; reason?: string; txHash?: string | null },
   ) {
     await this.o.store.db
       .updateTable("platform.refunds")
-      .set({ status: v.status, reason: v.reason ?? null, updated_at: new Date() })
+      .set({
+        status: v.status,
+        reason: v.reason ?? null,
+        ...(v.txHash ? { tx_hash: v.txHash } : {}),
+        updated_at: new Date(),
+      })
       .where("refund_id", "=", refundId)
       .execute();
   }

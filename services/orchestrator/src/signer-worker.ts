@@ -1,7 +1,7 @@
 import type { EnvironmentId } from "@alpha-agents/config";
 import type { Db } from "@alpha-agents/db";
 import { setMonBalance } from "@alpha-agents/devenv";
-import { ASSET_DECIMALS, addressEntry, parseAmount } from "@alpha-agents/domain";
+import { AGENT_NFT_ABI, ASSET_DECIMALS, addressEntry, parseAmount } from "@alpha-agents/domain";
 import {
   type BreakableLimit,
   BREAKABLE_LIMITS,
@@ -12,11 +12,12 @@ import {
   ViemChainClient,
   buildTestSwap,
 } from "@alpha-agents/signer";
-import type { Hex } from "viem";
+import { type Hex, createPublicClient, http } from "viem";
 import type { Log } from "./secrets.ts";
 
 /**
- * The signer as an orchestrator worker (P2-U4, D-243): one pass of the outbox
+ * The signer as an orchestrator worker (P2-U4, D-243): Executor swaps, and
+ * the USDC refunds and settlements credits need (D-261). One pass of the outbox
  * every second, started and stopped with the orchestrator. Local keys come
  * from FUNDING_ADDRESS_SEED, so an agent's session key is its funding address;
  * KMS keys replace them before the beta (D-244), so the signer stays off there
@@ -30,6 +31,8 @@ export interface SignerWorkerOptions {
   readonly rpcUrl: string;
   readonly secondaryRpcUrl?: string;
   readonly seed: Hex;
+  /** The platform treasury, the only settlement recipient; settlements are refused without it. */
+  readonly treasury?: Hex;
   readonly log: Log;
   /** For tests: a chain other than the RPC's. */
   readonly chain?: ChainClient;
@@ -53,6 +56,22 @@ export class SignerWorker {
       return e.address as Hex;
     };
     const local = o.environment === "local";
+    const agentNft = book("agent_nft");
+    const reader = createPublicClient({ transport: http(o.rpcUrl) });
+    // The only refund recipient: the agent's owner as the chain says now.
+    const ownerOf = async (agentId: number): Promise<Hex | null> => {
+      try {
+        return (await reader.readContract({
+          address: agentNft,
+          abi: AGENT_NFT_ABI,
+          functionName: "ownerOf",
+          args: [BigInt(agentId)],
+        } as never)) as Hex;
+      } catch (err) {
+        if (err instanceof Error && /revert/i.test(err.message)) return null;
+        throw err;
+      }
+    };
     this.signer = new Signer({
       db: o.db,
       environment: o.environment,
@@ -65,6 +84,9 @@ export class SignerWorker {
         }),
       keys: new LocalKeyProvider(o.seed),
       executor: book("executor"),
+      usdc: book("usdc"),
+      ownerOf,
+      ...(o.treasury ? { treasury: o.treasury } : {}),
       assets: { [book("usdc").toLowerCase()]: "USDC", [book("wmon").toLowerCase()]: "WMON" },
       secrets: [o.rpcUrl, o.secondaryRpcUrl],
       log: o.log,

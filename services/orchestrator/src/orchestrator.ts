@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import type { JournalEntry } from "@alpha-agents/accounting";
 import { type FundingKeys, ensureFundingAddresses } from "./credits/funding.ts";
 import { Ledger } from "./credits/ledger.ts";
-import { type RefundChain, RefundService } from "./credits/refunds.ts";
+import { type RefundChain, RefundService, type RefundSigner } from "./credits/refunds.ts";
 import { CreditService } from "./credits/service.ts";
 import type { WebProvider } from "@alpha-agents/data-tools";
 import { type Gate, startGate } from "./gate.ts";
@@ -36,6 +36,8 @@ export interface CreditsOptions {
   readonly keys: FundingKeys;
   /** Null where AgentNFT or USDC is not deployed: refunds then stay requested. */
   readonly refundChain: RefundChain | null;
+  /** Every refund goes through the signer's outbox (D-261); null leaves requests waiting. */
+  readonly refundSigner?: RefundSigner | null;
   readonly environment: JournalEntry["environment"];
   readonly cap?: bigint;
 }
@@ -143,6 +145,7 @@ export class Orchestrator {
             credits: this.credits,
             keys: c.keys,
             chain: c.refundChain,
+            signer: c.refundSigner ?? null,
             chainId: options.chainId,
             environment: c.environment,
             redactor,
