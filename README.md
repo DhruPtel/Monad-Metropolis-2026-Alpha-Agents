@@ -156,6 +156,15 @@ pnpm custody:local deposit 10 --owner 7     # any of the local test owners, anvi
 
 Locally, AgentNFT's admin (anvil account 0) is the factory admin, account 4 the guardian and account 5 the sentinel key; anvil accounts 6 to 9 start on the deposit allowlist. The admin adds or removes a wallet at once (D-231); raising either cap waits the 9-day timelock. The commands act only on the fork that `LOCAL_FORK_PORT` names (the playtest fork by default) and refuse anything that is not the local anvil fork.
 
+### The Executor (P2-U2)
+
+`chains/monad/src/executor/Executor.sol` is the only contract that can trade an account's funds. It takes typed swap intents from the session key the agent's owner registered (`registerSession`; a sale of the agent, a configuration change or expiry ends the grant, and an old grant never revives), and checks every launch hard limit in a fixed order: 10% of value per trade, 40% at most in WMON and 10% at least in USDC after a buy, the oracle floor of 0.5% slippage, 20 trades and 100% turnover per rolling 24 hours, deadlines at most 2 minutes ahead, a fresh oracle within 2% of the pool, and the account's mode and unpoked drawdown. A refusal reverts with `Rejected(reason)`, the reason codes in packages/domain. Inside the account's own `executeSwap` it pulls exactly the input, the venue adapter pays the account directly, and nothing stays behind. `ProtocolRegistry.sol` lists the adapters with their code pinned: the Uniswap v4 MON/USDC 0.05% adapter (`src/venues/`, which unwraps and rewraps WMON) is active, the v3 USDC/WMON 0.3% fallback is registered but paused. Loosening a limit, activating a venue or unpausing waits the 9-day timelock; tightening and pausing are instant for the admin or the guardian. `packages/policy`'s `executorVerdict` gives the same answer offchain, held to the contract by a shared fixture. Slither and gas are in `evidence/p2-u2/`.
+
+```sh
+pnpm executor:local demo                    # a fork of its own on 8548: an account, real swaps on the v4 pool, then one intent per limit and its reason
+pnpm executor:local demo --keep             # the same, leaving the fork on 8548 until Ctrl-C
+```
+
 ### Oracle adapter and circuit breaker (P2-U3)
 
 `chains/monad/src/oracle/OracleAdapter.sol` prices WMON from Chainlink MON/USD (refused at 300 seconds old or older, or for a zero, negative, incomplete, future or changed-decimals answer), treats USDC as exactly 1, refuses a trade when the Uniswap v4 MON/USDC pool is more than 2% from the oracle, and stops deposits when USDC/USD is stale (3,900 seconds) or more than 1% off its peg. Every refusal carries a reason code. The custody core values an account once per transaction through it, and its circuit breaker tracks the 7-day peak of the account's value per internal unit, so deposits and withdrawals never trip it: 10% down sets REDUCE_ONLY, 20% PAUSED, anyone may `poke()`, and only the owner unpauses. Withdrawals never read the oracle. `packages/policy` mirrors the rules offchain, and `pnpm policy:parity` rewrites the fixture that holds the two together (vitest and forge each check it). Slither and gas are in `evidence/p2-u3/`.
