@@ -789,3 +789,31 @@ What happened: After the wallet changes, the shell and portal captures differed 
 Cause: The waiting notice showed for the mock's 150 ms login and shifted the page, and these captures had no full repaint before them (L-65).
 Fix: The notice waits 1.5 seconds before it shows (Cancel shows at once), and the shell and portal captures repaint first through a shared helper (02d65ff, 6453bf3); two consecutive runs matched.
 Lesson: A transient element must not appear for quick, normal flows, and every capture taken after state changes repaints first.
+
+## L-100: A script aimed at a test fork minted USDC on the playtest fork
+Unit: P2-U1
+What happened: `pnpm custody:local demo`, run with `LOCAL_FORK_PORT=8575` against a throwaway fork, failed its deposit with "transfer amount exceeds balance". The test USDC had been minted on the playtest fork on 8545 instead: anvil account 6 held 25 USDC there, USDC's supply was 25 higher, Circle's master minter and the fork-only test minter had each used a nonce, the test minter had been made a minter, and the head had moved from 109670005 to 109670007.
+Cause: `scripts/lib/custody.js` called devenv's `mintTestUsdc(owner, amount)` without a URL. The scripts' own `ANVIL_URL` follows `LOCAL_FORK_PORT` (D-200), but every devenv function defaults to the playtest fork's URL whatever the environment says, so the one call that relied on the default went to 8545, and the local-fork guard accepted it because 8545 is the local fork.
+Fix: The helper passes `ANVIL_URL` (74bd308). On the playtest fork the change was undone by hand: the 25 USDC went back to the test minter and were burned, the test minter was removed, and the three nonces and two MON balances were set to their values at block 109670005; every one now reads the same at that block and at the head. Three more blocks were mined doing it; blocks cannot be removed without a reset, so the head is 109670010.
+Lesson: When code can target more than one fork, pass the URL to every call explicitly; a default that points at the shared fork turns a test run into a playtest change, and the local-fork guard cannot tell the two forks apart.
+
+## L-101: A select menu ran off the bottom of a short screen
+Unit: P2-U1 (step 0)
+What happened: At 380px the console test could not pick "Praying mantis" from the 25-species list in the new Reveal next as card: Playwright reported "element is outside of the viewport" on every retry for two minutes.
+Cause: The design system's SelectContent had `overflow-hidden` and no maximum height, so a long list opened in popper mode simply extended past the screen, and Radix locks page scrolling while a select is open, so the later options could not be reached at all. Every earlier select had a few options.
+Fix: SelectContent stops at `--radix-select-content-available-height`, the space Radix measures, and its viewport scrolls (6e912a4); the mobile test now picks the option.
+Lesson: Give every popover a maximum height from the space available, and test a long list at the narrowest width.
+
+## L-102: Three slips in new tests, caught before commit
+Unit: P2-U1
+What happened: Ten custody swap tests failed with "next call did not revert as expected"; the keeper's fork test expected a reveal request one tick early; and an invariant meant to prove the runs reached deep states asserted only that a counter was at least zero.
+Cause: The swap tests built their parameters with a helper that reads `nft.ownerEpoch()`, an external call, between `expectRevert` and the swap (L-39 again). The keeper opens its batch window on the tick that first sees a mint, and the test skipped that tick. The invariant could not fail.
+Fix: Parameters are built before `expectRevert`; the test ticks once more; the vacuous invariant became a handler probe that requires deposits, withdrawals and credits to happen, and a mutation (withdraw without `onlyOwner`) made both fund invariants fail before the code was put back.
+Lesson: Nothing, not even an argument, may call out between `expectRevert` and the call under test, and an invariant counts only after a deliberate break has made it fail.
+
+## L-103: A fixture shared by both widths' runs leaked one run's state into the other's capture
+Unit: P2-U1
+What happened: The mobile run of the new steer test counted 6 steers where it made 3, and the mobile agents page capture showed the desktop run's three cancelled steers.
+Cause: The console's fixture API is one process for the whole Playwright run, so steers created at 1440px were still there at 380px. This is L-15 again: state that persists across runs.
+Fix: The fixture has a test-only reset route; the steer test clears the steers before and after itself and counts only its pending steers (1b474bc). Two runs in a row matched.
+Lesson: A test that writes to a fixture shared across projects restores it, so no other test or capture depends on the order they run in.
