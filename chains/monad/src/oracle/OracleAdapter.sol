@@ -212,7 +212,7 @@ contract OracleAdapter is IOracleAdapter {
     }
 
     /// The pool's spot price as the USDC value of one whole MON, scaled by 1e18.
-    function _pool() internal view returns (uint256 priceE18_, OracleReason reason) {
+    function _pool() internal view virtual returns (uint256 priceE18_, OracleReason reason) {
         (bool ok, bytes memory ret) =
             address(STATE_VIEW).staticcall(abi.encodeCall(IUniswapV4StateView.getSlot0, (POOL_ID)));
         if (!ok || ret.length < 128) return (0, OracleReason.POOL_UNREADABLE);
