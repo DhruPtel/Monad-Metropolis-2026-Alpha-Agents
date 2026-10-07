@@ -46,11 +46,13 @@ import {
   localPaths,
   mintTestUsdc,
   secretFragments,
+  sendAs,
+  setMonBalance,
   startTestFork,
 } from "@alpha-agents/devenv";
 import { addressEntry } from "@alpha-agents/domain";
 import { Indexer, RpcLogSource } from "@alpha-agents/indexer";
-import { type Hex, createPublicClient, http, parseAbi } from "viem";
+import { type Hex, createPublicClient, encodeFunctionData, http, parseAbi } from "viem";
 import { Ledger } from "./credits/ledger.ts";
 import { type ScanFacts, narratorKeyFor, validateNarration } from "./narrator.ts";
 import { LiteLLMAdmin } from "./gateway-admin.ts";
@@ -295,8 +297,32 @@ async function main(): Promise<number> {
     must(
       await waitFor("a funding address", 30_000, async () => (await creditsOf(id))?.fundingAddress),
     ) as Hex;
-  const fund = async (id: number, amountE6: bigint) =>
-    mintTestUsdc(await fundingOf(id), amountE6, fork.url);
+  /**
+   * USDC sent by the agent's owner, as an owner funds it: D-242 refunds follow contributions,
+   * and a mint straight to the funding address has no contributor to refund.
+   */
+  const fund = async (id: number, amountE6: bigint) => {
+    const to = await fundingOf(id);
+    const owner = await client.readContract({
+      address: nft,
+      abi: parseAbi(["function ownerOf(uint256 agentId) view returns (address)"]),
+      functionName: "ownerOf",
+      args: [BigInt(id)],
+    });
+    await mintTestUsdc(owner, amountE6, fork.url);
+    if ((await balancesOf(owner, fork.url)).monWei < 10n ** 18n)
+      await setMonBalance(owner, 10n ** 19n, fork.url);
+    await sendAs(
+      fork.url,
+      owner,
+      usdc.address as Hex,
+      encodeFunctionData({
+        abi: parseAbi(["function transfer(address to, uint256 amount) returns (bool)"]),
+        functionName: "transfer",
+        args: [to, amountE6],
+      }),
+    );
+  };
   /** The ledger's funding address balance must equal the address's USDC on chain. */
   const reconciled = async (id: number) => {
     const onchain = (await balancesOf(await fundingOf(id), fork.url)).usdcE6;
@@ -494,6 +520,14 @@ async function main(): Promise<number> {
       (await creditsOf(agentId))?.restricted === true &&
       (await reconciled(agentId)).ok,
     `${ownerAfter - ownerBefore} USDC units to ${owner.slice(0, 8)}...`,
+  );
+
+  step("the signer runs beside the orchestrator (P2-U4)");
+  const signerState = (await api("/v1/signer")).body;
+  check(
+    "the signer worker is on, pinned to the local fork's chain",
+    signerState.on === true && signerState.chainId === 143143,
+    JSON.stringify(signerState),
   );
 
   step("drain to zero during a run: billing, no retries");
