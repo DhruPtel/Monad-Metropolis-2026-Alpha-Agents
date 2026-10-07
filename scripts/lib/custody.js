@@ -20,6 +20,7 @@ export const FACTORY_ABI = parseAbi([
   "function personalCap() view returns (uint256)",
   "function platformCap() view returns (uint256)",
   "function platformTotal() view returns (uint256)",
+  "function oracle() view returns (address)",
 ]);
 
 export const ACCOUNT_ABI = parseAbi([
@@ -39,6 +40,8 @@ export const ACCOUNT_ABI = parseAbi([
   "error DepositsAreClosed()",
   "error NotAgentOwner(address currentOwner)",
   "error NotOwner(address caller)",
+  "error OracleUnset()",
+  "error OracleUnavailable(address asset, uint8 reason)",
 ]);
 
 const ERC20_ABI = parseAbi([
@@ -69,14 +72,14 @@ export function testOwner(index) {
 }
 
 /**
- * The contracts, deployed if the fork has none (both deploys are idempotent).
- * @returns {Promise<{ nft: `0x${string}`, factory: `0x${string}` }>}
+ * The contracts, deployed if the fork has none (the deploys are idempotent).
+ * @returns {Promise<{ nft: `0x${string}`, factory: `0x${string}`, oracle: `0x${string}` }>}
  */
 export async function custodyContracts() {
   await assertLocalFork(ANVIL_URL);
   const nft = /** @type {`0x${string}`} */ (await deployAgentNftLocal({ quiet: true }));
-  const { factory } = await deployAccountFactoryLocal({ quiet: true });
-  return { nft, factory };
+  const { factory, oracle } = await deployAccountFactoryLocal({ quiet: true });
+  return { nft, factory, oracle };
 }
 
 /**
@@ -147,11 +150,16 @@ export async function depositUsdc(account, owner, amountE6) {
     client.readContract({ address: account, abi: ACCOUNT_ABI, functionName: "principal" }),
     client.readContract({ address: account, abi: configAbi, functionName: "config" }),
   ]);
-  const cap = await client.readContract({
-    address: factory,
-    abi: FACTORY_ABI,
-    functionName: "personalCap",
-  });
+  const [cap, oracle] = await Promise.all([
+    client.readContract({ address: factory, abi: FACTORY_ABI, functionName: "personalCap" }),
+    client.readContract({ address: factory, abi: FACTORY_ABI, functionName: "oracle" }),
+  ]);
+  if (oracle === "0x0000000000000000000000000000000000000000")
+    throw new Error(
+      "refused: deposits need the oracle adapter (the USDC depeg guard, P2-U3), which waits the factory's 9-day timelock. " +
+        "Run pnpm custody:local prepare-oracle to apply it on this fork (it moves the fork's clock 9 days), " +
+        "or pnpm oracle:local demo to see the whole flow on a fork of its own",
+    );
   if (principal + amountE6 > cap)
     throw new Error(
       `refused: that takes the account's principal to ${formatUnits(principal + amountE6, 6)} USDC, over the ${formatUnits(cap, 6)} USDC per-account cap`,

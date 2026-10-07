@@ -13,3 +13,4 @@ export * from "./species-assets.ts";
 export * from "./tiers.ts";
 export * from "./tokenbound.ts";
 export * from "./tools.ts";
+export * from "./venues.ts";

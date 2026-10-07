@@ -51,6 +51,7 @@ export const ADDRESS_BOOK_IDS = [
   "agent_nft",
   "account_factory",
   "personal_account_implementation",
+  "oracle_adapter",
 ] as const;
 export type AddressBookId = (typeof ADDRESS_BOOK_IDS)[number];
 
@@ -538,9 +539,10 @@ const agentNftUndeployed = (note: string): AddressEntry => ({
  * factory's deterministic CREATE2 deployment with the local roles, caps and
  * allowlist (scripts/lib/account-factory.js).
  */
-const CUSTODY_SOURCE = "Planv2/FINAL_PLAN.md > 4.1.6 Custody core and 4.1.13 AccountFactory";
+const CUSTODY_SOURCE =
+  "Planv2/FINAL_PLAN.md > 4.1.6 Custody core, 4.1.9 Oracle adapter and 4.1.13 AccountFactory";
 const custodyLocal = (
-  id: "account_factory" | "personal_account_implementation",
+  id: "account_factory" | "personal_account_implementation" | "oracle_adapter",
   label: string,
   address: Address,
   codeSize: number,
@@ -576,12 +578,20 @@ const CUSTODY_LOCAL: readonly AddressEntry[] = [
     23514,
     "Deployed by AccountFactory's constructor; every PersonalAccount is a clone of it",
   ),
+  custodyLocal(
+    "oracle_adapter",
+    "Oracle adapter",
+    "0x5377F44b222fD91dA2c0e19C833D284d06B06161" as Address,
+    7076,
+    "Deterministic CREATE2 deployment over the real feeds and v4 pool (P2-U3); proposed to the factory at deployment",
+  ),
 ];
 const custodyUndeployed = (note: string): AddressEntry[] =>
   (
     [
       ["account_factory", "AccountFactory"],
       ["personal_account_implementation", "PersonalAccount implementation"],
+      ["oracle_adapter", "Oracle adapter"],
     ] as const
   ).map(([id, label]) => ({
     id,

@@ -47,6 +47,7 @@
     "agent-nft:local": "node scripts/agent-nft-local.js",
     "deploy:account-factory": "node scripts/deploy-account-factory.js",
     "custody:local": "node scripts/custody-local.js",
+    "oracle:local": "node scripts/oracle-local.js",
     "policy:parity": "node packages/policy/scripts/write-parity.ts",
     "assets:build-bee": "node scripts/assets/build-bee-model.ts",
     "assets:check": "node scripts/assets/check-models.ts"
@@ -70,6 +71,7 @@
     "@alpha-agents/config": "workspace:^",
     "@alpha-agents/db": "workspace:^",
     "@alpha-agents/devenv": "workspace:^",
-    "@alpha-agents/domain": "workspace:^"
+    "@alpha-agents/domain": "workspace:^",
+    "@alpha-agents/policy": "workspace:^"
   }
 }

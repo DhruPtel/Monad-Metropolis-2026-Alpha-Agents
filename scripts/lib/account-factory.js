@@ -5,7 +5,7 @@
 // The deployment is deterministic (CREATE2, fixed salt and arguments), so
 // running it again finds the existing contract.
 import { assertLocalFork } from "@alpha-agents/devenv";
-import { addressEntry } from "@alpha-agents/domain";
+import { addressEntry, UNISWAP_V4_MON_USDC_POOL } from "@alpha-agents/domain";
 import {
   deployLocal as deployAgentNftLocal,
   localFeeArgs,
@@ -43,8 +43,21 @@ export const LOCAL_TEST_OWNERS = [
 export const BETA_CAPS = { personalE6: 100_000_000n, platformE6: 2_000_000_000n };
 
 /**
+ * A verified mainnet address from the address book (the local fork shares them).
+ * @param {import("@alpha-agents/domain").AddressBookId} id
+ */
+function verified(id) {
+  const e = addressEntry("local", id);
+  if (e.status !== "verified")
+    throw new Error(`the address book has no verified ${id} for the local fork`);
+  return e.address;
+}
+
+/**
+ * Deploys the oracle adapter and AccountFactory, or finds them. A new factory
+ * gets the adapter proposed through its 9-day timelock (P2-U3).
  * @param {{ quiet?: boolean }} [options] quiet prints only the summary
- * @returns {Promise<{ factory: `0x${string}`, implementation: `0x${string}` }>}
+ * @returns {Promise<{ factory: `0x${string}`, implementation: `0x${string}`, oracle: `0x${string}` }>}
  */
 export async function deployAccountFactoryLocal(options = {}) {
   await assertLocalFork(ANVIL_URL);
@@ -73,21 +86,30 @@ export async function deployAccountFactoryLocal(options = {}) {
       ACCOUNT_FACTORY_PERSONAL_CAP: BETA_CAPS.personalE6.toString(),
       ACCOUNT_FACTORY_PLATFORM_CAP: BETA_CAPS.platformE6.toString(),
       ACCOUNT_FACTORY_ALLOWLIST: LOCAL_TEST_OWNERS.join(","),
+      ORACLE_MON_USD_FEED: verified("chainlink_mon_usd"),
+      ORACLE_USDC_USD_FEED: verified("chainlink_usdc_usd"),
+      ORACLE_STATE_VIEW: verified("uniswap_v4_state_view"),
+      ORACLE_POOL_ID: UNISWAP_V4_MON_USDC_POOL.id,
     },
     options.quiet,
     LOCAL_DEPLOY_ATTEMPTS,
   );
   const factory = /ACCOUNT_FACTORY_ADDRESS\s+(0x[0-9a-fA-F]{40})/.exec(output)?.[1];
   const implementation = /PERSONAL_ACCOUNT_IMPLEMENTATION\s+(0x[0-9a-fA-F]{40})/.exec(output)?.[1];
-  if (!factory || !implementation)
-    throw new Error("forge script did not report the AccountFactory addresses");
+  const oracle = /ORACLE_ADAPTER_ADDRESS\s+(0x[0-9a-fA-F]{40})/.exec(output)?.[1];
+  if (!factory || !implementation || !oracle)
+    throw new Error("forge script did not report the AccountFactory and oracle adapter addresses");
   const result = {
     factory: /** @type {`0x${string}`} */ (factory),
     implementation: /** @type {`0x${string}`} */ (implementation),
+    oracle: /** @type {`0x${string}`} */ (oracle),
   };
   if (options.quiet) return result;
   console.log(`\nAccountFactory on the local fork: ${factory}`);
   console.log(`PersonalAccount implementation: ${implementation}`);
+  console.log(
+    `oracle adapter: ${oracle} (proposed to the factory at deployment; usable after the 9-day timelock)`,
+  );
   console.log(`admin ${CUSTODY_ROLES.admin} (anvil account 0)`);
   console.log(`guardian ${CUSTODY_ROLES.guardian} (anvil account 4)`);
   console.log(`sentinel key ${CUSTODY_ROLES.sentinel} (anvil account 5)`);

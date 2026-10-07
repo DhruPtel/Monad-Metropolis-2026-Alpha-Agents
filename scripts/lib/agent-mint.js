@@ -30,7 +30,13 @@ export async function mintLocal(nft, minter = privateKeyToAccount(generatePrivat
   const signer = mnemonicToAccount(ANVIL_MNEMONIC, { addressIndex: 1 });
   if (signer.address !== LOCAL_ROLES.claimSigner) throw new Error("unexpected local claim signer");
   const nonce = /** @type {`0x${string}`} */ (`0x${randomBytes(32).toString("hex")}`);
-  const deadline = BigInt(Math.floor(Date.now() / 1000) + 3600);
+  // An hour from the later of the wall clock and the fork's clock: a fork whose
+  // clock was moved forward (a timelock on a demo fork) is ahead of the wall clock.
+  const block = /** @type {{ timestamp: string }} */ (
+    await rpc(ANVIL_URL, "eth_getBlockByNumber", ["latest", false])
+  );
+  const now = Math.max(Math.floor(Date.now() / 1000), Number(BigInt(block.timestamp)));
+  const deadline = BigInt(now + 3600);
   const signature = await signer.signTypedData({
     domain: claimDomain(LOCAL_FORK_CHAIN_ID, nft),
     types: CLAIM_TYPES,
