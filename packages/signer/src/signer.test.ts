@@ -283,6 +283,10 @@ describe.skipIf(!dbUp)("the signer's outbox (needs Postgres)", { timeout: 60_000
     await ticks(s, 1);
     chain.consumeNonce(key);
     await ticks(s, 1);
+    // A lagging provider may not have the receipt yet: it waits before believing the nonce.
+    expect((await row(a.txId)).status).toBe("unknown");
+    clock += 31_000;
+    await ticks(s, 1);
     expect(await row(a.txId)).toMatchObject({ status: "failed", reason_code: "NONCE_CONSUMED" });
     expect(chain.sent).toHaveLength(1);
     expect(await nextNonce()).toBe(1);

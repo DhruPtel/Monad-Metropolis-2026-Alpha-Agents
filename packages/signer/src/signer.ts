@@ -66,6 +66,8 @@ export interface SignerOptions {
   readonly topUpGas?: (address: Hex, wei: bigint) => Promise<void>;
   /** How long a submitted transaction waits for a receipt before it is unknown. */
   readonly receiptTimeoutMs?: number;
+  /** How long an unknown transaction whose nonce moved on waits for its receipt before it is called replaced. */
+  readonly consumedGraceMs?: number;
   /** How long an unknown transaction no node knows of waits before it is called dropped. */
   readonly dropGraceMs?: number;
   readonly now?: () => Date;
@@ -621,11 +623,17 @@ export class Signer {
    */
   async resolveUnknown(row: Row): Promise<void> {
     const hash = row.tx_hash as Hex;
+    // The nonce first, then the receipt: a transaction mined between the two reads
+    // then shows up as a receipt, never as "another transaction used the nonce" (L-114).
+    const latest = await this.#o.chain.nonce(row.key_address as Hex, "latest");
     const receipt = await this.#o.chain.receipt(hash);
     if (receipt) return this.applyReceipt(row, receipt);
-    const latest = await this.#o.chain.nonce(row.key_address as Hex, "latest");
+    const since = row.unknown_since ? new Date(row.unknown_since).getTime() : 0;
+    const waited = this.now().getTime() - since;
     if (row.nonce !== null && latest > row.nonce) {
-      // Mined nonces past ours but no receipt for our hash: another transaction took it.
+      // Mined nonces past ours but no receipt for our hash. A provider can lag on
+      // receipts, so this must hold for a while before it is believed.
+      if (waited < (this.#o.consumedGraceMs ?? 30_000)) return;
       return this.fail(
         row,
         "NONCE_CONSUMED",
@@ -636,8 +644,7 @@ export class Signer {
       await this.move(row, "submitted", { submitted_at: this.now() }, "a node still holds it");
       return;
     }
-    const since = row.unknown_since ? new Date(row.unknown_since).getTime() : 0;
-    if (this.now().getTime() - since < (this.#o.dropGraceMs ?? 120_000)) return;
+    if (waited < (this.#o.dropGraceMs ?? 120_000)) return;
     await this.#o.db.transaction().execute(async (trx) => {
       await this.releaseNonce(row, trx);
       await this.fail(
