@@ -72,19 +72,21 @@ export async function localFeeArgs() {
 }
 
 /**
- * Runs the forge script and returns the deployed address. A run that fails
- * with a transient fork error is repeated, up to `attempts` runs in all; the
- * script finds a contract an earlier run already deployed, so a repeat is safe.
+ * Runs a deploy script with forge and returns its output. A run that fails
+ * with a transient fork error is repeated, up to `attempts` runs in all; our
+ * deploy scripts find a contract an earlier run already deployed, so a repeat
+ * is safe.
+ * @param {string} script e.g. "script/DeployAgentNFT.s.sol:DeployAgentNFT"
  * @param {string[]} extraArgs
  * @param {Record<string, string>} env
  */
-function runForgeScript(extraArgs, env, quiet = false, attempts = 1) {
+export function runForgeDeploy(script, extraArgs, env, quiet = false, attempts = 1) {
   for (let attempt = 1; ; attempt++) {
-    const result = spawnSync(
-      "forge",
-      ["script", "script/DeployAgentNFT.s.sol:DeployAgentNFT", "--broadcast", ...extraArgs],
-      { cwd: MONAD_DIR, env: { ...process.env, ...env }, encoding: "utf8" },
-    );
+    const result = spawnSync("forge", ["script", script, "--broadcast", ...extraArgs], {
+      cwd: MONAD_DIR,
+      env: { ...process.env, ...env },
+      encoding: "utf8",
+    });
     const output = `${result.stdout ?? ""}${result.stderr ?? ""}`;
     const retry = result.status !== 0 && attempt < attempts && isTransientForkError(output);
     // Print forge's output, minus any line that could echo a key.
@@ -100,10 +102,26 @@ function runForgeScript(extraArgs, env, quiet = false, attempts = 1) {
       continue;
     }
     if (result.status !== 0) throw new Error("forge script failed");
-    const address = /AGENT_NFT_ADDRESS\s+(0x[0-9a-fA-F]{40})/.exec(output)?.[1];
-    if (!address) throw new Error("forge script did not report the AgentNFT address");
-    return address;
+    return output;
   }
+}
+
+/**
+ * Runs DeployAgentNFT and returns the deployed address.
+ * @param {string[]} extraArgs
+ * @param {Record<string, string>} env
+ */
+function runForgeScript(extraArgs, env, quiet = false, attempts = 1) {
+  const output = runForgeDeploy(
+    "script/DeployAgentNFT.s.sol:DeployAgentNFT",
+    extraArgs,
+    env,
+    quiet,
+    attempts,
+  );
+  const address = /AGENT_NFT_ADDRESS\s+(0x[0-9a-fA-F]{40})/.exec(output)?.[1];
+  if (!address) throw new Error("forge script did not report the AgentNFT address");
+  return address;
 }
 
 /**

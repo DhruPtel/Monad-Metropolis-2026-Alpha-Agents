@@ -1,5 +1,5 @@
 // @ts-check
-// pnpm test:fork: the forge fork tests, an AgentNFT deploy and the address
+// pnpm test:fork: the forge fork tests, AgentNFT and AccountFactory deploys and the address
 // book check, on a fork of their own on port 8546 (D-200), started here and
 // stopped afterwards. The playtest fork on 8545 is never touched: a run there
 // used to need snapshots, and a restored state dump has no history (L-63).
@@ -13,6 +13,7 @@ import { spawnSync } from "node:child_process";
 process.env.LOCAL_FORK_PORT = String(LOCAL_TEST_FORK_PORT);
 const { loadLocalConfig, loadRootEnv } = await import("./lib/config.js");
 const { deployLocal, isTransientForkError } = await import("./lib/agent-nft.js");
+const { deployAccountFactoryLocal } = await import("./lib/account-factory.js");
 const { verifyAddressBook } = await import("./lib/verify-addresses.js");
 const { MONAD_DIR } = await import("./lib/paths.js");
 
@@ -57,6 +58,9 @@ try {
   let deployed = true;
   try {
     console.log(await deployLocal({ quiet: true }));
+    console.log("\nAccountFactory and the PersonalAccount implementation on the test fork:");
+    const custody = await deployAccountFactoryLocal({ quiet: true });
+    console.log(`${custody.factory}\n${custody.implementation}`);
   } catch (err) {
     deployed = false;
     console.error(`error: ${err instanceof Error ? err.message : String(err)}`);

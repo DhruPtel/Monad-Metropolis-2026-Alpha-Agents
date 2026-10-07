@@ -49,6 +49,8 @@ export const ADDRESS_BOOK_IDS = [
   "erc8004_identity_registry",
   "pyth_entropy",
   "agent_nft",
+  "account_factory",
+  "personal_account_implementation",
 ] as const;
 export type AddressBookId = (typeof ADDRESS_BOOK_IDS)[number];
 
@@ -530,15 +532,83 @@ const agentNftUndeployed = (note: string): AddressEntry => ({
   note,
 });
 
+/**
+ * P2-U1: the custody contracts. AccountFactory deploys the PersonalAccount
+ * implementation in its constructor, so both addresses follow from the
+ * factory's deterministic CREATE2 deployment with the local roles, caps and
+ * allowlist (scripts/lib/account-factory.js).
+ */
+const CUSTODY_SOURCE = "Planv2/FINAL_PLAN.md > 4.1.6 Custody core and 4.1.13 AccountFactory";
+const custodyLocal = (
+  id: "account_factory" | "personal_account_implementation",
+  label: string,
+  address: Address,
+  codeSize: number,
+  note: string,
+): AddressEntry => ({
+  id,
+  label,
+  kind: "platform",
+  address,
+  status: "verified",
+  verification: {
+    chainId: LOCAL_FORK_CHAIN_ID,
+    block: FORK_BLOCK,
+    codeSize,
+    deployedBy: "pnpm deploy:account-factory",
+  },
+  source: CUSTODY_SOURCE,
+  openQuestion: null,
+  note,
+});
+const CUSTODY_LOCAL: readonly AddressEntry[] = [
+  custodyLocal(
+    "account_factory",
+    "AccountFactory",
+    "0x8AE572168220B86116478f817609d3d97c467074" as Address,
+    12304,
+    "Deterministic CREATE2 deployment with anvil roles, 100/2,000 USDC caps (P2-U1); local fork only",
+  ),
+  custodyLocal(
+    "personal_account_implementation",
+    "PersonalAccount implementation",
+    "0x60d9a16B44C8287eC197FfC90f75fe4F9aA6C6D1" as Address,
+    18692,
+    "Deployed by AccountFactory's constructor; every PersonalAccount is a clone of it",
+  ),
+];
+const custodyUndeployed = (note: string): AddressEntry[] =>
+  (
+    [
+      ["account_factory", "AccountFactory"],
+      ["personal_account_implementation", "PersonalAccount implementation"],
+    ] as const
+  ).map(([id, label]) => ({
+    id,
+    label,
+    kind: "platform",
+    address: null,
+    status: "unverified",
+    verification: null,
+    source: CUSTODY_SOURCE,
+    openQuestion: null,
+    note,
+  }));
+
 export const ADDRESS_BOOK: Readonly<Record<EnvironmentId, readonly AddressEntry[]>> = {
-  local: [...MAINNET, AGENT_NFT_LOCAL],
+  local: [...MAINNET, AGENT_NFT_LOCAL, ...CUSTODY_LOCAL],
   testnet: [
     ...TESTNET,
     agentNftUndeployed(
       "Not deployed: needs MONAD_TESTNET_RPC_URL and a funded TESTNET_DEPLOYER_PRIVATE_KEY",
     ),
+    ...custodyUndeployed("Not deployed: custody stays on the local fork until a unit deploys it"),
   ],
-  beta: [...MAINNET, agentNftUndeployed("Mainnet deployment belongs to PB-U1")],
+  beta: [
+    ...MAINNET,
+    agentNftUndeployed("Mainnet deployment belongs to PB-U1"),
+    ...custodyUndeployed("Mainnet deployment belongs to PB-U1"),
+  ],
 };
 
 export function addressEntry(environment: EnvironmentId, id: AddressBookId): AddressEntry {

@@ -45,6 +45,8 @@
     "spike:venues": "node scripts/spikes/p2-u0/run.ts",
     "deploy:agent-nft": "node scripts/deploy-agent-nft.js",
     "agent-nft:local": "node scripts/agent-nft-local.js",
+    "deploy:account-factory": "node scripts/deploy-account-factory.js",
+    "custody:local": "node scripts/custody-local.js",
     "assets:build-bee": "node scripts/assets/build-bee-model.ts",
     "assets:check": "node scripts/assets/check-models.ts"
   },

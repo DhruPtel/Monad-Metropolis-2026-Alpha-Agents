@@ -75,7 +75,7 @@ Use `pnpm run doctor`, not `pnpm doctor`: `doctor` is a built-in pnpm command an
 
 Ports bind to 127.0.0.1 only. The Postgres credentials are for local development only. Postgres and Redis ports can be changed with `POSTGRES_PORT` and `REDIS_PORT` in `.env`; Redis defaults to 6380 because a system Redis often holds 6379. anvil writes its log, with the RPC URL redacted, to `.dev/anvil.log`.
 
-Tests that reset a chain or need a fresh deck (`pnpm test:fork`, the fork controls test, the indexer's and keeper's fork tests, `pnpm test:web:live` and `pnpm test:orchestrator:live`) start their own anvil fork on another port (8546; 8548 for the indexer test, 8549 for the keeper test, 8550 for the orchestrator live check) and stop it afterwards, so the playtest fork on 8545 is never reset (D-200). Their logs, with the RPC URL redacted, go to `.dev/test-fork-<port>.log`.
+Tests that reset a chain or need a fresh deck (`pnpm test:fork`, the fork controls test, the indexer's and keeper's fork tests, `pnpm test:web:live` and `pnpm test:orchestrator:live`) start their own anvil fork on another port (8546; 8548 for the indexer test, 8549 for the keeper test, 8550 for the orchestrator live check, 8572 for the stuck-transaction tools, 8574 for the fork-reset recovery test) and stop it afterwards, so the playtest fork on 8545 is never reset (D-200). Their logs, with the RPC URL redacted, go to `.dev/test-fork-<port>.log`.
 
 ### The pinned fork block
 
@@ -139,6 +139,22 @@ pnpm agent-nft:local show 1     # print agent 1 and its decoded tokenURI
 ```
 
 Locally, anvil account 0 is the admin, account 1 the claim signer and account 2 the treasury. Entropy's keeper does not serve the fork, so the helper delivers the random number by impersonating the Entropy contract; the request itself goes to the real Entropy contract.
+
+## Custody: PersonalAccount and AccountFactory (P2-U1)
+
+`chains/monad/src/custody/` holds owners' trading money. `CustodyCore.sol` is the small, non-upgradeable core: the owner's withdrawal is always on and needs only the token (a token whose transfer reverts, such as USDC under a Circle pause or blacklist, is credited for a later `claim` while the rest withdraws); the only other way out is `executeSwap` for the Executor the factory names, which starts unset and changes only after a 9-day timelock, with the core's own post-trade backstops. `PersonalAccount.sol` is the core for one agent and one owner, holding USDC and WMON only. `AccountFactory.sol` deploys one clone per agent and owner, and holds the beta allowlist and caps (100 USDC per account, 2,000 USDC across the platform): tightening is instant, loosening waits the timelock, and the factory has no path to account funds. The owner, the guardian and the sentinel key can set reduce-only, pause or close deposits; only the owner undoes them. Slither's findings and the gas report are in `evidence/p2-u1/`.
+
+```sh
+pnpm deploy:account-factory                 # deploy to the local fork (deploys AgentNFT first if needed; deterministic)
+pnpm custody:local demo                     # anvil account 6: mint an agent if it has none, create its account, deposit 25 test USDC, withdraw it
+pnpm custody:local create                   # create (or show) the owner's PersonalAccount
+pnpm custody:local deposit 25               # test USDC into the account, up to the 100 USDC cap
+pnpm custody:local withdraw 10              # some USDC back to the owner; with no amount, every held asset
+pnpm custody:local show                     # balances, principal, mode, caps and the platform total
+pnpm custody:local deposit 10 --owner 7     # any of the local test owners, anvil accounts 6 to 9
+```
+
+Locally, AgentNFT's admin (anvil account 0) is the factory admin, account 4 the guardian and account 5 the sentinel key; anvil accounts 6 to 9 are on the deposit allowlist. Adding a wallet to the allowlist waits the 9-day timelock, as it will on mainnet. The commands act only on the fork that `LOCAL_FORK_PORT` names (the playtest fork by default) and refuse anything that is not the local anvil fork.
 
 ## Web app and design system
 
