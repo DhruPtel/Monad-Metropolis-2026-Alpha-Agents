@@ -567,14 +567,14 @@ const CUSTODY_LOCAL: readonly AddressEntry[] = [
   custodyLocal(
     "account_factory",
     "AccountFactory",
-    "0x1630Aebd7A9501a73fA565475A1115Bb63C9145E" as Address,
+    "0xc5F91DdDbcCDDcB01719F212a91b61783Efd0B0a" as Address,
     12557,
     "Deterministic CREATE2 deployment with anvil roles, 100/2,000 USDC caps (P2-U1); local fork only",
   ),
   custodyLocal(
     "personal_account_implementation",
     "PersonalAccount implementation",
-    "0x5755C0588543140361d3edD78708bEe53cce4495" as Address,
+    "0x4CA155329D5aBD27110c0C915e3BBEd1eF012ffB" as Address,
     23514,
     "Deployed by AccountFactory's constructor; every PersonalAccount is a clone of it",
   ),
@@ -583,7 +583,7 @@ const CUSTODY_LOCAL: readonly AddressEntry[] = [
     "Oracle adapter",
     "0x5377F44b222fD91dA2c0e19C833D284d06B06161" as Address,
     7076,
-    "Deterministic CREATE2 deployment over the real feeds and v4 pool (P2-U3); proposed to the factory at deployment",
+    "Deterministic CREATE2 deployment over the real feeds and v4 pool (P2-U3); the factory's oracle from its constructor (D-235)",
   ),
 ];
 const custodyUndeployed = (note: string): AddressEntry[] =>

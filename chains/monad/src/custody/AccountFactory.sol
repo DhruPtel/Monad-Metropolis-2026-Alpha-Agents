@@ -15,6 +15,10 @@ import {IAgentNFTView, ICustodyConfig, IDepositLedger} from "../interfaces/ICust
 ///
 /// - The factory can never move account funds: it has no call into an
 ///   account other than `initialize` at creation.
+/// - The oracle and the Executor are given at deployment (Q-47, D-235), so a
+///   new deployment can take deposits and trade at once; the deployment is the
+///   commitment, as for the guardian and the sentinel. Every later change to
+///   either waits the timelock.
 /// - Tightening is instant (the admin lowers a cap, removes a depositor or a
 ///   buyable token, turns the allowlist on; the admin or guardian clears the
 ///   Executor or cancels a pending change). Loosening waits RISK_TIMELOCK in
@@ -113,6 +117,8 @@ contract AccountFactory is ICustodyConfig, IDepositLedger, Ownable2Step {
         address admin,
         address guardian_,
         address sentinel_,
+        address oracle_,
+        address executor_,
         IAgentNFTView agentNft,
         address usdc,
         address wmon,
@@ -129,6 +135,8 @@ contract AccountFactory is ICustodyConfig, IDepositLedger, Ownable2Step {
         PERSONAL_ACCOUNT_IMPLEMENTATION = address(new PersonalAccount(agentNft, usdc, wmon));
         guardian = guardian_;
         sentinel = sentinel_;
+        oracle = oracle_;
+        executor = executor_;
         personalCap = personalCap_;
         platformCap = platformCap_;
         isBuyable[usdc] = true;
@@ -139,6 +147,8 @@ contract AccountFactory is ICustodyConfig, IDepositLedger, Ownable2Step {
         }
         emit GuardianSet(address(0), guardian_);
         emit SentinelSet(address(0), sentinel_);
+        emit OracleSet(address(0), oracle_);
+        emit ExecutorSet(address(0), executor_);
         emit PersonalCapSet(0, personalCap_);
         emit PlatformCapSet(0, platformCap_);
         emit BuyableSet(usdc, false, true);

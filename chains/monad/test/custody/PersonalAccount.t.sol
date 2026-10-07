@@ -86,7 +86,17 @@ contract PersonalAccountTest is CustodyBase {
         address[] memory allow = new address[](1);
         allow[0] = owner;
         AccountFactory bare = new AccountFactory(
-            admin, guardian, sentinel, IAgentNFTView(address(nft)), address(usdc), address(wmon), 100e6, 2_000e6, allow
+            admin,
+            guardian,
+            sentinel,
+            address(0),
+            address(0),
+            IAgentNFTView(address(nft)),
+            address(usdc),
+            address(wmon),
+            100e6,
+            2_000e6,
+            allow
         );
         assertEq(bare.oracle(), address(0), "a new factory starts with no oracle");
         vm.prank(owner);
@@ -221,6 +231,8 @@ contract PersonalAccountTest is CustodyBase {
             admin,
             guardian,
             sentinel,
+            address(0),
+            address(0),
             IAgentNFTView(address(nft)),
             address(fot),
             address(wmon),

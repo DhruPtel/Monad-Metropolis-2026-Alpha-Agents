@@ -11,8 +11,8 @@ import {IChainlinkFeed, IUniswapV4StateView} from "../src/interfaces/IOracle.sol
 /// Deploys the oracle adapter (P2-U3) and AccountFactory (and with it the
 /// PersonalAccount implementation) through the deterministic CREATE2 factory,
 /// or finds the existing deployment, then asserts the onchain state matches
-/// the intended configuration (MV-S15). A new factory starts with no oracle,
-/// so the script proposes the adapter through the factory's 9-day timelock.
+/// the intended configuration (MV-S15). The factory takes the adapter (and,
+/// from P2-U2, the Executor) in its constructor (Q-47, D-235).
 /// Run it through `pnpm deploy:account-factory`, which refuses anything but
 /// the local fork and sets these variables:
 ///   ACCOUNT_FACTORY_ADMIN, ACCOUNT_FACTORY_GUARDIAN, ACCOUNT_FACTORY_SENTINEL,
@@ -39,6 +39,8 @@ contract DeployAccountFactory is Script {
         address admin;
         address guardian;
         address sentinel;
+        address oracle;
+        address executor;
         address agentNft;
         address usdc;
         address wmon;
@@ -50,10 +52,14 @@ contract DeployAccountFactory is Script {
     function run() external returns (AccountFactory factory) {
         require(block.chainid == LOCAL_FORK_CHAIN_ID, "not the local fork (143143)");
         OracleAdapter adapter = _deployOracle();
+        // The Executor arrives in P2-U2; until then the factory starts without one.
+        address executor = address(0);
         Config memory c = Config({
             admin: vm.envAddress("ACCOUNT_FACTORY_ADMIN"),
             guardian: vm.envAddress("ACCOUNT_FACTORY_GUARDIAN"),
             sentinel: vm.envAddress("ACCOUNT_FACTORY_SENTINEL"),
+            oracle: address(adapter),
+            executor: executor,
             agentNft: vm.envAddress("ACCOUNT_FACTORY_AGENT_NFT"),
             usdc: vm.envAddress("ACCOUNT_FACTORY_USDC"),
             wmon: vm.envAddress("ACCOUNT_FACTORY_WMON"),
@@ -68,7 +74,17 @@ contract DeployAccountFactory is Script {
         bytes memory initCode = abi.encodePacked(
             type(AccountFactory).creationCode,
             abi.encode(
-                c.admin, c.guardian, c.sentinel, c.agentNft, c.usdc, c.wmon, c.personalCap, c.platformCap, c.allowlist
+                c.admin,
+                c.guardian,
+                c.sentinel,
+                c.oracle,
+                c.executor,
+                c.agentNft,
+                c.usdc,
+                c.wmon,
+                c.personalCap,
+                c.platformCap,
+                c.allowlist
             )
         );
         address predicted = vm.computeCreate2Address(SALT, keccak256(initCode), CREATE2_FACTORY);
@@ -83,6 +99,8 @@ contract DeployAccountFactory is Script {
                 c.admin,
                 c.guardian,
                 c.sentinel,
+                c.oracle,
+                c.executor,
                 IAgentNFTView(c.agentNft),
                 c.usdc,
                 c.wmon,
@@ -95,16 +113,7 @@ contract DeployAccountFactory is Script {
         }
 
         _assertImmutables(factory, c);
-        if (fresh) {
-            _assertInitialState(factory, c);
-            // The oracle waits the timelock like any loosening (D-229): propose it now.
-            bytes32 value = bytes32(uint256(uint160(address(adapter))));
-            vm.startBroadcast();
-            factory.propose(AccountFactory.Action.SetOracle, value);
-            vm.stopBroadcast();
-            (uint64 executableAt,) = factory.pending(factory.changeId(AccountFactory.Action.SetOracle, value));
-            require(executableAt == block.timestamp + factory.RISK_TIMELOCK(), "oracle proposal");
-        }
+        if (fresh) _assertInitialState(factory, c);
         console.log("ORACLE_ADAPTER_ADDRESS", address(adapter));
         console.log("ORACLE_ADAPTER_CODE_SIZE", address(adapter).code.length);
         console.log("ACCOUNT_FACTORY_ADDRESS", address(factory));
@@ -169,8 +178,9 @@ contract DeployAccountFactory is Script {
         require(f.owner() == c.admin, "admin");
         require(f.pendingOwner() == address(0), "no pending admin");
         require(f.guardian() == c.guardian && f.sentinel() == c.sentinel, "roles");
-        require(f.executor() == address(0), "executor unset at deploy");
-        require(f.oracle() == address(0), "oracle unset at deploy");
+        // Given at deployment (Q-47, D-235); every later change waits the timelock.
+        require(f.executor() == c.executor, "executor at deploy");
+        require(f.oracle() == c.oracle, "oracle at deploy");
         require(f.personalCap() == c.personalCap && f.platformCap() == c.platformCap, "caps");
         require(f.platformTotal() == 0, "nothing deposited at deploy");
         require(f.allowlistEnabled(), "allowlist on at deploy");

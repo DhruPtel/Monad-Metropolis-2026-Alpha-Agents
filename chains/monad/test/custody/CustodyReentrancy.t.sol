@@ -32,6 +32,8 @@ contract CustodyReentrancyTest is Test {
             admin,
             makeAddr("guardian"),
             makeAddr("sentinel"),
+            address(0),
+            address(0),
             IAgentNFTView(address(nft)),
             address(usdc),
             address(wmon),

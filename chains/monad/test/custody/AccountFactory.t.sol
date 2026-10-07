@@ -4,6 +4,7 @@ pragma solidity 0.8.37;
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {AccountFactory} from "../../src/custody/AccountFactory.sol";
 import {PersonalAccount} from "../../src/custody/PersonalAccount.sol";
+import {IAgentNFTView} from "../../src/interfaces/ICustody.sol";
 import {MockToken} from "../mocks/CustodyMocks.sol";
 import {CustodyBase} from "./CustodyBase.sol";
 
@@ -320,5 +321,73 @@ contract AccountFactoryTest is CustodyBase {
         assertEq(account.principal(), held);
         assertEq(factory.platformTotal(), held);
         assertLe(account.principal(), cap);
+    }
+
+    // ----- Q-47 (D-235): the oracle and Executor given at deployment -----
+
+    function freshFactoryWith(address oracle_, address executor_) internal returns (AccountFactory f) {
+        address[] memory allow = new address[](1);
+        allow[0] = owner;
+        f = new AccountFactory(
+            admin,
+            guardian,
+            sentinel,
+            oracle_,
+            executor_,
+            IAgentNFTView(address(nft)),
+            address(usdc),
+            address(wmon),
+            PERSONAL_CAP,
+            PLATFORM_CAP,
+            allow
+        );
+    }
+
+    function test_AnOracleAndExecutorGivenAtDeploymentAreLiveAtOnce() public {
+        vm.expectEmit();
+        emit AccountFactory.OracleSet(address(0), address(oracle));
+        vm.expectEmit();
+        emit AccountFactory.ExecutorSet(address(0), address(executor));
+        AccountFactory f = freshFactoryWith(address(oracle), address(executor));
+        assertEq(f.oracle(), address(oracle));
+        assertEq(f.executor(), address(executor));
+        // A deposit needs no timelock first.
+        nft.setOwner(9, owner);
+        vm.prank(owner);
+        PersonalAccount a = PersonalAccount(f.createPersonalAccount(9));
+        usdc.mint(owner, 10e6);
+        vm.startPrank(owner);
+        usdc.approve(address(a), 10e6);
+        a.deposit(address(usdc), 10e6);
+        vm.stopPrank();
+        assertEq(a.principal(), 10e6);
+    }
+
+    function test_ChangingAnOracleOrExecutorGivenAtDeploymentStillWaitsTheTimelock() public {
+        AccountFactory f = freshFactoryWith(address(oracle), address(executor));
+        address next = makeAddr("next");
+        bytes32 value = addr(next);
+        vm.startPrank(admin);
+        bytes32 idO = f.propose(AccountFactory.Action.SetOracle, value);
+        bytes32 idE = f.propose(AccountFactory.Action.SetExecutor, value);
+        vm.stopPrank();
+        (uint64 at,) = f.pending(idO);
+        vm.expectRevert(abi.encodeWithSelector(AccountFactory.TooEarly.selector, at));
+        f.execute(AccountFactory.Action.SetOracle, value);
+        (at,) = f.pending(idE);
+        vm.expectRevert(abi.encodeWithSelector(AccountFactory.TooEarly.selector, at));
+        f.execute(AccountFactory.Action.SetExecutor, value);
+        assertEq(f.oracle(), address(oracle));
+        assertEq(f.executor(), address(executor));
+        // Clearing the Executor is still instant for the guardian.
+        vm.prank(guardian);
+        f.clearExecutor();
+        assertEq(f.executor(), address(0));
+    }
+
+    function test_ADeploymentMayStillStartWithout() public {
+        AccountFactory f = freshFactoryWith(address(0), address(0));
+        assertEq(f.oracle(), address(0));
+        assertEq(f.executor(), address(0));
     }
 }

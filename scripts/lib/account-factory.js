@@ -55,7 +55,7 @@ function verified(id) {
 
 /**
  * Deploys the oracle adapter and AccountFactory, or finds them. A new factory
- * gets the adapter proposed through its 9-day timelock (P2-U3).
+ * takes the adapter in its constructor (Q-47, D-235).
  * @param {{ quiet?: boolean }} [options] quiet prints only the summary
  * @returns {Promise<{ factory: `0x${string}`, implementation: `0x${string}`, oracle: `0x${string}` }>}
  */
@@ -107,9 +107,7 @@ export async function deployAccountFactoryLocal(options = {}) {
   if (options.quiet) return result;
   console.log(`\nAccountFactory on the local fork: ${factory}`);
   console.log(`PersonalAccount implementation: ${implementation}`);
-  console.log(
-    `oracle adapter: ${oracle} (proposed to the factory at deployment; usable after the 9-day timelock)`,
-  );
+  console.log(`oracle adapter: ${oracle} (the factory's oracle from deployment, D-235)`);
   console.log(`admin ${CUSTODY_ROLES.admin} (anvil account 0)`);
   console.log(`guardian ${CUSTODY_ROLES.guardian} (anvil account 4)`);
   console.log(`sentinel key ${CUSTODY_ROLES.sentinel} (anvil account 5)`);

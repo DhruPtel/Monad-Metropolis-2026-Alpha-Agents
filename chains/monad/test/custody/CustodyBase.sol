@@ -47,6 +47,8 @@ abstract contract CustodyBase is Test {
             admin,
             guardian,
             sentinel,
+            address(0),
+            address(0),
             IAgentNFTView(address(nft)),
             address(usdc),
             address(wmon),
