@@ -9,7 +9,7 @@ import { bytesToHex } from "viem";
 import { mnemonicToAccount } from "viem/accounts";
 import { deployLocal } from "../../../scripts/lib/agent-nft.js";
 import { impersonate, publicClient, revealLocal } from "../../../scripts/lib/agent-reveal.js";
-import { MOCK_WALLET_ADDRESS } from "../src/auth/mock-wallet-constants";
+import { MOCK_WALLET_ADDRESS, mockAccessTokenFor } from "../src/auth/mock-wallet-constants";
 import { formatCount, formatOdds, summarizeSupply } from "../src/agent/supply";
 import { THREE_MARKER, scriptsLoaded } from "./bundles";
 import { disableWebgl } from "./webgl";
@@ -288,11 +288,8 @@ test("mint from /mint through the API claim: supply and odds match the contract,
   await expect(page.getByTestId("stage-mode")).toHaveAttribute("data-mode", "2d");
 
   // A second visit: one per wallet, so the page shows the agent, not a mint.
+  // The login outlives the page load, as Privy's does.
   await page.goto("/mint");
-  await page
-    .locator("[data-slot=mint-panel]")
-    .getByRole("button", { name: "Connect wallet" })
-    .click();
   await expect(page.locator("[data-slot=mint-panel]")).toHaveAttribute(
     "data-state",
     "already-minted",
@@ -321,7 +318,7 @@ test("a wallet off the allowlist is told before it clicks, and the API refuses i
 
     // And the claim endpoint itself refuses, whatever a page does.
     const res = await page.request.post(`${process.env.CONTROL_API_URL}/v1/mint/claim`, {
-      headers: { authorization: "Bearer mock-token-alpha-agents-mock-wallet-e2e-only" },
+      headers: { authorization: `Bearer ${mockAccessTokenFor(MOCK_WALLET_ADDRESS)}` },
       data: { wallet: MOCK_WALLET_ADDRESS },
     });
     expect([res.status(), ((await res.json()) as { error: string }).error]).toEqual([

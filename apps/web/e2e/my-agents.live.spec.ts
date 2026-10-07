@@ -51,8 +51,8 @@ test("an owner funds an agent, runs a Scan, reads its entry and refunds it; anot
   const card = page.locator(`[data-testid=my-agent-card][data-agent-id="${id}"]`);
 
   // The keeper reveals and the orchestrator provisions with no manual step; unfunded, it is paused.
+  // The login outlives the page load, as Privy's does.
   await page.goto("/agents");
-  await page.getByRole("main").getByRole("button", { name: "Connect wallet" }).click();
   await expect(card).toBeVisible({ timeout: 30_000 });
   await expect(card.getByText("Paused: no credits")).toBeVisible({ timeout: 120_000 });
   await expect(card.getByTestId("restricted-note")).toContainText("Safety checks keep running");
