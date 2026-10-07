@@ -54,18 +54,21 @@ contract FeeOnTransferToken is MockToken {
     }
 }
 
-/// A token that calls back into the account on every transfer, to try every
-/// entry point while a withdrawal or deposit is in progress.
+/// A token that, once armed, calls a hook during its next transfer, the way
+/// a token with receiver hooks would. With the owner's wallet as the hook,
+/// the account sees its own owner calling back in mid-withdrawal.
 contract ReentrantToken is MockToken {
-    CustodyCore public target;
+    OwnerWallet public hook;
+    address public target;
     bytes public payload;
+    bool public armed;
     bool public lastCallSucceeded;
     bytes public lastRevert;
-    bool public armed;
 
     constructor() MockToken("REENTER", 6) {}
 
-    function arm(CustodyCore target_, bytes calldata payload_) external {
+    function arm(OwnerWallet hook_, address target_, bytes calldata payload_) external {
+        hook = hook_;
         target = target_;
         payload = payload_;
         armed = true;
@@ -73,10 +76,28 @@ contract ReentrantToken is MockToken {
 
     function _update(address from, address to, uint256 value) internal override {
         super._update(from, to, value);
-        if (armed && address(target) != address(0)) {
+        if (armed) {
             armed = false;
-            (lastCallSucceeded, lastRevert) = address(target).call(payload);
+            (lastCallSucceeded, lastRevert) = hook.forward(target, payload);
         }
+    }
+}
+
+/// An owner that is a contract: it can call anything, and is the hook the
+/// reentrant token calls back.
+contract OwnerWallet {
+    function forward(address target, bytes calldata data) external returns (bool ok, bytes memory ret) {
+        (ok, ret) = target.call(data);
+    }
+
+    function exec(address target, bytes calldata data) external returns (bytes memory) {
+        (bool ok, bytes memory ret) = target.call(data);
+        if (!ok) {
+            assembly ("memory-safe") {
+                revert(add(ret, 0x20), mload(ret))
+            }
+        }
+        return ret;
     }
 }
 
