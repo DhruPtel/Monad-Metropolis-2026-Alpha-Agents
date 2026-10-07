@@ -107,7 +107,8 @@ describe("switchWalletChain", () => {
     const w = wallet({ on: { wallet_addEthereumChain: () => Promise.reject(err(4001)) } });
     expect((await run(w)).result).toEqual({
       outcome: "rejected",
-      message: "You declined adding Monad (local fork) in your wallet.",
+      message:
+        "You declined adding Monad (local fork) in your wallet. Add it by hand in your wallet: network name Monad (local fork), RPC URL http://127.0.0.1:8545, chain ID 143143, currency MON.",
     });
   });
 
@@ -150,7 +151,9 @@ describe("switchWalletChain", () => {
     expect(result.outcome).toBe("failed");
     if (result.outcome === "failed") {
       expect(result.message).toContain("Your wallet still reports Monad Testnet");
-      expect(result.message).toContain("open MetaMask on this page and choose Monad (local fork)");
+      expect(result.message).toContain(
+        "open your wallet on this page and choose Monad (local fork)",
+      );
     }
   });
 

@@ -10,6 +10,7 @@ import {
   Tag,
   toast,
   WalletButton,
+  WalletNotice,
   WrongChainPrompt,
   cn,
 } from "@alpha-agents/ui";
@@ -106,11 +107,13 @@ function AppShell({ environment, children }: { environment: string; children: Re
               state={wallet.state}
               address={wallet.address}
               chainName={walletChain}
+              walletName={wallet.walletName}
               errorMessage={wallet.errorMessage}
               errorLabel={wallet.configured ? undefined : "Login unavailable"}
               onConnect={wallet.configured ? wallet.connect : undefined}
               onDisconnect={wallet.disconnect}
               onSwitchChain={wallet.switchChain}
+              onCancel={wallet.cancel}
             />
             <Button
               variant="ghost"
@@ -143,6 +146,20 @@ function AppShell({ environment, children }: { environment: string; children: Re
           <Tag tone="warning" size="md">
             Test build: mock wallet
           </Tag>
+        ) : null}
+        {wallet.waitingFor ? (
+          <WalletNotice
+            title="Connecting your wallet"
+            actions={
+              wallet.cancel ? (
+                <Button variant="secondary" size="sm" onClick={wallet.cancel}>
+                  Cancel
+                </Button>
+              ) : null
+            }
+          >
+            {wallet.waitingFor}
+          </WalletNotice>
         ) : null}
         {wrongChain ? (
           <WrongChainPrompt

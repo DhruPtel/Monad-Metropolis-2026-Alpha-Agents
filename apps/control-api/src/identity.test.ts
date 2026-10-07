@@ -4,6 +4,7 @@ import {
   MOCK_ACCESS_TOKEN,
   MOCK_WALLET_ADDRESS,
   MOCK_WALLET_MARKER,
+  mockAccessTokenFor,
   mockIdentity,
 } from "./identity.ts";
 
@@ -16,10 +17,18 @@ describe("the mock identity (local test stacks only)", () => {
     ]);
   });
 
-  it("accepts only the mock token and links only the mock wallet", async () => {
+  it("accepts only mock tokens, and links only the wallet each was issued for", async () => {
     const id = mockIdentity();
+    const other = "0x00000000000000000000000000000000000e2e02";
     await expect(id.verify("anything else")).rejects.toThrow();
-    const session = await id.verify(MOCK_ACCESS_TOKEN);
+    await expect(id.verify(MOCK_ACCESS_TOKEN)).rejects.toThrow();
+    await expect(id.verify(`${MOCK_ACCESS_TOKEN}:not-an-address`)).rejects.toThrow();
+    expect(mockAccessTokenFor(MOCK_WALLET_ADDRESS)).toBe(
+      web.mockAccessTokenFor(MOCK_WALLET_ADDRESS),
+    );
+    const session = await id.verify(mockAccessTokenFor(MOCK_WALLET_ADDRESS));
     expect(await id.walletsOf(session)).toEqual([MOCK_WALLET_ADDRESS]);
+    const second = await id.verify(mockAccessTokenFor(other.toUpperCase().replace("0X", "0x")));
+    expect(await id.walletsOf(second)).toEqual([other]);
   });
 });

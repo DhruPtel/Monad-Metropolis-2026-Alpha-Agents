@@ -91,6 +91,11 @@ export function useMint(environment: EnvironmentId, onChange: () => void): Mint 
   }, []);
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
+  // Another wallet's mint is never shown: a new account starts from idle.
+  const owner = wallet.address;
+  useEffect(() => {
+    if (!running.current) setProgress({ state: "idle" });
+  }, [owner]);
 
   const mint = useCallback(() => {
     const address = wallet.address;

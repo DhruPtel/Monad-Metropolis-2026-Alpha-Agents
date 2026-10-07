@@ -2,6 +2,12 @@ import { AGENT_MAX_SUPPLY, SPECIES } from "@alpha-agents/domain";
 import type { Page, Route } from "@playwright/test";
 import { type Address, getAddress } from "viem";
 import { MOCK_ACCESS_TOKEN } from "../src/auth/mock-wallet-constants";
+
+/** The wallet a mock token was issued for, as the real API reads it from Privy; null when none. */
+function linkedWallet(authorization: string | undefined): string | null {
+  const prefix = `Bearer ${MOCK_ACCESS_TOKEN}:`;
+  return authorization?.startsWith(prefix) ? authorization.slice(prefix.length) : null;
+}
 import { AGENT_NFT, type FakeChain } from "./fake-chain";
 
 /**
@@ -221,7 +227,12 @@ export class FakeApi {
     if (request.method() === "OPTIONS") return route.fulfill({ status: 204, headers: CORS });
     const url = new URL(request.url());
     const meta = { environment: "fork", chainId: 143143, watermark: this.watermark() };
-    const authed = request.headers()["authorization"] === `Bearer ${MOCK_ACCESS_TOKEN}`;
+    const linked = linkedWallet(request.headers()["authorization"]);
+    const notLinked = () =>
+      reply(403, {
+        error: "wallet_not_linked",
+        message: "That wallet is not linked to your login.",
+      });
 
     if (url.pathname === "/v1/supply") return reply(200, { ...meta, ...this.supply() });
     if (url.pathname === "/v1/agents") {
@@ -261,12 +272,15 @@ export class FakeApi {
       });
     }
     if (url.pathname === "/v1/mint/eligibility") {
-      if (!authed) return reply(401, { error: "invalid_token", message: "Log in first." });
-      return reply(200, this.eligibility(url.searchParams.get("wallet") ?? ""));
+      if (!linked) return reply(401, { error: "invalid_token", message: "Log in first." });
+      const wallet = url.searchParams.get("wallet") ?? "";
+      if (!same(wallet, linked)) return notLinked();
+      return reply(200, this.eligibility(wallet));
     }
     if (url.pathname === "/v1/mint/claim") {
-      if (!authed) return reply(401, { error: "invalid_token", message: "Log in first." });
+      if (!linked) return reply(401, { error: "invalid_token", message: "Log in first." });
       const wallet = String((request.postDataJSON() as { wallet?: string } | null)?.wallet ?? "");
+      if (!same(wallet, linked)) return notLinked();
       const e = this.eligibility(wallet);
       if (!e.eligible)
         return reply(e.reason === "not_allowlisted" ? 403 : 409, {
@@ -309,8 +323,13 @@ export class FakeApi {
     this.ownerCalls.push(`${action} ${id.toString()}`);
     const session = `fake-session-${id.toString()}-${agent.owner.toLowerCase()}-${agent.ownerEpoch.toString()}`;
     if (action === "session") {
-      if (request.headers()["authorization"] !== `Bearer ${MOCK_ACCESS_TOKEN}`)
-        return reply(401, { error: "invalid_token", message: "Log in first." });
+      const linked = linkedWallet(request.headers()["authorization"]);
+      if (!linked) return reply(401, { error: "invalid_token", message: "Log in first." });
+      if (!same(linked, agent.owner))
+        return reply(403, {
+          error: "not_owner",
+          message: `None of your linked wallets owns agent #${id.toString()}.`,
+        });
       return reply(200, {
         token: session,
         expiresAt: 4_102_444_800,

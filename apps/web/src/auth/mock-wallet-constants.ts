@@ -6,5 +6,8 @@
  */
 export const MOCK_WALLET_MARKER = "alpha-agents-mock-wallet-e2e-only";
 export const MOCK_WALLET_ADDRESS = "0x00000000000000000000000000000000000e2e01";
-/** The access token the mock wallet hands the server. */
+/** The prefix of every mock access token. */
 export const MOCK_ACCESS_TOKEN = `mock-token-${MOCK_WALLET_MARKER}`;
+/** The access token a mock login hands the server: it names the one wallet it links. */
+export const mockAccessTokenFor = (wallet: string): string =>
+  `${MOCK_ACCESS_TOKEN}:${wallet.toLowerCase()}`;

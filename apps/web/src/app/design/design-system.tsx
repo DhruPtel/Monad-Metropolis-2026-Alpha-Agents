@@ -36,6 +36,7 @@ import {
   StatusPill,
   WALLET_STATES,
   WalletButton,
+  WalletNotice,
   WrongChainPrompt,
   Badge,
   Button,
@@ -411,12 +412,35 @@ function WalletSection() {
                 state={state}
                 address={AGENT_WALLET}
                 chainName="Monad (local fork)"
+                walletName="MetaMask"
                 errorMessage="The wallet rejected the login request."
                 // A retryable error shows "Try again" only when there is an action to run.
                 onConnect={() => undefined}
               />
             </div>
           ))}
+          <div
+            data-testid="login-state-connecting-cancel"
+            className="flex flex-col gap-2 rounded-lg border bg-surface p-3"
+          >
+            <span className="text-xs text-foreground-muted">
+              Connecting, waiting on the wallet (Cancel gives up)
+            </span>
+            <WalletButton state="connecting" onCancel={() => undefined} />
+          </div>
+          <div
+            data-testid="login-state-connected-okx"
+            className="flex flex-col gap-2 rounded-lg border bg-surface p-3"
+          >
+            <span className="text-xs text-foreground-muted">Connected with OKX Wallet</span>
+            <WalletButton
+              state="connected"
+              address={AGENT_WALLET}
+              chainName="Monad (local fork)"
+              walletName="OKX Wallet"
+              onDisconnect={() => undefined}
+            />
+          </div>
           <div
             data-testid="login-state-unavailable"
             className="flex flex-col gap-2 rounded-lg border bg-surface p-3"
@@ -428,6 +452,23 @@ function WalletSection() {
               errorMessage="Wallet login is not configured."
             />
           </div>
+        </div>
+      </Specimen>
+      <Specimen
+        name="Wallet notice"
+        note="Shown under the header while a connect waits on the wallet: what it is waiting for, and Cancel. A connect never spins without saying why."
+      >
+        <div data-testid="login-state-waiting-notice">
+          <WalletNotice
+            title="Connecting your wallet"
+            actions={
+              <Button variant="secondary" size="sm">
+                Cancel
+              </Button>
+            }
+          >
+            Waiting for MetaMask to answer. Unlock it, or cancel and connect again.
+          </WalletNotice>
         </div>
       </Specimen>
       <Specimen
@@ -463,7 +504,7 @@ function WalletSection() {
             currentChainName="Monad Testnet"
             status={{
               tone: "negative",
-              text: "Your wallet still reports Monad Testnet. MetaMask can keep a separate network for each site: open MetaMask on this page and choose Monad (local fork).",
+              text: "Your wallet still reports Monad Testnet. Some wallets, such as MetaMask, keep a separate network for each site: open your wallet on this page and choose Monad (local fork).",
             }}
           />
         </div>

@@ -23,6 +23,14 @@ export interface WalletSession {
   readonly address?: `0x${string}`;
   /** The chain the wallet is on, if connected. */
   readonly chainId?: number;
+  /** The chosen wallet's name ("MetaMask", "OKX Wallet"), once it is known. */
+  readonly walletName?: string;
+  /**
+   * While connecting takes long or waits on the wallet, what it is waiting for,
+   * and a way to give up: a connect never spins without feedback.
+   */
+  readonly waitingFor?: string;
+  readonly cancel?: () => void;
   /** The chain this build targets (from APP_ENV). */
   readonly target: AppChain;
   readonly errorMessage?: string;

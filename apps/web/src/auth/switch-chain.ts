@@ -101,14 +101,18 @@ export async function switchWalletChain({
       onPhase?.("pending");
       await switchOnce();
     } catch (addError) {
-      if (isUserRejection(addError)) return declined(`adding ${target.name}`);
-      if (isRequestAlreadyPending(addError)) return { outcome: "failed", message: PENDING_MESSAGE };
       // A local network has an http RPC, which a wallet may refuse to add from
-      // a site; then it has to be added by hand (README, D-196).
+      // a site (OKX Wallet does); then it has to be added by hand (README, D-196, D-224).
       const byHand =
         target.environment === "local"
           ? ` Add it by hand in your wallet: network name ${target.name}, RPC URL ${target.browserRpcUrl}, chain ID ${target.id}, currency ${target.nativeCurrency.symbol}.`
           : "";
+      if (isUserRejection(addError))
+        return {
+          outcome: "rejected",
+          message: `You declined adding ${target.name} in your wallet.${byHand}`,
+        };
+      if (isRequestAlreadyPending(addError)) return { outcome: "failed", message: PENDING_MESSAGE };
       return {
         outcome: "failed",
         message: `Your wallet could not add ${target.name}: ${text(addError).replace(/\.$/, "")}.${byHand}`,
@@ -127,7 +131,7 @@ export async function switchWalletChain({
     const current = chainName(now, target) ?? `chain ${now}`;
     return {
       outcome: "failed",
-      message: `Your wallet still reports ${current}. MetaMask can keep a separate network for each site: open MetaMask on this page and choose ${target.name}.`,
+      message: `Your wallet still reports ${current}. Some wallets, such as MetaMask, keep a separate network for each site: open your wallet on this page and choose ${target.name}.`,
     };
   }
   return { outcome: "switched" };
