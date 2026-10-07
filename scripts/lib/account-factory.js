@@ -57,7 +57,7 @@ function verified(id) {
  * Deploys the oracle adapter and AccountFactory, or finds them. A new factory
  * takes the adapter in its constructor (Q-47, D-235).
  * @param {{ quiet?: boolean }} [options] quiet prints only the summary
- * @returns {Promise<{ factory: `0x${string}`, implementation: `0x${string}`, oracle: `0x${string}` }>}
+ * @returns {Promise<{ factory: `0x${string}`, implementation: `0x${string}`, oracle: `0x${string}`, executor: `0x${string}`, registry: `0x${string}`, venueV4: `0x${string}`, venueV3: `0x${string}` }>}
  */
 export async function deployAccountFactoryLocal(options = {}) {
   await assertLocalFork(ANVIL_URL);
@@ -90,24 +90,40 @@ export async function deployAccountFactoryLocal(options = {}) {
       ORACLE_USDC_USD_FEED: verified("chainlink_usdc_usd"),
       ORACLE_STATE_VIEW: verified("uniswap_v4_state_view"),
       ORACLE_POOL_ID: UNISWAP_V4_MON_USDC_POOL.id,
+      VENUE_POOL_MANAGER: verified("uniswap_v4_pool_manager"),
+      VENUE_V3_ROUTER: verified("uniswap_v3_swap_router02"),
     },
     options.quiet,
     LOCAL_DEPLOY_ATTEMPTS,
   );
   const factory = /ACCOUNT_FACTORY_ADDRESS\s+(0x[0-9a-fA-F]{40})/.exec(output)?.[1];
   const implementation = /PERSONAL_ACCOUNT_IMPLEMENTATION\s+(0x[0-9a-fA-F]{40})/.exec(output)?.[1];
-  const oracle = /ORACLE_ADAPTER_ADDRESS\s+(0x[0-9a-fA-F]{40})/.exec(output)?.[1];
-  if (!factory || !implementation || !oracle)
-    throw new Error("forge script did not report the AccountFactory and oracle adapter addresses");
+  /** @param {string} name */
+  const found = (name) => {
+    const a = new RegExp(`${name}\\s+(0x[0-9a-fA-F]{40})`).exec(output)?.[1];
+    if (!a) throw new Error(`forge script did not report ${name}`);
+    return /** @type {`0x${string}`} */ (a);
+  };
+  const oracle = found("ORACLE_ADAPTER_ADDRESS");
+  if (!factory || !implementation)
+    throw new Error("forge script did not report the AccountFactory addresses");
   const result = {
     factory: /** @type {`0x${string}`} */ (factory),
     implementation: /** @type {`0x${string}`} */ (implementation),
-    oracle: /** @type {`0x${string}`} */ (oracle),
+    oracle,
+    executor: found("EXECUTOR_ADDRESS"),
+    registry: found("PROTOCOL_REGISTRY_ADDRESS"),
+    venueV4: found("VENUE_V4_ADDRESS"),
+    venueV3: found("VENUE_V3_ADDRESS"),
   };
   if (options.quiet) return result;
   console.log(`\nAccountFactory on the local fork: ${factory}`);
   console.log(`PersonalAccount implementation: ${implementation}`);
   console.log(`oracle adapter: ${oracle} (the factory's oracle from deployment, D-235)`);
+  console.log(`Executor: ${result.executor}; ProtocolRegistry: ${result.registry}`);
+  console.log(
+    `venues: Uniswap v4 MON/USDC ${result.venueV4} (active), v3 USDC/WMON ${result.venueV3} (paused)`,
+  );
   console.log(`admin ${CUSTODY_ROLES.admin} (anvil account 0)`);
   console.log(`guardian ${CUSTODY_ROLES.guardian} (anvil account 4)`);
   console.log(`sentinel key ${CUSTODY_ROLES.sentinel} (anvil account 5)`);

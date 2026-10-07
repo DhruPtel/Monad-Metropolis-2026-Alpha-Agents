@@ -52,6 +52,10 @@ export const ADDRESS_BOOK_IDS = [
   "account_factory",
   "personal_account_implementation",
   "oracle_adapter",
+  "executor",
+  "protocol_registry",
+  "venue_uniswap_v4_mon_usdc",
+  "venue_uniswap_v3_usdc_wmon",
 ] as const;
 export type AddressBookId = (typeof ADDRESS_BOOK_IDS)[number];
 
@@ -540,9 +544,16 @@ const agentNftUndeployed = (note: string): AddressEntry => ({
  * allowlist (scripts/lib/account-factory.js).
  */
 const CUSTODY_SOURCE =
-  "Planv2/FINAL_PLAN.md > 4.1.6 Custody core, 4.1.9 Oracle adapter and 4.1.13 AccountFactory";
+  "Planv2/FINAL_PLAN.md > 4.1.6 Custody core, 4.1.7 Executor, 4.1.8 ProtocolRegistry, 4.1.9 Oracle adapter and 4.1.13 AccountFactory";
 const custodyLocal = (
-  id: "account_factory" | "personal_account_implementation" | "oracle_adapter",
+  id:
+    | "account_factory"
+    | "personal_account_implementation"
+    | "oracle_adapter"
+    | "executor"
+    | "protocol_registry"
+    | "venue_uniswap_v4_mon_usdc"
+    | "venue_uniswap_v3_usdc_wmon",
   label: string,
   address: Address,
   codeSize: number,
@@ -567,23 +578,51 @@ const CUSTODY_LOCAL: readonly AddressEntry[] = [
   custodyLocal(
     "account_factory",
     "AccountFactory",
-    "0xc5F91DdDbcCDDcB01719F212a91b61783Efd0B0a" as Address,
+    "0x2A750CD8653B49A184Bb46cfB5b3DB17E5cf3DE5" as Address,
     12557,
     "Deterministic CREATE2 deployment with anvil roles, 100/2,000 USDC caps (P2-U1); local fork only",
   ),
   custodyLocal(
     "personal_account_implementation",
     "PersonalAccount implementation",
-    "0x4CA155329D5aBD27110c0C915e3BBEd1eF012ffB" as Address,
+    "0xAf0DCFfC5B7886edae9D03b8f2411CB7Ab9cE030" as Address,
     23514,
     "Deployed by AccountFactory's constructor; every PersonalAccount is a clone of it",
   ),
   custodyLocal(
     "oracle_adapter",
     "Oracle adapter",
-    "0x5377F44b222fD91dA2c0e19C833D284d06B06161" as Address,
+    "0xAEC82c2026D9ABD884E0a521C797bF103B03C8D7" as Address,
     7076,
     "Deterministic CREATE2 deployment over the real feeds and v4 pool (P2-U3); the factory's oracle from its constructor (D-235)",
+  ),
+  custodyLocal(
+    "executor",
+    "Executor",
+    "0xE712468eB37544B7Eafe20F402867f7a49C19F43" as Address,
+    28590,
+    "Deterministic CREATE2 deployment with the launch policy (P2-U2); bound to the factory and registry",
+  ),
+  custodyLocal(
+    "protocol_registry",
+    "ProtocolRegistry",
+    "0x1eFe894C64eD2B7f0f576fC5e401677459acdE93" as Address,
+    9211,
+    "Lists the v4 adapter as active and the v3 fallback as paused (P2-U2)",
+  ),
+  custodyLocal(
+    "venue_uniswap_v4_mon_usdc",
+    "Uniswap v4 MON/USDC 0.05% adapter",
+    "0x49293b1274ED7ca256Ec6Be6304354C98Ca92593" as Address,
+    7589,
+    "The launch venue (D-166): unwraps, swaps native MON and rewraps (D-167)",
+  ),
+  custodyLocal(
+    "venue_uniswap_v3_usdc_wmon",
+    "Uniswap v3 USDC/WMON 0.3% adapter",
+    "0xB4D6CF4710a819B4fce8e5Db907702625f3bC55c" as Address,
+    3394,
+    "The fallback venue (D-166), registered paused; activating it waits the timelock",
   ),
 ];
 const custodyUndeployed = (note: string): AddressEntry[] =>
@@ -592,6 +631,10 @@ const custodyUndeployed = (note: string): AddressEntry[] =>
       ["account_factory", "AccountFactory"],
       ["personal_account_implementation", "PersonalAccount implementation"],
       ["oracle_adapter", "Oracle adapter"],
+      ["executor", "Executor"],
+      ["protocol_registry", "ProtocolRegistry"],
+      ["venue_uniswap_v4_mon_usdc", "Uniswap v4 MON/USDC 0.05% adapter"],
+      ["venue_uniswap_v3_usdc_wmon", "Uniswap v3 USDC/WMON 0.3% adapter"],
     ] as const
   ).map(([id, label]) => ({
     id,

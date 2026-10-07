@@ -7,7 +7,7 @@
 // fresh fork (L-70).
 import { ConfigError, LOCAL_TEST_FORK_PORT } from "@alpha-agents/config";
 import { startTestFork } from "@alpha-agents/devenv";
-import { spawnSync } from "node:child_process";
+import { spawn } from "node:child_process";
 
 // Every library below reads the fork's port from here when it loads.
 process.env.LOCAL_FORK_PORT = String(LOCAL_TEST_FORK_PORT);
@@ -26,32 +26,60 @@ try {
   process.exit(1);
 }
 
-/** The forge fork tests against a fork; output is printed and returned. */
-function forgeForkTests(/** @type {string} */ url) {
-  const result = spawnSync("forge", ["test", "--match-path", "test/fork/**", "-vv"], {
-    cwd: MONAD_DIR,
-    encoding: "utf8",
-    maxBuffer: 64 * 1024 * 1024,
-    env: { ...process.env, LOCAL_FORK_URL: url },
+/**
+ * The forge fork tests against a fork; output is printed and returned. Run
+ * asynchronously: this process drains anvil's log pipe, and a spawnSync here
+ * would block it, so once anvil had logged a pipe's worth it stopped answering
+ * mid-run (L-109). One suite at a time keeps the fork's upstream fetches in step.
+ * @param {string} url
+ * @returns {Promise<{ status: number | null, output: string }>}
+ */
+function forgeForkTests(url) {
+  return new Promise((resolve) => {
+    const child = spawn(
+      "forge",
+      ["test", "--match-path", "test/fork/**", "--threads", "1", "-vv"],
+      {
+        cwd: MONAD_DIR,
+        env: { ...process.env, LOCAL_FORK_URL: url },
+      },
+    );
+    let output = "";
+    child.stdout.on("data", (chunk) => {
+      output += chunk;
+      process.stdout.write(chunk);
+    });
+    child.stderr.on("data", (chunk) => {
+      output += chunk;
+      process.stderr.write(chunk);
+    });
+    child.on("error", () => {
+      console.error("error: forge not found on PATH");
+      resolve({ status: 1, output });
+    });
+    child.on("close", (status) => resolve({ status, output }));
   });
-  if (result.error) console.error("error: forge not found on PATH");
-  process.stdout.write(result.stdout ?? "");
-  process.stderr.write(result.stderr ?? "");
-  return { status: result.status, output: `${result.stdout ?? ""}${result.stderr ?? ""}` };
 }
+
+/** Fresh-fork retries for forge on a transient upstream failure. */
+const FORGE_RETRIES = 2;
 
 console.log(`starting a test fork on port ${LOCAL_TEST_FORK_PORT}`);
 let fork = await startTestFork();
 let status;
 try {
-  let result = forgeForkTests(fork.url);
+  let result = await forgeForkTests(fork.url);
   // A fresh fork fetches everything from the upstream, which sometimes fails a fetch (L-43,
-  // L-70). One retry on a new fork, only for a failure classified as transient upstream.
-  if (result.status !== 0 && isTransientForkError(result.output)) {
-    console.log("\nforge failed on a transient upstream error; retrying once on a fresh fork");
+  // L-70, L-109). Up to two retries, each on a new fork, only for a failure classified as
+  // transient upstream.
+  for (let retry = 1; retry <= FORGE_RETRIES; retry++) {
+    if (result.status === 0 || !isTransientForkError(result.output)) break;
+    console.log(
+      `\nforge failed on a transient upstream error; retry ${retry} of ${FORGE_RETRIES} on a fresh fork`,
+    );
     await fork.stop();
     fork = await startTestFork();
-    result = forgeForkTests(fork.url);
+    result = await forgeForkTests(fork.url);
   }
 
   console.log("\nAgentNFT on the test fork:");
