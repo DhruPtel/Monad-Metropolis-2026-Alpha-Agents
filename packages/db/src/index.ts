@@ -6,6 +6,7 @@ import * as orchestrator from "./migrations/0002_orchestrator.ts";
 import * as credits from "./migrations/0003_credits.ts";
 import * as tools from "./migrations/0004_tools.ts";
 import * as scanRequests from "./migrations/0005_scan_requests.ts";
+import * as revealSteers from "./migrations/0006_reveal_steers.ts";
 import type { Database } from "./schema.ts";
 
 export type * from "./schema.ts";
@@ -19,6 +20,7 @@ export const MIGRATIONS: Readonly<Record<string, Migration>> = {
   "0003_credits": credits,
   "0004_tools": tools,
   "0005_scan_requests": scanRequests,
+  "0006_reveal_steers": revealSteers,
 };
 
 const INT8 = 20;

@@ -23,6 +23,7 @@ import { Orchestrator } from "./orchestrator.ts";
 import { NAMESPACE_PATTERN } from "./provisioner.ts";
 import { E2BProvider } from "./sandbox.ts";
 import { type RevealSteering, revealSteeringFor } from "./reveal-steer.ts";
+import { DbSteerStore } from "./reveal-steer-store.ts";
 import { Redactor, createLog, errorText } from "./secrets.ts";
 import { Store } from "./store.ts";
 import { findCloudflared } from "./tunnel.ts";
@@ -123,16 +124,25 @@ try {
   log("cloudflared is not installed: sandboxes cannot reach the gate, so tasks will fail");
 }
 
+const db = createDb(reveal("DATABASE_URL") ?? "", { max: 10 });
+await migrateToLatest(db);
+
 // D-221: steered reveals on the local fork only; null in every other environment.
+// Steers live in Postgres, so a restart keeps them.
 let steering: RevealSteering | null = null;
 try {
-  steering = revealSteeringFor(env.id, values.LOCAL_FIRST_REVEAL_SPECIES as string | undefined);
+  steering = revealSteeringFor(
+    env.id,
+    values.LOCAL_FIRST_REVEAL_SPECIES as string | undefined,
+    new DbSteerStore(db),
+    env.chainId,
+  );
 } catch (err) {
   die(errorText(err, redactor));
 }
 if (steering)
   log(
-    `local fork: agent #1 reveals as ${steering.firstSpecies === null ? "random" : (SPECIES[steering.firstSpecies - 1]?.name ?? "?")} on a fresh fork; the dev console can choose the next reveal`,
+    `local fork: agent #1 reveals as ${steering.firstSpecies === null ? "random" : (SPECIES[steering.firstSpecies - 1]?.name ?? "?")} on a fresh fork; the dev console can steer a wallet's or a pending agent's reveal`,
   );
 let keeper: RevealKeeper | null = null;
 const keeperKey = env.id === "beta" ? undefined : reveal("REVEAL_KEEPER_PRIVATE_KEY");
@@ -196,8 +206,6 @@ const scanIntervalMs =
     : Number(values.SCAN_INTERVAL_MINUTES ?? 360) * 60_000;
 if (credits) log(`scheduled Scans every ${scanIntervalMs / 1_000} seconds for agents with credits`);
 
-const db = createDb(reveal("DATABASE_URL") ?? "", { max: 10 });
-await migrateToLatest(db);
 const store = new Store(db);
 const orchestrator = new Orchestrator({
   store,

@@ -34,6 +34,7 @@ describe.skipIf(!available)("database migrations (needs pnpm dev:up)", () => {
       "platform.mint_allowlist",
       "platform.mint_claims",
       "platform.refunds",
+      "platform.reveal_steers",
       "platform.sandbox_leases",
       "platform.stage_records",
       "platform.thesis_notes",

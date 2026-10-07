@@ -4,6 +4,7 @@ import { SPECIES, TIER_IDS } from "@alpha-agents/domain";
 import { Hono } from "hono";
 import { RefundOpenError } from "./credits/refunds.ts";
 import { CreditsExhaustedError, type Orchestrator, ScanOpenError } from "./orchestrator.ts";
+import type { RevealSteering, SteerRecord, SteerTarget } from "./reveal-steer.ts";
 import type { Runtime, Store, Task } from "./store.ts";
 
 /**
@@ -182,24 +183,79 @@ export function createApi(o: ApiOptions): Hono {
     });
   });
 
-  /** D-221: the local fork's reveal steering, by slug; null when there is none (any other environment). */
-  const steeringView = () => {
-    const s = o.orchestrator.revealSteering;
+  /**
+   * D-221: the local fork's reveal steering; null when there is none (any other
+   * environment). Each pending steer says exactly which agent it will apply to,
+   * read from the index: an agent target's own row, or a wallet's lowest
+   * unrevealed agent, else the next agent that wallet mints.
+   */
+  const slugOf = (i: number | null) => (i === null ? null : (SPECIES[i - 1]?.slug ?? null));
+  const appliesTo = async (t: SteerTarget) => {
+    const q = o.store.db
+      .selectFrom("indexer.agents")
+      .select(["agent_id", "owner", "species"])
+      .where("chain_id", "=", o.chainId);
+    if (t.kind === "agent") {
+      const row = await q.where("agent_id", "=", t.agentId).executeTakeFirst();
+      if (!row) return { agentId: null, text: `agent #${t.agentId} is not indexed on this fork` };
+      if (row.species !== 0)
+        return { agentId: null, text: `agent #${t.agentId} is already revealed; this will fail` };
+      if (row.owner.toLowerCase() !== t.owner.toLowerCase())
+        return {
+          agentId: null,
+          text: `agent #${t.agentId} now belongs to ${row.owner}; this will fail`,
+        };
+      return {
+        agentId: String(t.agentId),
+        text: `agent #${t.agentId}, unrevealed, owned by ${row.owner}`,
+      };
+    }
+    const row = await q
+      .where("owner", "=", t.wallet.toLowerCase())
+      .where("species", "=", 0)
+      .orderBy("agent_id", "asc")
+      .executeTakeFirst();
+    return row
+      ? {
+          agentId: String(row.agent_id),
+          text: `agent #${row.agent_id}, this wallet's unrevealed agent`,
+        }
+      : { agentId: null, text: "the next agent this wallet mints" };
+  };
+  const steerView = async (r: SteerRecord) => ({
+    steerId: r.steerId,
+    target:
+      r.target.kind === "wallet"
+        ? { kind: "wallet" as const, wallet: r.target.wallet }
+        : { kind: "agent" as const, agentId: String(r.target.agentId), owner: r.target.owner },
+    species: slugOf(r.species),
+    status: r.status,
+    appliesTo: r.status === "pending" ? await appliesTo(r.target) : null,
+    appliedAgentId: r.appliedAgentId === null ? null : String(r.appliedAgentId),
+    note: r.note,
+    createdAt: r.createdAt.toISOString(),
+  });
+  const steeringView = async () => {
+    const s: RevealSteering | null = o.orchestrator.revealSteering;
     if (!s) return null;
-    const slug = (i: number | null) => (i === null ? null : (SPECIES[i - 1]?.slug ?? null));
-    return { firstReveal: slug(s.firstSpecies), nextReveal: slug(s.nextSpecies) };
+    const resolved = (await s.store.recent(s.chainId, 20)).filter((r) => r.status !== "pending");
+    return {
+      firstReveal: slugOf(s.firstSpecies),
+      pending: await Promise.all((await s.store.pending(s.chainId)).map(steerView)),
+      recent: await Promise.all(resolved.slice(0, 5).map(steerView)),
+    };
   };
 
-  app.get("/v1/keeper", (c) => {
+  app.get("/v1/keeper", async (c) => {
     const keeper = o.orchestrator.keeper;
-    if (!keeper) return c.json({ running: false, recent: [], steering: steeringView() });
+    if (!keeper) return c.json({ running: false, recent: [], steering: await steeringView() });
     const recent = keeper.actions
       .filter((a) => a.kind !== "idle" && a.kind !== "waiting")
       .slice(-20)
       .map((a) =>
         JSON.parse(JSON.stringify(a, (_k, v) => (typeof v === "bigint" ? String(v) : v))),
       );
-    return c.json({ running: true, recent, steering: steeringView() });
+    return c.json({ running: true, recent, steering: await steeringView() });
   });
 
   /**
@@ -277,28 +333,83 @@ export function createApi(o: ApiOptions): Hono {
 
   if (o.devActions) {
     /**
-     * D-221: choose the species of the next reveal on the local fork, once
-     * (`{ "species": "bee" }`, or null to clear). Only with dev actions on and
-     * steering present, which is the local fork only.
+     * D-221: steer a reveal on the local fork, once: `{ "species": "bee",
+     * "wallet": "0x..." }` for that wallet's next reveal, or `{ "species":
+     * "bee", "agentId": "3" }` for one unrevealed agent. Recorded in Postgres;
+     * a newer choice for the same target replaces the older one. Only with dev
+     * actions on and steering present, which is the local fork only.
      */
-    app.post("/v1/keeper/next-reveal", async (c) => {
+    app.post("/v1/keeper/reveal-steers", async (c) => {
       const steering = o.orchestrator.revealSteering;
       if (!steering)
         return c.json(
           { error: "not_local", message: "Steered reveals exist only on the local fork." },
           404,
         );
-      const body = (await c.req.json().catch(() => null)) as { species?: unknown } | null;
-      const raw = body?.species;
-      if (raw === null) {
-        steering.setNext(null);
-        return c.json({ steering: steeringView() });
-      }
-      const species = typeof raw === "string" ? SPECIES.find((s) => s.slug === raw) : undefined;
+      const body = (await c.req.json().catch(() => null)) as {
+        species?: unknown;
+        wallet?: unknown;
+        agentId?: unknown;
+      } | null;
+      const species =
+        typeof body?.species === "string"
+          ? SPECIES.find((s) => s.slug === body.species)
+          : undefined;
       if (!species)
         return c.json({ error: "bad_species", message: "Name a species by its slug." }, 400);
-      steering.setNext(species.index);
-      return c.json({ steering: steeringView() });
+      let target: SteerTarget;
+      if (typeof body?.wallet === "string" && body.agentId === undefined) {
+        if (!/^0x[0-9a-fA-F]{40}$/.test(body.wallet))
+          return c.json({ error: "bad_wallet", message: "That is not a wallet address." }, 400);
+        target = { kind: "wallet", wallet: body.wallet.toLowerCase() };
+      } else if (typeof body?.agentId === "string" && body.wallet === undefined) {
+        const ref = agentRef(body.agentId, o.chainId);
+        if (!ref)
+          return c.json({ error: "bad_agent_id", message: "That is not an agent ID." }, 400);
+        const row = await o.store.db
+          .selectFrom("indexer.agents")
+          .select(["owner", "species"])
+          .where("chain_id", "=", ref.chainId)
+          .where("agent_id", "=", ref.agentId)
+          .executeTakeFirst();
+        if (!row)
+          return c.json(
+            {
+              error: "unknown_agent",
+              message: `Agent #${ref.agentId} is not indexed on this fork.`,
+            },
+            400,
+          );
+        if (row.species !== 0)
+          return c.json(
+            { error: "revealed", message: `Agent #${ref.agentId} is already revealed.` },
+            400,
+          );
+        target = { kind: "agent", agentId: ref.agentId, owner: row.owner.toLowerCase() };
+      } else
+        return c.json(
+          { error: "bad_target", message: "Name either a wallet or a pending agent." },
+          400,
+        );
+      const steer = await steering.store.create(steering.chainId, target, species.index);
+      return c.json({ steer: await steerView(steer), steering: await steeringView() });
+    });
+
+    /** D-221: cancel a pending steer. */
+    app.post("/v1/keeper/reveal-steers/:steerId/cancel", async (c) => {
+      const steering = o.orchestrator.revealSteering;
+      if (!steering)
+        return c.json(
+          { error: "not_local", message: "Steered reveals exist only on the local fork." },
+          404,
+        );
+      const done = await steering.store.resolve(c.req.param("steerId"), {
+        status: "cancelled",
+        note: "cancelled in the dev console",
+      });
+      if (!done)
+        return c.json({ error: "not_pending", message: "That steer is no longer pending." }, 409);
+      return c.json({ steering: await steeringView() });
     });
 
     /** P1-U7: queue a Scan now (D-216); the scheduler also queues them on its cadence. */

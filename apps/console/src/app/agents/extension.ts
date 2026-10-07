@@ -97,12 +97,33 @@ export interface AgentList {
   readonly steering: RevealSteeringView | null;
 }
 
+/** One steered reveal (D-221), kept in Postgres by the orchestrator. */
+export interface RevealSteerView {
+  readonly steerId: string;
+  readonly target:
+    | { readonly kind: "wallet"; readonly wallet: string }
+    | { readonly kind: "agent"; readonly agentId: string; readonly owner: string };
+  /** Species slug. */
+  readonly species: string | null;
+  readonly status: "pending" | "applied" | "failed" | "cancelled";
+  /** For a pending steer: exactly which agent it will apply to, read from the index. */
+  readonly appliesTo: { readonly agentId: string | null; readonly text: string } | null;
+  readonly appliedAgentId: string | null;
+  readonly note: string | null;
+  readonly createdAt: string;
+}
+
 export interface RevealSteeringView {
   /** Agent #1's species on a fresh fork (LOCAL_FIRST_REVEAL_SPECIES), or null for random. */
   readonly firstReveal: string | null;
-  /** The species the next reveal is steered to, once, or null. */
-  readonly nextReveal: string | null;
+  /** Steers waiting for their agent's reveal, oldest first. */
+  readonly pending: readonly RevealSteerView[];
+  /** The last few resolved steers, newest first. */
+  readonly recent: readonly RevealSteerView[];
 }
+
+/** Who a new steer is for: a wallet's next reveal, or one pending agent. */
+export type RevealSteerTarget = { readonly wallet: string } | { readonly agentId: string };
 
 export interface AgentsSource {
   /** P1-U4: list every agent from the API's projections. */
@@ -113,8 +134,10 @@ export interface AgentsSource {
   triggerTask?(agentId: AgentId, task: TaskKind): Promise<string>;
   /** P1-U5: one task's status and structured result. */
   task?(taskId: string): Promise<TaskView>;
-  /** D-221: steer the next reveal on the local fork to a species slug, or clear it with null. */
-  setNextReveal?(species: string | null): Promise<RevealSteeringView>;
+  /** D-221: steer a wallet's or a pending agent's reveal on the local fork to a species slug. */
+  steerReveal?(species: string, target: RevealSteerTarget): Promise<RevealSteeringView>;
+  /** D-221: cancel a pending steer. */
+  cancelSteer?(steerId: string): Promise<RevealSteeringView>;
   /** P1-U6: asks for a refund of the agent's credits to its current owner. */
   refund?(agentId: AgentId): Promise<string>;
   refundStatus?(refundId: string): Promise<RefundView>;
@@ -182,11 +205,17 @@ export function orchestratorSource(baseUrl: string, fetchFn: typeof fetch = fetc
       const body = await call("/v1/keeper");
       return (body.steering as RevealSteeringView | null | undefined) ?? null;
     },
-    async setNextReveal(species: string | null): Promise<RevealSteeringView> {
-      const body = await call("/v1/keeper/next-reveal", {
+    async steerReveal(species: string, target: RevealSteerTarget): Promise<RevealSteeringView> {
+      const body = await call("/v1/keeper/reveal-steers", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ species }),
+        body: JSON.stringify({ species, ...target }),
+      });
+      return body.steering as RevealSteeringView;
+    },
+    async cancelSteer(steerId: string): Promise<RevealSteeringView> {
+      const body = await call(`/v1/keeper/reveal-steers/${encodeURIComponent(steerId)}/cancel`, {
+        method: "POST",
       });
       return body.steering as RevealSteeringView;
     },
@@ -221,7 +250,8 @@ export function apiAgentsSource(
           resetAgent: orch.resetAgent,
           refund: orch.refund,
           refundStatus: orch.refundStatus,
-          setNextReveal: orch.setNextReveal,
+          steerReveal: orch.steerReveal,
+          cancelSteer: orch.cancelSteer,
         }
       : {}),
     async listAgents() {

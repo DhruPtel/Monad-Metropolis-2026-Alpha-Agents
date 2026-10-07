@@ -29,16 +29,36 @@ export async function runScanAction(id: string): Promise<ActionResult<string>> {
   });
 }
 
-/** D-221: the species of the next reveal on the local fork, once; null clears it. */
-export async function setNextRevealAction(
-  species: string | null,
+/**
+ * D-221: steer a reveal on the local fork, once: a wallet's next reveal (its
+ * lowest unrevealed agent, or the next one it mints) or one pending agent.
+ */
+export async function steerRevealAction(
+  species: string,
+  target: { wallet: string } | { agentId: string },
 ): Promise<ActionResult<RevealSteeringView>> {
   return attempt(async () => {
     const source = agentsSource();
-    if (!source.setNextReveal) throw new Error("The orchestrator is not configured.");
-    if (species !== null && !/^[a-z][a-z-]{1,30}$/.test(species))
-      throw new Error("That is not a species.");
-    return source.setNextReveal(species);
+    if (!source.steerReveal) throw new Error("The orchestrator is not configured.");
+    if (!/^[a-z][a-z-]{1,30}$/.test(species)) throw new Error("That is not a species.");
+    if ("wallet" in target) {
+      if (!/^0x[0-9a-fA-F]{40}$/.test(target.wallet.trim()))
+        throw new Error("That is not a wallet address.");
+      return source.steerReveal(species, { wallet: target.wallet.trim() });
+    }
+    return source.steerReveal(species, { agentId: agentId(target.agentId.trim()).toString() });
+  });
+}
+
+/** D-221: cancel a pending steer. */
+export async function cancelSteerAction(
+  steerId: string,
+): Promise<ActionResult<RevealSteeringView>> {
+  return attempt(async () => {
+    const source = agentsSource();
+    if (!source.cancelSteer) throw new Error("The orchestrator is not configured.");
+    if (!/^[0-9a-zA-Z-]{1,64}$/.test(steerId)) throw new Error("That is not a steer.");
+    return source.cancelSteer(steerId);
   });
 }
 

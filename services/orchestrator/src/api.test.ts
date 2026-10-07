@@ -6,10 +6,11 @@ import { LeaseManager } from "./leases.ts";
 import { CreditsExhaustedError, type Orchestrator, ScanOpenError } from "./orchestrator.ts";
 import { Provisioner } from "./provisioner.ts";
 import { RevealSteering } from "./reveal-steer.ts";
+import { DbSteerStore } from "./reveal-steer-store.ts";
 import { MemoryProvider } from "./sandbox.ts";
 import { Redactor } from "./secrets.ts";
 import { Store } from "./store.ts";
-import { CHAIN, indexAgent } from "./testing.ts";
+import { CHAIN, indexAgent, unindexAgent } from "./testing.ts";
 
 const dbUp = await databaseAvailable();
 
@@ -181,31 +182,74 @@ describe.skipIf(!dbUp)("the orchestrator's internal API (D-205)", { timeout: 60_
     expect((await api(false).request("/v1/agents/x/activity")).status).toBe(400);
   });
 
-  it("chooses the next local reveal only with steering and dev actions (D-221)", async () => {
-    const post = (devActions: boolean, orch: Orchestrator, species: unknown) =>
+  it("steers a wallet's or a pending agent's reveal, kept in Postgres across restarts (D-221)", async () => {
+    const bob = "0x0000000000000000000000000000000000000b0b";
+    const post = (devActions: boolean, orch: Orchestrator, body: unknown, path = "") =>
       createApi({ orchestrator: orch, store, chainId: CHAIN, devActions }).request(
-        "/v1/keeper/next-reveal",
-        { method: "POST", body: JSON.stringify({ species }) },
+        `/v1/keeper/reveal-steers${path}`,
+        { method: "POST", body: JSON.stringify(body) },
       );
+    const local = (steering: RevealSteering) =>
+      ({ ...orchestrator, keeper: null, revealSteering: steering }) as unknown as Orchestrator;
+    const keeperView = async (orch: Orchestrator) =>
+      (await (
+        await createApi({ orchestrator: orch, store, chainId: CHAIN, devActions: true }).request(
+          "/v1/keeper",
+        )
+      ).json()) as { steering: { pending: Record<string, unknown>[]; recent: unknown[] } | null };
+
     // No steering (every environment but the local fork): nothing to set, and none shown.
-    expect((await post(true, orchestrator, "bee")).status).toBe(404);
-    expect(await (await api(true).request("/v1/keeper")).json()).toMatchObject({ steering: null });
-    const steering = new RevealSteering(14);
-    const local = {
-      ...orchestrator,
-      keeper: null,
-      revealSteering: steering,
-    } as unknown as Orchestrator;
+    expect((await post(true, orchestrator, { species: "bee", wallet: bob })).status).toBe(404);
+    expect(await keeperView(orchestrator)).toMatchObject({ steering: null });
+
+    const first = local(new RevealSteering(14, new DbSteerStore(t.db), CHAIN));
     // Without dev actions the route does not exist, even with steering.
-    expect((await post(false, local, "bee")).status).toBe(404);
-    const set = await post(true, local, "praying-mantis");
-    expect(await set.json()).toEqual({
-      steering: { firstReveal: "bee", nextReveal: "praying-mantis" },
+    expect((await post(false, first, { species: "bee", wallet: bob })).status).toBe(404);
+
+    // A wallet with no unrevealed agent: its next mint.
+    const w = await post(true, first, { species: "praying-mantis", wallet: bob });
+    expect(w.status).toBe(200);
+    expect(((await w.json()) as { steer: unknown }).steer).toMatchObject({
+      target: { kind: "wallet", wallet: bob },
+      species: "praying-mantis",
+      status: "pending",
+      appliesTo: { agentId: null, text: "the next agent this wallet mints" },
     });
-    expect(steering.nextSpecies).toBe(15);
-    expect((await post(true, local, "unicorn")).status).toBe(400);
-    await post(true, local, null);
-    expect(steering.nextSpecies).toBeNull();
+    // Once Bob has an unrevealed agent, the view names it.
+    await indexAgent(t.db, 7, null, bob);
+    // A pending agent: recorded with its owner, and named exactly.
+    const a = await post(true, first, { species: "bee", agentId: "2" });
+    expect(((await a.json()) as { steer: unknown }).steer).toMatchObject({
+      target: { kind: "agent", agentId: "2", owner: "0x00000000000000000000000000000000000a11ce" },
+      appliesTo: { agentId: "2" },
+    });
+
+    // A restart: a new steering object over the same database sees both.
+    const restarted = local(new RevealSteering(14, new DbSteerStore(t.db), CHAIN));
+    const view = (await keeperView(restarted)).steering;
+    expect(view?.pending).toHaveLength(2);
+    expect(view?.pending[0]).toMatchObject({
+      species: "praying-mantis",
+      appliesTo: { agentId: "7", text: "agent #7, this wallet's unrevealed agent" },
+    });
+
+    // Refusals: a revealed or unknown agent, a bad species, wallet, or both targets at once.
+    expect((await post(true, restarted, { species: "bee", agentId: "1" })).status).toBe(400);
+    expect((await post(true, restarted, { species: "bee", agentId: "99" })).status).toBe(400);
+    expect((await post(true, restarted, { species: "unicorn", wallet: bob })).status).toBe(400);
+    expect((await post(true, restarted, { species: "bee", wallet: "0x12" })).status).toBe(400);
+    expect(
+      (await post(true, restarted, { species: "bee", wallet: bob, agentId: "2" })).status,
+    ).toBe(400);
+
+    // Cancel: once, then it is no longer pending.
+    const id = String(view?.pending[1]?.steerId);
+    expect((await post(true, restarted, {}, `/${id}/cancel`)).status).toBe(200);
+    expect((await post(true, restarted, {}, `/${id}/cancel`)).status).toBe(409);
+    const after = (await keeperView(restarted)).steering;
+    expect(after?.pending).toHaveLength(1);
+    expect(after?.recent[0]).toMatchObject({ status: "cancelled", appliesTo: null });
+    await unindexAgent(t.db, 7);
   });
 
   it("has no write routes without dev actions (outside APP_ENV=local)", async () => {

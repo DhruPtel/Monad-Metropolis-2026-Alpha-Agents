@@ -284,31 +284,41 @@ describe("activity, tool calls and the Scan (P1-U7)", () => {
 });
 
 describe("steered reveals on the local fork (D-221)", () => {
-  it("reads the steering from the keeper and sets the next reveal", async () => {
+  it("reads the persisted steers from the keeper, steers a wallet and cancels", async () => {
     const calls: string[] = [];
+    const steer = {
+      steerId: "s-1",
+      target: { kind: "wallet", wallet: "0x00000000000000000000000000000000000b0b02" },
+      species: "praying-mantis",
+      status: "pending",
+      appliesTo: { agentId: "2", text: "agent #2, this wallet's unrevealed agent" },
+      appliedAgentId: null,
+      note: null,
+      createdAt: "2026-10-07T08:00:00.000Z",
+    };
+    const none = { firstReveal: "bee", pending: [], recent: [] };
+    const one = { firstReveal: "bee", pending: [steer], recent: [] };
     const fetchFn = routes(
       {
         "/v1/agents": [200, AGENTS],
         "/v1/credits": [200, { enabled: true, agents: [] }],
         "/v1/runtimes": [200, { devActions: true, runtimes: [] }],
-        "/v1/keeper": [
-          200,
-          { running: true, recent: [], steering: { firstReveal: "bee", nextReveal: null } },
-        ],
-        "/v1/keeper/next-reveal": [
-          200,
-          { steering: { firstReveal: "bee", nextReveal: "praying-mantis" } },
-        ],
+        "/v1/keeper": [200, { running: true, recent: [], steering: none }],
+        "/v1/keeper/reveal-steers": [200, { steer, steering: one }],
+        "/v1/keeper/reveal-steers/s-1/cancel": [200, { steering: none }],
       },
       calls,
     );
     const source = apiAgentsSource("http://api", fetchFn, "http://orch");
-    expect((await source.listAgents()).steering).toEqual({ firstReveal: "bee", nextReveal: null });
-    expect(await source.setNextReveal?.("praying-mantis")).toEqual({
-      firstReveal: "bee",
-      nextReveal: "praying-mantis",
-    });
-    expect(calls).toContain("POST http://orch/v1/keeper/next-reveal");
+    expect((await source.listAgents()).steering).toEqual(none);
+    expect(
+      await source.steerReveal?.("praying-mantis", {
+        wallet: "0x00000000000000000000000000000000000b0b02",
+      }),
+    ).toEqual(one);
+    expect(await source.cancelSteer?.("s-1")).toEqual(none);
+    expect(calls).toContain("POST http://orch/v1/keeper/reveal-steers");
+    expect(calls).toContain("POST http://orch/v1/keeper/reveal-steers/s-1/cancel");
   });
 
   it("has no steering where the orchestrator offers none", async () => {

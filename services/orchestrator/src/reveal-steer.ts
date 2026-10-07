@@ -95,41 +95,197 @@ export function speciesFromSlug(slug: string): number | null {
   return s.index;
 }
 
+/** Who a steer is aimed at: a wallet's next reveal, or one pending agent. */
+export type SteerTarget =
+  | { readonly kind: "wallet"; readonly wallet: string }
+  | { readonly kind: "agent"; readonly agentId: number; readonly owner: string };
+
+export interface SteerRecord {
+  readonly steerId: string;
+  readonly target: SteerTarget;
+  readonly species: number;
+  readonly status: "pending" | "applied" | "failed" | "cancelled";
+  readonly appliedAgentId: number | null;
+  readonly note: string | null;
+  readonly createdAt: Date;
+}
+
+export interface SteerOutcome {
+  readonly status: "applied" | "failed" | "cancelled";
+  readonly agentId?: number;
+  readonly note: string;
+}
+
+/** Where steers live: Postgres in the orchestrator (`DbSteerStore`), memory in tests. */
+export interface SteerStore {
+  /** Pending steers for the chain, oldest first. */
+  pending(chainId: number): Promise<SteerRecord[]>;
+  /** Recent steers of any status, newest first. */
+  recent(chainId: number, limit: number): Promise<SteerRecord[]>;
+  /** Records a steer; a pending steer for the same target is cancelled first. */
+  create(chainId: number, target: SteerTarget, species: number): Promise<SteerRecord>;
+  /** Resolves a pending steer; false when it was no longer pending. */
+  resolve(steerId: string, outcome: SteerOutcome): Promise<boolean>;
+}
+
+/** A batch the keeper is about to reveal, with each agent's current owner. */
+export interface SteerBatch {
+  readonly next: number;
+  readonly last: number;
+  /** Lowercase owner per agent ID of the batch. */
+  readonly owners: ReadonlyMap<number, string>;
+}
+
+export interface SteerChoice {
+  readonly agentId: number;
+  readonly species: number;
+  readonly source: "console" | "first";
+  readonly steerId?: string;
+}
+
+const lower = (a: string) => a.toLowerCase();
+
+export const sameTarget = (a: SteerTarget, b: SteerTarget): boolean =>
+  a.kind === "wallet"
+    ? b.kind === "wallet" && lower(a.wallet) === lower(b.wallet)
+    : b.kind === "agent" && a.agentId === b.agentId;
+
+/** The agent of the batch a pending steer would apply to, or null if none. */
+export function agentForSteer(target: SteerTarget, batch: SteerBatch): number | null {
+  if (target.kind === "agent")
+    return target.agentId >= batch.next && target.agentId <= batch.last ? target.agentId : null;
+  for (let id = batch.next; id <= batch.last; id += 1)
+    if (batch.owners.get(id) === lower(target.wallet)) return id;
+  return null;
+}
+
 /**
  * What the local keeper should steer (D-221): the first reveal on a fresh fork
- * (agent #1) to `firstSpecies`, and the next reveal to whatever the dev
- * console chose, once. Held in memory by the orchestrator, local only.
+ * (agent #1) to `firstSpecies`, and any steer the dev console recorded, aimed
+ * at a wallet or at one pending agent. Steers live in the store (Postgres in
+ * the orchestrator), so a restart keeps them. Local only.
  */
 export class RevealSteering {
   readonly firstSpecies: number | null;
-  private next: number | null = null;
+  readonly store: SteerStore;
+  readonly chainId: number;
 
-  constructor(firstSpecies: number | null) {
+  constructor(firstSpecies: number | null, store: SteerStore, chainId: number) {
     this.firstSpecies = firstSpecies;
+    this.store = store;
+    this.chainId = chainId;
   }
 
-  /** The dev console's choice for the next reveal; null clears it. */
-  setNext(species: number | null): void {
-    this.next = species;
-  }
-
-  get nextSpecies(): number | null {
-    return this.next;
-  }
-
-  /** The steer for a batch starting at `next`: the console's choice first, else agent #1's. */
-  targetFor(
-    next: number,
-  ): { agentId: number; species: number; source: "console" | "first" } | null {
-    if (this.next !== null) return { agentId: next, species: this.next, source: "console" };
-    if (next === 1 && this.firstSpecies !== null)
+  /**
+   * The steer for a batch: the oldest pending steer that names an agent of the
+   * batch, else agent #1's first species. Agent steers that can no longer apply
+   * (already revealed, or the agent now has another owner, as after a fork
+   * reset) are failed here with the reason.
+   */
+  async targetFor(batch: SteerBatch): Promise<SteerChoice | null> {
+    for (const steer of await this.store.pending(this.chainId)) {
+      const t = steer.target;
+      if (t.kind === "agent" && t.agentId < batch.next) {
+        await this.store.resolve(steer.steerId, {
+          status: "failed",
+          note: `agent #${t.agentId} was already revealed`,
+        });
+        continue;
+      }
+      const agentId = agentForSteer(t, batch);
+      if (agentId === null) continue;
+      if (t.kind === "agent" && batch.owners.get(agentId) !== lower(t.owner)) {
+        await this.store.resolve(steer.steerId, {
+          status: "failed",
+          agentId,
+          note: `agent #${agentId} now belongs to another wallet (was the fork reset?)`,
+        });
+        continue;
+      }
+      return { agentId, species: steer.species, source: "console", steerId: steer.steerId };
+    }
+    if (batch.next === 1 && this.firstSpecies !== null)
       return { agentId: 1, species: this.firstSpecies, source: "first" };
     return null;
   }
 
-  /** Called once a steered number was delivered: the console's choice is used once. */
-  consumed(source: "console" | "first"): void {
-    if (source === "console") this.next = null;
+  /**
+   * After the batch's number was delivered: the chosen steer is applied (or
+   * failed when no number could give that species), and every other pending
+   * steer whose agent was in this batch fails, since that agent is now revealed.
+   */
+  async settle(choice: SteerChoice, batch: SteerBatch, applied: boolean): Promise<void> {
+    if (choice.steerId)
+      await this.store.resolve(choice.steerId, {
+        status: applied ? "applied" : "failed",
+        agentId: choice.agentId,
+        note: applied
+          ? `agent #${choice.agentId} revealed as the chosen species`
+          : `the species has no slot left for agent #${choice.agentId}; it revealed at random`,
+      });
+    for (const steer of await this.store.pending(this.chainId)) {
+      const agentId = agentForSteer(steer.target, batch);
+      if (agentId === null) continue;
+      await this.store.resolve(steer.steerId, {
+        status: "failed",
+        agentId,
+        note: `agent #${agentId} was revealed in a batch steered for agent #${choice.agentId}`,
+      });
+    }
+  }
+}
+
+/** Steers in memory, for tests. */
+export class MemorySteerStore implements SteerStore {
+  private readonly rows: { chainId: number; record: SteerRecord }[] = [];
+  private seq = 0;
+
+  async pending(chainId: number): Promise<SteerRecord[]> {
+    return this.rows
+      .filter((r) => r.chainId === chainId && r.record.status === "pending")
+      .map((r) => r.record);
+  }
+
+  async recent(chainId: number, limit: number): Promise<SteerRecord[]> {
+    return this.rows
+      .filter((r) => r.chainId === chainId)
+      .map((r) => r.record)
+      .reverse()
+      .slice(0, limit);
+  }
+
+  async create(chainId: number, target: SteerTarget, species: number): Promise<SteerRecord> {
+    for (const r of this.rows)
+      if (
+        r.chainId === chainId &&
+        r.record.status === "pending" &&
+        sameTarget(r.record.target, target)
+      )
+        r.record = { ...r.record, status: "cancelled", note: "replaced by a newer choice" };
+    this.seq += 1;
+    const record: SteerRecord = {
+      steerId: `steer-${this.seq}`,
+      target,
+      species,
+      status: "pending",
+      appliedAgentId: null,
+      note: null,
+      createdAt: new Date(Date.now() + this.seq),
+    };
+    this.rows.push({ chainId, record });
+    return record;
+  }
+
+  async resolve(steerId: string, outcome: SteerOutcome): Promise<boolean> {
+    const row = this.rows.find((r) => r.record.steerId === steerId);
+    if (row?.record.status !== "pending") return false;
+    row.record = {
+      ...row.record,
+      status: outcome.status,
+      appliedAgentId: outcome.agentId ?? null,
+      note: outcome.note,
+    };
+    return true;
   }
 }
 
@@ -141,7 +297,9 @@ export class RevealSteering {
 export function revealSteeringFor(
   environment: string,
   firstSpeciesSlug: string | undefined,
+  store: SteerStore,
+  chainId: number,
 ): RevealSteering | null {
   if (environment !== "local") return null;
-  return new RevealSteering(speciesFromSlug(firstSpeciesSlug ?? "bee"));
+  return new RevealSteering(speciesFromSlug(firstSpeciesSlug ?? "bee"), store, chainId);
 }

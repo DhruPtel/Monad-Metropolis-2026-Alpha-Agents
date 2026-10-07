@@ -188,8 +188,26 @@ const scanTask = JSON.stringify({
   },
 });
 
-// D-221: the local fork's steering; the next reveal is set by the console.
-let steering = { firstReveal: "bee", nextReveal: null };
+// D-221: the local fork's steering; steers are set and cancelled by the console.
+// Agent #2 is the fixture's unrevealed agent, owned by OWNER_2.
+const OWNER_2 = "0x00000000000000000000000000000000000e2e01";
+let steers = [];
+let steerSeq = 0;
+const steering = () => ({
+  firstReveal: "bee",
+  pending: steers.filter((s) => s.status === "pending"),
+  recent: steers.filter((s) => s.status !== "pending").slice(0, 5),
+});
+const appliesTo = (target) => {
+  if (target.kind === "agent")
+    return {
+      agentId: target.agentId,
+      text: `agent #${target.agentId}, unrevealed, owned by ${target.owner}`,
+    };
+  return target.wallet === OWNER_2
+    ? { agentId: "2", text: "agent #2, this wallet's unrevealed agent" }
+    : { agentId: null, text: "the next agent this wallet mints" };
+};
 
 const routes = {
   "GET /health": [200, body],
@@ -211,16 +229,45 @@ createServer((req, res) => {
   if (req.url === "/v1/keeper")
     return res
       .writeHead(200, { "content-type": "application/json" })
-      .end(JSON.stringify({ running: true, recent: [], steering }));
-  if (req.method === "POST" && req.url === "/v1/keeper/next-reveal") {
+      .end(JSON.stringify({ running: true, recent: [], steering: steering() }));
+  if (req.method === "POST" && req.url === "/v1/keeper/reveal-steers") {
     let raw = "";
     req.on("data", (c) => (raw += c));
     req.on("end", () => {
-      const { species } = JSON.parse(raw || "{}");
-      steering = { ...steering, nextReveal: species ?? null };
-      res.writeHead(200, { "content-type": "application/json" }).end(JSON.stringify({ steering }));
+      const { species, wallet, agentId } = JSON.parse(raw || "{}");
+      const json = (status, value) =>
+        res.writeHead(status, { "content-type": "application/json" }).end(JSON.stringify(value));
+      if (agentId !== undefined && agentId !== "2")
+        return json(400, { error: "revealed", message: `Agent #${agentId} is already revealed.` });
+      const target = wallet
+        ? { kind: "wallet", wallet: wallet.toLowerCase() }
+        : { kind: "agent", agentId, owner: OWNER_2 };
+      steerSeq += 1;
+      const steer = {
+        steerId: `steer-${steerSeq}`,
+        target,
+        species,
+        status: "pending",
+        appliesTo: appliesTo(target),
+        appliedAgentId: null,
+        note: null,
+        createdAt: "2026-10-07T08:00:00.000Z",
+      };
+      steers = [steer, ...steers];
+      json(200, { steer, steering: steering() });
     });
     return;
+  }
+  const cancel = /^\/v1\/keeper\/reveal-steers\/([\w-]+)\/cancel$/.exec(req.url ?? "");
+  if (req.method === "POST" && cancel) {
+    steers = steers.map((s) =>
+      s.steerId === cancel[1]
+        ? { ...s, status: "cancelled", appliesTo: null, note: "cancelled in the dev console" }
+        : s,
+    );
+    return res
+      .writeHead(200, { "content-type": "application/json" })
+      .end(JSON.stringify({ steering: steering() }));
   }
   const [status, reply] = routes[`${req.method} ${req.url}`] ?? [
     404,

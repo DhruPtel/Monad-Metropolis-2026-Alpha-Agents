@@ -260,9 +260,9 @@ Forks reach the upstream through a retrying proxy (`packages/devenv`, L-91): a n
 
 ### The Bee on the local fork (D-221)
 
-On the local fork the reveal keeper plays Pyth Entropy, so it can choose the number it delivers. `LOCAL_FIRST_REVEAL_SPECIES` (default `bee`, or `random`) makes agent #1 on a fresh fork reveal as that species, and the dev console's "Reveal next as" card steers the next reveal of any unrevealed agent, once. Both exist only with `APP_ENV=local`: any other environment refuses to start with a species set, and testnet and mainnet reveals always take Pyth Entropy's number.
+On the local fork the reveal keeper plays Pyth Entropy, so it can choose the number it delivers. `LOCAL_FIRST_REVEAL_SPECIES` (default `bee`, or `random`) makes agent #1 on a fresh fork reveal as that species, and the dev console's "Reveal next as" card steers one reveal, once: a wallet's next reveal (its lowest unrevealed agent, or the next agent it mints) or one pending agent by ID. Steers are kept in Postgres, so restarts keep them, and the card says exactly which agent each pending steer will apply to. Both exist only with `APP_ENV=local`: any other environment refuses to start with a species set, and testnet and mainnet reveals always take Pyth Entropy's number.
 
-To get the Bee on a fresh fork: `pnpm dev:down` (this discards the fork's state), `pnpm dev:all`, `pnpm deploy:agent-nft`, then mint at http://localhost:3000/mint; agent #1 reveals as the Bee within about 15 seconds. On a fork that already has agents, choose "Bee" in the console's "Reveal next as" before the next mint.
+To get the Bee on a fresh fork: `pnpm dev:down` (this discards the fork's state), `pnpm dev:all`, `pnpm deploy:agent-nft`, then mint at http://localhost:3000/mint; agent #1 reveals as the Bee within about 15 seconds. On a fork that already has agents, choose "Bee" for your wallet in the console's "Reveal next as" before the next mint.
 
 ## Dev console
 

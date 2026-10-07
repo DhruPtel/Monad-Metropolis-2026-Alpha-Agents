@@ -29,6 +29,7 @@ const ABI = parseAbi([
   "function nextToReveal() view returns (uint16)",
   "function totalMinted() view returns (uint16)",
   "function remainingOf(uint8 species) view returns (uint256)",
+  "function ownerOf(uint256 agentId) view returns (address)",
 ]);
 const ENTROPY_ABI = parseAbi(["function getFeeV2() view returns (uint128)"]);
 /** Pyth's default Entropy provider on Monad (address book note, D-187). */
@@ -79,13 +80,26 @@ export class ViemRevealChain implements RevealChain {
    * The number to deliver: steered when the local steering asks for it and the
    * species still has a slot, otherwise an ordinary random number (D-221).
    */
-  private async numberFor(sequence: bigint): Promise<Hex> {
+  private async numberFor(sequence: bigint): Promise<{ value: Hex; settle?: () => Promise<void> }> {
     const random = `0x${randomBytes(32).toString("hex")}` as Hex;
     const steering = this.o.steering;
-    if (!steering || !this.o.localFork) return random;
+    if (!steering || !this.o.localFork) return { value: random };
     const s = await this.state();
-    const target = steering.targetFor(s.nextToReveal);
-    if (!target) return random;
+    const next = s.nextToReveal;
+    const last = s.pending.batchLast;
+    const owners = new Map<number, string>();
+    for (let id = next; id <= last; id += 1) {
+      const owner = await this.pub.readContract({
+        address: this.o.agentNft,
+        abi: ABI,
+        functionName: "ownerOf",
+        args: [BigInt(id)],
+      });
+      owners.set(id, owner.toLowerCase());
+    }
+    const batch = { next, last, owners };
+    const target = await steering.targetFor(batch);
+    if (!target) return { value: random };
     const deck = await Promise.all(
       Array.from({ length: SPECIES.length }, (_, i) =>
         this.pub.readContract({
@@ -100,18 +114,21 @@ export class ViemRevealChain implements RevealChain {
       sequence,
       chainId: this.o.chainId,
       contract: this.o.agentNft,
-      next: s.nextToReveal,
-      last: s.pending.batchLast,
+      next,
+      last,
       deck: deck.map(Number),
     });
-    steering.consumed(target.source);
     const name = SPECIES[target.species - 1]?.name ?? `species ${target.species}`;
     this.o.log?.(
       chosen
         ? `local fork: steering agent #${target.agentId}'s reveal to ${name} (${target.source === "first" ? "LOCAL_FIRST_REVEAL_SPECIES" : "dev console"})`
         : `local fork: ${name} has no slot left for agent #${target.agentId}; revealing at random`,
     );
-    return chosen ?? random;
+    // Settled only once the delivery is mined, so a failed send leaves the steer pending.
+    return {
+      value: chosen ?? random,
+      settle: () => steering.settle(target, batch, chosen !== null),
+    };
   }
 
   private async wait(hash: Hex): Promise<string> {
@@ -194,6 +211,7 @@ export class ViemRevealChain implements RevealChain {
           entropy,
           `0x${parseEther("10").toString(16)}`,
         ]);
+      const number = await this.numberFor(sequence);
       const impersonated = createWalletClient({
         chain: this.chain,
         transport: http(this.o.rpcUrl),
@@ -203,10 +221,12 @@ export class ViemRevealChain implements RevealChain {
         address: this.o.agentNft,
         abi: ABI,
         functionName: "_entropyCallback",
-        args: [sequence, ENTROPY_PROVIDER, await this.numberFor(sequence)],
+        args: [sequence, ENTROPY_PROVIDER, number.value],
         chain: this.chain,
       });
-      return await this.wait(hash);
+      await this.wait(hash);
+      await number.settle?.();
+      return hash;
     } finally {
       await rpc(this.o.rpcUrl, "anvil_stopImpersonatingAccount", [entropy]);
     }

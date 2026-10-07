@@ -175,16 +175,44 @@ test.describe("agents panel controls (P1-U5)", () => {
     await expect(result).toContainText("0.0120 USDC");
   });
 
-  test("steers the next local reveal to a species (D-221)", async ({ page }) => {
+  test("steers a wallet's or a pending agent's reveal, and says which agent (D-221)", async ({
+    page,
+  }) => {
     const control = page.getByTestId("reveal-control");
     await expect(control).toContainText("Agent #1 on a fresh fork reveals as Bee");
-    await expect(control.getByTestId("next-reveal")).toHaveText("Next reveal: random.");
-    await control.getByRole("combobox").click();
+    await expect(control.getByTestId("no-steers")).toBeVisible();
+    // A wallet that owns the unrevealed agent #2: the steer names agent #2.
+    await control.getByRole("combobox", { name: "Species" }).click();
     await page.getByRole("option", { name: "Praying mantis" }).click();
-    await control.getByRole("button", { name: "Reveal next as Praying mantis" }).click();
-    await expect(control.getByTestId("next-reveal")).toHaveText("Next reveal: Praying mantis.");
-    await control.getByRole("button", { name: "Clear" }).click();
-    await expect(control.getByTestId("next-reveal")).toHaveText("Next reveal: random.");
+    await control.getByLabel("Wallet address").fill("0x00000000000000000000000000000000000E2e01");
+    await control.getByRole("button", { name: "Reveal as Praying mantis" }).click();
+    const first = control.getByTestId("reveal-steer").first();
+    await expect(first).toContainText("pending");
+    await expect(first.getByTestId("applies-to")).toHaveText(
+      "Applies to: agent #2, this wallet's unrevealed agent",
+    );
+    // A wallet with no pending agent: its next mint.
+    await control.getByLabel("Wallet address").fill("0x000000000000000000000000000000000000beef");
+    await control.getByRole("button", { name: "Reveal as Praying mantis" }).click();
+    await expect(control.getByTestId("reveal-steer").first().getByTestId("applies-to")).toHaveText(
+      "Applies to: the next agent this wallet mints",
+    );
+    // A pending agent by ID; a revealed one is refused with the reason.
+    await control.getByRole("combobox", { name: "For" }).click();
+    await page.getByRole("option", { name: "A pending agent" }).click();
+    await control.getByLabel("Agent ID").fill("1");
+    await control.getByRole("button", { name: "Reveal as Praying mantis" }).click();
+    await expect(page.getByText("Agent #1 is already revealed.")).toBeVisible();
+    await control.getByLabel("Agent ID").fill("2");
+    await control.getByRole("button", { name: "Reveal as Praying mantis" }).click();
+    await expect(control.getByTestId("reveal-steer")).toHaveCount(3);
+    // Cancel all three: none pending, the cancelled ones listed with the reason.
+    for (let i = 0; i < 3; i += 1)
+      await control.getByRole("button", { name: "Cancel" }).first().click();
+    await expect(control.getByTestId("no-steers")).toBeVisible();
+    await expect(control.getByTestId("reveal-steer").first()).toContainText(
+      "cancelled in the dev console",
+    );
   });
 
   test("resets an agent after a confirmation", async ({ page }) => {

@@ -302,6 +302,22 @@ export interface ActivityEntryTable {
   created_at: Timestamp;
 }
 
+/** A steered reveal on the local fork (D-221), persisted so restarts keep it. */
+export interface RevealSteerTable {
+  steer_id: string;
+  chain_id: number;
+  target_kind: "wallet" | "agent";
+  wallet: string | null;
+  agent_id: number | null;
+  agent_owner: string | null;
+  species: number;
+  status: "pending" | "applied" | "failed" | "cancelled";
+  applied_agent_id: number | null;
+  note: string | null;
+  created_at: Timestamp;
+  resolved_at: Timestamp | null;
+}
+
 export interface Database {
   "indexer.watermarks": WatermarkTable;
   "indexer.indexed_blocks": IndexedBlockTable;
@@ -323,4 +339,5 @@ export interface Database {
   "platform.stage_records": StageRecordTable;
   "platform.thesis_notes": ThesisNoteTable;
   "platform.activity_entries": ActivityEntryTable;
+  "platform.reveal_steers": RevealSteerTable;
 }
