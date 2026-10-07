@@ -156,6 +156,20 @@ pnpm custody:local deposit 10 --owner 7     # any of the local test owners, anvi
 
 Locally, AgentNFT's admin (anvil account 0) is the factory admin, account 4 the guardian and account 5 the sentinel key; anvil accounts 6 to 9 start on the deposit allowlist. The admin adds or removes a wallet at once (D-231); raising either cap waits the 9-day timelock. The commands act only on the fork that `LOCAL_FORK_PORT` names (the playtest fork by default) and refuse anything that is not the local anvil fork.
 
+### Oracle adapter and circuit breaker (P2-U3)
+
+`chains/monad/src/oracle/OracleAdapter.sol` prices WMON from Chainlink MON/USD (refused at 300 seconds old or older, or for a zero, negative, incomplete, future or changed-decimals answer), treats USDC as exactly 1, refuses a trade when the Uniswap v4 MON/USDC pool is more than 2% from the oracle, and stops deposits when USDC/USD is stale (3,900 seconds) or more than 1% off its peg. Every refusal carries a reason code. The custody core values an account once per transaction through it, and its circuit breaker tracks the 7-day peak of the account's value per internal unit, so deposits and withdrawals never trip it: 10% down sets REDUCE_ONLY, 20% PAUSED, anyone may `poke()`, and only the owner unpauses. Withdrawals never read the oracle. `packages/policy` mirrors the rules offchain, and `pnpm policy:parity` rewrites the fixture that holds the two together (vitest and forge each check it). Slither and gas are in `evidence/p2-u3/`.
+
+A fork copies the feeds as they were at the pinned block and nobody updates them there, so as the fork's clock moves on every priced action is refused, correctly. The commands below handle that on a fork:
+
+```sh
+pnpm oracle:local prices                    # a fork of its own on 8548: MON/USD, the pool and USDC/USD through the adapter
+pnpm oracle:local demo                      # same fork: timelocked oracle, a test account valued, MON falls 15/25/40%, the breaker trips
+pnpm oracle:local demo --drops 9,10,20 --keep   # your own drops; --keep leaves the fork on 8548 until Ctrl-C
+pnpm custody:local prices                   # the adapter on the playtest fork (expect STALE there)
+pnpm custody:local prepare-oracle           # playtest fork only when you run it: moves its clock 9 days, applies the oracle, swaps in settable feeds
+```
+
 ## Web app and design system
 
 `apps/web` is the Next.js app (App Router, React 19, Tailwind CSS 4, shadcn/ui on Radix). Every page is built only from the design system, and `/design` shows all of it.
