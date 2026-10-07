@@ -26,6 +26,10 @@ contract MockToken is ERC20 {
         _mint(to, amount);
     }
 
+    function burn(address from, uint256 amount) external {
+        _burn(from, amount);
+    }
+
     function setBlocked(address who, bool b) external {
         blocked[who] = b;
     }
