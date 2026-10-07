@@ -1,4 +1,6 @@
+import { REJECTION_CODES } from "@alpha-agents/domain";
 import * as breaker from "./breaker.ts";
+import * as executor from "./executor.ts";
 import { LAUNCH_LIMITS } from "./limits.ts";
 import {
   type FeedAnswer,
@@ -559,3 +561,282 @@ export function buildParityFixture() {
 }
 
 export const parityJson = () => `${JSON.stringify(buildParityFixture(), null, 2)}\n`;
+
+// ---------------------------------------------------------------------------
+// The Executor (P2-U2): executor-parity.json
+// ---------------------------------------------------------------------------
+
+export const EXECUTOR_FIXTURE_PATH = "packages/policy/fixtures/executor-parity.json";
+
+/** The venue fee the forge replay gives its mock venue, as the v4 pool's 0.05%. */
+const VENUE_FEE_BPS = 5;
+const MODE_CODES = { NORMAL: 0, REDUCE_ONLY: 1, PAUSED: 2 } as const;
+
+interface ExecutorCaseInput {
+  readonly name: string;
+  readonly usdc: bigint;
+  /** WMON deposited, at the peak price. */
+  readonly wmon: bigint;
+  readonly peakAnswer: bigint;
+  readonly answer: bigint;
+  readonly feedAge: bigint;
+  /** Pool price relative to the oracle, in basis points (10,000 = equal). */
+  readonly poolBps: bigint;
+  readonly mode: "NORMAL" | "REDUCE_ONLY" | "PAUSED";
+  readonly paused: boolean;
+  readonly buyable: boolean;
+  readonly venueAllowed: boolean;
+  readonly tradeAges: readonly bigint[];
+  readonly tradeValues: readonly bigint[];
+  readonly tokenIn: "USDC" | "WMON";
+  readonly amountIn: bigint;
+  /** minAmountOut relative to the oracle floor, in base units. */
+  readonly minOutDelta: bigint;
+  readonly deadlineOffset: bigint;
+  /** The venue's fill relative to the oracle-fair output, in basis points; never under minAmountOut. */
+  readonly fillBps: bigint;
+}
+
+function executorCase(c: ExecutorCaseInput) {
+  const pxPeak = c.peakAnswer * 10n ** 10n;
+  const px = c.answer * 10n ** 10n;
+  let acct = breaker.deposit(breaker.emptyAccount(), "USDC", c.usdc, pxPeak);
+  if (c.wmon > 0n) acct = breaker.deposit(acct, "WMON", c.wmon, pxPeak);
+  acct = breaker.poke(acct, pxPeak, T0).state;
+  const nav = breaker.navAt(acct, px);
+  const perUnit = breaker.perUnitE18(nav, acct.units);
+  const recorded = breaker.peakOf(acct.buckets, T0);
+  const peak = perUnit > recorded ? perUnit : recorded;
+  const drawdownBps = peak === 0n ? 0n : ((peak - perUnit) * 10_000n) / peak;
+
+  const reading = readFeed(round(c.answer, T0 - c.feedAge), "MON_USD", T0);
+  const sqrt = sqrtFor((px * c.poolBps) / 10_000n);
+  const oracleReason = poolDeviation(reading, readPool(sqrt)).reason;
+
+  const floor = px === 0n ? 0n : executor.oracleFloor(c.tokenIn, c.amountIn, px, 50);
+  const minAmountOut = floor + c.minOutDelta > 0n ? floor + c.minOutDelta : 1n;
+  const fair =
+    c.tokenIn === "USDC" ? (c.amountIn * 10n ** 30n) / px : (c.amountIn * px) / 10n ** 30n;
+  const filled = (fair * c.fillBps) / 10_000n;
+  const amountOut = filled > minAmountOut ? filled : minAmountOut;
+  const trade = {
+    tokenIn: c.tokenIn,
+    amountIn: c.amountIn,
+    minAmountOut,
+    deadline: T0 + c.deadlineOffset,
+  } as const;
+  const market: executor.ExecutorMarket = {
+    usdc: c.usdc,
+    wmon: c.wmon,
+    priceE18: px,
+    oracleReason,
+    mode: c.mode,
+    drawdownBps,
+    trades: c.tradeAges.map((age, k) => ({ at: T0 - age, valueUsdcE6: c.tradeValues[k] ?? 0n })),
+    now: T0,
+    paused: c.paused,
+    buyable: c.buyable,
+    venueAllowed: c.venueAllowed,
+  };
+  const v = executor.executorVerdict(trade, market, amountOut, VENUE_FEE_BPS);
+  return {
+    name: c.name,
+    usdc: s(c.usdc),
+    wmon: s(c.wmon),
+    peakAnswer: s(c.peakAnswer),
+    answer: s(c.answer),
+    feedAge: s(c.feedAge),
+    sqrtPriceX96: s(sqrt),
+    mode: MODE_CODES[c.mode],
+    paused: c.paused,
+    buyable: c.buyable,
+    venueAllowed: c.venueAllowed,
+    tradeAges: c.tradeAges.map(s),
+    tradeValues: c.tradeValues.map(s),
+    tokenIn: c.tokenIn,
+    amountIn: s(c.amountIn),
+    minAmountOut: s(minAmountOut),
+    deadline: s(trade.deadline),
+    amountOut: s(amountOut),
+    // REJECTION_CODES index of the expected refusal, or 255 when the trade goes through.
+    reason: v.reason === null ? 255 : REJECTION_CODES.indexOf(v.reason),
+    navAfter: s(v.navAfter),
+    drawdownBps: s(drawdownBps),
+  };
+}
+
+const usdcE6 = (whole: bigint) => whole * 1_000_000n;
+const ONE = 100_000_000n; // $1.00 with 8 decimals
+const wmonAt = (valueE6: bigint, answer: bigint) => (valueE6 * 10n ** 30n) / (answer * 10n ** 10n);
+
+/** A valid baseline: $70 USDC and $30 WMON at $1, fresh feed, pool at the oracle. */
+const base = (over: Partial<ExecutorCaseInput> & { name: string }): ExecutorCaseInput => ({
+  usdc: usdcE6(70n),
+  wmon: wmonAt(usdcE6(30n), ONE),
+  peakAnswer: ONE,
+  answer: ONE,
+  feedAge: 10n,
+  poolBps: 10_000n,
+  mode: "NORMAL",
+  paused: false,
+  buyable: true,
+  venueAllowed: true,
+  tradeAges: [],
+  tradeValues: [],
+  tokenIn: "WMON",
+  amountIn: 10n ** 18n,
+  minOutDelta: 0n,
+  deadlineOffset: 120n,
+  fillBps: 10_000n,
+  ...over,
+});
+
+function executorCases() {
+  const twenty = (age: bigint, value: bigint) => ({
+    tradeAges: Array.from({ length: 20 }, () => age),
+    tradeValues: Array.from({ length: 20 }, () => value),
+  });
+  const cases: ExecutorCaseInput[] = [
+    base({ name: "a valid sale" }),
+    base({ name: "a valid buy", tokenIn: "USDC", amountIn: usdcE6(5n) }),
+    base({ name: "exactly 10% of value", amountIn: 10n * 10n ** 18n }),
+    base({ name: "one unit over 10%", amountIn: 10n * 10n ** 18n + 10n ** 12n }),
+    base({ name: "a buy to exactly 40%", tokenIn: "USDC", amountIn: usdcE6(10n) }),
+    base({
+      name: "a buy one unit over 40%",
+      tokenIn: "USDC",
+      amountIn: usdcE6(5n) + 1n,
+      usdc: usdcE6(65n),
+      wmon: wmonAt(usdcE6(35n), ONE),
+    }),
+    base({
+      name: "a buy landing past the core's 45%",
+      tokenIn: "USDC",
+      amountIn: usdcE6(10n),
+      usdc: usdcE6(64n),
+      wmon: wmonAt(usdcE6(36n), ONE),
+    }),
+    base({
+      name: "a buy at exactly 40% filled better than fair",
+      tokenIn: "USDC",
+      amountIn: usdcE6(10n),
+      fillBps: 10_010n,
+    }),
+    base({ name: "minimum exactly at the oracle floor", minOutDelta: 0n }),
+    base({ name: "minimum one unit under the floor", minOutDelta: -1n }),
+    base({ name: "deadline exactly two minutes ahead", deadlineOffset: 120n }),
+    base({ name: "deadline one second too far", deadlineOffset: 121n }),
+    base({ name: "deadline now", deadlineOffset: 0n }),
+    base({ name: "deadline one second ago", deadlineOffset: -1n }),
+    base({ name: "feed 299 s old", feedAge: 299n }),
+    base({ name: "feed exactly 300 s old", feedAge: 300n }),
+    base({ name: "pool 1.99% over", poolBps: 10_199n }),
+    base({ name: "pool 2.01% over", poolBps: 10_201n }),
+    base({ name: "pool 2.01% under", poolBps: 9_799n }),
+    base({ name: "reduce-only allows a sale", mode: "REDUCE_ONLY" }),
+    base({
+      name: "reduce-only refuses a buy",
+      mode: "REDUCE_ONLY",
+      tokenIn: "USDC",
+      amountIn: usdcE6(1n),
+    }),
+    base({ name: "paused refuses a sale", mode: "PAUSED" }),
+    base({ name: "the Executor paused", paused: true }),
+    base({
+      name: "WMON off the buy list refuses a buy",
+      buyable: false,
+      tokenIn: "USDC",
+      amountIn: usdcE6(1n),
+    }),
+    base({ name: "WMON off the buy list still sells", buyable: false }),
+    base({ name: "a paused venue", venueAllowed: false }),
+    base({ name: "more than the balance", amountIn: wmonAt(usdcE6(30n), ONE) + 1n }),
+    base({
+      name: "19 trades in the window",
+      ...{
+        tradeAges: Array.from({ length: 19 }, () => 3_600n),
+        tradeValues: Array.from({ length: 19 }, () => 1n),
+      },
+    }),
+    base({ name: "20 trades in the window", ...twenty(3_600n, 1n) }),
+    base({ name: "20 trades exactly 24 hours old", ...twenty(86_400n, 1n) }),
+    base({ name: "turnover to exactly 100%", tradeAges: [100n], tradeValues: [usdcE6(99n)] }),
+    base({
+      name: "turnover one unit over 100%",
+      tradeAges: [100n],
+      tradeValues: [usdcE6(99n) + 1n],
+    }),
+    base({
+      name: "an unpoked 10% drawdown refuses a buy",
+      usdc: usdcE6(1n),
+      wmon: wmonAt(usdcE6(99n), ONE),
+      answer: 89_898_990n,
+      tokenIn: "USDC",
+      amountIn: 1n * 10n ** 5n,
+    }),
+    base({
+      name: "an unpoked 10% drawdown allows a sale",
+      usdc: usdcE6(1n),
+      wmon: wmonAt(usdcE6(99n), ONE),
+      answer: 89_898_990n,
+      amountIn: 10n ** 18n,
+    }),
+    base({
+      name: "an unpoked 20% drawdown refuses a sale",
+      usdc: usdcE6(1n),
+      wmon: wmonAt(usdcE6(99n), ONE),
+      answer: 79_000_000n,
+      amountIn: 10n ** 18n,
+    }),
+  ];
+  const r = rng(7);
+  for (let i = 0; i < 160; i++) {
+    const peakAnswer = r.big(2_000_000n, 300_000_000n);
+    const answer = (peakAnswer * r.big(7_500n, 10_500n)) / 10_000n;
+    const usdc = usdcE6(r.big(1n, 90n));
+    const wmonValue = r.next() < 0.1 ? 0n : usdcE6(r.big(1n, 60n));
+    const wmon = wmonAt(wmonValue, peakAnswer);
+    const nav = usdc + (wmon * answer * 10n ** 10n) / 10n ** 30n;
+    const tokenIn = r.next() < 0.5 ? ("USDC" as const) : ("WMON" as const);
+    const valueIn = (nav * r.big(1n, 1_400n)) / 10_000n + 1n;
+    const amountIn = tokenIn === "USDC" ? valueIn : wmonAt(valueIn, answer) + 1n;
+    const n = r.next() < 0.3 ? r.int(0, 20) : r.int(0, 4);
+    const tradeAges = Array.from({ length: n }, () => r.big(1n, 100_000n));
+    const tradeValues = Array.from({ length: n }, () => (nav * r.big(0n, 3_000n)) / 10_000n);
+    cases.push({
+      name: `random trade ${i}`,
+      usdc,
+      wmon,
+      peakAnswer,
+      answer,
+      feedAge: r.next() < 0.1 ? r.big(250n, 400n) : r.big(0n, 200n),
+      poolBps: r.next() < 0.15 ? r.big(9_700n, 10_300n) : r.big(9_900n, 10_100n),
+      mode: r.next() < 0.1 ? r.pick(["REDUCE_ONLY", "PAUSED"] as const) : "NORMAL",
+      paused: r.next() < 0.03,
+      buyable: r.next() > 0.05,
+      venueAllowed: r.next() > 0.05,
+      tradeAges,
+      tradeValues,
+      tokenIn,
+      amountIn: amountIn > 0n ? amountIn : 1n,
+      minOutDelta: r.next() < 0.2 ? -r.big(1n, 3n) : r.big(0n, 2n),
+      deadlineOffset: r.next() < 0.1 ? r.big(-3n, 125n) : r.big(1n, 120n),
+      fillBps: r.big(10_000n, 10_040n),
+    });
+  }
+  return cases.map(executorCase);
+}
+
+export function buildExecutorFixture() {
+  const cases = executorCases();
+  return {
+    note: "Generated by pnpm policy:parity from packages/policy/src/parity.ts; checked by parity.test.ts and chains/monad/test/executor/ExecutorParity.t.sol. Do not edit by hand.",
+    t0: s(T0),
+    policyHash: executor.LAUNCH_POLICY_HASH,
+    venueFeeBps: VENUE_FEE_BPS,
+    caseCount: cases.length,
+    cases,
+  };
+}
+
+export const executorParityJson = () => `${JSON.stringify(buildExecutorFixture(), null, 2)}\n`;

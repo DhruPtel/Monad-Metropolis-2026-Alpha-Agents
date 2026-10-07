@@ -91,7 +91,7 @@ abstract contract ExecutorBase is Test {
             })
         );
         setMon(ONE_DOLLAR);
-        executor = new Executor(admin, guardian, IAgentNFTView(address(nft)), address(usdc), address(wmon), p);
+        executor = newExecutor(p);
         venue = new MockVenue(address(executor), usdc, wmon, ONE_E18);
         bytes32[] memory ids = new bytes32[](1);
         ids[0] = VENUE;
@@ -119,8 +119,16 @@ abstract contract ExecutorBase is Test {
         executor.bind(IExecutorFactory(address(factory)), registry);
         vm.prank(owner);
         account = PersonalAccount(factory.createPersonalAccount(AGENT));
-        fund(70e6, 30e18);
+        if (fundOnBuild) fund(70e6, 30e18);
         grant(uint64(block.timestamp + 7 days));
+    }
+
+    /// Whether build() deposits the default 70 USDC and 30 WMON.
+    bool internal fundOnBuild = true;
+
+    /// The Executor build() deploys; a test may deploy a harness instead.
+    function newExecutor(Policy memory p) internal virtual returns (Executor) {
+        return new Executor(admin, guardian, IAgentNFTView(address(nft)), address(usdc), address(wmon), p);
     }
 
     // ----- helpers -----

@@ -4,7 +4,15 @@ import { describe, expect, it } from "vitest";
 import { PEAK_DAYS } from "./breaker.ts";
 import { LAUNCH_LIMITS } from "./limits.ts";
 import { ORACLE_REASONS } from "./oracle.ts";
-import { PARITY_FIXTURE_PATH, buildParityFixture, parityJson } from "./parity.ts";
+import { REJECTION_CODES } from "@alpha-agents/domain";
+import {
+  EXECUTOR_FIXTURE_PATH,
+  PARITY_FIXTURE_PATH,
+  buildExecutorFixture,
+  buildParityFixture,
+  executorParityJson,
+  parityJson,
+} from "./parity.ts";
 
 const ROOT = fileURLToPath(new URL("../../../", import.meta.url));
 const read = (path: string) => readFileSync(`${ROOT}${path}`, "utf8");
@@ -61,5 +69,39 @@ describe("oracle and breaker parity with the contracts (P2-U3)", () => {
       ["deposit", "monDown", "monUp", "poke", "price", "unpause", "withdraw", "withdrawAll"].sort(),
     );
     expect(f.breakerCases.every((c) => c.stepCount === c.steps.length)).toBe(true);
+  });
+});
+
+/**
+ * P2-U2: the Executor's verdict offchain (executor.ts) against the contract
+ * (chains/monad/test/executor/ExecutorParity.t.sol replays the same file).
+ */
+describe("executor parity with the contract (P2-U2)", () => {
+  it("the committed fixture is what the policy package answers now (pnpm policy:parity rewrites it)", () => {
+    expect(read(EXECUTOR_FIXTURE_PATH)).toBe(executorParityJson());
+  });
+
+  it("covers every limit the market can break, and trades that go through", () => {
+    const f = buildExecutorFixture();
+    const seen = new Set(f.cases.map((c) => c.reason));
+    const reachable = [
+      "ASSET_NOT_ALLOWED",
+      "VENUE_NOT_ALLOWED",
+      "TRADE_SIZE_EXCEEDED",
+      "CONCENTRATION_CAP",
+      "SLIPPAGE_TOO_HIGH",
+      "DAILY_TRADE_LIMIT",
+      "TURNOVER_CAP",
+      "ORACLE_STALE",
+      "ORACLE_POOL_DEVIATION",
+      "INSUFFICIENT_BALANCE",
+      "REDUCE_ONLY_MODE",
+      "PAUSED",
+      "DEADLINE_EXPIRED",
+      "DEADLINE_TOO_FAR",
+    ] as const;
+    for (const code of reachable) expect(seen, code).toContain(REJECTION_CODES.indexOf(code));
+    expect(seen).toContain(255);
+    expect(f.cases.filter((c) => c.reason === 255).length).toBeGreaterThan(20);
   });
 });
