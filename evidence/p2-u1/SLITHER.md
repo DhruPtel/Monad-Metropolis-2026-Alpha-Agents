@@ -36,7 +36,7 @@ AgentNFT is not changed in this unit: any edit to its source, a comment included
 
 | Detector | Impact | Where | Why it stays |
 |---|---|---|---|
-| reentrancy-eth | High | `AgentNFT.requestReveal`: `pendingReveal` written after `ENTROPY.requestV2` | The source documents it: the request's sequence number exists only after the call, and Entropy is a fixed, trusted immutable (Pyth Entropy v2). Entropy calls back in a later transaction, and `_entropyCallback` only accepts the pending sequence. The refund to the caller is the last statement, after every state write |
+| reentrancy-eth | High | `AgentNFT.requestReveal`: `pendingReveal` written after `ENTROPY.requestV2` | A false positive, reviewed in P2-U3 Step 0: see the section below |
 | unused-return | Medium | `mintWithClaim` ignores `tryRecover`'s error; `_isAgentAccount` ignores three of `token()`'s values | A failed recovery returns address zero, which fails the signer check; only the token contract is needed to recognise an agent account |
 | reentrancy-events (2) | Low | `requestReveal`, `_mintAgent` | Events after calls to Entropy and the canonical ERC-6551 registry and account, both fixed contracts |
 | timestamp (3) | Low | `mintWithClaim`, `reveal`, `requestReveal` | A claim deadline and a one-hour reveal timeout |
@@ -44,3 +44,18 @@ AgentNFT is not changed in this unit: any edit to its source, a comment included
 | missing-inheritance | Informational | AgentNFT could inherit `IAgentNFTView` | It implements both functions; inheriting would change its bytecode for no behaviour |
 | naming-convention (5) | Informational | AgentNFT immutables and `_entropyCallback` | The repository's convention; `_entropyCallback` is the name Pyth's interface calls |
 | shadowing-local (2) | Low | `IERC6551Registry` return names | The registry's published ABI names its return value `account`; interface only |
+
+## The High finding, reviewed again in P2-U3 Step 0
+
+**What Slither says.** `requestReveal` sends the reveal fee to Pyth Entropy (`ENTROPY.requestV2{value: fee}()`) and only then writes `pendingReveal`. If the contract it calls could call back into AgentNFT during that call, it would see the old `pendingReveal`. Slither flags every "call that sends value, then a state write" as reentrancy-eth, whatever the callee is.
+
+**Why it is a false positive.**
+
+1. The callee is the one address AgentNFT trusts for randomness. It is fixed in the constructor and cannot be changed. Pyth's `requestV2` records the request and returns; the number arrives in a later transaction, from Pyth's provider, through `_entropyCallback`. Nobody else can be the callee, so no attacker gets control during the call. A correction to the P2-U1 row: Entropy's address is fixed, but it is an ERC-1967 proxy (177 bytes of code; its implementation slot reads `0x1235841f...e9c6` on the fork), so Pyth governance can upgrade it. That does not change the answer: an Entropy that turned hostile could choose the random numbers outright, which is worse than anything a reentry could do, and the plan already treats it as a trusted dependency (D-187).
+2. Even a hostile Entropy that reenters gains nothing, and three new tests show it (`test/AgentNFTReentrancy.t.sol`, with an Entropy mock that calls back during `requestV2`):
+   - If it calls `requestReveal` again, it must pay that inner fee itself. The outer call then overwrites `pendingReveal` with its own request, so the inner request is orphaned at Entropy's expense. The caller pays exactly one fee, AgentNFT keeps no balance, the orphaned request's number is ignored, and the outer request reveals the batch normally.
+   - If it calls `_entropyCallback` during the request, the sequence does not match the pending one yet, so the number is ignored and no seed can be planted.
+   - The refund to the caller is the last statement. A caller that reenters from the refund finds the batch pending and reverts with `RevealPending`.
+3. AgentNFT never spends its own balance here: the fee comes out of `msg.value`, and the excess goes back to the caller.
+
+**Decision.** Not changed. Changing AgentNFT would move its deterministic address on the owner's playtest fork, where agent #1 lives, for no gain in safety. If AgentNFT is edited for another reason before PB-U1, writing a "request in flight" marker before the call would silence the detector at the cost of one storage write.

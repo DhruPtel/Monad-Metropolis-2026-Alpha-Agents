@@ -123,7 +123,7 @@ contract MockEntropy {
         return fee;
     }
 
-    function requestV2() external payable returns (uint64 sequence) {
+    function requestV2() external payable virtual returns (uint64 sequence) {
         if (msg.value < fee) revert FeeTooLow();
         sequence = ++lastSequence;
         requesterOf[sequence] = msg.sender;
