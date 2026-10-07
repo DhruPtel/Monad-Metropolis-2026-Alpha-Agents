@@ -10,9 +10,16 @@ import {
   PARITY_FIXTURE_PATH,
   buildExecutorFixture,
   buildParityFixture,
+  executorFixtureStates,
   executorParityJson,
   parityJson,
 } from "./parity.ts";
+import * as executor from "./executor.ts";
+
+const must = <T>(v: T | undefined): T => {
+  if (v === undefined) throw new Error("expected a value");
+  return v;
+};
 
 const ROOT = fileURLToPath(new URL("../../../", import.meta.url));
 const read = (path: string) => readFileSync(`${ROOT}${path}`, "utf8");
@@ -103,5 +110,46 @@ describe("executor parity with the contract (P2-U2)", () => {
     for (const code of reachable) expect(seen, code).toContain(REJECTION_CODES.indexOf(code));
     expect(seen).toContain(255);
     expect(f.cases.filter((c) => c.reason === 255).length).toBeGreaterThan(20);
+  });
+});
+
+describe("every blocking rule at once (P2-U5, tradable_now)", () => {
+  it("names the Executor's own first refusal first, on every fixture case", () => {
+    for (const s of executorFixtureStates()) {
+      const pre = executor.executorPreCheck(s.trade, s.market);
+      const all = executor.executorBlockers(s.trade, s.market);
+      expect(all[0] ?? null, s.name).toBe(pre);
+      expect(new Set(all).size, s.name).toBe(all.length);
+    }
+  });
+
+  it("lists every rule a trade breaks, not only the first", () => {
+    const s = must(executorFixtureStates().find((c) => c.name === "a valid sale"));
+    const blocked = executor.executorBlockers(
+      { ...s.trade, amountIn: s.market.wmon * 10n, minAmountOut: 1n },
+      { ...s.market, mode: "PAUSED", oracleReason: "STALE" },
+    );
+    expect(blocked).toEqual(
+      expect.arrayContaining([
+        "PAUSED",
+        "ORACLE_STALE",
+        "INSUFFICIENT_BALANCE",
+        "TRADE_SIZE_EXCEEDED",
+      ]),
+    );
+  });
+
+  it("finds when the oldest trade leaves the rolling window", () => {
+    const w = executor.rollingWindow(
+      {
+        now: 1_000n,
+        trades: [
+          { at: 900n, valueUsdcE6: 5n },
+          { at: 0n, valueUsdcE6: 9n },
+        ],
+      },
+      { windowSeconds: 200 },
+    );
+    expect(w).toEqual({ count: 1, turnover: 5n, oldestLeavesAt: 1_100n });
   });
 });

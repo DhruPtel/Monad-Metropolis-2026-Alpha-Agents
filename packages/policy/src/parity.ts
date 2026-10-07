@@ -597,7 +597,8 @@ interface ExecutorCaseInput {
   readonly fillBps: bigint;
 }
 
-function executorCase(c: ExecutorCaseInput) {
+/** One case's trade and market, as the offchain checks take them. */
+function executorCaseState(c: ExecutorCaseInput) {
   const pxPeak = c.peakAnswer * 10n ** 10n;
   const px = c.answer * 10n ** 10n;
   let acct = breaker.deposit(breaker.emptyAccount(), "USDC", c.usdc, pxPeak);
@@ -638,6 +639,11 @@ function executorCase(c: ExecutorCaseInput) {
     buyable: c.buyable,
     venueAllowed: c.venueAllowed,
   };
+  return { trade, market, amountOut, minAmountOut, sqrt, drawdownBps };
+}
+
+function executorCase(c: ExecutorCaseInput) {
+  const { trade, market, amountOut, minAmountOut, sqrt, drawdownBps } = executorCaseState(c);
   const v = executor.executorVerdict(trade, market, amountOut, VENUE_FEE_BPS);
   return {
     name: c.name,
@@ -691,7 +697,7 @@ const base = (over: Partial<ExecutorCaseInput> & { name: string }): ExecutorCase
   ...over,
 });
 
-function executorCases() {
+function executorCaseInputs(): ExecutorCaseInput[] {
   const twenty = (age: bigint, value: bigint) => ({
     tradeAges: Array.from({ length: 20 }, () => age),
     tradeValues: Array.from({ length: 20 }, () => value),
@@ -824,7 +830,14 @@ function executorCases() {
       fillBps: r.big(10_000n, 10_040n),
     });
   }
-  return cases.map(executorCase);
+  return cases;
+}
+
+const executorCases = () => executorCaseInputs().map(executorCase);
+
+/** Every fixture case's trade and market, for checks that use them directly (P2-U5's blockers). */
+export function executorFixtureStates() {
+  return executorCaseInputs().map((c) => ({ name: c.name, ...executorCaseState(c) }));
 }
 
 export function buildExecutorFixture() {

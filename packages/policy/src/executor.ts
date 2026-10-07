@@ -164,3 +164,80 @@ export function executorVerdict(
   if (pre) return { reason: pre, navAfter: 0n };
   return executorPostCheck(t, m, amountOut, feeBps, p);
 }
+
+/**
+ * Every rule the trade breaks before it is made, in the Executor's order
+ * (P2-U5, `tradable_now`). The first entry is always `executorPreCheck`'s
+ * answer, which the shared fixture checks; the rest are the rules that would
+ * still block the trade once the first is cleared, so an agent learns all of
+ * them at once. A rule that cannot be evaluated because an earlier input is
+ * missing (no price, no balance) is not guessed at: a missing price yields its
+ * oracle reason and stops the value-based rules.
+ */
+export function executorBlockers(
+  t: ExecutorTrade,
+  m: ExecutorMarket,
+  p: ExecutorPolicy = LAUNCH_EXECUTOR_POLICY,
+): RejectionCode[] {
+  const out: RejectionCode[] = [];
+  const add = (c: RejectionCode) => {
+    if (!out.includes(c)) out.push(c);
+  };
+  const buy = t.tokenIn === "USDC";
+  if (m.paused) add("PAUSED");
+  if (t.amountIn === 0n || t.minAmountOut === 0n) add("INTENT_INVALID");
+  if (buy && !m.buyable) add("ASSET_NOT_ALLOWED");
+  if (t.deadline < m.now) add("DEADLINE_EXPIRED");
+  if (t.deadline > m.now + BigInt(p.deadlineSeconds)) add("DEADLINE_TOO_FAR");
+  if (m.mode === "PAUSED") add("PAUSED");
+  if (m.mode !== "NORMAL" && buy) add("REDUCE_ONLY_MODE");
+  if (!m.venueAllowed) add("VENUE_NOT_ALLOWED");
+  if (m.oracleReason !== "OK")
+    add(
+      m.oracleReason === "POOL_DEVIATION" || m.oracleReason === "POOL_UNREADABLE"
+        ? "ORACLE_POOL_DEVIATION"
+        : "ORACLE_STALE",
+    );
+  if (t.amountIn > (buy ? m.usdc : m.wmon)) add("INSUFFICIENT_BALANCE");
+  const px = m.priceE18;
+  if (px === 0n) return out;
+  const nav = executorNav(m.usdc, m.wmon, px);
+  if (m.drawdownBps >= 2_000n) add("PAUSED");
+  if (m.drawdownBps >= 1_000n && buy) add("REDUCE_ONLY_MODE");
+  const valueIn = valueOf(t.tokenIn, t.amountIn, px);
+  if (valueIn * BPS > nav * BigInt(p.maxTradeBps)) add("TRADE_SIZE_EXCEEDED");
+  const w = rollingWindow(m, p);
+  if (w.count >= p.maxTradesPerWindow) add("DAILY_TRADE_LIMIT");
+  if ((w.turnover + valueIn) * BPS > nav * BigInt(p.maxTurnoverBps)) add("TURNOVER_CAP");
+  if (t.minAmountOut < oracleFloor(t.tokenIn, t.amountIn, px, p.maxSlippageBps))
+    add("SLIPPAGE_TOO_HIGH");
+  if (buy) {
+    const wmonAfter = valueOf("WMON", m.wmon, px) + valueIn;
+    const usdcAfter = m.usdc > valueIn ? m.usdc - valueIn : 0n;
+    if (wmonAfter * BPS > nav * BigInt(p.maxAssetBps)) add("CONCENTRATION_CAP");
+    if (usdcAfter * BPS < nav * BigInt(p.minUsdcBps)) add("USDC_FLOOR");
+  }
+  return out;
+}
+
+/** Trades and turnover in the rolling window `(now - window, now]`, and when the oldest leaves it. */
+export function rollingWindow(
+  m: Pick<ExecutorMarket, "trades" | "now">,
+  p: Pick<ExecutorPolicy, "windowSeconds">,
+): { readonly count: number; readonly turnover: bigint; readonly oldestLeavesAt: bigint | null } {
+  let count = 0;
+  let turnover = 0n;
+  let oldest: bigint | null = null;
+  for (const tr of m.trades) {
+    if (tr.at !== 0n && tr.at + BigInt(p.windowSeconds) > m.now && tr.at <= m.now) {
+      count += 1;
+      turnover += tr.valueUsdcE6;
+      if (oldest === null || tr.at < oldest) oldest = tr.at;
+    }
+  }
+  return {
+    count,
+    turnover,
+    oldestLeavesAt: oldest === null ? null : oldest + BigInt(p.windowSeconds),
+  };
+}
