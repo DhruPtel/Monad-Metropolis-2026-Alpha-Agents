@@ -7,6 +7,12 @@
  * requires `deadline <= block.timestamp + 120` and the plan names only the
  * expired side; and `VAULT_IN_HANDOVER` (D-152), for agent swaps on a vault
  * whose new owner has not yet accepted management.
+ *
+ * The last four are the Executor's own refusals (P2-U2, D-238): a session key
+ * the agent's owner did not register, an expired grant, a replayed actionId,
+ * and an intent for another chain, schema, account or policy. The order is
+ * the Solidity enum `Reason` in chains/monad/src/interfaces/IExecutor.sol,
+ * which a test holds to this list: an enum crosses the ABI as its index.
  */
 export const REJECTION_CODES = [
   "ASSET_NOT_ALLOWED",
@@ -28,6 +34,10 @@ export const REJECTION_CODES = [
   "DEADLINE_EXPIRED",
   "DEADLINE_TOO_FAR",
   "EXECUTOR_REVERTED",
+  "SESSION_UNKNOWN",
+  "SESSION_EXPIRED",
+  "ACTION_REPLAYED",
+  "INTENT_INVALID",
 ] as const;
 export type RejectionCode = (typeof REJECTION_CODES)[number];
 
@@ -55,4 +65,8 @@ export const REJECTION_MESSAGES: Readonly<Record<RejectionCode, string>> = {
   DEADLINE_EXPIRED: "The trade's deadline passed before it could be executed.",
   DEADLINE_TOO_FAR: "The trade's deadline is more than 2 minutes away.",
   EXECUTOR_REVERTED: "The onchain Executor rejected the trade.",
+  SESSION_UNKNOWN: "The trade was not sent by the session key the owner registered for this agent.",
+  SESSION_EXPIRED: "The owner's permission for this agent to trade has expired.",
+  ACTION_REPLAYED: "This exact trade was already sent once, so it was not sent again.",
+  INTENT_INVALID: "The trade was prepared for another chain, account or set of limits.",
 };

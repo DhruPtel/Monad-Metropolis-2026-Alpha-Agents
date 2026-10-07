@@ -81,6 +81,10 @@ describe("breach fixtures", () => {
           "EPOCH_MISMATCH",
           "DEADLINE_EXPIRED",
           "DEADLINE_TOO_FAR",
+          "SESSION_UNKNOWN",
+          "SESSION_EXPIRED",
+          "ACTION_REPLAYED",
+          "INTENT_INVALID",
         ].includes(c),
     );
     for (const code of offchain) expect(covered, code).toContain(code);

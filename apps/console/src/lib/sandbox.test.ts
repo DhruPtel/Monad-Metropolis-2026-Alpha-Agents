@@ -25,6 +25,10 @@ describe("policy sandbox presets", () => {
       "EPOCH_MISMATCH",
       "DEADLINE_EXPIRED",
       "DEADLINE_TOO_FAR",
+      "SESSION_UNKNOWN",
+      "SESSION_EXPIRED",
+      "ACTION_REPLAYED",
+      "INTENT_INVALID",
     ];
     for (const code of REJECTION_CODES.filter((c) => !onchainOnly.includes(c))) {
       expect(covered, code).toContain(code);
