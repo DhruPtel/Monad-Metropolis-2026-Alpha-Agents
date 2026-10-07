@@ -277,6 +277,26 @@ importers:
         specifier: workspace:^
         version: link:../domain
 
+  packages/signer:
+    dependencies:
+      '@alpha-agents/accounting':
+        specifier: workspace:^
+        version: link:../accounting
+      '@alpha-agents/config':
+        specifier: workspace:^
+        version: link:../config
+      '@alpha-agents/db':
+        specifier: workspace:^
+        version: link:../db
+      '@alpha-agents/devenv':
+        specifier: workspace:^
+        version: link:../devenv
+      '@alpha-agents/domain':
+        specifier: workspace:^
+        version: link:../domain
+      viem:
+        specifier: 2.57.2
+        version: 2.57.2(bufferutil@4.1.0)(typescript@6.0.3)(utf-8-validate@5.0.10)(zod@4.6.5)
   packages/skills:
     dependencies:
       '@alpha-agents/domain':
