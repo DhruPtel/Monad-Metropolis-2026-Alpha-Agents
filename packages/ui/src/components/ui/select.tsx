@@ -56,6 +56,9 @@ function SelectContent({
         sideOffset={4}
         className={cn(
           selectMenu,
+          // A long list (25 species) never runs off a short screen: the menu stops at
+          // the space Radix measures, and its viewport scrolls (L-101).
+          "max-h-(--radix-select-content-available-height)",
           "data-[side=bottom]:slide-in-from-top-2 data-open:animate-in data-open:fade-in-0",
           className,
         )}
