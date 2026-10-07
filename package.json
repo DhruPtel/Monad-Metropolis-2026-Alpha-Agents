@@ -49,6 +49,7 @@
     "custody:local": "node scripts/custody-local.js",
     "oracle:local": "node scripts/oracle-local.js",
     "executor:local": "node scripts/executor-local.js",
+    "signer:local": "node scripts/signer-local.js",
     "policy:parity": "node packages/policy/scripts/write-parity.ts",
     "devenv:local-feed": "node scripts/write-local-feed.js",
     "assets:build-bee": "node scripts/assets/build-bee-model.ts",
@@ -74,6 +75,7 @@
     "@alpha-agents/db": "workspace:^",
     "@alpha-agents/devenv": "workspace:^",
     "@alpha-agents/domain": "workspace:^",
-    "@alpha-agents/policy": "workspace:^"
+    "@alpha-agents/policy": "workspace:^",
+    "@alpha-agents/signer": "workspace:^"
   }
 }
