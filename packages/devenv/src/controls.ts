@@ -153,7 +153,7 @@ function localUsdc(): Address {
  * Waits for a receipt. Anvil returns the hash before the receipt is queryable,
  * so a null receipt means "not yet", never "failed" (Alpha Markets lesson 6).
  */
-async function waitForReceipt(
+export async function waitForReceipt(
   url: string,
   hash: unknown,
   timeoutMs = 15_000,
@@ -169,7 +169,7 @@ async function waitForReceipt(
   }
 }
 
-async function sendAs(url: string, from: Address, to: Address, data: string): Promise<void> {
+export async function sendAs(url: string, from: Address, to: Address, data: string): Promise<void> {
   await rpc(url, "anvil_impersonateAccount", [from]);
   try {
     const hash = await rpc(url, "eth_sendTransaction", [{ from, to, data }]);

@@ -8,16 +8,20 @@ import {
   alignAccountNonce,
   assertLocalFork,
   balancesOf,
+  createTestPersonalAccount,
   dropQueuedTransactions,
   dumpForkState,
   forkClock,
+  fundTestPersonalAccount,
   loadForkState,
   mineBlocks,
   mintTestUsdc,
+  registerTestSessionGrant,
   resetToBlock,
   revertToSnapshot,
   setMonBalance,
   takeSnapshot,
+  tradingSnapshot,
 } from "./index.ts";
 
 /**
@@ -60,6 +64,9 @@ describe("devenv's fork URL is required (L-100)", () => {
       () => accountNonceReport(a, missing),
       () => dropQueuedTransactions(a, missing),
       () => alignAccountNonce(a, 1, missing),
+      () => createTestPersonalAccount(missing, 1, a),
+      () => fundTestPersonalAccount(missing, 1, a, 1n),
+      () => registerTestSessionGrant(missing, 1, a, a),
     ]) {
       await expect(call()).rejects.toBeInstanceOf(NotLocalForkError);
     }
@@ -71,5 +78,6 @@ describe("devenv's fork URL is required (L-100)", () => {
     await expect(balancesOf("0x1111111111111111111111111111111111111111", missing)).rejects.toThrow(
       /unreachable/,
     );
+    await expect(tradingSnapshot(missing, 1)).rejects.toThrow();
   });
 });
