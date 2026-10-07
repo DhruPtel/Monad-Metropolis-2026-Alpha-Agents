@@ -1,6 +1,7 @@
 import { forkClock, readForkConfig } from "@alpha-agents/devenv";
 import { PanelHeader } from "@/components/panel-header";
 import { ForkControls } from "./fork-controls";
+import { StuckTransactions } from "./stuck-transactions";
 
 export const dynamic = "force-dynamic";
 
@@ -14,6 +15,7 @@ export default async function ForkPage() {
         description="Snapshot, revert, mine and move time on the local anvil fork. Every action first checks that the target is the anvil fork on 127.0.0.1."
       />
       <ForkControls initialClock={clock} pinnedBlock={pinnedBlock} />
+      <StuckTransactions />
     </div>
   );
 }

@@ -3,6 +3,7 @@ export * from "./controls.ts";
 export * from "./fork-pin.ts";
 export * from "./guard.ts";
 export * from "./health.ts";
+export * from "./nonce.ts";
 export * from "./paths.ts";
 export * from "./proc.ts";
 export * from "./redact.ts";

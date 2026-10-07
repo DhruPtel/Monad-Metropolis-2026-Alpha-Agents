@@ -1,8 +1,12 @@
 "use server";
 
 import {
+  type AccountNonceReport,
   type ForkClock,
+  accountNonceReport,
   advanceTime,
+  alignAccountNonce,
+  dropQueuedTransactions,
   forkClock,
   mineBlocks,
   readForkConfig,
@@ -42,4 +46,24 @@ export async function advanceTimeAction(seconds: number): Promise<ActionResult<F
 
 export async function resetAction(): Promise<ActionResult<ForkClock>> {
   return attempt(() => resetToBlock(readForkConfig().blockNumber));
+}
+
+/** P2-U1 step 0: the fork's nonce and queued transactions for one account. */
+export async function nonceReportAction(
+  address: string,
+): Promise<ActionResult<AccountNonceReport>> {
+  return attempt(() => accountNonceReport(address.trim()));
+}
+
+/** P2-U1 step 0: drop every transaction anvil holds for the account. */
+export async function dropQueuedAction(address: string): Promise<ActionResult<AccountNonceReport>> {
+  return attempt(() => dropQueuedTransactions(address.trim()));
+}
+
+/** P2-U1 step 0: move the account's fork nonce forward to the one its wallet sends next. */
+export async function alignNonceAction(
+  address: string,
+  nonce: number,
+): Promise<ActionResult<AccountNonceReport>> {
+  return attempt(() => alignAccountNonce(address.trim(), nonce));
 }

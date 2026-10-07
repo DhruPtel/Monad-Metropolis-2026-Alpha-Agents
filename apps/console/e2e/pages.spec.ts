@@ -58,6 +58,18 @@ test("fork actions refuse when no anvil fork answers", async ({ page }) => {
   await expect(page.getByTestId("action-error")).toContainText("is not the local anvil fork");
 });
 
+test("the stuck transactions check refuses when no anvil fork answers (P2-U1 step 0)", async ({
+  page,
+}) => {
+  await page.goto("/fork");
+  const card = page.getByTestId("stuck-transactions");
+  await expect(card).toContainText("anvil queues them forever");
+  await expect(card.getByRole("button", { name: "Check" })).toBeDisabled();
+  await card.getByLabel("Account").fill("0x683eE842A16f85e69883F433745263BFe8D55f76");
+  await card.getByRole("button", { name: "Check" }).click();
+  await expect(card.getByTestId("stuck-error")).toContainText("is not the local anvil fork");
+});
+
 /**
  * A full repaint before an element capture: after a state change only parts of
  * the page are repainted, and an antialiased corner composited over a partial
