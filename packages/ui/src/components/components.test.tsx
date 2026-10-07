@@ -27,7 +27,7 @@ import { Field, Input } from "./ui/input";
 import { SectionLabel } from "./ui/section-label";
 import { Tabs, TabsList, TabsTrigger } from "./ui/tabs";
 import { Tag } from "./ui/tag";
-import { WALLET_STATES, WalletButton, WrongChainPrompt } from "./wallet-status";
+import { WALLET_STATES, WalletButton, WalletNotice, WrongChainPrompt } from "./wallet-status";
 
 describe("StatusPill renders every canonical value from packages/domain", () => {
   it("has a rendering for every account mode, agent state and display flag, and nothing else", () => {
@@ -190,6 +190,19 @@ describe("WalletButton", () => {
     expect(screen.getByRole("button", { name: /connecting/i })).toBeDisabled();
   });
 
+  it("offers Cancel while connecting when the connect can be given up", async () => {
+    const onCancel = vi.fn();
+    render(<WalletButton state="connecting" onCancel={onCancel} />);
+    await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(onCancel).toHaveBeenCalledOnce();
+  });
+
+  it("names the connected wallet beside its address", () => {
+    render(<WalletButton state="connected" address={ADDRESS} walletName="OKX Wallet" />);
+    expect(screen.getByText("OKX Wallet")).toBeInTheDocument();
+    expect(screen.getByText("0x2FE5…5D57")).toBeInTheDocument();
+  });
+
   it("offers a network switch on the wrong chain and a retry on error", async () => {
     const onSwitchChain = vi.fn();
     const { unmount } = render(<WalletButton state="wrong-chain" onSwitchChain={onSwitchChain} />);
@@ -215,6 +228,18 @@ describe("WalletButton when login cannot be retried", () => {
     expect(screen.getByText("Login unavailable")).toBeVisible();
     expect(screen.getByText(/Wallet login is not configured/)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /try again/i })).toBeNull();
+  });
+});
+
+describe("WalletNotice", () => {
+  it("is a status that says what the connect waits for, with its actions", () => {
+    render(
+      <WalletNotice title="Connecting your wallet" actions={<Button>Cancel</Button>}>
+        Waiting for MetaMask to answer.
+      </WalletNotice>,
+    );
+    expect(screen.getByRole("status")).toHaveTextContent("Waiting for MetaMask to answer.");
+    expect(screen.getByRole("button", { name: "Cancel" })).toBeInTheDocument();
   });
 });
 

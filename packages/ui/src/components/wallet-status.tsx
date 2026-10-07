@@ -1,6 +1,7 @@
 "use client";
 
-import { AlertTriangle, LogOut, RotateCcw, Wallet } from "lucide-react";
+import { AlertTriangle, Hourglass, LogOut, RotateCcw, Wallet } from "lucide-react";
+import type { ReactNode } from "react";
 import { AddressDisplay } from "./address-display";
 import { Button } from "./ui/button";
 import { cn } from "../lib/utils";
@@ -25,6 +26,8 @@ interface WalletButtonProps {
   readonly address?: string | undefined;
   /** The wallet's current chain, by name, in the connected state. */
   readonly chainName?: string | undefined;
+  /** The connected wallet's name ("MetaMask", "OKX Wallet"), shown beside the address. */
+  readonly walletName?: string | undefined;
   /** Owner-facing reason in the error state. */
   readonly errorMessage?: string | undefined;
   /**
@@ -36,6 +39,8 @@ interface WalletButtonProps {
   readonly onConnect?: (() => void) | undefined;
   readonly onDisconnect?: (() => void) | undefined;
   readonly onSwitchChain?: (() => void) | undefined;
+  /** Gives up a connect that is waiting; while connecting, shown as Cancel so the spinner always has a way out. */
+  readonly onCancel?: (() => void) | undefined;
   readonly className?: string | undefined;
 }
 
@@ -61,11 +66,13 @@ function WalletButton({
   state,
   address,
   chainName,
+  walletName,
   errorMessage,
   errorLabel = "Login failed",
   onConnect,
   onDisconnect,
   onSwitchChain,
+  onCancel,
   className,
 }: WalletButtonProps) {
   const body = (() => {
@@ -80,9 +87,16 @@ function WalletButton({
         );
       case "connecting":
         return (
-          <Button variant="secondary" size="sm" loading>
-            Connecting
-          </Button>
+          <>
+            <Button variant="secondary" size="sm" loading>
+              Connecting
+            </Button>
+            {onCancel ? (
+              <Button variant="ghost" size="sm" onClick={onCancel}>
+                Cancel
+              </Button>
+            ) : null}
+          </>
         );
       case "wrong-chain":
         return (
@@ -101,6 +115,14 @@ function WalletButton({
             {chainName ? (
               <span className="hidden sm:inline-flex">
                 <ChainChip name={chainName} tone="ok" />
+              </span>
+            ) : null}
+            {walletName ? (
+              <span
+                data-slot="wallet-name"
+                className="hidden text-xs whitespace-nowrap text-foreground-muted sm:inline"
+              >
+                {walletName}
               </span>
             ) : null}
             {address ? <AddressDisplay address={address} label="Your wallet" /> : null}
@@ -217,4 +239,37 @@ function WrongChainPrompt({
   );
 }
 
-export { WalletButton, WrongChainPrompt };
+interface WalletNoticeProps {
+  readonly title: string;
+  readonly children: ReactNode;
+  /** Actions for the notice, such as Cancel; rendered at the end. */
+  readonly actions?: ReactNode;
+  readonly className?: string | undefined;
+}
+
+/**
+ * What a wallet connect is waiting for (wallet reliability task): shown under
+ * the header while a connect waits on the wallet, so the spinner always says
+ * what it needs and offers a way out.
+ */
+function WalletNotice({ title, children, actions, className }: WalletNoticeProps) {
+  return (
+    <div
+      role="status"
+      data-slot="wallet-notice"
+      className={cn(
+        "flex flex-col gap-3 rounded-lg border bg-surface p-4 sm:flex-row sm:items-center",
+        className,
+      )}
+    >
+      <Hourglass aria-hidden className="size-5 shrink-0 text-foreground-muted" />
+      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+        <p className="text-sm font-medium text-foreground">{title}</p>
+        <div className="text-sm break-words text-foreground-muted">{children}</div>
+      </div>
+      {actions ? <div className="flex shrink-0 gap-2">{actions}</div> : null}
+    </div>
+  );
+}
+
+export { WalletButton, WalletNotice, WrongChainPrompt };
