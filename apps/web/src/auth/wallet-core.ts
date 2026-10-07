@@ -50,6 +50,11 @@ export interface WalletAuth {
 
 /** After this long without the chosen wallet answering, a connect is called stalled. */
 export const STALL_MS = 8_000;
+/**
+ * After this long with a login window open, the notice says what it waits
+ * for; a quick login never flashes it (Cancel shows in the button at once).
+ */
+export const NOTICE_MS = 1_500;
 
 const short = (a: string) => `${a.slice(0, 6)}...${a.slice(-4)}`;
 const same = (a: string | null | undefined, b: string | null | undefined) =>
@@ -123,7 +128,7 @@ export function useWalletCore(auth: WalletAuth, target: AppChain, mock: boolean)
   useEffect(() => {
     setStalled(false);
     if (!waiting && !auth.pending) return;
-    const timer = window.setTimeout(() => setStalled(true), STALL_MS);
+    const timer = window.setTimeout(() => setStalled(true), auth.pending ? NOTICE_MS : STALL_MS);
     return () => window.clearTimeout(timer);
   }, [waiting, auth.pending]);
 
@@ -175,14 +180,14 @@ export function useWalletCore(auth: WalletAuth, target: AppChain, mock: boolean)
     ...(walletName ? { walletName } : {}),
     target,
     ...(auth.error ? { errorMessage: auth.error } : {}),
-    ...(state === "connecting" && (stalled || auth.pending)
+    ...(state === "connecting" && (stalled || auth.pending) ? { cancel } : {}),
+    ...(state === "connecting" && stalled
       ? {
           waitingFor: !auth.ready
             ? "Loading the login."
             : auth.pending
               ? "Finish the login in your wallet's window."
               : `Waiting for ${walletName ?? "your wallet"} to answer. Unlock it, or cancel and connect again.`,
-          cancel,
         }
       : {}),
     switching: chainSwitch.busy,

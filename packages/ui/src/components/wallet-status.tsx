@@ -112,8 +112,13 @@ function WalletButton({
       case "connected":
         return (
           <>
+            {/* From xl to 2xl the app header also holds the nav, so the wallet's
+                name takes the chain chip's place there; the header's chain
+                indicator and the wrong-chain prompt still cover the network. */}
             {chainName ? (
-              <span className="hidden sm:inline-flex">
+              <span
+                className={cn("hidden sm:inline-flex", walletName && "xl:hidden 2xl:inline-flex")}
+              >
                 <ChainChip name={chainName} tone="ok" />
               </span>
             ) : null}
