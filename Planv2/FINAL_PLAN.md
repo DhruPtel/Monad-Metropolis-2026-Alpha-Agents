@@ -6,7 +6,7 @@ This document is the single description of Alpha Agents, the launch product. Its
 
 How to read source tags. Every decision in this plan traces to one of four labels: `conversation decision` (the decision register supplied with the planning brief), `planning answer` (an answer given during planning), `owner decision, orientation` (a decision made in the orientation session of 2026-09-27), or a named document (a Planv1 file or a research note in `notes/`). The decision register in `DECISIONS_AND_OPEN_QUESTIONS.md` section 1 states every decision in full. Anything the plan had to assume is marked `Assumption` and listed in `DECISIONS_AND_OPEN_QUESTIONS.md` section 3. Nothing in this plan is a time estimate; order is by dependency only.
 
-Facts verified by the research runs through read-only RPC calls were verified on 2026-09-25 at Monad block about 108,050,000. They must be re-verified before any deployment.
+Facts verified by the research runs through read-only RPC calls were verified on 2026-09-25 at Monad block about 108,050,000. They must be re-verified before any deployment. They were re-verified on 2026-10-07 at mainnet block 111,445,292, and the testnet facts were checked for the first time at testnet block 69,091,601 (D-248); P2-EC checks them again before it deploys.
 
 ---
 
@@ -112,7 +112,7 @@ Rules for the submission material (`preview.html > Revised build manual > 14`): 
 
 ### 2.4 Gates
 
-- **Before the hackathon beta (PB-U1):** every spike that gates a beta unit in `BUILD_PLAN.md` section 5 has passed; the deployment state-assertion script passes on mainnet; the capped canary trades and exits; the allowlists, caps and beta label are on; M-13 holds on the deployed vault code. No external review is required (owner decision, orientation).
+- **Before the hackathon beta (PB-U1):** P2-EC has deployed to testnet and run the throwaway mainnet canary, and every difference it found between the fork and the real chains is fixed or recorded (D-247); every spike that gates a beta unit in `BUILD_PLAN.md` section 5 has passed; the deployment state-assertion script passes on mainnet; the capped canary trades and exits; the allowlists, caps and beta label are on; M-13 holds on the deployed vault code. No external review is required (owner decision, orientation).
 - **Before public money without allowlists:** every spike marked "gates mainnet" in `BUILD_PLAN.md` section 5 has passed; the deployment state-assertion script passes; external reviews of the custody core, Executor and escrow are complete with no unresolved critical finding (`conversation decision`, `notes/managed-vaults.md > 4`).
 - **Before public deposits:** the founders' legal review of pooled discretionary management is complete (`planning answer`); the platform-wide deposit cap is set; `depositsOpen` is an explicit deployment parameter with a recorded launch decision (`preview.html > Revised build manual > 9`).
 - **Before the Solana launch:** its own conformance suite passes; an EVM result never satisfies a Solana gate (`preview.html > Revised technical plan > 12`).
@@ -225,6 +225,22 @@ Address book used throughout (verified by read-only RPC on 2026-09-25; re-verify
 | Permit2 | `0x000000000022D473030F116dDEE9F6B43aC78BA3` | Never approved by any account we control |
 
 The depth spike (P2-U0, `evidence/p2-u0/SUMMARY.md`) supplied the quoters and Kuru's contracts, now in the address book in `packages/domain`; Kuru was measured and not chosen.
+
+Address book on Monad testnet (chain 10143), checked by read-only calls on 2026-10-07 (D-248). Testnet was reset from genesis on 2025-12-16, so no testnet address from before that date is valid. Code sizes are in bytes.
+
+| Item | Address on Monad 10143 | Note |
+|---|---|---|
+| USDC | `0x534b2f3A21130d7a60830c2Df862319e593943A3` | Circle's testnet USDC (Circle's USDC address page, Monad's testnet token list); FiatToken proxy, 1,798, 6 decimals |
+| WMON | `0xFb8bf4c1CC7a94c73D209a149eA2AbEa852BC541` | Monad's testnet canonical contracts; 3,249. Not the mainnet address, which has no code on testnet |
+| ERC-6551 registry and Tokenbound v3 (AccountProxy, AccountV3Upgradable, AccountGuardian) | The mainnet addresses | Same code sizes as mainnet (571, 902, 14,924, 1,211); the guardian's owner Safe has no code on testnet |
+| CREATE2 deployer `0x4e59...956C`, Permit2, Multicall3 forwarder, EntryPoint v0.6 | The mainnet addresses | Present |
+| Pyth Entropy v2 | `0x825c0390f379C631f3Cf11A82a37D20BddF93c07` | Default provider `0x6CC14824Ea2918f5De5C2f75A9Da968ad4BD6344`; fee 0.128 MON (1.4 MON on mainnet) |
+| Chainlink MON/USD, USDC/USD | None | No Chainlink feed found; the pre-reset testnet feed addresses have no code. P2-EC uses `TestnetFeed` (D-253) |
+| Uniswap v4 | Unofficial: PoolManager `0x451D64ab3b650040d2aE1886602b97ed6eDc643d`, StateView `0xB639209539c61BaF67AC04876315786F8D0b153c`, V4Quoter `0x869834d127b230283fe63E0d0A9bEB67216a94C7` | Listed in Monad's protocols repository as "not an official Uniswap deployment"; a different build from mainnet's PoolManager (34,582 bytes against 24,009); no MON/USDC pool at fee 100, 500, 3,000 or 10,000 (Q-48) |
+| Uniswap v3 | None | Uniswap lists no Monad testnet deployment |
+| x402 facilitator | The Monad Foundation's (x402-facilitator.molandak.org) | Settlement signer EOA `0x7f6a2850669202519f0FE8aa912451238820Db86`, the same on mainnet; `exact` and `upto` schemes |
+
+Monad documents a 128 KB contract code size limit and a 256 KB init code limit, so AgentNFT and the Executor, which exceed Ethereum's 24 KB, are deployable (D-248). Block explorers: MonadVision and Monadscan on both networks; Sourcify verifies sources for chains 143 and 10143 (D-256).
 
 ### 4.1 Onchain contracts
 
@@ -473,7 +489,7 @@ PersonalAccount specifics: one clone per `(agentId, owner)`, deployed by Account
 
 **Data it owns.** Nothing durable beyond KMS key references; submission records live in the ledger.
 
-**Decisions and constraints.** KMS-backed platform signer, not Privy server wallets, because Privy's policy scoping on Monad is unverified and the Executor is the real boundary either way (`planning answer`). Deadlines are set at signing time (`Answer` via `notes/monad-agent-kit.md > 4`). The signer uses service identity derived from the runtime lease, never a caller-supplied agent ID (`preview.html > Revised technical plan > 4`). Persist before remote effects; crash after sending and before writing success must reconcile, not spend twice (`preview.html > Revised build manual > 5`). Never point a mainnet signer at a fork RPC or vice versa; every record carries an environment ID (`preview.html > Revised technical plan > 11`). Priority fee budget varies by tier (`conversation decision`); its values come from the latency spike. The funding address is the single address the owner funds, and the settlement and refund transfers are the only additions to the signer's allowlist that the credits model needs (owner decision, orientation; D-144). As built in P2-U4 (D-243 to D-246, A-38): the session key is the funding address behind a key interface (local keys on the fork and testnet, AWS KMS before the beta); the allowlist holds only the Executor's swap so far, with the chain pin, a 1.1M gas limit and fee caps; the outbox allocates fenced nonces with the signed bytes, keeps one transaction in flight per key, resolves unknown outcomes by hash and nonce without resending, and writes a swap to the ledger only after its event and the account's balance changes agree. The settlement, refund and x402 kinds, the replacement policy and per-tier gas caps join in later units.
+**Decisions and constraints.** KMS-backed platform signer, not Privy server wallets, because Privy's policy scoping on Monad is unverified and the Executor is the real boundary either way (`planning answer`). Deadlines are set at signing time (`Answer` via `notes/monad-agent-kit.md > 4`). The signer uses service identity derived from the runtime lease, never a caller-supplied agent ID (`preview.html > Revised technical plan > 4`). Persist before remote effects; crash after sending and before writing success must reconcile, not spend twice (`preview.html > Revised build manual > 5`). Never point a mainnet signer at a fork RPC or vice versa; every record carries an environment ID (`preview.html > Revised technical plan > 11`). Priority fee budget varies by tier (`conversation decision`); its values come from the latency spike. The funding address is the single address the owner funds, and the settlement and refund transfers are the only additions to the signer's allowlist that the credits model needs (owner decision, orientation; D-144). As built in P2-U4 (D-243 to D-246, A-38): the session key is the funding address behind a key interface (local keys on the fork and testnet, AWS KMS before the beta); the allowlist holds only the Executor's swap so far, with the chain pin, a 1.1M gas limit and fee caps; the outbox allocates fenced nonces with the signed bytes, keeps one transaction in flight per key, resolves unknown outcomes by hash and nonce without resending, and writes a swap to the ledger only after its event and the account's balance changes agree. The settlement, refund and x402 kinds, the replacement policy and per-tier gas caps join in later units. The throwaway mainnet canary of P2-EC signs with a raw throwaway key in its own `canary` environment, within the limits of D-251 and D-252; the beta keeps the KMS requirement.
 
 #### 4.2.3 Session grants and epochs
 

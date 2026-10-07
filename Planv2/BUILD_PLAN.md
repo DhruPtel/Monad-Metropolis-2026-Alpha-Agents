@@ -23,7 +23,7 @@ Carried from `PHASES.md > How every phase works`, `> Unit prompt template` and `
 
 **Unit prompt template.** `UNIT`, `GOAL`, `READ FIRST` (always begins with `LESSONS.md`, then `DECISIONS_AND_OPEN_QUESTIONS.md` and the `FINAL_PLAN.md` sections the unit touches), `DEPENDS ON`, `IN SCOPE`, `OUT OF SCOPE`, `DELIVERABLES`, `ACCEPTANCE TESTS`, `HOW THE OWNER TESTS IT`, `WHEN DONE`. Every prompt ends with the same two lines: add a `LOGS.md` entry, and add a `LESSONS.md` entry for every bug fixed.
 
-**Session rules.** Read `LESSONS.md` first, then the unit prompt and the decision record, before writing code; read `Reference/` only when its lessons (section 8) are relevant to the unit, and never add entries to it; stay inside the unit's scope and put extras in the `LOGS.md` entry as suggestions; all units commit directly to `main` in small commits, with no unit branches (owner decision, D-147); tests with the code, not after; reproduce, log, fix and record every bug; never put real private keys or real funds anywhere before Phase B; end every session by updating `LOGS.md` and, for every bug fixed, `LESSONS.md`.
+**Session rules.** Read `LESSONS.md` first, then the unit prompt and the decision record, before writing code; read `Reference/` only when its lessons (section 8) are relevant to the unit, and never add entries to it; stay inside the unit's scope and put extras in the `LOGS.md` entry as suggestions; all units commit directly to `main` in small commits, with no unit branches (owner decision, D-147); tests with the code, not after; reproduce, log, fix and record every bug; never put real private keys or real funds anywhere before Phase B, except the throwaway mainnet canary of P2-EC within the limits of D-252; end every session by updating `LOGS.md` and, for every bug fixed, `LESSONS.md`.
 
 **Rules added during planning and orientation:**
 
@@ -43,7 +43,7 @@ Carried from `PHASES.md > How every phase works`, `> Unit prompt template` and `
 
 ## 2. Dependency graph
 
-Solid arrows are build dependencies. The Pass 1 and Pass 2 units of section 4 form the path to PB-U1 (D-159); the rest are built in the post-beta completion pass and Phase 9. P1-U8 is folded into P3-U4 (D-160).
+Solid arrows are build dependencies. P2-EC follows P2-U7 and comes before Phase 3 in the build order (D-247); nothing in Phase 3 needs its output, and PB-U1 uses its lessons. The Pass 1 and Pass 2 units of section 4 form the path to PB-U1 (D-159); the rest are built in the post-beta completion pass and Phase 9. P1-U8 is folded into P3-U4 (D-160).
 
 ```mermaid
 flowchart TB
@@ -68,6 +68,7 @@ flowchart TB
   CT[Chain tools server P2-U5]
   TRADE[Trade flow P2-U6]
   PUI[Portfolio UI P2-U7]
+  EC[Early chain check P2-EC]
   ADAPT[Chain adapter interface P2-U8]
   GOALS[Goals form and translator P3-U1]
   DT[Data tools server P3-U2]
@@ -141,6 +142,8 @@ flowchart TB
   TOOLS0 --> CT
   CT --> TRADE
   TRADE --> PUI
+  PUI --> EC
+  EC --> BETA
   CT --> ADAPT
   TRADE --> GOALS
   TOOLS0 --> DT
@@ -225,8 +228,8 @@ Each phase lists its goal, build units (ID, name, components touched, dependenci
 | GitHub repository (this one) with Actions CI | account | P0-U1 | Public access for the hackathon reviewers is granted at PB-U2 |
 | Foundry, latest stable release with Monad execution support (v1.8 or later) | tool | P0-U2 | Exact version pinned in P0-U2 and recorded in `LOGS.md` |
 | Docker, for local Postgres and Redis | tool | P0-U2 | |
-| Two Monad RPC providers with keys, one archive-capable for the fork | account, key | P0-U2 fork; P1-U3 testnet; P2-U4 mainnet | Spending cap. Q-23 |
-| Monad testnet MON from the faucet and test USDC | funds | P1-U3 | |
+| Two Monad RPC providers with keys, one archive-capable for the fork | account, key | P0-U2 fork; P1-U3 testnet; P2-U4 mainnet | Spending cap. Q-23. P2-EC needs a keyed testnet endpoint (`MONAD_TESTNET_RPC_URL`), ideally a second from another provider (`MONAD_TESTNET_RPC_URL_SECONDARY`, D-254) |
+| Monad testnet MON from the faucet and test USDC | funds | P1-U3 | P2-EC: about 20 MON from https://faucet.monad.xyz and about 40 USDC from Circle's faucet (Circle's testnet USDC `0x534b...43A3`, D-248) |
 | Deployer key, admin multisig (a Safe on Monad), guardian key, sentinel key | keys | P1-U3 on testnet; PB-U1 on mainnet | Hardware-held or KMS-held; the sentinel key is separate from the guardian key (D-138) |
 | Cloud KMS (AWS KMS or GCP Cloud KMS) | account | P1-U5 | Funding addresses, the signer and the skill key broker. Spending cap |
 | E2B account on a plan with egress rules and header injection | account, key | P1-U1 | Spending cap. Q-04 |
@@ -244,7 +247,9 @@ Each phase lists its goal, build units (ID, name, components touched, dependenci
 | IPFS or Arweave pinning (Pinata or equivalent) | account, key | P6-U5 | Q-26 |
 | Image-to-3D tool with a commercial license, Blender, glTF Transform | tool | P1-U11 | Q-25, resolved for the bee model by D-157 (Meshy, UniRig) |
 | x402 facilitator on Monad, testnet and mainnet endpoints | endpoint | P5-U4 testnet; P8-U4 mainnet | Q-20 |
-| Mainnet funds: small MON and USDC for the canary and the founders' dry run | funds | PB-U1 | Bounded by the beta caps |
+| Mainnet funds: small MON and USDC for the canary and the founders' dry run | funds | P2-EC (throwaway canary); PB-U1 | P2-EC: about 10 MON and about 5 USDC (Q-49), at most 10 of each, returned at the end (D-252). PB-U1: bounded by the beta caps |
+| Canary keys: a fresh canary owner, guardian and session key, used nowhere else | keys | P2-EC | Throwaway, in `.env` only, emptied at the end (D-252, Q-50) |
+| Block explorer verification: Sourcify (no key) and optionally an Etherscan API v2 key for Monadscan | key | P2-EC | D-256 |
 | Hackathon registrations: Monad Metropolis (Onchain Finance and Trading track) and Colosseum | account | PB-U2 | Deadline October 13, 2026 |
 | Legal counsel for pooled discretionary management | service | P9-U3 | Q-19; not needed for the beta |
 | External reviewers for the custody core, Executor, adapters, oracle adapter and escrow | service | P9-U3 | Booked early; not needed for the beta |
@@ -296,14 +301,133 @@ Each phase lists its goal, build units (ID, name, components touched, dependenci
 | P2-U3 | Oracle adapter and circuit breaker | Chainlink wrapper per feed with staleness (MON/USD 300 s, USDC/USD 3,900 s for the depeg guard only, D-168), decimals and sign checks, USDC as 1 with a depeg guard, pool spot read and pairwise deviation, `tradable` with reasons, asset drop; per-share peak tracking and the REDUCE_ONLY (10%) and PAUSED (20%) transitions in the account; reduce-only exemption for USDC output; internal units for flow-adjusted valuation and `poke()`, moved from P2-U1 (D-227) | P2-U0, P2-U1 | MV-S11 fail-closed reads; M-25, M-26, M-27, M-29, M-30; M-35 peak basis replay without false triggers; a 3% pool move blocks trades; a stale feed blocks trades but never withdrawals |
 | P2-U2 | Executor, ProtocolRegistry and one venue adapter | Executor with the full check list from `FINAL_PLAN.md > 4.1.7`, session grants, ring buffer, turnover cap, policy sets by hash, timelocked loosening, guardian tighten and pause-all; ProtocolRegistry with code-hash pinning and statuses; the chosen venue's adapter (the hookless Uniswap v4 MON/USDC 0.05% pool, D-166) with pinned pool, recipient set to the account, no side doors, unwrapping WMON, swapping and rewrapping atomically in one Executor call so accounts never hold native MON (D-167) | P2-U0, P2-U1, P2-U3 | ZR-3, ZR-4a to 4j (adapted), ZR-4n, ZR-4o, ZR-4p inverted, ZR-4q, ZR-4r inverted, ZR-5, ZR-Z01, ZR-Z05, ZR-Z06, ZR-Z16, ZR-Z17, ZR-Z18; MV-S6 swap path and MV-S7 counter; M-04 and M-05; gas measured (ZR-6A, ZR-6E, ZR-Z04); MK-K02 policy versus Executor invariants |
 | P2-U4 | KMS signer, session grants and the execution ledger | Signer service (KMS keys, chain ID pin, an allowlist of exactly four transaction kinds: Executor calls, x402 EIP-3009 authorizations to a pinned payee, credit settlement transfers from a funding address to the platform treasury under the period ceiling, refunds from a funding address to the agent's current owner; no contract creation, gas cap per tier, fenced nonce writer, replacement policy), transactional outbox, submission states (unknown is not failed), receipt finality policy, full balance reconciliation, revert reasons fetched for every failed transaction, simulation through `eth_call` with state overrides (anvil if MK-S2 shows it reliable); a second RPC provider that serves wide `eth_getLogs` ranges (D-171) | P2-U2 | MK-K03 adapted: the signer refuses any call to another address, selector or transaction kind; crash after send and before write reconciles rather than spends twice; duplicate queue jobs converge on one action (`preview.html > Revised build manual > 5`); every failed submission carries its revert reason |
-| P2-U5 | Chain tools server | All tools in `FINAL_PLAN.md > 4.4.2` with schema bounds generated from Executor views per session, the intent pipeline, reservations, rejection codes | P2-U4, P1-U7 | MK-S2, MK-S3, MK-S5 (with the hard-coded literals replaced by read bounds), MK-K02; no schema field named `address`, `agentId`, `owner`, `wallet`, `to`, `data`; a repeated `clientRequestId` returns the same intent |
-| P2-U6 | Trade flow | Arming approval for the first trade, automatic trades within limits afterward, settlement only after receipt and reconciliation, "why the agent did not trade" from reason codes, activity feed entries the 30-day session grant renewal reminder (D-240); | P2-U5 | Deposit, trade, exit and withdraw reconcile; duplicate, reordered and missing events, a dropped RPC response, a process restart and a stale indexer all produce correct state or "unknown" (`preview.html > Revised build manual > 5`); a blocked trade shows its reason |
-| P2-U7 | Portfolio UI | Positions, trade history, deposit and withdraw, the arming card with deterministic financial fields, blocked-trade explanations, environment and account labels | P2-U6 | The owner can do every checkpoint action; the card shows account, chain, asset addresses, max input, min output, expiry |
+| P2-U5 | Chain tools server | All tools in `FINAL_PLAN.md > 4.4.2` with schema bounds generated from Executor views per session, the intent pipeline, reservations, rejection codes; every address through the environment's address book, nothing assuming `local` (D-255) | P2-U4, P1-U7 | MK-S2, MK-S3, MK-S5 (with the hard-coded literals replaced by read bounds), MK-K02; no schema field named `address`, `agentId`, `owner`, `wallet`, `to`, `data`; a repeated `clientRequestId` returns the same intent |
+| P2-U6 | Trade flow | Arming approval for the first trade (registering the grant from the owner's wallet), automatic trades within limits afterward, settlement only after the receipt reaches the environment's finality setting (A-40) and reconciliation, "why the agent did not trade" from reason codes, a funding address without MON for gas as its own reason off the fork, activity feed entries, the 30-day session grant renewal reminder (D-240); the signer's real caller on testnet (D-255) | P2-U5 | Deposit, trade, exit and withdraw reconcile; duplicate, reordered and missing events, a dropped RPC response, a process restart and a stale indexer all produce correct state or "unknown" (`preview.html > Revised build manual > 5`); a blocked trade shows its reason |
+| P2-U7 | Portfolio UI | Positions, trade history, deposit and withdraw, the arming card with deterministic financial fields, blocked-trade explanations, environment and account labels; copy and checks that name the environment and work on testnet unchanged (D-255) | P2-U6 | The owner can do every checkpoint action; the card shows account, chain, asset addresses, max input, min output, expiry |
+| P2-EC | Early chain check | Throwaway deployments to Monad testnet (AgentNFT, `TestnetFeed`, the oracle adapter, Executor, ProtocolRegistry, the v4 adapter with Q-48, AccountFactory) and a labeled mainnet canary of the trading contracts with `CanaryAgent`; the stack pointed at testnet; one real swap through the signer and the Executor on mainnet; source verification; the real-chain checklist. Specified below (D-247 to D-256) | P2-U7 | The acceptance tests of the specification below |
 | P2-U8 | Chain adapter interface and conformance suite | `ChainAdapter` interface over the domain package (ownership, account scope, epochs, action idempotency, precision, receipts, position reads); Monad implementation; the conformance test suite that Solana must later pass; capability flags | P2-U5 | The Monad implementation passes the suite; the suite fails on a stub that fakes a receipt |
 
-**Playtests.** Mid-phase after P2-U2: on the fork, a script deposits USDC into a PersonalAccount, swaps through the Executor, sees a limit breach revert with its reason code and withdraws, in the terminal. End-of-phase after P2-U7 for the beta and again after P2-U8: deposit test USDC, see the agent propose a trade, approve it (arming), watch it settle, see the position update, try a trade that breaks a limit and see it blocked with a reason, withdraw directly. Look at the card's clarity, position and PnL display, blocked-trade explanations, cycle speed (`PHASES.md > Phase 2`). Trades run on the mainnet fork and on testnet where liquidity allows.
+**Playtests.** Mid-phase after P2-U2: on the fork, a script deposits USDC into a PersonalAccount, swaps through the Executor, sees a limit breach revert with its reason code and withdraws, in the terminal. End-of-phase after P2-EC for the beta (it uses P2-EC's testnet deployment) and again after P2-U8: deposit test USDC, see the agent propose a trade, approve it (arming), watch it settle, see the position update, try a trade that breaks a limit and see it blocked with a reason, withdraw directly. Look at the card's clarity, position and PnL display, blocked-trade explanations, cycle speed (`PHASES.md > Phase 2`). Trades run on the mainnet fork, and on testnet only through the pool P2-EC creates if Q-48 chooses it; testnet has no MON/USDC pool of its own (D-248).
 
-**What changed and why.** P2-U0 is new because the Executor's adapter and the oracle wrapper cannot be specified before a venue is chosen and heartbeats are measured (`planning answer`). P2-U1 becomes the custody core that Phase 7 extends (`planning answer`) and gains the sentinel-key tighten path and the per-account cap (D-138, D-133). P2-U3 is built before P2-U2 because the Executor reads the oracle adapter and the account mode; the table order now matches the build order and the dependency graph (orientation fix 3). P2-U2 adds the turnover cap, the reduce-only exemption, code-hash pinning and timelocked loosening (`planning answer`, `notes/zodiac-roles.md > 4`). P2-U4 replaces the Privy session wallet with the KMS signer and absorbs the deterministic execution and reconciliation work package from the revised build manual's G2 (`planning answer`); its transaction allowlist grows by the two credit transfers that the funding address model needs (D-144). P2-U6 keeps the owner's first approval as arming and makes later trades automatic (`planning answer`). P2-U8 is new so the Solana branch starts from a tested interface rather than a copy (`PHASES.md > Phase 2` Solana note, `preview.html > Revised build manual > 11`); it is not on the beta path.
+**What changed and why.** P2-U0 is new because the Executor's adapter and the oracle wrapper cannot be specified before a venue is chosen and heartbeats are measured (`planning answer`). P2-U1 becomes the custody core that Phase 7 extends (`planning answer`) and gains the sentinel-key tighten path and the per-account cap (D-138, D-133). P2-U3 is built before P2-U2 because the Executor reads the oracle adapter and the account mode; the table order now matches the build order and the dependency graph (orientation fix 3). P2-U2 adds the turnover cap, the reduce-only exemption, code-hash pinning and timelocked loosening (`planning answer`, `notes/zodiac-roles.md > 4`). P2-U4 replaces the Privy session wallet with the KMS signer and absorbs the deterministic execution and reconciliation work package from the revised build manual's G2 (`planning answer`); its transaction allowlist grows by the two credit transfers that the funding address model needs (D-144). P2-U6 keeps the owner's first approval as arming and makes later trades automatic (`planning answer`). P2-U8 is new so the Solana branch starts from a tested interface rather than a copy (`PHASES.md > Phase 2` Solana note, `preview.html > Revised build manual > 11`); it is not on the beta path. P2-EC is new (D-247): the first deployments to real chains, made right after Phase 2 and kept throwaway, so differences between the fork and the real chains are found while there is time to fix them rather than at PB-U1.
+
+#### P2-EC: Early chain check (unit specification)
+
+Owner decision D-247. Chain facts from read-only calls and official documentation on 2026-10-07 (D-248; the addresses are in `FINAL_PLAN.md > 4 > Address book on Monad testnet`). Every decision this unit relies on is D-247 to D-256; the questions it needs answered first are Q-48 to Q-50.
+
+**UNIT.** P2-EC Early chain check.
+
+**GOAL.** Find the differences between the local fork and the real chains while there is time to fix them. Deploy the built contracts to Monad testnet and verify real behavior there; deploy the trading contracts to Monad mainnet as a labeled throwaway canary and run one real swap through the signer and the Executor; measure every item of the real-chain checklist below and record each difference as a lesson. Nothing deployed here carries into the beta (D-249).
+
+**READ FIRST.** `LESSONS.md`, starting with "Wallets and networks: read first"; `DECISIONS_AND_OPEN_QUESTIONS.md` (D-247 to D-256, A-39, A-40, Q-48 to Q-51); `FINAL_PLAN.md` 4.1.1, 4.1.6 to 4.1.9, 4.1.13, 4.2.2, 4.2.3 and the address books; the P2-U1 to P2-U4 and P2-U5 to P2-U7 `LOGS.md` entries; `evidence/p1-u3/RANDOMNESS.md` and the `GAS.md` files.
+
+**DEPENDS ON.** P2-U7 (and so P2-U1 to P2-U6), with the owner's answers to Q-48, Q-49 and Q-50 and the owner prerequisites below in place.
+
+**What exists on each chain, and what that allows.**
+
+| Needed | Testnet (10143) | Mainnet (143) |
+|---|---|---|
+| USDC | Circle's, `0x534b...43A3`, 6 decimals | Circle's, `0x7547...b603` |
+| WMON | `0xFb8b...C541` (not the mainnet address) | `0x3bd3...433A` |
+| ERC-6551 registry and Tokenbound v3 | At the mainnet addresses | Yes |
+| Pyth Entropy v2 | `0x825c...3c07`, fee 0.128 MON | `0xD458...F134`, fee 1.4 MON |
+| Chainlink MON/USD and USDC/USD | None | Yes; MON/USD about every 30 s |
+| Uniswap v4 MON/USDC 0.05% pool | No pool; an unofficial v4 deployment exists (PoolManager `0x451D...643d`) | The launch pool, live |
+| Uniswap v3 USDC/WMON 0.3% | None | Yes, about 561,000 USDC |
+| x402 facilitator | Monad Foundation's | Monad Foundation's (not used in this unit) |
+
+Can be verified on testnet: deploying contracts above 24 KB; AgentNFT's mint with a signed claim and the atomic Tokenbound account; a real Entropy request, callback and reveal by the keeper, and how long delivery takes; PersonalAccount creation, deposit and withdrawal by a real wallet through the web app; the oracle adapter's staleness, decimals and depeg guard against `TestnetFeed` (D-253); the indexer, control API, orchestrator, signer and web app against a real chain; gas, finality, RPC and wallet behavior. With Q-48 option A also: a swap through the Executor, the signer's outbox and reconciliation, the limits and the breaker, against a pool and a price we set.
+
+Cannot be verified on testnet: real prices, real liquidity and slippage, Chainlink's feeds, the official Uniswap v4 build (the testnet PoolManager is a different, unofficial build), Circle's mainnet USDC behavior. The mainnet canary covers the swap path on the real feeds, pool and USDC. Neither chain covers in this unit: AgentNFT, Entropy and Tokenbound account creation on mainnet (PB-U1), KMS (PB-U1), the Safe admin (PB-U1), x402 (P5-U4).
+
+**IN SCOPE.**
+
+1. Re-check, at the start of the unit, every address and fact of D-248 with read-only calls, and stop if any has changed.
+2. Testnet deployment, in this order, with `p2ec` salts (D-249), by an explicit `testnet` path in the deploy scripts that checks `eth_chainId` is 10143 before it sends anything:
+   1. `TestnetFeed` MON/USD and USDC/USD (8 decimals; answers set by the operator; the MON/USD answer equal to mainnet's at deployment) (D-253).
+   2. With Q-48 option A: initialize the hookless MON/USDC pool (native MON, Circle's testnet USDC, fee 500, tick spacing 10, no hooks) on the testnet PoolManager at the feed price, and add liquidity through a clean-room seeder script contract that settles by transfer, never Permit2.
+   3. AgentNFT: admin `TESTNET_ADMIN_SAFE_ADDRESS` or, when unset, the testnet deployer; claim signer the testnet claim key (and `CLAIM_SIGNER_PRIVATE_KEY` on testnet set to it); treasury the admin; image base `ipfs://alpha-agents-images-pending/`, never frozen; Tokenbound registry, proxy and implementation at their canonical addresses; Entropy `0x825c...3c07`; claim-required on.
+   4. Oracle adapter: USDC and WMON (testnet), the two `TestnetFeed` addresses, 8 decimals, 300 s and 3,900 s, the testnet StateView and the pool ID from step 2 (option B: the same, with the pool check never reached because nothing trades), deviation 200 bps, depeg 100 bps.
+   5. Executor: admin and guardian testnet keys, AgentNFT from step 3, testnet USDC and WMON, the launch policy unchanged.
+   6. The v4 adapter on the testnet PoolManager with the step 2 pool ID (option A only). No v3 adapter: there is no v3 on testnet.
+   7. ProtocolRegistry with the v4 adapter ACTIVE (option A) or no adapter (option B).
+   8. AccountFactory: admin, guardian and sentinel testnet keys, the oracle adapter and the Executor, AgentNFT, USDC and WMON, caps 100 and 2,000 USDC, the allowlist the owner's testnet wallets.
+   9. `executor.bind(factory, registry)`; then the deploy script's state assertion (MV-S15) over every role, cap, address and flag.
+3. Mainnet canary deployment, in this order, with `p2ec` salts, by a `canary` path that checks `eth_chainId` is 143 and that `CANARY_SIGNING_ENABLED=true`:
+   1. `CanaryAgent` (D-250), owner the canary owner (Q-50).
+   2. Oracle adapter over the real Chainlink feeds, the real StateView and the launch pool ID, with the launch bounds.
+   3. Executor: admin the canary owner, guardian the canary guardian key, `CanaryAgent`, real USDC and WMON, the launch policy unchanged.
+   4. v4 adapter on the real PoolManager and launch pool (ACTIVE); v3 adapter on SwapRouter02 (PAUSED, as the beta will have it).
+   5. ProtocolRegistry with both adapters.
+   6. AccountFactory: admin the canary owner, guardian the canary guardian key, sentinel zero, the oracle adapter and the Executor, `CanaryAgent`, real USDC and WMON, caps 10 and 10 USDC (A-39), the allowlist the canary owner only.
+   7. `executor.bind`, the state assertion, and nothing else. No AgentNFT on mainnet.
+4. The canary run, `pnpm canary:mainnet`, in the `canary` environment (D-251) with its own database: create the PersonalAccount for agent 1; deposit (Q-49); register the canary session key for at most 24 hours; submit through `packages/signer` (outbox, simulation, fenced nonce, chain pin, fee caps) a buy and a sale back within the 10% limit; show one oversized buy refused in simulation with its reason and nothing signed; reconcile both swaps into the canary ledger; the guardian pauses the Executor and a further swap is refused while the owner's withdrawal still works; revoke the grant; withdraw everything; send every remaining USDC and MON on canary keys to the owner's own wallet.
+5. Pointing the stack at testnet (`APP_ENV=testnet`): the indexer from the testnet AgentNFT's deployment block (D-254); the control API signing claims with the testnet claim key for allowlisted wallets; the orchestrator with the reveal keeper (real Entropy, the 60-second batch window of D-201), the signer worker with the testnet funding seed, and the `TestnetFeed` re-dating job; the web app built for testnet with `CONTROL_API_URL` set. Stays local in every case: Postgres (a separate testnet database), Redis, LiteLLM and the processes themselves, on the owner's machine until hosting is chosen (Q-37). Stays off on testnet: the console (it refuses any environment but local), Scans in E2B unless the owner starts one, and every local-only feature listed below. The mainnet canary runs no indexer, API, orchestrator or web app.
+6. Funding testnet gas: an operator script sends testnet MON from the deployer to each funding address and session key that needs it, since gas top-ups exist only on the fork (C-79).
+7. The configuration of D-254: real-chain observations and deployment blocks in the address book for `testnet` and `canary`; per-deployment start blocks; `MONAD_TESTNET_RPC_URL_SECONDARY`; the key-difference start-up check; `CONTROL_API_URL` required off local; environment-aware wallet guard text. The `beta` entries stay undeployed.
+8. Source verification of every contract deployed on both chains (D-256), with the explorer links in the address book and the evidence.
+9. The real-chain checklist below, measured and written to `evidence/p2-ec/REAL_CHAIN.md`, with every difference from the fork that needs a fix recorded as a `LESSONS.md` entry and, where small and inside this unit's files, fixed.
+10. Confirming on both chains that each local-only feature cannot run (the table below), by attempting each and recording the refusal.
+
+**Local-only features that must stay off on testnet and mainnet.**
+
+| Feature | What stops it outside local | Gap to close in P2-EC |
+|---|---|---|
+| Local feed refresher | Returns null off local; `assertLocalFork` (host 127.0.0.1, an anvil node, chain 143143) before any request | None. `TestnetFeed`'s keeper is a separate testnet job that writes by transactions |
+| Steered reveals, "Reveal next as" and `LOCAL_FIRST_REVEAL_SPECIES` | Config refuses a species outside local; steering is null off local; the chain client refuses a steer unless built for the fork; the routes exist only with dev actions | None; test that a testnet orchestrator answers `not_local` |
+| The keeper's impersonated Entropy delivery | `deliver` exists only on the fork, and calls `assertLocalFork` | None; testnet reveals wait for Pyth |
+| Console write tools | The console refuses any `APP_ENV` but local and binds to 127.0.0.1; its fork calls are loopback and guarded | The check is on `APP_ENV` only: a local console can be pointed at a testnet orchestrator's URL, which exposes only read routes. Record it |
+| Orchestrator write routes and signer test swaps | Dev actions only on local; the test swap throws off local | None |
+| Devenv impersonation helpers | Each calls `assertLocalFork` | `sendAs` has no guard of its own (a real RPC refuses `anvil_*`); add one |
+| Gas top-ups by `anvil_setBalance` | Local only, guarded | None; testnet needs MON (item 6) |
+| The fork chain ID 143143 | Only `local` uses it; testnet pins 10143 and the canary 143 in the signer and `assertChainId` | None |
+
+**OUT OF SCOPE.** Any deployment the beta keeps; AgentNFT, Entropy or Tokenbound on mainnet; KMS and the AWS binding (PB-U1); a Safe (PB-U1); wiring `BETA_SIGNING_ENABLED` (PB-U1); x402 (P5-U4); the wallet compatibility matrix (W-1; this unit only records what it sees with MetaMask and OKX); hosting (Q-37); the vault (Phase 7). Anything found that needs a change outside this unit's files goes into the `LOGS.md` entry as a suggestion.
+
+**DELIVERABLES.** The `testnet` and `canary` deploy paths; `TestnetFeed`, `CanaryAgent` and (Q-48 option A) the pool seeder as script contracts with tests; `pnpm canary:mainnet`; the operator gas script; the configuration of D-254 and the `canary` environment of D-251; address book entries for testnet and canary with observations and explorer links; `evidence/p2-ec/` holding `ADDRESSES.md` (every deployed contract with chain, address, deployment block and transaction, code hash, constructor arguments and verification link), `REAL_CHAIN.md` (the checklist results) and the canary run report; a `LOGS.md` entry and a `LESSONS.md` entry for every difference fixed.
+
+**Real-chain differences to watch for, and how each is measured.**
+
+| Item | What may differ from the fork | How it is measured |
+|---|---|---|
+| Gas | Monad charges the gas limit, not gas used; forge's and viem's estimates may differ from the fork's | For every transaction kind (each deployment, mint, request and apply a reveal, account creation, deposit, grant, swap, withdrawal): estimate, limit, gas used and MON paid from the receipt, against the fork's `GAS.md` figures; check the 1.1M swap limit and A-38's fee caps against the observed base and priority fees |
+| Contract size | AgentNFT and the Executor are above 24 KB | The deployments succeed; record runtime and init sizes |
+| Finality | `latest` is a proposed block, `safe` voted, `finalized` irreversible | For at least 10 testnet transactions and every canary transaction: time from send to receipt, to `safe` and to `finalized`; any receipt that changes or disappears; this sets A-40 |
+| Transaction acceptance | Validation is asynchronous: a send may be accepted and then never included; a pending transaction is invisible (`eth_getTransactionByHash` returns null) | The signer's unknown-outcome path on a real chain: count unknowns and how each resolved; one deliberate nonce-gap send on testnet to see the provider's answer |
+| RPC limits | `eth_getLogs` at 100 blocks on QuickNode and the Monad Foundation's RPC; rate limits; `eth_feeHistory` repeats the latest base fee; full nodes may not serve historical state | Range and rate limits of each configured provider; whether the signer's reconciliation, which reads balances before and after the trade's block, works on each provider; every RPC error class seen |
+| Wallet behavior | MetaMask and OKX adding Monad Testnet (an https RPC, unlike the fork), switching, gas sponsorship relays, EIP-7702 delegations | The owner mints, deposits and withdraws on testnet with MetaMask and with OKX through the web app; record every prompt, relay and failure. The full matrix stays in W-1 |
+| Entropy delivery | The fork impersonates Entropy; on testnet Pyth's provider delivers | For every testnet reveal: time from request to callback, the fee paid, and whether any request needed the one-hour re-request |
+| Event indexing | Speculative `latest` blocks, reorgs and provider lag | The indexer's lag from a transaction's block to its row, any reorg it reports, and whether its 2 confirmations on `latest` are enough or it should follow `safe` |
+| Clock | Block timestamps against the wall clock, which the 120-second deadline and staleness bounds depend on | The skew between the wall clock and block timestamps over the run |
+| Explorer verification | Sourcify and Monadscan accept our compiler settings and Monad's sizes | Every contract verified, or the failure recorded with its message |
+
+**ACCEPTANCE TESTS.**
+
+1. Every D-248 fact re-checked at the start, and every deployed address has code of the expected size on its chain.
+2. The testnet state assertion and the canary state assertion pass, and both report the `p2ec` salts; no P2-EC contract sits at an address derived from the plan's `v1` salts.
+3. On testnet: a mint with a signed claim from the control API creates the agent and its Tokenbound account; the keeper's real Entropy request is answered by Pyth and the reveal is applied; the indexer, the API and the web app show the agent.
+4. On testnet: the owner's wallet creates a PersonalAccount, deposits test USDC through the web app and withdraws it; a deposit while `TestnetFeed`'s USDC/USD answer is stale or 2% off is refused with its reason.
+5. On testnet with Q-48 option A: a swap through P2-U6's trade flow reaches reconciled in the outbox with a balanced ledger entry, and a limit-breaking proposal is blocked with its reason. With option B this test is replaced by the mainnet canary alone.
+6. On mainnet: the canary's swaps are submitted by the signer, executed by the Executor on the real pool, reconciled into the canary ledger, and visible with verified source on a Monad block explorer; the oversized buy is refused before signing; after the guardian's pause a swap is refused and the withdrawal works; at the end every canary key and the account hold no USDC and no more than dust MON.
+7. Every contract deployed on either chain is verified on Sourcify (and on Monadscan when a key was provided).
+8. Each local-only feature in the table above was tried on testnet and refused.
+9. `evidence/p2-ec/REAL_CHAIN.md` has a measured value for every row of the checklist, and every difference that needed a fix has a lesson.
+10. The full unit suites still pass on the fork, and no secret, key or keyed RPC URL appears in any log, evidence file or commit.
+
+**HOW THE OWNER TESTS IT.** On testnet, with MetaMask and then OKX: open the testnet web app, mint, wait for the reveal, open My Agents, deposit a few test USDC and withdraw them; with Q-48 option A, arm the agent and watch a trade settle. Open the testnet AgentNFT, AccountFactory and Executor on MonadVision and check the verified source. On mainnet: run `pnpm canary:mainnet`, then open each canary transaction on MonadVision or Monadscan and check the swap's amounts against the canary ledger, and that the account and every canary key end empty. Read `evidence/p2-ec/REAL_CHAIN.md`.
+
+**OWNER PREREQUISITES.**
+
+- Answers to Q-48 (testnet swaps), Q-49 (canary size) and Q-50 (canary owner wallet).
+- A keyed Monad testnet RPC endpoint as `MONAD_TESTNET_RPC_URL`, and ideally a second one from another provider as `MONAD_TESTNET_RPC_URL_SECONDARY`; the keyed mainnet RPC already in `.env` serves the canary.
+- Testnet wallets and keys in `.env`, none reused from local and none an anvil key: `TESTNET_DEPLOYER_PRIVATE_KEY`, `TESTNET_GUARDIAN_PRIVATE_KEY`, `TESTNET_SENTINEL_PRIVATE_KEY`, a testnet `CLAIM_SIGNER_PRIVATE_KEY`, `REVEAL_KEEPER_PRIVATE_KEY`, `FUNDING_ADDRESS_SEED`, and `TESTNET_FEED_PRIVATE_KEY` for `TestnetFeed`; optionally `TESTNET_ADMIN_SAFE_ADDRESS`.
+- Testnet MON from https://faucet.monad.xyz for the deployer, the keeper and the funding addresses: about 20 MON to start (the deployments, the 0.128 MON Entropy fee per reveal batch, gas for funding addresses and session keys); the unit measures the real figure.
+- Testnet USDC from Circle's faucet (https://faucet.circle.com, Monad Testnet): about 40 USDC across the owner's test wallets for deposits and, with Q-48 option A, the pool's liquidity.
+- Mainnet canary keys in `.env`: `CANARY_OWNER_PRIVATE_KEY` (Q-50 option A), `CANARY_GUARDIAN_PRIVATE_KEY`, `CANARY_SESSION_PRIVATE_KEY`, each a fresh key used nowhere else.
+- A little mainnet MON for gas: about 10 MON in total (at 102 gwei and about 0.026 USD per MON on 2026-10-07, a 1.1M-gas swap costs about 0.11 MON and all canary deployments together a few MON).
+- About 5 USDC on mainnet for the canary (about 50 with Q-49 option B), sent to the canary owner.
+- Optionally an Etherscan API v2 key for Monadscan verification (`ETHERSCAN_API_KEY`); Sourcify needs none.
+- The MetaMask and OKX extensions with a Monad Testnet network added from the web app's prompt.
 
 ### Phase 3: Planning and research
 
@@ -494,61 +618,62 @@ The "Hackathon beta" column is the cut line. **Full** ships as specified in Pass
 | 23 | 5 | P2-U5 | Chain tools server | Intents, never calldata; limits read from the Executor | P2-U4, P1-U7 | Thin: quote, swap intent, balance, bounds read from the Executor, reservations, rejection codes. W-2: `read_contract`, `get_code` and the rest of `FINAL_PLAN.md > 4.4.2` |
 | 24 | 5 | P2-U6 | Trade flow | Arming, automatic trades, settlement after receipt, reasons | P2-U5 | Full |
 | 25 | 5 | P2-U7 | Portfolio UI | Positions, history, deposit and withdraw, cards, blocked-trade reasons | P2-U6 | Thin: deposit, withdraw, position, the arming card, blocked-trade reasons. W-6: trade history and PnL views |
-| | | Playtest 2-end | | The Phase 2 checkpoint in the web app on testnet and the fork | after P2-U7 | |
-| 26 | 6 | P3-U1 | Goals form and goal translator | Structured input to template parameters | P2-U6 | Thin: template, risk preset, allowed assets, the deterministic translator, the epoch bump. W-2: model choice and credit settings |
-| 27 | 6 | P3-U2 | Data tools server | Metered, sanitized external reads | P1-U7 | Thin: the data tools the demo's skills declare plus `web_search` and `read_url`. W-2: the tools of all nine skills. After PB-U2: `ohlcv`, `hypersync_events`, the premium set |
-| 28 | 6 | P3-U3 | Strategy templates and tool registry | Templates with bounds; every registry ID live | P2-U5, P3-U2 | Thin: `rebalance_bands@1` and the registry wiring. W-2: `dca@1` |
-| 29 | 6 | P3-U7 | Launch skills as built-in folders | Nine skills mounted and selectable | P3-U3, P1-U1 | Thin: the skills the demo uses, with B-01. W-1: all nine with B-02 and H-44 (a launch gate if the nine ship) |
-| 30 | 6 | P3-U4 | Discovery loop | Five stages as separate runs | P3-U3, P3-U7, P1-U7 | Thin: Scan, one Dive and Zoom out; absorbs P1-U8 (the scheduled Scan spends credits, writes a feed entry, stops at zero credits, and the dev console can trigger it; D-160). W-2: Challenge, Test, a second Dive. After PB-U2: H-42 and H-43 documented |
+| 26 | 5 | P2-EC | Early chain check | Throwaway testnet deployment and a labeled mainnet canary swap; measure where the fork and the real chains differ | P2-U7 | Pre-beta check: nothing it deploys is kept (D-247, D-249) |
+| | | Playtest 2-end | | The Phase 2 checkpoint in the web app on P2-EC's testnet deployment and the fork | after P2-EC | |
+| 27 | 6 | P3-U1 | Goals form and goal translator | Structured input to template parameters | P2-U6 | Thin: template, risk preset, allowed assets, the deterministic translator, the epoch bump. W-2: model choice and credit settings |
+| 28 | 6 | P3-U2 | Data tools server | Metered, sanitized external reads | P1-U7 | Thin: the data tools the demo's skills declare plus `web_search` and `read_url`. W-2: the tools of all nine skills. After PB-U2: `ohlcv`, `hypersync_events`, the premium set |
+| 29 | 6 | P3-U3 | Strategy templates and tool registry | Templates with bounds; every registry ID live | P2-U5, P3-U2 | Thin: `rebalance_bands@1` and the registry wiring. W-2: `dca@1` |
+| 30 | 6 | P3-U7 | Launch skills as built-in folders | Nine skills mounted and selectable | P3-U3, P1-U1 | Thin: the skills the demo uses, with B-01. W-1: all nine with B-02 and H-44 (a launch gate if the nine ship) |
+| 31 | 6 | P3-U4 | Discovery loop | Five stages as separate runs | P3-U3, P3-U7, P1-U7 | Thin: Scan, one Dive and Zoom out; absorbs P1-U8 (the scheduled Scan spends credits, writes a feed entry, stops at zero credits, and the dev console can trigger it; D-160). W-2: Challenge, Test, a second Dive. After PB-U2: H-42 and H-43 documented |
 | | | Playtest 3-mid | | One cycle in the terminal, every stage ending in its tool call, cost recorded | after P3-U4 | |
-| 31 | 6 | P3-U6 | Parameter proposals | Bounded parameter changes with approval | P3-U4 | Thin: the evaluator and states in full on the `write_thesis` stub, approval through a card on the portfolio page; a rejected out-of-bounds proposal is the demo's rejected candidate |
+| 32 | 6 | P3-U6 | Parameter proposals | Bounded parameter changes with approval | P3-U4 | Thin: the evaluator and states in full on the `write_thesis` stub, approval through a card on the portfolio page; a rejected out-of-bounds proposal is the demo's rejected candidate |
 | | | Playtest 3-end | | The Phase 3 checkpoint in the web app | after P3-U6 | |
-| 32 | 7 | P5-U1 | Directory, build cards, agent profile page, IdentityBinder | Discoverable agents with a public profile and ERC-8004 identity | P3-U4, P2-U7, P1-U3 | Thin: the profile page with the activity feed and "why the agent did not trade". W-6: build cards, `directory_search`. After PB-U2: the research board (with P3-U5), IdentityBinder |
-| 33 | 7 | P4-U2 | Risk Sentinel service | Deterministic watcher with its own tighten-only key | P2-U6, P2-U4, P2-U3 | Thin: the sentinel key's permissions in full (tighten only, never unpause); detection of stale feeds, drawdown and zero credits. W-1: signer health, gas, unknown submission, mandate expiry, the full drill list |
+| 33 | 7 | P5-U1 | Directory, build cards, agent profile page, IdentityBinder | Discoverable agents with a public profile and ERC-8004 identity | P3-U4, P2-U7, P1-U3 | Thin: the profile page with the activity feed and "why the agent did not trade". W-6: build cards, `directory_search`. After PB-U2: the research board (with P3-U5), IdentityBinder |
+| 34 | 7 | P4-U2 | Risk Sentinel service | Deterministic watcher with its own tighten-only key | P2-U6, P2-U4, P2-U3 | Thin: the sentinel key's permissions in full (tighten only, never unpause); detection of stale feeds, drawdown and zero credits. W-1: signer health, gas, unknown submission, mandate expiry, the full drill list |
 | | | Playtest 4-mid | | Simulated price drop and stalled feed trip the sentinel on the fork, exits still work, terminal | after P4-U2 | |
-| 34 | 8 | P6-U2 | SkillNFT, registries, BuildRegistry | Skill ownership, versions, active builds | P1-U3 | Thin: SkillNFT, SkillRegistry, PublisherRegistry and BuildRegistry in full. After PB-U2: WorkflowNFT, a separate contract |
-| 35 | 8 | P6-U3 | Skill packaging, privacy and loader | Validate, hash, sign, encrypt, mount only the active build | P6-U2, P1-U5 | Thin: validator, hash, signing, and the loader that mounts exactly the active build and refuses tampered or revoked versions; skill content is never served to owners or other users. W-1: B-04. After PB-U2: envelope encryption and the key broker (D-161) |
+| 35 | 8 | P6-U2 | SkillNFT, registries, BuildRegistry | Skill ownership, versions, active builds | P1-U3 | Thin: SkillNFT, SkillRegistry, PublisherRegistry and BuildRegistry in full. After PB-U2: WorkflowNFT, a separate contract |
+| 36 | 8 | P6-U3 | Skill packaging, privacy and loader | Validate, hash, sign, encrypt, mount only the active build | P6-U2, P1-U5 | Thin: validator, hash, signing, and the loader that mounts exactly the active build and refuses tampered or revoked versions; skill content is never served to owners or other users. W-1: B-04. After PB-U2: envelope encryption and the key broker (D-161) |
 | | | Playtest 6-mid | | Mint a skill NFT on testnet, equip, activate a build, the loader mounts exactly that skill, terminal | after P6-U3 | |
-| 36 | 8 | P6-U4 | Audit pipeline and creator upload service | Block what must be blocked; accept invited uploads | P6-U3 | Thin: F1 to F8, S1 to S15 automated; human review is the owner's approval. W-4: L1 to L8, the dynamic test as a sandbox load with canaries and an egress log check. After PB-U2: appeals, continuous re-checks |
-| 37 | 8 | P6-U5 | Launch skills as NFTs and premium data | Nine skills listed; pro data gated | P6-U4, P3-U7 | Thin: three skills published. W-4: the other six. After PB-U2: the premium data set |
-| 38 | 8 | P6-U1 | 3D asset pipeline | Species models and parts on P1-U11's sockets, thumbnails | P1-U11 | Thin: the pro species models, one part model and the generic part. W-3: the other species models, the other part models, thumbnails |
-| 39 | 8 | P6-U6 | Configure page | P1-U11's portal wired to BuildRegistry | P6-U5, P6-U1, P1-U11 | Thin: click-to-equip one skill, activate the build, proposed and active builds distinct. W-3: capability deltas and build history as lists, the embedded goal form. After PB-U2: drag-equip |
+| 37 | 8 | P6-U4 | Audit pipeline and creator upload service | Block what must be blocked; accept invited uploads | P6-U3 | Thin: F1 to F8, S1 to S15 automated; human review is the owner's approval. W-4: L1 to L8, the dynamic test as a sandbox load with canaries and an egress log check. After PB-U2: appeals, continuous re-checks |
+| 38 | 8 | P6-U5 | Launch skills as NFTs and premium data | Nine skills listed; pro data gated | P6-U4, P3-U7 | Thin: three skills published. W-4: the other six. After PB-U2: the premium data set |
+| 39 | 8 | P6-U1 | 3D asset pipeline | Species models and parts on P1-U11's sockets, thumbnails | P1-U11 | Thin: the pro species models, one part model and the generic part. W-3: the other species models, the other part models, thumbnails |
+| 40 | 8 | P6-U6 | Configure page | P1-U11's portal wired to BuildRegistry | P6-U5, P6-U1, P1-U11 | Thin: click-to-equip one skill, activate the build, proposed and active builds distinct. W-3: capability deltas and build history as lists, the embedded goal form. After PB-U2: drag-equip |
 | | | Playtest 6-end | | Equip a skill on the 3D configure page, activate, see it used, unequip | after P6-U6 | |
-| 40 | 8 | P8-U1 | AgentEscrow and item escrow | Every sale of an agent, skill or workflow | P6-U2, P7-U1 | Thin: the item escrow contract in full (primary and secondary sales). After PB-U2: agent `list`, `cancel` and `buy`; the AgentNFT escrow address stays unset until then |
-| 41 | 8 | P8-U2 | Marketplace and creator portal | Listings, sales, creator flows | P8-U1, P6-U4 | Thin: creator upload with findings and status, the marketplace grid, skill detail, primary purchase. W-4: resale listing, art upload. After PB-U2: appeals, the earnings dashboard, derived labels |
+| 41 | 8 | P8-U1 | AgentEscrow and item escrow | Every sale of an agent, skill or workflow | P6-U2, P7-U1 | Thin: the item escrow contract in full (primary and secondary sales). After PB-U2: agent `list`, `cancel` and `buy`; the AgentNFT escrow address stays unset until then |
+| 42 | 8 | P8-U2 | Marketplace and creator portal | Listings, sales, creator flows | P8-U1, P6-U4 | Thin: creator upload with findings and status, the marketplace grid, skill detail, primary purchase. W-4: resale listing, art upload. After PB-U2: appeals, the earnings dashboard, derived labels |
 | | | Playtest 8-mid | | A creator uploads a custom skill, it passes the pipeline, is listed, bought and equipped on testnet | after P8-U2 | |
-| 42 | 9 | P7-U1 | StrategyVault core | The public vault | P2-U1, P2-U3 | Full; mainnet target with a labeled testnet fallback (D-162) |
-| 43 | 9 | P7-U2 | Vault Executor integration and backstops | Trading for vault accounts with independent backstops | P7-U1, P2-U2 | Full |
+| 43 | 9 | P7-U1 | StrategyVault core | The public vault | P2-U1, P2-U3 | Full; mainnet target with a labeled testnet fallback (D-162) |
+| 44 | 9 | P7-U2 | Vault Executor integration and backstops | Trading for vault accounts with independent backstops | P7-U1, P2-U2 | Full |
 | | | Playtest 7-mid | | Deposit, vault swap, USDC exit and `redeemInKind` on the fork by script, with everything else etched to revert | after P7-U2 | |
-| 44 | 9 | P7-U3 | Vault invariant and spike suite | Offline exit and accounting proofs | P7-U2 | Thin: M-13, M-01 to M-03, M-07 to M-12, M-24, MV-S1, MV-S3 and MV-S8. Before P9-U3: M-34 and M-31 |
-| 45 | 9 | P7-U4 | AccountFactory, caps, allowlists and vault UI | Deploy, cap, allowlist, assert, show | P7-U3 | Thin: the factory, caps and allowlists in full; the deposit and withdraw modal with the in-kind option and the beta label. W-6: top-up lock warnings and the rest of the modal |
+| 45 | 9 | P7-U3 | Vault invariant and spike suite | Offline exit and accounting proofs | P7-U2 | Thin: M-13, M-01 to M-03, M-07 to M-12, M-24, MV-S1, MV-S3 and MV-S8. Before P9-U3: M-34 and M-31 |
+| 46 | 9 | P7-U4 | AccountFactory, caps, allowlists and vault UI | Deploy, cap, allowlist, assert, show | P7-U3 | Thin: the factory, caps and allowlists in full; the deposit and withdraw modal with the in-kind option and the beta label. W-6: top-up lock warnings and the rest of the modal |
 | | | Playtest 7-end | | Deposit into another wallet's vault, withdraw both ways | after P7-U4 | |
-| 46 | 10 | P5-U3 | Signal feed | Post-settlement publication, delayed free, real-time priced | P5-U1 | Thin: the priced real-time feed after settlement, on testnet. After PB-U2: the delayed free feed |
-| 47 | 10 | P5-U4 | x402 payer and first purchases | One real capped purchase cycle | P5-U3, P2-U4 | Full, on testnet, labeled (D-162) |
+| 47 | 10 | P5-U3 | Signal feed | Post-settlement publication, delayed free, real-time priced | P5-U1 | Thin: the priced real-time feed after settlement, on testnet. After PB-U2: the delayed free feed |
+| 48 | 10 | P5-U4 | x402 payer and first purchases | One real capped purchase cycle | P5-U3, P2-U4 | Full, on testnet, labeled (D-162) |
 | | | Playtest 5-mid | | One agent buys another's signal on testnet, delivery and receipt in the terminal | after P5-U4 | |
-| | | Rehearsal | | PB-U1 run against testnet: AgentNFT deployed to testnet (D-193), guard on, caps, labels, every beta item end to end; the fallback submission if mainnet slips (D-162) | after P5-U4 | |
+| | | Rehearsal | | PB-U1 run against testnet: a fresh AgentNFT and trading stack on testnet with their own salts, not P2-EC's (D-193 as amended by D-249), guard on, caps, labels, every beta item end to end, with P2-EC's lessons applied; the fallback submission if mainnet slips (D-162) | after P5-U4 | |
 
-Step 1 proves the runtime and 1b runs the venue and oracle spikes early, because their results can change the asset list and the oracle rule. Step 2 tunes the design system before any Phase 1 page. Steps 3 to 10 complete beta items 1 and 2 (step 3 and 4), 4 with a blocked action (step 5), 3 and 4 (step 6), 6 with the safety shots (step 7), 5 and 9 (step 8), 7 (step 9) and 8 (step 10). The order of steps 8 to 10 follows the cut order in section 7.2 reversed, so the items cut last are built first.
+Step 1 proves the runtime and 1b runs the venue and oracle spikes early, because their results can change the asset list and the oracle rule. Step 2 tunes the design system before any Phase 1 page. P2-EC sits at the end of step 5: it completes no beta item and checks the real chains before more is built on the fork. Steps 3 to 10 complete beta items 1 and 2 (step 3 and 4), 4 with a blocked action (step 5), 3 and 4 (step 6), 6 with the safety shots (step 7), 5 and 9 (step 8), 7 (step 9) and 8 (step 10). The order of steps 8 to 10 follows the cut order in section 7.2 reversed, so the items cut last are built first.
 
 ### 4.2 Pass 2: widening, before mainnet PB-U1
 
 | # | Session | Name | What it adds | Depends on |
 |---|---|---|---|---|
-| 48 | W-1 | Beta gates | Everything that gates PB-U1: the deferred P1-U1 spikes (H-01, H-04, H-05, H-09, H-12, H-13, H-16, H-21, H-22, H-28, H-33, H-39, H-40, MK-S1a and the B-04 marker leak table; D-163), P2-U0's fork fidelity and EIP-1153, the P1-U6 settlement sweep, P2-U4's per-tier gas caps, P3-U7's nine skills with B-02 and H-44 if the nine ship, P4-U2's remaining detectors and drills, B-04 for P6-U3; the wallet compatibility test on testnet (D-196): MetaMask with smart accounts off and on (with an EIP-7702 delegation), OKX alone, MetaMask and OKX installed together, and one WalletConnect mobile wallet, each through connect, the network check, every switch outcome (and, for OKX, adding the network or the manual steps when it refuses), switching accounts in the wallet while logged in (the session ends and the new account logs in afresh, D-224), a mint that appears in the portal, a gas-sponsored send detected or explained, and a clean console (`LESSONS.md > Wallets and networks: read first`) | the Rehearsal |
-| 49 | W-2 | Research | P3-U4's Challenge and Test stages and second Dive, P3-U1's model choice and credit settings, P3-U2's tools for all nine skills, P3-U3's `dca@1`, P2-U5's remaining chain tools | W-1 |
-| 50 | W-3 | 3D and portal | P1-U11's walk-in and hover sequence and GLB size work, P6-U1's other parts and thumbnails, P6-U6's capability deltas, build history and embedded goal form | W-2 |
-| 51 | W-4 | Creator | P6-U4's L1 to L8 and dynamic test, P6-U5's other six skills, P8-U2's resale listing and art upload | W-3 |
-| 52 | W-5 | Credits and runtime | P1-U6's sandbox and gas metering and gas top-up, P1-U5's export and restore, token rotation and console reset, P1-U4's guardian handlers and console agents panel, P1-U7's MK-K01 fuzz | W-4 |
-| 53 | W-6 | Extras | P1-U9's spend breakdown and pause, P2-U7's history and PnL, P5-U1's build cards and `directory_search`, P7-U4's top-up warnings and modal polish | W-5 |
-| 54 | W-7 | Load and capacity | Tests the design targets of 100,000 users and 1,000 active agents (D-177): concurrent agent cycles against E2B's concurrent sandbox limit (Q-44) and LiteLLM rate limits, database load, and API read traffic; confirms no component assumes a single machine or process. Redesigns credit metering, which polls LiteLLM's spend log for every provisioned agent every 2 seconds (P1-U6) and cannot scale to 1,000 agents: spend webhooks or one batched read per pass. Also the Scan scheduler's per-agent check (D-216), and My Agents, which opens one owner session per agent and polls each card every few seconds (D-218): one session for all of a wallet's agents and a push channel | W-6 |
+| 49 | W-1 | Beta gates | Everything that gates PB-U1: the deferred P1-U1 spikes (H-01, H-04, H-05, H-09, H-12, H-13, H-16, H-21, H-22, H-28, H-33, H-39, H-40, MK-S1a and the B-04 marker leak table; D-163), P2-U0's fork fidelity and EIP-1153, the P1-U6 settlement sweep, P2-U4's per-tier gas caps, P3-U7's nine skills with B-02 and H-44 if the nine ship, P4-U2's remaining detectors and drills, B-04 for P6-U3; the wallet compatibility test on testnet (D-196): MetaMask with smart accounts off and on (with an EIP-7702 delegation), OKX alone, MetaMask and OKX installed together, and one WalletConnect mobile wallet, each through connect, the network check, every switch outcome (and, for OKX, adding the network or the manual steps when it refuses), switching accounts in the wallet while logged in (the session ends and the new account logs in afresh, D-224), a mint that appears in the portal, a gas-sponsored send detected or explained, and a clean console (`LESSONS.md > Wallets and networks: read first`) | the Rehearsal |
+| 50 | W-2 | Research | P3-U4's Challenge and Test stages and second Dive, P3-U1's model choice and credit settings, P3-U2's tools for all nine skills, P3-U3's `dca@1`, P2-U5's remaining chain tools | W-1 |
+| 51 | W-3 | 3D and portal | P1-U11's walk-in and hover sequence and GLB size work, P6-U1's other parts and thumbnails, P6-U6's capability deltas, build history and embedded goal form | W-2 |
+| 52 | W-4 | Creator | P6-U4's L1 to L8 and dynamic test, P6-U5's other six skills, P8-U2's resale listing and art upload | W-3 |
+| 53 | W-5 | Credits and runtime | P1-U6's sandbox and gas metering and gas top-up, P1-U5's export and restore, token rotation and console reset, P1-U4's guardian handlers and console agents panel, P1-U7's MK-K01 fuzz | W-4 |
+| 54 | W-6 | Extras | P1-U9's spend breakdown and pause, P2-U7's history and PnL, P5-U1's build cards and `directory_search`, P7-U4's top-up warnings and modal polish | W-5 |
+| 55 | W-7 | Load and capacity | Tests the design targets of 100,000 users and 1,000 active agents (D-177): concurrent agent cycles against E2B's concurrent sandbox limit (Q-44) and LiteLLM rate limits, database load, and API read traffic; confirms no component assumes a single machine or process. Redesigns credit metering, which polls LiteLLM's spend log for every provisioned agent every 2 seconds (P1-U6) and cannot scale to 1,000 agents: spend webhooks or one batched read per pass. Also the Scan scheduler's per-agent check (D-216), and My Agents, which opens one owner session per agent and polls each card every few seconds (D-218): one session for all of a wallet's agents and a push channel | W-6 |
 
 ### 4.3 Beta deployment and submission
 
 | # | Unit | Name | One-line goal | Depends on | Hackathon beta |
 |---|---|---|---|---|---|
-| 55 | PB-U1 | Beta guard and mainnet beta deployment | Allowlists, caps, label, manifests, assertion, kill switch, alerts, canary | every Pass 1 unit and W-1 to W-7 | Full |
+| 56 | PB-U1 | Beta guard and mainnet beta deployment | Allowlists, caps, label, manifests, assertion, kill switch, alerts, canary | every Pass 1 unit and W-1 to W-7 | Full |
 | | Playtest B | | The beta dry run on mainnet by the founders, then by the allowlisted testers | after PB-U1, before PB-U2 | |
-| 56 | PB-U2 | Hackathon submission deliverables | Repo access, videos, link, logo, evidence bundle labeled beta | PB-U1 | Full |
+| 57 | PB-U2 | Hackathon submission deliverables | Repo access, videos, link, logo, evidence bundle labeled beta | PB-U1 | Full |
 
 ### 4.4 After the beta
 
@@ -556,40 +681,40 @@ The completion pass builds every Cut unit and every "after PB-U2" remainder in p
 
 | # | Unit | Name | One-line goal | Depends on | Stage |
 |---|---|---|---|---|---|
-| 57 | P2-U8 | Chain adapter interface and conformance suite | The seam the Solana branch implements | P2-U5 | Completion pass |
-| 58 | P3-U5 | Thesis Board | Research memory on the platform | P3-U4 | Cut from the beta (D-160); the `write_thesis` stub stands in |
-| 59 | P4-U1 | Workflow runner and portfolio coordinator | Declarative routines with reservations | P3-U6 | Completion pass |
-| 60 | P4-U3 | Built-in workflows | Rebalancer, Recurring Buys, parameter review, guardrail rule | P4-U1, P4-U2 | Completion pass |
-| 61 | P4-U4 | CFO dashboard | Net worth, goal progress, approvals, emergency view | P4-U3 | Completion pass |
-| 62 | P4-U5 | Reports | Narrator reports from ledger data | P4-U4 | Completion pass |
-| 63 | P4-U6 | Tax lot ledger | Personal cost basis and export | P2-U6 | Completion pass |
-| 64 | P4-U7 | Notifications | Alerts for the events that matter | P4-U4 | Completion pass |
-| 65 | P4-U8 | Workflows page | Installed workflows, triggers, approval modes | P4-U3 | Completion pass |
-| 66 | P5-U2 | Structured agent messages | Fixed message types, untrusted handling | P5-U1 | Cut from the beta (D-160) |
-| 67 | P5-U5 | Buyer agent | A skeptical evaluator with a budget | P5-U4 | Completion pass |
-| 68 | P5-U6 | Trial and renewal | Net value after costs, renew or cancel | P5-U5 | Completion pass |
-| 69 | P5-U7 | Value report | Pricing and product evidence, labeled simulated | P5-U6 | Completion pass |
-| 70 | P7-U5 | Watchers and demand signals | Free follows with anti-gaming | P5-U1 | Completion pass |
-| 71 | P7-U6 | Leaderboard | Honest ranking | P7-U5 | Completion pass |
-| 72 | P7-U7 | Agent gallery | Public grid of build cards | P5-U1 | Cut from the beta (D-160) |
-| 73 | P8-U3 | Agent sale flow end to end | Old owner loses everything but PersonalAccount funds | P8-U1 | Completion pass |
-| 74 | P8-U4 | Agent economy for users | Signal purchases for users' agents on mainnet configuration | P5-U4, P8-U2 | Cut from the beta (D-160) |
+| 58 | P2-U8 | Chain adapter interface and conformance suite | The seam the Solana branch implements | P2-U5 | Completion pass |
+| 59 | P3-U5 | Thesis Board | Research memory on the platform | P3-U4 | Cut from the beta (D-160); the `write_thesis` stub stands in |
+| 60 | P4-U1 | Workflow runner and portfolio coordinator | Declarative routines with reservations | P3-U6 | Completion pass |
+| 61 | P4-U3 | Built-in workflows | Rebalancer, Recurring Buys, parameter review, guardrail rule | P4-U1, P4-U2 | Completion pass |
+| 62 | P4-U4 | CFO dashboard | Net worth, goal progress, approvals, emergency view | P4-U3 | Completion pass |
+| 63 | P4-U5 | Reports | Narrator reports from ledger data | P4-U4 | Completion pass |
+| 64 | P4-U6 | Tax lot ledger | Personal cost basis and export | P2-U6 | Completion pass |
+| 65 | P4-U7 | Notifications | Alerts for the events that matter | P4-U4 | Completion pass |
+| 66 | P4-U8 | Workflows page | Installed workflows, triggers, approval modes | P4-U3 | Completion pass |
+| 67 | P5-U2 | Structured agent messages | Fixed message types, untrusted handling | P5-U1 | Cut from the beta (D-160) |
+| 68 | P5-U5 | Buyer agent | A skeptical evaluator with a budget | P5-U4 | Completion pass |
+| 69 | P5-U6 | Trial and renewal | Net value after costs, renew or cancel | P5-U5 | Completion pass |
+| 70 | P5-U7 | Value report | Pricing and product evidence, labeled simulated | P5-U6 | Completion pass |
+| 71 | P7-U5 | Watchers and demand signals | Free follows with anti-gaming | P5-U1 | Completion pass |
+| 72 | P7-U6 | Leaderboard | Honest ranking | P7-U5 | Completion pass |
+| 73 | P7-U7 | Agent gallery | Public grid of build cards | P5-U1 | Cut from the beta (D-160) |
+| 74 | P8-U3 | Agent sale flow end to end | Old owner loses everything but PersonalAccount funds | P8-U1 | Completion pass |
+| 75 | P8-U4 | Agent economy for users | Signal purchases for users' agents on mainnet configuration | P5-U4, P8-U2 | Cut from the beta (D-160) |
 | | Playtest 4-end, 5-end, 7-end, 8-end | | Each phase's end-of-phase checkpoint once the phase is complete | after the phase's last unit | |
-| 75 | P9-U1 | Safety modes and emergency reserve | Agent states, account modes and a funded emergency path | P4-U2 | Public launch |
-| 76 | P9-U2 | Monitoring, kill switch, runbooks, fixtures | Operate it safely | P8-U3, P7-U4 | Public launch |
+| 76 | P9-U1 | Safety modes and emergency reserve | Agent states, account modes and a funded emergency path | P4-U2 | Public launch |
+| 77 | P9-U2 | Monitoring, kill switch, runbooks, fixtures | Operate it safely | P8-U3, P7-U4 | Public launch |
 | | Playtest 9-mid | | Drills and release fixtures in the terminal | after P9-U2 | |
-| 77 | P9-U3 | External reviews and legal gate | Independent eyes before public money | P9-U2 | Public launch |
-| 78 | P9-U4 | Public launch deployment and dry run | Allowlists off, caps raised, canary, founders' funds | P9-U3 | Public launch |
-| 79 | P9-U5 | Public deposits enablement | The recorded launch decision | P9-U4 | Public launch |
-| 80 | P9-U6 | Evidence bundle refresh | Evidence and README current for public launch | P9-U4, P5-U7 | Public launch |
+| 78 | P9-U3 | External reviews and legal gate | Independent eyes before public money | P9-U2 | Public launch |
+| 79 | P9-U4 | Public launch deployment and dry run | Allowlists off, caps raised, canary, founders' funds | P9-U3 | Public launch |
+| 80 | P9-U5 | Public deposits enablement | The recorded launch decision | P9-U4 | Public launch |
+| 81 | P9-U6 | Evidence bundle refresh | Evidence and README current for public launch | P9-U4, P5-U7 | Public launch |
 | | Playtest 9-end | | A full dry run on mainnet with the founders' funds before opening to anyone else | after P9-U5 | |
-| 81 | S-U1 | Solana probes | Metaplex, PDA, delegate, venue, feed facts | P2-U8 | Solana track |
-| 82 | S-U2 | Solana programs | Agent, custody, executor, vault, escrow | S-U1, P7-U3, P8-U1 | Solana track |
-| 83 | S-U3 | Identity and delegate restriction | Program-restricted delegate | S-U2 | Solana track |
-| 84 | S-U4 | Chain adapter, tools, indexer, payer | The Solana implementation of the seam | S-U2 | Solana track |
-| 85 | S-U5 | Conformance and launch approval | Independent Solana gate | S-U4, P9-U3 | Solana track |
+| 82 | S-U1 | Solana probes | Metaplex, PDA, delegate, venue, feed facts | P2-U8 | Solana track |
+| 83 | S-U2 | Solana programs | Agent, custody, executor, vault, escrow | S-U1, P7-U3, P8-U1 | Solana track |
+| 84 | S-U3 | Identity and delegate restriction | Program-restricted delegate | S-U2 | Solana track |
+| 85 | S-U4 | Chain adapter, tools, indexer, payer | The Solana implementation of the seam | S-U2 | Solana track |
+| 86 | S-U5 | Conformance and launch approval | Independent Solana gate | S-U4, P9-U3 | Solana track |
 
-**Beta units in one list.** Full: P0-U1 to P0-U7, P1-U3, P2-U1, P2-U2, P2-U3, P2-U6, P5-U4 (testnet), P7-U1, P7-U2, PB-U1, PB-U2. Thin: P1-U1, P1-U2, P1-U4 to P1-U7, P1-U9 to P1-U11, P2-U0, P2-U4, P2-U5, P2-U7, P3-U1 to P3-U4, P3-U6, P3-U7, P4-U2, P5-U1, P5-U3, P6-U1 to P6-U6, P7-U3, P7-U4, P8-U1, P8-U2. Folded: P1-U8 into P3-U4. Cut: P3-U5, P5-U2, P7-U7, P8-U4, the landing half of P1-U10. Not in the beta: P2-U8, P4-U1, P4-U3 to P4-U8, P5-U5 to P5-U7, P7-U5, P7-U6, P8-U3, all of Phase 9, the Solana track.
+**Beta units in one list.** Full: P0-U1 to P0-U7, P1-U3, P2-U1, P2-U2, P2-U3, P2-U6, P5-U4 (testnet), P7-U1, P7-U2, PB-U1, PB-U2. Thin: P1-U1, P1-U2, P1-U4 to P1-U7, P1-U9 to P1-U11, P2-U0, P2-U4, P2-U5, P2-U7, P3-U1 to P3-U4, P3-U6, P3-U7, P4-U2, P5-U1, P5-U3, P6-U1 to P6-U6, P7-U3, P7-U4, P8-U1, P8-U2. Pre-beta check, deploying nothing the beta keeps: P2-EC. Folded: P1-U8 into P3-U4. Cut: P3-U5, P5-U2, P7-U7, P8-U4, the landing half of P1-U10. Not in the beta: P2-U8, P4-U1, P4-U3 to P4-U8, P5-U5 to P5-U7, P7-U5, P7-U6, P8-U3, all of Phase 9, the Solana track.
 
 ---
 
@@ -687,7 +812,7 @@ Every spike from the seven research runs, deduplicated. Source IDs are kept with
 | ZR-4r | Zero min-out (inverted) | Too-low `minAmountOut` reverts against the oracle check | Reverts | | P2-U2 |
 | ZR-5 | Same-block revoke | Revoke or epoch bump then a swap in the same block reverts | Reverts | | P2-U2 |
 | ZR-Z02 | Front-running a revocation | A higher-fee trade ordered first succeeds; the damage is bounded | Documented on testnet with real block building | | P2-U2 |
-| ZR-6A, ZR-6E, ZR-Z04 | Gas baseline, Executor overhead, testnet gas | Cost of the Executor path under Monad's gas model | Numbers recorded on fork and testnet | M-31 | P2-U2 |
+| ZR-6A, ZR-6E, ZR-Z04 | Gas baseline, Executor overhead, testnet gas | Cost of the Executor path under Monad's gas model | Numbers recorded on fork and testnet | M-31 | P2-U2 (fork); P2-EC (testnet and the mainnet canary) |
 | ZR-Z05 | No admin can change the recipient | Recipient derives from the account itself | Asserted structurally | | P2-U2 |
 | ZR-Z06 | Deadline and slippage checks with a mock oracle | Stale deadline and low min-out reject | Rejects; cost measured | | P2-U2 |
 | ZR-Z16 | Adversarial ports | ERC-1271-revert if contract signers ever exist; smuggling if batching ever exists | Each reverts | | P2-U2 |
@@ -702,7 +827,7 @@ Every spike from the seven research runs, deduplicated. Source IDs are kept with
 | M-29 | Pool manipulation | A flash swap moves the pool 20% but not NAV | NAV unchanged; deposit reverts on the band | | P2-U3 |
 | M-30 | Executor sandwich | Oracle floor bounds sandwiching | 0.4% front-run passes; 0.6% reverts | | P2-U2 |
 | M-35 | Circuit breaker peak basis | Which NAV and where, without false triggers | Chosen from replayed prices | | P2-U3 |
-| MK canary | Capped mainnet canary | The real signer, Executor and venue trade and exit on mainnet within caps | Receipts, fills, costs, accounting, exit and guard results | | PB-U1 (mainnet beta), P9-U4 (mainnet) |
+| MK canary | Capped mainnet canary | The real signer, Executor and venue trade and exit on mainnet within caps | Receipts, fills, costs, accounting, exit and guard results | | First run in P2-EC on a throwaway deployment (D-247); PB-U1 (mainnet beta), P9-U4 (mainnet) |
 
 ### 5.4 Vault
 
