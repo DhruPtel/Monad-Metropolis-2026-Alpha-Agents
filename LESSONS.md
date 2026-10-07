@@ -817,3 +817,31 @@ What happened: The mobile run of the new steer test counted 6 steers where it ma
 Cause: The console's fixture API is one process for the whole Playwright run, so steers created at 1440px were still there at 380px. This is L-15 again: state that persists across runs.
 Fix: The fixture has a test-only reset route; the steer test clears the steers before and after itself and counts only its pending steers (1b474bc). Two runs in a row matched.
 Lesson: A test that writes to a fixture shared across projects restores it, so no other test or capture depends on the order they run in.
+
+## L-104: A dust withdrawal could lower the value per unit
+Unit: P2-U3
+What happened: `testFuzz_FlowsNeverTripTheBreaker` failed on its first run: after a WMON withdrawal the account's value per unit was 0.99999998999 where it had been 1.0, with no price move, so flows could nudge the breaker toward a trip.
+Cause: The burn valued the withdrawn WMON on its own, `floor(out × price)`, while NAV floors the whole balance, `floor(balance × price)`. The fall in NAV can be one base unit more than the separately floored value, so a withdrawal worth "0" burned no units while NAV fell by one.
+Fix: The value that left is the exact fall in NAV, `value(freeAfter + out) − value(freeAfter)`, each side floored as NAV floors it, and the burn rounds up (3332888); 3,000 fuzz runs then passed, and the policy mirror does the same.
+Lesson: When one quantity is rounded per part and another over the whole, derive the part from the difference of wholes, and fuzz the invariant (here: flows never lower the value per unit) rather than the formula.
+
+## L-105: A mint's claim deadline came from the wall clock, not the fork's
+Unit: P2-U3
+What happened: `pnpm oracle:local demo` stopped with "transaction ... reverted" when it minted after moving its fork's clock 9 days through the factory's timelock.
+Cause: `mintLocal` set the claim deadline to the wall clock plus an hour; the fork's clock was now days ahead, so AgentNFT refused the claim as expired. Every earlier fork ran behind the wall clock, which hid it.
+Fix: The deadline is an hour after the later of the wall clock and the fork's latest block, and the demo mints before the time jump (53ddeef).
+Lesson: Anything that signs a deadline for a chain takes "now" from that chain, or from the later of the chain and the wall clock, never the wall clock alone.
+
+## L-106: pnpm dev:down stopped the playtest fork, and its state was lost
+Unit: P2-U3
+What happened: Before the heavy suites I ran `pnpm dev:down` to stop dev:all. It also stopped anvil, Postgres and Redis. Anvil keeps the fork's state only in memory, so the playtest fork's local state went with it: the AgentNFT deployment and the owner's agent #1 (the bee) on 8545. Postgres and Redis kept their volumes.
+Cause: `dev:down` stops the whole local environment, not only the services dev:all supervises; P2-U1 had stopped only the supervisor (L-85's method), and I did not read what `down` stops before running it.
+Fix: The fork was restarted and rebuilt as described in the P2-U3 LOGS entry. No code change.
+Lesson: Stop dev:all by signalling its supervisor (L-85), never with `dev:down`, while a playtest fork must be kept; read what a stop command stops before running it, because anvil's state does not survive a stop.
+
+## L-107: Two slips in the parity fixture, caught by the forge side
+Unit: P2-U3
+What happened: The first forge parity run failed twice: forge refused to decode the fixture because a struct field was named `now_` while the JSON key was `now`, and one random breaker sequence ended with a poke while its MON/USD feed was down, which the contract rightly refused.
+Cause: `vm.parseJsonTypeArray` matches struct fields to JSON keys by name, and the generator checked for a down feed before each random poke but not before the closing poke it appends.
+Fix: The key is `time` on both sides, and the generator brings the feed back up before its closing poke (2db1e50).
+Lesson: A generated fixture is only valid once the consumer has replayed all of it; keep every rule the generator enforces in one place, including for the steps it appends.
