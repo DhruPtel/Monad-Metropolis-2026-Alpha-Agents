@@ -4,6 +4,9 @@ import {
   DISPLAY_FLAGS,
   REJECTION_CODES,
   REJECTION_MESSAGES,
+  SIGNER_REASON_CODES,
+  SIGNER_REASON_MESSAGES,
+  TRANSACTION_STATES,
 } from "@alpha-agents/domain";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -21,6 +24,7 @@ import {
   AGENT_STATE_RENDERING,
   DISPLAY_FLAG_RENDERING,
   StatusPill,
+  TRANSACTION_STATE_RENDERING,
 } from "./status-pill";
 import { Button } from "./ui/button";
 import { Field, Input } from "./ui/input";
@@ -52,11 +56,35 @@ describe("StatusPill renders every canonical value from packages/domain", () => 
   });
 });
 
+describe("StatusPill renders every transaction state (P2-U4)", () => {
+  it("has a rendering for each state, and only red for failed", () => {
+    expect(Object.keys(TRANSACTION_STATE_RENDERING).sort()).toEqual([...TRANSACTION_STATES].sort());
+    const red = TRANSACTION_STATES.filter(
+      (s) => TRANSACTION_STATE_RENDERING[s].tone === "negative",
+    );
+    expect(red).toEqual(["failed"]);
+  });
+
+  it.each(TRANSACTION_STATES)("transaction state %s", (state) => {
+    render(<StatusPill kind="transaction" value={state} />);
+    expect(screen.getByText(TRANSACTION_STATE_RENDERING[state].label)).toHaveAttribute(
+      "title",
+      TRANSACTION_STATE_RENDERING[state].meaning,
+    );
+  });
+});
+
 describe("ReasonMessage renders every reason code from packages/domain", () => {
   it.each(REJECTION_CODES)("%s shows its owner-facing message and the code", (code) => {
     render(<ReasonMessage code={code} detail="detail line" />);
     expect(screen.getByText(REJECTION_MESSAGES[code])).toBeInTheDocument();
     expect(screen.getByText(`${code} · detail line`)).toBeInTheDocument();
+  });
+
+  it.each(SIGNER_REASON_CODES)("signer code %s shows its message and the code", (code) => {
+    render(<ReasonMessage code={code} />);
+    expect(screen.getByText(SIGNER_REASON_MESSAGES[code])).toBeInTheDocument();
+    expect(screen.getByText(code)).toBeInTheDocument();
   });
 
   it("covers the P0-U6 handover code", () => {

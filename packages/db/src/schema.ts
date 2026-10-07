@@ -256,16 +256,9 @@ export interface SignerKeyTable {
   updated_at: Timestamp;
 }
 
-export const SIGNER_STATUSES = [
-  "accepted",
-  "signed",
-  "submitted",
-  "unknown",
-  "confirmed",
-  "reconciled",
-  "failed",
-] as const;
-export type SignerStatus = (typeof SIGNER_STATUSES)[number];
+/** packages/domain's TRANSACTION_STATES (a signer test holds them equal, with the migration's check). */
+export type SignerStatus =
+  "accepted" | "signed" | "submitted" | "unknown" | "confirmed" | "reconciled" | "failed";
 
 /** One transaction in the signer's outbox (P2-U4). */
 export interface SignerOutboxTable {

@@ -19,7 +19,6 @@ import {
   CHAIN_PINS,
   MAX_FEE_PER_GAS_CAP,
   MAX_PRIORITY_FEE_CAP,
-  SIGNER_REFUSAL_MESSAGES,
   SWAP_GAS_LIMIT,
   type SignRequest,
   checkSignRequest,
@@ -72,16 +71,6 @@ export interface SignerOptions {
   readonly dropGraceMs?: number;
   readonly now?: () => Date;
 }
-
-export type SignerReasonCode =
-  | keyof typeof SIGNER_REFUSAL_MESSAGES
-  | "NO_SESSION_KEY"
-  | "BROADCAST_REJECTED"
-  | "NONCE_CONSUMED"
-  | "DROPPED"
-  | "RECONCILE_MISMATCH"
-  | "FENCED_OUT"
-  | string;
 
 export interface AcceptResult {
   readonly txId: string;

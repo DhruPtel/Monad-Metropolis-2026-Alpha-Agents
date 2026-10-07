@@ -1,9 +1,12 @@
+import { readFileSync } from "node:fs";
+import { SIGNER_REASON_CODES, TRANSACTION_STATES } from "@alpha-agents/domain";
 import { encodeFunctionData, type Hex } from "viem";
 import { describe, expect, it } from "vitest";
 import { ERC20_ABI, EXECUTOR_ABI, type SwapIntentArgs } from "./abi.ts";
 import {
   CHAIN_PINS,
   MAX_FEE_PER_GAS_CAP,
+  SIGNER_REFUSALS,
   MAX_PRIORITY_FEE_CAP,
   SWAP_GAS_LIMIT,
   type PolicyContext,
@@ -119,5 +122,23 @@ describe("the chain pin (P2-U4 item 4)", () => {
       }
       expect(code(req({ chainId: 1, data: swap(own) }), c)).toBe("CHAIN_NOT_PINNED");
     }
+  });
+});
+
+describe("one list of states and codes (P2-U4)", () => {
+  it("the outbox table allows exactly packages/domain's transaction states", () => {
+    const migration = readFileSync(
+      new URL("../../db/src/migrations/0008_signer.ts", import.meta.url),
+      "utf8",
+    );
+    const check = /status in \(([^)]*)\)/.exec(migration)?.[1] ?? "";
+    expect(check.split(",").map((s) => s.trim().replace(/'/g, ""))).toEqual([
+      ...TRANSACTION_STATES,
+    ]);
+  });
+
+  it("the signer's refusals are packages/domain's first nine signer codes", () => {
+    expect(SIGNER_REFUSALS).toEqual(SIGNER_REASON_CODES.slice(0, 9));
+    expect(SIGNER_REFUSALS).toContain("TARGET_NOT_ALLOWED");
   });
 });

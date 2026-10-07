@@ -1,4 +1,9 @@
 import { ENVIRONMENTS, type EnvironmentId } from "@alpha-agents/config";
+import {
+  SIGNER_REASON_CODES,
+  SIGNER_REASON_MESSAGES,
+  type SignerReasonCode,
+} from "@alpha-agents/domain";
 import { type Hex, decodeFunctionData, isAddressEqual, toFunctionSelector } from "viem";
 import { EXECUTOR_ABI, SWAP_INTENT_TUPLE, type SwapIntentArgs } from "./abi.ts";
 
@@ -31,31 +36,22 @@ export const MAX_PRIORITY_FEE_CAP = 10_000_000_000n;
 
 export const SWAP_SELECTOR = toFunctionSelector(`function swap(${SWAP_INTENT_TUPLE} i)`);
 
-/** Why the signer refused to sign. Distinct from the Executor's REJECTION_CODES. */
-export const SIGNER_REFUSALS = [
-  "CHAIN_NOT_PINNED",
-  "CONTRACT_CREATION",
-  "TARGET_NOT_ALLOWED",
-  "FUNCTION_NOT_ALLOWED",
-  "VALUE_NOT_ALLOWED",
-  "INTENT_MALFORMED",
-  "AGENT_MISMATCH",
-  "GAS_LIMIT_EXCEEDED",
-  "FEE_CAP_EXCEEDED",
-] as const;
-export type SignerRefusal = (typeof SIGNER_REFUSALS)[number];
-
-export const SIGNER_REFUSAL_MESSAGES: Readonly<Record<SignerRefusal, string>> = {
-  CHAIN_NOT_PINNED: "The transaction is for another chain than this environment's.",
-  CONTRACT_CREATION: "The signer never deploys contracts.",
-  TARGET_NOT_ALLOWED: "The signer signs calls to the Executor only.",
-  FUNCTION_NOT_ALLOWED: "The signer signs the Executor's swap only.",
-  VALUE_NOT_ALLOWED: "The signer never sends native value.",
-  INTENT_MALFORMED: "The swap's arguments do not decode.",
-  AGENT_MISMATCH: "The intent is for another agent or chain than the key's.",
-  GAS_LIMIT_EXCEEDED: "The gas limit is above the swap limit.",
-  FEE_CAP_EXCEEDED: "The fee per gas is above the cap.",
-};
+/** Why the signer refused to sign: the first nine of packages/domain's SIGNER_REASON_CODES. */
+export const SIGNER_REFUSALS = SIGNER_REASON_CODES.slice(0, 9) as readonly SignerRefusal[];
+export type SignerRefusal = Extract<
+  SignerReasonCode,
+  | "CHAIN_NOT_PINNED"
+  | "CONTRACT_CREATION"
+  | "TARGET_NOT_ALLOWED"
+  | "FUNCTION_NOT_ALLOWED"
+  | "VALUE_NOT_ALLOWED"
+  | "INTENT_MALFORMED"
+  | "AGENT_MISMATCH"
+  | "GAS_LIMIT_EXCEEDED"
+  | "FEE_CAP_EXCEEDED"
+>;
+export const SIGNER_REFUSAL_MESSAGES: Readonly<Record<SignerRefusal, string>> =
+  SIGNER_REASON_MESSAGES;
 
 /** A transaction the signer is asked to sign. */
 export interface SignRequest {

@@ -1,4 +1,10 @@
-import { type AccountMode, type AgentState, type DisplayFlag } from "@alpha-agents/domain";
+import {
+  type AccountMode,
+  type AgentState,
+  type DisplayFlag,
+  TRANSACTION_STATE_MEANINGS,
+  type TransactionState,
+} from "@alpha-agents/domain";
 import { Badge, type BadgeTone } from "./ui/badge";
 
 /**
@@ -62,10 +68,26 @@ export const DISPLAY_FLAG_RENDERING: Readonly<Record<DisplayFlag, Rendering>> = 
   exit_pending: { label: "Exit pending", tone: "detail", meaning: "A withdrawal is in progress" },
 };
 
+/** The signer's transaction states (P2-U4): failed is the only red; unknown waits on the chain. */
+export const TRANSACTION_STATE_RENDERING: Readonly<Record<TransactionState, Rendering>> = {
+  accepted: { label: "Accepted", tone: "neutral", meaning: TRANSACTION_STATE_MEANINGS.accepted },
+  signed: { label: "Signed", tone: "neutral", meaning: TRANSACTION_STATE_MEANINGS.signed },
+  submitted: { label: "Submitted", tone: "detail", meaning: TRANSACTION_STATE_MEANINGS.submitted },
+  unknown: { label: "Unknown", tone: "warning", meaning: TRANSACTION_STATE_MEANINGS.unknown },
+  confirmed: { label: "Confirmed", tone: "detail", meaning: TRANSACTION_STATE_MEANINGS.confirmed },
+  reconciled: {
+    label: "Reconciled",
+    tone: "positive",
+    meaning: TRANSACTION_STATE_MEANINGS.reconciled,
+  },
+  failed: { label: "Failed", tone: "negative", meaning: TRANSACTION_STATE_MEANINGS.failed },
+};
+
 type StatusPillProps =
   | { readonly kind: "account_mode"; readonly value: AccountMode }
   | { readonly kind: "agent_state"; readonly value: AgentState }
-  | { readonly kind: "display_flag"; readonly value: DisplayFlag };
+  | { readonly kind: "display_flag"; readonly value: DisplayFlag }
+  | { readonly kind: "transaction"; readonly value: TransactionState };
 
 function renderingFor(props: StatusPillProps): Rendering {
   switch (props.kind) {
@@ -75,6 +97,8 @@ function renderingFor(props: StatusPillProps): Rendering {
       return AGENT_STATE_RENDERING[props.value];
     case "display_flag":
       return DISPLAY_FLAG_RENDERING[props.value];
+    case "transaction":
+      return TRANSACTION_STATE_RENDERING[props.value];
   }
 }
 

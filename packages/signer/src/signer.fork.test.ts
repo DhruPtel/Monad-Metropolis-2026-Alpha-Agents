@@ -228,10 +228,15 @@ describe.skipIf(upstream === null || !dbUp)("the signer on a real fork", { timeo
     const swap = await buildTestSwap(fork.url, { agentId, direction: "buy", amountIn: 2_000_000n });
     if (swap.kind !== "swap") throw new Error("expected a swap");
     const r = await settle(s, (await s.submitSwap(agentId, swap.intent)).txId);
-    expect(
-      (r.history as { status: string }[]).map((h) => h.status),
-      `${r.reason_code}: ${r.reason}`,
-    ).toEqual(["accepted", "signed", "unknown", "confirmed", "reconciled"]);
+    // Anvil mines just after it answers, so the first check may find the node still holding it.
+    const states = (r.history as { status: string }[]).map((h) => h.status);
+    expect(states.slice(0, 3), `${r.reason_code}: ${r.reason}`).toEqual([
+      "accepted",
+      "signed",
+      "unknown",
+    ]);
+    expect(states.slice(-2)).toEqual(["confirmed", "reconciled"]);
+    expect(states).not.toContain("failed");
     expect(sends).toBe(1);
     expect(await client().getTransactionCount({ address: key })).toBe(before + 1);
 

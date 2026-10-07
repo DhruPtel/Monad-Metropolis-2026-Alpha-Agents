@@ -1,6 +1,13 @@
 "use client";
 
-import { ACCOUNT_MODES, AGENT_STATES, DISPLAY_FLAGS, REJECTION_CODES } from "@alpha-agents/domain";
+import {
+  ACCOUNT_MODES,
+  AGENT_STATES,
+  DISPLAY_FLAGS,
+  REJECTION_CODES,
+  SIGNER_REASON_CODES,
+  TRANSACTION_STATES,
+} from "@alpha-agents/domain";
 import { Bot, Boxes, Copy, Eye, Radio, Users } from "lucide-react";
 import type { ReactNode } from "react";
 import {
@@ -1229,7 +1236,7 @@ function DataSection() {
       </Specimen>
       <Specimen
         name="Status pill"
-        note="Every canonical account mode, agent state and display flag from packages/domain."
+        note="Every canonical account mode, agent state, display flag and signer transaction state from packages/domain."
       >
         <div className="flex flex-col gap-3">
           <State label="Account modes">
@@ -1245,6 +1252,11 @@ function DataSection() {
           <State label="Display flags">
             {DISPLAY_FLAGS.map((flag) => (
               <StatusPill key={flag} kind="display_flag" value={flag} />
+            ))}
+          </State>
+          <State label="Transaction states">
+            {TRANSACTION_STATES.map((state) => (
+              <StatusPill key={state} kind="transaction" value={state} />
             ))}
           </State>
         </div>
@@ -1371,6 +1383,12 @@ function DataSection() {
       >
         <div className="grid gap-3 md:grid-cols-2">
           {REJECTION_CODES.map((code) => (
+            <ReasonMessage key={code} code={code} />
+          ))}
+        </div>
+        <SectionLabel>The signer&apos;s own reasons (P2-U4)</SectionLabel>
+        <div className="grid gap-3 md:grid-cols-2">
+          {SIGNER_REASON_CODES.map((code) => (
             <ReasonMessage key={code} code={code} />
           ))}
         </div>
