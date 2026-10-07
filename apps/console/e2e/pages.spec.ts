@@ -16,6 +16,7 @@ const PAGES = [
   { path: "/addresses", name: "addresses", heading: "Address book" },
   { path: "/policy", name: "policy", heading: "Policy sandbox" },
   { path: "/agents", name: "agents", heading: "Agents" },
+  { path: "/trades", name: "trades", heading: "Trades" },
 ] as const;
 
 for (const panel of PAGES) {
@@ -246,6 +247,33 @@ test.describe("agents panel controls (P1-U5)", () => {
     await dialog.getByRole("button", { name: "Reset" }).click();
     await expect(page.getByText("Alpha Agent #1 is being reset")).toBeVisible();
   });
+});
+
+test("the Trades page shows the signer's outbox: states, hashes, refusals, balances and the ledger entry (P2-U4)", async ({
+  page,
+}) => {
+  await page.goto("/trades");
+  await page.evaluate(() => document.fonts.ready);
+  await expect(page.getByText("No transactions yet")).toBeVisible();
+  await page.getByRole("button", { name: "Load" }).click();
+  // No fork answers in this suite: the read says so, and the outbox still shows.
+  await expect(page.getByTestId("fork-error")).toContainText("The fork could not be read");
+  await expect(page.getByText("Signer running")).toBeVisible();
+  const rows = page.locator("tbody tr");
+  await expect(rows).toHaveCount(4);
+  await expect(page.locator('tr[data-status="reconciled"]')).toContainText("Reconciled");
+  await expect(page.locator('tr[data-status="unknown"]')).toContainText("Unknown");
+  await expect(page.locator('tr[data-status="failed"]')).toHaveCount(2);
+  await expect(page.getByText("The signer signs calls to the Executor only.")).toBeVisible();
+  await expect(page.getByText("SLIPPAGE_TOO_HIGH", { exact: true })).toBeVisible();
+  const ledger = page.getByTestId("ledger-entry");
+  await expect(ledger).toContainText("personal_account USDC -5000000");
+  await expect(ledger).toContainText("personal_account WMON 145376875974903213012");
+  // Without a fork read nothing can be set up or sent.
+  for (const name of ["Create PersonalAccount", "Send test swap", "Try the swap that breaks it"])
+    await expect(page.getByRole("button", { name })).toBeDisabled();
+  await repaint(page);
+  await expect(page).toHaveScreenshot("trades-outbox.png", { fullPage: true });
 });
 
 test("loads every font from its own origin", async ({ page }) => {

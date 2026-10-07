@@ -1,5 +1,5 @@
 // A fixed control API and orchestrator for the console's screenshot tests
-// (P1-U4, P1-U5): the agents panel renders on the server, so it is served this
+// (P1-U4, P1-U5, P2-U4): the agents panel renders on the server, so it is served this
 // instead of the real services, and the capture is the same on every run. Two
 // agents: a revealed, provisioned bee and an unrevealed agent. The no-op task
 // for agent 1 is queued, then reads as succeeded with a fixed result; agent 1
@@ -209,8 +209,108 @@ const appliesTo = (target) => {
     : { agentId: null, text: "the next agent this wallet mints" };
 };
 
+// P2-U4: the signer's outbox for agent 1, one transaction in each kind of outcome.
+const USDC = "0x754704Bc059F8C67012fEd69BC8A327a5aafb603";
+const WMON = "0x3bd359C1119dA7Da1D913D1C4D2B7c461115433A";
+const SIGNER_ADDRESS = "0xc7F0C302B03CFD3b61FEd398eaDBa3E78d97CA56";
+const swapIntent = (tokenIn, tokenOut, amountIn) => ({
+  schemaVersion: 1,
+  chainId: "143143",
+  agentId: "1",
+  account: "0x42cF12E641CD11d1C6853978a729eF9B86239820",
+  actionId: `0x${"a1".repeat(32)}`,
+  tokenIn,
+  tokenOut,
+  amountIn,
+  minAmountOut: "1",
+  deadline: "1790876545",
+});
+const at = (status, minute, detail) => ({
+  status,
+  at: `2026-10-07T12:0${minute}:00.000Z`,
+  ...(detail ? { detail } : {}),
+});
+const transaction = (txId, status, over) => ({
+  txId,
+  agentId: 1,
+  status,
+  reasonCode: null,
+  reason: null,
+  actionId: `0x${"a1".repeat(32)}`,
+  keyAddress: SIGNER_ADDRESS,
+  nonce: null,
+  txHash: null,
+  blockNumber: null,
+  gasUsed: null,
+  intent: swapIntent(USDC, WMON, "5000000"),
+  amountOut: null,
+  balances: null,
+  ledgerEntryId: null,
+  history: [at("accepted", 0)],
+  createdAt: "2026-10-07T12:00:00.000Z",
+  updatedAt: "2026-10-07T12:00:00.000Z",
+  ...over,
+});
+const outbox = JSON.stringify({
+  transactions: [
+    transaction("tx-refused", "failed", {
+      reasonCode: "TARGET_NOT_ALLOWED",
+      reason: "refused before signing: The signer signs calls to the Executor only.",
+      intent: null,
+      history: [at("failed", 4, "TARGET_NOT_ALLOWED")],
+    }),
+    transaction("tx-slippage", "failed", {
+      reasonCode: "SLIPPAGE_TOO_HIGH",
+      reason: "the Executor would refuse it: SLIPPAGE_TOO_HIGH",
+      intent: swapIntent(USDC, WMON, "1000000"),
+      history: [at("accepted", 3), at("failed", 3, "SLIPPAGE_TOO_HIGH")],
+    }),
+    transaction("tx-unknown", "unknown", {
+      nonce: 1,
+      txHash: `0x${"18b9".repeat(16)}`,
+      intent: swapIntent(USDC, WMON, "1000000"),
+      history: [at("accepted", 2), at("signed", 2, "nonce 1"), at("unknown", 2)],
+    }),
+    transaction("tx-reconciled", "reconciled", {
+      nonce: 0,
+      txHash: `0x${"af00".repeat(16)}`,
+      blockNumber: 109670101,
+      gasUsed: "998211",
+      amountOut: "145376875974903213012",
+      balances: {
+        tokenIn: { before: "60000000", after: "55000000" },
+        tokenOut: { before: "0", after: "145376875974903213012" },
+      },
+      ledgerEntryId: "0b6ac513-5421-41e8-8403-64e6a2efd8b1",
+      history: [
+        at("accepted", 1),
+        at("signed", 1, "nonce 0"),
+        at("submitted", 1),
+        at("confirmed", 1, "block 109670101"),
+        at("reconciled", 1),
+      ],
+    }),
+  ],
+});
+const ledgerEntry = JSON.stringify({
+  entryId: "0b6ac513-5421-41e8-8403-64e6a2efd8b1",
+  kind: "trade",
+  occurredAt: "2026-10-07T12:01:00.000Z",
+  source: {},
+  lines: [
+    { account: "personal_account", asset: "USDC", amount: "-5000000" },
+    { account: "venue", asset: "USDC", amount: "5000000" },
+    { account: "venue", asset: "WMON", amount: "-145376875974903213012" },
+    { account: "personal_account", asset: "WMON", amount: "145376875974903213012" },
+  ],
+});
+
 const routes = {
   "GET /health": [200, body],
+  "GET /v1/signer": [200, JSON.stringify({ on: true, chainId: 143143 })],
+  "GET /v1/signer/outbox?agentId=1": [200, outbox],
+  "GET /v1/agents/1/session-key": [200, JSON.stringify({ address: SIGNER_ADDRESS })],
+  "GET /v1/signer/ledger/0b6ac513-5421-41e8-8403-64e6a2efd8b1": [200, ledgerEntry],
   "GET /v1/agents": [200, body],
   "GET /v1/runtimes": [200, runtimes],
   "POST /v1/agents/1/tasks/noop": [202, JSON.stringify({ taskId: "fixture-task" })],

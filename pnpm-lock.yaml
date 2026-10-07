@@ -86,6 +86,9 @@ importers:
       '@alpha-agents/policy':
         specifier: workspace:*
         version: link:../../packages/policy
+      '@alpha-agents/signer':
+        specifier: workspace:*
+        version: link:../../packages/signer
       '@alpha-agents/ui':
         specifier: workspace:*
         version: link:../../packages/ui
