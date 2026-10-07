@@ -74,7 +74,7 @@ async function ownerOf(url: string, agentId: bigint): Promise<Hex> {
   } catch (err) {
     // Only the contract's refusal means "no such agent"; an unreachable fork says so itself.
     if (err instanceof RpcError && err.kind === "jsonrpc")
-      throw new Error(`Agent ${agentId} does not exist on the fork.`);
+      throw new Error(`Agent ${agentId} does not exist on the fork.`, { cause: err });
     throw err;
   }
 }
