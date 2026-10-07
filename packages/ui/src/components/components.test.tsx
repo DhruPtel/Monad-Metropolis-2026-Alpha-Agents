@@ -241,6 +241,17 @@ describe("WalletNotice", () => {
     expect(screen.getByRole("status")).toHaveTextContent("Waiting for MetaMask to answer.");
     expect(screen.getByRole("button", { name: "Cancel" })).toBeInTheDocument();
   });
+
+  it("says what is wrong in the wallet with the warning tone", () => {
+    render(
+      <WalletNotice title="Your wallet has stuck transactions" tone="warning">
+        Reset its activity for the local fork.
+      </WalletNotice>,
+    );
+    const notice = screen.getByRole("status");
+    expect(notice).toHaveAttribute("data-tone", "warning");
+    expect(notice).toHaveTextContent("Reset its activity for the local fork.");
+  });
 });
 
 describe("WrongChainPrompt", () => {

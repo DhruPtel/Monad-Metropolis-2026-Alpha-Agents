@@ -456,7 +456,7 @@ function WalletSection() {
       </Specimen>
       <Specimen
         name="Wallet notice"
-        note="Shown under the header while a connect waits on the wallet: what it is waiting for, and Cancel. A connect never spins without saying why."
+        note="Shown under the header while a connect waits on the wallet: what it is waiting for, and Cancel. A connect never spins without saying why. The warning tone says what is wrong in the wallet and how to fix it, such as transactions the local fork will never mine."
       >
         <div data-testid="login-state-waiting-notice">
           <WalletNotice
@@ -468,6 +468,15 @@ function WalletSection() {
             }
           >
             Waiting for MetaMask to answer. Unlock it, or cancel and connect again.
+          </WalletNotice>
+        </div>
+        <div data-testid="wallet-notice-warning">
+          <WalletNotice
+            title="Your wallet has transactions the local fork will never mine"
+            tone="warning"
+          >
+            It sent nonce 3, but the fork expects nonce 0, as happens after a fork reset. Reset your
+            wallet&apos;s activity for the Monad (local fork) network, then try again.
           </WalletNotice>
         </div>
       </Specimen>

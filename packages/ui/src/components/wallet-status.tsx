@@ -249,25 +249,44 @@ interface WalletNoticeProps {
   readonly children: ReactNode;
   /** Actions for the notice, such as Cancel; rendered at the end. */
   readonly actions?: ReactNode;
+  /**
+   * `waiting` (the default): the wallet has not answered yet. `warning`: the
+   * wallet is in a state the user must fix there, such as transactions the
+   * local fork will never mine (P2-U1 step 0).
+   */
+  readonly tone?: "waiting" | "warning";
   readonly className?: string | undefined;
 }
 
 /**
  * What a wallet connect is waiting for (wallet reliability task): shown under
  * the header while a connect waits on the wallet, so the spinner always says
- * what it needs and offers a way out.
+ * what it needs and offers a way out. With the warning tone it says what is
+ * wrong in the wallet and how to fix it.
  */
-function WalletNotice({ title, children, actions, className }: WalletNoticeProps) {
+function WalletNotice({
+  title,
+  children,
+  actions,
+  tone = "waiting",
+  className,
+}: WalletNoticeProps) {
   return (
     <div
       role="status"
       data-slot="wallet-notice"
+      data-tone={tone}
       className={cn(
         "flex flex-col gap-3 rounded-lg border bg-surface p-4 sm:flex-row sm:items-center",
+        tone === "warning" && "border-warning",
         className,
       )}
     >
-      <Hourglass aria-hidden className="size-5 shrink-0 text-foreground-muted" />
+      {tone === "warning" ? (
+        <AlertTriangle aria-hidden className="size-5 shrink-0 text-warning" />
+      ) : (
+        <Hourglass aria-hidden className="size-5 shrink-0 text-foreground-muted" />
+      )}
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
         <p className="text-sm font-medium text-foreground">{title}</p>
         <div className="text-sm break-words text-foreground-muted">{children}</div>
