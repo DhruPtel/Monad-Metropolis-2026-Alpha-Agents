@@ -47,6 +47,13 @@ interface IOracleAdapter {
     function requireUsdcPeg() external view;
 }
 
+/// The oracle adapter's non-reverting views, as the Executor reads them to
+/// turn an unusable price into a reason code.
+interface IOracleViews {
+    function tradable(address asset) external view returns (bool ok, OracleReason reason);
+    function price(address asset) external view returns (uint256 priceE18, uint256 updatedAt, OracleReason reason);
+}
+
 /// The parts of a Chainlink aggregator proxy the adapter reads.
 interface IChainlinkFeed {
     function decimals() external view returns (uint8);
