@@ -256,6 +256,39 @@ test.describe("supply and odds", () => {
   });
 });
 
+test.describe("stuck transactions on the local fork (P2-U1 step 0)", () => {
+  test("the page names a wallet whose transactions the fork will never mine", async ({ page }) => {
+    const chain = new FakeChain();
+    chain.stuck = { wallet: MOCK_WALLET_ADDRESS, forkNonce: 0, queued: [3, 4] };
+    await open(page, chain);
+    await connect(page);
+    const notice = page.getByTestId("stuck-nonce");
+    await expect(notice).toContainText("2 transactions from this wallet starting at nonce 3");
+    await expect(notice).toContainText("but expects nonce 0");
+    await expect(notice).toContainText("Clear activity tab data");
+    await capture(page, notice, "mint-stuck-nonce.png");
+    expect(await blockingViolations(page)).toEqual([]);
+    // Fixed in the wallet: the queue empties and the notice goes.
+    chain.stuck.queued = [];
+    await expect(notice).toHaveCount(0, { timeout: 15_000 });
+  });
+
+  test("a mint sent ahead of the fork stops with the reason instead of waiting", async ({
+    page,
+  }) => {
+    const chain = new FakeChain();
+    chain.holdReceipts = true;
+    chain.stuck = { wallet: MOCK_WALLET_ADDRESS, forkNonce: 0, queued: [5] };
+    await open(page, chain);
+    await connect(page);
+    await panel(page).getByRole("button", { name: "Mint an agent" }).click();
+    await expect(panel(page).getByRole("status")).toContainText(
+      "Your wallet sent this transaction with nonce 5, but the local fork expects nonce 0",
+      { timeout: 15_000 },
+    );
+  });
+});
+
 test.describe("network guard", () => {
   test("a wallet on another node is stopped before the claim (L-53)", async ({ page }) => {
     const elsewhere = new FakeChain({ head: 110_830_344n, hashSeed: "aa", agentNft: false });

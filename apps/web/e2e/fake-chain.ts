@@ -61,6 +61,13 @@ export class FakeChain {
   supply: { totalMinted: number; remaining: number[] } | null = null;
   /** While true, a sent mint has no receipt yet: the mint stays in flight. */
   holdReceipts = false;
+  /**
+   * A wallet the fork holds transactions for, numbered ahead of the fork's
+   * nonce, as after a fork reset (P2-U1 step 0): anvil's txpool lists them as
+   * queued, and a mint sent now carries the lowest of them. Unset, the fake
+   * serves no txpool, as a real network would not.
+   */
+  stuck: { readonly wallet: Address; readonly forkNonce: number; queued: number[] } | null = null;
   private readonly sent = new Map<Hex, bigint>();
   private readonly head: bigint;
   private readonly hashSeed: string;
@@ -160,8 +167,27 @@ export class FakeChain {
       case "eth_maxPriorityFeePerGas":
       case "eth_gasPrice":
         return ok("0x1");
-      case "eth_getTransactionCount":
-        return ok("0x0");
+      case "eth_getTransactionCount": {
+        const [who] = request.params as [Address];
+        return ok(
+          this.stuck && same(who, this.stuck.wallet) ? hex(BigInt(this.stuck.forkNonce)) : "0x0",
+        );
+      }
+      case "txpool_content": {
+        if (!this.stuck) return fail(-32601, "the fake chain does not serve txpool_content");
+        const queued = Object.fromEntries(
+          this.stuck.queued.map((n) => [
+            String(n),
+            { nonce: hex(BigInt(n)), hash: `0x${"e".repeat(64)}` },
+          ]),
+        );
+        return ok({ pending: {}, queued: { [this.stuck.wallet]: queued } });
+      }
+      case "eth_getTransactionByHash": {
+        const [hash] = request.params as [Hex];
+        if (!this.stuck || !this.sent.has(hash)) return ok(null);
+        return ok({ hash, nonce: hex(BigInt(this.stuck.queued[0] ?? 0)), blockNumber: null });
+      }
       case "eth_sendTransaction":
         return ok(this.send(request.params[0] as { from: Address; to: Address; data: Hex }));
       case "eth_getTransactionReceipt":
