@@ -55,6 +55,13 @@ contract ExecutorLimitsTest is ExecutorBase {
         assertEq(wmonOf(address(account)), 40e18);
     }
 
+    /// L-108: a buy past the core's own 45% backstop is named by the Executor
+    /// before the trade, not refused by the account with the core's error.
+    function test_ABuyFarOverTheCapIsNamedBeforeTheTrade() public {
+        holdings(64e6, 36e18);
+        expectRejected(buy(10e6), Reason.CONCENTRATION_CAP); // would land at 46%
+    }
+
     function test_ASaleIntoUsdcIsExemptFromConcentrationAndTheFloor() public {
         // 45% WMON is over the cap; selling some into USDC is still allowed.
         holdings(55e6, 45e18);
@@ -316,5 +323,55 @@ contract ExecutorLimitsTest is ExecutorBase {
         assertEq(frees, 0);
         assertEq(used, 5e6);
         assertMode(AccountMode.NORMAL);
+    }
+
+    /// Random small trades at random gaps: whatever the order, no rolling
+    /// 24 hours ever holds more than 20 trades or more than 100% turnover,
+    /// and a trade is refused for those limits only when one would be broken.
+    function testFuzz_TheRollingWindowHoldsForAnySequence(uint256 seed) public {
+        uint256[] memory at = new uint256[](60);
+        uint256[] memory val = new uint256[](60);
+        uint256 n;
+        for (uint256 k = 0; k < 60; ++k) {
+            uint256 r = uint256(keccak256(abi.encode(seed, k)));
+            vm.warp(block.timestamp + r % 3 hours);
+            setMon(ONE_DOLLAR);
+            if (block.timestamp + 1 hours > executor.sessionOf(AGENT).validUntil) {
+                grant(uint64(block.timestamp + 7 days));
+            }
+            uint256 size = 1e5 + (r >> 8) % (r % 4 == 0 ? 9e6 : 1e6); // mostly under 1% of $100
+            SwapIntent memory i = (r >> 16) % 2 == 0 ? sell(size * 1e12) : buy(size);
+            uint256 count;
+            uint256 turnover = size;
+            for (uint256 j = 0; j < n; ++j) {
+                if (at[j] + 86_400 > block.timestamp) {
+                    ++count;
+                    turnover += val[j];
+                }
+            }
+            (uint256 nav,,,) = account.breakerState();
+            vm.prank(session);
+            try executor.swap(i) {
+                assertLt(count, 20, "a 21st trade in 24 hours");
+                assertLe(turnover, nav, "turnover above 100%");
+                at[n] = block.timestamp;
+                val[n] = size;
+                ++n;
+            } catch (bytes memory why) {
+                bytes4 sel = bytes4(why);
+                assertEq(sel, Executor.Rejected.selector);
+                Reason r2 = abi.decode(_tail(why), (Reason));
+                if (r2 == Reason.DAILY_TRADE_LIMIT) assertGe(count, 20);
+                if (r2 == Reason.TURNOVER_CAP) assertGt(turnover, nav);
+            }
+        }
+        assertGt(n, 20, "the run traded past one window's worth");
+    }
+
+    function _tail(bytes memory data) internal pure returns (bytes memory out) {
+        out = new bytes(data.length - 4);
+        for (uint256 k = 0; k < out.length; ++k) {
+            out[k] = data[k + 4];
+        }
     }
 }

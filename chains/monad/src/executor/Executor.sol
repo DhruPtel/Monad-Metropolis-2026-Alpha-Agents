@@ -312,8 +312,9 @@ contract Executor is ISwapExecutor, RiskTimelock, ReentrancyGuard {
         if (i.deadline > block.timestamp + p.deadlineSeconds) _reject(Reason.DEADLINE_TOO_FAR);
     }
 
-    /// Mode, venue, oracle, balance, the breaker, size, rate, turnover and
-    /// the oracle floor on `minAmountOut`.
+    /// Mode, venue, oracle, balance, the breaker, size, rate, turnover, the
+    /// oracle floor on `minAmountOut`, and the 40% cap and USDC floor projected
+    /// at the oracle price.
     function _checkMarket(SwapIntent calldata i, Policy memory p) internal view returns (Measure memory m) {
         IExecutorAccount account = IExecutorAccount(i.account);
         bool intoUsdc = i.tokenOut == USDC;
@@ -354,6 +355,17 @@ contract Executor is ISwapExecutor, RiskTimelock, ReentrancyGuard {
 
         if (i.minAmountOut < oracleFloor(i.tokenIn, i.tokenOut, i.amountIn, m.px, p.maxSlippageBps)) {
             _reject(Reason.SLIPPAGE_TOO_HIGH);
+        }
+
+        // The trade at the oracle price, before it is made: a buy that would
+        // break the 40% cap or the USDC floor is named here, before the
+        // account's own looser backstop could refuse it with its own error.
+        if (!intoUsdc) {
+            uint256 wmonAfter = _valueOf(WMON, account.freeBalance(WMON), m.px) + m.valueIn;
+            uint256 usdcFree = account.freeBalance(USDC);
+            uint256 usdcAfter = usdcFree > m.valueIn ? usdcFree - m.valueIn : 0;
+            if (wmonAfter * BPS > m.navBefore * p.maxAssetBps) _reject(Reason.CONCENTRATION_CAP);
+            if (usdcAfter * BPS < m.navBefore * p.minUsdcBps) _reject(Reason.USDC_FLOOR);
         }
     }
 
