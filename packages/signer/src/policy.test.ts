@@ -13,6 +13,7 @@ import {
 
 const EXECUTOR = "0xE712468eB37544B7Eafe20F402867f7a49C19F43" as Hex;
 const USDC = "0x754704Bc059F8C67012fEd69BC8A327a5aafb603" as Hex;
+const WMON = "0x3bd359C1119dA7Da1D913D1C4D2B7c461115433A" as Hex;
 
 const intent = (over: Partial<SwapIntentArgs> = {}): SwapIntentArgs => ({
   schemaVersion: 1,
@@ -25,7 +26,7 @@ const intent = (over: Partial<SwapIntentArgs> = {}): SwapIntentArgs => ({
   policyHash: `0x${"22".repeat(32)}`,
   adapterId: `0x${"33".repeat(32)}`,
   tokenIn: USDC,
-  tokenOut: "0x3bd359C1119dA7Da1D913D1C4D2B7c461115433A",
+  tokenOut: WMON,
   amountIn: 5_000_000n,
   minAmountOut: 1n,
   deadline: 1_790_876_545n,

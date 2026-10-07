@@ -15,3 +15,7 @@ de87bc78d275ad04e87c7cd631adc5fdac4809bc:evidence/p2-u0/data.json:generic-api-ke
 # value is the public Tokenbound Safe address 0x781b6A527482828bB04F33563797d4b696ddF328
 # from the address book (checked in P1-U3).
 d8645c8bebef724285bbbd4c18b5d6b0332409de:chains/monad/test/fork/AgentNFTFork.t.sol:generic-api-key:74
+#
+# P2-U4 signer policy test: the key "tokenOut" trips generic-api-key; the value is the
+# public WMON token address 0x3bd359C1119dA7Da1D913D1C4D2B7c461115433A (checked in P2-U4).
+6cdcf433c2c82889e8ac08fbf914be634057fee3:packages/signer/src/policy.test.ts:generic-api-key:28
