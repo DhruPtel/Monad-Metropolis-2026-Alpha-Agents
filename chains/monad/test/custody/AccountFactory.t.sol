@@ -22,7 +22,7 @@ contract AccountFactoryTest is CustodyBase {
         assertEq(factory.guardian(), guardian);
         assertEq(factory.sentinel(), sentinel);
         assertEq(factory.executor(), address(0));
-        assertEq(factory.oracle(), address(0));
+        assertEq(factory.oracle(), address(oracle), "set by setUp through the timelock");
         assertEq(factory.personalCap(), 100e6);
         assertEq(factory.platformCap(), 2_000e6);
         assertTrue(factory.allowlistEnabled());

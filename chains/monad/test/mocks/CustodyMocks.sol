@@ -4,7 +4,8 @@ pragma solidity 0.8.37;
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {CustodyCore} from "../../src/custody/CustodyCore.sol";
-import {IAgentNFTView, ISwapExecutor, IValuationOracle, SwapParams} from "../../src/interfaces/ICustody.sol";
+import {IAgentNFTView, ISwapExecutor, SwapParams} from "../../src/interfaces/ICustody.sol";
+import {IOracleAdapter, OracleReason} from "../../src/interfaces/IOracle.sol";
 
 /// A plain ERC-20 with open minting, and a switch that makes every transfer
 /// revert, as a USDC pause or blacklist does.
@@ -123,19 +124,52 @@ contract MockAgentNFT is IAgentNFTView {
     }
 }
 
-/// Prices in USDC per whole token, 6 decimals; reverts while stale.
-contract MockOracle is IValuationOracle {
+/// A stand-in for the oracle adapter with settable prices, in USDC per whole
+/// token with 6 decimals. While stale every price reverts as the real adapter
+/// does; `poolOff` fails only the trade check; `depegged` fails only the
+/// deposit guard. The real adapter is tested in test/oracle/.
+contract MockOracle is IOracleAdapter {
     mapping(address => uint256) public priceE6;
     mapping(address => uint8) public decimalsOf;
     bool public stale;
+    bool public poolOff;
+    bool public depegged;
+    address public usdcToken;
 
     function set(address token, uint8 decimals_, uint256 priceE6_) external {
         decimalsOf[token] = decimals_;
         priceE6[token] = priceE6_;
+        if (priceE6_ == 1e6 && decimals_ == 6) usdcToken = token;
     }
 
     function setStale(bool s) external {
         stale = s;
+    }
+
+    function setPoolOff(bool s) external {
+        poolOff = s;
+    }
+
+    function setDepegged(bool s) external {
+        depegged = s;
+    }
+
+    function priceE18(address token) public view returns (uint256) {
+        if (stale) revert OracleUnavailable(token, OracleReason.STALE);
+        if (priceE6[token] == 0) revert OracleUnavailable(token, OracleReason.UNKNOWN_ASSET);
+        // A whole token's USDC value scaled by 1e18, from 6 decimals.
+        return priceE6[token] * 1e12;
+    }
+
+    function tradablePriceE18(address token) external view returns (uint256) {
+        uint256 p = priceE18(token);
+        if (poolOff) revert OracleUnavailable(token, OracleReason.POOL_DEVIATION);
+        return p;
+    }
+
+    function requireUsdcPeg() external view {
+        if (stale) revert OracleUnavailable(usdcToken, OracleReason.STALE);
+        if (depegged) revert OracleUnavailable(usdcToken, OracleReason.USDC_DEPEGGED);
     }
 
     function valueUsdc(address token, uint256 amount) external view returns (uint256) {

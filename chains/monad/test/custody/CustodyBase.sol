@@ -9,7 +9,9 @@ import {MockAgentNFT, MockExecutor, MockOracle, MockToken} from "../mocks/Custod
 
 /// Shared setup for the custody tests: the factory and one PersonalAccount
 /// over mock tokens, AgentNFT, oracle and Executor. Caps are the beta's:
-/// 100 USDC per account and 2,000 USDC across the platform (D-133).
+/// 100 USDC per account and 2,000 USDC across the platform (D-133). The
+/// oracle is set through the timelock in setUp, since every deposit needs it
+/// for the depeg guard (P2-U3); the Executor starts unset.
 abstract contract CustodyBase is Test {
     uint256 internal constant PERSONAL_CAP = 100e6;
     uint256 internal constant PLATFORM_CAP = 2_000e6;
@@ -55,6 +57,7 @@ abstract contract CustodyBase is Test {
         nft.setOwner(AGENT, owner);
         vm.prank(owner);
         account = PersonalAccount(factory.createPersonalAccount(AGENT));
+        setOracle();
     }
 
     // ----- helpers -----
@@ -76,6 +79,7 @@ abstract contract CustodyBase is Test {
     }
 
     function setOracle() internal {
+        if (factory.oracle() == address(oracle)) return;
         timelocked(AccountFactory.Action.SetOracle, bytes32(uint256(uint160(address(oracle)))));
     }
 

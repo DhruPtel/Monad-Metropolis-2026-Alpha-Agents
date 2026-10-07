@@ -7,7 +7,7 @@ import {AccountFactory} from "../../src/custody/AccountFactory.sol";
 import {CustodyCore} from "../../src/custody/CustodyCore.sol";
 import {PersonalAccount} from "../../src/custody/PersonalAccount.sol";
 import {IAgentNFTView, SwapParams} from "../../src/interfaces/ICustody.sol";
-import {MockAgentNFT, MockToken, OwnerWallet, ReentrantToken} from "../mocks/CustodyMocks.sol";
+import {MockAgentNFT, MockOracle, MockToken, OwnerWallet, ReentrantToken} from "../mocks/CustodyMocks.sol";
 
 /// Reentrancy (P2-U1): the owner itself calls back into the account while a
 /// withdrawal, credit claim or deposit is moving tokens. Every entry point is
@@ -40,6 +40,15 @@ contract CustodyReentrancyTest is Test {
             allow
         );
         nft.setOwner(1, address(wallet));
+        // Deposits need the oracle (the depeg guard, P2-U3): set it through the timelock.
+        MockOracle oracle = new MockOracle();
+        oracle.set(address(usdc), 6, 1e6);
+        oracle.set(address(wmon), 18, 500_000);
+        bytes32 value = bytes32(uint256(uint160(address(oracle))));
+        vm.prank(admin);
+        factory.propose(AccountFactory.Action.SetOracle, value);
+        vm.warp(block.timestamp + 9 days);
+        factory.execute(AccountFactory.Action.SetOracle, value);
         account = PersonalAccount(
             abi.decode(
                 wallet.exec(address(factory), abi.encodeCall(AccountFactory.createPersonalAccount, (1))), (address)
@@ -53,14 +62,15 @@ contract CustodyReentrancyTest is Test {
     /// Every state-changing entry point, as the owner would call it.
     function payloads() internal view returns (bytes[] memory p) {
         SwapParams memory s;
-        p = new bytes[](7);
+        p = new bytes[](8);
         p[0] = abi.encodeCall(CustodyCore.withdraw, (address(usdc), 1e6, address(wallet)));
         p[1] = abi.encodeCall(CustodyCore.withdrawAll, (address(wallet)));
         p[2] = abi.encodeCall(CustodyCore.claim, (address(usdc), address(wallet)));
         p[3] = abi.encodeCall(PersonalAccount.deposit, (address(usdc), 1e6));
         p[4] = abi.encodeCall(CustodyCore.executeSwap, (s));
-        p[5] = abi.encodeCall(CustodyCore.pullForSwap, (address(usdc), 1e6));
-        p[6] = abi.encodeCall(PersonalAccount.initialize, (1, address(this)));
+        p[5] = abi.encodeCall(CustodyCore.poke, ());
+        p[6] = abi.encodeCall(CustodyCore.pullForSwap, (address(usdc), 1e6));
+        p[7] = abi.encodeCall(PersonalAccount.initialize, (1, address(this)));
         return p;
     }
 
@@ -68,8 +78,8 @@ contract CustodyReentrancyTest is Test {
         assertFalse(usdc.lastCallSucceeded(), "a reentrant call succeeded");
         bytes memory reason = usdc.lastRevert();
         bytes4 selector = bytes4(reason);
-        if (i <= 4) assertEq(selector, ReentrancyGuard.ReentrancyGuardReentrantCall.selector);
-        else if (i == 5) assertEq(selector, CustodyCore.SwapContextInvalid.selector);
+        if (i <= 5) assertEq(selector, ReentrancyGuard.ReentrancyGuardReentrantCall.selector);
+        else if (i == 6) assertEq(selector, CustodyCore.SwapContextInvalid.selector);
         else assertEq(selector, PersonalAccount.AlreadyInitialized.selector);
     }
 
@@ -80,8 +90,8 @@ contract CustodyReentrancyTest is Test {
             wallet.exec(address(account), abi.encodeCall(CustodyCore.withdraw, (address(usdc), 1e6, address(wallet))));
             assertRefused(i);
         }
-        assertEq(usdc.balanceOf(address(account)), 50e6 - 7e6);
-        assertEq(usdc.balanceOf(address(wallet)), 7e6);
+        assertEq(usdc.balanceOf(address(account)), 50e6 - 8e6);
+        assertEq(usdc.balanceOf(address(wallet)), 8e6);
     }
 
     function test_NothingReentersAWithdrawAllOrAClaim() public {

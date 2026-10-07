@@ -31,13 +31,6 @@ interface IAgentNFTView {
     function ownerEpoch(uint256 agentId) external view returns (uint64);
 }
 
-/// The oracle adapter (P2-U3) as the custody core uses it: the USDC value
-/// (6 decimals) of an amount of a token. It reverts on a stale, negative or
-/// otherwise unusable price, so every priced path fails closed.
-interface IValuationOracle {
-    function valueUsdc(address token, uint256 amount) external view returns (uint256);
-}
-
 /// The Executor (P2-U2) as the custody core calls it: inside `executeSwap`,
 /// the core calls back here; the Executor pulls exactly `amountIn` with
 /// `pullForSwap` and swaps with the account as the recipient.

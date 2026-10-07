@@ -6,6 +6,7 @@ import {AccountFactory} from "../../src/custody/AccountFactory.sol";
 import {CustodyCore} from "../../src/custody/CustodyCore.sol";
 import {PersonalAccount} from "../../src/custody/PersonalAccount.sol";
 import {AccountMode, IAgentNFTView, SwapParams} from "../../src/interfaces/ICustody.sol";
+import {IOracleAdapter, OracleReason} from "../../src/interfaces/IOracle.sol";
 import {FeeOnTransferToken, GasBurner, MockExecutor, MockToken, RevertingLedger} from "../mocks/CustodyMocks.sol";
 import {CustodyBase} from "./CustodyBase.sol";
 
@@ -77,15 +78,29 @@ contract PersonalAccountTest is CustodyBase {
     }
 
     function test_DepositsWmon_ValuedThroughTheOracle_AndRefusedWithoutOne() public {
-        wmon.mint(owner, 10e18);
-        vm.startPrank(owner);
-        wmon.approve(address(account), 10e18);
-        vm.expectRevert(CustodyCore.OracleUnset.selector);
-        account.deposit(address(wmon), 10e18);
-        vm.stopPrank();
-        setOracle();
         deposit(wmon, 10e18);
         assertEq(account.principal(), 5e6);
+
+        // A factory whose oracle was never set refuses every deposit: the
+        // depeg guard needs USDC/USD even for USDC (P2-U3).
+        address[] memory allow = new address[](1);
+        allow[0] = owner;
+        AccountFactory bare = new AccountFactory(
+            admin, guardian, sentinel, IAgentNFTView(address(nft)), address(usdc), address(wmon), 100e6, 2_000e6, allow
+        );
+        assertEq(bare.oracle(), address(0), "a new factory starts with no oracle");
+        vm.prank(owner);
+        PersonalAccount fresh = PersonalAccount(bare.createPersonalAccount(AGENT));
+        wmon.mint(owner, 10e18);
+        usdc.mint(owner, 10e6);
+        vm.startPrank(owner);
+        wmon.approve(address(fresh), 10e18);
+        usdc.approve(address(fresh), 10e6);
+        vm.expectRevert(CustodyCore.OracleUnset.selector);
+        fresh.deposit(address(wmon), 10e18);
+        vm.expectRevert(CustodyCore.OracleUnset.selector);
+        fresh.deposit(address(usdc), 10e6);
+        vm.stopPrank();
     }
 
     function test_DepositRefusals() public {
@@ -213,6 +228,11 @@ contract PersonalAccountTest is CustodyBase {
             PLATFORM_CAP,
             allow
         );
+        bytes32 oracleValue = bytes32(uint256(uint160(address(oracle))));
+        vm.prank(admin);
+        f.propose(AccountFactory.Action.SetOracle, oracleValue);
+        vm.warp(block.timestamp + 9 days);
+        f.execute(AccountFactory.Action.SetOracle, oracleValue);
         vm.prank(owner);
         PersonalAccount a = PersonalAccount(f.createPersonalAccount(AGENT));
         fot.mint(owner, 10e6);
@@ -682,10 +702,14 @@ contract PersonalAccountTest is CustodyBase {
         tradingAccount();
         oracle.setStale(true);
         SwapParams memory q8 = params(address(usdc), address(wmon), 1e6);
-        vm.expectRevert("stale price");
+        bytes memory stale =
+            abi.encodeWithSelector(IOracleAdapter.OracleUnavailable.selector, address(wmon), OracleReason.STALE);
+        vm.expectRevert(stale);
         executor.swap(account, q8);
-        vm.expectRevert("stale price");
+        vm.expectRevert(stale);
         account.navUsdc();
+        vm.expectRevert(stale);
+        account.poke();
         vm.prank(owner);
         account.withdrawAll(owner);
         assertEq(usdcBal(owner), 60e6);
