@@ -3,6 +3,7 @@
 import { balancesOf, mintTestUsdc, setMonBalance } from "@alpha-agents/devenv";
 import { ASSET_DECIMALS, parseAmount } from "@alpha-agents/domain";
 import { type ActionResult, attempt } from "@/lib/action-result";
+import { consoleForkUrl } from "@/lib/fork-url";
 
 /** Balances as decimal strings in base units: MON in wei, USDC in 6-decimal units. */
 export interface BalanceView {
@@ -21,7 +22,7 @@ function amount(text: string, decimals: number, what: string): bigint {
 }
 
 async function view(address: string): Promise<BalanceView> {
-  const b = await balancesOf(address);
+  const b = await balancesOf(address, consoleForkUrl());
   return { address, monWei: b.monWei.toString(), usdcE6: b.usdcE6.toString() };
 }
 
@@ -35,7 +36,7 @@ export async function setMonAction(
   monText: string,
 ): Promise<ActionResult<BalanceView>> {
   return attempt(async () => {
-    await setMonBalance(address, amount(monText, MON_DECIMALS, "The MON amount"));
+    await setMonBalance(address, amount(monText, MON_DECIMALS, "The MON amount"), consoleForkUrl());
     return view(address);
   });
 }
@@ -48,7 +49,7 @@ export async function giveUsdcAction(
   return attempt(async () => {
     const value = amount(usdcText, ASSET_DECIMALS.USDC, "The USDC amount");
     if (value === 0n) throw new Error("The USDC amount must be greater than zero.");
-    await mintTestUsdc(address, value);
+    await mintTestUsdc(address, value, consoleForkUrl());
     return view(address);
   });
 }

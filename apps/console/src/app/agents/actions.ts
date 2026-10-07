@@ -3,6 +3,7 @@
 import { mintTestUsdc } from "@alpha-agents/devenv";
 import type { AgentId } from "@alpha-agents/domain";
 import { type ActionResult, attempt } from "@/lib/action-result";
+import { consoleForkUrl } from "@/lib/fork-url";
 import { type RefundView, type RevealSteeringView, type TaskView, agentsSource } from "./extension";
 
 // The orchestrator offers these only on the local stack (D-205); its messages carry no secret.
@@ -93,7 +94,7 @@ export async function fundAgentAction(id: string): Promise<ActionResult<string>>
     const address = agent?.credits?.fundingAddress;
     if (!address)
       throw new Error("This agent has no funding address yet: is the orchestrator running?");
-    await mintTestUsdc(address, FUND_AMOUNT_E6);
+    await mintTestUsdc(address, FUND_AMOUNT_E6, consoleForkUrl());
     return address;
   });
 }

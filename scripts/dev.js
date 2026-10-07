@@ -70,7 +70,7 @@ async function startAnvil() {
     console.log("anvil: already running");
     return;
   }
-  if ((await anvilState()) !== undefined) {
+  if ((await anvilState(ANVIL_URL)) !== undefined) {
     fail(`something else is already serving ${ANVIL_URL}; stop it and retry`);
   }
   const runner = spawn(process.execPath, ["scripts/anvil-runner.js"], {
@@ -90,7 +90,7 @@ async function startAnvil() {
   while (!exited && Date.now() < deadline) {
     await sleep(1_000);
     process.stdout.write(".");
-    if ((await anvilState()) !== undefined) {
+    if ((await anvilState(ANVIL_URL)) !== undefined) {
       process.stdout.write(" ready\n");
       return;
     }

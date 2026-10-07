@@ -1,4 +1,3 @@
-import { LOCAL_FORK_RPC_URL } from "@alpha-agents/config";
 import { type Address, addressEntry } from "@alpha-agents/domain";
 import { assertLocalFork } from "./guard.ts";
 import { hexToBigInt, hexToNumber, rpc, toHex } from "./rpc.ts";
@@ -15,7 +14,7 @@ export interface ForkClock {
   readonly timestamp: number;
 }
 
-export async function forkClock(url: string = LOCAL_FORK_RPC_URL): Promise<ForkClock> {
+export async function forkClock(url: string): Promise<ForkClock> {
   const block = (await rpc(url, "eth_getBlockByNumber", ["latest", false])) as {
     number?: unknown;
     timestamp?: unknown;
@@ -24,7 +23,7 @@ export async function forkClock(url: string = LOCAL_FORK_RPC_URL): Promise<ForkC
 }
 
 /** Takes a snapshot; revert to its ID later. Snapshot IDs are hex strings. */
-export async function takeSnapshot(url: string = LOCAL_FORK_RPC_URL): Promise<string> {
+export async function takeSnapshot(url: string): Promise<string> {
   await assertLocalFork(url);
   const id = await rpc(url, "evm_snapshot");
   if (typeof id !== "string") throw new Error("evm_snapshot returned no ID");
@@ -32,10 +31,7 @@ export async function takeSnapshot(url: string = LOCAL_FORK_RPC_URL): Promise<st
 }
 
 /** Reverts to a snapshot. Anvil drops that snapshot and every later one. */
-export async function revertToSnapshot(
-  id: string,
-  url: string = LOCAL_FORK_RPC_URL,
-): Promise<boolean> {
+export async function revertToSnapshot(id: string, url: string): Promise<boolean> {
   if (!/^0x[0-9a-fA-F]+$/.test(id)) throw new Error("snapshot ID must be a hex quantity");
   await assertLocalFork(url);
   return (await rpc(url, "evm_revert", [id])) === true;
@@ -43,10 +39,7 @@ export async function revertToSnapshot(
 
 export const MAX_MINE_BLOCKS = 10_000;
 
-export async function mineBlocks(
-  count: number,
-  url: string = LOCAL_FORK_RPC_URL,
-): Promise<ForkClock> {
+export async function mineBlocks(count: number, url: string): Promise<ForkClock> {
   if (!Number.isSafeInteger(count) || count < 1 || count > MAX_MINE_BLOCKS) {
     throw new Error(`block count must be an integer from 1 to ${MAX_MINE_BLOCKS}`);
   }
@@ -58,10 +51,7 @@ export async function mineBlocks(
 export const MAX_ADVANCE_SECONDS = 365 * 86_400;
 
 /** Moves the fork's clock forward and mines one block so the new time takes effect. */
-export async function advanceTime(
-  seconds: number,
-  url: string = LOCAL_FORK_RPC_URL,
-): Promise<ForkClock> {
+export async function advanceTime(seconds: number, url: string): Promise<ForkClock> {
   if (!Number.isSafeInteger(seconds) || seconds < 1 || seconds > MAX_ADVANCE_SECONDS) {
     throw new Error(`seconds must be an integer from 1 to ${MAX_ADVANCE_SECONDS}`);
   }
@@ -81,10 +71,7 @@ export const RESET_ATTEMPTS = 3;
  * anvil 1.8.3 often fails one with "failed to invalidate fork cache" and
  * succeeds on the next (L-51).
  */
-export async function resetToBlock(
-  blockNumber: number,
-  url: string = LOCAL_FORK_RPC_URL,
-): Promise<ForkClock> {
+export async function resetToBlock(blockNumber: number, url: string): Promise<ForkClock> {
   if (!Number.isSafeInteger(blockNumber) || blockNumber < 1)
     throw new Error("block number must be a positive integer");
   await assertLocalFork(url);
@@ -105,7 +92,7 @@ export async function resetToBlock(
  * balances, and the blocks, transactions and logs mined since the pin. Taken
  * before anything destructive so it can be put back (L-58).
  */
-export async function dumpForkState(url: string = LOCAL_FORK_RPC_URL): Promise<string> {
+export async function dumpForkState(url: string): Promise<string> {
   await assertLocalFork(url);
   const state = await rpc(url, "anvil_dumpState", [], 120_000);
   if (typeof state !== "string" || !/^0x[0-9a-fA-F]*$/.test(state)) {
@@ -119,10 +106,7 @@ export async function dumpForkState(url: string = LOCAL_FORK_RPC_URL): Promise<s
  * restores the fork as it was: deployed contracts such as AgentNFT, wallet
  * balances, and the blocks and logs the app reads agents from.
  */
-export async function loadForkState(
-  state: string,
-  url: string = LOCAL_FORK_RPC_URL,
-): Promise<void> {
+export async function loadForkState(state: string, url: string): Promise<void> {
   if (!/^0x[0-9a-fA-F]*$/.test(state)) throw new Error("state must be hex from dumpForkState");
   await assertLocalFork(url);
   await rpc(url, "anvil_loadState", [state], 120_000);
@@ -135,11 +119,7 @@ function checkAddress(address: string): Address {
 }
 
 /** Native MON, in wei. */
-export async function setMonBalance(
-  address: string,
-  wei: bigint,
-  url: string = LOCAL_FORK_RPC_URL,
-): Promise<void> {
+export async function setMonBalance(address: string, wei: bigint, url: string): Promise<void> {
   const to = checkAddress(address);
   if (wei < 0n) throw new Error("balance must not be negative");
   await assertLocalFork(url);
@@ -205,11 +185,7 @@ async function sendAs(url: string, from: Address, to: Address, data: string): Pr
  * contract's master minter (impersonated) configures a fork-only test minter,
  * which then mints to the address. Supply, events and checks all stay real.
  */
-export async function mintTestUsdc(
-  address: string,
-  amountE6: bigint,
-  url: string = LOCAL_FORK_RPC_URL,
-): Promise<void> {
+export async function mintTestUsdc(address: string, amountE6: bigint, url: string): Promise<void> {
   const to = checkAddress(address);
   if (amountE6 <= 0n) throw new Error("amount must be greater than zero");
   await assertLocalFork(url);
@@ -233,10 +209,7 @@ export interface Balances {
 }
 
 /** Reads balances back from the fork. Read-only. */
-export async function balancesOf(
-  address: string,
-  url: string = LOCAL_FORK_RPC_URL,
-): Promise<Balances> {
+export async function balancesOf(address: string, url: string): Promise<Balances> {
   const who = checkAddress(address);
   const monWei = hexToBigInt(await rpc(url, "eth_getBalance", [who, "latest"]));
   const raw = await rpc(url, "eth_call", [

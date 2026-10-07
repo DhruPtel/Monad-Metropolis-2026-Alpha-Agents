@@ -133,10 +133,10 @@ describe("local-fork guard", () => {
   });
 
   it("validates inputs before touching the node", async () => {
-    await expect(mineBlocks(0)).rejects.toThrow(/from 1/);
-    await expect(advanceTime(-5)).rejects.toThrow(/from 1/);
-    await expect(setMonBalance("0x123", 1n)).rejects.toThrow(/address/);
-    await expect(revertToSnapshot("latest")).rejects.toThrow(/hex/);
+    await expect(mineBlocks(0, gethUrl)).rejects.toThrow(/from 1/);
+    await expect(advanceTime(-5, gethUrl)).rejects.toThrow(/from 1/);
+    await expect(setMonBalance("0x123", 1n, gethUrl)).rejects.toThrow(/address/);
+    await expect(revertToSnapshot("latest", gethUrl)).rejects.toThrow(/hex/);
   });
 });
 

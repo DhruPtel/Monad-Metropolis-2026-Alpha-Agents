@@ -1,8 +1,4 @@
-import {
-  LOCAL_FORK_CHAIN_ID,
-  LOCAL_FORK_RPC_URL,
-  MONAD_MAINNET_CHAIN_ID,
-} from "@alpha-agents/config";
+import { LOCAL_FORK_CHAIN_ID, MONAD_MAINNET_CHAIN_ID } from "@alpha-agents/config";
 import { hexToNumber, rpc } from "./rpc.ts";
 
 /**
@@ -22,7 +18,7 @@ export class NotLocalForkError extends Error {
 
 export const LOCAL_HOST = "127.0.0.1";
 
-export async function assertLocalFork(url: string = LOCAL_FORK_RPC_URL): Promise<void> {
+export async function assertLocalFork(url: string): Promise<void> {
   let host: string;
   try {
     host = new URL(url).hostname;

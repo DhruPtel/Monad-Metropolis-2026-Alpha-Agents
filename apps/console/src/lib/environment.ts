@@ -3,6 +3,7 @@ import {
   type ConfigSummary,
   type EnvSource,
   loadConfig,
+  localForkRpcUrl,
   summarizeConfig,
 } from "@alpha-agents/config";
 import { type StackHealth, stackHealth } from "@alpha-agents/devenv";
@@ -38,5 +39,5 @@ export interface EnvironmentSnapshot {
 export async function environmentSnapshot(
   source: EnvSource = process.env,
 ): Promise<EnvironmentSnapshot> {
-  return { config: configView(source), health: await stackHealth() };
+  return { config: configView(source), health: await stackHealth(localForkRpcUrl(source)) };
 }

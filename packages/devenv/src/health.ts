@@ -1,4 +1,4 @@
-import { LOCAL_FORK_CHAIN_ID, LOCAL_FORK_RPC_URL } from "@alpha-agents/config";
+import { LOCAL_FORK_CHAIN_ID } from "@alpha-agents/config";
 import { readForkConfig } from "./fork-pin.ts";
 import { localPaths } from "./paths.ts";
 import { run } from "./proc.ts";
@@ -35,9 +35,7 @@ export function dockerReachable(): boolean {
  * The anvil fork's chain, block, time and network. Only the `network` field of
  * anvil_nodeInfo is read: the same response carries the fork URL, a secret.
  */
-export async function anvilState(
-  url: string = LOCAL_FORK_RPC_URL,
-): Promise<AnvilState | undefined> {
+export async function anvilState(url: string): Promise<AnvilState | undefined> {
   try {
     const chainId = hexToNumber(await rpc(url, "eth_chainId", [], 3_000));
     const block = (await rpc(url, "eth_getBlockByNumber", ["latest", false], 3_000)) as {
@@ -66,7 +64,7 @@ export interface StackHealth {
 }
 
 /** Postgres, Redis and the anvil fork, checked the same way for the CLI and the console. */
-export async function stackHealth(url: string = LOCAL_FORK_RPC_URL): Promise<StackHealth> {
+export async function stackHealth(url: string): Promise<StackHealth> {
   const paths = localPaths();
   const services: ServiceHealth[] = [];
 

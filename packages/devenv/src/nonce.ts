@@ -1,4 +1,3 @@
-import { LOCAL_FORK_RPC_URL } from "@alpha-agents/config";
 import { assertLocalFork } from "./guard.ts";
 import { hexToNumber, rpc, toHex } from "./rpc.ts";
 
@@ -49,7 +48,7 @@ const forAddress = (section: PoolSection | undefined, address: string) =>
 
 export async function accountNonceReport(
   address: string,
-  url: string = LOCAL_FORK_RPC_URL,
+  url: string,
 ): Promise<AccountNonceReport> {
   checkAddress(address);
   await assertLocalFork(url);
@@ -78,7 +77,7 @@ export async function accountNonceReport(
 /** Drops every transaction anvil holds for the account, queued or pending. */
 export async function dropQueuedTransactions(
   address: string,
-  url: string = LOCAL_FORK_RPC_URL,
+  url: string,
 ): Promise<AccountNonceReport> {
   checkAddress(address);
   await assertLocalFork(url);
@@ -98,7 +97,7 @@ export const MAX_ALIGN_NONCE = 1_000_000;
 export async function alignAccountNonce(
   address: string,
   nonce: number,
-  url: string = LOCAL_FORK_RPC_URL,
+  url: string,
 ): Promise<AccountNonceReport> {
   checkAddress(address);
   if (!Number.isSafeInteger(nonce) || nonce < 0 || nonce > MAX_ALIGN_NONCE)
