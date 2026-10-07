@@ -3,6 +3,7 @@ pragma solidity 0.8.37;
 
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {AccountFactory} from "../../src/custody/AccountFactory.sol";
+import {PersonalAccount} from "../../src/custody/PersonalAccount.sol";
 import {MockToken} from "../mocks/CustodyMocks.sol";
 import {CustodyBase} from "./CustodyBase.sol";
 
@@ -56,18 +57,17 @@ contract AccountFactoryTest is CustodyBase {
     }
 
     function test_EveryTimelockedActionWaits() public {
-        bytes32[9] memory values = [
+        bytes32[8] memory values = [
             addr(address(executor)),
             addr(address(oracle)),
             addr(makeAddr("new guardian")),
             addr(makeAddr("new sentinel")),
             bytes32(uint256(500e6)),
             bytes32(uint256(5_000e6)),
-            addr(stranger),
             NONE,
             addr(address(wmon))
         ];
-        for (uint256 i = 0; i < 9; i++) {
+        for (uint256 i = 0; i < 8; i++) {
             AccountFactory.Action action = AccountFactory.Action(i);
             vm.prank(admin);
             bytes32 id = factory.propose(action, values[i]);
@@ -76,7 +76,7 @@ contract AccountFactoryTest is CustodyBase {
             factory.execute(action, values[i]);
         }
         vm.warp(block.timestamp + 9 days);
-        for (uint256 i = 0; i < 9; i++) {
+        for (uint256 i = 0; i < 8; i++) {
             factory.execute(AccountFactory.Action(i), values[i]);
         }
         assertEq(factory.executor(), address(executor));
@@ -85,7 +85,6 @@ contract AccountFactoryTest is CustodyBase {
         assertEq(factory.sentinel(), makeAddr("new sentinel"));
         assertEq(factory.personalCap(), 500e6);
         assertEq(factory.platformCap(), 5_000e6);
-        assertTrue(factory.isAllowlisted(stranger));
         assertFalse(factory.allowlistEnabled());
     }
 
@@ -159,8 +158,10 @@ contract AccountFactoryTest is CustodyBase {
         factory.setPersonalCap(0);
     }
 
-    function test_TheAllowlistTightensAtOnce_AndLoosensOnlyByTimelock() public {
+    function test_TheAdminAddsAndRemovesDepositorsAtOnce_AndTurnsTheAllowlistOffOnlyByTimelock() public {
         vm.startPrank(admin);
+        vm.expectEmit(address(factory));
+        emit AccountFactory.DepositorAllowlistSet(owner, true, false);
         factory.removeDepositor(owner);
         assertFalse(factory.isAllowlisted(owner));
         factory.enableAllowlist();
@@ -172,7 +173,12 @@ contract AccountFactoryTest is CustodyBase {
         vm.expectRevert(abi.encodeWithSelector(AccountFactory.NotAllowlisted.selector, owner));
         account.deposit(address(usdc), 1e6);
         vm.stopPrank();
-        timelocked(AccountFactory.Action.AllowDepositor, addr(owner));
+        // Adding is instant too (Q-46): the same block, no proposal.
+        vm.prank(admin);
+        vm.expectEmit(address(factory));
+        emit AccountFactory.DepositorAllowlistSet(owner, false, true);
+        factory.addDepositor(owner);
+        assertTrue(factory.isAllowlisted(owner));
         deposit(usdc, 1e6);
         vm.prank(owner);
         account.withdrawAll(owner);
@@ -183,6 +189,47 @@ contract AccountFactoryTest is CustodyBase {
         vm.prank(admin);
         factory.enableAllowlist();
         assertTrue(factory.allowlistEnabled());
+    }
+
+    function test_OnlyTheAdminAddsADepositor_AndNeverAddressZero() public {
+        address tester = makeAddr("tester");
+        address[3] memory others = [guardian, sentinel, makeAddr("outsider")];
+        for (uint256 i = 0; i < others.length; ++i) {
+            vm.prank(others[i]);
+            vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, others[i]));
+            factory.addDepositor(tester);
+        }
+        assertFalse(factory.isAllowlisted(tester));
+        vm.prank(admin);
+        vm.expectRevert(AccountFactory.ZeroAddress.selector);
+        factory.addDepositor(address(0));
+    }
+
+    /// An instant addition cannot raise exposure: the new depositor is held
+    /// to the per-account cap and the platform cap, which only the timelock raises.
+    function test_AnAddedDepositorIsStillBoundByBothCaps() public {
+        address tester = makeAddr("tester");
+        nft.setOwner(8, tester);
+        vm.prank(admin);
+        factory.addDepositor(tester);
+        vm.prank(tester);
+        PersonalAccount theirs = PersonalAccount(factory.createPersonalAccount(8));
+        usdc.mint(tester, 101e6);
+        vm.startPrank(tester);
+        usdc.approve(address(theirs), 101e6);
+        vm.expectRevert(abi.encodeWithSelector(AccountFactory.PersonalCapExceeded.selector, 101e6, 100e6));
+        theirs.deposit(address(usdc), 101e6);
+        theirs.deposit(address(usdc), 100e6);
+        vm.stopPrank();
+        vm.prank(admin);
+        factory.setPlatformCap(150e6);
+        deposit(usdc, 50e6);
+        usdc.mint(owner, 1e6);
+        vm.startPrank(owner);
+        usdc.approve(address(account), 1e6);
+        vm.expectRevert(abi.encodeWithSelector(AccountFactory.PlatformCapExceeded.selector, 151e6, 150e6));
+        account.deposit(address(usdc), 1e6);
+        vm.stopPrank();
     }
 
     function test_TheBuyListShrinksAtOnce_AndGrowsOnlyByTimelockAndOnlyWithHeldAssets() public {

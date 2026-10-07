@@ -28,8 +28,8 @@ export const CUSTODY_ROLES = {
 
 /**
  * The local beta allowlist: anvil accounts 6 to 9, the local test owners
- * (`pnpm custody:local` uses account 6). Adding a wallet later waits the
- * 9-day timelock, as on mainnet.
+ * (`pnpm custody:local` uses account 6). The admin can add another wallet at
+ * once with `addDepositor` (Q-46, D-231); both caps still bound it.
  * @type {`0x${string}`[]}
  */
 export const LOCAL_TEST_OWNERS = [

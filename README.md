@@ -154,7 +154,7 @@ pnpm custody:local show                     # balances, principal, mode, caps an
 pnpm custody:local deposit 10 --owner 7     # any of the local test owners, anvil accounts 6 to 9
 ```
 
-Locally, AgentNFT's admin (anvil account 0) is the factory admin, account 4 the guardian and account 5 the sentinel key; anvil accounts 6 to 9 are on the deposit allowlist. Adding a wallet to the allowlist waits the 9-day timelock, as it will on mainnet. The commands act only on the fork that `LOCAL_FORK_PORT` names (the playtest fork by default) and refuse anything that is not the local anvil fork.
+Locally, AgentNFT's admin (anvil account 0) is the factory admin, account 4 the guardian and account 5 the sentinel key; anvil accounts 6 to 9 start on the deposit allowlist. The admin adds or removes a wallet at once (D-231); raising either cap waits the 9-day timelock. The commands act only on the fork that `LOCAL_FORK_PORT` names (the playtest fork by default) and refuse anything that is not the local anvil fork.
 
 ## Web app and design system
 

@@ -20,6 +20,9 @@ import {IAgentNFTView, ICustodyConfig, IDepositLedger} from "../interfaces/ICust
 ///   Executor or cancels a pending change). Loosening waits RISK_TIMELOCK in
 ///   this contract's own code: anyone executes a matured change, nobody can
 ///   execute it early, and it lapses if left too long.
+/// - The one loosening that is instant: the admin adds a depositor to the beta
+///   allowlist (Q-46). A new depositor is still bound by both caps, which only
+///   the timelock raises, so an addition cannot raise the platform's exposure.
 /// - Admin is two-step (Ownable2Step) and cannot be renounced.
 contract AccountFactory is ICustodyConfig, IDepositLedger, Ownable2Step {
     /// 9 days: the maximum lockup (7 days) plus notice (2 days) (FINAL_PLAN 4.7.2).
@@ -35,7 +38,6 @@ contract AccountFactory is ICustodyConfig, IDepositLedger, Ownable2Step {
         SetSentinel,
         RaisePersonalCap,
         RaisePlatformCap,
-        AllowDepositor,
         DisableAllowlist,
         AddBuyable
     }
@@ -195,7 +197,7 @@ contract AccountFactory is ICustodyConfig, IDepositLedger, Ownable2Step {
     }
 
     // ---------------------------------------------------------------------
-    // Instant tightening
+    // Instant changes: every tightening, and adding a depositor (Q-46)
     // ---------------------------------------------------------------------
 
     /// Sets the Executor to none: no account can trade until a new one passes
@@ -226,6 +228,15 @@ contract AccountFactory is ICustodyConfig, IDepositLedger, Ownable2Step {
         if (cap > platformCap) revert UseTimelock();
         emit PlatformCapSet(platformCap, cap);
         platformCap = cap;
+    }
+
+    /// Puts a wallet on the depositor allowlist at once (Q-46): beta testers
+    /// join without waiting the timelock. Both caps still bound what they can
+    /// deposit, and raising either cap still waits the timelock.
+    function addDepositor(address depositor) external onlyOwner {
+        if (depositor == address(0)) revert ZeroAddress();
+        emit DepositorAllowlistSet(depositor, isAllowlisted[depositor], true);
+        isAllowlisted[depositor] = true;
     }
 
     /// Takes a wallet off the depositor allowlist; its withdrawals are never gated.
@@ -312,10 +323,6 @@ contract AccountFactory is ICustodyConfig, IDepositLedger, Ownable2Step {
         } else if (action == Action.RaisePlatformCap) {
             emit PlatformCapSet(platformCap, uint256(value));
             platformCap = uint256(value);
-        } else if (action == Action.AllowDepositor) {
-            address depositor = _address(value);
-            emit DepositorAllowlistSet(depositor, isAllowlisted[depositor], true);
-            isAllowlisted[depositor] = true;
         } else if (action == Action.DisableAllowlist) {
             emit AllowlistEnabledSet(allowlistEnabled, false);
             allowlistEnabled = false;

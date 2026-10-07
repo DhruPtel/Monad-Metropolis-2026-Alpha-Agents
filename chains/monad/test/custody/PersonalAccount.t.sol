@@ -165,8 +165,8 @@ contract PersonalAccountTest is CustodyBase {
         deposit(usdc, 100e6);
         address second = makeAddr("second");
         nft.setOwner(8, second);
-        bytes32 v = bytes32(uint256(uint160(second)));
-        timelocked(AccountFactory.Action.AllowDepositor, v);
+        vm.prank(admin);
+        factory.addDepositor(second);
         vm.prank(second);
         PersonalAccount other = PersonalAccount(factory.createPersonalAccount(8));
         usdc.mint(second, 60e6);

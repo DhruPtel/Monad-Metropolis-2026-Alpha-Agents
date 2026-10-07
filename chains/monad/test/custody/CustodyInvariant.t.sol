@@ -174,7 +174,11 @@ contract CustodyHandler is Test {
         } else if (w == 1) {
             try factory.setPlatformCap(bound(value, 0, factory.platformCap())) {} catch {}
         } else if (w == 2) {
-            try factory.removeDepositor(owner) {} catch {}
+            if (value % 2 == 0) {
+                try factory.removeDepositor(owner) {} catch {}
+            } else {
+                try factory.addDepositor(owner) {} catch {}
+            }
         } else if (w == 3) {
             try factory.enableAllowlist() {} catch {}
         } else if (w == 4) {
@@ -182,7 +186,7 @@ contract CustodyHandler is Test {
         } else if (w == 5) {
             try factory.clearExecutor() {} catch {}
         } else if (w == 6) {
-            AccountFactory.Action a = AccountFactory.Action(4 + value % 5);
+            AccountFactory.Action a = AccountFactory.Action(4 + value % 4);
             bytes32 v = a == AccountFactory.Action.RaisePersonalCap || a == AccountFactory.Action.RaisePlatformCap
                 ? bytes32(bound(value, 0, 10_000e6))
                 : a == AccountFactory.Action.DisableAllowlist
