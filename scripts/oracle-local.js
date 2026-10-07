@@ -116,7 +116,13 @@ async function call(from, request) {
 
 /** @param {`0x${string}`} account @param {`0x${string}`} owner */
 async function poke(account, owner) {
-  await call(owner, { address: account, abi: BREAKER_ABI, functionName: "poke", args: [] });
+  const r = await call(owner, {
+    address: account,
+    abi: BREAKER_ABI,
+    functionName: "poke",
+    args: [],
+  });
+  return r.gasUsed;
 }
 
 async function demo(/** @type {`0x${string}`} */ factory, /** @type {`0x${string}`} */ adapter) {
@@ -142,7 +148,7 @@ async function demo(/** @type {`0x${string}`} */ factory, /** @type {`0x${string
   for (const line of await oracle.describePrices(adapter)) console.log(`   ${line}`);
 
   console.log("\n4. The owner deposits 30 USDC and about 40 USDC of WMON, and pokes.");
-  await custody.depositUsdc(account, owner, 30_000_000n);
+  const usdcGas = (await custody.depositUsdc(account, owner, 30_000_000n)).gasUsed;
   // About 40 USDC of WMON at the current price.
   const wmonAmount = (40_000_000n * 10n ** 30n) / (base * 10n ** 10n);
   // The mint left the owner 100 MON for gas; wrapping needs more.
@@ -160,22 +166,27 @@ async function demo(/** @type {`0x${string}`} */ factory, /** @type {`0x${string
     functionName: "approve",
     args: [account, wmonAmount],
   });
-  await call(owner, {
-    address: account,
-    abi: BREAKER_ABI,
-    functionName: "deposit",
-    args: [wmon, wmonAmount],
-  });
-  await poke(account, owner);
+  const wmonGas = (
+    await call(owner, {
+      address: account,
+      abi: BREAKER_ABI,
+      functionName: "deposit",
+      args: [wmon, wmonAmount],
+    })
+  ).gasUsed;
+  const pokeGas = await poke(account, owner);
   console.log(`   ${account}: 30 USDC and ${formatUnits(wmonAmount, 18)} WMON`);
+  console.log(`   gas used: USDC deposit ${usdcGas}, WMON deposit ${wmonGas}, poke ${pokeGas}`);
   console.log(`   ${await breakerLine(account)}`);
 
   console.log("\n5. MON/USD falls; anyone may poke, and the breaker only tightens.");
   for (const d of drops) {
     const answer = (base * BigInt(100 - d)) / 100n;
     await oracle.setMonUsd(answer);
-    await poke(account, owner);
-    console.log(`   MON ${d}% down ($${formatUnits(answer, 8)}): ${await breakerLine(account)}`);
+    const gas = await poke(account, owner);
+    console.log(
+      `   MON ${d}% down ($${formatUnits(answer, 8)}): ${await breakerLine(account)} (poke gas ${gas})`,
+    );
   }
 
   console.log("\n6. A deposit while PAUSED is refused; a withdrawal with every feed down is not.");
@@ -197,7 +208,7 @@ async function demo(/** @type {`0x${string}`} */ factory, /** @type {`0x${string
   } catch (err) {
     console.log(`   valuation: refused, ${why(err)}`);
   }
-  await send(owner, {
+  const out = await send(owner, {
     address: account,
     abi: BREAKER_ABI,
     functionName: "withdrawAll",
@@ -208,7 +219,7 @@ async function demo(/** @type {`0x${string}`} */ factory, /** @type {`0x${string
     client.readContract({ address: wmon, abi: WMON_ABI, functionName: "balanceOf", args: [owner] }),
   ]);
   console.log(
-    `   withdrawAll: done; the owner holds ${formatUnits(back, 18)} WMON again; units left ${units}`,
+    `   withdrawAll: done (gas ${out.gasUsed}); the owner holds ${formatUnits(back, 18)} WMON again; units left ${units}`,
   );
 }
 
