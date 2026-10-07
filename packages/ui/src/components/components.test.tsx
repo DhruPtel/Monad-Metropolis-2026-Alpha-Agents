@@ -31,6 +31,7 @@ import { Field, Input } from "./ui/input";
 import { SectionLabel } from "./ui/section-label";
 import { Tabs, TabsList, TabsTrigger } from "./ui/tabs";
 import { Tag } from "./ui/tag";
+import { Table, TableBody, TableCell, TableRow } from "./ui/table";
 import { WALLET_STATES, WalletButton, WalletNotice, WrongChainPrompt } from "./wallet-status";
 
 describe("StatusPill renders every canonical value from packages/domain", () => {
@@ -405,5 +406,39 @@ describe("other components", () => {
   it("BetaBanner says unaudited beta and names the environment", () => {
     render(<BetaBanner environment="fork" />);
     expect(screen.getByRole("note")).toHaveTextContent(/Unaudited beta\..*Environment: fork/);
+  });
+});
+
+describe("Table stacks on narrow screens when asked (P2-U5 step 0)", () => {
+  it("marks a stacked table and gives each labelled cell its column name", () => {
+    render(
+      <Table stack label="Stacked">
+        <TableBody>
+          <TableRow>
+            <TableCell label="State">Reconciled</TableCell>
+            <TableCell>No label</TableCell>
+          </TableRow>
+        </TableBody>
+      </Table>,
+    );
+    const table = screen.getByRole("table");
+    expect(table).toHaveAttribute("data-stack");
+    const labels = table.querySelectorAll('[data-slot="table-cell-label"]');
+    expect(labels).toHaveLength(1);
+    expect(labels[0]).toHaveTextContent("State");
+    expect(labels[0]).toHaveAttribute("aria-hidden");
+    expect(screen.getByText("Reconciled")).toBeInTheDocument();
+  });
+  it("leaves an ordinary table unstacked", () => {
+    render(
+      <Table label="Plain">
+        <TableBody>
+          <TableRow>
+            <TableCell label="State">x</TableCell>
+          </TableRow>
+        </TableBody>
+      </Table>,
+    );
+    expect(screen.getByRole("table")).not.toHaveAttribute("data-stack");
   });
 });

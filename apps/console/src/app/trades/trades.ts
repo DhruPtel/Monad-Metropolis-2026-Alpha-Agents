@@ -25,6 +25,8 @@ export interface TradingSnapshotView {
 
 export interface TransactionView {
   readonly txId: string;
+  /** The outbox kind; absent from rows read before P2-U5, which were all swaps. */
+  readonly kind?: "executor_swap" | "usdc_refund" | "usdc_settlement";
   readonly status: string;
   readonly reasonCode: string | null;
   readonly reason: string | null;
@@ -79,12 +81,28 @@ export const inFlight = (txs: readonly TransactionView[]): boolean =>
       (t.status === "confirmed" && !t.reasonCode),
   );
 
-/** "Buy WMON with 5 USDC" from the intent, given which token is USDC. */
+/** What the transaction asks for: a swap's direction, or a credit transfer's purpose (D-261). */
 export function describeSwap(t: TransactionView, usdc: string): string {
   const i = t.intent;
+  if (t.kind === "usdc_refund") return "Refund credits to the owner";
+  if (t.kind === "usdc_settlement") return "Settle credits to the treasury";
   if (!i) return "Not a swap";
   const buying = String(i.tokenIn).toLowerCase() === usdc.toLowerCase();
   return buying ? "Buy WMON with USDC" : "Sell WMON for USDC";
+}
+
+/** The amount the transaction moves and its token: a swap's input, or a transfer's USDC. */
+export function amountOf(
+  t: TransactionView,
+  usdc: string,
+): { value: bigint; token: string } | null {
+  const i = t.intent;
+  if (!i) return null;
+  if (t.kind === "usdc_refund" || t.kind === "usdc_settlement")
+    return typeof i.amount === "string" ? { value: BigInt(i.amount), token: usdc } : null;
+  return i.amountIn === undefined
+    ? null
+    : { value: BigInt(String(i.amountIn)), token: String(i.tokenIn) };
 }
 
 /** Which of the setup steps are done, in order: account, funded, grant for the signer's key. */

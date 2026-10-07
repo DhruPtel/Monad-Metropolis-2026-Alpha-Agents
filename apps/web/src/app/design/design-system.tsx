@@ -1378,6 +1378,61 @@ function DataSection() {
         </p>
       </Specimen>
       <Specimen
+        name="Table, stacked on narrow screens"
+        note="With stack, below 640px each row becomes a block and each cell shows its column's name, so a wide table never scrolls sideways on a phone."
+      >
+        <Table stack label="Stacked table sample">
+          <TableHeader>
+            <TableRow>
+              <TableHead scope="col">State</TableHead>
+              <TableHead scope="col">Request</TableHead>
+              <TableHead scope="col">Transaction</TableHead>
+              <TableHead scope="col">Outcome</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            <TableRow>
+              <TableCell label="State">
+                <StatusPill kind="transaction" value="reconciled" />
+              </TableCell>
+              <TableCell label="Request">
+                Buy WMON with{" "}
+                <AmountDisplay
+                  value={5_000_000n}
+                  decimals={6}
+                  minFractionDigits={2}
+                  symbol="USDC"
+                />
+              </TableCell>
+              <TableCell label="Transaction" className="numeric text-xs">
+                0x4be1f5c0a9e2... nonce 3
+              </TableCell>
+              <TableCell label="Outcome">In the ledger</TableCell>
+            </TableRow>
+            <TableRow>
+              <TableCell label="State">
+                <StatusPill kind="transaction" value="failed" />
+              </TableCell>
+              <TableCell label="Request">
+                Buy WMON with{" "}
+                <AmountDisplay
+                  value={90_000_000n}
+                  decimals={6}
+                  minFractionDigits={2}
+                  symbol="USDC"
+                />
+              </TableCell>
+              <TableCell label="Transaction" className="numeric text-xs">
+                not signed
+              </TableCell>
+              <TableCell label="Outcome">
+                <ReasonMessage code="TRADE_SIZE_EXCEEDED" />
+              </TableCell>
+            </TableRow>
+          </TableBody>
+        </Table>
+      </Specimen>
+      <Specimen
         name="Reason message"
         note='Every policy reason code from packages/domain, as the owner reads it under "why the agent did not trade".'
       >

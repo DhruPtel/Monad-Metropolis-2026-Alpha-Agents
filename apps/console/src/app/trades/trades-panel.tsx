@@ -41,6 +41,7 @@ import {
 import {
   type TradesView,
   type TransactionView,
+  amountOf,
   describeSwap,
   inFlight,
   isTransactionState,
@@ -397,11 +398,11 @@ export function TradesPanel({
         </CardHeader>
         <CardContent>
           {view && view.transactions.length > 0 ? (
-            <Table label="The signer's outbox for this agent">
+            <Table stack label="The signer's outbox for this agent">
               <TableHeader>
                 <TableRow>
                   <TableHead>State</TableHead>
-                  <TableHead>Swap</TableHead>
+                  <TableHead>Request</TableHead>
                   <TableHead>Transaction</TableHead>
                   <TableHead>Outcome</TableHead>
                 </TableRow>
@@ -430,9 +431,10 @@ function OutboxRow({ t, usdc, view }: { t: TransactionView; usdc: string; view: 
   const entry = t.ledgerEntryId ? view.ledger[t.ledgerEntryId] : undefined;
   const tokenIn = t.intent?.tokenIn;
   const tokenOut = t.intent?.tokenOut;
+  const amount = amountOf(t, usdc);
   return (
     <TableRow data-status={t.status}>
-      <TableCell className="align-top">
+      <TableCell label="State" className="align-top">
         <div className="flex flex-col gap-1">
           {isTransactionState(t.status) ? (
             <StatusPill kind="transaction" value={t.status} />
@@ -444,21 +446,21 @@ function OutboxRow({ t, usdc, view }: { t: TransactionView; usdc: string; view: 
           </span>
         </div>
       </TableCell>
-      <TableCell className="align-top">
+      <TableCell label="Request" className="align-top">
         <div className="flex flex-col gap-1">
           <span>{describeSwap(t, usdc)}</span>
-          {t.intent ? (
+          {amount ? (
             <AmountDisplay
-              value={BigInt(String(t.intent.amountIn))}
-              decimals={decimalsOf(tokenIn, usdc)}
-              symbol={symbolOf(tokenIn, usdc)}
+              value={amount.value}
+              decimals={decimalsOf(amount.token, usdc)}
+              symbol={symbolOf(amount.token, usdc)}
               maxFractionDigits={6}
               className="text-xs text-foreground-muted"
             />
           ) : null}
         </div>
       </TableCell>
-      <TableCell className="numeric align-top text-xs">
+      <TableCell label="Transaction" className="numeric align-top text-xs">
         {t.txHash ? (
           <div className="flex flex-col gap-1">
             <span title={t.txHash}>{t.txHash.slice(0, 14)}...</span>
@@ -469,7 +471,7 @@ function OutboxRow({ t, usdc, view }: { t: TransactionView; usdc: string; view: 
           <span className="text-foreground-subtle">not signed</span>
         )}
       </TableCell>
-      <TableCell className="align-top">
+      <TableCell label="Outcome" className="align-top">
         <div className="flex flex-col gap-2">
           {reason ? (
             <ReasonMessage code={reason} />

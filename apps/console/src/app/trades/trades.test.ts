@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   type TradesView,
   type TransactionView,
+  amountOf,
   describeSwap,
   inFlight,
   knownReason,
@@ -68,6 +69,24 @@ describe("the Trades panel's data (P2-U4)", () => {
       "Sell WMON for USDC",
     );
     expect(describeSwap(tx("failed", { intent: null }), USDC)).toBe("Not a swap");
+  });
+
+  it("describes refunds and settlements, and the amount each moves (D-261)", () => {
+    const refund = tx("reconciled", {
+      kind: "usdc_refund",
+      intent: {
+        kind: "usdc_refund",
+        to: "0x00000000000000000000000000000000000a11ce",
+        amount: "4000000",
+      },
+    });
+    expect(describeSwap(refund, USDC)).toBe("Refund credits to the owner");
+    expect(amountOf(refund, USDC)).toEqual({ value: 4_000_000n, token: USDC });
+    expect(describeSwap(tx("accepted", { kind: "usdc_settlement" }), USDC)).toBe(
+      "Settle credits to the treasury",
+    );
+    expect(amountOf(tx("accepted"), USDC)?.token).toBe(USDC.toLowerCase());
+    expect(amountOf(tx("failed", { intent: null }), USDC)).toBeNull();
   });
 
   it("counts the grant only when it names the signer's session key", () => {

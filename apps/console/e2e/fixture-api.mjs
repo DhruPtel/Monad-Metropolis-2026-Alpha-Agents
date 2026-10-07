@@ -253,9 +253,31 @@ const transaction = (txId, status, over) => ({
 });
 const outbox = JSON.stringify({
   transactions: [
+    transaction("tx-refund", "reconciled", {
+      kind: "usdc_refund",
+      actionId: "refund:5f0c2d9e-7b1a-4c3e-9d2f-1a2b3c4d5e6f",
+      nonce: 2,
+      txHash: `0x${"5e7d".repeat(16)}`,
+      blockNumber: 109670104,
+      gasUsed: "51203",
+      intent: {
+        kind: "usdc_refund",
+        to: "0x683ee842a16f85e69883f433745263bfe8d55f76",
+        amount: "4000000",
+      },
+      amountOut: "4000000",
+      history: [
+        at("accepted", 5),
+        at("signed", 5, "nonce 2"),
+        at("submitted", 5),
+        at("confirmed", 5, "block 109670104"),
+        at("reconciled", 5),
+      ],
+    }),
     transaction("tx-refused", "failed", {
       reasonCode: "TARGET_NOT_ALLOWED",
-      reason: "refused before signing: The signer signs calls to the Executor only.",
+      reason:
+        "refused before signing: The signer signs calls to the Executor, and USDC transfers for credits, only.",
       intent: null,
       history: [at("failed", 4, "TARGET_NOT_ALLOWED")],
     }),

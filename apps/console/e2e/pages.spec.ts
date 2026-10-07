@@ -249,7 +249,7 @@ test.describe("agents panel controls (P1-U5)", () => {
   });
 });
 
-test("the Trades page shows the signer's outbox: states, hashes, refusals, balances and the ledger entry (P2-U4)", async ({
+test("the Trades page shows the signer's outbox: states, hashes, refusals, balances, refunds and the ledger entry (P2-U4, P2-U5)", async ({
   page,
 }) => {
   await page.goto("/trades");
@@ -260,8 +260,11 @@ test("the Trades page shows the signer's outbox: states, hashes, refusals, balan
   await expect(page.getByTestId("fork-error")).toContainText("The fork could not be read");
   await expect(page.getByText("Signer running")).toBeVisible();
   const rows = page.locator("tbody tr");
-  await expect(rows).toHaveCount(4);
-  await expect(page.locator('tr[data-status="reconciled"]')).toContainText("Reconciled");
+  await expect(rows).toHaveCount(5);
+  await expect(page.locator('tr[data-status="reconciled"]')).toHaveCount(2);
+  await expect(page.locator('tr[data-status="reconciled"]').first()).toContainText(
+    "Refund credits to the owner",
+  );
   await expect(page.locator('tr[data-status="unknown"]')).toContainText("Unknown");
   await expect(page.locator('tr[data-status="failed"]')).toHaveCount(2);
   await expect(
@@ -274,6 +277,10 @@ test("the Trades page shows the signer's outbox: states, hashes, refusals, balan
   // Without a fork read nothing can be set up or sent.
   for (const name of ["Create PersonalAccount", "Send test swap", "Try the swap that breaks it"])
     await expect(page.getByRole("button", { name })).toBeDisabled();
+  // The outbox never scrolls sideways: on a phone its rows stack (P2-U5 step 0).
+  const region = page.getByRole("region", { name: "The signer's outbox for this agent" });
+  const overflow = await region.evaluate((el) => el.scrollWidth - el.clientWidth);
+  expect(overflow).toBeLessThanOrEqual(0);
   await repaint(page);
   await expect(page).toHaveScreenshot("trades-outbox.png", { fullPage: true });
 });
