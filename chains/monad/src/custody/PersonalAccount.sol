@@ -173,7 +173,11 @@ contract PersonalAccount is CustodyCore {
         if (!empty) {
             if (freeOut == 0) return;
             uint256 px = lastWmonPriceE18;
-            uint256 valueOut = _valueOf(token, freeOut, px);
+            // The value that left is the exact fall in NAV (each side rounded as
+            // NAV rounds), never the withdrawn amount valued on its own, which
+            // can round to less and let a dust withdrawal lower the value per unit.
+            uint256 freeAfter = _free(token, IERC20(token).balanceOf(address(this)));
+            uint256 valueOut = _valueOf(token, freeAfter + freeOut, px) - _valueOf(token, freeAfter, px);
             if (valueOut == 0) return;
             // valueOut <= navBefore, so the burn is at most u.
             uint256 burn = Math.mulDiv(u, valueOut, _navAt(px) + valueOut, Math.Rounding.Ceil);
