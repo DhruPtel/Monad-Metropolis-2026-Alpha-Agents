@@ -49,6 +49,8 @@ export interface PolicyLimits {
   readonly oracleMaxAgeSeconds: Readonly<Record<OracleFeed, number>>;
   /** Max distance between the pool price and the oracle price. */
   readonly oracleMaxDeviationBps: number;
+  /** Max distance of USDC/USD from 1 before deposits stop (the depeg guard, A-34). */
+  readonly usdcMaxDepegBps: number;
   /** Drawdown from the 7-day peak at which the account becomes REDUCE_ONLY. */
   readonly breakerReduceOnlyBps: number;
   /** Drawdown from the 7-day peak at which the account becomes PAUSED. */
@@ -73,6 +75,7 @@ export const LAUNCH_LIMITS: PolicyLimits = Object.freeze({
     USDC_USD: 3_900, // depeg guard only; hourly heartbeat plus 5 minutes (P2-U0)
   }),
   oracleMaxDeviationBps: 200, // within 2% of the pool price
+  usdcMaxDepegBps: 100, // USDC/USD within 1% of 1 for deposits (A-34)
   breakerReduceOnlyBps: 1_000, // 10% drop from the 7-day peak
   breakerPauseBps: 2_000, // 20% drop from the 7-day peak
   breakerPeakWindowSeconds: 7 * DAY,

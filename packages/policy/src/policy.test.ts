@@ -56,6 +56,7 @@ describe("launch limits", () => {
       deadlineSeconds: 120,
       oracleMaxAgeSeconds: { MON_USD: 300, USDC_USD: 3_900 },
       oracleMaxDeviationBps: 200,
+      usdcMaxDepegBps: 100,
       breakerReduceOnlyBps: 1_000,
       breakerPauseBps: 2_000,
     });

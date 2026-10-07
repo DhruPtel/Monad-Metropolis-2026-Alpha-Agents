@@ -47,6 +47,7 @@
     "agent-nft:local": "node scripts/agent-nft-local.js",
     "deploy:account-factory": "node scripts/deploy-account-factory.js",
     "custody:local": "node scripts/custody-local.js",
+    "policy:parity": "node packages/policy/scripts/write-parity.ts",
     "assets:build-bee": "node scripts/assets/build-bee-model.ts",
     "assets:check": "node scripts/assets/check-models.ts"
   },

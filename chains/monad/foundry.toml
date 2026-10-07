@@ -7,8 +7,13 @@ libs = ["dependencies"]
 solc_version = "0.8.37"
 # Every contract targets Monad, so forge uses the Monad EVM (and can fork chain 143).
 network = "monad"
-# Tests read the pinned fork config and the build output (the AgentNFT ABI check); nothing else on disk.
-fs_permissions = [{ access = "read", path = "./fork.json" }, { access = "read", path = "./out" }]
+# Tests read the pinned fork config, the build output (the AgentNFT ABI check)
+# and the oracle and breaker parity fixture that packages/policy writes (P2-U3).
+fs_permissions = [
+  { access = "read", path = "./fork.json" },
+  { access = "read", path = "./out" },
+  { access = "read", path = "../../packages/policy/fixtures" },
+]
 
 [profile.default.invariant]
 # Each run mints up to 40 agents per call and the invariants read every

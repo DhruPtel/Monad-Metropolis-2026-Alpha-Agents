@@ -37,6 +37,7 @@ export interface CheckOptions {
 }
 
 const BPS = BigInt(BPS_DENOMINATOR);
+const MAX_PRICE_E18 = (1n << 128n) - 1n;
 
 function reject(code: RejectionCode, detail: string): Rejection {
   return { code, message: REJECTION_MESSAGES[code], detail };
@@ -93,6 +94,9 @@ export function checkOracle(
   if (!reading || !feed) return [reject("ORACLE_STALE", `no oracle reading for ${asset}`)];
   if (reading.priceE18 <= 0n)
     return [reject("ORACLE_STALE", `${asset} oracle price is not positive`)];
+  // The adapter refuses a price above 2^128 - 1 (ANSWER_OUT_OF_RANGE); so does the pre-check.
+  if (reading.priceE18 > MAX_PRICE_E18)
+    return [reject("ORACLE_STALE", `${asset} oracle price is out of range`)];
   const stale = checkFeedAge(feed, reading.updatedAt, now, limits);
   if (stale) return [stale];
   const diff =
