@@ -4,6 +4,7 @@ import { isUserRejection } from "@/auth/session";
 import type { MintClaim } from "./agent-nft";
 import type { NetworkCheck } from "./network-check";
 import { ReceiptTimeoutError, SentElsewhereError } from "./receipt-watch";
+import { StuckNonceError } from "./stuck-nonce";
 
 /**
  * The mint, step by step (P1-U11): ask the claim route for a claim, have the
@@ -106,8 +107,13 @@ export async function runMint(
   try {
     agentId = await deps.waitForMint(hash);
   } catch (error) {
-    // A send to another network, or no receipt at all, is said as it is (L-53).
-    if (error instanceof SentElsewhereError || error instanceof ReceiptTimeoutError) {
+    // A send to another network, a nonce the fork will never mine, or no receipt
+    // at all, is said as it is (L-53, P2-U1 step 0).
+    if (
+      error instanceof SentElsewhereError ||
+      error instanceof StuckNonceError ||
+      error instanceof ReceiptTimeoutError
+    ) {
       return finish({ state: "error", hash, message: error.message });
     }
     const name = revertName(error);

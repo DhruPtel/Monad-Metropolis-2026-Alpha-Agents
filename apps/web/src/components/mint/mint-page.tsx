@@ -19,6 +19,7 @@ import {
   StatBar,
   Tag,
   TierCard,
+  WalletNotice,
 } from "@alpha-agents/ui";
 import { RotateCcw } from "lucide-react";
 import Link from "next/link";
@@ -29,6 +30,8 @@ import { mintPageView } from "@/agent/mint-page-state";
 import { type SupplySummary, type TierSupply, formatCount, formatOdds } from "@/agent/supply";
 import { useMint } from "@/agent/use-agents";
 import { useMintSupply, useWalletMint } from "@/agent/use-mint-page";
+import { STUCK_NONCE_FIX } from "@/agent/stuck-nonce";
+import { useStuckNonce } from "@/agent/use-stuck-nonce";
 
 const TIER_NAME = { base: "Base", medium: "Medium", pro: "Pro" } as const;
 const bps = (part: number, whole: number) => (whole > 0 ? (part / whole) * 10_000 : 0);
@@ -152,6 +155,7 @@ export function MintPage({ environment }: { environment: EnvironmentId }) {
     refreshWallet();
   }, [refreshSupply, refreshWallet]);
   const { progress, mint, reset } = useMint(environment, onChange);
+  const stuck = useStuckNonce(environment);
   const envLabel = ENVIRONMENTS[environment].label;
 
   const summary =
@@ -194,6 +198,21 @@ export function MintPage({ environment }: { environment: EnvironmentId }) {
         </div>
         <Tag size="md">{envLabel}</Tag>
       </header>
+
+      {stuck ? (
+        <div data-testid="stuck-nonce">
+          <WalletNotice
+            tone="warning"
+            title="Your wallet has transactions the local fork will never mine"
+          >
+            The fork holds{" "}
+            {stuck.queuedCount === 1 ? "a transaction" : `${stuck.queuedCount} transactions`} from
+            this wallet starting at nonce {stuck.walletNonce}, but expects nonce {stuck.forkNonce},
+            as happens after the local fork is reset. Until that is fixed, a mint waits forever.{" "}
+            {STUCK_NONCE_FIX}
+          </WalletNotice>
+        </div>
+      ) : null}
 
       <div className="grid items-start gap-4 lg:grid-cols-12">
         <div className="lg:order-2 lg:col-span-5">

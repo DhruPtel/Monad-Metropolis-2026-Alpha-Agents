@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { AGENT_NFT_ABI, type MintClaim } from "./agent-nft";
 import { type MintFlowDeps, type MintProgress, runMint } from "./mint-flow";
 import { SentElsewhereError } from "./receipt-watch";
+import { StuckNonceError } from "./stuck-nonce";
 
 const WALLET = "0x960f4063b0242aD076978759f3A52c0140300891";
 const HASH = `0x${"12".repeat(32)}` as const;
@@ -128,6 +129,16 @@ describe("the mint flow", () => {
     expect(states).toEqual(["claiming", "signing", "minting", "error"]);
     expect(result.message).toContain("sent the transaction to a different network");
     expect(result.message).not.toContain("The mint transaction failed");
+  });
+
+  it("says the fork will never mine a transaction sent with a nonce ahead of it (P2-U1 step 0)", async () => {
+    const stuck = new StuckNonceError({ walletNonce: 3, forkNonce: 0, queuedCount: 1 });
+    const result = await runMint(
+      deps({ waitForMint: () => Promise.reject(stuck) }),
+      () => undefined,
+    );
+    expect(result.state).toBe("error");
+    expect(result.message).toBe(stuck.message);
   });
 
   it("is an error when the transaction fails after sending", async () => {

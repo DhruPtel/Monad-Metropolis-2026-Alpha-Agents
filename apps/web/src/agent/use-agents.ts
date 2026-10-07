@@ -10,6 +10,7 @@ import { type AgentView, chainClient } from "./chain";
 import { type MintProgress, runMint } from "./mint-flow";
 import { type Rpc, checkWalletNetwork } from "./network-check";
 import { waitForReceiptOnAppNetwork } from "./receipt-watch";
+import { StuckNonceError, readNonceReport, stuckNonce } from "./stuck-nonce";
 
 /** How often the wallet's agents are re-read from the API while the page is open. */
 const OWNERSHIP_POLL_MS = 5_000;
@@ -129,6 +130,15 @@ export function useMint(environment: EnvironmentId, onChange: () => void): Mint 
             app: appRpc,
             wallet: wallet.walletRequest,
             appNetwork: wallet.target.name,
+            // On the local fork, a nonce ahead of the fork's is named at once (P2-U1 step 0).
+            ...(environment === "local"
+              ? {
+                  stuckCheck: async () => {
+                    const gap = stuckNonce(await readNonceReport(appRpc, address, hash));
+                    return gap ? new StuckNonceError(gap) : null;
+                  },
+                }
+              : {}),
           });
           const receipt = await client.getTransactionReceipt({ hash });
           if (receipt.status !== "success") throw new Error("the mint transaction reverted");
@@ -162,7 +172,7 @@ export function useMint(environment: EnvironmentId, onChange: () => void): Mint 
       .finally(() => {
         running.current = false;
       });
-  }, [client, deployment, wallet]);
+  }, [client, deployment, environment, wallet]);
 
   const reset = useCallback(() => {
     if (!running.current) setProgress({ state: "idle" });

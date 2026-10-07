@@ -38,6 +38,13 @@ export interface ReceiptWatch {
   /** How long a receipt seen only on the wallet's network may wait for the app's. */
   readonly graceMs?: number;
   readonly pollMs?: number;
+  /**
+   * Local fork only: names a transaction the fork will never mine (a nonce
+   * ahead of the fork's, stuck-nonce.ts). Asked every `stuckEveryMs` once the
+   * receipt has been missing that long; a returned error ends the wait.
+   */
+  readonly stuckCheck?: () => Promise<Error | null>;
+  readonly stuckEveryMs?: number;
   readonly now?: () => number;
   readonly sleep?: (ms: number) => Promise<void>;
 }
@@ -57,6 +64,8 @@ export async function waitForReceiptOnAppNetwork(watch: ReceiptWatch): Promise<v
   const sleep = watch.sleep ?? ((ms) => new Promise<void>((r) => setTimeout(r, ms)));
   const start = now();
   let seenOnlyByWallet: number | undefined;
+  const stuckEveryMs = watch.stuckEveryMs ?? 3_000;
+  let lastStuckCheck = start;
 
   for (;;) {
     // No receipt yet is not a failure (L-10): keep polling.
@@ -74,6 +83,12 @@ export async function waitForReceiptOnAppNetwork(watch: ReceiptWatch): Promise<v
       }
       seenOnlyByWallet ??= now();
       if (now() - seenOnlyByWallet >= graceMs) throw new SentElsewhereError(appNetwork);
+    }
+
+    if (watch.stuckCheck && now() - lastStuckCheck >= stuckEveryMs) {
+      lastStuckCheck = now();
+      const stuck = await watch.stuckCheck().catch(() => null);
+      if (stuck) throw stuck;
     }
 
     if (now() - start >= timeoutMs) {
