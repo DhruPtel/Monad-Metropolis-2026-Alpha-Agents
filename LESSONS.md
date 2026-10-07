@@ -866,3 +866,52 @@ What happened: Three Executor tests reverted for the wrong reason because `execu
 Cause: Arguments are evaluated before cheatcodes bind; random generators were not checked for how often they reach the state under test; a demo step depended on an earlier step's state.
 Fix: Constants read into locals before the cheatcodes; the handler misbehaves about one call in eight, asks for the floor, and weights trades; a separate fuzz test covers the 20-trade window, and mutations of the 40% cap and the trade count each fail a test; the demo runs reduce-only first (9d8baae, 78678ad, ef549af).
 Lesson: Prove every fuzz or invariant suite with a mutation before trusting it, and measure how often its generator reaches the rule it is meant to break.
+
+## L-111: Printing the signer showed its RPC URLs
+Unit: P2-U4
+What happened: The signer test that checks no secret appears anywhere failed: `util.inspect` of a Signer printed its options, including the RPC URLs it is given to redact, which can carry an API key.
+Cause: The options sat in a TypeScript `private` field, which is private only to the type checker; inspect and JSON see it.
+Fix: The options moved to a JavaScript private field (`#o`), as the key providers already did, and the test checks inspect, JSON, logs, errors and rows for the seed, the key and the URL.
+Lesson: Anything holding a secret or a secret-bearing URL keeps it in a `#` field and is tested by printing it.
+
+## L-112: A crash check compared the database clock with the test clock
+Unit: P2-U4
+What happened: The test for a transaction left signed by a stopped process never saw it become unknown.
+Cause: Its age was measured from `updated_at`, which Postgres sets with `now()`, against the signer's injected clock, hours apart in the test.
+Fix: The age comes from the row's own history entry, written with the signer's clock.
+Lesson: Compare times from one clock; a timestamp the database writes cannot be measured against an injected one.
+
+## L-113: A piped commit gate let a secrets finding through
+Unit: P2-U4
+What happened: A commit went in although the gate printed "Secrets scan FAILED": gitleaks read `tokenOut: "<WMON's address>"` in a test as an API key.
+Cause: The gate ran as `gate.sh | tail -1 && git commit`, so the commit saw tail's exit code, not the gate's. The gate also checks only formatting and secrets, so a later commit went in without a full lint and failed it afterwards.
+Fix: The finding was checked (the public WMON address) and recorded in .gitleaksignore with its reason, the test names the address as a constant, and a public address in a fixture is no longer named like a key. Commits now run the gate with its exit code tested directly, and lint before the gate.
+Lesson: Never pipe a check whose exit code decides a commit; test `$?` of the check itself.
+
+## L-114: The unknown resolver raced the fork's mining
+Unit: P2-U4
+What happened: On the real fork, a swap whose answer was lost was failed as NONCE_CONSUMED although it had landed.
+Cause: The resolver looked for the receipt, then read the nonce. Anvil answers a send before it mines, so the transaction mined between the two reads: no receipt, then a nonce past it. A provider that lags on receipts would do the same.
+Fix: The nonce is read first and the receipt second, and "another transaction used the nonce" is believed only after a 30-second grace.
+Lesson: When two reads decide an outcome, read the one that can only move forward first, and never conclude from a single sighting of an absence.
+
+## L-115: Five cold forks at once timed out
+Unit: P2-U4
+What happened: The full vitest run failed three fork tests (devenv, indexer, signer) on timeouts; each passed alone.
+Cause: Vitest runs files in parallel, so every file that starts a fork of its own fetched from the upstream at the same time. The signer's fork test made it five.
+Fix: Those files form their own vitest project that runs one file at a time, after everything else; the full run passed with all 1,393 tests.
+Lesson: A test that starts a fork is a heavy suite; group them so they run one at a time.
+
+## L-116: An unreachable fork read as "agent not on the fork"
+Unit: P2-U4
+What happened: The Trades page's e2e test, with no fork running, showed "Agent 1 is not on the fork" instead of saying the fork could not be read.
+Cause: The snapshot turned every error from `ownerOf` into "does not exist", including an unreachable endpoint.
+Fix: Only a contract refusal means a missing agent; anything else is reported as it is, and a test covers both.
+Lesson: Map only the error you mean; let every other failure say what it is.
+
+## L-117: pnpm install rewrote unrelated lockfile entries
+Unit: P2-U4
+What happened: Adding the signer package with `pnpm install --offline` changed about 1,100 lockfile lines, including peer resolutions of unrelated packages.
+Cause: A non-frozen install re-resolves the whole graph, and the local store's state differed from when the lockfile was written.
+Fix: The lockfile was rebuilt from the committed one with only the new importer entries added, and `pnpm install --offline --frozen-lockfile` confirmed it.
+Lesson: When adding a workspace package or dependency, check the lockfile diff touches only that, and verify with a frozen install.
