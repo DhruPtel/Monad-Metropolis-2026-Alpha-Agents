@@ -5,7 +5,8 @@
   "description": "The transaction signer (P2-U4): session keys behind a key interface (local or KMS), an allowlist of exactly the Executor's swap, the chain pin, a Postgres outbox with fenced per-key nonces, unknown-outcome resolution and reconciliation into the ledger.",
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./testing": "./src/fake-chain.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit -p ."

@@ -5,6 +5,7 @@ import { Hono } from "hono";
 import { RefundOpenError } from "./credits/refunds.ts";
 import { CreditsExhaustedError, type Orchestrator, ScanOpenError } from "./orchestrator.ts";
 import type { RevealSteering, SteerRecord, SteerTarget } from "./reveal-steer.ts";
+import type { SignerWorker } from "./signer-worker.ts";
 import type { Runtime, Store, Task } from "./store.ts";
 
 /**
@@ -20,6 +21,8 @@ export interface ApiOptions {
   readonly store: Store;
   readonly chainId: number;
   readonly devActions: boolean;
+  /** The signer worker (P2-U4), when it runs. */
+  readonly signer?: SignerWorker | null;
 }
 
 const runtimeView = (r: Runtime) => ({
@@ -331,6 +334,44 @@ export function createApi(o: ApiOptions): Hono {
     });
   });
 
+  /**
+   * P2-U4: the signer's outbox, newest first, with each transaction's states,
+   * hash, refusal reason code, balances and ledger entry. Never the signed
+   * bytes or anything about a key but its address.
+   */
+  app.get("/v1/signer", (c) =>
+    c.json({
+      on: Boolean(o.signer),
+      chainId: o.signer?.signer.pinnedChainId ?? null,
+    }),
+  );
+
+  app.get("/v1/signer/outbox", async (c) => {
+    if (!o.signer)
+      return c.json({ error: "signer_off", message: "The signer is not running." }, 409);
+    const raw = c.req.query("agentId");
+    const ref = raw === undefined ? null : agentRef(raw, o.chainId);
+    if (raw !== undefined && !ref) return c.json({ error: "bad_agent_id" }, 400);
+    return c.json({ transactions: await o.signer.signer.outbox(ref?.agentId, 20) });
+  });
+
+  app.get("/v1/signer/ledger/:entryId", async (c) => {
+    if (!o.signer)
+      return c.json({ error: "signer_off", message: "The signer is not running." }, 409);
+    const id = c.req.param("entryId");
+    if (!/^[0-9a-f-]{36}$/.test(id)) return c.json({ error: "bad_entry_id" }, 400);
+    const entry = await o.signer.signer.ledgerEntry(id);
+    return entry ? c.json(entry) : c.json({ error: "not_found" }, 404);
+  });
+
+  app.get("/v1/agents/:agentId/session-key", async (c) => {
+    const ref = agentRef(c.req.param("agentId"), o.chainId);
+    if (!ref) return c.json({ error: "bad_agent_id" }, 400);
+    if (!o.signer)
+      return c.json({ error: "signer_off", message: "The signer is not running." }, 409);
+    return c.json({ address: await o.signer.signer.keyAddress(ref.agentId) });
+  });
+
   if (o.devActions) {
     /**
      * D-221: steer a reveal on the local fork, once: `{ "species": "bee",
@@ -494,6 +535,48 @@ export function createApi(o: ApiOptions): Hono {
       } catch (err) {
         if (err instanceof RefundOpenError)
           return c.json({ error: "refund_open", message: err.message }, 409);
+        throw err;
+      }
+    });
+
+    /** P2-U4: creates the agent's session key in the signer; the key never leaves it. */
+    app.post("/v1/agents/:agentId/session-key", async (c) => {
+      const ref = agentRef(c.req.param("agentId"), o.chainId);
+      if (!ref) return c.json({ error: "bad_agent_id" }, 400);
+      if (!o.signer)
+        return c.json({ error: "signer_off", message: "The signer is not running." }, 409);
+      return c.json({ address: await o.signer.signer.createKey(ref.agentId) }, 201);
+    });
+
+    /**
+     * P2-U4: a test swap on the local fork through the signer and the
+     * Executor: `{ "direction": "buy" | "sell", "amount": "5", "breakLimit"?: code }`.
+     */
+    app.post("/v1/agents/:agentId/test-swap", async (c) => {
+      const ref = agentRef(c.req.param("agentId"), o.chainId);
+      if (!ref) return c.json({ error: "bad_agent_id" }, 400);
+      if (!o.signer)
+        return c.json({ error: "signer_off", message: "The signer is not running." }, 409);
+      const body = (await c.req.json().catch(() => null)) as {
+        direction?: unknown;
+        amount?: unknown;
+        breakLimit?: unknown;
+      } | null;
+      const direction = body?.direction;
+      if (direction !== "buy" && direction !== "sell")
+        return c.json({ error: "bad_direction", message: "direction is buy or sell" }, 400);
+      if (typeof body?.amount !== "string")
+        return c.json({ error: "bad_amount", message: "amount is a decimal string" }, 400);
+      const breakLimit = typeof body.breakLimit === "string" ? body.breakLimit : undefined;
+      try {
+        return c.json(
+          await o.signer.testSwap(ref.agentId, direction, body.amount, breakLimit),
+          202,
+        );
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        if (err instanceof RangeError || /has no (PersonalAccount|session key)/.test(message))
+          return c.json({ error: "refused", message: message.slice(0, 200) }, 409);
         throw err;
       }
     });

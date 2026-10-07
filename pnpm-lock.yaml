@@ -438,6 +438,9 @@ importers:
       '@alpha-agents/platform-tools':
         specifier: workspace:^
         version: link:../platform-tools
+      '@alpha-agents/signer':
+        specifier: workspace:^
+        version: link:../../packages/signer
       '@alpha-agents/tool-server':
         specifier: workspace:^
         version: link:../../packages/tool-server

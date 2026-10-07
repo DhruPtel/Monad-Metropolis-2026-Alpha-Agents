@@ -14,6 +14,7 @@ import { localPaths, secretFragments } from "@alpha-agents/devenv";
 import { SPECIES, addressEntry } from "@alpha-agents/domain";
 import { type Hex, createPublicClient, http } from "viem";
 import { createApi } from "./api.ts";
+import { SignerWorker } from "./signer-worker.ts";
 import { FundingKeys } from "./credits/funding.ts";
 import { ViemRefundChain } from "./credits/refunds.ts";
 import { LiteLLMAdmin } from "./gateway-admin.ts";
@@ -193,6 +194,30 @@ else {
   log("credits on: funding addresses, deposits, metering, budgets and refunds");
 }
 
+// The signer (P2-U4): Executor swaps only, from session keys derived from the funding seed
+// (D-243) on the fork and testnet; the beta waits for KMS keys (D-244, PB-U1).
+let signerWorker: SignerWorker | null = null;
+if (!seed) log("signer off: FUNDING_ADDRESS_SEED is not set");
+else if (env.id === "beta") log("signer off: the beta signs with KMS keys (D-244), bound in PB-U1");
+else {
+  try {
+    const secondary = reveal("MONAD_RPC_URL_SECONDARY");
+    signerWorker = new SignerWorker({
+      db,
+      environment: env.id,
+      rpcUrl,
+      ...(secondary ? { secondaryRpcUrl: secondary } : {}),
+      seed: seed as Hex,
+      log: createLog("signer", redactor),
+    });
+    await signerWorker.start();
+    log(`signer on: chain ${signerWorker.signer.pinnedChainId}, the Executor's swap only`);
+  } catch (err) {
+    signerWorker = null;
+    log(`signer off: ${errorText(err, redactor)}`);
+  }
+}
+
 // Tools (P1-U7): web_search and read_url through Tavily; Scans on the configured cadence.
 const tavilyKey = reveal("TAVILY_API_KEY");
 const web = tavilyKey ? new TavilyProvider(tavilyKey) : null;
@@ -244,6 +269,7 @@ const api = createApi({
   store,
   chainId: env.chainId,
   devActions: env.id === "local",
+  signer: signerWorker,
 });
 const server = serve({ fetch: api.fetch, port, hostname: "127.0.0.1" });
 log(`internal API on http://127.0.0.1:${port} (dev actions ${env.id === "local" ? "on" : "off"})`);
@@ -255,6 +281,7 @@ const shutdown = async (signal: string) => {
   log(`${signal}: stopping (send it again to exit at once)`);
   try {
     server.close();
+    await signerWorker?.stop();
     await orchestrator.stop();
     await db.destroy();
   } catch (err) {
