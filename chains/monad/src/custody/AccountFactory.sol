@@ -80,10 +80,10 @@ contract AccountFactory is ICustodyConfig, IDepositLedger, Ownable2Step {
     event ChangeProposed(bytes32 indexed id, Action action, bytes32 value, uint64 executableAt, uint64 expiresAt);
     event ChangeExecuted(bytes32 indexed id, Action action, bytes32 value);
     event ChangeCancelled(bytes32 indexed id, address indexed by);
-    event ExecutorSet(address previous, address current);
-    event OracleSet(address previous, address current);
-    event GuardianSet(address previous, address current);
-    event SentinelSet(address previous, address current);
+    event ExecutorSet(address indexed previous, address indexed current);
+    event OracleSet(address indexed previous, address indexed current);
+    event GuardianSet(address indexed previous, address indexed current);
+    event SentinelSet(address indexed previous, address indexed current);
     event PersonalCapSet(uint256 previous, uint256 current);
     event PlatformCapSet(uint256 previous, uint256 current);
     event DepositorAllowlistSet(address indexed depositor, bool previous, bool current);
@@ -157,8 +157,8 @@ contract AccountFactory is ICustodyConfig, IDepositLedger, Ownable2Step {
         account = Clones.cloneDeterministic(PERSONAL_ACCOUNT_IMPLEMENTATION, _salt(agentId, msg.sender));
         personalAccountOf[agentId][msg.sender] = account;
         isAccount[account] = true;
-        PersonalAccount(account).initialize(agentId, msg.sender);
         emit PersonalAccountCreated(agentId, msg.sender, account);
+        PersonalAccount(account).initialize(agentId, msg.sender);
     }
 
     /// Where `(agentId, owner)`'s PersonalAccount is or will be.

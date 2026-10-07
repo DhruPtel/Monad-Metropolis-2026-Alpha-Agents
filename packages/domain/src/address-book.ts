@@ -565,14 +565,14 @@ const CUSTODY_LOCAL: readonly AddressEntry[] = [
   custodyLocal(
     "account_factory",
     "AccountFactory",
-    "0x8AE572168220B86116478f817609d3d97c467074" as Address,
-    12304,
+    "0xd2Dcee9D1b977314668Dd01d0E8734Fd8980362d" as Address,
+    12469,
     "Deterministic CREATE2 deployment with anvil roles, 100/2,000 USDC caps (P2-U1); local fork only",
   ),
   custodyLocal(
     "personal_account_implementation",
     "PersonalAccount implementation",
-    "0x60d9a16B44C8287eC197FfC90f75fe4F9aA6C6D1" as Address,
+    "0xcD8cdb0d2Fd300490Ae70F163C24170b9BBCf35c" as Address,
     18692,
     "Deployed by AccountFactory's constructor; every PersonalAccount is a clone of it",
   ),
