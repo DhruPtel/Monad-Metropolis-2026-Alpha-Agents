@@ -1,5 +1,5 @@
 import { type AgentCredits, type JournalEntry, JournalEntrySchema } from "@alpha-agents/accounting";
-import { type Db, sql } from "@alpha-agents/db";
+import { type Db, insertJournal, sql } from "@alpha-agents/db";
 
 /**
  * The credit ledger in Postgres (D-208). Every entry is checked by
@@ -43,35 +43,22 @@ export class Ledger {
       throw new Error(`refusing an unbalanced or malformed ledger entry: ${issues.join("; ")}`);
     }
     return this.db.transaction().execute(async (trx) => {
-      const inserted = await trx
-        .insertInto("platform.ledger_entries")
-        .values({
-          entry_id: entry.entryId,
-          chain_id: meta.chainId,
-          agent_id: meta.agentId,
-          kind: entry.kind,
-          idempotency_key: meta.idempotencyKey,
-          occurred_at: new Date(entry.occurredAt * 1000),
-          source: JSON.stringify(meta.source),
-        })
-        .onConflict((oc) => oc.column("idempotency_key").doNothing())
-        .returning("entry_id")
-        .executeTakeFirst();
-      if (!inserted) return false;
-      await trx
-        .insertInto("platform.ledger_lines")
-        .values(
-          entry.lines.map((l, i) => ({
-            entry_id: entry.entryId,
-            line_no: i,
-            chain_id: meta.chainId,
-            agent_id: l.agentId ?? null,
-            account: l.account,
-            asset: l.asset,
-            amount: l.amountRaw.toString(),
-          })),
-        )
-        .execute();
+      const written = await insertJournal(trx, {
+        entryId: entry.entryId,
+        chainId: meta.chainId,
+        agentId: meta.agentId,
+        kind: entry.kind,
+        idempotencyKey: meta.idempotencyKey,
+        occurredAt: new Date(entry.occurredAt * 1000),
+        source: meta.source,
+        lines: entry.lines.map((l) => ({
+          account: l.account,
+          asset: l.asset,
+          amount: l.amountRaw,
+          agentId: l.agentId ?? null,
+        })),
+      });
+      if (!written) return false;
       if (alsoWrite) await alsoWrite(trx);
       return true;
     });

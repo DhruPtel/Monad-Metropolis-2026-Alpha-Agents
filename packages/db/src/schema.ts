@@ -243,6 +243,63 @@ export interface RefundTable {
   updated_at: Timestamp;
 }
 
+/** One agent's session key in the signer (P2-U4, D-243). */
+export interface SignerKeyTable {
+  chain_id: number;
+  agent_id: number;
+  address: string;
+  provider: "local" | "kms";
+  kms_key_id: string | null;
+  next_nonce: ColumnType<number, number | undefined, number>;
+  writer_fence: ColumnType<number, number | undefined, number>;
+  created_at: Timestamp;
+  updated_at: Timestamp;
+}
+
+export const SIGNER_STATUSES = [
+  "accepted",
+  "signed",
+  "submitted",
+  "unknown",
+  "confirmed",
+  "reconciled",
+  "failed",
+] as const;
+export type SignerStatus = (typeof SIGNER_STATUSES)[number];
+
+/** One transaction in the signer's outbox (P2-U4). */
+export interface SignerOutboxTable {
+  tx_id: string;
+  environment: string;
+  chain_id: number;
+  agent_id: number;
+  key_address: string;
+  kind: "executor_swap";
+  action_id: string | null;
+  request: ColumnType<Record<string, unknown>, string, string>;
+  intent: ColumnType<Record<string, unknown> | null, string | null, string | null>;
+  status: SignerStatus;
+  reason_code: string | null;
+  reason: string | null;
+  nonce: number | null;
+  gas_limit: string | null;
+  max_fee_per_gas: string | null;
+  max_priority_fee_per_gas: string | null;
+  raw_tx: string | null;
+  tx_hash: string | null;
+  submitted_at: Timestamp | null;
+  unknown_since: Timestamp | null;
+  block_number: number | null;
+  block_hash: string | null;
+  gas_used: string | null;
+  amount_out: string | null;
+  balances: ColumnType<Record<string, unknown> | null, string | null, string | null>;
+  ledger_entry_id: string | null;
+  history: ColumnType<unknown[], string | undefined, string>;
+  created_at: Timestamp;
+  updated_at: Timestamp;
+}
+
 /** One tool call in the action log (D-213, D-215). */
 export interface ToolCallTable {
   call_id: string;
@@ -337,6 +394,8 @@ export interface Database {
   "platform.ledger_lines": LedgerLineTable;
   "platform.usage_receipts": UsageReceiptTable;
   "platform.refunds": RefundTable;
+  "platform.signer_keys": SignerKeyTable;
+  "platform.signer_outbox": SignerOutboxTable;
   "platform.tool_calls": ToolCallTable;
   "platform.stage_records": StageRecordTable;
   "platform.thesis_notes": ThesisNoteTable;
