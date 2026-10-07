@@ -230,6 +230,11 @@ createServer((req, res) => {
     return res
       .writeHead(200, { "content-type": "application/json" })
       .end(JSON.stringify({ running: true, recent: [], steering: steering() }));
+  // Test-only: forgets every steer, so one run's steers never reach another's capture.
+  if (req.method === "POST" && req.url === "/__fixture/reset-steers") {
+    steers = [];
+    return res.writeHead(204).end();
+  }
   if (req.method === "POST" && req.url === "/v1/keeper/reveal-steers") {
     let raw = "";
     req.on("data", (c) => (raw += c));

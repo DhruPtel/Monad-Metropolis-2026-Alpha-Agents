@@ -153,6 +153,7 @@ export function RevealControl({ steering }: { steering: RevealSteeringView }) {
             <li
               key={s.steerId}
               data-testid="reveal-steer"
+              data-status={s.status}
               className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md border border-border px-3 py-2 text-sm"
             >
               <Badge tone={STATUS_TONE[s.status]}>{s.status}</Badge>

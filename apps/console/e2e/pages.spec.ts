@@ -6,6 +6,9 @@ import { expect, test } from "@playwright/test";
  * no .env (as in CI), so the environment panel shows every service down, which
  * is deterministic; nothing on these pages depends on the time.
  */
+/** The fixture API (playwright.config.ts) that stands in for the API and the orchestrator. */
+const FIXTURE_API = "http://127.0.0.1:4199";
+
 const PAGES = [
   { path: "/", name: "environment", heading: "Environment" },
   { path: "/fork", name: "fork", heading: "Fork controls" },
@@ -190,6 +193,11 @@ test.describe("agents panel controls (P1-U5)", () => {
   test("steers a wallet's or a pending agent's reveal, and says which agent (D-221)", async ({
     page,
   }) => {
+    // The fixture API is shared by both widths' runs: start and end with no steers,
+    // so the agents page captures never depend on test order.
+    const resetSteers = () => page.request.post(`${FIXTURE_API}/__fixture/reset-steers`);
+    await resetSteers();
+    await page.reload();
     const control = page.getByTestId("reveal-control");
     await expect(control).toContainText("Agent #1 on a fresh fork reveals as Bee");
     await expect(control.getByTestId("no-steers")).toBeVisible();
@@ -217,7 +225,8 @@ test.describe("agents panel controls (P1-U5)", () => {
     await expect(page.getByText("Agent #1 is already revealed.")).toBeVisible();
     await control.getByLabel("Agent ID").fill("2");
     await control.getByRole("button", { name: "Reveal as Praying mantis" }).click();
-    await expect(control.getByTestId("reveal-steer")).toHaveCount(3);
+    const pending = control.locator("[data-testid=reveal-steer][data-status=pending]");
+    await expect(pending).toHaveCount(3);
     // Cancel all three: none pending, the cancelled ones listed with the reason.
     for (let i = 0; i < 3; i += 1)
       await control.getByRole("button", { name: "Cancel" }).first().click();
@@ -225,6 +234,7 @@ test.describe("agents panel controls (P1-U5)", () => {
     await expect(control.getByTestId("reveal-steer").first()).toContainText(
       "cancelled in the dev console",
     );
+    await resetSteers();
   });
 
   test("resets an agent after a confirmation", async ({ page }) => {
