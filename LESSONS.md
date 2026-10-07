@@ -845,3 +845,24 @@ What happened: The first forge parity run failed twice: forge refused to decode 
 Cause: `vm.parseJsonTypeArray` matches struct fields to JSON keys by name, and the generator checked for a down feed before each random poke but not before the closing poke it appends.
 Fix: The key is `time` on both sides, and the generator brings the feed back up before its closing poke (2db1e50).
 Lesson: A generated fixture is only valid once the consumer has replayed all of it; keep every rule the generator enforces in one place, including for the steps it appends.
+
+## L-108: The account's backstop answered before the Executor could name the limit
+Unit: P2-U2
+What happened: The rolling-window fuzz test failed on a refusal that was not `Rejected(reason)`: the custody core's `ConcentrationTooHigh` (WMON at 46%). A buy past the account's 45% backstop was refused by the account, inside the trade, before the Executor's post-trade check could say `CONCENTRATION_CAP`.
+Cause: The Executor checked the 40% cap and the USDC floor only after the swap, on the actual fill, but the account checks its own looser backstop during the swap, so a large enough breach never reached the Executor's check.
+Fix: The Executor projects a buy at the oracle price before the trade and refuses with `CONCENTRATION_CAP` or `USDC_FLOOR` there, and still checks the actual fill afterwards (78678ad); a regression test buys to 46%.
+Lesson: When a stricter check sits behind a looser one in the same call path, run the stricter one first, or the caller gets the wrong reason.
+
+## L-109: test:fork stalled anvil by blocking the process that drained its log
+Unit: P2-U2
+What happened: With two new fork suites, `pnpm test:fork` failed in bulk on every attempt with "failed to fetch active fork block" and later "failed to retrieve chain ID from fork endpoint", while the same suites passed in seconds on a fork I held open myself.
+Cause: test-fork.js ran forge with `spawnSync`, which blocks the Node process that reads anvil's stdout into the fork log. Once anvil had written a pipe's worth of log (about 64 KB), it blocked on the write and stopped answering. More suites meant more requests and more log, so the stall came sooner. Running six suites in parallel through one cold fork added upstream timeouts on top. This is L-91's lesson one layer over, and probably the real cause of much of the "transient upstream" failure rate L-70 and L-75 recorded.
+Fix: forge runs asynchronously, so the event loop keeps draining anvil's output, and the fork suites run one thread at a time; transient-error retries rose from one to two (f36526c). Three runs in a row then passed 32 of 32 with no retry, the warm ones in under a second.
+Lesson: Never block, with a synchronous child call, a process that drains another process's pipe; before blaming an upstream, check whether the server is merely stuck writing its log.
+
+## L-110: Test slips this unit, caught before commit
+Unit: P2-U2
+What happened: Three Executor tests reverted for the wrong reason because `executor.SET_POLICY()`, read inside the call's arguments, consumed the `vm.prank` and `vm.expectRevert` (L-39 again). The invariant handler's random venue was misbehaving 7 calls in 8 and its minimum output sat above the mock venue's fill, so nearly every trade reverted, and a mutation removing the concentration check went unnoticed. The executor demo checked reduce-only after taking WMON off the buy list, so the asset check answered first.
+Cause: Arguments are evaluated before cheatcodes bind; random generators were not checked for how often they reach the state under test; a demo step depended on an earlier step's state.
+Fix: Constants read into locals before the cheatcodes; the handler misbehaves about one call in eight, asks for the floor, and weights trades; a separate fuzz test covers the 20-trade window, and mutations of the 40% cap and the trade count each fail a test; the demo runs reduce-only first (9d8baae, 78678ad, ef549af).
+Lesson: Prove every fuzz or invariant suite with a mutation before trusting it, and measure how often its generator reaches the rule it is meant to break.
