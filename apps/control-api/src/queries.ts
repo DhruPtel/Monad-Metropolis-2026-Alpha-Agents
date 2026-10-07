@@ -1,5 +1,12 @@
 import { randomUUID } from "node:crypto";
-import { type AgentTable, type Db, dbAddress, sql } from "@alpha-agents/db";
+import { ownShare } from "@alpha-agents/accounting";
+import {
+  type AgentTable,
+  type Db,
+  dbAddress,
+  readContributionWeights,
+  sql,
+} from "@alpha-agents/db";
 import { AGENT_MAX_SUPPLY, SPECIES, speciesByIndex } from "@alpha-agents/domain";
 import { getAddress } from "viem";
 
@@ -148,6 +155,11 @@ export interface CreditsJson {
   readonly spendableUsdcE6: string;
   readonly heldUsdcE6: string;
   readonly unsettledUsdcE6: string;
+  /**
+   * What a refund pays the current owner now: only the owner's own share of
+   * the spendable and held credits, by contributions (D-242).
+   */
+  readonly ownRefundUsdcE6: string;
   /** No spendable credits: LLM work is stopped and the agent is RESTRICTED (D-129). */
   readonly restricted: boolean;
 }
@@ -175,12 +187,26 @@ export async function readCredits(
   const owed = (account: string) => -BigInt(rows.find((r) => r.account === account)?.total ?? "0");
   const credits = owed("agent_credits");
   const spendable = credits > 0n ? credits : 0n;
+  const held = owed("held_deposits");
+  const agent = await db
+    .selectFrom("indexer.agents")
+    .select("owner")
+    .where("chain_id", "=", chainId)
+    .where("agent_id", "=", agentId)
+    .executeTakeFirst();
+  const own = agent
+    ? ownShare(
+        await readContributionWeights(db, chainId, agentId, agent.owner),
+        spendable + (held > 0n ? held : 0n),
+      ).amount
+    : 0n;
   return {
     fundingAddress: getAddress(funding.address),
     creditsUsdcE6: credits.toString(),
     spendableUsdcE6: spendable.toString(),
-    heldUsdcE6: owed("held_deposits").toString(),
+    heldUsdcE6: held.toString(),
     unsettledUsdcE6: owed("usage_unsettled").toString(),
+    ownRefundUsdcE6: own.toString(),
     restricted: spendable === 0n,
   };
 }

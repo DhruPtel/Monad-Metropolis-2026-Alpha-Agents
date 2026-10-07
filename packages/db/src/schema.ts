@@ -234,6 +234,8 @@ export interface RefundTable {
   status: RefundStatus;
   credits_usdc_e6: ColumnType<string | null, string | null, string | null>;
   held_usdc_e6: ColumnType<string | null, string | null, string | null>;
+  /** The contributions this refund consumed (D-242); null before P2-U4. */
+  contribution_basis_usdc_e6: ColumnType<string | null, string | null | undefined, string | null>;
   raw_tx: string | null;
   tx_hash: string | null;
   reason: string | null;

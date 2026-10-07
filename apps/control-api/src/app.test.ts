@@ -160,6 +160,7 @@ describe.skipIf(!available)("the control API (needs pnpm dev:up for Postgres)", 
     await t.db.deleteFrom("platform.sandbox_leases").execute();
     await t.db.deleteFrom("platform.agent_runtimes").execute();
     await t.db.deleteFrom("platform.tool_calls").execute();
+    await t.db.deleteFrom("indexer.usdc_transfers").execute();
   });
 
   describe("index reads", () => {
@@ -723,6 +724,34 @@ describe.skipIf(!available)("the control API (needs pnpm dev:up for Postgres)", 
           restricted: false,
         });
         expect((await call("/v1/agents/9/credits")).status).toBe(404);
+      });
+
+      it("shows only the owner's own share as refundable (D-242)", async () => {
+        const sent = (n: number, from: string, value: string) =>
+          t.db
+            .insertInto("indexer.usdc_transfers")
+            .values({
+              chain_id: env.chainId,
+              block_number: 200 + n,
+              block_hash: `0x${n.toString(16).padStart(64, "0")}`,
+              tx_hash: `0x${(n + 500).toString(16).padStart(64, "0")}`,
+              log_index: 0,
+              from_address: from.toLowerCase(),
+              to_address: FUNDING.toLowerCase(),
+              value,
+              agent_id: 2,
+              direction: "in",
+              account: "funding",
+            })
+            .execute();
+        await credit(8_000_000n);
+        const own = async () =>
+          ((await json(await call("/v1/agents/2/credits"))) as { ownRefundUsdcE6: string })
+            .ownRefundUsdcE6;
+        expect(await own()).toBe("0");
+        await sent(1, BOB, "2000000");
+        await sent(2, ALICE, "6000000");
+        expect(await own()).toBe("2000000");
       });
 
       it("records the owner's refund under their wallet and epoch, one at a time", async () => {

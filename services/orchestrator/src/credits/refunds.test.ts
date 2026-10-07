@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+import { usageEntry } from "@alpha-agents/accounting";
 import { type TestDatabase, createTestDatabase, databaseAvailable } from "@alpha-agents/db/testing";
 import type { Hex } from "viem";
 import type { HDAccount } from "viem/accounts";
@@ -98,7 +100,7 @@ describe.skipIf(!dbUp)("refunds (needs Postgres)", { timeout: 60_000 }, () => {
     await ensureFundingAddresses(store, keys, CHAIN);
   });
 
-  const fund = async (amount: bigint, n = 1) => {
+  const fund = async (amount: bigint, n = 1, from: Hex = OWNER) => {
     const address = must(await fundingAddressOf(store, CHAIN, 1));
     await t.db
       .insertInto("indexer.usdc_transfers")
@@ -108,7 +110,7 @@ describe.skipIf(!dbUp)("refunds (needs Postgres)", { timeout: 60_000 }, () => {
         block_hash: `0x${n.toString(16).padStart(64, "0")}`,
         tx_hash: `0x${(n + 1000).toString(16).padStart(64, "0")}`,
         log_index: 0,
-        from_address: OWNER,
+        from_address: from,
         to_address: address,
         value: amount.toString(),
         agent_id: 1,
@@ -166,11 +168,57 @@ describe.skipIf(!dbUp)("refunds (needs Postgres)", { timeout: 60_000 }, () => {
     await refunds.tick();
     expect((await status(id)).reason).toMatch(/^not_owner/);
     expect((await credits.creditsOf(1)).credits).toBe(5_000_000n);
-    // The buyer can refund them.
+    // D-242: the buyer contributed nothing, so its own share is nothing; the credits stay.
     const mine = await refunds.request(1, BUYER, 1n, "owner");
     await refunds.tick();
-    expect(await status(mine)).toMatchObject({ status: "sent" });
-    expect(must(chain.signed[0]).to).toBe(BUYER);
+    expect((await status(mine)).reason).toMatch(/^nothing_to_refund/);
+    expect(chain.signed).toEqual([]);
+    expect((await credits.creditsOf(1)).credits).toBe(5_000_000n);
+  });
+
+  it("refunds only the owner's own share, and leaves every other contributor's share intact (D-242)", async () => {
+    const FAN = "0x00000000000000000000000000000000000000fa" as Hex;
+    await fund(3_000_000n, 1, OWNER);
+    await fund(7_000_000n, 2, FAN);
+    const id = await refunds.request(1, OWNER, 0n, "owner");
+    await refunds.tick();
+    expect(await status(id)).toMatchObject({
+      status: "sent",
+      credits_usdc_e6: "3000000",
+      contribution_basis_usdc_e6: "3000000",
+    });
+    expect(must(chain.signed[0])).toMatchObject({ to: OWNER, amount: 3_000_000n });
+    expect((await credits.creditsOf(1)).credits).toBe(7_000_000n);
+    // Nothing more for the owner until it contributes again.
+    const again = await refunds.request(1, OWNER, 0n, "owner");
+    await refunds.tick();
+    expect((await status(again)).reason).toMatch(/^nothing_to_refund/);
+    // A new contribution earns a share of what is left: 1 of the 8 remaining weight.
+    await fund(1_000_000n, 3, OWNER);
+    const third = await refunds.request(1, OWNER, 0n, "owner");
+    await refunds.tick();
+    expect(await status(third)).toMatchObject({ status: "sent", credits_usdc_e6: "1000000" });
+    expect((await credits.creditsOf(1)).credits).toBe(7_000_000n);
+  });
+
+  it("shares spending in proportion: after spending, the owner gets its share of what is left", async () => {
+    const FAN = "0x00000000000000000000000000000000000000fa" as Hex;
+    await fund(2_000_000n, 1, OWNER);
+    await fund(6_000_000n, 2, FAN);
+    // Half the credits are spent: 4 USDC of usage against the agent.
+    await ledger.post(
+      usageEntry(
+        { environment: "fork", entryId: randomUUID(), occurredAt: 1, agentId: 1 },
+        4_000_000n,
+      ),
+      { chainId: CHAIN, agentId: 1, idempotencyKey: "usage:test", source: { kind: "test" } },
+    );
+    expect((await credits.creditsOf(1)).credits).toBe(4_000_000n);
+    const id = await refunds.request(1, OWNER, 0n, "owner");
+    await refunds.tick();
+    // 2 of 8 contributed: a quarter of the 4 left.
+    expect(must(chain.signed[0]).amount).toBe(1_000_000n);
+    expect(await status(id)).toMatchObject({ status: "sent" });
   });
 
   it("allows one open refund per agent, and refuses one with nothing to refund", async () => {

@@ -1,5 +1,12 @@
 import { randomUUID } from "node:crypto";
-import { refundEntry, reversalEntry } from "@alpha-agents/accounting";
+import {
+  type ContributionWeights,
+  ownShare,
+  refundEntry,
+  reversalEntry,
+  shareOf,
+} from "@alpha-agents/accounting";
+import { readContributionWeights } from "@alpha-agents/db";
 import { assertLocalFork, rpc } from "@alpha-agents/devenv";
 import { AGENT_NFT_ABI } from "@alpha-agents/domain";
 import {
@@ -22,9 +29,12 @@ import type { Ledger } from "./ledger.ts";
 import type { CreditService } from "./service.ts";
 
 /**
- * Refunds (A-20, D-210). A request names the owner and ownership epoch it was
- * made under. Processing rechecks both on chain, refunds the agent's spendable
- * credits plus any held deposits from the funding address to that owner, and
+ * Refunds (D-210, D-242). A request names the owner and ownership epoch it was
+ * made under. Processing rechecks both on chain and refunds only the owner's
+ * own share of the agent's spendable credits and held deposits (D-242): the
+ * owner's contributions to the funding address, less those earlier refunds
+ * consumed, over everyone's. Other contributors' shares stay with the agent.
+ * It pays from the funding address to that owner, and
  * writes the signed transaction and the ledger entry in one database
  * transaction before broadcasting, so a restart rebroadcasts the same
  * transaction instead of paying twice. A request whose owner or epoch no
@@ -240,9 +250,18 @@ export class RefundService {
       return refuse("stale_epoch: the agent changed hands since the refund was requested");
 
     const c = await this.o.ledger.balances(this.o.chainId, r.agent_id);
-    const credits = c.credits > 0n ? c.credits : 0n;
-    const total = credits + c.held;
-    if (total === 0n) return refuse("nothing_to_refund: no credits or held deposits");
+    const pool = c.credits > 0n ? c.credits : 0n;
+    if (pool + c.held === 0n) return refuse("nothing_to_refund: no credits or held deposits");
+    // Only the owner's own share (D-242).
+    const w = await contributionWeights(this.o.store, this.o.chainId, r.agent_id, now.owner);
+    const share = ownShare(w, pool + c.held);
+    if (share.amount === 0n)
+      return refuse(
+        "nothing_to_refund: the owner's own contributions are already refunded or were never made",
+      );
+    const credits = shareOf(pool, share, w);
+    const held = shareOf(c.held, share, w);
+    const total = credits + held;
     const account = this.o.keys.account(r.agent_id);
     const onchain = await this.o.chain.usdcBalance(account.address);
     if (onchain < total) {
@@ -262,13 +281,19 @@ export class RefundService {
           agentId: r.agent_id,
         },
         credits,
-        c.held,
+        held,
       ),
       {
         chainId: this.o.chainId,
         agentId: r.agent_id,
         idempotencyKey: `refund:${refundId}`,
-        source: { kind: "refund", refundId, to: now.owner.toLowerCase(), txHash: signed.hash },
+        source: {
+          kind: "refund",
+          refundId,
+          to: now.owner.toLowerCase(),
+          txHash: signed.hash,
+          contributionBasis: share.basis.toString(),
+        },
       },
       async (trx) => {
         await trx
@@ -278,7 +303,8 @@ export class RefundService {
             raw_tx: signed.raw,
             tx_hash: signed.hash,
             credits_usdc_e6: credits.toString(),
-            held_usdc_e6: c.held.toString(),
+            held_usdc_e6: held.toString(),
+            contribution_basis_usdc_e6: share.basis.toString(),
             updated_at: new Date(),
           })
           .where("refund_id", "=", refundId)
@@ -347,6 +373,20 @@ export class RefundService {
       .where("refund_id", "=", refundId)
       .execute();
   }
+}
+
+/**
+ * A contributor's weight in the agent's credits (D-242): what it and everyone
+ * sent to the funding address, and the basis of the refunds already signed or
+ * sent (a reverted refund consumed nothing).
+ */
+export function contributionWeights(
+  store: Pick<Store, "db">,
+  chainId: number,
+  agentId: number,
+  contributor: Hex,
+): Promise<ContributionWeights> {
+  return readContributionWeights(store.db, chainId, agentId, contributor);
 }
 
 /** Thrown when an agent already has a refund in flight. */
