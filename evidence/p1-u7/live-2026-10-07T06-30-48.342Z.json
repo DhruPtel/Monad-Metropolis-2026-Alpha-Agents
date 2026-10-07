@@ -1,0 +1,436 @@
+{
+  "unit": "P1-U5, P1-U6 and P1-U7",
+  "namespace": "live-898d19",
+  "runTag": "2026-10-07T06-30-48.342Z",
+  "checks": {
+    "mint leads to reveal and provisioning with no manual step": true,
+    "rendered config matches the tier on chain": true,
+    "the agent has its own LiteLLM key": true,
+    "with no credits the agent is RESTRICTED and an LLM task is refused": true,
+    "USDC sent to the funding address appears as credits with no other action": true,
+    "no-op task succeeded with a structured result": true,
+    "the model answered through the gate": true,
+    "the sandbox stopped": true,
+    "the task reduced credits by exactly the metered amount, and the ledger balances": true,
+    "a hard kill leaves a sandbox and a tunnel behind (the case L-19 describes)": true,
+    "the startup sweep removed the leftovers": true,
+    "a reset deletes the old key and creates a new one": true,
+    "a refund returns the remaining credits as USDC to the current owner": true,
+    "at zero the next call is refused and the run ends as billing, with no retries": true,
+    "afterwards the agent stays RESTRICTED and LLM tasks are refused": true,
+    "the keeper, provisioning and deposits keep working while an agent is restricted": true,
+    "the ledger balances and matches the funding address on chain": true,
+    "the scheduler queued a Scan for each funded agent with no manual step": true,
+    "a funded agent's Scan used web_search and read_url and returned a schema-valid result": true,
+    "each tool call is charged to the right agent, and the ledger holds exactly those charges": true,
+    "the narrator wrote an activity entry that passes the number validator": true,
+    "the same entry with a deliberately wrong number is rejected": true,
+    "at zero credits a Scan is refused": true,
+    "teardown leaves no key of this namespace": true,
+    "no key or token in any orchestrator log line or API reply": true
+  },
+  "provisioning": {
+    "agentId": 1,
+    "msFromMint": 18080,
+    "runtime": {
+      "agentId": "1",
+      "generation": 1,
+      "status": "ready",
+      "tier": "pro",
+      "species": 14,
+      "slots": 8,
+      "playbook": "tier-pro@0",
+      "configHash": "59bc7c5d6b05e94bb9f5be89dc606bde3cac3d18785667eaea8ef721a14a0e05",
+      "keyAlias": "aa-live-898d19-143143-1-g1",
+      "budgetUsd": "0.000000",
+      "lastError": null,
+      "provisionedAt": "2026-10-07T06:31:14.857Z",
+      "updatedAt": "2026-10-07T06:31:14.857Z",
+      "lease": null,
+      "latestTask": null
+    }
+  },
+  "deposit": {
+    "msToCredit": 2868,
+    "credited": {
+      "agentId": "1",
+      "fundingAddress": "0xf1f1cbfc8b13e1018beab249b14b926f128a11c4",
+      "creditsUsdcE6": "1000000",
+      "spendableUsdcE6": "1000000",
+      "heldUsdcE6": "0",
+      "unsettledUsdcE6": "0",
+      "fundingAddressUsdcE6": "1000000",
+      "restricted": false,
+      "spent24hUsdcE6": "0",
+      "toolSpent24hUsdcE6": "0",
+      "recent": [
+        {
+          "kind": "credits_received",
+          "creditsDeltaUsdcE6": "1000000",
+          "at": "2026-10-07T06:31:17.000Z"
+        }
+      ]
+    },
+    "budgetUsd": "0.800000"
+  },
+  "noop": {
+    "taskId": "03d5ece7-13e0-4a5b-936c-2a96e048990d",
+    "agentId": "1",
+    "kind": "noop",
+    "status": "succeeded",
+    "result": {
+      "kind": "noop",
+      "tier": "pro",
+      "runId": "run_bad7a3583331416891dfee78193c0894",
+      "slots": 8,
+      "agentId": 1,
+      "leaseId": "309df254-5b70-4978-9a8c-b4a673607ae2",
+      "replied": "NOOP_OK",
+      "playbook": "tier-pro@0",
+      "runStatus": "completed",
+      "sandboxId": "i9gmz59ehvjru7ur8mm9x",
+      "timingsMs": {
+        "run": 6065,
+        "total": 29831,
+        "sandbox": 694,
+        "hermesBoot": 14009
+      },
+      "configHash": "59bc7c5d6b05e94bb9f5be89dc606bde3cac3d18785667eaea8ef721a14a0e05",
+      "gatedCalls": [
+        "POST /v1/chat/completions 200",
+        "GET /v1/models 200"
+      ],
+      "generation": 1,
+      "modelCalls": 2,
+      "stopReason": "completed",
+      "modelCallsOk": 2,
+      "answeredNoopOk": true,
+      "sandboxStopped": true,
+      "modelCallsRefusedForCredits": 0
+    },
+    "error": null,
+    "createdAt": "2026-10-07T06:31:18.114Z",
+    "startedAt": "2026-10-07T06:31:18.122Z",
+    "finishedAt": "2026-10-07T06:31:47.955Z"
+  },
+  "gatewayLog": {
+    "rows": 1,
+    "costed": 1,
+    "gateCallsOk": 2
+  },
+  "metering": {
+    "receipts": 1,
+    "chargedUsdcE6": "12137",
+    "after": {
+      "agentId": "1",
+      "fundingAddress": "0xf1f1cbfc8b13e1018beab249b14b926f128a11c4",
+      "creditsUsdcE6": "987863",
+      "spendableUsdcE6": "987863",
+      "heldUsdcE6": "0",
+      "unsettledUsdcE6": "12137",
+      "fundingAddressUsdcE6": "1000000",
+      "restricted": false,
+      "spent24hUsdcE6": "12137",
+      "toolSpent24hUsdcE6": "0",
+      "recent": [
+        {
+          "kind": "usage_metered",
+          "creditsDeltaUsdcE6": "-12137",
+          "at": "2026-10-07T06:31:46.000Z"
+        },
+        {
+          "kind": "credits_received",
+          "creditsDeltaUsdcE6": "1000000",
+          "at": "2026-10-07T06:31:17.000Z"
+        }
+      ]
+    }
+  },
+  "afterKill": {
+    "sandboxes": 1,
+    "tunnelAlive": true,
+    "leaseActive": true
+  },
+  "afterSweep": {
+    "sandboxes": 0,
+    "tunnelAlive": false,
+    "pidFile": false,
+    "lease": "ended",
+    "task": "failed"
+  },
+  "refund": {
+    "refund": {
+      "refundId": "2de698be-33f3-46a1-a46a-0da266f6d8e5",
+      "agentId": "1",
+      "owner": "0x96c842cc09a8c6b4121b86fa20f611db28b374a1",
+      "ownerEpoch": "0",
+      "status": "sent",
+      "creditsUsdcE6": "987863",
+      "heldUsdcE6": "0",
+      "txHash": "0x720e99dc00e4b8c1b0d365f98d775fbae00f01a8facd102e17597079ed3441d5",
+      "reason": null,
+      "createdAt": "2026-10-07T06:32:03.025Z",
+      "updatedAt": "2026-10-07T06:32:05.141Z"
+    },
+    "ownerGainedUsdcE6": "987863"
+  },
+  "drain": {
+    "outsideCall": 200,
+    "task": {
+      "taskId": "18604a4d-8e81-4758-8d80-a88cd5e82b08",
+      "agentId": "1",
+      "kind": "noop",
+      "status": "failed",
+      "result": {
+        "kind": "noop",
+        "tier": "pro",
+        "runId": "run_ea5224e8579340ceac981c4624324f88",
+        "slots": 8,
+        "agentId": 1,
+        "leaseId": "b4d5bcf7-0187-404d-b918-b51d53aaf5e9",
+        "replied": "",
+        "playbook": "tier-pro@0",
+        "runStatus": "failed",
+        "sandboxId": "i7dawgsl6zodwgiqt878z",
+        "timingsMs": {
+          "run": 5403,
+          "total": 28226,
+          "sandbox": 649,
+          "hermesBoot": 16292
+        },
+        "configHash": "813f2c707e746c4988e74de9969c00e9f806db9fa700e42d0ef5270bb17b2088",
+        "gatedCalls": [
+          "POST /v1/chat/completions 402"
+        ],
+        "generation": 2,
+        "modelCalls": 1,
+        "stopReason": "billing",
+        "modelCallsOk": 0,
+        "answeredNoopOk": false,
+        "sandboxStopped": true,
+        "modelCallsRefusedForCredits": 1
+      },
+      "error": "billing: the agent's credits ran out; the gate refused 1 model call with 402 and the run ended failed",
+      "createdAt": "2026-10-07T06:32:07.359Z",
+      "startedAt": "2026-10-07T06:32:07.364Z",
+      "finishedAt": "2026-10-07T06:32:35.591Z"
+    }
+  },
+  "scans": {
+    "1": {
+      "taskId": "8209f5a0-e2a3-4453-a47c-6add8bc5f010",
+      "agentId": "1",
+      "kind": "scan",
+      "status": "succeeded",
+      "result": {
+        "kind": "scan",
+        "tier": "pro",
+        "runId": "run_d8c0004a35de4b918c2b9b2ab764ccdf",
+        "stage": {
+          "outcome": "DONE",
+          "stageId": "stage-90fddaad-7f6f-416a-a766-8f119e23b963",
+          "candidates": [
+            {
+              "asset": "WMON",
+              "thesisCode": "MONAD_ECOSYSTEM_GROWTH_Q4_UNLOCK_TEST",
+              "confidenceBps": 6500
+            },
+            {
+              "asset": "USDC",
+              "thesisCode": "STABLECOIN_PAYMENT_LAYER_EXPANSION",
+              "confidenceBps": 5500
+            }
+          ],
+          "schemaValid": true
+        },
+        "agentId": 1,
+        "leaseId": "2e395591-2f99-4131-8452-47c81912c5cb",
+        "runStatus": "completed",
+        "sandboxId": "ittompiio1jxtqrjsrzxw",
+        "timingsMs": {
+          "run": 28589,
+          "total": 46690,
+          "sandbox": 429,
+          "hermesBoot": 12468
+        },
+        "toolCalls": [
+          {
+            "tool": "web_search",
+            "status": "succeeded",
+            "errorCode": null,
+            "chargeUsdcE6": "10000"
+          },
+          {
+            "tool": "web_search",
+            "status": "succeeded",
+            "errorCode": null,
+            "chargeUsdcE6": "10000"
+          },
+          {
+            "tool": "web_search",
+            "status": "succeeded",
+            "errorCode": null,
+            "chargeUsdcE6": "10000"
+          },
+          {
+            "tool": "read_url",
+            "status": "succeeded",
+            "errorCode": null,
+            "chargeUsdcE6": "2000"
+          },
+          {
+            "tool": "read_url",
+            "status": "succeeded",
+            "errorCode": null,
+            "chargeUsdcE6": "2000"
+          },
+          {
+            "tool": "write_thesis",
+            "status": "succeeded",
+            "errorCode": null,
+            "chargeUsdcE6": "0"
+          },
+          {
+            "tool": "complete_stage",
+            "status": "succeeded",
+            "errorCode": null,
+            "chargeUsdcE6": "0"
+          }
+        ],
+        "configHash": "813f2c707e746c4988e74de9969c00e9f806db9fa700e42d0ef5270bb17b2088",
+        "gatedCalls": [
+          "POST /v1/chat/completions 200",
+          "GET /v1/models 200",
+          "POST /v1/chat/completions 200",
+          "POST /v1/chat/completions 200",
+          "POST /v1/chat/completions 200",
+          "POST /v1/chat/completions 200"
+        ],
+        "generation": 2,
+        "modelCalls": 6,
+        "stopReason": "COMPLETED",
+        "sandboxStopped": true,
+        "toolChargeUsdcE6": "34000",
+        "modelCallsRefusedForCredits": 0
+      },
+      "error": null,
+      "createdAt": "2026-10-07T06:33:04.708Z",
+      "startedAt": "2026-10-07T06:33:04.719Z",
+      "finishedAt": "2026-10-07T06:33:52.365Z"
+    },
+    "2": {
+      "taskId": "efe35889-30f4-4f8d-99b9-1db62c3011b7",
+      "agentId": "2",
+      "kind": "scan",
+      "status": "succeeded",
+      "result": {
+        "kind": "scan",
+        "tier": "base",
+        "runId": "run_afac5086ba1446fb90349c8664015170",
+        "stage": {
+          "outcome": "DONE",
+          "stageId": "stage-fda6c794-90de-44ea-a3d1-a3406f47f102",
+          "candidates": [
+            {
+              "asset": "WMON",
+              "thesisCode": "MONAD_TOKEN_UNLOCK_RISK",
+              "confidenceBps": 7200
+            },
+            {
+              "asset": "USDC",
+              "thesisCode": "RWA_STABLECOIN_INFRASTRUCTURE",
+              "confidenceBps": 5500
+            }
+          ],
+          "schemaValid": true
+        },
+        "agentId": 2,
+        "leaseId": "51b681c9-a478-431f-86c5-242252bc819b",
+        "runStatus": "completed",
+        "sandboxId": "ij0vgtkfs5uego8ji5l0r",
+        "timingsMs": {
+          "run": 30919,
+          "total": 44488,
+          "sandbox": 522,
+          "hermesBoot": 12633
+        },
+        "toolCalls": [
+          {
+            "tool": "web_search",
+            "status": "succeeded",
+            "errorCode": null,
+            "chargeUsdcE6": "10000"
+          },
+          {
+            "tool": "web_search",
+            "status": "succeeded",
+            "errorCode": null,
+            "chargeUsdcE6": "10000"
+          },
+          {
+            "tool": "web_search",
+            "status": "succeeded",
+            "errorCode": null,
+            "chargeUsdcE6": "10000"
+          },
+          {
+            "tool": "read_url",
+            "status": "succeeded",
+            "errorCode": null,
+            "chargeUsdcE6": "2000"
+          },
+          {
+            "tool": "read_url",
+            "status": "succeeded",
+            "errorCode": null,
+            "chargeUsdcE6": "2000"
+          },
+          {
+            "tool": "write_thesis",
+            "status": "succeeded",
+            "errorCode": null,
+            "chargeUsdcE6": "0"
+          },
+          {
+            "tool": "complete_stage",
+            "status": "succeeded",
+            "errorCode": null,
+            "chargeUsdcE6": "0"
+          }
+        ],
+        "configHash": "c8701b41c23c161aad358e46c91bd1a74bafe4d587000ad364d997b42b46d286",
+        "gatedCalls": [
+          "POST /v1/chat/completions 200",
+          "GET /v1/models 200",
+          "POST /v1/chat/completions 200",
+          "POST /v1/chat/completions 200",
+          "POST /v1/chat/completions 200"
+        ],
+        "generation": 1,
+        "modelCalls": 5,
+        "stopReason": "COMPLETED",
+        "sandboxStopped": true,
+        "toolChargeUsdcE6": "34000",
+        "modelCallsRefusedForCredits": 0
+      },
+      "error": null,
+      "createdAt": "2026-10-07T06:33:35.600Z",
+      "startedAt": "2026-10-07T06:33:35.604Z",
+      "finishedAt": "2026-10-07T06:34:21.211Z"
+    }
+  },
+  "toolCharges": {
+    "calls": 14,
+    "paid": 10,
+    "byAgent": {
+      "1": "34000",
+      "2": "34000"
+    }
+  },
+  "activity": {
+    "entry": "Agent #2 completed a scan identifying 2 candidates: WMON with 72% confidence on MONAD_TOKEN_UNLOCK_RISK thesis, and USDC with 55% confidence on RWA_STABLECOIN_INFRASTRUCTURE thesis. The agent performed 3 searches and read 2 pages, spending 0.034 USDC.",
+    "renderedBy": "narrator",
+    "rejections": []
+  },
+  "passed": true
+}

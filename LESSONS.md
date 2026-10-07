@@ -59,13 +59,14 @@ Pinned above the numbered lessons by owner decision (D-196): the one exception t
 
 ### Rules for every unit that touches wallets or transactions
 
-- [ ] Never use `window.ethereum` once a wallet is connected; use the connected connector's provider.
+- [ ] Never use `window.ethereum`; use the chosen wallet's own provider, found by its EIP-6963 announcement (D-224).
 - [ ] Send, read receipts and check the network through that same provider, and read the app's own state through the app's RPC; compare them only on fixed data (chain ID, a fixed block, contract code), never on "latest".
 - [ ] Never let a local or test chain share a real chain's ID.
+- [ ] A login belongs to one address: when the wallet's account changes or it stops sharing one, end the session at once and say so; never read or sign for one address with another's session (L-95).
 - [ ] Map wallet error codes to plain messages: 4001 declined, 4902 unknown chain (add it, then switch), -32002 a request is already open, -32603 with an inner 4902 as unknown chain; show any other error's text.
 - [ ] Never fail silently: every wallet request shows that it is waiting, what happened, or why it failed, and every message says which check failed.
 - [ ] Confirm a wallet action by reading the wallet's state afterwards (a switch by eth_chainId, a send by its receipt).
-- [ ] Give the mock wallet the real wallet's failure modes, and test each one.
+- [ ] Give the mock wallet the real wallet's failure modes, and test each one: a login that outlives a reload, a token that links only its own wallet, two wallets installed at once (L-95).
 - [ ] Tests must leave shared dev state as they found it: snapshot and revert, or dump and load around a reset.
 
 ### Mainnet and testnet risks for real users
@@ -81,7 +82,7 @@ Pinned above the numbered lessons by owner decision (D-196): the one exception t
 
 ### Wallet compatibility test before the beta
 
-Before PB-U1, on Monad testnet, run the mint, the network switch and a transfer with: MetaMask with smart accounts off; MetaMask with smart accounts on and an EIP-7702 delegation; OKX alone; MetaMask and OKX installed together (each chosen in turn); and one mobile wallet through WalletConnect. For each, check: the connected wallet's name and address; the network check and every switch outcome (approve, decline, unknown chain, request already open); that the mint lands on testnet and appears in the portal; that a gas-sponsored send is detected and either works or is explained; and that the console shows no errors. It is part of the widening pass W-1 in BUILD_PLAN.md.
+Before PB-U1, on Monad testnet, run the mint, the network switch and a transfer with: MetaMask with smart accounts off; MetaMask with smart accounts on and an EIP-7702 delegation; OKX alone; MetaMask and OKX installed together (each chosen in turn); and one mobile wallet through WalletConnect. For each, check: the connected wallet's name and address; the network check and every switch outcome (approve, decline, unknown chain, request already open, and for OKX adding the local network or showing the manual steps); switching accounts in the wallet while logged in (the session ends with a notice, and logging in again uses the new account, with no 403 in the console); that the mint lands on testnet and appears in the portal; that a gas-sponsored send is detected and either works or is explained; and that the console shows no errors. It is part of the widening pass W-1 in BUILD_PLAN.md.
 
 ---
 
@@ -753,3 +754,38 @@ What happened: The My Agents live run failed its refund check: the page said 0.9
 Cause: The page truncates to four decimals, never rounding up, so the difference can approach 0.0001; the test assumed rounding.
 Fix: The check compares the chain amount truncated to four decimals with the page's figure exactly (36d53d7); the next run passed.
 Lesson: Check a displayed amount with the display's own rule (truncation here), not with a tolerance.
+
+## L-95: An account switch kept the old wallet's session, and the mint page could not load
+Unit: wallet reliability
+What happened: The owner switched wallets and later sent funds to a different wallet, and /mint showed "Could not read". Reproduced: after an account switch in the wallet the button showed the new address, eligibility was asked for it with the old wallet's Privy token, the API answered 403 `wallet_not_linked` (logged in the console as a failed resource), and the panel became the read error; on /agents owner sessions failed with `not_owner`, and /configure showed the new address's agents under the old login.
+Cause: The app took its address from wagmi, which follows the wallet's account, while the Privy session (and its token) belongs to the address that logged in; nothing compared the two. The mock wallet hid it: it accepted any account with one fixed token, the fake API never checked linking, and its login did not survive a reload.
+Fix: One wallet core for Privy and the mock reads the account from the chosen wallet's provider and ends the session with a notice the moment it differs from the login's address or disappears; the address and token are exposed only while they match (633fa13). Mock tokens now name their wallet, and the mock identity and fake API link only that wallet; the mock logs in through two EIP-6963 wallets and persists its login; the specs that switched accounts now expect a fresh login (6453bf3, 52cee48).
+Lesson: A login and a wallet account are two facts; check that they agree on every change, and give the mock the same split so a test can see them disagree.
+
+## L-96: The Connecting spinner could not be left
+Unit: wallet reliability
+What happened: The connect button sometimes spun on "Connecting" with no action, and clicking around did nothing.
+Cause: Privy was authenticated but no wallet account was available (after a reload with the wallet locked, the site disconnected in the wallet, or Privy dropping its active wallet after an account change); the state was "connecting" with no button, and Privy's `login()` does nothing while a session exists.
+Fix: The core ends such a session (no account) with a notice, a connect while a session exists logs out first, and a waiting connect shows Cancel in the wallet button at once and a notice saying what it waits for (633fa13, 02d65ff).
+Lesson: Every waiting state needs a way out and a reason on screen; check what the login library does when asked to log in while it believes it already is.
+
+## L-97: The wallet's name overflowed the header from 1280px
+Unit: wallet reliability
+What happened: The header width test failed at 1280 and 1440, connected with OKX Wallet: 70px over.
+Cause: From 1280 the header holds the nav inline, and the wallet's name was added beside the chain chip and the address.
+Fix: From xl to 2xl the name takes the chain chip's place; the header's chain indicator and the wrong-chain prompt still cover the network (02d65ff).
+Lesson: Test header additions with the longest value they can take; the width test caught it only because it connects with OKX, the longest name.
+
+## L-98: A staged deletion rode along in an unrelated commit
+Unit: wallet reliability
+What happened: Commit 507e7db, meant for the design system only, also deleted `use-wallet-chain.ts`, which the Privy provider at that commit still imported, so that one commit does not build; 633fa13 removes the import.
+Cause: The deletion was made with `git rm`, which stages it, and the next commit staged two files by path without reading the full staged list.
+Fix: None possible without rewriting history; the next commit restored a building tree, and this lesson records it.
+Lesson: Delete files with `rm` and stage them with the commit they belong to, and read `git status` for staged entries, not only the files just added, before every commit.
+
+## L-99: A brief notice during connect moved later captures by a few pixels
+Unit: wallet reliability
+What happened: After the wallet changes, the shell and portal captures differed from their baselines by 1 to 35 antialiased pixels, and a re-baseline did not hold on the next run.
+Cause: The waiting notice showed for the mock's 150 ms login and shifted the page, and these captures had no full repaint before them (L-65).
+Fix: The notice waits 1.5 seconds before it shows (Cancel shows at once), and the shell and portal captures repaint first through a shared helper (02d65ff, 6453bf3); two consecutive runs matched.
+Lesson: A transient element must not appear for quick, normal flows, and every capture taken after state changes repaints first.

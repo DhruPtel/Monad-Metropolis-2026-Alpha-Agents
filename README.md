@@ -156,7 +156,7 @@ pnpm test:web:e2e -- --update   # rewrite the screenshot baselines after an inte
 - **States.** Components style hover and focus through the `is-hover` and `is-focus` variants, which also match `data-force="hover"` or `"focus"`, so `/design` can show every state without a pointer.
 - **Tests.** Component tests run in Vitest under jsdom (`pnpm test`). Screenshot tests of `/design` at 1440px and 380px and an axe scan run in the Playwright 1.63.0 image pinned by digest, locally and in CI, and compare pixels exactly. A new component is added to the design system and to `/design` before any page uses it.
 
-### Wallet on the local fork (MetaMask)
+### Wallet on the local fork (MetaMask or OKX)
 
 Use http://localhost:3000 (not 127.0.0.1; Privy is allowed on localhost only), and give MetaMask a network of its own for the fork:
 
@@ -173,6 +173,8 @@ Use http://localhost:3000 (not 127.0.0.1; Privy is allowed on localhost only), a
 3. Fund your address on the fork: `cast rpc anvil_setBalance <your address> 0x56BC75E2D63100000 --rpc-url http://127.0.0.1:8545` (100 MON, fork only).
 4. Start the indexer and the control API (see "Indexer and control API" below), and put your address on the mint allowlist: `pnpm allowlist add <your address>`.
 5. `pnpm dev:web`, open http://localhost:3000/mint, connect, and mint, then follow the link to your agent on /configure. With `pnpm dev:orchestrator` running, the reveal keeper reveals it within about 15 seconds. A wallet off the allowlist is told so before it can click. Before a claim is requested, the app checks through MetaMask the wallet's chain ID, the pinned block's hash and AgentNFT's code, and stops with the failed check named if one differs.
+
+**OKX Wallet** works the same way (D-224): choose it in the login window. With MetaMask and OKX both installed, the app uses the wallet you chose, whichever one holds `window.ethereum`, and the wallet button names it. OKX may refuse to add a network with an http RPC from a site; the app then shows the steps above to add it by hand (OKX: Settings, Networks, Add network). Switching accounts in the wallet while logged in ends the session with a notice; connect again to use the new account.
 
 Do not point MetaMask's Monad (chain 143) network at `http://127.0.0.1:8545`: keep it on Monad's official RPC. On chain 143, a mint went to Monad mainnet through MetaMask's gasless relay, which MetaMask offered because the account had no MON there; the relay runs on MetaMask's servers for chain 143, not through the RPC set in the wallet (L-53).
 
