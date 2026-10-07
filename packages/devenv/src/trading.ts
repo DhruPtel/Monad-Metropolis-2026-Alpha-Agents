@@ -10,7 +10,7 @@ import {
 } from "viem";
 import { mintTestUsdc, sendAs } from "./controls.ts";
 import { assertLocalFork } from "./guard.ts";
-import { hexToBigInt, rpc, toHex } from "./rpc.ts";
+import { RpcError, hexToBigInt, rpc, toHex } from "./rpc.ts";
 
 /**
  * Test trading on the local fork (P2-U4 item 12): open a chosen wallet's
@@ -71,8 +71,11 @@ async function gasFor(url: string, who: Hex): Promise<void> {
 async function ownerOf(url: string, agentId: bigint): Promise<Hex> {
   try {
     return await read<Hex>(url, book("agent_nft"), NFT_ABI, "ownerOf", [agentId]);
-  } catch {
-    throw new Error(`Agent ${agentId} does not exist on the fork.`);
+  } catch (err) {
+    // Only the contract's refusal means "no such agent"; an unreachable fork says so itself.
+    if (err instanceof RpcError && err.kind === "jsonrpc")
+      throw new Error(`Agent ${agentId} does not exist on the fork.`);
+    throw err;
   }
 }
 
