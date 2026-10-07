@@ -492,4 +492,190 @@ describe.skipIf(!dbUp)("the signer's outbox (needs Postgres)", { timeout: 60_000
     for (const secret of [SEED.slice(2), PRIVATE_KEY.slice(2), "super-secret-key"])
       expect(everything).not.toContain(secret);
   });
+
+  describe("USDC transfers for credits (P2-U5 step 0, D-261)", () => {
+    const OWNER = "0x00000000000000000000000000000000000a11ce" as Hex;
+    const TREASURY = "0x0000000000000000000000000000000000007ea5" as Hex;
+    let owner: Hex | null;
+    const credits = (over: Partial<SignerOptions> = {}) =>
+      make({ usdc: USDC, treasury: TREASURY, ownerOf: async () => owner, ...over });
+    const fundKey = async (s: Signer, amount: bigint) =>
+      chain.setBalance(USDC, must(await s.keyAddress(AGENT)), amount);
+
+    beforeEach(() => {
+      owner = OWNER;
+    });
+
+    it("refunds the agent's owner through the outbox, reconciled by the Transfer event", async () => {
+      const s = credits();
+      await s.createKey(AGENT);
+      await fundKey(s, 10_000_000n);
+      const r = await s.acceptTransfer(AGENT, {
+        kind: "usdc_refund",
+        to: OWNER,
+        amount: 4_000_000n,
+        actionKey: "refund:a",
+      });
+      expect(r).toMatchObject({ status: "accepted", duplicate: false });
+      await ticks(s);
+      expect(await statuses(r.txId)).toEqual([
+        "accepted",
+        "signed",
+        "submitted",
+        "confirmed",
+        "reconciled",
+      ]);
+      const done = await row(r.txId);
+      expect(done).toMatchObject({
+        kind: "usdc_refund",
+        gas_limit: "100000",
+        ledger_entry_id: null,
+      });
+      expect(chain.balanceOf(USDC, OWNER)).toBe(4_000_000n);
+      // The same action key is the same transfer.
+      const again = await s.acceptTransfer(AGENT, {
+        kind: "usdc_refund",
+        to: OWNER,
+        amount: 4_000_000n,
+        actionKey: "refund:a",
+      });
+      expect(again).toMatchObject({ txId: r.txId, duplicate: true });
+    });
+
+    it("shares one nonce sequence with swaps: one transaction in flight per key", async () => {
+      const s = credits();
+      await s.createKey(AGENT);
+      await fundKey(s, 10_000_000n);
+      const swap = await s.submitSwap(AGENT, intent());
+      const refund = await s.acceptTransfer(AGENT, {
+        kind: "usdc_refund",
+        to: OWNER,
+        amount: 1_000_000n,
+        actionKey: "refund:b",
+      });
+      await ticks(s, 4);
+      expect((await row(swap.txId)).nonce).toBe(0);
+      expect((await row(refund.txId)).nonce).toBe(1);
+      expect((await row(refund.txId)).status).toBe("reconciled");
+    });
+
+    it("refuses a refund to anyone but the agent's current owner, before signing", async () => {
+      const s = credits();
+      await s.createKey(AGENT);
+      const r = await s.acceptTransfer(AGENT, {
+        kind: "usdc_refund",
+        to: TREASURY,
+        amount: 1n,
+        actionKey: "refund:c",
+      });
+      expect(r).toMatchObject({ status: "failed", reasonCode: "RECIPIENT_NOT_ALLOWED" });
+      expect(chain.sent).toHaveLength(0);
+    });
+
+    it("checks the owner again when it signs: a sale in between stops the refund", async () => {
+      const s = credits();
+      await s.createKey(AGENT);
+      await fundKey(s, 10_000_000n);
+      const r = await s.acceptTransfer(AGENT, {
+        kind: "usdc_refund",
+        to: OWNER,
+        amount: 1_000_000n,
+        actionKey: "refund:d",
+      });
+      owner = "0x0000000000000000000000000000000000000b0b";
+      await ticks(s);
+      expect(await row(r.txId)).toMatchObject({
+        status: "failed",
+        reason_code: "RECIPIENT_NOT_ALLOWED",
+        nonce: null,
+      });
+      expect(chain.sent).toHaveLength(0);
+    });
+
+    it("pays settlements only to the treasury, and refuses them when none is configured", async () => {
+      const s = credits();
+      await s.createKey(AGENT);
+      await fundKey(s, 10_000_000n);
+      const ok = await s.acceptTransfer(AGENT, {
+        kind: "usdc_settlement",
+        to: TREASURY,
+        amount: 2_000_000n,
+        actionKey: "settle:1",
+      });
+      const wrong = await s.acceptTransfer(AGENT, {
+        kind: "usdc_settlement",
+        to: OWNER,
+        amount: 2_000_000n,
+        actionKey: "settle:2",
+      });
+      expect(wrong.reasonCode).toBe("RECIPIENT_NOT_ALLOWED");
+      await ticks(s);
+      expect((await row(ok.txId)).status).toBe("reconciled");
+      expect(chain.balanceOf(USDC, TREASURY)).toBe(2_000_000n);
+      const none = make({ usdc: USDC, ownerOf: async () => owner });
+      const refused = await none.acceptTransfer(AGENT, {
+        kind: "usdc_settlement",
+        to: TREASURY,
+        amount: 1n,
+        actionKey: "settle:3",
+      });
+      expect(refused.reasonCode).toBe("RECIPIENT_NOT_ALLOWED");
+    });
+
+    it("refuses every transfer when it has no USDC address or no owner reader", async () => {
+      const s = make();
+      await s.createKey(AGENT);
+      const r = await s.acceptTransfer(AGENT, {
+        kind: "usdc_refund",
+        to: OWNER,
+        amount: 1n,
+        actionKey: "refund:e",
+      });
+      expect(r.reasonCode).toBe("TARGET_NOT_ALLOWED");
+      const noOwner = make({ usdc: USDC });
+      const r2 = await noOwner.acceptTransfer(AGENT, {
+        kind: "usdc_refund",
+        to: OWNER,
+        amount: 1n,
+        actionKey: "refund:f",
+      });
+      expect(r2.reasonCode).toBe("RECIPIENT_NOT_ALLOWED");
+    });
+
+    it("records a transfer that would revert as TRANSFER_REVERTED, unsigned", async () => {
+      const s = credits();
+      await s.createKey(AGENT);
+      chain.simulation = { ok: false, code: "EXECUTOR_REVERTED", message: "balance too low" };
+      const r = await s.acceptTransfer(AGENT, {
+        kind: "usdc_refund",
+        to: OWNER,
+        amount: 1_000_000n,
+        actionKey: "refund:g",
+      });
+      await ticks(s);
+      expect(await row(r.txId)).toMatchObject({
+        status: "failed",
+        reason_code: "TRANSFER_REVERTED",
+      });
+      expect(chain.sent).toHaveLength(0);
+    });
+
+    it("resolves a lost refund broadcast by hash, never sending it twice", async () => {
+      const s = credits();
+      await s.createKey(AGENT);
+      await fundKey(s, 10_000_000n);
+      chain.mode = "timeout-landed";
+      const r = await s.acceptTransfer(AGENT, {
+        kind: "usdc_refund",
+        to: OWNER,
+        amount: 3_000_000n,
+        actionKey: "refund:h",
+      });
+      await ticks(s, 4);
+      expect(await statuses(r.txId)).toContain("unknown");
+      expect((await row(r.txId)).status).toBe("reconciled");
+      expect(chain.sent).toHaveLength(1);
+      expect(chain.balanceOf(USDC, OWNER)).toBe(3_000_000n);
+    });
+  });
 });

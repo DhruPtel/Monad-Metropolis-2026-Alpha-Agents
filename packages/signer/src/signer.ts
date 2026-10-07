@@ -7,12 +7,14 @@ import type { AssetId } from "@alpha-agents/domain";
 import {
   type Hex,
   type TransactionSerializableEIP1559,
+  decodeEventLog,
   encodeFunctionData,
   getAddress,
+  isAddressEqual,
   keccak256,
   serializeTransaction,
 } from "viem";
-import { EXECUTOR_ABI, type SwapIntentArgs } from "./abi.ts";
+import { ERC20_ABI, EXECUTOR_ABI, type SwapIntentArgs } from "./abi.ts";
 import type { ChainClient, Receipt } from "./chain.ts";
 import type { KeyProvider } from "./keys.ts";
 import {
@@ -21,12 +23,19 @@ import {
   MAX_PRIORITY_FEE_CAP,
   SWAP_GAS_LIMIT,
   type SignRequest,
+  TRANSFER_GAS_LIMIT,
+  type TransactionKind,
+  type TransferKind,
   checkSignRequest,
+  checkTransferRequest,
 } from "./policy.ts";
 import { reconcileSwap } from "./reconcile.ts";
 
 /**
- * The signer (P2-U4). Every transaction moves through a Postgres outbox:
+ * The signer (P2-U4). Every platform transaction moves through a Postgres
+ * outbox: Executor swaps, and since P2-U5 step 0 the USDC transfers credits
+ * need (refunds to the agent's current owner, settlements to the treasury),
+ * all from the agent's one key, the funding address (D-243, D-261):
  *
  *   accepted -> signed -> submitted -> confirmed -> reconciled
  *                            |  ^
@@ -41,9 +50,11 @@ import { reconcileSwap } from "./reconcile.ts";
  * - unknown: a broadcast or a receipt wait timed out. Unknown is not failed:
  *   it is resolved by the transaction's hash and its nonce, and the signer
  *   never sends it again (D-245).
- * - confirmed: mined and successful. reconciled: the Executor's event matched
- *   the account's balance changes and the ledger entry was written in the
- *   same database transaction. A mismatch stays confirmed and is flagged.
+ * - confirmed: mined and successful. reconciled: for a swap, the Executor's
+ *   event matched the account's balance changes and the trade's ledger entry
+ *   was written in the same database transaction; for a transfer, its USDC
+ *   Transfer event matched the recipient and amount (the caller wrote the
+ *   credit ledger entry when it asked). A mismatch stays confirmed and is flagged.
  *
  * One key sends one transaction at a time: a key's next request is signed
  * only after its previous one is confirmed or failed, so a nonce is never
@@ -56,6 +67,16 @@ export interface SignerOptions {
   readonly chain: ChainClient;
   readonly keys: KeyProvider;
   readonly executor: Hex;
+  /** USDC, the only token the signer transfers. Transfers are refused without it. */
+  readonly usdc?: Hex;
+  /** The platform treasury, the only settlement recipient. Settlements are refused without it. */
+  readonly treasury?: Hex;
+  /**
+   * The agent's current owner, read from the chain: the only refund recipient,
+   * checked when the refund is accepted and again when it is signed. Refunds
+   * are refused without it.
+   */
+  readonly ownerOf?: (agentId: number) => Promise<Hex | null>;
   /** Token address (any case) to its asset, for the ledger. */
   readonly assets: Readonly<Record<string, AssetId>>;
   /** RPC URLs, redacted from every stored reason and log line. */
@@ -83,6 +104,7 @@ export interface AcceptResult {
 export interface OutboxView {
   readonly txId: string;
   readonly agentId: number;
+  readonly kind: TransactionKind;
   readonly status: SignerStatus;
   readonly reasonCode: string | null;
   readonly reason: string | null;
@@ -116,6 +138,18 @@ export class NoSessionKeyError extends Error {
 }
 
 type Row = Awaited<ReturnType<Signer["rowsIn"]>>[number];
+
+const TRANSFER_EVENT = [
+  {
+    type: "event",
+    name: "Transfer",
+    inputs: [
+      { name: "from", type: "address", indexed: true },
+      { name: "to", type: "address", indexed: true },
+      { name: "value", type: "uint256", indexed: false },
+    ],
+  },
+] as const;
 
 const IN_FLIGHT: readonly SignerStatus[] = ["signed", "submitted", "unknown"];
 
@@ -332,6 +366,108 @@ export class Signer {
     };
   }
 
+  /** The one address a transfer of this kind may pay, or null to refuse. */
+  private async recipientFor(kind: TransferKind, agentId: number): Promise<Hex | null> {
+    if (kind === "usdc_settlement") return this.#o.treasury ?? null;
+    return this.#o.ownerOf ? this.#o.ownerOf(agentId) : null;
+  }
+
+  /**
+   * Puts a USDC transfer from the agent's key in the outbox: a refund to the
+   * agent's current owner or a settlement to the treasury. `actionKey` makes
+   * it idempotent (a second request with the same key returns the first).
+   * Pass `db` to accept it inside the caller's database transaction, so the
+   * caller's ledger entry and this row commit together. A refused request is
+   * kept as failed, as for swaps.
+   */
+  async acceptTransfer(
+    agentId: number,
+    t: { kind: TransferKind; to: Hex; amount: bigint; actionKey: string },
+    db: Db = this.#o.db,
+  ): Promise<AcceptResult> {
+    const key = await this.keyRow(agentId);
+    if (!key) throw new NoSessionKeyError(agentId);
+    const usdc = this.#o.usdc ?? null;
+    const data = encodeFunctionData({
+      abi: ERC20_ABI,
+      functionName: "transfer",
+      args: [t.to, t.amount],
+    });
+    const req = { chainId: this.chainId, to: usdc, data, value: 0n };
+    const verdict = usdc
+      ? checkTransferRequest(
+          { ...req, gas: TRANSFER_GAS_LIMIT, maxFeePerGas: 0n, maxPriorityFeePerGas: 0n },
+          {
+            environment: this.#o.environment,
+            usdc,
+            kind: t.kind,
+            recipient: await this.recipientFor(t.kind, agentId),
+          },
+        )
+      : ({
+          ok: false,
+          code: "TARGET_NOT_ALLOWED",
+          message: "the signer has no USDC address",
+        } as const);
+    const txId = randomUUID();
+    const at = this.now().toISOString();
+    const base = {
+      tx_id: txId,
+      environment: ENVIRONMENTS[this.#o.environment].label,
+      chain_id: this.chainId,
+      agent_id: agentId,
+      key_address: key.address,
+      kind: t.kind,
+      action_id: t.actionKey,
+      request: JSON.stringify({ ...req, value: "0" }),
+      intent: JSON.stringify({ kind: t.kind, to: t.to, amount: t.amount.toString() }),
+    };
+    const inserted = await db
+      .insertInto("platform.signer_outbox")
+      .values(
+        verdict.ok
+          ? { ...base, status: "accepted", history: JSON.stringify([{ status: "accepted", at }]) }
+          : {
+              ...base,
+              status: "failed",
+              reason_code: verdict.code,
+              reason: `refused before signing: ${verdict.message}`,
+              history: JSON.stringify([{ status: "failed", at, detail: verdict.code }]),
+            },
+      )
+      .onConflict((oc) => oc.columns(["chain_id", "action_id"]).doNothing())
+      .returning("tx_id")
+      .executeTakeFirst();
+    if (inserted) {
+      if (!verdict.ok)
+        this.log(`agent ${agentId}: ${t.kind} refused before signing: ${verdict.code}`);
+      return verdict.ok
+        ? { txId, status: "accepted", reasonCode: null, duplicate: false }
+        : { txId, status: "failed", reasonCode: verdict.code, duplicate: false };
+    }
+    const first = await db
+      .selectFrom("platform.signer_outbox")
+      .select(["tx_id", "status", "reason_code"])
+      .where("chain_id", "=", this.chainId)
+      .where("action_id", "=", t.actionKey)
+      .executeTakeFirstOrThrow();
+    return {
+      txId: first.tx_id,
+      status: first.status,
+      reasonCode: first.reason_code,
+      duplicate: true,
+    };
+  }
+
+  /** One outbox row's state, for a caller following a transaction it asked for. */
+  async transaction(txId: string) {
+    return this.#o.db
+      .selectFrom("platform.signer_outbox")
+      .select(["tx_id", "status", "reason_code", "reason", "tx_hash", "block_number"])
+      .where("tx_id", "=", txId)
+      .executeTakeFirst();
+  }
+
   // ---- the worker ----
 
   /** One pass: sign what is accepted, then follow everything in flight. */
@@ -429,6 +565,8 @@ export class Signer {
     if (key.address.toLowerCase() !== row.key_address)
       return this.fail(row, "NO_SESSION_KEY", "the provider's key is not the recorded session key");
 
+    const kind = row.kind as TransactionKind;
+    const gasLimit = kind === "executor_swap" ? SWAP_GAS_LIMIT : TRANSFER_GAS_LIMIT;
     // Fees: twice the base fee plus the tip, within the caps (A-38).
     const { baseFee, priorityFee } = await this.#o.chain.fees();
     const tip = priorityFee < MAX_PRIORITY_FEE_CAP ? priorityFee : MAX_PRIORITY_FEE_CAP;
@@ -447,24 +585,41 @@ export class Signer {
       to: request.to,
       data: request.data,
       value: BigInt(request.value),
-      gas: SWAP_GAS_LIMIT,
+      gas: gasLimit,
       maxFeePerGas: maxFee,
       maxPriorityFeePerGas: tip,
     };
-    const verdict = checkSignRequest(sign, {
-      environment: this.#o.environment,
-      executor: this.#o.executor,
-      agentId: row.agent_id,
-    });
-    if (!verdict.ok)
-      return this.fail(row, verdict.code, `refused before signing: ${verdict.message}`);
-
-    // The Executor's own verdict first: a refusal is recorded with its reason and nothing is signed.
-    const sim = await this.#o.chain.simulate(key.address, this.#o.executor, sign.data);
-    if (!sim.ok) return this.fail(row, sim.code, `the Executor would refuse it: ${sim.message}`);
+    if (kind === "executor_swap") {
+      const verdict = checkSignRequest(sign, {
+        environment: this.#o.environment,
+        executor: this.#o.executor,
+        agentId: row.agent_id,
+      });
+      if (!verdict.ok)
+        return this.fail(row, verdict.code, `refused before signing: ${verdict.message}`);
+      // The Executor's own verdict first: a refusal is recorded with its reason and nothing is signed.
+      const sim = await this.#o.chain.simulate(key.address, this.#o.executor, sign.data);
+      if (!sim.ok) return this.fail(row, sim.code, `the Executor would refuse it: ${sim.message}`);
+    } else {
+      // The recipient is checked again now: a refund pays only whoever owns the agent at signing.
+      const usdc = this.#o.usdc;
+      const verdict = usdc
+        ? checkTransferRequest(sign, {
+            environment: this.#o.environment,
+            usdc,
+            kind,
+            recipient: await this.recipientFor(kind, row.agent_id),
+          })
+        : ({ ok: false, code: "TARGET_NOT_ALLOWED", message: "no USDC address" } as const);
+      if (!verdict.ok)
+        return this.fail(row, verdict.code, `refused before signing: ${verdict.message}`);
+      const sim = await this.#o.chain.simulate(key.address, usdc as Hex, sign.data);
+      if (!sim.ok)
+        return this.fail(row, "TRANSFER_REVERTED", `the transfer would revert: ${sim.message}`);
+    }
 
     if (this.#o.topUpGas) {
-      const need = SWAP_GAS_LIMIT * maxFee;
+      const need = gasLimit * maxFee;
       if ((await this.#o.chain.nativeBalance(key.address)) < need)
         await this.#o.topUpGas(key.address, need * 10n);
     }
@@ -484,7 +639,7 @@ export class Signer {
         let nonce = k.next_nonce;
         let note: string | undefined;
         if (pending > nonce) {
-          // The key sent elsewhere (a credit refund signs with the same address).
+          // The key sent a transaction this outbox did not (a refund signed before P2-U5, or by hand).
           note = `nonce ${nonce} advanced to ${pending}: the key sent another transaction`;
           nonce = pending;
         } else if (pending < nonce) {
@@ -664,12 +819,18 @@ export class Signer {
         code: "EXECUTOR_REVERTED",
         message: "reverted on chain",
       }));
-    const code = why.ok ? "EXECUTOR_REVERTED" : why.code;
+    const code =
+      row.kind === "executor_swap"
+        ? why.ok
+          ? "EXECUTOR_REVERTED"
+          : why.code
+        : "TRANSFER_REVERTED";
     await this.fail(row, code, `reverted on chain: ${why.ok ? "no reason" : why.message}`, set);
   }
 
   private async reconcile(row: Row): Promise<void> {
     if (!row.intent || row.block_number === null) return;
+    if (row.kind !== "executor_swap") return this.reconcileTransfer(row);
     const intent = intentArgs(row.intent);
     const receipt = await this.#o.chain.receipt(row.tx_hash as Hex);
     if (!receipt) return;
@@ -749,6 +910,48 @@ export class Signer {
     });
   }
 
+  /** A transfer is reconciled when its receipt carries USDC's Transfer from the key, to the recipient, for the amount. */
+  private async reconcileTransfer(row: Row): Promise<void> {
+    const want = row.intent as { to: Hex; amount: string };
+    const receipt = await this.#o.chain.receipt(row.tx_hash as Hex);
+    if (!receipt) return;
+    const usdc = this.#o.usdc as Hex;
+    const seen = receipt.logs.some((l) => {
+      if (!isAddressEqual(l.address, usdc)) return false;
+      try {
+        const { args } = decodeEventLog({
+          abi: TRANSFER_EVENT,
+          eventName: "Transfer",
+          topics: l.topics as [Hex],
+          data: l.data,
+        });
+        return (
+          args !== undefined &&
+          isAddressEqual(args.from, row.key_address as Hex) &&
+          isAddressEqual(args.to, want.to) &&
+          args.value === BigInt(want.amount)
+        );
+      } catch {
+        return false;
+      }
+    });
+    if (!seen) {
+      await this.move(
+        row,
+        "confirmed",
+        { reason_code: "RECONCILE_MISMATCH", reason: "no matching USDC Transfer in the receipt" },
+        "flagged: no matching USDC Transfer",
+      );
+      return;
+    }
+    await this.move(
+      row,
+      "reconciled",
+      { amount_out: want.amount },
+      `paid ${want.to.toLowerCase()}`,
+    );
+  }
+
   // ---- reads for the console ----
 
   async outbox(agentId?: number, limit = 20): Promise<OutboxView[]> {
@@ -761,6 +964,7 @@ export class Signer {
     return rows.map((r) => ({
       txId: r.tx_id,
       agentId: r.agent_id,
+      kind: r.kind,
       status: r.status,
       reasonCode: r.reason_code,
       reason: r.reason,

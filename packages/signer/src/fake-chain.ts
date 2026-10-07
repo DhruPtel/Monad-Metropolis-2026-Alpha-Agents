@@ -7,12 +7,13 @@ import {
   parseTransaction,
   recoverTransactionAddress,
 } from "viem";
-import { EXECUTOR_ABI, type SwapIntentArgs } from "./abi.ts";
+import { ERC20_ABI, EXECUTOR_ABI, type SwapIntentArgs } from "./abi.ts";
 import type { ChainClient, Receipt, SendResult, Simulation } from "./chain.ts";
 
 /**
  * A chain for the signer's tests: it checks nonces like a node, mines a swap
- * into a receipt carrying the Executor's IntentExecuted event, keeps token
+ * into a receipt carrying the Executor's IntentExecuted event and a USDC
+ * transfer into one carrying the token's Transfer event, keeps token
  * balances per block, and can time out, refuse, lose or delay a broadcast.
  */
 export type SendMode =
@@ -122,6 +123,8 @@ export class FakeChain implements ChainClient {
     this.pool.delete(keccak256(raw));
     this.block += 1n;
     const hash = keccak256(raw);
+    if (tx.to && tx.to.toLowerCase() !== this.executor.toLowerCase())
+      return this.mineTransfer(hash, tx.to, from as Hex, tx.data as Hex);
     const { args } = decodeFunctionData({ abi: EXECUTOR_ABI, data: tx.data as Hex });
     const i = args[0] as SwapIntentArgs;
     if (this.revertNext) {
@@ -171,6 +174,44 @@ export class FakeChain implements ChainClient {
     });
   }
 
+  /** Mines a token transfer: moves the balances and writes the Transfer event, or reverts. */
+  private mineTransfer(hash: Hex, token: Hex, from: Hex, data: Hex): void {
+    const blockHash = `0x${this.block.toString(16).padStart(64, "0")}` as Hex;
+    const { args } = decodeFunctionData({ abi: ERC20_ABI, data });
+    const [to, amount] = args as readonly [Hex, bigint];
+    if (this.revertNext || this.balanceAt(token, from, this.block) < amount) {
+      this.receipts.set(hash, {
+        status: "reverted",
+        blockNumber: this.block,
+        blockHash,
+        gasUsed: 40_000n,
+        logs: [],
+      });
+      return;
+    }
+    this.setBalance(token, from, this.balanceAt(token, from, this.block) - amount);
+    this.setBalance(token, to, this.balanceAt(token, to, this.block) + amount);
+    const topics = encodeEventTopics({
+      abi: TRANSFER_EVENT,
+      eventName: "Transfer",
+      args: { from, to },
+    }) as Hex[];
+    this.receipts.set(hash, {
+      status: "success",
+      blockNumber: this.block,
+      blockHash,
+      gasUsed: 50_000n,
+      logs: this.dropEvent
+        ? []
+        : [{ address: token, topics, data: encodeAbiParameters([{ type: "uint256" }], [amount]) }],
+    });
+  }
+
+  /** A token balance now, for tests. */
+  balanceOf(token: Hex, who: Hex): bigint {
+    return this.balanceAt(token, who, this.block);
+  }
+
   /** Another transaction from the same key lands (a refund, or a rogue resend). */
   consumeNonce(address: Hex): void {
     const k = address.toLowerCase();
@@ -198,3 +239,15 @@ export class FakeChain implements ChainClient {
     return 1_790_000_000 + Number(block);
   }
 }
+
+const TRANSFER_EVENT = [
+  {
+    type: "event",
+    name: "Transfer",
+    inputs: [
+      { name: "from", type: "address", indexed: true },
+      { name: "to", type: "address", indexed: true },
+      { name: "value", type: "uint256", indexed: false },
+    ],
+  },
+] as const;

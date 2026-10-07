@@ -238,6 +238,8 @@ export interface RefundTable {
   contribution_basis_usdc_e6: ColumnType<string | null, string | null | undefined, string | null>;
   raw_tx: string | null;
   tx_hash: string | null;
+  /** The signer outbox row that carries the transfer (P2-U5 step 0); null for refunds signed before it. */
+  signer_tx_id: ColumnType<string | null, string | null | undefined, string | null>;
   reason: string | null;
   created_at: Timestamp;
   updated_at: Timestamp;
@@ -267,7 +269,7 @@ export interface SignerOutboxTable {
   chain_id: number;
   agent_id: number;
   key_address: string;
-  kind: "executor_swap";
+  kind: "executor_swap" | "usdc_refund" | "usdc_settlement";
   action_id: string | null;
   request: ColumnType<Record<string, unknown>, string, string>;
   intent: ColumnType<Record<string, unknown> | null, string | null, string | null>;

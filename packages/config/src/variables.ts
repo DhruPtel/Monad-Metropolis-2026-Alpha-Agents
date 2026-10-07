@@ -195,6 +195,19 @@ export const VARIABLES = [
     localDefault: "redis://127.0.0.1:6380",
   },
 
+  // Platform addresses
+  {
+    name: "PLATFORM_TREASURY_ADDRESS",
+    group: "Platform addresses",
+    description:
+      "Platform treasury: the only address a credit settlement may pay (FINAL_PLAN 4.1.10, D-261). Unset refuses every settlement",
+    secret: false,
+    firstUsedBy: "P2-U5",
+    environments: ALL,
+    ...address,
+    example: "0x0000000000000000000000000000000000000000",
+  },
+
   // Testnet keys (never used by local or beta)
   {
     name: "TESTNET_DEPLOYER_PRIVATE_KEY",

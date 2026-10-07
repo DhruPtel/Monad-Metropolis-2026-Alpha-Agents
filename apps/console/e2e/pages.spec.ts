@@ -264,7 +264,9 @@ test("the Trades page shows the signer's outbox: states, hashes, refusals, balan
   await expect(page.locator('tr[data-status="reconciled"]')).toContainText("Reconciled");
   await expect(page.locator('tr[data-status="unknown"]')).toContainText("Unknown");
   await expect(page.locator('tr[data-status="failed"]')).toHaveCount(2);
-  await expect(page.getByText("The signer signs calls to the Executor only.")).toBeVisible();
+  await expect(
+    page.getByText("The signer signs calls to the Executor, and USDC transfers for credits, only."),
+  ).toBeVisible();
   await expect(page.getByText("SLIPPAGE_TOO_HIGH", { exact: true })).toBeVisible();
   const ledger = page.getByTestId("ledger-entry");
   await expect(ledger).toContainText("personal_account USDC -5000000");

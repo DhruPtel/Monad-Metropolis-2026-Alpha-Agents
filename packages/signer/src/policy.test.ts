@@ -11,7 +11,10 @@ import {
   SWAP_GAS_LIMIT,
   type PolicyContext,
   type SignRequest,
+  TRANSFER_GAS_LIMIT,
+  type TransferContext,
   checkSignRequest,
+  checkTransferRequest,
 } from "./policy.ts";
 
 const EXECUTOR = "0xE712468eB37544B7Eafe20F402867f7a49C19F43" as Hex;
@@ -137,8 +140,50 @@ describe("one list of states and codes (P2-U4)", () => {
     ]);
   });
 
-  it("the signer's refusals are packages/domain's first nine signer codes", () => {
-    expect(SIGNER_REFUSALS).toEqual(SIGNER_REASON_CODES.slice(0, 9));
+  it("the signer's refusals are packages/domain's first ten signer codes", () => {
+    expect(SIGNER_REFUSALS).toEqual(SIGNER_REASON_CODES.slice(0, 10));
     expect(SIGNER_REFUSALS).toContain("TARGET_NOT_ALLOWED");
+  });
+});
+
+describe("the signer's USDC transfer allowlist (P2-U5 step 0, D-261)", () => {
+  const OWNER = "0x00000000000000000000000000000000000a11ce" as Hex;
+  const transfer = (to: Hex = OWNER, amount = 1_000_000n): Hex =>
+    encodeFunctionData({ abi: ERC20_ABI, functionName: "transfer", args: [to, amount] });
+  const treq = (over: Partial<SignRequest> = {}): SignRequest =>
+    req({ to: USDC, data: transfer(), gas: TRANSFER_GAS_LIMIT, ...over });
+  const tctx: TransferContext = {
+    environment: "local",
+    usdc: USDC,
+    kind: "usdc_refund",
+    recipient: OWNER,
+  };
+  const tcode = (r: SignRequest, c: TransferContext = tctx) => {
+    const v = checkTransferRequest(r, c);
+    return v.ok ? "OK" : v.code;
+  };
+
+  it("signs a USDC transfer to the one allowed recipient", () => {
+    const v = checkTransferRequest(treq(), tctx);
+    expect(v.ok && v.to.toLowerCase() === OWNER && v.amount === 1_000_000n).toBe(true);
+  });
+  it("refuses another chain, a creation, another token, another function or value", () => {
+    expect(tcode(treq({ chainId: 143 }))).toBe("CHAIN_NOT_PINNED");
+    expect(tcode(treq({ to: null }))).toBe("CONTRACT_CREATION");
+    expect(tcode(treq({ to: WMON }))).toBe("TARGET_NOT_ALLOWED");
+    expect(tcode(treq({ data: swap() }))).toBe("FUNCTION_NOT_ALLOWED");
+    expect(tcode(treq({ value: 1n }))).toBe("VALUE_NOT_ALLOWED");
+  });
+  it("refuses a malformed or empty transfer", () => {
+    expect(tcode(treq({ data: `${transfer().slice(0, 10)}00` as Hex }))).toBe("INTENT_MALFORMED");
+    expect(tcode(treq({ data: transfer(OWNER, 0n) }))).toBe("INTENT_MALFORMED");
+  });
+  it("refuses any recipient but the allowed one, and refuses when none is known", () => {
+    expect(tcode(treq({ data: transfer(EXECUTOR) }))).toBe("RECIPIENT_NOT_ALLOWED");
+    expect(tcode(treq(), { ...tctx, recipient: null })).toBe("RECIPIENT_NOT_ALLOWED");
+  });
+  it("holds the transfer gas limit and the fee caps", () => {
+    expect(tcode(treq({ gas: TRANSFER_GAS_LIMIT + 1n }))).toBe("GAS_LIMIT_EXCEEDED");
+    expect(tcode(treq({ maxFeePerGas: MAX_FEE_PER_GAS_CAP + 1n }))).toBe("FEE_CAP_EXCEEDED");
   });
 });
