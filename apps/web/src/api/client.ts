@@ -107,6 +107,8 @@ export interface AgentSummaryJson {
     readonly creditsUsdcE6: string;
     readonly spendableUsdcE6: string;
     readonly heldUsdcE6: string;
+    /** The current owner's own share of the credits (D-242). */
+    readonly ownRefundUsdcE6: string;
     readonly restricted: boolean;
   } | null;
   readonly spent24hUsdcE6: string;

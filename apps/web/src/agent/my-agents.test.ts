@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { AgentSummaryJson } from "@/api/client";
 import {
   myAgentsPageState,
+  othersKeepCredits,
   refundAmountText,
   refundAvailability,
   refundOutcomeText,
@@ -11,7 +12,12 @@ import {
   summaryView,
 } from "./my-agents";
 
-const summary = (over: Partial<AgentSummaryJson> = {}, spendable = "4994400", held = "0") =>
+const summary = (
+  over: Partial<AgentSummaryJson> = {},
+  spendable = "4994400",
+  held = "0",
+  own = (BigInt(spendable) + BigInt(held)).toString(),
+) =>
   summaryView({
     runStatus: "ready",
     wallet: "0x2222222222222222222222222222222222222222",
@@ -21,6 +27,7 @@ const summary = (over: Partial<AgentSummaryJson> = {}, spendable = "4994400", he
       creditsUsdcE6: spendable,
       spendableUsdcE6: spendable,
       heldUsdcE6: held,
+      ownRefundUsdcE6: own,
       restricted: spendable === "0",
     },
     spent24hUsdcE6: "22000",
@@ -88,13 +95,21 @@ describe("what an owner can do now", () => {
     });
   });
 
-  it("refunds only with credits or held USDC to return, and says what goes back", () => {
+  it("refunds only the owner's own share, and says what goes back (D-242)", () => {
     expect(refundAvailability(summary({}, "0")).enabled).toBe(false);
     expect(refundAvailability(summary({}, "0", "2000000")).enabled).toBe(true);
-    expect(refundAmountText(summary())).toBe("4.9944 USDC of credits");
-    expect(refundAmountText(summary({}, "1000000", "2000000"))).toBe(
-      "1 USDC of credits and 2 USDC held above the cap",
-    );
+    expect(refundAmountText(summary())).toBe("4.9944 USDC");
+    expect(othersKeepCredits(summary())).toBe(false);
+    // Owner contributed a quarter: the rest stays with the agent.
+    const mixed = summary({}, "3000000", "1000000", "1000000");
+    expect(refundAmountText(mixed)).toBe("1 USDC");
+    expect(othersKeepCredits(mixed)).toBe(true);
+    // Funded only by others: nothing is the owner's to refund.
+    expect(refundAvailability(summary({}, "3000000", "0", "0"))).toEqual({
+      enabled: false,
+      reason:
+        "None of these credits are yours to refund: a refund returns only what you contributed.",
+    });
   });
 
   it("states the Scan's cost from the estimate", () => {

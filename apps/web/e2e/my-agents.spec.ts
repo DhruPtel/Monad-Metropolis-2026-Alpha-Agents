@@ -157,6 +157,7 @@ test.describe("every state, captured and scanned", () => {
           creditsUsdcE6: "0",
           spendableUsdcE6: "0",
           heldUsdcE6: "0",
+          ownRefundUsdcE6: "0",
           restricted: true,
         },
       }),
@@ -210,7 +211,7 @@ test.describe("owner actions", () => {
     const c = card(page, 7);
     await c.getByRole("button", { name: "Refund credits" }).click();
     const dialog = page.getByRole("dialog", { name: "Refund Alpha Agent #7's credits?" });
-    await expect(dialog).toContainText("4.9944 USDC of credits and 2 USDC held above the cap");
+    await expect(dialog).toContainText("Sends 6.9944 USDC, your own share of the credits");
     await expect(dialog).toContainText("epoch 0");
     await capture(page, dialog, "agents-refund-dialog.png");
     await dialog.getByRole("button", { name: "Refund" }).click();

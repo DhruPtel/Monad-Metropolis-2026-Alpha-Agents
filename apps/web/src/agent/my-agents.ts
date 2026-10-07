@@ -41,6 +41,8 @@ export interface SummaryView {
   readonly funding: FundingView | null;
   readonly spendable: bigint;
   readonly held: bigint;
+  /** What a refund pays this owner: only their own share of the credits (D-242). */
+  readonly ownRefund: bigint;
   readonly spent24h: bigint;
   readonly charges: readonly ChargeItem[];
   readonly latestScan: AgentSummaryJson["latestScan"];
@@ -59,6 +61,7 @@ export function summaryView(s: AgentSummaryJson): SummaryView {
       : null,
     spendable,
     held,
+    ownRefund: BigInt(s.credits?.ownRefundUsdcE6 ?? "0"),
     spent24h: BigInt(s.spent24hUsdcE6),
     charges: s.charges.map((c) => ({ ...c, amountUsdcE6: BigInt(c.amountUsdcE6) })),
     latestScan: s.latestScan,
@@ -93,10 +96,16 @@ export function scanAvailability(v: SummaryView): Availability {
   return { enabled: true };
 }
 
-/** Whether the owner can ask for a refund: only with something to return. */
+/** Whether the owner can ask for a refund: only with a share of their own to return (D-242). */
 export function refundAvailability(v: SummaryView): Availability {
   if (v.spendable + v.held === 0n)
     return { enabled: false, reason: "There are no credits to refund." };
+  if (v.ownRefund === 0n)
+    return {
+      enabled: false,
+      reason:
+        "None of these credits are yours to refund: a refund returns only what you contributed.",
+    };
   return { enabled: true };
 }
 
@@ -106,11 +115,11 @@ export const scanCostText = (v: SummaryView): string => {
   return `about ${two(v.scanEstimate.low)} to ${two(v.scanEstimate.high)} USDC`;
 };
 
-/** What is being refunded, for the refund confirmation. */
-export const refundAmountText = (v: SummaryView): string =>
-  v.held > 0n
-    ? `${usdc(v.spendable)} USDC of credits and ${usdc(v.held)} USDC held above the cap`
-    : `${usdc(v.spendable)} USDC of credits`;
+/** What is being refunded, for the refund confirmation: the owner's own share (D-242). */
+export const refundAmountText = (v: SummaryView): string => `${usdc(v.ownRefund)} USDC`;
+
+/** Whether other contributors' credits stay with the agent after this owner's refund. */
+export const othersKeepCredits = (v: SummaryView): boolean => v.spendable + v.held > v.ownRefund;
 
 const STOP_WORDS: Readonly<Record<string, string>> = {
   COMPLETED: "completed",

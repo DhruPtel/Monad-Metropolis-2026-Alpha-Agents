@@ -26,6 +26,7 @@ export interface FakeDashboard {
     creditsUsdcE6: string;
     spendableUsdcE6: string;
     heldUsdcE6: string;
+    ownRefundUsdcE6: string;
     restricted: boolean;
   } | null;
   spent24hUsdcE6: string;
@@ -53,6 +54,7 @@ export function fundedDashboard(over: Partial<FakeDashboard> = {}): FakeDashboar
       creditsUsdcE6: "4994400",
       spendableUsdcE6: "4994400",
       heldUsdcE6: "2000000",
+      ownRefundUsdcE6: "6994400",
       restricted: false,
     },
     spent24hUsdcE6: "171600",
@@ -415,6 +417,7 @@ export class FakeApi {
         creditsUsdcE6: "0",
         spendableUsdcE6: "0",
         heldUsdcE6: "0",
+        ownRefundUsdcE6: "0",
         restricted: true,
       };
     d.runStatus = "restricted";

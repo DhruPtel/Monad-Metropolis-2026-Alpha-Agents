@@ -29,6 +29,7 @@ import { useWalletSession } from "@/auth/session";
 import type { AgentView } from "@/agent/chain";
 import {
   myAgentsPageState,
+  othersKeepCredits,
   refundAmountText,
   refundAvailability,
   scanAvailability,
@@ -193,8 +194,12 @@ function MyAgentCard({ agent }: { agent: AgentView }) {
                   <DialogHeader>
                     <DialogTitle>Refund {name}&apos;s credits?</DialogTitle>
                     <DialogDescription>
-                      Sends {refundAmountText(summary)} from its funding address to your wallet. The
-                      refund is tied to your ownership (epoch{" "}
+                      Sends {refundAmountText(summary)}, your own share of the credits, from its
+                      funding address to your wallet.{" "}
+                      {othersKeepCredits(summary)
+                        ? "Credits other people contributed stay with the agent. "
+                        : null}
+                      The refund is tied to your ownership (epoch{" "}
                       <span className="numeric">{summary.ownerEpoch.toString()}</span>): if {name}{" "}
                       changes hands first, it is refused and the credits stay with the agent.
                       Research pauses until it is funded again.
