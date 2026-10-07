@@ -156,9 +156,8 @@ export async function depositUsdc(account, owner, amountE6) {
   ]);
   if (oracle === "0x0000000000000000000000000000000000000000")
     throw new Error(
-      "refused: deposits need the oracle adapter (the USDC depeg guard, P2-U3), which waits the factory's 9-day timelock. " +
-        "Run pnpm custody:local prepare-oracle to apply it on this fork (it moves the fork's clock 9 days), " +
-        "or pnpm oracle:local demo to see the whole flow on a fork of its own",
+      "refused: this factory was deployed without an oracle, and deposits need one (the USDC depeg guard, P2-U3); " +
+        "setting it waits the factory's 9-day timelock. Redeploy with pnpm deploy:account-factory, which gives it one (D-235)",
     );
   if (principal + amountE6 > cap)
     throw new Error(

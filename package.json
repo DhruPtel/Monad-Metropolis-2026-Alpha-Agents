@@ -49,6 +49,7 @@
     "custody:local": "node scripts/custody-local.js",
     "oracle:local": "node scripts/oracle-local.js",
     "policy:parity": "node packages/policy/scripts/write-parity.ts",
+    "devenv:local-feed": "node scripts/write-local-feed.js",
     "assets:build-bee": "node scripts/assets/build-bee-model.ts",
     "assets:check": "node scripts/assets/check-models.ts"
   },

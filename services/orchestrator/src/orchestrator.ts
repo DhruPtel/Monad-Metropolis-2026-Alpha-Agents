@@ -9,6 +9,7 @@ import { type Gate, startGate } from "./gate.ts";
 import { gateResolver } from "./gate-resolver.ts";
 import type { GatewayAdmin } from "./gateway-admin.ts";
 import { RevealKeeper } from "./keeper.ts";
+import type { LocalFeedRefresher } from "./local-feeds.ts";
 import type { RevealSteering } from "./reveal-steer.ts";
 import { LeaseManager } from "./leases.ts";
 import { Narrator } from "./narrator.ts";
@@ -58,6 +59,8 @@ export interface OrchestratorOptions {
   readonly gateway: GatewayAdmin;
   readonly provider: SandboxProvider | null;
   readonly keeper: RevealKeeper | null;
+  /** D-237: fresh Chainlink feeds on the local fork; null everywhere else. */
+  readonly localFeeds?: LocalFeedRefresher | null;
   readonly chainId: number;
   readonly namespace: string;
   readonly redisUrl: string;
@@ -231,6 +234,10 @@ export class Orchestrator {
       this.every(this.o.scheduleMs ?? 30_000, "scan scheduler", async () => {
         await this.scheduleScans();
       });
+    if (this.o.localFeeds) {
+      const feeds = this.o.localFeeds;
+      this.every(feeds.everyMs, "local feeds", () => feeds.refresh());
+    }
     if (this.o.keeper) {
       const keeper = this.o.keeper;
       this.loops.push(keeper.run(this.controller.signal, this.o.keeperMs ?? 2_000));

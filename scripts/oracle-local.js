@@ -7,7 +7,7 @@
 //
 //   pnpm oracle:local prices                      MON/USD, the v4 pool and USDC/USD through the adapter
 //   pnpm oracle:local demo [--drops 15,25,40] [--keep]
-//       sets the oracle through the factory's 9-day timelock, values anvil
+//       the factory has its oracle from deployment (D-235); values anvil
 //       account 6's PersonalAccount (30 USDC and about 40 USDC of WMON), then
 //       lowers MON/USD by each drop and pokes, so the breaker trips; ends with
 //       a withdrawal while every feed is down.
@@ -133,21 +133,14 @@ async function demo(/** @type {`0x${string}`} */ factory, /** @type {`0x${string
   const { account } = await custody.ensureAccount(factory, agentId, owner);
   console.log(`   agent #${agentId}, PersonalAccount ${account}`);
 
-  console.log("\n2. The oracle waits the factory's 9-day timelock (proposed at deployment).");
-  await oracle.applyOracleTimelock(factory, adapter);
   console.log(
-    "   Moved this fork's clock past it and executed. Nine days on, the copied feeds are stale:",
-  );
-  for (const line of await oracle.describePrices(adapter)) console.log(`   ${line}`);
-
-  console.log(
-    "\n3. On this fork only, the feeds become settable copies with their last real answers, dated now.",
+    "\n2. The factory has its oracle from deployment (D-235). On this fork only, LocalFeed keeps the feeds' last answers fresh (D-237).",
   );
   const answers = await oracle.useFreshFeeds();
-  const base = answers.monUsd ?? 0n;
+  const base = answers.monUsd;
   for (const line of await oracle.describePrices(adapter)) console.log(`   ${line}`);
 
-  console.log("\n4. The owner deposits 30 USDC and about 40 USDC of WMON, and pokes.");
+  console.log("\n3. The owner deposits 30 USDC and about 40 USDC of WMON, and pokes.");
   const usdcGas = (await custody.depositUsdc(account, owner, 30_000_000n)).gasUsed;
   // About 40 USDC of WMON at the current price.
   const wmonAmount = (40_000_000n * 10n ** 30n) / (base * 10n ** 10n);
@@ -179,7 +172,7 @@ async function demo(/** @type {`0x${string}`} */ factory, /** @type {`0x${string
   console.log(`   gas used: USDC deposit ${usdcGas}, WMON deposit ${wmonGas}, poke ${pokeGas}`);
   console.log(`   ${await breakerLine(account)}`);
 
-  console.log("\n5. MON/USD falls; anyone may poke, and the breaker only tightens.");
+  console.log("\n4. MON/USD falls; anyone may poke, and the breaker only tightens.");
   for (const d of drops) {
     const answer = (base * BigInt(100 - d)) / 100n;
     await oracle.setMonUsd(answer);
@@ -189,7 +182,7 @@ async function demo(/** @type {`0x${string}`} */ factory, /** @type {`0x${string
     );
   }
 
-  console.log("\n6. A deposit while PAUSED is refused; a withdrawal with every feed down is not.");
+  console.log("\n5. A deposit while PAUSED is refused; a withdrawal with every feed down is not.");
   try {
     await client.simulateContract({
       address: account,

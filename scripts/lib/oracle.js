@@ -1,26 +1,22 @@
 // @ts-check
-// The oracle adapter on a local fork (P2-U3): read prices through it, apply
-// the factory's timelocked oracle proposal, and give a fork price feeds whose
-// answers stay fresh and can be moved. Local fork only: every change checks
-// the fork first.
-//
-// Why feeds need replacing on a fork: the fork copies Chainlink's feeds as
-// they were at the pinned block, and nobody updates them there, so as the
-// fork's clock moves on MON/USD is stale within 5 minutes and every priced
-// action refuses (correctly). `useFreshFeeds` swaps each feed contract's code
-// for a settable copy (the test MockFeed) that keeps the feed's address, its
-// decimals and its last answer, re-dated to now. Mainnet never does this.
-import { readFileSync, existsSync } from "node:fs";
-import { spawnSync } from "node:child_process";
-import { join } from "node:path";
-import { advanceTime, assertLocalFork, rpc } from "@alpha-agents/devenv";
+// The oracle adapter on a local fork (P2-U3): read prices through it, apply a
+// timelocked oracle change for a factory deployed without one, and keep the
+// fork's Chainlink feeds fresh and movable through devenv's refresher
+// (LocalFeed, D-237): the fork copies the feeds as they were at the pinned
+// block and nothing updates them there. Local fork only: devenv refuses any
+// other RPC before sending anything.
+import {
+  advanceTime,
+  assertLocalFork,
+  localFeedsInstalled,
+  refreshLocalFeeds,
+} from "@alpha-agents/devenv";
 import { addressEntry } from "@alpha-agents/domain";
 import { ORACLE_REASONS } from "@alpha-agents/policy";
 import { createPublicClient, formatUnits, http, parseAbi } from "viem";
 import { CUSTODY_ROLES } from "./account-factory.js";
 import { send } from "./agent-reveal.js";
 import { ANVIL_URL } from "./config.js";
-import { MONAD_DIR } from "./paths.js";
 
 export const ADAPTER_ABI = parseAbi([
   "function price(address asset) view returns (uint256 priceE18, uint256 updatedAt, uint8 reason)",
@@ -37,20 +33,8 @@ const FACTORY_ORACLE_ABI = parseAbi([
   "function execute(uint8 action, bytes32 value)",
 ]);
 
-const FEED_ABI = parseAbi([
-  "function decimals() view returns (uint8)",
-  "function latestRoundData() view returns (uint80, int256, uint256, uint256, uint80)",
-  "function push(int256 answer)",
-  "function setRound(uint80 roundId, int256 answer, uint256 updatedAt, uint80 answeredInRound)",
-  "function setDecimals(uint8 d)",
-  "function setFailure(uint8 f)",
-]);
-
 /** AccountFactory.Action.SetOracle (the enum's second member). */
 const SET_ORACLE = 1;
-/** MockFeed.Failure: None and RevertRound. */
-const FEED_OK = 0;
-const FEED_DOWN = 1;
 
 const client = createPublicClient({ transport: http(ANVIL_URL) });
 const book = (/** @type {import("@alpha-agents/domain").AddressBookId} */ id) =>
@@ -130,105 +114,36 @@ export async function applyOracleTimelock(factory, adapter) {
   return true;
 }
 
-/** The settable feed's runtime code, built by forge with the tests. */
-function settableFeedCode() {
-  const artifact = join(MONAD_DIR, "out", "OracleMocks.sol", "MockFeed.json");
-  if (!existsSync(artifact)) spawnSync("forge", ["build"], { cwd: MONAD_DIR, stdio: "ignore" });
-  return /** @type {`0x${string}`} */ (
-    JSON.parse(readFileSync(artifact, "utf8")).deployedBytecode.object
-  );
-}
-
 /**
- * Swaps both feeds for settable copies holding their current answers, dated
- * now (see the header). Idempotent: a feed already swapped is only re-dated.
- * Returns the answers used.
+ * Re-dates both feeds' answers to now (local fork only, through devenv's
+ * refresher, D-237). Returns the answers, in the feeds' own decimals.
  */
 export async function useFreshFeeds() {
-  await assertLocalFork(ANVIL_URL);
-  const code = settableFeedCode();
-  const now = await forkTime();
-  /** @type {Record<string, bigint>} */
-  const answers = {};
-  for (const [name, feed] of Object.entries(FEEDS())) {
-    const [decimals, round] = await Promise.all([
-      client.readContract({ address: feed, abi: FEED_ABI, functionName: "decimals" }),
-      client.readContract({ address: feed, abi: FEED_ABI, functionName: "latestRoundData" }),
-    ]);
-    const current = (await client.getCode({ address: feed })) ?? "0x";
-    if (current.toLowerCase() !== code.toLowerCase()) {
-      await rpc(ANVIL_URL, "anvil_setCode", [feed, code]);
-      // The proxy's own storage means nothing to the copy: clear the slots it uses.
-      for (let slot = 0; slot < 4; slot++)
-        await rpc(ANVIL_URL, "anvil_setStorageAt", [
-          feed,
-          `0x${slot.toString(16)}`,
-          `0x${"0".repeat(64)}`,
-        ]);
-      await send(CUSTODY_ROLES.admin, {
-        address: feed,
-        abi: FEED_ABI,
-        functionName: "setFailure",
-        args: [FEED_OK],
-      });
-      await send(CUSTODY_ROLES.admin, {
-        address: feed,
-        abi: FEED_ABI,
-        functionName: "setDecimals",
-        args: [decimals],
-      });
-    }
-    await send(CUSTODY_ROLES.admin, {
-      address: feed,
-      abi: FEED_ABI,
-      functionName: "setRound",
-      args: [1n, round[1], now, 1n],
-    });
-    answers[name] = round[1];
-  }
-  return answers;
+  const { monUsd, usdcUsd } = FEEDS();
+  const rounds = await refreshLocalFeeds(ANVIL_URL, [monUsd, usdcUsd]);
+  return { monUsd: rounds[0]?.answer ?? 0n, usdcUsd: rounds[1]?.answer ?? 0n };
 }
 
 /**
- * Moves MON/USD on a fork whose feeds are settable copies, dating the new
- * answer and USDC/USD's to now.
- * @param {bigint} answer MON/USD with 8 decimals
+ * Moves MON/USD (8 decimals) and re-dates USDC/USD, on the local fork only.
+ * @param {bigint} answer
  */
 export async function setMonUsd(answer) {
   const { monUsd, usdcUsd } = FEEDS();
-  const usdcRound = await client.readContract({
-    address: usdcUsd,
-    abi: FEED_ABI,
-    functionName: "latestRoundData",
-  });
-  await send(CUSTODY_ROLES.admin, {
-    address: monUsd,
-    abi: FEED_ABI,
-    functionName: "push",
-    args: [answer],
-  });
-  await send(CUSTODY_ROLES.admin, {
-    address: usdcUsd,
-    abi: FEED_ABI,
-    functionName: "push",
-    args: [usdcRound[1]],
-  });
+  await refreshLocalFeeds(ANVIL_URL, [monUsd, usdcUsd], { [monUsd.toLowerCase()]: { answer } });
 }
 
-/** Makes both settable feeds revert, as a feed outage would. @param {boolean} down */
+/** Makes both feeds revert, as an outage would, or brings them back. @param {boolean} down */
 export async function setFeedsDown(down) {
-  for (const feed of Object.values(FEEDS()))
-    await send(CUSTODY_ROLES.admin, {
-      address: feed,
-      abi: FEED_ABI,
-      functionName: "setFailure",
-      args: [down ? FEED_DOWN : FEED_OK],
-    });
+  const { monUsd, usdcUsd } = FEEDS();
+  await refreshLocalFeeds(ANVIL_URL, [monUsd, usdcUsd], {
+    [monUsd.toLowerCase()]: { down },
+    [usdcUsd.toLowerCase()]: { down },
+  });
 }
 
-/** Whether the fork's feeds are already the settable copies. */
+/** Whether the fork's feeds are already LocalFeed (read-only). */
 export async function feedsAreSettable() {
-  const code = settableFeedCode();
-  const current = (await client.getCode({ address: FEEDS().monUsd })) ?? "0x";
-  return current.toLowerCase() === code.toLowerCase();
+  const { monUsd, usdcUsd } = FEEDS();
+  return localFeedsInstalled(ANVIL_URL, [monUsd, usdcUsd]);
 }

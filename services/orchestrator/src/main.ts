@@ -24,6 +24,7 @@ import { NAMESPACE_PATTERN } from "./provisioner.ts";
 import { E2BProvider } from "./sandbox.ts";
 import { type RevealSteering, revealSteeringFor } from "./reveal-steer.ts";
 import { DbSteerStore } from "./reveal-steer-store.ts";
+import { localFeedRefresherFor } from "./local-feeds.ts";
 import { Redactor, createLog, errorText } from "./secrets.ts";
 import { Store } from "./store.ts";
 import { findCloudflared } from "./tunnel.ts";
@@ -206,12 +207,20 @@ const scanIntervalMs =
     : Number(values.SCAN_INTERVAL_MINUTES ?? 360) * 60_000;
 if (credits) log(`scheduled Scans every ${scanIntervalMs / 1_000} seconds for agents with credits`);
 
+// D-237: on the local fork only, keep the Chainlink feeds fresh so oracle checks pass.
+const localFeeds = localFeedRefresherFor(env.id, rpcUrl);
+if (localFeeds)
+  log(
+    `local fork: Chainlink feeds re-dated every ${localFeeds.everyMs / 1_000} s (LocalFeed, D-237)`,
+  );
+
 const store = new Store(db);
 const orchestrator = new Orchestrator({
   store,
   gateway,
   provider,
   keeper,
+  localFeeds,
   chainId: env.chainId,
   namespace,
   redisUrl: reveal("REDIS_URL") ?? "",

@@ -4,6 +4,7 @@ import {
   LOCAL_TEST_FORK_PORT,
 } from "@alpha-agents/config";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { rpc } from "./rpc.ts";
 import {
   advanceTime,
   anvilState,
@@ -11,7 +12,10 @@ import {
   forkClock,
   mineBlocks,
   mintTestUsdc,
+  localFeedAddresses,
+  localFeedsInstalled,
   readForkConfig,
+  refreshLocalFeeds,
   resetToBlock,
   revertToSnapshot,
   setMonBalance,
@@ -85,6 +89,37 @@ describe.skipIf(upstream === null)("fork controls on a test fork", { timeout: SL
     await mintTestUsdc(TEST_ADDRESS, 2_500_000_000n, fork.url);
     await mintTestUsdc(TEST_ADDRESS, 1_000_000n, fork.url);
     expect((await balancesOf(TEST_ADDRESS, fork.url)).usdcE6).toBe(start + 2_501_000_000n);
+  });
+
+  it("keeps the real Chainlink feeds fresh with LocalFeed (D-237)", async () => {
+    const monUsd = localFeedAddresses()[0] as `0x${string}`;
+    const call = (data: string) =>
+      rpc(fork.url, "eth_call", [{ to: monUsd, data }, "latest"]) as Promise<string>;
+    const round = async () => {
+      const r = await call("0xfeaf968c");
+      return {
+        answer: BigInt(`0x${r.slice(66, 130)}`),
+        updatedAt: BigInt(`0x${r.slice(194, 258)}`),
+      };
+    };
+    const before = await round();
+    expect(await localFeedsInstalled(fork.url)).toBe(false);
+    const written = await refreshLocalFeeds(fork.url);
+    const now = BigInt((await forkClock(fork.url)).timestamp);
+    expect(await localFeedsInstalled(fork.url)).toBe(true);
+    const after = await round();
+    // The pinned answer, which matches the fork's frozen pool, dated at the latest block.
+    expect(after.answer).toBe(before.answer);
+    expect(after.updatedAt).toBe(now);
+    expect(written.map((w) => w.decimals)).toEqual([8, 8]);
+    expect(BigInt(await call("0x313ce567"))).toBe(8n);
+    // Down makes the feed revert; up brings it back.
+    await refreshLocalFeeds(fork.url, [monUsd], { [monUsd.toLowerCase()]: { down: true } });
+    await expect(call("0xfeaf968c")).rejects.toThrow();
+    await refreshLocalFeeds(fork.url, [monUsd], {
+      [monUsd.toLowerCase()]: { down: false, answer: 3_000_000n },
+    });
+    expect((await round()).answer).toBe(3_000_000n);
   });
 
   it("resets to the pinned block", async () => {
