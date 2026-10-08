@@ -265,6 +265,27 @@ describe.skipIf(!available)("the indexer (needs pnpm dev:up for Postgres)", () =
     expect(elapsed).toBeGreaterThanOrEqual(450);
   });
 
+  it("catches up at catchUpStepMs while more than a range behind, then paces at the head (P2-EC)", async () => {
+    for (let i = 1; i <= 30; i++) chain.mine(...mintLogs(NFT, BigInt(i), ALICE, tba(i)));
+    const paced = new Indexer({
+      db: t.db,
+      source: chain,
+      target,
+      maxRange: 1,
+      minStepMs: 300,
+      catchUpStepMs: 0,
+    });
+    const controller = new AbortController();
+    const started = Date.now();
+    const running = paced.run(controller.signal, 10);
+    await vi.waitFor(async () => expect((await agents()).length).toBe(30), { timeout: 10_000 });
+    const elapsed = Date.now() - started;
+    controller.abort();
+    await running;
+    // 30 one-block steps at 300 ms would take 9 s; only the last at the head are paced.
+    expect(elapsed).toBeLessThan(3_000);
+  });
+
   it("is idle at the head and asks for nothing but the head and the watermark block", async () => {
     chain.mine(...mintLogs(NFT, 1n, ALICE, tba(1)));
     await indexer().catchUp();

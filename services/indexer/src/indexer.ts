@@ -46,6 +46,12 @@ export interface IndexerOptions {
    * its eth_getLogs calls alone exceeded a free provider's rate limit.
    */
   readonly minStepMs?: number;
+  /**
+   * The least time between steps while more than a range behind the head
+   * (P2-EC): catching up after downtime must outrun the chain, which at
+   * minStepMs it barely did (about 1.7 blocks a second on testnet).
+   */
+  readonly catchUpStepMs?: number;
   /** Blocks behind the head to stay, on a chain with reorgs worth waiting out. */
   readonly confirmations?: number;
   readonly log?: (line: string) => void;
@@ -59,6 +65,8 @@ export type StepResult =
       readonly to: number;
       readonly events: number;
       readonly transfers: number;
+      /** The chain head the step saw, so the poller can tell catching up from keeping up. */
+      readonly head?: number;
     }
   | { readonly kind: "reorg" | "rewind"; readonly at: number; readonly rolledBackTo: number }
   | { readonly kind: "gap"; readonly from: number; readonly to: number; readonly detail: string };
@@ -89,6 +97,7 @@ export class Indexer {
   /** The configured maximum, lowered to just under any range the source refuses. */
   private maxRange: number;
   private readonly minStepMs: number;
+  private readonly catchUpStepMs: number;
   private readonly confirmations: number;
   private readonly log: (line: string) => void;
 
@@ -98,6 +107,7 @@ export class Indexer {
     this.target = options.target;
     this.maxRange = options.maxRange ?? 2_000;
     this.minStepMs = options.minStepMs ?? 0;
+    this.catchUpStepMs = options.catchUpStepMs ?? this.minStepMs;
     this.range = this.maxRange;
     this.confirmations = options.confirmations ?? 0;
     this.log = options.log ?? (() => undefined);
@@ -137,7 +147,8 @@ export class Indexer {
     for (;;) {
       const to = Math.min(head, from + this.range - 1);
       try {
-        const result = await this.indexRange(from, to);
+        const indexed = await this.indexRange(from, to);
+        const result = indexed.kind === "indexed" ? { ...indexed, head } : indexed;
         // A range that worked lets the next one grow back towards the maximum.
         this.range = Math.min(this.maxRange, this.range * 2);
         return result;
@@ -167,10 +178,15 @@ export class Indexer {
   async run(signal: AbortSignal, pollMs = 1_000): Promise<void> {
     while (!signal.aborted) {
       let idle = true;
+      let behind = false;
       const stepStarted = Date.now();
       try {
         const result = await this.step();
         idle = result.kind === "idle";
+        behind =
+          result.kind === "indexed" &&
+          result.head !== undefined &&
+          result.head - result.to > this.range;
         if (result.kind === "indexed") {
           this.log(
             `indexed blocks ${result.from} to ${result.to}: ${result.events} AgentNFT events, ${result.transfers} USDC transfers`,
@@ -179,7 +195,8 @@ export class Indexer {
       } catch (err) {
         this.log(`step failed, retrying: ${err instanceof Error ? err.message : String(err)}`);
       }
-      const waitMs = idle ? pollMs : this.minStepMs - (Date.now() - stepStarted);
+      const spacing = behind ? this.catchUpStepMs : this.minStepMs;
+      const waitMs = idle ? pollMs : spacing - (Date.now() - stepStarted);
       if (waitMs > 0) {
         await new Promise<void>((resolve) => {
           const timer = setTimeout(resolve, waitMs);

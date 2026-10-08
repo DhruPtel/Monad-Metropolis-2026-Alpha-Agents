@@ -64,6 +64,9 @@ const indexer = new Indexer({
   maxRange: remote ? 100 : 2_000,
   // P2-EC: at most one indexing step every 2 s on a real chain (about 5 blocks a step).
   minStepMs: remote ? 2_000 : 0,
+  // While more than a range behind (after downtime), a step every 0.4 s: about 25 blocks a
+  // second at a 10-block cap, against the chain's 3.3, within the provider's rate limit.
+  catchUpStepMs: remote ? 400 : 0,
   confirmations: remote ? 2 : 0,
   log,
 });
