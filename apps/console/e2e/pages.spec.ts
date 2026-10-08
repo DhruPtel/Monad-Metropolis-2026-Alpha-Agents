@@ -194,6 +194,8 @@ test.describe("agents panel controls (P1-U5)", () => {
   test("runs a chain check and shows its chain tool calls, the portfolio reading and the intents (P2-U5)", async ({
     page,
   }) => {
+    await page.request.post(`${FIXTURE_API}/__fixture/reset-arming`);
+    await page.reload();
     await expect(
       row(page, /^Alpha Agent #2$/).getByRole("button", { name: "Run chain check" }),
     ).toBeDisabled();
@@ -216,10 +218,10 @@ test.describe("agents panel controls (P1-U5)", () => {
     await expect(intents.locator('tr[data-status="awaiting_approval"]')).toContainText(
       "Awaiting approval",
     );
-    await expect(intents.locator('tr[data-status="rejected"]')).toContainText(
-      "TRADE_SIZE_EXCEEDED",
-    );
-    await expect(intents.locator('tr[data-status="rejected"]')).toContainText("CONCENTRATION_CAP");
+    const overLimit = intents.locator('tr[data-status="rejected"]').filter({ hasText: "15" });
+    await expect(overLimit).toContainText("TRADE_SIZE_EXCEEDED");
+    await expect(overLimit).toContainText("CONCENTRATION_CAP");
+    await expect(overLimit).toContainText("clears with another trade");
     // The matching activity entry and the chain tool calls are on the same card.
     await expect(page.getByRole("list", { name: "Activity of Alpha Agent #1" })).toContainText(
       "waits for the owner's approval",
@@ -231,6 +233,47 @@ test.describe("agents panel controls (P1-U5)", () => {
     expect(overflow).toBeLessThanOrEqual(0);
     await repaint(page);
     await expect(chain).toHaveScreenshot("agents-chain.png");
+  });
+
+  test("arms an agent, approves its first trade, shows trades settled and blocked, and disarms (P2-U6)", async ({
+    page,
+  }) => {
+    const resetArming = () => page.request.post(`${FIXTURE_API}/__fixture/reset-arming`);
+    await resetArming();
+    await page.reload();
+    const chain = page.getByTestId("agent-chain");
+    const arming = chain.getByTestId("agent-arming");
+    await expect(arming).toHaveAttribute("data-state", "unarmed");
+    await expect(arming).toContainText("Not armed");
+    const intents = chain.getByRole("region", { name: "Intents of Alpha Agent #1" });
+    const waiting = intents.locator('tr[data-status="awaiting_approval"]');
+    // Not armed: a waiting proposal cannot be approved yet.
+    await expect(waiting).toContainText("Arm the agent to approve");
+    // A settled trade shows what it got and its transaction; a blocked one, why and who clears it.
+    const settled = intents.locator('tr[data-status="reconciled"]');
+    await expect(settled).toContainText("Settled");
+    await expect(settled).toContainText("Approved while armed");
+    await expect(settled.getByTestId("intent-result")).toContainText("39.94");
+    const noGas = intents.locator('tr[data-status="rejected"]').filter({ hasText: "GAS_UNFUNDED" });
+    await expect(noGas).toContainText("no MON to pay gas");
+    await expect(noGas).toContainText("the owner clears it");
+    await arming.getByRole("button", { name: "Arm" }).click();
+    await expect(arming).toHaveAttribute("data-state", "awaiting_first_trade");
+    await expect(arming).toContainText("Approve first trade");
+    await expect(arming).toContainText("2026-11-06");
+    await waiting.getByRole("button", { name: "Approve and arm" }).click();
+    await expect(arming).toHaveAttribute("data-state", "armed");
+    await expect(intents.locator('tr[data-status="approved"]')).toContainText(
+      "Approved by the owner",
+    );
+    const overflow = await intents.evaluate((el) => el.scrollWidth - el.clientWidth);
+    expect(overflow).toBeLessThanOrEqual(0);
+    await repaint(page);
+    await expect(chain).toHaveScreenshot("agents-trade-flow.png");
+    await arming.getByRole("button", { name: "Disarm" }).click();
+    await page.getByRole("dialog").getByRole("button", { name: "Disarm" }).click();
+    await expect(arming).toHaveAttribute("data-state", "unarmed");
+    await resetArming();
   });
 
   test("steers a wallet's or a pending agent's reveal, and says which agent (D-221)", async ({

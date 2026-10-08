@@ -205,47 +205,123 @@ const scanTask = JSON.stringify({
   },
 });
 
-// P2-U5: what the chain tools recorded for agent 1, and a chain check's result.
-const chainView = JSON.stringify({
-  agentId: "1",
-  portfolio: {
-    block: "109670021",
-    usdc: "20",
-    wmon: "400",
-    totalValueUsdc: "30",
-    mode: "NORMAL",
-    drawdownBps: 0,
-    at: "2026-10-07T12:02:00.000Z",
-  },
-  intents: [
-    {
-      intentId: "intent-6f1c2d9e-7b1a-4c3e-9d2f-1a2b3c4d5e6f",
-      status: "awaiting_approval",
-      sell: "USDC",
-      buy: "WMON",
-      amountIn: "2500000",
-      reason: "Add a little WMON while the price is near its weekly low.",
-      reasonCodes: [],
-      expectedOut: "99900000000000000000",
-      createdAt: "2026-10-07T12:06:00.000Z",
-      expiresAt: "2026-10-07T12:36:00.000Z",
-      txHash: null,
-    },
-    {
-      intentId: "intent-0a9b8c7d-6e5f-4a3b-2c1d-0e9f8a7b6c5d",
-      status: "rejected",
-      sell: "USDC",
-      buy: "WMON",
-      amountIn: "15000000",
-      reason: "Buy a larger WMON position.",
-      reasonCodes: ["TRADE_SIZE_EXCEEDED", "CONCENTRATION_CAP"],
-      expectedOut: null,
-      createdAt: "2026-10-07T11:50:00.000Z",
-      expiresAt: "2026-10-07T12:20:00.000Z",
-      txHash: null,
-    },
-  ],
+// P2-U5, P2-U6: what the chain tools recorded for agent 1 and its arming; the console's arm,
+// disarm and approve change it, and a test-only reset puts it back.
+const WAITING = "intent-6f1c2d9e-7b1a-4c3e-9d2f-1a2b3c4d5e6f";
+const amount = (asset, amount, amountRaw) => ({ asset, amount, amountRaw });
+const blocker = (code, message, clears, clearsAt, hint) => ({ code, message, clears, clearsAt, hint });
+let armingState = "unarmed";
+let waitingStatus = "awaiting_approval";
+const armingView = () => ({
+  state: armingState,
+  armingId: armingState === "unarmed" ? null : "arming-fixture",
+  validUntil: armingState === "unarmed" ? null : 1_794_000_000,
+  validUntilDate: armingState === "unarmed" ? null : "2026-11-06",
+  renewalDue: false,
+  armedAt: armingState === "armed" ? "2026-10-07T12:08:00.000Z" : null,
+  firstIntentId: armingState === "armed" ? WAITING : null,
+  ended: null,
 });
+const intent = (over) => ({
+  buy: "WMON",
+  expectedOut: null,
+  minAmountOut: null,
+  amountOut: null,
+  reasonCodes: [],
+  blockers: [],
+  failure: null,
+  approvedBy: null,
+  txHash: null,
+  deadline: null,
+  approvedAt: null,
+  submittedAt: null,
+  settledAt: null,
+  ...over,
+});
+const chainView = () =>
+  JSON.stringify({
+    agentId: "1",
+    portfolio: {
+      block: "109670021",
+      usdc: "20",
+      wmon: "400",
+      totalValueUsdc: "30",
+      mode: "NORMAL",
+      drawdownBps: 0,
+      at: "2026-10-07T12:02:00.000Z",
+    },
+    arming: armingView(),
+    tradeFlow: true,
+    intents: [
+      intent({
+        intentId: WAITING,
+        status: waitingStatus,
+        sell: amount("USDC", "2.5", "2500000"),
+        expectedOut: amount("WMON", "99.9", "99900000000000000000"),
+        reason: "Add a little WMON while the price is near its weekly low.",
+        approvedBy: waitingStatus === "approved" ? "owner" : null,
+        createdAt: "2026-10-07T12:06:00.000Z",
+        expiresAt: "2026-10-07T12:36:00.000Z",
+      }),
+      intent({
+        intentId: "intent-1d2c3b4a-5f6e-4d7c-8b9a-0f1e2d3c4b5a",
+        status: "reconciled",
+        sell: amount("USDC", "1", "1000000"),
+        amountOut: amount("WMON", "39.94", "39940000000000000000"),
+        reason: "A small first position in WMON.",
+        approvedBy: "auto",
+        txHash: `0x${"7d".repeat(32)}`,
+        createdAt: "2026-10-07T11:58:00.000Z",
+        expiresAt: "2026-10-07T12:28:00.000Z",
+        settledAt: "2026-10-07T11:58:09.000Z",
+      }),
+      intent({
+        intentId: "intent-0a9b8c7d-6e5f-4a3b-2c1d-0e9f8a7b6c5d",
+        status: "rejected",
+        sell: amount("USDC", "15", "15000000"),
+        reason: "Buy a larger WMON position.",
+        reasonCodes: ["TRADE_SIZE_EXCEEDED", "CONCENTRATION_CAP"],
+        blockers: [
+          blocker(
+            "TRADE_SIZE_EXCEEDED",
+            "The trade is larger than 10% of the account's value.",
+            "by_changing_the_trade",
+            null,
+            "Propose at most 3 USDC.",
+          ),
+          blocker(
+            "CONCENTRATION_CAP",
+            "The trade would put more than 40% of the account in one asset.",
+            "by_changing_the_trade",
+            null,
+            "Buy less WMON.",
+          ),
+        ],
+        createdAt: "2026-10-07T11:50:00.000Z",
+        expiresAt: "2026-10-07T12:20:00.000Z",
+      }),
+      intent({
+        intentId: "intent-9e8d7c6b-5a4f-4e3d-2c1b-0a9f8e7d6c5b",
+        status: "rejected",
+        sell: amount("USDC", "1", "1000000"),
+        reason: "Another small buy.",
+        reasonCodes: ["GAS_UNFUNDED"],
+        blockers: [
+          blocker(
+            "GAS_UNFUNDED",
+            "The agent's funding address has no MON to pay gas for the trade.",
+            "by_the_owner",
+            null,
+            "Send a little MON to the agent's funding address for gas.",
+          ),
+        ],
+        failure: "a check changed between proposal and submission",
+        approvedBy: "auto",
+        createdAt: "2026-10-07T11:45:00.000Z",
+        expiresAt: "2026-10-07T12:15:00.000Z",
+      }),
+    ],
+  });
 const chainCheckTask = JSON.stringify({
   taskId: "fixture-chain-check",
   agentId: "1",
@@ -432,7 +508,7 @@ const routes = {
   "GET /v1/agents/1/tool-calls": [200, toolCalls],
   "POST /v1/agents/1/tasks/scan": [202, JSON.stringify({ taskId: "fixture-scan" })],
   "GET /v1/tasks/fixture-scan": [200, scanTask],
-  "GET /v1/agents/1/chain": [200, chainView],
+
   "POST /v1/agents/1/tasks/chain-check": [202, JSON.stringify({ taskId: "fixture-chain-check" })],
   "GET /v1/tasks/fixture-chain-check": [200, chainCheckTask],
 };
@@ -442,6 +518,31 @@ createServer((req, res) => {
     return res
       .writeHead(200, { "content-type": "application/json" })
       .end(JSON.stringify({ running: true, recent: [], steering: steering() }));
+  // P2-U6: the chain view follows the console's arm, disarm and approve.
+  const json = (status, body) =>
+    res.writeHead(status, { "content-type": "application/json" }).end(JSON.stringify(body));
+  if (req.method === "GET" && req.url === "/v1/agents/1/chain")
+    return res.writeHead(200, { "content-type": "application/json" }).end(chainView());
+  if (req.method === "POST" && req.url === "/v1/agents/1/arm") {
+    armingState = "awaiting_first_trade";
+    return json(201, { renewed: false, arming: armingView() });
+  }
+  if (req.method === "POST" && req.url === "/v1/agents/1/disarm") {
+    armingState = "unarmed";
+    return json(200, { disarmed: true, arming: armingView() });
+  }
+  if (req.method === "POST" && req.url === `/v1/agents/1/intents/${WAITING}/approve`) {
+    const armed = armingState === "awaiting_first_trade";
+    armingState = "armed";
+    waitingStatus = "approved";
+    return json(200, { armed, intent: { intentId: WAITING, status: "approved" } });
+  }
+  // Test-only: puts agent 1's arming and intents back, so one test's arming never reaches another's.
+  if (req.method === "POST" && req.url === "/__fixture/reset-arming") {
+    armingState = "unarmed";
+    waitingStatus = "awaiting_approval";
+    return json(200, { reset: true });
+  }
   // Test-only: forgets every steer, so one run's steers never reach another's capture.
   if (req.method === "POST" && req.url === "/__fixture/reset-steers") {
     steers = [];

@@ -346,6 +346,8 @@ describe("the chain tools in the console (P2-U5)", () => {
         at: null,
       },
       intents: [{ intentId: "intent-x", status: "awaiting_approval", reasonCodes: [] }],
+      arming: { state: "armed" },
+      tradeFlow: true,
     };
     const calls: string[] = [];
     const fetchFn = routes(
@@ -364,6 +366,30 @@ describe("the chain tools in the console (P2-U5)", () => {
     expect(list.agents[0]?.chain).toEqual(chain);
     expect(calls).toContain("GET http://orch/v1/agents/1/chain");
     expect(list.agents[1]?.chain).toBeNull();
+  });
+
+  it("arms, disarms and approves through the orchestrator's routes (P2-U6)", async () => {
+    const calls: string[] = [];
+    const arming = { state: "awaiting_first_trade", validUntilDate: "2026-11-06" };
+    const orch = orchestratorSource(
+      "http://orch",
+      routes(
+        {
+          "/v1/agents/1/arm": [201, { arming }],
+          "/v1/agents/1/disarm": [200, { arming: { state: "unarmed" } }],
+          "/v1/agents/1/intents/intent-x/approve": [200, { armed: true }],
+        },
+        calls,
+      ),
+    );
+    expect(await orch.armAgent(1n as never)).toEqual(arming);
+    expect(await orch.approveIntent(1n as never, "intent-x")).toBe(true);
+    expect((await orch.disarmAgent(1n as never)).state).toBe("unarmed");
+    expect(calls).toEqual([
+      "POST http://orch/v1/agents/1/arm",
+      "POST http://orch/v1/agents/1/intents/intent-x/approve",
+      "POST http://orch/v1/agents/1/disarm",
+    ]);
   });
 
   it("queues the chain check on its own route", async () => {

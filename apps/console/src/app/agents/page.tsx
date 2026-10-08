@@ -1,11 +1,15 @@
 import { SCAN_MIN_CREDITS_USDC_E6 } from "@alpha-agents/accounting";
 import {
   ACCOUNT_MODES,
+  ARMING_STATE_MEANINGS,
   type AccountMode,
   INTENT_STATES,
+  INTENT_STATE_MEANINGS,
   type IntentState,
   REJECTION_CODES,
   type RejectionCode,
+  TRADE_FLOW_CODES,
+  type TradeFlowCode,
 } from "@alpha-agents/domain";
 import {
   ActivityFeed,
@@ -36,6 +40,7 @@ import { Bot, PlugZap } from "lucide-react";
 import { PanelHeader } from "@/components/panel-header";
 import { AgentActions, AgentTasks, CreditActions } from "./agent-tasks";
 import { RevealControl } from "./reveal-control";
+import { ApproveIntentButton, ArmingControls, RefreshWhileMoving } from "./trade-controls";
 import {
   type AgentList,
   type AgentRow,
@@ -53,8 +58,6 @@ const isMode = (v: unknown): v is AccountMode =>
   typeof v === "string" && (ACCOUNT_MODES as readonly string[]).includes(v);
 const isIntentState = (v: string): v is IntentState =>
   (INTENT_STATES as readonly string[]).includes(v);
-const isReason = (v: string): v is RejectionCode =>
-  (REJECTION_CODES as readonly string[]).includes(v);
 const DECIMALS = { USDC: 6, WMON: 18 } as const;
 /** A decimal from the chain tools ("12.5") as base units, for AmountDisplay. */
 const units = (text: string | undefined, decimals: number): bigint => {
@@ -65,11 +68,83 @@ const units = (text: string | undefined, decimals: number): bigint => {
   );
 };
 
-/** P2-U5: the agent's latest portfolio reading and its intents with their states and reasons. */
-function AgentChain({ name, chain }: { name: string; chain: ChainView | null }) {
+/** P2-U6: the reason codes a blocker may carry (the Executor's and the trade flow's own). */
+const isReason = (v: string): v is RejectionCode | TradeFlowCode =>
+  (REJECTION_CODES as readonly string[]).includes(v) ||
+  (TRADE_FLOW_CODES as readonly string[]).includes(v);
+const CLEARS_TEXT: Record<string, string> = {
+  by_waiting: "clears by waiting",
+  by_changing_the_trade: "clears with another trade",
+  by_the_owner: "the owner clears it",
+  by_the_platform: "the platform clears it",
+};
+/** Intents still moving through the trade flow: the page refreshes while any is. */
+const MOVING = new Set(["approved", "submitted", "confirmed"]);
+
+/** P2-U6: the agent's arming, with the console's arm and disarm. */
+function AgentArming({
+  agentId,
+  name,
+  chain,
+  enabled,
+}: {
+  agentId: string;
+  name: string;
+  chain: ChainView;
+  enabled: boolean;
+}) {
+  const a = chain.arming;
+  const state = a?.state ?? "unarmed";
+  return (
+    <div
+      className="flex flex-wrap items-center justify-between gap-3 rounded-md border bg-surface px-4 py-3"
+      data-testid="agent-arming"
+      data-state={state}
+    >
+      <div className="flex min-w-0 flex-col gap-1">
+        <span className="flex flex-wrap items-center gap-2 text-sm">
+          <StatusPill kind="arming" value={state} />
+          {a?.validUntilDate ? (
+            <span className="text-xs text-foreground-muted">
+              Permission until <span className="numeric">{a.validUntilDate}</span>
+            </span>
+          ) : null}
+          {a?.renewalDue ? <Badge tone="warning">Renew soon</Badge> : null}
+        </span>
+        <span className="text-xs break-words text-foreground-muted">
+          {state === "unarmed"
+            ? a?.ended
+              ? `${a.ended.message}${a.ended.reason === "disarmed" && !a.ended.revokedOnchain ? " The permission is still on chain until it is revoked." : ""}`
+              : "Every proposal waits for the owner's approval."
+            : ARMING_STATE_MEANINGS[state]}
+        </span>
+        {chain.tradeFlow ? null : (
+          <span className="text-xs text-foreground-muted">
+            The trade flow is off: start the orchestrator with the signer to send trades.
+          </span>
+        )}
+      </div>
+      <ArmingControls agentId={agentId} name={name} state={state} enabled={enabled} />
+    </div>
+  );
+}
+
+/** P2-U5, P2-U6: the latest portfolio reading, the arming, and intents through their states. */
+function AgentChain({
+  agentId,
+  name,
+  chain,
+  enabled,
+}: {
+  agentId: string;
+  name: string;
+  chain: ChainView | null;
+  enabled: boolean;
+}) {
   if (!chain)
     return <p className="text-sm text-foreground-muted">The chain tools could not be read.</p>;
   const p = chain.portfolio;
+  const armingState = chain.arming?.state ?? "unarmed";
   return (
     <div className="flex flex-col gap-4" data-testid="agent-chain">
       <SectionLabel as="h3">Chain tools</SectionLabel>
@@ -121,6 +196,8 @@ function AgentChain({ name, chain }: { name: string; chain: ChainView | null }) 
           No portfolio reading yet: run a chain check.
         </p>
       )}
+      <RefreshWhileMoving active={chain.intents.some((i) => MOVING.has(i.status))} />
+      <AgentArming agentId={agentId} name={name} chain={chain} enabled={enabled} />
       {chain.intents.length === 0 ? (
         <p className="text-sm text-foreground-muted">No intents yet.</p>
       ) : (
@@ -129,48 +206,99 @@ function AgentChain({ name, chain }: { name: string; chain: ChainView | null }) 
             <TableRow>
               <TableHead scope="col">State</TableHead>
               <TableHead scope="col">Proposal</TableHead>
-              <TableHead scope="col">Why</TableHead>
-              <TableHead scope="col">Expires</TableHead>
+              <TableHead scope="col">Why or result</TableHead>
+              <TableHead scope="col">Action</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {chain.intents.slice(0, 8).map((i) => (
               <TableRow key={i.intentId} data-status={i.status}>
                 <TableCell label="State" className="align-top">
-                  {isIntentState(i.status) ? (
-                    <StatusPill kind="intent" value={i.status} />
-                  ) : (
-                    <Badge>{i.status}</Badge>
-                  )}
+                  <span className="flex flex-col items-start gap-1">
+                    {isIntentState(i.status) ? (
+                      <StatusPill kind="intent" value={i.status} />
+                    ) : (
+                      <Badge>{i.status}</Badge>
+                    )}
+                    {i.approvedBy ? (
+                      <span className="text-xs text-foreground-muted">
+                        {i.approvedBy === "auto" ? "Approved while armed" : "Approved by the owner"}
+                      </span>
+                    ) : null}
+                  </span>
                 </TableCell>
                 <TableCell label="Proposal" className="align-top">
                   <div className="flex flex-col gap-1">
                     <span className="flex flex-wrap items-center gap-1">
                       Sell
                       <AmountDisplay
-                        value={BigInt(i.amountIn)}
-                        decimals={DECIMALS[i.sell]}
+                        value={BigInt(i.sell.amountRaw)}
+                        decimals={DECIMALS[i.sell.asset]}
                         maxFractionDigits={6}
-                        symbol={i.sell}
+                        symbol={i.sell.asset}
                       />
                       for {i.buy}
                     </span>
                     <span className="text-xs break-words text-foreground-muted">{i.reason}</span>
                   </div>
                 </TableCell>
-                <TableCell label="Why" className="align-top">
-                  {i.reasonCodes.length === 0 ? (
-                    <span className="text-sm text-foreground-muted">Passed every check</span>
-                  ) : (
+                <TableCell label="Why or result" className="align-top">
+                  {i.amountOut ? (
+                    <span className="flex flex-col gap-1" data-testid="intent-result">
+                      <span className="flex flex-wrap items-center gap-1">
+                        Got
+                        <AmountDisplay
+                          value={BigInt(i.amountOut.amountRaw)}
+                          decimals={DECIMALS[i.amountOut.asset]}
+                          maxFractionDigits={6}
+                          symbol={i.amountOut.asset}
+                        />
+                      </span>
+                      {i.txHash ? (
+                        <span className="numeric text-xs break-all text-foreground-muted">
+                          {i.txHash}
+                        </span>
+                      ) : null}
+                    </span>
+                  ) : i.blockers.length > 0 &&
+                    (i.status === "rejected" || i.status === "failed") ? (
                     <div className="flex flex-col gap-2">
-                      {i.reasonCodes.map((c) =>
-                        isReason(c) ? <ReasonMessage key={c} code={c} /> : <span key={c}>{c}</span>,
+                      {i.blockers.map((b) =>
+                        isReason(b.code) ? (
+                          <ReasonMessage
+                            key={b.code}
+                            code={b.code}
+                            detail={`${CLEARS_TEXT[b.clears] ?? b.clears}${b.clearsAt ? ` at ${b.clearsAt.slice(11, 16)} UTC` : ""}`}
+                          />
+                        ) : (
+                          <span key={b.code}>{b.code}</span>
+                        ),
                       )}
                     </div>
+                  ) : (
+                    <span className="text-sm text-foreground-muted">
+                      {i.status === "awaiting_approval"
+                        ? `Passed every check; waits until ${i.expiresAt.slice(11, 19)} UTC`
+                        : i.status === "expired"
+                          ? "Expired before approval"
+                          : isIntentState(i.status)
+                            ? INTENT_STATE_MEANINGS[i.status]
+                            : i.status}
+                    </span>
                   )}
                 </TableCell>
-                <TableCell label="Expires" className="numeric align-top text-xs">
-                  {i.status === "awaiting_approval" ? i.expiresAt.slice(11, 19) : "None"}
+                <TableCell label="Action" className="align-top">
+                  {i.status === "awaiting_approval" && armingState !== "unarmed" && enabled ? (
+                    <ApproveIntentButton
+                      agentId={agentId}
+                      intentId={i.intentId}
+                      first={armingState === "awaiting_first_trade"}
+                    />
+                  ) : (
+                    <span className="text-xs text-foreground-muted">
+                      {i.status === "awaiting_approval" ? "Arm the agent to approve" : "None"}
+                    </span>
+                  )}
                 </TableCell>
               </TableRow>
             ))}
@@ -182,7 +310,7 @@ function AgentChain({ name, chain }: { name: string; chain: ChainView | null }) 
 }
 
 /** P1-U7: each provisioned agent's activity entries and its last tool calls. */
-function AgentActivity({ agents }: { agents: readonly AgentRow[] }) {
+function AgentActivity({ agents, enabled }: { agents: readonly AgentRow[]; enabled: boolean }) {
   if (agents.length === 0) return null;
   return (
     <section
@@ -246,7 +374,12 @@ function AgentActivity({ agents }: { agents: readonly AgentRow[] }) {
               </Table>
             )}
             <div className="xl:col-span-2">
-              <AgentChain name={a.name} chain={a.chain} />
+              <AgentChain
+                agentId={a.agentId.toString()}
+                name={a.name}
+                chain={a.chain}
+                enabled={enabled}
+              />
             </div>
           </CardContent>
         </Card>
@@ -415,7 +548,10 @@ export default async function AgentsPage() {
                 ))}
               </TableBody>
             </Table>
-            <AgentActivity agents={list.agents.filter((a) => a.runtime === "ready")} />
+            <AgentActivity
+              agents={list.agents.filter((a) => a.runtime === "ready")}
+              enabled={list.orchestrator && list.devActions}
+            />
           </div>
         </AgentTasks>
       )}

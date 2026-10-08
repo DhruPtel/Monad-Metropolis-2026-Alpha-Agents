@@ -4,7 +4,13 @@ import { mintTestUsdc } from "@alpha-agents/devenv";
 import type { AgentId } from "@alpha-agents/domain";
 import { type ActionResult, attempt } from "@/lib/action-result";
 import { consoleForkUrl } from "@/lib/fork-url";
-import { type RefundView, type RevealSteeringView, type TaskView, agentsSource } from "./extension";
+import {
+  type ArmingView,
+  type RefundView,
+  type RevealSteeringView,
+  type TaskView,
+  agentsSource,
+} from "./extension";
 
 // The orchestrator offers these only on the local stack (D-205); its messages carry no secret.
 
@@ -121,5 +127,36 @@ export async function refundStatusAction(refundId: string): Promise<ActionResult
     const source = agentsSource();
     if (!source.refundStatus) throw new Error("The orchestrator is not configured.");
     return source.refundStatus(refundId);
+  });
+}
+
+/** P2-U6: arm the agent as its owner would (the grant on the local fork, then its record). */
+export async function armAgentAction(id: string): Promise<ActionResult<ArmingView>> {
+  return attempt(async () => {
+    const source = agentsSource();
+    if (!source.armAgent) throw new Error("The orchestrator is not configured.");
+    return source.armAgent(agentId(id));
+  });
+}
+
+/** P2-U6: disarm now; the grant is revoked on the local fork. */
+export async function disarmAgentAction(id: string): Promise<ActionResult<ArmingView>> {
+  return attempt(async () => {
+    const source = agentsSource();
+    if (!source.disarmAgent) throw new Error("The orchestrator is not configured.");
+    return source.disarmAgent(agentId(id));
+  });
+}
+
+/** P2-U6: approve a waiting intent as the owner; resolves to true when it armed the agent. */
+export async function approveIntentAction(
+  id: string,
+  intentId: string,
+): Promise<ActionResult<boolean>> {
+  return attempt(async () => {
+    const source = agentsSource();
+    if (!source.approveIntent) throw new Error("The orchestrator is not configured.");
+    if (!/^intent-[0-9a-f-]{36}$/.test(intentId)) throw new Error("That is not an intent.");
+    return source.approveIntent(agentId(id), intentId);
   });
 }

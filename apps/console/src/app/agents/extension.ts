@@ -56,20 +56,59 @@ export interface ChainView {
     readonly at: string | null;
   } | null;
   readonly intents: readonly IntentView[];
+  /** P2-U6: the agent's arming, and whether the trade flow runs (it needs the signer). */
+  readonly arming: ArmingView | null;
+  readonly tradeFlow: boolean;
 }
 
+/** An amount as packages/trading's intentJson gives it. */
+export interface TokenAmount {
+  readonly asset: "USDC" | "WMON";
+  readonly amount: string;
+  readonly amountRaw: string;
+}
+
+/** One reason a trade was blocked, with when it may clear (chain-tools' Blocker). */
+export interface BlockerView {
+  readonly code: string;
+  readonly message: string;
+  readonly clears: string;
+  readonly clearsAt: string | null;
+  readonly hint: string;
+}
+
+/** An intent through its states (P2-U6, packages/trading's intentJson). */
 export interface IntentView {
   readonly intentId: string;
   readonly status: string;
-  readonly sell: "USDC" | "WMON";
+  readonly sell: TokenAmount;
   readonly buy: "USDC" | "WMON";
-  readonly amountIn: string;
+  readonly expectedOut: TokenAmount | null;
+  readonly minAmountOut: TokenAmount | null;
+  readonly amountOut: TokenAmount | null;
   readonly reason: string;
   readonly reasonCodes: readonly string[];
-  readonly expectedOut: string | null;
+  readonly blockers: readonly BlockerView[];
+  readonly failure: string | null;
+  readonly approvedBy: "owner" | "auto" | null;
+  readonly txHash: string | null;
   readonly createdAt: string;
   readonly expiresAt: string;
-  readonly txHash: string | null;
+  readonly settledAt: string | null;
+}
+
+/** The agent's arming (P2-U6, packages/trading's armingJson). */
+export interface ArmingView {
+  readonly state: "unarmed" | "awaiting_first_trade" | "armed";
+  readonly validUntilDate: string | null;
+  readonly renewalDue: boolean;
+  readonly firstIntentId: string | null;
+  readonly ended: {
+    readonly reason: string;
+    readonly message: string;
+    readonly at: string | null;
+    readonly revokedOnchain: boolean;
+  } | null;
 }
 
 /** One tool call as the orchestrator reports it (GET /v1/agents/:id/tool-calls). */
@@ -179,6 +218,12 @@ export interface AgentsSource {
   /** P1-U6: asks for a refund of the agent's credits to its current owner. */
   refund?(agentId: AgentId): Promise<string>;
   refundStatus?(refundId: string): Promise<RefundView>;
+  /** P2-U6: arm as the owner would on the local fork (the grant, then its record). */
+  armAgent?(agentId: AgentId): Promise<ArmingView>;
+  /** P2-U6: disarm now, and revoke the grant on the local fork. */
+  disarmAgent?(agentId: AgentId): Promise<ArmingView>;
+  /** P2-U6: approve a waiting intent as the owner; true when it armed the agent. */
+  approveIntent?(agentId: AgentId, intentId: string): Promise<boolean>;
 }
 
 interface ApiCredits {
@@ -268,7 +313,28 @@ export function orchestratorSource(baseUrl: string, fetchFn: typeof fetch = fetc
       return {
         portfolio: (body.portfolio as ChainView["portfolio"] | undefined) ?? null,
         intents: (body.intents ?? []) as IntentView[],
+        arming: (body.arming as ArmingView | undefined) ?? null,
+        tradeFlow: body.tradeFlow === true,
       };
+    },
+    async armAgent(agentId: AgentId): Promise<ArmingView> {
+      const body = await call(`/v1/agents/${agentId.toString()}/arm`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: "{}",
+      });
+      return body.arming as ArmingView;
+    },
+    async disarmAgent(agentId: AgentId): Promise<ArmingView> {
+      const body = await call(`/v1/agents/${agentId.toString()}/disarm`, { method: "POST" });
+      return body.arming as ArmingView;
+    },
+    async approveIntent(agentId: AgentId, intentId: string): Promise<boolean> {
+      const body = await call(
+        `/v1/agents/${agentId.toString()}/intents/${encodeURIComponent(intentId)}/approve`,
+        { method: "POST" },
+      );
+      return body.armed === true;
     },
   };
 }
@@ -299,6 +365,9 @@ export function apiAgentsSource(
           refundStatus: orch.refundStatus,
           steerReveal: orch.steerReveal,
           cancelSteer: orch.cancelSteer,
+          armAgent: orch.armAgent,
+          disarmAgent: orch.disarmAgent,
+          approveIntent: orch.approveIntent,
         }
       : {}),
     async listAgents() {
