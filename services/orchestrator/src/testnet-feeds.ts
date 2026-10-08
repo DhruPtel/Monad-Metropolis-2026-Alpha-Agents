@@ -1,6 +1,7 @@
+import { rpcTransport } from "@alpha-agents/chain-tools";
 import type { EnvironmentId } from "@alpha-agents/config";
 import type { ChainReader } from "@alpha-agents/chain-tools";
-import { type Hex, createPublicClient, createWalletClient, http, parseAbi } from "viem";
+import { type Hex, createPublicClient, createWalletClient, parseAbi } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 
 /**
@@ -81,8 +82,13 @@ export class TestnetFeeds {
 }
 
 /** The viem chain for the feeds, signing with the feed key (TESTNET_FEED_PRIVATE_KEY). */
-export function viemFeedChain(rpcUrl: string, chainId: number, privateKey: Hex): FeedChain {
-  const transport = http(rpcUrl);
+export function viemFeedChain(
+  rpcUrl: string,
+  chainId: number,
+  privateKey: Hex,
+  fallbackRpcUrl?: string | null,
+): FeedChain {
+  const transport = rpcTransport(rpcUrl, fallbackRpcUrl);
   const client = createPublicClient({ transport });
   const account = privateKeyToAccount(privateKey);
   const chain = {

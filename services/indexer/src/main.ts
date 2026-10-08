@@ -35,9 +35,14 @@ if (nft.status !== "verified") {
 const usdc = addressEntry(env.id, "usdc");
 const remote = env.id !== "local";
 
-const source = new RpcLogSource({ url: (config.rpcUrl as Secret).reveal() });
+// P2-EC: the environment's second provider takes over when the first fails (D-254).
+const fallback = (config.values.MONAD_RPC_URL_SECONDARY as Secret | undefined)?.reveal();
+const source = new RpcLogSource({
+  url: (config.rpcUrl as Secret).reveal(),
+  ...(remote && fallback ? { fallbackUrl: fallback } : {}),
+});
 try {
-  assertChainId(config, await source.chainId());
+  for (const id of await source.chainIds()) assertChainId(config, id);
 } catch (err) {
   console.error(`error: ${err instanceof Error ? err.message : String(err)}`);
   process.exit(1);

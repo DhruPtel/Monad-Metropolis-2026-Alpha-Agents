@@ -17,6 +17,14 @@ import {
  */
 export interface RpcSourceOptions {
   readonly url: string;
+  /**
+   * A second provider (P2-EC): a network failure, a rate limit or a server
+   * error on one moves the call to the other at once; after `stickMs` on the
+   * fallback the next call tries the primary again.
+   */
+  readonly fallbackUrl?: string;
+  readonly stickMs?: number;
+  readonly now?: () => number;
   readonly fetch?: typeof fetch;
   readonly sleep?: (ms: number) => Promise<void>;
   /** Retries after a rate limit before giving up. */
@@ -69,7 +77,14 @@ interface RpcLog {
 }
 
 export class RpcLogSource implements LogSource {
-  private readonly url: string;
+  private readonly urls: readonly string[];
+  private readonly stickMs: number;
+  private readonly now: () => number;
+  /** 0 the primary, 1 the fallback; and when the fallback was taken. */
+  private active = 0;
+  private switchedAt = 0;
+  /** How many times a call moved to the other provider. */
+  failovers = 0;
   private readonly fetchFn: typeof fetch;
   private readonly sleep: (ms: number) => Promise<void>;
   private readonly maxRetries: number;
@@ -77,20 +92,42 @@ export class RpcLogSource implements LogSource {
   private id = 0;
 
   constructor(options: RpcSourceOptions) {
-    this.url = options.url;
+    this.urls =
+      options.fallbackUrl && options.fallbackUrl !== options.url
+        ? [options.url, options.fallbackUrl]
+        : [options.url];
+    this.stickMs = options.stickMs ?? 60_000;
+    this.now = options.now ?? Date.now;
     this.fetchFn = options.fetch ?? fetch;
     this.sleep = options.sleep ?? ((ms) => new Promise((r) => setTimeout(r, ms)));
     this.maxRetries = options.maxRetries ?? 6;
     this.baseDelayMs = options.baseDelayMs ?? 500;
   }
 
+  /** The chain ID each configured provider answers, primary first. */
+  async chainIds(): Promise<number[]> {
+    const ids: number[] = [];
+    for (let i = 0; i < this.urls.length; i++) {
+      this.active = i;
+      ids.push(Number(await this.callOnce<Hex>("eth_chainId", [])));
+    }
+    this.active = 0;
+    return ids;
+  }
+
   private async call<T>(method: string, params: unknown[]): Promise<T> {
+    if (this.active === 1 && this.now() - this.switchedAt > this.stickMs) this.active = 0;
+    return this.callOnce<T>(method, params);
+  }
+
+  private async callOnce<T>(method: string, params: unknown[]): Promise<T> {
+    let switched = 0;
     for (let attempt = 0; ; attempt++) {
       let status = 0;
       let code: number | undefined;
       let message: string;
       try {
-        const res = await this.fetchFn(this.url, {
+        const res = await this.fetchFn(this.urls[this.active] as string, {
           method: "POST",
           headers: { "content-type": "application/json" },
           body: JSON.stringify({ jsonrpc: "2.0", id: ++this.id, method, params }),
@@ -109,6 +146,17 @@ export class RpcLogSource implements LogSource {
       }
       const failure = classifyRpcFailure(status, code, message);
       if (failure === "range") throw new RpcError(method, code, message);
+      // The provider failed rather than the request: the other provider tries it at once.
+      const providerFailed =
+        status === 0 || status === 429 || status >= 500 || failure === "rate-limit";
+      if (providerFailed && this.urls.length > 1 && switched < this.urls.length - 1) {
+        switched++;
+        this.failovers++;
+        this.active = this.active === 0 ? 1 : 0;
+        this.switchedAt = this.now();
+        attempt--;
+        continue;
+      }
       if (failure === "rate-limit" && attempt < this.maxRetries) {
         await this.sleep(this.baseDelayMs * 2 ** attempt);
         continue;

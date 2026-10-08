@@ -10,17 +10,19 @@ import { LOCAL_FORK_CHAIN_ID } from "@alpha-agents/config";
 import {
   FORK_START_ATTEMPTS,
   backoffMs,
-  forkUpstreams,
+  checkedForkUpstreams,
   redact,
   servesBlock,
   startUpstreamProxy,
 } from "@alpha-agents/devenv";
 
 loadRootEnv();
-const upstreams = forkUpstreams(process.env);
+const { upstreams, dropped } = await checkedForkUpstreams(process.env);
 const { blockNumber } = readForkConfig();
 mkdirSync(DEV_DIR, { recursive: true });
 const log = createWriteStream(ANVIL_LOG_PATH, { flags: "w" });
+// A configured upstream on another chain is never used (P2-EC).
+for (const d of dropped) log.write(`not using ${d}\n`);
 writeFileSync(ANVIL_PID_PATH, String(process.pid));
 const cleanup = () => rmSync(ANVIL_PID_PATH, { force: true });
 /** @param {number} code */

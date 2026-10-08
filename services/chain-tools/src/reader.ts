@@ -1,4 +1,5 @@
 import type { EnvironmentId } from "@alpha-agents/config";
+import { rpcTransport } from "./transport.ts";
 import {
   ACCOUNT_MODES,
   type AccountMode,
@@ -11,7 +12,6 @@ import {
   type Hex,
   type PublicClient,
   createPublicClient,
-  http,
   isAddressEqual,
   parseAbi,
   zeroAddress,
@@ -233,6 +233,8 @@ class TtlCache {
 export interface ViemChainReaderOptions {
   readonly chainId: number;
   readonly rpcUrl: string;
+  /** The environment's second provider, used when the first fails (P2-EC). */
+  readonly fallbackRpcUrl?: string | null;
   readonly contracts: Contracts;
   /** How long market data and quotes are reused (3 s by default, A-44). */
   readonly cacheMs?: number;
@@ -248,7 +250,7 @@ export class ViemChainReader implements ChainReader {
   constructor(o: ViemChainReaderOptions) {
     this.chainId = o.chainId;
     this.c = o.contracts;
-    this.client = createPublicClient({ transport: http(o.rpcUrl) });
+    this.client = createPublicClient({ transport: rpcTransport(o.rpcUrl, o.fallbackRpcUrl) });
     this.cache = new TtlCache(o.cacheMs ?? 3_000, o.now ?? Date.now);
   }
 

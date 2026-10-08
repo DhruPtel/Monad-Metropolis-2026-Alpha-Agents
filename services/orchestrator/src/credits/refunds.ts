@@ -1,3 +1,4 @@
+import { rpcTransport } from "@alpha-agents/chain-tools";
 import { randomUUID } from "node:crypto";
 import {
   type ContributionWeights,
@@ -13,7 +14,6 @@ import {
   type Hex,
   createPublicClient,
   defineChain,
-  http,
   isAddressEqual,
   parseAbi,
 } from "viem";
@@ -61,6 +61,8 @@ export class ViemRefundChain implements RefundChain {
   private readonly chain: Chain;
   private readonly o: {
     rpcUrl: string;
+    /** The environment's second provider, used when the first fails (P2-EC). */
+    fallbackRpcUrl?: string | null;
     chainId: number;
     agentNft: Hex;
     usdc: Hex;
@@ -74,7 +76,10 @@ export class ViemRefundChain implements RefundChain {
       nativeCurrency: { name: "MON", symbol: "MON", decimals: 18 },
       rpcUrls: { default: { http: [o.rpcUrl] } },
     });
-    this.pub = createPublicClient({ chain: this.chain, transport: http(o.rpcUrl) });
+    this.pub = createPublicClient({
+      chain: this.chain,
+      transport: rpcTransport(o.rpcUrl, o.fallbackRpcUrl),
+    });
   }
 
   async ownership(agentId: number) {

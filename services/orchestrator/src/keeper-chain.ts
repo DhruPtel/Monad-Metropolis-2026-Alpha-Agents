@@ -1,3 +1,4 @@
+import { rpcTransport } from "@alpha-agents/chain-tools";
 import { randomBytes } from "node:crypto";
 import { assertLocalFork, rpc } from "@alpha-agents/devenv";
 import { SPECIES } from "@alpha-agents/domain";
@@ -37,6 +38,8 @@ export const ENTROPY_PROVIDER = "0x52DeaA1c84233F7bb8C8A45baeDE41091c616506";
 
 export interface KeeperChainOptions {
   readonly rpcUrl: string;
+  /** The environment's second provider, used when the first fails (P2-EC). */
+  readonly fallbackRpcUrl?: string | null;
   readonly chainId: number;
   readonly agentNft: Hex;
   readonly entropy: Hex;
@@ -69,8 +72,10 @@ export class ViemRevealChain implements RevealChain {
     });
     const account = privateKeyToAccount(o.privateKey);
     this.address = account.address;
-    this.pub = createPublicClient({ chain: this.chain, transport: http(o.rpcUrl) });
-    this.wallet = createWalletClient({ chain: this.chain, transport: http(o.rpcUrl), account });
+    // P2-EC: the environment's second provider takes over when the first fails.
+    const transport = rpcTransport(o.rpcUrl, o.fallbackRpcUrl);
+    this.pub = createPublicClient({ chain: this.chain, transport });
+    this.wallet = createWalletClient({ chain: this.chain, transport, account });
     if (o.steering && !o.localFork)
       throw new Error("steered reveals exist only on the local fork (D-221)");
     if (o.localFork) this.deliver = (sequence) => this.deliverLocal(sequence);

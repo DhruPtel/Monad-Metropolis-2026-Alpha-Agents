@@ -156,15 +156,31 @@ export class ViemChainClient implements ChainClient {
     throw last;
   }
 
+  /**
+   * Every provider that answers must serve the pinned chain; one that does not
+   * answer is skipped, so a down primary does not stop the signer while the
+   * secondary serves (P2-EC). If none answers, the start fails.
+   */
   async verifyChain(): Promise<number> {
+    let answered = 0;
+    let last: unknown;
     for (const c of [this.primary, this.secondary]) {
       if (!c) continue;
-      const id = await c.getChainId();
+      let id: number;
+      try {
+        id = await c.getChainId();
+      } catch (err) {
+        if (!unreachable(err)) throw err;
+        last = err;
+        continue;
+      }
+      answered++;
       if (id !== this.chainId)
         throw new Error(
           `a signer RPC provider answers chain ${id}, not the pinned ${this.chainId}`,
         );
     }
+    if (answered === 0) throw last;
     return this.chainId;
   }
 

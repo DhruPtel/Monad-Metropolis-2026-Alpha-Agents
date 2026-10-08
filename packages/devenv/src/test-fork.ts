@@ -16,7 +16,13 @@ import {
 import { readForkConfig } from "./fork-pin.ts";
 import { localPaths } from "./paths.ts";
 import { redact } from "./redact.ts";
-import { FORK_START_ATTEMPTS, backoffMs, forkUpstreams, servesBlock } from "./upstream.ts";
+import {
+  FORK_START_ATTEMPTS,
+  backoffMs,
+  checkedForkUpstreams,
+  forkUpstreams,
+  servesBlock,
+} from "./upstream.ts";
 import { startUpstreamProxyProcess } from "./upstream-proxy.ts";
 
 /**
@@ -89,7 +95,8 @@ export async function startTestFork(options: TestForkOptions = {}): Promise<Test
   const url = `http://127.0.0.1:${port}`;
   if (url === LOCAL_FORK_RPC_URL)
     throw new Error("a test fork never runs on the playtest fork's port, 8545");
-  const upstreams = forkUpstreams(options.env);
+  const { upstreams, dropped } = await checkedForkUpstreams(options.env);
+  for (const d of dropped) console.warn(`test fork: not using ${d}`);
   if (upstreams.length === 0)
     throw new Error("a test fork needs MONAD_RPC_URL (in the environment or .env)");
 

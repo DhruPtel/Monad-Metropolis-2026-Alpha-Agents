@@ -31,6 +31,52 @@ export function forkUpstreams(env: NodeJS.ProcessEnv = process.env): string[] {
   return [primary, secondary].filter((u, i, all): u is string => !!u && all.indexOf(u) === i);
 }
 
+/** The chain ID an RPC answers, or null when it does not answer. */
+export async function chainIdOf(
+  url: string,
+  fetchFn: typeof fetch = fetch,
+): Promise<number | null> {
+  try {
+    const res = await fetchFn(url, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "eth_chainId", params: [] }),
+      signal: AbortSignal.timeout(10_000),
+    });
+    const body = (await res.json()) as { result?: string };
+    return body.result ? Number(body.result) : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The fork's upstreams after a chain check: each must answer Monad mainnet's
+ * chain ID, 143, or it is dropped and named, never alternated with (P2-EC: the
+ * owner's second provider was a testnet endpoint saved as
+ * MONAD_RPC_URL_SECONDARY). One that does not answer stays, since a provider
+ * may be briefly down; the fork's start check then skips it.
+ */
+export async function checkedForkUpstreams(
+  env: NodeJS.ProcessEnv = process.env,
+  fetchFn: typeof fetch = fetch,
+): Promise<{ upstreams: string[]; dropped: string[] }> {
+  const named = [
+    ["MONAD_RPC_URL", fromEnv("MONAD_RPC_URL", env)],
+    ["MONAD_RPC_URL_SECONDARY", fromEnv("MONAD_RPC_URL_SECONDARY", env)],
+  ] as const;
+  const upstreams: string[] = [];
+  const dropped: string[] = [];
+  for (const [name, url] of named) {
+    if (!url || upstreams.includes(url)) continue;
+    const chainId = await chainIdOf(url, fetchFn);
+    if (chainId !== null && chainId !== 143)
+      dropped.push(`${name} (serves chain ${chainId}, not 143)`);
+    else upstreams.push(url);
+  }
+  return { upstreams, dropped };
+}
+
 /** The upstream for an attempt (1-based): the primary first, then alternating when there are two. */
 export function upstreamFor(upstreams: readonly string[], attempt: number): string {
   const u = upstreams[(attempt - 1) % upstreams.length];

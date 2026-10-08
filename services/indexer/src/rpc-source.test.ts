@@ -97,3 +97,97 @@ describe("RpcLogSource", () => {
     expect(logs.map((l) => l.logIndex)).toEqual([0]);
   });
 });
+
+describe("RpcLogSource failover (P2-EC)", () => {
+  const PRIMARY = "https://primary.example/key-a";
+  const FALLBACK = "https://fallback.example/key-b";
+
+  /** A primary that fails in the given way and a fallback that answers; records which URL got each call. */
+  function twoProviders(primary: "refused" | 429 | 503 | "ok") {
+    const hits: string[] = [];
+    const fetchFn = (async (url: string) => {
+      const which = url === PRIMARY ? "primary" : "fallback";
+      hits.push(which);
+      if (which === "primary" && primary === "refused") throw new TypeError("fetch failed");
+      if (which === "primary" && typeof primary === "number")
+        return new Response(JSON.stringify({ error: { message: "busy" } }), { status: primary });
+      return new Response(
+        JSON.stringify({ jsonrpc: "2.0", id: 1, result: which === "primary" ? "0x1" : "0x2" }),
+      );
+    }) as unknown as typeof fetch;
+    return { fetchFn, hits };
+  }
+
+  it.each(["refused", 429, 503] as const)(
+    "moves a call to the fallback when the primary is %s",
+    async (failure) => {
+      const { fetchFn, hits } = twoProviders(failure);
+      const source = new RpcLogSource({
+        url: PRIMARY,
+        fallbackUrl: FALLBACK,
+        fetch: fetchFn,
+        sleep: async () => undefined,
+      });
+      expect(await source.head()).toBe(2);
+      expect(hits).toEqual(["primary", "fallback"]);
+      expect(source.failovers).toBe(1);
+    },
+  );
+
+  it("stays on the fallback for a minute, then tries the primary again", async () => {
+    let now = 0;
+    const { fetchFn, hits } = twoProviders(503);
+    const source = new RpcLogSource({
+      url: PRIMARY,
+      fallbackUrl: FALLBACK,
+      fetch: fetchFn,
+      sleep: async () => undefined,
+      now: () => now,
+    });
+    await source.head();
+    now = 30_000;
+    await source.head();
+    expect(hits).toEqual(["primary", "fallback", "fallback"]);
+    now = 61_000;
+    await source.head();
+    expect(hits.slice(3)).toEqual(["primary", "fallback"]);
+  });
+
+  it("never moves a range refusal: that is about the request, not the provider", async () => {
+    const hits: string[] = [];
+    const fetchFn = (async (url: string) => {
+      hits.push(url === PRIMARY ? "primary" : "fallback");
+      return new Response(
+        JSON.stringify({ error: { code: -32600, message: "up to a 10 block range" } }),
+      );
+    }) as unknown as typeof fetch;
+    const source = new RpcLogSource({ url: PRIMARY, fallbackUrl: FALLBACK, fetch: fetchFn });
+    await expect(
+      source.logs({ address: PRIMARY as never, fromBlock: 1, toBlock: 100 }),
+    ).rejects.toBeInstanceOf(RangeTooLargeError);
+    expect(hits).toEqual(["primary"]);
+  });
+
+  it("reports each provider's chain, so a wrong-chain fallback is refused at start", async () => {
+    const fetchFn = (async (url: string) =>
+      new Response(
+        JSON.stringify({ result: url === PRIMARY ? "0x279f" : "0x8f" }),
+      )) as unknown as typeof fetch;
+    const source = new RpcLogSource({ url: PRIMARY, fallbackUrl: FALLBACK, fetch: fetchFn });
+    expect(await source.chainIds()).toEqual([10143, 143]);
+  });
+
+  it("puts neither URL in an error when both providers fail", async () => {
+    const fetchFn = (async () => {
+      throw new TypeError("fetch failed");
+    }) as unknown as typeof fetch;
+    const source = new RpcLogSource({
+      url: PRIMARY,
+      fallbackUrl: FALLBACK,
+      fetch: fetchFn,
+      maxRetries: 0,
+    });
+    const err = await source.head().catch((e: unknown) => e as Error);
+    expect(String(err)).not.toMatch(/key-a|key-b|example/);
+  });
+});

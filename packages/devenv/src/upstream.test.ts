@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { backoffMs, forkUpstreams, servesBlock, upstreamFor } from "./upstream.ts";
+import {
+  backoffMs,
+  checkedForkUpstreams,
+  forkUpstreams,
+  servesBlock,
+  upstreamFor,
+} from "./upstream.ts";
 
 const answer = (body: unknown) =>
   (async () => new Response(JSON.stringify(body))) as unknown as typeof fetch;
@@ -11,6 +17,36 @@ describe("fork upstreams (D-220)", () => {
     expect(forkUpstreams({ MONAD_RPC_URL: a, MONAD_RPC_URL_SECONDARY: b })).toEqual([a, b]);
     expect(forkUpstreams({ MONAD_RPC_URL: a, MONAD_RPC_URL_SECONDARY: a })).toEqual([a]);
     expect(forkUpstreams({ MONAD_RPC_URL: ` ${a} ` }).at(0)).toBe(a);
+  });
+
+  it("drops and names an upstream on another chain, never alternating with it (P2-EC)", async () => {
+    const a = "https://mainnet.example/k";
+    const b = "https://testnet.example/k";
+    const c = "https://down.example/k";
+    const byHost = (chains: Record<string, string | null>) =>
+      (async (input: string | URL | Request) => {
+        const result = chains[new URL(String(input)).host];
+        if (result === null) throw new Error("connection refused");
+        return new Response(JSON.stringify({ result }));
+      }) as unknown as typeof fetch;
+    const fetchFn = byHost({
+      "mainnet.example": "0x8f",
+      "testnet.example": "0x279f",
+      "down.example": null,
+    });
+    expect(
+      await checkedForkUpstreams({ MONAD_RPC_URL: a, MONAD_RPC_URL_SECONDARY: b }, fetchFn),
+    ).toEqual({
+      upstreams: [a],
+      dropped: ["MONAD_RPC_URL_SECONDARY (serves chain 10143, not 143)"],
+    });
+    // A provider that does not answer is kept: the start check skips it while it is down.
+    expect(
+      await checkedForkUpstreams({ MONAD_RPC_URL: a, MONAD_RPC_URL_SECONDARY: c }, fetchFn),
+    ).toEqual({
+      upstreams: [a, c],
+      dropped: [],
+    });
   });
 
   it("alternates between two upstreams and stays on one", () => {

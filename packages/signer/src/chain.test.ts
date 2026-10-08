@@ -111,6 +111,29 @@ describe("the signer's two RPC providers (P2-U4 item 9)", () => {
     expect(secondary.calls).toContain("eth_getTransactionCount");
   });
 
+  it("starts with a down primary while the secondary serves the pinned chain (P2-EC)", async () => {
+    const secondary = await stub(chainOf(143143));
+    const c = new ViemChainClient({
+      chainId: 143143,
+      primaryUrl: await deadUrl(),
+      secondaryUrl: secondary.url,
+    });
+    expect(await c.verifyChain()).toBe(143143);
+    const wrong = await stub(chainOf(10143));
+    const mixed = new ViemChainClient({
+      chainId: 143143,
+      primaryUrl: await deadUrl(),
+      secondaryUrl: wrong.url,
+    });
+    await expect(mixed.verifyChain()).rejects.toThrow(/answers chain 10143, not the pinned 143143/);
+    const none = new ViemChainClient({
+      chainId: 143143,
+      primaryUrl: await deadUrl(),
+      secondaryUrl: await deadUrl(),
+    });
+    await expect(none.verifyChain()).rejects.toThrow();
+  });
+
   it("asks the secondary for receipts first", async () => {
     const primary = await stub(chainOf(143143));
     const secondary = await stub(chainOf(143143));

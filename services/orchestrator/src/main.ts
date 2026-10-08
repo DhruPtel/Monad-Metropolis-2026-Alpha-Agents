@@ -8,7 +8,7 @@ import {
   assertChainId,
   loadConfig,
 } from "@alpha-agents/config";
-import { ViemChainReader, contractsFor } from "@alpha-agents/chain-tools";
+import { ViemChainReader, contractsFor, rpcTransport } from "@alpha-agents/chain-tools";
 import { TavilyProvider } from "@alpha-agents/data-tools";
 import { createDb, migrateToLatest } from "@alpha-agents/db";
 import { localPaths, secretFragments, setMonBalance } from "@alpha-agents/devenv";
@@ -97,9 +97,20 @@ const secret = reveal("ORCHESTRATOR_SECRET") ?? die("ORCHESTRATOR_SECRET is not 
 if (env.id !== "local" && secret.startsWith("local-fork-only"))
   die(`ORCHESTRATOR_SECRET is the local default; set a random one for ${env.label}`);
 
-const client = createPublicClient({ transport: http(rpcUrl) });
+// P2-EC: off the fork the environment's second provider takes over when the first fails
+// (D-254); on testnet config reads it from MONAD_TESTNET_RPC_URL_SECONDARY.
+const fallbackRpcUrl =
+  config.environment.id === "local" ? null : (reveal("MONAD_RPC_URL_SECONDARY") ?? null);
+if (fallbackRpcUrl) protect(fallbackRpcUrl);
+const client = createPublicClient({ transport: rpcTransport(rpcUrl, fallbackRpcUrl) });
 try {
   assertChainId(config, await client.getChainId());
+  // The fallback must serve the same chain, or it is never used (P2-EC).
+  if (fallbackRpcUrl)
+    assertChainId(
+      config,
+      await createPublicClient({ transport: http(fallbackRpcUrl) }).getChainId(),
+    );
 } catch (err) {
   die(err instanceof ConfigError ? err.message : "could not reach the chain RPC");
 }
@@ -158,6 +169,7 @@ else if (entropy.status !== "verified")
 else {
   const chain = new ViemRevealChain({
     rpcUrl,
+    fallbackRpcUrl,
     chainId: env.chainId,
     agentNft: nft.address as Hex,
     entropy: entropy.address as Hex,
@@ -215,6 +227,7 @@ else {
     usdc.status === "verified"
       ? new ViemRefundChain({
           rpcUrl,
+          fallbackRpcUrl,
           chainId: env.chainId,
           agentNft: nft.address as Hex,
           usdc: usdc.address as Hex,
@@ -265,7 +278,12 @@ const store = new Store(db);
 // server reads the fork, testnet and mainnet; where any is missing, every chain tool says so.
 const chainContracts = contractsFor(env.id);
 const chainReader = chainContracts.ok
-  ? new ViemChainReader({ chainId: env.chainId, rpcUrl, contracts: chainContracts.contracts })
+  ? new ViemChainReader({
+      chainId: env.chainId,
+      rpcUrl,
+      fallbackRpcUrl,
+      contracts: chainContracts.contracts,
+    })
   : null;
 if (!chainContracts.ok)
   log(
@@ -281,7 +299,7 @@ const feedAddress = (id: "chainlink_mon_usd" | "chainlink_usdc_usd") => {
   return e.status === "verified" ? (e.address as Hex) : null;
 };
 const testnetFeeds = testnetFeedsFor(env.id, {
-  chain: feedKey ? viemFeedChain(rpcUrl, env.chainId, feedKey as Hex) : null,
+  chain: feedKey ? viemFeedChain(rpcUrl, env.chainId, feedKey as Hex, fallbackRpcUrl) : null,
   monUsd: feedAddress("chainlink_mon_usd"),
   usdcUsd: feedAddress("chainlink_usdc_usd"),
   log: createLog("feeds", redactor),
