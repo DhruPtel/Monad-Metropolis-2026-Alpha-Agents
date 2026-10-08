@@ -12,6 +12,8 @@
 //   pnpm testnet:to-local  stop it and start dev:all again
 //   pnpm testnet:propose 3 have agent 3 propose a small trade (the chain check,
 //                          an operator action until Phase 3's runner proposes)
+//   pnpm testnet:propose 3 --over-limit  record a proposal over the trade size
+//                          limit, which the trade flow refuses with its reason
 import { spawn, spawnSync } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import {
@@ -255,14 +257,21 @@ else if (command === "down") {
   if (!/^[1-9]\d{0,4}$/.test(id)) fail("give the agent ID, such as pnpm testnet:propose 1");
   const state = readState();
   if (!state || !alive(state.supervisor)) fail("the testnet stack is not running; pnpm testnet:up");
-  const res = await fetch(`http://127.0.0.1:4200/v1/agents/${id}/tasks/chain-check`, {
+  const overLimit = process.argv.includes("--over-limit");
+  const path = overLimit ? "test-over-limit" : "tasks/chain-check";
+  const res = await fetch(`http://127.0.0.1:4200/v1/agents/${id}/${path}`, {
     method: "POST",
   }).catch(() => null);
   if (!res) fail("the orchestrator did not answer on 127.0.0.1:4200");
-  const body = /** @type {{ taskId?: string, message?: string, error?: string }} */ (
-    await /** @type {Response} */ (res).json().catch(() => ({}))
-  );
-  if (body.taskId)
+  const body =
+    /** @type {{ taskId?: string, intentId?: string, message?: string, error?: string }} */ (
+      await /** @type {Response} */ (res).json().catch(() => ({}))
+    );
+  if (body.intentId)
+    console.log(
+      `agent ${id}: over-limit proposal ${body.intentId} recorded; the trade flow refuses it at submission`,
+    );
+  else if (body.taskId)
     console.log(
       `agent ${id}: chain check ${body.taskId} queued; its proposal appears on the portfolio page`,
     );

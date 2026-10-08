@@ -464,6 +464,17 @@ export function createApi(o: ApiOptions): Hono {
       }
     });
 
+    /** P2-U6: a proposal over the trade size limit, so the console can show a blocked trade. */
+    app.post("/v1/agents/:agentId/test-over-limit", async (c) => {
+      const ref = agentRef(c.req.param("agentId"), o.chainId);
+      if (!ref) return c.json({ error: "bad_agent_id" }, 400);
+      try {
+        return c.json({ intentId: await o.orchestrator.proposeOverLimitForTest(ref) }, 201);
+      } catch (err) {
+        return c.json({ error: "refused", message: (err as Error).message.slice(0, 200) }, 409);
+      }
+    });
+
     /** P2-EC (D-307): re-date testnet's feeds now if they need it, before an owner's deposit. */
     app.post("/v1/feeds/fresh", async (c) => {
       if (!o.feeds)
@@ -608,17 +619,6 @@ export function createApi(o: ApiOptions): Hono {
         disarmed: ended !== null,
         arming: armingJson(last, Math.floor(Date.now() / 1000)),
       });
-    });
-
-    /** P2-U6: a proposal over the trade size limit, so the console can show a blocked trade. */
-    app.post("/v1/agents/:agentId/test-over-limit", async (c) => {
-      const ref = agentRef(c.req.param("agentId"), o.chainId);
-      if (!ref) return c.json({ error: "bad_agent_id" }, 400);
-      try {
-        return c.json({ intentId: await o.orchestrator.proposeOverLimitForTest(ref) }, 201);
-      } catch (err) {
-        return c.json({ error: "refused", message: (err as Error).message.slice(0, 200) }, 409);
-      }
     });
 
     /** P2-U6: approve a waiting intent as the owner; the first approval after the grant arms the agent. */

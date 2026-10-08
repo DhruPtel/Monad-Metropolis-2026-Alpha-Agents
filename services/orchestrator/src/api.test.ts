@@ -340,6 +340,7 @@ describe.skipIf(!dbUp)("the orchestrator's internal API (D-205)", { timeout: 60_
       orchestrator: {
         ...orchestrator,
         enqueueChainCheck: async () => "check-1",
+        proposeOverLimitForTest: async () => "intent-over",
       } as unknown as Orchestrator,
       store,
       chainId: CHAIN,
@@ -355,6 +356,8 @@ describe.skipIf(!dbUp)("the orchestrator's internal API (D-205)", { timeout: 60_
     const check = await testnet.request("/v1/agents/1/tasks/chain-check", { method: "POST" });
     expect(check.status).toBe(202);
     expect(await check.json()).toEqual({ taskId: "check-1" });
+    const over = await testnet.request("/v1/agents/1/test-over-limit", { method: "POST" });
+    expect([over.status, await over.json()]).toEqual([201, { intentId: "intent-over" }]);
     const fresh = await testnet.request("/v1/feeds/fresh?reason=a%20deposit", { method: "POST" });
     expect(fresh.status).toBe(200);
     expect(reasons).toEqual(["a deposit"]);
