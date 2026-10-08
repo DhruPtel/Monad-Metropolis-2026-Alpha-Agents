@@ -6,8 +6,10 @@
 // has credits and its refund is sent at once (P1-U6). P1-U7: agent 1 has two
 // activity entries and five tool calls (answered, refused and failed), and its
 // Scan reads as succeeded with a fixed result.
+import { readFileSync } from "node:fs";
 import { createServer } from "node:http";
 import process from "node:process";
+import { URL } from "node:url";
 
 const PORT = Number(process.env.FIXTURE_API_PORT ?? 4199);
 const body = JSON.stringify({
@@ -517,6 +519,8 @@ const routes = {
 
   "POST /v1/agents/1/tasks/chain-check": [202, JSON.stringify({ taskId: "fixture-chain-check" })],
   "GET /v1/tasks/fixture-chain-check": [200, chainCheckTask],
+  // P3-U2: the market snapshot, built from packages/market's recorded upstream answers.
+  "GET /v1/market": [200, readFileSync(new URL("./market-fixture.json", import.meta.url), "utf8")],
 };
 
 createServer((req, res) => {

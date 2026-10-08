@@ -1,7 +1,16 @@
 "use client";
 
 import { Badge, cn } from "@alpha-agents/ui";
-import { Activity, ArrowLeftRight, BookMarked, Bot, Coins, GitBranch, Scale } from "lucide-react";
+import {
+  Activity,
+  ArrowLeftRight,
+  BookMarked,
+  Bot,
+  Coins,
+  GitBranch,
+  LineChart,
+  Scale,
+} from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
@@ -14,6 +23,7 @@ export const CONSOLE_PANELS = [
   { href: "/policy", label: "Policy sandbox", icon: Scale },
   { href: "/agents", label: "Agents", icon: Bot },
   { href: "/trades", label: "Trades", icon: ArrowLeftRight },
+  { href: "/market", label: "Market", icon: LineChart },
 ] as const;
 
 const isActive = (pathname: string, href: string) =>

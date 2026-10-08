@@ -17,6 +17,7 @@ const PAGES = [
   { path: "/policy", name: "policy", heading: "Policy sandbox" },
   { path: "/agents", name: "agents", heading: "Agents" },
   { path: "/trades", name: "trades", heading: "Trades" },
+  { path: "/market", name: "market", heading: "Market data" },
 ] as const;
 
 for (const panel of PAGES) {

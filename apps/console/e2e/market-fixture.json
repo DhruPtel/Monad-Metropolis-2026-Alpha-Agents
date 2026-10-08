@@ -1,0 +1,790 @@
+{
+  "configured": true,
+  "cacheHit": false,
+  "snapshot": {
+    "asOf": "2026-10-08T22:50:00.000Z",
+    "prices": {
+      "ok": true,
+      "data": [
+        {
+          "asset": "MON",
+          "priceUsd": {
+            "value": 0.024115630186343353,
+            "source": "coinmarketcap",
+            "asOf": "2026-10-08T22:45:02.000Z",
+            "warnings": [
+              {
+                "code": "SOURCES_DISAGREE",
+                "message": "19.61% away from chainlink's figure, past the 3.00% tolerance; both are shown."
+              }
+            ]
+          },
+          "change24hPct": {
+            "value": -6.52486487,
+            "source": "coinmarketcap",
+            "asOf": "2026-10-08T22:45:02.000Z",
+            "warnings": []
+          },
+          "volume24hUsd": {
+            "value": 51965797.32520173,
+            "source": "coinmarketcap",
+            "asOf": "2026-10-08T22:45:02.000Z",
+            "warnings": []
+          },
+          "marketCapUsd": {
+            "value": 285171306.0324909,
+            "source": "coinmarketcap",
+            "asOf": "2026-10-08T22:45:02.000Z",
+            "warnings": []
+          }
+        },
+        {
+          "asset": "USDC",
+          "priceUsd": {
+            "value": 0.9997723924232258,
+            "source": "coinmarketcap",
+            "asOf": "2026-10-08T22:45:02.000Z",
+            "warnings": []
+          },
+          "change24hPct": {
+            "value": -0.00273316,
+            "source": "coinmarketcap",
+            "asOf": "2026-10-08T22:45:02.000Z",
+            "warnings": []
+          },
+          "volume24hUsd": {
+            "value": 24615994502.52379,
+            "source": "coinmarketcap",
+            "asOf": "2026-10-08T22:45:02.000Z",
+            "warnings": []
+          },
+          "marketCapUsd": {
+            "value": 73144829878.41867,
+            "source": "coinmarketcap",
+            "asOf": "2026-10-08T22:45:02.000Z",
+            "warnings": []
+          }
+        }
+      ],
+      "cacheHit": false
+    },
+    "oracleVsPool": {
+      "ok": true,
+      "data": {
+        "chainlinkMonUsd": {
+          "value": 0.03,
+          "source": "chainlink",
+          "asOf": "2026-10-08T22:50:00.000Z",
+          "warnings": []
+        },
+        "poolMonUsdc": {
+          "value": 0.02425,
+          "source": "uniswap_v4",
+          "asOf": "2026-10-08T22:50:00.000Z",
+          "warnings": [
+            {
+              "code": "SOURCES_DISAGREE",
+              "message": "19.17% away from chainlink's figure, past the 3.00% tolerance; both are shown."
+            }
+          ]
+        },
+        "deviationBps": {
+          "value": 20.6,
+          "source": "computed",
+          "asOf": "2026-10-08T22:50:00.000Z",
+          "warnings": []
+        },
+        "block": "111700000"
+      },
+      "cacheHit": false
+    },
+    "volatility": {
+      "ok": true,
+      "data": {
+        "method": "Sample standard deviation of close-to-close log returns, annualized by the square root of periods per year (365 days); hourly points for 24h and 7d, 4-hourly points for 30d, from DefiLlama's recorded MON price.",
+        "windows": {
+          "24h": {
+            "value": 146.3478285613553,
+            "source": "computed",
+            "asOf": "2026-10-08T21:47:21.000Z",
+            "warnings": [],
+            "returns": 23
+          },
+          "7d": {
+            "value": 117.49910962383903,
+            "source": "computed",
+            "asOf": "2026-10-08T21:47:21.000Z",
+            "warnings": [],
+            "returns": 167
+          },
+          "30d": {
+            "value": 113.55212956481995,
+            "source": "computed",
+            "asOf": "2026-10-08T22:32:32.000Z",
+            "warnings": [],
+            "returns": 180
+          }
+        }
+      },
+      "cacheHit": false
+    },
+    "poolDepth": {
+      "ok": true,
+      "data": {
+        "block": "111700000",
+        "asOf": "2026-10-08T22:50:00.000Z",
+        "midPriceUsd": {
+          "value": 0.02425,
+          "source": "uniswap_v4",
+          "asOf": "2026-10-08T22:50:00.000Z",
+          "warnings": []
+        },
+        "activeLiquidity": {
+          "value": 1000000000000000000,
+          "source": "uniswap_v4",
+          "asOf": "2026-10-08T22:50:00.000Z",
+          "warnings": []
+        },
+        "feeBps": 5,
+        "rows": [
+          {
+            "sizeUsd": 10,
+            "side": "buy_mon",
+            "impactBps": {
+              "value": 5.1,
+              "source": "uniswap_v4",
+              "asOf": "2026-10-08T22:50:00.000Z",
+              "warnings": []
+            },
+            "impactExFeeBps": {
+              "value": 0.1,
+              "source": "uniswap_v4",
+              "asOf": "2026-10-08T22:50:00.000Z",
+              "warnings": []
+            }
+          }
+        ]
+      },
+      "cacheHit": false
+    },
+    "chainTvl": {
+      "ok": true,
+      "data": {
+        "tvlUsd": {
+          "value": 1006343813,
+          "source": "defillama",
+          "asOf": "2026-10-08T00:00:00.000Z",
+          "warnings": []
+        },
+        "change7dPct": {
+          "value": -3.462399154639489,
+          "source": "defillama",
+          "asOf": "2026-10-08T00:00:00.000Z",
+          "warnings": []
+        },
+        "history": [
+          {
+            "date": "2026-09-09T00:00:00.000Z",
+            "tvlUsd": 1021428006
+          },
+          {
+            "date": "2026-09-10T00:00:00.000Z",
+            "tvlUsd": 1019094453
+          },
+          {
+            "date": "2026-09-11T00:00:00.000Z",
+            "tvlUsd": 1024306601
+          },
+          {
+            "date": "2026-09-12T00:00:00.000Z",
+            "tvlUsd": 1035450553
+          },
+          {
+            "date": "2026-09-13T00:00:00.000Z",
+            "tvlUsd": 1035365958
+          },
+          {
+            "date": "2026-09-14T00:00:00.000Z",
+            "tvlUsd": 1024211383
+          },
+          {
+            "date": "2026-09-15T00:00:00.000Z",
+            "tvlUsd": 1032083153
+          },
+          {
+            "date": "2026-09-16T00:00:00.000Z",
+            "tvlUsd": 1002355922
+          },
+          {
+            "date": "2026-09-17T00:00:00.000Z",
+            "tvlUsd": 1011083341
+          },
+          {
+            "date": "2026-09-18T00:00:00.000Z",
+            "tvlUsd": 1016079718
+          },
+          {
+            "date": "2026-09-19T00:00:00.000Z",
+            "tvlUsd": 1036818891
+          },
+          {
+            "date": "2026-09-20T00:00:00.000Z",
+            "tvlUsd": 1036146677
+          },
+          {
+            "date": "2026-09-21T00:00:00.000Z",
+            "tvlUsd": 1037948289
+          },
+          {
+            "date": "2026-09-22T00:00:00.000Z",
+            "tvlUsd": 1035870513
+          },
+          {
+            "date": "2026-09-23T00:00:00.000Z",
+            "tvlUsd": 1032797852
+          },
+          {
+            "date": "2026-09-24T00:00:00.000Z",
+            "tvlUsd": 1017506855
+          },
+          {
+            "date": "2026-09-25T00:00:00.000Z",
+            "tvlUsd": 1009745591
+          },
+          {
+            "date": "2026-09-26T00:00:00.000Z",
+            "tvlUsd": 1015755603
+          },
+          {
+            "date": "2026-09-27T00:00:00.000Z",
+            "tvlUsd": 1015307970
+          },
+          {
+            "date": "2026-09-28T00:00:00.000Z",
+            "tvlUsd": 1018134273
+          },
+          {
+            "date": "2026-09-29T00:00:00.000Z",
+            "tvlUsd": 1019593928
+          },
+          {
+            "date": "2026-09-30T00:00:00.000Z",
+            "tvlUsd": 1025907427
+          },
+          {
+            "date": "2026-10-01T00:00:00.000Z",
+            "tvlUsd": 1042437148
+          },
+          {
+            "date": "2026-10-02T00:00:00.000Z",
+            "tvlUsd": 1041904320
+          },
+          {
+            "date": "2026-10-03T00:00:00.000Z",
+            "tvlUsd": 1032792952
+          },
+          {
+            "date": "2026-10-04T00:00:00.000Z",
+            "tvlUsd": 1039532966
+          },
+          {
+            "date": "2026-10-05T00:00:00.000Z",
+            "tvlUsd": 1042209291
+          },
+          {
+            "date": "2026-10-06T00:00:00.000Z",
+            "tvlUsd": 1038099868
+          },
+          {
+            "date": "2026-10-07T00:00:00.000Z",
+            "tvlUsd": 1023977388
+          },
+          {
+            "date": "2026-10-08T00:00:00.000Z",
+            "tvlUsd": 1006343813
+          }
+        ]
+      },
+      "cacheHit": false
+    },
+    "dexVolumes": {
+      "ok": true,
+      "data": {
+        "total24hUsd": {
+          "value": 52276550.470000006,
+          "source": "defillama",
+          "asOf": "2026-10-08T22:50:00.000Z",
+          "warnings": []
+        },
+        "change1dPct": {
+          "value": 25,
+          "source": "defillama",
+          "asOf": "2026-10-08T22:50:00.000Z",
+          "warnings": []
+        },
+        "top": [
+          {
+            "name": "Uniswap V4",
+            "volume24hUsd": {
+              "value": 31969283,
+              "source": "defillama",
+              "asOf": "2026-10-08T22:50:00.000Z",
+              "warnings": []
+            }
+          },
+          {
+            "name": "Curve DEX",
+            "volume24hUsd": {
+              "value": 4042560,
+              "source": "defillama",
+              "asOf": "2026-10-08T22:50:00.000Z",
+              "warnings": []
+            }
+          },
+          {
+            "name": "Balancer V3",
+            "volume24hUsd": {
+              "value": 3260059,
+              "source": "defillama",
+              "asOf": "2026-10-08T22:50:00.000Z",
+              "warnings": []
+            }
+          },
+          {
+            "name": "Kuru CLOB",
+            "volume24hUsd": {
+              "value": 3195691,
+              "source": "defillama",
+              "asOf": "2026-10-08T22:50:00.000Z",
+              "warnings": []
+            }
+          },
+          {
+            "name": "Uniswap V3",
+            "volume24hUsd": {
+              "value": 3195496,
+              "source": "defillama",
+              "asOf": "2026-10-08T22:50:00.000Z",
+              "warnings": []
+            }
+          }
+        ]
+      },
+      "cacheHit": false
+    },
+    "topProtocols": {
+      "ok": true,
+      "data": [
+        {
+          "name": "Aave V3",
+          "category": "Lending",
+          "tvlUsd": {
+            "value": 348198608.8489564,
+            "source": "defillama",
+            "asOf": "2026-10-08T22:50:00.000Z",
+            "warnings": []
+          }
+        },
+        {
+          "name": "Euler V2",
+          "category": "Lending",
+          "tvlUsd": {
+            "value": 218233245.85781854,
+            "source": "defillama",
+            "asOf": "2026-10-08T22:50:00.000Z",
+            "warnings": []
+          }
+        },
+        {
+          "name": "Hyperithm",
+          "category": "Risk Curators",
+          "tvlUsd": {
+            "value": 203073331.52178386,
+            "source": "defillama",
+            "asOf": "2026-10-08T22:50:00.000Z",
+            "warnings": []
+          }
+        },
+        {
+          "name": "K3 Capital",
+          "category": "Risk Curators",
+          "tvlUsd": {
+            "value": 200326239.35179275,
+            "source": "defillama",
+            "asOf": "2026-10-08T22:50:00.000Z",
+            "warnings": []
+          }
+        },
+        {
+          "name": "Morpho Blue",
+          "category": "Lending",
+          "tvlUsd": {
+            "value": 178513037.52695584,
+            "source": "defillama",
+            "asOf": "2026-10-08T22:50:00.000Z",
+            "warnings": []
+          }
+        },
+        {
+          "name": "Pendle V2",
+          "category": "Yield",
+          "tvlUsd": {
+            "value": 157872292.4516914,
+            "source": "defillama",
+            "asOf": "2026-10-08T22:50:00.000Z",
+            "warnings": []
+          }
+        },
+        {
+          "name": "Curvance",
+          "category": "Lending",
+          "tvlUsd": {
+            "value": 128276574.58710076,
+            "source": "defillama",
+            "asOf": "2026-10-08T22:50:00.000Z",
+            "warnings": []
+          }
+        },
+        {
+          "name": "Valos",
+          "category": "RWA",
+          "tvlUsd": {
+            "value": 105672931.27847767,
+            "source": "defillama",
+            "asOf": "2026-10-08T22:50:00.000Z",
+            "warnings": []
+          }
+        }
+      ],
+      "cacheHit": false
+    },
+    "topYields": {
+      "ok": true,
+      "data": [
+        {
+          "pool": "9829fc1f-8f3a-5b29-a4b1-843b2996c95d",
+          "project": "aave-v3",
+          "symbol": "SYRUPUSDC",
+          "stablecoin": true,
+          "tvlUsd": {
+            "value": 149593798,
+            "source": "defillama",
+            "asOf": "2026-10-08T22:50:00.000Z",
+            "warnings": []
+          },
+          "apyPct": {
+            "value": 1.13932,
+            "source": "defillama",
+            "asOf": "2026-10-08T22:50:00.000Z",
+            "warnings": []
+          },
+          "apyBasePct": {
+            "value": 0,
+            "source": "defillama",
+            "asOf": "2026-10-08T22:50:00.000Z",
+            "warnings": []
+          },
+          "apyRewardPct": {
+            "value": 1.13932,
+            "source": "defillama",
+            "asOf": "2026-10-08T22:50:00.000Z",
+            "warnings": []
+          }
+        },
+        {
+          "pool": "4baffdfd-8015-4713-bad4-10a199b30157",
+          "project": "accountable",
+          "symbol": "AUSD",
+          "stablecoin": true,
+          "tvlUsd": {
+            "value": 100581292,
+            "source": "defillama",
+            "asOf": "2026-10-08T22:50:00.000Z",
+            "warnings": []
+          },
+          "apyPct": {
+            "value": 6.68106,
+            "source": "defillama",
+            "asOf": "2026-10-08T22:50:00.000Z",
+            "warnings": []
+          },
+          "apyBasePct": {
+            "value": 6.5475,
+            "source": "defillama",
+            "asOf": "2026-10-08T22:50:00.000Z",
+            "warnings": []
+          },
+          "apyRewardPct": {
+            "value": 0.13356,
+            "source": "defillama",
+            "asOf": "2026-10-08T22:50:00.000Z",
+            "warnings": []
+          }
+        },
+        {
+          "pool": "34f65227-f3f9-5c3f-9182-f6eca85ae729",
+          "project": "aave-v3",
+          "symbol": "USDE",
+          "stablecoin": true,
+          "tvlUsd": {
+            "value": 98523308,
+            "source": "defillama",
+            "asOf": "2026-10-08T22:50:00.000Z",
+            "warnings": []
+          },
+          "apyPct": {
+            "value": 1.01241,
+            "source": "defillama",
+            "asOf": "2026-10-08T22:50:00.000Z",
+            "warnings": []
+          },
+          "apyBasePct": {
+            "value": 0.01241,
+            "source": "defillama",
+            "asOf": "2026-10-08T22:50:00.000Z",
+            "warnings": []
+          },
+          "apyRewardPct": {
+            "value": 1,
+            "source": "defillama",
+            "asOf": "2026-10-08T22:50:00.000Z",
+            "warnings": []
+          }
+        },
+        {
+          "pool": "4ea1913d-f1db-40e5-9010-30965511236f",
+          "project": "townsquare-lending",
+          "symbol": "ENZOBTC",
+          "stablecoin": false,
+          "tvlUsd": {
+            "value": 76347865,
+            "source": "defillama",
+            "asOf": "2026-10-08T22:50:00.000Z",
+            "warnings": []
+          },
+          "apyPct": {
+            "value": 0.0034,
+            "source": "defillama",
+            "asOf": "2026-10-08T22:50:00.000Z",
+            "warnings": []
+          },
+          "apyBasePct": {
+            "value": 0.0034,
+            "source": "defillama",
+            "asOf": "2026-10-08T22:50:00.000Z",
+            "warnings": []
+          },
+          "apyRewardPct": {
+            "value": 0,
+            "source": "defillama",
+            "asOf": "2026-10-08T22:50:00.000Z",
+            "warnings": []
+          }
+        },
+        {
+          "pool": "1a9c61c7-4094-4ee7-8d46-6ea8fb5689f1",
+          "project": "accountable",
+          "symbol": "USDC",
+          "stablecoin": true,
+          "tvlUsd": {
+            "value": 74972778,
+            "source": "defillama",
+            "asOf": "2026-10-08T22:50:00.000Z",
+            "warnings": []
+          },
+          "apyPct": {
+            "value": 10.78077,
+            "source": "defillama",
+            "asOf": "2026-10-08T22:50:00.000Z",
+            "warnings": []
+          },
+          "apyBasePct": {
+            "value": 10.5,
+            "source": "defillama",
+            "asOf": "2026-10-08T22:50:00.000Z",
+            "warnings": []
+          },
+          "apyRewardPct": {
+            "value": 0.28077,
+            "source": "defillama",
+            "asOf": "2026-10-08T22:50:00.000Z",
+            "warnings": []
+          }
+        },
+        {
+          "pool": "ec6a71a7-41ae-4e72-942f-b4bc99c3b3cb",
+          "project": "morpho-blue",
+          "symbol": "HYPERUSDCA",
+          "stablecoin": true,
+          "tvlUsd": {
+            "value": 53672083,
+            "source": "defillama",
+            "asOf": "2026-10-08T22:50:00.000Z",
+            "warnings": []
+          },
+          "apyPct": {
+            "value": 8.36911,
+            "source": "defillama",
+            "asOf": "2026-10-08T22:50:00.000Z",
+            "warnings": []
+          },
+          "apyBasePct": {
+            "value": 6.35376,
+            "source": "defillama",
+            "asOf": "2026-10-08T22:50:00.000Z",
+            "warnings": []
+          },
+          "apyRewardPct": {
+            "value": 2.01535,
+            "source": "defillama",
+            "asOf": "2026-10-08T22:50:00.000Z",
+            "warnings": []
+          }
+        },
+        {
+          "pool": "951e4e49-9760-49a3-aea9-bd832384219f",
+          "project": "euler-v2",
+          "symbol": "WETH",
+          "stablecoin": false,
+          "tvlUsd": {
+            "value": 53455343,
+            "source": "defillama",
+            "asOf": "2026-10-08T22:50:00.000Z",
+            "warnings": []
+          },
+          "apyPct": {
+            "value": 2.62949,
+            "source": "defillama",
+            "asOf": "2026-10-08T22:50:00.000Z",
+            "warnings": []
+          },
+          "apyBasePct": {
+            "value": 1.24552,
+            "source": "defillama",
+            "asOf": "2026-10-08T22:50:00.000Z",
+            "warnings": []
+          },
+          "apyRewardPct": {
+            "value": 1.38397,
+            "source": "defillama",
+            "asOf": "2026-10-08T22:50:00.000Z",
+            "warnings": []
+          }
+        },
+        {
+          "pool": "8ee92b15-1846-4a9c-8ce8-254a745e2b62",
+          "project": "morpho-blue",
+          "symbol": "AHYPER",
+          "stablecoin": false,
+          "tvlUsd": {
+            "value": 49936354,
+            "source": "defillama",
+            "asOf": "2026-10-08T22:50:00.000Z",
+            "warnings": []
+          },
+          "apyPct": {
+            "value": 1.93075,
+            "source": "defillama",
+            "asOf": "2026-10-08T22:50:00.000Z",
+            "warnings": []
+          },
+          "apyBasePct": {
+            "value": 0,
+            "source": "defillama",
+            "asOf": "2026-10-08T22:50:00.000Z",
+            "warnings": []
+          },
+          "apyRewardPct": {
+            "value": 1.93075,
+            "source": "defillama",
+            "asOf": "2026-10-08T22:50:00.000Z",
+            "warnings": []
+          }
+        }
+      ],
+      "cacheHit": false
+    },
+    "priceChecks": [
+      {
+        "pair": "uniswap_v4 vs chainlink",
+        "warnings": [
+          {
+            "code": "SOURCES_DISAGREE",
+            "message": "19.17% away from uniswap_v4's figure, past the 3.00% tolerance; both are shown."
+          }
+        ]
+      },
+      {
+        "pair": "coinmarketcap vs chainlink",
+        "warnings": [
+          {
+            "code": "SOURCES_DISAGREE",
+            "message": "19.61% away from coinmarketcap's figure, past the 3.00% tolerance; both are shown."
+          }
+        ]
+      }
+    ]
+  },
+  "freshness": [
+    {
+      "source": "monad oracleVsPool",
+      "fetchedAt": "2026-10-08T22:50:00.000Z",
+      "ageSeconds": 0,
+      "expiresInSeconds": 30
+    },
+    {
+      "source": "monad poolDepth",
+      "fetchedAt": "2026-10-08T22:50:00.000Z",
+      "ageSeconds": 0,
+      "expiresInSeconds": 60
+    },
+    {
+      "source": "defillama chartHourly",
+      "fetchedAt": "2026-10-08T22:50:00.000Z",
+      "ageSeconds": 0,
+      "expiresInSeconds": 900
+    },
+    {
+      "source": "defillama chart4h",
+      "fetchedAt": "2026-10-08T22:50:00.000Z",
+      "ageSeconds": 0,
+      "expiresInSeconds": 3600
+    },
+    {
+      "source": "defillama chainTvl",
+      "fetchedAt": "2026-10-08T22:50:00.000Z",
+      "ageSeconds": 0,
+      "expiresInSeconds": 900
+    },
+    {
+      "source": "defillama dexVolumes",
+      "fetchedAt": "2026-10-08T22:50:00.000Z",
+      "ageSeconds": 0,
+      "expiresInSeconds": 1800
+    },
+    {
+      "source": "defillama protocols",
+      "fetchedAt": "2026-10-08T22:50:00.000Z",
+      "ageSeconds": 0,
+      "expiresInSeconds": 3600
+    },
+    {
+      "source": "defillama yields",
+      "fetchedAt": "2026-10-08T22:50:00.000Z",
+      "ageSeconds": 0,
+      "expiresInSeconds": 3600
+    },
+    {
+      "source": "coinmarketcap quotes",
+      "fetchedAt": "2026-10-08T22:50:00.000Z",
+      "ageSeconds": 0,
+      "expiresInSeconds": 300
+    }
+  ],
+  "upstreamCalls": {
+    "coinmarketcap": 1,
+    "monad": 2,
+    "defillama": 6
+  },
+  "coinmarketcapCreditsToday": 1
+}
