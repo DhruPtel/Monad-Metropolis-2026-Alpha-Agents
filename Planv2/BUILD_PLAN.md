@@ -248,7 +248,7 @@ Each phase lists its goal, build units (ID, name, components touched, dependenci
 | Web search API (Exa or Tavily) | key | P1-U7 | Spending cap. Q-24 |
 | X API, pay per use | key | P3-U9 | Spending cap |
 | Dune API | key | P3-U9 | Spending cap |
-| CoinGecko API | key | P3-U2 | Spending cap |
+| CoinMarketCap API (D-321) | key | P3-U2 | Free Basic plan: 15,000 credits a month |
 | Wallet data provider for `wallet_portfolio`, `wallet_positions`, `wallet_pnl` and `holders` | key | W-2 (wallet data, holders) | Chosen in Q-24. Spending cap. `unlocks` is deferred for the beta (D-302) |
 | Hosting: a long-running host for the orchestrator, tool servers, sentinel and bot runner; managed Postgres and Redis; a web host | account | P1-U4 for the API; PB-U1 for mainnet | Serverless function ceilings silently kill long model calls (section 8, lesson 18) |
 | Domain name | account | PB-U1 | |
@@ -461,7 +461,7 @@ The sweep is the agent's first full research cycle, run once when automatic trad
 | # | Step shown to the owner | Stage | Model | What it does | Terminal record |
 |---|---|---|---|---|---|
 | 1 | Reading your goal and account | none (deterministic) | none | Reads the goal, the template parameters, the live limits and mode, the portfolio and the credits; refuses to continue with a named reason (no goal, no trading balance, credits below the sweep ceiling, account not `NORMAL`) | `sweep_step` record |
-| 2 | Scanning the market | Scan, wide | cheap | `market_snapshot`, CoinGecko and DefiLlama reads, three to six web searches, up to four X searches, up to four page reads; writes Scan notes and up to four themes, each with a materiality (low, medium, high) and the sources behind it | `complete_stage(SCAN)` |
+| 2 | Scanning the market | Scan, wide | cheap | `market_snapshot`, CoinMarketCap and DefiLlama reads, three to six web searches, up to four X searches, up to four page reads; writes Scan notes and up to four themes, each with a materiality (low, medium, high) and the sources behind it | `complete_stage(SCAN)` |
 | 3 | Reading pools and prices | none (deterministic) | none | Pool depth and quotes at the account's reference sizes, oracle against pool deviation, realized volatility over 7 and 30 days, `tradable_now` for a reference trade; stored as the market snapshot record, every figure with its source and `asOf` | `market_snapshot` record |
 | 4 | Researching in depth | Dive, two sessions in sequence | reasoning | The two most material themes, one fresh session each: evidence for and against with source class and confidence per claim, a falsifiable thesis with a kill criterion and a horizon, or "no thesis" | `complete_stage(DIVE)` per theme |
 | 5 | Checking risk | Challenge | reasoning, with the skeptic playbook | Sees only the Dive records, not the sessions: objections and a verdict per thesis (stands, weakened, rejected); then a deterministic risk check: limit headroom, distance to the breaker, the plan's size against pool depth, credit runway at the chosen intensity | `complete_stage(CHALLENGE)` |
@@ -549,7 +549,7 @@ How charges work (D-285, the owner's answer to Q-54 in D-298): model and tool ca
 | Account, prices, quote, limits, tradability, proposals | `chain.get_portfolio@1`, `get_prices`, `get_quote`, `get_limits`, `tradable_now`, `propose_swap`, `get_intent_status` | Yes (P2-U5) | | Zoom out, deterministic steps, runner |
 | Pool depth at reference sizes | `chain.get_pool_depth@1` | No (W-2 remainder of P2-U5) | P3-U2 | step 3, Zoom out, runner's hurdle |
 | Market snapshot (one call: MON price, 24h volume and change, market cap, Monad TVL and its 7-day change, top Monad DEX volumes, pool depth, oracle against pool, realized volatility, each with source and `asOf`) | `data.market_snapshot@1` (new, D-286) | No | P3-U2 | Scan, step 3, Zoom out |
-| CoinGecko prices and history | `data.coingecko_prices@1` | No | P3-U2 | Scan, Dive |
+| CoinMarketCap prices (D-321) | `data.coinmarketcap_prices@1` | No | P3-U2 | Scan, Dive |
 | DefiLlama TVL and yields | `data.defillama_tvl@1`, `data.defillama_yields@1` | No | P3-U2 | Scan (`defi-regime-read`) |
 | Realized volatility | `data.volatility@1` | No | P3-U2 | step 3, Zoom out, runner's brake |
 | X search | `data.x_search@1` | No | P3-U9 | Scan, Dive |
@@ -598,7 +598,7 @@ Build order: P3-U1, P3-U2, P3-U9, P3-U3, P3-U7, P3-U4, Playtest 3-mid, P3-T1 tun
 | Unit | Name | Components touched | Depends on | Acceptance tests |
 |---|---|---|---|---|
 | P3-U1 | Goal form and goal translator | Goal page, deterministic translator, owner limits, strategy epoch, agent state, `get_goals_and_limits` | P2-U6 | No free text; every preset inside template bounds; stricter limits never loosen; a change bumps the strategy epoch and stale intents die |
-| P3-U2 | Data tools: market data | Shared cache, rate-limit handling, plausibility guards, `market_snapshot`, CoinGecko, DefiLlama, volatility, `get_pool_depth` | P1-U7 | Every result has `asOf` and source; a 429 waits per its header; implausible values refused; two agents share one cached upstream call |
+| P3-U2 | Data tools: market data | Shared cache, rate-limit handling, plausibility guards, `market_snapshot`, CoinMarketCap, DefiLlama, volatility, `get_pool_depth` | P1-U7 | Every result has `asOf` and source; a 429 waits per its header; implausible values refused; two agents share one cached upstream call |
 | P3-U9 | Data tools: research sources and the registry check | `x_search`, `dune_query`, `unlocks`, `read_contract`, `balance`, `get_code`, the read broker's redirect check, every registry ID resolved or marked deferred | P3-U2 | MK-S6 metering; no free-text chain string reaches the model; every registry ID resolves to a live tool or a named deferral |
 | P3-U3 | Strategy templates and the template runner | `rebalance_bands@1` with bounds and the evals format, the runner, runner reason codes, accepted parameters by hash | P2-U5, P2-U6, P3-U1, P3-U2 | Template fixtures obey bounds; the runner trades only outside the band, splits legs, holds back with codes, never calls a model |
 | P3-U7 | Launch skills as built-in folders | The skills the demo uses, the stage playbooks, the loader path, B-01 | P3-U3, P1-U1 | B-01 passes; H-11 read-only; H-30 index size recorded |
@@ -654,7 +654,7 @@ The full specification of each unit follows. Every unit prompt also carries the 
 1. A shared upstream cache keyed by provider, method and normalized input, with a time to live per source; `cacheHit` recorded on every metered row; a cached answer costs the agent the cached price (A-52).
 2. Upstream hygiene: timeouts, retry only on 429, 5xx and dropped connections, honoring `Retry-After` and rate-limit headers in code, a per-provider token bucket, `STALE_DATA` and `UPSTREAM_UNAVAILABLE` with `retryable`.
 3. Plausibility guards at the source (lesson 1): every numeric field has a range it must fall in (for example MON price, TVL, volume), and a value outside it is refused, logged and never served; two sources for the same figure are both shown with their source, never merged (lesson 2).
-4. Tools: `coingecko_prices` (price, 24h change, volume, market cap, hourly and daily history for MON and USDC), `defillama_tvl` (Monad chain TVL with history, top Monad protocols), `defillama_yields` (Monad pools), `volatility` (realized volatility over 24 hours, 7 and 30 days from CoinGecko history, with the method named), `chain.get_pool_depth` (price impact at reference sizes on the venue), and `market_snapshot` (one call composing the above plus oracle against pool from the chain, each figure with its source and `asOf`).
+4. Tools: `coinmarketcap_prices` (price, 24h change, volume and market cap for MON and USDC; the free plan has no history, D-321), `defillama_tvl` (Monad chain TVL with history, top Monad protocols), `defillama_yields` (Monad pools), `volatility` (realized volatility over 24 hours, 7 and 30 days from DefiLlama's recorded price history (D-321), with the method named), `chain.get_pool_depth` (price impact at reference sizes on the venue), and `market_snapshot` (one call composing the above plus oracle against pool from the chain, each figure with its source and `asOf`).
 5. Registry entries for `data.market_snapshot@1` (new) and the price table rows (A-52).
 6. Platform-side readers for the same data, used by the template runner and the deterministic sweep steps without a sandbox.
 
@@ -900,7 +900,7 @@ Phase 3 needs nothing P2-EC deploys (D-247); its lessons on real fees and finali
 | Arming completes on the first approved trade (D-264) | Built | The plan approval becomes that approval (P3-U8, D-291) |
 | Chain tools `get_pool_depth`, `read_contract`, `balance`, `get_code` | W-2 remainder of P2-U5 | Pulled into P3-U2 and P3-U9 |
 | Scans run every 6 hours for every funded agent (D-216) | Built | Only activated agents are scheduled (P3-U10, D-292) |
-| Fork market frozen at the pinned block; feeds re-dated with the same answer (D-237); live CoinGecko prices differ from the fork's | Built | Research uses live data and names sources (D-289); the console's market mover makes triggers and drift testable on the fork (P3-U10) |
+| Fork market frozen at the pinned block; feeds re-dated with the same answer (D-237); live CoinMarketCap prices differ from the fork's | Built | Research uses live data and names sources (D-289); the console's market mover makes triggers and drift testable on the fork (P3-U10) |
 | Testnet's MON price is `TestnetFeed`'s operator value (D-253), not the market's | P2-EC | Testnet trades follow the testnet pool; research still reads mainnet data; the testnet feed keeper should track the mainnet price (suggestion for the Rehearsal) |
 | Gas for runner trades off the fork (C-79) | Fork only | P2-EC's operator script on testnet; A-19 later |
 | Q-28 (evals format, template parameters) | Open | Answered for `rebalance_bands@1` in P3-U3 |
@@ -1084,7 +1084,7 @@ The "Hackathon beta" column is the cut line. **Full** ships as specified in Pass
 | 26b | 5 | P2-EC part 2 | Early chain check: mainnet canary | A labeled throwaway mainnet canary swap; measure where the fork and mainnet differ | P2-EC part 1 | Done: pre-beta check, nothing it deploys is kept (D-247, D-249, D-303, D-316); results in `evidence/p2-ec/REAL_CHAIN.md` |
 | | | Playtest 2-end | | The Phase 2 checkpoint in the web app on P2-EC's testnet deployment and the fork | after P2-EC | |
 | 27 | 6 | P3-U1 | Goal form and goal translator | Structured goal to template parameters, owner limits and the strategy epoch | P2-U6 | Thin: every field (template, risk preset, allowed assets, stricter limits, reasoning model, research intensity with the daily budget, plan-change approval), the translator, the strategy epoch, `get_goals_and_limits`, the Goal page; `dca@1` shown as available later. Done (Thin, D-320) |
-| 28 | 6 | P3-U2 | Data tools: market data | Cached, dated, plausibility-checked market data and the market snapshot | P1-U7 | Thin: the cache, upstream hygiene, plausibility guards, `market_snapshot`, CoinGecko, DefiLlama, `volatility`, `get_pool_depth` |
+| 28 | 6 | P3-U2 | Data tools: market data | Cached, dated, plausibility-checked market data and the market snapshot | P1-U7 | Thin: the cache, upstream hygiene, plausibility guards, `market_snapshot`, CoinMarketCap, DefiLlama, `volatility`, `get_pool_depth` Done (Thin, D-321, D-322) |
 | 28b | 6 | P3-U9 | Data tools: research sources and the registry check | The remaining sources the demo's skills declare; every registry ID resolved | P3-U2 | Thin: `x_search`, `dune_query` (saved queries), `unlocks` (or deferred by Q-58), `read_contract`, `balance`, `get_code`, the redirect check, the registry check. W-2: wallet data and holders. After PB-U2: `ohlcv`, `hypersync_events`, the premium set |
 | 29 | 6 | P3-U3 | Strategy templates and the template runner | The plan as template parameters; deterministic trades with reasons | P2-U5, P3-U1, P3-U2 | Thin: `rebalance_bands@1`, the evals format, the runner and its codes. W-2: `dca@1` |
 | 30 | 6 | P3-U7 | Launch skills as built-in folders | The demo's skills and the stage playbooks, mounted read-only | P3-U3, P1-U1 | Thin: six skills and four playbooks with B-01. W-1: all nine with B-02 and H-44 (a launch gate if the nine ship) |
@@ -1431,8 +1431,8 @@ The beta is never opened beyond the allowlist and caps to make a demo look bigge
 
 | # | Lesson | Affects |
 |---|---|---|
-| 1 | A standardized data schema guarantees that a field exists and parses, not that its value is true. Every figure that reaches the agent, a report or a settlement needs a plausibility range it must fall inside, and guards belong with the data source, not with the query | P3-U2 (per-source plausibility checks on DefiLlama, CoinGecko, Dune and wallet data), P4-U5, P7-U6 |
-| 2 | A figure's identity is (source entity, field), never field alone. Two identically named numbers from different entities diverged and the analyst was scored on the one it never read. When two sources disagree, show both, never pick one quietly | P3-U2 (oracle, pool and CoinGecko prices are different series), P4-U5, P7-U6 |
+| 1 | A standardized data schema guarantees that a field exists and parses, not that its value is true. Every figure that reaches the agent, a report or a settlement needs a plausibility range it must fall inside, and guards belong with the data source, not with the query | P3-U2 (per-source plausibility checks on DefiLlama, CoinMarketCap, Dune and wallet data), P4-U5, P7-U6 |
+| 2 | A figure's identity is (source entity, field), never field alone. Two identically named numbers from different entities diverged and the analyst was scored on the one it never read. When two sources disagree, show both, never pick one quietly | P3-U2 (oracle, pool and CoinMarketCap prices are different series), P4-U5, P7-U6 |
 | 3 | Verify canonical bytes as bytes or text, never through a parsed object; JavaScript reorders integer-like keys on parse. Avoid integer-like keys in anything hashed | P0-U5, P6-U3 (content hash), P2-U4 (intent hashes) |
 | 4 | A capability claim about a vendor is a claim about one host. Name the host measured, and re-measure anything a plan branch depends on at the moment the branch is taken | P2-U0, P5-U4, P8-U4 (x402 facilitator testnet and mainnet hosts), every spike |
 | 5 | The x402 client library ships client-side spend controls that are on by default; `spendControls: false` must never appear in product code, and every payable asset gets an explicit allowlist entry with a per-payment cap | P5-U4, P8-U4 |

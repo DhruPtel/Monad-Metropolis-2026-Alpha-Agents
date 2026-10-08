@@ -1140,3 +1140,17 @@ What happened: The full vitest run at the end of the unit failed `creates every 
 Cause: L-146 again: I ran the test files of the code I wrote, not the tests of the package I changed, and packages/db keeps a list of every table.
 Fix: The list names `platform.agent_goals`, `platform.agent_states` and `platform.agent_state_changes`; the full suite passes.
 Lesson: After changing a package, run every test file in that package, not only the new ones; a migration always touches packages/db's own tests.
+
+## L-150: Unicode escapes written through a tool call arrived as the invisible characters (L-82 again)
+Unit: P3-U2
+What happened: `packages/market/src/text.ts`, which strips zero-width and bidirectional characters, would not parse: prettier and tsc reported an unterminated regular expression, because the file held the literal U+2028 line separator, zero-width and bidi characters inside the regex where `​` and the like had been written.
+Cause: The command that wrote the file travels as JSON, and JSON decodes `\uXXXX` sequences, so the shell received the characters themselves; U+2028 then broke the line. This is why L-82 recurred with a different writer.
+Fix: The file was rewritten by a script that builds each backslash at run time (`"\\" + "u200b"`), a grep for non-ASCII bytes across the package finds none, and its test builds the sneaky characters with `String.fromCharCode` rather than literals.
+Lesson: Never type `\u` escapes into a file through a tool call; generate them so the backslash is produced at run time, and grep every new source file for non-ASCII bytes before it is committed.
+
+## L-151: The meter's paid-call cap refused a free call
+Unit: P3-U2
+What happened: The gate test for market data found that after a lease's 20 paid calls, a market_snapshot the cache could answer for free was refused with RATE_LIMITED.
+Cause: The cap counted every non-refused data call, free ones included, and was checked before the call's price was considered.
+Fix: The cap counts only calls with a charge above zero and applies only to a call that would be charged; a free call writes its row with `cache_hit` and no ledger entry. Also caught by the tests this unit: a mocked `Response` reused across calls (its body can be read once), fixed by building one per call.
+Lesson: When a limit exists to protect spend, count and check only what spends; and test a free path right after a paid limit is reached.

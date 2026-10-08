@@ -147,7 +147,7 @@ flowchart TB
   subgraph L2[Layer 2: indexing and data]
     IDX[Envio indexer: chain projections with block and hash watermarks]
     LED[Ledger: intents, submissions, receipts, journals, usage receipts]
-    DATA[External data: DefiLlama, CoinGecko, Dune, X, web search, HyperSync]
+    DATA[External data: DefiLlama, CoinMarketCap, Dune, X, web search, HyperSync]
     ORA[Oracle reads: Chainlink feeds plus venue pool price]
   end
   subgraph L1[Layer 1: onchain, Monad 143]
@@ -711,13 +711,13 @@ Intent pipeline: quick deterministic checks synchronously (asset, size, caps, fl
 
 **Purpose.** Every external read the agent may make, metered, cached and sanitized.
 
-**What it does.** Baseline tools for all tiers: `market_snapshot` (one call composing the market figures with their sources, D-286), `web_search`, `read_url` (through a broker that strips active content and marks the result untrusted), `x_search`, `dune_query`, `defillama_yields`, `defillama_tvl`, `coingecko_prices`, `hypersync_events` (Envio HyperSync for event history), `wallet_portfolio`, `wallet_positions`, `wallet_pnl`, `holders`, `unlocks`, `volatility`, `ohlcv`. Premium curated data tools for the pro tier. One shared price and quote cache across agents; `cacheHit` recorded; freshness fields on every result; timeouts and backoff on every upstream; `STALE_DATA` and `UPSTREAM_UNAVAILABLE` with `retryable`. The server pays for x402-priced data sources from a platform wallet and meters the agent; the agent never sees a 402 (`Planv1/research/bankr-skills/02-platform-mapping.md > 2.3`).
+**What it does.** Baseline tools for all tiers: `market_snapshot` (one call composing the market figures with their sources, D-286), `web_search`, `read_url` (through a broker that strips active content and marks the result untrusted), `x_search`, `dune_query`, `defillama_yields`, `defillama_tvl`, `coinmarketcap_prices`, `hypersync_events` (Envio HyperSync for event history), `wallet_portfolio`, `wallet_positions`, `wallet_pnl`, `holders`, `unlocks`, `volatility`, `ohlcv`. Premium curated data tools for the pro tier. One shared price and quote cache across agents; `cacheHit` recorded; freshness fields on every result; timeouts and backoff on every upstream; `STALE_DATA` and `UPSTREAM_UNAVAILABLE` with `retryable`. The server pays for x402-priced data sources from a platform wallet and meters the agent; the agent never sees a 402 (`Planv1/research/bankr-skills/02-platform-mapping.md > 2.3`).
 
-**Depends on.** Provider accounts (X API pay-per-use, Dune, CoinGecko, DefiLlama, Envio, a web search API), metering, the platform x402 payer.
+**Depends on.** Provider accounts (X API pay-per-use, Dune, CoinMarketCap, DefiLlama, Envio, a web search API), metering, the platform x402 payer.
 
 **Depended on by.** Research skills, discovery stages, Thesis Board evidence.
 
-**Decisions and constraints.** Baseline is web search, X, Dune and chain tools plus the free sources DefiLlama, CoinGecko and HyperSync (`conversation decision`, `planning answer`). Hermes' own `web`, `search` and `x_search` toolsets are disabled so every data call is metered (`notes/hermes.md > 3.1`). Results are wrapped as untrusted by Hermes; the server also caps length and strips control characters (`notes/monad-agent-kit.md > 2`). Rate-limit headers are honored in code, not prose (`Planv1/research/bankr-skills.md > 7`).
+**Decisions and constraints.** Baseline is web search, X, Dune and chain tools plus the free sources DefiLlama, CoinMarketCap and HyperSync (`conversation decision`, `planning answer`). Hermes' own `web`, `search` and `x_search` toolsets are disabled so every data call is metered (`notes/hermes.md > 3.1`). Results are wrapped as untrusted by Hermes; the server also caps length and strips control characters (`notes/monad-agent-kit.md > 2`). Rate-limit headers are honored in code, not prose (`Planv1/research/bankr-skills.md > 7`).
 
 #### 4.4.4 Platform tools server
 
@@ -758,7 +758,7 @@ One registry, defined in `packages/domain` and re-exported by `packages/skills` 
 | `data.dune_query@1` | data | baseline | saved Dune queries | `deep-dive-research`, `token-risk-screen`, `defi-regime-read` |
 | `data.defillama_yields@1` | data | baseline | yields | `defi-regime-read` |
 | `data.defillama_tvl@1` | data | baseline | TVL | `defi-regime-read` |
-| `data.coingecko_prices@1` | data | baseline | market prices and history | `defi-regime-read` |
+| `data.coinmarketcap_prices@1` | data | baseline | market prices and history | `defi-regime-read` |
 | `data.hypersync_events@1` | data | baseline | event history | none at launch |
 | `data.wallet_portfolio@1` | data | baseline | wallet holdings | `wallet-intel` |
 | `data.wallet_positions@1` | data | baseline | wallet positions | `wallet-intel` |
@@ -840,7 +840,7 @@ From the research's starter set with lending and LP skills removed and schedulin
 | `wmon-dca-accumulator` | strategy | Scheduled USDC to WMON buys with a drawdown pause and budget; tunes template `dca@1`; paired with the Recurring Buys workflow | `chain.get_prices@1`, `chain.get_limits@1`, `chain.get_portfolio@1`, `data.volatility@1`; `intent.propose_swap@1`, `intent.propose_strategy_update@1` | 2 |
 | `deep-dive-research` | research | Tiered sources, per-claim confidence, mandatory skeptic section | `data.web_search@1`, `data.read_url@1`, `data.x_search@1`, `data.dune_query@1`, `chain.read_contract@1` | 1 |
 | `token-risk-screen` | research | Deployer, admin powers, liquidity, holder concentration, honeypot signs | `chain.read_contract@1`, `chain.get_code@1`, `data.holders@1`, `data.dune_query@1` | 1 |
-| `defi-regime-read` | research | Risk-on, neutral, risk-off verdict; sustainable versus incentive yield | `data.defillama_yields@1`, `data.defillama_tvl@1`, `data.coingecko_prices@1`, `chain.get_prices@1`, `data.dune_query@1` | 1 |
+| `defi-regime-read` | research | Risk-on, neutral, risk-off verdict; sustainable versus incentive yield | `data.defillama_yields@1`, `data.defillama_tvl@1`, `data.coinmarketcap_prices@1`, `chain.get_prices@1`, `data.dune_query@1` | 1 |
 | `narrative-and-flow-tracker` | research | Rising, peaking and fading narratives with velocity; supply unlocks after the beta (D-302) | `data.x_search@1`, `data.web_search@1`; `data.unlocks@1` after the beta | 1 |
 | `wallet-intel` | research | Portfolio, positions and PnL interpretation for the agent's accounts and watched wallets | `data.wallet_portfolio@1`, `data.wallet_positions@1`, `data.wallet_pnl@1`, `chain.balance@1`, `chain.get_portfolio@1` | 1 |
 
