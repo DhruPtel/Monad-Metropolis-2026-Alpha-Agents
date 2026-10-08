@@ -475,6 +475,42 @@ export class Orchestrator {
     return disarm(this.trades, ref.chainId, ref.agentId);
   }
 
+  /**
+   * Local only (the console): records a proposal of half the account's USDC,
+   * over the 10% trade size, as an agent ignoring its limits would. It waits
+   * while unarmed; armed, the trade flow approves it and the re-check at
+   * submission blocks it with its reasons.
+   */
+  async proposeOverLimitForTest(ref: AgentRef): Promise<string> {
+    const a = await this.o.chain?.reader?.agent(ref.agentId);
+    if (!a?.account) throw new Error("The agent has no trading account on this chain.");
+    if (a.usdc < 2n) throw new Error("The agent's account holds no USDC to propose with.");
+    const intentId = `intent-${randomUUID()}`;
+    await this.o.store.db
+      .insertInto("platform.intents")
+      .values({
+        intent_id: intentId,
+        chain_id: ref.chainId,
+        agent_id: ref.agentId,
+        lease_id: "console-over-limit",
+        kind: "swap",
+        account: a.account.toLowerCase(),
+        sell: "USDC",
+        buy: "WMON",
+        amount_in: (a.usdc / 2n).toString(),
+        reason: "Dev console: a proposal over the trade size limit.",
+        idempotency_key: intentId,
+        status: "awaiting_approval",
+        reason_codes: "[]",
+        checks: "{}",
+        owner_epoch: a.ownerEpoch.toString(),
+        config_epoch: a.configEpoch.toString(),
+        expires_at: new Date(Date.now() + 30 * 60_000),
+      })
+      .execute();
+    return intentId;
+  }
+
   /** Why the agent did not trade: its arming and its recent blocked trades. */
   async whyNotTraded(ref: AgentRef) {
     return this.trades.whyNotTraded(ref.chainId, ref.agentId);

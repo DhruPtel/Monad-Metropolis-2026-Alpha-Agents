@@ -222,6 +222,8 @@ export interface AgentsSource {
   armAgent?(agentId: AgentId): Promise<ArmingView>;
   /** P2-U6: disarm now, and revoke the grant on the local fork. */
   disarmAgent?(agentId: AgentId): Promise<ArmingView>;
+  /** P2-U6: record a proposal over the trade size limit (local only); returns its intent ID. */
+  proposeOverLimit?(agentId: AgentId): Promise<string>;
   /** P2-U6: approve a waiting intent as the owner; true when it armed the agent. */
   approveIntent?(agentId: AgentId, intentId: string): Promise<boolean>;
 }
@@ -329,6 +331,12 @@ export function orchestratorSource(baseUrl: string, fetchFn: typeof fetch = fetc
       const body = await call(`/v1/agents/${agentId.toString()}/disarm`, { method: "POST" });
       return body.arming as ArmingView;
     },
+    async proposeOverLimit(agentId: AgentId): Promise<string> {
+      const body = await call(`/v1/agents/${agentId.toString()}/test-over-limit`, {
+        method: "POST",
+      });
+      return String(body.intentId);
+    },
     async approveIntent(agentId: AgentId, intentId: string): Promise<boolean> {
       const body = await call(
         `/v1/agents/${agentId.toString()}/intents/${encodeURIComponent(intentId)}/approve`,
@@ -368,6 +376,7 @@ export function apiAgentsSource(
           armAgent: orch.armAgent,
           disarmAgent: orch.disarmAgent,
           approveIntent: orch.approveIntent,
+          proposeOverLimit: orch.proposeOverLimit,
         }
       : {}),
     async listAgents() {

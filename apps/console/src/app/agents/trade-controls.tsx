@@ -14,12 +14,18 @@ import {
 } from "@alpha-agents/ui";
 import { useRouter } from "next/navigation";
 import { useEffect, useTransition } from "react";
-import { approveIntentAction, armAgentAction, disarmAgentAction } from "./actions";
+import {
+  approveIntentAction,
+  armAgentAction,
+  disarmAgentAction,
+  proposeOverLimitAction,
+} from "./actions";
 
 /**
  * The trade flow's console controls (P2-U6): arm the agent as its owner would
  * (on the local fork the owner's grant is impersonated), disarm it (which
- * revokes the grant), and approve one waiting intent. The page refreshes
+ * revokes the grant), approve one waiting intent, and record a proposal over
+ * the trade size limit to see a trade blocked. The page refreshes
  * itself while any intent is moving, so its states show as they change.
  */
 export function ArmingControls({
@@ -62,8 +68,27 @@ export function ArmingControls({
       router.refresh();
     });
 
+  const overLimit = () =>
+    start(async () => {
+      const r = await proposeOverLimitAction(agentId);
+      if (!r.ok) {
+        toast.error("No proposal recorded", { description: r.error });
+        return;
+      }
+      toast.info("Proposed half the account's USDC", {
+        description:
+          state === "armed"
+            ? "The trade flow approves it and the re-check at submission blocks it."
+            : "It waits for approval; approve it to see the re-check block it.",
+      });
+      router.refresh();
+    });
+
   return (
     <div className="flex flex-wrap gap-2">
+      <Button size="sm" variant="ghost" disabled={!enabled || pending} onClick={overLimit}>
+        Propose over-limit trade
+      </Button>
       <Button
         size="sm"
         variant="secondary"

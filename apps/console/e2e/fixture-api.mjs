@@ -543,6 +543,8 @@ createServer((req, res) => {
     waitingStatus = "approved";
     return json(200, { armed, intent: { intentId: WAITING, status: "approved" } });
   }
+  if (req.method === "POST" && req.url === "/v1/agents/1/test-over-limit")
+    return json(201, { intentId: "intent-5a4b3c2d-1e0f-4a9b-8c7d-6e5f4a3b2c1d" });
   // Test-only: puts agent 1's arming and intents back, so one test's arming never reaches another's.
   if (req.method === "POST" && req.url === "/__fixture/reset-arming") {
     armingState = "unarmed";

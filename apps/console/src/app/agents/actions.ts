@@ -160,3 +160,12 @@ export async function approveIntentAction(
     return source.approveIntent(agentId(id), intentId);
   });
 }
+
+/** P2-U6: a proposal over the trade size limit, so a blocked trade can be seen (local only). */
+export async function proposeOverLimitAction(id: string): Promise<ActionResult<string>> {
+  return attempt(async () => {
+    const source = agentsSource();
+    if (!source.proposeOverLimit) throw new Error("The orchestrator is not configured.");
+    return source.proposeOverLimit(agentId(id));
+  });
+}

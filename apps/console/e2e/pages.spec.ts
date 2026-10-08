@@ -257,6 +257,8 @@ test.describe("agents panel controls (P1-U5)", () => {
     const noGas = intents.locator('tr[data-status="rejected"]').filter({ hasText: "GAS_UNFUNDED" });
     await expect(noGas).toContainText("no MON to pay gas");
     await expect(noGas).toContainText("the owner clears it");
+    await arming.getByRole("button", { name: "Propose over-limit trade" }).click();
+    await expect(page.getByText("Proposed half the account's USDC")).toBeVisible();
     await arming.getByRole("button", { name: "Arm", exact: true }).click();
     await expect(arming).toHaveAttribute("data-state", "awaiting_first_trade");
     await expect(arming).toContainText("Approve first trade");
