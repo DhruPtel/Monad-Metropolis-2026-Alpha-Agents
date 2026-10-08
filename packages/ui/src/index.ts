@@ -39,3 +39,5 @@ export * from "./components/agent/my-agent";
 export * from "./components/agent/portfolio";
 export * from "./components/agent/credits";
 export * from "./components/agent/holdings";
+export * from "./components/agent/goal";
+export * from "./components/ui/choice-group";

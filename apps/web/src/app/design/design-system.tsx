@@ -10,10 +10,23 @@ import {
   INTENT_STATES,
   ARMING_STATES,
   TRADE_FLOW_CODES,
+  RESEARCH_INTENSITIES,
+  RESEARCH_INTENSITY_FACTS,
+  RISK_PRESETS,
+  RISK_PRESET_FACTS,
+  type ResearchIntensity,
+  type RiskPreset,
 } from "@alpha-agents/domain";
 import { Bot, Boxes, Copy, Eye, Radio, Users } from "lucide-react";
-import type { ReactNode } from "react";
+import { type ReactNode, useState } from "react";
 import {
+  ChoiceGroup,
+  CostPreview,
+  EffectiveLimits,
+  GoalSaveStatus,
+  GoalSummary,
+  LimitField,
+  bpsText,
   AddressDisplay,
   AgentCard,
   AmountDisplay,
@@ -1959,6 +1972,152 @@ function PortfolioSection() {
   );
 }
 
+const GOAL_HARD = {
+  maxTradeBps: 1_000,
+  maxWmonShareBps: 4_000,
+  minUsdcShareBps: 1_000,
+  maxSlippageBps: 50,
+  maxTradesPer24h: 20,
+};
+const GOAL_COST_ROWS = RESEARCH_INTENSITIES.map((intensity) => ({
+  intensity,
+  dailyBudgetUsdcE6: RESEARCH_INTENSITY_FACTS[intensity].defaultDailyBudgetUsdcE6,
+}));
+const usdcText = (e6: bigint) => (Number(e6) / 1e6).toFixed(2);
+
+/** P3-U1: the Goal page's pieces, every state. */
+function GoalSection() {
+  const [preset, setPreset] = useState<RiskPreset>("BALANCED");
+  const [intensity, setIntensity] = useState<ResearchIntensity>("LIGHT");
+  const [limit, setLimit] = useState("");
+  return (
+    <Section id="goal" title="Goal">
+      <Specimen
+        name="ChoiceGroup"
+        note="One choice among a few, each a card with its numbers. Arrow keys move the choice."
+      >
+        <ChoiceGroup
+          legend="Risk preset"
+          hint="How much of the account the agent may keep in WMON, and how wide a drift it allows."
+          value={preset}
+          onValueChange={setPreset}
+          options={RISK_PRESETS.map((id) => {
+            const f = RISK_PRESET_FACTS[id];
+            return {
+              value: id,
+              title: f.label,
+              detail: `WMON ${bpsText(f.targetMinBps)} to ${bpsText(f.targetMaxBps)}, starts at ${bpsText(f.defaultTargetBps)}, band ±${bpsText(f.bandHalfWidthBps)}`,
+            };
+          })}
+        />
+        <ChoiceGroup
+          legend="Research intensity"
+          value={intensity}
+          onValueChange={setIntensity}
+          options={RESEARCH_INTENSITIES.map((id) => {
+            const f = RESEARCH_INTENSITY_FACTS[id];
+            return {
+              value: id,
+              title: f.label,
+              ...(id === "LIGHT" ? { note: "Default" } : {}),
+              description: `A Scan every ${f.scanEveryHours} hours, up to ${f.divesPerDay} Dive${f.divesPerDay === 1 ? "" : "s"} a day.`,
+              detail: `${usdcText(f.defaultDailyBudgetUsdcE6)} USDC a day, at most ${usdcText(f.defaultDailyBudgetUsdcE6 * 30n)} a month`,
+            };
+          })}
+        />
+        <ChoiceGroup
+          legend="Strategy template (an unavailable option, and the whole group disabled)"
+          value="rebalance_bands@1"
+          onValueChange={() => undefined}
+          columns={2}
+          disabled
+          options={[
+            {
+              value: "rebalance_bands@1",
+              title: "Band rebalancer",
+              description: "Keeps a target share in WMON and trades back toward it.",
+            },
+            { value: "dca@1", title: "Steady buying", note: "Available later", disabled: true },
+          ]}
+        />
+      </Specimen>
+      <Specimen
+        name="LimitField"
+        note="A stricter limit: empty keeps the hard limit; a value may only tighten it."
+      >
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <LimitField field="maxTradeBps" hard={1_000} valueText={limit} onChange={setLimit} />
+          <LimitField field="maxTradesPer24h" hard={20} valueText="6" onChange={() => undefined} />
+          <LimitField
+            field="minUsdcShareBps"
+            hard={1_000}
+            valueText="9"
+            onChange={() => undefined}
+            error="Least in USDC can only tighten the hard limit of 10%; 9% would loosen it."
+          />
+          <LimitField
+            field="maxSlippageBps"
+            hard={50}
+            valueText=""
+            onChange={() => undefined}
+            disabled
+          />
+        </div>
+      </Specimen>
+      <Specimen
+        name="EffectiveLimits"
+        note="The hard limit, the owner's, and the tighter of the two."
+      >
+        <EffectiveLimits
+          hard={GOAL_HARD}
+          owner={{
+            maxTradeBps: 500,
+            maxWmonShareBps: null,
+            minUsdcShareBps: 2_000,
+            maxSlippageBps: null,
+            maxTradesPer24h: 6,
+          }}
+          effective={{ ...GOAL_HARD, maxTradeBps: 500, minUsdcShareBps: 2_000, maxTradesPer24h: 6 }}
+        />
+      </Specimen>
+      <Specimen
+        name="CostPreview"
+        note="What a month of research can cost at each intensity (D-299), with the chosen one marked."
+      >
+        <CostPreview rows={GOAL_COST_ROWS} selected="LIGHT" days={30} sweepMaxUsdcE6={4_000_000n} />
+      </Specimen>
+      <Specimen
+        name="GoalSummary"
+        note="The goal in one line with the agent's state, for the card and the portfolio."
+      >
+        <div className="flex flex-col gap-3">
+          <GoalSummary state="UNCONFIGURED" template={null} riskPreset={null} />
+          <GoalSummary state="READY" template="rebalance_bands@1" riskPreset="BALANCED" />
+          <GoalSummary state="RUNNING" template="rebalance_bands@1" riskPreset="GROWTH" />
+        </div>
+      </Specimen>
+      <Specimen
+        name="GoalSaveStatus"
+        note="The save's result: saving, saved, refused with each reason, failed."
+      >
+        <div className="flex flex-col gap-3">
+          <GoalSaveStatus state="saving" text="Saving the goal." />
+          <GoalSaveStatus
+            state="saved"
+            text="Goal saved. The agent is now Ready, under strategy epoch 1."
+          />
+          <GoalSaveStatus
+            state="refused"
+            text="The goal was not saved; fix the fields named below."
+            reasons={["Largest trade can only tighten the hard limit of 10%; 12% would loosen it."]}
+          />
+          <GoalSaveStatus state="failed" text="Could not reach the platform API. Try again." />
+        </div>
+      </Specimen>
+    </Section>
+  );
+}
+
 function DesignSystem() {
   return (
     <div className="flex flex-col gap-10">
@@ -1978,6 +2137,7 @@ function DesignSystem() {
       <FormsSection />
       <OverlaysSection />
       <DataSection />
+      <GoalSection />
     </div>
   );
 }
