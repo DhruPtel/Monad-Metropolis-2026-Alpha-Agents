@@ -117,36 +117,57 @@ export function forgeScript(script, o) {
 }
 
 /**
- * The transactions forge broadcast in a script's latest testnet run, with gas
- * limit, gas used, price and cost from the receipts.
+ * What the chain says about one transaction: its gas limit, the receipt's gas
+ * used, the fees, and the MON paid. On Monad a receipt's gasUsed is the gas
+ * limit, because the limit is what is charged; forge's broadcast file can
+ * hold a stale limit for a call, so both come from the chain (P2-EC).
+ * @param {string} url @param {string} hash
+ */
+export async function chainTransaction(url, hash) {
+  const tx = await testnetRpc(url, "eth_getTransactionByHash", [hash]);
+  const r = await testnetRpc(url, "eth_getTransactionReceipt", [hash]);
+  const block = await testnetRpc(url, "eth_getBlockByNumber", [r.blockNumber, false]);
+  const gasLimit = BigInt(tx.gas);
+  const gasUsed = BigInt(r.gasUsed);
+  const price = BigInt(r.effectiveGasPrice);
+  return {
+    hash,
+    from: tx.from,
+    to: tx.to ?? null,
+    created: r.contractAddress ?? null,
+    block: Number(BigInt(r.blockNumber)),
+    blockTime: Number(BigInt(block.timestamp)),
+    status: r.status,
+    type: tx.type,
+    gasLimit: gasLimit.toString(),
+    gasUsed: gasUsed.toString(),
+    baseFeeWei: BigInt(block.baseFeePerGas ?? 0).toString(),
+    maxFeePerGasWei: BigInt(tx.maxFeePerGas ?? tx.gasPrice).toString(),
+    maxPriorityFeePerGasWei: BigInt(tx.maxPriorityFeePerGas ?? 0).toString(),
+    effectiveGasPriceWei: price.toString(),
+    paidWei: (gasUsed * price).toString(),
+  };
+}
+
+/**
+ * The transactions forge broadcast in a script's latest testnet run, labelled
+ * from forge's record and measured from the chain.
+ * @param {string} url
  * @param {string} scriptFile e.g. "DeployTestnetMarket.s.sol"
  */
-export function broadcastRecords(scriptFile) {
+export async function broadcastRecords(url, scriptFile) {
   const path = join(MONAD_DIR, "broadcast", scriptFile, String(TESTNET.chainId), "run-latest.json");
   if (!existsSync(path)) return [];
   const run = JSON.parse(readFileSync(path, "utf8"));
-  return run.transactions.map((/** @type {any} */ t, /** @type {number} */ i) => {
-    const r =
-      run.receipts.find((/** @type {any} */ x) => x.transactionHash === t.hash) ?? run.receipts[i];
-    const gasLimit = BigInt(t.transaction.gas);
-    const gasUsed = BigInt(r.gasUsed);
-    const price = BigInt(r.effectiveGasPrice);
-    return {
-      kind: t.transactionType,
-      contract: t.contractName ?? null,
-      function: t.function ?? null,
-      to: t.transaction.to ?? null,
-      created: t.contractAddress ?? null,
-      hash: t.hash,
-      block: Number(BigInt(r.blockNumber)),
-      status: r.status,
-      gasLimit: gasLimit.toString(),
-      gasUsed: gasUsed.toString(),
-      effectiveGasPriceWei: price.toString(),
-      // Monad charges the gas limit, not the gas used.
-      costWeiAtLimit: (gasLimit * price).toString(),
-    };
-  });
+  const out = [];
+  for (const t of run.transactions) {
+    out.push({
+      what: t.contractName ?? t.function ?? t.transactionType,
+      script: scriptFile,
+      ...(await chainTransaction(url, t.hash)),
+    });
+  }
+  return out;
 }
 
 /** `label value` lines a forge script printed. @param {string} output @param {string} label */

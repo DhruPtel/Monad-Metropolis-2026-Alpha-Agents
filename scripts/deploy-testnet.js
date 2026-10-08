@@ -161,9 +161,9 @@ try {
   }
 
   const transactions = [
-    ...broadcastRecords("DeployTestnetMarket.s.sol"),
-    ...broadcastRecords("DeployAgentNFT.s.sol"),
-    ...broadcastRecords("DeployAccountFactory.s.sol"),
+    ...(await broadcastRecords(url, "DeployTestnetMarket.s.sol")),
+    ...(await broadcastRecords(url, "DeployAgentNFT.s.sol")),
+    ...(await broadcastRecords(url, "DeployAccountFactory.s.sol")),
   ].filter((t) => t.block >= startBlock);
   const balanceAfter = BigInt(await testnetRpc(url, "eth_getBalance", [deployer, "latest"]));
   const record = {
