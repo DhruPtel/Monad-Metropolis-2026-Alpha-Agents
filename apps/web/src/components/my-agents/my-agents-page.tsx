@@ -18,6 +18,7 @@ import {
   DialogTrigger,
   EmptyState,
   FundAgentPanel,
+  GoalSummary,
   RunStatusBadge,
   SectionLabel,
   Skeleton,
@@ -115,6 +116,20 @@ function MyAgentCard({ agent, environment }: { agent: AgentView; environment: En
               <Skeleton className="h-5 w-28" />
             )}
           </div>
+          {summary?.goal ? (
+            <GoalSummary
+              state={summary.goal.state}
+              template={summary.goal.template}
+              riskPreset={summary.goal.riskPreset}
+              action={
+                <Button asChild size="sm" variant="ghost">
+                  <Link href={`/agents/${agent.id.toString()}/goal`}>
+                    {summary.goal.configured ? "Change goal" : "Set goal"}
+                  </Link>
+                </Button>
+              }
+            />
+          ) : null}
           {summary?.runStatus === "restricted" ? (
             <p className="text-sm text-foreground-muted" data-testid="restricted-note">
               Research is paused because {name} has no credits. Safety checks keep running. Send

@@ -184,6 +184,13 @@ export function AgentPortal({ environment }: { environment: EnvironmentId }) {
         ownerEpoch={selected.ownerEpoch}
         environment={envLabel}
       />
+      {info ? (
+        <Button asChild variant="secondary" size="sm" className="self-start">
+          <a href={`/agents/${selected.id.toString()}/goal`} data-testid="configure-goal-link">
+            Set the goal
+          </a>
+        </Button>
+      ) : null}
       {owned.agents.length > 1 ? (
         <nav aria-label="Your agents" className="flex flex-col gap-2">
           <SectionLabel as="h3">Your agents</SectionLabel>

@@ -1,3 +1,13 @@
+import type {
+  AgentState,
+  GoalInput,
+  OwnerLimitField,
+  PlanChangeMode,
+  ReasoningModel,
+  ResearchIntensity,
+  RiskPreset,
+  StrategyTemplate,
+} from "@alpha-agents/domain";
 import { type Address, getAddress } from "viem";
 
 /**
@@ -42,12 +52,15 @@ export interface Eligibility {
 export class ApiError extends Error {
   readonly status: number;
   readonly code: string;
+  /** The answer's body, when it had one: a refused goal carries each field's reason (P3-U1). */
+  readonly body: unknown;
 
-  constructor(status: number, code: string, message: string) {
+  constructor(status: number, code: string, message: string, body: unknown = null) {
     super(message);
     this.name = "ApiError";
     this.status = status;
     this.code = code;
+    this.body = body;
   }
 }
 
@@ -65,6 +78,7 @@ async function call<T>(path: string, init: RequestInit = {}): Promise<T> {
       res.status,
       body?.error ?? "error",
       body?.message ?? `The platform API answered ${res.status}.`,
+      body,
     );
   }
   return body;
@@ -101,6 +115,13 @@ export type RunStatus =
 export interface AgentSummaryJson {
   /** Phase 2 tuning: the per-agent credit cap in USDC base units. */
   readonly creditCapUsdcE6?: string;
+  /** P3-U1: the agent's state and its goal's summary. */
+  readonly goal?: {
+    readonly state: AgentState;
+    readonly configured: boolean;
+    readonly template: StrategyTemplate | null;
+    readonly riskPreset: RiskPreset | null;
+  };
   readonly runStatus: RunStatus;
   readonly wallet: string;
   readonly ownerEpoch: string;
@@ -481,5 +502,136 @@ export const api = {
     } catch {
       return { status: 0, body: { message: "Could not reach the platform API for a mint claim." } };
     }
+  },
+};
+
+// --- The goal (P3-U1) ---
+
+export type GoalInputJson = GoalInput;
+
+export interface GoalErrorJson {
+  readonly field: string;
+  readonly code: string;
+  readonly message: string;
+}
+
+/** The translated goal, as the API serves it: amounts are base-unit strings. */
+export interface GoalConfigJson {
+  readonly template: {
+    readonly id: "rebalance_bands@1";
+    readonly params: {
+      readonly targetWmonBps: number;
+      readonly bandHalfWidthBps: number;
+      readonly minTradeUsdcE6: string;
+      readonly volatilityBrakeBps: number;
+      readonly costHurdleBps: number;
+      readonly maxLegBps: number;
+    };
+  };
+  readonly targetRange: { readonly minBps: number; readonly maxBps: number };
+  readonly researchTriggerBps: number;
+  readonly hardLimits: Readonly<Record<OwnerLimitField, number>>;
+  readonly ownerLimits: Readonly<Record<OwnerLimitField, number>>;
+  readonly research: {
+    readonly intensity: ResearchIntensity;
+    readonly scanEveryHours: number;
+    readonly divesPerDay: number;
+    readonly dailyBudgetUsdcE6: string;
+    readonly monthlyMaxUsdcE6: string;
+  };
+  readonly model: { readonly choice: ReasoningModel; readonly alias: string };
+  readonly creditReserveUsdcE6: string;
+  readonly planChanges: { readonly mode: PlanChangeMode; readonly workflowMode: string };
+}
+
+export interface GoalFormJson {
+  readonly defaults: GoalInput;
+  readonly hardLimits: Readonly<Record<OwnerLimitField, number>>;
+  readonly limits: readonly {
+    readonly field: OwnerLimitField;
+    readonly direction: "max" | "min";
+    readonly unit: "bps" | "trades";
+    readonly min: number;
+    readonly max: number;
+    readonly hard: number;
+  }[];
+  readonly intensities: readonly {
+    readonly id: ResearchIntensity;
+    readonly scanEveryHours: number;
+    readonly divesPerDay: number;
+    readonly defaultDailyBudgetUsdcE6: string;
+    readonly minDailyBudgetUsdcE6: string;
+    readonly maxDailyBudgetUsdcE6: string;
+    readonly monthlyAtDefaultUsdcE6: string;
+  }[];
+  readonly costPreviewDays: number;
+  readonly sweepMaxUsdcE6: Readonly<Record<ReasoningModel, string>>;
+  readonly maxCreditReserveUsdcE6: string;
+}
+
+export interface GoalViewJson {
+  readonly agentId: string;
+  readonly ownerEpoch: string;
+  readonly state: AgentState;
+  readonly strategyEpoch: string;
+  readonly goal: GoalInput | null;
+  readonly config: GoalConfigJson | null;
+  readonly policyHash: string | null;
+  readonly savedAt: string | null;
+  readonly savedBy: string | null;
+}
+
+export interface GoalPageJson extends GoalViewJson {
+  readonly form: GoalFormJson;
+}
+
+export interface GoalSavedJson extends GoalViewJson {
+  readonly stateChange: { readonly from: AgentState; readonly to: AgentState } | null;
+}
+
+export type GoalPreviewJson =
+  | { readonly ok: true; readonly config: GoalConfigJson; readonly errors: readonly [] }
+  | { readonly ok: false; readonly config: null; readonly errors: readonly GoalErrorJson[] };
+
+/** A goal the API refused, with each field's reason. */
+export class GoalRefusedError extends Error {
+  readonly errors: readonly GoalErrorJson[];
+
+  constructor(message: string, errors: readonly GoalErrorJson[]) {
+    super(message);
+    this.name = "GoalRefusedError";
+    this.errors = errors;
+  }
+}
+
+/** P3-U1: the owner's goal routes, and the public preview. */
+export const goalApi = {
+  async get(agentId: bigint, session: string): Promise<GoalPageJson> {
+    return call<GoalPageJson>(`/v1/agents/${agentId.toString()}/goal`, owner(session));
+  },
+  async save(agentId: bigint, goal: GoalInput, session: string): Promise<GoalSavedJson> {
+    try {
+      return await call<GoalSavedJson>(
+        `/v1/agents/${agentId.toString()}/goal`,
+        owner(session, {
+          method: "PUT",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(goal),
+        }),
+      );
+    } catch (err) {
+      if (err instanceof ApiError && err.code === "goal_refused") {
+        const errors = (err.body as { errors?: GoalErrorJson[] } | null)?.errors ?? [];
+        throw new GoalRefusedError(err.message, errors);
+      }
+      throw err;
+    }
+  },
+  async preview(goal: GoalInput): Promise<GoalPreviewJson> {
+    return call<GoalPreviewJson>("/v1/goal/preview", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(goal),
+    });
   },
 };

@@ -55,6 +55,8 @@ export interface SummaryView {
   readonly scanMinimum: bigint;
   readonly scanEstimate: { readonly low: bigint; readonly high: bigint };
   readonly ownerEpoch: bigint;
+  /** P3-U1: the agent's state and its goal; null from an API without goals. */
+  readonly goal: NonNullable<AgentSummaryJson["goal"]> | null;
 }
 
 export function summaryView(s: AgentSummaryJson): SummaryView {
@@ -80,6 +82,7 @@ export function summaryView(s: AgentSummaryJson): SummaryView {
       high: BigInt(s.scan.estimateUsdcE6.high),
     },
     ownerEpoch: BigInt(s.ownerEpoch),
+    goal: s.goal ?? null,
   };
 }
 

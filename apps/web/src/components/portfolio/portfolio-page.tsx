@@ -16,6 +16,7 @@ import {
   EmptyState,
   Field,
   GasNotice,
+  GoalSummary,
   Input,
   PortfolioOverview,
   PositionsPanel,
@@ -390,6 +391,20 @@ export function PortfolioPage({
   return (
     <div className="flex flex-col gap-6" data-testid="portfolio">
       {header}
+      {pf.summary?.goal ? (
+        <GoalSummary
+          state={pf.summary.goal.state}
+          template={pf.summary.goal.template}
+          riskPreset={pf.summary.goal.riskPreset}
+          action={
+            <Button asChild size="sm" variant="ghost">
+              <Link href={`/agents/${agentId.toString()}/goal`}>
+                {pf.summary.goal.configured ? "Change goal" : "Set goal"}
+              </Link>
+            </Button>
+          }
+        />
+      ) : null}
       {pf.error ? (
         <p role="alert" className="text-sm text-warning">
           {pf.error} The values below are from the last read.
