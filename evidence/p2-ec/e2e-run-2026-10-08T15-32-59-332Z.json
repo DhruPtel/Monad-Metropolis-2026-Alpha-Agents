@@ -1,0 +1,248 @@
+{
+  "wallet": "0xc7fcA8F663b8a20f8aFcCdd92E031678423AC2c8",
+  "startedAt": "2026-10-08T15:20:22.577Z",
+  "steps": [
+    {
+      "name": "privy login",
+      "at": "2026-10-08T15:20:23.344Z",
+      "wallet": "0xc7fcA8F663b8a20f8aFcCdd92E031678423AC2c8"
+    },
+    {
+      "name": "mint eligibility",
+      "at": "2026-10-08T15:20:24.293Z",
+      "status": 200,
+      "reason": "eligible"
+    },
+    {
+      "name": "indexed",
+      "at": "2026-10-08T15:20:26.532Z",
+      "agentId": 1,
+      "indexLagMs": 1891
+    },
+    {
+      "name": "revealed",
+      "at": "2026-10-08T15:21:33.167Z",
+      "species": 1,
+      "keeper": [
+        {
+          "kind": "requested",
+          "first": 1,
+          "last": 1,
+          "tx": "0xeba0652358709c6a1b644dab683f89ab2cd877f93f196a4a13ffd5bcc3873de7"
+        },
+        {
+          "kind": "revealed",
+          "upTo": 1,
+          "tx": "0x54bcfe7cef462a7ef431f5e69f61de1305f7afb57c49e6443899b9dce6bc8e0d"
+        }
+      ]
+    },
+    {
+      "name": "provisioned",
+      "at": "2026-10-08T15:21:33.181Z",
+      "status": "ready",
+      "tier": "base"
+    },
+    {
+      "name": "credited",
+      "at": "2026-10-08T15:21:38.807Z",
+      "fundingAddress": "0x0da2230b413c8524C8a92FB6C612749C0d83ceF1",
+      "creditLagMs": 3028
+    },
+    {
+      "name": "scan requested",
+      "at": "2026-10-08T15:21:39.024Z",
+      "status": 202,
+      "taskId": "10540a1a-46ea-4a25-ab1b-0d4d383d6503"
+    },
+    {
+      "name": "scan finished",
+      "at": "2026-10-08T15:22:44.615Z",
+      "status": "succeeded",
+      "error": null
+    },
+    {
+      "name": "gas for the funding address",
+      "at": "2026-10-08T15:22:48.513Z",
+      "output": [
+        "reveal keeper 0xcA7F24d3CAdb449A68f7CD299477D28F8C114d13: sent 0.151394783999100001 MON (0x73afc0fa591c661ea3431264b634a53d6db7e48ad212b8c808aead142ea1ad7c)",
+        "feed writer 0xB501c40e5dDAa3dF9f32B3e04Db9b04fC1f6292a: holds 0.15 MON, at its target",
+        "agent 1's funding address 0x0da2230b413c8524C8a92FB6C612749C0d83ceF1: sent 0.5 MON (0x841ab90e896d5c2c8a5d6d841ec666a83031ccda400fc7599cd96ed11c8d1272)",
+        "deployer 0x5C0Fb609931651357dcfd2b985910E3fC5904A4a holds 9.0750665829652946 MON"
+      ]
+    },
+    {
+      "name": "fresh prices before the deposit",
+      "at": "2026-10-08T15:22:52.765Z",
+      "redated": [
+        {
+          "label": "MON/USD",
+          "hash": "0x3d7ca3c6e3befb6a09aad60c9c8294f55b050527135b65ace02c240cb665de7e",
+          "ageS": 2406
+        }
+      ],
+      "error": null,
+      "needed": true
+    },
+    {
+      "name": "account",
+      "at": "2026-10-08T15:22:56.045Z",
+      "account": "0xBaea95f5909D154Ae6729D4DB41D7cF4E751cDcB"
+    },
+    {
+      "name": "arming recorded",
+      "at": "2026-10-08T15:22:58.757Z",
+      "status": 201,
+      "state": "awaiting_first_trade"
+    },
+    {
+      "name": "propose",
+      "at": "2026-10-08T15:22:59.296Z",
+      "output": "agent 1: chain check f88f3d69-f45b-435a-8988-09c25a5a951e queued; its proposal appears on the portfolio page"
+    }
+  ],
+  "transactions": [
+    {
+      "kind": "mint",
+      "hash": "0xf7f03e597baa2080a6084e3557a75cf6e57b37ba4e0146b69399b9532ade6c0d",
+      "from": "0xc7fca8f663b8a20f8afccdd92e031678423ac2c8",
+      "to": "0x0c2472ed555836f22fb3eab7abc2cc3aebeac9ea",
+      "created": null,
+      "block": 69289086,
+      "blockTime": 1791472825,
+      "status": "0x1",
+      "type": "0x2",
+      "gasLimit": "337910",
+      "gasUsed": "337910",
+      "baseFeeWei": "100000000000",
+      "maxFeePerGasWei": "182400000000",
+      "maxPriorityFeePerGasWei": "2000000000",
+      "effectiveGasPriceWei": "102000000000",
+      "paidWei": "34466820000000000",
+      "receiptMs": 989,
+      "safeMs": 1090,
+      "finalizedMs": 1514,
+      "clockSkewS": 1,
+      "receiptStable": true
+    },
+    {
+      "kind": "credits transfer",
+      "hash": "0x483e9cd381549af63a000fbc0bf4843183dea836ffff149ec6ee7b886745c516",
+      "from": "0xc7fca8f663b8a20f8afccdd92e031678423ac2c8",
+      "to": "0x534b2f3a21130d7a60830c2df862319e593943a3",
+      "created": null,
+      "block": 69289315,
+      "blockTime": 1791472894,
+      "status": "0x1",
+      "type": "0x2",
+      "gasLimit": "100516",
+      "gasUsed": "100516",
+      "baseFeeWei": "100000000000",
+      "maxFeePerGasWei": "182400000000",
+      "maxPriorityFeePerGasWei": "2000000000",
+      "effectiveGasPriceWei": "102000000000",
+      "paidWei": "10252632000000000",
+      "receiptMs": 996,
+      "safeMs": 1396,
+      "finalizedMs": 1683,
+      "clockSkewS": 1,
+      "receiptStable": true
+    },
+    {
+      "kind": "create PersonalAccount",
+      "hash": "0xa969c4910ba3c601d9d96cef012e57b151d72d0c452d239cec9f5983dfc52ff5",
+      "from": "0xc7fca8f663b8a20f8afccdd92e031678423ac2c8",
+      "to": "0x960c0421c5feac805187f25d7abc04d971d334b6",
+      "created": null,
+      "block": 69289564,
+      "blockTime": 1791472970,
+      "status": "0x1",
+      "type": "0x2",
+      "gasLimit": "238449",
+      "gasUsed": "238449",
+      "baseFeeWei": "100000000000",
+      "maxFeePerGasWei": "182400000000",
+      "maxPriorityFeePerGasWei": "2000000000",
+      "effectiveGasPriceWei": "102000000000",
+      "paidWei": "24321798000000000",
+      "receiptMs": 1038,
+      "safeMs": 1126,
+      "finalizedMs": 1425,
+      "clockSkewS": 0,
+      "receiptStable": true
+    },
+    {
+      "kind": "approve (exact)",
+      "hash": "0xccf451865eef8a445cc92fdcd33282c8c11f27fa55995f75b6a435fe2e53aa9c",
+      "from": "0xc7fca8f663b8a20f8afccdd92e031678423ac2c8",
+      "to": "0x534b2f3a21130d7a60830c2df862319e593943a3",
+      "created": null,
+      "block": 69289575,
+      "blockTime": 1791472973,
+      "status": "0x1",
+      "type": "0x2",
+      "gasLimit": "87643",
+      "gasUsed": "87643",
+      "baseFeeWei": "100000000000",
+      "maxFeePerGasWei": "182400000000",
+      "maxPriorityFeePerGasWei": "2000000000",
+      "effectiveGasPriceWei": "102000000000",
+      "paidWei": "8939586000000000",
+      "receiptMs": 856,
+      "safeMs": 952,
+      "finalizedMs": 1255,
+      "clockSkewS": 1,
+      "receiptStable": true
+    },
+    {
+      "kind": "deposit",
+      "hash": "0xf7e41c82f0b669cd1707c5f40d33a6ce3e0deb8596756ef92e7abf32d98b857d",
+      "from": "0xc7fca8f663b8a20f8afccdd92e031678423ac2c8",
+      "to": "0xbaea95f5909d154ae6729d4db41d7cf4e751cdcb",
+      "created": null,
+      "block": 69289581,
+      "blockTime": 1791472975,
+      "status": "0x1",
+      "type": "0x2",
+      "gasLimit": "380653",
+      "gasUsed": "380653",
+      "baseFeeWei": "100000000000",
+      "maxFeePerGasWei": "182400000000",
+      "maxPriorityFeePerGasWei": "2000000000",
+      "effectiveGasPriceWei": "102000000000",
+      "paidWei": "38826606000000000",
+      "receiptMs": 880,
+      "safeMs": 973,
+      "finalizedMs": 1264,
+      "clockSkewS": 0,
+      "receiptStable": true
+    },
+    {
+      "kind": "arm (registerSession)",
+      "hash": "0x0df2bc61204baa41f397d93b67a0e78c6636a8776f7bce029713518385cdf8b0",
+      "from": "0xc7fca8f663b8a20f8afccdd92e031678423ac2c8",
+      "to": "0xc127997711a3d26a0967724897bcc365934dec7c",
+      "created": null,
+      "block": 69289588,
+      "blockTime": 1791472977,
+      "status": "0x1",
+      "type": "0x2",
+      "gasLimit": "110853",
+      "gasUsed": "110853",
+      "baseFeeWei": "100000000000",
+      "maxFeePerGasWei": "182400000000",
+      "maxPriorityFeePerGasWei": "2000000000",
+      "effectiveGasPriceWei": "102000000000",
+      "paidWei": "11307006000000000",
+      "receiptMs": 570,
+      "safeMs": 661,
+      "finalizedMs": 1246,
+      "clockSkewS": 0,
+      "receiptStable": true
+    }
+  ],
+  "mintBlockTimeMs": 1791472824641,
+  "agentId": 1,
+  "ok": false,
+  "error": "timed out after 600 s waiting for the agent's proposal"
+}

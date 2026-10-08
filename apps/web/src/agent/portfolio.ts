@@ -14,11 +14,14 @@ export type Asset = "USDC" | "WMON";
 export const DECIMALS: Readonly<Record<Asset, number>> = { USDC: 6, WMON: 18 };
 
 /**
- * A-50: below this much MON the wallet is warned it cannot pay gas to arm,
- * deposit or withdraw: 0.05 MON covers a few owner transactions at Monad's
- * fees (each is one or two calls of at most a few hundred thousand gas).
+ * A-50, measured on Monad testnet in P2-EC: below this much MON the wallet is
+ * warned it cannot pay gas to arm, deposit or withdraw. Monad charges the gas
+ * limit; at 103 gwei opening an account cost 0.0246 MON, an exact approval
+ * 0.0090, a deposit 0.0392, arming 0.0114, a withdrawal 0.0281 and a mint
+ * 0.0348, so 0.1 MON covers a first account, deposit and arming (0.084).
+ * The old 0.05 MON did not cover one deposit with its approval and arming.
  */
-export const LOW_GAS_WEI = 50_000_000_000_000_000n;
+export const LOW_GAS_WEI = 100_000_000_000_000_000n;
 
 /** A price older than this reads as stale here; the oracle's own reason is the real rule. */
 export const PRICE_FRESH_SECONDS = 300;

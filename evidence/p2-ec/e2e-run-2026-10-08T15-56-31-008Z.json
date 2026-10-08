@@ -1,0 +1,53 @@
+{
+  "wallet": "0xc7fcA8F663b8a20f8aFcCdd92E031678423AC2c8",
+  "startedAt": "2026-10-08T15:46:22.862Z",
+  "steps": [
+    {
+      "name": "privy login",
+      "at": "2026-10-08T15:46:23.682Z",
+      "wallet": "0xc7fcA8F663b8a20f8aFcCdd92E031678423AC2c8"
+    },
+    {
+      "name": "revealed",
+      "at": "2026-10-08T15:46:23.692Z",
+      "species": 1,
+      "keeper": []
+    },
+    {
+      "name": "provisioned",
+      "at": "2026-10-08T15:46:23.704Z",
+      "status": "ready",
+      "tier": "base"
+    },
+    {
+      "name": "scan requested",
+      "at": "2026-10-08T15:46:24.210Z",
+      "status": 0,
+      "error": "skipped (--skip-scan)"
+    },
+    {
+      "name": "gas for the funding address",
+      "at": "2026-10-08T15:46:26.680Z",
+      "output": [
+        "reveal keeper 0xcA7F24d3CAdb449A68f7CD299477D28F8C114d13: holds 0.35 MON, at its target",
+        "feed writer 0xB501c40e5dDAa3dF9f32B3e04Db9b04fC1f6292a: sent 0.004345302 MON (0xd343114003f12dd7bf56983c0cb9bb0440c23942a717cfa95259e41b488ca574)",
+        "agent 1's funding address 0x0da2230b413c8524C8a92FB6C612749C0d83ceF1: holds 0.5 MON, at its target",
+        "deployer 0x5C0Fb609931651357dcfd2b985910E3fC5904A4a holds 9.0685792809652946 MON"
+      ]
+    },
+    {
+      "name": "account",
+      "at": "2026-10-08T15:46:27.507Z",
+      "account": "0xBaea95f5909D154Ae6729D4DB41D7cF4E751cDcB"
+    },
+    {
+      "name": "propose",
+      "at": "2026-10-08T15:46:28.357Z",
+      "output": "agent 1: chain check 1a4b09c9-1ea2-405b-b605-8dfb06f7089a queued; its proposal appears on the portfolio page"
+    }
+  ],
+  "transactions": [],
+  "agentId": 1,
+  "ok": false,
+  "error": "timed out after 600 s waiting for the agent's proposal"
+}

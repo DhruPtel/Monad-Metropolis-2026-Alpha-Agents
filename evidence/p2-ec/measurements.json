@@ -1,0 +1,290 @@
+{
+  "measuredAt": "2026-10-08T16:02:52.725Z",
+  "wallet": "0xc7fcA8F663b8a20f8aFcCdd92E031678423AC2c8",
+  "finality": [
+    {
+      "hash": "0x07302fe12ee2ad409748cea5ac810a22a3b88f1512b2add90b357df6b9671822",
+      "block": 69297520,
+      "receiptMs": 879,
+      "safeMs": 1225,
+      "finalizedMs": 1487,
+      "stable": true
+    },
+    {
+      "hash": "0x9b742b699abef1ecfc75192a053e432060fcb90885aa8d8715f4648c7f760cc9",
+      "block": 69297524,
+      "receiptMs": 613,
+      "safeMs": 965,
+      "finalizedMs": 1230,
+      "stable": true
+    },
+    {
+      "hash": "0xd1736af9ac384eed2ee6bdbb36e1101980a001609e7242998a823c06cfc495d8",
+      "block": 69297529,
+      "receiptMs": 889,
+      "safeMs": 977,
+      "finalizedMs": 1484,
+      "stable": true
+    },
+    {
+      "hash": "0xf465a81777b33c87a596be7201c03291bfdb436f8e895856412c731620166744",
+      "block": 69297534,
+      "receiptMs": 743,
+      "safeMs": 1096,
+      "finalizedMs": 1386,
+      "stable": true
+    },
+    {
+      "hash": "0xc0f3e0bc636518f91130788ed3f36ec094e1a666ed2abd2cbdb00d5f11b421b1",
+      "block": 69297539,
+      "receiptMs": 939,
+      "safeMs": 1033,
+      "finalizedMs": 1386,
+      "stable": true
+    }
+  ],
+  "clock": {
+    "samples": [
+      {
+        "block": 69297541,
+        "skewMs": 397
+      },
+      {
+        "block": 69297545,
+        "skewMs": 490
+      },
+      {
+        "block": 69297549,
+        "skewMs": 584
+      },
+      {
+        "block": 69297552,
+        "skewMs": 678
+      },
+      {
+        "block": 69297556,
+        "skewMs": 771
+      },
+      {
+        "block": 69297560,
+        "skewMs": 865
+      },
+      {
+        "block": 69297563,
+        "skewMs": 960
+      },
+      {
+        "block": 69297567,
+        "skewMs": 55
+      },
+      {
+        "block": 69297571,
+        "skewMs": 151
+      },
+      {
+        "block": 69297574,
+        "skewMs": 243
+      }
+    ],
+    "blockTimeMs": 302
+  },
+  "entropy": {
+    "requestTx": "0xeba0652358709c6a1b644dab683f89ab2cd877f93f196a4a13ffd5bcc3873de7",
+    "requestBlock": 69289294,
+    "feePaidWei": "128159999999100001",
+    "callbackTx": "0x572bb5ccac38c89667ca2b7e83995a5e0db4d882ea9bc202d521156857811f16",
+    "callbackFrom": "0xeea5b6c1cea39c8024f13d2c055badb030256bf4",
+    "callbackBlock": 69289298,
+    "callbackBlocksAfterRequest": 4,
+    "callbackSecondsAfterRequest": 1,
+    "revealTx": "0x54bcfe7cef462a7ef431f5e69f61de1305f7afb57c49e6443899b9dce6bc8e0d",
+    "revealBlock": 69289303
+  },
+  "creditLag": {
+    "hash": "0xe574c5dffd59a8be5d0af777c35d163e04cc91a712a69b08a3954c995bae56bf",
+    "block": 69297583,
+    "receiptMs": 592,
+    "creditedMs": 3672
+  },
+  "rpc": {
+    "keyed": {
+      "ranges": [
+        {
+          "blocks": 10,
+          "ok": true,
+          "error": null
+        },
+        {
+          "blocks": 11,
+          "ok": false,
+          "error": "{\"code\":-32600,\"message\":\"Under the Free tier plan, you can make eth_getLogs requests with up to a 10 block range. Based on your parameters, this block range should work: [0x42165aa, 0x42165b3]. Upgra"
+        },
+        {
+          "blocks": 100,
+          "ok": false,
+          "error": "{\"code\":-32600,\"message\":\"Under the Free tier plan, you can make eth_getLogs requests with up to a 10 block range. Based on your parameters, this block range should work: [0x4216551, 0x421655a]. Upgra"
+        },
+        {
+          "blocks": 1000,
+          "ok": false,
+          "error": "{\"code\":-32600,\"message\":\"Under the Free tier plan, you can make eth_getLogs requests with up to a 10 block range. Based on your parameters, this block range should work: [0x42161cd, 0x42161d6]. Upgra"
+        }
+      ],
+      "burstOf40": {
+        "200": 40
+      },
+      "historicalState": {
+        "balanceAtDeployBlock": "ok",
+        "balance200kBlocksBack": "ok",
+        "callAt1000BlocksBack": "ok"
+      },
+      "feeHistory": {
+        "baseFeePerGas": [
+          "0x174876e800",
+          "0x174876e800",
+          "0x174876e800",
+          "0x174876e800",
+          "0x174876e800",
+          "0x174876e800"
+        ],
+        "gasUsedRatio": [
+          0.02107706,
+          0.023786026666666668,
+          0.02114116,
+          0.02445354,
+          0.0080837
+        ],
+        "baseFeePerBlobGas": [
+          "0x0",
+          "0x0",
+          "0x0",
+          "0x0",
+          "0x0",
+          "0x0"
+        ],
+        "blobGasUsedRatio": [
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "oldestBlock": "0x42165bb",
+        "reward": [
+          [
+            "0xb2d05e01"
+          ],
+          [
+            "0xb2d05e01"
+          ],
+          [
+            "0xb2d05e00"
+          ],
+          [
+            "0xb2d05e00"
+          ],
+          [
+            "0x77359400"
+          ]
+        ]
+      }
+    },
+    "public": {
+      "ranges": [
+        {
+          "blocks": 10,
+          "ok": true,
+          "error": null
+        },
+        {
+          "blocks": 11,
+          "ok": true,
+          "error": null
+        },
+        {
+          "blocks": 100,
+          "ok": true,
+          "error": null
+        },
+        {
+          "blocks": 1000,
+          "ok": false,
+          "error": "{\"code\":-32614,\"message\":\"eth_getLogs is limited to a 100 range\"}"
+        }
+      ],
+      "burstOf40": {
+        "200": 40
+      },
+      "historicalState": {
+        "balanceAtDeployBlock": "ok",
+        "balance200kBlocksBack": "ok",
+        "callAt1000BlocksBack": "ok"
+      },
+      "feeHistory": {
+        "baseFeePerGas": [
+          "0x174876e800",
+          "0x174876e800",
+          "0x174876e800",
+          "0x174876e800",
+          "0x174876e800",
+          "0x174876e800"
+        ],
+        "gasUsedRatio": [
+          0,
+          0.0034929733333333335,
+          0.0647809,
+          0,
+          0.03437988
+        ],
+        "baseFeePerBlobGas": [
+          "0x0",
+          "0x0",
+          "0x0",
+          "0x0",
+          "0x0",
+          "0x0"
+        ],
+        "blobGasUsedRatio": [
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "oldestBlock": "0x42165c1",
+        "reward": [
+          [
+            "0x0"
+          ],
+          [
+            "0x12a05f200"
+          ],
+          [
+            "0xb2d05e01"
+          ],
+          [
+            "0x0"
+          ],
+          [
+            "0xb2d05e01"
+          ]
+        ]
+      }
+    }
+  },
+  "nonceGap": {
+    "nonce": 17,
+    "pendingNonce": 14,
+    "sendAnswer": {
+      "status": 200,
+      "result": "0xaa92c6f6ac04bc65d727f5493c9a3d314ffbada9132997ac4c05cf478414ed63",
+      "error": null
+    },
+    "after20s": {
+      "byHash": null,
+      "byHashError": null,
+      "receipt": null
+    }
+  },
+  "ok": true
+}
