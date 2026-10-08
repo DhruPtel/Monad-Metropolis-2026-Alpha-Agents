@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { type ActivityJson, ApiError, api, tradingApi } from "@/api/client";
+import { type ActivityJson, ApiError, type PortfolioJson, api, tradingApi } from "@/api/client";
 import { useWalletSession } from "@/auth/session";
 import { type SummaryView, refundOutcomeText, scanOpen, summaryView } from "./my-agents";
 import { positions } from "./portfolio";
@@ -11,6 +11,9 @@ import { useOwnerSession } from "./use-owner-session";
 export interface TradingSummary {
   readonly hasAccount: boolean;
   readonly valueUsdcE6: bigint | null;
+  /** USDC's share of the value; null while unknown (Phase 2 tuning). */
+  readonly usdcShareBps: number | null;
+  readonly mode: PortfolioJson["mode"];
 }
 
 /** How often a card re-reads its summary, and how often while a Scan or refund is under way. */
@@ -36,6 +39,8 @@ export interface MyAgent {
   readonly scan: ActionState;
   requestRefund(): void;
   requestScan(): void;
+  /** Re-reads at once (after credits land). */
+  refresh(): void;
 }
 
 const words = (err: unknown) =>
@@ -89,7 +94,14 @@ export function useMyAgent(agentId: bigint): MyAgent {
         setSummary(summaryView(s));
         if (a) setActivity(a);
         setTrading(
-          p ? { hasAccount: p.account !== null, valueUsdcE6: positions(p).totalUsdc } : null,
+          p
+            ? {
+                hasAccount: p.account !== null,
+                valueUsdcE6: positions(p).totalUsdc,
+                usdcShareBps: positions(p).usdcShareBps,
+                mode: p.mode,
+              }
+            : null,
         );
         setError(null);
       } catch (err) {
@@ -150,5 +162,6 @@ export function useMyAgent(agentId: bigint): MyAgent {
     })();
   }, [agentId, asOwner, scan.state]);
 
-  return { summary, activity, trading, error, refund, scan, requestRefund, requestScan };
+  const refresh = useCallback(() => setTick((t) => t + 1), []);
+  return { summary, activity, trading, error, refund, scan, requestRefund, requestScan, refresh };
 }

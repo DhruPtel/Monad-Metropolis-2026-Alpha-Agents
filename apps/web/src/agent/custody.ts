@@ -37,12 +37,22 @@ export const ACCOUNT_ABI = parseAbi([
 
 export const ERC20_ABI = parseAbi([
   "function approve(address spender, uint256 amount) returns (bool)",
+  "function transfer(address to, uint256 amount) returns (bool)",
+  "function balanceOf(address who) view returns (uint256)",
   "error ERC20InsufficientBalance(address sender, uint256 balance, uint256 needed)",
+]);
+
+/** The Executor's grant calls, with its errors, so a refused grant is named (Phase 2 tuning). */
+export const GRANT_ABI = parseAbi([
+  "function registerSession(uint256 agentId, address key, uint64 validUntil)",
+  "function revokeSession(uint256 agentId)",
+  "error NotAgentOwner(address caller)",
+  "error BadSession()",
 ]);
 
 /** Owner-facing text for each custody revert. */
 export const CUSTODY_REVERT_MESSAGES: Readonly<Record<string, string>> = {
-  NotAgentOwner: "This wallet no longer owns the agent.",
+  NotAgentOwner: "This wallet does not own the agent.",
   AccountExists: "This agent already has a trading account for this wallet.",
   NotAllowlisted: "This wallet is not on the beta deposit allowlist yet.",
   PersonalCapExceeded: "The deposit would take the account past its beta cap.",
@@ -58,6 +68,8 @@ export const CUSTODY_REVERT_MESSAGES: Readonly<Record<string, string>> = {
   TransferNotExact: "The token moved a different amount than asked, so the deposit was refused.",
   BadRecipient: "Withdrawals go to your own wallet.",
   NothingToClaim: "There is nothing to claim for this token.",
+  BadSession:
+    "The Executor refused the trading permission: its key is empty or its expiry is not within 30 days of the chain's time.",
   ERC20InsufficientBalance: "Your wallet does not hold that much.",
 };
 

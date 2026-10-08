@@ -83,9 +83,12 @@ export interface PositionsView {
 /** USDC and WMON held, their value and share, the mode, the breaker and the price's age. */
 function PositionsPanel({
   positions: p,
+  showValue = true,
   className,
 }: {
   positions: PositionsView;
+  /** False where the portfolio overview already shows the total (Phase 2 tuning). */
+  showValue?: boolean;
   className?: string;
 }) {
   const rows: {
@@ -107,16 +110,18 @@ function PositionsPanel({
         <SectionLabel as="h3">Positions</SectionLabel>
         <StatusPill kind="account_mode" value={p.mode} />
       </div>
-      <div className="flex flex-col gap-1">
-        <span className="text-xs text-foreground-muted">Account value</span>
-        {p.totalUsdc === null ? (
-          <span className="text-sm text-foreground-muted">
-            Unknown while the WMON price is unavailable
-          </span>
-        ) : (
-          <Amount asset="USDC" value={p.totalUsdc} className="text-2xl" />
-        )}
-      </div>
+      {showValue ? (
+        <div className="flex flex-col gap-1">
+          <span className="text-xs text-foreground-muted">Account value</span>
+          {p.totalUsdc === null ? (
+            <span className="text-sm text-foreground-muted">
+              Unknown while the WMON price is unavailable
+            </span>
+          ) : (
+            <Amount asset="USDC" value={p.totalUsdc} className="text-2xl" />
+          )}
+        </div>
+      ) : null}
       <Table stack label="Holdings">
         <TableHeader>
           <TableRow>

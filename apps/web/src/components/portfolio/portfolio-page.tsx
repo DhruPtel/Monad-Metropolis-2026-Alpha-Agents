@@ -15,7 +15,9 @@ import {
   CardTitle,
   EmptyState,
   Field,
+  GasNotice,
   Input,
+  PortfolioOverview,
   PositionsPanel,
   RecentTrades,
   Select,
@@ -35,6 +37,7 @@ import { useWalletSession } from "@/auth/session";
 import {
   type Asset,
   DECIMALS,
+  LOW_GAS_WEI,
   capRoom,
   claimables,
   depositCheck,
@@ -46,6 +49,8 @@ import {
 } from "@/agent/portfolio";
 import { type ActionStatus, type PortfolioAction, usePortfolio } from "@/agent/use-portfolio";
 import { walletTxText } from "@/agent/wallet-tx";
+import { AddCreditsSection } from "@/components/credits/add-credits-section";
+import type { Address } from "viem";
 
 /**
  * The portfolio page (P2-U7, FINAL_PLAN 4.10): the owner manages the agent's
@@ -406,6 +411,11 @@ export function PortfolioPage({
               </p>
             )}
             <CapsPanel caps={capsView(p)} />
+            <GasNotice
+              monWei={BigInt(p.wallet.monWei)}
+              lowBelowWei={LOW_GAS_WEI}
+              network={network}
+            />
             <div className="flex flex-wrap gap-2">
               <Button disabled={!allowlisted || acting} onClick={pf.openAccount}>
                 Open trading account
@@ -418,7 +428,8 @@ export function PortfolioPage({
         <div className="grid gap-6 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
           <Card>
             <CardContent className="flex flex-col gap-6 pt-6">
-              <PositionsPanel positions={positionsView(p)} />
+              <PortfolioOverview positions={positionsView(p)} />
+              <PositionsPanel positions={positionsView(p)} showValue={false} />
               {credits.length > 0 ? (
                 <section
                   aria-label="Claimable credits"
@@ -453,6 +464,11 @@ export function PortfolioPage({
           </Card>
           <Card>
             <CardContent className="flex flex-col gap-6 pt-6">
+              <GasNotice
+                monWei={BigInt(p.wallet.monWei)}
+                lowBelowWei={LOW_GAS_WEI}
+                network={network}
+              />
               <DepositForm p={p} busy={acting} status={pf.status} onDeposit={pf.deposit} />
               <CapsPanel caps={capsView(p)} />
               <WithdrawForm p={p} busy={acting} status={pf.status} onWithdraw={pf.withdraw} />
@@ -460,6 +476,21 @@ export function PortfolioPage({
           </Card>
         </div>
       )}
+      {pf.summary ? (
+        <Card data-testid="portfolio-credits">
+          <CardContent className="pt-6">
+            <AddCreditsSection
+              agentId={agentId}
+              agentName={name}
+              environment={environment}
+              fundingAddress={(pf.summary.funding?.fundingAddress as Address | undefined) ?? null}
+              creditsUsdcE6={pf.summary.credits}
+              capUsdcE6={pf.summary.creditCap}
+              onCredited={pf.refresh}
+            />
+          </CardContent>
+        </Card>
+      ) : null}
       {p.account ? (
         <>
           <ArmingCard

@@ -1,4 +1,6 @@
+import { ContractFunctionRevertedError, encodeErrorResult } from "viem";
 import { describe, expect, it } from "vitest";
+import { CUSTODY_REVERT_MESSAGES, GRANT_ABI, custodyRevertName } from "./custody";
 import {
   type ArmingFlowDeps,
   type ArmingProgress,
@@ -101,6 +103,36 @@ describe("arming from the owner's wallet (P2-U6)", () => {
       hash: HASH,
       message: "A trading permission can last at most 30 days.",
     });
+  });
+
+  it("names the contract's refusal of the grant instead of a generic error (Phase 2 tuning)", async () => {
+    const data = encodeErrorResult({ abi: GRANT_ABI, errorName: "BadSession" });
+    const revert = new ContractFunctionRevertedError({
+      abi: GRANT_ABI,
+      data,
+      functionName: "registerSession",
+    });
+    const d = deps({
+      send: async () => {
+        throw revert;
+      },
+      explainSendError: (e) => {
+        const name = custodyRevertName(e);
+        return name ? CUSTODY_REVERT_MESSAGES[name] : undefined;
+      },
+    });
+    const { result } = await run(runArm, d);
+    expect(result).toEqual({ state: "error", message: CUSTODY_REVERT_MESSAGES.BadSession });
+    // Without an explainer the old generic message stands.
+    const plain = await run(
+      runArm,
+      deps({
+        send: async () => {
+          throw revert;
+        },
+      }),
+    );
+    expect(plain.result.message).toBe("The wallet could not send the trading permission.");
   });
 
   it("reports a send to another network as it is", async () => {

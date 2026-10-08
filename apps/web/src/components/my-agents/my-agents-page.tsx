@@ -25,6 +25,8 @@ import {
 } from "@alpha-agents/ui";
 import { Bot, PlugZap, RotateCcw, Sparkles, Wallet } from "lucide-react";
 import Link from "next/link";
+import type { Address } from "viem";
+import { AddCreditsSection } from "@/components/credits/add-credits-section";
 import { useWalletSession } from "@/auth/session";
 import type { AgentView } from "@/agent/chain";
 import {
@@ -64,10 +66,10 @@ function ActionLine({ action, testId }: { action: ActionState; testId: string })
 }
 
 /** One owned agent: what it is, what it is doing, how to fund it, its spend and its activity. */
-function MyAgentCard({ agent }: { agent: AgentView }) {
+function MyAgentCard({ agent, environment }: { agent: AgentView; environment: EnvironmentId }) {
   const name = `Alpha Agent #${agent.id.toString()}`;
   const species = agent.species === 0 ? null : speciesByIndex(agent.species);
-  const { summary, activity, trading, error, refund, scan, requestRefund, requestScan } =
+  const { summary, activity, trading, error, refund, scan, requestRefund, requestScan, refresh } =
     useMyAgent(agent.id);
   const canScan = summary ? scanAvailability(summary) : null;
   const canRefund = summary ? refundAvailability(summary) : null;
@@ -140,6 +142,17 @@ function MyAgentCard({ agent }: { agent: AgentView }) {
               agentName={name}
               funding={summary.funding}
               trading={trading}
+              addCredits={
+                <AddCreditsSection
+                  agentId={agent.id}
+                  agentName={name}
+                  environment={environment}
+                  fundingAddress={(summary.funding?.fundingAddress as Address | undefined) ?? null}
+                  creditsUsdcE6={summary.credits}
+                  capUsdcE6={summary.creditCap}
+                  onCredited={refresh}
+                />
+              }
               tradingAction={
                 <Button asChild size="sm" variant="secondary" className="self-start">
                   <Link href={`/agents/${agent.id.toString()}/portfolio`}>
@@ -318,7 +331,7 @@ export function MyAgentsPage({ environment }: { environment: EnvironmentId }) {
       ) : (
         <div className="flex flex-col gap-6" data-testid="my-agents">
           {owned.agents.map((a) => (
-            <MyAgentCard key={a.id.toString()} agent={a} />
+            <MyAgentCard key={a.id.toString()} agent={a} environment={environment} />
           ))}
         </div>
       )}

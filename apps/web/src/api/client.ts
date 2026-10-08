@@ -99,6 +99,8 @@ export type RunStatus =
 
 /** GET /v1/agents/:id/summary, as the API sends it (amounts are decimal strings). */
 export interface AgentSummaryJson {
+  /** Phase 2 tuning: the per-agent credit cap in USDC base units. */
+  readonly creditCapUsdcE6?: string;
   readonly runStatus: RunStatus;
   readonly wallet: string;
   readonly ownerEpoch: string;
@@ -342,6 +344,14 @@ export const tradingApi = {
   },
 };
 
+export interface CreditsJson {
+  readonly fundingAddress: Address;
+  readonly creditsUsdcE6: string;
+  readonly spendableUsdcE6: string;
+  readonly heldUsdcE6: string;
+  readonly creditCapUsdcE6: string;
+}
+
 export const api = {
   async supply(): Promise<ApiSupply> {
     return call<ApiSupply>("/v1/supply");
@@ -387,6 +397,10 @@ export const api = {
     return call<AgentSummaryJson>(`/v1/agents/${agentId.toString()}/summary`, {
       headers: { "x-owner-session": session },
     });
+  },
+  /** An agent's credits, public like its funding address's USDC (Phase 2 tuning). */
+  async credits(agentId: bigint): Promise<CreditsJson> {
+    return call<CreditsJson>(`/v1/agents/${agentId.toString()}/credits`);
   },
   /** The narrator's entries, newest first (public, D-217). */
   async activity(agentId: bigint): Promise<ActivityJson[]> {

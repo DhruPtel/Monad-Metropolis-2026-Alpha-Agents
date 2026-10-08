@@ -35,6 +35,8 @@ export interface ArmingFlowDeps {
   readonly send: (call: WalletCall) => Promise<Hex>;
   /** Waits for a successful receipt on the app's network; throws on a revert or timeout. */
   readonly waitForReceipt: (hash: Hex) => Promise<void>;
+  /** The contract's named reason for a refused send, in the owner's words, when there is one. */
+  readonly explainSendError?: (error: unknown) => string | undefined;
 }
 
 export type ArmingFlowState =
@@ -70,7 +72,10 @@ async function sendAndWait(
     hash = await deps.send(call);
   } catch (error) {
     if (isUserRejection(error)) return { state: "rejected" };
-    return { state: "error", message: `The wallet could not send the ${what}.` };
+    return {
+      state: "error",
+      message: deps.explainSendError?.(error) ?? `The wallet could not send the ${what}.`,
+    };
   }
   report({ state: "confirming", hash });
   try {

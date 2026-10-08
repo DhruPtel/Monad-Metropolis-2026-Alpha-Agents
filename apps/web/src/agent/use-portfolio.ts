@@ -1,26 +1,31 @@
 "use client";
 
 import type { EnvironmentId } from "@alpha-agents/config";
-import { agentNftDeployment } from "@alpha-agents/domain";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { Address, Hex } from "viem";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { type Address, type Hex, decodeFunctionData } from "viem";
 import {
   type ArmingViewJson,
   ApiError,
   type IntentJson,
   type PortfolioJson,
   type WhyNotTradedJson,
+  api,
   tradingApi,
 } from "@/api/client";
+import { type SummaryView, summaryView } from "./my-agents";
 import { type ContractWrite, useWalletSession } from "@/auth/session";
 import { type ArmingProgress, runArm, runDisarm } from "./arming-flow";
-import { chainClient } from "./chain";
-import { ACCOUNT_ABI, ERC20_ABI, FACTORY_ABI } from "./custody";
-import { type Rpc, checkWalletNetwork } from "./network-check";
+import {
+  ACCOUNT_ABI,
+  CUSTODY_REVERT_MESSAGES,
+  ERC20_ABI,
+  FACTORY_ABI,
+  GRANT_ABI,
+  custodyRevertName,
+} from "./custody";
 import { type Asset, DECIMALS, parseAmount } from "./portfolio";
-import { waitForReceiptOnAppNetwork } from "./receipt-watch";
-import { StuckNonceError, readNonceReport, stuckNonce } from "./stuck-nonce";
 import { useOwnerSession } from "./use-owner-session";
+import { useWalletTx } from "./use-wallet-tx";
 import { type WalletStep, type WalletTxProgress, runWalletSteps } from "./wallet-tx";
 
 /** How often the page re-reads, and how often while a trade or an action is moving. */
@@ -44,6 +49,10 @@ export interface Portfolio {
   readonly arming: ArmingViewJson | null;
   readonly intents: readonly IntentJson[];
   readonly why: WhyNotTradedJson | null;
+  /** The agent's credits and funding address, for Add credits (Phase 2 tuning). */
+  readonly summary: SummaryView | null;
+  /** Re-reads at once. */
+  refresh(): void;
   /** Why the portfolio could not be read, in plain words. */
   readonly error: string | null;
   readonly status: ActionStatus | null;
@@ -100,12 +109,11 @@ function armingStatus(p: ArmingProgress): WalletTxProgress {
 export function usePortfolio(agentId: bigint, environment: EnvironmentId): Portfolio {
   const wallet = useWalletSession();
   const asOwner = useOwnerSession(agentId);
-  const deployment = useMemo(() => agentNftDeployment(environment), [environment]);
-  const client = useMemo(() => chainClient(wallet.target), [wallet.target]);
   const [portfolio, setPortfolio] = useState<PortfolioJson | null>(null);
   const [arming, setArming] = useState<ArmingViewJson | null>(null);
   const [intents, setIntents] = useState<readonly IntentJson[]>([]);
   const [why, setWhy] = useState<WhyNotTradedJson | null>(null);
+  const [summary, setSummary] = useState<SummaryView | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<ActionStatus | null>(null);
   const [tick, setTick] = useState(0);
@@ -142,11 +150,13 @@ export function usePortfolio(agentId: bigint, environment: EnvironmentId): Portf
           asOwner((t) => tradingApi.intents(agentId, t)),
           tradingApi.whyNotTraded(agentId).catch(() => null),
         ]);
+        const s = await asOwner((t) => api.summary(agentId, t)).catch(() => null);
         if (!live || !mounted.current) return;
         setPortfolio(p);
         setArming(a);
         setIntents(i);
         if (w) setWhy(w);
+        if (s) setSummary(summaryView(s));
         setError(null);
       } catch (err) {
         if (live && mounted.current) setError(words(err));
@@ -159,50 +169,7 @@ export function usePortfolio(agentId: bigint, environment: EnvironmentId): Portf
     };
   }, [agentId, asOwner, busy, tick, wallet.ready, wallet.address]);
 
-  const appRpc: Rpc = useCallback(
-    (method, params) => client.request({ method, params } as never),
-    [client],
-  );
-
-  const checkNetwork = useCallback(() => {
-    if (!deployment)
-      return Promise.resolve({
-        ok: false as const,
-        reason: "no-contract-in-app" as const,
-        message: "AgentNFT is not deployed in this environment.",
-      });
-    return checkWalletNetwork({
-      wallet: wallet.walletRequest,
-      app: appRpc,
-      target: wallet.target,
-      referenceBlock: deployment.referenceBlock,
-      contract: deployment.address,
-    });
-  }, [appRpc, deployment, wallet]);
-
-  /** Waits on the app's RPC, names a send to another network (L-53), and reads the receipt's status. */
-  const waitForReceipt = useCallback(
-    async (hash: Hex): Promise<"success" | "reverted"> => {
-      const address = wallet.address;
-      await waitForReceiptOnAppNetwork({
-        hash,
-        app: appRpc,
-        wallet: wallet.walletRequest,
-        appNetwork: wallet.target.name,
-        ...(environment === "local" && address
-          ? {
-              stuckCheck: async () => {
-                const gap = stuckNonce(await readNonceReport(appRpc, address, hash));
-                return gap ? new StuckNonceError(gap) : null;
-              },
-            }
-          : {}),
-      });
-      const receipt = await client.getTransactionReceipt({ hash });
-      return receipt.status === "success" ? "success" : "reverted";
-    },
-    [appRpc, client, environment, wallet],
-  );
+  const { client, checkNetwork, waitForReceipt } = useWalletTx(environment);
 
   const runSteps = useCallback(
     (action: PortfolioAction, steps: WalletStep<ContractWrite>[], done: string) => {
@@ -330,16 +297,30 @@ export function usePortfolio(agentId: bigint, environment: EnvironmentId): Portf
       getArming: () => tradingApi.raw(agentId, "arming", "GET", token),
       confirmArming: () => tradingApi.raw(agentId, "arming", "POST", token),
       disarm: () => tradingApi.raw(agentId, "disarm", "POST", token),
-      send: async (call: { to: Hex; data: Hex }) =>
-        (await wallet.walletRequest("eth_sendTransaction", [
-          { from: wallet.address, to: call.to, data: call.data, value: "0x0" },
-        ])) as Hex,
+      // The grant or revoke is simulated from the wallet's address first, so a refusal names the
+      // Executor's own reason before anything is signed (Phase 2 tuning), then sent from the wallet.
+      send: async (call: { to: Hex; data: Hex }) => {
+        const { functionName, args } = decodeFunctionData({ abi: GRANT_ABI, data: call.data });
+        const request = { address: call.to, abi: GRANT_ABI, functionName, args } as never;
+        if (wallet.address)
+          await client.simulateContract({
+            ...(request as object),
+            account: wallet.address,
+          } as never);
+        return wallet.writeContract(request);
+      },
+      explainSendError: (error: unknown) => {
+        const name = custodyRevertName(error);
+        return name
+          ? (CUSTODY_REVERT_MESSAGES[name] ?? `The Executor refused it (${name}).`)
+          : undefined;
+      },
       waitForReceipt: async (hash: Hex) => {
         if ((await waitForReceipt(hash)) === "reverted")
           throw new Error("the transaction reverted");
       },
     }),
-    [agentId, checkNetwork, waitForReceipt, wallet],
+    [agentId, checkNetwork, client, waitForReceipt, wallet],
   );
 
   const runArming = useCallback(
@@ -406,6 +387,8 @@ export function usePortfolio(agentId: bigint, environment: EnvironmentId): Portf
     arming,
     intents,
     why,
+    summary,
+    refresh: useCallback(() => setTick((t) => t + 1), []),
     error,
     status,
     busy,

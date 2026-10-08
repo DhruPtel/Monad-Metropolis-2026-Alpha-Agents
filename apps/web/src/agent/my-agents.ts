@@ -41,6 +41,9 @@ export interface SummaryView {
   readonly funding: FundingView | null;
   readonly spendable: bigint;
   readonly held: bigint;
+  /** Credits as the ledger counts them, and the per-agent cap (Phase 2 tuning). */
+  readonly credits: bigint;
+  readonly creditCap: bigint;
   /** What a refund pays this owner: only their own share of the credits (D-242). */
   readonly ownRefund: bigint;
   readonly spent24h: bigint;
@@ -61,6 +64,9 @@ export function summaryView(s: AgentSummaryJson): SummaryView {
       : null,
     spendable,
     held,
+    credits: BigInt(s.credits?.creditsUsdcE6 ?? "0"),
+    // The platform's cap (D-210); an older API without the field means the beta's 50 USDC.
+    creditCap: BigInt(s.creditCapUsdcE6 ?? "50000000"),
     ownRefund: BigInt(s.credits?.ownRefundUsdcE6 ?? "0"),
     spent24h: BigInt(s.spent24hUsdcE6),
     charges: s.charges.map((c) => ({ ...c, amountUsdcE6: BigInt(c.amountUsdcE6) })),

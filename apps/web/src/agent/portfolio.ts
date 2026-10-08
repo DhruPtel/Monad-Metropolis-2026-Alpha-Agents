@@ -13,6 +13,13 @@ import type { PortfolioJson } from "@/api/client";
 export type Asset = "USDC" | "WMON";
 export const DECIMALS: Readonly<Record<Asset, number>> = { USDC: 6, WMON: 18 };
 
+/**
+ * A-50: below this much MON the wallet is warned it cannot pay gas to arm,
+ * deposit or withdraw: 0.05 MON covers a few owner transactions at Monad's
+ * fees (each is one or two calls of at most a few hundred thousand gas).
+ */
+export const LOW_GAS_WEI = 50_000_000_000_000_000n;
+
 /** A price older than this reads as stale here; the oracle's own reason is the real rule. */
 export const PRICE_FRESH_SECONDS = 300;
 
