@@ -5,6 +5,8 @@ const ignored = [
   "**/dist/**",
   "**/.next/**",
   "**/.next-e2e/**",
+  "**/.next-testnet/**",
+  "**/.next-beta/**",
   "**/dependencies/**",
   "Planv1/**",
   "Planv2/**",

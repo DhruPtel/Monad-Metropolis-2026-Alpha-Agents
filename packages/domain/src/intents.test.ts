@@ -16,7 +16,6 @@ import {
   SwapIntentSchema,
   TOOL_IDS,
   TOOL_REGISTRY,
-  UnverifiedAddressError,
   isToolId,
   parseToolId,
   toExecutorSwap,
@@ -176,14 +175,18 @@ describe("Executor swap intent", () => {
     expect(Object.keys(signable)).not.toContain("recipient");
   });
 
-  it("refuses to build a signable intent with unverified testnet tokens", () => {
-    expect(() =>
-      toExecutorSwap(SwapIntentSchema.parse(swap), {
-        ...ctx,
-        chainId: 10143,
-        environment: "testnet",
-      }),
-    ).toThrow(UnverifiedAddressError);
+  it("builds a testnet intent from testnet's own tokens, never mainnet's (P2-EC)", () => {
+    const built = toExecutorSwap(SwapIntentSchema.parse(swap), {
+      ...ctx,
+      chainId: 10143,
+      environment: "testnet",
+    });
+    const testnetTokens = [
+      "0x534b2f3A21130d7a60830c2Df862319e593943A3",
+      "0xFb8bf4c1CC7a94c73D209a149eA2AbEa852BC541",
+    ];
+    expect(testnetTokens).toContain(built.tokenIn);
+    expect(testnetTokens).toContain(built.tokenOut);
   });
 
   it("does not accept a plain address where a verified one is required", () => {

@@ -1,4 +1,9 @@
-import { ENVIRONMENT_IDS, LOCAL_FORK_CHAIN_ID, MONAD_MAINNET_CHAIN_ID } from "@alpha-agents/config";
+import {
+  ENVIRONMENT_IDS,
+  LOCAL_FORK_CHAIN_ID,
+  MONAD_MAINNET_CHAIN_ID,
+  MONAD_TESTNET_CHAIN_ID,
+} from "@alpha-agents/config";
 import { isAddress } from "viem";
 import { describe, expect, it } from "vitest";
 import {
@@ -30,7 +35,7 @@ describe("address book", () => {
   it("gives every entry a source, a status and a note", () => {
     for (const env of ENVIRONMENT_IDS) {
       for (const e of ADDRESS_BOOK[env]) {
-        expect(e.source, `${env} ${e.id}`).toMatch(/^(Planv2\/|https:\/\/)/);
+        expect(e.source, `${env} ${e.id}`).toMatch(/^(Planv2\/|https:\/\/|evidence\/)/);
         expect(["verified", "unverified"]).toContain(e.status);
         expect(e.note.length).toBeGreaterThan(0);
         if (e.openQuestion !== null) expect(e.openQuestion).toMatch(/^Q-\d{2}$/);
@@ -43,21 +48,39 @@ describe("address book", () => {
       for (const e of ADDRESS_BOOK[env]) {
         if (e.status !== "verified") continue;
         expect(e.address).toMatch(/^0x[0-9a-fA-F]{40}$/);
-        // Mainnet state at the pin is chain 143; our own contracts live only
-        // on the local fork, chain 143143 (D-195).
+        // Mainnet state at the pin is chain 143; our own local contracts live
+        // only on the local fork, chain 143143 (D-195); testnet entries were
+        // observed on testnet itself, 10143 (P2-EC).
         expect(e.verification.chainId).toBe(
-          e.kind === "platform" ? LOCAL_FORK_CHAIN_ID : MONAD_MAINNET_CHAIN_ID,
+          env === "testnet"
+            ? MONAD_TESTNET_CHAIN_ID
+            : e.kind === "platform"
+              ? LOCAL_FORK_CHAIN_ID
+              : MONAD_MAINNET_CHAIN_ID,
         );
         expect(e.verification.codeSize).toBeGreaterThan(0);
       }
     }
   });
 
-  it("uses the same external entries for local and beta, and none verified on testnet", () => {
+  it("uses the same external entries for local and beta, and verifies testnet only by a testnet observation", () => {
     const external = (env: "local" | "beta") =>
       ADDRESS_BOOK[env].filter((e) => e.kind !== "platform");
     expect(external("local")).toEqual(external("beta"));
-    expect(ADDRESS_BOOK.testnet.filter((e) => e.status === "verified")).toEqual([]);
+    for (const env of ENVIRONMENT_IDS) {
+      for (const e of ADDRESS_BOOK[env]) {
+        if (e.status !== "verified") continue;
+        if (env === "testnet") {
+          expect(e.verification.chain?.codeHash, e.id).toMatch(/^0x[0-9a-f]{64}$/);
+          expect(e.verification.chain?.explorer).toContain("testnet.monadvision.com");
+        } else {
+          expect(e.verification.chain, `${env} ${e.id}`).toBeUndefined();
+        }
+      }
+    }
+    // Testnet was reset (D-248): its USDC and WMON are not mainnet's.
+    expect(addressEntry("testnet", "usdc").address).not.toBe(addressEntry("beta", "usdc").address);
+    expect(addressEntry("testnet", "wmon").address).not.toBe(addressEntry("beta", "wmon").address);
   });
 
   it("never verifies a fork deployment of our own contracts for beta", () => {
@@ -70,8 +93,15 @@ describe("address book", () => {
     for (const env of ENVIRONMENT_IDS) {
       for (const e of ADDRESS_BOOK[env]) {
         if (e.status === "verified" && e.verification.deployedBy !== undefined) {
-          expect(env, e.id).toBe("local");
-          expect(e.kind).toBe("platform");
+          // Our own deployments: the local fork's, or P2-EC's on testnet with
+          // their deployment transaction and Sourcify link (D-254, D-256).
+          expect(["local", "testnet"], e.id).toContain(env);
+          if (env === "testnet") {
+            expect(e.verification.chain?.transaction, e.id).toMatch(/^0x[0-9a-f]{64}$/);
+            expect(e.verification.chain?.sourcify).toContain("repo.sourcify.dev/10143/");
+          } else {
+            expect(e.kind).toBe("platform");
+          }
         }
       }
     }
@@ -102,6 +132,13 @@ describe("address book", () => {
 });
 
 describe("signing block for unverified addresses", () => {
+  it("returns testnet's own verified addresses (P2-EC)", () => {
+    expect(signingAddress("testnet", "usdc")).toBe("0x534b2f3A21130d7a60830c2Df862319e593943A3");
+    expect(signingAddress("testnet", "executor")).toBe(
+      "0xc127997711a3D26a0967724897BCc365934DeC7c",
+    );
+  });
+
   it("returns a verified address", () => {
     const usdc: VerifiedAddress = signingAddress("beta", "usdc");
     expect(usdc).toBe("0x754704Bc059F8C67012fEd69BC8A327a5aafb603");
@@ -114,8 +151,13 @@ describe("signing block for unverified addresses", () => {
       /erc8004_identity_registry is unverified in beta.*Q-13.*no known address/,
     ],
     ["testnet", "kuru_router", /kuru_router is unverified in testnet/],
-    ["testnet", "usdc", /usdc is unverified in testnet/],
-    ["testnet", "erc6551_registry", /erc6551_registry is unverified in testnet/],
+    ["testnet", "weth", /weth is unverified in testnet/],
+    ["testnet", "uniswap_v3_swap_router02", /uniswap_v3_swap_router02 is unverified in testnet/],
+    [
+      "testnet",
+      "venue_uniswap_v3_usdc_wmon",
+      /venue_uniswap_v3_usdc_wmon is unverified in testnet/,
+    ],
   ] as const)("refuses %s %s", (env, id, message) => {
     expect(() => signingAddress(env, id)).toThrow(UnverifiedAddressError);
     expect(() => signingAddress(env, id)).toThrow(message);

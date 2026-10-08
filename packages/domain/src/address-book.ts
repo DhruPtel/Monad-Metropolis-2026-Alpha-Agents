@@ -1,4 +1,8 @@
-import { type EnvironmentId, LOCAL_FORK_CHAIN_ID } from "@alpha-agents/config";
+import {
+  type EnvironmentId,
+  LOCAL_FORK_CHAIN_ID,
+  MONAD_TESTNET_CHAIN_ID,
+} from "@alpha-agents/config";
 import type { Address } from "./ids.ts";
 
 /**
@@ -88,6 +92,20 @@ export interface ForkVerification {
    * command (it is deterministic and idempotent) and checks the latest block.
    */
   readonly deployedBy?: string;
+  /**
+   * Set for an observation on a real chain (P2-EC, D-254): the entry was read
+   * on that chain itself, not through the fork. Our own contracts also record
+   * their deployment transaction and Sourcify match.
+   */
+  readonly chain?: ChainObservation;
+}
+
+/** What a real chain served for an entry (D-254). */
+export interface ChainObservation {
+  readonly codeHash: `0x${string}`;
+  readonly explorer: string;
+  readonly transaction?: `0x${string}`;
+  readonly sourcify?: string;
 }
 
 interface EntryCommon {
@@ -455,52 +473,233 @@ const MAINNET: readonly AddressEntry[] = [
   },
 ];
 
-const NOT_IN_RESEARCH = "No testnet address appears in Planv2 or its research; P1-U3 supplies it";
+const NOT_ON_TESTNET = "Not found on Monad testnet when P2-EC checked it (D-248)";
+const P2EC_TESTNET = "evidence/p2-ec/REAL_CHAIN.md; Planv2/DECISIONS_AND_OPEN_QUESTIONS.md D-248";
+const UNI_V4_TESTNET =
+  "https://github.com/monad-crypto/protocols testnet/uniswap_v4.jsonc (not an official Uniswap deployment)";
 
 /**
- * Monad testnet, chain 10143. The research found the canonical Tokenbound
- * contracts on testnet too, but this unit makes no testnet calls, so every
- * testnet entry is unverified until P1-U3 checks it.
+ * What P2-EC read on Monad testnet (chain 10143) for each external entry
+ * (D-248 re-checked, D-254). Testnet was reset on 2025-12-16, so only these
+ * observations count there.
+ */
+const TESTNET_OBSERVED: Partial<
+  Record<AddressBookId, { readonly address: Address; readonly verification: ForkVerification }>
+> = {
+  usdc: {
+    address: "0x534b2f3A21130d7a60830c2Df862319e593943A3",
+    verification: {
+      chainId: MONAD_TESTNET_CHAIN_ID,
+      block: 69283030,
+      codeSize: 1798,
+      decimals: 6,
+      chain: {
+        codeHash: "0x96215e6049ed615cdc22fea7701e85458a8e51a2df3e7d45e8f9fa1d521b5a78",
+        explorer:
+          "https://testnet.monadvision.com/address/0x534b2f3A21130d7a60830c2Df862319e593943A3",
+      },
+    },
+  },
+  wmon: {
+    address: "0xFb8bf4c1CC7a94c73D209a149eA2AbEa852BC541",
+    verification: {
+      chainId: MONAD_TESTNET_CHAIN_ID,
+      block: 69283030,
+      codeSize: 3249,
+      decimals: 18,
+      chain: {
+        codeHash: "0xa32df4f1226f1bb0d6ce9b917752ed687857899a35ebf902c9992edb73b138b6",
+        explorer:
+          "https://testnet.monadvision.com/address/0xFb8bf4c1CC7a94c73D209a149eA2AbEa852BC541",
+      },
+    },
+  },
+  erc6551_registry: {
+    address: "0x000000006551c19487814612e58FE06813775758",
+    verification: {
+      chainId: MONAD_TESTNET_CHAIN_ID,
+      block: 69283030,
+      codeSize: 571,
+      chain: {
+        codeHash: "0xda1d5b06e579f9e42e59b00fbc22939896ecb38dc8830d40de0a2508fecd6735",
+        explorer:
+          "https://testnet.monadvision.com/address/0x000000006551c19487814612e58FE06813775758",
+      },
+    },
+  },
+  tokenbound_account_proxy: {
+    address: "0x55266d75D1a14E4572138116aF39863Ed6596E7F",
+    verification: {
+      chainId: MONAD_TESTNET_CHAIN_ID,
+      block: 69283030,
+      codeSize: 902,
+      chain: {
+        codeHash: "0x7f2b4bea519ba5fe0e8e3cf054654f18480c4416fc71370b31f37848688afdb0",
+        explorer:
+          "https://testnet.monadvision.com/address/0x55266d75D1a14E4572138116aF39863Ed6596E7F",
+      },
+    },
+  },
+  tokenbound_account_v3_upgradable: {
+    address: "0x41C8f39463A868d3A88af00cd0fe7102F30E44eC",
+    verification: {
+      chainId: MONAD_TESTNET_CHAIN_ID,
+      block: 69283030,
+      codeSize: 14924,
+      chain: {
+        codeHash: "0xdf5eeb80b53e48dfd667fff5264976de4004fdd27eef4f6b954d182109f0f85b",
+        explorer:
+          "https://testnet.monadvision.com/address/0x41C8f39463A868d3A88af00cd0fe7102F30E44eC",
+      },
+    },
+  },
+  tokenbound_account_guardian: {
+    address: "0x2FE5ccb0d7Ea195FEb87987d3573F9fcCE2b5D57",
+    verification: {
+      chainId: MONAD_TESTNET_CHAIN_ID,
+      block: 69283030,
+      codeSize: 1211,
+      chain: {
+        codeHash: "0x852cc93231fd7a7d35a225fb5f357e69db966935de05627095f906f7d88093f2",
+        explorer:
+          "https://testnet.monadvision.com/address/0x2FE5ccb0d7Ea195FEb87987d3573F9fcCE2b5D57",
+      },
+    },
+  },
+  multicall3_forwarder: {
+    address: "0xcA1167915584462449EE5b4Ea51c37fE81eCDCCD",
+    verification: {
+      chainId: MONAD_TESTNET_CHAIN_ID,
+      block: 69283030,
+      codeSize: 4126,
+      chain: {
+        codeHash: "0xb074cd81f36845a40a1136f7d599dadb52c3e7486eab525722d38e6696c8895c",
+        explorer:
+          "https://testnet.monadvision.com/address/0xcA1167915584462449EE5b4Ea51c37fE81eCDCCD",
+      },
+    },
+  },
+  entrypoint_v0_6: {
+    address: "0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789",
+    verification: {
+      chainId: MONAD_TESTNET_CHAIN_ID,
+      block: 69283030,
+      codeSize: 23689,
+      chain: {
+        codeHash: "0xc93c806e738300b5357ecdc2e971d6438d34d8e4e17b99b758b1f9cac91c8e70",
+        explorer:
+          "https://testnet.monadvision.com/address/0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789",
+      },
+    },
+  },
+  create2_deployer: {
+    address: "0x4e59b44847b379578588920cA78FbF26c0B4956C",
+    verification: {
+      chainId: MONAD_TESTNET_CHAIN_ID,
+      block: 69283030,
+      codeSize: 69,
+      chain: {
+        codeHash: "0x2fa86add0aed31f33a762c9d88e807c475bd51d0f52bd0955754b2608f7e4989",
+        explorer:
+          "https://testnet.monadvision.com/address/0x4e59b44847b379578588920cA78FbF26c0B4956C",
+      },
+    },
+  },
+  permit2: {
+    address: "0x000000000022D473030F116dDEE9F6B43aC78BA3",
+    verification: {
+      chainId: MONAD_TESTNET_CHAIN_ID,
+      block: 69283030,
+      codeSize: 9152,
+      chain: {
+        codeHash: "0xe8ca368abb6fa7f5d31b388b14e16d3654281140695486df9a22d7d9b75df310",
+        explorer:
+          "https://testnet.monadvision.com/address/0x000000000022D473030F116dDEE9F6B43aC78BA3",
+      },
+    },
+  },
+  pyth_entropy: {
+    address: "0x825c0390f379C631f3Cf11A82a37D20BddF93c07",
+    verification: {
+      chainId: MONAD_TESTNET_CHAIN_ID,
+      block: 69283030,
+      codeSize: 177,
+      chain: {
+        codeHash: "0x7e693eea60500e1d5c5984a4cc54ec0b371d9ad29e8bb09c543cb7be447963df",
+        explorer:
+          "https://testnet.monadvision.com/address/0x825c0390f379C631f3Cf11A82a37D20BddF93c07",
+      },
+    },
+  },
+  uniswap_v4_pool_manager: {
+    address: "0x451D64ab3b650040d2aE1886602b97ed6eDc643d",
+    verification: {
+      chainId: MONAD_TESTNET_CHAIN_ID,
+      block: 69283030,
+      codeSize: 34582,
+      chain: {
+        codeHash: "0x61199025286997b715457c68f86dbc42c847753f01e0773668394a405d53d579",
+        explorer:
+          "https://testnet.monadvision.com/address/0x451D64ab3b650040d2aE1886602b97ed6eDc643d",
+      },
+    },
+  },
+  uniswap_v4_state_view: {
+    address: "0xB639209539c61BaF67AC04876315786F8D0b153c",
+    verification: {
+      chainId: MONAD_TESTNET_CHAIN_ID,
+      block: 69283030,
+      codeSize: 3531,
+      chain: {
+        codeHash: "0xeedadde80f69c3b89437996025759b839a65e12db6c8379a7327a34aa269fa5e",
+        explorer:
+          "https://testnet.monadvision.com/address/0xB639209539c61BaF67AC04876315786F8D0b153c",
+      },
+    },
+  },
+  uniswap_v4_quoter: {
+    address: "0x869834d127b230283fe63E0d0A9bEB67216a94C7",
+    verification: {
+      chainId: MONAD_TESTNET_CHAIN_ID,
+      block: 69283030,
+      codeSize: 6118,
+      chain: {
+        codeHash: "0xdc1a524cd6108e0d1d90c5de1b594b2f953feaf9dc6c2387ecd1b4232ea0e521",
+        explorer:
+          "https://testnet.monadvision.com/address/0x869834d127b230283fe63E0d0A9bEB67216a94C7",
+      },
+    },
+  },
+};
+
+/** Testnet notes that differ from mainnet's. */
+const TESTNET_NOTES: Partial<Record<AddressBookId, string>> = {
+  usdc: "Circle's testnet USDC (D-248)",
+  wmon: "Testnet WMON; not the mainnet address",
+  pyth_entropy: "Pyth Entropy v2 on testnet; default provider 0x6CC1...6344, fee 0.128 MON",
+  uniswap_v4_pool_manager:
+    "Unofficial testnet v4 PoolManager; P2-EC's pool is the only MON/USDC pool on it (D-257)",
+  uniswap_v4_state_view: "StateView of the unofficial testnet v4 deployment",
+  uniswap_v4_quoter: "V4Quoter of the unofficial testnet v4 deployment",
+};
+
+/**
+ * Monad testnet, chain 10143: verified only where P2-EC observed code on
+ * testnet itself. Entries with no testnet counterpart stay unverified.
  */
 const TESTNET: readonly AddressEntry[] = MAINNET.map((m): AddressEntry => {
-  const sameOnTestnet: readonly AddressBookId[] = [
-    "erc6551_registry",
-    "tokenbound_account_proxy",
-    "tokenbound_account_v3_upgradable",
-    "tokenbound_account_guardian",
-    "multicall3_forwarder",
-    "entrypoint_v0_6",
-    "create2_deployer",
-  ];
-  if (sameOnTestnet.includes(m.id)) {
+  const seen = TESTNET_OBSERVED[m.id];
+  if (seen) {
     return {
       ...m,
-      status: "unverified",
-      verification: null,
-      source: TOKENBOUND,
-      note: "The research found code at this address on testnet; not yet checked by this project",
+      address: seen.address,
+      status: "verified",
+      verification: seen.verification,
+      source: m.id.startsWith("uniswap_v4") ? UNI_V4_TESTNET : P2EC_TESTNET,
+      note: TESTNET_NOTES[m.id] ?? m.note,
     };
   }
-  if (m.id === "tokenbound_safe") {
-    return {
-      ...m,
-      address: null,
-      status: "unverified",
-      verification: null,
-      source: TOKENBOUND,
-      note: "The research found no code at the Safe address on testnet; the testnet guardian is frozen at defaults",
-    };
-  }
-  if (m.id === "pyth_entropy") {
-    return {
-      ...m,
-      address: "0x825c0390f379C631f3Cf11A82a37D20BddF93c07",
-      status: "unverified",
-      verification: null,
-      note: "Pyth's registry entry monad_testnet; code and the testnet default provider seen by a read-only call in P1-U3, not fork-checked",
-    };
-  }
-  return { ...m, address: null, status: "unverified", verification: null, note: NOT_IN_RESEARCH };
+  return { ...m, address: null, status: "unverified", verification: null, note: NOT_ON_TESTNET };
 });
 
 /**
@@ -648,14 +847,241 @@ const custodyUndeployed = (note: string): AddressEntry[] =>
     note,
   }));
 
+/**
+ * P2-EC part 1's throwaway testnet deployment (D-247, D-249), as observed on
+ * testnet after `pnpm deploy:testnet` and verified on Sourcify (D-256). The
+ * deployment block is where the indexer starts and the wallet guard's fixed
+ * block (D-254); every transaction is in evidence/p2-ec/deployment.json.
+ */
+const P2EC_SOURCE = "evidence/p2-ec/ADDRESSES.md (P2-EC part 1, testnet, throwaway)";
+const TESTNET_DEPLOYED: readonly AddressEntry[] = [
+  {
+    id: "chainlink_mon_usd",
+    label: "TestnetFeed MON/USD",
+    kind: "price_feed",
+    address: "0x4F257aD5E3AE49E0934813c23F5940448d20965E",
+    status: "verified",
+    verification: {
+      chainId: MONAD_TESTNET_CHAIN_ID,
+      block: 69281610,
+      codeSize: 2125,
+      decimals: 8,
+      deployedBy: "pnpm deploy:testnet",
+      chain: {
+        codeHash: "0xa7086b366328ed7733de1d09036297a99892b0dcc452c68bb98e059de256bde1",
+        explorer:
+          "https://testnet.monadvision.com/address/0x4F257aD5E3AE49E0934813c23F5940448d20965E",
+        transaction: "0xf73c11c9166637269475dea9ee810d58a305ac802b21a4406e8ad102cd0b2da5",
+        sourcify: "https://repo.sourcify.dev/10143/0x4F257aD5E3AE49E0934813c23F5940448d20965E",
+      },
+    },
+    source: P2EC_SOURCE,
+    openQuestion: null,
+    note: "Operator price 1.00 USD (D-253, D-304), refreshed on demand (D-307); written only by TESTNET_FEED_PRIVATE_KEY",
+  },
+  {
+    id: "chainlink_usdc_usd",
+    label: "TestnetFeed USDC/USD",
+    kind: "price_feed",
+    address: "0x94f797988a94c86dF85bC457027eDF7b4673fD9D",
+    status: "verified",
+    verification: {
+      chainId: MONAD_TESTNET_CHAIN_ID,
+      block: 69281612,
+      codeSize: 2125,
+      decimals: 8,
+      deployedBy: "pnpm deploy:testnet",
+      chain: {
+        codeHash: "0xa7086b366328ed7733de1d09036297a99892b0dcc452c68bb98e059de256bde1",
+        explorer:
+          "https://testnet.monadvision.com/address/0x94f797988a94c86dF85bC457027eDF7b4673fD9D",
+        transaction: "0xff249dc0d85f701e130c1f6237a3b55f9525ae04f9ffc71638eb6ace52aae5a1",
+        sourcify: "https://repo.sourcify.dev/10143/0x94f797988a94c86dF85bC457027eDF7b4673fD9D",
+      },
+    },
+    source: P2EC_SOURCE,
+    openQuestion: null,
+    note: "Operator price 1.00 USD for the depeg guard (D-253), refreshed on demand (D-307)",
+  },
+  {
+    id: "agent_nft",
+    label: "AgentNFT",
+    kind: "platform",
+    address: "0x0c2472Ed555836F22FB3eAB7aBC2Cc3AebeaC9ea",
+    status: "verified",
+    verification: {
+      chainId: MONAD_TESTNET_CHAIN_ID,
+      block: 69281679,
+      codeSize: 34459,
+      deployedBy: "pnpm deploy:testnet",
+      chain: {
+        codeHash: "0xb357594863407c9f8a9aa570a79b09300a006a54f3ec6072fcd389026ceac143",
+        explorer:
+          "https://testnet.monadvision.com/address/0x0c2472Ed555836F22FB3eAB7aBC2Cc3AebeaC9ea",
+        transaction: "0x994f5ffd5626083b2d74cc440d113449b6ca71cef7c29fc8a8db3aa958dc0333",
+        sourcify: "https://repo.sourcify.dev/10143/0x0c2472Ed555836F22FB3eAB7aBC2Cc3AebeaC9ea",
+      },
+    },
+    source: P2EC_SOURCE,
+    openQuestion: null,
+    note: "P2-EC testnet, throwaway (D-249): p2ec.testnet salt, pending image base, never frozen, claim required",
+  },
+  {
+    id: "account_factory",
+    label: "AccountFactory",
+    kind: "platform",
+    address: "0x960c0421c5FEac805187F25D7abc04D971D334B6",
+    status: "verified",
+    verification: {
+      chainId: MONAD_TESTNET_CHAIN_ID,
+      block: 69281745,
+      codeSize: 12557,
+      deployedBy: "pnpm deploy:testnet",
+      chain: {
+        codeHash: "0x8257abfa5c62307450f68b5366bd68ddfe6933eb88e5d6ac4ff0cd1e8d22dd60",
+        explorer:
+          "https://testnet.monadvision.com/address/0x960c0421c5FEac805187F25D7abc04D971D334B6",
+        transaction: "0xea6e63ed0baadbf0db367af9ccd2eef93a87d52251d5a955e15ee826b026affe",
+        sourcify: "https://repo.sourcify.dev/10143/0x960c0421c5FEac805187F25D7abc04D971D334B6",
+      },
+    },
+    source: P2EC_SOURCE,
+    openQuestion: null,
+    note: "P2-EC testnet, throwaway: caps 100/2,000 USDC; allowlist the owner's playtest wallets and the test wallet",
+  },
+  {
+    id: "personal_account_implementation",
+    label: "PersonalAccount implementation",
+    kind: "platform",
+    address: "0x740D148C9419977f5F7d7965B706b05Ce7Af4376",
+    status: "verified",
+    verification: {
+      chainId: MONAD_TESTNET_CHAIN_ID,
+      block: 69281745,
+      codeSize: 23514,
+      deployedBy: "pnpm deploy:testnet",
+      chain: {
+        codeHash: "0xb868a8ed7eaa63fef888415d468aa494604c80d40937ec4433d79ed1cd1ddcd4",
+        explorer:
+          "https://testnet.monadvision.com/address/0x740D148C9419977f5F7d7965B706b05Ce7Af4376",
+        transaction: "0xea6e63ed0baadbf0db367af9ccd2eef93a87d52251d5a955e15ee826b026affe",
+        sourcify: "https://repo.sourcify.dev/10143/0x740D148C9419977f5F7d7965B706b05Ce7Af4376",
+      },
+    },
+    source: P2EC_SOURCE,
+    openQuestion: null,
+    note: "Deployed by the testnet AccountFactory's constructor",
+  },
+  {
+    id: "oracle_adapter",
+    label: "Oracle adapter",
+    kind: "platform",
+    address: "0xa040cAa0529e5dfa48B5d61b78d75967BdBbb647",
+    status: "verified",
+    verification: {
+      chainId: MONAD_TESTNET_CHAIN_ID,
+      block: 69281723,
+      codeSize: 7076,
+      deployedBy: "pnpm deploy:testnet",
+      chain: {
+        codeHash: "0x82f754adfe5bf9f50ef10375b2e5b0e6a9c54c38f51c1a5fe96dce2ac20f553c",
+        explorer:
+          "https://testnet.monadvision.com/address/0xa040cAa0529e5dfa48B5d61b78d75967BdBbb647",
+        transaction: "0x37631075976e28b236984a881f7b4422d633268f1296b9903ee406477a6b3b12",
+        sourcify: "https://repo.sourcify.dev/10143/0xa040cAa0529e5dfa48B5d61b78d75967BdBbb647",
+      },
+    },
+    source: P2EC_SOURCE,
+    openQuestion: null,
+    note: "Over the two TestnetFeeds and the P2-EC pool (D-253, D-257)",
+  },
+  {
+    id: "executor",
+    label: "Executor",
+    kind: "platform",
+    address: "0xc127997711a3D26a0967724897BCc365934DeC7c",
+    status: "verified",
+    verification: {
+      chainId: MONAD_TESTNET_CHAIN_ID,
+      block: 69281727,
+      codeSize: 28590,
+      deployedBy: "pnpm deploy:testnet",
+      chain: {
+        codeHash: "0x95fbbfed08947644a601ba0cd7eb69702e4344b7972463154a55137203d15523",
+        explorer:
+          "https://testnet.monadvision.com/address/0xc127997711a3D26a0967724897BCc365934DeC7c",
+        transaction: "0xfb5f89c1526c361147b35f7694f7e1be3a5670a61a9d6c78de54171634e9bba4",
+        sourcify: "https://repo.sourcify.dev/10143/0xc127997711a3D26a0967724897BCc365934DeC7c",
+      },
+    },
+    source: P2EC_SOURCE,
+    openQuestion: null,
+    note: "P2-EC testnet, throwaway: launch policy; bound to the testnet factory and registry",
+  },
+  {
+    id: "protocol_registry",
+    label: "ProtocolRegistry",
+    kind: "platform",
+    address: "0xddE58ce63f029503804c68B84FF4a1cB81d3081c",
+    status: "verified",
+    verification: {
+      chainId: MONAD_TESTNET_CHAIN_ID,
+      block: 69281741,
+      codeSize: 9211,
+      deployedBy: "pnpm deploy:testnet",
+      chain: {
+        codeHash: "0x303165fb752fe494a9c935bbd56b46453e4ec26cc55d5a247f6b97728fa60fdb",
+        explorer:
+          "https://testnet.monadvision.com/address/0xddE58ce63f029503804c68B84FF4a1cB81d3081c",
+        transaction: "0x594e341abe4c506be29c350cf753dca07ed72e3e4b6f46c2960554d1448d4b9c",
+        sourcify: "https://repo.sourcify.dev/10143/0xddE58ce63f029503804c68B84FF4a1cB81d3081c",
+      },
+    },
+    source: P2EC_SOURCE,
+    openQuestion: null,
+    note: "Lists only the v4 adapter, active; testnet has no Uniswap v3",
+  },
+  {
+    id: "venue_uniswap_v4_mon_usdc",
+    label: "Uniswap v4 MON/USDC 0.05% adapter",
+    kind: "platform",
+    address: "0xe99aF4DC0E5dF691065D7CC8eb11070BD5B281b1",
+    status: "verified",
+    verification: {
+      chainId: MONAD_TESTNET_CHAIN_ID,
+      block: 69281734,
+      codeSize: 7589,
+      deployedBy: "pnpm deploy:testnet",
+      chain: {
+        codeHash: "0xbc1c90c8f8691441e5ab866f8fbfc35778fa514995cdf0ad64cddfb0ab4a3f4b",
+        explorer:
+          "https://testnet.monadvision.com/address/0xe99aF4DC0E5dF691065D7CC8eb11070BD5B281b1",
+        transaction: "0x118b754e2d91b735928ab3e1898fa10e64a4cce278ac44bcd5b728cbf0d5f57d",
+        sourcify: "https://repo.sourcify.dev/10143/0xe99aF4DC0E5dF691065D7CC8eb11070BD5B281b1",
+      },
+    },
+    source: P2EC_SOURCE,
+    openQuestion: null,
+    note: "On the P2-EC pool of the unofficial testnet PoolManager (D-257)",
+  },
+];
+
 export const ADDRESS_BOOK: Readonly<Record<EnvironmentId, readonly AddressEntry[]>> = {
   local: [...MAINNET, AGENT_NFT_LOCAL, ...CUSTODY_LOCAL],
   testnet: [
-    ...TESTNET,
-    agentNftUndeployed(
-      "Not deployed: needs MONAD_TESTNET_RPC_URL and a funded TESTNET_DEPLOYER_PRIVATE_KEY",
-    ),
-    ...custodyUndeployed("Not deployed: custody stays on the local fork until a unit deploys it"),
+    ...TESTNET.filter((e) => !TESTNET_DEPLOYED.some((d) => d.id === e.id)),
+    ...TESTNET_DEPLOYED,
+    {
+      id: "venue_uniswap_v3_usdc_wmon",
+      label: "Uniswap v3 USDC/WMON 0.3% adapter",
+      kind: "platform",
+      address: null,
+      status: "unverified",
+      verification: null,
+      source: CUSTODY_SOURCE,
+      openQuestion: null,
+      note: "Not deployed on testnet: testnet has no Uniswap v3 (D-248)",
+    },
   ],
   beta: [
     ...MAINNET,
