@@ -53,8 +53,11 @@ import type { ArmingFacts, BlockedFacts, TradeFacts } from "./narrator.ts";
 
 export interface TradeFlowSigner {
   submitSwap(agentId: number, intent: SwapIntentArgs): Promise<AcceptResult>;
-  /** The agent's session key: its funding address (D-243). Null before it has one. */
-  keyAddress(agentId: number): Promise<Hex | null>;
+  /**
+   * The agent's session key (its funding address, D-243), created in the
+   * signer if it has none yet: the signer records keys lazily (L-120, L-126).
+   */
+  createKey(agentId: number): Promise<Hex>;
 }
 
 export interface TradeFlowGas {
@@ -232,7 +235,7 @@ export class TradeFlow {
     const chainId = this.o.chainId;
     const arming = await this.o.store.openArming(chainId, i.agentId);
     if (!arming) return this.refuse(i, "not armed at submission", [blocker("NOT_ARMED", null)]);
-    const key = await this.o.signer.keyAddress(i.agentId);
+    const key = await this.o.signer.createKey(i.agentId);
     const reserved = await this.o.store.reservedSlots(chainId, i.agentId, i);
     const assessed = await assessTrade(this.o.reader, i.agentId, i.sell, i.amountIn, key, reserved);
     if (!assessed)
@@ -246,16 +249,15 @@ export class TradeFlow {
     )
       if (!blockers.some((b) => b.code === "EPOCH_MISMATCH"))
         blockers.push(blocker("EPOCH_MISMATCH", null));
-    if (key) {
-      const gas = await this.gasBlocker(key);
-      if (gas) blockers.push(gas);
-    }
-    if (blockers.length > 0 || !quote || !key || !m.venue)
-      return this.refuse(
-        i,
-        "a check changed between proposal and submission",
-        blockers.length > 0 ? blockers : [blocker("SIMULATION_FAILED", null)],
-      );
+    const gas = await this.gasBlocker(key);
+    if (gas) blockers.push(gas);
+    // Every gap names its own reason: no venue on chain, or no quote from it.
+    if (!m.venue && !blockers.some((b) => b.code === "VENUE_NOT_ALLOWED"))
+      blockers.push(blocker("VENUE_NOT_ALLOWED", null));
+    if (!quote && !blockers.some((b) => b.code === "SIMULATION_FAILED"))
+      blockers.push(blocker("SIMULATION_FAILED", null));
+    if (blockers.length > 0 || !quote || !m.venue)
+      return this.refuse(i, "a check changed between proposal and submission", blockers);
     const floor = tradeNow(i.sell, i.amountIn, m).minAmountOut;
     const minAmountOut = minAmountOutFor(quote.amountOut, floor, m.policy.maxSlippageBps);
     const deadline = m.timestamp + BigInt(m.policy.deadlineSeconds);

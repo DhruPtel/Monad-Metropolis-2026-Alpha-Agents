@@ -115,6 +115,7 @@ describe.skipIf(!dbUp)("the trade flow (needs Postgres)", { timeout: 60_000 }, (
   let finalized: bigint | null;
   let narrated: { key: string; facts: ArmingFacts | TradeFacts | BlockedFacts }[];
   let n = 0;
+  let keysEnsured = 0;
   const cost = swapGasCost(50_000_000_000n, 2_000_000_000n);
 
   const make = (o: { topUp?: boolean } = {}) =>
@@ -123,7 +124,10 @@ describe.skipIf(!dbUp)("the trade flow (needs Postgres)", { timeout: 60_000 }, (
       store: trades,
       reader: chain,
       signer: {
-        keyAddress: async () => KEY,
+        createKey: async () => {
+          keysEnsured += 1;
+          return KEY;
+        },
         submitSwap: async (agentId, intent): Promise<AcceptResult> => {
           n += 1;
           const txId = `tx-${n}`;
@@ -264,6 +268,8 @@ describe.skipIf(!dbUp)("the trade flow (needs Postgres)", { timeout: 60_000 }, (
       approvedBy: "auto",
     });
     expect(sent.map((s) => s.intent.amountIn)).toEqual([5_000_000n, 4_000_000n]);
+    // The session key is ensured at each submission, not only read (L-126).
+    expect(keysEnsured).toBeGreaterThanOrEqual(2);
     expect(narrated.map((x) => x.key)).toEqual(
       expect.arrayContaining([`${record.armingId}:registered`, `${record.armingId}:armed`]),
     );

@@ -312,7 +312,7 @@ const orchestrator = new Orchestrator({
   revealSteering: steering,
   chain: {
     reader: chainReader,
-    ...(chainSigner ? { sessionKeyOf: (agentId: number) => chainSigner.keyAddress(agentId) } : {}),
+    ...(chainSigner ? { sessionKeyOf: (agentId: number) => chainSigner.createKey(agentId) } : {}),
   },
   trading,
 });
