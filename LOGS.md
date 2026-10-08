@@ -704,3 +704,17 @@ Suggestions:
 - Make the indexer's --once stop on SIGTERM.
 Bugs: L-141.
 Commit: 68dfb5a, ac255ca, plus the docs commit.
+
+## 2026-10-08, P2-EC part 1 follow-up: the minted agent the app did not show
+Status: done (testnet). The owner's agent 2 shows on /configure and /agents, and the reveal link opens it.
+Summary: The owner minted agent 2 on testnet and the app offered "Mint an agent" again. On chain the mint and the reveal were fine; the index was hours behind because of the pacing added for the rate limit, and the pages trusted the index alone. The indexer now catches up fast, and the pages read the chain for anything the index has not seen, so a wallet that minted is never offered the mint.
+- Diagnosis: agent 2 owned by 0x683e...5f76, revealed (species 5); the keeper requested at 17:18:21 and revealed at 17:18:27; the indexer had no errors, 429s or refused ranges but was about 5,000 blocks behind (5 blocks a second against the chain's 3.3, after an hour of downtime); the API's owner and minter lists were empty and /v1/agents/2 answered 404; /configure and /agents read only the index.
+- Indexer (cbc31b8): steps every 0.4 s while more than a range behind the head, paced at 2 s only at the head; a 30-block lag test failed with the spacing ignored. Restarted on the live stack, it caught up at about 14 blocks a second and indexed agent 2.
+- Web (7826a8a, 5d4e8e5): `owned-agents.ts` completes the index from the chain (totalMinted past the index's count, ownerOf, speciesOf, tbaOf, ownerEpoch, hasMinted; a contract revert only means "no such agent"); `useOwnedAgents` falls back to the index alone if the chain cannot be read; the mint flow watches the reveal on chain first; the design system gains `PendingAgentNotice` on /design; /configure shows it with the agent while indexing; /agents shows a light card for an agent the platform has no record of yet; a wallet whose minted agent left it sees "The agent this wallet minted is no longer in it", never the mint.
+- Tests: 8 unit tests of the chain fallback (the testnet case, an unrevealed agent, a reveal the index has not seen, caught up with no chain scan, other wallets' agents, a wallet whose agent left it, the scan limit, a chain failure surfacing), the page-state and component tests, and e2e tests with a fake API whose index lags (the reveal link, /configure, /agents, catching up). Full web e2e 190 passed with the 2 desktop-only skips; the /design captures were re-baselined for the new specimen after looking at both widths, and a second run matched. Format, lint, typecheck and the secrets scan on every commit.
+- Dev state: the testnet stack was stopped for the e2e suite (the Heavy work rule) and restarted; the API lists agent 2 for the owner's wallet.
+Suggestions:
+- Let the indexer report its lag (head minus watermark) on /health, and the app show it when large.
+- Give the control API's single-agent and summary routes the same chain fallback, so owner controls work before indexing.
+Bugs: L-142.
+Commit: cbc31b8, 7826a8a, 5d4e8e5, plus the docs commit.
