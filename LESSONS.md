@@ -1007,3 +1007,24 @@ What happened: (1) The page disabled every button while any trade was settling, 
 Cause: (1) One "busy" flag meant both "re-read faster" and "an action is running". (2) Hand-typed addresses. (3) The flag's optional value. (4) Reviewing captures found them, as intended.
 Fix: (1) A separate `acting` flag gates the buttons. (2) Fixture addresses come from `getAddress`, comparisons too. (3) Spec files go before the flag in `scripts/web-e2e.js`. (4) The hints moved under each row, the header names the network once.
 Lesson: Keep "poll faster" and "block input" as two flags; derive fixture addresses with `getAddress`.
+
+## L-131: The add-credits section read the wallet's USDC once
+Unit: Phase 2 tuning
+What happened: In the live run the card said "In your wallet: 0 USDC" after the test had minted 21 USDC to the wallet, so the amount was refused as more than the wallet holds.
+Cause: The hook read the balance when the card mounted and after its own actions only; USDC that reached the wallet from elsewhere (the console's Test funds page, another wallet) never showed without a reload.
+Fix: The balance is re-read every 10 seconds (039f3ce); the live run then passed.
+Lesson: A balance the user can change outside the page is polled like the page's other live values, not read once.
+
+## L-132: A credit transfer failed on a mixed-case address, and the message hid why
+Unit: Phase 2 tuning
+What happened: In the e2e suite every "Add credits" ended with "The wallet could not send this", including the declined request, which should have read as declined.
+Cause: The fixture's funding address had an invalid checksum, and viem refuses such an address before anything reaches the wallet. The failure text dropped viem's own reason, so it took a code change to see it. The real API checksums addresses, so production was not affected.
+Fix: The app checksums the funding address from lowercase before sending, and a failed send with no named revert now carries the wallet's short reason (6fc470f).
+Lesson: Normalize addresses at the point of use, whatever the source; a failure message that drops the cause slows every later debug (L-55 again).
+
+## L-133: Visual slips found in the capture review
+Unit: Phase 2 tuning
+What happened: The overview's total value overflowed its tile at 1440px; the gas notice wrapped each text run onto its own line; the positions panel repeated the overview's total.
+Cause: A three-column tile grid inside half the page; a flex row on a sentence with inline amounts; a panel built before the overview existed.
+Fix: Two tile columns with the total across both; the notice is plain inline text; the panel takes `showValue` and the portfolio hides its total.
+Lesson: Look at every capture at both widths before accepting it (L-46); sentences with inline values are not flex rows.
