@@ -169,8 +169,9 @@ export function AgentPortal({ environment }: { environment: EnvironmentId }) {
 
   const overview = selected ? (
     <div className="flex flex-col gap-4">
-      {selected.pending ? (
-        <PendingAgentNotice agentId={selected.id} stage={selected.pending} />
+      {/* The viewer's gate already says an unrevealed agent waits for its reveal. */}
+      {selected.pending === "indexing" ? (
+        <PendingAgentNotice agentId={selected.id} stage="indexing" />
       ) : null}
       <AgentCard
         agentId={selected.id}

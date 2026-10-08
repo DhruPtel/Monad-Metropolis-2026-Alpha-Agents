@@ -112,7 +112,9 @@ test.describe("screenshots and accessibility", () => {
     await expect(portal(page).getByTestId("pending-agent-indexing").first()).toContainText(
       "Agent #2: Indexing your agent…",
     );
-    await expect(portal(page).getByRole("heading", { name: "Alpha Agent #2" })).toBeVisible();
+    await expect(
+      portal(page).getByRole("heading", { level: 1, name: "Alpha Agent #2" }),
+    ).toBeVisible();
     await expect(page.getByRole("button", { name: "Mint an agent" })).toHaveCount(0);
     await expect(portal(page).getByText(/No agent in this wallet yet/)).toHaveCount(0);
     // The index catches up: the mark goes on the next read.
@@ -120,7 +122,9 @@ test.describe("screenshots and accessibility", () => {
     await expect(portal(page).getByTestId("pending-agent-indexing")).toHaveCount(0, {
       timeout: 15_000,
     });
-    await expect(portal(page).getByRole("heading", { name: "Alpha Agent #2" })).toBeVisible();
+    await expect(
+      portal(page).getByRole("heading", { level: 1, name: "Alpha Agent #2" }),
+    ).toBeVisible();
   });
 
   test("an unrevealed agent the index has not seen waits for its reveal, never the mint (P2-EC)", async ({
@@ -215,7 +219,10 @@ test.describe("ownership", () => {
     agent.ownerEpoch = 1n;
     await open(page, chain);
     await connect(page);
-    await expect(portal(page).getByText("No agent in this wallet yet")).toBeVisible();
+    // The wallet minted agent 7, so it is never offered the mint again (P2-EC).
+    await expect(
+      portal(page).getByText("The agent this wallet minted is no longer in it."),
+    ).toBeVisible();
     await expect(portal(page)).not.toContainText("#7");
   });
 

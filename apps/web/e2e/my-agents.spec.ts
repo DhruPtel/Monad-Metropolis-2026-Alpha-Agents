@@ -71,7 +71,9 @@ test.describe("every state, captured and scanned", () => {
   test("an agent the index has not caught up to shows as pending, with no mint link (P2-EC)", async ({
     page,
   }) => {
+    // Agent IDs are sequential on chain: agent 1 is another wallet's.
     const chain = new FakeChain();
+    chain.mint(1n, OTHER_WALLET, 3);
     chain.mint(2n, MOCK_WALLET_ADDRESS, 14);
     const api = new FakeApi(chain);
     api.indexedBelow = 2n;
@@ -306,7 +308,11 @@ test.describe("owner only", () => {
       a.ownerEpoch = 1n;
     }
     await expect(card(page, 7)).toHaveCount(0, { timeout: 15_000 });
-    await expect(main(page).getByText("No agents in this wallet yet")).toBeVisible();
+    // The wallet minted agent 7, so it is never offered the mint again (P2-EC).
+    await expect(
+      main(page).getByText("The agent this wallet minted is no longer in it"),
+    ).toBeVisible();
+    await expect(main(page).getByRole("link", { name: "Mint an agent" })).toHaveCount(0);
   });
 });
 
