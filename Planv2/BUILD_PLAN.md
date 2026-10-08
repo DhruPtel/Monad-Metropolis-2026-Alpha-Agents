@@ -434,7 +434,7 @@ Cannot be verified on testnet: real prices, real liquidity and slippage, Chainli
 - Testnet MON from https://faucet.monad.xyz for the deployer, the keeper and the funding addresses: about 20 MON to start (the deployments, the 0.128 MON Entropy fee per reveal batch, gas for funding addresses and session keys); the unit measures the real figure.
 - Testnet USDC from Circle's faucet (https://faucet.circle.com, Monad Testnet): about 40 USDC across the owner's test wallets for deposits and, with Q-48 option A, the pool's liquidity.
 - Mainnet canary keys in `.env`: `CANARY_OWNER_PRIVATE_KEY` (Q-50 option A), `CANARY_GUARDIAN_PRIVATE_KEY`, `CANARY_SESSION_PRIVATE_KEY`, each a fresh key used nowhere else.
-- A little mainnet MON for gas: about 10 MON in total (at 102 gwei and about 0.026 USD per MON on 2026-10-07, a 1.1M-gas swap costs about 0.11 MON and all canary deployments together a few MON).
+- A little mainnet MON for gas: about 10 MON in total (at 102 gwei and about 0.026 USD per MON on 2026-10-07, a swap at its 1.3M gas limit (D-308) costs about 0.13 MON and all canary deployments together a few MON).
 - About 5 USDC on mainnet for the canary (about 50 with Q-49 option B), sent to the canary owner.
 - Optionally an Etherscan API v2 key for Monadscan verification (`ETHERSCAN_API_KEY`); Sourcify needs none.
 - The MetaMask and OKX extensions with a Monad Testnet network added from the web app's prompt.
@@ -1080,7 +1080,7 @@ The "Hackathon beta" column is the cut line. **Full** ships as specified in Pass
 | 23 | 5 | P2-U5 | Chain tools server | Intents, never calldata; limits read from the Executor | P2-U4, P1-U7 | Thin: quote, swap intent, balance, bounds read from the Executor, reservations, rejection codes. W-2: `read_contract`, `get_code` and the rest of `FINAL_PLAN.md > 4.4.2` |
 | 24 | 5 | P2-U6 | Trade flow | Arming, automatic trades, settlement after receipt, reasons | P2-U5 | Full |
 | 25 | 5 | P2-U7 | Portfolio UI | Positions, history, deposit and withdraw, cards, blocked-trade reasons | P2-U6 | Thin: deposit, withdraw, position, the arming card, blocked-trade reasons. W-6: trade history and PnL views |
-| 26 | 5 | P2-EC part 1 | Early chain check: testnet | Throwaway testnet deployment with the stack pointed at it; measure where the fork and testnet differ | P2-U7 | Pre-beta check: nothing it deploys is kept (D-247, D-249, D-303) |
+| 26 | 5 | P2-EC part 1 | Early chain check: testnet | Throwaway testnet deployment with the stack pointed at it; measure where the fork and testnet differ | P2-U7 | Done: pre-beta check, nothing it deploys is kept (D-247, D-249, D-303); results in `evidence/p2-ec/REAL_CHAIN.md` |
 | 26b | 5 | P2-EC part 2 | Early chain check: mainnet canary | A labeled throwaway mainnet canary swap; measure where the fork and mainnet differ | P2-EC part 1 | Pre-beta check: nothing it deploys is kept (D-247, D-249, D-303) |
 | | | Playtest 2-end | | The Phase 2 checkpoint in the web app on P2-EC's testnet deployment and the fork | after P2-EC | |
 | 27 | 6 | P3-U1 | Goal form and goal translator | Structured goal to template parameters, owner limits and the strategy epoch | P2-U6 | Thin: every field (template, risk preset, allowed assets, stricter limits, reasoning model, research intensity with the daily budget, plan-change approval), the translator, the strategy epoch, `get_goals_and_limits`, the Goal page; `dca@1` shown as available later |

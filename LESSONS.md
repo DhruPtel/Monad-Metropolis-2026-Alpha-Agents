@@ -1028,3 +1028,52 @@ What happened: The overview's total value overflowed its tile at 1440px; the gas
 Cause: A three-column tile grid inside half the page; a flex row on a sentence with inline amounts; a panel built before the overview existed.
 Fix: Two tile columns with the total across both; the notice is plain inline text; the panel takes `showValue` and the portfolio hides its total.
 Lesson: Look at every capture at both widths before accepting it (L-46); sentences with inline values are not flex rows.
+
+## L-134: The indexer kept asking for a range the testnet provider had refused
+Unit: P2-EC
+What happened: Against Monad testnet the indexer settled at 6 blocks a step and, on every other step, asked for 12 blocks and was refused. The keyed provider answered "Under the Free tier plan, you can make eth_getLogs requests with up to a 10 block range".
+Cause: A refused range was halved, and every success doubled the range back towards the configured maximum, so the indexer walked back into the same refusal forever. The fork serves any range, so the halving had only ever been exercised once per run in a test.
+Fix: A refused range lowers the maximum to one block under it, so the range settles at the provider's cap (10). A test with a 10-block source checks each refused size is asked once; it failed with the change removed (20cb18d).
+Lesson: When a server refuses a request size, remember the refusal as a ceiling; backing off and growing back without one turns a limit into a steady stream of failures.
+
+## L-135: The stack's fork-speed polling was rate-limited by the testnet provider
+Unit: P2-EC
+What happened: In the first end-to-end run on testnet, every orchestrator call to the chain failed with "HTTP request failed" for about ten minutes: the keeper, the trade flow, the feed refresher and the chain tools (UPSTREAM_UNAVAILABLE), so the agent's chain check proposed nothing. A counting proxy showed about 19 requests a second, answered 200 for about 40 seconds and then mostly 429.
+Cause: The loops were tuned for a local fork, where reads are free: the indexer stepped back to back because Monad makes a block every 0.3 seconds, each step making three eth_getLogs calls, and the keeper, credits and trade flow each re-read the chain every 2 seconds. A free provider plan meters compute units a second. viem reports a 429 as "HTTP request failed", which hid the status.
+Fix: Off the fork the indexer waits at least 2 seconds between indexing steps and the keeper, credits and trade flow poll every 5 seconds; through the same proxy the stack then made 7.5 requests a second with no 429 in two minutes (350f772, D-310). Q-59 asks whether to add a second testnet provider or a paid plan.
+Lesson: Measure a service's request rate per method against the real provider before calling it ready for a real chain, and log an RPC failure's HTTP status, not only the client library's summary.
+
+## L-136: A Monad receipt's gasUsed is the gas limit, and forge's broadcast record kept a stale limit
+Unit: P2-EC
+What happened: The first deployment record showed three calls with a "gas limit" lower than their gas used (26,668 against 83,348 for the pool's initialize). Read from the chain, every testnet transaction's receipt reported gasUsed equal to the transaction's gas limit.
+Cause: Monad charges the gas limit, and its receipts say so, so a receipt cannot show what a call really used. Forge's run-latest.json keeps the pre-estimate gas for some calls, not what it sent.
+Fix: The deployment record reads each transaction's limit, receipt and fees from the chain (ff2e6bf), and real use is measured with forge's gas report on a fork of testnet.
+Lesson: On Monad, read gas from the transaction and measure real use in a simulation; never take gasUsed from a receipt, or a limit from a tool's local record, as the cost of a call.
+
+## L-137: A fresh orchestrator secret on every start made each agent's stored key unreadable
+Unit: P2-EC
+What happened: After the testnet stack restarted, the orchestrator logged "agent 1: metering failed: Unsupported state or unable to authenticate data" every few seconds, and the agent's chain check ran out its deadline with no tool calls.
+Cause: testnet:up generated ORCHESTRATOR_SECRET (and API_SESSION_SECRET) per start, but the orchestrator encrypts each agent's stored gateway key with its secret, so a key stored under one start could not be decrypted under the next. Locally the secret is a fixed default, so this never showed.
+Fix: The secrets are TESTNET_ORCHESTRATOR_SECRET and TESTNET_API_SESSION_SECRET in .env, mapped on testnet, and testnet:up adds random ones once when missing; agent 1's testnet runtime was marked deprovisioned and provisioned again under the stable secret (0e615f2).
+Lesson: Before making a secret ephemeral, find everything encrypted or signed with it that outlives the process.
+
+## L-138: The swap's 1.1M gas limit left about 3,000 gas on an account's first swap
+Unit: P2-EC
+What happened: The testnet fork's gas report showed an account's first swap using 1,070,401 gas inside the call, about 1,097,000 with the base and calldata, against the signer's fixed 1.1M limit; the live first swap on testnet got through. A later sale used 975,571.
+Cause: A-38 set the limit from one swap on the fork that was not an account's first; the first swap writes fresh storage (the Executor's trade ring buffer, the account's peak buckets), and Monad charges the limit, which pushed the limit close to one measurement.
+Fix: The limit is 1.3M (ce0ed42, D-308).
+Lesson: Size a fixed gas limit from the most expensive case of the call (first use, cold storage), measured on the target chain, not from one representative run.
+
+## L-139: The 0.05 MON low-gas warning did not cover one deposit
+Unit: P2-EC
+What happened: On testnet, with the limit charged at 103 gwei, a deposit with its exact approval cost 0.048 MON and a first account, deposit and arming 0.084 MON, while the portfolio warned only below 0.05 MON (A-50).
+Cause: A-50 was an estimate from Ethereum-style gas used, before any receipt on a real Monad chain.
+Fix: The warning is at 0.1 MON (c2df44e, D-309).
+Lesson: Set a user-facing gas threshold from real receipts of the actions it protects, summed for the user's first visit.
+
+## L-140: Slips in this unit's own scripts, caught by running them
+Unit: P2-EC
+What happened: (1) The testnet dry-run test built a stale-feed intent after the warp, so the oracle refused to price it before the Executor could. (2) The end-to-end script's resume topped credits up whenever they were under 1 USDC, and the wallet held less. (3) A scripted fix for that did not match (prettier had reflowed the line) and the run was started anyway on the old code. (4) Lint failed twice on the gate: the new .next-testnet build folder was linted, and a fetch error was rethrown without a cause on purpose. (5) A test fixture logged with empty functions.
+Cause: Writing the flow from memory of the APIs, and starting a run without checking that the edit had applied.
+Fix: Each was fixed before its commit (the build folders joined the ignore lists in 57d1f55); the scripted edit was redone against the current text and asserted (L-78).
+Lesson: After a scripted edit fails, stop: rerun nothing until the edit is applied and checked.

@@ -226,7 +226,7 @@ Address book used throughout (verified by read-only RPC on 2026-09-25; re-verify
 
 The depth spike (P2-U0, `evidence/p2-u0/SUMMARY.md`) supplied the quoters and Kuru's contracts, now in the address book in `packages/domain`; Kuru was measured and not chosen.
 
-Address book on Monad testnet (chain 10143), checked by read-only calls on 2026-10-07 (D-248). Testnet was reset from genesis on 2025-12-16, so no testnet address from before that date is valid. Code sizes are in bytes.
+Address book on Monad testnet (chain 10143), checked by read-only calls on 2026-10-07 (D-248). Testnet was reset from genesis on 2025-12-16, so no testnet address from before that date is valid. Code sizes are in bytes. Re-checked on 2026-10-08 by P2-EC part 1, which found every entry unchanged and added the unofficial deployment's V4Quoter `0x869834d127b230283fe63E0d0A9bEB67216a94C7`; P2-EC's throwaway deployment on testnet (AgentNFT, the trading contracts, the two TestnetFeeds and its MON/USDC pool) is listed in `evidence/p2-ec/ADDRESSES.md` and in packages/domain's testnet address book.
 
 | Item | Address on Monad 10143 | Note |
 |---|---|---|
