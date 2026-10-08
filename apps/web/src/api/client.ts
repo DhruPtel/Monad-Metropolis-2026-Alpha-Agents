@@ -154,6 +154,194 @@ export interface RefundJson {
 const auth = (token: string | null): HeadersInit =>
   token ? { authorization: `Bearer ${token}` } : {};
 
+/** An amount as the API gives it: decimal text and base units (P2-U6 intentJson). */
+export interface TokenAmountJson {
+  readonly asset: "USDC" | "WMON";
+  readonly amount: string;
+  readonly amountRaw: string;
+}
+
+/** One reason a trade was blocked, and how it clears (chain-tools' Blocker). */
+export interface BlockerJson {
+  readonly code: string;
+  readonly message: string;
+  readonly clears: "by_waiting" | "by_changing_the_trade" | "by_the_owner" | "by_the_platform";
+  readonly clearsAt: string | null;
+  readonly hint: string;
+}
+
+export interface IntentJson {
+  readonly intentId: string;
+  readonly status: string;
+  readonly sell: TokenAmountJson;
+  readonly buy: "USDC" | "WMON";
+  readonly expectedOut: TokenAmountJson | null;
+  readonly minAmountOut: TokenAmountJson | null;
+  readonly amountOut: TokenAmountJson | null;
+  readonly reason: string;
+  readonly reasonCodes: readonly string[];
+  readonly blockers: readonly BlockerJson[];
+  readonly failure: string | null;
+  readonly approvedBy: "owner" | "auto" | null;
+  readonly txHash: string | null;
+  readonly deadline: string | null;
+  readonly createdAt: string;
+  readonly expiresAt: string;
+  readonly approvedAt: string | null;
+  readonly submittedAt: string | null;
+  readonly settledAt: string | null;
+}
+
+export interface ArmingJson {
+  readonly state: "unarmed" | "awaiting_first_trade" | "armed";
+  readonly armingId: string | null;
+  /** Unix seconds. */
+  readonly validUntil: number | null;
+  readonly validUntilDate: string | null;
+  readonly renewalDue: boolean;
+  readonly armedAt: string | null;
+  readonly firstIntentId: string | null;
+  readonly ended: {
+    readonly reason: string;
+    readonly message: string;
+    readonly at: string | null;
+    readonly revokedOnchain: boolean;
+  } | null;
+}
+
+/** A call for the owner's wallet, built by the API. */
+export interface WalletCallJson {
+  readonly to: Address;
+  readonly data: `0x${string}`;
+  readonly value: "0";
+}
+
+export interface ArmingViewJson {
+  readonly arming: ArmingJson;
+  readonly fundingAddress: Address | null;
+  readonly grantCall: WalletCallJson | null;
+  readonly maxGrantDays: number;
+}
+
+export interface WhyNotTradedJson {
+  readonly armingState: ArmingJson["state"];
+  readonly armingEnded: { readonly reason: string; readonly message: string } | null;
+  readonly reasons: readonly (BlockerJson & {
+    readonly intentId: string | null;
+    readonly at: string;
+  })[];
+  readonly waitingForApproval: number;
+}
+
+export interface PriceJson {
+  readonly priceE18: string;
+  /** Unix seconds. */
+  readonly updatedAt: number;
+  readonly reason: string;
+}
+
+/** The owner's portfolio, read fresh from the chain (P2-U7); amounts in base units. */
+export interface PortfolioJson {
+  readonly chainId: number;
+  readonly block: string;
+  /** The block's time, unix seconds. */
+  readonly timestamp: number;
+  readonly agentId: string;
+  readonly owner: Address;
+  readonly contracts: {
+    readonly agentNft: Address;
+    readonly accountFactory: Address;
+    readonly oracle: Address;
+    readonly usdc: Address;
+    readonly wmon: Address;
+    readonly executor: Address;
+  };
+  readonly account: Address | null;
+  readonly predictedAccount: Address;
+  readonly allowlist: { readonly enabled: boolean; readonly listed: boolean };
+  readonly caps: {
+    readonly personalUsdcE6: string;
+    readonly platformUsdcE6: string;
+    readonly platformTotalUsdcE6: string;
+    readonly principalUsdcE6: string;
+  };
+  readonly balances: { readonly usdcE6: string; readonly wmonWei: string };
+  readonly claimable: { readonly usdcE6: string; readonly wmonWei: string };
+  readonly mode: "NORMAL" | "REDUCE_ONLY" | "PAUSED" | "HANDOVER" | "WIND_DOWN" | null;
+  readonly depositsClosed: boolean;
+  readonly breaker: {
+    readonly navUsdcE6: string;
+    readonly perUnitE18: string;
+    readonly peakE18: string;
+    readonly drawdownBps: number;
+  } | null;
+  readonly peak7dE18: string | null;
+  readonly prices: { readonly monUsd: PriceJson; readonly usdcUsd: PriceJson };
+  readonly wallet: { readonly usdcE6: string; readonly wmonWei: string; readonly monWei: string };
+}
+
+const owner = (session: string, init: RequestInit = {}): RequestInit => ({
+  ...init,
+  headers: { ...(init.headers as Record<string, string> | undefined), "x-owner-session": session },
+});
+
+/** P2-U7: the owner's trading routes; each needs the owner session. */
+export const tradingApi = {
+  async portfolio(agentId: bigint, session: string): Promise<PortfolioJson> {
+    return (
+      await call<{ portfolio: PortfolioJson }>(
+        `/v1/agents/${agentId.toString()}/portfolio`,
+        owner(session),
+      )
+    ).portfolio;
+  },
+  async arming(agentId: bigint, session: string): Promise<ArmingViewJson> {
+    return call<ArmingViewJson>(`/v1/agents/${agentId.toString()}/arming`, owner(session));
+  },
+  async intents(agentId: bigint, session: string): Promise<IntentJson[]> {
+    return (
+      await call<{ intents: IntentJson[] }>(
+        `/v1/agents/${agentId.toString()}/intents`,
+        owner(session),
+      )
+    ).intents;
+  },
+  async approve(agentId: bigint, intentId: string, session: string): Promise<boolean> {
+    const body = await call<{ armed: boolean }>(
+      `/v1/agents/${agentId.toString()}/intents/${encodeURIComponent(intentId)}/approve`,
+      owner(session, { method: "POST" }),
+    );
+    return body.armed;
+  },
+  async reject(agentId: bigint, intentId: string, session: string): Promise<void> {
+    await call(
+      `/v1/agents/${agentId.toString()}/intents/${encodeURIComponent(intentId)}/reject`,
+      owner(session, { method: "POST" }),
+    );
+  },
+  /** Public, like the activity feed. */
+  async whyNotTraded(agentId: bigint): Promise<WhyNotTradedJson> {
+    return call<WhyNotTradedJson>(`/v1/agents/${agentId.toString()}/why-not-traded`);
+  },
+  /** The arming flow's raw calls: it reads the status and body itself. */
+  async raw(
+    agentId: bigint,
+    path: "arming" | "disarm",
+    method: "GET" | "POST",
+    session: string,
+  ): Promise<{ status: number; body: unknown }> {
+    try {
+      const res = await fetch(
+        `${CONTROL_API_URL}/v1/agents/${agentId.toString()}/${path}`,
+        owner(session, { method }),
+      );
+      return { status: res.status, body: await res.json().catch(() => null) };
+    } catch {
+      return { status: 0, body: { message: "Could not reach the platform API." } };
+    }
+  },
+};
+
 export const api = {
   async supply(): Promise<ApiSupply> {
     return call<ApiSupply>("/v1/supply");
