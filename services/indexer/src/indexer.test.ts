@@ -1,6 +1,6 @@
 import { createTestDatabase, databaseAvailable, type TestDatabase } from "@alpha-agents/db/testing";
 import type { Hex } from "viem";
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { Indexer, type IndexerTarget } from "./indexer.ts";
 import {
   MemoryLogSource,
@@ -249,6 +249,20 @@ describe.skipIf(!available)("the indexer (needs pnpm dev:up for Postgres)", () =
     expect((await agents()).length).toBe(60);
     // 100, 50, 25 and 12 are refused once each, then 11 once; never again after that.
     expect(refused).toEqual([60, 50, 25, 12, 11]);
+  });
+
+  it("spaces indexing steps by minStepMs on a real chain, so it never polls back to back (P2-EC)", async () => {
+    for (let i = 1; i <= 4; i++) chain.mine(...mintLogs(NFT, BigInt(i), ALICE, tba(i)));
+    const paced = new Indexer({ db: t.db, source: chain, target, maxRange: 1, minStepMs: 150 });
+    const controller = new AbortController();
+    const started = Date.now();
+    const running = paced.run(controller.signal, 10);
+    await vi.waitFor(async () => expect((await agents()).length).toBe(4), { timeout: 5_000 });
+    const elapsed = Date.now() - started;
+    controller.abort();
+    await running;
+    // Four one-block steps, at least 150 ms apart.
+    expect(elapsed).toBeGreaterThanOrEqual(450);
   });
 
   it("is idle at the head and asks for nothing but the head and the watermark block", async () => {

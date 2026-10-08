@@ -298,9 +298,14 @@ const toolsReader =
 // The trade flow (P2-U6) sends swaps through the signer; the local fork tops gas up and
 // treats its receipts as final, every other chain settles a trade only once finalized.
 const local = env.id === "local";
+// P2-EC: off the fork every read is metered by the RPC provider, and the 2-second loops of the
+// fork (the keeper, credits, the trade flow) together with the indexer exceeded a free plan's
+// rate limit on testnet. Real chains poll these every 5 seconds.
+const REMOTE_POLL_MS = 5_000;
 const trading = chainSigner
   ? {
       signer: chainSigner,
+      ...(local ? {} : { everyMs: REMOTE_POLL_MS }),
       gas: {
         balance: (address: Hex) => client.getBalance({ address }),
         swapCost: async () => {
@@ -340,6 +345,7 @@ const orchestrator = new Orchestrator({
   web,
   scanIntervalMs,
   ...(scheduleScans ? {} : { scheduleMs: 0 }),
+  ...(local ? {} : { keeperMs: REMOTE_POLL_MS, creditsMs: REMOTE_POLL_MS }),
   revealSteering: steering,
   snapshotReader: chainReader,
   chain: {

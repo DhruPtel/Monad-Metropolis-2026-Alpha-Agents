@@ -40,6 +40,12 @@ export interface IndexerOptions {
   readonly target: IndexerTarget;
   /** The most blocks per range; halved on a range the source refuses. */
   readonly maxRange?: number;
+  /**
+   * The least time between two steps that indexed something (P2-EC). On a real
+   * chain a block comes every 0.4 s, so a back-to-back poller never idles and
+   * its eth_getLogs calls alone exceeded a free provider's rate limit.
+   */
+  readonly minStepMs?: number;
   /** Blocks behind the head to stay, on a chain with reorgs worth waiting out. */
   readonly confirmations?: number;
   readonly log?: (line: string) => void;
@@ -82,6 +88,7 @@ export class Indexer {
   private range: number;
   /** The configured maximum, lowered to just under any range the source refuses. */
   private maxRange: number;
+  private readonly minStepMs: number;
   private readonly confirmations: number;
   private readonly log: (line: string) => void;
 
@@ -90,6 +97,7 @@ export class Indexer {
     this.source = options.source;
     this.target = options.target;
     this.maxRange = options.maxRange ?? 2_000;
+    this.minStepMs = options.minStepMs ?? 0;
     this.range = this.maxRange;
     this.confirmations = options.confirmations ?? 0;
     this.log = options.log ?? (() => undefined);
@@ -159,6 +167,7 @@ export class Indexer {
   async run(signal: AbortSignal, pollMs = 1_000): Promise<void> {
     while (!signal.aborted) {
       let idle = true;
+      const stepStarted = Date.now();
       try {
         const result = await this.step();
         idle = result.kind === "idle";
@@ -170,9 +179,10 @@ export class Indexer {
       } catch (err) {
         this.log(`step failed, retrying: ${err instanceof Error ? err.message : String(err)}`);
       }
-      if (idle) {
+      const waitMs = idle ? pollMs : this.minStepMs - (Date.now() - stepStarted);
+      if (waitMs > 0) {
         await new Promise<void>((resolve) => {
-          const timer = setTimeout(resolve, pollMs);
+          const timer = setTimeout(resolve, waitMs);
           signal.addEventListener("abort", () => {
             clearTimeout(timer);
             resolve();

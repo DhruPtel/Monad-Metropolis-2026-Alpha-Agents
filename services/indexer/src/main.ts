@@ -57,6 +57,8 @@ const indexer = new Indexer({
   },
   // Public Monad RPCs cap eth_getLogs ranges; the indexer halves on refusal anyway.
   maxRange: remote ? 100 : 2_000,
+  // P2-EC: at most one indexing step every 2 s on a real chain (about 5 blocks a step).
+  minStepMs: remote ? 2_000 : 0,
   confirmations: remote ? 2 : 0,
   log,
 });
