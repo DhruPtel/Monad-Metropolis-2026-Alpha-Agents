@@ -718,3 +718,21 @@ Suggestions:
 - Give the control API's single-agent and summary routes the same chain fallback, so owner controls work before indexing.
 Bugs: L-142.
 Commit: cbc31b8, 7826a8a, 5d4e8e5, plus the docs commit.
+
+## 2026-10-08, P2-EC testnet tuning: every asset an agent holds
+Status: done (testnet and local). Agent 2's 3 MON and 5 USDC in its token-bound account show on /agents and on its portfolio, with a way to move them to the owner's wallet.
+Summary: The owner sent testnet MON to one of agent 2's addresses and could not see it in the app. Pages showed only the balances they use; nothing read the token-bound account, MON at the funding address, or other tokens. Every agent now shows "All holdings": each of its three addresses in plain words, every balance there, what it does, and, for what does nothing, a plain statement and, where the owner can, a move to their wallet signed from the connected wallet (D-315).
+- Reader (3b431eb): `packages/trading/src/holdings.ts` reads ownerOf, tbaOf and the PersonalAccount, then native MON and every address-book token (USDC, WMON, WETH) at each address, and classifies each balance as in use (gas, credits, trading), movable, platform-only or stuck; a movable balance carries the token-bound account's execute call. Checked against testnet: agent 2's funding address 0.5 MON (gas) and 10 USDC (credits), token-bound account 3 MON and 5 USDC (movable), PersonalAccount 5 USDC (trading). The execute was estimated at 112,643 gas from the owner and reverts NotAuthorized from any other wallet.
+- API (6d207b3): GET /v1/agents/:id/holdings, owner session only, 503 not_deployed without a reader.
+- Design system (80a3704): `HoldingsPanel` in packages/ui and on /design (in use, waiting in the wallet, declined, a finished move, platform-only and stuck), tokens only.
+- Web (3cd6972, b8cdba2): the panel at the end of each agent's card on /agents and in its own card on the portfolio, re-read every 15 s; a move runs the network guard through the wallet's own provider, simulates from the owner so a refusal names its reason, sends from the connected wallet and waits for the receipt on the app's network; a finished move keeps its outcome on the address; no panel where the environment has no reader.
+- Tests (5ff031a): unit tests for the classification and the call (5), the route's owner-only, 503 and answer cases, the panel (5) and the hook's mapping, kept outcome, declined request and wrong network; e2e at 1440px and 380px for the /agents and portfolio panels with axe (no serious or critical violations), the owner's MON move (the decoded execute to the owner, then the line gone and "Moved MON to your wallet."), a declined wallet request (nothing sent, the button usable again) and another wallet (no panel, no holdings call answered). Full web e2e: 183 passed, 2 skipped (desktop-only), and 15 capture differences, all from the panel showing an error where the fixtures have no reader; after the fix the my-agents (28), portfolio (26), holdings (8) and design (10) specs passed, the last with its captures re-baselined for the new specimen after looking at both widths. Format, lint, typecheck and the secrets scan on every commit.
+- Dev state: the testnet stack was stopped for the e2e suites (the Heavy work rule) and restarted.
+- To see the owner's MON: connect 0x683e...5f76 on the testnet app, open /agents (or agent 2's portfolio), and find "The agent's own account" under All holdings: 3 MON and 5 USDC, each marked Unused with "Move ... to my wallet".
+Suggestions:
+- Add other verified tokens to the testnet and mainnet address books as they are listed, so the panel finds them.
+- Let the platform sweep tokens that are platform-only at a funding address back to the owner on request, with an audit record.
+- Warn on the funding address QR that only USDC (credits) and MON (gas) belong there.
+Bugs: L-143, L-144.
+Commit: 3b431eb, 6d207b3, 80a3704, 3cd6972, b8cdba2, 5ff031a, plus the docs commit.
+
