@@ -8,9 +8,11 @@ import { HDKey, privateKeyToAddress, sign } from "viem/accounts";
  * material, and a provider's own fields are private (#) so neither
  * JSON.stringify nor util.inspect can reach them.
  *
- * Two providers: LocalKeyProvider derives keys from the platform seed for
- * the local fork and testnet, and KmsKeyProvider (kms.ts) asks AWS KMS. KMS is
- * required before the beta (D-244); the config refuses the seed there.
+ * Three providers: LocalKeyProvider derives keys from the platform seed for
+ * the local fork and testnet, KmsKeyProvider (kms.ts) asks AWS KMS, and
+ * CanaryKeyProvider holds the P2-EC mainnet canary's one raw session key
+ * (D-252). KMS is required before the beta (D-244); the config refuses the
+ * seed there.
  */
 export interface DigestSignature {
   readonly r: Hex;
@@ -26,7 +28,7 @@ export interface SessionKey {
 }
 
 export interface KeyProvider {
-  readonly kind: "local" | "kms";
+  readonly kind: "local" | "kms" | "canary";
   /** The agent's session key: the same key, and so the same address, every time. */
   key(agentId: number): Promise<SessionKey>;
 }
@@ -65,6 +67,43 @@ export class LocalKeyProvider implements KeyProvider {
       async signDigest(digest: Hex) {
         if (!/^0x[0-9a-fA-F]{64}$/.test(digest)) throw new Error("a digest is 32 bytes");
         const sig = await sign({ hash: digest, privateKey: derive(agentId) });
+        return { r: sig.r, s: sig.s, yParity: sig.yParity === 1 ? 1 : 0 };
+      },
+    };
+  }
+
+  toJSON(): Record<string, string> {
+    return { kind: this.kind };
+  }
+}
+
+/**
+ * The P2-EC mainnet canary's session key (D-252, D-251): one raw throwaway
+ * key from `CANARY_SESSION_PRIVATE_KEY`, never derived from a seed, for the
+ * canary's one agent (ID 1) only. Any other agent is refused.
+ */
+export class CanaryKeyProvider implements KeyProvider {
+  readonly kind = "canary" as const;
+  /** The one agent the canary knows (CanaryAgent, D-250). */
+  static readonly AGENT_ID = 1;
+  readonly #key: Hex;
+
+  constructor(privateKey: Hex) {
+    if (!/^0x[0-9a-fA-F]{64}$/.test(privateKey))
+      throw new Error("the canary session key must be 32 bytes");
+    this.#key = privateKey;
+  }
+
+  async key(agentId: number): Promise<SessionKey> {
+    if (agentId !== CanaryKeyProvider.AGENT_ID)
+      throw new Error(`the canary has one agent, ${CanaryKeyProvider.AGENT_ID}, not ${agentId}`);
+    const privateKey = this.#key;
+    return {
+      agentId,
+      address: getAddress(privateKeyToAddress(privateKey)),
+      async signDigest(digest: Hex) {
+        if (!/^0x[0-9a-fA-F]{64}$/.test(digest)) throw new Error("a digest is 32 bytes");
+        const sig = await sign({ hash: digest, privateKey });
         return { r: sig.r, s: sig.s, yParity: sig.yParity === 1 ? 1 : 0 };
       },
     };

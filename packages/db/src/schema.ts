@@ -339,7 +339,7 @@ export interface SignerKeyTable {
   chain_id: number;
   agent_id: number;
   address: string;
-  provider: "local" | "kms";
+  provider: "local" | "kms" | "canary";
   kms_key_id: string | null;
   next_nonce: ColumnType<number, number | undefined, number>;
   writer_fence: ColumnType<number, number | undefined, number>;

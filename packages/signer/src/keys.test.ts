@@ -9,7 +9,7 @@ import {
 } from "viem";
 import { HDKey, privateKeyToAddress } from "viem/accounts";
 import { describe, expect, it } from "vitest";
-import { LocalKeyProvider, sessionKeyPath } from "./keys.ts";
+import { CanaryKeyProvider, LocalKeyProvider, sessionKeyPath } from "./keys.ts";
 
 const SEED = `0x${"5e".repeat(32)}` as const;
 const must = <T>(v: T | null | undefined): T => {
@@ -56,5 +56,39 @@ describe("the local key provider (P2-U4)", () => {
       expect(shown).not.toContain(secret);
     }
     expect(() => new LocalKeyProvider("0x1234")).toThrow("the signer seed must be 32 bytes");
+  });
+});
+
+describe("the canary key provider (P2-EC part 2, D-252)", () => {
+  const RAW = `0x${"c4".repeat(32)}` as const;
+
+  it("holds one raw key for the canary's one agent, and refuses any other agent", async () => {
+    const p = new CanaryKeyProvider(RAW);
+    expect(p.kind).toBe("canary");
+    const key = await p.key(1);
+    expect(key.address).toBe(privateKeyToAddress(RAW));
+    await expect(p.key(2)).rejects.toThrow("the canary has one agent, 1, not 2");
+    const digest = keccak256(toBytes("a canary swap"));
+    expect(
+      await recoverAddress({
+        hash: digest,
+        signature: serializeSignature(await key.signDigest(digest)),
+      }),
+    ).toBe(key.address);
+    expect(() => new CanaryKeyProvider("0x12" as `0x${string}`)).toThrow(
+      "the canary session key must be 32 bytes",
+    );
+  });
+
+  it("never shows the raw key, however it is printed", async () => {
+    const p = new CanaryKeyProvider(RAW);
+    const key = await p.key(1);
+    for (const shown of [
+      JSON.stringify(p),
+      inspect(p, { depth: 5, showHidden: true }),
+      JSON.stringify(key),
+      inspect(key, { depth: 5, showHidden: true }),
+    ])
+      expect(shown).not.toContain(RAW.slice(2));
   });
 });
