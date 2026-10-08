@@ -104,6 +104,12 @@ export interface OrchestratorOptions {
   /** P2-U5: the chain tools' reader and the signer's session keys; none runs every chain tool as "not deployed". */
   readonly chain?: Omit<ChainToolsWiring, "onProposed">;
   /**
+   * P2-EC: the reader value snapshots use, when it must differ from the chain
+   * tools' (testnet's tools reader re-dates the feeds before a market read,
+   * D-307; a snapshot is not an action and never does). Defaults to that reader.
+   */
+  readonly snapshotReader?: ChainToolsWiring["reader"];
+  /**
    * P2-U6: what the trade flow sends swaps with. Without it (or without a chain
    * reader) proposals wait and nothing is ever sent.
    */
@@ -194,12 +200,13 @@ export class Orchestrator {
       : null;
     this.trades = new TradeStore(store.db);
     const reader = options.chain?.reader ?? null;
-    this.snapshots = reader
+    const snapshotReader = options.snapshotReader ?? reader;
+    this.snapshots = snapshotReader
       ? new SnapshotRecorder({
           chainId: options.chainId,
           store,
           snapshots: new SnapshotStore(store.db, options.credits?.environment ?? "local"),
-          reader,
+          reader: snapshotReader,
           log,
         })
       : null;

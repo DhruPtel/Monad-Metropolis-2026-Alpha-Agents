@@ -23,6 +23,14 @@ export interface ApiOptions {
   readonly store: Store;
   readonly chainId: number;
   readonly devActions: boolean;
+  /**
+   * P2-EC: operator actions, on local and testnet only (never the beta): the
+   * chain check, which only proposes and sends nothing, and re-dating the
+   * testnet feeds on demand. Every fork-changing dev action stays local.
+   */
+  readonly operatorActions?: boolean;
+  /** P2-EC: testnet's on-demand feed refresher (D-307); null elsewhere. */
+  readonly feeds?: { ensureFresh(reason: string): Promise<unknown> } | null;
   /** The signer worker (P2-U4), when it runs. */
   readonly signer?: SignerWorker | null;
   /** P2-U6: the local fork, for the console's arm and disarm (the owner's wallet calls, impersonated). */
@@ -431,6 +439,42 @@ export function createApi(o: ApiOptions): Hono {
     return c.json({ address: await o.signer.signer.keyAddress(ref.agentId) });
   });
 
+  if (o.devActions || o.operatorActions) {
+    /** P2-U5: run the chain check now: the agent reads its account and proposes a small swap. */
+    app.post("/v1/agents/:agentId/tasks/chain-check", async (c) => {
+      const ref = agentRef(c.req.param("agentId"), o.chainId);
+      if (!ref) return c.json({ error: "bad_agent_id" }, 400);
+      const runtime = await o.store.runtime(ref);
+      if (runtime?.status !== "ready")
+        return c.json(
+          { error: "not_provisioned", message: `Agent ${ref.agentId} is not provisioned yet.` },
+          409,
+        );
+      if (await o.store.activeLease(ref))
+        return c.json(
+          { error: "lease_held", message: `Agent ${ref.agentId} already has a sandbox running.` },
+          409,
+        );
+      try {
+        return c.json({ taskId: await o.orchestrator.enqueueChainCheck(ref) }, 202);
+      } catch (err) {
+        if (err instanceof CreditsExhaustedError)
+          return c.json({ error: "credits_exhausted", message: err.message }, 409);
+        throw err;
+      }
+    });
+
+    /** P2-EC (D-307): re-date testnet's feeds now if they need it, before an owner's deposit. */
+    app.post("/v1/feeds/fresh", async (c) => {
+      if (!o.feeds)
+        return c.json(
+          { error: "not_testnet", message: "Feeds are re-dated on demand only on testnet." },
+          404,
+        );
+      return c.json(await o.feeds.ensureFresh(c.req.query("reason") ?? "a deposit"));
+    });
+  }
+
   if (o.devActions) {
     /**
      * D-221: steer a reveal on the local fork, once: `{ "species": "bee",
@@ -510,30 +554,6 @@ export function createApi(o: ApiOptions): Hono {
       if (!done)
         return c.json({ error: "not_pending", message: "That steer is no longer pending." }, 409);
       return c.json({ steering: await steeringView() });
-    });
-
-    /** P2-U5: run the chain check now: the agent reads its account and proposes a small swap. */
-    app.post("/v1/agents/:agentId/tasks/chain-check", async (c) => {
-      const ref = agentRef(c.req.param("agentId"), o.chainId);
-      if (!ref) return c.json({ error: "bad_agent_id" }, 400);
-      const runtime = await o.store.runtime(ref);
-      if (runtime?.status !== "ready")
-        return c.json(
-          { error: "not_provisioned", message: `Agent ${ref.agentId} is not provisioned yet.` },
-          409,
-        );
-      if (await o.store.activeLease(ref))
-        return c.json(
-          { error: "lease_held", message: `Agent ${ref.agentId} already has a sandbox running.` },
-          409,
-        );
-      try {
-        return c.json({ taskId: await o.orchestrator.enqueueChainCheck(ref) }, 202);
-      } catch (err) {
-        if (err instanceof CreditsExhaustedError)
-          return c.json({ error: "credits_exhausted", message: err.message }, 409);
-        throw err;
-      }
     });
 
     /**

@@ -69,6 +69,12 @@ export interface ApiDeps {
   /** Milliseconds. */
   readonly now: () => number;
   readonly randomNonce: () => Hex;
+  /**
+   * P2-EC (D-307): re-dates testnet's feeds through the orchestrator before an
+   * owner's deposit; absent elsewhere, where prices need no help (LocalFeed's
+   * refresher on the fork, Chainlink on mainnet).
+   */
+  readonly freshPrices?: () => Promise<{ redated: unknown[]; error: string | null }>;
   /** How long index reads are cached. */
   readonly cacheMs?: number;
   /**
@@ -581,6 +587,24 @@ export function createApp(deps: ApiDeps): Hono {
     const reading = await reader.portfolio(Number(agentId));
     if (!reading) return fail(c, 404, "not_found", `Agent #${agentId} does not exist.`);
     return c.json({ ...(await meta()), portfolio: portfolioJson(reading) });
+  });
+
+  /**
+   * P2-EC (D-307): fresh prices before the owner deposits. On testnet the
+   * orchestrator re-dates the TestnetFeeds that need it; elsewhere nothing is
+   * needed and nothing is sent. Owner only, so no one else can spend the
+   * feed key's gas.
+   */
+  app.post("/v1/agents/:id{[0-9]+}/prices/fresh", async (c) => {
+    const agentId = BigInt(c.req.param("id"));
+    const owner = await ownerOnly(c, agentId);
+    if (owner instanceof Response) return owner;
+    if (!deps.freshPrices) return c.json({ redated: [], error: null, needed: false });
+    const result = await deps.freshPrices().catch((err: unknown) => ({
+      redated: [],
+      error: err instanceof Error ? (err.message.split("\n")[0] ?? "failed") : "failed",
+    }));
+    return c.json({ ...result, needed: true });
   });
 
   /**

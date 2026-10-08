@@ -321,6 +321,19 @@ export const tradingApi = {
       owner(session, { method: "POST" }),
     );
   },
+  /**
+   * P2-EC (D-307): on testnet, asks the platform to re-date the feeds that
+   * need it before a deposit; elsewhere it answers that nothing was needed.
+   */
+  async freshPrices(
+    agentId: bigint,
+    session: string,
+  ): Promise<{ redated: unknown[]; error: string | null; needed: boolean }> {
+    return call(
+      `/v1/agents/${agentId.toString()}/prices/fresh`,
+      owner(session, { method: "POST" }),
+    );
+  },
   /** Public, like the activity feed. */
   async whyNotTraded(agentId: bigint): Promise<WhyNotTradedJson> {
     return call<WhyNotTradedJson>(`/v1/agents/${agentId.toString()}/why-not-traded`);

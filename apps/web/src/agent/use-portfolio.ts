@@ -31,6 +31,8 @@ import { type WalletStep, type WalletTxProgress, runWalletSteps } from "./wallet
 /** How often the page re-reads, and how often while a trade or an action is moving. */
 const POLL_MS = 5_000;
 const BUSY_POLL_MS = 2_000;
+/** P2-EC: the least time between two of the page's requests for fresh testnet prices (D-307). */
+const FRESH_PRICES_EVERY_MS = 60_000;
 const MOVING = new Set(["approved", "submitted", "confirmed"]);
 
 export type PortfolioAction =
@@ -119,6 +121,8 @@ export function usePortfolio(agentId: bigint, environment: EnvironmentId): Portf
   const [tick, setTick] = useState(0);
   const running = useRef(false);
   const mounted = useRef(true);
+  // P2-EC (D-307): when the page last asked testnet to re-date its feeds.
+  const freshAsked = useRef(0);
   useEffect(() => {
     mounted.current = true;
     return () => {
@@ -153,6 +157,18 @@ export function usePortfolio(agentId: bigint, environment: EnvironmentId): Portf
         const s = await asOwner((t) => api.summary(agentId, t)).catch(() => null);
         if (!live || !mounted.current) return;
         setPortfolio(p);
+        // Testnet's feeds are re-dated on demand: a stale price on the owner's money page asks
+        // for fresh ones, at most once a minute, and the next read shows them (D-307).
+        if (
+          environment === "testnet" &&
+          (p.prices.usdcUsd.reason !== "OK" || p.prices.monUsd.reason !== "OK") &&
+          Date.now() - freshAsked.current > FRESH_PRICES_EVERY_MS
+        ) {
+          freshAsked.current = Date.now();
+          void asOwner((t) => tradingApi.freshPrices(agentId, t))
+            .catch(() => null)
+            .then(() => mounted.current && setTick((n) => n + 1));
+        }
         setArming(a);
         setIntents(i);
         if (w) setWhy(w);
@@ -167,7 +183,7 @@ export function usePortfolio(agentId: bigint, environment: EnvironmentId): Portf
       live = false;
       window.clearTimeout(timer);
     };
-  }, [agentId, asOwner, busy, tick, wallet.ready, wallet.address]);
+  }, [agentId, asOwner, busy, environment, tick, wallet.ready, wallet.address]);
 
   const { client, checkNetwork, waitForReceipt } = useWalletTx(environment);
 
@@ -211,6 +227,11 @@ export function usePortfolio(agentId: bigint, environment: EnvironmentId): Portf
       const amount = parseAmount(amountText, DECIMALS[asset]);
       if (!portfolio?.account || amount === null) return;
       const token = asset === "USDC" ? portfolio.contracts.usdc : portfolio.contracts.wmon;
+      // On testnet, fresh prices first, so the deposit's own checks pass (D-307).
+      if (environment === "testnet") {
+        freshAsked.current = Date.now();
+        void asOwner((t) => tradingApi.freshPrices(agentId, t)).catch(() => null);
+      }
       // Exact approvals only: the account may take this deposit and nothing more.
       runSteps(
         "deposit",
@@ -237,7 +258,7 @@ export function usePortfolio(agentId: bigint, environment: EnvironmentId): Portf
         `Deposited ${amountText} ${asset}.`,
       );
     },
-    [portfolio, runSteps],
+    [agentId, asOwner, environment, portfolio, runSteps],
   );
 
   const withdraw = useCallback(

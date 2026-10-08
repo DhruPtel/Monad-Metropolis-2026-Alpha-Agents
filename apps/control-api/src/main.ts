@@ -142,6 +142,19 @@ const app = createApp({
   allowOrigin: (origin) => (env.id === "local" ? LOOPBACK.test(origin) : origin === publicUrl),
   now: () => Date.now(),
   randomNonce: () => `0x${randomBytes(32).toString("hex")}`,
+  // P2-EC (D-307): testnet's feeds are re-dated by the orchestrator, which holds the feed key.
+  ...(env.id === "testnet" && values.ORCHESTRATOR_URL
+    ? {
+        freshPrices: async () => {
+          const res = await fetch(
+            `${String(values.ORCHESTRATOR_URL)}/v1/feeds/fresh?reason=a%20deposit`,
+            { method: "POST", signal: AbortSignal.timeout(90_000) },
+          );
+          if (!res.ok) throw new Error(`the orchestrator answered ${res.status}`);
+          return (await res.json()) as { redated: unknown[]; error: string | null };
+        },
+      }
+    : {}),
 });
 
 const port = Number(values.CONTROL_API_PORT);

@@ -333,4 +333,47 @@ describe.skipIf(!dbUp)("the orchestrator's internal API (D-205)", { timeout: 60_
     );
     expect((await api(false).request("/v1/runtimes")).status).toBe(200);
   });
+
+  it("gives testnet the operator actions only: the chain check and fresh feeds, no fork writes (P2-EC)", async () => {
+    const reasons: string[] = [];
+    const testnet = createApi({
+      orchestrator: {
+        ...orchestrator,
+        enqueueChainCheck: async () => "check-1",
+      } as unknown as Orchestrator,
+      store,
+      chainId: CHAIN,
+      devActions: false,
+      operatorActions: true,
+      feeds: {
+        ensureFresh: async (reason: string) => {
+          reasons.push(reason);
+          return { redated: [], error: null };
+        },
+      },
+    });
+    const check = await testnet.request("/v1/agents/1/tasks/chain-check", { method: "POST" });
+    expect(check.status).toBe(202);
+    expect(await check.json()).toEqual({ taskId: "check-1" });
+    const fresh = await testnet.request("/v1/feeds/fresh?reason=a%20deposit", { method: "POST" });
+    expect(fresh.status).toBe(200);
+    expect(reasons).toEqual(["a deposit"]);
+    for (const path of [
+      "/v1/agents/1/reset",
+      "/v1/agents/1/tasks/noop",
+      "/v1/agents/1/tasks/scan",
+      "/v1/agents/1/arm",
+      "/v1/agents/1/test-swap",
+      "/v1/keeper/reveal-steers",
+    ])
+      expect((await testnet.request(path, { method: "POST" })).status, path).toBe(404);
+    // Without a refresher (local, or testnet without the feed key) the route says so.
+    const local = createApi({ orchestrator, store, chainId: CHAIN, devActions: true });
+    expect((await local.request("/v1/feeds/fresh", { method: "POST" })).status).toBe(404);
+    // The beta has neither.
+    const beta = createApi({ orchestrator, store, chainId: CHAIN, devActions: false });
+    expect((await beta.request("/v1/agents/1/tasks/chain-check", { method: "POST" })).status).toBe(
+      404,
+    );
+  });
 });

@@ -31,6 +31,7 @@ import { Redactor, createLog, errorText } from "./secrets.ts";
 import { Store } from "./store.ts";
 import { findCloudflared } from "./tunnel.ts";
 import { swapGasCost } from "./trade-flow.ts";
+import { testnetFeedsFor, viemFeedChain, withFreshFeeds } from "./testnet-feeds.ts";
 
 /**
  * The orchestrator process (P1-U5): `pnpm dev:orchestrator`.
@@ -265,6 +266,28 @@ if (!chainContracts.ok)
   );
 const chainSigner = signerWorker?.signer ?? null;
 
+// P2-EC (D-307): on testnet the TestnetFeeds are re-dated on demand, before every market read
+// of a proposal's or a submission's checks and before an owner's deposit; never on a timer.
+const feedKey = env.id === "testnet" ? reveal("TESTNET_FEED_PRIVATE_KEY") : undefined;
+const feedAddress = (id: "chainlink_mon_usd" | "chainlink_usdc_usd") => {
+  const e = addressEntry(env.id, id);
+  return e.status === "verified" ? (e.address as Hex) : null;
+};
+const testnetFeeds = testnetFeedsFor(env.id, {
+  chain: feedKey ? viemFeedChain(rpcUrl, env.chainId, feedKey as Hex) : null,
+  monUsd: feedAddress("chainlink_mon_usd"),
+  usdcUsd: feedAddress("chainlink_usdc_usd"),
+  log: createLog("feeds", redactor),
+});
+if (env.id === "testnet")
+  log(
+    testnetFeeds
+      ? "testnet feeds: re-dated on demand before checks, submissions and deposits (D-307)"
+      : "testnet feeds: TESTNET_FEED_PRIVATE_KEY is not set, so nothing re-dates them; deposits and trades will be refused with ORACLE_STALE",
+  );
+const toolsReader =
+  chainReader && testnetFeeds ? withFreshFeeds(chainReader, testnetFeeds) : chainReader;
+
 // The trade flow (P2-U6) sends swaps through the signer; the local fork tops gas up and
 // treats its receipts as final, every other chain settles a trade only once finalized.
 const local = env.id === "local";
@@ -310,8 +333,9 @@ const orchestrator = new Orchestrator({
   web,
   scanIntervalMs,
   revealSteering: steering,
+  snapshotReader: chainReader,
   chain: {
-    reader: chainReader,
+    reader: toolsReader,
     ...(chainSigner ? { sessionKeyOf: (agentId: number) => chainSigner.createKey(agentId) } : {}),
   },
   trading,
@@ -324,11 +348,15 @@ const api = createApi({
   store,
   chainId: env.chainId,
   devActions: env.id === "local",
+  operatorActions: env.id !== "beta",
+  feeds: testnetFeeds,
   signer: signerWorker,
   forkUrl: local ? rpcUrl : null,
 });
 const server = serve({ fetch: api.fetch, port, hostname: "127.0.0.1" });
-log(`internal API on http://127.0.0.1:${port} (dev actions ${env.id === "local" ? "on" : "off"})`);
+log(
+  `internal API on http://127.0.0.1:${port} (dev actions ${env.id === "local" ? "on" : "off"}, operator actions ${env.id === "beta" ? "off" : "on"})`,
+);
 
 let stopping = false;
 const shutdown = async (signal: string) => {

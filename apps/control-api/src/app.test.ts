@@ -939,6 +939,35 @@ describe.skipIf(!available)("the control API (needs pnpm dev:up for Postgres)", 
         expect([again.status, (await json(again)).error]).toEqual([409, "not_waiting"]);
       });
 
+      it("asks for fresh prices before a deposit, for the owner only, where it is needed (P2-EC, D-307)", async () => {
+        const session = await bobSession();
+        const local = await owner(session, "/v1/agents/2/prices/fresh", "POST");
+        expect(await json(local)).toEqual({ redated: [], error: null, needed: false });
+        let calls = 0;
+        const freshPrices = async () => {
+          calls += 1;
+          return { redated: [{ label: "USDC/USD" }], error: null };
+        };
+        const testnet = await call(
+          "/v1/agents/2/prices/fresh",
+          { method: "POST", headers: { "x-owner-session": session } },
+          { trading, freshPrices },
+        );
+        expect(await json(testnet)).toEqual({
+          redated: [{ label: "USDC/USD" }],
+          error: null,
+          needed: true,
+        });
+        const alice = (await json(await start(1, "alice-token"))).token as string;
+        const other = await call(
+          "/v1/agents/2/prices/fresh",
+          { method: "POST", headers: { "x-owner-session": alice } },
+          { trading, freshPrices },
+        );
+        expect(other.status).toBe(403);
+        expect(calls).toBe(1);
+      });
+
       it("says publicly why the agent did not trade", async () => {
         const res = await call("/v1/agents/2/why-not-traded");
         expect(res.status).toBe(200);
