@@ -1,7 +1,12 @@
 import { createHash, randomUUID } from "node:crypto";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
-import type { AssetId, RejectionCode } from "@alpha-agents/domain";
+import {
+  type AssetId,
+  type RejectionCode,
+  SLOT_HOLDING_INTENT_STATES,
+  type TradeFlowCode,
+} from "@alpha-agents/domain";
 import {
   type AgentIdentity,
   type IdentityResolver,
@@ -15,6 +20,7 @@ import type { Hex } from "viem";
 import {
   amountOf,
   blockersFor,
+  proposalVerdict,
   floorFor,
   limitsView,
   oracleImplied,
@@ -75,7 +81,7 @@ export interface IntentDraft {
   readonly reason: string;
   readonly clientRequestId: string | null;
   readonly status: "awaiting_approval" | "rejected";
-  readonly reasonCodes: readonly RejectionCode[];
+  readonly reasonCodes: readonly (RejectionCode | TradeFlowCode)[];
   readonly blockers: readonly Blocker[];
   readonly checks: Record<string, unknown>;
   readonly ownerEpoch: bigint | null;
@@ -103,6 +109,12 @@ export interface IntentStore {
   ): Promise<{ readonly record: IntentRecord; readonly duplicate: boolean }>;
   /** The agent's own intent, with expiry applied; null for an unknown ID or another agent's. */
   get(identity: AgentIdentity, intentId: string): Promise<IntentRecord | null>;
+  /**
+   * Trade slots the agent's intents hold: those waiting for approval, approved
+   * or submitted (P2-U6). A waiting intent reserves its slot until it is
+   * rejected, expires or is sent.
+   */
+  reservedSlots(identity: AgentIdentity, exceptIntentId?: string): Promise<number>;
 }
 
 export interface ChainToolsOptions {
@@ -300,8 +312,17 @@ export function registerChainTools(
   const assess = async (sell: AssetId, amountIn: bigint) => {
     const { m, a } = await marketAndAgent();
     const agent = requireAccount(a);
-    const [quote, key] = await Promise.all([quoteOrNull(sell, amountIn), sessionKey()]);
-    return { m, a: agent, quote, blockers: blockersFor(sell, amountIn, agent, m, quote, key) };
+    const [quote, key, reserved] = await Promise.all([
+      quoteOrNull(sell, amountIn),
+      sessionKey(),
+      o.intents.reservedSlots(identity),
+    ]);
+    return {
+      m,
+      a: agent,
+      quote,
+      blockers: blockersFor(sell, amountIn, agent, m, quote, key, reserved),
+    };
   };
 
   mcp.registerTool(
@@ -347,7 +368,9 @@ export function registerChainTools(
       tool("propose_swap", input, async () => {
         const amountIn = parseTokenAmount(input.amount, input.sell);
         const { m, a, quote, blockers } = await assess(input.sell, amountIn);
-        const codes = blockers.map((b) => b.code);
+        // Only the session grant missing makes a passing trade wait for the owner to arm (P2-U6).
+        const verdict = proposalVerdict(blockers);
+        const codes = verdict.rejecting.map((b) => b.code);
         const fingerprint = createHash("sha256")
           .update(JSON.stringify([input.sell, input.buy, amountIn.toString()]))
           .digest("hex")
@@ -360,7 +383,7 @@ export function registerChainTools(
           amountIn,
           reason: input.reason,
           clientRequestId: input.clientRequestId ?? null,
-          status: codes.length === 0 ? "awaiting_approval" : "rejected",
+          status: verdict.status,
           reasonCodes: codes,
           blockers,
           checks: checksOf(input.sell, amountIn, a, m, quote),
@@ -541,5 +564,14 @@ export class MemoryIntentStore implements IntentStore {
       (x) => x.intentId === intentId && x.agentKey === this.key(identity),
     );
     return r ? this.expire(r) : null;
+  }
+
+  async reservedSlots(identity: AgentIdentity, exceptIntentId?: string) {
+    return this.records.filter(
+      (r) =>
+        r.agentKey === this.key(identity) &&
+        r.intentId !== exceptIntentId &&
+        (SLOT_HOLDING_INTENT_STATES as readonly string[]).includes(this.expire(r).status),
+    ).length;
   }
 }

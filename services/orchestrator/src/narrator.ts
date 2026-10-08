@@ -66,7 +66,41 @@ export interface IntentFacts {
   readonly agentReason: string;
 }
 
-export type NarrationFacts = ScanFacts | IntentFacts;
+/** Arming (P2-U6): the owner's grant and first approval, a renewal reminder, or the end of arming. */
+export interface ArmingFacts {
+  readonly agent: string;
+  readonly activity: "arming";
+  readonly event: "grant_registered" | "armed" | "renewal_due" | "ended";
+  /** The grant's last day (UTC, YYYY-MM-DD). */
+  readonly grantValidUntil: string;
+  /** Why arming ended, in the owner's words; null unless it ended. */
+  readonly endReason: string | null;
+}
+
+/** An executed trade (P2-U6), from the intent and the reconciled outbox row only. */
+export interface TradeFacts {
+  readonly agent: string;
+  readonly activity: "trade";
+  readonly sold: { readonly asset: string; readonly amount: string };
+  readonly bought: { readonly asset: string; readonly amount: string };
+  readonly approvedBy: "the owner" | "automatically (armed)";
+}
+
+/** A trade the flow did not send (P2-U6), with every reason and when it may clear. */
+export interface BlockedFacts {
+  readonly agent: string;
+  readonly activity: "blocked_trade";
+  readonly sell: { readonly asset: string; readonly amount: string };
+  readonly buy: string;
+  readonly reasons: readonly {
+    readonly code: string;
+    readonly message: string;
+    readonly clears: string;
+  }[];
+}
+
+export type NarrationFacts = ScanFacts | IntentFacts | ArmingFacts | TradeFacts | BlockedFacts;
+export type ActivityKind = "scan" | "intent" | "arming" | "trade" | "blocked";
 
 /** Micro-USDC as a plain decimal with no trailing zeros: 22000 -> "0.022". */
 export function formatUsdc(e6: bigint): string {
@@ -156,6 +190,36 @@ export function templateIntentEntry(f: IntentFacts): string {
       : ` The checks blocked it: ${f.reasons.map((r) => r.code).join(", ")}.`;
   const full = `${what}${verdict}`;
   return full.length <= MAX_ENTRY_CHARS ? full : full.slice(0, MAX_ENTRY_CHARS);
+}
+
+const ARMING_TEMPLATES: Readonly<Record<ArmingFacts["event"], (f: ArmingFacts) => string>> = {
+  grant_registered: (f) =>
+    `The owner gave ${f.agent} a trading permission until ${f.grantValidUntil}; it is armed once the owner approves its first trade.`,
+  armed: (f) =>
+    `${f.agent} is armed: trades within its limits now go through on their own until ${f.grantValidUntil}.`,
+  renewal_due: (f) =>
+    `${f.agent}'s trading permission ends on ${f.grantValidUntil}; the owner can renew it to keep trading.`,
+  ended: (f) => `${f.agent} is no longer armed: ${f.endReason ?? "arming ended"}`,
+};
+
+/** The fixed templates for arming, trades and blocked trades (P2-U6): numbers only from the facts. */
+export function templateArmingEntry(f: ArmingFacts): string {
+  return ARMING_TEMPLATES[f.event](f).slice(0, MAX_ENTRY_CHARS);
+}
+
+export function templateTradeEntry(f: TradeFacts): string {
+  return `${f.agent} sold ${f.sold.amount} ${f.sold.asset} for ${f.bought.amount} ${f.bought.asset}, approved ${f.approvedBy}. The trade is settled.`.slice(
+    0,
+    MAX_ENTRY_CHARS,
+  );
+}
+
+export function templateBlockedEntry(f: BlockedFacts): string {
+  const why = f.reasons.map((r) => r.message.replace(/\.$/, "")).join("; ");
+  return `${f.agent} did not trade ${f.sell.amount} ${f.sell.asset} for ${f.buy}: ${why}.`.slice(
+    0,
+    MAX_ENTRY_CHARS,
+  );
 }
 
 export const NARRATOR_SYSTEM = [
@@ -369,10 +433,7 @@ export class Narrator {
       .where("agent_id", "=", agentId)
       .executeTakeFirst();
     if (!row) return null;
-    const checks = row.checks as {
-      expectedOut?: string | null;
-      blockers?: { code: string; message: string }[];
-    };
+    const checks = row.checks as { expectedOut?: string | null };
     const decimals = (asset: string) => (asset === "USDC" ? 6 : 18);
     const facts: IntentFacts = {
       agent: `Agent #${agentId}`,
@@ -384,7 +445,14 @@ export class Narrator {
         typeof checks.expectedOut === "string"
           ? formatUnits(BigInt(checks.expectedOut), decimals(row.buy))
           : null,
-      reasons: (checks.blockers ?? []).map((b) => ({ code: b.code, message: b.message })),
+      // A waiting intent's only blockers are the session grant's, which arming resolves.
+      reasons:
+        row.status === "rejected"
+          ? (row.blockers as { code: string; message: string }[]).map((b) => ({
+              code: b.code,
+              message: b.message,
+            }))
+          : [],
       agentReason: row.reason.slice(0, 280),
     };
     await this.write({
@@ -398,12 +466,34 @@ export class Narrator {
     return (await this.stored(intentId)) ?? null;
   }
 
+  /**
+   * Writes one entry for a trade flow event (P2-U6) under `key` (the arming or
+   * intent and the event), once: arming, an executed trade, or a blocked one.
+   */
+  async narrateEvent(
+    chainId: number,
+    agentId: number,
+    key: string,
+    facts: ArmingFacts | TradeFacts | BlockedFacts,
+  ): Promise<ActivityEntry | null> {
+    const existing = await this.stored(key);
+    if (existing) return existing;
+    const [kind, template] =
+      facts.activity === "arming"
+        ? (["arming", () => templateArmingEntry(facts)] as const)
+        : facts.activity === "trade"
+          ? (["trade", () => templateTradeEntry(facts)] as const)
+          : (["blocked", () => templateBlockedEntry(facts)] as const);
+    await this.write({ chainId, agentId, key, kind, facts, template });
+    return (await this.stored(key)) ?? null;
+  }
+
   /** Narrates a facts record once under `key`, checked by the validator, or falls back to the template. */
   private async write(e: {
     chainId: number;
     agentId: number;
     key: string;
-    kind: "scan" | "intent";
+    kind: ActivityKind;
     facts: NarrationFacts;
     template: () => string;
   }): Promise<void> {

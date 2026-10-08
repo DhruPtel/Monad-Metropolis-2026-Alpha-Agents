@@ -7,7 +7,12 @@ import type {
   IntentStatus,
   IntentStore,
 } from "@alpha-agents/chain-tools";
-import type { AssetId, RejectionCode } from "@alpha-agents/domain";
+import {
+  type AssetId,
+  type RejectionCode,
+  SLOT_HOLDING_INTENT_STATES,
+  type TradeFlowCode,
+} from "@alpha-agents/domain";
 import { type AgentIdentity, ToolError } from "@alpha-agents/tool-server";
 import type { Hex } from "viem";
 import type { Store } from "../store.ts";
@@ -85,7 +90,7 @@ export class PgChainCallLog implements ChainCallLog {
   }
 }
 
-interface Row {
+export interface IntentRow {
   intent_id: string;
   idempotency_key: string;
   account: string | null;
@@ -96,6 +101,7 @@ interface Row {
   client_request_id: string | null;
   status: IntentStatus;
   reason_codes: string[];
+  blockers: Record<string, unknown>[];
   checks: Record<string, unknown>;
   owner_epoch: string | null;
   config_epoch: string | null;
@@ -104,9 +110,7 @@ interface Row {
   expires_at: Date;
 }
 
-const record = (r: Row): IntentRecord => {
-  const checks = r.checks as Record<string, unknown> & { blockers?: IntentRecord["blockers"] };
-  const { blockers = [], ...rest } = checks;
+export const intentRecord = (r: IntentRow): IntentRecord => {
   return {
     intentId: r.intent_id,
     idempotencyKey: r.idempotency_key,
@@ -117,9 +121,9 @@ const record = (r: Row): IntentRecord => {
     reason: r.reason,
     clientRequestId: r.client_request_id,
     status: r.status,
-    reasonCodes: r.reason_codes as RejectionCode[],
-    blockers,
-    checks: rest,
+    reasonCodes: r.reason_codes as (RejectionCode | TradeFlowCode)[],
+    blockers: r.blockers as unknown as IntentRecord["blockers"],
+    checks: r.checks,
     ownerEpoch: r.owner_epoch === null ? null : BigInt(r.owner_epoch),
     configEpoch: r.config_epoch === null ? null : BigInt(r.config_epoch),
     expiresAt: new Date(r.expires_at),
@@ -165,7 +169,7 @@ export class PgIntentStore implements IntentStore {
     return this.store.withAgentLock(ref, async () => {
       await this.expireDue(identity.chainId, identity.agentId);
       const same = await this.byKey(identity, draft.idempotencyKey);
-      if (same) return { record: record(same as Row), duplicate: true };
+      if (same) return { record: intentRecord(same as IntentRow), duplicate: true };
       if (draft.status === "awaiting_approval") {
         const open = await this.store.db
           .selectFrom("platform.intents")
@@ -199,7 +203,8 @@ export class PgIntentStore implements IntentStore {
           idempotency_key: draft.idempotencyKey,
           status: draft.status,
           reason_codes: json(draft.reasonCodes),
-          checks: json({ ...draft.checks, blockers: draft.blockers }),
+          blockers: json(draft.blockers),
+          checks: json(draft.checks),
           owner_epoch: draft.ownerEpoch === null ? null : draft.ownerEpoch.toString(),
           config_epoch: draft.configEpoch === null ? null : draft.configEpoch.toString(),
           expires_at: draft.expiresAt,
@@ -207,7 +212,7 @@ export class PgIntentStore implements IntentStore {
         .execute();
       const row = await this.byKey(identity, draft.idempotencyKey);
       if (!row) throw new Error("the intent was not stored");
-      return { record: record(row as Row), duplicate: false };
+      return { record: intentRecord(row as IntentRow), duplicate: false };
     });
   }
 
@@ -220,7 +225,19 @@ export class PgIntentStore implements IntentStore {
       .where("chain_id", "=", identity.chainId)
       .where("agent_id", "=", identity.agentId)
       .executeTakeFirst();
-    return row ? record(row as Row) : null;
+    return row ? intentRecord(row as IntentRow) : null;
+  }
+
+  async reservedSlots(identity: AgentIdentity, exceptIntentId?: string) {
+    await this.expireDue(identity.chainId, identity.agentId);
+    let q = this.store.db
+      .selectFrom("platform.intents")
+      .select((eb) => eb.fn.countAll<string>().as("n"))
+      .where("chain_id", "=", identity.chainId)
+      .where("agent_id", "=", identity.agentId)
+      .where("status", "in", [...SLOT_HOLDING_INTENT_STATES]);
+    if (exceptIntentId !== undefined) q = q.where("intent_id", "!=", exceptIntentId);
+    return Number((await q.executeTakeFirstOrThrow()).n);
   }
 
   /** An agent's intents, newest first, for the dev console. */
@@ -234,6 +251,6 @@ export class PgIntentStore implements IntentStore {
       .orderBy("created_at", "desc")
       .limit(limit)
       .execute();
-    return rows.map((r) => record(r as Row));
+    return rows.map((r) => intentRecord(r as IntentRow));
   }
 }

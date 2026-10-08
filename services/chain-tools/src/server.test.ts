@@ -391,6 +391,47 @@ describe("chain tools server (P2-U5)", () => {
     expect(intents.records.filter((x) => x.status === "awaiting_approval")).toHaveLength(0);
   });
 
+  it("propose_swap: an agent with no session grant waits for the owner to arm, not rejected (P2-U6)", async () => {
+    const { reader, call } = await start();
+    reader.agents.set(1, agentState({ grant: null }));
+    const r = IntentOutput.parse(
+      (await call("propose_swap", { sell: "USDC", buy: "WMON", amount: "5", reason: "first" })).out,
+    );
+    expect(r.status).toBe("awaiting_approval");
+    expect(r.reasonCodes).toEqual([]);
+    // A real limit still rejects, with the session reason alongside it in the blockers.
+    reader.agents.set(1, agentState({ grant: null, mode: "REDUCE_ONLY" }));
+    const no = IntentOutput.parse(
+      (await call("propose_swap", { sell: "USDC", buy: "WMON", amount: "4", reason: "second" }))
+        .out,
+    );
+    expect(no.status).toBe("rejected");
+    expect(no.reasonCodes).toEqual(["REDUCE_ONLY_MODE"]);
+  });
+
+  it("waiting intents reserve trade slots: the last free slot taken by a waiting intent blocks the next (P2-U6)", async () => {
+    const { reader, call, intents } = await start();
+    // 19 trades in the window: one slot left.
+    const trades = Array.from({ length: 19 }, () => ({ at: NOW - 60n, valueUsdcE6: usdc(1n) }));
+    reader.agents.set(1, agentState({ trades, tradesLeft: 1 }));
+    const args = { sell: "USDC", buy: "WMON", reason: "slot" };
+    const first = IntentOutput.parse((await call("propose_swap", { ...args, amount: "1" })).out);
+    expect(first.status).toBe("awaiting_approval");
+    expect(await intents.reservedSlots(ALICE)).toBe(1);
+    expect(await intents.reservedSlots(ALICE, first.intentId)).toBe(0);
+    const second = IntentOutput.parse((await call("propose_swap", { ...args, amount: "2" })).out);
+    expect(second.status).toBe("rejected");
+    expect(second.reasonCodes).toEqual(["DAILY_TRADE_LIMIT"]);
+    // Releasing the slot (the intent is rejected or expires) frees it again.
+    const held = intents.records.find((r) => r.intentId === first.intentId);
+    if (held) (held as { status: string }).status = "expired";
+    expect(await intents.reservedSlots(ALICE)).toBe(0);
+    const third = IntentOutput.parse((await call("propose_swap", { ...args, amount: "3" })).out);
+    expect(third.status).toBe("awaiting_approval");
+    // Bob's slots are his own.
+    expect(await intents.reservedSlots(BOB)).toBe(0);
+  });
+
   it("propose_swap: at most three intents wait at once, and a waiting intent expires", async () => {
     const { call, tick } = await start();
     const propose = (n: number) =>

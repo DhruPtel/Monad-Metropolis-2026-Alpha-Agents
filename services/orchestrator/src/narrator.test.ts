@@ -18,7 +18,10 @@ import {
   narratorKeyFor,
   numbersIn,
   percentOfBps,
+  templateArmingEntry,
+  templateBlockedEntry,
   templateEntry,
+  templateTradeEntry,
   validateNarration,
 } from "./narrator.ts";
 import { Redactor } from "./secrets.ts";
@@ -106,6 +109,54 @@ describe("narration numbers", () => {
       expect(text.length).toBeLessThanOrEqual(MAX_ENTRY_CHARS);
       expect(validateNarration(text, facts)).toEqual({ ok: true });
     }
+  });
+});
+
+describe("trade flow entries (P2-U6)", () => {
+  it("writes arming, trade and blocked templates that validate and fit", () => {
+    for (const event of ["grant_registered", "armed", "renewal_due", "ended"] as const) {
+      const f = {
+        agent: "Agent #7",
+        activity: "arming" as const,
+        event,
+        grantValidUntil: "2026-11-06",
+        endReason: event === "ended" ? "The owner sold the agent." : null,
+      };
+      const text = templateArmingEntry(f);
+      expect(validateNarration(text, f), text).toEqual({ ok: true });
+      expect(text).toContain("Agent #7");
+    }
+    const trade = {
+      agent: "Agent #7",
+      activity: "trade" as const,
+      sold: { asset: "USDC", amount: "2.5" },
+      bought: { asset: "WMON", amount: "98.123456789" },
+      approvedBy: "automatically (armed)" as const,
+    };
+    expect(validateNarration(templateTradeEntry(trade), trade)).toEqual({ ok: true });
+    const blocked = {
+      agent: "Agent #7",
+      activity: "blocked_trade" as const,
+      sell: { asset: "USDC", amount: "20" },
+      buy: "WMON",
+      reasons: [
+        {
+          code: "TRADE_SIZE_EXCEEDED",
+          message: "The trade is larger than 10% of the account.",
+          clears: "by_changing_the_trade",
+        },
+        {
+          code: "GAS_UNFUNDED",
+          message: "The agent's funding address has no MON to pay gas for the trade.",
+          clears: "by_the_owner",
+        },
+      ],
+    };
+    const text = templateBlockedEntry(blocked);
+    expect(validateNarration(text, blocked)).toEqual({ ok: true });
+    expect(text).toContain("no MON to pay gas");
+    // A narrated trade with an invented amount is refused.
+    expect(validateNarration("Agent #7 sold 3 USDC for WMON.", trade).ok).toBe(false);
   });
 });
 

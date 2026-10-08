@@ -4,6 +4,7 @@ import {
   INTENT_STATES,
   type IntentState,
   REJECTION_CODES,
+  TRADE_FLOW_CODES,
 } from "@alpha-agents/domain";
 import { z } from "zod";
 
@@ -55,7 +56,8 @@ export const IntentStatusInput = z.strictObject({
 const AsOf = z.strictObject({ block: z.string(), timestamp: z.string() });
 const Amount = z.strictObject({ asset, amount: z.string(), amountRaw: z.string() });
 const Usdc = z.strictObject({ amount: z.string(), amountRaw: z.string() });
-const reasonCode = z.enum(REJECTION_CODES);
+/** The Executor's reasons and the trade flow's own (P2-U6: GAS_UNFUNDED). */
+const reasonCode = z.enum([...REJECTION_CODES, ...TRADE_FLOW_CODES]);
 
 export const PortfolioOutput = z.strictObject({
   asOf: AsOf,

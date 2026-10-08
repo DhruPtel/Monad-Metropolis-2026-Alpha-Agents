@@ -3,6 +3,8 @@ import {
   type AssetId,
   REJECTION_MESSAGES,
   type RejectionCode,
+  TRADE_FLOW_MESSAGES,
+  type TradeFlowCode,
 } from "@alpha-agents/domain";
 import {
   type ExecutorMarket,
@@ -13,7 +15,7 @@ import {
 } from "@alpha-agents/policy";
 import { ToolError } from "@alpha-agents/tool-server";
 import { type Hex, formatUnits, isAddressEqual } from "viem";
-import type { AgentState, MarketState, Quote } from "./reader.ts";
+import type { AgentState, ChainReader, MarketState, Quote } from "./reader.ts";
 import type {
   Blocker,
   LimitsOutput,
@@ -245,7 +247,13 @@ export function executorMarketOf(sell: AssetId, a: AgentState, m: MarketState): 
   };
 }
 
-const CLEARS: Readonly<Record<RejectionCode, { clears: Blocker["clears"]; hint: string }>> = {
+const CLEARS: Readonly<
+  Record<RejectionCode | TradeFlowCode, { clears: Blocker["clears"]; hint: string }>
+> = {
+  GAS_UNFUNDED: {
+    clears: "by_the_owner",
+    hint: "Send a little MON to the agent's funding address for gas.",
+  },
   ASSET_NOT_ALLOWED: {
     clears: "by_the_platform",
     hint: "The asset is off the buy list; only sales of it are possible.",
@@ -326,22 +334,26 @@ const CLEARS: Readonly<Record<RejectionCode, { clears: Blocker["clears"]; hint: 
 };
 
 export function blocker(
-  code: RejectionCode,
+  code: RejectionCode | TradeFlowCode,
   clearsAt: bigint | null = null,
   globalPause = false,
 ): Blocker {
   const c = CLEARS[code];
+  const message =
+    code in REJECTION_MESSAGES
+      ? REJECTION_MESSAGES[code as RejectionCode]
+      : TRADE_FLOW_MESSAGES[code as TradeFlowCode];
   if (code === "PAUSED" && globalPause)
     return {
       code,
-      message: REJECTION_MESSAGES[code],
+      message,
       clears: "by_the_platform",
       clearsAt: null,
       hint: "The platform paused all trading; nothing to do but wait.",
     };
   return {
     code,
-    message: REJECTION_MESSAGES[code],
+    message,
     clears: c.clears,
     clearsAt: clearsAt === null ? null : iso(clearsAt),
     hint: c.hint,
@@ -354,6 +366,13 @@ export function blocker(
  * packages/policy, the session grant's (which the Executor checks right after
  * the intent's shape), and the venue's quote against the oracle floor.
  */
+/** The session grant's rules: the owner's to resolve by arming, so a proposal may wait on them. */
+export const SESSION_CODES: readonly RejectionCode[] = [
+  "SESSION_UNKNOWN",
+  "SESSION_EXPIRED",
+  "EPOCH_MISMATCH",
+];
+
 export function blockersFor(
   sell: AssetId,
   amountIn: bigint,
@@ -361,6 +380,8 @@ export function blockersFor(
   m: MarketState,
   quote: Quote | null,
   sessionKey: Hex | null,
+  /** Trade slots other intents of this agent already hold in the rolling window (P2-U6). */
+  reservedSlots = 0,
 ): Blocker[] {
   const market = executorMarketOf(sell, a, m);
   const trade = tradeNow(sell, amountIn, m);
@@ -380,6 +401,10 @@ export function blockersFor(
   }
   const codes: RejectionCode[] = [];
   for (const c of [...first, ...session, ...executorCodes]) if (!codes.includes(c)) codes.push(c);
+  // Slots held by this agent's waiting and sent intents count as used (P2-U6).
+  const used = rollingWindow(market, m.policy).count + reservedSlots;
+  if (used >= m.policy.maxTradesPerWindow && !codes.includes("DAILY_TRADE_LIMIT"))
+    codes.push("DAILY_TRADE_LIMIT");
   // The venue must be able to fill at least the floor; the oracle checks above cover a bad price.
   const priceOk = market.priceE18 > 0n;
   if (priceOk && amountIn > 0n && !codes.includes("SLIPPAGE_TOO_HIGH")) {
@@ -395,6 +420,47 @@ export function blockersFor(
       m.paused && a.mode !== "PAUSED",
     ),
   );
+}
+
+export interface TradeAssessment {
+  readonly m: MarketState;
+  readonly a: AgentState;
+  readonly quote: Quote | null;
+  readonly blockers: Blocker[];
+}
+
+/**
+ * Every pre-check for one trade from fresh reads: what propose_swap and
+ * tradable_now answer, and what the trade flow re-runs at submission (P2-U6).
+ * Null when the agent has no account.
+ */
+export async function assessTrade(
+  reader: ChainReader,
+  agentId: number,
+  sell: AssetId,
+  amountIn: bigint,
+  sessionKey: Hex | null,
+  reservedSlots = 0,
+): Promise<TradeAssessment | null> {
+  const [m, a, quote] = await Promise.all([
+    reader.market(),
+    reader.agent(agentId),
+    reader.quote(sell, amountIn).catch(() => null),
+  ]);
+  if (!a?.account) return null;
+  return { m, a, quote, blockers: blockersFor(sell, amountIn, a, m, quote, sessionKey, reservedSlots) };
+}
+
+/**
+ * Splits blockers into those that reject a proposal and those that only make
+ * it wait for the owner: the session grant's, which arming resolves (P2-U6).
+ */
+export function proposalVerdict(blockers: readonly Blocker[]): {
+  readonly status: "awaiting_approval" | "rejected";
+  readonly rejecting: readonly Blocker[];
+} {
+  const rejecting = blockers.filter((b) => !SESSION_CODES.includes(b.code as RejectionCode));
+  return { status: rejecting.length === 0 ? "awaiting_approval" : "rejected", rejecting };
 }
 
 /** Parses an amount in token units; refuses more decimals than the token has. */
