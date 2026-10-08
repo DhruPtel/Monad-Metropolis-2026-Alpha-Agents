@@ -743,6 +743,110 @@ async function main(): Promise<number> {
     !verdict.ok && /987654/.test(verdict.ok ? "" : verdict.reason),
     verdict.ok ? "accepted" : verdict.reason,
   );
+  // ---- P2-U5: a real agent in E2B uses the chain tools ----
+  step(
+    "the chain check: a real agent reads its account through the chain tools and proposes a swap",
+  );
+  {
+    const { deployAccountFactoryLocal } = await import("../../../scripts/lib/account-factory.js");
+    const custody = await import("../../../scripts/lib/custody.js");
+    const { send, impersonate } =
+      (await import("../../../scripts/lib/agent-reveal.js")) as unknown as {
+        send: (from: Hex, request: unknown) => Promise<unknown>;
+        impersonate: (address: Hex) => Promise<void>;
+      };
+    const { factory } = (await deployAccountFactoryLocal({ quiet: true })) as { factory: Hex };
+    const owner = (await client.readContract({
+      address: nft,
+      abi: parseAbi(["function ownerOf(uint256 agentId) view returns (address)"]),
+      functionName: "ownerOf",
+      args: [BigInt(other)],
+    })) as Hex;
+    await impersonate(owner);
+    // The local allowlist is anvil accounts 6 to 9 (A-33); the admin (anvil 0) adds this owner.
+    await send("0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266", {
+      address: factory,
+      abi: parseAbi(["function addDepositor(address depositor)"]),
+      functionName: "addDepositor",
+      args: [owner],
+    });
+    const { account } = (await custody.ensureAccount(factory, BigInt(other), owner)) as {
+      account: Hex;
+    };
+    await custody.depositUsdc(account, owner, 20_000_000n);
+    // The agent's session key is its funding address (D-243); its owner registers the grant.
+    const key = await fundingOf(other);
+    const now = (await client.getBlock()).timestamp;
+    await send(owner, {
+      address: addressEntry("local", "executor").address as Hex,
+      abi: parseAbi(["function registerSession(uint256 agentId, address key, uint64 validUntil)"]),
+      functionName: "registerSession",
+      args: [BigInt(other), key, now + 30n * 86_400n],
+    });
+    const started = await api(`/v1/agents/${other}/tasks/chain-check`, { method: "POST" });
+    const task = await waitFor("the chain check", 600_000, async () => {
+      const x = (await api(`/v1/tasks/${String(started.body.taskId)}`)).body as unknown as TaskView;
+      return x.status === "succeeded" || x.status === "failed" ? x : null;
+    });
+    const res = (task.result ?? {}) as {
+      stopReason?: string;
+      toolCalls?: { tool: string; status: string; errorCode: string | null }[];
+      intents?: { intentId: string; status: string; reasonCodes: string[] }[];
+    };
+    const chainView = (await api(`/v1/agents/${other}/chain`)).body as {
+      portfolio: Record<string, unknown> | null;
+      intents: { intentId: string; status: string; reasonCodes: string[]; amountIn: string }[];
+    };
+    const intent = res.intents?.[0];
+    const entry = intent
+      ? await waitFor("the proposal's activity entry", 60_000, async () =>
+          t.db
+            .selectFrom("platform.activity_entries")
+            .selectAll()
+            .where("task_id", "=", intent.intentId)
+            .executeTakeFirst(),
+        )
+      : undefined;
+    report.chainCheck = {
+      status: task.status,
+      error: task.error,
+      result: res,
+      chain: chainView,
+      entry: entry?.text,
+    };
+    const ok = (tool: string) =>
+      (res.toolCalls ?? []).some((c) => c.tool === tool && c.status === "succeeded");
+    check(
+      "a real agent read its portfolio, prices, limits and tradable_now through the chain tools",
+      task.status === "succeeded" &&
+        res.stopReason === "COMPLETED" &&
+        ["get_portfolio", "get_prices", "get_limits", "tradable_now"].every(ok) &&
+        chainView.portfolio?.totalValueUsdc === "20",
+      `${task.status}; ${(res.toolCalls ?? []).map((c) => `${c.tool}:${c.status}`).join(", ")}; ${task.error ?? ""}`,
+    );
+    check(
+      "its proposed swap waits for approval as an intent, with no calldata and an activity entry",
+      intent?.status === "awaiting_approval" &&
+        chainView.intents.some((i) => i.intentId === intent.intentId) &&
+        !/calldata|"data":"0x/.test(JSON.stringify(chainView)) &&
+        entry !== undefined &&
+        entry.kind === "intent" &&
+        validateNarration(entry.text, entry.facts as never).ok,
+      `${intent?.status ?? "no intent"} ${(intent?.reasonCodes ?? []).join(",")}; ${entry?.text ?? ""}`,
+    );
+    // Nothing was sent: the outbox has no swap, because arming is P2-U6.
+    const swaps = await t.db
+      .selectFrom("platform.signer_outbox")
+      .select("tx_id")
+      .where("kind", "=", "executor_swap")
+      .execute();
+    check(
+      "no swap reached the signer: the intent only waits",
+      swaps.length === 0,
+      `${swaps.length} swaps`,
+    );
+  }
+
   const refundOther = await api(`/v1/agents/${other}/refund`, { method: "POST" });
   await waitFor("the second agent's refund", 120_000, async () => {
     const v = (await api(`/v1/refunds/${String(refundOther.body.refundId)}`)).body;
