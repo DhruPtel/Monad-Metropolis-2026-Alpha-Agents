@@ -1,5 +1,5 @@
 {
-  "probedAt": "2026-10-08T16:35:59.603Z",
+  "probedAt": "2026-10-08T21:21:02.377Z",
   "results": [
     {
       "variable": "MONAD_RPC_URL",
@@ -7,8 +7,8 @@
       "domain": "alchemy.com",
       "chainId": 143,
       "latencyMs": {
-        "p50": 98,
-        "p95": 186
+        "p50": 99,
+        "p95": 230
       },
       "logRange": {
         "max": 10,
@@ -23,20 +23,49 @@
         "perSecond": 7.5,
         "seconds": 60,
         "answers": {
-          "200": 446
+          "200": 450
         }
       },
       "heavyLoad": {
         "perSecond": 19,
         "seconds": 60,
         "answers": {
-          "200": 1135
+          "200": 1144
         }
       }
     },
     {
       "variable": "MONAD_RPC_URL_SECONDARY",
-      "configured": false
+      "configured": true,
+      "domain": "quiknode.pro",
+      "chainId": 143,
+      "latencyMs": {
+        "p50": 42,
+        "p95": 172
+      },
+      "logRange": {
+        "max": 1001,
+        "refusal": "{\"code\":-32614,\"message\":\"eth_getLogs is limited to a 1,000 range\"}"
+      },
+      "archive": {
+        "1000000": "{\"code\":-32602,\"message\":\"Block requested not found. Request might be querying historical state that is not available. If possible, reformulate query to point t",
+        "50000000": "{\"code\":-32602,\"message\":\"Block requested not found. Request might be querying historical state that is not available. If possible, reformulate query to point t",
+        "109670000": "{\"code\":-32602,\"message\":\"Block requested not found. Request might be querying historical state that is not available. If possible, reformulate query to point t"
+      },
+      "normalLoad": {
+        "perSecond": 7.5,
+        "seconds": 60,
+        "answers": {
+          "200": 450
+        }
+      },
+      "heavyLoad": {
+        "perSecond": 19,
+        "seconds": 60,
+        "answers": {
+          "200": 1146
+        }
+      }
     },
     {
       "variable": "MONAD_TESTNET_RPC_URL",
@@ -44,8 +73,8 @@
       "domain": "alchemy.com",
       "chainId": 10143,
       "latencyMs": {
-        "p50": 90,
-        "p95": 174
+        "p50": 93,
+        "p95": 385
       },
       "logRange": {
         "max": 10,
@@ -60,14 +89,14 @@
         "perSecond": 7.5,
         "seconds": 60,
         "answers": {
-          "200": 446
+          "200": 450
         }
       },
       "heavyLoad": {
         "perSecond": 19,
         "seconds": 60,
         "answers": {
-          "200": 1134
+          "200": 1145
         }
       }
     },
@@ -77,12 +106,12 @@
       "domain": "quiknode.pro",
       "chainId": 10143,
       "latencyMs": {
-        "p50": 84,
-        "p95": 269
+        "p50": 82,
+        "p95": 281
       },
       "logRange": {
-        "max": 6,
-        "refusal": "{\"code\":-32615,\"message\":\"eth_getLogs is limited to a 5 range, upgrade from discover plan at https://dashboard.quicknode.com/billing/plan to increase the limit\""
+        "max": 1001,
+        "refusal": "{\"code\":-32614,\"message\":\"eth_getLogs is limited to a 1,000 range\"}"
       },
       "archive": {
         "1000000": "{\"code\":-32602,\"message\":\"Block requested not found. Request might be querying historical state that is not available. If possible, reformulate query to point t",
@@ -93,17 +122,14 @@
         "perSecond": 7.5,
         "seconds": 60,
         "answers": {
-          "200": 357,
-          "413": 90
+          "200": 449
         }
       },
       "heavyLoad": {
         "perSecond": 19,
         "seconds": 60,
         "answers": {
-          "200": 721,
-          "413": 180,
-          "429": 234
+          "200": 1141
         }
       }
     }
