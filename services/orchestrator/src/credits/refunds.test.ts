@@ -304,9 +304,24 @@ describe.skipIf(!dbUp)("refunds through the signer (needs Postgres)", { timeout:
     expect((await credits.creditsOf(1)).credits).toBe(0n);
   });
 
+  it("records the agent's session key itself when the signer has none yet (live run, L-120)", async () => {
+    await fund(5_000_000n);
+    await t.db.deleteFrom("platform.signer_keys").execute();
+    const id = await refunds.request(1, OWNER, 0n, "owner");
+    await step();
+    expect(await status(id)).toMatchObject({ status: "sent" });
+    const [key] = await t.db.selectFrom("platform.signer_keys").selectAll().execute();
+    expect(key?.address).toBe(keys.address(1).toLowerCase());
+  });
+
   it("commits the ledger entry and the outbox row together: a signer error leaves neither", async () => {
     await fund(5_000_000n);
-    await t.db.deleteFrom("platform.signer_keys").execute(); // acceptTransfer throws NoSessionKeyError
+    refunds = service({
+      acceptTransfer: async () => {
+        throw new Error("the signer failed");
+      },
+      transaction: async () => undefined,
+    });
     const id = await refunds.request(1, OWNER, 0n, "owner");
     await refunds.tick();
     expect(await status(id)).toMatchObject({ status: "requested", signer_tx_id: null });

@@ -385,6 +385,9 @@ export class Signer {
     t: { kind: TransferKind; to: Hex; amount: bigint; actionKey: string },
     db: Db = this.#o.db,
   ): Promise<AcceptResult> {
+    // Every agent's funding address is its session key (D-243), so a credit transfer
+    // records the key itself when nobody has yet: a refund never waits for a trading grant.
+    if (!(await this.keyRow(agentId))) await this.createKey(agentId);
     const key = await this.keyRow(agentId);
     if (!key) throw new NoSessionKeyError(agentId);
     const usdc = this.#o.usdc ?? null;
