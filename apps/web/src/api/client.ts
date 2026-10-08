@@ -243,6 +243,26 @@ export interface PriceJson {
 }
 
 /** The owner's portfolio, read fresh from the chain (P2-U7); amounts in base units. */
+/** D-315: every balance at an agent's addresses, as GET /v1/agents/:id/holdings serves it. */
+export interface HoldingsJson {
+  readonly agentId: number;
+  readonly owner: Address;
+  readonly block: string;
+  readonly addresses: readonly {
+    readonly role: "funding" | "token_bound" | "personal_account";
+    readonly address: Address | null;
+    readonly holdings: readonly {
+      readonly symbol: string;
+      readonly token: Address | null;
+      readonly decimals: number;
+      readonly raw: string;
+      readonly use: "gas" | "credits" | "trading" | null;
+      readonly status: "in_use" | "movable" | "platform_only" | "stuck";
+      readonly recoverCall: WalletCallJson | null;
+    }[];
+  }[];
+}
+
 export interface PortfolioJson {
   readonly chainId: number;
   readonly block: string;
@@ -333,6 +353,15 @@ export const tradingApi = {
       `/v1/agents/${agentId.toString()}/prices/fresh`,
       owner(session, { method: "POST" }),
     );
+  },
+  /** D-315: every balance at the agent's addresses, with the owner's recovery calls. Owner only. */
+  async holdings(agentId: bigint, session: string): Promise<HoldingsJson> {
+    return (
+      await call<{ holdings: HoldingsJson }>(
+        `/v1/agents/${agentId.toString()}/holdings`,
+        owner(session),
+      )
+    ).holdings;
   },
   /** Public, like the activity feed. */
   async whyNotTraded(agentId: bigint): Promise<WhyNotTradedJson> {

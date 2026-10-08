@@ -29,6 +29,7 @@ import { Bot, PlugZap, RotateCcw, Sparkles, Wallet } from "lucide-react";
 import Link from "next/link";
 import type { Address } from "viem";
 import { AddCreditsSection } from "@/components/credits/add-credits-section";
+import { AgentHoldings } from "@/components/holdings/agent-holdings";
 import { useWalletSession } from "@/auth/session";
 import type { AgentView } from "@/agent/chain";
 import {
@@ -254,6 +255,7 @@ function MyAgentCard({ agent, environment }: { agent: AgentView; environment: En
             <ActionLine action={scan} testId="scan-result" />
             <ActionLine action={refund} testId="refund-result" />
           </div>
+          <AgentHoldings agentId={agent.id} environment={environment} />
         </>
       ) : null}
     </Card>

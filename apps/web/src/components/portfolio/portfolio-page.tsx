@@ -50,6 +50,7 @@ import {
 import { type ActionStatus, type PortfolioAction, usePortfolio } from "@/agent/use-portfolio";
 import { walletTxText } from "@/agent/wallet-tx";
 import { AddCreditsSection } from "@/components/credits/add-credits-section";
+import { AgentHoldings } from "@/components/holdings/agent-holdings";
 import type { Address } from "viem";
 
 /**
@@ -491,6 +492,11 @@ export function PortfolioPage({
           </CardContent>
         </Card>
       ) : null}
+      <Card data-testid="portfolio-holdings">
+        <CardContent className="pt-6">
+          <AgentHoldings agentId={agentId} environment={environment} />
+        </CardContent>
+      </Card>
       {p.account ? (
         <>
           <ArmingCard
