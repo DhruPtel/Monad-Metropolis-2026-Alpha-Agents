@@ -67,7 +67,8 @@
     "policy:parity": "node packages/policy/scripts/write-parity.ts",
     "devenv:local-feed": "node scripts/write-local-feed.js",
     "assets:build-bee": "node scripts/assets/build-bee-model.ts",
-    "assets:check": "node scripts/assets/check-models.ts"
+    "assets:check": "node scripts/assets/check-models.ts",
+    "test:canary-fork": "node scripts/test-canary-fork.js"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

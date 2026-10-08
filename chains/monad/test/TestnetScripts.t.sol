@@ -103,7 +103,12 @@ contract TestnetScriptsTest is Test {
         vm.chainId(10143);
         assertEq(custody.salt("executor"), keccak256("alpha-agents.p2ec.testnet.executor.v1"));
         vm.chainId(143);
-        vm.expectRevert(bytes("not the local fork (143143) or Monad testnet (10143)"));
+        vm.expectRevert(
+            bytes("Monad mainnet deployments here are the P2-EC canary's: DEPLOY_SALT_SCOPE=p2ec.canary (D-249)")
+        );
+        custody.salt("executor");
+        vm.chainId(1);
+        vm.expectRevert(bytes("not the local fork (143143), Monad testnet (10143) or the mainnet canary (143)"));
         custody.salt("executor");
         vm.setEnv("DEPLOY_SALT_SCOPE", "");
     }

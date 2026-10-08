@@ -11,14 +11,19 @@ import {Script} from "forge-std/Script.sol";
 /// `alpha-agents.<name>.v1`. Monad testnet in P2-EC must use the `p2ec.testnet`
 /// scope, `alpha-agents.p2ec.testnet.<name>.v1`, set by `DEPLOY_SALT_SCOPE`;
 /// testnet without it is refused, so no P2-EC contract sits at a `v1` address.
-/// Mainnet (143) is refused here; PB-U1 and the canary add their own paths.
+/// On Monad mainnet (143) only the P2-EC canary deploys here (D-250 to D-252):
+/// it needs `DEPLOY_SALT_SCOPE=p2ec.canary` and `CANARY_SIGNING_ENABLED=true`;
+/// anything else on 143 is refused (PB-U1 adds its own path).
 abstract contract DeployScope is Script {
     /// The local fork's own chain ID (D-195).
     uint256 internal constant LOCAL_FORK_CHAIN_ID = 143143;
     uint256 internal constant MONAD_TESTNET_CHAIN_ID = 10143;
+    uint256 internal constant MONAD_MAINNET_CHAIN_ID = 143;
     string internal constant P2EC_TESTNET_SCOPE = "p2ec.testnet";
+    string internal constant P2EC_CANARY_SCOPE = "p2ec.canary";
 
-    /// The scope in force, checked against the chain: "" on the fork, `p2ec.testnet` on testnet.
+    /// The scope in force, checked against the chain: "" on the fork, `p2ec.testnet` on testnet,
+    /// `p2ec.canary` on mainnet behind the canary's gate.
     function saltScope() public view returns (string memory scope) {
         scope = vm.envOr("DEPLOY_SALT_SCOPE", string(""));
         if (block.chainid == LOCAL_FORK_CHAIN_ID) {
@@ -28,8 +33,17 @@ abstract contract DeployScope is Script {
                 keccak256(bytes(scope)) == keccak256(bytes(P2EC_TESTNET_SCOPE)),
                 "Monad testnet deployments use DEPLOY_SALT_SCOPE=p2ec.testnet (D-249)"
             );
+        } else if (block.chainid == MONAD_MAINNET_CHAIN_ID) {
+            require(
+                keccak256(bytes(scope)) == keccak256(bytes(P2EC_CANARY_SCOPE)),
+                "Monad mainnet deployments here are the P2-EC canary's: DEPLOY_SALT_SCOPE=p2ec.canary (D-249)"
+            );
+            require(
+                vm.envOr("CANARY_SIGNING_ENABLED", false),
+                "the canary deploys to Monad mainnet only with CANARY_SIGNING_ENABLED=true (D-251)"
+            );
         } else {
-            revert("not the local fork (143143) or Monad testnet (10143)");
+            revert("not the local fork (143143), Monad testnet (10143) or the mainnet canary (143)");
         }
     }
 
