@@ -59,3 +59,6 @@ Alpha Agents is an onchain financial management platform on Monad where AI agent
 
 ## Never print secrets indirectly
 - Never print output that may contain environment values, such as anvil node info, process environments, or full config dumps. Redact or filter before printing.
+
+## Stop instead of waiting
+- If any blocker outside our code (an RPC outage, a provider error, a rate limit, a service being down) stops progress for more than 30 minutes, stop. Do not keep waiting or retrying. Report what is blocked, the evidence, what was tried, and what the owner can do to unblock it.
