@@ -532,6 +532,9 @@ importers:
 
   services/platform-tools:
     dependencies:
+      '@alpha-agents/domain':
+        specifier: workspace:^
+        version: link:../../packages/domain
       '@alpha-agents/tool-server':
         specifier: workspace:^
         version: link:../../packages/tool-server

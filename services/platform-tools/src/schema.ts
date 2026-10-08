@@ -1,3 +1,12 @@
+import {
+  ACCOUNT_MODES,
+  AGENT_STATES,
+  PLAN_CHANGE_MODES,
+  REASONING_MODELS,
+  RESEARCH_INTENSITIES,
+  RISK_PRESETS,
+  STRATEGY_TEMPLATES,
+} from "@alpha-agents/domain";
 import { z } from "zod";
 
 // The discovery loop's stages (FINAL_PLAN 4.3.7). Every stage ends in one complete_stage call.
@@ -57,3 +66,75 @@ export const WriteThesisOutput = z.strictObject({
   sourceCount: z.int().min(0).max(10),
 });
 export type WriteThesisOutput = z.infer<typeof WriteThesisOutput>;
+
+/**
+ * `get_goals_and_limits` (P3-U1, FINAL_PLAN 4.4.4): the owner's goal, the
+ * plan's template and parameters, and every limit the agent trades under,
+ * typed. It takes no input: the agent is the one the token names.
+ */
+export const GetGoalsAndLimitsInput = z.strictObject({});
+export type GetGoalsAndLimitsInput = z.infer<typeof GetGoalsAndLimitsInput>;
+
+const bps = z.int().min(0).max(10_000);
+const usdc = z.string().regex(/^\d+(\.\d{1,6})?$/, "a USDC amount");
+const limitSet = z.strictObject({
+  maxTradeBps: bps,
+  maxWmonShareBps: bps,
+  minUsdcShareBps: bps,
+  maxSlippageBps: bps,
+  maxTradesPer24h: z.int().min(0).max(255),
+});
+
+export const GetGoalsAndLimitsOutput = z.strictObject({
+  state: z.enum(AGENT_STATES),
+  configured: z.boolean(),
+  strategyEpoch: z.string().regex(/^\d+$/),
+  policyHash: z
+    .string()
+    .regex(/^0x[0-9a-f]{64}$/)
+    .nullable(),
+  goal: z
+    .strictObject({
+      template: z.enum(STRATEGY_TEMPLATES),
+      riskPreset: z.enum(RISK_PRESETS),
+      allowedAssets: z.array(z.enum(["USDC", "WMON"])).min(1),
+      reasoningModel: z.strictObject({ choice: z.enum(REASONING_MODELS), alias: z.string() }),
+      research: z.strictObject({
+        intensity: z.enum(RESEARCH_INTENSITIES),
+        scanEveryHours: z.int().min(1),
+        divesPerDay: z.int().min(0),
+        dailyBudgetUsdc: usdc,
+      }),
+      creditReserveUsdc: usdc,
+      planChanges: z.enum(PLAN_CHANGE_MODES),
+    })
+    .nullable(),
+  plan: z
+    .strictObject({
+      template: z.literal("rebalance_bands@1"),
+      params: z.strictObject({
+        targetWmonBps: bps,
+        bandHalfWidthBps: bps,
+        minTradeUsdc: usdc,
+        volatilityBrakeBps: z.int().min(0),
+        costHurdleBps: bps,
+        maxLegBps: bps,
+      }),
+      targetRange: z.strictObject({ minBps: bps, maxBps: bps }),
+      researchTriggerBps: bps,
+    })
+    .nullable(),
+  limits: z.strictObject({
+    hard: limitSet,
+    owner: limitSet.nullable(),
+    live: limitSet.nullable(),
+    effective: limitSet,
+  }),
+  account: z.strictObject({
+    mode: z.enum(ACCOUNT_MODES).nullable(),
+    executorPaused: z.boolean().nullable(),
+  }),
+  asOf: z.strictObject({ block: z.string(), timestamp: z.string() }).nullable(),
+  authority: z.string(),
+});
+export type GetGoalsAndLimitsOutput = z.infer<typeof GetGoalsAndLimitsOutput>;

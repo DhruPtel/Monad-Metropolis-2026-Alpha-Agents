@@ -12,9 +12,15 @@ model_list:
     litellm_params:
       model: anthropic/claude-haiku-4-5-20251001
       api_key: os.environ/ANTHROPIC_API_KEY
+  # The goal's reasoning model (D-285, P3-U1): Standard is research-strong (Sonnet 5.5),
+  # Deep is research-deep (Opus 5.5). Claude Fable 5.1 is not offered (D-105).
   - model_name: research-strong
     litellm_params:
       model: anthropic/claude-sonnet-5-5
+      api_key: os.environ/ANTHROPIC_API_KEY
+  - model_name: research-deep
+    litellm_params:
+      model: anthropic/claude-opus-5-5
       api_key: os.environ/ANTHROPIC_API_KEY
 
 litellm_settings:

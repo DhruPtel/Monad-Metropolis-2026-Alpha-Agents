@@ -6,6 +6,9 @@ import {
   type WebProvider,
 } from "@alpha-agents/data-tools";
 import { connectClient, structured } from "@alpha-agents/tool-server/testing";
+import { DEFAULT_GOAL_INPUT } from "@alpha-agents/domain";
+import { translateGoal } from "@alpha-agents/policy";
+import { GoalStore } from "@alpha-agents/trading";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { FundingKeys, ensureFundingAddresses, fundingAddressOf } from "../credits/funding.ts";
 import { Ledger } from "../credits/ledger.ts";
@@ -347,5 +350,48 @@ describe.skipIf(!dbUp)("tool servers behind the gate (needs Postgres)", { timeou
     expect((await calls(1)).every((r) => r.charge_usdc_e6 === "0")).toBe(true);
     await a.close();
     await b.close();
+  });
+
+  it("get_goals_and_limits answers each lease with its own agent's goal (P3-U1)", async () => {
+    await t.db.deleteFrom("platform.agent_goals").execute();
+    await t.db.deleteFrom("platform.agent_states").execute();
+    const alice = await agentWith(1, 0n);
+    const bob = await agentWith(2, 0n);
+    const goals = new GoalStore(t.db);
+    const save = (agentId: number, riskPreset: "CONSERVATIVE" | "GROWTH") => {
+      const r = translateGoal({ ...structuredClone(DEFAULT_GOAL_INPUT), riskPreset });
+      if (!r.ok) throw new Error("fixture goal refused");
+      return goals.save({
+        chainId: CHAIN,
+        agentId,
+        ownerEpoch: 0n,
+        savedBy: "0x00000000000000000000000000000000000a11ce",
+        config: r.config,
+      });
+    };
+    await save(1, "CONSERVATIVE");
+    await save(2, "GROWTH");
+    await save(2, "GROWTH");
+    const read = async (token: string) => {
+      const client = await viaGate("platform", token);
+      const out = structured(
+        await client.callTool({ name: "get_goals_and_limits", arguments: {} }),
+      );
+      await client.close();
+      return out as Record<string, unknown>;
+    };
+    expect(await read(alice)).toMatchObject({
+      state: "READY",
+      strategyEpoch: "1",
+      goal: { riskPreset: "CONSERVATIVE" },
+      plan: { params: { targetWmonBps: 1_000 } },
+      // No chain reader here: no live limits, and the hard limits are the effective ones.
+      limits: { live: null, effective: { maxTradeBps: 1_000 } },
+    });
+    expect(await read(bob)).toMatchObject({
+      strategyEpoch: "2",
+      goal: { riskPreset: "GROWTH" },
+      plan: { params: { targetWmonBps: 3_000 } },
+    });
   });
 });

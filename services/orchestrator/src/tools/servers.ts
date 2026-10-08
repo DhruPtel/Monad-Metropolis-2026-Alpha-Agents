@@ -14,6 +14,7 @@ import type { Ledger } from "../credits/ledger.ts";
 import type { CreditService } from "../credits/service.ts";
 import type { Log } from "../secrets.ts";
 import type { Store } from "../store.ts";
+import { goalsReader } from "./goals.ts";
 import { leaseIdentity } from "./identity.ts";
 import { ToolMeter } from "./meter.ts";
 import { PgChainCallLog, PgIntentStore } from "./chain-store.ts";
@@ -82,7 +83,11 @@ export async function startToolServers(o: ToolServersOptions): Promise<ToolServe
     provider: o.provider ?? unconfiguredProvider,
     ...(o.lookup ? { lookup: o.lookup } : {}),
   });
-  const platform = await startPlatformTools({ resolve, store: new PgPlatformStore(o.store) });
+  const platform = await startPlatformTools({
+    resolve,
+    store: new PgPlatformStore(o.store),
+    goals: goalsReader(o.store.db, o.chain?.reader ?? null),
+  });
   const intents = new PgIntentStore(o.store);
   const chain = await startChainTools({
     resolve,

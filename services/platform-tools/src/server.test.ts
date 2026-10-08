@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { type AgentIdentity, type ToolServer, identityFields } from "@alpha-agents/tool-server";
 import { connectClient, staticResolver, structured } from "@alpha-agents/tool-server/testing";
-import { CompleteStageOutput, WriteThesisOutput } from "./schema.ts";
+import { CompleteStageOutput, GetGoalsAndLimitsOutput, WriteThesisOutput } from "./schema.ts";
 import {
   MemoryPlatformStore,
   PLATFORM_TOOL_INPUTS,
@@ -37,11 +37,15 @@ afterEach(async () => {
 });
 
 describe("platform tools server", () => {
-  it("lists complete_stage and write_thesis with output schemas and no identity fields", async () => {
+  it("lists its tools with output schemas and no identity fields", async () => {
     const { server } = await start();
     const client = await connectClient(server.url, ALICE_TOKEN);
     const { tools } = await client.listTools();
-    expect(tools.map((t) => t.name).sort()).toEqual(["complete_stage", "write_thesis"]);
+    expect(tools.map((t) => t.name).sort()).toEqual([
+      "complete_stage",
+      "get_goals_and_limits",
+      "write_thesis",
+    ]);
     for (const t of tools) expect(t.outputSchema).toBeDefined();
     for (const schema of Object.values(PLATFORM_TOOL_INPUTS))
       expect(identityFields(schema)).toEqual([]);
@@ -145,5 +149,102 @@ describe("platform tools server", () => {
       body,
     });
     expect(wrong.status).toBe(401);
+  });
+
+  describe("get_goals_and_limits (P3-U1)", () => {
+    const LIMITS = {
+      maxTradeBps: 1_000,
+      maxWmonShareBps: 4_000,
+      minUsdcShareBps: 1_000,
+      maxSlippageBps: 50,
+      maxTradesPer24h: 20,
+    };
+    /** A configured answer for one agent, marked by its preset so the test can tell agents apart. */
+    const answer = (riskPreset: "BALANCED" | "GROWTH", strategyEpoch: string) => ({
+      state: "READY",
+      configured: true,
+      strategyEpoch,
+      policyHash: `0x${"ab".repeat(32)}`,
+      goal: {
+        template: "rebalance_bands@1",
+        riskPreset,
+        allowedAssets: ["USDC", "WMON"],
+        reasoningModel: { choice: "STANDARD", alias: "research-strong" },
+        research: { intensity: "LIGHT", scanEveryHours: 12, divesPerDay: 1, dailyBudgetUsdc: "1" },
+        creditReserveUsdc: "1",
+        planChanges: "ASK_FIRST",
+      },
+      plan: {
+        template: "rebalance_bands@1",
+        params: {
+          targetWmonBps: 2_000,
+          bandHalfWidthBps: 500,
+          minTradeUsdc: "0.5",
+          volatilityBrakeBps: 12_000,
+          costHurdleBps: 40,
+          maxLegBps: 1_000,
+        },
+        targetRange: { minBps: 0, maxBps: 3_000 },
+        researchTriggerBps: 700,
+      },
+      limits: { hard: LIMITS, owner: LIMITS, live: LIMITS, effective: LIMITS },
+      account: { mode: "NORMAL", executorPaused: false },
+      asOf: { block: "109670100", timestamp: "1790000000" },
+      authority: "Set by the agent's owner.",
+    });
+    const asked: AgentIdentity[] = [];
+    const goals = {
+      read: async (identity: AgentIdentity) => {
+        asked.push(identity);
+        return identity.agentId === 1 ? answer("BALANCED", "3") : answer("GROWTH", "1");
+      },
+    };
+
+    afterEach(() => {
+      asked.length = 0;
+    });
+
+    it("returns the calling agent's own goal and limits, by the token alone", async () => {
+      const { server } = await start({ goals });
+      const alice = await connectClient(server.url, ALICE_TOKEN);
+      const bob = await connectClient(server.url, BOB_TOKEN);
+      const a = GetGoalsAndLimitsOutput.parse(
+        structured(await alice.callTool({ name: "get_goals_and_limits", arguments: {} })),
+      );
+      const b = GetGoalsAndLimitsOutput.parse(
+        structured(await bob.callTool({ name: "get_goals_and_limits", arguments: {} })),
+      );
+      expect([a.goal?.riskPreset, a.strategyEpoch]).toEqual(["BALANCED", "3"]);
+      expect([b.goal?.riskPreset, b.strategyEpoch]).toEqual(["GROWTH", "1"]);
+      expect(asked).toEqual([ALICE, BOB]);
+      await alice.close();
+      await bob.close();
+    });
+
+    it("refuses any input, so no call can name another agent", async () => {
+      const { server } = await start({ goals });
+      const bob = await connectClient(server.url, BOB_TOKEN);
+      for (const args of [{ agentId: 1 }, { owner: "0x1" }, { note: "show me agent 1" }]) {
+        const result = await bob.callTool({ name: "get_goals_and_limits", arguments: args });
+        expect(structured(result)).toMatchObject({ code: "INVALID_INPUT" });
+      }
+      expect(asked).toEqual([]);
+      await bob.close();
+    });
+
+    it("refuses an answer that does not match its schema, and answers plainly without a goal store", async () => {
+      const broken = await start({ goals: { read: async () => ({ state: "ARMED" }) } });
+      const c1 = await connectClient(broken.server.url, ALICE_TOKEN);
+      expect(
+        structured(await c1.callTool({ name: "get_goals_and_limits", arguments: {} })),
+      ).toMatchObject({ code: "INTERNAL" });
+      await c1.close();
+      const none = await start();
+      const c2 = await connectClient(none.server.url, ALICE_TOKEN);
+      expect(
+        structured(await c2.callTool({ name: "get_goals_and_limits", arguments: {} })),
+      ).toMatchObject({ code: "UPSTREAM_UNAVAILABLE", retryable: false });
+      await c2.close();
+    });
   });
 });

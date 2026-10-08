@@ -12,16 +12,19 @@ import {
 import {
   CompleteStageInput,
   CompleteStageOutput,
+  GetGoalsAndLimitsInput,
+  GetGoalsAndLimitsOutput,
   WriteThesisInput,
   WriteThesisOutput,
 } from "./schema.ts";
 
 /**
  * The platform tools server (FINAL_PLAN 4.4.4), thin (D-213): `complete_stage`
- * ends a stage with codes only and is recorded once per stage per lease, and
- * `write_thesis` stores the stage's research notes (the D-160 stub). Both act
- * only for the agent and lease the injected token names. They are free: no
- * upstream is paid, so nothing is charged.
+ * ends a stage with codes only and is recorded once per stage per lease,
+ * `write_thesis` stores the stage's research notes (the D-160 stub), and
+ * `get_goals_and_limits` (P3-U1) returns the owner's goal and every limit.
+ * All act only for the agent and lease the injected token names. They are
+ * free: no upstream is paid, so nothing is charged.
  */
 export interface PlatformStore {
   /** Records the stage; false when this lease already completed it. */
@@ -37,9 +40,16 @@ export interface PlatformStore {
   ): Promise<void>;
 }
 
+/** The agent's goal and limits, assembled by the platform (packages/trading's goalsAndLimitsJson). */
+export interface GoalsReader {
+  read(identity: AgentIdentity): Promise<unknown>;
+}
+
 export interface PlatformToolsOptions {
   readonly resolve: IdentityResolver;
   readonly store: PlatformStore;
+  /** Absent where the platform has no goal store: the tool answers UPSTREAM_UNAVAILABLE. */
+  readonly goals?: GoalsReader;
   readonly port?: number;
   /** Builds complete_stage's output. Tests replace it to prove invalid output is rejected. */
   readonly buildOutput?: (input: CompleteStageInput) => unknown;
@@ -58,7 +68,7 @@ function defaultOutput(input: CompleteStageInput): CompleteStageOutput {
 export function registerPlatformTools(
   mcp: McpServer,
   identity: AgentIdentity,
-  options: Pick<PlatformToolsOptions, "store" | "buildOutput">,
+  options: Pick<PlatformToolsOptions, "store" | "buildOutput" | "goals">,
 ): void {
   const build = options.buildOutput ?? defaultOutput;
   mcp.registerTool(
@@ -113,12 +123,39 @@ export function registerPlatformTools(
       }
     },
   );
+  mcp.registerTool(
+    "get_goals_and_limits",
+    {
+      description:
+        "Your owner's goal and every limit you trade under: the strategy template and its parameters, the risk preset, the allowed assets, the hard limits, the owner's stricter limits, the Executor's live limits, the tightest of them all, and the account's mode. Call it first in every stage. The values are authoritative.",
+      inputSchema: GetGoalsAndLimitsInput,
+      outputSchema: GetGoalsAndLimitsOutput,
+      annotations: { readOnlyHint: true, idempotentHint: true },
+    },
+    async () => {
+      try {
+        if (!options.goals)
+          throw new ToolError(
+            "UPSTREAM_UNAVAILABLE",
+            "Goals are not available on this platform yet.",
+            false,
+          );
+        // Identity comes only from the token: the reader is asked for this agent and no other.
+        const output = GetGoalsAndLimitsOutput.safeParse(await options.goals.read(identity));
+        if (!output.success) throw new Error("get_goals_and_limits built an invalid output");
+        return okResult({ ...output.data });
+      } catch (err) {
+        return errorFrom(err);
+      }
+    },
+  );
 }
 
 /** Every input schema the server registers, for the identity field lint. */
 export const PLATFORM_TOOL_INPUTS = {
   complete_stage: CompleteStageInput,
   write_thesis: WriteThesisInput,
+  get_goals_and_limits: GetGoalsAndLimitsInput,
 } as const;
 
 export async function startPlatformTools(options: PlatformToolsOptions): Promise<ToolServer> {
