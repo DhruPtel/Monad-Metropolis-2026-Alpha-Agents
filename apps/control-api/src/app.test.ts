@@ -1,6 +1,6 @@
 import { ENVIRONMENTS } from "@alpha-agents/config";
 import { createTestDatabase, databaseAvailable, type TestDatabase } from "@alpha-agents/db/testing";
-import { CLAIM_TYPES, SPECIES, claimDomain } from "@alpha-agents/domain";
+import { CLAIM_TYPES, DEFAULT_GOAL_INPUT, SPECIES, claimDomain } from "@alpha-agents/domain";
 import type { AgentChainView, PortfolioReading } from "@alpha-agents/trading";
 import {
   type Address,
@@ -1184,6 +1184,245 @@ describe.skipIf(!available)("the control API (needs pnpm dev:up for Postgres)", 
       expect(other.status).toBe(401);
       now += 16 * 60 * 1000;
       expect((await ownerView(1, token as string)).status).toBe(401);
+    });
+  });
+
+  describe("the goal (P3-U1)", () => {
+    const start = async (agent: number, token: string) =>
+      (await json(await call(`/v1/agents/${agent}/session`, { method: "POST", token })))
+        .token as string;
+    const headers = (session: string | null): Record<string, string> =>
+      session ? { "x-owner-session": session, "content-type": "application/json" } : {};
+    const getGoal = (agent: number, session: string | null) =>
+      call(`/v1/agents/${agent}/goal`, { headers: headers(session) });
+    const putGoal = (agent: number, session: string | null, body: unknown) =>
+      call(`/v1/agents/${agent}/goal`, {
+        method: "PUT",
+        headers: headers(session),
+        body: typeof body === "string" ? body : JSON.stringify(body),
+      });
+    const goal = (over: Record<string, unknown> = {}) => ({
+      ...structuredClone(DEFAULT_GOAL_INPUT),
+      ...over,
+    });
+
+    beforeEach(async () => {
+      await t.db.deleteFrom("platform.agent_goals").execute();
+      await t.db.deleteFrom("platform.agent_state_changes").execute();
+      await t.db.deleteFrom("platform.agent_states").execute();
+    });
+
+    it("an agent with no goal is UNCONFIGURED; the form carries the ranges and a month's cost", async () => {
+      const res = await getGoal(2, await start(2, "bob-token"));
+      expect(res.status).toBe(200);
+      const body = await json(res);
+      expect(body).toMatchObject({
+        agentId: "2",
+        ownerEpoch: "2",
+        state: "UNCONFIGURED",
+        strategyEpoch: "0",
+        goal: null,
+        config: null,
+      });
+      const form = body.form as Record<string, unknown>;
+      expect(form.defaults).toMatchObject({
+        riskPreset: "BALANCED",
+        research: { intensity: "LIGHT", dailyBudgetUsdcE6: "1000000" },
+        planChanges: "ASK_FIRST",
+      });
+      expect(form.limits).toContainEqual({
+        field: "maxTradeBps",
+        direction: "max",
+        unit: "bps",
+        min: 10,
+        max: 1_000,
+        hard: 1_000,
+      });
+      expect(
+        (form.intensities as { id: string; monthlyAtDefaultUsdcE6: string }[]).map((i) => [
+          i.id,
+          i.monthlyAtDefaultUsdcE6,
+        ]),
+      ).toEqual([
+        ["LIGHT", "30000000"],
+        ["STANDARD", "75000000"],
+        ["DEEP", "180000000"],
+      ]);
+    });
+
+    it("saving a goal moves the agent to READY and bumps the strategy epoch; saving again bumps it again", async () => {
+      const session = await start(2, "bob-token");
+      const res = await putGoal(2, session, goal({ riskPreset: "GROWTH" }));
+      expect(res.status).toBe(200);
+      const saved = await json(res);
+      expect(saved).toMatchObject({
+        state: "READY",
+        strategyEpoch: "1",
+        goal: { riskPreset: "GROWTH" },
+        config: {
+          template: { id: "rebalance_bands@1", params: { targetWmonBps: 3_000 } },
+          research: { dailyBudgetUsdcE6: "1000000", monthlyMaxUsdcE6: "30000000" },
+          model: { alias: "research-strong" },
+        },
+        savedBy: BOB,
+        stateChange: { from: "UNCONFIGURED", to: "READY", reason: "goal_saved" },
+      });
+      expect(saved.policyHash).toMatch(/^0x[0-9a-f]{64}$/);
+      // The SOUL.md block is the agent's, not the page's.
+      expect(JSON.stringify(saved)).not.toContain("soulBlock");
+      const again = await json(await putGoal(2, session, goal()));
+      expect(again).toMatchObject({ state: "READY", strategyEpoch: "2", stateChange: null });
+      expect(await json(await getGoal(2, session))).toMatchObject({
+        state: "READY",
+        strategyEpoch: "2",
+        goal: { riskPreset: "BALANCED" },
+      });
+      // The owner's card summary carries the state and the goal's summary.
+      const summary = await json(await call("/v1/agents/2/summary", { headers: headers(session) }));
+      expect(summary.goal).toEqual({
+        state: "READY",
+        configured: true,
+        template: "rebalance_bands@1",
+        riskPreset: "BALANCED",
+      });
+    });
+
+    it("refuses a goal that loosens a hard limit, naming each field, and saves nothing", async () => {
+      const session = await start(2, "bob-token");
+      const res = await putGoal(
+        2,
+        session,
+        goal({
+          stricterLimits: {
+            ...DEFAULT_GOAL_INPUT.stricterLimits,
+            maxTradeBps: 1_001,
+            minUsdcShareBps: 999,
+          },
+        }),
+      );
+      expect(res.status).toBe(400);
+      const body = await json(res);
+      expect(body.error).toBe("goal_refused");
+      expect(body.errors).toEqual([
+        expect.objectContaining({
+          field: "stricterLimits.maxTradeBps",
+          code: "LOOSER_THAN_HARD_LIMIT",
+        }),
+        expect.objectContaining({
+          field: "stricterLimits.minUsdcShareBps",
+          code: "LOOSER_THAN_HARD_LIMIT",
+        }),
+      ]);
+      expect(await json(await getGoal(2, session))).toMatchObject({
+        state: "UNCONFIGURED",
+        strategyEpoch: "0",
+        goal: null,
+      });
+    });
+
+    it("refuses free text, unknown fields and a body that is not JSON", async () => {
+      const session = await start(2, "bob-token");
+      const unknown = await putGoal(2, session, { ...goal(), note: "go long" });
+      expect([unknown.status, (await json(unknown)).error]).toEqual([400, "goal_refused"]);
+      const text = await putGoal(2, session, "buy MON");
+      expect([text.status, (await json(text)).error]).toEqual([400, "bad_request"]);
+    });
+
+    it("another wallet cannot read or save the goal", async () => {
+      const bob = await start(2, "bob-token");
+      await putGoal(2, bob, goal());
+      // No session at all.
+      for (const res of [await getGoal(2, null), await putGoal(2, null, goal())])
+        expect([res.status, (await json(res)).error]).toEqual([401, "missing_token"]);
+      // Alice owns agent 1; her session there does not open agent 2, and she gets none for it.
+      const alice = await start(1, "alice-token");
+      for (const res of [await getGoal(2, alice), await putGoal(2, alice, goal())])
+        expect([res.status, (await json(res)).error]).toEqual([403, "not_owner"]);
+      const refused = await call("/v1/agents/2/session", { method: "POST", token: "alice-token" });
+      expect(refused.status).toBe(403);
+      expect((await json(await getGoal(2, bob))).strategyEpoch).toBe("1");
+    });
+
+    it("is tied to the ownership epoch: a transfer ends the session, and the new owner starts unconfigured", async () => {
+      const bob = await start(2, "bob-token");
+      await putGoal(2, bob, goal({ riskPreset: "CONSERVATIVE" }));
+      chain.owners.set(2n, { owner: CAROL, epoch: 3n });
+      const stale = await putGoal(2, bob, goal());
+      expect([stale.status, (await json(stale)).error]).toEqual([403, "session_stale"]);
+      const carol = await start(2, "alice-token");
+      expect(await json(await getGoal(2, carol))).toMatchObject({
+        ownerEpoch: "3",
+        state: "UNCONFIGURED",
+        goal: null,
+      });
+      expect(await json(await call("/v1/agents/2/goal/summary"))).toMatchObject({
+        configured: false,
+        template: null,
+        riskPreset: null,
+      });
+      const saved = await json(await putGoal(2, carol, goal()));
+      expect(saved).toMatchObject({
+        state: "READY",
+        strategyEpoch: "2",
+        savedBy: CAROL,
+        stateChange: { from: "UNCONFIGURED", to: "READY" },
+      });
+    });
+
+    it("the public summary shows the template and the risk preset only", async () => {
+      await putGoal(2, await start(2, "bob-token"), goal({ riskPreset: "GROWTH" }));
+      const res = await call("/v1/agents/2/goal/summary");
+      expect(res.status).toBe(200);
+      const body = await json(res);
+      const meta = new Set(["environment", "chainId", "watermark"]);
+      expect(Object.fromEntries(Object.entries(body).filter(([k]) => !meta.has(k)))).toEqual({
+        agentId: "2",
+        configured: true,
+        template: "rebalance_bands@1",
+        riskPreset: "GROWTH",
+      });
+      expect((await call("/v1/agents/77/goal/summary")).status).toBe(404);
+    });
+
+    it("previews a goal with the same translator, without saving", async () => {
+      const ok = await json(
+        await call("/v1/goal/preview", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(
+            goal({
+              stricterLimits: { ...DEFAULT_GOAL_INPUT.stricterLimits, maxWmonShareBps: 1_500 },
+            }),
+          ),
+        }),
+      );
+      expect(ok).toMatchObject({
+        ok: true,
+        config: {
+          targetRange: { minBps: 0, maxBps: 1_500 },
+          ownerLimits: { maxWmonShareBps: 1_500 },
+        },
+      });
+      const bad = await json(
+        await call("/v1/goal/preview", {
+          method: "POST",
+          body: JSON.stringify(goal({ riskPreset: "YOLO" })),
+        }),
+      );
+      expect(bad).toMatchObject({ ok: false, config: null, errors: [{ field: "riskPreset" }] });
+      expect(await t.db.selectFrom("platform.agent_goals").selectAll().execute()).toEqual([]);
+    });
+
+    it("lets the web app send PUT across origins", async () => {
+      const res = await call("/v1/agents/2/goal", {
+        method: "OPTIONS",
+        headers: {
+          origin: "http://localhost:3000",
+          "access-control-request-method": "PUT",
+          "access-control-request-headers": "x-owner-session,content-type",
+        },
+      });
+      expect(res.headers.get("access-control-allow-methods")).toContain("PUT");
     });
   });
 

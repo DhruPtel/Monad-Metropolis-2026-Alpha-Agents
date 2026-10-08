@@ -141,6 +141,9 @@ importers:
       '@alpha-agents/domain':
         specifier: workspace:^
         version: link:../../packages/domain
+      '@alpha-agents/policy':
+        specifier: workspace:^
+        version: link:../../packages/policy
       '@alpha-agents/trading':
         specifier: workspace:^
         version: link:../../packages/trading

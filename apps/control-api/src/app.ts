@@ -9,8 +9,10 @@ import type { AgentNftDeployment } from "@alpha-agents/domain";
 import { type Context, Hono } from "hono";
 import { cors } from "hono/cors";
 import { type Address, type Hex, getAddress, isAddress, isAddressEqual } from "viem";
+import { translateGoal } from "@alpha-agents/policy";
 import {
   type AgentViewReader,
+  GoalStore,
   TradeStore,
   approveByOwner,
   armingJson,
@@ -27,6 +29,7 @@ import {
   MAX_GRANT_SECONDS,
 } from "@alpha-agents/trading";
 import { TtlCache } from "./cache.ts";
+import { goalErrorsJson, goalForm, goalSummaryJson, goalViewJson, configJson } from "./goals.ts";
 import type { ChainReader } from "./chain.ts";
 import { type ClaimSigner, ELIGIBILITY_MESSAGES, type Eligibility, signClaim } from "./claims.ts";
 import type { Identity, VerifiedSession } from "./identity.ts";
@@ -112,6 +115,7 @@ export type ApiError =
   | "not_waiting"
   | "grant_invalid"
   | "no_funding_address"
+  | "goal_refused"
   | Eligibility;
 
 const fail = (c: Context, status: number, error: ApiError, message: string) =>
@@ -141,7 +145,7 @@ export function createApp(deps: ApiDeps): Hono {
     cors({
       origin: (origin) => (deps.allowOrigin(origin) ? origin : null),
       allowHeaders: ["authorization", "content-type", "x-owner-session"],
-      allowMethods: ["GET", "POST", "OPTIONS"],
+      allowMethods: ["GET", "POST", "PUT", "OPTIONS"],
       maxAge: 600,
     }),
   );
@@ -337,6 +341,97 @@ export function createApp(deps: ApiDeps): Hono {
     });
   });
 
+  // --- The goal (P3-U1) -----------------------------------------------------
+
+  const goals = new GoalStore(deps.db);
+
+  /** A JSON body, or null when it is not JSON. */
+  const jsonBody = async (c: Context): Promise<unknown> => c.req.json().catch(() => null);
+
+  /**
+   * The owner's goal and the agent's state, with the form's ranges and the
+   * cost preview. Owner only, after a fresh chain read; a goal another owner
+   * saved does not apply (the agent reads UNCONFIGURED).
+   */
+  app.get("/v1/agents/:id{[0-9]+}/goal", async (c) => {
+    const agentId = BigInt(c.req.param("id"));
+    const owner = await ownerOnly(c, agentId);
+    if (owner instanceof Response) return owner;
+    const view = await goals.view(chainId, Number(agentId), owner.epoch);
+    return c.json({
+      ...(await meta()),
+      agentId: agentId.toString(),
+      ownerEpoch: owner.epoch.toString(),
+      ...goalViewJson(view),
+      form: goalForm(),
+    });
+  });
+
+  /**
+   * Saves the owner's goal: structured fields only, translated by
+   * packages/policy, refused with every field's reason when anything would
+   * loosen a hard limit. Saving bumps the strategy epoch and moves an
+   * UNCONFIGURED agent to READY; it never touches arming (D-281).
+   */
+  app.put("/v1/agents/:id{[0-9]+}/goal", async (c) => {
+    const agentId = BigInt(c.req.param("id"));
+    const owner = await ownerOnly(c, agentId);
+    if (owner instanceof Response) return owner;
+    const body = await jsonBody(c);
+    if (body === null) return fail(c, 400, "bad_request", "Send the goal as JSON.");
+    const translated = translateGoal(body);
+    if (!translated.ok)
+      return c.json(
+        {
+          error: "goal_refused" satisfies ApiError,
+          message: "The goal was not saved; fix the fields named below.",
+          errors: goalErrorsJson(translated.errors),
+        },
+        400,
+      );
+    const saved = await goals.save({
+      chainId,
+      agentId: Number(agentId),
+      ownerEpoch: owner.epoch,
+      savedBy: owner.wallet,
+      config: translated.config,
+    });
+    return c.json({
+      ...(await meta()),
+      agentId: agentId.toString(),
+      ownerEpoch: owner.epoch.toString(),
+      ...goalViewJson(saved),
+      stateChange: saved.changed
+        ? { from: saved.changed.from, to: saved.changed.to, reason: saved.changed.reason }
+        : null,
+    });
+  });
+
+  /**
+   * What a goal would set, without saving it: the same translator, so the page
+   * shows the effective limits and the plan's range as the owner edits. Public:
+   * it reads nothing about any agent.
+   */
+  app.post("/v1/goal/preview", async (c) => {
+    const body = await jsonBody(c);
+    if (body === null) return fail(c, 400, "bad_request", "Send the goal as JSON.");
+    const translated = translateGoal(body);
+    return translated.ok
+      ? c.json({ ok: true, config: configJson(translated.config), errors: [] })
+      : c.json({ ok: false, config: null, errors: goalErrorsJson(translated.errors) });
+  });
+
+  /** The public goal summary (FINAL_PLAN 6.1): template and risk preset only. */
+  app.get("/v1/agents/:id{[0-9]+}/goal/summary", async (c) => {
+    const agentId = BigInt(c.req.param("id"));
+    if (!deps.chain)
+      return fail(c, 503, "not_deployed", `AgentNFT is not deployed on ${deps.environment.label}.`);
+    const ownership = await deps.chain.ownership(agentId);
+    if (!ownership) return fail(c, 404, "not_found", `Agent #${agentId} does not exist.`);
+    const view = await goals.view(chainId, Number(agentId), ownership.epoch);
+    return c.json({ ...(await meta()), agentId: agentId.toString(), ...goalSummaryJson(view) });
+  });
+
   // --- Activity (P1-U7, D-217) ---------------------------------------------
 
   /** An agent's activity feed: public, as on the agent profile (FINAL_PLAN 4.10). */
@@ -404,12 +499,15 @@ export function createApp(deps: ApiDeps): Hono {
     const owner = await ownerOnly(c, agentId);
     if (owner instanceof Response) return owner;
     const summary = await readSummary(deps.db, chainId, Number(agentId));
+    const goal = await goals.view(chainId, Number(agentId), owner.epoch);
     return c.json({
       ...(await meta()),
       agentId: agentId.toString(),
       wallet: owner.wallet,
       ownerEpoch: owner.epoch.toString(),
       ...summary,
+      // P3-U1: the agent's state and its goal's summary, for the card.
+      goal: { state: goal.state, ...goalSummaryJson(goal) },
       // Phase 2 tuning: the per-agent credit cap, so the page shows the room left under it.
       creditCapUsdcE6: CREDIT_CAP_USDC_E6.toString(),
       scan: {
