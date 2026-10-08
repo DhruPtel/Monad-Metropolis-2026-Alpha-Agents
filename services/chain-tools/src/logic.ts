@@ -254,6 +254,14 @@ const CLEARS: Readonly<
     clears: "by_the_owner",
     hint: "Send a little MON to the agent's funding address for gas.",
   },
+  NOT_ARMED: {
+    clears: "by_the_owner",
+    hint: "The owner arms the agent, or approves this trade.",
+  },
+  SEND_FAILED: {
+    clears: "by_changing_the_trade",
+    hint: "The agent can propose the trade again; the failure reason says what happened.",
+  },
   ASSET_NOT_ALLOWED: {
     clears: "by_the_platform",
     hint: "The asset is off the buy list; only sales of it are possible.",

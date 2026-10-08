@@ -235,11 +235,15 @@ export const ARMING_END_MESSAGES: Readonly<Record<ArmingEndReason, string>> = {
 /**
  * Reasons the trade flow gives that are not the Executor's (REJECTION_CODES
  * mirrors the Executor's enum and cannot grow without it): a funding address
- * with no MON for gas blocks a trade before it is sent (P2-EC notes, A-19).
+ * with no MON for gas blocks a trade before it is sent (P2-EC notes, A-19); an
+ * agent that is not armed waits for its owner; a trade the chain or the signer
+ * did not carry out failed on the way.
  */
-export const TRADE_FLOW_CODES = ["GAS_UNFUNDED"] as const;
+export const TRADE_FLOW_CODES = ["GAS_UNFUNDED", "NOT_ARMED", "SEND_FAILED"] as const;
 export type TradeFlowCode = (typeof TRADE_FLOW_CODES)[number];
 
 export const TRADE_FLOW_MESSAGES: Readonly<Record<TradeFlowCode, string>> = {
   GAS_UNFUNDED: "The agent's funding address has no MON to pay gas for the trade.",
+  NOT_ARMED: "The agent is not armed, so each trade waits for the owner's approval.",
+  SEND_FAILED: "The trade was sent but did not go through on chain.",
 };
