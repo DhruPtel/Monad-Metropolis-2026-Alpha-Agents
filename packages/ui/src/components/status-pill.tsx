@@ -1,6 +1,8 @@
 import {
   type AccountMode,
   type AgentState,
+  ARMING_STATE_MEANINGS,
+  type ArmingState,
   type DisplayFlag,
   INTENT_STATE_MEANINGS,
   type IntentState,
@@ -85,20 +87,32 @@ export const TRANSACTION_STATE_RENDERING: Readonly<Record<TransactionState, Rend
   failed: { label: "Failed", tone: "negative", meaning: TRANSACTION_STATE_MEANINGS.failed },
 };
 
-/** An intent's states (P2-U5): rejected and failed are red; waiting for approval is amber. */
+/** An intent's states (P2-U5, P2-U6): rejected and failed are red; waiting for approval is amber. */
 export const INTENT_STATE_RENDERING: Readonly<Record<IntentState, Rendering>> = {
   awaiting_approval: {
     label: "Awaiting approval",
     tone: "warning",
     meaning: INTENT_STATE_MEANINGS.awaiting_approval,
   },
-  rejected: { label: "Rejected", tone: "negative", meaning: INTENT_STATE_MEANINGS.rejected },
-  expired: { label: "Expired", tone: "neutral", meaning: INTENT_STATE_MEANINGS.expired },
   approved: { label: "Approved", tone: "detail", meaning: INTENT_STATE_MEANINGS.approved },
   submitted: { label: "Submitted", tone: "detail", meaning: INTENT_STATE_MEANINGS.submitted },
-  settled: { label: "Settled", tone: "positive", meaning: INTENT_STATE_MEANINGS.settled },
+  confirmed: { label: "Confirmed", tone: "detail", meaning: INTENT_STATE_MEANINGS.confirmed },
+  reconciled: { label: "Settled", tone: "positive", meaning: INTENT_STATE_MEANINGS.reconciled },
+  rejected: { label: "Rejected", tone: "negative", meaning: INTENT_STATE_MEANINGS.rejected },
+  expired: { label: "Expired", tone: "neutral", meaning: INTENT_STATE_MEANINGS.expired },
   failed: { label: "Failed", tone: "negative", meaning: INTENT_STATE_MEANINGS.failed },
   cancelled: { label: "Cancelled", tone: "neutral", meaning: INTENT_STATE_MEANINGS.cancelled },
+};
+
+/** An agent's arming (P2-U6): armed is the lime state; waiting for the first trade is amber. */
+export const ARMING_STATE_RENDERING: Readonly<Record<ArmingState, Rendering>> = {
+  unarmed: { label: "Not armed", tone: "neutral", meaning: ARMING_STATE_MEANINGS.unarmed },
+  awaiting_first_trade: {
+    label: "Approve first trade",
+    tone: "warning",
+    meaning: ARMING_STATE_MEANINGS.awaiting_first_trade,
+  },
+  armed: { label: "Armed", tone: "positive", meaning: ARMING_STATE_MEANINGS.armed },
 };
 
 type StatusPillProps =
@@ -106,7 +120,8 @@ type StatusPillProps =
   | { readonly kind: "agent_state"; readonly value: AgentState }
   | { readonly kind: "display_flag"; readonly value: DisplayFlag }
   | { readonly kind: "transaction"; readonly value: TransactionState }
-  | { readonly kind: "intent"; readonly value: IntentState };
+  | { readonly kind: "intent"; readonly value: IntentState }
+  | { readonly kind: "arming"; readonly value: ArmingState };
 
 function renderingFor(props: StatusPillProps): Rendering {
   switch (props.kind) {
@@ -120,6 +135,8 @@ function renderingFor(props: StatusPillProps): Rendering {
       return TRANSACTION_STATE_RENDERING[props.value];
     case "intent":
       return INTENT_STATE_RENDERING[props.value];
+    case "arming":
+      return ARMING_STATE_RENDERING[props.value];
   }
 }
 

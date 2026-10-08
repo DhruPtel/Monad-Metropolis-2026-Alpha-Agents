@@ -3,13 +3,15 @@ import {
   type RejectionCode,
   SIGNER_REASON_MESSAGES,
   type SignerReasonCode,
+  TRADE_FLOW_MESSAGES,
+  type TradeFlowCode,
 } from "@alpha-agents/domain";
 import { CircleSlash } from "lucide-react";
 import { cn } from "../lib/utils";
 
 interface ReasonMessageProps {
-  /** A policy or Executor reason, or one of the signer's own (P2-U4). */
-  code: RejectionCode | SignerReasonCode;
+  /** A policy or Executor reason, one of the signer's own (P2-U4), or the trade flow's (P2-U6). */
+  code: RejectionCode | SignerReasonCode | TradeFlowCode;
   /** The policy check's detail line, for example "trade 1,050 bps of NAV". */
   detail?: string;
   className?: string;
@@ -33,7 +35,9 @@ function ReasonMessage({ code, detail, className }: ReasonMessageProps) {
         <p className="text-sm text-foreground">
           {code in REJECTION_MESSAGES
             ? REJECTION_MESSAGES[code as RejectionCode]
-            : SIGNER_REASON_MESSAGES[code as SignerReasonCode]}
+            : code in TRADE_FLOW_MESSAGES
+              ? TRADE_FLOW_MESSAGES[code as TradeFlowCode]
+              : SIGNER_REASON_MESSAGES[code as SignerReasonCode]}
         </p>
         <p className="numeric text-xs break-words text-foreground-subtle">
           {code}

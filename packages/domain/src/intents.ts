@@ -159,18 +159,23 @@ export function toExecutorSwap(intent: SwapIntent, ctx: ExecutorSwapContext): Ex
 }
 
 /**
- * An intent's states (P2-U5): a proposal that passed every pre-check waits for
- * approval, one that did not is rejected with its reason codes, and a waiting
- * one expires if nobody approves it. The trade flow (P2-U6) moves an approved
- * intent through submitted to settled or failed.
+ * An intent's states (P2-U5, P2-U6): a proposal that passed every pre-check
+ * waits for approval, one that did not is rejected with its reason codes, and
+ * a waiting one expires if nobody approves it. Once approved (by the owner, or
+ * automatically when the agent is armed) the trade flow re-checks it and sends
+ * it through the signer: submitted, confirmed when its receipt is in, and
+ * reconciled (settled) only when the outbox matched the Executor's event to the
+ * account's balances, at the finalized block off the fork. A trade refused at
+ * submission, or one that reverted, is failed with its reason.
  */
 export const INTENT_STATES = [
   "awaiting_approval",
-  "rejected",
-  "expired",
   "approved",
   "submitted",
-  "settled",
+  "confirmed",
+  "reconciled",
+  "rejected",
+  "expired",
   "failed",
   "cancelled",
 ] as const;
@@ -178,11 +183,63 @@ export type IntentState = (typeof INTENT_STATES)[number];
 
 export const INTENT_STATE_MEANINGS: Readonly<Record<IntentState, string>> = {
   awaiting_approval: "Passed every check; waits for the owner's approval and is not sent before",
+  approved: "Approved; checked again and sent at once",
+  submitted: "Sent to the chain through the signer; waiting for its receipt",
+  confirmed: "Executed on chain; waiting for reconciliation",
+  reconciled: "Settled: the account's balances match the trade, in the ledger",
   rejected: "Blocked by the checks when proposed; the reason codes say why",
   expired: "Nobody approved it in time; it will never be sent",
-  approved: "Approved; waiting to be sent",
-  submitted: "Sent to the chain through the signer",
-  settled: "Executed and reconciled",
-  failed: "Sent, but did not execute; the reason says why",
+  failed: "Refused when it was to be sent, or did not execute; the reason says why",
   cancelled: "Cancelled before it was sent",
+};
+
+/** The states in which an intent holds a trade slot in the rolling window (P2-U6). */
+export const SLOT_HOLDING_INTENT_STATES: readonly IntentState[] = [
+  "awaiting_approval",
+  "approved",
+  "submitted",
+];
+
+/**
+ * An agent's arming (P2-U6, FINAL_PLAN 4.6.3): unarmed; armed by its owner's
+ * session grant and waiting for the owner to approve a first trade; armed,
+ * when passing proposals execute automatically. It ends on the grant's expiry,
+ * a sale, a configuration change, a revoked grant or the owner's disarm.
+ */
+export const ARMING_STATES = ["unarmed", "awaiting_first_trade", "armed"] as const;
+export type ArmingState = (typeof ARMING_STATES)[number];
+
+export const ARMING_STATE_MEANINGS: Readonly<Record<ArmingState, string>> = {
+  unarmed: "Every proposal waits for the owner's approval",
+  awaiting_first_trade: "Trading permission granted; the owner approves the first trade to arm it",
+  armed: "Proposals within the hard limits execute automatically",
+};
+
+export const ARMING_END_REASONS = [
+  "expired",
+  "sold",
+  "config_changed",
+  "revoked",
+  "disarmed",
+] as const;
+export type ArmingEndReason = (typeof ARMING_END_REASONS)[number];
+
+export const ARMING_END_MESSAGES: Readonly<Record<ArmingEndReason, string>> = {
+  expired: "The trading permission expired; the owner renews it to arm the agent again.",
+  sold: "The agent changed hands, which ends every trading permission.",
+  config_changed: "The agent's configuration changed, which ends its trading permission.",
+  revoked: "The trading permission was revoked on chain.",
+  disarmed: "The owner disarmed the agent.",
+};
+
+/**
+ * Reasons the trade flow gives that are not the Executor's (REJECTION_CODES
+ * mirrors the Executor's enum and cannot grow without it): a funding address
+ * with no MON for gas blocks a trade before it is sent (P2-EC notes, A-19).
+ */
+export const TRADE_FLOW_CODES = ["GAS_UNFUNDED"] as const;
+export type TradeFlowCode = (typeof TRADE_FLOW_CODES)[number];
+
+export const TRADE_FLOW_MESSAGES: Readonly<Record<TradeFlowCode, string>> = {
+  GAS_UNFUNDED: "The agent's funding address has no MON to pay gas for the trade.",
 };

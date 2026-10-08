@@ -245,14 +245,15 @@ export interface RefundTable {
   updated_at: Timestamp;
 }
 
-/** The intent statuses (P2-U5): waiting for the trade flow, then its outcomes. */
+/** The intent statuses (P2-U5, P2-U6): packages/domain's INTENT_STATES (a test holds them equal). */
 export type IntentStatus =
   | "awaiting_approval"
-  | "rejected"
-  | "expired"
   | "approved"
   | "submitted"
-  | "settled"
+  | "confirmed"
+  | "reconciled"
+  | "rejected"
+  | "expired"
   | "failed"
   | "cancelled";
 
@@ -277,8 +278,41 @@ export interface IntentTable {
   config_epoch: ColumnType<string | null, string | number | null, string | number | null>;
   tx_id: string | null;
   tx_hash: string | null;
+  /** P2-U6: every blocker the checks gave, at proposal or at submission. */
+  blockers: ColumnType<Record<string, unknown>[], string | undefined, string>;
+  approved_by: "owner" | "auto" | null;
+  approved_at: Timestamp | null;
+  submitted_at: Timestamp | null;
+  settled_at: Timestamp | null;
+  min_amount_out: string | null;
+  deadline: string | null;
+  action_id: string | null;
+  amount_out: string | null;
+  failure: string | null;
   created_at: Timestamp;
   expires_at: ColumnType<Date, Date, Date>;
+  updated_at: Timestamp;
+}
+
+/** One arming of an agent by its owner (P2-U6), from the session grant to its end. */
+export interface ArmingTable {
+  arming_id: string;
+  chain_id: number;
+  agent_id: number;
+  owner: string;
+  owner_epoch: ColumnType<string, string | number, string | number>;
+  config_epoch: ColumnType<string, string | number, string | number>;
+  session_key: string;
+  /** Unix seconds, as the Executor stores it. */
+  valid_until: ColumnType<string, string | number, string | number>;
+  status: "awaiting_first_trade" | "armed" | "ended";
+  ended_reason: "expired" | "sold" | "config_changed" | "revoked" | "disarmed" | null;
+  first_intent_id: string | null;
+  revoked_onchain: ColumnType<boolean, boolean | undefined, boolean>;
+  reminded_at: Timestamp | null;
+  armed_at: Timestamp | null;
+  ended_at: Timestamp | null;
+  created_at: Timestamp;
   updated_at: Timestamp;
 }
 
@@ -384,7 +418,7 @@ export interface ActivityEntryTable {
   chain_id: number;
   agent_id: number;
   task_id: string;
-  kind: "scan" | "intent";
+  kind: "scan" | "intent" | "arming" | "trade" | "blocked";
   text: string;
   rendered_by: "narrator" | "template";
   facts: ColumnType<Record<string, unknown>, string, string>;
@@ -426,6 +460,7 @@ export interface Database {
   "platform.ledger_lines": LedgerLineTable;
   "platform.usage_receipts": UsageReceiptTable;
   "platform.intents": IntentTable;
+  "platform.arming": ArmingTable;
   "platform.refunds": RefundTable;
   "platform.signer_keys": SignerKeyTable;
   "platform.signer_outbox": SignerOutboxTable;

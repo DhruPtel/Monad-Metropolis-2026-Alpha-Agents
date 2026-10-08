@@ -8,6 +8,9 @@ import {
   SIGNER_REASON_MESSAGES,
   TRANSACTION_STATES,
   INTENT_STATES,
+  ARMING_STATES,
+  TRADE_FLOW_CODES,
+  TRADE_FLOW_MESSAGES,
 } from "@alpha-agents/domain";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -27,6 +30,7 @@ import {
   StatusPill,
   TRANSACTION_STATE_RENDERING,
   INTENT_STATE_RENDERING,
+  ARMING_STATE_RENDERING,
 } from "./status-pill";
 import { Button } from "./ui/button";
 import { Field, Input } from "./ui/input";
@@ -92,6 +96,24 @@ describe("StatusPill renders every intent state (P2-U5)", () => {
       "title",
       INTENT_STATE_RENDERING[state].meaning,
     );
+  });
+});
+
+describe("StatusPill renders every arming state (P2-U6)", () => {
+  it.each(ARMING_STATES)("arming state %s", (state) => {
+    render(<StatusPill kind="arming" value={state} />);
+    expect(screen.getByText(ARMING_STATE_RENDERING[state].label)).toHaveAttribute(
+      "title",
+      ARMING_STATE_RENDERING[state].meaning,
+    );
+  });
+});
+
+describe("ReasonMessage renders the trade flow's own reasons (P2-U6)", () => {
+  it.each(TRADE_FLOW_CODES)("%s shows its message and the code", (code) => {
+    render(<ReasonMessage code={code} />);
+    expect(screen.getByText(TRADE_FLOW_MESSAGES[code])).toBeInTheDocument();
+    expect(screen.getByText(code)).toBeInTheDocument();
   });
 });
 

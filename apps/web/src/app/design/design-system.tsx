@@ -8,6 +8,8 @@ import {
   SIGNER_REASON_CODES,
   TRANSACTION_STATES,
   INTENT_STATES,
+  ARMING_STATES,
+  TRADE_FLOW_CODES,
 } from "@alpha-agents/domain";
 import { Bot, Boxes, Copy, Eye, Radio, Users } from "lucide-react";
 import type { ReactNode } from "react";
@@ -1265,6 +1267,11 @@ function DataSection() {
               <StatusPill key={state} kind="intent" value={state} />
             ))}
           </State>
+          <State label="Arming states">
+            {ARMING_STATES.map((state) => (
+              <StatusPill key={state} kind="arming" value={state} />
+            ))}
+          </State>
         </div>
       </Specimen>
       <Specimen name="Risk badge">
@@ -1444,6 +1451,12 @@ function DataSection() {
       >
         <div className="grid gap-3 md:grid-cols-2">
           {REJECTION_CODES.map((code) => (
+            <ReasonMessage key={code} code={code} />
+          ))}
+        </div>
+        <SectionLabel>The trade flow&apos;s own reasons (P2-U6)</SectionLabel>
+        <div className="grid gap-3 md:grid-cols-2">
+          {TRADE_FLOW_CODES.map((code) => (
             <ReasonMessage key={code} code={code} />
           ))}
         </div>

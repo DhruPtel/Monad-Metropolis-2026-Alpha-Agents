@@ -28,6 +28,7 @@ describe.skipIf(!available)("database migrations (needs pnpm dev:up)", () => {
       "platform.activity_entries",
       "platform.agent_runtimes",
       "platform.agent_tasks",
+      "platform.arming",
       "platform.funding_addresses",
       "platform.intents",
       "platform.ledger_entries",
