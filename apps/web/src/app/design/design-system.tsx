@@ -21,6 +21,7 @@ import {
   MINT_STATES,
   MintButton,
   PendingAgentNotice,
+  HoldingsPanel,
   MintPanel,
   SLOT_STATES,
   SlotHex,
@@ -690,6 +691,102 @@ function AgentSection() {
         <div className="grid gap-4 sm:grid-cols-2" data-testid="pending-agents">
           <PendingAgentNotice agentId={2n} stage="indexing" />
           <PendingAgentNotice agentId={2n} stage="reveal" />
+        </div>
+      </Specimen>
+      <Specimen
+        name="All holdings"
+        note="Every balance at each of an agent's addresses, named in plain words, with what it does there. What does nothing where it sits says so, and the owner can move it to their wallet when they can sign for it: waiting in the wallet, declined, or the platform-only and stuck cases with no move."
+      >
+        <div className="grid gap-4 lg:grid-cols-2" data-testid="holdings-specimens">
+          <HoldingsPanel
+            network="Monad Testnet"
+            onMove={() => undefined}
+            addresses={[
+              {
+                role: "funding",
+                address: SAMPLE_TBA,
+                lines: [
+                  {
+                    symbol: "MON",
+                    raw: 5n * 10n ** 17n,
+                    decimals: 18,
+                    use: "gas",
+                    status: "in_use",
+                  },
+                  {
+                    symbol: "USDC",
+                    raw: 10_000_000n,
+                    decimals: 6,
+                    use: "credits",
+                    status: "in_use",
+                  },
+                ],
+              },
+              {
+                role: "token_bound",
+                address: AGENT_WALLET,
+                lines: [
+                  {
+                    symbol: "MON",
+                    raw: 3n * 10n ** 18n,
+                    decimals: 18,
+                    use: null,
+                    status: "movable",
+                    move: { state: "waiting-wallet", text: "Confirm the transfer in your wallet." },
+                  },
+                  {
+                    symbol: "USDC",
+                    raw: 5_000_000n,
+                    decimals: 6,
+                    use: null,
+                    status: "movable",
+                    move: {
+                      state: "rejected",
+                      text: "You declined the request in your wallet. Nothing moved.",
+                    },
+                  },
+                ],
+              },
+              {
+                role: "personal_account",
+                address: SAMPLE_TBA,
+                lines: [
+                  {
+                    symbol: "USDC",
+                    raw: 5_000_000n,
+                    decimals: 6,
+                    use: "trading",
+                    status: "in_use",
+                  },
+                  { symbol: "WMON", raw: 0n, decimals: 18, use: "trading", status: "in_use" },
+                ],
+              },
+            ]}
+          />
+          <HoldingsPanel
+            network="Monad Testnet"
+            addresses={[
+              {
+                role: "funding",
+                address: SAMPLE_TBA,
+                lines: [
+                  {
+                    symbol: "WMON",
+                    raw: 2n * 10n ** 16n,
+                    decimals: 18,
+                    use: null,
+                    status: "platform_only",
+                  },
+                ],
+              },
+              { role: "token_bound", address: AGENT_WALLET, lines: [] },
+              {
+                role: "personal_account",
+                address: null,
+                lines: [],
+              },
+            ]}
+          />
         </div>
       </Specimen>
       <Specimen
