@@ -37,7 +37,9 @@ import type { ArmingFacts, BlockedFacts, TradeFacts } from "./narrator.ts";
  *    and ends on expiry, a sale, a configuration change or a revoked grant;
  *    a renewed grant moves its expiry; the renewal reminder is written once.
  * 2. Approval: an armed agent's waiting intents are approved automatically.
- * 3. Submission: every approved intent re-runs every pre-check on fresh reads
+ * 3. Submission: an intent proposed under an earlier goal (a stale strategy
+ *    epoch, D-281) is refused and the arming stays open; every other approved
+ *    intent re-runs every pre-check on fresh reads
  *    (its trade slot excluded from the reserved ones), plus the funding
  *    address's MON for gas; anything changed refuses it with every reason.
  *    The minimum output comes from a fresh quote within the slippage limit,
@@ -237,6 +239,14 @@ export class TradeFlow {
     const chainId = this.o.chainId;
     const arming = await this.o.store.openArming(chainId, i.agentId);
     if (!arming) return this.refuse(i, "not armed at submission", [blocker("NOT_ARMED", null)]);
+    // Proposed under an earlier goal: never sent, and the arming stays open (D-281).
+    const strategyEpoch = await this.o.store.strategyEpoch(chainId, i.agentId);
+    if ((i.strategyEpoch ?? 0n) !== strategyEpoch)
+      return this.refuse(
+        i,
+        `proposed at strategy epoch ${i.strategyEpoch ?? 0n}, now ${strategyEpoch}`,
+        [blocker("STRATEGY_EPOCH_STALE", null)],
+      );
     const key = await this.o.signer.createKey(i.agentId);
     const reserved = await this.o.store.reservedSlots(chainId, i.agentId, i);
     const assessed = await assessTrade(this.o.reader, i.agentId, i.sell, i.amountIn, key, reserved);

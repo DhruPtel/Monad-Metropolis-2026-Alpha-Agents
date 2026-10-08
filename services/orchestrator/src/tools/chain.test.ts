@@ -362,6 +362,46 @@ describe.skipIf(!dbUp)("chain tools behind the gate (needs Postgres)", { timeout
     );
   });
 
+  it("stores the strategy epoch a proposal was made under: null before any goal (D-281)", async () => {
+    await agent(1);
+    const identity = { chainId: CHAIN, agentId: 1, tier: "base", leaseId: "lease-x" };
+    const intents = new PgIntentStore(store);
+    const draft = (key: string) => ({
+      idempotencyKey: key,
+      account: null,
+      sell: "USDC" as const,
+      buy: "WMON" as const,
+      amountIn: 1n,
+      reason: "r",
+      clientRequestId: null,
+      status: "rejected" as const,
+      reasonCodes: ["TRADE_SIZE_EXCEEDED"] as const,
+      blockers: [],
+      checks: {},
+      ownerEpoch: 0n,
+      configEpoch: 0n,
+      expiresAt: new Date(Date.now() + 60_000),
+    });
+    const epochOf = async (id: string) =>
+      (
+        await store.db
+          .selectFrom("platform.intents")
+          .select("strategy_epoch")
+          .where("intent_id", "=", id)
+          .executeTakeFirstOrThrow()
+      ).strategy_epoch;
+    const before = await intents.propose(identity, draft("se-1"), 3);
+    expect(await epochOf(before.record.intentId)).toBeNull();
+    await store.db
+      .insertInto("platform.agent_states")
+      .values({ chain_id: CHAIN, agent_id: 1, state: "READY", strategy_epoch: "4" })
+      .onConflict((oc) => oc.columns(["chain_id", "agent_id"]).doUpdateSet({ strategy_epoch: "4" }))
+      .execute();
+    const after = await intents.propose(identity, draft("se-2"), 3);
+    expect(Number(await epochOf(after.record.intentId))).toBe(4);
+    await store.db.deleteFrom("platform.agent_states").execute();
+  });
+
   it("limits the chain tool calls of one run, recording the refusal", async () => {
     await agent(1);
     const identity = { chainId: CHAIN, agentId: 1, tier: "base", leaseId: "lease-y" };

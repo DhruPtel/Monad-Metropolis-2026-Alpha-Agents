@@ -1,10 +1,12 @@
 import type { AgentState, ChainReader, MarketState } from "@alpha-agents/chain-tools";
 import { tradeNow } from "@alpha-agents/chain-tools";
 import { type TestDatabase, createTestDatabase, databaseAvailable } from "@alpha-agents/db/testing";
-import { LAUNCH_EXECUTOR_POLICY, LAUNCH_POLICY_HASH } from "@alpha-agents/policy";
+import { DEFAULT_GOAL_INPUT } from "@alpha-agents/domain";
+import { LAUNCH_EXECUTOR_POLICY, LAUNCH_POLICY_HASH, translateGoal } from "@alpha-agents/policy";
 import type { AcceptResult, SwapIntentArgs } from "@alpha-agents/signer";
 import { SWAP_GAS_LIMIT } from "@alpha-agents/signer";
 import {
+  GoalStore,
   RENEWAL_REMINDER_SECONDS,
   TradeStore,
   approveByOwner,
@@ -187,7 +189,14 @@ describe.skipIf(!dbUp)("the trade flow (needs Postgres)", { timeout: 60_000 }, (
     await t?.drop();
   }, 60_000);
   beforeEach(async () => {
-    for (const table of ["platform.intents", "platform.arming", "platform.signer_outbox"] as const)
+    for (const table of [
+      "platform.intents",
+      "platform.arming",
+      "platform.signer_outbox",
+      "platform.agent_goals",
+      "platform.agent_state_changes",
+      "platform.agent_states",
+    ] as const)
       await t.db.deleteFrom(table).execute();
     chain = new FakeChain();
     sent = [];
@@ -200,7 +209,10 @@ describe.skipIf(!dbUp)("the trade flow (needs Postgres)", { timeout: 60_000 }, (
     flow = make();
   });
 
-  async function propose(amountIn = 5_000_000n, over: { ownerEpoch?: string } = {}) {
+  async function propose(
+    amountIn = 5_000_000n,
+    over: { ownerEpoch?: string; strategyEpoch?: string | null } = {},
+  ) {
     n += 1;
     const id = `intent-${n}`;
     await t.db
@@ -222,6 +234,7 @@ describe.skipIf(!dbUp)("the trade flow (needs Postgres)", { timeout: 60_000 }, (
         checks: "{}",
         owner_epoch: over.ownerEpoch ?? "1",
         config_epoch: "0",
+        strategy_epoch: over.strategyEpoch ?? null,
         expires_at: new Date(Date.now() + 1_800_000),
       })
       .execute();
@@ -337,6 +350,57 @@ describe.skipIf(!dbUp)("the trade flow (needs Postgres)", { timeout: 60_000 }, (
     await trades.approve(CHAIN, 1, old, "owner");
     await flow.tick();
     expect((await trades.intent(CHAIN, 1, old))?.reasonCodes).toContain("EPOCH_MISMATCH");
+  });
+
+  it("an intent proposed under an earlier goal is refused as STRATEGY_EPOCH_STALE; arming stays open (D-281)", async () => {
+    const goals = new GoalStore(t.db);
+    const goal = (preset: "BALANCED" | "GROWTH") => {
+      const r = translateGoal({ ...structuredClone(DEFAULT_GOAL_INPUT), riskPreset: preset });
+      if (!r.ok) throw new Error("fixture goal refused");
+      return goals.save({
+        chainId: CHAIN,
+        agentId: 1,
+        ownerEpoch: 1n,
+        savedBy: OWNER,
+        config: r.config,
+      });
+    };
+    await goal("BALANCED");
+    const r = await arm();
+    const old = await propose(1_000_000n, { strategyEpoch: "1" });
+    // The owner changes the goal while the proposal waits.
+    await goal("GROWTH");
+    await flow.tick();
+    const v = await trades.intent(CHAIN, 1, old);
+    expect(v?.status).toBe("rejected");
+    expect(v?.reasonCodes).toEqual(["STRATEGY_EPOCH_STALE"]);
+    expect(v?.blockers[0]?.message).toBe(
+      "The owner changed the agent's goal after this trade was proposed, so it was not sent.",
+    );
+    expect(sent).toHaveLength(0);
+    // The strategy epoch is offchain: the arming and its grant are untouched.
+    expect((await trades.openArming(CHAIN, 1))?.armingId).toBe(r.armingId);
+    // A trade proposed under the new goal is sent.
+    const fresh = await propose(1_000_000n, { strategyEpoch: "2" });
+    await flow.tick();
+    expect(await statusOf(fresh)).toBe("submitted");
+    expect(sent).toHaveLength(1);
+  });
+
+  it("an intent proposed before the first goal is stale once a goal is saved", async () => {
+    await arm();
+    const before = await propose(1_000_000n, { strategyEpoch: null });
+    const r = translateGoal(DEFAULT_GOAL_INPUT);
+    if (!r.ok) throw new Error("fixture goal refused");
+    await new GoalStore(t.db).save({
+      chainId: CHAIN,
+      agentId: 1,
+      ownerEpoch: 1n,
+      savedBy: OWNER,
+      config: r.config,
+    });
+    await flow.tick();
+    expect((await trades.intent(CHAIN, 1, before))?.reasonCodes).toEqual(["STRATEGY_EPOCH_STALE"]);
   });
 
   it("reserves a slot for each waiting or sent intent and frees it on rejection or expiry", async () => {

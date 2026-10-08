@@ -259,6 +259,10 @@ const CLEARS: Readonly<
     clears: "by_the_owner",
     hint: "The owner arms the agent, or approves this trade.",
   },
+  STRATEGY_EPOCH_STALE: {
+    clears: "by_changing_the_trade",
+    hint: "Read the goal again with get_goals_and_limits and propose under it.",
+  },
   SEND_FAILED: {
     clears: "by_changing_the_trade",
     hint: "The agent can propose the trade again; the failure reason says what happened.",

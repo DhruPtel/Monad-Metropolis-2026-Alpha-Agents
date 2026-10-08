@@ -43,6 +43,8 @@ export interface IntentView {
   readonly expectedOut: bigint | null;
   readonly ownerEpoch: bigint | null;
   readonly configEpoch: bigint | null;
+  /** The strategy epoch it was proposed under (D-281); null before the agent's first goal. */
+  readonly strategyEpoch: bigint | null;
   readonly approvedBy: "owner" | "auto" | null;
   readonly approvedAt: Date | null;
   readonly submittedAt: Date | null;
@@ -81,6 +83,7 @@ function intentView(r: IntentRow): IntentView {
     expectedOut: typeof expected === "string" ? BigInt(expected) : null,
     ownerEpoch: big(r.owner_epoch),
     configEpoch: big(r.config_epoch),
+    strategyEpoch: big(r.strategy_epoch === null ? null : String(r.strategy_epoch)),
     approvedBy: r.approved_by,
     approvedAt: r.approved_at ? new Date(r.approved_at) : null,
     submittedAt: r.submitted_at ? new Date(r.submitted_at) : null,
@@ -142,6 +145,17 @@ export class TradeStore {
   constructor(db: Db, now: () => Date = () => new Date()) {
     this.db = db;
     this.now = now;
+  }
+
+  /** The agent's strategy epoch now (D-281): 0 before its first goal. */
+  async strategyEpoch(chainId: number, agentId: number): Promise<bigint> {
+    const row = await this.db
+      .selectFrom("platform.agent_states")
+      .select("strategy_epoch")
+      .where("chain_id", "=", chainId)
+      .where("agent_id", "=", agentId)
+      .executeTakeFirst();
+    return row ? BigInt(row.strategy_epoch) : 0n;
   }
 
   // ---- arming ----
