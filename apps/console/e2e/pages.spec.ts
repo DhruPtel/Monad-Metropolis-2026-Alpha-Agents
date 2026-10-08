@@ -257,7 +257,7 @@ test.describe("agents panel controls (P1-U5)", () => {
     const noGas = intents.locator('tr[data-status="rejected"]').filter({ hasText: "GAS_UNFUNDED" });
     await expect(noGas).toContainText("no MON to pay gas");
     await expect(noGas).toContainText("the owner clears it");
-    await arming.getByRole("button", { name: "Arm" }).click();
+    await arming.getByRole("button", { name: "Arm", exact: true }).click();
     await expect(arming).toHaveAttribute("data-state", "awaiting_first_trade");
     await expect(arming).toContainText("Approve first trade");
     await expect(arming).toContainText("2026-11-06");
@@ -268,6 +268,8 @@ test.describe("agents panel controls (P1-U5)", () => {
     );
     const overflow = await intents.evaluate((el) => el.scrollWidth - el.clientWidth);
     expect(overflow).toBeLessThanOrEqual(0);
+    // The approval's toast would cover the table: capture once it has closed.
+    await expect(page.locator("[data-sonner-toast]")).toHaveCount(0, { timeout: 15_000 });
     await repaint(page);
     await expect(chain).toHaveScreenshot("agents-trade-flow.png");
     await arming.getByRole("button", { name: "Disarm" }).click();
