@@ -103,12 +103,15 @@ function EffectiveLimits({
   hard,
   owner,
   effective,
+  refused = [],
   className,
 }: {
   hard: GoalLimits;
   /** Null for a field the owner left at the hard limit. */
   owner: Readonly<Record<OwnerLimitField, number | null>>;
   effective: GoalLimits;
+  /** Fields whose typed value was refused: shown as not accepted, never as applying. */
+  refused?: readonly OwnerLimitField[];
   className?: string;
 }) {
   const fields = Object.keys(OWNER_LIMIT_FACTS) as OwnerLimitField[];
@@ -133,8 +136,18 @@ function EffectiveLimits({
                 <TableCell label="Hard limit" className="numeric">
                   {limitText(f, hard[f])}
                 </TableCell>
-                <TableCell label="Yours" className="numeric text-foreground-muted">
-                  {own === null ? "Same as hard limit" : limitText(f, own)}
+                <TableCell
+                  label="Yours"
+                  className={cn(
+                    "numeric",
+                    refused.includes(f) ? "text-negative" : "text-foreground-muted",
+                  )}
+                >
+                  {refused.includes(f)
+                    ? "Not accepted"
+                    : own === null
+                      ? "Same as hard limit"
+                      : limitText(f, own)}
                 </TableCell>
                 <TableCell label="Applies" className="numeric font-semibold">
                   {limitText(f, effective[f])}

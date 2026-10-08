@@ -14,6 +14,7 @@ function linkedWallet(authorization: string | undefined): string | null {
   return authorization?.startsWith(prefix) ? authorization.slice(prefix.length) : null;
 }
 import { AGENT_NFT, type FakeChain } from "./fake-chain";
+import { FakeGoals } from "./fake-goals";
 import type { FakeHoldings } from "./fake-holdings";
 import type { FakeTrading } from "./fake-trading";
 
@@ -135,7 +136,7 @@ const same = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
 const CORS = {
   "access-control-allow-origin": "*",
   "access-control-allow-headers": "authorization, content-type, x-owner-session",
-  "access-control-allow-methods": "GET, POST, OPTIONS",
+  "access-control-allow-methods": "GET, POST, PUT, OPTIONS",
 };
 
 export class FakeApi {
@@ -148,6 +149,8 @@ export class FakeApi {
   readonly dashboards = new Map<bigint, FakeDashboard>();
   /** P2-U7: each agent's trading backend (portfolio, arming, intents). */
   readonly trading = new Map<bigint, FakeTrading>();
+  /** P3-U1: each agent's goal and state. */
+  readonly goals = new FakeGoals();
   /** D-315: each agent's holdings at its three addresses. */
   readonly holdings = new Map<bigint, FakeHoldings>();
   /** Owner-only requests, for tests that check another wallet made none. */
@@ -287,6 +290,31 @@ export class FakeApi {
     }
     const mine = /^\/v1\/agents\/(\d+)\/(session|summary|scan|credits\/refund)$/.exec(url.pathname);
     if (mine?.[1] && mine[2]) return this.owner(BigInt(mine[1]), mine[2], request, reply, meta);
+    if (url.pathname === "/v1/goal/preview" && request.method() === "POST")
+      return reply(200, this.goals.preview(request.postDataJSON() as unknown));
+    const goal = /^\/v1\/agents\/(\d+)\/goal$/.exec(url.pathname);
+    if (goal?.[1]) {
+      const id = BigInt(goal[1]);
+      const agent = this.chain.agents.get(id);
+      if (!agent) return reply(404, { error: "not_found", message: "No such agent." });
+      this.ownerCalls.push(`goal ${request.method()} ${id.toString()}`);
+      const token = request.headers()["x-owner-session"];
+      if (!token)
+        return reply(401, { error: "missing_token", message: "Start an owner session first." });
+      if (token !== this.sessionFor(id))
+        return reply(403, {
+          error: "not_owner",
+          message: "This owner session is for another agent.",
+        });
+      let body: unknown;
+      try {
+        body = request.method() === "PUT" ? (request.postDataJSON() as unknown) : null;
+      } catch {
+        body = null;
+      }
+      const r = await this.goals.answer(id, request.method(), body, agent.owner, agent.ownerEpoch);
+      return reply(r.status, { ...meta, ...r.body });
+    }
     const held = /^\/v1\/agents\/(\d+)\/holdings$/.exec(url.pathname);
     if (held?.[1]) {
       const id = BigInt(held[1]);
@@ -495,6 +523,7 @@ export class FakeApi {
         latestScan: d.latestScan,
         creditCapUsdcE6: CREDIT_CAP.toString(),
         scan: { minimumUsdcE6: "150000", estimateUsdcE6: { low: "150000", high: "300000" } },
+        goal: this.goals.summary(id),
       };
       if (d.latestScan?.status === "queued") {
         // Served queued once; the next read finds it finished, narrated and charged.

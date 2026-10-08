@@ -2079,6 +2079,18 @@ function GoalSection() {
           }}
           effective={{ ...GOAL_HARD, maxTradeBps: 500, minUsdcShareBps: 2_000, maxTradesPer24h: 6 }}
         />
+        <EffectiveLimits
+          hard={GOAL_HARD}
+          owner={{
+            maxTradeBps: 1_200,
+            maxWmonShareBps: null,
+            minUsdcShareBps: null,
+            maxSlippageBps: null,
+            maxTradesPer24h: null,
+          }}
+          refused={["maxTradeBps"]}
+          effective={GOAL_HARD}
+        />
       </Specimen>
       <Specimen
         name="CostPreview"

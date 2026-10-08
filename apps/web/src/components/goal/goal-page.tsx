@@ -279,6 +279,7 @@ export function GoalPage({ agentId }: { agentId: bigint }) {
         <EffectiveLimits
           hard={page.form.hardLimits}
           owner={ownerLimits}
+          refused={OWNER_LIMIT_FIELDS.filter((f) => errors[`stricterLimits.${f}`] !== undefined)}
           effective={preview?.ownerLimits ?? page.form.hardLimits}
         />
       </Section>

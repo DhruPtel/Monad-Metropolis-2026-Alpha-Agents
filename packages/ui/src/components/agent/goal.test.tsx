@@ -118,6 +118,28 @@ describe("goal components (P3-U1)", () => {
     );
   });
 
+  it("EffectiveLimits never shows a refused value as the owner's", () => {
+    render(
+      <EffectiveLimits
+        hard={HARD}
+        owner={{
+          maxTradeBps: 1_200,
+          maxWmonShareBps: null,
+          minUsdcShareBps: null,
+          maxSlippageBps: null,
+          maxTradesPer24h: null,
+        }}
+        refused={["maxTradeBps"]}
+        effective={HARD}
+      />,
+    );
+    const row = screen
+      .getByTestId("effective-limits")
+      .querySelector('tr[data-field="maxTradeBps"]');
+    expect(row).toHaveTextContent(/10%.*Not accepted.*10%/);
+    expect(row).not.toHaveTextContent("12%");
+  });
+
   it("CostPreview gives a month's cost at each intensity and marks the chosen one (D-299)", () => {
     render(
       <CostPreview
