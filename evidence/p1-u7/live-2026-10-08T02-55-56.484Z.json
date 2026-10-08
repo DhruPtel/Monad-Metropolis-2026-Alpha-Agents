@@ -1,0 +1,714 @@
+{
+  "unit": "P1-U5, P1-U6 and P1-U7",
+  "namespace": "live-72cbcc",
+  "runTag": "2026-10-08T02-55-56.484Z",
+  "checks": {
+    "mint leads to reveal and provisioning with no manual step": true,
+    "rendered config matches the tier on chain": true,
+    "the agent has its own LiteLLM key": true,
+    "with no credits the agent is RESTRICTED and an LLM task is refused": true,
+    "USDC sent to the funding address appears as credits with no other action": true,
+    "no-op task succeeded with a structured result": true,
+    "the model answered through the gate": true,
+    "the sandbox stopped": true,
+    "the task reduced credits by exactly the metered amount, and the ledger balances": true,
+    "a hard kill leaves a sandbox and a tunnel behind (the case L-19 describes)": true,
+    "the startup sweep removed the leftovers": true,
+    "a reset deletes the old key and creates a new one": true,
+    "a refund returns the remaining credits as USDC to the current owner": true,
+    "the signer worker is on, pinned to the local fork's chain": true,
+    "at zero the next call is refused and the run ends as billing, with no retries": true,
+    "afterwards the agent stays RESTRICTED and LLM tasks are refused": true,
+    "the keeper, provisioning and deposits keep working while an agent is restricted": true,
+    "the ledger balances and matches the funding address on chain": true,
+    "the scheduler queued a Scan for each funded agent with no manual step": true,
+    "a funded agent's Scan used web_search and read_url and returned a schema-valid result": true,
+    "each tool call is charged to the right agent, and the ledger holds exactly those charges": true,
+    "the narrator wrote an activity entry that passes the number validator": true,
+    "the same entry with a deliberately wrong number is rejected": true,
+    "the owner's grant to the funding address is recorded: armed once the first trade is approved": true,
+    "a real agent read its portfolio, prices, limits and tradable_now through the chain tools": true,
+    "its proposed swap waits for approval as an intent, with no calldata and an activity entry": false,
+    "no swap reached the signer before the owner's first approval": true,
+    "the owner's first approval arms the agent": false,
+    "the swap executed through the signer, the Executor and the real v4 pool, and settled after reconciliation": false
+  },
+  "provisioning": {
+    "agentId": 1,
+    "msFromMint": 18088,
+    "runtime": {
+      "agentId": "1",
+      "generation": 1,
+      "status": "ready",
+      "tier": "pro",
+      "species": 14,
+      "slots": 8,
+      "playbook": "tier-pro@0",
+      "configHash": "8637e3a6e6923f60d42e40bd7e57010136e2d95144eeddce64b2cb5a4acff570",
+      "keyAlias": "aa-live-72cbcc-143143-1-g1",
+      "budgetUsd": "0.000000",
+      "lastError": null,
+      "provisionedAt": "2026-10-08T02:56:23.746Z",
+      "updatedAt": "2026-10-08T02:56:23.746Z",
+      "lease": null,
+      "latestTask": null
+    }
+  },
+  "deposit": {
+    "msToCredit": 5053,
+    "credited": {
+      "agentId": "1",
+      "fundingAddress": "0xf1f1cbfc8b13e1018beab249b14b926f128a11c4",
+      "creditsUsdcE6": "1000000",
+      "spendableUsdcE6": "1000000",
+      "heldUsdcE6": "0",
+      "unsettledUsdcE6": "0",
+      "fundingAddressUsdcE6": "1000000",
+      "restricted": false,
+      "spent24hUsdcE6": "0",
+      "toolSpent24hUsdcE6": "0",
+      "recent": [
+        {
+          "kind": "credits_received",
+          "creditsDeltaUsdcE6": "1000000",
+          "at": "2026-10-08T02:56:28.000Z"
+        }
+      ]
+    },
+    "budgetUsd": "0.800000"
+  },
+  "noop": {
+    "taskId": "10d360ac-48b4-4ade-ba96-f921d8b6e8a7",
+    "agentId": "1",
+    "kind": "noop",
+    "status": "succeeded",
+    "result": {
+      "kind": "noop",
+      "tier": "pro",
+      "runId": "run_a36c1c0e07b74e7896f7e5f341c119ff",
+      "slots": 8,
+      "agentId": 1,
+      "leaseId": "41777eea-8709-458f-9ea1-69c3921ffadc",
+      "replied": "NOOP_OK",
+      "playbook": "tier-pro@0",
+      "runStatus": "completed",
+      "sandboxId": "isdh8gm0cru7as74n1hsm",
+      "timingsMs": {
+        "run": 9973,
+        "total": 40050,
+        "sandbox": 581,
+        "hermesBoot": 22770
+      },
+      "configHash": "8637e3a6e6923f60d42e40bd7e57010136e2d95144eeddce64b2cb5a4acff570",
+      "gatedCalls": [
+        "POST /v1/chat/completions 200",
+        "GET /v1/models 200"
+      ],
+      "generation": 1,
+      "modelCalls": 2,
+      "stopReason": "completed",
+      "modelCallsOk": 2,
+      "answeredNoopOk": true,
+      "sandboxStopped": true,
+      "modelCallsRefusedForCredits": 0
+    },
+    "error": null,
+    "createdAt": "2026-10-08T02:56:29.724Z",
+    "startedAt": "2026-10-08T02:56:29.732Z",
+    "finishedAt": "2026-10-08T02:57:09.784Z"
+  },
+  "gatewayLog": {
+    "rows": 1,
+    "costed": 1,
+    "gateCallsOk": 2
+  },
+  "metering": {
+    "receipts": 1,
+    "chargedUsdcE6": "13667",
+    "after": {
+      "agentId": "1",
+      "fundingAddress": "0xf1f1cbfc8b13e1018beab249b14b926f128a11c4",
+      "creditsUsdcE6": "986333",
+      "spendableUsdcE6": "986333",
+      "heldUsdcE6": "0",
+      "unsettledUsdcE6": "13667",
+      "fundingAddressUsdcE6": "1000000",
+      "restricted": false,
+      "spent24hUsdcE6": "13667",
+      "toolSpent24hUsdcE6": "0",
+      "recent": [
+        {
+          "kind": "usage_metered",
+          "creditsDeltaUsdcE6": "-13667",
+          "at": "2026-10-08T02:57:07.000Z"
+        },
+        {
+          "kind": "credits_received",
+          "creditsDeltaUsdcE6": "1000000",
+          "at": "2026-10-08T02:56:28.000Z"
+        }
+      ]
+    }
+  },
+  "afterKill": {
+    "sandboxes": 1,
+    "tunnelAlive": true,
+    "leaseActive": true
+  },
+  "afterSweep": {
+    "sandboxes": 0,
+    "tunnelAlive": false,
+    "pidFile": false,
+    "lease": "ended",
+    "task": "failed"
+  },
+  "refund": {
+    "refund": {
+      "refundId": "f38fc861-6170-487d-ad9e-e379e15d5911",
+      "agentId": "1",
+      "owner": "0xc3c2097ed766cf4d5a6a0feb6f38d3b4b63bbdb9",
+      "ownerEpoch": "0",
+      "status": "sent",
+      "creditsUsdcE6": "986333",
+      "heldUsdcE6": "0",
+      "txHash": "0x02178f8c473a28ed361625e9af5521865daf4ae2116ebd9cc95af555a10ed9e9",
+      "reason": null,
+      "createdAt": "2026-10-08T02:57:15.603Z",
+      "updatedAt": "2026-10-08T02:57:17.988Z"
+    },
+    "ownerGainedUsdcE6": "986333"
+  },
+  "drain": {
+    "outsideCall": 200,
+    "task": {
+      "taskId": "4f6caec7-6d7e-4c3c-9494-af29773899fa",
+      "agentId": "1",
+      "kind": "noop",
+      "status": "failed",
+      "result": {
+        "kind": "noop",
+        "tier": "pro",
+        "runId": "run_966158b17ffb4ecbad90862d168f5c1e",
+        "slots": 8,
+        "agentId": 1,
+        "leaseId": "9f33da5a-bec0-4451-a483-7f710a22250b",
+        "replied": "",
+        "playbook": "tier-pro@0",
+        "runStatus": "failed",
+        "sandboxId": "iche5ii52yw9rwuotp7x0",
+        "timingsMs": {
+          "run": 5712,
+          "total": 27289,
+          "sandbox": 519,
+          "hermesBoot": 13610
+        },
+        "configHash": "1e0645a7fa6ab823798425bedb1b9d4a58c1fd9b2e7f88ac38c40605c98e15f2",
+        "gatedCalls": [
+          "POST /v1/chat/completions 402"
+        ],
+        "generation": 2,
+        "modelCalls": 1,
+        "stopReason": "billing",
+        "modelCallsOk": 0,
+        "answeredNoopOk": false,
+        "sandboxStopped": true,
+        "modelCallsRefusedForCredits": 1
+      },
+      "error": "billing: the agent's credits ran out; the gate refused 1 model call with 402 and the run ended failed",
+      "createdAt": "2026-10-08T02:57:20.154Z",
+      "startedAt": "2026-10-08T02:57:20.162Z",
+      "finishedAt": "2026-10-08T02:57:47.453Z"
+    }
+  },
+  "scans": {
+    "1": {
+      "taskId": "07c743fb-9c43-49a8-93f6-6728a776e8df",
+      "agentId": "1",
+      "kind": "scan",
+      "status": "succeeded",
+      "result": {
+        "kind": "scan",
+        "tier": "pro",
+        "runId": "run_dfede58665bf49a6af2933950561f59c",
+        "stage": {
+          "outcome": "DONE",
+          "stageId": "stage-28b4ed6e-807e-420a-9efa-effbf704be6f",
+          "candidates": [
+            {
+              "asset": "USDC",
+              "thesisCode": "MONAD_ECOSYSTEM_STABLECOIN_EXPANSION",
+              "confidenceBps": 7000
+            },
+            {
+              "asset": "WMON",
+              "thesisCode": "MONAD_RECOVERY_POST_UNLOCK",
+              "confidenceBps": 3500
+            }
+          ],
+          "schemaValid": true
+        },
+        "agentId": 1,
+        "leaseId": "35ff56a5-ebc0-416d-87e4-0be65a1d196c",
+        "runStatus": "completed",
+        "sandboxId": "iy9qf2o0y6g9vtn559coz",
+        "timingsMs": {
+          "run": 28489,
+          "total": 49235,
+          "sandbox": 554,
+          "hermesBoot": 14845
+        },
+        "toolCalls": [
+          {
+            "tool": "web_search",
+            "status": "succeeded",
+            "errorCode": null,
+            "chargeUsdcE6": "10000"
+          },
+          {
+            "tool": "web_search",
+            "status": "succeeded",
+            "errorCode": null,
+            "chargeUsdcE6": "10000"
+          },
+          {
+            "tool": "web_search",
+            "status": "succeeded",
+            "errorCode": null,
+            "chargeUsdcE6": "10000"
+          },
+          {
+            "tool": "read_url",
+            "status": "succeeded",
+            "errorCode": null,
+            "chargeUsdcE6": "2000"
+          },
+          {
+            "tool": "read_url",
+            "status": "succeeded",
+            "errorCode": null,
+            "chargeUsdcE6": "2000"
+          },
+          {
+            "tool": "write_thesis",
+            "status": "succeeded",
+            "errorCode": null,
+            "chargeUsdcE6": "0"
+          },
+          {
+            "tool": "complete_stage",
+            "status": "succeeded",
+            "errorCode": null,
+            "chargeUsdcE6": "0"
+          }
+        ],
+        "configHash": "1e0645a7fa6ab823798425bedb1b9d4a58c1fd9b2e7f88ac38c40605c98e15f2",
+        "gatedCalls": [
+          "POST /v1/chat/completions 200",
+          "GET /v1/models 200",
+          "POST /v1/chat/completions 200",
+          "POST /v1/chat/completions 200",
+          "POST /v1/chat/completions 200"
+        ],
+        "generation": 2,
+        "modelCalls": 5,
+        "stopReason": "COMPLETED",
+        "sandboxStopped": true,
+        "toolChargeUsdcE6": "34000",
+        "modelCallsRefusedForCredits": 0
+      },
+      "error": null,
+      "createdAt": "2026-10-08T02:58:10.555Z",
+      "startedAt": "2026-10-08T02:58:10.564Z",
+      "finishedAt": "2026-10-08T02:59:01.908Z"
+    },
+    "2": {
+      "taskId": "b69b926c-2f01-4b7c-97fb-637e05662131",
+      "agentId": "2",
+      "kind": "scan",
+      "status": "succeeded",
+      "result": {
+        "kind": "scan",
+        "tier": "base",
+        "runId": "run_f9d7b9c84845479f986355666b230773",
+        "stage": {
+          "outcome": "DONE",
+          "stageId": "stage-0a758d62-d9a2-45a8-94c4-ad6ade847b42",
+          "candidates": [
+            {
+              "asset": "WMON",
+              "thesisCode": "MONAD_DEFI_INFRASTRUCTURE_BUILDOUT",
+              "confidenceBps": 6500
+            },
+            {
+              "asset": "USDC",
+              "thesisCode": "STABLECOIN_NATIVE_INTEGRATION",
+              "confidenceBps": 5500
+            }
+          ],
+          "schemaValid": true
+        },
+        "agentId": 2,
+        "leaseId": "a5ea1817-b677-4e7f-b010-490ea9fb9f1f",
+        "runStatus": "completed",
+        "sandboxId": "ix5gpr3b10b9r9ecaoks0",
+        "timingsMs": {
+          "run": 31055,
+          "total": 49549,
+          "sandbox": 533,
+          "hermesBoot": 17604
+        },
+        "toolCalls": [
+          {
+            "tool": "web_search",
+            "status": "succeeded",
+            "errorCode": null,
+            "chargeUsdcE6": "10000"
+          },
+          {
+            "tool": "web_search",
+            "status": "succeeded",
+            "errorCode": null,
+            "chargeUsdcE6": "10000"
+          },
+          {
+            "tool": "web_search",
+            "status": "succeeded",
+            "errorCode": null,
+            "chargeUsdcE6": "10000"
+          },
+          {
+            "tool": "read_url",
+            "status": "succeeded",
+            "errorCode": null,
+            "chargeUsdcE6": "2000"
+          },
+          {
+            "tool": "read_url",
+            "status": "succeeded",
+            "errorCode": null,
+            "chargeUsdcE6": "2000"
+          },
+          {
+            "tool": "write_thesis",
+            "status": "succeeded",
+            "errorCode": null,
+            "chargeUsdcE6": "0"
+          },
+          {
+            "tool": "complete_stage",
+            "status": "succeeded",
+            "errorCode": null,
+            "chargeUsdcE6": "0"
+          }
+        ],
+        "configHash": "012fd1f9ba8c8176f5ea1c27d1ef033818ffc96c705989b4a69e3395b69edc7e",
+        "gatedCalls": [
+          "POST /v1/chat/completions 200",
+          "GET /v1/models 200",
+          "POST /v1/chat/completions 200",
+          "POST /v1/chat/completions 200",
+          "POST /v1/chat/completions 200",
+          "POST /v1/chat/completions 200",
+          "POST /v1/chat/completions 200"
+        ],
+        "generation": 1,
+        "modelCalls": 7,
+        "stopReason": "COMPLETED",
+        "sandboxStopped": true,
+        "toolChargeUsdcE6": "34000",
+        "modelCallsRefusedForCredits": 0
+      },
+      "error": null,
+      "createdAt": "2026-10-08T02:58:40.564Z",
+      "startedAt": "2026-10-08T02:58:40.569Z",
+      "finishedAt": "2026-10-08T02:59:32.359Z"
+    }
+  },
+  "toolCharges": {
+    "calls": 14,
+    "paid": 10,
+    "byAgent": {
+      "1": "34000",
+      "2": "34000"
+    }
+  },
+  "activity": {
+    "entry": "Agent #2 completed a scan identifying WMON at 65% confidence for Monad DeFi infrastructure and USDC at 55% confidence for stablecoin integration, conducting 3 searches and reading 2 pages.",
+    "renderedBy": "narrator",
+    "rejections": [
+      "longer than 280 characters"
+    ]
+  },
+  "chainCheck": {
+    "status": "succeeded",
+    "error": null,
+    "result": {
+      "kind": "chain_check",
+      "agentId": 2,
+      "intents": [
+        {
+          "status": "rejected",
+          "intentId": "intent-6905b717-6424-49d8-8cb0-49385b796795",
+          "reasonCodes": [
+            "INSUFFICIENT_BALANCE",
+            "TRADE_SIZE_EXCEEDED",
+            "TURNOVER_CAP",
+            "CONCENTRATION_CAP",
+            "USDC_FLOOR"
+          ]
+        },
+        {
+          "status": "awaiting_approval",
+          "intentId": "intent-7740a84e-1cb7-4775-b260-b198101733ab",
+          "reasonCodes": []
+        }
+      ],
+      "leaseId": "bd733666-7b9b-4e10-b5b4-44191037df49",
+      "runStatus": "completed",
+      "timingsMs": {
+        "run": 18501,
+        "total": 36224
+      },
+      "toolCalls": [
+        {
+          "tool": "get_portfolio",
+          "status": "succeeded",
+          "errorCode": null
+        },
+        {
+          "tool": "get_prices",
+          "status": "succeeded",
+          "errorCode": null
+        },
+        {
+          "tool": "get_limits",
+          "status": "succeeded",
+          "errorCode": null
+        },
+        {
+          "tool": "tradable_now",
+          "status": "succeeded",
+          "errorCode": null
+        },
+        {
+          "tool": "propose_swap",
+          "status": "succeeded",
+          "errorCode": null
+        },
+        {
+          "tool": "propose_swap",
+          "status": "succeeded",
+          "errorCode": null
+        },
+        {
+          "tool": "get_intent_status",
+          "status": "succeeded",
+          "errorCode": null
+        }
+      ],
+      "modelCalls": 6,
+      "stopReason": "COMPLETED"
+    },
+    "chain": {
+      "agentId": "2",
+      "portfolio": {
+        "mode": "NORMAL",
+        "usdc": "20",
+        "wmon": "0",
+        "block": "109670030",
+        "drawdownBps": 0,
+        "totalValueUsdc": "20",
+        "at": "2026-10-08T03:00:04.152Z"
+      },
+      "arming": {
+        "state": "awaiting_first_trade",
+        "armingId": "arming-902d30bf-bde4-45e1-b00f-85c8a007a018",
+        "validUntil": 1793468643,
+        "validUntilDate": "2026-10-31",
+        "renewalDue": false,
+        "armedAt": null,
+        "firstIntentId": null,
+        "ended": null
+      },
+      "tradeFlow": true,
+      "intents": [
+        {
+          "intentId": "intent-7740a84e-1cb7-4775-b260-b198101733ab",
+          "status": "awaiting_approval",
+          "sell": {
+            "asset": "USDC",
+            "amount": "1",
+            "amountRaw": "1000000"
+          },
+          "buy": "WMON",
+          "expectedOut": {
+            "asset": "WMON",
+            "amount": "29.075410334589811222",
+            "amountRaw": "29075410334589811222"
+          },
+          "minAmountOut": null,
+          "amountOut": null,
+          "reason": "Small test buy of WMON to verify trading flow.",
+          "reasonCodes": [],
+          "blockers": [],
+          "failure": null,
+          "approvedBy": null,
+          "txHash": null,
+          "deadline": null,
+          "createdAt": "2026-10-08T03:00:11.500Z",
+          "expiresAt": "2026-10-08T03:30:11.498Z",
+          "approvedAt": null,
+          "submittedAt": null,
+          "settledAt": null
+        },
+        {
+          "intentId": "intent-6905b717-6424-49d8-8cb0-49385b796795",
+          "status": "rejected",
+          "sell": {
+            "asset": "USDC",
+            "amount": "29.1",
+            "amountRaw": "29100000"
+          },
+          "buy": "WMON",
+          "expectedOut": {
+            "asset": "WMON",
+            "amount": "846.087257286416894302",
+            "amountRaw": "846087257286416894302"
+          },
+          "minAmountOut": null,
+          "amountOut": null,
+          "reason": "Small test buy of WMON to verify trading flow.",
+          "reasonCodes": [
+            "INSUFFICIENT_BALANCE",
+            "TRADE_SIZE_EXCEEDED",
+            "TURNOVER_CAP",
+            "CONCENTRATION_CAP",
+            "USDC_FLOOR"
+          ],
+          "blockers": [
+            {
+              "code": "INSUFFICIENT_BALANCE",
+              "hint": "Sell at most what get_portfolio shows the account holds.",
+              "clears": "by_changing_the_trade",
+              "message": "The account does not hold enough of the asset being sold.",
+              "clearsAt": null
+            },
+            {
+              "code": "TRADE_SIZE_EXCEEDED",
+              "hint": "Propose a smaller amount, within maxTradeValueUsdc from get_limits.",
+              "clears": "by_changing_the_trade",
+              "message": "The trade is larger than 10% of the account's value.",
+              "clearsAt": null
+            },
+            {
+              "code": "TURNOVER_CAP",
+              "hint": "Trade less now, or wait for earlier trades to leave the 24-hour window.",
+              "clears": "by_waiting",
+              "message": "The trade would take 24-hour turnover above 100% of the account's value.",
+              "clearsAt": null
+            },
+            {
+              "code": "CONCENTRATION_CAP",
+              "hint": "Buy less WMON, within wmonRoomBeforeCapUsdc from get_limits.",
+              "clears": "by_changing_the_trade",
+              "message": "After the trade, more than 40% of the account would be in one non-USDC asset.",
+              "clearsAt": null
+            },
+            {
+              "code": "USDC_FLOOR",
+              "hint": "Spend less USDC, within usdcAboveFloor from get_limits.",
+              "clears": "by_changing_the_trade",
+              "message": "After the trade, less than 10% of the account would be in USDC.",
+              "clearsAt": null
+            }
+          ],
+          "failure": null,
+          "approvedBy": null,
+          "txHash": null,
+          "deadline": null,
+          "createdAt": "2026-10-08T03:00:08.802Z",
+          "expiresAt": "2026-10-08T03:30:08.800Z",
+          "approvedAt": null,
+          "submittedAt": null,
+          "settledAt": null
+        }
+      ]
+    },
+    "entry": "Agent #2's proposed swap to sell 29.1 USDC for 846.087257286416894302 WMON was rejected due to multiple constraint violations: insufficient balance, trade size exceeding 10% of account value, 24-hour turnover cap breach, concentration limit breach, and USDC floor violation."
+  },
+  "trade": {
+    "intent": {
+      "intentId": "intent-6905b717-6424-49d8-8cb0-49385b796795",
+      "status": "rejected",
+      "sell": {
+        "asset": "USDC",
+        "amount": "29.1",
+        "amountRaw": "29100000"
+      },
+      "buy": "WMON",
+      "expectedOut": {
+        "asset": "WMON",
+        "amount": "846.087257286416894302",
+        "amountRaw": "846087257286416894302"
+      },
+      "minAmountOut": null,
+      "amountOut": null,
+      "reason": "Small test buy of WMON to verify trading flow.",
+      "reasonCodes": [
+        "INSUFFICIENT_BALANCE",
+        "TRADE_SIZE_EXCEEDED",
+        "TURNOVER_CAP",
+        "CONCENTRATION_CAP",
+        "USDC_FLOOR"
+      ],
+      "blockers": [
+        {
+          "code": "INSUFFICIENT_BALANCE",
+          "hint": "Sell at most what get_portfolio shows the account holds.",
+          "clears": "by_changing_the_trade",
+          "message": "The account does not hold enough of the asset being sold.",
+          "clearsAt": null
+        },
+        {
+          "code": "TRADE_SIZE_EXCEEDED",
+          "hint": "Propose a smaller amount, within maxTradeValueUsdc from get_limits.",
+          "clears": "by_changing_the_trade",
+          "message": "The trade is larger than 10% of the account's value.",
+          "clearsAt": null
+        },
+        {
+          "code": "TURNOVER_CAP",
+          "hint": "Trade less now, or wait for earlier trades to leave the 24-hour window.",
+          "clears": "by_waiting",
+          "message": "The trade would take 24-hour turnover above 100% of the account's value.",
+          "clearsAt": null
+        },
+        {
+          "code": "CONCENTRATION_CAP",
+          "hint": "Buy less WMON, within wmonRoomBeforeCapUsdc from get_limits.",
+          "clears": "by_changing_the_trade",
+          "message": "After the trade, more than 40% of the account would be in one non-USDC asset.",
+          "clearsAt": null
+        },
+        {
+          "code": "USDC_FLOOR",
+          "hint": "Spend less USDC, within usdcAboveFloor from get_limits.",
+          "clears": "by_changing_the_trade",
+          "message": "After the trade, less than 10% of the account would be in USDC.",
+          "clearsAt": null
+        }
+      ],
+      "failure": null,
+      "approvedBy": null,
+      "txHash": null,
+      "deadline": null,
+      "createdAt": "2026-10-08T03:00:08.802Z",
+      "expiresAt": "2026-10-08T03:30:08.800Z",
+      "approvedAt": null,
+      "submittedAt": null,
+      "settledAt": null
+    }
+  },
+  "error": "timed out waiting for the trade's activity entry",
+  "passed": false
+}

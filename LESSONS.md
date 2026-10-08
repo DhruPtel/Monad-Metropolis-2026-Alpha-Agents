@@ -950,3 +950,39 @@ What happened: In the second live check, the refund was signed and mined and the
 Cause: A-41 set a USDC transfer's gas limit at 100,000, from Ethereum's figures for a FiatToken transfer. Under Monad's gas model (cold storage and account access priced higher) the same transfer used 100,106 to 100,310 gas on the fork. The unit tests ran on a fake chain that does not meter gas, so nothing measured it.
 Fix: The limit is 150,000 and A-41 records the measurement; the signer's fork test now refunds real USDC and checks the gas used is under the limit, and it failed with the old limit (this unit's fix commit).
 Lesson: Set a gas limit from a measurement on the target EVM, never from Ethereum figures, and prove it with a transaction on a fork, not a fake chain; P2-EC measures it again on testnet and mainnet.
+
+## L-123: The submission slot check let no queued trade take the last slots
+Unit: P2-U6
+What happened: In the trade flow's Postgres test, an armed agent with two free slots and three approved intents sent none of them: all three were refused with DAILY_TRADE_LIMIT.
+Cause: At submission each intent counted every other slot-holding intent as reserved, including the younger ones still waiting behind it, so 18 trades plus 2 reserved filled the window for each intent in turn.
+Fix: At submission an intent counts only intents already sent and those proposed before it, so the oldest goes first; a proposal still counts all of them (D-266, this unit's trade flow commit). The test now checks two submitted, the third refused, and its slot freed.
+Lesson: A reservation check must say whose reservations come first; test it with more claimants than free slots, not one.
+
+## L-124: The fork's upstream stopped serving the pinned block for a while, and I first called it permanent
+Unit: P2-U6
+What happened: The trade flow's fork test failed twice with "the test fork on port 8556 did not start"; every attempt for block 109670000 answered null. A probe got 0 of 8 answers for the block from the provider behind MONAD_RPC_URL, and Monad's public RPC refused state at it. I recorded it as a permanent prune and a blocker. About an hour later the P2-U5 fork test started a fork and passed, the trade flow's fork test then ran, and a second probe got 8 of 8.
+Cause: An outage of the provider's older history, longer than L-87's per-node misses: for a while no node behind the load balancer served the block. One probe run is one moment, not a trend.
+Fix: Nothing in code. The decisions file records the episode (C-80) and recommends an archive-capable secondary (Q-52).
+Lesson: When a fork will not start, probe the pinned block, wait, and probe again before calling it a blocker; keep running the work that needs no fork in between. An archive secondary (D-220 already alternates to it) would have ridden this out.
+
+## L-125: Test and type slips in P2-U6
+Unit: P2-U6
+What happened: (1) The console e2e test clicked `getByRole("button", { name: "Arm" })`, which also matched "Disarm", and failed in strict mode at both widths. (2) The Postgres intent row type declared `blockers` with chain-tools' Blocker type while Kysely returns plain records, so the orchestrator did not typecheck; the commit gate caught it before the commit. (3) Two `type` aliases broke the lint rule that wants interfaces; the gate caught them too. (4) The fork test simulated a sale with the owner's own `transferFrom`, which AgentNFT refuses (`TransfersRestricted`: only the escrow moves agents).
+Cause: (1) Playwright's role names match substrings unless `exact` is set. (2, 3) Types written without running the package's own typecheck and the linter first. (4) I assumed a plain ERC-721 transfer without reading AgentNFT's `_update`.
+Fix: (1) `exact: true` on the Arm button query. (2) The row keeps the database's type and the mapper casts once. (3) Interfaces. (4) Within the test's snapshot a deployed contract is set as the escrow, the owner approves it, and the impersonated escrow moves the agent (cf7f2c3).
+Also: I formatted with `biome format`, which is not this repo's formatter and failed silently, so 16 files were committed unformatted until `pnpm format:check` caught them (be7ed3d formats them).
+Lesson: Use `exact: true` for any button name that is part of another name on the same card; format with `pnpm format` (Prettier) and add `pnpm format:check` to the commit gate; the three-check commit gate (L-121) keeps working, so keep running it before every commit.
+
+## L-126: The agent's first real trade was refused because its session key was never recorded
+Unit: P2-U6
+What happened: In the live check, the owner armed the agent and approved its first proposal, and the trade flow refused it at submission with SIMULATION_FAILED and no other reason; nothing was sent. The proposal had a quote and had passed every check.
+Cause: The trade flow read the agent's session key with `keyAddress`, which only finds a key the signer has already recorded, and the signer records keys lazily (L-120: only the console's button or a refund created one). With no key, the code fell through to a catch-all that refused the trade with a made-up reason. The chain tools' key lookup had the same gap, so the grant check at proposal skipped the key comparison. The fork test created the key up front, so it never saw this.
+Fix: The trade flow and the chain tools ensure the key with the signer's idempotent `createKey`; every gap at submission names its own reason (VENUE_NOT_ALLOWED, SIMULATION_FAILED) and there is no catch-all; a unit test checks the key is ensured at each submission (this unit's fix commit).
+Lesson: L-120 again: any path that needs an agent's key must ensure it, not look it up. A fallback reason in a refusal hides the real cause; refuse only with a reason that is true. A fork test that prepares more than production does cannot catch this.
+
+## L-127: The live check's chain check raced the scheduler, and a real agent proposed its whole account
+Unit: P2-U6
+What happened: The second live run timed out "waiting for the chain check": the task never started. In the third, the agent proposed selling 29.1 USDC from a 20 USDC account; the checks rejected it with every reason, correctly, so there was nothing to approve and the trade steps failed.
+Cause: (1) The live run's scheduler starts a Scan every 15 seconds, and while one holds the agent's sandbox the console route answers 409 `lease_held`; the check posted once and never read the status (P2-U5's step had the same race and won it by timing). (2) The prompt let the model pick the size from several numbers ("at most half of maxTradeValueUsdc and at most the USDC you hold"), and it used another figure.
+Fix: The live check retries the chain check until it is accepted (e48d6a5); the prompt names a concrete size, 1 USDC when the limits allow it, and says never to use the account's value or a price as the amount (f7d7c9a). The fourth run passed 34 of 34.
+Lesson: Read the status of every request a live check makes. Give an LLM step a concrete number when the test needs a specific outcome; the hard limits are the safety, the prompt is only the plan.
