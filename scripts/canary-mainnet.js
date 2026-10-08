@@ -577,7 +577,7 @@ try {
       if (grant.key.toLowerCase() !== key.toLowerCase())
         throw new Error("the grant does not name the session key");
       return {
-        key,
+        grantedTo: key,
         validUntil: Number(grant.validUntil),
         hours: Number(grant.validUntil - now) / 3600,
       };
