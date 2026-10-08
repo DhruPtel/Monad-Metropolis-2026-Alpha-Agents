@@ -141,6 +141,9 @@ importers:
       '@alpha-agents/domain':
         specifier: workspace:^
         version: link:../../packages/domain
+      '@alpha-agents/trading':
+        specifier: workspace:^
+        version: link:../../packages/trading
       '@hono/node-server':
         specifier: 2.1.3
         version: 2.1.3(hono@4.13.13)
@@ -495,6 +498,9 @@ importers:
       '@alpha-agents/tool-server':
         specifier: workspace:^
         version: link:../../packages/tool-server
+      '@alpha-agents/trading':
+        specifier: workspace:^
+        version: link:../../packages/trading
       '@hono/node-server':
         specifier: 2.1.3
         version: 2.1.3(hono@4.13.13)

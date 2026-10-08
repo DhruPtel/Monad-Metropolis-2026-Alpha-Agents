@@ -11,7 +11,7 @@ import {
 import { ViemChainReader, contractsFor } from "@alpha-agents/chain-tools";
 import { TavilyProvider } from "@alpha-agents/data-tools";
 import { createDb, migrateToLatest } from "@alpha-agents/db";
-import { localPaths, secretFragments } from "@alpha-agents/devenv";
+import { localPaths, secretFragments, setMonBalance } from "@alpha-agents/devenv";
 import { SPECIES, addressEntry } from "@alpha-agents/domain";
 import { type Hex, createPublicClient, http } from "viem";
 import { createApi } from "./api.ts";
@@ -30,6 +30,7 @@ import { localFeedRefresherFor } from "./local-feeds.ts";
 import { Redactor, createLog, errorText } from "./secrets.ts";
 import { Store } from "./store.ts";
 import { findCloudflared } from "./tunnel.ts";
+import { swapGasCost } from "./trade-flow.ts";
 
 /**
  * The orchestrator process (P1-U5): `pnpm dev:orchestrator`.
@@ -264,6 +265,31 @@ if (!chainContracts.ok)
   );
 const chainSigner = signerWorker?.signer ?? null;
 
+// The trade flow (P2-U6) sends swaps through the signer; the local fork tops gas up and
+// treats its receipts as final, every other chain settles a trade only once finalized.
+const local = env.id === "local";
+const trading = chainSigner
+  ? {
+      signer: chainSigner,
+      gas: {
+        balance: (address: Hex) => client.getBalance({ address }),
+        swapCost: async () => {
+          const [block, tip] = await Promise.all([
+            client.getBlock(),
+            client.estimateMaxPriorityFeePerGas().catch(() => 0n),
+          ]);
+          return swapGasCost(block.baseFeePerGas ?? 0n, tip);
+        },
+        ...(local
+          ? { topUp: (address: Hex, wei: bigint) => setMonBalance(address, wei, rpcUrl) }
+          : {}),
+      },
+      finalizedBlock: async () =>
+        local ? null : (await client.getBlock({ blockTag: "finalized" })).number,
+    }
+  : null;
+if (!trading) log("trade flow: off (no signer); proposals wait and nothing is sent");
+
 const orchestrator = new Orchestrator({
   store,
   gateway,
@@ -288,6 +314,7 @@ const orchestrator = new Orchestrator({
     reader: chainReader,
     ...(chainSigner ? { sessionKeyOf: (agentId: number) => chainSigner.keyAddress(agentId) } : {}),
   },
+  trading,
 });
 await orchestrator.start();
 

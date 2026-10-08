@@ -25,6 +25,9 @@ import { type AgentRef, OpenScanExistsError, type Store, type TaskRequester } fr
 import { startupSweep, type SweepReport } from "./sweep.ts";
 import { type ChainToolsWiring, type ToolServers, startToolServers } from "./tools/servers.ts";
 import { type Tunnel, startTunnel, tunnelPidFile } from "./tunnel.ts";
+import { TradeStore, approveByOwner, confirmArming, disarm } from "@alpha-agents/trading";
+import type { Hex } from "viem";
+import { TradeFlow, type TradeFlowGas, type TradeFlowSigner } from "./trade-flow.ts";
 
 /**
  * Wires the orchestrator's parts into one service (D-202): the startup sweep,
@@ -93,6 +96,16 @@ export interface OrchestratorOptions {
   readonly revealSteering?: RevealSteering | null;
   /** P2-U5: the chain tools' reader and the signer's session keys; none runs every chain tool as "not deployed". */
   readonly chain?: Omit<ChainToolsWiring, "onProposed">;
+  /**
+   * P2-U6: what the trade flow sends swaps with. Without it (or without a chain
+   * reader) proposals wait and nothing is ever sent.
+   */
+  readonly trading?: {
+    readonly signer: TradeFlowSigner;
+    readonly gas: TradeFlowGas;
+    readonly finalizedBlock: () => Promise<bigint | null>;
+    readonly everyMs?: number;
+  } | null;
 }
 
 export class Orchestrator {
@@ -104,6 +117,9 @@ export class Orchestrator {
   readonly credits: CreditService | null;
   readonly refunds: RefundService | null;
   readonly narrator: Narrator | null;
+  /** P2-U6: arming and intent records, and the worker that turns intents into trades. */
+  readonly trades: TradeStore;
+  readonly tradeFlow: TradeFlow | null;
   readonly probeToken = randomToken();
   sweep: SweepReport | null = null;
   private readonly o: OrchestratorOptions;
@@ -167,6 +183,21 @@ export class Orchestrator {
           log,
         })
       : null;
+    this.trades = new TradeStore(store.db);
+    const reader = options.chain?.reader ?? null;
+    this.tradeFlow =
+      reader && options.trading
+        ? new TradeFlow({
+            chainId: options.chainId,
+            store: this.trades,
+            reader,
+            signer: options.trading.signer,
+            gas: options.trading.gas,
+            finalizedBlock: options.trading.finalizedBlock,
+            narrator: this.narrator,
+            log,
+          })
+        : null;
     this.provisioner = new Provisioner({
       store,
       gateway: options.gateway,
@@ -265,6 +296,10 @@ export class Orchestrator {
         const n = await intents.expireDue(this.o.chainId);
         if (n > 0) this.o.log(`${n} intents expired before approval`);
       });
+    }
+    if (this.tradeFlow) {
+      const flow = this.tradeFlow;
+      this.every(this.o.trading?.everyMs ?? 2_000, "trade flow", () => flow.tick());
     }
     if (this.o.localFeeds) {
       const feeds = this.o.localFeeds;
@@ -392,6 +427,52 @@ export class Orchestrator {
   /** An agent's intents, newest first, with expiry applied (the dev console's view). */
   async intents(ref: AgentRef, limit = 20) {
     return this.tools ? this.tools.intents.list(ref.chainId, ref.agentId, limit) : [];
+  }
+
+  /** The agent's arming state now and its newest arming record (P2-U6). */
+  async arming(ref: AgentRef) {
+    const last = await this.trades.lastArming(ref.chainId, ref.agentId);
+    return { last, open: last && last.status !== "ended" ? last : null };
+  }
+
+  /** The agent's funding address: its session key in the signer (D-243). */
+  async fundingAddress(ref: AgentRef): Promise<Hex | null> {
+    const row = await this.o.store.db
+      .selectFrom("platform.funding_addresses")
+      .select("address")
+      .where("chain_id", "=", ref.chainId)
+      .where("agent_id", "=", ref.agentId)
+      .executeTakeFirst();
+    return (row?.address as Hex | undefined) ?? null;
+  }
+
+  /** Records the owner's grant once it is on chain (the console's arm, after its wallet call). */
+  async confirmArming(ref: AgentRef, owner: Hex) {
+    const reader = this.o.chain?.reader;
+    if (!reader) throw new Error("the trading contracts are not deployed here");
+    return confirmArming(this.trades, await reader.agent(ref.agentId), {
+      chainId: ref.chainId,
+      agentId: ref.agentId,
+      owner,
+      fundingAddress: await this.fundingAddress(ref),
+    });
+  }
+
+  /** The owner approves a waiting intent; the first approval after the grant arms the agent. */
+  async approveIntent(ref: AgentRef, intentId: string) {
+    const r = await approveByOwner(this.trades, ref.chainId, ref.agentId, intentId);
+    if (r.ok && r.armed) this.o.log(`agent ${ref.agentId}: armed by the owner's first approval`);
+    return r;
+  }
+
+  /** The owner disarms the agent; its wallet then revokes the grant on chain. */
+  async disarm(ref: AgentRef) {
+    return disarm(this.trades, ref.chainId, ref.agentId);
+  }
+
+  /** Why the agent did not trade: its arming and its recent blocked trades. */
+  async whyNotTraded(ref: AgentRef) {
+    return this.trades.whyNotTraded(ref.chainId, ref.agentId);
   }
 
   /** The agent's owner and ownership epoch, read from the chain. */

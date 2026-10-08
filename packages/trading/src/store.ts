@@ -5,6 +5,7 @@ import {
   type ArmingEndReason,
   type ArmingState,
   type IntentState,
+  SLOT_HOLDING_INTENT_STATES,
   TRADE_FLOW_MESSAGES,
 } from "@alpha-agents/domain";
 import { type Hex, getAddress } from "viem";
@@ -276,6 +277,20 @@ export class TradeStore {
       .execute();
   }
 
+  /** Disarmed armings whose grant may still be on chain, for the worker to watch for the revoke. */
+  async unrevokedDisarmed(chainId: number): Promise<ArmingRecord[]> {
+    const rows = await this.db
+      .selectFrom("platform.arming")
+      .selectAll()
+      .where("chain_id", "=", chainId)
+      .where("status", "=", "ended")
+      .where("ended_reason", "=", "disarmed")
+      .where("revoked_onchain", "=", false)
+      .where("ended_at", ">=", new Date(this.now().getTime() - 31 * 86_400_000))
+      .execute();
+    return rows.map(armingRecord);
+  }
+
   /** The owner approved the first trade: the agent is armed. Null if it was not waiting. */
   async markArmed(armingId: string, firstIntentId: string): Promise<ArmingRecord | null> {
     const at = this.now();
@@ -354,6 +369,32 @@ export class TradeStore {
       .limit(limit)
       .execute();
     return rows.map(intentView);
+  }
+
+  /**
+   * Trade slots the agent's other intents hold (waiting, approved or
+   * submitted). For an intent being submitted, pass it: then only the sent
+   * ones and those proposed before it count, so the oldest goes first.
+   */
+  async reservedSlots(
+    chainId: number,
+    agentId: number,
+    submitting?: { intentId: string; createdAt: Date },
+  ): Promise<number> {
+    await this.expireDue(chainId, agentId);
+    let q = this.db
+      .selectFrom("platform.intents")
+      .select((eb) => eb.fn.countAll<string>().as("n"))
+      .where("chain_id", "=", chainId)
+      .where("agent_id", "=", agentId)
+      .where("status", "in", [...SLOT_HOLDING_INTENT_STATES]);
+    if (submitting)
+      q = q
+        .where("intent_id", "!=", submitting.intentId)
+        .where((eb) =>
+          eb.or([eb("status", "=", "submitted"), eb("created_at", "<", submitting.createdAt)]),
+        );
+    return Number((await q.executeTakeFirstOrThrow()).n);
   }
 
   /** Every intent on the chain in these states, oldest first, for the worker. */
