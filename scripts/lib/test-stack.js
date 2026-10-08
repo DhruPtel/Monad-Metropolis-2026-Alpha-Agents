@@ -50,9 +50,13 @@ async function waitFor(url, timeoutMs) {
 }
 
 /**
- * @param {{ forkPort: number, apiPort: number, orchestrator?: { port: number, namespace: string } }} options
+ * With `trading` (P2-U7, the portfolio live run) it also deploys the trading
+ * contracts (AccountFactory, the oracle adapter, the Executor and the venue)
+ * on the fork and re-dates its feeds, before any service starts.
+ *
+ * @param {{ forkPort: number, apiPort: number, orchestrator?: { port: number, namespace: string }, trading?: boolean }} options
  */
-export async function startTestStack({ forkPort, apiPort, orchestrator }) {
+export async function startTestStack({ forkPort, apiPort, orchestrator, trading = false }) {
   if (process.env.LOCAL_FORK_PORT !== String(forkPort)) {
     throw new Error(`set LOCAL_FORK_PORT=${forkPort} before starting the test stack`);
   }
@@ -67,6 +71,12 @@ export async function startTestStack({ forkPort, apiPort, orchestrator }) {
     const db = await createTestDatabase("live");
     cleanups.push(() => db.drop());
     const nft = await deployLocal({ quiet: true });
+    if (trading) {
+      const { deployAccountFactoryLocal } = await import("./account-factory.js");
+      const { useFreshFeeds } = await import("./oracle.js");
+      await deployAccountFactoryLocal({ quiet: true });
+      await useFreshFeeds();
+    }
     await db.db
       .insertInto("platform.mint_allowlist")
       .values({ wallet: MOCK_WALLET, note: "live suite mock wallet" })

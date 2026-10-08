@@ -35,8 +35,10 @@ if (app !== "web" && app !== "console") {
 }
 const update = args.includes("--update");
 const live = args.includes("--live");
+// P2-U7: the portfolio live run: the My Agents stack plus the trading contracts.
+const portfolio = args.includes("--portfolio");
 // P1-U9: the My Agents live run, on the same kind of stack plus the orchestrator.
-const agents = args.includes("--agents");
+const agents = args.includes("--agents") || portfolio;
 
 const run = (
   /** @type {string} */ cmd,
@@ -81,6 +83,7 @@ if (live && app === "web") {
           },
         }
       : {}),
+    trading: portfolio,
   });
   let status;
   try {
@@ -91,7 +94,13 @@ if (live && app === "web") {
       env: {
         ...process.env,
         LIVE_WEB: "1",
-        LIVE_SPEC: process.env.LIVE_SPEC ?? (agents ? "my-agents.live.spec.ts" : "live.spec.ts"),
+        LIVE_SPEC:
+          process.env.LIVE_SPEC ??
+          (portfolio
+            ? "portfolio.live.spec.ts"
+            : agents
+              ? "my-agents.live.spec.ts"
+              : "live.spec.ts"),
         TEST_DATABASE_URL: stack.databaseUrl,
       },
     });

@@ -451,11 +451,16 @@ export function createApp(deps: ApiDeps): Hono {
     const id = Number(agentId);
     const funding = await fundingAddressOf(id);
     const t = deps.trading;
-    const validUntil = BigInt(nowSeconds() + MAX_GRANT_SECONDS - 60);
+    // The Executor checks the expiry against its own block time, so the grant's clock is the
+    // chain's (L-105): a fork's time sits at its pinned block, far behind the wall clock.
+    const chainNow = t
+      ? Number((await t.reader.agent(id))?.timestamp ?? nowSeconds())
+      : nowSeconds();
+    const validUntil = BigInt(chainNow + MAX_GRANT_SECONDS - 60);
     return c.json({
       ...(await meta()),
       agentId: agentId.toString(),
-      arming: armingJson(await trades.lastArming(chainId, id), nowSeconds()),
+      arming: armingJson(await trades.lastArming(chainId, id), chainNow),
       fundingAddress: funding,
       grantCall: t && funding ? registerCall(t.executor, id, funding, validUntil) : null,
       maxGrantDays: MAX_GRANT_SECONDS / 86_400,

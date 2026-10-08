@@ -797,6 +797,23 @@ describe.skipIf(!available)("the control API (needs pnpm dev:up for Postgres)", 
         expect(decoded.args[2]).toBeLessThanOrEqual(BigInt(Math.floor(now / 1000) + 30 * 86_400));
       });
 
+      it("dates the grant from the chain's clock, not the wall clock (L-105)", async () => {
+        const session = await bobSession();
+        grant();
+        const view = views.get(2);
+        // A fork: its block time sits weeks behind the wall clock.
+        const chainNow = BigInt(Math.floor(now / 1000) - 40 * 86_400);
+        if (view) views.set(2, { ...view, timestamp: chainNow });
+        const body = await json(await owner(session, "/v1/agents/2/arming"));
+        const decoded = decodeFunctionData({
+          abi: parseAbi([
+            "function registerSession(uint256 agentId, address key, uint64 validUntil)",
+          ]),
+          data: (body.grantCall as { data: Hex }).data,
+        });
+        expect(decoded.args[2]).toBe(chainNow + 30n * 86_400n - 60n);
+      });
+
       it("records the arming only for a valid grant on chain, and renews it in place", async () => {
         const session = await bobSession();
         grant();
