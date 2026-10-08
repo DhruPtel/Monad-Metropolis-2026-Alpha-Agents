@@ -15,6 +15,9 @@ import { useWalletTx } from "./use-wallet-tx";
  * balance from the app's RPC, and one USDC transfer from that wallet to the
  * agent's funding address, followed until the platform has credited it.
  */
+/** How often the wallet's USDC balance is re-read. */
+const WALLET_POLL_MS = 10_000;
+
 export function useAddCredits(
   agentId: bigint,
   environment: EnvironmentId,
@@ -49,8 +52,11 @@ export function useAddCredits(
       .readContract({ address: usdc, abi: ERC20_ABI, functionName: "balanceOf", args: [who] })
       .then((v) => live && setWalletUsdc(v))
       .catch(() => undefined);
+    // Re-read, so USDC that reaches the wallet from elsewhere shows without a reload.
+    const timer = window.setTimeout(() => setTick((n) => n + 1), WALLET_POLL_MS);
     return () => {
       live = false;
+      window.clearTimeout(timer);
     };
   }, [client, usdc, wallet.address, tick]);
 

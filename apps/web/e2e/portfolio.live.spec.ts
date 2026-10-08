@@ -71,15 +71,42 @@ test("an owner opens an account, deposits, arms, sees a trade settle and one exp
   const id = await mintAgent(page);
   const card = page.locator(`[data-testid=my-agent-card][data-agent-id="${id}"]`);
 
-  // The keeper reveals and the orchestrator provisions; credits let the agent run.
+  // The keeper reveals and the orchestrator provisions; with no credits the agent is paused.
   await page.goto("/agents");
   await expect(card.getByText("Paused: no credits")).toBeVisible({ timeout: 180_000 });
+
+  // Test USDC in the wallet, as the console's Test funds page sends it, and MON for gas.
+  await mintTestUsdc(MOCK_WALLET_ADDRESS, 21_000_000n, FORK);
+  await setMonBalance(MOCK_WALLET_ADDRESS, 10n ** 19n, FORK);
+
+  // Add credits from the app: one transfer from the wallet to the funding address (Phase 2 tuning).
+  const addCredits = card.getByTestId("add-credits");
+  await expect(addCredits).toContainText("In your wallet: 21", { timeout: 30_000 });
+  await addCredits.getByLabel("Amount (USDC)").fill("1");
+  await addCredits.getByRole("button", { name: "Add credits" }).click();
+  await expect(addCredits.getByTestId("wallet-action-status")).toContainText("Credited 1 USDC.", {
+    timeout: 120_000,
+  });
+  await expect(addCredits).toContainText("1.00 of 50.00 USDC");
   const funding = await db
     .selectFrom("platform.funding_addresses")
     .select("address")
     .where("agent_id", "=", Number(id))
     .executeTakeFirstOrThrow();
-  await mintTestUsdc(funding.address, 1_000_000n, FORK);
+  // The sender is recorded as the contributor (D-242).
+  const contribution = await db
+    .selectFrom("indexer.usdc_transfers")
+    .select(["from_address", "value"])
+    .where("agent_id", "=", Number(id))
+    .where("account", "=", "funding")
+    .where("direction", "=", "in")
+    .executeTakeFirstOrThrow();
+  expect(contribution).toEqual({
+    from_address: MOCK_WALLET_ADDRESS.toLowerCase(),
+    value: "1000000",
+  });
+  expect(funding.address).toMatch(/^0x[0-9a-f]{40}$/);
+  // Credited, the agent can run again.
   await expect(card.getByText("Ready", { exact: true })).toBeVisible({ timeout: 120_000 });
   await expect(card.getByTestId("trading-summary")).toContainText("No trading account yet", {
     timeout: 30_000,
@@ -98,10 +125,6 @@ test("an owner opens an account, deposits, arms, sees a trade settle and one exp
   });
   expect(allow.status, allow.stderr).toBe(0);
   expect(allow.stdout).toContain("can now open a trading account");
-
-  // Test USDC in the wallet, as the console's Test funds page sends it, and MON for gas.
-  await mintTestUsdc(MOCK_WALLET_ADDRESS, 20_000_000n, FORK);
-  await setMonBalance(MOCK_WALLET_ADDRESS, 10n ** 19n, FORK);
 
   // Open the account from the wallet.
   await expect(main(page).getByTestId("allowlist-block")).toHaveCount(0, { timeout: 30_000 });
@@ -136,6 +159,15 @@ test("an owner opens an account, deposits, arms, sees a trade settle and one exp
   await expect(settled).toContainText("Got");
   await expect(settled).toContainText(/0x[0-9a-f]{64}/);
   await expect(main(page).getByTestId("positions")).toContainText("WMON");
+  // The settled trade's value snapshot is recorded for W-3's charts (Phase 2 tuning).
+  const snapshot = await db
+    .selectFrom("platform.account_snapshots")
+    .select(["reason", "usdc_e6", "wmon_wei", "mode", "value_usdc_e6"])
+    .where("agent_id", "=", Number(id))
+    .where("reason", "=", "trade")
+    .executeTakeFirst();
+  expect(snapshot?.mode).toBe("NORMAL");
+  expect(BigInt(snapshot?.wmon_wei ?? "0")).toBeGreaterThan(0n);
 
   // A proposal over the trade size limit is refused at submission and explained.
   await orchestrator(`/v1/agents/${id}/test-over-limit`);
