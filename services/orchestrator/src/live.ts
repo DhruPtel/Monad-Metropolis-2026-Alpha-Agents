@@ -911,15 +911,16 @@ async function main(): Promise<number> {
         outbox.ledger_entry_id !== null,
       `${settled?.status ?? "none"} ${settled?.amountOut?.amount ?? ""} ${outbox?.status ?? ""}`,
     );
-    const tradeEntry = intent
-      ? await waitFor("the trade's activity entry", 60_000, async () =>
-          t.db
-            .selectFrom("platform.activity_entries")
-            .selectAll()
-            .where("task_id", "=", `${intent.intentId}:trade`)
-            .executeTakeFirst(),
-        )
-      : undefined;
+    const tradeEntry =
+      intent && settled?.status === "reconciled"
+        ? await waitFor("the trade's activity entry", 60_000, async () =>
+            t.db
+              .selectFrom("platform.activity_entries")
+              .selectAll()
+              .where("task_id", "=", `${intent.intentId}:trade`)
+              .executeTakeFirst(),
+          )
+        : undefined;
     const armedEntry = await t.db
       .selectFrom("platform.activity_entries")
       .select(["text", "kind"])
