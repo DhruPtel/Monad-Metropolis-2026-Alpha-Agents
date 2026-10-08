@@ -48,6 +48,7 @@
     "deploy:agent-nft": "node scripts/deploy-agent-nft.js",
     "agent-nft:local": "node scripts/agent-nft-local.js",
     "deploy:account-factory": "node scripts/deploy-account-factory.js",
+    "deploy:testnet": "node scripts/deploy-testnet.js",
     "custody:local": "node scripts/custody-local.js",
     "custody:allow": "node scripts/allow-depositor.js",
     "oracle:local": "node scripts/oracle-local.js",

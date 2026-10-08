@@ -303,6 +303,17 @@ export const VARIABLES = [
     example: "0x0000000000000000000000000000000000000000000000000000000000000000",
   },
   {
+    name: "TESTNET_TEST_WALLET_PRIVATE_KEY",
+    group: "Testnet keys",
+    description:
+      "A throwaway owner wallet for P2-EC's end-to-end run on testnet (mint, deposit, arm, trade, withdraw); never an app or platform key",
+    secret: true,
+    firstUsedBy: "P2-EC",
+    environments: ["testnet"],
+    ...privateKey,
+    example: "0x0000000000000000000000000000000000000000000000000000000000000000",
+  },
+  {
     name: "TESTNET_ADMIN_SAFE_ADDRESS",
     group: "Testnet keys",
     description: "Admin multisig (Safe) on Monad testnet",
