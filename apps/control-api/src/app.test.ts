@@ -1,7 +1,15 @@
 import { ENVIRONMENTS } from "@alpha-agents/config";
 import { createTestDatabase, databaseAvailable, type TestDatabase } from "@alpha-agents/db/testing";
 import { CLAIM_TYPES, SPECIES, claimDomain } from "@alpha-agents/domain";
-import { type Address, type Hex, getAddress, verifyTypedData } from "viem";
+import type { AgentChainView } from "@alpha-agents/trading";
+import {
+  type Address,
+  type Hex,
+  decodeFunctionData,
+  getAddress,
+  parseAbi,
+  verifyTypedData,
+} from "viem";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { type ApiDeps, createApp } from "./app.ts";
@@ -650,6 +658,188 @@ describe.skipIf(!available)("the control API (needs pnpm dev:up for Postgres)", 
         chain.owners.set(2n, { owner: CAROL, epoch: 3n });
         expect((await json(await summary(2, session))).error).toBe("session_stale");
         expect((await json(await scan(2, session))).error).toBe("session_stale");
+      });
+    });
+
+    describe("the trade flow (P2-U6)", () => {
+      const FUNDING = getAddress("0x00000000000000000000000000000000000f00d2");
+      const EXECUTOR = "0x00000000000000000000000000000000000e0ec0" as Address;
+      const views = new Map<number, AgentChainView>();
+      const trading = {
+        executor: EXECUTOR,
+        reader: { agent: async (id: number) => views.get(id) ?? null },
+      };
+      const owner = (session: string, path: string, method = "GET") =>
+        call(path, { method, headers: { "x-owner-session": session } }, { trading });
+      const bobSession = async () => (await json(await start(2, "bob-token"))).token as string;
+      const grant = (over: Partial<NonNullable<AgentChainView["grant"]>> = {}) => {
+        views.set(2, {
+          owner: BOB,
+          ownerEpoch: 2n,
+          configEpoch: 0n,
+          timestamp: BigInt(Math.floor(now / 1000)),
+          grant: {
+            key: FUNDING,
+            ownerEpoch: 2n,
+            configEpoch: 0n,
+            validUntil: BigInt(Math.floor(now / 1000) + 29 * 86_400),
+            ...over,
+          },
+        });
+      };
+      let n = 0;
+      async function intent() {
+        n += 1;
+        const id = `intent-00000000-0000-4000-8000-${n.toString().padStart(12, "0")}`;
+        await t.db
+          .insertInto("platform.intents")
+          .values({
+            intent_id: id,
+            chain_id: env.chainId,
+            agent_id: 2,
+            lease_id: "lease-1",
+            kind: "swap",
+            sell: "USDC",
+            buy: "WMON",
+            amount_in: "5000000",
+            reason: "test",
+            idempotency_key: `k-${n}`,
+            status: "awaiting_approval",
+            reason_codes: "[]",
+            checks: "{}",
+            owner_epoch: "2",
+            config_epoch: "0",
+            expires_at: new Date(now + 1_800_000),
+          })
+          .execute();
+        return id;
+      }
+
+      beforeEach(async () => {
+        views.clear();
+        await t.db.deleteFrom("platform.intents").execute();
+        await t.db.deleteFrom("platform.arming").execute();
+        await t.db
+          .insertInto("platform.funding_addresses")
+          .values({
+            chain_id: env.chainId,
+            agent_id: 2,
+            address: FUNDING.toLowerCase(),
+            derivation_path: "m/44'/60'/0'/0/2",
+          })
+          .execute();
+      });
+
+      it("gives the owner the arming state and the wallet call that grants the funding address 30 days at most", async () => {
+        const session = await bobSession();
+        const res = await owner(session, "/v1/agents/2/arming");
+        expect(res.status).toBe(200);
+        const body = await json(res);
+        expect(body).toMatchObject({
+          arming: { state: "unarmed", ended: null },
+          fundingAddress: FUNDING,
+          maxGrantDays: 30,
+          grantCall: { to: EXECUTOR, value: "0" },
+        });
+        const call = body.grantCall as { data: Hex };
+        const decoded = decodeFunctionData({
+          abi: parseAbi(["function registerSession(uint256 agentId, address key, uint64 validUntil)"]),
+          data: call.data,
+        });
+        expect(decoded.args[0]).toBe(2n);
+        expect(decoded.args[1]).toBe(FUNDING);
+        expect(decoded.args[2]).toBeLessThanOrEqual(BigInt(Math.floor(now / 1000) + 30 * 86_400));
+      });
+
+      it("records the arming only for a valid grant on chain, and renews it in place", async () => {
+        const session = await bobSession();
+        grant();
+        const view = views.get(2);
+        if (view) views.set(2, { ...view, grant: null });
+        const none = await owner(session, "/v1/agents/2/arming", "POST");
+        expect([none.status, (await json(none)).error]).toEqual([409, "grant_invalid"]);
+        grant({ key: BOB });
+        const other = await json(await owner(session, "/v1/agents/2/arming", "POST"));
+        expect(other).toMatchObject({ error: "grant_invalid", message: expect.stringMatching(/different key/) });
+        grant();
+        const res = await owner(session, "/v1/agents/2/arming", "POST");
+        expect(res.status).toBe(201);
+        expect(await json(res)).toMatchObject({ arming: { state: "awaiting_first_trade" } });
+        grant({ validUntil: BigInt(Math.floor(now / 1000) + 29 * 86_400 + 60) });
+        const again = await owner(session, "/v1/agents/2/arming", "POST");
+        expect([again.status, (await json(again)).renewed]).toEqual([200, true]);
+      });
+
+      it("approves a waiting intent only once armed by a grant, and the first approval arms the agent", async () => {
+        const session = await bobSession();
+        const id = await intent();
+        const early = await owner(session, `/v1/agents/2/intents/${id}/approve`, "POST");
+        expect([early.status, (await json(early)).error]).toEqual([409, "not_armed"]);
+        grant();
+        await owner(session, "/v1/agents/2/arming", "POST");
+        const ok = await owner(session, `/v1/agents/2/intents/${id}/approve`, "POST");
+        expect(ok.status).toBe(200);
+        expect(await json(ok)).toMatchObject({ armed: true, intent: { status: "approved", approvedBy: "owner" } });
+        const twice = await owner(session, `/v1/agents/2/intents/${id}/approve`, "POST");
+        expect([twice.status, (await json(twice)).error]).toEqual([409, "not_waiting"]);
+        const listed = await json(await owner(session, "/v1/agents/2/intents"));
+        expect(listed.intents).toEqual([
+          expect.objectContaining({ intentId: id, status: "approved", sell: expect.objectContaining({ amount: "5" }) }),
+        ]);
+        expect((await json(await owner(session, "/v1/agents/2/arming"))).arming).toMatchObject({
+          state: "armed",
+          firstIntentId: id,
+        });
+      });
+
+      it("disarms at once and hands back the revoke call for the owner's wallet", async () => {
+        const session = await bobSession();
+        grant();
+        await owner(session, "/v1/agents/2/arming", "POST");
+        const res = await json(await owner(session, "/v1/agents/2/disarm", "POST"));
+        expect(res).toMatchObject({
+          disarmed: true,
+          arming: { state: "unarmed", ended: { reason: "disarmed" } },
+          revokeCall: { to: EXECUTOR },
+        });
+        const decoded = decodeFunctionData({
+          abi: parseAbi(["function revokeSession(uint256 agentId)"]),
+          data: (res.revokeCall as { data: Hex }).data,
+        });
+        expect(decoded).toMatchObject({ functionName: "revokeSession", args: [2n] });
+      });
+
+      it("refuses every owner route to another wallet and to a stale session", async () => {
+        const alice = (await json(await start(1, "alice-token"))).token as string;
+        const id = await intent();
+        for (const [path, method] of [
+          ["/v1/agents/2/arming", "GET"],
+          ["/v1/agents/2/arming", "POST"],
+          ["/v1/agents/2/disarm", "POST"],
+          ["/v1/agents/2/intents", "GET"],
+          [`/v1/agents/2/intents/${id}/approve`, "POST"],
+        ] as const) {
+          const res = await owner(alice, path, method);
+          expect([res.status, (await json(res)).error], path).toEqual([403, "not_owner"]);
+          const none = await call(path, { method }, { trading });
+          expect(none.status, path).toBe(401);
+        }
+        const session = await bobSession();
+        chain.owners.set(2n, { owner: CAROL, epoch: 3n });
+        const stale = await owner(session, `/v1/agents/2/intents/${id}/approve`, "POST");
+        expect((await json(stale)).error).toBe("session_stale");
+        expect((await t.db.selectFrom("platform.intents").select("status").executeTakeFirst())?.status).toBe(
+          "awaiting_approval",
+        );
+      });
+
+      it("says publicly why the agent did not trade", async () => {
+        const res = await call("/v1/agents/2/why-not-traded");
+        expect(res.status).toBe(200);
+        expect(await json(res)).toMatchObject({
+          armingState: "unarmed",
+          reasons: [expect.objectContaining({ code: "NOT_ARMED", clears: "by_the_owner" })],
+        });
       });
     });
 

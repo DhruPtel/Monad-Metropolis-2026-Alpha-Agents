@@ -5,6 +5,18 @@ import type { AgentNftDeployment } from "@alpha-agents/domain";
 import { type Context, Hono } from "hono";
 import { cors } from "hono/cors";
 import { type Address, type Hex, getAddress, isAddress, isAddressEqual } from "viem";
+import {
+  type AgentViewReader,
+  TradeStore,
+  approveByOwner,
+  armingJson,
+  confirmArming,
+  disarm,
+  intentJson,
+  registerCall,
+  revokeCall,
+  MAX_GRANT_SECONDS,
+} from "@alpha-agents/trading";
 import { TtlCache } from "./cache.ts";
 import type { ChainReader } from "./chain.ts";
 import { type ClaimSigner, ELIGIBILITY_MESSAGES, type Eligibility, signClaim } from "./claims.ts";
@@ -52,6 +64,11 @@ export interface ApiDeps {
   readonly randomNonce: () => Hex;
   /** How long index reads are cached. */
   readonly cacheMs?: number;
+  /**
+   * P2-U6: fresh reads of the agent's grant and epochs, and the Executor the
+   * owner's wallet calls; null where the trading contracts are not deployed.
+   */
+  readonly trading?: { readonly reader: AgentViewReader; readonly executor: Hex } | null;
 }
 
 export type ApiError =
@@ -69,6 +86,10 @@ export type ApiError =
   | "not_provisioned"
   | "credits_low"
   | "scan_open"
+  | "not_armed"
+  | "not_waiting"
+  | "grant_invalid"
+  | "no_funding_address"
   | Eligibility;
 
 const fail = (c: Context, status: number, error: ApiError, message: string) =>
@@ -386,6 +407,133 @@ export function createApp(deps: ApiDeps): Hono {
       scan_open: `Agent #${agentId} already has a Scan queued or running.`,
     }[result.refused];
     return fail(c, 409, result.refused, message);
+  });
+
+  // --- The trade flow (P2-U6) ----------------------------------------------
+
+  const trades = new TradeStore(deps.db, () => new Date(deps.now()));
+  const REFUSAL_STATUS = {
+    NOT_FOUND: [404, "not_found"],
+    NOT_ARMED: [409, "not_armed"],
+    NOT_WAITING: [409, "not_waiting"],
+    GRANT_INVALID: [409, "grant_invalid"],
+    NO_FUNDING_ADDRESS: [409, "no_funding_address"],
+  } as const;
+  const refused = (c: Context, r: { code: keyof typeof REFUSAL_STATUS; message: string }) =>
+    fail(c, REFUSAL_STATUS[r.code][0], REFUSAL_STATUS[r.code][1], r.message);
+
+  async function fundingAddressOf(agentId: number): Promise<Hex | null> {
+    const row = await deps.db
+      .selectFrom("platform.funding_addresses")
+      .select("address")
+      .where("chain_id", "=", chainId)
+      .where("agent_id", "=", agentId)
+      .executeTakeFirst();
+    return row ? getAddress(row.address) : null;
+  }
+
+  /**
+   * The agent's arming for its owner, and the wallet call that arms it: a
+   * session grant to the agent's funding address for at most 30 days.
+   */
+  app.get("/v1/agents/:id{[0-9]+}/arming", async (c) => {
+    const agentId = BigInt(c.req.param("id"));
+    const owner = await ownerOnly(c, agentId);
+    if (owner instanceof Response) return owner;
+    const id = Number(agentId);
+    const funding = await fundingAddressOf(id);
+    const t = deps.trading;
+    const validUntil = BigInt(nowSeconds() + MAX_GRANT_SECONDS - 60);
+    return c.json({
+      ...(await meta()),
+      agentId: agentId.toString(),
+      arming: armingJson(await trades.lastArming(chainId, id), nowSeconds()),
+      fundingAddress: funding,
+      grantCall: t && funding ? registerCall(t.executor, id, funding, validUntil) : null,
+      maxGrantDays: MAX_GRANT_SECONDS / 86_400,
+    });
+  });
+
+  /** The owner's wallet registered the grant: check it on chain and record the arming. */
+  app.post("/v1/agents/:id{[0-9]+}/arming", async (c) => {
+    const agentId = BigInt(c.req.param("id"));
+    const owner = await ownerOnly(c, agentId);
+    if (owner instanceof Response) return owner;
+    const t = deps.trading;
+    if (!t)
+      return fail(c, 503, "not_deployed", `Trading is not deployed on ${deps.environment.label}.`);
+    const id = Number(agentId);
+    const r = await confirmArming(trades, await t.reader.agent(id), {
+      chainId,
+      agentId: id,
+      owner: owner.wallet,
+      fundingAddress: await fundingAddressOf(id),
+    });
+    if (!r.ok) return refused(c, r);
+    return c.json(
+      {
+        agentId: agentId.toString(),
+        renewed: r.renewed,
+        arming: armingJson(r.record, nowSeconds()),
+      },
+      r.renewed ? 200 : 201,
+    );
+  });
+
+  /**
+   * The owner disarms the agent: arming ends now, and the answer carries the
+   * wallet call that revokes the grant on chain.
+   */
+  app.post("/v1/agents/:id{[0-9]+}/disarm", async (c) => {
+    const agentId = BigInt(c.req.param("id"));
+    const owner = await ownerOnly(c, agentId);
+    if (owner instanceof Response) return owner;
+    const id = Number(agentId);
+    const ended = await disarm(trades, chainId, id);
+    return c.json({
+      agentId: agentId.toString(),
+      disarmed: ended !== null,
+      arming: armingJson(ended ?? (await trades.lastArming(chainId, id)), nowSeconds()),
+      revokeCall: deps.trading ? revokeCall(deps.trading.executor, id) : null,
+    });
+  });
+
+  /** The agent's intents for its owner, newest first, with every state and reason. */
+  app.get("/v1/agents/:id{[0-9]+}/intents", async (c) => {
+    const agentId = BigInt(c.req.param("id"));
+    const owner = await ownerOnly(c, agentId);
+    if (owner instanceof Response) return owner;
+    const intents = await trades.intents(chainId, Number(agentId), 50);
+    return c.json({
+      ...(await meta()),
+      agentId: agentId.toString(),
+      intents: intents.map(intentJson),
+    });
+  });
+
+  /** The owner approves one waiting intent; the first approval after the grant arms the agent. */
+  app.post("/v1/agents/:id{[0-9]+}/intents/:intentId{intent-[0-9a-f-]{36}}/approve", async (c) => {
+    const agentId = BigInt(c.req.param("id"));
+    const owner = await ownerOnly(c, agentId);
+    if (owner instanceof Response) return owner;
+    const r = await approveByOwner(trades, chainId, Number(agentId), c.req.param("intentId"));
+    if (!r.ok) return refused(c, r);
+    return c.json({
+      agentId: agentId.toString(),
+      intent: intentJson(r.intent),
+      armed: r.armed !== null,
+    });
+  });
+
+  /**
+   * Why the agent did not trade: whether it is armed (and why arming ended),
+   * and every reason its recent trades were blocked, with when each may
+   * clear. Public, like the activity feed.
+   */
+  app.get("/v1/agents/:id{[0-9]+}/why-not-traded", async (c) => {
+    const agentId = Number(c.req.param("id"));
+    const why = await trades.whyNotTraded(chainId, agentId);
+    return c.json({ ...(await meta()), agentId: String(agentId), ...why });
   });
 
   // --- Mint eligibility and claims (D-198) ---------------------------------

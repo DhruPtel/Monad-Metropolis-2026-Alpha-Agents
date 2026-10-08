@@ -4,10 +4,11 @@ import { fileURLToPath } from "node:url";
 import { serve } from "@hono/node-server";
 import { ConfigError, assertChainId, loadConfig, type Secret } from "@alpha-agents/config";
 import { createDb, migrateToLatest } from "@alpha-agents/db";
-import { AGENT_NFT_ABI, agentNftDeployment } from "@alpha-agents/domain";
+import { AGENT_NFT_ABI, addressEntry, agentNftDeployment } from "@alpha-agents/domain";
 import { createPublicClient, http, isAddressEqual, type Hex } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { createApp } from "./app.ts";
+import { rpcAgentViewReader } from "@alpha-agents/trading";
 import { rpcChainReader } from "./chain.ts";
 import { MOCK_IDENTITY_FLAG, mockIdentity, privyIdentity } from "./identity.ts";
 
@@ -63,6 +64,18 @@ const signer = values.CLAIM_SIGNER_PRIVATE_KEY
 const deployment = agentNftDeployment(env.id);
 const rpcUrl = config.rpcUrl?.reveal();
 const chain = deployment && rpcUrl ? rpcChainReader(rpcUrl, deployment.address) : null;
+// P2-U6: the Executor the owner's wallet registers and revokes grants with, where it is deployed.
+const executorEntry = addressEntry(env.id, "executor");
+const trading =
+  deployment && rpcUrl && executorEntry.status === "verified"
+    ? {
+        executor: executorEntry.address as Hex,
+        reader: rpcAgentViewReader(rpcUrl, {
+          agentNft: deployment.address,
+          executor: executorEntry.address as Hex,
+        }),
+      }
+    : null;
 if (rpcUrl) {
   const client = createPublicClient({ transport: http(rpcUrl) });
   try {
@@ -100,6 +113,7 @@ const app = createApp({
   environment: env,
   deployment,
   chain,
+  trading,
   identity,
   signer,
   sessionSecret,
