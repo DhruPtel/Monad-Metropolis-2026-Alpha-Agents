@@ -1,5 +1,6 @@
 export * from "./checks.ts";
 export * from "./fixtures.ts";
+export * from "./goals.ts";
 export * from "./limits.ts";
 export * from "./oracle.ts";
 export * from "./state.ts";
