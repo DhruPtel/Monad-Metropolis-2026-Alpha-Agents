@@ -492,11 +492,7 @@ export function PortfolioPage({
           </CardContent>
         </Card>
       ) : null}
-      <Card data-testid="portfolio-holdings">
-        <CardContent className="pt-6">
-          <AgentHoldings agentId={agentId} environment={environment} />
-        </CardContent>
-      </Card>
+      <AgentHoldings agentId={agentId} environment={environment} card />
       {p.account ? (
         <>
           <ArmingCard

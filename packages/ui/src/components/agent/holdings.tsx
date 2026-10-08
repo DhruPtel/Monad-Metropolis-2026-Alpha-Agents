@@ -36,6 +36,12 @@ export interface HoldingAddress {
   /** Null when it does not exist yet. */
   readonly address: string | null;
   readonly lines: readonly HoldingLine[];
+  /** Moves that finished and whose balance has since left this address, kept so their outcome stays shown. */
+  readonly moved?: readonly {
+    readonly symbol: string;
+    readonly text: string;
+    readonly hash?: string | null;
+  }[];
 }
 
 const ROLE_TEXT: Readonly<
@@ -198,6 +204,14 @@ export function HoldingsPanel({
                   ))}
                 </ul>
               )}
+              {a.moved?.map((m) => (
+                <WalletActionStatus
+                  key={m.symbol}
+                  state="confirmed"
+                  text={m.text}
+                  hash={m.hash ?? null}
+                />
+              ))}
             </li>
           );
         })}

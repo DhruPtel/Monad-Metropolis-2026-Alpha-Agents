@@ -10,7 +10,7 @@ import {
   decodeFunctionData,
   parseAbi,
 } from "viem";
-import { type HoldingsJson, tradingApi } from "@/api/client";
+import { ApiError, type HoldingsJson, tradingApi } from "@/api/client";
 import { useWalletSession } from "@/auth/session";
 import { useOwnerSession } from "./use-owner-session";
 import { useWalletTx } from "./use-wallet-tx";
@@ -44,6 +44,15 @@ export function holdingAddresses(
         ...(move ? { move } : {}),
       };
     }),
+    // A finished move whose balance is gone from the re-read keeps its outcome on the address.
+    moved: Object.entries(moves).flatMap(([key, m]) => {
+      const [role, symbol = ""] = key.split(":");
+      return role === a.role &&
+        m.state === "confirmed" &&
+        !a.holdings.some((h) => h.symbol === symbol)
+        ? [{ symbol, text: m.text, hash: m.hash ?? null }]
+        : [];
+    }),
   }));
 }
 
@@ -70,6 +79,8 @@ export function useHoldings(agentId: bigint, environment: EnvironmentId) {
   const { client, checkNetwork, waitForReceipt } = useWalletTx(environment);
   const [json, setJson] = useState<HoldingsJson | null>(null);
   const [error, setError] = useState<string | null>(null);
+  /** No holdings reader in this environment (503 not_deployed): there is nothing to show. */
+  const [unavailable, setUnavailable] = useState(false);
   const [moves, setMoves] = useState<Record<string, MoveStatus>>({});
   const [tick, setTick] = useState(0);
   const running = useRef(false);
@@ -95,8 +106,13 @@ export function useHoldings(agentId: bigint, environment: EnvironmentId) {
         if (!live) return;
         setJson(j);
         setError(null);
+        setUnavailable(false);
       },
-      () => live && setError("Could not read this agent's holdings. Try again in a moment."),
+      (err: unknown) => {
+        if (!live) return;
+        if (err instanceof ApiError && err.code === "not_deployed") setUnavailable(true);
+        else setError("Could not read this agent's holdings. Try again in a moment.");
+      },
     );
     const timer = window.setTimeout(() => setTick((n) => n + 1), HOLDINGS_POLL_MS);
     return () => {
@@ -120,7 +136,7 @@ export function useHoldings(agentId: bigint, environment: EnvironmentId) {
           ...m,
           [key]: {
             state: p.state,
-            text: p.state === "confirmed" ? `Moved to your wallet.` : walletTxText(p),
+            text: p.state === "confirmed" ? `Moved ${symbol} to your wallet.` : walletTxText(p),
             hash: p.hash ?? null,
           },
         }));
@@ -155,6 +171,7 @@ export function useHoldings(agentId: bigint, environment: EnvironmentId) {
   return {
     addresses: json ? holdingAddresses(json, moves) : null,
     error,
+    unavailable,
     network: wallet.target.name,
     move,
   };

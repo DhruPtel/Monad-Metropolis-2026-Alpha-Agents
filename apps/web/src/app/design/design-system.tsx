@@ -695,7 +695,7 @@ function AgentSection() {
       </Specimen>
       <Specimen
         name="All holdings"
-        note="Every balance at each of an agent's addresses, named in plain words, with what it does there. What does nothing where it sits says so, and the owner can move it to their wallet when they can sign for it: waiting in the wallet, declined, or the platform-only and stuck cases with no move."
+        note="Every balance at each of an agent's addresses, named in plain words, with what it does there. What does nothing where it sits says so, and the owner can move it to their wallet when they can sign for it: waiting in the wallet, declined, a finished move whose balance has left, or the platform-only and stuck cases with no move."
       >
         <div className="grid gap-4 lg:grid-cols-2" data-testid="holdings-specimens">
           <HoldingsPanel
@@ -779,7 +779,12 @@ function AgentSection() {
                   },
                 ],
               },
-              { role: "token_bound", address: AGENT_WALLET, lines: [] },
+              {
+                role: "token_bound",
+                address: AGENT_WALLET,
+                lines: [],
+                moved: [{ symbol: "MON", text: "Moved MON to your wallet.", hash: null }],
+              },
               {
                 role: "personal_account",
                 address: null,

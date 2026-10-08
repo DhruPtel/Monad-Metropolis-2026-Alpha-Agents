@@ -60,7 +60,26 @@ describe("All holdings in the app (D-315)", () => {
       raw: 3n * 10n ** 18n,
       move: { state: "waiting-wallet" },
     });
-    expect(view[2]).toEqual({ role: "personal_account", address: null, lines: [] });
+    expect(view[2]).toEqual({ role: "personal_account", address: null, lines: [], moved: [] });
+  });
+
+  it("keeps a finished move's outcome on its address once the balance is gone from the re-read", () => {
+    const after = {
+      ...JSON_2,
+      addresses: JSON_2.addresses.map((a) =>
+        a.role === "token_bound"
+          ? { ...a, holdings: a.holdings.filter((h) => h.symbol !== "MON") }
+          : a,
+      ),
+    };
+    const view = holdingAddresses(after, {
+      "token_bound:MON": { state: "confirmed", text: "Moved MON to your wallet.", hash: "0xab" },
+    });
+    expect(view[1]?.lines.some((l) => l.symbol === "MON")).toBe(false);
+    expect(view[1]?.moved).toEqual([
+      { symbol: "MON", text: "Moved MON to your wallet.", hash: "0xab" },
+    ]);
+    expect(view[0]?.moved).toEqual([]);
   });
 
   it("names only the token-bound account's own refusal, and leaves other errors to the wallet's words", () => {

@@ -98,4 +98,21 @@ describe("HoldingsPanel (D-315)", () => {
     for (const b of within(container).getAllByRole("button", { name: /Move/ }))
       expect(b).toBeDisabled();
   });
+
+  it("keeps a finished move's outcome on its address after the balance has left", () => {
+    const after: HoldingAddress[] = [
+      {
+        role: "token_bound",
+        address: "0x487ff500699226631e477F54eaeF41537a5eccAA",
+        lines: [],
+        moved: [{ symbol: "MON", text: "Moved MON to your wallet.", hash: null }],
+      },
+    ];
+    render(<HoldingsPanel addresses={after} network="Monad Testnet" />);
+    const tba = screen.getByTestId("holdings-token_bound");
+    expect(within(tba).getByText("Holds nothing.")).toBeVisible();
+    expect(within(tba).getByTestId("wallet-action-status")).toHaveTextContent(
+      "Moved MON to your wallet.",
+    );
+  });
 });
