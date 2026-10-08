@@ -143,7 +143,7 @@ function Line({
 }
 
 /** Every balance at an agent's addresses, with stranded funds explained and, where possible, movable. */
-export function HoldingsPanel({
+function HoldingsPanel({
   addresses,
   network,
   onMove,
@@ -219,3 +219,5 @@ export function HoldingsPanel({
     </section>
   );
 }
+
+export { HoldingsPanel };
