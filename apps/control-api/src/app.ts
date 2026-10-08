@@ -14,6 +14,8 @@ import {
   TradeStore,
   approveByOwner,
   armingJson,
+  type HoldingsReader,
+  holdingsJson,
   type PortfolioReader,
   portfolioJson,
   rejectByOwner,
@@ -75,6 +77,8 @@ export interface ApiDeps {
    * refresher on the fork, Chainlink on mainnet).
    */
   readonly freshPrices?: () => Promise<{ redated: unknown[]; error: string | null }>;
+  /** D-315: every balance at the agent's addresses; null where AgentNFT is not deployed. */
+  readonly holdings?: HoldingsReader | null;
   /** How long index reads are cached. */
   readonly cacheMs?: number;
   /**
@@ -595,6 +599,26 @@ export function createApp(deps: ApiDeps): Hono {
    * needed and nothing is sent. Owner only, so no one else can spend the
    * feed key's gas.
    */
+  /**
+   * D-315: everything the agent holds at its funding address, token-bound
+   * account and PersonalAccount, what each balance does there, and for what
+   * does nothing in the token-bound account, the call the owner signs to move
+   * it to their wallet. Owner only, like the portfolio.
+   */
+  app.get("/v1/agents/:id{[0-9]+}/holdings", async (c) => {
+    const agentId = BigInt(c.req.param("id"));
+    const owner = await ownerOnly(c, agentId);
+    if (owner instanceof Response) return owner;
+    if (!deps.holdings)
+      return fail(c, 503, "not_deployed", `Agents are not deployed on ${deps.environment.label}.`);
+    const reading = await deps.holdings.holdings(
+      Number(agentId),
+      await fundingAddressOf(Number(agentId)),
+    );
+    if (!reading) return fail(c, 404, "not_found", `Agent #${agentId} does not exist.`);
+    return c.json({ ...(await meta()), holdings: holdingsJson(reading) });
+  });
+
   app.post("/v1/agents/:id{[0-9]+}/prices/fresh", async (c) => {
     const agentId = BigInt(c.req.param("id"));
     const owner = await ownerOnly(c, agentId);

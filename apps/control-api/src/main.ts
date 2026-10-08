@@ -8,7 +8,7 @@ import { AGENT_NFT_ABI, addressEntry, agentNftDeployment } from "@alpha-agents/d
 import { createPublicClient, http, isAddressEqual, type Hex } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { createApp } from "./app.ts";
-import { rpcAgentViewReader, rpcPortfolioReader } from "@alpha-agents/trading";
+import { rpcAgentViewReader, rpcHoldingsReader, rpcPortfolioReader } from "@alpha-agents/trading";
 import { rpcChainReader } from "./chain.ts";
 import { MOCK_IDENTITY_FLAG, mockIdentity, privyIdentity } from "./identity.ts";
 
@@ -85,6 +85,23 @@ function portfolioReader(agentNft: Hex, executor: Hex) {
   });
 }
 
+// D-315: every balance at an agent's addresses, for every token this environment's book knows.
+const holdingTokens = (["usdc", "wmon", "weth"] as const).flatMap((id) => {
+  const e = addressEntry(env.id, id);
+  return e.status === "verified" && e.verification.decimals !== undefined
+    ? [{ symbol: e.label, address: e.address as Hex, decimals: e.verification.decimals }]
+    : [];
+});
+const factoryEntry = addressEntry(env.id, "account_factory");
+const holdings =
+  deployment && rpcUrl
+    ? rpcHoldingsReader(rpcUrl, env.chainId, {
+        agentNft: deployment.address,
+        accountFactory: factoryEntry.status === "verified" ? (factoryEntry.address as Hex) : null,
+        tokens: holdingTokens,
+      })
+    : null;
+
 // P2-U6: the Executor the owner's wallet registers and revokes grants with, where it is deployed.
 const executorEntry = addressEntry(env.id, "executor");
 const trading =
@@ -142,6 +159,7 @@ const app = createApp({
   allowOrigin: (origin) => (env.id === "local" ? LOOPBACK.test(origin) : origin === publicUrl),
   now: () => Date.now(),
   randomNonce: () => `0x${randomBytes(32).toString("hex")}`,
+  holdings,
   // P2-EC (D-307): testnet's feeds are re-dated by the orchestrator, which holds the feed key.
   ...(env.id === "testnet" && values.ORCHESTRATOR_URL
     ? {

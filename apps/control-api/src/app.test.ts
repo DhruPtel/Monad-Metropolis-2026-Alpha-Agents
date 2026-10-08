@@ -939,6 +939,68 @@ describe.skipIf(!available)("the control API (needs pnpm dev:up for Postgres)", 
         expect([again.status, (await json(again)).error]).toEqual([409, "not_waiting"]);
       });
 
+      it("serves every balance at the agent's addresses to its owner only (D-315)", async () => {
+        const reads: number[] = [];
+        const holdings = {
+          holdings: async (id: number, funding: Hex | null) => {
+            reads.push(id);
+            return {
+              chainId: 10143,
+              block: 9n,
+              agentId: id,
+              owner: BOB,
+              addresses: [
+                { role: "funding" as const, address: funding, native: 1n, tokens: [] },
+                {
+                  role: "token_bound" as const,
+                  address: "0x487ff500699226631e477F54eaeF41537a5eccAA" as Hex,
+                  native: 3n * 10n ** 18n,
+                  tokens: [],
+                },
+                { role: "personal_account" as const, address: null, native: 0n, tokens: [] },
+              ],
+            };
+          },
+        };
+        const session = await bobSession();
+        const res = await call(
+          "/v1/agents/2/holdings",
+          { headers: { "x-owner-session": session } },
+          { trading, holdings },
+        );
+        expect(res.status).toBe(200);
+        const body = (await json(res)).holdings as {
+          addresses: {
+            role: string;
+            holdings: { symbol: string; status: string; recoverCall: unknown }[];
+          }[];
+        };
+        expect(body.addresses.map((a) => a.role)).toEqual([
+          "funding",
+          "token_bound",
+          "personal_account",
+        ]);
+        expect(body.addresses[1]?.holdings[0]).toMatchObject({ symbol: "MON", status: "movable" });
+        expect(body.addresses[1]?.holdings[0]?.recoverCall).toMatchObject({ value: "0" });
+        reads.length = 0;
+        const alice = (await json(await start(1, "alice-token"))).token as string;
+        for (const s of [alice, ""]) {
+          const other = await call(
+            "/v1/agents/2/holdings",
+            { headers: { "x-owner-session": s } },
+            { trading, holdings },
+          );
+          expect([401, 403]).toContain(other.status);
+        }
+        expect(reads).toEqual([]);
+        const off = await call(
+          "/v1/agents/2/holdings",
+          { headers: { "x-owner-session": session } },
+          { trading, holdings: null },
+        );
+        expect([off.status, (await json(off)).error]).toEqual([503, "not_deployed"]);
+      });
+
       it("asks for fresh prices before a deposit, for the owner only, where it is needed (P2-EC, D-307)", async () => {
         const session = await bobSession();
         const local = await owner(session, "/v1/agents/2/prices/fresh", "POST");
