@@ -795,7 +795,15 @@ async function main(): Promise<number> {
         (armed.body.arming as { state?: string } | undefined)?.state === "awaiting_first_trade",
       `${armed.status} ${JSON.stringify(armed.body).slice(0, 200)}`,
     );
-    const started = await api(`/v1/agents/${other}/tasks/chain-check`, { method: "POST" });
+    // The scheduler's Scans (15-second cadence here) may hold the agent's sandbox: retry
+    // until the chain check is accepted rather than waiting on a task that never started.
+    const started = await waitFor("the chain check to be accepted", 300_000, async () => {
+      const r = await api(`/v1/agents/${other}/tasks/chain-check`, { method: "POST" });
+      if (r.status === 202) return r;
+      if (r.body.error !== "lease_held") throw new Error(`chain check refused: ${r.status}`);
+      await new Promise((res) => setTimeout(res, 3_000));
+      return null;
+    });
     const task = await waitFor("the chain check", 600_000, async () => {
       const x = (await api(`/v1/tasks/${String(started.body.taskId)}`)).body as unknown as TaskView;
       return x.status === "succeeded" || x.status === "failed" ? x : null;
