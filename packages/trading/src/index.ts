@@ -6,3 +6,4 @@ export * from "./json.ts";
 export * from "./portfolio.ts";
 export * from "./holdings.ts";
 export * from "./snapshots.ts";
+export * from "./goals.ts";

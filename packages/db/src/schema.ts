@@ -276,6 +276,12 @@ export interface IntentTable {
   checks: ColumnType<Record<string, unknown>, string, string>;
   owner_epoch: ColumnType<string | null, string | number | null, string | number | null>;
   config_epoch: ColumnType<string | null, string | number | null, string | number | null>;
+  /** P3-U1: the strategy epoch the intent was proposed under; null before any goal (D-281). */
+  strategy_epoch: ColumnType<
+    string | null,
+    string | number | null | undefined,
+    string | number | null
+  >;
   tx_id: string | null;
   tx_hash: string | null;
   /** P2-U6: every blocker the checks gave, at proposal or at submission. */
@@ -292,6 +298,45 @@ export interface IntentTable {
   created_at: Timestamp;
   expires_at: ColumnType<Date, Date, Date>;
   updated_at: Timestamp;
+}
+
+export type AgentStateName = "UNCONFIGURED" | "READY" | "RUNNING" | "RESTRICTED" | "INCIDENT";
+
+/** P3-U1: one agent's offchain state (FINAL_PLAN 4.12) and its strategy epoch (D-281). */
+export interface AgentStateTable {
+  chain_id: number;
+  agent_id: number;
+  state: AgentStateName;
+  strategy_epoch: ColumnType<string, string | number | undefined, string | number>;
+  updated_at: Timestamp;
+}
+
+/** P3-U1: every change of an agent's state, with its reason. */
+export interface AgentStateChangeTable {
+  change_id: Generated<number>;
+  chain_id: number;
+  agent_id: number;
+  from_state: AgentStateName;
+  to_state: AgentStateName;
+  reason: string;
+  strategy_epoch: ColumnType<string, string | number, string | number>;
+  created_at: Timestamp;
+}
+
+/** P3-U1: every goal an owner saved; one current per agent. */
+export interface AgentGoalTable {
+  goal_id: string;
+  chain_id: number;
+  agent_id: number;
+  strategy_epoch: ColumnType<string, string | number, string | number>;
+  owner_epoch: ColumnType<string, string | number, string | number>;
+  saved_by: string;
+  goal: ColumnType<Record<string, unknown>, string, string>;
+  config: ColumnType<Record<string, unknown>, string, string>;
+  policy_hash: string;
+  soul_block: string;
+  current: boolean;
+  created_at: Timestamp;
 }
 
 /** One arming of an agent by its owner (P2-U6), from the session grant to its end. */
@@ -479,6 +524,9 @@ export interface Database {
   "platform.usage_receipts": UsageReceiptTable;
   "platform.intents": IntentTable;
   "platform.arming": ArmingTable;
+  "platform.agent_states": AgentStateTable;
+  "platform.agent_state_changes": AgentStateChangeTable;
+  "platform.agent_goals": AgentGoalTable;
   "platform.account_snapshots": AccountSnapshotTable;
   "platform.refunds": RefundTable;
   "platform.signer_keys": SignerKeyTable;

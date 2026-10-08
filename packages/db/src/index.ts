@@ -14,6 +14,7 @@ import * as chainTools from "./migrations/0010_chain_tools.ts";
 import * as tradeFlow from "./migrations/0011_trade_flow.ts";
 import * as accountSnapshots from "./migrations/0012_account_snapshots.ts";
 import * as canaryKeyProvider from "./migrations/0013_canary_key_provider.ts";
+import * as agentGoals from "./migrations/0014_agent_goals.ts";
 import type { Database } from "./schema.ts";
 
 export type * from "./schema.ts";
@@ -37,6 +38,7 @@ export const MIGRATIONS: Readonly<Record<string, Migration>> = {
   "0011_trade_flow": tradeFlow,
   "0012_account_snapshots": accountSnapshots,
   "0013_canary_key_provider": canaryKeyProvider,
+  "0014_agent_goals": agentGoals,
 };
 
 const INT8 = 20;
