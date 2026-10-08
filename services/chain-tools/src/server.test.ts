@@ -237,6 +237,19 @@ describe("chain tools server (P2-U5)", () => {
     expect(r).toMatchObject({ tradable: true, blockers: [] });
   });
 
+  it("tradable_now: a stale price that reads as zero blocks only as ORACLE_STALE, never as an invalid intent", async () => {
+    const { reader, call } = await start();
+    reader.market_ = {
+      ...reader.market_,
+      monUsd: { priceE18: 0n, updatedAt: NOW - 400n, reason: "STALE" },
+      tradableReason: "STALE",
+    };
+    const r = TradableOutput.parse(
+      (await call("tradable_now", { sell: "USDC", buy: "WMON", amount: "1" })).out,
+    );
+    expect(r.blockers.map((b) => b.code)).toEqual(["ORACLE_STALE"]);
+  });
+
   it("tradable_now: names every blocker at once, and when each clears", async () => {
     const { reader, call } = await start();
     const ages = Array.from({ length: 20 }, (_, k) => ({

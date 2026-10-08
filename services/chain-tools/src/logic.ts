@@ -211,12 +211,19 @@ export function limitsView(a: AgentState & { account: Hex }, m: MarketState): Li
   };
 }
 
-/** The intent a trade would carry if it were sent now: the oracle floor as minimum out, a fresh deadline. */
+/**
+ * The intent a trade would carry if it were sent now: the oracle floor as
+ * minimum out, a fresh deadline. With no usable price there is no floor; the
+ * trade flow would still send a positive minimum, so 1 stands in for it here
+ * and only the oracle rule blocks the trade (a zero would read as an invalid
+ * intent, which the Executor would never see).
+ */
 export function tradeNow(sell: AssetId, amountIn: bigint, m: MarketState): ExecutorTrade {
+  const floor = floorFor(sell, amountIn, m);
   return {
     tokenIn: sell,
     amountIn,
-    minAmountOut: floorFor(sell, amountIn, m),
+    minAmountOut: floor > 0n ? floor : 1n,
     deadline: m.timestamp + BigInt(m.policy.deadlineSeconds),
   };
 }
