@@ -7,6 +7,7 @@ import {
   SIGNER_REASON_CODES,
   SIGNER_REASON_MESSAGES,
   TRANSACTION_STATES,
+  INTENT_STATES,
 } from "@alpha-agents/domain";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -25,6 +26,7 @@ import {
   DISPLAY_FLAG_RENDERING,
   StatusPill,
   TRANSACTION_STATE_RENDERING,
+  INTENT_STATE_RENDERING,
 } from "./status-pill";
 import { Button } from "./ui/button";
 import { Field, Input } from "./ui/input";
@@ -71,6 +73,24 @@ describe("StatusPill renders every transaction state (P2-U4)", () => {
     expect(screen.getByText(TRANSACTION_STATE_RENDERING[state].label)).toHaveAttribute(
       "title",
       TRANSACTION_STATE_RENDERING[state].meaning,
+    );
+  });
+});
+
+describe("StatusPill renders every intent state (P2-U5)", () => {
+  it("has a rendering for each state; rejected and failed are red", () => {
+    expect(Object.keys(INTENT_STATE_RENDERING).sort()).toEqual([...INTENT_STATES].sort());
+    expect(INTENT_STATES.filter((s) => INTENT_STATE_RENDERING[s].tone === "negative")).toEqual([
+      "rejected",
+      "failed",
+    ]);
+  });
+
+  it.each(INTENT_STATES)("intent state %s", (state) => {
+    render(<StatusPill kind="intent" value={state} />);
+    expect(screen.getByText(INTENT_STATE_RENDERING[state].label)).toHaveAttribute(
+      "title",
+      INTENT_STATE_RENDERING[state].meaning,
     );
   });
 });

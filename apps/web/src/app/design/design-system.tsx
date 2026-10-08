@@ -7,6 +7,7 @@ import {
   REJECTION_CODES,
   SIGNER_REASON_CODES,
   TRANSACTION_STATES,
+  INTENT_STATES,
 } from "@alpha-agents/domain";
 import { Bot, Boxes, Copy, Eye, Radio, Users } from "lucide-react";
 import type { ReactNode } from "react";
@@ -1257,6 +1258,11 @@ function DataSection() {
           <State label="Transaction states">
             {TRANSACTION_STATES.map((state) => (
               <StatusPill key={state} kind="transaction" value={state} />
+            ))}
+          </State>
+          <State label="Intent states">
+            {INTENT_STATES.map((state) => (
+              <StatusPill key={state} kind="intent" value={state} />
             ))}
           </State>
         </div>

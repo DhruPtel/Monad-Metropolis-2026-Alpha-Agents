@@ -1,4 +1,10 @@
-import { ACCOUNT_MODES, ASSET_IDS, REJECTION_CODES } from "@alpha-agents/domain";
+import {
+  ACCOUNT_MODES,
+  ASSET_IDS,
+  INTENT_STATES,
+  type IntentState,
+  REJECTION_CODES,
+} from "@alpha-agents/domain";
 import { z } from "zod";
 
 /**
@@ -164,17 +170,9 @@ export const TradableOutput = z.strictObject({
 });
 export type TradableOutput = z.infer<typeof TradableOutput>;
 
-export const INTENT_STATUSES = [
-  "awaiting_approval",
-  "rejected",
-  "expired",
-  "approved",
-  "submitted",
-  "settled",
-  "failed",
-  "cancelled",
-] as const;
-export type IntentStatus = (typeof INTENT_STATUSES)[number];
+/** The intent states, from packages/domain (one list for the server, the store and the UI). */
+export const INTENT_STATUSES = INTENT_STATES;
+export type IntentStatus = IntentState;
 
 export const IntentOutput = z.strictObject({
   intentId: z.string(),

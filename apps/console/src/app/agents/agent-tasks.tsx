@@ -27,12 +27,13 @@ import {
   refundAgentAction,
   refundStatusAction,
   resetAgentAction,
+  runChainCheckAction,
   runNoopTaskAction,
   runScanAction,
   taskAction,
 } from "./actions";
 import type { TaskKind, TaskView } from "./extension";
-import { noopFields, scanFields } from "./task-fields";
+import { chainCheckFields, noopFields, scanFields } from "./task-fields";
 
 /**
  * The agents panel's controls (P1-U5): run the no-op task on one agent and
@@ -57,6 +58,22 @@ const TASK_TEXT: Record<TaskKind, { title: string; description: string }> = {
     description:
       "The agent searches the web and reads pages through the metered data tools, saves its notes, and ends with complete_stage; the narrator then writes its activity entry.",
   },
+  chain_check: {
+    title: "Chain check",
+    description:
+      "The agent reads its trading account, the prices and its limits through the chain tools, checks a small trade with tradable_now and proposes it; the proposal waits for approval and nothing is sent.",
+  },
+};
+
+const FIELDS: Record<TaskKind, typeof noopFields> = {
+  noop: noopFields,
+  scan: scanFields,
+  chain_check: chainCheckFields,
+};
+const RUN: Record<TaskKind, typeof runNoopTaskAction> = {
+  noop: runNoopTaskAction,
+  scan: runScanAction,
+  chain_check: runChainCheckAction,
 };
 
 const TasksContext = createContext<{ show: (s: Shown) => void } | null>(null);
@@ -84,7 +101,7 @@ export function AgentTasks({ children }: { children: ReactNode }) {
           title={`${TASK_TEXT[shown.kind].title}, ${shown.name}`}
           description={TASK_TEXT[shown.kind].description}
           status={shown.task.status}
-          fields={(shown.kind === "scan" ? scanFields : noopFields)(shown.task.result)}
+          fields={FIELDS[shown.kind](shown.task.result)}
           error={shown.task.error}
         />
       ) : null}
@@ -115,7 +132,7 @@ export function AgentActions({
 
   const runTask = (kind: TaskKind) =>
     start(async () => {
-      const r = await (kind === "scan" ? runScanAction : runNoopTaskAction)(agentId);
+      const r = await RUN[kind](agentId);
       if (!r.ok) {
         toast.error(`The ${TASK_TEXT[kind].title.toLowerCase()} did not start`, {
           description: r.error,
@@ -156,6 +173,14 @@ export function AgentActions({
         onClick={() => runTask("scan")}
       >
         Run Scan
+      </Button>
+      <Button
+        size="sm"
+        variant="secondary"
+        disabled={!ready || pending}
+        onClick={() => runTask("chain_check")}
+      >
+        Run chain check
       </Button>
       <Dialog>
         <DialogTrigger asChild>

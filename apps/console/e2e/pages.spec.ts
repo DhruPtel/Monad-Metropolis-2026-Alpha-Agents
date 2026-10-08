@@ -156,15 +156,15 @@ test.describe("agents panel controls (P1-U5)", () => {
     page,
   }) => {
     await expect(row(page, /^Alpha Agent #1$/)).toContainText(
-      "Agent #1 searched for Monad DEX volume",
+      "Agent #1 proposed selling 2.5 USDC for WMON",
     );
     const section = page.getByTestId("agent-activity");
     const feed = section.getByRole("list", { name: "Activity of Alpha Agent #1" });
-    await expect(feed.getByRole("listitem")).toHaveCount(2);
+    await expect(feed.getByRole("listitem")).toHaveCount(3);
     await expect(feed).toContainText("2026-10-06 16:42 UTC");
     await expect(feed).toContainText("Template");
     const calls = section.getByRole("region", { name: "Tool calls of Alpha Agent #1" });
-    await expect(calls.getByText("Answered")).toHaveCount(4);
+    await expect(calls.getByText("Answered")).toHaveCount(9);
     await expect(calls.getByText("Refused")).toHaveAttribute(
       "title",
       "Refused before it ran; not charged (PRIVATE_ADDRESS)",
@@ -189,6 +189,48 @@ test.describe("agents panel controls (P1-U5)", () => {
     await expect(result).toContainText("DONE, schema-valid");
     await expect(result).toContainText("WMON DEX_VOLUME_UP (55%)");
     await expect(result).toContainText("0.0120 USDC");
+  });
+
+  test("runs a chain check and shows its chain tool calls, the portfolio reading and the intents (P2-U5)", async ({
+    page,
+  }) => {
+    await expect(
+      row(page, /^Alpha Agent #2$/).getByRole("button", { name: "Run chain check" }),
+    ).toBeDisabled();
+    await row(page, /^Alpha Agent #1$/)
+      .getByRole("button", { name: "Run chain check" })
+      .click();
+    const result = page.getByTestId("task-result");
+    await expect(result).toHaveAttribute("data-task-status", "succeeded", { timeout: 10_000 });
+    await expect(result).toContainText("Chain check, Alpha Agent #1");
+    await expect(result).toContainText("Read every tool and proposed a swap");
+    await expect(result).toContainText("tradable_now ok");
+    await expect(result).toContainText("awaiting approval");
+    const chain = page.getByTestId("agent-chain");
+    await expect(chain.getByTestId("portfolio-reading")).toContainText("30.00");
+    await expect(chain.getByTestId("portfolio-reading")).toContainText("Normal");
+    const intents = chain.getByRole("region", { name: "Intents of Alpha Agent #1" });
+    await expect(intents.locator('tr[data-status="awaiting_approval"]')).toContainText(
+      "Passed every check",
+    );
+    await expect(intents.locator('tr[data-status="awaiting_approval"]')).toContainText(
+      "Awaiting approval",
+    );
+    await expect(intents.locator('tr[data-status="rejected"]')).toContainText(
+      "TRADE_SIZE_EXCEEDED",
+    );
+    await expect(intents.locator('tr[data-status="rejected"]')).toContainText("CONCENTRATION_CAP");
+    // The matching activity entry and the chain tool calls are on the same card.
+    await expect(page.getByRole("list", { name: "Activity of Alpha Agent #1" })).toContainText(
+      "waits for the owner's approval",
+    );
+    const calls = page.getByRole("region", { name: "Tool calls of Alpha Agent #1" });
+    await expect(calls).toContainText("propose_swap");
+    await expect(calls).toContainText("2.5 USDC to WMON");
+    const overflow = await intents.evaluate((el) => el.scrollWidth - el.clientWidth);
+    expect(overflow).toBeLessThanOrEqual(0);
+    await repaint(page);
+    await expect(chain).toHaveScreenshot("agents-chain.png");
   });
 
   test("steers a wallet's or a pending agent's reveal, and says which agent (D-221)", async ({

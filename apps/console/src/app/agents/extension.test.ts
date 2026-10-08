@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { noopFields, scanFields } from "./task-fields";
+import { chainCheckFields, noopFields, scanFields } from "./task-fields";
 import { apiAgentsSource, orchestratorSource } from "./extension";
 
 const reply = (status: number, body: unknown) =>
@@ -331,5 +331,69 @@ describe("steered reveals on the local fork (D-221)", () => {
     expect(
       (await apiAgentsSource("http://api", fetchFn, "http://orch").listAgents()).steering,
     ).toBeNull();
+  });
+});
+
+describe("the chain tools in the console (P2-U5)", () => {
+  it("adds each provisioned agent's portfolio reading and intents, and none when the read fails", async () => {
+    const chain = {
+      portfolio: {
+        usdc: "20",
+        wmon: "400",
+        totalValueUsdc: "30",
+        mode: "NORMAL",
+        drawdownBps: 0,
+        at: null,
+      },
+      intents: [{ intentId: "intent-x", status: "awaiting_approval", reasonCodes: [] }],
+    };
+    const calls: string[] = [];
+    const fetchFn = routes(
+      {
+        "/v1/agents": [200, AGENTS],
+        "/v1/credits": [200, { enabled: true, agents: [] }],
+        "/v1/runtimes": [
+          200,
+          { devActions: true, runtimes: [{ agentId: "1", status: "ready", latestTask: null }] },
+        ],
+        "/v1/agents/1/chain": [200, chain],
+      },
+      calls,
+    );
+    const list = await apiAgentsSource("http://api", fetchFn, "http://orch").listAgents();
+    expect(list.agents[0]?.chain).toEqual(chain);
+    expect(calls).toContain("GET http://orch/v1/agents/1/chain");
+    expect(list.agents[1]?.chain).toBeNull();
+  });
+
+  it("queues the chain check on its own route", async () => {
+    const calls: string[] = [];
+    const orch = orchestratorSource(
+      "http://orch",
+      routes({ "/v1/agents/1/tasks/chain-check": [202, { taskId: "t-chain" }] }, calls),
+    );
+    expect(await orch.triggerTask(1n as never, "chain_check")).toBe("t-chain");
+    expect(calls).toEqual(["POST http://orch/v1/agents/1/tasks/chain-check"]);
+  });
+
+  it("shows a chain check's tools, intents and outcome in plain words", () => {
+    const fields = chainCheckFields({
+      stopReason: "COMPLETED",
+      toolCalls: [
+        { tool: "get_portfolio", status: "succeeded", errorCode: null },
+        { tool: "propose_swap", status: "failed", errorCode: "RATE_LIMITED" },
+      ],
+      intents: [{ intentId: "i", status: "rejected", reasonCodes: ["TRADE_SIZE_EXCEEDED"] }],
+      modelCalls: 3,
+      timingsMs: { run: 1500, total: 2000 },
+    });
+    expect(Object.fromEntries(fields.map((f) => [f.label, f.value]))).toEqual({
+      Outcome: "Read every tool and proposed a swap",
+      "Chain tools": "get_portfolio ok, propose_swap RATE_LIMITED",
+      Intents: "rejected (TRADE_SIZE_EXCEEDED)",
+      "Model calls": "3",
+      Time: "run 1.5 s, total 2.0 s",
+    });
+    expect(chainCheckFields(null)).toEqual([]);
   });
 });

@@ -78,3 +78,54 @@ export function scanFields(result: Record<string, unknown> | null): TaskResultFi
     },
   ];
 }
+
+const CHAIN_STOP: Record<string, string> = {
+  COMPLETED: "Read every tool and proposed a swap",
+  INCOMPLETE: "Ended without every read and a proposal",
+  DEADLINE: "Stopped at the deadline",
+  FAILED: "Failed",
+};
+
+/** The rows a chain check shows (P2-U5): the chain tools it called and the intents it made. */
+export function chainCheckFields(result: Record<string, unknown> | null): TaskResultField[] {
+  if (!result) return [];
+  const t = (result.timingsMs ?? {}) as Record<string, unknown>;
+  const calls = (result.toolCalls ?? []) as {
+    tool: string;
+    status: string;
+    errorCode: string | null;
+  }[];
+  const intents = (result.intents ?? []) as {
+    intentId: string;
+    status: string;
+    reasonCodes: string[];
+  }[];
+  return [
+    { label: "Outcome", value: CHAIN_STOP[String(result.stopReason)] ?? String(result.stopReason) },
+    {
+      label: "Chain tools",
+      value:
+        calls.length === 0
+          ? "None"
+          : calls
+              .map(
+                (c) => `${c.tool} ${c.status === "succeeded" ? "ok" : (c.errorCode ?? c.status)}`,
+              )
+              .join(", "),
+    },
+    {
+      label: "Intents",
+      value:
+        intents.length === 0
+          ? "None"
+          : intents
+              .map(
+                (i) =>
+                  `${i.status.replace("_", " ")}${i.reasonCodes.length ? ` (${i.reasonCodes.join(", ")})` : ""}`,
+              )
+              .join("; "),
+    },
+    { label: "Model calls", value: String(result.modelCalls ?? 0) },
+    { label: "Time", value: `run ${seconds(t.run)}, total ${seconds(t.total)}` },
+  ];
+}

@@ -157,3 +157,32 @@ export function toExecutorSwap(intent: SwapIntent, ctx: ExecutorSwapContext): Ex
     deadline: ctx.deadline,
   };
 }
+
+/**
+ * An intent's states (P2-U5): a proposal that passed every pre-check waits for
+ * approval, one that did not is rejected with its reason codes, and a waiting
+ * one expires if nobody approves it. The trade flow (P2-U6) moves an approved
+ * intent through submitted to settled or failed.
+ */
+export const INTENT_STATES = [
+  "awaiting_approval",
+  "rejected",
+  "expired",
+  "approved",
+  "submitted",
+  "settled",
+  "failed",
+  "cancelled",
+] as const;
+export type IntentState = (typeof INTENT_STATES)[number];
+
+export const INTENT_STATE_MEANINGS: Readonly<Record<IntentState, string>> = {
+  awaiting_approval: "Passed every check; waits for the owner's approval and is not sent before",
+  rejected: "Blocked by the checks when proposed; the reason codes say why",
+  expired: "Nobody approved it in time; it will never be sent",
+  approved: "Approved; waiting to be sent",
+  submitted: "Sent to the chain through the signer",
+  settled: "Executed and reconciled",
+  failed: "Sent, but did not execute; the reason says why",
+  cancelled: "Cancelled before it was sent",
+};

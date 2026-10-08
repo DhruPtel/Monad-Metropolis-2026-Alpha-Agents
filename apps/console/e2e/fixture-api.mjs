@@ -112,6 +112,13 @@ const activity = JSON.stringify({
   agentId: "1",
   entries: [
     {
+      entryId: "act-3",
+      kind: "intent",
+      text: "Agent #1 proposed selling 2.5 USDC for WMON (about 99.9 WMON at the current quote). It passed every check and waits for the owner's approval.",
+      renderedBy: "template",
+      at: "2026-10-07T12:06:00.000Z",
+    },
+    {
       entryId: "act-2",
       kind: "scan",
       text: "Agent #1 searched for Monad DEX volume and network upgrades, read 1 page and flagged WMON at 55% confidence. Tools cost 0.022 USDC.",
@@ -130,7 +137,12 @@ const activity = JSON.stringify({
 const call = (callId, tool, target, status, errorCode, chargeUsdcE6, minute) => ({
   callId,
   leaseId: "fixture-lease",
-  server: tool === "complete_stage" || tool === "write_thesis" ? "platform" : "data",
+  server:
+    tool === "complete_stage" || tool === "write_thesis"
+      ? "platform"
+      : ["get_portfolio", "get_prices", "get_limits", "tradable_now", "propose_swap"].includes(tool)
+        ? "chain"
+        : "data",
   tool,
   target,
   status,
@@ -144,6 +156,11 @@ const call = (callId, tool, target, status, errorCode, chargeUsdcE6, minute) => 
 const toolCalls = JSON.stringify({
   agentId: "1",
   calls: [
+    call("c11", "propose_swap", "2.5 USDC to WMON", "succeeded", null, "0", "46"),
+    call("c10", "tradable_now", "2.5 USDC to WMON", "succeeded", null, "0", "45"),
+    call("c9", "get_limits", null, "succeeded", null, "0", "44"),
+    call("c8", "get_prices", null, "succeeded", null, "0", "43"),
+    call("c7", "get_portfolio", null, "succeeded", null, "0", "42"),
     call("c6", "complete_stage", "SCAN", "succeeded", null, "0", "41"),
     call("c5", "write_thesis", "SCAN", "succeeded", null, "0", "41"),
     call("c4", "read_url", "169.254.169.254", "refused", "PRIVATE_ADDRESS", "0", "40"),
@@ -185,6 +202,76 @@ const scanTask = JSON.stringify({
     modelCalls: 7,
     sandboxStopped: true,
     timingsMs: { sandbox: 912, hermesBoot: 14210, run: 38150, total: 61420 },
+  },
+});
+
+// P2-U5: what the chain tools recorded for agent 1, and a chain check's result.
+const chainView = JSON.stringify({
+  agentId: "1",
+  portfolio: {
+    block: "109670021",
+    usdc: "20",
+    wmon: "400",
+    totalValueUsdc: "30",
+    mode: "NORMAL",
+    drawdownBps: 0,
+    at: "2026-10-07T12:02:00.000Z",
+  },
+  intents: [
+    {
+      intentId: "intent-6f1c2d9e-7b1a-4c3e-9d2f-1a2b3c4d5e6f",
+      status: "awaiting_approval",
+      sell: "USDC",
+      buy: "WMON",
+      amountIn: "2500000",
+      reason: "Add a little WMON while the price is near its weekly low.",
+      reasonCodes: [],
+      expectedOut: "99900000000000000000",
+      createdAt: "2026-10-07T12:06:00.000Z",
+      expiresAt: "2026-10-07T12:36:00.000Z",
+      txHash: null,
+    },
+    {
+      intentId: "intent-0a9b8c7d-6e5f-4a3b-2c1d-0e9f8a7b6c5d",
+      status: "rejected",
+      sell: "USDC",
+      buy: "WMON",
+      amountIn: "15000000",
+      reason: "Buy a larger WMON position.",
+      reasonCodes: ["TRADE_SIZE_EXCEEDED", "CONCENTRATION_CAP"],
+      expectedOut: null,
+      createdAt: "2026-10-07T11:50:00.000Z",
+      expiresAt: "2026-10-07T12:20:00.000Z",
+      txHash: null,
+    },
+  ],
+});
+const chainCheckTask = JSON.stringify({
+  taskId: "fixture-chain-check",
+  agentId: "1",
+  kind: "chain_check",
+  status: "succeeded",
+  error: null,
+  result: {
+    kind: "chain_check",
+    stopReason: "COMPLETED",
+    toolCalls: [
+      { tool: "get_portfolio", status: "succeeded", errorCode: null },
+      { tool: "get_prices", status: "succeeded", errorCode: null },
+      { tool: "get_limits", status: "succeeded", errorCode: null },
+      { tool: "tradable_now", status: "succeeded", errorCode: null },
+      { tool: "propose_swap", status: "succeeded", errorCode: null },
+      { tool: "get_intent_status", status: "succeeded", errorCode: null },
+    ],
+    intents: [
+      {
+        intentId: "intent-6f1c2d9e-7b1a-4c3e-9d2f-1a2b3c4d5e6f",
+        status: "awaiting_approval",
+        reasonCodes: [],
+      },
+    ],
+    modelCalls: 8,
+    timingsMs: { run: 41200, total: 58900 },
   },
 });
 
@@ -345,6 +432,9 @@ const routes = {
   "GET /v1/agents/1/tool-calls": [200, toolCalls],
   "POST /v1/agents/1/tasks/scan": [202, JSON.stringify({ taskId: "fixture-scan" })],
   "GET /v1/tasks/fixture-scan": [200, scanTask],
+  "GET /v1/agents/1/chain": [200, chainView],
+  "POST /v1/agents/1/tasks/chain-check": [202, JSON.stringify({ taskId: "fixture-chain-check" })],
+  "GET /v1/tasks/fixture-chain-check": [200, chainCheckTask],
 };
 
 createServer((req, res) => {

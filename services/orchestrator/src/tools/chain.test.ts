@@ -1,5 +1,7 @@
 import type { AgentState, ChainReader, MarketState } from "@alpha-agents/chain-tools";
 import { type TestDatabase, createTestDatabase, databaseAvailable } from "@alpha-agents/db/testing";
+import { sql } from "@alpha-agents/db";
+import { INTENT_STATES } from "@alpha-agents/domain";
 import { LAUNCH_EXECUTOR_POLICY, LAUNCH_POLICY_HASH } from "@alpha-agents/policy";
 import { connectClient, structured } from "@alpha-agents/tool-server/testing";
 import type { Hex } from "viem";
@@ -377,5 +379,15 @@ describe.skipIf(!dbUp)("chain tools behind the gate (needs Postgres)", { timeout
         .execute()
     ).map((r) => r.status);
     expect(statuses.sort()).toEqual(["refused", "succeeded", "succeeded"]);
+  });
+
+  it("allows exactly packages/domain's intent states in the database", async () => {
+    const { rows } = await sql<{ def: string }>`
+      select pg_get_constraintdef(oid) as def from pg_constraint
+      where conrelid = 'platform.intents'::regclass and conname = 'intents_status_check'`.execute(
+      t.db,
+    );
+    const allowed = [...(rows[0]?.def ?? "").matchAll(/'([a-z_]+)'/g)].map((m) => m[1]);
+    expect(allowed.sort()).toEqual([...INTENT_STATES].sort());
   });
 });

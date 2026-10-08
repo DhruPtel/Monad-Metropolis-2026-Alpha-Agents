@@ -30,6 +30,15 @@ export async function runScanAction(id: string): Promise<ActionResult<string>> {
   });
 }
 
+/** P2-U5: the chain check: the agent reads its account and proposes a small swap that waits. */
+export async function runChainCheckAction(id: string): Promise<ActionResult<string>> {
+  return attempt(async () => {
+    const source = agentsSource();
+    if (!source.triggerTask) throw new Error("The orchestrator is not configured.");
+    return source.triggerTask(agentId(id), "chain_check");
+  });
+}
+
 /**
  * D-221: steer a reveal on the local fork, once: a wallet's next reveal (its
  * lowest unrevealed agent, or the next one it mints) or one pending agent.

@@ -16,7 +16,8 @@ import {
  * funding address, credits, 24-hour spend and RESTRICTED state, and the
  * controls to fund it with test USDC and refund its credits; P1-U7 adds the
  * Scan, each agent's activity entries (the last one is its last action) and
- * its tool call history.
+ * its tool call history. P2-U5 adds the chain check, each agent's latest
+ * portfolio reading and its intents.
  */
 export interface AgentRow {
   readonly agentId: AgentId;
@@ -39,6 +40,36 @@ export interface AgentRow {
   readonly activity: readonly ActivityItem[];
   /** P1-U7: tool calls from the orchestrator, newest first. */
   readonly toolCalls: readonly ToolCallView[];
+  /** P2-U5: what the chain tools recorded; null when the orchestrator did not answer. */
+  readonly chain: ChainView | null;
+}
+
+/** The agent's latest portfolio reading and its intents (GET /v1/agents/:id/chain). */
+export interface ChainView {
+  readonly portfolio: {
+    readonly block?: string;
+    readonly usdc?: string;
+    readonly wmon?: string;
+    readonly totalValueUsdc?: string;
+    readonly mode?: string;
+    readonly drawdownBps?: number | null;
+    readonly at: string | null;
+  } | null;
+  readonly intents: readonly IntentView[];
+}
+
+export interface IntentView {
+  readonly intentId: string;
+  readonly status: string;
+  readonly sell: "USDC" | "WMON";
+  readonly buy: "USDC" | "WMON";
+  readonly amountIn: string;
+  readonly reason: string;
+  readonly reasonCodes: readonly string[];
+  readonly expectedOut: string | null;
+  readonly createdAt: string;
+  readonly expiresAt: string;
+  readonly txHash: string | null;
 }
 
 /** One tool call as the orchestrator reports it (GET /v1/agents/:id/tool-calls). */
@@ -54,7 +85,14 @@ export interface ToolCallView {
   readonly startedAt: string;
 }
 
-export type TaskKind = "noop" | "scan";
+export type TaskKind = "noop" | "scan" | "chain_check";
+
+/** The orchestrator's route for each task kind. */
+const TASK_ROUTE: Readonly<Record<TaskKind, string>> = {
+  noop: "noop",
+  scan: "scan",
+  chain_check: "chain-check",
+};
 
 /** An agent's credits as the orchestrator reports them (GET /v1/credits), in USDC base units. */
 export interface CreditsView {
@@ -181,7 +219,9 @@ export function orchestratorSource(baseUrl: string, fetchFn: typeof fetch = fetc
       return { devActions: body.devActions === true, runtimes: body.runtimes as ApiRuntime[] };
     },
     async triggerTask(agentId: AgentId, task: TaskKind): Promise<string> {
-      const body = await call(`/v1/agents/${agentId.toString()}/tasks/${task}`, { method: "POST" });
+      const body = await call(`/v1/agents/${agentId.toString()}/tasks/${TASK_ROUTE[task]}`, {
+        method: "POST",
+      });
       return String(body.taskId);
     },
     async task(taskId: string): Promise<TaskView> {
@@ -222,6 +262,13 @@ export function orchestratorSource(baseUrl: string, fetchFn: typeof fetch = fetc
     async toolCalls(agentId: string): Promise<ToolCallView[]> {
       const body = await call(`/v1/agents/${agentId}/tool-calls`);
       return (body.calls ?? []) as ToolCallView[];
+    },
+    async chain(agentId: string): Promise<ChainView> {
+      const body = await call(`/v1/agents/${agentId}/chain`);
+      return {
+        portfolio: (body.portfolio as ChainView["portfolio"] | undefined) ?? null,
+        intents: (body.intents ?? []) as IntentView[],
+      };
     },
   };
 }
@@ -268,17 +315,20 @@ export function apiAgentsSource(
       // provisioned agent; a failed read shows as none rather than failing the page.
       const activity = new Map<string, ActivityItem[]>();
       const toolCalls = new Map<string, ToolCallView[]>();
+      const chain = new Map<string, ChainView | null>();
       for (const r of runtimes?.runtimes ?? []) {
-        const [a, t] = await Promise.all([
+        const [a, t, ch] = await Promise.all([
           fetchFn(`${baseUrl}/v1/agents/${r.agentId}/activity`, { cache: "no-store" })
             .then(async (res) =>
               res.ok ? (((await res.json()) as { entries?: ActivityItem[] }).entries ?? []) : [],
             )
             .catch(() => []),
           orch ? orch.toolCalls(r.agentId).catch(() => []) : [],
+          orch ? orch.chain(r.agentId).catch(() => null) : null,
         ]);
         activity.set(r.agentId, a);
         toolCalls.set(r.agentId, t);
+        chain.set(r.agentId, ch);
       }
       return {
         orchestrator: runtimes !== null,
@@ -316,6 +366,7 @@ export function apiAgentsSource(
                 : null,
             activity: activity.get(a.agentId) ?? [],
             toolCalls: toolCalls.get(a.agentId) ?? [],
+            chain: chain.get(a.agentId) ?? null,
           };
         }),
       };

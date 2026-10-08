@@ -2,6 +2,8 @@ import {
   type AccountMode,
   type AgentState,
   type DisplayFlag,
+  INTENT_STATE_MEANINGS,
+  type IntentState,
   TRANSACTION_STATE_MEANINGS,
   type TransactionState,
 } from "@alpha-agents/domain";
@@ -83,11 +85,28 @@ export const TRANSACTION_STATE_RENDERING: Readonly<Record<TransactionState, Rend
   failed: { label: "Failed", tone: "negative", meaning: TRANSACTION_STATE_MEANINGS.failed },
 };
 
+/** An intent's states (P2-U5): rejected and failed are red; waiting for approval is amber. */
+export const INTENT_STATE_RENDERING: Readonly<Record<IntentState, Rendering>> = {
+  awaiting_approval: {
+    label: "Awaiting approval",
+    tone: "warning",
+    meaning: INTENT_STATE_MEANINGS.awaiting_approval,
+  },
+  rejected: { label: "Rejected", tone: "negative", meaning: INTENT_STATE_MEANINGS.rejected },
+  expired: { label: "Expired", tone: "neutral", meaning: INTENT_STATE_MEANINGS.expired },
+  approved: { label: "Approved", tone: "detail", meaning: INTENT_STATE_MEANINGS.approved },
+  submitted: { label: "Submitted", tone: "detail", meaning: INTENT_STATE_MEANINGS.submitted },
+  settled: { label: "Settled", tone: "positive", meaning: INTENT_STATE_MEANINGS.settled },
+  failed: { label: "Failed", tone: "negative", meaning: INTENT_STATE_MEANINGS.failed },
+  cancelled: { label: "Cancelled", tone: "neutral", meaning: INTENT_STATE_MEANINGS.cancelled },
+};
+
 type StatusPillProps =
   | { readonly kind: "account_mode"; readonly value: AccountMode }
   | { readonly kind: "agent_state"; readonly value: AgentState }
   | { readonly kind: "display_flag"; readonly value: DisplayFlag }
-  | { readonly kind: "transaction"; readonly value: TransactionState };
+  | { readonly kind: "transaction"; readonly value: TransactionState }
+  | { readonly kind: "intent"; readonly value: IntentState };
 
 function renderingFor(props: StatusPillProps): Rendering {
   switch (props.kind) {
@@ -99,6 +118,8 @@ function renderingFor(props: StatusPillProps): Rendering {
       return DISPLAY_FLAG_RENDERING[props.value];
     case "transaction":
       return TRANSACTION_STATE_RENDERING[props.value];
+    case "intent":
+      return INTENT_STATE_RENDERING[props.value];
   }
 }
 
