@@ -159,7 +159,7 @@ export interface AgentTaskTable {
   task_id: string;
   chain_id: number;
   agent_id: number;
-  kind: "noop" | "scan";
+  kind: "noop" | "scan" | "chain_check";
   status: "queued" | "running" | "succeeded" | "failed";
   /** P1-U9 (D-219): who asked for it; null for tasks from before 0005. */
   requested_by: ColumnType<
@@ -245,6 +245,43 @@ export interface RefundTable {
   updated_at: Timestamp;
 }
 
+/** The intent statuses (P2-U5): waiting for the trade flow, then its outcomes. */
+export type IntentStatus =
+  | "awaiting_approval"
+  | "rejected"
+  | "expired"
+  | "approved"
+  | "submitted"
+  | "settled"
+  | "failed"
+  | "cancelled";
+
+/** One swap an agent proposed through the chain tools (P2-U5). Never calldata. */
+export interface IntentTable {
+  intent_id: string;
+  chain_id: number;
+  agent_id: number;
+  lease_id: string;
+  kind: "swap";
+  account: string | null;
+  sell: "USDC" | "WMON";
+  buy: "USDC" | "WMON";
+  amount_in: string;
+  reason: string;
+  client_request_id: string | null;
+  idempotency_key: string;
+  status: IntentStatus;
+  reason_codes: ColumnType<string[], string, string>;
+  checks: ColumnType<Record<string, unknown>, string, string>;
+  owner_epoch: ColumnType<string | null, string | number | null, string | number | null>;
+  config_epoch: ColumnType<string | null, string | number | null, string | number | null>;
+  tx_id: string | null;
+  tx_hash: string | null;
+  created_at: Timestamp;
+  expires_at: ColumnType<Date, Date, Date>;
+  updated_at: Timestamp;
+}
+
 /** One agent's session key in the signer (P2-U4, D-243). */
 export interface SignerKeyTable {
   chain_id: number;
@@ -301,7 +338,7 @@ export interface ToolCallTable {
   chain_id: number;
   agent_id: number;
   lease_id: string;
-  server: "data" | "platform";
+  server: "data" | "platform" | "chain";
   tool: string;
   input: ColumnType<Record<string, unknown>, string, string>;
   status: "running" | "succeeded" | "failed" | "refused";
@@ -347,7 +384,7 @@ export interface ActivityEntryTable {
   chain_id: number;
   agent_id: number;
   task_id: string;
-  kind: "scan";
+  kind: "scan" | "intent";
   text: string;
   rendered_by: "narrator" | "template";
   facts: ColumnType<Record<string, unknown>, string, string>;
@@ -388,6 +425,7 @@ export interface Database {
   "platform.ledger_entries": LedgerEntryTable;
   "platform.ledger_lines": LedgerLineTable;
   "platform.usage_receipts": UsageReceiptTable;
+  "platform.intents": IntentTable;
   "platform.refunds": RefundTable;
   "platform.signer_keys": SignerKeyTable;
   "platform.signer_outbox": SignerOutboxTable;

@@ -397,6 +397,30 @@ importers:
         specifier: 4.6.5
         version: 4.6.5
 
+  services/chain-tools:
+    dependencies:
+      '@alpha-agents/config':
+        specifier: workspace:^
+        version: link:../../packages/config
+      '@alpha-agents/domain':
+        specifier: workspace:^
+        version: link:../../packages/domain
+      '@alpha-agents/policy':
+        specifier: workspace:^
+        version: link:../../packages/policy
+      '@alpha-agents/tool-server':
+        specifier: workspace:^
+        version: link:../../packages/tool-server
+      '@modelcontextprotocol/sdk':
+        specifier: 1.32.0
+        version: 1.32.0(zod@4.6.5)
+      viem:
+        specifier: 2.57.2
+        version: 2.57.2(bufferutil@4.1.0)(typescript@6.0.3)(utf-8-validate@5.0.10)(zod@4.6.5)
+      zod:
+        specifier: 4.6.5
+        version: 4.6.5
+
   services/data-tools:
     dependencies:
       '@alpha-agents/tool-server':

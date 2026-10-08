@@ -32,6 +32,7 @@ export const TOOL_REGISTRY = [
   chain("get_prices", "oracle and pool prices, tradability"),
   chain("get_quote", "indicative quote with the limit check"),
   chain("get_limits", "live limits, headroom, mode"),
+  chain("tradable_now", "every rule that blocks a trade now, and when each clears"),
   chain("get_pool_depth", "depth at the reference size"),
   chain("simulate_rebalance", "dry run of targets"),
   chain("read_contract", "curated read-only calls on any target"),

@@ -213,7 +213,7 @@ export async function readCredits(
 
 export interface ActivityJson {
   readonly entryId: string;
-  readonly kind: "scan";
+  readonly kind: "scan" | "intent";
   /** The narrator's text, validated against its facts, or the fixed template's (D-217). */
   readonly text: string;
   readonly renderedBy: "narrator" | "template";

@@ -1,0 +1,22 @@
+{
+  "name": "@alpha-agents/chain-tools",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Chain tools MCP server (FINAL_PLAN 4.4.2): the agent's account, prices, quotes, limits and tradable_now, and swap proposals as typed intents that wait for approval (P2-U5).",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p ."
+  },
+  "dependencies": {
+    "@alpha-agents/config": "workspace:^",
+    "@alpha-agents/domain": "workspace:^",
+    "@alpha-agents/policy": "workspace:^",
+    "@alpha-agents/tool-server": "workspace:^",
+    "@modelcontextprotocol/sdk": "1.32.0",
+    "viem": "2.57.2",
+    "zod": "4.6.5"
+  }
+}
