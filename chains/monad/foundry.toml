@@ -27,6 +27,8 @@ fail_on_revert = false
 [rpc_endpoints]
 # Resolved from the environment only; the URL is never written to a file.
 monad = "${MONAD_RPC_URL}"
+# Monad testnet, for P2-EC's testnet fork test (pnpm test:testnet-fork) only.
+monad_testnet = "${MONAD_TESTNET_RPC_URL}"
 
 [soldeer]
 remappings_generate = false

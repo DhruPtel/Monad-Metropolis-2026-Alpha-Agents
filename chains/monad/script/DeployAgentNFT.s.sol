@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.37;
 
-import {Script, console} from "forge-std/Script.sol";
+import {console} from "forge-std/Script.sol";
+import {DeployScope} from "./DeployScope.sol";
 import {AgentNFT} from "../src/AgentNFT.sol";
 import {IERC6551Registry, IEntropyV2} from "../src/interfaces/IExternal.sol";
 
@@ -12,12 +13,13 @@ import {IERC6551Registry, IEntropyV2} from "../src/interfaces/IExternal.sol";
 /// and sets these variables:
 ///   AGENT_NFT_ADMIN, AGENT_NFT_CLAIM_SIGNER, AGENT_NFT_TREASURY,
 ///   AGENT_NFT_IMAGE_BASE_URI, AGENT_NFT_ENTROPY,
-///   and DEPLOYER_PRIVATE_KEY on testnet only (the local fork uses an
-///   unlocked anvil account).
-contract DeployAgentNFT is Script {
+///   and DEPLOYER_PRIVATE_KEY and DEPLOY_SALT_SCOPE=p2ec.testnet on testnet
+///   only (the local fork uses an unlocked anvil account and the v1 salt).
+contract DeployAgentNFT is DeployScope {
     // CREATE2_FACTORY (0x4e59...956C) comes from forge-std; forge deploys
     // `new X{salt: ...}` through it when broadcasting.
-    bytes32 public constant SALT = keccak256("alpha-agents.agent-nft.v1");
+    /// The salt's name: `alpha-agents.agent-nft.v1` on the fork (DeployScope).
+    string public constant SALT_NAME = "agent-nft";
 
     // Canonical on Monad mainnet and testnet (packages/domain address book).
     address internal constant REGISTRY = 0x000000006551c19487814612e58FE06813775758;
@@ -32,16 +34,10 @@ contract DeployAgentNFT is Script {
         address entropy;
     }
 
-    /// The local fork's own chain ID (D-195); it runs Monad mainnet's state and EVM.
-    uint256 internal constant LOCAL_FORK_CHAIN_ID = 143143;
-    uint256 internal constant MONAD_TESTNET_CHAIN_ID = 10143;
-
     function run() external returns (AgentNFT nft) {
-        // Mainnet (143) is added deliberately at the beta deployment (PB-U1).
-        require(
-            block.chainid == LOCAL_FORK_CHAIN_ID || block.chainid == MONAD_TESTNET_CHAIN_ID,
-            "not the local fork (143143) or Monad testnet"
-        );
+        // Mainnet (143) is added deliberately at the beta deployment (PB-U1);
+        // saltScope refuses it, and testnet without the p2ec scope.
+        bytes32 nftSalt = salt(SALT_NAME);
         Config memory c = Config({
             admin: vm.envAddress("AGENT_NFT_ADMIN"),
             claimSigner: vm.envAddress("AGENT_NFT_CLAIM_SIGNER"),
@@ -67,17 +63,15 @@ contract DeployAgentNFT is Script {
                 c.entropy
             )
         );
-        address predicted = vm.computeCreate2Address(SALT, keccak256(initCode), CREATE2_FACTORY);
+        address predicted = vm.computeCreate2Address(nftSalt, keccak256(initCode), CREATE2_FACTORY);
 
         bool fresh = predicted.code.length == 0;
         if (!fresh) {
             console.log("AgentNFT already deployed");
             nft = AgentNFT(predicted);
         } else {
-            uint256 key = vm.envOr("DEPLOYER_PRIVATE_KEY", uint256(0));
-            if (key == 0) vm.startBroadcast();
-            else vm.startBroadcast(key);
-            nft = new AgentNFT{salt: SALT}(
+            _startBroadcast();
+            nft = new AgentNFT{salt: nftSalt}(
                 c.admin,
                 c.claimSigner,
                 c.treasury,
@@ -95,6 +89,8 @@ contract DeployAgentNFT is Script {
         if (fresh) _assertInitialState(nft, c);
         console.log("AGENT_NFT_ADDRESS", address(nft));
         console.log("AGENT_NFT_CODE_SIZE", address(nft).code.length);
+        console.log("AGENT_NFT_SALT");
+        console.logBytes32(nftSalt);
     }
 
     /// What can never change after deployment.

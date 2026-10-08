@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.37;
 
-import {Script, console} from "forge-std/Script.sol";
+import {console} from "forge-std/Script.sol";
+import {DeployScope} from "./DeployScope.sol";
 import {AccountFactory} from "../src/custody/AccountFactory.sol";
 import {PersonalAccount} from "../src/custody/PersonalAccount.sol";
 import {Executor} from "../src/executor/Executor.sol";
@@ -21,21 +22,25 @@ import {IPoolManager, ISwapRouter02} from "../src/interfaces/IUniswap.sol";
 /// PersonalAccount implementation) with the adapter and the Executor, and
 /// finally binds the Executor to the factory and registry. An existing
 /// deployment is found, not repeated. The onchain state is asserted (MV-S15).
-/// Run it through `pnpm deploy:account-factory`, which refuses anything but
-/// the local fork and sets these variables:
+/// Run it through `pnpm deploy:account-factory` (the local fork) or
+/// `pnpm deploy:testnet` (Monad testnet, P2-EC: the `p2ec.testnet` salts, the
+/// TestnetFeed feeds, the P2-EC pool and no v3 fallback, since testnet has no
+/// Uniswap v3), which set these variables:
 ///   ACCOUNT_FACTORY_ADMIN, ACCOUNT_FACTORY_GUARDIAN, ACCOUNT_FACTORY_SENTINEL,
 ///   ACCOUNT_FACTORY_AGENT_NFT, ACCOUNT_FACTORY_USDC, ACCOUNT_FACTORY_WMON,
 ///   ACCOUNT_FACTORY_PERSONAL_CAP, ACCOUNT_FACTORY_PLATFORM_CAP,
 ///   ACCOUNT_FACTORY_ALLOWLIST (comma-separated), ORACLE_MON_USD_FEED,
 ///   ORACLE_USDC_USD_FEED, ORACLE_STATE_VIEW, ORACLE_POOL_ID, VENUE_POOL_MANAGER
-///   and VENUE_V3_ROUTER.
-contract DeployAccountFactory is Script {
-    bytes32 public constant SALT = keccak256("alpha-agents.account-factory.v1");
-    bytes32 public constant ORACLE_SALT = keccak256("alpha-agents.oracle-adapter.v1");
-    bytes32 public constant EXECUTOR_SALT = keccak256("alpha-agents.executor.v1");
-    bytes32 public constant V4_SALT = keccak256("alpha-agents.venue.uniswap-v4-mon-usdc-500.v1");
-    bytes32 public constant V3_SALT = keccak256("alpha-agents.venue.uniswap-v3-usdc-wmon-3000.v1");
-    bytes32 public constant REGISTRY_SALT = keccak256("alpha-agents.protocol-registry.v1");
+///   and VENUE_V3_ROUTER (unset or zero: no v3 adapter is deployed or
+///   registered); DEPLOYER_PRIVATE_KEY and DEPLOY_SALT_SCOPE on testnet.
+contract DeployAccountFactory is DeployScope {
+    /// Salt names; on the fork each salt is `alpha-agents.<name>.v1` (DeployScope).
+    string public constant SALT_NAME = "account-factory";
+    string public constant ORACLE_SALT_NAME = "oracle-adapter";
+    string public constant EXECUTOR_SALT_NAME = "executor";
+    string public constant V4_SALT_NAME = "venue.uniswap-v4-mon-usdc-500";
+    string public constant V3_SALT_NAME = "venue.uniswap-v3-usdc-wmon-3000";
+    string public constant REGISTRY_SALT_NAME = "protocol-registry";
     /// The registry's adapter IDs.
     bytes32 public constant V4_ID = keccak256("uniswap-v4-mon-usdc-500");
     bytes32 public constant V3_ID = keccak256("uniswap-v3-usdc-wmon-3000");
@@ -46,10 +51,6 @@ contract DeployAccountFactory is Script {
     uint8 internal constant FEED_DECIMALS = 8;
     uint256 internal constant MAX_DEVIATION_BPS = 200;
     uint256 internal constant MAX_DEPEG_BPS = 100;
-
-    /// The local fork's own chain ID (D-195). Testnet and mainnet are added by
-    /// the units that deploy there (PB-U1 for the beta).
-    uint256 internal constant LOCAL_FORK_CHAIN_ID = 143143;
 
     struct Config {
         address admin;
@@ -66,7 +67,8 @@ contract DeployAccountFactory is Script {
     }
 
     function run() external returns (AccountFactory factory) {
-        require(block.chainid == LOCAL_FORK_CHAIN_ID, "not the local fork (143143)");
+        // The fork or, with the p2ec scope, testnet; mainnet is PB-U1's (DeployScope).
+        bytes32 factorySalt = salt(SALT_NAME);
         OracleAdapter adapter = _deployOracle();
         Executor executor = _deployExecutor();
         ProtocolRegistry registry = _deployVenues(executor);
@@ -103,15 +105,15 @@ contract DeployAccountFactory is Script {
                 c.allowlist
             )
         );
-        address predicted = vm.computeCreate2Address(SALT, keccak256(initCode), CREATE2_FACTORY);
+        address predicted = vm.computeCreate2Address(factorySalt, keccak256(initCode), CREATE2_FACTORY);
 
         bool fresh = predicted.code.length == 0;
         if (!fresh) {
             console.log("AccountFactory already deployed");
             factory = AccountFactory(predicted);
         } else {
-            vm.startBroadcast();
-            factory = new AccountFactory{salt: SALT}(
+            _startBroadcast();
+            factory = new AccountFactory{salt: factorySalt}(
                 c.admin,
                 c.guardian,
                 c.sentinel,
@@ -139,12 +141,21 @@ contract DeployAccountFactory is Script {
         console.log("PROTOCOL_REGISTRY_CODE_SIZE", address(registry).code.length);
         console.log("VENUE_V4_ADDRESS", registry.entry(V4_ID).adapter);
         console.log("VENUE_V4_CODE_SIZE", registry.entry(V4_ID).adapter.code.length);
-        console.log("VENUE_V3_ADDRESS", registry.entry(V3_ID).adapter);
-        console.log("VENUE_V3_CODE_SIZE", registry.entry(V3_ID).adapter.code.length);
+        if (_hasV3()) {
+            console.log("VENUE_V3_ADDRESS", registry.entry(V3_ID).adapter);
+            console.log("VENUE_V3_CODE_SIZE", registry.entry(V3_ID).adapter.code.length);
+        }
         console.log("ACCOUNT_FACTORY_ADDRESS", address(factory));
         console.log("ACCOUNT_FACTORY_CODE_SIZE", address(factory).code.length);
         console.log("PERSONAL_ACCOUNT_IMPLEMENTATION", factory.PERSONAL_ACCOUNT_IMPLEMENTATION());
         console.log("PERSONAL_ACCOUNT_CODE_SIZE", factory.PERSONAL_ACCOUNT_IMPLEMENTATION().code.length);
+        console.log("ACCOUNT_FACTORY_SALT");
+        console.logBytes32(factorySalt);
+    }
+
+    /// The v3 fallback is deployed only where SwapRouter02 exists (not on testnet).
+    function _hasV3() internal view returns (bool) {
+        return vm.envOr("VENUE_V3_ROUTER", address(0)) != address(0);
     }
 
     /// The launch hard limits (FINAL_PLAN 6.3); packages/policy's LAUNCH_EXECUTOR_POLICY holds the same.
@@ -162,11 +173,11 @@ contract DeployAccountFactory is Script {
     }
 
     /// Deploys `initCode` at its CREATE2 address unless code is already there.
-    function _create2(bytes32 salt, bytes memory initCode) internal returns (address addr) {
-        addr = vm.computeCreate2Address(salt, keccak256(initCode), CREATE2_FACTORY);
+    function _create2(bytes32 salt_, bytes memory initCode) internal returns (address addr) {
+        addr = vm.computeCreate2Address(salt_, keccak256(initCode), CREATE2_FACTORY);
         if (addr.code.length != 0) return addr;
-        vm.startBroadcast();
-        (bool ok,) = CREATE2_FACTORY.call(abi.encodePacked(salt, initCode));
+        _startBroadcast();
+        (bool ok,) = CREATE2_FACTORY.call(abi.encodePacked(salt_, initCode));
         vm.stopBroadcast();
         require(ok && addr.code.length != 0, "CREATE2 deployment failed");
     }
@@ -185,45 +196,52 @@ contract DeployAccountFactory is Script {
                 launchPolicy()
             )
         );
-        executor = Executor(_create2(EXECUTOR_SALT, init));
+        executor = Executor(_create2(salt(EXECUTOR_SALT_NAME), init));
         require(executor.owner() == admin && executor.guardian() == guardian, "executor roles");
         require(executor.policyHash() == keccak256(abi.encode(launchPolicy())), "executor policy");
         require(address(executor.AGENT_NFT()) == vm.envAddress("ACCOUNT_FACTORY_AGENT_NFT"), "executor agent nft");
     }
 
-    /// The v4 adapter (active) and the v3 fallback (registered, paused), and the registry that lists them.
+    /// The v4 adapter (active), the v3 fallback (registered, paused) where v3
+    /// exists, and the registry that lists them.
     function _deployVenues(Executor executor) internal returns (ProtocolRegistry registry) {
         address usdc = vm.envAddress("ACCOUNT_FACTORY_USDC");
         address wmon = vm.envAddress("ACCOUNT_FACTORY_WMON");
         address pm = vm.envAddress("VENUE_POOL_MANAGER");
-        address router = vm.envAddress("VENUE_V3_ROUTER");
-        require(pm.code.length > 0 && router.code.length > 0, "venues missing");
+        bool hasV3 = _hasV3();
+        address router = vm.envOr("VENUE_V3_ROUTER", address(0));
+        require(pm.code.length > 0 && (!hasV3 || router.code.length > 0), "venues missing");
         address v4 = _create2(
-            V4_SALT,
+            salt(V4_SALT_NAME),
             abi.encodePacked(
                 type(UniswapV4MonUsdcAdapter).creationCode,
                 abi.encode(IPoolManager(pm), usdc, wmon, address(executor), vm.envBytes32("ORACLE_POOL_ID"))
             )
         );
-        address v3 = _create2(
-            V3_SALT,
-            abi.encodePacked(
-                type(UniswapV3UsdcWmonAdapter).creationCode,
-                abi.encode(ISwapRouter02(router), usdc, wmon, address(executor))
+        address v3 = hasV3
+            ? _create2(
+                salt(V3_SALT_NAME),
+                abi.encodePacked(
+                    type(UniswapV3UsdcWmonAdapter).creationCode,
+                    abi.encode(ISwapRouter02(router), usdc, wmon, address(executor))
+                )
             )
-        );
-        bytes32[] memory ids = new bytes32[](2);
+            : address(0);
+        uint256 n = hasV3 ? 2 : 1;
+        bytes32[] memory ids = new bytes32[](n);
+        address[] memory adapters = new address[](n);
+        ProtocolRegistry.Status[] memory statuses = new ProtocolRegistry.Status[](n);
         ids[0] = V4_ID;
-        ids[1] = V3_ID;
-        address[] memory adapters = new address[](2);
         adapters[0] = v4;
-        adapters[1] = v3;
-        ProtocolRegistry.Status[] memory statuses = new ProtocolRegistry.Status[](2);
         statuses[0] = ProtocolRegistry.Status.ACTIVE;
-        statuses[1] = ProtocolRegistry.Status.PAUSED;
+        if (hasV3) {
+            ids[1] = V3_ID;
+            adapters[1] = v3;
+            statuses[1] = ProtocolRegistry.Status.PAUSED;
+        }
         registry = ProtocolRegistry(
             _create2(
-                REGISTRY_SALT,
+                salt(REGISTRY_SALT_NAME),
                 abi.encodePacked(
                     type(ProtocolRegistry).creationCode,
                     abi.encode(
@@ -238,16 +256,21 @@ contract DeployAccountFactory is Script {
             )
         );
         require(UniswapV4MonUsdcAdapter(payable(v4)).EXECUTOR() == address(executor), "v4 executor");
-        require(UniswapV3UsdcWmonAdapter(v3).EXECUTOR() == address(executor), "v3 executor");
-        require(registry.entry(V4_ID).adapter == v4 && registry.entry(V3_ID).adapter == v3, "registry adapters");
+        require(registry.entry(V4_ID).adapter == v4, "registry v4 adapter");
         require(registry.adapterFor(V4_ID, wmon, usdc) == v4, "v4 active");
-        require(registry.adapterFor(V3_ID, wmon, usdc) == address(0), "v3 paused");
+        if (hasV3) {
+            require(UniswapV3UsdcWmonAdapter(v3).EXECUTOR() == address(executor), "v3 executor");
+            require(registry.entry(V3_ID).adapter == v3, "registry v3 adapter");
+            require(registry.adapterFor(V3_ID, wmon, usdc) == address(0), "v3 paused");
+        } else {
+            require(registry.entry(V3_ID).adapter == address(0), "no v3 adapter without v3");
+        }
     }
 
     /// Binds the Executor to the factory and registry once; checks the binding every run.
     function _bind(Executor executor, AccountFactory factory, ProtocolRegistry registry) internal {
         if (address(executor.factory()) == address(0)) {
-            vm.startBroadcast();
+            _startBroadcast();
             executor.bind(IExecutorFactory(address(factory)), registry);
             vm.stopBroadcast();
         }
@@ -276,10 +299,11 @@ contract DeployAccountFactory is Script {
         require(address(o.monUsdFeed).code.length > 0 && address(o.usdcUsdFeed).code.length > 0, "feeds missing");
         require(address(o.stateView).code.length > 0, "StateView missing");
         bytes memory initCode = abi.encodePacked(type(OracleAdapter).creationCode, abi.encode(o));
-        address predicted = vm.computeCreate2Address(ORACLE_SALT, keccak256(initCode), CREATE2_FACTORY);
+        bytes32 oracleSalt = salt(ORACLE_SALT_NAME);
+        address predicted = vm.computeCreate2Address(oracleSalt, keccak256(initCode), CREATE2_FACTORY);
         if (predicted.code.length == 0) {
-            vm.startBroadcast();
-            adapter = new OracleAdapter{salt: ORACLE_SALT}(o);
+            _startBroadcast();
+            adapter = new OracleAdapter{salt: oracleSalt}(o);
             vm.stopBroadcast();
             require(address(adapter) == predicted, "adapter address differs from prediction");
         } else {
