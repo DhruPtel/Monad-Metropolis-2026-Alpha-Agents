@@ -1,6 +1,8 @@
 import { SCAN_MIN_CREDITS_USDC_E6 } from "@alpha-agents/accounting";
 import { sql } from "@alpha-agents/db";
 import { SPECIES, TIER_IDS } from "@alpha-agents/domain";
+import { revokeTestSessionGrant, registerTestSessionGrant } from "@alpha-agents/devenv";
+import { armingJson, intentJson } from "@alpha-agents/trading";
 import { Hono } from "hono";
 import { RefundOpenError } from "./credits/refunds.ts";
 import { CreditsExhaustedError, type Orchestrator, ScanOpenError } from "./orchestrator.ts";
@@ -23,6 +25,8 @@ export interface ApiOptions {
   readonly devActions: boolean;
   /** The signer worker (P2-U4), when it runs. */
   readonly signer?: SignerWorker | null;
+  /** P2-U6: the local fork, for the console's arm and disarm (the owner's wallet calls, impersonated). */
+  readonly forkUrl?: string | null;
 }
 
 const runtimeView = (r: Runtime) => ({
@@ -340,7 +344,8 @@ export function createApi(o: ApiOptions): Hono {
       .orderBy("started_at", "desc")
       .limit(1)
       .executeTakeFirst();
-    const intents = await o.orchestrator.intents(ref);
+    const intents = await o.orchestrator.trades.intents(ref.chainId, ref.agentId, 20);
+    const { last } = await o.orchestrator.arming(ref);
     return c.json({
       agentId: String(ref.agentId),
       portfolio: reading
@@ -349,20 +354,17 @@ export function createApi(o: ApiOptions): Hono {
             at: reading.finished_at ? new Date(reading.finished_at).toISOString() : null,
           }
         : null,
-      intents: intents.map((i) => ({
-        intentId: i.intentId,
-        status: i.status,
-        sell: i.sell,
-        buy: i.buy,
-        amountIn: i.amountIn.toString(),
-        reason: i.reason,
-        reasonCodes: i.reasonCodes,
-        expectedOut: (i.checks as { expectedOut?: unknown }).expectedOut ?? null,
-        createdAt: i.createdAt.toISOString(),
-        expiresAt: i.expiresAt.toISOString(),
-        txHash: i.txHash,
-      })),
+      arming: armingJson(last, Math.floor(Date.now() / 1000)),
+      tradeFlow: Boolean(o.orchestrator.tradeFlow),
+      intents: intents.map(intentJson),
     });
+  });
+
+  /** P2-U6: why the agent did not trade: its arming and its recent blocked trades. */
+  app.get("/v1/agents/:agentId/why-not-traded", async (c) => {
+    const ref = agentRef(c.req.param("agentId"), o.chainId);
+    if (!ref) return c.json({ error: "bad_agent_id" }, 400);
+    return c.json({ agentId: String(ref.agentId), ...(await o.orchestrator.whyNotTraded(ref)) });
   });
 
   /** P1-U7: an agent's activity entries, newest first (D-217). */
@@ -532,6 +534,56 @@ export function createApi(o: ApiOptions): Hono {
           return c.json({ error: "credits_exhausted", message: err.message }, 409);
         throw err;
       }
+    });
+
+    /**
+     * P2-U6: arm the agent as its owner would: the owner's wallet registers a
+     * session grant to the funding address (impersonated on the local fork),
+     * then the grant is checked on chain and recorded. `{ "days"?: 1..30 }`.
+     */
+    app.post("/v1/agents/:agentId/arm", async (c) => {
+      const ref = agentRef(c.req.param("agentId"), o.chainId);
+      if (!ref) return c.json({ error: "bad_agent_id" }, 400);
+      if (!o.forkUrl) return c.json({ error: "no_fork", message: "Arming here needs the local fork." }, 409);
+      const body = (await c.req.json().catch(() => null)) as { days?: unknown } | null;
+      const days = body?.days === undefined ? 30 : Number(body.days);
+      if (!Number.isInteger(days) || days < 1 || days > 30)
+        return c.json({ error: "bad_days", message: "A grant lasts 1 to 30 days." }, 400);
+      const [owner, funding] = await Promise.all([
+        o.orchestrator.chainOwner(ref.agentId),
+        o.orchestrator.fundingAddress(ref),
+      ]);
+      if (!owner)
+        return c.json({ error: "not_deployed", message: "The agent or the trading contracts are not on this chain." }, 409);
+      if (!funding)
+        return c.json({ error: "no_funding_address", message: "The agent has no funding address yet." }, 409);
+      await registerTestSessionGrant(o.forkUrl, ref.agentId, owner, funding, days);
+      const r = await o.orchestrator.confirmArming(ref, owner);
+      if (!r.ok) return c.json({ error: r.code.toLowerCase(), message: r.message }, 409);
+      return c.json({ renewed: r.renewed, arming: armingJson(r.record, Math.floor(Date.now() / 1000)) }, 201);
+    });
+
+    /** P2-U6: disarm now, and revoke the grant as the owner's wallet would (impersonated on the fork). */
+    app.post("/v1/agents/:agentId/disarm", async (c) => {
+      const ref = agentRef(c.req.param("agentId"), o.chainId);
+      if (!ref) return c.json({ error: "bad_agent_id" }, 400);
+      const ended = await o.orchestrator.disarm(ref);
+      const owner = await o.orchestrator.chainOwner(ref.agentId);
+      if (o.forkUrl && owner) await revokeTestSessionGrant(o.forkUrl, ref.agentId, owner);
+      const { last } = await o.orchestrator.arming(ref);
+      return c.json({ disarmed: ended !== null, arming: armingJson(last, Math.floor(Date.now() / 1000)) });
+    });
+
+    /** P2-U6: approve a waiting intent as the owner; the first approval after the grant arms the agent. */
+    app.post("/v1/agents/:agentId/intents/:intentId/approve", async (c) => {
+      const ref = agentRef(c.req.param("agentId"), o.chainId);
+      if (!ref) return c.json({ error: "bad_agent_id" }, 400);
+      const intentId = c.req.param("intentId");
+      if (!/^intent-[0-9a-f-]{36}$/.test(intentId)) return c.json({ error: "bad_intent_id" }, 400);
+      const r = await o.orchestrator.approveIntent(ref, intentId);
+      if (!r.ok)
+        return c.json({ error: r.code.toLowerCase(), message: r.message }, r.code === "NOT_FOUND" ? 404 : 409);
+      return c.json({ intent: intentJson(r.intent), armed: r.armed !== null });
     });
 
     /** P1-U7: queue a Scan now (D-216); the scheduler also queues them on its cadence. */

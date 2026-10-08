@@ -458,6 +458,11 @@ export class Orchestrator {
     });
   }
 
+  /** The agent's owner as the chain says now, or null where trading is not deployed. */
+  async chainOwner(agentId: number): Promise<Hex | null> {
+    return (await this.o.chain?.reader?.agent(agentId))?.owner ?? null;
+  }
+
   /** The owner approves a waiting intent; the first approval after the grant arms the agent. */
   async approveIntent(ref: AgentRef, intentId: string) {
     const r = await approveByOwner(this.trades, ref.chainId, ref.agentId, intentId);

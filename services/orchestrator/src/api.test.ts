@@ -1,5 +1,6 @@
 import { type TestDatabase, createTestDatabase, databaseAvailable } from "@alpha-agents/db/testing";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { TradeStore, approveByOwner } from "@alpha-agents/trading";
 import { createApi } from "./api.ts";
 import { MemoryGateway } from "./gateway-admin.ts";
 import { LeaseManager } from "./leases.ts";
@@ -250,6 +251,72 @@ describe.skipIf(!dbUp)("the orchestrator's internal API (D-205)", { timeout: 60_
     expect(after?.pending).toHaveLength(1);
     expect(after?.recent[0]).toMatchObject({ status: "cancelled", appliesTo: null });
     await unindexAgent(t.db, 7);
+  });
+
+  it("approves an intent and serves intents, arming and why-not-traded for the console (P2-U6)", async () => {
+    const trades = new TradeStore(t.db);
+    const o = {
+      ...orchestrator,
+      trades,
+      tradeFlow: null,
+      arming: async (ref: { chainId: number; agentId: number }) => ({
+        last: await trades.lastArming(ref.chainId, ref.agentId),
+      }),
+      approveIntent: (ref: { chainId: number; agentId: number }, id: string) =>
+        approveByOwner(trades, ref.chainId, ref.agentId, id),
+      whyNotTraded: (ref: { chainId: number; agentId: number }) =>
+        trades.whyNotTraded(ref.chainId, ref.agentId),
+    } as unknown as Orchestrator;
+    const app = createApi({ orchestrator: o, store, chainId: CHAIN, devActions: true });
+    const id = "intent-00000000-0000-4000-8000-000000000001";
+    await t.db
+      .insertInto("platform.intents")
+      .values({
+        intent_id: id,
+        chain_id: CHAIN,
+        agent_id: 1,
+        lease_id: "lease-1",
+        kind: "swap",
+        sell: "USDC",
+        buy: "WMON",
+        amount_in: "5000000",
+        reason: "test",
+        idempotency_key: "k-1",
+        status: "awaiting_approval",
+        reason_codes: "[]",
+        checks: "{}",
+        owner_epoch: "0",
+        config_epoch: "0",
+        expires_at: new Date(Date.now() + 1_800_000),
+      })
+      .execute();
+    const refused = await app.request(`/v1/agents/1/intents/${id}/approve`, { method: "POST" });
+    expect([refused.status, ((await refused.json()) as { error: string }).error]).toEqual([
+      409,
+      "not_armed",
+    ]);
+    await trades.startArming({
+      chainId: CHAIN,
+      agentId: 1,
+      owner: "0x00000000000000000000000000000000000a11ce",
+      ownerEpoch: 0n,
+      configEpoch: 0n,
+      sessionKey: "0x00000000000000000000000000000000000000ee",
+      validUntil: BigInt(Math.floor(Date.now() / 1000) + 86_400),
+    });
+    const ok = await app.request(`/v1/agents/1/intents/${id}/approve`, { method: "POST" });
+    expect(await ok.json()).toMatchObject({ armed: true, intent: { status: "approved" } });
+    const chain = (await (await app.request("/v1/agents/1/chain")).json()) as Record<string, unknown>;
+    expect(chain).toMatchObject({
+      arming: { state: "armed", firstIntentId: id },
+      intents: [expect.objectContaining({ intentId: id, approvedBy: "owner" })],
+    });
+    const why = await (await app.request("/v1/agents/1/why-not-traded")).json();
+    expect(why).toMatchObject({ armingState: "armed", reasons: [] });
+    // Without dev actions the console's arm, disarm and approve do not exist.
+    const off = createApi({ orchestrator: o, store, chainId: CHAIN, devActions: false });
+    for (const path of ["/v1/agents/1/arm", "/v1/agents/1/disarm", `/v1/agents/1/intents/${id}/approve`])
+      expect((await off.request(path, { method: "POST" })).status, path).toBe(404);
   });
 
   it("has no write routes without dev actions (outside APP_ENV=local)", async () => {

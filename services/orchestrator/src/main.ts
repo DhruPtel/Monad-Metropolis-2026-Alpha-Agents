@@ -325,6 +325,7 @@ const api = createApi({
   chainId: env.chainId,
   devActions: env.id === "local",
   signer: signerWorker,
+  forkUrl: local ? rpcUrl : null,
 });
 const server = serve({ fetch: api.fetch, port, hostname: "127.0.0.1" });
 log(`internal API on http://127.0.0.1:${port} (dev actions ${env.id === "local" ? "on" : "off"})`);

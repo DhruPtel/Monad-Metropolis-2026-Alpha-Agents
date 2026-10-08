@@ -38,6 +38,7 @@ const NFT_ABI = parseAbi([
 ]);
 const EXECUTOR_ABI = parseAbi([
   "function registerSession(uint256 agentId, address key, uint64 validUntil)",
+  "function revokeSession(uint256 agentId)",
   "function sessionOf(uint256 agentId) view returns ((address key, uint64 ownerEpoch, uint64 configEpoch, uint64 validUntil))",
 ]);
 
@@ -196,6 +197,25 @@ export async function fundTestPersonalAccount(
     who as Address,
     account as Address,
     encodeFunctionData({ abi: ACCOUNT_ABI, functionName: "deposit", args: [usdc, amountE6] }),
+  );
+}
+
+/** The owner revokes the agent's grant, as the disarm's wallet call does (fork only). */
+export async function revokeTestSessionGrant(
+  url: string,
+  agentId: number,
+  owner: string,
+): Promise<void> {
+  await assertLocalFork(url);
+  const id = agentNumber(agentId);
+  const who = wallet(owner);
+  await requireOwner(url, id, who);
+  await gasFor(url, who);
+  await sendAs(
+    url,
+    who as Address,
+    book("executor") as Address,
+    encodeFunctionData({ abi: EXECUTOR_ABI, functionName: "revokeSession", args: [id] }),
   );
 }
 
