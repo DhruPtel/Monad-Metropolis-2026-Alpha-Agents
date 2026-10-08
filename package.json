@@ -68,7 +68,10 @@
     "devenv:local-feed": "node scripts/write-local-feed.js",
     "assets:build-bee": "node scripts/assets/build-bee-model.ts",
     "assets:check": "node scripts/assets/check-models.ts",
-    "test:canary-fork": "node scripts/test-canary-fork.js"
+    "test:canary-fork": "node scripts/test-canary-fork.js",
+    "deploy:canary": "node scripts/deploy-canary.js",
+    "verify:canary": "node scripts/verify-canary.js",
+    "canary:mainnet": "node scripts/canary-mainnet.js"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

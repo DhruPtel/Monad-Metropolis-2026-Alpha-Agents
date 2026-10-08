@@ -95,10 +95,11 @@ export async function assertTestnet(url) {
 }
 
 /**
- * Runs a forge script against testnet and returns its output, with the RPC URL
- * and every key redacted from what is printed and returned.
+ * Runs a forge script against testnet (or, with `scope`, the mainnet canary)
+ * and returns its output, with the RPC URL and every key redacted from what is
+ * printed and returned.
  * @param {string} script e.g. "script/DeployTestnetMarket.s.sol:DeployTestnetMarket"
- * @param {{ url: string, env: Record<string, string>, secrets: string[], broadcast: boolean }} o
+ * @param {{ url: string, env: Record<string, string>, secrets: string[], broadcast: boolean, scope?: string }} o
  */
 export function forgeScript(script, o) {
   const args = ["script", script, "--rpc-url", o.url, "--slow"];
@@ -106,7 +107,7 @@ export function forgeScript(script, o) {
     args.push("--broadcast", "--gas-estimate-multiplier", String(GAS_ESTIMATE_MULTIPLIER));
   const result = spawnSync("forge", args, {
     cwd: MONAD_DIR,
-    env: { ...process.env, ...o.env, DEPLOY_SALT_SCOPE: SALT_SCOPE },
+    env: { ...process.env, ...o.env, DEPLOY_SALT_SCOPE: o.scope ?? SALT_SCOPE },
     encoding: "utf8",
     maxBuffer: 64 * 1024 * 1024,
   });
@@ -150,13 +151,14 @@ export async function chainTransaction(url, hash) {
 }
 
 /**
- * The transactions forge broadcast in a script's latest testnet run, labelled
- * from forge's record and measured from the chain.
+ * The transactions forge broadcast in a script's latest run on a chain
+ * (testnet unless given), labelled from forge's record and measured from the chain.
  * @param {string} url
  * @param {string} scriptFile e.g. "DeployTestnetMarket.s.sol"
+ * @param {number} [chainId]
  */
-export async function broadcastRecords(url, scriptFile) {
-  const path = join(MONAD_DIR, "broadcast", scriptFile, String(TESTNET.chainId), "run-latest.json");
+export async function broadcastRecords(url, scriptFile, chainId = TESTNET.chainId) {
+  const path = join(MONAD_DIR, "broadcast", scriptFile, String(chainId), "run-latest.json");
   if (!existsSync(path)) return [];
   const run = JSON.parse(readFileSync(path, "utf8"));
   const out = [];
