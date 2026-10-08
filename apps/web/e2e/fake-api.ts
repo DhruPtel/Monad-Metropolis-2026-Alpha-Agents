@@ -14,6 +14,7 @@ function linkedWallet(authorization: string | undefined): string | null {
   return authorization?.startsWith(prefix) ? authorization.slice(prefix.length) : null;
 }
 import { AGENT_NFT, type FakeChain } from "./fake-chain";
+import type { FakeHoldings } from "./fake-holdings";
 import type { FakeTrading } from "./fake-trading";
 
 /**
@@ -147,6 +148,8 @@ export class FakeApi {
   readonly dashboards = new Map<bigint, FakeDashboard>();
   /** P2-U7: each agent's trading backend (portfolio, arming, intents). */
   readonly trading = new Map<bigint, FakeTrading>();
+  /** D-315: each agent's holdings at its three addresses. */
+  readonly holdings = new Map<bigint, FakeHoldings>();
   /** Owner-only requests, for tests that check another wallet made none. */
   readonly ownerCalls: string[] = [];
   /** Requests refused because the token's wallet was not the one asked about, as "path wallet". */
@@ -284,6 +287,23 @@ export class FakeApi {
     }
     const mine = /^\/v1\/agents\/(\d+)\/(session|summary|scan|credits\/refund)$/.exec(url.pathname);
     if (mine?.[1] && mine[2]) return this.owner(BigInt(mine[1]), mine[2], request, reply, meta);
+    const held = /^\/v1\/agents\/(\d+)\/holdings$/.exec(url.pathname);
+    if (held?.[1]) {
+      const id = BigInt(held[1]);
+      this.ownerCalls.push(`holdings ${id.toString()}`);
+      const token = request.headers()["x-owner-session"];
+      if (!token)
+        return reply(401, { error: "missing_token", message: "Start an owner session first." });
+      if (token !== this.sessionFor(id))
+        return reply(403, {
+          error: "not_owner",
+          message: "This owner session is for another agent.",
+        });
+      const h = this.holdings.get(id);
+      return h
+        ? reply(200, { ...meta, holdings: h.json(id) })
+        : reply(503, { error: "not_deployed", message: "Agents are not deployed here." });
+    }
     const why = /^\/v1\/agents\/(\d+)\/why-not-traded$/.exec(url.pathname);
     if (why?.[1]) {
       const tr = this.trading.get(BigInt(why[1]));

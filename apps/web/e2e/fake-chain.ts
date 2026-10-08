@@ -233,6 +233,9 @@ export class FakeChain {
           const holder = `0x${call.data.slice(34, 74)}` as Address;
           return ok(`0x${this.balanceOf(call.to, holder).toString(16).padStart(64, "0")}`);
         }
+        // D-315: a token-bound account's execute, simulated before the owner sends it.
+        if (call.data.startsWith("0x51945447"))
+          return ok(encodeAbiParameters([{ type: "bytes" }], ["0x"]));
         if (!same(call.to, AGENT_NFT)) return ok("0x");
         const result = this.call(call.data);
         return result === undefined ? fail(3, "execution reverted") : ok(result);
