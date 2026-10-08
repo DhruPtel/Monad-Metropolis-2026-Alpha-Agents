@@ -15,6 +15,8 @@ import {
   WebSearchOutput,
   startDataTools,
 } from "./server.ts";
+import { MarketData } from "@alpha-agents/market";
+import { FIXTURE_NOW_MS, fakeMainnet, fixtureFetch } from "@alpha-agents/market/testing";
 import { type PageText, type SearchHit, UpstreamError, type WebProvider } from "./tavily.ts";
 import { BEGIN_MARKER, END_MARKER, MAX_PAGE_CHARS } from "./web-content.ts";
 import type { Lookup } from "./url-guard.ts";
@@ -84,7 +86,7 @@ const lookup: Lookup = async (host) => {
 };
 
 const servers: ToolServer[] = [];
-async function start() {
+async function start(o: { market?: MarketData | null } = {}) {
   const meter = new FakeMeter();
   const provider = new FakeProvider();
   const server = await startDataTools({
@@ -92,9 +94,23 @@ async function start() {
     meter,
     provider,
     lookup,
+    ...(o.market === undefined ? {} : { market: o.market }),
   });
   servers.push(server);
   return { server, meter, provider };
+}
+
+/** The platform's market data answering from the recorded fixtures. */
+function fixtureMarket(o: { down?: string[]; cmc?: boolean } = {}) {
+  const f = fixtureFetch(o.down ? { down: o.down } : {});
+  const market = new MarketData({
+    cmcApiKey: o.cmc === false ? null : "test-key-not-real",
+    mainnet: fakeMainnet(),
+    fetch: f.fetch,
+    sleep: () => Promise.resolve(),
+    now: () => FIXTURE_NOW_MS,
+  });
+  return { market, calls: f.calls };
 }
 
 afterEach(async () => {
@@ -102,11 +118,19 @@ afterEach(async () => {
 });
 
 describe("data tools server", () => {
-  it("lists web_search and read_url with output schemas and no identity fields", async () => {
+  it("lists its tools with output schemas and no identity fields", async () => {
     const { server } = await start();
     const client = await connectClient(server.url, ALICE_TOKEN);
     const { tools } = await client.listTools();
-    expect(tools.map((t) => t.name).sort()).toEqual(["read_url", "web_search"]);
+    expect(tools.map((t) => t.name).sort()).toEqual([
+      "coinmarketcap_prices",
+      "defillama_tvl",
+      "defillama_yields",
+      "market_snapshot",
+      "read_url",
+      "volatility",
+      "web_search",
+    ]);
     for (const t of tools) expect(t.outputSchema).toBeDefined();
     for (const schema of Object.values(DATA_TOOL_INPUTS))
       expect(identityFields(schema)).toEqual([]);
@@ -231,5 +255,110 @@ describe("data tools server", () => {
     }
     expect(meter.events).toEqual([]);
     await client.close();
+  });
+
+  describe("market tools (P3-U2)", () => {
+    const call = async (token: string, server: ToolServer, name: string, args = {}) => {
+      const c = await connectClient(server.url, token);
+      const r = await c.callTool({ name, arguments: args });
+      await c.close();
+      return r;
+    };
+    const begins = (meter: FakeMeter) =>
+      meter.events.flatMap((e) => (e.kind === "begin" ? [e] : []));
+
+    it("market_snapshot answers the token's agent with every part sourced, and is metered at its price", async () => {
+      const { market } = fixtureMarket();
+      const { server, meter } = await start({ market });
+      const r = await call(BOB_TOKEN, server, "market_snapshot");
+      expect(r.isError).toBeFalsy();
+      const out = structured(r) as Record<string, { ok?: boolean } | unknown>;
+      for (const part of [
+        "prices",
+        "oracleVsPool",
+        "volatility",
+        "poolDepth",
+        "chainTvl",
+        "dexVolumes",
+        "topProtocols",
+        "topYields",
+      ])
+        expect((out[part] as { ok: boolean }).ok, part).toBe(true);
+      expect(out.cacheHit).toBe(false);
+      expect(begins(meter)).toEqual([
+        expect.objectContaining({ identity: BOB, tool: "market_snapshot", price: 1_000n }),
+      ]);
+      expect(meter.events.at(-1)).toMatchObject({ kind: "finish", status: "succeeded" });
+    });
+
+    it("two agents asking the same question make one upstream request; the second answer is free", async () => {
+      const { market, calls } = fixtureMarket();
+      const { server, meter } = await start({ market });
+      await call(ALICE_TOKEN, server, "coinmarketcap_prices");
+      const second = structured(await call(BOB_TOKEN, server, "coinmarketcap_prices")) as {
+        cacheHit: boolean;
+      };
+      expect(second.cacheHit).toBe(true);
+      expect(calls.filter((u) => u.includes("coinmarketcap"))).toHaveLength(1);
+      expect(begins(meter).map((e) => [e.identity.agentId, e.price])).toEqual([
+        [1, 1_000n],
+        [2, 0n],
+      ]);
+    });
+
+    it("an upstream outage is an error with its reason, and the charge is reversed, never stale data", async () => {
+      const { market } = fixtureMarket({ down: ["coinmarketcap"] });
+      const { server, meter } = await start({ market });
+      const r = await call(ALICE_TOKEN, server, "coinmarketcap_prices");
+      expect(structured(r)).toMatchObject({ code: "UPSTREAM_UNAVAILABLE", retryable: true });
+      expect(meter.events.at(-1)).toMatchObject({
+        kind: "finish",
+        status: "failed",
+        errorCode: "UPSTREAM_UNAVAILABLE",
+      });
+      // The snapshot still answers, with the prices part naming its error.
+      const s = structured(await call(ALICE_TOKEN, server, "market_snapshot")) as {
+        prices: unknown;
+        chainTvl: { ok: boolean };
+      };
+      expect(s.prices).toMatchObject({ ok: false, error: { code: "UPSTREAM_UNAVAILABLE" } });
+      expect(s.chainTvl.ok).toBe(true);
+    });
+
+    it("volatility is free, yields filter by asset, and TVL lists Monad's protocols", async () => {
+      const { market } = fixtureMarket();
+      const { server, meter } = await start({ market });
+      const v = structured(await call(ALICE_TOKEN, server, "volatility")) as { method: string };
+      expect(v.method).toContain("log returns");
+      const y = structured(
+        await call(ALICE_TOKEN, server, "defillama_yields", { asset: "USDC", limit: 3 }),
+      ) as {
+        pools: { symbol: string }[];
+      };
+      expect(y.pools.length).toBeLessThanOrEqual(3);
+      expect(y.pools.every((p) => p.symbol.toUpperCase().includes("USDC"))).toBe(true);
+      const t = structured(await call(ALICE_TOKEN, server, "defillama_tvl", { limit: 2 })) as {
+        protocols: unknown[];
+      };
+      expect(t.protocols).toHaveLength(2);
+      expect(begins(meter).map((e) => [e.tool, e.price])).toEqual([
+        ["volatility", 0n],
+        ["defillama_yields", 1_000n],
+        ["defillama_tvl", 1_000n],
+      ]);
+    });
+
+    it("refuses an input that names an agent, and says plainly when market data is not configured", async () => {
+      const { market } = fixtureMarket();
+      const { server, meter } = await start({ market });
+      const r = await call(BOB_TOKEN, server, "market_snapshot", { agentId: 1 });
+      expect(structured(r)).toMatchObject({ code: "INVALID_INPUT" });
+      expect(begins(meter)).toEqual([]);
+      const none = await start({ market: null });
+      expect(structured(await call(ALICE_TOKEN, none.server, "market_snapshot"))).toMatchObject({
+        code: "UPSTREAM_UNAVAILABLE",
+        retryable: false,
+      });
+    });
   });
 });

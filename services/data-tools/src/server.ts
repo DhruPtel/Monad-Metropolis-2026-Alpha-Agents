@@ -9,6 +9,13 @@ import {
   startToolServer,
 } from "@alpha-agents/tool-server";
 import { z } from "zod";
+import type { MarketData } from "@alpha-agents/market";
+import {
+  MARKET_TOOL_PRICES_USDC_E6,
+  type MarketDataTool,
+  MarketInputs,
+  registerMarketTools,
+} from "./market-tools.ts";
 import { UpstreamError, type WebProvider } from "./tavily.ts";
 import { type Lookup, checkUrl, systemLookup } from "./url-guard.ts";
 import {
@@ -27,12 +34,13 @@ import {
  * refuses the call; an upstream failure is reported back so the charge is
  * reversed. Nothing in an input names an agent.
  */
-export type DataTool = "web_search" | "read_url";
+export type DataTool = "web_search" | "read_url" | MarketDataTool;
 
-/** A-29: Tavily's rate plus the A-27 markup, in micro-USDC per call. */
+/** A-29: Tavily's rate plus the A-27 markup; A-52 for market data. In micro-USDC per call. */
 export const DATA_TOOL_PRICES_USDC_E6: Readonly<Record<DataTool, bigint>> = {
   web_search: 10_000n,
   read_url: 2_000n,
+  ...MARKET_TOOL_PRICES_USDC_E6,
 };
 
 export interface CallSummary extends Record<string, unknown> {
@@ -56,6 +64,8 @@ export interface Meter {
       input: Record<string, unknown>;
       priceUsdcE6: bigint;
       provider: string;
+      /** The shared cache already held the answer (P3-U2): such a call is free. */
+      cacheHit?: boolean;
     },
   ): Promise<string>;
   /** Records the outcome. A failed call's charge is reversed. */
@@ -80,6 +90,8 @@ export interface Meter {
 export interface DataToolsDeps {
   readonly meter: Meter;
   readonly provider: WebProvider;
+  /** P3-U2: the platform's market data; null where it is not configured. */
+  readonly market?: MarketData | null;
   readonly lookup?: Lookup;
   readonly now?: () => Date;
 }
@@ -265,10 +277,15 @@ export function registerDataTools(
       }
     },
   );
+  registerMarketTools(mcp, identity, { meter: deps.meter, market: deps.market ?? null });
 }
 
 /** Every input schema the server registers, for the identity field lint. */
-export const DATA_TOOL_INPUTS = { web_search: WebSearchInput, read_url: ReadUrlInput } as const;
+export const DATA_TOOL_INPUTS = {
+  web_search: WebSearchInput,
+  read_url: ReadUrlInput,
+  ...MarketInputs,
+} as const;
 
 export async function startDataTools(
   options: DataToolsDeps & { readonly resolve: IdentityResolver; readonly port?: number },

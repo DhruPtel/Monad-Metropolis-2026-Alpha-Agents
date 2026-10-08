@@ -6,6 +6,7 @@ import {
   startDataTools,
 } from "@alpha-agents/data-tools";
 import { type ChainReader, type IntentRecord, startChainTools } from "@alpha-agents/chain-tools";
+import type { MarketData } from "@alpha-agents/market";
 import { startPlatformTools } from "@alpha-agents/platform-tools";
 import type { AgentIdentity } from "@alpha-agents/tool-server";
 import type { Hex } from "viem";
@@ -52,6 +53,8 @@ export interface ToolServersOptions {
   readonly lookup?: Lookup;
   /** The chain tools' wiring; none answers every chain tool with "not deployed". */
   readonly chain?: ChainToolsWiring;
+  /** P3-U2: the platform's market data, shared by every agent; none answers market tools "not configured". */
+  readonly market?: MarketData | null;
   readonly log: Log;
 }
 
@@ -81,6 +84,7 @@ export async function startToolServers(o: ToolServersOptions): Promise<ToolServe
     resolve,
     meter,
     provider: o.provider ?? unconfiguredProvider,
+    market: o.market ?? null,
     ...(o.lookup ? { lookup: o.lookup } : {}),
   });
   const platform = await startPlatformTools({

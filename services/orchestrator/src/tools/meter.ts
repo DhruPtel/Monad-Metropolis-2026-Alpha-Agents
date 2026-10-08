@@ -12,7 +12,9 @@ import type { Store } from "../store.ts";
  * meter checks the lease's paid-call count and the agent's spendable credits,
  * then posts the usage entry and the call's row in one transaction, so two
  * concurrent calls can never spend the same credits. A call the upstream did
- * not answer is reversed with a `usage_reversed` entry.
+ * not answer is reversed with a `usage_reversed` entry. A free call (a free
+ * tool, or an answer the shared cache already holds, P3-U2) gets its row with
+ * no ledger entry and does not count against the lease's paid calls.
  */
 export const MAX_PAID_CALLS_PER_LEASE = 20;
 
@@ -67,8 +69,9 @@ export class ToolMeter implements Meter {
         .where("lease_id", "=", identity.leaseId)
         .where("server", "=", "data")
         .where("status", "!=", "refused")
+        .where("charge_usdc_e6", ">", "0")
         .executeTakeFirstOrThrow();
-      if (Number(paid.n) >= MAX_PAID_CALLS_PER_LEASE) {
+      if (call.priceUsdcE6 > 0n && Number(paid.n) >= MAX_PAID_CALLS_PER_LEASE) {
         await this.insertRefused(identity, call.tool, call.input, "LEASE_CALL_LIMIT", null);
         throw new ToolError(
           "RATE_LIMITED",
@@ -86,6 +89,23 @@ export class ToolMeter implements Meter {
         );
       }
       const callId = `call-${randomUUID()}`;
+      const row = {
+        call_id: callId,
+        chain_id: identity.chainId,
+        agent_id: identity.agentId,
+        lease_id: identity.leaseId,
+        server: "data" as const,
+        tool: call.tool,
+        input: json(call.input),
+        status: "running" as const,
+        provider: call.provider,
+        cache_hit: call.cacheHit ?? false,
+      };
+      // Free: no ledger entry, nothing to reverse (MK-S6: a ledger row only for a paid call).
+      if (call.priceUsdcE6 === 0n) {
+        await this.o.store.db.insertInto("platform.tool_calls").values(row).execute();
+        return callId;
+      }
       const entryId = randomUUID();
       await this.o.ledger.post(
         usageEntry(
@@ -112,20 +132,7 @@ export class ToolMeter implements Meter {
         async (trx) => {
           await trx
             .insertInto("platform.tool_calls")
-            .values({
-              call_id: callId,
-              chain_id: identity.chainId,
-              agent_id: identity.agentId,
-              lease_id: identity.leaseId,
-              server: "data",
-              tool: call.tool,
-              input: json(call.input),
-              status: "running",
-              charge_usdc_e6: call.priceUsdcE6.toString(),
-              entry_id: entryId,
-              provider: call.provider,
-              cache_hit: false,
-            })
+            .values({ ...row, charge_usdc_e6: call.priceUsdcE6.toString(), entry_id: entryId })
             .execute();
         },
       );
@@ -150,6 +157,14 @@ export class ToolMeter implements Meter {
       return;
     }
     const charge = BigInt(row.charge_usdc_e6);
+    if (charge === 0n) {
+      await this.o.store.db
+        .updateTable("platform.tool_calls")
+        .set({ status: "failed", error_code: outcome.errorCode, summary, finished_at: new Date() })
+        .where("call_id", "=", callId)
+        .execute();
+      return;
+    }
     const reversalId = randomUUID();
     await this.o.ledger.post(
       usageReversalEntry(

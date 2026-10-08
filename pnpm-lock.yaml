@@ -453,6 +453,9 @@ importers:
 
   services/data-tools:
     dependencies:
+      '@alpha-agents/market':
+        specifier: workspace:^
+        version: link:../../packages/market
       '@alpha-agents/tool-server':
         specifier: workspace:^
         version: link:../../packages/tool-server
@@ -501,6 +504,9 @@ importers:
       '@alpha-agents/domain':
         specifier: workspace:^
         version: link:../../packages/domain
+      '@alpha-agents/market':
+        specifier: workspace:^
+        version: link:../../packages/market
       '@alpha-agents/platform-tools':
         specifier: workspace:^
         version: link:../platform-tools

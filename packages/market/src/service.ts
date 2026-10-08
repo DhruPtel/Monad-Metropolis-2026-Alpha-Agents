@@ -98,6 +98,27 @@ export interface MarketSnapshot {
   }[];
 }
 
+/** The market reads each data tool makes, so the meter can tell a cached answer before it charges. */
+export const MARKET_TOOL_KEYS = {
+  coinmarketcap_prices: [cacheKey("coinmarketcap", "quotes")],
+  defillama_tvl: [cacheKey("defillama", "chainTvl"), cacheKey("defillama", "protocols")],
+  defillama_yields: [cacheKey("defillama", "yields")],
+  volatility: [cacheKey("defillama", "chartHourly"), cacheKey("defillama", "chart4h")],
+  market_snapshot: [
+    cacheKey("coinmarketcap", "quotes"),
+    cacheKey("defillama", "chainTvl"),
+    cacheKey("defillama", "protocols"),
+    cacheKey("defillama", "yields"),
+    cacheKey("defillama", "dexVolumes"),
+    cacheKey("defillama", "chartHourly"),
+    cacheKey("defillama", "chart4h"),
+    cacheKey("monad", "oracleVsPool"),
+    cacheKey("monad", "poolDepth"),
+  ],
+  get_pool_depth: [cacheKey("monad", "poolDepth")],
+} as const;
+export type MarketTool = keyof typeof MARKET_TOOL_KEYS;
+
 export class MarketData {
   readonly cache: MarketCache;
   readonly cmcBudget: CreditBudget;
@@ -127,6 +148,11 @@ export class MarketData {
         ...(sleep ? { sleep } : {}),
       }),
     };
+  }
+
+  /** Whether every read the tool makes is already cached and fresh. */
+  fresh(tool: MarketTool): boolean {
+    return MARKET_TOOL_KEYS[tool].every((k) => this.cache.isFresh(k));
   }
 
   private ctx(): GuardContext {

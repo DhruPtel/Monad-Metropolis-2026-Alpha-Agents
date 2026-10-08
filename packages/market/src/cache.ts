@@ -77,6 +77,12 @@ export class MarketCache {
     }
   }
 
+  /** Whether the key holds an answer that has not expired: a read now would make no request. */
+  isFresh(key: string): boolean {
+    const e = this.entries.get(key);
+    return e !== undefined && e.expiresAt > this.now();
+  }
+
   /** When each cached key was last fetched, for the console's freshness view. */
   freshness(): { key: string; fetchedAt: number; expiresAt: number }[] {
     return [...this.entries].map(([key, e]) => ({

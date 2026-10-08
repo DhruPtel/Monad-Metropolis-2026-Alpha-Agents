@@ -15,6 +15,7 @@
     "@alpha-agents/db": "workspace:^",
     "@alpha-agents/devenv": "workspace:^",
     "@alpha-agents/domain": "workspace:^",
+    "@alpha-agents/market": "workspace:^",
     "@alpha-agents/platform-tools": "workspace:^",
     "@alpha-agents/policy": "workspace:^",
     "@alpha-agents/signer": "workspace:^",

@@ -6,6 +6,8 @@ import {
   type WebProvider,
 } from "@alpha-agents/data-tools";
 import { connectClient, structured } from "@alpha-agents/tool-server/testing";
+import { MarketData } from "@alpha-agents/market";
+import { FIXTURE_NOW_MS, fakeMainnet, fixtureFetch } from "@alpha-agents/market/testing";
 import { DEFAULT_GOAL_INPUT } from "@alpha-agents/domain";
 import { translateGoal } from "@alpha-agents/policy";
 import { GoalStore } from "@alpha-agents/trading";
@@ -129,6 +131,13 @@ describe.skipIf(!dbUp)("tool servers behind the gate (needs Postgres)", { timeou
       environment: "fork",
       provider: web,
       lookup: async () => ["93.184.215.14"],
+      market: new MarketData({
+        cmcApiKey: "test-key-not-real",
+        mainnet: fakeMainnet(),
+        fetch: fixtureFetch().fetch,
+        sleep: () => Promise.resolve(),
+        now: () => FIXTURE_NOW_MS,
+      }),
       log,
     });
     gate = await startGate({
@@ -312,6 +321,55 @@ describe.skipIf(!dbUp)("tool servers behind the gate (needs Postgres)", { timeou
     expect(structured(over)).toMatchObject({ code: "RATE_LIMITED", retryable: false });
     expect(web.calls).toBe(MAX_PAID_CALLS_PER_LEASE);
     await client.close();
+  });
+
+  it("market data: one ledger row for the paid call, the cached answer free and outside the paid limit (P3-U2)", async () => {
+    const alice = await agentWith(1, 1_000_000n);
+    const bob = await agentWith(2, 1_000_000n);
+    const snapshot = async (token: string) => {
+      const c = await viaGate("data", token);
+      const r = await c.callTool({ name: "market_snapshot", arguments: {} });
+      await c.close();
+      return r;
+    };
+    const first = await snapshot(alice);
+    expect(first.isError, JSON.stringify(structured(first))).toBeFalsy();
+    expect((await snapshot(bob)).isError).toBeFalsy();
+    const rows = await t.db
+      .selectFrom("platform.tool_calls")
+      .select(["agent_id", "tool", "status", "charge_usdc_e6", "cache_hit", "entry_id"])
+      .where("tool", "=", "market_snapshot")
+      .orderBy("started_at")
+      .execute();
+    expect(
+      rows.map((r) => [
+        r.agent_id,
+        r.status,
+        String(r.charge_usdc_e6),
+        r.cache_hit,
+        r.entry_id === null,
+      ]),
+    ).toEqual([
+      [1, "succeeded", "1000", false, false],
+      [2, "succeeded", "0", true, true],
+    ]);
+    // MK-S6: one ledger entry per paid call, none for the free one.
+    const entries = await t.db.selectFrom("platform.ledger_entries").select("source").execute();
+    const marketEntries = entries.filter((e) =>
+      JSON.stringify(e.source).includes("market_snapshot"),
+    );
+    expect(marketEntries).toHaveLength(1);
+    // Free calls never use up the lease's paid calls.
+    const c = await viaGate("data", bob);
+    for (let i = 0; i < MAX_PAID_CALLS_PER_LEASE; i += 1) {
+      const r = await c.callTool({
+        name: "read_url",
+        arguments: { url: `https://news.example/m${i}` },
+      });
+      expect(r.isError).toBeFalsy();
+    }
+    expect((await c.callTool({ name: "market_snapshot", arguments: {} })).isError).toBeFalsy();
+    await c.close();
   });
 
   it("records complete_stage once per lease and thesis notes for the token's agent", async () => {
