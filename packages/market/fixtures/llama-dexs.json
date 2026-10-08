@@ -1,0 +1,254 @@
+{
+  "total24h": 52276550.470000006,
+  "change_1d": 25,
+  "protocols": [
+    {
+      "name": "Curve DEX",
+      "total24h": 4042560
+    },
+    {
+      "name": "PancakeSwap AMM",
+      "total24h": 0
+    },
+    {
+      "name": "Pendle V2",
+      "total24h": 1399115
+    },
+    {
+      "name": "WOOFi Swap",
+      "total24h": 308855
+    },
+    {
+      "name": "Wombat Exchange",
+      "total24h": 0
+    },
+    {
+      "name": "iZiSwap",
+      "total24h": 0
+    },
+    {
+      "name": "Uniswap V2",
+      "total24h": 7845
+    },
+    {
+      "name": "Uniswap V3",
+      "total24h": 3195496
+    },
+    {
+      "name": "PancakeSwap AMM V3",
+      "total24h": 959298
+    },
+    {
+      "name": "Joe V2.1",
+      "total24h": 0
+    },
+    {
+      "name": "zkSwap V2",
+      "total24h": 0
+    },
+    {
+      "name": "Sablier Lockup",
+      "total24h": 0
+    },
+    {
+      "name": "Sweep n Flip",
+      "total24h": 0
+    },
+    {
+      "name": "Garden",
+      "total24h": 0
+    },
+    {
+      "name": "Spectra V2",
+      "total24h": 0
+    },
+    {
+      "name": "Clober V2",
+      "total24h": 98399
+    },
+    {
+      "name": "Joe V2.2",
+      "total24h": 8445
+    },
+    {
+      "name": "Flap sh",
+      "total24h": 40.73
+    },
+    {
+      "name": "Nabla Finance",
+      "total24h": 0
+    },
+    {
+      "name": "zkSwap V3",
+      "total24h": 0
+    },
+    {
+      "name": "GMGN",
+      "total24h": 22977
+    },
+    {
+      "name": "Balancer V3",
+      "total24h": 3260059
+    },
+    {
+      "name": "Uniswap V4",
+      "total24h": 31969283
+    },
+    {
+      "name": "Hanji Protocol",
+      "total24h": 3062022
+    },
+    {
+      "name": "Skate AMM",
+      "total24h": 0
+    },
+    {
+      "name": "EulerSwap",
+      "total24h": 0
+    },
+    {
+      "name": "Pangolin V3",
+      "total24h": 53
+    },
+    {
+      "name": "BrownFi V2",
+      "total24h": 0
+    },
+    {
+      "name": "Bean Exchange",
+      "total24h": 93.43
+    },
+    {
+      "name": "Swyrl CL",
+      "total24h": 0
+    },
+    {
+      "name": "Swyrl Legacy",
+      "total24h": 0
+    },
+    {
+      "name": "Kuru CLOB",
+      "total24h": 3195691
+    },
+    {
+      "name": "Madness Finance",
+      "total24h": 0
+    },
+    {
+      "name": "PurpsExchange",
+      "total24h": 158
+    },
+    {
+      "name": "Pinot V3",
+      "total24h": 0
+    },
+    {
+      "name": "AethonSwap",
+      "total24h": 0
+    },
+    {
+      "name": "Nad.fun V1",
+      "total24h": 205246
+    },
+    {
+      "name": "Capricorn",
+      "total24h": 120972
+    },
+    {
+      "name": "OctoSwap CL",
+      "total24h": 0
+    },
+    {
+      "name": "OctoSwap Classic",
+      "total24h": 0
+    },
+    {
+      "name": "NarBet",
+      "total24h": 9.04
+    },
+    {
+      "name": "Monday Trade Spot",
+      "total24h": 83166
+    },
+    {
+      "name": "Tristero Darkpool",
+      "total24h": null
+    },
+    {
+      "name": "HYPERSTITIONS",
+      "total24h": 0
+    },
+    {
+      "name": "Crystal Exchange DEX",
+      "total24h": 72609
+    },
+    {
+      "name": "o1.exchange Trading Terminal",
+      "total24h": 0
+    },
+    {
+      "name": "SomeSwap AMM",
+      "total24h": null
+    },
+    {
+      "name": "MetaMask Card",
+      "total24h": 31.86
+    },
+    {
+      "name": "Parity DEX",
+      "total24h": 0
+    },
+    {
+      "name": "Parity DEX CL",
+      "total24h": 33.63
+    },
+    {
+      "name": "Printr",
+      "total24h": 0
+    },
+    {
+      "name": "Mento V3",
+      "total24h": 363777
+    },
+    {
+      "name": "Lunarbase",
+      "total24h": 0
+    },
+    {
+      "name": "Metric V2",
+      "total24h": 0
+    },
+    {
+      "name": "NOXA DEX V3",
+      "total24h": 0
+    },
+    {
+      "name": "1inch Aqua",
+      "total24h": 0
+    },
+    {
+      "name": "Hermes Trade",
+      "total24h": 0
+    },
+    {
+      "name": "Metric V1",
+      "total24h": 76599
+    },
+    {
+      "name": "CRSHMARKET",
+      "total24h": 0
+    },
+    {
+      "name": "LFJ POE",
+      "total24h": 694063
+    },
+    {
+      "name": "Adexto",
+      "total24h": 0
+    },
+    {
+      "name": "Crystal Exchange Launchpad",
+      "total24h": 0
+    }
+  ]
+}

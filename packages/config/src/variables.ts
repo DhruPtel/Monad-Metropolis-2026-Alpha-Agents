@@ -774,14 +774,14 @@ export const VARIABLES = [
     example: "your-dune-api-key",
   },
   {
-    name: "COINGECKO_API_KEY",
+    name: "COINMARKETCAP_API_KEY",
     group: "Research data",
-    description: "CoinGecko API key",
+    description: "CoinMarketCap API key (free Basic plan; D-321)",
     secret: true,
     firstUsedBy: "P3-U2",
     environments: ALL,
     ...token,
-    example: "your-coingecko-api-key",
+    example: "your-coinmarketcap-api-key",
   },
   {
     name: "WALLET_DATA_PROVIDER",

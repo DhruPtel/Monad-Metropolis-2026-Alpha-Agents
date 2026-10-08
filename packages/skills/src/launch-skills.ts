@@ -106,7 +106,7 @@ export const LAUNCH_SKILL_MANIFESTS: readonly unknown[] = [
     [
       "data.defillama_yields@1",
       "data.defillama_tvl@1",
-      "data.coingecko_prices@1",
+      "data.coinmarketcap_prices@1",
       "chain.get_prices@1",
       "data.dune_query@1",
     ],

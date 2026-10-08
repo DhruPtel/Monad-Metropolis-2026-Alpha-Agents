@@ -1,0 +1,66 @@
+{
+  "data": {
+    "3408": {
+      "id": 3408,
+      "name": "USDC",
+      "symbol": "USDC",
+      "slug": "usd-coin",
+      "last_updated": "2026-10-08T22:44:00.000Z",
+      "quote": {
+        "USD": {
+          "price": 0.9997723924232258,
+          "volume_24h": 24615994502.52379,
+          "volume_change_24h": 24.8035,
+          "cex_volume_24h": 22029169186.71517,
+          "dex_volume_24h": 2586825315.808623,
+          "percent_change_1h": -0.00287933,
+          "percent_change_24h": -0.00273316,
+          "percent_change_7d": -0.01810191,
+          "percent_change_30d": -0.0144207,
+          "percent_change_60d": -0.01510887,
+          "percent_change_90d": -0.0058142,
+          "market_cap": 73144829878.41867,
+          "market_cap_dominance": 2.6425,
+          "fully_diluted_market_cap": 73144829878.42,
+          "tvl": null,
+          "last_updated": "2026-10-08T22:45:02.000Z"
+        }
+      }
+    },
+    "30495": {
+      "id": 30495,
+      "name": "Monad",
+      "symbol": "MON",
+      "slug": "monad",
+      "last_updated": "2026-10-08T22:45:00.000Z",
+      "quote": {
+        "USD": {
+          "price": 0.024115630186343353,
+          "volume_24h": 51965797.32520173,
+          "volume_change_24h": -6.6971,
+          "cex_volume_24h": 51784358.28576996,
+          "dex_volume_24h": 181439.03943177,
+          "percent_change_1h": -1.41012401,
+          "percent_change_24h": -6.52486487,
+          "percent_change_7d": -27.7949604,
+          "percent_change_30d": -6.44303693,
+          "percent_change_60d": 14.17982923,
+          "percent_change_90d": 4.69934202,
+          "market_cap": 285171306.0324909,
+          "market_cap_dominance": 0.0103,
+          "fully_diluted_market_cap": 2753201113.62,
+          "tvl": null,
+          "last_updated": "2026-10-08T22:45:02.000Z"
+        }
+      }
+    }
+  },
+  "status": {
+    "timestamp": "2026-10-08T22:46:42.434Z",
+    "error_code": 0,
+    "error_message": null,
+    "elapsed": 5,
+    "credit_count": 1,
+    "notice": null
+  }
+}

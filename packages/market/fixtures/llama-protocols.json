@@ -1,0 +1,403 @@
+[
+  {
+    "name": "Aave V3",
+    "category": "Lending",
+    "chains": [
+      "Ethereum",
+      "Base",
+      "Arbitrum",
+      "Plasma",
+      "Monad",
+      "Avalanche",
+      "Binance",
+      "Polygon",
+      "X Layer",
+      "Mantle",
+      "xDai",
+      "Optimism",
+      "Linea",
+      "MegaETH",
+      "Sonic",
+      "Celo",
+      "Scroll",
+      "zkSync Era",
+      "Metis",
+      "Soneium",
+      "Fantom"
+    ],
+    "chainTvls": {
+      "Monad": 348198608.8489564,
+      "Ethereum": 14527493326.489475
+    },
+    "tvl": 17340296990.635143
+  },
+  {
+    "name": "Euler V2",
+    "category": "Lending",
+    "chains": [
+      "Monad",
+      "Ethereum",
+      "Base",
+      "BOB",
+      "Avalanche",
+      "Hyperliquid L1",
+      "Plasma",
+      "Unichain",
+      "Binance",
+      "Arbitrum",
+      "Linea",
+      "Sonic",
+      "Berachain",
+      "TAC",
+      "Swellchain",
+      "Mantle"
+    ],
+    "chainTvls": {
+      "Monad": 218233245.85781854,
+      "Ethereum": 52607878.31837942
+    },
+    "tvl": 305643985.0808418
+  },
+  {
+    "name": "Hyperithm",
+    "category": "Risk Curators",
+    "chains": [
+      "Monad",
+      "Ethereum",
+      "Arbitrum",
+      "Plasma",
+      "Solana",
+      "Hyperliquid L1",
+      "Katana",
+      "Stable",
+      "Binance",
+      "XRPL EVM"
+    ],
+    "chainTvls": {
+      "Monad": 203073331.52178386,
+      "Ethereum": 73923541.71848576
+    },
+    "tvl": 277573237.1407278
+  },
+  {
+    "name": "K3 Capital",
+    "category": "Risk Curators",
+    "chains": [
+      "Monad",
+      "Ethereum",
+      "Optimism",
+      "Hyperliquid L1",
+      "Plasma",
+      "Binance",
+      "Arbitrum",
+      "Unichain",
+      "Avalanche"
+    ],
+    "chainTvls": {
+      "Monad": 200326239.35179275,
+      "Ethereum": 35191026.54088827
+    },
+    "tvl": 249692664.36895326
+  },
+  {
+    "name": "Morpho Blue",
+    "category": "Lending",
+    "chains": [
+      "Ethereum",
+      "Base",
+      "Robinhood Chain",
+      "Arc",
+      "Monad",
+      "Hyperliquid L1",
+      "Pharos",
+      "Morph",
+      "Flare",
+      "Tempo",
+      "World Chain",
+      "Arbitrum",
+      "Katana",
+      "Stable",
+      "Citrea",
+      "Optimism",
+      "Sei",
+      "Etherlink",
+      "Polygon",
+      "Plume Mainnet",
+      "Unichain",
+      "MegaETH",
+      "Celo",
+      "XDC",
+      "TAC",
+      "Klaytn",
+      "Abstract",
+      "Soneium",
+      "Lisk",
+      "Hemi",
+      "Avalanche",
+      "Fraxtal",
+      "Sonic",
+      "RISE",
+      "Binance",
+      "0G",
+      "Scroll",
+      "Ink",
+      "Corn",
+      "Botanix",
+      "Bitlayer",
+      "Linea",
+      "xDai",
+      "Mode",
+      "Zircuit"
+    ],
+    "chainTvls": {
+      "Monad": 178513037.52695584,
+      "Ethereum": 5123191693.920297
+    },
+    "tvl": 11141529647.147812
+  },
+  {
+    "name": "Pendle V2",
+    "category": "Yield",
+    "chains": [
+      "Ethereum",
+      "Arbitrum",
+      "Monad",
+      "X Layer",
+      "Plasma",
+      "Hyperliquid L1",
+      "Binance",
+      "Base",
+      "Robinhood Chain",
+      "Sonic",
+      "Mantle",
+      "Avalanche",
+      "Berachain",
+      "Optimism"
+    ],
+    "chainTvls": {
+      "Monad": 157872292.4516914,
+      "Ethereum": 747877258.2774894
+    },
+    "tvl": 1211173317.623155
+  },
+  {
+    "name": "Curvance",
+    "category": "Lending",
+    "chains": ["Monad"],
+    "chainTvls": {
+      "Monad": 128276574.58710076
+    },
+    "tvl": 128276574.58710076
+  },
+  {
+    "name": "Valos",
+    "category": "RWA",
+    "chains": ["Monad"],
+    "chainTvls": {
+      "Monad": 105672931.27847767
+    },
+    "tvl": 105672931.27847767
+  },
+  {
+    "name": "Reservoir Protocol",
+    "category": "CDP",
+    "chains": [
+      "Monad",
+      "Pharos",
+      "Ethereum",
+      "Plasma",
+      "World Chain",
+      "Berachain",
+      "Binance",
+      "Solana",
+      "Katana",
+      "Base",
+      "Mantle",
+      "Sei",
+      "Plume Mainnet",
+      "Tempo",
+      "Arbitrum",
+      "Hyperliquid L1",
+      "Optimism"
+    ],
+    "chainTvls": {
+      "Monad": 59120610.80161074,
+      "Ethereum": 3765628.21641738
+    },
+    "tvl": 70118135.47158271
+  },
+  {
+    "name": "Bybit",
+    "category": "CEX",
+    "chains": [
+      "Ethereum",
+      "Bitcoin",
+      "Tron",
+      "Solana",
+      "Binance",
+      "Mantle",
+      "Ripple",
+      "Hyperliquid L1",
+      "TON",
+      "Base",
+      "Arbitrum",
+      "Doge",
+      "Avalanche",
+      "Sui",
+      "Aptos",
+      "Optimism",
+      "Plasma",
+      "Litecoin",
+      "Polygon",
+      "Monad",
+      "Sonic",
+      "zkSync Era",
+      "Starknet",
+      "Linea",
+      "Polkadot",
+      "Cardano",
+      "Cosmos",
+      "Celo",
+      "dYdX",
+      "Kava",
+      "Klaytn",
+      "EOS",
+      "Manta",
+      "Taiko",
+      "Scroll",
+      "Fantom",
+      "Arbitrum Nova"
+    ],
+    "chainTvls": {
+      "Monad": 42201762.028109185,
+      "Ethereum": 5576072101.085025
+    },
+    "tvl": 16200685793.713587
+  },
+  {
+    "name": "Veda",
+    "category": "Onchain Capital Allocator",
+    "chains": [
+      "Ink",
+      "Ethereum",
+      "Optimism",
+      "Hyperliquid L1",
+      "Monad",
+      "Plasma",
+      "Arbitrum",
+      "Base",
+      "Berachain",
+      "Sonic",
+      "Binance",
+      "BOB",
+      "Scroll"
+    ],
+    "chainTvls": {
+      "Monad": 38733579.40025944,
+      "Ethereum": 639475796.4723556
+    },
+    "tvl": 1848867021.619549
+  },
+  {
+    "name": "Steakhouse Financial",
+    "category": "Risk Curators",
+    "chains": [
+      "Base",
+      "Ethereum",
+      "Robinhood Chain",
+      "Solana",
+      "Monad",
+      "Arbitrum",
+      "Katana",
+      "Polygon",
+      "Corn",
+      "Unichain"
+    ],
+    "chainTvls": {
+      "Monad": 31786538.348157506,
+      "Ethereum": 721201172.9650288
+    },
+    "tvl": 2411295411.3375797
+  },
+  {
+    "name": "Binance CEX",
+    "category": "CEX",
+    "chains": [
+      "Ethereum",
+      "Bitcoin",
+      "Binance",
+      "Solana",
+      "Ripple",
+      "Tron",
+      "Doge",
+      "Base",
+      "Arbitrum",
+      "Near",
+      "Sui",
+      "Avalanche",
+      "Litecoin",
+      "Plasma",
+      "Stellar",
+      "Optimism",
+      "Hedera",
+      "TON",
+      "Aptos",
+      "Sonic",
+      "Polkadot",
+      "Polygon",
+      "Algorand",
+      "Celo",
+      "Op_Bnb",
+      "Ronin",
+      "zkSync Era",
+      "Starknet",
+      "Chiliz",
+      "Manta",
+      "Scroll",
+      "Fantom"
+    ],
+    "chainTvls": {
+      "Ethereum": 69992776989.08063
+    },
+    "tvl": 172091027977.75006
+  },
+  {
+    "name": "OKX",
+    "category": "CEX",
+    "chains": [
+      "Ethereum",
+      "Bitcoin",
+      "X Layer",
+      "Solana",
+      "Tron",
+      "Doge",
+      "Ripple",
+      "Litecoin",
+      "TON",
+      "Aptos",
+      "Polkadot",
+      "Base",
+      "Optimism",
+      "Arbitrum",
+      "Avalanche",
+      "Linea",
+      "zkSync Era",
+      "Scroll",
+      "Starknet",
+      "Polygon"
+    ],
+    "chainTvls": {
+      "Ethereum": 14021339474.168432
+    },
+    "tvl": 31132661274.325977
+  },
+  {
+    "name": "Lido",
+    "category": "Liquid Staking",
+    "chains": ["Ethereum", "Solana", "Terra", "Moonriver", "Moonbeam"],
+    "chainTvls": {
+      "Ethereum": 24480549138.722607
+    },
+    "tvl": 24486338196.419247
+  }
+]

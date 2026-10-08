@@ -47,8 +47,8 @@ const rebalance = {
 };
 
 describe("tool registry (FINAL_PLAN 4.4.5)", () => {
-  it("lists 45 unique, well-formed tool IDs", () => {
-    expect(TOOL_IDS).toHaveLength(45);
+  it("lists 46 unique, well-formed tool IDs", () => {
+    expect(TOOL_IDS).toHaveLength(46);
     expect(new Set(TOOL_IDS).size).toBe(TOOL_IDS.length);
     for (const t of TOOL_REGISTRY) {
       const parsed = parseToolId(t.id);
@@ -58,9 +58,9 @@ describe("tool registry (FINAL_PLAN 4.4.5)", () => {
     }
   });
 
-  it("has 17 chain, 15 data and 13 platform tools", () => {
+  it("has 17 chain, 16 data and 13 platform tools", () => {
     const count = (s: string) => TOOL_REGISTRY.filter((t) => t.server === s).length;
-    expect([count("chain"), count("data"), count("platform")]).toEqual([17, 15, 13]);
+    expect([count("chain"), count("data"), count("platform")]).toEqual([17, 16, 13]);
   });
 
   it("maps every intent to a registered tool", () => {

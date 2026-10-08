@@ -1,0 +1,203 @@
+{
+  "status": "success",
+  "data": [
+    {
+      "chain": "Monad",
+      "project": "aave-v3",
+      "symbol": "SYRUPUSDC",
+      "tvlUsd": 149593798,
+      "apy": 1.13932,
+      "apyBase": 0,
+      "apyReward": 1.13932,
+      "pool": "9829fc1f-8f3a-5b29-a4b1-843b2996c95d",
+      "stablecoin": true
+    },
+    {
+      "chain": "Monad",
+      "project": "accountable",
+      "symbol": "AUSD",
+      "tvlUsd": 100581292,
+      "apy": 6.68106,
+      "apyBase": 6.5475,
+      "apyReward": 0.13356,
+      "pool": "4baffdfd-8015-4713-bad4-10a199b30157",
+      "stablecoin": true
+    },
+    {
+      "chain": "Monad",
+      "project": "aave-v3",
+      "symbol": "USDE",
+      "tvlUsd": 98523308,
+      "apy": 1.01241,
+      "apyBase": 0.01241,
+      "apyReward": 1,
+      "pool": "34f65227-f3f9-5c3f-9182-f6eca85ae729",
+      "stablecoin": true
+    },
+    {
+      "chain": "Monad",
+      "project": "townsquare-lending",
+      "symbol": "ENZOBTC",
+      "tvlUsd": 76347865,
+      "apy": 0.0034,
+      "apyBase": 0.0034,
+      "apyReward": null,
+      "pool": "4ea1913d-f1db-40e5-9010-30965511236f",
+      "stablecoin": false
+    },
+    {
+      "chain": "Monad",
+      "project": "accountable",
+      "symbol": "USDC",
+      "tvlUsd": 74972778,
+      "apy": 10.78077,
+      "apyBase": 10.5,
+      "apyReward": 0.28077,
+      "pool": "1a9c61c7-4094-4ee7-8d46-6ea8fb5689f1",
+      "stablecoin": true
+    },
+    {
+      "chain": "Monad",
+      "project": "morpho-blue",
+      "symbol": "HYPERUSDCA",
+      "tvlUsd": 53672083,
+      "apy": 8.36911,
+      "apyBase": 6.35376,
+      "apyReward": 2.01535,
+      "pool": "ec6a71a7-41ae-4e72-942f-b4bc99c3b3cb",
+      "stablecoin": true
+    },
+    {
+      "chain": "Monad",
+      "project": "euler-v2",
+      "symbol": "WETH",
+      "tvlUsd": 53455343,
+      "apy": 2.62949,
+      "apyBase": 1.24552,
+      "apyReward": 1.38397,
+      "pool": "951e4e49-9760-49a3-aea9-bd832384219f",
+      "stablecoin": false
+    },
+    {
+      "chain": "Monad",
+      "project": "morpho-blue",
+      "symbol": "AHYPER",
+      "tvlUsd": 49936354,
+      "apy": 1.93075,
+      "apyBase": 0,
+      "apyReward": 1.93075,
+      "pool": "8ee92b15-1846-4a9c-8ce8-254a745e2b62",
+      "stablecoin": false
+    },
+    {
+      "chain": "Monad",
+      "project": "accountable",
+      "symbol": "CBBTC",
+      "tvlUsd": 40806396,
+      "apy": 4.45467,
+      "apyBase": 4.1,
+      "apyReward": 0.35467,
+      "pool": "5528e3be-2b9b-4062-a2c0-80d3345c7c0f",
+      "stablecoin": false
+    },
+    {
+      "chain": "Monad",
+      "project": "accountable",
+      "symbol": "AUSD",
+      "tvlUsd": 30774224,
+      "apy": 7.14415,
+      "apyBase": 6.74415,
+      "apyReward": 0.4,
+      "pool": "6e69bba9-5a90-5712-8f5e-2012b57f5daf",
+      "stablecoin": true
+    },
+    {
+      "chain": "Monad",
+      "project": "aave-v3",
+      "symbol": "PT-AUSD-17DEC2026",
+      "tvlUsd": 29682667,
+      "apy": 0,
+      "apyBase": 0,
+      "apyReward": null,
+      "pool": "5640e30b-a9e9-57a5-9d5c-680a5891d531",
+      "stablecoin": false
+    },
+    {
+      "chain": "Monad",
+      "project": "curvance",
+      "symbol": "WSRUSD",
+      "tvlUsd": 29650782,
+      "apy": 0,
+      "apyBase": 0,
+      "apyReward": null,
+      "pool": "824d5acf-6e92-5260-9505-1d7de5062655",
+      "stablecoin": true
+    },
+    {
+      "chain": "Monad",
+      "project": "morpho-blue",
+      "symbol": "WSTETH",
+      "tvlUsd": 28905461,
+      "apy": 0,
+      "apyBase": 0,
+      "apyReward": null,
+      "pool": "e875c975-b9f7-4987-9b4b-a27f3633115f",
+      "stablecoin": false
+    },
+    {
+      "chain": "Monad",
+      "project": "morpho-blue",
+      "symbol": "STEAKETH",
+      "tvlUsd": 27976043,
+      "apy": 4.45493,
+      "apyBase": 1.45493,
+      "apyReward": 3,
+      "pool": "22f041f7-8313-43c2-b319-bcf70f5ee2aa",
+      "stablecoin": false
+    },
+    {
+      "chain": "Monad",
+      "project": "morpho-blue",
+      "symbol": "PT-USDAT-14JAN2027",
+      "tvlUsd": 27129753,
+      "apy": 2.09781,
+      "apyBase": 0,
+      "apyReward": 2.09781,
+      "pool": "e864b9eb-bd40-57f3-be5a-2969271ad7e2",
+      "stablecoin": false
+    },
+    {
+      "chain": "Ethereum",
+      "project": "lido",
+      "symbol": "STETH",
+      "tvlUsd": 23995511224,
+      "apy": 2.24,
+      "apyBase": 2.24,
+      "apyReward": null,
+      "pool": "747c1d2a-c668-4682-b9f9-296708a3dd90",
+      "stablecoin": false
+    },
+    {
+      "chain": "Ethereum",
+      "project": "binance-staked-eth",
+      "symbol": "WBETH",
+      "tvlUsd": 8719579086,
+      "apy": 2.22249,
+      "apyBase": 2.22249,
+      "apyReward": null,
+      "pool": "80b8bf92-b953-4c20-98ea-c9653ef2bb98",
+      "stablecoin": false
+    },
+    {
+      "chain": "Ethereum",
+      "project": "ether.fi-stake",
+      "symbol": "WEETH",
+      "tvlUsd": 5463493684,
+      "apy": 2.3248,
+      "apyBase": 2.3248,
+      "apyReward": 0,
+      "pool": "46bd2bdf-6d92-4066-b482-e885ee172264",
+      "stablecoin": false
+    }
+  ]
+}
