@@ -616,7 +616,252 @@ function WalletActionStatus({
   );
 }
 
+const ASSET_TONE: Readonly<Record<PortfolioAsset, string>> = {
+  USDC: "text-rare",
+  WMON: "text-primary",
+};
+const ASSET_FILL: Readonly<Record<PortfolioAsset, string>> = {
+  USDC: "bg-rare",
+  WMON: "bg-primary",
+};
+
+/**
+ * The account's allocation by value as a donut (Phase 2 tuning): USDC in
+ * steel, WMON in lime, with the total in the middle and a legend of shares.
+ * Unknown while WMON is held and its price is unusable.
+ */
+function AllocationChart({
+  usdcShareBps,
+  wmonShareBps,
+  totalUsdc,
+  className,
+}: {
+  usdcShareBps: number | null;
+  wmonShareBps: number | null;
+  totalUsdc: bigint | null;
+  className?: string;
+}) {
+  const known = usdcShareBps !== null && wmonShareBps !== null && totalUsdc !== null;
+  const empty = known && totalUsdc === 0n;
+  const r = 42;
+  const c = 2 * Math.PI * r;
+  const wmonLength = known ? (c * wmonShareBps) / 10_000 : 0;
+  const label = !known
+    ? "Allocation unknown while the WMON price is unavailable"
+    : empty
+      ? "Allocation: the account is empty"
+      : `Allocation by value: USDC ${percent(usdcShareBps)}, WMON ${percent(wmonShareBps)}`;
+  return (
+    <figure
+      className={cn("flex flex-col items-center gap-3 sm:flex-row sm:items-center", className)}
+      data-testid="allocation-chart"
+    >
+      <svg viewBox="0 0 100 100" role="img" aria-label={label} className="size-36 shrink-0">
+        <circle
+          cx="50"
+          cy="50"
+          r={r}
+          fill="none"
+          strokeWidth="12"
+          className="text-border"
+          stroke="currentColor"
+        />
+        {known && !empty ? (
+          <>
+            <circle
+              cx="50"
+              cy="50"
+              r={r}
+              fill="none"
+              strokeWidth="12"
+              stroke="currentColor"
+              className={ASSET_TONE.USDC}
+              transform="rotate(-90 50 50)"
+              strokeDasharray={`${c - wmonLength} ${c}`}
+            />
+            {wmonLength > 0 ? (
+              <circle
+                cx="50"
+                cy="50"
+                r={r}
+                fill="none"
+                strokeWidth="12"
+                stroke="currentColor"
+                className={ASSET_TONE.WMON}
+                transform={`rotate(${-90 + (360 * (usdcShareBps ?? 0)) / 10_000} 50 50)`}
+                strokeDasharray={`${wmonLength} ${c}`}
+              />
+            ) : null}
+          </>
+        ) : null}
+      </svg>
+      <figcaption className="flex flex-col gap-2 text-sm">
+        {known ? (
+          (["USDC", "WMON"] as const).map((asset) => (
+            <span key={asset} className="flex items-center gap-2">
+              <span aria-hidden className={cn("size-2.5 rounded-full", ASSET_FILL[asset])} />
+              <span className="w-12">{asset}</span>
+              <span className="numeric">
+                {percent(asset === "USDC" ? usdcShareBps : wmonShareBps)}
+              </span>
+            </span>
+          ))
+        ) : (
+          <span className="text-foreground-muted">{label}</span>
+        )}
+      </figcaption>
+    </figure>
+  );
+}
+
+/** The allocation as one compact bar, for an agent's card. */
+function AllocationBar({
+  usdcShareBps,
+  className,
+}: {
+  /** Null while unknown; WMON is the rest. */
+  usdcShareBps: number | null;
+  className?: string;
+}) {
+  if (usdcShareBps === null)
+    return (
+      <span className={cn("text-xs text-foreground-muted", className)}>Allocation unknown</span>
+    );
+  const wmon = 10_000 - usdcShareBps;
+  return (
+    <div
+      className={cn("flex flex-col gap-1", className)}
+      role="img"
+      aria-label={`Allocation by value: USDC ${percent(usdcShareBps)}, WMON ${percent(wmon)}`}
+      data-testid="allocation-bar"
+    >
+      <div className="flex h-2 w-full overflow-hidden rounded-full bg-border">
+        <span className={ASSET_FILL.USDC} style={{ flexGrow: usdcShareBps }} />
+        <span className={ASSET_FILL.WMON} style={{ flexGrow: wmon }} />
+      </div>
+      <span className="flex justify-between text-xs text-foreground-muted">
+        <span>
+          USDC <span className="numeric">{percent(usdcShareBps)}</span>
+        </span>
+        <span>
+          WMON <span className="numeric">{percent(wmon)}</span>
+        </span>
+      </span>
+    </div>
+  );
+}
+
+/**
+ * The portfolio at a glance (Phase 2 tuning): the allocation chart, the total
+ * value, each asset's share, the account's mode and the price's freshness.
+ */
+function PortfolioOverview({
+  positions: p,
+  className,
+}: {
+  positions: PositionsView;
+  className?: string;
+}) {
+  const tile = (label: string, value: ReactNode) => (
+    <div className="flex flex-col gap-1 rounded-md border border-border p-3">
+      <span className="text-xs text-foreground-muted">{label}</span>
+      <span className="text-sm">{value}</span>
+    </div>
+  );
+  return (
+    <section
+      aria-label="Portfolio overview"
+      className={cn("grid gap-4 md:grid-cols-[auto_minmax(0,1fr)] md:items-center", className)}
+      data-testid="portfolio-overview"
+    >
+      <AllocationChart
+        usdcShareBps={p.usdcShareBps}
+        wmonShareBps={p.wmonShareBps}
+        totalUsdc={p.totalUsdc}
+      />
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
+        <div className="col-span-2 flex flex-col gap-1 rounded-md border border-border p-3 lg:col-span-1">
+          <span className="text-xs text-foreground-muted">Total value</span>
+          {p.totalUsdc === null ? (
+            <span className="text-sm text-foreground-muted">Unknown without a price</span>
+          ) : (
+            <Amount asset="USDC" value={p.totalUsdc} className="text-xl" />
+          )}
+        </div>
+        {tile(
+          "USDC",
+          <span className="numeric">
+            {p.usdcShareBps === null ? "Unknown" : percent(p.usdcShareBps)}
+          </span>,
+        )}
+        {tile(
+          "WMON",
+          <span className="numeric">
+            {p.wmonShareBps === null ? "Unknown" : percent(p.wmonShareBps)}
+          </span>,
+        )}
+        {tile("Mode", <StatusPill kind="account_mode" value={p.mode} />)}
+        {tile(
+          "Price",
+          p.price.usable ? (
+            <Badge tone="positive">
+              <span className="numeric">{`Fresh, ${p.price.ageSeconds}s old`}</span>
+            </Badge>
+          ) : (
+            <Badge tone="warning">{`Unavailable: ${p.price.reason.replace(/_/g, " ").toLowerCase()}`}</Badge>
+          ),
+        )}
+      </div>
+    </section>
+  );
+}
+
+/**
+ * The wallet's MON for gas (Phase 2 tuning), with a warning when it is too
+ * low to arm, deposit or withdraw. Every one of those is a wallet transaction
+ * the wallet pays gas for.
+ */
+function GasNotice({
+  monWei,
+  lowBelowWei,
+  network,
+  className,
+}: {
+  monWei: bigint;
+  lowBelowWei: bigint;
+  network: string;
+  className?: string;
+}) {
+  const low = monWei < lowBelowWei;
+  const amount = <AmountDisplay value={monWei} decimals={18} maxFractionDigits={4} symbol="MON" />;
+  return (
+    <p
+      className={cn(
+        "flex flex-wrap items-center gap-2 text-sm",
+        low ? "text-warning" : "text-foreground-muted",
+        className,
+      )}
+      data-testid="gas-notice"
+      data-low={low ? "true" : "false"}
+      {...(low ? { role: "alert" } : {})}
+    >
+      {low ? (
+        <>
+          Your wallet has {amount} for gas, too little to arm, deposit or withdraw. Add MON on{" "}
+          {network} first.
+        </>
+      ) : (
+        <>Gas in your wallet: {amount}</>
+      )}
+    </p>
+  );
+}
+
 export {
+  AllocationBar,
+  AllocationChart,
+  GasNotice,
+  PortfolioOverview,
   ApprovalCard,
   ArmingCard,
   CapsPanel,

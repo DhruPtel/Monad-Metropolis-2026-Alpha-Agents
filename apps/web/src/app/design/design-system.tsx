@@ -37,8 +37,13 @@ import {
   ActivityFeed,
   TOOL_CALL_STATUSES,
   ToolCallStatusBadge,
+  AddCreditsPanel,
+  AllocationBar,
+  AllocationChart,
   ApprovalCard,
   ArmingCard,
+  GasNotice,
+  PortfolioOverview,
   CapsPanel,
   FundAgentPanel,
   PositionsPanel,
@@ -872,7 +877,12 @@ function AgentSection() {
               spendableUsdcE6: 4_994_400n,
               heldUsdcE6: 2_000_000n,
             }}
-            trading={{ hasAccount: true, valueUsdcE6: 40_000_000n }}
+            trading={{
+              hasAccount: true,
+              valueUsdcE6: 40_000_000n,
+              usdcShareBps: 7_500,
+              mode: "NORMAL",
+            }}
             tradingAction={
               <Button size="sm" variant="secondary">
                 Open portfolio
@@ -1508,9 +1518,96 @@ const DS_POSITIONS: PositionsView = {
   price: { monUsd: "0.0250", ageSeconds: 20, usable: true, reason: "OK" },
 };
 
+const noop = () => undefined;
+
 function PortfolioSection() {
   return (
     <Section id="portfolio" title="Portfolio">
+      <Specimen
+        name="Portfolio overview"
+        note="The allocation by value as a donut (USDC steel, WMON lime), the total value, each asset's share, the account's mode and the price's freshness at a glance; unknown while WMON is held and its price is unusable."
+      >
+        <div className="flex flex-col gap-6">
+          <PortfolioOverview positions={DS_POSITIONS} />
+          <PortfolioOverview
+            positions={{
+              ...DS_POSITIONS,
+              wmonValueUsdc: null,
+              totalUsdc: null,
+              usdcShareBps: null,
+              wmonShareBps: null,
+              mode: "REDUCE_ONLY",
+              price: { monUsd: null, ageSeconds: 900, usable: false, reason: "STALE" },
+            }}
+          />
+        </div>
+      </Specimen>
+      <Specimen
+        name="Allocation chart and bar"
+        note="The donut on the portfolio and the compact bar on an agent's card: all USDC, mixed, and an empty account."
+      >
+        <div className="grid gap-6 lg:grid-cols-3">
+          <AllocationChart usdcShareBps={10_000} wmonShareBps={0} totalUsdc={20_000_000n} />
+          <AllocationChart usdcShareBps={4_000} wmonShareBps={6_000} totalUsdc={20_000_000n} />
+          <AllocationChart usdcShareBps={0} wmonShareBps={0} totalUsdc={0n} />
+          <AllocationBar usdcShareBps={7_500} />
+          <AllocationBar usdcShareBps={10_000} />
+          <AllocationBar usdcShareBps={null} />
+        </div>
+      </Specimen>
+      <Specimen
+        name="Gas in the wallet"
+        note="The wallet's MON for gas, and the warning when it is too low to arm, deposit or withdraw."
+      >
+        <div className="flex flex-col gap-3">
+          <GasNotice
+            monWei={500_000_000_000_000_000n}
+            lowBelowWei={10n ** 16n}
+            network="Monad (local fork)"
+          />
+          <GasNotice monWei={10n ** 14n} lowBelowWei={10n ** 16n} network="Monad (local fork)" />
+        </div>
+      </Specimen>
+      <Specimen
+        name="Add credits"
+        note="The credits and the room left under the per-agent cap; an amount over the cap says how much is held (not lost); an amount over the wallet's balance is refused before sending."
+      >
+        <div className="grid gap-6 lg:grid-cols-3">
+          <AddCreditsPanel
+            agentName="Alpha Agent #7"
+            creditsUsdcE6={4_994_400n}
+            capUsdcE6={50_000_000n}
+            walletUsdcE6={70_000_000n}
+            amountText="5"
+            onAmountChange={noop}
+            onAdd={noop}
+          />
+          <AddCreditsPanel
+            agentName="Alpha Agent #7"
+            creditsUsdcE6={45_000_000n}
+            capUsdcE6={50_000_000n}
+            walletUsdcE6={70_000_000n}
+            amountText="10"
+            onAmountChange={noop}
+            onAdd={noop}
+            status={
+              <WalletActionStatus
+                state="waiting-wallet"
+                text="Waiting for your wallet: Send 10 USDC to the funding address."
+              />
+            }
+          />
+          <AddCreditsPanel
+            agentName="Alpha Agent #7"
+            creditsUsdcE6={0n}
+            capUsdcE6={50_000_000n}
+            walletUsdcE6={2_000_000n}
+            amountText="3"
+            onAmountChange={noop}
+            onAdd={noop}
+          />
+        </div>
+      </Specimen>
       <Specimen
         name="Positions"
         note="USDC and WMON held, their value at the oracle price and share of the account, the account's mode, the drawdown from its 7-day peak, and the price's age. With the price unavailable, values read as unknown and the age gives the oracle's reason."

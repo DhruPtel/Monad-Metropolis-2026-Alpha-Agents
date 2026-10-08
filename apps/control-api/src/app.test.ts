@@ -1013,6 +1013,7 @@ describe.skipIf(!available)("the control API (needs pnpm dev:up for Postgres)", 
         const res = await call("/v1/agents/2/credits");
         expect(res.status).toBe(200);
         expect(await json(res)).toMatchObject({
+          creditCapUsdcE6: "50000000",
           fundingAddress: "0x00000000000000000000000000000000000F00d2",
           creditsUsdcE6: "7000000",
           spendableUsdcE6: "7000000",

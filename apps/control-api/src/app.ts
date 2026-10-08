@@ -1,4 +1,8 @@
-import { SCAN_COST_ESTIMATE_USDC_E6, SCAN_MIN_CREDITS_USDC_E6 } from "@alpha-agents/accounting";
+import {
+  CREDIT_CAP_USDC_E6,
+  SCAN_COST_ESTIMATE_USDC_E6,
+  SCAN_MIN_CREDITS_USDC_E6,
+} from "@alpha-agents/accounting";
 import type { Environment } from "@alpha-agents/config";
 import type { Db } from "@alpha-agents/db";
 import type { AgentNftDeployment } from "@alpha-agents/domain";
@@ -342,7 +346,12 @@ export function createApp(deps: ApiDeps): Hono {
     const agentId = Number(c.req.param("id"));
     const view = await readCredits(deps.db, chainId, agentId);
     if (!view) return fail(c, 404, "not_found", `Agent #${agentId} has no funding address yet.`);
-    return c.json({ ...(await meta()), agentId: String(agentId), ...view });
+    return c.json({
+      ...(await meta()),
+      agentId: String(agentId),
+      ...view,
+      creditCapUsdcE6: CREDIT_CAP_USDC_E6.toString(),
+    });
   });
 
   /**
@@ -391,6 +400,8 @@ export function createApp(deps: ApiDeps): Hono {
       wallet: owner.wallet,
       ownerEpoch: owner.epoch.toString(),
       ...summary,
+      // Phase 2 tuning: the per-agent credit cap, so the page shows the room left under it.
+      creditCapUsdcE6: CREDIT_CAP_USDC_E6.toString(),
       scan: {
         minimumUsdcE6: SCAN_MIN_CREDITS_USDC_E6.toString(),
         estimateUsdcE6: {

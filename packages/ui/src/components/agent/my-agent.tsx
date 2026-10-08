@@ -3,7 +3,10 @@ import type { ReactNode } from "react";
 import { cn } from "../../lib/utils";
 import { AddressDisplay } from "../address-display";
 import { AmountDisplay } from "../amount-display";
+import type { AccountMode } from "@alpha-agents/domain";
+import { StatusPill } from "../status-pill";
 import { Badge, type BadgeTone } from "../ui/badge";
+import { AllocationBar } from "./portfolio";
 import { SectionLabel } from "../ui/section-label";
 
 /**
@@ -108,6 +111,9 @@ export interface TradingSummaryView {
   readonly hasAccount: boolean;
   /** The account's value in USDC base units; null while it cannot be priced. */
   readonly valueUsdcE6: bigint | null;
+  /** USDC's share of the value in basis points; null while unknown or absent (Phase 2 tuning). */
+  readonly usdcShareBps?: number | null;
+  readonly mode?: AccountMode | null;
 }
 
 /**
@@ -121,6 +127,7 @@ function FundAgentPanel({
   funding,
   trading,
   tradingAction,
+  addCredits,
   className,
 }: {
   agentName: string;
@@ -130,6 +137,8 @@ function FundAgentPanel({
   trading?: TradingSummaryView | null;
   /** A link to the portfolio, as the app routes it. */
   tradingAction?: ReactNode;
+  /** The add-credits form, as the app wires it (Phase 2 tuning). */
+  addCredits?: ReactNode;
   className?: string;
 }) {
   return (
@@ -210,8 +219,17 @@ function FundAgentPanel({
               : "No trading account yet. Open one to deposit trading capital, separate from credits."}
           </p>
         )}
+        {trading?.hasAccount ? (
+          <div className="flex flex-col gap-2">
+            {trading.usdcShareBps !== undefined ? (
+              <AllocationBar usdcShareBps={trading.usdcShareBps} />
+            ) : null}
+            {trading.mode ? <StatusPill kind="account_mode" value={trading.mode} /> : null}
+          </div>
+        ) : null}
         {tradingAction}
       </div>
+      {addCredits}
     </section>
   );
 }
