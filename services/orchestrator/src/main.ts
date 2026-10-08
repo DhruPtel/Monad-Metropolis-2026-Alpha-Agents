@@ -1,3 +1,4 @@
+import { MarketData, viemMainnetReader } from "@alpha-agents/market";
 import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { serve } from "@hono/node-server";
@@ -43,7 +44,8 @@ import { testnetFeedsFor, viemFeedChain, withFreshFeeds } from "./testnet-feeds.
  * Reads DATABASE_URL, REDIS_URL, LITELLM_BASE_URL, LITELLM_MASTER_KEY,
  * ORCHESTRATOR_SECRET, ORCHESTRATOR_PORT, E2B_API_KEY,
  * REVEAL_KEEPER_PRIVATE_KEY, FUNDING_ADDRESS_SEED (P1-U6), TAVILY_API_KEY and
- * SCAN_INTERVAL_MINUTES (P1-U7). Every secret value is registered with the log's
+ * SCAN_INTERVAL_MINUTES (P1-U7), COINMARKETCAP_API_KEY and MONAD_RPC_URL for
+ * research's mainnet reads (P3-U2). Every secret value is registered with the log's
  * redactor before anything is logged, and none is ever printed.
  */
 const ENV_PATH = fileURLToPath(new URL("../../../.env", import.meta.url));
@@ -250,6 +252,23 @@ const tavilyKey = reveal("TAVILY_API_KEY");
 const web = tavilyKey ? new TavilyProvider(tavilyKey) : null;
 if (!web)
   log("TAVILY_API_KEY is not set: web_search and read_url answer that they are not configured");
+// Market data (P3-U2): CoinMarketCap and DefiLlama, and research's mainnet reads (D-289), in one
+// cache shared by every agent. A refused figure is logged; the log never carries a key or a URL.
+const cmcKey = reveal("COINMARKETCAP_API_KEY") ?? null;
+const mainnetUrls = [reveal("MONAD_RPC_URL"), reveal("MONAD_RPC_URL_SECONDARY")].filter(
+  (u): u is string => typeof u === "string" && u.length > 0,
+);
+const market = new MarketData({
+  cmcApiKey: cmcKey,
+  mainnet: mainnetUrls.length > 0 ? viemMainnetReader(mainnetUrls) : null,
+  onRefuse: (r) =>
+    log(
+      `market data: refused ${r.field} from ${r.source} (${String(r.value).slice(0, 40)}), outside ${r.range[0]} to ${r.range[1]}`,
+    ),
+});
+log(
+  `market data on: CoinMarketCap ${cmcKey ? "configured" : "not configured"}, DefiLlama, mainnet reads ${mainnetUrls.length > 0 ? "configured" : "not configured"}`,
+);
 const scanSeconds = arg("scan-interval-seconds");
 if (scanSeconds !== undefined && (env.id !== "local" || !/^[1-9]\d{0,5}$/.test(scanSeconds)))
   die("--scan-interval-seconds takes a whole number of seconds, and only with APP_ENV=local");
@@ -361,6 +380,7 @@ const orchestrator = new Orchestrator({
   log,
   credits,
   web,
+  market,
   scanIntervalMs,
   ...(scheduleScans ? {} : { scheduleMs: 0 }),
   ...(local ? {} : { keeperMs: REMOTE_POLL_MS, creditsMs: REMOTE_POLL_MS }),
@@ -384,6 +404,7 @@ const api = createApi({
   feeds: testnetFeeds,
   signer: signerWorker,
   forkUrl: local ? rpcUrl : null,
+  market,
 });
 const server = serve({ fetch: api.fetch, port, hostname: "127.0.0.1" });
 log(

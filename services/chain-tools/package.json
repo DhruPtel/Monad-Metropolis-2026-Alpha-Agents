@@ -13,6 +13,7 @@
   "dependencies": {
     "@alpha-agents/config": "workspace:^",
     "@alpha-agents/domain": "workspace:^",
+    "@alpha-agents/market": "workspace:^",
     "@alpha-agents/policy": "workspace:^",
     "@alpha-agents/tool-server": "workspace:^",
     "@modelcontextprotocol/sdk": "1.32.0",

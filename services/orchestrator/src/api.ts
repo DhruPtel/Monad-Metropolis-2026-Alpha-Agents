@@ -1,3 +1,4 @@
+import type { MarketData } from "@alpha-agents/market";
 import { SCAN_MIN_CREDITS_USDC_E6 } from "@alpha-agents/accounting";
 import { sql } from "@alpha-agents/db";
 import { SPECIES, TIER_IDS } from "@alpha-agents/domain";
@@ -35,6 +36,8 @@ export interface ApiOptions {
   readonly signer?: SignerWorker | null;
   /** P2-U6: the local fork, for the console's arm and disarm (the owner's wallet calls, impersonated). */
   readonly forkUrl?: string | null;
+  /** P3-U2: the platform's market data, for the console's snapshot view. */
+  readonly market?: MarketData | null;
 }
 
 const runtimeView = (r: Runtime) => ({
@@ -260,6 +263,31 @@ export function createApi(o: ApiOptions): Hono {
       recent: await Promise.all(resolved.slice(0, 5).map(steerView)),
     };
   };
+
+  /**
+   * P3-U2: the latest market snapshot as the agents see it, each source's
+   * freshness in the shared cache, and CoinMarketCap credits spent today. A
+   * platform read: nothing is charged to any agent.
+   */
+  app.get("/v1/market", async (c) => {
+    const m = o.market;
+    if (!m) return c.json({ configured: false }, 503);
+    const snap = await m.snapshot();
+    const now = Date.now();
+    return c.json({
+      configured: true,
+      cacheHit: snap.cacheHit,
+      snapshot: snap.value,
+      freshness: m.cache.freshness().map((f) => ({
+        source: f.key.split("|").slice(0, 2).join(" "),
+        fetchedAt: new Date(f.fetchedAt).toISOString(),
+        ageSeconds: Math.max(0, Math.round((now - f.fetchedAt) / 1000)),
+        expiresInSeconds: Math.max(0, Math.round((f.expiresAt - now) / 1000)),
+      })),
+      upstreamCalls: Object.fromEntries(m.cache.upstreamCalls),
+      coinmarketcapCreditsToday: m.cmcBudget.usedToday(),
+    });
+  });
 
   app.get("/v1/keeper", async (c) => {
     const keeper = o.orchestrator.keeper;

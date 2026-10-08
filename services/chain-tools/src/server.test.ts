@@ -1,3 +1,5 @@
+import { MarketData } from "@alpha-agents/market";
+import { FIXTURE_NOW_MS, fakeMainnet, fixtureFetch } from "@alpha-agents/market/testing";
 import { afterEach, describe, expect, it } from "vitest";
 import { FORBIDDEN_INTENT_FIELDS, REJECTION_CODES } from "@alpha-agents/domain";
 import { LAUNCH_EXECUTOR_POLICY, LAUNCH_POLICY_HASH, executorPreCheck } from "@alpha-agents/policy";
@@ -508,5 +510,30 @@ describe("chain tools server (P2-U5)", () => {
       "refused",
     ]);
     expect(log.calls[0]?.summary).toMatchObject({ monUsd: "0.025", tradable: true });
+  });
+
+  it("get_pool_depth: the venue's depth on mainnet, each figure sourced; a second call within a minute is cached", async () => {
+    const market = new MarketData({
+      cmcApiKey: null,
+      mainnet: fakeMainnet(),
+      fetch: fixtureFetch().fetch,
+      now: () => FIXTURE_NOW_MS,
+    });
+    const { call } = await start({ market });
+    const first = await call("get_pool_depth");
+    expect(first.error).toBe(false);
+    expect(first.out).toMatchObject({
+      chain: "monad-mainnet",
+      cacheHit: false,
+      feeBps: 5,
+      midPriceUsd: { source: "uniswap_v4" },
+      rows: [{ sizeUsd: 10, side: "buy_mon", impactBps: { value: 5.1 } }],
+    });
+    expect((await call("get_pool_depth")).out).toMatchObject({ cacheHit: true });
+    const none = await start();
+    expect((await none.call("get_pool_depth")).out).toMatchObject({
+      code: "UPSTREAM_UNAVAILABLE",
+      retryable: false,
+    });
   });
 });

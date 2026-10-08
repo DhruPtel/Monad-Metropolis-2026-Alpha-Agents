@@ -98,6 +98,7 @@ export async function startToolServers(o: ToolServersOptions): Promise<ToolServe
     reader: o.chain?.reader ?? null,
     log: new PgChainCallLog(o.store),
     intents,
+    market: o.market ?? null,
     ...(o.chain?.sessionKeyOf ? { sessionKeyOf: o.chain.sessionKeyOf } : {}),
     ...(o.chain?.onProposed ? { onProposed: o.chain.onProposed } : {}),
   });

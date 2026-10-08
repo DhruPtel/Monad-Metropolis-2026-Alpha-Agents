@@ -193,6 +193,53 @@ export const IntentOutput = z.strictObject({
 export type IntentOutput = z.infer<typeof IntentOutput>;
 
 /** Every input schema the server registers, for the identity field lint. */
+/**
+ * `get_pool_depth` (P3-U2, D-097): the launch venue's price impact at
+ * reference sizes, read from Monad mainnet (D-289), each figure with its
+ * source, time and warnings.
+ */
+const DepthFigure = z.strictObject({
+  value: z.number().nullable(),
+  source: z.enum(["coinmarketcap", "defillama", "chainlink", "uniswap_v4", "computed"]),
+  asOf: z.string(),
+  warnings: z
+    .array(
+      z.strictObject({
+        code: z.enum([
+          "REFUSED_OUT_OF_RANGE",
+          "MISSING",
+          "STALE",
+          "SOURCES_DISAGREE",
+          "THIN_HISTORY",
+        ]),
+        message: z.string().max(300),
+      }),
+    )
+    .max(5),
+});
+export const PoolDepthOutput = z.strictObject({
+  chain: z.literal("monad-mainnet"),
+  venue: z.string(),
+  block: z.string(),
+  asOf: z.string(),
+  cacheHit: z.boolean(),
+  midPriceUsd: DepthFigure,
+  activeLiquidity: DepthFigure,
+  feeBps: z.number(),
+  rows: z
+    .array(
+      z.strictObject({
+        sizeUsd: z.number(),
+        side: z.enum(["buy_mon", "sell_mon"]),
+        impactBps: DepthFigure,
+        impactExFeeBps: DepthFigure,
+      }),
+    )
+    .max(10),
+  note: z.string(),
+});
+export type PoolDepthOutput = z.infer<typeof PoolDepthOutput>;
+
 export const CHAIN_TOOL_INPUTS = {
   get_portfolio: EmptyInput,
   get_prices: EmptyInput,
@@ -201,6 +248,7 @@ export const CHAIN_TOOL_INPUTS = {
   tradable_now: TradeInput,
   propose_swap: ProposeSwapInput,
   get_intent_status: IntentStatusInput,
+  get_pool_depth: EmptyInput,
 } as const;
 export type ChainTool = keyof typeof CHAIN_TOOL_INPUTS;
 export const CHAIN_TOOLS = Object.keys(CHAIN_TOOL_INPUTS) as ChainTool[];

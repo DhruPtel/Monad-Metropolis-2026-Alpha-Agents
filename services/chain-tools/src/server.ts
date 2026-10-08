@@ -16,6 +16,7 @@ import {
   okResult,
   startToolServer,
 } from "@alpha-agents/tool-server";
+import { type MarketData, MarketError } from "@alpha-agents/market";
 import type { Hex } from "viem";
 import {
   amountOf,
@@ -35,6 +36,7 @@ import {
   type Blocker,
   type ChainTool,
   EmptyInput,
+  PoolDepthOutput,
   IntentOutput,
   type IntentStatus,
   IntentStatusInput,
@@ -133,6 +135,8 @@ export interface ChainToolsOptions {
   readonly maxOpenIntents?: number;
   readonly now?: () => Date;
   readonly port?: number;
+  /** P3-U2: the platform's market data, for the pool's depth on mainnet; none answers "not configured". */
+  readonly market?: MarketData | null;
 }
 
 export const INTENT_TTL_SECONDS = 1_800;
@@ -237,6 +241,46 @@ export function registerChainTools(
             drawdownBps: out.breaker.drawdownBps,
           },
         };
+      }),
+  );
+
+  mcp.registerTool(
+    "get_pool_depth",
+    {
+      description:
+        "The launch venue's depth on Monad mainnet: its mid price, active liquidity, and the price impact of buying and selling MON at 10, 100, 1,000 and 10,000 USD, with and without the 0.05% fee. Research reads mainnet; your own trades use your environment's pool, so check get_quote before proposing.",
+      inputSchema: EmptyInput,
+      outputSchema: PoolDepthOutput,
+      annotations: { readOnlyHint: true },
+    },
+    async (input) =>
+      tool("get_pool_depth", input, async () => {
+        const market = o.market;
+        if (!market)
+          throw new ToolError(
+            "UPSTREAM_UNAVAILABLE",
+            "Market data is not configured on this platform.",
+            false,
+          );
+        let depth;
+        try {
+          depth = await market.poolDepth();
+        } catch (err) {
+          if (err instanceof MarketError) throw new ToolError(err.code, err.message, err.retryable);
+          throw err;
+        }
+        const out = PoolDepthOutput.parse(
+          JSON.parse(
+            JSON.stringify({
+              chain: "monad-mainnet",
+              venue: "Uniswap v4 MON/USDC 0.05%",
+              ...depth.value,
+              cacheHit: depth.cacheHit,
+              note: "Impact is measured against the pool's mid price; the fee is the pool's own 0.05%.",
+            }),
+          ),
+        );
+        return { output: out, summary: { block: out.block, cacheHit: out.cacheHit } };
       }),
   );
 

@@ -435,6 +435,9 @@ importers:
       '@alpha-agents/domain':
         specifier: workspace:^
         version: link:../../packages/domain
+      '@alpha-agents/market':
+        specifier: workspace:^
+        version: link:../../packages/market
       '@alpha-agents/policy':
         specifier: workspace:^
         version: link:../../packages/policy

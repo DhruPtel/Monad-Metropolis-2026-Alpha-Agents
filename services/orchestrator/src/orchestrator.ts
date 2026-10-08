@@ -1,3 +1,4 @@
+import type { MarketData } from "@alpha-agents/market";
 import { randomUUID } from "node:crypto";
 import type { JournalEntry } from "@alpha-agents/accounting";
 import { type FundingKeys, ensureFundingAddresses } from "./credits/funding.ts";
@@ -95,6 +96,8 @@ export interface OrchestratorOptions {
    * configured. The tool servers run whenever credits do, since every paid call is metered.
    */
   readonly web?: WebProvider | null;
+  /** P3-U2: the platform's market data, one per process, shared by every agent's tools. */
+  readonly market?: MarketData | null;
   /** Minutes between scheduled Scans, as milliseconds (SCAN_INTERVAL_MINUTES, D-216). */
   readonly scanIntervalMs?: number;
   /** How often the scheduler looks for due Scans; 0 turns scheduling off (tests). */
@@ -267,6 +270,7 @@ export class Orchestrator {
         credits: this.credits,
         environment: this.o.credits.environment,
         provider: this.o.web ?? null,
+        market: this.o.market ?? null,
         chain: {
           reader: this.o.chain?.reader ?? null,
           ...(this.o.chain?.sessionKeyOf ? { sessionKeyOf: this.o.chain.sessionKeyOf } : {}),
