@@ -434,6 +434,25 @@ export class TradeStore {
     return row ? intentView(row) : null;
   }
 
+  /** The owner rejects a waiting intent: cancelled, its trade slot freed. Null if it was not waiting. */
+  async rejectByOwner(
+    chainId: number,
+    agentId: number,
+    intentId: string,
+  ): Promise<IntentView | null> {
+    await this.expireDue(chainId, agentId);
+    const row = await this.db
+      .updateTable("platform.intents")
+      .set({ status: "cancelled", failure: "Rejected by the owner.", updated_at: this.now() })
+      .where("chain_id", "=", chainId)
+      .where("agent_id", "=", agentId)
+      .where("intent_id", "=", intentId)
+      .where("status", "=", "awaiting_approval")
+      .returningAll()
+      .executeTakeFirst();
+    return row ? intentView(row) : null;
+  }
+
   /** An approved intent was accepted into the signer's outbox. */
   async markSubmitted(
     intentId: string,

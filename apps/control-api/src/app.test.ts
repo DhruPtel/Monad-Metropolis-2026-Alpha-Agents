@@ -1,7 +1,7 @@
 import { ENVIRONMENTS } from "@alpha-agents/config";
 import { createTestDatabase, databaseAvailable, type TestDatabase } from "@alpha-agents/db/testing";
 import { CLAIM_TYPES, SPECIES, claimDomain } from "@alpha-agents/domain";
-import type { AgentChainView } from "@alpha-agents/trading";
+import type { AgentChainView, PortfolioReading } from "@alpha-agents/trading";
 import {
   type Address,
   type Hex,
@@ -64,6 +64,43 @@ const chainReader: ChainReader = {
     chain.reads++;
     return chain.owners.get(agentId) ?? null;
   },
+};
+
+/** A funded account as the chain reader returns it (P2-U7). */
+const PORTFOLIO: PortfolioReading = {
+  chainId: 143143,
+  block: 109_670_100n,
+  timestamp: 1_790_000_000n,
+  agentId: 2,
+  owner: BOB,
+  contracts: {
+    agentNft: NFT,
+    accountFactory: "0x00000000000000000000000000000000000fac70",
+    oracle: "0x000000000000000000000000000000000000041e",
+    usdc: "0x754704Bc059F8C67012fEd69BC8A327a5aafb603",
+    wmon: "0x3bd359C1119dA7Da1D913D1C4D2B7c461115433A",
+    executor: "0x00000000000000000000000000000000000e0ec0",
+  },
+  account: "0x00000000000000000000000000000000000ac002",
+  predictedAccount: "0x00000000000000000000000000000000000ac002",
+  allowlist: { enabled: true, listed: true },
+  caps: {
+    personal: 100_000_000n,
+    platform: 2_000_000_000n,
+    platformTotal: 250_000_000n,
+    principal: 40_000_000n,
+  },
+  balances: { usdc: 40_000_000n, wmon: 0n },
+  claimable: { usdc: 0n, wmon: 0n },
+  mode: "NORMAL",
+  depositsClosed: false,
+  breaker: { navUsdc: 40_000_000n, perUnit: 10n ** 18n, peak: 10n ** 18n, drawdownBps: 0n },
+  peak7d: 10n ** 18n,
+  prices: {
+    monUsd: { priceE18: 25_000_000_000_000_000n, updatedAt: 1_789_999_980n, reason: "OK" },
+    usdcUsd: { priceE18: 10n ** 18n, updatedAt: 1_789_999_400n, reason: "OK" },
+  },
+  wallet: { usdc: 5_000_000n, wmon: 0n, mon: 10n ** 18n },
 };
 
 describe.skipIf(!available)("the control API (needs pnpm dev:up for Postgres)", () => {
@@ -665,9 +702,16 @@ describe.skipIf(!available)("the control API (needs pnpm dev:up for Postgres)", 
       const FUNDING = getAddress("0x00000000000000000000000000000000000f00d2");
       const EXECUTOR = "0x00000000000000000000000000000000000e0ec0" as Address;
       const views = new Map<number, AgentChainView>();
+      const portfolioReads: number[] = [];
       const trading = {
         executor: EXECUTOR,
         reader: { agent: async (id: number) => views.get(id) ?? null },
+        portfolio: {
+          portfolio: async (id: number) => {
+            portfolioReads.push(id);
+            return id === 2 ? PORTFOLIO : null;
+          },
+        },
       };
       const owner = (session: string, path: string, method = "GET") =>
         call(path, { method, headers: { "x-owner-session": session } }, { trading });
@@ -843,6 +887,39 @@ describe.skipIf(!available)("the control API (needs pnpm dev:up for Postgres)", 
         expect(
           (await t.db.selectFrom("platform.intents").select("status").executeTakeFirst())?.status,
         ).toBe("awaiting_approval");
+      });
+
+      it("serves the portfolio to the owner only, and lets the owner reject a waiting intent (P2-U7)", async () => {
+        const session = await bobSession();
+        const res = await owner(session, "/v1/agents/2/portfolio");
+        expect(res.status).toBe(200);
+        expect((await json(res)).portfolio).toMatchObject({
+          account: PORTFOLIO.account,
+          balances: { usdcE6: "40000000", wmonWei: "0" },
+          caps: { personalUsdcE6: "100000000", platformTotalUsdcE6: "250000000" },
+          allowlist: { enabled: true, listed: true },
+          prices: { monUsd: { reason: "OK" } },
+        });
+        const alice = (await json(await start(1, "alice-token"))).token as string;
+        portfolioReads.length = 0;
+        for (const s of [alice, ""]) {
+          const other = await owner(s, "/v1/agents/2/portfolio");
+          expect([401, 403]).toContain(other.status);
+        }
+        expect(portfolioReads).toEqual([]);
+        const off = await call(
+          "/v1/agents/2/portfolio",
+          { headers: { "x-owner-session": session } },
+          { trading: { ...trading, portfolio: null } },
+        );
+        expect([off.status, (await json(off)).error]).toEqual([503, "not_deployed"]);
+        const id = await intent();
+        const byAlice = await owner(alice, `/v1/agents/2/intents/${id}/reject`, "POST");
+        expect(byAlice.status).toBe(403);
+        const rejected = await owner(session, `/v1/agents/2/intents/${id}/reject`, "POST");
+        expect(await json(rejected)).toMatchObject({ intent: { status: "cancelled" } });
+        const again = await owner(session, `/v1/agents/2/intents/${id}/reject`, "POST");
+        expect([again.status, (await json(again)).error]).toEqual([409, "not_waiting"]);
       });
 
       it("says publicly why the agent did not trade", async () => {

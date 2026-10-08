@@ -13,6 +13,7 @@
   "dependencies": {
     "@alpha-agents/db": "workspace:^",
     "@alpha-agents/domain": "workspace:^",
+    "@alpha-agents/policy": "workspace:^",
     "viem": "2.57.2"
   }
 }

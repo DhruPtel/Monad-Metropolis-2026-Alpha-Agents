@@ -127,6 +127,31 @@ export async function tradingSnapshot(url: string, agentId: number): Promise<Tra
 }
 
 /**
+ * Adds a wallet to AccountFactory's beta deposit allowlist on the local fork,
+ * as the factory's owner (D-231: adding is instant). Returns false when it was
+ * already listed or the allowlist is off.
+ */
+export async function addTestDepositor(url: string, depositor: string): Promise<boolean> {
+  await assertLocalFork(url);
+  const who = wallet(depositor);
+  const factory = book("account_factory");
+  const [enabled, listed] = await Promise.all([
+    read<boolean>(url, factory, FACTORY_ABI, "allowlistEnabled"),
+    read<boolean>(url, factory, FACTORY_ABI, "isAllowlisted", [who]),
+  ]);
+  if (!enabled || listed) return false;
+  const admin = await read<Hex>(url, factory, FACTORY_ABI, "owner");
+  await gasFor(url, admin);
+  await sendAs(
+    url,
+    admin as Address,
+    factory as Address,
+    encodeFunctionData({ abi: FACTORY_ABI, functionName: "addDepositor", args: [who] }),
+  );
+  return true;
+}
+
+/**
  * Opens the wallet's PersonalAccount for its agent. A wallet that is not on
  * the beta allowlist is added first by the factory's owner (Q-46).
  */
@@ -142,20 +167,7 @@ export async function createTestPersonalAccount(
   const factory = book("account_factory");
   const existing = await read<Hex>(url, factory, FACTORY_ABI, "personalAccountOf", [id, who]);
   if (existing !== zeroAddress) return existing as Address;
-  const [enabled, listed] = await Promise.all([
-    read<boolean>(url, factory, FACTORY_ABI, "allowlistEnabled"),
-    read<boolean>(url, factory, FACTORY_ABI, "isAllowlisted", [who]),
-  ]);
-  if (enabled && !listed) {
-    const admin = await read<Hex>(url, factory, FACTORY_ABI, "owner");
-    await gasFor(url, admin);
-    await sendAs(
-      url,
-      admin as Address,
-      factory as Address,
-      encodeFunctionData({ abi: FACTORY_ABI, functionName: "addDepositor", args: [who] }),
-    );
-  }
+  await addTestDepositor(url, who);
   await gasFor(url, who);
   await sendAs(
     url,

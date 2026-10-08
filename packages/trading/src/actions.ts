@@ -129,6 +129,25 @@ export async function approveByOwner(
   return { ok: true, intent: approved, armed };
 }
 
+/** The owner rejects one waiting intent; the agent stays as armed (or not) as it was. */
+export async function rejectByOwner(
+  store: TradeStore,
+  chainId: number,
+  agentId: number,
+  intentId: string,
+): Promise<{ ok: true; intent: IntentView } | ActionRefusal> {
+  const intent = await store.intent(chainId, agentId, intentId);
+  if (!intent) return { ok: false, code: "NOT_FOUND", message: "No such intent for this agent." };
+  const rejected = await store.rejectByOwner(chainId, agentId, intentId);
+  if (!rejected)
+    return {
+      ok: false,
+      code: "NOT_WAITING",
+      message: `This intent is ${intent.status.replace("_", " ")}, not waiting for approval.`,
+    };
+  return { ok: true, intent: rejected };
+}
+
 /** The owner disarms the agent: the arming ends now; the wallet then revokes the grant on chain. */
 export async function disarm(
   store: TradeStore,

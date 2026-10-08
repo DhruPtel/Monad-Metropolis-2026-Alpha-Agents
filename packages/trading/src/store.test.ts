@@ -110,6 +110,19 @@ describe.skipIf(!dbUp)("the trade store (needs Postgres)", { timeout: 60_000 }, 
     expect((await store.intent(CHAIN, 1, late))?.status).toBe("expired");
   });
 
+  it("lets the owner reject only a waiting intent, freeing its slot (P2-U7)", async () => {
+    const a = await intent();
+    expect(await store.reservedSlots(CHAIN, 1)).toBe(1);
+    expect(await store.rejectByOwner(CHAIN, 2, a)).toBeNull();
+    expect(await store.rejectByOwner(CHAIN, 1, a)).toMatchObject({
+      status: "cancelled",
+      failure: "Rejected by the owner.",
+    });
+    expect(await store.reservedSlots(CHAIN, 1)).toBe(0);
+    expect(await store.rejectByOwner(CHAIN, 1, a)).toBeNull();
+    expect(await store.approve(CHAIN, 1, a, "owner")).toBeNull();
+  });
+
   it("moves an intent forward only from the state it leaves", async () => {
     const a = await intent();
     const sent = { txId: "tx-1", actionId: "0xaa", minAmountOut: 9n, deadline: 99n };

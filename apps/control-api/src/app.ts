@@ -10,6 +10,9 @@ import {
   TradeStore,
   approveByOwner,
   armingJson,
+  type PortfolioReader,
+  portfolioJson,
+  rejectByOwner,
   confirmArming,
   disarm,
   intentJson,
@@ -68,7 +71,12 @@ export interface ApiDeps {
    * P2-U6: fresh reads of the agent's grant and epochs, and the Executor the
    * owner's wallet calls; null where the trading contracts are not deployed.
    */
-  readonly trading?: { readonly reader: AgentViewReader; readonly executor: Hex } | null;
+  readonly trading?: {
+    readonly reader: AgentViewReader;
+    readonly executor: Hex;
+    /** P2-U7: the owner's portfolio read from the chain; absent where custody is not deployed. */
+    readonly portfolio?: PortfolioReader | null;
+  } | null;
 }
 
 export type ApiError =
@@ -523,6 +531,40 @@ export function createApp(deps: ApiDeps): Hono {
       intent: intentJson(r.intent),
       armed: r.armed !== null,
     });
+  });
+
+  /** The owner rejects one waiting intent; it is cancelled and frees its trade slot (P2-U7). */
+  app.post("/v1/agents/:id{[0-9]+}/intents/:intentId{intent-[0-9a-f-]{36}}/reject", async (c) => {
+    const agentId = BigInt(c.req.param("id"));
+    const owner = await ownerOnly(c, agentId);
+    if (owner instanceof Response) return owner;
+    const r = await rejectByOwner(trades, chainId, Number(agentId), c.req.param("intentId"));
+    if (!r.ok) return refused(c, r);
+    return c.json({ agentId: agentId.toString(), intent: intentJson(r.intent) });
+  });
+
+  /**
+   * The owner's portfolio (P2-U7), read fresh from the chain: the trading
+   * account or where it will be, balances, claimable credits, mode, breaker,
+   * the deposit allowlist and caps, prices with their age, and the wallet's
+   * own balances for the deposit form. Owner only, like everything about the
+   * owner's money in the app.
+   */
+  app.get("/v1/agents/:id{[0-9]+}/portfolio", async (c) => {
+    const agentId = BigInt(c.req.param("id"));
+    const owner = await ownerOnly(c, agentId);
+    if (owner instanceof Response) return owner;
+    const reader = deps.trading?.portfolio;
+    if (!reader)
+      return fail(
+        c,
+        503,
+        "not_deployed",
+        `Trading accounts are not deployed on ${deps.environment.label}.`,
+      );
+    const reading = await reader.portfolio(Number(agentId));
+    if (!reading) return fail(c, 404, "not_found", `Agent #${agentId} does not exist.`);
+    return c.json({ ...(await meta()), portfolio: portfolioJson(reading) });
   });
 
   /**

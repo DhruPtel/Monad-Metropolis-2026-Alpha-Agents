@@ -8,7 +8,7 @@ import { AGENT_NFT_ABI, addressEntry, agentNftDeployment } from "@alpha-agents/d
 import { createPublicClient, http, isAddressEqual, type Hex } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { createApp } from "./app.ts";
-import { rpcAgentViewReader } from "@alpha-agents/trading";
+import { rpcAgentViewReader, rpcPortfolioReader } from "@alpha-agents/trading";
 import { rpcChainReader } from "./chain.ts";
 import { MOCK_IDENTITY_FLAG, mockIdentity, privyIdentity } from "./identity.ts";
 
@@ -64,6 +64,27 @@ const signer = values.CLAIM_SIGNER_PRIVATE_KEY
 const deployment = agentNftDeployment(env.id);
 const rpcUrl = config.rpcUrl?.reveal();
 const chain = deployment && rpcUrl ? rpcChainReader(rpcUrl, deployment.address) : null;
+// P2-U7: the owner's portfolio, where every custody contract is in this environment's book.
+function portfolioReader(agentNft: Hex, executor: Hex) {
+  const ids = ["account_factory", "oracle_adapter", "usdc", "wmon"] as const;
+  const entries = ids.map((id) => addressEntry(env.id, id));
+  if (!rpcUrl || entries.some((e) => e.status !== "verified")) return null;
+  const [accountFactory, oracle, usdc, wmon] = entries.map((e) => e.address as Hex) as [
+    Hex,
+    Hex,
+    Hex,
+    Hex,
+  ];
+  return rpcPortfolioReader(rpcUrl, env.chainId, {
+    agentNft,
+    accountFactory,
+    oracle,
+    usdc,
+    wmon,
+    executor,
+  });
+}
+
 // P2-U6: the Executor the owner's wallet registers and revokes grants with, where it is deployed.
 const executorEntry = addressEntry(env.id, "executor");
 const trading =
@@ -74,6 +95,7 @@ const trading =
           agentNft: deployment.address,
           executor: executorEntry.address as Hex,
         }),
+        portfolio: portfolioReader(deployment.address, executorEntry.address as Hex),
       }
     : null;
 if (rpcUrl) {
