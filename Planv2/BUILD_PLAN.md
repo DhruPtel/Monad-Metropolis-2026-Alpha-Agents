@@ -1,6 +1,6 @@
 # Build Plan
 
-*What has to be built, in what order. Revision 2. Revision 1 reconciled `Planv1/PHASES.md` with the planning answers; revision 2 applies the owner decisions and fixes from the orientation session of 2026-09-27.*
+*What has to be built, in what order. Revision 2. Revision 1 reconciled `Planv1/PHASES.md` with the planning answers; revision 2 applies the owner decisions and fixes from the orientation session of 2026-09-27. The Phase 3 planning session of 2026-10-07 rewrote Phase 3 (D-277 to D-296) and added the Gallery, Leaderboard and Dashboard options in section 4.5.*
 
 Companion to `FINAL_PLAN.md` (what we are building) and `DECISIONS_AND_OPEN_QUESTIONS.md` (the record). Order is by dependency only; there are no time estimates anywhere in this document. The October 13, 2026 hackathon deadline is a constraint on the definition of the hackathon beta (`FINAL_PLAN.md > 2.1`), not a schedule. The project is Alpha Agents. This repository is the code repository: code, plan documents and tracking files all live here (owner decision, orientation).
 
@@ -43,7 +43,7 @@ Carried from `PHASES.md > How every phase works`, `> Unit prompt template` and `
 
 ## 2. Dependency graph
 
-Solid arrows are build dependencies. P2-EC follows P2-U7 and comes before Phase 3 in the build order (D-247); nothing in Phase 3 needs its output, and PB-U1 uses its lessons. The Pass 1 and Pass 2 units of section 4 form the path to PB-U1 (D-159); the rest are built in the post-beta completion pass and Phase 9. P1-U8 is folded into P3-U4 (D-160).
+Solid arrows are build dependencies. Phase 3 is revised by the Phase 3 planning session (D-277): P3-U9, P3-U8 and P3-U10 are new, and the Phase 3 build order is P3-U1, P3-U2, P3-U9, P3-U3, P3-U7, P3-U4, P3-U6, P3-U8, P3-U10. P2-EC follows P2-U7 and comes before Phase 3 in the build order (D-247); nothing in Phase 3 needs its output, and PB-U1 uses its lessons. The Pass 1 and Pass 2 units of section 4 form the path to PB-U1 (D-159); the rest are built in the post-beta completion pass and Phase 9. P1-U8 is folded into P3-U4 (D-160).
 
 ```mermaid
 flowchart TB
@@ -70,13 +70,16 @@ flowchart TB
   PUI[Portfolio UI P2-U7]
   EC[Early chain check P2-EC]
   ADAPT[Chain adapter interface P2-U8]
-  GOALS[Goals form and translator P3-U1]
-  DT[Data tools server P3-U2]
-  TPL[Strategy templates and tool registry P3-U3]
+  GOALS[Goal form and translator P3-U1]
+  DT[Data tools: market data P3-U2]
+  DT2[Data tools: research sources P3-U9]
+  TPL[Strategy templates and template runner P3-U3]
   SKF[Launch skills as folders P3-U7]
-  DISC[Discovery loop P3-U4]
+  DISC[Discovery loop engine P3-U4]
   TB[Thesis Board P3-U5]
   PROP[Parameter proposals P3-U6]
+  ACT[Activation sweep P3-U8]
+  LOOP[Autonomous loop and Research page P3-U10]
   WFR[Workflow runner and coordinator P4-U1]
   SENT[Risk Sentinel service P4-U2]
   WFB[Built-in workflows P4-U3]
@@ -147,13 +150,18 @@ flowchart TB
   CT --> ADAPT
   TRADE --> GOALS
   TOOLS0 --> DT
+  DT --> DT2
   DT --> TPL
   CT --> TPL
+  GOALS --> TPL
   TPL --> SKF
   TPL --> DISC
   SKF --> DISC
+  DT2 --> DISC
   DISC --> TB
   DISC --> PROP
+  PROP --> ACT
+  ACT --> LOOP
   PROP --> WFR
   TRADE --> SENT
   SIGN --> SENT
@@ -238,10 +246,10 @@ Each phase lists its goal, build units (ID, name, components touched, dependenci
 | Envio HyperIndex and HyperSync | account, key | P1-U4 | Spending cap |
 | Sentry | account, key | P1-U4 for errors; PB-U1 for alerts | |
 | Web search API (Exa or Tavily) | key | P1-U7 | Spending cap. Q-24 |
-| X API, pay per use | key | P3-U2 | Spending cap |
-| Dune API | key | P3-U2 | Spending cap |
+| X API, pay per use | key | P3-U9 | Spending cap |
+| Dune API | key | P3-U9 | Spending cap |
 | CoinGecko API | key | P3-U2 | Spending cap |
-| Wallet data provider for `wallet_portfolio`, `wallet_positions`, `wallet_pnl`, `holders` and `unlocks` | key | P3-U2 | Chosen in Q-24. Spending cap |
+| Wallet data provider for `wallet_portfolio`, `wallet_positions`, `wallet_pnl` and `holders`; a source for `unlocks` | key | W-2 (wallet data, holders); P3-U9 (unlocks) | Chosen in Q-24 and Q-58. Spending cap |
 | Hosting: a long-running host for the orchestrator, tool servers, sentinel and bot runner; managed Postgres and Redis; a web host | account | P1-U4 for the API; PB-U1 for mainnet | Serverless function ceilings silently kill long model calls (section 8, lesson 18) |
 | Domain name | account | PB-U1 | |
 | IPFS or Arweave pinning (Pinata or equivalent) | account, key | P6-U5 | Q-26 |
@@ -429,23 +437,475 @@ Cannot be verified on testnet: real prices, real liquidity and slippage, Chainli
 - Optionally an Etherscan API v2 key for Monadscan verification (`ETHERSCAN_API_KEY`); Sourcify needs none.
 - The MetaMask and OKX extensions with a Monad Testnet network added from the web app's prompt.
 
-### Phase 3: Planning and research
+### Phase 3: Goal and research
 
-**Goal.** The agent understands the owner's goal, researches, and proposes parameters (`PHASES.md > Phase 3`).
+**Goal.** The owner sets a structured goal; turning on automatic trading starts an activation sweep that builds an industry overview and a market snapshot and ends in a plan; after that the agent researches on its own at a cadence the owner can afford, keeps its view current, changes its plan when the evidence supports it, and trades through the deterministic template runner within the hard limits (`PHASES.md > Phase 3`, owner vision of 2026-10-07, D-277 to D-296).
+
+Revision 3 of this section (Phase 3 planning, 2026-10-07) replaces the six-row table of revision 2. It reconciles the owner's vision (a structured goal, an activation sweep with a live visual, an autonomous loop, research that reads as thoughtful, planned model cost) with the plan. Phase 3 now has nine build units, two playtests and two tuning sessions. P3-U5 (Thesis Board) stays cut from the beta (D-160); P3-U4 and P3-U10 give the beta a lighter research record that the Thesis Board later absorbs.
+
+#### Phase 3 as the owner experiences it
+
+1. **Set a goal** (P3-U1). On the agent's Goal page the owner picks a strategy template, a risk preset, the allowed assets, optional stricter limits, the reasoning model, the research intensity with a daily research budget, and whether plan changes need their approval. Nothing is free text. Saving moves the agent from `UNCONFIGURED` to `READY`.
+2. **Turn on automatic trading** (P3-U8). On the portfolio page (and the agent's card) the owner presses "Turn on automatic trading" once the goal is saved, the trading account holds at least the activation minimum and the credits cover the sweep's ceiling. Their wallet registers the session grant (P2-U6's arming), and the activation sweep starts.
+3. **Watch it activate** (P3-U8). A step list with live states shows the sweep: Reading your goal and account, Scanning the market, Reading pools and prices, Researching in depth, Checking risk, Testing the plan against your limits, Building a plan, Active. Each step shows its result in one line and its cost against its ceiling. On /configure the bee takes off and hovers with its wing cue lit while the sweep runs and lands when it ends; a species shown in 2D pulses instead.
+4. **Approve the plan** (P3-U6, P3-U8). The sweep ends with a plan card: the target WMON weight and bands inside the risk preset's range, the trades it implies, the industry overview, the reasons with their sources and the skeptic's verdict. Approving it is the arming approval of D-019 and D-264; the template runner then makes the first trades in legs within the 10% per-trade limit.
+5. **The agent works on its own** (P3-U10). The template runner checks the plan against the account every minute and trades only when the account drifts outside its bands. A deterministic watcher looks for triggers every five minutes. Scans run at the intensity's cadence; a material finding leads to a Dive, every Dive to a Challenge, and a Zoom out reviews the plan daily and after any Dive or trigger. The agent proposes a plan change only when the evidence clears the rules in "How the agent decides to change its plan"; the owner approves it or is told, per the goal's setting.
+6. **Read what it thinks** (P3-U10). The Research page shows the industry overview, the market snapshot with every number's source and age, the themes the agent is watching or has rejected, a timeline of stages with their cost, the reasons for each plan proposal, and "why the agent did not trade" and "why the plan did not change" in plain words.
+
+#### The activation sweep
+
+The sweep is the agent's first full research cycle, run once when automatic trading is turned on, and again when the owner changes the goal's template or risk preset while active (D-279). It is a cycle of kind `ACTIVATION` in the stage machine of P3-U4, run in one sandbox, with these steps in order:
+
+| # | Step shown to the owner | Stage | Model | What it does | Terminal record |
+|---|---|---|---|---|---|
+| 1 | Reading your goal and account | none (deterministic) | none | Reads the goal, the template parameters, the live limits and mode, the portfolio and the credits; refuses to continue with a named reason (no goal, no trading balance, credits below the sweep ceiling, account not `NORMAL`) | `sweep_step` record |
+| 2 | Scanning the market | Scan, wide | cheap | `market_snapshot`, CoinGecko and DefiLlama reads, three to six web searches, up to four X searches, up to four page reads; writes Scan notes and up to four themes, each with a materiality (low, medium, high) and the sources behind it | `complete_stage(SCAN)` |
+| 3 | Reading pools and prices | none (deterministic) | none | Pool depth and quotes at the account's reference sizes, oracle against pool deviation, realized volatility over 7 and 30 days, `tradable_now` for a reference trade; stored as the market snapshot record, every figure with its source and `asOf` | `market_snapshot` record |
+| 4 | Researching in depth | Dive, two sessions in sequence | reasoning | The two most material themes, one fresh session each: evidence for and against with source class and confidence per claim, a falsifiable thesis with a kill criterion and a horizon, or "no thesis" | `complete_stage(DIVE)` per theme |
+| 5 | Checking risk | Challenge | reasoning, with the skeptic playbook | Sees only the Dive records, not the sessions: objections and a verdict per thesis (stands, weakened, rejected); then a deterministic risk check: limit headroom, distance to the breaker, the plan's size against pool depth, credit runway at the chosen intensity | `complete_stage(CHALLENGE)` |
+| 6 | Testing the plan against your limits | Test (deterministic, D-282) | none | Each parameter set the Zoom out considers is checked by `check_strategy_params` against the template's bounds, the preset's range, the owner's stricter limits and the cooldown; shown as its own step because the owner should see it happen | `strategy_check` records |
+| 7 | Building a plan | Zoom out | reasoning | Writes the industry overview brief and the plan: `propose_strategy_update` with the initial parameters, or `no_change` to keep the preset's defaults, with a rationale brief | `propose_strategy_update` or `no_change`, then `complete_stage(ZOOM_OUT)` |
+| 8 | Active | none | none | The plan card waits for the owner; on approval the arming completes, the agent state becomes `RUNNING`, the runner starts and the schedule of P3-U10 begins | the arming and the plan acceptance |
+
+Rules: the steps run in this order and never in parallel (D-093); a step that fails shows its reason and offers "Try again", which reruns that step and those after it while reusing earlier results less than an hour old; the owner may stop the sweep at any step and pays only for the steps that ran; credits that run out mid-sweep end it with the billing reason (D-129); nothing trades until the plan is approved. If the plan card is not approved within 24 hours it expires and the agent stays armed and `READY` with a "Plan expired" notice and a "Build a new plan" action (a Zoom out only).
+
+#### The autonomous loop after activation
+
+Three layers, cheapest first (D-283):
+
+1. **Template runner (deterministic, free, P3-U3).** Every 60 seconds for each `RUNNING` agent it reads the account and prices through the platform's readers (not the sandbox), compares the WMON weight with the plan's target and bands, and proposes one leg toward the target when the account is outside its band, through the same intent pipeline as `propose_swap`. It holds back with a reason code when the account is in band (`IN_BAND`), the leg is below the plan's minimum trade (`BELOW_MIN_TRADE`), volatility is above the plan's brake for a buy (`VOLATILITY_BRAKE`), the expected cost exceeds the plan's hurdle (`COST_HURDLE`), or any Executor or trade flow reason applies. It never calls a model.
+2. **Watcher (deterministic, free, P3-U10).** Every 5 minutes it checks triggers and queues research only when one fires: the MON price moved by at least the preset's trigger (5%, 7% or 10% for Conservative, Balanced, Growth) since the last Zoom out; 24-hour realized volatility crossed the plan's brake either way; the account mode changed; a deposit or withdrawal moved the account's value by 20% or more; the goal changed; the same trade was blocked three times in 24 hours; a thesis reached its recheck time. A trigger never starts work within 2 hours of the last triggered cycle for that agent.
+3. **Research cycles (model calls, charged, P3-U4 and P3-U10).**
+
+| Work | When | Next step |
+|---|---|---|
+| Scan | Every 12, 6 or 3 hours at Light, Standard or Deep intensity, and on a price, volatility or recheck trigger | `NO_CHANGE` ends the cycle. A high-materiality theme, or a medium one not researched in the last 48 hours, queues a Dive, up to the intensity's Dives per day (1, 2 or 4) |
+| Dive | After a Scan as above, or on a thesis's recheck time | Always followed by a Challenge in the same cycle |
+| Challenge | After every Dive, never skipped | Always followed by a Zoom out |
+| Zoom out | After every Challenge; on a mode, flow or goal trigger (without a Scan); daily if none ran in 24 hours | `propose_strategy_update` or `no_change` |
+| Overview refresh | Weekly at Standard (the daily Zoom out rewrites the overview brief), weekly as a second activation-style cycle at Deep, never at Light | as Zoom out |
+
+The daily research budget (from the goal) is a hard cap: before a stage starts, its ceiling is reserved; when the remaining budget does not cover the next stage's ceiling, the stage waits for the next day and the Research page says so. Priority when the budget is short: a triggered Zoom out, then a Challenge for a finished Dive, then a Zoom out for a finished Challenge, then a Dive, then a Scan. The orchestrator owns the clock (D-093); before Phase 4 its schedule stands in for the Rebalancer and Recurring Buys workflows, which P4-U3 later takes over without changing the stages.
+
+#### How the agent decides to change its plan
+
+In the loop the agent changes the plan and the template runner makes the trades (D-280, pending owner confirmation in Q-53). A Zoom out proposes a plan change only when all of these hold, and the evaluator of P3-U6 enforces the deterministic ones:
+
+- The change is material: the target WMON weight moves by at least 5 percentage points, or a band, the brake or the hurdle moves by at least its step in the template (evaluator: `BELOW_MIN_STEP`).
+- No accepted plan change in the last 24 hours (evaluator: `COOLDOWN`).
+- The parameters pass `check_strategy_params`: template bounds, the preset's range, the owner's stricter limits (evaluator: `OUT_OF_BOUNDS`, `OUTSIDE_PRESET`, `OWNER_LIMIT`).
+- The trades the change implies clear the cost hurdle at the current quote and depth (evaluator: `COST_HURDLE`).
+- The supporting thesis was not rejected by the Challenge, and its evidence has at least two independent sources at least one of which is primary or market data (Zoom out prompt and the brief's schema; evaluator: `CHALLENGE_REJECTED`, `EVIDENCE_THIN`).
+
+Otherwise the Zoom out calls `no_change` with a reason code (`NO_MATERIAL_CHANGE`, `EVIDENCE_THIN`, `CHALLENGE_REJECTED`, `COOLDOWN`, `COST_HURDLE`, `LIMITS_BIND`, `BUDGET_SHORT`), which the Research page shows as "why the plan did not change". "No change" is a first-class answer, never a failure (the Bankr research's "no pick" lesson). Every candidate the evaluator sees is counted, accepted or rejected, so selection bias stays visible (FINAL_PLAN 4.3.7).
+
+#### How skills and workflows shape each stage
+
+Skills change what a stage does, never the stage machine (FINAL_PLAN 4.3.7). Each stage prompt names the skills relevant to that stage among those mounted, and the agent loads them with `skill_view`; until SkillNFTs exist every agent mounts the same built-in set regardless of tier slots (D-288).
+
+| Stage | Skills it is told about | Platform playbook |
+|---|---|---|
+| Scan | `defi-regime-read`, `narrative-and-flow-tracker`, `monad-assets-basics` | Scan playbook: breadth, materiality, sources |
+| Dive | `deep-dive-research`, `wallet-intel`, `token-risk-screen` (only for a non-core asset; never at launch) | Dive playbook: claim structure, kill criterion, horizon |
+| Challenge | none | Skeptic playbook (platform-only, not equippable) |
+| Zoom out | `usdc-wmon-band-rebalancer` (or `wmon-dca-accumulator` once `dca@1` exists), `venue-swap` | Zoom out playbook: the decision rules above |
+
+Creator skills (Phase 8) map by type: research skills to Scan and Dive, strategy skills to Zoom out, protocol skills to any stage that names their tools. Workflows hold schedules and standing authority; until P4-U1 the orchestrator's schedule and the template runner stand in for them (D-283).
+
+#### Models, work caps and charges per stage
+
+Model aliases live in LiteLLM (`infra/litellm/config.yaml`); agents see aliases only. Prices are Anthropic's list prices per million tokens (input, output, cache read): Claude Haiku 4.5 1, 5, 0.10; Claude Sonnet 5.5 2, 10, 0.20; Claude Opus 5.5 4, 20, 0.20 (checked 2026-10-07). Claude Fable 5.1 is not offered because it requires 30-day retention, which D-105 rules out.
+
+| Stage | Model alias | Turn cap | Paid data calls | Deadline | Ceiling charged to credits (A-51) |
+|---|---|---|---|---|---|
+| Scan (routine) | `scan-cheap` (Haiku 4.5) | 10 | 5 | 5 min | 0.30 USDC |
+| Scan (wide, sweep) | `scan-cheap` | 16 | 10 | 8 min | 0.50 USDC |
+| Dive (per theme) | the owner's reasoning model: `research-strong` (Sonnet 5.5) or `research-deep` (Opus 5.5) | 16 | 8 | 10 min | 1.20 USDC (Sonnet), 2.40 (Opus) |
+| Challenge | the reasoning model | 6 | 2 | 4 min | 0.30 USDC (Sonnet), 0.60 (Opus) |
+| Test | none (deterministic) | | | | free |
+| Zoom out | the reasoning model | 10 | 2 (chain reads free) | 6 min | 0.60 USDC (Sonnet), 1.20 (Opus) |
+| Deterministic steps, runner, watcher | none | | | | free (gas for trades is metered as before) |
+| Narrator | `narrator` (Haiku 4.5) | | | | platform-paid (A-30) |
+
+Sweep ceiling: 0.50 + 2 × 1.20 + 0.30 + 0.60 = 3.80 USDC with Sonnet 5.5, 7.10 with Opus 5.5; the UI rounds the shown maximum up to 4.00 and 7.50. The only measured figure is the routine Scan: 0.15 to 0.30 USDC (A-31); every other ceiling is an estimate from token counts and is set from measurements at Playtest 3-mid (the p90 of each stage plus the markup).
+
+Research intensity sets the cadence and a default daily budget the owner can change within its range:
+
+| Intensity | Scan cadence | Dives per day | Default daily budget | Range |
+|---|---|---|---|---|
+| Light | 12 h | 1 | 1.00 USDC | 0.50 to 2.00 |
+| Standard | 6 h | 2 | 2.50 USDC | 1.00 to 5.00 |
+| Deep | 3 h | 4 | 6.00 USDC | 3.00 to 12.00 |
+
+How charges work (D-285, recommended answer to Q-54): model and tool calls stay metered per call at provider cost plus the 25% markup (D-212, A-29), but each stage has a ceiling the owner sees before it runs ("at most 1.20 USDC"); the meter never charges a stage more than its ceiling, and the platform absorbs anything above it. Hard caps (turns, paid calls, deadline, and a per-stage token ceiling at the gate) bound what the platform can absorb. Deterministic steps are free. Cost levers built into P3-U4: prompt caching enabled for the Anthropic routes in LiteLLM (Hermes sends `cache_control` only when told the route supports it), fresh short sessions so compression rarely fires, auxiliary slots pinned to `scan-cheap` with title generation and background review off (already in D-204), the deterministic market snapshot so the model reads numbers instead of fetching them, and the shared data cache across agents.
+
+#### Data sources per stage
+
+| Source | Tool | Exists | Built in | Used by |
+|---|---|---|---|---|
+| Web search, page reads (Tavily) | `data.web_search@1`, `data.read_url@1` | Yes (P1-U7) | redirect-hop check added in P3-U9 | Scan, Dive, Challenge |
+| Account, prices, quote, limits, tradability, proposals | `chain.get_portfolio@1`, `get_prices`, `get_quote`, `get_limits`, `tradable_now`, `propose_swap`, `get_intent_status` | Yes (P2-U5) | | Zoom out, deterministic steps, runner |
+| Pool depth at reference sizes | `chain.get_pool_depth@1` | No (W-2 remainder of P2-U5) | P3-U2 | step 3, Zoom out, runner's hurdle |
+| Market snapshot (one call: MON price, 24h volume and change, market cap, Monad TVL and its 7-day change, top Monad DEX volumes, pool depth, oracle against pool, realized volatility, each with source and `asOf`) | `data.market_snapshot@1` (new, D-286) | No | P3-U2 | Scan, step 3, Zoom out |
+| CoinGecko prices and history | `data.coingecko_prices@1` | No | P3-U2 | Scan, Dive |
+| DefiLlama TVL and yields | `data.defillama_tvl@1`, `data.defillama_yields@1` | No | P3-U2 | Scan (`defi-regime-read`) |
+| Realized volatility | `data.volatility@1` | No | P3-U2 | step 3, Zoom out, runner's brake |
+| X search | `data.x_search@1` | No | P3-U9 | Scan, Dive |
+| Dune saved queries | `data.dune_query@1` | No | P3-U9 | Dive |
+| Supply unlocks | `data.unlocks@1` | No | P3-U9, provider in Q-58 | Scan |
+| Curated contract reads, balances, code | `chain.read_contract@1`, `chain.balance@1`, `chain.get_code@1` | No (W-2 remainder of P2-U5) | P3-U9 | Dive |
+| The agent's own research context (latest overview, open themes, last stage results, plan) | `platform.get_research_context@1` (new, D-287) | No | P3-U4 | every stage, first call |
+| Goal and limits | `platform.get_goals_and_limits@1` | No (waits for P3-U1, D-213) | P3-U1 | every stage |
+| Wallet data, holders, event history, candles, premium data | `data.wallet_*@1`, `data.holders@1`, `data.hypersync_events@1`, `data.ohlcv@1`, `data.premium_*@1` | No | W-2 and after PB-U2 as before | `wallet-intel`, `token-risk-screen` |
+
+Research reads live mainnet data in every environment, while trades use the environment's own chain; the market snapshot carries both and names each figure's source (BUILD_PLAN 8, lesson 2), and the stage prompts say the venue's own price decides trades (D-289).
+
+#### What the owner sees
+
+| Moment | What the owner sees | Built in |
+|---|---|---|
+| Goal set | The Goal page; a goal summary on the agent's card and portfolio; the agent state `READY` | P3-U1 |
+| Activation | The activation step list with live states, one-line results and cost against ceiling, on the portfolio page and compactly on the card; the bee's takeoff, hover and landing on /configure, or the 2D pulse | P3-U8 |
+| Each stage | One activity entry per stage from the narrator: stage, outcome, sources counted, cost; never research text | P3-U4 |
+| Research | The Research page: the industry overview brief, the market snapshot, the themes with status, confidence band and recheck time, the stage timeline with cost, the day's budget used | P3-U10 |
+| A plan proposal | The plan card: current and proposed parameters, bounds, the trades they imply, expiry; "Why": the rationale brief's points with their sources, the Challenge's verdict, confidence | P3-U6 (card), P3-U8 (the sweep's) |
+| No trade | "Why the agent did not trade" with the runner's codes beside the Executor's and the trade flow's | P3-U3 (codes), P3-U10 (page) |
+| No plan change | "Why the plan did not change" from the `no_change` codes | P3-U6 (codes), P3-U10 (page) |
+
+Owner-visible research comes only from typed briefs (D-284): the agent writes a brief through `write_research_brief` with bounded fields (verdict enums, short claims, each with source references from this cycle's own tool results), the platform rejects any number that does not appear in a result the cycle recorded, any URL the cycle did not retrieve, and any run of eight words found in a mounted skill or a canary string. Raw stage notes stay platform-only (FINAL_PLAN 6.1); the dev console shows them to operators.
+
+#### Order, playtests and tuning
+
+Build order: P3-U1, P3-U2, P3-U9, P3-U3, P3-U7, P3-U4, Playtest 3-mid, P3-T1 tuning, P3-U6, P3-U8, P3-U10, Playtest 3-end (after the seam sweep), P3-T2 tuning.
+
+**Playtest 3-mid (after P3-U4; terminal and dev console).** The owner runs, from the console: one routine cycle (Scan, Dive, Challenge, Test, Zoom out) and one activation-shaped cycle, then reads every stage's raw notes, briefs and stage records in the console. What the owner checks:
+- Each stage ended with its terminal tool call, on the right model (the gate's log names the alias per call), within its caps.
+- Cost per stage against its ceiling, and the cycle's total; the cache read tokens are above zero after the first call.
+- Research depth: the Scan's themes are specific to Monad and MON and say why each matters now; each Dive cites at least three sources across at least two source classes, separates fresh from stale data, and states a falsifiable thesis with a kill criterion or says there is none; the Challenge raises objections a careful analyst would, not boilerplate; the Zoom out's conclusion follows from the Dive and the Challenge and names what would change it.
+- Discipline: nothing in a page or post is followed as an instruction; numbers in briefs match their sources; no skill text appears in a brief.
+- The owner marks each stage's output good, thin or wrong, and lists prompt, depth and cap changes for P3-T1.
+
+**P3-T1 (tuning).** Applies the owner's notes: stage prompts and playbooks, turn and call caps, the depth per intensity, and the stage ceilings set from the measured p90 (A-51 replaced by measured values). Reruns the same two cycles to confirm.
+
+**Playtest 3-end (after P3-U10; web app on the fork; the seam sweep first).** The owner: sets a goal; deposits; turns on automatic trading and watches the sweep's steps and the bee; reads the overview and snapshot; approves the plan and watches the runner's first legs settle; lets the loop run with the console's fast cadence; moves the fork's market with the console's market mover and sees the watcher trigger a cycle; sees a Scan end with no change and a Zoom out answer `no_change` with its reason; receives a plan change, approves it and sees the runner act on it; forces an out-of-bounds proposal and sees it rejected with its code (the demo's rejected candidate); lowers the daily budget until a stage waits; drains credits and sees research stop while the runner keeps the plan. What the owner checks: the activation visual's clarity and pacing; whether the overview and the plan's reasons read as thoughtful and specific; whether the cadence and the daily cost match what the goal page promised; whether every "why not" makes sense; the layout of the Research page at 1440px and 380px.
+
+**P3-T2 (tuning).** Small adjustments from Playtest 3-end: copy, pacing, cadences, defaults per intensity, ceilings. No new features.
+
+#### Phase 3 units
 
 | Unit | Name | Components touched | Depends on | Acceptance tests |
 |---|---|---|---|---|
-| P3-U1 | Goals form and goal translator | Structured form (template, risk preset, allowed assets, optional stricter limits, model choice, credit settings); deterministic translator to template parameters within bounds, a policy hash and the `SOUL.md` block; config epoch bump on change | P2-U6 | No free-text field exists; every preset maps inside template bounds; stricter limits can never loosen the hard limits; a change bumps `configEpoch` and stale intents die |
-| P3-U2 | Data tools server | Every baseline tool in `FINAL_PLAN.md > 4.4.3`, the read broker, shared cache, timeouts and backoff honored from headers in code, `STALE_DATA` and `UPSTREAM_UNAVAILABLE`, the platform x402 payer for paid sources, tier gating for premium tools (pro), Hermes `web`, `search` and `x_search` disabled | P1-U7 | MK-S6 gating and ledger; every result carries `asOf`; a 429 is retried per its header; no free-text chain string reaches the model |
-| P3-U3 | Strategy templates and the tool registry | Templates `rebalance_bands@1` and `dca@1` with JSON-schema parameters and bounds and the evals format; the template runner in the bot runner; the canonical tool and intent registry from `FINAL_PLAN.md > 4.4.5` wired to the live servers, including the chain tools `read_contract`, `balance` and `get_code` that the launch skills declare; accepted parameter sets recorded in the ledger by hash until BuildRegistry exists | P2-U5, P3-U2 | Each template runs on the fork against fixtures and obeys its bounds; a parameter set outside bounds is rejected; every registry ID resolves to a live tool and every tool the nine skills declare is in the registry; a manifest naming an unregistered tool fails validation |
-| P3-U4 | Discovery loop | Orchestrator stage machine (Scan, Dive, Challenge, Test, Zoom out) with fresh sessions, stage prompts, turn caps, run budgets, sequential Dives, one sandbox per cycle, the skeptic playbook, model aliases (user model, cheap platform model); absorbs P1-U8 (D-160): the Scan stage runs on a schedule, spends credits visibly, writes one feed entry, stops when credits reach zero, and the dev console can trigger it (P0-U4 extension point) | P3-U3, P3-U7, P1-U7 | A full cycle completes with each stage ending in its terminal tool call; cost per cycle recorded; a stage that overruns its budget is stopped by the orchestrator; H-42 and H-43 behaviors documented |
-| P3-U5 | Thesis Board | Cut from the beta, where the `write_thesis` stub from P1-U7 stands in (D-160): platform tools `write_thesis`, `update_thesis`, `list_theses`, `get_thesis`; storage with status, evidence, confidence, expiry, recheck trigger, event and retrieval times; profile UI cards grouped by status | P3-U4 | Expired theses require recheck or retirement; evidence text is never served to owners; every observation stores its source and times |
-| P3-U6 | Parameter proposals | `propose_strategy_update` and `no_change`; the deterministic evaluator (bounds, owner limits, policy); proposal states `pending_policy`, `pending_owner`, `accepted`, `rejected`; recording of accepted parameters; trial counts including rejections; until P4-U3 exists, owner approval through an approval card on the portfolio page | P3-U4 (on the `write_thesis` stub until P3-U5, D-160) | A within-bounds proposal reaches the owner; an out-of-bounds one is rejected with a code; acceptance records a new parameter hash and bumps the config epoch; rejected candidates are counted |
-| P3-U7 | Launch skills as built-in folders | The nine skills authored to the skill.json spec with `required_tools` and `intents` drawn only from the canonical registry (with the DCA skill holding sizing, drawdown pause and budget logic only, no schedule), frontmatter generated, mounted read-only through the loader path; `monad-assets-basics/data/` carries the platform address book | P3-U3, P1-U1 | B-01 (format validation on all nine plus the negative cases); B-02 selection spike with all nine descriptions (at least 7 of 8 positive prompts, 0 of 2 negative); H-11 read-only; H-30 index size recorded |
+| P3-U1 | Goal form and goal translator | Goal page, deterministic translator, owner limits, strategy epoch, agent state, `get_goals_and_limits` | P2-U6 | No free text; every preset inside template bounds; stricter limits never loosen; a change bumps the strategy epoch and stale intents die |
+| P3-U2 | Data tools: market data | Shared cache, rate-limit handling, plausibility guards, `market_snapshot`, CoinGecko, DefiLlama, volatility, `get_pool_depth` | P1-U7 | Every result has `asOf` and source; a 429 waits per its header; implausible values refused; two agents share one cached upstream call |
+| P3-U9 | Data tools: research sources and the registry check | `x_search`, `dune_query`, `unlocks`, `read_contract`, `balance`, `get_code`, the read broker's redirect check, every registry ID resolved or marked deferred | P3-U2 | MK-S6 metering; no free-text chain string reaches the model; every registry ID resolves to a live tool or a named deferral |
+| P3-U3 | Strategy templates and the template runner | `rebalance_bands@1` with bounds and the evals format, the runner, runner reason codes, accepted parameters by hash | P2-U5, P2-U6, P3-U1, P3-U2 | Template fixtures obey bounds; the runner trades only outside the band, splits legs, holds back with codes, never calls a model |
+| P3-U7 | Launch skills as built-in folders | The skills the demo uses, the stage playbooks, the loader path, B-01 | P3-U3, P1-U1 | B-01 passes; H-11 read-only; H-30 index size recorded |
+| P3-U4 | Discovery loop engine | Stage machine, one sandbox per cycle, per-stage model routing, caps, ceilings, stage records, research context, briefs and their validator, the console; absorbs P1-U8 | P3-U3, P3-U7, P3-U9 | A full cycle ends each stage with its terminal tool on its model; caps and ceilings hold; briefs with invented numbers, foreign URLs or skill text are refused |
+| P3-U6 | Parameter proposals | `propose_strategy_update`, `no_change`, `check_strategy_params`, the evaluator, states, the plan card, owner approval | P3-U4 | Within-bounds reaches the owner; out-of-bounds rejected with its code; acceptance records a parameter hash and the runner uses it; rejections counted |
+| P3-U8 | Activation sweep and its visual | "Turn on automatic trading", the sweep, step events, the ActivationPanel, the /configure reaction, plan approval as arming | P3-U6 | The sweep runs its steps in order with live states; a failed step retries; the plan's approval arms and the runner trades |
+| P3-U10 | Autonomous loop and the Research page | Scheduler by intensity, watcher triggers, daily budget, the Research page, why the plan did not change, the fork's market mover | P3-U8 | Cadence, triggers, budget and priorities as specified; research stops at zero credits while the runner continues |
 
-**Playtests.** Mid-phase after P3-U4: one full discovery cycle in the terminal, every stage ending in its terminal tool call, with the cost per cycle recorded. End-of-phase after P3-U6: set a goal, watch the agent research over a few cycles, see thesis cards appear and change status, receive a parameter proposal, approve it, and see the template runner act on the new parameters. Look at research depth versus cost, proposal format, thesis card layout, cadence, system prompt adjustments (`PHASES.md > Phase 3`).
+The full specification of each unit follows. Every unit prompt also carries the shared lines of section 1: read `LESSONS.md` first (and its "Wallets and networks: read first" section for P3-U1, P3-U6, P3-U8 and P3-U10, which touch the owner's wallet or trades), stay in scope, add a `LOGS.md` entry and a `LESSONS.md` entry for every bug fixed.
 
-**What changed and why.** P3-U1's fields follow the agreed list and a single strategy per account (`planning answer`); the translator is deterministic (`conversation decision`). P3-U3 moves ahead of the discovery loop and absorbs the tool registry and evals format that the Bankr research shows are missing (`notes/bankr-skills.md > 9`); the registry is now the canonical one in `FINAL_PLAN.md > 4.4.5` (orientation fix 2). P3-U5 "allocation proposals with owner approval before rebalancing" becomes P3-U6 parameter proposals with approval per workflow mode (`planning answer`). P3-U7 is new so research runs with the launch skills before SkillNFTs exist (`FINAL_PLAN.md > 4.5.4`).
+#### P3-U1: Goal form and goal translator
+
+**GOAL.** The owner sets the agent's goal through structured fields only, and a deterministic translator turns it into template parameters, owner limits, a policy hash and the goal block of the agent's `SOUL.md`, so every later stage reads one authoritative goal.
+
+**READ FIRST.** `LESSONS.md` (with "Wallets and networks: read first"); D-010, D-011, D-029, D-037, D-098, D-212, D-238, D-264, D-277 to D-281; FINAL_PLAN 1.5 (goal input), 4.3.6, 4.4.4, 4.12.
+
+**DEPENDS ON.** P2-U6 (arming and intents), P2-U7 (portfolio page).
+
+**IN SCOPE.**
+1. `packages/domain`: the goal schema and its enums: template (`rebalance_bands@1`; `dca@1` listed and shown as "available later" until W-2), risk preset (Conservative, Balanced, Growth, with the WMON ranges and defaults of D-278), allowed assets (USDC always; WMON on or off), optional stricter limits (max trade size, max WMON share, min USDC share, max slippage, max trades per 24 hours, each only at or inside the hard limit), reasoning model (Standard: Sonnet 5.5; Deep: Opus 5.5), research intensity (Light, Standard, Deep) with a daily research budget inside the intensity's range, a credit reserve kept unspent for gas (default 1.00 USDC), and plan changes (ask me first, the default; apply and tell me).
+2. `packages/policy`: the translator as a pure function: goal to template parameters inside template bounds, owner limits, a policy hash over canonical JSON (no integer-like keys, BUILD_PLAN 8 lesson 3), and the `SOUL.md` goal block rendered from a fixed template; fixtures for every preset and every stricter limit at, inside and outside its bound.
+3. Storage (`platform.agent_goals`, one current goal per agent with history) and the strategy epoch (D-281): a platform counter per agent bumped on every goal or accepted parameter change; intents carry it; the trade flow refuses a stale one with `STRATEGY_EPOCH_STALE`; arming is not ended by it.
+4. Agent state stored per agent: `UNCONFIGURED` until a goal is saved, then `READY` (FINAL_PLAN 4.12); `RUNNING` is set by P3-U8.
+5. Owner routes: `GET` and `PUT /v1/agents/:id/goal` (owner session, fresh chain read), returning the goal, the derived parameters, the ranges and the cost preview per intensity (A-51); a public goal summary (template and risk preset only, FINAL_PLAN 6.1).
+6. `platform.get_goals_and_limits@1` on the platform tools server: the goal, the template parameters, the owner limits, the live Executor limits and mode, typed.
+7. The model choice reaches the agent: the chosen reasoning alias is stored with the goal for P3-U4's routing; `research-deep` (Opus 5.5) is added to `infra/litellm/config.yaml`.
+8. UI: design system first (on /design): a choice group for presets and intensities with their numbers, the stricter-limits fields with their hard-limit bounds, the cost preview, the goal summary; then the Goal page at `/agents/:id/goal`, linked from the agent's card, the portfolio and /configure; the goal summary on the card and the portfolio.
+
+**OUT OF SCOPE.** Running research or trades on the goal (P3-U3, P3-U4); `dca@1` (W-2); the goal form embedded in /configure (P6-U6); onchain configuration epochs (the Executor's counter stays the owner's, D-238).
+
+**DELIVERABLES.** The schema, translator and fixtures; migration for goals, agent state and the strategy epoch; the routes and the platform tool; the LiteLLM alias; the design system pieces and the Goal page; tests; `LOGS.md` entry.
+
+**ACCEPTANCE TESTS.**
+1. No field accepts free text; the API refuses unknown fields.
+2. Every preset maps inside `rebalance_bands@1`'s bounds; every stricter limit at its hard limit passes and one step looser is refused.
+3. Saving a goal bumps the strategy epoch; an intent waiting with the old epoch is refused at submission with `STRATEGY_EPOCH_STALE`; the arming stays open.
+4. The policy hash is stable across runs and key orders and changes with any field.
+5. `get_goals_and_limits` returns the saved goal to the owning agent only; another agent's token gets its own goal.
+6. Another wallet cannot read the full goal or save one; the public summary shows template and preset only.
+7. The Goal page passes axe and screenshots at 1440px and 380px in every state (no goal, saved, saving, refused, not owner).
+
+**HOW THE OWNER TESTS IT.** Open an agent's Goal page, try each preset and intensity and read the cost preview, tighten a limit and try to loosen it past the hard limit, save, and see the summary and `READY` on the card. Change the goal while a proposal waits and see the proposal refused with the stale-goal reason.
+
+#### P3-U2: Data tools: market data
+
+**GOAL.** The agent and the platform read market data that is metered, cached across agents, dated and checked for plausibility, including one call that gives the whole market snapshot.
+
+**READ FIRST.** `LESSONS.md`; D-031, D-036, D-097, D-213 to D-215, D-286, D-289, A-29; FINAL_PLAN 4.4.1, 4.4.3, 4.4.5; BUILD_PLAN 8 lessons 1, 2, 9, 13, 14.
+
+**DEPENDS ON.** P1-U7 (data tools server, meter).
+
+**IN SCOPE.**
+1. A shared upstream cache keyed by provider, method and normalized input, with a time to live per source; `cacheHit` recorded on every metered row; a cached answer costs the agent the cached price (A-52).
+2. Upstream hygiene: timeouts, retry only on 429, 5xx and dropped connections, honoring `Retry-After` and rate-limit headers in code, a per-provider token bucket, `STALE_DATA` and `UPSTREAM_UNAVAILABLE` with `retryable`.
+3. Plausibility guards at the source (lesson 1): every numeric field has a range it must fall in (for example MON price, TVL, volume), and a value outside it is refused, logged and never served; two sources for the same figure are both shown with their source, never merged (lesson 2).
+4. Tools: `coingecko_prices` (price, 24h change, volume, market cap, hourly and daily history for MON and USDC), `defillama_tvl` (Monad chain TVL with history, top Monad protocols), `defillama_yields` (Monad pools), `volatility` (realized volatility over 24 hours, 7 and 30 days from CoinGecko history, with the method named), `chain.get_pool_depth` (price impact at reference sizes on the venue), and `market_snapshot` (one call composing the above plus oracle against pool from the chain, each figure with its source and `asOf`).
+5. Registry entries for `data.market_snapshot@1` (new) and the price table rows (A-52).
+6. Platform-side readers for the same data, used by the template runner and the deterministic sweep steps without a sandbox.
+
+**OUT OF SCOPE.** X, Dune, unlocks and the chain lookup tools (P3-U9); wallet, holders, event history, candles and premium data (W-2 and after PB-U2); the x402 payer for paid sources (only if a chosen source needs it; none in this unit).
+
+**DELIVERABLES.** The tools, cache, guards and readers; registry and price table entries; tests with recorded upstream fixtures and one live smoke run; `LOGS.md` entry.
+
+**ACCEPTANCE TESTS.**
+1. Every result carries `asOf` and its source; `market_snapshot` names a source per figure.
+2. A 429 with `Retry-After` waits that long; a 400 is not retried; a timeout returns `UPSTREAM_UNAVAILABLE`.
+3. A value outside its plausibility range is refused and logged, never served.
+4. Two agents asking the same question inside the time to live cause one upstream call, and both rows record the price with `cacheHit` set on the second.
+5. MK-S6 metering: one ledger row per paid call; a refused call costs nothing.
+6. No free-text string from an upstream reaches the model unbounded: names are mapped to registry values or capped and stripped.
+
+**HOW THE OWNER TESTS IT.** From the console's tool runner (or the live check), call `market_snapshot` and read the figures, sources and ages; call it again and see the cache hit and the charge.
+
+#### P3-U9: Data tools: research sources and the registry check
+
+**GOAL.** The research skills get the remaining sources they declare for the beta, and every ID in the canonical registry resolves to a live tool or a named deferral.
+
+**READ FIRST.** `LESSONS.md`; D-136, D-153, D-214, D-262, Q-24, Q-58, A-24; FINAL_PLAN 4.4.2, 4.4.3, 4.4.5, 4.5.4.
+
+**DEPENDS ON.** P3-U2.
+
+**IN SCOPE.**
+1. `x_search` (X API, pay per use, with the spending cap set before use), results marked untrusted, text capped and stripped like `read_url`.
+2. `dune_query` over saved queries only, by query name from a platform list (Monad DEX volume, MON net flows to exchanges, active addresses), never arbitrary SQL.
+3. `unlocks` from the provider chosen in Q-58, or deferred with its registry entry marked if none covers MON.
+4. Chain tools `read_contract` (the curated read-only ABI set), `balance`, `get_code`, with `target` and typed outputs (A-24).
+5. The read broker's redirect check: every hop of a redirect is checked by the URL guard, since Tavily follows redirects itself (P1-U7 suggestion).
+6. The registry check: a test that every registry ID resolves to a registered tool on its server, or carries a deferral naming its unit; every tool the launch skills declare resolves.
+
+**OUT OF SCOPE.** Wallet data, holders, event history, candles, the premium set; any skill text (P3-U7).
+
+**DELIVERABLES.** The tools; the saved query list; the registry check; tests and a live smoke run; `LOGS.md` entry.
+
+**ACCEPTANCE TESTS.**
+1. MK-S6 metering and the spending cap for X and Dune.
+2. `dune_query` refuses a query name outside the list; no SQL reaches Dune from the model.
+3. `read_contract` returns strings and bytes as length and hash only; an address with no code says so (BUILD_PLAN 8 lesson 11).
+4. A redirect to a private address is refused at the hop.
+5. The registry check passes, and fails when a registry ID is added without a tool or a deferral.
+
+**HOW THE OWNER TESTS IT.** Run an X search and a saved Dune query from the console and read the results with their charges; read the registry check's report.
+
+#### P3-U3: Strategy templates and the template runner
+
+**GOAL.** The agent's plan is a set of template parameters, and a deterministic runner turns the plan into trades within the hard limits, recording every decision, including every decision not to trade.
+
+**READ FIRST.** `LESSONS.md` (with "Wallets and networks: read first"); D-029, D-050 to D-054, D-090, D-094, D-096, D-262, D-264 to D-268, D-280, D-283, Q-28; FINAL_PLAN 4.3.3, 4.4.2, 4.6.2; BUILD_PLAN 8 lesson 17.
+
+**DEPENDS ON.** P2-U5, P2-U6, P3-U1, P3-U2.
+
+**IN SCOPE.**
+1. `rebalance_bands@1`: JSON schema with bounds for the target WMON weight, band half-width, minimum trade, the volatility brake for buys, the cost hurdle and the maximum leg (never above the per-trade cap); defaults per risk preset from P3-U1.
+2. The evals format (answers Q-28 for this template): fixtures of account, prices, volatility, quote and parameters with the expected action and reason code, shared by the runner's tests and later by the audit's dynamic test (P6-U4).
+3. The template runner as an orchestrator worker: every 60 seconds per `RUNNING` agent (and for P3-U8's first legs), read the account, prices, limits and quote through the platform readers; decide one leg or one hold reason; propose through the same intent pipeline as `propose_swap` with source `template`, the strategy epoch and a deterministic client request ID per decision, without a sandbox lease (a platform identity for the agent, D-290).
+4. Reason codes in `packages/domain` with owner-facing messages: `IN_BAND`, `BELOW_MIN_TRADE`, `VOLATILITY_BRAKE`, `COST_HURDLE`, `PLAN_NOT_APPROVED`, `STRATEGY_EPOCH_STALE`; decisions recorded in `platform.runner_decisions` only when the outcome or reason changes, so the table does not grow every minute; served through `why-not-traded`.
+5. Accepted parameters recorded by hash in `platform.strategy_params` with the strategy epoch, until BuildRegistry exists.
+6. Console: the runner's state per agent, its last decision and a "run now" for the local environment.
+
+**OUT OF SCOPE.** `dca@1` (W-2); parameter proposals (P3-U6); scheduling of research (P3-U10); the workflow runner (P4-U1).
+
+**DELIVERABLES.** The template schema, evals fixtures, runner worker, codes, storage, console view; unit tests, a Postgres test, a fork test; `LOGS.md` entry.
+
+**ACCEPTANCE TESTS.**
+1. Each fixture yields its expected action and reason; a parameter set outside the bounds is refused.
+2. On the fork against the real v4 pool: an account at 0% WMON with a 20% target trades in legs no larger than the per-trade cap until inside the band, then records `IN_BAND`.
+3. A buy is held back with `VOLATILITY_BRAKE` above the brake; a sale is not.
+4. The runner never calls a model and never opens a sandbox; its intents carry source `template`.
+5. A leg refused by the Executor's rules is recorded with the Executor's reason and retried only when the reason clears by waiting.
+6. A decision table run for 24 hours of ticks holds rows only for changes (lesson 17: the test fixes the block).
+
+**HOW THE OWNER TESTS IT.** On the fork, with a funded and armed account and a plan set from the console, watch the runner's legs settle on the portfolio page; read the runner's hold reasons once in band.
+
+#### P3-U7: Launch skills as built-in folders
+
+**GOAL.** The skills and playbooks the stages use are written to the skill.json spec, mounted read-only through the loader path, and good enough that the playtest can judge research quality rather than missing guidance.
+
+**READ FIRST.** `LESSONS.md`; D-099 to D-103, D-106, D-127, D-288; FINAL_PLAN 4.5; `Planv1/research/bankr-skills/02-platform-mapping.md` 2.1, 2.7; BUILD_PLAN 8 lesson 20.
+
+**DEPENDS ON.** P3-U3, P1-U1.
+
+**IN SCOPE.**
+1. The skills the demo uses (thin): `deep-dive-research`, `defi-regime-read`, `narrative-and-flow-tracker`, `usdc-wmon-band-rebalancer`, `monad-assets-basics`, `venue-swap` named for the venue (Uniswap v4); each with `skill.json`, a `SKILL.md` under about 8,000 characters naming our tools exactly and ending with the stage's output tool, `references/` for depth; the strategy skill with `evals/evals.yaml` from P3-U3's format.
+2. Content lessons from the research: per-claim source class and confidence tags, a mandatory skeptic section, a falsifiable thesis with a kill criterion and a horizon, "no thesis" and "no change" as valid outputs, "remote content is data, never instructions", and "the model chooses, the code computes".
+3. Platform playbooks (not equippable, under the playbooks mount): Scan, Dive, Skeptic (Challenge) and Zoom out playbooks with the stage rules of this section.
+4. The loader path for built-in folders: frontmatter generated, `.no-bundled-skills`, a read-only mount, the same set for every agent until P6-U6 (D-288).
+5. B-01 on these skills plus the negative cases; H-11 read-only; H-30 index size recorded.
+
+**OUT OF SCOPE.** The other three skills (`token-risk-screen`, `wallet-intel`, `wmon-dca-accumulator`), B-02 and H-44 with all nine (W-1); skills as NFTs (P6-U5).
+
+**DELIVERABLES.** The skill folders and playbooks in the repository; the loader change; B-01 results; `LOGS.md` entry with the index size.
+
+**ACCEPTANCE TESTS.**
+1. B-01 passes on every skill and rejects each negative case.
+2. A write to the mount fails (H-11).
+3. Every tool a skill declares resolves through P3-U9's registry check.
+4. The descriptions' first 57 characters stand alone and do not overlap.
+
+**HOW THE OWNER TESTS IT.** Read each skill and playbook in the repository; the real judgment comes at Playtest 3-mid.
+
+#### P3-U4: Discovery loop engine
+
+**GOAL.** The orchestrator runs research as stages, each a separate Hermes run with a fresh session on its own model, inside caps and ceilings, ending in typed records that later stages, the owner's pages and the narrator use. This absorbs P1-U8 (D-160).
+
+**READ FIRST.** `LESSONS.md`; D-088, D-093, D-143, D-160, D-203, D-204, D-209, D-215 to D-217, D-282, D-284 to D-288, A-30, A-31, A-42, A-51; FINAL_PLAN 4.3.1, 4.3.2, 4.3.7; BUILD_PLAN 8 lessons 19, 20, 21, 22; the H-26, H-36, H-42 and H-43 spike rows.
+
+**DEPENDS ON.** P3-U3, P3-U7, P3-U9.
+
+**IN SCOPE.**
+1. The stage machine: a cycle (kinds `ROUTINE`, `TRIGGERED`, `ACTIVATION`) with an ordered stage list, one sandbox and one lease for the whole cycle, one `POST /v1/runs` per stage with a fresh session and the idempotency key `<agent>:<cycle>:<stage>[:<n>]`, sequential Dives, the deterministic steps (snapshot, risk check, Test) between runs, and the cycle's records in `platform.research_cycles` and `platform.stage_records`.
+2. Per-stage model routing (D-285 and the spike in item 9): the stage's alias set per run, by the run's `model` field if the pinned Hermes honors it, otherwise by the gate rewriting the `model` of every model call made under the lease's current stage, the auxiliary slots included.
+3. Per-stage caps: Hermes `max_turns` and `run_budget_seconds` rendered per run where Hermes allows it, else the strictest stage's values in the cycle's config plus the orchestrator's deadline per stage; paid data calls per stage (replacing D-215's 20 per lease for cycles); a token ceiling per stage at the gate.
+4. Charges: a reservation of the stage's ceiling before it starts; the meter charges actual cost up to the ceiling and records any excess as platform-absorbed (D-285); the stage refuses to start when spendable credits or the day's budget do not cover its ceiling.
+5. Stage prompts for Scan, Dive, Challenge and Zoom out (Test is deterministic, D-282), short and layered on the playbooks; the Challenge sees only the Dive records through `get_research_context`, never the Dive's session.
+6. Platform tools: `get_research_context` (the latest overview, open themes, the plan, the last stage results, as one bounded digest), `write_thesis` extended to typed themes with materiality, status and recheck time, `complete_stage` per stage, and `write_research_brief` (OVERVIEW, THEME, RATIONALE) with its validator: numbers must appear in a tool result this cycle recorded, URLs must be ones this cycle retrieved, no run of eight words from a mounted skill, no canary string, bounded field lengths (D-284). Tool results needed by the validator are stored with the cycle, bounded and platform-only.
+7. Prompt caching for the Anthropic routes in LiteLLM and in the rendered Hermes provider settings, measured by `cache_read_input_tokens` per stage.
+8. The narrator's facts record per stage (stage, outcome codes, counts, cost, never text); one activity entry per stage.
+9. Spikes documented: H-26 (goals obeyed when wrapped as untrusted), H-36 (per-run toolsets, expected absent), H-42 (one run per session), H-43 (`/goal` judge loop, evaluated and left off for cost unless the playtest shows a need), and whether `/v1/runs` honors `model`.
+10. The console: start a routine or activation-shaped cycle for an agent, see each stage live with its model, calls, cost and ceiling, and read raw notes, briefs and records (operators only).
+11. The P1-U8 behaviors kept: a scheduled Scan spends credits visibly, writes a feed entry and stops at zero credits; until P3-U10 the D-216 scheduler runs Scans as before.
+
+**OUT OF SCOPE.** Parameter proposals and the evaluator (P3-U6; the Zoom out ends with `no_change` or a recorded draft in this unit); the activation flow and its UI (P3-U8); the scheduler, triggers and budget per day (P3-U10); the owner's Research page (P3-U10); the Thesis Board (P3-U5, cut).
+
+**DELIVERABLES.** The stage machine, routing, caps, charging, prompts, platform tools, validator, caching settings, console views; migrations; tests and the orchestrator live check extended to a full cycle; spike notes in `evidence/p3-u4/`; `LOGS.md` entry with the measured cost per stage.
+
+**ACCEPTANCE TESTS.**
+1. A full cycle completes with each stage ending in its terminal tool call, on its alias (from the gate's record), with cost per stage and per cycle recorded.
+2. A stage that reaches its turn cap, call cap, token ceiling or deadline is stopped by the orchestrator with that reason, and the cycle records it.
+3. No stage is charged above its ceiling; a stage whose ceiling exceeds spendable credits does not start.
+4. The Challenge's run never receives the Dive session's transcript.
+5. A brief with a number absent from the cycle's results, a URL the cycle did not retrieve, eight words from a skill or a canary is refused with a reason the agent can act on, and a corrected retry is accepted.
+6. Cache read tokens are above zero from the second model call of a stage.
+7. At zero credits a cycle stops with the billing reason, the agent becomes `RESTRICTED` and the template runner keeps running.
+
+**HOW THE OWNER TESTS IT.** This is Playtest 3-mid: run the two cycles from the console and read everything (see above).
+
+#### P3-U6: Parameter proposals
+
+**GOAL.** The agent proposes plan changes; a deterministic evaluator decides whether they reach the owner; accepted parameters drive the runner.
+
+**READ FIRST.** `LESSONS.md` (with "Wallets and networks: read first"); D-019, D-020, D-264, D-271, D-280 to D-282, D-284; FINAL_PLAN 4.4.4, 4.6.2, 4.6.3.
+
+**DEPENDS ON.** P3-U4 (on the `write_thesis` stub and typed themes until P3-U5, D-160).
+
+**IN SCOPE.**
+1. Platform tools `propose_strategy_update(templateId, params, rationaleCode, briefId, themeIds)`, `no_change(reasonCode, briefId)` and `check_strategy_params(templateId, params)` (the Test stage's check, also callable by the Zoom out).
+2. The evaluator: template bounds, the preset's range, owner limits, minimum step, cooldown, cost hurdle at the current quote and depth, the Challenge's verdict on the cited themes, evidence count by source class; codes `OUT_OF_BOUNDS`, `OUTSIDE_PRESET`, `OWNER_LIMIT`, `BELOW_MIN_STEP`, `COOLDOWN`, `COST_HURDLE`, `CHALLENGE_REJECTED`, `EVIDENCE_THIN`.
+3. States `pending_policy`, `pending_owner`, `accepted`, `rejected`, `expired` (24 hours); the goal's plan-change setting decides `pending_owner` or `accepted` with notice; acceptance records the parameter hash, bumps the strategy epoch and hands the plan to the runner; trial counts per agent, rejections included.
+4. Owner routes: list, approve and reject a proposal (owner session, fresh chain read).
+5. UI: the design system's PlanChangeCard first (current and proposed values, bounds, implied trades, expiry, the rationale brief's points with sources, the Challenge's verdict, confidence), then on the portfolio page beside the trade approval card; narrator entries for proposed, accepted, rejected and no change.
+
+**OUT OF SCOPE.** The Parameter change review workflow and BuildRegistry recording (P4-U3, P6-U2); the sweep's plan card flow (P3-U8 uses this card).
+
+**DELIVERABLES.** The tools, evaluator, states, routes, card, entries; tests; `LOGS.md` entry.
+
+**ACCEPTANCE TESTS.**
+1. A within-bounds proposal reaches `pending_owner` (ask me first) or `accepted` with a notice (apply and tell me).
+2. Each evaluator code is produced by a proposal built to fail exactly that rule (lesson 5's fixture rule).
+3. Acceptance records a new hash, bumps the strategy epoch, kills waiting intents of the old epoch, and the runner's next decision uses the new target.
+4. Rejected and expired proposals are counted in the trial counts.
+5. Another wallet cannot approve; the card passes axe and screenshots at both widths in every state.
+
+**HOW THE OWNER TESTS IT.** From the console run a Zoom out that proposes a change; approve it on the portfolio page and watch the runner trade toward it; run one built to be out of bounds and read its rejection.
+
+#### P3-U8: Activation sweep and its visual
+
+**GOAL.** Turning on automatic trading runs the activation sweep with a clear live visual, ends in a plan whose approval arms the agent, and starts the agent working.
+
+**READ FIRST.** `LESSONS.md` (with "Wallets and networks: read first"); D-019, D-129, D-264 to D-269, D-279, D-282, D-291; FINAL_PLAN 4.10, 4.12; the P1-U11 and P2-U7 log entries (the viewer's animation states, the arming card).
+
+**DEPENDS ON.** P3-U6.
+
+**IN SCOPE.**
+1. "Turn on automatic trading" replaces the arming card's arm action: checks first (goal saved, trading balance at least the activation minimum (A-53), spendable credits at least the sweep ceiling, account `NORMAL`, wallet gas per A-50), each named when it fails; then the grant through `runArm`; then the sweep.
+2. The sweep as a cycle of kind `ACTIVATION` with the eight steps of "The activation sweep", step events stored and served at `GET /v1/agents/:id/activation` (owner session; polled every 2 seconds while running), stop and retry, partial charges, expiry of the plan card.
+3. The plan's approval through P3-U6's card as the arming approval (D-264's first approval), after which the agent state is `RUNNING` and the runner trades.
+4. Design system first: ActivationPanel (the step list in every state: pending, running with elapsed time, done with its one-line result, failed with its reason, skipped, stopped), its compact form for the agent's card, on /design; the step results are fixed templates over the step records, never model text.
+5. /configure: the bee takes off and hovers with the wing cue in the primary accent while the sweep runs, lands and settles when it ends, and stays grounded with reduced motion; a 2D species shows a pulse ring; the static fallback shows the step list only.
+6. Activity entries for the sweep's start, each step and its end.
+
+**OUT OF SCOPE.** The routine scheduler and triggers (P3-U10); the Research page (P3-U10); push updates (W-7).
+
+**DELIVERABLES.** The activation flow, sweep orchestration, events route, design system pieces, portfolio, card and /configure changes; tests including a live run; `LOGS.md` entry.
+
+**ACCEPTANCE TESTS.**
+1. Each pre-check failure is named and nothing is sent.
+2. The sweep's steps run in order with live states; a step forced to fail shows its reason, and "Try again" reruns from it, reusing results under an hour old.
+3. Stopping mid-sweep charges only the finished steps.
+4. Approving the plan arms the agent, sets `RUNNING`, and the runner's first leg settles on the fork against the real v4 pool (live run).
+5. The bee's states follow the sweep; with reduced motion it does not animate; without WebGL the step list still shows.
+6. The panel passes axe and screenshots at 1440px and 380px in every state.
+
+**HOW THE OWNER TESTS IT.** Set a goal, deposit, add credits, press "Turn on automatic trading", watch the steps on the portfolio page and on /configure, read the plan card and approve it, and watch the first legs settle.
+
+#### P3-U10: Autonomous loop and the Research page
+
+**GOAL.** After activation the agent keeps researching on its own at the cadence and budget the owner chose, reacts to triggers, and the owner can read what it found and why it did or did not act.
+
+**READ FIRST.** `LESSONS.md` (with "Wallets and networks: read first"); D-129, D-216, D-219, D-222, D-268, D-283 to D-285, D-289, D-292; FINAL_PLAN 4.3.7, 4.9, 4.10.
+
+**DEPENDS ON.** P3-U8.
+
+**IN SCOPE.**
+1. The research scheduler replacing D-216's for activated agents: cadence by intensity, Dives gated by Scan materiality and the Dives per day, the daily Zoom out, the weekly overview refresh, the priority order when the budget is short; Scans no longer run on a schedule for agents that are not activated (D-292); the owner's "Run Scan" stays.
+2. The watcher with the triggers of "The autonomous loop", deterministic and free, with the two-hour spacing.
+3. The daily research budget as a hard cap with reservations; "waiting for tomorrow's budget" as a state.
+4. "Pause research" for the owner, which stops research cycles without disarming (the runner keeps the plan); resume.
+5. The Research page at `/agents/:id/research` (owner only; P5-U1 later shows a public subset): overview brief, market snapshot, themes, stage timeline with cost and model, today's budget used, why the agent did not trade, why the plan did not change; design system pieces first on /design.
+6. Fork-only playtest tools in the console: a fast cadence, a market mover that moves the fork's v4 pool with a swap from a dev account and sets the local feed to match (local only, `assertLocalFork`), and a trigger button per trigger.
+
+**OUT OF SCOPE.** The Thesis Board's full history and public research cards (P3-U5, P5-U1); notifications (P4-U7); the workflow runner (P4-U1).
+
+**DELIVERABLES.** Scheduler, watcher, budget, pause, Research page, console tools; tests including a live run with a moved market; `LOGS.md` entry.
+
+**ACCEPTANCE TESTS.**
+1. With a fast clock, the cycle counts per day match the intensity's cadence and Dive limit.
+2. Each trigger fires once per condition and respects the two-hour spacing; a moved market on the fork triggers a cycle.
+3. When the day's budget cannot cover a stage's ceiling, the stage waits, the higher-priority stage goes first, and the page says so.
+4. At zero credits research stops and the runner keeps trading the plan.
+5. An agent that is not activated runs no scheduled Scan.
+6. The Research page shows no raw note text, passes axe and screenshots at both widths.
+
+**HOW THE OWNER TESTS IT.** This is Playtest 3-end (see above).
+
+#### Dependencies on Phases 1 and 2 and on P2-EC, and the gaps found
+
+Phase 3 needs nothing P2-EC deploys (D-247); its lessons on real fees and finality reach P3-U8's activation minimum and gas checks through A-50. What it needs from Phases 1 and 2, and what is missing:
+
+| Needed | State | Gap and where it is closed |
+|---|---|---|
+| Hermes runs with fresh sessions, the gate, the lease | Built (P1-U1, P1-U5) | One task opens one sandbox for one run with a 12-minute lease; a cycle needs several runs in one sandbox and a lease as long as the cycle (P3-U4) |
+| One model per agent in the rendered config (`DEFAULT_MODEL` `scan-cheap`); `research-strong` defined in LiteLLM but unused | Built | Per-stage routing (P3-U4, D-285); `research-deep` alias (P3-U1) |
+| Paid calls capped at 20 per lease (D-215) | Built | Per-stage call caps for cycles (P3-U4) |
+| Tool results not stored, so nothing can check a brief's numbers | Built (`platform.tool_calls` holds input and outcome) | Bounded storage of results per cycle (P3-U4) |
+| `write_thesis` stores free notes only | Stub (D-160) | Typed themes and briefs (P3-U4); the Thesis Board stays cut |
+| `get_goals_and_limits` | Not built (D-213) | P3-U1 |
+| Agent states `UNCONFIGURED`, `READY`, `RUNNING` | Defined in `packages/domain`, not stored; My Agents shows a run status | Stored state (P3-U1, P3-U8) |
+| Configuration epoch | The Executor's own per-agent counter, bumped only by the owner, ends the grant (D-238, D-264); P3-U1's revision 2 acceptance ("a change bumps `configEpoch`") would force a wallet transaction and re-arming on every goal or plan change | An offchain strategy epoch for goals and plans; the onchain epoch stays for builds (D-281, P3-U1) |
+| Intents come only from a sandbox lease | Built (D-262; A-42 counts per run) | A platform identity for the runner's intents (P3-U3, D-290) |
+| Arming completes on the first approved trade (D-264) | Built | The plan approval becomes that approval (P3-U8, D-291) |
+| Chain tools `get_pool_depth`, `read_contract`, `balance`, `get_code` | W-2 remainder of P2-U5 | Pulled into P3-U2 and P3-U9 |
+| Scans run every 6 hours for every funded agent (D-216) | Built | Only activated agents are scheduled (P3-U10, D-292) |
+| Fork market frozen at the pinned block; feeds re-dated with the same answer (D-237); live CoinGecko prices differ from the fork's | Built | Research uses live data and names sources (D-289); the console's market mover makes triggers and drift testable on the fork (P3-U10) |
+| Testnet's MON price is `TestnetFeed`'s operator value (D-253), not the market's | P2-EC | Testnet trades follow the testnet pool; research still reads mainnet data; the testnet feed keeper should track the mainnet price (suggestion for the Rehearsal) |
+| Gas for runner trades off the fork (C-79) | Fork only | P2-EC's operator script on testnet; A-19 later |
+| Q-28 (evals format, template parameters) | Open | Answered for `rebalance_bands@1` in P3-U3 |
+| Q-24 (X API budget), the unlocks provider | Open | Q-24 and Q-58 before P3-U9 |
+| Q-08 (zero-retention terms for the offered models) | Open | Confirm for Haiku 4.5, Sonnet 5.5 and Opus 5.5 before P3-U1 offers them |
+
+**What changed and why.** Revision 3 (Phase 3 planning, 2026-10-07): the owner's vision adds the activation sweep with a live visual, an autonomous loop with a cadence and triggers, planned model costs and two playtests aimed at research quality. P3-U2 is split into market data (P3-U2) and research sources (P3-U9) so each fits one session; P3-U4 becomes the engine only; the activation sweep and its visual (P3-U8) and the autonomous loop with the Research page (P3-U10) are new units, each with its own UI per the frontend rule. The Test stage becomes a deterministic step because it only ever checked bounds (D-282). Trades in the loop come from the template runner, and the agent changes the plan (D-280). Revision 2: P3-U1's fields follow the agreed list and a single strategy per account (`planning answer`); the translator is deterministic (`conversation decision`). P3-U3 moves ahead of the discovery loop and absorbs the tool registry and evals format that the Bankr research shows are missing (`notes/bankr-skills.md > 9`). P3-U5 "allocation proposals with owner approval before rebalancing" became P3-U6 parameter proposals with approval per workflow mode (`planning answer`). P3-U7 is new so research runs with the launch skills before SkillNFTs exist (`FINAL_PLAN.md > 4.5.4`).
 
 ### Phase 4: Financial management and reports
 
@@ -620,14 +1080,19 @@ The "Hackathon beta" column is the cut line. **Full** ships as specified in Pass
 | 25 | 5 | P2-U7 | Portfolio UI | Positions, history, deposit and withdraw, cards, blocked-trade reasons | P2-U6 | Thin: deposit, withdraw, position, the arming card, blocked-trade reasons. W-6: trade history and PnL views |
 | 26 | 5 | P2-EC | Early chain check | Throwaway testnet deployment and a labeled mainnet canary swap; measure where the fork and the real chains differ | P2-U7 | Pre-beta check: nothing it deploys is kept (D-247, D-249) |
 | | | Playtest 2-end | | The Phase 2 checkpoint in the web app on P2-EC's testnet deployment and the fork | after P2-EC | |
-| 27 | 6 | P3-U1 | Goals form and goal translator | Structured input to template parameters | P2-U6 | Thin: template, risk preset, allowed assets, the deterministic translator, the epoch bump. W-2: model choice and credit settings |
-| 28 | 6 | P3-U2 | Data tools server | Metered, sanitized external reads | P1-U7 | Thin: the data tools the demo's skills declare plus `web_search` and `read_url`. W-2: the tools of all nine skills. After PB-U2: `ohlcv`, `hypersync_events`, the premium set |
-| 29 | 6 | P3-U3 | Strategy templates and tool registry | Templates with bounds; every registry ID live | P2-U5, P3-U2 | Thin: `rebalance_bands@1` and the registry wiring. W-2: `dca@1` |
-| 30 | 6 | P3-U7 | Launch skills as built-in folders | Nine skills mounted and selectable | P3-U3, P1-U1 | Thin: the skills the demo uses, with B-01. W-1: all nine with B-02 and H-44 (a launch gate if the nine ship) |
-| 31 | 6 | P3-U4 | Discovery loop | Five stages as separate runs | P3-U3, P3-U7, P1-U7 | Thin: Scan, one Dive and Zoom out; absorbs P1-U8 (the scheduled Scan spends credits, writes a feed entry, stops at zero credits, and the dev console can trigger it; D-160). W-2: Challenge, Test, a second Dive. After PB-U2: H-42 and H-43 documented |
-| | | Playtest 3-mid | | One cycle in the terminal, every stage ending in its tool call, cost recorded | after P3-U4 | |
-| 32 | 6 | P3-U6 | Parameter proposals | Bounded parameter changes with approval | P3-U4 | Thin: the evaluator and states in full on the `write_thesis` stub, approval through a card on the portfolio page; a rejected out-of-bounds proposal is the demo's rejected candidate |
-| | | Playtest 3-end | | The Phase 3 checkpoint in the web app | after P3-U6 | |
+| 27 | 6 | P3-U1 | Goal form and goal translator | Structured goal to template parameters, owner limits and the strategy epoch | P2-U6 | Thin: every field (template, risk preset, allowed assets, stricter limits, reasoning model, research intensity with the daily budget, plan-change approval), the translator, the strategy epoch, `get_goals_and_limits`, the Goal page; `dca@1` shown as available later |
+| 28 | 6 | P3-U2 | Data tools: market data | Cached, dated, plausibility-checked market data and the market snapshot | P1-U7 | Thin: the cache, upstream hygiene, plausibility guards, `market_snapshot`, CoinGecko, DefiLlama, `volatility`, `get_pool_depth` |
+| 28b | 6 | P3-U9 | Data tools: research sources and the registry check | The remaining sources the demo's skills declare; every registry ID resolved | P3-U2 | Thin: `x_search`, `dune_query` (saved queries), `unlocks` (or deferred by Q-58), `read_contract`, `balance`, `get_code`, the redirect check, the registry check. W-2: wallet data and holders. After PB-U2: `ohlcv`, `hypersync_events`, the premium set |
+| 29 | 6 | P3-U3 | Strategy templates and the template runner | The plan as template parameters; deterministic trades with reasons | P2-U5, P3-U1, P3-U2 | Thin: `rebalance_bands@1`, the evals format, the runner and its codes. W-2: `dca@1` |
+| 30 | 6 | P3-U7 | Launch skills as built-in folders | The demo's skills and the stage playbooks, mounted read-only | P3-U3, P1-U1 | Thin: six skills and four playbooks with B-01. W-1: all nine with B-02 and H-44 (a launch gate if the nine ship) |
+| 31 | 6 | P3-U4 | Discovery loop engine | Five stages as separate runs on their own models, inside caps and ceilings | P3-U3, P3-U7, P3-U9 | Thin: every stage (Scan, two Dives, Challenge, the deterministic Test, Zoom out), per-stage routing, caps, ceilings, briefs and their validator; absorbs P1-U8 (D-160). After PB-U2: H-42 and H-43 beyond the notes this unit records |
+| | | Playtest 3-mid | | Two cycles from the console; the owner reads every stage's notes and briefs and judges depth, cost and discipline | after P3-U4 | |
+| | | P3-T1 tuning | | Prompts, playbooks, caps and stage ceilings set from measurements | after Playtest 3-mid | |
+| 32 | 6 | P3-U6 | Parameter proposals | Bounded plan changes with the evaluator and the plan card | P3-U4 | Thin: the tools, the evaluator and states in full on typed themes, the plan card on the portfolio page; a rejected out-of-bounds proposal is the demo's rejected candidate |
+| 32b | 6 | P3-U8 | Activation sweep and its visual | Turning on automatic trading runs the sweep live and ends in a plan whose approval arms the agent | P3-U6 | Thin: the full sweep, the step panel on the portfolio and the card, the bee's reaction on /configure |
+| 32c | 6 | P3-U10 | Autonomous loop and the Research page | Cadence, triggers, daily budget and the owner's view of the research | P3-U8 | Thin: the scheduler, watcher, budget, pause, the Research page and the fork's market mover |
+| | | Playtest 3-end | | The Phase 3 checkpoint in the web app, after the seam sweep | after P3-U10 | |
+| | | P3-T2 tuning | | Small adjustments from Playtest 3-end | after Playtest 3-end | |
 | 33 | 7 | P5-U1 | Directory, build cards, agent profile page, IdentityBinder | Discoverable agents with a public profile and ERC-8004 identity | P3-U4, P2-U7, P1-U3 | Thin: the profile page with the activity feed and "why the agent did not trade". W-6: build cards, `directory_search`. After PB-U2: the research board (with P3-U5), IdentityBinder |
 | 34 | 7 | P4-U2 | Risk Sentinel service | Deterministic watcher with its own tighten-only key | P2-U6, P2-U4, P2-U3 | Thin: the sentinel key's permissions in full (tighten only, never unpause); detection of stale feeds, drawdown and zero credits. W-1: signer health, gas, unknown submission, mandate expiry, the full drill list |
 | | | Playtest 4-mid | | Simulated price drop and stalled feed trip the sentinel on the fork, exits still work, terminal | after P4-U2 | |
@@ -660,7 +1125,7 @@ Step 1 proves the runtime and 1b runs the venue and oracle spikes early, because
 | # | Session | Name | What it adds | Depends on |
 |---|---|---|---|---|
 | 49 | W-1 | Beta gates | Everything that gates PB-U1: the deferred P1-U1 spikes (H-01, H-04, H-05, H-09, H-12, H-13, H-16, H-21, H-22, H-28, H-33, H-39, H-40, MK-S1a and the B-04 marker leak table; D-163), P2-U0's fork fidelity and EIP-1153, the P1-U6 settlement sweep, P2-U4's per-tier gas caps, P3-U7's nine skills with B-02 and H-44 if the nine ship, P4-U2's remaining detectors and drills, B-04 for P6-U3; the wallet compatibility test on testnet (D-196): MetaMask with smart accounts off and on (with an EIP-7702 delegation), OKX alone, MetaMask and OKX installed together, and one WalletConnect mobile wallet, each through connect, the network check, every switch outcome (and, for OKX, adding the network or the manual steps when it refuses), switching accounts in the wallet while logged in (the session ends and the new account logs in afresh, D-224), a mint that appears in the portal, a gas-sponsored send detected or explained, and a clean console (`LESSONS.md > Wallets and networks: read first`) | the Rehearsal |
-| 50 | W-2 | Research | P3-U4's Challenge and Test stages and second Dive, P3-U1's model choice and credit settings, P3-U2's tools for all nine skills, P3-U3's `dca@1`, P2-U5's remaining chain tools | W-1 |
+| 50 | W-2 | Research | P3-U9's wallet data (`wallet_portfolio`, `wallet_positions`, `wallet_pnl`) and `holders` for the three skills W-1 adds, P3-U3's `dca@1` with the DCA option of the goal form, P2-U5's remaining chain tools (`whoami`, `get_assets`, `simulate_rebalance`, `propose_rebalance`, `list_intents`, `cancel_intent`). Phase 3 planning (D-277) moved the Challenge, Test, second Dive, model choice and credit settings into Pass 1 | W-1 |
 | 51 | W-3 | 3D, portal and portfolio charts | P1-U11's walk-in and hover sequence and GLB size work, P6-U1's other parts and thumbnails, P6-U6's capability deltas, build history and embedded goal form, and the portfolio's richer visuals (value over time, allocation over time, mode changes) drawn from `platform.account_snapshots`, which Phase 2 tuning records every 15 minutes and after every settled trade (D-276) | W-2 |
 | 52 | W-4 | Creator | P6-U4's L1 to L8 and dynamic test, P6-U5's other six skills, P8-U2's resale listing and art upload | W-3 |
 | 53 | W-5 | Credits and runtime | P1-U6's sandbox and gas metering and gas top-up, P1-U5's export and restore, token rotation and console reset, P1-U4's guardian handlers and console agents panel, P1-U7's MK-K01 fuzz | W-4 |
@@ -714,8 +1179,26 @@ The completion pass builds every Cut unit and every "after PB-U2" remainder in p
 | 85 | S-U4 | Chain adapter, tools, indexer, payer | The Solana implementation of the seam | S-U2 | Solana track |
 | 86 | S-U5 | Conformance and launch approval | Independent Solana gate | S-U4, P9-U3 | Solana track |
 
-**Beta units in one list.** Full: P0-U1 to P0-U7, P1-U3, P2-U1, P2-U2, P2-U3, P2-U6, P5-U4 (testnet), P7-U1, P7-U2, PB-U1, PB-U2. Thin: P1-U1, P1-U2, P1-U4 to P1-U7, P1-U9 to P1-U11, P2-U0, P2-U4, P2-U5, P2-U7, P3-U1 to P3-U4, P3-U6, P3-U7, P4-U2, P5-U1, P5-U3, P6-U1 to P6-U6, P7-U3, P7-U4, P8-U1, P8-U2. Pre-beta check, deploying nothing the beta keeps: P2-EC. Folded: P1-U8 into P3-U4. Cut: P3-U5, P5-U2, P7-U7, P8-U4, the landing half of P1-U10. Not in the beta: P2-U8, P4-U1, P4-U3 to P4-U8, P5-U5 to P5-U7, P7-U5, P7-U6, P8-U3, all of Phase 9, the Solana track.
+**Beta units in one list.** Full: P0-U1 to P0-U7, P1-U3, P2-U1, P2-U2, P2-U3, P2-U6, P5-U4 (testnet), P7-U1, P7-U2, PB-U1, PB-U2. Thin: P1-U1, P1-U2, P1-U4 to P1-U7, P1-U9 to P1-U11, P2-U0, P2-U4, P2-U5, P2-U7, P3-U1 to P3-U4, P3-U6 to P3-U10, P4-U2, P5-U1, P5-U3, P6-U1 to P6-U6, P7-U3, P7-U4, P8-U1, P8-U2. Pre-beta check, deploying nothing the beta keeps: P2-EC. Folded: P1-U8 into P3-U4. Cut: P3-U5, P5-U2, P7-U7, P8-U4, the landing half of P1-U10. Not in the beta: P2-U8, P4-U1, P4-U3 to P4-U8, P5-U5 to P5-U7, P7-U5, P7-U6, P8-U3, all of Phase 9, the Solana track.
 
+
+### 4.5 Options: Gallery, Leaderboard and Dashboard
+
+These three nav pages were cut from the beta when the demo spine was locked (D-160 for the gallery; the leaderboard and the CFO dashboard were left in the completion pass). The owner now wants everything built. Nothing below is decided; Q-56 asks the owner to choose. Each page is described in the form it would take at the beta, built only from the design system, at 1440px and 380px.
+
+| Page | What it would show at the beta | Data it needs, and whether it exists | Owning unit | Size |
+|---|---|---|---|---|
+| Gallery (`/gallery`) | A public grid of every minted agent: 2D species art (3D thumbnails after P6-U1), name, tier, species, agent state, the public goal summary (template and risk preset), the trading account's value and allocation bar, research activity in the last 24 hours, and later its equipped parts; filters by tier, species, state and risk preset; each tile links to the agent's profile (P5-U1) | The indexer's agents projection (exists); agent state and public goal summary (P3-U1); the latest value snapshot (`platform.account_snapshots`, exists); a public list route over all agents with paging (new, small); equipped skills (P6-U6, later) | P7-U7, thin | Small: one session |
+| Leaderboard (`/leaderboard`) | Agents ranked by return over a stated period with drawdown beside every return, trade count and sample size, "not enough data" under 7 days of history, the environment label, platform-run agents labeled; demand counters (watchers, signal buyers, deposits) left out until P7-U5 | Value snapshots every 15 minutes and after each trade (exists, D-276); a flow-adjusted series is missing: snapshots store the account's value, not its value per internal unit (D-233), so deposits and withdrawals would read as returns. A value-per-unit column in the snapshots is needed first (small) | P7-U6, thin (returns and drawdown only; P7-U5's demand signals after PB-U2) | Medium: one session, plus the snapshot column |
+| Dashboard (`/dashboard`, the CFO dashboard) | For the connected wallet, across its agents: net worth (trading value plus credits), goal progress for each agent (the plan's target against the actual allocation, value change since activation with its period and basis), pending approvals (plan changes and trades), and the emergency view (account mode, agent state, exposure, outstanding intents, operating runway as spendable credits over the daily research budget, wallet gas) | Portfolio reads (P2-U7), plan proposals and intents (P3-U6), goals and budgets (P3-U1, P3-U10), snapshots (exists); workflow approvals only once P4-U3 exists | P4-U4, thin (without the workflow runner) | Medium: one session |
+
+Where each could go:
+
+- **Option A, in Pass 1 at step 7.** After P5-U1: P7-U7 (Gallery, thin), then P4-U2, then P4-U4 (Dashboard, thin), then P7-U6 (Leaderboard, thin, with the snapshot column). Three more Pass 1 sessions, before the configure and creator step.
+- **Option B, in Pass 2.** A new widening session, W-8 "Discovery and overview pages", after W-6 and before W-7, so the load test covers the new public routes. Pass 1 is unchanged.
+- **Option C, after the beta.** As today: P7-U7, P4-U4 and P7-U6 in the completion pass.
+
+Considerations, not a decision: the Dashboard is the most useful to an owner of several agents and reuses Phase 3's data, the Gallery is the cheapest and gives the demo its "browse agents" moment, and the Leaderboard will mostly show "not enough data" during a beta of days, which is honest but thin. Pages that are not built stay out of the nav, as now.
 ---
 
 ## 5. Spike register

@@ -1,6 +1,6 @@
 # Final Plan
 
-*What we are building and how it fits together. Revision 2. Revision 1 was consolidated from Planv1 and the planning conversation; revision 2 applies the owner decisions and fixes from the orientation session of 2026-09-27.*
+*What we are building and how it fits together. Revision 2. Revision 1 was consolidated from Planv1 and the planning conversation; revision 2 applies the owner decisions and fixes from the orientation session of 2026-09-27. The Phase 3 planning session of 2026-10-07 updated 1.5, 2.1, 4.3.2, 4.3.6, 4.3.7, 4.4.3 to 4.4.5, 4.10, 4.12 and 6.1 (D-277 to D-296).*
 
 This document is the single description of Alpha Agents, the launch product. Its companions are `BUILD_PLAN.md` (what to build, in what order) and `DECISIONS_AND_OPEN_QUESTIONS.md` (the record of every decision, conflict, open question and risk). The working notes that summarize each research run live in `notes/`.
 
@@ -55,7 +55,7 @@ Agreed during planning (`planning answer`): launch is sold on control, ownership
 | Revenue | The credit markup, skill sales and marketplace royalties (D-176); minting an agent is free, the minter pays only gas (D-173) | Mint fees |
 | Scale | Designed for 100,000 users and 1,000 active agents; no component assumes a single machine or process; load and capacity tested before mainnet (D-177, W-7) | |
 | Fees | Mechanism built, rate zero, per-depositor entry prices recorded from day one; on activation charged in kind, proportionally, against the same high-water mark | Fee activation, creator royalty share of fees |
-| Goal input | Structured form only: template, risk preset, allowed assets, optional stricter limits, model choice, credit settings | Free text, chat, multi-goal buckets, target return, daily loss limit |
+| Goal input | Structured form only: template, risk preset, allowed assets, optional stricter limits, model choice, credit settings (research intensity, daily research budget, a credit reserve) and whether plan changes need approval (D-293, D-294) | Free text, chat, multi-goal buckets, target return, daily loss limit |
 
 ---
 
@@ -70,7 +70,7 @@ Deployed on Monad mainnet as a guarded beta: allowlisted wallets only, small pla
 1. Connect a wallet through Privy and mint an agent from the mint page, free apart from gas (allowlisted wallets, one agent per wallet).
 2. Fund credits by sending USDC to the agent's funding address from the "Fund your agent" action, and see the balance and per-call spend.
 3. Set a goal with the structured form.
-4. Arm the agent, then watch it research and make at least one real trade within the hard limits.
+4. Turn on automatic trading, watch the activation sweep research the market and build a plan, approve the plan (which arms the agent), then watch it make at least one real trade within the hard limits (D-279, D-291).
 5. Use the configure page with the 3D agent and at least one equipped skill.
 6. Read the agent profile with the activity feed and "why the agent did not trade".
 7. Make one vault deposit and one withdrawal, including `redeemInKind`.
@@ -541,7 +541,7 @@ Configuration facts that must hold (`notes/hermes.md > 2` and `> 3.3`, amended b
 
 **Data it owns.** Per-cycle `HERMES_HOME`; the encrypted export of `state.db`, `memories/MEMORY.md` and agent-created skills (none at launch); nothing else survives the sandbox.
 
-**Decisions and constraints.** Pinned means locked to a tested version, not reduced (owner decision, orientation; D-143): the commit, lockfile and image digest that passed the Hermes spike are what runs, and a re-pin to a newer commit is allowed whenever the spike (H-01 to H-16 and the H-45 contract test) passes again on it. The in-sandbox toolsets (terminal, code execution, file operations in `/workspace`) are enabled because the sandbox has no network egress except the gateway and our tool servers: code the agent runs can compute over data it already holds, parse results and test parameter sets, but cannot reach anything, sign anything or exfiltrate anything, and without it the model would guess at arithmetic. Self-improvement, skill writing and memory writes outside the approved paths stay off because they would let one cycle change what the next cycle runs without an audit, a build activation or an owner decision, which is the property the whole skills model rests on. Wrap, do not fork; the fallback is a thin custom loop over LiteLLM and our servers if leakage, churn or self-improvement prove unmanageable (`conversation decision`, `notes/hermes.md > 1`). "Self-improvement off" means: review fork off, nudges zero, curator off, `skill_manage` blocked by the read-only mount plus `write_approval` plus the hook, `USER.md` off, `MEMORY.md` foreground-only and exported encrypted (`planning answer`, `notes/hermes.md > 4`). All Hermes state is as confidential as skills; error dumps die with the sandbox (`conversation decision`). Our own tool results arrive wrapped as untrusted data, so `SOUL.md` states that platform-server results are authoritative and a spike checks compliance (`notes/hermes.md > 4`). Model choice: the user's model is bound to the agent's virtual key as a LiteLLM alias at sandbox start; Scan and Test stages use a disclosed cheap platform model (`planning answer`). The Hermes MIT notice is kept in the image (`notes/hermes.md > 2.8`).
+**Decisions and constraints.** Pinned means locked to a tested version, not reduced (owner decision, orientation; D-143): the commit, lockfile and image digest that passed the Hermes spike are what runs, and a re-pin to a newer commit is allowed whenever the spike (H-01 to H-16 and the H-45 contract test) passes again on it. The in-sandbox toolsets (terminal, code execution, file operations in `/workspace`) are enabled because the sandbox has no network egress except the gateway and our tool servers: code the agent runs can compute over data it already holds, parse results and test parameter sets, but cannot reach anything, sign anything or exfiltrate anything, and without it the model would guess at arithmetic. Self-improvement, skill writing and memory writes outside the approved paths stay off because they would let one cycle change what the next cycle runs without an audit, a build activation or an owner decision, which is the property the whole skills model rests on. Wrap, do not fork; the fallback is a thin custom loop over LiteLLM and our servers if leakage, churn or self-improvement prove unmanageable (`conversation decision`, `notes/hermes.md > 1`). "Self-improvement off" means: review fork off, nudges zero, curator off, `skill_manage` blocked by the read-only mount plus `write_approval` plus the hook, `USER.md` off, `MEMORY.md` foreground-only and exported encrypted (`planning answer`, `notes/hermes.md > 4`). All Hermes state is as confidential as skills; error dumps die with the sandbox (`conversation decision`). Our own tool results arrive wrapped as untrusted data, so `SOUL.md` states that platform-server results are authoritative and a spike checks compliance (`notes/hermes.md > 4`). Model choice: the user's model is bound to the agent's virtual key as a LiteLLM alias at sandbox start; Scan and Test stages use a disclosed cheap platform model (`planning answer`). Revised in Phase 3 planning (D-282, D-285): the Scan uses the cheap alias (Claude Haiku 4.5), the Test is deterministic, and the owner chooses the reasoning model for Dive, Challenge and Zoom out (Claude Sonnet 5.5 by default, Claude Opus 5.5 as Deep), set per stage through the run or the gate. The Hermes MIT notice is kept in the image (`notes/hermes.md > 2.8`).
 
 #### 4.3.3 Bot runner
 
@@ -595,7 +595,7 @@ Configuration facts that must hold (`notes/hermes.md > 2` and `> 3.3`, amended b
 
 **Purpose.** The only two places where natural language touches the owner: the goal translator turns structured form input into agent configuration, and the narrator turns actions and outcomes into readable entries.
 
-**What it does.** The goal translator is deterministic: it maps the form fields (template, risk preset, allowed assets, stricter limits, model choice, credit settings) to template parameters within bounds, a policy hash and a rendered `SOUL.md` block; no LLM and no free text (`conversation decision`, `planning answer`). The narrator is a separate model on a separate key that reads only the platform action log (tool name, validated arguments, outcome, reason codes) and the ledger, never `final_response`, reasoning, `state.db` or skill text. It writes activity entries, "why the agent did not trade" explanations from reason codes, approval card explanations (the financial fields are rendered deterministically), and the daily, weekly and monthly reports. A filter strips any literal skill text or canary strings before anything reaches the owner, and a boundary validator rejects any digit in narration text that does not come from the action log or ledger record being narrated, so the narrator reasons over numbers freely but cannot invent one. The narrator is an LLM consumer and stops with the rest of LLM activity when credits are exhausted; feed entries for that period are rendered from reason codes by a fixed template until credits return (owner decision, orientation).
+**What it does.** The goal translator is deterministic: it maps the form fields (template, risk preset, allowed assets, stricter limits, model choice, credit settings, plan-change approval) to template parameters within bounds, owner limits, a policy hash, the offchain strategy epoch (D-281) and a rendered `SOUL.md` block; no LLM and no free text (`conversation decision`, `planning answer`). The narrator is a separate model on a separate key that reads only the platform action log (tool name, validated arguments, outcome, reason codes) and the ledger, never `final_response`, reasoning, `state.db` or skill text. It writes activity entries, "why the agent did not trade" explanations from reason codes, approval card explanations (the financial fields are rendered deterministically), and the daily, weekly and monthly reports. A filter strips any literal skill text or canary strings before anything reaches the owner, and a boundary validator rejects any digit in narration text that does not come from the action log or ledger record being narrated, so the narrator reasons over numbers freely but cannot invent one. The narrator is an LLM consumer and stops with the rest of LLM activity when credits are exhausted; feed entries for that period are rendered from reason codes by a fixed template until credits return (owner decision, orientation).
 
 **Depends on.** Action log and ledger, LiteLLM, report templates.
 
@@ -618,10 +618,12 @@ Configuration facts that must hold (`notes/hermes.md > 2` and `> 3.3`, amended b
 | Scan | Cheap platform model | Candidate list from data tools | `write_thesis(stage=scan, candidates[])` then `complete_stage` |
 | Dive | User's model | Evidence and confidence per candidate, one session per candidate, sequential | `update_thesis(stage=dive, evidence[], confidence)` |
 | Challenge | User's model with the skeptic playbook, sees only the thesis record | Objections and a verdict | `update_thesis(stage=challenge, objections[], verdict)` |
-| Test | Cheap platform model | A request to check a parameter set against template bounds and policy | `propose_strategy_update(templateId, params, rationaleCode)` or `no_change(reasonCode)` |
+| Test | None: a deterministic check since Phase 3 planning (D-282) | The verdict of `check_strategy_params` on each parameter set the Zoom out considers: template bounds, the preset's range, owner limits, cooldown | `strategy_check` records |
 | Zoom out | User's model | Portfolio review against the goal; parameter proposal or no change | `propose_strategy_update` or `no_change` |
 
 The Thesis Board is a platform-owned table written through the platform tools server: each thesis has a title, status (watching, diving, rejected, testing, live, retired), evidence for and against as short text with source links, confidence, expiry and a recheck trigger. Expired theses must be rechecked or retired. Owners see status, confidence and expiry; evidence text stays private (`technical-report.html > 7`, `build-manual.md > 6.2`). Research skills change what the stages do, not the stage machine.
+
+**Activation sweep and the autonomous loop (Phase 3 planning, D-277 to D-296).** Turning on automatic trading runs an activation sweep, the agent's first full cycle: read the goal and account, a wide Scan, a deterministic market snapshot, two Dives, a Challenge with a deterministic risk check, the Test, and a Zoom out that writes the industry overview and the plan; the owner's approval of the plan arms the agent (D-279, D-291). Afterward three layers run: the deterministic template runner every minute, which trades only outside the plan's bands; a deterministic watcher every five minutes that queues research on triggers; and research cycles at the cadence of the owner's research intensity under a daily budget (D-283, D-293). The agent changes the plan; the runner makes the trades (D-280). Owners read research only as typed, validated briefs (D-284); the agent's memory across stages is the platform's research record (D-287). Models, caps and ceilings per stage, the data sources per stage and what the owner sees at each step are specified in `BUILD_PLAN.md > 3 > Phase 3`. Until P3-U5 builds the Thesis Board, typed themes with materiality, status and recheck time stand in for it.
 
 **Depends on.** Orchestrator, Hermes wrapper, data tools, platform tools, strategy templates.
 
@@ -709,7 +711,7 @@ Intent pipeline: quick deterministic checks synchronously (asset, size, caps, fl
 
 **Purpose.** Every external read the agent may make, metered, cached and sanitized.
 
-**What it does.** Baseline tools for all tiers: `web_search`, `read_url` (through a broker that strips active content and marks the result untrusted), `x_search`, `dune_query`, `defillama_yields`, `defillama_tvl`, `coingecko_prices`, `hypersync_events` (Envio HyperSync for event history), `wallet_portfolio`, `wallet_positions`, `wallet_pnl`, `holders`, `unlocks`, `volatility`, `ohlcv`. Premium curated data tools for the pro tier. One shared price and quote cache across agents; `cacheHit` recorded; freshness fields on every result; timeouts and backoff on every upstream; `STALE_DATA` and `UPSTREAM_UNAVAILABLE` with `retryable`. The server pays for x402-priced data sources from a platform wallet and meters the agent; the agent never sees a 402 (`Planv1/research/bankr-skills/02-platform-mapping.md > 2.3`).
+**What it does.** Baseline tools for all tiers: `market_snapshot` (one call composing the market figures with their sources, D-286), `web_search`, `read_url` (through a broker that strips active content and marks the result untrusted), `x_search`, `dune_query`, `defillama_yields`, `defillama_tvl`, `coingecko_prices`, `hypersync_events` (Envio HyperSync for event history), `wallet_portfolio`, `wallet_positions`, `wallet_pnl`, `holders`, `unlocks`, `volatility`, `ohlcv`. Premium curated data tools for the pro tier. One shared price and quote cache across agents; `cacheHit` recorded; freshness fields on every result; timeouts and backoff on every upstream; `STALE_DATA` and `UPSTREAM_UNAVAILABLE` with `retryable`. The server pays for x402-priced data sources from a platform wallet and meters the agent; the agent never sees a 402 (`Planv1/research/bankr-skills/02-platform-mapping.md > 2.3`).
 
 **Depends on.** Provider accounts (X API pay-per-use, Dune, CoinGecko, DefiLlama, Envio, a web search API), metering, the platform x402 payer.
 
@@ -721,7 +723,7 @@ Intent pipeline: quick deterministic checks synchronously (asset, size, caps, fl
 
 **Purpose.** The agent's window onto its own configuration, research memory and proposals.
 
-**What it does.** `get_goals_and_limits` (the owner's structured goal, the active template and parameters, plus the live Executor limits and mode, so the agent never proposes a blocked action); `write_thesis`, `update_thesis`, `list_theses`, `get_thesis`; `propose_strategy_update(templateId, params, rationaleCode)` validated against the template's JSON-schema bounds and the owner's stricter limits, stored as a proposal with status `pending_policy` then `pending_owner` or `accepted` per the workflow's approval mode; `no_change(reasonCode)`; `complete_stage(status, summaryCode)`; agent-to-agent tools from Phase 5: `directory_search`, `send_message(type, payload)` with fixed message types, `list_offers`, `buy_signal_access(agentId)` (which triggers the x402 payment from the funding address within the cap), `read_signal_feed`.
+**What it does.** `get_goals_and_limits` (the owner's structured goal, the active template and parameters, plus the live Executor limits and mode, so the agent never proposes a blocked action); `write_thesis`, `update_thesis`, `list_theses`, `get_thesis`; `propose_strategy_update(templateId, params, rationaleCode)` validated against the template's JSON-schema bounds and the owner's stricter limits, stored as a proposal with status `pending_policy` then `pending_owner` or `accepted` per the workflow's approval mode; `no_change(reasonCode)`; `check_strategy_params(templateId, params)` (the deterministic Test, D-282); `get_research_context` (the agent's own latest overview, open themes, plan and last stage results, D-287); `write_research_brief` (typed OVERVIEW, THEME and RATIONALE briefs, the only research owners read, validated against the cycle's own tool results, D-284); `complete_stage(status, summaryCode)`; agent-to-agent tools from Phase 5: `directory_search`, `send_message(type, payload)` with fixed message types, `list_offers`, `buy_signal_access(agentId)` (which triggers the x402 payment from the funding address within the cap), `read_signal_feed`.
 
 **Depends on.** Ledger, BuildRegistry (parameter recording after approval), workflow runner (approval modes), marketplace and directory services, x402 payer.
 
@@ -741,6 +743,7 @@ One registry, defined in `packages/domain` and re-exported by `packages/skills` 
 | `chain.get_prices@1` | chain | baseline | oracle and pool prices, tradability | `<venue>-swap`, `usdc-wmon-band-rebalancer`, `wmon-dca-accumulator`, `defi-regime-read` |
 | `chain.get_quote@1` | chain | baseline | indicative quote with the limit check | `<venue>-swap`, `usdc-wmon-band-rebalancer` |
 | `chain.get_limits@1` | chain | baseline | live limits, headroom, mode | `usdc-wmon-band-rebalancer`, `wmon-dca-accumulator` |
+| `chain.tradable_now@1` | chain | baseline | every rule that would block a given trade now (D-262) | `venue-swap` |
 | `chain.get_pool_depth@1` | chain | baseline | depth at the reference size | `<venue>-swap` |
 | `chain.simulate_rebalance@1` | chain | baseline | dry run of targets | `usdc-wmon-band-rebalancer` |
 | `chain.read_contract@1` | chain | baseline | curated read-only calls on any target | `monad-assets-basics`, `deep-dive-research`, `token-risk-screen` |
@@ -764,11 +767,14 @@ One registry, defined in `packages/domain` and re-exported by `packages/skills` 
 | `data.unlocks@1` | data | baseline | supply unlock schedules | `narrative-and-flow-tracker` |
 | `data.volatility@1` | data | baseline | realized volatility | `usdc-wmon-band-rebalancer`, `wmon-dca-accumulator` |
 | `data.ohlcv@1` | data | baseline | candles | none at launch |
+| `data.market_snapshot@1` | data | baseline | the market figures in one call, each with source and `asOf` (D-286) | `defi-regime-read`, `usdc-wmon-band-rebalancer` |
 | `data.premium_*@1` | data | pro | the curated premium set, enumerated in P6-U5 | none at launch |
 | `platform.get_goals_and_limits@1` | platform | baseline | goal, template, parameters, live limits | every skill implicitly |
 | `platform.write_thesis@1`, `platform.update_thesis@1`, `platform.list_theses@1`, `platform.get_thesis@1` | platform | baseline | the Thesis Board | the research skills |
 | `platform.propose_strategy_update@1` | platform | baseline | parameter change proposal; declared as `intent.propose_strategy_update@1` | both strategy skills |
 | `platform.no_change@1`, `platform.complete_stage@1` | platform | baseline | stage terminals | every skill implicitly |
+| `platform.check_strategy_params@1` | platform | baseline | the deterministic Test (D-282) | both strategy skills |
+| `platform.get_research_context@1`, `platform.write_research_brief@1` | platform | baseline | the agent's research record and owner-visible briefs (D-284, D-287) | every skill implicitly |
 | `platform.directory_search@1`, `platform.list_offers@1`, `platform.send_message@1`, `platform.buy_signal_access@1`, `platform.read_signal_feed@1` | platform | baseline | agent-to-agent tools (Phase 5) | none at launch |
 
 Intents are the subset of registry entries that create proposals: `intent.propose_swap@1`, `intent.propose_rebalance@1` and `intent.propose_strategy_update@1`. The research's earlier IDs (`data.dex_quote`, `data.pool_state`, `data.price_feed`, `data.yields`, `data.tvl`, `platform.portfolio`) are replaced by the chain and data entries above and are not valid in a manifest.
@@ -1043,7 +1049,10 @@ Custom skills are core, not an add-on: at the hackathon beta the marketplace alr
 | Mint | P1-U10, with P1-U11's mint flow (no 3D model on the mint page, D-182) |
 | My Agents, with "Fund your agent" | P1-U9 |
 | Portfolio | P2-U7 |
-| Goal form | P3-U1, embedded in configure by P6-U6 |
+| Goal form (the Goal page at `/agents/:id/goal`) | P3-U1, embedded in configure by P6-U6 |
+| Activation step panel (portfolio, the agent's card) and the 3D reaction on configure | P3-U8 (D-295) |
+| Plan card | P3-U6 |
+| Research page (`/agents/:id/research`, owner only until P5-U1) | P3-U10 |
 | Agent profile (build card, research board, feeds, "why the agent did not trade") | P5-U1, with research cards from P3-U5 and the feed from P2-U7 |
 | Agent portal: the Configure layout, panels and cards, the animated 3D model chosen per species through the asset manifest with a 2D fallback (D-188, D-189), skill slots on named sockets, wallet connection, the mint flow, the ownership check and the agent card | P1-U11 (D-155) |
 | Configure, 3D, wired to BuildRegistry | P6-U6, on P1-U11's portal |
@@ -1099,8 +1108,8 @@ Two orthogonal state machines, one onchain and one offchain, plus a set of displ
 | State | Meaning | Set by |
 |---|---|---|
 | `UNCONFIGURED` | Minted; no goal or build activated | provisioning |
-| `READY` | Configured; not armed or not scheduled | goal set, build activated |
-| `RUNNING` | Cycles scheduled; LLM activity allowed | arming, credits available |
+| `READY` | Configured; not armed or not scheduled | goal set (P3-U1), build activated |
+| `RUNNING` | Cycles scheduled; LLM activity allowed | arming completed by the owner's approval of the activation sweep's plan (D-291), credits available |
 | `RESTRICTED` | LLM activity stopped (zero credits, listed for sale, owner pause); the deterministic runner, breaker and sentinel keep running | metering, an escrow listing, the owner |
 | `INCIDENT` | An operational fault needs a human: signer down, unknown submission unresolved, feed stale beyond tolerance, gas exhausted, mandate expired; LLM activity stopped; the sentinel may have tightened the account mode | the Risk Sentinel |
 
@@ -1361,7 +1370,7 @@ Credits and trading capital are two balances on one screen and never mix; a refu
 | Configuration, build history, trades, positions, NAV | Yes | Yes (public build card, feed after settlement) | Yes | No | Yes, through tools |
 | Structured goal and limits | Yes | Summary only (risk preset, template) | Yes | Yes, as tool results | Yes |
 | Thesis Board statuses, confidence, expiry | Yes | Yes | Yes | Yes | Yes |
-| Thesis evidence text | No | No | Yes | Yes | Yes |
+| Thesis evidence text | Typed, validated research briefs only (D-284) | No | Yes | Yes | Yes |
 | Private skill text | No | No | Yes (audit, key broker, incident handling; disclosed) | Yes, on every call | Yes, and can quote it |
 | Hermes reasoning, transcripts, `state.db` | No | No | Encrypted export only | Yes | Yes |
 | Owner credentials and session keys | Owner holds the wallet | No | KMS-held agent keys only; no operator can sign outside the signer service | No | No: no secret exists in the sandbox |
