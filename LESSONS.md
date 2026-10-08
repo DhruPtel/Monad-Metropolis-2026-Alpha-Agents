@@ -1119,3 +1119,24 @@ What happened: (1) The first commit of the unit went through with lint failing: 
 Cause: Trusting a piped command's exit, naming a record field after what it describes rather than what it is, a convention the type system does not check, and timing a state from outside the process that owns it.
 Fix: The gate now decides each commit on its own exit code; the scratch file was removed; the field is `grantedTo`; HoldingsPanel uses the export block (ab0d677); REAL_CHAIN.md reports the outbox's history.
 Lesson: Let the gate's exit code decide a commit, never a filtered view of its output; and run the whole suite before closing a unit, not only the tests of the files it touched.
+
+## L-147: Two forge suites raced on one process-wide environment variable
+Unit: P3-U1 (Step 0)
+What happened: After the custody set moved to salt version 2, a new assertion in `TestnetScripts.t.sol` failed whenever `CanaryScripts.t.sol` ran beside it ("the local fork uses the unscoped salts; unset DEPLOY_SALT_SCOPE"), and passed every time on its own; folding the assertions into the existing salt test made that test fail the same way.
+Cause: Both suites set `DEPLOY_SALT_SCOPE` with `vm.setEnv`, which changes the forge process's environment, and forge runs suites in parallel threads. The existing test had the same race with a smaller window; the extra calls widened it.
+Fix: `DeployScope.saltFor(scope, name, version)` computes a salt without reading the environment, and the new test checks the version 2 salts through it with no `setEnv` at all; three runs of both suites together passed.
+Lesson: A test that sets a process-wide value (an environment variable, a working directory) races every suite that runs beside it; test the logic through a pure function and keep the environment-reading wrapper thin.
+
+## L-148: A silent typecheck failure behind a quiet commit gate
+Unit: P3-U1
+What happened: The commit gate reported `pnpm -s typecheck => 1` with nothing in its log, and `pnpm -s typecheck` on its own printed nothing either, so the failure could not be read. Running the root `tsc` and `pnpm -r typecheck` separately showed it: `exactOptionalPropertyTypes` refused an optional `usdc` field given `undefined` in the web app.
+Cause: `pnpm -s` (silent) also hides the recursive run's error output, so the gate's log kept only the exit code. The gate did its job (the commit was stopped), but cost a round of digging.
+Fix: The gate runs `pnpm typecheck` without `-s`; the field is typed `Address | undefined`.
+Lesson: A gate must keep the output that explains a failure, not only the exit code; never silence the checks it runs.
+
+## L-149: The migration commit skipped the database package's own table check
+Unit: P3-U1
+What happened: The full vitest run at the end of the unit failed `creates every table in the indexer and platform schemas` in packages/db: migration 0014's three new tables were not in its list. The migration was committed in c6da42b after running only the goal store's tests, so that commit and the ones after it fail that one test until the fix commit.
+Cause: L-146 again: I ran the test files of the code I wrote, not the tests of the package I changed, and packages/db keeps a list of every table.
+Fix: The list names `platform.agent_goals`, `platform.agent_states` and `platform.agent_state_changes`; the full suite passes.
+Lesson: After changing a package, run every test file in that package, not only the new ones; a migration always touches packages/db's own tests.
