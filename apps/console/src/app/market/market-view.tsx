@@ -103,10 +103,11 @@ const bps = (v: number | null) => (v === null ? null : `${v.toFixed(1)} bps`);
 
 export function ageText(fromIso: string, toIso: string): string {
   const s = Math.max(0, Math.round((Date.parse(toIso) - Date.parse(fromIso)) / 1000));
-  if (s < 60) return `${s} seconds old`;
-  if (s < 3_600) return `${Math.round(s / 60)} minutes old`;
-  if (s < 172_800) return `${Math.round(s / 3_600)} hours old`;
-  return `${Math.round(s / 86_400)} days old`;
+  const n = (v: number, unit: string) => `${v} ${unit}${v === 1 ? "" : "s"} old`;
+  if (s < 60) return n(s, "second");
+  if (s < 3_600) return n(Math.round(s / 60), "minute");
+  if (s < 172_800) return n(Math.round(s / 3_600), "hour");
+  return n(Math.round(s / 86_400), "day");
 }
 
 /** Every figure in the snapshot that carries a warning, with where it is. */
