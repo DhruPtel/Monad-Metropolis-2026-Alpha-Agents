@@ -11,7 +11,7 @@ import { Store } from "../store.ts";
 import { CHAIN, indexAgent, must } from "../testing.ts";
 import { FundingKeys, ensureFundingAddresses, fundingAddressOf } from "./funding.ts";
 import { Ledger } from "./ledger.ts";
-import { type RefundChain, RefundOpenError, RefundService } from "./refunds.ts";
+import { type RefundChain, RefundOpenError, RefundService, type RefundSigner } from "./refunds.ts";
 import { CreditService } from "./service.ts";
 
 /**
@@ -69,7 +69,7 @@ describe.skipIf(!dbUp)("refunds through the signer (needs Postgres)", { timeout:
     await t?.drop();
   }, 60_000);
 
-  const service = (s: Signer | null) =>
+  const service = (s: RefundSigner | null) =>
     new RefundService({
       store,
       ledger,
