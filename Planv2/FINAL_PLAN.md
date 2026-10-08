@@ -55,7 +55,7 @@ Agreed during planning (`planning answer`): launch is sold on control, ownership
 | Revenue | The credit markup, skill sales and marketplace royalties (D-176); minting an agent is free, the minter pays only gas (D-173) | Mint fees |
 | Scale | Designed for 100,000 users and 1,000 active agents; no component assumes a single machine or process; load and capacity tested before mainnet (D-177, W-7) | |
 | Fees | Mechanism built, rate zero, per-depositor entry prices recorded from day one; on activation charged in kind, proportionally, against the same high-water mark | Fee activation, creator royalty share of fees |
-| Goal input | Structured form only: template, risk preset, allowed assets, optional stricter limits, model choice, credit settings (research intensity, daily research budget, a credit reserve) and whether plan changes need approval (D-293, D-294) | Free text, chat, multi-goal buckets, target return, daily loss limit |
+| Goal input | Structured form only: template, risk preset, allowed assets, optional stricter limits, model choice, credit settings (research intensity, Light by default with a month's cost shown for each (D-299), daily research budget, a credit reserve) and whether plan changes need approval (D-293, D-294) | Free text, chat, multi-goal buckets, target return, daily loss limit |
 
 ---
 
@@ -764,7 +764,7 @@ One registry, defined in `packages/domain` and re-exported by `packages/skills` 
 | `data.wallet_positions@1` | data | baseline | wallet positions | `wallet-intel` |
 | `data.wallet_pnl@1` | data | baseline | wallet PnL | `wallet-intel` |
 | `data.holders@1` | data | baseline | holder concentration | `token-risk-screen` |
-| `data.unlocks@1` | data | baseline | supply unlock schedules | `narrative-and-flow-tracker` |
+| `data.unlocks@1` | data | baseline | supply unlock schedules; deferred for the beta (D-302) | `narrative-and-flow-tracker` after the beta |
 | `data.volatility@1` | data | baseline | realized volatility | `usdc-wmon-band-rebalancer`, `wmon-dca-accumulator` |
 | `data.ohlcv@1` | data | baseline | candles | none at launch |
 | `data.market_snapshot@1` | data | baseline | the market figures in one call, each with source and `asOf` (D-286) | `defi-regime-read`, `usdc-wmon-band-rebalancer` |
@@ -841,7 +841,7 @@ From the research's starter set with lending and LP skills removed and schedulin
 | `deep-dive-research` | research | Tiered sources, per-claim confidence, mandatory skeptic section | `data.web_search@1`, `data.read_url@1`, `data.x_search@1`, `data.dune_query@1`, `chain.read_contract@1` | 1 |
 | `token-risk-screen` | research | Deployer, admin powers, liquidity, holder concentration, honeypot signs | `chain.read_contract@1`, `chain.get_code@1`, `data.holders@1`, `data.dune_query@1` | 1 |
 | `defi-regime-read` | research | Risk-on, neutral, risk-off verdict; sustainable versus incentive yield | `data.defillama_yields@1`, `data.defillama_tvl@1`, `data.coingecko_prices@1`, `chain.get_prices@1`, `data.dune_query@1` | 1 |
-| `narrative-and-flow-tracker` | research | Rising, peaking and fading narratives with velocity; supply unlocks | `data.x_search@1`, `data.web_search@1`, `data.unlocks@1` | 1 |
+| `narrative-and-flow-tracker` | research | Rising, peaking and fading narratives with velocity; supply unlocks after the beta (D-302) | `data.x_search@1`, `data.web_search@1`; `data.unlocks@1` after the beta | 1 |
 | `wallet-intel` | research | Portfolio, positions and PnL interpretation for the agent's accounts and watched wallets | `data.wallet_portfolio@1`, `data.wallet_positions@1`, `data.wallet_pnl@1`, `chain.balance@1`, `chain.get_portfolio@1` | 1 |
 
 All nine carry `required_tier: base` (owner decision, orientation; D-127): tiers differ by slots, playbooks, data and rails, not by which skills exist, and the research's medium and pro assignments for some research skills are superseded. The two strategy skills declare `intent.propose_strategy_update@1` because tuning their template is what they do; their slot cost stays 2 because the parameter proposal is not a capital-moving intent. The slot arithmetic (a base agent holds three slot points, a pro agent eight, and all nine cost eleven) is what makes builds a choice. The five research skills overlap in theme, so the selection spike with all nine descriptions is a launch gate (`planning answer`).
@@ -1057,9 +1057,9 @@ Custom skills are core, not an add-on: at the hackathon beta the marketplace alr
 | Agent portal: the Configure layout, panels and cards, the animated 3D model chosen per species through the asset manifest with a 2D fallback (D-188, D-189), skill slots on named sockets, wallet connection, the mint flow, the ownership check and the agent card | P1-U11 (D-155) |
 | Configure, 3D, wired to BuildRegistry | P6-U6, on P1-U11's portal |
 | Vault panel and deposit and withdraw modal | P7-U4 |
-| Agent gallery | P7-U7 |
-| Leaderboard | P7-U6 |
-| CFO dashboard | P4-U4 |
+| Agent gallery | P7-U7 (thin in Pass 1, D-300) |
+| Leaderboard | P7-U6 (thin in W-8, D-300) |
+| CFO dashboard | P4-U4 (thin in W-8, D-300) |
 | Workflows page | P4-U8 |
 | Marketplace and skill detail | P8-U2 |
 | Creator portal | P8-U2, fronting P6-U4 |

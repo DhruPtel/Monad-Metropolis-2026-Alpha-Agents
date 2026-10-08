@@ -43,7 +43,7 @@ Carried from `PHASES.md > How every phase works`, `> Unit prompt template` and `
 
 ## 2. Dependency graph
 
-Solid arrows are build dependencies. Phase 3 is revised by the Phase 3 planning session (D-277): P3-U9, P3-U8 and P3-U10 are new, and the Phase 3 build order is P3-U1, P3-U2, P3-U9, P3-U3, P3-U7, P3-U4, P3-U6, P3-U8, P3-U10. P2-EC follows P2-U7 and comes before Phase 3 in the build order (D-247); nothing in Phase 3 needs its output, and PB-U1 uses its lessons. The Pass 1 and Pass 2 units of section 4 form the path to PB-U1 (D-159); the rest are built in the post-beta completion pass and Phase 9. P1-U8 is folded into P3-U4 (D-160).
+Solid arrows are build dependencies. Phase 3 is revised by the Phase 3 planning session (D-277): P3-U9, P3-U8 and P3-U10 are new, and the Phase 3 build order is P3-U1, P3-U2, P3-U9, P3-U3, P3-U7, P3-U4, P3-U6, P3-U8, P3-U10, all nine in Pass 1, each in its own session (D-301). P2-EC, built in two sessions (part 1 testnet, part 2 the mainnet canary, D-303), follows P2-U7 and comes before Phase 3 in the build order (D-247); nothing in Phase 3 needs its output, and PB-U1 uses its lessons. The Pass 1 and Pass 2 units of section 4 form the path to PB-U1 (D-159); the rest are built in the post-beta completion pass and Phase 9. P1-U8 is folded into P3-U4 (D-160).
 
 ```mermaid
 flowchart TB
@@ -249,7 +249,7 @@ Each phase lists its goal, build units (ID, name, components touched, dependenci
 | X API, pay per use | key | P3-U9 | Spending cap |
 | Dune API | key | P3-U9 | Spending cap |
 | CoinGecko API | key | P3-U2 | Spending cap |
-| Wallet data provider for `wallet_portfolio`, `wallet_positions`, `wallet_pnl` and `holders`; a source for `unlocks` | key | W-2 (wallet data, holders); P3-U9 (unlocks) | Chosen in Q-24 and Q-58. Spending cap |
+| Wallet data provider for `wallet_portfolio`, `wallet_positions`, `wallet_pnl` and `holders` | key | W-2 (wallet data, holders) | Chosen in Q-24. Spending cap. `unlocks` is deferred for the beta (D-302) |
 | Hosting: a long-running host for the orchestrator, tool servers, sentinel and bot runner; managed Postgres and Redis; a web host | account | P1-U4 for the API; PB-U1 for mainnet | Serverless function ceilings silently kill long model calls (section 8, lesson 18) |
 | Domain name | account | PB-U1 | |
 | IPFS or Arweave pinning (Pinata or equivalent) | account, key | P6-U5 | Q-26 |
@@ -312,7 +312,7 @@ Each phase lists its goal, build units (ID, name, components touched, dependenci
 | P2-U5 | Chain tools server | All tools in `FINAL_PLAN.md > 4.4.2` with schema bounds generated from Executor views per session, the intent pipeline, reservations, rejection codes; every address through the environment's address book, nothing assuming `local` (D-255) | P2-U4, P1-U7 | MK-S2, MK-S3, MK-S5 (with the hard-coded literals replaced by read bounds), MK-K02; no schema field named `address`, `agentId`, `owner`, `wallet`, `to`, `data`; a repeated `clientRequestId` returns the same intent |
 | P2-U6 | Trade flow | Arming approval for the first trade (registering the grant from the owner's wallet), automatic trades within limits afterward, settlement only after the receipt reaches the environment's finality setting (A-40) and reconciliation, "why the agent did not trade" from reason codes, a funding address without MON for gas as its own reason off the fork, activity feed entries, the 30-day session grant renewal reminder (D-240); the signer's real caller on testnet (D-255) | P2-U5 | Deposit, trade, exit and withdraw reconcile; duplicate, reordered and missing events, a dropped RPC response, a process restart and a stale indexer all produce correct state or "unknown" (`preview.html > Revised build manual > 5`); a blocked trade shows its reason |
 | P2-U7 | Portfolio UI | Positions, trade history, deposit and withdraw, the arming card with deterministic financial fields, blocked-trade explanations, environment and account labels; copy and checks that name the environment and work on testnet unchanged (D-255) | P2-U6 | The owner can do every checkpoint action; the card shows account, chain, asset addresses, max input, min output, expiry |
-| P2-EC | Early chain check | Throwaway deployments to Monad testnet (AgentNFT, `TestnetFeed`, the oracle adapter, Executor, ProtocolRegistry, the v4 adapter with Q-48, AccountFactory) and a labeled mainnet canary of the trading contracts with `CanaryAgent`; the stack pointed at testnet; one real swap through the signer and the Executor on mainnet; source verification; the real-chain checklist. Specified below (D-247 to D-256) | P2-U7 | The acceptance tests of the specification below |
+| P2-EC | Early chain check | Throwaway deployments to Monad testnet (AgentNFT, `TestnetFeed`, the oracle adapter, Executor, ProtocolRegistry, the v4 adapter with Q-48, AccountFactory) and a labeled mainnet canary of the trading contracts with `CanaryAgent`; the stack pointed at testnet; one real swap through the signer and the Executor on mainnet; source verification; the real-chain checklist. Specified below (D-247 to D-256); built in two sessions, part 1 on testnet and part 2 the mainnet canary (D-303) | P2-U7 | The acceptance tests of the specification below |
 | P2-U8 | Chain adapter interface and conformance suite | `ChainAdapter` interface over the domain package (ownership, account scope, epochs, action idempotency, precision, receipts, position reads); Monad implementation; the conformance test suite that Solana must later pass; capability flags | P2-U5 | The Monad implementation passes the suite; the suite fails on a stub that fakes a receipt |
 
 **Playtests.** Mid-phase after P2-U2: on the fork, a script deposits USDC into a PersonalAccount, swaps through the Executor, sees a limit breach revert with its reason code and withdraws, in the terminal. End-of-phase after P2-EC for the beta (it uses P2-EC's testnet deployment) and again after P2-U8: deposit test USDC, see the agent propose a trade, approve it (arming), watch it settle, see the position update, try a trade that breaks a limit and see it blocked with a reason, withdraw directly. Look at the card's clarity, position and PnL display, blocked-trade explanations, cycle speed (`PHASES.md > Phase 2`). Trades run on the mainnet fork, and on testnet only through the pool P2-EC creates if Q-48 chooses it; testnet has no MON/USDC pool of its own (D-248).
@@ -326,6 +326,8 @@ Owner decision D-247. Chain facts from read-only calls and official documentatio
 **UNIT.** P2-EC Early chain check.
 
 **GOAL.** Find the differences between the local fork and the real chains while there is time to fix them. Deploy the built contracts to Monad testnet and verify real behavior there; deploy the trading contracts to Monad mainnet as a labeled throwaway canary and run one real swap through the signer and the Executor; measure every item of the real-chain checklist below and record each difference as a lesson. Nothing deployed here carries into the beta (D-249).
+
+**TWO SESSIONS (D-303).** Part 1, testnet: in-scope items 1 (the testnet facts), 2, 5, 6, 7 (the testnet configuration), 8, 9 and 10 for testnet, plus adding the owner's testnet wallet to the testnet mint allowlist and the AccountFactory allowlist for the playtest; acceptance tests 1 to 5 and 7 to 10 as they apply to testnet. Part 2, the mainnet canary, in a session of its own afterwards: items 1 (the mainnet facts), 3, 4, 7 (the `canary` environment), 8, 9 and 10 for mainnet; acceptance tests 1, 2 and 6 to 10 as they apply to the canary.
 
 **READ FIRST.** `LESSONS.md`, starting with "Wallets and networks: read first"; `DECISIONS_AND_OPEN_QUESTIONS.md` (D-247 to D-256, A-39, A-40, Q-48 to Q-51); `FINAL_PLAN.md` 4.1.1, 4.1.6 to 4.1.9, 4.1.13, 4.2.2, 4.2.3 and the address books; the P2-U1 to P2-U4 and P2-U5 to P2-U7 `LOGS.md` entries; `evidence/p1-u3/RANDOMNESS.md` and the `GAS.md` files.
 
@@ -489,7 +491,7 @@ The daily research budget (from the goal) is a hard cap: before a stage starts, 
 
 #### How the agent decides to change its plan
 
-In the loop the agent changes the plan and the template runner makes the trades (D-280, pending owner confirmation in Q-53). A Zoom out proposes a plan change only when all of these hold, and the evaluator of P3-U6 enforces the deterministic ones:
+In the loop the agent changes the plan and the template runner makes the trades (D-280, confirmed by the owner in D-297). A Zoom out proposes a plan change only when all of these hold, and the evaluator of P3-U6 enforces the deterministic ones:
 
 - The change is material: the target WMON weight moves by at least 5 percentage points, or a band, the brake or the hurdle moves by at least its step in the template (evaluator: `BELOW_MIN_STEP`).
 - No accepted plan change in the last 24 hours (evaluator: `COOLDOWN`).
@@ -537,7 +539,7 @@ Research intensity sets the cadence and a default daily budget the owner can cha
 | Standard | 6 h | 2 | 2.50 USDC | 1.00 to 5.00 |
 | Deep | 3 h | 4 | 6.00 USDC | 3.00 to 12.00 |
 
-How charges work (D-285, recommended answer to Q-54): model and tool calls stay metered per call at provider cost plus the 25% markup (D-212, A-29), but each stage has a ceiling the owner sees before it runs ("at most 1.20 USDC"); the meter never charges a stage more than its ceiling, and the platform absorbs anything above it. Hard caps (turns, paid calls, deadline, and a per-stage token ceiling at the gate) bound what the platform can absorb. Deterministic steps are free. Cost levers built into P3-U4: prompt caching enabled for the Anthropic routes in LiteLLM (Hermes sends `cache_control` only when told the route supports it), fresh short sessions so compression rarely fires, auxiliary slots pinned to `scan-cheap` with title generation and background review off (already in D-204), the deterministic market snapshot so the model reads numbers instead of fetching them, and the shared data cache across agents.
+How charges work (D-285, the owner's answer to Q-54 in D-298): model and tool calls stay metered per call at provider cost plus the 25% markup (D-212, A-29), but each stage has a ceiling the owner sees before it runs ("at most 1.20 USDC"); the meter never charges a stage more than its ceiling, and the platform absorbs anything above it. Hard caps (turns, paid calls, deadline, and a per-stage token ceiling at the gate) bound what the platform can absorb. Deterministic steps are free. Cost levers built into P3-U4: prompt caching enabled for the Anthropic routes in LiteLLM (Hermes sends `cache_control` only when told the route supports it), fresh short sessions so compression rarely fires, auxiliary slots pinned to `scan-cheap` with title generation and background review off (already in D-204), the deterministic market snapshot so the model reads numbers instead of fetching them, and the shared data cache across agents.
 
 #### Data sources per stage
 
@@ -552,7 +554,7 @@ How charges work (D-285, recommended answer to Q-54): model and tool calls stay 
 | Realized volatility | `data.volatility@1` | No | P3-U2 | step 3, Zoom out, runner's brake |
 | X search | `data.x_search@1` | No | P3-U9 | Scan, Dive |
 | Dune saved queries | `data.dune_query@1` | No | P3-U9 | Dive |
-| Supply unlocks | `data.unlocks@1` | No | P3-U9, provider in Q-58 | Scan |
+| Supply unlocks | `data.unlocks@1` | No | Deferred for the beta (D-302) | Scan |
 | Curated contract reads, balances, code | `chain.read_contract@1`, `chain.balance@1`, `chain.get_code@1` | No (W-2 remainder of P2-U5) | P3-U9 | Dive |
 | The agent's own research context (latest overview, open themes, last stage results, plan) | `platform.get_research_context@1` (new, D-287) | No | P3-U4 | every stage, first call |
 | Goal and limits | `platform.get_goals_and_limits@1` | No (waits for P3-U1, D-213) | P3-U1 | every stage |
@@ -616,14 +618,14 @@ The full specification of each unit follows. Every unit prompt also carries the 
 **DEPENDS ON.** P2-U6 (arming and intents), P2-U7 (portfolio page).
 
 **IN SCOPE.**
-1. `packages/domain`: the goal schema and its enums: template (`rebalance_bands@1`; `dca@1` listed and shown as "available later" until W-2), risk preset (Conservative, Balanced, Growth, with the WMON ranges and defaults of D-278), allowed assets (USDC always; WMON on or off), optional stricter limits (max trade size, max WMON share, min USDC share, max slippage, max trades per 24 hours, each only at or inside the hard limit), reasoning model (Standard: Sonnet 5.5; Deep: Opus 5.5), research intensity (Light, Standard, Deep) with a daily research budget inside the intensity's range, a credit reserve kept unspent for gas (default 1.00 USDC), and plan changes (ask me first, the default; apply and tell me).
+1. `packages/domain`: the goal schema and its enums: template (`rebalance_bands@1`; `dca@1` listed and shown as "available later" until W-2), risk preset (Conservative, Balanced, Growth, with the WMON ranges and defaults of D-278), allowed assets (USDC always; WMON on or off), optional stricter limits (max trade size, max WMON share, min USDC share, max slippage, max trades per 24 hours, each only at or inside the hard limit), reasoning model (Standard: Sonnet 5.5; Deep: Opus 5.5), research intensity (Light, Standard, Deep; new goals default to Light, D-299) with a daily research budget inside the intensity's range, a credit reserve kept unspent for gas (default 1.00 USDC), and plan changes (ask me first, the default; apply and tell me).
 2. `packages/policy`: the translator as a pure function: goal to template parameters inside template bounds, owner limits, a policy hash over canonical JSON (no integer-like keys, BUILD_PLAN 8 lesson 3), and the `SOUL.md` goal block rendered from a fixed template; fixtures for every preset and every stricter limit at, inside and outside its bound.
 3. Storage (`platform.agent_goals`, one current goal per agent with history) and the strategy epoch (D-281): a platform counter per agent bumped on every goal or accepted parameter change; intents carry it; the trade flow refuses a stale one with `STRATEGY_EPOCH_STALE`; arming is not ended by it.
 4. Agent state stored per agent: `UNCONFIGURED` until a goal is saved, then `READY` (FINAL_PLAN 4.12); `RUNNING` is set by P3-U8.
 5. Owner routes: `GET` and `PUT /v1/agents/:id/goal` (owner session, fresh chain read), returning the goal, the derived parameters, the ranges and the cost preview per intensity (A-51); a public goal summary (template and risk preset only, FINAL_PLAN 6.1).
 6. `platform.get_goals_and_limits@1` on the platform tools server: the goal, the template parameters, the owner limits, the live Executor limits and mode, typed.
 7. The model choice reaches the agent: the chosen reasoning alias is stored with the goal for P3-U4's routing; `research-deep` (Opus 5.5) is added to `infra/litellm/config.yaml`.
-8. UI: design system first (on /design): a choice group for presets and intensities with their numbers, the stricter-limits fields with their hard-limit bounds, the cost preview, the goal summary; then the Goal page at `/agents/:id/goal`, linked from the agent's card, the portfolio and /configure; the goal summary on the card and the portfolio.
+8. UI: design system first (on /design): a choice group for presets and intensities with their numbers, the stricter-limits fields with their hard-limit bounds, the cost preview with what a month costs at each intensity (D-299), the goal summary; then the Goal page at `/agents/:id/goal`, linked from the agent's card, the portfolio and /configure; the goal summary on the card and the portfolio.
 
 **OUT OF SCOPE.** Running research or trades on the goal (P3-U3, P3-U4); `dca@1` (W-2); the goal form embedded in /configure (P6-U6); onchain configuration epochs (the Executor's counter stays the owner's, D-238).
 
@@ -674,14 +676,14 @@ The full specification of each unit follows. Every unit prompt also carries the 
 
 **GOAL.** The research skills get the remaining sources they declare for the beta, and every ID in the canonical registry resolves to a live tool or a named deferral.
 
-**READ FIRST.** `LESSONS.md`; D-136, D-153, D-214, D-262, Q-24, Q-58, A-24; FINAL_PLAN 4.4.2, 4.4.3, 4.4.5, 4.5.4.
+**READ FIRST.** `LESSONS.md`; D-136, D-153, D-214, D-262, D-302, Q-24, A-24; FINAL_PLAN 4.4.2, 4.4.3, 4.4.5, 4.5.4.
 
 **DEPENDS ON.** P3-U2.
 
 **IN SCOPE.**
 1. `x_search` (X API, pay per use, with the spending cap set before use), results marked untrusted, text capped and stripped like `read_url`.
 2. `dune_query` over saved queries only, by query name from a platform list (Monad DEX volume, MON net flows to exchanges, active addresses), never arbitrary SQL.
-3. `unlocks` from the provider chosen in Q-58, or deferred with its registry entry marked if none covers MON.
+3. `unlocks` is deferred for the beta (D-302): its registry entry is marked deferred and `narrative-and-flow-tracker` does not declare it; no unlocks source is built.
 4. Chain tools `read_contract` (the curated read-only ABI set), `balance`, `get_code`, with `target` and typed outputs (A-24).
 5. The read broker's redirect check: every hop of a redirect is checked by the URL guard, since Tavily follows redirects itself (P1-U7 suggestion).
 6. The registry check: a test that every registry ID resolves to a registered tool on its server, or carries a deferral naming its unit; every tool the launch skills declare resolves.
@@ -902,7 +904,7 @@ Phase 3 needs nothing P2-EC deploys (D-247); its lessons on real fees and finali
 | Testnet's MON price is `TestnetFeed`'s operator value (D-253), not the market's | P2-EC | Testnet trades follow the testnet pool; research still reads mainnet data; the testnet feed keeper should track the mainnet price (suggestion for the Rehearsal) |
 | Gas for runner trades off the fork (C-79) | Fork only | P2-EC's operator script on testnet; A-19 later |
 | Q-28 (evals format, template parameters) | Open | Answered for `rebalance_bands@1` in P3-U3 |
-| Q-24 (X API budget), the unlocks provider | Open | Q-24 and Q-58 before P3-U9 |
+| Q-24 (X API budget) | Open; unlocks deferred for the beta (D-302) | Q-24 before P3-U9 |
 | Q-08 (zero-retention terms for the offered models) | Open | Confirm for Haiku 4.5, Sonnet 5.5 and Opus 5.5 before P3-U1 offers them |
 
 **What changed and why.** Revision 3 (Phase 3 planning, 2026-10-07): the owner's vision adds the activation sweep with a live visual, an autonomous loop with a cadence and triggers, planned model costs and two playtests aimed at research quality. P3-U2 is split into market data (P3-U2) and research sources (P3-U9) so each fits one session; P3-U4 becomes the engine only; the activation sweep and its visual (P3-U8) and the autonomous loop with the Research page (P3-U10) are new units, each with its own UI per the frontend rule. The Test stage becomes a deterministic step because it only ever checked bounds (D-282). Trades in the loop come from the template runner, and the agent changes the plan (D-280). Revision 2: P3-U1's fields follow the agreed list and a single strategy per account (`planning answer`); the translator is deterministic (`conversation decision`). P3-U3 moves ahead of the discovery loop and absorbs the tool registry and evals format that the Bankr research shows are missing (`notes/bankr-skills.md > 9`). P3-U5 "allocation proposals with owner approval before rebalancing" became P3-U6 parameter proposals with approval per workflow mode (`planning answer`). P3-U7 is new so research runs with the launch skills before SkillNFTs exist (`FINAL_PLAN.md > 4.5.4`).
@@ -973,7 +975,7 @@ Phase 3 needs nothing P2-EC deploys (D-247); its lessons on real fees and finali
 | P7-U4 | AccountFactory, caps, allowlists and vault UI | Factory with deterministic deployment of PersonalAccount clones and StrategyVaults, per-account, per-vault and platform caps, the depositor allowlist with its `allowlistEnabled` flag for the beta, `depositsEnabled` parameter, deployment state-assertion script (MV-S15); vault panel and deposit and withdraw modal (NAV and freshness, lockup, leader stake, mode, handover state, in-kind option, claimable credits, warnings before top-ups, the beta label) "Fund this agent" on the vault page for non-owners (D-242); | P7-U3 | MV-S15 fails on any mismatch; the modal shows every state; a top-up warns before extending the lock; a non-allowlisted depositor is refused while the flag is on and exits are never gated by it |
 | P7-U5 | Watchers and demand signals | Offchain follows, anti-gaming rules (hold period for deposits, watcher eligibility, funding-source filtering, self-purchase exclusion, demo exclusion), demand counters on cards | P5-U1 | Counters exclude filtered and simulated activity; a watcher without an agent or deposit does not count |
 | P7-U6 | Leaderboard | Ranking by risk-adjusted return with drawdown, deposits, watchers and demand; periods, sample sizes, "not enough data"; comparable cohorts | P7-U5 | No agent shows a 30-day figure before 30 days of history; every return shows its period and basis |
-| P7-U7 | Agent gallery | Cut from the beta (D-160): public grid of every agent's build card with tier, status, goal profile and equipped parts; filters by tier, status and vault open; links to profiles and vaults | P5-U1 | Every minted agent appears with its current build; simulated and platform-run agents are labeled; the grid renders with the static fallback |
+| P7-U7 | Agent gallery | Thin in the beta at Pass 1 step 7 (D-300, reversing D-160's cut): public grid of every agent's build card with tier, status, goal profile and equipped parts; filters by tier, status and vault open; links to profiles and vaults | P5-U1 | Every minted agent appears with its current build; simulated and platform-run agents are labeled; the grid renders with the static fallback |
 
 **Playtests.** Mid-phase after P7-U2: on the fork, a script deposits into a vault, the Executor trades for it, a USDC exit and a `redeemInKind` both pay out, and `redeemInKind` still pays with every other contract etched to revert, in the terminal. End-of-phase after P7-U7 (after P7-U4 and P7-U7 for the beta): deposit into another wallet's agent vault, watch it trade, withdraw in USDC and in kind, browse the gallery, follow agents, read the leaderboard. Look at vault panel clarity, leaderboard layout, how demand counters feel (`PHASES.md > Phase 7`).
 
@@ -1078,7 +1080,8 @@ The "Hackathon beta" column is the cut line. **Full** ships as specified in Pass
 | 23 | 5 | P2-U5 | Chain tools server | Intents, never calldata; limits read from the Executor | P2-U4, P1-U7 | Thin: quote, swap intent, balance, bounds read from the Executor, reservations, rejection codes. W-2: `read_contract`, `get_code` and the rest of `FINAL_PLAN.md > 4.4.2` |
 | 24 | 5 | P2-U6 | Trade flow | Arming, automatic trades, settlement after receipt, reasons | P2-U5 | Full |
 | 25 | 5 | P2-U7 | Portfolio UI | Positions, history, deposit and withdraw, cards, blocked-trade reasons | P2-U6 | Thin: deposit, withdraw, position, the arming card, blocked-trade reasons. W-6: trade history and PnL views |
-| 26 | 5 | P2-EC | Early chain check | Throwaway testnet deployment and a labeled mainnet canary swap; measure where the fork and the real chains differ | P2-U7 | Pre-beta check: nothing it deploys is kept (D-247, D-249) |
+| 26 | 5 | P2-EC part 1 | Early chain check: testnet | Throwaway testnet deployment with the stack pointed at it; measure where the fork and testnet differ | P2-U7 | Pre-beta check: nothing it deploys is kept (D-247, D-249, D-303) |
+| 26b | 5 | P2-EC part 2 | Early chain check: mainnet canary | A labeled throwaway mainnet canary swap; measure where the fork and mainnet differ | P2-EC part 1 | Pre-beta check: nothing it deploys is kept (D-247, D-249, D-303) |
 | | | Playtest 2-end | | The Phase 2 checkpoint in the web app on P2-EC's testnet deployment and the fork | after P2-EC | |
 | 27 | 6 | P3-U1 | Goal form and goal translator | Structured goal to template parameters, owner limits and the strategy epoch | P2-U6 | Thin: every field (template, risk preset, allowed assets, stricter limits, reasoning model, research intensity with the daily budget, plan-change approval), the translator, the strategy epoch, `get_goals_and_limits`, the Goal page; `dca@1` shown as available later |
 | 28 | 6 | P3-U2 | Data tools: market data | Cached, dated, plausibility-checked market data and the market snapshot | P1-U7 | Thin: the cache, upstream hygiene, plausibility guards, `market_snapshot`, CoinGecko, DefiLlama, `volatility`, `get_pool_depth` |
@@ -1095,6 +1098,7 @@ The "Hackathon beta" column is the cut line. **Full** ships as specified in Pass
 | | | P3-T2 tuning | | Small adjustments from Playtest 3-end | after Playtest 3-end | |
 | 33 | 7 | P5-U1 | Directory, build cards, agent profile page, IdentityBinder | Discoverable agents with a public profile and ERC-8004 identity | P3-U4, P2-U7, P1-U3 | Thin: the profile page with the activity feed and "why the agent did not trade". W-6: build cards, `directory_search`. After PB-U2: the research board (with P3-U5), IdentityBinder |
 | 34 | 7 | P4-U2 | Risk Sentinel service | Deterministic watcher with its own tighten-only key | P2-U6, P2-U4, P2-U3 | Thin: the sentinel key's permissions in full (tighten only, never unpause); detection of stale feeds, drawdown and zero credits. W-1: signer health, gas, unknown submission, mandate expiry, the full drill list |
+| 33b | 7 | P7-U7 | Agent gallery | A public grid of every minted agent, linked to its profile | P5-U1 | Thin (D-300): the grid of `BUILD_PLAN.md > 4.5` with filters and a public paged list route; equipped parts after P6-U6 |
 | | | Playtest 4-mid | | Simulated price drop and stalled feed trip the sentinel on the fork, exits still work, terminal | after P4-U2 | |
 | 35 | 8 | P6-U2 | SkillNFT, registries, BuildRegistry | Skill ownership, versions, active builds | P1-U3 | Thin: SkillNFT, SkillRegistry, PublisherRegistry and BuildRegistry in full. After PB-U2: WorkflowNFT, a separate contract |
 | 36 | 8 | P6-U3 | Skill packaging, privacy and loader | Validate, hash, sign, encrypt, mount only the active build | P6-U2, P1-U5 | Thin: validator, hash, signing, and the loader that mounts exactly the active build and refuses tampered or revoked versions; skill content is never served to owners or other users. W-1: B-04. After PB-U2: envelope encryption and the key broker (D-161) |
@@ -1130,7 +1134,8 @@ Step 1 proves the runtime and 1b runs the venue and oracle spikes early, because
 | 52 | W-4 | Creator | P6-U4's L1 to L8 and dynamic test, P6-U5's other six skills, P8-U2's resale listing and art upload | W-3 |
 | 53 | W-5 | Credits and runtime | P1-U6's sandbox and gas metering and gas top-up, P1-U5's export and restore, token rotation and console reset, P1-U4's guardian handlers and console agents panel, P1-U7's MK-K01 fuzz | W-4 |
 | 54 | W-6 | Extras | P1-U9's spend breakdown and pause, P2-U7's history and PnL, P5-U1's build cards and `directory_search`, P7-U4's top-up warnings and modal polish | W-5 |
-| 55 | W-7 | Load and capacity | Tests the design targets of 100,000 users and 1,000 active agents (D-177): concurrent agent cycles against E2B's concurrent sandbox limit (Q-44) and LiteLLM rate limits, database load, and API read traffic; confirms no component assumes a single machine or process. Redesigns credit metering, which polls LiteLLM's spend log for every provisioned agent every 2 seconds (P1-U6) and cannot scale to 1,000 agents: spend webhooks or one batched read per pass. Also the Scan scheduler's per-agent check (D-216), and My Agents, which opens one owner session per agent and polls each card every few seconds (D-218): one session for all of a wallet's agents and a push channel | W-6 |
+| 54b | W-8 | Discovery and overview pages | P4-U4 Dashboard (thin, without the workflow runner) and P7-U6 Leaderboard (thin: returns and drawdown only, with the value-per-unit snapshot column), as `BUILD_PLAN.md > 4.5` describes them (D-300) | W-6 |
+| 55 | W-7 | Load and capacity | Tests the design targets of 100,000 users and 1,000 active agents (D-177): concurrent agent cycles against E2B's concurrent sandbox limit (Q-44) and LiteLLM rate limits, database load, and API read traffic; confirms no component assumes a single machine or process, including W-8's public routes. Redesigns credit metering, which polls LiteLLM's spend log for every provisioned agent every 2 seconds (P1-U6) and cannot scale to 1,000 agents: spend webhooks or one batched read per pass. Also the Scan scheduler's per-agent check (D-216), and My Agents, which opens one owner session per agent and polls each card every few seconds (D-218): one session for all of a wallet's agents and a push channel | W-6 |
 
 ### 4.3 Beta deployment and submission
 
@@ -1150,7 +1155,7 @@ The completion pass builds every Cut unit and every "after PB-U2" remainder in p
 | 59 | P3-U5 | Thesis Board | Research memory on the platform | P3-U4 | Cut from the beta (D-160); the `write_thesis` stub stands in |
 | 60 | P4-U1 | Workflow runner and portfolio coordinator | Declarative routines with reservations | P3-U6 | Completion pass |
 | 61 | P4-U3 | Built-in workflows | Rebalancer, Recurring Buys, parameter review, guardrail rule | P4-U1, P4-U2 | Completion pass |
-| 62 | P4-U4 | CFO dashboard | Net worth, goal progress, approvals, emergency view | P4-U3 | Completion pass |
+| 62 | P4-U4 | CFO dashboard | Net worth, goal progress, approvals, emergency view | P4-U3 | Thin in W-8 (D-300); workflow approvals in the completion pass |
 | 63 | P4-U5 | Reports | Narrator reports from ledger data | P4-U4 | Completion pass |
 | 64 | P4-U6 | Tax lot ledger | Personal cost basis and export | P2-U6 | Completion pass |
 | 65 | P4-U7 | Notifications | Alerts for the events that matter | P4-U4 | Completion pass |
@@ -1160,8 +1165,8 @@ The completion pass builds every Cut unit and every "after PB-U2" remainder in p
 | 69 | P5-U6 | Trial and renewal | Net value after costs, renew or cancel | P5-U5 | Completion pass |
 | 70 | P5-U7 | Value report | Pricing and product evidence, labeled simulated | P5-U6 | Completion pass |
 | 71 | P7-U5 | Watchers and demand signals | Free follows with anti-gaming | P5-U1 | Completion pass |
-| 72 | P7-U6 | Leaderboard | Honest ranking | P7-U5 | Completion pass |
-| 73 | P7-U7 | Agent gallery | Public grid of build cards | P5-U1 | Cut from the beta (D-160) |
+| 72 | P7-U6 | Leaderboard | Honest ranking | P7-U5 | Thin in W-8 (D-300); demand signals in the completion pass |
+| 73 | P7-U7 | Agent gallery | Public grid of build cards | P5-U1 | Thin in Pass 1 at step 7 (D-300); equipped parts after P6-U6 |
 | 74 | P8-U3 | Agent sale flow end to end | Old owner loses everything but PersonalAccount funds | P8-U1 | Completion pass |
 | 75 | P8-U4 | Agent economy for users | Signal purchases for users' agents on mainnet configuration | P5-U4, P8-U2 | Cut from the beta (D-160) |
 | | Playtest 4-end, 5-end, 7-end, 8-end | | Each phase's end-of-phase checkpoint once the phase is complete | after the phase's last unit | |
@@ -1179,12 +1184,12 @@ The completion pass builds every Cut unit and every "after PB-U2" remainder in p
 | 85 | S-U4 | Chain adapter, tools, indexer, payer | The Solana implementation of the seam | S-U2 | Solana track |
 | 86 | S-U5 | Conformance and launch approval | Independent Solana gate | S-U4, P9-U3 | Solana track |
 
-**Beta units in one list.** Full: P0-U1 to P0-U7, P1-U3, P2-U1, P2-U2, P2-U3, P2-U6, P5-U4 (testnet), P7-U1, P7-U2, PB-U1, PB-U2. Thin: P1-U1, P1-U2, P1-U4 to P1-U7, P1-U9 to P1-U11, P2-U0, P2-U4, P2-U5, P2-U7, P3-U1 to P3-U4, P3-U6 to P3-U10, P4-U2, P5-U1, P5-U3, P6-U1 to P6-U6, P7-U3, P7-U4, P8-U1, P8-U2. Pre-beta check, deploying nothing the beta keeps: P2-EC. Folded: P1-U8 into P3-U4. Cut: P3-U5, P5-U2, P7-U7, P8-U4, the landing half of P1-U10. Not in the beta: P2-U8, P4-U1, P4-U3 to P4-U8, P5-U5 to P5-U7, P7-U5, P7-U6, P8-U3, all of Phase 9, the Solana track.
+**Beta units in one list.** Full: P0-U1 to P0-U7, P1-U3, P2-U1, P2-U2, P2-U3, P2-U6, P5-U4 (testnet), P7-U1, P7-U2, PB-U1, PB-U2. Thin: P1-U1, P1-U2, P1-U4 to P1-U7, P1-U9 to P1-U11, P2-U0, P2-U4, P2-U5, P2-U7, P3-U1 to P3-U4, P3-U6 to P3-U10, P4-U2, P4-U4 (W-8), P5-U1, P5-U3, P6-U1 to P6-U6, P7-U3, P7-U4, P7-U6 (W-8), P7-U7, P8-U1, P8-U2. Pre-beta check, deploying nothing the beta keeps: P2-EC (part 1 testnet, part 2 the mainnet canary). Folded: P1-U8 into P3-U4. Cut: P3-U5, P5-U2, P8-U4, the landing half of P1-U10. Not in the beta: P2-U8, P4-U1, P4-U3, P4-U5 to P4-U8, P5-U5 to P5-U7, P7-U5, P8-U3, all of Phase 9, the Solana track.
 
 
-### 4.5 Options: Gallery, Leaderboard and Dashboard
+### 4.5 Gallery, Leaderboard and Dashboard
 
-These three nav pages were cut from the beta when the demo spine was locked (D-160 for the gallery; the leaderboard and the CFO dashboard were left in the completion pass). The owner now wants everything built. Nothing below is decided; Q-56 asks the owner to choose. Each page is described in the form it would take at the beta, built only from the design system, at 1440px and 380px.
+These three nav pages were cut from the beta when the demo spine was locked (D-160 for the gallery; the leaderboard and the CFO dashboard were left in the completion pass). The owner now wants everything built. Decided (Q-56, D-300): the Gallery in Pass 1 at step 7, the Leaderboard and the Dashboard in W-8; the options below are kept as the record. Each page is described in the form it would take at the beta, built only from the design system, at 1440px and 380px.
 
 | Page | What it would show at the beta | Data it needs, and whether it exists | Owning unit | Size |
 |---|---|---|---|---|
@@ -1412,7 +1417,7 @@ Two stages, one rule. From `preview.html > Revised build manual > 15`, adopted f
 3. The creator flow falls back to a platform-published skill being bought and equipped; the upload and audit are shown on testnet.
 4. The 3D configure page falls back to the static render with the same equip and activate actions.
 5. The discovery loop falls back to Scan and Zoom out only, with the trade coming from the template runner.
-6. The profile extras go before anything above; the landing page, its counters and the gallery are already cut (D-160).
+6. The profile extras and the gallery (D-300) go before anything above; the landing page and its counters are already cut (D-160).
 
 The beta is never opened beyond the allowlist and caps to make a demo look bigger. If the mainnet canary fails or mainnet slips, the whole beta runs on testnet, labeled, and the submission is the labeled testnet beta from the Rehearsal in section 4 (D-162).
 
