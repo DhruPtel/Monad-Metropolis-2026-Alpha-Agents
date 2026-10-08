@@ -402,7 +402,7 @@ describe("registry and .env.example", () => {
     const names = VARIABLES.map((v) => v.name);
     expect(new Set(names).size).toBe(names.length);
     for (const v of VARIABLES) {
-      expect(v.firstUsedBy, v.name).toMatch(/^P(\d|B)-U\d+$/);
+      expect(v.firstUsedBy, v.name).toMatch(/^P(\d|B)-(U\d+|EC)$/);
       expect(committed).toContain(`${v.name}=`);
     }
     expect(names).toContain("MONAD_TESTNET_RPC_URL");
@@ -422,14 +422,145 @@ describe("registry and .env.example", () => {
     expect(Object.keys(template).sort()).toEqual(VARIABLES.map((v) => v.name).sort());
     // Local needs no remote RPC, so the template alone is a valid local config.
     expect(() => loadConfig({ name: "test" }, template)).not.toThrow();
-    for (const [env, rpc] of [
-      ["testnet", "MONAD_TESTNET_RPC_URL"],
-      ["beta", "MONAD_RPC_URL"],
-    ] as const) {
-      const err = loadError(() => loadConfig({ name: "test" }, { ...template, APP_ENV: env }));
-      expect(err.issues).toEqual([
-        { variable: rpc, problem: "is still the .env.example placeholder; set a real value" },
-      ]);
-    }
+    const placeholder = (variable: string) => ({
+      variable,
+      problem: "is still the .env.example placeholder; set a real value",
+    });
+    // Testnet also refuses the template's local database and Redis (D-254).
+    expect(
+      loadError(() => loadConfig({ name: "test" }, { ...template, APP_ENV: "testnet" })).issues,
+    ).toEqual([
+      placeholder("MONAD_TESTNET_RPC_URL"),
+      {
+        variable: "DATABASE_URL",
+        problem: "is the local database; testnet uses a database of its own",
+      },
+      {
+        variable: "REDIS_URL",
+        problem: "is the local Redis database 0; testnet uses another database index",
+      },
+    ]);
+    expect(
+      loadError(() => loadConfig({ name: "test" }, { ...template, APP_ENV: "beta" })).issues,
+    ).toEqual([placeholder("MONAD_RPC_URL")]);
+  });
+});
+
+describe("testnet keys (P2-EC, D-254)", () => {
+  const LOCAL_CLAIM = `0x${"11".repeat(32)}`;
+  const TESTNET_CLAIM = `0x${"22".repeat(32)}`;
+  const LOCAL_SEED = `0x${"33".repeat(32)}`;
+  const TESTNET_SEED = `0x${"44".repeat(32)}`;
+  // anvil account 0's key: public, in every Foundry tutorial.
+  const ANVIL_0 = ["0xac0974bec39a17e36ba4a6b4d238ff94", "4bacb478cbed5efcae784d7bf4f2ff80"].join(
+    "",
+  );
+  const base = { APP_ENV: "testnet", MONAD_TESTNET_RPC_URL: TESTNET_RPC };
+
+  it("reads the claim signer, keeper and funding seed only from their TESTNET_ variables", () => {
+    const config = loadConfig(
+      { name: "test", requires: ["CLAIM_SIGNER_PRIVATE_KEY", "FUNDING_ADDRESS_SEED"] },
+      {
+        ...base,
+        CLAIM_SIGNER_PRIVATE_KEY: LOCAL_CLAIM,
+        TESTNET_CLAIM_SIGNER_PRIVATE_KEY: TESTNET_CLAIM,
+        FUNDING_ADDRESS_SEED: LOCAL_SEED,
+        TESTNET_FUNDING_ADDRESS_SEED: TESTNET_SEED,
+      },
+    );
+    expect((config.values.CLAIM_SIGNER_PRIVATE_KEY as Secret).reveal()).toBe(TESTNET_CLAIM);
+    expect((config.values.FUNDING_ADDRESS_SEED as Secret).reveal()).toBe(TESTNET_SEED);
+  });
+
+  it("never falls back to a local key on testnet", () => {
+    const err = loadError(() =>
+      loadConfig(
+        { name: "test", requires: ["CLAIM_SIGNER_PRIVATE_KEY"] },
+        { ...base, CLAIM_SIGNER_PRIVATE_KEY: LOCAL_CLAIM },
+      ),
+    );
+    expect(err.issues).toEqual([
+      {
+        variable: "CLAIM_SIGNER_PRIVATE_KEY",
+        problem: "is not set (on testnet it is TESTNET_CLAIM_SIGNER_PRIVATE_KEY)",
+      },
+    ]);
+    expect(renderings(err)).not.toContain(LOCAL_CLAIM);
+  });
+
+  it("the local environment keeps reading the local keys", () => {
+    const config = loadConfig(
+      { name: "test" },
+      { CLAIM_SIGNER_PRIVATE_KEY: LOCAL_CLAIM, TESTNET_CLAIM_SIGNER_PRIVATE_KEY: TESTNET_CLAIM },
+    );
+    expect((config.values.CLAIM_SIGNER_PRIVATE_KEY as Secret).reveal()).toBe(LOCAL_CLAIM);
+    expect(config.values).not.toHaveProperty("TESTNET_CLAIM_SIGNER_PRIVATE_KEY");
+  });
+
+  it("uses MONAD_TESTNET_RPC_URL_SECONDARY, never the mainnet secondary, as testnet's second RPC", () => {
+    const second = "https://other-testnet.provider.test/LEAKCHECK-second";
+    const config = loadConfig(
+      { name: "test" },
+      { ...base, MONAD_RPC_URL_SECONDARY: MAINNET_RPC, MONAD_TESTNET_RPC_URL_SECONDARY: second },
+    );
+    expect((config.values.MONAD_RPC_URL_SECONDARY as Secret).reveal()).toBe(second);
+    const none = loadConfig({ name: "test" }, { ...base, MONAD_RPC_URL_SECONDARY: MAINNET_RPC });
+    expect(none.values.MONAD_RPC_URL_SECONDARY).toBeUndefined();
+  });
+
+  it("refuses an anvil key, a key equal to the local one, and two roles sharing a key", () => {
+    const err = loadError(() =>
+      loadConfig(
+        { name: "test" },
+        {
+          ...base,
+          TESTNET_DEPLOYER_PRIVATE_KEY: ANVIL_0,
+          CLAIM_SIGNER_PRIVATE_KEY: LOCAL_CLAIM,
+          TESTNET_CLAIM_SIGNER_PRIVATE_KEY: LOCAL_CLAIM.toUpperCase().replace("0X", "0x"),
+          TESTNET_GUARDIAN_PRIVATE_KEY: TESTNET_KEY,
+          TESTNET_SENTINEL_PRIVATE_KEY: TESTNET_KEY,
+        },
+      ),
+    );
+    expect(err.issues).toEqual([
+      {
+        variable: "TESTNET_DEPLOYER_PRIVATE_KEY",
+        problem: "is one of anvil's well-known development keys",
+      },
+      {
+        variable: "TESTNET_SENTINEL_PRIVATE_KEY",
+        problem: "is the same as TESTNET_GUARDIAN_PRIVATE_KEY; use a key of its own",
+      },
+      {
+        variable: "TESTNET_CLAIM_SIGNER_PRIVATE_KEY",
+        problem:
+          "is the same as the local CLAIM_SIGNER_PRIVATE_KEY; testnet keys must differ from local ones",
+      },
+    ]);
+    const text = renderings(err);
+    for (const secret of [ANVIL_0, LOCAL_CLAIM, TESTNET_KEY]) expect(text).not.toContain(secret);
+  });
+
+  it("refuses the local database and Redis database 0 on testnet", () => {
+    const err = loadError(() =>
+      loadConfig(
+        { name: "test" },
+        {
+          ...base,
+          DATABASE_URL: "postgres://alpha:alpha_local_dev_only@127.0.0.1:5432/alpha_agents",
+          REDIS_URL: "redis://127.0.0.1:6380",
+        },
+      ),
+    );
+    expect(err.issues.map((i) => i.variable)).toEqual(["DATABASE_URL", "REDIS_URL"]);
+    const ok = loadConfig(
+      { name: "test" },
+      {
+        ...base,
+        DATABASE_URL: "postgres://alpha:alpha_local_dev_only@127.0.0.1:5432/alpha_agents_testnet",
+        REDIS_URL: "redis://127.0.0.1:6380/1",
+      },
+    );
+    expect(ok.environment.id).toBe("testnet");
   });
 });

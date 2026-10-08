@@ -6,6 +6,7 @@ import {
   isEnvironmentId,
   localForkRpcUrl,
 } from "./environments.ts";
+import { createHash } from "node:crypto";
 import { Secret } from "./secret.ts";
 import { VARIABLES, type VariableName, type VariableSpec } from "./variables.ts";
 
@@ -135,7 +136,10 @@ export function loadConfig(service: ServiceSpec, source: EnvSource = process.env
     if (spec.name === "APP_ENV") continue;
     const isRequired = required.has(spec.name);
     const localDefault = environment.id === "local" ? spec.localDefault : undefined;
-    const raw = classify(spec, source[spec.name]);
+    // On testnet a key with a testnet source is read only from it (D-254).
+    const sourceName =
+      environment.id === "testnet" && spec.testnetSource ? spec.testnetSource : spec.name;
+    const raw = classify(spec, source[sourceName]);
 
     let text: string;
     if (raw.state === "set") {
@@ -143,7 +147,12 @@ export function loadConfig(service: ServiceSpec, source: EnvSource = process.env
     } else if (raw.state === "unset" && localDefault !== undefined) {
       text = localDefault;
     } else if (raw.state === "unset") {
-      if (isRequired) issues.push({ variable: spec.name, problem: "is not set" });
+      if (isRequired)
+        issues.push({
+          variable: spec.name,
+          problem:
+            sourceName === spec.name ? "is not set" : `is not set (on testnet it is ${sourceName})`,
+        });
       continue;
     } else if (isRequired || localDefault !== undefined) {
       // An empty or template value that would silently not take effect is an error.
@@ -224,6 +233,8 @@ function checkGuards(
   // Testnet must never point at the mainnet RPC. Local signs only against the
   // fixed loopback fork, so it cannot reach chain 143 remotely.
   if (environment.id === "testnet") {
+    checkTestnetKeys(source, issues);
+    checkTestnetServices(source, issues);
     const testnet = source.MONAD_TESTNET_RPC_URL?.trim();
     const mainnet = source.MONAD_RPC_URL?.trim();
     if (testnet && mainnet && testnet === mainnet) {
@@ -231,6 +242,97 @@ function checkGuards(
         variable: "MONAD_TESTNET_RPC_URL",
         problem: "is the same URL as MONAD_RPC_URL (Monad mainnet); use a testnet RPC",
       });
+    }
+  }
+}
+
+/**
+ * sha256 of anvil's ten well-known development keys (the "test test ... junk"
+ * mnemonic, accounts 0 to 9), each as a lowercase 0x-prefixed hex string.
+ * Stored as hashes, so no key appears in the source.
+ */
+const ANVIL_KEY_HASHES = new Set([
+  "60a09e4357868c1e9b801052726d061c370429f723db84523ed58ac354f6eb8a",
+  "095101cf732c298a0ce0320b9de704209cdd8640b70d8fdf4e5be51aa2eb272e",
+  "bb4978fbe7638de8e6ee13d9a59a5fb047beb0f0ee059fe166541b1f96b6af63",
+  "f02322197a196ceb746aa52cee2a869abf0fe231c4d6d050a8a5f02c6625a1d4",
+  "5de22089c247b9b2722ec5c33498e6bc481b1faba85f4da957f8b84679fcf88c",
+  "59feecfa04eb096ba44eed297e4239fa32d8840cbc1ffb8ff2f7fd8e8e0edd38",
+  "b69d88ff1ad5834ab1d8ed45f20d72b6ccf3429c9ccc75b93d14ca0ee00dec16",
+  "b6b9ee08c38f62da71fa150a8ada4a7a09c7d3c4a9f6445e51e5a4b2c6395368",
+  "be394de37f9d6cf6682434e9f15a4f891eca9b614bf79da2da22a8e48a658fcd",
+  "dd0102d1cd0c6ac702573e3e7551fc6cec26596b6287348804c1b0f9544b5bf9",
+]);
+
+/** True when `value` is one of anvil's well-known development keys. */
+export function isAnvilKey(value: string): boolean {
+  const hash = createHash("sha256").update(value.trim().toLowerCase()).digest("hex");
+  return ANVIL_KEY_HASHES.has(hash);
+}
+
+/** The testnet keys and seeds, each with the local variable it must differ from, if any. */
+const TESTNET_KEYS: readonly (readonly [string, string | null])[] = [
+  ["TESTNET_DEPLOYER_PRIVATE_KEY", null],
+  ["TESTNET_GUARDIAN_PRIVATE_KEY", null],
+  ["TESTNET_SENTINEL_PRIVATE_KEY", null],
+  ["TESTNET_CLAIM_SIGNER_PRIVATE_KEY", "CLAIM_SIGNER_PRIVATE_KEY"],
+  ["TESTNET_REVEAL_KEEPER_PRIVATE_KEY", "REVEAL_KEEPER_PRIVATE_KEY"],
+  ["TESTNET_FUNDING_ADDRESS_SEED", "FUNDING_ADDRESS_SEED"],
+  ["TESTNET_FEED_PRIVATE_KEY", null],
+];
+
+/**
+ * D-254 (4): no testnet key or seed is one of anvil's well-known keys, equal
+ * to the local key it replaces, or equal to another testnet key. Never reads
+ * a value into a message.
+ */
+function checkTestnetKeys(source: EnvSource, issues: ConfigIssue[]): void {
+  const seen = new Map<string, string>();
+  for (const [name, local] of TESTNET_KEYS) {
+    const value = source[name]?.trim().toLowerCase();
+    if (!value || /^0x0{64}$/.test(value)) continue;
+    if (isAnvilKey(value)) {
+      issues.push({ variable: name, problem: "is one of anvil's well-known development keys" });
+    }
+    if (local && source[local]?.trim().toLowerCase() === value) {
+      issues.push({
+        variable: name,
+        problem: `is the same as the local ${local}; testnet keys must differ from local ones`,
+      });
+    }
+    const other = seen.get(value);
+    if (other)
+      issues.push({ variable: name, problem: `is the same as ${other}; use a key of its own` });
+    else seen.set(value, name);
+  }
+}
+
+/** The local containers' default database and queue, which testnet must never share. */
+const LOCAL_DATABASE_URL = "postgres://alpha:alpha_local_dev_only@127.0.0.1:5432/alpha_agents";
+
+/** A testnet process keeps its own database and Redis database (P2-EC). */
+function checkTestnetServices(source: EnvSource, issues: ConfigIssue[]): void {
+  const db = source.DATABASE_URL?.trim();
+  if (db && db.replace(/\/+$/, "") === LOCAL_DATABASE_URL) {
+    issues.push({
+      variable: "DATABASE_URL",
+      problem: "is the local database; testnet uses a database of its own",
+    });
+  }
+  const redis = source.REDIS_URL?.trim();
+  if (redis) {
+    try {
+      const url = new URL(redis);
+      const index = url.pathname.replace(/^\//, "");
+      const loopback = ["127.0.0.1", "localhost", "[::1]"].includes(url.hostname);
+      if (loopback && (index === "" || index === "0")) {
+        issues.push({
+          variable: "REDIS_URL",
+          problem: "is the local Redis database 0; testnet uses another database index",
+        });
+      }
+    } catch {
+      // The schema reports an invalid URL.
     }
   }
 }

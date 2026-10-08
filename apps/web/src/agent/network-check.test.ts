@@ -145,6 +145,38 @@ describe("checkWalletNetwork", () => {
       if (!result.ok) expect(result.message).not.toMatch(/not Monad \(local fork\)/);
     }
   });
+
+  it("gives the fork's own fixes (pnpm dev:up, pnpm deploy:agent-nft) only on local (D-254)", async () => {
+    const testnet = APP_CHAINS.testnet;
+    const empty = node({ chainId: 10143, blocks: {}, latest: "0x1", code: "0x" });
+    const reference = 69_300_000n;
+    const tag = `0x${reference.toString(16)}`;
+    const wallet = node({ chainId: 10143, blocks: { [tag]: "0xaa" }, latest: tag, code: "0x60" });
+    const unread = await checkWalletNetwork({
+      wallet,
+      app: empty,
+      target: testnet,
+      referenceBlock: reference,
+      contract: AGENT_NFT,
+    });
+    const undeployed = await checkWalletNetwork({
+      wallet,
+      app: node({ chainId: 10143, blocks: { [tag]: "0xaa" }, latest: tag, code: "0x" }),
+      target: testnet,
+      referenceBlock: reference,
+      contract: AGENT_NFT,
+    });
+    for (const result of [unread, undeployed]) {
+      expect(result.ok).toBe(false);
+      if (!result.ok) expect(result.message).not.toMatch(/pnpm/);
+    }
+    const localUnread = await check(
+      FORK,
+      node({ chainId: 143143, blocks: {}, latest: "0x1", code: "0x" }),
+    );
+    if (!localUnread.ok) expect(localUnread.message).toContain("pnpm dev:up");
+    expect(localUnread.ok).toBe(false);
+  });
 });
 
 describe("walletNetworkName", () => {

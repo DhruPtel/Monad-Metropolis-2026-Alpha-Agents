@@ -10,6 +10,8 @@ keystore/
 node_modules/
 .next/
 .next-e2e/
+.next-testnet/
+.next-beta/
 dist/
 build/
 

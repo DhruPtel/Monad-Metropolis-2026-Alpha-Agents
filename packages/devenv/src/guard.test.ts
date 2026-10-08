@@ -14,6 +14,7 @@ import {
   loadForkState,
   resetToBlock,
   revertToSnapshot,
+  sendAs,
   setMonBalance,
   takeSnapshot,
 } from "./index.ts";
@@ -112,6 +113,7 @@ describe("local-fork guard", () => {
       () => loadForkState("0x00", remote),
       () => setMonBalance(address, 1n, remote),
       () => mintTestUsdc(address, 1n, remote),
+      () => sendAs(remote, address, address, "0x"),
     ]) {
       await expect(action()).rejects.toBeInstanceOf(NotLocalForkError);
     }
@@ -126,6 +128,7 @@ describe("local-fork guard", () => {
       () => resetToBlock(109_670_000, gethUrl),
       () => setMonBalance(address, 1n, gethUrl),
       () => mintTestUsdc(address, 1n, gethUrl),
+      () => sendAs(gethUrl, address, address, "0x"),
     ]) {
       await expect(action()).rejects.toBeInstanceOf(NotLocalForkError);
     }

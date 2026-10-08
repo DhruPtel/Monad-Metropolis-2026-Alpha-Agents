@@ -104,7 +104,7 @@ export async function checkWalletNetwork(input: NetworkCheckInput): Promise<Netw
   if (!appBlock?.hash) {
     return fail(
       "different-block",
-      `This app could not read block ${referenceBlock} from ${target.name} at ${target.browserRpcUrl}. Nothing was sent. Check that the fork is running (pnpm dev:up).`,
+      `This app could not read block ${referenceBlock} from ${target.name} at ${target.browserRpcUrl}. Nothing was sent. ${target.environment === "local" ? "Check that the fork is running (pnpm dev:up)." : "The network's RPC may be busy; try again in a moment."}`,
     );
   }
   if (walletBlock?.hash?.toLowerCase() !== appBlock.hash.toLowerCase()) {

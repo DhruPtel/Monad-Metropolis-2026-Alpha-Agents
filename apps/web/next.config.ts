@@ -1,8 +1,9 @@
 import type { NextConfig } from "next";
-import { walletBuildMode } from "./wallet-mode";
+import { requireControlApiUrl, walletBuildMode } from "./wallet-mode";
 
 // The real Privy wallet, or (test builds only) the mock, into separate outputs.
 const wallet = walletBuildMode(process.env);
+requireControlApiUrl(process.env);
 
 const config: NextConfig = {
   reactStrictMode: true,

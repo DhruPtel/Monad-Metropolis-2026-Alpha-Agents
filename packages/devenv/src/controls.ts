@@ -170,6 +170,9 @@ export async function waitForReceipt(
 }
 
 export async function sendAs(url: string, from: Address, to: Address, data: string): Promise<void> {
+  // Its own guard (P2-EC): impersonation exists only on the local fork, so
+  // nothing is sent anywhere else, whatever the caller checked.
+  await assertLocalFork(url);
   await rpc(url, "anvil_impersonateAccount", [from]);
   try {
     const hash = await rpc(url, "eth_sendTransaction", [{ from, to, data }]);

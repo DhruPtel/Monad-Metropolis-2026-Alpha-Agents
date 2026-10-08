@@ -24,6 +24,12 @@ export interface VariableSpec {
   readonly commented?: boolean;
   /** Used in the local environment only, when the variable is not set. */
   readonly localDefault?: string;
+  /**
+   * On testnet the value is read from this variable instead, and the variable
+   * itself is ignored (P2-EC, D-254). One .env holds the local and the testnet
+   * keys side by side, so a testnet process can never pick up a local key.
+   */
+  readonly testnetSource?: string;
 }
 
 const ALL: readonly EnvironmentId[] = ["local", "testnet", "beta"];
@@ -103,12 +109,13 @@ export const VARIABLES = [
     name: "MONAD_RPC_URL_SECONDARY",
     group: "Chain RPC",
     description:
-      "Second Monad mainnet RPC provider, for failover and cross-checks (Q-23); local forks fall back to it (D-220)",
+      "Second Monad mainnet RPC provider, for failover and cross-checks (Q-23); local forks fall back to it (D-220). On testnet the second provider is MONAD_TESTNET_RPC_URL_SECONDARY instead",
     secret: true,
     firstUsedBy: "P1-U9",
     environments: ALL,
     ...httpUrl,
     example: "https://your-second-monad-mainnet-rpc.example/your-api-key",
+    testnetSource: "MONAD_TESTNET_RPC_URL_SECONDARY",
   },
   {
     name: "MONAD_TESTNET_RPC_URL",
@@ -119,6 +126,17 @@ export const VARIABLES = [
     environments: ["testnet"],
     ...httpUrl,
     example: "https://your-monad-testnet-rpc.example/your-api-key",
+  },
+  {
+    name: "MONAD_TESTNET_RPC_URL_SECONDARY",
+    group: "Chain RPC",
+    description:
+      "Second Monad testnet RPC provider, ideally another provider (D-254); the testnet signer's second RPC. Optional",
+    secret: true,
+    firstUsedBy: "P2-EC",
+    environments: ["testnet"],
+    ...httpUrl,
+    example: "https://your-second-monad-testnet-rpc.example/your-api-key",
   },
 
   // Local Docker services
@@ -235,6 +253,51 @@ export const VARIABLES = [
     description: "Testnet sentinel key, separate from the guardian key (D-138)",
     secret: true,
     firstUsedBy: "P1-U3",
+    environments: ["testnet"],
+    ...privateKey,
+    example: "0x0000000000000000000000000000000000000000000000000000000000000000",
+  },
+  {
+    name: "TESTNET_CLAIM_SIGNER_PRIVATE_KEY",
+    group: "Testnet keys",
+    description:
+      "Testnet mint-claim signer, the testnet AgentNFT's claimSigner; the control API uses it as CLAIM_SIGNER_PRIVATE_KEY on testnet (P2-EC)",
+    secret: true,
+    firstUsedBy: "P2-EC",
+    environments: ["testnet"],
+    ...privateKey,
+    example: "0x0000000000000000000000000000000000000000000000000000000000000000",
+  },
+  {
+    name: "TESTNET_REVEAL_KEEPER_PRIVATE_KEY",
+    group: "Testnet keys",
+    description:
+      "Testnet reveal keeper: pays the Entropy fee; the orchestrator uses it as REVEAL_KEEPER_PRIVATE_KEY on testnet (P2-EC)",
+    secret: true,
+    firstUsedBy: "P2-EC",
+    environments: ["testnet"],
+    ...privateKey,
+    example: "0x0000000000000000000000000000000000000000000000000000000000000000",
+  },
+  {
+    name: "TESTNET_FUNDING_ADDRESS_SEED",
+    group: "Testnet keys",
+    description:
+      "Testnet seed for agents' funding addresses; the orchestrator uses it as FUNDING_ADDRESS_SEED on testnet (P2-EC)",
+    secret: true,
+    firstUsedBy: "P2-EC",
+    environments: ["testnet"],
+    schema: z.string().regex(/^0x[0-9a-fA-F]{64}$/),
+    expected: "a 0x-prefixed 32-byte hex seed",
+    example: "0x0000000000000000000000000000000000000000000000000000000000000000",
+  },
+  {
+    name: "TESTNET_FEED_PRIVATE_KEY",
+    group: "Testnet keys",
+    description:
+      "The only writer of the two TestnetFeeds (D-253); re-dates them on demand before an action that needs a fresh price (D-307)",
+    secret: true,
+    firstUsedBy: "P2-EC",
     environments: ["testnet"],
     ...privateKey,
     example: "0x0000000000000000000000000000000000000000000000000000000000000000",
@@ -424,6 +487,7 @@ export const VARIABLES = [
     environments: ["local", "testnet"],
     ...privateKey,
     example: "0x0000000000000000000000000000000000000000000000000000000000000000",
+    testnetSource: "TESTNET_REVEAL_KEEPER_PRIVATE_KEY",
   },
   {
     name: "LOCAL_FIRST_REVEAL_SPECIES",
@@ -451,6 +515,7 @@ export const VARIABLES = [
     schema: z.string().regex(/^0x[0-9a-fA-F]{64}$/),
     expected: "a 0x-prefixed 32-byte hex seed",
     example: "0x0000000000000000000000000000000000000000000000000000000000000000",
+    testnetSource: "TESTNET_FUNDING_ADDRESS_SEED",
   },
 
   // Model gateway
@@ -529,6 +594,7 @@ export const VARIABLES = [
     environments: ["local", "testnet"],
     ...privateKey,
     example: "0x0000000000000000000000000000000000000000000000000000000000000000",
+    testnetSource: "TESTNET_CLAIM_SIGNER_PRIVATE_KEY",
   },
   {
     name: "API_SESSION_SECRET",
