@@ -33,9 +33,17 @@
  * every tool call is charged to the agent whose token made it; the narrator's
  * entry passes the number validator and a wrong number is rejected; and at
  * zero credits a Scan is refused. Needs TAVILY_API_KEY too.
+ *
+ * P2-U5 adds the chain check: a real agent reads its account through the chain
+ * tools and proposes a swap. P2-U6 adds the trade flow: the owner arms the
+ * agent (a grant to its funding address), the agent's proposal waits until the
+ * owner's first approval arms it, then executes through the signer, the
+ * Executor and the real v4 pool and settles after reconciliation, with
+ * activity entries; a second proposal over the limits is blocked at
+ * submission with its reason, served as why the agent did not trade.
  */
 import { type ChildProcess, spawn } from "node:child_process";
-import { randomBytes } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
 import { createWriteStream, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { Secret, loadConfig } from "@alpha-agents/config";
@@ -774,15 +782,19 @@ async function main(): Promise<number> {
       account: Hex;
     };
     await custody.depositUsdc(account, owner, 20_000_000n);
-    // The agent's session key is its funding address (D-243); its owner registers the grant.
-    const key = await fundingOf(other);
-    const now = (await client.getBlock()).timestamp;
-    await send(owner, {
-      address: addressEntry("local", "executor").address as Hex,
-      abi: parseAbi(["function registerSession(uint256 agentId, address key, uint64 validUntil)"]),
-      functionName: "registerSession",
-      args: [BigInt(other), key, now + 30n * 86_400n],
+    // P2-U6: the owner arms the agent: a grant to its funding address (D-243), registered as the
+    // owner's wallet would (impersonated on the fork), then checked on chain and recorded.
+    const armed = await api(`/v1/agents/${other}/arm`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: "{}",
     });
+    check(
+      "the owner's grant to the funding address is recorded: armed once the first trade is approved",
+      armed.status === 201 &&
+        (armed.body.arming as { state?: string } | undefined)?.state === "awaiting_first_trade",
+      `${armed.status} ${JSON.stringify(armed.body).slice(0, 200)}`,
+    );
     const started = await api(`/v1/agents/${other}/tasks/chain-check`, { method: "POST" });
     const task = await waitFor("the chain check", 600_000, async () => {
       const x = (await api(`/v1/tasks/${String(started.body.taskId)}`)).body as unknown as TaskView;
@@ -834,16 +846,139 @@ async function main(): Promise<number> {
         validateNarration(entry.text, entry.facts as never).ok,
       `${intent?.status ?? "no intent"} ${(intent?.reasonCodes ?? []).join(",")}; ${entry?.text ?? ""}`,
     );
-    // Nothing was sent: the outbox has no swap, because arming is P2-U6.
-    const swaps = await t.db
+    // Nothing is sent before the owner approves the first trade.
+    const before = await t.db
       .selectFrom("platform.signer_outbox")
       .select("tx_id")
       .where("kind", "=", "executor_swap")
       .execute();
     check(
-      "no swap reached the signer: the intent only waits",
-      swaps.length === 0,
-      `${swaps.length} swaps`,
+      "no swap reached the signer before the owner's first approval",
+      before.length === 0,
+      `${before.length} swaps`,
+    );
+
+    // ---- P2-U6: the owner approves; the trade executes on the real v4 pool and settles ----
+    step("the trade flow: the owner's first approval arms the agent and the swap settles");
+    const approved = intent
+      ? await api(`/v1/agents/${other}/intents/${intent.intentId}/approve`, { method: "POST" })
+      : null;
+    check(
+      "the owner's first approval arms the agent",
+      approved?.status === 200 && approved.body.armed === true,
+      `${approved?.status} ${JSON.stringify(approved?.body ?? {}).slice(0, 200)}`,
+    );
+    interface LiveIntent {
+      intentId: string;
+      status: string;
+      reasonCodes: string[];
+      blockers: { code: string; message: string; clears: string }[];
+      amountOut: { amount: string } | null;
+      txHash: string | null;
+      approvedBy: string | null;
+    }
+    const intentNow = async (id: string) =>
+      ((await api(`/v1/agents/${other}/chain`)).body.intents as LiveIntent[]).find(
+        (i) => i.intentId === id,
+      );
+    const settled = intent
+      ? await waitFor("the first trade to settle", 180_000, async () => {
+          const i = await intentNow(intent.intentId);
+          return i && ["reconciled", "rejected", "failed"].includes(i.status) ? i : null;
+        })
+      : undefined;
+    const outbox = settled?.txHash
+      ? await t.db
+          .selectFrom("platform.signer_outbox")
+          .select(["status", "amount_out", "ledger_entry_id"])
+          .where("tx_hash", "=", settled.txHash)
+          .executeTakeFirst()
+      : undefined;
+    report.trade = { intent: settled, outbox };
+    check(
+      "the swap executed through the signer, the Executor and the real v4 pool, and settled after reconciliation",
+      settled?.status === "reconciled" &&
+        Number(settled.amountOut?.amount ?? 0) > 0 &&
+        outbox?.status === "reconciled" &&
+        outbox.ledger_entry_id !== null,
+      `${settled?.status ?? "none"} ${settled?.amountOut?.amount ?? ""} ${outbox?.status ?? ""}`,
+    );
+    const tradeEntry = intent
+      ? await waitFor("the trade's activity entry", 60_000, async () =>
+          t.db
+            .selectFrom("platform.activity_entries")
+            .selectAll()
+            .where("task_id", "=", `${intent.intentId}:trade`)
+            .executeTakeFirst(),
+        )
+      : undefined;
+    const armedEntry = await t.db
+      .selectFrom("platform.activity_entries")
+      .select(["text", "kind"])
+      .where("agent_id", "=", other)
+      .where("kind", "=", "arming")
+      .execute();
+    report.tradeEntries = { trade: tradeEntry?.text, arming: armedEntry.map((e) => e.text) };
+    check(
+      "the trade and the arming have activity entries held to the number validator",
+      tradeEntry !== undefined &&
+        tradeEntry.kind === "trade" &&
+        validateNarration(tradeEntry.text, tradeEntry.facts as never).ok &&
+        armedEntry.length >= 1,
+      `${tradeEntry?.text ?? "none"}; ${armedEntry.length} arming entries`,
+    );
+
+    // A second proposal over the limits: armed, so it is approved on its own, and the
+    // re-check at submission blocks it with its reason; nothing more reaches the signer.
+    const account20 = (await api(`/v1/agents/${other}/chain`)).body;
+    const overId = `intent-${randomUUID()}`;
+    const view = await t.db
+      .selectFrom("platform.intents")
+      .select(["owner_epoch", "config_epoch", "account"])
+      .where("intent_id", "=", intent?.intentId ?? "")
+      .executeTakeFirst();
+    await t.db
+      .insertInto("platform.intents")
+      .values({
+        intent_id: overId,
+        chain_id: 143143,
+        agent_id: other,
+        lease_id: "live-over-limit",
+        kind: "swap",
+        account: view?.account ?? null,
+        sell: "USDC",
+        buy: "WMON",
+        amount_in: "10000000", // half the 20 USDC account: over the 10% trade size
+        reason: "Live check: a trade over the size limit.",
+        idempotency_key: overId,
+        status: "awaiting_approval",
+        reason_codes: "[]",
+        checks: "{}",
+        owner_epoch: view?.owner_epoch ?? null,
+        config_epoch: view?.config_epoch ?? null,
+        expires_at: new Date(Date.now() + 1_800_000),
+      })
+      .execute();
+    const blocked = await waitFor("the over-limit proposal to be blocked", 60_000, async () => {
+      const i = await intentNow(overId);
+      return i && i.status !== "awaiting_approval" && i.status !== "approved" ? i : null;
+    });
+    const why = (await api(`/v1/agents/${other}/why-not-traded`)).body as {
+      reasons?: { code: string; intentId: string | null }[];
+    };
+    const swapsAfter = await t.db
+      .selectFrom("platform.signer_outbox")
+      .select("tx_id")
+      .where("kind", "=", "executor_swap")
+      .execute();
+    report.overLimit = { intent: blocked, why, before: account20.portfolio };
+    check(
+      "an over-limit proposal is blocked at submission with its reason, served as why the agent did not trade",
+      blocked.status === "rejected" &&
+        blocked.reasonCodes.includes("TRADE_SIZE_EXCEEDED") &&
+        (why.reasons ?? []).some((r) => r.intentId === overId && r.code === "TRADE_SIZE_EXCEEDED") &&
+        swapsAfter.length === 1,
+      `${blocked.status} ${blocked.reasonCodes.join(",")}; ${swapsAfter.length} swaps`,
     );
   }
 
