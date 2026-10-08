@@ -96,3 +96,114 @@ All ten contracts verified on Sourcify as `exact_match` with the repository's co
 ## Local-only features on testnet
 
 All 17 attempts were refused (`local-only.json`): the LocalFeed refresher, impersonation (`sendAs`, which gained its own guard in this unit) and balance writes refuse the testnet RPC before sending; a steered reveal is refused by config; the console and the test stacks' mock login refuse `APP_ENV=testnet`; the orchestrator's dev routes do not exist with dev actions off; the fork's gas top-up is wired only for local (a code check); the signer is pinned to 10143.
+
+# P2-EC part 2: the mainnet canary
+
+Measured on Monad mainnet (chain 143) on 2026-10-08, from block 111700382 to 111701866, against the throwaway canary (`ADDRESSES.md`, part 2). Raw records: `canary-deployment.json` (every deployment transaction, read from the chain), `canary-run.json` (every run transaction with its timings, both swaps with the market before them, both refusals, the final balances), `canary-verification.json` and `canary-local-only.json`. Commands: `pnpm deploy:canary`, `pnpm verify:canary`, `pnpm canary:mainnet` (with `CANARY_SIGNING_ENABLED=true`), `pnpm canary:local-only`, `pnpm test:canary-fork`. Dollar figures use the Chainlink MON/USD answer during the run, 0.02467491 USD (USDC/USD 0.99986).
+
+The canary did what the unit asks: the buy and the sale settled on the real launch pool through the signer and the Executor within the 50 bps floor, reconciled into the canary ledger and settled at `finalized`; the oversized buy and a swap while paused were refused in simulation with nothing signed; the owner withdrew while the Executor was paused, revoked the grant and withdrew everything. The real-chain difference found is lesson L-145.
+
+## Spend
+
+| | MON | USD |
+|---|---|---|
+| Deployment (8 transactions) | 2.4551 | $0.06058 |
+| Run (14 transactions, with the gas given to the guardian and session key and swept back) | 0.4279 | $0.01056 |
+| **Total, against the 10 MON budget (D-316)** | **2.8830** | **$0.07114** |
+| USDC lost to the round trip (fee and pool offset) | 0.000501 USDC | $0.0005 |
+
+## Gas
+
+Monad charges the gas limit; every receipt's `gasUsed` equals the transaction's limit, as on testnet (L-136). Fees were the same as testnet's: base fee 100 gwei in every block, priority 2 gwei, so 102 gwei paid, and the signer's maximum of 202 gwei (twice the base plus the tip) stayed under A-38's 500 gwei cap. Owner and guardian limits are 110% of `eth_estimateGas` (D-306); the signer's swap limit is its fixed 1.3M (D-308). Real use is from `pnpm test:canary-fork --gas-report` (forge's Monad EVM on a fork of mainnet).
+
+| Deployment | Gas limit charged (mainnet) | Testnet limit | MON paid | USD | Transaction |
+|---|---|---|---|---|---|
+| Deploy CanaryAgent | 271,513 |  | 0.0277 | $0.00068 | [`0x30a0e635…`](https://monadvision.com/tx/0x30a0e635b79f3e2621e5368e7b4b991727636c10ea4c4fa059dcd7c3e16c5410) |
+| Deploy OracleAdapter | 1,819,673 | 1,819,687 | 0.1856 | $0.00458 | [`0xbd362c81…`](https://monadvision.com/tx/0xbd362c81cba590178966dbb2aabdc00947c0d7122fed063c036aa9b56cc70b5e) |
+| Deploy Executor | 7,147,852 | 7,147,852 | 0.7291 | $0.01799 | [`0xb1e87d8d…`](https://monadvision.com/tx/0xb1e87d8d4dcd6e1819f1bdfda65e18cb10a5c4c4543139e6e90cb018535e9072) |
+| Deploy UniswapV4MonUsdcAdapter | 1,945,520 | 1,945,507 | 0.1984 | $0.00490 | [`0xaef461c8…`](https://monadvision.com/tx/0xaef461c88769b5019ca9f0528177d3223b4ddff849d5126f9a01e7f84d0c6430) |
+| Deploy UniswapV3UsdcWmonAdapter | 922,752 |  | 0.0941 | $0.00232 | [`0xd441753a…`](https://monadvision.com/tx/0xd441753ad6f672d8b5ea4da6981e09c6dcb99f0b8a673588024118b0e4dace2f) |
+| Deploy ProtocolRegistry | 2,668,948 | 2,549,665 (v4 only) | 0.2722 | $0.00672 | [`0xb32bf370…`](https://monadvision.com/tx/0xb32bf370a52c3ee9a234e07e4c35307d3e4a0feff020012dc4a58ba9ea4320af) |
+| Deploy AccountFactory | 9,194,458 | 9,317,303 | 0.9378 | $0.02314 | [`0x78fbf11b…`](https://monadvision.com/tx/0x78fbf11b2e2f9c6624d46e85ff6d5f82979bad53d85be79b59ff9e84e1612ca6) |
+| `executor.bind` | 99,057 | 99,057 | 0.0101 | $0.00025 | [`0x09979d97…`](https://monadvision.com/tx/0x09979d9781b0cdf50b4c3e68432dbc5981b8b716dc89dc583e97300a85baa2be) |
+
+| Run | Gas limit charged (mainnet) | Testnet limit | Real use (mainnet fork, in the call) | MON paid | USD | Transaction |
+|---|---|---|---|---|---|---|
+| Owner: fund session | 23,100 |  |  | 0.0024 | $0.00006 | [`0x0ffd8e8e…`](https://monadvision.com/tx/0x0ffd8e8e59c42502bb7ecaf4351573c50cbc3562363ec4ff53a8174075ac959e) |
+| Owner: fund guardian | 23,100 |  |  | 0.0024 | $0.00006 | [`0x536c2c8b…`](https://monadvision.com/tx/0x536c2c8b61846b22e7a91bcf6b2703b9d1ea23192873849cc4e3e5928f97129d) |
+| Owner: createPersonalAccount | 252,948 | 238,449 | 226,983 | 0.0258 | $0.00064 | [`0xbc237f16…`](https://monadvision.com/tx/0xbc237f1632ca3632c3af6bf53a96f3f1cc52182b54a29a0041f81d7ad8b7a79b) |
+| Owner: approve (exact) | 96,395 | 87,643 |  | 0.0098 | $0.00024 | [`0x2e188223…`](https://monadvision.com/tx/0x2e188223817e887a07e2ab35a95798f947dc80002536689f701a6a7762a84c27) |
+| Owner: deposit | 449,993 | 380,653 | 368,630 | 0.0459 | $0.00113 | [`0x8609119e…`](https://monadvision.com/tx/0x8609119efe7f455c1becf49cbea3c708c9be87c2d4f30d89be55dc3557525a99) |
+| Owner: registerSession | 103,042 | 110,853 | 92,723 | 0.0105 | $0.00026 | [`0x08cf24bf…`](https://monadvision.com/tx/0x08cf24bf40d984fe989cb70c98c73dcc720fcf90456a0ef1b4db9f91fe09df24) |
+| Session key (signer): buy | 1,300,000 | 1,100,000 (old limit) | 1,094,684 (the account's first swap) | 0.1326 | $0.00327 | [`0xfb4845b0…`](https://monadvision.com/tx/0xfb4845b039fae73be2a848ac791381fc0ef4ad140ca53b2460b333a3c926cb81) |
+| Session key (signer): sell | 1,300,000 | 1,100,000 (old limit) |  | 0.1326 | $0.00327 | [`0xe413fa21…`](https://monadvision.com/tx/0xe413fa2123b368b70d4758a671282465b9d8559970700caa500228904e7213fe) |
+| Guardian: pauseAll | 57,264 |  | 51,665 | 0.0058 | $0.00014 | [`0xe0b565c9…`](https://monadvision.com/tx/0xe0b565c9978e590500d7a82c15ecc4491419269d0b2b91b4e247175440169ce3) |
+| Owner: withdraw 1 USDC while paused | 262,713 |  |  | 0.0268 | $0.00066 | [`0xcd542c3b…`](https://monadvision.com/tx/0xcd542c3b6aff1571efecb61352c5cd16ee3dff1d617daf98581098d6ec9da465) |
+| Owner: revokeSession | 52,118 | 55,843 | 46,612 | 0.0053 | $0.00013 | [`0x2d417fa3…`](https://monadvision.com/tx/0x2d417fa3aa8b668ab31d23ab46b460d670316872cba1ffce73675968b1f5b2ce) |
+| Owner: withdrawAll | 228,071 | 272,680 | 187,202 | 0.0233 | $0.00057 | [`0x9caa4507…`](https://monadvision.com/tx/0x9caa4507f22e32ae1449bcefc99bd4351096df05e621d15db35909299a219b36) |
+| Session: sweep session | 23,100 |  |  | 0.0024 | $0.00006 | [`0xe6b3d8a2…`](https://monadvision.com/tx/0xe6b3d8a23dbc3878917d09ddd4c41575f3f8d6966d43f4a44e295d976ea89049) |
+| Guardian: sweep guardian | 23,100 |  |  | 0.0024 | $0.00006 | [`0x957e2e61…`](https://monadvision.com/tx/0x957e2e61d4f71b6f4c1d5d937deb36e7da028546cd7780b1d22344951d7f2071) |
+
+The account's first swap used 1,094,684 gas in the call on the mainnet fork (more than testnet's 1,070,401 on the P2-EC pool; the cause was not measured), about 1.12M with the base and calldata, so the 1.3M limit of D-308 keeps about 14% of margin. Registering a v3 adapter makes the canary's ProtocolRegistry 2,668,948 against testnet's 2,549,665 with one adapter. A 0.45 USDC round trip costs 0.265 MON in gas (about $0.0065), more than ten times what it loses to the pool.
+
+## Slippage and the pool against Chainlink
+
+| | Buy (0.45 USDC for WMON) | Sale (the WMON back) |
+|---|---|---|
+| Amount in | 0.45 USDC | 18.214812 WMON |
+| Amount out | 18.214812 WMON | 0.449499 USDC |
+| At the Chainlink price | 18.237149 WMON | 0.449448 USDC |
+| Floor (`minAmountOut`, 50 bps under the oracle) | 18.145963 WMON | 0.447200 USDC |
+| Slippage against Chainlink | 12.24 bps | -1.13 bps (better than the oracle) |
+| Pool against the oracle just before | +7.25 bps | +7.26 bps |
+| MON/USD age / USDC/USD age | 21 s / 2755 s | 24 s / 2758 s |
+
+The launch pool sat 7.25 bps above Chainlink during the swaps (it read -4.1 and -6.5 bps in the checks a few minutes earlier), so the buy paid the 5 bps fee plus that offset, 12.24 bps, and the sale came out 1.13 bps better than the oracle. Both stayed well inside the 50 bps floor and the oracle adapter's 200 bps deviation bound. The round trip lost 0.000501 USDC (11 bps).
+
+## Chainlink feeds
+
+| Feed | Update interval (last 12 rounds) | Ages seen during the canary | Adapter bound |
+|---|---|---|---|
+| MON/USD `0xBcD7...22fb` | 29 to 31 s | 2 to 76 s | 300 s |
+| USDC/USD `0xf5F1...Cebec` | 3,605 to 3,607 s | 1,506 to 3,076 s | 3,900 s |
+
+USDC/USD updates once an hour, so its age climbs to about 3,606 s before each update; the 3,900 s bound (A-34) leaves under five minutes for a late round before every deposit and trade is refused as stale (L-145).
+
+## Finality
+
+Timed from the send for the 12 owner, guardian and sweep transactions, and from the outbox's acceptance for the two swaps:
+
+| | Fastest | Slowest |
+|---|---|---|
+| Receipt | 555 ms | 888 ms |
+| `safe` | 902 ms | 1,709 ms |
+| `finalized` | 1,150 ms | 1,709 ms |
+
+The signer's outbox, from the canary database: the buy went accepted, signed (+403 ms), submitted (+510 ms), confirmed (+1,109 ms), reconciled (+1,410 ms); the sale signed +371 ms, submitted +474 ms, confirmed +827 ms, reconciled +1,118 ms; both reached `finalized` about 1.7 s after acceptance. No receipt changed when read again at `finalized`. A-40 holds on mainnet as on testnet (D-312).
+
+## Transaction acceptance and refusals
+
+No unknown outcome: every send was taken by the provider and its receipt arrived within 0.9 s. The oversized buy (1 USDC, over 10% of the 5 USDC account) failed in the signer's simulation with `TRADE_SIZE_EXCEEDED` 282 ms after acceptance, and the swap while paused with `PAUSED` after 287 ms; neither has a nonce or a hash in the outbox, and the session key's nonce stayed at 2. The Executor's pause did not touch custody: the owner's 1 USDC withdrawal and `withdrawAll` went through while it was paused.
+
+## RPC
+
+One provider (`MONAD_RPC_URL`, archive-capable, D-314); there is no second mainnet provider, and none was needed. The signer's reconciliation, which reads balances at the trade's block and the one before, worked on it. No RPC error was seen.
+
+## Explorer verification
+
+All eight contracts verified on Sourcify as `exact_match`, creation and runtime (`canary-verification.json`); MonadVision reads Sourcify. Monadscan was not tried: no key is set (D-316).
+
+## Local-only features in the canary
+
+All 12 attempts were refused (`canary-local-only.json`): the orchestrator, indexer and control API refuse `APP_ENV=canary` at start (D-251), the console refuses anything but local, the web app's environment check refuses the canary, the LocalFeed refresher, impersonation and balance writes refuse the mainnet RPC before sending, a steered reveal and a set `BETA_SIGNING_ENABLED` are refused by config, the canary runner's signer has no gas top-up, and the canary signer is pinned to 143.
+
+## End state
+
+| | MON | USDC | WMON |
+|---|---|---|---|
+| Canary owner `0x170921ED4D5E221CB2294a8a2f8c4afd4FDA2Fa8` | 37.112378866 | 4.999499 | 0 |
+| Guardian | 0.00231 (dust) | 0 | 0 |
+| Session key | 0.00231 (dust) | 0 | 0 |
+| PersonalAccount `0x3c9E54b975EF60EC71989bdA6679bD8a000D6BF8` | 0 | 0 | 0 |
+
+The guardian and session key each keep 0.00231 MON: a send needs its limit times its maximum fee on hand (23,100 at 202 gwei), and Monad charges the limit at the price paid (102 gwei), so the difference stays behind. The Executor is left paused and the grant revoked.
