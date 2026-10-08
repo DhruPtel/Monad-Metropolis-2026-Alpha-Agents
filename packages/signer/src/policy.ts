@@ -37,10 +37,13 @@ export const MAX_FEE_PER_GAS_CAP = 500_000_000_000n;
 export const MAX_PRIORITY_FEE_CAP = 10_000_000_000n;
 
 /**
- * A USDC transfer's gas limit (A-41). A FiatToken transfer uses about 45,000
- * to 60,000 gas; Monad charges the limit, so it stays close to that.
+ * A USDC transfer's gas limit (A-41). Under Monad's gas model (cold storage
+ * and account access cost more than on Ethereum) a FiatToken transfer from a
+ * funding address used 100,106 to 100,310 gas on the fork, measured in the
+ * P2-U5 live check (L-122); Monad charges the limit, so it stays at about
+ * one and a half times that.
  */
-export const TRANSFER_GAS_LIMIT = 100_000n;
+export const TRANSFER_GAS_LIMIT = 150_000n;
 
 export const SWAP_SELECTOR = toFunctionSelector(`function swap(${SWAP_INTENT_TUPLE} i)`);
 export const TRANSFER_SELECTOR = toFunctionSelector(

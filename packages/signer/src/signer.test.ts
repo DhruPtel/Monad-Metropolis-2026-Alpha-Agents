@@ -528,7 +528,7 @@ describe.skipIf(!dbUp)("the signer's outbox (needs Postgres)", { timeout: 60_000
       const done = await row(r.txId);
       expect(done).toMatchObject({
         kind: "usdc_refund",
-        gas_limit: "100000",
+        gas_limit: "150000",
         ledger_entry_id: null,
       });
       expect(chain.balanceOf(USDC, OWNER)).toBe(4_000_000n);

@@ -3,6 +3,7 @@ import type { Db } from "@alpha-agents/db";
 import { type TestDatabase, createTestDatabase, databaseAvailable } from "@alpha-agents/db/testing";
 import {
   type TestFork,
+  mintTestUsdc,
   setMonBalance,
   startTestFork,
   testForkUpstream,
@@ -252,5 +253,44 @@ describe.skipIf(upstream === null || !dbUp)("the signer on a real fork", { timeo
     expect(r2).toMatchObject({ status: "reconciled", nonce: before + 1 });
     expect(await client().getTransactionCount({ address: key })).toBe(before + 2);
     for (const line of logs) expect(line).not.toContain(seed.slice(2));
+  });
+
+  it("refunds USDC from the agent's key to its owner on the real token, inside the transfer gas limit (L-122)", async () => {
+    const s = new Signer({
+      db,
+      environment: "local",
+      chain: new ViemChainClient({ chainId: 143143, primaryUrl: fork.url }),
+      keys: new LocalKeyProvider(seed),
+      executor,
+      usdc,
+      ownerOf: async () => owner,
+      assets: { [usdc.toLowerCase()]: "USDC", [wmon.toLowerCase()]: "WMON" },
+      log: (l) => logs.push(l),
+      topUpGas: (address, wei) => setMonBalance(address, wei, fork.url),
+    });
+    const key = await s.createKey(agentId);
+    await mintTestUsdc(key, 3_000_000n, fork.url);
+    const before = await client().readContract({
+      address: usdc,
+      abi: ERC20_ABI,
+      functionName: "balanceOf",
+      args: [owner],
+    });
+    const r = await s.acceptTransfer(agentId, {
+      kind: "usdc_refund",
+      to: owner,
+      amount: 2_000_000n,
+      actionKey: `refund:fork-${Date.now()}`,
+    });
+    const done = await settle(s, r.txId);
+    expect(done).toMatchObject({ status: "reconciled", reason_code: null });
+    expect(BigInt(done.gas_used ?? "0")).toBeLessThan(BigInt(done.gas_limit ?? "0"));
+    const after = await client().readContract({
+      address: usdc,
+      abi: ERC20_ABI,
+      functionName: "balanceOf",
+      args: [owner],
+    });
+    expect(after - before).toBe(2_000_000n);
   });
 });
