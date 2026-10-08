@@ -9,6 +9,7 @@ function linkedWallet(authorization: string | undefined): string | null {
   return authorization?.startsWith(prefix) ? authorization.slice(prefix.length) : null;
 }
 import { AGENT_NFT, type FakeChain } from "./fake-chain";
+import type { FakeTrading } from "./fake-trading";
 
 /**
  * A stand-in for the control API (P1-U4) for the screenshot suite, which runs
@@ -139,6 +140,8 @@ export class FakeApi {
   readonly claims: Address[] = [];
   /** P1-U9: each agent's owner-only summary and activity; a minted agent without one is "setting up". */
   readonly dashboards = new Map<bigint, FakeDashboard>();
+  /** P2-U7: each agent's trading backend (portfolio, arming, intents). */
+  readonly trading = new Map<bigint, FakeTrading>();
   /** Owner-only requests, for tests that check another wallet made none. */
   readonly ownerCalls: string[] = [];
   /** Requests refused because the token's wallet was not the one asked about, as "path wallet". */
@@ -260,6 +263,39 @@ export class FakeApi {
     }
     const mine = /^\/v1\/agents\/(\d+)\/(session|summary|scan|credits\/refund)$/.exec(url.pathname);
     if (mine?.[1] && mine[2]) return this.owner(BigInt(mine[1]), mine[2], request, reply, meta);
+    const why = /^\/v1\/agents\/(\d+)\/why-not-traded$/.exec(url.pathname);
+    if (why?.[1]) {
+      const tr = this.trading.get(BigInt(why[1]));
+      return tr
+        ? reply(200, { ...meta, agentId: why[1], ...tr.why() })
+        : reply(404, { error: "not_found", message: "No such agent." });
+    }
+    const trade =
+      /^\/v1\/agents\/(\d+)\/(portfolio|arming|disarm|intents(?:\/[\w-]+\/(?:approve|reject))?)$/.exec(
+        url.pathname,
+      );
+    if (trade?.[1] && trade[2]) {
+      const id = BigInt(trade[1]);
+      const agent = this.chain.agents.get(id);
+      if (!agent) return reply(404, { error: "not_found", message: "No such agent." });
+      this.ownerCalls.push(`${trade[2]} ${id.toString()}`);
+      const token = request.headers()["x-owner-session"];
+      if (!token)
+        return reply(401, { error: "missing_token", message: "Start an owner session first." });
+      if (token !== this.sessionFor(id))
+        return reply(403, {
+          error: "not_owner",
+          message: "This owner session is for another agent.",
+        });
+      const tr = this.trading.get(id);
+      const r = tr?.answer(id, trade[2], request.method());
+      if (!tr || !r)
+        return reply(503, {
+          error: "not_deployed",
+          message: "Trading accounts are not deployed on the local fork.",
+        });
+      return reply(r.status, { ...meta, ...(r.body as Record<string, unknown>) });
+    }
     const activity = /^\/v1\/agents\/(\d+)\/activity$/.exec(url.pathname);
     if (activity?.[1]) {
       const d = this.dashboards.get(BigInt(activity[1]));
@@ -309,6 +345,14 @@ export class FakeApi {
       });
     }
     return reply(404, { error: "not_found", message: "No such route." });
+  }
+
+  /** The session the fake issues for an agent's current owner and epoch. */
+  sessionFor(id: bigint): string | null {
+    const agent = this.chain.agents.get(id);
+    return agent
+      ? `fake-session-${id.toString()}-${agent.owner.toLowerCase()}-${agent.ownerEpoch.toString()}`
+      : null;
   }
 
   /**

@@ -47,7 +47,10 @@ export interface Portfolio {
   /** Why the portfolio could not be read, in plain words. */
   readonly error: string | null;
   readonly status: ActionStatus | null;
+  /** True while the page re-reads faster: an action or a trade is under way. */
   readonly busy: boolean;
+  /** True while a wallet or owner action is in progress: other actions wait for it. */
+  readonly acting: boolean;
   openAccount(): void;
   deposit(asset: Asset, amountText: string): void;
   /** `null` withdraws everything of that asset. */
@@ -406,6 +409,7 @@ export function usePortfolio(agentId: bigint, environment: EnvironmentId): Portf
     error,
     status,
     busy,
+    acting,
     openAccount,
     deposit,
     withdraw,

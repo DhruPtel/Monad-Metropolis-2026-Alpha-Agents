@@ -69,6 +69,15 @@ export class FakeChain {
    */
   stuck: { readonly wallet: Address; readonly forkNonce: number; queued: number[] } | null = null;
   private readonly sent = new Map<Hex, bigint>();
+  /**
+   * P2-U7: any other transaction the mock wallet sends (approve, deposit,
+   * withdraw, a grant), recorded and handed to `onSend`, which may refuse it
+   * by throwing; its receipt succeeds unless `revertNext` is set.
+   */
+  readonly transactions: { hash: Hex; from: Address; to: Address; data: Hex; reverted: boolean }[] =
+    [];
+  onSend: ((tx: { from: Address; to: Address; data: Hex }) => void) | null = null;
+  revertNext = false;
   private readonly head: bigint;
   private readonly hashSeed: string;
   private readonly agentNft: boolean;
@@ -230,10 +239,18 @@ export class FakeChain {
     }
   }
 
-  /** A mint from the mock wallet: a new unrevealed agent for the sender. */
+  /** A mint from the mock wallet: a new unrevealed agent for the sender; any other call is recorded. */
   private send(tx: { from: Address; to: Address; data: Hex }): Hex {
+    if (!same(tx.to, AGENT_NFT)) {
+      const reverted = this.revertNext;
+      this.revertNext = false;
+      if (!reverted) this.onSend?.(tx);
+      const hash = `0x${(this.transactions.length + 1).toString(16).padStart(64, "d")}` as Hex;
+      this.transactions.push({ hash, ...tx, reverted });
+      return hash;
+    }
     const { functionName } = decodeFunctionData({ abi: AGENT_NFT_ABI, data: tx.data });
-    if (!same(tx.to, AGENT_NFT) || functionName !== "mintWithClaim") {
+    if (functionName !== "mintWithClaim") {
       throw new Error(`the fake chain does not take ${functionName}`);
     }
     const id = BigInt(this.agents.size + 1);
@@ -244,6 +261,26 @@ export class FakeChain {
   }
 
   private receipt(hash: Hex) {
+    const other = this.transactions.find((x) => x.hash === hash);
+    if (other)
+      return this.holdReceipts
+        ? null
+        : {
+            blockNumber: hex(this.head),
+            blockHash: `0x${"b".repeat(64)}`,
+            transactionHash: hash,
+            transactionIndex: "0x0",
+            from: other.from,
+            to: other.to,
+            contractAddress: null,
+            cumulativeGasUsed: "0x30000",
+            gasUsed: "0x30000",
+            effectiveGasPrice: "0x1",
+            logsBloom: `0x${"0".repeat(512)}`,
+            status: other.reverted ? "0x0" : "0x1",
+            type: "0x2",
+            logs: [],
+          };
     const id = this.sent.get(hash);
     const agent = id === undefined ? undefined : this.agents.get(id);
     if (!agent || this.holdReceipts) return null;

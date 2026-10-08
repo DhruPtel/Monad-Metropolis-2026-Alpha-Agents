@@ -2,7 +2,7 @@
 // Runs an app's Playwright tests inside the pinned Playwright image, the same
 // image CI uses, so the committed screenshot baselines match.
 //
-//   node scripts/web-e2e.js [--app web|console] [--update]
+//   node scripts/web-e2e.js [--app web|console] [--update] [file.spec.ts ...]
 //     Builds the app, then runs its screenshot and accessibility tests with no
 //     .env (an empty file is mounted over it), exactly as CI does.
 //   node scripts/web-e2e.js --app console --live
@@ -132,6 +132,9 @@ const status = run("docker", [
   "node",
   playwrightCli,
   "test",
+  // Spec files named on the command line run alone, for example portfolio.spec.ts. They go
+  // before --update-snapshots, whose optional value would otherwise take the first one.
+  ...args.filter((a) => /\.spec\.ts$/.test(a)),
   ...(update ? ["--update-snapshots"] : []),
 ]);
 process.exit(status);

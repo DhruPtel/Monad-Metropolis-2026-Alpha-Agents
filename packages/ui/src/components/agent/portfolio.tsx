@@ -166,7 +166,7 @@ function PositionsPanel({
             <span className="numeric">{p.price.monUsd ? `$${p.price.monUsd}` : "Unavailable"}</span>
             {p.price.usable ? (
               <Badge tone="positive">
-                <span className="numeric">{p.price.ageSeconds}</span>s old
+                <span className="numeric">{`${p.price.ageSeconds}s old`}</span>
               </Badge>
             ) : (
               <Badge tone="warning">{p.price.reason.replace(/_/g, " ").toLowerCase()}</Badge>

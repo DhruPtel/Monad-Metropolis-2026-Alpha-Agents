@@ -126,7 +126,7 @@ test.describe("every state, captured and scanned", () => {
     );
     await expect(fund).toContainText("4.9944");
     await expect(fund).toContainText("held");
-    await expect(fund).toContainText("Trading capital arrives with the next phase");
+    await expect(fund.getByTestId("trading-summary")).toContainText("only you can withdraw from");
     const spend = c.getByRole("region", { name: "Spend of Alpha Agent #7" });
     await expect(spend).toContainText("0.1716");
     await expect(spend.getByRole("listitem")).toHaveCount(4);

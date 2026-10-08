@@ -1,6 +1,6 @@
 "use client";
 
-import { ENVIRONMENTS, type EnvironmentId } from "@alpha-agents/config";
+import type { EnvironmentId } from "@alpha-agents/config";
 import { formatAmount } from "@alpha-agents/domain";
 import {
   ApprovalCard,
@@ -191,12 +191,7 @@ function DepositForm({
             </Select>
           )}
         </Field>
-        <Field
-          label="Amount"
-          className="min-w-40 flex-1"
-          hint={`In your wallet: ${toUnits(walletHeld, asset)} ${asset}`}
-          {...(error ? { error } : {})}
-        >
+        <Field label="Amount" className="min-w-40 flex-1" {...(error ? { error } : {})}>
           {(control) => (
             <Input
               {...control}
@@ -228,6 +223,9 @@ function DepositForm({
           Deposit
         </Button>
       </div>
+      <p className="text-xs text-foreground-muted">
+        In your wallet: <span className="numeric">{toUnits(walletHeld, asset)}</span> {asset}
+      </p>
       <StatusFor status={status} actions={["deposit"]} />
     </section>
   );
@@ -276,12 +274,7 @@ function WithdrawForm({
             </Select>
           )}
         </Field>
-        <Field
-          label="Amount"
-          className="min-w-40 flex-1"
-          hint={`In the account: ${toUnits(held, asset)} ${asset}`}
-          {...(error ? { error } : {})}
-        >
+        <Field label="Amount" className="min-w-40 flex-1" {...(error ? { error } : {})}>
           {(control) => (
             <Input
               {...control}
@@ -306,6 +299,9 @@ function WithdrawForm({
           Withdraw
         </Button>
       </div>
+      <p className="text-xs text-foreground-muted">
+        In the account: <span className="numeric">{toUnits(held, asset)}</span> {asset}
+      </p>
       <StatusFor status={status} actions={["withdraw"]} />
     </section>
   );
@@ -323,10 +319,7 @@ export function PortfolioPage({
   const name = `Agent #${agentId.toString()}`;
   const network = wallet.target.name;
   const p = pf.portfolio;
-  const acting =
-    pf.busy &&
-    pf.status !== null &&
-    ["checking", "waiting-wallet", "confirming"].includes(pf.status.progress.state);
+  const acting = pf.acting;
 
   const header = (
     <div className="flex flex-col gap-2">
@@ -335,8 +328,8 @@ export function PortfolioPage({
       </Link>
       <h1 className="text-2xl font-semibold">{name}: portfolio</h1>
       <p className="max-w-2xl text-sm text-foreground-muted">
-        {name}&apos;s trading account on {network} ({ENVIRONMENTS[environment].label}). Only you can
-        withdraw from it; the agent can only trade it within its hard limits.
+        {name}&apos;s trading account on {network}. Only you can withdraw from it; the agent can
+        only trade it within its hard limits.
       </p>
     </div>
   );
@@ -414,7 +407,7 @@ export function PortfolioPage({
             )}
             <CapsPanel caps={capsView(p)} />
             <div className="flex flex-wrap gap-2">
-              <Button disabled={!allowlisted || pf.busy} onClick={pf.openAccount}>
+              <Button disabled={!allowlisted || acting} onClick={pf.openAccount}>
                 Open trading account
               </Button>
             </div>
@@ -446,7 +439,7 @@ export function PortfolioPage({
                       <Button
                         size="sm"
                         variant="secondary"
-                        disabled={pf.busy}
+                        disabled={acting}
                         onClick={() => pf.claim(c.asset, c.token)}
                       >
                         Claim {c.asset}
@@ -481,12 +474,12 @@ export function PortfolioPage({
             actions={
               <>
                 {armingState === "unarmed" || pf.arming?.arming.renewalDue ? (
-                  <Button disabled={pf.busy || !pf.arming?.grantCall} onClick={pf.arm}>
+                  <Button disabled={acting || !pf.arming?.grantCall} onClick={pf.arm}>
                     {armingState === "unarmed" ? "Arm" : "Renew"}
                   </Button>
                 ) : null}
                 {armingState !== "unarmed" ? (
-                  <Button variant="danger" disabled={pf.busy} onClick={pf.disarm}>
+                  <Button variant="danger" disabled={acting} onClick={pf.disarm}>
                     Disarm
                   </Button>
                 ) : null}
@@ -508,7 +501,7 @@ export function PortfolioPage({
                         </span>
                         <Button
                           variant="secondary"
-                          disabled={pf.busy}
+                          disabled={acting}
                           onClick={() => pf.reject(i.intentId)}
                         >
                           Reject
@@ -516,12 +509,12 @@ export function PortfolioPage({
                       </>
                     ) : (
                       <>
-                        <Button disabled={pf.busy} onClick={() => pf.approve(i.intentId)}>
+                        <Button disabled={acting} onClick={() => pf.approve(i.intentId)}>
                           {armingState === "awaiting_first_trade" ? "Approve and arm" : "Approve"}
                         </Button>
                         <Button
                           variant="secondary"
-                          disabled={pf.busy}
+                          disabled={acting}
                           onClick={() => pf.reject(i.intentId)}
                         >
                           Reject
