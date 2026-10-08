@@ -113,6 +113,7 @@ describe.skipIf(!dbUp)("the trade flow (needs Postgres)", { timeout: 60_000 }, (
   let balance: bigint;
   let toppedUp: bigint;
   let finalized: bigint | null;
+  let settledHook: string[] = [];
   let narrated: { key: string; facts: ArmingFacts | TradeFacts | BlockedFacts }[];
   let n = 0;
   let keysEnsured = 0;
@@ -167,6 +168,9 @@ describe.skipIf(!dbUp)("the trade flow (needs Postgres)", { timeout: 60_000 }, (
           : {}),
       },
       finalizedBlock: async () => finalized,
+      onSettled: async (i) => {
+        settledHook.push(i.intentId);
+      },
       narrator: {
         narrateEvent: async (_c, _a, key, facts) => {
           narrated.push({ key, facts });
@@ -192,6 +196,7 @@ describe.skipIf(!dbUp)("the trade flow (needs Postgres)", { timeout: 60_000 }, (
     toppedUp = 0n;
     finalized = null;
     narrated = [];
+    settledHook = [];
     flow = make();
   });
 
@@ -413,6 +418,9 @@ describe.skipIf(!dbUp)("the trade flow (needs Postgres)", { timeout: 60_000 }, (
     const v = await trades.intent(CHAIN, 1, id);
     expect(v).toMatchObject({ status: "reconciled", amountOut: 199_800_000_000_000_000_000n });
     expect(v?.settledAt).toBeInstanceOf(Date);
+    // One value snapshot per settled trade: the hook runs once, however often the flow passes.
+    await flow.tick();
+    expect(settledHook).toEqual([id]);
     expect(narrated.find((x) => x.key === `${id}:trade`)?.facts).toMatchObject({
       activity: "trade",
       sold: { asset: "USDC", amount: "5" },

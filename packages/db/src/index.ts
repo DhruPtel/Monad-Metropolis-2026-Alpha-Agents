@@ -12,6 +12,7 @@ import * as signer from "./migrations/0008_signer.ts";
 import * as signerTransfers from "./migrations/0009_signer_transfers.ts";
 import * as chainTools from "./migrations/0010_chain_tools.ts";
 import * as tradeFlow from "./migrations/0011_trade_flow.ts";
+import * as accountSnapshots from "./migrations/0012_account_snapshots.ts";
 import type { Database } from "./schema.ts";
 
 export type * from "./schema.ts";
@@ -33,6 +34,7 @@ export const MIGRATIONS: Readonly<Record<string, Migration>> = {
   "0009_signer_transfers": signerTransfers,
   "0010_chain_tools": chainTools,
   "0011_trade_flow": tradeFlow,
+  "0012_account_snapshots": accountSnapshots,
 };
 
 const INT8 = 20;

@@ -25,7 +25,14 @@ import { type AgentRef, OpenScanExistsError, type Store, type TaskRequester } fr
 import { startupSweep, type SweepReport } from "./sweep.ts";
 import { type ChainToolsWiring, type ToolServers, startToolServers } from "./tools/servers.ts";
 import { type Tunnel, startTunnel, tunnelPidFile } from "./tunnel.ts";
-import { TradeStore, approveByOwner, confirmArming, disarm } from "@alpha-agents/trading";
+import {
+  SnapshotStore,
+  TradeStore,
+  approveByOwner,
+  confirmArming,
+  disarm,
+} from "@alpha-agents/trading";
+import { SnapshotRecorder } from "./snapshots.ts";
 import type { Hex } from "viem";
 import { TradeFlow, type TradeFlowGas, type TradeFlowSigner } from "./trade-flow.ts";
 
@@ -120,6 +127,8 @@ export class Orchestrator {
   /** P2-U6: arming and intent records, and the worker that turns intents into trades. */
   readonly trades: TradeStore;
   readonly tradeFlow: TradeFlow | null;
+  /** Phase 2 tuning: value snapshots for W-3's charts, where the chain tools can read. */
+  readonly snapshots: SnapshotRecorder | null;
   readonly probeToken = randomToken();
   sweep: SweepReport | null = null;
   private readonly o: OrchestratorOptions;
@@ -185,6 +194,16 @@ export class Orchestrator {
       : null;
     this.trades = new TradeStore(store.db);
     const reader = options.chain?.reader ?? null;
+    this.snapshots = reader
+      ? new SnapshotRecorder({
+          chainId: options.chainId,
+          store,
+          snapshots: new SnapshotStore(store.db, options.credits?.environment ?? "local"),
+          reader,
+          log,
+        })
+      : null;
+    const recorder = this.snapshots;
     this.tradeFlow =
       reader && options.trading
         ? new TradeFlow({
@@ -195,6 +214,9 @@ export class Orchestrator {
             gas: options.trading.gas,
             finalizedBlock: options.trading.finalizedBlock,
             narrator: this.narrator,
+            ...(recorder
+              ? { onSettled: (i) => recorder.observe(i.agentId, "trade", i.intentId) }
+              : {}),
             log,
           })
         : null;
@@ -295,6 +317,12 @@ export class Orchestrator {
       this.every(30_000, "intent expiry", async () => {
         const n = await intents.expireDue(this.o.chainId);
         if (n > 0) this.o.log(`${n} intents expired before approval`);
+      });
+    }
+    if (this.snapshots) {
+      const recorder = this.snapshots;
+      this.every(60_000, "value snapshots", async () => {
+        await recorder.tick();
       });
     }
     if (this.tradeFlow) {

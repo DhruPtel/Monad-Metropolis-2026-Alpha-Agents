@@ -90,6 +90,8 @@ export interface TradeFlowOptions {
    */
   readonly finalizedBlock: () => Promise<bigint | null>;
   readonly narrator?: TradeFlowNarrator | null;
+  /** Called once per settled trade (for its value snapshot); errors are logged, never thrown. */
+  readonly onSettled?: (i: IntentView) => Promise<unknown>;
   readonly log: (line: string) => void;
 }
 
@@ -354,6 +356,14 @@ export class TradeFlow {
       return;
     const amountOut = BigInt(tx.amount_out);
     if (!(await this.o.store.markReconciled(i.intentId, amountOut, tx.tx_hash))) return;
+    if (this.o.onSettled)
+      await this.o
+        .onSettled(i)
+        .catch((err: unknown) =>
+          this.o.log(
+            `agent ${i.agentId}: no snapshot after ${i.intentId}: ${err instanceof Error ? err.message.slice(0, 160) : String(err)}`,
+          ),
+        );
     this.o.log(
       `agent ${i.agentId}: ${i.intentId} settled: ${amountText(i.sell, i.amountIn)} ${i.sell} for ${amountText(i.buy, amountOut)} ${i.buy}`,
     );

@@ -316,6 +316,24 @@ export interface ArmingTable {
   updated_at: Timestamp;
 }
 
+/** A PersonalAccount's value and balances at one moment (Phase 2 tuning, for W-3's charts). */
+export interface AccountSnapshotTable {
+  snapshot_id: string;
+  environment: string;
+  chain_id: number;
+  agent_id: number;
+  account: string;
+  block_number: ColumnType<string, string | number, string | number>;
+  block_time: ColumnType<string, string | number, string | number>;
+  value_usdc_e6: string | null;
+  usdc_e6: string;
+  wmon_wei: string;
+  mode: "NORMAL" | "REDUCE_ONLY" | "PAUSED" | "HANDOVER" | "WIND_DOWN";
+  reason: "interval" | "trade";
+  intent_id: string | null;
+  created_at: Timestamp;
+}
+
 /** One agent's session key in the signer (P2-U4, D-243). */
 export interface SignerKeyTable {
   chain_id: number;
@@ -461,6 +479,7 @@ export interface Database {
   "platform.usage_receipts": UsageReceiptTable;
   "platform.intents": IntentTable;
   "platform.arming": ArmingTable;
+  "platform.account_snapshots": AccountSnapshotTable;
   "platform.refunds": RefundTable;
   "platform.signer_keys": SignerKeyTable;
   "platform.signer_outbox": SignerOutboxTable;
