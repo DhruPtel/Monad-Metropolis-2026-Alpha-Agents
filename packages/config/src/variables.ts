@@ -314,6 +314,30 @@ export const VARIABLES = [
     example: "0x0000000000000000000000000000000000000000000000000000000000000000",
   },
   {
+    name: "TESTNET_ORCHESTRATOR_SECRET",
+    group: "Testnet keys",
+    description:
+      "The testnet orchestrator's secret (ORCHESTRATOR_SECRET on testnet): it encrypts each agent's stored gateway key, so it must stay the same across restarts. pnpm testnet:up creates it once if missing",
+    secret: true,
+    firstUsedBy: "P2-EC",
+    environments: ["testnet"],
+    schema: z.string().regex(/^\S{32,}$/),
+    expected: "at least 32 characters without spaces",
+    example: "your-random-testnet-orchestrator-secret",
+  },
+  {
+    name: "TESTNET_API_SESSION_SECRET",
+    group: "Testnet keys",
+    description:
+      "The testnet control API's session secret (API_SESSION_SECRET on testnet). pnpm testnet:up creates it once if missing",
+    secret: true,
+    firstUsedBy: "P2-EC",
+    environments: ["testnet"],
+    schema: z.string().regex(/^\S{32,}$/),
+    expected: "at least 32 characters without spaces",
+    example: "your-random-testnet-api-session-secret",
+  },
+  {
     name: "TESTNET_ADMIN_SAFE_ADDRESS",
     group: "Testnet keys",
     description: "Admin multisig (Safe) on Monad testnet",
@@ -487,6 +511,7 @@ export const VARIABLES = [
     example: "local-fork-only-orchestrator-secret-0123456789",
     commented: true,
     localDefault: "local-fork-only-orchestrator-secret-0123456789",
+    testnetSource: "TESTNET_ORCHESTRATOR_SECRET",
   },
   {
     name: "REVEAL_KEEPER_PRIVATE_KEY",
@@ -620,6 +645,7 @@ export const VARIABLES = [
     example: "local-fork-only-api-session-secret-0123456789",
     commented: true,
     localDefault: "local-fork-only-api-session-secret-0123456789",
+    testnetSource: "TESTNET_API_SESSION_SECRET",
   },
 
   // Indexer and monitoring

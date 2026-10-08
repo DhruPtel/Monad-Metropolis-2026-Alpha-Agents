@@ -36,14 +36,19 @@ import {
   readState as readLocalState,
   stopGroup,
 } from "./lib/dev-all.js";
-import { DEV_DIR, ROOT } from "./lib/paths.js";
+import { DEV_DIR, ENV_PATH, ROOT } from "./lib/paths.js";
 
 const STATE_PATH = join(DEV_DIR, "testnet-stack.json");
 const LOG_PATH = join(DEV_DIR, "testnet-stack.log");
 const LOCAL_DATABASE = "postgres://alpha:alpha_local_dev_only@127.0.0.1:5432/alpha_agents";
 export const TESTNET_DATABASE = "alpha_agents_testnet";
 
-/** The testnet stack's own values; secrets are fresh each start and never written down. */
+/**
+ * The testnet stack's own values. Its two secrets are TESTNET_ORCHESTRATOR_SECRET and
+ * TESTNET_API_SESSION_SECRET in .env, which config maps on testnet: they must stay the
+ * same across restarts, because the orchestrator encrypts each agent's stored gateway key
+ * with its secret (P2-EC: a fresh secret per start left every stored key unreadable).
+ */
 function testnetEnv() {
   return {
     APP_ENV: "testnet",
@@ -55,8 +60,6 @@ function testnetEnv() {
     ORCHESTRATOR_PORT: "4200",
     ORCHESTRATOR_URL: "http://127.0.0.1:4200",
     APP_PUBLIC_URL: "http://localhost:3000",
-    API_SESSION_SECRET: randomBytes(32).toString("hex"),
-    ORCHESTRATOR_SECRET: randomBytes(32).toString("hex"),
     FORCE_COLOR: "0",
     NO_COLOR: "1",
   };
@@ -134,8 +137,26 @@ async function ensureDatabase() {
   }
 }
 
+/** Adds the testnet secrets to .env once, with random values; prints only their names. */
+function ensureSecrets() {
+  const text = existsSync(ENV_PATH) ? readFileSync(ENV_PATH, "utf8") : "";
+  const missing = ["TESTNET_ORCHESTRATOR_SECRET", "TESTNET_API_SESSION_SECRET"].filter(
+    (name) => !new RegExp(`^${name}=\\S{32,}`, "m").test(text),
+  );
+  if (missing.length === 0) return;
+  const lines = missing.map((name) => `${name}=${randomBytes(32).toString("hex")}`);
+  appendFileSync(
+    ENV_PATH,
+    `${text.endsWith("\n") || text === "" ? "" : "\n"}# P2-EC: the testnet stack's own secrets, made once by pnpm testnet:up\n${lines.join("\n")}\n`,
+  );
+  for (const name of missing)
+    process.env[name] = lines.find((l) => l.startsWith(`${name}=`))?.slice(name.length + 1);
+  console.log(`testnet: added ${missing.join(" and ")} to .env (random, testnet only)`);
+}
+
 async function up() {
   mkdirSync(DEV_DIR, { recursive: true });
+  ensureSecrets();
   const previous = readState();
   if (previous && alive(previous.supervisor))
     fail(
