@@ -1,0 +1,77 @@
+{
+  "checkedAt": "2026-10-08T20:01:30.756Z",
+  "results": [
+    {
+      "feature": "The orchestrator in the canary",
+      "attempt": "start services/orchestrator/src/main.ts with APP_ENV=canary",
+      "refused": true,
+      "answer": "exit 1: - APP_ENV is canary, the P2-EC mainnet canary's own environment; only pnpm canary:mainnet runs in it, never orchestrator (D-251)"
+    },
+    {
+      "feature": "The indexer in the canary",
+      "attempt": "start services/indexer/src/main.ts with APP_ENV=canary",
+      "refused": true,
+      "answer": "exit 1: - APP_ENV is canary, the P2-EC mainnet canary's own environment; only pnpm canary:mainnet runs in it, never indexer (D-251)"
+    },
+    {
+      "feature": "The control API in the canary",
+      "attempt": "start apps/control-api/src/main.ts with APP_ENV=canary",
+      "refused": true,
+      "answer": "exit 1: - APP_ENV is canary, the P2-EC mainnet canary's own environment; only pnpm canary:mainnet runs in it, never control API (D-251)"
+    },
+    {
+      "feature": "Console write tools",
+      "attempt": "start the dev console with APP_ENV=canary",
+      "refused": true,
+      "answer": "exit 1: error: The dev console only runs in the local environment: APP_ENV is canary, not local."
+    },
+    {
+      "feature": "The web app on mainnet (D-252)",
+      "attempt": "webEnvironment('canary'), which every web build calls",
+      "refused": true,
+      "answer": "APP_ENV \"canary\" is the mainnet canary's; the web app is never pointed at it (D-251, D-252)"
+    },
+    {
+      "feature": "Local feed refresher (LocalFeed, D-237)",
+      "attempt": "refreshLocalFeeds against the mainnet RPC",
+      "refused": true,
+      "answer": "NotLocalForkError: Refused: the target RPC is not the local anvil fork (host is not 127.0.0.1)."
+    },
+    {
+      "feature": "Steered reveals (D-221)",
+      "attempt": "LOCAL_FIRST_REVEAL_SPECIES=bee for the canary runner",
+      "refused": true,
+      "answer": "ConfigError: LOCAL_FIRST_REVEAL_SPECIES"
+    },
+    {
+      "feature": "The keeper's impersonated Entropy delivery",
+      "attempt": "sendAs (impersonation) against the mainnet RPC",
+      "refused": true,
+      "answer": "NotLocalForkError: Refused: the target RPC is not the local anvil fork (host is not 127.0.0.1)."
+    },
+    {
+      "feature": "Devenv impersonation helpers and gas top-ups",
+      "attempt": "setMonBalance (anvil_setBalance) against the mainnet RPC",
+      "refused": true,
+      "answer": "NotLocalForkError: Refused: the target RPC is not the local anvil fork (host is not 127.0.0.1)."
+    },
+    {
+      "feature": "Gas top-ups by anvil_setBalance",
+      "attempt": "the canary runner's signer has no top-up",
+      "refused": true,
+      "answer": "pnpm canary:mainnet builds its signer without topUpGas"
+    },
+    {
+      "feature": "The fork chain ID 143143",
+      "attempt": "the canary signer's pinned chain",
+      "refused": true,
+      "answer": "pinned to 143, not 143143"
+    },
+    {
+      "feature": "A beta signer gate",
+      "attempt": "BETA_SIGNING_ENABLED=true with APP_ENV=canary",
+      "refused": true,
+      "answer": "ConfigError: BETA_SIGNING_ENABLED"
+    }
+  ]
+}
