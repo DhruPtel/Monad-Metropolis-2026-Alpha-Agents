@@ -209,7 +209,13 @@ const scanTask = JSON.stringify({
 // disarm and approve change it, and a test-only reset puts it back.
 const WAITING = "intent-6f1c2d9e-7b1a-4c3e-9d2f-1a2b3c4d5e6f";
 const amount = (asset, amount, amountRaw) => ({ asset, amount, amountRaw });
-const blocker = (code, message, clears, clearsAt, hint) => ({ code, message, clears, clearsAt, hint });
+const blocker = (code, message, clears, clearsAt, hint) => ({
+  code,
+  message,
+  clears,
+  clearsAt,
+  hint,
+});
 let armingState = "unarmed";
 let waitingStatus = "awaiting_approval";
 const armingView = () => ({

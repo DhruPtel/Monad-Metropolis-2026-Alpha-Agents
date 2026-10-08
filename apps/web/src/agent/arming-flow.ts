@@ -88,13 +88,11 @@ async function sendAndWait(
 }
 
 const networkOk = async (deps: ArmingFlowDeps): Promise<NetworkCheck> =>
-  deps.checkNetwork().catch(
-    (): NetworkCheck => ({
-      ok: false,
-      reason: "wallet-unreachable",
-      message: "Could not check which network your wallet is on. Try again.",
-    }),
-  );
+  deps.checkNetwork().catch((): NetworkCheck => ({
+    ok: false,
+    reason: "wallet-unreachable",
+    message: "Could not check which network your wallet is on. Try again.",
+  }));
 
 export async function runArm(
   deps: ArmingFlowDeps,
@@ -112,7 +110,10 @@ export async function runArm(
   try {
     const { status, body } = await deps.getArming();
     if (status !== 200)
-      return finish({ state: "error", message: messageOf(body, "Could not load the agent's arming.") });
+      return finish({
+        state: "error",
+        message: messageOf(body, "Could not load the agent's arming."),
+      });
     call = (body as { grantCall?: WalletCall | null }).grantCall ?? null;
   } catch {
     return finish({ state: "error", message: "Could not reach the platform." });
@@ -120,7 +121,8 @@ export async function runArm(
   if (!call)
     return finish({
       state: "error",
-      message: "Trading is not available for this agent yet: it has no funding address or no trading contracts.",
+      message:
+        "Trading is not available for this agent yet: it has no funding address or no trading contracts.",
     });
 
   const sent = await sendAndWait(deps, call, report, "trading permission");
@@ -171,7 +173,10 @@ export async function runDisarm(
   if (typeof sent !== "string")
     return finish(
       sent.state === "rejected"
-        ? { state: "disarmed", message: "The agent is disarmed; the permission stays on chain until you revoke it." }
+        ? {
+            state: "disarmed",
+            message: "The agent is disarmed; the permission stays on chain until you revoke it.",
+          }
         : sent,
     );
   return finish({ state: "disarmed", hash: sent });

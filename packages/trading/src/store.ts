@@ -540,7 +540,9 @@ export class TradeStore {
         intentId: null,
         at: (last?.endedAt ?? this.now()).toISOString(),
       });
-    for (const r of rows.filter((x) => x.status === "rejected" || x.status === "failed").slice(0, 5))
+    for (const r of rows
+      .filter((x) => x.status === "rejected" || x.status === "failed")
+      .slice(0, 5))
       for (const b of r.blockers as unknown as StoredBlocker[])
         reasons.push({ ...b, intentId: r.intent_id, at: new Date(r.updated_at).toISOString() });
     return {

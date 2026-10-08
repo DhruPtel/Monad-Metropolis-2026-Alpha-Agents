@@ -306,7 +306,10 @@ describe.skipIf(!dbUp)("the orchestrator's internal API (D-205)", { timeout: 60_
     });
     const ok = await app.request(`/v1/agents/1/intents/${id}/approve`, { method: "POST" });
     expect(await ok.json()).toMatchObject({ armed: true, intent: { status: "approved" } });
-    const chain = (await (await app.request("/v1/agents/1/chain")).json()) as Record<string, unknown>;
+    const chain = (await (await app.request("/v1/agents/1/chain")).json()) as Record<
+      string,
+      unknown
+    >;
     expect(chain).toMatchObject({
       arming: { state: "armed", firstIntentId: id },
       intents: [expect.objectContaining({ intentId: id, approvedBy: "owner" })],
@@ -315,7 +318,11 @@ describe.skipIf(!dbUp)("the orchestrator's internal API (D-205)", { timeout: 60_
     expect(why).toMatchObject({ armingState: "armed", reasons: [] });
     // Without dev actions the console's arm, disarm and approve do not exist.
     const off = createApi({ orchestrator: o, store, chainId: CHAIN, devActions: false });
-    for (const path of ["/v1/agents/1/arm", "/v1/agents/1/disarm", `/v1/agents/1/intents/${id}/approve`])
+    for (const path of [
+      "/v1/agents/1/arm",
+      "/v1/agents/1/disarm",
+      `/v1/agents/1/intents/${id}/approve`,
+    ])
       expect((await off.request(path, { method: "POST" })).status, path).toBe(404);
   });
 

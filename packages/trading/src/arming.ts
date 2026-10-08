@@ -69,8 +69,7 @@ export function armingEnd(r: ArmingRecord, chain: AgentChainView): ArmingEndReas
   if (!isAddressEqual(chain.owner, r.owner) || chain.ownerEpoch !== r.ownerEpoch) return "sold";
   if (chain.configEpoch !== r.configEpoch) return "config_changed";
   const g = chain.grant;
-  if (g && isAddressEqual(g.key, r.sessionKey) && g.validUntil <= chain.timestamp)
-    return "expired";
+  if (g && isAddressEqual(g.key, r.sessionKey) && g.validUntil <= chain.timestamp) return "expired";
   if (!g || !isAddressEqual(g.key, r.sessionKey)) return "revoked";
   if (g.ownerEpoch !== r.ownerEpoch || g.configEpoch !== r.configEpoch) return "revoked";
   return null;

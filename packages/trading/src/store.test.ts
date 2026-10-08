@@ -160,7 +160,9 @@ describe.skipIf(!dbUp)("the trade store (needs Postgres)", { timeout: 60_000 }, 
     await intent();
     why = await store.whyNotTraded(CHAIN, 1);
     expect(why).toMatchObject({ armingState: "armed", armingEnded: null, waitingForApproval: 1 });
-    expect(why.reasons).toEqual([expect.objectContaining({ code: "TRADE_SIZE_EXCEEDED", intentId: b })]);
+    expect(why.reasons).toEqual([
+      expect.objectContaining({ code: "TRADE_SIZE_EXCEEDED", intentId: b }),
+    ]);
     await store.endArming(record.armingId, "expired");
     why = await store.whyNotTraded(CHAIN, 1);
     expect(why.armingEnded?.reason).toBe("expired");

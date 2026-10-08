@@ -9,8 +9,16 @@ import {
 import { SentElsewhereError } from "./receipt-watch";
 
 const HASH = `0x${"12".repeat(32)}` as const;
-const GRANT: WalletCall = { to: "0x00000000000000000000000000000000000e0ec0", data: "0x1234", value: "0" };
-const REVOKE: WalletCall = { to: "0x00000000000000000000000000000000000e0ec0", data: "0x5678", value: "0" };
+const GRANT: WalletCall = {
+  to: "0x00000000000000000000000000000000000e0ec0",
+  data: "0x1234",
+  value: "0",
+};
+const REVOKE: WalletCall = {
+  to: "0x00000000000000000000000000000000000e0ec0",
+  data: "0x5678",
+  value: "0",
+};
 
 function deps(over: Partial<ArmingFlowDeps> = {}): ArmingFlowDeps & { sent: WalletCall[] } {
   const sent: WalletCall[] = [];
@@ -18,7 +26,10 @@ function deps(over: Partial<ArmingFlowDeps> = {}): ArmingFlowDeps & { sent: Wall
     sent,
     checkNetwork: async () => ({ ok: true }),
     getArming: async () => ({ status: 200, body: { grantCall: GRANT } }),
-    confirmArming: async () => ({ status: 201, body: { arming: { state: "awaiting_first_trade" } } }),
+    confirmArming: async () => ({
+      status: 201,
+      body: { arming: { state: "awaiting_first_trade" } },
+    }),
     disarm: async () => ({ status: 200, body: { disarmed: true, revokeCall: REVOKE } }),
     send: async (call) => {
       sent.push(call);
@@ -39,14 +50,24 @@ describe("arming from the owner's wallet (P2-U6)", () => {
   it("checks the network, sends the grant the API built, waits, then has it recorded", async () => {
     const d = deps();
     const { result, states } = await run(runArm, d);
-    expect(states).toEqual(["checking", "signing", "confirming", "recording", "awaiting-first-trade"]);
+    expect(states).toEqual([
+      "checking",
+      "signing",
+      "confirming",
+      "recording",
+      "awaiting-first-trade",
+    ]);
     expect(result).toEqual({ state: "awaiting-first-trade", hash: HASH });
     expect(d.sent).toEqual([GRANT]);
   });
 
   it("sends nothing when the wallet is on another network", async () => {
     const d = deps({
-      checkNetwork: async () => ({ ok: false, reason: "different-block", message: "Wrong network." }),
+      checkNetwork: async () => ({
+        ok: false,
+        reason: "different-block",
+        message: "Wrong network.",
+      }),
     });
     const { result } = await run(runArm, d);
     expect(result).toEqual({ state: "error", message: "Wrong network." });
@@ -68,7 +89,10 @@ describe("arming from the owner's wallet (P2-U6)", () => {
       deps({
         confirmArming: async () => ({
           status: 409,
-          body: { error: "grant_invalid", message: "A trading permission can last at most 30 days." },
+          body: {
+            error: "grant_invalid",
+            message: "A trading permission can last at most 30 days.",
+          },
         }),
       }),
     );

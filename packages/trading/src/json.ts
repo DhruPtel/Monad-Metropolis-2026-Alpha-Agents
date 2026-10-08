@@ -1,17 +1,14 @@
 import { ASSET_DECIMALS, type ArmingState, ARMING_END_MESSAGES } from "@alpha-agents/domain";
 import { formatUnits } from "viem";
-import {
-  type ArmingRecord,
-  RENEWAL_REMINDER_SECONDS,
-  armingState,
-  grantDate,
-} from "./arming.ts";
+import { type ArmingRecord, RENEWAL_REMINDER_SECONDS, armingState, grantDate } from "./arming.ts";
 import type { IntentView } from "./store.ts";
 
 /** The trade flow's records as JSON for the control API and the dev console (P2-U6). */
 
 const amount = (asset: "USDC" | "WMON", raw: bigint | null) =>
-  raw === null ? null : { asset, amount: formatUnits(raw, ASSET_DECIMALS[asset]), amountRaw: raw.toString() };
+  raw === null
+    ? null
+    : { asset, amount: formatUnits(raw, ASSET_DECIMALS[asset]), amountRaw: raw.toString() };
 
 export function intentJson(i: IntentView) {
   return {

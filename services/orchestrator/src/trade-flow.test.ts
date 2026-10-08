@@ -4,7 +4,12 @@ import { type TestDatabase, createTestDatabase, databaseAvailable } from "@alpha
 import { LAUNCH_EXECUTOR_POLICY, LAUNCH_POLICY_HASH } from "@alpha-agents/policy";
 import type { AcceptResult, SwapIntentArgs } from "@alpha-agents/signer";
 import { SWAP_GAS_LIMIT } from "@alpha-agents/signer";
-import { RENEWAL_REMINDER_SECONDS, TradeStore, approveByOwner, disarm } from "@alpha-agents/trading";
+import {
+  RENEWAL_REMINDER_SECONDS,
+  TradeStore,
+  approveByOwner,
+  disarm,
+} from "@alpha-agents/trading";
 import { type Hex, getAddress } from "viem";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import type { ArmingFacts, BlockedFacts, TradeFacts } from "./narrator.ts";
@@ -455,7 +460,10 @@ describe.skipIf(!dbUp)("the trade flow (needs Postgres)", { timeout: 60_000 }, (
       const r = await arm();
       change();
       const ended = await flow.upkeepArmings();
-      expect(ended.map((e) => e.endedReason), reason).toEqual([reason]);
+      expect(
+        ended.map((e) => e.endedReason),
+        reason,
+      ).toEqual([reason]);
       expect(await trades.openArming(CHAIN, 1)).toBeNull();
       expect(narrated.find((x) => x.key === `${r.armingId}:ended`)?.facts).toMatchObject({
         activity: "arming",

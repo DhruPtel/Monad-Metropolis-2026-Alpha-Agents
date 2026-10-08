@@ -976,7 +976,9 @@ async function main(): Promise<number> {
       "an over-limit proposal is blocked at submission with its reason, served as why the agent did not trade",
       blocked.status === "rejected" &&
         blocked.reasonCodes.includes("TRADE_SIZE_EXCEEDED") &&
-        (why.reasons ?? []).some((r) => r.intentId === overId && r.code === "TRADE_SIZE_EXCEEDED") &&
+        (why.reasons ?? []).some(
+          (r) => r.intentId === overId && r.code === "TRADE_SIZE_EXCEEDED",
+        ) &&
         swapsAfter.length === 1,
       `${blocked.status} ${blocked.reasonCodes.join(",")}; ${swapsAfter.length} swaps`,
     );

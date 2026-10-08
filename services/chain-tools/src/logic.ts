@@ -456,7 +456,12 @@ export async function assessTrade(
     reader.quote(sell, amountIn).catch(() => null),
   ]);
   if (!a?.account) return null;
-  return { m, a, quote, blockers: blockersFor(sell, amountIn, a, m, quote, sessionKey, reservedSlots) };
+  return {
+    m,
+    a,
+    quote,
+    blockers: blockersFor(sell, amountIn, a, m, quote, sessionKey, reservedSlots),
+  };
 }
 
 /**

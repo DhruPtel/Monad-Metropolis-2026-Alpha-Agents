@@ -29,7 +29,11 @@ export interface WalletCall {
 
 export const revokeCall = (executor: Hex, agentId: number): WalletCall => ({
   to: executor,
-  data: encodeFunctionData({ abi: REVOKE_ABI, functionName: "revokeSession", args: [BigInt(agentId)] }),
+  data: encodeFunctionData({
+    abi: REVOKE_ABI,
+    functionName: "revokeSession",
+    args: [BigInt(agentId)],
+  }),
   value: "0",
 });
 
@@ -58,7 +62,8 @@ export async function confirmArming(
   chain: AgentChainView | null,
   a: { chainId: number; agentId: number; owner: Hex; fundingAddress: Hex | null },
 ): Promise<{ ok: true; record: ArmingRecord; renewed: boolean } | ActionRefusal> {
-  if (!chain) return { ok: false, code: "NOT_FOUND", message: "This agent does not exist on this chain." };
+  if (!chain)
+    return { ok: false, code: "NOT_FOUND", message: "This agent does not exist on this chain." };
   if (!a.fundingAddress)
     return {
       ok: false,
@@ -112,9 +117,15 @@ export async function approveByOwner(
     };
   const approved = await store.approve(chainId, agentId, intentId, "owner");
   if (!approved)
-    return { ok: false, code: "NOT_WAITING", message: "This intent is no longer waiting for approval." };
+    return {
+      ok: false,
+      code: "NOT_WAITING",
+      message: "This intent is no longer waiting for approval.",
+    };
   const armed =
-    arming.status === "awaiting_first_trade" ? await store.markArmed(arming.armingId, intentId) : null;
+    arming.status === "awaiting_first_trade"
+      ? await store.markArmed(arming.armingId, intentId)
+      : null;
   return { ok: true, intent: approved, armed };
 }
 

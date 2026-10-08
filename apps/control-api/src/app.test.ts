@@ -743,7 +743,9 @@ describe.skipIf(!available)("the control API (needs pnpm dev:up for Postgres)", 
         });
         const call = body.grantCall as { data: Hex };
         const decoded = decodeFunctionData({
-          abi: parseAbi(["function registerSession(uint256 agentId, address key, uint64 validUntil)"]),
+          abi: parseAbi([
+            "function registerSession(uint256 agentId, address key, uint64 validUntil)",
+          ]),
           data: call.data,
         });
         expect(decoded.args[0]).toBe(2n);
@@ -760,7 +762,10 @@ describe.skipIf(!available)("the control API (needs pnpm dev:up for Postgres)", 
         expect([none.status, (await json(none)).error]).toEqual([409, "grant_invalid"]);
         grant({ key: BOB });
         const other = await json(await owner(session, "/v1/agents/2/arming", "POST"));
-        expect(other).toMatchObject({ error: "grant_invalid", message: expect.stringMatching(/different key/) });
+        expect(other).toMatchObject({
+          error: "grant_invalid",
+          message: expect.stringMatching(/different key/),
+        });
         grant();
         const res = await owner(session, "/v1/agents/2/arming", "POST");
         expect(res.status).toBe(201);
@@ -779,12 +784,19 @@ describe.skipIf(!available)("the control API (needs pnpm dev:up for Postgres)", 
         await owner(session, "/v1/agents/2/arming", "POST");
         const ok = await owner(session, `/v1/agents/2/intents/${id}/approve`, "POST");
         expect(ok.status).toBe(200);
-        expect(await json(ok)).toMatchObject({ armed: true, intent: { status: "approved", approvedBy: "owner" } });
+        expect(await json(ok)).toMatchObject({
+          armed: true,
+          intent: { status: "approved", approvedBy: "owner" },
+        });
         const twice = await owner(session, `/v1/agents/2/intents/${id}/approve`, "POST");
         expect([twice.status, (await json(twice)).error]).toEqual([409, "not_waiting"]);
         const listed = await json(await owner(session, "/v1/agents/2/intents"));
         expect(listed.intents).toEqual([
-          expect.objectContaining({ intentId: id, status: "approved", sell: expect.objectContaining({ amount: "5" }) }),
+          expect.objectContaining({
+            intentId: id,
+            status: "approved",
+            sell: expect.objectContaining({ amount: "5" }),
+          }),
         ]);
         expect((await json(await owner(session, "/v1/agents/2/arming"))).arming).toMatchObject({
           state: "armed",
@@ -828,9 +840,9 @@ describe.skipIf(!available)("the control API (needs pnpm dev:up for Postgres)", 
         chain.owners.set(2n, { owner: CAROL, epoch: 3n });
         const stale = await owner(session, `/v1/agents/2/intents/${id}/approve`, "POST");
         expect((await json(stale)).error).toBe("session_stale");
-        expect((await t.db.selectFrom("platform.intents").select("status").executeTakeFirst())?.status).toBe(
-          "awaiting_approval",
-        );
+        expect(
+          (await t.db.selectFrom("platform.intents").select("status").executeTakeFirst())?.status,
+        ).toBe("awaiting_approval");
       });
 
       it("says publicly why the agent did not trade", async () => {

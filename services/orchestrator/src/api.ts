@@ -544,7 +544,8 @@ export function createApi(o: ApiOptions): Hono {
     app.post("/v1/agents/:agentId/arm", async (c) => {
       const ref = agentRef(c.req.param("agentId"), o.chainId);
       if (!ref) return c.json({ error: "bad_agent_id" }, 400);
-      if (!o.forkUrl) return c.json({ error: "no_fork", message: "Arming here needs the local fork." }, 409);
+      if (!o.forkUrl)
+        return c.json({ error: "no_fork", message: "Arming here needs the local fork." }, 409);
       const body = (await c.req.json().catch(() => null)) as { days?: unknown } | null;
       const days = body?.days === undefined ? 30 : Number(body.days);
       if (!Number.isInteger(days) || days < 1 || days > 30)
@@ -554,13 +555,25 @@ export function createApi(o: ApiOptions): Hono {
         o.orchestrator.fundingAddress(ref),
       ]);
       if (!owner)
-        return c.json({ error: "not_deployed", message: "The agent or the trading contracts are not on this chain." }, 409);
+        return c.json(
+          {
+            error: "not_deployed",
+            message: "The agent or the trading contracts are not on this chain.",
+          },
+          409,
+        );
       if (!funding)
-        return c.json({ error: "no_funding_address", message: "The agent has no funding address yet." }, 409);
+        return c.json(
+          { error: "no_funding_address", message: "The agent has no funding address yet." },
+          409,
+        );
       await registerTestSessionGrant(o.forkUrl, ref.agentId, owner, funding, days);
       const r = await o.orchestrator.confirmArming(ref, owner);
       if (!r.ok) return c.json({ error: r.code.toLowerCase(), message: r.message }, 409);
-      return c.json({ renewed: r.renewed, arming: armingJson(r.record, Math.floor(Date.now() / 1000)) }, 201);
+      return c.json(
+        { renewed: r.renewed, arming: armingJson(r.record, Math.floor(Date.now() / 1000)) },
+        201,
+      );
     });
 
     /** P2-U6: disarm now, and revoke the grant as the owner's wallet would (impersonated on the fork). */
@@ -571,7 +584,10 @@ export function createApi(o: ApiOptions): Hono {
       const owner = await o.orchestrator.chainOwner(ref.agentId);
       if (o.forkUrl && owner) await revokeTestSessionGrant(o.forkUrl, ref.agentId, owner);
       const { last } = await o.orchestrator.arming(ref);
-      return c.json({ disarmed: ended !== null, arming: armingJson(last, Math.floor(Date.now() / 1000)) });
+      return c.json({
+        disarmed: ended !== null,
+        arming: armingJson(last, Math.floor(Date.now() / 1000)),
+      });
     });
 
     /** P2-U6: approve a waiting intent as the owner; the first approval after the grant arms the agent. */
@@ -582,7 +598,10 @@ export function createApi(o: ApiOptions): Hono {
       if (!/^intent-[0-9a-f-]{36}$/.test(intentId)) return c.json({ error: "bad_intent_id" }, 400);
       const r = await o.orchestrator.approveIntent(ref, intentId);
       if (!r.ok)
-        return c.json({ error: r.code.toLowerCase(), message: r.message }, r.code === "NOT_FOUND" ? 404 : 409);
+        return c.json(
+          { error: r.code.toLowerCase(), message: r.message },
+          r.code === "NOT_FOUND" ? 404 : 409,
+        );
       return c.json({ intent: intentJson(r.intent), armed: r.armed !== null });
     });
 

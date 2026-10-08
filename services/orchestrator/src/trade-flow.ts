@@ -330,13 +330,21 @@ export class TradeFlow {
         hint: `${b.hint} (${tx.reason_code ?? "failed"})`,
       };
       const why = `${tx.reason_code ?? "failed"}: ${tx.reason ?? ""}`;
-      if (await this.o.store.markStopped(i.intentId, ["submitted", "confirmed"], "failed", why, [stopped])) {
+      if (
+        await this.o.store.markStopped(i.intentId, ["submitted", "confirmed"], "failed", why, [
+          stopped,
+        ])
+      ) {
         this.o.log(`agent ${i.agentId}: ${i.intentId} failed (${tx.reason_code ?? "?"})`);
         this.narrateBlocked(i, [stopped]);
       }
       return;
     }
-    if ((tx.status === "confirmed" || tx.status === "reconciled") && i.status === "submitted" && tx.tx_hash)
+    if (
+      (tx.status === "confirmed" || tx.status === "reconciled") &&
+      i.status === "submitted" &&
+      tx.tx_hash
+    )
       await this.o.store.markConfirmed(i.intentId, tx.tx_hash);
     if (tx.status !== "reconciled" || tx.amount_out === null || !tx.tx_hash) return;
     const finalized = await this.o.finalizedBlock();
@@ -374,5 +382,4 @@ export class TradeFlow {
     this.narrated.add(key);
     void n.narrateEvent(this.o.chainId, agentId, key, facts).catch(() => undefined);
   }
-
 }
