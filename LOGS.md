@@ -689,3 +689,18 @@ Suggestions:
 - Phase 3's runner should keep the paced polling (D-310) for its 60-second loop's reads.
 Bugs: L-134, L-135, L-136, L-137, L-138, L-139, L-140.
 Commit: 1b401ae, 470ddd9, 7b75bfe, b9db7a1, 95279e2, bfde472, ff2e6bf, 261770e, 849904b, e330ff2, 57d1f55, 20cb18d, 04102f5, 7062c87, 350f772, 0e615f2, c2df44e, ce0ed42, plus the docs commit.
+
+## 2026-10-08, P2-EC part 1 follow-up: the second RPC provider
+Status: done. Out of scope: a second mainnet provider (none was added), the control API's reads (still one provider, suggested below).
+Summary: The owner's second provider was a QuickNode endpoint that serves Monad testnet, saved under the mainnet fallback's name, so nothing used it. It is now the testnet fallback, every chain-facing service fails over to its chain's second provider, a provider on the wrong chain is refused, and Q-52 and Q-59 are closed with measurements.
+- Found: of the three RPC entries in .env, MONAD_RPC_URL (Alchemy) serves 143, MONAD_TESTNET_RPC_URL (Alchemy) 10143, and MONAD_RPC_URL_SECONDARY (QuickNode) 10143. It was renamed MONAD_TESTNET_RPC_URL_SECONDARY in .env (value untouched, no URL printed). MONAD_API_KEY is not an RPC entry.
+- Measured (`pnpm rpc:probe`, ac255ca, evidence/rpc-providers.json): mainnet Alchemy archive, 10-block logs, no 429 at 19 a second; testnet Alchemy 10-block logs, no 429 at 19 a second, no state 9M blocks back; testnet QuickNode 5-block logs, 429 to about a fifth of requests at 19 a second (and 413 for logs over its range), state 9M back but not 39M. Alchemy stays the testnet primary and QuickNode is the fallback (D-314).
+- Failover (68dfb5a): fork upstreams are chain-checked; the indexer, chain tools, keeper, feeds and refunds fail over through `rpcTransport` or the indexer's own fallback; the signer starts when only its secondary answers; the orchestrator refuses a fallback on another chain. Live with each primary blocked (evidence/rpc-failover.json): a fork start (36 s, through the mainnet provider used as second upstream), the chain tools' market and agent reads, the signer's chain check, nonce and fees, and the indexer (about 11 blocks a second) all worked through the second provider.
+- Tests: upstream chain check, indexer failover (each failure kind, the one-minute return, no failover on a range refusal, both chains reported, no URL in errors), rpcTransport between two local servers, the signer's start with a down primary; 128 tests across the touched packages, format, lint, typecheck and the secrets scan.
+- Decisions: D-314; Q-52 resolved (option B: one archive-capable mainnet provider), Q-59 resolved (option A: the second testnet provider). Lesson L-141.
+Suggestions:
+- Add a second mainnet provider as MONAD_RPC_URL_SECONDARY before PB-U1; the chain check now guarantees it is used only if it serves 143.
+- Give the control API's portfolio and arming reads the same fallback.
+- Make the indexer's --once stop on SIGTERM.
+Bugs: L-141.
+Commit: 68dfb5a, ac255ca, plus the docs commit.

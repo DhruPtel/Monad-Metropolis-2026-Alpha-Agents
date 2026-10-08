@@ -1077,3 +1077,10 @@ What happened: (1) The testnet dry-run test built a stale-feed intent after the 
 Cause: Writing the flow from memory of the APIs, and starting a run without checking that the edit had applied.
 Fix: Each was fixed before its commit (the build folders joined the ignore lists in 57d1f55); the scripted edit was redone against the current text and asserted (L-78).
 Lesson: After a scripted edit fails, stop: rerun nothing until the edit is applied and checked.
+
+## L-141: A testnet provider saved under the mainnet fallback's name was never used, and two paths could not fail over
+Unit: P2-EC (follow-up)
+What happened: The owner added a second RPC provider, yet Q-52 and Q-59 stayed open. Probing every RPC entry in .env by name showed MONAD_RPC_URL_SECONDARY answered chain 10143: a testnet endpoint under the mainnet fallback's name. Testnet reads only MONAD_TESTNET_RPC_URL_SECONDARY, so nothing used it, and the fork's upstream list would have alternated with a testnet node. Checking failover then found two gaps: the indexer, chain tools, keeper, feeds and refunds had no second provider at all, and the signer refused to start when its primary was down. Separately, an indexer run with --once did not stop on SIGTERM and had to be stopped by PID.
+Cause: Configuration matched variables by name without checking what each URL serves, and failover had been built only into the fork's upstream proxy and the signer's reads.
+Fix: The entry was renamed (its value untouched); fork upstreams are chain-checked and a wrong-chain one is dropped by name; the indexer, chain tools, keeper, feeds and refunds fail over to the second provider; the signer starts when only its secondary answers (68dfb5a). With each primary blocked, all of them worked through the second provider.
+Lesson: Check what chain an RPC entry serves before using it, and prove failover by blocking the primary in each service, not by reading the configuration.
