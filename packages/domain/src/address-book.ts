@@ -1,6 +1,7 @@
 import {
   type EnvironmentId,
   LOCAL_FORK_CHAIN_ID,
+  MONAD_MAINNET_CHAIN_ID,
   MONAD_TESTNET_CHAIN_ID,
 } from "@alpha-agents/config";
 import type { Address } from "./ids.ts";
@@ -1067,13 +1068,190 @@ const TESTNET_DEPLOYED: readonly AddressEntry[] = [
 ];
 
 /**
- * P2-EC part 2's throwaway mainnet canary (D-247, D-249, D-250): `agent_nft`
- * is CanaryAgent, which knows one agent and is not an ERC-721. Filled from
- * the chain after `pnpm deploy:canary`; nothing here carries into the beta.
+ * P2-EC part 2's throwaway mainnet canary (D-247, D-249, D-250), as observed
+ * on Monad mainnet after `pnpm deploy:canary` and verified on Sourcify (D-256,
+ * D-316): `agent_nft` is CanaryAgent, which knows one agent and is not an
+ * ERC-721. Every salt carries the p2ec.canary scope; nothing here carries
+ * into the beta. Every transaction is in evidence/p2-ec/canary-deployment.json.
  */
+const CANARY_SOURCE = "evidence/p2-ec/ADDRESSES.md (P2-EC part 2, mainnet canary, throwaway)";
 const CANARY_DEPLOYED: readonly AddressEntry[] = [
-  agentNftUndeployed("P2-EC canary: CanaryAgent, deployed by pnpm deploy:canary (D-250)"),
-  ...custodyUndeployed("P2-EC canary: deployed by pnpm deploy:canary"),
+  {
+    id: "agent_nft",
+    label: "CanaryAgent",
+    kind: "platform",
+    address: "0x22A4790313067278B0d15C9C5a7Df4e4613b9cA8",
+    status: "verified",
+    verification: {
+      chainId: MONAD_MAINNET_CHAIN_ID,
+      block: 111700435,
+      codeSize: 848,
+      deployedBy: "pnpm deploy:canary",
+      chain: {
+        codeHash: "0xc2eb3e6523ab953bd9533aac33a3ad08bb8a3eaa51413209d83e95192fa8404c",
+        explorer: "https://monadvision.com/address/0x22A4790313067278B0d15C9C5a7Df4e4613b9cA8",
+        transaction: "0x30a0e635b79f3e2621e5368e7b4b991727636c10ea4c4fa059dcd7c3e16c5410",
+        sourcify: "https://repo.sourcify.dev/143/0x22A4790313067278B0d15C9C5a7Df4e4613b9cA8",
+      },
+    },
+    source: CANARY_SOURCE,
+    openQuestion: null,
+    note: "P2-EC mainnet canary, throwaway (D-250): stands in for AgentNFT; knows one agent (ID 1) owned by the canary owner; not an ERC-721",
+  },
+  {
+    id: "account_factory",
+    label: "AccountFactory",
+    kind: "platform",
+    address: "0xE93c0E9dbEDB26919761e371F27BBf1863FB94FD",
+    status: "verified",
+    verification: {
+      chainId: MONAD_MAINNET_CHAIN_ID,
+      block: 111700508,
+      codeSize: 12557,
+      deployedBy: "pnpm deploy:canary",
+      chain: {
+        codeHash: "0x3d0844b2844f2f5ab91d4330964f93444b338ce3088ec9d950176c5ad41aadff",
+        explorer: "https://monadvision.com/address/0xE93c0E9dbEDB26919761e371F27BBf1863FB94FD",
+        transaction: "0x78fbf11b2e2f9c6624d46e85ff6d5f82979bad53d85be79b59ff9e84e1612ca6",
+        sourcify: "https://repo.sourcify.dev/143/0xE93c0E9dbEDB26919761e371F27BBf1863FB94FD",
+      },
+    },
+    source: CANARY_SOURCE,
+    openQuestion: null,
+    note: "P2-EC mainnet canary, throwaway: caps 10 and 10 USDC; allowlist the canary owner only; sentinel zero",
+  },
+  {
+    id: "personal_account_implementation",
+    label: "PersonalAccount implementation",
+    kind: "platform",
+    address: "0xD2419E99Cc3b555eeCB11713e24d714030504A7d",
+    status: "verified",
+    verification: {
+      chainId: MONAD_MAINNET_CHAIN_ID,
+      block: 111700508,
+      codeSize: 23514,
+      deployedBy: "pnpm deploy:canary",
+      chain: {
+        codeHash: "0x1b226a3ff69d5bd25ab4f97dabe68bc27f9cb259651a6a8702e138bf3c516c6f",
+        explorer: "https://monadvision.com/address/0xD2419E99Cc3b555eeCB11713e24d714030504A7d",
+        transaction: "0x78fbf11b2e2f9c6624d46e85ff6d5f82979bad53d85be79b59ff9e84e1612ca6",
+        sourcify: "https://repo.sourcify.dev/143/0xD2419E99Cc3b555eeCB11713e24d714030504A7d",
+      },
+    },
+    source: CANARY_SOURCE,
+    openQuestion: null,
+    note: "Deployed by the canary AccountFactory constructor",
+  },
+  {
+    id: "oracle_adapter",
+    label: "Oracle adapter",
+    kind: "platform",
+    address: "0x4d607DED5A5b3f2ea7A46fF3d85563c01138Afa0",
+    status: "verified",
+    verification: {
+      chainId: MONAD_MAINNET_CHAIN_ID,
+      block: 111700482,
+      codeSize: 7076,
+      deployedBy: "pnpm deploy:canary",
+      chain: {
+        codeHash: "0x4064c3bd808e3ebb31b3ec6634ba777d608a1138f1077232da13fd6d3181dad9",
+        explorer: "https://monadvision.com/address/0x4d607DED5A5b3f2ea7A46fF3d85563c01138Afa0",
+        transaction: "0xbd362c81cba590178966dbb2aabdc00947c0d7122fed063c036aa9b56cc70b5e",
+        sourcify: "https://repo.sourcify.dev/143/0x4d607DED5A5b3f2ea7A46fF3d85563c01138Afa0",
+      },
+    },
+    source: CANARY_SOURCE,
+    openQuestion: null,
+    note: "Over the real Chainlink MON/USD and USDC/USD feeds and the launch pool, with the launch bounds",
+  },
+  {
+    id: "executor",
+    label: "Executor",
+    kind: "platform",
+    address: "0x7a74C37F5fe4cb92db6304Fe77568B0D1FFcA4f1",
+    status: "verified",
+    verification: {
+      chainId: MONAD_MAINNET_CHAIN_ID,
+      block: 111700486,
+      codeSize: 28590,
+      deployedBy: "pnpm deploy:canary",
+      chain: {
+        codeHash: "0x442ab8404dbb75a02f9ecd4956515fa89e3dae18cb09f7a847c848cde0badc59",
+        explorer: "https://monadvision.com/address/0x7a74C37F5fe4cb92db6304Fe77568B0D1FFcA4f1",
+        transaction: "0xb1e87d8d4dcd6e1819f1bdfda65e18cb10a5c4c4543139e6e90cb018535e9072",
+        sourcify: "https://repo.sourcify.dev/143/0x7a74C37F5fe4cb92db6304Fe77568B0D1FFcA4f1",
+      },
+    },
+    source: CANARY_SOURCE,
+    openQuestion: null,
+    note: "P2-EC mainnet canary, throwaway: launch policy; admin the canary owner, guardian the canary guardian; bound to the canary factory and registry",
+  },
+  {
+    id: "protocol_registry",
+    label: "ProtocolRegistry",
+    kind: "platform",
+    address: "0xa68A2d81666C69eB206B91A3EC0d3C9f4f9d2243",
+    status: "verified",
+    verification: {
+      chainId: MONAD_MAINNET_CHAIN_ID,
+      block: 111700505,
+      codeSize: 9211,
+      deployedBy: "pnpm deploy:canary",
+      chain: {
+        codeHash: "0x463d8c302305a67b3a4aa99c1c074058d56b5fa7ca69a72d0c585f19ae92ac3f",
+        explorer: "https://monadvision.com/address/0xa68A2d81666C69eB206B91A3EC0d3C9f4f9d2243",
+        transaction: "0xb32bf370a52c3ee9a234e07e4c35307d3e4a0feff020012dc4a58ba9ea4320af",
+        sourcify: "https://repo.sourcify.dev/143/0xa68A2d81666C69eB206B91A3EC0d3C9f4f9d2243",
+      },
+    },
+    source: CANARY_SOURCE,
+    openQuestion: null,
+    note: "Lists the v4 adapter (active) and the v3 adapter (paused)",
+  },
+  {
+    id: "venue_uniswap_v4_mon_usdc",
+    label: "Uniswap v4 MON/USDC 0.05% adapter",
+    kind: "platform",
+    address: "0x38E035433c7a500f0ebc1FDcCcd42213446C511f",
+    status: "verified",
+    verification: {
+      chainId: MONAD_MAINNET_CHAIN_ID,
+      block: 111700494,
+      codeSize: 7589,
+      deployedBy: "pnpm deploy:canary",
+      chain: {
+        codeHash: "0x7cbf59b4000e99e1b84f673555a79f0546d17bda548f7006bcb61ed8eb7d8e4b",
+        explorer: "https://monadvision.com/address/0x38E035433c7a500f0ebc1FDcCcd42213446C511f",
+        transaction: "0xaef461c88769b5019ca9f0528177d3223b4ddff849d5126f9a01e7f84d0c6430",
+        sourcify: "https://repo.sourcify.dev/143/0x38E035433c7a500f0ebc1FDcCcd42213446C511f",
+      },
+    },
+    source: CANARY_SOURCE,
+    openQuestion: null,
+    note: "On the real launch pool (D-166)",
+  },
+  {
+    id: "venue_uniswap_v3_usdc_wmon",
+    label: "Uniswap v3 USDC/WMON 0.3% adapter",
+    kind: "platform",
+    address: "0x3b7a5882584fF31e2E96877f8D3A68b539796e8E",
+    status: "verified",
+    verification: {
+      chainId: MONAD_MAINNET_CHAIN_ID,
+      block: 111700497,
+      codeSize: 3394,
+      deployedBy: "pnpm deploy:canary",
+      chain: {
+        codeHash: "0xc8b4f91f3c469fb542cf7f1c41f1b901cf4093f7776091668f1d490541095ade",
+        explorer: "https://monadvision.com/address/0x3b7a5882584fF31e2E96877f8D3A68b539796e8E",
+        transaction: "0xd441753ad6f672d8b5ea4da6981e09c6dcb99f0b8a673588024118b0e4dace2f",
+        sourcify: "https://repo.sourcify.dev/143/0x3b7a5882584fF31e2E96877f8D3A68b539796e8E",
+      },
+    },
+    source: CANARY_SOURCE,
+    openQuestion: null,
+    note: "On SwapRouter02; registered paused, as the beta will have it",
+  },
 ];
 
 export const ADDRESS_BOOK: Readonly<Record<EnvironmentId, readonly AddressEntry[]>> = {

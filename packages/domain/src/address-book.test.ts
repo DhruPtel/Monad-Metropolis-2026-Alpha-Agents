@@ -51,10 +51,11 @@ describe("address book", () => {
         // Mainnet state at the pin is chain 143; our own local contracts live
         // only on the local fork, chain 143143 (D-195); testnet entries were
         // observed on testnet itself, 10143 (P2-EC).
+        // The canary's own contracts were observed on mainnet itself (P2-EC part 2).
         expect(e.verification.chainId).toBe(
           env === "testnet"
             ? MONAD_TESTNET_CHAIN_ID
-            : e.kind === "platform"
+            : e.kind === "platform" && env !== "canary"
               ? LOCAL_FORK_CHAIN_ID
               : MONAD_MAINNET_CHAIN_ID,
         );
@@ -67,12 +68,16 @@ describe("address book", () => {
     const external = (env: "local" | "beta") =>
       ADDRESS_BOOK[env].filter((e) => e.kind !== "platform");
     expect(external("local")).toEqual(external("beta"));
+    expect(ADDRESS_BOOK.canary.filter((e) => e.kind !== "platform")).toEqual(external("beta"));
     for (const env of ENVIRONMENT_IDS) {
       for (const e of ADDRESS_BOOK[env]) {
         if (e.status !== "verified") continue;
         if (env === "testnet") {
           expect(e.verification.chain?.codeHash, e.id).toMatch(/^0x[0-9a-f]{64}$/);
           expect(e.verification.chain?.explorer).toContain("testnet.monadvision.com");
+        } else if (env === "canary" && e.kind === "platform") {
+          expect(e.verification.chain?.codeHash, e.id).toMatch(/^0x[0-9a-f]{64}$/);
+          expect(e.verification.chain?.explorer).toMatch(/^https:\/\/monadvision\.com\/address\//);
         } else {
           expect(e.verification.chain, `${env} ${e.id}`).toBeUndefined();
         }
@@ -95,10 +100,15 @@ describe("address book", () => {
         if (e.status === "verified" && e.verification.deployedBy !== undefined) {
           // Our own deployments: the local fork's, or P2-EC's on testnet with
           // their deployment transaction and Sourcify link (D-254, D-256).
-          expect(["local", "testnet"], e.id).toContain(env);
+          expect(["local", "testnet", "canary"], e.id).toContain(env);
           if (env === "testnet") {
             expect(e.verification.chain?.transaction, e.id).toMatch(/^0x[0-9a-f]{64}$/);
             expect(e.verification.chain?.sourcify).toContain("repo.sourcify.dev/10143/");
+          } else if (env === "canary") {
+            // P2-EC part 2's throwaway canary: mainnet, its own transaction and Sourcify link.
+            expect(e.verification.chain?.transaction, e.id).toMatch(/^0x[0-9a-f]{64}$/);
+            expect(e.verification.chain?.sourcify).toContain("repo.sourcify.dev/143/");
+            expect(e.verification.deployedBy).toBe("pnpm deploy:canary");
           } else {
             expect(e.kind).toBe("platform");
           }
@@ -128,6 +138,20 @@ describe("address book", () => {
       openQuestion: "Q-13",
     });
     expect(addressEntry("beta", "usdc").openQuestion).toBe("Q-03");
+  });
+});
+
+describe("the mainnet canary's entries (P2-EC part 2)", () => {
+  it("names CanaryAgent as the canary's agent_nft, and none of the canary's contracts for the beta", () => {
+    expect(addressEntry("canary", "agent_nft")).toMatchObject({
+      label: "CanaryAgent",
+      status: "verified",
+      address: "0x22A4790313067278B0d15C9C5a7Df4e4613b9cA8",
+    });
+    for (const id of ["agent_nft", "executor", "account_factory"] as const) {
+      expect(addressEntry("beta", id).address).toBeNull();
+      expect(addressEntry("canary", id).address).not.toBe(addressEntry("local", id).address);
+    }
   });
 });
 

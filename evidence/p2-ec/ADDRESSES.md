@@ -44,3 +44,40 @@ AccountFactory's deposit allowlist at deployment: the test wallet and the owner'
 | Seed | Liquidity 95,902,508,421,861 in ticks -276,420 to -276,220 (about ±1%), about 0.4975 MON and 0.459 USDC, about 96 USDC of virtual depth; trades up to about 0.05 USDC (D-307) |
 | Feeds | Both TestnetFeeds answer 1.00 USD with 8 decimals, refreshed on demand (D-307) |
 | Quotes | The unofficial deployment's V4Quoter `0x869834d127b230283fe63E0d0A9bEB67216a94C7` (Monad's protocols repository, `testnet/uniswap_v4.jsonc`) |
+
+# P2-EC part 2: mainnet canary
+
+Monad mainnet (chain 143). A labeled throwaway canary of the trading contracts (D-247, D-249, D-250): nothing here carries into the Rehearsal or the beta, and there is no AgentNFT on mainnet; CanaryAgent stands in for it. Every CREATE2 salt is `keccak256("alpha-agents.p2ec.canary.<name>.v1")`, and the canary deploys to 143 only with `DEPLOY_SALT_SCOPE=p2ec.canary` and `CANARY_SIGNING_ENABLED=true` (`pnpm test:canary-fork` and the script tests check it). Deployed by `pnpm deploy:canary` on 2026-10-08 from block 111700382, for 2.4551 MON in 8 transactions; verified by `pnpm verify:canary` on Sourcify (D-256, D-316), which MonadVision reads. The full records are `canary-deployment.json` and `canary-verification.json`. The mainnet facts the canary relies on were re-checked before deploying: code sizes as recorded at the fork pin, decimals, both Chainlink feeds within their bounds, and the launch pool initialized with liquidity at fee 500.
+
+## Contracts
+
+Each code size equals the fork's and testnet's for the same contract (CanaryAgent is new).
+
+| Contract | Address | Block | Creation transaction | Code size (bytes) | Code hash | Constructor arguments | Sourcify |
+|---|---|---|---|---|---|---|---|
+| CanaryAgent | [`0x22A4790313067278B0d15C9C5a7Df4e4613b9cA8`](https://monadvision.com/address/0x22A4790313067278B0d15C9C5a7Df4e4613b9cA8) | 111700435 | [`0x30a0e635…`](https://monadvision.com/tx/0x30a0e635b79f3e2621e5368e7b4b991727636c10ea4c4fa059dcd7c3e16c5410) | 848 | `0xc2eb3e6523ab953b…` | 32 bytes | [exact_match](https://repo.sourcify.dev/143/0x22A4790313067278B0d15C9C5a7Df4e4613b9cA8) |
+| OracleAdapter | [`0x4d607DED5A5b3f2ea7A46fF3d85563c01138Afa0`](https://monadvision.com/address/0x4d607DED5A5b3f2ea7A46fF3d85563c01138Afa0) | 111700482 | [`0xbd362c81…`](https://monadvision.com/tx/0xbd362c81cba590178966dbb2aabdc00947c0d7122fed063c036aa9b56cc70b5e) | 7076 | `0x4064c3bd808e3ebb…` | 384 bytes | [exact_match](https://repo.sourcify.dev/143/0x4d607DED5A5b3f2ea7A46fF3d85563c01138Afa0) |
+| Executor | [`0x7a74C37F5fe4cb92db6304Fe77568B0D1FFcA4f1`](https://monadvision.com/address/0x7a74C37F5fe4cb92db6304Fe77568B0D1FFcA4f1) | 111700486 | [`0xb1e87d8d…`](https://monadvision.com/tx/0xb1e87d8d4dcd6e1819f1bdfda65e18cb10a5c4c4543139e6e90cb018535e9072) | 28590 | `0x442ab8404dbb75a0…` | 416 bytes | [exact_match](https://repo.sourcify.dev/143/0x7a74C37F5fe4cb92db6304Fe77568B0D1FFcA4f1) |
+| UniswapV4MonUsdcAdapter | [`0x38E035433c7a500f0ebc1FDcCcd42213446C511f`](https://monadvision.com/address/0x38E035433c7a500f0ebc1FDcCcd42213446C511f) | 111700494 | [`0xaef461c8…`](https://monadvision.com/tx/0xaef461c88769b5019ca9f0528177d3223b4ddff849d5126f9a01e7f84d0c6430) | 7589 | `0x7cbf59b4000e99e1…` | 160 bytes | [exact_match](https://repo.sourcify.dev/143/0x38E035433c7a500f0ebc1FDcCcd42213446C511f) |
+| UniswapV3UsdcWmonAdapter | [`0x3b7a5882584fF31e2E96877f8D3A68b539796e8E`](https://monadvision.com/address/0x3b7a5882584fF31e2E96877f8D3A68b539796e8E) | 111700497 | [`0xd441753a…`](https://monadvision.com/tx/0xd441753ad6f672d8b5ea4da6981e09c6dcb99f0b8a673588024118b0e4dace2f) | 3394 | `0xc8b4f91f3c469fb5…` | 128 bytes | [exact_match](https://repo.sourcify.dev/143/0x3b7a5882584fF31e2E96877f8D3A68b539796e8E) |
+| ProtocolRegistry | [`0xa68A2d81666C69eB206B91A3EC0d3C9f4f9d2243`](https://monadvision.com/address/0xa68A2d81666C69eB206B91A3EC0d3C9f4f9d2243) | 111700505 | [`0xb32bf370…`](https://monadvision.com/tx/0xb32bf370a52c3ee9a234e07e4c35307d3e4a0feff020012dc4a58ba9ea4320af) | 9211 | `0x463d8c302305a67b…` | 480 bytes | [exact_match](https://repo.sourcify.dev/143/0xa68A2d81666C69eB206B91A3EC0d3C9f4f9d2243) |
+| AccountFactory | [`0xE93c0E9dbEDB26919761e371F27BBf1863FB94FD`](https://monadvision.com/address/0xE93c0E9dbEDB26919761e371F27BBf1863FB94FD) | 111700508 | [`0x78fbf11b…`](https://monadvision.com/tx/0x78fbf11b2e2f9c6624d46e85ff6d5f82979bad53d85be79b59ff9e84e1612ca6) | 12557 | `0x3d0844b2844f2f5a…` | 416 bytes | [exact_match](https://repo.sourcify.dev/143/0xE93c0E9dbEDB26919761e371F27BBf1863FB94FD) |
+| PersonalAccount implementation | [`0xD2419E99Cc3b555eeCB11713e24d714030504A7d`](https://monadvision.com/address/0xD2419E99Cc3b555eeCB11713e24d714030504A7d) | 111700508 | [`0x78fbf11b…`](https://monadvision.com/tx/0x78fbf11b2e2f9c6624d46e85ff6d5f82979bad53d85be79b59ff9e84e1612ca6) | 23514 | `0x1b226a3ff69d5bd2…` | 96 bytes | [exact_match](https://repo.sourcify.dev/143/0xD2419E99Cc3b555eeCB11713e24d714030504A7d) |
+
+The PersonalAccount implementation is created by AccountFactory's constructor, so its creation transaction is AccountFactory's. The Executor's binding to the factory and registry is [`0x09979d97…`](https://monadvision.com/tx/0x09979d9781b0cdf50b4c3e68432dbc5981b8b716dc89dc583e97300a85baa2be).
+
+## Settings
+
+- CanaryAgent: one agent, ID 1, owned by the canary owner, ownership epoch 0; any other ID reverts; no transfer, mint or approval; refuses any chain but 143.
+- Oracle adapter: Chainlink MON/USD `0xBcD78f76005B7515837af6b50c7C52BCf73822fb` (300 s) and USDC/USD `0xf5F15f188AbCB0d165D1Edb7f37F7d6fA2fCebec` (3,900 s), 8 decimals, the real StateView and the launch pool `0x18a9...9954`, deviation 200 bps, depeg 100 bps.
+- Executor: the launch policy unchanged (10% per trade, 40% per asset, 10% USDC floor, 50 bps slippage, 120 s deadline).
+- ProtocolRegistry: the v4 adapter on the launch pool ACTIVE, the v3 adapter on SwapRouter02 PAUSED.
+- AccountFactory: caps 10 and 10 USDC (A-39, fixed for the canary's life), the allowlist on with only the canary owner, sentinel zero, the oracle adapter and the Executor given at deployment.
+
+## Roles
+
+| Role | Address | Key |
+|---|---|---|
+| Canary owner: deployer, admin of every canary contract, owner of agent 1 (D-259) | `0x170921ED4D5E221CB2294a8a2f8c4afd4FDA2Fa8` | `CANARY_OWNER_PRIVATE_KEY` |
+| Guardian (AccountFactory, Executor, ProtocolRegistry) | `0x7935C37B9e1E85E9d393dbB31d93EC920f4053F8` | `CANARY_GUARDIAN_PRIVATE_KEY` |
+| Session key (agent 1's grant on the Executor, D-252) | `0x8528B930C390a8115F9Ff4e41387802699fCf50d` | `CANARY_SESSION_PRIVATE_KEY` |
