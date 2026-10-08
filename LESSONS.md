@@ -986,3 +986,24 @@ What happened: The second live run timed out "waiting for the chain check": the 
 Cause: (1) The live run's scheduler starts a Scan every 15 seconds, and while one holds the agent's sandbox the console route answers 409 `lease_held`; the check posted once and never read the status (P2-U5's step had the same race and won it by timing). (2) The prompt let the model pick the size from several numbers ("at most half of maxTradeValueUsdc and at most the USDC you hold"), and it used another figure.
 Fix: The live check retries the chain check until it is accepted (e48d6a5); the prompt names a concrete size, 1 USDC when the limits allow it, and says never to use the account's value or a price as the amount (f7d7c9a). The fourth run passed 34 of 34.
 Lesson: Read the status of every request a live check makes. Give an LLM step a concrete number when the test needs a specific outcome; the hard limits are the safety, the prompt is only the plan.
+
+## L-128: A new test file went into a commit unscanned for secrets
+Unit: P2-U7
+What happened: The commit gate passed before 3e6f103, and the next gate's full-history scan then found two "generic-api-key" findings in that commit's new `portfolio.test.tsx`. Both were the public USDC and WMON addresses under a `token` key, so nothing leaked; they are recorded in `.gitleaksignore` with their reason.
+Cause: I ran the gate before `git add`. The scan of uncommitted changes reads the diff of tracked files, so a new, untracked file was not read until it was already committed (L-113 says to scan exactly what is staged).
+Fix: Stage first, then run the gate (every later commit in this unit did).
+Lesson: The order is stage, gate, commit; a gate that runs before staging cannot see new files.
+
+## L-129: The owner's grant reverted on a fork: its expiry came from the wall clock
+Unit: P2-U7 (bug from P2-U6)
+What happened: In the portfolio live run, Arm sent the grant from the wallet and the page said "The trading permission transaction failed"; the agent stayed unarmed. Opening the account and depositing had worked.
+Cause: The control API built `registerSession`'s `validUntil` as wall-clock now plus 30 days. The Executor checks it against its block time, and a fork's block time sits at its pinned block, weeks earlier, so the expiry was past its 30-day maximum (BadSession). P2-U6's test set the chain time equal to the wall clock, and its live run registered grants in the orchestrator, not through this route. This is L-105 again.
+Fix: The route dates the grant, and the renewal check, from the chain's block time; a test with the chain 40 days behind the wall clock fails on the old code (aff51c2). The live run then passed.
+Lesson: Every deadline sent to a chain comes from that chain's clock; a test of one must set the chain's clock apart from the wall clock.
+
+## L-130: Slips in P2-U7, caught by its tests
+Unit: P2-U7
+What happened: (1) The page disabled every button while any trade was settling, so the owner could not reject or approve another proposal meanwhile; the arming e2e test found it. (2) Two mixed-case fixture addresses failed viem's checksum, and a decoded address was compared with a lowercase constant (L-119 again). (3) `--update-snapshots` took the spec file named after it as its value. (4) The first capture caught the approval toast; a later one put each form's hint under one field only, so labels did not line up, and the header named the environment twice.
+Cause: (1) One "busy" flag meant both "re-read faster" and "an action is running". (2) Hand-typed addresses. (3) The flag's optional value. (4) Reviewing captures found them, as intended.
+Fix: (1) A separate `acting` flag gates the buttons. (2) Fixture addresses come from `getAddress`, comparisons too. (3) Spec files go before the flag in `scripts/web-e2e.js`. (4) The hints moved under each row, the header names the network once.
+Lesson: Keep "poll faster" and "block input" as two flags; derive fixture addresses with `getAddress`.
