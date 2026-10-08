@@ -151,6 +151,13 @@ export class FakeApi {
   readonly ownerCalls: string[] = [];
   /** Requests refused because the token's wallet was not the one asked about, as "path wallet". */
   readonly notLinked: string[] = [];
+  /**
+   * P2-EC: an index that lags the chain. Agents from this ID up are not in the
+   * index yet (the agent routes leave them out and the supply does not count
+   * them), and agents in `unrevealedInIndex` show as unrevealed. Null: caught up.
+   */
+  indexedBelow: bigint | null = null;
+  readonly unrevealedInIndex = new Set<bigint>();
 
   constructor(chain: FakeChain, options: FakeApiOptions = {}) {
     this.chain = chain;
@@ -178,13 +185,14 @@ export class FakeApi {
 
   private agentJson(id: bigint) {
     const a = this.chain.agents.get(id);
-    if (!a) return null;
+    if (!a || (this.indexedBelow !== null && id >= this.indexedBelow)) return null;
+    const species = this.unrevealedInIndex.has(id) ? 0 : a.species;
     return {
       agentId: a.id.toString(),
       owner: getAddress(a.owner),
       tba: getAddress(a.tba),
-      species: a.species,
-      tier: a.species === 0 ? null : (SPECIES[a.species - 1]?.tier ?? null),
+      species,
+      tier: species === 0 ? null : (SPECIES[species - 1]?.tier ?? null),
       ownerEpoch: a.ownerEpoch.toString(),
       mintedBlock: 109_670_010,
       mintedTx: `0x${a.id.toString(16).padStart(64, "a")}`,
@@ -201,9 +209,13 @@ export class FakeApi {
     }
     const drawn = (index: number) =>
       [...this.chain.agents.values()].filter((a) => a.species === index).length;
+    const indexed =
+      this.indexedBelow === null
+        ? this.chain.agents.size
+        : [...this.chain.agents.keys()].filter((id) => id < (this.indexedBelow as bigint)).length;
     return {
       maxSupply: AGENT_MAX_SUPPLY,
-      totalMinted: this.chain.agents.size,
+      totalMinted: indexed,
       remaining: SPECIES.map((s) => s.count - drawn(s.index)),
     };
   }
@@ -259,7 +271,8 @@ export class FakeApi {
         .filter((a) => (owner ? same(a.owner, owner) : true))
         .filter((a) => (minter ? same(a.receivedBy[0] ?? "", minter) : true))
         .sort((a, b) => (a.id < b.id ? -1 : 1))
-        .map((a) => this.agentJson(a.id));
+        .map((a) => this.agentJson(a.id))
+        .filter((a) => a !== null);
       return reply(200, { ...meta, agents });
     }
     const one = /^\/v1\/agents\/(\d+)$/.exec(url.pathname);

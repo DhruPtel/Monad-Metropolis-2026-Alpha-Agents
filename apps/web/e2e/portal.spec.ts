@@ -97,6 +97,61 @@ test.describe("screenshots and accessibility", () => {
     expect(await blockingViolations(page)).toEqual([]);
   });
 
+  test("an agent the index has not caught up to shows as pending, never the mint (P2-EC)", async ({
+    page,
+  }) => {
+    // The testnet case: agent 2 is minted and revealed on chain; the index knows only agent 1.
+    const chain = new FakeChain();
+    chain.mint(1n, OTHER_WALLET, ANT);
+    chain.mint(2n, MOCK_WALLET_ADDRESS, BEE);
+    const api = new FakeApi(chain);
+    api.indexedBelow = 2n;
+    // The reveal link from the mint page.
+    await open(page, chain, "/configure?agent=2", api);
+    await connect(page);
+    await expect(portal(page).getByTestId("pending-agent-indexing").first()).toContainText(
+      "Agent #2: Indexing your agent…",
+    );
+    await expect(portal(page).getByRole("heading", { name: "Alpha Agent #2" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Mint an agent" })).toHaveCount(0);
+    await expect(portal(page).getByText(/No agent in this wallet yet/)).toHaveCount(0);
+    // The index catches up: the mark goes on the next read.
+    api.indexedBelow = null;
+    await expect(portal(page).getByTestId("pending-agent-indexing")).toHaveCount(0, {
+      timeout: 15_000,
+    });
+    await expect(portal(page).getByRole("heading", { name: "Alpha Agent #2" })).toBeVisible();
+  });
+
+  test("an unrevealed agent the index has not seen waits for its reveal, never the mint (P2-EC)", async ({
+    page,
+  }) => {
+    const chain = new FakeChain();
+    chain.mint(1n, MOCK_WALLET_ADDRESS, 0);
+    const api = new FakeApi(chain);
+    api.indexedBelow = 1n;
+    await open(page, chain, "/configure", api);
+    await connect(page);
+    await expect(portal(page).getByText(/minted and waiting for its reveal/)).toBeVisible();
+    await expect(page.getByRole("button", { name: "Mint an agent" })).toHaveCount(0);
+  });
+
+  test("a wallet that minted but no longer holds its agent is not offered the mint (P2-EC)", async ({
+    page,
+  }) => {
+    const chain = new FakeChain();
+    // Minted by this wallet, then moved to another (the fake chain's agents are mutable).
+    const agent = chain.mint(1n, MOCK_WALLET_ADDRESS, ANT);
+    agent.owner = OTHER_WALLET;
+    agent.receivedBy.push(OTHER_WALLET);
+    await open(page, chain);
+    await connect(page);
+    await expect(
+      portal(page).getByText("The agent this wallet minted is no longer in it."),
+    ).toBeVisible();
+    await expect(page.getByRole("button", { name: "Mint an agent" })).toHaveCount(0);
+  });
+
   test("a species without a model shows its 2D art, slots and card", async ({ page }) => {
     const chain = new FakeChain();
     chain.mint(7n, MOCK_WALLET_ADDRESS, ANT);

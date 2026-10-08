@@ -16,11 +16,12 @@ export type PageState =
   | "loading"
   | "error"
   | "empty"
+  | "minted-elsewhere"
   | "agents";
 
 export function myAgentsPageState(
   wallet: { readonly state: WalletState; readonly ready: boolean },
-  owned: { readonly status: AgentsStatus; readonly count: number },
+  owned: { readonly status: AgentsStatus; readonly count: number; readonly hasMinted?: boolean },
 ): PageState {
   if (!wallet.ready) {
     if (wallet.state === "wrong-chain") return "wrong-chain";
@@ -30,7 +31,9 @@ export function myAgentsPageState(
   if (owned.status === "not-deployed") return "not-deployed";
   if (owned.status === "loading") return "loading";
   if (owned.status === "error" && owned.count === 0) return "error";
-  return owned.count === 0 ? "empty" : "agents";
+  // A wallet that minted is never offered the mint (P2-EC), even with no agent left in it.
+  if (owned.count === 0) return owned.hasMinted ? "minted-elsewhere" : "empty";
+  return "agents";
 }
 
 const usdc = (e6: bigint, digits = 4) => formatAmount(e6, 6, { maxFractionDigits: digits });

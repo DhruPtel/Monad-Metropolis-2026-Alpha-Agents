@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { Hourglass } from "lucide-react";
 import { AddressDisplay } from "../address-display";
 import { Card } from "../ui/card";
 import { SectionLabel } from "../ui/section-label";
@@ -104,3 +105,50 @@ function AgentCard({
 }
 
 export { AgentCard };
+
+/** Why an agent shows as pending: the index has not caught up, or the reveal has not come. */
+export type PendingAgentStage = "indexing" | "reveal";
+
+const PENDING_TEXT: Readonly<Record<PendingAgentStage, { title: string; detail: string }>> = {
+  indexing: {
+    title: "Indexing your agent…",
+    detail:
+      "It is minted and in your wallet on chain. The platform's index has not caught up yet; this page updates when it does.",
+  },
+  reveal: {
+    title: "Waiting for reveal…",
+    detail:
+      "It is minted. Its species comes from Pyth Entropy's randomness, usually within about a minute.",
+  },
+};
+
+/**
+ * An agent the wallet holds on chain that the platform cannot show in full
+ * yet (P2-EC): not yet in the index, or not yet revealed. Never a mint prompt.
+ */
+export function PendingAgentNotice({
+  agentId,
+  stage,
+  className,
+}: {
+  readonly agentId: bigint;
+  readonly stage: PendingAgentStage;
+  readonly className?: string;
+}) {
+  const text = PENDING_TEXT[stage];
+  return (
+    <div
+      role="status"
+      data-testid={`pending-agent-${stage}`}
+      className={cn("flex items-start gap-3 rounded-lg border bg-surface p-4", className)}
+    >
+      <Hourglass aria-hidden className="mt-0.5 size-4 shrink-0 text-foreground-muted" />
+      <div className="flex min-w-0 flex-col gap-1">
+        <p className="text-sm font-medium">
+          Agent <span className="numeric">#{agentId.toString()}</span>: {text.title}
+        </p>
+        <p className="text-xs text-foreground-muted">{text.detail}</p>
+      </div>
+    </div>
+  );
+}

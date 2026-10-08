@@ -73,6 +73,14 @@ describe("the My Agents page state (D-218)", () => {
   ] as const)("%o with %s and %i agents is %s", (wallet, status, count, expected) => {
     expect(myAgentsPageState(wallet, { status, count })).toBe(expected);
   });
+
+  it("never offers the mint to a wallet that minted, even with no agent left in it (P2-EC)", () => {
+    expect(myAgentsPageState(ready, { status: "ready", count: 0, hasMinted: true })).toBe(
+      "minted-elsewhere",
+    );
+    expect(myAgentsPageState(ready, { status: "ready", count: 0, hasMinted: false })).toBe("empty");
+    expect(myAgentsPageState(ready, { status: "ready", count: 1, hasMinted: true })).toBe("agents");
+  });
 });
 
 describe("what an owner can do now", () => {

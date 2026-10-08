@@ -1,7 +1,7 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
-import { AgentCard } from "./agent-card";
+import { AgentCard, PendingAgentNotice } from "./agent-card";
 import { MINT_STATES, MintButton } from "./mint-button";
 import { SLOT_STATES, SlotHex } from "./slot-hex";
 import { SpeciesArt, slotPositionsOnArt } from "./species-art";
@@ -186,5 +186,16 @@ describe("AgentCard", () => {
     );
     expect(screen.getAllByText("Unrevealed").length).toBeGreaterThanOrEqual(2);
     expect(screen.getByText("after reveal")).toBeInTheDocument();
+  });
+});
+
+describe("PendingAgentNotice (P2-EC)", () => {
+  it("says the agent is being indexed, or waits for its reveal, and never offers a mint", () => {
+    const { rerender } = render(<PendingAgentNotice agentId={2n} stage="indexing" />);
+    expect(screen.getByRole("status")).toHaveTextContent("Agent #2: Indexing your agent…");
+    expect(screen.queryByRole("button")).toBeNull();
+    rerender(<PendingAgentNotice agentId={2n} stage="reveal" />);
+    expect(screen.getByRole("status")).toHaveTextContent("Agent #2: Waiting for reveal…");
+    expect(screen.queryByText(/mint an agent/i)).toBeNull();
   });
 });

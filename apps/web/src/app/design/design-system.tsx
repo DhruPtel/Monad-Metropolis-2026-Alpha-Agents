@@ -20,6 +20,7 @@ import {
   MINT_PANEL_STATES,
   MINT_STATES,
   MintButton,
+  PendingAgentNotice,
   MintPanel,
   SLOT_STATES,
   SlotHex,
@@ -680,6 +681,15 @@ function AgentSection() {
             ownerEpoch={0n}
             environment="local fork"
           />
+        </div>
+      </Specimen>
+      <Specimen
+        name="Pending agent"
+        note="An agent the wallet holds on chain that the platform cannot show in full yet: not yet in the index, or not yet revealed. It replaces any mint prompt for a wallet that has minted."
+      >
+        <div className="grid gap-4 sm:grid-cols-2" data-testid="pending-agents">
+          <PendingAgentNotice agentId={2n} stage="indexing" />
+          <PendingAgentNotice agentId={2n} stage="reveal" />
         </div>
       </Specimen>
       <Specimen

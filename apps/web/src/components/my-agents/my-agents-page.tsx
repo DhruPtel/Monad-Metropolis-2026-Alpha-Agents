@@ -1,8 +1,10 @@
 "use client";
 
 import { type EnvironmentId, ENVIRONMENTS } from "@alpha-agents/config";
-import { speciesAsset, speciesByIndex } from "@alpha-agents/domain";
+import { slotsFor, speciesAsset, speciesByIndex } from "@alpha-agents/domain";
 import {
+  PendingAgentNotice,
+  AgentCard,
   ActivityFeed,
   Button,
   Card,
@@ -265,7 +267,11 @@ function MyAgentCard({ agent, environment }: { agent: AgentView; environment: En
 export function MyAgentsPage({ environment }: { environment: EnvironmentId }) {
   const wallet = useWalletSession();
   const owned = useOwnedAgents(environment);
-  const state = myAgentsPageState(wallet, { status: owned.status, count: owned.agents.length });
+  const state = myAgentsPageState(wallet, {
+    status: owned.status,
+    count: owned.agents.length,
+    hasMinted: owned.hasMinted,
+  });
 
   return (
     <div className="flex flex-col gap-6">
@@ -328,11 +334,36 @@ export function MyAgentsPage({ environment }: { environment: EnvironmentId }) {
             </Button>
           }
         />
+      ) : state === "minted-elsewhere" ? (
+        <EmptyState
+          icon={Bot}
+          title="The agent this wallet minted is no longer in it"
+          description="Each wallet mints one agent. Connect the wallet that holds it now to see it here."
+        />
       ) : (
         <div className="flex flex-col gap-6" data-testid="my-agents">
-          {owned.agents.map((a) => (
-            <MyAgentCard key={a.id.toString()} agent={a} environment={environment} />
-          ))}
+          {owned.agents.map((a) =>
+            a.indexed ? (
+              <MyAgentCard key={a.id.toString()} agent={a} environment={environment} />
+            ) : (
+              // Read only from the chain (P2-EC): no platform record yet, so no owner
+              // controls; the full card replaces it when the index catches up.
+              <div key={a.id.toString()} className="flex flex-col gap-3">
+                <PendingAgentNotice agentId={a.id} stage={a.pending ?? "indexing"} />
+                <AgentCard
+                  agentId={a.id}
+                  tier={a.species === 0 ? null : speciesByIndex(a.species).tier}
+                  speciesName={a.species === 0 ? null : speciesByIndex(a.species).name}
+                  image={a.species === 0 ? null : speciesAsset(a.species).image}
+                  slots={a.species === 0 ? 0 : slotsFor(speciesByIndex(a.species).tier)}
+                  tba={a.tba}
+                  owner={a.owner}
+                  ownerEpoch={a.ownerEpoch}
+                  environment={ENVIRONMENTS[environment].label}
+                />
+              </div>
+            ),
+          )}
         </div>
       )}
     </div>

@@ -8,6 +8,7 @@ import {
   Button,
   EmptyState,
   MintButton,
+  PendingAgentNotice,
   SectionLabel,
   SlotHex,
   Tabs,
@@ -132,8 +133,12 @@ export function AgentPortal({ environment }: { environment: EnvironmentId }) {
         </Button>
       </Gate>
     );
-  } else if (requested && !selected && owned.agents.length > 0) {
+  } else if (requested && !selected && (owned.agents.length > 0 || owned.hasMinted)) {
     overlay = <Gate title={`Agent #${requested} is not in this wallet.`} />;
+  } else if (!selected && owned.hasMinted) {
+    // AgentNFT says this wallet minted, but no agent of it is here: it was transferred.
+    // A wallet that minted is never offered the mint (P2-EC).
+    overlay = <Gate title="The agent this wallet minted is no longer in it." />;
   } else if (!selected) {
     overlay = (
       <Gate title="No agent in this wallet yet. Mint one to get started.">{mintButton}</Gate>
@@ -164,6 +169,9 @@ export function AgentPortal({ environment }: { environment: EnvironmentId }) {
 
   const overview = selected ? (
     <div className="flex flex-col gap-4">
+      {selected.pending ? (
+        <PendingAgentNotice agentId={selected.id} stage={selected.pending} />
+      ) : null}
       <AgentCard
         agentId={selected.id}
         tier={info?.species.tier ?? null}

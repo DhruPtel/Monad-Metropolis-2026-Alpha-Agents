@@ -68,6 +68,27 @@ async function blockingViolations(page: Page) {
 }
 
 test.describe("every state, captured and scanned", () => {
+  test("an agent the index has not caught up to shows as pending, with no mint link (P2-EC)", async ({
+    page,
+  }) => {
+    const chain = new FakeChain();
+    chain.mint(2n, MOCK_WALLET_ADDRESS, 14);
+    const api = new FakeApi(chain);
+    api.indexedBelow = 2n;
+    await open(page, chain, api);
+    await connect(page);
+    await expect(main(page).getByTestId("pending-agent-indexing")).toContainText(
+      "Agent #2: Indexing your agent…",
+    );
+    await expect(main(page).getByRole("link", { name: "Mint an agent" })).toHaveCount(0);
+    await expect(main(page).getByText("No agents in this wallet yet")).toHaveCount(0);
+    // No owner request is made for an agent the platform has no record of yet.
+    expect(api.ownerCalls).toEqual([]);
+    api.indexedBelow = null;
+    await expect(card(page, 2)).toBeVisible({ timeout: 15_000 });
+    await expect(main(page).getByTestId("pending-agent-indexing")).toHaveCount(0);
+  });
+
   test("logged out, the page asks for the wallet", async ({ page }) => {
     await open(page, new FakeChain());
     await expect(main(page).getByText("Connect your wallet")).toBeVisible();
