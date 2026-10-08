@@ -1,6 +1,11 @@
 import { AGENT_MAX_SUPPLY, SPECIES } from "@alpha-agents/domain";
 import type { Page, Route } from "@playwright/test";
-import { type Address, getAddress } from "viem";
+import { type Address, type Hex, decodeFunctionData, getAddress } from "viem";
+import { ERC20_ABI } from "../src/agent/custody";
+
+/** The beta's per-agent credit cap (D-210) and the address book's USDC, as the real API uses them. */
+const CREDIT_CAP = 50_000_000n;
+export const FAKE_USDC = "0x754704Bc059F8C67012fEd69BC8A327a5aafb603" as const;
 import { MOCK_ACCESS_TOKEN } from "../src/auth/mock-wallet-constants";
 
 /** The wallet a mock token was issued for, as the real API reads it from Privy; null when none. */
@@ -149,6 +154,9 @@ export class FakeApi {
 
   constructor(chain: FakeChain, options: FakeApiOptions = {}) {
     this.chain = chain;
+    // Phase 2 tuning: a USDC transfer to an agent's funding address becomes its credits,
+    // up to the cap, the rest held, as the platform credits it; the sender is the contributor.
+    chain.onSend = (tx) => this.creditTransfer(tx);
     this.allowlist = options.allowlist ?? "everyone";
     this.signer = options.signer ?? true;
   }
@@ -296,6 +304,18 @@ export class FakeApi {
         });
       return reply(r.status, { ...meta, ...(r.body as Record<string, unknown>) });
     }
+    const credits = /^\/v1\/agents\/(\d+)\/credits$/.exec(url.pathname);
+    if (credits?.[1] && request.method() === "GET") {
+      const d = this.dashboards.get(BigInt(credits[1]));
+      return d?.credits
+        ? reply(200, {
+            ...meta,
+            agentId: credits[1],
+            ...d.credits,
+            creditCapUsdcE6: CREDIT_CAP.toString(),
+          })
+        : reply(404, { error: "not_found", message: "No funding address yet." });
+    }
     const activity = /^\/v1\/agents\/(\d+)\/activity$/.exec(url.pathname);
     if (activity?.[1]) {
       const d = this.dashboards.get(BigInt(activity[1]));
@@ -345,6 +365,32 @@ export class FakeApi {
       });
     }
     return reply(404, { error: "not_found", message: "No such route." });
+  }
+
+  /** The sender of each credit deposit, as the index records it (D-242). */
+  readonly contributions: { agentId: bigint; from: string; amount: bigint }[] = [];
+
+  private creditTransfer(tx: { from: Address; to: Address; data: Hex }) {
+    if (!same(tx.to, FAKE_USDC)) return;
+    const call = decodeFunctionData({ abi: ERC20_ABI, data: tx.data });
+    if (call.functionName !== "transfer") return;
+    const [to, amount] = call.args as readonly [Address, bigint];
+    for (const [id, d] of this.dashboards) {
+      if (!d.credits || !same(d.credits.fundingAddress, to)) continue;
+      const credits = BigInt(d.credits.creditsUsdcE6);
+      const room = CREDIT_CAP - credits > 0n ? CREDIT_CAP - credits : 0n;
+      const credited = amount < room ? amount : room;
+      const held = amount - credited;
+      d.credits = {
+        ...d.credits,
+        creditsUsdcE6: (credits + credited).toString(),
+        spendableUsdcE6: (BigInt(d.credits.spendableUsdcE6) + credited).toString(),
+        heldUsdcE6: (BigInt(d.credits.heldUsdcE6) + held).toString(),
+        restricted: false,
+      };
+      this.contributions.push({ agentId: id, from: tx.from.toLowerCase(), amount });
+      this.chain.setBalance(FAKE_USDC, tx.from, this.chain.balanceOf(FAKE_USDC, tx.from) - amount);
+    }
   }
 
   /** The session the fake issues for an agent's current owner and epoch. */
@@ -414,6 +460,7 @@ export class FakeApi {
         spent24hUsdcE6: d.spent24hUsdcE6,
         charges: d.charges,
         latestScan: d.latestScan,
+        creditCapUsdcE6: CREDIT_CAP.toString(),
         scan: { minimumUsdcE6: "150000", estimateUsdcE6: { low: "150000", high: "300000" } },
       };
       if (d.latestScan?.status === "queued") {

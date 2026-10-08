@@ -3,7 +3,7 @@
 import type { EnvironmentId } from "@alpha-agents/config";
 import { addressEntry } from "@alpha-agents/domain";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { Address } from "viem";
+import { type Address, getAddress } from "viem";
 import { api } from "@/api/client";
 import { type ContractWrite, useWalletSession } from "@/auth/session";
 import { type CreditsProgress, runAddCredits } from "./credits-flow";
@@ -64,7 +64,8 @@ export function useAddCredits(
           address: usdc,
           abi: ERC20_ABI,
           functionName: "transfer",
-          args: [fundingAddress, amount],
+          // Checksummed from lowercase: whatever casing the API sent, viem gets a valid address.
+          args: [getAddress(fundingAddress.toLowerCase()), amount],
         } satisfies ContractWrite,
       };
       void runAddCredits(

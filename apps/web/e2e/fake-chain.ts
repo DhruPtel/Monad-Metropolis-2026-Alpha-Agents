@@ -76,8 +76,24 @@ export class FakeChain {
    */
   readonly transactions: { hash: Hex; from: Address; to: Address; data: Hex; reverted: boolean }[] =
     [];
-  onSend: ((tx: { from: Address; to: Address; data: Hex }) => void) | null = null;
+  /** Every handler sees each sent transaction (trading, credits); one may refuse it by throwing. */
+  readonly handlers: ((tx: { from: Address; to: Address; data: Hex }) => void)[] = [];
+  set onSend(h: (tx: { from: Address; to: Address; data: Hex }) => void) {
+    this.handlers.push(h);
+  }
   revertNext = false;
+  /** ERC-20 balances the fake answers `balanceOf` with, by token then holder (lowercase). */
+  readonly erc20 = new Map<string, Map<string, bigint>>();
+  /** The next eth_call to this address reverts with this error data (a named custom error). */
+  revertCall: { to: Address; data: Hex } | null = null;
+  setBalance(token: Address, holder: Address, amount: bigint) {
+    const m = this.erc20.get(token.toLowerCase()) ?? new Map<string, bigint>();
+    m.set(holder.toLowerCase(), amount);
+    this.erc20.set(token.toLowerCase(), m);
+  }
+  balanceOf(token: Address, holder: Address): bigint {
+    return this.erc20.get(token.toLowerCase())?.get(holder.toLowerCase()) ?? 0n;
+  }
   private readonly head: bigint;
   private readonly hashSeed: string;
   private readonly agentNft: boolean;
@@ -203,6 +219,20 @@ export class FakeChain {
         return ok(this.receipt(request.params[0] as Hex));
       case "eth_call": {
         const call = request.params[0] as { to: Address; data: Hex };
+        if (this.revertCall && same(call.to, this.revertCall.to)) {
+          const data = this.revertCall.data;
+          this.revertCall = null;
+          return {
+            jsonrpc: "2.0",
+            id: request.id,
+            error: { code: 3, message: "execution reverted", data },
+          };
+        }
+        // ERC-20 balanceOf(address): the selector 0x70a08231 and one padded address.
+        if (!same(call.to, AGENT_NFT) && call.data.startsWith("0x70a08231")) {
+          const holder = `0x${call.data.slice(34, 74)}` as Address;
+          return ok(`0x${this.balanceOf(call.to, holder).toString(16).padStart(64, "0")}`);
+        }
         if (!same(call.to, AGENT_NFT)) return ok("0x");
         const result = this.call(call.data);
         return result === undefined ? fail(3, "execution reverted") : ok(result);
@@ -244,7 +274,7 @@ export class FakeChain {
     if (!same(tx.to, AGENT_NFT)) {
       const reverted = this.revertNext;
       this.revertNext = false;
-      if (!reverted) this.onSend?.(tx);
+      if (!reverted) for (const h of this.handlers) h(tx);
       const hash = `0x${(this.transactions.length + 1).toString(16).padStart(64, "d")}` as Hex;
       this.transactions.push({ hash, ...tx, reverted });
       return hash;

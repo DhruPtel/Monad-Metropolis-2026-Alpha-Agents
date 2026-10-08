@@ -1,14 +1,15 @@
 import { fileURLToPath } from "node:url";
 import AxeBuilder from "@axe-core/playwright";
 import { type Locator, type Page, expect, test } from "@playwright/test";
-import { decodeFunctionData, getAddress } from "viem";
-import { ACCOUNT_ABI, ERC20_ABI } from "../src/agent/custody";
+import { decodeFunctionData, encodeErrorResult, getAddress } from "viem";
+import { ACCOUNT_ABI, ERC20_ABI, GRANT_ABI } from "../src/agent/custody";
 import { MOCK_WALLET_ADDRESS } from "../src/auth/mock-wallet-constants";
 import { FakeApi, fundedDashboard } from "./fake-api";
 import { FakeChain } from "./fake-chain";
 import {
   ACCOUNT,
   BLOCKED,
+  EXECUTOR,
   FakeTrading,
   SETTLED,
   USDC,
@@ -118,7 +119,7 @@ test.describe("every state, captured and scanned", () => {
     s.trading.intents = [intentFixture(), BLOCKED, SETTLED];
     await open(page, s);
     const positions = main(page).getByTestId("positions");
-    await expect(positions).toContainText("40.00");
+    await expect(main(page).getByTestId("portfolio-overview")).toContainText("40.00");
     await expect(positions).toContainText("75.00%");
     await expect(positions).toContainText("20s old");
     await expect(main(page).getByTestId("caps")).toContainText("40.00 of 100.00 USDC");
@@ -189,7 +190,7 @@ test.describe("deposits", () => {
       USDC,
       25_000_000n,
     ]);
-    await expect(main(page).getByTestId("positions")).toContainText("65.00");
+    await expect(main(page).getByTestId("portfolio-overview")).toContainText("65.00");
   });
 
   test("names every block before anything is sent: the caps and the depeg guard", async ({
@@ -275,6 +276,53 @@ test.describe("arming", () => {
   });
 });
 
+test.describe("the overview, gas and named refusals (Phase 2 tuning)", () => {
+  test("the overview shows the allocation, total, shares, mode and price at a glance", async ({
+    page,
+  }) => {
+    const s = stack();
+    await open(page, s);
+    const overview = main(page).getByTestId("portfolio-overview");
+    await expect(
+      overview.getByRole("img", { name: "Allocation by value: USDC 75.00%, WMON 25.00%" }),
+    ).toBeVisible();
+    await expect(overview).toContainText("40.00");
+    await expect(overview).toContainText("Fresh, 20s old");
+    await expect(overview).toContainText("Normal");
+    await expect(
+      main(page).getByTestId("portfolio-credits").getByTestId("add-credits"),
+    ).toBeVisible();
+    await capture(page, overview, "portfolio-overview.png");
+  });
+
+  test("warns when the wallet's MON is too low for gas", async ({ page }) => {
+    const p = portfolioFixture(MOCK_WALLET_ADDRESS);
+    const s = stack({ ...p, wallet: { ...p.wallet, monWei: "1000000000000000" } });
+    await open(page, s);
+    const gas = main(page).getByTestId("gas-notice");
+    await expect(gas).toHaveAttribute("data-low", "true");
+    await expect(gas).toContainText("too little to arm, deposit or withdraw");
+    await capture(page, gas, "portfolio-low-gas.png");
+    expect(await blockingViolations(page)).toEqual([]);
+  });
+
+  test("a refused grant shows the Executor's named reason, and nothing is sent", async ({
+    page,
+  }) => {
+    const s = stack();
+    await open(page, s);
+    s.chain.revertCall = {
+      to: EXECUTOR,
+      data: encodeErrorResult({ abi: GRANT_ABI, errorName: "BadSession" }),
+    };
+    const arming = main(page).getByTestId("arming-card");
+    await arming.getByRole("button", { name: "Arm", exact: true }).click();
+    await expect(status(arming)).toHaveAttribute("data-state", "failed", { timeout: 15_000 });
+    await expect(status(arming)).toContainText("The Executor refused the trading permission");
+    expect(s.trading.calls).toEqual([]);
+  });
+});
+
 test.describe("the owner's data only", () => {
   test("another wallet sees none of this portfolio and cannot act on it", async ({ page }) => {
     const s = stack(portfolioFixture(OTHER_WALLET), OTHER_WALLET);
@@ -293,6 +341,10 @@ test.describe("the owner's data only", () => {
     await open(page, s, "/agents");
     const summary = page.getByTestId("trading-summary");
     await expect(summary).toContainText("40.00", { timeout: 15_000 });
+    // The compact trading summary: value, allocation and mode (Phase 2 tuning).
+    await expect(summary.getByRole("img", { name: /USDC 75.00%, WMON 25.00%/ })).toBeVisible();
+    await expect(summary).toContainText("Normal");
+    await capture(page, summary, "agents-trading-summary.png");
     await summary.getByRole("link", { name: "Open portfolio" }).click();
     await expect(page).toHaveURL(new RegExp(`/agents/${AGENT}/portfolio$`));
     await expect(main(page).getByTestId("positions")).toBeVisible();

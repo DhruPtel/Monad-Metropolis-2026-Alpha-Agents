@@ -784,8 +784,8 @@ function PortfolioOverview({
         wmonShareBps={p.wmonShareBps}
         totalUsdc={p.totalUsdc}
       />
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
-        <div className="col-span-2 flex flex-col gap-1 rounded-md border border-border p-3 lg:col-span-1">
+      <div className="grid grid-cols-2 gap-3">
+        <div className="col-span-2 flex flex-col gap-1 rounded-md border border-border p-3">
           <span className="text-xs text-foreground-muted">Total value</span>
           {p.totalUsdc === null ? (
             <span className="text-sm text-foreground-muted">Unknown without a price</span>
@@ -841,11 +841,7 @@ function GasNotice({
   const amount = <AmountDisplay value={monWei} decimals={18} maxFractionDigits={4} symbol="MON" />;
   return (
     <p
-      className={cn(
-        "flex flex-wrap items-center gap-2 text-sm",
-        low ? "text-warning" : "text-foreground-muted",
-        className,
-      )}
+      className={cn("text-sm", low ? "text-warning" : "text-foreground-muted", className)}
       data-testid="gas-notice"
       data-low={low ? "true" : "false"}
       {...(low ? { role: "alert" } : {})}

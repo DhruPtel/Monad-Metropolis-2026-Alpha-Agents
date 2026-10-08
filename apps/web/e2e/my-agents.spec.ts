@@ -2,7 +2,9 @@ import { fileURLToPath } from "node:url";
 import AxeBuilder from "@axe-core/playwright";
 import { type Locator, type Page, expect, test } from "@playwright/test";
 import { MOCK_WALLET_ADDRESS } from "../src/auth/mock-wallet-constants";
-import { FUNDING_ADDRESS, FakeApi, fundedDashboard } from "./fake-api";
+import { decodeFunctionData, getAddress } from "viem";
+import { ERC20_ABI } from "../src/agent/custody";
+import { FAKE_USDC, FUNDING_ADDRESS, FakeApi, fundedDashboard } from "./fake-api";
 import { FakeChain } from "./fake-chain";
 
 /**
@@ -284,5 +286,88 @@ test.describe("owner only", () => {
     }
     await expect(card(page, 7)).toHaveCount(0, { timeout: 15_000 });
     await expect(main(page).getByText("No agents in this wallet yet")).toBeVisible();
+  });
+});
+
+test.describe("add credits from the app (Phase 2 tuning)", () => {
+  async function funded(page: Page, creditsUsdcE6: bigint, walletUsdcE6: bigint) {
+    const chain = new FakeChain();
+    chain.mint(7n, MOCK_WALLET_ADDRESS, BEE);
+    chain.setBalance(FAKE_USDC, MOCK_WALLET_ADDRESS, walletUsdcE6);
+    const api = new FakeApi(chain);
+    const d = fundedDashboard();
+    api.dashboards.set(7n, {
+      ...d,
+      credits: d.credits && {
+        ...d.credits,
+        creditsUsdcE6: creditsUsdcE6.toString(),
+        spendableUsdcE6: creditsUsdcE6.toString(),
+        heldUsdcE6: "0",
+      },
+    });
+    await open(page, chain, api);
+    await connect(page);
+    return { chain, api, panel: card(page, 7).getByTestId("add-credits") };
+  }
+
+  test("sends USDC from the wallet to the funding address in one transaction, and shows it credited", async ({
+    page,
+  }) => {
+    const { chain, api, panel } = await funded(page, 4_994_400n, 20_000_000n);
+    await expect(panel).toContainText("4.9944 of 50.00 USDC");
+    await expect(panel).toContainText("In your wallet: 20");
+    await panel.getByLabel("Amount (USDC)").fill("5");
+    await panel.getByRole("button", { name: "Add credits" }).click();
+    await expect(panel.getByTestId("wallet-action-status")).toContainText("Credited 5 USDC.", {
+      timeout: 20_000,
+    });
+    await expect(panel).toContainText("9.9944 of 50.00 USDC", { timeout: 15_000 });
+    const [tx] = chain.transactions;
+    if (!tx) throw new Error("no transfer sent");
+    expect(chain.transactions).toHaveLength(1);
+    expect(decodeFunctionData({ abi: ERC20_ABI, data: tx.data }).args).toEqual([
+      getAddress(FUNDING_ADDRESS),
+      5_000_000n,
+    ]);
+    // The sender is the contributor (D-242).
+    expect(api.contributions).toEqual([
+      { agentId: 7n, from: MOCK_WALLET_ADDRESS.toLowerCase(), amount: 5_000_000n },
+    ]);
+    await capture(page, panel, "agents-add-credits.png");
+    expect(await blockingViolations(page)).toEqual([]);
+  });
+
+  test("explains an amount over the credit cap before sending, and says what was held", async ({
+    page,
+  }) => {
+    const { panel } = await funded(page, 45_000_000n, 20_000_000n);
+    await panel.getByLabel("Amount (USDC)").fill("10");
+    await expect(panel.getByTestId("credit-cap-note")).toContainText(
+      "5.00 USDC of this is above the 50.00 USDC credit cap",
+    );
+    await capture(page, panel, "agents-add-credits-over-cap.png");
+    await panel.getByRole("button", { name: "Add credits" }).click();
+    await expect(panel.getByTestId("wallet-action-status")).toContainText(
+      "Credited 5 USDC. 5 USDC above the cap is held for you, not lost.",
+      { timeout: 20_000 },
+    );
+  });
+
+  test("a request declined in the wallet says so and sends nothing; more than the wallet holds is refused first", async ({
+    page,
+  }) => {
+    const { chain, panel } = await funded(page, 0n, 2_000_000n);
+    await panel.getByLabel("Amount (USDC)").fill("3");
+    await expect(panel).toContainText("Your wallet does not hold that much USDC.");
+    await expect(panel.getByRole("button", { name: "Add credits" })).toBeDisabled();
+    await panel.getByLabel("Amount (USDC)").fill("1");
+    await page.evaluate(() => window.__mockWallet?.rejectNextWrite());
+    await panel.getByRole("button", { name: "Add credits" }).click();
+    await expect(panel.getByTestId("wallet-action-status")).toHaveAttribute(
+      "data-state",
+      "rejected",
+    );
+    await expect(panel.getByTestId("wallet-action-status")).toContainText("declined");
+    expect(chain.transactions).toEqual([]);
   });
 });

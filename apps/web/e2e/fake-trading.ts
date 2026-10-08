@@ -257,7 +257,8 @@ export class FakeTrading {
     }
     if (to === USDC.toLowerCase() || to === WMON.toLowerCase()) {
       const { functionName } = decodeFunctionData({ abi: ERC20_ABI, data: tx.data });
-      this.calls.push(functionName);
+      // A transfer is a credit deposit, which the fake API's credits handler takes.
+      if (functionName !== "transfer") this.calls.push(functionName);
       return;
     }
     if (to === EXECUTOR.toLowerCase()) {
@@ -299,7 +300,7 @@ export class FakeTrading {
       }
       return;
     }
-    throw new Error(`the fake trading backend does not take a call to ${tx.to}`);
+    // Any other call (a transfer to a funding address) is the credits handler's.
   }
 
   /** Answers a trading route on an already checked owner session; null when it is not one. */

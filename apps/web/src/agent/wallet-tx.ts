@@ -1,4 +1,4 @@
-import type { Hex } from "viem";
+import { BaseError, type Hex } from "viem";
 import { isUserRejection } from "@/auth/session";
 import { CUSTODY_REVERT_MESSAGES, custodyRevertName } from "./custody";
 import type { NetworkCheck } from "./network-check";
@@ -47,7 +47,14 @@ export function sendFailure(error: unknown, label: string): string {
   const name = custodyRevertName(error);
   if (name && CUSTODY_REVERT_MESSAGES[name]) return CUSTODY_REVERT_MESSAGES[name];
   if (name) return `${label} was refused by the contract (${name}).`;
-  return `The wallet could not send this: ${label.toLowerCase()}.`;
+  // The wallet's own short reason, so a failure says which check failed (L-55).
+  const why =
+    error instanceof BaseError
+      ? error.shortMessage
+      : error instanceof Error
+        ? error.message.split("\n")[0]
+        : undefined;
+  return `The wallet could not send this: ${label.toLowerCase()}${why ? ` (${why})` : ""}.`;
 }
 
 export async function runWalletSteps<C>(
