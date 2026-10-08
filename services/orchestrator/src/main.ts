@@ -244,7 +244,14 @@ const scanIntervalMs =
   scanSeconds !== undefined
     ? Number(scanSeconds) * 1_000
     : Number(values.SCAN_INTERVAL_MINUTES ?? 360) * 60_000;
-if (credits) log(`scheduled Scans every ${scanIntervalMs / 1_000} seconds for agents with credits`);
+// P2-EC: on testnet Scans run only when the owner starts one; nothing is scheduled.
+const scheduleScans = env.id !== "testnet";
+if (credits)
+  log(
+    scheduleScans
+      ? `scheduled Scans every ${scanIntervalMs / 1_000} seconds for agents with credits`
+      : "scheduled Scans off on testnet: a Scan runs only when the owner starts one",
+  );
 
 // D-237: on the local fork only, keep the Chainlink feeds fresh so oracle checks pass.
 const localFeeds = localFeedRefresherFor(env.id, rpcUrl);
@@ -332,6 +339,7 @@ const orchestrator = new Orchestrator({
   credits,
   web,
   scanIntervalMs,
+  ...(scheduleScans ? {} : { scheduleMs: 0 }),
   revealSteering: steering,
   snapshotReader: chainReader,
   chain: {
