@@ -17,6 +17,7 @@ export * from "./components/reason-message";
 export * from "./components/risk-badge";
 export * from "./components/stat-bar";
 export * from "./components/status-pill";
+export * from "./components/sourced-figure";
 export * from "./components/wallet-status";
 export * from "./components/ui/badge";
 export * from "./components/ui/button";

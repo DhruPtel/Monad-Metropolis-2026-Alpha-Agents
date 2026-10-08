@@ -673,6 +673,19 @@ async function main(): Promise<number> {
       used("read_url") > 0,
     `${otherScan.status}; ${used("web_search")} searches, ${used("read_url")} pages; ${os.stage?.outcome ?? "no stage"}; ${otherScan.error ?? ""}`,
   );
+  // P3-U2: the agent read the market snapshot in E2B and got sourced, checked figures back.
+  const snapshotCalls = await t.db
+    .selectFrom("platform.tool_calls")
+    .select(["status", "charge_usdc_e6", "cache_hit", "agent_id"])
+    .where("tool", "=", "market_snapshot")
+    .where("agent_id", "=", other)
+    .execute();
+  report.marketSnapshot = snapshotCalls;
+  check(
+    "the agent called market_snapshot from its sandbox and it answered",
+    used("market_snapshot") > 0 && snapshotCalls.some((c) => c.status === "succeeded"),
+    `${used("market_snapshot")} market_snapshot calls: ${snapshotCalls.map((c) => `${c.status}${c.cache_hit ? " (cached, free)" : ` ${c.charge_usdc_e6}`}`).join(", ")}`,
+  );
   // Every paid call is charged to the agent whose lease token made it, and nothing else.
   const charges = await t.db
     .selectFrom("platform.tool_calls as c")
@@ -688,7 +701,10 @@ async function main(): Promise<number> {
       "c.server",
     ])
     .execute();
-  const paid = charges.filter((c) => c.server === "data" && c.status !== "refused");
+  // Paid means charged: an answer the shared cache held is free and has no ledger entry (D-322).
+  const paid = charges.filter(
+    (c) => c.server === "data" && c.status !== "refused" && BigInt(c.charge_usdc_e6) > 0n,
+  );
   const toolSpendOf = (id: number) =>
     paid
       .filter((c) => c.callAgent === id && c.status === "succeeded")

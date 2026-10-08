@@ -21,6 +21,7 @@ import { Bot, Boxes, Copy, Eye, Radio, Users } from "lucide-react";
 import { type ReactNode, useState } from "react";
 import {
   ChoiceGroup,
+  SourcedFigure,
   CostPreview,
   EffectiveLimits,
   GoalSaveStatus,
@@ -2130,6 +2131,84 @@ function GoalSection() {
   );
 }
 
+/** P3-U2: a market figure as the platform checked it, every state. */
+function MarketSection() {
+  return (
+    <Section id="market" title="Market data">
+      <Specimen
+        name="SourcedFigure"
+        note="A figure with its source, its age and each warning in words; a refused or missing value says so."
+      >
+        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          <SourcedFigure
+            label="MON price"
+            value="0.0241 USD"
+            source="coinmarketcap"
+            ageText="2 minutes old"
+          />
+          <SourcedFigure
+            label="Monad TVL"
+            value="1,006,343,813 USD"
+            source="defillama"
+            ageText="3 days old"
+            warnings={[
+              {
+                code: "STALE",
+                message: "72 hours old, past this source's 48-hour freshness rule.",
+              },
+            ]}
+          />
+          <SourcedFigure
+            label="MON price"
+            value="0.0300 USD"
+            source="chainlink"
+            ageText="20 seconds old"
+            warnings={[
+              {
+                code: "SOURCES_DISAGREE",
+                message:
+                  "24.40% away from coinmarketcap's figure, past the 3.00% tolerance; both are shown.",
+              },
+            ]}
+          />
+          <SourcedFigure
+            label="MON price"
+            value={null}
+            source="coinmarketcap"
+            ageText="1 minute old"
+            warnings={[
+              {
+                code: "REFUSED_OUT_OF_RANGE",
+                message:
+                  "coinmarketcap gave a value outside the plausible range 0.0001 to 100, so it is not used.",
+              },
+            ]}
+          />
+          <SourcedFigure
+            label="24h volume"
+            value={null}
+            source="coinmarketcap"
+            ageText="1 minute old"
+            warnings={[{ code: "MISSING", message: "coinmarketcap did not give this value." }]}
+          />
+          <SourcedFigure
+            label="30d volatility"
+            value="64.2%"
+            source="computed"
+            ageText="1 hour old"
+            warnings={[
+              {
+                code: "THIN_HISTORY",
+                message: "Computed from 90 returns; the method asks for at least 160.",
+              },
+            ]}
+          />
+        </div>
+      </Specimen>
+    </Section>
+  );
+}
+
 function DesignSystem() {
   return (
     <div className="flex flex-col gap-10">
@@ -2150,6 +2229,7 @@ function DesignSystem() {
       <OverlaysSection />
       <DataSection />
       <GoalSection />
+      <MarketSection />
     </div>
   );
 }
