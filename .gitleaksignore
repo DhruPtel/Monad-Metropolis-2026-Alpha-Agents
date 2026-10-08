@@ -19,3 +19,9 @@ d8645c8bebef724285bbbd4c18b5d6b0332409de:chains/monad/test/fork/AgentNFTFork.t.s
 # P2-U4 signer policy test: the key "tokenOut" trips generic-api-key; the value is the
 # public WMON token address 0x3bd359C1119dA7Da1D913D1C4D2B7c461115433A (checked in P2-U4).
 6cdcf433c2c82889e8ac08fbf914be634057fee3:packages/signer/src/policy.test.ts:generic-api-key:28
+#
+# P2-U7 portfolio component test: the key "token" trips generic-api-key; the values are the
+# public USDC (0x754704Bc059F8C67012fEd69BC8A327a5aafb603) and WMON
+# (0x3bd359C1119dA7Da1D913D1C4D2B7c461115433A) token addresses from the address book (checked in P2-U7).
+3e6f1036a9a34d3ccafdfa3f4cc185636650132c:packages/ui/src/components/agent/portfolio.test.tsx:generic-api-key:129
+3e6f1036a9a34d3ccafdfa3f4cc185636650132c:packages/ui/src/components/agent/portfolio.test.tsx:generic-api-key:132

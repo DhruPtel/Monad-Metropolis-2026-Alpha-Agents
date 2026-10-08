@@ -1,9 +1,17 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { type ActivityJson, ApiError, type OwnerSession, api } from "@/api/client";
+import { type ActivityJson, ApiError, api, tradingApi } from "@/api/client";
 import { useWalletSession } from "@/auth/session";
 import { type SummaryView, refundOutcomeText, scanOpen, summaryView } from "./my-agents";
+import { positions } from "./portfolio";
+import { useOwnerSession } from "./use-owner-session";
+
+/** The trading account as the card shows it (P2-U7): open or not, and its value. */
+export interface TradingSummary {
+  readonly hasAccount: boolean;
+  readonly valueUsdcE6: bigint | null;
+}
 
 /** How often a card re-reads its summary, and how often while a Scan or refund is under way. */
 const POLL_MS = 5_000;
@@ -20,6 +28,8 @@ export type ActionState =
 export interface MyAgent {
   readonly summary: SummaryView | null;
   readonly activity: readonly ActivityJson[];
+  /** Null while unread, or where trading accounts are not deployed. */
+  readonly trading: TradingSummary | null;
   /** Why the summary could not be read, in plain words; null when it was. */
   readonly error: string | null;
   readonly refund: ActionState;
@@ -40,9 +50,9 @@ const words = (err: unknown) =>
  */
 export function useMyAgent(agentId: bigint): MyAgent {
   const wallet = useWalletSession();
-  const session = useRef<OwnerSession | null>(null);
   const [summary, setSummary] = useState<SummaryView | null>(null);
   const [activity, setActivity] = useState<readonly ActivityJson[]>([]);
+  const [trading, setTrading] = useState<TradingSummary | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [refund, setRefund] = useState<ActionState>({ state: "idle" });
   const [scan, setScan] = useState<ActionState>({ state: "idle" });
@@ -57,37 +67,12 @@ export function useMyAgent(agentId: bigint): MyAgent {
 
   // A session belongs to one wallet: a new account starts over.
   useEffect(() => {
-    session.current = null;
     setSummary(null);
+    setTrading(null);
     setError(null);
   }, [wallet.address, agentId]);
 
-  const ownerToken = useCallback(async (): Promise<string> => {
-    const s = session.current;
-    if (s && s.expiresAt - 30 > Date.now() / 1000) return s.token;
-    const fresh = await api.ownerSession(agentId, await wallet.getAccessToken());
-    session.current = fresh;
-    return fresh.token;
-  }, [agentId, wallet]);
-
-  /** Runs an owner call; a session the API calls stale or invalid is renewed once. */
-  const asOwner = useCallback(
-    async <T>(fn: (token: string) => Promise<T>): Promise<T> => {
-      try {
-        return await fn(await ownerToken());
-      } catch (err) {
-        if (
-          err instanceof ApiError &&
-          (err.code === "session_stale" || err.code === "invalid_token")
-        ) {
-          session.current = null;
-          return fn(await ownerToken());
-        }
-        throw err;
-      }
-    },
-    [ownerToken],
-  );
+  const asOwner = useOwnerSession(agentId);
 
   const busy = (summary ? scanOpen(summary) : false) || refund.state === "working";
   useEffect(() => {
@@ -95,13 +80,17 @@ export function useMyAgent(agentId: bigint): MyAgent {
     let live = true;
     void (async () => {
       try {
-        const [s, a] = await Promise.all([
+        const [s, a, p] = await Promise.all([
           asOwner((token) => api.summary(agentId, token)),
           api.activity(agentId).catch(() => null),
+          asOwner((token) => tradingApi.portfolio(agentId, token)).catch(() => null),
         ]);
         if (!live || !mounted.current) return;
         setSummary(summaryView(s));
         if (a) setActivity(a);
+        setTrading(
+          p ? { hasAccount: p.account !== null, valueUsdcE6: positions(p).totalUsdc } : null,
+        );
         setError(null);
       } catch (err) {
         if (live && mounted.current) setError(words(err));
@@ -161,5 +150,5 @@ export function useMyAgent(agentId: bigint): MyAgent {
     })();
   }, [agentId, asOwner, scan.state]);
 
-  return { summary, activity, error, refund, scan, requestRefund, requestScan };
+  return { summary, activity, trading, error, refund, scan, requestRefund, requestScan };
 }

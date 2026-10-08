@@ -67,9 +67,8 @@ function ActionLine({ action, testId }: { action: ActionState; testId: string })
 function MyAgentCard({ agent }: { agent: AgentView }) {
   const name = `Alpha Agent #${agent.id.toString()}`;
   const species = agent.species === 0 ? null : speciesByIndex(agent.species);
-  const { summary, activity, error, refund, scan, requestRefund, requestScan } = useMyAgent(
-    agent.id,
-  );
+  const { summary, activity, trading, error, refund, scan, requestRefund, requestScan } =
+    useMyAgent(agent.id);
   const canScan = summary ? scanAvailability(summary) : null;
   const canRefund = summary ? refundAvailability(summary) : null;
   const scanLine = summary ? scanStatusText(summary) : null;
@@ -137,7 +136,18 @@ function MyAgentCard({ agent }: { agent: AgentView }) {
       {summary ? (
         <>
           <div className="grid gap-6 lg:grid-cols-3">
-            <FundAgentPanel agentName={name} funding={summary.funding} />
+            <FundAgentPanel
+              agentName={name}
+              funding={summary.funding}
+              trading={trading}
+              tradingAction={
+                <Button asChild size="sm" variant="secondary" className="self-start">
+                  <Link href={`/agents/${agent.id.toString()}/portfolio`}>
+                    {trading?.hasAccount ? "Open portfolio" : "Set up trading"}
+                  </Link>
+                </Button>
+              }
+            />
             <SpendPanel
               agentName={name}
               spent24hUsdcE6={summary.spent24h}
