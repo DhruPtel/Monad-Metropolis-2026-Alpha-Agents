@@ -50,6 +50,7 @@
     "deploy:account-factory": "node scripts/deploy-account-factory.js",
     "deploy:testnet": "node scripts/deploy-testnet.js",
     "verify:testnet": "node scripts/verify-testnet.js",
+    "rpc:probe": "node scripts/rpc-probe.js",
     "testnet:gas": "node scripts/testnet-gas.js",
     "testnet:e2e": "node scripts/testnet-e2e.js",
     "testnet:local-only": "node scripts/testnet-local-only.js",

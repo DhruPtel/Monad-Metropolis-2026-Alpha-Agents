@@ -1,0 +1,111 @@
+{
+  "probedAt": "2026-10-08T16:35:59.603Z",
+  "results": [
+    {
+      "variable": "MONAD_RPC_URL",
+      "configured": true,
+      "domain": "alchemy.com",
+      "chainId": 143,
+      "latencyMs": {
+        "p50": 98,
+        "p95": 186
+      },
+      "logRange": {
+        "max": 10,
+        "refusal": "{\"code\":-32600,\"message\":\"Under the Free tier plan, you can make eth_getLogs requests with up to a 10 block range. Based on your parameters, this block range sh"
+      },
+      "archive": {
+        "1000000": "state served",
+        "50000000": "state served",
+        "109670000": "state served"
+      },
+      "normalLoad": {
+        "perSecond": 7.5,
+        "seconds": 60,
+        "answers": {
+          "200": 446
+        }
+      },
+      "heavyLoad": {
+        "perSecond": 19,
+        "seconds": 60,
+        "answers": {
+          "200": 1135
+        }
+      }
+    },
+    {
+      "variable": "MONAD_RPC_URL_SECONDARY",
+      "configured": false
+    },
+    {
+      "variable": "MONAD_TESTNET_RPC_URL",
+      "configured": true,
+      "domain": "alchemy.com",
+      "chainId": 10143,
+      "latencyMs": {
+        "p50": 90,
+        "p95": 174
+      },
+      "logRange": {
+        "max": 10,
+        "refusal": "{\"code\":-32600,\"message\":\"Under the Free tier plan, you can make eth_getLogs requests with up to a 10 block range. Based on your parameters, this block range sh"
+      },
+      "archive": {
+        "1000000": "{\"code\":-32001,\"message\":\"Unable to complete request at this time.\"}",
+        "30000000": "{\"code\":-32001,\"message\":\"Unable to complete request at this time.\"}",
+        "60000000": "{\"code\":-32001,\"message\":\"Unable to complete request at this time.\"}"
+      },
+      "normalLoad": {
+        "perSecond": 7.5,
+        "seconds": 60,
+        "answers": {
+          "200": 446
+        }
+      },
+      "heavyLoad": {
+        "perSecond": 19,
+        "seconds": 60,
+        "answers": {
+          "200": 1134
+        }
+      }
+    },
+    {
+      "variable": "MONAD_TESTNET_RPC_URL_SECONDARY",
+      "configured": true,
+      "domain": "quiknode.pro",
+      "chainId": 10143,
+      "latencyMs": {
+        "p50": 84,
+        "p95": 269
+      },
+      "logRange": {
+        "max": 6,
+        "refusal": "{\"code\":-32615,\"message\":\"eth_getLogs is limited to a 5 range, upgrade from discover plan at https://dashboard.quicknode.com/billing/plan to increase the limit\""
+      },
+      "archive": {
+        "1000000": "{\"code\":-32602,\"message\":\"Block requested not found. Request might be querying historical state that is not available. If possible, reformulate query to point t",
+        "30000000": "{\"code\":-32602,\"message\":\"Block requested not found. Request might be querying historical state that is not available. If possible, reformulate query to point t",
+        "60000000": "state served"
+      },
+      "normalLoad": {
+        "perSecond": 7.5,
+        "seconds": 60,
+        "answers": {
+          "200": 357,
+          "413": 90
+        }
+      },
+      "heavyLoad": {
+        "perSecond": 19,
+        "seconds": 60,
+        "answers": {
+          "200": 721,
+          "413": 180,
+          "429": 234
+        }
+      }
+    }
+  ]
+}

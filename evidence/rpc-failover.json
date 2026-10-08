@@ -1,0 +1,10 @@
+{
+  "checkedAt": "2026-10-08",
+  "method": "Each primary blocked by pointing it at http://127.0.0.1:9 (connection refused) in the process's own environment only; .env unchanged. Mainnet has one provider, so the fork check used the real mainnet provider as the second upstream.",
+  "results": {
+    "forkStart": { "ok": true, "upstreams": "MONAD_RPC_URL blocked, MONAD_RPC_URL_SECONDARY = the mainnet provider", "ms": 36466, "chainId": 143143, "usdcCodeBytes": 1798 },
+    "chainTools": { "ok": true, "chain": 10143, "primary": "blocked", "fallback": "MONAD_TESTNET_RPC_URL_SECONDARY", "read": "market() and agent(1), account 0xBaea95f5909D154Ae6729D4DB41D7cF4E751cDcB" },
+    "signer": { "ok": true, "chain": 10143, "primary": "blocked", "fallback": "MONAD_TESTNET_RPC_URL_SECONDARY", "read": "verifyChain, nonce 14 for the test wallet, base fee 100 gwei" },
+    "indexer": { "ok": true, "chain": 10143, "primary": "blocked", "fallback": "MONAD_TESTNET_RPC_URL_SECONDARY", "watermark": "69302247 to 69302463 in 20 s, about 11 blocks a second at the fallback's 5-block log cap" }
+  }
+}
