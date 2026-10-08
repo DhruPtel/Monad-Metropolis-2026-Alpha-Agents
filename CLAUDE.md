@@ -47,7 +47,8 @@ Alpha Agents is an onchain financial management platform on Monad where AI agent
 - Playtests always include a visual check of the pages touched by the phase.
 
 ## Git safety
-- Never run commands that discard uncommitted work: git checkout -- <file>, git restore, git reset --hard, git clean, or git stash drop.
+- Never run commands that discard uncommitted work: git checkout -- <file>, git restore <file> (without --staged), git reset --hard, git clean, or git stash drop.
+- Unstaging is allowed: git restore --staged <file> only removes a file from the index and never discards work.
 - To undo an edit, edit the file back, or commit first and then change it.
 
 ## Heavy work
