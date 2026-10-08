@@ -235,6 +235,22 @@ describe.skipIf(!available)("the indexer (needs pnpm dev:up for Postgres)", () =
     expect((await agents()).length).toBe(9);
   });
 
+  it("learns the source's cap and stops asking for ranges it refused (P2-EC)", async () => {
+    for (let i = 1; i <= 60; i++) chain.mine(...mintLogs(NFT, BigInt(i), ALICE, tba(i)));
+    chain.maxLogRange = 10;
+    const refused: number[] = [];
+    const fetchLogs = chain.logs.bind(chain);
+    chain.logs = async (filter) => {
+      if (filter.toBlock - filter.fromBlock + 1 > 10)
+        refused.push(filter.toBlock - filter.fromBlock + 1);
+      return fetchLogs(filter);
+    };
+    await indexer(100).catchUp();
+    expect((await agents()).length).toBe(60);
+    // 100, 50, 25 and 12 are refused once each, then 11 once; never again after that.
+    expect(refused).toEqual([60, 50, 25, 12, 11]);
+  });
+
   it("is idle at the head and asks for nothing but the head and the watermark block", async () => {
     chain.mine(...mintLogs(NFT, 1n, ALICE, tba(1)));
     await indexer().catchUp();

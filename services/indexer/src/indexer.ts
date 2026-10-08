@@ -80,7 +80,8 @@ export class Indexer {
   private readonly source: LogSource;
   readonly target: IndexerTarget;
   private range: number;
-  private readonly maxRange: number;
+  /** The configured maximum, lowered to just under any range the source refuses. */
+  private maxRange: number;
   private readonly confirmations: number;
   private readonly log: (line: string) => void;
 
@@ -134,6 +135,9 @@ export class Indexer {
         return result;
       } catch (err) {
         if (err instanceof RangeTooLargeError && this.range > 1) {
+          // Learn the source's cap (P2-EC: a free-tier testnet provider allows 10 blocks), so
+          // the range never grows back into a size the source has refused.
+          this.maxRange = Math.max(1, Math.min(this.maxRange, this.range - 1));
           this.range = Math.max(1, Math.floor(this.range / 2));
           continue;
         }
