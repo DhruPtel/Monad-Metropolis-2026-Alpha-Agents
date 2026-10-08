@@ -1,4 +1,5 @@
 import { createHmac, randomUUID } from "node:crypto";
+import { formatUnits } from "viem";
 import type { CreditService } from "./credits/service.ts";
 import type { GatewayAdmin } from "./gateway-admin.ts";
 import { narratorAlias } from "./provisioner.ts";
@@ -48,6 +49,25 @@ export interface ScanFacts {
   readonly creditsLeftUsdc: string;
 }
 
+/**
+ * A swap proposal (P2-U5): what the agent proposed, whether the pre-checks let
+ * it wait for approval, and every reason they gave. Built from the intent row
+ * only; `agentReason` is the agent's own words, reported as data.
+ */
+export interface IntentFacts {
+  readonly agent: string;
+  readonly activity: "swap_proposal";
+  readonly status: "awaiting approval" | "rejected";
+  readonly sell: { readonly asset: string; readonly amount: string };
+  readonly buy: string;
+  /** The venue's quote when it was proposed, in `buy` units; null when there was none. */
+  readonly expectedOut: string | null;
+  readonly reasons: readonly { readonly code: string; readonly message: string }[];
+  readonly agentReason: string;
+}
+
+export type NarrationFacts = ScanFacts | IntentFacts;
+
 /** Micro-USDC as a plain decimal with no trailing zeros: 22000 -> "0.022". */
 export function formatUsdc(e6: bigint): string {
   const negative = e6 < 0n;
@@ -89,7 +109,7 @@ export function numbersIn(text: string): string[] {
 export type Validation = { readonly ok: true } | { readonly ok: false; readonly reason: string };
 
 /** The boundary validator: shape, then every number must come from the facts record. */
-export function validateNarration(text: string, facts: ScanFacts): Validation {
+export function validateNarration(text: string, facts: NarrationFacts): Validation {
   const t = text.trim();
   if (t.length === 0) return { ok: false, reason: "empty" };
   if (t.length > MAX_ENTRY_CHARS)
@@ -123,6 +143,19 @@ export function templateEntry(facts: ScanFacts): string {
   const full = `${did} ${work}${found}${cost}`;
   if (full.length <= MAX_ENTRY_CHARS) return full;
   return `${did} ${work}${cost}`.slice(0, MAX_ENTRY_CHARS);
+}
+
+/** The fixed template for a swap proposal: every number in it comes from the facts. */
+export function templateIntentEntry(f: IntentFacts): string {
+  const quote =
+    f.expectedOut === null ? "" : ` (about ${f.expectedOut} ${f.buy} at the current quote)`;
+  const what = `${f.agent} proposed selling ${f.sell.amount} ${f.sell.asset} for ${f.buy}${quote}.`;
+  const verdict =
+    f.status === "awaiting approval"
+      ? " It passed every check and waits for the owner's approval."
+      : ` The checks blocked it: ${f.reasons.map((r) => r.code).join(", ")}.`;
+  const full = `${what}${verdict}`;
+  return full.length <= MAX_ENTRY_CHARS ? full : full.slice(0, MAX_ENTRY_CHARS);
 }
 
 export const NARRATOR_SYSTEM = [
@@ -199,7 +232,7 @@ export interface ActivityEntry {
   readonly text: string;
   readonly renderedBy: "narrator" | "template";
   readonly rejections: readonly string[];
-  readonly facts: ScanFacts;
+  readonly facts: NarrationFacts;
 }
 
 const hostOf = (summary: Record<string, unknown> | null): string => {
@@ -306,10 +339,79 @@ export class Narrator {
     if (existing) return existing;
     const facts = await this.factsFor(taskId, stopReason);
     if (!facts) return null;
+    await this.write({
+      chainId: task.chainId,
+      agentId: task.agentId,
+      key: taskId,
+      kind: "scan",
+      facts,
+      template: () => templateEntry(facts),
+    });
+    return (await this.stored(taskId)) ?? null;
+  }
+
+  /**
+   * Writes one activity entry for a swap proposal (P2-U5), keyed by the intent:
+   * a second call for the same intent writes nothing new.
+   */
+  async narrateIntent(
+    chainId: number,
+    agentId: number,
+    intentId: string,
+  ): Promise<ActivityEntry | null> {
+    const existing = await this.stored(intentId);
+    if (existing) return existing;
+    const row = await this.o.store.db
+      .selectFrom("platform.intents")
+      .selectAll()
+      .where("intent_id", "=", intentId)
+      .where("chain_id", "=", chainId)
+      .where("agent_id", "=", agentId)
+      .executeTakeFirst();
+    if (!row) return null;
+    const checks = row.checks as {
+      expectedOut?: string | null;
+      blockers?: { code: string; message: string }[];
+    };
+    const decimals = (asset: string) => (asset === "USDC" ? 6 : 18);
+    const facts: IntentFacts = {
+      agent: `Agent #${agentId}`,
+      activity: "swap_proposal",
+      status: row.status === "rejected" ? "rejected" : "awaiting approval",
+      sell: { asset: row.sell, amount: formatUnits(BigInt(row.amount_in), decimals(row.sell)) },
+      buy: row.buy,
+      expectedOut:
+        typeof checks.expectedOut === "string"
+          ? formatUnits(BigInt(checks.expectedOut), decimals(row.buy))
+          : null,
+      reasons: (checks.blockers ?? []).map((b) => ({ code: b.code, message: b.message })),
+      agentReason: row.reason.slice(0, 280),
+    };
+    await this.write({
+      chainId,
+      agentId,
+      key: intentId,
+      kind: "intent",
+      facts,
+      template: () => templateIntentEntry(facts),
+    });
+    return (await this.stored(intentId)) ?? null;
+  }
+
+  /** Narrates a facts record once under `key`, checked by the validator, or falls back to the template. */
+  private async write(e: {
+    chainId: number;
+    agentId: number;
+    key: string;
+    kind: "scan" | "intent";
+    facts: NarrationFacts;
+    template: () => string;
+  }): Promise<void> {
+    const facts = e.facts;
     const rejections: string[] = [];
     let text: string | null = null;
     let renderedBy: ActivityEntry["renderedBy"] = "template";
-    const restricted = (await this.o.credits.creditsOf(task.agentId)).restricted;
+    const restricted = (await this.o.credits.creditsOf(e.agentId)).restricted;
     if (!restricted) {
       try {
         await this.ensureKey();
@@ -330,16 +432,16 @@ export class Narrator {
         rejections.push(`narrator unavailable: ${errorText(err, this.o.redactor).slice(0, 120)}`);
       }
     } else rejections.push("agent restricted: credits exhausted");
-    text ??= templateEntry(facts);
+    text ??= e.template();
     const entryId = `act-${randomUUID()}`;
     await this.o.store.db
       .insertInto("platform.activity_entries")
       .values({
         entry_id: entryId,
-        chain_id: task.chainId,
-        agent_id: task.agentId,
-        task_id: taskId,
-        kind: "scan",
+        chain_id: e.chainId,
+        agent_id: e.agentId,
+        task_id: e.key,
+        kind: e.kind,
         text,
         rendered_by: renderedBy,
         facts: JSON.stringify(facts),
@@ -349,10 +451,9 @@ export class Narrator {
       .onConflict((oc) => oc.column("task_id").doNothing())
       .execute();
     this.o.log(
-      `agent ${task.agentId}: activity entry for task ${taskId} by the ${renderedBy}` +
+      `agent ${e.agentId}: activity entry for ${e.kind} ${e.key} by the ${renderedBy}` +
         (rejections.length ? ` (${rejections.length} rejected)` : ""),
     );
-    return (await this.stored(taskId)) ?? null;
   }
 
   async stored(taskId: string): Promise<ActivityEntry | null> {
@@ -368,7 +469,7 @@ export class Narrator {
       text: row.text,
       renderedBy: row.rendered_by,
       rejections: row.rejections,
-      facts: row.facts as unknown as ScanFacts,
+      facts: row.facts as unknown as NarrationFacts,
     };
   }
 }

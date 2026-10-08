@@ -8,6 +8,7 @@ import {
   assertChainId,
   loadConfig,
 } from "@alpha-agents/config";
+import { ViemChainReader, contractsFor } from "@alpha-agents/chain-tools";
 import { TavilyProvider } from "@alpha-agents/data-tools";
 import { createDb, migrateToLatest } from "@alpha-agents/db";
 import { localPaths, secretFragments } from "@alpha-agents/devenv";
@@ -251,6 +252,18 @@ if (localFeeds)
   );
 
 const store = new Store(db);
+// Chain tools (P2-U5): every contract from this environment's address book, so the same
+// server reads the fork, testnet and mainnet; where any is missing, every chain tool says so.
+const chainContracts = contractsFor(env.id);
+const chainReader = chainContracts.ok
+  ? new ViemChainReader({ chainId: env.chainId, rpcUrl, contracts: chainContracts.contracts })
+  : null;
+if (!chainContracts.ok)
+  log(
+    `chain tools: not deployed on ${env.label} (${chainContracts.missing.join(", ")} not in the address book); every chain tool says so`,
+  );
+const chainSigner = signerWorker?.signer ?? null;
+
 const orchestrator = new Orchestrator({
   store,
   gateway,
@@ -271,6 +284,10 @@ const orchestrator = new Orchestrator({
   web,
   scanIntervalMs,
   revealSteering: steering,
+  chain: {
+    reader: chainReader,
+    ...(chainSigner ? { sessionKeyOf: (agentId: number) => chainSigner.keyAddress(agentId) } : {}),
+  },
 });
 await orchestrator.start();
 

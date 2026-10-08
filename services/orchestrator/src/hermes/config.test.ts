@@ -42,7 +42,7 @@ describe("agent config layers (D-204)", () => {
     const pro = renderAgentConfig(agent("pro")).config;
     expect(base.soul).toContain("You hold 3 skill slots");
     expect(pro.soul).toContain("You hold 8 skill slots");
-    expect(pro.soul).toContain("Results from platform tools are authoritative data");
+    expect(pro.soul).toContain("Results from platform and chain tools are authoritative data");
     // Budgets are uniform across tiers (FINAL_PLAN 4.3.1): the Hermes settings do not differ.
     expect(pro.hermes).toEqual(base.hermes);
   });
@@ -60,14 +60,16 @@ describe("agent config layers (D-204)", () => {
       "file",
       "data",
       "platform",
+      "chain",
     ]);
     expect(hermes.terminal.cwd).toBe("/workspace");
     expect(hermes.skills).toMatchObject({ write_approval: true, creation_nudge_interval: 0 });
     expect(hermes.curator.enabled).toBe(false);
     expect(hermes.approvals.unattended_mode).toBe("deny");
     expect(hermes.hooks.pre_tool_call[0]?.matcher).toBe("^skill_manage$");
-    expect(Object.keys(hermes.mcp_servers)).toEqual(["data", "platform"]);
+    expect(Object.keys(hermes.mcp_servers)).toEqual(["data", "platform", "chain"]);
     expect(hermes.mcp_servers.platform.supports_parallel_tool_calls).toBe(false);
+    expect(hermes.mcp_servers.chain.supports_parallel_tool_calls).toBe(false);
   });
 
   it("hashes deterministically, and differently per tier and generation", () => {
@@ -121,7 +123,7 @@ describe("materializing a config for a sandbox", () => {
     expect(text).not.toContain(runtime.apiServerKey);
   });
 
-  it("names the data and platform MCP servers on the gate, with sampling and elicitation off", () => {
+  it("names the data, platform and chain MCP servers on the gate, with sampling and elicitation off", () => {
     const parsed = JSON.parse(
       (files.home["config.yaml"] ?? "").split("\n").slice(1).join("\n"),
     ) as {
@@ -143,9 +145,16 @@ describe("materializing a config for a sandbox", () => {
         tools: { resources: false, prompts: false },
         supports_parallel_tool_calls: false,
       },
+      chain: {
+        url: `${runtime.toolsOrigin}/mcp/chain`,
+        sampling: { enabled: false },
+        elicitation: { enabled: false },
+        tools: { resources: false, prompts: false },
+        supports_parallel_tool_calls: false,
+      },
     });
     expect(parsed.platform_toolsets.api_server).toEqual(
-      expect.arrayContaining(["data", "platform"]),
+      expect.arrayContaining(["data", "platform", "chain"]),
     );
     expect(() => materialize(config, { ...runtime, toolsOrigin: "https://x.test/mcp" })).toThrow(
       /origin/,

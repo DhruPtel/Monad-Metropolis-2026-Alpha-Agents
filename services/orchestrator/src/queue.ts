@@ -14,14 +14,15 @@ export type JobData =
   | { readonly kind: "deprovision"; readonly ref: AgentRef; readonly reason: string }
   | { readonly kind: "reset"; readonly ref: AgentRef }
   | { readonly kind: "noop"; readonly ref: AgentRef; readonly taskId: string }
-  | { readonly kind: "scan"; readonly ref: AgentRef; readonly taskId: string };
+  | { readonly kind: "scan"; readonly ref: AgentRef; readonly taskId: string }
+  | { readonly kind: "chain_check"; readonly ref: AgentRef; readonly taskId: string };
 
 export type JobHandler = (data: JobData) => Promise<unknown>;
 
 /** BullMQ refuses ':' in custom IDs; these use '-'. */
 export function jobId(data: JobData): string {
   const agent = `${data.ref.chainId}-${data.ref.agentId}`;
-  return data.kind === "noop" || data.kind === "scan"
+  return data.kind === "noop" || data.kind === "scan" || data.kind === "chain_check"
     ? `${data.kind}-${data.taskId}`
     : `${data.kind}-${agent}`;
 }
@@ -77,7 +78,7 @@ export class OrchestratorQueue {
       removeOnFail: true,
       // Provisioning retries a few times; a task runs once and records its own failure.
       // A task spends credits, so it is never retried by the queue.
-      attempts: data.kind === "noop" || data.kind === "scan" ? 1 : 3,
+      attempts: data.kind === "noop" || data.kind === "scan" || data.kind === "chain_check" ? 1 : 3,
       backoff: { type: "exponential", delay: 2_000 },
     });
     return { id, added: true };

@@ -453,6 +453,9 @@ importers:
       '@alpha-agents/accounting':
         specifier: workspace:^
         version: link:../../packages/accounting
+      '@alpha-agents/chain-tools':
+        specifier: workspace:^
+        version: link:../chain-tools
       '@alpha-agents/config':
         specifier: workspace:^
         version: link:../../packages/config
@@ -471,6 +474,9 @@ importers:
       '@alpha-agents/platform-tools':
         specifier: workspace:^
         version: link:../platform-tools
+      '@alpha-agents/policy':
+        specifier: workspace:^
+        version: link:../../packages/policy
       '@alpha-agents/signer':
         specifier: workspace:^
         version: link:../../packages/signer

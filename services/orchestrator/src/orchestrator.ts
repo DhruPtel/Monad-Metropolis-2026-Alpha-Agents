@@ -18,11 +18,12 @@ import { Provisioner } from "./provisioner.ts";
 import { type JobData, OrchestratorQueue } from "./queue.ts";
 import { reconcileOnce } from "./reconciler.ts";
 import { SCAN_MIN_CREDITS_USDC_E6, runScanTask, scanDue } from "./scan.ts";
+import { runChainCheckTask } from "./chain-check.ts";
 import { HERMES_TEMPLATE, type SandboxProvider } from "./sandbox.ts";
 import { type Log, type Redactor, errorText, randomToken } from "./secrets.ts";
 import { type AgentRef, OpenScanExistsError, type Store, type TaskRequester } from "./store.ts";
 import { startupSweep, type SweepReport } from "./sweep.ts";
-import { type ToolServers, startToolServers } from "./tools/servers.ts";
+import { type ChainToolsWiring, type ToolServers, startToolServers } from "./tools/servers.ts";
 import { type Tunnel, startTunnel, tunnelPidFile } from "./tunnel.ts";
 
 /**
@@ -90,6 +91,8 @@ export interface OrchestratorOptions {
   readonly scheduleMs?: number;
   /** D-221: steered reveals, on the local fork only; null elsewhere. */
   readonly revealSteering?: RevealSteering | null;
+  /** P2-U5: the chain tools' reader and the signer's session keys; none runs every chain tool as "not deployed". */
+  readonly chain?: Omit<ChainToolsWiring, "onProposed">;
 }
 
 export class Orchestrator {
@@ -204,6 +207,19 @@ export class Orchestrator {
         credits: this.credits,
         environment: this.o.credits.environment,
         provider: this.o.web ?? null,
+        chain: {
+          reader: this.o.chain?.reader ?? null,
+          ...(this.o.chain?.sessionKeyOf ? { sessionKeyOf: this.o.chain.sessionKeyOf } : {}),
+          onProposed: (identity, intent) => {
+            void this.narrator
+              ?.narrateIntent(identity.chainId, identity.agentId, intent.intentId)
+              .catch((err: unknown) =>
+                this.o.log(
+                  `intent ${intent.intentId}: no activity entry: ${errorText(err, this.o.redactor)}`,
+                ),
+              );
+          },
+        },
         log: this.o.log,
       });
     this.gate = await startGate({
@@ -211,7 +227,13 @@ export class Orchestrator {
       probeToken: this.probeToken,
       resolve: gateResolver(this.o.store, this.provisioner, this.credits),
       ...(this.tools
-        ? { tools: { data: this.tools.data.url, platform: this.tools.platform.url } }
+        ? {
+            tools: {
+              data: this.tools.data.url,
+              platform: this.tools.platform.url,
+              chain: this.tools.chain.url,
+            },
+          }
         : {}),
     });
     this.queue.start((job) => this.handle(job));
@@ -237,6 +259,13 @@ export class Orchestrator {
       this.every(this.o.scheduleMs ?? 30_000, "scan scheduler", async () => {
         await this.scheduleScans();
       });
+    if (this.tools) {
+      const intents = this.tools.intents;
+      this.every(30_000, "intent expiry", async () => {
+        const n = await intents.expireDue(this.o.chainId);
+        if (n > 0) this.o.log(`${n} intents expired before approval`);
+      });
+    }
     if (this.o.localFeeds) {
       const feeds = this.o.localFeeds;
       this.every(feeds.everyMs, "local feeds", () => feeds.refresh());
@@ -279,6 +308,8 @@ export class Orchestrator {
         return runNoopTask(this.taskContext(), job.taskId);
       case "scan":
         return runScanTask({ ...this.taskContext(), narrator: this.narrator }, job.taskId);
+      case "chain_check":
+        return runChainCheckTask(this.taskContext(), job.taskId);
     }
   }
 
@@ -340,6 +371,27 @@ export class Orchestrator {
     await this.o.store.insertTask(taskId, ref, "noop");
     await this.queue.add({ kind: "noop", ref, taskId });
     return taskId;
+  }
+
+  /**
+   * The dev console's chain check (P2-U5): an LLM task, so it needs credits like a
+   * Scan, and one sandbox per agent at a time.
+   */
+  async enqueueChainCheck(ref: AgentRef): Promise<string> {
+    const runtime = await this.o.store.runtime(ref);
+    if (runtime?.status !== "ready") throw new Error(`agent ${ref.agentId} is not provisioned`);
+    if (!this.tools) throw new Error("the tool servers are not running");
+    if (this.credits && (await this.credits.creditsOf(ref.agentId)).restricted)
+      throw new CreditsExhaustedError(ref.agentId);
+    const taskId = randomUUID();
+    await this.o.store.insertTask(taskId, ref, "chain_check", "console");
+    await this.queue.add({ kind: "chain_check", ref, taskId });
+    return taskId;
+  }
+
+  /** An agent's intents, newest first, with expiry applied (the dev console's view). */
+  async intents(ref: AgentRef, limit = 20) {
+    return this.tools ? this.tools.intents.list(ref.chainId, ref.agentId, limit) : [];
   }
 
   /** The agent's owner and ownership epoch, read from the chain. */

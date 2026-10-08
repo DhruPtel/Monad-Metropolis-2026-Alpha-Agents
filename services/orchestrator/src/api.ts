@@ -280,9 +280,22 @@ export function createApi(o: ApiOptions): Hono {
     return c.json({
       agentId: String(ref.agentId),
       calls: rows.map((r) => {
-        const input = r.input as { query?: unknown; url?: unknown; stage?: unknown };
+        const input = r.input as {
+          query?: unknown;
+          url?: unknown;
+          stage?: unknown;
+          sell?: unknown;
+          buy?: unknown;
+          amount?: unknown;
+          intentId?: unknown;
+        };
         let target: string | null = null;
         if (typeof input.query === "string") target = input.query.slice(0, 120);
+        else if (typeof input.sell === "string" && typeof input.buy === "string")
+          target = `${String(input.amount ?? "")} ${input.sell} to ${input.buy}`
+            .trim()
+            .slice(0, 60);
+        else if (typeof input.intentId === "string") target = input.intentId.slice(0, 48);
         else if (typeof input.url === "string")
           try {
             target = new URL(input.url).hostname;
@@ -305,6 +318,50 @@ export function createApi(o: ApiOptions): Hono {
           startedAt: new Date(r.started_at).toISOString(),
         };
       }),
+    });
+  });
+
+  /**
+   * P2-U5: what the chain tools saw and recorded for an agent: its latest
+   * portfolio reading (the summary of its last successful get_portfolio) and
+   * its intents with their states and every reason code. No calldata exists.
+   */
+  app.get("/v1/agents/:agentId/chain", async (c) => {
+    const ref = agentRef(c.req.param("agentId"), o.chainId);
+    if (!ref) return c.json({ error: "bad_agent_id" }, 400);
+    const reading = await o.store.db
+      .selectFrom("platform.tool_calls")
+      .select(["summary", "finished_at", "lease_id"])
+      .where("chain_id", "=", ref.chainId)
+      .where("agent_id", "=", ref.agentId)
+      .where("server", "=", "chain")
+      .where("tool", "=", "get_portfolio")
+      .where("status", "=", "succeeded")
+      .orderBy("started_at", "desc")
+      .limit(1)
+      .executeTakeFirst();
+    const intents = await o.orchestrator.intents(ref);
+    return c.json({
+      agentId: String(ref.agentId),
+      portfolio: reading
+        ? {
+            ...(reading.summary as Record<string, unknown>),
+            at: reading.finished_at ? new Date(reading.finished_at).toISOString() : null,
+          }
+        : null,
+      intents: intents.map((i) => ({
+        intentId: i.intentId,
+        status: i.status,
+        sell: i.sell,
+        buy: i.buy,
+        amountIn: i.amountIn.toString(),
+        reason: i.reason,
+        reasonCodes: i.reasonCodes,
+        expectedOut: (i.checks as { expectedOut?: unknown }).expectedOut ?? null,
+        createdAt: i.createdAt.toISOString(),
+        expiresAt: i.expiresAt.toISOString(),
+        txHash: i.txHash,
+      })),
     });
   });
 
@@ -451,6 +508,30 @@ export function createApi(o: ApiOptions): Hono {
       if (!done)
         return c.json({ error: "not_pending", message: "That steer is no longer pending." }, 409);
       return c.json({ steering: await steeringView() });
+    });
+
+    /** P2-U5: run the chain check now: the agent reads its account and proposes a small swap. */
+    app.post("/v1/agents/:agentId/tasks/chain-check", async (c) => {
+      const ref = agentRef(c.req.param("agentId"), o.chainId);
+      if (!ref) return c.json({ error: "bad_agent_id" }, 400);
+      const runtime = await o.store.runtime(ref);
+      if (runtime?.status !== "ready")
+        return c.json(
+          { error: "not_provisioned", message: `Agent ${ref.agentId} is not provisioned yet.` },
+          409,
+        );
+      if (await o.store.activeLease(ref))
+        return c.json(
+          { error: "lease_held", message: `Agent ${ref.agentId} already has a sandbox running.` },
+          409,
+        );
+      try {
+        return c.json({ taskId: await o.orchestrator.enqueueChainCheck(ref) }, 202);
+      } catch (err) {
+        if (err instanceof CreditsExhaustedError)
+          return c.json({ error: "credits_exhausted", message: err.message }, 409);
+        throw err;
+      }
     });
 
     /** P1-U7: queue a Scan now (D-216); the scheduler also queues them on its cadence. */

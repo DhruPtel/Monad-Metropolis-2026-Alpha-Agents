@@ -71,7 +71,7 @@ export interface GateOptions {
   /** A per-process token that may only call /healthz, for the host's own tunnel check. */
   readonly probeToken: string;
   /** The tool servers' MCP endpoints (D-213), or none before they start. */
-  readonly tools?: { readonly data: string; readonly platform: string };
+  readonly tools?: { readonly data: string; readonly platform: string; readonly chain?: string };
 }
 
 export interface Gate {
@@ -159,7 +159,9 @@ export async function startGate(options: GateOptions, port = 0): Promise<Gate> {
           ? options.tools?.data
           : path === "/mcp/platform"
             ? options.tools?.platform
-            : undefined;
+            : path === "/mcp/chain"
+              ? options.tools?.chain
+              : undefined;
       if (toolServer) {
         const target = new URL(toolServer);
         const proxied = httpRequest(

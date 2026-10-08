@@ -35,8 +35,8 @@ export const DISABLED_TOOLSETS = [
   "session_search",
 ] as const;
 
-/** Our MCP tool servers (D-213); the chain tools server joins with P2-U5. */
-export const MCP_SERVER_NAMES = ["data", "platform"] as const;
+/** Our MCP tool servers (D-213, and the chain tools server from P2-U5). */
+export const MCP_SERVER_NAMES = ["data", "platform", "chain"] as const;
 
 /** The toolsets the API server offers the agent, including our MCP servers. */
 export const API_SERVER_TOOLSETS = [
@@ -162,7 +162,9 @@ export const HermesSettingsSchema = z
       })
       .strict(),
     hooks_auto_accept: z.literal(true),
-    mcp_servers: z.object({ data: mcpServer(true), platform: mcpServer(false) }).strict(),
+    mcp_servers: z
+      .object({ data: mcpServer(true), platform: mcpServer(false), chain: mcpServer(false) })
+      .strict(),
   })
   .strict();
 
