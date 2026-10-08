@@ -1,0 +1,107 @@
+{
+  "checkedAt": "2026-10-08T15:21:14.779Z",
+  "results": [
+    {
+      "feature": "Local feed refresher (LocalFeed, D-237)",
+      "attempt": "refreshLocalFeeds against the testnet RPC",
+      "refused": true,
+      "answer": "NotLocalForkError: Refused: the target RPC is not the local anvil fork (host is not 127.0.0.1)."
+    },
+    {
+      "feature": "Steered reveals (D-221)",
+      "attempt": "LOCAL_FIRST_REVEAL_SPECIES=bee with APP_ENV=testnet",
+      "refused": true,
+      "answer": "ConfigError: LOCAL_FIRST_REVEAL_SPECIES"
+    },
+    {
+      "feature": "Steered reveals (D-221)",
+      "attempt": "POST /v1/keeper/reveal-steers on the testnet orchestrator",
+      "refused": true,
+      "answer": "404 (no such route with dev actions off)"
+    },
+    {
+      "feature": "The keeper's impersonated Entropy delivery",
+      "attempt": "sendAs (impersonation) against the testnet RPC",
+      "refused": true,
+      "answer": "NotLocalForkError: Refused: the target RPC is not the local anvil fork (host is not 127.0.0.1)."
+    },
+    {
+      "feature": "Console write tools",
+      "attempt": "start the dev console with APP_ENV=testnet",
+      "refused": true,
+      "answer": "exit 1: error: The dev console only runs in the local environment: APP_ENV is testnet, not local."
+    },
+    {
+      "feature": "Orchestrator write routes and signer test swaps",
+      "attempt": "POST /v1/agents/1/reset",
+      "refused": true,
+      "answer": "404 (no such route with dev actions off)"
+    },
+    {
+      "feature": "Orchestrator write routes and signer test swaps",
+      "attempt": "POST /v1/agents/1/tasks/noop",
+      "refused": true,
+      "answer": "404 (no such route with dev actions off)"
+    },
+    {
+      "feature": "Orchestrator write routes and signer test swaps",
+      "attempt": "POST /v1/agents/1/tasks/scan",
+      "refused": true,
+      "answer": "404 (no such route with dev actions off)"
+    },
+    {
+      "feature": "Orchestrator write routes and signer test swaps",
+      "attempt": "POST /v1/agents/1/arm",
+      "refused": true,
+      "answer": "404 (no such route with dev actions off)"
+    },
+    {
+      "feature": "Orchestrator write routes and signer test swaps",
+      "attempt": "POST /v1/agents/1/disarm",
+      "refused": true,
+      "answer": "404 (no such route with dev actions off)"
+    },
+    {
+      "feature": "Orchestrator write routes and signer test swaps",
+      "attempt": "POST /v1/agents/1/test-swap",
+      "refused": true,
+      "answer": "404 (no such route with dev actions off)"
+    },
+    {
+      "feature": "Orchestrator write routes and signer test swaps",
+      "attempt": "POST /v1/agents/1/refund",
+      "refused": true,
+      "answer": "404 (no such route with dev actions off)"
+    },
+    {
+      "feature": "Orchestrator write routes and signer test swaps",
+      "attempt": "POST /v1/agents/1/session-key",
+      "refused": true,
+      "answer": "404 (no such route with dev actions off)"
+    },
+    {
+      "feature": "Devenv impersonation helpers",
+      "attempt": "setMonBalance (anvil_setBalance) against the testnet RPC",
+      "refused": true,
+      "answer": "NotLocalForkError: Refused: the target RPC is not the local anvil fork (host is not 127.0.0.1)."
+    },
+    {
+      "feature": "Gas top-ups by anvil_setBalance",
+      "attempt": "the trade flow's top-up exists only on local",
+      "refused": true,
+      "answer": "main.ts passes topUp only when env is local (the fork)"
+    },
+    {
+      "feature": "Mock login for test stacks",
+      "attempt": "start the control API with ALPHA_E2E_MOCK_IDENTITY=1 and APP_ENV=testnet",
+      "refused": true,
+      "answer": "exit 1: error: ALPHA_E2E_MOCK_IDENTITY=1 is for local test stacks only"
+    },
+    {
+      "feature": "The fork chain ID 143143",
+      "attempt": "the testnet signer's pinned chain",
+      "refused": true,
+      "answer": "pinned to 10143, not 143143"
+    }
+  ]
+}

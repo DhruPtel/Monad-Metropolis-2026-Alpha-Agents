@@ -51,6 +51,8 @@
     "deploy:testnet": "node scripts/deploy-testnet.js",
     "verify:testnet": "node scripts/verify-testnet.js",
     "testnet:gas": "node scripts/testnet-gas.js",
+    "testnet:e2e": "node scripts/testnet-e2e.js",
+    "testnet:local-only": "node scripts/testnet-local-only.js",
     "testnet:up": "node scripts/testnet-stack.js up",
     "testnet:down": "node scripts/testnet-stack.js down",
     "testnet:to-local": "node scripts/testnet-stack.js to-local",
