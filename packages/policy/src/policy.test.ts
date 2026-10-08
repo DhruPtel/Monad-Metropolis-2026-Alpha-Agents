@@ -3,6 +3,7 @@ import {
   type ClientRequestId,
   type ConfigEpoch,
   type OwnerEpoch,
+  PRICE_FEEDS,
   type PriceE18,
   REJECTION_CODES,
   type RebalanceIntent,
@@ -60,6 +61,11 @@ describe("launch limits", () => {
       breakerReduceOnlyBps: 1_000,
       breakerPauseBps: 2_000,
     });
+  });
+
+  it("give each feed the bound the owner-facing feed facts name (D-317)", () => {
+    for (const feed of ["MON_USD", "USDC_USD"] as const)
+      expect(PRICE_FEEDS[feed].maxAgeSeconds).toBe(LAUNCH_LIMITS.oracleMaxAgeSeconds[feed]);
   });
 });
 

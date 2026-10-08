@@ -248,6 +248,10 @@ describe("chain tools server (P2-U5)", () => {
       (await call("tradable_now", { sell: "USDC", buy: "WMON", amount: "1" })).out,
     );
     expect(r.blockers.map((b) => b.code)).toEqual(["ORACLE_STALE"]);
+    // The refusal names the feed and when its next update was due (L-145).
+    expect(r.blockers[0]?.message).toContain("MON/USD price feed (the price of WMON) is stale");
+    expect(r.blockers[0]?.message).toContain("last updated 6 minutes ago");
+    expect(r.blockers[0]?.message).toContain("its next update was due 6 minutes ago");
   });
 
   it("tradable_now: names every blocker at once, and when each clears", async () => {

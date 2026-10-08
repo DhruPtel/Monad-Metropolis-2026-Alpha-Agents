@@ -15,4 +15,5 @@ export * from "./tokenbound.ts";
 export * from "./tools.ts";
 export * from "./venues.ts";
 export * from "./executor-policy.ts";
+export * from "./feeds.ts";
 export * from "./transactions.ts";

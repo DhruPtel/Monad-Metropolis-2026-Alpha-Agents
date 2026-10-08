@@ -1,4 +1,11 @@
-import { BaseError, ContractFunctionRevertedError, parseAbi } from "viem";
+import { PRICE_FEEDS, readableDuration } from "@alpha-agents/domain";
+import {
+  type Address,
+  BaseError,
+  ContractFunctionRevertedError,
+  isAddressEqual,
+  parseAbi,
+} from "viem";
 
 /**
  * The custody calls the owner's wallet makes from the portfolio page (P2-U7):
@@ -78,4 +85,26 @@ export function custodyRevertName(error: unknown): string | undefined {
   if (!(error instanceof BaseError)) return undefined;
   const reverted = error.walk((e) => e instanceof ContractFunctionRevertedError);
   return reverted instanceof ContractFunctionRevertedError ? reverted.data?.errorName : undefined;
+}
+
+/** OracleReason's STALE, the Solidity enum's index (packages/policy ORACLE_REASONS). */
+const ORACLE_STALE_INDEX = 8;
+
+/**
+ * A deposit refused for a stale feed names the feed (L-145): the account asks
+ * the oracle about USDC only for the depeg guard (USDC/USD) and about WMON for
+ * its price (MON/USD). Without the feed's time it cannot say how late it is.
+ */
+export function staleFeedRevertMessage(
+  error: unknown,
+  usdc: Address | undefined,
+): string | undefined {
+  if (!(error instanceof BaseError)) return undefined;
+  const reverted = error.walk((e) => e instanceof ContractFunctionRevertedError);
+  if (!(reverted instanceof ContractFunctionRevertedError)) return undefined;
+  if (reverted.data?.errorName !== "OracleUnavailable") return undefined;
+  const [asset, reason] = (reverted.data.args ?? []) as readonly [Address?, number?];
+  if (reason !== ORACLE_STALE_INDEX || !asset) return undefined;
+  const feed = usdc && isAddressEqual(asset, usdc) ? PRICE_FEEDS.USDC_USD : PRICE_FEEDS.MON_USD;
+  return `Deposits are refused because the ${feed.label} price feed (${feed.guards}) is stale. It normally updates about every ${readableDuration(feed.heartbeatSeconds)}, so try again shortly. Withdrawals need no price and still work.`;
 }

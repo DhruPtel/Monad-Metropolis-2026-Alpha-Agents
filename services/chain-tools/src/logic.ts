@@ -3,6 +3,7 @@ import {
   type AssetId,
   REJECTION_MESSAGES,
   type RejectionCode,
+  staleFeedMessage,
   TRADE_FLOW_MESSAGES,
   type TradeFlowCode,
 } from "@alpha-agents/domain";
@@ -421,13 +422,31 @@ export function blockersFor(
     } else if (quote.amountOut < trade.minAmountOut) codes.push("SLIPPAGE_TOO_HIGH");
   }
   const window = rollingWindow(market, m.policy);
-  return codes.map((c) =>
-    blocker(
+  return codes.map((c) => {
+    const b = blocker(
       c,
       c === "DAILY_TRADE_LIMIT" || c === "TURNOVER_CAP" ? window.oldestLeavesAt : null,
       m.paused && a.mode !== "PAUSED",
-    ),
-  );
+    );
+    return c === "ORACLE_STALE" ? staleOracleBlocker(b, m) : b;
+  });
+}
+
+/**
+ * A stale MON/USD names the feed and when its next update is due (L-145, D-317);
+ * any other unusable reading keeps the generic text. Only MON/USD gates trades.
+ */
+function staleOracleBlocker(b: Blocker, m: MarketState): Blocker {
+  if (m.monUsd.reason !== "STALE") return b;
+  return {
+    ...b,
+    message: staleFeedMessage({
+      feed: "MON_USD",
+      updatedAt: Number(m.monUsd.updatedAt),
+      now: Number(m.timestamp),
+      refused: "trade",
+    }),
+  };
 }
 
 export interface TradeAssessment {

@@ -192,7 +192,12 @@ export function usePortfolio(agentId: bigint, environment: EnvironmentId): Portf
       if (running.current) return;
       running.current = true;
       void runWalletSteps(
-        { checkNetwork, send: (c) => wallet.writeContract(c), waitForReceipt },
+        {
+          checkNetwork,
+          send: (c) => wallet.writeContract(c),
+          waitForReceipt,
+          usdc: portfolio?.contracts.usdc,
+        },
         steps,
         (progress) => mounted.current && setStatus({ action, progress, done }),
       ).finally(() => {
@@ -200,7 +205,7 @@ export function usePortfolio(agentId: bigint, environment: EnvironmentId): Portf
         if (mounted.current) setTick((t) => t + 1);
       });
     },
-    [checkNetwork, waitForReceipt, wallet],
+    [checkNetwork, portfolio?.contracts.usdc, waitForReceipt, wallet],
   );
 
   const openAccount = useCallback(() => {

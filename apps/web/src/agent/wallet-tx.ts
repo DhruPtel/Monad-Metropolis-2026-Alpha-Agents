@@ -1,6 +1,6 @@
-import { BaseError, type Hex } from "viem";
+import { type Address, BaseError, type Hex } from "viem";
 import { isUserRejection } from "@/auth/session";
-import { CUSTODY_REVERT_MESSAGES, custodyRevertName } from "./custody";
+import { CUSTODY_REVERT_MESSAGES, custodyRevertName, staleFeedRevertMessage } from "./custody";
 import type { NetworkCheck } from "./network-check";
 import { ReceiptTimeoutError, SentElsewhereError } from "./receipt-watch";
 import { StuckNonceError } from "./stuck-nonce";
@@ -27,6 +27,8 @@ export interface WalletTxDeps<C> {
   readonly send: (call: C) => Promise<Hex>;
   /** Waits for the receipt on the app's network; resolves to whether it succeeded. */
   readonly waitForReceipt: (hash: Hex) => Promise<"success" | "reverted">;
+  /** USDC's address, so a stale-feed refusal names USDC/USD rather than MON/USD (L-145). */
+  readonly usdc?: Address | undefined;
 }
 
 export type WalletTxState =
@@ -43,7 +45,9 @@ export interface WalletTxProgress {
 }
 
 /** The owner-facing reason for a failed send: the contract's own revert when it has one. */
-export function sendFailure(error: unknown, label: string): string {
+export function sendFailure(error: unknown, label: string, usdc?: Address): string {
+  const stale = staleFeedRevertMessage(error, usdc);
+  if (stale) return stale;
   const name = custodyRevertName(error);
   if (name && CUSTODY_REVERT_MESSAGES[name]) return CUSTODY_REVERT_MESSAGES[name];
   if (name) return `${label} was refused by the contract (${name}).`;
@@ -82,7 +86,7 @@ export async function runWalletSteps<C>(
       hash = await deps.send(s.call);
     } catch (error) {
       if (isUserRejection(error)) return finish({ state: "rejected", ...where });
-      return finish({ state: "failed", ...where, message: sendFailure(error, s.label) });
+      return finish({ state: "failed", ...where, message: sendFailure(error, s.label, deps.usdc) });
     }
     report({ state: "confirming", ...where, hash });
     try {

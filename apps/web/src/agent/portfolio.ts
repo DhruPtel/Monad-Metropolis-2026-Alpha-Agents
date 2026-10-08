@@ -1,4 +1,5 @@
 import type { Address } from "viem";
+import { staleFeedMessage } from "@alpha-agents/domain";
 import type { PortfolioJson } from "@/api/client";
 
 /**
@@ -119,12 +120,31 @@ export interface DepositCheck {
   readonly valueUsdc: bigint | null;
 }
 
-const refuse = (block: DepositBlock, valueUsdc: bigint | null = null): DepositCheck => ({
+const refuse = (
+  block: DepositBlock,
+  valueUsdc: bigint | null = null,
+  message: string = DEPOSIT_BLOCK_MESSAGES[block],
+): DepositCheck => ({
   ok: false,
   block,
-  message: DEPOSIT_BLOCK_MESSAGES[block],
+  message,
   valueUsdc,
 });
+
+/** A stale feed names itself and when its next update is due (L-145); other reasons keep the block's text. */
+const priceRefusal = (p: PortfolioJson, block: DepositBlock, which: "monUsd" | "usdcUsd") =>
+  p.prices[which].reason === "STALE"
+    ? refuse(
+        block,
+        null,
+        staleFeedMessage({
+          feed: which === "monUsd" ? "MON_USD" : "USDC_USD",
+          updatedAt: p.prices[which].updatedAt,
+          now: p.timestamp,
+          refused: "deposit",
+        }),
+      )
+    : refuse(block);
 
 /**
  * Whether a deposit would go through, in the order the account checks it,
@@ -140,9 +160,10 @@ export function depositCheck(p: PortfolioJson, asset: Asset, amount: bigint): De
   if (p.depositsClosed) return refuse("DEPOSITS_CLOSED");
   const peg = p.prices.usdcUsd.reason;
   if (peg === "USDC_DEPEGGED") return refuse("USDC_DEPEGGED");
-  if (peg !== "OK") return refuse("USDC_PRICE_UNAVAILABLE");
+  if (peg !== "OK") return priceRefusal(p, "USDC_PRICE_UNAVAILABLE", "usdcUsd");
   const holdsWmon = BigInt(p.balances.wmonWei) > 0n;
-  if ((asset === "WMON" || holdsWmon) && !priceUsable(p)) return refuse("WMON_PRICE_UNAVAILABLE");
+  if ((asset === "WMON" || holdsWmon) && !priceUsable(p))
+    return priceRefusal(p, "WMON_PRICE_UNAVAILABLE", "monUsd");
   const value = asset === "USDC" ? amount : wmonToUsdc(amount, BigInt(p.prices.monUsd.priceE18));
   const room = capRoom(p);
   if (value > room.personal) return refuse("PERSONAL_CAP", value);

@@ -129,6 +129,39 @@ describe("deposit blocks, before any transaction", () => {
     expect(depositCheck(peg("STALE"), "USDC", usdc(1n)).block).toBe("USDC_PRICE_UNAVAILABLE");
   });
 
+  it("names a stale feed and when its update was due (L-145)", () => {
+    const usdcStale = portfolio({
+      prices: {
+        ...portfolio().prices,
+        usdcUsd: { priceE18: "0", updatedAt: NOW - 7_300, reason: "STALE" },
+      },
+    });
+    const usdcCheck = depositCheck(usdcStale, "USDC", usdc(1n));
+    expect(usdcCheck.block).toBe("USDC_PRICE_UNAVAILABLE");
+    expect(usdcCheck.message).toBe(
+      "Deposits are refused because the USDC/USD price feed (the USDC depeg guard) is stale: it last updated 2 hours 1 minute ago, and answers 2 hours old or older are not used. It normally updates about every 1 hour; its next update was due 1 hour 1 minute ago, so expect one shortly. Withdrawals need no price and still work.",
+    );
+    const monStale = portfolio({
+      prices: {
+        ...portfolio().prices,
+        monUsd: { priceE18: "0", updatedAt: NOW - 400, reason: "STALE" },
+      },
+    });
+    expect(depositCheck(monStale, "USDC", usdc(1n)).message).toMatch(
+      /the MON\/USD price feed \(the price of WMON\) is stale: it last updated 6 minutes ago/,
+    );
+    // A reason other than staleness keeps the block's own text.
+    const reverted = portfolio({
+      prices: {
+        ...portfolio().prices,
+        usdcUsd: { priceE18: "0", updatedAt: NOW, reason: "FEED_REVERTED" },
+      },
+    });
+    expect(depositCheck(reverted, "USDC", usdc(1n)).message).toBe(
+      DEPOSIT_BLOCK_MESSAGES.USDC_PRICE_UNAVAILABLE,
+    );
+  });
+
   it("refuses while paused or closed, past the wallet's balance, and WMON without a price", () => {
     expect(depositCheck(portfolio({ mode: "PAUSED" }), "USDC", usdc(1n)).block).toBe("PAUSED");
     expect(depositCheck(portfolio({ depositsClosed: true }), "USDC", usdc(1n)).block).toBe(
