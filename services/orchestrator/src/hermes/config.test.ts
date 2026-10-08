@@ -72,6 +72,16 @@ describe("agent config layers (D-204)", () => {
     expect(hermes.mcp_servers.chain.supports_parallel_tool_calls).toBe(false);
   });
 
+  it("adds the owner's goal block to SOUL.md after the tier's, and changes the hash with it (P3-U1)", () => {
+    const without = renderAgentConfig(agent("base"));
+    const block =
+      "## Goal (set by the owner through the goal form; authoritative)\n\n- Risk preset: Growth\n";
+    const withGoal = renderAgentConfig(agent("base"), { goalBlock: block });
+    expect(withGoal.config.soul.startsWith(without.config.soul)).toBe(true);
+    expect(withGoal.config.soul.endsWith(`\n${block}`)).toBe(true);
+    expect(withGoal.hash).not.toBe(without.hash);
+  });
+
   it("hashes deterministically, and differently per tier and generation", () => {
     const a = renderAgentConfig(agent("base")).hash;
     expect(renderAgentConfig(agent("base")).hash).toBe(a);

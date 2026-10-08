@@ -152,6 +152,12 @@ export interface AgentOverrides {
   readonly runBudgetSeconds?: number;
   /** Raw settings merged last; still validated, so locked values cannot change. */
   readonly hermes?: Readonly<Record<string, unknown>>;
+  /**
+   * The owner's goal block for SOUL.md, rendered by packages/policy's goal
+   * translator and stored with the goal (P3-U1); P3-U4's per-cycle render
+   * passes the current one. Absent: the agent has no goal yet.
+   */
+  readonly goalBlock?: string;
 }
 
 export interface AgentIdentity {
@@ -215,7 +221,7 @@ export function renderAgentConfig(
     schemaVersion: 1,
     agent: { ...agent },
     tier: { name: agent.tier, slots: slotsFor(agent.tier), playbook },
-    soul: `${BASE_SOUL}\n\n${playbook.soulBlock}\n`,
+    soul: `${BASE_SOUL}\n\n${playbook.soulBlock}\n${overrides.goalBlock ? `\n${overrides.goalBlock.trimEnd()}\n` : ""}`,
     hermes,
   };
   const parsed = AgentConfigSchema.safeParse(document);
