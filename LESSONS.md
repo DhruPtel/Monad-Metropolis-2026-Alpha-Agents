@@ -915,3 +915,38 @@ What happened: Adding the signer package with `pnpm install --offline` changed a
 Cause: A non-frozen install re-resolves the whole graph, and the local store's state differed from when the lockfile was written.
 Fix: The lockfile was rebuilt from the committed one with only the new importer entries added, and `pnpm install --offline --frozen-lockfile` confirmed it.
 Lesson: When adding a workspace package or dependency, check the lockfile diff touches only that, and verify with a frozen install.
+
+## L-118: A missing price made a trade read as an invalid intent
+Unit: P2-U5
+What happened: The chain tools' fork test failed its stale-price case: `tradable_now` named `INTENT_INVALID` first, while the real Executor refused the same swap with `ORACLE_STALE`. The unit tests had passed, because their fake reader kept a non-zero price while marking it stale.
+Cause: With an unusable feed the oracle adapter reports a price of zero, so the pre-check's stand-in minimum output, the oracle floor, was zero, and `executorBlockers` rightly calls a zero minimum an invalid intent. The trade flow always sends a positive minimum, so the Executor never sees that case.
+Fix: With no usable price the stand-in minimum is 1, so only the oracle rule blocks the trade; a unit test with a zero, stale price checks it, and the fork test holds every case to the Executor's own answer (888be44).
+Lesson: A pre-check that fills in what the caller will send must fill it in as the caller would, and is only proven against the real contract under each failure, not against a fake that keeps the failure's inputs friendly.
+
+## L-119: Test slips this unit, caught before commit
+Unit: P2-U5
+What happened: Three new tests failed for test reasons: a signer test owner written as a mixed-case address with a wrong checksum (L-20 again), an assertion label that serialized a BigInt, and an expectation that missed a third blocker the code rightly gave (a 20 USDC buy also breaks the 40% cap). Separately, the last fix of 888be44 was committed after the secrets scan had run on the version before it; a scan of the whole history afterwards passed.
+Cause: Addresses typed by hand in mixed case, labels built with JSON.stringify, an expectation written from the rule I meant to test rather than every rule the input breaks; and a re-edit after the gate without running it again.
+Fix: Lowercase test addresses, plain labels, the expectation with all three codes; the scan run again on the committed tree.
+Lesson: Write test addresses in lowercase, and rerun the commit gate after any edit made once it has passed.
+
+## L-120: A refund waited forever for a session key only the console creates
+Unit: P2-U5
+What happened: The first orchestrator live check after refunds moved into the signer's outbox timed out on its refund step; the orchestrator logged "agent 1 has no session key in the signer; create it first; retried next pass" every two seconds.
+Cause: The signer accepts a transaction only for a key it has recorded, and until then only the console's "create session key" route recorded one. Every unit test created the key in its setup, so none saw an agent whose key had never been recorded, which is every real agent that is refunded before it trades.
+Fix: A credit transfer records the agent's key itself when none is recorded yet (its funding address, D-243, and `createKey` is idempotent); a test deletes the key first, and failed with the change removed (b77fe72).
+Lesson: When a step moves into a component with preconditions, list each precondition and check that the production path, not only the test setup, establishes it; one live run before calling it done catches what setups hide.
+
+## L-121: A commit went in while typecheck failed (L-113 again)
+Unit: P2-U5
+What happened: b77fe72 was committed although the same command printed `tc=1`: a test stub did not match the `Signer` type. 6cf9f1e fixed it, so b77fe72 alone does not typecheck.
+Cause: The command printed typecheck's and lint's exit codes but gated the commit only on the secrets scan's.
+Fix: Commits now run `typecheck`, `lint` and the scan, keep each exit code, and commit only when all three are zero.
+Lesson: Gate a commit on every check it runs; a check whose result is only printed does not gate anything.
+
+## L-122: A USDC refund ran out of gas under Monad's gas model
+Unit: P2-U5
+What happened: In the second live check, the refund was signed and mined and then reverted; the outbox recorded TRANSFER_REVERTED with "the replay passed", and the owner received nothing (the ledger was restored).
+Cause: A-41 set a USDC transfer's gas limit at 100,000, from Ethereum's figures for a FiatToken transfer. Under Monad's gas model (cold storage and account access priced higher) the same transfer used 100,106 to 100,310 gas on the fork. The unit tests ran on a fake chain that does not meter gas, so nothing measured it.
+Fix: The limit is 150,000 and A-41 records the measurement; the signer's fork test now refunds real USDC and checks the gas used is under the limit, and it failed with the old limit (this unit's fix commit).
+Lesson: Set a gas limit from a measurement on the target EVM, never from Ethereum figures, and prove it with a transaction on a fork, not a fake chain; P2-EC measures it again on testnet and mainnet.
