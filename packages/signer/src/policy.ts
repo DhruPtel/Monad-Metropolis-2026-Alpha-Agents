@@ -25,13 +25,17 @@ export const CHAIN_PINS: Readonly<Record<EnvironmentId, number>> = {
 };
 
 /**
- * A swap's gas limit (A-38). The P2-U2 swap on the real v4 pool used about
- * 1.0M gas; Monad charges the limit, not the gas used, so the limit stays
- * close to it. Per-tier caps come later.
+ * A swap's gas limit (A-38, revised in P2-EC). Monad charges the limit, not
+ * the gas used, so it stays close to the measured cost: an account's first
+ * swap writes fresh storage (the trade ring buffer, the peak buckets) and used
+ * 1,070,401 gas inside the call on the P2-EC testnet pool (about 1,097,000 in
+ * all), a later sale 975,571, and the P2-U2 fork swap about 1,036,000. The old
+ * 1.1M left about 3,000 gas of margin on a first trade; 1.3M leaves about 18%,
+ * at 0.134 MON per swap at 103 gwei. Per-tier caps come later.
  */
-export const SWAP_GAS_LIMIT = 1_100_000n;
+export const SWAP_GAS_LIMIT = 1_300_000n;
 
-/** The most the signer pays per gas (A-38): 500 gwei, about 0.55 MON for a whole swap. */
+/** The most the signer pays per gas (A-38): 500 gwei, about 0.65 MON for a whole swap. */
 export const MAX_FEE_PER_GAS_CAP = 500_000_000_000n;
 /** The most priority fee per gas (A-38). */
 export const MAX_PRIORITY_FEE_CAP = 10_000_000_000n;

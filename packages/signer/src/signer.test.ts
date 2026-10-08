@@ -130,7 +130,7 @@ describe.skipIf(!dbUp)("the signer's outbox (needs Postgres)", { timeout: 60_000
       "confirmed",
       "reconciled",
     ]);
-    expect(r).toMatchObject({ nonce: 0, gas_limit: "1100000", amount_out: "160000000000000001" });
+    expect(r).toMatchObject({ nonce: 0, gas_limit: "1300000", amount_out: "160000000000000001" });
     expect(r.balances).toEqual({
       tokenIn: { before: "100000000", after: "95000000" },
       tokenOut: { before: "0", after: "160000000000000001" },
