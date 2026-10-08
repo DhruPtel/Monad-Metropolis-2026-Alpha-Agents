@@ -36,3 +36,4 @@ export * from "./components/ui/tooltip";
 export * from "./lib/utils";
 export * from "./tokens";
 export * from "./components/agent/my-agent";
+export * from "./components/agent/portfolio";

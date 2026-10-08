@@ -37,7 +37,15 @@ import {
   ActivityFeed,
   TOOL_CALL_STATUSES,
   ToolCallStatusBadge,
+  ApprovalCard,
+  ArmingCard,
+  CapsPanel,
   FundAgentPanel,
+  PositionsPanel,
+  type PositionsView,
+  RecentTrades,
+  WalletActionStatus,
+  WhyNotTraded,
   QrCode,
   RUN_STATUSES,
   RunStatusBadge,
@@ -854,7 +862,7 @@ function AgentSection() {
       </Specimen>
       <Specimen
         name="Fund your agent"
-        note="The funding address with its copy button and QR code, the credits it holds, USDC held above the beta cap, and the Trading placeholder until Phase 2 (P1-U9)."
+        note="The funding address with its copy button and QR code, the credits it holds, USDC held above the beta cap (P1-U9), and the trading account's value with a link to the portfolio, or that none is open yet (P2-U7)."
       >
         <div className="grid gap-6 lg:grid-cols-2">
           <FundAgentPanel
@@ -864,8 +872,18 @@ function AgentSection() {
               spendableUsdcE6: 4_994_400n,
               heldUsdcE6: 2_000_000n,
             }}
+            trading={{ hasAccount: true, valueUsdcE6: 40_000_000n }}
+            tradingAction={
+              <Button size="sm" variant="secondary">
+                Open portfolio
+              </Button>
+            }
           />
-          <FundAgentPanel agentName="Alpha Agent #8" funding={null} />
+          <FundAgentPanel
+            agentName="Alpha Agent #8"
+            funding={null}
+            trading={{ hasAccount: false, valueUsdcE6: null }}
+          />
         </div>
       </Specimen>
       <Specimen
@@ -1474,6 +1492,264 @@ function DataSection() {
   );
 }
 
+const DS_ACCOUNT = "0x4d2C9a1B3e5F60718293a4b5C6d7e8F90a1b2C3d";
+const DS_USDC = "0x754704Bc059F8C67012fEd69BC8A327a5aafb603";
+const DS_WMON = "0x3bd359C1119dA7Da1D913D1C4D2B7c461115433A";
+const DS_POSITIONS: PositionsView = {
+  usdc: 30_000_000n,
+  wmon: 400n * 10n ** 18n,
+  wmonValueUsdc: 10_000_000n,
+  totalUsdc: 40_000_000n,
+  usdcShareBps: 7_500,
+  wmonShareBps: 2_500,
+  mode: "NORMAL",
+  drawdownBps: 120,
+  peak7d: "1.0125",
+  price: { monUsd: "0.0250", ageSeconds: 20, usable: true, reason: "OK" },
+};
+
+function PortfolioSection() {
+  return (
+    <Section id="portfolio" title="Portfolio">
+      <Specimen
+        name="Positions"
+        note="USDC and WMON held, their value at the oracle price and share of the account, the account's mode, the drawdown from its 7-day peak, and the price's age. With the price unavailable, values read as unknown and the age gives the oracle's reason."
+      >
+        <div className="grid gap-6 lg:grid-cols-2">
+          <PositionsPanel positions={DS_POSITIONS} />
+          <PositionsPanel
+            positions={{
+              ...DS_POSITIONS,
+              wmonValueUsdc: null,
+              totalUsdc: null,
+              usdcShareBps: null,
+              wmonShareBps: null,
+              mode: "PAUSED",
+              drawdownBps: null,
+              price: { monUsd: null, ageSeconds: 900, usable: false, reason: "STALE" },
+            }}
+          />
+        </div>
+      </Specimen>
+      <Specimen
+        name="Beta deposit limits"
+        note="How much this account and the whole platform have taken under their caps, and the room left; a wallet not on the allowlist is named before any transaction."
+      >
+        <div className="grid gap-6 lg:grid-cols-2">
+          <CapsPanel
+            caps={{
+              personalCapUsdc: 100_000_000n,
+              principalUsdc: 40_000_000n,
+              platformCapUsdc: 2_000_000_000n,
+              platformTotalUsdc: 250_000_000n,
+              roomUsdc: 60_000_000n,
+              allowlisted: true,
+            }}
+          />
+          <CapsPanel
+            caps={{
+              personalCapUsdc: 100_000_000n,
+              principalUsdc: 0n,
+              platformCapUsdc: 2_000_000_000n,
+              platformTotalUsdc: 1_990_000_000n,
+              roomUsdc: 10_000_000n,
+              allowlisted: false,
+            }}
+          />
+        </div>
+      </Specimen>
+      <Specimen
+        name="Wallet action status"
+        note="Every wallet transaction says where it is: checking the network, waiting in the wallet, confirming, confirmed, declined, or failed with the contract's reason."
+      >
+        <div className="flex flex-col gap-3">
+          <WalletActionStatus state="checking" text="Checking your wallet's network." />
+          <WalletActionStatus
+            state="waiting-wallet"
+            text="Waiting for your wallet: Approve 25 USDC (step 1 of 2)."
+          />
+          <WalletActionStatus
+            state="confirming"
+            text="Sent. Waiting for the network to confirm (step 2 of 2)."
+            hash={`0x${"7d".repeat(32)}`}
+          />
+          <WalletActionStatus state="confirmed" text="Deposited 25 USDC." />
+          <WalletActionStatus
+            state="rejected"
+            text="You declined the request in your wallet; nothing was sent."
+          />
+          <WalletActionStatus
+            state="failed"
+            text="The account is paused, so it takes no deposits. Withdrawals still work."
+          />
+        </div>
+      </Specimen>
+      <Specimen
+        name="Arming card"
+        note="Not armed (with why the last arming ended), awaiting the first approval, and armed with the grant's expiry and a renewal reminder; the page puts Arm, Disarm or Renew in its actions."
+      >
+        <div className="grid gap-6 lg:grid-cols-3">
+          <ArmingCard
+            agentName="Alpha Agent #7"
+            arming={{
+              state: "unarmed",
+              validUntilDate: null,
+              renewalDue: false,
+              endedMessage: "The owner disarmed the agent.",
+              fundingAddress: null,
+            }}
+            actions={<Button size="sm">Arm</Button>}
+          />
+          <ArmingCard
+            agentName="Alpha Agent #7"
+            arming={{
+              state: "awaiting_first_trade",
+              validUntilDate: "2026-11-06",
+              renewalDue: false,
+              endedMessage: null,
+              fundingAddress: "0x9F8e2B1C0d3a4E5f60718293A4B5c6D7E8f90a1B",
+            }}
+            actions={
+              <Button size="sm" variant="danger">
+                Disarm
+              </Button>
+            }
+          />
+          <ArmingCard
+            agentName="Alpha Agent #7"
+            arming={{
+              state: "armed",
+              validUntilDate: "2026-10-09",
+              renewalDue: true,
+              endedMessage: null,
+              fundingAddress: "0x9F8e2B1C0d3a4E5f60718293A4B5c6D7E8f90a1B",
+            }}
+            actions={
+              <>
+                <Button size="sm" variant="secondary">
+                  Renew
+                </Button>
+                <Button size="sm" variant="danger">
+                  Disarm
+                </Button>
+              </>
+            }
+          />
+        </div>
+      </Specimen>
+      <Specimen
+        name="Approval card"
+        note="A trade waiting for the owner, with every financial field from the intent itself: the most it sells, the rule for the least it receives, the quote, the expiry, the account, the chain and both tokens' addresses."
+      >
+        <ApprovalCard
+          approval={{
+            intentId: "intent-6f1c2d9e-7b1a-4c3e-9d2f-1a2b3c4d5e6f",
+            account: DS_ACCOUNT,
+            chainName: "Monad (local fork)",
+            chainId: 143143,
+            sell: { asset: "USDC", token: DS_USDC, amount: 2_500_000n },
+            buy: { asset: "WMON", token: DS_WMON },
+            expectedOut: 99_900_000_000_000_000_000n,
+            minOut: null,
+            expiresAt: "2026-10-07T12:36:00.000Z",
+            reason: "Add a little WMON while the price is near its weekly low.",
+            arms: true,
+          }}
+          actions={
+            <>
+              <Button size="sm">Approve and arm</Button>
+              <Button size="sm" variant="secondary">
+                Reject
+              </Button>
+            </>
+          }
+        />
+      </Specimen>
+      <Specimen
+        name="Recent trades"
+        note="Proposals and trades with their state, amounts, settlement and transaction hash; an empty list says where trades come from."
+      >
+        <div className="flex flex-col gap-6">
+          <RecentTrades
+            trades={[
+              {
+                intentId: "t2",
+                status: "submitted",
+                sell: { asset: "USDC", amount: 2_000_000n },
+                buy: "WMON",
+                amountOut: null,
+                txHash: `0x${"a1".repeat(32)}`,
+                approvedBy: "auto",
+                createdAt: "2026-10-07T12:10:00.000Z",
+                settledAt: null,
+              },
+              {
+                intentId: "t1",
+                status: "reconciled",
+                sell: { asset: "USDC", amount: 1_000_000n },
+                buy: "WMON",
+                amountOut: 39_940_000_000_000_000_000n,
+                txHash: `0x${"7d".repeat(32)}`,
+                approvedBy: "owner",
+                createdAt: "2026-10-07T11:58:00.000Z",
+                settledAt: "2026-10-07T11:58:09.000Z",
+              },
+              {
+                intentId: "t0",
+                status: "cancelled",
+                sell: { asset: "USDC", amount: 15_000_000n },
+                buy: "WMON",
+                amountOut: null,
+                txHash: null,
+                approvedBy: null,
+                createdAt: "2026-10-07T11:50:00.000Z",
+                settledAt: null,
+              },
+            ]}
+          />
+          <RecentTrades trades={[]} />
+        </div>
+      </Specimen>
+      <Specimen
+        name="Why the agent did not trade"
+        note="Each blocked trade's reasons in the owner's words, with how and when each may clear; nothing blocked reads as such."
+      >
+        <div className="grid gap-6 lg:grid-cols-2">
+          <WhyNotTraded
+            reasons={[
+              {
+                code: "TRADE_SIZE_EXCEEDED",
+                clears: "by_changing_the_trade",
+                clearsAt: null,
+                hint: "Propose at most 4 USDC.",
+                at: "2026-10-07T12:20:00.000Z",
+              },
+              {
+                code: "DAILY_TRADE_LIMIT",
+                clears: "by_waiting",
+                clearsAt: "2026-10-08T09:15:00.000Z",
+                hint: "The oldest trade in the window leaves it then.",
+                at: "2026-10-07T12:18:00.000Z",
+              },
+              {
+                code: "GAS_UNFUNDED",
+                clears: "by_the_owner",
+                clearsAt: null,
+                hint: "Send a little MON to the agent's funding address for gas.",
+                at: "2026-10-07T12:12:00.000Z",
+              },
+            ]}
+          />
+          <WhyNotTraded
+            reasons={[]}
+            armingEnded="The agent is not armed, so each trade waits for the owner's approval."
+          />
+        </div>
+      </Specimen>
+    </Section>
+  );
+}
+
 function DesignSystem() {
   return (
     <div className="flex flex-col gap-10">
@@ -1489,6 +1765,7 @@ function DesignSystem() {
       <LabelsSection />
       <WalletSection />
       <AgentSection />
+      <PortfolioSection />
       <FormsSection />
       <OverlaysSection />
       <DataSection />
