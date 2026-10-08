@@ -108,8 +108,8 @@ describe("the signer's allowlist (P2-U4 item 3)", () => {
 });
 
 describe("the chain pin (P2-U4 item 4)", () => {
-  it("pins 143143 locally, 10143 on testnet and 143 on mainnet", () => {
-    expect(CHAIN_PINS).toEqual({ local: 143143, testnet: 10143, beta: 143 });
+  it("pins 143143 locally, 10143 on testnet and 143 on mainnet (the beta and the canary)", () => {
+    expect(CHAIN_PINS).toEqual({ local: 143143, testnet: 10143, beta: 143, canary: 143 });
   });
 
   it("refuses every other chain, in the transaction or in the intent", () => {

@@ -56,6 +56,15 @@ export const APP_CHAINS: Readonly<Record<EnvironmentId, AppChain>> = {
     browserRpcUrl: "https://rpc.monad.xyz",
     testnet: false,
   },
+  // Listed for completeness only: no web build accepts the canary (D-251, D-252).
+  canary: {
+    environment: "canary",
+    id: ENVIRONMENTS.canary.chainId,
+    name: "Monad",
+    nativeCurrency: MON,
+    browserRpcUrl: "https://rpc.monad.xyz",
+    testnet: false,
+  },
 };
 
 /**
@@ -66,8 +75,12 @@ export const APP_CHAINS: Readonly<Record<EnvironmentId, AppChain>> = {
 export function webEnvironment(appEnv: string | undefined): EnvironmentId {
   const value = appEnv?.trim();
   if (!value) return DEFAULT_ENVIRONMENT;
-  if (!isEnvironmentId(value))
-    throw new Error(`APP_ENV "${value}" is not one of local, testnet, beta`);
+  if (!isEnvironmentId(value) || value === "canary")
+    throw new Error(
+      value === "canary"
+        ? `APP_ENV "canary" is the mainnet canary's; the web app is never pointed at it (D-251, D-252)`
+        : `APP_ENV "${value}" is not one of local, testnet, beta`,
+    );
   return value;
 }
 

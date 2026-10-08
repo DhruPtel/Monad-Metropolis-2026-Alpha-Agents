@@ -1,16 +1,18 @@
 /**
- * The three environments every service can run in, selected by APP_ENV.
+ * The environments, selected by APP_ENV: the three every service can run in,
+ * and `canary`, the P2-EC mainnet canary's own (D-251), which only
+ * `pnpm canary:mainnet` and the address book accept; every service refuses it.
  *
  * `label` is the environment ID stamped on records and shown in the UI and the
  * API environment field (D-030, D-145); `id` is the short value of APP_ENV.
  */
-export const ENVIRONMENT_IDS = ["local", "testnet", "beta"] as const;
+export const ENVIRONMENT_IDS = ["local", "testnet", "beta", "canary"] as const;
 export type EnvironmentId = (typeof ENVIRONMENT_IDS)[number];
 
 export const DEFAULT_ENVIRONMENT: EnvironmentId = "local";
 
 /** The environment ID stamped on every record, by APP_ENV value. */
-export const ENVIRONMENT_LABELS = ["fork", "testnet", "mainnet-beta"] as const;
+export const ENVIRONMENT_LABELS = ["fork", "testnet", "mainnet-beta", "mainnet-canary"] as const;
 export type EnvironmentLabel = (typeof ENVIRONMENT_LABELS)[number];
 
 export const MONAD_MAINNET_CHAIN_ID = 143;
@@ -84,6 +86,14 @@ export const ENVIRONMENTS: Readonly<Record<EnvironmentId, Environment>> = {
     label: "mainnet-beta",
     chainId: MONAD_MAINNET_CHAIN_ID,
     description: "Monad mainnet, guarded beta (allowlists, caps, unaudited beta label)",
+    rpc: { variable: "MONAD_RPC_URL" },
+  },
+  canary: {
+    id: "canary",
+    label: "mainnet-canary",
+    chainId: MONAD_MAINNET_CHAIN_ID,
+    description:
+      "Monad mainnet, P2-EC's throwaway canary of the trading contracts (D-251); only pnpm canary:mainnet runs here",
     rpc: { variable: "MONAD_RPC_URL" },
   },
 };

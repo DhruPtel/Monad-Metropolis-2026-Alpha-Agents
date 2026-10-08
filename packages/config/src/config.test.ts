@@ -375,7 +375,7 @@ describe("no secret value leaks", () => {
       MONAD_RPC_URL: MAINNET_RPC,
       [name]: bad,
     };
-    const err = loadError(() => loadConfig({ name: "test" }, source));
+    const err = loadError(() => loadConfig({ name: "test", canary: env === "canary" }, source));
     expect(err.issues.map((i) => i.variable)).toContain(name);
     const out = renderings(err) + err.stack + JSON.stringify(err.issues);
     expect(out).not.toContain(markerFor(name));
@@ -443,6 +443,126 @@ describe("registry and .env.example", () => {
     expect(
       loadError(() => loadConfig({ name: "test" }, { ...template, APP_ENV: "beta" })).issues,
     ).toEqual([placeholder("MONAD_RPC_URL")]);
+    expect(
+      loadError(() =>
+        loadConfig({ name: "test", canary: true }, { ...template, APP_ENV: "canary" }),
+      ).issues,
+    ).toEqual([placeholder("MONAD_RPC_URL")]);
+  });
+});
+
+describe("the mainnet canary environment (P2-EC part 2, D-251)", () => {
+  const OWNER = `0x${"a1".repeat(32)}`;
+  const GUARDIAN = `0x${"a2".repeat(32)}`;
+  const SESSION = `0x${"a3".repeat(32)}`;
+  const base = {
+    APP_ENV: "canary",
+    MONAD_RPC_URL: MAINNET_RPC,
+    CANARY_OWNER_PRIVATE_KEY: OWNER,
+    CANARY_GUARDIAN_PRIVATE_KEY: GUARDIAN,
+    CANARY_SESSION_PRIVATE_KEY: SESSION,
+  };
+  const runner = {
+    name: "canary runner",
+    signs: true,
+    canary: true,
+    requires: [
+      "CANARY_OWNER_PRIVATE_KEY",
+      "CANARY_GUARDIAN_PRIVATE_KEY",
+      "CANARY_SESSION_PRIVATE_KEY",
+    ],
+  } as const;
+
+  it("is chain 143 with its own label, and only the canary runner may load it", () => {
+    const config = loadConfig(runner, { ...base, CANARY_SIGNING_ENABLED: "true" });
+    expect(config.environment).toMatchObject({
+      id: "canary",
+      label: "mainnet-canary",
+      chainId: 143,
+    });
+    expect(config.signing).toBe(true);
+    for (const name of ["orchestrator", "indexer", "control api", "signer"]) {
+      const err = loadError(() => loadConfig({ name, signs: true }, base));
+      expect(err.issues).toEqual([
+        {
+          variable: "APP_ENV",
+          problem: `is canary, the P2-EC mainnet canary's own environment; only pnpm canary:mainnet runs in it, never ${name} (D-251)`,
+        },
+      ]);
+    }
+  });
+
+  it("signs only behind CANARY_SIGNING_ENABLED, which is refused anywhere else", () => {
+    expect(loadError(() => loadConfig(runner, base)).issues.map((i) => i.variable)).toEqual([
+      "CANARY_SIGNING_ENABLED",
+    ]);
+    expect(
+      loadError(() => loadConfig(runner, { ...base, CANARY_SIGNING_ENABLED: "false" })).issues,
+    ).toHaveLength(1);
+    for (const env of ["local", "testnet", "beta"]) {
+      const err = loadError(() =>
+        loadConfig(
+          { name: "test" },
+          {
+            APP_ENV: env,
+            MONAD_RPC_URL: MAINNET_RPC,
+            MONAD_TESTNET_RPC_URL: TESTNET_RPC,
+            CANARY_SIGNING_ENABLED: "true",
+          },
+        ),
+      );
+      expect(err.issues).toContainEqual({
+        variable: "CANARY_SIGNING_ENABLED",
+        problem: 'is "true", which is only allowed with APP_ENV=canary',
+      });
+    }
+  });
+
+  it("never reads a canary key outside the canary, nor a seed inside it", () => {
+    const local = loadConfig({ name: "test" }, { CANARY_OWNER_PRIVATE_KEY: OWNER });
+    expect(local.values).not.toHaveProperty("CANARY_OWNER_PRIVATE_KEY");
+    const canary = loadConfig(runner, {
+      ...base,
+      CANARY_SIGNING_ENABLED: "true",
+      FUNDING_ADDRESS_SEED: `0x${"55".repeat(32)}`,
+    });
+    expect(canary.values).not.toHaveProperty("FUNDING_ADDRESS_SEED");
+  });
+
+  it("refuses an anvil key, a key shared between roles, and a key reused from local or testnet", () => {
+    const anvil0 = ["0xac0974bec39a17e36ba4a6b4d238ff94", "4bacb478cbed5efcae784d7bf4f2ff80"].join(
+      "",
+    );
+    const issues = loadError(() =>
+      loadConfig(runner, {
+        ...base,
+        CANARY_SIGNING_ENABLED: "true",
+        CANARY_OWNER_PRIVATE_KEY: anvil0,
+        CANARY_SESSION_PRIVATE_KEY: GUARDIAN,
+        TESTNET_TEST_WALLET_PRIVATE_KEY: GUARDIAN,
+      }),
+    ).issues;
+    expect(issues).toEqual([
+      {
+        variable: "CANARY_OWNER_PRIVATE_KEY",
+        problem: "is one of anvil's well-known development keys",
+      },
+      {
+        variable: "CANARY_GUARDIAN_PRIVATE_KEY",
+        problem:
+          "is the same as TESTNET_TEST_WALLET_PRIVATE_KEY; canary keys are made for the canary and used nowhere else",
+      },
+      {
+        variable: "CANARY_SESSION_PRIVATE_KEY",
+        problem: "is the same as CANARY_GUARDIAN_PRIVATE_KEY; use a key of its own",
+      },
+      {
+        variable: "CANARY_SESSION_PRIVATE_KEY",
+        problem:
+          "is the same as TESTNET_TEST_WALLET_PRIVATE_KEY; canary keys are made for the canary and used nowhere else",
+      },
+    ]);
+    for (const i of issues) expect(JSON.stringify(i)).not.toMatch(/a2a2|ac0974/);
   });
 });
 

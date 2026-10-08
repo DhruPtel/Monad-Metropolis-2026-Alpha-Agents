@@ -1066,6 +1066,16 @@ const TESTNET_DEPLOYED: readonly AddressEntry[] = [
   },
 ];
 
+/**
+ * P2-EC part 2's throwaway mainnet canary (D-247, D-249, D-250): `agent_nft`
+ * is CanaryAgent, which knows one agent and is not an ERC-721. Filled from
+ * the chain after `pnpm deploy:canary`; nothing here carries into the beta.
+ */
+const CANARY_DEPLOYED: readonly AddressEntry[] = [
+  agentNftUndeployed("P2-EC canary: CanaryAgent, deployed by pnpm deploy:canary (D-250)"),
+  ...custodyUndeployed("P2-EC canary: deployed by pnpm deploy:canary"),
+];
+
 export const ADDRESS_BOOK: Readonly<Record<EnvironmentId, readonly AddressEntry[]>> = {
   local: [...MAINNET, AGENT_NFT_LOCAL, ...CUSTODY_LOCAL],
   testnet: [
@@ -1088,6 +1098,8 @@ export const ADDRESS_BOOK: Readonly<Record<EnvironmentId, readonly AddressEntry[
     agentNftUndeployed("Mainnet deployment belongs to PB-U1"),
     ...custodyUndeployed("Mainnet deployment belongs to PB-U1"),
   ],
+  // The P2-EC mainnet canary (D-250, D-251): mainnet's external entries and its own throwaway contracts.
+  canary: [...MAINNET, ...CANARY_DEPLOYED],
 };
 
 export function addressEntry(environment: EnvironmentId, id: AddressBookId): AddressEntry {

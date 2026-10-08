@@ -22,6 +22,7 @@ export const CHAIN_PINS: Readonly<Record<EnvironmentId, number>> = {
   local: ENVIRONMENTS.local.chainId,
   testnet: ENVIRONMENTS.testnet.chainId,
   beta: ENVIRONMENTS.beta.chainId,
+  canary: ENVIRONMENTS.canary.chainId,
 };
 
 /**

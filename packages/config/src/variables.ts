@@ -72,11 +72,12 @@ export const VARIABLES = [
   {
     name: "APP_ENV",
     group: "Environment",
-    description: "Which environment this process runs in: local, testnet or beta",
+    description:
+      "Which environment this process runs in: local, testnet or beta; canary only for pnpm canary:mainnet (D-251)",
     secret: false,
     firstUsedBy: "P0-U3",
-    environments: ALL,
-    ...oneOf(["local", "testnet", "beta"]),
+    environments: [...ALL, "canary"],
+    ...oneOf(["local", "testnet", "beta", "canary"]),
     example: "local",
     commented: true,
   },
@@ -92,16 +93,28 @@ export const VARIABLES = [
     example: "false",
     commented: true,
   },
+  {
+    name: "CANARY_SIGNING_ENABLED",
+    group: "Environment",
+    description:
+      'Must be "true" for pnpm canary:mainnet to sign on Monad mainnet with APP_ENV=canary (D-251); rejected elsewhere',
+    secret: false,
+    firstUsedBy: "P2-EC",
+    environments: ["canary"],
+    ...flag,
+    example: "false",
+    commented: true,
+  },
 
   // Chain RPC
   {
     name: "MONAD_RPC_URL",
     group: "Chain RPC",
     description:
-      "Monad mainnet RPC (chain 143): upstream of the local fork, and the beta chain RPC",
+      "Monad mainnet RPC (chain 143): upstream of the local fork, and the beta and canary chain RPC",
     secret: true,
     firstUsedBy: "P0-U2",
-    environments: ["local", "beta"],
+    environments: ["local", "beta", "canary"],
     ...httpUrl,
     example: "https://your-monad-mainnet-rpc.example/your-api-key",
   },
@@ -112,7 +125,7 @@ export const VARIABLES = [
       "Second Monad mainnet RPC provider, for failover and cross-checks (Q-23); local forks fall back to it (D-220). On testnet the second provider is MONAD_TESTNET_RPC_URL_SECONDARY instead",
     secret: true,
     firstUsedBy: "P1-U9",
-    environments: ALL,
+    environments: [...ALL, "canary"],
     ...httpUrl,
     example: "https://your-second-monad-mainnet-rpc.example/your-api-key",
     testnetSource: "MONAD_TESTNET_RPC_URL_SECONDARY",
@@ -194,7 +207,7 @@ export const VARIABLES = [
     description: "Postgres connection URL; defaults to the local container in local",
     secret: true,
     firstUsedBy: "P0-U4",
-    environments: ALL,
+    environments: [...ALL, "canary"],
     ...postgresUrl,
     example: "postgres://alpha:alpha_local_dev_only@127.0.0.1:5432/alpha_agents",
     commented: true,
@@ -224,6 +237,40 @@ export const VARIABLES = [
     environments: ALL,
     ...address,
     example: "0x0000000000000000000000000000000000000000",
+  },
+
+  // Mainnet canary keys (P2-EC part 2 only; throwaway, D-252, D-259, D-316)
+  {
+    name: "CANARY_OWNER_PRIVATE_KEY",
+    group: "Mainnet canary keys",
+    description:
+      "The canary owner: deploys and administers the canary contracts and owns its one agent (D-259)",
+    secret: true,
+    firstUsedBy: "P2-EC",
+    environments: ["canary"],
+    ...privateKey,
+    example: "0x0000000000000000000000000000000000000000000000000000000000000000",
+  },
+  {
+    name: "CANARY_GUARDIAN_PRIVATE_KEY",
+    group: "Mainnet canary keys",
+    description: "The canary guardian: can only pause and tighten (D-252)",
+    secret: true,
+    firstUsedBy: "P2-EC",
+    environments: ["canary"],
+    ...privateKey,
+    example: "0x0000000000000000000000000000000000000000000000000000000000000000",
+  },
+  {
+    name: "CANARY_SESSION_PRIVATE_KEY",
+    group: "Mainnet canary keys",
+    description:
+      "The canary's session key, a raw key never derived from a seed: at most 3 MON, granted for at most 24 hours (D-252)",
+    secret: true,
+    firstUsedBy: "P2-EC",
+    environments: ["canary"],
+    ...privateKey,
+    example: "0x0000000000000000000000000000000000000000000000000000000000000000",
   },
 
   // Testnet keys (never used by local or beta)

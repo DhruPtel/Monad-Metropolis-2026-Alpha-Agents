@@ -34,12 +34,16 @@ describe("the web app's chain per environment", () => {
     }
   });
 
-  it("only marks the mainnet beta as not a testnet", () => {
-    expect(ENVIRONMENT_IDS.filter((env) => !APP_CHAINS[env].testnet)).toEqual(["beta"]);
+  it("only marks the mainnet beta and the mainnet canary as not a testnet", () => {
+    expect(ENVIRONMENT_IDS.filter((env) => !APP_CHAINS[env].testnet)).toEqual(["beta", "canary"]);
   });
 });
 
 describe("webEnvironment", () => {
+  it("refuses the mainnet canary: the web app is never pointed at it (D-251)", () => {
+    expect(() => webEnvironment("canary")).toThrow(/never pointed at it/);
+  });
+
   it.each([
     [undefined, "local"],
     ["", "local"],

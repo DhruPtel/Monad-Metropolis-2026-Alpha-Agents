@@ -26,6 +26,11 @@ export interface ServiceSpec {
    * it is not set. Defaults to true.
    */
   readonly usesChain?: boolean;
+  /**
+   * True only for `pnpm canary:mainnet`, the one process that runs with
+   * APP_ENV=canary (D-251). Every other service refuses the canary at start.
+   */
+  readonly canary?: boolean;
 }
 
 export interface Config {
@@ -115,6 +120,14 @@ function selectEnvironment(source: EnvSource): Environment {
 export function loadConfig(service: ServiceSpec, source: EnvSource = process.env): Config {
   const environment = selectEnvironment(source);
   const heading = `Configuration for ${service.name} (APP_ENV=${environment.id}) is invalid:`;
+  if (environment.id === "canary" && service.canary !== true) {
+    throw new ConfigError(heading, [
+      {
+        variable: "APP_ENV",
+        problem: `is canary, the P2-EC mainnet canary's own environment; only pnpm canary:mainnet runs in it, never ${service.name} (D-251)`,
+      },
+    ]);
+  }
   const issues: ConfigIssue[] = [];
 
   const required = new Set<string>(service.requires ?? []);
@@ -208,6 +221,22 @@ function checkGuards(
     issues.push({
       variable: "LOCAL_FIRST_REVEAL_SPECIES",
       problem: `is set, but steered reveals exist only with APP_ENV=local; on ${environment.id} reveals use real Pyth Entropy. Remove it`,
+    });
+  }
+
+  // The canary signs on mainnet only behind its own gate (D-251), and the gate means nothing elsewhere.
+  if (environment.id === "canary") {
+    if (service.signs === true && values.CANARY_SIGNING_ENABLED !== true) {
+      issues.push({
+        variable: "CANARY_SIGNING_ENABLED",
+        problem: `must be "true" for ${service.name} to sign on Monad mainnet; it is a signing service and APP_ENV=canary`,
+      });
+    }
+    checkCanaryKeys(source, issues);
+  } else if (source.CANARY_SIGNING_ENABLED?.trim() === "true") {
+    issues.push({
+      variable: "CANARY_SIGNING_ENABLED",
+      problem: `is "true", which is only allowed with APP_ENV=canary`,
     });
   }
 
@@ -305,6 +334,43 @@ function checkTestnetKeys(source: EnvSource, issues: ConfigIssue[]): void {
     if (other)
       issues.push({ variable: name, problem: `is the same as ${other}; use a key of its own` });
     else seen.set(value, name);
+  }
+}
+
+/** The canary's three keys (D-252, D-259): every key a role of its own. */
+const CANARY_KEYS = [
+  "CANARY_OWNER_PRIVATE_KEY",
+  "CANARY_GUARDIAN_PRIVATE_KEY",
+  "CANARY_SESSION_PRIVATE_KEY",
+] as const;
+
+/** Every key and seed of the other environments, which no canary key may reuse. */
+const NON_CANARY_KEYS: readonly string[] = TESTNET_KEYS.flatMap(([name, local]) =>
+  local ? [name, local] : [name],
+);
+
+/**
+ * D-254 (4) for the canary: no canary key is one of anvil's well-known keys,
+ * equal to another canary key, or equal to any local or testnet key or seed.
+ * Never reads a value into a message.
+ */
+function checkCanaryKeys(source: EnvSource, issues: ConfigIssue[]): void {
+  const seen = new Map<string, string>();
+  for (const name of CANARY_KEYS) {
+    const value = source[name]?.trim().toLowerCase();
+    if (!value || /^0x0{64}$/.test(value)) continue;
+    if (isAnvilKey(value))
+      issues.push({ variable: name, problem: "is one of anvil's well-known development keys" });
+    const other = seen.get(value);
+    if (other)
+      issues.push({ variable: name, problem: `is the same as ${other}; use a key of its own` });
+    else seen.set(value, name);
+    const reused = NON_CANARY_KEYS.find((n) => source[n]?.trim().toLowerCase() === value);
+    if (reused)
+      issues.push({
+        variable: name,
+        problem: `is the same as ${reused}; canary keys are made for the canary and used nowhere else`,
+      });
   }
 }
 
