@@ -22,7 +22,7 @@ import { CreditService } from "./service.ts";
 const dbUp = await databaseAvailable();
 const OWNER = "0x00000000000000000000000000000000000a11ce" as Hex;
 const BUYER = "0x0000000000000000000000000000000000000b0b" as Hex;
-const EXECUTOR = "0xE712468eB37544B7Eafe20F402867f7a49C19F43" as Hex;
+const EXECUTOR = "0x570575BC185d1B0aE93F641479fdEdDf76b91fdB" as Hex;
 const USDC = "0x754704Bc059F8C67012fEd69BC8A327a5aafb603" as Hex;
 const SEED = `0x${"5e".repeat(32)}` as Hex;
 

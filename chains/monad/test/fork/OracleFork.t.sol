@@ -53,7 +53,7 @@ contract OracleForkTest is Test {
                 monUsdMaxAge: 300,
                 usdcUsdFeed: USDC_USD,
                 usdcUsdDecimals: 8,
-                usdcUsdMaxAge: 3_900,
+                usdcUsdMaxAge: 7_200,
                 stateView: STATE_VIEW,
                 poolId: POOL_ID,
                 maxDeviationBps: 200,
@@ -112,9 +112,9 @@ contract OracleForkTest is Test {
         assertEq(reasonOf(address(WMON)), uint8(OracleReason.STALE));
         vm.expectRevert(unavailable(address(WMON), OracleReason.STALE));
         adapter.tradablePriceE18(address(WMON));
-        vm.warp(USDC_UPDATED + 3_899);
+        vm.warp(USDC_UPDATED + 7_199);
         adapter.requireUsdcPeg();
-        vm.warp(USDC_UPDATED + 3_900);
+        vm.warp(USDC_UPDATED + 7_200);
         vm.expectRevert(unavailable(address(USDC), OracleReason.STALE));
         adapter.requireUsdcPeg();
     }

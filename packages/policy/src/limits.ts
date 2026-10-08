@@ -72,7 +72,7 @@ export const LAUNCH_LIMITS: PolicyLimits = Object.freeze({
   deadlineSeconds: 120, // 2-minute deadlines
   oracleMaxAgeSeconds: Object.freeze({
     MON_USD: 300, // under 5 minutes old; updates about every 30 s (P2-U0)
-    USDC_USD: 3_900, // depeg guard only; hourly heartbeat plus 5 minutes (P2-U0)
+    USDC_USD: 7_200, // depeg guard only; two hourly heartbeats (D-317, L-145)
   }),
   oracleMaxDeviationBps: 200, // within 2% of the pool price
   usdcMaxDepegBps: 100, // USDC/USD within 1% of 1 for deposits (A-34)

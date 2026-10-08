@@ -7,8 +7,9 @@ import {Script} from "forge-std/Script.sol";
 ///
 /// A deterministic address depends only on the salt and the init code, so a
 /// throwaway deployment made with the plan's own salts could take the address
-/// a later deployment computes (D-249). The local fork keeps the `v1` salts,
-/// `alpha-agents.<name>.v1`. Monad testnet in P2-EC must use the `p2ec.testnet`
+/// a later deployment computes (D-249). The local fork uses unscoped salts,
+/// `alpha-agents.<name>.v<version>`: v1 for AgentNFT, v2 for the custody set
+/// since its oracle's arguments changed (D-317). Monad testnet in P2-EC must use the `p2ec.testnet`
 /// scope, `alpha-agents.p2ec.testnet.<name>.v1`, set by `DEPLOY_SALT_SCOPE`;
 /// testnet without it is refused, so no P2-EC contract sits at a `v1` address.
 /// On Monad mainnet (143) only the P2-EC canary deploys here (D-250 to D-252):
@@ -27,7 +28,7 @@ abstract contract DeployScope is Script {
     function saltScope() public view returns (string memory scope) {
         scope = vm.envOr("DEPLOY_SALT_SCOPE", string(""));
         if (block.chainid == LOCAL_FORK_CHAIN_ID) {
-            require(bytes(scope).length == 0, "the local fork uses the v1 salts; unset DEPLOY_SALT_SCOPE");
+            require(bytes(scope).length == 0, "the local fork uses the unscoped salts; unset DEPLOY_SALT_SCOPE");
         } else if (block.chainid == MONAD_TESTNET_CHAIN_ID) {
             require(
                 keccak256(bytes(scope)) == keccak256(bytes(P2EC_TESTNET_SCOPE)),
@@ -49,9 +50,22 @@ abstract contract DeployScope is Script {
 
     /// `keccak256("alpha-agents.<name>.v1")` on the fork, `keccak256("alpha-agents.<scope>.<name>.v1")` elsewhere.
     function salt(string memory name) public view returns (bytes32) {
-        string memory scope = saltScope();
-        if (bytes(scope).length == 0) return keccak256(abi.encodePacked("alpha-agents.", name, ".v1"));
-        return keccak256(abi.encodePacked("alpha-agents.", scope, ".", name, ".v1"));
+        return salt(name, 1);
+    }
+
+    /// The same at another version, `...<name>.v<version>`: a contract set whose
+    /// arguments changed moves to a new version, so its new deployment sits
+    /// beside the old one instead of colliding with what the old one bound (D-317).
+    function salt(string memory name, uint256 version) public view returns (bytes32) {
+        return saltFor(saltScope(), name, version);
+    }
+
+    /// The salt for a scope, name and version, without reading the environment.
+    function saltFor(string memory scope, string memory name, uint256 version) public pure returns (bytes32) {
+        require(version > 0, "salt versions start at 1");
+        string memory v = string.concat(".v", vm.toString(version));
+        if (bytes(scope).length == 0) return keccak256(abi.encodePacked("alpha-agents.", name, v));
+        return keccak256(abi.encodePacked("alpha-agents.", scope, ".", name, v));
     }
 
     /// Broadcasts with DEPLOYER_PRIVATE_KEY when it is set (testnet), else as

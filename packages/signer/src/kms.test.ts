@@ -102,7 +102,7 @@ describe("the AWS KMS key provider, against a mock (P2-U4, D-244)", () => {
         type: "eip1559" as const,
         chainId: 143143,
         nonce: 4,
-        to: "0xE712468eB37544B7Eafe20F402867f7a49C19F43" as Hex,
+        to: "0x570575BC185d1B0aE93F641479fdEdDf76b91fdB" as Hex,
         data: "0x1234" as Hex,
         value: 0n,
         gas: 1_100_000n,

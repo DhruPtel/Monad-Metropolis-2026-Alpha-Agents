@@ -33,13 +33,13 @@ describe("readFeed: the adapter's feed checks", () => {
     });
   });
 
-  it("is strict at each feed's bound: MON/USD 300 s, USDC/USD 3,900 s (D-151, D-168)", () => {
+  it("is strict at each feed's bound: MON/USD 300 s, USDC/USD 7,200 s (D-151, D-168, D-317)", () => {
     expect(mon({ updatedAt: NOW - 299n }).reason).toBe("OK");
     expect(mon({ updatedAt: NOW - 300n }).reason).toBe("STALE");
     const usdc = (age: bigint) =>
       readFeed(round({ answer: 100_000_000n, updatedAt: NOW - age }), "USDC_USD", NOW).reason;
-    expect(usdc(3_899n)).toBe("OK");
-    expect(usdc(3_900n)).toBe("STALE");
+    expect(usdc(7_199n)).toBe("OK");
+    expect(usdc(7_200n)).toBe("STALE");
   });
 
   it("refuses every invalid answer with its own reason", () => {
@@ -107,7 +107,7 @@ describe("the USDC depeg guard", () => {
   });
 
   it("refuses a stale or invalid USDC/USD before judging the peg", () => {
-    expect(peg(90_000_000n, 3_900n)).toBe("STALE");
+    expect(peg(90_000_000n, 7_200n)).toBe("STALE");
     expect(peg(0n)).toBe("ANSWER_NOT_POSITIVE");
   });
 });

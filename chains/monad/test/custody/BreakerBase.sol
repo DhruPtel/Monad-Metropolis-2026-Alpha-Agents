@@ -33,7 +33,7 @@ abstract contract BreakerBase is CustodyBase {
                 monUsdMaxAge: 300,
                 usdcUsdFeed: IChainlinkFeed(address(usdcFeed)),
                 usdcUsdDecimals: 8,
-                usdcUsdMaxAge: 3_900,
+                usdcUsdMaxAge: 7_200,
                 stateView: IUniswapV4StateView(address(stateView)),
                 poolId: POOL_ID,
                 maxDeviationBps: 200,

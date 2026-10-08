@@ -15,7 +15,7 @@ contract OracleAdapterTest is OracleBase {
         assertEq(adapter.WMON(), wmonToken);
         assertEq(address(adapter.MON_USD_FEED()), address(monFeed));
         assertEq(adapter.MON_USD_MAX_AGE(), 300);
-        assertEq(adapter.USDC_USD_MAX_AGE(), 3_900);
+        assertEq(adapter.USDC_USD_MAX_AGE(), 7_200);
         assertEq(adapter.MAX_DEVIATION_BPS(), 200);
         assertEq(adapter.MAX_DEPEG_BPS(), 100);
         assertEq(adapter.POOL_ID(), POOL_ID);
@@ -100,8 +100,8 @@ contract OracleAdapterTest is OracleBase {
         adapter.tradablePriceE18(wmonToken);
     }
 
-    function test_UsdcUsdIsStaleAtExactly3900Seconds() public {
-        vm.warp(block.timestamp + 3_899);
+    function test_UsdcUsdIsStaleAtExactly7200Seconds() public {
+        vm.warp(block.timestamp + 7_199);
         monFeed.push(MON_ANSWER);
         adapter.requireUsdcPeg();
         vm.warp(block.timestamp + 1);

@@ -167,7 +167,9 @@ export async function checkMainnetFacts(url) {
     }
     facts[id] = fact;
   }
-  // The launch bounds (D-151, D-168): MON/USD within 300 s, USDC/USD within 3,900 s.
+  // The canary's deployment bounds (D-151, D-168): MON/USD within 300 s, USDC/USD
+  // within 3,900 s. The launch bound is now 7,200 s (D-317); the canary is a
+  // throwaway that is not redeployed, so its recorded check keeps its own.
   for (const [id, maxAge] of /** @type {const} */ ([
     ["chainlink_mon_usd", 300],
     ["chainlink_usdc_usd", 3_900],

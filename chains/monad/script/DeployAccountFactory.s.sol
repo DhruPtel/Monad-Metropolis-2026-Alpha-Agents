@@ -34,7 +34,11 @@ import {IPoolManager, ISwapRouter02} from "../src/interfaces/IUniswap.sol";
 ///   and VENUE_V3_ROUTER (unset or zero: no v3 adapter is deployed or
 ///   registered); DEPLOYER_PRIVATE_KEY and DEPLOY_SALT_SCOPE on testnet.
 contract DeployAccountFactory is DeployScope {
-    /// Salt names; on the fork each salt is `alpha-agents.<name>.v1` (DeployScope).
+    /// The custody set's salt version: 2 since the USDC/USD age moved to 7,200 s
+    /// (D-317), which changed the oracle adapter's and so the factory's
+    /// addresses; v1 stays deployed on the playtest fork beside it.
+    uint256 public constant SALT_VERSION = 2;
+    /// Salt names; on the fork each salt is `alpha-agents.<name>.v2` (DeployScope, SALT_VERSION).
     string public constant SALT_NAME = "account-factory";
     string public constant ORACLE_SALT_NAME = "oracle-adapter";
     string public constant EXECUTOR_SALT_NAME = "executor";
@@ -46,8 +50,9 @@ contract DeployAccountFactory is DeployScope {
     bytes32 public constant V3_ID = keccak256("uniswap-v3-usdc-wmon-3000");
 
     /// The launch oracle rules (D-151, D-168, FINAL_PLAN 4.1.9, A-34); packages/policy's LAUNCH_LIMITS holds the same.
+    /// USDC/USD is only the depeg guard and updates hourly, so it may be two heartbeats old (D-317, L-145).
     uint256 internal constant MON_USD_MAX_AGE = 300;
-    uint256 internal constant USDC_USD_MAX_AGE = 3_900;
+    uint256 internal constant USDC_USD_MAX_AGE = 7_200;
     uint8 internal constant FEED_DECIMALS = 8;
     uint256 internal constant MAX_DEVIATION_BPS = 200;
     uint256 internal constant MAX_DEPEG_BPS = 100;
@@ -68,7 +73,7 @@ contract DeployAccountFactory is DeployScope {
 
     function run() external returns (AccountFactory factory) {
         // The fork or, with the p2ec scope, testnet; mainnet is PB-U1's (DeployScope).
-        bytes32 factorySalt = salt(SALT_NAME);
+        bytes32 factorySalt = salt(SALT_NAME, SALT_VERSION);
         OracleAdapter adapter = _deployOracle();
         Executor executor = _deployExecutor();
         ProtocolRegistry registry = _deployVenues(executor);
@@ -196,7 +201,7 @@ contract DeployAccountFactory is DeployScope {
                 launchPolicy()
             )
         );
-        executor = Executor(_create2(salt(EXECUTOR_SALT_NAME), init));
+        executor = Executor(_create2(salt(EXECUTOR_SALT_NAME, SALT_VERSION), init));
         require(executor.owner() == admin && executor.guardian() == guardian, "executor roles");
         require(executor.policyHash() == keccak256(abi.encode(launchPolicy())), "executor policy");
         require(address(executor.AGENT_NFT()) == vm.envAddress("ACCOUNT_FACTORY_AGENT_NFT"), "executor agent nft");
@@ -212,7 +217,7 @@ contract DeployAccountFactory is DeployScope {
         address router = vm.envOr("VENUE_V3_ROUTER", address(0));
         require(pm.code.length > 0 && (!hasV3 || router.code.length > 0), "venues missing");
         address v4 = _create2(
-            salt(V4_SALT_NAME),
+            salt(V4_SALT_NAME, SALT_VERSION),
             abi.encodePacked(
                 type(UniswapV4MonUsdcAdapter).creationCode,
                 abi.encode(IPoolManager(pm), usdc, wmon, address(executor), vm.envBytes32("ORACLE_POOL_ID"))
@@ -220,7 +225,7 @@ contract DeployAccountFactory is DeployScope {
         );
         address v3 = hasV3
             ? _create2(
-                salt(V3_SALT_NAME),
+                salt(V3_SALT_NAME, SALT_VERSION),
                 abi.encodePacked(
                     type(UniswapV3UsdcWmonAdapter).creationCode,
                     abi.encode(ISwapRouter02(router), usdc, wmon, address(executor))
@@ -241,7 +246,7 @@ contract DeployAccountFactory is DeployScope {
         }
         registry = ProtocolRegistry(
             _create2(
-                salt(REGISTRY_SALT_NAME),
+                salt(REGISTRY_SALT_NAME, SALT_VERSION),
                 abi.encodePacked(
                     type(ProtocolRegistry).creationCode,
                     abi.encode(
@@ -299,7 +304,7 @@ contract DeployAccountFactory is DeployScope {
         require(address(o.monUsdFeed).code.length > 0 && address(o.usdcUsdFeed).code.length > 0, "feeds missing");
         require(address(o.stateView).code.length > 0, "StateView missing");
         bytes memory initCode = abi.encodePacked(type(OracleAdapter).creationCode, abi.encode(o));
-        bytes32 oracleSalt = salt(ORACLE_SALT_NAME);
+        bytes32 oracleSalt = salt(ORACLE_SALT_NAME, SALT_VERSION);
         address predicted = vm.computeCreate2Address(oracleSalt, keccak256(initCode), CREATE2_FACTORY);
         if (predicted.code.length == 0) {
             _startBroadcast();

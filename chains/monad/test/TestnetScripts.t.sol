@@ -77,7 +77,21 @@ contract TestnetScriptsTest is Test {
         assertFalse(ok, "native MON only from the owner or PoolManager");
     }
 
-    /// The local fork keeps the plan's v1 salts, so every local address is unchanged.
+    /// The custody set deploys at salt v2 since the USDC/USD age changed (D-317),
+    /// beside v1 on the playtest fork; AgentNFT stays at v1. `saltFor` reads no
+    /// environment, so this cannot race the suites that set DEPLOY_SALT_SCOPE.
+    function test_TheCustodySetUsesSaltVersion2() public {
+        DeployAccountFactory custody = new DeployAccountFactory();
+        assertEq(custody.SALT_VERSION(), 2);
+        assertEq(custody.saltFor("", "oracle-adapter", 2), keccak256("alpha-agents.oracle-adapter.v2"));
+        assertEq(custody.saltFor("", "account-factory", 2), keccak256("alpha-agents.account-factory.v2"));
+        assertEq(custody.saltFor("", "agent-nft", 1), keccak256("alpha-agents.agent-nft.v1"));
+        assertEq(custody.saltFor("p2ec.testnet", "executor", 2), keccak256("alpha-agents.p2ec.testnet.executor.v2"));
+        vm.expectRevert(bytes("salt versions start at 1"));
+        custody.saltFor("", "executor", 0);
+    }
+
+    /// The one-argument salt is v1, the plan's salts, which AgentNFT keeps.
     function test_TheForkKeepsTheV1Salts() public {
         vm.chainId(143143);
         vm.setEnv("DEPLOY_SALT_SCOPE", "");
@@ -97,7 +111,7 @@ contract TestnetScriptsTest is Test {
         assertEq(custody.salt("protocol-registry"), keccak256("alpha-agents.protocol-registry.v1"));
 
         vm.setEnv("DEPLOY_SALT_SCOPE", "p2ec.testnet");
-        vm.expectRevert(bytes("the local fork uses the v1 salts; unset DEPLOY_SALT_SCOPE"));
+        vm.expectRevert(bytes("the local fork uses the unscoped salts; unset DEPLOY_SALT_SCOPE"));
         custody.salt("executor");
 
         vm.chainId(10143);

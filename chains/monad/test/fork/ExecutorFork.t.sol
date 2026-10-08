@@ -59,7 +59,7 @@ contract ExecutorForkTest is Test {
                 monUsdMaxAge: 300,
                 usdcUsdFeed: IChainlinkFeed(0xf5F15f188AbCB0d165D1Edb7f37F7d6fA2fCebec),
                 usdcUsdDecimals: 8,
-                usdcUsdMaxAge: 3_900,
+                usdcUsdMaxAge: 7_200,
                 stateView: IUniswapV4StateView(0x77395F3b2E73aE90843717371294fa97cC419D64),
                 poolId: POOL_ID,
                 maxDeviationBps: 200,

@@ -142,15 +142,15 @@ function feedCases() {
     },
     { name: "USDC fresh", feed: "USDC_USD", answer: round(99_999_000n, T0 - 1_948n), now: T0 },
     {
-      name: "USDC 3,899 s old",
+      name: "USDC 7,199 s old",
       feed: "USDC_USD",
-      answer: round(100_000_000n, T0 - 3_899n),
+      answer: round(100_000_000n, T0 - 7_199n),
       now: T0,
     },
     {
-      name: "USDC exactly 3,900 s old",
+      name: "USDC exactly 7,200 s old",
       feed: "USDC_USD",
-      answer: round(100_000_000n, T0 - 3_900n),
+      answer: round(100_000_000n, T0 - 7_200n),
       now: T0,
     },
     { name: "USDC reverts", feed: "USDC_USD", answer: null, now: T0 },
@@ -161,7 +161,7 @@ function feedCases() {
     const roundId = r.big(1n, (1n << 80n) - 1n);
     const answer =
       r.next() < 0.1 ? -r.big(0n, 10n ** 10n) : r.big(0n, r.next() < 0.1 ? 1n << 120n : 10n ** 10n);
-    const updatedAt = r.next() < 0.05 ? 0n : T0 - r.big(0n, 5_000n) + (r.next() < 0.1 ? 100n : 0n);
+    const updatedAt = r.next() < 0.05 ? 0n : T0 - r.big(0n, 8_000n) + (r.next() < 0.1 ? 100n : 0n);
     const later = roundId + r.big(0n, 3n);
     const answeredInRound = r.next() < 0.1 ? roundId - 1n : later < 1n << 80n ? later : roundId;
     const decimals = r.next() < 0.1 ? r.int(0, 18) : 8;
@@ -260,13 +260,13 @@ function pegCases() {
     pegCase("just over 1% under", 98_999_999n, 60n),
     pegCase("exactly 1% over", 101_000_000n, 60n),
     pegCase("just over 1% over", 101_000_001n, 60n),
-    pegCase("at the peg but stale", 100_000_000n, 3_900n),
-    pegCase("depegged and stale: stale first", 90_000_000n, 3_900n),
+    pegCase("at the peg but stale", 100_000_000n, 7_200n),
+    pegCase("depegged and stale: stale first", 90_000_000n, 7_200n),
     pegCase("zero", 0n, 60n),
   ];
   const r = rng(3);
   for (let i = 0; i < 20; i++) {
-    cases.push(pegCase(`random peg ${i}`, r.big(97_000_000n, 103_000_000n), r.big(0n, 4_200n)));
+    cases.push(pegCase(`random peg ${i}`, r.big(97_000_000n, 103_000_000n), r.big(0n, 7_500n)));
   }
   return cases;
 }

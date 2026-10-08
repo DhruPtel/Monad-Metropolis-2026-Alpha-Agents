@@ -79,7 +79,7 @@ contract CanaryScriptsTest is Test {
         vm.expectRevert(bytes("Monad testnet deployments use DEPLOY_SALT_SCOPE=p2ec.testnet (D-249)"));
         custody.salt("executor");
         vm.chainId(143143);
-        vm.expectRevert(bytes("the local fork uses the v1 salts; unset DEPLOY_SALT_SCOPE"));
+        vm.expectRevert(bytes("the local fork uses the unscoped salts; unset DEPLOY_SALT_SCOPE"));
         custody.salt("executor");
         vm.setEnv("DEPLOY_SALT_SCOPE", "");
         vm.setEnv("CANARY_SIGNING_ENABLED", "false");

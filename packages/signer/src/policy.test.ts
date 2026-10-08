@@ -17,7 +17,7 @@ import {
   checkTransferRequest,
 } from "./policy.ts";
 
-const EXECUTOR = "0xE712468eB37544B7Eafe20F402867f7a49C19F43" as Hex;
+const EXECUTOR = "0x570575BC185d1B0aE93F641479fdEdDf76b91fdB" as Hex;
 const USDC = "0x754704Bc059F8C67012fEd69BC8A327a5aafb603" as Hex;
 const WMON = "0x3bd359C1119dA7Da1D913D1C4D2B7c461115433A" as Hex;
 

@@ -54,7 +54,7 @@ describe("launch limits", () => {
       maxTurnoverBps: 10_000,
       windowSeconds: 86_400,
       deadlineSeconds: 120,
-      oracleMaxAgeSeconds: { MON_USD: 300, USDC_USD: 3_900 },
+      oracleMaxAgeSeconds: { MON_USD: 300, USDC_USD: 7_200 },
       oracleMaxDeviationBps: 200,
       usdcMaxDepegBps: 100,
       breakerReduceOnlyBps: 1_000,
@@ -283,9 +283,9 @@ describe("oracle staleness is set per feed (D-168)", () => {
     ["MON_USD", 299, true],
     ["MON_USD", 300, false],
     ["MON_USD", 301, false],
-    ["USDC_USD", 3_899, true],
-    ["USDC_USD", 3_900, false],
-    ["USDC_USD", 3_901, false],
+    ["USDC_USD", 7_199, true],
+    ["USDC_USD", 7_200, false],
+    ["USDC_USD", 7_201, false],
   ] as const)("%s at age %is passes: %s (strictly under the bound, D-151)", (feed, age, ok) => {
     const result = checkFeedAge(feed, (NOW - age) as UnixSeconds, NOW);
     expect(result?.code ?? null).toBe(ok ? null : "ORACLE_STALE");

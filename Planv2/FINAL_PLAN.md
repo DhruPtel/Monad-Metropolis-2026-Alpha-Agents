@@ -214,7 +214,7 @@ Address book used throughout (verified by read-only RPC on 2026-09-25; re-verify
 | USDC | `0x754704Bc059F8C67012fEd69BC8A327a5aafb603` | Circle's official USDC on Monad (D-170): FiatToken proxy with pause and blacklist roles |
 | WMON | `0x3bd359C1119dA7Da1D913D1C4D2B7c461115433A` | Returned by SwapRouter02 `WETH9()` |
 | Chainlink MON/USD | `0xBcD78f76005B7515837af6b50c7C52BCf73822fb` | 8 decimals; 1 h heartbeat, 0.02% deviation, updates about every 30 s; staleness 300 s (D-168) |
-| Chainlink USDC/USD | `0xf5F15f188AbCB0d165D1Edb7f37F7d6fA2fCebec` | Depeg guard only; updates on its 1 h heartbeat; staleness 3,900 s (D-168) |
+| Chainlink USDC/USD | `0xf5F15f188AbCB0d165D1Edb7f37F7d6fA2fCebec` | Depeg guard only; updates on its 1 h heartbeat; staleness 7,200 s, two heartbeats (D-317, was 3,900 s in D-168) |
 | ERC-6551 registry | `0x000000006551c19487814612e58FE06813775758` | Canonical |
 | Tokenbound AccountProxy | `0x55266d75D1a14E4572138116aF39863Ed6596E7F` | The implementation argument for `createAccount` |
 | Tokenbound AccountV3Upgradable | `0x41C8f39463A868d3A88af00cd0fe7102F30E44eC` | Expected implementation in every agent TBA |

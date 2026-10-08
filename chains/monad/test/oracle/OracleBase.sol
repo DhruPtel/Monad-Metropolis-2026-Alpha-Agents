@@ -33,7 +33,7 @@ contract PoolPriceHarness is OracleAdapter {
 abstract contract OracleBase is Test {
     bytes32 internal constant POOL_ID = 0x18a9fc874581f3ba12b7898f80a683c66fd5877fd74b26a85ba9a3a79c549954;
     uint256 internal constant MON_MAX_AGE = 300;
-    uint256 internal constant USDC_MAX_AGE = 3_900;
+    uint256 internal constant USDC_MAX_AGE = 7_200;
     uint256 internal constant MAX_DEVIATION_BPS = 200;
     uint256 internal constant MAX_DEPEG_BPS = 100;
     /// MON/USD at the pinned block: $0.03436820 (8 decimals).
