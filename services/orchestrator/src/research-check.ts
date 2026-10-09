@@ -1,4 +1,5 @@
 import { addressEntry } from "@alpha-agents/domain";
+import { modelFailure } from "./gate.ts";
 import { type TaskContext, openAgentSandbox } from "./noop.ts";
 import { errorText } from "./secrets.ts";
 import type { AgentRef } from "./store.ts";
@@ -125,11 +126,12 @@ export async function runResearchCheckTask(ctx: TaskContext, taskId: string): Pr
     };
     if (complete) await ctx.store.finishTask(taskId, { result });
     else {
+      const failure = modelFailure(ctx.gate.callsFor(leaseId));
       const missing = RESEARCH_CHECK_TOOLS.filter(([s, t]) => !succeeded(s, t)).map(([, t]) => t);
       await ctx.store.finishTask(taskId, {
         error: deadline
           ? `the research check passed its ${RESEARCH_CHECK_DEADLINE_MS / 60_000} minute deadline and was stopped`
-          : `the research check ended (${runStatus}) without a successful ${missing.join(", ")}`,
+          : `the research check ended (${runStatus}) without a successful ${missing.join(", ")}${failure ? `: ${failure}` : ""}`,
         result,
       });
     }

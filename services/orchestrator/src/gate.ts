@@ -33,6 +33,12 @@ export interface GateLogEntry {
   readonly path: string;
   readonly status: number;
   readonly ms: number;
+  /**
+   * P3-U9: why the model provider refused, when the platform can tell. Only
+   * `PROVIDER_OUT_OF_CREDIT` so far: the platform's own provider account is
+   * empty, which no agent's credits can fix.
+   */
+  readonly reason?: "PROVIDER_OUT_OF_CREDIT";
 }
 
 export interface GateCredentials {
@@ -61,6 +67,24 @@ export const CREDITS_EXHAUSTED_BODY = {
 };
 
 /** LiteLLM's budget refusal, as it words it (seen in H-10 and in P1-U6's probe). */
+/** The platform's provider account is out of credit (Anthropic's wording, and OpenAI-style quota errors). */
+export const isProviderOutOfCredit = (status: number, body: string): boolean =>
+  status >= 400 &&
+  /credit balance is too low|insufficient_quota|exceeded your current quota/i.test(body);
+
+/**
+ * The model failure a task should name, from the gate's calls for its lease:
+ * the provider out of credit (a platform problem), or a refused call's status.
+ * Null when every model call went through. Credit refusals (402) are the
+ * agent's own billing and handled apart.
+ */
+export function modelFailure(calls: readonly GateLogEntry[]): string | null {
+  if (calls.some((c) => c.reason === "PROVIDER_OUT_OF_CREDIT"))
+    return "the model provider's account is out of credit (a platform problem, not the agent's credits)";
+  const bad = calls.find((c) => c.status >= 400 && c.status !== 402);
+  return bad ? `the model gateway answered ${bad.status}` : null;
+}
+
 export const isBudgetRefusal = (status: number, body: string): boolean =>
   (status === 429 || status === 400) && /budget_exceeded|budget has been exceeded/i.test(body);
 
@@ -123,7 +147,7 @@ export async function startGate(options: GateOptions, port = 0): Promise<Gate> {
     const started = Date.now();
     const path = new URL(req.url ?? "/", "http://gate").pathname;
     let leaseId: string | null = null;
-    const record = (status: number) => {
+    const record = (status: number, reason?: GateLogEntry["reason"]) => {
       log.push({
         at: new Date(started).toISOString(),
         leaseId,
@@ -131,6 +155,7 @@ export async function startGate(options: GateOptions, port = 0): Promise<Gate> {
         path,
         status,
         ms: Date.now() - started,
+        ...(reason ? { reason } : {}),
       });
       if (log.length > 5_000) log.splice(0, log.length - 5_000);
     };
@@ -209,7 +234,10 @@ export async function startGate(options: GateOptions, port = 0): Promise<Gate> {
           up.on("end", () => {
             const body = Buffer.concat(chunks).toString("utf8");
             if (isBudgetRefusal(status, body)) return reply(402, CREDITS_EXHAUSTED_BODY);
-            record(status);
+            record(
+              status,
+              isProviderOutOfCredit(status, body) ? "PROVIDER_OUT_OF_CREDIT" : undefined,
+            );
             res.writeHead(status, up.headers);
             res.end(body);
           });

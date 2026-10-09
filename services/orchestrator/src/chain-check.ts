@@ -1,3 +1,4 @@
+import { modelFailure } from "./gate.ts";
 import { type TaskContext, openAgentSandbox } from "./noop.ts";
 import { errorText } from "./secrets.ts";
 import type { AgentRef } from "./store.ts";
@@ -134,12 +135,13 @@ export async function runChainCheckTask(ctx: TaskContext, taskId: string): Promi
       modelCalls: ctx.gate.callsFor(leaseId).length,
       timingsMs: { run: runMs, total: Date.now() - started },
     };
+    const failure = modelFailure(ctx.gate.callsFor(leaseId));
     if (complete) await ctx.store.finishTask(taskId, { result });
     else
       await ctx.store.finishTask(taskId, {
         error: deadline
           ? `the chain check passed its ${CHAIN_CHECK_DEADLINE_MS / 60_000} minute deadline and was stopped`
-          : `the chain check ended (${runStatus}) without every read and a proposal`,
+          : `the chain check ended (${runStatus}) without every read and a proposal${failure ? `: ${failure}` : ""}`,
         result,
       });
     ctx.log(

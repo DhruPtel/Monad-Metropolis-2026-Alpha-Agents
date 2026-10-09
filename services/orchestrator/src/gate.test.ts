@@ -1,7 +1,15 @@
 import { createServer, type IncomingHttpHeaders } from "node:http";
 import type { AddressInfo } from "node:net";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { CREDITS_EXHAUSTED_BODY, type Gate, GATE_HEADER, startGate } from "./gate.ts";
+import {
+  CREDITS_EXHAUSTED_BODY,
+  type Gate,
+  GATE_HEADER,
+  type GateLogEntry,
+  isProviderOutOfCredit,
+  modelFailure,
+  startGate,
+} from "./gate.ts";
 import { sha256Hex } from "./secrets.ts";
 import type { Lease } from "./store.ts";
 
@@ -144,5 +152,36 @@ describe("the gate (D-203)", () => {
     const probe = { [GATE_HEADER]: "probe-token-cccccccccccccccccccccccccc" };
     expect((await fetch(`${gate.url}/healthz`, { headers: probe })).status).toBe(200);
     expect((await call("/v1/chat/completions", probe)).status).toBe(401);
+  });
+});
+
+describe("naming a model failure (P3-U9)", () => {
+  const entry = (status: number, reason?: GateLogEntry["reason"]): GateLogEntry => ({
+    at: "2026-10-09T01:55:44.000Z",
+    leaseId: "l",
+    method: "POST",
+    path: "/v1/chat/completions",
+    status,
+    ms: 300,
+    ...(reason ? { reason } : {}),
+  });
+
+  it("recognizes the provider's own account running out of credit", () => {
+    const anthropic =
+      '{"error":{"message":"litellm.BadRequestError: AnthropicException - {\\"type\\":\\"error\\",\\"error\\":{\\"type\\":\\"invalid_request_error\\",\\"message\\":\\"Your credit balance is too low to access the Anthropic API.\\"}}"}}';
+    expect(isProviderOutOfCredit(400, anthropic)).toBe(true);
+    expect(isProviderOutOfCredit(429, '{"error":{"code":"insufficient_quota"}}')).toBe(true);
+    expect(isProviderOutOfCredit(400, '{"error":"budget_exceeded"}')).toBe(false);
+    expect(isProviderOutOfCredit(200, "credit balance is too low")).toBe(false);
+  });
+
+  it("names the provider, then any refused call, and nothing when every call went through", () => {
+    expect(modelFailure([entry(200), entry(400, "PROVIDER_OUT_OF_CREDIT")])).toMatch(
+      /provider's account is out of credit/,
+    );
+    expect(modelFailure([entry(200), entry(500)])).toBe("the model gateway answered 500");
+    // A 402 is the agent's own credits, reported as billing elsewhere.
+    expect(modelFailure([entry(200), entry(402)])).toBeNull();
+    expect(modelFailure([])).toBeNull();
   });
 });

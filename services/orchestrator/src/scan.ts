@@ -1,5 +1,6 @@
 import { SCAN_MIN_CREDITS_USDC_E6 } from "@alpha-agents/accounting";
 import { CompleteStageOutput } from "@alpha-agents/platform-tools";
+import { modelFailure } from "./gate.ts";
 import type { Narrator } from "./narrator.ts";
 import { type TaskContext, openAgentSandbox } from "./noop.ts";
 import { errorText } from "./secrets.ts";
@@ -184,6 +185,7 @@ export async function runScanTask(ctx: ScanContext, taskId: string): Promise<voi
     };
     // The owner's entry first, so a finished Scan always has one (D-217).
     await narrate(ctx, taskId, stopReason);
+    const failure = modelFailure(gated);
     if (stopReason === "COMPLETED") await ctx.store.finishTask(taskId, { result });
     else
       await ctx.store.finishTask(taskId, {
@@ -192,7 +194,7 @@ export async function runScanTask(ctx: ScanContext, taskId: string): Promise<voi
             ? "billing: the agent's credits ran out during the Scan"
             : stopReason === "DEADLINE"
               ? `the Scan passed its ${SCAN_DEADLINE_MS / 60_000} minute deadline and was stopped`
-              : `the Scan ended (${runStatus}) without calling complete_stage`,
+              : `the Scan ended (${runStatus}) without calling complete_stage${failure ? `: ${failure}` : ""}`,
         result,
       });
     ctx.log(
