@@ -3,6 +3,8 @@ import {
   ResearchSources,
   viemMainnetLookup,
   viemMainnetReader,
+  TokenDiscovery,
+  readOnlyTransport,
 } from "@alpha-agents/market";
 import { PgUsageStore } from "./usage-store.ts";
 import { existsSync } from "node:fs";
@@ -18,9 +20,10 @@ import {
 import { ViemChainReader, contractsFor, rpcTransport } from "@alpha-agents/chain-tools";
 import { TavilyProvider } from "@alpha-agents/data-tools";
 import { createDb, migrateToLatest } from "@alpha-agents/db";
-import { localPaths, secretFragments, setMonBalance } from "@alpha-agents/devenv";
+import { localPaths, secretFragments, setMonBalance, startTestFork } from "@alpha-agents/devenv";
+import { MONAD_MAINNET_CHAIN_ID } from "@alpha-agents/config";
 import { SPECIES, addressEntry } from "@alpha-agents/domain";
-import { type Hex, createPublicClient, http } from "viem";
+import { type Hex, type PublicClient, createPublicClient, http } from "viem";
 import { createApi } from "./api.ts";
 import { SignerWorker } from "./signer-worker.ts";
 import { FundingKeys } from "./credits/funding.ts";
@@ -39,6 +42,9 @@ import { Store } from "./store.ts";
 import { findCloudflared } from "./tunnel.ts";
 import { swapGasCost } from "./trade-flow.ts";
 import { testnetFeedsFor, viemFeedChain, withFreshFeeds } from "./testnet-feeds.ts";
+import { TokenRegistry } from "./tokens/registry.ts";
+import { SCREEN_FORK_PORT, ScreenFork } from "./tokens/screen-fork.ts";
+import { TokenStore } from "./tokens/store.ts";
 
 /**
  * The orchestrator process (P1-U5): `pnpm dev:orchestrator`.
@@ -294,6 +300,43 @@ const research = new ResearchSources({
 log(
   `research sources on: X ${xToken ? "configured" : "not configured"}, Dune ${duneKey ? "configured" : "not configured"}, mainnet lookups ${mainnetUrls.length > 0 ? "configured" : "not configured"}`,
 );
+// Token registry (F-U1): discovery from GeckoTerminal, CoinGecko and CoinMarketCap, every pool
+// and token confirmed on mainnet through the read-only transport; screens on a fork of the
+// latest block of their own (never the playtest fork), forked from the same research URLs.
+const tokenDiscovery =
+  mainnetUrls.length > 0
+    ? new TokenDiscovery({
+        market,
+        cmcApiKey: cmcKey,
+        client: createPublicClient({ transport: readOnlyTransport(mainnetUrls) }) as PublicClient,
+      })
+    : null;
+const screenFork =
+  mainnetUrls.length > 0
+    ? new ScreenFork({
+        start: () =>
+          startTestFork({
+            port: SCREEN_FORK_PORT,
+            block: "latest",
+            env: {
+              MONAD_RPC_URL: mainnetUrls[0],
+              ...(mainnetUrls[1] ? { MONAD_RPC_URL_SECONDARY: mainnetUrls[1] } : {}),
+            },
+          }),
+      })
+    : null;
+const tokenRegistry = new TokenRegistry({
+  chainId: MONAD_MAINNET_CHAIN_ID,
+  store: new TokenStore(db),
+  market,
+  discovery: tokenDiscovery,
+  fork: screenFork,
+});
+// --token-loops=off keeps the registry for the tools and the console but runs no discovery or screens.
+const tokenLoops = arg("token-loops") !== "off";
+log(
+  `token registry on: discovery ${tokenDiscovery ? "configured" : "not configured"}, screens ${screenFork ? `on a latest-block fork at port ${SCREEN_FORK_PORT}` : "not configured"}, loops ${tokenLoops ? "on" : "off"}; GoPlus has no API key and runs keyless`,
+);
 const scanSeconds = arg("scan-interval-seconds");
 if (scanSeconds !== undefined && (env.id !== "local" || !/^[1-9]\d{0,5}$/.test(scanSeconds)))
   die("--scan-interval-seconds takes a whole number of seconds, and only with APP_ENV=local");
@@ -407,6 +450,10 @@ const orchestrator = new Orchestrator({
   web,
   market,
   research,
+  tokens: {
+    registry: tokenRegistry,
+    ...(tokenLoops ? {} : { discoverEveryMs: 0, screenEveryMs: 0 }),
+  },
   // P3-U3: the runner's buy brake reads MON's 24-hour volatility from the shared market data
   // (DefiLlama's recorded price, D-289); a refused or stale figure counts as unreadable.
   runner: {
@@ -440,6 +487,7 @@ const api = createApi({
   forkUrl: local ? rpcUrl : null,
   market,
   research,
+  tokens: tokenRegistry,
 });
 const server = serve({ fetch: api.fetch, port, hostname: "127.0.0.1" });
 log(

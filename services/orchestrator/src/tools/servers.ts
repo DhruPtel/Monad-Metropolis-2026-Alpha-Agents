@@ -4,6 +4,7 @@ import {
   UpstreamError,
   type WebProvider,
   startDataTools,
+  type TokenSource,
 } from "@alpha-agents/data-tools";
 import { type ChainReader, type IntentRecord, startChainTools } from "@alpha-agents/chain-tools";
 import type { MarketData, ResearchSources } from "@alpha-agents/market";
@@ -61,6 +62,8 @@ export interface ToolServersOptions {
   readonly market?: MarketData | null;
   /** P3-U9: X search, saved Dune queries and mainnet lookups; none answers them "not configured". */
   readonly research?: ResearchSources | null;
+  /** F-U1: the token registry behind list_tokens, new_pools and screen_token; none answers "not configured". */
+  readonly tokens?: TokenSource | null;
   /** P3-U4: the research cycles' records; the tools then meter, record and check per stage. */
   readonly cycles?: { readonly store: CycleStore; readonly research: CycleResearch } | null;
   readonly log: Log;
@@ -95,6 +98,7 @@ export async function startToolServers(o: ToolServersOptions): Promise<ToolServe
     provider: o.provider ?? unconfiguredProvider,
     market: o.market ?? null,
     research: o.research ?? null,
+    tokens: o.tokens ?? null,
     ...(o.lookup ? { lookup: o.lookup } : {}),
     ...(o.probe ? { probe: o.probe } : {}),
   });

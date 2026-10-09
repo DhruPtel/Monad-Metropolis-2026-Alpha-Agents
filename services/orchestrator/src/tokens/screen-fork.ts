@@ -8,6 +8,9 @@ import { ForkSimulator } from "./simulate.ts";
  * `maxAgeMs`, and runs one screen at a time: each screen takes a snapshot and
  * reverts to it afterwards, so no screen sees another's trades.
  */
+/** The orchestrator's screen fork: never 8545 (the playtest fork) nor a test port (8546 to 8578). */
+export const SCREEN_FORK_PORT = 8579;
+
 export interface StartedFork {
   readonly url: string;
   readonly block: number;

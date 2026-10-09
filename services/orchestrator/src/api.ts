@@ -11,6 +11,8 @@ import type { RevealSteering, SteerRecord, SteerTarget } from "./reveal-steer.ts
 import type { SignerWorker } from "./signer-worker.ts";
 import type { Runtime, Store, Task } from "./store.ts";
 import { registerPlanRoutes } from "./plan-routes.ts";
+import { registerTokenRoutes } from "./token-routes.ts";
+import type { TokenRegistry } from "./tokens/registry.ts";
 import { registerCycleRoutes } from "./cycle-routes.ts";
 import { mountedSkills } from "./hermes/materialize.ts";
 
@@ -43,6 +45,8 @@ export interface ApiOptions {
   readonly market?: MarketData | null;
   /** P3-U9: the research sources, for the console's Research sources page. */
   readonly research?: ResearchSources | null;
+  /** F-U1: the token registry, for the console's Tokens page. */
+  readonly tokens?: TokenRegistry | null;
 }
 
 const runtimeView = (r: Runtime) => ({
@@ -518,6 +522,12 @@ export function createApi(o: ApiOptions): Hono {
     agentRef: (raw) => agentRef(raw, o.chainId),
     canSet: o.devActions || o.operatorActions === true,
     canRun: o.devActions,
+  });
+
+  // F-U1: the token registry, read and screened from the console.
+  registerTokenRoutes(app, {
+    registry: o.tokens ?? null,
+    canAct: o.devActions || o.operatorActions === true,
   });
 
   // P3-U4: research cycles, started and read from the console.

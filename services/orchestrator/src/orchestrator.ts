@@ -48,6 +48,12 @@ import { CycleStore } from "./cycle/store.ts";
 import { skillRuns } from "./cycle/validator.ts";
 import { builtinSet } from "./hermes/materialize.ts";
 import { PgIntentStore } from "./tools/chain-store.ts";
+import type { TokenRegistry } from "./tokens/registry.ts";
+import { registryToolSource } from "./tokens/tool-source.ts";
+
+/** F-U1: discovery every 30 minutes; screens of due tokens every 10 minutes, two at a time. */
+export const TOKEN_DISCOVERY_EVERY_MS = 30 * 60_000;
+export const TOKEN_SCREEN_EVERY_MS = 10 * 60_000;
 
 /**
  * Wires the orchestrator's parts into one service (D-202): the startup sweep,
@@ -161,6 +167,17 @@ export interface OrchestratorOptions {
     /** MON's annualized 24-hour realized volatility in percent, null when unreadable. */
     readonly volatility24hPct: () => Promise<number | null>;
     readonly everyMs?: number;
+  } | null;
+  /**
+   * F-U1: the token registry. Discovery runs every `discoverEveryMs` and
+   * screens of tokens whose screen is missing or expired every
+   * `screenEveryMs` (`screensPerTick` at a time); 0 turns a loop off.
+   */
+  readonly tokens?: {
+    readonly registry: TokenRegistry;
+    readonly discoverEveryMs?: number;
+    readonly screenEveryMs?: number;
+    readonly screensPerTick?: number;
   } | null;
 }
 
@@ -359,6 +376,7 @@ export class Orchestrator {
         provider: this.o.web ?? null,
         market: this.o.market ?? null,
         research: this.o.research ?? null,
+        tokens: this.o.tokens ? registryToolSource(this.o.tokens.registry) : null,
         cycles: { store: this.cycles, research: this.research },
         chain: {
           reader: this.o.chain?.reader ?? null,
@@ -450,6 +468,28 @@ export class Orchestrator {
     if (this.o.localFeeds) {
       const feeds = this.o.localFeeds;
       this.every(feeds.everyMs, "local feeds", () => feeds.refresh());
+    }
+    const tokens = this.o.tokens;
+    if (tokens?.registry.configured.discovery && tokens.discoverEveryMs !== 0) {
+      this.every(
+        tokens.discoverEveryMs ?? TOKEN_DISCOVERY_EVERY_MS,
+        "token discovery",
+        async () => {
+          const d = await tokens.registry.discover();
+          this.o.log(
+            `token discovery: ${d.tokens} tokens (${d.classF} class F, ${d.classA} class A), ${d.pools} pools, ${d.newPools} new`,
+          );
+        },
+      );
+    }
+    if (tokens?.registry.configured.screen && tokens.screenEveryMs !== 0) {
+      this.every(tokens.screenEveryMs ?? TOKEN_SCREEN_EVERY_MS, "token screens", async () => {
+        const done = await tokens.registry.screenDue(tokens.screensPerTick ?? 2);
+        if (done.length > 0)
+          this.o.log(
+            `token screens: ${done.map((s) => `${s.address.slice(0, 10)} ${s.verdict}`).join(", ")}`,
+          );
+      });
     }
     if (this.o.keeper) {
       const keeper = this.o.keeper;
@@ -822,6 +862,7 @@ export class Orchestrator {
     if (this.tunnel) await (await this.tunnel.catch(() => null))?.close();
     await this.gate?.close();
     await this.tools?.close();
+    await this.o.tokens?.registry.stop();
     this.o.log(`stopped ${this.runTag}`);
   }
 

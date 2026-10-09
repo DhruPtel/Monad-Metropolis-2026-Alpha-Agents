@@ -23,6 +23,13 @@ import {
   registerResearchTools,
 } from "./research-tools.ts";
 import { UpstreamError, type WebProvider } from "./tavily.ts";
+import {
+  TOKEN_TOOL_PRICES_USDC_E6,
+  type TokenDataTool,
+  TokenInputs,
+  type TokenSource,
+  registerTokenTools,
+} from "./token-tools.ts";
 import { type Lookup, checkUrl, followRedirects, systemLookup } from "./url-guard.ts";
 import {
   MAX_PAGE_CHARS,
@@ -40,14 +47,16 @@ import {
  * refuses the call; an upstream failure is reported back so the charge is
  * reversed. Nothing in an input names an agent.
  */
-export type DataTool = "web_search" | "read_url" | MarketDataTool | ResearchDataTool;
+export type DataTool =
+  "web_search" | "read_url" | MarketDataTool | ResearchDataTool | TokenDataTool;
 
-/** A-29: Tavily's rate plus the A-27 markup; A-52 for market data; A-57 for X and Dune. In micro-USDC per call. */
+/** A-29: Tavily's rate plus the A-27 markup; A-52 for market data; A-57 for X and Dune; A-63 for tokens. In micro-USDC per call. */
 export const DATA_TOOL_PRICES_USDC_E6: Readonly<Record<DataTool, bigint>> = {
   web_search: 10_000n,
   read_url: 2_000n,
   ...MARKET_TOOL_PRICES_USDC_E6,
   ...RESEARCH_TOOL_PRICES_USDC_E6,
+  ...TOKEN_TOOL_PRICES_USDC_E6,
 };
 
 export interface CallSummary extends Record<string, unknown> {
@@ -114,6 +123,8 @@ export interface DataToolsDeps {
   readonly market?: MarketData | null;
   /** P3-U9: X search and saved Dune queries; null where not configured. */
   readonly research?: ResearchSources | null;
+  /** F-U1: the token registry and screen; null where not configured. */
+  readonly tokens?: TokenSource | null;
   readonly lookup?: Lookup;
   /** P3-U9: the fetch the redirect check probes hops with; tests give a fake. */
   readonly probe?: typeof fetch;
@@ -312,6 +323,7 @@ export function registerDataTools(
   );
   registerMarketTools(mcp, identity, { meter: deps.meter, market: deps.market ?? null });
   registerResearchTools(mcp, identity, { meter: deps.meter, research: deps.research ?? null });
+  registerTokenTools(mcp, identity, { meter: deps.meter, tokens: deps.tokens ?? null });
 }
 
 /** Every input schema the server registers, for the identity field lint. */
@@ -320,6 +332,7 @@ export const DATA_TOOL_INPUTS = {
   read_url: ReadUrlInput,
   ...MarketInputs,
   ...ResearchInputs,
+  ...TokenInputs,
 } as const;
 
 export async function startDataTools(
