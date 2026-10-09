@@ -10,6 +10,7 @@ import {
   GitBranch,
   LineChart,
   Scale,
+  Telescope,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -24,6 +25,7 @@ export const CONSOLE_PANELS = [
   { href: "/agents", label: "Agents", icon: Bot },
   { href: "/trades", label: "Trades", icon: ArrowLeftRight },
   { href: "/market", label: "Market", icon: LineChart },
+  { href: "/research", label: "Research", icon: Telescope },
 ] as const;
 
 const isActive = (pathname: string, href: string) =>

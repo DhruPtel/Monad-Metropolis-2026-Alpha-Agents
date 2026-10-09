@@ -280,12 +280,18 @@ export function createApi(o: ApiOptions): Hono {
       configured: true,
       cacheHit: snap.cacheHit,
       snapshot: snap.value,
-      freshness: m.cache.freshness().map((f) => ({
-        source: f.key.split("|").slice(0, 2).join(" "),
-        fetchedAt: new Date(f.fetchedAt).toISOString(),
-        ageSeconds: Math.max(0, Math.round((now - f.fetchedAt) / 1000)),
-        expiresInSeconds: Math.max(0, Math.round((f.expiresAt - now) / 1000)),
-      })),
+      // Market sources only; the research sources (P3-U9) have their own page.
+      freshness: m.cache
+        .freshness()
+        .filter((f) =>
+          /^(coinmarketcap|defillama)\||^monad\|(oracleVsPool|poolDepth)\|/.test(f.key),
+        )
+        .map((f) => ({
+          source: f.key.split("|").slice(0, 2).join(" "),
+          fetchedAt: new Date(f.fetchedAt).toISOString(),
+          ageSeconds: Math.max(0, Math.round((now - f.fetchedAt) / 1000)),
+          expiresInSeconds: Math.max(0, Math.round((f.expiresAt - now) / 1000)),
+        })),
       upstreamCalls: Object.fromEntries(m.cache.upstreamCalls),
       coinmarketcapCreditsToday: await m.cmcBudget.usedToday(),
     });

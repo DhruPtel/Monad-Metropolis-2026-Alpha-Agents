@@ -521,6 +521,11 @@ const routes = {
   "GET /v1/tasks/fixture-chain-check": [200, chainCheckTask],
   // P3-U2: the market snapshot, built from packages/market's recorded upstream answers.
   "GET /v1/market": [200, readFileSync(new URL("./market-fixture.json", import.meta.url), "utf8")],
+  // P3-U9: research sources, built from packages/market's recorded X and Dune answers (synthetic posts).
+  "GET /v1/research": [
+    200,
+    readFileSync(new URL("./research-fixture.json", import.meta.url), "utf8"),
+  ],
 };
 
 createServer((req, res) => {

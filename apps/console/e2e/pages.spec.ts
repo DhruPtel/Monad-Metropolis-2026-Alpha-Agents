@@ -18,6 +18,7 @@ const PAGES = [
   { path: "/agents", name: "agents", heading: "Agents" },
   { path: "/trades", name: "trades", heading: "Trades" },
   { path: "/market", name: "market", heading: "Market data" },
+  { path: "/research", name: "research", heading: "Research sources" },
 ] as const;
 
 for (const panel of PAGES) {
