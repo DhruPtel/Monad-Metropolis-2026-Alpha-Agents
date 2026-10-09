@@ -166,6 +166,13 @@ export function cacheShare(s: Pick<StageJson, "inputTokens" | "cacheReadTokens">
   return `${Math.round((s.cacheReadTokens / s.inputTokens) * 100)}%`;
 }
 
+/** Tokens a stage processed fresh, as its token cap counts them: input not from the cache, plus output (A-59). */
+export function freshTokens(
+  s: Pick<StageJson, "inputTokens" | "cacheReadTokens" | "outputTokens">,
+): number {
+  return Math.max(0, s.inputTokens - s.cacheReadTokens) + s.outputTokens;
+}
+
 /** Paid tool calls a stage made (cached answers are free and do not count). */
 export function paidCalls(s: Pick<StageDetail, "toolCalls">): number {
   return s.toolCalls.filter((c) => BigInt(c.chargeUsdcE6) > 0n && c.status !== "refused").length;

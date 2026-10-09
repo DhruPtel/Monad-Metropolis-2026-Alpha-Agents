@@ -25,6 +25,7 @@ import {
   cacheShare,
   callSubject,
   fillBps,
+  freshTokens,
   paidCalls,
   statusTone,
   usdc,
@@ -116,7 +117,7 @@ export function CyclesTable({
             <TableCell label="Status">
               <span className="flex flex-wrap items-center gap-2">
                 <Badge tone={statusTone(c.status)}>{c.status}</Badge>
-                {c.stopReason ? (
+                {c.stopReason && c.stopReason !== "COMPLETED" ? (
                   <span className="text-xs text-foreground-muted">{c.stopReason}</span>
                 ) : null}
               </span>
@@ -179,9 +180,9 @@ function StageCard({ s }: { s: StageDetail }) {
               fillBps={fillBps(paidCalls(s), s.caps.paidCalls)}
             />
             <StatBar
-              label="Tokens"
-              value={`${(s.inputTokens + s.outputTokens).toLocaleString("en-US")} of ${s.caps.tokens.toLocaleString("en-US")}`}
-              fillBps={fillBps(s.inputTokens + s.outputTokens, s.caps.tokens)}
+              label="Fresh tokens (not from cache)"
+              value={`${freshTokens(s).toLocaleString("en-US")} of ${s.caps.tokens.toLocaleString("en-US")}`}
+              fillBps={fillBps(freshTokens(s), s.caps.tokens)}
             />
           </div>
         ) : null}
@@ -326,10 +327,17 @@ export function CycleDetail({ data }: { data: CycleDetailJson }) {
     <section aria-label="Cycle" className="flex flex-col gap-4" data-testid="cycle-detail">
       <div className="flex flex-wrap items-center gap-2">
         <h2 className="text-xl font-semibold">
-          {c.kind.toLowerCase()} cycle on {c.reasoning}
+          {c.kind === "ACTIVATION"
+            ? "Activation"
+            : c.kind === "TRIGGERED"
+              ? "Triggered"
+              : "Routine"}{" "}
+          cycle on {c.reasoning}
         </h2>
         <Badge tone={statusTone(c.status)}>{c.status}</Badge>
-        {c.stopReason ? <Badge tone="detail">{c.stopReason}</Badge> : null}
+        {c.stopReason && c.stopReason !== "COMPLETED" ? (
+          <Badge tone="detail">{c.stopReason}</Badge>
+        ) : null}
       </div>
       <p className="text-sm text-foreground-muted">
         Charged <span className="numeric text-foreground">{usdc(c.chargedUsdcE6)}</span>, absorbed

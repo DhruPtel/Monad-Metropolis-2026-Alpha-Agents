@@ -1,5 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { cacheShare, callSubject, fillBps, isLive, paidCalls, statusTone, usdc } from "./cycles";
+import {
+  cacheShare,
+  callSubject,
+  fillBps,
+  freshTokens,
+  isLive,
+  paidCalls,
+  statusTone,
+  usdc,
+} from "./cycles";
 
 describe("the console's research cycles (P3-U4)", () => {
   it("shows USDC with four decimals, truncated", () => {
@@ -22,6 +31,10 @@ describe("the console's research cycles (P3-U4)", () => {
     expect(statusTone("running")).toBe("neutral");
     expect(cacheShare({ inputTokens: 20_000, cacheReadTokens: 15_000 })).toBe("75%");
     expect(cacheShare({ inputTokens: 0, cacheReadTokens: 0 })).toBe("0%");
+    // The token cap counts what was not read from the cache (A-59).
+    expect(freshTokens({ inputTokens: 20_000, cacheReadTokens: 15_000, outputTokens: 500 })).toBe(
+      5_500,
+    );
     const call = (charge: string, status = "succeeded") => ({
       callId: "c",
       server: "data",
