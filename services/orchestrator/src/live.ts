@@ -45,7 +45,8 @@
  * P3-U9 adds the research check: a real agent in E2B calls x_search, a saved
  * dune_query, read_contract, balance and get_code once each; each returns
  * typed, sourced results, X is charged at its price inside the caps, and the
- * mainnet lookups are free. Needs X_BEARER_TOKEN and DUNE_API_KEY too.
+ * mainnet lookups are free. Needs X_BEARER_TOKEN too; DUNE_API_KEY is optional
+ * (D-326), and without it the check confirms Dune charges nothing.
  */
 import { type ChildProcess, spawn } from "node:child_process";
 import { randomBytes, randomUUID } from "node:crypto";
@@ -744,10 +745,17 @@ async function main(): Promise<number> {
       ok("x_search"),
       line,
     );
+    // Dune is optional, off without a key (D-326): with a key the query answers typed rows;
+    // without one it is refused before the meter, so it charges nothing and leaves no record.
+    const duneRows = outputs.filter((c) => c.tool === "dune_query");
     check(
-      "a real agent ran a saved Dune query by name and got typed rows",
-      ok("dune_query"),
-      process.env.DUNE_API_KEY ? line : `DUNE_API_KEY is not set; ${line}`,
+      process.env.DUNE_API_KEY?.trim()
+        ? "a real agent ran a saved Dune query by name and got typed rows"
+        : "Dune is off without a key: the agent's dune_query is refused with no charge",
+      process.env.DUNE_API_KEY?.trim()
+        ? ok("dune_query")
+        : duneRows.every((c) => String(c.charge_usdc_e6) === "0"),
+      process.env.DUNE_API_KEY?.trim() ? line : `${duneRows.length} recorded Dune calls; ${line}`,
     );
     check(
       "a real agent read a contract, a balance and code on Monad mainnet, typed and free",

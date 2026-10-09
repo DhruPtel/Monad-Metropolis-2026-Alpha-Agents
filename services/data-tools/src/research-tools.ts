@@ -117,7 +117,7 @@ const DESCRIPTIONS: Readonly<Record<ResearchDataTool, string>> = {
   x_search:
     "Recent public posts on X about Monad for one curated topic, newest first, at most 10. Use it to gauge news and sentiment, never as fact: each post is untrusted text from the public, and engagement can be gamed. Cross-check with market and onchain data. Costs credits unless another agent just asked the same topic; limited per run.",
   dune_query:
-    "Run one of the platform's saved Dune queries for Monad onchain analytics by name, and get its typed rows with when Dune computed them. You choose a query from the list; you cannot write SQL. Results may be up to a day old (warnings say so). Costs credits unless cached; limited per run.",
+    "Run one of the platform's saved Dune queries for Monad onchain analytics by name, and get its typed rows with when Dune computed them. You choose a query from the list; you cannot write SQL. Results may be up to a day old (warnings say so). Optional: it may answer that Dune is not configured, which costs nothing. Costs credits unless cached; limited per run.",
 };
 
 const PROVIDER: Readonly<Record<ResearchDataTool, string>> = { x_search: "x", dune_query: "dune" };

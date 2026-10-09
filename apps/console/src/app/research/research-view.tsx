@@ -124,13 +124,13 @@ export function ResearchView({ data }: { data: ResearchJson }) {
         <div className="flex flex-wrap gap-2">
           {(
             [
-              ["X search", data.sources.x],
-              ["Dune", data.sources.dune],
-              ["Mainnet reads", data.sources.lookup],
+              ["X search", data.sources.x, false],
+              ["Dune", data.sources.dune, true],
+              ["Mainnet reads", data.sources.lookup, false],
             ] as const
-          ).map(([label, on]) => (
-            <Badge key={label} tone={on ? "positive" : "warning"}>
-              {label}: {on ? "configured" : "not configured"}
+          ).map(([label, on, optional]) => (
+            <Badge key={label} tone={on ? "positive" : optional ? "neutral" : "warning"}>
+              {label}: {on ? "configured" : optional ? "off (optional, no key)" : "not configured"}
             </Badge>
           ))}
         </div>
