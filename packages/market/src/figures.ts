@@ -13,6 +13,7 @@ export const MARKET_SOURCES = [
   "defillama",
   "chainlink",
   "uniswap_v4",
+  "geckoterminal",
   "computed",
 ] as const;
 export type MarketSource = (typeof MARKET_SOURCES)[number];

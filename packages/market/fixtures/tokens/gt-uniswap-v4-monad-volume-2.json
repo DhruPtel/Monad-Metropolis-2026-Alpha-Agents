@@ -1,0 +1,655 @@
+{
+  "data": [
+    {
+      "id": "monad_0x7d892749d0562b0f78a26cdec26e97ec9dc7f8d1997cb590643ab69f10a1da0e",
+      "type": "pool",
+      "attributes": {
+        "address": "0x7d892749d0562b0f78a26cdec26e97ec9dc7f8d1997cb590643ab69f10a1da0e",
+        "name": "MON / USDC 0.3%",
+        "pool_created_at": "2025-11-20T02:33:03Z",
+        "reserve_in_usd": "3887.3554",
+        "base_token_price_usd": "0.02424641",
+        "quote_token_price_usd": "0.99894643070239",
+        "volume_usd": { "h24": "492.2794758819" }
+      },
+      "relationships": {
+        "base_token": {
+          "data": { "id": "monad_0x0000000000000000000000000000000000000000", "type": "token" }
+        },
+        "quote_token": {
+          "data": { "id": "monad_0x754704bc059f8c67012fed69bc8a327a5aafb603", "type": "token" }
+        },
+        "dex": { "data": { "id": "uniswap-v4-monad", "type": "dex" } }
+      }
+    },
+    {
+      "id": "monad_0xcfd2d35fee02342ed362279b83debe5691b288c0016f4993b944f8161300f60c",
+      "type": "pool",
+      "attributes": {
+        "address": "0xcfd2d35fee02342ed362279b83debe5691b288c0016f4993b944f8161300f60c",
+        "name": "MON / CHOG 1%",
+        "pool_created_at": "2025-11-26T15:56:57Z",
+        "reserve_in_usd": "2984.7215",
+        "base_token_price_usd": "0.02437221",
+        "quote_token_price_usd": "0.00174433603940688",
+        "volume_usd": { "h24": "462.1898939706" }
+      },
+      "relationships": {
+        "base_token": {
+          "data": { "id": "monad_0x0000000000000000000000000000000000000000", "type": "token" }
+        },
+        "quote_token": {
+          "data": { "id": "monad_0x350035555e10d9afaf1566aaebfced5ba6c27777", "type": "token" }
+        },
+        "dex": { "data": { "id": "uniswap-v4-monad", "type": "dex" } }
+      }
+    },
+    {
+      "id": "monad_0x74c5a3102bdd5539f4fca18e6f3b842af31c79e292635f0cbef4561cf1e9e98d",
+      "type": "pool",
+      "attributes": {
+        "address": "0x74c5a3102bdd5539f4fca18e6f3b842af31c79e292635f0cbef4561cf1e9e98d",
+        "name": "MOCHI / MON",
+        "pool_created_at": "2026-10-09T16:09:16Z",
+        "reserve_in_usd": "4271.8513",
+        "base_token_price_usd": "0.00000411488486363283",
+        "quote_token_price_usd": "0.02468865",
+        "volume_usd": { "h24": "245.3854116654" }
+      },
+      "relationships": {
+        "base_token": {
+          "data": { "id": "monad_0x89459eebf132d6dc322d9aab82a61313f1c88401", "type": "token" }
+        },
+        "quote_token": {
+          "data": { "id": "monad_0x0000000000000000000000000000000000000000", "type": "token" }
+        },
+        "dex": { "data": { "id": "uniswap-v4-monad", "type": "dex" } }
+      }
+    },
+    {
+      "id": "monad_0x58b85fc7d9aba4388e2f92d63c970522703696753b386d7f7a65f935addd1ce5",
+      "type": "pool",
+      "attributes": {
+        "address": "0x58b85fc7d9aba4388e2f92d63c970522703696753b386d7f7a65f935addd1ce5",
+        "name": "pendle / USDC 33%",
+        "pool_created_at": "2026-10-03T19:21:23Z",
+        "reserve_in_usd": "2878.8569",
+        "base_token_price_usd": "2.26988237735552",
+        "quote_token_price_usd": "1.00089057326858",
+        "volume_usd": { "h24": "206.7968711056" }
+      },
+      "relationships": {
+        "base_token": {
+          "data": { "id": "monad_0x5e49e1f85813f2b65858860a3fa231b4186f2e0e", "type": "token" }
+        },
+        "quote_token": {
+          "data": { "id": "monad_0x754704bc059f8c67012fed69bc8a327a5aafb603", "type": "token" }
+        },
+        "dex": { "data": { "id": "uniswap-v4-monad", "type": "dex" } }
+      }
+    },
+    {
+      "id": "monad_0xc11f7f3539be2ae1eb87d4fe806ecb90d114cf44a5be6a7c3eea7fcbe1392c6a",
+      "type": "pool",
+      "attributes": {
+        "address": "0xc11f7f3539be2ae1eb87d4fe806ecb90d114cf44a5be6a7c3eea7fcbe1392c6a",
+        "name": "MON / JAMES 1%",
+        "pool_created_at": "2026-07-06T04:28:15Z",
+        "reserve_in_usd": "788.9368",
+        "base_token_price_usd": "0.02402731",
+        "quote_token_price_usd": "0.00215346106645299",
+        "volume_usd": { "h24": "135.7566309949" }
+      },
+      "relationships": {
+        "base_token": {
+          "data": { "id": "monad_0x0000000000000000000000000000000000000000", "type": "token" }
+        },
+        "quote_token": {
+          "data": { "id": "monad_0x43cf5407bda1400498b8064d50a7e17528d87777", "type": "token" }
+        },
+        "dex": { "data": { "id": "uniswap-v4-monad", "type": "dex" } }
+      }
+    },
+    {
+      "id": "monad_0xe1a8600687e4d06ca4787e5d0ccdacb1d360bfc9ca6ca2a49a688e14d0ef37b4",
+      "type": "pool",
+      "attributes": {
+        "address": "0xe1a8600687e4d06ca4787e5d0ccdacb1d360bfc9ca6ca2a49a688e14d0ef37b4",
+        "name": "AUSD / XAUt0 0.05%",
+        "pool_created_at": "2025-11-29T02:31:18Z",
+        "reserve_in_usd": "348.4419",
+        "base_token_price_usd": "0.999202814905317",
+        "quote_token_price_usd": "4190.5428753112",
+        "volume_usd": { "h24": "129.9745530848" }
+      },
+      "relationships": {
+        "base_token": {
+          "data": { "id": "monad_0x00000000efe302beaa2b3e6e1b18d08d69a9012a", "type": "token" }
+        },
+        "quote_token": {
+          "data": { "id": "monad_0x01bff41798a0bcf287b996046ca68b395dbc1071", "type": "token" }
+        },
+        "dex": { "data": { "id": "uniswap-v4-monad", "type": "dex" } }
+      }
+    },
+    {
+      "id": "monad_0x06dc146aa3a4b6a59fa57ca053ea4bed1205bc13403760dc6d637f137741e6d6",
+      "type": "pool",
+      "attributes": {
+        "address": "0x06dc146aa3a4b6a59fa57ca053ea4bed1205bc13403760dc6d637f137741e6d6",
+        "name": "MON / shramp 0.9%",
+        "pool_created_at": "2026-04-06T14:39:21Z",
+        "reserve_in_usd": "1992.5314",
+        "base_token_price_usd": "0.02462596",
+        "quote_token_price_usd": "0.000186001750538173",
+        "volume_usd": { "h24": "104.8001833309" }
+      },
+      "relationships": {
+        "base_token": {
+          "data": { "id": "monad_0x0000000000000000000000000000000000000000", "type": "token" }
+        },
+        "quote_token": {
+          "data": { "id": "monad_0x42a4aa89864a794de135b23c6a8d2e05513d7777", "type": "token" }
+        },
+        "dex": { "data": { "id": "uniswap-v4-monad", "type": "dex" } }
+      }
+    },
+    {
+      "id": "monad_0x9acaacc1af558bc7554893be113bd7c5d3e3344b2cfcd96047acd2fbe2b480ef",
+      "type": "pool",
+      "attributes": {
+        "address": "0x9acaacc1af558bc7554893be113bd7c5d3e3344b2cfcd96047acd2fbe2b480ef",
+        "name": "MOE / USDC 20.66%",
+        "pool_created_at": "2026-10-06T02:39:30Z",
+        "reserve_in_usd": "0.0",
+        "base_token_price_usd": "0.00178102249210963",
+        "quote_token_price_usd": "1.00065293206492",
+        "volume_usd": { "h24": "68.3417871637" }
+      },
+      "relationships": {
+        "base_token": {
+          "data": { "id": "monad_0xd8e004acba279417c04c0633cb5a21ceca207777", "type": "token" }
+        },
+        "quote_token": {
+          "data": { "id": "monad_0x754704bc059f8c67012fed69bc8a327a5aafb603", "type": "token" }
+        },
+        "dex": { "data": { "id": "uniswap-v4-monad", "type": "dex" } }
+      }
+    },
+    {
+      "id": "monad_0x576c832218b9d42e7e0f2ea798ebe967aa4bb2900d711c5fd6fb533b49e45f3b",
+      "type": "pool",
+      "attributes": {
+        "address": "0x576c832218b9d42e7e0f2ea798ebe967aa4bb2900d711c5fd6fb533b49e45f3b",
+        "name": "MON / cbBTC 0.038%",
+        "pool_created_at": "2026-10-09T15:51:55Z",
+        "reserve_in_usd": "0.0",
+        "base_token_price_usd": "0.02486473",
+        "quote_token_price_usd": "82923.2447171471",
+        "volume_usd": { "h24": "56.4395363029" }
+      },
+      "relationships": {
+        "base_token": {
+          "data": { "id": "monad_0x0000000000000000000000000000000000000000", "type": "token" }
+        },
+        "quote_token": {
+          "data": { "id": "monad_0xd18b7ec58cdf4876f6afebd3ed1730e4ce10414b", "type": "token" }
+        },
+        "dex": { "data": { "id": "uniswap-v4-monad", "type": "dex" } }
+      }
+    },
+    {
+      "id": "monad_0x8b926a72640b5766c5daa65365c24009618a91cab560946b550e4aa5ce2ae5f2",
+      "type": "pool",
+      "attributes": {
+        "address": "0x8b926a72640b5766c5daa65365c24009618a91cab560946b550e4aa5ce2ae5f2",
+        "name": "MON / USDC 1%",
+        "pool_created_at": "2025-11-17T18:15:45Z",
+        "reserve_in_usd": "1315.5987",
+        "base_token_price_usd": "0.02402542",
+        "quote_token_price_usd": "0.999397959081718",
+        "volume_usd": { "h24": "49.6416532526" }
+      },
+      "relationships": {
+        "base_token": {
+          "data": { "id": "monad_0x0000000000000000000000000000000000000000", "type": "token" }
+        },
+        "quote_token": {
+          "data": { "id": "monad_0x754704bc059f8c67012fed69bc8a327a5aafb603", "type": "token" }
+        },
+        "dex": { "data": { "id": "uniswap-v4-monad", "type": "dex" } }
+      }
+    },
+    {
+      "id": "monad_0xfb2e06638df93ad3080109c410714b0903213135ff6f5909b3a846764df0b801",
+      "type": "pool",
+      "attributes": {
+        "address": "0xfb2e06638df93ad3080109c410714b0903213135ff6f5909b3a846764df0b801",
+        "name": "GMONAD / MON 1%",
+        "pool_created_at": "2025-11-24T14:39:02Z",
+        "reserve_in_usd": "11746.1301",
+        "base_token_price_usd": "0.0000000904781011456868",
+        "quote_token_price_usd": "0.02462245",
+        "volume_usd": { "h24": "39.0381930251" }
+      },
+      "relationships": {
+        "base_token": {
+          "data": { "id": "monad_0x7db552eeb6b77a6babe6e0a739b5382cd653cc3e", "type": "token" }
+        },
+        "quote_token": {
+          "data": { "id": "monad_0x0000000000000000000000000000000000000000", "type": "token" }
+        },
+        "dex": { "data": { "id": "uniswap-v4-monad", "type": "dex" } }
+      }
+    },
+    {
+      "id": "monad_0x43b7bf8c719f465f9b38286df5f56b334222871f45ccf6e9073e39e3e8df10a7",
+      "type": "pool",
+      "attributes": {
+        "address": "0x43b7bf8c719f465f9b38286df5f56b334222871f45ccf6e9073e39e3e8df10a7",
+        "name": "MON / CHOG 5%",
+        "pool_created_at": "2025-12-04T11:22:13Z",
+        "reserve_in_usd": "1119.7094",
+        "base_token_price_usd": "0.0244912",
+        "quote_token_price_usd": "0.00169826715625824",
+        "volume_usd": { "h24": "33.7751574508" }
+      },
+      "relationships": {
+        "base_token": {
+          "data": { "id": "monad_0x0000000000000000000000000000000000000000", "type": "token" }
+        },
+        "quote_token": {
+          "data": { "id": "monad_0x350035555e10d9afaf1566aaebfced5ba6c27777", "type": "token" }
+        },
+        "dex": { "data": { "id": "uniswap-v4-monad", "type": "dex" } }
+      }
+    },
+    {
+      "id": "monad_0x58249cb3e44c955d48c6176b1dd5888b7300f0d0b2d1ae934ca8063d16968f9b",
+      "type": "pool",
+      "attributes": {
+        "address": "0x58249cb3e44c955d48c6176b1dd5888b7300f0d0b2d1ae934ca8063d16968f9b",
+        "name": "MON / USDC 3%",
+        "pool_created_at": "2025-11-24T13:48:20Z",
+        "reserve_in_usd": "1199.3846",
+        "base_token_price_usd": "0.02503106",
+        "quote_token_price_usd": "0.992702238521563",
+        "volume_usd": { "h24": "27.2554751779" }
+      },
+      "relationships": {
+        "base_token": {
+          "data": { "id": "monad_0x0000000000000000000000000000000000000000", "type": "token" }
+        },
+        "quote_token": {
+          "data": { "id": "monad_0x754704bc059f8c67012fed69bc8a327a5aafb603", "type": "token" }
+        },
+        "dex": { "data": { "id": "uniswap-v4-monad", "type": "dex" } }
+      }
+    },
+    {
+      "id": "monad_0xe2796721c13b0baf0a8f0ea2425cc6bd6e28818e3044ba8a286762844ec1bb45",
+      "type": "pool",
+      "attributes": {
+        "address": "0xe2796721c13b0baf0a8f0ea2425cc6bd6e28818e3044ba8a286762844ec1bb45",
+        "name": "CHAOS / USDC 0.3%",
+        "pool_created_at": "2026-06-15T01:29:28Z",
+        "reserve_in_usd": "1014697.4266",
+        "base_token_price_usd": "0.00478512039942337",
+        "quote_token_price_usd": "1.00693416025117",
+        "volume_usd": { "h24": "22.5479405887" }
+      },
+      "relationships": {
+        "base_token": {
+          "data": { "id": "monad_0xdcd8114f42fd40db1914de241c75adc9e3c1722e", "type": "token" }
+        },
+        "quote_token": {
+          "data": { "id": "monad_0x754704bc059f8c67012fed69bc8a327a5aafb603", "type": "token" }
+        },
+        "dex": { "data": { "id": "uniswap-v4-monad", "type": "dex" } }
+      }
+    },
+    {
+      "id": "monad_0x4d79c65b711309095a94c515e03a2f864c6f38707fa16c5b7edeaa26c978c71a",
+      "type": "pool",
+      "attributes": {
+        "address": "0x4d79c65b711309095a94c515e03a2f864c6f38707fa16c5b7edeaa26c978c71a",
+        "name": "MON / SOL 1%",
+        "pool_created_at": "2025-11-26T05:03:38Z",
+        "reserve_in_usd": "33.3374",
+        "base_token_price_usd": "0.02480119",
+        "quote_token_price_usd": "107.420736912816",
+        "volume_usd": { "h24": "21.0008016538" }
+      },
+      "relationships": {
+        "base_token": {
+          "data": { "id": "monad_0x0000000000000000000000000000000000000000", "type": "token" }
+        },
+        "quote_token": {
+          "data": { "id": "monad_0xea17e5a9efebf1477db45082d67010e2245217f1", "type": "token" }
+        },
+        "dex": { "data": { "id": "uniswap-v4-monad", "type": "dex" } }
+      }
+    },
+    {
+      "id": "monad_0x55d7ed991392eb9597a76a5f41dfb964e291452c15107c0e64fd3d25925394ce",
+      "type": "pool",
+      "attributes": {
+        "address": "0x55d7ed991392eb9597a76a5f41dfb964e291452c15107c0e64fd3d25925394ce",
+        "name": "wstETH / WETH 0.01%",
+        "pool_created_at": "2025-11-30T23:48:35Z",
+        "reserve_in_usd": "1619.9821",
+        "base_token_price_usd": "3059.73002746335",
+        "quote_token_price_usd": "2480.32534588184",
+        "volume_usd": { "h24": "18.1587819338" }
+      },
+      "relationships": {
+        "base_token": {
+          "data": { "id": "monad_0x10aeaf63194db8d453d4d85a06e5efe1dd0b5417", "type": "token" }
+        },
+        "quote_token": {
+          "data": { "id": "monad_0xee8c0e9f1bffb4eb878d8f15f368a02a35481242", "type": "token" }
+        },
+        "dex": { "data": { "id": "uniswap-v4-monad", "type": "dex" } }
+      }
+    },
+    {
+      "id": "monad_0x21751b14f200827b17546330b42ee3969fd703681db8fe7ba35c95fe617b0262",
+      "type": "pool",
+      "attributes": {
+        "address": "0x21751b14f200827b17546330b42ee3969fd703681db8fe7ba35c95fe617b0262",
+        "name": "MON / USDT0 0.3%",
+        "pool_created_at": "2025-11-24T14:08:01Z",
+        "reserve_in_usd": "45.1031",
+        "base_token_price_usd": "0.02424641",
+        "quote_token_price_usd": "0.997801419911862",
+        "volume_usd": { "h24": "15.8399574025" }
+      },
+      "relationships": {
+        "base_token": {
+          "data": { "id": "monad_0x0000000000000000000000000000000000000000", "type": "token" }
+        },
+        "quote_token": {
+          "data": { "id": "monad_0xe7cd86e13ac4309349f30b3435a9d337750fc82d", "type": "token" }
+        },
+        "dex": { "data": { "id": "uniswap-v4-monad", "type": "dex" } }
+      }
+    },
+    {
+      "id": "monad_0x68be0d1f33a1c963b09a81f5bd88a848d28f336cb5d864a45c3109e69dd7fdb3",
+      "type": "pool",
+      "attributes": {
+        "address": "0x68be0d1f33a1c963b09a81f5bd88a848d28f336cb5d864a45c3109e69dd7fdb3",
+        "name": "MON / AUSD 1%",
+        "pool_created_at": "2025-11-24T20:37:45Z",
+        "reserve_in_usd": "136.4363",
+        "base_token_price_usd": "0.02403285",
+        "quote_token_price_usd": "0.999454523369947",
+        "volume_usd": { "h24": "13.3834367197" }
+      },
+      "relationships": {
+        "base_token": {
+          "data": { "id": "monad_0x0000000000000000000000000000000000000000", "type": "token" }
+        },
+        "quote_token": {
+          "data": { "id": "monad_0x00000000efe302beaa2b3e6e1b18d08d69a9012a", "type": "token" }
+        },
+        "dex": { "data": { "id": "uniswap-v4-monad", "type": "dex" } }
+      }
+    },
+    {
+      "id": "monad_0xbfd64af1b32c101eeff4f7d51a0f1f522c6a6cdf4de45ae340a58c3d1309032c",
+      "type": "pool",
+      "attributes": {
+        "address": "0xbfd64af1b32c101eeff4f7d51a0f1f522c6a6cdf4de45ae340a58c3d1309032c",
+        "name": "MON / wstETH 0.05%",
+        "pool_created_at": "2025-11-20T23:16:19Z",
+        "reserve_in_usd": "345.5833",
+        "base_token_price_usd": "0.02424641",
+        "quote_token_price_usd": "3070.67886736197",
+        "volume_usd": { "h24": "12.1831542951" }
+      },
+      "relationships": {
+        "base_token": {
+          "data": { "id": "monad_0x0000000000000000000000000000000000000000", "type": "token" }
+        },
+        "quote_token": {
+          "data": { "id": "monad_0x10aeaf63194db8d453d4d85a06e5efe1dd0b5417", "type": "token" }
+        },
+        "dex": { "data": { "id": "uniswap-v4-monad", "type": "dex" } }
+      }
+    },
+    {
+      "id": "monad_0x96692efc7d4ec3e97b2cea4ee870b8218251f99417bcc15b3686d3b62d8a231e",
+      "type": "pool",
+      "attributes": {
+        "address": "0x96692efc7d4ec3e97b2cea4ee870b8218251f99417bcc15b3686d3b62d8a231e",
+        "name": "HST / WMON 0.1%",
+        "pool_created_at": "2025-12-03T17:01:00Z",
+        "reserve_in_usd": "13527.8262",
+        "base_token_price_usd": "0.000191411567165158",
+        "quote_token_price_usd": "0.02446662",
+        "volume_usd": { "h24": "11.9256899439" }
+      },
+      "relationships": {
+        "base_token": {
+          "data": { "id": "monad_0x97401d48a80b15bc7291599e24b590eedcd7ce37", "type": "token" }
+        },
+        "quote_token": {
+          "data": { "id": "monad_0x3bd359c1119da7da1d913d1c4d2b7c461115433a", "type": "token" }
+        },
+        "dex": { "data": { "id": "uniswap-v4-monad", "type": "dex" } }
+      }
+    }
+  ],
+  "included": [
+    {
+      "id": "monad_0x0000000000000000000000000000000000000000",
+      "type": "token",
+      "attributes": {
+        "address": "0x0000000000000000000000000000000000000000",
+        "name": "MON",
+        "symbol": "MON",
+        "decimals": 18,
+        "coingecko_coin_id": null
+      }
+    },
+    {
+      "id": "monad_0x754704bc059f8c67012fed69bc8a327a5aafb603",
+      "type": "token",
+      "attributes": {
+        "address": "0x754704bc059f8c67012fed69bc8a327a5aafb603",
+        "name": "USDC",
+        "symbol": "USDC",
+        "decimals": 6,
+        "coingecko_coin_id": "usd-coin"
+      }
+    },
+    {
+      "id": "monad_0x350035555e10d9afaf1566aaebfced5ba6c27777",
+      "type": "token",
+      "attributes": {
+        "address": "0x350035555e10d9afaf1566aaebfced5ba6c27777",
+        "name": "Chog",
+        "symbol": "CHOG",
+        "decimals": 18,
+        "coingecko_coin_id": "chog"
+      }
+    },
+    {
+      "id": "monad_0x89459eebf132d6dc322d9aab82a61313f1c88401",
+      "type": "token",
+      "attributes": {
+        "address": "0x89459eebf132d6dc322d9aab82a61313f1c88401",
+        "name": "MochiMeme",
+        "symbol": "MOCHI",
+        "decimals": 18,
+        "coingecko_coin_id": null
+      }
+    },
+    {
+      "id": "monad_0x5e49e1f85813f2b65858860a3fa231b4186f2e0e",
+      "type": "token",
+      "attributes": {
+        "address": "0x5e49e1f85813f2b65858860a3fa231b4186f2e0e",
+        "name": "Pendle",
+        "symbol": "pendle",
+        "decimals": 18,
+        "coingecko_coin_id": "pendle"
+      }
+    },
+    {
+      "id": "monad_0x43cf5407bda1400498b8064d50a7e17528d87777",
+      "type": "token",
+      "attributes": {
+        "address": "0x43cf5407bda1400498b8064d50a7e17528d87777",
+        "name": "The Busy Bull of Monad",
+        "symbol": "JAMES",
+        "decimals": 18,
+        "coingecko_coin_id": null
+      }
+    },
+    {
+      "id": "monad_0x00000000efe302beaa2b3e6e1b18d08d69a9012a",
+      "type": "token",
+      "attributes": {
+        "address": "0x00000000efe302beaa2b3e6e1b18d08d69a9012a",
+        "name": "AUSD",
+        "symbol": "AUSD",
+        "decimals": 6,
+        "coingecko_coin_id": "agora-dollar"
+      }
+    },
+    {
+      "id": "monad_0x01bff41798a0bcf287b996046ca68b395dbc1071",
+      "type": "token",
+      "attributes": {
+        "address": "0x01bff41798a0bcf287b996046ca68b395dbc1071",
+        "name": "XAUt0",
+        "symbol": "XAUt0",
+        "decimals": 6,
+        "coingecko_coin_id": "tether-gold-tokens"
+      }
+    },
+    {
+      "id": "monad_0x42a4aa89864a794de135b23c6a8d2e05513d7777",
+      "type": "token",
+      "attributes": {
+        "address": "0x42a4aa89864a794de135b23c6a8d2e05513d7777",
+        "name": "shramp",
+        "symbol": "shramp",
+        "decimals": 18,
+        "coingecko_coin_id": "shramp"
+      }
+    },
+    {
+      "id": "monad_0xd8e004acba279417c04c0633cb5a21ceca207777",
+      "type": "token",
+      "attributes": {
+        "address": "0xd8e004acba279417c04c0633cb5a21ceca207777",
+        "name": "Moe",
+        "symbol": "MOE",
+        "decimals": 18,
+        "coingecko_coin_id": null
+      }
+    },
+    {
+      "id": "monad_0xd18b7ec58cdf4876f6afebd3ed1730e4ce10414b",
+      "type": "token",
+      "attributes": {
+        "address": "0xd18b7ec58cdf4876f6afebd3ed1730e4ce10414b",
+        "name": "Coinbase Wrapped BTC",
+        "symbol": "cbBTC",
+        "decimals": 8,
+        "coingecko_coin_id": "coinbase-wrapped-btc"
+      }
+    },
+    {
+      "id": "monad_0x7db552eeb6b77a6babe6e0a739b5382cd653cc3e",
+      "type": "token",
+      "attributes": {
+        "address": "0x7db552eeb6b77a6babe6e0a739b5382cd653cc3e",
+        "name": "GMONAD",
+        "symbol": "GMONAD",
+        "decimals": 18,
+        "coingecko_coin_id": "gmonad-3"
+      }
+    },
+    {
+      "id": "monad_0xdcd8114f42fd40db1914de241c75adc9e3c1722e",
+      "type": "token",
+      "attributes": {
+        "address": "0xdcd8114f42fd40db1914de241c75adc9e3c1722e",
+        "name": "Chaos Magick Group (CMG)",
+        "symbol": "CHAOS",
+        "decimals": 18,
+        "coingecko_coin_id": null
+      }
+    },
+    {
+      "id": "monad_0xea17e5a9efebf1477db45082d67010e2245217f1",
+      "type": "token",
+      "attributes": {
+        "address": "0xea17e5a9efebf1477db45082d67010e2245217f1",
+        "name": "Wrapped SOL",
+        "symbol": "SOL",
+        "decimals": 9,
+        "coingecko_coin_id": null
+      }
+    },
+    {
+      "id": "monad_0x10aeaf63194db8d453d4d85a06e5efe1dd0b5417",
+      "type": "token",
+      "attributes": {
+        "address": "0x10aeaf63194db8d453d4d85a06e5efe1dd0b5417",
+        "name": "Wrapped liquid staked Ether 2.0",
+        "symbol": "wstETH",
+        "decimals": 18,
+        "coingecko_coin_id": "wrapped-steth"
+      }
+    },
+    {
+      "id": "monad_0xee8c0e9f1bffb4eb878d8f15f368a02a35481242",
+      "type": "token",
+      "attributes": {
+        "address": "0xee8c0e9f1bffb4eb878d8f15f368a02a35481242",
+        "name": "Wrapped Ether",
+        "symbol": "WETH",
+        "decimals": 18,
+        "coingecko_coin_id": "wormhole-bridged-weth-monad"
+      }
+    },
+    {
+      "id": "monad_0xe7cd86e13ac4309349f30b3435a9d337750fc82d",
+      "type": "token",
+      "attributes": {
+        "address": "0xe7cd86e13ac4309349f30b3435a9d337750fc82d",
+        "name": "USDT0",
+        "symbol": "USDT0",
+        "decimals": 6,
+        "coingecko_coin_id": "usdt0"
+      }
+    },
+    {
+      "id": "monad_0x97401d48a80b15bc7291599e24b590eedcd7ce37",
+      "type": "token",
+      "attributes": {
+        "address": "0x97401d48a80b15bc7291599e24b590eedcd7ce37",
+        "name": "HYPERSTITIONS",
+        "symbol": "HST",
+        "decimals": 18,
+        "coingecko_coin_id": "hyperstitions"
+      }
+    },
+    {
+      "id": "monad_0x3bd359c1119da7da1d913d1c4d2b7c461115433a",
+      "type": "token",
+      "attributes": {
+        "address": "0x3bd359c1119da7da1d913d1c4d2b7c461115433a",
+        "name": "Wrapped MON",
+        "symbol": "WMON",
+        "decimals": 18,
+        "coingecko_coin_id": "wrapped-monad"
+      }
+    }
+  ]
+}

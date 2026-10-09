@@ -25,3 +25,9 @@ d8645c8bebef724285bbbd4c18b5d6b0332409de:chains/monad/test/fork/AgentNFTFork.t.s
 # (0x3bd359C1119dA7Da1D913D1C4D2B7c461115433A) token addresses from the address book (checked in P2-U7).
 3e6f1036a9a34d3ccafdfa3f4cc185636650132c:packages/ui/src/components/agent/portfolio.test.tsx:generic-api-key:129
 3e6f1036a9a34d3ccafdfa3f4cc185636650132c:packages/ui/src/components/agent/portfolio.test.tsx:generic-api-key:132
+#
+# F-U1 discovery fixture: CoinMarketCap's key "token_address" trips generic-api-key; the
+# values are the public gMON (0x8498312A6B3CbD158bf0c93AbdCF29E6e4F55081) and LV
+# (0x1001fF13bf368Aa4fa85F21043648079F00E1001) token addresses on Monad (checked in F-U1).
+packages/market/fixtures/tokens/cmc-map.json:generic-api-key:9
+packages/market/fixtures/tokens/cmc-map.json:generic-api-key:16

@@ -1,0 +1,1175 @@
+[
+  {
+    "id": "143-token",
+    "symbol": "143",
+    "name": "143",
+    "platforms": { "monad": "0x3842751a46d23b41a47e702473dff316e6237777" }
+  },
+  {
+    "id": "1-800-flowers-com-inc-astock",
+    "symbol": "aflws",
+    "name": "1-800-Flowers.Com Inc aStock",
+    "platforms": { "monad": "0x3a013978cbd3ed7b270c92009e6a6d1be8e6ac25" }
+  },
+  {
+    "id": "advanced-micro-devices-astock",
+    "symbol": "aamd",
+    "name": "Advanced Micro Devices aStock",
+    "platforms": { "monad": "0xbdf82c0dafcf73834d10639c0f0bf14b84808c43" }
+  },
+  {
+    "id": "agora-dollar",
+    "symbol": "ausd",
+    "name": "AUSD",
+    "platforms": { "monad": "0x00000000efe302beaa2b3e6e1b18d08d69a9012a" }
+  },
+  {
+    "id": "agua-global-carry-vault",
+    "symbol": "aguausdcgc",
+    "name": "Agua Global Carry Vault",
+    "platforms": { "monad": "0x2abc42250154752273a4560e875c858623f83ecc" }
+  },
+  {
+    "id": "alloca",
+    "symbol": "alloca",
+    "name": "Alloca",
+    "platforms": { "monad": "0x1ad7052bb331a0529c1981c3ec2bc4663498a110" }
+  },
+  {
+    "id": "alphabet-astock",
+    "symbol": "agoogl",
+    "name": "Alphabet aStock",
+    "platforms": { "monad": "0xbde676cdf5564ef64ccd8555aa9b56867d8d1ad5" }
+  },
+  {
+    "id": "amazon-astock",
+    "symbol": "aamzn",
+    "name": "Amazon aStock",
+    "platforms": { "monad": "0x06f272082339a90e81e1dcb8ab892fd1a8c5e4c0" }
+  },
+  {
+    "id": "anago",
+    "symbol": "anago",
+    "name": "ANAGO",
+    "platforms": { "monad": "0x3ec7310937281ca4bf89d5bb11704be9b7ff7777" }
+  },
+  {
+    "id": "anemoy-tokenized-apollo-diversified-credit-fund",
+    "symbol": "acrdx",
+    "name": "Anemoy Tokenized Apollo Diversified Credit Fund",
+    "platforms": { "monad": "0x2fabf1c784b8583d63c00c5c9c0377d8cf1a3245" }
+  },
+  {
+    "id": "apecoin",
+    "symbol": "ape",
+    "name": "ApeCoin",
+    "platforms": { "monad": "0x6a7e3f839382fbb6a6131d4aae864aaeb362292d" }
+  },
+  {
+    "id": "apple-astock",
+    "symbol": "aaapl",
+    "name": "Apple aStock",
+    "platforms": { "monad": "0x17683e492d0c8910f7c0157d04af31cb7a23ad71" }
+  },
+  {
+    "id": "apriori",
+    "symbol": "apr",
+    "name": "Capricorn",
+    "platforms": { "monad": "0x0a332311633c0625f63cfc51ee33fc49826e0a3c" }
+  },
+  {
+    "id": "apriori-monad-lst",
+    "symbol": "aprmon",
+    "name": "aPriori Monad LST",
+    "platforms": { "monad": "0x0c65a0bc65a5d819235b71f554d210d3f80e0852" }
+  },
+  {
+    "id": "arista-networks-astock",
+    "symbol": "aanet",
+    "name": "Arista Networks aStock",
+    "platforms": { "monad": "0xb8e03ad48dddc2e415715f6dbefb51839e756c25" }
+  },
+  {
+    "id": "ark-autonomous-technology-astock",
+    "symbol": "aarkq",
+    "name": "ARK Autonomous Technology aStock",
+    "platforms": { "monad": "0x4ebaf539fb82f35d09f24c709b4c7b9a56777c03" }
+  },
+  {
+    "id": "arm-holdings-astock",
+    "symbol": "aarm",
+    "name": "Arm Holdings aStock",
+    "platforms": { "monad": "0x37bb22af99a6c2b23cfc2ea0ccb7151752a0fd5a" }
+  },
+  {
+    "id": "asml-astock",
+    "symbol": "aasml",
+    "name": "ASML aStock",
+    "platforms": { "monad": "0xfae6ba6d36a6388c5a944a9366e55b6597e4f8af" }
+  },
+  {
+    "id": "atlantis-2",
+    "symbol": "atl",
+    "name": "Atlantis",
+    "platforms": { "monad": "0xc65ed58ec6dad0c4320f3c94d22d49737328e94a" }
+  },
+  {
+    "id": "better-home-finance-holding-co-astock",
+    "symbol": "abetr",
+    "name": "Better Home & Finance Holding Co aStock",
+    "platforms": { "monad": "0xd70b950fd70e96933ebd991005fe6f37aef1354f" }
+  },
+  {
+    "id": "black-currency",
+    "symbol": "bc",
+    "name": "Black Currency",
+    "platforms": { "monad": "0x228c673cae7aad0f4d9f309616d6b546356b7777" }
+  },
+  {
+    "id": "bob-6",
+    "symbol": "bob",
+    "name": "Bob",
+    "platforms": { "monad": "0x21e325b059cd83d4037c82f0f5998ba2df3d7777" }
+  },
+  {
+    "id": "bridged-nxpc",
+    "symbol": "nxpc",
+    "name": "Bridged NXPC",
+    "platforms": { "monad": "0xd33f18d8d48cbbb2f8b47063de97f94de0d49b99" }
+  },
+  {
+    "id": "broadcom-astock",
+    "symbol": "aavgo",
+    "name": "Broadcom aStock",
+    "platforms": { "monad": "0x4dfbcd033662bc41de8996886e751613c2b8e8e5" }
+  },
+  {
+    "id": "c3-ai-inc-astock",
+    "symbol": "aai",
+    "name": "C3.ai Inc aStock",
+    "platforms": { "monad": "0x59a036fc042b5b15cb36a4e1fe1bccfcf18f8d63" }
+  },
+  {
+    "id": "cameco-astock",
+    "symbol": "accj",
+    "name": "Cameco aStock",
+    "platforms": { "monad": "0xdaba319970c3502e152088e45e5a803e78cf51d8" }
+  },
+  {
+    "id": "cetes",
+    "symbol": "cetes",
+    "name": "Etherfuse CETES",
+    "platforms": { "monad": "0x834df4c1d8f51be24322e39e4766697be015512f" }
+  },
+  {
+    "id": "chaince-digital-holdings-inc-astock",
+    "symbol": "acd",
+    "name": "Chaince Digital Holdings Inc aStock",
+    "platforms": { "monad": "0xa69b48373f8a34a6a53dbe188db3a664a4e6a7fc" }
+  },
+  {
+    "id": "chainlink",
+    "symbol": "link",
+    "name": "Chainlink",
+    "platforms": { "monad": "0x76f257b1dda5cc71bee4ef637fbdde4c801310a9" }
+  },
+  {
+    "id": "chog",
+    "symbol": "chog",
+    "name": "Chog",
+    "platforms": { "monad": "0x350035555e10d9afaf1566aaebfced5ba6c27777" }
+  },
+  {
+    "id": "ciena-astock",
+    "symbol": "acien",
+    "name": "Ciena aStock",
+    "platforms": { "monad": "0xd90007e68aa0557e3e9fbf17140d00611dc793ec" }
+  },
+  {
+    "id": "circle-astock",
+    "symbol": "acrcl",
+    "name": "Circle aStock",
+    "platforms": { "monad": "0x72e4f625b68f8d7a08dfb5a88065d6bb90052098" }
+  },
+  {
+    "id": "cisco-astock",
+    "symbol": "acsco",
+    "name": "Cisco aStock",
+    "platforms": { "monad": "0x991c1f370adbab08e1f7978b01cb1dc022b902bb" }
+  },
+  {
+    "id": "coinbase-global-astock",
+    "symbol": "acoin",
+    "name": "Coinbase Global aStock",
+    "platforms": { "monad": "0xd8c1dae1c55b2fa349f78ce34553e075aad6b8a2" }
+  },
+  {
+    "id": "coinbase-wrapped-btc",
+    "symbol": "cbbtc",
+    "name": "Coinbase Wrapped BTC",
+    "platforms": { "monad": "0xd18b7ec58cdf4876f6afebd3ed1730e4ce10414b" }
+  },
+  {
+    "id": "defiance-daily-target-2x-long-mrna-etf-astock",
+    "symbol": "amrnx",
+    "name": "Defiance Daily Target 2X Long MRNA ETF aStock",
+    "platforms": { "monad": "0x69825e4cf138fe7441a75af72da1ae8f9e720434" }
+  },
+  {
+    "id": "defiance-quantum-astock",
+    "symbol": "aqtum",
+    "name": "Defiance Quantum aStock",
+    "platforms": { "monad": "0x472a83495b50ce62b124cabfef7a7c0db067c1e7" }
+  },
+  {
+    "id": "dell-technologies-astock",
+    "symbol": "adell",
+    "name": "Dell Technologies aStock",
+    "platforms": { "monad": "0x87db2ceac8b2321443d0bfef67340096867c91ba" }
+  },
+  {
+    "id": "direxion-daily-semiconductor-bull-3x-astock",
+    "symbol": "asoxl",
+    "name": "Direxion Daily Semiconductor Bull 3x aStock",
+    "platforms": { "monad": "0x6910acdc21a86dad4fde233764fdac4f4ce187e8" }
+  },
+  {
+    "id": "d-wave-quantum-astock",
+    "symbol": "aqbts",
+    "name": "D-Wave Quantum aStock",
+    "platforms": { "monad": "0xdfa678fa8d208ed3125e84a184fb39f2a22817a4" }
+  },
+  {
+    "id": "earnausd",
+    "symbol": "earnausd",
+    "name": "earnAUSD",
+    "platforms": { "monad": "0x103222f020e98bba0ad9809a011fdf8e6f067496" }
+  },
+  {
+    "id": "eaton-astock",
+    "symbol": "aetn",
+    "name": "Eaton aStock",
+    "platforms": { "monad": "0x678ed8ccc3f3d8ff2873d6beab5748e4321c1670" }
+  },
+  {
+    "id": "ebay-astock",
+    "symbol": "aebay",
+    "name": "eBay aStock",
+    "platforms": { "monad": "0x33f74ac6aa7a73aca8ab09c52d9158061f634ff3" }
+  },
+  {
+    "id": "ebtc-2",
+    "symbol": "ebtc",
+    "name": "eBTC",
+    "platforms": { "monad": "0xd691b0afed67f96cec28ab6308cbe5b2c103b7e9" }
+  },
+  {
+    "id": "eggmon",
+    "symbol": "egg",
+    "name": "eggmon",
+    "platforms": { "monad": "0xd10cf12099f5fb424bc77401df49f0c785657777" }
+  },
+  {
+    "id": "emonad",
+    "symbol": "emo",
+    "name": "emonad",
+    "platforms": { "monad": "0x81a224f8a62f52bde942dbf23a56df77a10b7777" }
+  },
+  {
+    "id": "ethena-staked-usde",
+    "symbol": "susde",
+    "name": "Ethena Staked USDe",
+    "platforms": { "monad": "0x211cc4dd073734da055fbf44a2b4667d5e5fe5d2" }
+  },
+  {
+    "id": "ethena-usde",
+    "symbol": "usde",
+    "name": "Ethena USDe",
+    "platforms": { "monad": "0x5d3a1ff2b6bab83b63cd9ad0787074081a52ef34" }
+  },
+  {
+    "id": "etherfuse-gilts",
+    "symbol": "gilts",
+    "name": "Etherfuse GILTS",
+    "platforms": { "monad": "0x46080f31351a6568f44575e3effde7f0c86867f9" }
+  },
+  {
+    "id": "etherfuse-ktb",
+    "symbol": "ktb",
+    "name": "Etherfuse KTB",
+    "platforms": { "monad": "0xe9c082921dc3564e10196c5cc15db1250ac7d5c6" }
+  },
+  {
+    "id": "etherfuse-tesouro",
+    "symbol": "tesouro",
+    "name": "Etherfuse TESOURO",
+    "platforms": { "monad": "0x7a9990ffe3057edc18558ca4c8804430fe917456" }
+  },
+  {
+    "id": "fling",
+    "symbol": "fling",
+    "name": "Fling",
+    "platforms": { "monad": "0xa9da3c77ec7cdc4dfaa1fe142af583543d1c540f" }
+  },
+  {
+    "id": "fluence-energy-inc-astock",
+    "symbol": "aflnc",
+    "name": "Fluence Energy Inc aStock",
+    "platforms": { "monad": "0xfa63f789664f761e38e39f83a3617dbc1c8e0226" }
+  },
+  {
+    "id": "folks",
+    "symbol": "folks",
+    "name": "FOLKS",
+    "platforms": { "monad": "0xff7f8f301f7a706e3cfd3d2275f5dc0b9ee8009b" }
+  },
+  {
+    "id": "formfactor-astock",
+    "symbol": "aform",
+    "name": "FormFactor aStock",
+    "platforms": { "monad": "0xbe10e0c583e46ff8d9a5a6ab578a89b7e49ad005" }
+  },
+  {
+    "id": "franklin-ftse-south-korea-astock",
+    "symbol": "aflkr",
+    "name": "Franklin FTSE South Korea aStock",
+    "platforms": { "monad": "0x4f9b7d336b1972dd4c93ca250121aacaa6b083aa" }
+  },
+  {
+    "id": "gamestop-astock",
+    "symbol": "agme",
+    "name": "GameStop aStock",
+    "platforms": { "monad": "0x8e18ac2b7ebdd781e7a15c333f3b80eed8de4a27" }
+  },
+  {
+    "id": "genedx-holdings-corp-astock",
+    "symbol": "awgs",
+    "name": "GeneDx Holdings Corp aStock",
+    "platforms": { "monad": "0xd13163b837a3736c0ac4da9239b108fe0e04dbae" }
+  },
+  {
+    "id": "ge-vernova-astock",
+    "symbol": "agev",
+    "name": "GE Vernova aStock",
+    "platforms": { "monad": "0xdbd41398c970a1649c7eec1d72c9d50e0aa3b095" }
+  },
+  {
+    "id": "gho",
+    "symbol": "gho",
+    "name": "GHO",
+    "platforms": { "monad": "0xfc421ad3c883bf9e7c4f42de845c4e4405799e73" }
+  },
+  {
+    "id": "global-x-ai-technology-astock",
+    "symbol": "aaiq",
+    "name": "Global X AI & Technology aStock",
+    "platforms": { "monad": "0x1d236e2ef49bf8b425a5d81332230fdfdaa20aee" }
+  },
+  {
+    "id": "global-x-robotics-ai-astock",
+    "symbol": "abotz",
+    "name": "Global X Robotics & AI aStock",
+    "platforms": { "monad": "0xfd8ae3a6e660efdfce2ae9bdcdcb81c9a959a846" }
+  },
+  {
+    "id": "global-x-uranium-astock",
+    "symbol": "aura",
+    "name": "Global X Uranium aStock",
+    "platforms": { "monad": "0x7e952b8c28d855804c7fe8d64ecac30ace16c4da" }
+  },
+  {
+    "id": "gmonad",
+    "symbol": "gmonad",
+    "name": "GMONAD",
+    "platforms": { "monad": "0x3ff60900b70db8d0bde4d4819f028673718c5d1b" }
+  },
+  {
+    "id": "gmonad-2",
+    "symbol": "gmonad",
+    "name": "Gmonad",
+    "platforms": { "monad": "0x1f80c65cc2c37af84abbe1ea03183a624a6f8888" }
+  },
+  {
+    "id": "gmonad-3",
+    "symbol": "gmonad",
+    "name": "GMONAD",
+    "platforms": { "monad": "0x7db552eeb6b77a6babe6e0a739b5382cd653cc3e" }
+  },
+  {
+    "id": "graniteshares-2x-short-coin-daily-etf-astock",
+    "symbol": "aconi",
+    "name": "GraniteShares 2x Short COIN Daily ETF aStock",
+    "platforms": { "monad": "0x2c82e424f8b36352bae1bcd585c82938b8b78ec8" }
+  },
+  {
+    "id": "graniteshares-2x-short-nvda-daily-etf-astock",
+    "symbol": "anvd",
+    "name": "GraniteShares 2x Short NVDA Daily ETF aStock",
+    "platforms": { "monad": "0x9b4d9b20eac87c4da9912cdbdc111d991eef0681" }
+  },
+  {
+    "id": "graniteshares-2x-short-sk-hynix-daily-etf-astock",
+    "symbol": "askdd",
+    "name": "GraniteShares 2x Short SK Hynix Daily ETF aStock",
+    "platforms": { "monad": "0x215cce3e783fc7fafbed758d55ef5b654fd69a34" }
+  },
+  {
+    "id": "groupon-inc-astock",
+    "symbol": "agrpn",
+    "name": "Groupon Inc aStock",
+    "platforms": { "monad": "0x8eee4aab4acbe84182c0f2cdbc906e39c6b076e8" }
+  },
+  {
+    "id": "hertz-global-holdings-inc-astock",
+    "symbol": "ahtz",
+    "name": "Hertz Global Holdings Inc aStock",
+    "platforms": { "monad": "0x9b76297343f272481f23dd0bbd4f20a9a227b392" }
+  },
+  {
+    "id": "hold-2",
+    "symbol": "earn",
+    "name": "HOLD",
+    "platforms": { "monad": "0x3db619ff72d877490699276061fb0fa0618fdf47" }
+  },
+  {
+    "id": "hyperstitions",
+    "symbol": "hst",
+    "name": "HYPERSTITIONS",
+    "platforms": { "monad": "0x97401d48a80b15bc7291599e24b590eedcd7ce37" }
+  },
+  {
+    "id": "ignis-2",
+    "symbol": "ign",
+    "name": "Ignis",
+    "platforms": { "monad": "0x11ed3b12d99d508f926c870fb44f472001842c96" }
+  },
+  {
+    "id": "immunitybio-inc-astock",
+    "symbol": "aibrx",
+    "name": "Immunitybio Inc aStock",
+    "platforms": { "monad": "0xe8bc8f7ce09d0b3b9f2cc017bbbf0ef0535ca573" }
+  },
+  {
+    "id": "indie-semiconductor-inc-astock",
+    "symbol": "aindi",
+    "name": "indie Semiconductor Inc aStock",
+    "platforms": { "monad": "0x7fe49b79e7acf9fbd840c8f11035c618425c36ca" }
+  },
+  {
+    "id": "intel-astock",
+    "symbol": "aintc",
+    "name": "Intel aStock",
+    "platforms": { "monad": "0x126250964e05b9e34d025e9d3b309349cf92402a" }
+  },
+  {
+    "id": "invesco-qqq-astock",
+    "symbol": "aqqq",
+    "name": "Invesco QQQ aStock",
+    "platforms": { "monad": "0x1446501e886c7f830db9b494a1890cbccc072f57" }
+  },
+  {
+    "id": "ionq-astock",
+    "symbol": "aionq",
+    "name": "IONQ aStock",
+    "platforms": { "monad": "0xc8c3bbd0af3f10293d75dd468c51f3f81fc22fee" }
+  },
+  {
+    "id": "ishares-20-year-treasury-bond-astock",
+    "symbol": "atlt",
+    "name": "iShares 20+ Year Treasury Bond aStock",
+    "platforms": { "monad": "0x5da938ad48c46bd22ca362a91517ce2c16367d09" }
+  },
+  {
+    "id": "ishares-msci-south-korea-astock",
+    "symbol": "aewy",
+    "name": "iShares MSCI South Korea aStock",
+    "platforms": { "monad": "0xa01a050440b8d77fc868ff33d290a2dab5b79366" }
+  },
+  {
+    "id": "ishares-silver-trust-astock",
+    "symbol": "aslv",
+    "name": "iShares Silver Trust aStock",
+    "platforms": { "monad": "0xa6d6d48d778539103d379a66697acc22dd7b1d3c" }
+  },
+  {
+    "id": "janus-henderson-anemoy-aaa-clo-fund",
+    "symbol": "jaaa",
+    "name": "Janus Henderson Anemoy AAA CLO Fund",
+    "platforms": { "monad": "0xad48f183e586e92a591a610397ebf534609df797" }
+  },
+  {
+    "id": "janus-henderson-anemoy-treasury-fund",
+    "symbol": "jtrsy",
+    "name": "Janus Henderson Anemoy Treasury Fund",
+    "platforms": { "monad": "0xc18e6f730896971a79d748e8dea61067a9bc6040" }
+  },
+  {
+    "id": "kintsu-staked-monad",
+    "symbol": "smon",
+    "name": "Kintsu Staked Monad",
+    "platforms": { "monad": "0xa3227c5969757783154c60bf0bc1944180ed81b9" }
+  },
+  {
+    "id": "leverup",
+    "symbol": "lv",
+    "name": "LeverUp",
+    "platforms": { "monad": "0x1001ff13bf368aa4fa85f21043648079f00e1001" }
+  },
+  {
+    "id": "leverup-mon",
+    "symbol": "lvmon",
+    "name": "LeverUp MON",
+    "platforms": { "monad": "0x91b81bfbe3a747230f0529aa28d8b2bc898e6d56" }
+  },
+  {
+    "id": "leverup-usd",
+    "symbol": "lvusd",
+    "name": "LeverUp USD",
+    "platforms": { "monad": "0xfd44b35139ae53fff7d8f2a9869c503d987f00d1" }
+  },
+  {
+    "id": "long-3",
+    "symbol": "long",
+    "name": "Long",
+    "platforms": { "monad": "0x123468b48eadbc13c65cd9c66a9913cde4e94321" }
+  },
+  {
+    "id": "lucid-group-inc-astock",
+    "symbol": "alcid",
+    "name": "Lucid Group Inc aStock",
+    "platforms": { "monad": "0x490c6311948ae3e3a6a96d3842e333302034d4d3" }
+  },
+  {
+    "id": "magma-staked-monad",
+    "symbol": "gmon",
+    "name": "Magma Staked Monad",
+    "platforms": { "monad": "0x8498312a6b3cbd158bf0c93abdcf29e6e4f55081" }
+  },
+  {
+    "id": "marvell-technology-astock",
+    "symbol": "amrvl",
+    "name": "Marvell Technology aStock",
+    "platforms": { "monad": "0x870e3495f5d7f0872ad7c0fbdd163016ae9122b5" }
+  },
+  {
+    "id": "meta-astock",
+    "symbol": "ameta",
+    "name": "Meta aStock",
+    "platforms": { "monad": "0xa1847139cbd660abc2f7b889d7cbcf18c56407fb" }
+  },
+  {
+    "id": "metamask-usd",
+    "symbol": "musd",
+    "name": "MetaMask USD",
+    "platforms": { "monad": "0xaca92e438df0b2401ff60da7e4337b687a2435da" }
+  },
+  {
+    "id": "micron-technology-astock",
+    "symbol": "amu",
+    "name": "Micron Technology aStock",
+    "platforms": { "monad": "0xc54ce75193a68602bc01ffd2b112da3948eb14a7" }
+  },
+  {
+    "id": "microsoft-astock",
+    "symbol": "amsft",
+    "name": "Microsoft aStock",
+    "platforms": { "monad": "0x73e9eb2c7a4b4e8c68232b31ea0f1246963d0375" }
+  },
+  {
+    "id": "midas-hyperithm-btc",
+    "symbol": "mhyperbtc",
+    "name": "Midas Hyperithm BTC",
+    "platforms": { "monad": "0xf7cf282ec810fded974f99c0163e792f432892bc" }
+  },
+  {
+    "id": "midas-medge",
+    "symbol": "medge",
+    "name": "Midas mEDGE",
+    "platforms": { "monad": "0x1c8ee940b654bfced403f2a44c1603d5be0f50fa" }
+  },
+  {
+    "id": "midas-mhyper",
+    "symbol": "mhyper",
+    "name": "Midas mHYPER",
+    "platforms": { "monad": "0xd90f6bfed23ffde40106fc4498dd2e9edb95e4e7" }
+  },
+  {
+    "id": "midas-rockaway-market-neutral",
+    "symbol": "mrox",
+    "name": "Midas Rockaway Market Neutral",
+    "platforms": { "monad": "0x6cf55183ea297ba200cf88419bba156eba2ed206" }
+  },
+  {
+    "id": "moderna-inc-astock",
+    "symbol": "amrna",
+    "name": "Moderna Inc aStock",
+    "platforms": { "monad": "0xda230a7ec7aff66e62ff3e225c3d9c42093c23ae" }
+  },
+  {
+    "id": "molandak-2",
+    "symbol": "molandak",
+    "name": "MOLANDAK",
+    "platforms": { "monad": "0xd32e9ddd968b18e8429f2d1da7efb2cc1f01d42d" }
+  },
+  {
+    "id": "moni-2",
+    "symbol": "moni",
+    "name": "Moni",
+    "platforms": { "monad": "0x0cc9b2e2acd7bacff79eb7db48f5662b622e7777" }
+  },
+  {
+    "id": "mu-digital-aznd",
+    "symbol": "aznd",
+    "name": "Mu Digital AZND",
+    "platforms": { "monad": "0x4917a5ec9fcb5e10f47cbb197abe6ab63be81fe8" }
+  },
+  {
+    "id": "mu-digital-locked-aznd",
+    "symbol": "loaznd",
+    "name": "Mu Digital Locked AZND",
+    "platforms": { "monad": "0x9c82eb49b51f7dc61e22ff347931ca32adc6cd90" }
+  },
+  {
+    "id": "mu-digital-mubond",
+    "symbol": "mubond",
+    "name": "Mu Digital muBOND",
+    "platforms": { "monad": "0x336d414754967c6682b5a665c7daf6f1409e63e8" }
+  },
+  {
+    "id": "nads",
+    "symbol": "nads",
+    "name": "NADS",
+    "platforms": { "monad": "0x39b9e06f226ff6d7500c870b82333aacbd2f7777" }
+  },
+  {
+    "id": "nebius-group-astock",
+    "symbol": "anbis",
+    "name": "Nebius Group aStock",
+    "platforms": { "monad": "0x822594e4bc4c8237e77e5620744d3f383e77d4fe" }
+  },
+  {
+    "id": "newegg-commerce-inc-astock",
+    "symbol": "anegg",
+    "name": "Newegg Commerce Inc aStock",
+    "platforms": { "monad": "0x6031e48580fd0d8ed23d6a9ad89b69758adcf7b2" }
+  },
+  {
+    "id": "newrails-euro",
+    "symbol": "eurw",
+    "name": "Newrails Euro",
+    "platforms": { "monad": "0x1111b3ded9f1fe1801ad4ebef8e2788183a24111" }
+  },
+  {
+    "id": "nvidia-astock",
+    "symbol": "anvda",
+    "name": "NVIDIA aStock",
+    "platforms": { "monad": "0x701193374879131f923532987c7ef363a91a80eb" }
+  },
+  {
+    "id": "ondas-inc-astock",
+    "symbol": "aonds",
+    "name": "Ondas Inc aStock",
+    "platforms": { "monad": "0x049cbb2180dcced2b69fcad0a98f6d046cce1c6e" }
+  },
+  {
+    "id": "opentokens",
+    "symbol": "token",
+    "name": "OpenTokens",
+    "platforms": { "monad": "0xccf3517f5b75b75aa599702c90a8a2cc297791f4" }
+  },
+  {
+    "id": "oruka-therapeutics-inc-astock",
+    "symbol": "aorka",
+    "name": "Oruka Therapeutics Inc aStock",
+    "platforms": { "monad": "0x344fca3683cd01aa5833e67179f826080bda98fc" }
+  },
+  {
+    "id": "palantir-astock",
+    "symbol": "apltr",
+    "name": "Palantir aStock",
+    "platforms": { "monad": "0xb95956daace89226185fb696c2cc3f0d9bbfd4e3" }
+  },
+  {
+    "id": "palo-alto-networks-inc-astock",
+    "symbol": "apanw",
+    "name": "Palo Alto Networks Inc aStock",
+    "platforms": { "monad": "0xb66340a2bc5f95b127534ba5f24827802b9bc7ee" }
+  },
+  {
+    "id": "pendle",
+    "symbol": "pendle",
+    "name": "Pendle",
+    "platforms": { "monad": "0x5e49e1f85813f2b65858860a3fa231b4186f2e0e" }
+  },
+  {
+    "id": "petco-health-and-wellness-company-inc-astock",
+    "symbol": "awoof",
+    "name": "Petco Health and Wellness Company Inc aStock",
+    "platforms": { "monad": "0x2f5d2eace3890e5e53dd4e5462ba252c3746feef" }
+  },
+  {
+    "id": "pixie-dust",
+    "symbol": "dust",
+    "name": "Pixie Dust",
+    "platforms": { "monad": "0xad96c3dffcd6374294e2573a7fbba96097cc8d7c" }
+  },
+  {
+    "id": "propetro-holding-corp-astock",
+    "symbol": "apump",
+    "name": "Propetro Holding Corp aStock",
+    "platforms": { "monad": "0xab7d864bc08f4322de2f94fabaf14d71a687d7c5" }
+  },
+  {
+    "id": "proshares-ultrapro-qqq-astock",
+    "symbol": "atqqq",
+    "name": "ProShares UltraPro QQQ aStock",
+    "platforms": { "monad": "0xb57b6c37526cecdddbf92da1783b7f4b4b53d45f" }
+  },
+  {
+    "id": "proshares-ultrapro-short-qqq-astock",
+    "symbol": "asqqq",
+    "name": "ProShares UltraPro Short QQQ aStock",
+    "platforms": { "monad": "0x3d054231ed348b1c52684e2477f935fe06dafd85" }
+  },
+  {
+    "id": "proshares-ultrashort-20-year-treasury-astock",
+    "symbol": "atbt",
+    "name": "ProShares UltraShort 20+ Year Treasury aStock",
+    "platforms": { "monad": "0xc614d4ad49ec4f4854d70cb4fd788ddb5c3fe41e" }
+  },
+  {
+    "id": "proshares-ultrashort-s-p500-astock",
+    "symbol": "asds",
+    "name": "ProShares UltraShort S&P500 aStock",
+    "platforms": { "monad": "0x9b5803e173b3118d70a17c3be0babdd912a4000e" }
+  },
+  {
+    "id": "purecycle-technologies-inc-astock",
+    "symbol": "apct",
+    "name": "Purecycle Technologies Inc aStock",
+    "platforms": { "monad": "0x13077a525ae6ca771e04fc91871b2f8f55ecfe3a" }
+  },
+  {
+    "id": "quantum-computing-inc-astock",
+    "symbol": "aqubt",
+    "name": "Quantum Computing Inc aStock",
+    "platforms": { "monad": "0x11917c87b177e134116d1a538acc9f832b76d0f2" }
+  },
+  {
+    "id": "rackspace-technology-inc-astock",
+    "symbol": "arxt",
+    "name": "Rackspace Technology Inc aStock",
+    "platforms": { "monad": "0xb2eaa18aaab01d049edf2b845c9ea0480f72c18a" }
+  },
+  {
+    "id": "ramaco-resources-inc-astock",
+    "symbol": "ametc",
+    "name": "Ramaco Resources Inc aStock",
+    "platforms": { "monad": "0x297df276f30a22c1f94eab7daf1e280e54bc439a" }
+  },
+  {
+    "id": "recursion-pharmaceuticals-inc-astock",
+    "symbol": "arxrx",
+    "name": "Recursion Pharmaceuticals Inc aStock",
+    "platforms": { "monad": "0xa886aaac8752548cbd9ffd7940b99b9b46eab219" }
+  },
+  {
+    "id": "reddit-astock",
+    "symbol": "arddt",
+    "name": "Reddit aStock",
+    "platforms": { "monad": "0x167ef0d9ae3d001146865ec8aa4a7a78b048b615" }
+  },
+  {
+    "id": "rigetti-computing-astock",
+    "symbol": "argti",
+    "name": "Rigetti Computing aStock",
+    "platforms": { "monad": "0xc3b236fb3cd15e3d996f3b49c0ee034bc18accf9" }
+  },
+  {
+    "id": "robinhood-astock",
+    "symbol": "ahood",
+    "name": "Robinhood aStock",
+    "platforms": { "monad": "0x5a4860addcc094fce026384caeecb1e634dd9af4" }
+  },
+  {
+    "id": "robostrategy-inc-astock",
+    "symbol": "abot",
+    "name": "RoboStrategy Inc aStock",
+    "platforms": { "monad": "0x5f3b897deea4ea0cb6aefe50bd2ae556cf6f4b63" }
+  },
+  {
+    "id": "rocket-lab-astock",
+    "symbol": "arklb",
+    "name": "Rocket Lab aStock",
+    "platforms": { "monad": "0x8bce7712ca1efc613ce73f9471ad2388dac09413" }
+  },
+  {
+    "id": "rolls-royce-holdings-plc-adr-astock",
+    "symbol": "arycey",
+    "name": "Rolls-Royce Holdings PLC ADR aStock",
+    "platforms": { "monad": "0x675c10573f9165a7fb4f8467b96969f842c16041" }
+  },
+  {
+    "id": "roundhill-meme-stock-etf-astock",
+    "symbol": "ameme",
+    "name": "Roundhill Meme Stock ETF aStock",
+    "platforms": { "monad": "0x6f75b1b886bd1b1295325c9619f9f6b9fb760588" }
+  },
+  {
+    "id": "roundhill-memory-etf-astock",
+    "symbol": "adram",
+    "name": "Roundhill Memory ETF aStock",
+    "platforms": { "monad": "0xf90bf694935638374b238de65222139010592c8f" }
+  },
+  {
+    "id": "salesforce-astock",
+    "symbol": "acrm",
+    "name": "Salesforce aStock",
+    "platforms": { "monad": "0x8339d77b003589cf90f17729595afe05ad951ac5" }
+  },
+  {
+    "id": "sandisk-astock",
+    "symbol": "asndk",
+    "name": "SanDisk aStock",
+    "platforms": { "monad": "0x57e2613fa6193c11913299cbdc1c8cb4916c15e8" }
+  },
+  {
+    "id": "saturn-dollar",
+    "symbol": "usdat",
+    "name": "Saturn Dollar",
+    "platforms": { "monad": "0x0bb150dfa86ea5d7742f07fefcd8e8eda81d64ef" }
+  },
+  {
+    "id": "seagate-technology-astock",
+    "symbol": "astx",
+    "name": "Seagate Technology aStock",
+    "platforms": { "monad": "0xc060d393df9ca0e96fb5434ff3223c085c4b2e2a" }
+  },
+  {
+    "id": "serve-robotics-inc-astock",
+    "symbol": "aserv",
+    "name": "Serve Robotics Inc aStock",
+    "platforms": { "monad": "0x1076356059c5fe9fad3a053c4c84a32efd116274" }
+  },
+  {
+    "id": "servicenow-astock",
+    "symbol": "anow",
+    "name": "ServiceNow aStock",
+    "platforms": { "monad": "0x6b97a52c6877faf6f3836377b37e4a0a27edde01" }
+  },
+  {
+    "id": "shmonad",
+    "symbol": "shmon",
+    "name": "ShMonad",
+    "platforms": { "monad": "0x1b68626dca36c7fe922fd2d55e4f631d962de19c" }
+  },
+  {
+    "id": "shramp",
+    "symbol": "shramp",
+    "name": "shramp",
+    "platforms": { "monad": "0x42a4aa89864a794de135b23c6a8d2e05513d7777" }
+  },
+  {
+    "id": "sk-hynix-anchored-tokenized-stock",
+    "symbol": "askhy",
+    "name": "SK Hynix (Anchored Tokenized Stock)",
+    "platforms": { "monad": "0x6e8568ba7b43138d9210959a9523155e274550c9" }
+  },
+  {
+    "id": "solv-btc",
+    "symbol": "solvbtc",
+    "name": "Solv Protocol BTC",
+    "platforms": { "monad": "0xae4efbc7736f963982aacb17efa37fcbab924cb3" }
+  },
+  {
+    "id": "solv-protocol-solvbtc-bbn",
+    "symbol": "xsolvbtc",
+    "name": "Solv Protocol Staked BTC",
+    "platforms": { "monad": "0xc99f5c922dae05b6e2ff83463ce705ef7c91f077" }
+  },
+  {
+    "id": "soundhound-ai-inc-astock",
+    "symbol": "asoun",
+    "name": "SoundHound AI Inc aStock",
+    "platforms": { "monad": "0x3197fb576b8daa0a5a9c1c5923e91a4d41d25d71" }
+  },
+  {
+    "id": "spacex-anchored-tokenized-stock",
+    "symbol": "aspcx",
+    "name": "SpaceX (Anchored Tokenized Stock)",
+    "platforms": { "monad": "0x12473790e09d415abac7441401f7abec64fa959c" }
+  },
+  {
+    "id": "spdr-bloomberg-1-3-month-t-bill-etf-anchored-tokenized-etf",
+    "symbol": "abil",
+    "name": "SPDR Bloomberg 1-3 Month T-Bill ETF (Anchored Tokenized ETF)",
+    "platforms": { "monad": "0x4fc5b9f8933597d3ecf84d0611687e1dc8dd576f" }
+  },
+  {
+    "id": "spdr-bridgewater-all-weather-astock",
+    "symbol": "aallw",
+    "name": "SPDR Bridgewater All Weather aStock",
+    "platforms": { "monad": "0x057a4712d82d83909b149f6e4390e5298ffdeb3c" }
+  },
+  {
+    "id": "spdr-gold-shares-astock",
+    "symbol": "agld",
+    "name": "SPDR Gold Shares aStock",
+    "platforms": { "monad": "0x3e4a2f26fc4f92d92d7cd1e49ddade32869d00a4" }
+  },
+  {
+    "id": "spdr-s-p-500-astock",
+    "symbol": "aspy",
+    "name": "SPDR S&P 500 aStock",
+    "platforms": { "monad": "0x4716cfb68c73bff797eea4f94ffad8d198aefc4b" }
+  },
+  {
+    "id": "staked-sherpa-usd",
+    "symbol": "shusd",
+    "name": "Staked Sherpa USD",
+    "platforms": { "monad": "0x96043804d00dcec238718eedad9ac10719778380" }
+  },
+  {
+    "id": "staked-yuzu-usd",
+    "symbol": "syzusd",
+    "name": "Staked Yuzu USD",
+    "platforms": { "monad": "0x484be0540ad49f351eaa04eeb35df0f937d4e73f" }
+  },
+  {
+    "id": "strategy-astock",
+    "symbol": "amstr",
+    "name": "Strategy aStock",
+    "platforms": { "monad": "0x294f40996134d067b56dcbacbf6a36396bbbea7a" }
+  },
+  {
+    "id": "super-micro-computer-astock",
+    "symbol": "asmci",
+    "name": "Super Micro Computer aStock",
+    "platforms": { "monad": "0xfd38813a547b30155914383919cebe83a98435fa" }
+  },
+  {
+    "id": "syrupusdc",
+    "symbol": "syrupusdc",
+    "name": "syrupUSDC",
+    "platforms": { "monad": "0xab6e5a0c3799d020c790d34f7b2c02639e238af7" }
+  },
+  {
+    "id": "technology-select-sector-spdr-astock",
+    "symbol": "axlk",
+    "name": "Technology Select Sector SPDR aStock",
+    "platforms": { "monad": "0xf63ad58f1d4d1276ea0de2490689942303d2d446" }
+  },
+  {
+    "id": "tesla-astock",
+    "symbol": "atsla",
+    "name": "Tesla aStock",
+    "platforms": { "monad": "0x10fad4a60adb421f8f5ca6f9f2eaf2dbc110e146" }
+  },
+  {
+    "id": "tether-gold-tokens",
+    "symbol": "xaut0",
+    "name": "Tether Gold Tokens",
+    "platforms": { "monad": "0x01bff41798a0bcf287b996046ca68b395dbc1071" }
+  },
+  {
+    "id": "tradr-2x-short-spacex-daily-etf-astock",
+    "symbol": "aspcg",
+    "name": "Tradr 2X Short SpaceX Daily ETF aStock",
+    "platforms": { "monad": "0xa67f4594e3c8441a58d1df95f1ab7d3d65367afd" }
+  },
+  {
+    "id": "tradr-2x-short-tsla-daily-etf-astock",
+    "symbol": "atslz",
+    "name": "Tradr 2X Short TSLA Daily ETF aStock",
+    "platforms": { "monad": "0x3f670133caa4d10cf726028a68602114c1a3f15c" }
+  },
+  {
+    "id": "us-brent-oil-fund-astock",
+    "symbol": "abno",
+    "name": "US Brent Oil Fund aStock",
+    "platforms": { "monad": "0xc924b71a10c356c15e3d7cb76ac8efe8f5522347" }
+  },
+  {
+    "id": "usd1-wlfi",
+    "symbol": "usd1",
+    "name": "USD1",
+    "platforms": { "monad": "0x111111d2bf19e43c34263401e0cad979ed1cdb61" }
+  },
+  {
+    "id": "usd-coin",
+    "symbol": "usdc",
+    "name": "USDC",
+    "platforms": { "monad": "0x754704bc059f8c67012fed69bc8a327a5aafb603" }
+  },
+  {
+    "id": "usdt0",
+    "symbol": "usdt0",
+    "name": "USDT0",
+    "platforms": { "monad": "0xe7cd86e13ac4309349f30b3435a9d337750fc82d" }
+  },
+  {
+    "id": "us-oil-fund-astock",
+    "symbol": "auso",
+    "name": "US Oil Fund aStock",
+    "platforms": { "monad": "0x7388ed3371407471d48637b4ad8445b8d4fc3f8f" }
+  },
+  {
+    "id": "vaneck-gold-miners-etf-astock",
+    "symbol": "agdx",
+    "name": "VanEck Gold Miners ETF aStock",
+    "platforms": { "monad": "0x7b17054c9621930f3cdd38177217c2b73956856a" }
+  },
+  {
+    "id": "vaneck-semiconductor-astock",
+    "symbol": "asmh",
+    "name": "VanEck Semiconductor aStock",
+    "platforms": { "monad": "0x74110fb3858d91418227007851362672514925ef" }
+  },
+  {
+    "id": "vertiv-astock",
+    "symbol": "avrt",
+    "name": "Vertiv aStock",
+    "platforms": { "monad": "0x0b45e5afea928030988704ef60995d8925b91cd6" }
+  },
+  {
+    "id": "vistra-astock",
+    "symbol": "avst",
+    "name": "Vistra aStock",
+    "platforms": { "monad": "0x49cccd75b2b0fb9ccd8c1d2a5d313e050c52fa89" }
+  },
+  {
+    "id": "walmart-astock",
+    "symbol": "awmt",
+    "name": "Walmart aStock",
+    "platforms": { "monad": "0xbdcd7e902861094164d4b4048ac62d3897a32721" }
+  },
+  {
+    "id": "waterdrop-inc-astock",
+    "symbol": "awdh",
+    "name": "Waterdrop Inc aStock",
+    "platforms": { "monad": "0x6458d4844ccaad06dbf566d1df93d8815f89d9b0" }
+  },
+  {
+    "id": "waton-financial-limited-astock",
+    "symbol": "awtf",
+    "name": "Waton Financial Limited aStock",
+    "platforms": { "monad": "0xe1e495fa46eed2b6da96fcedc051de23166fa892" }
+  },
+  {
+    "id": "webull-corp-astock",
+    "symbol": "abull",
+    "name": "Webull Corp aStock",
+    "platforms": { "monad": "0xff7fb9f9044523dfcab1f65f204ac79e6327a1cc" }
+  },
+  {
+    "id": "wendy-s-astock",
+    "symbol": "awen",
+    "name": "Wendy's aStock",
+    "platforms": { "monad": "0x4644fd1eab16a21969b4c16be8a2d5c986033f2a" }
+  },
+  {
+    "id": "western-digital-astock",
+    "symbol": "awdc",
+    "name": "Western Digital aStock",
+    "platforms": { "monad": "0x49e30f2d4a1b9a1766f0675adaf04f70681fbb63" }
+  },
+  {
+    "id": "whitefiber-inc-astock",
+    "symbol": "awyfi",
+    "name": "WhiteFiber Inc aStock",
+    "platforms": { "monad": "0xa359b67304f183d3308577d856eed0d98dfb715d" }
+  },
+  {
+    "id": "world-acceptance-corp-astock",
+    "symbol": "awrld",
+    "name": "World Acceptance Corp aStock",
+    "platforms": { "monad": "0x72584a4d919b7969ce030fb58f7f56e2137af9b0" }
+  },
+  {
+    "id": "wormhole-bridged-weth-monad",
+    "symbol": "weth",
+    "name": "Wormhole Bridged WETH (Monad)",
+    "platforms": { "monad": "0xee8c0e9f1bffb4eb878d8f15f368a02a35481242" }
+  },
+  {
+    "id": "wrapped-bitcoin",
+    "symbol": "wbtc",
+    "name": "Wrapped Bitcoin",
+    "platforms": { "monad": "0x0555e30da8f98308edb960aa94c0db47230d2b9c" }
+  },
+  {
+    "id": "wrapped-eeth",
+    "symbol": "weeth",
+    "name": "Wrapped eETH",
+    "platforms": { "monad": "0xa3d68b74bf0528fdd07263c60d6488749044914b" }
+  },
+  {
+    "id": "wrapped-monad",
+    "symbol": "wmon",
+    "name": "Wrapped MON",
+    "platforms": { "monad": "0x3bd359c1119da7da1d913d1c4d2b7c461115433a" }
+  },
+  {
+    "id": "wrapped-neverland-ausd",
+    "symbol": "wnausd",
+    "name": "Wrapped Neverland AUSD",
+    "platforms": { "monad": "0x82c370ba90e38ef6acd8b1b078d34fd86fc6bac9" }
+  },
+  {
+    "id": "wrapped-neverland-loaznd",
+    "symbol": "wnloaznd",
+    "name": "Wrapped Neverland loAZND",
+    "platforms": { "monad": "0xd786f7569c39a9f64e6a54eb77db21364e90f279" }
+  },
+  {
+    "id": "wrapped-neverland-usdc",
+    "symbol": "wnusdc",
+    "name": "Wrapped Neverland USDC",
+    "platforms": { "monad": "0x8d5c2df3eef09088fcccf3376d8ecd0dd505f642" }
+  },
+  {
+    "id": "wrapped-neverland-usdt0",
+    "symbol": "wnusdt0",
+    "name": "Wrapped Neverland USDT0",
+    "platforms": { "monad": "0x4e8aaecce10ad9394e96fe5f2bd4e587a7b04298" }
+  },
+  {
+    "id": "wrapped-neverland-wmon",
+    "symbol": "wnwmon",
+    "name": "Wrapped Neverland WMON",
+    "platforms": { "monad": "0xdb39a9d4a1f1b4e93a5684d602207628ad60613c" }
+  },
+  {
+    "id": "wrapped-steth",
+    "symbol": "wsteth",
+    "name": "Wrapped stETH",
+    "platforms": { "monad": "0x10aeaf63194db8d453d4d85a06e5efe1dd0b5417" }
+  },
+  {
+    "id": "xerox-holdings-corp-astock",
+    "symbol": "axrx",
+    "name": "Xerox Holdings Corp aStock",
+    "platforms": { "monad": "0x5c55e3da9d7bbfad6c5fdb4b6b4dac85c9d6e5c7" }
+  },
+  {
+    "id": "xponential-fitness-inc-astock",
+    "symbol": "axpof",
+    "name": "Xponential Fitness Inc aStock",
+    "platforms": { "monad": "0x5d04786d76a9ea0c91c6a2f25fd4922846527c4c" }
+  },
+  {
+    "id": "yuzu-prime",
+    "symbol": "yzprime",
+    "name": "Yuzu Prime",
+    "platforms": { "monad": "0xc9ea90692757831d98ac629f2a0140e02b80a7da" }
+  },
+  {
+    "id": "zkswap-finance",
+    "symbol": "zf",
+    "name": "zkSwap Finance",
+    "platforms": { "monad": "0x2f2f2f74ab5db61ae8bd3c13ccd4dc8c9e8a2f2f" }
+  },
+  { "id": "bitcoin", "symbol": "btc", "name": "Bitcoin", "platforms": {} },
+  { "id": "ethereum", "symbol": "eth", "name": "Ethereum", "platforms": {} },
+  { "id": "solana", "symbol": "sol", "name": "Solana", "platforms": {} }
+]

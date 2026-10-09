@@ -22,6 +22,9 @@ export const PLAUSIBLE = {
   volatilityAnnualPct: [0, 2_000],
   priceImpactBps: [0, 10_000],
   poolLiquidity: [0, 1e40],
+  /** F-U1: a pool's reserve in USD and a token's price; wide, to stop broken data only. */
+  poolReserveUsd: [0, 50_000_000_000],
+  tokenPriceUsd: [0, 10_000_000],
 } as const satisfies Record<string, readonly [number, number]>;
 export type PlausibleField = keyof typeof PLAUSIBLE;
 

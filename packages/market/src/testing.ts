@@ -1,4 +1,6 @@
 import { readFileSync } from "node:fs";
+import { CLASS_F_FEEDS } from "@alpha-agents/domain";
+import type { PublicClient } from "viem";
 import { CMC_QUOTES_URL } from "./coinmarketcap.ts";
 import { LLAMA_URLS } from "./defillama.ts";
 import { DUNE_QUERY_NAMES, type DuneQueryName } from "./dune.ts";
@@ -108,4 +110,137 @@ export function testDuneIds(): Record<DuneQueryName, number> {
     DuneQueryName,
     number
   >;
+}
+
+/**
+ * F-U1: recorded token discovery answers (captured 2026-10-09 20:20 to 20:40
+ * UTC from GeckoTerminal, CoinGecko and CoinMarketCap, trimmed to the fields
+ * the readers use), served by URL, and a fake Monad chain built from them.
+ */
+export const TOKENS_FIXTURE_NOW_MS = Date.parse("2026-10-09T20:40:00Z");
+
+const TOKEN_ROUTES: readonly [RegExp, string][] = [
+  [/dexes\/uniswap-v3-monad\/pools\?page=1&sort=h24_volume/, "gt-uniswap-v3-monad-volume-1.json"],
+  [/dexes\/uniswap-v3-monad\/pools\?page=2&sort=h24_volume/, "gt-uniswap-v3-monad-volume-2.json"],
+  [/dexes\/uniswap-v4-monad\/pools\?page=1&sort=h24_volume/, "gt-uniswap-v4-monad-volume-1.json"],
+  [/dexes\/uniswap-v4-monad\/pools\?page=2&sort=h24_volume/, "gt-uniswap-v4-monad-volume-2.json"],
+  [
+    /dexes\/pancakeswap-v3-monad\/pools\?page=1&sort=h24_volume/,
+    "gt-pancakeswap-v3-monad-volume-1.json",
+  ],
+  [
+    /dexes\/pancakeswap-v3-monad\/pools\?page=2&sort=h24_volume/,
+    "gt-pancakeswap-v3-monad-volume-2.json",
+  ],
+  [/networks\/monad\/new_pools\?page=1/, "gt-new-1.json"],
+  [/api\.coingecko\.com\/api\/v3\/coins\/list/, "coingecko-list.json"],
+  [/cryptocurrency\/map/, "cmc-map.json"],
+  [/cryptocurrency\/listings\/latest/, "cmc-top.json"],
+];
+
+export function tokenFixture(name: string): unknown {
+  return fixture(`tokens/${name}`);
+}
+
+/** A fetch that answers the discovery URLs from the recorded fixtures; `down` matches URLs to fail. */
+export function tokenFixtureFetch(o: { down?: readonly string[] } = {}) {
+  const calls: string[] = [];
+  const f: typeof fetch = async (input) => {
+    const url = String(input);
+    calls.push(url);
+    const hit = TOKEN_ROUTES.find(([re]) => re.test(url));
+    if (!hit || o.down?.some((d) => url.includes(d))) return new Response("{}", { status: 503 });
+    return new Response(JSON.stringify(tokenFixture(hit[1])), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    });
+  };
+  return { fetch: f, calls };
+}
+
+/**
+ * A fake Monad chain that agrees with the recorded pools: each v3 pool's
+ * factory confirms it, v4 IDs are initialized, tokens answer their recorded
+ * symbol, name and decimals, and every reviewed feed answers fresh. `spoof`
+ * lists pool addresses the factory does not confirm; `staleFeeds` lists feed
+ * proxies whose last round is two days old.
+ */
+export function fakeTokenChain(
+  o: { spoof?: readonly string[]; staleFeeds?: readonly string[]; nowMs?: number } = {},
+): PublicClient & { reads: () => number } {
+  const nowS = Math.floor((o.nowMs ?? TOKENS_FIXTURE_NOW_MS) / 1000);
+  const pools = new Map<string, { t0: string; t1: string; fee: number }>();
+  const byKey = new Map<string, string>();
+  const tokens = new Map<string, { symbol: string; name: string; decimals: number }>();
+  const files = TOKEN_ROUTES.map(([, f]) => f).filter((f) => f.startsWith("gt-"));
+  let fee = 1;
+  for (const f of files) {
+    const b = tokenFixture(f) as {
+      data: {
+        attributes: { address: string };
+        relationships: Record<string, { data: { id: string } }>;
+      }[];
+      included?: {
+        attributes: { address: string; symbol: string; name: string; decimals: number };
+      }[];
+    };
+    for (const t of b.included ?? [])
+      tokens.set(t.attributes.address.toLowerCase(), {
+        symbol: t.attributes.symbol,
+        name: t.attributes.name,
+        decimals: t.attributes.decimals,
+      });
+    for (const p of b.data) {
+      const id = p.attributes.address.toLowerCase();
+      if (id.length !== 42 || pools.has(id)) continue;
+      const a = p.relationships.base_token?.data.id.slice(6) ?? "";
+      const q = p.relationships.quote_token?.data.id.slice(6) ?? "";
+      const [t0, t1] = a < q ? [a, q] : [q, a];
+      pools.set(id, { t0, t1, fee });
+      byKey.set(`${t0}|${t1}|${fee}`, id);
+      fee++;
+    }
+  }
+  const feeds = new Map(CLASS_F_FEEDS.flatMap((f) => f.legs.map((l) => [l.proxy, l] as const)));
+  let reads = 0;
+  const readContract = async (args: {
+    address: string;
+    functionName: string;
+    args?: unknown[];
+  }) => {
+    reads++;
+    const a = args.address.toLowerCase();
+    const leg = feeds.get(a as `0x${string}`);
+    if (leg) {
+      if (args.functionName === "description") return leg.description;
+      if (args.functionName === "decimals") return leg.decimals;
+      const updated = o.staleFeeds?.includes(a) ? nowS - 2 * 86_400 : nowS - 60;
+      return [1n, 10n ** BigInt(leg.decimals), BigInt(updated), BigInt(updated), 1n];
+    }
+    switch (args.functionName) {
+      case "getLiquidity":
+        return 10n ** 18n;
+      case "getSlot0":
+        return [2n ** 96n, 0, 0, 0];
+      case "getPool": {
+        const [x, y, f] = args.args as [string, string, number];
+        const id = byKey.get(`${x.toLowerCase()}|${y.toLowerCase()}|${f}`) ?? "";
+        return o.spoof?.includes(id) || !id ? "0x0000000000000000000000000000000000000000" : id;
+      }
+    }
+    const pool = pools.get(a);
+    if (pool) {
+      const v = { token0: pool.t0, token1: pool.t1, fee: pool.fee, tickSpacing: 60, liquidity: 1n };
+      return v[args.functionName as keyof typeof v];
+    }
+    const t = tokens.get(a);
+    if (t && args.functionName in t) return t[args.functionName as keyof typeof t];
+    throw new Error("execution reverted");
+  };
+  const client = {
+    readContract,
+    getBlock: async () => ({ number: 111_990_000n, timestamp: BigInt(nowS) }),
+    reads: () => reads,
+  };
+  return client as unknown as PublicClient & { reads: () => number };
 }

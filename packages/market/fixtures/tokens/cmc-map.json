@@ -1,0 +1,19 @@
+{
+  "status": { "credit_count": 1 },
+  "data": [
+    {
+      "id": 35966,
+      "symbol": "GMON",
+      "name": "Magma",
+      "rank": 8082,
+      "platform": { "name": "Monad", "token_address": "0x8498312A6B3CbD158bf0c93AbdCF29E6e4F55081" }
+    },
+    {
+      "id": 39140,
+      "symbol": "LV",
+      "name": "LeverUp",
+      "rank": 1218,
+      "platform": { "name": "Monad", "token_address": "0x1001fF13bf368Aa4fa85F21043648079F00E1001" }
+    }
+  ]
+}
