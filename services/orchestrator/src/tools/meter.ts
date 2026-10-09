@@ -4,6 +4,7 @@ import type { CallSummary, DataTool, Meter } from "@alpha-agents/data-tools";
 import { type AgentIdentity, ToolError } from "@alpha-agents/tool-server";
 import type { Ledger } from "../credits/ledger.ts";
 import type { CreditService } from "../credits/service.ts";
+import type { CycleStore, StageRun } from "../cycle/store.ts";
 import type { Log } from "../secrets.ts";
 import type { Store } from "../store.ts";
 
@@ -17,6 +18,12 @@ import type { Store } from "../store.ts";
  * no ledger entry and does not count against the lease's paid calls. A tool
  * with a per-run cap (X and Dune, P3-U9) is also refused past its own count
  * of charged calls in the lease.
+ *
+ * P3-U4: inside a research cycle the lease runs one stage at a time, and the
+ * stage's caps replace the lease's: a stage's paid calls are capped at its
+ * own count (A-51), a paid call that would take the stage's charge past its
+ * ceiling is refused (D-298), a per-run tool cap counts per stage, and every
+ * call's result is stored with the stage for the brief validator.
  */
 export const MAX_PAID_CALLS_PER_LEASE = 20;
 
@@ -42,6 +49,8 @@ export interface ToolMeterOptions {
   readonly credits: CreditService;
   readonly environment: JournalEntry["environment"];
   readonly log: Log;
+  /** P3-U4: the research cycles' records; without them every lease meters as before. */
+  readonly cycles?: CycleStore;
 }
 
 const json = (v: unknown) => JSON.stringify(v ?? null);
@@ -59,6 +68,7 @@ export class ToolMeter implements Meter {
     input: Record<string, unknown>,
     errorCode: string,
     summary: CallSummary | null,
+    stageRunId: string | null = null,
   ): Promise<void> {
     await this.o.store.db
       .insertInto("platform.tool_calls")
@@ -74,23 +84,52 @@ export class ToolMeter implements Meter {
         error_code: errorCode,
         summary: summary ? json(summary) : null,
         finished_at: new Date(),
+        stage_run_id: stageRunId,
       })
       .execute();
   }
 
-  /** The research stage a lease is running: a Scan task's lease is a SCAN. */
-  private async stageOf(leaseId: string): Promise<string | null> {
+  /**
+   * The research stage a lease is running: a cycle's current stage run, or
+   * SCAN for a scheduled Scan task's lease.
+   */
+  private async stageOf(leaseId: string): Promise<{ name: string | null; run: StageRun | null }> {
+    const run = (await this.o.cycles?.currentStage(leaseId)) ?? null;
+    if (run) return { name: run.stage, run };
     const lease = await this.o.store.lease(leaseId);
-    return lease?.purpose === "scan" ? "SCAN" : null;
+    return { name: lease?.purpose === "scan" ? "SCAN" : null, run: null };
   }
 
   async begin(identity: AgentIdentity, call: Parameters<Meter["begin"]>[1]): Promise<string> {
     const ref = { chainId: identity.chainId, agentId: identity.agentId };
     return this.o.store.withAgentLock(ref, async () => {
-      const refusal = stageToolRefusal(await this.stageOf(identity.leaseId), call.tool);
+      const stage = await this.stageOf(identity.leaseId);
+      const run = stage.run;
+      const runId = run?.stageRunId ?? null;
+      const refusal = stageToolRefusal(stage.name, call.tool);
       if (refusal) {
-        await this.insertRefused(identity, call.tool, call.input, "NOT_IN_STAGE", null);
+        await this.insertRefused(identity, call.tool, call.input, "NOT_IN_STAGE", null, runId);
         throw new ToolError("INVALID_INPUT", refusal, false);
+      }
+      if (run && this.o.cycles && call.priceUsdcE6 > 0n) {
+        const used = await this.o.cycles.toolCharges(run.stageRunId);
+        if (used.paidCalls >= run.caps.paidCalls) {
+          await this.insertRefused(identity, call.tool, call.input, "STAGE_CALL_CAP", null, runId);
+          throw new ToolError(
+            "RATE_LIMITED",
+            `This ${run.stage} stage has used all ${run.caps.paidCalls} of its paid data calls; answers the cache holds are still free. Finish the stage with what you have.`,
+            false,
+          );
+        }
+        const charged = (await this.o.cycles.gateStage(run)).used.chargeUsdcE6;
+        if (charged + call.priceUsdcE6 > run.ceilingUsdcE6) {
+          await this.insertRefused(identity, call.tool, call.input, "STAGE_CEILING", null, runId);
+          throw new ToolError(
+            "RATE_LIMITED",
+            `This ${run.stage} stage is at its cost ceiling; no more paid calls. Finish the stage with what you have.`,
+            false,
+          );
+        }
       }
       const paid = await this.o.store.db
         .selectFrom("platform.tool_calls")
@@ -100,7 +139,7 @@ export class ToolMeter implements Meter {
         .where("status", "!=", "refused")
         .where("charge_usdc_e6", ">", "0")
         .executeTakeFirstOrThrow();
-      if (call.priceUsdcE6 > 0n && Number(paid.n) >= MAX_PAID_CALLS_PER_LEASE) {
+      if (!run && call.priceUsdcE6 > 0n && Number(paid.n) >= MAX_PAID_CALLS_PER_LEASE) {
         await this.insertRefused(identity, call.tool, call.input, "LEASE_CALL_LIMIT", null);
         throw new ToolError(
           "RATE_LIMITED",
@@ -109,17 +148,19 @@ export class ToolMeter implements Meter {
         );
       }
       if (call.priceUsdcE6 > 0n && call.maxPerLease !== undefined) {
-        const same = await this.o.store.db
+        // In a cycle, a run is a stage: the per-run cap counts within the stage.
+        let q = this.o.store.db
           .selectFrom("platform.tool_calls")
           .select((eb) => eb.fn.countAll<string>().as("n"))
           .where("lease_id", "=", identity.leaseId)
           .where("server", "=", "data")
           .where("tool", "=", call.tool)
           .where("status", "!=", "refused")
-          .where("charge_usdc_e6", ">", "0")
-          .executeTakeFirstOrThrow();
+          .where("charge_usdc_e6", ">", "0");
+        if (runId) q = q.where("stage_run_id", "=", runId);
+        const same = await q.executeTakeFirstOrThrow();
         if (Number(same.n) >= call.maxPerLease) {
-          await this.insertRefused(identity, call.tool, call.input, "TOOL_RUN_CAP", null);
+          await this.insertRefused(identity, call.tool, call.input, "TOOL_RUN_CAP", null, runId);
           throw new ToolError(
             "RATE_LIMITED",
             `This run has used its ${call.maxPerLease} paid ${call.tool} calls; a cached answer is still free.`,
@@ -129,7 +170,7 @@ export class ToolMeter implements Meter {
       }
       const credits = await this.o.credits.creditsOf(identity.agentId);
       if (credits.spendable < call.priceUsdcE6) {
-        await this.insertRefused(identity, call.tool, call.input, "CREDITS_EXHAUSTED", null);
+        await this.insertRefused(identity, call.tool, call.input, "CREDITS_EXHAUSTED", null, runId);
         throw new ToolError(
           "RATE_LIMITED",
           "Credits exhausted: this agent has no credits left for paid tools. Its owner adds USDC to its funding address.",
@@ -148,6 +189,7 @@ export class ToolMeter implements Meter {
         status: "running" as const,
         provider: call.provider,
         cache_hit: call.cacheHit ?? false,
+        stage_run_id: runId,
       };
       // Free: no ledger entry, nothing to reverse (MK-S6: a ledger row only for a paid call).
       if (call.priceUsdcE6 === 0n) {
@@ -191,12 +233,16 @@ export class ToolMeter implements Meter {
   async finish(callId: string, outcome: Parameters<Meter["finish"]>[1]): Promise<void> {
     const row = await this.o.store.db
       .selectFrom("platform.tool_calls")
-      .select(["chain_id", "agent_id", "charge_usdc_e6", "status"])
+      .select(["chain_id", "agent_id", "charge_usdc_e6", "status", "stage_run_id", "tool"])
       .where("call_id", "=", callId)
       .executeTakeFirst();
     if (!row || row.status !== "running") return;
     const summary = outcome.summary ? json(outcome.summary) : null;
     if (outcome.status === "succeeded") {
+      if (row.stage_run_id && outcome.result && this.o.cycles) {
+        const run = await this.o.cycles.stageRun(row.stage_run_id);
+        if (run) await this.o.cycles.storeResult(callId, run, row.tool, outcome.result);
+      }
       await this.o.store.db
         .updateTable("platform.tool_calls")
         .set({ status: "succeeded", summary, finished_at: new Date() })

@@ -13,6 +13,8 @@ import {
   usdToPicos,
 } from "@alpha-agents/accounting";
 import { sql } from "@alpha-agents/db";
+import type { CycleStore } from "../cycle/store.ts";
+import { chargeWithinCeiling } from "../cycle/stages.ts";
 import type { GatewayAdmin } from "../gateway-admin.ts";
 import { type Log, type Redactor, errorText } from "../secrets.ts";
 import type { AgentRef, Runtime, Store } from "../store.ts";
@@ -41,7 +43,16 @@ export interface CreditServiceOptions {
   readonly redactor: Redactor;
   readonly log: Log;
   readonly cap?: bigint;
+  /**
+   * P3-U4: the research cycles' records. A call made under a cycle's stage is
+   * charged at most what is left of the stage's ceiling, and the platform
+   * absorbs the rest (D-298).
+   */
+  readonly cycles?: CycleStore;
 }
+
+/** How long a costed request may wait for the gate's record of its stage before it is metered without one. */
+export const STAGE_ATTRIBUTION_GRACE_MS = 120_000;
 
 export interface CreditView extends AgentCredits {
   readonly spendable: bigint;
@@ -272,8 +283,37 @@ export class CreditService {
     for (const row of rows) {
       if (seen.has(row.requestId)) continue;
       const picos = usdToPicos(row.spendUsd);
-      const charge = chargeFor(picos);
-      if (charge === 0n) continue;
+      const full = chargeFor(picos);
+      if (full === 0n) continue;
+      // P3-U4: a call under a cycle stage is held to what is left of its ceiling.
+      const stage = await this.stageOf(agentId, row);
+      if (stage === "wait") continue;
+      const split = stage
+        ? chargeWithinCeiling(full, stage.chargedSoFar, stage.ceiling)
+        : { charged: full, absorbed: 0n };
+      const charge = split.charged;
+      const receipt = {
+        key_alias: runtime.keyAlias,
+        request_id: row.requestId,
+        chain_id: this.o.chainId,
+        agent_id: agentId,
+        model: row.model,
+        provider_picos: picos.toString(),
+        charge_usdc_e6: charge.toString(),
+        called_at: row.startTime,
+        stage_run_id: stage ? stage.stageRunId : null,
+        absorbed_usdc_e6: split.absorbed.toString(),
+      };
+      if (charge === 0n) {
+        // Wholly above the ceiling: nothing charged, the receipt records what was absorbed.
+        await this.o.store.db
+          .insertInto("platform.usage_receipts")
+          .values({ ...receipt, entry_id: null })
+          .onConflict((oc) => oc.columns(["key_alias", "request_id"]).doNothing())
+          .execute();
+        added += 1;
+        continue;
+      }
       const entryId = randomUUID();
       const posted = await this.o.ledger.post(
         usageEntry(
@@ -299,17 +339,7 @@ export class CreditService {
         async (trx) => {
           await trx
             .insertInto("platform.usage_receipts")
-            .values({
-              key_alias: runtime.keyAlias,
-              request_id: row.requestId,
-              chain_id: this.o.chainId,
-              agent_id: agentId,
-              model: row.model,
-              provider_picos: picos.toString(),
-              charge_usdc_e6: charge.toString(),
-              called_at: row.startTime,
-              entry_id: entryId,
-            })
+            .values({ ...receipt, entry_id: entryId })
             .execute();
         },
       );
@@ -317,6 +347,45 @@ export class CreditService {
     }
     if (added > 0) this.o.log(`agent ${agentId}: metered ${added} model call(s)`);
     return added;
+  }
+
+  /**
+   * The cycle stage a costed request ran under, with the stage's ceiling and
+   * what it has charged so far; null outside a stage. "wait" while the gate's
+   * record of a recent request may still be on its way and a stage is open.
+   */
+  private async stageOf(
+    agentId: number,
+    row: { requestId: string; startTime: string | null },
+  ): Promise<{ stageRunId: string; ceiling: bigint; chargedSoFar: bigint } | null | "wait"> {
+    const cycles = this.o.cycles;
+    if (!cycles) return null;
+    const call = await this.o.store.db
+      .selectFrom("platform.model_calls")
+      .select("stage_run_id")
+      .where("request_id", "=", row.requestId)
+      .executeTakeFirst();
+    if (!call) {
+      const at = row.startTime ? Date.parse(row.startTime) : Date.now();
+      const open = await this.o.store.db
+        .selectFrom("platform.stage_runs")
+        .select("stage_run_id")
+        .where("chain_id", "=", this.o.chainId)
+        .where("agent_id", "=", agentId)
+        .where("status", "=", "running")
+        .executeTakeFirst();
+      return open && Date.now() - at < STAGE_ATTRIBUTION_GRACE_MS ? "wait" : null;
+    }
+    if (!call.stage_run_id) return null;
+    const run = await cycles.stageRun(call.stage_run_id);
+    if (!run) return null;
+    const tools = await cycles.toolCharges(run.stageRunId);
+    const model = await cycles.meteredModel(run.stageRunId);
+    return {
+      stageRunId: run.stageRunId,
+      ceiling: run.ceilingUsdcE6,
+      chargedSoFar: tools.chargeUsdcE6 + model.charged,
+    };
   }
 
   // ---- budget sync ----

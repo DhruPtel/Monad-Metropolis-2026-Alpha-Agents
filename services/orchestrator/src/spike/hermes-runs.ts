@@ -79,12 +79,21 @@ export class HermesRuns {
     throw new Error(`Hermes API server not healthy within ${timeoutMs} ms (${last})`);
   }
 
-  async start(idempotencyKey: string, input: string, sessionId: string): Promise<RunStart> {
+  /**
+   * Starts a run in a fresh session. `model` sets the run's model alias; the
+   * pinned Hermes honors a bare `model` per run (P3-U4's H-spike note).
+   */
+  async start(
+    idempotencyKey: string,
+    input: string,
+    sessionId: string,
+    model?: string,
+  ): Promise<RunStart> {
     const reply = await this.call(
       "POST",
       `${this.baseUrl}/v1/runs`,
       { ...this.auth(), "content-type": "application/json", "idempotency-key": idempotencyKey },
-      JSON.stringify({ input, session_id: sessionId }),
+      JSON.stringify({ input, session_id: sessionId, ...(model ? { model } : {}) }),
     );
     if (reply.status >= 300)
       throw new Error(`POST /v1/runs returned ${reply.status}: ${reply.body.slice(0, 500)}`);

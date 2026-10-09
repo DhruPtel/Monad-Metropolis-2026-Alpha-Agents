@@ -78,6 +78,8 @@ export interface ChainCallLog {
       readonly summary?: Record<string, unknown>;
       /** P3-U9: the shared cache answered (a mainnet lookup another agent had just made). */
       readonly cacheHit?: boolean;
+      /** P3-U4: what the tool returned, so a research cycle can check a brief against it. */
+      readonly result?: Record<string, unknown>;
     },
   ): Promise<void>;
 }
@@ -228,6 +230,7 @@ export function registerChainTools(
         status: "succeeded",
         ...(summary ? { summary } : {}),
         ...(cacheHit === undefined ? {} : { cacheHit }),
+        result: output,
       });
       return okResult(output);
     } catch (err) {

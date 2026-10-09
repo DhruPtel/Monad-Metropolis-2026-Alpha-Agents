@@ -17,6 +17,13 @@ import {
   WriteThesisInput,
   WriteThesisOutput,
 } from "./schema.ts";
+import {
+  GetResearchContextInput,
+  GetResearchContextOutput,
+  type ResearchBrief,
+  WriteResearchBriefInput,
+  WriteResearchBriefOutput,
+} from "./briefs.ts";
 
 /**
  * The platform tools server (FINAL_PLAN 4.4.4), thin (D-213): `complete_stage`
@@ -38,6 +45,14 @@ export interface PlatformStore {
     input: WriteThesisInput,
     output: WriteThesisOutput,
   ): Promise<void>;
+  /**
+   * P3-U4: validates and stores a brief for the lease's current stage, and
+   * returns its ID; throws ToolError INVALID_INPUT with every reason it was
+   * refused. Absent where the platform runs no research cycles.
+   */
+  writeBrief?(identity: AgentIdentity, brief: ResearchBrief): Promise<string>;
+  /** P3-U4: the bounded research context for the lease's current stage. */
+  researchContext?(identity: AgentIdentity): Promise<unknown>;
 }
 
 /** The agent's goal and limits, assembled by the platform (packages/trading's goalsAndLimitsJson). */
@@ -124,6 +139,62 @@ export function registerPlatformTools(
     },
   );
   mcp.registerTool(
+    "write_research_brief",
+    {
+      description:
+        "Write this stage's typed research brief, the only research your owner reads. Every number must be one a tool returned in this cycle, every URL one this cycle retrieved, and every source a URL or the name of a tool you called. A refused brief comes back with every reason; fix them and write it again.",
+      inputSchema: WriteResearchBriefInput,
+      outputSchema: WriteResearchBriefOutput,
+      annotations: { idempotentHint: false },
+    },
+    async (input) => {
+      try {
+        if (!options.store.writeBrief)
+          throw new ToolError(
+            "UPSTREAM_UNAVAILABLE",
+            "Research briefs are written only inside a research cycle.",
+            false,
+          );
+        const briefId = await options.store.writeBrief(identity, input.brief);
+        const output = WriteResearchBriefOutput.parse({
+          briefId,
+          kind: input.brief.kind,
+          accepted: true,
+        });
+        return okResult({ ...output });
+      } catch (err) {
+        return errorFrom(err);
+      }
+    },
+  );
+  mcp.registerTool(
+    "get_research_context",
+    {
+      description:
+        "Your research context for this stage, as typed records: the cycle and stage, the active plan, the latest overview, open themes, the briefs this cycle has accepted that this stage builds on, what the plan may change within (Zoom out), and the briefs this stage must write. Call it first.",
+      inputSchema: GetResearchContextInput,
+      outputSchema: GetResearchContextOutput,
+      annotations: { readOnlyHint: true, idempotentHint: true },
+    },
+    async () => {
+      try {
+        if (!options.store.researchContext)
+          throw new ToolError(
+            "UPSTREAM_UNAVAILABLE",
+            "Research context exists only inside a research cycle.",
+            false,
+          );
+        const output = GetResearchContextOutput.safeParse(
+          await options.store.researchContext(identity),
+        );
+        if (!output.success) throw new Error("get_research_context built an invalid output");
+        return okResult({ ...output.data });
+      } catch (err) {
+        return errorFrom(err);
+      }
+    },
+  );
+  mcp.registerTool(
     "get_goals_and_limits",
     {
       description:
@@ -156,6 +227,8 @@ export const PLATFORM_TOOL_INPUTS = {
   complete_stage: CompleteStageInput,
   write_thesis: WriteThesisInput,
   get_goals_and_limits: GetGoalsAndLimitsInput,
+  write_research_brief: WriteResearchBriefInput,
+  get_research_context: GetResearchContextInput,
 } as const;
 
 export async function startPlatformTools(options: PlatformToolsOptions): Promise<ToolServer> {

@@ -41,6 +41,12 @@ import { SnapshotRecorder } from "./snapshots.ts";
 import type { Hex } from "viem";
 import { TradeFlow, type TradeFlowGas, type TradeFlowSigner } from "./trade-flow.ts";
 import { RUNNER_EVERY_MS, TemplateRunner } from "./runner.ts";
+import { runCycleTask } from "./cycle/cycle.ts";
+import { CycleResearch } from "./cycle/research.ts";
+import { type CycleKind, isReasoningAlias } from "./cycle/stages.ts";
+import { CycleStore } from "./cycle/store.ts";
+import { skillRuns } from "./cycle/validator.ts";
+import { builtinSet } from "./hermes/materialize.ts";
 import { PgIntentStore } from "./tools/chain-store.ts";
 
 /**
@@ -62,6 +68,22 @@ export interface CreditsOptions {
 
 /** A Scan was asked for while one is already queued or running for the agent (D-216). */
 export { OpenScanExistsError as ScanOpenError } from "./store.ts";
+
+/** A cycle was asked for while one is already queued or running for the agent (P3-U4). */
+export class CycleOpenError extends Error {
+  constructor(agentId: number) {
+    super(`Agent ${agentId} already has a research cycle queued or running.`);
+    this.name = "CycleOpenError";
+  }
+}
+
+/** A cycle needs the owner's goal: its reasoning model, intensity and daily budget (P3-U1). */
+export class NoGoalError extends Error {
+  constructor(agentId: number) {
+    super(`Agent ${agentId} has no goal: its owner sets one on the Goal page first.`);
+    this.name = "NoGoalError";
+  }
+}
 
 /** D-216's default cadence: 360 minutes between scheduled Scans. */
 export const DEFAULT_SCAN_INTERVAL_MS = 360 * 60_000;
@@ -159,6 +181,9 @@ export class Orchestrator {
   readonly decisions: DecisionStore;
   readonly goals: GoalStore;
   readonly runner: TemplateRunner | null;
+  /** P3-U4: research cycles, their stages, briefs and the research behind the platform tools. */
+  readonly cycles: CycleStore;
+  readonly research: CycleResearch;
   /** Phase 2 tuning: value snapshots for W-3's charts, where the chain tools can read. */
   readonly snapshots: SnapshotRecorder | null;
   readonly probeToken = randomToken();
@@ -183,6 +208,7 @@ export class Orchestrator {
       log,
     });
     this.ledger = new Ledger(store.db);
+    this.cycles = new CycleStore(store.db);
     const c = options.credits;
     this.credits = c
       ? new CreditService({
@@ -195,6 +221,7 @@ export class Orchestrator {
           redactor,
           log,
           ...(c.cap === undefined ? {} : { cap: c.cap }),
+          cycles: this.cycles,
         })
       : null;
     this.refunds =
@@ -256,6 +283,19 @@ export class Orchestrator {
     this.plans = new PlanStore(store.db);
     this.decisions = new DecisionStore(store.db);
     this.goals = new GoalStore(store.db);
+    let runs: Set<string> | null = null;
+    this.research = new CycleResearch({
+      cycles: this.cycles,
+      goals: this.goals,
+      plans: this.plans,
+      // Every mounted skill's and playbook's text, once per process (the brief validator's skill check).
+      skillRuns: () =>
+        (runs ??= skillRuns(
+          builtinSet().packages.flatMap((p) =>
+            p.files.filter((f) => /\.md$/.test(f.path)).map((f) => f.bytes.toString("utf8")),
+          ),
+        )),
+    });
     const trading = options.trading;
     this.runner =
       reader && trading && options.runner
@@ -307,6 +347,9 @@ export class Orchestrator {
       redactor: this.o.redactor,
       log: this.o.log,
     });
+    const interrupted = await this.cycles.failInterrupted();
+    if (interrupted > 0)
+      this.o.log(`${interrupted} research stage(s) cut off by a restart ended as INTERRUPTED`);
     if (this.credits && this.o.credits)
       this.tools = await startToolServers({
         store: this.o.store,
@@ -316,6 +359,7 @@ export class Orchestrator {
         provider: this.o.web ?? null,
         market: this.o.market ?? null,
         research: this.o.research ?? null,
+        cycles: { store: this.cycles, research: this.research },
         chain: {
           reader: this.o.chain?.reader ?? null,
           ...(this.o.chain?.sessionKeyOf ? { sessionKeyOf: this.o.chain.sessionKeyOf } : {}),
@@ -334,7 +378,19 @@ export class Orchestrator {
     this.gate = await startGate({
       litellmUrl: this.o.litellmUrl,
       probeToken: this.probeToken,
-      resolve: gateResolver(this.o.store, this.provisioner, this.credits),
+      resolve: gateResolver(this.o.store, this.provisioner, this.credits, this.cycles),
+      // P3-U4: every forwarded model call's usage, with the stage it ran under.
+      onModelCall: async (e) => {
+        if (!e.usage) return;
+        await this.cycles.recordModelCall({
+          ref: e.lease,
+          leaseId: e.lease.leaseId,
+          stageRunId: e.stageRunId ?? null,
+          model: e.model ?? "unknown",
+          status: e.status,
+          usage: e.usage,
+        });
+      },
       ...(this.tools
         ? {
             tools: {
@@ -437,6 +493,21 @@ export class Orchestrator {
         return runChainCheckTask(this.taskContext(), job.taskId);
       case "research_check":
         return runResearchCheckTask(this.taskContext(), job.taskId);
+      case "cycle": {
+        if (!this.credits) throw new Error("credits are not configured");
+        return runCycleTask(
+          {
+            ...this.taskContext(),
+            cycles: this.cycles,
+            research: this.research,
+            goals: this.goals,
+            plans: this.plans,
+            credits: this.credits,
+            narrator: this.narrator,
+          },
+          job.taskId,
+        );
+      }
     }
   }
 
@@ -530,6 +601,31 @@ export class Orchestrator {
     await this.o.store.insertTask(taskId, ref, "research_check", "console");
     await this.queue.add({ kind: "research_check", ref, taskId });
     return taskId;
+  }
+
+  /**
+   * A research cycle (P3-U4) from the dev console: ROUTINE (Scan, Dives the
+   * Scan earns, Challenge, Test, Zoom out) or ACTIVATION-shaped (the wide Scan,
+   * two Dives, Challenge, Test, Zoom out with an overview). It needs the
+   * owner's goal and credits; one cycle per agent at a time.
+   */
+  async enqueueCycle(ref: AgentRef, kind: CycleKind, requestedBy: TaskRequester = "console") {
+    const runtime = await this.o.store.runtime(ref);
+    if (runtime?.status !== "ready") throw new Error(`agent ${ref.agentId} is not provisioned`);
+    if (!this.tools || !this.credits) throw new Error("the tool servers are not running");
+    if ((await this.credits.creditsOf(ref.agentId)).restricted)
+      throw new CreditsExhaustedError(ref.agentId);
+    const goal = await this.goals.currentGoal(ref.chainId, ref.agentId);
+    if (!goal) throw new NoGoalError(ref.agentId);
+    if (await this.cycles.openCycle(ref)) throw new CycleOpenError(ref.agentId);
+    const alias = goal.config.model.alias;
+    if (!isReasoningAlias(alias))
+      throw new Error(`the goal's model ${alias} is not a reasoning model`);
+    const taskId = randomUUID();
+    await this.o.store.insertTask(taskId, ref, "cycle", requestedBy);
+    const cycle = await this.cycles.createCycle({ ref, taskId, kind, reasoningAlias: alias });
+    await this.queue.add({ kind: "cycle", ref, taskId });
+    return { taskId, cycleId: cycle.cycleId };
   }
 
   /** An agent's intents, newest first, with expiry applied (the dev console's view). */

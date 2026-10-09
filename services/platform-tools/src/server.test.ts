@@ -44,6 +44,8 @@ describe("platform tools server", () => {
     expect(tools.map((t) => t.name).sort()).toEqual([
       "complete_stage",
       "get_goals_and_limits",
+      "get_research_context",
+      "write_research_brief",
       "write_thesis",
     ]);
     for (const t of tools) expect(t.outputSchema).toBeDefined();

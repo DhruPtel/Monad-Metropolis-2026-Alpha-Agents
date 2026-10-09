@@ -116,8 +116,6 @@ export const TOOL_DEFERRALS: Readonly<Partial<Record<ToolId, ToolDeferral>>> = {
   "platform.propose_strategy_update@1": { unit: "P3-U6", reason: "parameter proposals" },
   "platform.no_change@1": { unit: "P3-U6", reason: "parameter proposals" },
   "platform.check_strategy_params@1": { unit: "P3-U6", reason: "the deterministic Test" },
-  "platform.get_research_context@1": { unit: "P3-U4", reason: "the discovery loop" },
-  "platform.write_research_brief@1": { unit: "P3-U4", reason: "the discovery loop" },
   "platform.directory_search@1": { unit: "Phase 5", reason: "agent-to-agent tools" },
   "platform.list_offers@1": { unit: "Phase 5", reason: "agent-to-agent tools" },
   "platform.send_message@1": { unit: "Phase 5", reason: "agent-to-agent tools" },

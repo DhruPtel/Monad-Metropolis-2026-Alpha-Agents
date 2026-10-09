@@ -16,6 +16,7 @@ import {
 import { sql } from "@alpha-agents/db";
 import { type AgentIdentity, ToolError } from "@alpha-agents/tool-server";
 import type { Hex } from "viem";
+import type { CycleStore } from "../cycle/store.ts";
 import type { Store } from "../store.ts";
 
 /**
@@ -33,15 +34,19 @@ const json = (v: unknown) => JSON.stringify(v ?? null);
 export class PgChainCallLog implements ChainCallLog {
   private readonly store: Store;
   private readonly limit: number;
+  /** P3-U4: inside a cycle, calls carry their stage and their results are stored. */
+  private readonly cycles: CycleStore | null;
 
-  constructor(store: Store, limit = MAX_CHAIN_CALLS_PER_LEASE) {
+  constructor(store: Store, limit = MAX_CHAIN_CALLS_PER_LEASE, cycles: CycleStore | null = null) {
     this.store = store;
     this.limit = limit;
+    this.cycles = cycles;
   }
 
   async begin(identity: AgentIdentity, tool: ChainTool, input: Record<string, unknown>) {
     const callId = `call-${randomUUID()}`;
     const ref = { chainId: identity.chainId, agentId: identity.agentId };
+    const stageRunId = (await this.cycles?.currentStage(identity.leaseId))?.stageRunId ?? null;
     const refused = await this.store.withAgentLock(ref, async () => {
       const used = await this.store.db
         .selectFrom("platform.tool_calls")
@@ -64,6 +69,7 @@ export class PgChainCallLog implements ChainCallLog {
           status: over ? "refused" : "running",
           error_code: over ? "LEASE_CALL_LIMIT" : null,
           ...(over ? { finished_at: new Date() } : {}),
+          stage_run_id: stageRunId,
         })
         .execute();
       return over;
@@ -78,6 +84,15 @@ export class PgChainCallLog implements ChainCallLog {
   }
 
   async finish(callId: string, outcome: Parameters<ChainCallLog["finish"]>[1]) {
+    if (this.cycles && outcome.status === "succeeded" && outcome.result) {
+      const row = await this.store.db
+        .selectFrom("platform.tool_calls")
+        .select(["stage_run_id", "tool"])
+        .where("call_id", "=", callId)
+        .executeTakeFirst();
+      const run = row?.stage_run_id ? await this.cycles.stageRun(row.stage_run_id) : null;
+      if (run && row) await this.cycles.storeResult(callId, run, row.tool, outcome.result);
+    }
     await this.store.db
       .updateTable("platform.tool_calls")
       .set({

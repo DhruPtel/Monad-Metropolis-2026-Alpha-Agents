@@ -234,6 +234,7 @@ export function registerMarketTools(
       await deps.meter.finish(callId, {
         status: "succeeded",
         summary: { reason: cacheHit ? "cache" : "upstream" },
+        result: out as Record<string, unknown>,
       });
       return okResult(out as Record<string, unknown>);
     } catch (err) {

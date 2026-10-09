@@ -8,6 +8,7 @@ import {
   STRATEGY_TEMPLATES,
 } from "@alpha-agents/domain";
 import { z } from "zod";
+import { ZoomOutDecision } from "./briefs.ts";
 
 // The discovery loop's stages (FINAL_PLAN 4.3.7). Every stage ends in one complete_stage call.
 export const STAGES = ["SCAN", "DIVE", "CHALLENGE", "TEST", "ZOOM_OUT"] as const;
@@ -27,6 +28,12 @@ export const completeStageInput = {
       }),
     )
     .max(5),
+  /**
+   * P3-U4: a Zoom out's decision, required for ZOOM_OUT and refused for any
+   * other stage: no change with its reason code, or a proposed plan, which the
+   * deterministic Test checks before the stage may end.
+   */
+  decision: ZoomOutDecision.optional(),
 };
 
 export const CompleteStageInput = z.strictObject(completeStageInput);

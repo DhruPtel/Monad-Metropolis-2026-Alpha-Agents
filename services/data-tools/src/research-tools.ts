@@ -147,6 +147,22 @@ export function registerResearchTools(
   identity: AgentIdentity,
   deps: ResearchToolsDeps,
 ): void {
+  /**
+   * What a research cycle may keep of a result (P3-U4): everything but post
+   * text, which is never stored (D-323); a post keeps its link, time and
+   * counts, so a brief can cite it and its figures.
+   */
+  const storedResult = (tool: ResearchDataTool, out: Record<string, unknown>) =>
+    tool !== "x_search"
+      ? out
+      : {
+          ...out,
+          notice: undefined,
+          posts: ((out.posts ?? []) as Record<string, unknown>[]).map((p) =>
+            Object.fromEntries(Object.entries(p).filter(([k]) => k !== "text")),
+          ),
+        };
+
   const run = async (
     tool: ResearchDataTool,
     input: Record<string, unknown>,
@@ -193,6 +209,7 @@ export function registerResearchTools(
       await deps.meter.finish(callId, {
         status: "succeeded",
         summary: { ...summary, reason: cacheHit ? "cache" : "upstream" },
+        result: storedResult(tool, out as Record<string, unknown>),
       });
       return okResult(out as Record<string, unknown>);
     } catch (err) {

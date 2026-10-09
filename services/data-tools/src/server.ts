@@ -84,7 +84,15 @@ export interface Meter {
   finish(
     callId: string,
     outcome:
-      | { status: "succeeded"; summary: CallSummary }
+      | {
+          status: "succeeded";
+          summary: CallSummary;
+          /**
+           * P3-U4: what the tool returned, so a research cycle can store it and
+           * check a brief's numbers and URLs against it (platform-only).
+           */
+          result?: Record<string, unknown>;
+        }
       | { status: "failed"; errorCode: string; summary?: CallSummary },
   ): Promise<void>;
   /** Records a call refused before any charge (a URL the guard refused). */
@@ -199,14 +207,7 @@ export function registerDataTools(
           url: h.url.slice(0, 2048),
           snippet: wrapUntrusted(h.content, MAX_SNIPPET_CHARS).text,
         }));
-        await deps.meter.finish(callId, {
-          status: "succeeded",
-          summary: {
-            results: results.length,
-            hosts: [...new Set(results.map((r) => hostOf(r.url)))],
-          },
-        });
-        return okResult({
+        const output = {
           source: "web",
           untrusted: true,
           notice: UNTRUSTED_NOTICE,
@@ -214,7 +215,16 @@ export function registerDataTools(
           cacheHit: false,
           query: input.query,
           results,
+        };
+        await deps.meter.finish(callId, {
+          status: "succeeded",
+          summary: {
+            results: results.length,
+            hosts: [...new Set(results.map((r) => hostOf(r.url)))],
+          },
+          result: output,
         });
+        return okResult(output);
       } catch (err) {
         return errorFrom(err);
       }
@@ -274,16 +284,7 @@ export function registerDataTools(
           throw new ToolError("UPSTREAM_UNAVAILABLE", "The page could not be read.", false);
         }
         const wrapped = wrapUntrusted(page.content, MAX_PAGE_CHARS);
-        await deps.meter.finish(callId, {
-          status: "succeeded",
-          summary: {
-            hosts: [check.host],
-            chars: wrapped.text.length,
-            truncated: wrapped.truncated,
-            redirects: check.hops,
-          },
-        });
-        return okResult({
+        const output = {
           source: "web",
           untrusted: true,
           notice: UNTRUSTED_NOTICE,
@@ -292,7 +293,18 @@ export function registerDataTools(
           url: check.url,
           content: wrapped.text,
           truncated: wrapped.truncated,
+        };
+        await deps.meter.finish(callId, {
+          status: "succeeded",
+          summary: {
+            hosts: [check.host],
+            chars: wrapped.text.length,
+            truncated: wrapped.truncated,
+            redirects: check.hops,
+          },
+          result: output,
         });
+        return okResult(output);
       } catch (err) {
         return errorFrom(err);
       }

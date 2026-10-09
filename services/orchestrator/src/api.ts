@@ -11,6 +11,7 @@ import type { RevealSteering, SteerRecord, SteerTarget } from "./reveal-steer.ts
 import type { SignerWorker } from "./signer-worker.ts";
 import type { Runtime, Store, Task } from "./store.ts";
 import { registerPlanRoutes } from "./plan-routes.ts";
+import { registerCycleRoutes } from "./cycle-routes.ts";
 import { mountedSkills } from "./hermes/materialize.ts";
 
 /**
@@ -517,6 +518,14 @@ export function createApi(o: ApiOptions): Hono {
     agentRef: (raw) => agentRef(raw, o.chainId),
     canSet: o.devActions || o.operatorActions === true,
     canRun: o.devActions,
+  });
+
+  // P3-U4: research cycles, started and read from the console.
+  registerCycleRoutes(app, {
+    orchestrator: o.orchestrator,
+    store: o.store,
+    agentRef: (raw) => agentRef(raw, o.chainId),
+    canStart: o.devActions || o.operatorActions === true,
   });
 
   /** P2-U6: why the agent did not trade: its arming and its recent blocked trades. */

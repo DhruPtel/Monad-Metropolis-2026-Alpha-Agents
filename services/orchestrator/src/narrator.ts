@@ -120,9 +120,36 @@ export interface RunnerFacts {
   readonly reason: { readonly code: string; readonly message: string } | null;
 }
 
+/**
+ * A research stage (P3-U4): the stage, how it ended, what it wrote (counts of
+ * briefs, never their text), its work and its cost against its ceiling. Built
+ * from the stage run, its tool calls and its briefs' statuses only.
+ */
+export interface StageFacts {
+  readonly agent: string;
+  readonly activity: "research_stage";
+  readonly stage: string;
+  readonly theme: string | null;
+  readonly model: string | null;
+  readonly status: string;
+  readonly stopReason: string | null;
+  readonly outcome: string | null;
+  readonly decision: string | null;
+  readonly counts: {
+    readonly modelCalls: number;
+    readonly toolCalls: number;
+    readonly paidCalls: number;
+    readonly refusedCalls: number;
+    readonly briefsAccepted: number;
+    readonly briefsRefused: number;
+  };
+  readonly costUsdc: string;
+  readonly ceilingUsdc: string;
+}
+
 export type NarrationFacts =
-  ScanFacts | IntentFacts | ArmingFacts | TradeFacts | BlockedFacts | RunnerFacts;
-export type ActivityKind = "scan" | "intent" | "arming" | "trade" | "blocked" | "runner";
+  ScanFacts | IntentFacts | ArmingFacts | TradeFacts | BlockedFacts | RunnerFacts | StageFacts;
+export type ActivityKind = "scan" | "intent" | "arming" | "trade" | "blocked" | "runner" | "stage";
 
 /** Micro-USDC as a plain decimal with no trailing zeros: 22000 -> "0.022". */
 export function formatUsdc(e6: bigint): string {
@@ -223,6 +250,36 @@ const ARMING_TEMPLATES: Readonly<Record<ArmingFacts["event"], (f: ArmingFacts) =
     `${f.agent}'s trading permission ends on ${f.grantValidUntil}; the owner can renew it to keep trading.`,
   ended: (f) => `${f.agent} is no longer armed: ${f.endReason ?? "arming ended"}`,
 };
+
+const STAGE_NAMES: Readonly<Record<string, string>> = {
+  SCAN: "Scan",
+  DIVE: "Dive",
+  CHALLENGE: "Challenge",
+  TEST: "Test",
+  ZOOM_OUT: "Zoom out",
+};
+
+/** The fixed template for a research stage (P3-U4): every number from the facts. */
+export function templateStageEntry(f: StageFacts): string {
+  const name = `${STAGE_NAMES[f.stage] ?? f.stage}${f.theme ? ` on ${f.theme}` : ""}`;
+  const how =
+    f.status === "completed"
+      ? "finished"
+      : f.status === "skipped"
+        ? `did not run (${(f.stopReason ?? "").toLowerCase()})`
+        : `ended ${f.status} (${(f.stopReason ?? "").toLowerCase()})`;
+  const result = f.decision
+    ? ` Decision: ${f.decision}.`
+    : f.outcome
+      ? ` Outcome: ${f.outcome.toLowerCase()}.`
+      : "";
+  const work =
+    f.model === null
+      ? " Deterministic, no model, free."
+      : ` ${plural(f.counts.briefsAccepted, "brief", "briefs")} accepted, ${f.counts.toolCalls} tool calls, ${f.counts.modelCalls} model calls on ${f.model}; cost ${f.costUsdc} of at most ${f.ceilingUsdc} USDC.`;
+  const full = `${f.agent}'s ${name} ${how}.${result}${work}`;
+  return full.length <= MAX_ENTRY_CHARS ? full : full.slice(0, MAX_ENTRY_CHARS);
+}
 
 /** The fixed templates for arming, trades and blocked trades (P2-U6): numbers only from the facts. */
 export function templateArmingEntry(f: ArmingFacts): string {
@@ -428,6 +485,78 @@ export class Narrator {
       toolSpendUsdc: formatUsdc(spend),
       creditsLeftUsdc: formatUsdc(credits.spendable),
     };
+  }
+
+  /** The facts of a research stage (P3-U4), from its records; never research text. */
+  async stageFacts(stageRunId: string): Promise<StageFacts | null> {
+    const db = this.o.store.db;
+    const run = await db
+      .selectFrom("platform.stage_runs")
+      .selectAll()
+      .where("stage_run_id", "=", stageRunId)
+      .executeTakeFirst();
+    if (!run) return null;
+    const calls = await db
+      .selectFrom("platform.tool_calls")
+      .select(["status", "charge_usdc_e6"])
+      .where("stage_run_id", "=", stageRunId)
+      .execute();
+    const briefs = await db
+      .selectFrom("platform.research_briefs")
+      .select("status")
+      .where("stage_run_id", "=", stageRunId)
+      .execute();
+    const outcome = (run.outcome ?? {}) as {
+      stageRecord?: { outcome?: string; decision?: { kind?: string; reasonCode?: string } | null };
+    };
+    const decision = outcome.stageRecord?.decision;
+    return {
+      agent: `Agent #${run.agent_id}`,
+      activity: "research_stage",
+      stage: run.stage,
+      theme: run.theme_code,
+      model: run.model_alias,
+      status: run.status,
+      stopReason: run.stop_reason,
+      outcome: outcome.stageRecord?.outcome ?? null,
+      decision: decision?.kind
+        ? decision.kind === "NO_CHANGE"
+          ? `no change (${decision.reasonCode ?? "no code"})`
+          : "a plan change proposed for the owner"
+        : null,
+      counts: {
+        modelCalls: run.model_calls,
+        toolCalls: calls.length,
+        paidCalls: calls.filter((c) => BigInt(c.charge_usdc_e6) > 0n).length,
+        refusedCalls: calls.filter((c) => c.status === "refused").length,
+        briefsAccepted: briefs.filter((b) => b.status === "accepted").length,
+        briefsRefused: briefs.filter((b) => b.status === "refused").length,
+      },
+      costUsdc: formatUsdc(BigInt(run.charged_usdc_e6)),
+      ceilingUsdc: formatUsdc(BigInt(run.ceiling_usdc_e6)),
+    };
+  }
+
+  /** Writes one entry per research stage (P3-U4), keyed by the stage run. */
+  async narrateStage(stageRunId: string): Promise<ActivityEntry | null> {
+    const existing = await this.stored(stageRunId);
+    if (existing) return existing;
+    const facts = await this.stageFacts(stageRunId);
+    if (!facts) return null;
+    const run = await this.o.store.db
+      .selectFrom("platform.stage_runs")
+      .select(["chain_id", "agent_id"])
+      .where("stage_run_id", "=", stageRunId)
+      .executeTakeFirstOrThrow();
+    await this.write({
+      chainId: run.chain_id,
+      agentId: run.agent_id,
+      key: stageRunId,
+      kind: "stage",
+      facts,
+      template: () => templateStageEntry(facts),
+    });
+    return (await this.stored(stageRunId)) ?? null;
   }
 
   /** Writes the task's activity entry once; a second call returns the stored one. */

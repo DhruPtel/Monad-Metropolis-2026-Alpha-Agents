@@ -38,7 +38,111 @@ export interface GateLogEntry {
    * `PROVIDER_OUT_OF_CREDIT` so far: the platform's own provider account is
    * empty, which no agent's credits can fix.
    */
-  readonly reason?: "PROVIDER_OUT_OF_CREDIT";
+  readonly reason?: "PROVIDER_OUT_OF_CREDIT" | StageCapReason;
+  /** P3-U4: the cycle's stage run the call was made under, when there is one. */
+  readonly stageRunId?: string;
+  /** P3-U4: the model alias LiteLLM served (its model group), from the response. */
+  readonly model?: string;
+  /** P3-U4: the call's usage as LiteLLM's response reported it. */
+  readonly usage?: ModelUsage;
+}
+
+/** Why the gate refused a model call under a stage: the stage reached one of its caps (P3-U4). */
+export type StageCapReason = "TURN_CAP" | "TOKEN_CAP" | "CEILING";
+
+/** One model call's usage as LiteLLM reports it in the response (P3-U4). */
+export interface ModelUsage {
+  /** LiteLLM's request ID, the same as its spend log's. */
+  readonly requestId: string;
+  readonly inputTokens: number;
+  readonly outputTokens: number;
+  readonly cacheReadTokens: number;
+  readonly cacheWriteTokens: number;
+  /** LiteLLM's cost of the call in USD. */
+  readonly costUsd: number;
+}
+
+/**
+ * The stage a lease is running and what it has used so far (P3-U4), from the
+ * platform's records: the gate refuses a model call once the stage has made
+ * its turns, used its tokens, or reached its ceiling.
+ */
+export interface GateStage {
+  readonly stageRunId: string;
+  readonly turns: number;
+  readonly tokens: number;
+  readonly ceilingUsdcE6: bigint;
+  readonly used: {
+    readonly calls: number;
+    readonly tokens: number;
+    /** The stage's charge so far: its paid tools plus its model calls at cost plus the markup. */
+    readonly chargeUsdcE6: bigint;
+  };
+}
+
+/** The cap a stage has reached, or null; pure, so the rule is tested alone. */
+export function stageCapReached(stage: GateStage): StageCapReason | null {
+  if (stage.used.calls >= stage.turns) return "TURN_CAP";
+  if (stage.used.tokens >= stage.tokens) return "TOKEN_CAP";
+  if (stage.ceilingUsdcE6 > 0n && stage.used.chargeUsdcE6 >= stage.ceilingUsdcE6) return "CEILING";
+  return null;
+}
+
+/**
+ * The answer to a model call past a stage's cap: a 402, which the pinned
+ * Hermes treats as final and does not retry, so the run ends; the orchestrator
+ * reads the reason from the gate's record and ends the stage as capped.
+ */
+export const stageCapBody = (reason: StageCapReason) => ({
+  error: {
+    message: `This research stage has reached its ${
+      reason === "TURN_CAP" ? "turn" : reason === "TOKEN_CAP" ? "token" : "cost"
+    } cap. The stage is over.`,
+    type: "insufficient_quota",
+    code: "stage_cap",
+  },
+});
+
+/**
+ * Reads a model response's usage: the last SSE chunk that carries `usage`
+ * (Hermes streams with include_usage) or a plain JSON body. Null when there is
+ * none, for example a refused call.
+ */
+export function usageFromResponse(body: string): ModelUsage | null {
+  const objects: Record<string, unknown>[] = [];
+  const trimmed = body.trimStart();
+  if (trimmed.startsWith("{")) {
+    try {
+      objects.push(JSON.parse(trimmed) as Record<string, unknown>);
+    } catch {
+      return null;
+    }
+  } else {
+    for (const line of body.split("\n")) {
+      if (!line.startsWith("data:")) continue;
+      const data = line.slice(5).trim();
+      if (data === "" || data === "[DONE]") continue;
+      try {
+        objects.push(JSON.parse(data) as Record<string, unknown>);
+      } catch {
+        // a partial or non-JSON line carries nothing we need
+      }
+    }
+  }
+  const id = objects.find((o) => typeof o.id === "string")?.id;
+  const withUsage = objects.filter((o) => typeof o.usage === "object" && o.usage !== null).at(-1);
+  if (typeof id !== "string" || !withUsage) return null;
+  const u = withUsage.usage as Record<string, unknown>;
+  const n = (v: unknown) => (typeof v === "number" && Number.isFinite(v) && v > 0 ? v : 0);
+  const details = (u.prompt_tokens_details ?? {}) as Record<string, unknown>;
+  return {
+    requestId: id,
+    inputTokens: n(u.prompt_tokens),
+    outputTokens: n(u.completion_tokens),
+    cacheReadTokens: n(u.cache_read_input_tokens) || n(details.cached_tokens),
+    cacheWriteTokens: n(u.cache_creation_input_tokens) || n(details.cache_write_tokens),
+    costUsd: n(u.cost),
+  };
 }
 
 export interface GateCredentials {
@@ -47,6 +151,8 @@ export interface GateCredentials {
   readonly tier: string;
   /** P1-U6: the agent has no spendable credits; model calls get 402 without reaching LiteLLM. */
   readonly creditsExhausted?: boolean;
+  /** P3-U4: the cycle stage the lease is running, with its caps and use so far. */
+  readonly stage?: GateStage | null;
 }
 
 /**
@@ -96,6 +202,11 @@ export interface GateOptions {
   readonly probeToken: string;
   /** The tool servers' MCP endpoints (D-213), or none before they start. */
   readonly tools?: { readonly data: string; readonly platform: string; readonly chain?: string };
+  /**
+   * P3-U4: called with every forwarded model call's record and usage before
+   * its response ends, so the next call's cap check sees it.
+   */
+  readonly onModelCall?: (entry: GateLogEntry & { readonly lease: Lease }) => Promise<void>;
 }
 
 export interface Gate {
@@ -147,8 +258,13 @@ export async function startGate(options: GateOptions, port = 0): Promise<Gate> {
     const started = Date.now();
     const path = new URL(req.url ?? "/", "http://gate").pathname;
     let leaseId: string | null = null;
-    const record = (status: number, reason?: GateLogEntry["reason"]) => {
-      log.push({
+    let stageRunId: string | null = null;
+    const record = (
+      status: number,
+      reason?: GateLogEntry["reason"],
+      extra: Pick<GateLogEntry, "model" | "usage"> = {},
+    ): GateLogEntry => {
+      const entry: GateLogEntry = {
         at: new Date(started).toISOString(),
         leaseId,
         method: req.method ?? "GET",
@@ -156,8 +272,12 @@ export async function startGate(options: GateOptions, port = 0): Promise<Gate> {
         status,
         ms: Date.now() - started,
         ...(reason ? { reason } : {}),
-      });
+        ...(stageRunId ? { stageRunId } : {}),
+        ...extra,
+      };
+      log.push(entry);
       if (log.length > 5_000) log.splice(0, log.length - 5_000);
+      return entry;
     };
     const reply = (status: number, body: unknown) => {
       record(status);
@@ -215,6 +335,18 @@ export async function startGate(options: GateOptions, port = 0): Promise<Gate> {
       }
       if (!path.startsWith("/v1/")) return reply(404, { error: "not found" });
       if (creds.creditsExhausted) return reply(402, CREDITS_EXHAUSTED_BODY);
+      const stage = creds.stage ?? null;
+      stageRunId = stage?.stageRunId ?? null;
+      if (stage && req.method === "POST") {
+        const cap = stageCapReached(stage);
+        if (cap) {
+          record(402, cap);
+          res.writeHead(402, { "content-type": "application/json" });
+          res.end(JSON.stringify(stageCapBody(cap)));
+          return;
+        }
+      }
+      const lease = creds.lease;
 
       const target = new URL(req.url ?? "/", litellm);
       const proxied = httpRequest(
@@ -224,8 +356,28 @@ export async function startGate(options: GateOptions, port = 0): Promise<Gate> {
           const status = up.statusCode ?? 502;
           if (status < 400) {
             res.writeHead(status, up.headers);
-            up.on("end", () => record(status));
-            up.pipe(res);
+            // Streamed through as it arrives; the usage is read from the copy at the end.
+            const chunks: Buffer[] = [];
+            up.on("data", (c: Buffer) => {
+              chunks.push(c);
+              res.write(c);
+            });
+            up.on("end", () => {
+              const group = up.headers["x-litellm-model-group"];
+              const usage =
+                req.method === "POST"
+                  ? usageFromResponse(Buffer.concat(chunks).toString("utf8"))
+                  : null;
+              const entry = record(status, undefined, {
+                ...(typeof group === "string" ? { model: group } : {}),
+                ...(usage ? { usage } : {}),
+              });
+              const done =
+                usage && options.onModelCall ? options.onModelCall({ ...entry, lease }) : null;
+              void Promise.resolve(done)
+                .catch(() => undefined)
+                .finally(() => res.end());
+            });
             return;
           }
           // Errors are small: read them, so a budget refusal can become a 402.

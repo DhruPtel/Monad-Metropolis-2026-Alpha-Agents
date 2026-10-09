@@ -83,7 +83,16 @@ export const HermesSettingsSchema = z
             key_env: z.literal("AGENT_LLM_KEY"),
             api_mode: z.literal("chat_completions"),
             discover_models: z.literal(false),
-            models: z.record(alias, z.object({ context_length: z.number().int().min(8_000) })),
+            models: z.record(
+              alias,
+              z
+                .object({
+                  context_length: z.number().int().min(8_000),
+                  // P3-U4: Hermes sends Anthropic cache_control for a custom route only when told.
+                  prompt_caching: z.boolean().optional(),
+                })
+                .strict(),
+            ),
           })
           .strict(),
       })

@@ -153,13 +153,15 @@ export interface SandboxLeaseTable {
   expires_at: Timestamp;
   ended_at: Timestamp | null;
   end_reason: string | null;
+  /** P3-U4: the stage run a cycle's lease is running now; null outside a cycle. */
+  stage_run_id: ColumnType<string | null, string | null | undefined, string | null>;
 }
 
 export interface AgentTaskTable {
   task_id: string;
   chain_id: number;
   agent_id: number;
-  kind: "noop" | "scan" | "chain_check" | "research_check";
+  kind: "noop" | "scan" | "chain_check" | "research_check" | "cycle";
   status: "queued" | "running" | "succeeded" | "failed";
   /** P1-U9 (D-219): who asked for it; null for tasks from before 0005. */
   requested_by: ColumnType<
@@ -217,8 +219,12 @@ export interface UsageReceiptTable {
   provider_picos: ColumnType<string, string, string>;
   charge_usdc_e6: ColumnType<string, string, string>;
   called_at: Timestamp | null;
-  entry_id: string;
+  /** Null when the call was wholly above its stage's ceiling: nothing was charged (P3-U4). */
+  entry_id: string | null;
   metered_at: Timestamp;
+  /** P3-U4: the stage the call ran under, and what the platform absorbed above its ceiling. */
+  stage_run_id: ColumnType<string | null, string | null | undefined, string | null>;
+  absorbed_usdc_e6: ColumnType<string, string | undefined, string>;
 }
 
 export type RefundStatus = "requested" | "signed" | "sent" | "refused" | "failed";
@@ -450,9 +456,11 @@ export interface ToolCallTable {
   summary: ColumnType<Record<string, unknown> | null, string | null, string | null>;
   started_at: Timestamp;
   finished_at: Timestamp | null;
+  /** P3-U4: the cycle's stage run the call was made in; null outside a cycle. */
+  stage_run_id: ColumnType<string | null, string | null | undefined, string | null>;
 }
 
-/** One `complete_stage` call: at most one per stage per lease. */
+/** One `complete_stage` call: once per stage run in a cycle, once per stage per lease outside one. */
 export interface StageRecordTable {
   stage_id: string;
   chain_id: number;
@@ -462,6 +470,9 @@ export interface StageRecordTable {
   outcome: string;
   candidates: ColumnType<unknown[], string, string>;
   created_at: Timestamp;
+  stage_run_id: ColumnType<string | null, string | null | undefined, string | null>;
+  /** A Zoom out's decision (P3-U4): no change with its reason code, or a proposed plan. */
+  decision: ColumnType<Record<string, unknown> | null, string | null | undefined, string | null>;
 }
 
 /** The `write_thesis` stub's notes: private research, never served to owners. */
@@ -475,6 +486,7 @@ export interface ThesisNoteTable {
   notes: string;
   sources: ColumnType<string[], string, string>;
   created_at: Timestamp;
+  stage_run_id: ColumnType<string | null, string | null | undefined, string | null>;
 }
 
 /** An owner-readable activity entry (D-217). */
@@ -483,12 +495,109 @@ export interface ActivityEntryTable {
   chain_id: number;
   agent_id: number;
   task_id: string;
-  kind: "scan" | "intent" | "arming" | "trade" | "blocked" | "runner";
+  kind: "scan" | "intent" | "arming" | "trade" | "blocked" | "runner" | "stage";
   text: string;
   rendered_by: "narrator" | "template";
   facts: ColumnType<Record<string, unknown>, string, string>;
   rejections: ColumnType<string[], string, string>;
   model: string | null;
+  created_at: Timestamp;
+}
+
+export type CycleKind = "ROUTINE" | "TRIGGERED" | "ACTIVATION";
+export type StageName = "SCAN" | "DIVE" | "CHALLENGE" | "TEST" | "ZOOM_OUT";
+type Numeric = ColumnType<string, string | undefined, string>;
+type BigintCount = ColumnType<string, number | string | undefined, number | string>;
+
+/** A research cycle (P3-U4): one task, one lease, its stages in order. */
+export interface ResearchCycleTable {
+  cycle_id: string;
+  chain_id: number;
+  agent_id: number;
+  task_id: string;
+  kind: CycleKind;
+  status: "queued" | "running" | "completed" | "stopped" | "failed";
+  stop_reason: string | null;
+  reasoning_alias: string;
+  lease_id: string | null;
+  /** The marker planted in the cycle's SOUL.md that a brief must never contain. */
+  canary: string;
+  charged_usdc_e6: Numeric;
+  absorbed_usdc_e6: Numeric;
+  created_at: Timestamp;
+  started_at: Timestamp | null;
+  finished_at: Timestamp | null;
+}
+
+/** One stage of a cycle (P3-U4). */
+export interface StageRunTable {
+  stage_run_id: string;
+  cycle_id: string;
+  chain_id: number;
+  agent_id: number;
+  seq: number;
+  stage: StageName;
+  theme_code: string | null;
+  idempotency_key: string;
+  model_alias: string | null;
+  caps: ColumnType<Record<string, unknown>, string, string>;
+  ceiling_usdc_e6: Numeric;
+  status: "pending" | "running" | "completed" | "capped" | "stopped" | "failed" | "skipped";
+  stop_reason: string | null;
+  run_id: string | null;
+  session_id: string | null;
+  outcome: ColumnType<Record<string, unknown> | null, string | null | undefined, string | null>;
+  model_calls: ColumnType<number, number | undefined, number>;
+  input_tokens: BigintCount;
+  output_tokens: BigintCount;
+  cache_read_tokens: BigintCount;
+  cache_write_tokens: BigintCount;
+  charged_usdc_e6: Numeric;
+  absorbed_usdc_e6: Numeric;
+  created_at: Timestamp;
+  started_at: Timestamp | null;
+  finished_at: Timestamp | null;
+}
+
+/** A model call the gate forwarded (P3-U4), keyed by LiteLLM's request ID. */
+export interface ModelCallTable {
+  request_id: string;
+  chain_id: number;
+  agent_id: number;
+  lease_id: string;
+  stage_run_id: string | null;
+  model: string;
+  status: number;
+  input_tokens: number;
+  output_tokens: number;
+  cache_read_tokens: number;
+  cache_write_tokens: number;
+  cost_usd: number;
+  at: Timestamp;
+}
+
+/** A typed research brief (D-284): accepted ones are what owners may see. */
+export interface ResearchBriefTable {
+  brief_id: string;
+  chain_id: number;
+  agent_id: number;
+  cycle_id: string;
+  stage_run_id: string;
+  kind: "SCAN" | "THEME" | "CHALLENGE" | "OVERVIEW" | "RATIONALE";
+  status: "accepted" | "refused";
+  body: ColumnType<Record<string, unknown>, string, string>;
+  reasons: ColumnType<string[], string, string>;
+  created_at: Timestamp;
+}
+
+/** What a cycle's tool call returned, bounded and platform-only (P3-U4). */
+export interface ToolResultTable {
+  call_id: string;
+  cycle_id: string;
+  stage_run_id: string;
+  tool: string;
+  result: ColumnType<unknown, string, string>;
+  truncated: ColumnType<boolean, boolean | undefined, boolean>;
   created_at: Timestamp;
 }
 
@@ -584,4 +693,9 @@ export interface Database {
   "platform.provider_usage": ProviderUsageTable;
   "platform.strategy_params": StrategyParamsTable;
   "platform.runner_decisions": RunnerDecisionTable;
+  "platform.research_cycles": ResearchCycleTable;
+  "platform.stage_runs": StageRunTable;
+  "platform.model_calls": ModelCallTable;
+  "platform.research_briefs": ResearchBriefTable;
+  "platform.tool_results": ToolResultTable;
 }

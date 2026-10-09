@@ -8,7 +8,9 @@ import {
   type GateLogEntry,
   isProviderOutOfCredit,
   modelFailure,
+  stageCapReached,
   startGate,
+  usageFromResponse,
 } from "./gate.ts";
 import { sha256Hex } from "./secrets.ts";
 import type { Lease } from "./store.ts";
@@ -183,5 +185,165 @@ describe("naming a model failure (P3-U9)", () => {
     // A 402 is the agent's own credits, reported as billing elsewhere.
     expect(modelFailure([entry(200), entry(402)])).toBeNull();
     expect(modelFailure([])).toBeNull();
+  });
+});
+
+describe("the gate under a research stage (P3-U4)", () => {
+  let upstream: ReturnType<typeof createServer>;
+  let gate: Gate;
+  const recorded: { requestId: string; stageRunId?: string; model?: string; cacheRead: number }[] =
+    [];
+  let used = { calls: 0, tokens: 0, chargeUsdcE6: 0n };
+  const stage = () => ({
+    stageRunId: "stage-run-1",
+    turns: 3,
+    tokens: 50_000,
+    ceilingUsdcE6: 300_000n,
+    used,
+  });
+  let n = 0;
+
+  beforeAll(async () => {
+    // LiteLLM as Hermes sees it: a streamed completion whose last chunk carries usage and cost.
+    upstream = createServer((_req, res) => {
+      n += 1;
+      res.writeHead(200, {
+        "content-type": "text/event-stream",
+        "x-litellm-model-group": "research-strong",
+      });
+      const id = `chatcmpl-${n}`;
+      res.write(`data: ${JSON.stringify({ id, choices: [{ delta: { content: "ok" } }] })}\n\n`);
+      res.write(
+        `data: ${JSON.stringify({
+          id,
+          choices: [],
+          usage: {
+            prompt_tokens: 6317,
+            completion_tokens: 5,
+            prompt_tokens_details: { cached_tokens: n > 1 ? 6308 : 0 },
+            cache_read_input_tokens: n > 1 ? 6308 : 0,
+            cache_creation_input_tokens: n > 1 ? 0 : 6308,
+            cost: n > 1 ? 0.0006648 : 0.007919,
+          },
+        })}\n\n`,
+      );
+      res.end("data: [DONE]\n\n");
+    });
+    await new Promise<void>((r) => upstream.listen(0, "127.0.0.1", r));
+    const token = sha256Hex("token-agent-9-eeeeeeeeeeeeeeeeeeeeeeee");
+    gate = await startGate({
+      litellmUrl: `http://127.0.0.1:${(upstream.address() as AddressInfo).port}`,
+      probeToken: "probe-token-cccccccccccccccccccccccccc",
+      resolve: async (hash) =>
+        hash === token
+          ? { lease: lease("L9", 9), virtualKey: "sk-agent-nine", tier: "base", stage: stage() }
+          : null,
+      onModelCall: async (e) => {
+        // Recorded before the response ends, so the next call's cap check sees it.
+        await new Promise((r) => setTimeout(r, 20));
+        recorded.push({
+          requestId: e.usage?.requestId ?? "",
+          ...(e.stageRunId ? { stageRunId: e.stageRunId } : {}),
+          ...(e.model ? { model: e.model } : {}),
+          cacheRead: e.usage?.cacheReadTokens ?? 0,
+        });
+      },
+    });
+  });
+  afterAll(async () => {
+    await gate.close();
+    await new Promise((r) => upstream.close(r));
+  });
+
+  const call = () =>
+    fetch(`${gate.url}/v1/chat/completions`, {
+      method: "POST",
+      headers: { [GATE_HEADER]: "token-agent-9-eeeeeeeeeeeeeeeeeeeeeeee" },
+      body: "{}",
+    });
+
+  it("streams the answer through and records its usage, model and stage before the response ends", async () => {
+    const r = await call();
+    expect(await r.text()).toContain("[DONE]");
+    expect(recorded).toEqual([
+      {
+        requestId: "chatcmpl-1",
+        stageRunId: "stage-run-1",
+        model: "research-strong",
+        cacheRead: 0,
+      },
+    ]);
+    const second = await call();
+    await second.text();
+    expect(recorded[1]).toMatchObject({ requestId: "chatcmpl-2", cacheRead: 6308 });
+    const logged = gate.callsFor("L9");
+    expect(logged[1]?.usage).toMatchObject({
+      inputTokens: 6317,
+      outputTokens: 5,
+      cacheReadTokens: 6308,
+      cacheWriteTokens: 0,
+      costUsd: 0.0006648,
+    });
+  });
+
+  it("refuses a model call past the stage's turn, token or cost cap with a final 402", async () => {
+    const before = n;
+    for (const [over, reason] of [
+      [{ calls: 3, tokens: 0, chargeUsdcE6: 0n }, "TURN_CAP"],
+      [{ calls: 1, tokens: 50_000, chargeUsdcE6: 0n }, "TOKEN_CAP"],
+      [{ calls: 1, tokens: 10, chargeUsdcE6: 300_000n }, "CEILING"],
+    ] as const) {
+      used = over;
+      const r = await call();
+      expect(r.status).toBe(402);
+      expect(((await r.json()) as { error: { code: string } }).error.code).toBe("stage_cap");
+      expect(gate.callsFor("L9").at(-1)).toMatchObject({
+        status: 402,
+        reason,
+        stageRunId: "stage-run-1",
+      });
+    }
+    // None of them reached LiteLLM.
+    expect(n).toBe(before);
+    used = { calls: 0, tokens: 0, chargeUsdcE6: 0n };
+  });
+});
+
+describe("reading a model response's usage (P3-U4)", () => {
+  it("takes the last usage chunk of a stream, or a plain JSON body, and nothing from an error", () => {
+    const stream = [
+      `data: {"id":"chatcmpl-a","choices":[]}`,
+      `data: {"id":"chatcmpl-a","usage":{"prompt_tokens":10,"completion_tokens":2,"prompt_tokens_details":{"cached_tokens":7},"cost":0.001}}`,
+      "data: [DONE]",
+    ].join("\n\n");
+    expect(usageFromResponse(stream)).toEqual({
+      requestId: "chatcmpl-a",
+      inputTokens: 10,
+      outputTokens: 2,
+      cacheReadTokens: 7,
+      cacheWriteTokens: 0,
+      costUsd: 0.001,
+    });
+    expect(
+      usageFromResponse(
+        JSON.stringify({ id: "chatcmpl-b", usage: { prompt_tokens: 3, completion_tokens: 1 } }),
+      ),
+    ).toMatchObject({ requestId: "chatcmpl-b", inputTokens: 3, costUsd: 0 });
+    expect(usageFromResponse(JSON.stringify({ error: { message: "no" } }))).toBeNull();
+    expect(usageFromResponse("")).toBeNull();
+  });
+
+  it("names the first cap a stage has reached", () => {
+    const s = { stageRunId: "s", turns: 2, tokens: 100, ceilingUsdcE6: 10n };
+    expect(stageCapReached({ ...s, used: { calls: 1, tokens: 99, chargeUsdcE6: 9n } })).toBeNull();
+    expect(stageCapReached({ ...s, used: { calls: 2, tokens: 0, chargeUsdcE6: 0n } })).toBe(
+      "TURN_CAP",
+    );
+    expect(stageCapReached({ ...s, used: { calls: 1, tokens: 100, chargeUsdcE6: 0n } })).toBe(
+      "TOKEN_CAP",
+    );
+    expect(stageCapReached({ ...s, used: { calls: 1, tokens: 1, chargeUsdcE6: 10n } })).toBe(
+      "CEILING",
+    );
   });
 });

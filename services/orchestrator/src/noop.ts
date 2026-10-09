@@ -202,10 +202,13 @@ export async function openAgentSandbox(
   purpose: string,
   leaseMs: number,
   onLease: (leaseId: string) => void,
+  /** P3-U4: a research cycle boots with its own rendered config (models, caps, goal, canary). */
+  configFor?: (stored: AgentConfig) => AgentConfig,
 ): Promise<AgentSandbox> {
   const runtime = await ctx.store.runtime(ref);
   if (runtime?.status !== "ready") throw new Error(`agent ${ref.agentId} is not provisioned`);
-  const config = runtime.config as unknown as AgentConfig;
+  const stored = runtime.config as unknown as AgentConfig;
+  const config = configFor ? configFor(stored) : stored;
   const grant = await ctx.leases.acquire(ref, purpose, leaseMs);
   const leaseId = grant.lease.leaseId;
   onLease(leaseId);

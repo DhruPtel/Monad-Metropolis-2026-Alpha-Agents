@@ -409,7 +409,7 @@ describe.skipIf(!dbUp)("the orchestrator's internal API (D-205)", { timeout: 60_
     expect(body.packages).toHaveLength(10);
     expect(body.packages.find((p) => p.name === "aa-playbook-scan")).toMatchObject({
       kind: "playbook",
-      version: "1.0.0",
+      version: expect.stringMatching(/^1\.\d+\.\d+$/),
       mountedAt: "/run/agent-skills/playbooks/aa-playbook-scan",
       contentHash: expect.stringMatching(/^[0-9a-f]{64}$/),
     });

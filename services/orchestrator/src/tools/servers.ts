@@ -12,6 +12,8 @@ import type { AgentIdentity } from "@alpha-agents/tool-server";
 import type { Hex } from "viem";
 import type { ToolServer } from "@alpha-agents/tool-server";
 import type { Ledger } from "../credits/ledger.ts";
+import type { CycleResearch } from "../cycle/research.ts";
+import type { CycleStore } from "../cycle/store.ts";
 import type { CreditService } from "../credits/service.ts";
 import type { Log } from "../secrets.ts";
 import type { Store } from "../store.ts";
@@ -59,6 +61,8 @@ export interface ToolServersOptions {
   readonly market?: MarketData | null;
   /** P3-U9: X search, saved Dune queries and mainnet lookups; none answers them "not configured". */
   readonly research?: ResearchSources | null;
+  /** P3-U4: the research cycles' records; the tools then meter, record and check per stage. */
+  readonly cycles?: { readonly store: CycleStore; readonly research: CycleResearch } | null;
   readonly log: Log;
 }
 
@@ -83,6 +87,7 @@ export async function startToolServers(o: ToolServersOptions): Promise<ToolServe
     credits: o.credits,
     environment: o.environment,
     log: o.log,
+    ...(o.cycles ? { cycles: o.cycles.store } : {}),
   });
   const data = await startDataTools({
     resolve,
@@ -93,16 +98,25 @@ export async function startToolServers(o: ToolServersOptions): Promise<ToolServe
     ...(o.lookup ? { lookup: o.lookup } : {}),
     ...(o.probe ? { probe: o.probe } : {}),
   });
+  const platformStore = new PgPlatformStore(o.store, o.cycles ?? null);
+  const goals = goalsReader(o.store.db, o.chain?.reader ?? null);
   const platform = await startPlatformTools({
     resolve,
-    store: new PgPlatformStore(o.store),
-    goals: goalsReader(o.store.db, o.chain?.reader ?? null),
+    store: platformStore,
+    goals: {
+      // Inside a cycle stage the answer is stored, so a brief may quote the goal and limits.
+      read: async (identity) => {
+        const answer = await goals.read(identity);
+        await platformStore.recordRead(identity, "get_goals_and_limits", answer);
+        return answer;
+      },
+    },
   });
   const intents = new PgIntentStore(o.store);
   const chain = await startChainTools({
     resolve,
     reader: o.chain?.reader ?? null,
-    log: new PgChainCallLog(o.store),
+    log: new PgChainCallLog(o.store, undefined, o.cycles?.store ?? null),
     intents,
     market: o.market ?? null,
     research: o.research ?? null,
