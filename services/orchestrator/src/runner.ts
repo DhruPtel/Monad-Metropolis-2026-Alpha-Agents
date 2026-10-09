@@ -52,6 +52,8 @@ import type { TradeFlowGas } from "./trade-flow.ts";
  * why-not-traded. A plan set under an earlier strategy epoch never trades.
  */
 export const RUNNER_EVERY_MS = 60_000;
+/** A refused leg whose reasons give no time is tried again after this long. */
+export const REFUSED_RETRY_MS = 10 * 60_000;
 /** A leg waits for the owner (or the armed trade flow) as long as any proposal (A-43). */
 export const RUNNER_INTENT_TTL_SECONDS = 1_800;
 
@@ -192,6 +194,11 @@ export class TemplateRunner {
     );
     if (open.length > 0)
       return hold("LEG_PENDING", { intents: open.map((i) => `${i.intentId}:${i.status}`) });
+    // A leg the trade flow refused at submission (plan item 5): hold with its reasons, and try
+    // again only once they can have cleared by waiting; a reason only the owner or the platform
+    // clears holds until the plan changes.
+    const refused = await this.lastRefusedLeg(agentId, plan.paramId);
+    if (refused) return hold(refused.code, refused.facts, refused.codes);
 
     const [m, a] = await Promise.all([this.o.reader.market(), this.o.reader.agent(agentId)]);
     if (!a) return hold("NO_PLAN", { reason: "the agent is not on this chain" });
@@ -306,6 +313,36 @@ export class TemplateRunner {
       facts: { ...d.facts },
       block: a.block,
     });
+  }
+
+  /** The latest refused leg of this plan, while its reasons still hold the runner back. */
+  private async lastRefusedLeg(agentId: number, paramId: string) {
+    const last = (await this.o.trades.intents(this.o.chainId, agentId, 20)).find(
+      (i) => i.source === "template",
+    );
+    if (!last || (last.status !== "rejected" && last.status !== "failed")) return null;
+    // A leg of an earlier plan never holds a new one back.
+    const row = await this.o.trades.db
+      .selectFrom("platform.intents")
+      .select("checks")
+      .where("intent_id", "=", last.intentId)
+      .executeTakeFirst();
+    if ((row?.checks as { paramId?: unknown } | undefined)?.paramId !== paramId) return null;
+    const codes = last.blockers.length > 0 ? last.blockers.map((b) => b.code) : ["SEND_FAILED"];
+    const facts = { intentId: last.intentId, refusedAt: last.updatedAt.toISOString() };
+    if (last.blockers.some((b) => b.clears === "by_the_owner" || b.clears === "by_the_platform"))
+      return { code: codes[0] as string, codes, facts };
+    const times = last.blockers
+      .map((b) => (b.clearsAt ? Date.parse(b.clearsAt) : Number.NaN))
+      .filter((t) => !Number.isNaN(t));
+    const until =
+      times.length > 0 ? Math.max(...times) : last.updatedAt.getTime() + REFUSED_RETRY_MS;
+    if (this.now().getTime() >= until) return null;
+    return {
+      code: codes[0] as string,
+      codes,
+      facts: { ...facts, retryAt: new Date(until).toISOString() },
+    };
   }
 
   /** The runner acts as the agent with a platform identity, not a sandbox lease (D-290). */

@@ -357,6 +357,49 @@ describe.skipIf(!dbUp)("the template runner (needs Postgres)", { timeout: 60_000
     expect((await runner().tick())[0]).toMatchObject({ outcome: "leg" });
   });
 
+  it("a leg refused at submission is recorded with its reasons and tried again only once they can clear", async () => {
+    await saveGoal();
+    await setPlan();
+    await arm();
+    const [leg] = await runner().tick();
+    const refuse = (blockers: unknown[]) =>
+      t.db
+        .updateTable("platform.intents")
+        .set({ status: "rejected", blockers: JSON.stringify(blockers), updated_at: now })
+        .where("intent_id", "=", leg?.intentId ?? "")
+        .execute();
+    // A reason that clears by waiting: held with it until it can have cleared, then tried again.
+    await refuse([
+      { code: "TURNOVER_CAP", message: "m", clears: "by_waiting", clearsAt: null, hint: "" },
+    ]);
+    expect((await runner().tick())[0]).toMatchObject({ outcome: "hold", code: "TURNOVER_CAP" });
+    now = new Date(now.getTime() + 11 * 60_000);
+    expect((await runner().tick())[0]).toMatchObject({ outcome: "leg" });
+    // A reason only the owner clears holds until the plan changes.
+    const latest = (await intents())[0];
+    await t.db
+      .updateTable("platform.intents")
+      .set({
+        status: "failed",
+        blockers: JSON.stringify([
+          {
+            code: "SESSION_EXPIRED",
+            message: "m",
+            clears: "by_the_owner",
+            clearsAt: null,
+            hint: "",
+          },
+        ]),
+        updated_at: now,
+      })
+      .where("intent_id", "=", latest?.intentId ?? "")
+      .execute();
+    now = new Date(now.getTime() + 60 * 60_000);
+    expect((await runner().tick())[0]).toMatchObject({ outcome: "hold", code: "SESSION_EXPIRED" });
+    await setPlan({ targetWmonBps: 1_500 });
+    expect((await runner().tick())[0]).toMatchObject({ outcome: "leg" });
+  });
+
   it("stores a decision only when it changes, and never calls a model or any network", async () => {
     const fetchSpy = vi.fn();
     vi.stubGlobal("fetch", fetchSpy);
