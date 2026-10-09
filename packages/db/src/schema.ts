@@ -159,7 +159,7 @@ export interface AgentTaskTable {
   task_id: string;
   chain_id: number;
   agent_id: number;
-  kind: "noop" | "scan" | "chain_check";
+  kind: "noop" | "scan" | "chain_check" | "research_check";
   status: "queued" | "running" | "succeeded" | "failed";
   /** P1-U9 (D-219): who asked for it; null for tasks from before 0005. */
   requested_by: ColumnType<

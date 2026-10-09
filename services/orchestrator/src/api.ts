@@ -582,6 +582,29 @@ export function createApi(o: ApiOptions): Hono {
         throw err;
       }
     });
+    /** P3-U9: run the research check now: the agent uses each research source once. */
+    app.post("/v1/agents/:agentId/tasks/research-check", async (c) => {
+      const ref = agentRef(c.req.param("agentId"), o.chainId);
+      if (!ref) return c.json({ error: "bad_agent_id" }, 400);
+      const runtime = await o.store.runtime(ref);
+      if (runtime?.status !== "ready")
+        return c.json(
+          { error: "not_provisioned", message: `Agent ${ref.agentId} is not provisioned yet.` },
+          409,
+        );
+      if (await o.store.activeLease(ref))
+        return c.json(
+          { error: "lease_held", message: `Agent ${ref.agentId} already has a sandbox running.` },
+          409,
+        );
+      try {
+        return c.json({ taskId: await o.orchestrator.enqueueResearchCheck(ref) }, 202);
+      } catch (err) {
+        if (err instanceof CreditsExhaustedError)
+          return c.json({ error: "credits_exhausted", message: err.message }, 409);
+        throw err;
+      }
+    });
 
     /** P2-U6: a proposal over the trade size limit, so the console can show a blocked trade. */
     app.post("/v1/agents/:agentId/test-over-limit", async (c) => {

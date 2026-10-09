@@ -45,6 +45,15 @@ export async function runChainCheckAction(id: string): Promise<ActionResult<stri
   });
 }
 
+/** P3-U9: the research check: the agent uses each research source once. */
+export async function runResearchCheckAction(id: string): Promise<ActionResult<string>> {
+  return attempt(async () => {
+    const source = agentsSource();
+    if (!source.triggerTask) throw new Error("The orchestrator is not configured.");
+    return source.triggerTask(agentId(id), "research_check");
+  });
+}
+
 /**
  * D-221: steer a reveal on the local fork, once: a wallet's next reveal (its
  * lowest unrevealed agent, or the next one it mints) or one pending agent.

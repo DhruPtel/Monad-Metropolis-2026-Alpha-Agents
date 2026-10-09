@@ -41,6 +41,11 @@
  * Executor and the real v4 pool and settles after reconciliation, with
  * activity entries; a second proposal over the limits is blocked at
  * submission with its reason, served as why the agent did not trade.
+ *
+ * P3-U9 adds the research check: a real agent in E2B calls x_search, a saved
+ * dune_query, read_contract, balance and get_code once each; each returns
+ * typed, sourced results, X is charged at its price inside the caps, and the
+ * mainnet lookups are free. Needs X_BEARER_TOKEN and DUNE_API_KEY too.
  */
 import { type ChildProcess, spawn } from "node:child_process";
 import { randomBytes, randomUUID } from "node:crypto";
@@ -686,6 +691,82 @@ async function main(): Promise<number> {
     used("market_snapshot") > 0 && snapshotCalls.some((c) => c.status === "succeeded"),
     `${used("market_snapshot")} market_snapshot calls: ${snapshotCalls.map((c) => `${c.status}${c.cache_hit ? " (cached, free)" : ` ${c.charge_usdc_e6}`}`).join(", ")}`,
   );
+  // P3-U9: a real agent in E2B uses each research source once, through the research check.
+  {
+    const started = await waitFor("the research check to be accepted", 300_000, async () => {
+      const r = await api(`/v1/agents/${other}/tasks/research-check`, { method: "POST" });
+      if (r.status === 202) return r;
+      if (r.body.error !== "lease_held") throw new Error(`research check refused: ${r.status}`);
+      await new Promise((res) => setTimeout(res, 3_000));
+      return null;
+    });
+    const task = await waitFor("the research check", 600_000, async () => {
+      const x = (await api(`/v1/tasks/${String(started.body.taskId)}`)).body as unknown as TaskView;
+      return x.status === "succeeded" || x.status === "failed" ? x : null;
+    });
+    const res = (task.result ?? {}) as {
+      stopReason?: string;
+      leaseId?: string;
+      toolCalls?: {
+        tool: string;
+        status: string;
+        errorCode: string | null;
+        chargeUsdcE6: string;
+        cacheHit: boolean;
+      }[];
+    };
+    const outputs = res.leaseId
+      ? await t.db
+          .selectFrom("platform.tool_calls")
+          .select(["tool", "status", "error_code", "charge_usdc_e6", "cache_hit", "summary"])
+          .where("lease_id", "=", res.leaseId)
+          .orderBy("started_at")
+          .execute()
+      : [];
+    const research = (await api("/v1/research")).body as Record<string, unknown>;
+    report.researchCheck = {
+      status: task.status,
+      error: task.error,
+      result: res,
+      calls: outputs,
+      usage: research.usage,
+    };
+    const ok = (tool: string) =>
+      (res.toolCalls ?? []).some((c) => c.tool === tool && c.status === "succeeded");
+    const line = (res.toolCalls ?? [])
+      .map(
+        (c) =>
+          `${c.tool} ${c.status === "succeeded" ? "ok" : (c.errorCode ?? c.status)} ${c.chargeUsdcE6}${c.cacheHit ? " (cached)" : ""}`,
+      )
+      .join(", ");
+    check(
+      "a real agent in E2B ran x_search and got sourced, untrusted posts",
+      ok("x_search"),
+      line,
+    );
+    check(
+      "a real agent ran a saved Dune query by name and got typed rows",
+      ok("dune_query"),
+      process.env.DUNE_API_KEY ? line : `DUNE_API_KEY is not set; ${line}`,
+    );
+    check(
+      "a real agent read a contract, a balance and code on Monad mainnet, typed and free",
+      ["read_contract", "balance", "get_code"].every(ok) &&
+        outputs
+          .filter((c) => ["read_contract", "balance", "get_code"].includes(c.tool))
+          .every((c) => String(c.charge_usdc_e6) === "0"),
+      line,
+    );
+    const x = outputs.find((c) => c.tool === "x_search" && c.status === "succeeded");
+    check(
+      "the X search was charged at its price, or free from the cache, and stayed inside the caps",
+      x !== undefined &&
+        (x.cache_hit ? String(x.charge_usdc_e6) === "0" : String(x.charge_usdc_e6) === "62500") &&
+        Number((research.usage as { xPostsRead?: number } | undefined)?.xPostsRead ?? 999) <= 300,
+      `${x?.charge_usdc_e6 ?? "none"} ${x?.cache_hit ? "(cached)" : ""}; usage ${JSON.stringify(research.usage)}`,
+    );
+  }
+
   // Every paid call is charged to the agent whose lease token made it, and nothing else.
   const charges = await t.db
     .selectFrom("platform.tool_calls as c")

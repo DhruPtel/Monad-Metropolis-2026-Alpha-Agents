@@ -29,11 +29,12 @@ import {
   resetAgentAction,
   runChainCheckAction,
   runNoopTaskAction,
+  runResearchCheckAction,
   runScanAction,
   taskAction,
 } from "./actions";
 import type { TaskKind, TaskView } from "./extension";
-import { chainCheckFields, noopFields, scanFields } from "./task-fields";
+import { chainCheckFields, noopFields, researchCheckFields, scanFields } from "./task-fields";
 
 /**
  * The agents panel's controls (P1-U5): run the no-op task on one agent and
@@ -63,17 +64,24 @@ const TASK_TEXT: Record<TaskKind, { title: string; description: string }> = {
     description:
       "The agent reads its trading account, the prices and its limits through the chain tools, checks a small trade with tradable_now and proposes it; the proposal waits for approval and nothing is sent.",
   },
+  research_check: {
+    title: "Research check",
+    description:
+      "The agent uses each research source once: an X search, a saved Dune query, and a contract read, a balance and a code check on Monad mainnet. X and Dune are charged unless the shared cache answers.",
+  },
 };
 
 const FIELDS: Record<TaskKind, typeof noopFields> = {
   noop: noopFields,
   scan: scanFields,
   chain_check: chainCheckFields,
+  research_check: researchCheckFields,
 };
 const RUN: Record<TaskKind, typeof runNoopTaskAction> = {
   noop: runNoopTaskAction,
   scan: runScanAction,
   chain_check: runChainCheckAction,
+  research_check: runResearchCheckAction,
 };
 
 const TasksContext = createContext<{ show: (s: Shown) => void } | null>(null);
@@ -181,6 +189,14 @@ export function AgentActions({
         onClick={() => runTask("chain_check")}
       >
         Run chain check
+      </Button>
+      <Button
+        size="sm"
+        variant="secondary"
+        disabled={!ready || pending}
+        onClick={() => runTask("research_check")}
+      >
+        Run research check
       </Button>
       <Dialog>
         <DialogTrigger asChild>

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { chainCheckFields, noopFields, scanFields } from "./task-fields";
+import { chainCheckFields, noopFields, researchCheckFields, scanFields } from "./task-fields";
 import { apiAgentsSource, orchestratorSource } from "./extension";
 
 const reply = (status: number, body: unknown) =>
@@ -421,5 +421,50 @@ describe("the chain tools in the console (P2-U5)", () => {
       Time: "run 1.5 s, total 2.0 s",
     });
     expect(chainCheckFields(null)).toEqual([]);
+  });
+
+  it("queues the research check on its own route, and shows each tool with its charge (P3-U9)", async () => {
+    const calls: string[] = [];
+    const orch = orchestratorSource(
+      "http://orch",
+      routes({ "/v1/agents/1/tasks/research-check": [202, { taskId: "t-research" }] }, calls),
+    );
+    expect(await orch.triggerTask(1n as never, "research_check")).toBe("t-research");
+    expect(calls).toEqual(["POST http://orch/v1/agents/1/tasks/research-check"]);
+    const fields = researchCheckFields({
+      stopReason: "INCOMPLETE",
+      toolCalls: [
+        {
+          tool: "x_search",
+          status: "succeeded",
+          errorCode: null,
+          chargeUsdcE6: "62500",
+          cacheHit: false,
+        },
+        {
+          tool: "dune_query",
+          status: "failed",
+          errorCode: "UPSTREAM_UNAVAILABLE",
+          chargeUsdcE6: "0",
+          cacheHit: false,
+        },
+        {
+          tool: "get_code",
+          status: "succeeded",
+          errorCode: null,
+          chargeUsdcE6: "0",
+          cacheHit: true,
+        },
+      ],
+      modelCalls: 6,
+      timingsMs: { run: 20_000, total: 31_000 },
+    });
+    expect(Object.fromEntries(fields.map((f) => [f.label, f.value]))).toEqual({
+      Outcome: "Ended without every source answering",
+      "Research tools": "x_search ok, dune_query UPSTREAM_UNAVAILABLE, get_code ok (cached)",
+      "Charged for tools": "0.0625 USDC",
+      "Model calls": "6",
+      Time: "run 20.0 s, total 31.0 s",
+    });
   });
 });

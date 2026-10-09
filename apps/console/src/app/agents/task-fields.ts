@@ -129,3 +129,44 @@ export function chainCheckFields(result: Record<string, unknown> | null): TaskRe
     { label: "Time", value: `run ${seconds(t.run)}, total ${seconds(t.total)}` },
   ];
 }
+
+const RESEARCH_STOP: Record<string, string> = {
+  COMPLETED: "Used every research source",
+  INCOMPLETE: "Ended without every source answering",
+  DEADLINE: "Stopped at the deadline",
+};
+
+/** The rows a research check shows (P3-U9): each research tool it called, its charge and cache hit. */
+export function researchCheckFields(result: Record<string, unknown> | null): TaskResultField[] {
+  if (!result) return [];
+  const t = (result.timingsMs ?? {}) as Record<string, unknown>;
+  const calls = (result.toolCalls ?? []) as {
+    tool: string;
+    status: string;
+    errorCode: string | null;
+    chargeUsdcE6: string;
+    cacheHit: boolean;
+  }[];
+  const charged = calls.reduce((n, c) => n + Number(c.chargeUsdcE6), 0) / 1_000_000;
+  return [
+    {
+      label: "Outcome",
+      value: RESEARCH_STOP[String(result.stopReason)] ?? String(result.stopReason),
+    },
+    {
+      label: "Research tools",
+      value:
+        calls.length === 0
+          ? "None"
+          : calls
+              .map(
+                (c) =>
+                  `${c.tool} ${c.status === "succeeded" ? (c.cacheHit ? "ok (cached)" : "ok") : (c.errorCode ?? c.status)}`,
+              )
+              .join(", "),
+    },
+    { label: "Charged for tools", value: `${charged.toFixed(4)} USDC` },
+    { label: "Model calls", value: String(result.modelCalls ?? 0) },
+    { label: "Time", value: `run ${seconds(t.run)}, total ${seconds(t.total)}` },
+  ];
+}

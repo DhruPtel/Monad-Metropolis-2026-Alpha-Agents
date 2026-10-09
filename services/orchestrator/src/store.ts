@@ -47,7 +47,7 @@ export interface Lease extends AgentRef {
   readonly endReason: string | null;
 }
 
-export type TaskKind = "noop" | "scan" | "chain_check";
+export type TaskKind = "noop" | "scan" | "chain_check" | "research_check";
 /** Who asked for a task (D-219). */
 export type TaskRequester = "owner" | "console" | "schedule";
 

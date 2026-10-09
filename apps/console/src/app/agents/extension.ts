@@ -124,13 +124,14 @@ export interface ToolCallView {
   readonly startedAt: string;
 }
 
-export type TaskKind = "noop" | "scan" | "chain_check";
+export type TaskKind = "noop" | "scan" | "chain_check" | "research_check";
 
 /** The orchestrator's route for each task kind. */
 const TASK_ROUTE: Readonly<Record<TaskKind, string>> = {
   noop: "noop",
   scan: "scan",
   chain_check: "chain-check",
+  research_check: "research-check",
 };
 
 /** An agent's credits as the orchestrator reports them (GET /v1/credits), in USDC base units. */

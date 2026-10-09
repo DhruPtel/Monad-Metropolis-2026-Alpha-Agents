@@ -20,6 +20,7 @@ import { type JobData, OrchestratorQueue } from "./queue.ts";
 import { reconcileOnce } from "./reconciler.ts";
 import { SCAN_MIN_CREDITS_USDC_E6, runScanTask, scanDue } from "./scan.ts";
 import { runChainCheckTask } from "./chain-check.ts";
+import { runResearchCheckTask } from "./research-check.ts";
 import { HERMES_TEMPLATE, type SandboxProvider } from "./sandbox.ts";
 import { type Log, type Redactor, errorText, randomToken } from "./secrets.ts";
 import { type AgentRef, OpenScanExistsError, type Store, type TaskRequester } from "./store.ts";
@@ -387,6 +388,8 @@ export class Orchestrator {
         return runScanTask({ ...this.taskContext(), narrator: this.narrator }, job.taskId);
       case "chain_check":
         return runChainCheckTask(this.taskContext(), job.taskId);
+      case "research_check":
+        return runResearchCheckTask(this.taskContext(), job.taskId);
     }
   }
 
@@ -463,6 +466,22 @@ export class Orchestrator {
     const taskId = randomUUID();
     await this.o.store.insertTask(taskId, ref, "chain_check", "console");
     await this.queue.add({ kind: "chain_check", ref, taskId });
+    return taskId;
+  }
+
+  /**
+   * The dev console's research check (P3-U9): the agent uses each research
+   * source once. An LLM task with paid tools, so it needs credits.
+   */
+  async enqueueResearchCheck(ref: AgentRef): Promise<string> {
+    const runtime = await this.o.store.runtime(ref);
+    if (runtime?.status !== "ready") throw new Error(`agent ${ref.agentId} is not provisioned`);
+    if (!this.tools) throw new Error("the tool servers are not running");
+    if (this.credits && (await this.credits.creditsOf(ref.agentId)).restricted)
+      throw new CreditsExhaustedError(ref.agentId);
+    const taskId = randomUUID();
+    await this.o.store.insertTask(taskId, ref, "research_check", "console");
+    await this.queue.add({ kind: "research_check", ref, taskId });
     return taskId;
   }
 
