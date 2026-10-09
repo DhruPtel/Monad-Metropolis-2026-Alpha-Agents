@@ -190,6 +190,7 @@ test.describe("agents panel controls (P1-U5)", () => {
     await expect(result).toContainText("Completed with complete_stage");
     await expect(result).toContainText("DONE, schema-valid");
     await expect(result).toContainText("WMON DEX_VOLUME_UP (55%)");
+    await expect(result).toContainText("aa-playbook-scan, aa-defi-regime-read");
     await expect(result).toContainText("0.0120 USDC");
   });
 
@@ -235,6 +236,26 @@ test.describe("agents panel controls (P1-U5)", () => {
     expect(overflow).toBeLessThanOrEqual(0);
     await repaint(page);
     await expect(chain).toHaveScreenshot("agents-chain.png");
+  });
+
+  test("lists the agent's mounted skills and playbooks with versions and hashes (P3-U7)", async ({
+    page,
+  }) => {
+    const skills = page.getByTestId("agent-skills");
+    const table = skills.getByRole("region", { name: "Skills and playbooks of Alpha Agent #1" });
+    for (const name of [
+      "aa-playbook-scan",
+      "aa-playbook-dive",
+      "aa-playbook-challenge",
+      "aa-playbook-zoom-out",
+      "aa-deep-dive-research",
+      "aa-usdc-wmon-band-rebalancer",
+    ])
+      await expect(table).toContainText(name);
+    await expect(table).toContainText("1.0.0");
+    await expect(skills).toContainText("tier-pro@1");
+    await repaint(page);
+    await expect(skills).toHaveScreenshot("agents-skills.png");
   });
 
   test("sets a rebalance_bands@1 plan, refuses one outside the goal, and runs the runner (P3-U3)", async ({

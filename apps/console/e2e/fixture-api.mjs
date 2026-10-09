@@ -201,6 +201,7 @@ const scanTask = JSON.stringify({
       { tool: "complete_stage", status: "succeeded", errorCode: null, chargeUsdcE6: "0" },
     ],
     toolChargeUsdcE6: "12000",
+    skillsLoaded: ["aa-playbook-scan", "aa-defi-regime-read"],
     modelCalls: 7,
     sandboxStopped: true,
     timingsMs: { sandbox: 912, hermesBoot: 14210, run: 38150, total: 61420 },
@@ -641,6 +642,11 @@ createServer((req, res) => {
     return json(200, { armed, intent: { intentId: WAITING, status: "approved" } });
   }
   if (req.method === "GET" && req.url === "/v1/agents/1/plan") return json(200, planView());
+  // P3-U7: the mounted skills and playbooks, as the orchestrator served them for the built-in set.
+  if (req.method === "GET" && req.url === "/v1/agents/1/skills")
+    return res
+      .writeHead(200, { "content-type": "application/json" })
+      .end(readFileSync(new URL("./skills-fixture.json", import.meta.url), "utf8"));
   if (req.method === "PUT" && req.url === "/v1/agents/1/plan") {
     let raw = "";
     req.on("data", (c) => (raw += c));

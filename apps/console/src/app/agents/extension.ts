@@ -44,6 +44,24 @@ export interface AgentRow {
   readonly chain: ChainView | null;
   /** P3-U3: the agent's plan and the runner's decisions; null when the orchestrator did not answer. */
   readonly plan: PlanView | null;
+  /** P3-U7: the skills and playbooks its sandbox mounts; null when the orchestrator did not answer. */
+  readonly skills: SkillsView | null;
+}
+
+/** The skills and playbooks an agent's sandbox mounts, with versions and hashes (P3-U7). */
+export interface SkillsView {
+  readonly tierPlaybook: string | null;
+  readonly setHash: string;
+  readonly packages: readonly {
+    readonly kind: "skill" | "playbook";
+    readonly id: string;
+    readonly name: string;
+    readonly version: string;
+    readonly contentHash: string;
+    readonly description: string;
+    readonly tools: readonly string[];
+    readonly mountedAt: string;
+  }[];
 }
 
 /** rebalance_bands@1's parameters as the orchestrator serves them (USDC base units as a string). */
@@ -376,6 +394,9 @@ export function orchestratorSource(baseUrl: string, fetchFn: typeof fetch = fetc
         tradeFlow: body.tradeFlow === true,
       };
     },
+    async skills(agentId: string): Promise<SkillsView> {
+      return (await call(`/v1/agents/${agentId}/skills`)) as unknown as SkillsView;
+    },
     async plan(agentId: string): Promise<PlanView> {
       return (await call(`/v1/agents/${agentId}/plan`)) as unknown as PlanView;
     },
@@ -469,8 +490,9 @@ export function apiAgentsSource(
       const toolCalls = new Map<string, ToolCallView[]>();
       const chain = new Map<string, ChainView | null>();
       const plans = new Map<string, PlanView | null>();
+      const skills = new Map<string, SkillsView | null>();
       for (const r of runtimes?.runtimes ?? []) {
-        const [a, t, ch, pl] = await Promise.all([
+        const [a, t, ch, pl, sk] = await Promise.all([
           fetchFn(`${baseUrl}/v1/agents/${r.agentId}/activity`, { cache: "no-store" })
             .then(async (res) =>
               res.ok ? (((await res.json()) as { entries?: ActivityItem[] }).entries ?? []) : [],
@@ -479,11 +501,13 @@ export function apiAgentsSource(
           orch ? orch.toolCalls(r.agentId).catch(() => []) : [],
           orch ? orch.chain(r.agentId).catch(() => null) : null,
           orch ? orch.plan(r.agentId).catch(() => null) : null,
+          orch ? orch.skills(r.agentId).catch(() => null) : null,
         ]);
         activity.set(r.agentId, a);
         toolCalls.set(r.agentId, t);
         chain.set(r.agentId, ch);
         plans.set(r.agentId, pl);
+        skills.set(r.agentId, sk);
       }
       return {
         orchestrator: runtimes !== null,
@@ -523,6 +547,7 @@ export function apiAgentsSource(
             toolCalls: toolCalls.get(a.agentId) ?? [],
             chain: chain.get(a.agentId) ?? null,
             plan: plans.get(a.agentId) ?? null,
+            skills: skills.get(a.agentId) ?? null,
           };
         }),
       };

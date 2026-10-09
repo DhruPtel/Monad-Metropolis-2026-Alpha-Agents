@@ -1,0 +1,168 @@
+{
+  "agentId": "1",
+  "provisioned": true,
+  "tier": "pro",
+  "tierPlaybook": "tier-pro@1",
+  "setHash": "f26da641d8b6609aab4c156a421ee67e53bfda1a51a15625a033bf96172f662f",
+  "packages": [
+    {
+      "kind": "skill",
+      "id": "deep-dive-research",
+      "name": "aa-deep-dive-research",
+      "version": "1.0.0",
+      "contentHash": "d9958e830674e1152acd050e92733d8ab35f6de31893df7304db9324e982df5b",
+      "description": "Researches each question across sources, claim by claim. Use when a Dive needs evidence for and against a thesis.",
+      "tools": [
+        "data.market_snapshot@1",
+        "data.defillama_tvl@1",
+        "data.web_search@1",
+        "data.read_url@1",
+        "data.x_search@1",
+        "data.dune_query@1",
+        "chain.read_contract@1"
+      ],
+      "mountedAt": "/run/agent-skills/equipped/aa-deep-dive-research"
+    },
+    {
+      "kind": "skill",
+      "id": "defi-regime-read",
+      "name": "aa-defi-regime-read",
+      "version": "1.0.0",
+      "contentHash": "1d22c49424919671b67328948c34032141724085efb94dec1cdbeccd1d1e5c46",
+      "description": "Judges Monad DeFi's regime: risk-on, neutral or risk-off. Use when judging TVL, yields and DEX flows in a Scan.",
+      "tools": [
+        "data.market_snapshot@1",
+        "data.defillama_tvl@1",
+        "data.defillama_yields@1",
+        "data.coinmarketcap_prices@1",
+        "chain.get_prices@1",
+        "data.dune_query@1"
+      ],
+      "mountedAt": "/run/agent-skills/equipped/aa-defi-regime-read"
+    },
+    {
+      "kind": "skill",
+      "id": "monad-assets-basics",
+      "name": "aa-monad-assets-basics",
+      "version": "1.0.0",
+      "contentHash": "254daf6a7064a806f7b25edef7bb28a599832bd123644be3bcbc17629068b9e8",
+      "description": "Explains MON, WMON and USDC: decimals, gas and addresses. Use when amounts, units or token contracts need checking.",
+      "tools": ["chain.read_contract@1", "chain.balance@1", "chain.get_prices@1"],
+      "mountedAt": "/run/agent-skills/equipped/aa-monad-assets-basics"
+    },
+    {
+      "kind": "skill",
+      "id": "narrative-and-flow-tracker",
+      "name": "aa-narrative-and-flow-tracker",
+      "version": "1.0.0",
+      "contentHash": "7ff29b6d3617270f809e3c1a30ddfa2300503ace4a0ba69822d51d795c6e6968",
+      "description": "Tracks what people say about Monad on X and the web, now. Use when gauging attention and whether a story is rising.",
+      "tools": ["data.x_search@1", "data.web_search@1", "data.read_url@1"],
+      "mountedAt": "/run/agent-skills/equipped/aa-narrative-and-flow-tracker"
+    },
+    {
+      "kind": "skill",
+      "id": "uniswap-v4-swap",
+      "name": "aa-uniswap-v4-swap",
+      "version": "1.0.0",
+      "contentHash": "a8ec2aa53fcaf37f43d9a26f4f6240a355d1e6a424c9f3b5804b343ba4d550f0",
+      "description": "Reads Uniswap v4 MON/USDC quotes, depth and trading cost. Use when judging what a trade at a given size would cost.",
+      "tools": [
+        "chain.get_quote@1",
+        "chain.get_pool_depth@1",
+        "chain.get_prices@1",
+        "chain.tradable_now@1"
+      ],
+      "mountedAt": "/run/agent-skills/equipped/aa-uniswap-v4-swap"
+    },
+    {
+      "kind": "skill",
+      "id": "usdc-wmon-band-rebalancer",
+      "name": "aa-usdc-wmon-band-rebalancer",
+      "version": "1.0.0",
+      "contentHash": "56180552b321261726622a1109b96bc8eb26f1e60530e7c883ef479608d91195",
+      "description": "Tunes the USDC/WMON band plan: target, band, brake, cost. Use when a Zoom out weighs changing rebalance_bands@1.",
+      "tools": [
+        "chain.get_portfolio@1",
+        "chain.get_quote@1",
+        "chain.get_limits@1",
+        "chain.get_pool_depth@1",
+        "data.volatility@1",
+        "data.market_snapshot@1"
+      ],
+      "mountedAt": "/run/agent-skills/equipped/aa-usdc-wmon-band-rebalancer"
+    },
+    {
+      "kind": "playbook",
+      "id": "playbook-challenge",
+      "name": "aa-playbook-challenge",
+      "version": "1.0.0",
+      "contentHash": "b62458b134a8a32eefcba26665429e8bf1bf7b3c84098c4058f1de96b2e53ae0",
+      "description": "Runs a Challenge: the skeptic tries to break the thesis. Use for a Challenge stage, a skeptic review or breaking a thesis.",
+      "tools": [
+        "data.market_snapshot@1",
+        "data.volatility@1",
+        "chain.get_pool_depth@1",
+        "chain.get_limits@1",
+        "chain.get_portfolio@1",
+        "data.web_search@1",
+        "platform.write_thesis@1"
+      ],
+      "mountedAt": "/run/agent-skills/playbooks/aa-playbook-challenge"
+    },
+    {
+      "kind": "playbook",
+      "id": "playbook-dive",
+      "name": "aa-playbook-dive",
+      "version": "1.0.0",
+      "contentHash": "8f4b3bbb36af2a7cacd3fe738ea5a50069d026a783133fe4648fef3f0fd1ccb3",
+      "description": "Runs a Dive: builds one theme into a falsifiable thesis. Use when the task is a Dive stage on a theme.",
+      "tools": [
+        "data.market_snapshot@1",
+        "data.web_search@1",
+        "data.read_url@1",
+        "data.x_search@1",
+        "data.dune_query@1",
+        "data.defillama_tvl@1",
+        "data.defillama_yields@1",
+        "chain.read_contract@1",
+        "chain.get_code@1",
+        "chain.balance@1",
+        "platform.write_thesis@1"
+      ],
+      "mountedAt": "/run/agent-skills/playbooks/aa-playbook-dive"
+    },
+    {
+      "kind": "playbook",
+      "id": "playbook-scan",
+      "name": "aa-playbook-scan",
+      "version": "1.0.0",
+      "contentHash": "accd10f5b6d55b4d1772e79fac8a013fc1c4351bbcfe19f44be8360563f41496",
+      "description": "Runs a Scan: finds what changed and what deserves a Dive. Use when the task is a Scan stage.",
+      "tools": [
+        "data.market_snapshot@1",
+        "data.web_search@1",
+        "data.x_search@1",
+        "data.read_url@1",
+        "platform.write_thesis@1"
+      ],
+      "mountedAt": "/run/agent-skills/playbooks/aa-playbook-scan"
+    },
+    {
+      "kind": "playbook",
+      "id": "playbook-zoom-out",
+      "name": "aa-playbook-zoom-out",
+      "version": "1.0.0",
+      "contentHash": "7da64048c7ef9a150cd546aa8dcb35ef3aa1d14a979d7d00640103d7e16cbbee",
+      "description": "Runs a Zoom out: decides if the owner's plan must change. Use when the task is a Zoom out or a plan review.",
+      "tools": [
+        "chain.get_portfolio@1",
+        "chain.get_limits@1",
+        "chain.get_quote@1",
+        "chain.get_pool_depth@1",
+        "platform.write_thesis@1"
+      ],
+      "mountedAt": "/run/agent-skills/playbooks/aa-playbook-zoom-out"
+    }
+  ]
+}

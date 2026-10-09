@@ -47,6 +47,7 @@ import {
   type AgentRow,
   type ChainView,
   type PlanView,
+  type SkillsView,
   PLANNED_AGENT_ACTIONS,
   agentsSource,
 } from "./extension";
@@ -127,6 +128,59 @@ function AgentArming({
         )}
       </div>
       <ArmingControls agentId={agentId} name={name} state={state} enabled={enabled} />
+    </div>
+  );
+}
+
+/** P3-U7: the skills and playbooks the agent's sandbox mounts, read-only, with versions and hashes. */
+function AgentSkills({ name, skills }: { name: string; skills: SkillsView | null }) {
+  if (!skills)
+    return <p className="text-sm text-foreground-muted">The mounted skills could not be read.</p>;
+  return (
+    <div className="flex flex-col gap-4" data-testid="agent-skills">
+      <SectionLabel as="h3">Skills and playbooks</SectionLabel>
+      <p className="text-sm text-foreground-muted">
+        Mounted read-only in every sandbox; the same set for every agent until builds exist. Set{" "}
+        <span className="numeric text-foreground">{skills.setHash.slice(0, 12)}</span>
+        {skills.tierPlaybook ? (
+          <>
+            , tier config <span className="numeric text-foreground">{skills.tierPlaybook}</span>
+          </>
+        ) : null}
+        .
+      </p>
+      <Table stack label={`Skills and playbooks of ${name}`}>
+        <TableHeader>
+          <TableRow>
+            <TableHead scope="col">Name</TableHead>
+            <TableHead scope="col">Kind</TableHead>
+            <TableHead scope="col">Version</TableHead>
+            <TableHead scope="col">Content hash</TableHead>
+            <TableHead scope="col">Tools</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {skills.packages.map((p) => (
+            <TableRow key={p.name}>
+              <TableCell className="numeric whitespace-nowrap">{p.name}</TableCell>
+              <TableCell label="Kind">
+                <Badge tone={p.kind === "playbook" ? "detail" : "neutral"}>
+                  {p.kind === "playbook" ? "Playbook" : "Skill"}
+                </Badge>
+              </TableCell>
+              <TableCell label="Version" className="numeric">
+                {p.version}
+              </TableCell>
+              <TableCell label="Content hash" className="numeric">
+                {p.contentHash.slice(0, 12)}
+              </TableCell>
+              <TableCell label="Tools" className="numeric">
+                {p.tools.length}
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
     </div>
   );
 }
@@ -505,6 +559,9 @@ function AgentActivity({ agents, enabled }: { agents: readonly AgentRow[]; enabl
                 plan={a.plan}
                 enabled={enabled}
               />
+            </div>
+            <div className="xl:col-span-2">
+              <AgentSkills name={a.name} skills={a.skills} />
             </div>
           </CardContent>
         </Card>

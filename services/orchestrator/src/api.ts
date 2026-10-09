@@ -11,6 +11,7 @@ import type { RevealSteering, SteerRecord, SteerTarget } from "./reveal-steer.ts
 import type { SignerWorker } from "./signer-worker.ts";
 import type { Runtime, Store, Task } from "./store.ts";
 import { registerPlanRoutes } from "./plan-routes.ts";
+import { mountedSkills } from "./hermes/materialize.ts";
 
 /**
  * The orchestrator's internal API (D-205), on loopback only. Reads serve the
@@ -485,6 +486,27 @@ export function createApi(o: ApiOptions): Hono {
       arming: armingJson(last, Math.floor(Date.now() / 1000)),
       tradeFlow: Boolean(o.orchestrator.tradeFlow),
       intents: intents.map(intentJson),
+    });
+  });
+
+  /**
+   * P3-U7: the skills and playbooks an agent's sandbox mounts, with their
+   * versions and content hashes. The same built-in set for every agent until
+   * builds exist (D-288); the agent's tier config names it.
+   */
+  app.get("/v1/agents/:agentId/skills", async (c) => {
+    const ref = agentRef(c.req.param("agentId"), o.chainId);
+    if (!ref) return c.json({ error: "bad_agent_id" }, 400);
+    const runtime = await o.store.runtime(ref);
+    const tier = (
+      runtime?.config as { tier?: { name?: string; playbook?: { version?: string } } } | undefined
+    )?.tier;
+    return c.json({
+      agentId: String(ref.agentId),
+      provisioned: runtime?.status === "ready",
+      tier: tier?.name ?? null,
+      tierPlaybook: tier?.playbook?.version ?? null,
+      ...mountedSkills(),
     });
   });
 

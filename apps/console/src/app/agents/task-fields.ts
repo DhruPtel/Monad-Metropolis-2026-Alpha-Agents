@@ -70,6 +70,13 @@ export function scanFields(result: Record<string, unknown> | null): TaskResultFi
       value: `${plural(count("web_search"), "search", "searches")}, ${plural(count("read_url"), "page", "pages")} read, ${plural(calls.length, "call", "calls")} in all`,
     },
     { label: "Tool spend", value: usdc(result.toolChargeUsdcE6) },
+    {
+      label: "Skills loaded",
+      value:
+        Array.isArray(result.skillsLoaded) && result.skillsLoaded.length > 0
+          ? (result.skillsLoaded as string[]).join(", ")
+          : "None",
+    },
     { label: "Model calls", value: String(result.modelCalls ?? 0) },
     { label: "Sandbox", value: result.sandboxStopped ? "Stopped" : "Still running" },
     {

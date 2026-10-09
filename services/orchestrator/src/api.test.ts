@@ -391,6 +391,30 @@ describe.skipIf(!dbUp)("the orchestrator's internal API (D-205)", { timeout: 60_
     expect((await off.request("/v1/agents/1/plan")).status).toBe(200);
   });
 
+  it("lists an agent's mounted skills and playbooks with versions and content hashes (P3-U7)", async () => {
+    const body = (await (await api(false).request("/v1/agents/1/skills")).json()) as {
+      provisioned: boolean;
+      tierPlaybook: string;
+      setHash: string;
+      packages: {
+        kind: string;
+        name: string;
+        version: string;
+        contentHash: string;
+        mountedAt: string;
+      }[];
+    };
+    expect(body).toMatchObject({ provisioned: true, tierPlaybook: "tier-pro@1" });
+    expect(body.setHash).toMatch(/^[0-9a-f]{64}$/);
+    expect(body.packages).toHaveLength(10);
+    expect(body.packages.find((p) => p.name === "aa-playbook-scan")).toMatchObject({
+      kind: "playbook",
+      version: "1.0.0",
+      mountedAt: "/run/agent-skills/playbooks/aa-playbook-scan",
+      contentHash: expect.stringMatching(/^[0-9a-f]{64}$/),
+    });
+  });
+
   it("has no write routes without dev actions (outside APP_ENV=local)", async () => {
     expect((await api(false).request("/v1/agents/1/reset", { method: "POST" })).status).toBe(404);
     expect((await api(false).request("/v1/agents/1/tasks/noop", { method: "POST" })).status).toBe(
