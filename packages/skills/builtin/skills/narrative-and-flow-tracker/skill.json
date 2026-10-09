@@ -2,7 +2,7 @@
   "schema_version": 1,
   "id": "narrative-and-flow-tracker",
   "name": "Narrative and flow tracker",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "type": "research",
   "publisher": {
     "id": "alpha-agents",

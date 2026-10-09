@@ -140,7 +140,10 @@ describe("the built-in skills and playbooks (P3-U7)", () => {
   it("records every version's content hash; a changed package with the same version is refused", () => {
     const lock = readVersionLock();
     for (const p of set.packages)
-      expect(lock[p.manifest.id]).toEqual({ version: "1.0.0", contentHash: p.contentHash });
+      expect(lock[p.manifest.id]).toEqual({
+        version: p.manifest.version,
+        contentHash: p.contentHash,
+      });
     const d = temp();
     cpSync(
       new URL("skills/defi-regime-read/", BUILTIN_ROOT).pathname,

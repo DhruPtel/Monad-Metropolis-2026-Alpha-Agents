@@ -461,7 +461,7 @@ The sweep is the agent's first full research cycle, run once when automatic trad
 | # | Step shown to the owner | Stage | Model | What it does | Terminal record |
 |---|---|---|---|---|---|
 | 1 | Reading your goal and account | none (deterministic) | none | Reads the goal, the template parameters, the live limits and mode, the portfolio and the credits; refuses to continue with a named reason (no goal, no trading balance, credits below the sweep ceiling, account not `NORMAL`) | `sweep_step` record |
-| 2 | Scanning the market | Scan, wide | cheap | `market_snapshot`, CoinMarketCap and DefiLlama reads, three to six web searches, up to four X searches, up to four page reads; writes Scan notes and up to four themes, each with a materiality (low, medium, high) and the sources behind it | `complete_stage(SCAN)` |
+| 2 | Scanning the market | Scan, wide | cheap | `market_snapshot`, CoinMarketCap and DefiLlama reads, three to six web searches, up to four page reads (no X search, D-330); writes Scan notes and up to four themes, each with a materiality (low, medium, high) and the sources behind it | `complete_stage(SCAN)` |
 | 3 | Reading pools and prices | none (deterministic) | none | Pool depth and quotes at the account's reference sizes, oracle against pool deviation, realized volatility over 7 and 30 days, `tradable_now` for a reference trade; stored as the market snapshot record, every figure with its source and `asOf` | `market_snapshot` record |
 | 4 | Researching in depth | Dive, two sessions in sequence | reasoning | The two most material themes, one fresh session each: evidence for and against with source class and confidence per claim, a falsifiable thesis with a kill criterion and a horizon, or "no thesis" | `complete_stage(DIVE)` per theme |
 | 5 | Checking risk | Challenge | reasoning, with the skeptic playbook | Sees only the Dive records, not the sessions: objections and a verdict per thesis (stands, weakened, rejected); then a deterministic risk check: limit headroom, distance to the breaker, the plan's size against pool depth, credit runway at the chosen intensity | `complete_stage(CHALLENGE)` |
@@ -552,7 +552,7 @@ How charges work (D-285, the owner's answer to Q-54 in D-298): model and tool ca
 | CoinMarketCap prices (D-321) | `data.coinmarketcap_prices@1` | No | P3-U2 | Scan, Dive |
 | DefiLlama TVL and yields | `data.defillama_tvl@1`, `data.defillama_yields@1` | No | P3-U2 | Scan (`defi-regime-read`) |
 | Realized volatility | `data.volatility@1` | No | P3-U2 | step 3, Zoom out, runner's brake |
-| X search | `data.x_search@1` | No | P3-U9 | Scan, Dive |
+| X search | `data.x_search@1` | No | P3-U9 | Dive only (D-330) |
 | Dune saved queries | `data.dune_query@1` | No | P3-U9 | Dive |
 | Supply unlocks | `data.unlocks@1` | No | Deferred for the beta (D-302) | Scan |
 | Curated contract reads, balances, code | `chain.read_contract@1`, `chain.balance@1`, `chain.get_code@1` | No (W-2 remainder of P2-U5) | P3-U9 | Dive |

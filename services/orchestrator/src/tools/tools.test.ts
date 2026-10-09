@@ -174,7 +174,7 @@ describe.skipIf(!dbUp)("tool servers behind the gate (needs Postgres)", { timeou
   });
 
   /** A provisioned agent with `units` micro-USDC of credits and an active lease; returns its token. */
-  const agentWith = async (agentId: number, units: bigint): Promise<string> => {
+  const agentWith = async (agentId: number, units: bigint, purpose = "scan"): Promise<string> => {
     await indexAgent(t.db, agentId, "base");
     await ensureFundingAddresses(store, keys, CHAIN);
     await provisioner.provision({ chainId: CHAIN, agentId });
@@ -198,7 +198,7 @@ describe.skipIf(!dbUp)("tool servers behind the gate (needs Postgres)", { timeou
         .execute();
       await credits.creditDeposits();
     }
-    const grant = await leases.acquire({ chainId: CHAIN, agentId }, "scan", 60_000);
+    const grant = await leases.acquire({ chainId: CHAIN, agentId }, purpose, 60_000);
     return grant.gateToken;
   };
 
@@ -394,8 +394,8 @@ describe.skipIf(!dbUp)("tool servers behind the gate (needs Postgres)", { timeou
   });
 
   it("X search: two paid calls per run, cached answers free and outside the cap, one ledger row per paid call (P3-U9)", async () => {
-    const alice = await agentWith(1, 1_000_000n);
-    const bob = await agentWith(2, 1_000_000n);
+    const alice = await agentWith(1, 1_000_000n, "research_check");
+    const bob = await agentWith(2, 1_000_000n, "research_check");
     const c = await viaGate("data", alice);
     const search = (topic: string) => c.callTool({ name: "x_search", arguments: { topic } });
     expect((await search("monad_news")).isError).toBeFalsy();
@@ -430,6 +430,30 @@ describe.skipIf(!dbUp)("tool servers behind the gate (needs Postgres)", { timeou
     expect(entries.filter((e) => JSON.stringify(e.source).includes("x_search"))).toHaveLength(2);
     expect(await spendable(1)).toBe(1_000_000n - 2n * 62_500n);
     expect(await spendable(2)).toBe(1_000_000n);
+  });
+
+  it("a Scan cannot search X, even from the cache: refused before any charge (D-330)", async () => {
+    const scanning = await agentWith(1, 1_000_000n, "scan");
+    const c = await viaGate("data", scanning);
+    const r = await c.callTool({ name: "x_search", arguments: { topic: "monad_news" } });
+    expect(structured(r)).toMatchObject({ code: "INVALID_INPUT", retryable: false });
+    expect(JSON.stringify(structured(r))).toContain("only in Dives");
+    // The other research tools still answer in a Scan.
+    expect(
+      (await c.callTool({ name: "web_search", arguments: { query: "monad" } })).isError,
+    ).toBeFalsy();
+    await c.close();
+    const rows = await t.db
+      .selectFrom("platform.tool_calls")
+      .select(["tool", "status", "error_code", "charge_usdc_e6"])
+      .where("agent_id", "=", 1)
+      .orderBy("started_at")
+      .execute();
+    expect(rows.map((r) => [r.tool, r.status, r.error_code, String(r.charge_usdc_e6)])).toEqual([
+      ["x_search", "refused", "NOT_IN_STAGE", "0"],
+      ["web_search", "succeeded", null, "10000"],
+    ]);
+    expect(await spendable(1)).toBe(1_000_000n - 10_000n);
   });
 
   it("dune_query charges the token's agent and records the saved query it ran (P3-U9)", async () => {

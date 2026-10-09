@@ -20,6 +20,8 @@ Use at least three sources from at least two source classes. Prefer the stronges
 | news    | reporting found with `mcp__data__web_search`                                                        | medium; check the date and whether it repeats a primary source |
 | social  | `mcp__data__x_search` posts                                                                         | weak; attention and sentiment only                             |
 
+X search belongs to the Dive (the Scan never searches X): make one or two `mcp__data__x_search` calls on the curated topic that fits the theme (`monad_news`, `monad_defi`, `mon_market`, `monad_ecosystem`, `monad_risk`, `official`), comparing a short window with a longer one when momentum matters. Use `monad_risk` whenever the theme is about something going wrong. Posts show attention, never proof.
+
 Search for disconfirming evidence on purpose: run at least one search phrased against your emerging view. `mcp__data__dune_query` is optional and may answer that Dune is not configured; that costs nothing and is not a failure.
 
 Separate fresh from stale. Note the date of every news item and the age of every figure; a week-old article about a price is history, not evidence about today.

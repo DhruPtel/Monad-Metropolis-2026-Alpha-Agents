@@ -14,8 +14,8 @@
       "contentHash": "254daf6a7064a806f7b25edef7bb28a599832bd123644be3bcbc17629068b9e8"
     },
     "narrative-and-flow-tracker": {
-      "version": "1.0.0",
-      "contentHash": "7ff29b6d3617270f809e3c1a30ddfa2300503ace4a0ba69822d51d795c6e6968"
+      "version": "1.0.1",
+      "contentHash": "c91f4eac56a0c05e0ac3c8f074f5405ba40729385ea6c65045477687d4e3a153"
     },
     "uniswap-v4-swap": {
       "version": "1.0.0",
@@ -30,12 +30,12 @@
       "contentHash": "b62458b134a8a32eefcba26665429e8bf1bf7b3c84098c4058f1de96b2e53ae0"
     },
     "playbook-dive": {
-      "version": "1.0.0",
-      "contentHash": "8f4b3bbb36af2a7cacd3fe738ea5a50069d026a783133fe4648fef3f0fd1ccb3"
+      "version": "1.0.1",
+      "contentHash": "c1f5319b091ef7cb1f3823f840d5d0fc226ba16d819ca7a4b265555ece5f76eb"
     },
     "playbook-scan": {
-      "version": "1.0.0",
-      "contentHash": "accd10f5b6d55b4d1772e79fac8a013fc1c4351bbcfe19f44be8360563f41496"
+      "version": "1.0.1",
+      "contentHash": "c66e65244191001956470936bb5a4e293f714c64d3778b2c2c0ae0d3418aa8ff"
     },
     "playbook-zoom-out": {
       "version": "1.0.0",

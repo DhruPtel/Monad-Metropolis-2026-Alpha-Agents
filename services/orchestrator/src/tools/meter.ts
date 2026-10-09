@@ -20,6 +20,22 @@ import type { Store } from "../store.ts";
  */
 export const MAX_PAID_CALLS_PER_LEASE = 20;
 
+/**
+ * Data tools a stage may not call, whatever its prompt or skills say (D-330):
+ * a Scan never searches X; X search belongs to the Dive. Keyed by stage.
+ */
+export const STAGE_DENIED_TOOLS: Readonly<Record<string, readonly DataTool[]>> = {
+  SCAN: ["x_search"],
+};
+
+/** The refusal for a tool its stage may not call, or null. Pure, so the rule is tested alone. */
+export function stageToolRefusal(stage: string | null, tool: DataTool): string | null {
+  if (!stage || !STAGE_DENIED_TOOLS[stage]?.includes(tool)) return null;
+  return stage === "SCAN" && tool === "x_search"
+    ? "A Scan does not search X; X search is used only in Dives. Use web_search and read_url here, and flag the theme for a Dive."
+    : `The ${stage} stage does not use ${tool}.`;
+}
+
 export interface ToolMeterOptions {
   readonly store: Store;
   readonly ledger: Ledger;
@@ -62,9 +78,20 @@ export class ToolMeter implements Meter {
       .execute();
   }
 
+  /** The research stage a lease is running: a Scan task's lease is a SCAN. */
+  private async stageOf(leaseId: string): Promise<string | null> {
+    const lease = await this.o.store.lease(leaseId);
+    return lease?.purpose === "scan" ? "SCAN" : null;
+  }
+
   async begin(identity: AgentIdentity, call: Parameters<Meter["begin"]>[1]): Promise<string> {
     const ref = { chainId: identity.chainId, agentId: identity.agentId };
     return this.o.store.withAgentLock(ref, async () => {
+      const refusal = stageToolRefusal(await this.stageOf(identity.leaseId), call.tool);
+      if (refusal) {
+        await this.insertRefused(identity, call.tool, call.input, "NOT_IN_STAGE", null);
+        throw new ToolError("INVALID_INPUT", refusal, false);
+      }
       const paid = await this.o.store.db
         .selectFrom("platform.tool_calls")
         .select((eb) => eb.fn.countAll<string>().as("n"))
