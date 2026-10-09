@@ -88,7 +88,7 @@ describe.skipIf(!dbUp)("the orchestrator's internal API (D-205)", { timeout: 60_
       status: "ready",
       tier: "pro",
       slots: 8,
-      playbook: "tier-pro@0",
+      playbook: "tier-pro@1",
       keyAlias: "aa-unit-143143-1-g1",
       lease: null,
       latestTask: null,

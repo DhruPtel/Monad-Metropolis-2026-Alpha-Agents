@@ -9,6 +9,7 @@ import {
 } from "@alpha-agents/domain";
 import { MemoryPlatformStore, startPlatformTools } from "@alpha-agents/platform-tools";
 import { LAUNCH_SKILL_MANIFESTS } from "@alpha-agents/skills";
+import { loadBuiltinSet } from "@alpha-agents/skills/packages";
 import type { AgentIdentity, ToolServer as RunningServer } from "@alpha-agents/tool-server";
 import { connectClient, staticResolver } from "@alpha-agents/tool-server/testing";
 import { unconfiguredProvider } from "./servers.ts";
@@ -66,9 +67,17 @@ export interface RegistryReport {
 
 export async function registryReport(): Promise<RegistryReport> {
   const live = await liveToolNames();
-  const declared = (
+  // The built-in skills and playbooks as written (P3-U7), and the launch skills not yet written
+  // (token-risk-screen, wallet-intel, wmon-dca-accumulator: W-1) from their fixtures.
+  const builtin = loadBuiltinSet().packages.map((p) => p.manifest);
+  const written = new Set(builtin.map((m) => m.id));
+  const fixtures = (
     LAUNCH_SKILL_MANIFESTS as { id: string; required_tools: string[]; intents: string[] }[]
-  ).map((m) => ({ skill: m.id, tools: [...m.required_tools, ...m.intents] }));
+  ).filter((m) => !written.has(m.id) && m.id !== "venue-swap");
+  const declared = [...builtin, ...fixtures].map((m) => ({
+    skill: m.id,
+    tools: [...m.required_tools, ...m.intents],
+  }));
   const problems = checkToolRegistry({
     registry: TOOL_REGISTRY,
     deferrals: TOOL_DEFERRALS,

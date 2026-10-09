@@ -118,37 +118,59 @@ export function baseHermesSettings(model: string = DEFAULT_MODEL): HermesSetting
 }
 
 /**
- * Tier overlays (A-12): base gets the two strategy playbooks; medium adds the
- * Rebalancer starter workflow; pro adds Recurring Buys. Budgets are uniform
+ * The built-in skills and stage playbooks every agent mounts (P3-U7, D-288),
+ * by their names in the sandbox. The same for every tier until builds exist;
+ * a test holds this list to packages/skills/builtin.
+ */
+export const BUILTIN_SKILL_NAMES = [
+  "aa-deep-dive-research",
+  "aa-defi-regime-read",
+  "aa-monad-assets-basics",
+  "aa-narrative-and-flow-tracker",
+  "aa-uniswap-v4-swap",
+  "aa-usdc-wmon-band-rebalancer",
+  "aa-playbook-challenge",
+  "aa-playbook-dive",
+  "aa-playbook-scan",
+  "aa-playbook-zoom-out",
+] as const;
+
+const SKILLS_BLOCK = `Until builds exist every agent carries the same skills and the four stage playbooks (Scan,
+Dive, Challenge, Zoom out). Load the playbook for the stage your task names with skill_view
+before you start, and load a skill when its description fits the work. Skills and playbooks
+are read-only and are written for you; never copy their wording into notes.`;
+
+/**
+ * Tier overlays (A-12): the tiers differ by slots and starter workflows;
+ * every tier mounts the same built-in set for now (D-288). Budgets are uniform
  * across tiers (FINAL_PLAN 4.3.1), so overlays never change turn caps or budgets.
  */
 export const TIER_PLAYBOOKS: Readonly<Record<Tier, Playbook>> = {
   base: {
-    version: "tier-base@0",
-    skills: ["playbook-band-rebalancer", "playbook-wmon-dca"],
+    version: "tier-base@1",
+    skills: [...BUILTIN_SKILL_NAMES],
     starterWorkflows: [],
     soulBlock: `## Base tier
 
-You hold 3 skill slots. Your playbooks cover the two launch strategies: a USDC/WMON band
-rebalancer and a WMON DCA accumulator.`,
+You hold 3 skill slots. ${SKILLS_BLOCK}`,
   },
   medium: {
-    version: "tier-medium@0",
-    skills: ["playbook-band-rebalancer", "playbook-wmon-dca"],
+    version: "tier-medium@1",
+    skills: [...BUILTIN_SKILL_NAMES],
     starterWorkflows: ["rebalancer"],
     soulBlock: `## Medium tier
 
-You hold 5 skill slots. Your playbooks cover the band rebalancer and the DCA accumulator, and
-your owner starts with the Rebalancer workflow available.`,
+You hold 5 skill slots, and your owner starts with the Rebalancer workflow available.
+${SKILLS_BLOCK}`,
   },
   pro: {
-    version: "tier-pro@0",
-    skills: ["playbook-band-rebalancer", "playbook-wmon-dca"],
+    version: "tier-pro@1",
+    skills: [...BUILTIN_SKILL_NAMES],
     starterWorkflows: ["rebalancer", "recurring-buys"],
     soulBlock: `## Pro tier
 
-You hold 8 skill slots. Your playbooks cover the band rebalancer and the DCA accumulator, and
-your owner starts with the Rebalancer and Recurring Buys workflows available.`,
+You hold 8 skill slots, and your owner starts with the Rebalancer and Recurring Buys workflows
+available. ${SKILLS_BLOCK}`,
   },
 };
 

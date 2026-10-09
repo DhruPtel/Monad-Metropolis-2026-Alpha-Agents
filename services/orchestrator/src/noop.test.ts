@@ -110,7 +110,7 @@ describe.skipIf(!dbUp)("the no-op task (needs Postgres)", { timeout: 60_000 }, (
       agentId: 1,
       tier: "medium",
       slots: 5,
-      playbook: "tier-medium@0",
+      playbook: "tier-medium@1",
       runStatus: "completed",
       replied: "NOOP_OK",
       answeredNoopOk: true,
@@ -156,8 +156,12 @@ describe.skipIf(!dbUp)("the no-op task (needs Postgres)", { timeout: 60_000 }, (
     );
     expect(written).not.toContain(key);
     expect(written).not.toContain(must(s.injectHeaders[GATE_HEADER]));
-    expect([...must(files).keys()]).toContain(
-      "/run/agent-skills/playbooks/playbook-wmon-dca/SKILL.md",
+    // P3-U7: the built-in skills and playbooks are written into the read-only mount.
+    expect([...must(files).keys()]).toEqual(
+      expect.arrayContaining([
+        "/run/agent-skills/playbooks/aa-playbook-scan/SKILL.md",
+        "/run/agent-skills/equipped/aa-deep-dive-research/SKILL.md",
+      ]),
     );
   });
 

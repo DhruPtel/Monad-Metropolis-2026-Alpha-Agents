@@ -112,19 +112,31 @@ export async function bootHermes(
     toolsOrigin: gateOrigin,
     apiServerKey,
   });
+  const dirs = new Set([
+    PLAYBOOKS_DIR,
+    EQUIPPED_DIR,
+    ...Object.keys(files.skills).map((p) => p.slice(0, p.lastIndexOf("/"))),
+  ]);
   await must(
     sbx,
-    `mkdir -p ${PLAYBOOKS_DIR} ${EQUIPPED_DIR} ${WORKSPACE_DIR} && chown user:user ${WORKSPACE_DIR}`,
+    `mkdir -p ${[...dirs].join(" ")} ${WORKSPACE_DIR} && chown user:user ${WORKSPACE_DIR}`,
     "root",
   );
-  for (const [path, text] of Object.entries(files.playbooks))
-    await sbx.writeFile(path, text, "root");
+  for (const [path, text] of Object.entries(files.skills)) await sbx.writeFile(path, text, "root");
   // The skill mount is root-owned and read-only to the agent's user (FINAL_PLAN 4.3.2).
   await must(
     sbx,
     `chown -R root:root ${SKILLS_ROOT} && find ${SKILLS_ROOT} -type d -exec chmod 555 {} + && find ${SKILLS_ROOT} -type f -exec chmod 444 {} +`,
     "root",
   );
+  // H-11 at every boot: the agent's user cannot add to or change the mount; a writable mount stops the boot.
+  const probe = await sbx.run(
+    `touch ${PLAYBOOKS_DIR}/aa-playbook-scan/probe 2>/dev/null && echo WRITABLE; ` +
+      `(echo x >> ${PLAYBOOKS_DIR}/aa-playbook-scan/SKILL.md) 2>/dev/null && echo WRITABLE; echo checked`,
+    { user: "user" },
+  );
+  if (probe.stdout.includes("WRITABLE"))
+    throw new Error("the skill mount is writable by the agent; refusing to start");
   for (const [name, text] of Object.entries(files.home))
     await sbx.writeFile(`${HERMES_HOME}/${name}`, text, "user");
   await sbx.spawn(`hermes gateway run > /home/user/gateway.log 2>&1`, {
@@ -132,6 +144,39 @@ export async function bootHermes(
     envs: { HERMES_HOME, HOME: "/home/user" },
   });
   return new HermesRuns(`http://127.0.0.1:${API_SERVER_PORT}`, apiServerKey, sandboxCall(sbx));
+}
+
+/**
+ * The skills the agent loaded with skill_view during its session (P3-U7), read
+ * from Hermes's own session database in the sandbox; empty when there is none.
+ * Any `aa-` skill name in a skill_view call counts.
+ */
+export async function skillsLoaded(sbx: SandboxHandle): Promise<string[]> {
+  const script = [
+    "import glob, re, sqlite3",
+    "seen = []",
+    `for path in glob.glob("${HERMES_HOME}/**/*.db", recursive=True):`,
+    "    try:",
+    "        db = sqlite3.connect(path)",
+    "        for (table,) in db.execute(\"select name from sqlite_master where type='table'\"):",
+    "            for row in db.execute('select * from \"%s\"' % table):",
+    "                text = ' '.join(str(c) for c in row if isinstance(c, (str, bytes)))",
+    "                if 'skill_view' not in text:",
+    "                    continue",
+    "                for name in re.findall(r'skill_view.{0,200}?(aa-[a-z0-9-]+)', text, re.S):",
+    "                    if name not in seen:",
+    "                        seen.append(name)",
+    "    except Exception:",
+    "        pass",
+    "print(' '.join(seen))",
+  ].join("\n");
+  const r = await sbx.run(`python3 - <<'PY'\n${script}\nPY`, { user: "user", timeoutMs: 30_000 });
+  return r.exitCode === 0
+    ? r.stdout
+        .trim()
+        .split(/\s+/)
+        .filter((n) => /^aa-[a-z0-9-]+$/.test(n))
+    : [];
 }
 
 /** A running agent sandbox under a lease, with Hermes healthy inside it. */

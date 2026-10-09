@@ -2,9 +2,14 @@ import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
-import { type AgentIdentity, TIER_PLAYBOOKS, renderAgentConfig } from "./layers.ts";
-import { HERMES_HOME, MODEL_KEY_PLACEHOLDER, materialize } from "./materialize.ts";
-import { DISABLED_TOOLSETS, PLAYBOOKS_DIR } from "./schema.ts";
+import {
+  type AgentIdentity,
+  BUILTIN_SKILL_NAMES,
+  TIER_PLAYBOOKS,
+  renderAgentConfig,
+} from "./layers.ts";
+import { HERMES_HOME, MODEL_KEY_PLACEHOLDER, builtinSet, materialize } from "./materialize.ts";
+import { DISABLED_TOOLSETS, EQUIPPED_DIR, PLAYBOOKS_DIR } from "./schema.ts";
 
 const agent = (tier: AgentIdentity["tier"], agentId = 7): AgentIdentity => ({
   chainId: 143143,
@@ -31,9 +36,9 @@ describe("agent config layers (D-204)", () => {
       ];
     });
     expect(rows).toEqual([
-      ["base", 3, "tier-base@0", []],
-      ["medium", 5, "tier-medium@0", ["rebalancer"]],
-      ["pro", 8, "tier-pro@0", ["rebalancer", "recurring-buys"]],
+      ["base", 3, "tier-base@1", []],
+      ["medium", 5, "tier-medium@1", ["rebalancer"]],
+      ["pro", 8, "tier-pro@1", ["rebalancer", "recurring-buys"]],
     ]);
   });
 
@@ -109,14 +114,13 @@ describe("agent config layers (D-204)", () => {
     expect(() => renderAgentConfig(agent("base"), { hermes })).toThrow(/agent config is invalid/);
   });
 
-  it("lists only playbooks that exist on disk", () => {
-    for (const playbook of Object.values(TIER_PLAYBOOKS)) {
-      for (const skill of playbook.skills) {
-        expect(existsSync(resolve(import.meta.dirname, "../../playbooks", skill, "SKILL.md"))).toBe(
-          true,
-        );
-      }
-    }
+  it("names exactly the built-in skills and playbooks for every tier (D-288)", () => {
+    const names = builtinSet()
+      .packages.map((p) => p.hermesName)
+      .sort();
+    expect([...BUILTIN_SKILL_NAMES].sort()).toEqual(names);
+    for (const playbook of Object.values(TIER_PLAYBOOKS))
+      expect([...playbook.skills].sort()).toEqual(names);
   });
 });
 
@@ -178,13 +182,29 @@ describe("materializing a config for a sandbox", () => {
     expect(env).toContain("API_SERVER_HOST=127.0.0.1");
   });
 
-  it("writes SOUL.md, the bundled-skills switch and the tier's playbooks", () => {
+  it("writes SOUL.md, the bundled-skills switch, and the built-in skills and playbooks read-only (P3-U7)", () => {
     expect(files.home["SOUL.md"]).toContain("Medium tier");
+    expect(files.home["SOUL.md"]).toContain("four stage playbooks");
     expect(files.home[".no-bundled-skills"]).toBe("");
-    expect(Object.keys(files.playbooks).sort()).toEqual([
-      `${PLAYBOOKS_DIR}/playbook-band-rebalancer/SKILL.md`,
-      `${PLAYBOOKS_DIR}/playbook-wmon-dca/SKILL.md`,
-    ]);
+    const paths = Object.keys(files.skills);
+    for (const name of [
+      "aa-playbook-scan",
+      "aa-playbook-dive",
+      "aa-playbook-challenge",
+      "aa-playbook-zoom-out",
+    ])
+      expect(paths).toContain(`${PLAYBOOKS_DIR}/${name}/SKILL.md`);
+    for (const name of ["aa-deep-dive-research", "aa-usdc-wmon-band-rebalancer"])
+      expect(paths).toContain(`${EQUIPPED_DIR}/${name}/SKILL.md`);
+    expect(paths).toContain(`${EQUIPPED_DIR}/aa-usdc-wmon-band-rebalancer/evals/evals.yaml`);
+    expect(paths).toContain(`${EQUIPPED_DIR}/aa-deep-dive-research/references/source-classes.md`);
+    // The manifest stays outside; each SKILL.md starts with the generated frontmatter.
+    expect(paths.some((p) => p.endsWith("skill.json"))).toBe(false);
+    expect(files.skills[`${PLAYBOOKS_DIR}/aa-playbook-scan/SKILL.md`]).toMatch(
+      /^---\nname: aa-playbook-scan\n/,
+    );
+    expect(files.mounted.packages).toHaveLength(10);
+    expect(files.mounted.setHash).toMatch(/^[0-9a-f]{64}$/);
     expect(HERMES_HOME).toBe("/home/user/hermes-home");
   });
 

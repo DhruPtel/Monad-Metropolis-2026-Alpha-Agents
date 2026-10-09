@@ -1,7 +1,6 @@
-import { readFileSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { type BuiltinSet, loadBuiltinSet } from "@alpha-agents/skills/packages";
 import { canonicalJson } from "./layers.ts";
-import { type AgentConfig, PLAYBOOKS_DIR } from "./schema.ts";
+import { type AgentConfig, EQUIPPED_DIR, PLAYBOOKS_DIR } from "./schema.ts";
 
 /**
  * Turns a stored agent configuration into the files a sandbox needs, adding
@@ -15,7 +14,40 @@ export const MODEL_KEY_PLACEHOLDER = "injected-outside-the-sandbox";
 export const HERMES_HOME = "/home/user/hermes-home";
 export const API_SERVER_PORT = 8642;
 
-const PLAYBOOK_SOURCE = resolve(import.meta.dirname, "../../playbooks");
+/**
+ * The built-in skills and playbooks every agent mounts (P3-U7, D-288), loaded
+ * once per process from packages/skills/builtin and checked: a package that
+ * fails validation, the audit or the version lock is never mounted.
+ */
+let builtin: BuiltinSet | null = null;
+export function builtinSet(): BuiltinSet {
+  if (builtin) return builtin;
+  const set = loadBuiltinSet();
+  const blocking = set.issues.filter((i) => i.severity === "block");
+  if (blocking.length > 0)
+    throw new Error(
+      `the built-in skills do not pass their checks: ${blocking.map((i) => `${i.id} ${i.rule} ${i.path}`).join("; ")}`,
+    );
+  builtin = set;
+  return set;
+}
+
+/** The mounted set as the console and the logs show it. */
+export function mountedSkills(set: BuiltinSet = builtinSet()) {
+  return {
+    setHash: set.setHash,
+    packages: set.packages.map((p) => ({
+      kind: p.kind,
+      id: p.manifest.id,
+      name: p.hermesName,
+      version: p.manifest.version,
+      contentHash: p.contentHash,
+      description: p.manifest.description.model,
+      tools: p.manifest.required_tools,
+      mountedAt: `${p.kind === "skill" ? EQUIPPED_DIR : PLAYBOOKS_DIR}/${p.hermesName}`,
+    })),
+  };
+}
 
 export interface SandboxRuntime {
   /** Base URL of the model gateway as the sandbox sees it, ending in /v1. */
@@ -28,14 +60,15 @@ export interface SandboxRuntime {
 export interface SandboxFiles {
   /** Paths relative to HERMES_HOME. */
   readonly home: Readonly<Record<string, string>>;
-  /** Absolute paths under PLAYBOOKS_DIR, written by root and made read-only. */
-  readonly playbooks: Readonly<Record<string, string>>;
-}
-
-/** The playbook skill text for one folder, from services/orchestrator/playbooks. */
-export function playbookSkill(name: string, root: string = PLAYBOOK_SOURCE): string {
-  if (!/^[a-z0-9-]+$/.test(name)) throw new Error(`invalid playbook name ${name}`);
-  return readFileSync(join(root, name, "SKILL.md"), "utf8");
+  /**
+   * Absolute paths under EQUIPPED_DIR (the launch skills) and PLAYBOOKS_DIR
+   * (the stage playbooks), written by root and made read-only: one folder per
+   * package named with the platform prefix, SKILL.md with its generated
+   * frontmatter, and the package's references, data and evals.
+   */
+  readonly skills: Readonly<Record<string, string>>;
+  /** The set mounted, with each package's version and content hash. */
+  readonly mounted: ReturnType<typeof mountedSkills>;
 }
 
 export function materialize(config: AgentConfig, runtime: SandboxRuntime): SandboxFiles {
@@ -70,9 +103,16 @@ export function materialize(config: AgentConfig, runtime: SandboxRuntime): Sandb
     `API_SERVER_PORT=${API_SERVER_PORT}`,
     "",
   ].join("\n");
-  const playbooks: Record<string, string> = {};
-  for (const name of config.tier.playbook.skills)
-    playbooks[`${PLAYBOOKS_DIR}/${name}/SKILL.md`] = playbookSkill(name);
+  // D-288: every agent mounts the same built-in set until builds exist, whatever its tier's slots.
+  const set = builtinSet();
+  const skills: Record<string, string> = {};
+  for (const p of set.packages) {
+    const root = `${p.kind === "skill" ? EQUIPPED_DIR : PLAYBOOKS_DIR}/${p.hermesName}`;
+    skills[`${root}/SKILL.md`] = p.skillMd;
+    for (const f of p.files)
+      if (f.path !== "SKILL.md" && f.path !== "skill.json")
+        skills[`${root}/${f.path}`] = f.bytes.toString("utf8");
+  }
   return {
     home: {
       "config.yaml": configYaml,
@@ -80,6 +120,7 @@ export function materialize(config: AgentConfig, runtime: SandboxRuntime): Sandb
       "SOUL.md": config.soul,
       ".no-bundled-skills": "",
     },
-    playbooks,
+    skills,
+    mounted: mountedSkills(set),
   };
 }
