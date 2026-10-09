@@ -1,6 +1,6 @@
 # Build Plan
 
-*What has to be built, in what order. Revision 2. Revision 1 reconciled `Planv1/PHASES.md` with the planning answers; revision 2 applies the owner decisions and fixes from the orientation session of 2026-09-27. The Phase 3 planning session of 2026-10-07 rewrote Phase 3 (D-277 to D-296) and added the Gallery, Leaderboard and Dashboard options in section 4.5.*
+*What has to be built, in what order. Revision 3 (2026-10-09): the product is now an autonomous fund agent (`FINAL_PLAN.md > 0`, D-332 to D-348), and section 4.0 replaces the order of every unit not yet built. Revision 2. Revision 1 reconciled `Planv1/PHASES.md` with the planning answers; revision 2 applies the owner decisions and fixes from the orientation session of 2026-09-27. The Phase 3 planning session of 2026-10-07 rewrote Phase 3 (D-277 to D-296) and added the Gallery, Leaderboard and Dashboard options in section 4.5.*
 
 Companion to `FINAL_PLAN.md` (what we are building) and `DECISIONS_AND_OPEN_QUESTIONS.md` (the record). Order is by dependency only; there are no time estimates anywhere in this document. The October 13, 2026 hackathon deadline is a constraint on the definition of the hackathon beta (`FINAL_PLAN.md > 2.1`), not a schedule. The project is Alpha Agents. This repository is the code repository: code, plan documents and tracking files all live here (owner decision, orientation).
 
@@ -440,6 +440,8 @@ Cannot be verified on testnet: real prices, real liquidity and slippage, Chainli
 - The MetaMask and OKX extensions with a Monad Testnet network added from the web app's prompt.
 
 ### Phase 3: Goal and research
+
+*Revision 3: the template, the goal form, the playbooks, the plan card and the sweep below are revised for fund agents by `FINAL_PLAN.md > 0` and section 4.0 (F-U6 to F-U10); the discovery loop engine (P3-U4) stands.*
 
 **Goal.** The owner sets a structured goal; turning on automatic trading starts an activation sweep that builds an industry overview and a market snapshot and ends in a plan; after that the agent researches on its own at a cadence the owner can afford, keeps its view current, changes its plan when the evidence supports it, and trades through the deterministic template runner within the hard limits (`PHASES.md > Phase 3`, owner vision of 2026-10-07, D-277 to D-296).
 
@@ -1046,7 +1048,87 @@ The order is the demo spine (D-159). One unit per session, in this order. **Pass
 
 The "Hackathon beta" column is the cut line. **Full** ships as specified in Pass 1. **Thin** ships the described version in Pass 1; the items named after a W-number are added in that Pass 2 session, and the items named "after PB-U2" in the completion pass. **Cut** is built after PB-U2 (D-160). Contract units are never thinned, because the beta contracts are the launch contracts, and nothing thins the hard limits, the Executor as the only path to funds, `redeemInKind` or the beta guard (D-159). Playtest rows mark where each playtest falls; a playtest is a session of its own with a `LOGS.md` entry. The rows of section 3 hold each unit's full scope.
 
+### 4.0 Revision 3: the fund agent unit list (2026-10-09)
+
+The product is now an autonomous fund agent (`FINAL_PLAN.md > 0`, D-332). This section replaces the order of 4.1 to 4.3 for every unit not yet built. Built units stay built; the marks below say which of them the redesign keeps, revises or replaces. One focused unit per session, as before; each new unit names its contract, service or page scope so it fits one session.
+
+#### Submission scope (Q-61)
+
+- **Option A, the full fund agent on Monad (the owner's lean).** Class F and class A tokens, the safety check, the target portfolio, the aggressiveness goal, the revised activation sweep and portfolio page, on mainnet behind the beta guard. Units F-U1 to F-U12, then PB-U1 and PB-U2. Multi-chain right after.
+- **Option B, the class F fund agent first (recommended as the order to build in, whatever the scope).** The same units, ordered so that class F (tokens with a push feed: MON, USDC, USDT0, AUSD, WETH, WBTC or cbBTC, MON's liquid staking tokens, subject to the feed spike in F-U2) makes a complete demo on its own, and class A (the attestor, screened tokens, memecoins) lands after it. If the class A units are not done when PB-U1 must start, the submission ships class F with class A shown on testnet and labeled, and nothing is wasted.
+- **Option C, submit the two-asset build and show the redesign as the roadmap.** Least risk, but it submits the product the owner has just said is not the product.
+
+**Recommendation: build in Option B's order and aim for Option A.** The honest constraint is capacity, not design: the list below is 12 units before PB-U1, each a session, plus playtests, against October 13. Contract units are never thinned (D-159); if they slip, the submission falls back to labeled testnet (D-162), not to weaker contracts.
+
+#### Revised units, in build order
+
+| # | Unit | Name | Scope (one session) | Depends on | Class |
+|---|---|---|---|---|---|
+| R1 | F-U1 | Token universe, registry and safety screen | Data tools `token_universe`, `new_pools`, `trending` (GeckoTerminal, DexScreener, CoinGecko and CoinMarketCap joined by address, cached, sourced); the platform token registry table with screens; `token_screen` (fork buy, transfer and sell simulation through the real route, static checks, GoPlus as a second opinion, market checks) with every refusal of `FINAL_PLAN.md > 0.3` as a typed finding; the console's Tokens page. No contracts | P3-U9 | F and A |
+| R2 | F-U2 | Contracts I: token registry, oracle v3 and generic venues | TokenRegistry (two lanes, D-342); OracleAdapter v3 with per-asset feeds and the attestation verifier; generic adapters (Uniswap v3 and PancakeSwap v3 paths, Uniswap v4 multi-hop over hookless keys); ProtocolRegistry pools per pair; the feed spike for every class F candidate (heartbeat, deviation, the 300-second rule, as P2-U0 did for MON/USD) | F-U1 | F and A |
+| R3 | F-U3 | Contracts II: custody core v3 | Custody core, PersonalAccount and AccountFactory for a bounded held list (16), per-token decimals and prices, the cost-basis ledger, the screened opt-in, withdrawals and `withdrawAll` over the held list with no price, backstops per class | F-U2 | F and A |
+| R4 | F-U4 | Contracts III: Executor v3 and the policy mirror | Generic pairs, per-side prices, attestations in intents, cost-basis caps, multi-hop, the stable floor, the new policy hash; packages/policy mirror and both parity fixtures v2 with the new case families (D-343); deploy on the fork as salt v3 beside v1 and v2; fork tests on real pools for a class F and a class A token | F-U3 | F and A |
+| | Playtest F-mid | | Deposit, buy two class F tokens through the Executor, see a cost-basis cap refuse a buy, withdraw everything in kind with the oracle paused, on the fork by script | after F-U4 | |
+| R5 | F-U5 | Chain tools, signer and trade flow for N tokens | `get_assets` from the registry, `get_portfolio` and `get_limits` for N holdings with cost basis, `get_quote(sell, buy)` with a route, `propose_swap` for any registered pair, the signer's token map and decimals from the registry, the trade flow's venue per route, snapshots per asset (migration from `wmon_wei`) | F-U4 | F |
+| R6 | F-U6 | Target portfolio, runner v2 and the Test stage v2 | `target_portfolio@1` with its bounds and evals; the runner's one leg per minute, sells first, routed through USDC; the deterministic Test of `FINAL_PLAN.md > 0.5`; `rebalance_bands@1` kept as the two-asset case | F-U5 | F |
+| R7 | F-U7 | Goal v2 | The aggressiveness goal, `modelTier` (Low, Medium, High, with the LiteLLM aliases), the screened opt-in and excluded tokens; the translator's brief, envelope and limits; the Goal page; migration of saved goals (each current goal maps to Conservative) | F-U6 | F |
+| R8 | F-U8 | Research v2 | Playbooks 2.0 (Scan over the universe and positions, per-token Dives, Zoom out per position with add, hold, trim, exit); the `token-risk-screen` and a portfolio construction skill; the Zoom out's decision is a `target_portfolio@1` draft; the brief kinds gain POSITION; Playtest 3-mid's cycles rerun on the new playbooks | F-U7 | F |
+| R9 | F-U9 | Portfolio proposals and the plan card | P3-U6 revised for portfolios: `propose_strategy_update` and `no_change`, the evaluator on the Test stage, states and approval, the plan card listing positions with weights, theses and the trades implied; the screened opt-in transaction on approval when the plan holds a screened token | F-U8 | F |
+| R10 | F-U10 | Activation sweep | P3-U8 revised: the sweep's steps become reading the goal and account, scanning the universe, screening candidates, per-token Dives, the Challenge, the Test and the plan; the step panel and the bee's reaction | F-U9 | F |
+| R11 | F-U11 | Portfolio page for N positions | P2-U7 revised: holdings with cost basis, value, weight against target, each position's thesis brief and exit plan, blocked-trade reasons, deposit and withdraw (in kind across every held token) | F-U10 | F |
+| | Playtest F-end | | The fund agent end to end in the web app on the fork: goal, activation, approval, legs, positions, withdrawal | after F-U11 | |
+| R12 | F-U12 | Price attestor and class A live | The attestor service (sources, median, tolerance, its own key, 60-second validity), class A intents end to end, the screened lane in the registry through the console, the watcher's re-screen of held tokens | F-U11 | A |
+| R13 | F-U13 | Real chains for the new contracts | Testnet: the v3 set as a fresh throwaway (TestnetFeed per class F asset, seeded pools for two tokens, the attestor on testnet); mainnet canary rerun with the v3 set: a class F round trip and, if F-U12 is done, a class A round trip on a screened token, inside D-316's budget; REAL_CHAIN.md updated | F-U11 (F-U12 for the class A canary) | F and A |
+| | Rehearsal | | PB-U1 against testnet, as before (D-162 fallback) | after F-U13 | |
+| R14 | PB-U1 | Beta guard and mainnet beta deployment | As before, with the v3 set and the registry's core lane seeded with the class F tokens the feed spike passed; the screened lane on only if F-U12 passed | F-U13 | |
+| R15 | PB-U2 | Hackathon submission deliverables | As before, with the fund agent's demo | PB-U1 | |
+
+After the submission, in this order: P3-U10 revised (cadence, triggers per position, the Research page), P5-U1 (profile, thin), P4-U2 (the sentinel for N tokens), multi-chain M-U1 to M-U3 (Base: contracts port and ownership mirror, adapters and feeds, indexer and tools), then the completion pass of 4.4 (vaults with class F only, D-338; skills as NFTs; marketplace; x402), Phase 9 and the Solana track.
+
+#### Every existing unit, marked
+
+| Unit | Mark | What happens |
+|---|---|---|
+| P0-U1 to P0-U7, P1-U1 to P1-U7, P1-U9 to P1-U11 | Keep | Unchanged; the mint, credits, runtime and design system are the same |
+| P2-U0 | Keep, extended | Its method is reused by F-U2's feed spike for every class F candidate |
+| P2-U1 Custody core | Replace | By F-U3 (v3). The v1 and v2 sets stay on the fork; agent 1's v1 account is untouched |
+| P2-U2 Executor, registry, adapter | Replace | By F-U2 (registry, adapters) and F-U4 (Executor) |
+| P2-U3 Oracle and breaker | Replace | By F-U2 (oracle v3) and F-U3 (breaker over the held list) |
+| P2-U4 Signer | Revise | Inside F-U5 (token map and decimals from the registry) |
+| P2-U5 Chain tools | Revise | F-U5 |
+| P2-U6 Trade flow | Revise | F-U5 (venue per route); arming unchanged |
+| P2-U7 Portfolio UI | Revise | F-U11 |
+| P2-EC | Keep, rerun | F-U13 reruns its testnet and canary halves for the v3 set |
+| P3-U1 Goal form | Revise | F-U7 |
+| P3-U2, P3-U9 Data tools | Keep | Extended by F-U1's discovery tools |
+| P3-U3 Template runner | Replace | By F-U6; `rebalance_bands@1` stays as the two-asset case |
+| P3-U7 Launch skills | Revise | F-U8 (playbooks 2.0, `token-risk-screen`, portfolio construction); `usdc-wmon-band-rebalancer` becomes a two-asset example |
+| P3-U4 Discovery loop engine | Keep | The engine, caps, ceilings, briefs and validator are unchanged; F-U8 changes what the stages do |
+| P3-U5 Thesis Board | Cut (as before) | Position thesis briefs stand in |
+| P3-U6 Parameter proposals | Revise | F-U9 |
+| P3-U8 Activation sweep | Revise | F-U10 |
+| P3-U10 Autonomous loop | Revise | After the submission, with per-position triggers |
+| P4-U2 Risk Sentinel | Revise | After the submission, for N tokens and re-screens |
+| P5-U1 Profile | Keep | After the submission (thin) |
+| P5-U3, P5-U4 Signal feed and x402 | Defer | Completion pass (Q-61) |
+| P6-U1 to P6-U6 Skills as NFTs and configure | Defer | Completion pass (Q-61) |
+| P7-U1 to P7-U4 Vaults | Revise, defer | Class F tokens only (D-338); completion pass |
+| P7-U7 Gallery, P4-U4 Dashboard, P7-U6 Leaderboard | Defer | Completion pass |
+| P8-U1, P8-U2 Escrow and marketplace | Defer | Completion pass |
+| W-1 to W-8 | Revise | W-1 keeps only what gates PB-U1 for the fund agent (the wallet compatibility test, the settlement sweep, the deferred runtime spikes that gate a beta unit); W-2 to W-8 move after the submission (Q-65) |
+| Rehearsal, PB-U1, PB-U2 | Keep | On the v3 set |
+| Solana track | Keep | Unchanged, after multi-chain EVM |
+
+#### What must be redeployed
+
+- **Local fork:** the v3 set (TokenRegistry, OracleAdapter v3, generic adapters, ProtocolRegistry, Executor v3, AccountFactory v3) beside v1 and v2, without a reset; the address book names v3; the owner's wallet goes on v3's depositor allowlist; agent 1 and its v1 account stay as they are. The fork's frozen pools and feeds mean class A prices on the fork come from the attestor reading mainnet sources, labeled, while trades fill against the fork's pools (D-289 as before).
+- **Testnet:** a fresh throwaway v3 set under its own salt scope; a TestnetFeed per class F asset used; seeded pools for USDC/WMON and two more tokens, because testnet has almost no liquidity; the attestor on testnet with its own key.
+- **Mainnet canary:** a new throwaway canary of the v3 set under `p2ec.canary` v3, within D-316's budget, emptied afterward; P2-EC's v1 canary stays retired.
+- **Mainnet beta (PB-U1):** the v3 set for keeps; nothing of v1 or v2 is deployed on mainnet for the beta.
+
 ### 4.1 Pass 1: the demo spine
+
+*Revision 3: the order below is the record of what was planned and built before the redesign; for every unit not yet built, section 4.0's order and marks apply.*
 
 | # | Step | Unit | Name | One-line goal | Depends on | Hackathon beta |
 |---|---|---|---|---|---|---|
@@ -1407,6 +1489,8 @@ Dropped from the register as Zodiac-only: ZR-2, ZR-4l, ZR-6B to ZR-6D, ZR-Z03, Z
 The demo must show every item in `FINAL_PLAN.md > 2.1`: connect and mint, fund credits, set a goal, research and one real trade within the hard limits, the configure page with the 3D agent and an equipped skill, the agent profile with the activity feed and "why the agent did not trade", one vault deposit and one withdrawal including `redeemInKind`, one agent-to-agent signal purchase, and the creator flow from upload through audit, listing, purchase, equipping and use. It also shows one rejected candidate, one blocked unsafe action and one safe interruption and recovery; five platform-run agents may illustrate different builds on the same proven path, labeled as platform-run (`preview.html > Revised build manual > 14`, `technical-report.html > 19`). Anything shown on testnet is labeled testnet on screen.
 
 ### 7.2 Cut order if a dependency fails
+
+*Revision 3: for the fund agent, the submission's scope and fallback are Q-61 and section 4.0 (build class F first; class A ships on labeled testnet if it is not ready; contracts are never thinned).*
 
 Two stages, one rule. From `preview.html > Revised build manual > 15`, adopted for every scope decision: never weaken custody, accounting, emergency handling or data provenance, and never substitute unlimited permissions or optimistic accounting to preserve a demo claim. Every cut feature stays tracked in section 6 with its failed gate and next proof.
 
