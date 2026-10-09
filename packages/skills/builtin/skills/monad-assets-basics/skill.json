@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "id": "monad-assets-basics",
+  "name": "Monad assets basics",
+  "version": "1.0.0",
+  "type": "protocol",
+  "publisher": {
+    "id": "alpha-agents",
+    "address": "0x0000000000000000000000000000000000000001",
+    "key_id": "platform-1"
+  },
+  "description": {
+    "model": "Explains MON, WMON and USDC: decimals, gas and addresses. Use when amounts, units or token contracts need checking.",
+    "marketplace": "The ground truth on the two assets agents trade on Monad: MON and wrapped MON, canonical USDC, decimals, raw amounts, gas and the platform's address book."
+  },
+  "triggers": [
+    "converting raw amounts to token units",
+    "checking which contract is canonical USDC or WMON"
+  ],
+  "not_for": ["deciding whether to trade"],
+  "required_tools": ["chain.read_contract@1", "chain.balance@1", "chain.get_prices@1"],
+  "intents": [],
+  "data_sources": [],
+  "required_tier": "base",
+  "slot_cost": 1,
+  "synergy_tags": ["assets", "monad"],
+  "chains": ["eip155:143"],
+  "privacy": "public"
+}

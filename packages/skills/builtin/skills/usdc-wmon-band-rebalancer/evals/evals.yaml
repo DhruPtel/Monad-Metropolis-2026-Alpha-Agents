@@ -1,0 +1,492 @@
+# P3-U3's evals for rebalance_bands@1 (Q-28), as YAML (JSON is valid YAML). Generated from packages/policy/evals.
+{
+  "template": "rebalance_bands@1",
+  "format": 1,
+  "note": "P3-U3 evals (Q-28): each scenario's account, prices, volatility, quote and parameters with the expected action and reason. Shared by the runner's tests and later by the audit's dynamic test (P6-U4). Expected values were computed by an independent implementation of the rule, not by the TypeScript under test. Prices fixed at 0.025 USD per MON.",
+  "scenarios": [
+    {
+      "name": "at-target",
+      "description": "An account exactly at its 20% target holds IN_BAND.",
+      "params": {
+        "targetWmonBps": 2000,
+        "bandHalfWidthBps": 500,
+        "minTradeUsdcE6": "500000",
+        "volatilityBrakeBps": 20000,
+        "costHurdleBps": 40,
+        "maxLegBps": 1000
+      },
+      "state": {
+        "usdcRaw": "80000000",
+        "wmonRaw": "800000000000000000000",
+        "priceE18": "25000000000000000",
+        "volatility24hPct": 110.0,
+        "limits": {
+          "maxTradeBps": 1000,
+          "maxWmonShareBps": 4000,
+          "minUsdcShareBps": 1000
+        }
+      },
+      "quote": null,
+      "expect": {
+        "action": "hold",
+        "code": "IN_BAND"
+      }
+    },
+    {
+      "name": "band-edge",
+      "description": "A share exactly at the band's edge (15%) still holds IN_BAND.",
+      "params": {
+        "targetWmonBps": 2000,
+        "bandHalfWidthBps": 500,
+        "minTradeUsdcE6": "500000",
+        "volatilityBrakeBps": 20000,
+        "costHurdleBps": 40,
+        "maxLegBps": 1000
+      },
+      "state": {
+        "usdcRaw": "85000000",
+        "wmonRaw": "600000000000000000000",
+        "priceE18": "25000000000000000",
+        "volatility24hPct": 110.0,
+        "limits": {
+          "maxTradeBps": 1000,
+          "maxWmonShareBps": 4000,
+          "minUsdcShareBps": 1000
+        }
+      },
+      "quote": null,
+      "expect": {
+        "action": "hold",
+        "code": "IN_BAND"
+      }
+    },
+    {
+      "name": "drift-down-buy",
+      "description": "At 13% against a 20% target and a 5-point band, it buys back to the target in one leg.",
+      "params": {
+        "targetWmonBps": 2000,
+        "bandHalfWidthBps": 500,
+        "minTradeUsdcE6": "500000",
+        "volatilityBrakeBps": 20000,
+        "costHurdleBps": 40,
+        "maxLegBps": 1000
+      },
+      "state": {
+        "usdcRaw": "87000000",
+        "wmonRaw": "520000000000000000000",
+        "priceE18": "25000000000000000",
+        "volatility24hPct": 110.0,
+        "limits": {
+          "maxTradeBps": 1000,
+          "maxWmonShareBps": 4000,
+          "minUsdcShareBps": 1000
+        }
+      },
+      "quote": "279664000000000000000",
+      "expect": {
+        "action": "trade",
+        "sell": "USDC",
+        "amountIn": "7000000"
+      }
+    },
+    {
+      "name": "from-zero-capped",
+      "description": "At 0% WMON with a 20% target, the first leg is capped at the 10% largest leg less the half-percent margin (D-096: the rest follows in later legs).",
+      "params": {
+        "targetWmonBps": 2000,
+        "bandHalfWidthBps": 500,
+        "minTradeUsdcE6": "500000",
+        "volatilityBrakeBps": 20000,
+        "costHurdleBps": 40,
+        "maxLegBps": 1000
+      },
+      "state": {
+        "usdcRaw": "100000000",
+        "wmonRaw": "0",
+        "priceE18": "25000000000000000",
+        "volatility24hPct": 110.0,
+        "limits": {
+          "maxTradeBps": 1000,
+          "maxWmonShareBps": 4000,
+          "minUsdcShareBps": 1000
+        }
+      },
+      "quote": "397522400000000000000",
+      "expect": {
+        "action": "trade",
+        "sell": "USDC",
+        "amountIn": "9950000"
+      }
+    },
+    {
+      "name": "drift-up-sell",
+      "description": "At 30% WMON against 20%, it sells WMON back to the target.",
+      "params": {
+        "targetWmonBps": 2000,
+        "bandHalfWidthBps": 500,
+        "minTradeUsdcE6": "500000",
+        "volatilityBrakeBps": 20000,
+        "costHurdleBps": 40,
+        "maxLegBps": 1000
+      },
+      "state": {
+        "usdcRaw": "70000000",
+        "wmonRaw": "1200000000000000000000",
+        "priceE18": "25000000000000000",
+        "volatility24hPct": 110.0,
+        "limits": {
+          "maxTradeBps": 1000,
+          "maxWmonShareBps": 4000,
+          "minUsdcShareBps": 1000
+        }
+      },
+      "quote": "9938060",
+      "expect": {
+        "action": "trade",
+        "sell": "WMON",
+        "amountIn": "398000000000000000000"
+      }
+    },
+    {
+      "name": "sell-capped",
+      "description": "At 40% WMON against a 10% target, the sale is capped at the largest leg.",
+      "params": {
+        "targetWmonBps": 1000,
+        "bandHalfWidthBps": 500,
+        "minTradeUsdcE6": "500000",
+        "volatilityBrakeBps": 20000,
+        "costHurdleBps": 40,
+        "maxLegBps": 1000
+      },
+      "state": {
+        "usdcRaw": "60000000",
+        "wmonRaw": "1600000000000000000000",
+        "priceE18": "25000000000000000",
+        "volatility24hPct": 110.0,
+        "limits": {
+          "maxTradeBps": 1000,
+          "maxWmonShareBps": 4000,
+          "minUsdcShareBps": 1000
+        }
+      },
+      "quote": "9938060",
+      "expect": {
+        "action": "trade",
+        "sell": "WMON",
+        "amountIn": "398000000000000000000"
+      }
+    },
+    {
+      "name": "below-min-trade",
+      "description": "A 4 USDC account 10 points over a 0% target would trade 0.40 USDC, under the 0.50 USDC minimum.",
+      "params": {
+        "targetWmonBps": 0,
+        "bandHalfWidthBps": 500,
+        "minTradeUsdcE6": "500000",
+        "volatilityBrakeBps": 20000,
+        "costHurdleBps": 40,
+        "maxLegBps": 1000
+      },
+      "state": {
+        "usdcRaw": "3600000",
+        "wmonRaw": "16000000000000000000",
+        "priceE18": "25000000000000000",
+        "volatility24hPct": 110.0,
+        "limits": {
+          "maxTradeBps": 1000,
+          "maxWmonShareBps": 4000,
+          "minUsdcShareBps": 1000
+        }
+      },
+      "quote": null,
+      "expect": {
+        "action": "hold",
+        "code": "BELOW_MIN_TRADE"
+      }
+    },
+    {
+      "name": "volatility-brake-buy",
+      "description": "Underweight with volatility at 250% against a 200% brake: the buy holds.",
+      "params": {
+        "targetWmonBps": 2000,
+        "bandHalfWidthBps": 500,
+        "minTradeUsdcE6": "500000",
+        "volatilityBrakeBps": 20000,
+        "costHurdleBps": 40,
+        "maxLegBps": 1000
+      },
+      "state": {
+        "usdcRaw": "90000000",
+        "wmonRaw": "400000000000000000000",
+        "priceE18": "25000000000000000",
+        "volatility24hPct": 250.0,
+        "limits": {
+          "maxTradeBps": 1000,
+          "maxWmonShareBps": 4000,
+          "minUsdcShareBps": 1000
+        }
+      },
+      "quote": null,
+      "expect": {
+        "action": "hold",
+        "code": "VOLATILITY_BRAKE"
+      }
+    },
+    {
+      "name": "volatility-brake-sale-goes",
+      "description": "Overweight with volatility at 250%: a sale is never braked.",
+      "params": {
+        "targetWmonBps": 2000,
+        "bandHalfWidthBps": 500,
+        "minTradeUsdcE6": "500000",
+        "volatilityBrakeBps": 20000,
+        "costHurdleBps": 40,
+        "maxLegBps": 1000
+      },
+      "state": {
+        "usdcRaw": "65000000",
+        "wmonRaw": "1400000000000000000000",
+        "priceE18": "25000000000000000",
+        "volatility24hPct": 250.0,
+        "limits": {
+          "maxTradeBps": 1000,
+          "maxWmonShareBps": 4000,
+          "minUsdcShareBps": 1000
+        }
+      },
+      "quote": "9938060",
+      "expect": {
+        "action": "trade",
+        "sell": "WMON",
+        "amountIn": "398000000000000000000"
+      }
+    },
+    {
+      "name": "volatility-unavailable-buy",
+      "description": "Underweight with no volatility reading: the buy holds.",
+      "params": {
+        "targetWmonBps": 2000,
+        "bandHalfWidthBps": 500,
+        "minTradeUsdcE6": "500000",
+        "volatilityBrakeBps": 20000,
+        "costHurdleBps": 40,
+        "maxLegBps": 1000
+      },
+      "state": {
+        "usdcRaw": "90000000",
+        "wmonRaw": "400000000000000000000",
+        "priceE18": "25000000000000000",
+        "volatility24hPct": null,
+        "limits": {
+          "maxTradeBps": 1000,
+          "maxWmonShareBps": 4000,
+          "minUsdcShareBps": 1000
+        }
+      },
+      "quote": null,
+      "expect": {
+        "action": "hold",
+        "code": "VOLATILITY_UNAVAILABLE"
+      }
+    },
+    {
+      "name": "cost-hurdle",
+      "description": "A quote 60 bps under the oracle against a 40 bps cost limit holds the buy.",
+      "params": {
+        "targetWmonBps": 2000,
+        "bandHalfWidthBps": 500,
+        "minTradeUsdcE6": "500000",
+        "volatilityBrakeBps": 20000,
+        "costHurdleBps": 40,
+        "maxLegBps": 1000
+      },
+      "state": {
+        "usdcRaw": "87000000",
+        "wmonRaw": "520000000000000000000",
+        "priceE18": "25000000000000000",
+        "volatility24hPct": 110.0,
+        "limits": {
+          "maxTradeBps": 1000,
+          "maxWmonShareBps": 4000,
+          "minUsdcShareBps": 1000
+        }
+      },
+      "quote": "278320000000000000000",
+      "expect": {
+        "action": "hold",
+        "code": "COST_HURDLE"
+      }
+    },
+    {
+      "name": "cost-within",
+      "description": "A quote 12 bps under the oracle passes a 40 bps cost limit.",
+      "params": {
+        "targetWmonBps": 2000,
+        "bandHalfWidthBps": 500,
+        "minTradeUsdcE6": "500000",
+        "volatilityBrakeBps": 20000,
+        "costHurdleBps": 40,
+        "maxLegBps": 1000
+      },
+      "state": {
+        "usdcRaw": "87000000",
+        "wmonRaw": "520000000000000000000",
+        "priceE18": "25000000000000000",
+        "volatility24hPct": 110.0,
+        "limits": {
+          "maxTradeBps": 1000,
+          "maxWmonShareBps": 4000,
+          "minUsdcShareBps": 1000
+        }
+      },
+      "quote": "279664000000000000000",
+      "expect": {
+        "action": "trade",
+        "sell": "USDC",
+        "amountIn": "7000000"
+      }
+    },
+    {
+      "name": "oracle-stale",
+      "description": "No usable oracle price: hold ORACLE_STALE before anything else.",
+      "params": {
+        "targetWmonBps": 2000,
+        "bandHalfWidthBps": 500,
+        "minTradeUsdcE6": "500000",
+        "volatilityBrakeBps": 20000,
+        "costHurdleBps": 40,
+        "maxLegBps": 1000
+      },
+      "state": {
+        "usdcRaw": "80000000",
+        "wmonRaw": "800000000000000000000",
+        "priceE18": null,
+        "volatility24hPct": 110.0,
+        "limits": {
+          "maxTradeBps": 1000,
+          "maxWmonShareBps": 4000,
+          "minUsdcShareBps": 1000
+        }
+      },
+      "quote": null,
+      "expect": {
+        "action": "hold",
+        "code": "ORACLE_STALE"
+      }
+    },
+    {
+      "name": "owner-target-clamped",
+      "description": "A target of 30% with the owner's most-in-WMON at 15% is clamped to 15%, so 14% WMON is in band.",
+      "params": {
+        "targetWmonBps": 3000,
+        "bandHalfWidthBps": 500,
+        "minTradeUsdcE6": "500000",
+        "volatilityBrakeBps": 20000,
+        "costHurdleBps": 40,
+        "maxLegBps": 1000
+      },
+      "state": {
+        "usdcRaw": "86000000",
+        "wmonRaw": "560000000000000000000",
+        "priceE18": "25000000000000000",
+        "volatility24hPct": 110.0,
+        "limits": {
+          "maxTradeBps": 1000,
+          "maxWmonShareBps": 1500,
+          "minUsdcShareBps": 1000
+        }
+      },
+      "quote": null,
+      "expect": {
+        "action": "hold",
+        "code": "IN_BAND"
+      }
+    },
+    {
+      "name": "owner-stricter-trade",
+      "description": "The owner's largest trade of 2% caps the leg below the plan's 10%.",
+      "params": {
+        "targetWmonBps": 2000,
+        "bandHalfWidthBps": 500,
+        "minTradeUsdcE6": "500000",
+        "volatilityBrakeBps": 20000,
+        "costHurdleBps": 40,
+        "maxLegBps": 1000
+      },
+      "state": {
+        "usdcRaw": "100000000",
+        "wmonRaw": "0",
+        "priceE18": "25000000000000000",
+        "volatility24hPct": 110.0,
+        "limits": {
+          "maxTradeBps": 200,
+          "maxWmonShareBps": 4000,
+          "minUsdcShareBps": 1000
+        }
+      },
+      "quote": "79504480000000000000",
+      "expect": {
+        "action": "trade",
+        "sell": "USDC",
+        "amountIn": "1990000"
+      }
+    },
+    {
+      "name": "empty-account",
+      "description": "An empty account holds BELOW_MIN_TRADE.",
+      "params": {
+        "targetWmonBps": 2000,
+        "bandHalfWidthBps": 500,
+        "minTradeUsdcE6": "500000",
+        "volatilityBrakeBps": 20000,
+        "costHurdleBps": 40,
+        "maxLegBps": 1000
+      },
+      "state": {
+        "usdcRaw": "0",
+        "wmonRaw": "0",
+        "priceE18": "25000000000000000",
+        "volatility24hPct": 110.0,
+        "limits": {
+          "maxTradeBps": 1000,
+          "maxWmonShareBps": 4000,
+          "minUsdcShareBps": 1000
+        }
+      },
+      "quote": null,
+      "expect": {
+        "action": "hold",
+        "code": "BELOW_MIN_TRADE"
+      }
+    },
+    {
+      "name": "all-wmon-sells-capped",
+      "description": "An account all in WMON with a 0% target sells in legs capped at the largest leg, never more WMON than it holds.",
+      "params": {
+        "targetWmonBps": 0,
+        "bandHalfWidthBps": 500,
+        "minTradeUsdcE6": "500000",
+        "volatilityBrakeBps": 20000,
+        "costHurdleBps": 40,
+        "maxLegBps": 1000
+      },
+      "state": {
+        "usdcRaw": "0",
+        "wmonRaw": "400000000000000000000",
+        "priceE18": "25000000000000000",
+        "volatility24hPct": 110.0,
+        "limits": {
+          "maxTradeBps": 1000,
+          "maxWmonShareBps": 4000,
+          "minUsdcShareBps": 1000
+        }
+      },
+      "quote": "993806",
+      "expect": {
+        "action": "trade",
+        "sell": "WMON",
+        "amountIn": "39800000000000000000"
+      }
+    }
+  ]
+}

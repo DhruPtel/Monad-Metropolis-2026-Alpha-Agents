@@ -1,0 +1,45 @@
+{
+  "note": "Each built-in skill and playbook version's content hash (P3-U7). A version never changes; a change needs a new version. Written by pnpm skills:lock.",
+  "versions": {
+    "deep-dive-research": {
+      "version": "1.0.0",
+      "contentHash": "d9958e830674e1152acd050e92733d8ab35f6de31893df7304db9324e982df5b"
+    },
+    "defi-regime-read": {
+      "version": "1.0.0",
+      "contentHash": "1d22c49424919671b67328948c34032141724085efb94dec1cdbeccd1d1e5c46"
+    },
+    "monad-assets-basics": {
+      "version": "1.0.0",
+      "contentHash": "254daf6a7064a806f7b25edef7bb28a599832bd123644be3bcbc17629068b9e8"
+    },
+    "narrative-and-flow-tracker": {
+      "version": "1.0.0",
+      "contentHash": "7ff29b6d3617270f809e3c1a30ddfa2300503ace4a0ba69822d51d795c6e6968"
+    },
+    "uniswap-v4-swap": {
+      "version": "1.0.0",
+      "contentHash": "a8ec2aa53fcaf37f43d9a26f4f6240a355d1e6a424c9f3b5804b343ba4d550f0"
+    },
+    "usdc-wmon-band-rebalancer": {
+      "version": "1.0.0",
+      "contentHash": "56180552b321261726622a1109b96bc8eb26f1e60530e7c883ef479608d91195"
+    },
+    "playbook-challenge": {
+      "version": "1.0.0",
+      "contentHash": "b62458b134a8a32eefcba26665429e8bf1bf7b3c84098c4058f1de96b2e53ae0"
+    },
+    "playbook-dive": {
+      "version": "1.0.0",
+      "contentHash": "8f4b3bbb36af2a7cacd3fe738ea5a50069d026a783133fe4648fef3f0fd1ccb3"
+    },
+    "playbook-scan": {
+      "version": "1.0.0",
+      "contentHash": "accd10f5b6d55b4d1772e79fac8a013fc1c4351bbcfe19f44be8360563f41496"
+    },
+    "playbook-zoom-out": {
+      "version": "1.0.0",
+      "contentHash": "7da64048c7ef9a150cd546aa8dcb35ef3aa1d14a979d7d00640103d7e16cbbee"
+    }
+  }
+}

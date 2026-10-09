@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "id": "uniswap-v4-swap",
+  "name": "Uniswap v4 swap",
+  "version": "1.0.0",
+  "type": "protocol",
+  "publisher": {
+    "id": "alpha-agents",
+    "address": "0x0000000000000000000000000000000000000001",
+    "key_id": "platform-1"
+  },
+  "description": {
+    "model": "Reads Uniswap v4 MON/USDC quotes, depth and trading cost. Use when judging what a trade at a given size would cost.",
+    "marketplace": "How to read the launch venue, Uniswap v4's MON/USDC 0.05% pool on Monad: quotes against the oracle, price impact at reference sizes, depth, and every rule that can block a trade."
+  },
+  "triggers": ["estimating the cost of a plan change's trades", "reading price impact or depth"],
+  "not_for": ["sizing the runner's trades"],
+  "required_tools": [
+    "chain.get_quote@1",
+    "chain.get_pool_depth@1",
+    "chain.get_prices@1",
+    "chain.tradable_now@1"
+  ],
+  "intents": ["intent.propose_swap@1"],
+  "data_sources": [],
+  "required_tier": "base",
+  "slot_cost": 1,
+  "synergy_tags": ["dex", "uniswap"],
+  "chains": ["eip155:143"],
+  "privacy": "public"
+}

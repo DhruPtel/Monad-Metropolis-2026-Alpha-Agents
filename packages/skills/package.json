@@ -2,10 +2,11 @@
   "name": "@alpha-agents/skills",
   "version": "0.0.0",
   "private": true,
-  "description": "The skill.json v1 manifest schema and validator against the canonical tool registry.",
+  "description": "The skill.json v1 manifest schema and validator, and the built-in skill packages: packaging, content hashes, frontmatter, the audit and the version lock.",
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./packages": "./src/packages-index.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit -p ."

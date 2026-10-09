@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "id": "playbook-zoom-out",
+  "name": "Zoom out playbook",
+  "version": "1.0.0",
+  "type": "research",
+  "publisher": {
+    "id": "alpha-agents",
+    "address": "0x0000000000000000000000000000000000000001",
+    "key_id": "platform-1"
+  },
+  "description": {
+    "model": "Runs a Zoom out: decides if the owner's plan must change. Use when the task is a Zoom out or a plan review.",
+    "marketplace": "Platform playbook for the Zoom out stage. Not equippable."
+  },
+  "required_tools": [
+    "chain.get_portfolio@1",
+    "chain.get_limits@1",
+    "chain.get_quote@1",
+    "chain.get_pool_depth@1",
+    "platform.write_thesis@1"
+  ],
+  "intents": [],
+  "data_sources": [],
+  "required_tier": "base",
+  "slot_cost": 1,
+  "synergy_tags": ["platform-playbook", "stage-zoom-out"],
+  "chains": ["eip155:143"],
+  "privacy": "public"
+}

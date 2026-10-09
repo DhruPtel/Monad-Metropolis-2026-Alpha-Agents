@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "id": "defi-regime-read",
+  "name": "DeFi regime read",
+  "version": "1.0.0",
+  "type": "research",
+  "publisher": {
+    "id": "alpha-agents",
+    "address": "0x0000000000000000000000000000000000000001",
+    "key_id": "platform-1"
+  },
+  "description": {
+    "model": "Judges Monad DeFi's regime: risk-on, neutral or risk-off. Use when judging TVL, yields and DEX flows in a Scan.",
+    "marketplace": "A risk-on, neutral or risk-off verdict for Monad DeFi from TVL, yields, DEX volumes and prices, separating sustainable yield from incentive yield."
+  },
+  "triggers": [
+    "judging whether Monad DeFi is expanding or contracting",
+    "telling incentive yield from organic yield"
+  ],
+  "not_for": ["a single protocol's due diligence"],
+  "required_tools": [
+    "data.market_snapshot@1",
+    "data.defillama_tvl@1",
+    "data.defillama_yields@1",
+    "data.coinmarketcap_prices@1",
+    "chain.get_prices@1",
+    "data.dune_query@1"
+  ],
+  "intents": [],
+  "data_sources": [],
+  "required_tier": "base",
+  "slot_cost": 1,
+  "synergy_tags": ["defi", "regime"],
+  "chains": ["eip155:143"],
+  "privacy": "public"
+}

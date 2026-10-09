@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "id": "playbook-dive",
+  "name": "Dive playbook",
+  "version": "1.0.0",
+  "type": "research",
+  "publisher": {
+    "id": "alpha-agents",
+    "address": "0x0000000000000000000000000000000000000001",
+    "key_id": "platform-1"
+  },
+  "description": {
+    "model": "Runs a Dive: builds one theme into a falsifiable thesis. Use when the task is a Dive stage on a theme.",
+    "marketplace": "Platform playbook for the Dive stage. Not equippable."
+  },
+  "required_tools": [
+    "data.market_snapshot@1",
+    "data.web_search@1",
+    "data.read_url@1",
+    "data.x_search@1",
+    "data.dune_query@1",
+    "data.defillama_tvl@1",
+    "data.defillama_yields@1",
+    "chain.read_contract@1",
+    "chain.get_code@1",
+    "chain.balance@1",
+    "platform.write_thesis@1"
+  ],
+  "intents": [],
+  "data_sources": [],
+  "required_tier": "base",
+  "slot_cost": 1,
+  "synergy_tags": ["platform-playbook", "stage-dive"],
+  "chains": ["eip155:143"],
+  "privacy": "public"
+}

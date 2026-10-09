@@ -1,0 +1,34 @@
+{
+  "schema_version": 1,
+  "id": "deep-dive-research",
+  "name": "Deep dive research",
+  "version": "1.0.0",
+  "type": "research",
+  "publisher": {
+    "id": "alpha-agents",
+    "address": "0x0000000000000000000000000000000000000001",
+    "key_id": "platform-1"
+  },
+  "description": {
+    "model": "Researches each question across sources, claim by claim. Use when a Dive needs evidence for and against a thesis.",
+    "marketplace": "Tiered sources, a source class and confidence on every claim, evidence for and against, and a mandatory skeptic pass before any conclusion."
+  },
+  "triggers": ["building a thesis on one theme", "checking a claim against primary sources"],
+  "not_for": ["a broad market sweep"],
+  "required_tools": [
+    "data.market_snapshot@1",
+    "data.defillama_tvl@1",
+    "data.web_search@1",
+    "data.read_url@1",
+    "data.x_search@1",
+    "data.dune_query@1",
+    "chain.read_contract@1"
+  ],
+  "intents": [],
+  "data_sources": [],
+  "required_tier": "base",
+  "slot_cost": 1,
+  "synergy_tags": ["research", "thesis"],
+  "chains": ["eip155:143"],
+  "privacy": "public"
+}

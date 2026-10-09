@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "id": "playbook-scan",
+  "name": "Scan playbook",
+  "version": "1.0.0",
+  "type": "research",
+  "publisher": {
+    "id": "alpha-agents",
+    "address": "0x0000000000000000000000000000000000000001",
+    "key_id": "platform-1"
+  },
+  "description": {
+    "model": "Runs a Scan: finds what changed and what deserves a Dive. Use when the task is a Scan stage.",
+    "marketplace": "Platform playbook for the Scan stage. Not equippable."
+  },
+  "required_tools": [
+    "data.market_snapshot@1",
+    "data.web_search@1",
+    "data.x_search@1",
+    "data.read_url@1",
+    "platform.write_thesis@1"
+  ],
+  "intents": [],
+  "data_sources": [],
+  "required_tier": "base",
+  "slot_cost": 1,
+  "synergy_tags": ["platform-playbook", "stage-scan"],
+  "chains": ["eip155:143"],
+  "privacy": "public"
+}
