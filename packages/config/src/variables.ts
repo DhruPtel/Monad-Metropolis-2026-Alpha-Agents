@@ -111,7 +111,7 @@ export const VARIABLES = [
     name: "MONAD_RPC_URL",
     group: "Chain RPC",
     description:
-      "Monad mainnet RPC (chain 143): upstream of the local fork, and the beta and canary chain RPC",
+      "Monad mainnet RPC (chain 143): upstream of the local fork, and the beta and canary chain RPC. Also research's read-only mainnet reads in every environment, testnet included (D-289); never a signing RPC outside beta and canary",
     secret: true,
     firstUsedBy: "P0-U2",
     environments: ["local", "beta", "canary"],

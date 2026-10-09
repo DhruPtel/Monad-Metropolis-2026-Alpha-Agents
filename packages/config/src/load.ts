@@ -45,6 +45,13 @@ export interface Config {
   readonly rpcUrl: Secret | null;
   /** Every variable of this environment that is set; secrets are wrapped in Secret. */
   readonly values: Readonly<Partial<Record<VariableName, ConfigValue>>>;
+  /**
+   * Research's read-only Monad mainnet RPCs (D-289, P3-U9): MONAD_RPC_URL and
+   * MONAD_RPC_URL_SECONDARY as set, in every environment but the canary. Kept
+   * apart from `values` and `rpcUrl` so no signing or chain path can pick them
+   * up; the reader built from them refuses every method that is not a read.
+   */
+  readonly researchRpcUrls: readonly Secret[];
 }
 
 export interface ConfigIssue {
@@ -191,6 +198,7 @@ export function loadConfig(service: ServiceSpec, source: EnvSource = process.env
   }
 
   checkGuards(environment, service, source, values, issues);
+  const researchRpcUrls = researchRpcs(environment, source, issues);
   if (issues.length > 0) throw new ConfigError(heading, issues);
 
   const rpcUrl =
@@ -203,7 +211,40 @@ export function loadConfig(service: ServiceSpec, source: EnvSource = process.env
     signing: service.signs === true,
     rpcUrl,
     values,
+    researchRpcUrls,
   };
+}
+
+/** The mainnet RPC variables research reads from, in failover order. */
+export const RESEARCH_RPC_VARIABLES = ["MONAD_RPC_URL", "MONAD_RPC_URL_SECONDARY"] as const;
+
+/**
+ * Research's mainnet RPCs (D-289). Read from the mainnet variables' own names in
+ * every environment, testnet included, where MONAD_RPC_URL_SECONDARY otherwise
+ * means the testnet's second provider (D-254). Unset, empty and placeholder
+ * values are skipped; an invalid URL is an issue. The canary never reads them.
+ */
+function researchRpcs(
+  environment: Environment,
+  source: EnvSource,
+  issues: ConfigIssue[],
+): Secret[] {
+  if (environment.id === "canary") return [];
+  const urls: Secret[] = [];
+  for (const name of RESEARCH_RPC_VARIABLES) {
+    const spec = VARIABLES.find((v) => v.name === name);
+    if (!spec) continue;
+    const raw = classify(spec, source[name]);
+    if (raw.state !== "set") continue;
+    if (!spec.schema.safeParse(raw.value).success) {
+      // A variable this environment reads is already reported by the main loop.
+      if (!issues.some((i) => i.variable === name))
+        issues.push({ variable: name, problem: `is invalid: expected ${spec.expected}` });
+      continue;
+    }
+    if (!urls.some((u) => u.reveal() === raw.value)) urls.push(new Secret(raw.value));
+  }
+  return urls;
 }
 
 /** The mainnet guard. Pushes issues; never reads a value into a message. */
@@ -266,10 +307,18 @@ function checkGuards(
     checkTestnetServices(source, issues);
     const testnet = source.MONAD_TESTNET_RPC_URL?.trim();
     const mainnet = source.MONAD_RPC_URL?.trim();
-    if (testnet && mainnet && testnet === mainnet) {
+    const mainnets = [mainnet, source.MONAD_RPC_URL_SECONDARY?.trim()].filter(Boolean);
+    if (testnet && mainnets.includes(testnet)) {
       issues.push({
         variable: "MONAD_TESTNET_RPC_URL",
-        problem: "is the same URL as MONAD_RPC_URL (Monad mainnet); use a testnet RPC",
+        problem: "is the same URL as a Monad mainnet RPC; use a testnet RPC",
+      });
+    }
+    const testnet2 = source.MONAD_TESTNET_RPC_URL_SECONDARY?.trim();
+    if (testnet2 && mainnets.includes(testnet2)) {
+      issues.push({
+        variable: "MONAD_TESTNET_RPC_URL_SECONDARY",
+        problem: "is the same URL as a Monad mainnet RPC; use a testnet RPC",
       });
     }
   }

@@ -4,6 +4,7 @@ export * from "./defillama.ts";
 export * from "./figures.ts";
 export * from "./guards.ts";
 export * from "./mainnet.ts";
+export * from "./readonly.ts";
 export * from "./service.ts";
 export * from "./text.ts";
 export * from "./upstream.ts";

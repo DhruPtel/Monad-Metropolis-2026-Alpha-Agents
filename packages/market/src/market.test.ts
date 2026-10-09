@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
-import { describe, expect, it, vi } from "vitest";
+import { createPublicClient } from "viem";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { MarketCache, cacheKey } from "./cache.ts";
 import { CMC_QUOTES_URL, CreditBudget, cmcQuotes, fetchCmcQuotes } from "./coinmarketcap.ts";
 import {
@@ -13,6 +14,7 @@ import {
 import type { Figure } from "./figures.ts";
 import { type Refusal, crossCheck, guard } from "./guards.ts";
 import { type MainnetMarketReader, impactBps, midPriceFromSqrt } from "./mainnet.ts";
+import { readOnlyTransport } from "./readonly.ts";
 import { MarketData } from "./service.ts";
 import { cleanText } from "./text.ts";
 import { MarketError, TokenBucket, getJson, retryAfterSeconds } from "./upstream.ts";
@@ -473,5 +475,42 @@ describe("the market snapshot", () => {
     const before = calls.length;
     expect((await m.snapshot()).cacheHit).toBe(true);
     expect(calls.length).toBe(before);
+  });
+});
+
+describe("the research connection to mainnet is read-only (P3-U9, D-289)", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("refuses every sending and signing method before any request leaves", async () => {
+    const fetchSpy = vi.fn();
+    vi.stubGlobal("fetch", fetchSpy);
+    const client = createPublicClient({ transport: readOnlyTransport(["https://rpc.test/x"]) });
+    for (const method of [
+      "eth_sendRawTransaction",
+      "eth_sendTransaction",
+      "eth_sign",
+      "eth_signTypedData_v4",
+      "personal_sign",
+      "eth_accounts",
+      "wallet_sendCalls",
+    ])
+      await expect(client.request({ method, params: [] } as never)).rejects.toThrow(/read-only/);
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it("lets reads through", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        async () =>
+          new Response(JSON.stringify({ jsonrpc: "2.0", id: 0, result: "0x8f" }), {
+            headers: { "content-type": "application/json" },
+          }),
+      ),
+    );
+    const client = createPublicClient({ transport: readOnlyTransport(["https://rpc.test/x"]) });
+    expect(await client.getChainId()).toBe(143);
   });
 });

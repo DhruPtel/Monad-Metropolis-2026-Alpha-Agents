@@ -19,6 +19,7 @@ export {
   ConfigError,
   assertChainId,
   loadConfig,
+  RESEARCH_RPC_VARIABLES,
   type Config,
   type ConfigIssue,
   type ConfigValue,

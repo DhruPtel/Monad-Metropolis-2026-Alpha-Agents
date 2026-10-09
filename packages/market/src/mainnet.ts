@@ -1,7 +1,8 @@
 import { UNISWAP_V4_MON_USDC_POOL, addressEntry } from "@alpha-agents/domain";
-import { http, type PublicClient, createPublicClient, fallback, parseAbi } from "viem";
+import { type PublicClient, createPublicClient, parseAbi } from "viem";
 import { type Figure, iso } from "./figures.ts";
 import { type GuardContext, guard } from "./guards.ts";
+import { readOnlyTransport } from "./readonly.ts";
 import { MarketError } from "./upstream.ts";
 
 /**
@@ -81,9 +82,7 @@ export function viemMainnetReader(
   expectChainId: number = MAINNET_CHAIN_ID,
 ): MainnetMarketReader {
   if (rpcUrls.length === 0) throw new Error("the mainnet market reader needs an RPC URL");
-  const client = createPublicClient({
-    transport: fallback(rpcUrls.map((u) => http(u, { timeout: 15_000 }))),
-  }) as PublicClient;
+  const client = createPublicClient({ transport: readOnlyTransport(rpcUrls) }) as PublicClient;
   const unavailable = (what: string) =>
     new MarketError("UPSTREAM_UNAVAILABLE", "monad", `Could not read ${what} from Monad mainnet.`, {
       retryable: true,

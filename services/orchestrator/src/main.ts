@@ -45,7 +45,7 @@ import { testnetFeedsFor, viemFeedChain, withFreshFeeds } from "./testnet-feeds.
  * ORCHESTRATOR_SECRET, ORCHESTRATOR_PORT, E2B_API_KEY,
  * REVEAL_KEEPER_PRIVATE_KEY, FUNDING_ADDRESS_SEED (P1-U6), TAVILY_API_KEY and
  * SCAN_INTERVAL_MINUTES (P1-U7), COINMARKETCAP_API_KEY and MONAD_RPC_URL for
- * research's mainnet reads (P3-U2). Every secret value is registered with the log's
+ * research's read-only mainnet reads in every environment (P3-U2, P3-U9). Every secret value is registered with the log's
  * redactor before anything is logged, and none is ever printed.
  */
 const ENV_PATH = fileURLToPath(new URL("../../../.env", import.meta.url));
@@ -255,9 +255,12 @@ if (!web)
 // Market data (P3-U2): CoinMarketCap and DefiLlama, and research's mainnet reads (D-289), in one
 // cache shared by every agent. A refused figure is logged; the log never carries a key or a URL.
 const cmcKey = reveal("COINMARKETCAP_API_KEY") ?? null;
-const mainnetUrls = [reveal("MONAD_RPC_URL"), reveal("MONAD_RPC_URL_SECONDARY")].filter(
-  (u): u is string => typeof u === "string" && u.length > 0,
-);
+// D-289: research reads mainnet in every environment, testnet included, through the config's
+// research-only URLs (never the environment's chain RPC) on a transport that refuses anything
+// but a read. On testnet MONAD_RPC_URL_SECONDARY means the testnet's second provider, so the
+// mainnet URLs come only from config.researchRpcUrls.
+const mainnetUrls = config.researchRpcUrls.map((u) => u.reveal());
+for (const u of mainnetUrls) protect(u);
 const market = new MarketData({
   cmcApiKey: cmcKey,
   mainnet: mainnetUrls.length > 0 ? viemMainnetReader(mainnetUrls) : null,

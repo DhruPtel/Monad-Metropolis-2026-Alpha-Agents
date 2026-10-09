@@ -276,6 +276,56 @@ describe("mainnet guard", () => {
     expect(err.message).not.toContain(MAINNET_RPC);
   });
 
+  it("gives research the mainnet RPCs in every environment but the canary, apart from the chain RPC (D-289)", () => {
+    const second = "https://second-mainnet.provider.test/LEAKCHECK-second";
+    const testnet = loadConfig(
+      { name: "orchestrator" },
+      {
+        APP_ENV: "testnet",
+        MONAD_TESTNET_RPC_URL: TESTNET_RPC,
+        MONAD_RPC_URL: MAINNET_RPC,
+        MONAD_RPC_URL_SECONDARY: second,
+      },
+    );
+    expect(testnet.researchRpcUrls.map((u) => u.reveal())).toEqual([MAINNET_RPC, second]);
+    // The chain RPC and the testnet's values stay testnet's own.
+    expect(testnet.rpcUrl?.reveal()).toBe(TESTNET_RPC);
+    expect(testnet.values.MONAD_RPC_URL).toBeUndefined();
+    expect(testnet.values.MONAD_RPC_URL_SECONDARY).toBeUndefined();
+    expect(renderings(testnet.researchRpcUrls)).not.toContain("LEAKCHECK");
+
+    const local = loadConfig({ name: "orchestrator" }, { MONAD_RPC_URL: MAINNET_RPC });
+    expect(local.researchRpcUrls.map((u) => u.reveal())).toEqual([MAINNET_RPC]);
+    expect(loadConfig({ name: "orchestrator" }, {}).researchRpcUrls).toEqual([]);
+  });
+
+  it("refuses an invalid research RPC by name, never by value", () => {
+    const err = loadError(() =>
+      loadConfig(
+        { name: "orchestrator" },
+        { APP_ENV: "testnet", MONAD_TESTNET_RPC_URL: TESTNET_RPC, MONAD_RPC_URL: "LEAKCHECK-nope" },
+      ),
+    );
+    expect(err.issues.map((i) => i.variable)).toEqual(["MONAD_RPC_URL"]);
+    expect(err.message).not.toContain("LEAKCHECK");
+  });
+
+  it("refuses a testnet second RPC that is a mainnet URL", () => {
+    const err = loadError(() =>
+      loadConfig(
+        { name: "signer", signs: true },
+        {
+          APP_ENV: "testnet",
+          MONAD_TESTNET_RPC_URL: TESTNET_RPC,
+          MONAD_RPC_URL: MAINNET_RPC,
+          MONAD_TESTNET_RPC_URL_SECONDARY: MAINNET_RPC,
+        },
+      ),
+    );
+    expect(err.issues.map((i) => i.variable)).toEqual(["MONAD_TESTNET_RPC_URL_SECONDARY"]);
+    expect(err.message).not.toContain(MAINNET_RPC);
+  });
+
   it("never loads a key from another environment", () => {
     const everything: EnvSource = {
       MONAD_RPC_URL: MAINNET_RPC,
