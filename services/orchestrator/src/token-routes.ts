@@ -74,9 +74,18 @@ export function registerTokenRoutes(
       r.store.screens(r.chainId, address, 10),
     ]);
     const now = Date.now();
+    const symbols = await r.store.symbols(
+      r.chainId,
+      pools.flatMap((p) => [p.token0, p.token1]),
+    );
     return c.json({
       token,
-      pools: pools.map((p) => poolItem(p, now)),
+      pools: pools.map((p) =>
+        poolItem(
+          { ...p, symbol0: symbols.get(p.token0) ?? null, symbol1: symbols.get(p.token1) ?? null },
+          now,
+        ),
+      ),
       screens,
       labels: SCREEN_CHECK_LABELS,
       canAct: o.canAct,

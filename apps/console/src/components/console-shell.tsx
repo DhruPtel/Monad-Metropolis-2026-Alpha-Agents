@@ -11,6 +11,7 @@ import {
   LineChart,
   RefreshCw,
   Scale,
+  ShieldCheck,
   Telescope,
 } from "lucide-react";
 import Link from "next/link";
@@ -27,6 +28,7 @@ export const CONSOLE_PANELS = [
   { href: "/trades", label: "Trades", icon: ArrowLeftRight },
   { href: "/market", label: "Market", icon: LineChart },
   { href: "/research", label: "Research", icon: Telescope },
+  { href: "/tokens", label: "Tokens", icon: ShieldCheck },
   { href: "/cycles", label: "Cycles", icon: RefreshCw },
 ] as const;
 

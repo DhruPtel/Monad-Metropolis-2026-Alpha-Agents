@@ -20,6 +20,12 @@ const PAGES = [
   { path: "/market", name: "market", heading: "Market data" },
   { path: "/research", name: "research", heading: "Research sources" },
   { path: "/cycles", name: "cycles", heading: "Research cycles" },
+  { path: "/tokens", name: "tokens", heading: "Tokens" },
+  {
+    path: "/tokens?token=0x1001ff13bf368aa4fa85f21043648079f00e1001",
+    name: "tokens-detail",
+    heading: "Tokens",
+  },
 ] as const;
 
 for (const panel of PAGES) {
@@ -466,4 +472,16 @@ test("the cycles page shows each stage's ceiling before it runs, and every stage
   // Starting a cycle while one is open is refused with the orchestrator's message.
   await page.getByRole("button", { name: "Run routine cycle" }).click();
   await expect(page.getByText("already has a research cycle queued or running")).toBeVisible();
+});
+
+test("a token's screen shows each check's reason, and an operator can screen it again", async ({
+  page,
+}) => {
+  await page.goto("/tokens");
+  await page.getByRole("link", { name: /^LV/ }).first().click();
+  const result = page.getByTestId("screen-result");
+  await expect(result).toContainText("Refused");
+  await expect(result).toContainText("Unsellable: the sell reverted (transfers are closed).");
+  await page.getByRole("button", { name: "Screen now" }).click();
+  await expect(page.getByText("LV was refused")).toBeVisible();
 });

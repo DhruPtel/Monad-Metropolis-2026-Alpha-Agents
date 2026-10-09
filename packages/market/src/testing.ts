@@ -173,7 +173,7 @@ export function fakeTokenChain(
   const byKey = new Map<string, string>();
   const tokens = new Map<string, { symbol: string; name: string; decimals: number }>();
   const files = TOKEN_ROUTES.map(([, f]) => f).filter((f) => f.startsWith("gt-"));
-  let fee = 1;
+  const used = new Set<string>();
   for (const f of files) {
     const b = tokenFixture(f) as {
       data: {
@@ -196,9 +196,13 @@ export function fakeTokenChain(
       const a = p.relationships.base_token?.data.id.slice(6) ?? "";
       const q = p.relationships.quote_token?.data.id.slice(6) ?? "";
       const [t0, t1] = a < q ? [a, q] : [q, a];
+      // The pool's fee from its name ("USDC / WMON 0.05%"), kept unique per pair.
+      const pctMatch = /([\d.]+)%/.exec((p.attributes as { name?: string }).name ?? "");
+      let fee = pctMatch ? Math.round(Number(pctMatch[1]) * 10_000) : 3000;
+      while (used.has(`${t0}|${t1}|${fee}`)) fee += 1;
+      used.add(`${t0}|${t1}|${fee}`);
       pools.set(id, { t0, t1, fee });
       byKey.set(`${t0}|${t1}|${fee}`, id);
-      fee++;
     }
   }
   const feeds = new Map(CLASS_F_FEEDS.flatMap((f) => f.legs.map((l) => [l.proxy, l] as const)));

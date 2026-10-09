@@ -596,6 +596,15 @@ const cycleDetailFixture = readFileSync(
 );
 const FIXTURE_CYCLE = JSON.parse(cyclesFixture).cycles[0].cycleId;
 
+// F-U1: the token registry as the orchestrator's token routes served it after an offline run
+// (services/orchestrator's registry test writes these with TOKENS_FIXTURE_DIR=apps/console/e2e).
+const tokensFixture = readFileSync(new URL("./tokens-fixture.json", import.meta.url), "utf8");
+const tokenDetailFixture = readFileSync(
+  new URL("./token-detail-fixture.json", import.meta.url),
+  "utf8",
+);
+const FIXTURE_TOKEN = JSON.parse(tokenDetailFixture).token.address;
+
 const routes = {
   "GET /health": [200, body],
   "GET /v1/signer": [200, JSON.stringify({ on: true, chainId: 143143 })],
@@ -623,6 +632,12 @@ const routes = {
   "GET /v1/research": [
     200,
     readFileSync(new URL("./research-fixture.json", import.meta.url), "utf8"),
+  ],
+  "GET /v1/tokens": [200, tokensFixture],
+  [`GET /v1/tokens/${FIXTURE_TOKEN}`]: [200, tokenDetailFixture],
+  [`POST /v1/tokens/${FIXTURE_TOKEN}/screen`]: [
+    200,
+    JSON.stringify({ screen: JSON.parse(tokenDetailFixture).screens[0] }),
   ],
   "GET /v1/agents/1/cycles": [200, cyclesFixture],
   [`GET /v1/cycles/${FIXTURE_CYCLE}`]: [200, cycleDetailFixture],

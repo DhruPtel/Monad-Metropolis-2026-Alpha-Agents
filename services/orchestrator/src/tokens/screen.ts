@@ -63,6 +63,12 @@ const FEED = parseAbi([
   "function latestRoundData() view returns (uint80, int256, uint256, uint256, uint80)",
 ]);
 
+const DEX_NAMES = {
+  uniswap_v3: "Uniswap v3",
+  uniswap_v4: "Uniswap v4",
+  pancakeswap_v3: "PancakeSwap v3",
+} as const;
+
 const pct = (b: number) => `${(b / 100).toFixed(2)}%`;
 const units = (raw: string, decimals: number) => {
   const n = Number(raw) / 10 ** decimals;
@@ -348,7 +354,7 @@ export async function runScreen(input: ScreenInput, deps: ScreenDeps): Promise<S
     ? {
         code: "ROUTE",
         status: "pass",
-        reason: `Routed through ${route.pool.dex.replace("_", " ")} against ${route.baseSymbol}.`,
+        reason: `Routed through ${DEX_NAMES[route.pool.dex]} against ${route.baseSymbol}.`,
         evidence: {
           pool: route.pool.poolId,
           dex: route.pool.dex,

@@ -33,3 +33,7 @@ packages/market/fixtures/tokens/cmc-map.json:generic-api-key:9
 packages/market/fixtures/tokens/cmc-map.json:generic-api-key:16
 6f92e88f2abd19c56cdfd4a7fc229e87745cac54:packages/market/fixtures/tokens/cmc-map.json:generic-api-key:9
 6f92e88f2abd19c56cdfd4a7fc229e87745cac54:packages/market/fixtures/tokens/cmc-map.json:generic-api-key:16
+#
+# F-U1 console fixture: the key "token1" trips generic-api-key; the value is the public
+# LVMON token address 0x91b81bfbe3a747230f0529aa28d8b2bc898e6d56 on Monad (checked in F-U1).
+apps/console/e2e/token-detail-fixture.json:generic-api-key:43

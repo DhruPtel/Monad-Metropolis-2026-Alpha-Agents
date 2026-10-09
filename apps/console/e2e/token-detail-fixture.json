@@ -1,0 +1,534 @@
+{
+  "token": {
+    "chainId": 143,
+    "address": "0x1001ff13bf368aa4fa85f21043648079f00e1001",
+    "symbol": "LV",
+    "name": "LeverUp",
+    "decimals": 18,
+    "priceClass": "A",
+    "feed": null,
+    "listings": {
+      "coingecko": {
+        "id": "leverup"
+      },
+      "coinmarketcap": {
+        "id": 39140,
+        "rank": 1218,
+        "match": "address"
+      },
+      "geckoterminalCoingeckoId": "leverup"
+    },
+    "liquidityUsd": 294521.8523,
+    "volume24hUsd": 442.72507774610006,
+    "deepestPool": "0x811540cf25394c6dc49e3e3be25315ad917c190b",
+    "oldestPoolAt": "2025-12-16T06:24:36.000Z",
+    "screen": {
+      "screenId": "54d4f73b-a2ed-46cb-8b48-d30af2b78241",
+      "verdict": "refused",
+      "screenedAt": "2026-10-10T02:40:26.668Z",
+      "expiresAt": "2026-10-10T08:40:26.668Z",
+      "fresh": true
+    },
+    "registryLane": null,
+    "registryStatus": null,
+    "firstSeenAt": "2026-10-09T20:40:26.667Z",
+    "lastSeenAt": "2026-10-09T20:40:26.667Z"
+  },
+  "pools": [
+    {
+      "pool": "0x811540cf25394c6dc49e3e3be25315ad917c190b",
+      "dex": "pancakeswap_v3",
+      "pair": "LV / LVMON",
+      "token0": "0x1001ff13bf368aa4fa85f21043648079f00e1001",
+      "token1": "0x91b81bfbe3a747230f0529aa28d8b2bc898e6d56",
+      "fee": 2500,
+      "routable": true,
+      "routeNote": "PancakeSwap v3 pool, fee 2500, confirmed by its factory",
+      "liquidityUsd": 294522,
+      "volume24hUsd": 419,
+      "createdAt": "2025-12-20T07:11:55.000Z",
+      "ageHours": 7046
+    },
+    {
+      "pool": "0x276664da3b25af7cd13eb4d3294d9840b60e5732",
+      "dex": "pancakeswap_v3",
+      "pair": "LV / WMON",
+      "token0": "0x1001ff13bf368aa4fa85f21043648079f00e1001",
+      "token1": "0x3bd359c1119da7da1d913d1c4d2b7c461115433a",
+      "fee": 2500,
+      "routable": true,
+      "routeNote": "PancakeSwap v3 pool, fee 2500, confirmed by its factory",
+      "liquidityUsd": 86105,
+      "volume24hUsd": 24,
+      "createdAt": "2025-12-16T06:24:36.000Z",
+      "ageHours": 7143
+    }
+  ],
+  "screens": [
+    {
+      "screenId": "54d4f73b-a2ed-46cb-8b48-d30af2b78241",
+      "chainId": 143,
+      "address": "0x1001ff13bf368aa4fa85f21043648079f00e1001",
+      "verdict": "refused",
+      "checks": [
+        {
+          "code": "ROUTE",
+          "reason": "Routed through PancakeSwap v3 against WMON.",
+          "status": "pass",
+          "evidence": {
+            "dex": "pancakeswap_v3",
+            "fee": 2500,
+            "base": "WMON",
+            "pool": "0x276664da3b25af7cd13eb4d3294d9840b60e5732"
+          }
+        },
+        {
+          "code": "BUY",
+          "reason": "No buy tax: received what was quoted.",
+          "status": "pass",
+          "evidence": {
+            "taxBps": 0,
+            "expected": "4132",
+            "received": "4132"
+          }
+        },
+        {
+          "code": "TRANSFER",
+          "reason": "No transfer tax: received what was sent.",
+          "status": "pass",
+          "evidence": {
+            "taxBps": 0,
+            "expected": "4132",
+            "received": "4132"
+          }
+        },
+        {
+          "code": "SELL",
+          "reason": "Unsellable: the sell reverted (transfers are closed).",
+          "status": "fail",
+          "evidence": {
+            "error": "transfers are closed"
+          }
+        },
+        {
+          "code": "ROUND_TRIP",
+          "reason": "Not measured: the round trip did not complete.",
+          "status": "skipped",
+          "evidence": {}
+        },
+        {
+          "code": "OWNER_POWERS",
+          "reason": "The code has no function to blacklist, pause, change taxes or change balances.",
+          "status": "pass",
+          "evidence": {
+            "owner": "unknown",
+            "powers": null,
+            "canMint": false,
+            "reviewed": null,
+            "accessControl": false
+          }
+        },
+        {
+          "code": "UPGRADEABLE",
+          "reason": "Not a proxy: the code cannot be swapped.",
+          "status": "pass",
+          "evidence": {
+            "pattern": "none",
+            "implementation": null
+          }
+        },
+        {
+          "code": "LIQUIDITY",
+          "reason": "The route pool holds $86,105, at least $50,000.",
+          "status": "pass",
+          "evidence": {
+            "dex": "pancakeswap_v3",
+            "pool": "0x276664da3b25af7cd13eb4d3294d9840b60e5732",
+            "liquidityUsd": 86105
+          }
+        },
+        {
+          "code": "POOL_AGE",
+          "reason": "The pool is 297 days old.",
+          "status": "pass",
+          "evidence": {
+            "pool": "0x276664da3b25af7cd13eb4d3294d9840b60e5732",
+            "ageHours": 7148,
+            "createdAt": "2025-12-16T06:24:36.000Z"
+          }
+        },
+        {
+          "code": "LOOK_ALIKE",
+          "reason": "Its name and symbol imitate no listed token at another address.",
+          "status": "pass",
+          "evidence": {
+            "name": "LeverUp",
+            "symbol": "LV",
+            "listingsChecked": 420
+          }
+        },
+        {
+          "code": "GOPLUS",
+          "reason": "GoPlus did not answer; the screen ran without it.",
+          "status": "skipped",
+          "evidence": {}
+        }
+      ],
+      "route": {
+        "dex": "pancakeswap_v3",
+        "fee": 2500,
+        "base": "WMON",
+        "pool": "0x276664da3b25af7cd13eb4d3294d9840b60e5732",
+        "simulation": {
+          "buy": {
+            "ok": true,
+            "quoted": "4132000000000000000000",
+            "taxBps": 0,
+            "received": "4132000000000000000000"
+          },
+          "sell": {
+            "ok": false,
+            "error": "transfers are closed"
+          },
+          "amountIn": "250000000",
+          "transfer": {
+            "ok": true,
+            "sent": "4132000000000000000000",
+            "taxBps": 0,
+            "received": "4132000000000000000000"
+          },
+          "quoteSources": ["quoter", "quoter"],
+          "roundTripBps": null
+        },
+        "tickSpacing": 60
+      },
+      "forkBlock": 111990000,
+      "requestedBy": "console",
+      "durationMs": 0,
+      "createdAt": "2026-10-10T02:40:26.668Z",
+      "expiresAt": "2026-10-10T08:40:26.668Z"
+    },
+    {
+      "screenId": "85a89936-cf19-40ab-bf91-5b2a6907c766",
+      "chainId": 143,
+      "address": "0x1001ff13bf368aa4fa85f21043648079f00e1001",
+      "verdict": "passed",
+      "checks": [
+        {
+          "code": "ROUTE",
+          "reason": "Routed through PancakeSwap v3 against WMON.",
+          "status": "pass",
+          "evidence": {
+            "dex": "pancakeswap_v3",
+            "fee": 2500,
+            "base": "WMON",
+            "pool": "0x276664da3b25af7cd13eb4d3294d9840b60e5732"
+          }
+        },
+        {
+          "code": "BUY",
+          "reason": "No buy tax: received what was quoted.",
+          "status": "pass",
+          "evidence": {
+            "taxBps": 0,
+            "expected": "4132",
+            "received": "4132"
+          }
+        },
+        {
+          "code": "TRANSFER",
+          "reason": "No transfer tax: received what was sent.",
+          "status": "pass",
+          "evidence": {
+            "taxBps": 0,
+            "expected": "4132",
+            "received": "4132"
+          }
+        },
+        {
+          "code": "SELL",
+          "reason": "Sold the whole balance back for what was quoted.",
+          "status": "pass",
+          "evidence": {
+            "quoted": "2.49000e-10",
+            "taxBps": 0,
+            "leftover": "0",
+            "received": "2.49000e-10"
+          }
+        },
+        {
+          "code": "ROUND_TRIP",
+          "reason": "A $250 round trip cost 0.40%, within the 3.00% limit.",
+          "status": "pass",
+          "evidence": {
+            "base": "WMON",
+            "quotes": "quoter, quoter",
+            "amountIn": "2.50000e-10",
+            "roundTripBps": 40
+          }
+        },
+        {
+          "code": "OWNER_POWERS",
+          "reason": "The code has no function to blacklist, pause, change taxes or change balances.",
+          "status": "pass",
+          "evidence": {
+            "owner": "unknown",
+            "powers": null,
+            "canMint": false,
+            "reviewed": null,
+            "accessControl": false
+          }
+        },
+        {
+          "code": "UPGRADEABLE",
+          "reason": "Not a proxy: the code cannot be swapped.",
+          "status": "pass",
+          "evidence": {
+            "pattern": "none",
+            "implementation": null
+          }
+        },
+        {
+          "code": "LIQUIDITY",
+          "reason": "The route pool holds $86,105, at least $50,000.",
+          "status": "pass",
+          "evidence": {
+            "dex": "pancakeswap_v3",
+            "pool": "0x276664da3b25af7cd13eb4d3294d9840b60e5732",
+            "liquidityUsd": 86105
+          }
+        },
+        {
+          "code": "POOL_AGE",
+          "reason": "The pool is 297 days old.",
+          "status": "pass",
+          "evidence": {
+            "pool": "0x276664da3b25af7cd13eb4d3294d9840b60e5732",
+            "ageHours": 7148,
+            "createdAt": "2025-12-16T06:24:36.000Z"
+          }
+        },
+        {
+          "code": "LOOK_ALIKE",
+          "reason": "Its name and symbol imitate no listed token at another address.",
+          "status": "pass",
+          "evidence": {
+            "name": "LeverUp",
+            "symbol": "LV",
+            "listingsChecked": 420
+          }
+        },
+        {
+          "code": "GOPLUS",
+          "reason": "GoPlus did not answer; the screen ran without it.",
+          "status": "skipped",
+          "evidence": {}
+        }
+      ],
+      "route": {
+        "dex": "pancakeswap_v3",
+        "fee": 2500,
+        "base": "WMON",
+        "pool": "0x276664da3b25af7cd13eb4d3294d9840b60e5732",
+        "simulation": {
+          "buy": {
+            "ok": true,
+            "quoted": "4132000000000000000000",
+            "taxBps": 0,
+            "received": "4132000000000000000000"
+          },
+          "sell": {
+            "ok": true,
+            "quoted": "249000000",
+            "taxBps": 0,
+            "leftover": "0",
+            "received": "249000000"
+          },
+          "amountIn": "250000000",
+          "transfer": {
+            "ok": true,
+            "sent": "4132000000000000000000",
+            "taxBps": 0,
+            "received": "4132000000000000000000"
+          },
+          "quoteSources": ["quoter", "quoter"],
+          "roundTripBps": 40
+        },
+        "tickSpacing": 60
+      },
+      "forkBlock": 111990000,
+      "requestedBy": "platform",
+      "durationMs": 0,
+      "createdAt": "2026-10-10T02:40:26.668Z",
+      "expiresAt": "2026-10-10T08:40:26.668Z"
+    },
+    {
+      "screenId": "6031bb70-a269-4d12-bbd0-09297eec72be",
+      "chainId": 143,
+      "address": "0x1001ff13bf368aa4fa85f21043648079f00e1001",
+      "verdict": "passed",
+      "checks": [
+        {
+          "code": "ROUTE",
+          "reason": "Routed through PancakeSwap v3 against WMON.",
+          "status": "pass",
+          "evidence": {
+            "dex": "pancakeswap_v3",
+            "fee": 2500,
+            "base": "WMON",
+            "pool": "0x276664da3b25af7cd13eb4d3294d9840b60e5732"
+          }
+        },
+        {
+          "code": "BUY",
+          "reason": "No buy tax: received what was quoted.",
+          "status": "pass",
+          "evidence": {
+            "taxBps": 0,
+            "expected": "4132",
+            "received": "4132"
+          }
+        },
+        {
+          "code": "TRANSFER",
+          "reason": "No transfer tax: received what was sent.",
+          "status": "pass",
+          "evidence": {
+            "taxBps": 0,
+            "expected": "4132",
+            "received": "4132"
+          }
+        },
+        {
+          "code": "SELL",
+          "reason": "Sold the whole balance back for what was quoted.",
+          "status": "pass",
+          "evidence": {
+            "quoted": "2.49000e-10",
+            "taxBps": 0,
+            "leftover": "0",
+            "received": "2.49000e-10"
+          }
+        },
+        {
+          "code": "ROUND_TRIP",
+          "reason": "A $250 round trip cost 0.40%, within the 3.00% limit.",
+          "status": "pass",
+          "evidence": {
+            "base": "WMON",
+            "quotes": "quoter, quoter",
+            "amountIn": "2.50000e-10",
+            "roundTripBps": 40
+          }
+        },
+        {
+          "code": "OWNER_POWERS",
+          "reason": "The code has no function to blacklist, pause, change taxes or change balances.",
+          "status": "pass",
+          "evidence": {
+            "owner": "unknown",
+            "powers": null,
+            "canMint": false,
+            "reviewed": null,
+            "accessControl": false
+          }
+        },
+        {
+          "code": "UPGRADEABLE",
+          "reason": "Not a proxy: the code cannot be swapped.",
+          "status": "pass",
+          "evidence": {
+            "pattern": "none",
+            "implementation": null
+          }
+        },
+        {
+          "code": "LIQUIDITY",
+          "reason": "The route pool holds $86,105, at least $50,000.",
+          "status": "pass",
+          "evidence": {
+            "dex": "pancakeswap_v3",
+            "pool": "0x276664da3b25af7cd13eb4d3294d9840b60e5732",
+            "liquidityUsd": 86105
+          }
+        },
+        {
+          "code": "POOL_AGE",
+          "reason": "The pool is 297 days old.",
+          "status": "pass",
+          "evidence": {
+            "pool": "0x276664da3b25af7cd13eb4d3294d9840b60e5732",
+            "ageHours": 7142,
+            "createdAt": "2025-12-16T06:24:36.000Z"
+          }
+        },
+        {
+          "code": "LOOK_ALIKE",
+          "reason": "Its name and symbol imitate no listed token at another address.",
+          "status": "pass",
+          "evidence": {
+            "name": "LeverUp",
+            "symbol": "LV",
+            "listingsChecked": 420
+          }
+        },
+        {
+          "code": "GOPLUS",
+          "reason": "GoPlus did not answer; the screen ran without it.",
+          "status": "skipped",
+          "evidence": {}
+        }
+      ],
+      "route": {
+        "dex": "pancakeswap_v3",
+        "fee": 2500,
+        "base": "WMON",
+        "pool": "0x276664da3b25af7cd13eb4d3294d9840b60e5732",
+        "simulation": {
+          "buy": {
+            "ok": true,
+            "quoted": "4132000000000000000000",
+            "taxBps": 0,
+            "received": "4132000000000000000000"
+          },
+          "sell": {
+            "ok": true,
+            "quoted": "249000000",
+            "taxBps": 0,
+            "leftover": "0",
+            "received": "249000000"
+          },
+          "amountIn": "250000000",
+          "transfer": {
+            "ok": true,
+            "sent": "4132000000000000000000",
+            "taxBps": 0,
+            "received": "4132000000000000000000"
+          },
+          "quoteSources": ["quoter", "quoter"],
+          "roundTripBps": 40
+        },
+        "tickSpacing": 60
+      },
+      "forkBlock": 111990000,
+      "requestedBy": "agent:7",
+      "durationMs": 0,
+      "createdAt": "2026-10-09T20:40:26.667Z",
+      "expiresAt": "2026-10-10T02:40:26.667Z"
+    }
+  ],
+  "labels": {
+    "ROUTE": "Route to a base asset",
+    "BUY": "Simulated buy",
+    "TRANSFER": "Simulated transfer",
+    "SELL": "Simulated sell",
+    "ROUND_TRIP": "Round trip cost",
+    "OWNER_POWERS": "Owner powers",
+    "UPGRADEABLE": "Upgradeability",
+    "LIQUIDITY": "Pool liquidity",
+    "POOL_AGE": "Pool age",
+    "LOOK_ALIKE": "Name and symbol",
+    "GOPLUS": "GoPlus (second opinion)"
+  },
+  "canAct": true
+}

@@ -420,6 +420,21 @@ export class TokenStore {
     return rows.map((r) => poolRow(r as unknown as PoolDb));
   }
 
+  /** Symbols of the given tokens, for naming pool pairs; native MON is "MON". */
+  async symbols(chainId: number, addresses: readonly string[]): Promise<Map<string, string>> {
+    const out = new Map<string, string>([["0x0000000000000000000000000000000000000000", "MON"]]);
+    const want = [...new Set(addresses)].filter((a) => !out.has(a));
+    if (want.length === 0) return out;
+    const rows = await this.db
+      .selectFrom("platform.tokens")
+      .select(["address", "symbol"])
+      .where("chain_id", "=", chainId)
+      .where("address", "in", want)
+      .execute();
+    for (const r of rows) out.set(r.address, r.symbol);
+    return out;
+  }
+
   /** Pools created since `sinceMs` by their creation time, newest first, with each side's symbol. */
   async newPools(chainId: number, sinceMs: number, limit = 50) {
     const rows = await this.db

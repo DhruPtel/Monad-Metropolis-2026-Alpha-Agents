@@ -1,0 +1,1382 @@
+{
+  "configured": {
+    "discovery": true,
+    "screen": true
+  },
+  "rules": {
+    "maxTaxBps": 100,
+    "minLiquidityUsd": 50000,
+    "maxRoundTripBps": 300,
+    "minPoolAgeHours": 72,
+    "ttlSeconds": 21600,
+    "referenceSizeUsd": 250,
+    "minTimelockSeconds": 86400,
+    "taxToleranceBps": 5
+  },
+  "labels": {
+    "ROUTE": "Route to a base asset",
+    "BUY": "Simulated buy",
+    "TRANSFER": "Simulated transfer",
+    "SELL": "Simulated sell",
+    "ROUND_TRIP": "Round trip cost",
+    "OWNER_POWERS": "Owner powers",
+    "UPGRADEABLE": "Upgradeability",
+    "LIQUIDITY": "Pool liquidity",
+    "POOL_AGE": "Pool age",
+    "LOOK_ALIKE": "Name and symbol",
+    "GOPLUS": "GoPlus (second opinion)"
+  },
+  "counts": {
+    "tokens": 43,
+    "classF": 10,
+    "classA": 33,
+    "passing": 1,
+    "refused": 1,
+    "pools": 58,
+    "routable": 46
+  },
+  "runs": [
+    {
+      "runId": "4acec0e7-af82-4ecf-9072-8336e8dc014f",
+      "status": "completed",
+      "poolsSeen": 58,
+      "tokensSeen": 43,
+      "newPools": 0,
+      "sources": {
+        "chain": {
+          "ok": true,
+          "detail": "58 pools confirmed at block 111990000, 0 not confirmed"
+        },
+        "coingecko": {
+          "ok": true,
+          "detail": "195 entries (cached)"
+        },
+        "geckoterminal": {
+          "ok": true,
+          "detail": "6 of 6 pages read"
+        },
+        "coinmarketcap:map": {
+          "ok": true,
+          "detail": "2 entries (cached)"
+        },
+        "coinmarketcap:top": {
+          "ok": true,
+          "detail": "200 entries (cached)"
+        },
+        "geckoterminal:new": {
+          "ok": true,
+          "detail": "19 new pools"
+        }
+      },
+      "error": null,
+      "startedAt": "2026-10-09T21:36:46.912Z",
+      "finishedAt": "2026-10-09T20:40:26.667Z"
+    },
+    {
+      "runId": "3fb76721-45aa-4825-a7c0-6b531dffa9b9",
+      "status": "completed",
+      "poolsSeen": 58,
+      "tokensSeen": 43,
+      "newPools": 58,
+      "sources": {
+        "chain": {
+          "ok": true,
+          "detail": "58 pools confirmed at block 111990000, 0 not confirmed"
+        },
+        "coingecko": {
+          "ok": true,
+          "detail": "195 entries"
+        },
+        "geckoterminal": {
+          "ok": true,
+          "detail": "6 of 6 pages read"
+        },
+        "coinmarketcap:map": {
+          "ok": true,
+          "detail": "2 entries"
+        },
+        "coinmarketcap:top": {
+          "ok": true,
+          "detail": "200 entries"
+        },
+        "geckoterminal:new": {
+          "ok": true,
+          "detail": "19 new pools"
+        }
+      },
+      "error": null,
+      "startedAt": "2026-10-09T21:36:46.694Z",
+      "finishedAt": "2026-10-09T20:40:26.667Z"
+    }
+  ],
+  "tokens": [
+    {
+      "chainId": 143,
+      "address": "0x754704bc059f8c67012fed69bc8a327a5aafb603",
+      "symbol": "USDC",
+      "name": "USDC",
+      "decimals": 6,
+      "priceClass": "F",
+      "feed": {
+        "ok": true,
+        "kind": "direct",
+        "legs": [
+          {
+            "ok": true,
+            "proxy": "0xf5f15f188abcb0d165d1edb7f37f7d6fa2fcebec",
+            "answer": "100000000",
+            "reason": "fresh: updated 60 seconds ago",
+            "updatedAt": "2026-10-09T20:39:00.000Z",
+            "ageSeconds": 60,
+            "description": "USDC / USD",
+            "heartbeatSeconds": 3600
+          }
+        ],
+        "note": "Circle's USDC",
+        "symbol": "USDC",
+        "priceUsd": 1
+      },
+      "listings": {
+        "coingecko": {
+          "id": "usd-coin"
+        },
+        "coinmarketcap": {
+          "id": 3408,
+          "rank": 6,
+          "match": "symbol_and_name"
+        },
+        "geckoterminalCoingeckoId": "usd-coin"
+      },
+      "liquidityUsd": 6159879.0899,
+      "volume24hUsd": 16123516.778367834,
+      "deepestPool": "0xe24635d96638b80e53d182b1b96809e189b64e5e28002c01381148493cf9fa01",
+      "oldestPoolAt": "2025-11-19T16:11:45.000Z",
+      "screen": {
+        "screenId": "1d8f3518-2999-46a3-acff-ab99fd1ef7d7",
+        "verdict": "passed",
+        "screenedAt": "2026-10-10T02:40:26.668Z",
+        "expiresAt": "2026-10-10T08:40:26.668Z",
+        "fresh": true
+      },
+      "registryLane": null,
+      "registryStatus": null,
+      "firstSeenAt": "2026-10-09T20:40:26.667Z",
+      "lastSeenAt": "2026-10-09T20:40:26.667Z"
+    },
+    {
+      "chainId": 143,
+      "address": "0xab6e5a0c3799d020c790d34f7b2c02639e238af7",
+      "symbol": "syrupUSDC",
+      "name": "Syrup USDC",
+      "decimals": 6,
+      "priceClass": "F",
+      "feed": {
+        "ok": true,
+        "kind": "composite",
+        "legs": [
+          {
+            "ok": true,
+            "proxy": "0xaec21ef8f7aa33687c647bfedaa8cd7f7855973f",
+            "answer": "1000000000000000000",
+            "reason": "fresh: updated 60 seconds ago",
+            "updatedAt": "2026-10-09T20:39:00.000Z",
+            "ageSeconds": 60,
+            "description": "SYRUPUSDC / USDC Exchange Rate",
+            "heartbeatSeconds": 86400
+          },
+          {
+            "ok": true,
+            "proxy": "0xf5f15f188abcb0d165d1edb7f37f7d6fa2fcebec",
+            "answer": "100000000",
+            "reason": "fresh: updated 60 seconds ago",
+            "updatedAt": "2026-10-09T20:39:00.000Z",
+            "ageSeconds": 60,
+            "description": "USDC / USD",
+            "heartbeatSeconds": 3600
+          }
+        ],
+        "note": "Maple's syrupUSDC: its exchange rate times USDC/USD",
+        "symbol": "syrupUSDC",
+        "priceUsd": 1
+      },
+      "listings": {
+        "coingecko": {
+          "id": "syrupusdc"
+        },
+        "coinmarketcap": null,
+        "geckoterminalCoingeckoId": "syrupusdc"
+      },
+      "liquidityUsd": 6159879.0899,
+      "volume24hUsd": 44008.9241489068,
+      "deepestPool": "0xe24635d96638b80e53d182b1b96809e189b64e5e28002c01381148493cf9fa01",
+      "oldestPoolAt": "2026-06-10T21:37:45.000Z",
+      "screen": null,
+      "registryLane": null,
+      "registryStatus": null,
+      "firstSeenAt": "2026-10-09T20:40:26.667Z",
+      "lastSeenAt": "2026-10-09T20:40:26.667Z"
+    },
+    {
+      "chainId": 143,
+      "address": "0xfc421ad3c883bf9e7c4f42de845c4e4405799e73",
+      "symbol": "GHO",
+      "name": "Gho Token",
+      "decimals": 18,
+      "priceClass": "A",
+      "feed": null,
+      "listings": {
+        "coingecko": {
+          "id": "gho"
+        },
+        "coinmarketcap": null,
+        "geckoterminalCoingeckoId": "gho"
+      },
+      "liquidityUsd": 3566726.4758,
+      "volume24hUsd": 504784.770053279,
+      "deepestPool": "0xeeb60c8a9ab58b77216989a5e7dfb80fed38ac5354b03267ea4af85fa184381c",
+      "oldestPoolAt": "2026-07-01T06:12:27.000Z",
+      "screen": null,
+      "registryLane": null,
+      "registryStatus": null,
+      "firstSeenAt": "2026-10-09T20:40:26.667Z",
+      "lastSeenAt": "2026-10-09T20:40:26.667Z"
+    },
+    {
+      "chainId": 143,
+      "address": "0x00000000efe302beaa2b3e6e1b18d08d69a9012a",
+      "symbol": "AUSD",
+      "name": "AUSD",
+      "decimals": 6,
+      "priceClass": "F",
+      "feed": {
+        "ok": true,
+        "kind": "direct",
+        "legs": [
+          {
+            "ok": true,
+            "proxy": "0xe20751c7b5867bcbef815ffc1b284c3f412a9e13",
+            "answer": "100000000",
+            "reason": "fresh: updated 60 seconds ago",
+            "updatedAt": "2026-10-09T20:39:00.000Z",
+            "ageSeconds": 60,
+            "description": "AUSD / USD",
+            "heartbeatSeconds": 3600
+          }
+        ],
+        "note": "Agora's AUSD",
+        "symbol": "AUSD",
+        "priceUsd": 1
+      },
+      "listings": {
+        "coingecko": {
+          "id": "agora-dollar"
+        },
+        "coinmarketcap": null,
+        "geckoterminalCoingeckoId": "agora-dollar"
+      },
+      "liquidityUsd": 3501329.1575,
+      "volume24hUsd": 740980.3669079341,
+      "deepestPool": "0x092b650478145f0aee73a1b400b342b9c6314db2e07aeb91faf7e75e8159ce72",
+      "oldestPoolAt": "2025-11-19T16:11:45.000Z",
+      "screen": null,
+      "registryLane": null,
+      "registryStatus": null,
+      "firstSeenAt": "2026-10-09T20:40:26.667Z",
+      "lastSeenAt": "2026-10-09T20:40:26.667Z"
+    },
+    {
+      "chainId": 143,
+      "address": "0x0555e30da8f98308edb960aa94c0db47230d2b9c",
+      "symbol": "WBTC",
+      "name": "Wrapped BTC",
+      "decimals": 8,
+      "priceClass": "F",
+      "feed": {
+        "ok": true,
+        "kind": "direct",
+        "legs": [
+          {
+            "ok": true,
+            "proxy": "0x2d1df1bd061aac38c22407ad69d69bcc3c62edbd",
+            "answer": "100000000",
+            "reason": "fresh: updated 60 seconds ago",
+            "updatedAt": "2026-10-09T20:39:00.000Z",
+            "ageSeconds": 60,
+            "description": "WBTC / USD",
+            "heartbeatSeconds": 3600
+          }
+        ],
+        "note": "WBTC's own feed",
+        "symbol": "WBTC",
+        "priceUsd": 1
+      },
+      "listings": {
+        "coingecko": {
+          "id": "wrapped-bitcoin"
+        },
+        "coinmarketcap": null,
+        "geckoterminalCoingeckoId": "wrapped-bitcoin"
+      },
+      "liquidityUsd": 2897498.7878,
+      "volume24hUsd": 2164267.469622371,
+      "deepestPool": "0xab7e9e8e532098ef4802c25490136d4f84089dea5900b3bec6153561d17b37bd",
+      "oldestPoolAt": "2025-11-20T22:31:45.000Z",
+      "screen": null,
+      "registryLane": null,
+      "registryStatus": null,
+      "firstSeenAt": "2026-10-09T20:40:26.667Z",
+      "lastSeenAt": "2026-10-09T20:40:26.667Z"
+    },
+    {
+      "chainId": 143,
+      "address": "0xd18b7ec58cdf4876f6afebd3ed1730e4ce10414b",
+      "symbol": "cbBTC",
+      "name": "Coinbase Wrapped BTC",
+      "decimals": 8,
+      "priceClass": "F",
+      "feed": {
+        "ok": true,
+        "kind": "direct",
+        "legs": [
+          {
+            "ok": true,
+            "proxy": "0x3ddc1bae752aaee31b577bf844c799c349a1d6bd",
+            "answer": "100000000",
+            "reason": "fresh: updated 60 seconds ago",
+            "updatedAt": "2026-10-09T20:39:00.000Z",
+            "ageSeconds": 60,
+            "description": "CBBTC / USD",
+            "heartbeatSeconds": 3600
+          }
+        ],
+        "note": "Coinbase's cbBTC",
+        "symbol": "cbBTC",
+        "priceUsd": 1
+      },
+      "listings": {
+        "coingecko": {
+          "id": "coinbase-wrapped-btc"
+        },
+        "coinmarketcap": null,
+        "geckoterminalCoingeckoId": "coinbase-wrapped-btc"
+      },
+      "liquidityUsd": 2897498.7878,
+      "volume24hUsd": 1658504.3378369454,
+      "deepestPool": "0xab7e9e8e532098ef4802c25490136d4f84089dea5900b3bec6153561d17b37bd",
+      "oldestPoolAt": "2026-03-02T20:03:20.000Z",
+      "screen": null,
+      "registryLane": null,
+      "registryStatus": null,
+      "firstSeenAt": "2026-10-09T20:40:26.667Z",
+      "lastSeenAt": "2026-10-09T20:40:26.667Z"
+    },
+    {
+      "chainId": 143,
+      "address": "0xee8c0e9f1bffb4eb878d8f15f368a02a35481242",
+      "symbol": "WETH",
+      "name": "Wrapped Ether",
+      "decimals": 18,
+      "priceClass": "F",
+      "feed": {
+        "ok": true,
+        "kind": "underlying",
+        "legs": [
+          {
+            "ok": true,
+            "proxy": "0x1b1414782b859871781ba3e4b0979b9ca57a0a04",
+            "answer": "100000000",
+            "reason": "fresh: updated 60 seconds ago",
+            "updatedAt": "2026-10-09T20:39:00.000Z",
+            "ageSeconds": 60,
+            "description": "ETH / USD",
+            "heartbeatSeconds": 3600
+          }
+        ],
+        "note": "Wormhole-bridged WETH at ETH's price: a bridge failure is not seen by the feed",
+        "symbol": "WETH",
+        "priceUsd": 1
+      },
+      "listings": {
+        "coingecko": {
+          "id": "wormhole-bridged-weth-monad"
+        },
+        "coinmarketcap": null,
+        "geckoterminalCoingeckoId": "wormhole-bridged-weth-monad"
+      },
+      "liquidityUsd": 1979994.3077,
+      "volume24hUsd": 3982488.211390359,
+      "deepestPool": "0xad408916c1c310da9c258d4c128a7bf50fd9edc42a218cc970da39cfc8a05d93",
+      "oldestPoolAt": "2025-11-20T23:19:04.000Z",
+      "screen": null,
+      "registryLane": null,
+      "registryStatus": null,
+      "firstSeenAt": "2026-10-09T20:40:26.667Z",
+      "lastSeenAt": "2026-10-09T20:40:26.667Z"
+    },
+    {
+      "chainId": 143,
+      "address": "0x3bd359c1119da7da1d913d1c4d2b7c461115433a",
+      "symbol": "WMON",
+      "name": "Wrapped MON",
+      "decimals": 18,
+      "priceClass": "F",
+      "feed": {
+        "ok": true,
+        "kind": "underlying",
+        "legs": [
+          {
+            "ok": true,
+            "proxy": "0xbcd78f76005b7515837af6b50c7c52bcf73822fb",
+            "answer": "100000000",
+            "reason": "fresh: updated 60 seconds ago",
+            "updatedAt": "2026-10-09T20:39:00.000Z",
+            "ageSeconds": 60,
+            "description": "MON / USD",
+            "heartbeatSeconds": 3600
+          }
+        ],
+        "note": "Wrapped MON at MON's price; WMON is a 1:1 deposit contract",
+        "symbol": "WMON",
+        "priceUsd": 1
+      },
+      "listings": {
+        "coingecko": {
+          "id": "wrapped-monad"
+        },
+        "coinmarketcap": null,
+        "geckoterminalCoingeckoId": "wrapped-monad"
+      },
+      "liquidityUsd": 1326109.5877,
+      "volume24hUsd": 6932001.148425308,
+      "deepestPool": "0x3783b51e33900eb366a9e8473c76cda441e7170d2e5d96927f30c16a7add93aa",
+      "oldestPoolAt": "2025-11-20T22:31:45.000Z",
+      "screen": null,
+      "registryLane": null,
+      "registryStatus": null,
+      "firstSeenAt": "2026-10-09T20:40:26.667Z",
+      "lastSeenAt": "2026-10-09T20:40:26.667Z"
+    },
+    {
+      "chainId": 143,
+      "address": "0xdcd8114f42fd40db1914de241c75adc9e3c1722e",
+      "symbol": "CHAOS",
+      "name": "Chaos Magick Group (CMG)",
+      "decimals": 18,
+      "priceClass": "A",
+      "feed": null,
+      "listings": {
+        "coingecko": null,
+        "coinmarketcap": null,
+        "geckoterminalCoingeckoId": null
+      },
+      "liquidityUsd": 1014697.4266,
+      "volume24hUsd": 22.5479405887,
+      "deepestPool": "0xe2796721c13b0baf0a8f0ea2425cc6bd6e28818e3044ba8a286762844ec1bb45",
+      "oldestPoolAt": "2026-06-15T01:29:28.000Z",
+      "screen": null,
+      "registryLane": null,
+      "registryStatus": null,
+      "firstSeenAt": "2026-10-09T20:40:26.667Z",
+      "lastSeenAt": "2026-10-09T20:40:26.667Z"
+    },
+    {
+      "chainId": 143,
+      "address": "0x1111b3ded9f1fe1801ad4ebef8e2788183a24111",
+      "symbol": "EURW",
+      "name": "Newrails Euro",
+      "decimals": 6,
+      "priceClass": "A",
+      "feed": null,
+      "listings": {
+        "coingecko": {
+          "id": "newrails-euro"
+        },
+        "coinmarketcap": null,
+        "geckoterminalCoingeckoId": "newrails-euro"
+      },
+      "liquidityUsd": 939549.0866,
+      "volume24hUsd": 1215680.76014075,
+      "deepestPool": "0xe153201e40f50ebc9da7be3aa9c419f185c97f44",
+      "oldestPoolAt": "2026-04-28T17:24:20.000Z",
+      "screen": null,
+      "registryLane": null,
+      "registryStatus": null,
+      "firstSeenAt": "2026-10-09T20:40:26.667Z",
+      "lastSeenAt": "2026-10-09T20:40:26.667Z"
+    },
+    {
+      "chainId": 143,
+      "address": "0x1001ff13bf368aa4fa85f21043648079f00e1001",
+      "symbol": "LV",
+      "name": "LeverUp",
+      "decimals": 18,
+      "priceClass": "A",
+      "feed": null,
+      "listings": {
+        "coingecko": {
+          "id": "leverup"
+        },
+        "coinmarketcap": {
+          "id": 39140,
+          "rank": 1218,
+          "match": "address"
+        },
+        "geckoterminalCoingeckoId": "leverup"
+      },
+      "liquidityUsd": 294521.8523,
+      "volume24hUsd": 442.72507774610006,
+      "deepestPool": "0x811540cf25394c6dc49e3e3be25315ad917c190b",
+      "oldestPoolAt": "2025-12-16T06:24:36.000Z",
+      "screen": {
+        "screenId": "54d4f73b-a2ed-46cb-8b48-d30af2b78241",
+        "verdict": "refused",
+        "screenedAt": "2026-10-10T02:40:26.668Z",
+        "expiresAt": "2026-10-10T08:40:26.668Z",
+        "fresh": true
+      },
+      "registryLane": null,
+      "registryStatus": null,
+      "firstSeenAt": "2026-10-09T20:40:26.667Z",
+      "lastSeenAt": "2026-10-09T20:40:26.667Z"
+    },
+    {
+      "chainId": 143,
+      "address": "0x91b81bfbe3a747230f0529aa28d8b2bc898e6d56",
+      "symbol": "LVMON",
+      "name": "LeverUp MON",
+      "decimals": 18,
+      "priceClass": "A",
+      "feed": null,
+      "listings": {
+        "coingecko": {
+          "id": "leverup-mon"
+        },
+        "coinmarketcap": null,
+        "geckoterminalCoingeckoId": "leverup-mon"
+      },
+      "liquidityUsd": 294521.8523,
+      "volume24hUsd": 3734.9071500375003,
+      "deepestPool": "0x811540cf25394c6dc49e3e3be25315ad917c190b",
+      "oldestPoolAt": "2025-12-17T20:49:23.000Z",
+      "screen": null,
+      "registryLane": null,
+      "registryStatus": null,
+      "firstSeenAt": "2026-10-09T20:40:26.667Z",
+      "lastSeenAt": "2026-10-09T20:40:26.667Z"
+    },
+    {
+      "chainId": 143,
+      "address": "0x1b68626dca36c7fe922fd2d55e4f631d962de19c",
+      "symbol": "shMON",
+      "name": "ShMonad",
+      "decimals": 18,
+      "priceClass": "F",
+      "feed": {
+        "ok": true,
+        "kind": "composite",
+        "legs": [
+          {
+            "ok": true,
+            "proxy": "0x2dc0b316e3d4e673c7f9a809e80a3e60b26d7774",
+            "answer": "1000000000000000000",
+            "reason": "fresh: updated 60 seconds ago",
+            "updatedAt": "2026-10-09T20:39:00.000Z",
+            "ageSeconds": 60,
+            "description": "SHMON / MON Exchange Rate",
+            "heartbeatSeconds": 86400
+          },
+          {
+            "ok": true,
+            "proxy": "0xbcd78f76005b7515837af6b50c7c52bcf73822fb",
+            "answer": "100000000",
+            "reason": "fresh: updated 60 seconds ago",
+            "updatedAt": "2026-10-09T20:39:00.000Z",
+            "ageSeconds": 60,
+            "description": "MON / USD",
+            "heartbeatSeconds": 3600
+          }
+        ],
+        "note": "FastLane's staked MON: its exchange rate times MON/USD",
+        "symbol": "shMON",
+        "priceUsd": 1
+      },
+      "listings": {
+        "coingecko": {
+          "id": "shmonad"
+        },
+        "coinmarketcap": null,
+        "geckoterminalCoingeckoId": "shmonad"
+      },
+      "liquidityUsd": 155905.1283,
+      "volume24hUsd": 5132.9465871699995,
+      "deepestPool": "0x1f86a9f2441cac9b942cfb5445530cdbb28717ed",
+      "oldestPoolAt": "2025-11-24T14:52:45.000Z",
+      "screen": null,
+      "registryLane": null,
+      "registryStatus": null,
+      "firstSeenAt": "2026-10-09T20:40:26.667Z",
+      "lastSeenAt": "2026-10-09T20:40:26.667Z"
+    },
+    {
+      "chainId": 143,
+      "address": "0x834df4c1d8f51be24322e39e4766697be015512f",
+      "symbol": "CETES",
+      "name": "Etherfuse CETES",
+      "decimals": 6,
+      "priceClass": "A",
+      "feed": null,
+      "listings": {
+        "coingecko": {
+          "id": "cetes"
+        },
+        "coinmarketcap": null,
+        "geckoterminalCoingeckoId": "cetes"
+      },
+      "liquidityUsd": 108113.8903,
+      "volume24hUsd": 10195.8132784779,
+      "deepestPool": "0x6926a8ee0f96d04a174aae7474766f9d1a3ea4b2",
+      "oldestPoolAt": "2026-10-07T21:31:10.000Z",
+      "screen": null,
+      "registryLane": null,
+      "registryStatus": null,
+      "firstSeenAt": "2026-10-09T20:40:26.667Z",
+      "lastSeenAt": "2026-10-09T20:40:26.667Z"
+    },
+    {
+      "chainId": 143,
+      "address": "0xfd44b35139ae53fff7d8f2a9869c503d987f00d1",
+      "symbol": "LVUSD",
+      "name": "LeverUp USD",
+      "decimals": 18,
+      "priceClass": "A",
+      "feed": null,
+      "listings": {
+        "coingecko": {
+          "id": "leverup-usd"
+        },
+        "coinmarketcap": null,
+        "geckoterminalCoingeckoId": "leverup-usd"
+      },
+      "liquidityUsd": 95470.1477,
+      "volume24hUsd": 730.1573308193,
+      "deepestPool": "0x20ef75d4ab1e459f1f2bdbb20f5766ce3eb7dd33",
+      "oldestPoolAt": "2025-12-01T12:17:12.000Z",
+      "screen": null,
+      "registryLane": null,
+      "registryStatus": null,
+      "firstSeenAt": "2026-10-09T20:40:26.667Z",
+      "lastSeenAt": "2026-10-09T20:40:26.667Z"
+    },
+    {
+      "chainId": 143,
+      "address": "0x8498312a6b3cbd158bf0c93abdcf29e6e4f55081",
+      "symbol": "gMON",
+      "name": "gMON",
+      "decimals": 18,
+      "priceClass": "F",
+      "feed": {
+        "ok": true,
+        "kind": "composite",
+        "legs": [
+          {
+            "ok": true,
+            "proxy": "0x256376e2ec4a8290e2ebfaee7c71bb7ef6b60221",
+            "answer": "1000000000000000000",
+            "reason": "fresh: updated 60 seconds ago",
+            "updatedAt": "2026-10-09T20:39:00.000Z",
+            "ageSeconds": 60,
+            "description": "GMON / MON Exchange Rate",
+            "heartbeatSeconds": 86400
+          },
+          {
+            "ok": true,
+            "proxy": "0xbcd78f76005b7515837af6b50c7c52bcf73822fb",
+            "answer": "100000000",
+            "reason": "fresh: updated 60 seconds ago",
+            "updatedAt": "2026-10-09T20:39:00.000Z",
+            "ageSeconds": 60,
+            "description": "MON / USD",
+            "heartbeatSeconds": 3600
+          }
+        ],
+        "note": "Magma's staked MON: its exchange rate times MON/USD",
+        "symbol": "gMON",
+        "priceUsd": 1
+      },
+      "listings": {
+        "coingecko": {
+          "id": "magma-staked-monad"
+        },
+        "coinmarketcap": {
+          "id": 35966,
+          "rank": 8082,
+          "match": "address"
+        },
+        "geckoterminalCoingeckoId": "magma-staked-monad"
+      },
+      "liquidityUsd": 66152.5135,
+      "volume24hUsd": 262.6184282917,
+      "deepestPool": "0xb80d7a8f5331a907e34cd73f575c784b43e5acb5",
+      "oldestPoolAt": "2025-12-02T16:00:17.000Z",
+      "screen": null,
+      "registryLane": null,
+      "registryStatus": null,
+      "firstSeenAt": "2026-10-09T20:40:26.667Z",
+      "lastSeenAt": "2026-10-09T20:40:26.667Z"
+    },
+    {
+      "chainId": 143,
+      "address": "0xf59d81cd43f620e722e07f9cb3f6e41b031017a3",
+      "symbol": "Cake",
+      "name": "PancakeSwap Token",
+      "decimals": 18,
+      "priceClass": "A",
+      "feed": null,
+      "listings": {
+        "coingecko": null,
+        "coinmarketcap": null,
+        "geckoterminalCoingeckoId": null
+      },
+      "liquidityUsd": 53312.6156,
+      "volume24hUsd": 12563.4220663179,
+      "deepestPool": "0x81e8ed9a3d356697549ec0191513584277089c15",
+      "oldestPoolAt": "2025-12-11T07:54:39.000Z",
+      "screen": null,
+      "registryLane": null,
+      "registryStatus": null,
+      "firstSeenAt": "2026-10-09T20:40:26.667Z",
+      "lastSeenAt": "2026-10-09T20:40:26.667Z"
+    },
+    {
+      "chainId": 143,
+      "address": "0x01bff41798a0bcf287b996046ca68b395dbc1071",
+      "symbol": "XAUt0",
+      "name": "XAUt0",
+      "decimals": 6,
+      "priceClass": "A",
+      "feed": null,
+      "listings": {
+        "coingecko": {
+          "id": "tether-gold-tokens"
+        },
+        "coinmarketcap": null,
+        "geckoterminalCoingeckoId": "tether-gold-tokens"
+      },
+      "liquidityUsd": 45751.8466,
+      "volume24hUsd": 9697.0650198561,
+      "deepestPool": "0xa5c3a55af4029724f519ac8d340be9916ac83e45",
+      "oldestPoolAt": "2025-11-24T15:03:02.000Z",
+      "screen": null,
+      "registryLane": null,
+      "registryStatus": null,
+      "firstSeenAt": "2026-10-09T20:40:26.667Z",
+      "lastSeenAt": "2026-10-09T20:40:26.667Z"
+    },
+    {
+      "chainId": 143,
+      "address": "0xe7cd86e13ac4309349f30b3435a9d337750fc82d",
+      "symbol": "USDT0",
+      "name": "USDT0",
+      "decimals": 6,
+      "priceClass": "F",
+      "feed": {
+        "ok": true,
+        "kind": "direct",
+        "legs": [
+          {
+            "ok": true,
+            "proxy": "0x731efd09d87128787787947cc21be835620e765e",
+            "answer": "1000000000000000000",
+            "reason": "fresh: updated 60 seconds ago",
+            "updatedAt": "2026-10-09T20:39:00.000Z",
+            "ageSeconds": 60,
+            "description": "USDT0 / USD",
+            "heartbeatSeconds": 3600
+          }
+        ],
+        "note": "Tether's USDT0",
+        "symbol": "USDT0",
+        "priceUsd": 1
+      },
+      "listings": {
+        "coingecko": {
+          "id": "usdt0"
+        },
+        "coinmarketcap": null,
+        "geckoterminalCoingeckoId": "usdt0"
+      },
+      "liquidityUsd": 45751.8466,
+      "volume24hUsd": 9697.0650198561,
+      "deepestPool": "0xa5c3a55af4029724f519ac8d340be9916ac83e45",
+      "oldestPoolAt": "2025-11-24T15:03:02.000Z",
+      "screen": null,
+      "registryLane": null,
+      "registryStatus": null,
+      "firstSeenAt": "2026-10-09T20:40:26.667Z",
+      "lastSeenAt": "2026-10-09T20:40:26.667Z"
+    },
+    {
+      "chainId": 143,
+      "address": "0x0a332311633c0625f63cfc51ee33fc49826e0a3c",
+      "symbol": "APR",
+      "name": "aPriori",
+      "decimals": 18,
+      "priceClass": "A",
+      "feed": null,
+      "listings": {
+        "coingecko": {
+          "id": "apriori"
+        },
+        "coinmarketcap": null,
+        "geckoterminalCoingeckoId": "apriori"
+      },
+      "liquidityUsd": 37319.5459,
+      "volume24hUsd": 9082.1794279225,
+      "deepestPool": "0x8506627b3362595f36ddf4d0df1f5c8940b052d0",
+      "oldestPoolAt": "2025-11-24T17:12:37.000Z",
+      "screen": null,
+      "registryLane": null,
+      "registryStatus": null,
+      "firstSeenAt": "2026-10-09T20:40:26.667Z",
+      "lastSeenAt": "2026-10-09T20:40:26.667Z"
+    },
+    {
+      "chainId": 143,
+      "address": "0x094adb9ab02ed230697297c219073dc8c69df0df",
+      "symbol": "BNCB",
+      "name": "CEA Industries",
+      "decimals": 18,
+      "priceClass": "A",
+      "feed": null,
+      "listings": {
+        "coingecko": null,
+        "coinmarketcap": null,
+        "geckoterminalCoingeckoId": null
+      },
+      "liquidityUsd": 37227.9088,
+      "volume24hUsd": 1609.48203946,
+      "deepestPool": "0x1d5f026cc3ba68da7251976d65c61a7351667a3a",
+      "oldestPoolAt": "2026-09-14T13:50:07.000Z",
+      "screen": null,
+      "registryLane": null,
+      "registryStatus": null,
+      "firstSeenAt": "2026-10-09T20:40:26.667Z",
+      "lastSeenAt": "2026-10-09T20:40:26.667Z"
+    },
+    {
+      "chainId": 143,
+      "address": "0xa9da3c77ec7cdc4dfaa1fe142af583543d1c540f",
+      "symbol": "FLING",
+      "name": "Fling",
+      "decimals": 18,
+      "priceClass": "A",
+      "feed": null,
+      "listings": {
+        "coingecko": {
+          "id": "fling"
+        },
+        "coinmarketcap": null,
+        "geckoterminalCoingeckoId": "fling"
+      },
+      "liquidityUsd": 26140.3163,
+      "volume24hUsd": 7594.8970039841,
+      "deepestPool": "0xfe53ccbbd639ec6d6649950e069bca66c043ee89",
+      "oldestPoolAt": "2026-09-11T15:16:10.000Z",
+      "screen": null,
+      "registryLane": null,
+      "registryStatus": null,
+      "firstSeenAt": "2026-10-09T20:40:26.667Z",
+      "lastSeenAt": "2026-10-09T20:40:26.667Z"
+    },
+    {
+      "chainId": 143,
+      "address": "0x788571e0e5067adea87e6ba22a2b738ffdf48888",
+      "symbol": "UNIT",
+      "name": "UNIT",
+      "decimals": 18,
+      "priceClass": "A",
+      "feed": null,
+      "listings": {
+        "coingecko": null,
+        "coinmarketcap": null,
+        "geckoterminalCoingeckoId": null
+      },
+      "liquidityUsd": 19373.0497,
+      "volume24hUsd": 111.2553265184,
+      "deepestPool": "0x24b18eb6be3994e5a4484bce60af76cf60733301",
+      "oldestPoolAt": "2025-11-24T13:35:10.000Z",
+      "screen": null,
+      "registryLane": null,
+      "registryStatus": null,
+      "firstSeenAt": "2026-10-09T20:40:26.667Z",
+      "lastSeenAt": "2026-10-09T20:40:26.667Z"
+    },
+    {
+      "chainId": 143,
+      "address": "0x99ae2dc76c43979e3bcc0ae8d69f1fca077c8888",
+      "symbol": "ANAGO",
+      "name": "Anago",
+      "decimals": 18,
+      "priceClass": "A",
+      "feed": null,
+      "listings": {
+        "coingecko": null,
+        "coinmarketcap": null,
+        "geckoterminalCoingeckoId": null
+      },
+      "liquidityUsd": 13883.4849,
+      "volume24hUsd": 73.0541295,
+      "deepestPool": "0x30110228b59b21fafe8675ed930983e2f272b74c",
+      "oldestPoolAt": "2025-11-24T13:42:54.000Z",
+      "screen": null,
+      "registryLane": null,
+      "registryStatus": null,
+      "firstSeenAt": "2026-10-09T20:40:26.667Z",
+      "lastSeenAt": "2026-10-09T20:40:26.667Z"
+    },
+    {
+      "chainId": 143,
+      "address": "0x220b583fe8c1481b5510c3cf91adff6d6d38e619",
+      "symbol": "SUN",
+      "name": "Sun",
+      "decimals": 18,
+      "priceClass": "A",
+      "feed": null,
+      "listings": {
+        "coingecko": null,
+        "coinmarketcap": null,
+        "geckoterminalCoingeckoId": null
+      },
+      "liquidityUsd": 4284.2647,
+      "volume24hUsd": 0,
+      "deepestPool": "0x281a50a104024eab776a413884e3e69f55588de3",
+      "oldestPoolAt": "2026-10-07T16:12:14.000Z",
+      "screen": null,
+      "registryLane": null,
+      "registryStatus": null,
+      "firstSeenAt": "2026-10-09T20:40:26.667Z",
+      "lastSeenAt": "2026-10-09T20:40:26.667Z"
+    },
+    {
+      "chainId": 143,
+      "address": "0x2efa480d60ea4f5a7e33f0a70bef2ada26a473d7",
+      "symbol": "MOON",
+      "name": "moonad",
+      "decimals": 18,
+      "priceClass": "A",
+      "feed": null,
+      "listings": {
+        "coingecko": null,
+        "coinmarketcap": null,
+        "geckoterminalCoingeckoId": null
+      },
+      "liquidityUsd": 4284.2647,
+      "volume24hUsd": 0,
+      "deepestPool": "0x281a50a104024eab776a413884e3e69f55588de3",
+      "oldestPoolAt": "2026-10-07T16:12:14.000Z",
+      "screen": null,
+      "registryLane": null,
+      "registryStatus": null,
+      "firstSeenAt": "2026-10-09T20:40:26.667Z",
+      "lastSeenAt": "2026-10-09T20:40:26.667Z"
+    },
+    {
+      "chainId": 143,
+      "address": "0x2531998f8c17f4db23d8807b0c7868d994074e74",
+      "symbol": "MOONCAT",
+      "name": "Moon Cat",
+      "decimals": 18,
+      "priceClass": "A",
+      "feed": null,
+      "listings": {
+        "coingecko": null,
+        "coinmarketcap": null,
+        "geckoterminalCoingeckoId": null
+      },
+      "liquidityUsd": 4156.2397,
+      "volume24hUsd": 0,
+      "deepestPool": "0x3d8ba244411293155bca3a5b07246adfb10c5711",
+      "oldestPoolAt": "2026-10-07T15:28:41.000Z",
+      "screen": null,
+      "registryLane": null,
+      "registryStatus": null,
+      "firstSeenAt": "2026-10-09T20:40:26.667Z",
+      "lastSeenAt": "2026-10-09T20:40:26.667Z"
+    },
+    {
+      "chainId": 143,
+      "address": "0x4a005996ed2603c94ad64b5bb2ef233b9e482cb8",
+      "symbol": "HEDGEMOON",
+      "name": "hedgemoon",
+      "decimals": 18,
+      "priceClass": "A",
+      "feed": null,
+      "listings": {
+        "coingecko": null,
+        "coinmarketcap": null,
+        "geckoterminalCoingeckoId": null
+      },
+      "liquidityUsd": 3982.4477,
+      "volume24hUsd": 40.6683642293,
+      "deepestPool": "0x71505dfa6ad1cdf2c1724c3bcf8f098d873d7488",
+      "oldestPoolAt": "2026-10-07T15:17:20.000Z",
+      "screen": null,
+      "registryLane": null,
+      "registryStatus": null,
+      "firstSeenAt": "2026-10-09T20:40:26.667Z",
+      "lastSeenAt": "2026-10-09T20:40:26.667Z"
+    },
+    {
+      "chainId": 143,
+      "address": "0x0e31b9b3b681925f950a391f77b6fb0964ecbd67",
+      "symbol": "MOONY",
+      "name": "Moony",
+      "decimals": 18,
+      "priceClass": "A",
+      "feed": null,
+      "listings": {
+        "coingecko": null,
+        "coinmarketcap": null,
+        "geckoterminalCoingeckoId": null
+      },
+      "liquidityUsd": 3974.5107,
+      "volume24hUsd": 0,
+      "deepestPool": "0x2f9732efab9c821c9630c5d4e59f8e65ec6bc8ce",
+      "oldestPoolAt": "2026-10-07T15:05:24.000Z",
+      "screen": null,
+      "registryLane": null,
+      "registryStatus": null,
+      "firstSeenAt": "2026-10-09T20:40:26.667Z",
+      "lastSeenAt": "2026-10-09T20:40:26.667Z"
+    },
+    {
+      "chainId": 143,
+      "address": "0x1559527ff18efb99e370a6a4fd6c6c5f973cbd11",
+      "symbol": "MONCAT",
+      "name": "mooncat",
+      "decimals": 18,
+      "priceClass": "A",
+      "feed": null,
+      "listings": {
+        "coingecko": null,
+        "coinmarketcap": null,
+        "geckoterminalCoingeckoId": null
+      },
+      "liquidityUsd": 3835.9712,
+      "volume24hUsd": 0,
+      "deepestPool": "0x8671f54fe31bf06ea31ec810ba256a05e3b82639",
+      "oldestPoolAt": "2026-10-07T16:27:31.000Z",
+      "screen": null,
+      "registryLane": null,
+      "registryStatus": null,
+      "firstSeenAt": "2026-10-09T20:40:26.667Z",
+      "lastSeenAt": "2026-10-09T20:40:26.667Z"
+    },
+    {
+      "chainId": 143,
+      "address": "0x1d040c3d9d3b26395d7087fb8f07b08d7026162c",
+      "symbol": "MISSION",
+      "name": "Retard mission",
+      "decimals": 18,
+      "priceClass": "A",
+      "feed": null,
+      "listings": {
+        "coingecko": null,
+        "coinmarketcap": null,
+        "geckoterminalCoingeckoId": null
+      },
+      "liquidityUsd": 3750.6288,
+      "volume24hUsd": 0,
+      "deepestPool": "0x29514ec7d1161d975dfde03b4cde2dfffe4528c3",
+      "oldestPoolAt": "2026-10-07T16:01:57.000Z",
+      "screen": null,
+      "registryLane": null,
+      "registryStatus": null,
+      "firstSeenAt": "2026-10-09T20:40:26.667Z",
+      "lastSeenAt": "2026-10-09T20:40:26.667Z"
+    },
+    {
+      "chainId": 143,
+      "address": "0x0e71eb956896c6daa7a22b4b81e25fd6bbf9ee52",
+      "symbol": "MOONK",
+      "name": "Moonk",
+      "decimals": 18,
+      "priceClass": "A",
+      "feed": null,
+      "listings": {
+        "coingecko": null,
+        "coinmarketcap": null,
+        "geckoterminalCoingeckoId": null
+      },
+      "liquidityUsd": 3097.0677,
+      "volume24hUsd": 0,
+      "deepestPool": "0x8769215f6a76c18086330291a8f1f8bceb34d992",
+      "oldestPoolAt": "2026-10-07T15:31:17.000Z",
+      "screen": null,
+      "registryLane": null,
+      "registryStatus": null,
+      "firstSeenAt": "2026-10-09T20:40:26.667Z",
+      "lastSeenAt": "2026-10-09T20:40:26.667Z"
+    },
+    {
+      "chainId": 143,
+      "address": "0xd805f164d911c3688d5737d808811f23827aea20",
+      "symbol": "SUNGMO",
+      "name": "SungMo Park",
+      "decimals": 18,
+      "priceClass": "A",
+      "feed": null,
+      "listings": {
+        "coingecko": null,
+        "coinmarketcap": null,
+        "geckoterminalCoingeckoId": null
+      },
+      "liquidityUsd": 1439.1872,
+      "volume24hUsd": 0.002490863,
+      "deepestPool": "0xcff3119711c156be5de93f491577bcc3c74c2396",
+      "oldestPoolAt": "2026-10-09T16:15:50.000Z",
+      "screen": null,
+      "registryLane": null,
+      "registryStatus": null,
+      "firstSeenAt": "2026-10-09T20:40:26.667Z",
+      "lastSeenAt": "2026-10-09T20:40:26.667Z"
+    },
+    {
+      "chainId": 143,
+      "address": "0xf05266b1b1759d3a2746cd3b031b802c2496b278",
+      "symbol": "MUSDT",
+      "name": "Mock USDT",
+      "decimals": 18,
+      "priceClass": "A",
+      "feed": null,
+      "listings": {
+        "coingecko": null,
+        "coinmarketcap": null,
+        "geckoterminalCoingeckoId": null
+      },
+      "liquidityUsd": 0.00005139638459,
+      "volume24hUsd": 0.00002547283829,
+      "deepestPool": "0x1a08904a69572665073990e5c3b3f91a85d7a9de",
+      "oldestPoolAt": "2026-10-09T14:21:06.000Z",
+      "screen": null,
+      "registryLane": null,
+      "registryStatus": null,
+      "firstSeenAt": "2026-10-09T20:40:26.667Z",
+      "lastSeenAt": "2026-10-09T20:40:26.667Z"
+    },
+    {
+      "chainId": 143,
+      "address": "0x005d214a4edb0d5b425b20b8beae398d4abd0b7d",
+      "symbol": "ITALY",
+      "name": "Little Italy Omission",
+      "decimals": 18,
+      "priceClass": "A",
+      "feed": null,
+      "listings": {
+        "coingecko": null,
+        "coinmarketcap": null,
+        "geckoterminalCoingeckoId": null
+      },
+      "liquidityUsd": 0,
+      "volume24hUsd": 0.0007475415,
+      "deepestPool": null,
+      "oldestPoolAt": "2026-10-09T16:18:49.000Z",
+      "screen": null,
+      "registryLane": null,
+      "registryStatus": null,
+      "firstSeenAt": "2026-10-09T20:40:26.667Z",
+      "lastSeenAt": "2026-10-09T20:40:26.667Z"
+    },
+    {
+      "chainId": 143,
+      "address": "0x37ad809e22af699c2d0c14b26c93d5ead9f4a9dc",
+      "symbol": "PENALTY",
+      "name": "Mashinsky's Penalty",
+      "decimals": 18,
+      "priceClass": "A",
+      "feed": null,
+      "listings": {
+        "coingecko": null,
+        "coinmarketcap": null,
+        "geckoterminalCoingeckoId": null
+      },
+      "liquidityUsd": 0,
+      "volume24hUsd": 0.0007488168,
+      "deepestPool": null,
+      "oldestPoolAt": "2026-10-09T16:18:04.000Z",
+      "screen": null,
+      "registryLane": null,
+      "registryStatus": null,
+      "firstSeenAt": "2026-10-09T20:40:26.667Z",
+      "lastSeenAt": "2026-10-09T20:40:26.667Z"
+    },
+    {
+      "chainId": 143,
+      "address": "0x7db552eeb6b77a6babe6e0a739b5382cd653cc3e",
+      "symbol": "GMONAD",
+      "name": "GMONAD",
+      "decimals": 18,
+      "priceClass": "A",
+      "feed": null,
+      "listings": {
+        "coingecko": {
+          "id": "gmonad-3"
+        },
+        "coinmarketcap": null,
+        "geckoterminalCoingeckoId": "gmonad-3"
+      },
+      "liquidityUsd": 0,
+      "volume24hUsd": 39.0381930251,
+      "deepestPool": null,
+      "oldestPoolAt": "2025-11-24T14:39:02.000Z",
+      "screen": null,
+      "registryLane": null,
+      "registryStatus": null,
+      "firstSeenAt": "2026-10-09T20:40:26.667Z",
+      "lastSeenAt": "2026-10-09T20:40:26.667Z"
+    },
+    {
+      "chainId": 143,
+      "address": "0x89459eebf132d6dc322d9aab82a61313f1c88401",
+      "symbol": "MOCHI",
+      "name": "MochiMeme",
+      "decimals": 18,
+      "priceClass": "A",
+      "feed": null,
+      "listings": {
+        "coingecko": null,
+        "coinmarketcap": null,
+        "geckoterminalCoingeckoId": null
+      },
+      "liquidityUsd": 0,
+      "volume24hUsd": 245.3854116654,
+      "deepestPool": null,
+      "oldestPoolAt": "2026-10-09T16:09:16.000Z",
+      "screen": null,
+      "registryLane": null,
+      "registryStatus": null,
+      "firstSeenAt": "2026-10-09T20:40:26.667Z",
+      "lastSeenAt": "2026-10-09T20:40:26.667Z"
+    },
+    {
+      "chainId": 143,
+      "address": "0x97401d48a80b15bc7291599e24b590eedcd7ce37",
+      "symbol": "HST",
+      "name": "HYPERSTITIONS",
+      "decimals": 18,
+      "priceClass": "A",
+      "feed": null,
+      "listings": {
+        "coingecko": {
+          "id": "hyperstitions"
+        },
+        "coinmarketcap": null,
+        "geckoterminalCoingeckoId": "hyperstitions"
+      },
+      "liquidityUsd": 0,
+      "volume24hUsd": 11.9256899439,
+      "deepestPool": null,
+      "oldestPoolAt": "2025-12-03T17:01:00.000Z",
+      "screen": null,
+      "registryLane": null,
+      "registryStatus": null,
+      "firstSeenAt": "2026-10-09T20:40:26.667Z",
+      "lastSeenAt": "2026-10-09T20:40:26.667Z"
+    },
+    {
+      "chainId": 143,
+      "address": "0xaca92e438df0b2401ff60da7e4337b687a2435da",
+      "symbol": "musd",
+      "name": "MetaMask USD",
+      "decimals": 6,
+      "priceClass": "A",
+      "feed": null,
+      "listings": {
+        "coingecko": {
+          "id": "metamask-usd"
+        },
+        "coinmarketcap": null,
+        "geckoterminalCoingeckoId": "metamask-usd"
+      },
+      "liquidityUsd": 0,
+      "volume24hUsd": 8255310.53092549,
+      "deepestPool": null,
+      "oldestPoolAt": "2026-05-18T03:18:22.000Z",
+      "screen": null,
+      "registryLane": null,
+      "registryStatus": null,
+      "firstSeenAt": "2026-10-09T20:40:26.667Z",
+      "lastSeenAt": "2026-10-09T20:40:26.667Z"
+    },
+    {
+      "chainId": 143,
+      "address": "0xbc19ac589c66e3661b8dce5caa29838279bd733a",
+      "symbol": "MON.b.gMON",
+      "name": "MON Yield Coin - backed by gMON (x5/3M)",
+      "decimals": 18,
+      "priceClass": "A",
+      "feed": null,
+      "listings": {
+        "coingecko": null,
+        "coinmarketcap": null,
+        "geckoterminalCoingeckoId": null
+      },
+      "liquidityUsd": 0,
+      "volume24hUsd": 0,
+      "deepestPool": null,
+      "oldestPoolAt": "2026-10-07T20:09:31.000Z",
+      "screen": null,
+      "registryLane": null,
+      "registryStatus": null,
+      "firstSeenAt": "2026-10-09T20:40:26.667Z",
+      "lastSeenAt": "2026-10-09T20:40:26.667Z"
+    },
+    {
+      "chainId": 143,
+      "address": "0xc3932f079ea871af1a18e6530b9f9e8eab5bda4f",
+      "symbol": "gMONx5.MON",
+      "name": "gMON x5 Leverage Coin (MON/3M)",
+      "decimals": 18,
+      "priceClass": "A",
+      "feed": null,
+      "listings": {
+        "coingecko": null,
+        "coinmarketcap": null,
+        "geckoterminalCoingeckoId": null
+      },
+      "liquidityUsd": 0,
+      "volume24hUsd": 0,
+      "deepestPool": null,
+      "oldestPoolAt": "2026-10-07T18:21:24.000Z",
+      "screen": null,
+      "registryLane": null,
+      "registryStatus": null,
+      "firstSeenAt": "2026-10-09T20:40:26.667Z",
+      "lastSeenAt": "2026-10-09T20:40:26.667Z"
+    },
+    {
+      "chainId": 143,
+      "address": "0xebab9d2a91aa850beb655f50b06f41d33af0ab07",
+      "symbol": "KITTEHSMILE",
+      "name": "^w^",
+      "decimals": 18,
+      "priceClass": "A",
+      "feed": null,
+      "listings": {
+        "coingecko": null,
+        "coinmarketcap": null,
+        "geckoterminalCoingeckoId": null
+      },
+      "liquidityUsd": 0,
+      "volume24hUsd": 3.1213535518,
+      "deepestPool": null,
+      "oldestPoolAt": "2026-10-09T09:53:20.000Z",
+      "screen": null,
+      "registryLane": null,
+      "registryStatus": null,
+      "firstSeenAt": "2026-10-09T20:40:26.667Z",
+      "lastSeenAt": "2026-10-09T20:40:26.667Z"
+    }
+  ],
+  "canAct": true
+}

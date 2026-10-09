@@ -1,3 +1,4 @@
+import { writeFileSync } from "node:fs";
 import { type TestDatabase, createTestDatabase, databaseAvailable } from "@alpha-agents/db/testing";
 import { MarketData, TokenDiscovery } from "@alpha-agents/market";
 import {
@@ -20,8 +21,18 @@ const LV = "0x1001ff13bf368aa4fa85f21043648079f00e1001";
 
 const fine: Simulation = {
   amountIn: "250000000",
-  buy: { ok: true, quoted: "1000", received: "1000", taxBps: 0 },
-  transfer: { ok: true, sent: "1000", received: "1000", taxBps: 0 },
+  buy: {
+    ok: true,
+    quoted: "4132000000000000000000",
+    received: "4132000000000000000000",
+    taxBps: 0,
+  },
+  transfer: {
+    ok: true,
+    sent: "4132000000000000000000",
+    received: "4132000000000000000000",
+    taxBps: 0,
+  },
   sell: { ok: true, quoted: "249000000", received: "249000000", taxBps: 0, leftover: "0" },
   roundTripBps: 40,
   quoteSources: ["quoter", "quoter"],
@@ -43,7 +54,10 @@ function fakeFork() {
           throw new Error("execution reverted");
         },
       };
-      return fn({ publicClient: client, roundTrip: async () => state.simulation } as never, 1n);
+      return fn(
+        { publicClient: client, roundTrip: async () => state.simulation } as never,
+        111_990_000n,
+      );
     },
     stop: async () => undefined,
   };
@@ -202,6 +216,17 @@ describe.skipIf(!dbUp)(
       expect((await app.request("/v1/tokens/nope")).status).toBe(400);
       // Without operator actions there is no way to screen from the console.
       expect((await app.request(`/v1/tokens/${LV}/screen`, { method: "POST" })).status).toBe(404);
+      // The console's e2e fixture is these answers, as an operator sees them
+      // (TOKENS_FIXTURE_DIR=apps/console/e2e).
+      const dir = process.env.TOKENS_FIXTURE_DIR;
+      if (dir) {
+        const op = new Hono();
+        registerTokenRoutes(op, { registry, canAct: true });
+        const list = await (await op.request("/v1/tokens")).json();
+        const one = await (await op.request(`/v1/tokens/${LV}`)).json();
+        writeFileSync(`${dir}/tokens-fixture.json`, `${JSON.stringify(list, null, 2)}\n`);
+        writeFileSync(`${dir}/token-detail-fixture.json`, `${JSON.stringify(one, null, 2)}\n`);
+      }
     });
   },
 );
