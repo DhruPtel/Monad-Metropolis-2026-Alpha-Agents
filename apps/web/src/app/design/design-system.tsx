@@ -22,6 +22,7 @@ import { type ReactNode, useState } from "react";
 import {
   ChoiceGroup,
   SourcedFigure,
+  CodeBlock,
   CostPreview,
   EffectiveLimits,
   GoalSaveStatus,
@@ -2209,6 +2210,42 @@ function MarketSection() {
   );
 }
 
+/** P3-U4: preformatted operator text, as the console shows a stage's raw notes and briefs. */
+function ResearchSection() {
+  return (
+    <Section id="research" title="Research records">
+      <Specimen
+        name="CodeBlock"
+        note="Preformatted text for operators: long lines wrap, and a tall block scrolls inside a focusable region."
+      >
+        <div className="grid gap-6 lg:grid-cols-2" data-testid="code-blocks">
+          <CodeBlock label="Raw notes (platform-only)">
+            {`CHANGED: Monad TVL fell 6.8% over seven days (DefiLlama).
+THEMES: TVL_OUTFLOW high, MON_VOL_SPIKE medium.
+QUIET: no.`}
+          </CodeBlock>
+          <CodeBlock label="THEME brief (accepted)">
+            {JSON.stringify(
+              {
+                kind: "THEME",
+                themeCode: "TVL_OUTFLOW",
+                thesis: {
+                  statement: "Lending keeps its share while DEX TVL falls.",
+                  killCriterion: "Lending TVL falls below 412 million USD.",
+                  horizonHours: 72,
+                  confidence: "low",
+                },
+              },
+              null,
+              2,
+            )}
+          </CodeBlock>
+        </div>
+      </Specimen>
+    </Section>
+  );
+}
+
 function DesignSystem() {
   return (
     <div className="flex flex-col gap-10">
@@ -2230,6 +2267,7 @@ function DesignSystem() {
       <DataSection />
       <GoalSection />
       <MarketSection />
+      <ResearchSection />
     </div>
   );
 }

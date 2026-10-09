@@ -23,6 +23,7 @@ import { DemandCounter } from "./demand-counter";
 import { ReasonMessage } from "./reason-message";
 import { RISK_LEVELS, RiskBadge } from "./risk-badge";
 import { StatBar } from "./stat-bar";
+import { CodeBlock } from "./ui/code-block";
 import {
   ACCOUNT_MODE_RENDERING,
   AGENT_STATE_RENDERING,
@@ -482,5 +483,16 @@ describe("Table stacks on narrow screens when asked (P2-U5 step 0)", () => {
       </Table>,
     );
     expect(screen.getByRole("table")).not.toHaveAttribute("data-stack");
+  });
+});
+
+describe("CodeBlock (P3-U4)", () => {
+  it("names its text, keeps it preformatted, and can be reached with the keyboard", () => {
+    render(<CodeBlock label="Raw notes">{"CHANGED: one\nTHEMES: two"}</CodeBlock>);
+    const block = screen.getByLabelText("Raw notes");
+    expect(block.tagName).toBe("PRE");
+    expect(block).toHaveAttribute("tabindex", "0");
+    expect(block.textContent).toBe("CHANGED: one\nTHEMES: two");
+    expect(screen.getByText("Raw notes", { selector: "figcaption" })).toBeInTheDocument();
   });
 });
