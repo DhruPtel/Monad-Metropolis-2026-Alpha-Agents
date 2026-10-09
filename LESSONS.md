@@ -1154,3 +1154,31 @@ What happened: The gate test for market data found that after a lease's 20 paid 
 Cause: The cap counted every non-refused data call, free ones included, and was checked before the call's price was considered.
 Fix: The cap counts only calls with a charge above zero and applies only to a call that would be charged; a free call writes its row with `cache_hit` and no ledger entry. Also caught by the tests this unit: a mocked `Response` reused across calls (its body can be read once), fixed by building one per call.
 Lesson: When a limit exists to protect spend, count and check only what spends; and test a free path right after a paid limit is reached.
+
+## L-152: On testnet the mainnet market reader would have been handed the testnet's second RPC
+Unit: P3-U9 (Step 0)
+What happened: Wiring research's mainnet connection for testnet showed that the orchestrator built the market reader from `MONAD_RPC_URL` and `MONAD_RPC_URL_SECONDARY` read through the configuration, and on testnet the configuration fills `MONAD_RPC_URL_SECONDARY` from `MONAD_TESTNET_RPC_URL_SECONDARY` (D-254). The "mainnet" reader would have been given a testnet RPC; only its chain ID check (143) kept it from reading testnet as mainnet.
+Cause: One variable name with a different meaning per environment, read for a purpose its environment-specific meaning does not have.
+Fix: The configuration gives research its own `researchRpcUrls`, read from the mainnet variables by their own names in every environment and kept apart from `values` and the chain RPC, and every research client is built on a transport that refuses anything but reads (D-325).
+Lesson: When a variable's meaning changes per environment, never read it by that name for another purpose; give the other purpose its own field, and keep the chain ID check as the last line, not the first.
+
+## L-153: A Scan reported "ended without calling complete_stage" when the model provider was out of credit
+Unit: P3-U9
+What happened: In the live run every model-driven step after the first half failed the same way: one model call, no tool calls, "the Scan ended (failed) without calling complete_stage" (and the same for the chain check and the research check). Sending the tool list to LiteLLM by hand showed every request refused with "Your credit balance is too low to access the Anthropic API", for old tools and new alike; the platform's Anthropic account had run out during the run.
+Cause: The gate recorded only the status (400) of a refused model call, and the tasks reported their own incomplete outcome, never the gateway's answer, so a platform-wide outage looked like an agent that would not finish.
+Fix: The gate marks a refused call `PROVIDER_OUT_OF_CREDIT` when its body says so, and the Scan, the chain check and the research check name it (or the refused status) in their error (95eb0b9). The live model steps stay blocked until the account is topped up.
+Lesson: A task that fails should say what its dependencies answered; when every agent fails the same way at once, test the shared dependency directly before suspecting the change under test.
+
+## L-154: get_code called Circle's USDC proxy "no proxy"
+Unit: P3-U9
+What happened: The direct live check read USDC on Monad mainnet: 1,798 bytes of code, `pattern: none`. That size is Circle's FiatTokenProxy, whose implementation lives in the older `org.zeppelinos.proxy.implementation` slot, not the EIP-1967 slot the detector read.
+Cause: The detector knew EIP-1967, its beacon, EIP-1167 and EIP-7702, and was tested only on synthetic code and slots.
+Fix: `get_code` reads the ZeppelinOS slot too and reports `zeppelinos`; `read_contract`'s proxy reads return both slots; the fork test asserts USDC is a ZeppelinOS proxy (375124c).
+Lesson: Check a detector against the real contracts the product cares about, not only the patterns its spec lists; the most important token on the chain used the pattern the spec did not name.
+
+## L-155: Slips in P3-U9, caught by its tests and its captures
+Unit: P3-U9
+What happened: (1) An invalid MONAD_RPC_URL was reported twice, once by the loader and once by the new research reader. (2) A test's `JSON.stringify` of the meter's events threw on a BigInt price. (3) The console's vitest project cannot load TSX, so the research view's tests could not import it. (4) A no-send test checked the lookup inputs against `FORBIDDEN_INTENT_FIELDS`, which includes `target`, the field lookups must have. (5) The direct live check showed `dune_query` metered and then reversed when Dune had no key. (6) The 1440px capture showed "Run research check" cut off at the Agents table's edge.
+Cause: New code reusing an existing reader, list or layout without checking what it already covered.
+Fix: The research reader reports only an issue the loader has not; the test serializes BigInts; the view's helpers and types moved to `research.ts`; the test names the sending fields; an unconfigured X or Dune is refused before the meter; the task buttons wrap (d13eb2c).
+Lesson: Look at every capture a unit changes, not only the new page, and run a new paid tool once with its key missing to see what it charges.

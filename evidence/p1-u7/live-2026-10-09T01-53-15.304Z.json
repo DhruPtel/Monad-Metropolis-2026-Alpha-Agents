@@ -1,0 +1,389 @@
+{
+  "unit": "P1-U5, P1-U6 and P1-U7",
+  "namespace": "live-50aa31",
+  "runTag": "2026-10-09T01-53-15.304Z",
+  "checks": {
+    "mint leads to reveal and provisioning with no manual step": true,
+    "rendered config matches the tier on chain": true,
+    "the agent has its own LiteLLM key": true,
+    "with no credits the agent is RESTRICTED and an LLM task is refused": true,
+    "USDC sent to the funding address appears as credits with no other action": true,
+    "no-op task succeeded with a structured result": true,
+    "the model answered through the gate": true,
+    "the sandbox stopped": true,
+    "the task reduced credits by exactly the metered amount, and the ledger balances": true,
+    "a hard kill leaves a sandbox and a tunnel behind (the case L-19 describes)": true,
+    "the startup sweep removed the leftovers": true,
+    "a reset deletes the old key and creates a new one": true,
+    "a refund returns the remaining credits as USDC to the current owner": true,
+    "the signer worker is on, pinned to the local fork's chain": true,
+    "at zero the next call is refused and the run ends as billing, with no retries": true,
+    "afterwards the agent stays RESTRICTED and LLM tasks are refused": true,
+    "the keeper, provisioning and deposits keep working while an agent is restricted": true,
+    "the ledger balances and matches the funding address on chain": true,
+    "the scheduler queued a Scan for each funded agent with no manual step": false,
+    "a funded agent's Scan used web_search and read_url and returned a schema-valid result": false,
+    "the agent called market_snapshot from its sandbox and it answered": false,
+    "a real agent in E2B ran x_search and got sourced, untrusted posts": false,
+    "a real agent ran a saved Dune query by name and got typed rows": false,
+    "a real agent read a contract, a balance and code on Monad mainnet, typed and free": false,
+    "the X search was charged at its price, or free from the cache, and stayed inside the caps": false,
+    "each tool call is charged to the right agent, and the ledger holds exactly those charges": false,
+    "the narrator wrote an activity entry that passes the number validator": true,
+    "the same entry with a deliberately wrong number is rejected": true,
+    "the owner's grant to the funding address is recorded: armed once the first trade is approved": true,
+    "a real agent read its portfolio, prices, limits and tradable_now through the chain tools": false,
+    "its proposed swap waits for approval as an intent, with no calldata and an activity entry": false,
+    "no swap reached the signer before the owner's first approval": true,
+    "the owner's first approval arms the agent": false,
+    "the swap executed through the signer, the Executor and the real v4 pool, and settled after reconciliation": false,
+    "the trade and the arming have activity entries held to the number validator": false
+  },
+  "provisioning": {
+    "agentId": 1,
+    "msFromMint": 15074,
+    "runtime": {
+      "agentId": "1",
+      "generation": 1,
+      "status": "ready",
+      "tier": "pro",
+      "species": 14,
+      "slots": 8,
+      "playbook": "tier-pro@0",
+      "configHash": "6938b097af95a9095dc635ad9a9c37b27ff4581e26472c1e3438a59f5e69d580",
+      "keyAlias": "aa-live-50aa31-143143-1-g1",
+      "budgetUsd": "0.000000",
+      "lastError": null,
+      "provisionedAt": "2026-10-09T01:53:43.773Z",
+      "updatedAt": "2026-10-09T01:53:43.773Z",
+      "lease": null,
+      "latestTask": null
+    }
+  },
+  "deposit": {
+    "msToCredit": 4122,
+    "credited": {
+      "agentId": "1",
+      "fundingAddress": "0xf1f1cbfc8b13e1018beab249b14b926f128a11c4",
+      "creditsUsdcE6": "1000000",
+      "spendableUsdcE6": "1000000",
+      "heldUsdcE6": "0",
+      "unsettledUsdcE6": "0",
+      "fundingAddressUsdcE6": "1000000",
+      "restricted": false,
+      "spent24hUsdcE6": "0",
+      "toolSpent24hUsdcE6": "0",
+      "recent": [
+        {
+          "kind": "credits_received",
+          "creditsDeltaUsdcE6": "1000000",
+          "at": "2026-10-09T01:53:47.000Z"
+        }
+      ]
+    },
+    "budgetUsd": "0.800000"
+  },
+  "noop": {
+    "taskId": "cfa7aef3-90b2-4488-92ca-2fcdd4ef169c",
+    "agentId": "1",
+    "kind": "noop",
+    "status": "succeeded",
+    "result": {
+      "kind": "noop",
+      "tier": "pro",
+      "runId": "run_f049969eb99d4108b81164c85a93af95",
+      "slots": 8,
+      "agentId": 1,
+      "leaseId": "1b7b83a2-c983-4d07-b999-200274bc9dea",
+      "replied": "NOOP_OK",
+      "playbook": "tier-pro@0",
+      "runStatus": "completed",
+      "sandboxId": "irs25uxekdg9ods5sjuiy",
+      "timingsMs": {
+        "run": 13205,
+        "total": 40711,
+        "sandbox": 812,
+        "hermesBoot": 20151
+      },
+      "configHash": "6938b097af95a9095dc635ad9a9c37b27ff4581e26472c1e3438a59f5e69d580",
+      "gatedCalls": [
+        "POST /v1/chat/completions 200",
+        "GET /v1/models 200"
+      ],
+      "generation": 1,
+      "modelCalls": 2,
+      "stopReason": "completed",
+      "modelCallsOk": 2,
+      "answeredNoopOk": true,
+      "sandboxStopped": true,
+      "modelCallsRefusedForCredits": 0
+    },
+    "error": null,
+    "createdAt": "2026-10-09T01:53:48.125Z",
+    "startedAt": "2026-10-09T01:53:48.132Z",
+    "finishedAt": "2026-10-09T01:54:28.844Z"
+  },
+  "gatewayLog": {
+    "rows": 1,
+    "costed": 1,
+    "gateCallsOk": 2
+  },
+  "metering": {
+    "receipts": 1,
+    "chargedUsdcE6": "17273",
+    "after": {
+      "agentId": "1",
+      "fundingAddress": "0xf1f1cbfc8b13e1018beab249b14b926f128a11c4",
+      "creditsUsdcE6": "982727",
+      "spendableUsdcE6": "982727",
+      "heldUsdcE6": "0",
+      "unsettledUsdcE6": "17273",
+      "fundingAddressUsdcE6": "1000000",
+      "restricted": false,
+      "spent24hUsdcE6": "17273",
+      "toolSpent24hUsdcE6": "0",
+      "recent": [
+        {
+          "kind": "usage_metered",
+          "creditsDeltaUsdcE6": "-17273",
+          "at": "2026-10-09T01:54:25.000Z"
+        },
+        {
+          "kind": "credits_received",
+          "creditsDeltaUsdcE6": "1000000",
+          "at": "2026-10-09T01:53:47.000Z"
+        }
+      ]
+    }
+  },
+  "afterKill": {
+    "sandboxes": 1,
+    "tunnelAlive": true,
+    "leaseActive": true
+  },
+  "afterSweep": {
+    "sandboxes": 0,
+    "tunnelAlive": false,
+    "pidFile": false,
+    "lease": "ended",
+    "task": "failed"
+  },
+  "refund": {
+    "refund": {
+      "refundId": "217ce217-cecf-48b9-98e9-fd86b6211d21",
+      "agentId": "1",
+      "owner": "0x559479b6a5cb13ab51e6291584c434f7226a4b17",
+      "ownerEpoch": "0",
+      "status": "sent",
+      "creditsUsdcE6": "982727",
+      "heldUsdcE6": "0",
+      "txHash": "0x0b92ba413201e0d8f367c71c426fe804cc61fc91a307b550efd4e6287d2b408f",
+      "reason": null,
+      "createdAt": "2026-10-09T01:54:37.393Z",
+      "updatedAt": "2026-10-09T01:54:39.939Z"
+    },
+    "ownerGainedUsdcE6": "982727"
+  },
+  "drain": {
+    "outsideCall": 200,
+    "task": {
+      "taskId": "0e36c034-b6e8-4e4f-b7cf-2189b6df8dcc",
+      "agentId": "1",
+      "kind": "noop",
+      "status": "failed",
+      "result": {
+        "kind": "noop",
+        "tier": "pro",
+        "runId": "run_56726a90b7e849379aa8dec669daa9fa",
+        "slots": 8,
+        "agentId": 1,
+        "leaseId": "31199c84-d97e-4bab-9f4a-7b682945da99",
+        "replied": "",
+        "playbook": "tier-pro@0",
+        "runStatus": "failed",
+        "sandboxId": "iskintrmvqwdnt4wpiatd",
+        "timingsMs": {
+          "run": 7114,
+          "total": 31199,
+          "sandbox": 653,
+          "hermesBoot": 17031
+        },
+        "configHash": "b65f18ef7e20af59bde5e1799468e7ea79ba098c307ab7d8eb825131907cb1b0",
+        "gatedCalls": [
+          "POST /v1/chat/completions 402"
+        ],
+        "generation": 2,
+        "modelCalls": 1,
+        "stopReason": "billing",
+        "modelCallsOk": 0,
+        "answeredNoopOk": false,
+        "sandboxStopped": true,
+        "modelCallsRefusedForCredits": 1
+      },
+      "error": "billing: the agent's credits ran out; the gate refused 1 model call with 402 and the run ended failed",
+      "createdAt": "2026-10-09T01:54:42.916Z",
+      "startedAt": "2026-10-09T01:54:42.921Z",
+      "finishedAt": "2026-10-09T01:55:14.122Z"
+    }
+  },
+  "scans": {
+    "1": {
+      "taskId": "91f5aa4e-1339-49d2-b6d9-d783d20aa472",
+      "agentId": "1",
+      "kind": "scan",
+      "status": "failed",
+      "result": {
+        "kind": "scan",
+        "tier": "pro",
+        "runId": "run_853f850b65664f588bf3dbba673c82f8",
+        "stage": null,
+        "agentId": 1,
+        "leaseId": "56bacba5-af25-4a2d-90ac-e9c06e6b6945",
+        "runStatus": "failed",
+        "sandboxId": "ierdw1sw5b71gcxwrfuuy",
+        "timingsMs": {
+          "run": 6520,
+          "total": 31045,
+          "sandbox": 492,
+          "hermesBoot": 23778
+        },
+        "toolCalls": [],
+        "configHash": "b65f18ef7e20af59bde5e1799468e7ea79ba098c307ab7d8eb825131907cb1b0",
+        "gatedCalls": [
+          "POST /v1/chat/completions 400"
+        ],
+        "generation": 2,
+        "modelCalls": 1,
+        "stopReason": "NO_STAGE_RECORD",
+        "sandboxStopped": true,
+        "toolChargeUsdcE6": "0",
+        "modelCallsRefusedForCredits": 0
+      },
+      "error": "the Scan ended (failed) without calling complete_stage",
+      "createdAt": "2026-10-09T01:56:06.262Z",
+      "startedAt": "2026-10-09T01:56:06.268Z",
+      "finishedAt": "2026-10-09T01:56:37.539Z"
+    },
+    "2": {
+      "taskId": "e53f2249-95be-4d7a-acc3-09c25c20f5bc",
+      "agentId": "2",
+      "kind": "scan",
+      "status": "failed",
+      "result": {
+        "kind": "scan",
+        "tier": "medium",
+        "runId": "run_3f64ea5dec8848b2a6c6ca4c9fb40ad2",
+        "stage": null,
+        "agentId": 2,
+        "leaseId": "702311ab-76e0-4e3e-8912-5dd0d5e7187c",
+        "runStatus": "failed",
+        "sandboxId": "ik3eqiq5gbywhz9vjwho3",
+        "timingsMs": {
+          "run": 6416,
+          "total": 22798,
+          "sandbox": 358,
+          "hermesBoot": 15520
+        },
+        "toolCalls": [],
+        "configHash": "d13596a18ccd84139cf3b4ea92a8037138240568769ef83062b22c4109b9dcd9",
+        "gatedCalls": [
+          "POST /v1/chat/completions 400"
+        ],
+        "generation": 1,
+        "modelCalls": 1,
+        "stopReason": "NO_STAGE_RECORD",
+        "sandboxStopped": true,
+        "toolChargeUsdcE6": "0",
+        "modelCallsRefusedForCredits": 0
+      },
+      "error": "the Scan ended (failed) without calling complete_stage",
+      "createdAt": "2026-10-09T01:56:06.272Z",
+      "startedAt": "2026-10-09T01:56:06.276Z",
+      "finishedAt": "2026-10-09T01:56:29.305Z"
+    }
+  },
+  "marketSnapshot": [],
+  "researchCheck": {
+    "status": "failed",
+    "error": "the research check ended (failed) without a successful x_search, dune_query, read_contract, balance, get_code",
+    "result": {
+      "kind": "research_check",
+      "agentId": 2,
+      "leaseId": "3b345278-2623-4984-ba3d-a6ab107c43fc",
+      "runStatus": "failed",
+      "timingsMs": {
+        "run": 7987,
+        "total": 22579
+      },
+      "toolCalls": [],
+      "modelCalls": 1,
+      "stopReason": "INCOMPLETE"
+    },
+    "calls": [],
+    "usage": {
+      "xPostsRead": 0,
+      "xPostsLimit": 300,
+      "duneResultReads": 0,
+      "duneResultReadsLimit": 60,
+      "duneQueryRuns": 0,
+      "duneQueryRunsLimit": 6
+    }
+  },
+  "toolCharges": {
+    "calls": 0,
+    "paid": 0,
+    "byAgent": {
+      "1": "0",
+      "2": "0"
+    }
+  },
+  "activity": {
+    "entry": "Agent #2's Scan did not finish (no_stage_record). It ran 0 web searches and read 0 pages. Tools cost 0 USDC; 1 USDC of credits left.",
+    "renderedBy": "template",
+    "rejections": [
+      "narrator unavailable: the narrator model answered 400"
+    ]
+  },
+  "chainCheck": {
+    "status": "failed",
+    "error": "the chain check ended (failed) without every read and a proposal",
+    "result": {
+      "kind": "chain_check",
+      "agentId": 2,
+      "intents": [],
+      "leaseId": "db8391da-ac62-42ec-9a2b-c5076322a9ba",
+      "runStatus": "failed",
+      "timingsMs": {
+        "run": 5973,
+        "total": 22922
+      },
+      "toolCalls": [],
+      "modelCalls": 1,
+      "stopReason": "INCOMPLETE"
+    },
+    "chain": {
+      "agentId": "2",
+      "portfolio": null,
+      "arming": {
+        "state": "awaiting_first_trade",
+        "armingId": "arming-c130bafd-cac4-40a4-a8fc-22d95f2c76ae",
+        "validUntil": 1793468677,
+        "validUntilDate": "2026-10-31",
+        "renewalDue": false,
+        "armedAt": null,
+        "firstIntentId": null,
+        "ended": null
+      },
+      "tradeFlow": true,
+      "intents": []
+    }
+  },
+  "trade": {},
+  "tradeEntries": {
+    "arming": [
+      "The owner gave Agent #2 a trading permission until 2026-10-31; it is armed once the owner approves its first trade."
+    ]
+  },
+  "error": "timed out waiting for the over-limit proposal to be blocked",
+  "passed": false
+}

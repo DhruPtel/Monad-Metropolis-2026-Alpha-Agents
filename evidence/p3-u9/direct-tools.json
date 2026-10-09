@@ -1,0 +1,149 @@
+{
+  "unit": "P3-U9",
+  "kind": "direct tool check: the real data and chain tool servers over MCP, real X and Monad mainnet, no model (the model provider was out of credit)",
+  "at": "2026-10-09T02:01:21.227Z",
+  "environment": "testnet configuration (research reads mainnet, D-325)",
+  "x_search": {
+    "error": false,
+    "source": "x",
+    "untrusted": true,
+    "cacheHit": false,
+    "resultCount": 10,
+    "query": "(monad OR #monad OR $MON) -is:retweet -is:reply lang:en",
+    "everyPostWrapped": true,
+    "postTextLengths": [
+      387,
+      94,
+      223,
+      204,
+      75,
+      223,
+      180,
+      104,
+      298,
+      223
+    ],
+    "newest": "2026-10-09T01:58:36.000Z",
+    "note": "Post text is not recorded here (X's terms; deletions honored)."
+  },
+  "x_search_again": {
+    "error": false,
+    "cacheHit": true,
+    "resultCount": 10
+  },
+  "dune_query": {
+    "error": true,
+    "out": {
+      "code": "UPSTREAM_UNAVAILABLE",
+      "message": "Dune is not configured on this platform.",
+      "retryable": false
+    }
+  },
+  "read_contract_symbol": {
+    "chain": "monad-mainnet",
+    "function": "erc20_symbol",
+    "target": "0x754704Bc059F8C67012fEd69BC8A327a5aafb603",
+    "outputs": {
+      "value": {
+        "type": "string",
+        "length": 4,
+        "keccak256": "0xd6aca1be9729c13d677335161321649cccae6a591554772516700f986f942eaa"
+      }
+    },
+    "asOf": {
+      "block": "111771578",
+      "timestamp": "2026-10-09T02:01:19.000Z"
+    },
+    "cacheHit": false,
+    "note": "Read on Monad mainnet for research. Integers are decimal strings in raw units; a string or bytes value is given only as its length and keccak256 hash."
+  },
+  "read_contract_supply": {
+    "chain": "monad-mainnet",
+    "function": "erc20_total_supply",
+    "target": "0x754704Bc059F8C67012fEd69BC8A327a5aafb603",
+    "outputs": {
+      "value": {
+        "type": "uint",
+        "value": "248874271770783"
+      }
+    },
+    "asOf": {
+      "block": "111771579",
+      "timestamp": "2026-10-09T02:01:19.000Z"
+    },
+    "cacheHit": false,
+    "note": "Read on Monad mainnet for research. Integers are decimal strings in raw units; a string or bytes value is given only as its length and keccak256 hash."
+  },
+  "balance": {
+    "chain": "monad-mainnet",
+    "target": "0x3bd359C1119dA7Da1D913D1C4D2B7c461115433A",
+    "asset": "NATIVE",
+    "amount": "333786927.116333724063262002",
+    "amountRaw": "333786927116333724063262002",
+    "decimals": 18,
+    "asOf": {
+      "block": "111771580",
+      "timestamp": "2026-10-09T02:01:20.000Z"
+    },
+    "cacheHit": false
+  },
+  "get_code": {
+    "chain": "monad-mainnet",
+    "target": "0x754704Bc059F8C67012fEd69BC8A327a5aafb603",
+    "hasCode": true,
+    "sizeBytes": 1798,
+    "codeHash": "0xbb3557cf62a26950fb58073e6ce8e130af371e5aa13e5584856a1ce2ca47dc89",
+    "proxy": {
+      "pattern": "none",
+      "implementation": null
+    },
+    "note": "A contract with no proxy pattern detected.",
+    "asOf": {
+      "block": "111771581",
+      "timestamp": "2026-10-09T02:01:20.000Z"
+    },
+    "cacheHit": false
+  },
+  "get_code_no_code": {
+    "chain": "monad-mainnet",
+    "target": "0x000000000000000000000000000000000000dEaD",
+    "hasCode": false,
+    "sizeBytes": 0,
+    "codeHash": null,
+    "proxy": {
+      "pattern": "none",
+      "implementation": null
+    },
+    "note": "No code at this address on Monad mainnet: it is an account with no contract, or nothing is deployed there.",
+    "asOf": {
+      "block": "111771582",
+      "timestamp": "2026-10-09T02:01:20.000Z"
+    },
+    "cacheHit": false
+  },
+  "metered": [
+    {
+      "tool": "x_search",
+      "priceUsdcE6": "62500",
+      "cacheHit": false
+    },
+    {
+      "tool": "x_search",
+      "priceUsdcE6": "0",
+      "cacheHit": true
+    },
+    {
+      "tool": "dune_query",
+      "priceUsdcE6": "20000",
+      "cacheHit": false
+    }
+  ],
+  "usage": {
+    "xPostsRead": 10,
+    "xPostsLimit": 300,
+    "duneResultReads": 0,
+    "duneResultReadsLimit": 60,
+    "duneQueryRuns": 0,
+    "duneQueryRunsLimit": 6
+  }
+}
