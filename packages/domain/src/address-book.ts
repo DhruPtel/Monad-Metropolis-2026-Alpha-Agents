@@ -43,6 +43,10 @@ export const ADDRESS_BOOK_IDS = [
   "uniswap_v3_quoter_v2",
   "uniswap_v3_pool_usdc_wmon_3000",
   "uniswap_v3_pool_usdc_weth_3000",
+  "uniswap_v3_position_manager",
+  "pancakeswap_v3_factory",
+  "pancakeswap_v3_swap_router",
+  "pancakeswap_v3_quoter_v2",
   "uniswap_v4_pool_manager",
   "uniswap_v4_state_view",
   "uniswap_v4_quoter",
@@ -147,6 +151,8 @@ const ZODIAC = "Planv2/notes/zodiac-roles.md > 2. Facts the final plan must carr
 const UNI_V3_DOCS =
   "https://developers.uniswap.org/docs/protocols/v3/deployments/v3-monad-deployments";
 const UNI_V4_DOCS = "https://developers.uniswap.org/docs/protocols/v4/deployments";
+const MONAD_PROTOCOLS =
+  "https://github.com/monad-crypto/protocols mainnet/uniswap.jsonc and mainnet/pancakeswap.jsonc";
 const KURU_DOCS = "https://docs.kuru.io/contracts/Contract-addresses";
 const PYTH_ENTROPY_REGISTRY =
   "https://github.com/pyth-network/pyth-crosschain contract_manager/src/store/contracts/EvmEntropyContracts.json";
@@ -361,6 +367,50 @@ const MAINNET: readonly AddressEntry[] = [
     source: MORPHO,
     openQuestion: null,
     note: "Held about 5,700 USDC on 2026-09-25; not a launch pool",
+  },
+  {
+    id: "uniswap_v3_position_manager",
+    label: "Uniswap v3 NonfungiblePositionManager",
+    kind: "venue",
+    address: "0x7197e214c0b767cfb76fb734ab638e2c192f4e53",
+    status: "verified",
+    verification: fork(24384),
+    source: MONAD_PROTOCOLS,
+    openQuestion: null,
+    note: "Its factory() is the v3 factory above and WETH9() is WMON (F-U1); seeds test pools on throwaway forks only",
+  },
+  {
+    id: "pancakeswap_v3_factory",
+    label: "PancakeSwap v3 factory",
+    kind: "venue",
+    address: "0x0BFbCF9fa4f9C56B0F40a671Ad40E0805A091865",
+    status: "verified",
+    verification: fork(3859),
+    source: MONAD_PROTOCOLS,
+    openQuestion: null,
+    note: "Token discovery venue (F-U1); the router and quoter below name it as their factory",
+  },
+  {
+    id: "pancakeswap_v3_swap_router",
+    label: "PancakeSwap v3 SwapRouter",
+    kind: "venue",
+    address: "0x1b81D678ffb9C0263b24A97847620C99d213eB14",
+    status: "verified",
+    verification: fork(12154),
+    source: MONAD_PROTOCOLS,
+    openQuestion: null,
+    note: "factory() is the PancakeSwap v3 factory and WETH9() is WMON (F-U1); the token screen's route on forks",
+  },
+  {
+    id: "pancakeswap_v3_quoter_v2",
+    label: "PancakeSwap v3 QuoterV2",
+    kind: "venue",
+    address: "0xB048Bbc1Ee6b733FFfCFb9e9CeF7375518e25997",
+    status: "verified",
+    verification: fork(8331),
+    source: MONAD_PROTOCOLS,
+    openQuestion: null,
+    note: "Read-only quotes; factory() is the PancakeSwap v3 factory (F-U1)",
   },
   {
     id: "uniswap_v4_pool_manager",
