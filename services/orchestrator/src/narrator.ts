@@ -99,8 +99,30 @@ export interface BlockedFacts {
   }[];
 }
 
-export type NarrationFacts = ScanFacts | IntentFacts | ArmingFacts | TradeFacts | BlockedFacts;
-export type ActivityKind = "scan" | "intent" | "arming" | "trade" | "blocked";
+/**
+ * The template runner (P3-U3): a leg it proposed, a notable hold (the reason
+ * changed to one the owner should know), or the account back inside its band
+ * after legs. Every number comes from the runner's decision record.
+ */
+export interface RunnerFacts {
+  readonly agent: string;
+  readonly activity: "runner";
+  readonly event: "leg" | "hold" | "in_band";
+  /** The plan's target WMON share and band, in percent. */
+  readonly targetPercent: string;
+  readonly bandPercent: string;
+  /** The account's WMON share when it decided, in percent; null when there was no price. */
+  readonly wmonSharePercent: string | null;
+  /** The leg, for a leg. */
+  readonly sell: { readonly asset: string; readonly amount: string } | null;
+  readonly buy: string | null;
+  /** The reason, for a hold. */
+  readonly reason: { readonly code: string; readonly message: string } | null;
+}
+
+export type NarrationFacts =
+  ScanFacts | IntentFacts | ArmingFacts | TradeFacts | BlockedFacts | RunnerFacts;
+export type ActivityKind = "scan" | "intent" | "arming" | "trade" | "blocked" | "runner";
 
 /** Micro-USDC as a plain decimal with no trailing zeros: 22000 -> "0.022". */
 export function formatUsdc(e6: bigint): string {
@@ -220,6 +242,19 @@ export function templateBlockedEntry(f: BlockedFacts): string {
     0,
     MAX_ENTRY_CHARS,
   );
+}
+
+/** The fixed template for a runner entry: every number in it comes from the facts. */
+export function templateRunnerEntry(f: RunnerFacts): string {
+  const plan = `its plan's ${f.targetPercent}% WMON target (band ${f.bandPercent} points)`;
+  const at = f.wmonSharePercent === null ? "" : ` from ${f.wmonSharePercent}% WMON`;
+  const text =
+    f.event === "leg" && f.sell
+      ? `${f.agent}'s runner is trading ${f.sell.amount} ${f.sell.asset} for ${f.buy ?? ""}${at} toward ${plan}.`
+      : f.event === "in_band"
+        ? `${f.agent}'s account is back inside the band of ${plan}${f.wmonSharePercent === null ? "" : `, at ${f.wmonSharePercent}% WMON`}.`
+        : `${f.agent}'s runner is holding against ${plan}: ${(f.reason?.message ?? "").replace(/\.$/, "")}.`;
+  return text.slice(0, MAX_ENTRY_CHARS);
 }
 
 export const NARRATOR_SYSTEM = [
@@ -474,7 +509,7 @@ export class Narrator {
     chainId: number,
     agentId: number,
     key: string,
-    facts: ArmingFacts | TradeFacts | BlockedFacts,
+    facts: ArmingFacts | TradeFacts | BlockedFacts | RunnerFacts,
   ): Promise<ActivityEntry | null> {
     const existing = await this.stored(key);
     if (existing) return existing;
@@ -483,7 +518,9 @@ export class Narrator {
         ? (["arming", () => templateArmingEntry(facts)] as const)
         : facts.activity === "trade"
           ? (["trade", () => templateTradeEntry(facts)] as const)
-          : (["blocked", () => templateBlockedEntry(facts)] as const);
+          : facts.activity === "runner"
+            ? (["runner", () => templateRunnerEntry(facts)] as const)
+            : (["blocked", () => templateBlockedEntry(facts)] as const);
     await this.write({ chainId, agentId, key, kind, facts, template });
     return (await this.stored(key)) ?? null;
   }

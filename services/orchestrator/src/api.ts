@@ -10,6 +10,7 @@ import { CreditsExhaustedError, type Orchestrator, ScanOpenError } from "./orche
 import type { RevealSteering, SteerRecord, SteerTarget } from "./reveal-steer.ts";
 import type { SignerWorker } from "./signer-worker.ts";
 import type { Runtime, Store, Task } from "./store.ts";
+import { registerPlanRoutes } from "./plan-routes.ts";
 
 /**
  * The orchestrator's internal API (D-205), on loopback only. Reads serve the
@@ -485,6 +486,15 @@ export function createApi(o: ApiOptions): Hono {
       tradeFlow: Boolean(o.orchestrator.tradeFlow),
       intents: intents.map(intentJson),
     });
+  });
+
+  // P3-U3: plans and the template runner.
+  registerPlanRoutes(app, {
+    orchestrator: o.orchestrator,
+    chainId: o.chainId,
+    agentRef: (raw) => agentRef(raw, o.chainId),
+    canSet: o.devActions || o.operatorActions === true,
+    canRun: o.devActions,
   });
 
   /** P2-U6: why the agent did not trade: its arming and its recent blocked trades. */

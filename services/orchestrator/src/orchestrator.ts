@@ -28,6 +28,9 @@ import { startupSweep, type SweepReport } from "./sweep.ts";
 import { type ChainToolsWiring, type ToolServers, startToolServers } from "./tools/servers.ts";
 import { type Tunnel, startTunnel, tunnelPidFile } from "./tunnel.ts";
 import {
+  DecisionStore,
+  GoalStore,
+  PlanStore,
   SnapshotStore,
   TradeStore,
   approveByOwner,
@@ -37,6 +40,8 @@ import {
 import { SnapshotRecorder } from "./snapshots.ts";
 import type { Hex } from "viem";
 import { TradeFlow, type TradeFlowGas, type TradeFlowSigner } from "./trade-flow.ts";
+import { RUNNER_EVERY_MS, TemplateRunner } from "./runner.ts";
+import { PgIntentStore } from "./tools/chain-store.ts";
 
 /**
  * Wires the orchestrator's parts into one service (D-202): the startup sweep,
@@ -125,6 +130,16 @@ export interface OrchestratorOptions {
     readonly finalizedBlock: () => Promise<bigint | null>;
     readonly everyMs?: number;
   } | null;
+  /**
+   * P3-U3: the template runner's market input. With trading and a chain reader
+   * the runner turns each agent's plan into legs every minute; without it, or
+   * without trading, plans are stored and nothing trades.
+   */
+  readonly runner?: {
+    /** MON's annualized 24-hour realized volatility in percent, null when unreadable. */
+    readonly volatility24hPct: () => Promise<number | null>;
+    readonly everyMs?: number;
+  } | null;
 }
 
 export class Orchestrator {
@@ -139,6 +154,11 @@ export class Orchestrator {
   /** P2-U6: arming and intent records, and the worker that turns intents into trades. */
   readonly trades: TradeStore;
   readonly tradeFlow: TradeFlow | null;
+  /** P3-U3: the plans, the runner's decisions, and the runner itself where trading runs. */
+  readonly plans: PlanStore;
+  readonly decisions: DecisionStore;
+  readonly goals: GoalStore;
+  readonly runner: TemplateRunner | null;
   /** Phase 2 tuning: value snapshots for W-3's charts, where the chain tools can read. */
   readonly snapshots: SnapshotRecorder | null;
   readonly probeToken = randomToken();
@@ -230,6 +250,27 @@ export class Orchestrator {
             ...(recorder
               ? { onSettled: (i) => recorder.observe(i.agentId, "trade", i.intentId) }
               : {}),
+            log,
+          })
+        : null;
+    this.plans = new PlanStore(store.db);
+    this.decisions = new DecisionStore(store.db);
+    this.goals = new GoalStore(store.db);
+    const trading = options.trading;
+    this.runner =
+      reader && trading && options.runner
+        ? new TemplateRunner({
+            chainId: options.chainId,
+            reader,
+            plans: this.plans,
+            decisions: this.decisions,
+            goals: this.goals,
+            trades: this.trades,
+            intents: new PgIntentStore(store),
+            sessionKeyOf: (agentId) => trading.signer.createKey(agentId),
+            volatility24hPct: options.runner.volatility24hPct,
+            gas: trading.gas,
+            narrator: this.narrator,
             log,
           })
         : null;
@@ -343,6 +384,12 @@ export class Orchestrator {
     if (this.tradeFlow) {
       const flow = this.tradeFlow;
       this.every(this.o.trading?.everyMs ?? 2_000, "trade flow", () => flow.tick());
+    }
+    if (this.runner) {
+      const runner = this.runner;
+      this.every(this.o.runner?.everyMs ?? RUNNER_EVERY_MS, "template runner", async () => {
+        await runner.tick();
+      });
     }
     if (this.o.localFeeds) {
       const feeds = this.o.localFeeds;

@@ -1,6 +1,14 @@
 import { type TestDatabase, createTestDatabase, databaseAvailable } from "@alpha-agents/db/testing";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { TradeStore, approveByOwner } from "@alpha-agents/trading";
+import {
+  DecisionStore,
+  GoalStore,
+  PlanStore,
+  TradeStore,
+  approveByOwner,
+} from "@alpha-agents/trading";
+import { DEFAULT_GOAL_INPUT } from "@alpha-agents/domain";
+import { translateGoal } from "@alpha-agents/policy";
 import { createApi } from "./api.ts";
 import { MemoryGateway } from "./gateway-admin.ts";
 import { LeaseManager } from "./leases.ts";
@@ -324,6 +332,60 @@ describe.skipIf(!dbUp)("the orchestrator's internal API (D-205)", { timeout: 60_
       `/v1/agents/1/intents/${id}/approve`,
     ])
       expect((await off.request(path, { method: "POST" })).status, path).toBe(404);
+  });
+
+  it("serves an agent's plan with the goal's defaults, sets a checked plan, and refuses one outside the goal (P3-U3)", async () => {
+    const goals = new GoalStore(t.db);
+    const plans = new PlanStore(t.db);
+    const decisions = new DecisionStore(t.db);
+    const o = { ...orchestrator, goals, plans, decisions, runner: null } as unknown as Orchestrator;
+    const app = createApi({ orchestrator: o, store, chainId: CHAIN, devActions: true });
+    const none = (await (await app.request("/v1/agents/1/plan")).json()) as Record<string, unknown>;
+    expect(none).toMatchObject({ goal: null, plan: null, decisions: [] });
+    const translated = translateGoal(DEFAULT_GOAL_INPUT);
+    if (!translated.ok) throw new Error("goal");
+    const put = (body: unknown) =>
+      app.request("/v1/agents/1/plan", {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(body),
+      });
+    const p = translated.config.template.params;
+    const body = { ...p, minTradeUsdcE6: p.minTradeUsdcE6.toString() };
+    expect((await put(body)).status).toBe(409);
+    await goals.save({
+      chainId: CHAIN,
+      agentId: 1,
+      ownerEpoch: 0n,
+      savedBy: "0x00000000000000000000000000000000000a11ce",
+      config: translated.config,
+    });
+    const outside = await put({ ...body, targetWmonBps: 3_500 });
+    expect(outside.status).toBe(400);
+    expect(await outside.json()).toMatchObject({ error: "plan_out_of_bounds" });
+    expect((await put({ ...body, extra: 1 })).status).toBe(400);
+    const set = await put({ ...body, targetWmonBps: 1_500 });
+    expect(set.status).toBe(201);
+    const view = (await (await app.request("/v1/agents/1/plan")).json()) as Record<string, unknown>;
+    expect(view).toMatchObject({
+      strategyEpoch: "2",
+      goal: { riskPreset: "BALANCED", targetRange: { minBps: 0, maxBps: 3_000 } },
+      plan: {
+        params: { targetWmonBps: 1_500 },
+        strategyEpoch: "2",
+        stale: false,
+        setBy: "console",
+      },
+      runner: { on: false, canSet: true, canRun: false },
+    });
+    // The runner is off without trading, so "run now" says so; without dev actions setting is gone.
+    expect((await app.request("/v1/agents/1/runner/run", { method: "POST" })).status).toBe(409);
+    const off = createApi({ orchestrator: o, store, chainId: CHAIN, devActions: false });
+    expect((await off.request("/v1/agents/1/plan", { method: "PUT", body: "{}" })).status).toBe(
+      404,
+    );
+    expect((await off.request("/v1/agents/1/runner/run", { method: "POST" })).status).toBe(404);
+    expect((await off.request("/v1/agents/1/plan")).status).toBe(200);
   });
 
   it("has no write routes without dev actions (outside APP_ENV=local)", async () => {

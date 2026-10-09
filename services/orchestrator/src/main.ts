@@ -407,6 +407,14 @@ const orchestrator = new Orchestrator({
   web,
   market,
   research,
+  // P3-U3: the runner's buy brake reads MON's 24-hour volatility from the shared market data
+  // (DefiLlama's recorded price, D-289); a refused or stale figure counts as unreadable.
+  runner: {
+    volatility24hPct: async () => {
+      const f = (await market.volatility()).value.windows["24h"];
+      return f.value === null || f.warnings.some((w) => w.code === "STALE") ? null : f.value;
+    },
+  },
   scanIntervalMs,
   ...(scheduleScans ? {} : { scheduleMs: 0 }),
   ...(local ? {} : { keeperMs: REMOTE_POLL_MS, creditsMs: REMOTE_POLL_MS }),
