@@ -1,0 +1,1141 @@
+{
+  "unit": "P1-U5, P1-U6 and P1-U7",
+  "namespace": "live-5c870f",
+  "runTag": "2026-10-09T16-06-38.821Z",
+  "checks": {
+    "mint leads to reveal and provisioning with no manual step": true,
+    "rendered config matches the tier on chain": true,
+    "the agent has its own LiteLLM key": true,
+    "with no credits the agent is RESTRICTED and an LLM task is refused": true,
+    "USDC sent to the funding address appears as credits with no other action": true,
+    "no-op task succeeded with a structured result": true,
+    "the model answered through the gate": true,
+    "the sandbox stopped": true,
+    "the task reduced credits by exactly the metered amount, and the ledger balances": true,
+    "a hard kill leaves a sandbox and a tunnel behind (the case L-19 describes)": true,
+    "the startup sweep removed the leftovers": true,
+    "a reset deletes the old key and creates a new one": true,
+    "a refund returns the remaining credits as USDC to the current owner": true,
+    "the signer worker is on, pinned to the local fork's chain": true,
+    "at zero the next call is refused and the run ends as billing, with no retries": true,
+    "afterwards the agent stays RESTRICTED and LLM tasks are refused": true,
+    "the keeper, provisioning and deposits keep working while an agent is restricted": true,
+    "the ledger balances and matches the funding address on chain": true,
+    "the scheduler queued a Scan for each funded agent with no manual step": true,
+    "a funded agent's Scan used web_search and returned a schema-valid result": true,
+    "the Scan loaded its playbook from the read-only skill mount": true,
+    "the scheduled Scan's notes carry its brief's content under the prompt's headings": false,
+    "the agent called market_snapshot from its sandbox and it answered": true,
+    "a real agent in E2B ran x_search and got sourced, untrusted posts": true,
+    "Dune is off without a key: the agent's dune_query is refused with no charge": true,
+    "a real agent read a contract, a balance and code on Monad mainnet, typed and free": true,
+    "the X search was charged at its price, or free from the cache, and stayed inside the caps": true,
+    "each tool call is charged to the right agent, and the ledger holds exactly those charges": true,
+    "the narrator wrote an activity entry that passes the number validator": true,
+    "the same entry with a deliberately wrong number is rejected": true,
+    "the owner's grant to the funding address is recorded: armed once the first trade is approved": true,
+    "a real agent read its portfolio, prices, limits and tradable_now through the chain tools": true,
+    "its proposed swap waits for approval as an intent, with no calldata and an activity entry": true,
+    "no swap reached the signer before the owner's first approval": true,
+    "the owner's first approval arms the agent": true,
+    "the swap executed through the signer, the Executor and the real v4 pool, and settled after reconciliation": true,
+    "the trade and the arming have activity entries held to the number validator": true,
+    "an over-limit proposal is blocked at submission with its reason, served as why the agent did not trade": true,
+    "a real agent completed a full cycle: Scan, Dives, Challenge, Test and Zoom out": false,
+    "each model stage ended with complete_stage on its own alias, from the gate's records": false,
+    "every stage stayed within its caps, and no stage was charged above its ceiling": true,
+    "the day's research budget held": true,
+    "every brief was validated, and every accepted one traces to the cycle's stored results again": false,
+    "the Challenge saw the Dives' briefs and nothing of their sessions": false,
+    "prompt caching: cache reads from the second model call of each stage": true,
+    "the narrator wrote one entry per stage": true,
+    "at zero credits a Scan is refused": true,
+    "at zero credits a research cycle is refused with the billing reason": true,
+    "teardown leaves no key of this namespace": true,
+    "no key or token in any orchestrator log line or API reply": true
+  },
+  "provisioning": {
+    "agentId": 1,
+    "msFromMint": 19034,
+    "runtime": {
+      "agentId": "1",
+      "generation": 1,
+      "status": "ready",
+      "tier": "pro",
+      "species": 14,
+      "slots": 8,
+      "playbook": "tier-pro@1",
+      "configHash": "f6a07d7ec6a4add76510a955ca711d7ea87c7219118980ea7739049e1dd67ee5",
+      "keyAlias": "aa-live-5c870f-143143-1-g1",
+      "budgetUsd": "0.000000",
+      "lastError": null,
+      "provisionedAt": "2026-10-09T16:07:07.116Z",
+      "updatedAt": "2026-10-09T16:07:07.116Z",
+      "lease": null,
+      "latestTask": null
+    }
+  },
+  "deposit": {
+    "msToCredit": 4223,
+    "credited": {
+      "agentId": "1",
+      "fundingAddress": "0xf1f1cbfc8b13e1018beab249b14b926f128a11c4",
+      "creditsUsdcE6": "1000000",
+      "spendableUsdcE6": "1000000",
+      "heldUsdcE6": "0",
+      "unsettledUsdcE6": "0",
+      "fundingAddressUsdcE6": "1000000",
+      "restricted": false,
+      "spent24hUsdcE6": "0",
+      "toolSpent24hUsdcE6": "0",
+      "recent": [
+        {
+          "kind": "credits_received",
+          "creditsDeltaUsdcE6": "1000000",
+          "at": "2026-10-09T16:07:11.000Z"
+        }
+      ]
+    },
+    "budgetUsd": "0.800000"
+  },
+  "noop": {
+    "taskId": "dfdc3d5c-d9a0-4848-ba5c-88d9996e36e5",
+    "agentId": "1",
+    "kind": "noop",
+    "status": "succeeded",
+    "result": {
+      "kind": "noop",
+      "tier": "pro",
+      "runId": "run_fc953898a5b54d11994d7ed911e92a9a",
+      "slots": 8,
+      "agentId": 1,
+      "leaseId": "8f2e652f-d978-40d2-a97e-33d95b9bfd96",
+      "replied": "NOOP_OK",
+      "playbook": "tier-pro@1",
+      "runStatus": "completed",
+      "sandboxId": "i0oxzu04z4myvopiwvo94",
+      "timingsMs": {
+        "run": 5841,
+        "total": 27825,
+        "sandbox": 951,
+        "hermesBoot": 13301
+      },
+      "configHash": "f6a07d7ec6a4add76510a955ca711d7ea87c7219118980ea7739049e1dd67ee5",
+      "gatedCalls": [
+        "POST /v1/chat/completions 200",
+        "GET /v1/models 200"
+      ],
+      "generation": 1,
+      "modelCalls": 2,
+      "stopReason": "completed",
+      "modelCallsOk": 2,
+      "answeredNoopOk": true,
+      "sandboxStopped": true,
+      "modelCallsRefusedForCredits": 0
+    },
+    "error": null,
+    "createdAt": "2026-10-09T16:07:11.657Z",
+    "startedAt": "2026-10-09T16:07:11.664Z",
+    "finishedAt": "2026-10-09T16:07:39.490Z"
+  },
+  "gatewayLog": {
+    "rows": 1,
+    "costed": 1,
+    "gateCallsOk": 2
+  },
+  "metering": {
+    "receipts": 1,
+    "chargedUsdcE6": "21472",
+    "after": {
+      "agentId": "1",
+      "fundingAddress": "0xf1f1cbfc8b13e1018beab249b14b926f128a11c4",
+      "creditsUsdcE6": "978528",
+      "spendableUsdcE6": "978528",
+      "heldUsdcE6": "0",
+      "unsettledUsdcE6": "21472",
+      "fundingAddressUsdcE6": "1000000",
+      "restricted": false,
+      "spent24hUsdcE6": "21472",
+      "toolSpent24hUsdcE6": "0",
+      "recent": [
+        {
+          "kind": "usage_metered",
+          "creditsDeltaUsdcE6": "-21472",
+          "at": "2026-10-09T16:07:37.000Z"
+        },
+        {
+          "kind": "credits_received",
+          "creditsDeltaUsdcE6": "1000000",
+          "at": "2026-10-09T16:07:11.000Z"
+        }
+      ]
+    }
+  },
+  "afterKill": {
+    "sandboxes": 1,
+    "tunnelAlive": true,
+    "leaseActive": true
+  },
+  "afterSweep": {
+    "sandboxes": 0,
+    "tunnelAlive": false,
+    "pidFile": false,
+    "lease": "ended",
+    "task": "failed"
+  },
+  "refund": {
+    "refund": {
+      "refundId": "7d598de4-8edb-4923-ac5b-dd2789fa5aa7",
+      "agentId": "1",
+      "owner": "0xa538ed8f0a936998ed983037fd6588a0ae18275e",
+      "ownerEpoch": "0",
+      "status": "sent",
+      "creditsUsdcE6": "978528",
+      "heldUsdcE6": "0",
+      "txHash": "0x701a3912f5e2ac17c88356fa34fd9bd5886bd52e02f50642497c2a15ffca1e83",
+      "reason": null,
+      "createdAt": "2026-10-09T16:07:46.469Z",
+      "updatedAt": "2026-10-09T16:07:48.853Z"
+    },
+    "ownerGainedUsdcE6": "978528"
+  },
+  "drain": {
+    "outsideCall": 200,
+    "task": {
+      "taskId": "b4f67957-f162-4ec3-bf77-d1ade0a77626",
+      "agentId": "1",
+      "kind": "noop",
+      "status": "failed",
+      "result": {
+        "kind": "noop",
+        "tier": "pro",
+        "runId": "run_93a3cea96c604036aee6795564931b6f",
+        "slots": 8,
+        "agentId": 1,
+        "leaseId": "933ddf75-3bbf-4f21-a021-d0a3c04c8457",
+        "replied": "",
+        "playbook": "tier-pro@1",
+        "runStatus": "failed",
+        "sandboxId": "i0u1wwdp9j7x4ifepjlnt",
+        "timingsMs": {
+          "run": 6411,
+          "total": 37232,
+          "sandbox": 661,
+          "hermesBoot": 21288
+        },
+        "configHash": "b8ee1824a498aa91d7ad34024c8d7a92604b13875c74c99e84b34513c3177706",
+        "gatedCalls": [
+          "POST /v1/chat/completions 402"
+        ],
+        "generation": 2,
+        "modelCalls": 1,
+        "stopReason": "billing",
+        "modelCallsOk": 0,
+        "answeredNoopOk": false,
+        "sandboxStopped": true,
+        "modelCallsRefusedForCredits": 1
+      },
+      "error": "billing: the agent's credits ran out; the gate refused 1 model call with 402 and the run ended failed",
+      "createdAt": "2026-10-09T16:07:50.986Z",
+      "startedAt": "2026-10-09T16:07:50.991Z",
+      "finishedAt": "2026-10-09T16:08:28.225Z"
+    }
+  },
+  "scans": {
+    "1": {
+      "taskId": "18b63f3c-7dd0-4f90-9b59-911a0e7f4aff",
+      "agentId": "1",
+      "kind": "scan",
+      "status": "succeeded",
+      "result": {
+        "kind": "scan",
+        "tier": "pro",
+        "runId": "run_6d5077969de844feb3740d43fa1c627f",
+        "stage": {
+          "outcome": "DONE",
+          "stageId": "stage-dd7e9df3-dac0-44a0-9486-5d8bbf1970c0",
+          "candidates": [
+            {
+              "asset": "WMON",
+              "thesisCode": "MON_PRICE_RECOVERY",
+              "confidenceBps": 6500
+            },
+            {
+              "asset": "USDC",
+              "thesisCode": "TVL_VOLATILITY_MONAD",
+              "confidenceBps": 5500
+            }
+          ],
+          "schemaValid": true
+        },
+        "agentId": 1,
+        "leaseId": "0196c25b-3738-4cf2-952c-a965cc02abba",
+        "runStatus": "completed",
+        "sandboxId": "idkk0csywozy37iuazfzt",
+        "timingsMs": {
+          "run": 82784,
+          "total": 110664,
+          "sandbox": 710,
+          "hermesBoot": 18848
+        },
+        "toolCalls": [
+          {
+            "tool": "market_snapshot",
+            "status": "succeeded",
+            "errorCode": null,
+            "chargeUsdcE6": "1000"
+          },
+          {
+            "tool": "web_search",
+            "status": "succeeded",
+            "errorCode": null,
+            "chargeUsdcE6": "10000"
+          },
+          {
+            "tool": "web_search",
+            "status": "succeeded",
+            "errorCode": null,
+            "chargeUsdcE6": "10000"
+          },
+          {
+            "tool": "web_search",
+            "status": "succeeded",
+            "errorCode": null,
+            "chargeUsdcE6": "10000"
+          },
+          {
+            "tool": "read_url",
+            "status": "succeeded",
+            "errorCode": null,
+            "chargeUsdcE6": "2000"
+          },
+          {
+            "tool": "write_thesis",
+            "status": "succeeded",
+            "errorCode": null,
+            "chargeUsdcE6": "0"
+          },
+          {
+            "tool": "complete_stage",
+            "status": "succeeded",
+            "errorCode": null,
+            "chargeUsdcE6": "0"
+          }
+        ],
+        "configHash": "b8ee1824a498aa91d7ad34024c8d7a92604b13875c74c99e84b34513c3177706",
+        "gatedCalls": [
+          "POST /v1/chat/completions 200",
+          "GET /v1/models 200",
+          "POST /v1/chat/completions 200",
+          "POST /v1/chat/completions 200",
+          "POST /v1/chat/completions 200",
+          "POST /v1/chat/completions 200",
+          "POST /v1/chat/completions 200",
+          "POST /v1/chat/completions 200",
+          "POST /v1/chat/completions 200",
+          "POST /v1/chat/completions 200",
+          "POST /v1/chat/completions 200",
+          "POST /v1/chat/completions 200",
+          "POST /v1/chat/completions 200",
+          "POST /v1/chat/completions 200",
+          "POST /v1/chat/completions 200"
+        ],
+        "generation": 2,
+        "modelCalls": 15,
+        "stopReason": "COMPLETED",
+        "skillsLoaded": [
+          "aa-playbook-scan"
+        ],
+        "sandboxStopped": true,
+        "toolChargeUsdcE6": "33000",
+        "modelCallsRefusedForCredits": 0
+      },
+      "error": null,
+      "createdAt": "2026-10-09T16:08:54.847Z",
+      "startedAt": "2026-10-09T16:08:54.856Z",
+      "finishedAt": "2026-10-09T16:10:46.564Z"
+    },
+    "2": {
+      "taskId": "48490938-ba3f-401c-bde1-8820318867e3",
+      "agentId": "2",
+      "kind": "scan",
+      "status": "succeeded",
+      "result": {
+        "kind": "scan",
+        "tier": "base",
+        "runId": "run_caca76f42b224f9f96a27a31fea360a8",
+        "stage": {
+          "outcome": "DONE",
+          "stageId": "stage-d8cb562c-c7ab-4eda-b571-a25be07ee07e",
+          "candidates": [
+            {
+              "asset": "WMON",
+              "thesisCode": "MON_UNLOCK_NOVEMBER_OVERHANG",
+              "confidenceBps": 8500
+            },
+            {
+              "asset": "WMON",
+              "thesisCode": "MONAD_TVL_PULLBACK",
+              "confidenceBps": 6500
+            },
+            {
+              "asset": "WMON",
+              "thesisCode": "MON_PROFIT_TAKING_CYCLE",
+              "confidenceBps": 7000
+            }
+          ],
+          "schemaValid": true
+        },
+        "agentId": 2,
+        "leaseId": "93c4e10f-db53-44f1-ab5b-79ceaf23a148",
+        "runStatus": "completed",
+        "sandboxId": "is91pl0vqvcc1r76gsv1h",
+        "timingsMs": {
+          "run": 61978,
+          "total": 76905,
+          "sandbox": 622,
+          "hermesBoot": 13853
+        },
+        "toolCalls": [
+          {
+            "tool": "market_snapshot",
+            "status": "succeeded",
+            "errorCode": null,
+            "chargeUsdcE6": "0"
+          },
+          {
+            "tool": "web_search",
+            "status": "succeeded",
+            "errorCode": null,
+            "chargeUsdcE6": "10000"
+          },
+          {
+            "tool": "web_search",
+            "status": "succeeded",
+            "errorCode": null,
+            "chargeUsdcE6": "10000"
+          },
+          {
+            "tool": "web_search",
+            "status": "succeeded",
+            "errorCode": null,
+            "chargeUsdcE6": "10000"
+          },
+          {
+            "tool": "read_url",
+            "status": "succeeded",
+            "errorCode": null,
+            "chargeUsdcE6": "2000"
+          },
+          {
+            "tool": "write_thesis",
+            "status": "succeeded",
+            "errorCode": null,
+            "chargeUsdcE6": "0"
+          },
+          {
+            "tool": "write_research_brief",
+            "status": "succeeded",
+            "errorCode": null,
+            "chargeUsdcE6": "0"
+          },
+          {
+            "tool": "complete_stage",
+            "status": "succeeded",
+            "errorCode": null,
+            "chargeUsdcE6": "0"
+          }
+        ],
+        "configHash": "70f4afe21dbb0293a895d3fe2e276be8d87e79df48857c059181cd8f2b93f6a2",
+        "gatedCalls": [
+          "POST /v1/chat/completions 200",
+          "GET /v1/models 200",
+          "POST /v1/chat/completions 200",
+          "POST /v1/chat/completions 200",
+          "POST /v1/chat/completions 200",
+          "POST /v1/chat/completions 200",
+          "POST /v1/chat/completions 200",
+          "POST /v1/chat/completions 200",
+          "POST /v1/chat/completions 200",
+          "POST /v1/chat/completions 200"
+        ],
+        "generation": 1,
+        "modelCalls": 10,
+        "stopReason": "COMPLETED",
+        "skillsLoaded": [
+          "aa-playbook-scan"
+        ],
+        "sandboxStopped": true,
+        "toolChargeUsdcE6": "32000",
+        "modelCallsRefusedForCredits": 0
+      },
+      "error": null,
+      "createdAt": "2026-10-09T16:09:24.808Z",
+      "startedAt": "2026-10-09T16:09:24.812Z",
+      "finishedAt": "2026-10-09T16:10:43.183Z"
+    }
+  },
+  "scanSkills": {
+    "loaded": [
+      "aa-playbook-scan"
+    ],
+    "notes": "MARKET DATA (market_snapshot, 2026-10-09):\n- MON price: $0.024686 (CoinMarketCap), oracle $0.024835, pool $0.024797, -15bps deviation (pool trading below oracle)\n- 24h change: +5.65%\n- 24h volume: $33.6M, market cap: $291.9M\n- 7d volatility: 115.8% annualized, 24h: 81.6%, 30d: 118.8%\n- Pool depth: 0.0088bps to 0.9bps impact ex-fee for $100-$10k sizes; Uniswap V4 holds $7.2B active liquidity\n- Monad TVL: $1.008B (down 3.2% from $1.042B on Oct 2; down from $1.038B on Oct 6). Sept 30 was $1.025B. Oct 8 dipped to $995.8M (1.2% drop)\n- DEX volume 24h: $52.7M (up 0.8% from prior day). Uniswap V4 leads at $24.1M (46%). Kuru CLOB at $3.1M.\n- Top protocols: Aave $354M, Euler $215M, Hyperithm $204M, K3 Capital $193M, Morpho $177M, Pendle $143M\n\nSCAN FINDINGS:\n1. TVL PULL (Sept 30: $1.025B → Oct 2: $1.042B peak → Oct 8: $995.8M → Oct 9: $1.008B): net -1.6% over 7d. Not acute but consistent pressure.\n2. MON VOLATILITY & PROFIT-TAKING: +5.65% 24h gain, but on 115.8% 7-day annualized vol. Prior reports mention 11-12% sell-off due to profit-taking after strong Sept rally. ATH $0.04883, current ~49% below. Nov 24 unlock risk: 16.8B MON (33% of circulating supply at that time) coming to market.\n3. POOL-ORACLE DEVIATION: Uniswap V4 pool trading -15bps below Chainlink oracle ($0.024797 vs $0.024835). Small spread but consistent bear pressure on pool prices.\n4. YIELD ENVIRONMENT: High-yield USDC pools: Accountable AUSD 6.69% APY (TVL $100.6M), Accountable USDC 10.8% APY (TVL $75M)—but both small"
+  },
+  "marketSnapshot": [
+    {
+      "status": "succeeded",
+      "charge_usdc_e6": "0",
+      "cache_hit": true,
+      "agent_id": 2
+    }
+  ],
+  "researchCheck": {
+    "status": "succeeded",
+    "error": null,
+    "result": {
+      "kind": "research_check",
+      "agentId": 2,
+      "leaseId": "514a187d-27bc-4afd-aedd-18efd3d3f2e7",
+      "runStatus": "completed",
+      "timingsMs": {
+        "run": 17251,
+        "total": 32269
+      },
+      "toolCalls": [
+        {
+          "tool": "x_search",
+          "status": "succeeded",
+          "cacheHit": false,
+          "errorCode": null,
+          "chargeUsdcE6": "62500"
+        },
+        {
+          "tool": "read_contract",
+          "status": "succeeded",
+          "cacheHit": false,
+          "errorCode": null,
+          "chargeUsdcE6": "0"
+        },
+        {
+          "tool": "balance",
+          "status": "succeeded",
+          "cacheHit": false,
+          "errorCode": null,
+          "chargeUsdcE6": "0"
+        },
+        {
+          "tool": "get_code",
+          "status": "succeeded",
+          "cacheHit": false,
+          "errorCode": null,
+          "chargeUsdcE6": "0"
+        }
+      ],
+      "modelCalls": 3,
+      "stopReason": "COMPLETED"
+    },
+    "calls": [
+      {
+        "tool": "x_search",
+        "status": "succeeded",
+        "error_code": null,
+        "charge_usdc_e6": "62500",
+        "cache_hit": false,
+        "summary": {
+          "topic": "monad_news",
+          "reason": "upstream",
+          "results": 10,
+          "windowHours": 24
+        }
+      },
+      {
+        "tool": "read_contract",
+        "status": "succeeded",
+        "error_code": null,
+        "charge_usdc_e6": "0",
+        "cache_hit": false,
+        "summary": {
+          "block": "111940495",
+          "target": "0x754704Bc059F8C67012fEd69BC8A327a5aafb603",
+          "function": "erc20_total_supply"
+        }
+      },
+      {
+        "tool": "balance",
+        "status": "succeeded",
+        "error_code": null,
+        "charge_usdc_e6": "0",
+        "cache_hit": false,
+        "summary": {
+          "asset": "NATIVE",
+          "block": "111940497",
+          "target": "0x3bd359C1119dA7Da1D913D1C4D2B7c461115433A"
+        }
+      },
+      {
+        "tool": "get_code",
+        "status": "succeeded",
+        "error_code": null,
+        "charge_usdc_e6": "0",
+        "cache_hit": false,
+        "summary": {
+          "proxy": "zeppelinos",
+          "target": "0x754704Bc059F8C67012fEd69BC8A327a5aafb603",
+          "hasCode": true
+        }
+      }
+    ],
+    "usage": {
+      "xPostsRead": 10,
+      "xPostsLimit": 300,
+      "duneResultReads": 0,
+      "duneResultReadsLimit": 60,
+      "duneQueryRuns": 0,
+      "duneQueryRunsLimit": 6
+    }
+  },
+  "toolCharges": {
+    "calls": 20,
+    "paid": 11,
+    "byAgent": {
+      "1": "34000",
+      "2": "94500"
+    }
+  },
+  "activity": {
+    "entry": "Agent #2 completed a scan identifying 3 investment candidates for WMON asset, with confidence levels ranging from 65% to 85% across theses including MON_UNLOCK_NOVEMBER_OVERHANG and MONAD_TVL_PULLBACK. The agent conducted 3 searches and read 1 page, spending $0.032 in tool costs.",
+    "renderedBy": "narrator",
+    "rejections": []
+  },
+  "chainCheck": {
+    "status": "succeeded",
+    "error": null,
+    "result": {
+      "kind": "chain_check",
+      "agentId": 2,
+      "intents": [
+        {
+          "status": "awaiting_approval",
+          "intentId": "intent-c72420a6-0351-405c-9d3b-30daa68d9571",
+          "reasonCodes": []
+        }
+      ],
+      "leaseId": "e4f73eaf-f1da-4fc3-b72c-b47d12ab83fa",
+      "runStatus": "completed",
+      "timingsMs": {
+        "run": 15777,
+        "total": 31634
+      },
+      "toolCalls": [
+        {
+          "tool": "get_portfolio",
+          "status": "succeeded",
+          "errorCode": null
+        },
+        {
+          "tool": "get_prices",
+          "status": "succeeded",
+          "errorCode": null
+        },
+        {
+          "tool": "get_limits",
+          "status": "succeeded",
+          "errorCode": null
+        },
+        {
+          "tool": "tradable_now",
+          "status": "succeeded",
+          "errorCode": null
+        },
+        {
+          "tool": "propose_swap",
+          "status": "succeeded",
+          "errorCode": null
+        },
+        {
+          "tool": "get_intent_status",
+          "status": "succeeded",
+          "errorCode": null
+        }
+      ],
+      "modelCalls": 5,
+      "stopReason": "COMPLETED"
+    },
+    "chain": {
+      "agentId": "2",
+      "portfolio": {
+        "mode": "NORMAL",
+        "usdc": "20",
+        "wmon": "0",
+        "block": "109670030",
+        "drawdownBps": 0,
+        "totalValueUsdc": "20",
+        "at": "2026-10-09T16:12:57.670Z"
+      },
+      "arming": {
+        "state": "awaiting_first_trade",
+        "armingId": "arming-869f38d6-f384-48ce-8209-d3f2aa3227a6",
+        "validUntil": 1793468711,
+        "validUntilDate": "2026-10-31",
+        "renewalDue": false,
+        "armedAt": null,
+        "firstIntentId": null,
+        "ended": null
+      },
+      "tradeFlow": true,
+      "intents": [
+        {
+          "intentId": "intent-c72420a6-0351-405c-9d3b-30daa68d9571",
+          "status": "awaiting_approval",
+          "sell": {
+            "asset": "USDC",
+            "amount": "1",
+            "amountRaw": "1000000"
+          },
+          "buy": "WMON",
+          "expectedOut": {
+            "asset": "WMON",
+            "amount": "29.075410334589811222",
+            "amountRaw": "29075410334589811222"
+          },
+          "minAmountOut": null,
+          "amountOut": null,
+          "reason": "Chain check: small test swap to verify trading capacity.",
+          "source": "agent",
+          "reasonCodes": [],
+          "blockers": [],
+          "failure": null,
+          "approvedBy": null,
+          "txHash": null,
+          "deadline": null,
+          "createdAt": "2026-10-09T16:13:02.274Z",
+          "expiresAt": "2026-10-09T16:43:02.272Z",
+          "approvedAt": null,
+          "submittedAt": null,
+          "settledAt": null
+        }
+      ]
+    },
+    "entry": "Agent #2 proposed a swap to sell 1 USDC for WMON with an expected output of 29.075410334589811222, pending approval as a small test swap to verify trading capacity."
+  },
+  "trade": {
+    "intent": {
+      "intentId": "intent-c72420a6-0351-405c-9d3b-30daa68d9571",
+      "status": "reconciled",
+      "sell": {
+        "asset": "USDC",
+        "amount": "1",
+        "amountRaw": "1000000"
+      },
+      "buy": "WMON",
+      "expectedOut": {
+        "asset": "WMON",
+        "amount": "29.075410334589811222",
+        "amountRaw": "29075410334589811222"
+      },
+      "minAmountOut": {
+        "asset": "WMON",
+        "amount": "28.951181615563224142",
+        "amountRaw": "28951181615563224142"
+      },
+      "amountOut": {
+        "asset": "WMON",
+        "amount": "29.075410334589811222",
+        "amountRaw": "29075410334589811222"
+      },
+      "reason": "Chain check: small test swap to verify trading capacity.",
+      "source": "agent",
+      "reasonCodes": [],
+      "blockers": [],
+      "failure": null,
+      "approvedBy": "owner",
+      "txHash": "0x2bba00b6591d0751abcd6d65592e91b00a8d0bb3228fb737e19955f1b397eb97",
+      "deadline": "1790876831",
+      "createdAt": "2026-10-09T16:13:02.274Z",
+      "expiresAt": "2026-10-09T16:43:02.272Z",
+      "approvedAt": "2026-10-09T16:13:06.451Z",
+      "submittedAt": "2026-10-09T16:13:07.600Z",
+      "settledAt": "2026-10-09T16:13:11.637Z"
+    },
+    "outbox": {
+      "status": "reconciled",
+      "amount_out": "29075410334589811222",
+      "ledger_entry_id": "0d4018f1-31a7-4d7e-b106-aec9d42d7dc5"
+    }
+  },
+  "tradeEntries": {
+    "trade": "Agent #2 sold 1 USDC and bought 29.075410334589811222 WMON, approved by the owner.",
+    "arming": [
+      "Agent #2 was armed with a grant that is valid until 2026-10-31.",
+      "Agent #2 was armed with a grant valid until 2026-10-31."
+    ]
+  },
+  "overLimit": {
+    "intent": {
+      "intentId": "intent-157658db-97fb-4a7c-8692-cffc85dd6b88",
+      "status": "rejected",
+      "sell": {
+        "asset": "USDC",
+        "amount": "10",
+        "amountRaw": "10000000"
+      },
+      "buy": "WMON",
+      "expectedOut": null,
+      "minAmountOut": null,
+      "amountOut": null,
+      "reason": "Live check: a trade over the size limit.",
+      "source": "agent",
+      "reasonCodes": [
+        "TRADE_SIZE_EXCEEDED",
+        "CONCENTRATION_CAP"
+      ],
+      "blockers": [
+        {
+          "code": "TRADE_SIZE_EXCEEDED",
+          "hint": "Propose a smaller amount, within maxTradeValueUsdc from get_limits.",
+          "clears": "by_changing_the_trade",
+          "message": "The trade is larger than 10% of the account's value.",
+          "clearsAt": null
+        },
+        {
+          "code": "CONCENTRATION_CAP",
+          "hint": "Buy less WMON, within wmonRoomBeforeCapUsdc from get_limits.",
+          "clears": "by_changing_the_trade",
+          "message": "After the trade, more than 40% of the account would be in one non-USDC asset.",
+          "clearsAt": null
+        }
+      ],
+      "failure": "a check changed between proposal and submission",
+      "approvedBy": "auto",
+      "txHash": null,
+      "deadline": null,
+      "createdAt": "2026-10-09T16:13:12.489Z",
+      "expiresAt": "2026-10-09T16:43:12.489Z",
+      "approvedAt": "2026-10-09T16:13:13.664Z",
+      "submittedAt": null,
+      "settledAt": null
+    },
+    "why": {
+      "agentId": "2",
+      "armingState": "armed",
+      "armingEnded": null,
+      "reasons": [
+        {
+          "code": "TRADE_SIZE_EXCEEDED",
+          "hint": "Propose a smaller amount, within maxTradeValueUsdc from get_limits.",
+          "clears": "by_changing_the_trade",
+          "message": "The trade is larger than 10% of the account's value.",
+          "clearsAt": null,
+          "intentId": "intent-157658db-97fb-4a7c-8692-cffc85dd6b88",
+          "at": "2026-10-09T16:13:13.682Z"
+        },
+        {
+          "code": "CONCENTRATION_CAP",
+          "hint": "Buy less WMON, within wmonRoomBeforeCapUsdc from get_limits.",
+          "clears": "by_changing_the_trade",
+          "message": "After the trade, more than 40% of the account would be in one non-USDC asset.",
+          "clearsAt": null,
+          "intentId": "intent-157658db-97fb-4a7c-8692-cffc85dd6b88",
+          "at": "2026-10-09T16:13:13.682Z"
+        }
+      ],
+      "waitingForApproval": 0,
+      "runner": null
+    },
+    "before": {
+      "mode": "NORMAL",
+      "usdc": "20",
+      "wmon": "0",
+      "block": "109670030",
+      "drawdownBps": 0,
+      "totalValueUsdc": "20",
+      "at": "2026-10-09T16:12:57.670Z"
+    }
+  },
+  "cycle": {
+    "cycleId": "cycle-120941ed-3e54-4c7e-a24b-d50d436a2772",
+    "kind": "ACTIVATION",
+    "status": "failed",
+    "stopReason": "NO_STAGE_RECORD",
+    "reasoning": "research-strong",
+    "taskError": "a stage failed: NO_STAGE_RECORD",
+    "maxShownBeforeUsdcE6": "3800000",
+    "chargedUsdcE6": "146837",
+    "absorbedUsdcE6": "0",
+    "stages": [
+      {
+        "seq": 1,
+        "stage": "SCAN",
+        "theme": null,
+        "model": "scan-cheap",
+        "status": "completed",
+        "stopReason": "COMPLETED",
+        "modelCalls": 10,
+        "modelsServed": [
+          "scan-cheap"
+        ],
+        "turnsCap": 16,
+        "paidCalls": 3,
+        "paidCap": 10,
+        "tokens": 305607,
+        "tokenCap": 450000,
+        "cacheReadTokens": 262819,
+        "cacheReadFromSecondCall": true,
+        "providerCostUsd": 0.100666,
+        "costWithoutCacheUsd": 0.327915,
+        "cacheSavingUsd": 0.227249,
+        "chargedUsdcE6": "146837",
+        "absorbedUsdcE6": "0",
+        "ceilingUsdcE6": "500000",
+        "toolCalls": [
+          "get_research_context succeeded",
+          "get_goals_and_limits succeeded",
+          "market_snapshot succeeded",
+          "web_search succeeded",
+          "web_search succeeded",
+          "get_portfolio succeeded",
+          "write_thesis succeeded",
+          "write_research_brief succeeded",
+          "write_research_brief succeeded",
+          "complete_stage succeeded"
+        ]
+      },
+      {
+        "seq": 2,
+        "stage": "DIVE",
+        "theme": "NOVEMBER_UNLOCK",
+        "model": "research-strong",
+        "status": "failed",
+        "stopReason": "NO_STAGE_RECORD",
+        "modelCalls": 0,
+        "modelsServed": [],
+        "turnsCap": 16,
+        "paidCalls": 0,
+        "paidCap": 8,
+        "tokens": 0,
+        "tokenCap": 600000,
+        "cacheReadTokens": 0,
+        "cacheReadFromSecondCall": false,
+        "providerCostUsd": 0,
+        "costWithoutCacheUsd": 0,
+        "cacheSavingUsd": 0,
+        "chargedUsdcE6": "0",
+        "absorbedUsdcE6": "0",
+        "ceilingUsdcE6": "1200000",
+        "toolCalls": []
+      }
+    ],
+    "records": [
+      {
+        "outcome": "DONE",
+        "decision": null
+      }
+    ],
+    "briefs": [
+      {
+        "kind": "SCAN",
+        "status": "accepted",
+        "reasons": [],
+        "body": {
+          "kind": "SCAN",
+          "quiet": false,
+          "themes": [
+            {
+              "code": "NOVEMBER_UNLOCK",
+              "asset": "WMON",
+              "whyNow": "Token unlock Nov 24 releases 32.8% of MON supply within 46 days, creating vesting supply pressure. The plan's WMON allocation and band must account for potential weakness during and after.",
+              "sources": [
+                "https://coinmarketcap.com/cmc-ai/monad/latest-updates",
+                "https://bitcoinfoundation.org/news/analysis/monad-price-drops-12-is-mons-breakout-already-falling-apart",
+                "https://stealthex.io/blog/monad-price-prediction-will-mon-coin-reach-1-soon"
+              ],
+              "materiality": "high"
+            },
+            {
+              "code": "VOLATILITY_ELEVATED",
+              "asset": "WMON",
+              "whyNow": "7-day realized volatility at 115.84879222904864% is elevated. Band and brake tuning matter to avoid whipsaw rebalances and control costs during this uncertain period.",
+              "sources": [
+                "market_snapshot"
+              ],
+              "materiality": "medium"
+            },
+            {
+              "code": "TVL_OUTFLOW_CONTEXT",
+              "asset": "WMON",
+              "whyNow": "Monad's TVL declined 3.2147990326021487% over 7 days. Normalization after strong Q3 growth; useful context for regime but not an isolated risk signal.",
+              "sources": [
+                "market_snapshot"
+              ],
+              "materiality": "low"
+            }
+          ],
+          "changes": [
+            {
+              "text": "MON price increased 5.65322151% in 24 hours to 0.024685564463744033 USD, driven by recent rally followed by profit-taking on overbought levels.",
+              "class": "market",
+              "sources": [
+                "market_snapshot",
+                "https://bitcoinfoundation.org/news/analysis/monad-price-drops-12-is-mons-breakout-already-falling-apart"
+              ],
+              "confidence": "high"
+            },
+            {
+              "text": "Monad's total value locked declined 3.2147990326021487% over 7 days to 1008409190 USD, consistent with normalization after Q3 peaks.",
+              "class": "onchain",
+              "sources": [
+                "market_snapshot"
+              ],
+              "confidence": "high"
+            },
+            {
+              "text": "Realized volatility elevated at 115.84879222904864% annualized over 7 days, reflecting recent price swings and market uncertainty.",
+              "class": "market",
+              "sources": [
+                "market_snapshot"
+              ],
+              "confidence": "high"
+            },
+            {
+              "text": "A major token unlock of 16.8 billion MON (32.8% of circulating supply, valued at 410-450 million USD) is scheduled for November 24, 2026, with team and investor allocations beginning to vest monthly thereafter.",
+              "class": "primary",
+              "sources": [
+                "https://coinmarketcap.com/cmc-ai/monad/latest-updates",
+                "https://bitcoinfoundation.org/news/analysis/monad-price-drops-12-is-mons-breakout-already-falling-apart"
+              ],
+              "confidence": "high"
+            },
+            {
+              "text": "Chainlink oracle price 0.02488906 USD and Uniswap V4 pool price 0.024880033800000003 USD are tightly aligned with -3.626573281593594 basis points deviation.",
+              "class": "onchain",
+              "sources": [
+                "market_snapshot"
+              ],
+              "confidence": "high"
+            },
+            {
+              "text": "DEX volume on Monad increased 0.8% in 24 hours to 52694794.86 USD, with Uniswap V4 at 24134064 USD and Kuru CLOB at 3137425 USD.",
+              "class": "onchain",
+              "sources": [
+                "market_snapshot"
+              ],
+              "confidence": "high"
+            }
+          ],
+          "summary": "MON has rallied 5.65322151% in 24h to 0.024685564463744033 USD, but faces a major token unlock on November 24 releasing 16.8 billion MON (32.8% of circulating supply). Monad's TVL declined 3.2147990326021487% over 7 days to 1008409190 USD. The portfolio, at 95% USDC and 5% WMON on activation, needs to calibrate its 20% target band in light of the unlock risk.",
+          "dataGaps": []
+        }
+      },
+      {
+        "kind": "SCAN",
+        "status": "refused",
+        "reasons": [
+          "changes[4].text: 0.024880038 does not appear in any tool result this cycle recorded; quote each figure as a tool returned it, or remove it",
+          "changes[5].text: 45.8 does not appear in any tool result this cycle recorded; quote each figure as a tool returned it, or remove it"
+        ],
+        "body": {
+          "kind": "SCAN",
+          "quiet": false,
+          "themes": [
+            {
+              "code": "NOVEMBER_UNLOCK",
+              "asset": "WMON",
+              "whyNow": "Token unlock Nov 24 releases 32.8% of MON supply within 46 days, creating vesting supply pressure. The plan's WMON allocation and band must account for potential weakness during and after.",
+              "sources": [
+                "https://coinmarketcap.com/cmc-ai/monad/latest-updates",
+                "https://bitcoinfoundation.org/news/analysis/monad-price-drops-12-is-mons-breakout-already-falling-apart",
+                "https://stealthex.io/blog/monad-price-prediction-will-mon-coin-reach-1-soon"
+              ],
+              "materiality": "high"
+            },
+            {
+              "code": "VOLATILITY_ELEVATED",
+              "asset": "WMON",
+              "whyNow": "7-day realized volatility at 115.85% is elevated. Band and brake tuning matter to avoid whipsaw rebalances and control costs during this uncertain period.",
+              "sources": [
+                "market_snapshot"
+              ],
+              "materiality": "medium"
+            },
+            {
+              "code": "TVL_OUTFLOW_CONTEXT",
+              "asset": "WMON",
+              "whyNow": "Monad's TVL declined 3.21% over 7 days. Normalization after strong Q3 growth; useful context for regime but not an isolated risk signal.",
+              "sources": [
+                "market_snapshot"
+              ],
+              "materiality": "low"
+            }
+          ],
+          "changes": [
+            {
+              "text": "MON price increased 5.65% in 24 hours to 0.024685 USD, driven by recent rally followed by profit-taking on overbought levels.",
+              "class": "market",
+              "sources": [
+                "market_snapshot",
+                "https://bitcoinfoundation.org/news/analysis/monad-price-drops-12-is-mons-breakout-already-falling-apart"
+              ],
+              "confidence": "high"
+            },
+            {
+              "text": "Monad's total value locked declined 3.21% over 7 days to 1.008 billion USD, consistent with normalization after Q3 peaks and profit-taking.",
+              "class": "onchain",
+              "sources": [
+                "market_snapshot"
+              ],
+              "confidence": "high"
+            },
+            {
+              "text": "Realized volatility elevated at 115.85% annualized over 7 days, reflecting recent price swings and market uncertainty.",
+              "class": "market",
+              "sources": [
+                "market_snapshot"
+              ],
+              "confidence": "high"
+            },
+            {
+              "text": "A major token unlock of 16.8 billion MON (32.8% of circulating supply, valued at 410-450 million USD) is scheduled for November 24, 2026, with team and investor allocations beginning to vest monthly thereafter.",
+              "class": "primary",
+              "sources": [
+                "https://coinmarketcap.com/cmc-ai/monad/latest-updates",
+                "https://bitcoinfoundation.org/news/analysis/monad-price-drops-12-is-mons-breakout-already-falling-apart"
+              ],
+              "confidence": "high"
+            },
+            {
+              "text": "Chainlink oracle price (0.02488906 USD) and Uniswap V4 pool price (0.024880038 USD) are tightly aligned with -3.6 basis points deviation, indicating no oracle-pool slippage risk.",
+              "class": "onchain",
+              "sources": [
+                "market_snapshot"
+              ],
+              "confidence": "high"
+            },
+            {
+              "text": "DEX volume on Monad increased 0.8% in 24 hours to 52.7 million USD, with Uniswap V4 maintaining market dominance at 45.8% share.",
+              "class": "onchain",
+              "sources": [
+                "market_snapshot"
+              ],
+              "confidence": "high"
+            }
+          ],
+          "summary": "MON has rallied 5.65% in 24h and sits at 0.024685 USD, but faces a major token unlock on November 24 releasing 16.8 billion MON (32.8% of circulating supply). Monad's TVL declined 3.21% over 7 days amid profit-taking. The portfolio, at 95% USDC and 5% WMON on activation, needs to calibrate its 20% target band in light of the unlock risk within the plan's horizon.",
+          "dataGaps": []
+        }
+      }
+    ],
+    "notes": [
+      {
+        "stage": "SCAN",
+        "title": "Activation SCAN findings",
+        "notes": "Activation position: 95% USDC / 5% WMON. Account has ~20k USDC value.\n\nMarket snapshot (2026-10-09 16:13): MON at 0.02469 USD, up 5.65% in 24h. Volatility elevated at 81.56% (24h), 115.85% (7d), 118.78% (30d), consistent with recent gains and profit-taking. Oracle vs pool nearly aligned (-3.6 bps), no slippage issue.\n\nKey findings:\n\n1. NOVEMBER_UNLOCK (high materiality): Token unlock Nov 24 releases 16.8B MON (~32.8% of supply, ~$410-450M value). Web sources confirm this is the dominant bearish factor shaping sentiment through Q4. Within the 6-hour Scan cadence before Zoom out, this is a 46-day horizon catalyst. Confidence: high. Sources: web pages on CoinMarketCap, Bitcoin Foundation, StealthEx price predictions.\n\n2. VOLATILITY_ELEVATED (medium): 7d volatility at 115.85% is elevated but not extreme for MON. 24h up 5.65% driven by recent rally and profit-taking. Pool depth is solid (8.8 bps impact at 1000 USD). The account has 20k USDC, so trades will be in the 50-2000 USD range, well inside pool liquidity. This does NOT signal a trade, but flags why band calibration matters now. Medium materiality.\n\n3. TVL_MILD_OUTFLOW (low-to-medium): 7d decline of -3.21% (1.042B → 1.008B). Searching web confirms Q3 growth narrative but also mentions profit-taking and normalization from launch peaks. Not alarming but consistent with macro cooling and unlock jitters. Low materiality for position decision, medium for regime context.\n\n4. DEX_VOLUME_STABLE (low): +0.8% over 24h, Uniswap V4 dominates at ~46% share. No spike or collapse. Boring, which is OK at activation.\n\nPlan target: 20% WMON ±5% band. Current: 5%. The plan can move target between 0-30%. Given the unlock risk, a conservative approach (smaller target and band) warrants a Dive.\n\nThemes to carry forward:\n- NOVEMBER_UNLOCK: Directly impacts MON demand and thus the WMON allocation in the plan's horizon. High confidence that this event matters. Dive should assess severity and appropriate band response.\n- VOLATILITY_ELEVATED: Context for brake tuning, not itself a trade signal yet. Medium confidence for band tuning.\n- TVL_OUTFLOW_CONTEXT: Low materiality for immediate action but colors the regime assessment.\n\nNo red flags on oracle slippage, pool depth, or exchange flows. No incidents or exploits mentioned. Market is healthy, just facing a known supply event.\n\nAt activation, the most material question is: What WMON target and band are right given the Nov 24 unlock?"
+      }
+    ],
+    "entries": [
+      "Agent #2 completed a scan research stage with 10 model calls and 10 tool calls, incurring a cost of 0.146837 USDC against a 0.5 USDC ceiling.",
+      "Agent #2 failed to complete its research dive for the November unlock theme, stopping due to no stage record being found."
+    ],
+    "usedTodayUsdcE6": "146837"
+  },
+  "passed": false
+}

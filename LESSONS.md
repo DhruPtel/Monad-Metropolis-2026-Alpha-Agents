@@ -1224,3 +1224,38 @@ What happened: (1) Seven descriptions failed F4: a first sentence shorter than 5
 Cause: Assuming the index cuts at a sentence, writing a test prompt that a careful model cannot act on, and an unchecked null.
 Fix: Each first sentence is 56 or 57 characters so the cut falls on a word boundary; the case includes a thesis and the record says why it changed; the audit skips unset addresses.
 Lesson: Test a selection prompt the way a careful model would read it; when a model declines to act, read its reply before changing the thing under test.
+
+## L-162: Storing every tool result for the brief validator would have stored X post text
+Unit: P3-U4
+What happened: The data tools started handing the meter each call's result, so a research cycle could store it and check a brief's numbers and URLs. The P3-U9 test for x_search then failed: the meter's events contained a planted post's text ("previous instructions"), which D-323 says is never stored.
+Cause: The new result path passed every tool's whole output through one generic function, and x_search's output is the one that carries third-party text the platform promised not to keep.
+Fix: x_search results are stored without each post's text; a post keeps its link, time and counts, so a brief can still cite it and its figures (the data tools' `storedResult`).
+Lesson: When a new path starts keeping data, check it against every earlier promise about what is never kept, tool by tool, and let the tests that guard those promises run before the change is called done.
+
+## L-163: A scripted cycle test failed once under load at its stage deadline
+Unit: P3-U4
+What happened: One offline cycle test (the brief refusals, whose Scan makes the most tool calls) failed in a combined run and passed in three runs alone and one combined rerun.
+Cause: Not established exactly. The test gave every stage an 8-second deadline, and that Scan opens a fresh MCP connection for each of about ten calls; on a loaded machine the stage can pass its deadline and end as DEADLINE. It was the only time-bound step in the test.
+Fix: Offline stages get 30 seconds; only the deadline test shortens it, to 6 seconds. Two full runs passed afterwards.
+Lesson: Size a test's timeouts for the slowest scripted step on a loaded machine (L-28), and shorten a deadline only in the test that is about the deadline.
+
+## L-164: Slips in P3-U4, caught by its own tests
+Unit: P3-U4
+What happened: (1) Found before it failed: the migration replaced stage_records' unique constraint with partial indexes, so the platform store's `on conflict (lease_id, stage)` would have failed at run time, which also meant the migration could not be committed apart from the store. (2) A cycle test reset the ledger to re-fund an agent but left the indexed deposit, so the old deposit was credited again and the stage the test expected to be refused for credits ran. (3) The cycle test's Scan brief quoted a figure only the later Dive reads; the validator rightly refused it. (4) A routes test expected the routine cycle's preview before the cycle's own Dive had used one of the day's two. (5) The H-26 spike first counted a model that called a tool instead of answering as having broken its limits.
+Cause: Assumptions about inputs made without reading what the code under test reads: the conflict target, the deposit source, the day's Dive count, and what a non-answer means.
+Fix: Each was corrected before its commit: `on conflict` names the partial index's predicate; the test clears the indexed transfer; the fixture quotes only what the Scan retrieved; the expectation counts the Dive; the spike reports three outcomes.
+Lesson: A test's expected value comes from the same inputs the production rule reads (L-158), and a classifier that sees "no answer" must say so rather than call it a violation.
+
+## L-165: The first live cycle was stopped by two rules that were right offline and wrong for real research
+Unit: P3-U4
+What happened: In the first live run the activation cycle's wide Scan wrote a brief after 13 turns; the validator refused it for "1.009B", "995.8M" and "52.7M", figures its tool results held in full, and the gate then stopped the stage at its 450,000-token cap. 401,161 of its 452,719 tokens were prompt-cache reads; the stage had cost 0.134 USD of its 0.50 ceiling.
+Cause: Both rules were written from the offline fixtures, whose figures were small and whose calls were few. The validator compared written numbers only with numbers as results write them, so a large figure written at a scale never matched. The token cap counted every input token, though each turn re-reads a growing, mostly cached context that costs a tenth and is not new work.
+Fix: A figure written at a scale traces when a result rounds to it at that scale, or a source writes it the same way; the token cap counts input not read from the cache, plus output (A-59). Its refusals of a figure with added precision (115.84 from 115.8) and of a unit conversion stayed. Tests cover both (e884ed0).
+Lesson: Before trusting a limit set from fixtures, run it once on real traffic and compare what it counts with what it is meant to bound: here cost and runaway work, not context the cache already holds.
+
+## L-166: Real agents ended their runs before the stage's terminal call, and a time-window filter read millions as months
+Unit: P3-U4
+What happened: In the second live run the cycle's Scan wrote a brief, was refused (a range "$995-1042M" and "81" truncated from 81.56), and ended its run with turns to spare, without writing it again; both scheduled Scans ended without complete_stage. Testing a range rule then showed the validator's time-window filter had stripped "004M" from "1,004M": it matched a bare "m" for months case-insensitively, so a figure in millions could skip the number check altogether.
+Cause: The offline scripts always finished their stage, so nothing exercised a model that stops after a refusal or loses track of its last step; the prompts said to retry but a run that has replied is over. The filter's unit list was written for time words and its `i` flag made "M" a month.
+Fix: A cycle stage that ends without complete_stage gets up to two follow-up turns in its own session, inside its caps and deadline, naming the refused brief's reasons or the missing step; a scheduled Scan gets one. The validator applies a scale to both ends of a range, accepts truncation like rounding, and the window filter's units are case-aware with no bare "m" (8286670). Tests cover the follow-up turns and the million case.
+Lesson: A protocol that ends in a required call needs a recovery path for a model that stops early, tested with a script that stops early; and a text filter's case rules must be checked against every unit it can meet, not only the ones it was written for.

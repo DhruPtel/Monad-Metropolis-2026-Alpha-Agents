@@ -1,0 +1,931 @@
+{
+  "unit": "P1-U5, P1-U6 and P1-U7",
+  "namespace": "live-8bded7",
+  "runTag": "2026-10-09T15-45-08.060Z",
+  "checks": {
+    "mint leads to reveal and provisioning with no manual step": true,
+    "rendered config matches the tier on chain": true,
+    "the agent has its own LiteLLM key": true,
+    "with no credits the agent is RESTRICTED and an LLM task is refused": true,
+    "USDC sent to the funding address appears as credits with no other action": true,
+    "no-op task succeeded with a structured result": true,
+    "the model answered through the gate": true,
+    "the sandbox stopped": true,
+    "the task reduced credits by exactly the metered amount, and the ledger balances": true,
+    "a hard kill leaves a sandbox and a tunnel behind (the case L-19 describes)": true,
+    "the startup sweep removed the leftovers": true,
+    "a reset deletes the old key and creates a new one": true,
+    "a refund returns the remaining credits as USDC to the current owner": true,
+    "the signer worker is on, pinned to the local fork's chain": true,
+    "at zero the next call is refused and the run ends as billing, with no retries": true,
+    "afterwards the agent stays RESTRICTED and LLM tasks are refused": true,
+    "the keeper, provisioning and deposits keep working while an agent is restricted": true,
+    "the ledger balances and matches the funding address on chain": true,
+    "the scheduler queued a Scan for each funded agent with no manual step": true,
+    "a funded agent's Scan used web_search and returned a schema-valid result": false,
+    "the Scan loaded its playbook from the read-only skill mount": true,
+    "the scheduled Scan's notes carry its brief's content under the prompt's headings": false,
+    "the agent called market_snapshot from its sandbox and it answered": true,
+    "a real agent in E2B ran x_search and got sourced, untrusted posts": true,
+    "Dune is off without a key: the agent's dune_query is refused with no charge": true,
+    "a real agent read a contract, a balance and code on Monad mainnet, typed and free": true,
+    "the X search was charged at its price, or free from the cache, and stayed inside the caps": true,
+    "each tool call is charged to the right agent, and the ledger holds exactly those charges": true,
+    "the narrator wrote an activity entry that passes the number validator": true,
+    "the same entry with a deliberately wrong number is rejected": true,
+    "the owner's grant to the funding address is recorded: armed once the first trade is approved": true,
+    "a real agent read its portfolio, prices, limits and tradable_now through the chain tools": true,
+    "its proposed swap waits for approval as an intent, with no calldata and an activity entry": true,
+    "no swap reached the signer before the owner's first approval": true,
+    "the owner's first approval arms the agent": true,
+    "the swap executed through the signer, the Executor and the real v4 pool, and settled after reconciliation": true,
+    "the trade and the arming have activity entries held to the number validator": true,
+    "an over-limit proposal is blocked at submission with its reason, served as why the agent did not trade": true,
+    "a real agent completed a full cycle: Scan, Dives, Challenge, Test and Zoom out": false,
+    "each model stage ended with complete_stage on its own alias, from the gate's records": false,
+    "every stage stayed within its caps, and no stage was charged above its ceiling": true,
+    "the day's research budget held": true,
+    "every brief was validated, and every accepted one traces to the cycle's stored results again": false,
+    "the Challenge saw the Dives' briefs and nothing of their sessions": false,
+    "prompt caching: cache reads from the second model call of each stage": true,
+    "the narrator wrote one entry per stage": true,
+    "at zero credits a Scan is refused": true,
+    "at zero credits a research cycle is refused with the billing reason": true,
+    "teardown leaves no key of this namespace": true,
+    "no key or token in any orchestrator log line or API reply": true
+  },
+  "provisioning": {
+    "agentId": 1,
+    "msFromMint": 15091,
+    "runtime": {
+      "agentId": "1",
+      "generation": 1,
+      "status": "ready",
+      "tier": "pro",
+      "species": 14,
+      "slots": 8,
+      "playbook": "tier-pro@1",
+      "configHash": "f6a07d7ec6a4add76510a955ca711d7ea87c7219118980ea7739049e1dd67ee5",
+      "keyAlias": "aa-live-8bded7-143143-1-g1",
+      "budgetUsd": "0.000000",
+      "lastError": null,
+      "provisionedAt": "2026-10-09T15:45:35.939Z",
+      "updatedAt": "2026-10-09T15:45:35.939Z",
+      "lease": null,
+      "latestTask": null
+    }
+  },
+  "deposit": {
+    "msToCredit": 4129,
+    "credited": {
+      "agentId": "1",
+      "fundingAddress": "0xf1f1cbfc8b13e1018beab249b14b926f128a11c4",
+      "creditsUsdcE6": "1000000",
+      "spendableUsdcE6": "1000000",
+      "heldUsdcE6": "0",
+      "unsettledUsdcE6": "0",
+      "fundingAddressUsdcE6": "1000000",
+      "restricted": false,
+      "spent24hUsdcE6": "0",
+      "toolSpent24hUsdcE6": "0",
+      "recent": [
+        {
+          "kind": "credits_received",
+          "creditsDeltaUsdcE6": "1000000",
+          "at": "2026-10-09T15:45:39.000Z"
+        }
+      ]
+    },
+    "budgetUsd": "0.800000"
+  },
+  "noop": {
+    "taskId": "beb3c816-2baf-4514-acbe-212cb317b633",
+    "agentId": "1",
+    "kind": "noop",
+    "status": "succeeded",
+    "result": {
+      "kind": "noop",
+      "tier": "pro",
+      "runId": "run_205a2b8fd632476a95a4791b172d24a5",
+      "slots": 8,
+      "agentId": 1,
+      "leaseId": "956e8c46-3614-4daa-a30c-cb6a31012743",
+      "replied": "NOOP_OK",
+      "playbook": "tier-pro@1",
+      "runStatus": "completed",
+      "sandboxId": "i3pf7zkycbyjd186i8cyo",
+      "timingsMs": {
+        "run": 8077,
+        "total": 31576,
+        "sandbox": 610,
+        "hermesBoot": 16596
+      },
+      "configHash": "f6a07d7ec6a4add76510a955ca711d7ea87c7219118980ea7739049e1dd67ee5",
+      "gatedCalls": [
+        "POST /v1/chat/completions 200",
+        "GET /v1/models 200"
+      ],
+      "generation": 1,
+      "modelCalls": 2,
+      "stopReason": "completed",
+      "modelCallsOk": 2,
+      "answeredNoopOk": true,
+      "sandboxStopped": true,
+      "modelCallsRefusedForCredits": 0
+    },
+    "error": null,
+    "createdAt": "2026-10-09T15:45:40.758Z",
+    "startedAt": "2026-10-09T15:45:40.767Z",
+    "finishedAt": "2026-10-09T15:46:12.345Z"
+  },
+  "gatewayLog": {
+    "rows": 1,
+    "costed": 1,
+    "gateCallsOk": 2
+  },
+  "metering": {
+    "receipts": 1,
+    "chargedUsdcE6": "21440",
+    "after": {
+      "agentId": "1",
+      "fundingAddress": "0xf1f1cbfc8b13e1018beab249b14b926f128a11c4",
+      "creditsUsdcE6": "978560",
+      "spendableUsdcE6": "978560",
+      "heldUsdcE6": "0",
+      "unsettledUsdcE6": "21440",
+      "fundingAddressUsdcE6": "1000000",
+      "restricted": false,
+      "spent24hUsdcE6": "21440",
+      "toolSpent24hUsdcE6": "0",
+      "recent": [
+        {
+          "kind": "usage_metered",
+          "creditsDeltaUsdcE6": "-21440",
+          "at": "2026-10-09T15:46:09.000Z"
+        },
+        {
+          "kind": "credits_received",
+          "creditsDeltaUsdcE6": "1000000",
+          "at": "2026-10-09T15:45:39.000Z"
+        }
+      ]
+    }
+  },
+  "afterKill": {
+    "sandboxes": 1,
+    "tunnelAlive": true,
+    "leaseActive": true
+  },
+  "afterSweep": {
+    "sandboxes": 0,
+    "tunnelAlive": false,
+    "pidFile": false,
+    "lease": "ended",
+    "task": "failed"
+  },
+  "refund": {
+    "refund": {
+      "refundId": "362ef50d-3f66-44e6-81ca-e4676dcafc0e",
+      "agentId": "1",
+      "owner": "0xd0d756c91c66f278576ffdfc9b51e061e3fab5d2",
+      "ownerEpoch": "0",
+      "status": "sent",
+      "creditsUsdcE6": "978560",
+      "heldUsdcE6": "0",
+      "txHash": "0xfae3a60e740d738d91b6c2470b29553be30d614647c633b78b864e51910a5eac",
+      "reason": null,
+      "createdAt": "2026-10-09T15:46:17.566Z",
+      "updatedAt": "2026-10-09T15:46:19.907Z"
+    },
+    "ownerGainedUsdcE6": "978560"
+  },
+  "drain": {
+    "outsideCall": 200,
+    "task": {
+      "taskId": "84f71af7-9004-4dca-b5c0-b68eced498e1",
+      "agentId": "1",
+      "kind": "noop",
+      "status": "failed",
+      "result": {
+        "kind": "noop",
+        "tier": "pro",
+        "runId": "run_0e381d871afe4f8fb4661f3a90c907bd",
+        "slots": 8,
+        "agentId": 1,
+        "leaseId": "d9213651-13d4-438e-8234-38a83ee67f90",
+        "replied": "",
+        "playbook": "tier-pro@1",
+        "runStatus": "failed",
+        "sandboxId": "i09s2hslyq530q4rl3hau",
+        "timingsMs": {
+          "run": 5774,
+          "total": 37180,
+          "sandbox": 534,
+          "hermesBoot": 19249
+        },
+        "configHash": "b8ee1824a498aa91d7ad34024c8d7a92604b13875c74c99e84b34513c3177706",
+        "gatedCalls": [
+          "POST /v1/chat/completions 402"
+        ],
+        "generation": 2,
+        "modelCalls": 1,
+        "stopReason": "billing",
+        "modelCallsOk": 0,
+        "answeredNoopOk": false,
+        "sandboxStopped": true,
+        "modelCallsRefusedForCredits": 1
+      },
+      "error": "billing: the agent's credits ran out; the gate refused 1 model call with 402 and the run ended failed",
+      "createdAt": "2026-10-09T15:46:22.095Z",
+      "startedAt": "2026-10-09T15:46:22.101Z",
+      "finishedAt": "2026-10-09T15:46:59.283Z"
+    }
+  },
+  "scans": {
+    "1": {
+      "taskId": "0bf8732f-ad6e-4bb7-a040-f9393a007042",
+      "agentId": "1",
+      "kind": "scan",
+      "status": "failed",
+      "result": {
+        "kind": "scan",
+        "tier": "pro",
+        "runId": "run_08b330a34e1e48568c12ee6737081b1d",
+        "stage": null,
+        "agentId": 1,
+        "leaseId": "7552fdf3-3089-4ee6-8f1e-b622ae26649b",
+        "runStatus": "completed",
+        "sandboxId": "i3s6jyj9wwmdf7cefvrs6",
+        "timingsMs": {
+          "run": 105882,
+          "total": 130047,
+          "sandbox": 518,
+          "hermesBoot": 15169
+        },
+        "toolCalls": [
+          {
+            "tool": "market_snapshot",
+            "status": "succeeded",
+            "errorCode": null,
+            "chargeUsdcE6": "1000"
+          },
+          {
+            "tool": "web_search",
+            "status": "succeeded",
+            "errorCode": null,
+            "chargeUsdcE6": "10000"
+          },
+          {
+            "tool": "web_search",
+            "status": "succeeded",
+            "errorCode": null,
+            "chargeUsdcE6": "10000"
+          },
+          {
+            "tool": "web_search",
+            "status": "succeeded",
+            "errorCode": null,
+            "chargeUsdcE6": "10000"
+          },
+          {
+            "tool": "read_url",
+            "status": "succeeded",
+            "errorCode": null,
+            "chargeUsdcE6": "2000"
+          }
+        ],
+        "configHash": "b8ee1824a498aa91d7ad34024c8d7a92604b13875c74c99e84b34513c3177706",
+        "gatedCalls": [
+          "POST /v1/chat/completions 200",
+          "GET /v1/models 200",
+          "POST /v1/chat/completions 200",
+          "POST /v1/chat/completions 200",
+          "POST /v1/chat/completions 200",
+          "POST /v1/chat/completions 200",
+          "POST /v1/chat/completions 200",
+          "POST /v1/chat/completions 200",
+          "POST /v1/chat/completions 200",
+          "POST /v1/chat/completions 200",
+          "POST /v1/chat/completions 200",
+          "POST /v1/chat/completions 200"
+        ],
+        "generation": 2,
+        "modelCalls": 12,
+        "stopReason": "NO_STAGE_RECORD",
+        "skillsLoaded": [
+          "aa-playbook-scan"
+        ],
+        "sandboxStopped": true,
+        "toolChargeUsdcE6": "33000",
+        "modelCallsRefusedForCredits": 0
+      },
+      "error": "the Scan ended (completed) without calling complete_stage",
+      "createdAt": "2026-10-09T15:47:26.067Z",
+      "startedAt": "2026-10-09T15:47:26.077Z",
+      "finishedAt": "2026-10-09T15:49:37.228Z"
+    },
+    "2": {
+      "taskId": "af0b5c69-ca9d-4b43-8902-5a23b425d0ab",
+      "agentId": "2",
+      "kind": "scan",
+      "status": "failed",
+      "result": {
+        "kind": "scan",
+        "tier": "base",
+        "runId": "run_17e4e7d75cef462fa5a4b5f12f217b16",
+        "stage": null,
+        "agentId": 2,
+        "leaseId": "7a7106dd-f577-4f3a-8f2d-fba76cc14e89",
+        "runStatus": "completed",
+        "sandboxId": "ivmxgk8tsea65vhgsipx2",
+        "timingsMs": {
+          "run": 50075,
+          "total": 72205,
+          "sandbox": 573,
+          "hermesBoot": 21074
+        },
+        "toolCalls": [
+          {
+            "tool": "market_snapshot",
+            "status": "succeeded",
+            "errorCode": null,
+            "chargeUsdcE6": "0"
+          },
+          {
+            "tool": "web_search",
+            "status": "succeeded",
+            "errorCode": null,
+            "chargeUsdcE6": "10000"
+          },
+          {
+            "tool": "web_search",
+            "status": "succeeded",
+            "errorCode": null,
+            "chargeUsdcE6": "10000"
+          },
+          {
+            "tool": "web_search",
+            "status": "succeeded",
+            "errorCode": null,
+            "chargeUsdcE6": "10000"
+          }
+        ],
+        "configHash": "214ad7ff2a56beccb784376ea7e75b2358cdc4feca44a7d5e644ed34cd1d4b69",
+        "gatedCalls": [
+          "POST /v1/chat/completions 200",
+          "GET /v1/models 200",
+          "POST /v1/chat/completions 200",
+          "POST /v1/chat/completions 200",
+          "POST /v1/chat/completions 200",
+          "POST /v1/chat/completions 200",
+          "POST /v1/chat/completions 200",
+          "POST /v1/chat/completions 200",
+          "POST /v1/chat/completions 200",
+          "POST /v1/chat/completions 200"
+        ],
+        "generation": 1,
+        "modelCalls": 10,
+        "stopReason": "NO_STAGE_RECORD",
+        "skillsLoaded": [
+          "aa-playbook-scan"
+        ],
+        "sandboxStopped": true,
+        "toolChargeUsdcE6": "30000",
+        "modelCallsRefusedForCredits": 0
+      },
+      "error": "the Scan ended (completed) without calling complete_stage",
+      "createdAt": "2026-10-09T15:47:56.006Z",
+      "startedAt": "2026-10-09T15:47:56.011Z",
+      "finishedAt": "2026-10-09T15:49:09.398Z"
+    }
+  },
+  "scanSkills": {
+    "loaded": [
+      "aa-playbook-scan"
+    ],
+    "notes": ""
+  },
+  "marketSnapshot": [
+    {
+      "status": "succeeded",
+      "charge_usdc_e6": "0",
+      "cache_hit": true,
+      "agent_id": 2
+    }
+  ],
+  "researchCheck": {
+    "status": "succeeded",
+    "error": null,
+    "result": {
+      "kind": "research_check",
+      "agentId": 2,
+      "leaseId": "18629470-f9a3-4730-af2c-6490462a5c76",
+      "runStatus": "completed",
+      "timingsMs": {
+        "run": 14991,
+        "total": 29808
+      },
+      "toolCalls": [
+        {
+          "tool": "x_search",
+          "status": "succeeded",
+          "cacheHit": false,
+          "errorCode": null,
+          "chargeUsdcE6": "62500"
+        },
+        {
+          "tool": "read_contract",
+          "status": "succeeded",
+          "cacheHit": false,
+          "errorCode": null,
+          "chargeUsdcE6": "0"
+        },
+        {
+          "tool": "balance",
+          "status": "succeeded",
+          "cacheHit": false,
+          "errorCode": null,
+          "chargeUsdcE6": "0"
+        },
+        {
+          "tool": "get_code",
+          "status": "succeeded",
+          "cacheHit": false,
+          "errorCode": null,
+          "chargeUsdcE6": "0"
+        }
+      ],
+      "modelCalls": 3,
+      "stopReason": "COMPLETED"
+    },
+    "calls": [
+      {
+        "tool": "x_search",
+        "status": "succeeded",
+        "error_code": null,
+        "charge_usdc_e6": "62500",
+        "cache_hit": false,
+        "summary": {
+          "topic": "monad_news",
+          "reason": "upstream",
+          "results": 10,
+          "windowHours": 24
+        }
+      },
+      {
+        "tool": "read_contract",
+        "status": "succeeded",
+        "error_code": null,
+        "charge_usdc_e6": "0",
+        "cache_hit": false,
+        "summary": {
+          "block": "111936418",
+          "target": "0x754704Bc059F8C67012fEd69BC8A327a5aafb603",
+          "function": "erc20_total_supply"
+        }
+      },
+      {
+        "tool": "balance",
+        "status": "succeeded",
+        "error_code": null,
+        "charge_usdc_e6": "0",
+        "cache_hit": false,
+        "summary": {
+          "asset": "NATIVE",
+          "block": "111936419",
+          "target": "0x3bd359C1119dA7Da1D913D1C4D2B7c461115433A"
+        }
+      },
+      {
+        "tool": "get_code",
+        "status": "succeeded",
+        "error_code": null,
+        "charge_usdc_e6": "0",
+        "cache_hit": false,
+        "summary": {
+          "proxy": "zeppelinos",
+          "target": "0x754704Bc059F8C67012fEd69BC8A327a5aafb603",
+          "hasCode": true
+        }
+      }
+    ],
+    "usage": {
+      "xPostsRead": 10,
+      "xPostsLimit": 300,
+      "duneResultReads": 0,
+      "duneResultReadsLimit": 60,
+      "duneQueryRuns": 0,
+      "duneQueryRunsLimit": 6
+    }
+  },
+  "toolCharges": {
+    "calls": 24,
+    "paid": 18,
+    "byAgent": {
+      "1": "68000",
+      "2": "113500"
+    }
+  },
+  "activity": {
+    "entry": "Agent #2 completed 3 searches about Monad TVL, MON price movements, and token unlocks in 2026, but the scan did not complete due to no stage record. Tool spend was 0.03 USDC.",
+    "renderedBy": "narrator",
+    "rejections": []
+  },
+  "chainCheck": {
+    "status": "succeeded",
+    "error": null,
+    "result": {
+      "kind": "chain_check",
+      "agentId": 2,
+      "intents": [
+        {
+          "status": "awaiting_approval",
+          "intentId": "intent-791a03f4-7bfe-48ef-bcbf-27073ae80414",
+          "reasonCodes": []
+        }
+      ],
+      "leaseId": "db5c446f-b6fa-434e-acdc-fd3df9c0e2c9",
+      "runStatus": "completed",
+      "timingsMs": {
+        "run": 15698,
+        "total": 31637
+      },
+      "toolCalls": [
+        {
+          "tool": "get_portfolio",
+          "status": "succeeded",
+          "errorCode": null
+        },
+        {
+          "tool": "get_prices",
+          "status": "succeeded",
+          "errorCode": null
+        },
+        {
+          "tool": "get_limits",
+          "status": "succeeded",
+          "errorCode": null
+        },
+        {
+          "tool": "tradable_now",
+          "status": "succeeded",
+          "errorCode": null
+        },
+        {
+          "tool": "propose_swap",
+          "status": "succeeded",
+          "errorCode": null
+        },
+        {
+          "tool": "get_intent_status",
+          "status": "succeeded",
+          "errorCode": null
+        }
+      ],
+      "modelCalls": 5,
+      "stopReason": "COMPLETED"
+    },
+    "chain": {
+      "agentId": "2",
+      "portfolio": {
+        "mode": "NORMAL",
+        "usdc": "20",
+        "wmon": "0",
+        "block": "109670030",
+        "drawdownBps": 0,
+        "totalValueUsdc": "20",
+        "at": "2026-10-09T15:51:16.804Z"
+      },
+      "arming": {
+        "state": "awaiting_first_trade",
+        "armingId": "arming-b6837532-f8b5-4855-8d18-2e78cf030e3a",
+        "validUntil": 1793468768,
+        "validUntilDate": "2026-10-31",
+        "renewalDue": false,
+        "armedAt": null,
+        "firstIntentId": null,
+        "ended": null
+      },
+      "tradeFlow": true,
+      "intents": [
+        {
+          "intentId": "intent-791a03f4-7bfe-48ef-bcbf-27073ae80414",
+          "status": "awaiting_approval",
+          "sell": {
+            "asset": "USDC",
+            "amount": "1",
+            "amountRaw": "1000000"
+          },
+          "buy": "WMON",
+          "expectedOut": {
+            "asset": "WMON",
+            "amount": "29.075410334589811222",
+            "amountRaw": "29075410334589811222"
+          },
+          "minAmountOut": null,
+          "amountOut": null,
+          "reason": "Chain check: buying WMON with 1 USDC to test trading account status.",
+          "source": "agent",
+          "reasonCodes": [],
+          "blockers": [],
+          "failure": null,
+          "approvedBy": null,
+          "txHash": null,
+          "deadline": null,
+          "createdAt": "2026-10-09T15:51:21.583Z",
+          "expiresAt": "2026-10-09T16:21:21.580Z",
+          "approvedAt": null,
+          "submittedAt": null,
+          "settledAt": null
+        }
+      ]
+    },
+    "entry": "Agent #2 has a swap proposal awaiting approval to sell 1 USDC and buy WMON with an expected output of 29.075410334589811222, testing trading account status."
+  },
+  "trade": {
+    "intent": {
+      "intentId": "intent-791a03f4-7bfe-48ef-bcbf-27073ae80414",
+      "status": "reconciled",
+      "sell": {
+        "asset": "USDC",
+        "amount": "1",
+        "amountRaw": "1000000"
+      },
+      "buy": "WMON",
+      "expectedOut": {
+        "asset": "WMON",
+        "amount": "29.075410334589811222",
+        "amountRaw": "29075410334589811222"
+      },
+      "minAmountOut": {
+        "asset": "WMON",
+        "amount": "28.951181615563224142",
+        "amountRaw": "28951181615563224142"
+      },
+      "amountOut": {
+        "asset": "WMON",
+        "amount": "29.075410334589811222",
+        "amountRaw": "29075410334589811222"
+      },
+      "reason": "Chain check: buying WMON with 1 USDC to test trading account status.",
+      "source": "agent",
+      "reasonCodes": [],
+      "blockers": [],
+      "failure": null,
+      "approvedBy": "owner",
+      "txHash": "0xf595bdae9020dcc39361b73ee1d8c3f8dc51319d30d1f4a343089ea92ebf6ebd",
+      "deadline": "1790876888",
+      "createdAt": "2026-10-09T15:51:21.583Z",
+      "expiresAt": "2026-10-09T16:21:21.580Z",
+      "approvedAt": "2026-10-09T15:51:25.323Z",
+      "submittedAt": "2026-10-09T15:51:26.210Z",
+      "settledAt": "2026-10-09T15:51:30.249Z"
+    },
+    "outbox": {
+      "status": "reconciled",
+      "amount_out": "29075410334589811222",
+      "ledger_entry_id": "ee9cae1d-01f6-40c9-a213-bd0bb427e3f9"
+    }
+  },
+  "tradeEntries": {
+    "trade": "Agent #2 sold 1 USDC and bought 29.075410334589811222 WMON, approved by the owner.",
+    "arming": [
+      "Agent #2 was armed with a grant that is valid until 2026-10-31.",
+      "Agent #2 was armed with grant validity until 2026-10-31."
+    ]
+  },
+  "overLimit": {
+    "intent": {
+      "intentId": "intent-f49a8215-f19d-4154-99dd-1b952f378237",
+      "status": "rejected",
+      "sell": {
+        "asset": "USDC",
+        "amount": "10",
+        "amountRaw": "10000000"
+      },
+      "buy": "WMON",
+      "expectedOut": null,
+      "minAmountOut": null,
+      "amountOut": null,
+      "reason": "Live check: a trade over the size limit.",
+      "source": "agent",
+      "reasonCodes": [
+        "TRADE_SIZE_EXCEEDED",
+        "CONCENTRATION_CAP"
+      ],
+      "blockers": [
+        {
+          "code": "TRADE_SIZE_EXCEEDED",
+          "hint": "Propose a smaller amount, within maxTradeValueUsdc from get_limits.",
+          "clears": "by_changing_the_trade",
+          "message": "The trade is larger than 10% of the account's value.",
+          "clearsAt": null
+        },
+        {
+          "code": "CONCENTRATION_CAP",
+          "hint": "Buy less WMON, within wmonRoomBeforeCapUsdc from get_limits.",
+          "clears": "by_changing_the_trade",
+          "message": "After the trade, more than 40% of the account would be in one non-USDC asset.",
+          "clearsAt": null
+        }
+      ],
+      "failure": "a check changed between proposal and submission",
+      "approvedBy": "auto",
+      "txHash": null,
+      "deadline": null,
+      "createdAt": "2026-10-09T15:51:31.361Z",
+      "expiresAt": "2026-10-09T16:21:31.361Z",
+      "approvedAt": "2026-10-09T15:51:32.280Z",
+      "submittedAt": null,
+      "settledAt": null
+    },
+    "why": {
+      "agentId": "2",
+      "armingState": "armed",
+      "armingEnded": null,
+      "reasons": [
+        {
+          "code": "TRADE_SIZE_EXCEEDED",
+          "hint": "Propose a smaller amount, within maxTradeValueUsdc from get_limits.",
+          "clears": "by_changing_the_trade",
+          "message": "The trade is larger than 10% of the account's value.",
+          "clearsAt": null,
+          "intentId": "intent-f49a8215-f19d-4154-99dd-1b952f378237",
+          "at": "2026-10-09T15:51:32.298Z"
+        },
+        {
+          "code": "CONCENTRATION_CAP",
+          "hint": "Buy less WMON, within wmonRoomBeforeCapUsdc from get_limits.",
+          "clears": "by_changing_the_trade",
+          "message": "After the trade, more than 40% of the account would be in one non-USDC asset.",
+          "clearsAt": null,
+          "intentId": "intent-f49a8215-f19d-4154-99dd-1b952f378237",
+          "at": "2026-10-09T15:51:32.298Z"
+        }
+      ],
+      "waitingForApproval": 0,
+      "runner": null
+    },
+    "before": {
+      "mode": "NORMAL",
+      "usdc": "20",
+      "wmon": "0",
+      "block": "109670030",
+      "drawdownBps": 0,
+      "totalValueUsdc": "20",
+      "at": "2026-10-09T15:51:16.804Z"
+    }
+  },
+  "cycle": {
+    "cycleId": "cycle-4fbbe590-ed70-489a-af66-3aeeecb35248",
+    "kind": "ACTIVATION",
+    "status": "failed",
+    "stopReason": "NO_STAGE_RECORD",
+    "reasoning": "research-strong",
+    "taskError": "a stage failed: NO_STAGE_RECORD",
+    "maxShownBeforeUsdcE6": "3800000",
+    "chargedUsdcE6": "187677",
+    "absorbedUsdcE6": "0",
+    "stages": [
+      {
+        "seq": 1,
+        "stage": "SCAN",
+        "theme": null,
+        "model": "scan-cheap",
+        "status": "failed",
+        "stopReason": "NO_STAGE_RECORD",
+        "modelCalls": 12,
+        "modelsServed": [
+          "scan-cheap"
+        ],
+        "turnsCap": 16,
+        "paidCalls": 3,
+        "paidCap": 10,
+        "tokens": 414862,
+        "tokenCap": 450000,
+        "cacheReadTokens": 363479,
+        "cacheReadFromSecondCall": true,
+        "providerCostUsd": 0.133338,
+        "costWithoutCacheUsd": 0.449826,
+        "cacheSavingUsd": 0.316488,
+        "chargedUsdcE6": "187677",
+        "absorbedUsdcE6": "0",
+        "ceilingUsdcE6": "500000",
+        "toolCalls": [
+          "get_research_context succeeded",
+          "get_goals_and_limits succeeded",
+          "market_snapshot succeeded",
+          "web_search succeeded",
+          "web_search succeeded",
+          "write_thesis succeeded",
+          "write_research_brief succeeded"
+        ]
+      }
+    ],
+    "records": [],
+    "briefs": [
+      {
+        "kind": "SCAN",
+        "status": "refused",
+        "reasons": [
+          "changes[1].text: 995 does not appear in any tool result this cycle recorded; quote each figure as a tool returned it, or remove it",
+          "themes[0].whyNow: 81 does not appear in any tool result this cycle recorded; quote each figure as a tool returned it, or remove it"
+        ],
+        "body": {
+          "kind": "SCAN",
+          "quiet": false,
+          "themes": [
+            {
+              "code": "MON_VOLATILITY_REGIME",
+              "asset": "WMON",
+              "whyNow": "Realized volatility at 81-119% annualized is elevated relative to recent averages and directly impacts the rebalance plan's volatility brake (set to 20% per basis). This regime shift may trigger the brake and constrain the plan within days.",
+              "sources": [
+                "market_snapshot"
+              ],
+              "materiality": "high"
+            },
+            {
+              "code": "MONAD_TVL_DECLINE",
+              "asset": "WMON",
+              "whyNow": "TVL down 3.16% over 7 days with ongoing oscillation; unclear if this is healthy profit-taking or early liquidity strain. If decline accelerates, it signals risk-off sentiment and reduced WMON demand.",
+              "sources": [
+                "market_snapshot",
+                "https://coinstats.app/ai/a/latest-news-for-monad"
+              ],
+              "materiality": "medium"
+            },
+            {
+              "code": "TOKEN_UNLOCK_RISK",
+              "asset": "WMON",
+              "whyNow": "Nov 24 unlock of 32.8% of supply is 46 days away and is the consensus near-term pressure event. Market absorbing ~$35M monthly supply expansion will be the clearest signal of demand vs. inflation.",
+              "sources": [
+                "https://coinmarketcap.com/cmc-ai/monad/latest-updates"
+              ],
+              "materiality": "high"
+            }
+          ],
+          "changes": [
+            {
+              "text": "MON price up 5.03% in 24 hours to $0.02475, with realized volatility elevated at 81.56% (24h), 115.85% (7d), 118.78% (30d annualized).",
+              "class": "market",
+              "sources": [
+                "market_snapshot"
+              ],
+              "confidence": "high"
+            },
+            {
+              "text": "Monad TVL declined 3.16% over 7 days to $1.01 billion as of Oct 9, ranging between $995-1042M over the past 30 days, suggesting oscillation rather than directional collapse.",
+              "class": "onchain",
+              "sources": [
+                "market_snapshot"
+              ],
+              "confidence": "high"
+            },
+            {
+              "text": "Ecosystem activity remains active: 170+ live applications, new Aave V4 governance proposal, Drake CLOB hybrid deployment, and StraitsX stablecoin launch planned for early 2027.",
+              "class": "primary",
+              "sources": [
+                "https://www.monad.xyz/blog/monad-ecosystem-highlights-september-2026",
+                "https://bitcoinfoundation.org/news/analysis/monad-price-drops-12-is-mons-breakout-already-falling-apart"
+              ],
+              "confidence": "high"
+            },
+            {
+              "text": "Major token unlock scheduled Nov 24 2026 will release 32.8% of circulating supply (~$410-450M), generating ~$35M monthly supply inflation; described by web sources as the project's most critical near-term stress test.",
+              "class": "news",
+              "sources": [
+                "https://coinmarketcap.com/cmc-ai/monad/latest-updates"
+              ],
+              "confidence": "high"
+            },
+            {
+              "text": "Pool depth remains tight for typical account trade sizes: $10 USD trade impact 5.1 bps (ex-fee), $1000 trade impact 13.7-13.8 bps (ex-fee), with oracle-pool deviation at -9.3 bps.",
+              "class": "onchain",
+              "sources": [
+                "market_snapshot"
+              ],
+              "confidence": "high"
+            }
+          ],
+          "summary": "MON is up 5% in 24h with elevated volatility (82-119% annualized), trading at $0.0247. Monad TVL declined 3.16% over 7 days but ecosystem fundamentals remain solid with Aave V4, Drake, and stablecoin expansions. A major token unlock on Nov 24 2026 (32.8% of supply) is the dominant near-term event cited by market observers.",
+          "dataGaps": [
+            "Exchange inflows/outflows data would help distinguish between profit-taking and supply risk.",
+            "Breakdown of which protocols drove the TVL decline (lending, DEX, yield) is unavailable in snapshot."
+          ]
+        }
+      }
+    ],
+    "notes": [
+      {
+        "stage": "SCAN",
+        "title": "ACTIVATION Scan: MON volatility, TVL rhythm, upcoming unlock risk",
+        "notes": "Snapshot shows MON at $0.02475, up 5% in 24h with elevated realized volatility: 81.6% (24h), 115.8% (7d), 118.8% (30d annualized). This is the activation's starting point with volatility elevated relative to recent history.\n\nTVL declined 3.16% over 7 days to $1.01B, down from ~$1.04B peak on Oct 5. Trend oscillates in a $995-1042M band over the past 30 days. No sharp drop-off, but consistent friction.\n\nDeFi ecosystem expanding: web sources cite new Aave V4 governance proposal, Drake CLOB/vAMM hybrid, StraitsX stablecoin launch planned for early 2027, and 170+ apps live. Ecosystem fundamentals solid despite TVL pullback, suggesting TVL decline is temporary rebalancing or profit-taking rather than exodus.\n\nMajor risk event: token unlock Nov 24 2026 (32.8% of circulating supply, ~$410-450M at recent prices). Web sources cite this as the most material near-term event, with $35M+ monthly supply increase beginning then.\n\nPool trading metrics: very tight for this account's size band. At $10 USD, impact is 5.1 bps + 0.5 bps fee; at $1000, 13.7-13.8 bps + 5 bps fee. Chainlink vs pool deviation minimal (-9.3 bps).\n\nThree themes merit closer attention: (1) volatility regime shift and how it may affect band rebalancing, (2) TVL rhythm in DeFi (decline may accelerate or reverse), (3) upcoming token unlock as material price pressure event. No red flags yet, but volatility and the Nov unlock timing are material for a Zoom out that builds the first plan."
+      }
+    ],
+    "entries": [
+      "Agent #2 completed a SCAN stage research activity that failed due to NO_STAGE_RECORD. The scan made 12 model calls and 7 tool calls with 3 paid calls, costing 0.187677 USDC against a 0.5 USDC ceiling."
+    ],
+    "usedTodayUsdcE6": "187677"
+  },
+  "passed": false
+}
