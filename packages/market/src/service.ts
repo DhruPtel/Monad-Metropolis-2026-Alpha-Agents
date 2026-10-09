@@ -126,7 +126,8 @@ export class MarketData {
   readonly cmcBudget: DailyBudget;
   readonly usage: UsageStore;
   private readonly o: MarketDataOptions;
-  private readonly now: () => number;
+  /** Ms since the epoch; the research sources share this clock (P3-U9). */
+  readonly now: () => number;
   private readonly buckets: Record<"coinmarketcap" | "defillama", TokenBucket>;
 
   constructor(o: MarketDataOptions) {
@@ -157,6 +158,14 @@ export class MarketData {
         now: this.now,
         ...(sleep ? { sleep } : {}),
       }),
+    };
+  }
+
+  /** The upstream options the research sources reuse: the same fetch and sleep as market data. */
+  upstreamOptions(): { fetch?: typeof fetch; sleep?: Sleep } {
+    return {
+      ...(this.o.fetch ? { fetch: this.o.fetch } : {}),
+      ...(this.o.sleep ? { sleep: this.o.sleep } : {}),
     };
   }
 

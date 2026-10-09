@@ -1,0 +1,205 @@
+{
+  "execution_id": "01K00000000000000000000001",
+  "query_id": 6000001,
+  "is_execution_finished": true,
+  "state": "QUERY_STATE_COMPLETED",
+  "submitted_at": "2026-10-08T06:00:00.000Z",
+  "expires_at": "2027-01-06T06:00:05.000Z",
+  "execution_started_at": "2026-10-08T06:00:01.000Z",
+  "execution_ended_at": "2026-10-08T06:00:05.000Z",
+  "result": {
+    "rows": [
+      {
+        "day": "2026-10-08 00:00:00.000 UTC",
+        "volume_usd": 24000000.5,
+        "trades": 180000,
+        "traders": 21000
+      },
+      {
+        "day": "2026-10-07 00:00:00.000 UTC",
+        "volume_usd": 23500000.5,
+        "trades": 177000,
+        "traders": 20800
+      },
+      {
+        "day": "2026-10-06 00:00:00.000 UTC",
+        "volume_usd": 23000000.5,
+        "trades": 174000,
+        "traders": 20600
+      },
+      {
+        "day": "2026-10-05 00:00:00.000 UTC",
+        "volume_usd": 22500000.5,
+        "trades": 171000,
+        "traders": 20400
+      },
+      {
+        "day": "2026-10-04 00:00:00.000 UTC",
+        "volume_usd": 22000000.5,
+        "trades": 168000,
+        "traders": 20200
+      },
+      {
+        "day": "2026-10-03 00:00:00.000 UTC",
+        "volume_usd": 21500000.5,
+        "trades": 165000,
+        "traders": 20000
+      },
+      {
+        "day": "2026-10-02 00:00:00.000 UTC",
+        "volume_usd": 21000000.5,
+        "trades": 162000,
+        "traders": 19800
+      },
+      {
+        "day": "2026-10-01 00:00:00.000 UTC",
+        "volume_usd": 20500000.5,
+        "trades": 159000,
+        "traders": 19600
+      },
+      {
+        "day": "2026-09-30 00:00:00.000 UTC",
+        "volume_usd": 19000000,
+        "trades": 150000,
+        "traders": 18000
+      },
+      {
+        "day": "2026-09-29 00:00:00.000 UTC",
+        "volume_usd": 19001000,
+        "trades": 150000,
+        "traders": 18000
+      },
+      {
+        "day": "2026-09-28 00:00:00.000 UTC",
+        "volume_usd": 19002000,
+        "trades": 150000,
+        "traders": 18000
+      },
+      {
+        "day": "2026-09-27 00:00:00.000 UTC",
+        "volume_usd": 19003000,
+        "trades": 150000,
+        "traders": 18000
+      },
+      {
+        "day": "2026-09-26 00:00:00.000 UTC",
+        "volume_usd": 19004000,
+        "trades": 150000,
+        "traders": 18000
+      },
+      {
+        "day": "2026-09-25 00:00:00.000 UTC",
+        "volume_usd": 19005000,
+        "trades": 150000,
+        "traders": 18000
+      },
+      {
+        "day": "2026-09-24 00:00:00.000 UTC",
+        "volume_usd": 19006000,
+        "trades": 150000,
+        "traders": 18000
+      },
+      {
+        "day": "2026-09-23 00:00:00.000 UTC",
+        "volume_usd": 19007000,
+        "trades": 150000,
+        "traders": 18000
+      },
+      {
+        "day": "2026-09-22 00:00:00.000 UTC",
+        "volume_usd": 19008000,
+        "trades": 150000,
+        "traders": 18000
+      },
+      {
+        "day": "2026-09-21 00:00:00.000 UTC",
+        "volume_usd": 19009000,
+        "trades": 150000,
+        "traders": 18000
+      },
+      {
+        "day": "2026-09-20 00:00:00.000 UTC",
+        "volume_usd": 19010000,
+        "trades": 150000,
+        "traders": 18000
+      },
+      {
+        "day": "2026-09-19 00:00:00.000 UTC",
+        "volume_usd": 19011000,
+        "trades": 150000,
+        "traders": 18000
+      },
+      {
+        "day": "2026-09-18 00:00:00.000 UTC",
+        "volume_usd": 19012000,
+        "trades": 150000,
+        "traders": 18000
+      },
+      {
+        "day": "2026-09-17 00:00:00.000 UTC",
+        "volume_usd": 19013000,
+        "trades": 150000,
+        "traders": 18000
+      },
+      {
+        "day": "2026-09-16 00:00:00.000 UTC",
+        "volume_usd": 19014000,
+        "trades": 150000,
+        "traders": 18000
+      },
+      {
+        "day": "2026-09-15 00:00:00.000 UTC",
+        "volume_usd": 19015000,
+        "trades": 150000,
+        "traders": 18000
+      },
+      {
+        "day": "2026-09-14 00:00:00.000 UTC",
+        "volume_usd": 19016000,
+        "trades": 150000,
+        "traders": 18000
+      },
+      {
+        "day": "2026-09-13 00:00:00.000 UTC",
+        "volume_usd": 19017000,
+        "trades": 150000,
+        "traders": 18000
+      },
+      {
+        "day": "2026-09-12 00:00:00.000 UTC",
+        "volume_usd": 19018000,
+        "trades": 150000,
+        "traders": 18000
+      },
+      {
+        "day": "2026-09-11 00:00:00.000 UTC",
+        "volume_usd": 19019000,
+        "trades": 150000,
+        "traders": 18000
+      },
+      {
+        "day": "2026-09-10 00:00:00.000 UTC",
+        "volume_usd": 19020000,
+        "trades": 150000,
+        "traders": 18000
+      },
+      {
+        "day": "2026-09-09 00:00:00.000 UTC",
+        "volume_usd": 19021000,
+        "trades": 150000,
+        "traders": 18000
+      }
+    ],
+    "metadata": {
+      "column_names": ["day", "volume_usd", "trades", "traders"],
+      "column_types": ["timestamp", "double", "bigint", "bigint"],
+      "row_count": 30,
+      "result_set_bytes": 1800,
+      "total_row_count": 30,
+      "total_result_set_bytes": 1800,
+      "datapoint_count": 120,
+      "pending_time_millis": 200,
+      "execution_time_millis": 3800
+    }
+  }
+}

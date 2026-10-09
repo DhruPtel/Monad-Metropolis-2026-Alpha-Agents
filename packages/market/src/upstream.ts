@@ -88,6 +88,8 @@ export interface UpstreamRequest {
   readonly attempts?: number;
   /** The longest Retry-After the request will wait out; past it the 429 is returned. */
   readonly maxRetryAfterMs?: number;
+  /** POST with a JSON body (Dune's execute); GET when absent. */
+  readonly body?: unknown;
 }
 
 export interface UpstreamDeps {
@@ -105,7 +107,7 @@ export function retryAfterSeconds(header: string | null, nowMs = Date.now()): nu
   return Number.isNaN(at) ? null : Math.max(0, Math.ceil((at - nowMs) / 1000));
 }
 
-/** GET a JSON body under the rules above. The URL may carry no secret: keys go in headers. */
+/** GET (or POST) a JSON body under the rules above. The URL may carry no secret: keys go in headers. */
 export async function getJson(req: UpstreamRequest, deps: UpstreamDeps = {}): Promise<unknown> {
   const f = deps.fetch ?? fetch;
   const sleep = deps.sleep ?? realSleep;
@@ -118,7 +120,12 @@ export async function getJson(req: UpstreamRequest, deps: UpstreamDeps = {}): Pr
     let res: Response;
     try {
       res = await f(req.url, {
-        headers: { accept: "application/json", ...req.headers },
+        ...(req.body === undefined ? {} : { method: "POST", body: JSON.stringify(req.body) }),
+        headers: {
+          accept: "application/json",
+          ...(req.body === undefined ? {} : { "content-type": "application/json" }),
+          ...req.headers,
+        },
         signal: AbortSignal.timeout(req.timeoutMs ?? 15_000),
       });
     } catch (err) {

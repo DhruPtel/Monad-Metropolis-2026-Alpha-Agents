@@ -1,0 +1,9 @@
+{
+  "note": "Dune query IDs of the platform's saved queries (P3-U9), written by pnpm dune:sync. null means not created on Dune yet.",
+  "ids": {
+    "monad_dex_volume_daily": null,
+    "monad_dex_volume_by_project": null,
+    "monad_active_addresses_daily": null,
+    "mon_exchange_netflows_daily": null
+  }
+}

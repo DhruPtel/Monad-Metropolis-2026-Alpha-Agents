@@ -1,6 +1,8 @@
 import { LOCAL_FORK_CHAIN_ID } from "@alpha-agents/config";
 import { type TestFork, startTestFork, testForkUpstream } from "@alpha-agents/devenv";
-import { DEPTH_SIZES_USD, viemMainnetReader } from "@alpha-agents/market";
+import { addressEntry } from "@alpha-agents/domain";
+import { DEPTH_SIZES_USD, viemMainnetLookup, viemMainnetReader } from "@alpha-agents/market";
+import { keccak256, toHex } from "viem";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 /**
@@ -54,6 +56,48 @@ describe.skipIf(!upstream)(
         for (let k = 1; k < impacts.length; k++)
           expect(impacts[k]).toBeGreaterThanOrEqual((impacts[k - 1] as number) - 0.01);
       }
+    });
+
+    it("reads a token's symbol as length and hash only, and its supply and decimals as numbers (P3-U9)", async () => {
+      const lookup = viemMainnetLookup([fork.url], LOCAL_FORK_CHAIN_ID);
+      const usdc = addressEntry("beta", "usdc").address as `0x${string}`;
+      const symbol = await lookup.read("erc20_symbol", usdc, {});
+      expect(symbol.outputs.value).toEqual({
+        type: "string",
+        length: 4,
+        keccak256: keccak256(toHex("USDC")),
+      });
+      expect(JSON.stringify(symbol)).not.toContain('"USDC"');
+      expect((await lookup.read("erc20_decimals", usdc, {})).outputs.value).toEqual({
+        type: "uint",
+        value: "6",
+      });
+      const supply = await lookup.read("erc20_total_supply", usdc, {});
+      expect(BigInt((supply.outputs.value as { value: string }).value)).toBeGreaterThan(0n);
+      expect(Number(symbol.asOf.block)).toBeGreaterThan(0);
+    });
+
+    it("reads Chainlink's round, balances and code, and says when an address has no code (P3-U9)", async () => {
+      const lookup = viemMainnetLookup([fork.url], LOCAL_FORK_CHAIN_ID);
+      const feed = addressEntry("beta", "chainlink_mon_usd").address as `0x${string}`;
+      const round = await lookup.read("chainlink_latest_round", feed, {});
+      expect(round.outputs).toMatchObject({
+        answer: { type: "int" },
+        decimals: { type: "uint", value: "8" },
+      });
+      const wmon = addressEntry("beta", "wmon").address as `0x${string}`;
+      const native = await lookup.balance(wmon, "NATIVE");
+      expect(BigInt(native.amountRaw)).toBeGreaterThan(0n);
+      expect(native.decimals).toBe(18);
+      const code = await lookup.code(wmon);
+      expect(code).toMatchObject({
+        hasCode: true,
+        codeHash: expect.stringMatching(/^0x[0-9a-f]{64}$/),
+      });
+      const empty = await lookup.code("0x000000000000000000000000000000000000dEaD");
+      expect(empty).toMatchObject({ hasCode: false, sizeBytes: 0, codeHash: null });
+      expect(empty.note).toMatch(/No code/);
+      await expect(lookup.read("owner", wmon, {})).rejects.toMatchObject({ retryable: false });
     });
 
     it("refuses an RPC that serves another chain", async () => {
