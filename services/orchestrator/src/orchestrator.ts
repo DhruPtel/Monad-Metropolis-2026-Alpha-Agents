@@ -50,6 +50,7 @@ import { builtinSet } from "./hermes/materialize.ts";
 import { PgIntentStore } from "./tools/chain-store.ts";
 import type { TokenRegistry } from "./tokens/registry.ts";
 import { registryToolSource } from "./tokens/tool-source.ts";
+import { runTokenCheckTask } from "./token-check.ts";
 
 /** F-U1: discovery every 30 minutes; screens of due tokens every 10 minutes, two at a time. */
 export const TOKEN_DISCOVERY_EVERY_MS = 30 * 60_000;
@@ -533,6 +534,8 @@ export class Orchestrator {
         return runChainCheckTask(this.taskContext(), job.taskId);
       case "research_check":
         return runResearchCheckTask(this.taskContext(), job.taskId);
+      case "token_check":
+        return runTokenCheckTask(this.taskContext(), job.taskId);
       case "cycle": {
         if (!this.credits) throw new Error("credits are not configured");
         return runCycleTask(
@@ -631,15 +634,18 @@ export class Orchestrator {
    * The dev console's research check (P3-U9): the agent uses each research
    * source once. An LLM task with paid tools, so it needs credits.
    */
-  async enqueueResearchCheck(ref: AgentRef): Promise<string> {
+  async enqueueResearchCheck(
+    ref: AgentRef,
+    kind: "research_check" | "token_check" = "research_check",
+  ): Promise<string> {
     const runtime = await this.o.store.runtime(ref);
     if (runtime?.status !== "ready") throw new Error(`agent ${ref.agentId} is not provisioned`);
     if (!this.tools) throw new Error("the tool servers are not running");
     if (this.credits && (await this.credits.creditsOf(ref.agentId)).restricted)
       throw new CreditsExhaustedError(ref.agentId);
     const taskId = randomUUID();
-    await this.o.store.insertTask(taskId, ref, "research_check", "console");
-    await this.queue.add({ kind: "research_check", ref, taskId });
+    await this.o.store.insertTask(taskId, ref, kind, "console");
+    await this.queue.add({ kind, ref, taskId });
     return taskId;
   }
 

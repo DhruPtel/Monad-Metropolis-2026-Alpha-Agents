@@ -42,8 +42,31 @@ export const RESEARCH_CHECK_TOOLS = [
 
 export type ResearchCheckStop = "COMPLETED" | "INCOMPLETE" | "DEADLINE";
 
+/**
+ * A tool check: one run with a fixed prompt whose result is the tool calls the
+ * platform recorded in its lease. The research check (P3-U9) and the token
+ * check (F-U1) are two of them.
+ */
+export interface ToolCheckSpec {
+  readonly kind: "research_check" | "token_check";
+  readonly label: string;
+  readonly prompt: string;
+  readonly tools: readonly (readonly [string, string])[];
+  readonly leaseMs: number;
+  readonly deadlineMs: number;
+}
+
+export const RESEARCH_CHECK: ToolCheckSpec = {
+  kind: "research_check",
+  label: "research check",
+  prompt: RESEARCH_CHECK_PROMPT,
+  tools: RESEARCH_CHECK_TOOLS,
+  leaseMs: RESEARCH_CHECK_LEASE_MS,
+  deadlineMs: RESEARCH_CHECK_DEADLINE_MS,
+};
+
 export interface ResearchCheckResult extends Record<string, unknown> {
-  readonly kind: "research_check";
+  readonly kind: ToolCheckSpec["kind"];
   readonly agentId: number;
   readonly leaseId: string;
   readonly runStatus: string;
@@ -59,35 +82,36 @@ export interface ResearchCheckResult extends Record<string, unknown> {
   readonly timingsMs: { readonly run: number; readonly total: number };
 }
 
-export async function runResearchCheckTask(ctx: TaskContext, taskId: string): Promise<void> {
+export function runResearchCheckTask(ctx: TaskContext, taskId: string): Promise<void> {
+  return runToolCheckTask(ctx, taskId, RESEARCH_CHECK);
+}
+
+export async function runToolCheckTask(
+  ctx: TaskContext,
+  taskId: string,
+  spec: ToolCheckSpec,
+): Promise<void> {
   const task = await ctx.store.task(taskId);
   if (!task || !(await ctx.store.startTask(taskId))) return;
   const ref: AgentRef = { chainId: task.chainId, agentId: task.agentId };
   const started = Date.now();
   let leaseId: string | null = null;
   try {
-    const opened = await openAgentSandbox(
-      ctx,
-      taskId,
-      ref,
-      "research_check",
-      RESEARCH_CHECK_LEASE_MS,
-      (id) => {
-        leaseId = id;
-      },
-    );
+    const opened = await openAgentSandbox(ctx, taskId, ref, spec.kind, spec.leaseMs, (id) => {
+      leaseId = id;
+    });
     leaseId = opened.leaseId;
     const agent = `${ref.chainId}-${ref.agentId}`;
     const t0 = Date.now();
     const run = await opened.runs.start(
-      `${agent}:research_check:${taskId}`,
-      RESEARCH_CHECK_PROMPT,
-      `${agent}-research-check-${taskId}`,
+      `${agent}:${spec.kind}:${taskId}`,
+      spec.prompt,
+      `${agent}-${spec.kind.replace("_", "-")}-${taskId}`,
     );
     let runStatus: string;
     let deadline = false;
     try {
-      runStatus = (await opened.runs.waitFinished(run.runId, RESEARCH_CHECK_DEADLINE_MS)).status;
+      runStatus = (await opened.runs.waitFinished(run.runId, spec.deadlineMs)).status;
     } catch {
       deadline = true;
       runStatus = "stopped";
@@ -104,14 +128,14 @@ export async function runResearchCheckTask(ctx: TaskContext, taskId: string): Pr
       .execute();
     const succeeded = (server: string, tool: string) =>
       calls.some((c) => c.server === server && c.tool === tool && c.status === "succeeded");
-    const complete = RESEARCH_CHECK_TOOLS.every(([s, t]) => succeeded(s, t));
+    const complete = spec.tools.every(([s, t]) => succeeded(s, t));
     const stopReason: ResearchCheckStop = complete
       ? "COMPLETED"
       : deadline
         ? "DEADLINE"
         : "INCOMPLETE";
     const result: ResearchCheckResult = {
-      kind: "research_check",
+      kind: spec.kind,
       agentId: ref.agentId,
       leaseId,
       runStatus,
@@ -129,16 +153,16 @@ export async function runResearchCheckTask(ctx: TaskContext, taskId: string): Pr
     if (complete) await ctx.store.finishTask(taskId, { result });
     else {
       const failure = modelFailure(ctx.gate.callsFor(leaseId));
-      const missing = RESEARCH_CHECK_TOOLS.filter(([s, t]) => !succeeded(s, t)).map(([, t]) => t);
+      const missing = spec.tools.filter(([s, t]) => !succeeded(s, t)).map(([, t]) => t);
       await ctx.store.finishTask(taskId, {
         error: deadline
-          ? `the research check passed its ${RESEARCH_CHECK_DEADLINE_MS / 60_000} minute deadline and was stopped`
-          : `the research check ended (${runStatus}) without a successful ${missing.join(", ")}${failure ? `: ${failure}` : ""}`,
+          ? `the ${spec.label} passed its ${spec.deadlineMs / 60_000} minute deadline and was stopped`
+          : `the ${spec.label} ended (${runStatus}) without a successful ${missing.join(", ")}${failure ? `: ${failure}` : ""}`,
         result,
       });
     }
     ctx.log(
-      `task ${taskId}: research check ${stopReason.toLowerCase()}, ${calls.length} tool calls`,
+      `task ${taskId}: ${spec.label} ${stopReason.toLowerCase()}, ${calls.length} tool calls`,
     );
   } catch (err) {
     const message = errorText(err, ctx.redactor);

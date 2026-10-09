@@ -17,6 +17,7 @@ export type JobData =
   | { readonly kind: "scan"; readonly ref: AgentRef; readonly taskId: string }
   | { readonly kind: "chain_check"; readonly ref: AgentRef; readonly taskId: string }
   | { readonly kind: "research_check"; readonly ref: AgentRef; readonly taskId: string }
+  | { readonly kind: "token_check"; readonly ref: AgentRef; readonly taskId: string }
   | { readonly kind: "cycle"; readonly ref: AgentRef; readonly taskId: string };
 
 export type JobHandler = (data: JobData) => Promise<unknown>;
@@ -28,6 +29,7 @@ export function jobId(data: JobData): string {
     data.kind === "scan" ||
     data.kind === "chain_check" ||
     data.kind === "research_check" ||
+    data.kind === "token_check" ||
     data.kind === "cycle"
     ? `${data.kind}-${data.taskId}`
     : `${data.kind}-${agent}`;
@@ -89,6 +91,7 @@ export class OrchestratorQueue {
         data.kind === "scan" ||
         data.kind === "chain_check" ||
         data.kind === "research_check" ||
+        data.kind === "token_check" ||
         data.kind === "cycle"
           ? 1
           : 3,

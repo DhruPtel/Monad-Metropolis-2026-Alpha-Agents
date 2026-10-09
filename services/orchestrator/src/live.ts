@@ -48,6 +48,12 @@
  * mainnet lookups are free. Needs X_BEARER_TOKEN too; DUNE_API_KEY is optional
  * (D-326), and without it the check confirms Dune charges nothing.
  *
+ * F-U1 adds the token check: discovery runs once (GeckoTerminal's pools,
+ * confirmed on mainnet, classed by verified feeds), then a real agent in E2B
+ * lists the tokens, reads the newest pools and screens one anew on the
+ * orchestrator's latest-block fork; the screen is charged at its price, kept
+ * with the agent named as the one who asked, and every check has a reason.
+ *
  * P3-U4 adds a full research cycle: the owner's goal saved (Standard intensity,
  * Sonnet 5.5), an activation-shaped cycle started from the console's route runs
  * Scan, Dives, Challenge, the deterministic Test and Zoom out in one sandbox;
@@ -137,6 +143,8 @@ const check = (name: string, ok: boolean, detail = "") => {
 const devDir = localPaths().devDir;
 mkdirSync(devDir, { recursive: true });
 const logPath = join(devDir, `orchestrator-${namespace}.log`);
+/** F-U1: the live run's screen fork port, apart from dev's 8579 and the test ports. */
+const SCREEN_FORK_PORT_LIVE = 8581;
 const logStream = createWriteStream(logPath);
 const logLines: string[] = [];
 const cleanup: (() => Promise<unknown>)[] = [];
@@ -204,7 +212,14 @@ async function main(): Promise<number> {
   const startOrchestrator = (label: string, extra: string[] = []): ChildProcess => {
     const child = spawn(
       process.execPath,
-      ["services/orchestrator/src/main.ts", `--namespace=${namespace}`, ...extra],
+      // F-U1: the registry runs on demand here, with a screen fork of its own (never dev's 8579).
+      [
+        "services/orchestrator/src/main.ts",
+        `--namespace=${namespace}`,
+        "--token-loops=off",
+        `--screen-fork-port=${SCREEN_FORK_PORT_LIVE}`,
+        ...extra,
+      ],
       {
         cwd: ROOT,
         env: {
@@ -811,6 +826,86 @@ async function main(): Promise<number> {
         (x.cache_hit ? String(x.charge_usdc_e6) === "0" : String(x.charge_usdc_e6) === "62500") &&
         Number((research.usage as { xPostsRead?: number } | undefined)?.xPostsRead ?? 999) <= 300,
       `${x?.charge_usdc_e6 ?? "none"} ${x?.cache_hit ? "(cached)" : ""}; usage ${JSON.stringify(research.usage)}`,
+    );
+  }
+
+  // F-U1: discovery once, then a real agent in E2B lists tokens and screens one.
+  {
+    const disc = await api("/v1/tokens/discover", { method: "POST" });
+    const d = (disc.body.discovery ?? {}) as {
+      tokens?: number;
+      pools?: number;
+      classF?: number;
+      classA?: number;
+      newPools?: number;
+    };
+    report.tokenDiscovery = { status: disc.status, ...d };
+    check(
+      "discovery found Monad's liquid tokens and pools, each classed F or A",
+      disc.status === 200 && (d.tokens ?? 0) >= 20 && (d.classF ?? 0) >= 8,
+      `${d.tokens ?? 0} tokens (${d.classF ?? 0} class F, ${d.classA ?? 0} class A) in ${d.pools ?? 0} pools`,
+    );
+    const started = await waitFor("the token check to be accepted", 300_000, async () => {
+      const r = await api(`/v1/agents/${other}/tasks/token-check`, { method: "POST" });
+      if (r.status === 202) return r;
+      if (r.body.error !== "lease_held") throw new Error(`token check refused: ${r.status}`);
+      await new Promise((res) => setTimeout(res, 3_000));
+      return null;
+    });
+    const task = await waitFor("the token check", 900_000, async () => {
+      const x = (await api(`/v1/tasks/${String(started.body.taskId)}`)).body as unknown as TaskView;
+      return x.status === "succeeded" || x.status === "failed" ? x : null;
+    });
+    const res = (task.result ?? {}) as { leaseId?: string };
+    const calls = res.leaseId
+      ? await t.db
+          .selectFrom("platform.tool_calls")
+          .select([
+            "tool",
+            "status",
+            "error_code",
+            "charge_usdc_e6",
+            "cache_hit",
+            "input",
+            "summary",
+          ])
+          .where("lease_id", "=", res.leaseId)
+          .orderBy("started_at")
+          .execute()
+      : [];
+    const screens = await t.db
+      .selectFrom("platform.token_screens")
+      .select(["address", "verdict", "requested_by", "checks", "fork_block", "duration_ms"])
+      .where("requested_by", "=", `agent:${other}`)
+      .execute();
+    report.tokenCheck = { status: task.status, error: task.error, calls, screens };
+    const line = calls
+      .map(
+        (c) =>
+          `${c.tool} ${c.status === "succeeded" ? "ok" : (c.error_code ?? c.status)} ${c.charge_usdc_e6}${c.cache_hit ? " (free)" : ""}`,
+      )
+      .join(", ");
+    const ok = (tool: string) => calls.some((c) => c.tool === tool && c.status === "succeeded");
+    check(
+      "a real agent in E2B listed tokens and new pools, free",
+      ok("list_tokens") &&
+        ok("new_pools") &&
+        calls
+          .filter((c) => c.tool === "list_tokens" || c.tool === "new_pools")
+          .every((c) => String(c.charge_usdc_e6) === "0"),
+      line,
+    );
+    const screen = calls.find((c) => c.tool === "screen_token" && c.status === "succeeded");
+    const kept = screens[0] as
+      { checks: { reason: string }[]; verdict: string; address: string } | undefined;
+    check(
+      "the agent screened a token anew on the fork, charged at its price, kept with who asked and every check's reason",
+      screen !== undefined &&
+        String(screen.charge_usdc_e6) === "5000" &&
+        kept !== undefined &&
+        kept.checks.length === 11 &&
+        kept.checks.every((c) => c.reason.length > 0),
+      `${line}; ${kept ? `${kept.address} ${kept.verdict}` : "no screen kept"}`,
     );
   }
 

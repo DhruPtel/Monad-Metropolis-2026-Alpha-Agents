@@ -311,12 +311,16 @@ const tokenDiscovery =
         client: createPublicClient({ transport: readOnlyTransport(mainnetUrls) }) as PublicClient,
       })
     : null;
+// --screen-fork-port lets a second orchestrator (the live run) keep its fork apart from dev's.
+const screenForkPort = Number(arg("screen-fork-port") ?? SCREEN_FORK_PORT);
+if (!Number.isInteger(screenForkPort) || screenForkPort <= 8545 || screenForkPort > 65_535)
+  die("--screen-fork-port takes a port above 8545");
 const screenFork =
   mainnetUrls.length > 0
     ? new ScreenFork({
         start: () =>
           startTestFork({
-            port: SCREEN_FORK_PORT,
+            port: screenForkPort,
             block: "latest",
             env: {
               MONAD_RPC_URL: mainnetUrls[0],
@@ -335,7 +339,7 @@ const tokenRegistry = new TokenRegistry({
 // --token-loops=off keeps the registry for the tools and the console but runs no discovery or screens.
 const tokenLoops = arg("token-loops") !== "off";
 log(
-  `token registry on: discovery ${tokenDiscovery ? "configured" : "not configured"}, screens ${screenFork ? `on a latest-block fork at port ${SCREEN_FORK_PORT}` : "not configured"}, loops ${tokenLoops ? "on" : "off"}; GoPlus has no API key and runs keyless`,
+  `token registry on: discovery ${tokenDiscovery ? "configured" : "not configured"}, screens ${screenFork ? `on a latest-block fork at port ${screenForkPort}` : "not configured"}, loops ${tokenLoops ? "on" : "off"}; GoPlus has no API key and runs keyless`,
 );
 const scanSeconds = arg("scan-interval-seconds");
 if (scanSeconds !== undefined && (env.id !== "local" || !/^[1-9]\d{0,5}$/.test(scanSeconds)))
