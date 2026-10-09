@@ -1,0 +1,1702 @@
+{
+  "at": "2026-10-09T22:21:43.519Z",
+  "discovery": {
+    "runId": "8d43eebd-6ae6-40b6-a78b-4aca573db62d",
+    "pools": 57,
+    "tokens": 42,
+    "newPools": 57,
+    "classF": 10,
+    "classA": 32,
+    "sources": {
+      "geckoterminal": {
+        "ok": true,
+        "detail": "9 of 9 pages read"
+      },
+      "geckoterminal:new": {
+        "ok": true,
+        "detail": "19 new pools"
+      },
+      "chain": {
+        "ok": true,
+        "detail": "57 pools confirmed at block 112013548, 0 not confirmed"
+      },
+      "coingecko": {
+        "ok": true,
+        "detail": "195 entries"
+      },
+      "coinmarketcap:map": {
+        "ok": true,
+        "detail": "8142 entries"
+      },
+      "coinmarketcap:top": {
+        "ok": true,
+        "detail": "200 entries"
+      }
+    }
+  },
+  "tokens": [
+    {
+      "symbol": "USDC",
+      "address": "0x754704bc059f8c67012fed69bc8a327a5aafb603",
+      "priceClass": "F",
+      "liquidityUsd": 6159385,
+      "coingecko": true,
+      "coinmarketcap": {
+        "id": 3408,
+        "rank": 6,
+        "match": "symbol_and_name"
+      },
+      "feed": {
+        "ok": true,
+        "legs": [
+          {
+            "description": "USDC / USD",
+            "ageSeconds": 3117,
+            "reason": "fresh: updated 3117 seconds ago"
+          }
+        ]
+      }
+    },
+    {
+      "symbol": "syrupUSDC",
+      "address": "0xab6e5a0c3799d020c790d34f7b2c02639e238af7",
+      "priceClass": "F",
+      "liquidityUsd": 6159385,
+      "coingecko": true,
+      "coinmarketcap": {
+        "id": 38779,
+        "rank": 7962,
+        "match": "symbol_and_name"
+      },
+      "feed": {
+        "ok": true,
+        "legs": [
+          {
+            "description": "SYRUPUSDC / USDC Exchange Rate",
+            "ageSeconds": 10636,
+            "reason": "fresh: updated 10636 seconds ago"
+          },
+          {
+            "description": "USDC / USD",
+            "ageSeconds": 3117,
+            "reason": "fresh: updated 3117 seconds ago"
+          }
+        ]
+      }
+    },
+    {
+      "symbol": "GHO",
+      "address": "0xfc421ad3c883bf9e7c4f42de845c4e4405799e73",
+      "priceClass": "A",
+      "liquidityUsd": 3566625,
+      "coingecko": true,
+      "coinmarketcap": null,
+      "feed": null
+    },
+    {
+      "symbol": "AUSD",
+      "address": "0x00000000efe302beaa2b3e6e1b18d08d69a9012a",
+      "priceClass": "F",
+      "liquidityUsd": 3485616,
+      "coingecko": true,
+      "coinmarketcap": {
+        "id": 32864,
+        "rank": 229,
+        "match": "symbol_and_name"
+      },
+      "feed": {
+        "ok": true,
+        "legs": [
+          {
+            "description": "AUSD / USD",
+            "ageSeconds": 3075,
+            "reason": "fresh: updated 3075 seconds ago"
+          }
+        ]
+      }
+    },
+    {
+      "symbol": "WBTC",
+      "address": "0x0555e30da8f98308edb960aa94c0db47230d2b9c",
+      "priceClass": "F",
+      "liquidityUsd": 2882728,
+      "coingecko": true,
+      "coinmarketcap": null,
+      "feed": {
+        "ok": true,
+        "legs": [
+          {
+            "description": "WBTC / USD",
+            "ageSeconds": 902,
+            "reason": "fresh: updated 902 seconds ago"
+          }
+        ]
+      }
+    },
+    {
+      "symbol": "cbBTC",
+      "address": "0xd18b7ec58cdf4876f6afebd3ed1730e4ce10414b",
+      "priceClass": "F",
+      "liquidityUsd": 2882728,
+      "coingecko": true,
+      "coinmarketcap": {
+        "id": 32994,
+        "rank": 7955,
+        "match": "symbol_and_name"
+      },
+      "feed": {
+        "ok": true,
+        "legs": [
+          {
+            "description": "CBBTC / USD",
+            "ageSeconds": 27,
+            "reason": "fresh: updated 27 seconds ago"
+          }
+        ]
+      }
+    },
+    {
+      "symbol": "WETH",
+      "address": "0xee8c0e9f1bffb4eb878d8f15f368a02a35481242",
+      "priceClass": "F",
+      "liquidityUsd": 1969683,
+      "coingecko": true,
+      "coinmarketcap": null,
+      "feed": {
+        "ok": true,
+        "legs": [
+          {
+            "description": "ETH / USD",
+            "ageSeconds": 132,
+            "reason": "fresh: updated 132 seconds ago"
+          }
+        ]
+      }
+    },
+    {
+      "symbol": "WMON",
+      "address": "0x3bd359c1119da7da1d913d1c4d2b7c461115433a",
+      "priceClass": "F",
+      "liquidityUsd": 1319071,
+      "coingecko": true,
+      "coinmarketcap": null,
+      "feed": {
+        "ok": true,
+        "legs": [
+          {
+            "description": "MON / USD",
+            "ageSeconds": -4,
+            "reason": "fresh: updated 0 seconds ago"
+          }
+        ]
+      }
+    },
+    {
+      "symbol": "CHAOS",
+      "address": "0xdcd8114f42fd40db1914de241c75adc9e3c1722e",
+      "priceClass": "A",
+      "liquidityUsd": 1014668,
+      "coingecko": false,
+      "coinmarketcap": null,
+      "feed": null
+    },
+    {
+      "symbol": "EURW",
+      "address": "0x1111b3ded9f1fe1801ad4ebef8e2788183a24111",
+      "priceClass": "A",
+      "liquidityUsd": 926992,
+      "coingecko": true,
+      "coinmarketcap": null,
+      "feed": null
+    },
+    {
+      "symbol": "LV",
+      "address": "0x1001ff13bf368aa4fa85f21043648079f00e1001",
+      "priceClass": "A",
+      "liquidityUsd": 294513,
+      "coingecko": true,
+      "coinmarketcap": {
+        "id": 39140,
+        "rank": 1219,
+        "match": "address"
+      },
+      "feed": null
+    },
+    {
+      "symbol": "LVMON",
+      "address": "0x91b81bfbe3a747230f0529aa28d8b2bc898e6d56",
+      "priceClass": "A",
+      "liquidityUsd": 294513,
+      "coingecko": true,
+      "coinmarketcap": null,
+      "feed": null
+    },
+    {
+      "symbol": "shMON",
+      "address": "0x1b68626dca36c7fe922fd2d55e4f631d962de19c",
+      "priceClass": "F",
+      "liquidityUsd": 155856,
+      "coingecko": true,
+      "coinmarketcap": null,
+      "feed": {
+        "ok": true,
+        "legs": [
+          {
+            "description": "SHMON / MON Exchange Rate",
+            "ageSeconds": 17307,
+            "reason": "fresh: updated 17307 seconds ago"
+          },
+          {
+            "description": "MON / USD",
+            "ageSeconds": -4,
+            "reason": "fresh: updated 0 seconds ago"
+          }
+        ]
+      }
+    },
+    {
+      "symbol": "CETES",
+      "address": "0x834df4c1d8f51be24322e39e4766697be015512f",
+      "priceClass": "A",
+      "liquidityUsd": 107916,
+      "coingecko": true,
+      "coinmarketcap": null,
+      "feed": null
+    },
+    {
+      "symbol": "LVUSD",
+      "address": "0xfd44b35139ae53fff7d8f2a9869c503d987f00d1",
+      "priceClass": "A",
+      "liquidityUsd": 94979,
+      "coingecko": true,
+      "coinmarketcap": null,
+      "feed": null
+    },
+    {
+      "symbol": "gMON",
+      "address": "0x8498312a6b3cbd158bf0c93abdcf29e6e4f55081",
+      "priceClass": "F",
+      "liquidityUsd": 66052,
+      "coingecko": true,
+      "coinmarketcap": {
+        "id": 35966,
+        "rank": 8083,
+        "match": "address"
+      },
+      "feed": {
+        "ok": true,
+        "legs": [
+          {
+            "description": "GMON / MON Exchange Rate",
+            "ageSeconds": 38737,
+            "reason": "fresh: updated 38737 seconds ago"
+          },
+          {
+            "description": "MON / USD",
+            "ageSeconds": -4,
+            "reason": "fresh: updated 0 seconds ago"
+          }
+        ]
+      }
+    },
+    {
+      "symbol": "Cake",
+      "address": "0xf59d81cd43f620e722e07f9cb3f6e41b031017a3",
+      "priceClass": "A",
+      "liquidityUsd": 53174,
+      "coingecko": false,
+      "coinmarketcap": null,
+      "feed": null
+    },
+    {
+      "symbol": "XAUt0",
+      "address": "0x01bff41798a0bcf287b996046ca68b395dbc1071",
+      "priceClass": "A",
+      "liquidityUsd": 45889,
+      "coingecko": true,
+      "coinmarketcap": null,
+      "feed": null
+    },
+    {
+      "symbol": "USDT0",
+      "address": "0xe7cd86e13ac4309349f30b3435a9d337750fc82d",
+      "priceClass": "F",
+      "liquidityUsd": 45889,
+      "coingecko": true,
+      "coinmarketcap": {
+        "id": 38517,
+        "rank": 7959,
+        "match": "symbol_and_name"
+      },
+      "feed": {
+        "ok": true,
+        "legs": [
+          {
+            "description": "USDT0 / USD",
+            "ageSeconds": 361,
+            "reason": "fresh: updated 361 seconds ago"
+          }
+        ]
+      }
+    },
+    {
+      "symbol": "BNCB",
+      "address": "0x094adb9ab02ed230697297c219073dc8c69df0df",
+      "priceClass": "A",
+      "liquidityUsd": 37570,
+      "coingecko": false,
+      "coinmarketcap": null,
+      "feed": null
+    },
+    {
+      "symbol": "APR",
+      "address": "0x0a332311633c0625f63cfc51ee33fc49826e0a3c",
+      "priceClass": "A",
+      "liquidityUsd": 37154,
+      "coingecko": true,
+      "coinmarketcap": null,
+      "feed": null
+    },
+    {
+      "symbol": "FLING",
+      "address": "0xa9da3c77ec7cdc4dfaa1fe142af583543d1c540f",
+      "priceClass": "A",
+      "liquidityUsd": 22941,
+      "coingecko": true,
+      "coinmarketcap": null,
+      "feed": null
+    },
+    {
+      "symbol": "UNIT",
+      "address": "0x788571e0e5067adea87e6ba22a2b738ffdf48888",
+      "priceClass": "A",
+      "liquidityUsd": 19372,
+      "coingecko": false,
+      "coinmarketcap": null,
+      "feed": null
+    },
+    {
+      "symbol": "ANAGO",
+      "address": "0x99ae2dc76c43979e3bcc0ae8d69f1fca077c8888",
+      "priceClass": "A",
+      "liquidityUsd": 13882,
+      "coingecko": false,
+      "coinmarketcap": null,
+      "feed": null
+    },
+    {
+      "symbol": "SUN",
+      "address": "0x220b583fe8c1481b5510c3cf91adff6d6d38e619",
+      "priceClass": "A",
+      "liquidityUsd": 4284,
+      "coingecko": false,
+      "coinmarketcap": null,
+      "feed": null
+    },
+    {
+      "symbol": "MOON",
+      "address": "0x2efa480d60ea4f5a7e33f0a70bef2ada26a473d7",
+      "priceClass": "A",
+      "liquidityUsd": 4284,
+      "coingecko": false,
+      "coinmarketcap": null,
+      "feed": null
+    },
+    {
+      "symbol": "MOONCAT",
+      "address": "0x2531998f8c17f4db23d8807b0c7868d994074e74",
+      "priceClass": "A",
+      "liquidityUsd": 4149,
+      "coingecko": false,
+      "coinmarketcap": null,
+      "feed": null
+    },
+    {
+      "symbol": "HEDGEMOON",
+      "address": "0x4a005996ed2603c94ad64b5bb2ef233b9e482cb8",
+      "priceClass": "A",
+      "liquidityUsd": 3975,
+      "coingecko": false,
+      "coinmarketcap": null,
+      "feed": null
+    },
+    {
+      "symbol": "MOONY",
+      "address": "0x0e31b9b3b681925f950a391f77b6fb0964ecbd67",
+      "priceClass": "A",
+      "liquidityUsd": 3967,
+      "coingecko": false,
+      "coinmarketcap": null,
+      "feed": null
+    },
+    {
+      "symbol": "MONCAT",
+      "address": "0x1559527ff18efb99e370a6a4fd6c6c5f973cbd11",
+      "priceClass": "A",
+      "liquidityUsd": 3829,
+      "coingecko": false,
+      "coinmarketcap": null,
+      "feed": null
+    },
+    {
+      "symbol": "MISSION",
+      "address": "0x1d040c3d9d3b26395d7087fb8f07b08d7026162c",
+      "priceClass": "A",
+      "liquidityUsd": 3751,
+      "coingecko": false,
+      "coinmarketcap": null,
+      "feed": null
+    },
+    {
+      "symbol": "MOONK",
+      "address": "0x0e71eb956896c6daa7a22b4b81e25fd6bbf9ee52",
+      "priceClass": "A",
+      "liquidityUsd": 3091,
+      "coingecko": false,
+      "coinmarketcap": null,
+      "feed": null
+    },
+    {
+      "symbol": "SUNGMO",
+      "address": "0xd805f164d911c3688d5737d808811f23827aea20",
+      "priceClass": "A",
+      "liquidityUsd": 1437,
+      "coingecko": false,
+      "coinmarketcap": null,
+      "feed": null
+    },
+    {
+      "symbol": "MUSDT",
+      "address": "0xf05266b1b1759d3a2746cd3b031b802c2496b278",
+      "priceClass": "A",
+      "liquidityUsd": 0,
+      "coingecko": false,
+      "coinmarketcap": null,
+      "feed": null
+    },
+    {
+      "symbol": "ITALY",
+      "address": "0x005d214a4edb0d5b425b20b8beae398d4abd0b7d",
+      "priceClass": "A",
+      "liquidityUsd": 0,
+      "coingecko": false,
+      "coinmarketcap": null,
+      "feed": null
+    },
+    {
+      "symbol": "PENALTY",
+      "address": "0x37ad809e22af699c2d0c14b26c93d5ead9f4a9dc",
+      "priceClass": "A",
+      "liquidityUsd": 0,
+      "coingecko": false,
+      "coinmarketcap": null,
+      "feed": null
+    },
+    {
+      "symbol": "GMONAD",
+      "address": "0x7db552eeb6b77a6babe6e0a739b5382cd653cc3e",
+      "priceClass": "A",
+      "liquidityUsd": 0,
+      "coingecko": true,
+      "coinmarketcap": null,
+      "feed": null
+    },
+    {
+      "symbol": "MOCHI",
+      "address": "0x89459eebf132d6dc322d9aab82a61313f1c88401",
+      "priceClass": "A",
+      "liquidityUsd": 0,
+      "coingecko": false,
+      "coinmarketcap": null,
+      "feed": null
+    },
+    {
+      "symbol": "mUSD",
+      "address": "0xaca92e438df0b2401ff60da7e4337b687a2435da",
+      "priceClass": "A",
+      "liquidityUsd": 0,
+      "coingecko": true,
+      "coinmarketcap": {
+        "id": 38167,
+        "rank": 791,
+        "match": "symbol_and_name"
+      },
+      "feed": null
+    },
+    {
+      "symbol": "MON.b.gMON",
+      "address": "0xbc19ac589c66e3661b8dce5caa29838279bd733a",
+      "priceClass": "A",
+      "liquidityUsd": 0,
+      "coingecko": false,
+      "coinmarketcap": null,
+      "feed": null
+    },
+    {
+      "symbol": "gMONx5.MON",
+      "address": "0xc3932f079ea871af1a18e6530b9f9e8eab5bda4f",
+      "priceClass": "A",
+      "liquidityUsd": 0,
+      "coingecko": false,
+      "coinmarketcap": null,
+      "feed": null
+    },
+    {
+      "symbol": "KITTEHSMILE",
+      "address": "0xebab9d2a91aa850beb655f50b06f41d33af0ab07",
+      "priceClass": "A",
+      "liquidityUsd": 0,
+      "coingecko": false,
+      "coinmarketcap": null,
+      "feed": null
+    }
+  ],
+  "screened": 24,
+  "passed": 10,
+  "screens": [
+    {
+      "symbol": "USDC",
+      "address": "0x754704bc059f8c67012fed69bc8a327a5aafb603",
+      "priceClass": "F",
+      "liquidityUsd": 6159385,
+      "verdict": "passed",
+      "failed": [],
+      "skipped": [],
+      "route": {
+        "pool": "0x659bd0bc4167ba25c62e05656f78043e7ed4a9da",
+        "dex": "uniswap_v3",
+        "fee": 3000,
+        "tickSpacing": 60,
+        "base": "WMON",
+        "simulation": {
+          "amountIn": "10346769924671376240422",
+          "buy": {
+            "ok": true,
+            "quoted": "249272600",
+            "received": "249272600",
+            "taxBps": 0
+          },
+          "transfer": {
+            "ok": true,
+            "sent": "249272600",
+            "received": "249272600",
+            "taxBps": 0
+          },
+          "sell": {
+            "ok": true,
+            "quoted": "10284784307085161605077",
+            "received": "10284784307085161605077",
+            "taxBps": 0,
+            "leftover": "0"
+          },
+          "roundTripBps": 59,
+          "quoteSources": [
+            "quoter",
+            "quoter"
+          ]
+        }
+      },
+      "forkBlock": 112013583,
+      "durationMs": 17251
+    },
+    {
+      "symbol": "syrupUSDC",
+      "address": "0xab6e5a0c3799d020c790d34f7b2c02639e238af7",
+      "priceClass": "F",
+      "liquidityUsd": 6159385,
+      "verdict": "refused",
+      "failed": [
+        {
+          "code": "OWNER_POWERS",
+          "reason": "A live admin can call burn."
+        }
+      ],
+      "skipped": [],
+      "route": {
+        "pool": "0xe24635d96638b80e53d182b1b96809e189b64e5e28002c01381148493cf9fa01",
+        "dex": "uniswap_v4",
+        "fee": 500,
+        "tickSpacing": 10,
+        "base": "USDC",
+        "simulation": {
+          "amountIn": "250000000",
+          "buy": {
+            "ok": true,
+            "quoted": "210551235",
+            "received": "210551235",
+            "taxBps": 0
+          },
+          "transfer": {
+            "ok": true,
+            "sent": "210551235",
+            "received": "210551235",
+            "taxBps": 0
+          },
+          "sell": {
+            "ok": true,
+            "quoted": "249750060",
+            "received": "249750060",
+            "taxBps": 0,
+            "leftover": "0"
+          },
+          "roundTripBps": 9,
+          "quoteSources": [
+            "quoter",
+            "quoter"
+          ]
+        }
+      },
+      "forkBlock": 112013583,
+      "durationMs": 15156
+    },
+    {
+      "symbol": "GHO",
+      "address": "0xfc421ad3c883bf9e7c4f42de845c4e4405799e73",
+      "priceClass": "A",
+      "liquidityUsd": 3566625,
+      "verdict": "refused",
+      "failed": [
+        {
+          "code": "UPGRADEABLE",
+          "reason": "An upgradeable proxy whose code can be changed without a timelock."
+        }
+      ],
+      "skipped": [],
+      "route": {
+        "pool": "0xeeb60c8a9ab58b77216989a5e7dfb80fed38ac5354b03267ea4af85fa184381c",
+        "dex": "uniswap_v4",
+        "fee": 100,
+        "tickSpacing": 1,
+        "base": "USDC",
+        "simulation": {
+          "amountIn": "250000000",
+          "buy": {
+            "ok": true,
+            "quoted": "250135679713437330222",
+            "received": "250135679713437330222",
+            "taxBps": 0
+          },
+          "transfer": {
+            "ok": true,
+            "sent": "250135679713437330222",
+            "received": "250135679713437330222",
+            "taxBps": 0
+          },
+          "sell": {
+            "ok": true,
+            "quoted": "249950002",
+            "received": "249950002",
+            "taxBps": 0,
+            "leftover": "0"
+          },
+          "roundTripBps": 1,
+          "quoteSources": [
+            "quoter",
+            "quoter"
+          ]
+        }
+      },
+      "forkBlock": 112013583,
+      "durationMs": 16933
+    },
+    {
+      "symbol": "AUSD",
+      "address": "0x00000000efe302beaa2b3e6e1b18d08d69a9012a",
+      "priceClass": "F",
+      "liquidityUsd": 3485616,
+      "verdict": "passed",
+      "failed": [],
+      "skipped": [],
+      "route": {
+        "pool": "0x092b650478145f0aee73a1b400b342b9c6314db2e07aeb91faf7e75e8159ce72",
+        "dex": "uniswap_v4",
+        "fee": 50,
+        "tickSpacing": 1,
+        "base": "USDC",
+        "simulation": {
+          "amountIn": "250000000",
+          "buy": {
+            "ok": true,
+            "quoted": "250035036",
+            "received": "250035036",
+            "taxBps": 0
+          },
+          "transfer": {
+            "ok": true,
+            "sent": "250035036",
+            "received": "250035036",
+            "taxBps": 0
+          },
+          "sell": {
+            "ok": true,
+            "quoted": "249974999",
+            "received": "249974999",
+            "taxBps": 0,
+            "leftover": "0"
+          },
+          "roundTripBps": 1,
+          "quoteSources": [
+            "quoter",
+            "quoter"
+          ]
+        }
+      },
+      "forkBlock": 112013583,
+      "durationMs": 10599
+    },
+    {
+      "symbol": "WBTC",
+      "address": "0x0555e30da8f98308edb960aa94c0db47230d2b9c",
+      "priceClass": "F",
+      "liquidityUsd": 2882728,
+      "verdict": "passed",
+      "failed": [],
+      "skipped": [],
+      "route": {
+        "pool": "0x1c93dd2f2f47439330150bf728c3beeaad71de45420a49183214898b044b65d1",
+        "dex": "uniswap_v4",
+        "fee": 500,
+        "tickSpacing": 1,
+        "base": "MON",
+        "simulation": {
+          "amountIn": "10346769924671376240422",
+          "buy": {
+            "ok": true,
+            "quoted": "303498",
+            "received": "303498",
+            "taxBps": 0
+          },
+          "transfer": {
+            "ok": true,
+            "sent": "303498",
+            "received": "303498",
+            "taxBps": 0
+          },
+          "sell": {
+            "ok": true,
+            "quoted": "10336400227474548109413",
+            "received": "10336392102831479657029",
+            "taxBps": 0,
+            "leftover": "0"
+          },
+          "roundTripBps": 10,
+          "quoteSources": [
+            "quoter",
+            "quoter"
+          ]
+        }
+      },
+      "forkBlock": 112013583,
+      "durationMs": 3651
+    },
+    {
+      "symbol": "cbBTC",
+      "address": "0xd18b7ec58cdf4876f6afebd3ed1730e4ce10414b",
+      "priceClass": "F",
+      "liquidityUsd": 2882728,
+      "verdict": "passed",
+      "failed": [],
+      "skipped": [],
+      "route": {
+        "pool": "0x7fc6232a9ec6cc4e9434640dcde5ee08ccae3b07de3247bf788fc9e2051b449e",
+        "dex": "uniswap_v4",
+        "fee": 500,
+        "tickSpacing": 10,
+        "base": "USDC",
+        "simulation": {
+          "amountIn": "250000000",
+          "buy": {
+            "ok": true,
+            "quoted": "303157",
+            "received": "303157",
+            "taxBps": 0
+          },
+          "transfer": {
+            "ok": true,
+            "sent": "303157",
+            "received": "303157",
+            "taxBps": 0
+          },
+          "sell": {
+            "ok": true,
+            "quoted": "249749338",
+            "received": "249749338",
+            "taxBps": 0,
+            "leftover": "0"
+          },
+          "roundTripBps": 10,
+          "quoteSources": [
+            "quoter",
+            "quoter"
+          ]
+        }
+      },
+      "forkBlock": 112013583,
+      "durationMs": 6076
+    },
+    {
+      "symbol": "WETH",
+      "address": "0xee8c0e9f1bffb4eb878d8f15f368a02a35481242",
+      "priceClass": "F",
+      "liquidityUsd": 1969683,
+      "verdict": "passed",
+      "failed": [],
+      "skipped": [],
+      "route": {
+        "pool": "0xad408916c1c310da9c258d4c128a7bf50fd9edc42a218cc970da39cfc8a05d93",
+        "dex": "uniswap_v4",
+        "fee": 500,
+        "tickSpacing": 10,
+        "base": "USDC",
+        "simulation": {
+          "amountIn": "250000000",
+          "buy": {
+            "ok": true,
+            "quoted": "100744206337383047",
+            "received": "100744206337383047",
+            "taxBps": 0
+          },
+          "transfer": {
+            "ok": true,
+            "sent": "100744206337383047",
+            "received": "100744206337383047",
+            "taxBps": 0
+          },
+          "sell": {
+            "ok": true,
+            "quoted": "249750065",
+            "received": "249750065",
+            "taxBps": 0,
+            "leftover": "0"
+          },
+          "roundTripBps": 9,
+          "quoteSources": [
+            "quoter",
+            "quoter"
+          ]
+        }
+      },
+      "forkBlock": 112013583,
+      "durationMs": 5508
+    },
+    {
+      "symbol": "WMON",
+      "address": "0x3bd359c1119da7da1d913d1c4d2b7c461115433a",
+      "priceClass": "F",
+      "liquidityUsd": 1319071,
+      "verdict": "passed",
+      "failed": [],
+      "skipped": [],
+      "route": {
+        "pool": "0x659bd0bc4167ba25c62e05656f78043e7ed4a9da",
+        "dex": "uniswap_v3",
+        "fee": 3000,
+        "tickSpacing": 60,
+        "base": "USDC",
+        "simulation": {
+          "amountIn": "250000000",
+          "buy": {
+            "ok": true,
+            "quoted": "10313507878314626484148",
+            "received": "10313507878314626484148",
+            "taxBps": 0
+          },
+          "transfer": {
+            "ok": true,
+            "sent": "10313507878314626484148",
+            "received": "10313507878314626484148",
+            "taxBps": 0
+          },
+          "sell": {
+            "ok": true,
+            "quoted": "248502296",
+            "received": "248502296",
+            "taxBps": 0,
+            "leftover": "0"
+          },
+          "roundTripBps": 59,
+          "quoteSources": [
+            "quoter",
+            "quoter"
+          ]
+        }
+      },
+      "forkBlock": 112013583,
+      "durationMs": 5528
+    },
+    {
+      "symbol": "CHAOS",
+      "address": "0xdcd8114f42fd40db1914de241c75adc9e3c1722e",
+      "priceClass": "A",
+      "liquidityUsd": 1014668,
+      "verdict": "passed",
+      "failed": [],
+      "skipped": [],
+      "route": {
+        "pool": "0xe2796721c13b0baf0a8f0ea2425cc6bd6e28818e3044ba8a286762844ec1bb45",
+        "dex": "uniswap_v4",
+        "fee": 3000,
+        "tickSpacing": 60,
+        "base": "USDC",
+        "simulation": {
+          "amountIn": "250000000",
+          "buy": {
+            "ok": true,
+            "quoted": "49898488884375281811361",
+            "received": "49898488884375281811361",
+            "taxBps": 0
+          },
+          "transfer": {
+            "ok": true,
+            "sent": "49898488884375281811361",
+            "received": "49898488884375281811361",
+            "taxBps": 0
+          },
+          "sell": {
+            "ok": true,
+            "quoted": "248536571",
+            "received": "248536571",
+            "taxBps": 0,
+            "leftover": "0"
+          },
+          "roundTripBps": 58,
+          "quoteSources": [
+            "quoter",
+            "quoter"
+          ]
+        }
+      },
+      "forkBlock": 112013583,
+      "durationMs": 5893
+    },
+    {
+      "symbol": "EURW",
+      "address": "0x1111b3ded9f1fe1801ad4ebef8e2788183a24111",
+      "priceClass": "A",
+      "liquidityUsd": 926992,
+      "verdict": "refused",
+      "failed": [
+        {
+          "code": "OWNER_POWERS",
+          "reason": "A live admin can call blacklist, pause."
+        },
+        {
+          "code": "UPGRADEABLE",
+          "reason": "An upgradeable proxy whose code can be changed without a timelock."
+        }
+      ],
+      "skipped": [],
+      "route": {
+        "pool": "0xe153201e40f50ebc9da7be3aa9c419f185c97f44",
+        "dex": "uniswap_v3",
+        "fee": 100,
+        "tickSpacing": 1,
+        "base": "USDC",
+        "simulation": {
+          "amountIn": "250000000",
+          "buy": {
+            "ok": true,
+            "quoted": "223237900",
+            "received": "223237900",
+            "taxBps": 0
+          },
+          "transfer": {
+            "ok": true,
+            "sent": "223237900",
+            "received": "223237900",
+            "taxBps": 0
+          },
+          "sell": {
+            "ok": true,
+            "quoted": "249950001",
+            "received": "249950001",
+            "taxBps": 0,
+            "leftover": "0"
+          },
+          "roundTripBps": 1,
+          "quoteSources": [
+            "quoter",
+            "quoter"
+          ]
+        }
+      },
+      "forkBlock": 112013583,
+      "durationMs": 5561
+    },
+    {
+      "symbol": "LV",
+      "address": "0x1001ff13bf368aa4fa85f21043648079f00e1001",
+      "priceClass": "A",
+      "liquidityUsd": 294513,
+      "verdict": "passed",
+      "failed": [],
+      "skipped": [],
+      "route": {
+        "pool": "0x276664da3b25af7cd13eb4d3294d9840b60e5732",
+        "dex": "pancakeswap_v3",
+        "fee": 2500,
+        "tickSpacing": 50,
+        "base": "WMON",
+        "simulation": {
+          "amountIn": "10346769924671376240422",
+          "buy": {
+            "ok": true,
+            "quoted": "4135975883259115130370",
+            "received": "4135975883259115130370",
+            "taxBps": 0
+          },
+          "transfer": {
+            "ok": true,
+            "sent": "4135975883259115130370",
+            "received": "4135975883259115130370",
+            "taxBps": 0
+          },
+          "sell": {
+            "ok": true,
+            "quoted": "10295250708379048530591",
+            "received": "10295250708379048530591",
+            "taxBps": 0,
+            "leftover": "0"
+          },
+          "roundTripBps": 49,
+          "quoteSources": [
+            "quoter",
+            "quoter"
+          ]
+        }
+      },
+      "forkBlock": 112013583,
+      "durationMs": 4976
+    },
+    {
+      "symbol": "LVMON",
+      "address": "0x91b81bfbe3a747230f0529aa28d8b2bc898e6d56",
+      "priceClass": "A",
+      "liquidityUsd": 294513,
+      "verdict": "refused",
+      "failed": [
+        {
+          "code": "GOPLUS",
+          "reason": "GoPlus flags is_blacklisted."
+        }
+      ],
+      "skipped": [],
+      "route": {
+        "pool": "0xc59514136bdc9c0e735471cd650625ba0f5a634d",
+        "dex": "pancakeswap_v3",
+        "fee": 2500,
+        "tickSpacing": 50,
+        "base": "WMON",
+        "simulation": {
+          "amountIn": "10346769924671376240422",
+          "buy": {
+            "ok": true,
+            "quoted": "10340433185920138824052",
+            "received": "10340433185920138824052",
+            "taxBps": 0
+          },
+          "transfer": {
+            "ok": true,
+            "sent": "10340433185920138824052",
+            "received": "10340433185920138824052",
+            "taxBps": 0
+          },
+          "sell": {
+            "ok": true,
+            "quoted": "10295101446918102839037",
+            "received": "10295101446918102839037",
+            "taxBps": 0,
+            "leftover": "0"
+          },
+          "roundTripBps": 49,
+          "quoteSources": [
+            "quoter",
+            "quoter"
+          ]
+        }
+      },
+      "forkBlock": 112013583,
+      "durationMs": 5205
+    },
+    {
+      "symbol": "shMON",
+      "address": "0x1b68626dca36c7fe922fd2d55e4f631d962de19c",
+      "priceClass": "F",
+      "liquidityUsd": 155856,
+      "verdict": "passed",
+      "failed": [],
+      "skipped": [],
+      "route": {
+        "pool": "0x1f86a9f2441cac9b942cfb5445530cdbb28717ed",
+        "dex": "uniswap_v3",
+        "fee": 100,
+        "tickSpacing": 1,
+        "base": "WMON",
+        "simulation": {
+          "amountIn": "10346769924671376240422",
+          "buy": {
+            "ok": true,
+            "quoted": "6329403525315315527778",
+            "received": "6329403525315315527778",
+            "taxBps": 0
+          },
+          "transfer": {
+            "ok": true,
+            "sent": "6329403525315315527778",
+            "received": "6329403525315315527778",
+            "taxBps": 0
+          },
+          "sell": {
+            "ok": true,
+            "quoted": "10344701523299800008325",
+            "received": "10344701523299800008325",
+            "taxBps": 0,
+            "leftover": "0"
+          },
+          "roundTripBps": 1,
+          "quoteSources": [
+            "quoter",
+            "quoter"
+          ]
+        }
+      },
+      "forkBlock": 112013583,
+      "durationMs": 5609
+    },
+    {
+      "symbol": "CETES",
+      "address": "0x834df4c1d8f51be24322e39e4766697be015512f",
+      "priceClass": "A",
+      "liquidityUsd": 107916,
+      "verdict": "refused",
+      "failed": [
+        {
+          "code": "UPGRADEABLE",
+          "reason": "An upgradeable proxy whose code can be changed without a timelock."
+        },
+        {
+          "code": "POOL_AGE",
+          "reason": "The pool is 48 hours old, younger than 72 hours."
+        }
+      ],
+      "skipped": [],
+      "route": {
+        "pool": "0x6926a8ee0f96d04a174aae7474766f9d1a3ea4b2",
+        "dex": "uniswap_v3",
+        "fee": 500,
+        "tickSpacing": 10,
+        "base": "USDC",
+        "simulation": {
+          "amountIn": "250000000",
+          "buy": {
+            "ok": true,
+            "quoted": "3874020098",
+            "received": "3874020098",
+            "taxBps": 0
+          },
+          "transfer": {
+            "ok": true,
+            "sent": "3874020098",
+            "received": "3874020098",
+            "taxBps": 0
+          },
+          "sell": {
+            "ok": true,
+            "quoted": "249750075",
+            "received": "249750075",
+            "taxBps": 0,
+            "leftover": "0"
+          },
+          "roundTripBps": 9,
+          "quoteSources": [
+            "quoter",
+            "quoter"
+          ]
+        }
+      },
+      "forkBlock": 112013583,
+      "durationMs": 5865
+    },
+    {
+      "symbol": "LVUSD",
+      "address": "0xfd44b35139ae53fff7d8f2a9869c503d987f00d1",
+      "priceClass": "A",
+      "liquidityUsd": 94979,
+      "verdict": "passed",
+      "failed": [],
+      "skipped": [
+        "GOPLUS"
+      ],
+      "route": {
+        "pool": "0x20ef75d4ab1e459f1f2bdbb20f5766ce3eb7dd33",
+        "dex": "pancakeswap_v3",
+        "fee": 2500,
+        "tickSpacing": 50,
+        "base": "USDC",
+        "simulation": {
+          "amountIn": "250000000",
+          "buy": {
+            "ok": true,
+            "quoted": "251054232283967984539",
+            "received": "251054232283967984539",
+            "taxBps": 0
+          },
+          "transfer": {
+            "ok": true,
+            "sent": "251054232283967984539",
+            "received": "251054232283967984539",
+            "taxBps": 0
+          },
+          "sell": {
+            "ok": true,
+            "quoted": "248751641",
+            "received": "248751641",
+            "taxBps": 0,
+            "leftover": "0"
+          },
+          "roundTripBps": 49,
+          "quoteSources": [
+            "quoter",
+            "quoter"
+          ]
+        }
+      },
+      "forkBlock": 112013583,
+      "durationMs": 5767
+    },
+    {
+      "symbol": "gMON",
+      "address": "0x8498312a6b3cbd158bf0c93abdcf29e6e4f55081",
+      "priceClass": "F",
+      "liquidityUsd": 66052,
+      "verdict": "refused",
+      "failed": [
+        {
+          "code": "OWNER_POWERS",
+          "reason": "A live owner can call pause."
+        },
+        {
+          "code": "UPGRADEABLE",
+          "reason": "An upgradeable proxy whose code can be changed without a timelock."
+        }
+      ],
+      "skipped": [],
+      "route": {
+        "pool": "0xb80d7a8f5331a907e34cd73f575c784b43e5acb5",
+        "dex": "uniswap_v3",
+        "fee": 100,
+        "tickSpacing": 1,
+        "base": "WMON",
+        "simulation": {
+          "amountIn": "10346769924671376240422",
+          "buy": {
+            "ok": true,
+            "quoted": "9382975139933049863464",
+            "received": "9382975139933049863464",
+            "taxBps": 0
+          },
+          "transfer": {
+            "ok": true,
+            "sent": "9382975139933049863464",
+            "received": "9382975139933049863464",
+            "taxBps": 0
+          },
+          "sell": {
+            "ok": true,
+            "quoted": "10344700990170597930587",
+            "received": "10344700990170597930587",
+            "taxBps": 0,
+            "leftover": "0"
+          },
+          "roundTripBps": 1,
+          "quoteSources": [
+            "quoter",
+            "quoter"
+          ]
+        }
+      },
+      "forkBlock": 112013583,
+      "durationMs": 5338
+    },
+    {
+      "symbol": "Cake",
+      "address": "0xf59d81cd43f620e722e07f9cb3f6e41b031017a3",
+      "priceClass": "A",
+      "liquidityUsd": 53174,
+      "verdict": "refused",
+      "failed": [
+        {
+          "code": "OWNER_POWERS",
+          "reason": "A live owner can call pause."
+        },
+        {
+          "code": "LOOK_ALIKE",
+          "reason": "Its symbol matches CAKE (PancakeSwap), listed on coinmarketcap with no address on Monad."
+        }
+      ],
+      "skipped": [],
+      "route": {
+        "pool": "0x81e8ed9a3d356697549ec0191513584277089c15",
+        "dex": "pancakeswap_v3",
+        "fee": 2500,
+        "tickSpacing": 50,
+        "base": "USDC",
+        "simulation": {
+          "amountIn": "250000000",
+          "buy": {
+            "ok": true,
+            "quoted": "114310455282795030403",
+            "received": "114310455282795030403",
+            "taxBps": 0
+          },
+          "transfer": {
+            "ok": true,
+            "sent": "114310455282795030403",
+            "received": "114310455282795030403",
+            "taxBps": 0
+          },
+          "sell": {
+            "ok": true,
+            "quoted": "248753403",
+            "received": "248753403",
+            "taxBps": 0,
+            "leftover": "0"
+          },
+          "roundTripBps": 49,
+          "quoteSources": [
+            "quoter",
+            "quoter"
+          ]
+        }
+      },
+      "forkBlock": 112013583,
+      "durationMs": 5457
+    },
+    {
+      "symbol": "XAUt0",
+      "address": "0x01bff41798a0bcf287b996046ca68b395dbc1071",
+      "priceClass": "A",
+      "liquidityUsd": 45889,
+      "verdict": "refused",
+      "failed": [
+        {
+          "code": "ROUTE",
+          "reason": "No routable pool pairs this token with USDC, WMON or MON."
+        },
+        {
+          "code": "UPGRADEABLE",
+          "reason": "An upgradeable proxy whose code can be changed without a timelock."
+        },
+        {
+          "code": "LIQUIDITY",
+          "reason": "The deepest pool holds only $45,889, under $50,000."
+        }
+      ],
+      "skipped": [
+        "BUY",
+        "TRANSFER",
+        "SELL",
+        "ROUND_TRIP"
+      ],
+      "route": null,
+      "forkBlock": 112013583,
+      "durationMs": 1451
+    },
+    {
+      "symbol": "USDT0",
+      "address": "0xe7cd86e13ac4309349f30b3435a9d337750fc82d",
+      "priceClass": "F",
+      "liquidityUsd": 45889,
+      "verdict": "refused",
+      "failed": [
+        {
+          "code": "ROUTE",
+          "reason": "No routable pool pairs this token with USDC, WMON or MON."
+        },
+        {
+          "code": "LIQUIDITY",
+          "reason": "The deepest pool holds only $45,889, under $50,000."
+        }
+      ],
+      "skipped": [
+        "BUY",
+        "TRANSFER",
+        "SELL",
+        "ROUND_TRIP"
+      ],
+      "route": null,
+      "forkBlock": 112013583,
+      "durationMs": 553
+    },
+    {
+      "symbol": "BNCB",
+      "address": "0x094adb9ab02ed230697297c219073dc8c69df0df",
+      "priceClass": "A",
+      "liquidityUsd": 37570,
+      "verdict": "refused",
+      "failed": [
+        {
+          "code": "UPGRADEABLE",
+          "reason": "An upgradeable proxy whose code can be changed without a timelock."
+        },
+        {
+          "code": "LIQUIDITY",
+          "reason": "The route pool holds only $37,570, under $50,000."
+        }
+      ],
+      "skipped": [],
+      "route": {
+        "pool": "0x1d5f026cc3ba68da7251976d65c61a7351667a3a",
+        "dex": "pancakeswap_v3",
+        "fee": 10000,
+        "tickSpacing": 200,
+        "base": "WMON",
+        "simulation": {
+          "amountIn": "10346769924671376240422",
+          "buy": {
+            "ok": true,
+            "quoted": "47317378370470676931",
+            "received": "47317378370470676931",
+            "taxBps": 0
+          },
+          "transfer": {
+            "ok": true,
+            "sent": "47317378370470676931",
+            "received": "47317378370470676931",
+            "taxBps": 0
+          },
+          "sell": {
+            "ok": true,
+            "quoted": "10141431927265836410876",
+            "received": "10141431927265836410876",
+            "taxBps": 0,
+            "leftover": "0"
+          },
+          "roundTripBps": 198,
+          "quoteSources": [
+            "quoter",
+            "quoter"
+          ]
+        }
+      },
+      "forkBlock": 112013583,
+      "durationMs": 5078
+    },
+    {
+      "symbol": "APR",
+      "address": "0x0a332311633c0625f63cfc51ee33fc49826e0a3c",
+      "priceClass": "A",
+      "liquidityUsd": 37154,
+      "verdict": "refused",
+      "failed": [
+        {
+          "code": "UPGRADEABLE",
+          "reason": "An upgradeable proxy whose code can be changed without a timelock."
+        },
+        {
+          "code": "LIQUIDITY",
+          "reason": "The route pool holds only $37,154, under $50,000."
+        }
+      ],
+      "skipped": [],
+      "route": {
+        "pool": "0x8506627b3362595f36ddf4d0df1f5c8940b052d0",
+        "dex": "pancakeswap_v3",
+        "fee": 2500,
+        "tickSpacing": 50,
+        "base": "WMON",
+        "simulation": {
+          "amountIn": "10346769924671376240422",
+          "buy": {
+            "ok": true,
+            "quoted": "2291984520762948120874",
+            "received": "2291984520762948120874",
+            "taxBps": 0
+          },
+          "transfer": {
+            "ok": true,
+            "sent": "2291984520762948120874",
+            "received": "2291984520762948120874",
+            "taxBps": 0
+          },
+          "sell": {
+            "ok": true,
+            "quoted": "10295243927743602592088",
+            "received": "10295243927743602592088",
+            "taxBps": 0,
+            "leftover": "0"
+          },
+          "roundTripBps": 49,
+          "quoteSources": [
+            "quoter",
+            "quoter"
+          ]
+        }
+      },
+      "forkBlock": 112013583,
+      "durationMs": 5805
+    },
+    {
+      "symbol": "FLING",
+      "address": "0xa9da3c77ec7cdc4dfaa1fe142af583543d1c540f",
+      "priceClass": "A",
+      "liquidityUsd": 22941,
+      "verdict": "refused",
+      "failed": [
+        {
+          "code": "LIQUIDITY",
+          "reason": "The route pool holds only $22,941, under $50,000."
+        }
+      ],
+      "skipped": [],
+      "route": {
+        "pool": "0xfe53ccbbd639ec6d6649950e069bca66c043ee89",
+        "dex": "uniswap_v3",
+        "fee": 10000,
+        "tickSpacing": 200,
+        "base": "WMON",
+        "simulation": {
+          "amountIn": "10346769924671376240422",
+          "buy": {
+            "ok": true,
+            "quoted": "2680618762433306570021947",
+            "received": "2680618762433306570021947",
+            "taxBps": 0
+          },
+          "transfer": {
+            "ok": true,
+            "sent": "2680618762433306570021947",
+            "received": "2680618762433306570021947",
+            "taxBps": 0
+          },
+          "sell": {
+            "ok": true,
+            "quoted": "10142986603640226707915",
+            "received": "10142986603640226707915",
+            "taxBps": 0,
+            "leftover": "0"
+          },
+          "roundTripBps": 196,
+          "quoteSources": [
+            "quoter",
+            "quoter"
+          ]
+        }
+      },
+      "forkBlock": 112013583,
+      "durationMs": 6167
+    },
+    {
+      "symbol": "UNIT",
+      "address": "0x788571e0e5067adea87e6ba22a2b738ffdf48888",
+      "priceClass": "A",
+      "liquidityUsd": 19372,
+      "verdict": "refused",
+      "failed": [
+        {
+          "code": "LIQUIDITY",
+          "reason": "The route pool holds only $19,372, under $50,000."
+        },
+        {
+          "code": "GOPLUS",
+          "reason": "GoPlus flags transfer_pausable."
+        }
+      ],
+      "skipped": [],
+      "route": {
+        "pool": "0x24b18eb6be3994e5a4484bce60af76cf60733301",
+        "dex": "uniswap_v3",
+        "fee": 3000,
+        "tickSpacing": 60,
+        "base": "WMON",
+        "simulation": {
+          "amountIn": "10346769924671376240422",
+          "buy": {
+            "ok": true,
+            "quoted": "4318653426437996867959448",
+            "received": "4318653426437996867959448",
+            "taxBps": 0
+          },
+          "transfer": {
+            "ok": true,
+            "sent": "4318653426437996867959448",
+            "received": "4318653426437996867959448",
+            "taxBps": 0
+          },
+          "sell": {
+            "ok": true,
+            "quoted": "10286098647631853418524",
+            "received": "10286098647631853418524",
+            "taxBps": 0,
+            "leftover": "0"
+          },
+          "roundTripBps": 58,
+          "quoteSources": [
+            "quoter",
+            "quoter"
+          ]
+        }
+      },
+      "forkBlock": 112013583,
+      "durationMs": 4492
+    },
+    {
+      "symbol": "ANAGO",
+      "address": "0x99ae2dc76c43979e3bcc0ae8d69f1fca077c8888",
+      "priceClass": "A",
+      "liquidityUsd": 13882,
+      "verdict": "refused",
+      "failed": [
+        {
+          "code": "LIQUIDITY",
+          "reason": "The route pool holds only $13,882, under $50,000."
+        },
+        {
+          "code": "LOOK_ALIKE",
+          "reason": "Its symbol matches anago (ANAGO), listed on coingecko at 0x3ec7310937281ca4bf89d5bb11704be9b7ff7777."
+        },
+        {
+          "code": "GOPLUS",
+          "reason": "GoPlus flags transfer_pausable."
+        }
+      ],
+      "skipped": [],
+      "route": {
+        "pool": "0x30110228b59b21fafe8675ed930983e2f272b74c",
+        "dex": "uniswap_v3",
+        "fee": 3000,
+        "tickSpacing": 60,
+        "base": "WMON",
+        "simulation": {
+          "amountIn": "10346769924671376240422",
+          "buy": {
+            "ok": true,
+            "quoted": "29785409073911753720429718",
+            "received": "29785409073911753720429718",
+            "taxBps": 0
+          },
+          "transfer": {
+            "ok": true,
+            "sent": "29785409073911753720429718",
+            "received": "29785409073911753720429718",
+            "taxBps": 0
+          },
+          "sell": {
+            "ok": true,
+            "quoted": "10287323875326819003380",
+            "received": "10287323875326819003380",
+            "taxBps": 0,
+            "leftover": "0"
+          },
+          "roundTripBps": 57,
+          "quoteSources": [
+            "quoter",
+            "quoter"
+          ]
+        }
+      },
+      "forkBlock": 112013583,
+      "durationMs": 4788
+    }
+  ]
+}

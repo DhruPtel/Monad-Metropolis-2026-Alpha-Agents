@@ -1259,3 +1259,38 @@ What happened: In the second live run the cycle's Scan wrote a brief, was refuse
 Cause: The offline scripts always finished their stage, so nothing exercised a model that stops after a refusal or loses track of its last step; the prompts said to retry but a run that has replied is over. The filter's unit list was written for time words and its `i` flag made "M" a month.
 Fix: A cycle stage that ends without complete_stage gets up to two follow-up turns in its own session, inside its caps and deadline, naming the refused brief's reasons or the missing step; a scheduled Scan gets one. The validator applies a scale to both ends of a range, accepts truncation like rounding, and the window filter's units are case-aware with no bare "m" (8286670). Tests cover the follow-up turns and the million case.
 Lesson: A protocol that ends in a required call needs a recovery path for a model that stops early, tested with a script that stops early; and a text filter's case rules must be checked against every unit it can meet, not only the ones it was written for.
+
+## L-167: Swap deadlines on a fork counted from a block that was minutes old
+Unit: F-U1
+What happened: Screening real tokens on a fork of the latest block, every Uniswap v4 buy paid in native MON reverted ("the transaction reverted") while the same route had worked in a probe twenty minutes earlier. The deadline passed to the Universal Router was the latest block's timestamp plus 600 seconds.
+Cause: On a fork nothing mines until we send, so the latest block's timestamp is the fork's start time; anvil stamps the next block with the wall clock. Once the fork was older than ten minutes, every deadline was already in the past. The screen's revert replay ran at the block before, with the old timestamp, so it found no reason.
+Fix: Deadlines count from the later of the latest block's time and the wall clock, plus an hour; a failed transaction is replayed in its own block, so the reason (here, the deadline) is read with the same timestamp (services/orchestrator/src/tokens/simulate.ts).
+Lesson: On a fork, "now" is the wall clock, not the latest block. Anything time-bound (deadlines, permits, expiries) must be computed from the time the next block will carry, and a revert must be replayed with the same block context to explain it.
+
+## L-168: A fixed gas limit, then anvil's own estimate, were too low on the Monad EVM
+Unit: F-U1
+What happened: Seeding a Uniswap v3 pool for the screen's test tokens failed: creating the pool reverted with no reason at a fixed 3,000,000 gas, and after switching to anvil's estimate the first position mint still reverted with no reason.
+Cause: Pool creation deploys a contract and needs more than 3M gas. Under Monad's gas rules (anvil runs with --network monad), first-touch writes can cost more at execution than the estimate allowed.
+Fix: Every simulated transaction is estimated first (a revert is refused at estimation, with its reason), and sent with the estimate plus half.
+Lesson: On the Monad EVM, treat a gas estimate as a floor, not a limit: pad it, and never hard-code a gas limit for transactions whose cost is unknown.
+
+## L-169: The venue's quoter is the swap's recipient, so a token that blocks contracts broke the quote, not the buy
+Unit: F-U1
+What happened: The fork test's honeypot (transfers into any contract revert unless from the deployer) was reported as failing its buy. The buy itself would have worked; the quote before it reverted.
+Cause: Uniswap's QuoterV2 simulates the swap with itself as recipient, so the pool's transfer of the token to the quoter, a contract, hit the honeypot's rule. A real token can block contracts the same way.
+Fix: When the quoter refuses, the screen quotes from the v3 router's own return value for the same swap by eth_call, from the test account, and records which source each quote used (`quoteSources`). Uniswap v4's router returns nothing, so a v4 quote still needs the quoter.
+Lesson: A reference measurement must not depend on the behaviour it is measuring. When a token can treat contracts differently from people, measure from the same kind of account that will hold it.
+
+## L-170: Slips in F-U1, caught by its own checks
+Unit: F-U1
+What happened: A discovery test's frozen clock never refilled GeckoTerminal's rate bucket, so later pages were refused; gitleaks read `token: "0x..."`, `token_address` and `token1` holding public addresses as API keys; the identity lint refused an input named `address`; `NOT_FOUND` is not a tool error code; a registry test's fake fork answered no MON/USD price, so the simulation honestly reported it could not run; and the console's token page showed pool pairs as addresses, because the detail route did not resolve symbols.
+Cause: Each was a mismatch between new code and an existing rule: a test clock that moves only on sleep, the secrets rules, the tool conventions, and a route written before the page that reads it.
+Fix: The test clock advances when the code sleeps; the domain field is `address` and the fixture findings are allowlisted with their public addresses; the screen's input is `token`; a token outside the registry answers ASSET_NOT_ALLOWED; the fake answers the feed; the route names each pool's tokens. The page's liquidity column is now "Routable liquidity", since a token whose only pool has a hook (mUSD) shows $0.
+Lesson: Run the visual check and the repo's lints before calling a page or a tool done: they catch what unit tests written alongside the code share as blind spots.
+
+## L-171: The live run reported a credits refusal as a timeout, and a piped gate let a commit through
+Unit: F-U1
+What happened: Two live runs ended with "timed out waiting for the token check to be accepted". The logs showed agent 2 held no lease at all for five minutes: the Scans before had spent its credits, so every request was refused with credits_exhausted. Separately, one commit went in after the gate printed GATE FAIL (the failure was only an uncommitted scratch file's formatting, so the commit itself was clean).
+Cause: The live run's `waitFor` treats any thrown error as "not yet", so a refusal that would never clear looked like a slow start. The gate was run as `gate.sh | tail -1 && git commit`, and a pipeline's status is tail's, not the gate's.
+Fix: Before the token check the owner tops up the agent's credits when it is restricted or low, and a timeout now names the last answer it received (fad246e). The gate now gates the commit directly (`gate.sh && git commit`). A failed check run also records Hermes's own failure reason (fd8d627), which is how the fourth run showed the real blocker: the model provider's account was out of credit.
+Lesson: A wait loop must report the last refusal it swallowed, or every failure looks like a timeout; and never pipe a gate whose exit status decides a commit.
