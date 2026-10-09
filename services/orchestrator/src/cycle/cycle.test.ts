@@ -87,6 +87,11 @@ interface Run {
 }
 type Script = (r: Run) => Promise<void>;
 
+/** A follow-up turn names its stage first ("Your SCAN brief was refused ..."). */
+const repairOf = (prompt: string): StageName | null =>
+  (/^(?:Your|The) (SCAN|DIVE|CHALLENGE|ZOOM_OUT)\b/.exec(prompt)?.[1] as StageName | undefined) ??
+  null;
+
 const stageOf = (prompt: string): StageName =>
   /^SCAN stage/.test(prompt)
     ? "SCAN"
@@ -201,6 +206,9 @@ describe.skipIf(!dbUp)("the discovery loop engine (needs Postgres)", { timeout: 
   let ctx: CycleContext;
   let llm: ReturnType<typeof createServer>;
   let scripts: Partial<Record<StageName, Script>>;
+  /** What the scripted agent does in a follow-up turn of each stage; nothing unless set. */
+  let repairs: Partial<Record<StageName, Script>>;
+  const repairPrompts: string[] = [];
   /** Overrides the fake model's usage per call: tokens and cost. */
   let usage: (
     n: number,
@@ -346,6 +354,8 @@ describe.skipIf(!dbUp)("the discovery loop engine (needs Postgres)", { timeout: 
     contexts.length = 0;
     scriptErrors.length = 0;
     scripts = {};
+    repairs = {};
+    repairPrompts.length = 0;
     usage = () => ({ tokens: 6_000, cost: 0.004 });
     gateway = new MemoryGateway();
     const log = () => undefined;
@@ -424,13 +434,17 @@ describe.skipIf(!dbUp)("the discovery loop engine (needs Postgres)", { timeout: 
           model?: string;
           session_id: string;
         };
-        const stage = stageOf(body.input);
+        const repair = repairOf(body.input);
+        if (repair) repairPrompts.push(body.input);
+        const stage = repair ?? stageOf(body.input);
         const runId = `run-${(next += 1)}`;
         const model = body.model ?? "default";
         runs.set(runId, { status: "running", stage, model });
         startedRuns.push({ stage, model, session: body.session_id });
         const token = must(sandbox?.spec.injectHeaders[GATE_HEADER]);
-        const script = scripts[stage] ?? defaults[stage];
+        const script = repair
+          ? (repairs[stage] ?? (async () => undefined))
+          : (scripts[stage] ?? defaults[stage]);
         void script({ token, model, prompt: body.input })
           .catch((err: unknown) => scriptErrors.push(`${stage}: ${String(err)}`))
           .finally(() => {
@@ -669,6 +683,44 @@ describe.skipIf(!dbUp)("the discovery loop engine (needs Postgres)", { timeout: 
     setTimeout(() => void ctx.leases.release(held.lease.leaseId, "scan finished"), 2_000);
     const { cycle } = await runCycle();
     expect(cycle.status).toBe("completed");
+  });
+
+  it("gives a stage that ended after a refused brief a follow-up turn with the reasons, which finishes it", async () => {
+    await saveGoal({});
+    scripts.SCAN = async (r) => {
+      await start(r);
+      ok(await tool(r.token, "data", "web_search", { query: "monad tvl" }));
+      await brief(r.token, scanBrief("high", { summary: "Monad TVL fell 12.4% today." }));
+      // ends here, as the live agents did, without writing the brief again or completing
+    };
+    repairs.SCAN = async (r) => {
+      ok(await brief(r.token, scanBrief("high")));
+      ok(
+        await complete(r.token, "SCAN", {
+          candidates: [{ asset: "WMON", thesisCode: "TVL_OUTFLOW", confidenceBps: 6000 }],
+        }),
+      );
+    };
+    const { cycle, stages } = await runCycle();
+    expect(repairPrompts).toHaveLength(1);
+    expect(repairPrompts[0]).toMatch(/^Your SCAN brief was refused/);
+    expect(repairPrompts[0]).toContain("12.4 does not appear");
+    expect(must(stages[0])).toMatchObject({ status: "completed", stopReason: "COMPLETED" });
+    expect(cycle.status).toBe("completed");
+    // Same session for the follow-up turn: it carries the stage's own history.
+    expect(startedRuns[0]?.session).toBe(startedRuns[1]?.session);
+  });
+
+  it("ends a stage after two follow-up turns that do not finish it", async () => {
+    await saveGoal({});
+    scripts.SCAN = async (r) => {
+      await start(r);
+    };
+    const { cycle, stages } = await runCycle();
+    expect(repairPrompts).toHaveLength(2);
+    expect(repairPrompts[0]).toMatch(/^The SCAN stage is not finished/);
+    expect(must(stages[0])).toMatchObject({ status: "failed", stopReason: "NO_STAGE_RECORD" });
+    expect(cycle.status).toBe("failed");
   });
 
   it("stops a routine cycle after the Scan when nothing is material", async () => {

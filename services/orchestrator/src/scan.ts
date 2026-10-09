@@ -37,6 +37,14 @@ export const SCAN_PROMPT = [
   "Do nothing else: no terminal, files or code. Reply with one short line when done.",
 ].join(" ");
 
+/** The follow-up turn for a Scan that ended before complete_stage (P3-U4). */
+export const SCAN_REPAIR_PROMPT = [
+  "The Scan is not finished. Do not research further. Now call mcp__platform__write_thesis with stage",
+  "SCAN and your notes under the headings SUMMARY:, CHANGES:, THEMES:, QUIET: and DATA GAPS:, then",
+  "mcp__platform__complete_stage with stage SCAN: outcome DONE with one to three candidates, or",
+  "NO_CANDIDATES with an empty candidates list.",
+].join(" ");
+
 export const SCAN_LEASE_MS = 12 * 60_000;
 /** The orchestrator's deadline for the run; Hermes's own budget is shorter (240 s). */
 export const SCAN_DEADLINE_MS = 6 * 60_000;
@@ -107,12 +115,32 @@ export async function runScanTask(ctx: ScanContext, taskId: string): Promise<voi
     const run = await runs.start(`${agent}:scan:${taskId}`, SCAN_PROMPT, `${agent}-scan-${taskId}`);
     let runStatus: string;
     let deadline = false;
+    const until = Date.now() + SCAN_DEADLINE_MS;
+    let current = run.runId;
     try {
       runStatus = (await runs.waitFinished(run.runId, SCAN_DEADLINE_MS)).status;
+      // P3-U4: a run that ended before complete_stage gets one follow-up turn in its session.
+      const recorded = await ctx.store.db
+        .selectFrom("platform.stage_records")
+        .select("stage_id")
+        .where("lease_id", "=", leaseId)
+        .executeTakeFirst();
+      const billing = ctx.gate.callsFor(leaseId).some((c) => c.status === 402);
+      if (!recorded && !billing && runStatus === "completed" && Date.now() < until) {
+        ctx.log(`task ${taskId}: the Scan ended without complete_stage; one follow-up turn`);
+        const again = await runs.start(
+          `${agent}:scan:${taskId}:repair`,
+          SCAN_REPAIR_PROMPT,
+          `${agent}-scan-${taskId}`,
+        );
+        current = again.runId;
+        runStatus = (await runs.waitFinished(again.runId, Math.max(1_000, until - Date.now())))
+          .status;
+      }
     } catch {
       deadline = true;
       runStatus = "stopped";
-      await runs.stop(run.runId).catch(() => undefined);
+      await runs.stop(current).catch(() => undefined);
     }
     const runMs = Date.now() - t2;
     // P3-U7: the skills and playbooks the agent loaded, read before the sandbox stops.

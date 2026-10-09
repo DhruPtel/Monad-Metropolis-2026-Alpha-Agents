@@ -78,6 +78,8 @@ export function cyclePlan(kind: CycleKind, reasoning: ReasoningAlias, divesLeft:
 }
 
 const POLL_MS = 1_500;
+/** Follow-up turns for a stage whose run ended before complete_stage. */
+export const MAX_REPAIRS = 2;
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 interface StageEnd {
@@ -397,9 +399,30 @@ class Engine {
     });
     let end: StageEnd;
     try {
+      const deadline = Date.now() + (this.ctx.deadlineMs?.(run) ?? run.caps.seconds * 1_000);
       const started = await this.sbx.runs.start(run.idempotencyKey, prompt, sessionId, model);
       await this.ctx.cycles.setRunId(run.stageRunId, started.runId);
-      end = await this.watch(run, started.runId);
+      end = await this.watch(run, started.runId, deadline);
+      // A run that ended before its terminal call gets a follow-up turn in the same session
+      // saying what is missing (a refused brief's reasons), inside the same caps and deadline.
+      for (
+        let n = 1;
+        n <= MAX_REPAIRS && end.stopReason === "NO_STAGE_RECORD" && Date.now() < deadline;
+        n += 1
+      ) {
+        const repair = await this.repairPrompt(run);
+        this.ctx.log(
+          `cycle ${this.cycle.cycleId}: ${stage} ended without complete_stage; follow-up turn ${n}`,
+        );
+        const again = await this.sbx.runs.start(
+          `${run.idempotencyKey}:repair:${n}`,
+          repair,
+          sessionId,
+          model,
+        );
+        await this.ctx.cycles.setRunId(run.stageRunId, again.runId);
+        end = await this.watch(run, again.runId, deadline);
+      }
     } catch (err) {
       this.ctx.log(
         `cycle ${this.cycle.cycleId}: ${stage} failed: ${errorText(err, this.ctx.redactor)}`,
@@ -441,8 +464,20 @@ class Engine {
    * Waits for the run: complete_stage ends it; a cap the gate enforced, the
    * deadline, or credits running out stop it, with that reason.
    */
-  private async watch(run: StageRun, runId: string): Promise<StageEnd> {
-    const deadline = Date.now() + (this.ctx.deadlineMs?.(run) ?? run.caps.seconds * 1_000);
+  /** What a stage that ended early still has to do, from its own records. */
+  private async repairPrompt(run: StageRun): Promise<string> {
+    const briefs = await this.ctx.cycles.briefs({ stageRunId: run.stageRunId });
+    const accepted = briefs.some((b) => b.status === "accepted");
+    const refused = briefs.find((b) => b.status === "refused");
+    const finish = `then call mcp__platform__complete_stage with stage ${run.stage}${run.stage === "ZOOM_OUT" ? " and your decision" : ""}. Do not research further.`;
+    if (accepted)
+      return `Your ${run.stage} brief was accepted but the stage is not finished: ${finish}`;
+    if (refused)
+      return `Your ${run.stage} brief was refused and the stage is not finished. Fix every point and call mcp__platform__write_research_brief again: ${refused.reasons.join("; ")}. Write each figure exactly as a tool returned it, or leave it out; ${finish}`;
+    return `The ${run.stage} stage is not finished: write its brief with mcp__platform__write_research_brief now from what you have found, ${finish}`;
+  }
+
+  private async watch(run: StageRun, runId: string, deadline: number): Promise<StageEnd> {
     const capOf = (e: GateLogEntry) =>
       e.stageRunId === run.stageRunId &&
       (e.reason === "TURN_CAP" || e.reason === "TOKEN_CAP" || e.reason === "CEILING")

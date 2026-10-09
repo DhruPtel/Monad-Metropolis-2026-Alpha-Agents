@@ -69,6 +69,10 @@ describe("the brief validator (D-284, P3-U4)", () => {
     expect(numberTraces("3.2", known, values)).toBe(true);
     expect(numberTraces("3", known, values)).toBe(true);
     expect(numberTraces("3.3", known, values)).toBe(false);
+    // Truncated is as faithful as rounded: 81.56 supports "81" and "82", never "80".
+    expect(numberTraces("81", new Set(["81.56"]), [81.56])).toBe(true);
+    expect(numberTraces("82", new Set(["81.56"]), [81.56])).toBe(true);
+    expect(numberTraces("80", new Set(["81.56"]), [81.56])).toBe(false);
     expect(numberTraces("0.0241", known, values)).toBe(true);
     expect(numberTraces("0.025", known, values)).toBe(false);
   });
@@ -102,6 +106,18 @@ describe("the brief validator (D-284, P3-U4)", () => {
     expect(ok).toEqual({ ok: true, reasons: [] });
     const bad = validateBrief(scan({ summary: "Monad TVL is 1.2B after a -6.8% week." }), ctx);
     expect(bad.reasons.join(" ")).toContain("1.2B does not appear");
+    // A scale after a range applies to both ends.
+    expect(
+      validateBrief(scan({ summary: "TVL moved within 1,004-1,004M after a -6.8% week." }), ctx)
+        .reasons,
+    ).toEqual([]);
+    const range = validateBrief(scan({ summary: "TVL ranged 995-1004M after a -6.8% week." }), ctx);
+    expect(range.reasons.join(" ")).toContain("995 (in 995-1004M) does not appear");
+  });
+
+  it("never reads a million as a month: 52.7M is checked as a figure", () => {
+    const check = validateBrief(scan({ summary: "DEX volume was 52.7M after a -6.8% week." }), ctx);
+    expect(check.reasons.join(" ")).toContain("52.7M does not appear");
   });
 
   it("ignores time windows such as 24-hour and 7d, which are not facts", () => {

@@ -111,8 +111,9 @@ export function skillRuns(texts: readonly string[]): Set<string> {
 }
 
 /** Time windows are not facts: "24-hour", "7d", "48 hours", "30-day" are left out of the number check. */
+// Case matters: "M" after a number is millions, never months; months are written "mo" or "month".
 const WINDOW =
-  /\b\d+(?:\.\d+)?(?:\s|-)?(?:h|hr|hrs|hour|hours|d|day|days|w|wk|week|weeks|m|mo|month|months)\b/gi;
+  /\b\d+(?:\.\d+)?(?:\s|-)?(?:h|H|hr|hrs|[Hh]ours?|d|D|[Dd]ays?|w|W|wk|[Ww]eeks?|mo|[Mm]onths?)\b/g;
 
 /** A number's decimal places as written. */
 const places = (n: string) => (n.includes(".") ? (n.split(".")[1] ?? "").length : 0);
@@ -120,7 +121,8 @@ const places = (n: string) => (n.includes(".") ? (n.split(".")[1] ?? "").length 
 /**
  * Whether a written number traces to a result: equal to a number some result
  * holds, or that number rounded to the written number's decimal places
- * (a result's 3.2145 supports "3.21" and "3.2", never "3.3").
+ * or truncated to them (a result's 3.2145 supports "3.21", "3.2" and "3";
+ * 81.56 supports "81" and "82", never "3.3" or "80").
  */
 export function numberTraces(
   written: string,
@@ -132,7 +134,9 @@ export function numberTraces(
   if (!Number.isFinite(w)) return false;
   const p = places(written);
   const scale = 10 ** p;
-  return values.some((v) => Math.round(v * scale) / scale === w && v !== w);
+  return values.some(
+    (v) => v !== w && (Math.round(v * scale) / scale === w || Math.trunc(v * scale) / scale === w),
+  );
 }
 
 /** A written scale after a number: thousands, millions, billions, trillions. */
@@ -142,7 +146,8 @@ const SCALES: readonly [RegExp, number][] = [
   [/^(B|bn|billion)$/, 1e9],
   [/^(T|tn|trillion)$/, 1e12],
 ];
-const SCALED = /(\d[\d,]*(?:\.\d+)?)\s?(k|K|thousand|M|mn|million|B|bn|billion|T|tn|trillion)\b/g;
+const SCALED =
+  /(\d[\d,]*(?:\.\d+)?)(?:\s?(?:-|to)\s?\$?(\d[\d,]*(?:\.\d+)?))?\s?(k|K|thousand|M|mn|million|B|bn|billion|T|tn|trillion)\b/g;
 
 /**
  * Numbers written with a scale ("1.009B", "52.7 million"), each with the
@@ -157,17 +162,22 @@ export function scaledTraces(
 ): { written: string; ok: boolean }[] {
   const out: { written: string; ok: boolean }[] = [];
   for (const m of text.matchAll(SCALED)) {
-    const raw = (m[1] ?? "").replace(/,/g, "");
-    const scale = SCALES.find(([re]) => re.test(m[2] ?? ""))?.[1] ?? 1;
-    const p = places(raw);
-    const w = Number(raw);
-    const f = 10 ** p;
-    out.push({
-      written: m[0],
-      ok:
-        known.has(numbersIn(raw)[0] ?? "") ||
-        values.some((v) => Math.round((v / scale) * f) / f === w),
-    });
+    // A scale after a range ("995-1042M") applies to both of its ends.
+    const scale = SCALES.find(([re]) => re.test(m[3] ?? ""))?.[1] ?? 1;
+    for (const part of [m[1], m[2]]) {
+      if (!part) continue;
+      const raw = part.replace(/,/g, "");
+      const f = 10 ** places(raw);
+      const w = Number(raw);
+      out.push({
+        written: m[2] ? `${raw} (in ${m[0]})` : m[0],
+        ok:
+          known.has(numbersIn(raw)[0] ?? "") ||
+          values.some(
+            (v) => Math.round((v / scale) * f) / f === w || Math.trunc((v / scale) * f) / f === w,
+          ),
+      });
+    }
   }
   return out;
 }
