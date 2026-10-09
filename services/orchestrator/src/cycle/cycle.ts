@@ -5,7 +5,7 @@ import type { AgentConfig } from "../hermes/schema.ts";
 import type { Narrator } from "../narrator.ts";
 import { type AgentSandbox, type TaskContext, openAgentSandbox, skillsLoaded } from "../noop.ts";
 import { errorText } from "../secrets.ts";
-import type { AgentRef } from "../store.ts";
+import { type AgentRef, LeaseHeldError } from "../store.ts";
 import { cycleConfig, stagePrompt } from "./config.ts";
 import type { CycleResearch } from "./research.ts";
 import {
@@ -45,6 +45,8 @@ export interface CycleContext extends TaskContext {
   readonly narrator: Narrator | null;
   /** How long to wait for metering to settle a stage's model calls (tests shorten it). */
   readonly settleMs?: number;
+  /** How long a cycle waits for another task's lease on the agent to end (10 minutes). */
+  readonly leaseWaitMs?: number;
   /** A stage's deadline; its caps' seconds unless a test shortens it. */
   readonly deadlineMs?: (run: StageRun) => number;
   readonly now?: () => Date;
@@ -127,18 +129,32 @@ export async function runCycleTask(ctx: CycleContext, taskId: string): Promise<v
       return;
     }
 
-    opened = await openAgentSandbox(
-      ctx,
-      taskId,
-      ref,
-      "cycle",
-      leaseMs,
-      (id) => {
-        leaseId = id;
-      },
-      (stored: AgentConfig) =>
-        cycleConfig(stored, { kind: cycle.kind, goalBlock: goal.soulBlock, canary: cycle.canary }),
-    );
+    // A scheduled Scan may hold the agent's one lease (D-216): the cycle waits for it to end.
+    const waitUntil = Date.now() + (ctx.leaseWaitMs ?? 10 * 60_000);
+    for (;;) {
+      try {
+        opened = await openAgentSandbox(
+          ctx,
+          taskId,
+          ref,
+          "cycle",
+          leaseMs,
+          (id) => {
+            leaseId = id;
+          },
+          (stored: AgentConfig) =>
+            cycleConfig(stored, {
+              kind: cycle.kind,
+              goalBlock: goal.soulBlock,
+              canary: cycle.canary,
+            }),
+        );
+        break;
+      } catch (err) {
+        if (!(err instanceof LeaseHeldError) || Date.now() >= waitUntil) throw err;
+        await sleep(5_000);
+      }
+    }
     leaseId = opened.leaseId;
     await ctx.cycles.startCycle(cycle.cycleId, opened.leaseId);
     ctx.log(`task ${taskId}: cycle ${cycle.cycleId} (${cycle.kind}) started on ${reasoning}`);

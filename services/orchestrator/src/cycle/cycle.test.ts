@@ -659,6 +659,14 @@ describe.skipIf(!dbUp)("the discovery loop engine (needs Postgres)", { timeout: 
     expect(text).not.toContain("IGNORE ALL PREVIOUS INSTRUCTIONS");
   });
 
+  it("waits for a Scan that holds the agent's lease, then runs", async () => {
+    await saveGoal({});
+    const held = await ctx.leases.acquire(ref, "scan", 60_000);
+    setTimeout(() => void ctx.leases.release(held.lease.leaseId, "scan finished"), 2_000);
+    const { cycle } = await runCycle();
+    expect(cycle.status).toBe("completed");
+  });
+
   it("stops a routine cycle after the Scan when nothing is material", async () => {
     await saveGoal({});
     scripts.SCAN = async (r) => {

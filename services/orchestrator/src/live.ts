@@ -47,6 +47,15 @@
  * typed, sourced results, X is charged at its price inside the caps, and the
  * mainnet lookups are free. Needs X_BEARER_TOKEN too; DUNE_API_KEY is optional
  * (D-326), and without it the check confirms Dune charges nothing.
+ *
+ * P3-U4 adds a full research cycle: the owner's goal saved (Standard intensity,
+ * Sonnet 5.5), an activation-shaped cycle started from the console's route runs
+ * Scan, Dives, Challenge, the deterministic Test and Zoom out in one sandbox;
+ * each model stage ends with complete_stage on its own alias (from the gate's
+ * records), within its caps and ceiling; every accepted brief passes the
+ * validator again against the cycle's stored results; the Challenge's context
+ * holds the Dives' briefs and nothing of their sessions; cache reads appear
+ * from the second call; and at zero credits a cycle is refused.
  */
 import { type ChildProcess, spawn } from "node:child_process";
 import { randomBytes, randomUUID } from "node:crypto";
@@ -68,6 +77,13 @@ import { addressEntry } from "@alpha-agents/domain";
 import { Indexer, RpcLogSource } from "@alpha-agents/indexer";
 import { type Hex, createPublicClient, encodeFunctionData, http, parseAbi } from "viem";
 import { Ledger } from "./credits/ledger.ts";
+import { DEFAULT_GOAL_INPUT, type GoalInput } from "@alpha-agents/domain";
+import { translateGoal } from "@alpha-agents/policy";
+import { type ResearchBrief, parseBrief } from "@alpha-agents/platform-tools";
+import { GoalStore } from "@alpha-agents/trading";
+import { CycleStore } from "./cycle/store.ts";
+import { skillRuns, validateBrief } from "./cycle/validator.ts";
+import { builtinSet } from "./hermes/materialize.ts";
 import { type ScanFacts, narratorKeyFor, validateNarration } from "./narrator.ts";
 import { LiteLLMAdmin } from "./gateway-admin.ts";
 import { aliasPrefix } from "./provisioner.ts";
@@ -1123,6 +1139,279 @@ async function main(): Promise<number> {
     );
   }
 
+  // ---- P3-U4: a full research cycle by a real agent in E2B ----
+  step("a full research cycle: Scan, Dives, Challenge, Test and Zoom out, each on its model");
+  {
+    const owner = await client.readContract({
+      address: nft,
+      abi: parseAbi(["function ownerOf(uint256 agentId) view returns (address)"]),
+      functionName: "ownerOf",
+      args: [BigInt(other)],
+    });
+    const ownerEpoch = await client.readContract({
+      address: nft,
+      abi: parseAbi(["function ownerEpoch(uint256 agentId) view returns (uint64)"]),
+      functionName: "ownerEpoch",
+      args: [BigInt(other)],
+    });
+    // The owner's goal (P3-U1): Standard intensity on Sonnet 5.5, with its whole daily budget range.
+    const translated = translateGoal({
+      ...DEFAULT_GOAL_INPUT,
+      reasoningModel: "STANDARD",
+      research: { intensity: "STANDARD", dailyBudgetUsdcE6: "5000000" },
+    } as GoalInput);
+    if (!translated.ok) throw new Error("the live goal does not translate");
+    await new GoalStore(t.db).save({
+      chainId: 143143,
+      agentId: other,
+      ownerEpoch: BigInt(ownerEpoch),
+      savedBy: owner,
+      config: translated.config,
+    });
+    const before = BigInt((await creditsOf(other))?.spendableUsdcE6 ?? "0");
+    await fund(other, 6_000_000n);
+    await waitFor("the cycle's credits", 60_000, async () =>
+      BigInt((await creditsOf(other))?.spendableUsdcE6 ?? "0") >= before + 6_000_000n ? true : null,
+    );
+    const preview = (await api(`/v1/agents/${other}/cycles`)).body as {
+      plans?: { ACTIVATION?: { maxUsdcE6: string } };
+    };
+    const started = await waitFor("the cycle to be accepted", 300_000, async () => {
+      const r = await api(`/v1/agents/${other}/cycles`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ kind: "ACTIVATION" }),
+      });
+      if (r.status === 202) return r;
+      if (r.body.error !== "lease_held")
+        throw new Error(`cycle refused: ${r.status} ${String(r.body.message)}`);
+      await sleep(3_000);
+      return null;
+    });
+    const cycleId = String(started.body.cycleId);
+    const done = await waitFor("the cycle", 3_000_000, async () => {
+      const x = (await api(`/v1/tasks/${String(started.body.taskId)}`)).body as unknown as TaskView;
+      return x.status === "succeeded" || x.status === "failed" ? x : null;
+    });
+    const cycles = new CycleStore(t.db);
+    const cycle = must(await cycles.cycle(cycleId));
+    const stages = await cycles.stages(cycleId);
+    const modelStages = stages.filter((s) => s.modelAlias !== null && s.status !== "skipped");
+    const records = await t.db
+      .selectFrom("platform.stage_records")
+      .select(["stage_run_id", "outcome", "decision"])
+      .where(
+        "stage_run_id",
+        "in",
+        stages.map((s) => s.stageRunId),
+      )
+      .execute();
+    const callsOf = async (id: string) => cycles.modelCalls(id);
+    const toolCallsOf = (id: string) =>
+      t.db.selectFrom("platform.tool_calls").selectAll().where("stage_run_id", "=", id).execute();
+    // Anthropic's list prices per million tokens (BUILD_PLAN Phase 3, checked 2026-10-07).
+    const PRICE: Record<string, { input: number; cacheRead: number }> = {
+      "scan-cheap": { input: 1, cacheRead: 0.1 },
+      "research-strong": { input: 2, cacheRead: 0.2 },
+      "research-deep": { input: 4, cacheRead: 0.2 },
+    };
+    const perStage = [];
+    for (const s of stages) {
+      const calls = await callsOf(s.stageRunId);
+      const tools = await toolCallsOf(s.stageRunId);
+      const price = PRICE[s.modelAlias ?? ""] ?? { input: 0, cacheRead: 0 };
+      const costUsd = calls.reduce((a, c) => a + c.cost_usd, 0);
+      const readSaving = calls.reduce(
+        (a, c) => a + (c.cache_read_tokens * (price.input - price.cacheRead)) / 1e6,
+        0,
+      );
+      // Writing to the 5-minute cache costs a quarter more than plain input.
+      const writePremium = calls.reduce(
+        (a, c) => a + (c.cache_write_tokens * price.input * 0.25) / 1e6,
+        0,
+      );
+      perStage.push({
+        seq: s.seq,
+        stage: s.stage,
+        theme: s.themeCode,
+        model: s.modelAlias,
+        status: s.status,
+        stopReason: s.stopReason,
+        modelCalls: calls.length,
+        modelsServed: [...new Set(calls.map((c) => c.model))],
+        turnsCap: s.caps.turns,
+        paidCalls: tools.filter((c) => BigInt(c.charge_usdc_e6) > 0n && c.status !== "refused")
+          .length,
+        paidCap: s.caps.paidCalls,
+        tokens: calls.reduce((a, c) => a + c.input_tokens + c.output_tokens, 0),
+        tokenCap: s.caps.tokens,
+        cacheReadTokens: calls.reduce((a, c) => a + c.cache_read_tokens, 0),
+        cacheReadFromSecondCall: calls.slice(1).some((c) => c.cache_read_tokens > 0),
+        providerCostUsd: Number(costUsd.toFixed(6)),
+        costWithoutCacheUsd: Number((costUsd + readSaving - writePremium).toFixed(6)),
+        cacheSavingUsd: Number((readSaving - writePremium).toFixed(6)),
+        chargedUsdcE6: s.chargedUsdcE6.toString(),
+        absorbedUsdcE6: s.absorbedUsdcE6.toString(),
+        ceilingUsdcE6: s.ceilingUsdcE6.toString(),
+        toolCalls: tools.map(
+          (c) => `${c.tool} ${c.status}${c.error_code ? ` ${c.error_code}` : ""}`,
+        ),
+      });
+    }
+    const briefs = await cycles.briefs({ cycleId }, 100);
+    const accepted = briefs.filter((b) => b.status === "accepted");
+    const results = await cycles.results(cycleId);
+    const urls = await cycles.retrievedUrls(cycleId);
+    const runs = skillRuns(
+      builtinSet().packages.flatMap((p) =>
+        p.files.filter((f) => f.path.endsWith(".md")).map((f) => f.bytes.toString("utf8")),
+      ),
+    );
+    const recheck = accepted.map((b) => {
+      const parsed = parseBrief(b.body);
+      return parsed.ok
+        ? validateBrief(parsed.brief as ResearchBrief, {
+            results,
+            urls,
+            skillRuns: runs,
+            canary: cycle.canary,
+          })
+        : { ok: false, reasons: parsed.reasons };
+    });
+    const challenge = stages.find((s) => s.stage === "CHALLENGE");
+    const challengeContext = challenge
+      ? results.filter(
+          (r) => r.stageRunId === challenge.stageRunId && r.tool === "get_research_context",
+        )
+      : [];
+    const diveNotes = await t.db
+      .selectFrom("platform.thesis_notes")
+      .select("notes")
+      .where(
+        "stage_run_id",
+        "in",
+        stages
+          .filter((s) => s.stage === "DIVE")
+          .map((s) => s.stageRunId)
+          .concat(["-"]),
+      )
+      .execute();
+    const entries = await t.db
+      .selectFrom("platform.activity_entries")
+      .select(["task_id", "text"])
+      .where(
+        "task_id",
+        "in",
+        stages.map((s) => s.stageRunId),
+      )
+      .execute();
+    const day = new Date();
+    const usedToday = await cycles.usedToday(
+      { chainId: 143143, agentId: other },
+      new Date(Date.UTC(day.getUTCFullYear(), day.getUTCMonth(), day.getUTCDate())),
+    );
+    report.cycle = {
+      cycleId,
+      kind: cycle.kind,
+      status: cycle.status,
+      stopReason: cycle.stopReason,
+      reasoning: cycle.reasoningAlias,
+      taskError: done.error,
+      maxShownBeforeUsdcE6: preview.plans?.ACTIVATION?.maxUsdcE6 ?? null,
+      chargedUsdcE6: cycle.chargedUsdcE6.toString(),
+      absorbedUsdcE6: cycle.absorbedUsdcE6.toString(),
+      stages: perStage,
+      records: records.map((r) => ({ outcome: r.outcome, decision: r.decision })),
+      briefs: briefs.map((b) => ({
+        kind: b.kind,
+        status: b.status,
+        reasons: b.reasons,
+        body: b.body,
+      })),
+      notes: await t.db
+        .selectFrom("platform.thesis_notes")
+        .select(["stage", "title", "notes"])
+        .where(
+          "stage_run_id",
+          "in",
+          stages.map((s) => s.stageRunId),
+        )
+        .execute(),
+      entries: entries.map((e) => e.text),
+      usedTodayUsdcE6: usedToday.toString(),
+    };
+    check(
+      "a real agent completed a full cycle: Scan, Dives, Challenge, Test and Zoom out",
+      cycle.status === "completed" &&
+        ["SCAN", "DIVE", "CHALLENGE", "TEST", "ZOOM_OUT"].every((st) =>
+          stages.some((s) => s.stage === st),
+        ),
+      `${cycle.status} ${cycle.stopReason}; ${stages.map((s) => `${s.stage}${s.themeCode ? ` ${s.themeCode}` : ""} ${s.status} ${s.stopReason}`).join(", ")}${done.error ? `; ${done.error}` : ""}`,
+    );
+    check(
+      "each model stage ended with complete_stage on its own alias, from the gate's records",
+      modelStages.length >= 4 &&
+        modelStages.every((s) => records.some((r) => r.stage_run_id === s.stageRunId)) &&
+        perStage
+          .filter((p) => p.model)
+          .every((p) => p.modelCalls > 0 && p.modelsServed.every((m) => m === p.model)),
+      perStage
+        .map((p) => `${p.stage} ${p.model ?? "none"} served ${p.modelsServed.join("/") || "none"}`)
+        .join("; "),
+    );
+    check(
+      "every stage stayed within its caps, and no stage was charged above its ceiling",
+      perStage.every(
+        (p) =>
+          p.modelCalls <= p.turnsCap &&
+          p.paidCalls <= p.paidCap &&
+          p.tokens <= p.tokenCap + 200_000 &&
+          BigInt(p.chargedUsdcE6) <= BigInt(p.ceilingUsdcE6),
+      ),
+      perStage
+        .map(
+          (p) =>
+            `${p.stage} ${p.modelCalls}/${p.turnsCap} turns ${p.paidCalls}/${p.paidCap} paid ${p.chargedUsdcE6}/${p.ceilingUsdcE6}`,
+        )
+        .join("; "),
+    );
+    check(
+      "the day's research budget held",
+      usedToday <= 5_000_000n,
+      `${usedToday} of 5000000 USDC units`,
+    );
+    check(
+      "every brief was validated, and every accepted one traces to the cycle's stored results again",
+      accepted.length >= 4 && recheck.every((r) => r.ok),
+      `${accepted.length} accepted, ${briefs.length - accepted.length} refused; ${recheck.flatMap((r) => r.reasons).join("; ")}`,
+    );
+    check(
+      "the Challenge saw the Dives' briefs and nothing of their sessions",
+      challengeContext.length > 0 &&
+        challengeContext.every((r) => {
+          const ctx = r.result as { fromThisCycle?: { kind: string }[] };
+          const text = JSON.stringify(r.result);
+          return (
+            (ctx.fromThisCycle ?? []).every((b) => b.kind === "THEME") &&
+            diveNotes.every((n) => !text.includes(String(n.notes).slice(0, 60)))
+          );
+        }),
+      `${challengeContext.length} context reads; ${diveNotes.length} Dive notes`,
+    );
+    check(
+      "prompt caching: cache reads from the second model call of each stage",
+      perStage.filter((p) => p.modelCalls >= 2).every((p) => p.cacheReadFromSecondCall),
+      perStage
+        .map((p) => `${p.stage} ${p.cacheReadTokens} read, saved ${p.cacheSavingUsd} USD`)
+        .join("; "),
+    );
+    check(
+      "the narrator wrote one entry per stage",
+      entries.length === stages.length,
+      `${entries.length} entries for ${stages.length} stages`,
+    );
+  }
+
   const refundOther = await api(`/v1/agents/${other}/refund`, { method: "POST" });
   await waitFor("the second agent's refund", 120_000, async () => {
     const v = (await api(`/v1/refunds/${String(refundOther.body.refundId)}`)).body;
@@ -1133,6 +1422,16 @@ async function main(): Promise<number> {
     "at zero credits a Scan is refused",
     broke.status === 409 && broke.body.error === "credits_exhausted",
     `${broke.status} ${String(broke.body.error)}`,
+  );
+  const brokeCycle = await api(`/v1/agents/${other}/cycles`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ kind: "ROUTINE" }),
+  });
+  check(
+    "at zero credits a research cycle is refused with the billing reason",
+    brokeCycle.status === 409 && brokeCycle.body.error === "credits_exhausted",
+    `${brokeCycle.status} ${String(brokeCycle.body.error)}`,
   );
 
   for (const id of [agentId, other]) {
