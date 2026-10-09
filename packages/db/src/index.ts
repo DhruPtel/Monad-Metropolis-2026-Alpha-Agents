@@ -17,6 +17,7 @@ import * as canaryKeyProvider from "./migrations/0013_canary_key_provider.ts";
 import * as agentGoals from "./migrations/0014_agent_goals.ts";
 import * as providerUsage from "./migrations/0015_provider_usage.ts";
 import * as researchCheck from "./migrations/0016_research_check.ts";
+import * as templateRunner from "./migrations/0017_template_runner.ts";
 import type { Database } from "./schema.ts";
 
 export type * from "./schema.ts";
@@ -43,6 +44,7 @@ export const MIGRATIONS: Readonly<Record<string, Migration>> = {
   "0014_agent_goals": agentGoals,
   "0015_provider_usage": providerUsage,
   "0016_research_check": researchCheck,
+  "0017_template_runner": templateRunner,
 };
 
 const INT8 = 20;

@@ -203,3 +203,39 @@ export function templateFingerprint(t: StrategyTemplate<unknown>): `0x${string}`
 export function paramsHash(template: string, params: RebalanceBandsParams): `0x${string}` {
   return keccak256(toBytes(canonicalJson({ template, params })));
 }
+
+/** The goal's limits a plan must sit inside (from the translated goal, P3-U1). */
+export interface PlanLimits {
+  readonly targetRange: { readonly minBps: number; readonly maxBps: number };
+  readonly ownerLimits: { readonly maxTradeBps: number; readonly maxSlippageBps: number };
+}
+
+/**
+ * A plan's parameters checked against the template's bounds and the goal:
+ * the target inside the goal's range, the largest leg no larger than the
+ * owner's largest trade, and the cost limit no looser than the owner's
+ * slippage limit. Empty when the plan can be set.
+ */
+export function checkPlan(params: RebalanceBandsParams, goal: PlanLimits): GoalError[] {
+  const out = checkTemplateParams(params);
+  const { minBps, maxBps } = goal.targetRange;
+  if (params.targetWmonBps < minBps || params.targetWmonBps > maxBps)
+    out.push({
+      field: "template.params.targetWmonBps",
+      code: "OUT_OF_TEMPLATE_BOUNDS",
+      message: `The target WMON share must be within the goal's range, ${minBps / 100}% to ${maxBps / 100}%.`,
+    });
+  if (params.maxLegBps > goal.ownerLimits.maxTradeBps)
+    out.push({
+      field: "template.params.maxLegBps",
+      code: "LOOSER_THAN_HARD_LIMIT",
+      message: `The largest leg may not exceed the owner's largest trade, ${goal.ownerLimits.maxTradeBps / 100}% of the account.`,
+    });
+  if (params.costHurdleBps > goal.ownerLimits.maxSlippageBps)
+    out.push({
+      field: "template.params.costHurdleBps",
+      code: "LOOSER_THAN_HARD_LIMIT",
+      message: `The cost limit may not exceed the owner's slippage limit, ${goal.ownerLimits.maxSlippageBps / 100}%.`,
+    });
+  return out;
+}

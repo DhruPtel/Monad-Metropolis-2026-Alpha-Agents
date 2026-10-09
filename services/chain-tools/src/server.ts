@@ -97,6 +97,13 @@ export interface IntentDraft {
   readonly ownerEpoch: bigint | null;
   readonly configEpoch: bigint | null;
   readonly expiresAt: Date;
+  /** P3-U3: who proposed it; the agent's propose_swap when absent. */
+  readonly source?: "agent" | "template";
+  /**
+   * P3-U3: the strategy epoch the proposal was made under. The template runner
+   * gives its plan's; absent, the store takes the agent's epoch now.
+   */
+  readonly strategyEpoch?: bigint;
 }
 
 export interface IntentRecord extends Omit<IntentDraft, "status"> {

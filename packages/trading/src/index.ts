@@ -7,3 +7,5 @@ export * from "./portfolio.ts";
 export * from "./holdings.ts";
 export * from "./snapshots.ts";
 export * from "./goals.ts";
+export * from "./plans.ts";
+export * from "./decisions.ts";

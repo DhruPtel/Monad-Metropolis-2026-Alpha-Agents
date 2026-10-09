@@ -209,10 +209,15 @@ export class PgIntentStore implements IntentStore {
           checks: json(draft.checks),
           owner_epoch: draft.ownerEpoch === null ? null : draft.ownerEpoch.toString(),
           config_epoch: draft.configEpoch === null ? null : draft.configEpoch.toString(),
-          // The goal it is proposed under (D-281): the agent's strategy epoch, null before any goal.
-          strategy_epoch: sql<
-            string | null
-          >`(select strategy_epoch from platform.agent_states where chain_id = ${identity.chainId} and agent_id = ${identity.agentId})`,
+          // The goal it is proposed under (D-281): the plan's epoch for the template runner,
+          // otherwise the agent's strategy epoch now, null before any goal.
+          strategy_epoch:
+            draft.strategyEpoch !== undefined
+              ? draft.strategyEpoch.toString()
+              : sql<
+                  string | null
+                >`(select strategy_epoch from platform.agent_states where chain_id = ${identity.chainId} and agent_id = ${identity.agentId})`,
+          source: draft.source ?? "agent",
           expires_at: draft.expiresAt,
         })
         .execute();

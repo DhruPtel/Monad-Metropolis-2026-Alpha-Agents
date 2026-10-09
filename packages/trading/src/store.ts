@@ -5,8 +5,13 @@ import {
   type ArmingEndReason,
   type ArmingState,
   type IntentState,
+  REJECTION_MESSAGES,
+  RUNNER_HOLD_FACTS,
+  type RejectionCode,
+  type RunnerHoldCode,
   SLOT_HOLDING_INTENT_STATES,
   TRADE_FLOW_MESSAGES,
+  type TradeFlowCode,
 } from "@alpha-agents/domain";
 import { type Hex, getAddress } from "viem";
 import { type ArmingRecord, armingState } from "./arming.ts";
@@ -45,6 +50,8 @@ export interface IntentView {
   readonly configEpoch: bigint | null;
   /** The strategy epoch it was proposed under (D-281); null before the agent's first goal. */
   readonly strategyEpoch: bigint | null;
+  /** P3-U3: who proposed it, the agent or the template runner. */
+  readonly source: "agent" | "template";
   readonly approvedBy: "owner" | "auto" | null;
   readonly approvedAt: Date | null;
   readonly submittedAt: Date | null;
@@ -84,6 +91,7 @@ function intentView(r: IntentRow): IntentView {
     ownerEpoch: big(r.owner_epoch),
     configEpoch: big(r.config_epoch),
     strategyEpoch: big(r.strategy_epoch === null ? null : String(r.strategy_epoch)),
+    source: r.source,
     approvedBy: r.approved_by,
     approvedAt: r.approved_at ? new Date(r.approved_at) : null,
     submittedAt: r.submitted_at ? new Date(r.submitted_at) : null,
@@ -133,6 +141,57 @@ export interface WhyNotTraded {
   })[];
   /** Trades proposed and waiting for the owner's approval. */
   readonly waitingForApproval: number;
+  /**
+   * P3-U3: the template runner's latest decision for the agent, null when it
+   * never ran for it: a hold with its reason (also first in `reasons`) or the
+   * leg it proposed.
+   */
+  readonly runner: {
+    readonly outcome: "hold" | "leg";
+    readonly code: string;
+    readonly message: string;
+    readonly since: string;
+    readonly lastAt: string;
+    readonly intentId: string | null;
+  } | null;
+}
+
+/** The message for any reason code the runner can record: its own, the trade flow's or the Executor's. */
+export function reasonFacts(code: string): Omit<StoredBlocker, "code"> {
+  const own = RUNNER_HOLD_FACTS[code as RunnerHoldCode];
+  if (own) return { message: own.message, clears: own.clears, clearsAt: null, hint: own.hint };
+  const flow = TRADE_FLOW_MESSAGES[code as TradeFlowCode];
+  const executor = REJECTION_MESSAGES[code as RejectionCode];
+  return {
+    message: flow ?? executor ?? code,
+    clears: code === "NOT_ARMED" ? "by_the_owner" : "by_waiting",
+    clearsAt: null,
+    hint: "",
+  };
+}
+
+function runnerReason(code: string, at: Date | string) {
+  return { code, ...reasonFacts(code), intentId: null, at: new Date(at).toISOString() };
+}
+
+function runnerJson(
+  outcome: "hold" | "leg",
+  code: string,
+  firstAt: Date | string,
+  lastAt: Date | string,
+  intentId: string | null,
+) {
+  return {
+    outcome,
+    code,
+    message:
+      outcome === "leg"
+        ? "The runner proposed a trade toward the plan's target."
+        : reasonFacts(code).message,
+    since: new Date(firstAt).toISOString(),
+    lastAt: new Date(lastAt).toISOString(),
+    intentId,
+  };
 }
 
 /** How far back "why did the agent not trade" looks for blocked trades. */
@@ -573,6 +632,26 @@ export class TradeStore {
         intentId: null,
         at: (last?.endedAt ?? this.now()).toISOString(),
       });
+    // P3-U3: the runner's latest decision; a hold is the first reason the agent did not trade.
+    const decision = await this.db
+      .selectFrom("platform.runner_decisions")
+      .selectAll()
+      .where("chain_id", "=", chainId)
+      .where("agent_id", "=", agentId)
+      .orderBy("decision_id", "desc")
+      .limit(1)
+      .executeTakeFirst();
+    const runner = decision
+      ? runnerJson(
+          decision.outcome,
+          decision.code,
+          decision.first_at,
+          decision.last_at,
+          decision.intent_id,
+        )
+      : null;
+    if (decision && decision.outcome === "hold")
+      reasons.unshift(runnerReason(decision.code, decision.last_at));
     for (const r of rows
       .filter((x) => x.status === "rejected" || x.status === "failed")
       .slice(0, 5))
@@ -586,6 +665,7 @@ export class TradeStore {
           : null,
       reasons,
       waitingForApproval: rows.filter((x) => x.status === "awaiting_approval").length,
+      runner,
     };
   }
 }

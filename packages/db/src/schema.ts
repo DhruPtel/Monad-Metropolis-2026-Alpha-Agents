@@ -284,6 +284,8 @@ export interface IntentTable {
   >;
   tx_id: string | null;
   tx_hash: string | null;
+  /** P3-U3: who proposed it, the agent (propose_swap) or the template runner (D-290). */
+  source: ColumnType<"agent" | "template", "agent" | "template" | undefined, "agent" | "template">;
   /** P2-U6: every blocker the checks gave, at proposal or at submission. */
   blockers: ColumnType<Record<string, unknown>[], string | undefined, string>;
   approved_by: "owner" | "auto" | null;
@@ -481,7 +483,7 @@ export interface ActivityEntryTable {
   chain_id: number;
   agent_id: number;
   task_id: string;
-  kind: "scan" | "intent" | "arming" | "trade" | "blocked";
+  kind: "scan" | "intent" | "arming" | "trade" | "blocked" | "runner";
   text: string;
   rendered_by: "narrator" | "template";
   facts: ColumnType<Record<string, unknown>, string, string>;
@@ -512,6 +514,41 @@ export interface ProviderUsageTable {
   day: ColumnType<string, string, string>;
   used: ColumnType<number, number, number>;
   updated_at: Timestamp;
+}
+
+/** P3-U3: a plan set for an agent; one active per agent. */
+export interface StrategyParamsTable {
+  param_id: string;
+  chain_id: number;
+  agent_id: number;
+  template: string;
+  params: ColumnType<Record<string, unknown>, string, string>;
+  params_hash: string;
+  strategy_epoch: ColumnType<string, string | number, string | number>;
+  set_by: "owner" | "console" | "agent" | "activation";
+  set_by_address: string | null;
+  active: ColumnType<boolean, boolean | undefined, boolean>;
+  created_at: Timestamp;
+  superseded_at: Timestamp | null;
+}
+
+/** P3-U3: one of the runner's decisions; a new row only when the outcome or reason changes. */
+export interface RunnerDecisionTable {
+  decision_id: Generated<number>;
+  chain_id: number;
+  agent_id: number;
+  param_id: string | null;
+  strategy_epoch: ColumnType<string, string | number, string | number>;
+  outcome: "hold" | "leg";
+  code: string;
+  codes: ColumnType<string[], string, string>;
+  leg: ColumnType<Record<string, unknown> | null, string | null, string | null>;
+  intent_id: string | null;
+  facts: ColumnType<Record<string, unknown>, string, string>;
+  block: ColumnType<string | null, string | number | null, string | number | null>;
+  first_at: ColumnType<Date, Date | string, Date | string>;
+  last_at: ColumnType<Date, Date | string, Date | string>;
+  ticks: ColumnType<number, number | undefined, number>;
 }
 
 export interface Database {
@@ -545,4 +582,6 @@ export interface Database {
   "platform.activity_entries": ActivityEntryTable;
   "platform.reveal_steers": RevealSteerTable;
   "platform.provider_usage": ProviderUsageTable;
+  "platform.strategy_params": StrategyParamsTable;
+  "platform.runner_decisions": RunnerDecisionTable;
 }

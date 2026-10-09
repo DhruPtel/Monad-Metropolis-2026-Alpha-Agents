@@ -20,6 +20,7 @@ export function intentJson(i: IntentView) {
     minAmountOut: amount(i.buy, i.minAmountOut),
     amountOut: amount(i.buy, i.amountOut),
     reason: i.reason,
+    source: i.source,
     reasonCodes: i.reasonCodes,
     blockers: i.blockers,
     failure: i.failure,
