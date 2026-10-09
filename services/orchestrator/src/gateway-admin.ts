@@ -26,6 +26,8 @@ export interface GatewayAdmin {
   spendLogs(key: string): Promise<SpendRow[]>;
   /** Sets the key's budget in USD of provider cost; LiteLLM refuses calls once spend reaches it. */
   setBudget(key: string, maxBudgetUsd: number): Promise<void>;
+  /** P3-U4: sets the model aliases the key may call (LiteLLM answers 403 for any other). */
+  setModels(key: string, models: readonly string[]): Promise<void>;
 }
 
 export interface SpendRow {
@@ -114,6 +116,12 @@ export class LiteLLMAdmin implements GatewayAdmin {
       throw new GatewayError(`LiteLLM /key/generate returned ${reply.status}`, reply.status);
   }
 
+  async setModels(key: string, models: readonly string[]): Promise<void> {
+    const reply = await this.call("POST", "/key/update", { key, models });
+    if (reply.status !== 200)
+      throw new GatewayError(`LiteLLM /key/update returned ${reply.status}`, reply.status);
+  }
+
   async hasAlias(alias: string): Promise<boolean> {
     const reply = await this.call(
       "GET",
@@ -191,6 +199,11 @@ export class MemoryGateway implements GatewayAdmin {
       this.failAfterCreate = false;
       throw new GatewayError("connection reset after create", 502);
     }
+  }
+
+  async setModels(key: string, models: readonly string[]): Promise<void> {
+    this.calls.push(`models ${models.join(",")}`);
+    for (const [alias, r] of this.keys) if (r.key === key) this.keys.set(alias, { ...r, models });
   }
 
   async hasAlias(alias: string): Promise<boolean> {

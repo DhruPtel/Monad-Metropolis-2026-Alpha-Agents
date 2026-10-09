@@ -1,4 +1,5 @@
 import { randomBytes } from "node:crypto";
+import { CYCLE_MODEL_ALIASES } from "./cycle/stages.ts";
 import { TIER_IDS, type Tier } from "@alpha-agents/domain";
 import { type GatewayAdmin, GatewayError } from "./gateway-admin.ts";
 import { DEFAULT_MODEL, type AgentOverrides, renderAgentConfig } from "./hermes/layers.ts";
@@ -76,6 +77,15 @@ export class Provisioner {
   }
 
   /** Decrypts an agent's virtual key for the gate. Never logged (registered with the redactor). */
+  /**
+   * P3-U4: keys made before research cycles allow only the agent's default
+   * alias, and LiteLLM refuses any other with 403; a cycle needs every stage's.
+   */
+  async allowCycleModels(runtime: Runtime): Promise<void> {
+    const key = this.virtualKey(runtime);
+    if (key) await this.o.gateway.setModels(key, CYCLE_MODEL_ALIASES);
+  }
+
   virtualKey(runtime: Runtime): string | null {
     if (runtime.status !== "ready" || !runtime.keyCiphertext) return null;
     const key = decryptSecret(runtime.keyCiphertext, this.o.secret);
@@ -142,7 +152,8 @@ export class Provisioner {
           await this.o.gateway.createKey({
             key,
             alias,
-            models: [config.hermes.model.default],
+            // Every alias a research cycle's stages and auxiliary calls use (P3-U4, D-285).
+            models: [...new Set([config.hermes.model.default, ...CYCLE_MODEL_ALIASES])],
             maxBudgetUsd: budgetUsd,
             metadata: {
               app: "alpha-agents",

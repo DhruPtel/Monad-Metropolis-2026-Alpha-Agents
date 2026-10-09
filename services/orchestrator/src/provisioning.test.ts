@@ -64,12 +64,30 @@ describe.skipIf(!dbUp)("provisioning on reveal (needs Postgres)", { timeout: 60_
     expect(rt.config).toMatchObject({ tier: { name: "medium", slots: 5 } });
     expect(rt.configHash).toMatch(/^[0-9a-f]{64}$/);
     const key = must(gateway.keys.get(rt.keyAlias));
-    expect(key).toMatchObject({ models: ["scan-cheap"], maxBudgetUsd: 0.5 });
+    // P3-U4: every alias a research cycle uses, so a Dive on the reasoning model is not refused.
+    expect(key).toMatchObject({
+      models: ["scan-cheap", "research-strong", "research-deep"],
+      maxBudgetUsd: 0.5,
+    });
     expect(key.metadata).toMatchObject({ namespace: "unit", agent_id: 1, generation: 1 });
     // The stored key is encrypted, and decrypts to the key LiteLLM holds.
     expect(rt.keyCiphertext).not.toContain(key.key);
     expect(decryptSecret(must(rt.keyCiphertext), SECRET)).toBe(key.key);
     expect(lines.join("\n")).not.toContain(key.key);
+  });
+
+  it("widens a key made before research cycles to every stage's alias (P3-U4)", async () => {
+    await indexAgent(t.db, 1, "base");
+    await provisioner.provision(ref(1));
+    const rt = must(await store.runtime(ref(1)));
+    const key = must(gateway.keys.get(rt.keyAlias));
+    gateway.keys.set(rt.keyAlias, { ...key, models: ["scan-cheap"] });
+    await provisioner.allowCycleModels(rt);
+    expect(must(gateway.keys.get(rt.keyAlias)).models).toEqual([
+      "scan-cheap",
+      "research-strong",
+      "research-deep",
+    ]);
   });
 
   it("matches each agent's rendered config to its tier", async () => {

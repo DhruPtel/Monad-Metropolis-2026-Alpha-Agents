@@ -621,6 +621,7 @@ export class Orchestrator {
     const alias = goal.config.model.alias;
     if (!isReasoningAlias(alias))
       throw new Error(`the goal's model ${alias} is not a reasoning model`);
+    await this.provisioner.allowCycleModels(runtime);
     const taskId = randomUUID();
     await this.o.store.insertTask(taskId, ref, "cycle", requestedBy);
     const cycle = await this.cycles.createCycle({ ref, taskId, kind, reasoningAlias: alias });
