@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { createPublicClient } from "viem";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { MarketCache, cacheKey } from "./cache.ts";
-import { CMC_QUOTES_URL, CreditBudget, cmcQuotes, fetchCmcQuotes } from "./coinmarketcap.ts";
+import { CMC_QUOTES_URL, cmcQuotes, fetchCmcQuotes } from "./coinmarketcap.ts";
 import {
   LLAMA_URLS,
   chainTvl,
@@ -18,6 +18,7 @@ import { readOnlyTransport } from "./readonly.ts";
 import { MarketData } from "./service.ts";
 import { cleanText } from "./text.ts";
 import { MarketError, TokenBucket, getJson, retryAfterSeconds } from "./upstream.ts";
+import { DailyBudget, MemoryUsageStore } from "./usage.ts";
 import { type PricePoint, realizedVolatility } from "./volatility.ts";
 
 const fixture = (name: string) =>
@@ -261,18 +262,73 @@ describe("CoinMarketCap (D-321)", () => {
     const f = vi
       .fn<typeof fetch>()
       .mockImplementation(async () => json(fixture("cmc-quotes.json")));
-    const budget = new CreditBudget(2, () => NOW_MS);
+    const budget = new DailyBudget({
+      provider: "coinmarketcap",
+      limit: 2,
+      unit: "credits",
+      store: new MemoryUsageStore(),
+      now: () => NOW_MS,
+    });
     await fetchCmcQuotes({ apiKey: "test-key-not-real", budget, fetch: f });
     const [url, init] = f.mock.calls[0] as [string, RequestInit];
     expect(url).toBe(CMC_QUOTES_URL);
     expect(url).not.toContain("test-key");
     expect((init.headers as Record<string, string>)["X-CMC_PRO_API_KEY"]).toBe("test-key-not-real");
-    expect(budget.usedToday()).toBe(1);
+    expect(await budget.usedToday()).toBe(1);
     await fetchCmcQuotes({ apiKey: "k", budget, fetch: f });
     await expect(fetchCmcQuotes({ apiKey: "k", budget, fetch: f })).rejects.toMatchObject({
       code: "RATE_LIMITED",
     });
     expect(f).toHaveBeenCalledTimes(2);
+  });
+
+  it("keeps the day's credits in the shared store, so a new service (a restart) continues the count", async () => {
+    const store = new MemoryUsageStore();
+    const f = vi
+      .fn<typeof fetch>()
+      .mockImplementation(async () => json(fixture("cmc-quotes.json")));
+    const budget = () =>
+      new DailyBudget({
+        provider: "coinmarketcap",
+        limit: 2,
+        unit: "credits",
+        store,
+        now: () => NOW_MS,
+      });
+    await fetchCmcQuotes({ apiKey: "k", budget: budget(), fetch: f });
+    await fetchCmcQuotes({ apiKey: "k", budget: budget(), fetch: f });
+    await expect(fetchCmcQuotes({ apiKey: "k", budget: budget(), fetch: f })).rejects.toMatchObject(
+      {
+        code: "RATE_LIMITED",
+      },
+    );
+    // The next UTC day starts again.
+    const tomorrow = new DailyBudget({
+      provider: "coinmarketcap",
+      limit: 2,
+      unit: "credits",
+      store,
+      now: () => NOW_MS + 86_400_000,
+    });
+    expect(await tomorrow.usedToday()).toBe(0);
+  });
+
+  it("releases the reserved credit when the request fails", async () => {
+    const store = new MemoryUsageStore();
+    const budget = new DailyBudget({
+      provider: "coinmarketcap",
+      limit: 5,
+      unit: "credits",
+      store,
+      now: () => NOW_MS,
+    });
+    const f = vi
+      .fn<typeof fetch>()
+      .mockImplementation(async () => new Response("no", { status: 401 }));
+    await expect(fetchCmcQuotes({ apiKey: "k", budget, fetch: f })).rejects.toMatchObject({
+      retryable: false,
+    });
+    expect(await budget.usedToday()).toBe(0);
   });
 });
 

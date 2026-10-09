@@ -1,6 +1,7 @@
 import type { Figure } from "./figures.ts";
 import { type GuardContext, guard } from "./guards.ts";
-import { MarketError, type TokenBucket, type UpstreamDeps, getJson } from "./upstream.ts";
+import { type TokenBucket, type UpstreamDeps, getJson } from "./upstream.ts";
+import type { DailyBudget } from "./usage.ts";
 
 /**
  * CoinMarketCap (D-321): the latest price, 24-hour change, volume and market
@@ -27,69 +28,34 @@ export interface CmcQuote {
   readonly marketCapUsd: Figure;
 }
 
-/** Credits spent per UTC day, so the daily budget holds even under a burst of misses. */
-export class CreditBudget {
-  private day = "";
-  private used = 0;
-  private readonly limit: number;
-  private readonly now: () => number;
-
-  constructor(limit: number, now: () => number = Date.now) {
-    this.limit = limit;
-    this.now = now;
-  }
-
-  private roll() {
-    const d = new Date(this.now()).toISOString().slice(0, 10);
-    if (d !== this.day) {
-      this.day = d;
-      this.used = 0;
-    }
-  }
-
-  check(provider: string): void {
-    this.roll();
-    if (this.used < this.limit) return;
-    const t = new Date(this.now());
-    const midnight = Date.UTC(t.getUTCFullYear(), t.getUTCMonth(), t.getUTCDate() + 1);
-    throw new MarketError(
-      "RATE_LIMITED",
-      provider,
-      `${provider}: the platform's daily credit budget for this plan is used; fresh prices return after 00:00 UTC.`,
-      { retryable: true, retryAfterSeconds: Math.ceil((midnight - this.now()) / 1000) },
-    );
-  }
-
-  spend(credits: number) {
-    this.roll();
-    this.used += credits;
-  }
-
-  usedToday(): number {
-    this.roll();
-    return this.used;
-  }
-}
-
 export interface CmcDeps extends UpstreamDeps {
   readonly apiKey: string;
-  readonly budget: CreditBudget;
+  /** Credits per UTC day, persisted so a restart never resets it (P3-U9). */
+  readonly budget: DailyBudget;
   readonly bucket?: TokenBucket;
 }
 
 /** The raw quotes answer. The key travels in a header, never in the URL. */
 export async function fetchCmcQuotes(deps: CmcDeps): Promise<unknown> {
-  deps.budget.check("coinmarketcap");
-  const body = await getJson(
-    {
-      provider: "coinmarketcap",
-      url: CMC_QUOTES_URL,
-      headers: { "X-CMC_PRO_API_KEY": deps.apiKey },
-    },
-    deps,
-  );
+  // One credit is reserved before the request and corrected to the plan's own count after.
+  await deps.budget.reserve(1);
+  let body: unknown;
+  try {
+    body = await getJson(
+      {
+        provider: "coinmarketcap",
+        url: CMC_QUOTES_URL,
+        headers: { "X-CMC_PRO_API_KEY": deps.apiKey },
+      },
+      deps,
+    );
+  } catch (err) {
+    // A refused or failed request is not charged by CoinMarketCap.
+    await deps.budget.adjust(-1);
+    throw err;
+  }
   const credits = Number((body as { status?: { credit_count?: unknown } })?.status?.credit_count);
-  deps.budget.spend(Number.isFinite(credits) && credits > 0 ? credits : 1);
+  await deps.budget.adjust((Number.isFinite(credits) && credits > 0 ? credits : 1) - 1);
   return body;
 }
 

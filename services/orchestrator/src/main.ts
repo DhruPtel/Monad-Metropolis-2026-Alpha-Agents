@@ -1,4 +1,5 @@
 import { MarketData, viemMainnetReader } from "@alpha-agents/market";
+import { PgUsageStore } from "./usage-store.ts";
 import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { serve } from "@hono/node-server";
@@ -261,7 +262,10 @@ const cmcKey = reveal("COINMARKETCAP_API_KEY") ?? null;
 // mainnet URLs come only from config.researchRpcUrls.
 const mainnetUrls = config.researchRpcUrls.map((u) => u.reveal());
 for (const u of mainnetUrls) protect(u);
+// Daily budgets (CoinMarketCap credits, X posts, Dune requests) persist in Postgres (P3-U9).
+const usage = new PgUsageStore(db);
 const market = new MarketData({
+  usage,
   cmcApiKey: cmcKey,
   mainnet: mainnetUrls.length > 0 ? viemMainnetReader(mainnetUrls) : null,
   onRefuse: (r) =>

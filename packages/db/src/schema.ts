@@ -506,6 +506,14 @@ export interface RevealSteerTable {
   resolved_at: Timestamp | null;
 }
 
+/** P3-U9: a paid upstream's usage per UTC day, in its own unit. */
+export interface ProviderUsageTable {
+  provider: string;
+  day: ColumnType<string, string, string>;
+  used: ColumnType<number, number, number>;
+  updated_at: Timestamp;
+}
+
 export interface Database {
   "indexer.watermarks": WatermarkTable;
   "indexer.indexed_blocks": IndexedBlockTable;
@@ -536,4 +544,5 @@ export interface Database {
   "platform.thesis_notes": ThesisNoteTable;
   "platform.activity_entries": ActivityEntryTable;
   "platform.reveal_steers": RevealSteerTable;
+  "platform.provider_usage": ProviderUsageTable;
 }

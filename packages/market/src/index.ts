@@ -8,4 +8,5 @@ export * from "./readonly.ts";
 export * from "./service.ts";
 export * from "./text.ts";
 export * from "./upstream.ts";
+export * from "./usage.ts";
 export * from "./volatility.ts";

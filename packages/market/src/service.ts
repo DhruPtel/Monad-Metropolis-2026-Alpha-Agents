@@ -2,7 +2,6 @@ import { type Cached, MarketCache, cacheKey } from "./cache.ts";
 import {
   CMC_DAILY_CREDIT_BUDGET,
   type CmcQuote,
-  CreditBudget,
   cmcQuotes,
   fetchCmcQuotes,
 } from "./coinmarketcap.ts";
@@ -23,6 +22,7 @@ import { type Figure, type FigureWarning, iso } from "./figures.ts";
 import { type GuardContext, type Refusal, crossCheck, guard } from "./guards.ts";
 import type { MainnetMarketReader, OracleVsPool, PoolDepth } from "./mainnet.ts";
 import { MarketError, type Sleep, TokenBucket, getJson } from "./upstream.ts";
+import { DailyBudget, MemoryUsageStore, type UsageStore } from "./usage.ts";
 import {
   VOLATILITY_METHOD,
   VOLATILITY_WINDOWS,
@@ -62,6 +62,8 @@ export interface MarketDataOptions {
   /** Ms since the epoch. */
   readonly now?: () => number;
   readonly onRefuse?: (r: Refusal) => void;
+  /** Where daily budgets are counted; the orchestrator's persists (P3-U9). Defaults to memory. */
+  readonly usage?: UsageStore;
 }
 
 export interface VolatilityFigures {
@@ -121,7 +123,8 @@ export type MarketTool = keyof typeof MARKET_TOOL_KEYS;
 
 export class MarketData {
   readonly cache: MarketCache;
-  readonly cmcBudget: CreditBudget;
+  readonly cmcBudget: DailyBudget;
+  readonly usage: UsageStore;
   private readonly o: MarketDataOptions;
   private readonly now: () => number;
   private readonly buckets: Record<"coinmarketcap" | "defillama", TokenBucket>;
@@ -130,7 +133,14 @@ export class MarketData {
     this.o = o;
     this.now = o.now ?? Date.now;
     this.cache = new MarketCache(this.now);
-    this.cmcBudget = new CreditBudget(CMC_DAILY_CREDIT_BUDGET, this.now);
+    this.usage = o.usage ?? new MemoryUsageStore();
+    this.cmcBudget = new DailyBudget({
+      provider: "coinmarketcap",
+      limit: CMC_DAILY_CREDIT_BUDGET,
+      unit: "credits",
+      store: this.usage,
+      now: this.now,
+    });
     const sleep = o.sleep;
     this.buckets = {
       // CoinMarketCap's plan allows 50 a minute; the platform stays well under it.

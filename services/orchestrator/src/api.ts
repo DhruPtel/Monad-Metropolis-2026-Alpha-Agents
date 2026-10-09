@@ -285,7 +285,7 @@ export function createApi(o: ApiOptions): Hono {
         expiresInSeconds: Math.max(0, Math.round((f.expiresAt - now) / 1000)),
       })),
       upstreamCalls: Object.fromEntries(m.cache.upstreamCalls),
-      coinmarketcapCreditsToday: m.cmcBudget.usedToday(),
+      coinmarketcapCreditsToday: await m.cmcBudget.usedToday(),
     });
   });
 
