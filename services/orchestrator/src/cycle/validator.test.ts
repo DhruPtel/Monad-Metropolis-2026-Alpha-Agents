@@ -86,8 +86,22 @@ describe("the brief validator (D-284, P3-U4)", () => {
     });
     const check = validateBrief(bad, ctx);
     expect(check.ok).toBe(false);
-    expect(check.reasons.join(" ")).toMatch(/changes\[0\]\.text: 12\.5, 900 does not appear/);
+    expect(check.reasons.join(" ")).toMatch(
+      /changes\[0\]\.text: 900 million, 12\.5 does not appear/,
+    );
     expect(validateBrief(scan(), ctx).ok).toBe(true);
+  });
+
+  it("accepts a large figure written at a scale when a result rounds to it, and refuses one that does not", () => {
+    const ok = validateBrief(
+      scan({
+        summary: "Monad TVL is 1.004B (1,004 million, 1004000 thousand) after a -6.8% week.",
+      }),
+      ctx,
+    );
+    expect(ok).toEqual({ ok: true, reasons: [] });
+    const bad = validateBrief(scan({ summary: "Monad TVL is 1.2B after a -6.8% week." }), ctx);
+    expect(bad.reasons.join(" ")).toContain("1.2B does not appear");
   });
 
   it("ignores time windows such as 24-hour and 7d, which are not facts", () => {

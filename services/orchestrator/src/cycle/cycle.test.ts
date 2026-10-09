@@ -202,7 +202,10 @@ describe.skipIf(!dbUp)("the discovery loop engine (needs Postgres)", { timeout: 
   let llm: ReturnType<typeof createServer>;
   let scripts: Partial<Record<StageName, Script>>;
   /** Overrides the fake model's usage per call: tokens and cost. */
-  let usage: (n: number, model: string) => { tokens: number; cost: number } = () => ({
+  let usage: (
+    n: number,
+    model: string,
+  ) => { tokens: number; cost: number; cached?: number } = () => ({
     tokens: 6_000,
     cost: 0.004,
   });
@@ -241,6 +244,7 @@ describe.skipIf(!dbUp)("the discovery loop engine (needs Postgres)", { timeout: 
         const warm = seenModels.has(model);
         seenModels.add(model);
         const u = usage(n, model);
+        const read = u.cached ?? (warm ? u.tokens - 100 : 0);
         const id = `chatcmpl-${n}`;
         const key = String(req.headers.authorization ?? "").replace(/^Bearer /, "");
         gateway.logCall(key, id, u.cost);
@@ -253,8 +257,8 @@ describe.skipIf(!dbUp)("the discovery loop engine (needs Postgres)", { timeout: 
             usage: {
               prompt_tokens: u.tokens,
               completion_tokens: 50,
-              cache_read_input_tokens: warm ? u.tokens - 100 : 0,
-              cache_creation_input_tokens: warm ? 0 : u.tokens - 100,
+              cache_read_input_tokens: read,
+              cache_creation_input_tokens: read > 0 ? 0 : u.tokens - 100,
               cost: u.cost,
             },
           })}\n\n`,
@@ -829,9 +833,10 @@ describe.skipIf(!dbUp)("the discovery loop engine (needs Postgres)", { timeout: 
     expect(cycle).toMatchObject({ status: "stopped", stopReason: "TURN_CAP" });
   });
 
-  it("stops a stage at its token cap", async () => {
+  it("stops a stage at its token cap, counting fresh tokens, not cache reads", async () => {
     await saveGoal({});
-    usage = () => ({ tokens: 160_000, cost: 0.01 });
+    // 160,000 fresh tokens a call: past the routine Scan's 300,000 on the third.
+    usage = () => ({ tokens: 160_000, cost: 0.01, cached: 0 });
     scripts.SCAN = async (r) => {
       for (let i = 0; i < 4; i += 1) await chat(r.token, r.model);
     };

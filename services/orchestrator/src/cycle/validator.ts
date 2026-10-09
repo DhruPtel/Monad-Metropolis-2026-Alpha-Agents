@@ -5,7 +5,8 @@ import { numbersIn } from "../narrator.ts";
  * The brief validator (D-284, P3-U4): a brief is stored and shown only when
  * - every number in its text appears in a tool result this cycle recorded
  *   (written as the result gives it, or rounded from it to the written
- *   precision), apart from time windows such as "24-hour" or "7d";
+ *   precision, also at a written scale such as "1.009B" or "52.7 million"),
+ *   apart from time windows such as "24-hour" or "7d";
  * - every URL it names, and every source it cites, is a URL this cycle
  *   retrieved or the name of a tool this cycle called;
  * - it repeats no run of eight words from a mounted skill or playbook;
@@ -134,6 +135,43 @@ export function numberTraces(
   return values.some((v) => Math.round(v * scale) / scale === w && v !== w);
 }
 
+/** A written scale after a number: thousands, millions, billions, trillions. */
+const SCALES: readonly [RegExp, number][] = [
+  [/^(k|K|thousand)$/, 1e3],
+  [/^(M|mn|million)$/, 1e6],
+  [/^(B|bn|billion)$/, 1e9],
+  [/^(T|tn|trillion)$/, 1e12],
+];
+const SCALED = /(\d[\d,]*(?:\.\d+)?)\s?(k|K|thousand|M|mn|million|B|bn|billion|T|tn|trillion)\b/g;
+
+/**
+ * Numbers written with a scale ("1.009B", "52.7 million"), each with the
+ * value it stands for and its precision: it traces when a result's value
+ * rounds to it at that scale (1,008,834,781 supports "1.009B").
+ */
+export function scaledTraces(
+  text: string,
+  values: readonly number[],
+  /** Numbers as results write them: a source that says "412 million" supports "412 million". */
+  known: ReadonlySet<string> = new Set(),
+): { written: string; ok: boolean }[] {
+  const out: { written: string; ok: boolean }[] = [];
+  for (const m of text.matchAll(SCALED)) {
+    const raw = (m[1] ?? "").replace(/,/g, "");
+    const scale = SCALES.find(([re]) => re.test(m[2] ?? ""))?.[1] ?? 1;
+    const p = places(raw);
+    const w = Number(raw);
+    const f = 10 ** p;
+    out.push({
+      written: m[0],
+      ok:
+        known.has(numbersIn(raw)[0] ?? "") ||
+        values.some((v) => Math.round((v / scale) * f) / f === w),
+    });
+  }
+  return out;
+}
+
 const URL_RE = /\bhttps?:\/\/[^\s)<>"']+/gi;
 const normalizeUrl = (u: string) =>
   u
@@ -161,9 +199,12 @@ export function validateBrief(brief: ResearchBrief, ctx: BriefContext): BriefChe
     );
 
   for (const [path, text] of briefTexts(brief)) {
-    const invented = numbersIn(text.replace(WINDOW, " ").replace(URL_RE, " ")).filter(
-      (n) => !numberTraces(n, known, values),
-    );
+    const plain = text.replace(WINDOW, " ").replace(URL_RE, " ");
+    const scaled = scaledTraces(plain, values, known);
+    const invented = [
+      ...scaled.filter((x) => !x.ok).map((x) => x.written),
+      ...numbersIn(plain.replace(SCALED, " ")).filter((n) => !numberTraces(n, known, values)),
+    ];
     if (invented.length > 0)
       reasons.push(
         `${path}: ${[...new Set(invented)].join(", ")} does not appear in any tool result this cycle recorded; quote each figure as a tool returned it, or remove it`,

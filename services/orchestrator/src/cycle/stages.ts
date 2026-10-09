@@ -33,7 +33,7 @@ export interface StageCaps {
   readonly turns: number;
   /** Paid data calls; a cached answer is free and does not count (D-322). */
   readonly paidCalls: number;
-  /** Input plus output tokens across the stage's model calls (A-59). */
+  /** Fresh tokens across the stage's model calls: input not read from the cache, plus output (A-59). */
   readonly tokens: number;
   /** The orchestrator's deadline for the stage's run. */
   readonly seconds: number;

@@ -470,7 +470,7 @@ export class CycleStore {
   async gateStage(stage: StageRun): Promise<GateStage> {
     const calls = await this.db
       .selectFrom("platform.model_calls")
-      .select(["input_tokens", "output_tokens", "cost_usd"])
+      .select(["input_tokens", "output_tokens", "cache_read_tokens", "cost_usd"])
       .where("stage_run_id", "=", stage.stageRunId)
       .execute();
     const tools = await this.toolCharges(stage.stageRunId);
@@ -482,7 +482,11 @@ export class CycleStore {
       ceilingUsdcE6: stage.ceilingUsdcE6,
       used: {
         calls: calls.length,
-        tokens: calls.reduce((n, c) => n + c.input_tokens + c.output_tokens, 0),
+        // Fresh tokens only: input read from the prompt cache costs a tenth and is not new work (A-59).
+        tokens: calls.reduce(
+          (n, c) => n + Math.max(0, c.input_tokens - c.cache_read_tokens) + c.output_tokens,
+          0,
+        ),
         chargeUsdcE6: tools.chargeUsdcE6 + model,
       },
     };

@@ -688,12 +688,12 @@ async function main(): Promise<number> {
     scanTasks.map((x) => `agent ${x.agent_id}`).join(", "),
   );
   check(
-    "a funded agent's Scan used web_search and read_url and returned a schema-valid result",
+    // D-216: a Scan must call web_search and may call read_url (the playbook reads a page only for a primary source).
+    "a funded agent's Scan used web_search and returned a schema-valid result",
     otherScan.status === "succeeded" &&
       os.stopReason === "COMPLETED" &&
       os.stage?.schemaValid === true &&
-      used("web_search") > 0 &&
-      used("read_url") > 0,
+      used("web_search") > 0,
     `${otherScan.status}; ${used("web_search")} searches, ${used("read_url")} pages; ${os.stage?.outcome ?? "no stage"}; ${otherScan.error ?? ""}`,
   );
   // P3-U7: the agent loaded its Scan playbook from the read-only mount and wrote its notes in the
@@ -714,10 +714,10 @@ async function main(): Promise<number> {
   );
   // P3-U4: outside a cycle the scheduled Scan keeps its brief's content in its notes.
   check(
-    "the scheduled Scan's notes carry its brief's content (themes, quiet, data gaps)",
-    [/theme/i, /quiet/i, /gap/i].every((r) => r.test(notes)),
-    [/theme/i, /quiet/i, /gap/i]
-      .map((r) => `${r.source} ${r.test(notes) ? "yes" : "no"}`)
+    "the scheduled Scan's notes carry its brief's content under the prompt's headings",
+    ["SUMMARY:", "CHANGES:", "THEMES:", "QUIET:", "DATA GAPS:"].every((h) => notes.includes(h)),
+    ["SUMMARY:", "CHANGES:", "THEMES:", "QUIET:", "DATA GAPS:"]
+      .map((h) => `${h} ${notes.includes(h) ? "yes" : "no"}`)
       .join(", "),
   );
   // P3-U2: the agent read the market snapshot in E2B and got sourced, checked figures back.
