@@ -70,6 +70,7 @@
     "signer:local": "node scripts/signer-local.js",
     "policy:parity": "node packages/policy/scripts/write-parity.ts",
     "devenv:local-feed": "node scripts/write-local-feed.js",
+    "devenv:screen-tokens": "node scripts/write-screen-tokens.js",
     "assets:build-bee": "node scripts/assets/build-bee-model.ts",
     "assets:check": "node scripts/assets/check-models.ts",
     "test:canary-fork": "node scripts/test-canary-fork.js",

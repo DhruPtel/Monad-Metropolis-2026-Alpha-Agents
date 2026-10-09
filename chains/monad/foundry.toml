@@ -9,12 +9,14 @@ solc_version = "0.8.37"
 network = "monad"
 # Tests read the pinned fork config, the build output (the AgentNFT ABI check)
 # the oracle and breaker parity fixture that packages/policy writes (P2-U3), and
-# devenv's copy of LocalFeed's code (D-236).
+# devenv's copy of LocalFeed's code (D-236), and the orchestrator's copy of the
+# token screen's test tokens (F-U1).
 fs_permissions = [
   { access = "read", path = "./fork.json" },
   { access = "read", path = "./out" },
   { access = "read", path = "../../packages/policy/fixtures" },
   { access = "read", path = "../../packages/devenv/src/local-feed-code.ts" },
+  { access = "read", path = "../../services/orchestrator/src/tokens/screen-token-code.ts" },
 ]
 
 [profile.default.invariant]

@@ -31,3 +31,5 @@ d8645c8bebef724285bbbd4c18b5d6b0332409de:chains/monad/test/fork/AgentNFTFork.t.s
 # (0x1001fF13bf368Aa4fa85F21043648079F00E1001) token addresses on Monad (checked in F-U1).
 packages/market/fixtures/tokens/cmc-map.json:generic-api-key:9
 packages/market/fixtures/tokens/cmc-map.json:generic-api-key:16
+6f92e88f2abd19c56cdfd4a7fc229e87745cac54:packages/market/fixtures/tokens/cmc-map.json:generic-api-key:9
+6f92e88f2abd19c56cdfd4a7fc229e87745cac54:packages/market/fixtures/tokens/cmc-map.json:generic-api-key:16

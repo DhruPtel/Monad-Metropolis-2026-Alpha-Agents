@@ -39,6 +39,8 @@ import { startUpstreamProxyProcess } from "./upstream-proxy.ts";
 export interface TestFork {
   readonly url: string;
   readonly port: number;
+  /** The block the fork started from. */
+  readonly block: number;
   stop(): Promise<void>;
 }
 
@@ -47,6 +49,30 @@ export interface TestForkOptions {
   /** The environment holding MONAD_RPC_URL; the root .env is loaded if it is missing. */
   readonly env?: NodeJS.ProcessEnv;
   readonly timeoutMs?: number;
+  /**
+   * The block to fork at: the pinned block (the default), or "latest" for a
+   * fork of mainnet as it is now (F-U1's token screen). A latest fork starts
+   * a few blocks behind the head, which every upstream node has.
+   */
+  readonly block?: "pinned" | "latest";
+}
+
+/** How far behind the head a "latest" fork starts. */
+export const LATEST_FORK_LAG_BLOCKS = 5;
+
+async function headBlock(url: string): Promise<number | null> {
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "eth_blockNumber", params: [] }),
+      signal: AbortSignal.timeout(10_000),
+    });
+    const body = (await res.json()) as { result?: string };
+    return body.result ? Number(body.result) : null;
+  } catch {
+    return null;
+  }
 }
 
 /** The fork's primary upstream, from the environment or the root .env; null when neither has it. */
@@ -115,7 +141,7 @@ export async function startTestFork(options: TestForkOptions = {}): Promise<Test
     );
   }
 
-  const { blockNumber } = readForkConfig(paths.forkConfig);
+  let blockNumber = readForkConfig(paths.forkConfig).blockNumber;
   const log = createWriteStream(join(paths.devDir, `test-fork-${port}.log`), { flags: "w" });
   const write = (chunk: Buffer) => log.write(redact(chunk.toString("utf8"), upstreams));
   const deadline = Date.now() + (options.timeoutMs ?? 180_000);
@@ -136,6 +162,10 @@ export async function startTestFork(options: TestForkOptions = {}): Promise<Test
   // it before each attempt, back off between attempts, and alternate with the
   // secondary upstream when there is one (D-220).
   for (let attempt = 1; ; attempt++) {
+    if (options.block === "latest") {
+      const head = await headBlock(proxy.url);
+      if (head !== null) blockNumber = head - LATEST_FORK_LAG_BLOCKS;
+    }
     if (!(await servesBlock(proxy.url, blockNumber))) {
       log.write(`attempt ${attempt}: the upstream did not serve block ${blockNumber}\n`);
       if (attempt >= FORK_START_ATTEMPTS || Date.now() >= deadline) throw giveUp();
@@ -196,6 +226,7 @@ export async function startTestFork(options: TestForkOptions = {}): Promise<Test
         return {
           url,
           port,
+          block: blockNumber,
           stop: async () => {
             await stop();
             await proxy.stop();
