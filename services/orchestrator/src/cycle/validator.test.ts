@@ -157,6 +157,18 @@ describe("the brief validator (D-284, P3-U4)", () => {
     expect(check.reasons.join(" ")).toMatch(
       /"coingecko" is neither a URL this cycle retrieved nor a tool/,
     );
+    // The full MCP name of a tool the cycle called is the same source.
+    const named = scan({
+      changes: [
+        {
+          text: "MON fell -3.2%.",
+          class: "market",
+          confidence: "low",
+          sources: ["mcp__data__market_snapshot"],
+        },
+      ],
+    });
+    expect(validateBrief(named, ctx)).toEqual({ ok: true, reasons: [] });
   });
 
   it("refuses eight words copied from a mounted skill, but not the skill's single terms", () => {

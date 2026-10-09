@@ -238,7 +238,9 @@ export function validateBrief(brief: ResearchBrief, ctx: BriefContext): BriefChe
 
   for (const [path, source] of briefSources(brief)) {
     const isUrl = /^https?:\/\//i.test(source);
-    if (isUrl ? !urls.has(normalizeUrl(source)) : !tools.has(source))
+    // A tool may be cited by its MCP name too: mcp__data__x_search is x_search.
+    const tool = source.replace(/^mcp__[a-z]+__/, "");
+    if (isUrl ? !urls.has(normalizeUrl(source)) : !tools.has(tool))
       reasons.push(
         `${path}: "${source.slice(0, 120)}" is neither a URL this cycle retrieved nor a tool this cycle called (${[...tools].sort().join(", ") || "none yet"})`,
       );
