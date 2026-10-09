@@ -1,0 +1,441 @@
+{
+  "unit": "P3-U7",
+  "check": "skill selection (Q-07, B-02), from descriptions only, as Hermes indexes them",
+  "at": "2026-10-09T05:23:45.514Z",
+  "setHash": "0dbefcb8494bd6b095e46a077101c87a6dcc4dce9b1fb97517c6de9b80046da6",
+  "index": "## Skills\nBefore replying, scan the skills below. If a skill matches or is even partially relevant to your task, you MUST load it with skill_view(name) and follow its instructions.\n    - aa-deep-dive-research: Researches each question across sources, claim by claim. ...\n    - aa-defi-regime-read: Judges Monad DeFi's regime: risk-on, neutral or risk-off....\n    - aa-monad-assets-basics: Explains MON, WMON and USDC: decimals, gas and addresses....\n    - aa-narrative-and-flow-tracker: Tracks what people say about Monad on X and the web, now....\n    - aa-uniswap-v4-swap: Reads Uniswap v4 MON/USDC quotes, depth and trading cost....\n    - aa-usdc-wmon-band-rebalancer: Tunes the USDC/WMON band plan: target, band, brake, cost....\n    - aa-playbook-challenge: Runs a Challenge: the skeptic tries to break the thesis. ...\n    - aa-playbook-dive: Runs a Dive: builds one theme into a falsifiable thesis. ...\n    - aa-playbook-scan: Runs a Scan: finds what changed and what deserves a Dive....\n    - aa-playbook-zoom-out: Runs a Zoom out: decides if the owner's plan must change....",
+  "indexChars": 1080,
+  "indexTokens": 344,
+  "repeats": 3,
+  "results": [
+    {
+      "model": "scan-cheap",
+      "case": "scan-stage",
+      "loaded": [
+        [
+          "aa-playbook-scan"
+        ],
+        [
+          "aa-playbook-scan"
+        ],
+        [
+          "aa-playbook-scan"
+        ]
+      ],
+      "pass": true
+    },
+    {
+      "model": "scan-cheap",
+      "case": "dive-stage",
+      "loaded": [
+        [
+          "aa-playbook-dive"
+        ],
+        [
+          "aa-playbook-dive"
+        ],
+        [
+          "aa-playbook-dive"
+        ]
+      ],
+      "pass": true
+    },
+    {
+      "model": "scan-cheap",
+      "case": "challenge-stage",
+      "loaded": [
+        [
+          "aa-playbook-challenge"
+        ],
+        [
+          "aa-playbook-challenge"
+        ],
+        [
+          "aa-playbook-challenge"
+        ]
+      ],
+      "pass": true
+    },
+    {
+      "model": "scan-cheap",
+      "case": "zoom-out-stage",
+      "loaded": [
+        [
+          "aa-playbook-zoom-out"
+        ],
+        [
+          "aa-playbook-zoom-out"
+        ],
+        [
+          "aa-playbook-zoom-out"
+        ]
+      ],
+      "pass": true
+    },
+    {
+      "model": "scan-cheap",
+      "case": "raw-amounts",
+      "loaded": [
+        [
+          "aa-monad-assets-basics"
+        ],
+        [
+          "aa-monad-assets-basics"
+        ],
+        [
+          "aa-monad-assets-basics"
+        ]
+      ],
+      "pass": true
+    },
+    {
+      "model": "scan-cheap",
+      "case": "trade-cost",
+      "loaded": [
+        [
+          "aa-uniswap-v4-swap"
+        ],
+        [
+          "aa-uniswap-v4-swap"
+        ],
+        [
+          "aa-uniswap-v4-swap"
+        ]
+      ],
+      "pass": true
+    },
+    {
+      "model": "scan-cheap",
+      "case": "regime",
+      "loaded": [
+        [
+          "aa-defi-regime-read"
+        ],
+        [
+          "aa-defi-regime-read"
+        ],
+        [
+          "aa-defi-regime-read"
+        ]
+      ],
+      "pass": true
+    },
+    {
+      "model": "scan-cheap",
+      "case": "narratives",
+      "loaded": [
+        [
+          "aa-narrative-and-flow-tracker"
+        ],
+        [
+          "aa-narrative-and-flow-tracker"
+        ],
+        [
+          "aa-narrative-and-flow-tracker"
+        ]
+      ],
+      "pass": true
+    },
+    {
+      "model": "scan-cheap",
+      "case": "deep-research",
+      "loaded": [
+        [
+          "aa-deep-dive-research"
+        ],
+        [
+          "aa-deep-dive-research"
+        ],
+        [
+          "aa-deep-dive-research"
+        ]
+      ],
+      "pass": true
+    },
+    {
+      "model": "scan-cheap",
+      "case": "plan-parameters",
+      "loaded": [
+        [
+          "aa-playbook-scan",
+          "aa-usdc-wmon-band-rebalancer",
+          "aa-defi-regime-read"
+        ],
+        [
+          "aa-playbook-scan",
+          "aa-usdc-wmon-band-rebalancer",
+          "aa-defi-regime-read"
+        ],
+        [
+          "aa-playbook-scan",
+          "aa-usdc-wmon-band-rebalancer",
+          "aa-defi-regime-read"
+        ]
+      ],
+      "pass": true
+    },
+    {
+      "model": "scan-cheap",
+      "case": "scan-not-dive",
+      "loaded": [
+        [
+          "aa-playbook-scan"
+        ],
+        [
+          "aa-playbook-scan"
+        ],
+        [
+          "aa-playbook-scan"
+        ]
+      ],
+      "pass": true
+    },
+    {
+      "model": "scan-cheap",
+      "case": "challenge-not-dive",
+      "loaded": [
+        [
+          "aa-playbook-challenge",
+          "aa-narrative-and-flow-tracker",
+          "aa-defi-regime-read"
+        ],
+        [
+          "aa-playbook-challenge",
+          "aa-narrative-and-flow-tracker",
+          "aa-defi-regime-read"
+        ],
+        [
+          "aa-playbook-challenge",
+          "aa-narrative-and-flow-tracker",
+          "aa-defi-regime-read"
+        ]
+      ],
+      "pass": true
+    },
+    {
+      "model": "scan-cheap",
+      "case": "none-needed",
+      "loaded": [
+        [],
+        [],
+        []
+      ],
+      "pass": true
+    },
+    {
+      "model": "research-strong",
+      "case": "scan-stage",
+      "loaded": [
+        [
+          "aa-playbook-scan"
+        ],
+        [
+          "aa-playbook-scan"
+        ],
+        [
+          "aa-playbook-scan"
+        ]
+      ],
+      "pass": true
+    },
+    {
+      "model": "research-strong",
+      "case": "dive-stage",
+      "loaded": [
+        [
+          "aa-playbook-dive",
+          "aa-deep-dive-research",
+          "aa-defi-regime-read",
+          ""
+        ],
+        [
+          "aa-playbook-dive",
+          "aa-deep-dive-research",
+          "aa-defi-regime-read",
+          ""
+        ],
+        [
+          "aa-playbook-dive",
+          "aa-deep-dive-research",
+          "aa-defi-regime-read"
+        ]
+      ],
+      "pass": true
+    },
+    {
+      "model": "research-strong",
+      "case": "challenge-stage",
+      "loaded": [
+        [
+          "aa-playbook-challenge"
+        ],
+        [
+          "aa-playbook-challenge"
+        ],
+        [
+          "aa-playbook-challenge"
+        ]
+      ],
+      "pass": true
+    },
+    {
+      "model": "research-strong",
+      "case": "zoom-out-stage",
+      "loaded": [
+        [
+          "aa-playbook-zoom-out"
+        ],
+        [
+          "aa-playbook-zoom-out"
+        ],
+        [
+          "aa-playbook-zoom-out"
+        ]
+      ],
+      "pass": true
+    },
+    {
+      "model": "research-strong",
+      "case": "raw-amounts",
+      "loaded": [
+        [
+          "aa-monad-assets-basics"
+        ],
+        [
+          "aa-monad-assets-basics"
+        ],
+        [
+          "aa-monad-assets-basics"
+        ]
+      ],
+      "pass": true
+    },
+    {
+      "model": "research-strong",
+      "case": "trade-cost",
+      "loaded": [
+        [
+          "aa-uniswap-v4-swap"
+        ],
+        [
+          "aa-uniswap-v4-swap"
+        ],
+        [
+          "aa-uniswap-v4-swap"
+        ]
+      ],
+      "pass": true
+    },
+    {
+      "model": "research-strong",
+      "case": "regime",
+      "loaded": [
+        [
+          "aa-defi-regime-read"
+        ],
+        [
+          "aa-defi-regime-read"
+        ],
+        [
+          "aa-defi-regime-read"
+        ]
+      ],
+      "pass": true
+    },
+    {
+      "model": "research-strong",
+      "case": "narratives",
+      "loaded": [
+        [
+          "aa-narrative-and-flow-tracker"
+        ],
+        [
+          "aa-narrative-and-flow-tracker"
+        ],
+        [
+          "aa-narrative-and-flow-tracker"
+        ]
+      ],
+      "pass": true
+    },
+    {
+      "model": "research-strong",
+      "case": "deep-research",
+      "loaded": [
+        [
+          "aa-deep-dive-research"
+        ],
+        [
+          "aa-deep-dive-research"
+        ],
+        [
+          "aa-deep-dive-research"
+        ]
+      ],
+      "pass": true
+    },
+    {
+      "model": "research-strong",
+      "case": "plan-parameters",
+      "loaded": [
+        [
+          "aa-usdc-wmon-band-rebalancer",
+          "aa-defi-regime-read"
+        ],
+        [
+          "aa-usdc-wmon-band-rebalancer",
+          "aa-defi-regime-read"
+        ],
+        [
+          "aa-usdc-wmon-band-rebalancer",
+          "aa-defi-regime-read"
+        ]
+      ],
+      "pass": true
+    },
+    {
+      "model": "research-strong",
+      "case": "scan-not-dive",
+      "loaded": [
+        [
+          "aa-playbook-scan"
+        ],
+        [
+          "aa-playbook-scan"
+        ],
+        [
+          "aa-playbook-scan"
+        ]
+      ],
+      "pass": true
+    },
+    {
+      "model": "research-strong",
+      "case": "challenge-not-dive",
+      "loaded": [
+        [
+          "aa-playbook-challenge"
+        ],
+        [
+          "aa-playbook-challenge"
+        ],
+        [
+          "aa-playbook-challenge"
+        ]
+      ],
+      "pass": true
+    },
+    {
+      "model": "research-strong",
+      "case": "none-needed",
+      "loaded": [
+        [],
+        [],
+        []
+      ],
+      "pass": true
+    }
+  ],
+  "passed": 26,
+  "total": 26
+}

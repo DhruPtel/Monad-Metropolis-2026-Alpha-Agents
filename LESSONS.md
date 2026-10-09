@@ -1203,3 +1203,24 @@ What happened: (1) The runner's first Postgres test saw its own intent "expired"
 Cause: Tests written against assumptions about the code under them rather than its actual inputs, and a scope picked without checking the list.
 Fix: The runner runs on the stores' clock; the turnover case uses two trades in the window; the eval scenarios were corrected and their expectations computed by an independent implementation of the rule.
 Lesson: Drive a test through the same inputs the production check reads (the window, the clock), and when a scenario's description and its numbers disagree, recompute the numbers outside the code under test.
+
+## L-159: The formatter changed the bytes of hashed skill packages
+Unit: P3-U7
+What happened: Right after `pnpm skills:lock` recorded each package's content hash, the commit's formatting step rewrote the skill.json, params.json, evals.yaml and several SKILL.md files, and the lock test failed: "version 1.0.0 is already published with another content hash". Prettier had also restyled the generated evals.yaml into YAML flow style that is no longer JSON, which broke the check comparing it with P3-U3's evals.
+Cause: The content hash covers exact bytes, and the repository's formatter runs over every file it knows, including package files.
+Fix: The built-in folder is formatted before locking (so the gate's format check keeps it stable and the lock test catches any later byte change), and the generated evals.yaml is listed in .prettierignore.
+Lesson: Anything hashed as bytes must be in its final formatted form before the hash is recorded, and a generated file whose format matters must be kept away from the formatter.
+
+## L-160: A skill named a tool it did not declare, and two declared tools they never named
+Unit: P3-U7
+What happened: The package test that reads every `mcp__<server>__<tool>` in a SKILL.md found `deep-dive-research` telling the model to use `defillama_tvl` without declaring it, the Scan and Zoom out playbooks declaring tools their text never mentions, the band rebalancer declaring `get_prices` it never uses, and the swap skill naming `propose_swap` through its intent only.
+Cause: Manifests and text were written separately, and the manifest validator checks only that declared IDs exist.
+Fix: The manifests list exactly the tools their text names (implicit tools and a declared intent's tool allowed), and the test holds that both ways.
+Lesson: A permission list and the instructions it covers must be checked against each other, not only against the registry; an undeclared tool fails at run time, an unused one widens what the skill may do.
+
+## L-161: Slips in P3-U7, caught by its own checks
+Unit: P3-U7
+What happened: (1) Seven descriptions failed F4: a first sentence shorter than 57 characters left a fragment of the next word ("U") inside what the index shows. (2) The selection check's case "CHALLENGE stage: try to break the thesis from the Dive" gave no thesis, and the Scan model rightly asked for one instead of loading a playbook; the case, not the description, was wrong. (3) The audit crashed on address book entries whose address is not set yet.
+Cause: Assuming the index cuts at a sentence, writing a test prompt that a careful model cannot act on, and an unchecked null.
+Fix: Each first sentence is 56 or 57 characters so the cut falls on a word boundary; the case includes a thesis and the record says why it changed; the audit skips unset addresses.
+Lesson: Test a selection prompt the way a careful model would read it; when a model declines to act, read its reply before changing the thing under test.

@@ -1,0 +1,838 @@
+{
+  "unit": "P1-U5, P1-U6 and P1-U7",
+  "namespace": "live-5e6553",
+  "runTag": "2026-10-09T05-39-41.093Z",
+  "checks": {
+    "mint leads to reveal and provisioning with no manual step": true,
+    "rendered config matches the tier on chain": true,
+    "the agent has its own LiteLLM key": true,
+    "with no credits the agent is RESTRICTED and an LLM task is refused": true,
+    "USDC sent to the funding address appears as credits with no other action": true,
+    "no-op task succeeded with a structured result": true,
+    "the model answered through the gate": true,
+    "the sandbox stopped": true,
+    "the task reduced credits by exactly the metered amount, and the ledger balances": true,
+    "a hard kill leaves a sandbox and a tunnel behind (the case L-19 describes)": true,
+    "the startup sweep removed the leftovers": true,
+    "a reset deletes the old key and creates a new one": true,
+    "a refund returns the remaining credits as USDC to the current owner": true,
+    "the signer worker is on, pinned to the local fork's chain": true,
+    "at zero the next call is refused and the run ends as billing, with no retries": true,
+    "afterwards the agent stays RESTRICTED and LLM tasks are refused": true,
+    "the keeper, provisioning and deposits keep working while an agent is restricted": true,
+    "the ledger balances and matches the funding address on chain": true,
+    "the scheduler queued a Scan for each funded agent with no manual step": true,
+    "a funded agent's Scan used web_search and read_url and returned a schema-valid result": true,
+    "the Scan loaded its playbook from the read-only skill mount": true,
+    "the Scan's notes follow the playbook's typed layout": true,
+    "the agent called market_snapshot from its sandbox and it answered": true,
+    "a real agent in E2B ran x_search and got sourced, untrusted posts": true,
+    "Dune is off without a key: the agent's dune_query is refused with no charge": true,
+    "a real agent read a contract, a balance and code on Monad mainnet, typed and free": true,
+    "the X search was charged at its price, or free from the cache, and stayed inside the caps": true,
+    "each tool call is charged to the right agent, and the ledger holds exactly those charges": true,
+    "the narrator wrote an activity entry that passes the number validator": true,
+    "the same entry with a deliberately wrong number is rejected": true,
+    "the owner's grant to the funding address is recorded: armed once the first trade is approved": true,
+    "a real agent read its portfolio, prices, limits and tradable_now through the chain tools": true,
+    "its proposed swap waits for approval as an intent, with no calldata and an activity entry": true,
+    "no swap reached the signer before the owner's first approval": true,
+    "the owner's first approval arms the agent": true,
+    "the swap executed through the signer, the Executor and the real v4 pool, and settled after reconciliation": true,
+    "the trade and the arming have activity entries held to the number validator": true,
+    "an over-limit proposal is blocked at submission with its reason, served as why the agent did not trade": true,
+    "at zero credits a Scan is refused": true,
+    "teardown leaves no key of this namespace": true,
+    "no key or token in any orchestrator log line or API reply": true
+  },
+  "provisioning": {
+    "agentId": 1,
+    "msFromMint": 14065,
+    "runtime": {
+      "agentId": "1",
+      "generation": 1,
+      "status": "ready",
+      "tier": "pro",
+      "species": 14,
+      "slots": 8,
+      "playbook": "tier-pro@1",
+      "configHash": "f6a07d7ec6a4add76510a955ca711d7ea87c7219118980ea7739049e1dd67ee5",
+      "keyAlias": "aa-live-5e6553-143143-1-g1",
+      "budgetUsd": "0.000000",
+      "lastError": null,
+      "provisionedAt": "2026-10-09T05:40:09.345Z",
+      "updatedAt": "2026-10-09T05:40:09.345Z",
+      "lease": null,
+      "latestTask": null
+    }
+  },
+  "deposit": {
+    "msToCredit": 3192,
+    "credited": {
+      "agentId": "1",
+      "fundingAddress": "0xf1f1cbfc8b13e1018beab249b14b926f128a11c4",
+      "creditsUsdcE6": "1000000",
+      "spendableUsdcE6": "1000000",
+      "heldUsdcE6": "0",
+      "unsettledUsdcE6": "0",
+      "fundingAddressUsdcE6": "1000000",
+      "restricted": false,
+      "spent24hUsdcE6": "0",
+      "toolSpent24hUsdcE6": "0",
+      "recent": [
+        {
+          "kind": "credits_received",
+          "creditsDeltaUsdcE6": "1000000",
+          "at": "2026-10-09T05:40:12.000Z"
+        }
+      ]
+    },
+    "budgetUsd": "0.800000"
+  },
+  "noop": {
+    "taskId": "9fffd57d-f4af-4715-be88-07487f985c37",
+    "agentId": "1",
+    "kind": "noop",
+    "status": "succeeded",
+    "result": {
+      "kind": "noop",
+      "tier": "pro",
+      "runId": "run_3a0cab889c3a4deda8615f87b43c29bf",
+      "slots": 8,
+      "agentId": 1,
+      "leaseId": "32189eef-b26b-43cd-a696-1e0867c412b3",
+      "replied": "NOOP_OK",
+      "playbook": "tier-pro@1",
+      "runStatus": "completed",
+      "sandboxId": "i88q3kxfcxvhv7cs0p1zm",
+      "timingsMs": {
+        "run": 7307,
+        "total": 28672,
+        "sandbox": 671,
+        "hermesBoot": 14617
+      },
+      "configHash": "f6a07d7ec6a4add76510a955ca711d7ea87c7219118980ea7739049e1dd67ee5",
+      "gatedCalls": [
+        "POST /v1/chat/completions 200",
+        "GET /v1/models 200"
+      ],
+      "generation": 1,
+      "modelCalls": 2,
+      "stopReason": "completed",
+      "modelCallsOk": 2,
+      "answeredNoopOk": true,
+      "sandboxStopped": true,
+      "modelCallsRefusedForCredits": 0
+    },
+    "error": null,
+    "createdAt": "2026-10-09T05:40:12.738Z",
+    "startedAt": "2026-10-09T05:40:12.744Z",
+    "finishedAt": "2026-10-09T05:40:41.417Z"
+  },
+  "gatewayLog": {
+    "rows": 1,
+    "costed": 1,
+    "gateCallsOk": 2
+  },
+  "metering": {
+    "receipts": 1,
+    "chargedUsdcE6": "17840",
+    "after": {
+      "agentId": "1",
+      "fundingAddress": "0xf1f1cbfc8b13e1018beab249b14b926f128a11c4",
+      "creditsUsdcE6": "982160",
+      "spendableUsdcE6": "982160",
+      "heldUsdcE6": "0",
+      "unsettledUsdcE6": "17840",
+      "fundingAddressUsdcE6": "1000000",
+      "restricted": false,
+      "spent24hUsdcE6": "17840",
+      "toolSpent24hUsdcE6": "0",
+      "recent": [
+        {
+          "kind": "usage_metered",
+          "creditsDeltaUsdcE6": "-17840",
+          "at": "2026-10-09T05:40:38.000Z"
+        },
+        {
+          "kind": "credits_received",
+          "creditsDeltaUsdcE6": "1000000",
+          "at": "2026-10-09T05:40:12.000Z"
+        }
+      ]
+    }
+  },
+  "afterKill": {
+    "sandboxes": 1,
+    "tunnelAlive": true,
+    "leaseActive": true
+  },
+  "afterSweep": {
+    "sandboxes": 0,
+    "tunnelAlive": false,
+    "pidFile": false,
+    "lease": "ended",
+    "task": "failed"
+  },
+  "refund": {
+    "refund": {
+      "refundId": "98f44d68-5642-4cea-afa6-4d7745e14ee4",
+      "agentId": "1",
+      "owner": "0x96b3d7e56c4e2ffc012bb8312bfc1085ab551250",
+      "ownerEpoch": "0",
+      "status": "sent",
+      "creditsUsdcE6": "982160",
+      "heldUsdcE6": "0",
+      "txHash": "0x54ac7788b19f4fd79e7ca31df5f28cd51e44cea00751e77a27200b226370b564",
+      "reason": null,
+      "createdAt": "2026-10-09T05:40:47.509Z",
+      "updatedAt": "2026-10-09T05:40:49.874Z"
+    },
+    "ownerGainedUsdcE6": "982160"
+  },
+  "drain": {
+    "outsideCall": 200,
+    "task": {
+      "taskId": "eacaf03f-5d01-415c-9682-730fdc13a75b",
+      "agentId": "1",
+      "kind": "noop",
+      "status": "failed",
+      "result": {
+        "kind": "noop",
+        "tier": "pro",
+        "runId": "run_e4ca76acd85d4c6882e3e99ce48ef123",
+        "slots": 8,
+        "agentId": 1,
+        "leaseId": "3d80bb22-3170-44b7-bce7-9ed81e5c4acb",
+        "replied": "",
+        "playbook": "tier-pro@1",
+        "runStatus": "failed",
+        "sandboxId": "ig6twe2pwldbbrcnj9zv6",
+        "timingsMs": {
+          "run": 7093,
+          "total": 33679,
+          "sandbox": 1762,
+          "hermesBoot": 16838
+        },
+        "configHash": "b8ee1824a498aa91d7ad34024c8d7a92604b13875c74c99e84b34513c3177706",
+        "gatedCalls": [
+          "POST /v1/chat/completions 402"
+        ],
+        "generation": 2,
+        "modelCalls": 1,
+        "stopReason": "billing",
+        "modelCallsOk": 0,
+        "answeredNoopOk": false,
+        "sandboxStopped": true,
+        "modelCallsRefusedForCredits": 1
+      },
+      "error": "billing: the agent's credits ran out; the gate refused 1 model call with 402 and the run ended failed",
+      "createdAt": "2026-10-09T05:40:52.049Z",
+      "startedAt": "2026-10-09T05:40:52.055Z",
+      "finishedAt": "2026-10-09T05:41:25.735Z"
+    }
+  },
+  "scans": {
+    "1": {
+      "taskId": "a4e56658-8b64-41bd-b91b-8e74bb243f6f",
+      "agentId": "1",
+      "kind": "scan",
+      "status": "succeeded",
+      "result": {
+        "kind": "scan",
+        "tier": "pro",
+        "runId": "run_bc1b53de9e4445e1b988901b43eec495",
+        "stage": {
+          "outcome": "DONE",
+          "stageId": "stage-0d719fad-a242-43f0-9676-f7586854e468",
+          "candidates": [
+            {
+              "asset": "WMON",
+              "thesisCode": "MON_PRICE_VOL_SPIKE",
+              "confidenceBps": 8500
+            },
+            {
+              "asset": "WMON",
+              "thesisCode": "SUPPLY_UNLOCK_NOV24",
+              "confidenceBps": 7500
+            },
+            {
+              "asset": "USDC",
+              "thesisCode": "TVL_7D_DECLINE",
+              "confidenceBps": 6500
+            }
+          ],
+          "schemaValid": true
+        },
+        "agentId": 1,
+        "leaseId": "d3947c46-aa5c-44b5-9585-5bc8448143a5",
+        "runStatus": "completed",
+        "sandboxId": "ik0pzfbckfo8h1ks6ebkt",
+        "timingsMs": {
+          "run": 47666,
+          "total": 71377,
+          "sandbox": 620,
+          "hermesBoot": 16744
+        },
+        "toolCalls": [
+          {
+            "tool": "market_snapshot",
+            "status": "succeeded",
+            "errorCode": null,
+            "chargeUsdcE6": "1000"
+          },
+          {
+            "tool": "web_search",
+            "status": "succeeded",
+            "errorCode": null,
+            "chargeUsdcE6": "10000"
+          },
+          {
+            "tool": "web_search",
+            "status": "succeeded",
+            "errorCode": null,
+            "chargeUsdcE6": "10000"
+          },
+          {
+            "tool": "x_search",
+            "status": "succeeded",
+            "errorCode": null,
+            "chargeUsdcE6": "62500"
+          },
+          {
+            "tool": "web_search",
+            "status": "succeeded",
+            "errorCode": null,
+            "chargeUsdcE6": "10000"
+          },
+          {
+            "tool": "write_thesis",
+            "status": "succeeded",
+            "errorCode": null,
+            "chargeUsdcE6": "0"
+          },
+          {
+            "tool": "complete_stage",
+            "status": "succeeded",
+            "errorCode": null,
+            "chargeUsdcE6": "0"
+          }
+        ],
+        "configHash": "b8ee1824a498aa91d7ad34024c8d7a92604b13875c74c99e84b34513c3177706",
+        "gatedCalls": [
+          "POST /v1/chat/completions 200",
+          "GET /v1/models 200",
+          "POST /v1/chat/completions 200",
+          "POST /v1/chat/completions 200",
+          "POST /v1/chat/completions 200",
+          "POST /v1/chat/completions 200",
+          "POST /v1/chat/completions 200",
+          "POST /v1/chat/completions 200"
+        ],
+        "generation": 2,
+        "modelCalls": 8,
+        "stopReason": "COMPLETED",
+        "skillsLoaded": [
+          "aa-playbook-scan"
+        ],
+        "sandboxStopped": true,
+        "toolChargeUsdcE6": "93500",
+        "modelCallsRefusedForCredits": 0
+      },
+      "error": null,
+      "createdAt": "2026-10-09T05:41:52.956Z",
+      "startedAt": "2026-10-09T05:41:52.967Z",
+      "finishedAt": "2026-10-09T05:43:06.984Z"
+    },
+    "2": {
+      "taskId": "90fd69d2-3c07-422d-adda-65233aa40c14",
+      "agentId": "2",
+      "kind": "scan",
+      "status": "succeeded",
+      "result": {
+        "kind": "scan",
+        "tier": "base",
+        "runId": "run_6896b10223ee48008745524526cda50f",
+        "stage": {
+          "outcome": "DONE",
+          "stageId": "stage-0a840aaa-382f-4a72-9d67-1acd6d218cbb",
+          "candidates": [
+            {
+              "asset": "WMON",
+              "thesisCode": "MON_PRICE_WEAKNESS_PROFIT_TAKING",
+              "confidenceBps": 8000
+            },
+            {
+              "asset": "WMON",
+              "thesisCode": "TOKEN_UNLOCK_NOV24_SUPPLY_RISK",
+              "confidenceBps": 8500
+            },
+            {
+              "asset": "USDC",
+              "thesisCode": "TVL_DECLINE_SHORT_TERM",
+              "confidenceBps": 7000
+            }
+          ],
+          "schemaValid": true
+        },
+        "agentId": 2,
+        "leaseId": "07e8af7e-4509-468a-aba4-22633eb546c5",
+        "runStatus": "completed",
+        "sandboxId": "ijobxfkgqm33qh0y9zjk3",
+        "timingsMs": {
+          "run": 44138,
+          "total": 59418,
+          "sandbox": 692,
+          "hermesBoot": 14074
+        },
+        "toolCalls": [
+          {
+            "tool": "market_snapshot",
+            "status": "succeeded",
+            "errorCode": null,
+            "chargeUsdcE6": "0"
+          },
+          {
+            "tool": "web_search",
+            "status": "succeeded",
+            "errorCode": null,
+            "chargeUsdcE6": "10000"
+          },
+          {
+            "tool": "web_search",
+            "status": "succeeded",
+            "errorCode": null,
+            "chargeUsdcE6": "10000"
+          },
+          {
+            "tool": "x_search",
+            "status": "succeeded",
+            "errorCode": null,
+            "chargeUsdcE6": "62500"
+          },
+          {
+            "tool": "read_url",
+            "status": "succeeded",
+            "errorCode": null,
+            "chargeUsdcE6": "2000"
+          },
+          {
+            "tool": "write_thesis",
+            "status": "succeeded",
+            "errorCode": null,
+            "chargeUsdcE6": "0"
+          },
+          {
+            "tool": "complete_stage",
+            "status": "succeeded",
+            "errorCode": null,
+            "chargeUsdcE6": "0"
+          }
+        ],
+        "configHash": "bafe728380910b7677b9c298a0c54f3fdede3d42fc12c37b6fc11dec1c7cf1a3",
+        "gatedCalls": [
+          "POST /v1/chat/completions 200",
+          "GET /v1/models 200",
+          "POST /v1/chat/completions 200",
+          "POST /v1/chat/completions 200",
+          "POST /v1/chat/completions 200",
+          "POST /v1/chat/completions 200",
+          "POST /v1/chat/completions 200"
+        ],
+        "generation": 1,
+        "modelCalls": 7,
+        "stopReason": "COMPLETED",
+        "skillsLoaded": [
+          "aa-playbook-scan"
+        ],
+        "sandboxStopped": true,
+        "toolChargeUsdcE6": "84500",
+        "modelCallsRefusedForCredits": 0
+      },
+      "error": null,
+      "createdAt": "2026-10-09T05:42:22.974Z",
+      "startedAt": "2026-10-09T05:42:22.980Z",
+      "finishedAt": "2026-10-09T05:43:24.970Z"
+    }
+  },
+  "scanSkills": {
+    "loaded": [
+      "aa-playbook-scan"
+    ],
+    "notes": "CHANGED:\n- MON token down 5.23% in 24 hours to $0.02452 (CoinMarketCap snapshot); down ~12% from Oct 6 peak around $0.03 as profit-taking follows a strong rally. Broader weakness tied to macro sentiment and event risk. [class: market] [confidence: high]\n- Monad DeFi TVL declined 5.06% over 7 days to $989M (DefiLlama snapshot); peaked at ~$1.04B early October, official Sept 30 baseline was $1.01B. Deposit flows weakening with price sentiment. [class: onchain] [confidence: high]\n- Realized volatility annualized at 84% over 24h, 109% over 7d (snapshot). Large swings consistent with event-driven repricing and macro sensitivity. [class: market] [confidence: high]\n- Token unlock of 16.6 billion MON scheduled Nov 24, 2026; represents ~33% of circulating supply at that time, valued ~$410–450M at recent prices. First major vesting release for team, early investors, Category Labs treasury. Web sources (Bitcoin Foundation, CoinMarketCap) flag this as dominant bear narrative for Q4 2026. [class: primary] [confidence: high]\n\nTHEMES:\n1. MON_PRICE_WEAKNESS_PROFIT_TAKING materiality=medium asset=WMON why_now=Down 5.2% in 24h; momentum reversed after 30%+ rally; affects band rebalancing if weakness persists. sources=3\n2. TVL_DECLINE_SHORT_TERM materiality=medium asset=USDC why_now=Down 5.1% in 7d to $989M; sentiment-driven outflow during price decline; ecosystem fundamentals intact (Aave V4, 1inch, Drake live). sources=2\n3. TOKEN_UNLOCK_NOV24_SUPPLY_RISK materiality=high asset=WMON why_now=16"
+  },
+  "marketSnapshot": [
+    {
+      "status": "succeeded",
+      "charge_usdc_e6": "0",
+      "cache_hit": true,
+      "agent_id": 2
+    }
+  ],
+  "researchCheck": {
+    "status": "succeeded",
+    "error": null,
+    "result": {
+      "kind": "research_check",
+      "agentId": 2,
+      "leaseId": "9d42a6fb-81c2-4211-aab7-f9b1e9ca5deb",
+      "runStatus": "completed",
+      "timingsMs": {
+        "run": 19562,
+        "total": 34223
+      },
+      "toolCalls": [
+        {
+          "tool": "x_search",
+          "status": "succeeded",
+          "cacheHit": false,
+          "errorCode": null,
+          "chargeUsdcE6": "62500"
+        },
+        {
+          "tool": "read_contract",
+          "status": "succeeded",
+          "cacheHit": false,
+          "errorCode": null,
+          "chargeUsdcE6": "0"
+        },
+        {
+          "tool": "balance",
+          "status": "succeeded",
+          "cacheHit": false,
+          "errorCode": null,
+          "chargeUsdcE6": "0"
+        },
+        {
+          "tool": "get_code",
+          "status": "succeeded",
+          "cacheHit": false,
+          "errorCode": null,
+          "chargeUsdcE6": "0"
+        }
+      ],
+      "modelCalls": 4,
+      "stopReason": "COMPLETED"
+    },
+    "calls": [
+      {
+        "tool": "x_search",
+        "status": "succeeded",
+        "error_code": null,
+        "charge_usdc_e6": "62500",
+        "cache_hit": false,
+        "summary": {
+          "topic": "monad_news",
+          "reason": "upstream",
+          "results": 10,
+          "windowHours": 24
+        }
+      },
+      {
+        "tool": "read_contract",
+        "status": "succeeded",
+        "error_code": null,
+        "charge_usdc_e6": "0",
+        "cache_hit": false,
+        "summary": {
+          "block": "111815823",
+          "target": "0x754704Bc059F8C67012fEd69BC8A327a5aafb603",
+          "function": "erc20_total_supply"
+        }
+      },
+      {
+        "tool": "balance",
+        "status": "succeeded",
+        "error_code": null,
+        "charge_usdc_e6": "0",
+        "cache_hit": false,
+        "summary": {
+          "asset": "NATIVE",
+          "block": "111815824",
+          "target": "0x3bd359C1119dA7Da1D913D1C4D2B7c461115433A"
+        }
+      },
+      {
+        "tool": "get_code",
+        "status": "succeeded",
+        "error_code": null,
+        "charge_usdc_e6": "0",
+        "cache_hit": false,
+        "summary": {
+          "proxy": "zeppelinos",
+          "target": "0x754704Bc059F8C67012fEd69BC8A327a5aafb603",
+          "hasCode": true
+        }
+      }
+    ],
+    "usage": {
+      "xPostsRead": 25,
+      "xPostsLimit": 300,
+      "duneResultReads": 0,
+      "duneResultReadsLimit": 60,
+      "duneQueryRuns": 0,
+      "duneQueryRunsLimit": 6
+    }
+  },
+  "toolCharges": {
+    "calls": 22,
+    "paid": 13,
+    "byAgent": {
+      "1": "114500",
+      "2": "147000"
+    }
+  },
+  "activity": {
+    "entry": "Agent #2 completed a scan identifying 3 candidates: WMON with MON_PRICE_WEAKNESS_PROFIT_TAKING (80% confidence) and TOKEN_UNLOCK_NOV24_SUPPLY_RISK (85% confidence), and USDC with TVL_DECLINE_SHORT_TERM (70% confidence).",
+    "renderedBy": "narrator",
+    "rejections": [
+      "longer than 280 characters"
+    ]
+  },
+  "chainCheck": {
+    "status": "succeeded",
+    "error": null,
+    "result": {
+      "kind": "chain_check",
+      "agentId": 2,
+      "intents": [
+        {
+          "status": "awaiting_approval",
+          "intentId": "intent-d24e3526-3152-4d3b-bc43-bdf02a41d746",
+          "reasonCodes": []
+        }
+      ],
+      "leaseId": "28515492-0a48-4886-a8be-123fda39c3ec",
+      "runStatus": "completed",
+      "timingsMs": {
+        "run": 14950,
+        "total": 29003
+      },
+      "toolCalls": [
+        {
+          "tool": "get_portfolio",
+          "status": "succeeded",
+          "errorCode": null
+        },
+        {
+          "tool": "get_prices",
+          "status": "succeeded",
+          "errorCode": null
+        },
+        {
+          "tool": "get_limits",
+          "status": "succeeded",
+          "errorCode": null
+        },
+        {
+          "tool": "tradable_now",
+          "status": "succeeded",
+          "errorCode": null
+        },
+        {
+          "tool": "propose_swap",
+          "status": "succeeded",
+          "errorCode": null
+        },
+        {
+          "tool": "get_intent_status",
+          "status": "succeeded",
+          "errorCode": null
+        }
+      ],
+      "modelCalls": 5,
+      "stopReason": "COMPLETED"
+    },
+    "chain": {
+      "agentId": "2",
+      "portfolio": {
+        "mode": "NORMAL",
+        "usdc": "20",
+        "wmon": "0",
+        "block": "109670030",
+        "drawdownBps": 0,
+        "totalValueUsdc": "20",
+        "at": "2026-10-09T05:44:27.394Z"
+      },
+      "arming": {
+        "state": "awaiting_first_trade",
+        "armingId": "arming-f0d87314-ea89-4e43-ae84-27c574cc3d05",
+        "validUntil": 1793468687,
+        "validUntilDate": "2026-10-31",
+        "renewalDue": false,
+        "armedAt": null,
+        "firstIntentId": null,
+        "ended": null
+      },
+      "tradeFlow": true,
+      "intents": [
+        {
+          "intentId": "intent-d24e3526-3152-4d3b-bc43-bdf02a41d746",
+          "status": "awaiting_approval",
+          "sell": {
+            "asset": "USDC",
+            "amount": "1",
+            "amountRaw": "1000000"
+          },
+          "buy": "WMON",
+          "expectedOut": {
+            "asset": "WMON",
+            "amount": "29.075410334589811222",
+            "amountRaw": "29075410334589811222"
+          },
+          "minAmountOut": null,
+          "amountOut": null,
+          "reason": "Test small swap within limits.",
+          "source": "agent",
+          "reasonCodes": [],
+          "blockers": [],
+          "failure": null,
+          "approvedBy": null,
+          "txHash": null,
+          "deadline": null,
+          "createdAt": "2026-10-09T05:44:31.535Z",
+          "expiresAt": "2026-10-09T06:14:31.532Z",
+          "approvedAt": null,
+          "submittedAt": null,
+          "settledAt": null
+        }
+      ]
+    },
+    "entry": "Agent #2 proposed swapping 1 USDC for WMON with an expected output of 29.075410334589811222. The swap is awaiting approval and was initiated as a test within limits."
+  },
+  "trade": {
+    "intent": {
+      "intentId": "intent-d24e3526-3152-4d3b-bc43-bdf02a41d746",
+      "status": "reconciled",
+      "sell": {
+        "asset": "USDC",
+        "amount": "1",
+        "amountRaw": "1000000"
+      },
+      "buy": "WMON",
+      "expectedOut": {
+        "asset": "WMON",
+        "amount": "29.075410334589811222",
+        "amountRaw": "29075410334589811222"
+      },
+      "minAmountOut": {
+        "asset": "WMON",
+        "amount": "28.951181615563224142",
+        "amountRaw": "28951181615563224142"
+      },
+      "amountOut": {
+        "asset": "WMON",
+        "amount": "29.075410334589811222",
+        "amountRaw": "29075410334589811222"
+      },
+      "reason": "Test small swap within limits.",
+      "source": "agent",
+      "reasonCodes": [],
+      "blockers": [],
+      "failure": null,
+      "approvedBy": "owner",
+      "txHash": "0x1fd3741a991a9ad5b734862ed1cc2e51786ed6b9ce97f99eefbfcd59073b6444",
+      "deadline": "1790876807",
+      "createdAt": "2026-10-09T05:44:31.535Z",
+      "expiresAt": "2026-10-09T06:14:31.532Z",
+      "approvedAt": "2026-10-09T05:44:35.284Z",
+      "submittedAt": "2026-10-09T05:44:35.536Z",
+      "settledAt": "2026-10-09T05:44:39.576Z"
+    },
+    "outbox": {
+      "status": "reconciled",
+      "amount_out": "29075410334589811222",
+      "ledger_entry_id": "c16149f3-963c-47ae-914d-73d50669d97e"
+    }
+  },
+  "tradeEntries": {
+    "trade": "Agent #2 sold 1 USDC and bought 29.075410334589811222 WMON, approved by the owner.",
+    "arming": [
+      "Agent #2 was armed with a grant that is valid until 2026-10-31.",
+      "Agent #2 was armed with a grant valid until 2026-10-31."
+    ]
+  },
+  "overLimit": {
+    "intent": {
+      "intentId": "intent-dab115ba-393b-45ac-8eb7-671eff1534cb",
+      "status": "rejected",
+      "sell": {
+        "asset": "USDC",
+        "amount": "10",
+        "amountRaw": "10000000"
+      },
+      "buy": "WMON",
+      "expectedOut": null,
+      "minAmountOut": null,
+      "amountOut": null,
+      "reason": "Live check: a trade over the size limit.",
+      "source": "agent",
+      "reasonCodes": [
+        "TRADE_SIZE_EXCEEDED",
+        "CONCENTRATION_CAP"
+      ],
+      "blockers": [
+        {
+          "code": "TRADE_SIZE_EXCEEDED",
+          "hint": "Propose a smaller amount, within maxTradeValueUsdc from get_limits.",
+          "clears": "by_changing_the_trade",
+          "message": "The trade is larger than 10% of the account's value.",
+          "clearsAt": null
+        },
+        {
+          "code": "CONCENTRATION_CAP",
+          "hint": "Buy less WMON, within wmonRoomBeforeCapUsdc from get_limits.",
+          "clears": "by_changing_the_trade",
+          "message": "After the trade, more than 40% of the account would be in one non-USDC asset.",
+          "clearsAt": null
+        }
+      ],
+      "failure": "a check changed between proposal and submission",
+      "approvedBy": "auto",
+      "txHash": null,
+      "deadline": null,
+      "createdAt": "2026-10-09T05:44:41.329Z",
+      "expiresAt": "2026-10-09T06:14:41.329Z",
+      "approvedAt": "2026-10-09T05:44:41.609Z",
+      "submittedAt": null,
+      "settledAt": null
+    },
+    "why": {
+      "agentId": "2",
+      "armingState": "armed",
+      "armingEnded": null,
+      "reasons": [
+        {
+          "code": "TRADE_SIZE_EXCEEDED",
+          "hint": "Propose a smaller amount, within maxTradeValueUsdc from get_limits.",
+          "clears": "by_changing_the_trade",
+          "message": "The trade is larger than 10% of the account's value.",
+          "clearsAt": null,
+          "intentId": "intent-dab115ba-393b-45ac-8eb7-671eff1534cb",
+          "at": "2026-10-09T05:44:41.643Z"
+        },
+        {
+          "code": "CONCENTRATION_CAP",
+          "hint": "Buy less WMON, within wmonRoomBeforeCapUsdc from get_limits.",
+          "clears": "by_changing_the_trade",
+          "message": "After the trade, more than 40% of the account would be in one non-USDC asset.",
+          "clearsAt": null,
+          "intentId": "intent-dab115ba-393b-45ac-8eb7-671eff1534cb",
+          "at": "2026-10-09T05:44:41.643Z"
+        }
+      ],
+      "waitingForApproval": 0,
+      "runner": null
+    },
+    "before": {
+      "mode": "NORMAL",
+      "usdc": "20",
+      "wmon": "0",
+      "block": "109670030",
+      "drawdownBps": 0,
+      "totalValueUsdc": "20",
+      "at": "2026-10-09T05:44:27.394Z"
+    }
+  },
+  "passed": true
+}
