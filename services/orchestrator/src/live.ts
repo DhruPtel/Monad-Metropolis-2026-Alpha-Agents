@@ -845,13 +845,25 @@ async function main(): Promise<number> {
       disc.status === 200 && (d.tokens ?? 0) >= 20 && (d.classF ?? 0) >= 8,
       `${d.tokens ?? 0} tokens (${d.classF ?? 0} class F, ${d.classA ?? 0} class A) in ${d.pools ?? 0} pools`,
     );
+    // The Scans before this may have spent agent 2's credits: its owner tops it up, as owners do.
+    const before = await creditsOf(other);
+    if (!before || before.restricted || BigInt(before.spendableUsdcE6) < 1_000_000n) {
+      await fund(other, 3_000_000n);
+      await waitFor("the top-up to be credited", 120_000, async () => {
+        const c = await creditsOf(other);
+        return c && !c.restricted && BigInt(c.spendableUsdcE6) >= 1_000_000n;
+      });
+    }
+    let refusal = "";
     const started = await waitFor("the token check to be accepted", 300_000, async () => {
       const r = await api(`/v1/agents/${other}/tasks/token-check`, { method: "POST" });
       if (r.status === 202) return r;
-      if (r.body.error !== "lease_held") throw new Error(`token check refused: ${r.status}`);
+      refusal = `${r.status} ${String(r.body.error ?? "")}`;
       // Scheduled Scans hold the agent with gaps of about 3 s between them: ask often.
       await new Promise((res) => setTimeout(res, 250));
       return null;
+    }).catch((err: unknown) => {
+      throw new Error(`${(err as Error).message} (last answer: ${refusal || "none"})`);
     });
     const task = await waitFor("the token check", 900_000, async () => {
       const x = (await api(`/v1/tasks/${String(started.body.taskId)}`)).body as unknown as TaskView;
