@@ -163,7 +163,7 @@ export function AgentActions({
     });
 
   return (
-    <div className="flex flex-nowrap gap-2">
+    <div className="flex flex-wrap gap-2">
       <Button
         size="sm"
         variant="secondary"

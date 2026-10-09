@@ -403,7 +403,7 @@ export default async function AgentsPage() {
     <div className="flex flex-col gap-6">
       <PanelHeader
         title="Agents"
-        description="Every agent on the local stack from the control API's index, with its funding address and credits, its runtime from the orchestrator, its state, spend and last action, and controls to fund it, run the no-op task, a Scan or a chain check, refund its credits or reset it. Below the table: each provisioned agent's activity entries, tool calls, latest portfolio reading and intents."
+        description="Every agent on the local stack from the control API's index, with its funding address and credits, its runtime from the orchestrator, its state, spend and last action, and controls to fund it, run the no-op task, a Scan, a chain check or a research check, refund its credits or reset it. Below the table: each provisioned agent's activity entries, tool calls, latest portfolio reading and intents."
       />
       {list === null ? (
         <EmptyState
