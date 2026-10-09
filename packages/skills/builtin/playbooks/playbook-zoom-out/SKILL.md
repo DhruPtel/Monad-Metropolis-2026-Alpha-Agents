@@ -8,7 +8,7 @@ The plan is the `rebalance_bands@1` template's parameters: the target WMON share
 
 1. Call `mcp__platform__get_goals_and_limits` once: the preset, the range the target may move in, the owner's limits, the plan in force and the account mode.
 2. Call `mcp__chain__get_portfolio` and `mcp__chain__get_limits` once each: the current WMON share, the breaker's drawdown and the headroom.
-3. Read the research the task gives you: themes, thesis, verdict.
+3. Call `mcp__platform__get_research_context`: this cycle's SCAN, THEME and CHALLENGE briefs, and `testEnvelope`, the deterministic Test's ranges the plan may move within and whether a change may be proposed now (`mayProposeNow`).
 
 Load the `usdc-wmon-band-rebalancer` skill when you weigh a change to the plan; it explains each parameter and its trade-offs.
 
@@ -20,28 +20,21 @@ Propose a change only when all of these hold:
 - **Supported.** The thesis behind it was not rejected by the Challenge, and its evidence has at least two independent sources, at least one of them onchain or market data.
 - **Inside the goal.** The new target sits inside the goal's range, and every parameter respects the owner's limits.
 - **Affordable.** The trades the change implies clear the plan's cost limit at today's quote and depth: check with `mcp__chain__get_quote` and `mcp__chain__get_pool_depth` at the size the change implies (the difference between the current and the new target, times the account's value).
-- **Not too soon.** No plan change in the last 24 hours, when the task says when the last one was.
+- **Not too soon.** `testEnvelope.mayProposeNow` is true: no accepted change in the last 24 hours.
 
 Otherwise the answer is no change, with the first reason that applies: `NO_MATERIAL_CHANGE`, `EVIDENCE_THIN`, `CHALLENGE_REJECTED`, `COOLDOWN`, `COST_HURDLE`, `LIMITS_BIND`, `BUDGET_SHORT`.
 
 Think about direction and size honestly: a supported view that MON's volatility will stay high argues for a narrower target or a lower brake, not for buying more. Prefer small, reversible moves.
 
-## Output: one write_thesis note, then complete_stage
+## Output: the RATIONALE brief, then complete_stage with the decision
 
-Call `mcp__platform__write_thesis` with `stage: "ZOOM_OUT"`, a short title and notes in exactly this layout:
+1. You may save working notes with `mcp__platform__write_thesis` (`stage: "ZOOM_OUT"`); they stay private to the platform.
+2. In an activation cycle, first write the OVERVIEW brief with `mcp__platform__write_research_brief`: `brief.kind: "OVERVIEW"`, a `summary` of Monad and MON for this owner (at most 600 characters) and one to six `points`; each claim is `{ text, class, confidence, sources }`: `class` is market, onchain, primary, news or social; `confidence` is high, medium or low; `sources` are URLs you retrieved or the names of tools you called, such as `market_snapshot`.
+3. Write the RATIONALE brief: `brief.kind: "RATIONALE"`, `decision` NO_CHANGE or PROPOSE, `reasonCode` for NO_CHANGE (null for PROPOSE), `themeCodes` you weighed, up to five `points` (claims as above) and `whatWouldChangeIt`, the observation that would reverse the decision.
 
-```
-GOAL: <preset>; target range <min>% to <max>%; owner limits <largest trade, most in WMON, least in USDC>
-PLAN NOW: target <x>% band +/-<y> points; brake <z>%; cost limit <c> bps; largest leg <l>%
-ACCOUNT: WMON share <s>%; drawdown <d>%; mode <mode>
-EVIDENCE WEIGHED: <THEME_CODE> verdict <STANDS|WEAKENED|REJECTED>; sources <count>, classes <list>
-DECISION: CHANGE <parameter> from <old> to <new>[, ...]   or   NO_CHANGE <REASON_CODE>
-WHY: <three lines at most>
-COST CHECK: <implied trade size and its cost against the limit, or "not needed">
-WHAT WOULD CHANGE THIS: <the observation that would reverse the decision>
-```
+   Quote every figure exactly as a tool returned it (rounding is fine), and write in your own words. A refused brief comes back with every reason: fix each one and write it again.
 
-Then call `mcp__platform__complete_stage` with `stage: "ZOOM_OUT"`: `outcome: "DONE"` with one candidate (`asset: "WMON"`, `thesisCode` naming the change, for example `PLAN_TARGET_DOWN_5`, and your `confidenceBps`) for a change, or `outcome: "NO_CANDIDATES"` for no change.
+4. Then call `mcp__platform__complete_stage` once, last, with `stage: "ZOOM_OUT"`, `outcome: "DONE"`, `candidates: []` and a `decision` matching the brief: `{ "kind": "NO_CHANGE", "reasonCode": ... }`, or `{ "kind": "PROPOSE", "template": "rebalance_bands@1", "params": { targetWmonBps, bandHalfWidthBps, minTradeUsdc, volatilityBrakeBps, costHurdleBps, maxLegBps } }` with every parameter inside the test envelope. The platform runs the Test on a proposal before the stage may end; a refused proposal says which rule it broke. A proposal is a draft for your owner; nothing trades from it.
 
 ## Work limits
 

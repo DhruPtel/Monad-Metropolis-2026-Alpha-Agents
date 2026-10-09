@@ -26,20 +26,20 @@
       "contentHash": "56180552b321261726622a1109b96bc8eb26f1e60530e7c883ef479608d91195"
     },
     "playbook-challenge": {
-      "version": "1.0.0",
-      "contentHash": "b62458b134a8a32eefcba26665429e8bf1bf7b3c84098c4058f1de96b2e53ae0"
+      "version": "1.1.0",
+      "contentHash": "cd3596bdfb0662fa2c1145a0d08d29efcc0ea38fd3524dcbf2cb2af2e1344614"
     },
     "playbook-dive": {
-      "version": "1.0.1",
-      "contentHash": "c1f5319b091ef7cb1f3823f840d5d0fc226ba16d819ca7a4b265555ece5f76eb"
+      "version": "1.1.0",
+      "contentHash": "d185c59806296cbd81a55d23159a5004bf532ad8a95f7a3f4fe95c6dbf91ef86"
     },
     "playbook-scan": {
-      "version": "1.0.1",
-      "contentHash": "c66e65244191001956470936bb5a4e293f714c64d3778b2c2c0ae0d3418aa8ff"
+      "version": "1.1.0",
+      "contentHash": "31870da28e6f73f85effdde123bfa4efa0ab991362eacd89805cfcf9663c9e3e"
     },
     "playbook-zoom-out": {
-      "version": "1.0.0",
-      "contentHash": "7da64048c7ef9a150cd546aa8dcb35ef3aa1d14a979d7d00640103d7e16cbbee"
+      "version": "1.1.0",
+      "contentHash": "9e6a4a461377922bdc1b5007d8338f4988165281ec21a7de2cc4e2fa10524e44"
     }
   }
 }

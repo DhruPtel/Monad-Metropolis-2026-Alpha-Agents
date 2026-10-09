@@ -88,9 +88,12 @@ describe("the built-in skills and playbooks (P3-U7)", () => {
     }
     const dive = set.packages.find((p) => p.manifest.id === "playbook-dive")?.skillMd ?? "";
     expect(dive).toMatch(/at least three sources from at least two source classes/);
-    expect(dive).toMatch(/KILL CRITERION/);
-    expect(dive).toMatch(/HORIZON/);
-    expect(dive).toMatch(/NO THESIS/);
+    // P3-U4: the Dive's typed output is its THEME brief (playbook 1.1.0).
+    expect(dive).toMatch(/killCriterion/);
+    expect(dive).toMatch(/horizonHours/);
+    expect(dive).toMatch(/noThesisReason/);
+    for (const p of set.packages.filter((x) => x.kind === "playbook"))
+      expect(p.skillMd, p.manifest.id).toMatch(/mcp__platform__write_research_brief/);
     const zoom = set.packages.find((p) => p.manifest.id === "playbook-zoom-out")?.skillMd ?? "";
     expect(zoom).toMatch(/NO_CHANGE/);
     for (const code of [

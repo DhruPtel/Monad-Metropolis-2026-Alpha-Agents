@@ -696,11 +696,12 @@ async function main(): Promise<number> {
     (os.skillsLoaded ?? []).includes("aa-playbook-scan"),
     (os.skillsLoaded ?? []).join(", ") || "no skill loaded",
   );
+  // P3-U4: outside a cycle the scheduled Scan keeps its brief's content in its notes.
   check(
-    "the Scan's notes follow the playbook's typed layout",
-    ["CHANGED:", "THEMES:", "QUIET:", "DATA GAPS:"].every((h) => notes.includes(h)),
-    ["CHANGED:", "THEMES:", "QUIET:", "DATA GAPS:"]
-      .map((h) => `${h} ${notes.includes(h) ? "yes" : "no"}`)
+    "the scheduled Scan's notes carry its brief's content (themes, quiet, data gaps)",
+    [/theme/i, /quiet/i, /gap/i].every((r) => r.test(notes)),
+    [/theme/i, /quiet/i, /gap/i]
+      .map((r) => `${r.source} ${r.test(notes) ? "yes" : "no"}`)
       .join(", "),
   );
   // P3-U2: the agent read the market snapshot in E2B and got sourced, checked figures back.

@@ -4,6 +4,7 @@ A Dive takes one theme from the Scan and turns it into a falsifiable thesis, or 
 
 ## Before you start
 
+0. Call `mcp__platform__get_research_context` first: it holds this cycle's SCAN brief, with the theme you are diving and why it mattered.
 1. Call `mcp__platform__get_goals_and_limits` once: the goal, the plan and the limits decide what kind of thesis matters (a thesis about MON's direction matters to a band plan; one about an unrelated token does not).
 2. Call `mcp__data__market_snapshot` once to anchor the current figures.
 3. Write down the question the theme raises, in one sentence, before searching. For example: "Is the 7-day TVL outflow from Monad DEXs a rotation into lending or an exit from the chain?"
@@ -38,26 +39,19 @@ Every thesis needs:
 
 "No thesis" is a valid and often correct answer: when the evidence is thin, contradictory or only social, say so.
 
-## Output: one write_thesis note, then complete_stage
+## Output: the THEME brief, then complete_stage
 
-Call `mcp__platform__write_thesis` with `stage: "DIVE"`, a title naming the theme code, the URLs you retrieved, and notes in exactly this layout:
+1. You may save working notes with `mcp__platform__write_thesis` (`stage: "DIVE"`); they stay private to the platform.
+2. Write the brief your owner reads with `mcp__platform__write_research_brief`, `brief.kind: "THEME"` and `themeCode` set to the theme you were given:
+   - `question`: the one sentence you wrote down first.
+   - `evidenceFor` and `evidenceAgainst`: up to six claims each; each claim is `{ text, class, confidence, sources }`: `class` is market, onchain, primary, news or social; `confidence` is high, medium or low; `sources` are URLs you retrieved or the names of tools you called, such as `market_snapshot`.
+   - `freshness`: which evidence is current and which is old.
+   - `thesis`: `{ statement, killCriterion, horizonHours, confidence }`, or null with `noThesisReason` saying why there is none.
+   - `weakestLink`: the single weakest point; `forThePlan`: how this could bear on the target WMON share, the band or the brake, or "none".
 
-```
-THEME: <THEME_CODE>
-QUESTION: <one sentence>
-EVIDENCE FOR:
-- <claim> [class: onchain|market|primary|news|social] [confidence: high|medium|low] (<source>, <date or age>)
-EVIDENCE AGAINST:
-- <claim> [class: ...] [confidence: ...] (<source>, <date or age>)
-FRESH VS STALE: <which evidence is current and which is old>
-THESIS: <falsifiable statement>   or   NO THESIS: <why>
-KILL CRITERION: <observable condition that proves it wrong>
-HORIZON: <hours or days>
-CONFIDENCE: <low|medium|high>; weakest link: <one line>
-FOR THE PLAN: <how this could bear on the target WMON share, the band or the brake, or "none">
-```
+   Quote every figure exactly as a tool returned it (rounding is fine), and write in your own words. A refused brief comes back with every reason: fix each one and write it again.
 
-Then call `mcp__platform__complete_stage` with `stage: "DIVE"` and `outcome: "DONE"` with one candidate (`asset`, `thesisCode` equal to the theme code, `confidenceBps`), or `outcome: "NO_CANDIDATES"` for no thesis.
+3. Then call `mcp__platform__complete_stage` once, last, with `stage: "DIVE"`: `outcome: "DONE"` with one candidate (`asset`, `thesisCode` equal to the theme code, `confidenceBps`) for a thesis, or `outcome: "NO_CANDIDATES"` for no thesis.
 
 ## Work limits
 

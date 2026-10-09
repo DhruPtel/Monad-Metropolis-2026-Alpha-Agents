@@ -4,7 +4,7 @@ The Challenge reads a Dive's thesis and tries to break it. You are not the Dive'
 
 ## Before you start
 
-1. Read the thesis exactly as the task gives it: the claims, their classes, the kill criterion, the horizon and the confidence.
+1. Call `mcp__platform__get_research_context` first. Each Dive's thesis is there as its THEME brief: the claims, their classes, the kill criterion, the horizon and the confidence. You never see the Dive's session, by design: judge the record, not the reasoning that produced it.
 2. Call `mcp__platform__get_goals_and_limits` once, and `mcp__data__market_snapshot` once for today's figures.
 
 ## Attack the thesis
@@ -26,21 +26,17 @@ A search with `mcp__data__web_search` is allowed for one specific counter-claim,
 - **WEAKENED**: the thesis survives but its confidence should drop, or its horizon or kill criterion needs to change; say how.
 - **REJECTED**: at least one objection breaks it (the evidence does not support it, the kill criterion already fired, or acting on it would breach a limit).
 
-## Output: one write_thesis note, then complete_stage
+## Output: a CHALLENGE brief per thesis, then complete_stage
 
-Call `mcp__platform__write_thesis` with `stage: "CHALLENGE"`, a title naming the theme code, any URL you retrieved, and notes in exactly this layout:
+1. You may save working notes with `mcp__platform__write_thesis` (`stage: "CHALLENGE"`); they stay private to the platform.
+2. For each Dive theme, write a brief with `mcp__platform__write_research_brief`, `brief.kind: "CHALLENGE"`:
+   - `themeCode`: the Dive's theme.
+   - `objections`: up to five, ranked, each `{ rank, text, severity, sources }`; put the risk check's figures (limit headroom, the breaker's drawdown, the plan's trades against depth, whether the brake would hold buys) in the objection they support.
+   - `verdict`: STANDS, WEAKENED or REJECTED; `summary`: why, in two or three lines.
 
-```
-THESIS UNDER REVIEW: <THEME_CODE>
-OBJECTIONS:
-1. <specific objection> | test: <what would show it is right> | severity: <high|medium|low>
-RISK CHECK: limit headroom <figure>; breaker drawdown <figure>; plan trades vs depth <figure>; brake <would hold buys: yes|no>
-VERDICT: <STANDS|WEAKENED|REJECTED>
-WHY: <two or three lines>
-CONFIDENCE AFTER REVIEW: <low|medium|high>
-```
+   Quote every figure exactly as a tool returned it (rounding is fine), and write in your own words. A refused brief comes back with every reason: fix each one and write it again.
 
-Then call `mcp__platform__complete_stage` with `stage: "CHALLENGE"`: `outcome: "DONE"` with the thesis as one candidate at its reviewed `confidenceBps` when it stands or is weakened, or `outcome: "NO_CANDIDATES"` when it is rejected.
+3. Then call `mcp__platform__complete_stage` once, last, with `stage: "CHALLENGE"`: `outcome: "DONE"` with a candidate for each thesis that stands or is weakened, at its reviewed `confidenceBps`, or `outcome: "NO_CANDIDATES"` when every thesis is rejected.
 
 ## Work limits
 
