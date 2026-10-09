@@ -67,6 +67,9 @@ export const TOOL_REGISTRY = [
   platform("propose_strategy_update", "parameter change proposal"),
   platform("no_change", "stage terminal"),
   platform("complete_stage", "stage terminal"),
+  platform("check_strategy_params", "the deterministic Test (D-282)"),
+  platform("get_research_context", "the agent's own research record (D-287)"),
+  platform("write_research_brief", "owner-visible typed briefs (D-284)"),
   platform("directory_search", "agent-to-agent (Phase 5)"),
   platform("list_offers", "agent-to-agent (Phase 5)"),
   platform("send_message", "agent-to-agent (Phase 5)"),
@@ -76,6 +79,117 @@ export const TOOL_REGISTRY = [
 
 export type ToolId = (typeof TOOL_REGISTRY)[number]["id"];
 export const TOOL_IDS: readonly ToolId[] = TOOL_REGISTRY.map((t) => t.id);
+
+/**
+ * Registry entries that have no live tool yet, each naming the unit that builds
+ * it (P3-U9). The registry check passes only when every other ID resolves to a
+ * tool registered on its server, and every ID here is not yet live.
+ */
+export interface ToolDeferral {
+  readonly unit: string;
+  readonly reason: string;
+}
+const w2 = { unit: "W-2", reason: "the Pass 2 tools (BUILD_PLAN row 50)" } as const;
+export const TOOL_DEFERRALS: Readonly<Partial<Record<ToolId, ToolDeferral>>> = {
+  "chain.whoami@1": w2,
+  "chain.get_assets@1": w2,
+  "chain.simulate_rebalance@1": w2,
+  "chain.list_intents@1": w2,
+  "chain.cancel_intent@1": w2,
+  "chain.propose_rebalance@1": w2,
+  "data.wallet_portfolio@1": { unit: "W-2", reason: "wallet data, provider chosen in Q-24" },
+  "data.wallet_positions@1": { unit: "W-2", reason: "wallet data, provider chosen in Q-24" },
+  "data.wallet_pnl@1": { unit: "W-2", reason: "wallet data, provider chosen in Q-24" },
+  "data.holders@1": { unit: "W-2", reason: "holder concentration, provider chosen in Q-24" },
+  "data.hypersync_events@1": { unit: "after PB-U2", reason: "event history" },
+  "data.ohlcv@1": { unit: "after PB-U2", reason: "candles" },
+  "data.unlocks@1": { unit: "after the beta", reason: "deferred for the beta (D-302)" },
+  "platform.update_thesis@1": {
+    unit: "P3-U5",
+    reason: "the Thesis Board, cut from the beta (D-160)",
+  },
+  "platform.list_theses@1": {
+    unit: "P3-U5",
+    reason: "the Thesis Board, cut from the beta (D-160)",
+  },
+  "platform.get_thesis@1": { unit: "P3-U5", reason: "the Thesis Board, cut from the beta (D-160)" },
+  "platform.propose_strategy_update@1": { unit: "P3-U6", reason: "parameter proposals" },
+  "platform.no_change@1": { unit: "P3-U6", reason: "parameter proposals" },
+  "platform.check_strategy_params@1": { unit: "P3-U6", reason: "the deterministic Test" },
+  "platform.get_research_context@1": { unit: "P3-U4", reason: "the discovery loop" },
+  "platform.write_research_brief@1": { unit: "P3-U4", reason: "the discovery loop" },
+  "platform.directory_search@1": { unit: "Phase 5", reason: "agent-to-agent tools" },
+  "platform.list_offers@1": { unit: "Phase 5", reason: "agent-to-agent tools" },
+  "platform.send_message@1": { unit: "Phase 5", reason: "agent-to-agent tools" },
+  "platform.buy_signal_access@1": { unit: "Phase 5", reason: "agent-to-agent tools" },
+  "platform.read_signal_feed@1": { unit: "Phase 5", reason: "agent-to-agent tools" },
+};
+
+export interface RegistryProblem {
+  readonly id: string;
+  readonly problem: string;
+}
+
+/**
+ * The registry check (P3-U9): every registry ID resolves to a tool live on
+ * its server or carries a deferral; a deferred ID is not already live; every
+ * live tool is in the registry; and every tool a skill declares is in the
+ * registry and live or deferred. Returns every problem; empty means it passes.
+ */
+export function checkToolRegistry(o: {
+  readonly registry: readonly ToolEntry[];
+  readonly deferrals: Readonly<Partial<Record<string, ToolDeferral>>>;
+  /** The MCP tool names each server registers, as tools/list reports them. */
+  readonly live: Readonly<Record<ToolServer, readonly string[]>>;
+  readonly declared?: readonly { readonly skill: string; readonly tools: readonly string[] }[];
+}): RegistryProblem[] {
+  const problems: RegistryProblem[] = [];
+  const ids = new Set(o.registry.map((t) => t.id));
+  const isLive = (id: string) => {
+    const p = parseToolId(id);
+    return p !== undefined && o.live[p.server].includes(p.tool);
+  };
+  for (const t of o.registry) {
+    const parsed = parseToolId(t.id);
+    if (!parsed || parsed.server !== t.server) {
+      problems.push({ id: t.id, problem: "is not a well-formed ID for its server" });
+      continue;
+    }
+    const deferral = o.deferrals[t.id];
+    if (isLive(t.id) && deferral)
+      problems.push({
+        id: t.id,
+        problem: `is live on ${t.server} but still marked deferred to ${deferral.unit}`,
+      });
+    if (!isLive(t.id) && !deferral)
+      problems.push({
+        id: t.id,
+        problem: `has no tool on the ${t.server} server and no deferral naming its unit`,
+      });
+  }
+  for (const id of Object.keys(o.deferrals))
+    if (!ids.has(id)) problems.push({ id, problem: "is deferred but not in the registry" });
+  for (const server of TOOL_SERVERS)
+    for (const tool of o.live[server]) {
+      const id = `${server}.${tool}@1`;
+      if (!ids.has(id))
+        problems.push({ id, problem: `is live on ${server} but missing from the registry` });
+    }
+  for (const s of o.declared ?? [])
+    for (const id of s.tools) {
+      if (id.startsWith("intent.")) {
+        if (!(id in INTENT_REGISTRY))
+          problems.push({
+            id,
+            problem: `is declared by ${s.skill} but is not a registered intent`,
+          });
+        continue;
+      }
+      if (!ids.has(id))
+        problems.push({ id, problem: `is declared by ${s.skill} but is not in the registry` });
+    }
+  return problems;
+}
 
 /** Reserved, not yet usable: the pro tier's premium data set (P6-U5). */
 export const RESERVED_TOOL_PATTERNS = ["data.premium_*@1"] as const;

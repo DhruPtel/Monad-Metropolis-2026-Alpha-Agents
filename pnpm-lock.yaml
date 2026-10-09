@@ -519,6 +519,9 @@ importers:
       '@alpha-agents/signer':
         specifier: workspace:^
         version: link:../../packages/signer
+      '@alpha-agents/skills':
+        specifier: workspace:^
+        version: link:../../packages/skills
       '@alpha-agents/tool-server':
         specifier: workspace:^
         version: link:../../packages/tool-server

@@ -19,6 +19,7 @@
     "@alpha-agents/platform-tools": "workspace:^",
     "@alpha-agents/policy": "workspace:^",
     "@alpha-agents/signer": "workspace:^",
+    "@alpha-agents/skills": "workspace:^",
     "@alpha-agents/tool-server": "workspace:^",
     "@alpha-agents/trading": "workspace:^",
     "@hono/node-server": "2.1.3",

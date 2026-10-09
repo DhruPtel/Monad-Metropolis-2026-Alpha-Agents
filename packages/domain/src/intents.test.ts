@@ -14,8 +14,10 @@ import {
   RETIRED_TOOL_IDS,
   RebalanceIntentSchema,
   SwapIntentSchema,
+  TOOL_DEFERRALS,
   TOOL_IDS,
   TOOL_REGISTRY,
+  checkToolRegistry,
   isToolId,
   parseToolId,
   toExecutorSwap,
@@ -47,8 +49,8 @@ const rebalance = {
 };
 
 describe("tool registry (FINAL_PLAN 4.4.5)", () => {
-  it("lists 46 unique, well-formed tool IDs", () => {
-    expect(TOOL_IDS).toHaveLength(46);
+  it("lists 49 unique, well-formed tool IDs", () => {
+    expect(TOOL_IDS).toHaveLength(49);
     expect(new Set(TOOL_IDS).size).toBe(TOOL_IDS.length);
     for (const t of TOOL_REGISTRY) {
       const parsed = parseToolId(t.id);
@@ -58,9 +60,9 @@ describe("tool registry (FINAL_PLAN 4.4.5)", () => {
     }
   });
 
-  it("has 17 chain, 16 data and 13 platform tools", () => {
+  it("has 17 chain, 16 data and 16 platform tools", () => {
     const count = (s: string) => TOOL_REGISTRY.filter((t) => t.server === s).length;
-    expect([count("chain"), count("data"), count("platform")]).toEqual([17, 16, 13]);
+    expect([count("chain"), count("data"), count("platform")]).toEqual([17, 16, 16]);
   });
 
   it("maps every intent to a registered tool", () => {
@@ -201,5 +203,73 @@ describe("Executor swap intent", () => {
       tokenOut: plain,
     });
     expect(build().tokenIn).toBe(plain);
+  });
+});
+
+describe("the registry check (P3-U9)", () => {
+  const live = {
+    chain: ["get_portfolio", "read_contract"],
+    data: ["x_search"],
+    platform: ["complete_stage"],
+  } as const;
+  const registry = [
+    { id: "chain.get_portfolio@1", server: "chain", tier: "baseline", purpose: "" },
+    { id: "chain.read_contract@1", server: "chain", tier: "baseline", purpose: "" },
+    { id: "chain.whoami@1", server: "chain", tier: "baseline", purpose: "" },
+    { id: "data.x_search@1", server: "data", tier: "baseline", purpose: "" },
+    { id: "platform.complete_stage@1", server: "platform", tier: "baseline", purpose: "" },
+  ] as const;
+  const deferrals = { "chain.whoami@1": { unit: "W-2", reason: "later" } };
+
+  it("passes when every ID is live or deferred and every declared tool is registered", () => {
+    expect(
+      checkToolRegistry({
+        registry,
+        deferrals,
+        live,
+        declared: [
+          {
+            skill: "s",
+            tools: ["chain.read_contract@1", "chain.whoami@1", "intent.propose_swap@1"],
+          },
+        ],
+      }),
+    ).toEqual([]);
+  });
+
+  it("fails on an ID with no tool and no deferral, naming it", () => {
+    const problems = checkToolRegistry({
+      registry: [
+        ...registry,
+        { id: "data.new_source@1", server: "data", tier: "baseline", purpose: "" },
+      ],
+      deferrals,
+      live,
+    });
+    expect(problems).toEqual([
+      {
+        id: "data.new_source@1",
+        problem: "has no tool on the data server and no deferral naming its unit",
+      },
+    ]);
+  });
+
+  it("fails on a live tool missing from the registry, a stale deferral and an undeclared skill tool", () => {
+    const problems = checkToolRegistry({
+      registry,
+      deferrals: { ...deferrals, "chain.read_contract@1": { unit: "P3-U9", reason: "x" } },
+      live: { ...live, data: ["x_search", "rogue_tool"] },
+      declared: [{ skill: "s", tools: ["data.unknown@1", "intent.propose_anything@1"] }],
+    });
+    expect(problems.map((p) => p.id)).toEqual([
+      "chain.read_contract@1",
+      "data.rogue_tool@1",
+      "data.unknown@1",
+      "intent.propose_anything@1",
+    ]);
+  });
+
+  it("defers only registry IDs", () => {
+    for (const id of Object.keys(TOOL_DEFERRALS)) expect(TOOL_IDS).toContain(id);
   });
 });

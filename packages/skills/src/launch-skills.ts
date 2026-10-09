@@ -116,7 +116,8 @@ export const LAUNCH_SKILL_MANIFESTS: readonly unknown[] = [
   skill(
     "narrative-and-flow-tracker",
     "research",
-    ["data.x_search@1", "data.web_search@1", "data.unlocks@1"],
+    // `data.unlocks@1` is deferred for the beta and not declared (D-302).
+    ["data.x_search@1", "data.web_search@1"],
     [],
     1,
   ),

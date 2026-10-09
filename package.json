@@ -26,6 +26,7 @@
     "test:fork": "node scripts/test-fork.js",
     "test:testnet-fork": "node scripts/test-testnet-fork.js",
     "env:example": "node scripts/env-example.js",
+    "registry:check": "node services/orchestrator/src/tools/registry-report.ts",
     "secrets:scan": "node scripts/secrets-scan.js",
     "dev:web": "node scripts/web.js dev",
     "dev:indexer": "node services/indexer/src/main.ts",
