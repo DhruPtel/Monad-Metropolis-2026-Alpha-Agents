@@ -1,6 +1,6 @@
 # Final Plan
 
-*What we are building and how it fits together. Revision 3 (2026-10-09) redesigns the product as autonomous fund agents: section 0 holds it and supersedes the sections it names (D-332 to D-348). Revision 2. Revision 1 was consolidated from Planv1 and the planning conversation; revision 2 applies the owner decisions and fixes from the orientation session of 2026-09-27. The Phase 3 planning session of 2026-10-07 updated 1.5, 2.1, 4.3.2, 4.3.6, 4.3.7, 4.4.3 to 4.4.5, 4.10, 4.12 and 6.1 (D-277 to D-296).*
+*What we are building and how it fits together. Revision 3 (2026-10-09) redesigns the product as autonomous fund agents: section 0 holds it and supersedes the sections it names (D-332 to D-357). Every feature of the plan stays in the submission build (D-349). Revision 2. Revision 1 was consolidated from Planv1 and the planning conversation; revision 2 applies the owner decisions and fixes from the orientation session of 2026-09-27. The Phase 3 planning session of 2026-10-07 updated 1.5, 2.1, 4.3.2, 4.3.6, 4.3.7, 4.4.3 to 4.4.5, 4.10, 4.12 and 6.1 (D-277 to D-296).*
 
 This document is the single description of Alpha Agents, the launch product. Its companions are `BUILD_PLAN.md` (what to build, in what order) and `DECISIONS_AND_OPEN_QUESTIONS.md` (the record of every decision, conflict, open question and risk). The working notes that summarize each research run live in `notes/`.
 
@@ -12,7 +12,7 @@ Facts verified by the research runs through read-only RPC calls were verified on
 
 ## 0. Revision 3: autonomous fund agents
 
-*Planning session of 2026-10-09 (D-332 to D-348). This section supersedes, where they conflict, sections 1.4, 1.5 (the Assets, Venue, Strategies and Goal input rows), 2.1, 4.1.6 to 4.1.9, 4.1.13, 4.3.6, 4.3.7, 4.4.2, 4.5.4, 4.11 and 6.3. Those sections carry a pointer here. Everything not named stays as written: AgentNFT, token-bound accounts, credits and the funding address, the signer, the runtime, the gate, metering, the discovery loop engine of P3-U4, skills, the vault's exit rules, escrow and the trust model.*
+*Planning sessions of 2026-10-09 (D-332 to D-357). This section supersedes, where they conflict, sections 1.4, 1.5 (the Assets, Venue, Strategies and Goal input rows), 2.1 (items 3, 4 and 6, revised in 0.9), 4.1.6 to 4.1.9, 4.1.13, 4.3.6, 4.3.7, 4.4.2, 4.5.4, 4.11 and 6.3. Those sections carry a pointer here. Everything not named stays as written: AgentNFT, token-bound accounts, credits and the funding address, the signer, the runtime, the gate, metering, the discovery loop engine of P3-U4, skills, the vault's exit rules, escrow and the trust model.*
 
 ### 0.1 What changed and why
 
@@ -77,12 +77,12 @@ Every custody contract hardcodes the pair today (`USDC` and `WMON` immutables, a
 
 | Contract | Change |
 |---|---|
-| **TokenRegistry** (new, or folded into ProtocolRegistry) | One record per token: decimals, price class (F with its feed and staleness, or A), status (buyable, sell-only, frozen), the latest screen's hash and time, and a per-token cap. Two lanes (D-342): **core** tokens, added by the admin timelock, usable by every account including vaults; **screened** tokens, added by a screener role instantly, usable only by personal accounts whose owner opted in onchain, with the smaller caps of 0.2. Moving a token to sell-only or frozen is instant for the screener and the guardian; loosening it back waits the timelock |
+| **TokenRegistry** (new, or folded into ProtocolRegistry) | One record per token: decimals, price class (F with its feed and staleness, or A), status (buyable, sell-only, frozen), the latest screen's hash and time, and a per-token cap. Two lanes (D-342, approved by the owner in D-351): **core** tokens, added by the admin timelock, usable by every account including vaults; **screened** tokens, added by a screener role instantly, usable only by personal accounts whose owner opted in onchain, with the smaller caps of 0.2. Moving a token to sell-only or frozen is instant for the screener and the guardian; loosening it back waits the timelock |
 | **Custody core and PersonalAccount** | A held-asset list instead of two immutables, bounded at 16 tokens so `withdrawAll`, NAV and the empty check stay inside a block's gas; per-token decimals; the cost-basis ledger per token; `lastPriceE18[token]`; an owner-only `setScreenedOptIn(bool)` that decides whether the account may buy screened tokens. `withdraw(token, amount)` and `withdrawAll` iterate the held list and read no price; claimable credits already work per token. Backstops become: 12% per trade, 45% per class F asset by value, the class A caps by cost basis, 1% slippage against the reference |
 | **AccountFactory** | Asset and feed arrays instead of the pair in constructors; the buy list becomes the TokenRegistry; caps and the depositor allowlist unchanged. Deposits stay USDC (and core class F tokens), never screened tokens |
 | **OracleAdapter** | Per-asset feed records `{feed, decimals, maxAge, deviationPool}` for class F; an attestation verifier for class A (`verify(attestation) -> priceE18`, the attestor key timelocked like a feed); `priceE18(asset)` for each; one stale feed blocks trading in that asset only, never the others |
 | **Executor** | Generic `tokenIn` and `tokenOut` from the registry; each side valued by its own price; the oracle floor `amountIn x pxIn / pxOut`, decimals adjusted; post-trade concentration on every non-USDC asset touched; `minUsdcBps` becomes a stable floor (USDC and listed stablecoins); intents gain an optional `attestations[]` field (no calldata, still typed); policy gains `maxClassABps`, `maxClassAPositionBps` and a per-token cap read from the registry, which changes `policyHash`. One intent per transaction stays; a route may have up to 3 hops |
-| **Venue adapters and ProtocolRegistry** | Generic adapters instead of pair adapters: Uniswap v3 and PancakeSwap v3 `exactInput` with a path; Uniswap v4 multi-hop over hookless pool keys; Kuru later. Pools are registered per token pair with their code hash, by the same two lanes as tokens (screened pools by the screener, personal accounts only). An aggregator adapter (KyberSwap, the one aggregator confirmed to serve Monad with a contract-callable router and no key) is an open question (Q-63): it needs router calldata, which the Executor has never accepted |
+| **Venue adapters and ProtocolRegistry** | Generic adapters instead of pair adapters: Uniswap v3 and PancakeSwap v3 `exactInput` with a path; Uniswap v4 multi-hop over hookless pool keys; Kuru later. Pools are registered per token pair with their code hash, by the same two lanes as tokens (screened pools by the screener, personal accounts only). An aggregator adapter (KyberSwap, the one aggregator confirmed to serve Monad with a contract-callable router and no key) is not built for the submission (D-354): it needs router calldata, which the Executor has never accepted |
 | **StrategyVault** (not yet built) | Class F tokens only (D-338); otherwise as section 4.7 |
 
 **The shared policy fixture (D-343).** The TypeScript mirror and both parity fixtures move from `{usdc, wmon}` and one answer to `holdings: [{token, decimals, amount, costBasis}]`, `prices: [{token, class, answer | attestation, age}]` and `tokenIn`/`tokenOut` per case. New case families: class A trades with valid, expired and wrong-signer attestations; cost-basis caps at, under and one unit over; multi-hop routes; a sell-only token; a stale feed that blocks one asset and not another; the 16-token bound. Both forge decoders are rewritten, and every case is generated by an independent implementation of the rule (L-158).
@@ -107,7 +107,7 @@ Every custody contract hardcodes the pair today (`USDC` and `WMON` immutables, a
 
 Every level keeps the per-trade size limit (10%), the slippage limit (0.5% for class F, 1% for class A against the attestation), the trades-per-day and turnover limits, the breaker, and the safety check's refusals. The owner may tighten any of them, never loosen. "Yield" at launch means holding yield-bearing tokens bought by swap (liquid staking tokens), because lending and LP positions stay out (section 1.5).
 
-**Model choice (D-334)** becomes **Low, Medium or High**, mapped by the platform to models through LiteLLM aliases (`research-low`, `research-medium`, `research-high`; today Haiku 4.5, Sonnet 5.5 and Opus 5.5), with OpenRouter allowed as a provider behind LiteLLM only for models whose route keeps zero retention (D-105, Q-62).
+**Model choice (D-334)** becomes **Low, Medium or High**, mapped by the platform to models through LiteLLM aliases (`research-low`, `research-medium`, `research-high`: Low is Claude Haiku 4.5, Medium Claude Sonnet 5.5 and High Claude Opus 5.5, D-353), with OpenRouter allowed as a provider behind LiteLLM only for routes with zero data retention (D-105, D-353).
 
 **What changes in P3-U1:** the goal schema drops `template`, `riskPreset`, `allowedAssets: {wmon}` and the WMON share limits, and gains `aggressiveness`, `modelTier`, the opt-in to screened tokens and a list of excluded tokens; the translator emits the brief (a fixed template filled from the fields, still no free text), the envelope, the effective limits and the policy hash, and the goal block in SOUL.md carries the brief. The strategy epoch, the Goal page's structure, the research intensity, the daily budget, the credit reserve and the plan-change setting stay.
 
@@ -138,7 +138,11 @@ The P3-U4 engine stays; what the stages do changes (D-347).
 
 ### 0.9 The hackathon submission
 
-What the beta shows changes with the product (D-348). See `BUILD_PLAN.md > 4.0` for the revised unit list, the submission scope options and what must be redeployed. The definition of done in 2.1 is replaced, for the submission, by: connect and mint (item 1), fund credits (item 2), set an aggressiveness goal (item 3, revised), turn on automatic trading and watch the activation sweep research the market, screen tokens and build a target portfolio, approve it and watch the runner trade toward it within the hard limits (item 4, revised), and read the agent's profile and positions with each position's thesis and "why the agent did not trade" (item 6). Items 5 (the configure page with an equipped skill), 7 (a vault deposit and withdrawal), 8 (an x402 purchase) and 9 (a creator's skill through the marketplace) leave the submission and follow it in the completion pass, unless the owner chooses otherwise (Q-61).
+Every feature of the plan stays in the submission build (D-349): skills as NFTs, the audit pipeline, equipping on the 3D configure page with skill part models, the creator portal and upload flow, the marketplace with its item escrow, vaults, the profile page, the Gallery, the signal feed and x402. No feature is removed because of a time estimate; the owner decides any pullback closer to the deadline. The build order puts the most important parts first: autonomous trading, then vaults, then the profile, the Gallery, signals and x402, then skills and the marketplace, then the real-chain rerun, the beta gates and the beta (`BUILD_PLAN.md > 4.0`). Everything is built as if every feature ships.
+
+The definition of done in 2.1 keeps all nine items, with three revised for the fund agent (D-357): item 3, set a goal, is the aggressiveness goal of 0.6; item 4 becomes turn on automatic trading, watch the activation sweep research the market, screen tokens and build a target portfolio, approve it (which arms the agent) and watch the runner trade toward it within the hard limits, including at least one class A token if the attestor (F-U12) has passed; item 6, the profile, shows positions with each thesis and exit plan beside the activity feed and "why the agent did not trade". Item 5's skill is a fund-agent skill (for example the token risk screen or portfolio construction) that appears as a part on the 3D model and changes what the next cycle does; item 7's vault holds class F tokens only (D-338, D-355); items 8 and 9 are unchanged, and a creator's skill may declare the new research and token tools.
+
+The owner's fallback without the marketplace and the creator flow is recorded in `BUILD_PLAN.md > 4.0` (D-357); it is not the plan.
 
 ---
 
@@ -160,7 +164,7 @@ Good onchain strategies are opaque and hard to operate; people who know how to b
 
 ### 1.4 Assessment
 
-*Revision 3: superseded where it conflicts by section 0.1 (fund agents, D-332 to D-348).*
+*Revision 3: superseded where it conflicts by section 0.1 (fund agents, D-332 to D-357).*
 
 Agreed during planning (`planning answer`): launch is sold on control, ownership and the build experience, not on returns. The reasons, and what follows from them:
 
@@ -173,7 +177,7 @@ Agreed during planning (`planning answer`): launch is sold on control, ownership
 
 ### 1.5 Launch scope on one page
 
-*Revision 3: superseded where it conflicts by sections 0.1 and 0.6 (fund agents, D-332 to D-348).*
+*Revision 3: superseded where it conflicts by sections 0.1 and 0.6 (fund agents, D-332 to D-357).*
 
 | Area | In at launch | Out at launch (see BUILD_PLAN section 6 for triggers) |
 |---|---|---|
@@ -201,7 +205,7 @@ Done comes in two stages (owner decision, orientation). The hackathon beta is wh
 
 ### 2.1 Hackathon beta
 
-*Revision 3: superseded where it conflicts by section 0.9 (fund agents, D-332 to D-348).*
+*Revision 3: superseded where it conflicts by section 0.9 (fund agents, D-332 to D-357).*
 
 Deployed on Monad mainnet as a guarded beta: allowlisted wallets only, small platform-wide and per-account deposit caps, and a clear "unaudited beta" label throughout the product. External audits and the legal gate are not required for this stage, because access is limited to allowlisted testers with capped funds. Testnet is used for anything not ready for mainnet, clearly labeled on screen and in the evidence bundle. The beta is done when an allowlisted tester can do all of the following, and the founders have done each once on mainnet or on labeled testnet:
 
@@ -250,7 +254,7 @@ Rules for the submission material (`preview.html > Revised build manual > 14`): 
 
 ### 2.4 Gates
 
-*Revision 3: which Pass 2 items still gate the beta for the fund agent is Q-65; the v3 contracts need their own testnet run and canary first (`BUILD_PLAN.md > 4.0`, F-U13).*
+*Revision 3: the beta is gated on KMS for every platform key, the Safe multisig as admin, the wallet compatibility test and the skill marker leak test (D-356, unit W-1); the other deferred checks follow after it. The v3 contracts need their own testnet run and canary first (`BUILD_PLAN.md > 4.0`, F-U13).*
 
 - **Before the hackathon beta (PB-U1):** P2-EC has deployed to testnet and run the throwaway mainnet canary, and every difference it found between the fork and the real chains is fixed or recorded (D-247); every spike that gates a beta unit in `BUILD_PLAN.md` section 5 has passed; the deployment state-assertion script passes on mainnet; the capped canary trades and exits; the allowlists, caps and beta label are on; M-13 holds on the deployed vault code. No external review is required (owner decision, orientation).
 - **Before public money without allowlists:** every spike marked "gates mainnet" in `BUILD_PLAN.md` section 5 has passed; the deployment state-assertion script passes; external reviews of the custody core, Executor and escrow are complete with no unresolved critical finding (`conversation decision`, `notes/managed-vaults.md > 4`).
@@ -466,7 +470,7 @@ Monad documents a 128 KB contract code size limit and a 256 KB init code limit, 
 
 #### 4.1.6 Custody core: PersonalAccount and StrategyVault
 
-*Revision 3: superseded where it conflicts by section 0.4 (fund agents, D-332 to D-348).*
+*Revision 3: superseded where it conflicts by section 0.4 (fund agents, D-332 to D-357).*
 
 **Purpose.** The only contracts that hold user capital. One small, non-upgradeable custody core in two modes: single-owner mode (PersonalAccount) and public-vault mode (StrategyVault). The agent trades from both through the Executor and can never withdraw from either.
 
@@ -493,7 +497,7 @@ PersonalAccount specifics: one clone per `(agentId, owner)`, deployed by Account
 
 #### 4.1.7 Executor
 
-*Revision 3: superseded where it conflicts by section 0.4 (fund agents, D-332 to D-348).*
+*Revision 3: superseded where it conflicts by section 0.4 (fund agents, D-332 to D-357).*
 
 **Purpose.** The one path by which an agent moves money. It accepts typed intents from an authorized session key, enforces every hard limit, performs the swap with exact approvals, and re-checks the result. It never custodies funds beyond the duration of one transaction and never accepts calldata, targets, selectors, operations or value.
 
@@ -511,7 +515,7 @@ PersonalAccount specifics: one clone per `(agentId, owner)`, deployed by Account
 
 #### 4.1.8 ProtocolRegistry and venue adapters
 
-*Revision 3: superseded where it conflicts by section 0.4 (fund agents, D-332 to D-348).*
+*Revision 3: superseded where it conflicts by section 0.4 (fund agents, D-332 to D-357).*
 
 **Purpose.** The deny-by-default allowlist of where the Executor may trade, and the small contracts that translate a typed intent into one venue call.
 
@@ -529,7 +533,7 @@ PersonalAccount specifics: one clone per `(agentId, owner)`, deployed by Account
 
 #### 4.1.9 Oracle adapter
 
-*Revision 3: superseded where it conflicts by sections 0.2 and 0.4 (fund agents, D-332 to D-348).*
+*Revision 3: superseded where it conflicts by sections 0.2 and 0.4 (fund agents, D-332 to D-357).*
 
 **Purpose.** One wrapper per feed that enforces staleness and decimals once and is reused by the Executor, vault deposits, vault USDC exits and the circuit breaker, plus the pool-price deviation check.
 
@@ -595,7 +599,7 @@ PersonalAccount specifics: one clone per `(agentId, owner)`, deployed by Account
 
 #### 4.1.13 AccountFactory, caps and allowlists
 
-*Revision 3: superseded where it conflicts by section 0.4 (fund agents, D-332 to D-348).*
+*Revision 3: superseded where it conflicts by section 0.4 (fund agents, D-332 to D-357).*
 
 **Purpose.** Deploy one PersonalAccount clone per `(agentId, owner)` and one StrategyVault per agent deterministically, bind `agentId` immutably, and hold every cap and allowlist that the beta guard and the launch gates need.
 
@@ -743,7 +747,7 @@ Configuration facts that must hold (`notes/hermes.md > 2` and `> 3.3`, amended b
 
 #### 4.3.6 Narrator and goal translator
 
-*Revision 3: superseded where it conflicts by section 0.6 (fund agents, D-332 to D-348).*
+*Revision 3: superseded where it conflicts by section 0.6 (fund agents, D-332 to D-357).*
 
 **Purpose.** The only two places where natural language touches the owner: the goal translator turns structured form input into agent configuration, and the narrator turns actions and outcomes into readable entries.
 
@@ -761,7 +765,7 @@ Configuration facts that must hold (`notes/hermes.md > 2` and `> 3.3`, amended b
 
 #### 4.3.7 Discovery loop and Thesis Board
 
-*Revision 3: superseded where it conflicts by section 0.7 (fund agents, D-332 to D-348).*
+*Revision 3: superseded where it conflicts by section 0.7 (fund agents, D-332 to D-357).*
 
 **Purpose.** The research process, modeled on a careful human analyst: scan wide, dig deep, be skeptical, test small, step back.
 
@@ -828,7 +832,7 @@ Three MCP servers built with the MCP TypeScript SDK, viem and zod, running platf
 
 #### 4.4.2 Chain tools server
 
-*Revision 3: superseded where it conflicts by sections 0.4 and 0.7 (fund agents, D-332 to D-348).*
+*Revision 3: superseded where it conflicts by sections 0.4 and 0.7 (fund agents, D-332 to D-357).*
 
 **Purpose.** Everything the agent needs to see its accounts and propose trades, with the Executor as the final authority.
 
@@ -986,7 +990,7 @@ Hermes compatibility: the build step generates frontmatter with `name` (equals t
 
 #### 4.5.4 The nine launch skills
 
-*Revision 3: superseded where it conflicts by section 0.7 (fund agents, D-332 to D-348).*
+*Revision 3: superseded where it conflicts by section 0.7 (fund agents, D-332 to D-357).*
 
 From the research's starter set with lending and LP skills removed and scheduling moved to workflows (`conversation decision`, `planning answer`, `02-platform-mapping.md > 2.7`). All nine are platform-published at launch.
 
@@ -1037,7 +1041,7 @@ Private means private from owners and other users, not from the platform or the 
 | Risk Sentinel (a service, P4-U2, not a workflow NFT) | Continuous, deterministic, separately budgeted, no LLM | Watch price freshness, drawdown from the 7-day peak, pending exposure, signer and chain health, gas and credits; set `REDUCE_ONLY`, `PAUSED` or deposits-closed on the account through its own sentinel key, which can only tighten; set the agent state `RESTRICTED` or `INCIDENT` with the breach reason; never unpause, loosen, move funds, touch an exit or choose a new destination | `auto`, owner notified | `PHASES.md > Phase 4`, `preview.html > Revised technical plan > 7`, owner decision, orientation (D-138) |
 | Parameter change review | An accepted `propose_strategy_update` | Validate bounds; approval per mode; `recordParams` in BuildRegistry (config epoch bump) | `require_approval` by default; owner may set `notify` | `planning answer` |
 
-A guardrail rule rather than a workflow: `token-risk-screen` output is required before any swap into a non-core asset; at launch, with USDC and WMON only, it never fires but the rule exists in policy (`notes/bankr-skills.md > 7`). Deferred workflows: goal planner with buckets, idle cash sweep, debt guardian, debt refinancer, tax lot tracker automation, monthly CFO report as a workflow (reports are narrator-generated at launch), LP range manager (`technical-report.html > 14`, `conversation decision`).
+A guardrail rule rather than a workflow: `token-risk-screen` output is required before any swap into a non-core asset; the rule exists in policy (`notes/bankr-skills.md > 7`); with the fund agent it fires before every buy of a token outside the core lane, and the platform's mandatory safety check of 0.3 runs before every buy whatever the skill (revision 3). Deferred workflows: goal planner with buckets, idle cash sweep, debt guardian, debt refinancer, tax lot tracker automation, monthly CFO report as a workflow (reports are narrator-generated at launch), LP range manager (`technical-report.html > 14`, `conversation decision`).
 
 #### 4.6.3 Approvals
 
@@ -1081,7 +1085,7 @@ Timelocked changes (all wait `RISK_TIMELOCK` unless stated): Executor replacemen
 
 #### 4.7.3 Valuation, spread and the reference band
 
-*Revision 3: superseded where it conflicts by section 0.2 (vaults hold class F tokens only, D-338) (fund agents, D-332 to D-348).*
+*Revision 3: superseded where it conflicts by section 0.2 (vaults hold class F tokens only, D-338) (fund agents, D-332 to D-357).*
 
 - NAV is computed once per transaction from Chainlink feeds through the oracle adapter: `USDC balance + sum over held allowlisted tokens of balance × price`, with USDC treated as 1 under a depeg guard. The value is cached in transient storage for the transaction. Every priced path fails closed on a failed read; nothing counts as zero (`conversation decision`, `notes/managed-vaults.md > 4`).
 - Directional pricing: deposits price at `NAV_buy = NAV × (1 + s)`, USDC exits at `NAV_sell = NAV × (1 − s)`, with `s` per asset, at least the feed's deviation threshold, sized from the measured heartbeat and the lag-arbitrage spike; the spread stays in the vault. The research's 0.25% example is not adopted as a value (`conversation decision`, `notes/morpho-vault.md > 4`).
@@ -1235,7 +1239,7 @@ Custom skills are core, not an add-on: at the hackathon beta the marketplace alr
 
 ### 4.11 Solana: what changes, what is shared
 
-*Revision 3: superseded where it conflicts by section 0.8 (fund agents, D-332 to D-348).*
+*Revision 3: superseded where it conflicts by section 0.8 (fund agents, D-332 to D-357).*
 
 Same depth as Monad, built after the Monad chain layer, on a separate branch sharing the chain-agnostic core, with its own conformance suite and launch approval (`conversation decision`, `preview.html > Revised build manual > 11`).
 
@@ -1557,7 +1561,7 @@ The narrator filter removes literal skill text and canary strings before anythin
 
 ### 6.3 Hard limits mapped to enforcing components
 
-*Revision 3: superseded where it conflicts by sections 0.2 and 0.3 (fund agents, D-332 to D-348).*
+*Revision 3: superseded where it conflicts by sections 0.2 and 0.3 (fund agents, D-332 to D-357).*
 
 | Limit (`conversation decision` unless stated) | Executor | Custody core | Chain tools and policy | Risk sentinel | Oracle adapter | UI |
 |---|---|---|---|---|---|---|
