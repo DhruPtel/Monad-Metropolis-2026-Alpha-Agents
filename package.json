@@ -16,6 +16,7 @@
     "typecheck": "tsc --noEmit && pnpm -r typecheck",
     "test": "vitest run",
     "doctor": "node scripts/doctor.js",
+    "dune:sync": "node packages/market/src/dune-sync.ts",
     "dev:up": "node scripts/dev.js up",
     "dev:status": "node scripts/dev.js status",
     "dev:down": "node scripts/dev.js down",
