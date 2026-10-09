@@ -45,6 +45,8 @@ export interface CycleContext extends TaskContext {
   readonly narrator: Narrator | null;
   /** How long to wait for metering to settle a stage's model calls (tests shorten it). */
   readonly settleMs?: number;
+  /** A stage's deadline; its caps' seconds unless a test shortens it. */
+  readonly deadlineMs?: (run: StageRun) => number;
   readonly now?: () => Date;
 }
 
@@ -424,7 +426,7 @@ class Engine {
    * deadline, or credits running out stop it, with that reason.
    */
   private async watch(run: StageRun, runId: string): Promise<StageEnd> {
-    const deadline = Date.now() + run.caps.seconds * 1_000;
+    const deadline = Date.now() + (this.ctx.deadlineMs?.(run) ?? run.caps.seconds * 1_000);
     const capOf = (e: GateLogEntry) =>
       e.stageRunId === run.stageRunId &&
       (e.reason === "TURN_CAP" || e.reason === "TOKEN_CAP" || e.reason === "CEILING")
