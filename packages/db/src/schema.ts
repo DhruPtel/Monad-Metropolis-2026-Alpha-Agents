@@ -660,6 +660,78 @@ export interface RunnerDecisionTable {
   ticks: ColumnType<number, number | undefined, number>;
 }
 
+/** F-U1: a token in the platform's registry, keyed by chain and lowercase address. */
+export interface TokenTable {
+  chain_id: number;
+  address: string;
+  symbol: string;
+  name: string;
+  decimals: number;
+  price_class: "F" | "A";
+  feed: ColumnType<Record<string, unknown> | null, string | null, string | null>;
+  listings: ColumnType<Record<string, unknown>, string | undefined, string>;
+  liquidity_usd: ColumnType<number, number | undefined, number>;
+  volume_24h_usd: ColumnType<number, number | undefined, number>;
+  deepest_pool: string | null;
+  oldest_pool_at: ColumnType<Date | null, Date | string | null, Date | string | null>;
+  latest_screen_id: string | null;
+  screen_verdict: "passed" | "refused" | null;
+  screened_at: ColumnType<Date | null, Date | string | null, Date | string | null>;
+  screen_expires_at: ColumnType<Date | null, Date | string | null, Date | string | null>;
+  registry_lane: "core" | "screened" | null;
+  registry_status: "listed" | "sell_only" | "delisted" | null;
+  first_seen_at: Timestamp;
+  last_seen_at: Timestamp;
+}
+
+/** F-U1: a pool seen on Uniswap v3, Uniswap v4 or PancakeSwap v3. */
+export interface TokenPoolTable {
+  chain_id: number;
+  pool_id: string;
+  dex: "uniswap_v3" | "uniswap_v4" | "pancakeswap_v3";
+  token0: string;
+  token1: string;
+  fee: number | null;
+  tick_spacing: number | null;
+  hooks: string | null;
+  routable: boolean;
+  route_note: string;
+  liquidity_usd: number;
+  volume_24h_usd: number;
+  pool_created_at: ColumnType<Date | null, Date | string | null, Date | string | null>;
+  first_seen_at: Timestamp;
+  last_seen_at: Timestamp;
+}
+
+/** F-U1: one screen of a token, kept as history. */
+export interface TokenScreenTable {
+  screen_id: string;
+  chain_id: number;
+  address: string;
+  verdict: "passed" | "refused";
+  checks: ColumnType<unknown[], string, string>;
+  route: ColumnType<Record<string, unknown> | null, string | null, string | null>;
+  fork_block: number | null;
+  requested_by: string;
+  duration_ms: number;
+  created_at: Timestamp;
+  expires_at: ColumnType<Date, Date | string, Date | string>;
+}
+
+/** F-U1: one discovery pass. */
+export interface TokenDiscoveryRunTable {
+  run_id: string;
+  chain_id: number;
+  status: "running" | "completed" | "failed";
+  pools_seen: ColumnType<number, number | undefined, number>;
+  tokens_seen: ColumnType<number, number | undefined, number>;
+  new_pools: ColumnType<number, number | undefined, number>;
+  sources: ColumnType<Record<string, unknown>, string | undefined, string>;
+  error: string | null;
+  started_at: Timestamp;
+  finished_at: ColumnType<Date | null, Date | string | null | undefined, Date | string | null>;
+}
+
 export interface Database {
   "indexer.watermarks": WatermarkTable;
   "indexer.indexed_blocks": IndexedBlockTable;
@@ -698,4 +770,8 @@ export interface Database {
   "platform.model_calls": ModelCallTable;
   "platform.research_briefs": ResearchBriefTable;
   "platform.tool_results": ToolResultTable;
+  "platform.tokens": TokenTable;
+  "platform.token_pools": TokenPoolTable;
+  "platform.token_screens": TokenScreenTable;
+  "platform.token_discovery_runs": TokenDiscoveryRunTable;
 }
