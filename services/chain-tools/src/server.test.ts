@@ -1,4 +1,4 @@
-import { MarketData } from "@alpha-agents/market";
+import { MarketData, type MainnetLookup, ResearchSources } from "@alpha-agents/market";
 import { FIXTURE_NOW_MS, fakeMainnet, fixtureFetch } from "@alpha-agents/market/testing";
 import { afterEach, describe, expect, it } from "vitest";
 import { FORBIDDEN_INTENT_FIELDS, REJECTION_CODES } from "@alpha-agents/domain";
@@ -134,7 +134,7 @@ async function start(over: Partial<ChainToolsOptions> = {}) {
 }
 
 describe("chain tools server (P2-U5)", () => {
-  it("lists the seven tools with output schemas, no identity fields, and every tool is in the registry", async () => {
+  it("lists its tools with output schemas, no identity fields, and every tool is in the registry", async () => {
     const { alice } = await start();
     const { tools } = await alice.listTools();
     expect(tools.map((t) => t.name).sort()).toEqual([...CHAIN_TOOLS].sort());
@@ -535,5 +535,127 @@ describe("chain tools server (P2-U5)", () => {
       code: "UPSTREAM_UNAVAILABLE",
       retryable: false,
     });
+  });
+});
+
+describe("contract lookups on mainnet (P3-U9)", () => {
+  const TARGET = "0x754704bc059f8c67012fed69bc8a327a5aafb603";
+  const asOf = { block: "111700000", timestamp: "2026-10-08T22:50:00.000Z" };
+  const fakeLookup = (): MainnetLookup & { reads: number } => {
+    const l = {
+      reads: 0,
+      async read(fn: Parameters<MainnetLookup["read"]>[0], target: Hex) {
+        l.reads += 1;
+        return {
+          function: fn,
+          target: target.toLowerCase(),
+          outputs:
+            fn === "erc20_symbol"
+              ? { value: { type: "string" as const, length: 4, keccak256: `0x${"ab".repeat(32)}` } }
+              : { value: { type: "uint" as const, value: "6" } },
+          asOf,
+        };
+      },
+      async balance(target: Hex, asset: "USDC" | "WMON" | "NATIVE") {
+        return { target, asset, amount: "1.5", amountRaw: "1500000", decimals: 6, asOf };
+      },
+      async code(target: Hex) {
+        return {
+          target,
+          hasCode: false,
+          sizeBytes: 0,
+          codeHash: null,
+          proxy: { pattern: "none" as const, implementation: null },
+          note: "No code at this address on Monad mainnet: it is an account with no contract, or nothing is deployed there.",
+          asOf,
+        };
+      },
+    };
+    return l;
+  };
+  const research = (lookup: MainnetLookup | null) =>
+    new ResearchSources({
+      market: new MarketData({ cmcApiKey: null, mainnet: null }),
+      xBearerToken: null,
+      duneApiKey: null,
+      lookup,
+    });
+
+  it("read_contract returns typed values, a string only as its length and hash, free and logged", async () => {
+    const lookup = fakeLookup();
+    const { call, log } = await start({ research: research(lookup) });
+    const sym = await call("read_contract", { target: TARGET, function: "erc20_symbol" });
+    expect(sym.error).toBe(false);
+    expect(sym.out).toMatchObject({
+      chain: "monad-mainnet",
+      function: "erc20_symbol",
+      outputs: { value: { type: "string", length: 4 } },
+      asOf,
+      cacheHit: false,
+    });
+    expect(JSON.stringify(sym.out)).not.toMatch(/"value":"[A-Za-z]/);
+    // A second identical read within the cache's 15 seconds is served from it.
+    const again = await call("read_contract", { target: TARGET, function: "erc20_symbol" });
+    expect(again.out).toMatchObject({ cacheHit: true });
+    expect(lookup.reads).toBe(1);
+    expect(log.calls.map((c) => [c.tool, c.status, c.cacheHit])).toEqual([
+      ["read_contract", "succeeded", false],
+      ["read_contract", "succeeded", true],
+    ]);
+  });
+
+  it("refuses a function outside the curated set, a missing or extra argument, and calldata", async () => {
+    const lookup = fakeLookup();
+    const { call } = await start({ research: research(lookup) });
+    for (const args of [
+      { target: TARGET, function: "transfer" },
+      { target: TARGET, function: "erc20_balance_of" },
+      { target: TARGET, function: "erc20_decimals", holder: TARGET },
+      { target: TARGET, function: "erc20_decimals", data: "0xa9059cbb" },
+      { target: "not-an-address", function: "erc20_decimals" },
+    ])
+      expect((await call("read_contract", args)).error, JSON.stringify(args)).toBe(true);
+    expect(lookup.reads).toBe(0);
+  });
+
+  it("balance and get_code answer typed, and an address with no code says so", async () => {
+    const { call } = await start({ research: research(fakeLookup()) });
+    expect((await call("balance", { target: TARGET, asset: "USDC" })).out).toMatchObject({
+      amount: "1.5",
+      amountRaw: "1500000",
+      decimals: 6,
+    });
+    const code = await call("get_code", { target: TARGET });
+    expect(code.out).toMatchObject({ hasCode: false, sizeBytes: 0, codeHash: null });
+    expect(String(code.out.note)).toMatch(/No code/);
+    expect((await call("balance", { target: TARGET, asset: "ETH" })).error).toBe(true);
+  });
+
+  it("says plainly when mainnet reads are not configured", async () => {
+    const { call } = await start({ research: research(null) });
+    const r = await call("get_code", { target: TARGET });
+    expect(r.error).toBe(true);
+    expect(r.out).toMatchObject({ code: "UPSTREAM_UNAVAILABLE", retryable: false });
+    expect(String(r.out.message)).toMatch(/not configured/);
+  });
+
+  it("no lookup tool can send: the inputs name no calldata, value or recipient", () => {
+    for (const name of ["read_contract", "balance", "get_code"] as const) {
+      const keys = Object.keys(
+        (CHAIN_TOOL_INPUTS[name] as unknown as { shape: Record<string, unknown> }).shape,
+      );
+      expect(keys.length).toBeGreaterThan(0);
+      // `target` names what is read (FINAL_PLAN 4.4.1); nothing names what would be sent.
+      for (const k of [
+        "value",
+        "data",
+        "calldata",
+        "to",
+        "from",
+        "recipient",
+        "serializedTransaction",
+      ])
+        expect(keys).not.toContain(k);
+    }
   });
 });

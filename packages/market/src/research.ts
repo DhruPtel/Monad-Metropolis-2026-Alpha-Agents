@@ -1,6 +1,7 @@
 import type { Address } from "viem";
 import type { Cached } from "./cache.ts";
 import {
+  DUNE_QUERY_NAMES,
   DUNE_DAILY_EXECUTION_BUDGET,
   DUNE_DAILY_READ_BUDGET,
   type DuneDays,
@@ -25,6 +26,8 @@ import { MarketError, TokenBucket } from "./upstream.ts";
 import { DailyBudget } from "./usage.ts";
 import {
   X_DAILY_POST_BUDGET,
+  X_TOPIC_IDS,
+  X_WINDOWS,
   type XSearchResult,
   type XTopic,
   type XWindow,
@@ -164,6 +167,26 @@ export class ResearchSources {
 
   code(target: Address): Promise<Cached<CodeResult>> {
     return this.lookups().code(target);
+  }
+
+  /**
+   * What the shared cache holds now, for the console: each live X search with
+   * its posts and each Dune result, with when it expires. Nothing is fetched,
+   * and an expired entry is gone (X posts are never kept past their time to live).
+   */
+  cachedView() {
+    const c = this.o.market.cache;
+    const x = X_TOPIC_IDS.flatMap((topic) =>
+      X_WINDOWS.flatMap((w) => {
+        const e = c.peek<XSearchResult>(xCacheKey(topic, w));
+        return e ? [{ ...e.value, expiresAt: new Date(e.expiresAt).toISOString() }] : [];
+      }),
+    );
+    const dune = DUNE_QUERY_NAMES.flatMap((name) => {
+      const e = c.peek<DuneResult>(duneCacheKey(name));
+      return e ? [{ ...e.value, expiresAt: new Date(e.expiresAt).toISOString() }] : [];
+    });
+    return { x, dune };
   }
 
   /** Today's use of each paid source, for the console. */

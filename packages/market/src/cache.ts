@@ -83,6 +83,13 @@ export class MarketCache {
     return e !== undefined && e.expiresAt > this.now();
   }
 
+  /** The cached answer for a key while it is fresh, without asking upstream; for the console. */
+  peek<T>(key: string): { value: T; fetchedAt: number; expiresAt: number } | null {
+    const e = this.entries.get(key);
+    if (!e || e.expiresAt <= this.now()) return null;
+    return { value: e.value as T, fetchedAt: e.fetchedAt, expiresAt: e.expiresAt };
+  }
+
   /** When each cached key was last fetched, for the console's freshness view. */
   freshness(): { key: string; fetchedAt: number; expiresAt: number }[] {
     return [...this.entries].map(([key, e]) => ({

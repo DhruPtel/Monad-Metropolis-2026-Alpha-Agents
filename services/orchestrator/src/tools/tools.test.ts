@@ -6,8 +6,14 @@ import {
   type WebProvider,
 } from "@alpha-agents/data-tools";
 import { connectClient, structured } from "@alpha-agents/tool-server/testing";
-import { MarketData } from "@alpha-agents/market";
-import { FIXTURE_NOW_MS, fakeMainnet, fixtureFetch } from "@alpha-agents/market/testing";
+import { MarketData, MemoryUsageStore, ResearchSources } from "@alpha-agents/market";
+import {
+  FIXTURE_NOW_MS,
+  fakeMainnet,
+  fixtureFetch,
+  researchFetch,
+  testDuneIds,
+} from "@alpha-agents/market/testing";
 import { DEFAULT_GOAL_INPUT } from "@alpha-agents/domain";
 import { translateGoal } from "@alpha-agents/policy";
 import { GoalStore } from "@alpha-agents/trading";
@@ -131,12 +137,27 @@ describe.skipIf(!dbUp)("tool servers behind the gate (needs Postgres)", { timeou
       environment: "fork",
       provider: web,
       lookup: async () => ["93.184.215.14"],
+      probe: async () => new Response("", { status: 200 }),
       market: new MarketData({
         cmcApiKey: "test-key-not-real",
         mainnet: fakeMainnet(),
         fetch: fixtureFetch().fetch,
         sleep: () => Promise.resolve(),
         now: () => FIXTURE_NOW_MS,
+      }),
+      research: new ResearchSources({
+        market: new MarketData({
+          cmcApiKey: null,
+          mainnet: null,
+          fetch: researchFetch().fetch,
+          sleep: () => Promise.resolve(),
+          now: () => FIXTURE_NOW_MS,
+          usage: new MemoryUsageStore(),
+        }),
+        xBearerToken: "x-token-not-real",
+        duneApiKey: "dune-key-not-real",
+        lookup: null,
+        duneIds: testDuneIds(),
       }),
       log,
     });
@@ -370,6 +391,61 @@ describe.skipIf(!dbUp)("tool servers behind the gate (needs Postgres)", { timeou
     }
     expect((await c.callTool({ name: "market_snapshot", arguments: {} })).isError).toBeFalsy();
     await c.close();
+  });
+
+  it("X search: two paid calls per run, cached answers free and outside the cap, one ledger row per paid call (P3-U9)", async () => {
+    const alice = await agentWith(1, 1_000_000n);
+    const bob = await agentWith(2, 1_000_000n);
+    const c = await viaGate("data", alice);
+    const search = (topic: string) => c.callTool({ name: "x_search", arguments: { topic } });
+    expect((await search("monad_news")).isError).toBeFalsy();
+    expect((await search("monad_defi")).isError).toBeFalsy();
+    const third = await search("mon_market");
+    expect(structured(third)).toMatchObject({ code: "RATE_LIMITED", retryable: false });
+    // A topic the cache holds is still free, past the cap.
+    expect((await search("monad_news")).isError).toBeFalsy();
+    await c.close();
+    // Another agent's lease has its own cap, and pays nothing for a cached topic.
+    const b = await viaGate("data", bob);
+    expect(
+      (await b.callTool({ name: "x_search", arguments: { topic: "monad_defi" } })).isError,
+    ).toBeFalsy();
+    await b.close();
+    const rows = await t.db
+      .selectFrom("platform.tool_calls")
+      .select(["agent_id", "status", "error_code", "charge_usdc_e6", "cache_hit"])
+      .where("tool", "=", "x_search")
+      .orderBy("started_at")
+      .execute();
+    expect(
+      rows.map((r) => [r.agent_id, r.status, r.error_code, String(r.charge_usdc_e6), r.cache_hit]),
+    ).toEqual([
+      [1, "succeeded", null, "62500", false],
+      [1, "succeeded", null, "62500", false],
+      [1, "refused", "TOOL_RUN_CAP", "0", false],
+      [1, "succeeded", null, "0", true],
+      [2, "succeeded", null, "0", true],
+    ]);
+    const entries = await t.db.selectFrom("platform.ledger_entries").select("source").execute();
+    expect(entries.filter((e) => JSON.stringify(e.source).includes("x_search"))).toHaveLength(2);
+    expect(await spendable(1)).toBe(1_000_000n - 2n * 62_500n);
+    expect(await spendable(2)).toBe(1_000_000n);
+  });
+
+  it("dune_query charges the token's agent and records the saved query it ran (P3-U9)", async () => {
+    await agentWith(1, 1_000_000n);
+    const bob = await agentWith(2, 1_000_000n);
+    const c = await viaGate("data", bob);
+    const r = await c.callTool({
+      name: "dune_query",
+      arguments: { query: "monad_active_addresses_daily", days: 14 },
+    });
+    expect(r.isError, JSON.stringify(structured(r))).toBeFalsy();
+    await c.close();
+    const [row] = await calls(2);
+    expect(row).toMatchObject({ tool: "dune_query", status: "succeeded", provider: "dune" });
+    expect(row?.summary).toMatchObject({ query: "monad_active_addresses_daily", days: 14 });
+    expect(await calls(1)).toEqual([]);
   });
 
   it("records complete_stage once per lease and thesis notes for the token's agent", async () => {

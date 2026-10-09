@@ -16,7 +16,7 @@ import {
   okResult,
   startToolServer,
 } from "@alpha-agents/tool-server";
-import { type MarketData, MarketError } from "@alpha-agents/market";
+import { type MarketData, MarketError, type ResearchSources } from "@alpha-agents/market";
 import type { Hex } from "viem";
 import {
   amountOf,
@@ -35,8 +35,14 @@ import type { AgentState, ChainReader, MarketState, Quote } from "./reader.ts";
 import {
   type Blocker,
   type ChainTool,
+  BalanceInput,
+  BalanceOutput,
   EmptyInput,
+  GetCodeInput,
+  GetCodeOutput,
   PoolDepthOutput,
+  ReadContractInput,
+  ReadContractOutput,
   IntentOutput,
   type IntentStatus,
   IntentStatusInput,
@@ -70,6 +76,8 @@ export interface ChainCallLog {
       readonly status: "succeeded" | "failed";
       readonly errorCode?: string;
       readonly summary?: Record<string, unknown>;
+      /** P3-U9: the shared cache answered (a mainnet lookup another agent had just made). */
+      readonly cacheHit?: boolean;
     },
   ): Promise<void>;
 }
@@ -137,6 +145,8 @@ export interface ChainToolsOptions {
   readonly port?: number;
   /** P3-U2: the platform's market data, for the pool's depth on mainnet; none answers "not configured". */
   readonly market?: MarketData | null;
+  /** P3-U9: research's mainnet lookups (read_contract, balance, get_code); none answers "not configured". */
+  readonly research?: ResearchSources | null;
 }
 
 export const INTENT_TTL_SECONDS = 1_800;
@@ -197,13 +207,21 @@ export function registerChainTools(
   const tool = async (
     name: ChainTool,
     input: Record<string, unknown>,
-    run: () => Promise<{ output: Record<string, unknown>; summary?: Record<string, unknown> }>,
+    run: () => Promise<{
+      output: Record<string, unknown>;
+      summary?: Record<string, unknown>;
+      cacheHit?: boolean;
+    }>,
   ): Promise<CallToolResult> => {
     let callId: string | null = null;
     try {
       callId = await o.log.begin(identity, name, input);
-      const { output, summary } = await run();
-      await o.log.finish(callId, { status: "succeeded", ...(summary ? { summary } : {}) });
+      const { output, summary, cacheHit } = await run();
+      await o.log.finish(callId, {
+        status: "succeeded",
+        ...(summary ? { summary } : {}),
+        ...(cacheHit === undefined ? {} : { cacheHit }),
+      });
       return okResult(output);
     } catch (err) {
       if (callId)
@@ -281,6 +299,111 @@ export function registerChainTools(
           ),
         );
         return { output: out, summary: { block: out.block, cacheHit: out.cacheHit } };
+      }),
+  );
+
+  // P3-U9: contract lookups on Monad mainnet for research (A-24), read-only and typed.
+  const research = async <T>(fn: (r: ResearchSources) => Promise<T>): Promise<T> => {
+    const r = o.research;
+    if (!r)
+      throw new ToolError(
+        "UPSTREAM_UNAVAILABLE",
+        "Monad mainnet reads are not configured on this platform.",
+        false,
+      );
+    try {
+      return await fn(r);
+    } catch (err) {
+      if (err instanceof MarketError) throw new ToolError(err.code, err.message, err.retryable);
+      throw err;
+    }
+  };
+  const LOOKUP_NOTE =
+    "Read on Monad mainnet for research. Integers are decimal strings in raw units; a string or bytes value is given only as its length and keccak256 hash.";
+
+  mcp.registerTool(
+    "read_contract",
+    {
+      description:
+        "Call one read-only function from a curated list on any contract on Monad mainnet (`target`): ERC-20 supply, decimals, balance, name and symbol (as hashes), owner, paused, EIP-1967 proxy slots, a Chainlink feed's latest round, or a Uniswap v4 pool's state through StateView. Returns typed values only; strings never come back as text. Free; limited per run.",
+      inputSchema: ReadContractInput,
+      outputSchema: ReadContractOutput,
+      annotations: { readOnlyHint: true },
+    },
+    async (input) =>
+      tool("read_contract", input, async () => {
+        const args: Record<string, string> = {};
+        if (input.holder) args.holder = input.holder;
+        if (input.poolId) args.poolId = input.poolId;
+        const res = await research((r) =>
+          r.readContract(input.function, input.target as Hex, args),
+        );
+        const out = ReadContractOutput.parse(
+          JSON.parse(
+            JSON.stringify({
+              chain: "monad-mainnet",
+              ...res.value,
+              cacheHit: res.cacheHit,
+              note: LOOKUP_NOTE,
+            }),
+          ),
+        );
+        return {
+          output: out,
+          summary: { function: out.function, target: out.target, block: out.asOf.block },
+          cacheHit: res.cacheHit,
+        };
+      }),
+  );
+
+  mcp.registerTool(
+    "balance",
+    {
+      description:
+        "The USDC, WMON or native MON balance of any address on Monad mainnet (`target`), as a decimal string with the raw amount. Free; limited per run.",
+      inputSchema: BalanceInput,
+      outputSchema: BalanceOutput,
+      annotations: { readOnlyHint: true },
+    },
+    async (input) =>
+      tool("balance", input, async () => {
+        const res = await research((r) => r.balance(input.target as Hex, input.asset));
+        const out = BalanceOutput.parse({
+          chain: "monad-mainnet",
+          ...res.value,
+          cacheHit: res.cacheHit,
+        });
+        return {
+          output: out,
+          summary: { target: out.target, asset: out.asset, block: out.asOf.block },
+          cacheHit: res.cacheHit,
+        };
+      }),
+  );
+
+  mcp.registerTool(
+    "get_code",
+    {
+      description:
+        "Whether an address on Monad mainnet (`target`) holds contract code: its size, its keccak256 hash, and the proxy pattern detected (EIP-1967, beacon, EIP-1167 minimal proxy, or an EIP-7702 delegation) with the implementation it points to. An address with no code says so. Free; limited per run.",
+      inputSchema: GetCodeInput,
+      outputSchema: GetCodeOutput,
+      annotations: { readOnlyHint: true },
+    },
+    async (input) =>
+      tool("get_code", input, async () => {
+        const res = await research((r) => r.code(input.target as Hex));
+        const out = GetCodeOutput.parse({
+          chain: "monad-mainnet",
+          ...res.value,
+          proxy: { ...res.value.proxy },
+          cacheHit: res.cacheHit,
+        });
+        return {
+          output: out,
+          summary: { target: out.target, hasCode: out.hasCode, proxy: out.proxy.pattern },
+          cacheHit: res.cacheHit,
+        };
       }),
   );
 
@@ -520,6 +643,7 @@ export class MemoryCallLog implements ChainCallLog {
     status: "running" | "succeeded" | "failed" | "refused";
     errorCode?: string;
     summary?: Record<string, unknown>;
+    cacheHit?: boolean;
   }[] = [];
   readonly limit: number;
 
@@ -557,6 +681,7 @@ export class MemoryCallLog implements ChainCallLog {
     c.status = outcome.status;
     if (outcome.errorCode) c.errorCode = outcome.errorCode;
     if (outcome.summary) c.summary = outcome.summary;
+    if (outcome.cacheHit !== undefined) c.cacheHit = outcome.cacheHit;
   }
 }
 

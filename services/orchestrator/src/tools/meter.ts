@@ -14,7 +14,9 @@ import type { Store } from "../store.ts";
  * concurrent calls can never spend the same credits. A call the upstream did
  * not answer is reversed with a `usage_reversed` entry. A free call (a free
  * tool, or an answer the shared cache already holds, P3-U2) gets its row with
- * no ledger entry and does not count against the lease's paid calls.
+ * no ledger entry and does not count against the lease's paid calls. A tool
+ * with a per-run cap (X and Dune, P3-U9) is also refused past its own count
+ * of charged calls in the lease.
  */
 export const MAX_PAID_CALLS_PER_LEASE = 20;
 
@@ -78,6 +80,25 @@ export class ToolMeter implements Meter {
           `This run has used all ${MAX_PAID_CALLS_PER_LEASE} of its paid tool calls.`,
           false,
         );
+      }
+      if (call.priceUsdcE6 > 0n && call.maxPerLease !== undefined) {
+        const same = await this.o.store.db
+          .selectFrom("platform.tool_calls")
+          .select((eb) => eb.fn.countAll<string>().as("n"))
+          .where("lease_id", "=", identity.leaseId)
+          .where("server", "=", "data")
+          .where("tool", "=", call.tool)
+          .where("status", "!=", "refused")
+          .where("charge_usdc_e6", ">", "0")
+          .executeTakeFirstOrThrow();
+        if (Number(same.n) >= call.maxPerLease) {
+          await this.insertRefused(identity, call.tool, call.input, "TOOL_RUN_CAP", null);
+          throw new ToolError(
+            "RATE_LIMITED",
+            `This run has used its ${call.maxPerLease} paid ${call.tool} calls; a cached answer is still free.`,
+            false,
+          );
+        }
       }
       const credits = await this.o.credits.creditsOf(identity.agentId);
       if (credits.spendable < call.priceUsdcE6) {

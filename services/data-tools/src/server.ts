@@ -9,15 +9,21 @@ import {
   startToolServer,
 } from "@alpha-agents/tool-server";
 import { z } from "zod";
-import type { MarketData } from "@alpha-agents/market";
+import type { MarketData, ResearchSources } from "@alpha-agents/market";
 import {
   MARKET_TOOL_PRICES_USDC_E6,
   type MarketDataTool,
   MarketInputs,
   registerMarketTools,
 } from "./market-tools.ts";
+import {
+  RESEARCH_TOOL_PRICES_USDC_E6,
+  type ResearchDataTool,
+  ResearchInputs,
+  registerResearchTools,
+} from "./research-tools.ts";
 import { UpstreamError, type WebProvider } from "./tavily.ts";
-import { type Lookup, checkUrl, systemLookup } from "./url-guard.ts";
+import { type Lookup, checkUrl, followRedirects, systemLookup } from "./url-guard.ts";
 import {
   MAX_PAGE_CHARS,
   MAX_SNIPPET_CHARS,
@@ -34,13 +40,14 @@ import {
  * refuses the call; an upstream failure is reported back so the charge is
  * reversed. Nothing in an input names an agent.
  */
-export type DataTool = "web_search" | "read_url" | MarketDataTool;
+export type DataTool = "web_search" | "read_url" | MarketDataTool | ResearchDataTool;
 
-/** A-29: Tavily's rate plus the A-27 markup; A-52 for market data. In micro-USDC per call. */
+/** A-29: Tavily's rate plus the A-27 markup; A-52 for market data; A-57 for X and Dune. In micro-USDC per call. */
 export const DATA_TOOL_PRICES_USDC_E6: Readonly<Record<DataTool, bigint>> = {
   web_search: 10_000n,
   read_url: 2_000n,
   ...MARKET_TOOL_PRICES_USDC_E6,
+  ...RESEARCH_TOOL_PRICES_USDC_E6,
 };
 
 export interface CallSummary extends Record<string, unknown> {
@@ -66,6 +73,11 @@ export interface Meter {
       provider: string;
       /** The shared cache already held the answer (P3-U2): such a call is free. */
       cacheHit?: boolean;
+      /**
+       * At most this many charged calls of this tool per lease (P3-U9, A-57); a
+       * free call never counts. Past it: ToolError("RATE_LIMITED").
+       */
+      maxPerLease?: number;
     },
   ): Promise<string>;
   /** Records the outcome. A failed call's charge is reversed. */
@@ -92,7 +104,11 @@ export interface DataToolsDeps {
   readonly provider: WebProvider;
   /** P3-U2: the platform's market data; null where it is not configured. */
   readonly market?: MarketData | null;
+  /** P3-U9: X search and saved Dune queries; null where not configured. */
+  readonly research?: ResearchSources | null;
   readonly lookup?: Lookup;
+  /** P3-U9: the fetch the redirect check probes hops with; tests give a fake. */
+  readonly probe?: typeof fetch;
   readonly now?: () => Date;
 }
 
@@ -216,7 +232,9 @@ export function registerDataTools(
     },
     async (input) => {
       try {
-        const check = await checkUrl(input.url, lookup);
+        const first = await checkUrl(input.url, lookup);
+        // P3-U9: every redirect hop goes through the guard too, before Tavily follows it.
+        const check = first.ok ? await followRedirects(first, lookup, deps.probe ?? fetch) : first;
         if (!check.ok) {
           await deps.meter.refuse(identity, {
             tool: "read_url",
@@ -226,7 +244,9 @@ export function registerDataTools(
           });
           throw new ToolError(
             "INVALID_INPUT",
-            "This URL cannot be read: only public http and https pages on the default port are allowed.",
+            "hop" in check
+              ? `This URL redirects to an address that cannot be read (hop ${check.hop}): only public http and https pages on the default port are allowed.`
+              : "This URL cannot be read: only public http and https pages on the default port are allowed.",
             false,
             { reason: check.reason },
           );
@@ -260,6 +280,7 @@ export function registerDataTools(
             hosts: [check.host],
             chars: wrapped.text.length,
             truncated: wrapped.truncated,
+            redirects: check.hops,
           },
         });
         return okResult({
@@ -278,6 +299,7 @@ export function registerDataTools(
     },
   );
   registerMarketTools(mcp, identity, { meter: deps.meter, market: deps.market ?? null });
+  registerResearchTools(mcp, identity, { meter: deps.meter, research: deps.research ?? null });
 }
 
 /** Every input schema the server registers, for the identity field lint. */
@@ -285,6 +307,7 @@ export const DATA_TOOL_INPUTS = {
   web_search: WebSearchInput,
   read_url: ReadUrlInput,
   ...MarketInputs,
+  ...ResearchInputs,
 } as const;
 
 export async function startDataTools(

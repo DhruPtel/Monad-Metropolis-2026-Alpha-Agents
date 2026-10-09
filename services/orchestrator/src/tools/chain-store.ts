@@ -84,6 +84,7 @@ export class PgChainCallLog implements ChainCallLog {
         status: outcome.status,
         error_code: outcome.errorCode ?? null,
         summary: outcome.summary ? json(outcome.summary) : null,
+        ...(outcome.cacheHit === undefined ? {} : { cache_hit: outcome.cacheHit }),
         finished_at: new Date(),
       })
       .where("call_id", "=", callId)

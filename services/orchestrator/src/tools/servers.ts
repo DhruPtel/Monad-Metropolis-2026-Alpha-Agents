@@ -6,7 +6,7 @@ import {
   startDataTools,
 } from "@alpha-agents/data-tools";
 import { type ChainReader, type IntentRecord, startChainTools } from "@alpha-agents/chain-tools";
-import type { MarketData } from "@alpha-agents/market";
+import type { MarketData, ResearchSources } from "@alpha-agents/market";
 import { startPlatformTools } from "@alpha-agents/platform-tools";
 import type { AgentIdentity } from "@alpha-agents/tool-server";
 import type { Hex } from "viem";
@@ -51,10 +51,14 @@ export interface ToolServersOptions {
   /** Tavily, or null when TAVILY_API_KEY is not set: web tools then answer "not configured". */
   readonly provider: WebProvider | null;
   readonly lookup?: Lookup;
+  /** P3-U9: the fetch read_url's redirect check probes hops with; tests give a fake. */
+  readonly probe?: typeof fetch;
   /** The chain tools' wiring; none answers every chain tool with "not deployed". */
   readonly chain?: ChainToolsWiring;
   /** P3-U2: the platform's market data, shared by every agent; none answers market tools "not configured". */
   readonly market?: MarketData | null;
+  /** P3-U9: X search, saved Dune queries and mainnet lookups; none answers them "not configured". */
+  readonly research?: ResearchSources | null;
   readonly log: Log;
 }
 
@@ -85,7 +89,9 @@ export async function startToolServers(o: ToolServersOptions): Promise<ToolServe
     meter,
     provider: o.provider ?? unconfiguredProvider,
     market: o.market ?? null,
+    research: o.research ?? null,
     ...(o.lookup ? { lookup: o.lookup } : {}),
+    ...(o.probe ? { probe: o.probe } : {}),
   });
   const platform = await startPlatformTools({
     resolve,
@@ -99,6 +105,7 @@ export async function startToolServers(o: ToolServersOptions): Promise<ToolServe
     log: new PgChainCallLog(o.store),
     intents,
     market: o.market ?? null,
+    research: o.research ?? null,
     ...(o.chain?.sessionKeyOf ? { sessionKeyOf: o.chain.sessionKeyOf } : {}),
     ...(o.chain?.onProposed ? { onProposed: o.chain.onProposed } : {}),
   });

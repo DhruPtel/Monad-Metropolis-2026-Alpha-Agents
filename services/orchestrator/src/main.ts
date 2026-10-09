@@ -1,4 +1,9 @@
-import { MarketData, viemMainnetReader } from "@alpha-agents/market";
+import {
+  MarketData,
+  ResearchSources,
+  viemMainnetLookup,
+  viemMainnetReader,
+} from "@alpha-agents/market";
 import { PgUsageStore } from "./usage-store.ts";
 import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -276,6 +281,19 @@ const market = new MarketData({
 log(
   `market data on: CoinMarketCap ${cmcKey ? "configured" : "not configured"}, DefiLlama, mainnet reads ${mainnetUrls.length > 0 ? "configured" : "not configured"}`,
 );
+// Research sources (P3-U9): X search, saved Dune queries and mainnet lookups, on the market
+// service's cache and Postgres budgets. Each key is optional; without it the tool says so.
+const xToken = reveal("X_BEARER_TOKEN") ?? null;
+const duneKey = reveal("DUNE_API_KEY") ?? null;
+const research = new ResearchSources({
+  market,
+  xBearerToken: xToken,
+  duneApiKey: duneKey,
+  lookup: mainnetUrls.length > 0 ? viemMainnetLookup(mainnetUrls) : null,
+});
+log(
+  `research sources on: X ${xToken ? "configured" : "not configured"}, Dune ${duneKey ? "configured" : "not configured"}, mainnet lookups ${mainnetUrls.length > 0 ? "configured" : "not configured"}`,
+);
 const scanSeconds = arg("scan-interval-seconds");
 if (scanSeconds !== undefined && (env.id !== "local" || !/^[1-9]\d{0,5}$/.test(scanSeconds)))
   die("--scan-interval-seconds takes a whole number of seconds, and only with APP_ENV=local");
@@ -388,6 +406,7 @@ const orchestrator = new Orchestrator({
   credits,
   web,
   market,
+  research,
   scanIntervalMs,
   ...(scheduleScans ? {} : { scheduleMs: 0 }),
   ...(local ? {} : { keeperMs: REMOTE_POLL_MS, creditsMs: REMOTE_POLL_MS }),
@@ -412,6 +431,7 @@ const api = createApi({
   signer: signerWorker,
   forkUrl: local ? rpcUrl : null,
   market,
+  research,
 });
 const server = serve({ fetch: api.fetch, port, hostname: "127.0.0.1" });
 log(

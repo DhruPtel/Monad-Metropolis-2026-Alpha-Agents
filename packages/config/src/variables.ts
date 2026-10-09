@@ -754,11 +754,12 @@ export const VARIABLES = [
     example: "your-tavily-api-key",
   },
   {
-    name: "X_API_BEARER_TOKEN",
+    name: "X_BEARER_TOKEN",
     group: "Research data",
-    description: "X API bearer token, pay per use",
+    description:
+      "X API bearer token, pay per use: x_search reads recent public posts only (P3-U9). Set a spending cap in the X developer console",
     secret: true,
-    firstUsedBy: "P3-U2",
+    firstUsedBy: "P3-U9",
     environments: ALL,
     ...token,
     example: "your-x-api-bearer-token",
@@ -766,9 +767,10 @@ export const VARIABLES = [
   {
     name: "DUNE_API_KEY",
     group: "Research data",
-    description: "Dune API key",
+    description:
+      "Dune API key: dune_query runs the platform's saved queries (P3-U9); pnpm dune:sync saves them on Dune",
     secret: true,
-    firstUsedBy: "P3-U2",
+    firstUsedBy: "P3-U9",
     environments: ALL,
     ...token,
     example: "your-dune-api-key",

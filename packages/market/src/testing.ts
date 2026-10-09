@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { CMC_QUOTES_URL } from "./coinmarketcap.ts";
 import { LLAMA_URLS } from "./defillama.ts";
+import { DUNE_QUERY_NAMES, type DuneQueryName } from "./dune.ts";
 import type { Figure } from "./figures.ts";
 import type { MainnetMarketReader } from "./mainnet.ts";
 
@@ -75,4 +76,36 @@ export function fakeMainnet(chainlinkPrice = 0.0242): MainnetMarketReader {
       };
     },
   };
+}
+
+/**
+ * A fetch for the research sources (P3-U9): X's recent search and Dune's
+ * latest result answer from their recorded fixtures; `down` names URL parts
+ * that answer 503. Records every URL asked for.
+ */
+export function researchFetch(o: { down?: readonly string[] } = {}) {
+  const calls: string[] = [];
+  const f: typeof fetch = async (input) => {
+    const url = String(input);
+    calls.push(url);
+    const json = (name: string) =>
+      new Response(JSON.stringify(fixture(name)), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    if (o.down?.some((d) => url.includes(d))) return new Response("{}", { status: 503 });
+    if (url.startsWith("https://api.x.com/2/tweets/search/recent")) return json("x-recent.json");
+    if (/^https:\/\/api\.dune\.com\/api\/v1\/query\/\d+\/results/.test(url))
+      return json("dune-results.json");
+    return new Response("{}", { status: 404 });
+  };
+  return { fetch: f, calls };
+}
+
+/** Dune IDs for every saved query, for tests. */
+export function testDuneIds(): Record<DuneQueryName, number> {
+  return Object.fromEntries(DUNE_QUERY_NAMES.map((n, i) => [n, 6_000_001 + i])) as Record<
+    DuneQueryName,
+    number
+  >;
 }

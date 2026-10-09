@@ -1,4 +1,4 @@
-import type { MarketData } from "@alpha-agents/market";
+import { type MarketData, type ResearchSources, cleanText } from "@alpha-agents/market";
 import { SCAN_MIN_CREDITS_USDC_E6 } from "@alpha-agents/accounting";
 import { sql } from "@alpha-agents/db";
 import { SPECIES, TIER_IDS } from "@alpha-agents/domain";
@@ -38,6 +38,8 @@ export interface ApiOptions {
   readonly forkUrl?: string | null;
   /** P3-U2: the platform's market data, for the console's snapshot view. */
   readonly market?: MarketData | null;
+  /** P3-U9: the research sources, for the console's Research sources page. */
+  readonly research?: ResearchSources | null;
 }
 
 const runtimeView = (r: Runtime) => ({
@@ -286,6 +288,89 @@ export function createApi(o: ApiOptions): Hono {
       })),
       upstreamCalls: Object.fromEntries(m.cache.upstreamCalls),
       coinmarketcapCreditsToday: await m.cmcBudget.usedToday(),
+    });
+  });
+
+  /**
+   * The console's Research sources page (P3-U9): recent X searches, Dune
+   * results and contract reads across agents with their charge and cache
+   * status, what the shared cache holds now, and today's use of each paid
+   * source against its cap. A platform read: nothing is charged and nothing
+   * is fetched upstream. Post text is shown only while it is cached.
+   */
+  app.get("/v1/research", async (c) => {
+    const r = o.research;
+    if (!r) return c.json({ configured: false }, 503);
+    const rows = await o.store.db
+      .selectFrom("platform.tool_calls")
+      .select([
+        "call_id",
+        "agent_id",
+        "server",
+        "tool",
+        "input",
+        "status",
+        "error_code",
+        "charge_usdc_e6",
+        "cache_hit",
+        "summary",
+        "started_at",
+      ])
+      .where((eb) =>
+        eb.or([
+          eb.and([eb("server", "=", "data"), eb("tool", "in", ["x_search", "dune_query"])]),
+          eb.and([
+            eb("server", "=", "chain"),
+            eb("tool", "in", ["read_contract", "balance", "get_code"]),
+          ]),
+        ]),
+      )
+      .orderBy("started_at", "desc")
+      .limit(50)
+      .execute();
+    const cached = r.cachedView();
+    return c.json({
+      configured: true,
+      sources: r.configured,
+      usage: await r.usageToday(),
+      recent: rows.map((row) => ({
+        callId: row.call_id,
+        agentId: row.agent_id,
+        server: row.server,
+        tool: row.tool,
+        input: row.input,
+        status: row.status,
+        errorCode: row.error_code,
+        chargeUsdcE6: row.charge_usdc_e6,
+        cacheHit: row.cache_hit,
+        summary: row.summary,
+        at: new Date(row.started_at).toISOString(),
+      })),
+      cachedX: cached.x.map((s) => ({
+        topic: s.topic,
+        windowHours: s.windowHours,
+        query: s.query,
+        searchedAt: s.searchedAt,
+        expiresAt: s.expiresAt,
+        posts: s.posts.map((p) => ({
+          url: `https://x.com/i/web/status/${p.id}`,
+          createdAt: p.createdAt,
+          text: cleanText(p.text, 280) ?? "",
+          likes: p.likes,
+          reposts: p.reposts,
+        })),
+      })),
+      cachedDune: cached.dune.map((d) => ({
+        name: d.name,
+        title: d.title,
+        executedAt: d.executedAt,
+        ageHours: d.ageHours,
+        executed: d.executed,
+        warnings: d.warnings,
+        columns: d.columns,
+        rows: d.rows.slice(0, 10),
+        expiresAt: d.expiresAt,
+      })),
     });
   });
 

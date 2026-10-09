@@ -6,6 +6,7 @@ import {
   REJECTION_CODES,
   TRADE_FLOW_CODES,
 } from "@alpha-agents/domain";
+import { READ_FUNCTIONS, READ_FUNCTION_NAMES, type ReadFunction } from "@alpha-agents/market";
 import { z } from "zod";
 
 /**
@@ -240,6 +241,114 @@ export const PoolDepthOutput = z.strictObject({
 });
 export type PoolDepthOutput = z.infer<typeof PoolDepthOutput>;
 
+/**
+ * Contract lookups on Monad mainnet (P3-U9, A-24): any `target`, a curated set
+ * of read-only calls, typed outputs only. `target` names what is read, never
+ * whose account a call acts for (FINAL_PLAN 4.4.1).
+ */
+const target = z
+  .string()
+  .regex(/^0x[0-9a-fA-F]{40}$/, "a 0x-prefixed 20-byte address")
+  .describe("The contract or account to read on Monad mainnet");
+
+export const ReadContractInput = z
+  .strictObject({
+    target,
+    function: z
+      .enum(READ_FUNCTION_NAMES as [ReadFunction, ...ReadFunction[]])
+      .describe(READ_FUNCTION_NAMES.map((f) => `${f}: ${READ_FUNCTIONS[f].about}`).join("; ")),
+    holder: z
+      .string()
+      .regex(/^0x[0-9a-fA-F]{40}$/)
+      .optional()
+      .describe("For erc20_balance_of only: whose balance to read"),
+    poolId: z
+      .string()
+      .regex(/^0x[0-9a-fA-F]{64}$/)
+      .optional()
+      .describe("For the uniswap_v4_* calls only: the pool's 32-byte ID"),
+  })
+  .superRefine((i, ctx) => {
+    const needs = READ_FUNCTIONS[i.function].args as readonly string[];
+    for (const arg of ["holder", "poolId"] as const) {
+      if (needs.includes(arg) && i[arg] === undefined)
+        ctx.addIssue({ code: "custom", path: [arg], message: `${i.function} needs ${arg}` });
+      if (!needs.includes(arg) && i[arg] !== undefined)
+        ctx.addIssue({ code: "custom", path: [arg], message: `${i.function} takes no ${arg}` });
+    }
+  });
+
+export const BalanceInput = z.strictObject({
+  target,
+  asset: z.enum(["USDC", "WMON", "NATIVE"]).describe("USDC, WMON, or NATIVE for MON itself"),
+});
+
+export const GetCodeInput = z.strictObject({ target });
+
+const LookupAsOf = z.strictObject({ block: z.string(), timestamp: z.string() });
+const TypedValue = z.union([
+  z.strictObject({ type: z.enum(["uint", "int"]), value: z.string().regex(/^-?\d+$/) }),
+  z.strictObject({
+    type: z.literal("address"),
+    value: z
+      .string()
+      .regex(/^0x[0-9a-fA-F]{40}$/)
+      .nullable(),
+  }),
+  z.strictObject({ type: z.literal("bool"), value: z.boolean() }),
+  z.strictObject({ type: z.literal("bytes32"), value: z.string().regex(/^0x[0-9a-fA-F]{64}$/) }),
+  z.strictObject({
+    type: z.enum(["string", "bytes"]),
+    length: z.int().min(0),
+    keccak256: z.string().regex(/^0x[0-9a-f]{64}$/),
+  }),
+]);
+
+export const ReadContractOutput = z.strictObject({
+  chain: z.literal("monad-mainnet"),
+  function: z.enum(READ_FUNCTION_NAMES as [ReadFunction, ...ReadFunction[]]),
+  target: z.string(),
+  outputs: z.record(z.string().max(32), TypedValue),
+  asOf: LookupAsOf,
+  cacheHit: z.boolean(),
+  note: z.string(),
+});
+
+export const BalanceOutput = z.strictObject({
+  chain: z.literal("monad-mainnet"),
+  target: z.string(),
+  asset: z.enum(["USDC", "WMON", "NATIVE"]),
+  amount: z.string(),
+  amountRaw: z.string(),
+  decimals: z.int(),
+  asOf: LookupAsOf,
+  cacheHit: z.boolean(),
+});
+
+export const GetCodeOutput = z.strictObject({
+  chain: z.literal("monad-mainnet"),
+  target: z.string(),
+  hasCode: z.boolean(),
+  sizeBytes: z.int().min(0),
+  codeHash: z
+    .string()
+    .regex(/^0x[0-9a-f]{64}$/)
+    .nullable(),
+  proxy: z.strictObject({
+    pattern: z.enum([
+      "none",
+      "eip1967",
+      "eip1967_beacon",
+      "eip1167_minimal_proxy",
+      "eip7702_delegation",
+    ]),
+    implementation: z.string().nullable(),
+  }),
+  note: z.string(),
+  asOf: LookupAsOf,
+  cacheHit: z.boolean(),
+});
+
 export const CHAIN_TOOL_INPUTS = {
   get_portfolio: EmptyInput,
   get_prices: EmptyInput,
@@ -249,6 +358,9 @@ export const CHAIN_TOOL_INPUTS = {
   propose_swap: ProposeSwapInput,
   get_intent_status: IntentStatusInput,
   get_pool_depth: EmptyInput,
+  read_contract: ReadContractInput,
+  balance: BalanceInput,
+  get_code: GetCodeInput,
 } as const;
 export type ChainTool = keyof typeof CHAIN_TOOL_INPUTS;
 export const CHAIN_TOOLS = Object.keys(CHAIN_TOOL_INPUTS) as ChainTool[];

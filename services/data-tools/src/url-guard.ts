@@ -163,3 +163,59 @@ export async function checkUrl(raw: string, lookup: Lookup = systemLookup): Prom
   if (addresses.some(isNonPublicAddress)) return { ok: false, reason: "PRIVATE_ADDRESS" };
   return { ok: true, url: url.href, host };
 }
+
+/** P3-U9: the most redirect hops followed before a URL is refused. */
+export const MAX_REDIRECTS = 5;
+
+export type RedirectCheck =
+  | { readonly ok: true; readonly url: string; readonly host: string; readonly hops: number }
+  | {
+      readonly ok: false;
+      readonly reason: UrlRefusal | "TOO_MANY_REDIRECTS";
+      readonly hop: number;
+    };
+
+/**
+ * The read broker's redirect check (P3-U9): Tavily follows redirects itself,
+ * so before a page is handed to it the platform follows the chain one hop at a
+ * time, without following automatically, and runs every hop through the
+ * guard above. A hop to a private or internal address is refused before any
+ * request is made to it. The final URL is what Tavily reads. A probe that
+ * cannot connect is not a refusal: the URL is handed on as it is and the
+ * provider reports the failure.
+ */
+export async function followRedirects(
+  first: UrlCheck & { ok: true },
+  lookup: Lookup = systemLookup,
+  f: typeof fetch = fetch,
+): Promise<RedirectCheck> {
+  let current = first;
+  for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
+    let res: Response;
+    try {
+      res = await f(current.url, {
+        method: "GET",
+        redirect: "manual",
+        headers: { "user-agent": "alpha-agents-read-broker" },
+        signal: AbortSignal.timeout(10_000),
+      });
+    } catch {
+      return { ok: true, url: current.url, host: current.host, hops: hop };
+    }
+    await res.body?.cancel().catch(() => undefined);
+    const location = res.headers.get("location");
+    if (res.status < 300 || res.status >= 400 || !location)
+      return { ok: true, url: current.url, host: current.host, hops: hop };
+    if (hop === MAX_REDIRECTS) return { ok: false, reason: "TOO_MANY_REDIRECTS", hop: hop + 1 };
+    let next: string;
+    try {
+      next = new URL(location, current.url).toString();
+    } catch {
+      return { ok: false, reason: "NOT_A_URL", hop: hop + 1 };
+    }
+    const check = await checkUrl(next, lookup);
+    if (!check.ok) return { ok: false, reason: check.reason, hop: hop + 1 };
+    current = check;
+  }
+  return { ok: false, reason: "TOO_MANY_REDIRECTS", hop: MAX_REDIRECTS + 1 };
+}
