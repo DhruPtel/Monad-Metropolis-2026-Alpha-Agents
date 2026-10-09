@@ -849,7 +849,8 @@ async function main(): Promise<number> {
       const r = await api(`/v1/agents/${other}/tasks/token-check`, { method: "POST" });
       if (r.status === 202) return r;
       if (r.body.error !== "lease_held") throw new Error(`token check refused: ${r.status}`);
-      await new Promise((res) => setTimeout(res, 3_000));
+      // Scheduled Scans hold the agent with gaps of about 3 s between them: ask often.
+      await new Promise((res) => setTimeout(res, 250));
       return null;
     });
     const task = await waitFor("the token check", 900_000, async () => {

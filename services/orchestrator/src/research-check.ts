@@ -70,6 +70,7 @@ export interface ResearchCheckResult extends Record<string, unknown> {
   readonly agentId: number;
   readonly leaseId: string;
   readonly runStatus: string;
+  readonly runFailure: string | null;
   readonly stopReason: ResearchCheckStop;
   readonly toolCalls: readonly {
     readonly tool: string;
@@ -109,9 +110,19 @@ export async function runToolCheckTask(
       `${agent}-${spec.kind.replace("_", "-")}-${taskId}`,
     );
     let runStatus: string;
+    let runFailure: string | null = null;
     let deadline = false;
     try {
-      runStatus = (await opened.runs.waitFinished(run.runId, spec.deadlineMs)).status;
+      const final = await opened.runs.waitFinished(run.runId, spec.deadlineMs);
+      runStatus = final.status;
+      // Hermes's own reason for a failed run, redacted and short, so a check that fails explains itself.
+      if (final.failure)
+        runFailure = errorText(
+          new Error(
+            typeof final.failure === "string" ? final.failure : JSON.stringify(final.failure),
+          ),
+          ctx.redactor,
+        ).slice(0, 300);
     } catch {
       deadline = true;
       runStatus = "stopped";
@@ -139,6 +150,7 @@ export async function runToolCheckTask(
       agentId: ref.agentId,
       leaseId,
       runStatus,
+      runFailure,
       stopReason,
       toolCalls: calls.map((c) => ({
         tool: c.tool,
@@ -157,7 +169,7 @@ export async function runToolCheckTask(
       await ctx.store.finishTask(taskId, {
         error: deadline
           ? `the ${spec.label} passed its ${spec.deadlineMs / 60_000} minute deadline and was stopped`
-          : `the ${spec.label} ended (${runStatus}) without a successful ${missing.join(", ")}${failure ? `: ${failure}` : ""}`,
+          : `the ${spec.label} ended (${runStatus}) without a successful ${missing.join(", ")}${failure ? `: ${failure}` : runFailure ? `: ${runFailure}` : ""}`,
         result,
       });
     }

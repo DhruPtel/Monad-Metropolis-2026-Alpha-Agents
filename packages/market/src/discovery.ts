@@ -57,8 +57,8 @@ export const DISCOVERY_DEFAULTS = {
   minPoolUsd: 10_000,
   /** A discovery is shared for this long. */
   ttlMs: 10 * 60_000,
-  /** Onchain reads at once. */
-  concurrency: 4,
+  /** Onchain reads at once: low, so a first pass's few hundred reads never crowd the free RPC plan. */
+  concurrency: 2,
 } as const;
 
 export interface DiscoveredPool extends VerifiedPool {
@@ -161,10 +161,11 @@ export class TokenDiscovery {
   constructor(o: TokenDiscoveryOptions) {
     this.o = o;
     const sleep = o.market.upstreamOptions().sleep;
-    // GeckoTerminal's public API allows about 10 requests a minute.
+    // GeckoTerminal's public API allows about 10 requests a minute, shared with anything else
+    // on the host; at 9 a minute it refused a page in the live run, so the platform asks for 7.
     this.gt = new TokenBucket({
-      capacity: 3,
-      perMinute: 9,
+      capacity: 2,
+      perMinute: 7,
       now: o.market.now,
       ...(sleep ? { sleep } : {}),
     });
