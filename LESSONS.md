@@ -1182,3 +1182,24 @@ What happened: (1) An invalid MONAD_RPC_URL was reported twice, once by the load
 Cause: New code reusing an existing reader, list or layout without checking what it already covered.
 Fix: The research reader reports only an issue the loader has not; the test serializes BigInts; the view's helpers and types moved to `research.ts`; the test names the sending fields; an unconfigured X or Dune is refused before the meter; the task buttons wrap (d13eb2c).
 Lesson: Look at every capture a unit changes, not only the new page, and run a new paid tool once with its key missing to see what it charges.
+
+## L-156: The console's build failed on node:fs after a pure package gained a file reader
+Unit: P3-U3
+What happened: The console e2e run stopped with a Turbopack error on /policy: "the chunking context (unknown) does not support external modules (request: node:fs)". packages/policy's main entry had started exporting the evals loader, which reads the scenario files with `readFileSync`, and the console's policy page imports packages/policy in browser code.
+Cause: A package whose main entry runs in the browser re-exported a module that only runs in Node; the typecheck and every vitest run (all in Node) passed.
+Fix: The loader is imported as `@alpha-agents/policy/evals`, a subpath export apart from the main entry (269e7f9).
+Lesson: Keep a shared package's main entry browser-safe; anything that reads files, sockets or the environment goes behind its own subpath export, and a Next.js build is the test that proves it.
+
+## L-157: The console's "Set plan" said "The orchestrator is not configured"
+Unit: P3-U3
+What happened: The new e2e test clicked "Set plan" and saw "The plan was not set: The orchestrator is not configured." The fixture API answered correctly when called directly.
+Cause: The console composes its agents source from the control API's and the orchestrator's, passing each orchestrator method through by name; the new optional `setPlan` and `runRunner` were added to the orchestrator source but not to that list, and optional methods typecheck either way.
+Fix: Both are passed through (269e7f9); the e2e test covers setting, refusing and running.
+Lesson: When a method is optional on an interface, the compiler cannot tell you a composition point forgot it; add the method at every place the source is assembled, and test the control end to end.
+
+## L-158: Slips in P3-U3, caught by its tests
+Unit: P3-U3
+What happened: (1) The runner's first Postgres test saw its own intent "expired" at once: the test clock was the chain's fixed time, weeks before today, while the stores expire intents on the real clock. (2) A test expected `TURNOVER_CAP` from the agent's `turnoverUsed`, but the Executor computes turnover from the trades in its 24-hour window. (3) A test expected `DAILY_TRADE_LIMIT`, which the owner's limit of 20 trades a day (equal to the hard limit) always reaches first as `OWNER_TRADE_LIMIT`. (4) Two eval scenarios did not test what their descriptions said (an account large enough to clear the minimum trade, and a "USDC short" buy that cannot happen while underweight). (5) The first commit used the scope `contracts` for packages/policy, which should have been `agent`; history is not rewritten.
+Cause: Tests written against assumptions about the code under them rather than its actual inputs, and a scope picked without checking the list.
+Fix: The runner runs on the stores' clock; the turnover case uses two trades in the window; the eval scenarios were corrected and their expectations computed by an independent implementation of the rule.
+Lesson: Drive a test through the same inputs the production check reads (the window, the clock), and when a scenario's description and its numbers disagree, recompute the numbers outside the code under test.
