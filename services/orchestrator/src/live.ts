@@ -661,6 +661,7 @@ async function main(): Promise<number> {
     stage?: { outcome: string; schemaValid: boolean; candidates: unknown[] } | null;
     toolCalls?: { tool: string; status: string; errorCode: string | null; chargeUsdcE6: string }[];
     modelCalls?: number;
+    skillsLoaded?: string[];
   };
   const used = (tool: string) =>
     (os.toolCalls ?? []).filter((c) => c.tool === tool && c.status === "succeeded").length;
@@ -678,6 +679,29 @@ async function main(): Promise<number> {
       used("web_search") > 0 &&
       used("read_url") > 0,
     `${otherScan.status}; ${used("web_search")} searches, ${used("read_url")} pages; ${os.stage?.outcome ?? "no stage"}; ${otherScan.error ?? ""}`,
+  );
+  // P3-U7: the agent loaded its Scan playbook from the read-only mount and wrote its notes in the
+  // playbook's layout (the prompt names neither the headings nor their order).
+  const scanNotes = os.leaseId
+    ? await t.db
+        .selectFrom("platform.thesis_notes")
+        .select(["notes"])
+        .where("lease_id", "=", os.leaseId)
+        .execute()
+    : [];
+  const notes = scanNotes.map((n) => String(n.notes)).join("\n");
+  report.scanSkills = { loaded: os.skillsLoaded ?? [], notes: notes.slice(0, 1_500) };
+  check(
+    "the Scan loaded its playbook from the read-only skill mount",
+    (os.skillsLoaded ?? []).includes("aa-playbook-scan"),
+    (os.skillsLoaded ?? []).join(", ") || "no skill loaded",
+  );
+  check(
+    "the Scan's notes follow the playbook's typed layout",
+    ["CHANGED:", "THEMES:", "QUIET:", "DATA GAPS:"].every((h) => notes.includes(h)),
+    ["CHANGED:", "THEMES:", "QUIET:", "DATA GAPS:"]
+      .map((h) => `${h} ${notes.includes(h) ? "yes" : "no"}`)
+      .join(", "),
   );
   // P3-U2: the agent read the market snapshot in E2B and got sourced, checked figures back.
   const snapshotCalls = await t.db
