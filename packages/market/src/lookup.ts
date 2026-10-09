@@ -58,9 +58,14 @@ export const READ_FUNCTIONS = {
   proxy_implementation: {
     abi: null,
     args: [],
-    about: "EIP-1967 implementation slot",
+    about:
+      "the proxy's implementation from the EIP-1967 slot and the older ZeppelinOS slot (Circle's USDC)",
   },
-  proxy_admin: { abi: null, args: [], about: "EIP-1967 admin slot" },
+  proxy_admin: {
+    abi: null,
+    args: [],
+    about: "the proxy's admin from the EIP-1967 slot and the older ZeppelinOS slot",
+  },
   chainlink_latest_round: {
     abi: "function latestRoundData() view returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound)",
     args: [],
@@ -85,6 +90,11 @@ export const EIP1967_IMPLEMENTATION_SLOT =
   "0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc" as Hex;
 export const EIP1967_ADMIN_SLOT =
   "0xb53127684a568b3173ae13b9f8a6016e243e63b6e8ee1178d6a717850b5d6103" as Hex;
+/** The older ZeppelinOS slots, keccak256("org.zeppelinos.proxy.<name>"), which Circle's USDC proxy uses. */
+export const ZEPPELINOS_IMPLEMENTATION_SLOT =
+  "0x7050c9e0f4ca769c69bd3a8ef740bc37934f8e2c036e5a723fd8ee048ed3f8c3" as Hex;
+export const ZEPPELINOS_ADMIN_SLOT =
+  "0x10d6a54a4754c8869d6886b5f5d7fbfa5b4522237ea5c60d11bc4e7a1ff9390b" as Hex;
 export const EIP1967_BEACON_SLOT =
   "0xa3f0ad74e5423aebfd80d3ef4346578335a9a72aeaee59ff6cb3582b35133d50" as Hex;
 
@@ -117,7 +127,12 @@ export interface BalanceResult {
 }
 
 export type ProxyPattern =
-  "none" | "eip1967" | "eip1967_beacon" | "eip1167_minimal_proxy" | "eip7702_delegation";
+  | "none"
+  | "eip1967"
+  | "eip1967_beacon"
+  | "zeppelinos"
+  | "eip1167_minimal_proxy"
+  | "eip7702_delegation";
 
 export interface CodeResult {
   readonly target: string;
@@ -146,7 +161,7 @@ export function slotAddress(word: Hex | undefined): string | null {
 /** The proxy pattern code and slots show, with the implementation it points to. */
 export function proxyPattern(
   code: Hex,
-  slots: { implementation?: Hex; beacon?: Hex },
+  slots: { implementation?: Hex; beacon?: Hex; zeppelinos?: Hex },
 ): CodeResult["proxy"] {
   const c = code.toLowerCase();
   if (c.startsWith("0xef0100") && c.length === 2 + 46)
@@ -158,6 +173,8 @@ export function proxyPattern(
   if (impl) return { pattern: "eip1967", implementation: impl };
   const beacon = slotAddress(slots.beacon);
   if (beacon) return { pattern: "eip1967_beacon", implementation: beacon };
+  const zos = slotAddress(slots.zeppelinos);
+  if (zos) return { pattern: "zeppelinos", implementation: zos };
   return { pattern: "none", implementation: null };
 }
 
@@ -222,17 +239,19 @@ export function viemMainnetLookup(
         const h = await head();
         const spec = READ_FUNCTIONS[fn];
         if (spec.abi === null) {
-          const slot =
-            fn === "proxy_implementation" ? EIP1967_IMPLEMENTATION_SLOT : EIP1967_ADMIN_SLOT;
-          const word = await client.getStorageAt({ address: target, slot, blockNumber: h.number });
+          const impl = fn === "proxy_implementation";
+          const [eip1967, zeppelinos] = await Promise.all(
+            (impl
+              ? [EIP1967_IMPLEMENTATION_SLOT, ZEPPELINOS_IMPLEMENTATION_SLOT]
+              : [EIP1967_ADMIN_SLOT, ZEPPELINOS_ADMIN_SLOT]
+            ).map((slot) => client.getStorageAt({ address: target, slot, blockNumber: h.number })),
+          );
           return {
             function: fn,
             target: getAddress(target),
             outputs: {
-              [fn === "proxy_implementation" ? "implementation" : "admin"]: {
-                type: "address",
-                value: slotAddress(word),
-              },
+              eip1967: { type: "address", value: slotAddress(eip1967) },
+              zeppelinos: { type: "address", value: slotAddress(zeppelinos) },
             },
             asOf: h.asOf,
           };
@@ -309,7 +328,7 @@ export function viemMainnetLookup(
     code: (target) =>
       guard(async () => {
         const h = await head();
-        const [code, implementation, beacon] = await Promise.all([
+        const [code, implementation, beacon, zeppelinos] = await Promise.all([
           client.getCode({ address: target, blockNumber: h.number }),
           client.getStorageAt({
             address: target,
@@ -321,6 +340,11 @@ export function viemMainnetLookup(
             slot: EIP1967_BEACON_SLOT,
             blockNumber: h.number,
           }),
+          client.getStorageAt({
+            address: target,
+            slot: ZEPPELINOS_IMPLEMENTATION_SLOT,
+            blockNumber: h.number,
+          }),
         ]);
         const bytes = (code ?? "0x") as Hex;
         const has = bytes !== "0x";
@@ -328,6 +352,7 @@ export function viemMainnetLookup(
           ? proxyPattern(bytes, {
               ...(implementation ? { implementation } : {}),
               ...(beacon ? { beacon } : {}),
+              ...(zeppelinos ? { zeppelinos } : {}),
             })
           : { pattern: "none", implementation: null };
         return {

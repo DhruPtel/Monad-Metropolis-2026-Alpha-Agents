@@ -89,6 +89,19 @@ describe.skipIf(!upstream)(
       const native = await lookup.balance(wmon, "NATIVE");
       expect(BigInt(native.amountRaw)).toBeGreaterThan(0n);
       expect(native.decimals).toBe(18);
+      // USDC is Circle's proxy, with its implementation in the ZeppelinOS slot.
+      const usdcCode = await lookup.code(addressEntry("beta", "usdc").address as `0x${string}`);
+      expect(usdcCode.proxy.pattern).toBe("zeppelinos");
+      expect(usdcCode.proxy.implementation).toMatch(/^0x[0-9a-fA-F]{40}$/);
+      const impl = await lookup.read(
+        "proxy_implementation",
+        addressEntry("beta", "usdc").address as `0x${string}`,
+        {},
+      );
+      expect(impl.outputs).toMatchObject({
+        eip1967: { value: null },
+        zeppelinos: { value: usdcCode.proxy.implementation },
+      });
       const code = await lookup.code(wmon);
       expect(code).toMatchObject({
         hasCode: true,

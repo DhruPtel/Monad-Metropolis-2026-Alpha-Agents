@@ -595,6 +595,8 @@ describe("research tools (P3-U9)", () => {
       retryable: false,
     });
     expect(JSON.stringify(structured(d))).toMatch(/not configured/);
+    // Refused before the meter: no charge to reverse.
+    expect(none.meter.events).toEqual([]);
   });
 
   it("passes the meter's run-cap refusal on with no request upstream", async () => {

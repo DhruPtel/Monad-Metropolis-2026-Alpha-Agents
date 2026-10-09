@@ -310,6 +310,11 @@ describe("contract lookups return typed values only (P3-U9, A-24)", () => {
       pattern: "none",
       implementation: null,
     });
+    // Circle's USDC proxy keeps its implementation in the older ZeppelinOS slot (found live).
+    expect(proxyPattern("0x6080", { zeppelinos: `0x${"0".repeat(24)}${impl.slice(2)}` })).toEqual({
+      pattern: "zeppelinos",
+      implementation: impl,
+    });
     expect(slotAddress(undefined)).toBeNull();
   });
 

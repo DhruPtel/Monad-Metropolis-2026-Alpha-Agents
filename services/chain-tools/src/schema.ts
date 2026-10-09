@@ -339,6 +339,7 @@ export const GetCodeOutput = z.strictObject({
       "none",
       "eip1967",
       "eip1967_beacon",
+      "zeppelinos",
       "eip1167_minimal_proxy",
       "eip7702_delegation",
     ]),

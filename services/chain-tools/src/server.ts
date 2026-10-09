@@ -385,7 +385,7 @@ export function registerChainTools(
     "get_code",
     {
       description:
-        "Whether an address on Monad mainnet (`target`) holds contract code: its size, its keccak256 hash, and the proxy pattern detected (EIP-1967, beacon, EIP-1167 minimal proxy, or an EIP-7702 delegation) with the implementation it points to. An address with no code says so. Free; limited per run.",
+        "Whether an address on Monad mainnet (`target`) holds contract code: its size, its keccak256 hash, and the proxy pattern detected (EIP-1967, beacon, the older ZeppelinOS slot, EIP-1167 minimal proxy, or an EIP-7702 delegation) with the implementation it points to. An address with no code says so. Free; limited per run.",
       inputSchema: GetCodeInput,
       outputSchema: GetCodeOutput,
       annotations: { readOnlyHint: true },

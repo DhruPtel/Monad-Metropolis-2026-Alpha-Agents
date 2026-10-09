@@ -164,6 +164,15 @@ export function registerResearchTools(
           false,
         ),
       );
+    // A source with no key is refused before the meter: nothing is charged or reversed.
+    if (!r.configured[tool === "x_search" ? "x" : "dune"])
+      return errorFrom(
+        new ToolError(
+          "UPSTREAM_UNAVAILABLE",
+          `${tool === "x_search" ? "X search" : "Dune"} is not configured on this platform.`,
+          false,
+        ),
+      );
     const cacheHit = cached(r);
     let callId: string;
     try {
