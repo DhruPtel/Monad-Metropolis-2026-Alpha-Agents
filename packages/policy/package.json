@@ -5,7 +5,8 @@
   "description": "The launch hard limits as typed constants and pure offchain pre-check functions.",
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./evals": "./src/evals.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit -p ."

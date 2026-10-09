@@ -237,6 +237,35 @@ test.describe("agents panel controls (P1-U5)", () => {
     await expect(chain).toHaveScreenshot("agents-chain.png");
   });
 
+  test("sets a rebalance_bands@1 plan, refuses one outside the goal, and runs the runner (P3-U3)", async ({
+    page,
+  }) => {
+    await page.request.post(`${FIXTURE_API}/__fixture/reset-arming`);
+    await page.reload();
+    const plan = page.getByTestId("agent-plan");
+    await expect(plan.getByTestId("plan-summary")).toContainText("Runner on");
+    await expect(plan.getByTestId("plan-summary")).toContainText("20%");
+    const decisions = plan.getByRole("region", { name: "Runner decisions of Alpha Agent #1" });
+    await expect(decisions).toContainText("IN_BAND");
+    await expect(decisions).toContainText("Leg");
+    await expect(decisions).toContainText("9.95");
+    await repaint(page);
+    await expect(plan).toHaveScreenshot("agents-plan.png");
+    const target = plan.getByLabel("Target WMON share (%)");
+    await target.fill("35");
+    await plan.getByRole("button", { name: "Set plan" }).click();
+    await expect(page.getByText("The plan was not set")).toBeVisible();
+    await expect(page.getByText("within the goal's range")).toBeVisible();
+    await target.fill("15");
+    await plan.getByRole("button", { name: "Set plan" }).click();
+    await expect(page.getByText("Alpha Agent #1's plan is set")).toBeVisible();
+    await expect(plan.getByTestId("plan-summary")).toContainText("15%");
+    await expect(plan.getByTestId("plan-summary")).toContainText("strategy epoch 3");
+    await plan.getByRole("button", { name: "Run now" }).click();
+    await expect(page.getByText("The runner holds: IN_BAND")).toBeVisible();
+    await page.request.post(`${FIXTURE_API}/__fixture/reset-arming`);
+  });
+
   test("arms an agent, approves its first trade, shows trades settled and blocked, and disarms (P2-U6)", async ({
     page,
   }) => {

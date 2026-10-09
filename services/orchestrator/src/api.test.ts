@@ -362,7 +362,10 @@ describe.skipIf(!dbUp)("the orchestrator's internal API (D-205)", { timeout: 60_
     });
     const outside = await put({ ...body, targetWmonBps: 3_500 });
     expect(outside.status).toBe(400);
-    expect(await outside.json()).toMatchObject({ error: "plan_out_of_bounds" });
+    expect(await outside.json()).toMatchObject({
+      error: "plan_out_of_bounds",
+      message: expect.stringContaining("within the goal's range"),
+    });
     expect((await put({ ...body, extra: 1 })).status).toBe(400);
     const set = await put({ ...body, targetWmonBps: 1_500 });
     expect(set.status).toBe(201);

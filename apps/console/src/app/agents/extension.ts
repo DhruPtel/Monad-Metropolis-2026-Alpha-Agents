@@ -42,6 +42,58 @@ export interface AgentRow {
   readonly toolCalls: readonly ToolCallView[];
   /** P2-U5: what the chain tools recorded; null when the orchestrator did not answer. */
   readonly chain: ChainView | null;
+  /** P3-U3: the agent's plan and the runner's decisions; null when the orchestrator did not answer. */
+  readonly plan: PlanView | null;
+}
+
+/** rebalance_bands@1's parameters as the orchestrator serves them (USDC base units as a string). */
+export interface PlanParams {
+  readonly targetWmonBps: number;
+  readonly bandHalfWidthBps: number;
+  readonly minTradeUsdcE6: string;
+  readonly volatilityBrakeBps: number;
+  readonly costHurdleBps: number;
+  readonly maxLegBps: number;
+}
+
+export interface RunnerDecisionView {
+  readonly decisionId: number;
+  readonly outcome: "hold" | "leg";
+  readonly code: string;
+  readonly codes: readonly string[];
+  readonly message: string;
+  readonly leg: {
+    readonly sell: string;
+    readonly buy: string;
+    readonly amountIn: string;
+    readonly valueUsdcE6: string;
+  } | null;
+  readonly intentId: string | null;
+  readonly facts: Record<string, unknown>;
+  readonly firstAt: string;
+  readonly lastAt: string;
+  readonly ticks: number;
+}
+
+/** The agent's plan, the goal's defaults and limits, and the runner's recent decisions (P3-U3). */
+export interface PlanView {
+  readonly runner: { readonly on: boolean; readonly canSet: boolean; readonly canRun: boolean };
+  readonly strategyEpoch: string;
+  readonly goal: {
+    readonly presetLabel: string;
+    readonly defaults: PlanParams;
+    readonly targetRange: { readonly minBps: number; readonly maxBps: number };
+    readonly ownerLimits: { readonly maxTradeBps: number; readonly maxSlippageBps: number };
+  } | null;
+  readonly plan: {
+    readonly paramId: string;
+    readonly params: PlanParams;
+    readonly strategyEpoch: string;
+    readonly setBy: string;
+    readonly createdAt: string;
+    readonly stale: boolean;
+  } | null;
+  readonly decisions: readonly RunnerDecisionView[];
 }
 
 /** The agent's latest portfolio reading and its intents (GET /v1/agents/:id/chain). */
@@ -225,6 +277,10 @@ export interface AgentsSource {
   disarmAgent?(agentId: AgentId): Promise<ArmingView>;
   /** P2-U6: record a proposal over the trade size limit (local only); returns its intent ID. */
   proposeOverLimit?(agentId: AgentId): Promise<string>;
+  /** P3-U3: set the agent's plan; resolves to the new strategy epoch. */
+  setPlan?(agentId: AgentId, params: PlanParams): Promise<string>;
+  /** P3-U3: run the template runner for the agent once (local only). */
+  runRunner?(agentId: AgentId): Promise<RunnerDecisionView>;
   /** P2-U6: approve a waiting intent as the owner; true when it armed the agent. */
   approveIntent?(agentId: AgentId, intentId: string): Promise<boolean>;
 }
@@ -320,6 +376,21 @@ export function orchestratorSource(baseUrl: string, fetchFn: typeof fetch = fetc
         tradeFlow: body.tradeFlow === true,
       };
     },
+    async plan(agentId: string): Promise<PlanView> {
+      return (await call(`/v1/agents/${agentId}/plan`)) as unknown as PlanView;
+    },
+    async setPlan(agentId: AgentId, params: PlanParams): Promise<string> {
+      const body = await call(`/v1/agents/${agentId.toString()}/plan`, {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(params),
+      });
+      return String((body.plan as { strategyEpoch?: unknown } | undefined)?.strategyEpoch ?? "");
+    },
+    async runRunner(agentId: AgentId): Promise<RunnerDecisionView> {
+      const body = await call(`/v1/agents/${agentId.toString()}/runner/run`, { method: "POST" });
+      return body.decision as RunnerDecisionView;
+    },
     async armAgent(agentId: AgentId): Promise<ArmingView> {
       const body = await call(`/v1/agents/${agentId.toString()}/arm`, {
         method: "POST",
@@ -376,6 +447,8 @@ export function apiAgentsSource(
           cancelSteer: orch.cancelSteer,
           armAgent: orch.armAgent,
           disarmAgent: orch.disarmAgent,
+          setPlan: orch.setPlan,
+          runRunner: orch.runRunner,
           approveIntent: orch.approveIntent,
           proposeOverLimit: orch.proposeOverLimit,
         }
@@ -395,8 +468,9 @@ export function apiAgentsSource(
       const activity = new Map<string, ActivityItem[]>();
       const toolCalls = new Map<string, ToolCallView[]>();
       const chain = new Map<string, ChainView | null>();
+      const plans = new Map<string, PlanView | null>();
       for (const r of runtimes?.runtimes ?? []) {
-        const [a, t, ch] = await Promise.all([
+        const [a, t, ch, pl] = await Promise.all([
           fetchFn(`${baseUrl}/v1/agents/${r.agentId}/activity`, { cache: "no-store" })
             .then(async (res) =>
               res.ok ? (((await res.json()) as { entries?: ActivityItem[] }).entries ?? []) : [],
@@ -404,10 +478,12 @@ export function apiAgentsSource(
             .catch(() => []),
           orch ? orch.toolCalls(r.agentId).catch(() => []) : [],
           orch ? orch.chain(r.agentId).catch(() => null) : null,
+          orch ? orch.plan(r.agentId).catch(() => null) : null,
         ]);
         activity.set(r.agentId, a);
         toolCalls.set(r.agentId, t);
         chain.set(r.agentId, ch);
+        plans.set(r.agentId, pl);
       }
       return {
         orchestrator: runtimes !== null,
@@ -446,6 +522,7 @@ export function apiAgentsSource(
             activity: activity.get(a.agentId) ?? [],
             toolCalls: toolCalls.get(a.agentId) ?? [],
             chain: chain.get(a.agentId) ?? null,
+            plan: plans.get(a.agentId) ?? null,
           };
         }),
       };

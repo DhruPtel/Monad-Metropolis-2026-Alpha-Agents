@@ -118,7 +118,11 @@ export function registerPlanRoutes(
         minTradeUsdcE6: BigInt(parsed.data.minTradeUsdcE6),
       };
       const errors = checkPlan(params, goal.config);
-      if (errors.length > 0) return c.json({ error: "plan_out_of_bounds", errors }, 400);
+      if (errors.length > 0)
+        return c.json(
+          { error: "plan_out_of_bounds", message: errors.map((e) => e.message).join(" "), errors },
+          400,
+        );
       const plan = await orch.plans.set({ ...ref, params, setBy: "console" });
       return c.json({ plan: planJson(plan) }, 201);
     });

@@ -8,7 +8,9 @@ import { type BandsState, STRATEGY_TEMPLATE_RULES, type TemplateDecision } from 
  * template must give. Kept as JSON in packages/policy/evals, one file per
  * template, so the runner's tests and later the audit's dynamic test (P6-U4)
  * run the same set, and a new rule version must pass every scenario of the
- * version it replaces unless a scenario is deliberately changed.
+ * version it replaces unless a scenario is deliberately changed. Imported as
+ * `@alpha-agents/policy/evals`, apart from the package's main entry, because
+ * it reads files and the main entry also runs in the browser.
  */
 export interface EvalScenario {
   readonly name: string;

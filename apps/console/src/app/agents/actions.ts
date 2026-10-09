@@ -6,6 +6,8 @@ import { type ActionResult, attempt } from "@/lib/action-result";
 import { consoleForkUrl } from "@/lib/fork-url";
 import {
   type ArmingView,
+  type PlanParams,
+  type RunnerDecisionView,
   type RefundView,
   type RevealSteeringView,
   type TaskView,
@@ -176,5 +178,23 @@ export async function proposeOverLimitAction(id: string): Promise<ActionResult<s
     const source = agentsSource();
     if (!source.proposeOverLimit) throw new Error("The orchestrator is not configured.");
     return source.proposeOverLimit(agentId(id));
+  });
+}
+
+/** P3-U3: sets the agent's rebalance_bands@1 plan (checked against its goal; bumps the strategy epoch). */
+export async function setPlanAction(id: string, params: PlanParams): Promise<ActionResult<string>> {
+  return attempt(async () => {
+    const source = agentsSource();
+    if (!source.setPlan) throw new Error("The orchestrator is not configured.");
+    return source.setPlan(agentId(id), params);
+  });
+}
+
+/** P3-U3: runs the template runner for the agent once now (local only). */
+export async function runRunnerAction(id: string): Promise<ActionResult<RunnerDecisionView>> {
+  return attempt(async () => {
+    const source = agentsSource();
+    if (!source.runRunner) throw new Error("The orchestrator is not configured.");
+    return source.runRunner(agentId(id));
   });
 }

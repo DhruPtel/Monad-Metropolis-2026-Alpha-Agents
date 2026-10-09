@@ -40,11 +40,13 @@ import { Bot, PlugZap } from "lucide-react";
 import { PanelHeader } from "@/components/panel-header";
 import { AgentActions, AgentTasks, CreditActions } from "./agent-tasks";
 import { RevealControl } from "./reveal-control";
+import { PlanControls } from "./plan-controls";
 import { ApproveIntentButton, ArmingControls, RefreshWhileMoving } from "./trade-controls";
 import {
   type AgentList,
   type AgentRow,
   type ChainView,
+  type PlanView,
   PLANNED_AGENT_ACTIONS,
   agentsSource,
 } from "./extension";
@@ -125,6 +127,121 @@ function AgentArming({
         )}
       </div>
       <ArmingControls agentId={agentId} name={name} state={state} enabled={enabled} />
+    </div>
+  );
+}
+
+/** P3-U3: the agent's plan, the goal's limits, the runner's recent decisions, and the plan form. */
+function AgentPlan({
+  agentId,
+  name,
+  plan,
+  enabled,
+}: {
+  agentId: string;
+  name: string;
+  plan: PlanView | null;
+  enabled: boolean;
+}) {
+  if (!plan) return <p className="text-sm text-foreground-muted">The plan could not be read.</p>;
+  const g = plan.goal;
+  const p = plan.plan;
+  const pct = (bps: number) => `${bps / 100}%`;
+  return (
+    <div className="flex flex-col gap-4" data-testid="agent-plan">
+      <SectionLabel as="h3">Plan and runner</SectionLabel>
+      {!g ? (
+        <p className="text-sm text-foreground-muted">
+          No goal yet: the owner saves one on the Goal page before a plan can be set.
+        </p>
+      ) : (
+        <>
+          <div className="flex flex-wrap items-center gap-2 text-sm" data-testid="plan-summary">
+            <Badge tone={plan.runner.on ? "positive" : "neutral"}>
+              {plan.runner.on ? "Runner on" : "Runner off"}
+            </Badge>
+            <span className="text-foreground-muted">
+              {g.presetLabel} goal: target {pct(g.targetRange.minBps)} to{" "}
+              {pct(g.targetRange.maxBps)} WMON, largest trade {pct(g.ownerLimits.maxTradeBps)}
+            </span>
+            {p ? (
+              <>
+                <span>
+                  Plan: <span className="numeric">{pct(p.params.targetWmonBps)}</span> WMON ±{" "}
+                  <span className="numeric">{p.params.bandHalfWidthBps / 100}</span> points, legs up
+                  to <span className="numeric">{pct(p.params.maxLegBps)}</span>, set by {p.setBy} at
+                  strategy epoch <span className="numeric">{p.strategyEpoch}</span>
+                </span>
+                {p.stale ? <Badge tone="warning">Goal changed: set a new plan</Badge> : null}
+              </>
+            ) : (
+              <span>No plan yet: the runner makes no trades.</span>
+            )}
+          </div>
+          <PlanControls
+            agentId={agentId}
+            name={name}
+            initial={p?.params ?? g.defaults}
+            canSet={enabled && plan.runner.canSet}
+            canRun={enabled && plan.runner.canRun && p !== null}
+          />
+        </>
+      )}
+      {plan.decisions.length === 0 ? (
+        <p className="text-sm text-foreground-muted">The runner has made no decision yet.</p>
+      ) : (
+        <Table stack label={`Runner decisions of ${name}`}>
+          <TableHeader>
+            <TableRow>
+              <TableHead scope="col">Last seen</TableHead>
+              <TableHead scope="col">Decision</TableHead>
+              <TableHead scope="col">Why</TableHead>
+              <TableHead scope="col">Share and leg</TableHead>
+              <TableHead scope="col">Minutes</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {plan.decisions.slice(0, 6).map((d) => (
+              <TableRow key={d.decisionId}>
+                <TableCell className="numeric whitespace-nowrap">
+                  {d.lastAt.replace("T", " ").slice(0, 16)} UTC
+                </TableCell>
+                <TableCell label="Decision">
+                  <Badge
+                    tone={
+                      d.outcome === "leg" ? "detail" : d.code === "IN_BAND" ? "positive" : "warning"
+                    }
+                  >
+                    {d.outcome === "leg" ? "Leg" : d.code}
+                  </Badge>
+                </TableCell>
+                <TableCell label="Why" className="text-sm">
+                  {d.message}
+                </TableCell>
+                <TableCell label="Share and leg" className="numeric text-sm">
+                  {typeof d.facts.wmonShareBps === "number"
+                    ? `${d.facts.wmonShareBps / 100}% WMON`
+                    : ""}
+                  {d.leg ? (
+                    <>
+                      {" · "}
+                      <AmountDisplay
+                        value={BigInt(d.leg.amountIn)}
+                        decimals={d.leg.sell === "USDC" ? 6 : 18}
+                        maxFractionDigits={4}
+                        symbol={d.leg.sell}
+                      />
+                    </>
+                  ) : null}
+                </TableCell>
+                <TableCell label="Minutes" className="numeric">
+                  {d.ticks}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      )}
     </div>
   );
 }
@@ -378,6 +495,14 @@ function AgentActivity({ agents, enabled }: { agents: readonly AgentRow[]; enabl
                 agentId={a.agentId.toString()}
                 name={a.name}
                 chain={a.chain}
+                enabled={enabled}
+              />
+            </div>
+            <div className="xl:col-span-2">
+              <AgentPlan
+                agentId={a.agentId.toString()}
+                name={a.name}
+                plan={a.plan}
                 enabled={enabled}
               />
             </div>

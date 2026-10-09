@@ -498,6 +498,94 @@ const ledgerEntry = JSON.stringify({
   ],
 });
 
+// P3-U3: agent 1's plan and the runner's decisions; the console's "Set plan" moves the target.
+let planTarget = 2_000;
+let planEpoch = 2;
+const planParams = (target) => ({
+  targetWmonBps: target,
+  bandHalfWidthBps: 500,
+  minTradeUsdcE6: "500000",
+  volatilityBrakeBps: 20_000,
+  costHurdleBps: 40,
+  maxLegBps: 1_000,
+});
+const decision = (decisionId, outcome, code, message, wmonShareBps, leg, lastAt, ticks) => ({
+  decisionId,
+  outcome,
+  code,
+  codes: outcome === "hold" ? [code] : [],
+  message,
+  leg,
+  intentId: leg ? "intent-0b1c2d3e-4f5a-4b6c-8d7e-9f0a1b2c3d4e" : null,
+  facts: { wmonShareBps, targetWmonBps: planTarget, bandHalfWidthBps: 500 },
+  strategyEpoch: String(planEpoch),
+  paramId: "plan-fixture",
+  block: "109670021",
+  firstAt: lastAt,
+  lastAt,
+  ticks,
+});
+const planView = () => ({
+  agentId: "1",
+  runner: { on: true, canSet: true, canRun: true },
+  strategyEpoch: String(planEpoch),
+  goal: {
+    riskPreset: "BALANCED",
+    presetLabel: "Balanced",
+    defaults: planParams(2_000),
+    targetRange: { minBps: 0, maxBps: 3_000 },
+    ownerLimits: {
+      maxTradeBps: 1_000,
+      maxWmonShareBps: 4_000,
+      minUsdcShareBps: 1_000,
+      maxSlippageBps: 50,
+      maxTradesPer24h: 20,
+    },
+  },
+  plan: {
+    paramId: "plan-fixture",
+    template: "rebalance_bands@1",
+    params: planParams(planTarget),
+    paramsHash: `0x${"ab".repeat(32)}`,
+    strategyEpoch: String(planEpoch),
+    setBy: "console",
+    createdAt: "2026-10-07T12:00:00.000Z",
+    stale: false,
+  },
+  decisions: [
+    decision(
+      3,
+      "hold",
+      "IN_BAND",
+      "The account's WMON share is inside its band around the target, so no trade is needed.",
+      1_988,
+      null,
+      "2026-10-07T12:20:00.000Z",
+      14,
+    ),
+    decision(
+      2,
+      "hold",
+      "LEG_PENDING",
+      "The previous trade of this rebalance is still on its way; the next one waits for it to settle.",
+      995,
+      null,
+      "2026-10-07T12:05:00.000Z",
+      2,
+    ),
+    decision(
+      1,
+      "leg",
+      "LEG",
+      "Proposed a leg toward the target.",
+      0,
+      { sell: "USDC", buy: "WMON", amountIn: "9950000", valueUsdcE6: "9950000" },
+      "2026-10-07T12:03:00.000Z",
+      1,
+    ),
+  ],
+});
+
 const routes = {
   "GET /health": [200, body],
   "GET /v1/signer": [200, JSON.stringify({ on: true, chainId: 143143 })],
@@ -552,10 +640,37 @@ createServer((req, res) => {
     waitingStatus = "approved";
     return json(200, { armed, intent: { intentId: WAITING, status: "approved" } });
   }
+  if (req.method === "GET" && req.url === "/v1/agents/1/plan") return json(200, planView());
+  if (req.method === "PUT" && req.url === "/v1/agents/1/plan") {
+    let raw = "";
+    req.on("data", (c) => (raw += c));
+    req.on("end", () => {
+      const params = JSON.parse(raw || "{}");
+      if (params.targetWmonBps > 3_000)
+        return json(400, {
+          error: "plan_out_of_bounds",
+          message: "The target WMON share must be within the goal's range, 0% to 30%.",
+          errors: [
+            {
+              field: "template.params.targetWmonBps",
+              message: "The target WMON share must be within the goal's range, 0% to 30%.",
+            },
+          ],
+        });
+      planTarget = params.targetWmonBps;
+      planEpoch += 1;
+      json(201, { plan: { ...planView().plan } });
+    });
+    return;
+  }
+  if (req.method === "POST" && req.url === "/v1/agents/1/runner/run")
+    return json(200, { decision: planView().decisions[0] });
   if (req.method === "POST" && req.url === "/v1/agents/1/test-over-limit")
     return json(201, { intentId: "intent-5a4b3c2d-1e0f-4a9b-8c7d-6e5f4a3b2c1d" });
   // Test-only: puts agent 1's arming and intents back, so one test's arming never reaches another's.
   if (req.method === "POST" && req.url === "/__fixture/reset-arming") {
+    planTarget = 2_000;
+    planEpoch = 2;
     armingState = "unarmed";
     waitingStatus = "awaiting_approval";
     return json(200, { reset: true });
