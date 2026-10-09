@@ -180,7 +180,7 @@ describe("platform tools server", () => {
           targetWmonBps: 2_000,
           bandHalfWidthBps: 500,
           minTradeUsdc: "0.5",
-          volatilityBrakeBps: 12_000,
+          volatilityBrakeBps: 20_000,
           costHurdleBps: 40,
           maxLegBps: 1_000,
         },

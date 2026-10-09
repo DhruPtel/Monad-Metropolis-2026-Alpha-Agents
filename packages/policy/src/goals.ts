@@ -35,9 +35,9 @@ export interface RebalanceBandsParams {
   readonly bandHalfWidthBps: number;
   /** The smallest leg worth trading, USDC base units. */
   readonly minTradeUsdcE6: bigint;
-  /** Annualized 24-hour realized volatility above which buys hold, basis points (A-52). */
+  /** Annualized 24-hour realized volatility above which buys hold, basis points (A-58). */
   readonly volatilityBrakeBps: number;
-  /** The most a leg may cost against the oracle (fee and price impact), basis points (A-52). */
+  /** The most a leg may cost against the oracle (fee and price impact), basis points (A-58). */
   readonly costHurdleBps: number;
   /** The largest leg, basis points of the account's value; never above the per-trade cap. */
   readonly maxLegBps: number;
@@ -56,13 +56,19 @@ export const REBALANCE_BANDS_V1_BOUNDS: Readonly<Record<keyof RebalanceBandsPara
     maxLegBps: [10n, BigInt(LAUNCH_LIMITS.maxTradeBps)],
   });
 
-/** The parameters each preset adds to D-278's range, target and band (A-52; P3-U3 may tune them). */
-const PRESET_EXTRAS: Readonly<
+/**
+ * The parameters each preset adds to D-278's range, target and band. The buy
+ * brakes were measured in P3-U3 (A-58) against MON's 24-hour volatility over
+ * 20 days (median 114%, p75 146%, p90 211%, p95 235%): A-55's 80%, 120% and
+ * 160% would have held buys 92%, 46% and 20% of hours, so they are 150%,
+ * 200% and 250% (about 25%, 11% and 2% of hours). The cost limits stand.
+ */
+export const PRESET_EXTRAS: Readonly<
   Record<RiskPreset, Pick<RebalanceBandsParams, "volatilityBrakeBps" | "costHurdleBps">>
 > = {
-  CONSERVATIVE: { volatilityBrakeBps: 8_000, costHurdleBps: 30 },
-  BALANCED: { volatilityBrakeBps: 12_000, costHurdleBps: 40 },
-  GROWTH: { volatilityBrakeBps: 16_000, costHurdleBps: 50 },
+  CONSERVATIVE: { volatilityBrakeBps: 15_000, costHurdleBps: 30 },
+  BALANCED: { volatilityBrakeBps: 20_000, costHurdleBps: 40 },
+  GROWTH: { volatilityBrakeBps: 25_000, costHurdleBps: 50 },
 };
 const DEFAULT_MIN_TRADE_USDC_E6 = 500_000n;
 

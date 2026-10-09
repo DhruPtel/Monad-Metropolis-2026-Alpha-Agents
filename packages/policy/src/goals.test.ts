@@ -48,7 +48,7 @@ describe("goal translator (P3-U1)", () => {
         targetWmonBps: 2_000,
         bandHalfWidthBps: 500,
         minTradeUsdcE6: 500_000n,
-        volatilityBrakeBps: 12_000,
+        volatilityBrakeBps: 20_000,
         costHurdleBps: 40,
         maxLegBps: 1_000,
       },

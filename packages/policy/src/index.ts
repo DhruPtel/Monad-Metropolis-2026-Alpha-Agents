@@ -4,6 +4,8 @@ export * from "./goals.ts";
 export * from "./limits.ts";
 export * from "./oracle.ts";
 export * from "./state.ts";
+export * from "./templates.ts";
+export * from "./evals.ts";
 /** The PersonalAccount breaker and units model (D-233): `breaker.poke(...)`, `breaker.deposit(...)`. */
 export * as breaker from "./breaker.ts";
 export * from "./executor.ts";
