@@ -1,0 +1,359 @@
+{
+  "agentId": "1",
+  "goal": {
+    "reasoning": "research-strong",
+    "intensity": "STANDARD",
+    "divesPerDay": 2,
+    "dailyBudgetUsdcE6": "5000000",
+    "creditReserveUsdcE6": "1000000"
+  },
+  "today": {
+    "usedUsdcE6": "62000",
+    "divesToday": 1
+  },
+  "plans": {
+    "ROUTINE": {
+      "kind": "ROUTINE",
+      "reasoning": "research-strong",
+      "stages": [
+        {
+          "stage": "SCAN",
+          "count": 1,
+          "model": "scan-cheap",
+          "caps": {
+            "turns": 10,
+            "paidCalls": 5,
+            "tokens": 300000,
+            "seconds": 300
+          },
+          "ceilingUsdcE6": "300000"
+        },
+        {
+          "stage": "DIVE",
+          "count": 1,
+          "model": "research-strong",
+          "caps": {
+            "turns": 16,
+            "paidCalls": 8,
+            "tokens": 600000,
+            "seconds": 600
+          },
+          "ceilingUsdcE6": "1200000"
+        },
+        {
+          "stage": "CHALLENGE",
+          "count": 1,
+          "model": "research-strong",
+          "caps": {
+            "turns": 6,
+            "paidCalls": 2,
+            "tokens": 200000,
+            "seconds": 240
+          },
+          "ceilingUsdcE6": "300000"
+        },
+        {
+          "stage": "TEST",
+          "count": 1,
+          "model": null,
+          "caps": {
+            "turns": 0,
+            "paidCalls": 0,
+            "tokens": 0,
+            "seconds": 0
+          },
+          "ceilingUsdcE6": "0"
+        },
+        {
+          "stage": "ZOOM_OUT",
+          "count": 1,
+          "model": "research-strong",
+          "caps": {
+            "turns": 10,
+            "paidCalls": 2,
+            "tokens": 350000,
+            "seconds": 360
+          },
+          "ceilingUsdcE6": "600000"
+        }
+      ],
+      "maxUsdcE6": "2400000"
+    },
+    "ACTIVATION": {
+      "kind": "ACTIVATION",
+      "reasoning": "research-strong",
+      "stages": [
+        {
+          "stage": "SCAN",
+          "count": 1,
+          "model": "scan-cheap",
+          "caps": {
+            "turns": 16,
+            "paidCalls": 10,
+            "tokens": 450000,
+            "seconds": 480
+          },
+          "ceilingUsdcE6": "500000"
+        },
+        {
+          "stage": "DIVE",
+          "count": 2,
+          "model": "research-strong",
+          "caps": {
+            "turns": 16,
+            "paidCalls": 8,
+            "tokens": 600000,
+            "seconds": 600
+          },
+          "ceilingUsdcE6": "1200000"
+        },
+        {
+          "stage": "CHALLENGE",
+          "count": 1,
+          "model": "research-strong",
+          "caps": {
+            "turns": 6,
+            "paidCalls": 2,
+            "tokens": 200000,
+            "seconds": 240
+          },
+          "ceilingUsdcE6": "300000"
+        },
+        {
+          "stage": "TEST",
+          "count": 1,
+          "model": null,
+          "caps": {
+            "turns": 0,
+            "paidCalls": 0,
+            "tokens": 0,
+            "seconds": 0
+          },
+          "ceilingUsdcE6": "0"
+        },
+        {
+          "stage": "ZOOM_OUT",
+          "count": 1,
+          "model": "research-strong",
+          "caps": {
+            "turns": 10,
+            "paidCalls": 2,
+            "tokens": 350000,
+            "seconds": 360
+          },
+          "ceilingUsdcE6": "600000"
+        }
+      ],
+      "maxUsdcE6": "3800000"
+    }
+  },
+  "cycles": [
+    {
+      "cycleId": "cycle-970b4b4d-acbe-433a-9986-30e05fac7568",
+      "taskId": "task-2d8bce7597d8f",
+      "kind": "ROUTINE",
+      "status": "completed",
+      "stopReason": "COMPLETED",
+      "reasoning": "research-strong",
+      "chargedUsdcE6": "62000",
+      "absorbedUsdcE6": "0",
+      "createdAt": "2026-10-09T15:08:19.291Z",
+      "startedAt": "2026-10-09T15:08:19.308Z",
+      "finishedAt": "2026-10-09T15:08:33.529Z",
+      "stages": [
+        {
+          "stageRunId": "stage-run-7bf902ae-fd28-462b-ac29-c34e7516c9f2",
+          "seq": 1,
+          "stage": "SCAN",
+          "themeCode": null,
+          "model": "scan-cheap",
+          "caps": {
+            "turns": 10,
+            "tokens": 300000,
+            "seconds": 300,
+            "paidCalls": 5
+          },
+          "ceilingUsdcE6": "300000",
+          "status": "completed",
+          "stopReason": "COMPLETED",
+          "runId": "run-1",
+          "modelCalls": 2,
+          "inputTokens": 12000,
+          "outputTokens": 100,
+          "cacheReadTokens": 5900,
+          "cacheWriteTokens": 5900,
+          "chargedUsdcE6": "20000",
+          "absorbedUsdcE6": "0",
+          "outcome": {
+            "capsHit": [],
+            "stageRecord": {
+              "outcome": "DONE",
+              "decision": null,
+              "candidates": [
+                {
+                  "asset": "WMON",
+                  "thesisCode": "TVL_OUTFLOW",
+                  "confidenceBps": 6000
+                }
+              ]
+            },
+            "skillsLoaded": []
+          },
+          "startedAt": "2026-10-09T15:08:19.313Z",
+          "finishedAt": "2026-10-09T15:08:20.832Z"
+        },
+        {
+          "stageRunId": "stage-run-b32cc7ad-70b6-490a-8107-8cbca573a095",
+          "seq": 2,
+          "stage": "DIVE",
+          "themeCode": "TVL_OUTFLOW",
+          "model": "research-strong",
+          "caps": {
+            "turns": 16,
+            "tokens": 600000,
+            "seconds": 600,
+            "paidCalls": 8
+          },
+          "ceilingUsdcE6": "1200000",
+          "status": "completed",
+          "stopReason": "COMPLETED",
+          "runId": "run-2",
+          "modelCalls": 2,
+          "inputTokens": 12000,
+          "outputTokens": 100,
+          "cacheReadTokens": 5900,
+          "cacheWriteTokens": 5900,
+          "chargedUsdcE6": "22000",
+          "absorbedUsdcE6": "0",
+          "outcome": {
+            "capsHit": [],
+            "stageRecord": {
+              "outcome": "DONE",
+              "decision": null,
+              "candidates": []
+            },
+            "skillsLoaded": []
+          },
+          "startedAt": "2026-10-09T15:08:22.876Z",
+          "finishedAt": "2026-10-09T15:08:24.385Z"
+        },
+        {
+          "stageRunId": "stage-run-f6e44c01-e8a8-4007-9ba8-8175ee09f225",
+          "seq": 3,
+          "stage": "CHALLENGE",
+          "themeCode": null,
+          "model": "research-strong",
+          "caps": {
+            "turns": 6,
+            "tokens": 200000,
+            "seconds": 240,
+            "paidCalls": 2
+          },
+          "ceilingUsdcE6": "300000",
+          "status": "completed",
+          "stopReason": "COMPLETED",
+          "runId": "run-3",
+          "modelCalls": 2,
+          "inputTokens": 12000,
+          "outputTokens": 100,
+          "cacheReadTokens": 11800,
+          "cacheWriteTokens": 0,
+          "chargedUsdcE6": "10000",
+          "absorbedUsdcE6": "0",
+          "outcome": {
+            "capsHit": [],
+            "stageRecord": {
+              "outcome": "DONE",
+              "decision": null,
+              "candidates": []
+            },
+            "skillsLoaded": []
+          },
+          "startedAt": "2026-10-09T15:08:26.418Z",
+          "finishedAt": "2026-10-09T15:08:27.927Z"
+        },
+        {
+          "stageRunId": "stage-run-a43b5693-e85e-4182-b85e-39fa2a34ed17",
+          "seq": 4,
+          "stage": "TEST",
+          "themeCode": null,
+          "model": null,
+          "caps": {
+            "turns": 0,
+            "tokens": 0,
+            "seconds": 0,
+            "paidCalls": 0
+          },
+          "ceilingUsdcE6": "0",
+          "status": "completed",
+          "stopReason": "COMPLETED",
+          "runId": null,
+          "modelCalls": 0,
+          "inputTokens": 0,
+          "outputTokens": 0,
+          "cacheReadTokens": 0,
+          "cacheWriteTokens": 0,
+          "chargedUsdcE6": "0",
+          "absorbedUsdcE6": "0",
+          "outcome": {
+            "checked": [],
+            "envelope": {
+              "ranges": {
+                "maxLegBps": [10, 1000],
+                "minTradeUsdc": ["0.1", "100"],
+                "costHurdleBps": [5, 50],
+                "targetWmonBps": [0, 3000],
+                "bandHalfWidthBps": [100, 1000],
+                "volatilityBrakeBps": [2000, 30000]
+              },
+              "template": "rebalance_bands@1",
+              "cooldownUntil": null,
+              "mayProposeNow": true,
+              "currentPlanFindings": []
+            }
+          },
+          "startedAt": "2026-10-09T15:08:29.961Z",
+          "finishedAt": "2026-10-09T15:08:29.965Z"
+        },
+        {
+          "stageRunId": "stage-run-57fe62e4-10df-407c-8335-29bf70dee74c",
+          "seq": 5,
+          "stage": "ZOOM_OUT",
+          "themeCode": null,
+          "model": "research-strong",
+          "caps": {
+            "turns": 10,
+            "tokens": 350000,
+            "seconds": 360,
+            "paidCalls": 2
+          },
+          "ceilingUsdcE6": "600000",
+          "status": "completed",
+          "stopReason": "COMPLETED",
+          "runId": "run-4",
+          "modelCalls": 2,
+          "inputTokens": 12000,
+          "outputTokens": 100,
+          "cacheReadTokens": 11800,
+          "cacheWriteTokens": 0,
+          "chargedUsdcE6": "10000",
+          "absorbedUsdcE6": "0",
+          "outcome": {
+            "capsHit": [],
+            "stageRecord": {
+              "outcome": "DONE",
+              "decision": {
+                "kind": "NO_CHANGE",
+                "reasonCode": "EVIDENCE_THIN"
+              },
+              "candidates": []
+            },
+            "skillsLoaded": []
+          },
+          "startedAt": "2026-10-09T15:08:29.976Z",
+          "finishedAt": "2026-10-09T15:08:31.485Z"
+        }
+      ]
+    }
+  ]
+}

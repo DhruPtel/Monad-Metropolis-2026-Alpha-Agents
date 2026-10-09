@@ -587,6 +587,15 @@ const planView = () => ({
   ],
 });
 
+// P3-U4: one routine cycle as the orchestrator's cycle routes served it after an offline run
+// (services/orchestrator's cycle test writes these with CYCLE_FIXTURE_DIR=apps/console/e2e).
+const cyclesFixture = readFileSync(new URL("./cycles-fixture.json", import.meta.url), "utf8");
+const cycleDetailFixture = readFileSync(
+  new URL("./cycle-detail-fixture.json", import.meta.url),
+  "utf8",
+);
+const FIXTURE_CYCLE = JSON.parse(cyclesFixture).cycles[0].cycleId;
+
 const routes = {
   "GET /health": [200, body],
   "GET /v1/signer": [200, JSON.stringify({ on: true, chainId: 143143 })],
@@ -614,6 +623,15 @@ const routes = {
   "GET /v1/research": [
     200,
     readFileSync(new URL("./research-fixture.json", import.meta.url), "utf8"),
+  ],
+  "GET /v1/agents/1/cycles": [200, cyclesFixture],
+  [`GET /v1/cycles/${FIXTURE_CYCLE}`]: [200, cycleDetailFixture],
+  "POST /v1/agents/1/cycles": [
+    409,
+    JSON.stringify({
+      error: "cycle_open",
+      message: "Agent 1 already has a research cycle queued or running.",
+    }),
   ],
 };
 

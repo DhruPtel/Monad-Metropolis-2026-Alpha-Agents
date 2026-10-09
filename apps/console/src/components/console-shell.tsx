@@ -9,6 +9,7 @@ import {
   Coins,
   GitBranch,
   LineChart,
+  RefreshCw,
   Scale,
   Telescope,
 } from "lucide-react";
@@ -26,6 +27,7 @@ export const CONSOLE_PANELS = [
   { href: "/trades", label: "Trades", icon: ArrowLeftRight },
   { href: "/market", label: "Market", icon: LineChart },
   { href: "/research", label: "Research", icon: Telescope },
+  { href: "/cycles", label: "Cycles", icon: RefreshCw },
 ] as const;
 
 const isActive = (pathname: string, href: string) =>

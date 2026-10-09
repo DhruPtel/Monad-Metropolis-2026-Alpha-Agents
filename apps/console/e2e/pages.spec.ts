@@ -19,6 +19,7 @@ const PAGES = [
   { path: "/trades", name: "trades", heading: "Trades" },
   { path: "/market", name: "market", heading: "Market data" },
   { path: "/research", name: "research", heading: "Research sources" },
+  { path: "/cycles", name: "cycles", heading: "Research cycles" },
 ] as const;
 
 for (const panel of PAGES) {
@@ -436,4 +437,33 @@ test("loads every font from its own origin", async ({ page }) => {
   const origin = new URL(page.url()).origin;
   expect(fonts.length).toBeGreaterThan(0);
   expect(fonts.filter((url) => new URL(url).origin !== origin)).toEqual([]);
+});
+
+test("the cycles page shows each stage's ceiling before it runs, and every stage of a cycle after (P3-U4)", async ({
+  page,
+}) => {
+  await page.goto("/cycles");
+  const routine = page.getByTestId("plan-routine");
+  await expect(routine).toContainText("At most 2.4000 USDC");
+  await expect(routine).toContainText("scan-cheap");
+  await expect(page.getByTestId("plan-activation")).toContainText("At most 3.8000 USDC");
+  const detail = page.getByTestId("cycle-detail");
+  for (const [n, name] of [
+    [1, "Scan"],
+    [2, "Dive on TVL_OUTFLOW"],
+    [3, "Challenge"],
+    [4, "Test"],
+    [5, "Zoom out"],
+  ] as const)
+    await expect(detail.getByTestId(`stage-${n}`)).toContainText(`${n} · ${name}`);
+  const scan = detail.getByTestId("stage-1");
+  await expect(scan).toContainText("SCAN refused");
+  await expect(scan).toContainText("12.4 does not appear in any tool result");
+  await expect(scan).toContainText("SCAN accepted");
+  await expect(scan.getByLabel("Raw notes (platform-only): TVL")).toContainText("TVL_OUTFLOW high");
+  await expect(scan.getByRole("meter", { name: "Cost against ceiling" })).toBeVisible();
+  await expect(detail.getByTestId("stage-4")).toContainText("Deterministic, no model, free");
+  // Starting a cycle while one is open is refused with the orchestrator's message.
+  await page.getByRole("button", { name: "Run routine cycle" }).click();
+  await expect(page.getByText("already has a research cycle queued or running")).toBeVisible();
 });

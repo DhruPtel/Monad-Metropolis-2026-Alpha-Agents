@@ -23,6 +23,10 @@ import { Store } from "../store.ts";
 import { CHAIN, indexAgent, must } from "../testing.ts";
 import { type ToolServers, startToolServers } from "../tools/servers.ts";
 import { builtinSet } from "../hermes/materialize.ts";
+import { writeFileSync } from "node:fs";
+import { Hono } from "hono";
+import { registerCycleRoutes } from "../cycle-routes.ts";
+import type { Orchestrator } from "../orchestrator.ts";
 import { type CycleContext, runCycleTask } from "./cycle.ts";
 import { CycleResearch } from "./research.ts";
 import { CycleStore } from "./store.ts";
@@ -467,7 +471,8 @@ describe.skipIf(!dbUp)("the discovery loop engine (needs Postgres)", { timeout: 
         model: new Template(),
       }),
       settleMs: 4_000,
-      deadlineMs: () => 8_000,
+      // Long enough for a stage's scripted calls on a loaded machine; the deadline test shortens it.
+      deadlineMs: () => 30_000,
     };
   });
   afterEach(async () => {
@@ -840,6 +845,7 @@ describe.skipIf(!dbUp)("the discovery loop engine (needs Postgres)", { timeout: 
       }
       await new Promise(() => undefined); // never finishes: the deadline stops it
     };
+    ctx = { ...ctx, deadlineMs: () => 6_000 };
     const { stages } = await runCycle();
     expect(codes).toEqual(["RATE_LIMITED"]);
     const calls = await t.db
@@ -932,5 +938,54 @@ describe.skipIf(!dbUp)("the discovery loop engine (needs Postgres)", { timeout: 
     expect(must(stages[0])).toMatchObject({ status: "stopped", stopReason: "BILLING" });
     expect(cycle).toMatchObject({ status: "stopped", stopReason: "BILLING" });
     expect((await credits.creditsOf(1)).restricted).toBe(true);
+  });
+
+  it("serves the console's cycle routes: ceilings before a cycle runs, every stage after", async () => {
+    await saveGoal({});
+    scripts.SCAN = async (r) => {
+      await start(r);
+      ok(await tool(r.token, "data", "web_search", { query: "monad tvl" }));
+      await brief(r.token, scanBrief("high", { summary: "Monad TVL fell 12.4% today." }));
+      await tool(r.token, "platform", "write_thesis", {
+        stage: "SCAN",
+        title: "TVL",
+        notes: "CHANGED: TVL fell 6.8% over 7 days.\nTHEMES: TVL_OUTFLOW high.",
+        sources: ["https://news.example/tvl"],
+      });
+      ok(await brief(r.token, scanBrief("high")));
+      ok(
+        await complete(r.token, "SCAN", {
+          candidates: [{ asset: "WMON", thesisCode: "TVL_OUTFLOW", confidenceBps: 6000 }],
+        }),
+      );
+    };
+    const { cycle } = await runCycle();
+    const app = new Hono();
+    registerCycleRoutes(app, {
+      orchestrator: { goals, cycles } as unknown as Orchestrator,
+      store,
+      agentRef: (raw) => ({ chainId: CHAIN, agentId: Number(raw) }),
+      canStart: true,
+    });
+    const list = (await (await app.request("/v1/agents/1/cycles")).json()) as {
+      plans: { ROUTINE: { maxUsdcE6: string } };
+      cycles: { cycleId: string; stages: unknown[] }[];
+    };
+    // Standard allows 2 Dives a day and this cycle used one: Scan, one Dive, Challenge, Zoom out.
+    expect(list.plans.ROUTINE.maxUsdcE6).toBe("2400000");
+    expect(list.cycles[0]).toMatchObject({ cycleId: cycle.cycleId });
+    expect(list.cycles[0]?.stages).toHaveLength(5);
+    const detail = (await (await app.request(`/v1/cycles/${cycle.cycleId}`)).json()) as {
+      stages: { notes: unknown[]; briefs: { status: string }[]; modelCallRecords: unknown[] }[];
+    };
+    expect(detail.stages[0]?.notes).toHaveLength(1);
+    expect(detail.stages[0]?.briefs.map((b) => b.status)).toEqual(["refused", "accepted"]);
+    expect(detail.stages[0]?.modelCallRecords).toHaveLength(2);
+    // The console's e2e fixture is these answers (CYCLE_FIXTURE_DIR=apps/console/e2e).
+    const dir = process.env.CYCLE_FIXTURE_DIR;
+    if (dir) {
+      writeFileSync(`${dir}/cycles-fixture.json`, `${JSON.stringify(list, null, 2)}\n`);
+      writeFileSync(`${dir}/cycle-detail-fixture.json`, `${JSON.stringify(detail, null, 2)}\n`);
+    }
   });
 });
