@@ -38,3 +38,9 @@ packages/market/fixtures/tokens/cmc-map.json:generic-api-key:16
 # LVMON token address 0x91b81bfbe3a747230f0529aa28d8b2bc898e6d56 on Monad (checked in F-U1).
 apps/console/e2e/token-detail-fixture.json:generic-api-key:43
 b5b6d71bc1083380b350478d2839ee2851f4193f:apps/console/e2e/token-detail-fixture.json:generic-api-key:43
+#
+# F-U9 fixtures: a position's "token" field holds the public WBTC token address
+# 0x0555e30da8f98308edb960aa94c0db47230d2b9c, which generic-api-key reads as a key; the
+# fixtures now name it through a constant (checked in F-U9).
+5a8d92d433f706b992cc3ad2c4a64e1eec50c2b5:apps/web/e2e/fake-trading.ts:generic-api-key:218
+5a8d92d433f706b992cc3ad2c4a64e1eec50c2b5:packages/ui/src/components/agent/plan-card.test.tsx:generic-api-key:13

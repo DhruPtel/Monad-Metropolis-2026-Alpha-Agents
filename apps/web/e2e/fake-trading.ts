@@ -32,6 +32,10 @@ export const USDC = "0x754704Bc059F8C67012fEd69BC8A327a5aafb603" as const;
 export const WMON = "0x3bd359C1119dA7Da1D913D1C4D2B7c461115433A" as const;
 export const FUNDING = getAddress("0x9f8e2b1c0d3a4e5f60718293a4b5c6d7e8f90a1b");
 /** The block's time all fixtures are dated from: 2026-10-07T12:00:00Z. */
+/** WBTC on Monad, the second token the plan card's fixtures name. */
+export const WBTC = "0x0555e30da8f98308edb960aa94c0db47230d2b9c" as const;
+/** A class A token the plan in force holds in the fixtures and the proposal leaves. */
+export const CHOG = "0x00000000000000000000000000000000000c0de5" as const;
 export const NOW = 1_791_374_400;
 const iso = (s: number) => new Date(s * 1000).toISOString();
 const PX = 25_000_000_000_000_000n;
@@ -215,7 +219,7 @@ export function proposalFixture(over: Partial<ProposalJson> = {}): ProposalJson 
         reason: "The thesis stands but the account is above its weight.",
       },
       {
-        token: "0x0555e30da8f98308edb960aa94c0db47230d2b9c",
+        token: WBTC,
         symbol: "WBTC",
         targetWeightBps: 2_000,
         bandBps: 300,
@@ -329,7 +333,7 @@ export function planCardFixture(over: Partial<PlanCardJson> = {}): PlanCardJson 
       positions: [
         { token: WMON.toLowerCase(), symbol: "WMON", targetWeightBps: 2_500, bandBps: 300 },
         {
-          token: "0x00000000000000000000000000000000000c0de5",
+          token: CHOG,
           symbol: "CHOG",
           targetWeightBps: 500,
           bandBps: 200,

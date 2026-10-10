@@ -2,6 +2,7 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { NoChangeNotice, PlanCard, type PlanCardView } from "./plan-card";
 
+const WBTC = "0x0555e30da8f98308edb960aa94c0db47230d2b9c";
 const view = (over: Partial<PlanCardView> = {}): PlanCardView => ({
   proposalId: "prop-00000000-0000-4000-8000-000000000001",
   status: "pending_owner",
@@ -10,7 +11,7 @@ const view = (over: Partial<PlanCardView> = {}): PlanCardView => ({
   currentCashBps: 7_000,
   positions: [
     {
-      token: "0x0555e30da8f98308edb960aa94c0db47230d2b9c",
+      token: WBTC,
       symbol: "WBTC",
       targetWeightBps: 2_000,
       bandBps: 300,
