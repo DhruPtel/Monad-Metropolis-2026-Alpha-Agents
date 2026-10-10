@@ -160,8 +160,9 @@ Locally, AgentNFT's admin (anvil account 0) is the factory admin, account 4 the 
 
 `chains/monad/src/fund/CustodyCoreV3.sol`, `PersonalAccountV3.sol` and `AccountFactoryV3.sol` are the fund agent's account: a portfolio of up to 16 tokens the TokenRegistry knows, each with its own feed or attested price and an onchain cost-basis record (the USDC paid for what is held, moved pro rata on sells and withdrawals). The class A caps, 15% per position and 50% in all, hold by cost basis with no price; class F keeps the 45% value cap. The owner opts in to screened-lane tokens onchain and out again at once. Every v2 guarantee stays: the owner withdraws any held token without a price, the Executor or the platform; withdrawals cannot be paused; a token whose transfer reverts is credited while the rest comes out; the sentinel can only tighten; loosening waits the 9-day timelock. The factory takes the registry, the oracle and the Executor at deployment; F-U3 deploys it with the Executor unset, and F-U4 deploys it again with Executor v3.
 
+AccountFactoryV3 and the PersonalAccountV3 implementation are deployed with the Executor's set by `pnpm deploy:executor-v3` (below), since a factory whose Executor is unset cannot trade (D-366); there is no standalone local deploy for them.
+
 ```sh
-pnpm deploy:custody-v3                      # deploy to the local fork beside v1, v2 and the v3 set (needs pnpm deploy:fund first; deterministic)
 pnpm custody:v3:demo                        # a fork of its own (port 8586): open an account, deposit four tokens, show the cost basis, opt in, withdraw everything
 ```
 
