@@ -7,6 +7,14 @@ import type { Environment } from "@alpha-agents/config";
 import type { Db } from "@alpha-agents/db";
 import type { AgentNftDeployment, CustodyPath } from "@alpha-agents/domain";
 import { type Context, Hono } from "hono";
+import {
+  type ProposalDeps,
+  type ProposalStores,
+  approveProposal,
+  declineProposal,
+  planCard,
+  proposalJson,
+} from "./proposals.ts";
 import { cors } from "hono/cors";
 import { type Address, type Hex, getAddress, isAddress, isAddressEqual } from "viem";
 import { translateGoal } from "@alpha-agents/policy";
@@ -28,6 +36,9 @@ import {
   registerCall,
   rejectByOwner,
   revokeCall,
+  PlanStore,
+  ProposalStore,
+  isPortfolioPlan,
 } from "@alpha-agents/trading";
 import { TtlCache } from "./cache.ts";
 import {
@@ -88,6 +99,11 @@ export interface ApiDeps {
    * refresher on the fork, Chainlink on mainnet).
    */
   readonly freshPrices?: () => Promise<{ redated: unknown[]; error: string | null }>;
+  /**
+   * F-U9: the evaluator's re-check at approval time, through the orchestrator's Test stage v2;
+   * absent where no orchestrator is reachable, and a portfolio approval then waits.
+   */
+  readonly proposals?: ProposalDeps | null;
   /** D-315: every balance at the agent's addresses; null where AgentNFT is not deployed. */
   readonly holdings?: HoldingsReader | null;
   /** How long index reads are cached. */
@@ -122,6 +138,9 @@ export type ApiError =
   | "not_owner"
   | "session_stale"
   | "refund_open"
+  | "not_waiting"
+  | "proposal_stale"
+  | "proposal_rejected"
   | "not_provisioned"
   | "credits_low"
   | "scan_open"
@@ -709,6 +728,97 @@ export function createApp(deps: ApiDeps): Hono {
     const r = await rejectByOwner(trades, chainId, Number(agentId), c.req.param("intentId"));
     if (!r.ok) return refused(c, r);
     return c.json({ agentId: agentId.toString(), intent: intentJson(r.intent) });
+  });
+
+  // --- Portfolio proposals and the plan card (F-U9) --------------------------
+
+  const proposalStores = (): ProposalStores => ({
+    db: deps.db,
+    proposals: new ProposalStore(deps.db),
+    plans: new PlanStore(deps.db),
+    goals,
+    trades,
+    recheck: deps.proposals?.recheck ?? null,
+    now: () => new Date(deps.now()),
+  });
+  const PROPOSAL_STATUS = {
+    NOT_FOUND: [404, "not_found"],
+    NOT_WAITING: [409, "not_waiting"],
+    STALE: [409, "proposal_stale"],
+    UNAVAILABLE: [503, "not_configured"],
+    REJECTED: [409, "proposal_rejected"],
+  } as const;
+
+  /** The plan card: the plan in force, the proposal waiting for the owner, recent decisions, why no change. */
+  app.get("/v1/agents/:id{[0-9]+}/plan-card", async (c) => {
+    const agentId = BigInt(c.req.param("id"));
+    const owner = await ownerOnly(c, agentId);
+    if (owner instanceof Response) return owner;
+    const s = proposalStores();
+    const plan = await s.plans.active(chainId, Number(agentId));
+    const pending = await s.proposals.pending(chainId, Number(agentId));
+    const tokens = [
+      ...(plan && isPortfolioPlan(plan) ? plan.params.positions.map((p) => p.token) : []),
+      ...(pending?.positions.map((p) => p.token) ?? []),
+    ];
+    const symbols = await tokenSymbols(deps.db, chainId, tokens);
+    return c.json({
+      ...(await meta()),
+      agentId: agentId.toString(),
+      ...(await planCard(s, chainId, Number(agentId), symbols)),
+    });
+  });
+
+  app.post(
+    "/v1/agents/:id{[0-9]+}/proposals/:proposalId{prop-[0-9a-f-]{36}}/approve",
+    async (c) => {
+      const agentId = BigInt(c.req.param("id"));
+      const owner = await ownerOnly(c, agentId);
+      if (owner instanceof Response) return owner;
+      const r = await approveProposal(
+        proposalStores(),
+        chainId,
+        Number(agentId),
+        c.req.param("proposalId"),
+        owner,
+      );
+      if (!r.ok) {
+        const [status, code] = PROPOSAL_STATUS[r.code];
+        return c.json(
+          {
+            error: code,
+            message: r.message,
+            ...(r.code === "REJECTED"
+              ? { findings: r.findings, proposal: proposalJson(r.proposal) }
+              : {}),
+          },
+          status,
+        );
+      }
+      return c.json({
+        agentId: agentId.toString(),
+        proposal: proposalJson(r.proposal),
+        plan: { paramId: r.plan.paramId, strategyEpoch: r.plan.strategyEpoch.toString() },
+      });
+    },
+  );
+
+  app.post("/v1/agents/:id{[0-9]+}/proposals/:proposalId{prop-[0-9a-f-]{36}}/reject", async (c) => {
+    const agentId = BigInt(c.req.param("id"));
+    const owner = await ownerOnly(c, agentId);
+    if (owner instanceof Response) return owner;
+    const r = await declineProposal(
+      proposalStores(),
+      chainId,
+      Number(agentId),
+      c.req.param("proposalId"),
+      owner,
+    );
+    if (!r.ok) {
+      const [status, code] = PROPOSAL_STATUS[r.code];
+      return c.json({ error: code, message: r.message }, status);
+    }
+    return c.json({ agentId: agentId.toString(), proposal: proposalJson(r.proposal) });
   });
 
   /**

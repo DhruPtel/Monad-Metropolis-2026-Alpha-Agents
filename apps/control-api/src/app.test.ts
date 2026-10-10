@@ -1,7 +1,19 @@
 import { ENVIRONMENTS } from "@alpha-agents/config";
 import { createTestDatabase, databaseAvailable, type TestDatabase } from "@alpha-agents/db/testing";
 import { CLAIM_TYPES, DEFAULT_GOAL_INPUT, SPECIES, claimDomain } from "@alpha-agents/domain";
-import type { AgentChainView, PortfolioReading } from "@alpha-agents/trading";
+import {
+  type AgentChainView,
+  GoalStore,
+  PlanStore,
+  type PortfolioReading,
+  ProposalStore,
+  type ProposalRationale,
+} from "@alpha-agents/trading";
+import {
+  TARGET_PORTFOLIO_ID,
+  type TargetPortfolioParams,
+  translateGoal,
+} from "@alpha-agents/policy";
 import {
   type Address,
   type Hex,
@@ -1423,6 +1435,265 @@ describe.skipIf(!available)("the control API (needs pnpm dev:up for Postgres)", 
         },
       });
       expect(res.headers.get("access-control-allow-methods")).toContain("PUT");
+    });
+  });
+
+  describe("portfolio proposals and the plan card (F-U9)", () => {
+    const headers = (session: string | null): Record<string, string> =>
+      session ? { "x-owner-session": session, "content-type": "application/json" } : {};
+    const session = async (agent: number, token: string) =>
+      (await json(await call(`/v1/agents/${agent}/session`, { method: "POST", token })))
+        .token as string;
+    const rationale: ProposalRationale = {
+      decision: "PROPOSE",
+      reasonCode: null,
+      portfolioView: "A first portfolio against a Balanced goal.",
+      evidenceStrength: "mixed",
+      whatWouldChangeIt: "A pool thinning out.",
+      themeCodes: ["WBTC_ADD"],
+      points: [],
+    };
+    const WBTC = "0x0555e30da8f98308edb960aa94c0db47230d2b9c" as Address;
+    const portfolio = (): {
+      template: typeof TARGET_PORTFOLIO_ID;
+      params: TargetPortfolioParams;
+    } => ({
+      template: TARGET_PORTFOLIO_ID,
+      params: {
+        positions: [
+          {
+            token: WBTC,
+            targetWeightBps: 2_000,
+            bandBps: 300,
+            thesisId: "WBTC_ADD",
+            exit: { killCriterion: "The pool halves.", recheckAt: "2026-11-01" },
+          },
+        ],
+        cashTargetBps: 8_000,
+        minTradeUsdcE6: 500_000n,
+        volatilityBrakeBps: 20_000,
+        costHurdleBps: 40,
+        maxLegBps: 1_000,
+      },
+    });
+    const bands = () => {
+      const r = translateGoal(structuredClone(DEFAULT_GOAL_INPUT));
+      if (!r.ok) throw new Error("goal");
+      return { template: "rebalance_bands@1" as const, params: r.config.template.params };
+    };
+    /** A goal for agent 2 (Bob's), then a proposal waiting for him under its epochs. */
+    const pendingFor = async (
+      plan: ReturnType<typeof portfolio> | ReturnType<typeof bands>,
+      over: { positions?: never } = {},
+    ) => {
+      await call("/v1/agents/2/goal", {
+        method: "PUT",
+        headers: headers(bob),
+        body: JSON.stringify(structuredClone(DEFAULT_GOAL_INPUT)),
+      });
+      return new ProposalStore(t.db).create({
+        chainId: env.chainId,
+        agentId: 2,
+        cycleId: null,
+        stageRunId: null,
+        strategyEpoch: await new GoalStore(t.db).strategyEpoch(env.chainId, 2),
+        ownerEpoch: 2n,
+        plan,
+        rationale,
+        positions:
+          plan.template === TARGET_PORTFOLIO_ID
+            ? [
+                {
+                  token: WBTC,
+                  symbol: "WBTC",
+                  targetWeightBps: 2_000,
+                  bandBps: 300,
+                  currentWeightBps: null,
+                  action: "ADD",
+                  thesisCode: "WBTC_ADD",
+                  thesis: "WBTC tracks bitcoin.",
+                  killCriterion: "The pool halves.",
+                  recheckAt: "2026-11-01",
+                  trimAboveBps: null,
+                  confidence: "medium",
+                  sources: { onchain: 1, market: 1, primary: 0, news: 0, social: 0 },
+                  verdict: "STANDS",
+                  reason: "Deep pool.",
+                },
+              ]
+            : [],
+        evaluation: {
+          checkedAt: new Date(now).toISOString(),
+          passed: true,
+          findings: [],
+          cost: null,
+          approval: "ask_first",
+        },
+        status: "pending_owner",
+        needsApproval: true,
+        ...over,
+      });
+    };
+    let bob = "";
+    beforeEach(async () => {
+      for (const table of [
+        "platform.plan_proposals",
+        "platform.strategy_params",
+        "platform.activity_entries",
+        "platform.agent_goals",
+        "platform.agent_state_changes",
+        "platform.agent_states",
+      ] as const)
+        await t.db.deleteFrom(table).execute();
+      bob = await session(2, "bob-token");
+    });
+
+    it("shows the owner the proposal waiting with its positions, reasons and checks, and nothing to anyone else", async () => {
+      const p = await pendingFor(portfolio());
+      const card = await json(await call("/v1/agents/2/plan-card", { headers: headers(bob) }));
+      expect(card).toMatchObject({
+        strategyEpoch: "1",
+        planChanges: "ASK_FIRST",
+        current: null,
+        pending: {
+          proposalId: p.proposalId,
+          status: "pending_owner",
+          positions: [{ symbol: "WBTC", action: "ADD", verdict: "STANDS" }],
+          rationale: { evidenceStrength: "mixed" },
+          evaluation: { passed: true },
+        },
+        recent: [],
+        noChange: null,
+      });
+      expect((await call("/v1/agents/2/plan-card")).status).toBe(401);
+      const alice = await session(1, "alice-token");
+      expect((await call("/v1/agents/2/plan-card", { headers: headers(alice) })).status).toBe(403);
+      expect(
+        (
+          await call(`/v1/agents/2/proposals/${p.proposalId}/approve`, {
+            method: "POST",
+            headers: headers(alice),
+          })
+        ).status,
+      ).toBe(403);
+    });
+
+    it("approval runs the evaluator again and sets the plan the runner follows, once, by the owner", async () => {
+      const p = await pendingFor(portfolio());
+      const recheck = { calls: 0 };
+      const over: Partial<ApiDeps> = {
+        proposals: {
+          recheck: async () => {
+            recheck.calls += 1;
+            return [];
+          },
+        },
+      };
+      const res = await call(
+        `/v1/agents/2/proposals/${p.proposalId}/approve`,
+        { method: "POST", headers: headers(bob) },
+        over,
+      );
+      expect(res.status).toBe(200);
+      const body = await json(res);
+      expect(body).toMatchObject({ proposal: { status: "applied", decidedBy: BOB } });
+      expect(recheck.calls).toBe(1);
+      const plan = await new PlanStore(t.db).active(env.chainId, 2);
+      expect(plan).toMatchObject({
+        template: TARGET_PORTFOLIO_ID,
+        setBy: "owner",
+        strategyEpoch: 2n,
+      });
+      expect((body.plan as { paramId: string }).paramId).toBe(plan?.paramId);
+      const entry = await t.db
+        .selectFrom("platform.activity_entries")
+        .selectAll()
+        .where("kind", "=", "proposal")
+        .executeTakeFirst();
+      expect(entry?.text).toContain("The owner approved");
+      // Decided once: the second approval is refused, and the card shows it among the recent ones.
+      const again = await call(
+        `/v1/agents/2/proposals/${p.proposalId}/approve`,
+        { method: "POST", headers: headers(bob) },
+        over,
+      );
+      expect([again.status, (await json(again)).error]).toEqual([409, "not_waiting"]);
+      const card = await json(await call("/v1/agents/2/plan-card", { headers: headers(bob) }));
+      expect(card).toMatchObject({
+        pending: null,
+        current: { template: TARGET_PORTFOLIO_ID, positions: [{ symbol: WBTC }] },
+        recent: [{ proposalId: p.proposalId, status: "applied" }],
+      });
+    });
+
+    it("a proposal that fails the evaluator at approval is rejected with every finding and never applied", async () => {
+      const p = await pendingFor(portfolio());
+      const res = await call(
+        `/v1/agents/2/proposals/${p.proposalId}/approve`,
+        { method: "POST", headers: headers(bob) },
+        {
+          proposals: {
+            recheck: async () => [
+              {
+                code: "DEPTH",
+                field: "positions[0]",
+                message: "The pool is too thin for the leg.",
+              },
+            ],
+          },
+        },
+      );
+      expect(res.status).toBe(409);
+      expect(await json(res)).toMatchObject({
+        error: "proposal_rejected",
+        findings: [{ code: "DEPTH" }],
+        proposal: { status: "rejected", evaluation: { passed: false } },
+      });
+      expect(await new PlanStore(t.db).active(env.chainId, 2)).toBeNull();
+      // Without the orchestrator's check a portfolio approval waits rather than guessing.
+      const q = await pendingFor(portfolio());
+      const none = await call(`/v1/agents/2/proposals/${q.proposalId}/approve`, {
+        method: "POST",
+        headers: headers(bob),
+      });
+      expect([none.status, (await json(none)).error]).toEqual([503, "not_configured"]);
+    });
+
+    it("the two-asset plan is checked against the goal's limits locally; declining keeps the plan; a new goal makes the proposal stale", async () => {
+      const p = await pendingFor(bands());
+      const declined = await call(`/v1/agents/2/proposals/${p.proposalId}/reject`, {
+        method: "POST",
+        headers: headers(bob),
+      });
+      expect(await json(declined)).toMatchObject({
+        proposal: { status: "declined", decidedBy: BOB },
+      });
+      expect(await new PlanStore(t.db).active(env.chainId, 2)).toBeNull();
+      const q = await pendingFor(bands());
+      const approved = await call(`/v1/agents/2/proposals/${q.proposalId}/approve`, {
+        method: "POST",
+        headers: headers(bob),
+      });
+      expect(approved.status).toBe(200);
+      expect(await new PlanStore(t.db).active(env.chainId, 2)).toMatchObject({
+        template: "rebalance_bands@1",
+        setBy: "owner",
+      });
+      // A goal saved after the proposal bumps the strategy epoch: the proposal is stale.
+      const r = await pendingFor(bands());
+      await call("/v1/agents/2/goal", {
+        method: "PUT",
+        headers: headers(bob),
+        body: JSON.stringify({
+          ...structuredClone(DEFAULT_GOAL_INPUT),
+          aggressiveness: "AGGRESSIVE",
+        }),
+      });
+      const stale = await call(`/v1/agents/2/proposals/${r.proposalId}/approve`, {
+        method: "POST",
+        headers: headers(bob),
+      });
+      expect([stale.status, (await json(stale)).error]).toEqual([409, "proposal_stale"]);
     });
   });
 

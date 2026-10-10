@@ -188,6 +188,43 @@ const app = createApp({
   now: () => Date.now(),
   randomNonce: () => `0x${randomBytes(32).toString("hex")}`,
   holdings,
+  // F-U9: a proposal's approval re-runs the Test stage v2 through the orchestrator's plan check.
+  ...(values.ORCHESTRATOR_URL
+    ? {
+        proposals: {
+          recheck: async (agentId, params) => {
+            const res = await fetch(
+              `${String(values.ORCHESTRATOR_URL)}/v1/agents/${agentId}/plan/check`,
+              {
+                method: "POST",
+                headers: { "content-type": "application/json" },
+                body: JSON.stringify({
+                  template: "target_portfolio@1",
+                  positions: params.positions.map((p) => ({
+                    token: p.token,
+                    targetWeightBps: p.targetWeightBps,
+                    bandBps: p.bandBps,
+                    thesisId: p.thesisId,
+                    exit: p.exit,
+                  })),
+                  cashTargetBps: params.cashTargetBps,
+                  minTradeUsdcE6: params.minTradeUsdcE6.toString(),
+                  volatilityBrakeBps: params.volatilityBrakeBps,
+                  costHurdleBps: params.costHurdleBps,
+                  maxLegBps: params.maxLegBps,
+                }),
+                signal: AbortSignal.timeout(60_000),
+              },
+            );
+            if (!res.ok) return null;
+            const body = (await res.json()) as {
+              findings?: { code: string; field: string; message: string }[];
+            };
+            return body.findings ?? null;
+          },
+        },
+      }
+    : {}),
   // P2-EC (D-307): testnet's feeds are re-dated by the orchestrator, which holds the feed key.
   ...(env.id === "testnet" && values.ORCHESTRATOR_URL
     ? {
