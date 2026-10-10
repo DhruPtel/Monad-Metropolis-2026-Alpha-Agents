@@ -62,6 +62,7 @@ contract RouteAdapter is IUnlockCallback, IV3SwapCallbacks, ReentrancyGuard {
     error NativeRefused(address from);
     error FundsLeft(address token, uint256 amount);
     error AmountTooLarge();
+    error SettledShort(uint256 paid, uint256 owed);
 
     constructor(IPoolRegistry registry, IPoolManager poolManager, address wmon, address usdc, address executor) {
         if (
@@ -227,13 +228,17 @@ contract RouteAdapter is IUnlockCallback, IV3SwapCallbacks, ReentrancyGuard {
         uint256 spent = uint256(uint128(zeroForOne ? -amount0 : -amount1));
         // forge-lint: disable-next-line(unsafe-typecast)
         uint256 got = uint256(uint128(zeroForOne ? amount1 : amount0));
+        // PoolManager must count exactly what the hop owes as paid: a token that
+        // takes a fee on transfer fails here, by name, before anything is taken.
+        uint256 paid;
         if (currencyIn == address(0)) {
-            POOL_MANAGER.settle{value: spent}();
+            paid = POOL_MANAGER.settle{value: spent}();
         } else {
             POOL_MANAGER.sync(currencyIn);
             IERC20(currencyIn).safeTransfer(address(POOL_MANAGER), spent);
-            POOL_MANAGER.settle();
+            paid = POOL_MANAGER.settle();
         }
+        if (paid != spent) revert SettledShort(paid, spent);
         POOL_MANAGER.take(currencyOut, address(this), got);
         return abi.encode(spent, got);
     }

@@ -6,7 +6,8 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol
 import {Venue} from "../../src/interfaces/IFund.sol";
 import {ProtocolRegistryV3} from "../../src/fund/ProtocolRegistryV3.sol";
 import {RouteAdapter} from "../../src/fund/RouteAdapter.sol";
-import {MockToken} from "../mocks/CustodyMocks.sol";
+import {FeeOnTransferToken, MockToken} from "../mocks/CustodyMocks.sol";
+import {PoolKey} from "../../src/interfaces/IUniswap.sol";
 import {MockV3Pool} from "../mocks/FundMocks.sol";
 import {FundBase} from "./FundBase.sol";
 
@@ -254,6 +255,23 @@ contract RouteAdapterTest is FundBase {
         _give(address(usdc), address(adapter), 1e6);
         vm.expectRevert(ReentrancyGuard.ReentrancyGuardReentrantCall.selector);
         adapter.swapRoute(address(usdc), address(tokC), 1e6, 0, ACCOUNT, _route(id), false);
+    }
+
+    function test_AFeeOnTransferTokenFailsAtTheV4SettleByName() public {
+        FeeOnTransferToken fot = new FeeOnTransferToken();
+        vm.prank(SCREENER);
+        tokens.addScreened(address(fot), 800, bytes32(0), uint64(block.timestamp));
+        (address c0, address c1) = _sorted(address(fot), address(usdc));
+        PoolKey memory key = PoolKey(c0, c1, 3_000, 60, address(0));
+        manager.setPrice(key, 1, 1);
+        bytes32 id = keccak256(abi.encode(key));
+        stateView.setSqrt(id, uint160(2 ** 96));
+        vm.prank(SCREENER);
+        pools.addScreenedPool(ProtocolRegistryV3.PoolSeed(Venue.UNISWAP_V4, c0, c1, 3_000, 60, address(0)));
+        fot.mint(address(adapter), 1e6);
+        // The adapter holds 1e6; sending it to PoolManager loses 1%, so PoolManager counts less than owed.
+        vm.expectRevert(abi.encodeWithSelector(RouteAdapter.SettledShort.selector, uint256(990_000), uint256(1e6)));
+        adapter.swapRoute(address(fot), address(usdc), 1e6, 0, ACCOUNT, _route(id), true);
     }
 
     // ---- fuzz: funds reach the recipient and nowhere else ----
