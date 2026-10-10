@@ -2,6 +2,14 @@ import type { AgentState, GoalInput } from "@alpha-agents/domain";
 import { getAddress } from "viem";
 import { configJson, goalErrorsJson, goalForm } from "../../control-api/src/goals";
 import { translateGoal } from "../../../packages/policy/src/goals";
+import { WMON } from "./fake-trading";
+
+/** The registry's tokens as the form lists them (F-U7): the API reads these from the database. */
+const GOAL_FORM_TOKENS = [
+  { address: WMON.toLowerCase(), symbol: "WMON", priceClass: "F" },
+  { address: "0x0555e30da8f98308edb960aa94c0db47230d2b9c", symbol: "WBTC", priceClass: "F" },
+  { address: "0x00000000000000000000000000000000000c0de5", symbol: "CHOG", priceClass: "A" },
+];
 
 /**
  * The goal routes for the screenshot suite (P3-U1), answered with the real
@@ -72,7 +80,14 @@ export class FakeGoals {
   async answer(agentId: bigint, method: string, body: unknown, owner: string, ownerEpoch: bigint) {
     const head = { agentId: agentId.toString(), ownerEpoch: ownerEpoch.toString() };
     if (method === "GET")
-      return { status: 200, body: { ...head, ...this.view(agentId), form: goalForm() } };
+      return {
+        status: 200,
+        body: {
+          ...head,
+          ...this.view(agentId),
+          form: { ...(await goalForm()), tokens: GOAL_FORM_TOKENS },
+        },
+      };
     this.puts.push({ agentId, body });
     if (this.hold) await this.hold;
     if (body === null)

@@ -17,6 +17,8 @@ import { FakeTrading, portfolioFixture } from "./fake-trading";
 const BEE = 14;
 const AGENT = 7n;
 const OTHER_WALLET = "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC" as const;
+/** WBTC as the fake API's goal form lists it (lowercase, as the goal stores it). */
+const WBTC = "0x0555e30da8f98308edb960aa94c0db47230d2b9c";
 
 const main = (page: Page) => page.getByRole("main");
 const walletButton = (page: Page) => page.locator("header [data-slot=wallet-button]");
@@ -134,6 +136,11 @@ test.describe("the Goal page", () => {
     await main(page).getByLabel("Largest trade (%)").fill("5");
     await main(page).getByLabel("Most trades a day (trades)").fill("6");
     await main(page).getByLabel("Most in one token (%)").fill("25");
+    // Exclude a registered token: it is listed as a tag and saved by address.
+    await main(page).getByLabel("Excluded tokens").click();
+    await page.getByRole("option", { name: "WBTC (feed)" }).click();
+    await main(page).getByRole("button", { name: "Exclude" }).click();
+    await expect(main(page).getByRole("list", { name: "Excluded tokens" })).toContainText("WBTC");
     await previewed(page, "25%");
     const limits = main(page).getByTestId("effective-limits");
     await expect(limits.locator('tr[data-field="maxTradeBps"]')).toContainText(/10%.*5%.*5%/);
@@ -152,6 +159,7 @@ test.describe("the Goal page", () => {
     expect(saved?.goal).toMatchObject({
       aggressiveness: "AGGRESSIVE",
       modelTier: "MEDIUM",
+      excludedTokens: [WBTC],
       stricterLimits: { maxTradeBps: 500, maxTradesPer24h: 6, maxPositionBps: 2_500 },
       research: { intensity: "LIGHT", dailyBudgetUsdcE6: "1000000" },
     });
@@ -161,9 +169,12 @@ test.describe("the Goal page", () => {
     // A change saves under a new strategy epoch and keeps the agent Ready.
     await radio(page, "Research intensity", /^Standard/).click();
     await expect(main(page).getByTestId("goal-budget")).toHaveValue("2.50");
+    await main(page).getByRole("button", { name: "Allow WBTC again" }).click();
+    await expect(main(page).getByTestId("goal-excluded")).toContainText("No token is excluded");
     await main(page).getByRole("button", { name: "Save changes" }).click();
     await expect(saveStatus(page)).toContainText("Agent #7 stays Ready");
     expect(s.api.goals.saved.get(AGENT)?.strategyEpoch).toBe(2n);
+    expect(s.api.goals.saved.get(AGENT)?.goal.excludedTokens).toEqual([]);
   });
 
   test("the month's cost follows the intensity and the daily budget", async ({ page }) => {
@@ -250,7 +261,7 @@ test.describe("the Goal page", () => {
     await expect(page).toHaveURL(new RegExp(`/agents/${AGENT}/portfolio$`));
     const summary = main(page).getByTestId("goal-summary");
     await expect(summary).toHaveAttribute("data-state", "READY");
-    await expect(summary).toContainText("Band rebalancer, Balanced");
+    await expect(summary).toContainText("Goal: Balanced");
     await expect(summary.getByRole("link", { name: "Change goal" })).toHaveAttribute(
       "href",
       `/agents/${AGENT}/goal`,
