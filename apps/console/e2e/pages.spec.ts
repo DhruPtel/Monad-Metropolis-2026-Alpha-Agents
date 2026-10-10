@@ -302,6 +302,43 @@ test.describe("agents panel controls (P1-U5)", () => {
     await page.request.post(`${FIXTURE_API}/__fixture/reset-arming`);
   });
 
+  test("drafts a target portfolio on the fund agent's set, checks it with the Test, has one refused, and sets one (F-U6)", async ({
+    page,
+  }) => {
+    await page.request.post(`${FIXTURE_API}/__fixture/reset-arming`);
+    await page.reload();
+    const plan = page.getByTestId("agent-plan");
+    await expect(plan.getByTestId("plan-envelope")).toContainText("Balanced envelope");
+    await plan.getByRole("combobox", { name: "Template" }).click();
+    await page.getByRole("option", { name: "Target portfolio (target_portfolio@1)" }).click();
+    const form = plan.getByTestId("portfolio-form");
+    await expect(form.getByTestId("portfolio-total")).toContainText("50%");
+    await form.getByRole("combobox", { name: "Position 1 token" }).click();
+    await page.getByRole("option", { name: /^WMON/ }).click();
+    await form.getByLabel("Weight (%)").fill("60");
+    await form.getByLabel("Thesis ID").fill("t-wmon");
+    await form.getByLabel("Kill criterion").fill("MON loses its staking yield");
+    await form.getByLabel("Cash target (% USDC)").fill("40");
+    await expect(form.getByTestId("portfolio-total")).toContainText("100%");
+    await repaint(page);
+    await expect(plan).toHaveScreenshot("agents-plan-portfolio.png");
+    // The Test refuses a 60% position under the Balanced envelope, and says why.
+    await plan.getByRole("button", { name: "Check plan" }).click();
+    await expect(form.getByTestId("plan-findings")).toContainText("ENVELOPE_POSITION");
+    await expect(form.getByTestId("plan-findings")).toContainText("at most 40%");
+    await plan.getByRole("button", { name: "Set plan" }).click();
+    await expect(page.getByText("The plan was not set")).toBeVisible();
+    // Inside the envelope it passes and is set; the summary names the positions.
+    await form.getByLabel("Weight (%)").fill("30");
+    await form.getByLabel("Cash target (% USDC)").fill("70");
+    await plan.getByRole("button", { name: "Check plan" }).click();
+    await expect(form.getByTestId("plan-findings")).toContainText("The Test passes this plan");
+    await plan.getByRole("button", { name: "Set plan" }).click();
+    await expect(page.getByText("Alpha Agent #1's plan is set")).toBeVisible();
+    await expect(plan.getByTestId("plan-summary")).toContainText("WMON 30% ±3, cash 70%");
+    await page.request.post(`${FIXTURE_API}/__fixture/reset-arming`);
+  });
+
   test("arms an agent, approves its first trade, shows trades settled and blocked, and disarms (P2-U6)", async ({
     page,
   }) => {

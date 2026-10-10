@@ -41,6 +41,7 @@ import { PanelHeader } from "@/components/panel-header";
 import { AgentActions, AgentTasks, CreditActions } from "./agent-tasks";
 import { RevealControl } from "./reveal-control";
 import { PlanControls } from "./plan-controls";
+import { portfolioSummary } from "./portfolio-plan";
 import { ApproveIntentButton, ArmingControls, RefreshWhileMoving } from "./trade-controls";
 import {
   type AgentList,
@@ -50,6 +51,8 @@ import {
   type SkillsView,
   PLANNED_AGENT_ACTIONS,
   agentsSource,
+  isPortfolioPlanView,
+  type PlanParams,
 } from "./extension";
 
 // Read from the control API on every visit, never at build time.
@@ -185,6 +188,18 @@ function AgentSkills({ name, skills }: { name: string; skills: SkillsView | null
   );
 }
 
+/** F-U6: the position a portfolio decision is about, with its share and target, from the rule's facts. */
+function positionShare(facts: Record<string, unknown>): string {
+  const positions = facts.positions;
+  const about = facts.position;
+  if (!Array.isArray(positions) || typeof about !== "string") return "";
+  const p = (
+    positions as { token: string; symbol: string; shareBps: number | null; targetBps: number }[]
+  ).find((x) => x.token.toLowerCase() === about.toLowerCase());
+  if (!p) return "";
+  return `${p.symbol} ${p.shareBps === null ? "?" : p.shareBps / 100}% of ${p.targetBps / 100}%`;
+}
+
 /** P3-U3: the agent's plan, the goal's limits, the runner's recent decisions, and the plan form. */
 function AgentPlan({
   agentId,
@@ -200,6 +215,7 @@ function AgentPlan({
   if (!plan) return <p className="text-sm text-foreground-muted">The plan could not be read.</p>;
   const g = plan.goal;
   const p = plan.plan;
+  const bands = p && !isPortfolioPlanView(p) ? (p.params as PlanParams) : null;
   const pct = (bps: number) => `${bps / 100}%`;
   return (
     <div className="flex flex-col gap-4" data-testid="agent-plan">
@@ -218,14 +234,31 @@ function AgentPlan({
               {g.presetLabel} goal: target {pct(g.targetRange.minBps)} to{" "}
               {pct(g.targetRange.maxBps)} WMON, largest trade {pct(g.ownerLimits.maxTradeBps)}
             </span>
+            {g.envelope ? (
+              <span className="text-foreground-muted" data-testid="plan-envelope">
+                {g.envelope.label} envelope: at most {g.envelope.maxPositions} positions,{" "}
+                {pct(g.envelope.maxPositionBps)} each, {pct(g.envelope.minStableBps)} in stablecoins
+                {g.envelope.classAAllowed
+                  ? `, class A up to ${pct(g.envelope.maxClassATotalBps)}`
+                  : ", class F only"}
+              </span>
+            ) : null}
             {p ? (
               <>
-                <span>
-                  Plan: <span className="numeric">{pct(p.params.targetWmonBps)}</span> WMON ±{" "}
-                  <span className="numeric">{p.params.bandHalfWidthBps / 100}</span> points, legs up
-                  to <span className="numeric">{pct(p.params.maxLegBps)}</span>, set by {p.setBy} at
-                  strategy epoch <span className="numeric">{p.strategyEpoch}</span>
-                </span>
+                {isPortfolioPlanView(p) ? (
+                  <span>
+                    Plan: {portfolioSummary(p.params, plan.portfolio?.tokens ?? [])}, legs up to{" "}
+                    <span className="numeric">{pct(p.params.maxLegBps)}</span>, set by {p.setBy} at
+                    strategy epoch <span className="numeric">{p.strategyEpoch}</span>
+                  </span>
+                ) : bands ? (
+                  <span>
+                    Plan: <span className="numeric">{pct(bands.targetWmonBps)}</span> WMON ±{" "}
+                    <span className="numeric">{bands.bandHalfWidthBps / 100}</span> points, legs up
+                    to <span className="numeric">{pct(bands.maxLegBps)}</span>, set by {p.setBy} at
+                    strategy epoch <span className="numeric">{p.strategyEpoch}</span>
+                  </span>
+                ) : null}
                 {p.stale ? <Badge tone="warning">Goal changed: set a new plan</Badge> : null}
               </>
             ) : (
@@ -235,7 +268,9 @@ function AgentPlan({
           <PlanControls
             agentId={agentId}
             name={name}
-            initial={p?.params ?? g.defaults}
+            plan={p}
+            defaults={g.defaults}
+            portfolio={plan.portfolio ?? null}
             canSet={enabled && plan.runner.canSet}
             canRun={enabled && plan.runner.canRun && p !== null}
           />
@@ -275,16 +310,23 @@ function AgentPlan({
                 <TableCell label="Share and leg" className="numeric text-sm">
                   {typeof d.facts.wmonShareBps === "number"
                     ? `${d.facts.wmonShareBps / 100}% WMON`
-                    : ""}
+                    : positionShare(d.facts)}
                   {d.leg ? (
                     <>
                       {" · "}
                       <AmountDisplay
                         value={BigInt(d.leg.amountIn)}
-                        decimals={d.leg.sell === "USDC" ? 6 : 18}
+                        decimals={
+                          d.leg.sell === "USDC"
+                            ? 6
+                            : typeof d.facts.sellDecimals === "number"
+                              ? d.facts.sellDecimals
+                              : 18
+                        }
                         maxFractionDigits={4}
                         symbol={d.leg.sell}
                       />
+                      {d.leg.buy ? ` for ${d.leg.buy}` : ""}
                     </>
                   ) : null}
                 </TableCell>

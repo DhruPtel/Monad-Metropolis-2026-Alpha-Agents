@@ -579,13 +579,69 @@ const decision = (decisionId, outcome, code, message, wmonShareBps, leg, lastAt,
   lastAt,
   ticks,
 });
+// F-U6: agent 1 is on the fund agent's set here; "Set plan" may set a target portfolio.
+let planPortfolio = null;
+const PORTFOLIO_TOKENS = [
+  {
+    token: USDC,
+    symbol: "USDC",
+    decimals: 6,
+    class: "USDC",
+    lane: "CORE",
+    status: "BUYABLE",
+    capBps: 10_000,
+  },
+  {
+    token: WMON,
+    symbol: "WMON",
+    decimals: 18,
+    class: "F",
+    lane: "CORE",
+    status: "BUYABLE",
+    capBps: 4_000,
+  },
+  {
+    token: WBTC,
+    symbol: "WBTC",
+    decimals: 8,
+    class: "F",
+    lane: "CORE",
+    status: "BUYABLE",
+    capBps: 1_500,
+  },
+];
+const ENVELOPE = {
+  label: "Balanced",
+  classAAllowed: true,
+  maxPositionBps: 4_500,
+  maxClassAPositionBps: 800,
+  maxClassATotalBps: 2_500,
+  minStableBps: 1_500,
+  maxPositions: 8,
+  reviewTriggerBps: 1_500,
+};
+const portfolioFindings = (params) =>
+  (params.positions ?? []).flatMap((p, i) =>
+    p.targetWeightBps > 4_000
+      ? [
+          {
+            code: "ENVELOPE_POSITION",
+            field: `positions.${i}.targetWeightBps`,
+            message: `WMON may weigh at most 40% (the Balanced envelope, the registry's cap and the hard limit together); the plan says ${p.targetWeightBps / 100}%.`,
+          },
+        ]
+      : [],
+  );
 const planView = () => ({
   agentId: "1",
   runner: { on: true, canSet: true, canRun: true },
   strategyEpoch: String(planEpoch),
+  portfolio: { custody: "v3", tokens: PORTFOLIO_TOKENS },
   goal: {
     riskPreset: "BALANCED",
     presetLabel: "Balanced",
+    aggressiveness: "BALANCED",
+    envelope: ENVELOPE,
     defaults: planParams(2_000),
     targetRange: { minBps: 0, maxBps: 3_000 },
     ownerLimits: {
@@ -596,16 +652,27 @@ const planView = () => ({
       maxTradesPer24h: 20,
     },
   },
-  plan: {
-    paramId: "plan-fixture",
-    template: "rebalance_bands@1",
-    params: planParams(planTarget),
-    paramsHash: `0x${"ab".repeat(32)}`,
-    strategyEpoch: String(planEpoch),
-    setBy: "console",
-    createdAt: "2026-10-07T12:00:00.000Z",
-    stale: false,
-  },
+  plan: planPortfolio
+    ? {
+        paramId: "plan-fixture-portfolio",
+        template: "target_portfolio@1",
+        params: planPortfolio,
+        paramsHash: `0x${"cd".repeat(32)}`,
+        strategyEpoch: String(planEpoch),
+        setBy: "console",
+        createdAt: "2026-10-07T12:00:00.000Z",
+        stale: false,
+      }
+    : {
+        paramId: "plan-fixture",
+        template: "rebalance_bands@1",
+        params: planParams(planTarget),
+        paramsHash: `0x${"ab".repeat(32)}`,
+        strategyEpoch: String(planEpoch),
+        setBy: "console",
+        createdAt: "2026-10-07T12:00:00.000Z",
+        stale: false,
+      },
   decisions: [
     decision(
       3,
@@ -745,6 +812,20 @@ createServer((req, res) => {
     req.on("data", (c) => (raw += c));
     req.on("end", () => {
       const params = JSON.parse(raw || "{}");
+      if (params.template === "target_portfolio@1") {
+        const findings = portfolioFindings(params);
+        if (findings.length > 0)
+          return json(400, {
+            error: "plan_refused",
+            message: findings.map((f) => `${f.code}: ${f.message}`).join(" "),
+            findings,
+          });
+        planPortfolio = Object.fromEntries(
+          Object.entries(params).filter(([k]) => k !== "template"),
+        );
+        planEpoch += 1;
+        return json(201, { plan: { ...planView().plan } });
+      }
       if (params.targetWmonBps > 3_000)
         return json(400, {
           error: "plan_out_of_bounds",
@@ -762,12 +843,22 @@ createServer((req, res) => {
     });
     return;
   }
+  if (req.method === "POST" && req.url === "/v1/agents/1/plan/check") {
+    let raw = "";
+    req.on("data", (c) => (raw += c));
+    req.on("end", () => {
+      const findings = portfolioFindings(JSON.parse(raw || "{}"));
+      json(200, { findings, passed: findings.length === 0 });
+    });
+    return;
+  }
   if (req.method === "POST" && req.url === "/v1/agents/1/runner/run")
     return json(200, { decision: planView().decisions[0] });
   if (req.method === "POST" && req.url === "/v1/agents/1/test-over-limit")
     return json(201, { intentId: "intent-5a4b3c2d-1e0f-4a9b-8c7d-6e5f4a3b2c1d" });
   // Test-only: puts agent 1's arming and intents back, so one test's arming never reaches another's.
   if (req.method === "POST" && req.url === "/__fixture/reset-arming") {
+    planPortfolio = null;
     planTarget = 2_000;
     planEpoch = 2;
     armingState = "unarmed";

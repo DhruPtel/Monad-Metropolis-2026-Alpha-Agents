@@ -6,7 +6,9 @@ import { type ActionResult, attempt } from "@/lib/action-result";
 import { consoleForkUrl } from "@/lib/fork-url";
 import {
   type ArmingView,
+  type PlanFinding,
   type PlanParams,
+  type PortfolioPlanParams,
   type RunnerDecisionView,
   type RefundView,
   type RevealSteeringView,
@@ -187,6 +189,30 @@ export async function setPlanAction(id: string, params: PlanParams): Promise<Act
     const source = agentsSource();
     if (!source.setPlan) throw new Error("The orchestrator is not configured.");
     return source.setPlan(agentId(id), params);
+  });
+}
+
+/** F-U6: sets a target portfolio plan, after the Test stage v2 accepted it (bumps the strategy epoch). */
+export async function setPortfolioPlanAction(
+  id: string,
+  params: PortfolioPlanParams,
+): Promise<ActionResult<string>> {
+  return attempt(async () => {
+    const source = agentsSource();
+    if (!source.setPortfolioPlan) throw new Error("The orchestrator is not configured.");
+    return source.setPortfolioPlan(agentId(id), params);
+  });
+}
+
+/** F-U6: checks a target portfolio draft with the Test stage v2 without setting it. */
+export async function checkPortfolioPlanAction(
+  id: string,
+  params: PortfolioPlanParams,
+): Promise<ActionResult<PlanFinding[]>> {
+  return attempt(async () => {
+    const source = agentsSource();
+    if (!source.checkPortfolioPlan) throw new Error("The orchestrator is not configured.");
+    return source.checkPortfolioPlan(agentId(id), params);
   });
 }
 

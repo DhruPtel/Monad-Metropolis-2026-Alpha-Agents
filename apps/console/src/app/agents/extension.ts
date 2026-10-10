@@ -74,6 +74,46 @@ export interface PlanParams {
   readonly maxLegBps: number;
 }
 
+/** target_portfolio@1's parameters as the orchestrator serves and takes them (F-U6). */
+export interface PortfolioPosition {
+  readonly token: string;
+  readonly targetWeightBps: number;
+  readonly bandBps: number;
+  readonly thesisId: string;
+  readonly exit: {
+    readonly killCriterion: string;
+    readonly recheckAt: string;
+    readonly trimAboveBps?: number;
+  };
+}
+export interface PortfolioPlanParams {
+  readonly template: "target_portfolio@1";
+  readonly positions: readonly PortfolioPosition[];
+  readonly cashTargetBps: number;
+  readonly minTradeUsdcE6: string;
+  readonly volatilityBrakeBps: number;
+  readonly costHurdleBps: number;
+  readonly maxLegBps: number;
+}
+
+/** One rule a target portfolio draft failed in the Test stage v2 (F-U6). */
+export interface PlanFinding {
+  readonly code: string;
+  readonly field: string;
+  readonly message: string;
+}
+
+/** A registered token the console's portfolio form offers (F-U6). */
+export interface PortfolioTokenView {
+  readonly token: string;
+  readonly symbol: string;
+  readonly decimals: number;
+  readonly class: string;
+  readonly lane: string;
+  readonly status: string;
+  readonly capBps: number;
+}
+
 export interface RunnerDecisionView {
   readonly decisionId: number;
   readonly outcome: "hold" | "leg";
@@ -102,17 +142,41 @@ export interface PlanView {
     readonly defaults: PlanParams;
     readonly targetRange: { readonly minBps: number; readonly maxBps: number };
     readonly ownerLimits: { readonly maxTradeBps: number; readonly maxSlippageBps: number };
+    /** F-U6: the aggressiveness the goal stands for and its envelope (A-60). */
+    readonly aggressiveness?: "CONSERVATIVE" | "BALANCED" | "AGGRESSIVE" | null;
+    readonly envelope?: {
+      readonly label: string;
+      readonly classAAllowed: boolean;
+      readonly maxPositionBps: number;
+      readonly maxClassAPositionBps: number;
+      readonly maxClassATotalBps: number;
+      readonly minStableBps: number;
+      readonly maxPositions: number;
+    } | null;
   } | null;
   readonly plan: {
     readonly paramId: string;
-    readonly params: PlanParams;
+    /** F-U6: absent on views read before it, which were all two-asset plans. */
+    readonly template?: "rebalance_bands@1" | "target_portfolio@1";
+    readonly params: PlanParams | Omit<PortfolioPlanParams, "template">;
     readonly strategyEpoch: string;
     readonly setBy: string;
     readonly createdAt: string;
     readonly stale: boolean;
   } | null;
   readonly decisions: readonly RunnerDecisionView[];
+  /** F-U6: the fund agent's set when the agent is on it: the tokens the portfolio form offers. */
+  readonly portfolio?: {
+    readonly custody: string;
+    readonly tokens: readonly PortfolioTokenView[];
+  } | null;
 }
+
+/** Whether a served plan is a target portfolio (F-U6). */
+export const isPortfolioPlanView = (
+  p: NonNullable<PlanView["plan"]>,
+): p is NonNullable<PlanView["plan"]> & { params: Omit<PortfolioPlanParams, "template"> } =>
+  p.template === "target_portfolio@1";
 
 /** The agent's latest portfolio reading and its intents (GET /v1/agents/:id/chain). */
 export interface ChainView {
@@ -297,6 +361,10 @@ export interface AgentsSource {
   proposeOverLimit?(agentId: AgentId): Promise<string>;
   /** P3-U3: set the agent's plan; resolves to the new strategy epoch. */
   setPlan?(agentId: AgentId, params: PlanParams): Promise<string>;
+  /** F-U6: set a target portfolio plan, checked by the Test stage v2; resolves to the new strategy epoch. */
+  setPortfolioPlan?(agentId: AgentId, params: PortfolioPlanParams): Promise<string>;
+  /** F-U6: check a target portfolio draft without setting it. */
+  checkPortfolioPlan?(agentId: AgentId, params: PortfolioPlanParams): Promise<PlanFinding[]>;
   /** P3-U3: run the template runner for the agent once (local only). */
   runRunner?(agentId: AgentId): Promise<RunnerDecisionView>;
   /** P2-U6: approve a waiting intent as the owner; true when it armed the agent. */
@@ -407,6 +475,25 @@ export function orchestratorSource(baseUrl: string, fetchFn: typeof fetch = fetc
         body: JSON.stringify(params),
       });
       return String((body.plan as { strategyEpoch?: unknown } | undefined)?.strategyEpoch ?? "");
+    },
+    async setPortfolioPlan(agentId: AgentId, params: PortfolioPlanParams): Promise<string> {
+      const body = await call(`/v1/agents/${agentId.toString()}/plan`, {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(params),
+      });
+      return String((body.plan as { strategyEpoch?: unknown } | undefined)?.strategyEpoch ?? "");
+    },
+    async checkPortfolioPlan(
+      agentId: AgentId,
+      params: PortfolioPlanParams,
+    ): Promise<PlanFinding[]> {
+      const body = await call(`/v1/agents/${agentId.toString()}/plan/check`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(params),
+      });
+      return (body.findings ?? []) as PlanFinding[];
     },
     async runRunner(agentId: AgentId): Promise<RunnerDecisionView> {
       const body = await call(`/v1/agents/${agentId.toString()}/runner/run`, { method: "POST" });
