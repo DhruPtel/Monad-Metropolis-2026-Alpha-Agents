@@ -214,7 +214,7 @@ async function main(): Promise<void> {
     }
     const reasoning = (REASONING_ALIASES as readonly string[]).includes(alias)
       ? (alias as (typeof REASONING_ALIASES)[number])
-      : "research-strong";
+      : "research-medium";
     for (const s of stages) {
       const config = cycleConfig(stored, {
         kind: s.kind,

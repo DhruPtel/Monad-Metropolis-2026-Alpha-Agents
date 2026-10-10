@@ -690,8 +690,8 @@ describe.skipIf(!dbUp)("the trade flow (needs Postgres)", { timeout: 60_000 }, (
 
   it("an intent proposed under an earlier goal is refused as STRATEGY_EPOCH_STALE; arming stays open (D-281)", async () => {
     const goals = new GoalStore(t.db);
-    const goal = (preset: "BALANCED" | "GROWTH") => {
-      const r = translateGoal({ ...structuredClone(DEFAULT_GOAL_INPUT), riskPreset: preset });
+    const goal = (preset: "BALANCED" | "AGGRESSIVE") => {
+      const r = translateGoal({ ...structuredClone(DEFAULT_GOAL_INPUT), aggressiveness: preset });
       if (!r.ok) throw new Error("fixture goal refused");
       return goals.save({
         chainId: CHAIN,
@@ -705,7 +705,7 @@ describe.skipIf(!dbUp)("the trade flow (needs Postgres)", { timeout: 60_000 }, (
     const r = await arm();
     const old = await propose(1_000_000n, { strategyEpoch: "1" });
     // The owner changes the goal while the proposal waits.
-    await goal("GROWTH");
+    await goal("AGGRESSIVE");
     await flow.tick();
     const v = await trades.intent(CHAIN, 1, old);
     expect(v?.status).toBe("rejected");

@@ -4,14 +4,8 @@ import {
   OWNER_LIMIT_FIELDS,
   type OwnerLimitField,
   PLAN_CHANGE_MODES,
-  REASONING_MODELS,
-  REASONING_MODEL_FACTS,
   RESEARCH_INTENSITIES,
   RESEARCH_INTENSITY_FACTS,
-  RISK_PRESETS,
-  RISK_PRESET_FACTS,
-  STRATEGY_TEMPLATES,
-  TEMPLATE_FACTS,
   formatAmount,
 } from "@alpha-agents/domain";
 import {
@@ -30,22 +24,30 @@ import {
   GoalSummary,
   Input,
   LimitField,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
   Skeleton,
+  Tag,
   bpsText,
 } from "@alpha-agents/ui";
 import { ArrowLeft, PlugZap, ShieldOff, Wallet } from "lucide-react";
 import Link from "next/link";
-import type { ReactNode } from "react";
+import { type ReactNode, useState } from "react";
 import { useWalletSession } from "@/auth/session";
 import { goalChanged, limitValue } from "@/agent/goal";
 import { useGoal } from "@/agent/use-goal";
 
 /**
- * The Goal page (P3-U1, D-295): the owner tells the agent what they want
- * through structured fields only. Every field says what it does; the limits
- * that apply and a month's research cost update as the owner edits, from the
- * same translator the save uses; saving moves the agent from Not configured to
- * Ready and says so.
+ * The Goal page (P3-U1, F-U7, D-295, D-345): the owner tells the agent what
+ * they want through structured fields only. One choice of aggressiveness
+ * produces the brief the agent interprets and the envelope the deterministic
+ * Test enforces; the model tier, the screened-lane opt-in and excluded tokens
+ * are the other choices. The limits that apply and a month's research cost
+ * update as the owner edits, from the same translator the save uses; saving
+ * moves the agent from Not configured to Ready and says so.
  */
 
 const usdc = (e6: string | bigint) =>
@@ -88,6 +90,7 @@ export function GoalPage({ agentId }: { agentId: bigint }) {
   const wallet = useWalletSession();
   const g = useGoal(agentId);
   const name = `Agent #${agentId.toString()}`;
+  const [pick, setPick] = useState("");
 
   const header = (
     <div className="flex flex-col gap-2">
@@ -181,66 +184,49 @@ export function GoalPage({ agentId }: { agentId: bigint }) {
     };
   });
   const chosenIntensity = intensityFacts.find((i) => i.id === form.intensity);
+  const level = page.form.levels.find((l) => l.id === form.aggressiveness);
   const changed = goalChanged(form, page.goal);
+  const tokens = page.form.tokens;
+  const symbolOf = (address: string) =>
+    tokens.find((t) => t.address.toLowerCase() === address.toLowerCase())?.symbol ??
+    `${address.slice(0, 6)}..${address.slice(-4)}`;
+  const available = tokens.filter(
+    (t) => !form.excludedTokens.includes(t.address.toLowerCase()) && t.symbol !== "USDC",
+  );
+  const envelopeLine = (e: (typeof page.form.levels)[number]["envelope"]) =>
+    `At most ${e.maxPositions} positions, ${bpsText(e.maxPositionBps)} each, ${bpsText(e.minStableBps)} in stablecoins${e.classAAllowed ? `; class A up to ${bpsText(e.maxClassAPositionBps)} each and ${bpsText(e.maxClassATotalBps)} together` : "; class F tokens only"}`;
 
   return (
     <div className="flex flex-col gap-6" data-testid="goal-page">
       {header}
-      <GoalSummary
-        state={page.state}
-        template={page.goal?.template ?? null}
-        riskPreset={page.goal?.riskPreset ?? null}
-      />
+      <GoalSummary state={page.state} aggressiveness={page.goal?.aggressiveness ?? null} />
 
       <Section
-        title="Strategy"
-        description="How the agent manages the account: the plan it follows and how much risk it may take."
+        title="Aggressiveness"
+        description="One choice. It becomes the brief the agent reads and the envelope every plan is checked against; the agent decides what to buy inside them."
         testId="goal-strategy"
       >
         <ChoiceGroup
-          legend="Strategy template"
-          hint="The plan the agent follows. It changes the plan's numbers; a separate runner makes the trades."
-          value={form.template}
-          onValueChange={(v) => set((f) => ({ ...f, template: v }))}
-          columns={2}
+          legend="Aggressiveness"
+          hint="How much risk the agent may take. Each level says what it leans to and what the platform enforces."
+          value={form.aggressiveness}
+          onValueChange={(v) => set((f) => ({ ...f, aggressiveness: v }))}
           disabled={busy}
-          options={STRATEGY_TEMPLATES.map((id) => ({
-            value: id,
-            title: TEMPLATE_FACTS[id].label,
-            description: TEMPLATE_FACTS[id].explanation,
-            ...(id === "dca@1" ? { note: "Available later", disabled: true } : {}),
+          options={page.form.levels.map((l) => ({
+            value: l.id,
+            title: l.label,
+            description: l.summary,
+            detail: envelopeLine(l.envelope),
+            ...(l.id === "BALANCED" ? { note: "Default" } : {}),
           }))}
         />
-        <ChoiceGroup
-          legend="Risk preset"
-          hint="How much of the account the agent may keep in WMON, where it starts, and how far the share may drift before it trades back."
-          value={form.riskPreset}
-          onValueChange={(v) => set((f) => ({ ...f, riskPreset: v }))}
-          disabled={busy}
-          options={RISK_PRESETS.map((id) => {
-            const p = RISK_PRESET_FACTS[id];
-            return {
-              value: id,
-              title: p.label,
-              detail: `WMON ${bpsText(p.targetMinBps)} to ${bpsText(p.targetMaxBps)}, starts at ${bpsText(p.defaultTargetBps)}, band ±${bpsText(p.bandHalfWidthBps)}`,
-            };
-          })}
-        />
-        <ChoiceGroup
-          legend="Allowed assets"
-          hint="USDC is always allowed. Turning WMON off keeps the whole account in USDC."
-          value={form.wmon ? "WMON" : "USDC"}
-          onValueChange={(v) => set((f) => ({ ...f, wmon: v === "WMON" }))}
-          columns={2}
-          disabled={busy}
-          options={[
-            { value: "WMON", title: "USDC and WMON", description: "The agent may hold WMON." },
-            { value: "USDC", title: "USDC only", description: "The agent holds no WMON." },
-          ]}
-        />
+        <p className="text-sm text-foreground-muted" data-testid="goal-brief">
+          <span className="font-medium text-foreground">The agent reads: </span>
+          {preview?.brief ?? level?.brief ?? ""}
+        </p>
         {preview ? (
           <p className="text-sm text-foreground-muted" data-testid="goal-plan-line">
-            The plan starts at{" "}
+            Until the agent proposes a portfolio, the two-asset fallback starts at{" "}
             <span className="numeric text-foreground">
               {bpsText(preview.template.params.targetWmonBps)}
             </span>{" "}
@@ -251,6 +237,105 @@ export function GoalPage({ agentId }: { agentId: bigint }) {
             within your limits below.
           </p>
         ) : null}
+      </Section>
+
+      <Section
+        title="Tokens"
+        description="Which tokens the agent may hold: the core lane always; screened tokens only if you opt in; never the ones you exclude."
+        testId="goal-tokens"
+      >
+        <ChoiceGroup
+          legend="Screened lane"
+          hint="Screened tokens passed the platform's safety screen but not the core lane's review. Holding them needs your onchain opt-in as well, which the portfolio page asks for."
+          value={form.screenedOptIn ? "SCREENED" : "CORE"}
+          onValueChange={(v) => set((f) => ({ ...f, screenedOptIn: v === "SCREENED" }))}
+          columns={2}
+          disabled={busy}
+          options={[
+            {
+              value: "CORE",
+              title: "Core lane only",
+              description: "Tokens the platform's reviewers added, with a price feed.",
+              note: "Default",
+            },
+            {
+              value: "SCREENED",
+              title: "Opt into screened tokens",
+              description: "Also tokens that passed the safety screen, under the class A caps.",
+            },
+          ]}
+        />
+        <div className="flex flex-col gap-3" data-testid="goal-excluded">
+          <Field
+            label="Excluded tokens"
+            hint={`Tokens the agent never buys, whatever its research says. Up to ${page.form.maxExcludedTokens}.`}
+          >
+            {(control) =>
+              available.length > 0 ? (
+                <div className="flex flex-wrap items-center gap-2">
+                  <Select value={pick} onValueChange={setPick}>
+                    <SelectTrigger {...control} className="w-56">
+                      <SelectValue placeholder="Choose a token" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {available.map((t) => (
+                        <SelectItem key={t.address} value={t.address.toLowerCase()}>
+                          {t.symbol} ({t.priceClass === "A" ? "attested" : "feed"})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    disabled={
+                      busy ||
+                      pick === "" ||
+                      form.excludedTokens.length >= page.form.maxExcludedTokens
+                    }
+                    onClick={() => {
+                      set((f) => ({ ...f, excludedTokens: [...f.excludedTokens, pick] }));
+                      setPick("");
+                    }}
+                  >
+                    Exclude
+                  </Button>
+                </div>
+              ) : (
+                <p {...control} className="text-sm text-foreground-muted">
+                  {tokens.length === 0
+                    ? "No registered tokens to exclude yet."
+                    : "Every registered token is excluded."}
+                </p>
+              )
+            }
+          </Field>
+          {form.excludedTokens.length > 0 ? (
+            <ul className="flex flex-wrap gap-2" aria-label="Excluded tokens">
+              {form.excludedTokens.map((address) => (
+                <li key={address} className="flex items-center gap-1">
+                  <Tag tone="warning">{symbolOf(address)}</Tag>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    disabled={busy}
+                    aria-label={`Allow ${symbolOf(address)} again`}
+                    onClick={() =>
+                      set((f) => ({
+                        ...f,
+                        excludedTokens: f.excludedTokens.filter((t) => t !== address),
+                      }))
+                    }
+                  >
+                    Remove
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-sm text-foreground-muted">No token is excluded.</p>
+          )}
+        </div>
       </Section>
 
       <Section
@@ -290,20 +375,16 @@ export function GoalPage({ agentId }: { agentId: bigint }) {
         testId="goal-research"
       >
         <ChoiceGroup
-          legend="Reasoning model"
-          hint="The model for deep research, the skeptic's check and the plan review. Scans use a cheaper model."
-          value={form.reasoningModel}
-          onValueChange={(v) => set((f) => ({ ...f, reasoningModel: v }))}
-          columns={2}
+          legend="Model tier"
+          hint="The model for deep research, the skeptic's check and the plan review. Scans always use the Low tier's model."
+          value={form.modelTier}
+          onValueChange={(v) => set((f) => ({ ...f, modelTier: v }))}
           disabled={busy}
-          options={REASONING_MODELS.map((id) => ({
-            value: id,
-            title: `${REASONING_MODEL_FACTS[id].label}: ${REASONING_MODEL_FACTS[id].model}`,
-            description:
-              id === "STANDARD"
-                ? "Careful and economical; the default."
-                : "Deeper reasoning; each research stage can cost about twice as much.",
-            ...(id === "STANDARD" ? { note: "Default" } : {}),
+          options={page.form.tiers.map((t) => ({
+            value: t.id,
+            title: `${t.label}: ${t.model}`,
+            description: t.note,
+            ...(t.id === "MEDIUM" ? { note: "Default" } : {}),
           }))}
         />
         <ChoiceGroup
@@ -364,7 +445,7 @@ export function GoalPage({ agentId }: { agentId: bigint }) {
           rows={costRows}
           selected={form.intensity}
           days={page.form.costPreviewDays}
-          sweepMaxUsdcE6={BigInt(page.form.sweepMaxUsdcE6[form.reasoningModel])}
+          sweepMaxUsdcE6={BigInt(page.form.sweepMaxUsdcE6[form.modelTier])}
         />
       </Section>
 

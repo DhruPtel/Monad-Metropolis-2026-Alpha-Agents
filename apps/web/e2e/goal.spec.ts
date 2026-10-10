@@ -90,9 +90,12 @@ test.describe("the Goal page", () => {
       "UNCONFIGURED",
     );
     await expect(radio(page, "Research intensity", /^Light/)).toBeChecked();
-    await expect(radio(page, "Risk preset", /^Balanced/)).toBeChecked();
+    await expect(radio(page, "Aggressiveness", /^Balanced/)).toBeChecked();
     await expect(radio(page, "Plan changes", /^Ask me first/)).toBeChecked();
-    await expect(radio(page, "Strategy template", /^Steady buying/)).toBeDisabled();
+    await expect(radio(page, "Model tier", /^Medium/)).toBeChecked();
+    await expect(radio(page, "Screened lane", /^Core lane only/)).toBeChecked();
+    await expect(main(page).getByTestId("goal-brief")).toContainText("Hold large caps");
+    await expect(main(page).getByTestId("goal-excluded")).toContainText("No token is excluded");
     await expect(main(page).getByTestId("goal-budget")).toHaveValue("1.00");
     const cost = main(page).getByTestId("cost-preview");
     await expect(cost.locator('tr[data-intensity="LIGHT"]')).toHaveAttribute(
@@ -105,10 +108,9 @@ test.describe("the Goal page", () => {
     await expect(cost).toContainText("at most 4.00 USDC");
     // Every choice and field carries a plain explanation.
     for (const group of [
-      "Strategy template",
-      "Risk preset",
-      "Allowed assets",
-      "Reasoning model",
+      "Aggressiveness",
+      "Screened lane",
+      "Model tier",
       "Research intensity",
       "Plan changes",
     ])
@@ -127,10 +129,11 @@ test.describe("the Goal page", () => {
   test("saving a goal with stricter limits moves the agent to Ready", async ({ page }) => {
     const s = stack();
     await open(page, s);
-    await radio(page, "Risk preset", /^Growth/).click();
+    await radio(page, "Aggressiveness", /^Aggressive/).click();
+    await expect(main(page).getByTestId("goal-brief")).toContainText("passes the safety check");
     await main(page).getByLabel("Largest trade (%)").fill("5");
     await main(page).getByLabel("Most trades a day (trades)").fill("6");
-    await main(page).getByLabel("Most in WMON (%)").fill("25");
+    await main(page).getByLabel("Most in one token (%)").fill("25");
     await previewed(page, "25%");
     const limits = main(page).getByTestId("effective-limits");
     await expect(limits.locator('tr[data-field="maxTradeBps"]')).toContainText(/10%.*5%.*5%/);
@@ -143,12 +146,13 @@ test.describe("the Goal page", () => {
       "Goal saved. Agent #7 moved from Not configured to Ready.",
     );
     await expect(main(page).getByTestId("goal-summary")).toHaveAttribute("data-state", "READY");
-    await expect(main(page).getByTestId("goal-summary")).toContainText("Band rebalancer, Growth");
+    await expect(main(page).getByTestId("goal-summary")).toContainText("Goal: Aggressive");
     await expect(main(page).getByRole("button", { name: "Save changes" })).toBeDisabled();
     const saved = s.api.goals.saved.get(AGENT);
     expect(saved?.goal).toMatchObject({
-      riskPreset: "GROWTH",
-      stricterLimits: { maxTradeBps: 500, maxTradesPer24h: 6, maxWmonShareBps: 2_500 },
+      aggressiveness: "AGGRESSIVE",
+      modelTier: "MEDIUM",
+      stricterLimits: { maxTradeBps: 500, maxTradesPer24h: 6, maxPositionBps: 2_500 },
       research: { intensity: "LIGHT", dailyBudgetUsdcE6: "1000000" },
     });
     expect(saved?.strategyEpoch).toBe(1n);
@@ -172,7 +176,7 @@ test.describe("the Goal page", () => {
     const deep = main(page).getByTestId("cost-preview").locator('tr[data-intensity="DEEP"]');
     await expect(deep).toHaveAttribute("aria-current", "true");
     await expect(deep).toContainText("90.00 USDC");
-    await radio(page, "Reasoning model", /^Deep/).click();
+    await radio(page, "Model tier", /^High/).click();
     await expect(main(page).getByTestId("cost-preview")).toContainText("at most 7.50 USDC");
   });
 
@@ -212,7 +216,7 @@ test.describe("the Goal page", () => {
     await open(page, s);
     await main(page).getByRole("button", { name: "Save goal" }).click();
     await expect(saveStatus(page)).toHaveAttribute("data-state", "saving");
-    await expect(radio(page, "Risk preset", /^Growth/)).toBeDisabled();
+    await expect(radio(page, "Aggressiveness", /^Aggressive/)).toBeDisabled();
     await capture(page, main(page).getByTestId("goal-save"), "goal-saving.png");
     expect(await blockingViolations(page)).toEqual([]);
     (release as (() => void) | null)?.();

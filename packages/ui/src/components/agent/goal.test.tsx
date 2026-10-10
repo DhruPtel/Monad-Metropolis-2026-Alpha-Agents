@@ -15,7 +15,7 @@ import {
 
 const HARD = {
   maxTradeBps: 1_000,
-  maxWmonShareBps: 4_000,
+  maxPositionBps: 4_000,
   minUsdcShareBps: 1_000,
   maxSlippageBps: 50,
   maxTradesPer24h: 20,
@@ -99,7 +99,7 @@ describe("goal components (P3-U1)", () => {
         hard={HARD}
         owner={{
           maxTradeBps: 500,
-          maxWmonShareBps: null,
+          maxPositionBps: null,
           minUsdcShareBps: null,
           maxSlippageBps: null,
           maxTradesPer24h: 6,
@@ -110,7 +110,7 @@ describe("goal components (P3-U1)", () => {
     const table = within(screen.getByRole("region", { name: "Limits that apply" }));
     const trade = table.getByRole("row", { name: /Largest trade/ });
     expect(trade).toHaveTextContent(/10%.*5%.*5%/);
-    expect(table.getByRole("row", { name: /Most in WMON/ })).toHaveTextContent(
+    expect(table.getByRole("row", { name: /Most in one token/ })).toHaveTextContent(
       /40%.*Same as hard limit.*40%/,
     );
     expect(table.getByRole("row", { name: /Most trades a day/ })).toHaveTextContent(
@@ -124,7 +124,7 @@ describe("goal components (P3-U1)", () => {
         hard={HARD}
         owner={{
           maxTradeBps: 1_200,
-          maxWmonShareBps: null,
+          maxPositionBps: null,
           minUsdcShareBps: null,
           maxSlippageBps: null,
           maxTradesPer24h: null,
@@ -167,16 +167,12 @@ describe("goal components (P3-U1)", () => {
   });
 
   it("GoalSummary shows the state and the goal, or that there is none", () => {
-    const { rerender } = render(
-      <GoalSummary state="UNCONFIGURED" template={null} riskPreset={null} />,
-    );
+    const { rerender } = render(<GoalSummary state="UNCONFIGURED" aggressiveness={null} />);
     expect(screen.getByTestId("goal-summary")).toHaveTextContent(
       /Not configured\s*No goal yet: set one to get the agent ready\./,
     );
-    rerender(<GoalSummary state="READY" template="rebalance_bands@1" riskPreset="GROWTH" />);
-    expect(screen.getByTestId("goal-summary")).toHaveTextContent(
-      /Ready\s*Goal: Band rebalancer, Growth/,
-    );
+    rerender(<GoalSummary state="READY" aggressiveness="AGGRESSIVE" />);
+    expect(screen.getByTestId("goal-summary")).toHaveTextContent(/Ready\s*Goal: Aggressive/);
   });
 
   it("GoalSaveStatus says what happened, with each refused field's reason", () => {

@@ -1,13 +1,11 @@
 import {
+  AGGRESSIVENESS_FACTS,
   type AgentState,
+  type Aggressiveness,
   OWNER_LIMIT_FACTS,
   type OwnerLimitField,
   RESEARCH_INTENSITY_FACTS,
   type ResearchIntensity,
-  RISK_PRESET_FACTS,
-  type RiskPreset,
-  type StrategyTemplate,
-  TEMPLATE_FACTS,
   formatAmount,
 } from "@alpha-agents/domain";
 import { CircleAlert, CircleCheck, LoaderCircle } from "lucide-react";
@@ -238,18 +236,16 @@ function CostPreview({
   );
 }
 
-/** The goal in one line, with the agent's state: for the agent's card and its portfolio. */
+/** The goal in one line, with the agent's state: for the agent's card and its portfolio (F-U7: the aggressiveness). */
 function GoalSummary({
   state,
-  template,
-  riskPreset,
+  aggressiveness,
   action,
   className,
 }: {
   state: AgentState;
   /** Null when the owner has not set a goal. */
-  template: StrategyTemplate | null;
-  riskPreset: RiskPreset | null;
+  aggressiveness: Aggressiveness | null;
   /** A link to the Goal page. */
   action?: ReactNode;
   className?: string;
@@ -262,10 +258,14 @@ function GoalSummary({
     >
       <StatusPill kind="agent_state" value={state} />
       <span className="text-sm text-foreground-muted">
-        {template && riskPreset ? (
+        {aggressiveness ? (
           <>
-            Goal: <span className="text-foreground">{TEMPLATE_FACTS[template].label}</span>,{" "}
-            <span className="text-foreground">{RISK_PRESET_FACTS[riskPreset].label}</span>
+            Goal:{" "}
+            <span className="text-foreground">{AGGRESSIVENESS_FACTS[aggressiveness].label}</span>
+            <span className="text-foreground-muted">
+              {" "}
+              ({AGGRESSIVENESS_FACTS[aggressiveness].summary.replace(/\.$/, "").toLowerCase()})
+            </span>
           </>
         ) : (
           "No goal yet: set one to get the agent ready."

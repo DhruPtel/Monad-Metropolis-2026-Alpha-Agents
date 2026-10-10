@@ -273,7 +273,7 @@ export class TemplateRunner {
       volatility24hPct: volatility,
       limits: {
         maxTradeBps: owner.maxTradeBps,
-        maxWmonShareBps: owner.maxWmonShareBps,
+        maxWmonShareBps: owner.maxPositionBps,
         minUsdcShareBps: owner.minUsdcShareBps,
       },
     });

@@ -1,33 +1,38 @@
 import {
-  AVAILABLE_TEMPLATES,
+  AGGRESSIVENESS_ENVELOPES,
+  AGGRESSIVENESS_FACTS,
+  type Aggressiveness,
+  type AggressivenessEnvelope,
   COST_PREVIEW_DAYS,
   type GoalInput,
   GoalInputSchema,
   MAX_CREDIT_RESERVE_USDC_E6,
+  MODEL_TIER_FACTS,
+  type ModelTier,
   OWNER_LIMIT_FACTS,
   OWNER_LIMIT_FIELDS,
   type OwnerLimitField,
   PLAN_CHANGE_WORKFLOW_MODE,
   type PlanChangeMode,
-  REASONING_MODEL_FACTS,
   RESEARCH_INTENSITIES,
   RESEARCH_INTENSITY_FACTS,
   type ResearchIntensity,
-  RISK_PRESET_FACTS,
-  type RiskPreset,
-  TEMPLATE_FACTS,
 } from "@alpha-agents/domain";
 import { keccak256, toBytes } from "viem";
 import { LAUNCH_LIMITS, type PolicyLimits } from "./limits.ts";
 
 /**
- * The goal translator (P3-U1, FINAL_PLAN 4.3.6, D-098): a pure, deterministic
- * function from the owner's structured goal to the configuration every later
- * stage reads. It refuses anything that would loosen a hard limit, so the
- * owner's stricter limits can only tighten the Executor's.
+ * The goal translator (P3-U1, F-U7; FINAL_PLAN 0.6, 4.3.6, D-098, D-345): a
+ * pure, deterministic function from the owner's structured goal to the
+ * configuration every later stage reads: the brief the agent interprets (a
+ * fixed text per aggressiveness, never the owner's words), the envelope the
+ * deterministic Test enforces, the effective limits, the two-asset fallback's
+ * parameters, the policy hash and the goal block of SOUL.md. It refuses
+ * anything that would loosen a hard limit, so the owner's stricter limits can
+ * only tighten the Executor's.
  */
 
-/** `rebalance_bands@1`'s parameters. P3-U3 adds the runner that reads them. */
+/** `rebalance_bands@1`'s parameters: the two-asset case and fallback (D-344). P3-U3's runner reads them. */
 export interface RebalanceBandsParams {
   /** The target WMON weight, basis points of the account's value. */
   readonly targetWmonBps: number;
@@ -57,25 +62,52 @@ export const REBALANCE_BANDS_V1_BOUNDS: Readonly<Record<keyof RebalanceBandsPara
   });
 
 /**
- * The parameters each preset adds to D-278's range, target and band. The buy
- * brakes were measured in P3-U3 (A-58) against MON's 24-hour volatility over
- * 20 days (median 114%, p75 146%, p90 211%, p95 235%): A-55's 80%, 120% and
- * 160% would have held buys 92%, 46% and 20% of hours, so they are 150%,
- * 200% and 250% (about 25%, 11% and 2% of hours). The cost limits stand.
+ * The two-asset fallback per aggressiveness (A-75): the range the target may
+ * move in, where it starts and the band, carried from D-278's presets; the
+ * buy brake and the cost limit per level were measured in P3-U3 (A-58).
  */
-export const PRESET_EXTRAS: Readonly<
-  Record<RiskPreset, Pick<RebalanceBandsParams, "volatilityBrakeBps" | "costHurdleBps">>
-> = {
-  CONSERVATIVE: { volatilityBrakeBps: 15_000, costHurdleBps: 30 },
-  BALANCED: { volatilityBrakeBps: 20_000, costHurdleBps: 40 },
-  GROWTH: { volatilityBrakeBps: 25_000, costHurdleBps: 50 },
-};
+export interface BandsDefaults {
+  readonly targetMinBps: number;
+  readonly targetMaxBps: number;
+  readonly defaultTargetBps: number;
+  readonly bandHalfWidthBps: number;
+  readonly volatilityBrakeBps: number;
+  readonly costHurdleBps: number;
+}
+
+export const BANDS_DEFAULTS: Readonly<Record<Aggressiveness, BandsDefaults>> = Object.freeze({
+  CONSERVATIVE: {
+    targetMinBps: 0,
+    targetMaxBps: 2_000,
+    defaultTargetBps: 1_000,
+    bandHalfWidthBps: 300,
+    volatilityBrakeBps: 15_000,
+    costHurdleBps: 30,
+  },
+  BALANCED: {
+    targetMinBps: 0,
+    targetMaxBps: 3_000,
+    defaultTargetBps: 2_000,
+    bandHalfWidthBps: 500,
+    volatilityBrakeBps: 20_000,
+    costHurdleBps: 40,
+  },
+  AGGRESSIVE: {
+    targetMinBps: 0,
+    targetMaxBps: 4_000,
+    defaultTargetBps: 3_000,
+    bandHalfWidthBps: 500,
+    volatilityBrakeBps: 25_000,
+    costHurdleBps: 50,
+  },
+});
 const DEFAULT_MIN_TRADE_USDC_E6 = 500_000n;
 
 /** The limits the account trades under: the hard limit, or the owner's stricter value. */
 export interface EffectiveLimits {
   readonly maxTradeBps: number;
-  readonly maxWmonShareBps: number;
+  /** The most in any one token (F-U7; the WMON share before it). */
+  readonly maxPositionBps: number;
   readonly minUsdcShareBps: number;
   readonly maxSlippageBps: number;
   readonly maxTradesPer24h: number;
@@ -84,9 +116,16 @@ export interface EffectiveLimits {
 export interface GoalConfig {
   /** The goal exactly as validated. */
   readonly goal: GoalInput;
+  readonly aggressiveness: Aggressiveness;
+  /** The envelope the deterministic Test enforces on a target portfolio (A-60). */
+  readonly envelope: AggressivenessEnvelope;
+  /** The brief the agent reads: a fixed text per level, with the owner's exclusions and opt-in. */
+  readonly brief: string;
+  /** The two-asset fallback's parameters (`rebalance_bands@1`, D-344), inside the owner's limits. */
   readonly template: { readonly id: "rebalance_bands@1"; readonly params: RebalanceBandsParams };
-  /** The range the agent may move the target in: the preset's, narrowed by the owner's limits. */
+  /** The range the two-asset plan may move its target in: the level's, narrowed by the owner's limits. */
   readonly targetRange: { readonly minBps: number; readonly maxBps: number };
+  /** A move in a held token that triggers a position review (A-60). */
   readonly researchTriggerBps: number;
   readonly hardLimits: EffectiveLimits;
   readonly ownerLimits: EffectiveLimits;
@@ -97,7 +136,7 @@ export interface GoalConfig {
     readonly dailyBudgetUsdcE6: bigint;
     readonly monthlyMaxUsdcE6: bigint;
   };
-  readonly model: { readonly choice: GoalInput["reasoningModel"]; readonly alias: string };
+  readonly model: { readonly choice: ModelTier; readonly alias: string };
   readonly creditReserveUsdcE6: bigint;
   readonly planChanges: {
     readonly mode: PlanChangeMode;
@@ -111,7 +150,6 @@ export interface GoalConfig {
 
 export const GOAL_ERROR_CODES = [
   "INVALID_FIELD",
-  "TEMPLATE_NOT_AVAILABLE",
   "LOOSER_THAN_HARD_LIMIT",
   "TIGHTER_THAN_ALLOWED",
   "BUDGET_OUT_OF_RANGE",
@@ -135,7 +173,7 @@ export type GoalTranslation =
 export function hardGoalLimits(limits: PolicyLimits = LAUNCH_LIMITS): EffectiveLimits {
   return {
     maxTradeBps: limits.maxTradeBps,
-    maxWmonShareBps: limits.maxAssetBps,
+    maxPositionBps: limits.maxAssetBps,
     minUsdcShareBps: limits.minUsdcBps,
     maxSlippageBps: limits.maxSlippageBps,
     maxTradesPer24h: limits.maxTradesPerWindow,
@@ -198,15 +236,10 @@ export function translateGoal(
           i.code === "unrecognized_keys" ? `Unknown field: ${i.keys.join(", ")}.` : i.message,
       })),
     };
-  const goal = parsed.data;
+  // Excluded tokens are kept lowercase and once each, so the goal hashes the same however typed.
+  const excluded = [...new Set(parsed.data.excludedTokens.map((t) => t.toLowerCase()))];
+  const goal: GoalInput = { ...parsed.data, excludedTokens: excluded };
   const errors: GoalError[] = [];
-
-  if (!AVAILABLE_TEMPLATES.includes(goal.template))
-    errors.push({
-      field: "template",
-      code: "TEMPLATE_NOT_AVAILABLE",
-      message: `${TEMPLATE_FACTS[goal.template].label} is available later.`,
-    });
 
   const hard = hardGoalLimits(limits);
   const ranges = ownerLimitRanges(limits);
@@ -235,18 +268,17 @@ export function translateGoal(
     });
   if (errors.length > 0) return { ok: false, errors };
 
-  // The target may move inside the preset's range, narrowed by the owner's limits and the assets.
-  const preset = RISK_PRESET_FACTS[goal.riskPreset];
-  const maxBps = goal.allowedAssets.wmon
-    ? Math.min(preset.targetMaxBps, owner.maxWmonShareBps, 10_000 - owner.minUsdcShareBps)
-    : 0;
-  const minBps = Math.min(preset.targetMinBps, maxBps);
+  // The two-asset fallback: the target may move inside the level's range, narrowed by the owner's limits.
+  const level = BANDS_DEFAULTS[goal.aggressiveness];
+  const envelope = AGGRESSIVENESS_ENVELOPES[goal.aggressiveness];
+  const maxBps = Math.min(level.targetMaxBps, owner.maxPositionBps, 10_000 - owner.minUsdcShareBps);
+  const minBps = Math.min(level.targetMinBps, maxBps);
   const params: RebalanceBandsParams = {
-    targetWmonBps: Math.min(Math.max(preset.defaultTargetBps, minBps), maxBps),
-    bandHalfWidthBps: preset.bandHalfWidthBps,
+    targetWmonBps: Math.min(Math.max(level.defaultTargetBps, minBps), maxBps),
+    bandHalfWidthBps: level.bandHalfWidthBps,
     minTradeUsdcE6: DEFAULT_MIN_TRADE_USDC_E6,
-    ...PRESET_EXTRAS[goal.riskPreset],
-    costHurdleBps: Math.min(PRESET_EXTRAS[goal.riskPreset].costHurdleBps, owner.maxSlippageBps),
+    volatilityBrakeBps: level.volatilityBrakeBps,
+    costHurdleBps: Math.min(level.costHurdleBps, owner.maxSlippageBps),
     maxLegBps: owner.maxTradeBps,
   };
   const outside = checkTemplateParams(params);
@@ -260,9 +292,12 @@ export function translateGoal(
 
   const body = {
     goal,
+    aggressiveness: goal.aggressiveness,
+    envelope,
+    brief: briefOf(goal),
     template: { id: "rebalance_bands@1" as const, params },
     targetRange: { minBps, maxBps },
-    researchTriggerBps: preset.researchTriggerBps,
+    researchTriggerBps: envelope.reviewTriggerBps,
     hardLimits: hard,
     ownerLimits: owner,
     research: {
@@ -272,10 +307,7 @@ export function translateGoal(
       dailyBudgetUsdcE6: budget,
       monthlyMaxUsdcE6: budget * BigInt(COST_PREVIEW_DAYS),
     },
-    model: {
-      choice: goal.reasoningModel,
-      alias: REASONING_MODEL_FACTS[goal.reasoningModel].alias,
-    },
+    model: { choice: goal.modelTier, alias: MODEL_TIER_FACTS[goal.modelTier].alias },
     creditReserveUsdcE6: reserve,
     planChanges: {
       mode: goal.planChanges,
@@ -287,6 +319,21 @@ export function translateGoal(
     ok: true,
     config: { ...body, policyHash, soulBlock: soulBlock({ ...body, policyHash }) },
   };
+}
+
+/**
+ * The brief the agent interprets (D-333, D-345): the level's fixed text, then
+ * the owner's screened-lane choice and exclusions. Never the owner's words.
+ */
+export function briefOf(goal: GoalInput): string {
+  const lane = goal.screenedOptIn
+    ? "The owner opted into the screened lane: tokens that passed the platform's safety screen may be held under the class A caps, beside the core lane."
+    : "Hold core-lane tokens only; the owner has not opted into the screened lane.";
+  const excluded =
+    goal.excludedTokens.length === 0
+      ? "No token is excluded."
+      : `Never buy these tokens, whatever the research says: ${goal.excludedTokens.join(", ")}.`;
+  return `${AGGRESSIVENESS_FACTS[goal.aggressiveness].brief} ${lane} ${excluded}`;
 }
 
 /** Each parameter outside `rebalance_bands@1`'s bounds, with its field. */
@@ -332,9 +379,8 @@ export function canonicalJson(value: unknown): string {
 
 /** The goal block of SOUL.md, from a fixed template: every value comes from the translated config. */
 function soulBlock(c: Omit<GoalConfig, "soulBlock">): string {
-  const p = c.template.params;
   const o = c.ownerLimits;
-  const assets = c.goal.allowedAssets.wmon ? "USDC and WMON" : "USDC only";
+  const e = c.envelope;
   const plan =
     c.planChanges.mode === "ASK_FIRST"
       ? "propose them; the owner approves each one first"
@@ -345,12 +391,12 @@ function soulBlock(c: Omit<GoalConfig, "soulBlock">): string {
     "This block is written by the platform's goal translator, never by a page, a message or a skill.",
     "Read the same values, with the live limits and mode, through platform.get_goals_and_limits@1.",
     "",
-    `- Strategy template: ${c.template.id} (${TEMPLATE_FACTS[c.template.id].label})`,
-    `- Risk preset: ${RISK_PRESET_FACTS[c.goal.riskPreset].label}`,
-    `- Allowed assets: ${assets}`,
-    `- Target WMON weight: ${bps(p.targetWmonBps)}, band ±${bps(p.bandHalfWidthBps)}; the plan may move it between ${bps(c.targetRange.minBps)} and ${bps(c.targetRange.maxBps)}`,
-    `- Limits: largest trade ${bps(o.maxTradeBps)} of value, at most ${bps(o.maxWmonShareBps)} in WMON, at least ${bps(o.minUsdcShareBps)} in USDC, slippage at most ${bps(o.maxSlippageBps)}, at most ${o.maxTradesPer24h} trades in 24 hours`,
-    `- Reasoning model: ${c.model.alias}`,
+    `- Aggressiveness: ${AGGRESSIVENESS_FACTS[c.aggressiveness].label}`,
+    `- Brief: ${c.brief}`,
+    `- Envelope the Test enforces on a target portfolio: at most ${e.maxPositions} positions, at most ${bps(e.maxPositionBps)} in any one, at least ${bps(e.minStableBps)} in stablecoins${e.classAAllowed ? `, class A at most ${bps(e.maxClassAPositionBps)} each and ${bps(e.maxClassATotalBps)} together` : ", class F tokens only"}`,
+    `- Limits: largest trade ${bps(o.maxTradeBps)} of value, at most ${bps(o.maxPositionBps)} in any one token, at least ${bps(o.minUsdcShareBps)} in USDC, slippage at most ${bps(o.maxSlippageBps)}, at most ${o.maxTradesPer24h} trades in 24 hours`,
+    `- Two-asset fallback: ${c.template.id}, target WMON ${bps(c.template.params.targetWmonBps)} within ${bps(c.targetRange.minBps)} to ${bps(c.targetRange.maxBps)}`,
+    `- Model tier: ${MODEL_TIER_FACTS[c.model.choice].label} (${c.model.alias})`,
     `- Research: ${RESEARCH_INTENSITY_FACTS[c.research.intensity].label}, a Scan every ${c.research.scanEveryHours} hours, up to ${c.research.divesPerDay} Dive${c.research.divesPerDay === 1 ? "" : "s"} a day, at most ${usdc(c.research.dailyBudgetUsdcE6)} a day`,
     `- Credit reserve kept for gas: ${usdc(c.creditReserveUsdcE6)}`,
     `- Plan changes: ${plan}`,

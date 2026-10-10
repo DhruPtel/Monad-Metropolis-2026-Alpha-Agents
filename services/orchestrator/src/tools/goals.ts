@@ -30,7 +30,7 @@ async function liveLimits(chain: ChainReader, agentId: number): Promise<LiveGoal
     ownerEpoch: a.ownerEpoch,
     limits: {
       maxTradeBps: m.policy.maxTradeBps,
-      maxWmonShareBps: m.policy.maxAssetBps,
+      maxPositionBps: m.policy.maxAssetBps,
       minUsdcShareBps: m.policy.minUsdcBps,
       maxSlippageBps: m.policy.maxSlippageBps,
       maxTradesPer24h: m.policy.maxTradesPerWindow,

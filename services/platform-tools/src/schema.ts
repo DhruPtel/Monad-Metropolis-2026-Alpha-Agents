@@ -2,10 +2,9 @@ import {
   ACCOUNT_MODES,
   AGENT_STATES,
   PLAN_CHANGE_MODES,
-  REASONING_MODELS,
+  MODEL_TIERS,
   RESEARCH_INTENSITIES,
-  RISK_PRESETS,
-  STRATEGY_TEMPLATES,
+  AGGRESSIVENESS_LEVELS,
 } from "@alpha-agents/domain";
 import { z } from "zod";
 import { ZoomOutDecision } from "./briefs.ts";
@@ -86,7 +85,7 @@ const bps = z.int().min(0).max(10_000);
 const usdc = z.string().regex(/^\d+(\.\d{1,6})?$/, "a USDC amount");
 const limitSet = z.strictObject({
   maxTradeBps: bps,
-  maxWmonShareBps: bps,
+  maxPositionBps: bps,
   minUsdcShareBps: bps,
   maxSlippageBps: bps,
   maxTradesPer24h: z.int().min(0).max(255),
@@ -102,10 +101,10 @@ export const GetGoalsAndLimitsOutput = z.strictObject({
     .nullable(),
   goal: z
     .strictObject({
-      template: z.enum(STRATEGY_TEMPLATES),
-      riskPreset: z.enum(RISK_PRESETS),
-      allowedAssets: z.array(z.enum(["USDC", "WMON"])).min(1),
-      reasoningModel: z.strictObject({ choice: z.enum(REASONING_MODELS), alias: z.string() }),
+      aggressiveness: z.enum(AGGRESSIVENESS_LEVELS),
+      modelTier: z.strictObject({ choice: z.enum(MODEL_TIERS), alias: z.string() }),
+      screenedOptIn: z.boolean(),
+      excludedTokens: z.array(z.string().regex(/^0x[0-9a-f]{40}$/)).max(32),
       research: z.strictObject({
         intensity: z.enum(RESEARCH_INTENSITIES),
         scanEveryHours: z.int().min(1),
@@ -114,6 +113,20 @@ export const GetGoalsAndLimitsOutput = z.strictObject({
       }),
       creditReserveUsdc: usdc,
       planChanges: z.enum(PLAN_CHANGE_MODES),
+    })
+    .nullable(),
+  /** F-U7 (D-345): the brief the agent interprets, a fixed text per aggressiveness with the owner's choices. */
+  brief: z.string().nullable(),
+  /** The envelope the deterministic Test enforces on a target portfolio (A-60). */
+  envelope: z
+    .strictObject({
+      classAAllowed: z.boolean(),
+      maxPositionBps: bps,
+      maxClassAPositionBps: bps,
+      maxClassATotalBps: bps,
+      minStableBps: bps,
+      maxPositions: z.int().min(1).max(16),
+      reviewTriggerBps: bps,
     })
     .nullable(),
   plan: z

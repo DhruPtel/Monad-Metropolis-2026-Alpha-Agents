@@ -156,25 +156,35 @@ describe("platform tools server", () => {
   describe("get_goals_and_limits (P3-U1)", () => {
     const LIMITS = {
       maxTradeBps: 1_000,
-      maxWmonShareBps: 4_000,
+      maxPositionBps: 4_000,
       minUsdcShareBps: 1_000,
       maxSlippageBps: 50,
       maxTradesPer24h: 20,
     };
-    /** A configured answer for one agent, marked by its preset so the test can tell agents apart. */
-    const answer = (riskPreset: "BALANCED" | "GROWTH", strategyEpoch: string) => ({
+    /** A configured answer for one agent, marked by its aggressiveness so the test can tell agents apart. */
+    const answer = (aggressiveness: "BALANCED" | "AGGRESSIVE", strategyEpoch: string) => ({
       state: "READY",
       configured: true,
       strategyEpoch,
       policyHash: `0x${"ab".repeat(32)}`,
       goal: {
-        template: "rebalance_bands@1",
-        riskPreset,
-        allowedAssets: ["USDC", "WMON"],
-        reasoningModel: { choice: "STANDARD", alias: "research-strong" },
+        aggressiveness,
+        modelTier: { choice: "MEDIUM", alias: "research-medium" },
+        screenedOptIn: false,
+        excludedTokens: [],
         research: { intensity: "LIGHT", scanEveryHours: 12, divesPerDay: 1, dailyBudgetUsdc: "1" },
         creditReserveUsdc: "1",
         planChanges: "ASK_FIRST",
+      },
+      brief: "Hold large caps, plus a few researched mid caps.",
+      envelope: {
+        classAAllowed: true,
+        maxPositionBps: 4_500,
+        maxClassAPositionBps: 800,
+        maxClassATotalBps: 2_500,
+        minStableBps: 1_500,
+        maxPositions: 8,
+        reviewTriggerBps: 1_500,
       },
       plan: {
         template: "rebalance_bands@1",
@@ -198,7 +208,7 @@ describe("platform tools server", () => {
     const goals = {
       read: async (identity: AgentIdentity) => {
         asked.push(identity);
-        return identity.agentId === 1 ? answer("BALANCED", "3") : answer("GROWTH", "1");
+        return identity.agentId === 1 ? answer("BALANCED", "3") : answer("AGGRESSIVE", "1");
       },
     };
 
@@ -216,8 +226,8 @@ describe("platform tools server", () => {
       const b = GetGoalsAndLimitsOutput.parse(
         structured(await bob.callTool({ name: "get_goals_and_limits", arguments: {} })),
       );
-      expect([a.goal?.riskPreset, a.strategyEpoch]).toEqual(["BALANCED", "3"]);
-      expect([b.goal?.riskPreset, b.strategyEpoch]).toEqual(["GROWTH", "1"]);
+      expect([a.goal?.aggressiveness, a.strategyEpoch]).toEqual(["BALANCED", "3"]);
+      expect([b.goal?.aggressiveness, b.strategyEpoch]).toEqual(["AGGRESSIVE", "1"]);
       expect(asked).toEqual([ALICE, BOB]);
       await alice.close();
       await bob.close();

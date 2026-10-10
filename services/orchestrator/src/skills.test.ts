@@ -60,9 +60,8 @@ describe("the strategy skill matches the runner's template (P3-U7, F6)", () => {
   it("carries P3-U3's evals and the goal translator's defaults for each preset", async () => {
     const { readFileSync } = await import("node:fs");
     const { loadEvals } = await import("@alpha-agents/policy/evals");
-    const { translateGoal } = await import("@alpha-agents/policy");
-    const { DEFAULT_GOAL_INPUT, RISK_PRESETS, RISK_PRESET_FACTS } =
-      await import("@alpha-agents/domain");
+    const { BANDS_DEFAULTS, translateGoal } = await import("@alpha-agents/policy");
+    const { AGGRESSIVENESS_LEVELS, DEFAULT_GOAL_INPUT } = await import("@alpha-agents/domain");
     const dir = new URL(
       "../../../packages/skills/builtin/skills/usdc-wmon-band-rebalancer/",
       import.meta.url,
@@ -72,15 +71,22 @@ describe("the strategy skill matches the runner's template (P3-U7, F6)", () => {
     const params = JSON.parse(readFileSync(new URL("data/params.json", dir), "utf8")) as {
       presets: Record<string, Record<string, unknown>>;
     };
-    for (const riskPreset of RISK_PRESETS) {
-      const r = translateGoal({ ...DEFAULT_GOAL_INPUT, riskPreset });
+    // The skill's data keeps the old preset names until F-U8 revises the skills: Aggressive is its Growth.
+    const PRESET_KEY = {
+      CONSERVATIVE: "CONSERVATIVE",
+      BALANCED: "BALANCED",
+      AGGRESSIVE: "GROWTH",
+    } as const;
+    for (const aggressiveness of AGGRESSIVENESS_LEVELS) {
+      const riskPreset = PRESET_KEY[aggressiveness];
+      const r = translateGoal({ ...DEFAULT_GOAL_INPUT, aggressiveness });
       if (!r.ok) throw new Error("goal");
       const p = r.config.template.params;
       expect(params.presets[riskPreset]).toEqual({
         targetWmonBps: p.targetWmonBps,
         targetRangeBps: [
-          RISK_PRESET_FACTS[riskPreset].targetMinBps,
-          RISK_PRESET_FACTS[riskPreset].targetMaxBps,
+          BANDS_DEFAULTS[aggressiveness].targetMinBps,
+          BANDS_DEFAULTS[aggressiveness].targetMaxBps,
         ],
         bandHalfWidthBps: p.bandHalfWidthBps,
         minTradeUsdcE6: p.minTradeUsdcE6.toString(),

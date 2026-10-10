@@ -379,7 +379,7 @@ describe.skipIf(!dbUp)("the orchestrator's internal API (D-205)", { timeout: 60_
     const view = (await (await app.request("/v1/agents/1/plan")).json()) as Record<string, unknown>;
     expect(view).toMatchObject({
       strategyEpoch: "2",
-      goal: { riskPreset: "BALANCED", targetRange: { minBps: 0, maxBps: 3_000 } },
+      goal: { aggressiveness: "BALANCED", targetRange: { minBps: 0, maxBps: 3_000 } },
       plan: {
         params: { targetWmonBps: 1_500 },
         strategyEpoch: "2",

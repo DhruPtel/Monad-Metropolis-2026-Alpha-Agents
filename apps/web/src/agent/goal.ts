@@ -1,30 +1,30 @@
 import {
+  type Aggressiveness,
   type GoalInput,
+  type ModelTier,
   OWNER_LIMIT_FACTS,
   OWNER_LIMIT_FIELDS,
   type OwnerLimitField,
   type PlanChangeMode,
-  type ReasoningModel,
   type ResearchIntensity,
-  type RiskPreset,
-  type StrategyTemplate,
   formatAmount,
 } from "@alpha-agents/domain";
 import { parseUsdc, percentToBps } from "@alpha-agents/ui";
 import type { GoalErrorJson } from "@/api/client";
 
 /**
- * The Goal page's form (P3-U1): what the owner types, and the goal it sends.
- * Limits are typed as percentages (or a number of trades) and amounts as
- * USDC; an empty limit keeps the hard limit. Only the shape is checked here;
- * every bound is the translator's, through the API's preview and save.
+ * The Goal page's form (P3-U1, F-U7): what the owner picks, and the goal it
+ * sends. Limits are typed as percentages (or a number of trades) and amounts
+ * as USDC; an empty limit keeps the hard limit. Only the shape is checked
+ * here; every bound is the translator's, through the API's preview and save.
  */
 export interface GoalForm {
-  readonly template: StrategyTemplate;
-  readonly riskPreset: RiskPreset;
-  readonly wmon: boolean;
+  readonly aggressiveness: Aggressiveness;
+  readonly modelTier: ModelTier;
+  readonly screenedOptIn: boolean;
+  /** Token addresses, lowercase. */
+  readonly excludedTokens: readonly string[];
   readonly limits: Readonly<Record<OwnerLimitField, string>>;
-  readonly reasoningModel: ReasoningModel;
   readonly intensity: ResearchIntensity;
   readonly budgetText: string;
   readonly reserveText: string;
@@ -45,11 +45,11 @@ export function formFromGoal(goal: GoalInput): GoalForm {
   const limits = {} as Record<OwnerLimitField, string>;
   for (const f of OWNER_LIMIT_FIELDS) limits[f] = limitInput(f, goal.stricterLimits[f]);
   return {
-    template: goal.template,
-    riskPreset: goal.riskPreset,
-    wmon: goal.allowedAssets.wmon,
+    aggressiveness: goal.aggressiveness,
+    modelTier: goal.modelTier,
+    screenedOptIn: goal.screenedOptIn,
+    excludedTokens: goal.excludedTokens.map((t) => t.toLowerCase()),
     limits,
-    reasoningModel: goal.reasoningModel,
     intensity: goal.research.intensity,
     budgetText: usdcText(goal.research.dailyBudgetUsdcE6),
     reserveText: usdcText(goal.creditReserveUsdcE6),
@@ -95,11 +95,11 @@ export function goalFromForm(
     return { goal: null, errors };
   return {
     goal: {
-      template: f.template,
-      riskPreset: f.riskPreset,
-      allowedAssets: { wmon: f.wmon },
+      aggressiveness: f.aggressiveness,
+      modelTier: f.modelTier,
+      screenedOptIn: f.screenedOptIn,
+      excludedTokens: [...new Set(f.excludedTokens.map((t) => t.toLowerCase()))],
       stricterLimits: stricter,
-      reasoningModel: f.reasoningModel,
       research: { intensity: f.intensity, dailyBudgetUsdcE6: budget.toString() },
       creditReserveUsdcE6: reserve.toString(),
       planChanges: f.planChanges,
@@ -130,5 +130,9 @@ function stable(v: unknown): string {
 export function goalChanged(form: GoalForm, saved: GoalInput | null): boolean {
   if (!saved) return true;
   const parsed = goalFromForm(form);
-  return parsed.goal === null || stable(parsed.goal) !== stable(saved);
+  return (
+    parsed.goal === null ||
+    stable(parsed.goal) !==
+      stable({ ...saved, excludedTokens: saved.excludedTokens.map((t) => t.toLowerCase()) })
+  );
 }

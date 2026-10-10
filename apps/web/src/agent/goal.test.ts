@@ -2,12 +2,16 @@ import { DEFAULT_GOAL_INPUT, type GoalInput } from "@alpha-agents/domain";
 import { describe, expect, it } from "vitest";
 import { errorsByField, formFromGoal, goalChanged, goalFromForm, limitValue } from "./goal";
 
-describe("the Goal page's form (P3-U1)", () => {
+const WBTC = "0x0555e30da8f98308edb960aa94c0db47230d2b9c";
+
+describe("the Goal page's form (P3-U1, F-U7)", () => {
   it("round-trips the default goal through the form", () => {
     const form = formFromGoal(DEFAULT_GOAL_INPUT);
     expect(form).toMatchObject({
-      riskPreset: "BALANCED",
-      wmon: true,
+      aggressiveness: "BALANCED",
+      modelTier: "MEDIUM",
+      screenedOptIn: false,
+      excludedTokens: [],
       intensity: "LIGHT",
       budgetText: "1.00",
       reserveText: "1.00",
@@ -27,9 +31,13 @@ describe("the Goal page's form (P3-U1)", () => {
     expect(limitValue("maxTradesPer24h", "2.5")).toBeUndefined();
   });
 
-  it("sends the owner's limits and amounts in the API's units", () => {
+  it("sends the owner's choices, limits and amounts in the API's units", () => {
     const form = {
       ...formFromGoal(DEFAULT_GOAL_INPUT),
+      aggressiveness: "AGGRESSIVE" as const,
+      modelTier: "HIGH" as const,
+      screenedOptIn: true,
+      excludedTokens: [WBTC.toUpperCase().replace("0X", "0x"), WBTC],
       limits: {
         ...formFromGoal(DEFAULT_GOAL_INPUT).limits,
         maxTradeBps: "5",
@@ -41,7 +49,11 @@ describe("the Goal page's form (P3-U1)", () => {
     };
     const { goal } = goalFromForm(form);
     expect(goal).toMatchObject({
-      stricterLimits: { maxTradeBps: 500, maxTradesPer24h: 6, maxWmonShareBps: null },
+      aggressiveness: "AGGRESSIVE",
+      modelTier: "HIGH",
+      screenedOptIn: true,
+      excludedTokens: [WBTC],
+      stricterLimits: { maxTradeBps: 500, maxTradesPer24h: 6, maxPositionBps: null },
       research: { intensity: "STANDARD", dailyBudgetUsdcE6: "2500000" },
       creditReserveUsdcE6: "0",
     });
@@ -63,19 +75,26 @@ describe("the Goal page's form (P3-U1)", () => {
     });
   });
 
-  it("compares with the saved goal whatever its key order", () => {
+  it("compares with the saved goal whatever its key order or address case", () => {
     const saved = JSON.parse(
       JSON.stringify(Object.fromEntries(Object.entries(DEFAULT_GOAL_INPUT).reverse())),
     ) as GoalInput;
     expect(goalChanged(formFromGoal(DEFAULT_GOAL_INPUT), saved)).toBe(false);
+    const excluded: GoalInput = { ...DEFAULT_GOAL_INPUT, excludedTokens: [WBTC] };
+    expect(
+      goalChanged(
+        { ...formFromGoal(excluded), excludedTokens: [WBTC.toUpperCase().replace("0X", "0x")] },
+        excluded,
+      ),
+    ).toBe(false);
   });
 
   it("keeps the first reason per field", () => {
     expect(
       errorsByField([
-        { field: "riskPreset", code: "INVALID_FIELD", message: "a" },
-        { field: "riskPreset", code: "INVALID_FIELD", message: "b" },
+        { field: "aggressiveness", code: "INVALID_FIELD", message: "a" },
+        { field: "aggressiveness", code: "INVALID_FIELD", message: "b" },
       ]),
-    ).toEqual({ riskPreset: "a" });
+    ).toEqual({ aggressiveness: "a" });
   });
 });

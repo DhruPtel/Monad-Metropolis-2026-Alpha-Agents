@@ -2,7 +2,7 @@ import { RUNNER_HOLD_CODES } from "@alpha-agents/domain";
 import { describe, expect, it } from "vitest";
 import { evalPasses, loadEvals, runEval } from "./evals.ts";
 import { type RebalanceBandsParams, translateGoal } from "./goals.ts";
-import { DEFAULT_GOAL_INPUT, RISK_PRESETS } from "@alpha-agents/domain";
+import { AGGRESSIVENESS_LEVELS, DEFAULT_GOAL_INPUT } from "@alpha-agents/domain";
 import {
   REBALANCE_BANDS_V1,
   STRATEGY_TEMPLATE_RULES,
@@ -70,8 +70,8 @@ describe("the template's parameters and immutability", () => {
 
   it("every preset's defaults sit inside the bounds, with the measured brakes (A-58)", () => {
     const brakes: number[] = [];
-    for (const riskPreset of RISK_PRESETS) {
-      const r = translateGoal({ ...DEFAULT_GOAL_INPUT, riskPreset });
+    for (const aggressiveness of AGGRESSIVENESS_LEVELS) {
+      const r = translateGoal({ ...DEFAULT_GOAL_INPUT, aggressiveness });
       if (!r.ok) throw new Error(JSON.stringify(r.errors));
       expect(REBALANCE_BANDS_V1.check(r.config.template.params)).toEqual([]);
       brakes.push(r.config.template.params.volatilityBrakeBps);

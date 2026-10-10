@@ -370,7 +370,7 @@ export function createApp(deps: ApiDeps): Hono {
       agentId: agentId.toString(),
       ownerEpoch: owner.epoch.toString(),
       ...goalViewJson(view),
-      form: goalForm(),
+      form: await goalForm(deps.db, chainId),
     });
   });
 

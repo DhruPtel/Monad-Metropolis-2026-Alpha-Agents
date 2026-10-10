@@ -1,8 +1,4 @@
-import {
-  AGGRESSIVENESS_ENVELOPES,
-  AGGRESSIVENESS_OF_PRESET,
-  RISK_PRESET_FACTS,
-} from "@alpha-agents/domain";
+import { AGGRESSIVENESS_FACTS } from "@alpha-agents/domain";
 import {
   type RebalanceBandsParams,
   TARGET_PORTFOLIO_ID,
@@ -155,7 +151,7 @@ export function registerPlanRoutes(
       orch.goals.strategyEpoch(ref.chainId, ref.agentId),
       orch.portfolioPlanView(ref).catch(() => null),
     ]);
-    const aggressiveness = goal ? AGGRESSIVENESS_OF_PRESET[goal.goal.riskPreset] : null;
+    const aggressiveness = goal?.config.aggressiveness ?? null;
     return c.json({
       agentId: String(ref.agentId),
       runner: {
@@ -166,13 +162,13 @@ export function registerPlanRoutes(
       strategyEpoch: epoch.toString(),
       goal: goal
         ? {
-            riskPreset: goal.goal.riskPreset,
-            presetLabel: RISK_PRESET_FACTS[goal.goal.riskPreset].label,
+            aggressiveness,
+            presetLabel: aggressiveness ? AGGRESSIVENESS_FACTS[aggressiveness].label : "",
             defaults: goal.config.template.params,
             targetRange: goal.config.targetRange,
             ownerLimits: goal.config.ownerLimits,
-            aggressiveness,
-            envelope: aggressiveness ? AGGRESSIVENESS_ENVELOPES[aggressiveness] : null,
+            envelope: goal.config.envelope,
+            brief: goal.config.brief,
           }
         : null,
       plan: plan ? { ...planJson(plan), stale: plan.strategyEpoch !== epoch } : null,

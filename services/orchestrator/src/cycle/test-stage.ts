@@ -93,11 +93,11 @@ export function checkProposal(p: RebalanceBandsParams, t: TestInputs): TestFindi
     });
   }
   const h = t.hardLimits;
-  if (p.targetWmonBps > h.maxWmonShareBps)
+  if (p.targetWmonBps > h.maxPositionBps)
     out.push({
       code: "HARD_LIMIT",
       field: "targetWmonBps",
-      message: `The target WMON share may not exceed the hard limit of ${pct(h.maxWmonShareBps)}.`,
+      message: `The target WMON share may not exceed the hard limit of ${pct(h.maxPositionBps)}.`,
     });
   if (10_000 - p.targetWmonBps < h.minUsdcShareBps)
     out.push({
@@ -150,7 +150,7 @@ export function evalFindings(p: RebalanceBandsParams, hard: EffectiveLimits): Te
       volatility24hPct: s.state.volatility24hPct,
       limits: {
         maxTradeBps: hard.maxTradeBps,
-        maxWmonShareBps: hard.maxWmonShareBps,
+        maxWmonShareBps: hard.maxPositionBps,
         minUsdcShareBps: hard.minUsdcShareBps,
       },
     });
@@ -163,7 +163,7 @@ export function evalFindings(p: RebalanceBandsParams, hard: EffectiveLimits): Te
         ? (wmon * price) / 10n ** 30n + d.leg.valueUsdcE6
         : (wmon * price) / 10n ** 30n - d.leg.valueUsdcE6;
     const shareAfter = Number((wmonAfter * 10_000n) / total);
-    if (legBps > hard.maxTradeBps || (d.leg.sell === "USDC" && shareAfter > hard.maxWmonShareBps))
+    if (legBps > hard.maxTradeBps || (d.leg.sell === "USDC" && shareAfter > hard.maxPositionBps))
       breaches.push(s.name);
   }
   if (breaches.length > 0)
@@ -184,7 +184,7 @@ export function testEnvelope(current: RebalanceBandsParams | null, t: TestInputs
   const maxTarget = Math.min(
     Number(b.targetWmonBps[1]),
     t.targetRange.maxBps,
-    h.maxWmonShareBps,
+    h.maxPositionBps,
     10_000 - h.minUsdcShareBps,
   );
   const cooldownUntil =

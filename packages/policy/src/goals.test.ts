@@ -1,17 +1,19 @@
 import {
+  AGGRESSIVENESS_ENVELOPES,
+  AGGRESSIVENESS_LEVELS,
   DEFAULT_GOAL_INPUT,
   type GoalInput,
   OWNER_LIMIT_FACTS,
   OWNER_LIMIT_FIELDS,
   RESEARCH_INTENSITIES,
   RESEARCH_INTENSITY_FACTS,
-  RISK_PRESETS,
-  RISK_PRESET_FACTS,
 } from "@alpha-agents/domain";
 import { describe, expect, it } from "vitest";
 import {
+  BANDS_DEFAULTS,
   type GoalConfig,
   REBALANCE_BANDS_V1_BOUNDS,
+  briefOf,
   canonicalJson,
   checkTemplateParams,
   costPreview,
@@ -20,6 +22,8 @@ import {
   translateGoal,
 } from "./goals.ts";
 import { LAUNCH_LIMITS } from "./limits.ts";
+
+const WBTC = "0x0555e30da8f98308edb960aa94c0db47230d2b9c";
 
 const goal = (over: Partial<GoalInput> = {}): GoalInput => ({
   ...structuredClone(DEFAULT_GOAL_INPUT),
@@ -39,9 +43,14 @@ function refused(input: unknown) {
   return r.errors;
 }
 
-describe("goal translator (P3-U1)", () => {
-  it("translates the default goal: Balanced, WMON on, Light at 1.00 USDC a day, ask first (D-299)", () => {
+describe("goal translator (P3-U1, F-U7)", () => {
+  it("translates the default goal: Balanced, Medium, core lane only, Light at 1.00 USDC a day, ask first", () => {
     const c = ok(DEFAULT_GOAL_INPUT);
+    expect(c.aggressiveness).toBe("BALANCED");
+    expect(c.envelope).toEqual(AGGRESSIVENESS_ENVELOPES.BALANCED);
+    expect(c.brief).toContain("Hold large caps");
+    expect(c.brief).toContain("has not opted into the screened lane");
+    expect(c.brief).toContain("No token is excluded");
     expect(c.template).toEqual({
       id: "rebalance_bands@1",
       params: {
@@ -54,6 +63,7 @@ describe("goal translator (P3-U1)", () => {
       },
     });
     expect(c.targetRange).toEqual({ minBps: 0, maxBps: 3_000 });
+    expect(c.researchTriggerBps).toBe(1_500);
     expect(c.ownerLimits).toEqual(hardGoalLimits());
     expect(c.research).toEqual({
       intensity: "LIGHT",
@@ -62,37 +72,48 @@ describe("goal translator (P3-U1)", () => {
       dailyBudgetUsdcE6: 1_000_000n,
       monthlyMaxUsdcE6: 30_000_000n,
     });
-    expect(c.model).toEqual({ choice: "STANDARD", alias: "research-strong" });
+    expect(c.model).toEqual({ choice: "MEDIUM", alias: "research-medium" });
     expect(c.creditReserveUsdcE6).toBe(1_000_000n);
     expect(c.planChanges).toEqual({ mode: "ASK_FIRST", workflowMode: "require_approval" });
     expect(c.policyHash).toMatch(/^0x[0-9a-f]{64}$/);
   });
 
-  it.each(RISK_PRESETS)(
-    "maps %s inside rebalance_bands@1's bounds and its own range (D-278)",
-    (p) => {
-      const c = ok(goal({ riskPreset: p }));
-      const f = RISK_PRESET_FACTS[p];
+  it.each(AGGRESSIVENESS_LEVELS)(
+    "%s: the two-asset fallback sits inside rebalance_bands@1's bounds and the level's range (A-75)",
+    (level) => {
+      const c = ok(goal({ aggressiveness: level }));
+      const f = BANDS_DEFAULTS[level];
       expect(checkTemplateParams(c.template.params)).toEqual([]);
       expect(c.template.params.targetWmonBps).toBe(f.defaultTargetBps);
       expect(c.template.params.bandHalfWidthBps).toBe(f.bandHalfWidthBps);
       expect(c.targetRange).toEqual({ minBps: f.targetMinBps, maxBps: f.targetMaxBps });
-      expect(c.researchTriggerBps).toBe(f.researchTriggerBps);
+      expect(c.researchTriggerBps).toBe(AGGRESSIVENESS_ENVELOPES[level].reviewTriggerBps);
       expect(f.targetMaxBps).toBeLessThanOrEqual(LAUNCH_LIMITS.maxAssetBps);
+      expect(c.envelope).toEqual(AGGRESSIVENESS_ENVELOPES[level]);
     },
   );
 
-  it("maps Deep to research-deep and Apply and tell me to notify", () => {
-    const c = ok(goal({ reasoningModel: "DEEP", planChanges: "APPLY_AND_TELL" }));
-    expect(c.model.alias).toBe("research-deep");
-    expect(c.planChanges.workflowMode).toBe("notify");
+  it("maps each model tier to its alias, and Apply and tell me to notify", () => {
+    expect(ok(goal({ modelTier: "LOW" })).model.alias).toBe("research-low");
+    expect(ok(goal({ modelTier: "HIGH", planChanges: "APPLY_AND_TELL" })).model).toEqual({
+      choice: "HIGH",
+      alias: "research-high",
+    });
+    expect(ok(goal({ planChanges: "APPLY_AND_TELL" })).planChanges.workflowMode).toBe("notify");
   });
 
-  it("holds no WMON when WMON is off: target and range are 0", () => {
-    const c = ok(goal({ riskPreset: "GROWTH", allowedAssets: { wmon: false } }));
-    expect(c.template.params.targetWmonBps).toBe(0);
-    expect(c.targetRange).toEqual({ minBps: 0, maxBps: 0 });
-    expect(c.soulBlock).toContain("Allowed assets: USDC only");
+  it("writes the brief from the level, the screened-lane choice and the exclusions, never the owner's words", () => {
+    const c = ok(
+      goal({ aggressiveness: "AGGRESSIVE", screenedOptIn: true, excludedTokens: [WBTC] }),
+    );
+    expect(c.brief).toContain("Consider anything that passes the safety check");
+    expect(c.brief).toContain("opted into the screened lane");
+    expect(c.brief).toContain(`Never buy these tokens, whatever the research says: ${WBTC}.`);
+    expect(briefOf(goal({ aggressiveness: "CONSERVATIVE" }))).toContain("class F tokens only");
+    // Exclusions are kept lowercase and once each, so the hash does not depend on how they were typed.
+    const upper = ok(goal({ excludedTokens: [WBTC.toUpperCase().replace("0X", "0x"), WBTC] }));
+    expect(upper.goal.excludedTokens).toEqual([WBTC]);
+    expect(upper.policyHash).toBe(ok(goal({ excludedTokens: [WBTC] })).policyHash);
   });
 
   describe("stricter limits only tighten the hard limits", () => {
@@ -126,34 +147,34 @@ describe("goal translator (P3-U1)", () => {
     it("gives each limit's range from its tightest value to its hard limit", () => {
       expect(ranges).toEqual({
         maxTradeBps: { min: 10, max: 1_000 },
-        maxWmonShareBps: { min: 0, max: 4_000 },
+        maxPositionBps: { min: 0, max: 4_000 },
         minUsdcShareBps: { min: 1_000, max: 10_000 },
         maxSlippageBps: { min: 10, max: 50 },
         maxTradesPer24h: { min: 1, max: 20 },
       });
     });
 
-    it("narrows the target range and the template's parameters to the owner's limits", () => {
+    it("narrows the fallback's range and parameters to the owner's limits", () => {
       const c = ok(
         goal({
-          riskPreset: "GROWTH",
+          aggressiveness: "AGGRESSIVE",
           stricterLimits: {
             maxTradeBps: 400,
-            maxWmonShareBps: 2_500,
+            maxPositionBps: 2_500,
             minUsdcShareBps: 8_000,
             maxSlippageBps: 30,
             maxTradesPer24h: 6,
           },
         }),
       );
-      // Growth's 30% default and 40% range, under at most 25% WMON and at least 80% USDC.
+      // Aggressive's 30% default and 40% range, under at most 25% in one token and at least 80% USDC.
       expect(c.targetRange).toEqual({ minBps: 0, maxBps: 2_000 });
       expect(c.template.params.targetWmonBps).toBe(2_000);
       expect(c.template.params.maxLegBps).toBe(400);
       expect(c.template.params.costHurdleBps).toBe(30);
       expect(c.ownerLimits).toEqual({
         maxTradeBps: 400,
-        maxWmonShareBps: 2_500,
+        maxPositionBps: 2_500,
         minUsdcShareBps: 8_000,
         maxSlippageBps: 30,
         maxTradesPer24h: 6,
@@ -165,7 +186,7 @@ describe("goal translator (P3-U1)", () => {
         goal({
           stricterLimits: {
             maxTradeBps: 1_001,
-            maxWmonShareBps: 4_001,
+            maxPositionBps: 4_001,
             minUsdcShareBps: 999,
             maxSlippageBps: 51,
             maxTradesPer24h: 21,
@@ -191,24 +212,27 @@ describe("goal translator (P3-U1)", () => {
           message: "Unknown field: note.",
         }),
       ]);
-      expect(refused({ ...goal(), allowedAssets: { wmon: true, weth: true } })[0]).toMatchObject({
-        field: "allowedAssets",
-        message: "Unknown field: weth.",
-      });
       expect(
         refused({ ...goal(), research: { ...goal().research, prompt: "be bold" } })[0],
       ).toMatchObject({ field: "research", code: "INVALID_FIELD" });
       expect(
         refused({ ...goal(), stricterLimits: { ...goal().stricterLimits, maxLeverage: 2 } })[0],
       ).toMatchObject({ field: "stricterLimits", code: "INVALID_FIELD" });
+      // The old fields are gone: a goal in the old shape is refused, never read as free text.
+      expect(
+        refused({ ...goal(), template: "rebalance_bands@1", riskPreset: "GROWTH" })[0],
+      ).toMatchObject({
+        field: "goal",
+        code: "INVALID_FIELD",
+      });
     });
 
     it.each([
-      ["template", "momentum@1"],
-      ["riskPreset", "YOLO"],
-      ["reasoningModel", "claude-fable-5-1"],
+      ["aggressiveness", "YOLO"],
+      ["modelTier", "claude-fable-5-1"],
       ["planChanges", "NEVER"],
-      ["allowedAssets", { wmon: "yes" }],
+      ["screenedOptIn", "yes"],
+      ["excludedTokens", ["WBTC"]],
     ])("refuses %s = %j", (field, value) => {
       expect(refused({ ...goal(), [field]: value })[0]?.field).toMatch(new RegExp(`^${field}`));
     });
@@ -217,12 +241,6 @@ describe("goal translator (P3-U1)", () => {
       const rest: Record<string, unknown> = { ...goal() };
       delete rest.planChanges;
       expect(refused(rest)[0]).toMatchObject({ field: "planChanges", code: "INVALID_FIELD" });
-    });
-
-    it("refuses dca@1 as available later", () => {
-      expect(refused(goal({ template: "dca@1" }))).toEqual([
-        expect.objectContaining({ field: "template", code: "TEMPLATE_NOT_AVAILABLE" }),
-      ]);
     });
 
     it("refuses a stricter limit that is not a whole number", () => {
@@ -282,14 +300,17 @@ describe("goal translator (P3-U1)", () => {
     it("changes with any field", () => {
       const base = ok(goal()).policyHash;
       const variants: GoalInput[] = [
-        goal({ riskPreset: "GROWTH" }),
-        goal({ allowedAssets: { wmon: false } }),
+        goal({ aggressiveness: "AGGRESSIVE" }),
+        goal({ aggressiveness: "CONSERVATIVE" }),
+        goal({ screenedOptIn: true }),
+        goal({ excludedTokens: [WBTC] }),
         withLimit("maxTradeBps", 999),
-        withLimit("maxWmonShareBps", 3_999),
+        withLimit("maxPositionBps", 3_999),
         withLimit("minUsdcShareBps", 1_001),
         withLimit("maxSlippageBps", 49),
         withLimit("maxTradesPer24h", 19),
-        goal({ reasoningModel: "DEEP" }),
+        goal({ modelTier: "HIGH" }),
+        goal({ modelTier: "LOW" }),
         goal({ research: { intensity: "LIGHT", dailyBudgetUsdcE6: "1000001" } }),
         goal({ research: { intensity: "STANDARD", dailyBudgetUsdcE6: "1000000" } }),
         goal({ creditReserveUsdcE6: "1000001" }),
@@ -305,19 +326,24 @@ describe("goal translator (P3-U1)", () => {
     });
   });
 
-  it("renders the SOUL.md goal block from the configuration only", () => {
+  it("renders the SOUL.md goal block from the configuration only: the brief, the envelope and the limits", () => {
     const c = ok(withLimit("maxTradesPer24h", 6));
     expect(c.soulBlock).toContain(
       "## Goal (set by the owner through the goal form; authoritative)",
     );
-    expect(c.soulBlock).toContain("- Risk preset: Balanced");
+    expect(c.soulBlock).toContain("- Aggressiveness: Balanced");
+    expect(c.soulBlock).toContain(`- Brief: ${c.brief}`);
     expect(c.soulBlock).toContain(
-      "- Target WMON weight: 20%, band ±5%; the plan may move it between 0% and 30%",
+      "- Envelope the Test enforces on a target portfolio: at most 8 positions, at most 45% in any one, at least 15% in stablecoins, class A at most 8% each and 25% together",
     );
     expect(c.soulBlock).toContain("at most 6 trades in 24 hours");
-    expect(c.soulBlock).toContain("- Reasoning model: research-strong");
+    expect(c.soulBlock).toContain(
+      "- Two-asset fallback: rebalance_bands@1, target WMON 20% within 0% to 30%",
+    );
+    expect(c.soulBlock).toContain("- Model tier: Medium (research-medium)");
     expect(c.soulBlock).toContain("at most 1.00 USDC a day");
     expect(c.soulBlock).toContain(`- Policy hash: ${c.policyHash}`);
+    expect(ok(goal({ aggressiveness: "CONSERVATIVE" })).soulBlock).toContain("class F tokens only");
   });
 
   it("previews a month at each intensity's default budget (D-299)", () => {

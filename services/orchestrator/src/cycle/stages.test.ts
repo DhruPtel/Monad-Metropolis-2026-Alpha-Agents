@@ -13,13 +13,13 @@ import {
 
 describe("stage rules (P3-U4)", () => {
   it("routes the Scan to the cheap model and the other model stages to the goal's reasoning model", () => {
-    expect(stageModel("SCAN", "research-strong")).toBe("scan-cheap");
-    expect(stageModel("SCAN", "research-deep")).toBe("scan-cheap");
+    expect(stageModel("SCAN", "research-medium")).toBe("research-low");
+    expect(stageModel("SCAN", "research-high")).toBe("research-low");
     for (const s of ["DIVE", "CHALLENGE", "ZOOM_OUT"] as const) {
-      expect(stageModel(s, "research-strong")).toBe("research-strong");
-      expect(stageModel(s, "research-deep")).toBe("research-deep");
+      expect(stageModel(s, "research-medium")).toBe("research-medium");
+      expect(stageModel(s, "research-high")).toBe("research-high");
     }
-    expect(stageModel("TEST", "research-deep")).toBeNull();
+    expect(stageModel("TEST", "research-high")).toBeNull();
   });
 
   it("caps each stage as A-51 sets them, with the wide Scan for an activation", () => {
@@ -47,16 +47,16 @@ describe("stage rules (P3-U4)", () => {
 
   it("sets ceilings per stage, doubling the reasoning stages on Opus 5.5, and the Test is free", () => {
     const usdc = (n: number) => BigInt(Math.round(n * 1e6));
-    expect(stageCeilingUsdcE6("SCAN", "ROUTINE", "research-deep")).toBe(usdc(0.3));
-    expect(stageCeilingUsdcE6("SCAN", "ACTIVATION", "research-strong")).toBe(usdc(0.5));
-    expect(stageCeilingUsdcE6("DIVE", "ROUTINE", "research-strong")).toBe(usdc(1.2));
-    expect(stageCeilingUsdcE6("DIVE", "ROUTINE", "research-deep")).toBe(usdc(2.4));
-    expect(stageCeilingUsdcE6("CHALLENGE", "ROUTINE", "research-deep")).toBe(usdc(0.6));
-    expect(stageCeilingUsdcE6("ZOOM_OUT", "ROUTINE", "research-strong")).toBe(usdc(0.6));
-    expect(stageCeilingUsdcE6("TEST", "ACTIVATION", "research-deep")).toBe(0n);
+    expect(stageCeilingUsdcE6("SCAN", "ROUTINE", "research-high")).toBe(usdc(0.3));
+    expect(stageCeilingUsdcE6("SCAN", "ACTIVATION", "research-medium")).toBe(usdc(0.5));
+    expect(stageCeilingUsdcE6("DIVE", "ROUTINE", "research-medium")).toBe(usdc(1.2));
+    expect(stageCeilingUsdcE6("DIVE", "ROUTINE", "research-high")).toBe(usdc(2.4));
+    expect(stageCeilingUsdcE6("CHALLENGE", "ROUTINE", "research-high")).toBe(usdc(0.6));
+    expect(stageCeilingUsdcE6("ZOOM_OUT", "ROUTINE", "research-medium")).toBe(usdc(0.6));
+    expect(stageCeilingUsdcE6("TEST", "ACTIVATION", "research-high")).toBe(0n);
     // The sweep's ceiling as BUILD_PLAN states it: 3.80 USDC with Sonnet 5.5, 7.10 with Opus 5.5.
-    expect(cyclePlan("ACTIVATION", "research-strong", 0).maxUsdcE6).toBe("3800000");
-    expect(cyclePlan("ACTIVATION", "research-deep", 0).maxUsdcE6).toBe("7100000");
+    expect(cyclePlan("ACTIVATION", "research-medium", 0).maxUsdcE6).toBe("3800000");
+    expect(cyclePlan("ACTIVATION", "research-high", 0).maxUsdcE6).toBe("7100000");
     expect(cycleLeaseMs("ROUTINE", 1)).toBe((5 + 10 + 4 + 6 + 15) * 60_000);
   });
 

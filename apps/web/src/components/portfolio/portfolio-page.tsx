@@ -394,8 +394,7 @@ export function PortfolioPage({
       {pf.summary?.goal ? (
         <GoalSummary
           state={pf.summary.goal.state}
-          template={pf.summary.goal.template}
-          riskPreset={pf.summary.goal.riskPreset}
+          aggressiveness={pf.summary.goal.aggressiveness}
           action={
             <Button asChild size="sm" variant="ghost">
               <Link href={`/agents/${agentId.toString()}/goal`}>

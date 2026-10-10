@@ -516,8 +516,8 @@ describe.skipIf(!dbUp)("tool servers behind the gate (needs Postgres)", { timeou
     const alice = await agentWith(1, 0n);
     const bob = await agentWith(2, 0n);
     const goals = new GoalStore(t.db);
-    const save = (agentId: number, riskPreset: "CONSERVATIVE" | "GROWTH") => {
-      const r = translateGoal({ ...structuredClone(DEFAULT_GOAL_INPUT), riskPreset });
+    const save = (agentId: number, aggressiveness: "CONSERVATIVE" | "AGGRESSIVE") => {
+      const r = translateGoal({ ...structuredClone(DEFAULT_GOAL_INPUT), aggressiveness });
       if (!r.ok) throw new Error("fixture goal refused");
       return goals.save({
         chainId: CHAIN,
@@ -528,8 +528,8 @@ describe.skipIf(!dbUp)("tool servers behind the gate (needs Postgres)", { timeou
       });
     };
     await save(1, "CONSERVATIVE");
-    await save(2, "GROWTH");
-    await save(2, "GROWTH");
+    await save(2, "AGGRESSIVE");
+    await save(2, "AGGRESSIVE");
     const read = async (token: string) => {
       const client = await viaGate("platform", token);
       const out = structured(
@@ -541,14 +541,14 @@ describe.skipIf(!dbUp)("tool servers behind the gate (needs Postgres)", { timeou
     expect(await read(alice)).toMatchObject({
       state: "READY",
       strategyEpoch: "1",
-      goal: { riskPreset: "CONSERVATIVE" },
+      goal: { aggressiveness: "CONSERVATIVE" },
       plan: { params: { targetWmonBps: 1_000 } },
       // No chain reader here: no live limits, and the hard limits are the effective ones.
       limits: { live: null, effective: { maxTradeBps: 1_000 } },
     });
     expect(await read(bob)).toMatchObject({
       strategyEpoch: "2",
-      goal: { riskPreset: "GROWTH" },
+      goal: { aggressiveness: "AGGRESSIVE" },
       plan: { params: { targetWmonBps: 3_000 } },
     });
   });

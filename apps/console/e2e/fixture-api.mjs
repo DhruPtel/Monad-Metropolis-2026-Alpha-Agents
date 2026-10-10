@@ -638,9 +638,8 @@ const planView = () => ({
   strategyEpoch: String(planEpoch),
   portfolio: { custody: "v3", tokens: PORTFOLIO_TOKENS },
   goal: {
-    riskPreset: "BALANCED",
-    presetLabel: "Balanced",
     aggressiveness: "BALANCED",
+    presetLabel: "Balanced",
     envelope: ENVELOPE,
     defaults: planParams(2_000),
     targetRange: { minBps: 0, maxBps: 3_000 },

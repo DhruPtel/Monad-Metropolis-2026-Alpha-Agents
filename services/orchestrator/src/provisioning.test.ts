@@ -66,7 +66,7 @@ describe.skipIf(!dbUp)("provisioning on reveal (needs Postgres)", { timeout: 60_
     const key = must(gateway.keys.get(rt.keyAlias));
     // P3-U4: every alias a research cycle uses, so a Dive on the reasoning model is not refused.
     expect(key).toMatchObject({
-      models: ["scan-cheap", "research-strong", "research-deep"],
+      models: ["research-low", "research-medium", "research-high"],
       maxBudgetUsd: 0.5,
     });
     expect(key.metadata).toMatchObject({ namespace: "unit", agent_id: 1, generation: 1 });
@@ -81,12 +81,12 @@ describe.skipIf(!dbUp)("provisioning on reveal (needs Postgres)", { timeout: 60_
     await provisioner.provision(ref(1));
     const rt = must(await store.runtime(ref(1)));
     const key = must(gateway.keys.get(rt.keyAlias));
-    gateway.keys.set(rt.keyAlias, { ...key, models: ["scan-cheap"] });
+    gateway.keys.set(rt.keyAlias, { ...key, models: ["research-low"] });
     await provisioner.allowCycleModels(rt);
     expect(must(gateway.keys.get(rt.keyAlias)).models).toEqual([
-      "scan-cheap",
-      "research-strong",
-      "research-deep",
+      "research-low",
+      "research-medium",
+      "research-high",
     ]);
   });
 

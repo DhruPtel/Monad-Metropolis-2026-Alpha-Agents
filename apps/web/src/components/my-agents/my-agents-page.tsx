@@ -119,8 +119,7 @@ function MyAgentCard({ agent, environment }: { agent: AgentView; environment: En
           {summary?.goal ? (
             <GoalSummary
               state={summary.goal.state}
-              template={summary.goal.template}
-              riskPreset={summary.goal.riskPreset}
+              aggressiveness={summary.goal.aggressiveness}
               action={
                 <Button asChild size="sm" variant="ghost">
                   <Link href={`/agents/${agent.id.toString()}/goal`}>

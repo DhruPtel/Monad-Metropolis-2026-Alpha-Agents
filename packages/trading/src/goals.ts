@@ -6,12 +6,15 @@ import {
   type GoalInput,
   OWNER_LIMIT_FACTS,
   OWNER_LIMIT_FIELDS,
+  isLegacyGoalInput,
+  migrateLegacyGoalInput,
 } from "@alpha-agents/domain";
 import {
   type EffectiveLimits,
   type GoalConfig,
   canonicalJson,
   hardGoalLimits,
+  translateGoal,
 } from "@alpha-agents/policy";
 import { type Hex, formatUnits, getAddress } from "viem";
 
@@ -90,18 +93,42 @@ function storedGoal(r: {
   soul_block: string;
   created_at: Date | string;
 }): StoredGoal {
-  return {
+  const base = {
     goalId: r.goal_id,
     chainId: r.chain_id,
     agentId: r.agent_id,
     strategyEpoch: BigInt(r.strategy_epoch),
     ownerEpoch: BigInt(r.owner_epoch),
     savedBy: getAddress(r.saved_by),
-    goal: r.goal as GoalInput,
+    createdAt: new Date(r.created_at),
+  };
+  // F-U7: a goal saved before it (or one migration 0023 reshaped whose configuration is still the
+  // old one) is read as the owner's choices carried over (D-345) and translated afresh; the epoch
+  // stays, so plans and intents under it keep their footing (D-281). The next save stores it anew.
+  const rawGoal = r.goal as Record<string, unknown>;
+  const rawConfig = (r.config ?? {}) as Record<string, unknown>;
+  if (isLegacyGoalInput(rawGoal) || !("envelope" in rawConfig)) {
+    const input = isLegacyGoalInput(rawGoal)
+      ? migrateLegacyGoalInput(rawGoal)
+      : (rawGoal as GoalInput);
+    const t = translateGoal(input);
+    if (t.ok) {
+      const { soulBlock, ...config } = t.config;
+      return {
+        ...base,
+        goal: input,
+        config: JSON.parse(canonicalJson(config)) as StoredGoalConfig,
+        policyHash: t.config.policyHash,
+        soulBlock,
+      };
+    }
+  }
+  return {
+    ...base,
+    goal: rawGoal as GoalInput,
     config: r.config as StoredGoalConfig,
     policyHash: r.policy_hash as Hex,
     soulBlock: r.soul_block,
-    createdAt: new Date(r.created_at),
   };
 }
 
@@ -336,12 +363,10 @@ export function goalsAndLimitsJson(view: AgentGoalView, live: LiveGoalLimits | n
     goal:
       view.goal && c
         ? {
-            template: view.goal.goal.template,
-            riskPreset: view.goal.goal.riskPreset,
-            allowedAssets: view.goal.goal.allowedAssets.wmon
-              ? (["USDC", "WMON"] as const)
-              : (["USDC"] as const),
-            reasoningModel: { choice: c.model.choice, alias: c.model.alias },
+            aggressiveness: c.aggressiveness,
+            modelTier: { choice: c.model.choice, alias: c.model.alias },
+            screenedOptIn: view.goal.goal.screenedOptIn,
+            excludedTokens: [...view.goal.goal.excludedTokens],
             research: {
               intensity: c.research.intensity,
               scanEveryHours: c.research.scanEveryHours,
@@ -352,6 +377,18 @@ export function goalsAndLimitsJson(view: AgentGoalView, live: LiveGoalLimits | n
             planChanges: c.planChanges.mode,
           }
         : null,
+    brief: c?.brief ?? null,
+    envelope: c
+      ? {
+          classAAllowed: c.envelope.classAAllowed,
+          maxPositionBps: c.envelope.maxPositionBps,
+          maxClassAPositionBps: c.envelope.maxClassAPositionBps,
+          maxClassATotalBps: c.envelope.maxClassATotalBps,
+          minStableBps: c.envelope.minStableBps,
+          maxPositions: c.envelope.maxPositions,
+          reviewTriggerBps: c.envelope.reviewTriggerBps,
+        }
+      : null,
     plan: c
       ? {
           template: c.template.id,

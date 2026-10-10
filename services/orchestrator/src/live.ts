@@ -1263,7 +1263,7 @@ async function main(): Promise<number> {
     // The owner's goal (P3-U1): Standard intensity on Sonnet 5.5, with its whole daily budget range.
     const translated = translateGoal({
       ...DEFAULT_GOAL_INPUT,
-      reasoningModel: "STANDARD",
+      modelTier: "MEDIUM",
       research: { intensity: "STANDARD", dailyBudgetUsdcE6: "5000000" },
     } as GoalInput);
     if (!translated.ok) throw new Error("the live goal does not translate");
@@ -1318,8 +1318,11 @@ async function main(): Promise<number> {
     // Anthropic's list prices per million tokens (BUILD_PLAN Phase 3, checked 2026-10-07).
     const PRICE: Record<string, { input: number; cacheRead: number }> = {
       "scan-cheap": { input: 1, cacheRead: 0.1 },
+      "research-low": { input: 1, cacheRead: 0.1 },
       "research-strong": { input: 2, cacheRead: 0.2 },
+      "research-medium": { input: 2, cacheRead: 0.2 },
       "research-deep": { input: 4, cacheRead: 0.2 },
+      "research-high": { input: 4, cacheRead: 0.2 },
     };
     const perStage = [];
     for (const s of stages) {

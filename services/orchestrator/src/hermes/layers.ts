@@ -26,7 +26,7 @@ const mcpServerSettings = (parallel: boolean) => ({
 });
 
 /** The model alias every agent uses until model choice arrives (aliases in infra/litellm). */
-export const DEFAULT_MODEL = "scan-cheap";
+export const DEFAULT_MODEL = "research-low";
 
 export const BASE_SOUL = `# Alpha Agent
 

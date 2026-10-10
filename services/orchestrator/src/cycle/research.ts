@@ -345,7 +345,7 @@ export class CycleResearch {
     const last = history.find((p) => p.setBy === "agent");
     const limits = (l: typeof c.hardLimits) => ({
       maxTradeBps: Number(l.maxTradeBps),
-      maxWmonShareBps: Number(l.maxWmonShareBps),
+      maxPositionBps: Number(l.maxPositionBps),
       minUsdcShareBps: Number(l.minUsdcShareBps),
       maxSlippageBps: Number(l.maxSlippageBps),
       maxTradesPer24h: Number(l.maxTradesPer24h),

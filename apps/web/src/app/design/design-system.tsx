@@ -12,10 +12,12 @@ import {
   TRADE_FLOW_CODES,
   RESEARCH_INTENSITIES,
   RESEARCH_INTENSITY_FACTS,
-  RISK_PRESETS,
-  RISK_PRESET_FACTS,
+  AGGRESSIVENESS_FACTS,
+  AGGRESSIVENESS_LEVELS,
   type ResearchIntensity,
-  type RiskPreset,
+  type Aggressiveness,
+  MODEL_TIERS,
+  MODEL_TIER_FACTS,
 } from "@alpha-agents/domain";
 import { Bot, Boxes, Copy, Eye, Radio, Users } from "lucide-react";
 import { type ReactNode, useState } from "react";
@@ -28,7 +30,6 @@ import {
   GoalSaveStatus,
   GoalSummary,
   LimitField,
-  bpsText,
   AddressDisplay,
   AgentCard,
   AmountDisplay,
@@ -1976,7 +1977,7 @@ function PortfolioSection() {
 
 const GOAL_HARD = {
   maxTradeBps: 1_000,
-  maxWmonShareBps: 4_000,
+  maxPositionBps: 4_000,
   minUsdcShareBps: 1_000,
   maxSlippageBps: 50,
   maxTradesPer24h: 20,
@@ -1989,7 +1990,7 @@ const usdcText = (e6: bigint) => (Number(e6) / 1e6).toFixed(2);
 
 /** P3-U1: the Goal page's pieces, every state. */
 function GoalSection() {
-  const [preset, setPreset] = useState<RiskPreset>("BALANCED");
+  const [preset, setPreset] = useState<Aggressiveness>("BALANCED");
   const [intensity, setIntensity] = useState<ResearchIntensity>("LIGHT");
   const [limit, setLimit] = useState("");
   return (
@@ -1999,17 +2000,13 @@ function GoalSection() {
         note="One choice among a few, each a card with its numbers. Arrow keys move the choice."
       >
         <ChoiceGroup
-          legend="Risk preset"
-          hint="How much of the account the agent may keep in WMON, and how wide a drift it allows."
+          legend="Aggressiveness"
+          hint="One choice that produces the brief the agent reads and the envelope the Test enforces."
           value={preset}
           onValueChange={setPreset}
-          options={RISK_PRESETS.map((id) => {
-            const f = RISK_PRESET_FACTS[id];
-            return {
-              value: id,
-              title: f.label,
-              detail: `WMON ${bpsText(f.targetMinBps)} to ${bpsText(f.targetMaxBps)}, starts at ${bpsText(f.defaultTargetBps)}, band ±${bpsText(f.bandHalfWidthBps)}`,
-            };
+          options={AGGRESSIVENESS_LEVELS.map((id) => {
+            const f = AGGRESSIVENESS_FACTS[id];
+            return { value: id, title: f.label, description: f.summary };
           })}
         />
         <ChoiceGroup
@@ -2028,19 +2025,16 @@ function GoalSection() {
           })}
         />
         <ChoiceGroup
-          legend="Strategy template (an unavailable option, and the whole group disabled)"
-          value="rebalance_bands@1"
+          legend="Model tier (the whole group disabled)"
+          value="MEDIUM"
           onValueChange={() => undefined}
-          columns={2}
           disabled
-          options={[
-            {
-              value: "rebalance_bands@1",
-              title: "Band rebalancer",
-              description: "Keeps a target share in WMON and trades back toward it.",
-            },
-            { value: "dca@1", title: "Steady buying", note: "Available later", disabled: true },
-          ]}
+          options={MODEL_TIERS.map((id) => ({
+            value: id,
+            title: `${MODEL_TIER_FACTS[id].label}: ${MODEL_TIER_FACTS[id].model}`,
+            description: MODEL_TIER_FACTS[id].note,
+            ...(id === "MEDIUM" ? { note: "Default" } : {}),
+          }))}
         />
       </Specimen>
       <Specimen
@@ -2074,7 +2068,7 @@ function GoalSection() {
           hard={GOAL_HARD}
           owner={{
             maxTradeBps: 500,
-            maxWmonShareBps: null,
+            maxPositionBps: null,
             minUsdcShareBps: 2_000,
             maxSlippageBps: null,
             maxTradesPer24h: 6,
@@ -2085,7 +2079,7 @@ function GoalSection() {
           hard={GOAL_HARD}
           owner={{
             maxTradeBps: 1_200,
-            maxWmonShareBps: null,
+            maxPositionBps: null,
             minUsdcShareBps: null,
             maxSlippageBps: null,
             maxTradesPer24h: null,
@@ -2105,9 +2099,9 @@ function GoalSection() {
         note="The goal in one line with the agent's state, for the card and the portfolio."
       >
         <div className="flex flex-col gap-3">
-          <GoalSummary state="UNCONFIGURED" template={null} riskPreset={null} />
-          <GoalSummary state="READY" template="rebalance_bands@1" riskPreset="BALANCED" />
-          <GoalSummary state="RUNNING" template="rebalance_bands@1" riskPreset="GROWTH" />
+          <GoalSummary state="UNCONFIGURED" aggressiveness={null} />
+          <GoalSummary state="READY" aggressiveness="BALANCED" />
+          <GoalSummary state="RUNNING" aggressiveness="AGGRESSIVE" />
         </div>
       </Specimen>
       <Specimen

@@ -3,10 +3,9 @@ import type {
   GoalInput,
   OwnerLimitField,
   PlanChangeMode,
-  ReasoningModel,
+  ModelTier,
   ResearchIntensity,
-  RiskPreset,
-  StrategyTemplate,
+  Aggressiveness,
 } from "@alpha-agents/domain";
 import { type Address, getAddress } from "viem";
 
@@ -119,8 +118,7 @@ export interface AgentSummaryJson {
   readonly goal?: {
     readonly state: AgentState;
     readonly configured: boolean;
-    readonly template: StrategyTemplate | null;
-    readonly riskPreset: RiskPreset | null;
+    readonly aggressiveness: Aggressiveness | null;
   };
   readonly runStatus: RunStatus;
   readonly wallet: string;
@@ -517,6 +515,19 @@ export interface GoalErrorJson {
 
 /** The translated goal, as the API serves it: amounts are base-unit strings. */
 export interface GoalConfigJson {
+  readonly aggressiveness: Aggressiveness;
+  readonly envelope: {
+    readonly label: string;
+    readonly classAAllowed: boolean;
+    readonly maxPositionBps: number;
+    readonly maxClassAPositionBps: number;
+    readonly maxClassATotalBps: number;
+    readonly minStableBps: number;
+    readonly maxPositions: number;
+    readonly reviewTriggerBps: number;
+  };
+  /** The brief the agent reads: a fixed text per level with the owner's choices (D-345). */
+  readonly brief: string;
   readonly template: {
     readonly id: "rebalance_bands@1";
     readonly params: {
@@ -539,13 +550,35 @@ export interface GoalConfigJson {
     readonly dailyBudgetUsdcE6: string;
     readonly monthlyMaxUsdcE6: string;
   };
-  readonly model: { readonly choice: ReasoningModel; readonly alias: string };
+  readonly model: { readonly choice: ModelTier; readonly alias: string };
   readonly creditReserveUsdcE6: string;
   readonly planChanges: { readonly mode: PlanChangeMode; readonly workflowMode: string };
 }
 
 export interface GoalFormJson {
   readonly defaults: GoalInput;
+  /** F-U7: each aggressiveness with its summary, brief and envelope. */
+  readonly levels: readonly {
+    readonly id: Aggressiveness;
+    readonly label: string;
+    readonly summary: string;
+    readonly brief: string;
+    readonly envelope: GoalConfigJson["envelope"];
+  }[];
+  readonly tiers: readonly {
+    readonly id: ModelTier;
+    readonly label: string;
+    readonly alias: string;
+    readonly model: string;
+    readonly note: string;
+  }[];
+  /** The registered tokens the owner may exclude. */
+  readonly tokens: readonly {
+    readonly address: string;
+    readonly symbol: string;
+    readonly priceClass: string;
+  }[];
+  readonly maxExcludedTokens: number;
   readonly hardLimits: Readonly<Record<OwnerLimitField, number>>;
   readonly limits: readonly {
     readonly field: OwnerLimitField;
@@ -565,7 +598,7 @@ export interface GoalFormJson {
     readonly monthlyAtDefaultUsdcE6: string;
   }[];
   readonly costPreviewDays: number;
-  readonly sweepMaxUsdcE6: Readonly<Record<ReasoningModel, string>>;
+  readonly sweepMaxUsdcE6: Readonly<Record<ModelTier, string>>;
   readonly maxCreditReserveUsdcE6: string;
 }
 

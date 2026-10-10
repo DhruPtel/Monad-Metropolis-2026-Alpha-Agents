@@ -1226,7 +1226,8 @@ describe.skipIf(!available)("the control API (needs pnpm dev:up for Postgres)", 
       });
       const form = body.form as Record<string, unknown>;
       expect(form.defaults).toMatchObject({
-        riskPreset: "BALANCED",
+        aggressiveness: "BALANCED",
+        modelTier: "MEDIUM",
         research: { intensity: "LIGHT", dailyBudgetUsdcE6: "1000000" },
         planChanges: "ASK_FIRST",
       });
@@ -1252,17 +1253,19 @@ describe.skipIf(!available)("the control API (needs pnpm dev:up for Postgres)", 
 
     it("saving a goal moves the agent to READY and bumps the strategy epoch; saving again bumps it again", async () => {
       const session = await start(2, "bob-token");
-      const res = await putGoal(2, session, goal({ riskPreset: "GROWTH" }));
+      const res = await putGoal(2, session, goal({ aggressiveness: "AGGRESSIVE" }));
       expect(res.status).toBe(200);
       const saved = await json(res);
       expect(saved).toMatchObject({
         state: "READY",
         strategyEpoch: "1",
-        goal: { riskPreset: "GROWTH" },
+        goal: { aggressiveness: "AGGRESSIVE" },
         config: {
+          aggressiveness: "AGGRESSIVE",
+          envelope: { maxPositions: 12 },
           template: { id: "rebalance_bands@1", params: { targetWmonBps: 3_000 } },
           research: { dailyBudgetUsdcE6: "1000000", monthlyMaxUsdcE6: "30000000" },
-          model: { alias: "research-strong" },
+          model: { alias: "research-medium" },
         },
         savedBy: BOB,
         stateChange: { from: "UNCONFIGURED", to: "READY", reason: "goal_saved" },
@@ -1275,15 +1278,14 @@ describe.skipIf(!available)("the control API (needs pnpm dev:up for Postgres)", 
       expect(await json(await getGoal(2, session))).toMatchObject({
         state: "READY",
         strategyEpoch: "2",
-        goal: { riskPreset: "BALANCED" },
+        goal: { aggressiveness: "BALANCED" },
       });
       // The owner's card summary carries the state and the goal's summary.
       const summary = await json(await call("/v1/agents/2/summary", { headers: headers(session) }));
       expect(summary.goal).toEqual({
         state: "READY",
         configured: true,
-        template: "rebalance_bands@1",
-        riskPreset: "BALANCED",
+        aggressiveness: "BALANCED",
       });
     });
 
@@ -1345,7 +1347,7 @@ describe.skipIf(!available)("the control API (needs pnpm dev:up for Postgres)", 
 
     it("is tied to the ownership epoch: a transfer ends the session, and the new owner starts unconfigured", async () => {
       const bob = await start(2, "bob-token");
-      await putGoal(2, bob, goal({ riskPreset: "CONSERVATIVE" }));
+      await putGoal(2, bob, goal({ aggressiveness: "CONSERVATIVE" }));
       chain.owners.set(2n, { owner: CAROL, epoch: 3n });
       const stale = await putGoal(2, bob, goal());
       expect([stale.status, (await json(stale)).error]).toEqual([403, "session_stale"]);
@@ -1357,8 +1359,7 @@ describe.skipIf(!available)("the control API (needs pnpm dev:up for Postgres)", 
       });
       expect(await json(await call("/v1/agents/2/goal/summary"))).toMatchObject({
         configured: false,
-        template: null,
-        riskPreset: null,
+        aggressiveness: null,
       });
       const saved = await json(await putGoal(2, carol, goal()));
       expect(saved).toMatchObject({
@@ -1369,8 +1370,8 @@ describe.skipIf(!available)("the control API (needs pnpm dev:up for Postgres)", 
       });
     });
 
-    it("the public summary shows the template and the risk preset only", async () => {
-      await putGoal(2, await start(2, "bob-token"), goal({ riskPreset: "GROWTH" }));
+    it("the public summary shows the aggressiveness only", async () => {
+      await putGoal(2, await start(2, "bob-token"), goal({ aggressiveness: "AGGRESSIVE" }));
       const res = await call("/v1/agents/2/goal/summary");
       expect(res.status).toBe(200);
       const body = await json(res);
@@ -1378,8 +1379,7 @@ describe.skipIf(!available)("the control API (needs pnpm dev:up for Postgres)", 
       expect(Object.fromEntries(Object.entries(body).filter(([k]) => !meta.has(k)))).toEqual({
         agentId: "2",
         configured: true,
-        template: "rebalance_bands@1",
-        riskPreset: "GROWTH",
+        aggressiveness: "AGGRESSIVE",
       });
       expect((await call("/v1/agents/77/goal/summary")).status).toBe(404);
     });
@@ -1391,7 +1391,7 @@ describe.skipIf(!available)("the control API (needs pnpm dev:up for Postgres)", 
           headers: { "content-type": "application/json" },
           body: JSON.stringify(
             goal({
-              stricterLimits: { ...DEFAULT_GOAL_INPUT.stricterLimits, maxWmonShareBps: 1_500 },
+              stricterLimits: { ...DEFAULT_GOAL_INPUT.stricterLimits, maxPositionBps: 1_500 },
             }),
           ),
         }),
@@ -1400,16 +1400,16 @@ describe.skipIf(!available)("the control API (needs pnpm dev:up for Postgres)", 
         ok: true,
         config: {
           targetRange: { minBps: 0, maxBps: 1_500 },
-          ownerLimits: { maxWmonShareBps: 1_500 },
+          ownerLimits: { maxPositionBps: 1_500 },
         },
       });
       const bad = await json(
         await call("/v1/goal/preview", {
           method: "POST",
-          body: JSON.stringify(goal({ riskPreset: "YOLO" })),
+          body: JSON.stringify(goal({ aggressiveness: "YOLO" as never })),
         }),
       );
-      expect(bad).toMatchObject({ ok: false, config: null, errors: [{ field: "riskPreset" }] });
+      expect(bad).toMatchObject({ ok: false, config: null, errors: [{ field: "aggressiveness" }] });
       expect(await t.db.selectFrom("platform.agent_goals").selectAll().execute()).toEqual([]);
     });
 

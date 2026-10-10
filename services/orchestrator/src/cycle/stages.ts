@@ -10,13 +10,13 @@ export type Stage = (typeof STAGES)[number];
 export const CYCLE_KINDS = ["ROUTINE", "TRIGGERED", "ACTIVATION"] as const;
 export type CycleKind = (typeof CYCLE_KINDS)[number];
 
-/** The Scan's model for every agent (D-285); the other model stages use the goal's reasoning model. */
-export const SCAN_MODEL = "scan-cheap";
-export const REASONING_ALIASES = ["research-strong", "research-deep"] as const;
+/** The Scan's model for every agent (D-285, D-334: the Low tier); the other model stages use the goal's tier. */
+export const SCAN_MODEL = "research-low";
+export const REASONING_ALIASES = ["research-low", "research-medium", "research-high"] as const;
 export type ReasoningAlias = (typeof REASONING_ALIASES)[number];
 
-/** Every alias a cycle's runs may use, so the rendered provider lists them all. */
-export const CYCLE_MODEL_ALIASES = [SCAN_MODEL, ...REASONING_ALIASES] as const;
+/** Every alias a cycle's runs may use, so the rendered provider lists them all; the Scan's is the Low tier's. */
+export const CYCLE_MODEL_ALIASES = REASONING_ALIASES;
 
 export function isReasoningAlias(alias: string): alias is ReasoningAlias {
   return (REASONING_ALIASES as readonly string[]).includes(alias);
@@ -67,7 +67,7 @@ const usdc = (whole: number) => BigInt(Math.round(whole * 1_000_000));
 
 /**
  * The most a stage may charge to credits (A-51, D-298), shown before it runs.
- * Opus 5.5 (research-deep) doubles the reasoning stages; the Scan runs on the
+ * Opus 5.5 (research-high) doubles the reasoning stages; the Scan runs on the
  * cheap model either way; the Test is free.
  */
 export function stageCeilingUsdcE6(
@@ -75,7 +75,7 @@ export function stageCeilingUsdcE6(
   kind: CycleKind,
   reasoning: ReasoningAlias,
 ): bigint {
-  const deep = reasoning === "research-deep" ? 2 : 1;
+  const deep = reasoning === "research-high" ? 2 : 1;
   switch (stage) {
     case "SCAN":
       return usdc(kind === "ACTIVATION" ? 0.5 : 0.3);

@@ -63,10 +63,9 @@ export class FakeGoals {
       ? {
           state: s.state,
           configured: true,
-          template: s.goal.template,
-          riskPreset: s.goal.riskPreset,
+          aggressiveness: s.goal.aggressiveness,
         }
-      : { state: "UNCONFIGURED", configured: false, template: null, riskPreset: null };
+      : { state: "UNCONFIGURED", configured: false, aggressiveness: null };
   }
 
   /** The owner's GET or PUT, after the fake's session check. */

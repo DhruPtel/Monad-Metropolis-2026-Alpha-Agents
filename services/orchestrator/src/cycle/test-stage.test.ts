@@ -6,14 +6,14 @@ const inputs: TestInputs = {
   targetRange: { minBps: 2_000, maxBps: 5_000 },
   hardLimits: {
     maxTradeBps: 1_000,
-    maxWmonShareBps: 4_000,
+    maxPositionBps: 4_000,
     minUsdcShareBps: 2_000,
     maxSlippageBps: 100,
     maxTradesPer24h: 20,
   },
   ownerLimits: {
     maxTradeBps: 800,
-    maxWmonShareBps: 4_000,
+    maxPositionBps: 4_000,
     minUsdcShareBps: 2_000,
     maxSlippageBps: 45,
     maxTradesPer24h: 20,

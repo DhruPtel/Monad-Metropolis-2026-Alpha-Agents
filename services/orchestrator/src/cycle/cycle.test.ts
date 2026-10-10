@@ -301,12 +301,10 @@ describe.skipIf(!dbUp)("the discovery loop engine (needs Postgres)", { timeout: 
     await credits.creditDeposits();
   };
 
-  const saveGoal = async (
-    over: Partial<GoalInput["research"]> & { model?: "STANDARD" | "DEEP" },
-  ) => {
+  const saveGoal = async (over: Partial<GoalInput["research"]> & { model?: "MEDIUM" | "HIGH" }) => {
     const input = {
       ...DEFAULT_GOAL_INPUT,
-      reasoningModel: over.model ?? "STANDARD",
+      modelTier: over.model ?? "MEDIUM",
       research: {
         intensity: over.intensity ?? "STANDARD",
         dailyBudgetUsdcE6: over.dailyBudgetUsdcE6 ?? "5000000",
@@ -597,23 +595,23 @@ describe.skipIf(!dbUp)("the discovery loop engine (needs Postgres)", { timeout: 
     expect(cycle).toMatchObject({
       status: "completed",
       stopReason: "COMPLETED",
-      reasoningAlias: "research-strong",
+      reasoningAlias: "research-medium",
     });
     expect(stages.map((s) => [s.stage, s.status, s.stopReason, s.modelAlias, s.themeCode])).toEqual(
       [
-        ["SCAN", "completed", "COMPLETED", "scan-cheap", null],
-        ["DIVE", "completed", "COMPLETED", "research-strong", "TVL_OUTFLOW"],
-        ["CHALLENGE", "completed", "COMPLETED", "research-strong", null],
+        ["SCAN", "completed", "COMPLETED", "research-low", null],
+        ["DIVE", "completed", "COMPLETED", "research-medium", "TVL_OUTFLOW"],
+        ["CHALLENGE", "completed", "COMPLETED", "research-medium", null],
         ["TEST", "completed", "COMPLETED", null, null],
-        ["ZOOM_OUT", "completed", "COMPLETED", "research-strong", null],
+        ["ZOOM_OUT", "completed", "COMPLETED", "research-medium", null],
       ],
     );
     // Model routing: every run asked for its stage's alias, and the gate's records show it served.
     expect(startedRuns.map((r) => [r.stage, r.model])).toEqual([
-      ["SCAN", "scan-cheap"],
-      ["DIVE", "research-strong"],
-      ["CHALLENGE", "research-strong"],
-      ["ZOOM_OUT", "research-strong"],
+      ["SCAN", "research-low"],
+      ["DIVE", "research-medium"],
+      ["CHALLENGE", "research-medium"],
+      ["ZOOM_OUT", "research-medium"],
     ]);
     for (const s of stages.filter((x) => x.modelAlias)) {
       const calls = await cycles.modelCalls(s.stageRunId);
@@ -948,14 +946,14 @@ describe.skipIf(!dbUp)("the discovery loop engine (needs Postgres)", { timeout: 
       ref,
       taskId: "earlier",
       kind: "ROUTINE",
-      reasoningAlias: "research-strong",
+      reasoningAlias: "research-medium",
     });
     const done = await cycles.addStage({
       cycle: earlier,
       seq: 1,
       stage: "DIVE",
       themeCode: "OLD",
-      modelAlias: "research-strong",
+      modelAlias: "research-medium",
       caps: { turns: 16, paidCalls: 8, tokens: 1, seconds: 1 },
       ceilingUsdcE6: 1_200_000n,
     });

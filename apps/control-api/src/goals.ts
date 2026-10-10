@@ -1,14 +1,19 @@
 import {
+  AGGRESSIVENESS_ENVELOPES,
+  AGGRESSIVENESS_FACTS,
+  AGGRESSIVENESS_LEVELS,
   COST_PREVIEW_DAYS,
   DEFAULT_GOAL_INPUT,
   MAX_CREDIT_RESERVE_USDC_E6,
+  MAX_EXCLUDED_TOKENS,
+  MODEL_TIERS,
+  MODEL_TIER_FACTS,
   OWNER_LIMIT_FACTS,
   OWNER_LIMIT_FIELDS,
   RESEARCH_INTENSITIES,
   RESEARCH_INTENSITY_FACTS,
-  RISK_PRESETS,
-  RISK_PRESET_FACTS,
 } from "@alpha-agents/domain";
+import type { Db } from "@alpha-agents/db";
 import {
   type GoalConfig,
   type GoalError,
@@ -19,22 +24,45 @@ import {
 import type { AgentGoalView, StoredGoal } from "@alpha-agents/trading";
 
 /**
- * The goal's JSON for the Goal page (P3-U1): the saved goal and what it
- * translated to, and the form's ranges and cost preview, every amount a
- * base-unit string. The labels and explanations come from packages/domain;
- * the numbers that depend on the hard limits come from here.
+ * The goal's JSON for the Goal page (P3-U1, F-U7): the saved goal and what it
+ * translated to, and the form's levels, tiers, tokens, ranges and cost
+ * preview, every amount a base-unit string. The labels and explanations come
+ * from packages/domain; the numbers that depend on the hard limits come from
+ * here; the tokens the owner may exclude come from the platform's registry.
  */
 
-/** The activation sweep's shown maximum per reasoning model (A-51), for the cost preview. */
-const SWEEP_MAX_USDC_E6 = { STANDARD: 4_000_000n, DEEP: 7_500_000n } as const;
+/** The activation sweep's shown maximum per model tier (A-51, A-75), for the cost preview. */
+const SWEEP_MAX_USDC_E6 = { LOW: 2_000_000n, MEDIUM: 4_000_000n, HIGH: 7_500_000n } as const;
 
-/** Every bound the form needs, from the hard limits and the presets (D-278, D-293, D-299). */
-export function goalForm() {
+/** Every bound the form needs, from the hard limits, the levels and the registry (D-293, D-299, D-345). */
+export async function goalForm(db: Db | null = null, chainId: number | null = null) {
   const ranges = ownerLimitRanges();
   const hard = hardGoalLimits();
+  const tokens =
+    db && chainId !== null
+      ? (
+          await db
+            .selectFrom("platform.tokens")
+            .select(["address", "symbol", "price_class"])
+            .where("chain_id", "=", chainId)
+            .orderBy("liquidity_usd", "desc")
+            .limit(200)
+            .execute()
+        ).map((t) => ({ address: t.address, symbol: t.symbol, priceClass: t.price_class }))
+      : [];
   return {
     defaults: DEFAULT_GOAL_INPUT,
     hardLimits: hard,
+    levels: AGGRESSIVENESS_LEVELS.map((id) => ({
+      id,
+      label: AGGRESSIVENESS_FACTS[id].label,
+      summary: AGGRESSIVENESS_FACTS[id].summary,
+      brief: AGGRESSIVENESS_FACTS[id].brief,
+      envelope: AGGRESSIVENESS_ENVELOPES[id],
+    })),
+    tiers: MODEL_TIERS.map((id) => ({ id, ...MODEL_TIER_FACTS[id] })),
+    tokens,
+    maxExcludedTokens: MAX_EXCLUDED_TOKENS,
     limits: OWNER_LIMIT_FIELDS.map((field) => ({
       field,
       direction: OWNER_LIMIT_FACTS[field].direction,
@@ -43,7 +71,6 @@ export function goalForm() {
       max: ranges[field].max,
       hard: hard[field],
     })),
-    presets: RISK_PRESETS.map((id) => ({ id, ...RISK_PRESET_FACTS[id] })),
     intensities: RESEARCH_INTENSITIES.map((id) => {
       const f = RESEARCH_INTENSITY_FACTS[id];
       return {
@@ -59,8 +86,9 @@ export function goalForm() {
     }),
     costPreviewDays: COST_PREVIEW_DAYS,
     sweepMaxUsdcE6: {
-      STANDARD: SWEEP_MAX_USDC_E6.STANDARD.toString(),
-      DEEP: SWEEP_MAX_USDC_E6.DEEP.toString(),
+      LOW: SWEEP_MAX_USDC_E6.LOW.toString(),
+      MEDIUM: SWEEP_MAX_USDC_E6.MEDIUM.toString(),
+      HIGH: SWEEP_MAX_USDC_E6.HIGH.toString(),
     },
     maxCreditReserveUsdcE6: MAX_CREDIT_RESERVE_USDC_E6.toString(),
   };
@@ -85,11 +113,11 @@ export function goalViewJson(v: AgentGoalView) {
   };
 }
 
-/** The public summary (FINAL_PLAN 6.1): template and risk preset only. */
+/** The public summary (FINAL_PLAN 6.1): the aggressiveness only. */
 export function goalSummaryJson(v: AgentGoalView) {
   return v.goal
-    ? { configured: true, template: v.goal.goal.template, riskPreset: v.goal.goal.riskPreset }
-    : { configured: false, template: null, riskPreset: null };
+    ? { configured: true, aggressiveness: v.goal.config.aggressiveness }
+    : { configured: false, aggressiveness: null };
 }
 
 export function goalErrorsJson(errors: readonly GoalError[]) {

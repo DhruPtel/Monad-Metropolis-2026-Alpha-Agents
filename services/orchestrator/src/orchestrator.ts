@@ -50,7 +50,6 @@ import {
   INTENT_SCHEMA_VERSION_V3,
   ROUTE_ADAPTER_ID,
   executorV3SwapGasLimit,
-  AGGRESSIVENESS_OF_PRESET,
 } from "@alpha-agents/domain";
 import type { SwapIntentV3Args } from "@alpha-agents/signer";
 import type { TargetPortfolioParams } from "@alpha-agents/policy";
@@ -759,7 +758,7 @@ export class Orchestrator {
     const history = await this.plans.history(ref.chainId, ref.agentId, 20);
     const last = history.find((p) => p.setBy === "agent");
     return {
-      aggressiveness: AGGRESSIVENESS_OF_PRESET[goal.goal.riskPreset],
+      aggressiveness: goal.config.aggressiveness,
       market,
       agent,
       screenFresh: (token) => this.screenFresh(token),
