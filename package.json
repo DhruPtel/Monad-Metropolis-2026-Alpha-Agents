@@ -42,6 +42,7 @@
     "test:orchestrator:live": "node services/orchestrator/src/live.ts",
     "test:anthropic:dry-run": "node services/orchestrator/src/anthropic-dry-run.ts",
     "test:live:pending": "node scripts/live-pending.js",
+    "spend:report": "node scripts/spend-report.js",
     "test:skills:selection": "node services/orchestrator/src/skills-selection.ts",
     "dev:console": "node scripts/console.js dev",
     "dev:all": "node scripts/dev-all.js",
