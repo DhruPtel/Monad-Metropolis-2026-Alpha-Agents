@@ -20,3 +20,5 @@ Added by later units: each unit that needs a live check appends a row here and, 
 | # | Check | Unit | What it proves | Command |
 | --- | --- | --- | --- | --- |
 | 3 | Goal brief and model tiers | F-U7 | The Scan on `research-low` and the reasoning stages on `research-low`, `research-medium` and `research-high`, each with the goal's brief and envelope in the prompt, counted by the dry run and answered by the real models in the live run | covered by steps 1 and 2 (`pnpm test:live:pending`) |
+| 4 | Research cycle on playbooks 2.0 | F-U8 | A real model follows the Scan, Dive, Challenge and Zoom out 2.0: per-token Dives with the fundamentals checklist and the safety screen, claims tagged by what their sources give, position calls that match the draft, and a target portfolio that passes the Test v2 | covered by step 2 (`pnpm test:live:pending`) |
+| 5 | Skill selection for the two new skills | F-U8 | Hermes loads aa-token-risk-screen for a screen question and aa-portfolio-construction with the Zoom out playbook for a portfolio draft, from the task alone (Q-07) | `pnpm test:skills:selection` (step 3 of `pnpm test:live:pending`) |

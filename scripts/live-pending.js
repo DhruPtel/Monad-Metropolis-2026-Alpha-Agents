@@ -18,6 +18,11 @@ const STEPS = [
     name: "orchestrator live run: mint, credits, no-op, chain check, trade flow, research check, token check, a research cycle",
     cmd: ["pnpm", "test:orchestrator:live"],
   },
+  {
+    // F-U8: the two skills added with research v2 are chosen from a task alone (Q-07).
+    name: "skill selection (Q-07): the stage playbooks and every built-in skill chosen from a task alone",
+    cmd: ["pnpm", "test:skills:selection"],
+  },
 ];
 
 console.log(readFileSync(join(ROOT, "evidence", "live-pending.md"), "utf8"));
