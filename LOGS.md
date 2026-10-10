@@ -1082,7 +1082,7 @@ Summary: One custody path per agent (D-367): v3 once a PersonalAccountV3 exists,
 Notes for the owner:
 - The live E2B run stays pending: the provider refused the model call for a low credit balance at 15:35 and 16:55 UTC. Once the account accepts calls, `pnpm test:orchestrator:live` needs no code change.
 - BUILD_PLAN.md's F-U5 row was not edited (the prompt did not say to); the owner may mark it done.
-- On the playtest fork, agent 1 has only a v2 account, so its path is v2 until its owner opens a v3 account from the Trades page; the three test wallets (anvil 6 to 9) are the v3 factory's depositor allowlist, and the console allowlists the wallet it opens an account for.
+- On the playtest fork, agent 1 has no account on either set (checked at head 109670015), so its path is v3 (D-367) and the running orchestrator answers `{"custody":"v3","executor":"0x3443dbBd29E19CF17853732C260C6abDb6dC0658"}` for it: the Trades page starts on the v3 set and "Create fund account" opens a PersonalAccountV3, allowlisting the owner's wallet on the v3 factory first (as its owner, anvil account 0). The v2 set is still there for an agent that has a v2 account, and the switch tries either.
 Suggestions:
 - F-U6 and later: the console's v3 swap uses the trade flow's quote and gas rule but no intent record; an owner-facing "why not traded" for console swaps would come with the runner.
 - The symbol book of the Trades page comes from the fork; an outbox read with the fork down names a v3 token by its address, which the orchestrator's outbox could carry as symbols instead.
