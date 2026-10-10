@@ -18,7 +18,8 @@ import {CustodyV3Base} from "./CustodyV3Base.sol";
 contract CustodyV3ParityTest is CustodyV3Base {
     string internal constant PATH = "../../packages/policy/fixtures/fund-parity.json";
 
-    struct Step {
+    /// Its own name: forge resolves a fixture struct by name across the project, and the breaker fixture has a `Step`.
+    struct CustodyStep {
         string op;
         string token;
         string tokenOut;
@@ -45,7 +46,7 @@ contract CustodyV3ParityTest is CustodyV3Base {
     }
 
     string internal constant STEP_TYPE =
-        "Step(string op,string token,string tokenOut,uint256 amount,uint256 outputBps,uint256 priceE18,uint256 answer,uint256 warp,bool flag,bool ok,string failure,uint256 units,uint256 principal,uint256 mode,uint256 nav,uint256 capped,uint256 totalBasis,uint256 classABasis,uint256[] amounts,uint256[] bases,uint256 heldCount,uint256 perUnit,uint256 pokePeak)";
+        "CustodyStep(string op,string token,string tokenOut,uint256 amount,uint256 outputBps,uint256 priceE18,uint256 answer,uint256 warp,bool flag,bool ok,string failure,uint256 units,uint256 principal,uint256 mode,uint256 nav,uint256 capped,uint256 totalBasis,uint256 classABasis,uint256[] amounts,uint256[] bases,uint256 heldCount,uint256 perUnit,uint256 pokePeak)";
 
     string internal json;
     /// The fixture's tokens, in its order: USDC, WMON, A, B, C, D, E, F.
@@ -95,8 +96,8 @@ contract CustodyV3ParityTest is CustodyV3Base {
         for (uint256 i = 0; i < count; ++i) {
             string memory key = string.concat(".custodyCases[", vm.toString(i), "]");
             string memory name = vm.parseJsonString(json, string.concat(key, ".name"));
-            Step[] memory steps =
-                abi.decode(vm.parseJsonTypeArray(json, string.concat(key, ".steps"), STEP_TYPE), (Step[]));
+            CustodyStep[] memory steps =
+                abi.decode(vm.parseJsonTypeArray(json, string.concat(key, ".steps"), STEP_TYPE), (CustodyStep[]));
             assertEq(steps.length, vm.parseJsonUint(json, string.concat(key, ".stepCount")));
             for (uint256 j = 0; j < steps.length; ++j) {
                 string memory label = string.concat(name, " step ", vm.toString(j), " (", steps[j].op, ")");
@@ -124,7 +125,7 @@ contract CustodyV3ParityTest is CustodyV3Base {
         revert(string.concat("unknown token ", n));
     }
 
-    function _apply(Step memory s, string memory label) private {
+    function _apply(CustodyStep memory s, string memory label) private {
         if (_is(s.op, "deposit")) {
             address t = _token(s.token);
             if (t == address(wmon)) _wmonTo(owner, s.amount);
@@ -188,7 +189,7 @@ contract CustodyV3ParityTest is CustodyV3Base {
     }
 
     /// A call the model may have refused: its outcome, and the refusal's name, must match.
-    function _call(bytes memory data, Step memory s, string memory label) private {
+    function _call(bytes memory data, CustodyStep memory s, string memory label) private {
         (bool ok, bytes memory ret) = address(account).call(data);
         assertEq(ok, s.ok, string.concat(label, ": outcome"));
         if (!ok) assertEq(bytes4(ret), _selector(s.failure), string.concat(label, ": refusal ", s.failure));
@@ -211,7 +212,7 @@ contract CustodyV3ParityTest is CustodyV3Base {
         revert(string.concat("unknown failure ", failure));
     }
 
-    function _check(Step memory s, string memory label) private view {
+    function _check(CustodyStep memory s, string memory label) private view {
         assertEq(account.units(), s.units, string.concat(label, ": units"));
         assertEq(account.principal(), s.principal, string.concat(label, ": principal"));
         assertEq(uint256(account.mode()), s.mode, string.concat(label, ": mode"));
