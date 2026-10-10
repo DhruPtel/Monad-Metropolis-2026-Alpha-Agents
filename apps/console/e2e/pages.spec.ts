@@ -40,6 +40,14 @@ for (const panel of PAGES) {
       await expect(page).toHaveScreenshot(`${panel.name}.png`, { fullPage: true });
     });
 
+    // F-U2: a long line once widened the Tokens page past the phone's width.
+    test("never scrolls the page sideways", async ({ page }) => {
+      const overflow = await page.evaluate(
+        () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      );
+      expect(overflow).toBeLessThanOrEqual(0);
+    });
+
     test("has no serious or critical accessibility violations", async ({ page }) => {
       const results = await new AxeBuilder({ page })
         .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "best-practice"])

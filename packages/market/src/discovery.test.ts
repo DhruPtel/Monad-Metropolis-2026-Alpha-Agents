@@ -252,7 +252,7 @@ describe("pools by token and agent lookups (F-U2 Step 0, D-360)", () => {
     expect(count(withByToken)).toBeGreaterThan(count(without));
     expect(withByToken.sources["geckoterminal:byToken"]).toEqual({
       ok: true,
-      detail: "1 tokens' own pools read",
+      detail: "1 of 1 tokens' own pools read",
     });
     // Curve, Trader Joe and Uniswap v2 pools are not supported venues and are dropped.
     expect(

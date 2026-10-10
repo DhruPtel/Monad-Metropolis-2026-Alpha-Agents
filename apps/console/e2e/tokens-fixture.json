@@ -37,7 +37,7 @@
   },
   "runs": [
     {
-      "runId": "b7811a25-3605-4c00-a59e-303821935add",
+      "runId": "066a7cd9-4a15-414a-9573-d2654d9c8fed",
       "status": "completed",
       "poolsSeen": 69,
       "tokensSeen": 45,
@@ -53,7 +53,7 @@
         },
         "geckoterminal": {
           "ok": true,
-          "detail": "6 of 6 pages read; geckoterminal answered 503."
+          "detail": "6 of 6 pages read"
         },
         "coinmarketcap:map": {
           "ok": true,
@@ -69,15 +69,15 @@
         },
         "geckoterminal:byToken": {
           "ok": true,
-          "detail": "1 tokens' own pools read"
+          "detail": "1 of 19 tokens' own pools read; geckoterminal answered 503."
         }
       },
       "error": null,
-      "startedAt": "2026-10-10T00:18:36.273Z",
+      "startedAt": "2026-10-10T00:29:54.641Z",
       "finishedAt": "2026-10-09T20:56:17.143Z"
     },
     {
-      "runId": "792fbc06-ffd6-4817-890f-3efd68b3e87c",
+      "runId": "f4351deb-05ae-4646-ae59-b9c04df66617",
       "status": "completed",
       "poolsSeen": 69,
       "tokensSeen": 45,
@@ -93,7 +93,7 @@
         },
         "geckoterminal": {
           "ok": true,
-          "detail": "6 of 6 pages read; geckoterminal answered 503."
+          "detail": "6 of 6 pages read"
         },
         "coinmarketcap:map": {
           "ok": true,
@@ -109,11 +109,11 @@
         },
         "geckoterminal:byToken": {
           "ok": true,
-          "detail": "1 tokens' own pools read"
+          "detail": "1 of 19 tokens' own pools read; geckoterminal answered 503."
         }
       },
       "error": null,
-      "startedAt": "2026-10-10T00:18:36.018Z",
+      "startedAt": "2026-10-10T00:29:54.375Z",
       "finishedAt": "2026-10-09T20:48:34.286Z"
     }
   ],
@@ -160,7 +160,7 @@
       "deepestPool": "0xe24635d96638b80e53d182b1b96809e189b64e5e28002c01381148493cf9fa01",
       "oldestPoolAt": "2025-11-19T16:11:45.000Z",
       "screen": {
-        "screenId": "67cc609d-32f7-4013-90ae-e5179a6b48a4",
+        "screenId": "b97792d2-b43d-4fce-852a-a4b6b848011c",
         "verdict": "passed",
         "screenedAt": "2026-10-10T02:56:17.144Z",
         "expiresAt": "2026-10-10T08:56:17.144Z",
@@ -546,7 +546,7 @@
       "deepestPool": "0x811540cf25394c6dc49e3e3be25315ad917c190b",
       "oldestPoolAt": "2025-12-16T06:24:36.000Z",
       "screen": {
-        "screenId": "c31132f7-6651-4146-8939-6340a4ddb39a",
+        "screenId": "9d6976f9-77e1-4958-921a-0f55763eee5a",
         "verdict": "refused",
         "screenedAt": "2026-10-10T02:56:25.716Z",
         "expiresAt": "2026-10-10T08:56:25.716Z",

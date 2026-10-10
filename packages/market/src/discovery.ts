@@ -288,7 +288,9 @@ export class TokenDiscovery {
     }
     // F-U2 Step 0: every reviewed and class F token's own pools, so deep but quiet pools count too.
     let byToken = 0;
-    for (const address of this.o.byTokenAddresses ?? REVIEWED_AND_CLASS_F) {
+    let byTokenError = "";
+    const byTokenAll = this.o.byTokenAddresses ?? REVIEWED_AND_CLASS_F;
+    for (const address of byTokenAll) {
       try {
         const body = await this.o.market.cache.get(
           cacheKey("geckoterminal", "tokenPools", { address }),
@@ -303,12 +305,12 @@ export class TokenDiscovery {
         );
         byToken++;
       } catch (err) {
-        lastError = message(err);
+        byTokenError = message(err);
       }
     }
     sources["geckoterminal:byToken"] = {
-      ok: byToken > 0 || (this.o.byTokenAddresses ?? REVIEWED_AND_CLASS_F).length === 0,
-      detail: `${byToken} tokens' own pools read`,
+      ok: byToken > 0 || byTokenAll.length === 0,
+      detail: `${byToken} of ${byTokenAll.length} tokens' own pools read${byTokenError ? `; ${byTokenError}` : ""}`,
     };
     sources.geckoterminal =
       ok > 0

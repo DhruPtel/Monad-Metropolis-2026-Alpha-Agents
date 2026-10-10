@@ -99,13 +99,16 @@ export function Summary({ data }: { data: TokensJson }) {
                 ? `failed (${last.error ?? "no reason"}).`
                 : "running."}
           </p>
-          <div className="flex flex-wrap gap-2">
-            {Object.entries(last.sources).map(([name, s]) => (
-              <Badge key={name} tone={s.ok ? "positive" : "warning"} title={s.detail}>
-                {name}: {s.ok ? s.detail : `unavailable (${s.detail})`}
-              </Badge>
+          <ul className="flex flex-col gap-1" aria-label="Discovery sources">
+            {Object.entries(last.sources).map(([name, src]) => (
+              <li key={name} className="flex min-w-0 flex-wrap items-center gap-2 text-xs">
+                <Badge tone={src.ok ? "positive" : "warning"}>
+                  {name}: {src.ok ? "ok" : "unavailable"}
+                </Badge>
+                <span className="min-w-0 break-words text-foreground-muted">{src.detail}</span>
+              </li>
             ))}
-          </div>
+          </ul>
         </div>
       ) : (
         <p className="text-sm text-foreground-muted">No discovery has run yet.</p>
