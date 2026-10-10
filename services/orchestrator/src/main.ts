@@ -42,7 +42,7 @@ import { Store } from "./store.ts";
 import { findCloudflared } from "./tunnel.ts";
 import { swapGasCost } from "./trade-flow.ts";
 import { testnetFeedsFor, viemFeedChain, withFreshFeeds } from "./testnet-feeds.ts";
-import { TokenRegistry } from "./tokens/registry.ts";
+import { TokenRegistry, secondaryFirst } from "./tokens/registry.ts";
 import { SCREEN_FORK_PORT, ScreenFork } from "./tokens/screen-fork.ts";
 import { TokenStore } from "./tokens/store.ts";
 
@@ -302,13 +302,15 @@ log(
 );
 // Token registry (F-U1): discovery from GeckoTerminal, CoinGecko and CoinMarketCap, every pool
 // and token confirmed on mainnet through the read-only transport; screens on a fork of the
-// latest block of their own (never the playtest fork), forked from the same research URLs.
+// latest block of their own (never the playtest fork), forked from the same research URLs,
+// the secondary first so these reads stop competing with the forks and research for one key.
+const tokenUrls = secondaryFirst(mainnetUrls);
 const tokenDiscovery =
   mainnetUrls.length > 0
     ? new TokenDiscovery({
         market,
         cmcApiKey: cmcKey,
-        client: createPublicClient({ transport: readOnlyTransport(mainnetUrls) }) as PublicClient,
+        client: createPublicClient({ transport: readOnlyTransport(tokenUrls) }) as PublicClient,
       })
     : null;
 // --screen-fork-port lets a second orchestrator (the live run) keep its fork apart from dev's.
@@ -323,8 +325,8 @@ const screenFork =
             port: screenForkPort,
             block: "latest",
             env: {
-              MONAD_RPC_URL: mainnetUrls[0],
-              ...(mainnetUrls[1] ? { MONAD_RPC_URL_SECONDARY: mainnetUrls[1] } : {}),
+              MONAD_RPC_URL: tokenUrls[0],
+              ...(tokenUrls[1] ? { MONAD_RPC_URL_SECONDARY: tokenUrls[1] } : {}),
             },
           }),
       })

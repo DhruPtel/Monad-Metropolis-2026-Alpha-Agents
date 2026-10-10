@@ -9,7 +9,7 @@ import {
 import { Hono } from "hono";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { registerTokenRoutes } from "../token-routes.ts";
-import { RegistryError, TokenRegistry } from "./registry.ts";
+import { RegistryError, TokenRegistry, secondaryFirst } from "./registry.ts";
 import type { ScreenFork } from "./screen-fork.ts";
 import type { Simulation } from "./simulate.ts";
 import { TokenStore } from "./store.ts";
@@ -230,3 +230,11 @@ describe.skipIf(!dbUp)(
     });
   },
 );
+
+describe("the token reads' RPC order (F-U2 Step 0)", () => {
+  it("puts the secondary first and keeps the primary as the fallback", () => {
+    expect(secondaryFirst(["primary", "secondary"])).toEqual(["secondary", "primary"]);
+    expect(secondaryFirst(["only"])).toEqual(["only"]);
+    expect(secondaryFirst([])).toEqual([]);
+  });
+});

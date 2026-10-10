@@ -48,6 +48,16 @@ export interface TokenRegistryOptions {
   readonly now?: () => number;
 }
 
+/**
+ * The research RPCs in the order token discovery and the screen fork use them
+ * (F-U2 Step 0): the secondary first, which allows wider log ranges and keeps
+ * these reads off the key the forks and research share, and the primary as the
+ * fallback. With one URL, that one.
+ */
+export function secondaryFirst(urls: readonly string[]): string[] {
+  return urls.length > 1 ? [urls[1] as string, urls[0] as string, ...urls.slice(2)] : [...urls];
+}
+
 /** The screen runs on tokens at least this deep; shallower ones would fail on liquidity anyway. */
 export const SCREEN_LOOP_MIN_LIQUIDITY_USD = 10_000;
 
