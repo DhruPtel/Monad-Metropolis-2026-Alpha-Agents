@@ -8,6 +8,7 @@ import { type AgentSandbox, type TaskContext, openAgentSandbox, skillsLoaded } f
 import { errorText } from "../secrets.ts";
 import { type AgentRef, LeaseHeldError } from "../store.ts";
 import { cycleConfig, stagePrompt } from "./config.ts";
+import type { ProposalService } from "./proposals.ts";
 import type { CycleResearch } from "./research.ts";
 import {
   type CycleKind,
@@ -44,6 +45,8 @@ export interface CycleContext extends TaskContext {
   readonly plans: PlanStore;
   readonly credits: CreditService;
   readonly narrator: Narrator | null;
+  /** F-U9: turns a Zoom out's decision into a stored proposal or a "no change"; null before it exists. */
+  readonly proposals?: ProposalService | null;
   /** How long to wait for metering to settle a stage's model calls (tests shorten it). */
   readonly settleMs?: number;
   /** How long a cycle waits for another task's lease on the agent to end (10 minutes). */
@@ -291,6 +294,17 @@ class Engine {
       zoom.end.stopReason === "TASK_CAP"
     )
       return this.halt(zoom.end);
+    // F-U9: the Zoom out's decision becomes a stored proposal (evaluated) or a stored "no change".
+    if (this.ctx.proposals && zoom.end.status === "completed") {
+      try {
+        const p = await this.ctx.proposals.fromZoomOut(this.cycle, zoom.run);
+        if (p) this.ctx.log(`cycle ${this.cycle.cycleId}: ${p.kind} ${p.proposalId} ${p.status}`);
+      } catch (err) {
+        this.ctx.log(
+          `cycle ${this.cycle.cycleId}: the proposal could not be recorded: ${errorText(err, this.ctx.redactor)}`,
+        );
+      }
+    }
     return {
       status: "completed",
       reason: zoom.end.status === "capped" ? zoom.end.stopReason : "COMPLETED",

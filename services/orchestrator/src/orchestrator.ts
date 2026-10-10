@@ -67,6 +67,7 @@ import {
 } from "./trade-flow.ts";
 import { RUNNER_EVERY_MS, TemplateRunner } from "./runner.ts";
 import { runCycleTask } from "./cycle/cycle.ts";
+import { ProposalService } from "./cycle/proposals.ts";
 import { CycleResearch } from "./cycle/research.ts";
 import { type CycleKind, isReasoningAlias } from "./cycle/stages.ts";
 import { CycleStore } from "./cycle/store.ts";
@@ -228,6 +229,8 @@ export class Orchestrator {
   readonly runner: TemplateRunner | null;
   /** P3-U4: research cycles, their stages, briefs and the research behind the platform tools. */
   readonly cycles: CycleStore;
+  /** F-U9: portfolio proposals from the Zoom out's decisions, evaluated and stored. */
+  readonly proposals: ProposalService;
   readonly research: CycleResearch;
   /** Phase 2 tuning: value snapshots for W-3's charts, where the chain tools can read. */
   readonly snapshots: SnapshotRecorder | null;
@@ -344,6 +347,16 @@ export class Orchestrator {
         )),
       // F-U6: the Test stage v2 over a target portfolio, on the fund agent's set.
       portfolio: { inputs: (cycle) => this.portfolioTestInputs(cycle) },
+    });
+    this.proposals = new ProposalService({
+      db: store.db,
+      cycles: this.cycles,
+      goals: this.goals,
+      plans: this.plans,
+      trades: this.trades,
+      narrator: this.narrator,
+      inputs: (ref) => this.portfolioTestInputs(ref),
+      log,
     });
     const trading = options.trading;
     this.runner =
@@ -584,6 +597,7 @@ export class Orchestrator {
             plans: this.plans,
             credits: this.credits,
             narrator: this.narrator,
+            proposals: this.proposals,
           },
           job.taskId,
         );

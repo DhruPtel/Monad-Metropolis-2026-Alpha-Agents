@@ -5,7 +5,7 @@ import type { PageText, SearchHit, WebProvider } from "@alpha-agents/data-tools"
 import { DEFAULT_GOAL_INPUT, type GoalInput } from "@alpha-agents/domain";
 import { translateGoal } from "@alpha-agents/policy";
 import { connectClient } from "@alpha-agents/tool-server/testing";
-import { GoalStore, PlanStore } from "@alpha-agents/trading";
+import { GoalStore, PlanStore, ProposalStore, TradeStore } from "@alpha-agents/trading";
 import { usageEntry } from "@alpha-agents/accounting";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { FundingKeys, ensureFundingAddresses, fundingAddressOf } from "../credits/funding.ts";
@@ -28,6 +28,7 @@ import { Hono } from "hono";
 import { registerCycleRoutes } from "../cycle-routes.ts";
 import type { Orchestrator } from "../orchestrator.ts";
 import { type CycleContext, runCycleTask } from "./cycle.ts";
+import { ProposalService } from "./proposals.ts";
 import { CycleResearch } from "./research.ts";
 import { CycleStore } from "./store.ts";
 import { skillRuns } from "./validator.ts";
@@ -331,10 +332,16 @@ describe.skipIf(!dbUp)("the discovery loop engine (needs Postgres)", { timeout: 
     await credits.creditDeposits();
   };
 
-  const saveGoal = async (over: Partial<GoalInput["research"]> & { model?: "MEDIUM" | "HIGH" }) => {
+  const saveGoal = async (
+    over: Partial<GoalInput["research"]> & {
+      model?: "MEDIUM" | "HIGH";
+      planChanges?: GoalInput["planChanges"];
+    },
+  ) => {
     const input = {
       ...DEFAULT_GOAL_INPUT,
       modelTier: over.model ?? "MEDIUM",
+      planChanges: over.planChanges ?? DEFAULT_GOAL_INPUT.planChanges,
       research: {
         intensity: over.intensity ?? "STANDARD",
         dailyBudgetUsdcE6: over.dailyBudgetUsdcE6 ?? "5000000",
@@ -493,6 +500,18 @@ describe.skipIf(!dbUp)("the discovery loop engine (needs Postgres)", { timeout: 
       if (get) return http(200, { status: runs.get(get[1] ?? "")?.status ?? "unknown" });
       return { exitCode: 0, stdout: "", stderr: "" };
     };
+    const narrator = new Narrator({
+      store,
+      gateway,
+      credits,
+      namespace: "unit",
+      litellmUrl: "http://127.0.0.1:9",
+      secret: "s".repeat(40),
+      redactor,
+      log,
+      model: new Template(),
+    });
+    const ctxNarrator = () => narrator;
     ctx = {
       store,
       leases,
@@ -506,18 +525,19 @@ describe.skipIf(!dbUp)("the discovery loop engine (needs Postgres)", { timeout: 
       research,
       goals,
       plans,
-      credits,
-      narrator: new Narrator({
-        store,
-        gateway,
-        credits,
-        namespace: "unit",
-        litellmUrl: "http://127.0.0.1:9",
-        secret: "s".repeat(40),
-        redactor,
+      // F-U9: the Zoom out's decision becomes a stored proposal or a "no change"; off the v3 set.
+      proposals: new ProposalService({
+        db: t.db,
+        cycles,
+        goals,
+        plans,
+        trades: new TradeStore(t.db),
+        narrator: ctxNarrator(),
+        inputs: async () => null,
         log,
-        model: new Template(),
       }),
+      credits,
+      narrator: ctxNarrator(),
       settleMs: 4_000,
       // Long enough for a stage's scripted calls on a loaded machine; the deadline test shortens it.
       deadlineMs: () => 30_000,
@@ -683,6 +703,22 @@ describe.skipIf(!dbUp)("the discovery loop engine (needs Postgres)", { timeout: 
     // Prompt caching: cache reads from the second call on each model, recorded per stage.
     expect(must(stages[0]).cacheReadTokens).toBeGreaterThan(0);
     expect(must(stages[1]).cacheReadTokens).toBeGreaterThan(0);
+    // F-U9: the Zoom out's NO_CHANGE is stored with its reason and explanation, and narrated.
+    const recorded = await new ProposalStore(t.db).list(CHAIN, 1);
+    expect(recorded).toHaveLength(1);
+    expect(recorded[0]).toMatchObject({
+      kind: "no_change",
+      status: "recorded",
+      reasonCode: "EVIDENCE_THIN",
+      cycleId: cycle.cycleId,
+    });
+    expect(recorded[0]?.explanation).toContain("What would change it");
+    const noChangeEntry = await t.db
+      .selectFrom("platform.activity_entries")
+      .selectAll()
+      .where("kind", "=", "proposal")
+      .executeTakeFirst();
+    expect(noChangeEntry?.text).toContain("kept its plan");
   });
 
   it("passes each stage only what it builds on: the Challenge sees the Dive's brief, never its session", async () => {
@@ -903,6 +939,62 @@ describe.skipIf(!dbUp)("the discovery loop engine (needs Postgres)", { timeout: 
     // Nothing trades from a cycle: no plan was set, no intent proposed.
     expect(await plans.active(CHAIN, 1)).toBeNull();
     expect(await t.db.selectFrom("platform.intents").selectAll().execute()).toEqual([]);
+    // F-U9: the accepted draft is a stored proposal waiting for the owner (the goal says ask first).
+    const proposal = must((await new ProposalStore(t.db).list(CHAIN, 1))[0]);
+    expect(proposal).toMatchObject({
+      kind: "proposal",
+      status: "pending_owner",
+      needsApproval: true,
+      strategyEpoch: 1n,
+      plan: { template: "rebalance_bands@1", params: { targetWmonBps: 3_000 } },
+      rationale: { evidenceStrength: "mixed" },
+      evaluation: { passed: true, approval: "ask_first" },
+    });
+    expect(proposal.expiresAt).not.toBeNull();
+  });
+
+  it("applies an accepted proposal at once when the goal says apply and tell, and the owner is told (F-U9)", async () => {
+    await saveGoal({ planChanges: "APPLY_AND_TELL" });
+    scripts.ZOOM_OUT = async (r) => {
+      await start(r);
+      ok(
+        await brief(r.token, {
+          ...rationale,
+          decision: "PROPOSE",
+          reasonCode: null,
+          evidenceStrength: "strong",
+        }),
+      );
+      ok(
+        await complete(r.token, "ZOOM_OUT", {
+          decision: {
+            kind: "PROPOSE",
+            template: "rebalance_bands@1",
+            params: {
+              targetWmonBps: 2_500,
+              bandHalfWidthBps: 500,
+              minTradeUsdc: "1",
+              volatilityBrakeBps: 20_000,
+              costHurdleBps: 40,
+              maxLegBps: 900,
+            },
+          },
+        }),
+      );
+    };
+    const { cycle } = await runCycle();
+    expect(cycle.status).toBe("completed");
+    const proposal = must((await new ProposalStore(t.db).list(CHAIN, 1))[0]);
+    expect(proposal).toMatchObject({ status: "applied", needsApproval: false });
+    const plan = must(await plans.active(CHAIN, 1));
+    expect(plan).toMatchObject({ setBy: "agent", strategyEpoch: 2n });
+    expect(proposal.planParamId).toBe(plan.paramId);
+    const entry = await t.db
+      .selectFrom("platform.activity_entries")
+      .selectAll()
+      .where("kind", "=", "proposal")
+      .executeTakeFirst();
+    expect(entry?.text).toContain("set a new portfolio");
   });
 
   it("refuses a proposal whose RATIONALE calls positions the proposal does not carry, then accepts the corrected one (F-U8)", async () => {

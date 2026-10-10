@@ -1,3 +1,4 @@
+import { type ProposalFacts, templateProposalEntry } from "@alpha-agents/trading";
 import { createHmac, randomUUID } from "node:crypto";
 import { formatUnits } from "viem";
 import type { CreditService } from "./credits/service.ts";
@@ -149,9 +150,19 @@ export interface StageFacts {
   readonly ceilingUsdc: string;
 }
 
+export type { ProposalFacts } from "@alpha-agents/trading";
+
 export type NarrationFacts =
-  ScanFacts | IntentFacts | ArmingFacts | TradeFacts | BlockedFacts | RunnerFacts | StageFacts;
-export type ActivityKind = "scan" | "intent" | "arming" | "trade" | "blocked" | "runner" | "stage";
+  | ScanFacts
+  | IntentFacts
+  | ArmingFacts
+  | TradeFacts
+  | BlockedFacts
+  | RunnerFacts
+  | StageFacts
+  | ProposalFacts;
+export type ActivityKind =
+  "scan" | "intent" | "arming" | "trade" | "blocked" | "runner" | "stage" | "proposal";
 
 /** Micro-USDC as a plain decimal with no trailing zeros: 22000 -> "0.022". */
 export function formatUsdc(e6: bigint): string {
@@ -655,7 +666,7 @@ export class Narrator {
     chainId: number,
     agentId: number,
     key: string,
-    facts: ArmingFacts | TradeFacts | BlockedFacts | RunnerFacts,
+    facts: ArmingFacts | TradeFacts | BlockedFacts | RunnerFacts | ProposalFacts,
   ): Promise<ActivityEntry | null> {
     const existing = await this.stored(key);
     if (existing) return existing;
@@ -666,7 +677,9 @@ export class Narrator {
           ? (["trade", () => templateTradeEntry(facts)] as const)
           : facts.activity === "runner"
             ? (["runner", () => templateRunnerEntry(facts)] as const)
-            : (["blocked", () => templateBlockedEntry(facts)] as const);
+            : facts.activity === "plan_proposal"
+              ? (["proposal", () => templateProposalEntry(facts)] as const)
+              : (["blocked", () => templateBlockedEntry(facts)] as const);
     await this.write({ chainId, agentId, key, kind, facts, template });
     return (await this.stored(key)) ?? null;
   }

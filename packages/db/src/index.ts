@@ -24,6 +24,7 @@ import * as tokenCheck from "./migrations/0020_token_check.ts";
 import * as tokenFoundBy from "./migrations/0021_token_found_by.ts";
 import * as custodyV3 from "./migrations/0022_custody_v3.ts";
 import * as goalV2 from "./migrations/0023_goal_v2.ts";
+import * as planProposals from "./migrations/0024_plan_proposals.ts";
 import type { Database } from "./schema.ts";
 
 export type * from "./schema.ts";
@@ -57,6 +58,7 @@ export const MIGRATIONS: Readonly<Record<string, Migration>> = {
   "0021_token_found_by": tokenFoundBy,
   "0022_custody_v3": custodyV3,
   "0023_goal_v2": goalV2,
+  "0024_plan_proposals": planProposals,
 };
 
 const INT8 = 20;

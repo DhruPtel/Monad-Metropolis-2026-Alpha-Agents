@@ -86,7 +86,7 @@ import { Ledger } from "./credits/ledger.ts";
 import { DEFAULT_GOAL_INPUT, type GoalInput } from "@alpha-agents/domain";
 import { translateGoal } from "@alpha-agents/policy";
 import { type ResearchBrief, parseBrief } from "@alpha-agents/platform-tools";
-import { GoalStore } from "@alpha-agents/trading";
+import { GoalStore, ProposalStore } from "@alpha-agents/trading";
 import { CycleStore } from "./cycle/store.ts";
 import { skillRuns, validateBrief } from "./cycle/validator.ts";
 import { builtinSet } from "./hermes/materialize.ts";
@@ -244,6 +244,8 @@ async function main(): Promise<number> {
           LOCAL_FORK_PORT: String(FORK_PORT),
           DATABASE_URL: t.url,
           ORCHESTRATOR_PORT: String(API_PORT),
+          // D-369: this run proves the scheduler, so it turns scheduled research on for itself.
+          SCHEDULED_RESEARCH: "on",
         },
         stdio: ["ignore", "pipe", "pipe"],
       },
@@ -1533,6 +1535,23 @@ async function main(): Promise<number> {
           );
         }),
       `${challengeContext.length} context reads; ${diveNotes.length} Dive notes`,
+    );
+    // F-U9: the Zoom out's decision is stored for the plan card, as a proposal or a "no change".
+    const stored = await new ProposalStore(t.db).list(143143, other, 5);
+    check(
+      "the Zoom out's decision was stored for the plan card: a proposal (evaluated) or a no change with its reason",
+      stored.length > 0 &&
+        stored.every((p) =>
+          p.kind === "no_change"
+            ? p.reasonCode !== null
+            : p.evaluation !== null && ["pending_owner", "applied", "rejected"].includes(p.status),
+        ),
+      stored
+        .map(
+          (p) =>
+            `${p.kind} ${p.status}${p.reasonCode ? ` ${p.reasonCode}` : ""}${p.evaluation ? ` ${p.evaluation.findings.map((f) => f.code).join(",") || "passed"}` : ""}`,
+        )
+        .join("; ") || "none",
     );
     check(
       "prompt caching: cache reads from the second model call of each stage",

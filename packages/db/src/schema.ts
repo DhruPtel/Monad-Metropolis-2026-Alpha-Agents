@@ -508,7 +508,7 @@ export interface ActivityEntryTable {
   chain_id: number;
   agent_id: number;
   task_id: string;
-  kind: "scan" | "intent" | "arming" | "trade" | "blocked" | "runner" | "stage";
+  kind: "scan" | "intent" | "arming" | "trade" | "blocked" | "runner" | "stage" | "proposal";
   text: string;
   rendered_by: "narrator" | "template";
   facts: ColumnType<Record<string, unknown>, string, string>;
@@ -654,6 +654,39 @@ export interface StrategyParamsTable {
   superseded_at: Timestamp | null;
 }
 
+/**
+ * F-U9: a portfolio proposal from a Zoom out, or its "no change" decision,
+ * tied to the strategy epoch and the owner's epoch it was made under.
+ */
+export interface PlanProposalTable {
+  proposal_id: string;
+  chain_id: number;
+  agent_id: number;
+  cycle_id: string | null;
+  stage_run_id: string | null;
+  kind: "proposal" | "no_change";
+  strategy_epoch: ColumnType<string, string | number, string | number>;
+  owner_epoch: ColumnType<string, string | number, string | number>;
+  template: string | null;
+  params: ColumnType<Record<string, unknown> | null, string | null, string | null>;
+  params_hash: string | null;
+  /** The RATIONALE brief as accepted: the portfolio view, the evidence strength, the calls, the points. */
+  rationale: ColumnType<Record<string, unknown>, string, string>;
+  /** Each proposed position with its thesis, exit plan, sources by class and the skeptic's verdict. */
+  positions: ColumnType<unknown[], string | undefined, string>;
+  /** The evaluator's result: findings, the estimated cost to move, when it was checked. */
+  evaluation: ColumnType<Record<string, unknown>, string | undefined, string>;
+  status: "pending_owner" | "applied" | "rejected" | "declined" | "expired" | "recorded";
+  needs_approval: ColumnType<boolean, boolean | undefined, boolean>;
+  reason_code: string | null;
+  explanation: string | null;
+  decided_by: string | null;
+  decided_at: Timestamp | null;
+  plan_param_id: string | null;
+  created_at: Timestamp;
+  expires_at: Timestamp | null;
+}
+
 /** P3-U3: one of the runner's decisions; a new row only when the outcome or reason changes. */
 export interface RunnerDecisionTable {
   decision_id: Generated<number>;
@@ -783,6 +816,7 @@ export interface Database {
   "platform.research_cycles": ResearchCycleTable;
   "platform.stage_runs": StageRunTable;
   "platform.model_calls": ModelCallTable;
+  "platform.plan_proposals": PlanProposalTable;
   "platform.research_briefs": ResearchBriefTable;
   "platform.tool_results": ToolResultTable;
   "platform.tokens": TokenTable;

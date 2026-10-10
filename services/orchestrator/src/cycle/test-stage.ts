@@ -257,6 +257,8 @@ export const TEST_CODES_V2 = [
   "HARD_LIMIT",
   "COOLDOWN",
   "TEMPLATE_EVALS_FAIL",
+  // F-U9: the evaluator's estimated cost to move to the draft is above the plan's cost hurdle.
+  "COST_HURDLE",
 ] as const;
 export type TestCodeV2 = (typeof TEST_CODES_V2)[number];
 

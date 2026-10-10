@@ -178,28 +178,31 @@ export function registerPlanRoutes(
     });
   });
 
-  if (o.canSet) {
-    /** F-U6: checks a target portfolio draft with the Test stage v2 without setting it. */
-    app.post("/v1/agents/:agentId/plan/check", async (c) => {
-      const ref = o.agentRef(c.req.param("agentId"));
-      if (!ref) return c.json({ error: "bad_agent_id" }, 400);
-      const parsed = PortfolioPlanInput.safeParse(await c.req.json().catch(() => null));
-      if (!parsed.success)
-        return c.json(
-          { error: "invalid_plan", issues: parsed.error.issues.map((i) => i.path.join(".")) },
-          400,
-        );
-      const goal = await orch.goals.currentGoal(ref.chainId, ref.agentId);
-      if (!goal)
-        return c.json(
-          { error: "no_goal", message: "The agent has no goal yet; its owner saves one first." },
-          409,
-        );
-      const r = await orch.checkPortfolioPlan(ref, portfolioParamsOf(parsed.data));
-      if (!r.ok) return c.json({ error: r.error, message: r.message }, 409);
-      return c.json({ findings: r.findings, passed: r.findings.length === 0 });
-    });
+  /**
+   * F-U6: checks a target portfolio draft with the Test stage v2 without setting it. Read-only, so
+   * it is open to the control API's approval re-check too (F-U9), not only to the console's form.
+   */
+  app.post("/v1/agents/:agentId/plan/check", async (c) => {
+    const ref = o.agentRef(c.req.param("agentId"));
+    if (!ref) return c.json({ error: "bad_agent_id" }, 400);
+    const parsed = PortfolioPlanInput.safeParse(await c.req.json().catch(() => null));
+    if (!parsed.success)
+      return c.json(
+        { error: "invalid_plan", issues: parsed.error.issues.map((i) => i.path.join(".")) },
+        400,
+      );
+    const goal = await orch.goals.currentGoal(ref.chainId, ref.agentId);
+    if (!goal)
+      return c.json(
+        { error: "no_goal", message: "The agent has no goal yet; its owner saves one first." },
+        409,
+      );
+    const r = await orch.checkPortfolioPlan(ref, portfolioParamsOf(parsed.data));
+    if (!r.ok) return c.json({ error: r.error, message: r.message }, 409);
+    return c.json({ findings: r.findings, passed: r.findings.length === 0 });
+  });
 
+  if (o.canSet) {
     app.put("/v1/agents/:agentId/plan", async (c) => {
       const ref = o.agentRef(c.req.param("agentId"));
       if (!ref) return c.json({ error: "bad_agent_id" }, 400);
