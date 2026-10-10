@@ -38,6 +38,7 @@ abstract contract FundBase is Test {
     MockToken internal tokC; // 18 decimals, class A core
 
     MockFeed internal monUsd; // 8 decimals, 300 s
+    MockFeed internal usdcUsd; // 8 decimals, 3,900 s
     MockFeed internal aUsd; // 8 decimals, 3,900 s
     MockFeed internal bRate; // 18 decimals, 90,000 s
 
@@ -64,7 +65,7 @@ abstract contract FundBase is Test {
 
     function setUp() public virtual {
         vm.warp(T0);
-        usdc = new MockToken("USDC", 6);
+        usdc = _newUsdc();
         wmon = new MockWMON();
         tokA = new MockToken("TOKA", 18);
         tokB = new MockToken("TOKB", 8);
@@ -168,6 +169,19 @@ abstract contract FundBase is Test {
         vault.set(true, true);
     }
 
+    /// USDC as a plain mock; a subclass may make it a hostile token (the reentrancy tests).
+    function _newUsdc() internal virtual returns (MockToken) {
+        return new MockToken("USDC", 6);
+    }
+
+    /// Fresh rounds on every feed at the same answers, after a warp.
+    function _refreshFeeds() internal {
+        monUsd.push(2e8);
+        usdcUsd.push(1e8);
+        aUsd.push(6e8);
+        bRate.push(20e18);
+    }
+
     function _wmonTo(address to, uint256 amount) internal {
         vm.deal(address(this), amount);
         wmon.deposit{value: amount}();
@@ -194,7 +208,7 @@ abstract contract FundBase is Test {
 
     /// USDC is a core token too: class F by definition, valued at exactly 1 by the oracle.
     function _withUsdc(TokenRegistry.CoreSeed[] memory seeds) internal returns (TokenRegistry.CoreSeed[] memory out) {
-        MockFeed usdcUsd = new MockFeed(8);
+        usdcUsd = new MockFeed(8);
         usdcUsd.push(1e8);
         out = new TokenRegistry.CoreSeed[](seeds.length + 1);
         out[0] = _seed(address(usdc), PriceClass.F, _feed(usdcUsd, 8, 3_900), _noLeg());
