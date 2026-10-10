@@ -116,7 +116,9 @@ const scanBrief = (materiality: "high" | "low", extra: Record<string, unknown> =
     {
       code: "TVL_OUTFLOW",
       materiality,
-      asset: "WMON",
+      scope: "MARKET",
+      token: null,
+      symbol: null,
       whyNow: "A 6.8% weekly fall is large for the chain.",
       sources: ["web_search"],
     },
@@ -129,7 +131,27 @@ const scanBrief = (materiality: "high" | "low", extra: Record<string, unknown> =
 const themeBrief = {
   kind: "THEME",
   themeCode: "TVL_OUTFLOW",
+  token: null,
+  symbol: null,
   question: "Is the outflow a rotation into lending or an exit?",
+  whatItIs: "Monad's DEX liquidity as a whole, not one token.",
+  whyNow: "TVL fell 6.8% in a week, a large move for the chain.",
+  fundamentals: {
+    usage: null,
+    feesRevenueVolume: null,
+    tvl: {
+      text: "TVL fell 6.8% in a week.",
+      class: "news",
+      confidence: "low",
+      sources: ["web_search"],
+      asOf: "today",
+    },
+    holdersLiquidity: null,
+    supplyEmissions: null,
+    control: null,
+    catalysts: null,
+    relativeValue: null,
+  },
   evidenceFor: [
     {
       text: "Lending holds 412 million USD.",
@@ -146,7 +168,9 @@ const themeBrief = {
       sources: ["web_search"],
     },
   ],
+  risks: ["One report could misread a price move as an outflow."],
   freshness: "Both figures are from today.",
+  screen: { verdict: "NOT_RUN", summary: "A market theme has no token to screen." },
   thesis: {
     statement: "Lending keeps its 412 million USD while DEX TVL falls.",
     killCriterion: "Lending TVL falls below 412 million USD.",
@@ -154,6 +178,7 @@ const themeBrief = {
     confidence: "low",
   },
   noThesisReason: null,
+  fairWeightBps: null,
   weakestLink: "One news source for the outflow.",
   forThePlan: "None yet: the evidence is thin.",
 };
@@ -187,6 +212,9 @@ const rationale = {
     },
   ],
   whatWouldChangeIt: "Onchain flows that confirm an exit from DEXs.",
+  portfolioView: "The account sits on the two-asset plan with nothing that argues for moving it.",
+  evidenceStrength: "weak",
+  positions: [],
 };
 
 describe.skipIf(!dbUp)("the discovery loop engine (needs Postgres)", { timeout: 120_000 }, () => {
@@ -828,7 +856,14 @@ describe.skipIf(!dbUp)("the discovery loop engine (needs Postgres)", { timeout: 
     const answers: string[] = [];
     scripts.ZOOM_OUT = async (r) => {
       await start(r);
-      ok(await brief(r.token, { ...rationale, decision: "PROPOSE", reasonCode: null }));
+      ok(
+        await brief(r.token, {
+          ...rationale,
+          decision: "PROPOSE",
+          reasonCode: null,
+          evidenceStrength: "mixed",
+        }),
+      );
       const params = {
         targetWmonBps: 3_000,
         bandHalfWidthBps: 500,
@@ -864,6 +899,61 @@ describe.skipIf(!dbUp)("the discovery loop engine (needs Postgres)", { timeout: 
     // Nothing trades from a cycle: no plan was set, no intent proposed.
     expect(await plans.active(CHAIN, 1)).toBeNull();
     expect(await t.db.selectFrom("platform.intents").selectAll().execute()).toEqual([]);
+  });
+
+  it("refuses a proposal whose RATIONALE calls positions the proposal does not carry, then accepts the corrected one (F-U8)", async () => {
+    await saveGoal({});
+    const answers: string[] = [];
+    const wbtc = "0x0555e30da8f98308edb960aa94c0db47230d2b9c";
+    scripts.ZOOM_OUT = async (r) => {
+      await start(r);
+      const params = {
+        targetWmonBps: 2_500,
+        bandHalfWidthBps: 500,
+        minTradeUsdc: "1",
+        volatilityBrakeBps: 20_000,
+        costHurdleBps: 40,
+        maxLegBps: 900,
+      };
+      const decision = { kind: "PROPOSE", template: "rebalance_bands@1", params };
+      ok(
+        await brief(r.token, {
+          ...rationale,
+          decision: "PROPOSE",
+          reasonCode: null,
+          evidenceStrength: "mixed",
+          positions: [
+            {
+              token: wbtc,
+              symbol: "WBTC",
+              action: "ADD",
+              themeCode: "TVL_OUTFLOW",
+              reason: "A deep pool.",
+            },
+          ],
+        }),
+      );
+      answers.push(
+        JSON.stringify((await complete(r.token, "ZOOM_OUT", { decision })).structuredContent),
+      );
+      ok(
+        await brief(r.token, {
+          ...rationale,
+          decision: "PROPOSE",
+          reasonCode: null,
+          evidenceStrength: "mixed",
+        }),
+      );
+      ok(await complete(r.token, "ZOOM_OUT", { decision }));
+    };
+    const { cycle, stages } = await runCycle();
+    expect(cycle.status).toBe("completed");
+    expect(answers[0]).toContain("position calls belong to a target portfolio");
+    expect(must(stages.at(-1)).outcome).toMatchObject({
+      stageRecord: { decision: { kind: "PROPOSE", template: "rebalance_bands@1" } },
+    });
+    // The Dive's context named no token for a market theme.
+    expect((contexts[1] as { cycle: { token: unknown } }).cycle.token).toBeNull();
   });
 
   it("stops a stage at its turn cap with that reason, and the cycle records it", async () => {

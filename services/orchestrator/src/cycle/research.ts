@@ -8,7 +8,13 @@ import {
 import type { AgentIdentity } from "@alpha-agents/tool-server";
 import { ToolError } from "@alpha-agents/tool-server";
 import { portfolioParamsFromJson } from "@alpha-agents/policy";
-import { type GoalStore, type PlanStore, isBandsPlan } from "@alpha-agents/trading";
+import {
+  type GoalStore,
+  type PlanStore,
+  isBandsPlan,
+  isPortfolioPlan,
+} from "@alpha-agents/trading";
+import { rationaleFindings } from "./rationale.ts";
 import type { Cycle, CycleStore, StageRun } from "./store.ts";
 import {
   type TestInputs,
@@ -177,11 +183,21 @@ export class CycleResearch {
           ? (["OVERVIEW", "RATIONALE"] as const)
           : (["RATIONALE"] as const)
         : (STAGE_BRIEFS[stage.stage] as readonly ("SCAN" | "THEME" | "CHALLENGE")[]);
+    // F-U8: a Dive's token, from the Scan's theme with this stage's code.
+    const scanThemes = mine
+      .filter((b) => b.kind === "SCAN")
+      .flatMap(
+        (b) =>
+          (b.body as { themes?: { code: string; token?: string | null; symbol?: string | null }[] })
+            .themes ?? [],
+      );
+    const theme = stage.themeCode ? scanThemes.find((t) => t.code === stage.themeCode) : undefined;
     return {
       cycle: {
         kind: cycle.kind,
         stage: stage.stage,
         themeCode: stage.themeCode,
+        token: theme?.token ? { address: theme.token, symbol: theme.symbol ?? null } : null,
         briefsToWrite: [...briefsToWrite],
       },
       plan: plan
@@ -286,6 +302,31 @@ export class CycleResearch {
         `The RATIONALE brief says ${String((rationale.body as { decision?: unknown }).decision)}; the decision must match it.`,
         false,
       );
+    // F-U8: the RATIONALE's position calls must match the proposal and the plan in force.
+    if (rationale && input.decision.kind === "PROPOSE") {
+      const body = rationale.body as {
+        positions?: { token: string; symbol: string; action: string }[];
+      };
+      const plan = await this.o.plans.active(cycle.chainId, cycle.agentId);
+      const findings = rationaleFindings({
+        positions: (body.positions ?? []) as never,
+        decision: input.decision,
+        current:
+          plan && isPortfolioPlan(plan)
+            ? plan.params.positions.map((p) => ({
+                token: p.token,
+                targetWeightBps: p.targetWeightBps,
+              }))
+            : [],
+      });
+      if (findings.length > 0)
+        throw new ToolError(
+          "INVALID_INPUT",
+          `The RATIONALE's position calls do not match the proposal: ${findings.join("; ")}. Write the RATIONALE again with one call per position (ADD, HOLD, TRIM or EXIT) that matches the plan you propose.`,
+          false,
+          { findings },
+        );
+    }
     if (input.decision.kind === "PROPOSE") {
       let findings: readonly { code: string; field: string; message: string }[];
       if (input.decision.template === "target_portfolio@1") {

@@ -1,4 +1,4 @@
-import type { ResearchBrief } from "@alpha-agents/platform-tools";
+import { type ClaimClass, FUNDAMENTALS, type ResearchBrief } from "@alpha-agents/platform-tools";
 import { numbersIn } from "../narrator.ts";
 
 /**
@@ -10,7 +10,10 @@ import { numbersIn } from "../narrator.ts";
  * - every URL it names, and every source it cites, is a URL this cycle
  *   retrieved or the name of a tool this cycle called;
  * - it repeats no run of eight words from a mounted skill or playbook;
- * - it contains no canary string.
+ * - it contains no canary string;
+ * - every claim's source class is one its sources can give (F-U8: a figure
+ *   from an aggregator is market, not onchain; a web page is primary or news;
+ *   a post is social), which fixes the tagging slips seen in P3-U7.
  * Each reason names the field and says what to change, so the agent can
  * write a corrected brief. Pure: the cycle's records come in as arguments.
  */
@@ -43,9 +46,17 @@ export function briefTexts(b: ResearchBrief): [string, string][] {
       break;
     case "THEME":
       out.push(["question", b.question]);
+      out.push(["whatItIs", b.whatItIs]);
+      out.push(["whyNow", b.whyNow]);
+      for (const k of FUNDAMENTALS) {
+        const f = b.fundamentals[k];
+        if (f) out.push([`fundamentals.${k}.text`, f.text]);
+      }
       claims("evidenceFor", b.evidenceFor);
       claims("evidenceAgainst", b.evidenceAgainst);
+      b.risks.forEach((r, i) => out.push([`risks[${i}]`, r]));
       out.push(["freshness", b.freshness]);
+      out.push(["screen.summary", b.screen.summary]);
       if (b.thesis) {
         out.push(["thesis.statement", b.thesis.statement]);
         out.push(["thesis.killCriterion", b.thesis.killCriterion]);
@@ -63,8 +74,41 @@ export function briefTexts(b: ResearchBrief): [string, string][] {
       claims("points", b.points);
       break;
     case "RATIONALE":
+      out.push(["portfolioView", b.portfolioView]);
+      b.positions.forEach((p, i) => out.push([`positions[${i}].reason`, p.reason]));
       claims("points", b.points);
       out.push(["whatWouldChangeIt", b.whatWouldChangeIt]);
+      break;
+  }
+  return out;
+}
+
+/** Every claim of a brief (a tagged class with its sources), by path, for the class check. */
+export function briefClaims(
+  b: ResearchBrief,
+): [string, { readonly class: ClaimClass; readonly sources: readonly string[] }][] {
+  const out: [string, { class: ClaimClass; sources: readonly string[] }][] = [];
+  const claims = (
+    path: string,
+    list: readonly { class: ClaimClass; sources: readonly string[] }[],
+  ) => list.forEach((c, i) => out.push([`${path}[${i}]`, c]));
+  switch (b.kind) {
+    case "SCAN":
+      claims("changes", b.changes);
+      break;
+    case "THEME":
+      for (const k of FUNDAMENTALS) {
+        const f = b.fundamentals[k];
+        if (f) out.push([`fundamentals.${k}`, f]);
+      }
+      claims("evidenceFor", b.evidenceFor);
+      claims("evidenceAgainst", b.evidenceAgainst);
+      break;
+    case "CHALLENGE":
+      break;
+    case "OVERVIEW":
+    case "RATIONALE":
+      claims("points", b.points);
       break;
   }
   return out;
@@ -83,6 +127,10 @@ export function briefSources(b: ResearchBrief): [string, string][] {
       b.themes.forEach((t, i) => add(`themes[${i}].sources`, t.sources));
       break;
     case "THEME":
+      for (const k of FUNDAMENTALS) {
+        const f = b.fundamentals[k];
+        if (f) add(`fundamentals.${k}.sources`, f.sources);
+      }
       claims("evidenceFor", b.evidenceFor);
       claims("evidenceAgainst", b.evidenceAgainst);
       break;
@@ -182,6 +230,57 @@ export function scaledTraces(
   return out;
 }
 
+/**
+ * The source classes each tool can give (F-U8, the source hierarchy): a tool
+ * missing here constrains nothing (the platform's own records relay every
+ * class). A URL is primary or news, or social on a social host.
+ */
+const TOOL_CLASSES: Readonly<Record<string, readonly ClaimClass[]>> = {
+  read_contract: ["onchain"],
+  balance: ["onchain"],
+  get_code: ["onchain"],
+  dune_query: ["onchain"],
+  holders: ["onchain"],
+  screen_token: ["onchain"],
+  get_portfolio: ["onchain"],
+  get_limits: ["onchain"],
+  tradable_now: ["onchain"],
+  hypersync_events: ["onchain"],
+  get_pool_depth: ["onchain", "market"],
+  get_prices: ["onchain", "market"],
+  list_tokens: ["onchain", "market"],
+  new_pools: ["onchain", "market"],
+  find_pools: ["onchain", "market"],
+  market_snapshot: ["market"],
+  defillama_tvl: ["market"],
+  defillama_yields: ["market"],
+  coinmarketcap_prices: ["market"],
+  volatility: ["market"],
+  get_quote: ["market"],
+  lookup_token: ["market"],
+  ohlcv: ["market"],
+  unlocks: ["market"],
+  read_url: ["primary", "news"],
+  web_search: ["primary", "news"],
+  x_search: ["social"],
+};
+const SOCIAL_HOST =
+  /^(?:www\.|mobile\.)?(?:x\.com|twitter\.com|t\.me|telegram\.me|reddit\.com|discord\.(?:gg|com)|warpcast\.com|farcaster\.xyz)$/i;
+
+/** The classes a source can support; null when it constrains nothing. */
+export function sourceClasses(source: string): readonly ClaimClass[] | null {
+  if (/^https?:\/\//i.test(source)) {
+    let host: string;
+    try {
+      host = new URL(source).hostname;
+    } catch {
+      return null;
+    }
+    return SOCIAL_HOST.test(host) ? ["social"] : ["primary", "news"];
+  }
+  return TOOL_CLASSES[source.replace(/^mcp__[a-z]+__/, "")] ?? null;
+}
+
 const URL_RE = /\bhttps?:\/\/[^\s)<>"']+/gi;
 const normalizeUrl = (u: string) =>
   u
@@ -234,6 +333,17 @@ export function validateBrief(brief: ResearchBrief, ctx: BriefContext): BriefChe
         break;
       }
     }
+  }
+
+  for (const [path, claim] of briefClaims(brief)) {
+    const given = claim.sources.map((src) => [src, sourceClasses(src)] as const);
+    const constrained = given.filter(
+      (g): g is readonly [string, readonly ClaimClass[]] => g[1] !== null,
+    );
+    if (constrained.length === given.length && !constrained.some((g) => g[1].includes(claim.class)))
+      reasons.push(
+        `${path}: class "${claim.class}" is not what its sources give (${constrained.map(([src, c]) => `${src.slice(0, 60)}: ${c.join(" or ")}`).join("; ")}); tag the claim by the source it actually cites`,
+      );
   }
 
   for (const [path, source] of briefSources(brief)) {

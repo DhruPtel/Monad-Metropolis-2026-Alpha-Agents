@@ -101,10 +101,16 @@ export function cycleEnvelope(kind: CycleKind): { maxTurns: number; runBudgetSec
 
 export type Materiality = "low" | "medium" | "high";
 
+/** What a theme is about (F-U8): a token worth a Dive, a held position to review, or a market-wide change. */
+export type ThemeScope = "TOKEN" | "POSITION" | "MARKET";
+
 export interface ScanTheme {
   readonly code: string;
   readonly materiality: Materiality;
-  readonly asset: "USDC" | "WMON";
+  readonly scope: ThemeScope;
+  /** The token's address for a TOKEN or POSITION theme; null for a MARKET theme. */
+  readonly token: string | null;
+  readonly symbol: string | null;
 }
 
 const RANK: Readonly<Record<Materiality, number>> = { high: 3, medium: 2, low: 1 };

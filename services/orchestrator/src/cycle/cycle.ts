@@ -260,7 +260,7 @@ class Engine {
 
     const dived: string[] = [];
     for (const theme of dives) {
-      const dive = await this.modelStage("DIVE", theme.code);
+      const dive = await this.modelStage("DIVE", theme.code, [], theme);
       if (
         dive.end.status === "stopped" ||
         dive.end.status === "failed" ||
@@ -360,6 +360,7 @@ class Engine {
     stage: Exclude<Stage, "TEST">,
     themeCode: string | null,
     diveThemes: readonly string[] = [],
+    theme: ScanTheme | null = null,
   ): Promise<{ run: StageRun; end: StageEnd }> {
     this.seq += 1;
     const kind = this.cycle.kind;
@@ -399,6 +400,7 @@ class Engine {
       stage,
       kind,
       themeCode,
+      token: theme?.token ? { address: theme.token, symbol: theme.symbol } : null,
       caps,
       ceilingUsdcE6: ceiling,
       diveThemes,
@@ -538,7 +540,13 @@ class Engine {
     const briefs = await this.ctx.cycles.briefs({ stageRunId: run.stageRunId, status: "accepted" });
     const scan = briefs.find((b) => b.kind === "SCAN");
     const themes = ((scan?.body as { themes?: ScanTheme[] } | undefined)?.themes ?? []).map(
-      (t) => ({ code: t.code, materiality: t.materiality, asset: t.asset }),
+      (t) => ({
+        code: t.code,
+        materiality: t.materiality,
+        scope: t.scope ?? "MARKET",
+        token: t.token ?? null,
+        symbol: t.symbol ?? null,
+      }),
     );
     return themes;
   }

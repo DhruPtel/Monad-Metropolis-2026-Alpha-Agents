@@ -26,6 +26,7 @@ const ctx = {
       },
     },
     { tool: "read_url", result: { url: "https://blog.monad.xyz/update", content: "text" } },
+    { tool: "get_research_context", result: { cycle: { stage: "SCAN" } } },
   ],
   urls: ["https://news.example/monad-tvl", "https://blog.monad.xyz/update"],
   skillRuns: runs,
@@ -47,7 +48,9 @@ const scan = (over: Partial<Extract<ResearchBrief, { kind: "SCAN" }>> = {}): Res
     {
       code: "TVL_OUTFLOW",
       materiality: "high",
-      asset: "WMON",
+      scope: "MARKET",
+      token: null,
+      symbol: null,
       whyNow: "Outflows reported at https://news.example/monad-tvl match the snapshot.",
       sources: ["https://news.example/monad-tvl", "market_snapshot"],
     },
@@ -131,7 +134,9 @@ describe("the brief validator (D-284, P3-U4)", () => {
         {
           code: "TVL_OUTFLOW",
           materiality: "high",
-          asset: "WMON",
+          scope: "MARKET",
+          token: null,
+          symbol: null,
           whyNow: "See https://evil.example/pump for details.",
           sources: ["https://evil.example/pump"],
         },
@@ -201,10 +206,27 @@ describe("the brief validator (D-284, P3-U4)", () => {
     const theme = {
       kind: "THEME",
       themeCode: "TVL_OUTFLOW",
+      token: null,
+      symbol: null,
       question: "Is the outflow rotation or exit?",
+      whatItIs: "Monad's DEX liquidity as a whole.",
+      whyNow: "A large weekly fall.",
+      fundamentals: {
+        usage: null,
+        feesRevenueVolume: null,
+        tvl: null,
+        holdersLiquidity: null,
+        supplyEmissions: null,
+        control: null,
+        catalysts: null,
+        relativeValue: null,
+      },
       evidenceFor: [],
       evidenceAgainst: [],
+      risks: ["A price move read as an outflow."],
       freshness: "All figures from today.",
+      screen: { verdict: "NOT_RUN", summary: "No token to screen." },
+      fairWeightBps: null,
       thesis: {
         statement: "TVL keeps falling.",
         killCriterion: "TVL rises.",
@@ -226,7 +248,142 @@ describe("the brief validator (D-284, P3-U4)", () => {
       themeCodes: [],
       points: [],
       whatWouldChangeIt: "A thesis that survives the Challenge.",
+      portfolioView: "Nothing to change.",
+      evidenceStrength: "weak",
+      positions: [],
     });
     expect(rationale.ok ? "" : rationale.reasons.join(" ")).toContain("reasonCode");
+  });
+
+  it("refuses a claim whose class its sources cannot give, and names what they give (F-U8)", () => {
+    const claim = (cls: "onchain" | "market" | "primary" | "news" | "social", sources: string[]) =>
+      scan({
+        changes: [
+          { text: "Monad TVL is 1,004,000,000 USD.", class: cls, confidence: "high", sources },
+        ],
+      });
+    expect(validateBrief(claim("market", ["market_snapshot"]), ctx).ok).toBe(true);
+    const tagged = validateBrief(claim("onchain", ["market_snapshot"]), ctx);
+    expect(tagged.ok).toBe(false);
+    expect(tagged.reasons[0]).toContain(
+      'changes[0]: class "onchain" is not what its sources give (market_snapshot: market)',
+    );
+    // A page is primary or news, never onchain; a mixed set is fine when one source gives the class.
+    expect(validateBrief(claim("onchain", ["https://news.example/monad-tvl"]), ctx).ok).toBe(false);
+    expect(validateBrief(claim("news", ["https://news.example/monad-tvl"]), ctx).ok).toBe(true);
+    expect(validateBrief(claim("primary", ["https://blog.monad.xyz/update"]), ctx).ok).toBe(true);
+    expect(
+      validateBrief(
+        claim("onchain", ["https://news.example/monad-tvl", "mcp__data__web_search"]),
+        ctx,
+      ).ok,
+    ).toBe(false);
+    // The platform's own records relay every class, so they constrain nothing.
+    expect(validateBrief(claim("onchain", ["get_research_context"]), ctx).ok).toBe(true);
+  });
+
+  it("parses the Dive's per-token brief: a fair weight needs a thesis and a passing screen (F-U8)", () => {
+    const wbtc = "0x0555e30da8f98308edb960aa94c0db47230d2b9c";
+    const theme = (over: Record<string, unknown> = {}) =>
+      parseBrief({
+        kind: "THEME",
+        themeCode: "WBTC_ADD",
+        token: wbtc,
+        symbol: "WBTC",
+        question: "Does WBTC earn a place in this account?",
+        whatItIs: "Wrapped bitcoin on Monad.",
+        whyNow: "Its pool deepened this week.",
+        fundamentals: {
+          usage: null,
+          feesRevenueVolume: null,
+          tvl: null,
+          holdersLiquidity: {
+            text: "The deepest pool holds enough for this account's legs.",
+            class: "onchain",
+            confidence: "medium",
+            sources: ["find_pools"],
+            asOf: "today",
+          },
+          supplyEmissions: null,
+          control: null,
+          catalysts: null,
+          relativeValue: null,
+        },
+        evidenceFor: [],
+        evidenceAgainst: [],
+        risks: ["Bridge risk on the wrapped supply."],
+        freshness: "Pool figures are from today.",
+        screen: { verdict: "PASSED", summary: "Every check passed." },
+        thesis: {
+          statement: "WBTC tracks bitcoin while its pool stays deep.",
+          killCriterion: "The pool's liquidity halves.",
+          horizonHours: 240,
+          confidence: "medium",
+        },
+        noThesisReason: null,
+        fairWeightBps: 1_500,
+        weakestLink: "One pool carries the depth.",
+        forThePlan: "A small position within the envelope.",
+        ...over,
+      });
+    expect(theme().ok).toBe(true);
+    const refused = theme({
+      screen: { verdict: "REFUSED", summary: "The sell simulation failed." },
+    });
+    expect(refused.ok).toBe(false);
+    if (!refused.ok) expect(refused.reasons.join(" ")).toContain("safety screen passed");
+    const market = theme({
+      token: null,
+      symbol: null,
+      screen: { verdict: "PASSED", summary: "n/a" },
+    });
+    expect(market.ok).toBe(false);
+    if (!market.ok) expect(market.reasons.join(" ")).toContain("market theme has no token");
+    const noThesis = theme({ thesis: null, noThesisReason: "Too thin.", fairWeightBps: 1_000 });
+    expect(noThesis.ok).toBe(false);
+    if (!noThesis.ok) expect(noThesis.reasons.join(" ")).toContain("needs a thesis");
+    expect(theme({ thesis: null, noThesisReason: "Too thin.", fairWeightBps: null }).ok).toBe(true);
+  });
+
+  it("parses the Zoom out's rationale: weak evidence never proposes, and NO_CHANGE holds every position (F-U8)", () => {
+    const wbtc = "0x0555e30da8f98308edb960aa94c0db47230d2b9c";
+    const rationale = (over: Record<string, unknown> = {}) =>
+      parseBrief({
+        kind: "RATIONALE",
+        decision: "PROPOSE",
+        reasonCode: null,
+        themeCodes: ["WBTC_ADD"],
+        points: [],
+        whatWouldChangeIt: "The pool thinning out.",
+        portfolioView: "The account is all cash against a Balanced goal; one position fits.",
+        evidenceStrength: "mixed",
+        positions: [
+          {
+            token: wbtc,
+            symbol: "WBTC",
+            action: "ADD",
+            themeCode: "WBTC_ADD",
+            reason: "Deep pool.",
+          },
+        ],
+        ...over,
+      });
+    expect(rationale().ok).toBe(true);
+    const weak = rationale({ evidenceStrength: "weak" });
+    expect(weak.ok).toBe(false);
+    if (!weak.ok) expect(weak.reasons.join(" ")).toContain("weak evidence cannot carry a proposal");
+    const held = rationale({ decision: "NO_CHANGE", reasonCode: "EVIDENCE_THIN" });
+    expect(held.ok).toBe(false);
+    if (!held.ok) expect(held.reasons.join(" ")).toContain("holds every position");
+    expect(
+      rationale({
+        decision: "NO_CHANGE",
+        reasonCode: "EVIDENCE_THIN",
+        evidenceStrength: "weak",
+        positions: [
+          { token: wbtc, symbol: "WBTC", action: "HOLD", themeCode: null, reason: "Nothing new." },
+        ],
+      }).ok,
+    ).toBe(true);
   });
 });

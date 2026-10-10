@@ -21,7 +21,8 @@ export const completeStageInput = {
   candidates: z
     .array(
       z.strictObject({
-        asset: z.enum(["USDC", "WMON"]),
+        /** The token's symbol or address, or MARKET for a chain-wide theme (F-U8: any registered token). */
+        asset: z.string().trim().min(1).max(42),
         thesisCode: code,
         confidenceBps: z.int().min(0).max(10_000),
       }),

@@ -40,41 +40,103 @@ const text = (max: number) => z.string().trim().min(3).max(max);
  */
 export const SourceRef = z.string().trim().min(3).max(2_048);
 
+/** Where a claim's evidence comes from, strongest first (F-U8: the source hierarchy). */
+export const CLAIM_CLASSES = ["onchain", "market", "primary", "news", "social"] as const;
+export type ClaimClass = (typeof CLAIM_CLASSES)[number];
+
 export const Claim = z.strictObject({
   text: text(240),
-  class: z.enum(["market", "onchain", "primary", "news", "social"]),
+  class: z.enum(CLAIM_CLASSES),
   confidence: z.enum(["high", "medium", "low"]),
   sources: z.array(SourceRef).min(1).max(4),
+  /** F-U8: when the figure or statement is from, as the tool gave it: a date, or an age such as "3 days old". */
+  asOf: z.string().trim().min(1).max(40).optional(),
 });
 export type Claim = z.infer<typeof Claim>;
+
+const TokenAddress = z.string().regex(/^0x[0-9a-fA-F]{40}$/, "a token's address");
+const symbol = z.string().trim().min(1).max(32);
+
+/** What a Scan theme is about: a token worth a Dive, a held position to review, or a market-wide change. */
+export const THEME_SCOPES = ["TOKEN", "POSITION", "MARKET"] as const;
+export type ThemeScope = (typeof THEME_SCOPES)[number];
+
+export const ScanThemeSchema = z
+  .strictObject({
+    code: themeCode,
+    materiality: z.enum(["high", "medium", "low"]),
+    scope: z.enum(THEME_SCOPES),
+    token: TokenAddress.nullable(),
+    symbol: symbol.nullable(),
+    whyNow: text(240),
+    sources: z.array(SourceRef).min(1).max(4),
+  })
+  .refine((t) => (t.scope === "MARKET") === (t.token === null), {
+    message: "a TOKEN or POSITION theme names its token's address, and a MARKET theme has none",
+    path: ["token"],
+  });
+export type ScanThemeJson = z.infer<typeof ScanThemeSchema>;
 
 export const ScanBrief = z.strictObject({
   kind: z.literal("SCAN"),
   summary: text(400),
   changes: z.array(Claim).max(6),
-  themes: z
-    .array(
-      z.strictObject({
-        code: themeCode,
-        materiality: z.enum(["high", "medium", "low"]),
-        asset: z.enum(["USDC", "WMON"]),
-        whyNow: text(240),
-        sources: z.array(SourceRef).min(1).max(4),
-      }),
-    )
-    .max(4),
+  themes: z.array(ScanThemeSchema).max(4),
   quiet: z.boolean(),
   dataGaps: z.array(text(160)).max(5),
 });
 
+/**
+ * The fundamental analysis checklist of a Dive (F-U8), each item a finding
+ * with its source class, confidence and age, or null when no tool reached it
+ * (the brief's dataGaps or freshness says why).
+ */
+export const FUNDAMENTALS = [
+  "usage",
+  "feesRevenueVolume",
+  "tvl",
+  "holdersLiquidity",
+  "supplyEmissions",
+  "control",
+  "catalysts",
+  "relativeValue",
+] as const;
+export type Fundamental = (typeof FUNDAMENTALS)[number];
+
+const Finding = Claim.nullable();
+export const Fundamentals = z.strictObject({
+  usage: Finding,
+  feesRevenueVolume: Finding,
+  tvl: Finding,
+  holdersLiquidity: Finding,
+  supplyEmissions: Finding,
+  control: Finding,
+  catalysts: Finding,
+  relativeValue: Finding,
+});
+export type Fundamentals = z.infer<typeof Fundamentals>;
+
+/** The Dive's brief per token (F-U8): what it is, why now, the checklist, the evidence, the risks, the screen and the thesis. */
 export const ThemeBrief = z
   .strictObject({
     kind: z.literal("THEME"),
     themeCode,
+    /** The token the Dive is about (its address and symbol); both null for a market-wide theme. */
+    token: TokenAddress.nullable(),
+    symbol: symbol.nullable(),
     question: text(240),
+    whatItIs: text(300),
+    whyNow: text(300),
+    fundamentals: Fundamentals,
     evidenceFor: z.array(Claim).max(6),
     evidenceAgainst: z.array(Claim).max(6),
+    risks: z.array(text(200)).min(1).max(6),
     freshness: text(300),
+    /** The token safety screen's verdict as screen_token gave it, with what its checks said. */
+    screen: z.strictObject({
+      verdict: z.enum(["PASSED", "REFUSED", "NOT_RUN"]),
+      summary: text(300),
+    }),
     thesis: z
       .strictObject({
         statement: text(300),
@@ -84,12 +146,30 @@ export const ThemeBrief = z
       })
       .nullable(),
     noThesisReason: text(300).nullable(),
+    /** A fair position weight given the pool's depth and the envelope; the Test caps it, the runner sizes legs. */
+    fairWeightBps: z.int().min(0).max(10_000).nullable(),
     weakestLink: text(240),
     forThePlan: text(300),
   })
   .refine((b) => (b.thesis === null) !== (b.noThesisReason === null), {
     message: "give either a thesis or a noThesisReason, not both and not neither",
     path: ["thesis"],
+  })
+  .refine((b) => b.thesis !== null || b.fairWeightBps === null, {
+    message: "a fair weight needs a thesis; without one it is null",
+    path: ["fairWeightBps"],
+  })
+  .refine((b) => !((b.fairWeightBps ?? 0) > 0 && b.screen.verdict !== "PASSED"), {
+    message: "a fair weight above 0 needs a token whose safety screen passed",
+    path: ["fairWeightBps"],
+  })
+  .refine((b) => b.token !== null || b.screen.verdict === "NOT_RUN", {
+    message: "a market theme has no token to screen; its screen verdict is NOT_RUN",
+    path: ["screen", "verdict"],
+  })
+  .refine((b) => (b.token === null) === (b.symbol === null), {
+    message: "a token theme names the token's address and symbol; a market theme has neither",
+    path: ["symbol"],
   });
 
 export const ChallengeBrief = z.strictObject({
@@ -127,6 +207,22 @@ export const NO_CHANGE_REASONS = [
   "BUDGET_SHORT",
 ] as const;
 
+/** What the Zoom out decides for one position (F-U8, FINAL_PLAN 0.7). */
+export const POSITION_ACTIONS = ["ADD", "HOLD", "TRIM", "EXIT"] as const;
+export type PositionAction = (typeof POSITION_ACTIONS)[number];
+
+export const PositionCall = z.strictObject({
+  token: TokenAddress,
+  symbol,
+  action: z.enum(POSITION_ACTIONS),
+  /** The Dive's theme the call rests on; null for a hold with nothing new. */
+  themeCode: themeCode.nullable(),
+  reason: text(200),
+});
+export type PositionCall = z.infer<typeof PositionCall>;
+
+export const EVIDENCE_STRENGTHS = ["strong", "mixed", "weak"] as const;
+
 export const RationaleBrief = z
   .strictObject({
     kind: z.literal("RATIONALE"),
@@ -135,11 +231,31 @@ export const RationaleBrief = z
     themeCodes: z.array(themeCode).max(4),
     points: z.array(Claim).max(5),
     whatWouldChangeIt: text(240),
+    /** F-U8: the whole portfolio weighed against the owner's goal, in plain words. */
+    portfolioView: text(400),
+    /** How strong the cycle's evidence is overall; weak evidence never carries a proposal. */
+    evidenceStrength: z.enum(EVIDENCE_STRENGTHS),
+    /** One call per position held or proposed: add, hold, trim or exit. */
+    positions: z.array(PositionCall).max(12),
   })
   .refine((b) => (b.decision === "NO_CHANGE") === (b.reasonCode !== null), {
     message: "a NO_CHANGE decision needs a reasonCode, and a PROPOSE decision has none",
     path: ["reasonCode"],
-  });
+  })
+  .refine((b) => b.decision === "PROPOSE" || b.positions.every((p) => p.action === "HOLD"), {
+    message:
+      "a NO_CHANGE decision holds every position; an ADD, TRIM or EXIT needs a PROPOSE decision",
+    path: ["positions"],
+  })
+  .refine((b) => !(b.evidenceStrength === "weak" && b.decision === "PROPOSE"), {
+    message:
+      "weak evidence cannot carry a proposal: decide NO_CHANGE with EVIDENCE_THIN and say what would change it",
+    path: ["evidenceStrength"],
+  })
+  .refine(
+    (b) => new Set(b.positions.map((p) => p.token.toLowerCase())).size === b.positions.length,
+    { message: "one call per token", path: ["positions"] },
+  );
 
 export const ResearchBrief = z.union([
   ScanBrief,
@@ -204,6 +320,8 @@ export const GetResearchContextOutput = z.strictObject({
     kind: z.enum(["ROUTINE", "TRIGGERED", "ACTIVATION"]),
     stage: z.enum(["SCAN", "DIVE", "CHALLENGE", "TEST", "ZOOM_OUT"]),
     themeCode: themeCode.nullable(),
+    /** F-U8: the token a Dive is about, from the Scan's theme; null for a market theme or another stage. */
+    token: z.strictObject({ address: z.string(), symbol: z.string().nullable() }).nullable(),
     briefsToWrite: z.array(z.enum(BRIEF_KINDS)),
   }),
   plan: z

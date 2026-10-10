@@ -61,11 +61,36 @@ describe("stage rules (P3-U4)", () => {
   });
 
   it("Dives on high themes and medium ones not dived in 48 hours, up to the day's Dives", () => {
+    const wbtc = "0x0555e30da8f98308edb960aa94c0db47230d2b9c";
     const themes = [
-      { code: "LOW_ONE", materiality: "low" as const, asset: "WMON" as const },
-      { code: "MED_FRESH", materiality: "medium" as const, asset: "WMON" as const },
-      { code: "MED_SEEN", materiality: "medium" as const, asset: "USDC" as const },
-      { code: "HIGH_ONE", materiality: "high" as const, asset: "WMON" as const },
+      {
+        code: "LOW_ONE",
+        materiality: "low" as const,
+        scope: "MARKET" as const,
+        token: null,
+        symbol: null,
+      },
+      {
+        code: "MED_FRESH",
+        materiality: "medium" as const,
+        scope: "TOKEN" as const,
+        token: wbtc,
+        symbol: "WBTC",
+      },
+      {
+        code: "MED_SEEN",
+        materiality: "medium" as const,
+        scope: "POSITION" as const,
+        token: wbtc,
+        symbol: "WBTC",
+      },
+      {
+        code: "HIGH_ONE",
+        materiality: "high" as const,
+        scope: "MARKET" as const,
+        token: null,
+        symbol: null,
+      },
     ];
     const routine = (divesPerDay: number, divesToday: number) =>
       divesFor({
