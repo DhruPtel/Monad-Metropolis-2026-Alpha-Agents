@@ -967,6 +967,44 @@ export function createApi(o: ApiOptions): Hono {
       return c.json({ address: await o.signer.signer.createKey(ref.agentId) }, 201);
     });
 
+    /** F-U5: which custody set serves the agent (D-367), and the Executor its grants target. */
+    app.get("/v1/agents/:agentId/custody", async (c) => {
+      const ref = agentRef(c.req.param("agentId"), o.chainId);
+      if (!ref) return c.json({ error: "bad_agent_id" }, 400);
+      return c.json(await o.orchestrator.executorFor(ref.agentId));
+    });
+
+    /**
+     * F-U5: a test swap on the fund agent's set for any registered pair, along
+     * the best route, through the signer and Executor v3:
+     * `{ "sell": "USDC", "buy": "WBTC", "amount": "5" }` (symbols or addresses).
+     */
+    app.post("/v1/agents/:agentId/test-swap-v3", async (c) => {
+      const ref = agentRef(c.req.param("agentId"), o.chainId);
+      if (!ref) return c.json({ error: "bad_agent_id" }, 400);
+      if (!o.signer)
+        return c.json({ error: "signer_off", message: "The signer is not running." }, 409);
+      if (!o.forkUrl)
+        return c.json({ error: "no_fork", message: "Test swaps need the local fork." }, 409);
+      const body = (await c.req.json().catch(() => null)) as {
+        sell?: unknown;
+        buy?: unknown;
+        amount?: unknown;
+      } | null;
+      if (typeof body?.sell !== "string" || typeof body?.buy !== "string")
+        return c.json({ error: "bad_pair", message: "sell and buy name registered tokens" }, 400);
+      if (typeof body.amount !== "string")
+        return c.json({ error: "bad_amount", message: "amount is a decimal string" }, 400);
+      try {
+        return c.json(await o.orchestrator.testSwapV3(ref, body.sell, body.buy, body.amount), 202);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        if (err instanceof RangeError)
+          return c.json({ error: "refused", message: message.slice(0, 300) }, 409);
+        throw err;
+      }
+    });
+
     /**
      * P2-U4: a test swap on the local fork through the signer and the
      * Executor: `{ "direction": "buy" | "sell", "amount": "5", "breakLimit"?: code }`.

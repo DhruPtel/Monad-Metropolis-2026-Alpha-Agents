@@ -8,10 +8,11 @@ export default function TradesPage() {
     <div className="flex flex-col gap-6">
       <PanelHeader
         title="Trades"
-        description="Test swaps on the playtest fork through the signer, the Executor and the real Uniswap v4 MON/USDC pool. Nothing here changes the fork until you press a button. Local fork only."
+        description="Test swaps on the playtest fork through the signer and the Executor of the agent's custody set: v2 on the real Uniswap v4 MON/USDC pool, or the fund agent's v3 set with many tokens along routes of registered pools. Nothing here changes the fork until you press a button. Local fork only."
       />
       <TradesPanel
         usdc={addressEntry("local", "usdc").address ?? ""}
+        wmon={addressEntry("local", "wmon").address ?? ""}
         limits={BREAKABLE_LIMITS.map((code) => ({ code, text: BREAKABLE_LIMIT_TEXT[code] }))}
       />
     </div>

@@ -3,13 +3,20 @@ import {
   type TradesView,
   type TransactionView,
   amountOf,
+  balanceRows,
   describeSwap,
   inFlight,
+  isV3Swap,
   knownReason,
   setupSteps,
+  setupStepsV3,
+  symbolBook,
+  tokenOf,
 } from "./trades";
 
 const USDC = "0x754704Bc059F8C67012fEd69BC8A327a5aafb603";
+const WMON = "0x3bd359C1119dA7Da1D913D1C4D2B7c461115433A";
+const WBTC = "0x5a1e8c0a6b8d2f3e4c5b6a7d8e9f0a1b2c3d4e5f";
 const SIGNER_ADDRESS = "0xc7F0C302B03CFD3b61FEd398eaDBa3E78d97CA56";
 
 const tx = (status: string, over: Partial<TransactionView> = {}): TransactionView => ({
@@ -29,8 +36,33 @@ const tx = (status: string, over: Partial<TransactionView> = {}): TransactionVie
   ...over,
 });
 
+/** A reconciled v3 swap of USDC for WBTC through WMON, with every route token's balance (F-U5). */
+const v3Swap = (over: Partial<TransactionView> = {}): TransactionView =>
+  tx("reconciled", {
+    txId: "v3",
+    intent: {
+      schemaVersion: 2,
+      tokenIn: USDC.toLowerCase(),
+      tokenOut: WBTC,
+      amountIn: "5000000",
+      route: ["0x01", "0x02"],
+      routeTokens: [USDC.toLowerCase(), WMON.toLowerCase(), WBTC],
+    },
+    amountOut: "4210",
+    balances: {
+      [WBTC]: { before: "0", after: "4210" },
+      [WMON.toLowerCase()]: { before: "7", after: "7" },
+      [USDC.toLowerCase()]: { before: "30000000", after: "25000000" },
+    },
+    ...over,
+  });
+
 const view = (over: Partial<TradesView> = {}): TradesView => ({
   signerOn: true,
+  custody: "v2",
+  executorV3: null,
+  snapshotV3: null,
+  tokens: [],
   snapshot: {
     agentId: "1",
     owner: "0x976EA74026E726554dB657fA54763abd0C3a0aa9",
@@ -104,5 +136,123 @@ describe("the Trades panel's data (P2-U4)", () => {
       funded: false,
       grant: false,
     });
+  });
+
+  it("describes a v3 swap by both tokens and its hops, naming unknown tokens by address (F-U5)", () => {
+    const book = symbolBook(
+      {
+        tokens: [
+          {
+            symbol: "WBTC",
+            token: WBTC,
+            decimals: 8,
+            lane: "CORE",
+            status: "BUYABLE",
+            priceClass: "F",
+          },
+        ],
+        snapshotV3: null,
+      },
+      USDC,
+      WMON,
+    );
+    expect(isV3Swap(v3Swap())).toBe(true);
+    expect(isV3Swap(tx("accepted"))).toBe(false);
+    expect(describeSwap(v3Swap(), USDC, book)).toBe("Swap USDC for WBTC over 2 hops");
+    expect(describeSwap(v3Swap(), USDC)).toBe("Swap USDC for 0x5a1e..4e5f over 2 hops");
+    expect(tokenOf(WMON, USDC, book)).toEqual({ symbol: "WMON", decimals: 18 });
+    expect(tokenOf("0x3bd3", USDC)).toEqual({ symbol: "WMON", decimals: 18 });
+    expect(tokenOf(USDC.toLowerCase(), USDC, {}, true).symbol).toBe("USDC");
+  });
+
+  it("lists every balance change of a v3 swap, the sold token first, and both sides of a v2 one", () => {
+    const book = symbolBook(
+      {
+        tokens: [
+          {
+            symbol: "WBTC",
+            token: WBTC,
+            decimals: 8,
+            lane: "CORE",
+            status: "BUYABLE",
+            priceClass: "F",
+          },
+        ],
+        snapshotV3: null,
+      },
+      USDC,
+      WMON,
+    );
+    const rows = balanceRows(v3Swap(), USDC, book);
+    expect(rows.map((r) => [r.symbol, r.decimals, r.before, r.after])).toEqual([
+      ["USDC", 6, 30_000_000n, 25_000_000n],
+      ["WBTC", 8, 0n, 4210n],
+      ["WMON", 18, 7n, 7n],
+    ]);
+    const v2 = tx("reconciled", {
+      balances: {
+        tokenIn: { before: "60000000", after: "55000000" },
+        tokenOut: { before: "0", after: "145" },
+      },
+    });
+    expect(balanceRows(v2, USDC).map((r) => [r.symbol, r.after])).toEqual([
+      ["USDC", 55_000_000n],
+      ["WMON", 145n],
+    ]);
+    expect(balanceRows(tx("failed"), USDC)).toEqual([]);
+    expect(balanceRows(tx("failed", { intent: null, balances: {} }), USDC)).toEqual([]);
+  });
+
+  it("counts the v3 steps from the v3 account, its holdings and its Executor v3 grant (F-U5)", () => {
+    const snapshotV3 = {
+      agentId: "1",
+      owner: "0x976EA74026E726554dB657fA54763abd0C3a0aa9",
+      ownerEpoch: "0",
+      account: "0x1111111111111111111111111111111111111111",
+      v2Account: null,
+      grant: { key: SIGNER_ADDRESS.toLowerCase(), validUntil: "1793468425" },
+      holdings: [
+        {
+          token: USDC,
+          symbol: "USDC",
+          decimals: 6,
+          balanceRaw: "0",
+          freeRaw: "0",
+          costBasisE6: "0",
+        },
+        {
+          token: WBTC,
+          symbol: "WBTC",
+          decimals: 8,
+          balanceRaw: "4210",
+          freeRaw: "4210",
+          costBasisE6: "5000000",
+        },
+      ],
+      navE6: "30000000",
+      mode: 0,
+      screenedOptIn: false,
+      personalCapE6: "100000000",
+      blockNumber: "109670100",
+    };
+    expect(setupStepsV3({ snapshotV3, sessionKey: SIGNER_ADDRESS })).toEqual({
+      account: true,
+      funded: true,
+      grant: true,
+    });
+    expect(setupStepsV3({ snapshotV3, sessionKey: null }).grant).toBe(false);
+    expect(
+      setupStepsV3({
+        snapshotV3: { ...snapshotV3, holdings: [], grant: null },
+        sessionKey: SIGNER_ADDRESS,
+      }),
+    ).toEqual({ account: true, funded: false, grant: false });
+    expect(setupStepsV3({ snapshotV3: null, sessionKey: SIGNER_ADDRESS })).toEqual({
+      account: false,
+      funded: false,
+      grant: false,
+    });
+    // The v2 steps ignore the v3 set.
+    expect(setupSteps(view({ snapshotV3 })).account).toBe(true);
   });
 });

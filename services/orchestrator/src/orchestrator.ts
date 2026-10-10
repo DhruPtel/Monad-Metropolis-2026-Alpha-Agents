@@ -38,9 +38,27 @@ import {
   disarm,
 } from "@alpha-agents/trading";
 import { SnapshotRecorder } from "./snapshots.ts";
-import type { CustodyPath } from "@alpha-agents/domain";
-import type { Hex } from "viem";
-import { TradeFlow, type TradeFlowGas, type TradeFlowSigner } from "./trade-flow.ts";
+import {
+  assessTradeV3,
+  floorForV3,
+  parseTokenAmountV3,
+  resolveToken,
+  routeTokensOf,
+} from "@alpha-agents/chain-tools";
+import {
+  type CustodyPath,
+  INTENT_SCHEMA_VERSION_V3,
+  ROUTE_ADAPTER_ID,
+  executorV3SwapGasLimit,
+} from "@alpha-agents/domain";
+import type { SwapIntentV3Args } from "@alpha-agents/signer";
+import { type Hex, isAddressEqual, keccak256, toBytes } from "viem";
+import {
+  TradeFlow,
+  type TradeFlowGas,
+  type TradeFlowSigner,
+  minAmountOutFor,
+} from "./trade-flow.ts";
 import { RUNNER_EVERY_MS, TemplateRunner } from "./runner.ts";
 import { runCycleTask } from "./cycle/cycle.ts";
 import { CycleResearch } from "./cycle/research.ts";
@@ -787,6 +805,87 @@ export class Orchestrator {
       })
       .execute();
     return intentId;
+  }
+
+  /**
+   * Local only (the console): a test swap on the fund agent's set for any
+   * registered pair, through the signer and Executor v3 along the best route
+   * now, with the gas rule's limit (F-U5). The Executor decides; the outbox
+   * shows its answer and, once reconciled, every balance change.
+   */
+  async testSwapV3(ref: AgentRef, sellRef: string, buyRef: string, amountText: string) {
+    const v3 = this.o.chain?.readerV3;
+    const trading = this.o.trading;
+    if (!v3) throw new RangeError("The fund agent's set is not deployed on this chain.");
+    if (!trading) throw new RangeError("The signer is not running.");
+    const m = await v3.market();
+    let sell;
+    let buy;
+    let amountIn: bigint;
+    try {
+      sell = resolveToken(m, sellRef);
+      buy = resolveToken(m, buyRef);
+      amountIn = parseTokenAmountV3(amountText, sell);
+    } catch (err) {
+      throw new RangeError(err instanceof Error ? err.message : String(err), { cause: err });
+    }
+    if (amountIn === 0n) throw new RangeError("The amount must be above zero.");
+    const key = await trading.signer.createKey(ref.agentId);
+    const assessed = await assessTradeV3(v3, ref.agentId, sell.token, buy.token, amountIn, key, 0);
+    if (!assessed) throw new RangeError("The agent has no fund account on this chain.");
+    const { a, quote } = assessed;
+    if (!quote)
+      throw new RangeError(
+        `No registered route could be quoted from ${sell.symbol} to ${buy.symbol}.`,
+      );
+    const hops = quote.route.length;
+    const heldAfter =
+      a.holdings.filter((h) => h.balance > 0n).length +
+      (a.holdings.some((h) => isAddressEqual(h.token, buy.token) && h.balance > 0n) ? 0 : 1);
+    const gas = executorV3SwapGasLimit(hops, Math.min(Math.max(heldAfter, 1), 16));
+    const classA = sell.priceClass === "A" || buy.priceClass === "A";
+    const floor = floorForV3(m, sell, buy, amountIn);
+    const minAmountOut = minAmountOutFor(
+      quote.amountOut,
+      floor,
+      classA ? m.policy.maxSlippageClassABps : m.policy.maxSlippageBps,
+    );
+    const swap: SwapIntentV3Args = {
+      schemaVersion: INTENT_SCHEMA_VERSION_V3,
+      chainId: BigInt(ref.chainId),
+      agentId: BigInt(ref.agentId),
+      account: a.account,
+      actionId: keccak256(toBytes(`alpha-agents:test-swap-v3:${ref.chainId}:${randomUUID()}`)),
+      ownerEpoch: a.ownerEpoch,
+      configEpoch: a.configEpoch,
+      policyHash: m.policyHash,
+      adapterId: ROUTE_ADAPTER_ID,
+      tokenIn: sell.token,
+      tokenOut: buy.token,
+      amountIn,
+      minAmountOut,
+      deadline: m.timestamp + BigInt(m.policy.deadlineSeconds),
+      route: quote.route.map((p) => p.poolId),
+      attestationIn: "0x",
+      attestationOut: "0x",
+    };
+    const accepted = await trading.signer.submitSwapV3(
+      ref.agentId,
+      swap,
+      gas,
+      routeTokensOf(quote, sell.token),
+    );
+    return {
+      ...accepted,
+      sell: sell.symbol,
+      buy: buy.symbol,
+      hops,
+      route: swap.route,
+      gas: gas.toString(),
+      expectedOut: quote.amountOut.toString(),
+      minAmountOut: minAmountOut.toString(),
+      blockers: assessed.blockers.map((b) => b.code),
+    };
   }
 
   /** Why the agent did not trade: its arming and its recent blocked trades. */

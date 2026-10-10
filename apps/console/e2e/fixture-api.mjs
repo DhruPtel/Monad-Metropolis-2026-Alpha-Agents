@@ -423,8 +423,49 @@ const transaction = (txId, status, over) => ({
   updatedAt: "2026-10-07T12:00:00.000Z",
   ...over,
 });
+// F-U5: a swap on the fund agent's v3 set, USDC for WBTC through WMON, with every route token's balance.
+const WBTC = "0x5a1e8c0a6b8d2f3e4c5b6a7d8e9f0a1b2c3d4e5f";
+const swapIntentV3 = () => ({
+  schemaVersion: 2,
+  chainId: "143143",
+  agentId: "1",
+  account: "0x1111111111111111111111111111111111111111",
+  actionId: `0x${"b2".repeat(32)}`,
+  tokenIn: USDC.toLowerCase(),
+  tokenOut: WBTC,
+  amountIn: "5000000",
+  minAmountOut: "4100",
+  deadline: "1790876545",
+  adapterId: `0x${"c3".repeat(32)}`,
+  route: [`0x${"d4".repeat(32)}`, `0x${"e5".repeat(32)}`],
+  attestationIn: "0x",
+  attestationOut: "0x",
+  routeTokens: [USDC.toLowerCase(), WMON.toLowerCase(), WBTC],
+});
 const outbox = JSON.stringify({
   transactions: [
+    transaction("tx-v3", "reconciled", {
+      actionId: `0x${"b2".repeat(32)}`,
+      nonce: 3,
+      txHash: `0x${"c0de".repeat(16)}`,
+      blockNumber: 109670106,
+      gasUsed: "1804512",
+      intent: swapIntentV3(),
+      amountOut: "4210",
+      balances: {
+        [USDC.toLowerCase()]: { before: "30000000", after: "25000000" },
+        [WMON.toLowerCase()]: { before: "7000000000000000000", after: "7000000000000000000" },
+        [WBTC]: { before: "0", after: "4210" },
+      },
+      ledgerEntryId: "7d2f5c1a-0b3e-4f6d-8a9c-2e1f0d3b4c5a",
+      history: [
+        at("accepted", 6),
+        at("signed", 6, "nonce 3"),
+        at("submitted", 6),
+        at("confirmed", 6, "block 109670106"),
+        at("reconciled", 6),
+      ],
+    }),
     transaction("tx-refund", "reconciled", {
       kind: "usdc_refund",
       actionId: "refund:5f0c2d9e-7b1a-4c3e-9d2f-1a2b3c4d5e6f",
@@ -484,6 +525,18 @@ const outbox = JSON.stringify({
         at("reconciled", 1),
       ],
     }),
+  ],
+});
+const ledgerEntryV3 = JSON.stringify({
+  entryId: "7d2f5c1a-0b3e-4f6d-8a9c-2e1f0d3b4c5a",
+  kind: "trade",
+  occurredAt: "2026-10-07T12:06:00.000Z",
+  source: {},
+  lines: [
+    { account: "personal_account", asset: "USDC", amount: "-5000000" },
+    { account: "venue", asset: "USDC", amount: "5000000" },
+    { account: "venue", asset: WBTC, amount: "-4210" },
+    { account: "personal_account", asset: WBTC, amount: "4210" },
   ],
 });
 const ledgerEntry = JSON.stringify({
@@ -611,6 +664,9 @@ const routes = {
   "GET /v1/signer/outbox?agentId=1": [200, outbox],
   "GET /v1/agents/1/session-key": [200, JSON.stringify({ address: SIGNER_ADDRESS })],
   "GET /v1/signer/ledger/0b6ac513-5421-41e8-8403-64e6a2efd8b1": [200, ledgerEntry],
+  "GET /v1/signer/ledger/7d2f5c1a-0b3e-4f6d-8a9c-2e1f0d3b4c5a": [200, ledgerEntryV3],
+  // F-U5 (D-367): agent 1 has only a v2 account, so its custody set is v2.
+  "GET /v1/agents/1/custody": [200, JSON.stringify({ custody: "v2", executor: null })],
   "GET /v1/agents": [200, body],
   "GET /v1/runtimes": [200, runtimes],
   "POST /v1/agents/1/tasks/noop": [202, JSON.stringify({ taskId: "fixture-task" })],

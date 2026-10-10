@@ -13,3 +13,4 @@ export * from "./upstream.ts";
 export * from "./upstream-proxy.ts";
 export * from "./local-feeds.ts";
 export * from "./trading.ts";
+export * from "./trading-v3.ts";

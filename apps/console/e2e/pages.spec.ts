@@ -405,7 +405,7 @@ test.describe("agents panel controls (P1-U5)", () => {
   });
 });
 
-test("the Trades page shows the signer's outbox: states, hashes, refusals, balances, refunds and the ledger entry (P2-U4, P2-U5)", async ({
+test("the Trades page shows the signer's outbox: states, hashes, refusals, balances, refunds, a v3 swap's every balance change and the ledger entry (P2-U4, P2-U5, F-U5)", async ({
   page,
 }) => {
   await page.goto("/trades");
@@ -415,10 +415,22 @@ test("the Trades page shows the signer's outbox: states, hashes, refusals, balan
   // No fork answers in this suite: the read says so, and the outbox still shows.
   await expect(page.getByTestId("fork-error")).toContainText("The fork could not be read");
   await expect(page.getByText("Signer running")).toBeVisible();
+  // The agent is on the v2 set (D-367); the panel says so and starts there.
+  await expect(page.getByTestId("custody-path")).toHaveText("On v2");
   const rows = page.locator("tbody tr");
-  await expect(rows).toHaveCount(5);
-  await expect(page.locator('tr[data-status="reconciled"]')).toHaveCount(2);
-  await expect(page.locator('tr[data-status="reconciled"]').first()).toContainText(
+  await expect(rows).toHaveCount(6);
+  await expect(page.locator('tr[data-status="reconciled"]')).toHaveCount(3);
+  // F-U5: the v3 swap names both tokens and its hops, and lists every route token's balance,
+  // the sold one first; the fork is not read here, so WBTC shows by its address.
+  const v3 = page.locator('tr[data-status="reconciled"]').first();
+  await expect(v3).toContainText("Swap USDC for 0x5a1e..4e5f over 2 hops");
+  const changes = v3.getByTestId("balance-changes");
+  await expect(changes.locator("span.flex")).toHaveCount(3);
+  await expect(changes.locator("span.flex").nth(0)).toContainText("USDC");
+  await expect(changes.locator("span.flex").nth(1)).toContainText("0x5a1e..4e5f");
+  await expect(changes.locator("span.flex").nth(2)).toContainText("(unchanged)");
+  await expect(v3.getByTestId("ledger-entry")).toContainText("personal_account 0x5a1e..4e5f 4210");
+  await expect(page.locator('tr[data-status="reconciled"]').nth(1)).toContainText(
     "Refund credits to the owner",
   );
   await expect(page.locator('tr[data-status="unknown"]')).toContainText("Unknown");
@@ -427,12 +439,25 @@ test("the Trades page shows the signer's outbox: states, hashes, refusals, balan
     page.getByText("The signer signs calls to the Executor, and USDC transfers for credits, only."),
   ).toBeVisible();
   await expect(page.getByText("SLIPPAGE_TOO_HIGH", { exact: true })).toBeVisible();
-  const ledger = page.getByTestId("ledger-entry");
+  const ledger = page.getByTestId("ledger-entry").last();
   await expect(ledger).toContainText("personal_account USDC -5000000");
   await expect(ledger).toContainText("personal_account WMON 145376875974903213012");
   // Without a fork read nothing can be set up or sent.
   for (const name of ["Create PersonalAccount", "Send test swap", "Try the swap that breaks it"])
     await expect(page.getByRole("button", { name })).toBeDisabled();
+  // F-U5: the v3 set's cards, with nothing to act on without a fork read.
+  await page.getByRole("combobox", { name: "Custody set" }).click();
+  await page.getByRole("option", { name: "v3: fund agent, many tokens" }).click();
+  await expect(page.getByText("Set up the fund account")).toBeVisible();
+  for (const name of [
+    "Create fund account",
+    "Fund with several tokens",
+    "Register session grant on Executor v3",
+    "Send test swap",
+  ])
+    await expect(page.getByRole("button", { name })).toBeDisabled();
+  await page.getByRole("combobox", { name: "Custody set" }).click();
+  await page.getByRole("option", { name: "v2: USDC and WMON" }).click();
   // The outbox never scrolls sideways: on a phone its rows stack (P2-U5 step 0).
   const region = page.getByRole("region", { name: "The signer's outbox for this agent" });
   const overflow = await region.evaluate((el) => el.scrollWidth - el.clientWidth);
