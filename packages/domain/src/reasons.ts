@@ -8,11 +8,15 @@
  * expired side; and `VAULT_IN_HANDOVER` (D-152), for agent swaps on a vault
  * whose new owner has not yet accepted management.
  *
- * The last four are the Executor's own refusals (P2-U2, D-238): a session key
- * the agent's owner did not register, an expired grant, a replayed actionId,
- * and an intent for another chain, schema, account or policy. The order is
- * the Solidity enum `Reason` in chains/monad/src/interfaces/IExecutor.sol,
- * which a test holds to this list: an enum crosses the ABI as its index.
+ * Then the Executor's own refusals (P2-U2, D-238): a session key the agent's
+ * owner did not register, an expired grant, a replayed actionId, and an intent
+ * for another chain, schema, account or policy. The first twenty-three are the
+ * Solidity enum `Reason` in chains/monad/src/interfaces/IExecutor.sol, in
+ * order; the last nine are Executor v3's (F-U4): a bad route, the screened
+ * lane without the owner's opt-in, sell-only and frozen tokens, class A
+ * attestations and the attestor, and the class A cost-basis caps. The whole
+ * list is the enum `ReasonV3` in IExecutorV3.sol, which a test holds to this
+ * list: an enum crosses the ABI as its index.
  */
 export const REJECTION_CODES = [
   "ASSET_NOT_ALLOWED",
@@ -38,6 +42,15 @@ export const REJECTION_CODES = [
   "SESSION_EXPIRED",
   "ACTION_REPLAYED",
   "INTENT_INVALID",
+  "ROUTE_INVALID",
+  "NOT_OPTED_IN",
+  "TOKEN_SELL_ONLY",
+  "TOKEN_FROZEN",
+  "ATTESTATION_REQUIRED",
+  "ATTESTATION_INVALID",
+  "ATTESTOR_UNAVAILABLE",
+  "CLASS_A_POSITION_CAP",
+  "CLASS_A_TOTAL_CAP",
 ] as const;
 export type RejectionCode = (typeof REJECTION_CODES)[number];
 
@@ -70,4 +83,21 @@ export const REJECTION_MESSAGES: Readonly<Record<RejectionCode, string>> = {
   SESSION_EXPIRED: "The owner's permission for this agent to trade has expired.",
   ACTION_REPLAYED: "This exact trade was already sent once, so it was not sent again.",
   INTENT_INVALID: "The trade was prepared for another chain, account or set of limits.",
+  ROUTE_INVALID:
+    "The route does not connect the two tokens through registered pools in at most three hops, or passes through a token that has no price feed.",
+  NOT_OPTED_IN:
+    "The token is in the screened lane, and the owner has not opted this account in to screened tokens.",
+  TOKEN_SELL_ONLY: "The token can only be sold now, not bought.",
+  TOKEN_FROZEN:
+    "The token is frozen, so it can be neither bought nor sold; the owner can still withdraw it.",
+  ATTESTATION_REQUIRED:
+    "A token without a price feed needs a signed price attestation with the trade, and none was given.",
+  ATTESTATION_INVALID:
+    "The price attestation is expired, for another token, or not from the platform's attestor.",
+  ATTESTOR_UNAVAILABLE:
+    "Tokens without a price feed cannot trade yet: the platform's price attestor is not set.",
+  CLASS_A_POSITION_CAP:
+    "After the trade, what was paid for one position without a price feed would be above its cap (at most 15% of what the account paid for everything it holds).",
+  CLASS_A_TOTAL_CAP:
+    "After the trade, what was paid for every position without a price feed would be above 50% of what the account paid for everything it holds.",
 };

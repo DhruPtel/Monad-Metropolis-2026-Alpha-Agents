@@ -327,6 +327,42 @@ const CLEARS: Readonly<
     clears: "by_the_owner",
     hint: "The new owner must accept management first.",
   },
+  ROUTE_INVALID: {
+    clears: "by_changing_the_trade",
+    hint: "Ask get_quote for a route between the two tokens; a route uses at most three registered pools.",
+  },
+  NOT_OPTED_IN: {
+    clears: "by_the_owner",
+    hint: "The owner opts the account in to screened tokens before this token can be bought.",
+  },
+  TOKEN_SELL_ONLY: {
+    clears: "by_the_platform",
+    hint: "The platform set the token to sell-only; only sales of it are possible.",
+  },
+  TOKEN_FROZEN: {
+    clears: "by_the_platform",
+    hint: "The platform froze the token; it neither buys nor sells, and the owner can still withdraw it.",
+  },
+  ATTESTATION_REQUIRED: {
+    clears: "by_changing_the_trade",
+    hint: "Propose the trade again with a fresh price attestation for the token without a price feed.",
+  },
+  ATTESTATION_INVALID: {
+    clears: "by_changing_the_trade",
+    hint: "The attestation is expired or for another token; fetch a fresh one and propose again.",
+  },
+  ATTESTOR_UNAVAILABLE: {
+    clears: "by_the_platform",
+    hint: "Tokens without a price feed trade once the platform's price attestor is live.",
+  },
+  CLASS_A_POSITION_CAP: {
+    clears: "by_changing_the_trade",
+    hint: "Buy less of this token: what was paid for it stays within 15% of what the account paid for everything it holds.",
+  },
+  CLASS_A_TOTAL_CAP: {
+    clears: "by_changing_the_trade",
+    hint: "Buy less of tokens without a price feed: together they stay within 50% of what the account paid for everything it holds.",
+  },
   SIMULATION_FAILED: {
     clears: "by_waiting",
     hint: "The venue could not quote this trade; check again later or trade less.",
