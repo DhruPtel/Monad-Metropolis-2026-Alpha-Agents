@@ -523,3 +523,107 @@ export function bridgedException(listedSymbol: string): BridgedException | null 
   const s = listedSymbol.toUpperCase();
   return BRIDGED_EXCEPTIONS.find((b) => b.listedSymbol === s) ?? null;
 }
+
+/**
+ * F-U2's core lane candidates: the class F tokens that passed F-U1's screen
+ * (USDC, AUSD, WBTC, cbBTC, WETH, WMON, shMON), each re-screened at deploy
+ * time; a token that no longer passes is left out. USDC may be the whole
+ * account; every other core token is capped at 45% (FINAL_PLAN 0.4).
+ */
+export const CORE_LANE_CANDIDATES: readonly {
+  readonly address: Address;
+  readonly maxPositionBps: number;
+}[] = [
+  { address: MONAD_BASE_TOKENS.USDC, maxPositionBps: 10_000 },
+  { address: MONAD_BASE_TOKENS.WMON, maxPositionBps: 4_500 },
+  { address: "0x00000000efe302beaa2b3e6e1b18d08d69a9012a", maxPositionBps: 4_500 },
+  { address: "0x0555e30da8f98308edb960aa94c0db47230d2b9c", maxPositionBps: 4_500 },
+  { address: "0xd18b7ec58cdf4876f6afebd3ed1730e4ce10414b", maxPositionBps: 4_500 },
+  { address: "0xee8c0e9f1bffb4eb878d8f15f368a02a35481242", maxPositionBps: 4_500 },
+  { address: "0x1b68626dca36c7fe922fd2d55e4f631d962de19c", maxPositionBps: 4_500 },
+];
+
+const CBBTC = "0xd18b7ec58cdf4876f6afebd3ed1730e4ce10414b" as const;
+const WBTC = "0x0555e30da8f98308edb960aa94c0db47230d2b9c" as const;
+const WETH = "0xee8c0e9f1bffb4eb878d8f15f368a02a35481242" as const;
+const SHMON = "0x1b68626dca36c7fe922fd2d55e4f631d962de19c" as const;
+const AUSD = "0x00000000efe302beaa2b3e6e1b18d08d69a9012a" as const;
+const { USDC, WMON } = MONAD_BASE_TOKENS;
+
+/** A venue as the contracts number it (Venue in IFund.sol). */
+export const FUND_VENUE = { UNISWAP_V3: 1, PANCAKESWAP_V3: 2, UNISWAP_V4: 3 } as const;
+
+export interface CorePoolSeed {
+  readonly venue: (typeof FUND_VENUE)[keyof typeof FUND_VENUE];
+  /** The pool's two tokens, lower address first (token0, token1). */
+  readonly pair: readonly [Address, Address];
+  readonly fee: number;
+  readonly tickSpacing: number;
+  /** The v3 pool's address; zero for v4. */
+  readonly pool: Address;
+}
+
+/**
+ * The core pools F-U2 seeds, between core lane candidates, each confirmed by
+ * its venue (a v3 pool by its factory, a v4 ID by its hookless key) and
+ * fork-tested. Native MON is the zero address. A pool whose tokens are not
+ * all seeded is left out.
+ */
+export const CORE_POOL_CANDIDATES: readonly CorePoolSeed[] = [
+  {
+    venue: FUND_VENUE.UNISWAP_V3,
+    pair: [WMON, USDC],
+    fee: 3000,
+    tickSpacing: 60,
+    pool: "0x659bd0bc4167ba25c62e05656f78043e7ed4a9da",
+  },
+  {
+    venue: FUND_VENUE.PANCAKESWAP_V3,
+    pair: [WMON, USDC],
+    fee: 500,
+    tickSpacing: 10,
+    pool: "0x63e48b725540a3db24acf6682a29f877808c53f2",
+  },
+  {
+    venue: FUND_VENUE.PANCAKESWAP_V3,
+    pair: [WMON, CBBTC],
+    fee: 500,
+    tickSpacing: 10,
+    pool: "0x614b85502b89540bb79be98d5429ec032a78a284",
+  },
+  {
+    venue: FUND_VENUE.UNISWAP_V3,
+    pair: [SHMON, WMON],
+    fee: 100,
+    tickSpacing: 1,
+    pool: "0x1f86a9f2441cac9b942cfb5445530cdbb28717ed",
+  },
+  {
+    venue: FUND_VENUE.UNISWAP_V4,
+    pair: [NATIVE_MON, USDC],
+    fee: 500,
+    tickSpacing: 10,
+    pool: NATIVE_MON,
+  },
+  {
+    venue: FUND_VENUE.UNISWAP_V4,
+    pair: [NATIVE_MON, WBTC],
+    fee: 500,
+    tickSpacing: 1,
+    pool: NATIVE_MON,
+  },
+  {
+    venue: FUND_VENUE.UNISWAP_V4,
+    pair: [NATIVE_MON, WETH],
+    fee: 500,
+    tickSpacing: 1,
+    pool: NATIVE_MON,
+  },
+  {
+    venue: FUND_VENUE.UNISWAP_V4,
+    pair: [AUSD, USDC],
+    fee: 50,
+    tickSpacing: 1,
+    pool: NATIVE_MON,
+  },
+];

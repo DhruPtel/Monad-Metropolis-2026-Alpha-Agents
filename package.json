@@ -53,6 +53,8 @@
     "deploy:agent-nft": "node scripts/deploy-agent-nft.js",
     "agent-nft:local": "node scripts/agent-nft-local.js",
     "deploy:account-factory": "node scripts/deploy-account-factory.js",
+    "deploy:fund": "node scripts/deploy-fund.js",
+    "fund:demo": "node scripts/fund-demo.js",
     "deploy:testnet": "node scripts/deploy-testnet.js",
     "verify:testnet": "node scripts/verify-testnet.js",
     "rpc:probe": "node scripts/rpc-probe.js",
