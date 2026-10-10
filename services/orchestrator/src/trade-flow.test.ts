@@ -1,9 +1,23 @@
-import type { AgentState, ChainReader, MarketState } from "@alpha-agents/chain-tools";
-import { tradeNow } from "@alpha-agents/chain-tools";
+import type {
+  AgentState,
+  AgentStateV3,
+  ChainReader,
+  ChainReaderV3,
+  MarketState,
+  MarketStateV3,
+  PoolInfoV3,
+  RouteQuoteV3,
+} from "@alpha-agents/chain-tools";
+import { candidateRoutes, floorForV3, tradeNow } from "@alpha-agents/chain-tools";
 import { type TestDatabase, createTestDatabase, databaseAvailable } from "@alpha-agents/db/testing";
-import { DEFAULT_GOAL_INPUT } from "@alpha-agents/domain";
-import { LAUNCH_EXECUTOR_POLICY, LAUNCH_POLICY_HASH, translateGoal } from "@alpha-agents/policy";
-import type { AcceptResult, SwapIntentArgs } from "@alpha-agents/signer";
+import { DEFAULT_GOAL_INPUT, ROUTE_ADAPTER_ID, executorV3SwapGasLimit } from "@alpha-agents/domain";
+import {
+  LAUNCH_EXECUTOR_POLICY,
+  LAUNCH_POLICY_HASH,
+  executorV3,
+  translateGoal,
+} from "@alpha-agents/policy";
+import type { AcceptResult, SwapIntentArgs, SwapIntentV3Args } from "@alpha-agents/signer";
 import { SWAP_GAS_LIMIT } from "@alpha-agents/signer";
 import {
   GoalStore,
@@ -33,6 +47,164 @@ const KEY = getAddress("0x00000000000000000000000000000000000000ee");
 const ADAPTER_ID = `0x${"ad".repeat(32)}` as Hex;
 const USDC = "0x00000000000000000000000000000000000000c1" as Hex;
 const WMON = "0x00000000000000000000000000000000000000c2" as Hex;
+const WBTC = "0x00000000000000000000000000000000000000c3" as Hex;
+const EXECUTOR_V3 = getAddress("0x3443dbBd29E19CF17853732C260C6abDb6dC0658");
+const ACCOUNT_V3 = "0x00000000000000000000000000000000000ac003" as Hex;
+const PX_WBTC = 60_000n * 10n ** 18n;
+const E18 = 10n ** 18n;
+
+/** The fund agent's v3 set as the trade flow reads it: three tokens, two pools, quotes 0.1% under the oracle. */
+class FakeChainV3 implements ChainReaderV3 {
+  readonly chainId = CHAIN;
+  readonly executorAddress = EXECUTOR_V3;
+  timestamp = NOW;
+  frozen = false;
+  agentState: AgentStateV3 = FakeChainV3.agent();
+
+  static agent(over: Partial<AgentStateV3> = {}): AgentStateV3 {
+    return {
+      block: 500n,
+      timestamp: NOW,
+      owner: OWNER,
+      ownerEpoch: 1n,
+      configEpoch: 0n,
+      account: ACCOUNT_V3,
+      v2Account: null,
+      mode: "NORMAL",
+      screenedOptIn: false,
+      holdings: [
+        {
+          token: USDC,
+          decimals: 6,
+          balance: 70_000_000n,
+          free: 70_000_000n,
+          costBasis: 70_000_000n,
+          lastPriceE18: E18,
+          lastPricedAt: NOW,
+        },
+        {
+          token: WMON,
+          decimals: 18,
+          balance: (30_000_000n * 10n ** 30n) / PX,
+          free: (30_000_000n * 10n ** 30n) / PX,
+          costBasis: 30_000_000n,
+          lastPriceE18: PX,
+          lastPricedAt: NOW,
+        },
+      ],
+      values: {
+        nav: 100_000_000n,
+        capped: 100_000_000n,
+        totalBasis: 100_000_000n,
+        classABasis: 0n,
+      },
+      breaker: { nav: 100_000_000n, perUnit: E18, peak: E18, drawdownBps: 0n },
+      grant: { key: KEY, ownerEpoch: 1n, configEpoch: 0n, validUntil: NOW + 20n * 86_400n },
+      trades: [],
+      tradesLeft: 20,
+      nextSlotFreesAt: 0n,
+      turnoverUsed: 0n,
+      ...over,
+    };
+  }
+  private pool(id: string, a: Hex, b: Hex, venue: PoolInfoV3["venue"], fee: number): PoolInfoV3 {
+    return {
+      poolId: `0x${id.padStart(64, "0")}` as Hex,
+      venue,
+      tokenA: a,
+      tokenB: b,
+      currency0: a,
+      currency1: b,
+      fee,
+      tickSpacing: 60,
+      pool: `0x${id.padStart(40, "0")}` as Hex,
+      lane: "CORE",
+      status: "ACTIVE",
+      codeIntact: true,
+      pricedToken: b,
+      deviationBps: 0n,
+      priceReason: "OK",
+    };
+  }
+  async market(): Promise<MarketStateV3> {
+    const token = (t: Hex, symbol: string, decimals: number) => ({
+      token: t,
+      symbol,
+      decimals,
+      lane: "CORE" as const,
+      status: (this.frozen && t === WBTC ? "FROZEN" : "BUYABLE") as "FROZEN" | "BUYABLE",
+      priceClass: "F" as const,
+      maxPositionBps: 4_000,
+    });
+    return {
+      chainId: CHAIN,
+      block: 500n,
+      timestamp: this.timestamp,
+      policy: { ...executorV3.LAUNCH_POLICY },
+      policyHash: executorV3.LAUNCH_POLICY_HASH,
+      paused: false,
+      adapterAllowed: true,
+      attestorSet: false,
+      usdc: USDC,
+      wmon: WMON,
+      tokens: [token(USDC, "USDC", 6), token(WMON, "WMON", 18), token(WBTC, "WBTC", 8)],
+      prices: {
+        [USDC]: { priceE18: E18, updatedAt: this.timestamp, reason: "OK" },
+        [WMON]: { priceE18: PX, updatedAt: this.timestamp - 20n, reason: "OK" },
+        [WBTC]: { priceE18: PX_WBTC, updatedAt: this.timestamp - 60n, reason: "OK" },
+      },
+      pools: [
+        this.pool("1", USDC, WMON, "UNISWAP_V3", 3_000),
+        this.pool("2", WMON, WBTC, "PANCAKESWAP_V3", 500),
+      ],
+    };
+  }
+  async agent(): Promise<AgentStateV3> {
+    return { ...this.agentState, timestamp: this.timestamp };
+  }
+  async custodyPath() {
+    return "v3" as const;
+  }
+  private async along(
+    route: readonly PoolInfoV3[],
+    tokenIn: Hex,
+    amountIn: bigint,
+  ): Promise<RouteQuoteV3> {
+    const m = await this.market();
+    const px = (t: Hex) => (t === USDC ? E18 : (m.prices[t]?.priceE18 ?? 0n));
+    const dec = (t: Hex) => m.tokens.find((x) => x.token === t)?.decimals ?? 18;
+    const hops: RouteQuoteV3["hops"][number][] = [];
+    let at = tokenIn;
+    let amount = amountIn;
+    for (const p of route) {
+      const out = at === p.tokenA ? p.tokenB : p.tokenA;
+      const implied =
+        (((amount * px(at)) / 10n ** BigInt(dec(at))) * 10n ** BigInt(dec(out))) / px(out);
+      const got = (implied * 9_990n) / 10_000n;
+      hops.push({ poolId: p.poolId, tokenIn: at, tokenOut: out, amountIn: amount, amountOut: got });
+      at = out;
+      amount = got;
+    }
+    return { block: 500n, route, hops, amountOut: amount, candidates: 1 };
+  }
+  async bestRoute(
+    tokenIn: Hex,
+    tokenOut: Hex,
+    amountIn: bigint,
+    rules: { optedIn: boolean; intoUsdc: boolean; sellsScreened: boolean },
+  ) {
+    const [route] = candidateRoutes(await this.market(), tokenIn, tokenOut, rules);
+    return route ? this.along(route, tokenIn, amountIn) : null;
+  }
+  async quoteRoute(route: readonly Hex[], tokenIn: Hex, amountIn: bigint) {
+    const m = await this.market();
+    return this.along(
+      route.map((id) => m.pools.find((p) => p.poolId === id) as PoolInfoV3),
+      tokenIn,
+      amountIn,
+    );
+  }
+}
 
 class FakeChain implements ChainReader {
   readonly chainId = CHAIN;
@@ -109,8 +281,16 @@ describe.skipIf(!dbUp)("the trade flow (needs Postgres)", { timeout: 60_000 }, (
   let t: TestDatabase;
   let trades: TradeStore;
   let chain: FakeChain;
+  let chainV3: FakeChainV3;
   let flow: TradeFlow;
   let sent: { agentId: number; intent: SwapIntentArgs; txId: string }[];
+  let sentV3: {
+    agentId: number;
+    intent: SwapIntentV3Args;
+    gas: bigint;
+    routeTokens: Hex[];
+    txId: string;
+  }[];
   let refuseNext: string | null;
   let balance: bigint;
   let toppedUp: bigint;
@@ -126,10 +306,36 @@ describe.skipIf(!dbUp)("the trade flow (needs Postgres)", { timeout: 60_000 }, (
       chainId: CHAIN,
       store: trades,
       reader: chain,
+      readerV3: chainV3,
       signer: {
         createKey: async () => {
           keysEnsured += 1;
           return KEY;
+        },
+        submitSwapV3: async (agentId, intent, gas, routeTokens): Promise<AcceptResult> => {
+          n += 1;
+          const txId = `tx-${n}`;
+          if (refuseNext) {
+            const code = refuseNext;
+            refuseNext = null;
+            return { txId, status: "failed", reasonCode: code, duplicate: false };
+          }
+          sentV3.push({ agentId, intent, gas, routeTokens: [...routeTokens], txId });
+          await t.db
+            .insertInto("platform.signer_outbox")
+            .values({
+              tx_id: txId,
+              environment: "local",
+              chain_id: CHAIN,
+              agent_id: agentId,
+              key_address: KEY.toLowerCase(),
+              kind: "executor_swap",
+              action_id: intent.actionId,
+              request: "{}",
+              status: "accepted",
+            })
+            .execute();
+          return { txId, status: "accepted", reasonCode: null, duplicate: false };
         },
         submitSwap: async (agentId, intent): Promise<AcceptResult> => {
           n += 1;
@@ -159,7 +365,7 @@ describe.skipIf(!dbUp)("the trade flow (needs Postgres)", { timeout: 60_000 }, (
       },
       gas: {
         balance: async () => balance,
-        swapCost: async () => cost,
+        swapCost: async (gas?: bigint) => (gas === undefined ? cost : (cost * gas) / 1_300_000n),
         ...(o.topUp
           ? {
               topUp: async (_a: Hex, wei: bigint) => {
@@ -199,7 +405,9 @@ describe.skipIf(!dbUp)("the trade flow (needs Postgres)", { timeout: 60_000 }, (
     ] as const)
       await t.db.deleteFrom(table).execute();
     chain = new FakeChain();
+    chainV3 = new FakeChainV3();
     sent = [];
+    sentV3 = [];
     refuseNext = null;
     balance = cost;
     toppedUp = 0n;
@@ -239,6 +447,56 @@ describe.skipIf(!dbUp)("the trade flow (needs Postgres)", { timeout: 60_000 }, (
       })
       .execute();
     return id;
+  }
+
+  /** A v3 intent as the v3 chain tools store it: tokens by address, the proposal's route, the decimals in its checks. */
+  async function proposeV3(amountIn = 5_000_000n) {
+    n += 1;
+    const id = `intent-${n}`;
+    await t.db
+      .insertInto("platform.intents")
+      .values({
+        intent_id: id,
+        chain_id: CHAIN,
+        agent_id: 1,
+        lease_id: "lease-1",
+        kind: "swap",
+        account: ACCOUNT_V3.toLowerCase(),
+        custody: "v3",
+        sell: "USDC",
+        buy: "WBTC",
+        sell_token: USDC,
+        buy_token: WBTC,
+        route: JSON.stringify([`0x${"1".padStart(64, "0")}`, `0x${"2".padStart(64, "0")}`]),
+        amount_in: amountIn.toString(),
+        reason: "test",
+        idempotency_key: `k-${n}`,
+        status: "awaiting_approval",
+        reason_codes: "[]",
+        checks: JSON.stringify({ custody: "v3", sellDecimals: 6, buyDecimals: 8 }),
+        owner_epoch: "1",
+        config_epoch: "0",
+        strategy_epoch: null,
+        expires_at: new Date(Date.now() + 1_800_000),
+      })
+      .execute();
+    return id;
+  }
+
+  async function armV3() {
+    const { record } = await trades.startArming({
+      chainId: CHAIN,
+      agentId: 1,
+      owner: OWNER,
+      ownerEpoch: 1n,
+      configEpoch: 0n,
+      sessionKey: KEY,
+      validUntil: NOW + 20n * 86_400n,
+      custody: "v3",
+      executor: EXECUTOR_V3,
+    });
+    await trades.markArmed(record.armingId, "intent-first");
+    return record;
   }
 
   async function arm(status: "awaiting_first_trade" | "armed" = "armed") {
@@ -321,6 +579,84 @@ describe.skipIf(!dbUp)("the trade flow (needs Postgres)", { timeout: 60_000 }, (
       txId: s.txId,
       minAmountOut: s.intent.minAmountOut,
       deadline: s.intent.deadline,
+    });
+  });
+
+  it("sends an Executor v3 swap along the best route, with the gas rule's limit and the tokens the route crosses (F-U5)", async () => {
+    const arming = await armV3();
+    expect(arming).toMatchObject({ custody: "v3", executor: EXECUTOR_V3 });
+    const id = await proposeV3();
+    chainV3.timestamp = NOW + 100n;
+    // A route of two hops costs more gas than a v2 swap; the key holds enough for it.
+    balance = cost * 3n;
+    await flow.tick();
+    const s = sentV3[0];
+    if (!s) throw new Error("nothing sent");
+    expect(sent).toHaveLength(0);
+    const m = await chainV3.market();
+    const sell = m.tokens.find((x) => x.symbol === "USDC");
+    const buy = m.tokens.find((x) => x.symbol === "WBTC");
+    const quote = await chainV3.bestRoute(USDC, WBTC, 5_000_000n, {
+      optedIn: false,
+      intoUsdc: false,
+      sellsScreened: false,
+    });
+    if (!sell || !buy || !quote) throw new Error("the fake market is incomplete");
+    const floor = floorForV3(m, sell, buy, 5_000_000n);
+    expect(s.intent.minAmountOut).toBe(
+      minAmountOutFor(quote.amountOut, floor, m.policy.maxSlippageBps),
+    );
+    expect(s.intent.minAmountOut).toBeGreaterThanOrEqual(floor);
+    expect(s.intent).toMatchObject({
+      schemaVersion: 2,
+      actionId: actionIdOf(CHAIN, id),
+      adapterId: ROUTE_ADAPTER_ID,
+      tokenIn: USDC,
+      tokenOut: WBTC,
+      amountIn: 5_000_000n,
+      ownerEpoch: 1n,
+      policyHash: executorV3.LAUNCH_POLICY_HASH,
+      attestationIn: "0x",
+      attestationOut: "0x",
+      deadline: NOW + 100n + BigInt(m.policy.deadlineSeconds),
+    });
+    expect(s.intent.route).toHaveLength(2);
+    // Two hops, and three tokens held once WBTC joins USDC and WMON.
+    expect(s.gas).toBe(executorV3SwapGasLimit(2, 3));
+    expect(s.routeTokens).toEqual([USDC, WMON, WBTC]);
+    expect(await trades.intent(CHAIN, 1, id)).toMatchObject({
+      status: "submitted",
+      custody: "v3",
+      txId: s.txId,
+      minAmountOut: s.intent.minAmountOut,
+      route: s.intent.route,
+    });
+  });
+
+  it("a v2 grant does not cover a v3 intent, and a v3 refusal at submission reaches why-not-traded with its reason (F-U5)", async () => {
+    await arm();
+    balance = cost * 3n;
+    const crossed = await proposeV3();
+    await flow.tick();
+    expect((await trades.intent(CHAIN, 1, crossed))?.reasonCodes).toEqual(["NOT_ARMED"]);
+    expect(sentV3).toHaveLength(0);
+    const open = await trades.openArming(CHAIN, 1);
+    if (!open) throw new Error("no open arming");
+    await trades.endArming(open.armingId, "disarmed");
+    await armV3();
+    chainV3.frozen = true;
+    const frozen = await proposeV3();
+    await flow.tick();
+    const v = await trades.intent(CHAIN, 1, frozen);
+    expect(v?.status).toBe("rejected");
+    expect(v?.reasonCodes).toEqual(["TOKEN_FROZEN"]);
+    const why = await trades.whyNotTraded(CHAIN, 1);
+    expect(why.reasons.map((r) => r.code)).toContain("TOKEN_FROZEN");
+    expect(why.reasons.find((r) => r.code === "TOKEN_FROZEN")?.message.length).toBeGreaterThan(10);
+    expect(narrated.find((x) => x.key === `${frozen}:blocked`)?.facts).toMatchObject({
+      activity: "blocked_trade",
+      sell: { asset: "USDC", amount: "5" },
+      buy: "WBTC",
     });
   });
 

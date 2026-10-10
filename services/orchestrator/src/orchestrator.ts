@@ -38,6 +38,7 @@ import {
   disarm,
 } from "@alpha-agents/trading";
 import { SnapshotRecorder } from "./snapshots.ts";
+import type { CustodyPath } from "@alpha-agents/domain";
 import type { Hex } from "viem";
 import { TradeFlow, type TradeFlowGas, type TradeFlowSigner } from "./trade-flow.ts";
 import { RUNNER_EVERY_MS, TemplateRunner } from "./runner.ts";
@@ -278,6 +279,7 @@ export class Orchestrator {
           store,
           snapshots: new SnapshotStore(store.db, options.credits?.environment ?? "local"),
           reader: snapshotReader,
+          readerV3: options.chain?.readerV3 ?? null,
           log,
         })
       : null;
@@ -288,6 +290,7 @@ export class Orchestrator {
             chainId: options.chainId,
             store: this.trades,
             reader,
+            readerV3: options.chain?.readerV3 ?? null,
             signer: options.trading.signer,
             gas: options.trading.gas,
             finalizedBlock: options.trading.finalizedBlock,
@@ -698,21 +701,44 @@ export class Orchestrator {
     return (row?.address as Hex | undefined) ?? null;
   }
 
+  /** Which custody set serves the agent (D-367): v3 where the set is deployed and the agent is on it. */
+  async custodyPath(agentId: number): Promise<CustodyPath> {
+    const v3 = this.o.chain?.readerV3;
+    if (!v3) return "v2";
+    const path = await v3.custodyPath(agentId);
+    return path ?? (this.o.chain?.reader ? "v2" : "v3");
+  }
+
+  /** The Executor the agent's grants target on its custody set, or null where none is deployed. */
+  async executorFor(agentId: number): Promise<{ custody: CustodyPath; executor: Hex | null }> {
+    const custody = await this.custodyPath(agentId);
+    const v3 = this.o.chain?.readerV3;
+    if (custody === "v3" && v3) return { custody, executor: v3.executorAddress };
+    // The v2 Executor is the environment's one and only; its armings record no address.
+    return { custody: "v2", executor: null };
+  }
+
   /** Records the owner's grant once it is on chain (the console's arm, after its wallet call). */
   async confirmArming(ref: AgentRef, owner: Hex) {
-    const reader = this.o.chain?.reader;
+    const { custody, executor } = await this.executorFor(ref.agentId);
+    const v3 = this.o.chain?.readerV3;
+    const reader = custody === "v3" && v3 ? v3 : this.o.chain?.reader;
     if (!reader) throw new Error("the trading contracts are not deployed here");
     return confirmArming(this.trades, await reader.agent(ref.agentId), {
       chainId: ref.chainId,
       agentId: ref.agentId,
       owner,
       fundingAddress: await this.fundingAddress(ref),
+      custody,
+      executor,
     });
   }
 
   /** The agent's owner as the chain says now, or null where trading is not deployed. */
   async chainOwner(agentId: number): Promise<Hex | null> {
-    return (await this.o.chain?.reader?.agent(agentId))?.owner ?? null;
+    const v3 = this.o.chain?.readerV3;
+    const from = this.o.chain?.reader ?? v3;
+    return (await from?.agent(agentId))?.owner ?? null;
   }
 
   /** The owner approves a waiting intent; the first approval after the grant arms the agent. */

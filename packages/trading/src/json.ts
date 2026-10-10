@@ -46,6 +46,8 @@ export function armingJson(last: ArmingRecord | null, nowSeconds: number) {
   return {
     state,
     armingId: last?.armingId ?? null,
+    custody: last?.custody ?? null,
+    executor: last?.executor ?? null,
     validUntil: open ? Number(open.validUntil) : null,
     validUntilDate: open ? grantDate(open.validUntil) : null,
     renewalDue: open ? Number(open.validUntil) - nowSeconds <= RENEWAL_REMINDER_SECONDS : false,

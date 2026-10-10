@@ -1,4 +1,4 @@
-import { AGENT_NFT_ABI } from "@alpha-agents/domain";
+import { AGENT_NFT_ABI, type CustodyPath } from "@alpha-agents/domain";
 import { type Hex, createPublicClient, http, parseAbi, zeroAddress } from "viem";
 import type { AgentChainView } from "./arming.ts";
 
@@ -74,6 +74,62 @@ export function rpcAgentViewReader(
                 validUntil: session.validUntil,
               },
       };
+    },
+  };
+}
+
+/** Which custody set serves an agent (D-367), read from the two factories. */
+export interface CustodyPathReader {
+  /** Null when the agent does not exist. */
+  custodyPath(agentId: number): Promise<CustodyPath | null>;
+}
+
+const FACTORY_READS = parseAbi([
+  "function personalAccountOf(uint256 agentId, address owner) view returns (address)",
+]);
+
+/**
+ * An agent is on v3 once its owner opened a PersonalAccountV3; on v2 while it
+ * has only a v2 account; on v3 with no account at all (new accounts open on
+ * the fund agent's set).
+ */
+export function rpcCustodyPathReader(
+  rpcUrl: string,
+  contracts: {
+    readonly agentNft: Hex;
+    readonly accountFactory: Hex;
+    readonly accountFactoryV3: Hex;
+  },
+): CustodyPathReader {
+  const client = createPublicClient({ transport: http(rpcUrl) });
+  return {
+    async custodyPath(agentId) {
+      const id = BigInt(agentId);
+      let owner: Hex;
+      try {
+        owner = await client.readContract({
+          address: contracts.agentNft,
+          abi: AGENT_NFT_ABI,
+          functionName: "ownerOf",
+          args: [id],
+        });
+      } catch (err) {
+        if (err instanceof Error && /revert/i.test(err.message)) return null;
+        throw err;
+      }
+      const accountOf = (factory: Hex) =>
+        client.readContract({
+          address: factory,
+          abi: FACTORY_READS,
+          functionName: "personalAccountOf",
+          args: [id, owner],
+        });
+      const [v3, v2] = await Promise.all([
+        accountOf(contracts.accountFactoryV3),
+        accountOf(contracts.accountFactory),
+      ]);
+      if (v3 !== zeroAddress) return "v3";
+      return v2 !== zeroAddress ? "v2" : "v3";
     },
   };
 }

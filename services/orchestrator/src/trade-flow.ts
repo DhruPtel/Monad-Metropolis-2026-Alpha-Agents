@@ -1,8 +1,12 @@
 import {
   type Blocker,
   type ChainReader,
+  type ChainReaderV3,
   assessTrade,
+  assessTradeV3,
   blocker,
+  floorForV3,
+  routeTokensOf,
   tradeNow,
 } from "@alpha-agents/chain-tools";
 import {
@@ -10,7 +14,11 @@ import {
   ASSET_DECIMALS,
   type ArmingEndReason,
   type AssetId,
+  type CustodyPath,
   INTENT_SCHEMA_VERSION,
+  INTENT_SCHEMA_VERSION_V3,
+  ROUTE_ADAPTER_ID,
+  executorV3SwapGasLimit,
 } from "@alpha-agents/domain";
 import {
   type AcceptResult,
@@ -18,6 +26,7 @@ import {
   MAX_PRIORITY_FEE_CAP,
   SWAP_GAS_LIMIT,
   type SwapIntentArgs,
+  type SwapIntentV3Args,
 } from "@alpha-agents/signer";
 import {
   type ArmingRecord,
@@ -56,6 +65,13 @@ import type { ArmingFacts, BlockedFacts, TradeFacts } from "./narrator.ts";
 
 export interface TradeFlowSigner {
   submitSwap(agentId: number, intent: SwapIntentArgs): Promise<AcceptResult>;
+  /** F-U5: an Executor v3 swap, with the route's gas limit and the tokens the route crosses. */
+  submitSwapV3(
+    agentId: number,
+    intent: SwapIntentV3Args,
+    gas: bigint,
+    routeTokens: readonly Hex[],
+  ): Promise<AcceptResult>;
   /**
    * The agent's session key (its funding address, D-243), created in the
    * signer if it has none yet: the signer records keys lazily (L-120, L-126).
@@ -65,8 +81,8 @@ export interface TradeFlowSigner {
 
 export interface TradeFlowGas {
   balance(address: Hex): Promise<bigint>;
-  /** The most one swap's gas can cost now, as the signer would price it. */
-  swapCost(): Promise<bigint>;
+  /** The most one swap's gas can cost now, as the signer would price it; `gas` for a v3 route's limit. */
+  swapCost(gas?: bigint): Promise<bigint>;
   /** Local fork only: funds the key instead of blocking the trade. */
   topUp?: (address: Hex, wei: bigint) => Promise<void>;
 }
@@ -84,6 +100,8 @@ export interface TradeFlowOptions {
   readonly chainId: number;
   readonly store: TradeStore;
   readonly reader: ChainReader;
+  /** F-U5: the fund agent's v3 set; v3 intents and armings read and send through it (D-367). */
+  readonly readerV3?: ChainReaderV3 | null;
   readonly signer: TradeFlowSigner;
   readonly gas: TradeFlowGas;
   /**
@@ -117,11 +135,11 @@ export function minAmountOutFor(quoteOut: bigint, floor: bigint, maxSlippageBps:
   return min > 0n ? min : 1n;
 }
 
-/** A swap's most gas cost at these fees, priced as the signer prices it (A-38). */
-export function swapGasCost(baseFee: bigint, priorityFee: bigint): bigint {
+/** A swap's most gas cost at these fees, priced as the signer prices it (A-38); `gas` for a v3 route's limit. */
+export function swapGasCost(baseFee: bigint, priorityFee: bigint, gas = SWAP_GAS_LIMIT): bigint {
   const tip = priorityFee < MAX_PRIORITY_FEE_CAP ? priorityFee : MAX_PRIORITY_FEE_CAP;
   const maxFee = baseFee * 2n + tip;
-  return SWAP_GAS_LIMIT * (maxFee > MAX_FEE_PER_GAS_CAP ? MAX_FEE_PER_GAS_CAP : maxFee);
+  return gas * (maxFee > MAX_FEE_PER_GAS_CAP ? MAX_FEE_PER_GAS_CAP : maxFee);
 }
 
 export class TradeFlow {
@@ -156,10 +174,16 @@ export class TradeFlow {
   // ---- arming ----
 
   /** Ends, renews or reminds every open arming from a fresh chain read. Returns the ended ones. */
+  /** The chain view for a grant's own custody set: Executor v3's for a v3 arming, v2's otherwise. */
+  private agentView(custody: CustodyPath, agentId: number) {
+    const v3 = this.o.readerV3;
+    return custody === "v3" && v3 ? v3.agent(agentId) : this.o.reader.agent(agentId);
+  }
+
   async upkeepArmings(): Promise<ArmingRecord[]> {
     const ended: ArmingRecord[] = [];
     for (const r of await this.o.store.openArmings(this.o.chainId)) {
-      const chain = await this.o.reader.agent(r.agentId);
+      const chain = await this.agentView(r.custody, r.agentId);
       if (!chain) continue;
       const reason = armingEnd(r, chain);
       if (reason) {
@@ -197,7 +221,7 @@ export class TradeFlow {
     }
     // A disarm ends arming at once; the owner's revoke then removes the grant on chain.
     for (const r of await this.o.store.unrevokedDisarmed(this.o.chainId)) {
-      const chain = await this.o.reader.agent(r.agentId);
+      const chain = await this.agentView(r.custody, r.agentId);
       if (chain && (!chain.grant || !isAddressEqual(chain.grant.key, r.sessionKey)))
         await this.o.store.markRevokedOnchain(r.armingId);
     }
@@ -245,6 +269,12 @@ export class TradeFlow {
     const chainId = this.o.chainId;
     const arming = await this.o.store.openArming(chainId, i.agentId);
     if (!arming) return this.refuse(i, "not armed at submission", [blocker("NOT_ARMED", null)]);
+    // A grant on the other custody set does not cover this intent (D-367).
+    if (arming.custody !== i.custody)
+      return this.refuse(i, `armed on ${arming.custody}, the intent trades on ${i.custody}`, [
+        blocker("NOT_ARMED", null),
+      ]);
+    if (i.custody === "v3") return this.submitV3(i);
     // Proposed under an earlier goal: never sent, and the arming stays open (D-281).
     const strategyEpoch = await this.o.store.strategyEpoch(chainId, i.agentId);
     if ((i.strategyEpoch ?? 0n) !== strategyEpoch)
@@ -313,9 +343,114 @@ export class TradeFlow {
     );
   }
 
+  /**
+   * F-U5: an Executor v3 intent. Every pre-check again on fresh reads along
+   * the best route now, the gas limit from the route's hops and the held
+   * list after the trade (F-U4's rule), the minimum output from the quote
+   * within the pair's slippage limit, never under the floor, and the swap
+   * into the signer's outbox with the tokens its route crosses.
+   */
+  private async submitV3(i: IntentView): Promise<void> {
+    const chainId = this.o.chainId;
+    const reader = this.o.readerV3;
+    if (!reader || !i.sellToken || !i.buyToken)
+      return this.refuse(i, "the fund agent's set is not deployed here", [
+        blocker("VENUE_NOT_ALLOWED", null),
+      ]);
+    const strategyEpoch = await this.o.store.strategyEpoch(chainId, i.agentId);
+    if ((i.strategyEpoch ?? 0n) !== strategyEpoch)
+      return this.refuse(
+        i,
+        `proposed at strategy epoch ${i.strategyEpoch ?? 0n}, now ${strategyEpoch}`,
+        [blocker("STRATEGY_EPOCH_STALE", null)],
+      );
+    const key = await this.o.signer.createKey(i.agentId);
+    const reserved = await this.o.store.reservedSlots(chainId, i.agentId, i);
+    const assessed = await assessTradeV3(
+      reader,
+      i.agentId,
+      i.sellToken,
+      i.buyToken,
+      i.amountIn,
+      key,
+      reserved,
+    );
+    if (!assessed)
+      return this.refuse(i, "the agent has no fund account", [blocker("INTENT_INVALID", null)]);
+    const { m, a, sell, buy, quote } = assessed;
+    const blockers: Blocker[] = [...assessed.blockers];
+    if (
+      (i.ownerEpoch !== null && i.ownerEpoch !== a.ownerEpoch) ||
+      (i.configEpoch !== null && i.configEpoch !== a.configEpoch)
+    )
+      if (!blockers.some((b) => b.code === "EPOCH_MISMATCH"))
+        blockers.push(blocker("EPOCH_MISMATCH", null));
+    // The gas limit: this route's hops, and the held list once the token bought has joined it.
+    const hops = quote?.route.length ?? 1;
+    const heldAfter =
+      a.holdings.filter((h) => h.balance > 0n).length +
+      (a.holdings.some((h) => isAddressEqual(h.token, buy.token) && h.balance > 0n) ? 0 : 1);
+    const gasLimit = executorV3SwapGasLimit(hops, Math.min(Math.max(heldAfter, 1), 16));
+    const gas = await this.gasBlocker(key, gasLimit);
+    if (gas) blockers.push(gas);
+    if (
+      !quote &&
+      !blockers.some((b) => b.code === "SIMULATION_FAILED" || b.code === "ROUTE_INVALID")
+    )
+      blockers.push(blocker("SIMULATION_FAILED", null));
+    if (blockers.length > 0 || !quote)
+      return this.refuse(i, "a check changed between proposal and submission", blockers);
+    const classA = sell.priceClass === "A" || buy.priceClass === "A";
+    const slippageBps = classA ? m.policy.maxSlippageClassABps : m.policy.maxSlippageBps;
+    const floor = floorForV3(m, sell, buy, i.amountIn);
+    const minAmountOut = minAmountOutFor(quote.amountOut, floor, slippageBps);
+    const deadline = m.timestamp + BigInt(m.policy.deadlineSeconds);
+    const actionId = actionIdOf(chainId, i.intentId);
+    const route = quote.route.map((p) => p.poolId);
+    const swap: SwapIntentV3Args = {
+      schemaVersion: INTENT_SCHEMA_VERSION_V3,
+      chainId: BigInt(chainId),
+      agentId: BigInt(i.agentId),
+      account: a.account,
+      actionId,
+      ownerEpoch: a.ownerEpoch,
+      configEpoch: a.configEpoch,
+      policyHash: m.policyHash,
+      adapterId: ROUTE_ADAPTER_ID,
+      tokenIn: sell.token,
+      tokenOut: buy.token,
+      amountIn: i.amountIn,
+      minAmountOut,
+      deadline,
+      route,
+      attestationIn: "0x",
+      attestationOut: "0x",
+    };
+    const accepted = await this.o.signer.submitSwapV3(
+      i.agentId,
+      swap,
+      gasLimit,
+      routeTokensOf(quote, sell.token),
+    );
+    if (accepted.status === "failed")
+      return this.refuse(i, `the signer refused it: ${accepted.reasonCode ?? "unknown"}`, [
+        blocker("SEND_FAILED", null),
+      ]);
+    await this.o.store.markSubmitted(i.intentId, {
+      txId: accepted.txId,
+      actionId,
+      minAmountOut,
+      deadline,
+      route,
+    });
+    this.o.log(
+      `agent ${i.agentId}: ${i.intentId} submitted (${formatUnits(i.amountIn, i.sellDecimals)} ${i.sell} for ${i.buy} over ${hops} hop${hops === 1 ? "" : "s"}, gas ${gasLimit}, approved by ${i.approvedBy ?? "?"})`,
+    );
+  }
+
   /** GAS_UNFUNDED when the funding address cannot pay for the swap; the local fork tops it up. */
-  private async gasBlocker(key: Hex): Promise<Blocker | null> {
-    const [balance, cost] = await Promise.all([this.o.gas.balance(key), this.o.gas.swapCost()]);
+  private async gasBlocker(key: Hex, gas?: bigint): Promise<Blocker | null> {
+    const [balance, cost] = await Promise.all([this.o.gas.balance(key), this.o.gas.swapCost(gas)]);
     if (balance >= cost) return null;
     if (this.o.gas.topUp) {
       await this.o.gas.topUp(key, cost * 10n);

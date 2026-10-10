@@ -84,6 +84,11 @@ export class SignerWorker {
         }),
       keys: new LocalKeyProvider(o.seed),
       executor: book("executor"),
+      // F-U5: Executor v3's swaps, where the fund agent's set is deployed.
+      executorV3:
+        addressEntry(o.environment, "executor_v3").status === "verified"
+          ? (addressEntry(o.environment, "executor_v3").address as Hex)
+          : null,
       usdc: book("usdc"),
       ownerOf,
       ...(o.treasury ? { treasury: o.treasury } : {}),

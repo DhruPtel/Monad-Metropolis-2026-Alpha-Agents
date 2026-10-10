@@ -439,12 +439,12 @@ const trading = chainSigner
       ...(local ? {} : { everyMs: REMOTE_POLL_MS }),
       gas: {
         balance: (address: Hex) => client.getBalance({ address }),
-        swapCost: async () => {
+        swapCost: async (gas?: bigint) => {
           const [block, tip] = await Promise.all([
             client.getBlock(),
             client.estimateMaxPriorityFeePerGas().catch(() => 0n),
           ]);
-          return swapGasCost(block.baseFeePerGas ?? 0n, tip);
+          return swapGasCost(block.baseFeePerGas ?? 0n, tip, gas);
         },
         ...(local
           ? { topUp: (address: Hex, wei: bigint) => setMonBalance(address, wei, rpcUrl) }

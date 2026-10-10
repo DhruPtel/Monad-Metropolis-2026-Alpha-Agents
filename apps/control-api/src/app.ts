@@ -5,28 +5,29 @@ import {
 } from "@alpha-agents/accounting";
 import type { Environment } from "@alpha-agents/config";
 import type { Db } from "@alpha-agents/db";
-import type { AgentNftDeployment } from "@alpha-agents/domain";
+import type { AgentNftDeployment, CustodyPath } from "@alpha-agents/domain";
 import { type Context, Hono } from "hono";
 import { cors } from "hono/cors";
 import { type Address, type Hex, getAddress, isAddress, isAddressEqual } from "viem";
 import { translateGoal } from "@alpha-agents/policy";
 import {
   type AgentViewReader,
+  type CustodyPathReader,
   GoalStore,
+  type HoldingsReader,
+  MAX_GRANT_SECONDS,
+  type PortfolioReader,
   TradeStore,
   approveByOwner,
   armingJson,
-  type HoldingsReader,
-  holdingsJson,
-  type PortfolioReader,
-  portfolioJson,
-  rejectByOwner,
   confirmArming,
   disarm,
+  holdingsJson,
   intentJson,
+  portfolioJson,
   registerCall,
+  rejectByOwner,
   revokeCall,
-  MAX_GRANT_SECONDS,
 } from "@alpha-agents/trading";
 import { TtlCache } from "./cache.ts";
 import { goalErrorsJson, goalForm, goalSummaryJson, goalViewJson, configJson } from "./goals.ts";
@@ -93,6 +94,12 @@ export interface ApiDeps {
     readonly executor: Hex;
     /** P2-U7: the owner's portfolio read from the chain; absent where custody is not deployed. */
     readonly portfolio?: PortfolioReader | null;
+    /** F-U5 (D-367): the fund agent's set, where deployed: Executor v3, its grant reader and the agent's path. */
+    readonly v3?: {
+      readonly executor: Hex;
+      readonly reader: AgentViewReader;
+      readonly paths: CustodyPathReader;
+    } | null;
   } | null;
 }
 
@@ -559,6 +566,17 @@ export function createApp(deps: ApiDeps): Hono {
     return row ? getAddress(row.address) : null;
   }
 
+  /** The Executor and grant reader of the agent's custody set (D-367): v3 where deployed and the agent is on it. */
+  async function pathOf(
+    t: NonNullable<ApiDeps["trading"]>,
+    agentId: number,
+  ): Promise<{ custody: CustodyPath; executor: Hex; reader: AgentViewReader }> {
+    const v3 = t.v3;
+    if (v3 && (await v3.paths.custodyPath(agentId)) === "v3")
+      return { custody: "v3", executor: v3.executor, reader: v3.reader };
+    return { custody: "v2", executor: t.executor, reader: t.reader };
+  }
+
   /**
    * The agent's arming for its owner, and the wallet call that arms it: a
    * session grant to the agent's funding address for at most 30 days.
@@ -570,10 +588,11 @@ export function createApp(deps: ApiDeps): Hono {
     const id = Number(agentId);
     const funding = await fundingAddressOf(id);
     const t = deps.trading;
+    const path = t ? await pathOf(t, id) : null;
     // The Executor checks the expiry against its own block time, so the grant's clock is the
     // chain's (L-105): a fork's time sits at its pinned block, far behind the wall clock.
-    const chainNow = t
-      ? Number((await t.reader.agent(id))?.timestamp ?? nowSeconds())
+    const chainNow = path
+      ? Number((await path.reader.agent(id))?.timestamp ?? nowSeconds())
       : nowSeconds();
     const validUntil = BigInt(chainNow + MAX_GRANT_SECONDS - 60);
     return c.json({
@@ -581,7 +600,8 @@ export function createApp(deps: ApiDeps): Hono {
       agentId: agentId.toString(),
       arming: armingJson(await trades.lastArming(chainId, id), chainNow),
       fundingAddress: funding,
-      grantCall: t && funding ? registerCall(t.executor, id, funding, validUntil) : null,
+      custody: path?.custody ?? null,
+      grantCall: path && funding ? registerCall(path.executor, id, funding, validUntil) : null,
       maxGrantDays: MAX_GRANT_SECONDS / 86_400,
     });
   });
@@ -595,11 +615,14 @@ export function createApp(deps: ApiDeps): Hono {
     if (!t)
       return fail(c, 503, "not_deployed", `Trading is not deployed on ${deps.environment.label}.`);
     const id = Number(agentId);
-    const r = await confirmArming(trades, await t.reader.agent(id), {
+    const path = await pathOf(t, id);
+    const r = await confirmArming(trades, await path.reader.agent(id), {
       chainId,
       agentId: id,
       owner: owner.wallet,
       fundingAddress: await fundingAddressOf(id),
+      custody: path.custody,
+      executor: path.custody === "v3" ? path.executor : null,
     });
     if (!r.ok) return refused(c, r);
     return c.json(
@@ -622,11 +645,15 @@ export function createApp(deps: ApiDeps): Hono {
     if (owner instanceof Response) return owner;
     const id = Number(agentId);
     const ended = await disarm(trades, chainId, id);
+    const last = ended ?? (await trades.lastArming(chainId, id));
+    // The revoke goes to the Executor the grant was on (D-367).
+    const executor =
+      last?.executor ?? (deps.trading ? (await pathOf(deps.trading, id)).executor : null);
     return c.json({
       agentId: agentId.toString(),
       disarmed: ended !== null,
-      arming: armingJson(ended ?? (await trades.lastArming(chainId, id)), nowSeconds()),
-      revokeCall: deps.trading ? revokeCall(deps.trading.executor, id) : null,
+      arming: armingJson(last, nowSeconds()),
+      revokeCall: executor ? revokeCall(executor, id) : null,
     });
   });
 

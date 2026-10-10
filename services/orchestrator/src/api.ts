@@ -818,7 +818,16 @@ export function createApi(o: ApiOptions): Hono {
           { error: "no_funding_address", message: "The agent has no funding address yet." },
           409,
         );
-      await registerTestSessionGrant(o.forkUrl, ref.agentId, owner, funding, days);
+      // The grant goes on the Executor of the agent's custody set (D-367).
+      const { executor } = await o.orchestrator.executorFor(ref.agentId);
+      await registerTestSessionGrant(
+        o.forkUrl,
+        ref.agentId,
+        owner,
+        funding,
+        days,
+        ...(executor ? [executor] : []),
+      );
       const r = await o.orchestrator.confirmArming(ref, owner);
       if (!r.ok) return c.json({ error: r.code.toLowerCase(), message: r.message }, 409);
       return c.json(
@@ -833,7 +842,14 @@ export function createApi(o: ApiOptions): Hono {
       if (!ref) return c.json({ error: "bad_agent_id" }, 400);
       const ended = await o.orchestrator.disarm(ref);
       const owner = await o.orchestrator.chainOwner(ref.agentId);
-      if (o.forkUrl && owner) await revokeTestSessionGrant(o.forkUrl, ref.agentId, owner);
+      const { executor } = await o.orchestrator.executorFor(ref.agentId);
+      if (o.forkUrl && owner)
+        await revokeTestSessionGrant(
+          o.forkUrl,
+          ref.agentId,
+          owner,
+          ...(executor ? [executor] : []),
+        );
       const { last } = await o.orchestrator.arming(ref);
       return c.json({
         disarmed: ended !== null,

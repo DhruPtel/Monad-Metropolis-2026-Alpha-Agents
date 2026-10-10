@@ -141,6 +141,8 @@ function armingRecord(r: ArmingRow): ArmingRecord {
     armingId: r.arming_id,
     chainId: r.chain_id,
     agentId: r.agent_id,
+    custody: r.custody,
+    executor: r.executor ? getAddress(r.executor) : null,
     owner: getAddress(r.owner),
     ownerEpoch: BigInt(r.owner_epoch),
     configEpoch: BigInt(r.config_epoch),
@@ -294,6 +296,9 @@ export class TradeStore {
     configEpoch: bigint;
     sessionKey: Hex;
     validUntil: bigint;
+    /** F-U5: the custody set and the Executor the grant is on; v2 when absent. */
+    custody?: CustodyPath;
+    executor?: Hex | null;
   }): Promise<{ record: ArmingRecord; renewed: boolean }> {
     return this.db.transaction().execute(async (trx) => {
       const at = this.now();
@@ -310,7 +315,8 @@ export class TradeStore {
           dbAddress(open.owner) === dbAddress(a.owner) &&
           BigInt(open.owner_epoch) === a.ownerEpoch &&
           BigInt(open.config_epoch) === a.configEpoch &&
-          dbAddress(open.session_key) === dbAddress(a.sessionKey);
+          dbAddress(open.session_key) === dbAddress(a.sessionKey) &&
+          open.custody === (a.custody ?? "v2");
         if (same) {
           const row = await trx
             .updateTable("platform.arming")
@@ -337,6 +343,8 @@ export class TradeStore {
           config_epoch: a.configEpoch.toString(),
           session_key: dbAddress(a.sessionKey),
           valid_until: a.validUntil.toString(),
+          custody: a.custody ?? "v2",
+          executor: a.executor ? dbAddress(a.executor) : null,
           status: "awaiting_first_trade",
         })
         .returningAll()
@@ -556,7 +564,14 @@ export class TradeStore {
   /** An approved intent was accepted into the signer's outbox. */
   async markSubmitted(
     intentId: string,
-    s: { txId: string; actionId: string; minAmountOut: bigint; deadline: bigint },
+    s: {
+      txId: string;
+      actionId: string;
+      minAmountOut: bigint;
+      deadline: bigint;
+      /** The route the swap was sent along (v3), when it differs from the proposal's. */
+      route?: readonly Hex[];
+    },
   ): Promise<boolean> {
     const at = this.now();
     const r = await this.db
@@ -567,6 +582,7 @@ export class TradeStore {
         action_id: s.actionId,
         min_amount_out: s.minAmountOut.toString(),
         deadline: s.deadline.toString(),
+        ...(s.route ? { route: JSON.stringify([...s.route]) } : {}),
         submitted_at: at,
         updated_at: at,
       })

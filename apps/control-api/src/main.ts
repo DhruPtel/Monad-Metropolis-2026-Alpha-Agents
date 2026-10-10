@@ -8,7 +8,12 @@ import { AGENT_NFT_ABI, addressEntry, agentNftDeployment } from "@alpha-agents/d
 import { createPublicClient, http, isAddressEqual, type Hex } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { createApp } from "./app.ts";
-import { rpcAgentViewReader, rpcHoldingsReader, rpcPortfolioReader } from "@alpha-agents/trading";
+import {
+  rpcAgentViewReader,
+  rpcCustodyPathReader,
+  rpcHoldingsReader,
+  rpcPortfolioReader,
+} from "@alpha-agents/trading";
 import { rpcChainReader } from "./chain.ts";
 import { MOCK_IDENTITY_FLAG, mockIdentity, privyIdentity } from "./identity.ts";
 
@@ -104,6 +109,28 @@ const holdings =
 
 // P2-U6: the Executor the owner's wallet registers and revokes grants with, where it is deployed.
 const executorEntry = addressEntry(env.id, "executor");
+// F-U5 (D-367): the fund agent's set, where deployed; an agent on it arms against Executor v3.
+const executorV3Entry = addressEntry(env.id, "executor_v3");
+const factoryV3Entry = addressEntry(env.id, "account_factory_v3");
+const v3 =
+  deployment &&
+  rpcUrl &&
+  executorV3Entry.status === "verified" &&
+  factoryV3Entry.status === "verified" &&
+  factoryEntry.status === "verified"
+    ? {
+        executor: executorV3Entry.address as Hex,
+        reader: rpcAgentViewReader(rpcUrl, {
+          agentNft: deployment.address,
+          executor: executorV3Entry.address as Hex,
+        }),
+        paths: rpcCustodyPathReader(rpcUrl, {
+          agentNft: deployment.address,
+          accountFactory: factoryEntry.address as Hex,
+          accountFactoryV3: factoryV3Entry.address as Hex,
+        }),
+      }
+    : null;
 const trading =
   deployment && rpcUrl && executorEntry.status === "verified"
     ? {
@@ -113,6 +140,7 @@ const trading =
           executor: executorEntry.address as Hex,
         }),
         portfolio: portfolioReader(deployment.address, executorEntry.address as Hex),
+        v3,
       }
     : null;
 if (rpcUrl) {

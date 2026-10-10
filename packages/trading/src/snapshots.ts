@@ -14,6 +14,17 @@ import type { Hex } from "viem";
 /** A-49: one interval snapshot per account at most this often. */
 export const SNAPSHOT_INTERVAL_MS = 15 * 60_000;
 
+/** One held token of a v3 account at the snapshot (F-U5): amount, price and value as the account values it. */
+export interface HoldingSnapshot {
+  readonly token: Hex;
+  readonly symbol: string;
+  readonly decimals: number;
+  readonly amountRaw: string;
+  readonly priceE18: string | null;
+  readonly valueUsdcE6: string | null;
+  readonly costBasisUsdcE6: string | null;
+}
+
 export interface AccountObservation {
   readonly agentId: number;
   readonly account: Hex;
@@ -25,10 +36,17 @@ export interface AccountObservation {
   readonly mode: AccountMode;
   /** MON/USD at 1e18; null while the oracle's price is unusable. */
   readonly monUsdE18: bigint | null;
+  /** F-U5: a v3 account's own value (its navUsdc, null while unusable) and every held token. */
+  readonly custody?: "v2" | "v3";
+  readonly valueUsdcE6?: bigint | null;
+  readonly holdings?: readonly HoldingSnapshot[];
 }
 
 /** The account's value in USDC base units, or null when WMON is held and has no usable price. */
-export function accountValueUsdc(o: Pick<AccountObservation, "usdc" | "wmon" | "monUsdE18">) {
+export function accountValueUsdc(
+  o: Pick<AccountObservation, "usdc" | "wmon" | "monUsdE18" | "custody" | "valueUsdcE6">,
+) {
+  if (o.custody === "v3") return o.valueUsdcE6 ?? null;
   if (o.wmon === 0n) return o.usdc;
   if (o.monUsdE18 === null) return null;
   return o.usdc + (o.wmon * o.monUsdE18) / 10n ** 30n;
@@ -42,6 +60,8 @@ export interface SnapshotRow {
   readonly valueUsdc: bigint | null;
   readonly usdc: bigint;
   readonly wmon: bigint;
+  readonly custody: "v2" | "v3";
+  readonly holdings: readonly HoldingSnapshot[] | null;
   readonly mode: AccountMode;
   readonly reason: "interval" | "trade";
   readonly intentId: string | null;
@@ -80,6 +100,8 @@ export class SnapshotStore {
         value_usdc_e6: value === null ? null : value.toString(),
         usdc_e6: o.usdc.toString(),
         wmon_wei: o.wmon.toString(),
+        custody: o.custody ?? "v2",
+        holdings: o.holdings ? JSON.stringify(o.holdings) : null,
         mode: o.mode,
         reason,
         intent_id: intentId,
@@ -124,6 +146,8 @@ export class SnapshotStore {
       valueUsdc: r.value_usdc_e6 === null ? null : BigInt(r.value_usdc_e6),
       usdc: BigInt(r.usdc_e6),
       wmon: BigInt(r.wmon_wei),
+      custody: r.custody,
+      holdings: (r.holdings as HoldingSnapshot[] | null) ?? null,
       mode: r.mode,
       reason: r.reason,
       intentId: r.intent_id,

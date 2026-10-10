@@ -21,6 +21,8 @@ const arming = (over: Partial<ArmingRecord> = {}): ArmingRecord => ({
   armingId: "arming-1",
   chainId: 143143,
   agentId: 1,
+  custody: "v2",
+  executor: null,
   owner: OWNER,
   ownerEpoch: 2n,
   configEpoch: 5n,

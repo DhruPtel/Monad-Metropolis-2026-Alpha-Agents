@@ -1,6 +1,13 @@
-import type { ChainReader } from "@alpha-agents/chain-tools";
+import {
+  type ChainReader,
+  type ChainReaderV3,
+  holdingPrice,
+  tokenInfo,
+} from "@alpha-agents/chain-tools";
 import { ACCOUNT_MODES, type AccountMode } from "@alpha-agents/domain";
+import { custodyV3 } from "@alpha-agents/policy";
 import { SNAPSHOT_INTERVAL_MS, type SnapshotStore } from "@alpha-agents/trading";
+import { isAddressEqual } from "viem";
 import type { Store } from "./store.ts";
 
 /**
@@ -16,6 +23,8 @@ export interface SnapshotRecorderOptions {
   readonly store: Store;
   readonly snapshots: SnapshotStore;
   readonly reader: ChainReader;
+  /** F-U5: the fund agent's v3 set; an agent on it is snapshotted with every held token (D-367). */
+  readonly readerV3?: ChainReaderV3 | null;
   readonly everyMs?: number;
   readonly log: (line: string) => void;
 }
@@ -33,6 +42,9 @@ export class SnapshotRecorder {
 
   /** Reads one account and records it; false when the agent has no account (or no known mode). */
   async observe(agentId: number, reason: "interval" | "trade", intentId: string | null = null) {
+    const v3 = this.o.readerV3;
+    if (v3 && (await v3.custodyPath(agentId)) === "v3")
+      return this.observeV3(v3, agentId, reason, intentId);
     const [a, m] = await Promise.all([this.o.reader.agent(agentId), this.o.reader.market()]);
     if (!a?.account || !isMode(a.mode)) return false;
     return this.o.snapshots.record(
@@ -46,6 +58,52 @@ export class SnapshotRecorder {
         wmon: a.wmon,
         mode: a.mode,
         monUsdE18: m.monUsd.reason === "OK" ? m.monUsd.priceE18 : null,
+      },
+      reason,
+      intentId,
+    );
+  }
+
+  /** A v3 account: its own value and every held token with its price and value as the account values it. */
+  private async observeV3(
+    v3: ChainReaderV3,
+    agentId: number,
+    reason: "interval" | "trade",
+    intentId: string | null,
+  ) {
+    const [a, m] = await Promise.all([v3.agent(agentId), v3.market()]);
+    if (!a?.account || !isMode(a.mode)) return false;
+    const holdings = a.holdings.map((h) => {
+      const px = holdingPrice(h, m);
+      const priced = px.priceE18 > 0n;
+      return {
+        token: h.token,
+        symbol: tokenInfo(m, h.token)?.symbol ?? h.token,
+        decimals: h.decimals,
+        amountRaw: h.balance.toString(),
+        priceE18: priced ? px.priceE18.toString() : null,
+        valueUsdcE6: priced
+          ? custodyV3.valueE6(h.balance, px.priceE18, h.decimals).toString()
+          : null,
+        costBasisUsdcE6: isAddressEqual(h.token, m.usdc) ? null : h.costBasis.toString(),
+      };
+    });
+    const usdc = a.holdings.find((h) => isAddressEqual(h.token, m.usdc))?.balance ?? 0n;
+    const wmon = a.holdings.find((h) => isAddressEqual(h.token, m.wmon))?.balance ?? 0n;
+    return this.o.snapshots.record(
+      this.o.chainId,
+      {
+        agentId,
+        account: a.account,
+        block: a.block,
+        timestamp: a.timestamp,
+        usdc,
+        wmon,
+        mode: a.mode,
+        monUsdE18: null,
+        custody: "v3",
+        valueUsdcE6: a.values?.nav ?? null,
+        holdings,
       },
       reason,
       intentId,

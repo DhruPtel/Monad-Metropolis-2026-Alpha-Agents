@@ -1,4 +1,4 @@
-import { TRADE_FLOW_MESSAGES } from "@alpha-agents/domain";
+import { type CustodyPath, TRADE_FLOW_MESSAGES } from "@alpha-agents/domain";
 import { type Hex, encodeFunctionData, parseAbi } from "viem";
 import { type AgentChainView, type ArmingRecord, grantProblem } from "./arming.ts";
 import type { IntentView, TradeStore } from "./store.ts";
@@ -60,7 +60,15 @@ export const registerCall = (
 export async function confirmArming(
   store: TradeStore,
   chain: AgentChainView | null,
-  a: { chainId: number; agentId: number; owner: Hex; fundingAddress: Hex | null },
+  a: {
+    chainId: number;
+    agentId: number;
+    owner: Hex;
+    fundingAddress: Hex | null;
+    /** F-U5: the custody set the grant is on and its Executor; v2 when absent. */
+    custody?: CustodyPath;
+    executor?: Hex | null;
+  },
 ): Promise<{ ok: true; record: ArmingRecord; renewed: boolean } | ActionRefusal> {
   if (!chain)
     return { ok: false, code: "NOT_FOUND", message: "This agent does not exist on this chain." };
@@ -80,6 +88,8 @@ export async function confirmArming(
     configEpoch: chain.configEpoch,
     sessionKey: chain.grant.key,
     validUntil: chain.grant.validUntil,
+    ...(a.custody ? { custody: a.custody } : {}),
+    ...(a.executor === undefined ? {} : { executor: a.executor }),
   });
   return { ok: true, ...r };
 }

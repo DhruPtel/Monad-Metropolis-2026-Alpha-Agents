@@ -1,4 +1,4 @@
-import type { ArmingEndReason, ArmingState } from "@alpha-agents/domain";
+import type { ArmingEndReason, ArmingState, CustodyPath } from "@alpha-agents/domain";
 import { type Hex, isAddressEqual } from "viem";
 
 /**
@@ -39,6 +39,9 @@ export interface ArmingRecord {
   readonly armingId: string;
   readonly chainId: number;
   readonly agentId: number;
+  /** F-U5 (D-367): the custody set the grant belongs to, and the Executor it is registered on. */
+  readonly custody: CustodyPath;
+  readonly executor: Hex | null;
   readonly owner: Hex;
   readonly ownerEpoch: bigint;
   readonly configEpoch: bigint;

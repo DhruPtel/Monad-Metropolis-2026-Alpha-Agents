@@ -198,6 +198,8 @@ export interface RouteQuoteV3 {
 
 export interface ChainReaderV3 {
   readonly chainId: number;
+  /** Executor v3's address: the grant's target on this set. */
+  readonly executorAddress: Hex;
   market(): Promise<MarketStateV3>;
   /** The agent's state; null when the agent does not exist on chain. */
   agent(agentId: number): Promise<AgentStateV3 | null>;
@@ -315,6 +317,7 @@ export interface ViemChainReaderV3Options {
 
 export class ViemChainReaderV3 implements ChainReaderV3 {
   readonly chainId: number;
+  readonly executorAddress: Hex;
   private readonly c: ContractsV3;
   private readonly client: PublicClient;
   private readonly cache: TtlCache;
@@ -324,6 +327,7 @@ export class ViemChainReaderV3 implements ChainReaderV3 {
   constructor(o: ViemChainReaderV3Options) {
     this.chainId = o.chainId;
     this.c = o.contracts;
+    this.executorAddress = o.contracts.executor_v3;
     this.client = createPublicClient({ transport: rpcTransport(o.rpcUrl, o.fallbackRpcUrl) });
     this.cache = new TtlCache(o.cacheMs ?? 3_000, o.now ?? Date.now);
   }

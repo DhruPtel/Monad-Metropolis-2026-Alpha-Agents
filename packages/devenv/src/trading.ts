@@ -217,6 +217,8 @@ export async function revokeTestSessionGrant(
   url: string,
   agentId: number,
   owner: string,
+  /** The Executor the grant is on: the v2 one by default, Executor v3 for an agent on the fund agent's set (F-U5). */
+  executor: string = book("executor"),
 ): Promise<void> {
   await assertLocalFork(url);
   const id = agentNumber(agentId);
@@ -226,7 +228,7 @@ export async function revokeTestSessionGrant(
   await sendAs(
     url,
     who as Address,
-    book("executor") as Address,
+    wallet(executor) as Address,
     encodeFunctionData({ abi: EXECUTOR_ABI, functionName: "revokeSession", args: [id] }),
   );
 }
@@ -238,6 +240,8 @@ export async function registerTestSessionGrant(
   owner: string,
   key: string,
   days = 30,
+  /** The Executor to register on: the v2 one by default, Executor v3 for an agent on the fund agent's set (F-U5). */
+  executor: string = book("executor"),
 ): Promise<void> {
   await assertLocalFork(url);
   const id = agentNumber(agentId);
@@ -254,7 +258,7 @@ export async function registerTestSessionGrant(
   await sendAs(
     url,
     who as Address,
-    book("executor") as Address,
+    wallet(executor) as Address,
     encodeFunctionData({
       abi: EXECUTOR_ABI,
       functionName: "registerSession",

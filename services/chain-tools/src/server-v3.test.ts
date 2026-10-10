@@ -185,6 +185,7 @@ const dec = (m: MarketStateV3, t: Hex) =>
 /** A reader over fixed state that tests change field by field; quotes follow the oracle, filled `fillBps` per hop. */
 class FakeReaderV3 implements ChainReaderV3 {
   readonly chainId = 143143;
+  readonly executorAddress = "0x3443dbBd29E19CF17853732C260C6abDb6dC0658" as Hex;
   market_ = marketState();
   agents = new Map<number, AgentStateV3>();
   paths = new Map<number, CustodyPath | null>();
