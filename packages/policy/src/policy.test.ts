@@ -9,6 +9,7 @@ import {
   type RebalanceIntent,
   type SwapIntent,
   type UnixSeconds,
+  EXECUTOR_V3_REASON_CODES,
 } from "@alpha-agents/domain";
 import { describe, expect, it } from "vitest";
 import {
@@ -78,6 +79,7 @@ describe("breach fixtures", () => {
 
   it("covers every limit the pre-checks enforce", () => {
     const covered = new Set(BREACH_FIXTURES.map((f) => f.expected));
+    // Executor v3's own codes are the executorV3 mirror's (F-U4), not the two-asset pre-checks'.
     const offchain = REJECTION_CODES.filter(
       (c) =>
         ![
@@ -91,6 +93,7 @@ describe("breach fixtures", () => {
           "SESSION_EXPIRED",
           "ACTION_REPLAYED",
           "INTENT_INVALID",
+          ...EXECUTOR_V3_REASON_CODES,
         ].includes(c),
     );
     for (const code of offchain) expect(covered, code).toContain(code);

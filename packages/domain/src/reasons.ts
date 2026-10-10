@@ -52,6 +52,25 @@ export const REJECTION_CODES = [
   "CLASS_A_POSITION_CAP",
   "CLASS_A_TOTAL_CAP",
 ] as const;
+
+/**
+ * The codes only Executor v3 returns (F-U4): a route, the token lanes and
+ * statuses, class A attestations and the cost-basis caps. The two-asset
+ * pre-checks (packages/policy checkSwap) and the console's policy sandbox are
+ * the v2 Executor's and cannot return them; packages/policy's `executorV3`
+ * mirrors them, and F-U5 moves the chain tools to it.
+ */
+export const EXECUTOR_V3_REASON_CODES = [
+  "ROUTE_INVALID",
+  "NOT_OPTED_IN",
+  "TOKEN_SELL_ONLY",
+  "TOKEN_FROZEN",
+  "ATTESTATION_REQUIRED",
+  "ATTESTATION_INVALID",
+  "ATTESTOR_UNAVAILABLE",
+  "CLASS_A_POSITION_CAP",
+  "CLASS_A_TOTAL_CAP",
+] as const satisfies readonly RejectionCode[];
 export type RejectionCode = (typeof REJECTION_CODES)[number];
 
 /** Owner-facing text for each code, phrased as the reason the agent did not trade. */

@@ -1,4 +1,4 @@
-import { REJECTION_CODES } from "@alpha-agents/domain";
+import { REJECTION_CODES, EXECUTOR_V3_REASON_CODES } from "@alpha-agents/domain";
 import { describe, expect, it } from "vitest";
 import { DEFAULT_FORM, PRESETS, runSandbox } from "./sandbox";
 
@@ -18,6 +18,7 @@ describe("policy sandbox presets", () => {
 
   it("covers every reason code the offchain pre-checks can return", () => {
     const covered = new Set(PRESETS.flatMap((p) => p.expected));
+    // Executor v3's own codes (F-U4) come from the executorV3 mirror; the sandbox is the two-asset v2 Executor's until F-U11.
     const onchainOnly = [
       "VENUE_NOT_ALLOWED",
       "SIMULATION_FAILED",
@@ -29,6 +30,7 @@ describe("policy sandbox presets", () => {
       "SESSION_EXPIRED",
       "ACTION_REPLAYED",
       "INTENT_INVALID",
+      ...EXECUTOR_V3_REASON_CODES,
     ];
     for (const code of REJECTION_CODES.filter((c) => !onchainOnly.includes(c))) {
       expect(covered, code).toContain(code);
