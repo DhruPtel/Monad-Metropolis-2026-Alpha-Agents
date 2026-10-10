@@ -556,6 +556,8 @@ export function apiAgentsSource(
           armAgent: orch.armAgent,
           disarmAgent: orch.disarmAgent,
           setPlan: orch.setPlan,
+          setPortfolioPlan: orch.setPortfolioPlan,
+          checkPortfolioPlan: orch.checkPortfolioPlan,
           runRunner: orch.runRunner,
           approveIntent: orch.approveIntent,
           proposeOverLimit: orch.proposeOverLimit,

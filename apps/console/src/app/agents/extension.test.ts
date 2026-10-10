@@ -468,3 +468,44 @@ describe("the chain tools in the console (P2-U5)", () => {
     });
   });
 });
+
+describe("target portfolio plans in the console (F-U6)", () => {
+  it("offers the orchestrator's check and set through the composed source, on their routes", async () => {
+    const calls: string[] = [];
+    const finding = {
+      code: "ENVELOPE_POSITION",
+      field: "positions.0.targetWeightBps",
+      message: "WMON may weigh at most 40%.",
+    };
+    const fetchFn = routes(
+      {
+        "/v1/agents": [200, AGENTS],
+        "/v1/credits": [200, { enabled: true, agents: [] }],
+        "/v1/runtimes": [200, { devActions: true, runtimes: [] }],
+        "/v1/agents/1/plan/check": [200, { findings: [finding], passed: false }],
+        "/v1/agents/1/plan": [201, { plan: { strategyEpoch: "4" } }],
+      },
+      calls,
+    );
+    const source = apiAgentsSource("http://api", fetchFn, "http://orch");
+    const params = {
+      template: "target_portfolio@1" as const,
+      positions: [],
+      cashTargetBps: 10_000,
+      minTradeUsdcE6: "500000",
+      volatilityBrakeBps: 20_000,
+      costHurdleBps: 40,
+      maxLegBps: 1_000,
+    };
+    // Every method the orchestrator source has is reachable through the composed one.
+    expect(typeof source.checkPortfolioPlan).toBe("function");
+    expect(typeof source.setPortfolioPlan).toBe("function");
+    expect(await source.checkPortfolioPlan?.(1n as never, params)).toEqual([finding]);
+    expect(await source.setPortfolioPlan?.(1n as never, params)).toBe("4");
+    expect(calls).toContain("POST http://orch/v1/agents/1/plan/check");
+    expect(calls).toContain("PUT http://orch/v1/agents/1/plan");
+    // Without an orchestrator neither exists, and the actions say so.
+    const none = apiAgentsSource("http://api", fetchFn);
+    expect(none.checkPortfolioPlan).toBeUndefined();
+  });
+});

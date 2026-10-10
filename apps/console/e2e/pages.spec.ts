@@ -324,6 +324,9 @@ test.describe("agents panel controls (P1-U5)", () => {
     await expect(plan).toHaveScreenshot("agents-plan-portfolio.png");
     // The Test refuses a 60% position under the Balanced envelope, and says why.
     await plan.getByRole("button", { name: "Check plan" }).click();
+    await expect(
+      page.getByText(/refuses this plan|passes this plan|could not be checked/).first(),
+    ).toBeVisible();
     await expect(form.getByTestId("plan-findings")).toContainText("ENVELOPE_POSITION");
     await expect(form.getByTestId("plan-findings")).toContainText("at most 40%");
     await plan.getByRole("button", { name: "Set plan" }).click();

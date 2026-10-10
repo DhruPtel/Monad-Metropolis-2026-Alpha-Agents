@@ -24,7 +24,8 @@ console.log(readFileSync(join(ROOT, "evidence", "live-pending.md"), "utf8"));
 const outcomes = [];
 for (const step of STEPS) {
   console.log(`\n== ${step.name}\n   ${step.cmd.join(" ")}\n`);
-  const r = spawnSync(step.cmd[0], step.cmd.slice(1), { cwd: ROOT, stdio: "inherit" });
+  const [bin = "node", ...args] = step.cmd;
+  const r = spawnSync(bin, args, { cwd: ROOT, stdio: "inherit" });
   outcomes.push({ name: step.name, status: r.status ?? 1 });
 }
 console.log("\n== summary");
