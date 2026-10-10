@@ -19,3 +19,4 @@ Added by later units: each unit that needs a live check appends a row here and, 
 
 | # | Check | Unit | What it proves | Command |
 | --- | --- | --- | --- | --- |
+| 3 | Goal brief and model tiers | F-U7 | The Scan on `research-low` and the reasoning stages on `research-low`, `research-medium` and `research-high`, each with the goal's brief and envelope in the prompt, counted by the dry run and answered by the real models in the live run | covered by steps 1 and 2 (`pnpm test:live:pending`) |

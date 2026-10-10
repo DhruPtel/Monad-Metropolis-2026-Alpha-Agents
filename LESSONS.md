@@ -1434,3 +1434,10 @@ What happened: The console's "Check plan" and the portfolio "Set plan" answered 
 Cause: `apiAgentsSource` composes the agents source by naming each of the orchestrator source's methods one by one; the two new methods were added to the inner object and not to that list, so the server actions found them undefined. No unit test checked the composition.
 Fix: The two methods are listed in the composition, and a unit test now calls them through the composed source and checks their routes (apps/console/src/app/agents/extension.ts, extension.test.ts). The e2e test also asserts the toast's text right after the click, so a failure names what the page said.
 Lesson: When a source is composed by naming methods, add every new method to the composition and to a test that reaches it through the composed object; and in a browser test, assert the message a failure shows before asserting what success renders, so the message survives the timeout.
+
+### L-192: An API builder that became async left the e2e fake serving a promise as an empty object
+Unit: F-U7 (2026-10-10)
+What happened: Every Goal page e2e test failed with "Cannot read properties of undefined (reading 'stricterLimits')" after the control API's `goalForm` began reading the registry's tokens from the database and became async. The web e2e fake still called it synchronously, so the pending promise was serialized as `{}` and the page got a form with no fields. The app's typecheck passed because the builder's parameters have defaults, and the fake is only reached in the browser.
+Cause: The fake spread the builder's return value into the response without awaiting it.
+Fix: The fake awaits the builder and overrides the token list with three registry tokens (apps/web/e2e/fake-goals.ts); the Goal page spec now excludes one of them and allows it again.
+Lesson: When a function a test fake calls becomes async, search every caller including the e2e fakes, which the type checker cannot flag when the arguments stay optional; and run the web e2e whenever a page's API contract changes, since the console e2e and the unit tests do not reach it.
