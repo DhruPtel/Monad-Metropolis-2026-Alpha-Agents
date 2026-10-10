@@ -62,3 +62,19 @@ Alpha Agents is an onchain financial management platform on Monad where AI agent
 
 ## Stop instead of waiting
 - If any blocker outside our code (an RPC outage, a provider error, a rate limit, a service being down) stops progress for more than 30 minutes, stop. Do not keep waiting or retrying. Report what is blocked, the evidence, what was tried, and what the owner can do to unblock it.
+
+## Scope discipline (read before every unit)
+- Do exactly what the current unit prompt's IN SCOPE lists, and nothing else. Nothing from OUT OF SCOPE, nothing from later units, and no "while I'm here" refactors, redesigns, or extra features.
+- If something outside the scope seems necessary to finish the unit, stop and ask before doing it. If it is only a good idea, write it in the LOGS.md entry as a suggestion and move on.
+- Never start the next unit, even if it is obvious what comes next.
+- Do not make product decisions. If the prompt or plan is unclear, choose the most conservative option and record it as an Assumption in DECISIONS. If the choice would change what the product does, stop and ask.
+- Only edit plan documents (Planv2/) when the unit prompt says to.
+- Do not change working code in other areas unless the unit cannot be completed without it, and say so in the handoff when you do.
+
+## Definition of done for every unit
+1. Every acceptance test in the prompt passes, or the handoff says exactly which did not and why.
+2. All checks pass, one heavy suite at a time.
+3. Commits are made incrementally with messages ending in the unit ID.
+4. A LOGS.md entry is added, and a LESSONS.md entry for every bug fixed.
+5. The handoff is posted in the format above.
+6. Then stop and wait for the owner. Do not continue, do not start new work, and do not schedule follow-up tasks or loops.
