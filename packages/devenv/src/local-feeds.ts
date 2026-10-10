@@ -1,10 +1,11 @@
-import { type Address, addressEntry } from "@alpha-agents/domain";
+import { type Address, CLASS_F_FEEDS, addressEntry } from "@alpha-agents/domain";
 import { assertLocalFork } from "./guard.ts";
 import { LOCAL_FEED_RUNTIME_CODE } from "./local-feed-code.ts";
 import { hexToBigInt, hexToNumber, rpc } from "./rpc.ts";
 
 /**
- * Fresh Chainlink feeds on the local fork (P2-U2 step 0, D-237).
+ * Fresh Chainlink feeds on the local fork (P2-U2 step 0, D-237; every class F
+ * feed since F-U3 step 0).
  *
  * A fork copies the feeds as they were at the pinned block and nothing
  * updates them there, so MON/USD is stale 5 minutes into a fork and every
@@ -36,13 +37,28 @@ export interface LocalFeedRound {
   readonly down: boolean;
 }
 
-/** The two feeds the oracle adapter reads, from the local address book. */
+/**
+ * Every feed the oracle adapters read: MON/USD and USDC/USD first (the launch
+ * adapter's two, from the local address book), then every other leg of the
+ * reviewed class F feed map (OracleAdapterV3's, F-U2), each proxy once. So the
+ * v3 oracle prices every core token on the playtest fork, not only WMON.
+ */
 export function localFeedAddresses(): readonly Address[] {
-  return (["chainlink_mon_usd", "chainlink_usdc_usd"] as const).map((id) => {
+  const launch = (["chainlink_mon_usd", "chainlink_usdc_usd"] as const).map((id) => {
     const e = addressEntry("local", id);
     if (e.address === null) throw new Error(`the address book has no ${id} for the local fork`);
     return e.address;
   });
+  const seen = new Set(launch.map((a) => a.toLowerCase()));
+  const rest: Address[] = [];
+  for (const f of CLASS_F_FEEDS) {
+    for (const leg of f.legs) {
+      if (seen.has(leg.proxy.toLowerCase())) continue;
+      seen.add(leg.proxy.toLowerCase());
+      rest.push(leg.proxy);
+    }
+  }
+  return [...launch, ...rest];
 }
 
 const word = (hex: string, i: number) => `0x${hex.slice(2 + i * 64, 2 + (i + 1) * 64)}`;
@@ -57,9 +73,16 @@ async function latestTime(url: string): Promise<bigint> {
   return hexToBigInt(block.timestamp);
 }
 
-/** Reads a feed: the real one through its own calls, or LocalFeed from storage. */
-async function readRound(url: string, feed: Address): Promise<LocalFeedRound & { local: boolean }> {
+/**
+ * Reads a feed: the real one through its own calls, or LocalFeed from storage.
+ * Null for an address with no code on the fork: there is no feed to re-date.
+ */
+async function readRound(
+  url: string,
+  feed: Address,
+): Promise<(LocalFeedRound & { local: boolean }) | null> {
   const code = (await rpc(url, "eth_getCode", [feed, "latest"])) as string;
+  if (code === "0x" || code === "") return null;
   if (code.toLowerCase() === LOCAL_FEED_RUNTIME_CODE.toLowerCase()) {
     const slot = async (n: number) =>
       hexToBigInt(await rpc(url, "eth_getStorageAt", [feed, `0x${n.toString(16)}`, "latest"]));
@@ -109,7 +132,9 @@ export interface LocalFeedChange {
 /**
  * Re-dates each feed's answer (or sets a new one) to the fork's latest block,
  * putting LocalFeed at its address first if it is still the copied Chainlink
- * feed. Returns the rounds written.
+ * feed. Returns the rounds written, in the order of `feeds`; an address with
+ * no code on the fork is skipped (nothing there to re-date), so one missing
+ * feed never stops the others from staying fresh.
  */
 export async function refreshLocalFeeds(
   url: string,
@@ -121,6 +146,7 @@ export async function refreshLocalFeeds(
   const out: LocalFeedRound[] = [];
   for (const feed of feeds) {
     const current = await readRound(url, feed);
+    if (current === null) continue;
     if (!current.local) {
       await rpc(url, "anvil_setCode", [feed, LOCAL_FEED_RUNTIME_CODE]);
       // The proxy's own storage means nothing to LocalFeed beyond the slots it writes.

@@ -111,7 +111,11 @@ describe.skipIf(upstream === null)("fork controls on a test fork", { timeout: SL
     // The pinned answer, which matches the fork's frozen pool, dated at the latest block.
     expect(after.answer).toBe(before.answer);
     expect(after.updatedAt).toBe(now);
-    expect(written.map((w) => w.decimals)).toEqual([8, 8]);
+    // Every class F feed leg is re-dated (F-U3 step 0): the two launch feeds first, then the rest.
+    expect(written.length).toBe(localFeedAddresses().length);
+    expect(written.slice(0, 2).map((w) => w.decimals)).toEqual([8, 8]);
+    expect(written.some((w) => w.decimals === 18)).toBe(true);
+    expect(written.every((w) => w.updatedAt === now && w.answer > 0n)).toBe(true);
     expect(BigInt(await call("0x313ce567"))).toBe(8n);
     // Down makes the feed revert; up brings it back.
     await refreshLocalFeeds(fork.url, [monUsd], { [monUsd.toLowerCase()]: { down: true } });

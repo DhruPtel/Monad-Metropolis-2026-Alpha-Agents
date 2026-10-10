@@ -2,7 +2,7 @@ import { type ChildProcess, spawn, spawnSync } from "node:child_process";
 import { type Server, createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import { LOCAL_FORK_CHAIN_ID, MONAD_MAINNET_CHAIN_ID } from "@alpha-agents/config";
-import type { Address } from "@alpha-agents/domain";
+import { type Address, CLASS_F_FEEDS, addressEntry } from "@alpha-agents/domain";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { NotLocalForkError } from "./guard.ts";
 import { LOCAL_FEED_RUNTIME_CODE } from "./local-feed-code.ts";
@@ -17,6 +17,18 @@ import { rpc } from "./rpc.ts";
  * the playtest fork on 8545).
  */
 const feeds = localFeedAddresses();
+
+describe("the feeds the refresher keeps fresh (F-U3 step 0)", () => {
+  it("lists MON/USD and USDC/USD first, then every other class F feed leg once", () => {
+    expect(feeds[0]).toBe(addressEntry("local", "chainlink_mon_usd").address);
+    expect(feeds[1]).toBe(addressEntry("local", "chainlink_usdc_usd").address);
+    const legs = new Set<string>();
+    for (const f of CLASS_F_FEEDS) for (const l of f.legs) legs.add(l.proxy.toLowerCase());
+    expect(new Set(feeds.map((a) => a.toLowerCase()))).toEqual(legs);
+    expect(feeds.length).toBe(legs.size);
+    expect(feeds.length).toBeGreaterThanOrEqual(20);
+  });
+});
 
 /** A local JSON-RPC server that records every method it is sent. */
 function fakeNode(answers: Record<string, unknown>) {
@@ -149,6 +161,16 @@ describe.skipIf(!haveAnvil)(
         [feed.toLowerCase()]: { down: false, answer: 3_436_820n },
       });
       expect((await round()).answer).toBe(3_436_820n);
+    });
+
+    it("skips an address with no code, leaving it empty, and still refreshes the rest", async () => {
+      // On this bare anvil the other class F feeds have no code (the fork would have them).
+      const empty = feeds[1] as Address;
+      const written = await refreshLocalFeeds(URL, [empty, feed]);
+      expect(written.map((w) => w.feed)).toEqual([feed]);
+      expect(await rpc(URL, "eth_getCode", [empty, "latest"])).toBe("0x");
+      expect(await localFeedsInstalled(URL, [feed])).toBe(true);
+      expect(await localFeedsInstalled(URL, [empty, feed])).toBe(false);
     });
   },
 );
