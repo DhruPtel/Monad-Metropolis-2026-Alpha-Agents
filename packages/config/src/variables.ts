@@ -534,6 +534,20 @@ export const VARIABLES = [
     localDefault: "360",
   },
   {
+    name: "SCHEDULED_RESEARCH",
+    group: "Agent runtime",
+    description:
+      "Whether funded agents run scheduled Scans and cycles on their own (D-369); off locally unless the owner turns it on for a session",
+    secret: false,
+    firstUsedBy: "P0-SPEND",
+    environments: ALL,
+    schema: z.enum(["on", "off"]),
+    expected: "on or off",
+    example: "off",
+    commented: true,
+    localDefault: "off",
+  },
+  {
     name: "ORCHESTRATOR_URL",
     group: "Agent runtime",
     description: "Base URL of the orchestrator's internal API, as the dev console calls it",

@@ -357,12 +357,17 @@ const scanIntervalMs =
     ? Number(scanSeconds) * 1_000
     : Number(values.SCAN_INTERVAL_MINUTES ?? 360) * 60_000;
 // P2-EC: on testnet Scans run only when the owner starts one; nothing is scheduled.
-const scheduleScans = env.id !== "testnet";
+// D-369: scheduled research runs only when the owner turns it on for the session (locally it is
+// off by default, so a funded agent never spends model credit on its own while someone develops).
+const scheduledResearch = (values.SCHEDULED_RESEARCH as string | undefined) === "on";
+const scheduleScans = env.id !== "testnet" && scheduledResearch;
 if (credits)
   log(
     scheduleScans
       ? `scheduled Scans every ${scanIntervalMs / 1_000} seconds for agents with credits`
-      : "scheduled Scans off on testnet: a Scan runs only when the owner starts one",
+      : env.id === "testnet"
+        ? "scheduled Scans off on testnet: a Scan runs only when the owner starts one"
+        : "scheduled research off (D-369): a Scan or cycle runs only when the owner starts one; SCHEDULED_RESEARCH=on turns scheduling on for a session",
   );
 
 // D-237: on the local fork only, keep the Chainlink feeds fresh so oracle checks pass.
