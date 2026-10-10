@@ -1,8 +1,8 @@
 # Build Plan
 
-*What has to be built, in what order. Revision 3 (2026-10-09): the product is now an autonomous fund agent (`FINAL_PLAN.md > 0`, D-332 to D-348), and section 4.0 replaces the order of every unit not yet built: trading first, then vaults, then the profile, Gallery, signals and x402, then skills and the marketplace, with every feature kept in the submission build (D-349). Revision 2. Revision 1 reconciled `Planv1/PHASES.md` with the planning answers; revision 2 applies the owner decisions and fixes from the orientation session of 2026-09-27. The Phase 3 planning session of 2026-10-07 rewrote Phase 3 (D-277 to D-296) and added the Gallery, Leaderboard and Dashboard options in section 4.5.*
+*What has to be built, in what order. Revision 4 (2026-10-10): the beta target is Sunday, October 11, 2026 at 6pm Pacific (D-368); section 4.0.1 holds the beta's scope and the build order for every unit not yet built, with the marketplace and item escrow, the creator portal, skills as NFTs, the paid signal tier and x402 paused until after the beta and kept in full. Revision 3 (2026-10-09): the product is now an autonomous fund agent (`FINAL_PLAN.md > 0`, D-332 to D-348), and section 4.0 replaces the order of every unit not yet built: trading first, then vaults, then the profile, Gallery, signals and x402, then skills and the marketplace, with every feature kept in the submission build (D-349). Revision 2. Revision 1 reconciled `Planv1/PHASES.md` with the planning answers; revision 2 applies the owner decisions and fixes from the orientation session of 2026-09-27. The Phase 3 planning session of 2026-10-07 rewrote Phase 3 (D-277 to D-296) and added the Gallery, Leaderboard and Dashboard options in section 4.5.*
 
-Companion to `FINAL_PLAN.md` (what we are building) and `DECISIONS_AND_OPEN_QUESTIONS.md` (the record). Order is by dependency only; there are no time estimates anywhere in this document. The October 13, 2026 hackathon deadline is a constraint on the definition of the hackathon beta (`FINAL_PLAN.md > 2.1`), not a schedule. The project is Alpha Agents. This repository is the code repository: code, plan documents and tracking files all live here (owner decision, orientation).
+Companion to `FINAL_PLAN.md` (what we are building) and `DECISIONS_AND_OPEN_QUESTIONS.md` (the record). Order is by dependency only; there are no time estimates anywhere in this document. The beta target of Sunday, October 11, 2026 at 6pm Pacific and the hackathon deadline of October 13, 2026 at 8:59pm (D-368) are constraints on the definition of the hackathon beta (`FINAL_PLAN.md > 0.10` and `> 2.1`), not a schedule. The project is Alpha Agents. This repository is the code repository: code, plan documents and tracking files all live here (owner decision, orientation).
 
 ---
 
@@ -1000,7 +1000,7 @@ Phase 3 needs nothing P2-EC deploys (D-247); its lessons on real fees and finali
 
 ### Phase B: Hackathon beta
 
-**Goal.** A guarded mainnet beta that demonstrates every item in `FINAL_PLAN.md > 2.1` to allowlisted testers with capped funds, submitted by October 13, 2026 (owner decision, orientation; D-133).
+**Goal.** A guarded mainnet beta that demonstrates every item of the Sunday beta (`FINAL_PLAN.md > 0.10`, D-368; before revision 4, `> 2.1`) to allowlisted testers with capped funds, targeted for Sunday, October 11, 2026 at 6pm Pacific and submitted by October 13, 2026 at 8:59pm (owner decision, orientation; D-133, D-368).
 
 | Unit | Name | Components touched | Depends on | Acceptance tests |
 |---|---|---|---|---|
@@ -1054,6 +1054,56 @@ The product is an autonomous fund agent (`FINAL_PLAN.md > 0`, D-332), and every 
 
 This section replaces the order of 4.1 to 4.3 for every unit not yet built. Built units stay built; the marks at the end of the section say which of them the redesign keeps, revises or replaces. One focused unit per session, each with its own prompt, `LOGS.md` entry and playtest rows as before. Contract units are never thinned (D-159). Class F tokens are built first and class A after them (D-350, Q-61 option B), aiming for the full fund agent with class A.
 
+#### 4.0.1 Revision 4: the Sunday beta (2026-10-10)
+
+The owner set the beta target: Sunday, October 11, 2026 at 6pm Pacific, with the hackathon deadline on October 13, 2026 at 8:59pm (D-368). This subsection replaces the order of the block tables below for every unit not yet built; the rows of those tables remain each unit's scope and dependencies, and the marks and the redeploy list still apply. Every unit is one focused session unless the Session column pairs it with its neighbour; a pair runs in one session with a gate between the two units: the first unit's checks and acceptance tests pass, its `LOGS.md` entry is written and committed, and only then does the second start (as F-U4 and F-U5 ran on 2026-10-10).
+
+**What the beta is.** A user goes on the platform, mints an agent NFT, and has an autonomous fund agent. They can upload their own skill, add their own Dune API key securely, give the agent credits, deposit money, and put money in a vault. They watch the agent research, trade and invest, and open a portfolio window showing its asset makeup and how it is performing. Several agents run side by side, research, and talk to each other in a community.
+
+| # | Unit | Name | One-line goal | Depends on | Session |
+|---|---|---|---|---|---|
+| 1 | F-U5 | Chain tools, signer and trade flow for N tokens | Every chain tool, the signer's Executor v3 path and reconciliation across every token a route touches, the trade flow's route per intent and value snapshots per asset, for any registered token. Done 2026-10-10 (D-367, A-72) | F-U4 | Done, paired with F-U4 |
+| 2 | F-U6 | Target portfolio, runner v2 and Test stage v2 | `target_portfolio@1` with bounds and evals, the runner's one capped leg a minute (sells first, routed through USDC), and the deterministic Test; `rebalance_bands@1` kept as the two-asset case | F-U5 | Pair A, first |
+| 3 | F-U7 | Goal v2 | Aggressiveness producing a brief and an envelope, the model tier Low, Medium, High (D-353), the screened opt-in and excluded tokens, the translator and the Goal page | F-U6 | Pair A, second, after the gate |
+| 4 | F-U8 | Research v2 | Playbooks 2.0, per-token Dives, a Zoom out that decides add, hold, trim or exit per position and drafts a target portfolio, and the `token-risk-screen` and portfolio construction skills as built-in folders | F-U7 | Alone |
+| 5 | F-U9 | Portfolio proposals and the plan card | P3-U6 revised: proposal tools, the evaluator, states, approval and the plan card with positions, theses and implied trades, and the screened opt-in transaction when a plan needs it | F-U8 | Alone |
+| | Playtest T | | Trading end to end on the fork in the web app: goal, research, a proposed portfolio, approval, legs settling through Executor v3, positions, refusals with their reasons; folds Playtest F-mid (done as the F-U5 handoff's steps), F-end and 3-end | after F-U9 | A session of its own |
+| 6 | F-U10 | Activation sweep | P3-U8 revised: goal and account, the universe scan, screening, per-token Dives, Challenge, Test and plan, with the step panel and the bee's reaction | F-U9 | Pair B, first |
+| 7 | F-U11 | Portfolio window for N positions | P2-U7 revised: holdings with cost basis, weight against target, each position's thesis and exit plan, blocked-trade reasons, deposit and in-kind withdrawal across every held token; and the window the owner opens: the asset makeup, performance over time from the value snapshots, agent scores, and a plain human metric, "if you had put in $100 at the start, it would be worth $X now," compared with simply holding USDC (D-368) | F-U10 | Pair B, second, after the gate |
+| 8 | P3-U10 | Autonomous loop and the Research page (revised) | The scheduler by intensity, the watcher with per-position triggers (price move, liquidity drop, failed re-screen, recheck time, kill criterion), the daily budget and the Research page with positions and theses; re-screens from F-U1's screen until F-U12 | F-U11 | Pair C, first |
+| 9 | P4-U2 | Risk Sentinel (revised) | The tighten-only sentinel key with detection of stale feeds and attestations, drawdown over the held list, failed re-screens and zero credits | P3-U10 | Pair C, second, after the gate |
+| 10 | P7-U1 | StrategyVault core | The public vault on the custody core v3, holding class F tokens only (D-355, Q-64) | F-U3, F-U2 | Alone |
+| 11 | P7-U2 | Vault Executor integration and backstops | Trading for vault accounts through Executor v3, with the target portfolio on core-lane class F tokens and independent backstops | P7-U1, F-U4, F-U6 | Pair D, first |
+| 12 | P7-U3 | Vault invariant and spike suite | The offline exit and accounting proofs, extended to N held tokens | P7-U2 | Pair D, second, after the gate |
+| 13 | P7-U4 | Vault creation, caps, allowlists and vault UI | AccountFactory v3's vault creation, caps and allowlists in full, and the deposit and withdraw modal with the in-kind option across every held token | P7-U3, F-U11 | Alone |
+| 14 | P5-U1 | Thin agent profile page | The public profile with positions, the public part of each thesis, the activity feed and "why the agent did not trade"; build cards, the directory search and IdentityBinder wait for the completion pass | F-U11, F-U9 | Pair E, first |
+| 15 | P7-U7 | Gallery (thin) | A public grid of every minted agent with its aggressiveness, top positions and value, linked to its profile | P5-U1, F-U7 | Pair E, second, after the gate |
+| 16 | CF-U1 | Community feed | Agents publish short research notes and trade calls after settlement, and read other agents' public notes as a research input through a data tool, all handled as untrusted data; no payments between agents; the free part of P5-U3 reshaped (A-73) | P5-U1, F-U9, F-U5, P3-U4 | Alone |
+| 17 | SK-U1 | Private skill upload | An owner uploads a skill package for their own agent only, in the existing skill format, through the automated format and static checks (F1 to F8, S1 to S15 of P6-U3 and P6-U4), mounted read-only beside the built-in skills by P3-U7's mechanism, never listed, sold or shown to other owners | P3-U7, F-U8, P1-U5 | Alone |
+| 18 | BK-U1 | Bring your own key | An owner adds their own Dune API key, and the same mechanism for other paid data sources, stored encrypted, used only for that owner's agent through the platform tool servers, never placed in the sandbox or shown again, metered separately from the platform's keys | P3-U9, P1-U6, P0-U3 | Alone |
+| 19 | F-U12 | Price attestor and class A live (optional, if time allows) | The attestor service with its own key and 60-second prices, class A intents end to end, the screened lane through the console, and hourly re-screens of held tokens | F-U11, P3-U10 | Alone |
+| 20 | RV-U1 | Reveal moment (optional, if time allows) | The reveal plays as opening a rare pull: an animation and rarity emphasis on the species and tier, on P1-U11's reveal flow | P1-U11, P1-U3 | Alone |
+| 21 | F-U13 | Real chains for the new contracts | A fresh testnet deployment of the whole beta stack (trading and vaults; no skill or escrow contracts at the beta) with feeds and seeded pools, and a mainnet canary rerun with a class F round trip and, if F-U12 shipped, a class A round trip | P7-U4, and F-U12 if built | Alone |
+| 22 | W-1 | Beta gates (D-356) | KMS for every platform key, the Safe multisig as admin, the wallet compatibility test (D-196) and the skill marker leak test (B-04, over the built-in and the owner's uploaded skills) | F-U13 | Alone |
+| | Playtest P | | Everything end to end before mainnet: PB-U1's flow against testnet with every beta item (the Rehearsal), vault deposits and both withdrawals, the community feed, an uploaded skill in use, an owner's key in use; folds Playtests 7-mid, 7-end, 5-mid, 6-mid and 6-end | after W-1, before PB-U1 | A session of its own |
+| 23 | PB-U1 | Beta guard and mainnet beta deployment | The beta stack on mainnet with allowlists, caps, label, manifests, assertion, kill switch, alerts and canary; the core lane seeded with the class F tokens the feed spike passed, the screened lane on if F-U12 passed; the founders' dry run on mainnet is its acceptance test | F-U13, W-1 | Pair F, first |
+| 24 | PB-U2 | Hackathon submission deliverables | Repo access, videos, link, logo and the evidence bundle labeled beta | PB-U1 | Pair F, second, after the gate |
+
+**Paused until after the beta, kept in the plan in full (D-368).** Built after PB-U2 in the completion pass, in the order of blocks 3 and 4 below, with nothing removed from their rows:
+
+| Paused item | Units | Note |
+|---|---|---|
+| The marketplace and item escrow | P8-U1, P8-U2, then P8-U3 and P8-U4 | The AgentNFT escrow address stays unset until then |
+| The creator portal | The creator half of P6-U4 and of P8-U2, W-4 | The automated checks of P6-U3 and P6-U4 are used by SK-U1 for the owner's own skill |
+| Skills as NFTs and trading skills | P6-U2, P6-U5, and with them P6-U1 and P6-U6 (A-73) | Equipping on the 3D configure page needs the NFT and BuildRegistry; the owner's uploaded skill mounts like a built-in one |
+| The signal feed's paid tier | P5-U3's priced real-time tier | The free part is CF-U1 |
+| x402 purchases between agents | P5-U4, then P5-U5 to P5-U7 | No payments between agents at the beta |
+| Gacha-style mechanics | none yet | A post-beta idea for customization stickiness, to be designed with skills as NFTs and the configure page |
+
+**Playtests.** Two: Playtest T after F-U9 (trading end to end on the fork) and Playtest P before PB-U1. Every other playtest row below folds into one of these; the founders' mainnet dry run is PB-U1's acceptance test.
+
+**Cut order, only if the owner chooses.** If time runs short: the optional items (F-U12, RV-U1), then the community feed (CF-U1), then the profile and Gallery (P5-U1, P7-U7), then bring your own key (BK-U1), then skill upload (SK-U1). Vaults and autonomous trading are not cut. A cut unit keeps its row and moves to the completion pass.
+
 #### Pass 1, block 1: autonomous trading
 
 | # | Unit | Name | One-line goal | Depends on |
@@ -1069,7 +1119,7 @@ This section replaces the order of 4.1 to 4.3 for every unit not yet built. Buil
 | 8 | F-U8 | Research v2 | Playbooks 2.0, per-token Dives, a Zoom out that decides add, hold, trim or exit per position and drafts a target portfolio, and the `token-risk-screen` and portfolio construction skills as built-in folders | F-U7 |
 | 9 | F-U9 | Portfolio proposals and the plan card | P3-U6 revised: proposal tools, the evaluator, states, approval and the plan card with positions, theses and implied trades, and the screened opt-in transaction when a plan needs it | F-U8 |
 | 10 | F-U10 | Activation sweep | P3-U8 revised: goal and account, the universe scan, screening, per-token Dives, Challenge, Test and plan, with the step panel and the bee's reaction | F-U9 |
-| 11 | F-U11 | Portfolio page for N positions | P2-U7 revised: holdings with cost basis, weight against target, each position's thesis and exit plan, blocked-trade reasons, deposit and in-kind withdrawal across every held token | F-U10 |
+| 11 | F-U11 | Portfolio page for N positions | P2-U7 revised: holdings with cost basis, weight against target, each position's thesis and exit plan, blocked-trade reasons, deposit and in-kind withdrawal across every held token; revision 4 adds the portfolio window: the asset makeup, performance over time from the value snapshots, agent scores, and the plain metric of what $100 at the start would be worth now against holding USDC (D-368) | F-U10 |
 | 12 | F-U12 | Price attestor and class A live | The attestor service with its own key and 60-second prices, class A intents end to end, the screened lane through the console, and hourly re-screens of held tokens | F-U11 |
 | 13 | P3-U10 | Autonomous loop and the Research page (revised) | The scheduler by intensity, the watcher with per-position triggers (price move, liquidity drop, failed re-screen, recheck time, kill criterion), the daily budget and the Research page with positions and theses | F-U12 |
 | 14 | P4-U2 | Risk Sentinel (revised) | The tighten-only sentinel key with detection of stale feeds and attestations, drawdown over the held list, failed re-screens and zero credits | P3-U10, F-U12 |
@@ -1297,6 +1347,8 @@ Step 1 proves the runtime and 1b runs the venue and oracle spikes early, because
 | 57 | PB-U2 | Hackathon submission deliverables | Repo access, videos, link, logo, evidence bundle labeled beta | PB-U1 | Full |
 
 ### 4.4 After the beta
+
+*Revision 4 (D-368): the items paused for the Sunday beta (the marketplace and item escrow, the creator portal, skills as NFTs and trading skills, the paid signal tier and x402 purchases between agents) are built in this pass, kept in full, in the order of 4.0's blocks 3 and 4; gacha-style mechanics for customization stickiness are a post-beta idea recorded in 4.0.1.*
 
 The completion pass builds every Cut unit and every "after PB-U2" remainder in phase order, each with its own prompt and `LOGS.md` entry, and repeats each phase's end-of-phase playtest when the phase is complete; P1-U8 has no session of its own (D-160). Phase 9 and the Solana track follow.
 
@@ -1539,6 +1591,8 @@ Dropped from the register as Zodiac-only: ZR-2, ZR-4l, ZR-6B to ZR-6D, ZR-Z03, Z
 | The remainder of every unit marked Reduced or No in section 4 | Not needed to demonstrate the hackathon beta | The post-beta completion pass, in phase order, after PB-U2 | owner decision, orientation |
 | Performance fee on in-kind exits | Fees are zero at launch | Fee activation; charged in kind, proportionally, against the same high-water mark as USDC exits | owner decision, orientation (D-128) |
 | Hermes delegation, browser, web, search, cron and connection toolsets | Each needs egress or duplicates a platform path; delegation multiplies model cost with no budget attribution per sub-agent | A metered, platform-routed equivalent and a measured need | owner decision, orientation (D-143) |
+| The marketplace and item escrow, the creator portal, skills as NFTs and trading skills, the paid signal tier, x402 purchases between agents | Paused for the Sunday beta of October 11, 2026, kept in the plan in full | The post-beta completion pass, in the order of `4.0` blocks 3 and 4 | owner decision, 2026-10-10 (D-368) |
+| Gacha-style mechanics for customization stickiness | A post-beta idea | Skills as NFTs and the configure page built, then a design | owner decision, 2026-10-10 (D-368) |
 
 ---
 
@@ -1560,6 +1614,8 @@ The demo must show every item in `FINAL_PLAN.md > 2.1`: connect and mint, fund c
 ### 7.2 Cut order if a dependency fails
 
 *Revision 3: every feature stays in the submission build and the owner decides any pullback (D-349); the build order of section 4.0 puts the natural cut points last, and its fallback plan without the marketplace and the creator flow is recorded there (D-357). Contracts are never thinned; a contract unit that slips moves the submission to labeled testnet (D-162).*
+
+*Revision 4 (D-368): for the Sunday beta the owner's cut order, used only if the owner chooses, is the optional items (F-U12, RV-U1), then the community feed (CF-U1), then the profile and Gallery (P5-U1, P7-U7), then bring your own key (BK-U1), then skill upload (SK-U1); vaults and autonomous trading are not cut (`4.0.1`). The marketplace, the creator portal, skills as NFTs, the paid signal tier and x402 are already paused until after the beta, so items 1 and 3 of the list below no longer apply to the beta.*
 
 Two stages, one rule. From `preview.html > Revised build manual > 15`, adopted for every scope decision: never weaken custody, accounting, emergency handling or data provenance, and never substitute unlimited permissions or optimistic accounting to preserve a demo claim. Every cut feature stays tracked in section 6 with its failed gate and next proof.
 

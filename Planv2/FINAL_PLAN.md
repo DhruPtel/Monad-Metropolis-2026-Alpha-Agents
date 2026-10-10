@@ -138,11 +138,44 @@ The P3-U4 engine stays; what the stages do changes (D-347).
 
 ### 0.9 The hackathon submission
 
+*Revision 4 (D-368, 2026-10-10): superseded by section 0.10 for the beta's scope. The marketplace and item escrow, the creator portal, skills as NFTs and trading skills, the paid signal tier and x402 purchases between agents are paused until after the beta and kept in full; the paragraphs below are the record of revision 3.*
+
 Every feature of the plan stays in the submission build (D-349): skills as NFTs, the audit pipeline, equipping on the 3D configure page with skill part models, the creator portal and upload flow, the marketplace with its item escrow, vaults, the profile page, the Gallery, the signal feed and x402. No feature is removed because of a time estimate; the owner decides any pullback closer to the deadline. The build order puts the most important parts first: autonomous trading, then vaults, then the profile, the Gallery, signals and x402, then skills and the marketplace, then the real-chain rerun, the beta gates and the beta (`BUILD_PLAN.md > 4.0`). Everything is built as if every feature ships.
 
 The definition of done in 2.1 keeps all nine items, with three revised for the fund agent (D-357): item 3, set a goal, is the aggressiveness goal of 0.6; item 4 becomes turn on automatic trading, watch the activation sweep research the market, screen tokens and build a target portfolio, approve it (which arms the agent) and watch the runner trade toward it within the hard limits, including at least one class A token if the attestor (F-U12) has passed; item 6, the profile, shows positions with each thesis and exit plan beside the activity feed and "why the agent did not trade". Item 5's skill is a fund-agent skill (for example the token risk screen or portfolio construction) that appears as a part on the 3D model and changes what the next cycle does; item 7's vault holds class F tokens only (D-338, D-355); items 8 and 9 are unchanged, and a creator's skill may declare the new research and token tools.
 
 The owner's fallback without the marketplace and the creator flow is recorded in `BUILD_PLAN.md > 4.0` (D-357); it is not the plan.
+
+### 0.10 Revision 4: the Sunday beta (2026-10-10)
+
+*Owner decision (D-368). This section supersedes, for the beta's scope, section 0.9 and the items of 2.1; the public launch and every paused feature stay as the rest of the plan describes them.*
+
+**The target.** The beta is targeted for Sunday, October 11, 2026 at 6pm Pacific; the hackathon deadline is October 13, 2026 at 8:59pm.
+
+**What the beta is.** A user goes on the platform, mints an agent NFT, and has an autonomous fund agent. They can upload their own skill, add their own Dune API key securely, give the agent credits, deposit money, and put money in a vault. They watch the agent research, trade and invest, and open a portfolio window showing its asset makeup and how it is performing. Several agents run side by side, research, and talk to each other in a community.
+
+**Definition of done for the beta.** An allowlisted tester can, and the founders have done each once on mainnet or on labeled testnet:
+
+1. Connect a wallet and mint an agent, free apart from gas (as 2.1 item 1).
+2. Fund credits at the agent's funding address and see the balance and per-call spend (2.1 item 2).
+3. Set an aggressiveness goal and deposit into the agent's account (0.6, F-U7).
+4. Turn on automatic trading, watch the activation sweep research the market, screen tokens and build a target portfolio, approve it, and watch the agent trade toward it within the hard limits through Executor v3 (F-U6 to F-U10).
+5. Open the portfolio window: the asset makeup, performance over time from the value snapshots, agent scores, and the plain metric "if you had put in $100 at the start, it would be worth $X now," beside what simply holding USDC would be worth (F-U11).
+6. Watch the agent keep researching and trading on its own, and see the sentinel tighten on a stale feed or a drawdown (P3-U10, P4-U2).
+7. Put money in a vault that holds class F tokens only and withdraw it both ways, including `redeemInKind` (P7-U1 to P7-U4, D-355).
+8. Read the agent's profile and the Gallery, and see agents publish short research notes and trade calls to the community feed and read other agents' notes as research input, all as untrusted data, with no payments between agents (P5-U1, P7-U7, CF-U1).
+9. Upload their own skill package for their own agent, see it pass the format and static checks and be mounted read-only like the built-in skills, never shown to other owners (SK-U1).
+10. Add their own Dune API key, stored encrypted, used only by their agent through the platform tool servers, never placed in the sandbox or shown again, and metered separately (BK-U1).
+
+Optional, if time allows: class A tokens through the price attestor (F-U12), and a reveal that feels like opening a rare pull (RV-U1).
+
+**Build order.** Autonomous trading (F-U5 to F-U11, P3-U10, P4-U2), then vaults (P7-U1 to P7-U4), then community (P5-U1, P7-U7, CF-U1), then skill upload (SK-U1), then bring your own key (BK-U1), then the optional items, then F-U13, W-1, PB-U1 and PB-U2; the unit list with one-line goals and the sessions that may run as pairs is `BUILD_PLAN.md > 4.0.1`.
+
+**Paused until after the beta, kept in this plan in full.** The marketplace and item escrow (4.1.11, 4.8.1), the creator portal (4.5.3 steps 2 and 6, 4.8), skills as NFTs and trading skills (4.1.3, 4.5.3 steps 4 to 7, the configure page's equipping), the signal feed's paid tier and x402 purchases between agents (4.8.3, 5.6). Gacha-style mechanics are a post-beta idea for customization stickiness. Nothing in these sections is removed; they describe the public launch.
+
+**Playtests.** Two: one after F-U9 (trading end to end on the fork) and one before PB-U1; the others fold into these.
+
+**Cut order, only if the owner chooses.** The optional items, then the community feed, then the profile and Gallery, then bring your own key, then skill upload. Vaults and autonomous trading are not cut.
 
 ---
 
@@ -179,6 +212,8 @@ Agreed during planning (`planning answer`): launch is sold on control, ownership
 
 *Revision 3: superseded where it conflicts by sections 0.1 and 0.6 (fund agents, D-332 to D-357).*
 
+*Revision 4: the hackathon beta's scope is section 0.10 (D-368); this table stays the public-launch scope, with the items paused for the beta kept in full.*
+
 | Area | In at launch | Out at launch (see BUILD_PLAN section 6 for triggers) |
 |---|---|---|
 | Chain | Monad mainnet, chain ID 143, first as a guarded beta (allowlists, caps, "unaudited beta" label) and then public; testnet 10143 and mainnet forks for testing, and for beta items not ready for mainnet, labeled | Solana (separate track, same depth, after the Monad chain layer) |
@@ -201,11 +236,13 @@ Agreed during planning (`planning answer`): launch is sold on control, ownership
 
 ## 2. Definition of done
 
-Done comes in two stages (owner decision, orientation). The hackathon beta is what is submitted on October 13, 2026; the public launch is what the rest of this plan describes. Neither stage weakens custody, accounting, emergency handling or data provenance.
+Done comes in two stages (owner decision, orientation). The hackathon beta is targeted for Sunday, October 11, 2026 at 6pm Pacific and submitted by the hackathon deadline of October 13, 2026 at 8:59pm (D-368); the public launch is what the rest of this plan describes. Neither stage weakens custody, accounting, emergency handling or data provenance.
 
 ### 2.1 Hackathon beta
 
 *Revision 3: superseded where it conflicts by section 0.9 (fund agents, D-332 to D-357).*
+
+*Revision 4: superseded for the beta by section 0.10 (D-368), whose ten items are the beta's definition of done; items 8 and 9 below (the x402 purchase, and a creator's skill through the marketplace) are paused until after the beta.*
 
 Deployed on Monad mainnet as a guarded beta: allowlisted wallets only, small platform-wide and per-account deposit caps, and a clear "unaudited beta" label throughout the product. External audits and the legal gate are not required for this stage, because access is limited to allowlisted testers with capped funds. Testnet is used for anything not ready for mainnet, clearly labeled on screen and in the evidence bundle. The beta is done when an allowlisted tester can do all of the following, and the founders have done each once on mainnet or on labeled testnet:
 
@@ -879,6 +916,8 @@ Intent pipeline: quick deterministic checks synchronously (asset, size, caps, fl
 
 **Decisions and constraints.** Baseline is web search, X, Dune and chain tools plus the free sources DefiLlama, CoinMarketCap and HyperSync (`conversation decision`, `planning answer`). Hermes' own `web`, `search` and `x_search` toolsets are disabled so every data call is metered (`notes/hermes.md > 3.1`). Results are wrapped as untrusted by Hermes; the server also caps length and strips control characters (`notes/monad-agent-kit.md > 2`). Rate-limit headers are honored in code, not prose (`Planv1/research/bankr-skills.md > 7`).
 
+**Revision 4 (D-368).** An owner may add their own Dune API key, and the same mechanism serves other paid sources (BK-U1): the key is stored encrypted, used only for that owner's agent through this server, never placed in the sandbox or shown again, and its calls are metered separately from the platform's keys.
+
 #### 4.4.4 Platform tools server
 
 **Purpose.** The agent's window onto its own configuration, research memory and proposals.
@@ -987,6 +1026,8 @@ Hermes compatibility: the build step generates frontmatter with `name` (equals t
 7. **Equipped.** The owner moves the SkillNFT into the token-bound account and activates a build in BuildRegistry, which checks slots, tier, status and holdings and bumps `configEpoch`. Changes apply at the next cycle, never mid-session (`notes/hermes.md > 3.2`).
 8. **Loaded.** The loader reads the active build, verifies each content hash, decrypts private skills into the per-cycle tmpfs mount, materializes exactly one folder per skill named by `id`, generates frontmatter, and lists the directory in `skills.external_dirs`. Two versions never coexist in one run; a tampered hash or revoked version is refused (`conversation decision`, `02-platform-mapping.md > 2.1`).
 9. **Run.** Hermes shows one index line per skill; the model calls `skill_view` to load a body; the skill's instructions name platform tools exactly; its output is tool calls. Intents are attributed to the active skill context where Hermes exposes it, and per-intent caps at the Executor apply regardless of skill (`02-platform-mapping.md > 2.8`).
+
+*Revision 4 (D-368): at the Sunday beta an owner uploads a skill package for their own agent only (SK-U1): steps 1 to 3 as written, with the automated format and static checks; the package is mounted read-only beside the built-in skills by step 8's mechanism, without the NFT, BuildRegistry or encryption of steps 4 to 7, and is never listed, sold or shown to other owners. Listing, sale and skills as NFTs are paused until after the beta.*
 
 #### 4.5.4 The nine launch skills
 
@@ -1198,6 +1239,8 @@ Custom skills are core, not an add-on: at the hackathon beta the marketplace alr
 **Depended on by.** Landing page counters, profile pages, leaderboard, value report.
 
 **Decisions and constraints.** Metrics show live versus simulated mode, sample period, costs, exposure, drawdown and data age (`preview.html > Revised technical plan > 12`).
+
+*Revision 4 (D-368): at the Sunday beta the community is a thin profile page, the Gallery, and a community feed (CF-U1) where agents publish short research notes and trade calls after settlement and read other agents' public notes as a research input, all handled as untrusted data; no payments between agents. The paid signal tier and x402 purchases are paused until after the beta.*
 
 ### 4.10 Frontend
 
