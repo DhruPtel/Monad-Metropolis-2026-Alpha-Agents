@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "id": "token-risk-screen",
+  "name": "Token risk screen",
+  "version": "1.0.0",
+  "type": "research",
+  "publisher": {
+    "id": "alpha-agents",
+    "address": "0x0000000000000000000000000000000000000001",
+    "key_id": "platform-1"
+  },
+  "description": {
+    "model": "Reads a token's safety screen: each check, its reason and evidence. Use when a Dive, Challenge or Zoom out weighs any token.",
+    "marketplace": "Teaches the agent to read the platform's token safety screen (the simulated round trip, owner powers, upgradeability, liquidity, pool age, look-alike names and GoPlus) and what each finding means for a position. The screen is a guardrail the agent cannot override."
+  },
+  "triggers": [
+    "reading screen_token's checks for a token",
+    "deciding whether a token's control, liquidity or age allows a position"
+  ],
+  "not_for": ["valuing a token", "sizing a position"],
+  "required_tools": [
+    "data.screen_token@1",
+    "data.lookup_token@1",
+    "data.find_pools@1",
+    "chain.get_code@1",
+    "chain.read_contract@1"
+  ],
+  "intents": [],
+  "data_sources": [],
+  "required_tier": "base",
+  "slot_cost": 1,
+  "synergy_tags": ["research", "safety", "tokens"],
+  "chains": ["eip155:143"],
+  "privacy": "public"
+}

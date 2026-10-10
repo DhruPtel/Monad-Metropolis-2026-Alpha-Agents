@@ -33,12 +33,14 @@ afterEach(() => {
 const set = loadBuiltinSet();
 
 describe("the built-in skills and playbooks (P3-U7)", () => {
-  it("has the six launch skills and four stage playbooks, each valid, audited and locked", () => {
+  it("has the eight launch skills and four stage playbooks, each valid, audited and locked", () => {
     expect(set.packages.filter((p) => p.kind === "skill").map((p) => p.manifest.id)).toEqual([
       "deep-dive-research",
       "defi-regime-read",
       "monad-assets-basics",
       "narrative-and-flow-tracker",
+      "portfolio-construction",
+      "token-risk-screen",
       "uniswap-v4-swap",
       "usdc-wmon-band-rebalancer",
     ]);
@@ -92,6 +94,37 @@ describe("the built-in skills and playbooks (P3-U7)", () => {
     expect(dive).toMatch(/killCriterion/);
     expect(dive).toMatch(/horizonHours/);
     expect(dive).toMatch(/noThesisReason/);
+    // F-U8: the Dive is per token, with the fundamentals checklist, the screen and a fair weight.
+    for (const item of [
+      "usage",
+      "feesRevenueVolume",
+      "tvl",
+      "holdersLiquidity",
+      "supplyEmissions",
+      "control",
+      "catalysts",
+      "relativeValue",
+      "fairWeightBps",
+      "mcp__data__screen_token",
+      "Conservative",
+      "Aggressive",
+    ])
+      expect(dive, item).toContain(item);
+    const scanText = set.packages.find((p) => p.manifest.id === "playbook-scan")?.skillMd ?? "";
+    for (const item of ["POSITION", "MARKET", "mcp__data__list_tokens", "excluded"])
+      expect(scanText, item).toContain(item);
+    const rationale =
+      set.packages.find((p) => p.manifest.id === "playbook-zoom-out")?.skillMd ?? "";
+    for (const item of [
+      "ADD",
+      "HOLD",
+      "TRIM",
+      "EXIT",
+      "evidenceStrength",
+      "portfolioView",
+      "target_portfolio@1",
+    ])
+      expect(rationale, item).toContain(item);
     for (const p of set.packages.filter((x) => x.kind === "playbook"))
       expect(p.skillMd, p.manifest.id).toMatch(/mcp__platform__write_research_brief/);
     const zoom = set.packages.find((p) => p.manifest.id === "playbook-zoom-out")?.skillMd ?? "";

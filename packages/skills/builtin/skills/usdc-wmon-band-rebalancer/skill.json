@@ -2,7 +2,7 @@
   "schema_version": 1,
   "id": "usdc-wmon-band-rebalancer",
   "name": "USDC/WMON band rebalancer",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "type": "strategy",
   "publisher": {
     "id": "alpha-agents",
@@ -10,7 +10,7 @@
     "key_id": "platform-1"
   },
   "description": {
-    "model": "Tunes the USDC/WMON band plan: target, band, brake, cost. Use when a Zoom out weighs changing rebalance_bands@1.",
+    "model": "Tunes the USDC/WMON band plan: target, band, brake, cost. Use when a Zoom out weighs changing rebalance_bands@1, the two-asset fallback.",
     "marketplace": "Keeps a target split between USDC and WMON inside bands, with a volatility brake for buys and a cost limit per trade. Tunes the platform's rebalance_bands@1 template; the platform's runner makes the trades."
   },
   "triggers": [

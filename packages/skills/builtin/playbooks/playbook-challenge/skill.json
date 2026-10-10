@@ -2,7 +2,7 @@
   "schema_version": 1,
   "id": "playbook-challenge",
   "name": "Challenge playbook",
-  "version": "1.1.0",
+  "version": "2.0.0",
   "type": "research",
   "publisher": {
     "id": "alpha-agents",
@@ -16,6 +16,8 @@
   "required_tools": [
     "data.market_snapshot@1",
     "data.volatility@1",
+    "data.screen_token@1",
+    "data.find_pools@1",
     "chain.get_pool_depth@1",
     "chain.get_limits@1",
     "chain.get_portfolio@1",

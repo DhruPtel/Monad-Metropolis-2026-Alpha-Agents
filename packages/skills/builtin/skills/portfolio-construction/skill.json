@@ -1,0 +1,42 @@
+{
+  "schema_version": 1,
+  "id": "portfolio-construction",
+  "name": "Portfolio construction",
+  "version": "1.0.0",
+  "type": "strategy",
+  "publisher": {
+    "id": "alpha-agents",
+    "address": "0x0000000000000000000000000000000000000001",
+    "key_id": "platform-1"
+  },
+  "description": {
+    "model": "Drafts a target portfolio: weights, bands, cash and exits in the envelope. Use when a Zoom out proposes target_portfolio@1.",
+    "marketplace": "Turns the cycle's theses into a target portfolio the platform's runner can follow: a weight per position from its fair weight and the pool's depth, a band, a cash target and an exit plan, all inside the goal's envelope and the owner's limits. Tunes the platform's target_portfolio@1 template; the runner makes the trades."
+  },
+  "triggers": [
+    "drafting or revising a target portfolio",
+    "choosing a position's weight, band, cash target or exit plan"
+  ],
+  "not_for": ["choosing a trade size", "placing a trade", "researching a token"],
+  "required_tools": [
+    "chain.get_portfolio@1",
+    "chain.get_limits@1",
+    "chain.get_quote@1",
+    "chain.get_pool_depth@1",
+    "data.volatility@1",
+    "data.market_snapshot@1"
+  ],
+  "intents": [],
+  "data_sources": [],
+  "required_tier": "base",
+  "slot_cost": 2,
+  "synergy_tags": ["allocation", "portfolio"],
+  "chains": ["eip155:143"],
+  "privacy": "private",
+  "compatible_templates": [
+    {
+      "template": "target_portfolio@1",
+      "params": "data/params.json"
+    }
+  ]
+}

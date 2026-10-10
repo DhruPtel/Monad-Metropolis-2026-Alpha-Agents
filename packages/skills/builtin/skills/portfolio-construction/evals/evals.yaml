@@ -1,0 +1,1588 @@
+# F-U6's evals for target_portfolio@1 (D-344), as YAML (JSON is valid YAML). Generated from packages/policy/evals.
+{
+  "template": "target_portfolio@1",
+  "format": 2,
+  "note": "F-U6 evals (D-344): each scenario's registered tokens with the account's holdings, prices, caps, screens and volatility, the plan, the quote for the expected leg, and the action and reason the rule must give. Expected values were computed by hand from the rule's statement, not by the TypeScript under test. Prices: USDC 1, WMON 0.025, WBTC 100,000, AUSD 1 USD. Limits: 12% per trade, 45% per asset, 10% USDC floor (CUSTODY_V3).",
+  "scenarios": [
+    {
+      "name": "all-cash-buys-the-most-underweight",
+      "description": "An account of 100 USDC with WMON 30% and WBTC 20% targets buys WMON first (the larger deficit), one leg capped at 10% less the half-percent margin: 9.95 USDC.",
+      "params": {
+        "positions": [
+          {
+            "token": "0x00000000000000000000000000000000000000c2",
+            "targetWeightBps": 3000,
+            "bandBps": 300,
+            "thesisId": "t-wmon",
+            "exit": {
+              "killCriterion": "The thesis's kill criterion from the brief",
+              "recheckAt": "2026-11-01T00:00:00.000Z"
+            }
+          },
+          {
+            "token": "0x00000000000000000000000000000000000000c3",
+            "targetWeightBps": 2000,
+            "bandBps": 300,
+            "thesisId": "t-wbtc",
+            "exit": {
+              "killCriterion": "The thesis's kill criterion from the brief",
+              "recheckAt": "2026-11-01T00:00:00.000Z"
+            }
+          }
+        ],
+        "cashTargetBps": 5000,
+        "minTradeUsdcE6": "500000",
+        "volatilityBrakeBps": 20000,
+        "costHurdleBps": 40,
+        "maxLegBps": 1000
+      },
+      "state": {
+        "usdc": "0x00000000000000000000000000000000000000c1",
+        "wmon": "0x00000000000000000000000000000000000000c2",
+        "tokens": [
+          {
+            "token": "0x00000000000000000000000000000000000000c1",
+            "symbol": "USDC",
+            "decimals": 6,
+            "balanceRaw": "100000000",
+            "priceE18": "1000000000000000000",
+            "priceClass": "USDC",
+            "status": "BUYABLE",
+            "capBps": 10000,
+            "screenFresh": true,
+            "volatility24hPct": null
+          },
+          {
+            "token": "0x00000000000000000000000000000000000000c2",
+            "symbol": "WMON",
+            "decimals": 18,
+            "balanceRaw": "0",
+            "priceE18": "25000000000000000",
+            "priceClass": "F",
+            "status": "BUYABLE",
+            "capBps": 4500,
+            "screenFresh": true,
+            "volatility24hPct": 110
+          },
+          {
+            "token": "0x00000000000000000000000000000000000000c3",
+            "symbol": "WBTC",
+            "decimals": 8,
+            "balanceRaw": "0",
+            "priceE18": "100000000000000000000000",
+            "priceClass": "F",
+            "status": "BUYABLE",
+            "capBps": 4500,
+            "screenFresh": true,
+            "volatility24hPct": null
+          }
+        ],
+        "limits": {
+          "maxTradeBps": 1200,
+          "maxAssetBps": 4500,
+          "minUsdcBps": 1000
+        }
+      },
+      "quote": null,
+      "expect": {
+        "action": "trade",
+        "sell": "USDC",
+        "buy": "WMON",
+        "amountIn": "9950000"
+      }
+    },
+    {
+      "name": "overweight-sells-first",
+      "description": "WMON at 45% against a 30% target sells before WBTC at 15% is bought: the leg is 9.95 USDC of WMON (398 WMON at 0.025).",
+      "params": {
+        "positions": [
+          {
+            "token": "0x00000000000000000000000000000000000000c2",
+            "targetWeightBps": 3000,
+            "bandBps": 300,
+            "thesisId": "t-wmon",
+            "exit": {
+              "killCriterion": "The thesis's kill criterion from the brief",
+              "recheckAt": "2026-11-01T00:00:00.000Z"
+            }
+          },
+          {
+            "token": "0x00000000000000000000000000000000000000c3",
+            "targetWeightBps": 2000,
+            "bandBps": 300,
+            "thesisId": "t-wbtc",
+            "exit": {
+              "killCriterion": "The thesis's kill criterion from the brief",
+              "recheckAt": "2026-11-01T00:00:00.000Z"
+            }
+          }
+        ],
+        "cashTargetBps": 5000,
+        "minTradeUsdcE6": "500000",
+        "volatilityBrakeBps": 20000,
+        "costHurdleBps": 40,
+        "maxLegBps": 1000
+      },
+      "state": {
+        "usdc": "0x00000000000000000000000000000000000000c1",
+        "wmon": "0x00000000000000000000000000000000000000c2",
+        "tokens": [
+          {
+            "token": "0x00000000000000000000000000000000000000c1",
+            "symbol": "USDC",
+            "decimals": 6,
+            "balanceRaw": "40000000",
+            "priceE18": "1000000000000000000",
+            "priceClass": "USDC",
+            "status": "BUYABLE",
+            "capBps": 10000,
+            "screenFresh": true,
+            "volatility24hPct": null
+          },
+          {
+            "token": "0x00000000000000000000000000000000000000c2",
+            "symbol": "WMON",
+            "decimals": 18,
+            "balanceRaw": "1800000000000000000000",
+            "priceE18": "25000000000000000",
+            "priceClass": "F",
+            "status": "BUYABLE",
+            "capBps": 4500,
+            "screenFresh": true,
+            "volatility24hPct": 110
+          },
+          {
+            "token": "0x00000000000000000000000000000000000000c3",
+            "symbol": "WBTC",
+            "decimals": 8,
+            "balanceRaw": "15000",
+            "priceE18": "100000000000000000000000",
+            "priceClass": "F",
+            "status": "BUYABLE",
+            "capBps": 4500,
+            "screenFresh": true,
+            "volatility24hPct": null
+          }
+        ],
+        "limits": {
+          "maxTradeBps": 1200,
+          "maxAssetBps": 4500,
+          "minUsdcBps": 1000
+        }
+      },
+      "quote": null,
+      "expect": {
+        "action": "trade",
+        "sell": "WMON",
+        "buy": "USDC",
+        "amountIn": "398000000000000000000"
+      }
+    },
+    {
+      "name": "in-band",
+      "description": "Every position at its target holds IN_BAND.",
+      "params": {
+        "positions": [
+          {
+            "token": "0x00000000000000000000000000000000000000c2",
+            "targetWeightBps": 3000,
+            "bandBps": 300,
+            "thesisId": "t-wmon",
+            "exit": {
+              "killCriterion": "The thesis's kill criterion from the brief",
+              "recheckAt": "2026-11-01T00:00:00.000Z"
+            }
+          },
+          {
+            "token": "0x00000000000000000000000000000000000000c3",
+            "targetWeightBps": 2000,
+            "bandBps": 300,
+            "thesisId": "t-wbtc",
+            "exit": {
+              "killCriterion": "The thesis's kill criterion from the brief",
+              "recheckAt": "2026-11-01T00:00:00.000Z"
+            }
+          }
+        ],
+        "cashTargetBps": 5000,
+        "minTradeUsdcE6": "500000",
+        "volatilityBrakeBps": 20000,
+        "costHurdleBps": 40,
+        "maxLegBps": 1000
+      },
+      "state": {
+        "usdc": "0x00000000000000000000000000000000000000c1",
+        "wmon": "0x00000000000000000000000000000000000000c2",
+        "tokens": [
+          {
+            "token": "0x00000000000000000000000000000000000000c1",
+            "symbol": "USDC",
+            "decimals": 6,
+            "balanceRaw": "50000000",
+            "priceE18": "1000000000000000000",
+            "priceClass": "USDC",
+            "status": "BUYABLE",
+            "capBps": 10000,
+            "screenFresh": true,
+            "volatility24hPct": null
+          },
+          {
+            "token": "0x00000000000000000000000000000000000000c2",
+            "symbol": "WMON",
+            "decimals": 18,
+            "balanceRaw": "1200000000000000000000",
+            "priceE18": "25000000000000000",
+            "priceClass": "F",
+            "status": "BUYABLE",
+            "capBps": 4500,
+            "screenFresh": true,
+            "volatility24hPct": 110
+          },
+          {
+            "token": "0x00000000000000000000000000000000000000c3",
+            "symbol": "WBTC",
+            "decimals": 8,
+            "balanceRaw": "20000",
+            "priceE18": "100000000000000000000000",
+            "priceClass": "F",
+            "status": "BUYABLE",
+            "capBps": 4500,
+            "screenFresh": true,
+            "volatility24hPct": null
+          }
+        ],
+        "limits": {
+          "maxTradeBps": 1200,
+          "maxAssetBps": 4500,
+          "minUsdcBps": 1000
+        }
+      },
+      "quote": null,
+      "expect": {
+        "action": "hold",
+        "code": "IN_BAND"
+      }
+    },
+    {
+      "name": "sell-only-token-exits-first",
+      "description": "WBTC moved to sell-only by the registry counts as a zero target, so it is sold ahead of anything else: 9.95 USDC of WBTC is 9,950 raw units at 100,000.",
+      "params": {
+        "positions": [
+          {
+            "token": "0x00000000000000000000000000000000000000c2",
+            "targetWeightBps": 3000,
+            "bandBps": 300,
+            "thesisId": "t-wmon",
+            "exit": {
+              "killCriterion": "The thesis's kill criterion from the brief",
+              "recheckAt": "2026-11-01T00:00:00.000Z"
+            }
+          },
+          {
+            "token": "0x00000000000000000000000000000000000000c3",
+            "targetWeightBps": 2000,
+            "bandBps": 300,
+            "thesisId": "t-wbtc",
+            "exit": {
+              "killCriterion": "The thesis's kill criterion from the brief",
+              "recheckAt": "2026-11-01T00:00:00.000Z"
+            }
+          }
+        ],
+        "cashTargetBps": 5000,
+        "minTradeUsdcE6": "500000",
+        "volatilityBrakeBps": 20000,
+        "costHurdleBps": 40,
+        "maxLegBps": 1000
+      },
+      "state": {
+        "usdc": "0x00000000000000000000000000000000000000c1",
+        "wmon": "0x00000000000000000000000000000000000000c2",
+        "tokens": [
+          {
+            "token": "0x00000000000000000000000000000000000000c1",
+            "symbol": "USDC",
+            "decimals": 6,
+            "balanceRaw": "50000000",
+            "priceE18": "1000000000000000000",
+            "priceClass": "USDC",
+            "status": "BUYABLE",
+            "capBps": 10000,
+            "screenFresh": true,
+            "volatility24hPct": null
+          },
+          {
+            "token": "0x00000000000000000000000000000000000000c2",
+            "symbol": "WMON",
+            "decimals": 18,
+            "balanceRaw": "1200000000000000000000",
+            "priceE18": "25000000000000000",
+            "priceClass": "F",
+            "status": "BUYABLE",
+            "capBps": 4500,
+            "screenFresh": true,
+            "volatility24hPct": 110
+          },
+          {
+            "token": "0x00000000000000000000000000000000000000c3",
+            "symbol": "WBTC",
+            "decimals": 8,
+            "balanceRaw": "20000",
+            "priceE18": "100000000000000000000000",
+            "priceClass": "F",
+            "status": "SELL_ONLY",
+            "capBps": 4500,
+            "screenFresh": true,
+            "volatility24hPct": null
+          }
+        ],
+        "limits": {
+          "maxTradeBps": 1200,
+          "maxAssetBps": 4500,
+          "minUsdcBps": 1000
+        }
+      },
+      "quote": null,
+      "expect": {
+        "action": "trade",
+        "sell": "WBTC",
+        "buy": "USDC",
+        "amountIn": "9950"
+      }
+    },
+    {
+      "name": "trim-level-trims-inside-the-band",
+      "description": "WMON at 33% is inside its band but above the position's trim level of 32%, so it is trimmed to the 30% target: 3 USDC of WMON.",
+      "params": {
+        "positions": [
+          {
+            "token": "0x00000000000000000000000000000000000000c2",
+            "targetWeightBps": 3000,
+            "bandBps": 300,
+            "thesisId": "t-wmon",
+            "exit": {
+              "killCriterion": "The thesis's kill criterion from the brief",
+              "recheckAt": "2026-11-01T00:00:00.000Z",
+              "trimAboveBps": 3200
+            }
+          },
+          {
+            "token": "0x00000000000000000000000000000000000000c3",
+            "targetWeightBps": 2000,
+            "bandBps": 300,
+            "thesisId": "t-wbtc",
+            "exit": {
+              "killCriterion": "The thesis's kill criterion from the brief",
+              "recheckAt": "2026-11-01T00:00:00.000Z"
+            }
+          }
+        ],
+        "cashTargetBps": 5000,
+        "minTradeUsdcE6": "500000",
+        "volatilityBrakeBps": 20000,
+        "costHurdleBps": 40,
+        "maxLegBps": 1000
+      },
+      "state": {
+        "usdc": "0x00000000000000000000000000000000000000c1",
+        "wmon": "0x00000000000000000000000000000000000000c2",
+        "tokens": [
+          {
+            "token": "0x00000000000000000000000000000000000000c1",
+            "symbol": "USDC",
+            "decimals": 6,
+            "balanceRaw": "47000000",
+            "priceE18": "1000000000000000000",
+            "priceClass": "USDC",
+            "status": "BUYABLE",
+            "capBps": 10000,
+            "screenFresh": true,
+            "volatility24hPct": null
+          },
+          {
+            "token": "0x00000000000000000000000000000000000000c2",
+            "symbol": "WMON",
+            "decimals": 18,
+            "balanceRaw": "1320000000000000000000",
+            "priceE18": "25000000000000000",
+            "priceClass": "F",
+            "status": "BUYABLE",
+            "capBps": 4500,
+            "screenFresh": true,
+            "volatility24hPct": 110
+          },
+          {
+            "token": "0x00000000000000000000000000000000000000c3",
+            "symbol": "WBTC",
+            "decimals": 8,
+            "balanceRaw": "20000",
+            "priceE18": "100000000000000000000000",
+            "priceClass": "F",
+            "status": "BUYABLE",
+            "capBps": 4500,
+            "screenFresh": true,
+            "volatility24hPct": null
+          }
+        ],
+        "limits": {
+          "maxTradeBps": 1200,
+          "maxAssetBps": 4500,
+          "minUsdcBps": 1000
+        }
+      },
+      "quote": null,
+      "expect": {
+        "action": "trade",
+        "sell": "WMON",
+        "buy": "USDC",
+        "amountIn": "120000000000000000000"
+      }
+    },
+    {
+      "name": "below-min-trade",
+      "description": "WBTC 4 points under its target is outside the band, but the 4 USDC leg is under the plan's 5 USDC minimum.",
+      "params": {
+        "positions": [
+          {
+            "token": "0x00000000000000000000000000000000000000c2",
+            "targetWeightBps": 3000,
+            "bandBps": 300,
+            "thesisId": "t-wmon",
+            "exit": {
+              "killCriterion": "The thesis's kill criterion from the brief",
+              "recheckAt": "2026-11-01T00:00:00.000Z"
+            }
+          },
+          {
+            "token": "0x00000000000000000000000000000000000000c3",
+            "targetWeightBps": 2000,
+            "bandBps": 300,
+            "thesisId": "t-wbtc",
+            "exit": {
+              "killCriterion": "The thesis's kill criterion from the brief",
+              "recheckAt": "2026-11-01T00:00:00.000Z"
+            }
+          }
+        ],
+        "cashTargetBps": 5000,
+        "minTradeUsdcE6": "5000000",
+        "volatilityBrakeBps": 20000,
+        "costHurdleBps": 40,
+        "maxLegBps": 1000
+      },
+      "state": {
+        "usdc": "0x00000000000000000000000000000000000000c1",
+        "wmon": "0x00000000000000000000000000000000000000c2",
+        "tokens": [
+          {
+            "token": "0x00000000000000000000000000000000000000c1",
+            "symbol": "USDC",
+            "decimals": 6,
+            "balanceRaw": "54000000",
+            "priceE18": "1000000000000000000",
+            "priceClass": "USDC",
+            "status": "BUYABLE",
+            "capBps": 10000,
+            "screenFresh": true,
+            "volatility24hPct": null
+          },
+          {
+            "token": "0x00000000000000000000000000000000000000c2",
+            "symbol": "WMON",
+            "decimals": 18,
+            "balanceRaw": "1200000000000000000000",
+            "priceE18": "25000000000000000",
+            "priceClass": "F",
+            "status": "BUYABLE",
+            "capBps": 4500,
+            "screenFresh": true,
+            "volatility24hPct": 110
+          },
+          {
+            "token": "0x00000000000000000000000000000000000000c3",
+            "symbol": "WBTC",
+            "decimals": 8,
+            "balanceRaw": "16000",
+            "priceE18": "100000000000000000000000",
+            "priceClass": "F",
+            "status": "BUYABLE",
+            "capBps": 4500,
+            "screenFresh": true,
+            "volatility24hPct": null
+          }
+        ],
+        "limits": {
+          "maxTradeBps": 1200,
+          "maxAssetBps": 4500,
+          "minUsdcBps": 1000
+        }
+      },
+      "quote": null,
+      "expect": {
+        "action": "hold",
+        "code": "BELOW_MIN_TRADE"
+      }
+    },
+    {
+      "name": "cap-reached",
+      "description": "WBTC's registry cap is 15% and it holds 14.8%: the room left (0.2 USDC) is under the minimum trade, so the buy waits with CAP_REACHED.",
+      "params": {
+        "positions": [
+          {
+            "token": "0x00000000000000000000000000000000000000c2",
+            "targetWeightBps": 3000,
+            "bandBps": 300,
+            "thesisId": "t-wmon",
+            "exit": {
+              "killCriterion": "The thesis's kill criterion from the brief",
+              "recheckAt": "2026-11-01T00:00:00.000Z"
+            }
+          },
+          {
+            "token": "0x00000000000000000000000000000000000000c3",
+            "targetWeightBps": 2000,
+            "bandBps": 300,
+            "thesisId": "t-wbtc",
+            "exit": {
+              "killCriterion": "The thesis's kill criterion from the brief",
+              "recheckAt": "2026-11-01T00:00:00.000Z"
+            }
+          }
+        ],
+        "cashTargetBps": 5000,
+        "minTradeUsdcE6": "500000",
+        "volatilityBrakeBps": 20000,
+        "costHurdleBps": 40,
+        "maxLegBps": 1000
+      },
+      "state": {
+        "usdc": "0x00000000000000000000000000000000000000c1",
+        "wmon": "0x00000000000000000000000000000000000000c2",
+        "tokens": [
+          {
+            "token": "0x00000000000000000000000000000000000000c1",
+            "symbol": "USDC",
+            "decimals": 6,
+            "balanceRaw": "55200000",
+            "priceE18": "1000000000000000000",
+            "priceClass": "USDC",
+            "status": "BUYABLE",
+            "capBps": 10000,
+            "screenFresh": true,
+            "volatility24hPct": null
+          },
+          {
+            "token": "0x00000000000000000000000000000000000000c2",
+            "symbol": "WMON",
+            "decimals": 18,
+            "balanceRaw": "1200000000000000000000",
+            "priceE18": "25000000000000000",
+            "priceClass": "F",
+            "status": "BUYABLE",
+            "capBps": 4500,
+            "screenFresh": true,
+            "volatility24hPct": 110
+          },
+          {
+            "token": "0x00000000000000000000000000000000000000c3",
+            "symbol": "WBTC",
+            "decimals": 8,
+            "balanceRaw": "14800",
+            "priceE18": "100000000000000000000000",
+            "priceClass": "F",
+            "status": "BUYABLE",
+            "capBps": 1500,
+            "screenFresh": true,
+            "volatility24hPct": null
+          }
+        ],
+        "limits": {
+          "maxTradeBps": 1200,
+          "maxAssetBps": 4500,
+          "minUsdcBps": 1000
+        }
+      },
+      "quote": null,
+      "expect": {
+        "action": "hold",
+        "code": "CAP_REACHED"
+      }
+    },
+    {
+      "name": "cap-limits-the-leg",
+      "description": "WBTC's registry cap is 15% and it holds 14%: the leg is cut to the 1 USDC of room.",
+      "params": {
+        "positions": [
+          {
+            "token": "0x00000000000000000000000000000000000000c2",
+            "targetWeightBps": 3000,
+            "bandBps": 300,
+            "thesisId": "t-wmon",
+            "exit": {
+              "killCriterion": "The thesis's kill criterion from the brief",
+              "recheckAt": "2026-11-01T00:00:00.000Z"
+            }
+          },
+          {
+            "token": "0x00000000000000000000000000000000000000c3",
+            "targetWeightBps": 2000,
+            "bandBps": 300,
+            "thesisId": "t-wbtc",
+            "exit": {
+              "killCriterion": "The thesis's kill criterion from the brief",
+              "recheckAt": "2026-11-01T00:00:00.000Z"
+            }
+          }
+        ],
+        "cashTargetBps": 5000,
+        "minTradeUsdcE6": "500000",
+        "volatilityBrakeBps": 20000,
+        "costHurdleBps": 40,
+        "maxLegBps": 1000
+      },
+      "state": {
+        "usdc": "0x00000000000000000000000000000000000000c1",
+        "wmon": "0x00000000000000000000000000000000000000c2",
+        "tokens": [
+          {
+            "token": "0x00000000000000000000000000000000000000c1",
+            "symbol": "USDC",
+            "decimals": 6,
+            "balanceRaw": "56000000",
+            "priceE18": "1000000000000000000",
+            "priceClass": "USDC",
+            "status": "BUYABLE",
+            "capBps": 10000,
+            "screenFresh": true,
+            "volatility24hPct": null
+          },
+          {
+            "token": "0x00000000000000000000000000000000000000c2",
+            "symbol": "WMON",
+            "decimals": 18,
+            "balanceRaw": "1200000000000000000000",
+            "priceE18": "25000000000000000",
+            "priceClass": "F",
+            "status": "BUYABLE",
+            "capBps": 4500,
+            "screenFresh": true,
+            "volatility24hPct": 110
+          },
+          {
+            "token": "0x00000000000000000000000000000000000000c3",
+            "symbol": "WBTC",
+            "decimals": 8,
+            "balanceRaw": "14000",
+            "priceE18": "100000000000000000000000",
+            "priceClass": "F",
+            "status": "BUYABLE",
+            "capBps": 1500,
+            "screenFresh": true,
+            "volatility24hPct": null
+          }
+        ],
+        "limits": {
+          "maxTradeBps": 1200,
+          "maxAssetBps": 4500,
+          "minUsdcBps": 1000
+        }
+      },
+      "quote": null,
+      "expect": {
+        "action": "trade",
+        "sell": "USDC",
+        "buy": "WBTC",
+        "amountIn": "1000000"
+      }
+    },
+    {
+      "name": "cash-floor",
+      "description": "USDC sits exactly at the 10% floor, so the underweight WBTC cannot be bought: CASH_FLOOR.",
+      "params": {
+        "positions": [
+          {
+            "token": "0x00000000000000000000000000000000000000c2",
+            "targetWeightBps": 4000,
+            "bandBps": 300,
+            "thesisId": "t-wmon",
+            "exit": {
+              "killCriterion": "The thesis's kill criterion from the brief",
+              "recheckAt": "2026-11-01T00:00:00.000Z"
+            }
+          },
+          {
+            "token": "0x00000000000000000000000000000000000000c3",
+            "targetWeightBps": 3500,
+            "bandBps": 300,
+            "thesisId": "t-wbtc",
+            "exit": {
+              "killCriterion": "The thesis's kill criterion from the brief",
+              "recheckAt": "2026-11-01T00:00:00.000Z"
+            }
+          },
+          {
+            "token": "0x00000000000000000000000000000000000000c4",
+            "targetWeightBps": 1500,
+            "bandBps": 500,
+            "thesisId": "t-ausd",
+            "exit": {
+              "killCriterion": "The thesis's kill criterion from the brief",
+              "recheckAt": "2026-11-01T00:00:00.000Z"
+            }
+          }
+        ],
+        "cashTargetBps": 1000,
+        "minTradeUsdcE6": "500000",
+        "volatilityBrakeBps": 20000,
+        "costHurdleBps": 40,
+        "maxLegBps": 1000
+      },
+      "state": {
+        "usdc": "0x00000000000000000000000000000000000000c1",
+        "wmon": "0x00000000000000000000000000000000000000c2",
+        "tokens": [
+          {
+            "token": "0x00000000000000000000000000000000000000c1",
+            "symbol": "USDC",
+            "decimals": 6,
+            "balanceRaw": "10000000",
+            "priceE18": "1000000000000000000",
+            "priceClass": "USDC",
+            "status": "BUYABLE",
+            "capBps": 10000,
+            "screenFresh": true,
+            "volatility24hPct": null
+          },
+          {
+            "token": "0x00000000000000000000000000000000000000c2",
+            "symbol": "WMON",
+            "decimals": 18,
+            "balanceRaw": "1600000000000000000000",
+            "priceE18": "25000000000000000",
+            "priceClass": "F",
+            "status": "BUYABLE",
+            "capBps": 4500,
+            "screenFresh": true,
+            "volatility24hPct": 110
+          },
+          {
+            "token": "0x00000000000000000000000000000000000000c3",
+            "symbol": "WBTC",
+            "decimals": 8,
+            "balanceRaw": "31000",
+            "priceE18": "100000000000000000000000",
+            "priceClass": "F",
+            "status": "BUYABLE",
+            "capBps": 4500,
+            "screenFresh": true,
+            "volatility24hPct": null
+          },
+          {
+            "token": "0x00000000000000000000000000000000000000c4",
+            "symbol": "AUSD",
+            "decimals": 6,
+            "balanceRaw": "19000000",
+            "priceE18": "1000000000000000000",
+            "priceClass": "F",
+            "status": "BUYABLE",
+            "capBps": 4500,
+            "screenFresh": true,
+            "volatility24hPct": null
+          }
+        ],
+        "limits": {
+          "maxTradeBps": 1200,
+          "maxAssetBps": 4500,
+          "minUsdcBps": 1000
+        }
+      },
+      "quote": null,
+      "expect": {
+        "action": "hold",
+        "code": "CASH_FLOOR"
+      }
+    },
+    {
+      "name": "screen-stale",
+      "description": "The only position's token has no fresh passing screen, so its buy waits: SCREEN_STALE.",
+      "params": {
+        "positions": [
+          {
+            "token": "0x00000000000000000000000000000000000000c2",
+            "targetWeightBps": 5000,
+            "bandBps": 300,
+            "thesisId": "t-wmon",
+            "exit": {
+              "killCriterion": "The thesis's kill criterion from the brief",
+              "recheckAt": "2026-11-01T00:00:00.000Z"
+            }
+          }
+        ],
+        "cashTargetBps": 5000,
+        "minTradeUsdcE6": "500000",
+        "volatilityBrakeBps": 20000,
+        "costHurdleBps": 40,
+        "maxLegBps": 1000
+      },
+      "state": {
+        "usdc": "0x00000000000000000000000000000000000000c1",
+        "wmon": "0x00000000000000000000000000000000000000c2",
+        "tokens": [
+          {
+            "token": "0x00000000000000000000000000000000000000c1",
+            "symbol": "USDC",
+            "decimals": 6,
+            "balanceRaw": "100000000",
+            "priceE18": "1000000000000000000",
+            "priceClass": "USDC",
+            "status": "BUYABLE",
+            "capBps": 10000,
+            "screenFresh": true,
+            "volatility24hPct": null
+          },
+          {
+            "token": "0x00000000000000000000000000000000000000c2",
+            "symbol": "WMON",
+            "decimals": 18,
+            "balanceRaw": "0",
+            "priceE18": "25000000000000000",
+            "priceClass": "F",
+            "status": "BUYABLE",
+            "capBps": 4500,
+            "screenFresh": false,
+            "volatility24hPct": 110
+          },
+          {
+            "token": "0x00000000000000000000000000000000000000c3",
+            "symbol": "WBTC",
+            "decimals": 8,
+            "balanceRaw": "0",
+            "priceE18": "100000000000000000000000",
+            "priceClass": "F",
+            "status": "BUYABLE",
+            "capBps": 4500,
+            "screenFresh": true,
+            "volatility24hPct": null
+          }
+        ],
+        "limits": {
+          "maxTradeBps": 1200,
+          "maxAssetBps": 4500,
+          "minUsdcBps": 1000
+        }
+      },
+      "quote": null,
+      "expect": {
+        "action": "hold",
+        "code": "SCREEN_STALE"
+      }
+    },
+    {
+      "name": "class-a-waits-for-the-attestor",
+      "description": "A class A position cannot be bought before the attestor is live: ATTESTATION_UNAVAILABLE.",
+      "params": {
+        "positions": [
+          {
+            "token": "0x00000000000000000000000000000000000000c5",
+            "targetWeightBps": 1500,
+            "bandBps": 300,
+            "thesisId": "t-toka",
+            "exit": {
+              "killCriterion": "The thesis's kill criterion from the brief",
+              "recheckAt": "2026-11-01T00:00:00.000Z"
+            }
+          }
+        ],
+        "cashTargetBps": 8500,
+        "minTradeUsdcE6": "500000",
+        "volatilityBrakeBps": 20000,
+        "costHurdleBps": 40,
+        "maxLegBps": 1000
+      },
+      "state": {
+        "usdc": "0x00000000000000000000000000000000000000c1",
+        "wmon": "0x00000000000000000000000000000000000000c2",
+        "tokens": [
+          {
+            "token": "0x00000000000000000000000000000000000000c1",
+            "symbol": "USDC",
+            "decimals": 6,
+            "balanceRaw": "100000000",
+            "priceE18": "1000000000000000000",
+            "priceClass": "USDC",
+            "status": "BUYABLE",
+            "capBps": 10000,
+            "screenFresh": true,
+            "volatility24hPct": null
+          },
+          {
+            "token": "0x00000000000000000000000000000000000000c2",
+            "symbol": "WMON",
+            "decimals": 18,
+            "balanceRaw": "0",
+            "priceE18": "25000000000000000",
+            "priceClass": "F",
+            "status": "BUYABLE",
+            "capBps": 4500,
+            "screenFresh": true,
+            "volatility24hPct": 110
+          },
+          {
+            "token": "0x00000000000000000000000000000000000000c5",
+            "symbol": "TOKA",
+            "decimals": 18,
+            "balanceRaw": "0",
+            "priceE18": null,
+            "priceClass": "A",
+            "status": "BUYABLE",
+            "capBps": 1500,
+            "screenFresh": true,
+            "volatility24hPct": null
+          }
+        ],
+        "limits": {
+          "maxTradeBps": 1200,
+          "maxAssetBps": 4500,
+          "minUsdcBps": 1000
+        }
+      },
+      "quote": null,
+      "expect": {
+        "action": "hold",
+        "code": "ATTESTATION_UNAVAILABLE"
+      }
+    },
+    {
+      "name": "frozen-cannot-move",
+      "description": "A frozen token held against a target is neither sold nor bought: TOKEN_FROZEN.",
+      "params": {
+        "positions": [
+          {
+            "token": "0x00000000000000000000000000000000000000c2",
+            "targetWeightBps": 3000,
+            "bandBps": 300,
+            "thesisId": "t-wmon",
+            "exit": {
+              "killCriterion": "The thesis's kill criterion from the brief",
+              "recheckAt": "2026-11-01T00:00:00.000Z"
+            }
+          },
+          {
+            "token": "0x00000000000000000000000000000000000000c3",
+            "targetWeightBps": 2000,
+            "bandBps": 300,
+            "thesisId": "t-wbtc",
+            "exit": {
+              "killCriterion": "The thesis's kill criterion from the brief",
+              "recheckAt": "2026-11-01T00:00:00.000Z"
+            }
+          }
+        ],
+        "cashTargetBps": 5000,
+        "minTradeUsdcE6": "500000",
+        "volatilityBrakeBps": 20000,
+        "costHurdleBps": 40,
+        "maxLegBps": 1000
+      },
+      "state": {
+        "usdc": "0x00000000000000000000000000000000000000c1",
+        "wmon": "0x00000000000000000000000000000000000000c2",
+        "tokens": [
+          {
+            "token": "0x00000000000000000000000000000000000000c1",
+            "symbol": "USDC",
+            "decimals": 6,
+            "balanceRaw": "50000000",
+            "priceE18": "1000000000000000000",
+            "priceClass": "USDC",
+            "status": "BUYABLE",
+            "capBps": 10000,
+            "screenFresh": true,
+            "volatility24hPct": null
+          },
+          {
+            "token": "0x00000000000000000000000000000000000000c2",
+            "symbol": "WMON",
+            "decimals": 18,
+            "balanceRaw": "1200000000000000000000",
+            "priceE18": "25000000000000000",
+            "priceClass": "F",
+            "status": "BUYABLE",
+            "capBps": 4500,
+            "screenFresh": true,
+            "volatility24hPct": 110
+          },
+          {
+            "token": "0x00000000000000000000000000000000000000c3",
+            "symbol": "WBTC",
+            "decimals": 8,
+            "balanceRaw": "20000",
+            "priceE18": "100000000000000000000000",
+            "priceClass": "F",
+            "status": "FROZEN",
+            "capBps": 4500,
+            "screenFresh": true,
+            "volatility24hPct": null
+          }
+        ],
+        "limits": {
+          "maxTradeBps": 1200,
+          "maxAssetBps": 4500,
+          "minUsdcBps": 1000
+        }
+      },
+      "quote": null,
+      "expect": {
+        "action": "hold",
+        "code": "TOKEN_FROZEN"
+      }
+    },
+    {
+      "name": "brake-per-token",
+      "description": "WMON's 24-hour volatility is 250%, above the 200% brake, so its buy waits; WBTC has no reading and is not WMON, so it is bought instead.",
+      "params": {
+        "positions": [
+          {
+            "token": "0x00000000000000000000000000000000000000c2",
+            "targetWeightBps": 3000,
+            "bandBps": 300,
+            "thesisId": "t-wmon",
+            "exit": {
+              "killCriterion": "The thesis's kill criterion from the brief",
+              "recheckAt": "2026-11-01T00:00:00.000Z"
+            }
+          },
+          {
+            "token": "0x00000000000000000000000000000000000000c3",
+            "targetWeightBps": 2000,
+            "bandBps": 300,
+            "thesisId": "t-wbtc",
+            "exit": {
+              "killCriterion": "The thesis's kill criterion from the brief",
+              "recheckAt": "2026-11-01T00:00:00.000Z"
+            }
+          }
+        ],
+        "cashTargetBps": 5000,
+        "minTradeUsdcE6": "500000",
+        "volatilityBrakeBps": 20000,
+        "costHurdleBps": 40,
+        "maxLegBps": 1000
+      },
+      "state": {
+        "usdc": "0x00000000000000000000000000000000000000c1",
+        "wmon": "0x00000000000000000000000000000000000000c2",
+        "tokens": [
+          {
+            "token": "0x00000000000000000000000000000000000000c1",
+            "symbol": "USDC",
+            "decimals": 6,
+            "balanceRaw": "100000000",
+            "priceE18": "1000000000000000000",
+            "priceClass": "USDC",
+            "status": "BUYABLE",
+            "capBps": 10000,
+            "screenFresh": true,
+            "volatility24hPct": null
+          },
+          {
+            "token": "0x00000000000000000000000000000000000000c2",
+            "symbol": "WMON",
+            "decimals": 18,
+            "balanceRaw": "0",
+            "priceE18": "25000000000000000",
+            "priceClass": "F",
+            "status": "BUYABLE",
+            "capBps": 4500,
+            "screenFresh": true,
+            "volatility24hPct": 250
+          },
+          {
+            "token": "0x00000000000000000000000000000000000000c3",
+            "symbol": "WBTC",
+            "decimals": 8,
+            "balanceRaw": "0",
+            "priceE18": "100000000000000000000000",
+            "priceClass": "F",
+            "status": "BUYABLE",
+            "capBps": 4500,
+            "screenFresh": true,
+            "volatility24hPct": null
+          }
+        ],
+        "limits": {
+          "maxTradeBps": 1200,
+          "maxAssetBps": 4500,
+          "minUsdcBps": 1000
+        }
+      },
+      "quote": null,
+      "expect": {
+        "action": "trade",
+        "sell": "USDC",
+        "buy": "WBTC",
+        "amountIn": "9950000"
+      }
+    },
+    {
+      "name": "volatility-brake",
+      "description": "A WMON-only plan with MON's 24-hour volatility at 250%, above the 200% brake, holds its buy: VOLATILITY_BRAKE.",
+      "params": {
+        "positions": [
+          {
+            "token": "0x00000000000000000000000000000000000000c2",
+            "targetWeightBps": 5000,
+            "bandBps": 300,
+            "thesisId": "t-wmon",
+            "exit": {
+              "killCriterion": "The thesis's kill criterion from the brief",
+              "recheckAt": "2026-11-01T00:00:00.000Z"
+            }
+          }
+        ],
+        "cashTargetBps": 5000,
+        "minTradeUsdcE6": "500000",
+        "volatilityBrakeBps": 20000,
+        "costHurdleBps": 40,
+        "maxLegBps": 1000
+      },
+      "state": {
+        "usdc": "0x00000000000000000000000000000000000000c1",
+        "wmon": "0x00000000000000000000000000000000000000c2",
+        "tokens": [
+          {
+            "token": "0x00000000000000000000000000000000000000c1",
+            "symbol": "USDC",
+            "decimals": 6,
+            "balanceRaw": "100000000",
+            "priceE18": "1000000000000000000",
+            "priceClass": "USDC",
+            "status": "BUYABLE",
+            "capBps": 10000,
+            "screenFresh": true,
+            "volatility24hPct": null
+          },
+          {
+            "token": "0x00000000000000000000000000000000000000c2",
+            "symbol": "WMON",
+            "decimals": 18,
+            "balanceRaw": "0",
+            "priceE18": "25000000000000000",
+            "priceClass": "F",
+            "status": "BUYABLE",
+            "capBps": 4500,
+            "screenFresh": true,
+            "volatility24hPct": 250
+          }
+        ],
+        "limits": {
+          "maxTradeBps": 1200,
+          "maxAssetBps": 4500,
+          "minUsdcBps": 1000
+        }
+      },
+      "quote": null,
+      "expect": {
+        "action": "hold",
+        "code": "VOLATILITY_BRAKE"
+      }
+    },
+    {
+      "name": "wmon-needs-a-reading",
+      "description": "A WMON buy without a volatility reading waits, as the two-asset rule does: VOLATILITY_UNAVAILABLE.",
+      "params": {
+        "positions": [
+          {
+            "token": "0x00000000000000000000000000000000000000c2",
+            "targetWeightBps": 5000,
+            "bandBps": 300,
+            "thesisId": "t-wmon",
+            "exit": {
+              "killCriterion": "The thesis's kill criterion from the brief",
+              "recheckAt": "2026-11-01T00:00:00.000Z"
+            }
+          }
+        ],
+        "cashTargetBps": 5000,
+        "minTradeUsdcE6": "500000",
+        "volatilityBrakeBps": 20000,
+        "costHurdleBps": 40,
+        "maxLegBps": 1000
+      },
+      "state": {
+        "usdc": "0x00000000000000000000000000000000000000c1",
+        "wmon": "0x00000000000000000000000000000000000000c2",
+        "tokens": [
+          {
+            "token": "0x00000000000000000000000000000000000000c1",
+            "symbol": "USDC",
+            "decimals": 6,
+            "balanceRaw": "100000000",
+            "priceE18": "1000000000000000000",
+            "priceClass": "USDC",
+            "status": "BUYABLE",
+            "capBps": 10000,
+            "screenFresh": true,
+            "volatility24hPct": null
+          },
+          {
+            "token": "0x00000000000000000000000000000000000000c2",
+            "symbol": "WMON",
+            "decimals": 18,
+            "balanceRaw": "0",
+            "priceE18": "25000000000000000",
+            "priceClass": "F",
+            "status": "BUYABLE",
+            "capBps": 4500,
+            "screenFresh": true,
+            "volatility24hPct": null
+          }
+        ],
+        "limits": {
+          "maxTradeBps": 1200,
+          "maxAssetBps": 4500,
+          "minUsdcBps": 1000
+        }
+      },
+      "quote": null,
+      "expect": {
+        "action": "hold",
+        "code": "VOLATILITY_UNAVAILABLE"
+      }
+    },
+    {
+      "name": "cost-hurdle",
+      "description": "The first scenario's WMON buy would receive 395 WMON where the oracle implies 398 (75 bps), above the 40 bps limit: COST_HURDLE.",
+      "params": {
+        "positions": [
+          {
+            "token": "0x00000000000000000000000000000000000000c2",
+            "targetWeightBps": 3000,
+            "bandBps": 300,
+            "thesisId": "t-wmon",
+            "exit": {
+              "killCriterion": "The thesis's kill criterion from the brief",
+              "recheckAt": "2026-11-01T00:00:00.000Z"
+            }
+          },
+          {
+            "token": "0x00000000000000000000000000000000000000c3",
+            "targetWeightBps": 2000,
+            "bandBps": 300,
+            "thesisId": "t-wbtc",
+            "exit": {
+              "killCriterion": "The thesis's kill criterion from the brief",
+              "recheckAt": "2026-11-01T00:00:00.000Z"
+            }
+          }
+        ],
+        "cashTargetBps": 5000,
+        "minTradeUsdcE6": "500000",
+        "volatilityBrakeBps": 20000,
+        "costHurdleBps": 40,
+        "maxLegBps": 1000
+      },
+      "state": {
+        "usdc": "0x00000000000000000000000000000000000000c1",
+        "wmon": "0x00000000000000000000000000000000000000c2",
+        "tokens": [
+          {
+            "token": "0x00000000000000000000000000000000000000c1",
+            "symbol": "USDC",
+            "decimals": 6,
+            "balanceRaw": "100000000",
+            "priceE18": "1000000000000000000",
+            "priceClass": "USDC",
+            "status": "BUYABLE",
+            "capBps": 10000,
+            "screenFresh": true,
+            "volatility24hPct": null
+          },
+          {
+            "token": "0x00000000000000000000000000000000000000c2",
+            "symbol": "WMON",
+            "decimals": 18,
+            "balanceRaw": "0",
+            "priceE18": "25000000000000000",
+            "priceClass": "F",
+            "status": "BUYABLE",
+            "capBps": 4500,
+            "screenFresh": true,
+            "volatility24hPct": 110
+          },
+          {
+            "token": "0x00000000000000000000000000000000000000c3",
+            "symbol": "WBTC",
+            "decimals": 8,
+            "balanceRaw": "0",
+            "priceE18": "100000000000000000000000",
+            "priceClass": "F",
+            "status": "BUYABLE",
+            "capBps": 4500,
+            "screenFresh": true,
+            "volatility24hPct": null
+          }
+        ],
+        "limits": {
+          "maxTradeBps": 1200,
+          "maxAssetBps": 4500,
+          "minUsdcBps": 1000
+        }
+      },
+      "quote": "395000000000000000000",
+      "expect": {
+        "action": "hold",
+        "code": "COST_HURDLE"
+      }
+    },
+    {
+      "name": "oracle-stale",
+      "description": "A held class F token without a usable price makes the account unreadable: ORACLE_STALE.",
+      "params": {
+        "positions": [
+          {
+            "token": "0x00000000000000000000000000000000000000c2",
+            "targetWeightBps": 3000,
+            "bandBps": 300,
+            "thesisId": "t-wmon",
+            "exit": {
+              "killCriterion": "The thesis's kill criterion from the brief",
+              "recheckAt": "2026-11-01T00:00:00.000Z"
+            }
+          },
+          {
+            "token": "0x00000000000000000000000000000000000000c3",
+            "targetWeightBps": 2000,
+            "bandBps": 300,
+            "thesisId": "t-wbtc",
+            "exit": {
+              "killCriterion": "The thesis's kill criterion from the brief",
+              "recheckAt": "2026-11-01T00:00:00.000Z"
+            }
+          }
+        ],
+        "cashTargetBps": 5000,
+        "minTradeUsdcE6": "500000",
+        "volatilityBrakeBps": 20000,
+        "costHurdleBps": 40,
+        "maxLegBps": 1000
+      },
+      "state": {
+        "usdc": "0x00000000000000000000000000000000000000c1",
+        "wmon": "0x00000000000000000000000000000000000000c2",
+        "tokens": [
+          {
+            "token": "0x00000000000000000000000000000000000000c1",
+            "symbol": "USDC",
+            "decimals": 6,
+            "balanceRaw": "50000000",
+            "priceE18": "1000000000000000000",
+            "priceClass": "USDC",
+            "status": "BUYABLE",
+            "capBps": 10000,
+            "screenFresh": true,
+            "volatility24hPct": null
+          },
+          {
+            "token": "0x00000000000000000000000000000000000000c2",
+            "symbol": "WMON",
+            "decimals": 18,
+            "balanceRaw": "1200000000000000000000",
+            "priceE18": "25000000000000000",
+            "priceClass": "F",
+            "status": "BUYABLE",
+            "capBps": 4500,
+            "screenFresh": true,
+            "volatility24hPct": 110
+          },
+          {
+            "token": "0x00000000000000000000000000000000000000c3",
+            "symbol": "WBTC",
+            "decimals": 8,
+            "balanceRaw": "20000",
+            "priceE18": null,
+            "priceClass": "F",
+            "status": "BUYABLE",
+            "capBps": 4500,
+            "screenFresh": true,
+            "volatility24hPct": null
+          }
+        ],
+        "limits": {
+          "maxTradeBps": 1200,
+          "maxAssetBps": 4500,
+          "minUsdcBps": 1000
+        }
+      },
+      "quote": null,
+      "expect": {
+        "action": "hold",
+        "code": "ORACLE_STALE"
+      }
+    },
+    {
+      "name": "unplanned-holding-is-sold",
+      "description": "A held token the plan no longer names has a zero target and is sold first, ahead of the underweight WMON.",
+      "params": {
+        "positions": [
+          {
+            "token": "0x00000000000000000000000000000000000000c2",
+            "targetWeightBps": 5000,
+            "bandBps": 300,
+            "thesisId": "t-wmon",
+            "exit": {
+              "killCriterion": "The thesis's kill criterion from the brief",
+              "recheckAt": "2026-11-01T00:00:00.000Z"
+            }
+          }
+        ],
+        "cashTargetBps": 5000,
+        "minTradeUsdcE6": "500000",
+        "volatilityBrakeBps": 20000,
+        "costHurdleBps": 40,
+        "maxLegBps": 1000
+      },
+      "state": {
+        "usdc": "0x00000000000000000000000000000000000000c1",
+        "wmon": "0x00000000000000000000000000000000000000c2",
+        "tokens": [
+          {
+            "token": "0x00000000000000000000000000000000000000c1",
+            "symbol": "USDC",
+            "decimals": 6,
+            "balanceRaw": "50000000",
+            "priceE18": "1000000000000000000",
+            "priceClass": "USDC",
+            "status": "BUYABLE",
+            "capBps": 10000,
+            "screenFresh": true,
+            "volatility24hPct": null
+          },
+          {
+            "token": "0x00000000000000000000000000000000000000c2",
+            "symbol": "WMON",
+            "decimals": 18,
+            "balanceRaw": "1200000000000000000000",
+            "priceE18": "25000000000000000",
+            "priceClass": "F",
+            "status": "BUYABLE",
+            "capBps": 4500,
+            "screenFresh": true,
+            "volatility24hPct": 110
+          },
+          {
+            "token": "0x00000000000000000000000000000000000000c3",
+            "symbol": "WBTC",
+            "decimals": 8,
+            "balanceRaw": "20000",
+            "priceE18": "100000000000000000000000",
+            "priceClass": "F",
+            "status": "BUYABLE",
+            "capBps": 4500,
+            "screenFresh": true,
+            "volatility24hPct": null
+          }
+        ],
+        "limits": {
+          "maxTradeBps": 1200,
+          "maxAssetBps": 4500,
+          "minUsdcBps": 1000
+        }
+      },
+      "quote": null,
+      "expect": {
+        "action": "trade",
+        "sell": "WBTC",
+        "buy": "USDC",
+        "amountIn": "9950"
+      }
+    },
+    {
+      "name": "quote-inside-the-hurdle",
+      "description": "The first scenario's WMON buy receiving 397 WMON (25 bps under the oracle) goes through.",
+      "params": {
+        "positions": [
+          {
+            "token": "0x00000000000000000000000000000000000000c2",
+            "targetWeightBps": 3000,
+            "bandBps": 300,
+            "thesisId": "t-wmon",
+            "exit": {
+              "killCriterion": "The thesis's kill criterion from the brief",
+              "recheckAt": "2026-11-01T00:00:00.000Z"
+            }
+          },
+          {
+            "token": "0x00000000000000000000000000000000000000c3",
+            "targetWeightBps": 2000,
+            "bandBps": 300,
+            "thesisId": "t-wbtc",
+            "exit": {
+              "killCriterion": "The thesis's kill criterion from the brief",
+              "recheckAt": "2026-11-01T00:00:00.000Z"
+            }
+          }
+        ],
+        "cashTargetBps": 5000,
+        "minTradeUsdcE6": "500000",
+        "volatilityBrakeBps": 20000,
+        "costHurdleBps": 40,
+        "maxLegBps": 1000
+      },
+      "state": {
+        "usdc": "0x00000000000000000000000000000000000000c1",
+        "wmon": "0x00000000000000000000000000000000000000c2",
+        "tokens": [
+          {
+            "token": "0x00000000000000000000000000000000000000c1",
+            "symbol": "USDC",
+            "decimals": 6,
+            "balanceRaw": "100000000",
+            "priceE18": "1000000000000000000",
+            "priceClass": "USDC",
+            "status": "BUYABLE",
+            "capBps": 10000,
+            "screenFresh": true,
+            "volatility24hPct": null
+          },
+          {
+            "token": "0x00000000000000000000000000000000000000c2",
+            "symbol": "WMON",
+            "decimals": 18,
+            "balanceRaw": "0",
+            "priceE18": "25000000000000000",
+            "priceClass": "F",
+            "status": "BUYABLE",
+            "capBps": 4500,
+            "screenFresh": true,
+            "volatility24hPct": 110
+          },
+          {
+            "token": "0x00000000000000000000000000000000000000c3",
+            "symbol": "WBTC",
+            "decimals": 8,
+            "balanceRaw": "0",
+            "priceE18": "100000000000000000000000",
+            "priceClass": "F",
+            "status": "BUYABLE",
+            "capBps": 4500,
+            "screenFresh": true,
+            "volatility24hPct": null
+          }
+        ],
+        "limits": {
+          "maxTradeBps": 1200,
+          "maxAssetBps": 4500,
+          "minUsdcBps": 1000
+        }
+      },
+      "quote": "397000000000000000000",
+      "expect": {
+        "action": "trade",
+        "sell": "USDC",
+        "buy": "WMON",
+        "amountIn": "9950000"
+      }
+    }
+  ]
+}

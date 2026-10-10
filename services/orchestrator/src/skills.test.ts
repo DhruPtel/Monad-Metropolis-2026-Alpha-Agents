@@ -69,20 +69,14 @@ describe("the strategy skill matches the runner's template (P3-U7, F6)", () => {
     const evals = readFileSync(new URL("evals/evals.yaml", dir), "utf8").replace(/^#.*\n/, "");
     expect(JSON.parse(evals)).toEqual(loadEvals("rebalance_bands@1"));
     const params = JSON.parse(readFileSync(new URL("data/params.json", dir), "utf8")) as {
-      presets: Record<string, Record<string, unknown>>;
+      levels: Record<string, Record<string, unknown>>;
     };
-    // The skill's data keeps the old preset names until F-U8 revises the skills: Aggressive is its Growth.
-    const PRESET_KEY = {
-      CONSERVATIVE: "CONSERVATIVE",
-      BALANCED: "BALANCED",
-      AGGRESSIVE: "GROWTH",
-    } as const;
+    // F-U8: the skill's data is keyed by the goal's aggressiveness level (D-345).
     for (const aggressiveness of AGGRESSIVENESS_LEVELS) {
-      const riskPreset = PRESET_KEY[aggressiveness];
       const r = translateGoal({ ...DEFAULT_GOAL_INPUT, aggressiveness });
       if (!r.ok) throw new Error("goal");
       const p = r.config.template.params;
-      expect(params.presets[riskPreset]).toEqual({
+      expect(params.levels[aggressiveness]).toEqual({
         targetWmonBps: p.targetWmonBps,
         targetRangeBps: [
           BANDS_DEFAULTS[aggressiveness].targetMinBps,
@@ -95,5 +89,64 @@ describe("the strategy skill matches the runner's template (P3-U7, F6)", () => {
         maxLegBps: p.maxLegBps,
       });
     }
+  });
+
+  it("the portfolio construction skill's data mirrors each level's envelope and the template's bounds (F-U8)", async () => {
+    const { readFileSync } = await import("node:fs");
+    const { loadPortfolioEvals } = await import("@alpha-agents/policy/evals");
+    const { BANDS_DEFAULTS, TARGET_PORTFOLIO_V1_BOUNDS } = await import("@alpha-agents/policy");
+    const { AGGRESSIVENESS_ENVELOPES, AGGRESSIVENESS_LEVELS } =
+      await import("@alpha-agents/domain");
+    const dir = new URL(
+      "../../../packages/skills/builtin/skills/portfolio-construction/",
+      import.meta.url,
+    );
+    const evals = readFileSync(new URL("evals/evals.yaml", dir), "utf8").replace(/^#.*\n/, "");
+    expect(JSON.parse(evals)).toEqual(loadPortfolioEvals());
+    const params = JSON.parse(readFileSync(new URL("data/params.json", dir), "utf8")) as {
+      template: string;
+      levels: Record<
+        string,
+        {
+          cashTargetBps: number;
+          bandBps: number;
+          minTradeUsdcE6: string;
+          volatilityBrakeBps: number;
+          costHurdleBps: number;
+          maxLegBps: number;
+          envelope: Record<string, unknown>;
+        }
+      >;
+      bounds: Record<string, [number | string, number | string]>;
+    };
+    expect(params.template).toBe("target_portfolio@1");
+    expect(Object.keys(params.levels)).toEqual([...AGGRESSIVENESS_LEVELS]);
+    const within = (v: bigint, [lo, hi]: readonly [bigint, bigint]) => v >= lo && v <= hi;
+    for (const level of AGGRESSIVENESS_LEVELS) {
+      const l = params.levels[level];
+      if (!l) throw new Error(level);
+      const env = AGGRESSIVENESS_ENVELOPES[level];
+      expect(l.envelope).toEqual({
+        maxPositions: env.maxPositions,
+        maxPositionBps: env.maxPositionBps,
+        minStableBps: env.minStableBps,
+        classAAllowed: env.classAAllowed,
+        maxClassAPositionBps: env.maxClassAPositionBps,
+        maxClassATotalBps: env.maxClassATotalBps,
+      });
+      // Cash never below the level's stablecoin floor; the brake and the cost limit as the two-asset plan's.
+      expect(l.cashTargetBps).toBeGreaterThanOrEqual(env.minStableBps);
+      expect(l.volatilityBrakeBps).toBe(BANDS_DEFAULTS[level].volatilityBrakeBps);
+      expect(l.costHurdleBps).toBe(BANDS_DEFAULTS[level].costHurdleBps);
+      const b = TARGET_PORTFOLIO_V1_BOUNDS;
+      expect(within(BigInt(l.cashTargetBps), b.cashTargetBps)).toBe(true);
+      expect(within(BigInt(l.bandBps), b.bandBps)).toBe(true);
+      expect(within(BigInt(l.minTradeUsdcE6), b.minTradeUsdcE6)).toBe(true);
+      expect(within(BigInt(l.volatilityBrakeBps), b.volatilityBrakeBps)).toBe(true);
+      expect(within(BigInt(l.costHurdleBps), b.costHurdleBps)).toBe(true);
+      expect(within(BigInt(l.maxLegBps), b.maxLegBps)).toBe(true);
+    }
+    for (const [field, [lo, hi]] of Object.entries(TARGET_PORTFOLIO_V1_BOUNDS))
+      expect(params.bounds[field]?.map(String), field).toEqual([String(lo), String(hi)]);
   });
 });

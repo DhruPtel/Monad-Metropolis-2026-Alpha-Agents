@@ -203,7 +203,7 @@ describe("materializing a config for a sandbox", () => {
     expect(files.skills[`${PLAYBOOKS_DIR}/aa-playbook-scan/SKILL.md`]).toMatch(
       /^---\nname: aa-playbook-scan\n/,
     );
-    expect(files.mounted.packages).toHaveLength(10);
+    expect(files.mounted.packages).toHaveLength(12);
     expect(files.mounted.setHash).toMatch(/^[0-9a-f]{64}$/);
     expect(HERMES_HOME).toBe("/home/user/hermes-home");
   });

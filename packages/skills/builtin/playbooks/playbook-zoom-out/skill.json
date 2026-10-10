@@ -2,7 +2,7 @@
   "schema_version": 1,
   "id": "playbook-zoom-out",
   "name": "Zoom out playbook",
-  "version": "1.1.0",
+  "version": "2.0.0",
   "type": "research",
   "publisher": {
     "id": "alpha-agents",
@@ -18,6 +18,7 @@
     "chain.get_limits@1",
     "chain.get_quote@1",
     "chain.get_pool_depth@1",
+    "data.market_snapshot@1",
     "platform.write_thesis@1",
     "platform.get_research_context@1",
     "platform.write_research_brief@1"

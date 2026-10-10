@@ -208,11 +208,13 @@ export function auditPackage(pkg: SkillPackage): PackageIssue[] {
             message: r.what,
           });
       }
-      // S13: a 32-byte hex value (a pool ID, a hash) is not an address; a 20-byte one must be known.
+      // S13: a 32-byte hex value (a pool ID, a hash) is not an address; a 20-byte one must be
+      // known. A placeholder with at least 32 leading zeros (the evals' synthetic tokens, F-U8)
+      // is no address anyone holds, so it passes.
       for (const m of line.matchAll(/0x[0-9a-fA-F]{40,}/g)) {
         const hex = m[0];
         if (hex.length !== 42) continue;
-        if (!KNOWN.has(hex.toLowerCase()) && !/^0x0{39}[0-9]$/.test(hex))
+        if (!KNOWN.has(hex.toLowerCase()) && !/^0x0{32,}[0-9a-fA-F]+$/.test(hex))
           issues.push({
             rule: "S13",
             severity: "warn",

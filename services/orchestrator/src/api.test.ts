@@ -446,10 +446,10 @@ describe.skipIf(!dbUp)("the orchestrator's internal API (D-205)", { timeout: 60_
     };
     expect(body).toMatchObject({ provisioned: true, tierPlaybook: "tier-pro@1" });
     expect(body.setHash).toMatch(/^[0-9a-f]{64}$/);
-    expect(body.packages).toHaveLength(10);
+    expect(body.packages).toHaveLength(12);
     expect(body.packages.find((p) => p.name === "aa-playbook-scan")).toMatchObject({
       kind: "playbook",
-      version: expect.stringMatching(/^1\.\d+\.\d+$/),
+      version: expect.stringMatching(/^2\.\d+\.\d+$/),
       mountedAt: "/run/agent-skills/playbooks/aa-playbook-scan",
       contentHash: expect.stringMatching(/^[0-9a-f]{64}$/),
     });

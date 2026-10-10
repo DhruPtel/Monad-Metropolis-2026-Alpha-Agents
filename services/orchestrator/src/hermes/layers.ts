@@ -133,6 +133,8 @@ export const BUILTIN_SKILL_NAMES = [
   "aa-defi-regime-read",
   "aa-monad-assets-basics",
   "aa-narrative-and-flow-tracker",
+  "aa-portfolio-construction",
+  "aa-token-risk-screen",
   "aa-uniswap-v4-swap",
   "aa-usdc-wmon-band-rebalancer",
   "aa-playbook-challenge",
@@ -143,7 +145,8 @@ export const BUILTIN_SKILL_NAMES = [
 
 const SKILLS_BLOCK = `Until builds exist every agent carries the same skills and the four stage playbooks (Scan,
 Dive, Challenge, Zoom out). Load the playbook for the stage your task names with skill_view
-before you start, and load a skill when its description fits the work. Skills and playbooks
+before you start, and load a skill when its description fits the work: the token risk screen
+for any token, the portfolio construction skill for a target portfolio. Skills and playbooks
 are read-only and are written for you; never copy their wording into notes.`;
 
 /**

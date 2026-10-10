@@ -96,6 +96,17 @@ const CASES: readonly Case[] = [
     task: "Should the plan's volatility brake or band width be different given MON's recent volatility?",
     expect: ["aa-usdc-wmon-band-rebalancer", "aa-playbook-zoom-out"],
   },
+  // F-U8: the two skills added with research v2.
+  {
+    name: "token-screen",
+    task: "screen_token answered REFUSED for a token with OWNER_POWERS failed and LIQUIDITY skipped. What does that mean for holding it?",
+    expect: ["aa-token-risk-screen"],
+  },
+  {
+    name: "portfolio-draft",
+    task: "ZOOM OUT stage. Two theses stand: WBTC at a fair weight of 15% and a mid cap at 8%. Draft the target portfolio with cash, bands and exits inside a Balanced envelope.",
+    expect: ["aa-portfolio-construction", "aa-playbook-zoom-out"],
+  },
   {
     name: "scan-not-dive",
     task: "SCAN stage. Keep it broad and cheap.",

@@ -1,19 +1,20 @@
 # Deep dive research
 
-Research one question until you can state what the evidence supports, how strongly, and what would prove it wrong. Use this inside a Dive alongside the Dive playbook, which sets the stage's output.
+Research one question until you can state what the evidence supports, how strongly, and what would prove it wrong. Use this inside a Dive alongside the Dive playbook, which sets the stage's output; for a token, the question is whether it earns a place in this account now, and the fundamentals checklist is the method.
 
 ## Method
 
 1. **Frame.** Write the question in one sentence and the two or three answers that would matter to the owner's plan. A question that no answer would change is not worth the calls.
 2. **Anchor on numbers first.** `mcp__data__market_snapshot` gives today's figures with sources and ages. Start from what the numbers show, then look for why.
-3. **Primary before secondary.** Go to the source a claim comes from: an official announcement or documentation (`mcp__data__read_url` on a link a search returned), onchain state (`mcp__chain__read_contract` for supply, owner, paused state, proxy slots; `mcp__data__dune_query` for the platform's saved queries on DEX volume, active addresses and exchange flows, which may answer that Dune is not configured). News (`mcp__data__web_search`) and posts (`mcp__data__x_search`) come after, to see how a fact is being read.
-4. **Tag every claim.** Each claim gets a source class (onchain, market, primary, news, social) and a confidence:
+3. **Run the fundamentals checklist for a token.** Usage, fees and volume, TVL, holders and liquidity, supply and emissions, control, catalysts, relative value: `references/fundamentals-checklist.md` names the tool for each item and the trap behind it. Identity first with `mcp__data__lookup_token` (several tokens share a symbol); pools and their volume with `mcp__data__find_pools`; the safety screen with `mcp__data__screen_token`; depth at this account's leg with `mcp__chain__get_pool_depth`; TVL and yields with `mcp__data__defillama_tvl` and `mcp__data__defillama_yields`; market cap and volume with `mcp__data__coinmarketcap_prices`; supply and the owner with `mcp__chain__read_contract`; the platform's saved queries with `mcp__data__dune_query`, which may answer that Dune is not configured at no cost.
+4. **Primary before secondary.** Go to the source a claim comes from: an official page read with `mcp__data__read_url` on a link a search returned, before news (`mcp__data__web_search`) and posts (`mcp__data__x_search`), which show how a fact is being read.
+5. **Tag every claim.** Each claim gets the source class its sources can give (onchain, market, primary, news, social; `references/source-classes.md` maps each tool to its class), a confidence and an age:
    - high: onchain or market data, or a primary source, consistent with everything else;
    - medium: a credible secondary source, or primary evidence with an unresolved conflict;
-   - low: social only, anonymous, undated, or contradicted.
-5. **Count sources honestly.** Three articles quoting one announcement are one source. A claim repeated on X is attention, not confirmation.
-6. **Skeptic pass (mandatory).** Before concluding, write the strongest case against your view and look for evidence for it with at least one search phrased against your view. If you cannot find any, say what you searched.
-7. **Conclude in the Dive's terms.** A falsifiable thesis with a kill criterion and a horizon, or "no thesis" with the reason.
+   - low: social only, anonymous, undated, stale, or contradicted.
+6. **Count sources honestly.** Three articles quoting one announcement are one source. A claim repeated on X is attention, not confirmation. Separate fresh from stale: say the date of every item.
+7. **Skeptic pass (mandatory).** Before concluding, write the strongest case against your view and look for evidence for it with at least one search phrased against your view. If you cannot find any, say what you searched.
+8. **Conclude in the Dive's terms.** A falsifiable thesis with a kill criterion, a horizon and a fair weight the depth supports, or "no thesis" with the reason.
 
 ## Reading the platform's sources
 
@@ -23,7 +24,7 @@ Research one question until you can state what the evidence supports, how strong
 
 ## Writing it down
 
-Keep claims short and attributable: what, how much, according to whom, as of when. Separate what happened (onchain, market) from what someone says will happen (news, social). See `references/source-classes.md` for examples of each class and common traps.
+Keep claims short and attributable: what, how much, according to whom, as of when. Separate what happened (onchain, market) from what someone says will happen (news, social).
 
 ## Rules
 

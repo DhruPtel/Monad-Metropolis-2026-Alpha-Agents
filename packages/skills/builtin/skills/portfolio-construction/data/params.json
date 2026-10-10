@@ -1,0 +1,64 @@
+{
+  "template": "target_portfolio@1",
+  "note": "Defaults per aggressiveness level (D-345, A-76) for a target portfolio's shared fields, with the envelope the Test enforces for each level (packages/domain AGGRESSIVENESS_ENVELOPES); every value sits inside the template's bounds (packages/policy TARGET_PORTFOLIO_V1_BOUNDS). The weights are never defaults: they come from each Dive's fair weight and the pool's depth.",
+  "levels": {
+    "CONSERVATIVE": {
+      "cashTargetBps": 3500,
+      "bandBps": 300,
+      "minTradeUsdcE6": "500000",
+      "volatilityBrakeBps": 15000,
+      "costHurdleBps": 30,
+      "maxLegBps": 1000,
+      "envelope": {
+        "maxPositions": 8,
+        "maxPositionBps": 2000,
+        "minStableBps": 3000,
+        "classAAllowed": false,
+        "maxClassAPositionBps": 0,
+        "maxClassATotalBps": 0
+      }
+    },
+    "BALANCED": {
+      "cashTargetBps": 2000,
+      "bandBps": 500,
+      "minTradeUsdcE6": "500000",
+      "volatilityBrakeBps": 20000,
+      "costHurdleBps": 40,
+      "maxLegBps": 1000,
+      "envelope": {
+        "maxPositions": 8,
+        "maxPositionBps": 4500,
+        "minStableBps": 1500,
+        "classAAllowed": true,
+        "maxClassAPositionBps": 800,
+        "maxClassATotalBps": 2500
+      }
+    },
+    "AGGRESSIVE": {
+      "cashTargetBps": 1500,
+      "bandBps": 500,
+      "minTradeUsdcE6": "500000",
+      "volatilityBrakeBps": 25000,
+      "costHurdleBps": 50,
+      "maxLegBps": 1000,
+      "envelope": {
+        "maxPositions": 12,
+        "maxPositionBps": 4500,
+        "minStableBps": 1000,
+        "classAAllowed": true,
+        "maxClassAPositionBps": 1500,
+        "maxClassATotalBps": 5000
+      }
+    }
+  },
+  "bounds": {
+    "positions": [0, 12],
+    "targetWeightBps": [0, 4500],
+    "bandBps": [50, 2000],
+    "cashTargetBps": [0, 10000],
+    "minTradeUsdcE6": ["100000", "100000000"],
+    "volatilityBrakeBps": [2000, 30000],
+    "costHurdleBps": [5, 100],
+    "maxLegBps": [10, 1200]
+  }
+}

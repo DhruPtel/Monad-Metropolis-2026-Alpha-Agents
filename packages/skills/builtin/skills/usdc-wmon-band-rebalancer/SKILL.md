@@ -1,6 +1,6 @@
 # USDC/WMON band rebalancer
 
-The owner's plan for the account is the platform template `rebalance_bands@1`: keep the WMON share of the account near a target, inside a band. The platform's runner makes the trades from the plan; this skill helps a Zoom out decide whether the plan's parameters should change, and how.
+An account off the fund agent's set follows the platform template `rebalance_bands@1`, the two-asset fallback: keep the WMON share of the account near a target, inside a band. An account on the fund agent's set follows a target portfolio instead (see the portfolio construction skill). The platform's runner makes the trades from the plan; this skill helps a Zoom out decide whether the fallback's parameters should change, and how.
 
 ## The parameters
 
@@ -13,7 +13,7 @@ The owner's plan for the account is the platform template `rebalance_bands@1`: k
 | Cost limit        | A leg costing more than this against the oracle holds (`COST_HURDLE`)                       | Lower limits protect against thin liquidity but can stall rebalancing     |
 | Largest leg       | The biggest single leg, as a share of the account; never above the owner's largest trade    | Larger legs rebalance faster with more impact per leg                     |
 
-The presets' defaults are in `data/params.json`. Every parameter must stay inside the template's bounds, the goal's target range and the owner's limits; `mcp__platform__get_goals_and_limits` gives all three and the plan in force.
+Each aggressiveness level's defaults are in `data/params.json`. Every parameter must stay inside the template's bounds, the goal's target range and the owner's limits; `mcp__platform__get_goals_and_limits` gives all three and the plan in force.
 
 ## Reading the account
 

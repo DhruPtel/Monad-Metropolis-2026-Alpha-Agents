@@ -2,7 +2,7 @@
   "schema_version": 1,
   "id": "deep-dive-research",
   "name": "Deep dive research",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "type": "research",
   "publisher": {
     "id": "alpha-agents",
@@ -11,18 +11,24 @@
   },
   "description": {
     "model": "Researches each question across sources, claim by claim. Use when a Dive needs evidence for and against a thesis.",
-    "marketplace": "Tiered sources, a source class and confidence on every claim, evidence for and against, and a mandatory skeptic pass before any conclusion."
+    "marketplace": "Tiered sources, a source class, confidence and age on every claim, the fundamentals checklist for a token (usage, fees and volume, TVL, holders and liquidity, supply, control, catalysts, relative value), evidence for and against, and a mandatory skeptic pass before any conclusion."
   },
   "triggers": ["building a thesis on one theme", "checking a claim against primary sources"],
   "not_for": ["a broad market sweep"],
   "required_tools": [
     "data.market_snapshot@1",
     "data.defillama_tvl@1",
+    "data.defillama_yields@1",
+    "data.coinmarketcap_prices@1",
     "data.web_search@1",
     "data.read_url@1",
     "data.x_search@1",
     "data.dune_query@1",
-    "chain.read_contract@1"
+    "data.lookup_token@1",
+    "data.find_pools@1",
+    "data.screen_token@1",
+    "chain.read_contract@1",
+    "chain.get_pool_depth@1"
   ],
   "intents": [],
   "data_sources": [],

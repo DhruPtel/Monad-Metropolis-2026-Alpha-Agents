@@ -1,7 +1,7 @@
 {
   "template": "rebalance_bands@1",
-  "note": "Defaults per risk preset (D-278, D-328); every value sits inside the template's bounds (packages/policy REBALANCE_BANDS_V1_BOUNDS).",
-  "presets": {
+  "note": "Defaults per aggressiveness level (D-278, D-345); every value sits inside the template's bounds (packages/policy REBALANCE_BANDS_V1_BOUNDS). The two-asset fallback for an account off the fund agent's set.",
+  "levels": {
     "CONSERVATIVE": {
       "targetWmonBps": 1000,
       "targetRangeBps": [0, 2000],
@@ -20,7 +20,7 @@
       "costHurdleBps": 40,
       "maxLegBps": 1000
     },
-    "GROWTH": {
+    "AGGRESSIVE": {
       "targetWmonBps": 3000,
       "targetRangeBps": [0, 4000],
       "bandHalfWidthBps": 500,

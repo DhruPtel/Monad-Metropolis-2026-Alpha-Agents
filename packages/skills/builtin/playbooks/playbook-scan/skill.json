@@ -2,7 +2,7 @@
   "schema_version": 1,
   "id": "playbook-scan",
   "name": "Scan playbook",
-  "version": "1.1.0",
+  "version": "2.0.0",
   "type": "research",
   "publisher": {
     "id": "alpha-agents",
@@ -15,6 +15,8 @@
   },
   "required_tools": [
     "data.market_snapshot@1",
+    "data.list_tokens@1",
+    "data.new_pools@1",
     "data.web_search@1",
     "data.read_url@1",
     "platform.write_thesis@1",

@@ -2,8 +2,8 @@
   "note": "Each built-in skill and playbook version's content hash (P3-U7). A version never changes; a change needs a new version. Written by pnpm skills:lock.",
   "versions": {
     "deep-dive-research": {
-      "version": "1.0.0",
-      "contentHash": "d9958e830674e1152acd050e92733d8ab35f6de31893df7304db9324e982df5b"
+      "version": "1.1.0",
+      "contentHash": "1c2d2a6103c373a07ad6e1acaa48a8158ae975c68289e9b7bcec11d2dc8fc7d4"
     },
     "defi-regime-read": {
       "version": "1.0.0",
@@ -22,24 +22,32 @@
       "contentHash": "a8ec2aa53fcaf37f43d9a26f4f6240a355d1e6a424c9f3b5804b343ba4d550f0"
     },
     "usdc-wmon-band-rebalancer": {
-      "version": "1.0.0",
-      "contentHash": "56180552b321261726622a1109b96bc8eb26f1e60530e7c883ef479608d91195"
+      "version": "1.1.0",
+      "contentHash": "74fbe66c2ca3014e19a6404271e88a99dd257451158992d437fa56954605c25f"
     },
     "playbook-challenge": {
-      "version": "1.1.0",
-      "contentHash": "cd3596bdfb0662fa2c1145a0d08d29efcc0ea38fd3524dcbf2cb2af2e1344614"
+      "version": "2.0.0",
+      "contentHash": "1950294f1f9b01b1cff35c153a911bc76805bcd0802196036f563a096ddfc52b"
     },
     "playbook-dive": {
-      "version": "1.1.0",
-      "contentHash": "d185c59806296cbd81a55d23159a5004bf532ad8a95f7a3f4fe95c6dbf91ef86"
+      "version": "2.0.0",
+      "contentHash": "94db668a3d9a5d20b6f0abbc7fc09884233d1b3d5954de4fa75a937dcc679912"
     },
     "playbook-scan": {
-      "version": "1.1.0",
-      "contentHash": "31870da28e6f73f85effdde123bfa4efa0ab991362eacd89805cfcf9663c9e3e"
+      "version": "2.0.0",
+      "contentHash": "1f4d8182628b12103433c57935e1734d5629b98c0c6bb1eb91128ba2f6b60e15"
     },
     "playbook-zoom-out": {
-      "version": "1.1.0",
-      "contentHash": "9e6a4a461377922bdc1b5007d8338f4988165281ec21a7de2cc4e2fa10524e44"
+      "version": "2.0.0",
+      "contentHash": "83cf03bc5c8c33512b2869c241274bfd4b6fca0be42e9fff80d34664f6efc1bb"
+    },
+    "portfolio-construction": {
+      "version": "1.0.0",
+      "contentHash": "70d3171c61f3a75e70a58d9e56f3a30932acd2a43e8628b8fae0973e7dfdfd59"
+    },
+    "token-risk-screen": {
+      "version": "1.0.0",
+      "contentHash": "bb0000bf623bdda6c089eb3345bc18833ef2fb4fe54d0957ec97b047058a93c1"
     }
   }
 }
