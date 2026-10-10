@@ -8,7 +8,6 @@ import type {
   IntentStore,
 } from "@alpha-agents/chain-tools";
 import {
-  type AssetId,
   type RejectionCode,
   SLOT_HOLDING_INTENT_STATES,
   type TradeFlowCode,
@@ -111,8 +110,12 @@ export interface IntentRow {
   intent_id: string;
   idempotency_key: string;
   account: string | null;
-  sell: "USDC" | "WMON";
-  buy: "USDC" | "WMON";
+  sell: string;
+  buy: string;
+  custody: "v2" | "v3";
+  sell_token: string | null;
+  buy_token: string | null;
+  route: string[] | null;
   amount_in: string;
   reason: string;
   client_request_id: string | null;
@@ -132,8 +135,12 @@ export const intentRecord = (r: IntentRow): IntentRecord => {
     intentId: r.intent_id,
     idempotencyKey: r.idempotency_key,
     account: (r.account as Hex | null) ?? null,
-    sell: r.sell as AssetId,
-    buy: r.buy as AssetId,
+    custody: r.custody,
+    sell: r.sell,
+    buy: r.buy,
+    sellToken: (r.sell_token as Hex | null) ?? null,
+    buyToken: (r.buy_token as Hex | null) ?? null,
+    route: r.route ? r.route.map((id) => id as Hex) : null,
     amountIn: BigInt(r.amount_in),
     reason: r.reason,
     clientRequestId: r.client_request_id,
@@ -212,8 +219,12 @@ export class PgIntentStore implements IntentStore {
           lease_id: identity.leaseId,
           kind: "swap",
           account: draft.account?.toLowerCase() ?? null,
+          custody: draft.custody ?? "v2",
           sell: draft.sell,
           buy: draft.buy,
+          sell_token: draft.sellToken?.toLowerCase() ?? null,
+          buy_token: draft.buyToken?.toLowerCase() ?? null,
+          route: draft.route ? json([...draft.route]) : null,
           amount_in: draft.amountIn.toString(),
           reason: draft.reason,
           client_request_id: draft.clientRequestId,

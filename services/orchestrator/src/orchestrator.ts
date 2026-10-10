@@ -381,6 +381,7 @@ export class Orchestrator {
         cycles: { store: this.cycles, research: this.research },
         chain: {
           reader: this.o.chain?.reader ?? null,
+          readerV3: this.o.chain?.readerV3 ?? null,
           ...(this.o.chain?.sessionKeyOf ? { sessionKeyOf: this.o.chain.sessionKeyOf } : {}),
           onProposed: (identity, intent) => {
             void this.narrator

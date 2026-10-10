@@ -3,6 +3,7 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import {
   type AssetId,
+  type CustodyPath,
   type RejectionCode,
   SLOT_HOLDING_INTENT_STATES,
   type TradeFlowCode,
@@ -32,6 +33,8 @@ import {
   requireAccount,
 } from "./logic.ts";
 import type { AgentState, ChainReader, MarketState, Quote } from "./reader.ts";
+import type { ChainReaderV3 } from "./reader-v3.ts";
+import { intentOutputV3, registerChainToolsV3 } from "./server-v3.ts";
 import {
   type Blocker,
   type ChainTool,
@@ -87,8 +90,15 @@ export interface ChainCallLog {
 export interface IntentDraft {
   readonly idempotencyKey: string;
   readonly account: Hex | null;
-  readonly sell: AssetId;
-  readonly buy: AssetId;
+  /** The assets by symbol: USDC or WMON on v2; any registered token on v3 (F-U5). */
+  readonly sell: string;
+  readonly buy: string;
+  /** F-U5 (D-367): the custody set the intent trades on; v2 when absent. */
+  readonly custody?: CustodyPath;
+  readonly sellToken?: Hex | null;
+  readonly buyToken?: Hex | null;
+  /** The route the proposal chose, registered pool IDs in order (v3). */
+  readonly route?: readonly Hex[] | null;
   readonly amountIn: bigint;
   readonly reason: string;
   readonly clientRequestId: string | null;
@@ -140,6 +150,13 @@ export interface ChainToolsOptions {
   readonly resolve: IdentityResolver;
   /** Null when this environment has no trading contracts yet: every tool says so. */
   readonly reader: ChainReader | null;
+  /**
+   * F-U5: the fund agent's v3 set. An agent whose owner opened a
+   * PersonalAccountV3, or who has no account at all, gets the v3 tools; one
+   * with only a v2 account keeps the v2 tools (D-367). Null where the v3 set
+   * is not deployed.
+   */
+  readonly readerV3?: ChainReaderV3 | null;
   readonly log: ChainCallLog;
   readonly intents: IntentStore;
   /** The agent's session key in the signer (its funding address, D-243), to check the grant names it. */
@@ -176,8 +193,8 @@ function upstream(err: unknown): never {
 const intentOutput = (r: IntentRecord, duplicate: boolean): IntentOutput => ({
   intentId: r.intentId,
   status: r.status,
-  sell: amountOf(r.sell, r.amountIn),
-  buy: r.buy,
+  sell: amountOf(r.sell as AssetId, r.amountIn),
+  buy: r.buy as AssetId,
   reason: r.reason,
   reasonCodes: [...r.reasonCodes],
   blockers: [...r.blockers],
@@ -187,91 +204,12 @@ const intentOutput = (r: IntentRecord, duplicate: boolean): IntentOutput => ({
   duplicate,
 });
 
-export function registerChainTools(
+/** The mainnet lookup tools (P3-U2, P3-U9), the same on either custody path. */
+export function registerLookupTools(
   mcp: McpServer,
-  identity: AgentIdentity,
-  o: Omit<ChainToolsOptions, "resolve" | "port">,
+  o: Pick<ChainToolsOptions, "market" | "research">,
+  tool: ToolRunner,
 ): void {
-  const reader = o.reader;
-  const now = () => o.now?.() ?? new Date();
-
-  const read = async <T>(fn: (r: ChainReader) => Promise<T>): Promise<T> => {
-    if (!reader) throw new ToolError("UPSTREAM_UNAVAILABLE", NOT_DEPLOYED, false);
-    try {
-      return await fn(reader);
-    } catch (err) {
-      return upstream(err);
-    }
-  };
-  const marketAndAgent = () =>
-    read(async (r) => {
-      const [m, a] = await Promise.all([r.market(), r.agent(identity.agentId)]);
-      return { m, a };
-    });
-  const quoteOrNull = (sell: AssetId, amountIn: bigint): Promise<Quote | null> =>
-    reader ? reader.quote(sell, amountIn).catch(() => null) : Promise.resolve(null);
-  const sessionKey = async () => (o.sessionKeyOf ? o.sessionKeyOf(identity.agentId) : null);
-
-  /** Logs the call, runs it, and answers in the shared shape. */
-  const tool = async (
-    name: ChainTool,
-    input: Record<string, unknown>,
-    run: () => Promise<{
-      output: Record<string, unknown>;
-      summary?: Record<string, unknown>;
-      cacheHit?: boolean;
-    }>,
-  ): Promise<CallToolResult> => {
-    let callId: string | null = null;
-    try {
-      callId = await o.log.begin(identity, name, input);
-      const { output, summary, cacheHit } = await run();
-      await o.log.finish(callId, {
-        status: "succeeded",
-        ...(summary ? { summary } : {}),
-        ...(cacheHit === undefined ? {} : { cacheHit }),
-        result: output,
-      });
-      return okResult(output);
-    } catch (err) {
-      if (callId)
-        await o.log
-          .finish(callId, {
-            status: "failed",
-            errorCode: err instanceof ToolError ? err.code : "INTERNAL",
-          })
-          .catch(() => undefined);
-      return errorFrom(err);
-    }
-  };
-
-  mcp.registerTool(
-    "get_portfolio",
-    {
-      description:
-        "Your trading account: USDC and WMON held, their value in USDC and share of the total, the account mode, and the circuit breaker's drawdown from its 7-day peak.",
-      inputSchema: EmptyInput,
-      outputSchema: PortfolioOutput,
-      annotations: { readOnlyHint: true },
-    },
-    async (input) =>
-      tool("get_portfolio", input, async () => {
-        const { m, a } = await marketAndAgent();
-        const out = portfolioView(requireAccount(a), m);
-        return {
-          output: out,
-          summary: {
-            block: out.asOf.block,
-            usdc: out.holdings[0]?.amount,
-            wmon: out.holdings[1]?.amount,
-            totalValueUsdc: out.totalValueUsdc.amount,
-            mode: out.mode,
-            drawdownBps: out.breaker.drawdownBps,
-          },
-        };
-      }),
-  );
-
   mcp.registerTool(
     "get_pool_depth",
     {
@@ -416,6 +354,132 @@ export function registerChainTools(
         };
       }),
   );
+}
+
+export type ToolRunner = (
+  name: ChainTool,
+  input: Record<string, unknown>,
+  run: () => Promise<{
+    output: Record<string, unknown>;
+    summary?: Record<string, unknown>;
+    cacheHit?: boolean;
+  }>,
+) => Promise<CallToolResult>;
+
+/** Logs each call, runs it, and answers in the shared shape (4.4.1). */
+export function toolRunner(identity: AgentIdentity, log: ChainCallLog): ToolRunner {
+  return async (name, input, run) => {
+    let callId: string | null = null;
+    try {
+      callId = await log.begin(identity, name, input);
+      const { output, summary, cacheHit } = await run();
+      await log.finish(callId, {
+        status: "succeeded",
+        ...(summary ? { summary } : {}),
+        ...(cacheHit === undefined ? {} : { cacheHit }),
+        result: output,
+      });
+      return okResult(output);
+    } catch (err) {
+      if (callId)
+        await log
+          .finish(callId, {
+            status: "failed",
+            errorCode: err instanceof ToolError ? err.code : "INTERNAL",
+          })
+          .catch(() => undefined);
+      return errorFrom(err);
+    }
+  };
+}
+
+/** The intent's answer in the shape of its custody set: v2 by asset, v3 by token (F-U5). */
+export const intentAnswer = (r: IntentRecord, duplicate: boolean): Record<string, unknown> =>
+  r.custody === "v3" ? intentOutputV3(r, duplicate) : intentOutput(r, duplicate);
+
+/**
+ * Registers the chain tools for one request's identity: the v3 trade tools
+ * when the agent is on the fund agent's set, the v2 ones otherwise (D-367),
+ * and the mainnet lookup tools on both. Deciding the path reads the chain
+ * once (cached a few seconds); when that read fails the v2 tools stand, and
+ * answer with the failure.
+ */
+export async function registerChainTools(
+  mcp: McpServer,
+  identity: AgentIdentity,
+  o: Omit<ChainToolsOptions, "resolve" | "port">,
+): Promise<void> {
+  const tool = toolRunner(identity, o.log);
+  registerLookupTools(mcp, o, tool);
+  const v3 = o.readerV3 ?? null;
+  let path: CustodyPath | null = null;
+  if (v3) {
+    try {
+      path = await v3.custodyPath(identity.agentId);
+    } catch {
+      path = o.reader ? "v2" : "v3";
+    }
+    if (path === null) path = o.reader ? "v2" : "v3";
+  }
+  if (v3 && path === "v3") {
+    registerChainToolsV3(mcp, identity, { ...o, readerV3: v3 }, tool);
+    return;
+  }
+  registerTradeToolsV2(mcp, identity, o, tool);
+}
+
+function registerTradeToolsV2(
+  mcp: McpServer,
+  identity: AgentIdentity,
+  o: Omit<ChainToolsOptions, "resolve" | "port">,
+  tool: ToolRunner,
+): void {
+  const reader = o.reader;
+  const now = () => o.now?.() ?? new Date();
+
+  const read = async <T>(fn: (r: ChainReader) => Promise<T>): Promise<T> => {
+    if (!reader) throw new ToolError("UPSTREAM_UNAVAILABLE", NOT_DEPLOYED, false);
+    try {
+      return await fn(reader);
+    } catch (err) {
+      return upstream(err);
+    }
+  };
+  const marketAndAgent = () =>
+    read(async (r) => {
+      const [m, a] = await Promise.all([r.market(), r.agent(identity.agentId)]);
+      return { m, a };
+    });
+  const quoteOrNull = (sell: AssetId, amountIn: bigint): Promise<Quote | null> =>
+    reader ? reader.quote(sell, amountIn).catch(() => null) : Promise.resolve(null);
+  const sessionKey = async () => (o.sessionKeyOf ? o.sessionKeyOf(identity.agentId) : null);
+
+  mcp.registerTool(
+    "get_portfolio",
+    {
+      description:
+        "Your trading account: USDC and WMON held, their value in USDC and share of the total, the account mode, and the circuit breaker's drawdown from its 7-day peak.",
+      inputSchema: EmptyInput,
+      outputSchema: PortfolioOutput,
+      annotations: { readOnlyHint: true },
+    },
+    async (input) =>
+      tool("get_portfolio", input, async () => {
+        const { m, a } = await marketAndAgent();
+        const out = portfolioView(requireAccount(a), m);
+        return {
+          output: out,
+          summary: {
+            block: out.asOf.block,
+            usdc: out.holdings[0]?.amount,
+            wmon: out.holdings[1]?.amount,
+            totalValueUsdc: out.totalValueUsdc.amount,
+            mode: out.mode,
+            drawdownBps: out.breaker.drawdownBps,
+          },
+        };
+      }),
+  );
 
   mcp.registerTool(
     "get_prices",
@@ -555,8 +619,12 @@ export function registerChainTools(
         const draft: IntentDraft = {
           idempotencyKey: `${identity.leaseId}:${input.clientRequestId ?? fingerprint}`,
           account: a.account,
+          custody: "v2",
           sell: input.sell,
           buy: input.buy,
+          sellToken: reader ? reader.tokenOf(input.sell) : null,
+          buyToken: reader ? reader.tokenOf(input.buy) : null,
+          route: null,
           amountIn,
           reason: input.reason,
           clientRequestId: input.clientRequestId ?? null,
@@ -604,7 +672,7 @@ export function registerChainTools(
         const r = await o.intents.get(identity, input.intentId);
         // Another agent's intent is indistinguishable from one that does not exist (4.4.1).
         if (!r) throw new ToolError("INTENT_NOT_FOUND", "No such intent for this agent.", false);
-        return { output: intentOutput(r, false), summary: { status: r.status } };
+        return { output: intentAnswer(r, false), summary: { status: r.status } };
       }),
   );
 }

@@ -24,8 +24,8 @@ export interface ToolServerOptions {
   /** The MCP server name (data, platform). */
   readonly name: string;
   readonly resolve: IdentityResolver;
-  /** Registers the server's tools for one request's identity. */
-  readonly register: (mcp: McpServer, identity: AgentIdentity) => void;
+  /** Registers the server's tools for one request's identity; it may read first (the chain tools pick the agent's custody path). */
+  readonly register: (mcp: McpServer, identity: AgentIdentity) => void | Promise<void>;
   readonly port?: number;
 }
 
@@ -90,7 +90,11 @@ export async function startToolServer(options: ToolServerOptions): Promise<ToolS
       if (!identity) return refuse(res, 401, "UNAUTHENTICATED", "unauthenticated");
       const mcp = new McpServer({ name: options.name, version: "1.0.0" });
       useTypedSdkErrors(mcp);
-      options.register(mcp, identity);
+      try {
+        await options.register(mcp, identity);
+      } catch {
+        return refuse(res, 503, "INTERNAL", "the tools could not be prepared");
+      }
       // No session ID generator: stateless mode, one server and transport per request.
       const transport = new StreamableHTTPServerTransport({});
       res.on("close", () => {

@@ -3,3 +3,8 @@ export * from "./reader.ts";
 export * from "./schema.ts";
 export * from "./server.ts";
 export * from "./transport.ts";
+export * from "./reader-v3.ts";
+export * from "./routes.ts";
+export * from "./logic-v3.ts";
+export * from "./schema-v3.ts";
+export * from "./server-v3.ts";

@@ -17,7 +17,13 @@ import {
   assertChainId,
   loadConfig,
 } from "@alpha-agents/config";
-import { ViemChainReader, contractsFor, rpcTransport } from "@alpha-agents/chain-tools";
+import {
+  ViemChainReader,
+  ViemChainReaderV3,
+  contractsFor,
+  contractsForV3,
+  rpcTransport,
+} from "@alpha-agents/chain-tools";
 import { TavilyProvider } from "@alpha-agents/data-tools";
 import { createDb, migrateToLatest } from "@alpha-agents/db";
 import { localPaths, secretFragments, setMonBalance, startTestFork } from "@alpha-agents/devenv";
@@ -382,6 +388,20 @@ if (!chainContracts.ok)
   log(
     `chain tools: not deployed on ${env.label} (${chainContracts.missing.join(", ")} not in the address book); every chain tool says so`,
   );
+// F-U5: the fund agent's v3 set; an agent whose owner opened a PersonalAccountV3 gets the v3 tools (D-367).
+const chainContractsV3 = contractsForV3(env.id);
+const chainReaderV3 = chainContractsV3.ok
+  ? new ViemChainReaderV3({
+      chainId: env.chainId,
+      rpcUrl,
+      fallbackRpcUrl,
+      contracts: chainContractsV3.contracts,
+    })
+  : null;
+if (!chainContractsV3.ok)
+  log(
+    `chain tools v3: not deployed on ${env.label} (${chainContractsV3.missing.join(", ")} not in the address book); agents stay on the v2 tools`,
+  );
 const chainSigner = signerWorker?.signer ?? null;
 
 // P2-EC (D-307): on testnet the TestnetFeeds are re-dated on demand, before every market read
@@ -475,6 +495,7 @@ const orchestrator = new Orchestrator({
   snapshotReader: chainReader,
   chain: {
     reader: toolsReader,
+    readerV3: chainReaderV3,
     ...(chainSigner ? { sessionKeyOf: (agentId: number) => chainSigner.createKey(agentId) } : {}),
   },
   trading,

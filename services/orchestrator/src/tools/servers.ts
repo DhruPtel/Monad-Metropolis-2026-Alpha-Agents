@@ -6,7 +6,12 @@ import {
   startDataTools,
   type TokenSource,
 } from "@alpha-agents/data-tools";
-import { type ChainReader, type IntentRecord, startChainTools } from "@alpha-agents/chain-tools";
+import {
+  type ChainReader,
+  type ChainReaderV3,
+  type IntentRecord,
+  startChainTools,
+} from "@alpha-agents/chain-tools";
 import type { MarketData, ResearchSources } from "@alpha-agents/market";
 import { startPlatformTools } from "@alpha-agents/platform-tools";
 import type { AgentIdentity } from "@alpha-agents/tool-server";
@@ -40,6 +45,8 @@ export interface ToolServers {
 export interface ChainToolsWiring {
   /** Null where the trading contracts are not deployed: every chain tool says so. */
   readonly reader: ChainReader | null;
+  /** F-U5: the fund agent's v3 set; an agent on it gets the v3 tools (D-367). Null where undeployed. */
+  readonly readerV3?: ChainReaderV3 | null;
   /** The agent's session key in the signer, to check the Executor grant names it. */
   readonly sessionKeyOf?: (agentId: number) => Promise<Hex | null>;
   /** One activity entry per new intent. */
@@ -120,6 +127,7 @@ export async function startToolServers(o: ToolServersOptions): Promise<ToolServe
   const chain = await startChainTools({
     resolve,
     reader: o.chain?.reader ?? null,
+    readerV3: o.chain?.readerV3 ?? null,
     log: new PgChainCallLog(o.store, undefined, o.cycles?.store ?? null),
     intents,
     market: o.market ?? null,
