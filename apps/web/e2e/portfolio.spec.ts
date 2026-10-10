@@ -16,6 +16,10 @@ import {
   intentFixture,
   noAccountFixture,
   portfolioFixture,
+  NO_CHANGE,
+  REJECTED_PROPOSAL,
+  planCardFixture,
+  proposalFixture,
 } from "./fake-trading";
 
 /**
@@ -324,6 +328,73 @@ test.describe("the overview, gas and named refusals (Phase 2 tuning)", () => {
 });
 
 test.describe("the owner's data only", () => {
+  test("the plan card shows the agent's proposal with its reasons, verdicts and cost, and approving it sets the plan (F-U9)", async ({
+    page,
+  }) => {
+    const s = stack();
+    s.trading.planCard = planCardFixture();
+    await open(page, s);
+    const plan = main(page).getByTestId("plan-section");
+    const card = plan.getByTestId("plan-card");
+    await expect(card).toHaveAttribute("data-status", "pending_owner");
+    await expect(card).toContainText("Waiting for your approval");
+    await expect(card).toContainText("mixed evidence");
+    const positions = card.getByTestId("plan-position");
+    await expect(positions).toHaveCount(3);
+    await expect(positions.nth(0)).toContainText("WMON");
+    await expect(positions.nth(0)).toContainText("Trim");
+    await expect(positions.nth(0)).toContainText("25.00%");
+    await expect(positions.nth(0)).toContainText("Skeptic: stands");
+    await expect(positions.nth(1)).toContainText("WBTC");
+    await expect(positions.nth(1)).toContainText("new");
+    await expect(positions.nth(1)).toContainText("Skeptic: weakened");
+    await expect(positions.nth(1)).toContainText("1 social");
+    await expect(positions.nth(2)).toContainText("CHOG");
+    await expect(positions.nth(2)).toContainText("Exit");
+    await expect(card.getByTestId("plan-cost")).toContainText("0.02 USDC over 2 legs");
+    await expect(card.getByTestId("plan-evaluation")).toContainText("Passed every check");
+    await capture(page, plan, "portfolio-plan.png");
+    expect(await blockingViolations(page)).toEqual([]);
+    await card.getByRole("button", { name: "Approve this plan" }).click();
+    await expect(plan).toContainText("Approved: this is now the agent's plan");
+    expect(s.trading.decisions).toEqual(["approve prop-00000000-0000-4000-8000-000000000001"]);
+    await expect(plan.getByTestId("plan-card")).toHaveAttribute("data-status", "applied");
+    await expect(plan.getByRole("button", { name: "Approve this plan" })).toHaveCount(0);
+  });
+
+  test("a rejected proposal shows every finding and offers no approval; a no-change decision says why (F-U9)", async ({
+    page,
+  }) => {
+    const s = stack();
+    s.trading.planCard = planCardFixture({
+      pending: null,
+      recent: [REJECTED_PROPOSAL],
+      noChange: null,
+    });
+    await open(page, s);
+    const card = main(page).getByTestId("plan-card");
+    await expect(card).toHaveAttribute("data-status", "rejected");
+    await expect(card).toContainText("Rejected by the platform's checks");
+    await expect(card.getByTestId("plan-evaluation")).toContainText("ENVELOPE_POSITION");
+    await expect(card.getByTestId("plan-evaluation")).toContainText("DEPTH");
+    await expect(card.getByRole("button")).toHaveCount(0);
+    await capture(page, main(page).getByTestId("plan-section"), "portfolio-plan-rejected.png");
+    expect(await blockingViolations(page)).toEqual([]);
+    // Declining a waiting proposal keeps the plan; the Zoom out's no-change is shown with its reason.
+    s.trading.planCard = planCardFixture({ pending: proposalFixture(), noChange: NO_CHANGE });
+    await page.reload();
+    await main(page).getByRole("button", { name: "Connect wallet" }).click();
+    const waiting = main(page).getByTestId("plan-card");
+    await expect(waiting).toHaveAttribute("data-status", "pending_owner");
+    await waiting.getByRole("button", { name: "Decline" }).click();
+    await expect(main(page).getByTestId("plan-section")).toContainText(
+      "Declined. The plan stays as it is.",
+    );
+    expect(s.trading.decisions.at(-1)).toBe("reject prop-00000000-0000-4000-8000-000000000001");
+    await expect(main(page).getByTestId("plan-no-change")).toContainText("evidence thin");
+    await expect(main(page).getByTestId("plan-no-change")).toContainText("What would change it");
+  });
+
   test("another wallet sees none of this portfolio and cannot act on it", async ({ page }) => {
     const s = stack(portfolioFixture(OTHER_WALLET), OTHER_WALLET);
     await open(page, s);

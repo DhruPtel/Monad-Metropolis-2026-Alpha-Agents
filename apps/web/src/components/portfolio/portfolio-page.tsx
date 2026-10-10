@@ -29,11 +29,14 @@ import {
   Skeleton,
   WalletActionStatus,
   WhyNotTraded,
+  NoChangeNotice,
+  PlanCard,
 } from "@alpha-agents/ui";
 import { ArrowLeft, PlugZap, Wallet } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
-import type { IntentJson, PortfolioJson } from "@/api/client";
+import { type ReactNode, useState } from "react";
+import type { IntentJson, PlanCardJson, PortfolioJson } from "@/api/client";
+import { latestDecided, planCardView } from "@/agent/plan-card";
 import { useWalletSession } from "@/auth/session";
 import {
   type Asset,
@@ -132,6 +135,69 @@ function approvalView(
     reason: i.reason,
     arms,
   };
+}
+
+/**
+ * The agent's plan (F-U9): the proposal waiting for the owner with its
+ * reasons, or the latest decided one, and why the plan did not change.
+ */
+function PlanSection({
+  card,
+  busy,
+  onApprove,
+  onReject,
+  status,
+}: {
+  card: PlanCardJson;
+  busy: boolean;
+  onApprove: (proposalId: string) => void;
+  onReject: (proposalId: string) => void;
+  status: ReactNode;
+}) {
+  const pending = card.pending;
+  const shown = pending ?? latestDecided(card);
+  const noChange = card.noChange;
+  const showNoChange = noChange !== null && (!shown || noChange.createdAt > shown.createdAt);
+  return (
+    <section aria-label="Plan" className="flex flex-col gap-3" data-testid="plan-section">
+      <h2 className="text-lg font-semibold">The agent&apos;s plan</h2>
+      {shown ? (
+        <PlanCard
+          view={planCardView(card, shown)}
+          actions={
+            pending ? (
+              <>
+                <Button disabled={busy} onClick={() => onApprove(pending.proposalId)}>
+                  Approve this plan
+                </Button>
+                <Button
+                  variant="secondary"
+                  disabled={busy}
+                  onClick={() => onReject(pending.proposalId)}
+                >
+                  Decline
+                </Button>
+              </>
+            ) : undefined
+          }
+          status={pending ? status : undefined}
+        />
+      ) : null}
+      {!pending && shown ? status : null}
+      {showNoChange ? (
+        <NoChangeNotice
+          reasonCode={noChange.reasonCode ?? "NO_CHANGE"}
+          explanation={noChange.explanation ?? noChange.rationale.portfolioView}
+          at={noChange.createdAt}
+        />
+      ) : null}
+      {!shown && !showNoChange ? (
+        <p className="text-sm text-foreground-muted" data-testid="plan-none">
+          No portfolio proposal yet: the agent&apos;s next research cycle may make one.
+        </p>
+      ) : null}
+    </section>
+  );
 }
 
 /** Deposit: the asset, the amount with a Max, every block named before anything is sent. */
@@ -576,6 +642,15 @@ export function PortfolioPage({
           ) : (
             <StatusFor status={pf.status} actions={["approve", "reject"]} />
           )}
+          {pf.planCard ? (
+            <PlanSection
+              card={pf.planCard}
+              busy={acting}
+              onApprove={pf.approveProposal}
+              onReject={pf.rejectProposal}
+              status={<StatusFor status={pf.status} actions={["approve-plan", "reject-plan"]} />}
+            />
+          ) : null}
           <section aria-label="Trades" className="flex flex-col gap-3">
             <h2 className="text-lg font-semibold">Recent trades</h2>
             <RecentTrades

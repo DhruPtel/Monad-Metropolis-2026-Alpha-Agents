@@ -6,7 +6,14 @@ import {
   getAddress,
   parseAbi,
 } from "viem";
-import type { ArmingJson, IntentJson, PortfolioJson, WhyNotTradedJson } from "../src/api/client";
+import type {
+  ArmingJson,
+  IntentJson,
+  PortfolioJson,
+  WhyNotTradedJson,
+  PlanCardJson,
+  ProposalJson,
+} from "../src/api/client";
 import { ACCOUNT_ABI, ERC20_ABI, FACTORY_ABI } from "../src/agent/custody";
 import type { FakeChain } from "./fake-chain";
 
@@ -171,9 +178,180 @@ const UNARMED: ArmingJson = {
   ended: null,
 };
 
+/** F-U9: a proposal as the API stores it, waiting for the owner by default. */
+export function proposalFixture(over: Partial<ProposalJson> = {}): ProposalJson {
+  return {
+    proposalId: "prop-00000000-0000-4000-8000-000000000001",
+    kind: "proposal",
+    status: "pending_owner",
+    needsApproval: true,
+    strategyEpoch: "1",
+    ownerEpoch: "2",
+    cycleId: "cycle-fixture",
+    template: "target_portfolio@1",
+    plan: {
+      cashTargetBps: 6_000,
+      minTradeUsdcE6: "500000",
+      volatilityBrakeBps: 20_000,
+      costHurdleBps: 40,
+      maxLegBps: 1_000,
+    },
+    positions: [
+      {
+        token: WMON.toLowerCase(),
+        symbol: "WMON",
+        targetWeightBps: 2_000,
+        bandBps: 300,
+        currentWeightBps: 2_500,
+        action: "TRIM",
+        thesisCode: "WMON_DEPTH",
+        thesis: "WMON keeps its depth while MON's volatility settles under the brake.",
+        killCriterion: "MON's 24-hour volatility stays above 150% for 3 days.",
+        recheckAt: "2026-10-24",
+        trimAboveBps: null,
+        confidence: "medium",
+        sources: { onchain: 2, market: 2, primary: 0, news: 1, social: 0 },
+        verdict: "STANDS",
+        reason: "The thesis stands but the account is above its weight.",
+      },
+      {
+        token: "0x0555e30da8f98308edb960aa94c0db47230d2b9c",
+        symbol: "WBTC",
+        targetWeightBps: 2_000,
+        bandBps: 300,
+        currentWeightBps: null,
+        action: "ADD",
+        thesisCode: "WBTC_ADD",
+        thesis: "WBTC tracks bitcoin while its pool stays deep enough for this account's legs.",
+        killCriterion: "The deepest pool's liquidity halves.",
+        recheckAt: "2026-11-01",
+        trimAboveBps: 3_000,
+        confidence: "medium",
+        sources: { onchain: 1, market: 2, primary: 1, news: 0, social: 1 },
+        verdict: "WEAKENED",
+        reason: "A deep pool and a thesis the skeptic weakened but did not reject.",
+      },
+    ],
+    rationale: {
+      decision: "PROPOSE",
+      reasonCode: null,
+      portfolioView:
+        "Two large tokens plus cash fit a Balanced goal; the account trims WMON back under its weight and adds a first WBTC position.",
+      evidenceStrength: "mixed",
+      whatWouldChangeIt: "WBTC's pool thinning out, or MON's volatility rising past the brake.",
+      themeCodes: ["WMON_DEPTH", "WBTC_ADD"],
+    },
+    evaluation: {
+      checkedAt: iso(NOW - 600),
+      passed: true,
+      findings: [],
+      cost: {
+        legs: 2,
+        turnoverUsdcE6: "10000000",
+        estimatedCostUsdcE6: "20000",
+        costBps: 20,
+        basis: "test",
+      },
+      approval: "ask_first",
+    },
+    reasonCode: null,
+    explanation: null,
+    decidedBy: null,
+    decidedAt: null,
+    createdAt: iso(NOW - 600),
+    expiresAt: iso(NOW - 600 + 86_400),
+    ...over,
+  };
+}
+
+export const REJECTED_PROPOSAL = proposalFixture({
+  proposalId: "prop-00000000-0000-4000-8000-000000000002",
+  status: "rejected",
+  needsApproval: true,
+  evaluation: {
+    checkedAt: iso(NOW - 7200),
+    passed: false,
+    findings: [
+      {
+        code: "ENVELOPE_POSITION",
+        field: "positions[1].targetWeightBps",
+        message: "WBTC at 46.00% is above the Balanced envelope's 45.00% per position.",
+      },
+      {
+        code: "DEPTH",
+        field: "positions[1]",
+        message:
+          "A 10.00 USDC leg into WBTC would fill 1.20% under the oracle, past the 0.40% hurdle.",
+      },
+    ],
+    cost: null,
+    approval: "ask_first",
+  },
+  createdAt: iso(NOW - 7200),
+  expiresAt: null,
+  decidedAt: iso(NOW - 7200),
+});
+
+export const NO_CHANGE = proposalFixture({
+  proposalId: "prop-00000000-0000-4000-8000-000000000003",
+  kind: "no_change",
+  status: "recorded",
+  needsApproval: false,
+  template: null,
+  plan: null,
+  positions: [],
+  rationale: {
+    decision: "NO_CHANGE",
+    reasonCode: "EVIDENCE_THIN",
+    portfolioView: "The account sits inside its bands; the only new thesis rests on one source.",
+    evidenceStrength: "weak",
+    whatWouldChangeIt: "A second, onchain source for the WBTC flows.",
+    themeCodes: ["WBTC_ADD"],
+  },
+  evaluation: null,
+  reasonCode: "EVIDENCE_THIN",
+  explanation:
+    "The account sits inside its bands; the only new thesis rests on one source. What would change it: a second, onchain source for the WBTC flows.",
+  createdAt: iso(NOW - 3600),
+  expiresAt: null,
+});
+
+export function planCardFixture(over: Partial<PlanCardJson> = {}): PlanCardJson {
+  return {
+    strategyEpoch: "1",
+    planChanges: "ASK_FIRST",
+    current: {
+      paramId: "plan-fixture",
+      template: "target_portfolio@1",
+      setBy: "owner",
+      setAt: iso(NOW - 86_400),
+      strategyEpoch: "1",
+      positions: [
+        { token: WMON.toLowerCase(), symbol: "WMON", targetWeightBps: 2_500, bandBps: 300 },
+        {
+          token: "0x00000000000000000000000000000000000c0de5",
+          symbol: "CHOG",
+          targetWeightBps: 500,
+          bandBps: 200,
+        },
+      ],
+      cashTargetBps: 7_000,
+      targetWmonBps: null,
+    },
+    pending: proposalFixture(),
+    recent: [],
+    noChange: null,
+    ...over,
+  };
+}
+
 export class FakeTrading {
   portfolio: PortfolioJson;
   arming: ArmingJson = UNARMED;
+  /** F-U9: the plan card; null answers 503 as an agent off the trading set would. */
+  planCard: PlanCardJson | null = null;
+  /** Every proposal decision the page sent: "approve <id>" or "reject <id>". */
+  readonly decisions: string[] = [];
   intents: IntentJson[] = [];
   /** Extra blocked reasons beyond the intents' own (for example NOT_ARMED). */
   readonly calls: string[] = [];
@@ -308,6 +486,51 @@ export class FakeTrading {
     const agentId = id.toString();
     if (rest === "portfolio" && method === "GET")
       return { status: 200, body: { portfolio: this.portfolio } };
+    if (rest === "plan-card" && method === "GET")
+      return this.planCard
+        ? { status: 200, body: { agentId, ...this.planCard } }
+        : { status: 503, body: { error: "not_deployed", message: "No trading set here." } };
+    const decision = /^proposals\/([\w-]+)\/(approve|reject)$/.exec(rest);
+    if (decision && method === "POST") {
+      const [, proposalId, action] = decision;
+      this.decisions.push(`${action} ${proposalId}`);
+      const pending = this.planCard?.pending;
+      if (!this.planCard || !pending || pending.proposalId !== proposalId)
+        return { status: 409, body: { error: "not_waiting", message: "No proposal is waiting." } };
+      const decided: ProposalJson = {
+        ...pending,
+        status: action === "approve" ? "applied" : "declined",
+        decidedBy: this.owner,
+        decidedAt: iso(NOW),
+      };
+      this.planCard = {
+        ...this.planCard,
+        strategyEpoch: action === "approve" ? "2" : this.planCard.strategyEpoch,
+        current:
+          action === "approve"
+            ? {
+                paramId: "plan-approved",
+                template: "target_portfolio@1",
+                setBy: "owner",
+                setAt: iso(NOW),
+                strategyEpoch: "2",
+                positions: pending.positions
+                  .filter((p) => p.action !== "EXIT")
+                  .map((p) => ({
+                    token: p.token,
+                    symbol: p.symbol,
+                    targetWeightBps: p.targetWeightBps,
+                    bandBps: p.bandBps,
+                  })),
+                cashTargetBps: pending.plan?.cashTargetBps ?? null,
+                targetWmonBps: null,
+              }
+            : this.planCard.current,
+        pending: null,
+        recent: [decided, ...this.planCard.recent],
+      };
+      return { status: 200, body: { agentId, proposal: decided } };
+    }
     if (rest === "arming" && method === "GET")
       return {
         status: 200,

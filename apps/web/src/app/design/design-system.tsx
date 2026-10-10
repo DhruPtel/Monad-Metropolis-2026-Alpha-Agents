@@ -133,6 +133,8 @@ import {
   SHADOW_SCALE,
   SPACING_SCALE,
   TYPE_SCALE,
+  NoChangeNotice,
+  PlanCard,
 } from "@alpha-agents/ui";
 
 // Sample data from the design brief (Planv1/design-brief.md).
@@ -1970,6 +1972,145 @@ function PortfolioSection() {
             armingEnded="The agent is not armed, so each trade waits for the owner's approval."
           />
         </div>
+      </Specimen>
+      <Specimen
+        name="Plan card"
+        note="A proposed portfolio against the plan in force (F-U9): each position's action, weights, thesis and exit plan, the sources by class, the skeptic's verdict, the evidence strength, the platform's checks and the estimated cost to move. A waiting one carries the owner's buttons."
+      >
+        <div className="flex flex-col gap-6">
+          <PlanCard
+            view={{
+              proposalId: "prop-00000000-0000-4000-8000-000000000001",
+              status: "pending_owner",
+              needsApproval: true,
+              cashTargetBps: 6_000,
+              currentCashBps: 7_000,
+              positions: [
+                {
+                  token: DS_WMON,
+                  symbol: "WMON",
+                  targetWeightBps: 2_000,
+                  bandBps: 300,
+                  currentWeightBps: 2_500,
+                  action: "TRIM",
+                  thesis: "WMON keeps its depth while MON's volatility settles under the brake.",
+                  killCriterion: "MON's 24-hour volatility stays above 150% for 3 days.",
+                  recheckAt: "2026-10-24",
+                  trimAboveBps: null,
+                  confidence: "medium",
+                  sources: { onchain: 2, market: 2, primary: 0, news: 1, social: 0 },
+                  verdict: "STANDS",
+                  reason: "The thesis stands but the account is above its weight.",
+                },
+                {
+                  token: DS_USDC,
+                  symbol: "WBTC",
+                  targetWeightBps: 2_000,
+                  bandBps: 300,
+                  currentWeightBps: null,
+                  action: "ADD",
+                  thesis:
+                    "WBTC tracks bitcoin while its pool stays deep enough for this account's legs.",
+                  killCriterion: "The deepest pool's liquidity halves.",
+                  recheckAt: "2026-11-01",
+                  trimAboveBps: 3_000,
+                  confidence: "medium",
+                  sources: { onchain: 1, market: 2, primary: 1, news: 0, social: 1 },
+                  verdict: "WEAKENED",
+                  reason: "A deep pool and a thesis the skeptic weakened but did not reject.",
+                },
+              ],
+              leaving: [{ symbol: "CHOG", currentWeightBps: 500 }],
+              portfolioView:
+                "Two large tokens plus cash fit a Balanced goal; the account trims WMON back under its weight and adds a first WBTC position.",
+              evidenceStrength: "mixed",
+              whatWouldChangeIt:
+                "WBTC's pool thinning out, or MON's volatility rising past the brake.",
+              evaluation: {
+                passed: true,
+                checkedAt: "2026-10-10T12:00:00.000Z",
+                findings: [],
+                cost: {
+                  legs: 3,
+                  turnoverUsdcE6: "15000000",
+                  estimatedCostUsdcE6: "30000",
+                  costBps: 20,
+                },
+              },
+              createdAt: "2026-10-10T12:00:00.000Z",
+              expiresAt: "2026-10-11T12:00:00.000Z",
+              decidedAt: null,
+            }}
+            actions={
+              <>
+                <Button size="sm">Approve this plan</Button>
+                <Button size="sm" variant="secondary">
+                  Decline
+                </Button>
+              </>
+            }
+          />
+          <PlanCard
+            view={{
+              proposalId: "prop-00000000-0000-4000-8000-000000000002",
+              status: "rejected",
+              needsApproval: true,
+              cashTargetBps: 3_000,
+              currentCashBps: 7_000,
+              positions: [
+                {
+                  token: DS_USDC,
+                  symbol: "WBTC",
+                  targetWeightBps: 4_600,
+                  bandBps: 300,
+                  currentWeightBps: null,
+                  action: "ADD",
+                  thesis: null,
+                  killCriterion: "The deepest pool's liquidity halves.",
+                  recheckAt: "2026-11-01",
+                  trimAboveBps: null,
+                  confidence: null,
+                  sources: { onchain: 0, market: 0, primary: 0, news: 0, social: 2 },
+                  verdict: "REJECTED",
+                  reason: "",
+                },
+              ],
+              leaving: [],
+              portfolioView: "A single large WBTC position.",
+              evidenceStrength: "weak",
+              whatWouldChangeIt: "An onchain source for the flows.",
+              evaluation: {
+                passed: false,
+                checkedAt: "2026-10-10T12:00:00.000Z",
+                findings: [
+                  {
+                    code: "ENVELOPE_POSITION",
+                    message: "WBTC at 46.00% is above the Balanced envelope's 45.00% per position.",
+                  },
+                  {
+                    code: "DEPTH",
+                    message:
+                      "A 10.00 USDC leg into WBTC would fill 1.20% under the oracle, past the 0.40% hurdle.",
+                  },
+                ],
+                cost: null,
+              },
+              createdAt: "2026-10-10T10:00:00.000Z",
+              expiresAt: null,
+              decidedAt: "2026-10-10T10:00:00.000Z",
+            }}
+          />
+        </div>
+      </Specimen>
+      <Specimen
+        name="Why the plan did not change"
+        note="The Zoom out's no-change decision: its reason code and plain explanation, with what would change it."
+      >
+        <NoChangeNotice
+          reasonCode="EVIDENCE_THIN"
+          explanation="The account sits inside its bands; the only new thesis rests on one source. What would change it: a second, onchain source for the WBTC flows."
+          at="2026-10-10T11:00:00.000Z"
+        />
       </Specimen>
     </Section>
   );

@@ -282,6 +282,106 @@ export interface HoldingsJson {
   }[];
 }
 
+/** F-U9: a proposed position as the plan card shows it. */
+export interface ProposalPositionJson {
+  readonly token: string;
+  readonly symbol: string;
+  readonly targetWeightBps: number;
+  readonly bandBps: number;
+  readonly currentWeightBps: number | null;
+  readonly action: "ADD" | "HOLD" | "TRIM" | "EXIT";
+  readonly thesisCode: string | null;
+  readonly thesis: string | null;
+  readonly killCriterion: string;
+  readonly recheckAt: string;
+  readonly trimAboveBps: number | null;
+  readonly confidence: "high" | "medium" | "low" | null;
+  readonly sources: {
+    readonly onchain: number;
+    readonly market: number;
+    readonly primary: number;
+    readonly news: number;
+    readonly social: number;
+  };
+  readonly verdict: "STANDS" | "WEAKENED" | "REJECTED" | null;
+  readonly reason: string;
+}
+
+export interface ProposalJson {
+  readonly proposalId: string;
+  readonly kind: "proposal" | "no_change";
+  readonly status: "pending_owner" | "applied" | "rejected" | "declined" | "expired" | "recorded";
+  readonly needsApproval: boolean;
+  readonly strategyEpoch: string;
+  readonly ownerEpoch: string;
+  readonly cycleId: string | null;
+  readonly template: string | null;
+  readonly plan: {
+    readonly cashTargetBps?: number;
+    readonly targetWmonBps?: number;
+    readonly minTradeUsdcE6: string;
+    readonly volatilityBrakeBps: number;
+    readonly costHurdleBps: number;
+    readonly maxLegBps: number;
+  } | null;
+  readonly positions: readonly ProposalPositionJson[];
+  readonly rationale: {
+    readonly decision: "NO_CHANGE" | "PROPOSE";
+    readonly reasonCode: string | null;
+    readonly portfolioView: string;
+    readonly evidenceStrength: "strong" | "mixed" | "weak";
+    readonly whatWouldChangeIt: string;
+    readonly themeCodes: readonly string[];
+  };
+  readonly evaluation: {
+    readonly checkedAt: string;
+    readonly passed: boolean;
+    readonly findings: readonly {
+      readonly code: string;
+      readonly field: string;
+      readonly message: string;
+    }[];
+    readonly cost: {
+      readonly legs: number;
+      readonly turnoverUsdcE6: string;
+      readonly estimatedCostUsdcE6: string;
+      readonly costBps: number;
+      readonly basis: string;
+    } | null;
+    readonly approval: "ask_first" | "first_plan_after_arming" | null;
+  } | null;
+  readonly reasonCode: string | null;
+  readonly explanation: string | null;
+  readonly decidedBy: string | null;
+  readonly decidedAt: string | null;
+  readonly createdAt: string;
+  readonly expiresAt: string | null;
+}
+
+/** F-U9: the plan card's data, owner only. */
+export interface PlanCardJson {
+  readonly strategyEpoch: string;
+  readonly planChanges: "ASK_FIRST" | "APPLY_AND_TELL" | null;
+  readonly current: {
+    readonly paramId: string;
+    readonly template: string;
+    readonly setBy: string;
+    readonly setAt: string;
+    readonly strategyEpoch: string;
+    readonly positions: readonly {
+      readonly token: string;
+      readonly symbol: string;
+      readonly targetWeightBps: number;
+      readonly bandBps: number;
+    }[];
+    readonly cashTargetBps: number | null;
+    readonly targetWmonBps: number | null;
+  } | null;
+  readonly pending: ProposalJson | null;
+  readonly recent: readonly ProposalJson[];
+  readonly noChange: ProposalJson | null;
+}
+
 export interface PortfolioJson {
   readonly chainId: number;
   readonly block: string;
@@ -381,6 +481,31 @@ export const tradingApi = {
         owner(session),
       )
     ).holdings;
+  },
+  /** F-U9: the plan card. Owner only. */
+  async planCard(agentId: bigint, session: string): Promise<PlanCardJson> {
+    return call<PlanCardJson>(`/v1/agents/${agentId.toString()}/plan-card`, owner(session));
+  },
+  /** F-U9: approve a waiting proposal; it becomes the plan the runner follows, or is rejected with findings. */
+  async approveProposal(
+    agentId: bigint,
+    proposalId: string,
+    session: string,
+  ): Promise<{ proposal: ProposalJson }> {
+    return call<{ proposal: ProposalJson }>(
+      `/v1/agents/${agentId.toString()}/proposals/${encodeURIComponent(proposalId)}/approve`,
+      owner(session, { method: "POST" }),
+    );
+  },
+  async rejectProposal(
+    agentId: bigint,
+    proposalId: string,
+    session: string,
+  ): Promise<{ proposal: ProposalJson }> {
+    return call<{ proposal: ProposalJson }>(
+      `/v1/agents/${agentId.toString()}/proposals/${encodeURIComponent(proposalId)}/reject`,
+      owner(session, { method: "POST" }),
+    );
   },
   /** Public, like the activity feed. */
   async whyNotTraded(agentId: bigint): Promise<WhyNotTradedJson> {

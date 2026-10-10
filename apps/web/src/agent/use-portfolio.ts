@@ -11,6 +11,7 @@ import {
   type WhyNotTradedJson,
   api,
   tradingApi,
+  type PlanCardJson,
 } from "@/api/client";
 import { type SummaryView, summaryView } from "./my-agents";
 import { type ContractWrite, useWalletSession } from "@/auth/session";
@@ -36,7 +37,16 @@ const FRESH_PRICES_EVERY_MS = 60_000;
 const MOVING = new Set(["approved", "submitted", "confirmed"]);
 
 export type PortfolioAction =
-  "open" | "deposit" | "withdraw" | "claim" | "arm" | "disarm" | "approve" | "reject";
+  | "open"
+  | "deposit"
+  | "withdraw"
+  | "claim"
+  | "arm"
+  | "disarm"
+  | "approve"
+  | "reject"
+  | "approve-plan"
+  | "reject-plan";
 
 /** The last wallet or owner action and where it is. */
 export interface ActionStatus {
@@ -51,6 +61,8 @@ export interface Portfolio {
   readonly arming: ArmingViewJson | null;
   readonly intents: readonly IntentJson[];
   readonly why: WhyNotTradedJson | null;
+  /** F-U9: the plan card, read with the owner session; null before it loads or off the trading set. */
+  readonly planCard: PlanCardJson | null;
   /** The agent's credits and funding address, for Add credits (Phase 2 tuning). */
   readonly summary: SummaryView | null;
   /** Re-reads at once. */
@@ -71,6 +83,8 @@ export interface Portfolio {
   disarm(): void;
   approve(intentId: string): void;
   reject(intentId: string): void;
+  approveProposal(proposalId: string): void;
+  rejectProposal(proposalId: string): void;
 }
 
 const words = (err: unknown) =>
@@ -115,6 +129,7 @@ export function usePortfolio(agentId: bigint, environment: EnvironmentId): Portf
   const [arming, setArming] = useState<ArmingViewJson | null>(null);
   const [intents, setIntents] = useState<readonly IntentJson[]>([]);
   const [why, setWhy] = useState<WhyNotTradedJson | null>(null);
+  const [planCard, setPlanCard] = useState<PlanCardJson | null>(null);
   const [summary, setSummary] = useState<SummaryView | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<ActionStatus | null>(null);
@@ -148,11 +163,12 @@ export function usePortfolio(agentId: bigint, environment: EnvironmentId): Portf
     let live = true;
     void (async () => {
       try {
-        const [p, a, i, w] = await Promise.all([
+        const [p, a, i, w, pc] = await Promise.all([
           asOwner((t) => tradingApi.portfolio(agentId, t)),
           asOwner((t) => tradingApi.arming(agentId, t)),
           asOwner((t) => tradingApi.intents(agentId, t)),
           tradingApi.whyNotTraded(agentId).catch(() => null),
+          asOwner((t) => tradingApi.planCard(agentId, t)).catch(() => null),
         ]);
         const s = await asOwner((t) => api.summary(agentId, t)).catch(() => null);
         if (!live || !mounted.current) return;
@@ -172,6 +188,7 @@ export function usePortfolio(agentId: bigint, environment: EnvironmentId): Portf
         setArming(a);
         setIntents(i);
         if (w) setWhy(w);
+        setPlanCard(pc);
         if (s) setSummary(summaryView(s));
         setError(null);
       } catch (err) {
@@ -408,11 +425,45 @@ export function usePortfolio(agentId: bigint, environment: EnvironmentId): Portf
     [agentId, asOwner],
   );
 
+  // F-U9: the owner decides a proposed portfolio; an approval sets the plan the runner follows.
+  const decidePlan = useCallback(
+    (action: "approve-plan" | "reject-plan", proposalId: string) => {
+      if (running.current) return;
+      running.current = true;
+      const set = (progress: WalletTxProgress, done = "") =>
+        mounted.current && setStatus({ action, progress, done });
+      set({ state: "checking" });
+      void (async () => {
+        try {
+          if (action === "approve-plan") {
+            await asOwner((t) => tradingApi.approveProposal(agentId, proposalId, t));
+            set(
+              { state: "confirmed" },
+              "Approved: this is now the agent's plan. The runner moves toward it one capped leg at a time.",
+            );
+          } else {
+            await asOwner((t) => tradingApi.rejectProposal(agentId, proposalId, t));
+            set({ state: "confirmed" }, "Declined. The plan stays as it is.");
+          }
+        } catch (err) {
+          set({ state: "failed", message: words(err) });
+        } finally {
+          running.current = false;
+          if (mounted.current) setTick((t) => t + 1);
+        }
+      })();
+    },
+    [agentId, asOwner],
+  );
+
   return {
     portfolio,
     arming,
     intents,
     why,
+    planCard,
+    approveProposal: (proposalId: string) => decidePlan("approve-plan", proposalId),
+    rejectProposal: (proposalId: string) => decidePlan("reject-plan", proposalId),
     summary,
     refresh: useCallback(() => setTick((t) => t + 1), []),
     error,
