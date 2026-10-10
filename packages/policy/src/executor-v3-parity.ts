@@ -353,7 +353,8 @@ export function caseState(c: CaseInputV3): CaseStateV3 {
       tokenA: pool.a,
       tokenB: pool.b,
       fee: pool.fee,
-      usable: !pool.screened || c.optedIn,
+      lane: pool.screened ? "SCREENED" : "CORE",
+      usable: true,
       price,
     };
   });
@@ -543,9 +544,23 @@ export function caseInputs(): CaseInputV3[] {
     }),
     base({ name: "a screened buy of D without it", tokenOut: "D", amountIn: 50n * E6 }),
     base({
-      name: "a sale of D after opting out closes its pool",
+      name: "a sale of D after opting out still goes through its pool",
       tokenIn: "D",
       tokenOut: USDC,
+      amountIn: 5n * E6,
+      setupBuys: [{ token: "D", usdcIn: 50n * E6 }],
+    }),
+    base({
+      name: "a sale of D for WMON after opting out, through its pool and a core one",
+      tokenIn: "D",
+      tokenOut: WMON,
+      amountIn: 5n * E6,
+      setupBuys: [{ token: "D", usdcIn: 50n * E6 }],
+    }),
+    base({
+      name: "a swap of D into E after opting out is a buy of a screened token",
+      tokenIn: "D",
+      tokenOut: "E",
       amountIn: 5n * E6,
       setupBuys: [{ token: "D", usdcIn: 50n * E6 }],
     }),

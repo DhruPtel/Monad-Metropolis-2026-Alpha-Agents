@@ -281,10 +281,10 @@ contract ExecutorV3 is ISwapExecutorV3, RiskTimelock, ReentrancyGuard {
     function swap(SwapIntentV3 calldata i) external nonReentrant returns (uint256 amountOut) {
         if (address(factory) == address(0) || address(pools) == address(0)) revert NotBound();
         PolicyV3 memory p = _policy;
-        _checkIntent(i);
+        bool sellsScreened = _checkIntent(i);
         _checkSession(i);
         _checkDeadline(i, p);
-        Measure memory m = _checkMarket(i, p);
+        Measure memory m = _checkMarket(i, p, sellsScreened);
         actionUsed[i.account][i.actionId] = true;
 
         m.outBefore = IERC20(i.tokenOut).balanceOf(i.account);
@@ -375,7 +375,9 @@ contract ExecutorV3 is ISwapExecutorV3, RiskTimelock, ReentrancyGuard {
 
     /// The intent's own shape, the global pause, the route's shape, and the
     /// tokens' registry status: listed, not frozen, buyable for this account.
-    function _checkIntent(SwapIntentV3 calldata i) internal view {
+    /// Returns whether the token sold is in the screened lane: its own pools
+    /// are its way out whether or not the account opted in (D-365).
+    function _checkIntent(SwapIntentV3 calldata i) internal view returns (bool sellsScreened) {
         if (paused) _reject(ReasonV3.PAUSED);
         if (i.schemaVersion != SCHEMA_VERSION || i.chainId != block.chainid) _reject(ReasonV3.INTENT_INVALID);
         if (i.amountIn == 0 || i.minAmountOut == 0 || i.tokenIn == i.tokenOut) _reject(ReasonV3.INTENT_INVALID);
@@ -393,6 +395,7 @@ contract ExecutorV3 is ISwapExecutorV3, RiskTimelock, ReentrancyGuard {
                 _reject(ReasonV3.NOT_OPTED_IN);
             }
         }
+        sellsScreened = rin.lane == Lane.SCREENED;
     }
 
     /// The session key, its grant, both epochs, the account and the actionId.
@@ -423,7 +426,11 @@ contract ExecutorV3 is ISwapExecutorV3, RiskTimelock, ReentrancyGuard {
     /// Mode, the adapter, both sides' prices, the route and its pools against
     /// the oracle, balance, the breaker, size, rate, turnover, the floor on
     /// `minAmountOut`, and the caps and the USDC floor projected at the prices.
-    function _checkMarket(SwapIntentV3 calldata i, PolicyV3 memory p) internal view returns (Measure memory m) {
+    function _checkMarket(SwapIntentV3 calldata i, PolicyV3 memory p, bool sellsScreened)
+        internal
+        view
+        returns (Measure memory m)
+    {
         IExecutorAccountV3 account = IExecutorAccountV3(i.account);
         bool intoUsdc = i.tokenOut == USDC;
         AccountMode mode = AccountMode(account.mode());
@@ -433,7 +440,11 @@ contract ExecutorV3 is ISwapExecutorV3, RiskTimelock, ReentrancyGuard {
 
         m.adapter = IAdapterRegistry(address(pools)).adapterFor(i.adapterId);
         if (m.adapter == address(0)) _reject(ReasonV3.VENUE_NOT_ALLOWED);
-        m.allowScreened = account.screenedOptIn();
+        // Screened pools serve the route when the account opted in, or when it
+        // sells a screened token, whose own pool is its exit; opting out stops
+        // buying only, and the token bought was checked against the opt-in
+        // in _checkIntent (D-365).
+        m.allowScreened = sellsScreened || account.screenedOptIn();
 
         OracleAdapterV3 oracle = OracleAdapterV3(factory.oracle());
         if (address(oracle) == address(0)) _reject(ReasonV3.ORACLE_STALE);

@@ -72,6 +72,16 @@ describe("Executor v3 parity with the contract (F-U4)", () => {
     expect(passing.length).toBeGreaterThan(30);
     expect(passing.some((c) => c.tokenIn === "A" && c.tokenOut === "B")).toBe(true);
     expect(passing.some((c) => ["C", "D", "E", "F"].includes(c.tokenOut))).toBe(true);
+    // D-365: an opted-out account sells its screened token through its pool, and cannot buy one.
+    const byName = (name: string) => f.cases.find((c) => c.name === name)?.reason;
+    expect(byName("a sale of D after opting out still goes through its pool")).toBe(255);
+    expect(byName("a sale of D for WMON after opting out, through its pool and a core one")).toBe(
+      255,
+    );
+    expect(byName("a swap of D into E after opting out is a buy of a screened token")).toBe(
+      REJECTION_CODES.indexOf("NOT_OPTED_IN"),
+    );
+    expect(byName("a sell-only token still sells")).toBe(255);
     expect(f.policyHash).toBe(ex.LAUNCH_POLICY_HASH);
   });
 

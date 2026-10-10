@@ -108,7 +108,9 @@ export interface RouteHopV3 {
   readonly tokenB: string;
   /** The pool's fee in hundredths of a basis point (500 is 0.05%). */
   readonly fee: number;
-  /** Whether the registry lets this account's route use the pool now (status, lane, code). */
+  /** The pool's lane: a screened pool serves an account that opted in, or one selling a screened token (D-365). */
+  readonly lane: LaneV3;
+  /** Whether the pool's status and code let a route use it now (an exit-only pool only on a route into USDC). */
   readonly usable: boolean;
   readonly price: HopPriceStateV3;
 }
@@ -298,7 +300,12 @@ function sidePrice(
   return { px: side?.priceE18 ?? 0n, classA: true };
 }
 
-/** ExecutorV3._checkRoute and _checkHopPrice: the route's shape and every hop's pool and price. */
+/**
+ * ExecutorV3._checkRoute and _checkHopPrice: the route's shape and every hop's
+ * pool and price. Screened pools serve the route when the account opted in or
+ * when it sells a screened token, whose own pool is its way out (D-365); the
+ * token bought is still checked against the opt-in before the route.
+ */
 function checkRoute(
   i: ExecutorIntentV3,
   m: ExecutorMarketV3,
@@ -308,9 +315,12 @@ function checkRoute(
   const path: string[] = [i.tokenIn];
   let feeBps = 0n;
   const base = (t: string) => t === m.usdc || t === m.wmon;
+  const allowScreened = m.optedIn || ruleOf(m, i.tokenIn).lane === "SCREENED";
   for (let k = 0; k < m.route.length; k++) {
     const hop = m.route[k] as RouteHopV3;
-    if (!hop.usable) return { reason: "VENUE_NOT_ALLOWED" };
+    if (!hop.usable || (hop.lane === "SCREENED" && !allowScreened)) {
+      return { reason: "VENUE_NOT_ALLOWED" };
+    }
     const at = path[k] as string;
     if (at !== hop.tokenA && at !== hop.tokenB) return { reason: "ROUTE_INVALID" };
     const next = at === hop.tokenA ? hop.tokenB : hop.tokenA;

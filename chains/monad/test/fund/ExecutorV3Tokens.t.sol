@@ -146,11 +146,33 @@ contract ExecutorV3TokensTest is ExecutorV3Base {
         vm.prank(owner);
         account.setScreenedOptIn(false);
         expectRejected(trade(address(usdc), address(tokD), 10e6), ReasonV3.NOT_OPTED_IN);
-        // Its screened pool is closed to the account too once opted out; the owner withdraws D in kind.
-        expectRejected(trade(address(tokD), address(usdc), 5e6), ReasonV3.VENUE_NOT_ALLOWED);
+        // Opting out only stops buying (D-365): the held D still sells through its screened pool,
+        // into USDC or on through a core pool, but not into another screened token.
+        expectRejected(trade(address(tokD), address(tokE), 1e6), ReasonV3.NOT_OPTED_IN);
+        assertEq(submit(trade(address(tokD), address(wmon), 1e6)), 1e18);
+        assertEq(submit(trade(address(tokD), address(usdc), 2e6)), 4e6);
+        // And the owner can still take the rest out in kind.
         vm.prank(owner);
-        account.withdraw(address(tokD), 5e6, owner);
-        assertEq(bal(address(tokD), owner), 5e6);
+        account.withdraw(address(tokD), 2e6, owner);
+        assertEq(bal(address(tokD), owner), 2e6);
+        assertFalse(account.isHeld(address(tokD)));
+    }
+
+    /// A sell-only token sells through its pools too, into USDC or another token (D-365).
+    function test_ASellOnlyScreenedTokenStillSellsThroughItsPool() public {
+        setAttestor();
+        optIn();
+        submit(trade(address(usdc), address(tokD), 10e6));
+        vm.prank(SCREENER);
+        tokens.setSellOnly(address(tokD));
+        expectRejected(trade(address(usdc), address(tokD), 1e6), ReasonV3.TOKEN_SELL_ONLY);
+        assertEq(submit(trade(address(tokD), address(usdc), 2e6)), 4e6);
+        // And still after opting out: into USDC, or on through a core pool.
+        vm.prank(owner);
+        account.setScreenedOptIn(false);
+        assertEq(submit(trade(address(tokD), address(wmon), 1e6)), 1e18);
+        assertEq(submit(trade(address(tokD), address(usdc), 2e6)), 4e6);
+        assertFalse(account.isHeld(address(tokD)));
     }
 
     // ----- class A -----

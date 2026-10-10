@@ -79,7 +79,8 @@ contract RouteAdapter is IUnlockCallback, IV3SwapCallbacks, ReentrancyGuard {
     /// Swaps exactly `amountIn` of `tokenIn` (already here) along `route`,
     /// paying at least `minAmountOut` of `tokenOut` to `recipient`. Screened
     /// pools are usable only when the Executor passes `allowScreened` (the
-    /// account's owner opted in, D-351).
+    /// account's owner opted in, D-351, or the account sells a screened token
+    /// through its own pool, D-365).
     function swapRoute(
         address tokenIn,
         address tokenOut,
