@@ -2,14 +2,23 @@ import { readFileSync } from "node:fs";
 import { SIGNER_REASON_CODES, TRANSACTION_STATES } from "@alpha-agents/domain";
 import { encodeFunctionData, type Hex } from "viem";
 import { describe, expect, it } from "vitest";
-import { ERC20_ABI, EXECUTOR_ABI, type SwapIntentArgs } from "./abi.ts";
+import {
+  ERC20_ABI,
+  EXECUTOR_ABI,
+  EXECUTOR_V3_ABI,
+  type SwapIntentArgs,
+  type SwapIntentV3Args,
+} from "./abi.ts";
 import {
   CHAIN_PINS,
   MAX_FEE_PER_GAS_CAP,
-  SIGNER_REFUSALS,
   MAX_PRIORITY_FEE_CAP,
-  SWAP_GAS_LIMIT,
   type PolicyContext,
+  SIGNER_REFUSALS,
+  SWAP_GAS_LIMIT,
+  SWAP_SELECTOR,
+  SWAP_V3_GAS_MAX,
+  SWAP_V3_SELECTOR,
   type SignRequest,
   TRANSFER_GAS_LIMIT,
   type TransferContext,
@@ -185,5 +194,56 @@ describe("the signer's USDC transfer allowlist (P2-U5 step 0, D-261)", () => {
   it("holds the transfer gas limit and the fee caps", () => {
     expect(tcode(treq({ gas: TRANSFER_GAS_LIMIT + 1n }))).toBe("GAS_LIMIT_EXCEEDED");
     expect(tcode(treq({ maxFeePerGas: MAX_FEE_PER_GAS_CAP + 1n }))).toBe("FEE_CAP_EXCEEDED");
+  });
+});
+
+describe("Executor v3 swaps (F-U5)", () => {
+  const EXECUTOR_V3 = "0x3443dbBd29E19CF17853732C260C6abDb6dC0658" as Hex;
+  const ctxV3: PolicyContext = { ...ctx, executorV3: EXECUTOR_V3 };
+  const intentV3 = (over: Partial<SwapIntentV3Args> = {}): SwapIntentV3Args => ({
+    ...intent(),
+    schemaVersion: 2,
+    route: [`0x${"44".repeat(32)}`, `0x${"45".repeat(32)}`],
+    attestationIn: "0x",
+    attestationOut: "0x",
+    ...over,
+  });
+  const swapV3 = (i = intentV3()): Hex =>
+    encodeFunctionData({ abi: EXECUTOR_V3_ABI, functionName: "swap", args: [i] });
+  const reqV3 = (over: Partial<SignRequest> = {}): SignRequest =>
+    req({ to: EXECUTOR_V3, data: swapV3(), gas: 2_650_000n, ...over });
+
+  it("signs Executor v3's swap for the v3 Executor, with the route's gas limit", () => {
+    const v = checkSignRequest(reqV3(), ctxV3);
+    expect(v.ok && v.version === 3 && v.intent.route.length).toBe(2);
+    expect(code(reqV3({ gas: SWAP_V3_GAS_MAX }), ctxV3)).toBe("OK");
+    expect(SWAP_V3_SELECTOR).not.toBe(SWAP_SELECTOR);
+  });
+
+  it("refuses a v3 swap without Executor v3, and either swap on the other Executor", () => {
+    expect(code(reqV3(), ctx)).toBe("TARGET_NOT_ALLOWED");
+    expect(code(reqV3({ to: EXECUTOR }), ctxV3)).toBe("FUNCTION_NOT_ALLOWED");
+    expect(code(req({ to: EXECUTOR_V3 }), ctxV3)).toBe("FUNCTION_NOT_ALLOWED");
+    expect(code(req(), ctxV3)).toBe("OK");
+  });
+
+  it("bounds a v3 swap's gas at the rule's maximum and checks the intent's shape, chain and agent", () => {
+    expect(code(reqV3({ gas: SWAP_V3_GAS_MAX + 1n }), ctxV3)).toBe("GAS_LIMIT_EXCEEDED");
+    expect(code(reqV3({ gas: 0n }), ctxV3)).toBe("GAS_LIMIT_EXCEEDED");
+    expect(code(reqV3({ data: swapV3(intentV3({ schemaVersion: 1 })) }), ctxV3)).toBe(
+      "INTENT_MALFORMED",
+    );
+    expect(code(reqV3({ data: swapV3(intentV3({ route: [] })) }), ctxV3)).toBe("INTENT_MALFORMED");
+    expect(
+      code(
+        reqV3({ data: swapV3(intentV3({ route: Array(4).fill(`0x${"44".repeat(32)}`) })) }),
+        ctxV3,
+      ),
+    ).toBe("INTENT_MALFORMED");
+    expect(code(reqV3({ data: swapV3(intentV3({ agentId: 8n })) }), ctxV3)).toBe("AGENT_MISMATCH");
+    expect(code(reqV3({ data: swapV3(intentV3({ chainId: 143n })) }), ctxV3)).toBe(
+      "AGENT_MISMATCH",
+    );
+    expect(code(reqV3({ value: 1n }), ctxV3)).toBe("VALUE_NOT_ALLOWED");
   });
 });

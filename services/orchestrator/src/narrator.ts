@@ -597,8 +597,20 @@ export class Narrator {
       .where("agent_id", "=", agentId)
       .executeTakeFirst();
     if (!row) return null;
-    const checks = row.checks as { expectedOut?: string | null };
-    const decimals = (asset: string) => (asset === "USDC" ? 6 : 18);
+    const checks = row.checks as {
+      expectedOut?: string | null;
+      sellDecimals?: number;
+      buyDecimals?: number;
+    };
+    // USDC and WMON by symbol; a v3 token's decimals travel with the intent's checks (F-U5).
+    const decimals = (asset: string) =>
+      asset === row.sell && typeof checks.sellDecimals === "number"
+        ? checks.sellDecimals
+        : asset === row.buy && typeof checks.buyDecimals === "number"
+          ? checks.buyDecimals
+          : asset === "USDC"
+            ? 6
+            : 18;
     const facts: IntentFacts = {
       agent: `Agent #${agentId}`,
       activity: "swap_proposal",

@@ -2,8 +2,11 @@ import { randomUUID } from "node:crypto";
 import { type Db, dbAddress } from "@alpha-agents/db";
 import {
   ARMING_END_MESSAGES,
+  ASSET_DECIMALS,
   type ArmingEndReason,
   type ArmingState,
+  type AssetId,
+  type CustodyPath,
   type IntentState,
   REJECTION_MESSAGES,
   RUNNER_HOLD_FACTS,
@@ -38,8 +41,17 @@ export interface IntentView {
   readonly chainId: number;
   readonly agentId: number;
   readonly account: Hex | null;
-  readonly sell: "USDC" | "WMON";
-  readonly buy: "USDC" | "WMON";
+  /** The custody set the intent trades on (F-U5, D-367). */
+  readonly custody: CustodyPath;
+  /** The assets by symbol: USDC or WMON on v2; any registered token on v3, with its address and decimals beside it. */
+  readonly sell: string;
+  readonly buy: string;
+  readonly sellToken: Hex | null;
+  readonly buyToken: Hex | null;
+  readonly sellDecimals: number;
+  readonly buyDecimals: number;
+  /** The route the proposal chose: registered pool IDs in order (v3). */
+  readonly route: readonly Hex[] | null;
   readonly amountIn: bigint;
   readonly reason: string;
   readonly status: IntentState;
@@ -73,15 +85,30 @@ const big = (v: string | null): bigint | null => (v === null ? null : BigInt(v))
 type IntentRow = Awaited<ReturnType<TradeStore["intentRows"]>>[number];
 type ArmingRow = Awaited<ReturnType<TradeStore["armingRows"]>>[number];
 
+/** A symbol's decimals: USDC's and WMON's from the domain, a v3 token's from the intent's checks, else 18. */
+const decimalsOf = (symbol: string, fromChecks: unknown): number =>
+  typeof fromChecks === "number" ? fromChecks : (ASSET_DECIMALS[symbol as AssetId] ?? 18);
+
 function intentView(r: IntentRow): IntentView {
-  const expected = (r.checks as { expectedOut?: unknown }).expectedOut;
+  const checks = r.checks as {
+    expectedOut?: unknown;
+    sellDecimals?: unknown;
+    buyDecimals?: unknown;
+  };
+  const expected = checks.expectedOut;
   return {
     intentId: r.intent_id,
     chainId: r.chain_id,
     agentId: r.agent_id,
     account: r.account ? getAddress(r.account) : null,
+    custody: r.custody,
     sell: r.sell,
     buy: r.buy,
+    sellToken: r.sell_token ? getAddress(r.sell_token) : null,
+    buyToken: r.buy_token ? getAddress(r.buy_token) : null,
+    sellDecimals: decimalsOf(r.sell, checks.sellDecimals),
+    buyDecimals: decimalsOf(r.buy, checks.buyDecimals),
+    route: r.route ? r.route.map((id) => id as Hex) : null,
     amountIn: BigInt(r.amount_in),
     reason: r.reason,
     status: r.status,

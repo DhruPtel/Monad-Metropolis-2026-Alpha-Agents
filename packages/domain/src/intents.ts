@@ -26,6 +26,17 @@ import {
  * in packages/policy, and at runtime come from the Executor's views.
  */
 export const INTENT_SCHEMA_VERSION = 1;
+/** Executor v3's intent schema (F-U4): the intent carries a route of pool IDs and one attestation per side. */
+export const INTENT_SCHEMA_VERSION_V3 = 2;
+
+/**
+ * Which custody set an intent, an arming or a snapshot belongs to (F-U5,
+ * D-367): `v2` is the two-asset set (AccountFactory, Executor v2), `v3` the
+ * fund agent's (AccountFactoryV3, Executor v3). An agent is on v3 once its
+ * owner has opened a PersonalAccountV3; until then the v2 set serves it.
+ */
+export const CUSTODY_PATHS = ["v2", "v3"] as const;
+export type CustodyPath = (typeof CUSTODY_PATHS)[number];
 
 /** Field names no intent may ever carry (FINAL_PLAN 4.4.1, 4.1.7). */
 export const FORBIDDEN_INTENT_FIELDS = [

@@ -3,7 +3,7 @@ import { assertJournalEntry, tradeEntry } from "@alpha-agents/accounting";
 import { ENVIRONMENTS, type EnvironmentId } from "@alpha-agents/config";
 import { type Db, type SignerStatus, insertJournal, sql } from "@alpha-agents/db";
 import { redact } from "@alpha-agents/devenv";
-import type { AssetId } from "@alpha-agents/domain";
+import { type AssetId, INTENT_SCHEMA_VERSION_V3 } from "@alpha-agents/domain";
 import {
   type Hex,
   type TransactionSerializableEIP1559,
@@ -14,7 +14,13 @@ import {
   keccak256,
   serializeTransaction,
 } from "viem";
-import { ERC20_ABI, EXECUTOR_ABI, type SwapIntentArgs } from "./abi.ts";
+import {
+  ERC20_ABI,
+  EXECUTOR_ABI,
+  EXECUTOR_V3_ABI,
+  type SwapIntentArgs,
+  type SwapIntentV3Args,
+} from "./abi.ts";
 import type { ChainClient, Receipt } from "./chain.ts";
 import type { KeyProvider } from "./keys.ts";
 import {
@@ -29,7 +35,7 @@ import {
   checkSignRequest,
   checkTransferRequest,
 } from "./policy.ts";
-import { reconcileSwap } from "./reconcile.ts";
+import { reconcileSwap, reconcileSwapV3 } from "./reconcile.ts";
 
 /**
  * The signer (P2-U4). Every platform transaction moves through a Postgres
@@ -67,6 +73,8 @@ export interface SignerOptions {
   readonly chain: ChainClient;
   readonly keys: KeyProvider;
   readonly executor: Hex;
+  /** Executor v3 (F-U5), when the environment has it; v3 swaps are refused without it. */
+  readonly executorV3?: Hex | null;
   /** USDC, the only token the signer transfers. Transfers are refused without it. */
   readonly usdc?: Hex;
   /** The platform treasury, the only settlement recipient. Settlements are refused without it. */
@@ -168,6 +176,25 @@ const intentJson = (i: SwapIntentArgs): Record<string, string | number> => ({
   amountIn: i.amountIn.toString(),
   minAmountOut: i.minAmountOut.toString(),
   deadline: i.deadline.toString(),
+});
+
+/** The v3 intent's own fields beside the v2 ones, and the tokens its route crosses for reconciliation. */
+const intentJsonV3 = (
+  i: SwapIntentV3Args,
+  routeTokens: readonly Hex[],
+): Record<string, string | number | string[]> => ({
+  ...intentJson(i),
+  route: [...i.route],
+  attestationIn: i.attestationIn,
+  attestationOut: i.attestationOut,
+  routeTokens: routeTokens.map((t) => t.toLowerCase()),
+});
+
+const intentArgsV3 = (j: Record<string, unknown>): SwapIntentV3Args => ({
+  ...intentArgs(j),
+  route: (j.route as Hex[]) ?? [],
+  attestationIn: (j.attestationIn as Hex) ?? "0x",
+  attestationOut: (j.attestationOut as Hex) ?? "0x",
 });
 
 const intentArgs = (j: Record<string, unknown>): SwapIntentArgs => ({
@@ -295,19 +322,63 @@ export class Signer {
   }
 
   /**
+   * Puts an Executor v3 swap in the outbox (F-U5): the gas limit is the trade
+   * flow's figure for the route and the held list (F-U4's rule), and
+   * `routeTokens` names every token the route crosses, so reconciliation can
+   * check that none of them moved in the account.
+   */
+  submitSwapV3(
+    agentId: number,
+    intent: SwapIntentV3Args,
+    gas: bigint,
+    routeTokens: readonly Hex[],
+  ): Promise<AcceptResult> {
+    return this.accept(agentId, {
+      chainId: Number(intent.chainId),
+      // Without Executor v3 the request goes to the v2 Executor and is refused on its function.
+      to: this.#o.executorV3 ?? this.#o.executor,
+      data: encodeFunctionData({ abi: EXECUTOR_V3_ABI, functionName: "swap", args: [intent] }),
+      value: 0n,
+      gas,
+      routeTokens,
+    });
+  }
+
+  /**
    * Accepts any requested call into the outbox, refusing it at once, before
    * anything is signed, unless it is an Executor swap for this chain and this
    * agent. A refused request is kept as failed so the refusal is visible.
    */
   async accept(
     agentId: number,
-    req: { chainId: number; to: Hex | null; data: Hex; value: bigint },
+    req: {
+      chainId: number;
+      to: Hex | null;
+      data: Hex;
+      value: bigint;
+      /** A v3 swap's gas limit (F-U5); a v2 swap uses the fixed limit. */
+      gas?: bigint;
+      routeTokens?: readonly Hex[];
+    },
   ): Promise<AcceptResult> {
     const key = await this.keyRow(agentId);
     if (!key) throw new NoSessionKeyError(agentId);
     const verdict = checkSignRequest(
-      { ...req, gas: SWAP_GAS_LIMIT, maxFeePerGas: 0n, maxPriorityFeePerGas: 0n },
-      { environment: this.#o.environment, executor: this.#o.executor, agentId },
+      {
+        chainId: req.chainId,
+        to: req.to,
+        data: req.data,
+        value: req.value,
+        gas: req.gas ?? SWAP_GAS_LIMIT,
+        maxFeePerGas: 0n,
+        maxPriorityFeePerGas: 0n,
+      },
+      {
+        environment: this.#o.environment,
+        executor: this.#o.executor,
+        executorV3: this.#o.executorV3 ?? null,
+        agentId,
+      },
     );
     const txId = randomUUID();
     const at = this.now().toISOString();
@@ -323,6 +394,7 @@ export class Signer {
         to: req.to,
         data: req.data,
         value: req.value.toString(),
+        ...(req.gas === undefined ? {} : { gasLimit: req.gas.toString() }),
       }),
     };
     if (!verdict.ok) {
@@ -344,7 +416,11 @@ export class Signer {
       .values({
         ...base,
         action_id: verdict.intent.actionId.toLowerCase(),
-        intent: JSON.stringify(intentJson(verdict.intent)),
+        intent: JSON.stringify(
+          verdict.version === 3
+            ? intentJsonV3(verdict.intent, req.routeTokens ?? [])
+            : intentJson(verdict.intent),
+        ),
         status: "accepted",
         history: JSON.stringify([{ status: "accepted", at }]),
       })
@@ -563,13 +639,25 @@ export class Signer {
   private async signAndSend(row: Row): Promise<void> {
     if (this.fencedOut.has(row.agent_id)) return;
     if (await this.busy(row)) return;
-    const request = row.request as { chainId: number; to: Hex | null; data: Hex; value: string };
+    const request = row.request as {
+      chainId: number;
+      to: Hex | null;
+      data: Hex;
+      value: string;
+      gasLimit?: string;
+    };
     const key = await this.#o.keys.key(row.agent_id);
     if (key.address.toLowerCase() !== row.key_address)
       return this.fail(row, "NO_SESSION_KEY", "the provider's key is not the recorded session key");
 
     const kind = row.kind as TransactionKind;
-    const gasLimit = kind === "executor_swap" ? SWAP_GAS_LIMIT : TRANSFER_GAS_LIMIT;
+    // A v3 swap carries the trade flow's gas limit for its route (F-U5); the policy bounds it.
+    const gasLimit =
+      kind === "executor_swap"
+        ? request.gasLimit
+          ? BigInt(request.gasLimit)
+          : SWAP_GAS_LIMIT
+        : TRANSFER_GAS_LIMIT;
     // Fees: twice the base fee plus the tip, within the caps (A-38).
     const { baseFee, priorityFee } = await this.#o.chain.fees();
     const tip = priorityFee < MAX_PRIORITY_FEE_CAP ? priorityFee : MAX_PRIORITY_FEE_CAP;
@@ -596,12 +684,13 @@ export class Signer {
       const verdict = checkSignRequest(sign, {
         environment: this.#o.environment,
         executor: this.#o.executor,
+        executorV3: this.#o.executorV3 ?? null,
         agentId: row.agent_id,
       });
       if (!verdict.ok)
         return this.fail(row, verdict.code, `refused before signing: ${verdict.message}`);
       // The Executor's own verdict first: a refusal is recorded with its reason and nothing is signed.
-      const sim = await this.#o.chain.simulate(key.address, this.#o.executor, sign.data);
+      const sim = await this.#o.chain.simulate(key.address, sign.to as Hex, sign.data);
       if (!sim.ok) return this.fail(row, sim.code, `the Executor would refuse it: ${sim.message}`);
     } else {
       // The recipient is checked again now: a refund pays only whoever owns the agent at signing.
@@ -834,10 +923,21 @@ export class Signer {
   private async reconcile(row: Row): Promise<void> {
     if (!row.intent || row.block_number === null) return;
     if (row.kind !== "executor_swap") return this.reconcileTransfer(row);
-    const intent = intentArgs(row.intent);
     const receipt = await this.#o.chain.receipt(row.tx_hash as Hex);
     if (!receipt) return;
-    const r = await reconcileSwap(this.#o.chain, receipt, this.#o.executor, intent);
+    // A v3 swap (F-U5) is reconciled over every token its route crossed, against Executor v3's event.
+    const v3 = Number(row.intent.schemaVersion) === INTENT_SCHEMA_VERSION_V3;
+    const intent = v3 ? intentArgsV3(row.intent) : intentArgs(row.intent);
+    const executor = v3 ? (this.#o.executorV3 ?? this.#o.executor) : this.#o.executor;
+    const r = v3
+      ? await reconcileSwapV3(
+          this.#o.chain,
+          receipt,
+          executor,
+          intent as SwapIntentV3Args,
+          ((row.intent.routeTokens as Hex[] | undefined) ?? []).map((t) => t as Hex),
+        )
+      : await reconcileSwap(this.#o.chain, receipt, executor, intent);
     if (!r.ok) {
       this.log(`agent ${row.agent_id}: ${row.tx_id} reconciliation mismatch: ${r.reason}`);
       await this.move(
@@ -852,8 +952,10 @@ export class Signer {
       );
       return;
     }
-    const assetIn = this.#o.assets[intent.tokenIn.toLowerCase()];
-    const assetOut = this.#o.assets[intent.tokenOut.toLowerCase()];
+    // USDC and WMON by name; any other registered token by its lowercase address (F-U5).
+    const assetOf = (token: Hex) => this.#o.assets[token.toLowerCase()] ?? token.toLowerCase();
+    const assetIn = v3 ? assetOf(intent.tokenIn) : this.#o.assets[intent.tokenIn.toLowerCase()];
+    const assetOut = v3 ? assetOf(intent.tokenOut) : this.#o.assets[intent.tokenOut.toLowerCase()];
     if (!assetIn || !assetOut) {
       await this.move(row, "confirmed", {
         reason_code: "RECONCILE_MISMATCH",
@@ -861,6 +963,14 @@ export class Signer {
       });
       return;
     }
+    const prices =
+      "priceInE18" in r.event
+        ? {
+            priceInE18: r.event.priceInE18.toString(),
+            priceOutE18: r.event.priceOutE18.toString(),
+            routeHash: r.event.routeHash,
+          }
+        : { oraclePriceE18: r.event.oraclePriceE18.toString() };
     const entryId = randomUUID();
     const entry = tradeEntry({
       environment: ENVIRONMENTS[this.#o.environment].label,
@@ -887,7 +997,7 @@ export class Signer {
           txHash: row.tx_hash,
           blockNumber: Number(receipt.blockNumber),
           account: intent.account,
-          oraclePriceE18: r.event.oraclePriceE18.toString(),
+          ...prices,
           navBefore: r.event.navBefore.toString(),
           navAfter: r.event.navAfter.toString(),
           gasUsed: receipt.gasUsed.toString(),

@@ -5,7 +5,7 @@ import { type TestDatabase, createTestDatabase, databaseAvailable } from "@alpha
 import { type Hex, bytesToHex, encodeFunctionData, hexToBytes, keccak256, toBytes } from "viem";
 import { HDKey } from "viem/accounts";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { ERC20_ABI, type SwapIntentArgs } from "./abi.ts";
+import { ERC20_ABI, type SwapIntentArgs, type SwapIntentV3Args } from "./abi.ts";
 import { FakeChain } from "./fake-chain.ts";
 import { LocalKeyProvider, sessionKeyPath } from "./keys.ts";
 import { Signer, type SignerOptions } from "./signer.ts";
@@ -430,6 +430,82 @@ describe.skipIf(!dbUp)("the signer's outbox (needs Postgres)", { timeout: 60_000
     const b = await s.submitSwap(AGENT, i);
     expect(b).toMatchObject({ txId: a.txId, duplicate: true });
     expect(await db.selectFrom("platform.signer_outbox").select("tx_id").execute()).toHaveLength(1);
+  });
+
+  describe("Executor v3 swaps (F-U5)", () => {
+    const EXECUTOR_V3 = "0x3443dbBd29E19CF17853732C260C6abDb6dC0658" as Hex;
+    const CBBTC = "0x0555e30da8f98308edb960aa94c0db47230d2b9c" as Hex;
+    const intentV3 = (over: Partial<SwapIntentV3Args> = {}): SwapIntentV3Args => ({
+      ...intent(),
+      schemaVersion: 2,
+      tokenIn: USDC,
+      tokenOut: CBBTC,
+      minAmountOut: 4_000n,
+      route: [`0x${"44".repeat(32)}`, `0x${"45".repeat(32)}`],
+      attestationIn: "0x",
+      attestationOut: "0x",
+      ...over,
+    });
+
+    it("moves a v3 swap to reconciled over every route token, with the ledger naming the token by address", async () => {
+      chain.executorV3 = EXECUTOR_V3;
+      chain.setBalance(WMON, ACCOUNT, 7n * 10n ** 18n);
+      const s = make({ executorV3: EXECUTOR_V3 });
+      await s.start();
+      await s.createKey(AGENT);
+      const accepted = await s.submitSwapV3(AGENT, intentV3(), 2_650_000n, [USDC, WMON, CBBTC]);
+      expect(accepted).toMatchObject({ status: "accepted", duplicate: false });
+      await ticks(s, 1);
+      const r = await row(accepted.txId);
+      expect(r.status).toBe("reconciled");
+      expect(r).toMatchObject({ gas_limit: "2650000", amount_out: "4001" });
+      expect(r.balances).toEqual({
+        [USDC.toLowerCase()]: { before: "100000000", after: "95000000" },
+        [CBBTC]: { before: "0", after: "4001" },
+        [WMON.toLowerCase()]: { before: "7000000000000000000", after: "7000000000000000000" },
+      });
+      expect((r.request as { to: string }).to).toBe(EXECUTOR_V3);
+      expect((r.intent as { route: string[] }).route).toHaveLength(2);
+      const ledger = await s.ledgerEntry(must(r.ledger_entry_id));
+      expect(ledger?.lines).toEqual([
+        { account: "personal_account", asset: "USDC", amount: "-5000000" },
+        { account: "venue", asset: "USDC", amount: "5000000" },
+        { account: "venue", asset: CBBTC, amount: "-4001" },
+        { account: "personal_account", asset: CBBTC, amount: "4001" },
+      ]);
+      expect(
+        (ledger as { source?: { priceInE18?: string; routeHash?: string } })?.source,
+      ).toMatchObject({ priceInE18: "1000000000000000000" });
+    });
+
+    it("flags a v3 swap whose route token moved in the account, and writes no ledger entry", async () => {
+      chain.executorV3 = EXECUTOR_V3;
+      chain.setBalance(WMON, ACCOUNT, 7n * 10n ** 18n);
+      chain.routeDelta = { token: WMON, delta: 1n };
+      const s = make({ executorV3: EXECUTOR_V3 });
+      await s.createKey(AGENT);
+      const a = await s.submitSwapV3(AGENT, intentV3(), 2_650_000n, [USDC, WMON, CBBTC]);
+      await ticks(s);
+      const r = await row(a.txId);
+      expect(r).toMatchObject({
+        status: "confirmed",
+        reason_code: "RECONCILE_MISMATCH",
+        ledger_entry_id: null,
+      });
+      expect(r.reason).toContain("a token between the route's ends, moved by 1");
+    });
+
+    it("refuses a v3 swap before signing when the signer has no Executor v3, or the gas is over the rule's most", async () => {
+      chain.executorV3 = EXECUTOR_V3;
+      const without = make();
+      await without.createKey(AGENT);
+      const a = await without.submitSwapV3(AGENT, intentV3(), 2_650_000n, [USDC, CBBTC]);
+      expect(a).toMatchObject({ status: "failed", reasonCode: "FUNCTION_NOT_ALLOWED" });
+      const s = make({ executorV3: EXECUTOR_V3 });
+      const b = await s.submitSwapV3(AGENT, intentV3(), 9_000_000n, [USDC, CBBTC]);
+      expect(b).toMatchObject({ status: "failed", reasonCode: "GAS_LIMIT_EXCEEDED" });
+      expect(chain.sent).toHaveLength(0);
+    });
   });
 
   it("flags a reconciliation mismatch and writes nothing to the ledger", async () => {

@@ -1,4 +1,4 @@
-import { encodeAbiParameters, keccak256 } from "viem";
+import { encodeAbiParameters, keccak256, toBytes } from "viem";
 
 /**
  * The Executor's policy (P2-U2): the launch hard limits as the contract holds
@@ -102,6 +102,16 @@ export const EXECUTOR_V3_GAS = Object.freeze({
   maxHops: 3,
   maxHeldTokens: 16,
 });
+
+/** Executor v3's adapter ID: its RouteAdapter is registered under keccak256("route-adapter") (D-363). */
+export const ROUTE_ADAPTER_ID: `0x${string}` = keccak256(toBytes("route-adapter"));
+
+/** The most gas a v3 swap may ask for: three hops on an account holding sixteen tokens. */
+export const EXECUTOR_V3_GAS_MAX = BigInt(
+  EXECUTOR_V3_GAS.base +
+    EXECUTOR_V3_GAS.perHop * EXECUTOR_V3_GAS.maxHops +
+    EXECUTOR_V3_GAS.perHeldToken * EXECUTOR_V3_GAS.maxHeldTokens,
+);
 
 /** The gas limit for an Executor v3 swap of `hops` pools on an account holding `heldTokensAfter` tokens once it settles. */
 export function executorV3SwapGasLimit(hops: number, heldTokensAfter: number): bigint {

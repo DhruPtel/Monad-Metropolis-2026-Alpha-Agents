@@ -9,6 +9,7 @@ import {
   ARMING_END_MESSAGES,
   ASSET_DECIMALS,
   type ArmingEndReason,
+  type AssetId,
   INTENT_SCHEMA_VERSION,
 } from "@alpha-agents/domain";
 import {
@@ -99,6 +100,11 @@ export interface TradeFlowOptions {
 
 const agentName = (agentId: number) => `Agent #${agentId}`;
 const amountText = (asset: "USDC" | "WMON", raw: bigint) => formatUnits(raw, ASSET_DECIMALS[asset]);
+/** A v2 intent names USDC or WMON on both sides. */
+const v2Pair = (i: IntentView): { sell: AssetId; buy: AssetId } => ({
+  sell: i.sell as AssetId,
+  buy: i.buy as AssetId,
+});
 
 /** The Executor's action ID for an intent: one intent is one action, whatever retries. */
 export const actionIdOf = (chainId: number, intentId: string): Hex =>
@@ -249,7 +255,8 @@ export class TradeFlow {
       );
     const key = await this.o.signer.createKey(i.agentId);
     const reserved = await this.o.store.reservedSlots(chainId, i.agentId, i);
-    const assessed = await assessTrade(this.o.reader, i.agentId, i.sell, i.amountIn, key, reserved);
+    const { sell, buy } = v2Pair(i);
+    const assessed = await assessTrade(this.o.reader, i.agentId, sell, i.amountIn, key, reserved);
     if (!assessed)
       return this.refuse(i, "the agent has no trading account", [blocker("INTENT_INVALID", null)]);
     const { m, a, quote } = assessed;
@@ -270,7 +277,7 @@ export class TradeFlow {
       blockers.push(blocker("SIMULATION_FAILED", null));
     if (blockers.length > 0 || !quote || !m.venue)
       return this.refuse(i, "a check changed between proposal and submission", blockers);
-    const floor = tradeNow(i.sell, i.amountIn, m).minAmountOut;
+    const floor = tradeNow(sell, i.amountIn, m).minAmountOut;
     const minAmountOut = minAmountOutFor(quote.amountOut, floor, m.policy.maxSlippageBps);
     const deadline = m.timestamp + BigInt(m.policy.deadlineSeconds);
     const actionId = actionIdOf(chainId, i.intentId);
@@ -284,8 +291,8 @@ export class TradeFlow {
       configEpoch: a.configEpoch,
       policyHash: m.policyHash,
       adapterId: m.venue.adapterId,
-      tokenIn: this.o.reader.tokenOf(i.sell),
-      tokenOut: this.o.reader.tokenOf(i.buy),
+      tokenIn: this.o.reader.tokenOf(sell),
+      tokenOut: this.o.reader.tokenOf(buy),
       amountIn: i.amountIn,
       minAmountOut,
       deadline,
@@ -302,7 +309,7 @@ export class TradeFlow {
       deadline,
     });
     this.o.log(
-      `agent ${i.agentId}: ${i.intentId} submitted (${amountText(i.sell, i.amountIn)} ${i.sell}, approved by ${i.approvedBy ?? "?"})`,
+      `agent ${i.agentId}: ${i.intentId} submitted (${amountText(sell, i.amountIn)} ${i.sell}, approved by ${i.approvedBy ?? "?"})`,
     );
   }
 
@@ -374,14 +381,16 @@ export class TradeFlow {
             `agent ${i.agentId}: no snapshot after ${i.intentId}: ${err instanceof Error ? err.message.slice(0, 160) : String(err)}`,
           ),
         );
+    const soldText = formatUnits(i.amountIn, i.sellDecimals);
+    const boughtText = formatUnits(amountOut, i.buyDecimals);
     this.o.log(
-      `agent ${i.agentId}: ${i.intentId} settled: ${amountText(i.sell, i.amountIn)} ${i.sell} for ${amountText(i.buy, amountOut)} ${i.buy}`,
+      `agent ${i.agentId}: ${i.intentId} settled: ${soldText} ${i.sell} for ${boughtText} ${i.buy}`,
     );
     this.narrate(i.agentId, `${i.intentId}:trade`, {
       agent: agentName(i.agentId),
       activity: "trade",
-      sold: { asset: i.sell, amount: amountText(i.sell, i.amountIn) },
-      bought: { asset: i.buy, amount: amountText(i.buy, amountOut) },
+      sold: { asset: i.sell, amount: soldText },
+      bought: { asset: i.buy, amount: boughtText },
       approvedBy: i.approvedBy === "owner" ? "the owner" : "automatically (armed)",
     });
   }
@@ -392,7 +401,7 @@ export class TradeFlow {
     this.narrate(i.agentId, `${i.intentId}:blocked`, {
       agent: agentName(i.agentId),
       activity: "blocked_trade",
-      sell: { asset: i.sell, amount: amountText(i.sell, i.amountIn) },
+      sell: { asset: i.sell, amount: formatUnits(i.amountIn, i.sellDecimals) },
       buy: i.buy,
       reasons: blockers.map((b) => ({ code: b.code, message: b.message, clears: b.clears })),
     });

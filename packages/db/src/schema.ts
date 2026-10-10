@@ -271,8 +271,15 @@ export interface IntentTable {
   lease_id: string;
   kind: "swap";
   account: string | null;
-  sell: "USDC" | "WMON";
-  buy: "USDC" | "WMON";
+  /** The assets by name: USDC or WMON on v2; the tokens' symbols on v3, with their addresses below (F-U5). */
+  sell: string;
+  buy: string;
+  /** F-U5 (D-367): the custody set the intent trades on. */
+  custody: ColumnType<"v2" | "v3", "v2" | "v3" | undefined, "v2" | "v3">;
+  sell_token: string | null;
+  buy_token: string | null;
+  /** The route the proposal chose, registered pool IDs in order (v3). */
+  route: ColumnType<string[] | null, string | null | undefined, string | null>;
   amount_in: string;
   reason: string;
   client_request_id: string | null;
@@ -358,6 +365,9 @@ export interface ArmingTable {
   session_key: string;
   /** Unix seconds, as the Executor stores it. */
   valid_until: ColumnType<string, string | number, string | number>;
+  /** F-U5 (D-367): the custody set, and the Executor the grant is registered on. */
+  custody: ColumnType<"v2" | "v3", "v2" | "v3" | undefined, "v2" | "v3">;
+  executor: string | null;
   status: "awaiting_first_trade" | "armed" | "ended";
   ended_reason: "expired" | "sold" | "config_changed" | "revoked" | "disarmed" | null;
   first_intent_id: string | null;
@@ -381,6 +391,9 @@ export interface AccountSnapshotTable {
   value_usdc_e6: string | null;
   usdc_e6: string;
   wmon_wei: string;
+  /** F-U5: the custody set, and for v3 every held token with its amount, price and value. */
+  custody: ColumnType<"v2" | "v3", "v2" | "v3" | undefined, "v2" | "v3">;
+  holdings: ColumnType<Record<string, unknown>[] | null, string | null | undefined, string | null>;
   mode: "NORMAL" | "REDUCE_ONLY" | "PAUSED" | "HANDOVER" | "WIND_DOWN";
   reason: "interval" | "trade";
   intent_id: string | null;

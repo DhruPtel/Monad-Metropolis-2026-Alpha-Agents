@@ -62,10 +62,22 @@ const signedRaw = z
   .refine((s) => s !== "-0", "must not be -0")
   .transform((s) => BigInt(s));
 
+/**
+ * A registered token the fund agent trades (F-U5): its lowercase address,
+ * since the journal names only USDC and WMON by symbol. A line's asset is
+ * either, and the entry balances per asset whichever form names it.
+ */
+export const TokenAssetSchema = z
+  .string()
+  .regex(/^0x[0-9a-f]{40}$/, "a lowercase 0x-prefixed 20-byte address");
+export type TokenAsset = z.infer<typeof TokenAssetSchema>;
+export const JournalAssetSchema = z.union([AssetIdSchema, z.literal("NATIVE"), TokenAssetSchema]);
+export type JournalAsset = z.infer<typeof JournalAssetSchema>;
+
 const JournalLineSchema = z
   .object({
     account: z.enum(LEDGER_ACCOUNTS),
-    asset: z.union([AssetIdSchema, z.literal("NATIVE")]),
+    asset: JournalAssetSchema,
     /** Positive into the account, negative out of it. */
     amountRaw: signedRaw,
     /** The agent an agent-scoped account belongs to (AGENT_ACCOUNTS). */

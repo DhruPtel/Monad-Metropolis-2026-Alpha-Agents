@@ -1,11 +1,22 @@
 import { ENVIRONMENTS, type EnvironmentId } from "@alpha-agents/config";
 import {
+  EXECUTOR_V3_GAS,
+  EXECUTOR_V3_GAS_MAX,
+  INTENT_SCHEMA_VERSION_V3,
   SIGNER_REASON_CODES,
   SIGNER_REASON_MESSAGES,
   type SignerReasonCode,
 } from "@alpha-agents/domain";
 import { type Hex, decodeFunctionData, isAddressEqual, toFunctionSelector } from "viem";
-import { ERC20_ABI, EXECUTOR_ABI, SWAP_INTENT_TUPLE, type SwapIntentArgs } from "./abi.ts";
+import {
+  ERC20_ABI,
+  EXECUTOR_ABI,
+  EXECUTOR_V3_ABI,
+  SWAP_INTENT_TUPLE,
+  SWAP_INTENT_V3_TUPLE,
+  type SwapIntentArgs,
+  type SwapIntentV3Args,
+} from "./abi.ts";
 
 /**
  * What the signer will sign (P2-U4, P2-U5 step 0): a call to the Executor's
@@ -51,6 +62,14 @@ export const MAX_PRIORITY_FEE_CAP = 10_000_000_000n;
 export const TRANSFER_GAS_LIMIT = 150_000n;
 
 export const SWAP_SELECTOR = toFunctionSelector(`function swap(${SWAP_INTENT_TUPLE} i)`);
+/** Executor v3's swap (F-U5): the only call the signer makes to the v3 Executor. */
+export const SWAP_V3_SELECTOR = toFunctionSelector(`function swap(${SWAP_INTENT_V3_TUPLE} i)`);
+/**
+ * A v3 swap's gas limit comes from the trade flow per route and held list
+ * (F-U4's rule, `executorV3SwapGasLimit`); the signer bounds it at the rule's
+ * maximum, three hops on an account holding sixteen tokens.
+ */
+export const SWAP_V3_GAS_MAX = EXECUTOR_V3_GAS_MAX;
 export const TRANSFER_SELECTOR = toFunctionSelector(
   "function transfer(address to, uint256 amount)",
 );
@@ -92,12 +111,15 @@ export interface SignRequest {
 export interface PolicyContext {
   readonly environment: EnvironmentId;
   readonly executor: Hex;
+  /** Executor v3 (F-U5), when the environment has it; a v3 swap is refused without it. */
+  readonly executorV3?: Hex | null;
   /** The agent whose key would sign. */
   readonly agentId: number;
 }
 
 export type PolicyVerdict =
-  | { readonly ok: true; readonly intent: SwapIntentArgs }
+  | { readonly ok: true; readonly version: 2; readonly intent: SwapIntentArgs }
+  | { readonly ok: true; readonly version: 3; readonly intent: SwapIntentV3Args }
   | { readonly ok: false; readonly code: SignerRefusal; readonly message: string };
 
 const refuse = (code: SignerRefusal): PolicyVerdict => ({
@@ -106,32 +128,54 @@ const refuse = (code: SignerRefusal): PolicyVerdict => ({
   message: SIGNER_REFUSAL_MESSAGES[code],
 });
 
-/** The signer's allowlist, chain pin, gas limit and fee caps, in that order. */
+/**
+ * The signer's allowlist, chain pin, gas limit and fee caps, in that order.
+ * Two targets are allowed, each with exactly one function: the v2 Executor's
+ * `swap(SwapIntent)` and, when the environment has it, Executor v3's
+ * `swap(SwapIntentV3)` (F-U5). A v3 swap's gas limit is the trade flow's
+ * per-route figure, bounded at the rule's maximum.
+ */
 export function checkSignRequest(req: SignRequest, ctx: PolicyContext): PolicyVerdict {
   const pin = CHAIN_PINS[ctx.environment];
   if (req.chainId !== pin) return refuse("CHAIN_NOT_PINNED");
   if (req.to === null) return refuse("CONTRACT_CREATION");
-  if (!isAddressEqual(req.to, ctx.executor)) return refuse("TARGET_NOT_ALLOWED");
-  if (req.data.slice(0, 10).toLowerCase() !== SWAP_SELECTOR) return refuse("FUNCTION_NOT_ALLOWED");
+  const v3 = !!ctx.executorV3 && isAddressEqual(req.to, ctx.executorV3);
+  if (!v3 && !isAddressEqual(req.to, ctx.executor)) return refuse("TARGET_NOT_ALLOWED");
+  const selector = req.data.slice(0, 10).toLowerCase();
+  if (selector !== (v3 ? SWAP_V3_SELECTOR : SWAP_SELECTOR)) return refuse("FUNCTION_NOT_ALLOWED");
   if (req.value !== 0n) return refuse("VALUE_NOT_ALLOWED");
-  let intent: SwapIntentArgs;
+  let intent: SwapIntentArgs | SwapIntentV3Args;
   try {
-    const decoded = decodeFunctionData({ abi: EXECUTOR_ABI, data: req.data });
+    const decoded = v3
+      ? decodeFunctionData({ abi: EXECUTOR_V3_ABI, data: req.data })
+      : decodeFunctionData({ abi: EXECUTOR_ABI, data: req.data });
     if (decoded.functionName !== "swap") return refuse("FUNCTION_NOT_ALLOWED");
-    intent = decoded.args[0] as SwapIntentArgs;
+    intent = decoded.args[0] as SwapIntentArgs | SwapIntentV3Args;
   } catch {
     return refuse("INTENT_MALFORMED");
   }
+  if (v3) {
+    const i = intent as SwapIntentV3Args;
+    if (
+      i.schemaVersion !== INTENT_SCHEMA_VERSION_V3 ||
+      i.route.length === 0 ||
+      i.route.length > EXECUTOR_V3_GAS.maxHops
+    )
+      return refuse("INTENT_MALFORMED");
+  }
   if (intent.chainId !== BigInt(pin) || intent.agentId !== BigInt(ctx.agentId))
     return refuse("AGENT_MISMATCH");
-  if (req.gas > SWAP_GAS_LIMIT || req.gas <= 0n) return refuse("GAS_LIMIT_EXCEEDED");
+  if (req.gas > (v3 ? SWAP_V3_GAS_MAX : SWAP_GAS_LIMIT) || req.gas <= 0n)
+    return refuse("GAS_LIMIT_EXCEEDED");
   if (
     req.maxFeePerGas > MAX_FEE_PER_GAS_CAP ||
     req.maxPriorityFeePerGas > MAX_PRIORITY_FEE_CAP ||
     req.maxPriorityFeePerGas > req.maxFeePerGas
   )
     return refuse("FEE_CAP_EXCEEDED");
-  return { ok: true, intent };
+  return v3
+    ? { ok: true, version: 3, intent: intent as SwapIntentV3Args }
+    : { ok: true, version: 2, intent: intent as SwapIntentArgs };
 }
 
 export interface TransferContext {

@@ -37,3 +37,27 @@ describe("trade entries (P2-U4)", () => {
     expect(() => assertJournalEntry(broken)).toThrow(/WMON lines sum to/);
   });
 });
+
+describe("trade entries for registered tokens (F-U5)", () => {
+  it("names a token by its lowercase address and balances per asset", () => {
+    const cbbtc = "0x0555e30da8f98308edb960aa94c0db47230d2b9c";
+    const entry = tradeEntry({
+      environment: "fork",
+      entryId: "7b6a2a9e-2f6c-4f3b-9a1d-2f3e4d5c6b7a",
+      actionId: `0x${"ab".repeat(32)}`,
+      occurredAt: 1_790_000_000,
+      assetIn: "USDC",
+      assetOut: cbbtc,
+      amountIn: 5_000_000n,
+      amountOut: 4_001n,
+    });
+    expect(() => assertJournalEntry(entry)).not.toThrow();
+    expect(entry.lines.map((l) => l.asset)).toEqual(["USDC", "USDC", cbbtc, cbbtc]);
+    expect(() =>
+      assertJournalEntry({
+        ...entry,
+        lines: entry.lines.map((l) => ({ ...l, asset: cbbtc.toUpperCase() })),
+      }),
+    ).toThrow(/malformed/);
+  });
+});

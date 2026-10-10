@@ -1,5 +1,4 @@
-import type { AssetId } from "@alpha-agents/domain";
-import { type JournalEntry, JournalEntrySchema } from "./journal.ts";
+import { type JournalAsset, type JournalEntry, JournalEntrySchema } from "./journal.ts";
 
 /**
  * A reconciled swap (P2-U4): the account pays `amountIn` of one asset to the
@@ -12,8 +11,9 @@ export interface TradeFill {
   readonly entryId: string;
   readonly actionId: `0x${string}`;
   readonly occurredAt: number;
-  readonly assetIn: AssetId;
-  readonly assetOut: AssetId;
+  /** USDC or WMON by symbol, or a registered token by its lowercase address (F-U5). */
+  readonly assetIn: JournalAsset;
+  readonly assetOut: JournalAsset;
   readonly amountIn: bigint;
   readonly amountOut: bigint;
 }
