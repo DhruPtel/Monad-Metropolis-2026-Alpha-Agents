@@ -57,6 +57,11 @@ Alpha Agents is an onchain financial management platform on Monad where AI agent
 - Check free -h before starting one, and do not start it if available memory is low.
 - Playwright runs with one worker for the web and console suites, locally and in CI.
 
+## Model spending
+- Before any live run, check the day's model spend (pnpm spend:report --days=1) and the gateway's daily budget headroom.
+- Never exceed $10 of model spend in one task: every live check, test run and owner-triggered task runs under the gate's $10 cap (D-369) and the gateway's $15 daily budget; use the cheapest model that still proves the check.
+- Report the session's model spend in every handoff.
+
 ## Never print secrets indirectly
 - Never print output that may contain environment values, such as anvil node info, process environments, or full config dumps. Redact or filter before printing.
 
