@@ -1066,6 +1066,16 @@ async function main(): Promise<number> {
         impersonate: (address: Hex) => Promise<void>;
       };
     const { factory } = (await deployAccountFactoryLocal({ quiet: true })) as { factory: Hex };
+    // L-198: the orchestrator reads the custody path through the v3 set (F-U5), so the fork
+    // carries the fund set (screens skipped) and Executor v3 at their deterministic addresses too.
+    {
+      const { deployFundLocal } = await import("../../../scripts/lib/fund.js");
+      const { deployExecutorV3Local } = await import("../../../scripts/lib/executor-v3.js");
+      const fund = (await deployFundLocal({ quiet: true, skipScreens: true })) as {
+        tokenRegistry: Hex;
+      };
+      await deployExecutorV3Local({ quiet: true, tokenRegistry: fund.tokenRegistry });
+    }
     const owner = (await client.readContract({
       address: nft,
       abi: parseAbi(["function ownerOf(uint256 agentId) view returns (address)"]),

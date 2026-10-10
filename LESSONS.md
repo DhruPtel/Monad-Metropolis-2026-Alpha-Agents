@@ -1476,3 +1476,10 @@ What happened: The second live run of the day ended with "fetch failed" right af
 Cause: Discovery pages through GeckoTerminal at its rate limit, and Monad's pool count has grown since F-U1 measured it, so one pass now takes longer than the client's fixed headers timeout.
 Fix: The live run starts the request without waiting on it and watches the run in `platform.token_discovery_runs` until it completes, then counts the registry's tokens by class from the database (services/orchestrator/src/live.ts). The route itself is unchanged: the console's button still waits for the pass.
 Lesson: Never make a check wait on one HTTP request for work that pages an upstream at a rate limit; start it and watch the record the work keeps.
+
+## L-198: The live run's fork carried the v2 trading set only, so the orchestrator's arming path found no custody set
+Unit: F-U9 (2026-10-10)
+What happened: The first live run to reach the trade flow since F-U5 failed to record the owner's grant: the orchestrator answered 500 with "The contract function personalAccountOf returned no data", and the first trade never settled. Every step before it had passed (36 checks), including discovery and the token check, so the run had already spent 1.86 USD.
+Cause: Since F-U5 the orchestrator reads the agent's custody path through the v3 set (the fund set and Executor v3, at their deterministic addresses, D-363) before it reads the v2 account; the live run deployed only AgentNFT and the v2 AccountFactory on its fork, so the v3 factory had no code there. The live checks of F-U5 to F-U8 never ran past the model refusals, which hid it.
+Fix: The live run deploys the fund set (screens skipped) and Executor v3 beside the v2 AccountFactory before the chain check (services/orchestrator/src/live.ts).
+Lesson: A live check's fork must carry every contract set the service reads at its current version; when a unit adds a set, add its deployment to every live stack in the same unit.
