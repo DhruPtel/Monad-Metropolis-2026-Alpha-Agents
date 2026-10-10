@@ -33,9 +33,12 @@ import {
   TradeStore,
   approveByOwner,
   confirmArming,
+  ProposalStore,
 } from "@alpha-agents/trading";
 import { type Hex, bytesToHex, createPublicClient, http, parseAbi } from "viem";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { approveProposal } from "../../../apps/control-api/src/proposals.ts";
+import { checkPortfolioProposal } from "./cycle/test-stage.ts";
 import { TemplateRunner } from "./runner.ts";
 import { Store } from "./store.ts";
 import { PgIntentStore } from "./tools/chain-store.ts";
@@ -161,7 +164,8 @@ describe.skipIf(upstream === null || !dbUp)(
       cashTargetBps: 6_000,
       minTradeUsdcE6: 500_000n,
       volatilityBrakeBps: 20_000,
-      costHurdleBps: 100,
+      // Inside the goal's slippage limit (0.5%), as the Test stage v2 requires of a proposal (F-U9).
+      costHurdleBps: 50,
       maxLegBps: 1_000,
     };
 
@@ -292,12 +296,85 @@ describe.skipIf(upstream === null || !dbUp)(
     });
 
     it("reaches a two-position target through Executor v3, one capped leg at a time, then sits in band; then sells a token moved to sell-only first", async () => {
-      await plans.set({
+      // F-U9: the plan arrives as the Zoom out's proposal, waiting for the owner; the approval runs the
+      // Test stage v2 again on the fork's real market and routes, then sets the plan the runner follows.
+      const proposals = new ProposalStore(db);
+      const pending = await proposals.create({
         chainId: CHAIN,
         agentId,
+        cycleId: null,
+        stageRunId: null,
+        strategyEpoch: await goals.strategyEpoch(CHAIN, agentId),
+        ownerEpoch: 0n,
+        plan: { template: TARGET_PORTFOLIO_ID, params: PLAN },
+        rationale: {
+          decision: "PROPOSE",
+          reasonCode: null,
+          portfolioView: "Two large tokens and cash.",
+          evidenceStrength: "mixed",
+          whatWouldChangeIt: "A pool thinning out.",
+          themeCodes: [],
+          points: [],
+        },
+        positions: [],
+        evaluation: {
+          checkedAt: new Date().toISOString(),
+          passed: true,
+          findings: [],
+          cost: null,
+          approval: "ask_first",
+        },
+        status: "pending_owner",
+        needsApproval: true,
+      });
+      const approval = await approveProposal(
+        {
+          db,
+          proposals,
+          plans,
+          goals,
+          trades,
+          now: () => new Date(),
+          recheck: async (_id, params) => {
+            const market = await readerV3.market();
+            const agent = await readerV3.agent(agentId);
+            if (!agent) throw new Error("no agent state");
+            return checkPortfolioProposal(params, {
+              aggressiveness: "BALANCED",
+              market,
+              agent,
+              screenFresh: async () => null,
+              quoteBuy: async (token, usdcE6) =>
+                (
+                  await readerV3
+                    .bestRoute(market.usdc, token, usdcE6, {
+                      optedIn: agent.screenedOptIn,
+                      intoUsdc: false,
+                      sellsScreened: false,
+                    })
+                    .catch(() => null)
+                )?.amountOut ?? null,
+              lastAgentChangeAt: null,
+              now: new Date(),
+            });
+          },
+        },
+        CHAIN,
+        agentId,
+        pending.proposalId,
+        { wallet: owner, epoch: 0n },
+      );
+      expect(
+        approval,
+        JSON.stringify(approval, (_k, v) => (typeof v === "bigint" ? String(v) : v)).slice(0, 600),
+      ).toMatchObject({
+        ok: true,
+        proposal: { status: "applied" },
+      });
+      expect(await plans.active(CHAIN, agentId)).toMatchObject({
         template: TARGET_PORTFOLIO_ID,
-        params: PLAN,
-        setBy: "console",
+        setBy: "owner",
+        params: { cashTargetBps: PLAN.cashTargetBps },
       });
       const record = await armV3();
       expect(record.custody).toBe("v3");
