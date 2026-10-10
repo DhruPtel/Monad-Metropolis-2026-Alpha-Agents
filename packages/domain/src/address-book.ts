@@ -65,6 +65,10 @@ export const ADDRESS_BOOK_IDS = [
   "protocol_registry",
   "venue_uniswap_v4_mon_usdc",
   "venue_uniswap_v3_usdc_wmon",
+  "token_registry_v3",
+  "protocol_registry_v3",
+  "oracle_adapter_v3",
+  "route_adapter_v3",
 ] as const;
 export type AddressBookId = (typeof ADDRESS_BOOK_IDS)[number];
 
@@ -1304,8 +1308,78 @@ const CANARY_DEPLOYED: readonly AddressEntry[] = [
   },
 ];
 
+/**
+ * F-U2: the fund agent's v3 set, beside v1 and v2. Deterministic CREATE2 with
+ * the `fund-<name>.v3` salts; the addresses follow from the seeds, all seven
+ * core candidates having passed their screens at deploy time
+ * (scripts/lib/fund.js). The RouteAdapter's executor is anvil account 0 until
+ * F-U4 deploys the adapter bound to Executor v3.
+ */
+const FUND_SOURCE = "Planv2/FINAL_PLAN.md > 0.4 Contract changes on Monad";
+const FUND_IDS = [
+  ["token_registry_v3", "TokenRegistry (v3)"],
+  ["protocol_registry_v3", "ProtocolRegistryV3"],
+  ["oracle_adapter_v3", "OracleAdapterV3"],
+  ["route_adapter_v3", "RouteAdapter (v3)"],
+] as const;
+const FUND_LOCAL_FACTS: Readonly<
+  Record<(typeof FUND_IDS)[number][0], readonly [Address, number, string]>
+> = {
+  token_registry_v3: [
+    "0x544E6dF6E70C1404A7e8a4827F8d9A58FD2D24f8",
+    19517,
+    "Core lane seeded with USDC, WMON, AUSD, WBTC, cbBTC, WETH and shMON, each re-screened at deploy time; screener anvil account 3",
+  ],
+  protocol_registry_v3: [
+    "0x94F24a3dbbCdD64859466a461DA22444cbC7e606",
+    19718,
+    "Eight core pools on Uniswap v3, PancakeSwap v3 and hookless Uniswap v4, each confirmed by its venue",
+  ],
+  oracle_adapter_v3: [
+    "0x697C4A9154AE5731A54C13FA36D2EFcD84205E65",
+    10235,
+    "One feed per class F token with its own staleness bound; on the fork only MON/USD and USDC/USD are kept fresh (D-237)",
+  ],
+  route_adapter_v3: [
+    "0xA13d903f83Dd8685ce3a49a8C0C28ECc9b8b72C5",
+    12727,
+    "Demo executor anvil account 0, not registered; F-U4 deploys and registers the adapter bound to Executor v3",
+  ],
+};
+const FUND_LOCAL: readonly AddressEntry[] = FUND_IDS.map(([id, label]) => {
+  const [address, codeSize, note] = FUND_LOCAL_FACTS[id];
+  return {
+    id,
+    label,
+    kind: "platform",
+    address,
+    status: "verified",
+    verification: {
+      chainId: LOCAL_FORK_CHAIN_ID,
+      block: FORK_BLOCK,
+      codeSize,
+      deployedBy: "pnpm deploy:fund",
+    },
+    source: FUND_SOURCE,
+    openQuestion: null,
+    note,
+  };
+});
+const fundUndeployed = (note: string): AddressEntry[] =>
+  FUND_IDS.map(([id, label]) => ({
+    id,
+    label,
+    kind: "platform",
+    address: null,
+    status: "unverified",
+    verification: null,
+    source: FUND_SOURCE,
+    openQuestion: null,
+    note,
+  }));
+
 export const ADDRESS_BOOK: Readonly<Record<EnvironmentId, readonly AddressEntry[]>> = {
-  local: [...MAINNET, AGENT_NFT_LOCAL, ...CUSTODY_LOCAL],
+  local: [...MAINNET, AGENT_NFT_LOCAL, ...CUSTODY_LOCAL, ...FUND_LOCAL],
   testnet: [
     ...TESTNET.filter((e) => !TESTNET_DEPLOYED.some((d) => d.id === e.id)),
     ...TESTNET_DEPLOYED,
@@ -1320,14 +1394,20 @@ export const ADDRESS_BOOK: Readonly<Record<EnvironmentId, readonly AddressEntry[
       openQuestion: null,
       note: "Not deployed on testnet: testnet has no Uniswap v3 (D-248)",
     },
+    ...fundUndeployed("The v3 set reaches testnet in F-U13"),
   ],
   beta: [
     ...MAINNET,
     agentNftUndeployed("Mainnet deployment belongs to PB-U1"),
     ...custodyUndeployed("Mainnet deployment belongs to PB-U1"),
+    ...fundUndeployed("Mainnet deployment belongs to PB-U1"),
   ],
   // The P2-EC mainnet canary (D-250, D-251): mainnet's external entries and its own throwaway contracts.
-  canary: [...MAINNET, ...CANARY_DEPLOYED],
+  canary: [
+    ...MAINNET,
+    ...CANARY_DEPLOYED,
+    ...fundUndeployed("Not part of P2-EC's canary; F-U13 reruns the canary with the v3 set"),
+  ],
 };
 
 export function addressEntry(environment: EnvironmentId, id: AddressBookId): AddressEntry {

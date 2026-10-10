@@ -14,6 +14,7 @@ process.env.LOCAL_FORK_PORT = String(LOCAL_TEST_FORK_PORT);
 const { loadLocalConfig, loadRootEnv } = await import("./lib/config.js");
 const { deployLocal, isTransientForkError } = await import("./lib/agent-nft.js");
 const { deployAccountFactoryLocal } = await import("./lib/account-factory.js");
+const { deployFundLocal } = await import("./lib/fund.js");
 const { verifyAddressBook } = await import("./lib/verify-addresses.js");
 const { MONAD_DIR } = await import("./lib/paths.js");
 
@@ -89,6 +90,12 @@ try {
     console.log("\nAccountFactory and the PersonalAccount implementation on the test fork:");
     const custody = await deployAccountFactoryLocal({ quiet: true });
     console.log(`${custody.factory}\n${custody.implementation}`);
+    // F-U2: the v3 set. Screens are the orchestrator's; a test fork seeds every candidate.
+    console.log("\nthe fund agent's v3 set on the test fork:");
+    const fund = await deployFundLocal({ quiet: true, skipScreens: true });
+    console.log(
+      `${fund.tokenRegistry}\n${fund.protocolRegistry}\n${fund.oracle}\n${fund.routeAdapter}`,
+    );
   } catch (err) {
     deployed = false;
     console.error(`error: ${err instanceof Error ? err.message : String(err)}`);
