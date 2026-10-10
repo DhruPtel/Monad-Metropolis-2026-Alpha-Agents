@@ -1,9 +1,12 @@
+import { CUSTODY_T0, CUSTODY_TOKENS, CUSTODY_V3, buildCustodyCases } from "./custody.ts";
+
 /**
  * The fund agent's v3 rules, offchain (F-U2, FINAL_PLAN 0.4, D-343): each
  * function mirrors one part of chains/monad/src/fund in the same order and
  * with the same integer arithmetic, so the chain tools and the runner can say
  * in advance what the contracts will answer. The fund parity fixture runs
- * both over the same cases (chains/monad/test/fund/FundParity.t.sol), and a
+ * both over the same cases (chains/monad/test/fund/FundParity.t.sol, and
+ * CustodyV3Parity.t.sol for the custody core's cases from custody.ts), and a
  * test fails if they ever disagree.
  */
 
@@ -480,9 +483,10 @@ export function buildFundFixture() {
   const prices = priceCases();
   const rules = tokenRuleCases();
   const routes = routeCases();
+  const custody = buildCustodyCases();
   return {
     comment:
-      "F-U2: what packages/policy answers for each case; chains/monad/test/fund/FundParity.t.sol makes the contracts answer the same. Regenerate with pnpm policy:parity.",
+      "F-U2 and F-U3: what packages/policy answers for each case; chains/monad/test/fund/FundParity.t.sol and CustodyV3Parity.t.sol make the contracts answer the same. Regenerate with pnpm policy:parity.",
     legCaseCount: legs.length,
     legCases: legs,
     priceCaseCount: prices.length,
@@ -493,6 +497,25 @@ export function buildFundFixture() {
     moveCases: rules.moves,
     routeCaseCount: routes.length,
     routeCases: routes,
+    // F-U3: the custody core v3 replayed step by step (custody.ts).
+    custodyLimits: {
+      t0: CUSTODY_T0.toString(),
+      tokens: [...CUSTODY_TOKENS],
+      maxTradeBps: CUSTODY_V3.maxTradeBps,
+      maxAssetBps: CUSTODY_V3.maxAssetBps,
+      maxClassAPositionBps: CUSTODY_V3.maxClassAPositionBps,
+      maxClassATotalBps: CUSTODY_V3.maxClassATotalBps,
+      maxSlippageBps: CUSTODY_V3.maxSlippageBps,
+      maxDepegBps: CUSTODY_V3.maxDepegBps,
+      maxHeldTokens: CUSTODY_V3.maxHeldTokens,
+      attestedPriceTtlSeconds: CUSTODY_V3.attestedPriceTtlSeconds,
+      maxDecimals: CUSTODY_V3.maxDecimals,
+      breakerReduceOnlyBps: CUSTODY_V3.breakerReduceOnlyBps,
+      breakerPauseBps: CUSTODY_V3.breakerPauseBps,
+      peakDays: CUSTODY_V3.peakDays,
+    },
+    custodyCaseCount: custody.length,
+    custodyCases: custody,
   };
 }
 

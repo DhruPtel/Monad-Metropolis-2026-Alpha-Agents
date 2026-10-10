@@ -9,3 +9,5 @@ export * from "./templates.ts";
 export * as breaker from "./breaker.ts";
 export * from "./executor.ts";
 export * from "./fund.ts";
+/** The custody core v3 model (F-U3): valuation, the cost-basis ledger, the class A caps and the breaker over many tokens. */
+export * as custodyV3 from "./custody.ts";
