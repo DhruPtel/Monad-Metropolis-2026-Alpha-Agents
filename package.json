@@ -49,6 +49,7 @@
     "spike:hermes:template": "node services/orchestrator/src/spike/build-template.ts",
     "spike:hermes": "node services/orchestrator/src/spike/run-spike.ts",
     "spike:venues": "node scripts/spikes/p2-u0/run.ts",
+    "spike:feeds": "node scripts/spikes/f-u2/feeds.ts",
     "deploy:agent-nft": "node scripts/deploy-agent-nft.js",
     "agent-nft:local": "node scripts/agent-nft-local.js",
     "deploy:account-factory": "node scripts/deploy-account-factory.js",

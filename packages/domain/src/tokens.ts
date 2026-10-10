@@ -305,6 +305,22 @@ export const CLASS_F_FEEDS: readonly ClassFFeed[] = [
   },
 ];
 
+/** MON/USD's proxy: the one feed held to 300 seconds, since it updates about every 30 (D-151, P2-U0). */
+export const MON_USD_FEED_PROXY = "0xbcd78f76005b7515837af6b50c7c52bcf73822fb" as const;
+/** What a heartbeat-driven feed's bound adds to its heartbeat (P2-U0's USDC/USD rule). */
+export const FEED_HEARTBEAT_GRACE_SECONDS = 300;
+
+/**
+ * The staleness bound OracleAdapterV3 uses for one feed leg (F-U2): 300
+ * seconds for MON/USD, and the published heartbeat plus 300 seconds for every
+ * other feed. The feed spike checks each bound against the leg's measured gaps.
+ */
+export function feedMaxAgeSeconds(leg: FeedLeg): number {
+  return leg.proxy === MON_USD_FEED_PROXY
+    ? 300
+    : leg.heartbeatSeconds + FEED_HEARTBEAT_GRACE_SECONDS;
+}
+
 export function classFFeed(token: string): ClassFFeed | null {
   const t = token.toLowerCase();
   return CLASS_F_FEEDS.find((f) => f.address === t) ?? null;
