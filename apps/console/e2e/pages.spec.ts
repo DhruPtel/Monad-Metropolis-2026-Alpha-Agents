@@ -265,9 +265,13 @@ test.describe("agents panel controls (P1-U5)", () => {
       "aa-playbook-zoom-out",
       "aa-deep-dive-research",
       "aa-usdc-wmon-band-rebalancer",
+      "aa-token-risk-screen",
+      "aa-portfolio-construction",
     ])
       await expect(table).toContainText(name);
     await expect(table).toContainText("1.0.0");
+    // F-U8: the playbooks are 2.0.0 and the set holds twelve packages.
+    await expect(table).toContainText("2.0.0");
     await expect(skills).toContainText("tier-pro@1");
     await repaint(page);
     await expect(skills).toHaveScreenshot("agents-skills.png");

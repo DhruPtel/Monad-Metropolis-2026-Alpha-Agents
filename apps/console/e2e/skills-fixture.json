@@ -3,23 +3,29 @@
   "provisioned": true,
   "tier": "pro",
   "tierPlaybook": "tier-pro@1",
-  "setHash": "f26da641d8b6609aab4c156a421ee67e53bfda1a51a15625a033bf96172f662f",
+  "setHash": "f1fc94b1386ca3f9c4c6fdbcda040d978641a5c04d044c2caa9cda654407d7a9",
   "packages": [
     {
       "kind": "skill",
       "id": "deep-dive-research",
       "name": "aa-deep-dive-research",
-      "version": "1.0.0",
-      "contentHash": "d9958e830674e1152acd050e92733d8ab35f6de31893df7304db9324e982df5b",
+      "version": "1.1.0",
+      "contentHash": "1c2d2a6103c373a07ad6e1acaa48a8158ae975c68289e9b7bcec11d2dc8fc7d4",
       "description": "Researches each question across sources, claim by claim. Use when a Dive needs evidence for and against a thesis.",
       "tools": [
         "data.market_snapshot@1",
         "data.defillama_tvl@1",
+        "data.defillama_yields@1",
+        "data.coinmarketcap_prices@1",
         "data.web_search@1",
         "data.read_url@1",
         "data.x_search@1",
         "data.dune_query@1",
-        "chain.read_contract@1"
+        "data.lookup_token@1",
+        "data.find_pools@1",
+        "data.screen_token@1",
+        "chain.read_contract@1",
+        "chain.get_pool_depth@1"
       ],
       "mountedAt": "/run/agent-skills/equipped/aa-deep-dive-research"
     },
@@ -54,11 +60,44 @@
       "kind": "skill",
       "id": "narrative-and-flow-tracker",
       "name": "aa-narrative-and-flow-tracker",
-      "version": "1.0.0",
-      "contentHash": "7ff29b6d3617270f809e3c1a30ddfa2300503ace4a0ba69822d51d795c6e6968",
+      "version": "1.0.1",
+      "contentHash": "c91f4eac56a0c05e0ac3c8f074f5405ba40729385ea6c65045477687d4e3a153",
       "description": "Tracks what people say about Monad on X and the web, now. Use when gauging attention and whether a story is rising.",
       "tools": ["data.x_search@1", "data.web_search@1", "data.read_url@1"],
       "mountedAt": "/run/agent-skills/equipped/aa-narrative-and-flow-tracker"
+    },
+    {
+      "kind": "skill",
+      "id": "portfolio-construction",
+      "name": "aa-portfolio-construction",
+      "version": "1.0.0",
+      "contentHash": "70d3171c61f3a75e70a58d9e56f3a30932acd2a43e8628b8fae0973e7dfdfd59",
+      "description": "Drafts a target portfolio: weights, bands, cash and exits in the envelope. Use when a Zoom out proposes target_portfolio@1.",
+      "tools": [
+        "chain.get_portfolio@1",
+        "chain.get_limits@1",
+        "chain.get_quote@1",
+        "chain.get_pool_depth@1",
+        "data.volatility@1",
+        "data.market_snapshot@1"
+      ],
+      "mountedAt": "/run/agent-skills/equipped/aa-portfolio-construction"
+    },
+    {
+      "kind": "skill",
+      "id": "token-risk-screen",
+      "name": "aa-token-risk-screen",
+      "version": "1.0.0",
+      "contentHash": "bb0000bf623bdda6c089eb3345bc18833ef2fb4fe54d0957ec97b047058a93c1",
+      "description": "Reads a token's safety screen: each check, its reason and evidence. Use when a Dive, Challenge or Zoom out weighs any token.",
+      "tools": [
+        "data.screen_token@1",
+        "data.lookup_token@1",
+        "data.find_pools@1",
+        "chain.get_code@1",
+        "chain.read_contract@1"
+      ],
+      "mountedAt": "/run/agent-skills/equipped/aa-token-risk-screen"
     },
     {
       "kind": "skill",
@@ -79,9 +118,9 @@
       "kind": "skill",
       "id": "usdc-wmon-band-rebalancer",
       "name": "aa-usdc-wmon-band-rebalancer",
-      "version": "1.0.0",
-      "contentHash": "56180552b321261726622a1109b96bc8eb26f1e60530e7c883ef479608d91195",
-      "description": "Tunes the USDC/WMON band plan: target, band, brake, cost. Use when a Zoom out weighs changing rebalance_bands@1.",
+      "version": "1.1.0",
+      "contentHash": "74fbe66c2ca3014e19a6404271e88a99dd257451158992d437fa56954605c25f",
+      "description": "Tunes the USDC/WMON band plan: target, band, brake, cost. Use when a Zoom out weighs changing rebalance_bands@1, the two-asset fallback.",
       "tools": [
         "chain.get_portfolio@1",
         "chain.get_quote@1",
@@ -96,17 +135,21 @@
       "kind": "playbook",
       "id": "playbook-challenge",
       "name": "aa-playbook-challenge",
-      "version": "1.0.0",
-      "contentHash": "b62458b134a8a32eefcba26665429e8bf1bf7b3c84098c4058f1de96b2e53ae0",
+      "version": "2.0.0",
+      "contentHash": "1950294f1f9b01b1cff35c153a911bc76805bcd0802196036f563a096ddfc52b",
       "description": "Runs a Challenge: the skeptic tries to break the thesis. Use for a Challenge stage, a skeptic review or breaking a thesis.",
       "tools": [
         "data.market_snapshot@1",
         "data.volatility@1",
+        "data.screen_token@1",
+        "data.find_pools@1",
         "chain.get_pool_depth@1",
         "chain.get_limits@1",
         "chain.get_portfolio@1",
         "data.web_search@1",
-        "platform.write_thesis@1"
+        "platform.write_thesis@1",
+        "platform.get_research_context@1",
+        "platform.write_research_brief@1"
       ],
       "mountedAt": "/run/agent-skills/playbooks/aa-playbook-challenge"
     },
@@ -114,8 +157,8 @@
       "kind": "playbook",
       "id": "playbook-dive",
       "name": "aa-playbook-dive",
-      "version": "1.0.0",
-      "contentHash": "8f4b3bbb36af2a7cacd3fe738ea5a50069d026a783133fe4648fef3f0fd1ccb3",
+      "version": "2.0.0",
+      "contentHash": "94db668a3d9a5d20b6f0abbc7fc09884233d1b3d5954de4fa75a937dcc679912",
       "description": "Runs a Dive: builds one theme into a falsifiable thesis. Use when the task is a Dive stage on a theme.",
       "tools": [
         "data.market_snapshot@1",
@@ -125,10 +168,18 @@
         "data.dune_query@1",
         "data.defillama_tvl@1",
         "data.defillama_yields@1",
+        "data.coinmarketcap_prices@1",
+        "data.list_tokens@1",
+        "data.lookup_token@1",
+        "data.find_pools@1",
+        "data.screen_token@1",
         "chain.read_contract@1",
         "chain.get_code@1",
         "chain.balance@1",
-        "platform.write_thesis@1"
+        "chain.get_pool_depth@1",
+        "platform.write_thesis@1",
+        "platform.get_research_context@1",
+        "platform.write_research_brief@1"
       ],
       "mountedAt": "/run/agent-skills/playbooks/aa-playbook-dive"
     },
@@ -136,15 +187,18 @@
       "kind": "playbook",
       "id": "playbook-scan",
       "name": "aa-playbook-scan",
-      "version": "1.0.0",
-      "contentHash": "accd10f5b6d55b4d1772e79fac8a013fc1c4351bbcfe19f44be8360563f41496",
+      "version": "2.0.0",
+      "contentHash": "1f4d8182628b12103433c57935e1734d5629b98c0c6bb1eb91128ba2f6b60e15",
       "description": "Runs a Scan: finds what changed and what deserves a Dive. Use when the task is a Scan stage.",
       "tools": [
         "data.market_snapshot@1",
+        "data.list_tokens@1",
+        "data.new_pools@1",
         "data.web_search@1",
-        "data.x_search@1",
         "data.read_url@1",
-        "platform.write_thesis@1"
+        "platform.write_thesis@1",
+        "platform.get_research_context@1",
+        "platform.write_research_brief@1"
       ],
       "mountedAt": "/run/agent-skills/playbooks/aa-playbook-scan"
     },
@@ -152,15 +206,18 @@
       "kind": "playbook",
       "id": "playbook-zoom-out",
       "name": "aa-playbook-zoom-out",
-      "version": "1.0.0",
-      "contentHash": "7da64048c7ef9a150cd546aa8dcb35ef3aa1d14a979d7d00640103d7e16cbbee",
+      "version": "2.0.0",
+      "contentHash": "83cf03bc5c8c33512b2869c241274bfd4b6fca0be42e9fff80d34664f6efc1bb",
       "description": "Runs a Zoom out: decides if the owner's plan must change. Use when the task is a Zoom out or a plan review.",
       "tools": [
         "chain.get_portfolio@1",
         "chain.get_limits@1",
         "chain.get_quote@1",
         "chain.get_pool_depth@1",
-        "platform.write_thesis@1"
+        "data.market_snapshot@1",
+        "platform.write_thesis@1",
+        "platform.get_research_context@1",
+        "platform.write_research_brief@1"
       ],
       "mountedAt": "/run/agent-skills/playbooks/aa-playbook-zoom-out"
     }
