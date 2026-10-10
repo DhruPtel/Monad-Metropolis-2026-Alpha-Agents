@@ -1469,3 +1469,10 @@ What happened: In the first live run after the account accepted calls again, "at
 Cause: F-U7 renamed the aliases an agent's key may use to `research-low`, `research-medium` and `research-high`; the drain call still asked LiteLLM for `scan-cheap` with the agent's key, so LiteLLM refused it (403, a model the key may not use) and nothing was spent before the task ran.
 Fix: The drain call uses `research-low` (services/orchestrator/src/live.ts).
 Lesson: When an alias list changes, search every script that names an alias, the live checks first; a 403 from the gateway on a virtual key means the model is not in the key's list.
+
+## L-197: The live run held one request open for a discovery pass longer than a fetch waits for headers
+Unit: F-U9 (2026-10-10)
+What happened: The second live run of the day ended with "fetch failed" right after the research check, with nothing logged by its orchestrator: the `POST /v1/tokens/discover` request, which runs a whole discovery pass before answering, had passed the five minutes Node's fetch waits for response headers, and the client gave up while the server went on.
+Cause: Discovery pages through GeckoTerminal at its rate limit, and Monad's pool count has grown since F-U1 measured it, so one pass now takes longer than the client's fixed headers timeout.
+Fix: The live run starts the request without waiting on it and watches the run in `platform.token_discovery_runs` until it completes, then counts the registry's tokens by class from the database (services/orchestrator/src/live.ts). The route itself is unchanged: the console's button still waits for the pass.
+Lesson: Never make a check wait on one HTTP request for work that pages an upstream at a rate limit; start it and watch the record the work keeps.

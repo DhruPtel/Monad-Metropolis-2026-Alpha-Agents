@@ -856,19 +856,42 @@ async function main(): Promise<number> {
 
   // F-U1: discovery once, then a real agent in E2B lists tokens and screens one.
   {
-    const disc = await api("/v1/tokens/discover", { method: "POST" });
-    const d = (disc.body.discovery ?? {}) as {
-      tokens?: number;
-      pools?: number;
-      classF?: number;
-      classA?: number;
-      newPools?: number;
+    // Discovery pages through GeckoTerminal at its rate limit and can run past the five minutes a
+    // fetch waits for headers (L-197), so the request is started and the run watched in the database.
+    const discoveryStarted = new Date();
+    void api("/v1/tokens/discover", { method: "POST" }).catch(() => undefined);
+    const run = await waitFor("discovery to finish", 25 * 60_000, async () => {
+      const row = await t.db
+        .selectFrom("platform.token_discovery_runs")
+        .selectAll()
+        .where("chain_id", "=", 143143)
+        .where("started_at", ">=", discoveryStarted)
+        .orderBy("started_at", "desc")
+        .executeTakeFirst();
+      return row && row.status !== "running" ? row : null;
+    });
+    const classes = await t.db
+      .selectFrom("platform.tokens")
+      .select(["price_class", t.db.fn.countAll<number>().as("n")])
+      .where("chain_id", "=", 143143)
+      .groupBy("price_class")
+      .execute();
+    const count = (cls: "F" | "A") => Number(classes.find((c) => c.price_class === cls)?.n ?? 0);
+    const d = {
+      tokens: count("F") + count("A"),
+      pools: run.pools_seen,
+      classF: count("F"),
+      classA: count("A"),
+      newPools: run.new_pools,
+      status: run.status,
+      error: run.error,
+      ms: Date.now() - discoveryStarted.getTime(),
     };
-    report.tokenDiscovery = { status: disc.status, ...d };
+    report.tokenDiscovery = d;
     check(
       "discovery found Monad's liquid tokens and pools, each classed F or A",
-      disc.status === 200 && (d.tokens ?? 0) >= 20 && (d.classF ?? 0) >= 8,
-      `${d.tokens ?? 0} tokens (${d.classF ?? 0} class F, ${d.classA ?? 0} class A) in ${d.pools ?? 0} pools`,
+      run.status === "completed" && d.tokens >= 20 && d.classF >= 8,
+      `${d.tokens} tokens (${d.classF} class F, ${d.classA} class A) in ${d.pools} pools, ${Math.round(d.ms / 1000)} s`,
     );
     // The Scans before this may have spent agent 2's credits: its owner tops it up, as owners do.
     const before = await creditsOf(other);
