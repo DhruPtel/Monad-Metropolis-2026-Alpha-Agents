@@ -864,10 +864,10 @@ async function main(): Promise<number> {
     void api("/v1/tokens/discover", { method: "POST" }).catch(() => undefined);
     await sleep(5_000);
     const run = await waitFor("discovery to finish", 25 * 60_000, async () => {
+      // The registry is keyed by Monad's own chain ID, not the fork's: no chain filter here.
       const row = await t.db
         .selectFrom("platform.token_discovery_runs")
         .selectAll()
-        .where("chain_id", "=", 143143)
         .orderBy("started_at", "desc")
         .executeTakeFirst();
       return row && row.status !== "running" ? row : null;
@@ -875,7 +875,6 @@ async function main(): Promise<number> {
     const classes = await t.db
       .selectFrom("platform.tokens")
       .select(["price_class", t.db.fn.countAll<number>().as("n")])
-      .where("chain_id", "=", 143143)
       .groupBy("price_class")
       .execute();
     const count = (cls: "F" | "A") => Number(classes.find((c) => c.price_class === cls)?.n ?? 0);
