@@ -50,9 +50,16 @@ import {
   INTENT_SCHEMA_VERSION_V3,
   ROUTE_ADAPTER_ID,
   executorV3SwapGasLimit,
+  AGGRESSIVENESS_OF_PRESET,
 } from "@alpha-agents/domain";
 import type { SwapIntentV3Args } from "@alpha-agents/signer";
+import type { TargetPortfolioParams } from "@alpha-agents/policy";
 import { type Hex, isAddressEqual, keccak256, toBytes } from "viem";
+import {
+  type TestFindingV2,
+  type TestInputsV2,
+  checkPortfolioProposal,
+} from "./cycle/test-stage.ts";
 import {
   TradeFlow,
   type TradeFlowGas,
@@ -334,6 +341,8 @@ export class Orchestrator {
             p.files.filter((f) => /\.md$/.test(f.path)).map((f) => f.bytes.toString("utf8")),
           ),
         )),
+      // F-U6: the Test stage v2 over a target portfolio, on the fund agent's set.
+      portfolio: { inputs: (cycle) => this.portfolioTestInputs(cycle) },
     });
     const trading = options.trading;
     this.runner =
@@ -348,6 +357,10 @@ export class Orchestrator {
             intents: new PgIntentStore(store),
             sessionKeyOf: (agentId) => trading.signer.createKey(agentId),
             volatility24hPct: options.runner.volatility24hPct,
+            // F-U6: a target portfolio runs on the fund agent's set, with the platform's screens.
+            readerV3: options.chain?.readerV3 ?? null,
+            screenFresh: (token) => this.screenFresh(token),
+            volatilityOf: null,
             gas: trading.gas,
             narrator: this.narrator,
             log,
@@ -717,6 +730,104 @@ export class Orchestrator {
       .where("agent_id", "=", ref.agentId)
       .executeTakeFirst();
     return (row?.address as Hex | undefined) ?? null;
+  }
+
+  /** F-U6 (D-339): whether the token has a passing screen that is still fresh; null when no registry runs here. */
+  async screenFresh(token: Hex): Promise<boolean | null> {
+    const registry = this.o.tokens?.registry;
+    if (!registry) return null;
+    const r = await registry.freshScreen(token).catch(() => null);
+    return r !== null && r.verdict === "passed";
+  }
+
+  /**
+   * F-U6: the Test stage v2's inputs for the agent: the fund agent's market and
+   * the account now, the goal's aggressiveness (from its risk preset until
+   * F-U7, A-74), the platform's screens, quotes along the best route for
+   * depth, and the cooldown. Null off the v3 set or without a goal.
+   */
+  async portfolioTestInputs(ref: {
+    readonly chainId: number;
+    readonly agentId: number;
+  }): Promise<TestInputsV2 | null> {
+    const v3 = this.o.chain?.readerV3;
+    if (!v3) return null;
+    const goal = await this.goals.currentGoal(ref.chainId, ref.agentId);
+    if (!goal) return null;
+    const [market, agent] = await Promise.all([v3.market(), v3.agent(ref.agentId)]);
+    if (!agent?.account) return null;
+    const history = await this.plans.history(ref.chainId, ref.agentId, 20);
+    const last = history.find((p) => p.setBy === "agent");
+    return {
+      aggressiveness: AGGRESSIVENESS_OF_PRESET[goal.goal.riskPreset],
+      market,
+      agent,
+      screenFresh: (token) => this.screenFresh(token),
+      quoteBuy: async (token, usdcE6) => {
+        const q = await v3
+          .bestRoute(market.usdc, token, usdcE6, {
+            optedIn: agent.screenedOptIn,
+            intoUsdc: false,
+            sellsScreened: false,
+          })
+          .catch(() => null);
+        return q?.amountOut ?? null;
+      },
+      lastAgentChangeAt: last?.createdAt ?? null,
+      now: new Date(),
+    };
+  }
+
+  /** F-U6: a target portfolio draft through the Test stage v2; refused off the fund agent's set. */
+  async checkPortfolioPlan(
+    ref: { readonly chainId: number; readonly agentId: number },
+    params: TargetPortfolioParams,
+  ): Promise<
+    | { ok: true; findings: TestFindingV2[] }
+    | { ok: false; error: "not_on_v3" | "no_goal"; message: string }
+  > {
+    if (!(await this.goals.currentGoal(ref.chainId, ref.agentId)))
+      return { ok: false, error: "no_goal", message: "The agent has no goal yet." };
+    const inputs = await this.portfolioTestInputs(ref);
+    if (!inputs)
+      return {
+        ok: false,
+        error: "not_on_v3",
+        message:
+          "A target portfolio needs the fund agent's set: the agent has no PersonalAccountV3 here, or the set is not deployed.",
+      };
+    return { ok: true, findings: await checkPortfolioProposal(params, inputs) };
+  }
+
+  /** F-U6: what the console's portfolio form offers: the registered tokens, when the agent is on the v3 set. */
+  async portfolioPlanView(ref: { readonly chainId: number; readonly agentId: number }): Promise<{
+    custody: CustodyPath;
+    tokens: {
+      token: Hex;
+      symbol: string;
+      decimals: number;
+      class: string;
+      lane: string;
+      status: string;
+      capBps: number;
+    }[];
+  } | null> {
+    const v3 = this.o.chain?.readerV3;
+    const custody = await this.custodyPath(ref.agentId);
+    if (!v3 || custody !== "v3") return null;
+    const m = await v3.market();
+    return {
+      custody,
+      tokens: m.tokens.map((t) => ({
+        token: t.token,
+        symbol: t.symbol,
+        decimals: t.decimals,
+        class: t.priceClass,
+        lane: t.lane,
+        status: t.status,
+        capBps: t.maxPositionBps,
+      })),
+    };
   }
 
   /** Which custody set serves the agent (D-367): v3 where the set is deployed and the agent is on it. */

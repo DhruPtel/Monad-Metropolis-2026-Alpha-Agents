@@ -15,6 +15,77 @@ export type StrategyTemplate = (typeof STRATEGY_TEMPLATES)[number];
 /** The templates a plan may run on (F-U6, D-344): the two-asset bands, or a target portfolio over any registered tokens. */
 export const PLAN_TEMPLATES = ["rebalance_bands@1", "target_portfolio@1"] as const;
 export type PlanTemplate = (typeof PLAN_TEMPLATES)[number];
+
+/**
+ * Aggressiveness (D-345, A-60): the owner's one choice, which F-U7's goal form
+ * carries; until then it is read from the risk preset (F-U6, A-74). Each level
+ * has the envelope the deterministic Test enforces on a target portfolio.
+ */
+export const AGGRESSIVENESS_LEVELS = ["CONSERVATIVE", "BALANCED", "AGGRESSIVE"] as const;
+export type Aggressiveness = (typeof AGGRESSIVENESS_LEVELS)[number];
+
+export interface AggressivenessEnvelope {
+  readonly label: string;
+  /** Whether class A (attested) tokens may be held at all. */
+  readonly classAAllowed: boolean;
+  /** The most one position may weigh, basis points of the account's value (the registry's own cap also applies). */
+  readonly maxPositionBps: number;
+  readonly maxClassAPositionBps: number;
+  readonly maxClassATotalBps: number;
+  /** The least the plan keeps in stablecoins: USDC cash and stablecoin positions together. */
+  readonly minStableBps: number;
+  readonly maxPositions: number;
+  /** A held token moving this much triggers a position review (the watcher, P3-U10). */
+  readonly reviewTriggerBps: number;
+}
+
+export const AGGRESSIVENESS_ENVELOPES: Readonly<Record<Aggressiveness, AggressivenessEnvelope>> =
+  Object.freeze({
+    CONSERVATIVE: {
+      label: "Conservative",
+      classAAllowed: false,
+      maxPositionBps: 2_000,
+      maxClassAPositionBps: 0,
+      maxClassATotalBps: 0,
+      minStableBps: 3_000,
+      maxPositions: 8,
+      reviewTriggerBps: 1_000,
+    },
+    BALANCED: {
+      label: "Balanced",
+      classAAllowed: true,
+      maxPositionBps: 4_500,
+      maxClassAPositionBps: 800,
+      maxClassATotalBps: 2_500,
+      minStableBps: 1_500,
+      maxPositions: 8,
+      reviewTriggerBps: 1_500,
+    },
+    AGGRESSIVE: {
+      label: "Aggressive",
+      classAAllowed: true,
+      maxPositionBps: 4_500,
+      maxClassAPositionBps: 1_500,
+      maxClassATotalBps: 5_000,
+      minStableBps: 1_000,
+      maxPositions: 12,
+      reviewTriggerBps: 2_500,
+    },
+  });
+
+/** The aggressiveness a saved risk preset stands for until F-U7's goal form carries it (A-74). */
+export const AGGRESSIVENESS_OF_PRESET: Readonly<Record<RiskPreset, Aggressiveness>> = Object.freeze(
+  {
+    CONSERVATIVE: "CONSERVATIVE",
+    BALANCED: "BALANCED",
+    GROWTH: "AGGRESSIVE",
+  },
+);
+
+/** Symbols the envelope's stablecoin minimum counts, beside USDC cash (A-74). */
+export const STABLE_SYMBOLS = ["USDC", "USDT0", "USDT", "AUSD", "DAI", "USDE", "FDUSD"] as const;
+export const isStableSymbol = (symbol: string): boolean =>
+  (STABLE_SYMBOLS as readonly string[]).includes(symbol.toUpperCase());
 export const AVAILABLE_TEMPLATES: readonly StrategyTemplate[] = ["rebalance_bands@1"];
 
 export const TEMPLATE_FACTS: Readonly<

@@ -1,6 +1,9 @@
 import type { RejectionCode, RunnerHoldCode } from "@alpha-agents/domain";
 import { type Hex, isAddressEqual, keccak256, toBytes } from "viem";
 import { CUSTODY_V3, valueE6 } from "./custody.ts";
+
+/** The custody core's valuation (USDC base units of an amount at a price), for the runner and the Test. */
+export { valueE6 };
 import type { TokenStatusV3 } from "./executor-v3.ts";
 import { type GoalError, canonicalJson } from "./goals.ts";
 

@@ -7,9 +7,16 @@ import {
 } from "@alpha-agents/platform-tools";
 import type { AgentIdentity } from "@alpha-agents/tool-server";
 import { ToolError } from "@alpha-agents/tool-server";
-import type { GoalStore, PlanStore } from "@alpha-agents/trading";
+import { portfolioParamsFromJson } from "@alpha-agents/policy";
+import { type GoalStore, type PlanStore, isBandsPlan } from "@alpha-agents/trading";
 import type { Cycle, CycleStore, StageRun } from "./store.ts";
-import { type TestInputs, checkProposal, proposalParams } from "./test-stage.ts";
+import {
+  type TestInputs,
+  type TestInputsV2,
+  checkPortfolioProposal,
+  checkProposal,
+  proposalParams,
+} from "./test-stage.ts";
 import { validateBrief } from "./validator.ts";
 
 /**
@@ -26,6 +33,8 @@ export interface CycleResearchOptions {
   readonly plans: PlanStore;
   /** Eight-word runs of every mounted skill and playbook (validator.skillRuns). */
   readonly skillRuns: () => ReadonlySet<string>;
+  /** F-U6: the Test stage's inputs for a target portfolio on the fund agent's v3 set; null off it. */
+  readonly portfolio?: { inputs(cycle: Cycle): Promise<TestInputsV2 | null> } | null;
   readonly now?: () => Date;
 }
 
@@ -178,14 +187,29 @@ export class CycleResearch {
       plan: plan
         ? {
             template: plan.template,
-            params: {
-              targetWmonBps: plan.params.targetWmonBps,
-              bandHalfWidthBps: plan.params.bandHalfWidthBps,
-              minTradeUsdc: (Number(plan.params.minTradeUsdcE6) / 1e6).toString(),
-              volatilityBrakeBps: plan.params.volatilityBrakeBps,
-              costHurdleBps: plan.params.costHurdleBps,
-              maxLegBps: plan.params.maxLegBps,
-            },
+            params: isBandsPlan(plan)
+              ? {
+                  targetWmonBps: plan.params.targetWmonBps,
+                  bandHalfWidthBps: plan.params.bandHalfWidthBps,
+                  minTradeUsdc: (Number(plan.params.minTradeUsdcE6) / 1e6).toString(),
+                  volatilityBrakeBps: plan.params.volatilityBrakeBps,
+                  costHurdleBps: plan.params.costHurdleBps,
+                  maxLegBps: plan.params.maxLegBps,
+                }
+              : {
+                  positions: plan.params.positions.map((x) => ({
+                    token: x.token,
+                    targetWeightBps: x.targetWeightBps,
+                    bandBps: x.bandBps,
+                    thesisId: x.thesisId,
+                    exit: x.exit,
+                  })),
+                  cashTargetBps: plan.params.cashTargetBps,
+                  minTradeUsdc: (Number(plan.params.minTradeUsdcE6) / 1e6).toString(),
+                  volatilityBrakeBps: plan.params.volatilityBrakeBps,
+                  costHurdleBps: plan.params.costHurdleBps,
+                  maxLegBps: plan.params.maxLegBps,
+                },
             setAt: plan.createdAt.toISOString(),
           }
         : null,
@@ -263,10 +287,37 @@ export class CycleResearch {
         false,
       );
     if (input.decision.kind === "PROPOSE") {
-      const findings = checkProposal(
-        proposalParams(input.decision.params),
-        await this.testInputs(cycle),
-      );
+      let findings: readonly { code: string; field: string; message: string }[];
+      if (input.decision.template === "target_portfolio@1") {
+        // F-U6: a target portfolio goes through the Test stage v2 on the fund agent's set.
+        const inputs = await this.portfolioTestInputs(cycle);
+        if (!inputs)
+          throw new ToolError(
+            "INVALID_INPUT",
+            "A target portfolio needs the fund agent's set, which this agent is not on; propose rebalance_bands@1 or end with NO_CHANGE.",
+            false,
+          );
+        const params = input.decision.params;
+        findings = await checkPortfolioProposal(
+          portfolioParamsFromJson({
+            ...params,
+            minTradeUsdcE6: proposalParams({
+              targetWmonBps: 0,
+              bandHalfWidthBps: 0,
+              minTradeUsdc: params.minTradeUsdc,
+              volatilityBrakeBps: 0,
+              costHurdleBps: 0,
+              maxLegBps: 0,
+            }).minTradeUsdcE6.toString(),
+          }),
+          inputs,
+        );
+      } else {
+        findings = checkProposal(
+          proposalParams(input.decision.params),
+          await this.testInputs(cycle),
+        );
+      }
       await this.recordCheck(cycle.cycleId, input.decision.params, findings);
       if (findings.length > 0)
         throw new ToolError(
@@ -277,6 +328,12 @@ export class CycleResearch {
         );
     }
     return stage;
+  }
+
+  /** F-U6: the Test stage's inputs for a target portfolio, or null off the fund agent's set. */
+  async portfolioTestInputs(cycle: Cycle): Promise<TestInputsV2 | null> {
+    const source = this.o.portfolio;
+    return source ? source.inputs(cycle) : null;
   }
 
   /** The goal's bounds, the limits and the cooldown, read now. */

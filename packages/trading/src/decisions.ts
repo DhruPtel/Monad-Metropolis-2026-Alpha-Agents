@@ -21,10 +21,15 @@ export interface RunnerDecision {
   /** Every code that stopped the leg, for a hold the Executor or the trade flow refused. */
   readonly codes: readonly string[];
   readonly leg: {
-    readonly sell: "USDC" | "WMON";
-    readonly buy: "USDC" | "WMON";
+    /** The assets by symbol: USDC or WMON on the two-asset template, any registered token on a portfolio (F-U6). */
+    readonly sell: string;
+    readonly buy: string;
     readonly amountIn: string;
     readonly valueUsdcE6: string;
+    /** F-U6: the tokens' addresses and the position the leg moves, on a portfolio plan. */
+    readonly sellToken?: string;
+    readonly buyToken?: string;
+    readonly position?: string;
   } | null;
   readonly intentId: string | null;
   readonly facts: Record<string, unknown>;

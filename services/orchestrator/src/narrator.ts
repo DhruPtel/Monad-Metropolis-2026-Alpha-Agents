@@ -108,10 +108,12 @@ export interface RunnerFacts {
   readonly agent: string;
   readonly activity: "runner";
   readonly event: "leg" | "hold" | "in_band";
-  /** The plan's target WMON share and band, in percent. */
+  /** The position the entry is about: WMON on the two-asset plan, any token on a portfolio (F-U6); null when none. */
+  readonly asset?: string | null;
+  /** The position's target share and band, in percent. */
   readonly targetPercent: string;
   readonly bandPercent: string;
-  /** The account's WMON share when it decided, in percent; null when there was no price. */
+  /** The position's share when it decided, in percent; null when there was no price. */
   readonly wmonSharePercent: string | null;
   /** The leg, for a leg. */
   readonly sell: { readonly asset: string; readonly amount: string } | null;
@@ -303,13 +305,16 @@ export function templateBlockedEntry(f: BlockedFacts): string {
 
 /** The fixed template for a runner entry: every number in it comes from the facts. */
 export function templateRunnerEntry(f: RunnerFacts): string {
-  const plan = `its plan's ${f.targetPercent}% WMON target (band ${f.bandPercent} points)`;
-  const at = f.wmonSharePercent === null ? "" : ` from ${f.wmonSharePercent}% WMON`;
+  const asset = f.asset ?? "WMON";
+  const plan = f.asset
+    ? `its plan's ${f.targetPercent}% ${asset} target (band ${f.bandPercent} points)`
+    : "its plan";
+  const at = f.wmonSharePercent === null ? "" : ` from ${f.wmonSharePercent}% ${asset}`;
   const text =
     f.event === "leg" && f.sell
       ? `${f.agent}'s runner is trading ${f.sell.amount} ${f.sell.asset} for ${f.buy ?? ""}${at} toward ${plan}.`
       : f.event === "in_band"
-        ? `${f.agent}'s account is back inside the band of ${plan}${f.wmonSharePercent === null ? "" : `, at ${f.wmonSharePercent}% WMON`}.`
+        ? `${f.agent}'s account is back inside the band of ${plan}${f.wmonSharePercent === null ? "" : `, at ${f.wmonSharePercent}% ${asset}`}.`
         : `${f.agent}'s runner is holding against ${plan}: ${(f.reason?.message ?? "").replace(/\.$/, "")}.`;
   return text.slice(0, MAX_ENTRY_CHARS);
 }

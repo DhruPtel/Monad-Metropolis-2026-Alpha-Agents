@@ -209,7 +209,8 @@ export const GetResearchContextOutput = z.strictObject({
   plan: z
     .strictObject({
       template: z.string(),
-      params: z.record(z.string(), z.union([z.string(), z.number()])),
+      /** The two-asset plan's figures, or a target portfolio's positions and cash target (F-U6). */
+      params: z.record(z.string(), z.unknown()),
       setAt: z.string(),
     })
     .nullable(),
@@ -244,7 +245,23 @@ export const GetResearchContextOutput = z.strictObject({
 export type GetResearchContextOutput = z.infer<typeof GetResearchContextOutput>;
 
 /** A Zoom out's decision in complete_stage (P3-U4; P3-U6 turns a proposal into a plan card). */
-export const ZoomOutDecision = z.discriminatedUnion("kind", [
+const usdcAmount = z.string().regex(/^\d+(\.\d{1,6})?$/, "a USDC amount");
+
+/** F-U6 (D-344): a target portfolio as the Zoom out drafts it, checked by the Test stage v2. */
+export const PortfolioPositionInput = z.strictObject({
+  token: z.string().regex(/^0x[0-9a-fA-F]{40}$/, "a token's address"),
+  targetWeightBps: bps,
+  bandBps: bps,
+  thesisId: z.string().min(1).max(64),
+  exit: z.strictObject({
+    killCriterion: z.string().min(1).max(280),
+    recheckAt: z.string().min(1).max(40),
+    trimAboveBps: bps.optional(),
+  }),
+});
+
+// A plain union: two PROPOSE shapes share the kind and differ by template (F-U6).
+export const ZoomOutDecision = z.union([
   z.strictObject({ kind: z.literal("NO_CHANGE"), reasonCode: z.enum(NO_CHANGE_REASONS) }),
   z.strictObject({
     kind: z.literal("PROPOSE"),
@@ -252,7 +269,19 @@ export const ZoomOutDecision = z.discriminatedUnion("kind", [
     params: z.strictObject({
       targetWmonBps: bps,
       bandHalfWidthBps: bps,
-      minTradeUsdc: z.string().regex(/^\d+(\.\d{1,6})?$/, "a USDC amount"),
+      minTradeUsdc: usdcAmount,
+      volatilityBrakeBps: z.int().min(0).max(100_000),
+      costHurdleBps: bps,
+      maxLegBps: bps,
+    }),
+  }),
+  z.strictObject({
+    kind: z.literal("PROPOSE"),
+    template: z.literal("target_portfolio@1"),
+    params: z.strictObject({
+      positions: z.array(PortfolioPositionInput).max(12),
+      cashTargetBps: bps,
+      minTradeUsdc: usdcAmount,
       volatilityBrakeBps: z.int().min(0).max(100_000),
       costHurdleBps: bps,
       maxLegBps: bps,

@@ -32,6 +32,13 @@ describe.skipIf(!dbUp)("the orchestrator's internal API (D-205)", { timeout: 60_
   const orchestrator = {
     runTag: "run-test",
     keeper: null,
+    // F-U6: this fake is not on the fund agent's set.
+    portfolioPlanView: async () => null,
+    checkPortfolioPlan: async () => ({
+      ok: false as const,
+      error: "not_on_v3" as const,
+      message: "A target portfolio needs the fund agent's set.",
+    }),
     enqueueNoop: async (ref: { agentId: number }) => {
       queued.push(`noop ${ref.agentId}`);
       return "task-1";
@@ -389,6 +396,39 @@ describe.skipIf(!dbUp)("the orchestrator's internal API (D-205)", { timeout: 60_
     );
     expect((await off.request("/v1/agents/1/runner/run", { method: "POST" })).status).toBe(404);
     expect((await off.request("/v1/agents/1/plan")).status).toBe(200);
+    // F-U6: a target portfolio is refused with its reason off the fund agent's set; the draft
+    // check says the same; the view names the goal's aggressiveness and its envelope.
+    const portfolio = {
+      template: "target_portfolio@1",
+      positions: [
+        {
+          token: "0x00000000000000000000000000000000000000c2",
+          targetWeightBps: 3_000,
+          bandBps: 300,
+          thesisId: "t-wmon",
+          exit: { killCriterion: "MON loses its yield", recheckAt: "2026-11-01T00:00:00.000Z" },
+        },
+      ],
+      cashTargetBps: 7_000,
+      minTradeUsdcE6: "500000",
+      volatilityBrakeBps: 20_000,
+      costHurdleBps: 40,
+      maxLegBps: 1_000,
+    };
+    const refused = await put(portfolio);
+    expect(refused.status).toBe(409);
+    expect(await refused.json()).toMatchObject({ error: "not_on_v3" });
+    expect((await put({ ...portfolio, cashTargetBps: 5_000 })).status).toBe(400);
+    const check = await app.request("/v1/agents/1/plan/check", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(portfolio),
+    });
+    expect(check.status).toBe(409);
+    expect(view).toMatchObject({
+      goal: { aggressiveness: "BALANCED", envelope: { maxPositions: 8, minStableBps: 1_500 } },
+      portfolio: null,
+    });
   });
 
   it("lists an agent's mounted skills and playbooks with versions and content hashes (P3-U7)", async () => {

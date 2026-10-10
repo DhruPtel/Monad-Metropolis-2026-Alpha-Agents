@@ -5,7 +5,7 @@ import type { Hex } from "viem";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { DecisionStore } from "./decisions.ts";
 import { GoalStore } from "./goals.ts";
-import { PLAN_SET_REASON, PlanStore } from "./plans.ts";
+import { PLAN_SET_REASON, PlanStore, isBandsPlan } from "./plans.ts";
 
 const dbUp = await databaseAvailable();
 const CHAIN = 143143;
@@ -90,9 +90,11 @@ describe.skipIf(!dbUp)(
       expect(second.strategyEpoch).toBe(3n);
       expect((await plans.active(CHAIN, 1))?.paramId).toBe(second.paramId);
       expect(await plans.activePlans(CHAIN)).toHaveLength(1);
-      expect((await plans.history(CHAIN, 1)).map((p) => p.params.targetWmonBps)).toEqual([
-        1_500, 2_000,
-      ]);
+      expect(
+        (await plans.history(CHAIN, 1)).map((p) =>
+          isBandsPlan(p) ? p.params.targetWmonBps : null,
+        ),
+      ).toEqual([1_500, 2_000]);
     });
 
     it("checks a plan against the goal: target inside the range, leg and cost no looser than the owner's", () => {

@@ -1,4 +1,5 @@
 import type { GoalStore, PlanStore } from "@alpha-agents/trading";
+import { isBandsPlan, isPortfolioPlan } from "@alpha-agents/trading";
 import type { CreditService } from "../credits/service.ts";
 import { type GateLogEntry, modelFailure } from "../gate.ts";
 import type { AgentConfig } from "../hermes/schema.ts";
@@ -22,7 +23,7 @@ import {
   utcDayStart,
 } from "./stages.ts";
 import type { Cycle, CycleStore, StageRun, StageStatus } from "./store.ts";
-import { testEnvelope } from "./test-stage.ts";
+import { portfolioEnvelope, testEnvelope } from "./test-stage.ts";
 
 /**
  * The discovery loop engine (P3-U4, D-093): one research cycle in one sandbox
@@ -333,11 +334,16 @@ class Engine {
     try {
       const inputs = await this.ctx.research.testInputs(this.cycle);
       const plan = await this.ctx.plans.active(this.cycle.chainId, this.cycle.agentId);
-      const envelope = testEnvelope(plan?.params ?? null, inputs);
+      const envelope = testEnvelope(plan && isBandsPlan(plan) ? plan.params : null, inputs);
+      // F-U6: on the fund agent's set the Zoom out may draft a target portfolio within this.
+      const inputsV2 = await this.ctx.research.portfolioTestInputs(this.cycle);
+      const portfolio = inputsV2
+        ? portfolioEnvelope(plan && isPortfolioPlan(plan) ? plan.params : null, inputsV2)
+        : null;
       await this.ctx.cycles.endStage(run.stageRunId, null, {
         status: "completed",
         stopReason: "COMPLETED",
-        outcome: { envelope, checked: [] },
+        outcome: { envelope, ...(portfolio ? { portfolio } : {}), checked: [] },
       });
     } catch (err) {
       await this.ctx.cycles.endStage(run.stageRunId, null, {
