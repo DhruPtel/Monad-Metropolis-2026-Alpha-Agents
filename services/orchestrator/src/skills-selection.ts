@@ -18,7 +18,11 @@ process.loadEnvFile(join(ROOT, ".env"));
 const base = process.env.LITELLM_BASE_URL ?? "http://127.0.0.1:4000";
 const key = process.env.LITELLM_MASTER_KEY ?? "";
 const REPEATS = 3;
-const MODELS = ["scan-cheap", "research-strong"] as const;
+// D-369: the cheapest model that proves selection (the Low tier's, also the Scan's); the run
+// stops at the spend cap, summing LiteLLM's cost header per call.
+const MODELS = ["research-low"] as const;
+const SPEND_CAP_USD = 10;
+let spentUsd = 0;
 
 const set = loadBuiltinSet();
 /** Hermes' index line: the description is cut at 57 characters plus "..." when it is longer than 60. */
@@ -150,6 +154,9 @@ async function complete(model: string, system: string, user: string, withTools =
     }),
   });
   if (!res.ok) throw new Error(`LiteLLM answered ${res.status}`);
+  spentUsd += Number(res.headers.get("x-litellm-response-cost") ?? 0) || 0;
+  if (spentUsd >= SPEND_CAP_USD)
+    throw new Error(`the selection check reached its model spend cap (${spentUsd.toFixed(3)} USD)`);
   return (await res.json()) as {
     usage?: { prompt_tokens?: number };
     choices: { message: { tool_calls?: { function: { name: string; arguments: string } }[] } }[];

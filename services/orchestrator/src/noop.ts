@@ -39,7 +39,7 @@ export interface NoopResult extends Record<string, unknown> {
   /** Model calls the gate refused with 402 because credits ran out (P1-U6, D-209). */
   readonly modelCallsRefusedForCredits: number;
   /** "billing" when the run ended because credits ran out. */
-  readonly stopReason: "completed" | "billing" | "failed";
+  readonly stopReason: "completed" | "billing" | "task_cap" | "failed";
   /** Each request the gate forwarded or refused, in order: method, path and status, nothing else. */
   readonly gatedCalls: readonly string[];
   readonly sandboxStopped: boolean;
@@ -277,9 +277,11 @@ export async function runNoopTask(ctx: TaskContext, taskId: string): Promise<voi
       stopReason:
         final.status === "completed"
           ? "completed"
-          : calls.some((c) => c.status === 402)
-            ? "billing"
-            : "failed",
+          : calls.some((c) => c.reason === "TASK_CAP")
+            ? "task_cap"
+            : calls.some((c) => c.status === 402)
+              ? "billing"
+              : "failed",
       sandboxStopped: lease?.status === "ended",
       timingsMs: {
         sandbox: sandboxMs,
@@ -288,7 +290,13 @@ export async function runNoopTask(ctx: TaskContext, taskId: string): Promise<voi
         total: Date.now() - started,
       },
     };
-    if (result.stopReason === "billing") {
+    if (result.stopReason === "task_cap") {
+      await ctx.store.finishTask(taskId, {
+        error:
+          "the task reached its model spend cap (D-369); the gate refused the rest of its model calls",
+        result,
+      });
+    } else if (result.stopReason === "billing") {
       const n = result.modelCallsRefusedForCredits;
       await ctx.store.finishTask(taskId, {
         error: `billing: the agent's credits ran out; the gate refused ${n} model call${n === 1 ? "" : "s"} with 402 and the run ended ${final.status}`,

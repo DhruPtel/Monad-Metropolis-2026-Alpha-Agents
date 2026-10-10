@@ -164,6 +164,8 @@ export interface OrchestratorOptions {
   readonly scanIntervalMs?: number;
   /** How often the scheduler looks for due Scans; 0 turns scheduling off (tests). */
   readonly scheduleMs?: number;
+  /** P0-SPEND (D-369): the gate's spend cap per task in USD; 10 unless a test says otherwise. */
+  readonly taskCapUsd?: number | (() => number);
   /** D-221: steered reveals, on the local fork only; null elsewhere. */
   readonly revealSteering?: RevealSteering | null;
   /** P2-U5: the chain tools' reader and the signer's session keys; none runs every chain tool as "not deployed". */
@@ -431,6 +433,7 @@ export class Orchestrator {
     this.gate = await startGate({
       litellmUrl: this.o.litellmUrl,
       probeToken: this.probeToken,
+      ...(this.o.taskCapUsd === undefined ? {} : { taskCapUsd: this.o.taskCapUsd }),
       resolve: gateResolver(this.o.store, this.provisioner, this.credits, this.cycles),
       // P3-U4: every forwarded model call's usage, with the stage it ran under.
       onModelCall: async (e) => {

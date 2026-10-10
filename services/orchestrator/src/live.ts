@@ -135,6 +135,21 @@ for (const v of Object.values(config.values))
 const redactor = new Redactor();
 redactor.add(...secrets);
 const step = (s: string) => console.log(`\n== ${s}`);
+/** P0-SPEND (D-369): the most model spend this run may make, as LiteLLM's /global/spend counts it. */
+const SPEND_CAP_USD = 10;
+class SpendCapReached extends Error {}
+let spendAtStart = 0;
+let spentUsd = async (): Promise<number> => 0;
+/** Before a step that spends model credit: stop the run at the cap, keeping what finished. */
+const spendGuard = async (next: string) => {
+  const spent = await spentUsd();
+  report.spendUsd = Number(spent.toFixed(4));
+  console.log(`   model spend so far: ${spent.toFixed(3)} USD of the ${SPEND_CAP_USD} USD cap`);
+  if (spent >= SPEND_CAP_USD)
+    throw new SpendCapReached(
+      `the run reached its model spend cap (${spent.toFixed(3)} USD of ${SPEND_CAP_USD}) before "${next}"; the checks before it stand`,
+    );
+};
 const check = (name: string, ok: boolean, detail = "") => {
   checks[name] = ok;
   console.log(`${ok ? "PASS" : "FAIL"}  ${name}${detail ? `  (${redactor.redact(detail)})` : ""}`);
@@ -153,6 +168,8 @@ async function main(): Promise<number> {
   const litellmUrl = String(config.values.LITELLM_BASE_URL);
   const gateway = new LiteLLMAdmin(litellmUrl, reveal("LITELLM_MASTER_KEY"));
   if (!(await gateway.ready())) throw new Error("LiteLLM is not running: pnpm dev:litellm");
+  spendAtStart = (await gateway.globalSpend()).spendUsd;
+  spentUsd = async () => (await gateway.globalSpend()).spendUsd - spendAtStart;
   const provider = new E2BProvider(reveal("E2B_API_KEY"));
 
   step("stack: test fork, AgentNFT, database, indexer");
@@ -408,6 +425,7 @@ async function main(): Promise<number> {
     `${Date.now() - fundedAt} ms; key budget ${budgeted.budgetUsd} USD`,
   );
 
+  await spendGuard("the no-op task end to end");
   step("the no-op task end to end");
   const queued = await api(`/v1/agents/${agentId}/tasks/noop`, { method: "POST" });
   const taskId = String(queued.body.taskId);
@@ -575,6 +593,7 @@ async function main(): Promise<number> {
     JSON.stringify(signerState),
   );
 
+  await spendGuard("drain to zero during a run: billing, no retries");
   step("drain to zero during a run: billing, no retries");
   // Credits run out while a task waits: a small balance lets the task be queued, then the
   // agent's own key spends it (as an earlier run would) before the sandbox's first model call.
@@ -659,6 +678,9 @@ async function main(): Promise<number> {
   );
 
   // ---- P1-U7: scheduled Scans with real Tavily and a real model ----
+  await spendGuard(
+    "the scheduler queues a Scan for each funded agent; web_search, read_url, complete_stage",
+  );
   step("the scheduler queues a Scan for each funded agent; web_search, read_url, complete_stage");
   secrets.push(narratorKeyFor(reveal("ORCHESTRATOR_SECRET"), namespace));
   await fund(other, 1_000_000n);
@@ -1004,6 +1026,7 @@ async function main(): Promise<number> {
     verdict.ok ? "accepted" : verdict.reason,
   );
   // ---- P2-U5: a real agent in E2B uses the chain tools ----
+  await spendGuard("the next model step");
   step(
     "the chain check: a real agent reads its account through the chain tools and proposes a swap",
   );
@@ -1246,6 +1269,9 @@ async function main(): Promise<number> {
   }
 
   // ---- P3-U4: a full research cycle by a real agent in E2B ----
+  await spendGuard(
+    "a full research cycle: Scan, Dives, Challenge, Test and Zoom out, each on its model",
+  );
   step("a full research cycle: Scan, Dives, Challenge, Test and Zoom out, each on its model");
   {
     const owner = await client.readContract({
@@ -1261,9 +1287,10 @@ async function main(): Promise<number> {
       args: [BigInt(other)],
     });
     // The owner's goal (P3-U1): Standard intensity on Sonnet 5.5, with its whole daily budget range.
+    // D-369: the live check runs on the cheapest tier that still proves the cycle (Low: Haiku 4.5).
     const translated = translateGoal({
       ...DEFAULT_GOAL_INPUT,
-      modelTier: "MEDIUM",
+      modelTier: "LOW",
       research: { intensity: "STANDARD", dailyBudgetUsdcE6: "5000000" },
     } as GoalInput);
     if (!translated.ok) throw new Error("the live goal does not translate");
@@ -1561,6 +1588,8 @@ async function main(): Promise<number> {
     leaked.length === 0,
     `${logLines.length} lines`,
   );
+  report.spendUsd = Number((await spentUsd()).toFixed(4));
+  console.log(`\nmodel spend of this run: ${String(report.spendUsd)} USD (cap ${SPEND_CAP_USD})`);
   return Object.values(checks).every(Boolean) ? 0 : 1;
 }
 
@@ -1569,7 +1598,12 @@ try {
   code = await main();
 } catch (err) {
   report.error = redactor.redact(err instanceof Error ? err.message : String(err));
-  console.error(`error: ${String(report.error)}`);
+  if (err instanceof SpendCapReached) {
+    report.spendCapReached = true;
+    console.error(`stopped: ${String(report.error)}`);
+    for (const [name, ok] of Object.entries(checks))
+      console.log(`${ok ? "PASS" : "FAIL"}  ${name}`);
+  } else console.error(`error: ${String(report.error)}`);
 } finally {
   for (const fn of cleanup.reverse()) await fn().catch(() => undefined);
   logStream.end();

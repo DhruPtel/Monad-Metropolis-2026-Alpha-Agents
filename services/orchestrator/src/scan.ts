@@ -51,7 +51,8 @@ export const SCAN_DEADLINE_MS = 6 * 60_000;
 /** D-216: an agent is scheduled only with at least this much spendable (0.05 USDC). */
 export { SCAN_MIN_CREDITS_USDC_E6 } from "@alpha-agents/accounting";
 
-export type ScanStop = "COMPLETED" | "BILLING" | "DEADLINE" | "NO_STAGE_RECORD" | "FAILED";
+export type ScanStop =
+  "COMPLETED" | "BILLING" | "TASK_CAP" | "DEADLINE" | "NO_STAGE_RECORD" | "FAILED";
 
 export interface ScanResult extends Record<string, unknown> {
   readonly kind: "scan";
@@ -181,11 +182,13 @@ export async function runScanTask(ctx: ScanContext, taskId: string): Promise<voi
       : null;
     const stopReason: ScanStop = stage
       ? "COMPLETED"
-      : refusedForCredits > 0
-        ? "BILLING"
-        : deadline
-          ? "DEADLINE"
-          : "NO_STAGE_RECORD";
+      : gated.some((c) => c.reason === "TASK_CAP")
+        ? "TASK_CAP"
+        : refusedForCredits > 0
+          ? "BILLING"
+          : deadline
+            ? "DEADLINE"
+            : "NO_STAGE_RECORD";
     const result: ScanResult = {
       kind: "scan",
       agentId: ref.agentId,
@@ -229,9 +232,11 @@ export async function runScanTask(ctx: ScanContext, taskId: string): Promise<voi
         error:
           stopReason === "BILLING"
             ? "billing: the agent's credits ran out during the Scan"
-            : stopReason === "DEADLINE"
-              ? `the Scan passed its ${SCAN_DEADLINE_MS / 60_000} minute deadline and was stopped`
-              : `the Scan ended (${runStatus}) without calling complete_stage${failure ? `: ${failure}` : ""}`,
+            : stopReason === "TASK_CAP"
+              ? "the Scan reached the task's model spend cap (D-369) and was stopped"
+              : stopReason === "DEADLINE"
+                ? `the Scan passed its ${SCAN_DEADLINE_MS / 60_000} minute deadline and was stopped`
+                : `the Scan ended (${runStatus}) without calling complete_stage${failure ? `: ${failure}` : ""}`,
         result,
       });
     ctx.log(

@@ -237,6 +237,8 @@ describe.skipIf(!dbUp)("the discovery loop engine (needs Postgres)", { timeout: 
   /** What the scripted agent does in a follow-up turn of each stage; nothing unless set. */
   let repairs: Partial<Record<StageName, Script>>;
   const repairPrompts: string[] = [];
+  /** P0-SPEND: the gate's spend cap per task; a test lowers it. */
+  let taskCapUsd = 10;
   /** Overrides the fake model's usage per call: tokens and cost. */
   let usage: (
     n: number,
@@ -383,6 +385,7 @@ describe.skipIf(!dbUp)("the discovery loop engine (needs Postgres)", { timeout: 
     repairs = {};
     repairPrompts.length = 0;
     usage = () => ({ tokens: 6_000, cost: 0.004 });
+    taskCapUsd = 10;
     gateway = new MemoryGateway();
     const log = () => undefined;
     provider = new MemoryProvider();
@@ -435,6 +438,7 @@ describe.skipIf(!dbUp)("the discovery loop engine (needs Postgres)", { timeout: 
       litellmUrl: `http://127.0.0.1:${(llm.address() as AddressInfo).port}`,
       probeToken: "p".repeat(43),
       resolve: gateResolver(store, provisioner, credits, cycles),
+      taskCapUsd: () => taskCapUsd,
       tools: { data: servers.data.url, platform: servers.platform.url },
       onModelCall: async (e) => {
         if (!e.usage) return;
@@ -954,6 +958,31 @@ describe.skipIf(!dbUp)("the discovery loop engine (needs Postgres)", { timeout: 
     });
     // The Dive's context named no token for a market theme.
     expect((contexts[1] as { cycle: { token: unknown } }).cycle.token).toBeNull();
+  });
+
+  it("stops the cycle at the task's model spend cap (D-369): the Scan stands, the Dive is capped, the task says so", async () => {
+    await saveGoal({});
+    // Each fake call costs 0.004 USD; the Scan's two calls fit under 0.01, the Dive's second does not.
+    taskCapUsd = 0.01;
+    scripts.DIVE = async (r) => {
+      // A real Hermes ends its run on the gate's final 402; the script does the same.
+      const first = await chat(r.token, r.model);
+      if (first.status === 402) return;
+      contexts.push(ok(await tool(r.token, "platform", "get_research_context", {})));
+      const second = await chat(r.token, r.model);
+      if (second.status === 402) return;
+      await defaults.DIVE(r);
+    };
+    const { task, cycle, stages } = await runCycle();
+    expect(cycle).toMatchObject({ status: "stopped", stopReason: "TASK_CAP" });
+    expect(task.error).toContain("model spend cap");
+    expect(stages.map((s) => [s.stage, s.status, s.stopReason])).toEqual([
+      ["SCAN", "completed", "COMPLETED"],
+      ["DIVE", "capped", "TASK_CAP"],
+    ]);
+    const refused = gate.log.filter((e) => e.reason === "TASK_CAP");
+    expect(refused.length).toBeGreaterThan(0);
+    expect(refused.every((e) => e.status === 402)).toBe(true);
   });
 
   it("stops a stage at its turn cap with that reason, and the cycle records it", async () => {

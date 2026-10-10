@@ -15,6 +15,8 @@ export interface CreateKeyRequest {
 }
 
 export interface GatewayAdmin {
+  /** P0-SPEND: the gateway's total spend and its proxy-wide budget (null when none is set). */
+  globalSpend(): Promise<{ spendUsd: number; maxBudgetUsd: number | null }>;
   createKey(request: CreateKeyRequest): Promise<void>;
   /** True when a key with this alias exists. */
   hasAlias(alias: string): Promise<boolean>;
@@ -80,6 +82,18 @@ export class LiteLLMAdmin implements GatewayAdmin {
   constructor(baseUrl: string, masterKey: string) {
     this.baseUrl = baseUrl.replace(/\/$/, "");
     this.masterKey = masterKey;
+  }
+
+  /** P0-SPEND: the gateway's total spend and its proxy-wide budget, from /global/spend. */
+  async globalSpend(): Promise<{ spendUsd: number; maxBudgetUsd: number | null }> {
+    const reply = await this.call("GET", "/global/spend");
+    if (reply.status !== 200)
+      throw new GatewayError(`LiteLLM /global/spend returned ${reply.status}`, reply.status);
+    const j = reply.json() as { spend?: number; max_budget?: number | null };
+    return {
+      spendUsd: typeof j.spend === "number" ? j.spend : 0,
+      maxBudgetUsd: typeof j.max_budget === "number" ? j.max_budget : null,
+    };
   }
 
   private async call(method: "GET" | "POST", path: string, body?: unknown) {
@@ -178,6 +192,11 @@ export class MemoryGateway implements GatewayAdmin {
 
   async spendLogs(key: string): Promise<SpendRow[]> {
     return [...(this.spend.get(key) ?? [])];
+  }
+  async globalSpend(): Promise<{ spendUsd: number; maxBudgetUsd: number | null }> {
+    let total = 0;
+    for (const rows of this.spend.values()) for (const r of rows) total += r.spendUsd;
+    return { spendUsd: total, maxBudgetUsd: null };
   }
 
   async setBudget(key: string, maxBudgetUsd: number): Promise<void> {

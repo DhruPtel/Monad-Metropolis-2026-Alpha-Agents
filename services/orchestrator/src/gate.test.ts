@@ -7,6 +7,7 @@ import {
   GATE_HEADER,
   type GateLogEntry,
   isProviderOutOfCredit,
+  leaseSpendUsd,
   modelFailure,
   stageCapReached,
   startGate,
@@ -345,5 +346,61 @@ describe("reading a model response's usage (P3-U4)", () => {
     expect(stageCapReached({ ...s, used: { calls: 1, tokens: 1, chargeUsdcE6: 10n } })).toBe(
       "CEILING",
     );
+  });
+});
+
+describe("the task spend cap (P0-SPEND, D-369)", () => {
+  let upstream: ReturnType<typeof createServer>;
+  let gate: Gate;
+  let n = 0;
+  beforeAll(async () => {
+    // Every call costs 0.6 USD by LiteLLM's own figure; the cap for the test is 1 USD.
+    upstream = createServer((_req, res) => {
+      n += 1;
+      res.writeHead(200, { "content-type": "application/json" });
+      res.end(
+        JSON.stringify({
+          id: `chatcmpl-${n}`,
+          choices: [{ message: { content: "ok" } }],
+          usage: { prompt_tokens: 10, completion_tokens: 1, cost: 0.6 },
+        }),
+      );
+    });
+    await new Promise<void>((r) => upstream.listen(0, "127.0.0.1", r));
+    const token = sha256Hex("token-agent-7-ffffffffffffffffffffffff");
+    gate = await startGate({
+      litellmUrl: `http://127.0.0.1:${(upstream.address() as AddressInfo).port}`,
+      probeToken: "probe-token-cccccccccccccccccccccccccc",
+      resolve: async (hash) =>
+        hash === token
+          ? { lease: lease("L7", 7), virtualKey: "sk-agent-seven", tier: "base" }
+          : null,
+      taskCapUsd: 1,
+    });
+  });
+  afterAll(async () => {
+    await gate.close();
+    await new Promise((r) => upstream.close(r));
+  });
+  const call = () =>
+    fetch(`${gate.url}/v1/chat/completions`, {
+      method: "POST",
+      headers: { [GATE_HEADER]: "token-agent-7-ffffffffffffffffffffffff" },
+      body: "{}",
+    });
+
+  it("refuses a lease's model calls once their cost reaches the cap, with a final 402, and reaches LiteLLM no more", async () => {
+    expect((await call()).status).toBe(200);
+    expect((await call()).status).toBe(200);
+    expect(leaseSpendUsd(gate.log, "L7")).toBeCloseTo(1.2, 6);
+    const refused = await call();
+    expect(refused.status).toBe(402);
+    const body = (await refused.json()) as { error: { code: string; message: string } };
+    expect(body.error.code).toBe("task_cap");
+    expect(body.error.message).toContain("1.00 USD");
+    expect(gate.callsFor("L7").at(-1)).toMatchObject({ status: 402, reason: "TASK_CAP" });
+    expect(n).toBe(2);
+    // Another lease is not held back by this one's spend.
+    expect(leaseSpendUsd(gate.log, "L8")).toBe(0);
   });
 });

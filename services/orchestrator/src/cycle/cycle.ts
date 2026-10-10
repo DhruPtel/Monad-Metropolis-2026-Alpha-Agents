@@ -169,7 +169,7 @@ export async function runCycleTask(ctx: CycleContext, taskId: string): Promise<v
     await engine.settleAll();
     await ctx.cycles.finishCycle(cycle.cycleId, stop.status, stop.reason);
     const result = await summary(ctx, cycle.cycleId, opened);
-    if (stop.status === "failed")
+    if (stop.status === "failed" || stop.reason === "TASK_CAP")
       await ctx.store.finishTask(taskId, { error: stop.message ?? stop.reason, result });
     else await ctx.store.finishTask(taskId, { result });
     ctx.log(
@@ -238,7 +238,8 @@ class Engine {
     if (
       scan.end.status === "stopped" ||
       scan.end.status === "failed" ||
-      scan.end.status === "skipped"
+      scan.end.status === "skipped" ||
+      scan.end.stopReason === "TASK_CAP"
     )
       return this.halt(scan.end);
     const hasScanBrief = await this.hasBrief(scan.run, "SCAN");
@@ -264,7 +265,8 @@ class Engine {
       if (
         dive.end.status === "stopped" ||
         dive.end.status === "failed" ||
-        dive.end.status === "skipped"
+        dive.end.status === "skipped" ||
+        dive.end.stopReason === "TASK_CAP"
       )
         return this.halt(dive.end);
       if (await this.hasBrief(dive.run, "THEME")) dived.push(theme.code);
@@ -274,7 +276,8 @@ class Engine {
       if (
         challenge.end.status === "stopped" ||
         challenge.end.status === "failed" ||
-        challenge.end.status === "skipped"
+        challenge.end.status === "skipped" ||
+        challenge.end.stopReason === "TASK_CAP"
       )
         return this.halt(challenge.end);
     } else if (dives.length > 0) await this.skip("CHALLENGE", "NOTHING_MATERIAL");
@@ -284,7 +287,8 @@ class Engine {
     if (
       zoom.end.status === "stopped" ||
       zoom.end.status === "failed" ||
-      zoom.end.status === "skipped"
+      zoom.end.status === "skipped" ||
+      zoom.end.stopReason === "TASK_CAP"
     )
       return this.halt(zoom.end);
     return {
@@ -298,7 +302,11 @@ class Engine {
     return {
       status: failed ? ("failed" as const) : ("stopped" as const),
       reason: end.stopReason,
-      ...(failed ? { message: `a stage failed: ${end.stopReason}` } : {}),
+      ...(failed
+        ? { message: `a stage failed: ${end.stopReason}` }
+        : end.stopReason === "TASK_CAP"
+          ? { message: "the task reached its model spend cap (D-369); the stages before it stand" }
+          : {}),
     };
   }
 
@@ -488,7 +496,10 @@ class Engine {
   private async watch(run: StageRun, runId: string, deadline: number): Promise<StageEnd> {
     const capOf = (e: GateLogEntry) =>
       e.stageRunId === run.stageRunId &&
-      (e.reason === "TURN_CAP" || e.reason === "TOKEN_CAP" || e.reason === "CEILING")
+      (e.reason === "TURN_CAP" ||
+        e.reason === "TOKEN_CAP" ||
+        e.reason === "CEILING" ||
+        e.reason === "TASK_CAP")
         ? e.reason
         : null;
     for (;;) {

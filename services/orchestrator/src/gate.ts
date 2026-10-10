@@ -38,7 +38,7 @@ export interface GateLogEntry {
    * `PROVIDER_OUT_OF_CREDIT` so far: the platform's own provider account is
    * empty, which no agent's credits can fix.
    */
-  readonly reason?: "PROVIDER_OUT_OF_CREDIT" | StageCapReason;
+  readonly reason?: "PROVIDER_OUT_OF_CREDIT" | StageCapReason | TaskCapReason;
   /** P3-U4: the cycle's stage run the call was made under, when there is one. */
   readonly stageRunId?: string;
   /** P3-U4: the model alias LiteLLM served (its model group), from the response. */
@@ -49,6 +49,29 @@ export interface GateLogEntry {
 
 /** Why the gate refused a model call under a stage: the stage reached one of its caps (P3-U4). */
 export type StageCapReason = "TURN_CAP" | "TOKEN_CAP" | "CEILING";
+
+/**
+ * P0-SPEND (D-369): a task's model spend, as LiteLLM reported each call's
+ * cost, reached the cap every task runs under; the gate refuses the rest.
+ */
+export type TaskCapReason = "TASK_CAP";
+export const DEFAULT_TASK_CAP_USD = 10;
+
+/** The answer to a model call past the task's spend cap: a final 402, as a stage cap. */
+export const taskCapBody = (capUsd: number) => ({
+  error: {
+    message: `This task has reached its model spend cap of ${capUsd.toFixed(2)} USD. The task is over.`,
+    type: "insufficient_quota",
+    code: "task_cap",
+  },
+});
+
+/** What a lease's model calls have cost so far, from the gate's own records of LiteLLM's usage. */
+export function leaseSpendUsd(log: readonly GateLogEntry[], leaseId: string): number {
+  let total = 0;
+  for (const e of log) if (e.leaseId === leaseId && e.usage) total += e.usage.costUsd;
+  return total;
+}
 
 /** One model call's usage as LiteLLM reports it in the response (P3-U4). */
 export interface ModelUsage {
@@ -207,6 +230,8 @@ export interface GateOptions {
    * its response ends, so the next call's cap check sees it.
    */
   readonly onModelCall?: (entry: GateLogEntry & { readonly lease: Lease }) => Promise<void>;
+  /** P0-SPEND (D-369): the most a lease's model calls may cost in USD; 10 unless a test says otherwise. */
+  readonly taskCapUsd?: number | (() => number);
 }
 
 export interface Gate {
@@ -253,6 +278,10 @@ function forwardHeaders(
 export async function startGate(options: GateOptions, port = 0): Promise<Gate> {
   const log: GateLogEntry[] = [];
   const litellm = new URL(options.litellmUrl);
+  const capUsd = () =>
+    typeof options.taskCapUsd === "function"
+      ? options.taskCapUsd()
+      : (options.taskCapUsd ?? DEFAULT_TASK_CAP_USD);
 
   const server = createServer((req: IncomingMessage, res: ServerResponse) => {
     const started = Date.now();
@@ -347,6 +376,13 @@ export async function startGate(options: GateOptions, port = 0): Promise<Gate> {
         }
       }
       const lease = creds.lease;
+      // D-369: every task's model calls stop at the cap, whatever its stage or credits say.
+      if (req.method === "POST" && leaseSpendUsd(log, lease.leaseId) >= capUsd()) {
+        record(402, "TASK_CAP");
+        res.writeHead(402, { "content-type": "application/json" });
+        res.end(JSON.stringify(taskCapBody(capUsd())));
+        return;
+      }
 
       const target = new URL(req.url ?? "/", litellm);
       const proxied = httpRequest(
