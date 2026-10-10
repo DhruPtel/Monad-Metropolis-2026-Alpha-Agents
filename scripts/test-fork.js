@@ -16,6 +16,7 @@ const { deployLocal, isTransientForkError } = await import("./lib/agent-nft.js")
 const { deployAccountFactoryLocal } = await import("./lib/account-factory.js");
 const { deployFundLocal } = await import("./lib/fund.js");
 const { deployCustodyV3Local } = await import("./lib/custody-v3.js");
+const { deployExecutorV3Local } = await import("./lib/executor-v3.js");
 const { verifyAddressBook } = await import("./lib/verify-addresses.js");
 const { MONAD_DIR } = await import("./lib/paths.js");
 
@@ -104,6 +105,15 @@ try {
       fund: { tokenRegistry: fund.tokenRegistry, oracle: fund.oracle },
     });
     console.log(`${custodyV3.factory}\n${custodyV3.implementation}`);
+    // F-U4: Executor v3, its registered adapter and registry, the oracle over it, and the factory bound to it.
+    console.log("\nExecutor v3 and its set on the test fork:");
+    const executorV3 = await deployExecutorV3Local({
+      quiet: true,
+      tokenRegistry: fund.tokenRegistry,
+    });
+    console.log(
+      `${executorV3.executor} (${executorV3.sizes.executor} bytes)\n${executorV3.routeAdapter} (${executorV3.sizes.routeAdapter} bytes)\n${executorV3.protocolRegistry} (${executorV3.sizes.protocolRegistry} bytes, ${executorV3.corePools} pools)\n${executorV3.oracle} (${executorV3.sizes.oracle} bytes)\n${executorV3.factory}\n${executorV3.implementation}`,
+    );
   } catch (err) {
     deployed = false;
     console.error(`error: ${err instanceof Error ? err.message : String(err)}`);

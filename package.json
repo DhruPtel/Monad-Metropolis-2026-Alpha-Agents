@@ -57,6 +57,7 @@
     "fund:demo": "node scripts/fund-demo.js",
     "deploy:custody-v3": "node scripts/deploy-custody-v3.js",
     "custody:v3:demo": "node scripts/custody-v3-demo.js",
+    "deploy:executor-v3": "node scripts/deploy-executor-v3.js",
     "deploy:testnet": "node scripts/deploy-testnet.js",
     "verify:testnet": "node scripts/verify-testnet.js",
     "rpc:probe": "node scripts/rpc-probe.js",

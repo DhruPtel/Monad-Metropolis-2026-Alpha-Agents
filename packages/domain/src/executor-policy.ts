@@ -86,3 +86,38 @@ export function executorPolicyHash(p: ExecutorPolicy): `0x${string}` {
     ),
   );
 }
+
+/**
+ * Executor v3 trade gas (F-U4, A-69), from evidence/f-u4/GAS.md: on Monad's real
+ * feeds a trade's gas grows with the tokens the account holds (each is valued
+ * several times per trade) more than with the route's hops. Monad charges the
+ * limit a transaction sets (L-136), so the signer sets the smallest limit with a
+ * margin over the measured maxima: 29% over one hop with four tokens
+ * (2,128,234), 29% over three hops with six (2,974,751).
+ */
+export const EXECUTOR_V3_GAS = Object.freeze({
+  base: 1_000_000,
+  perHop: 150_000,
+  perHeldToken: 400_000,
+  maxHops: 3,
+  maxHeldTokens: 16,
+});
+
+/** The gas limit for an Executor v3 swap of `hops` pools on an account holding `heldTokensAfter` tokens once it settles. */
+export function executorV3SwapGasLimit(hops: number, heldTokensAfter: number): bigint {
+  if (!Number.isInteger(hops) || hops < 1 || hops > EXECUTOR_V3_GAS.maxHops)
+    throw new RangeError(`a route has 1 to ${EXECUTOR_V3_GAS.maxHops} hops, not ${hops}`);
+  if (
+    !Number.isInteger(heldTokensAfter) ||
+    heldTokensAfter < 1 ||
+    heldTokensAfter > EXECUTOR_V3_GAS.maxHeldTokens
+  )
+    throw new RangeError(
+      `an account holds 1 to ${EXECUTOR_V3_GAS.maxHeldTokens} tokens, not ${heldTokensAfter}`,
+    );
+  return BigInt(
+    EXECUTOR_V3_GAS.base +
+      EXECUTOR_V3_GAS.perHop * hops +
+      EXECUTOR_V3_GAS.perHeldToken * heldTokensAfter,
+  );
+}

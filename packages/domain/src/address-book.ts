@@ -71,6 +71,8 @@ export const ADDRESS_BOOK_IDS = [
   "route_adapter_v3",
   "account_factory_v3",
   "personal_account_v3_implementation",
+  "executor_v3",
+  "executor_route_adapter_v3",
 ] as const;
 export type AddressBookId = (typeof ADDRESS_BOOK_IDS)[number];
 
@@ -1311,21 +1313,22 @@ const CANARY_DEPLOYED: readonly AddressEntry[] = [
 ];
 
 /**
- * F-U2: the fund agent's v3 set, beside v1 and v2. Deterministic CREATE2 with
- * the `fund-<name>.v3` salts; the addresses follow from the seeds, all seven
- * core candidates having passed their screens at deploy time
- * (scripts/lib/fund.js). F-U3 step 0 moved the daily exchange-rate legs' bound
- * from 86,700 to 90,000 seconds (A-67), which changed the seeds and so every
- * address: the set is deployed again beside F-U2's, which stays on the playtest
- * fork unused. The RouteAdapter's executor is anvil account 0 until F-U4
- * deploys the adapter bound to Executor v3.
+ * F-U2: the fund agent's v3 TokenRegistry and the demo RouteAdapter, beside v1
+ * and v2. Deterministic CREATE2 with the `fund-<name>.v3` salts; the addresses
+ * follow from the seeds, all seven core candidates having passed their screens
+ * at deploy time (scripts/lib/fund.js). F-U3 step 0 moved the daily
+ * exchange-rate legs' bound from 86,700 to 90,000 seconds (A-67), which changed
+ * the seeds and so every address: the set was deployed again beside F-U2's.
+ * F-U4 then gave the Executor its own ProtocolRegistryV3 and OracleAdapterV3
+ * (the next section, D-363), so the F-U2 registry (0x4eB383cA21819119fB9852a23F4f173208CAC098)
+ * and oracle (0x82df37a295f0387e9d83788213CfC70E944EEaBD) stay on the playtest
+ * fork unused; the demo RouteAdapter still reads that registry, with anvil
+ * account 0 as its executor.
  */
 const FUND_SOURCE = "Planv2/FINAL_PLAN.md > 0.4 Contract changes on Monad";
 const FUND_IDS = [
   ["token_registry_v3", "TokenRegistry (v3)"],
-  ["protocol_registry_v3", "ProtocolRegistryV3"],
-  ["oracle_adapter_v3", "OracleAdapterV3"],
-  ["route_adapter_v3", "RouteAdapter (v3)"],
+  ["route_adapter_v3", "RouteAdapter (v3, demo)"],
 ] as const;
 const FUND_LOCAL_FACTS: Readonly<
   Record<(typeof FUND_IDS)[number][0], readonly [Address, number, string]>
@@ -1333,22 +1336,12 @@ const FUND_LOCAL_FACTS: Readonly<
   token_registry_v3: [
     "0x171F36056B2449F0FBB9923676AffAb14A1cf55C",
     19517,
-    "Core lane seeded with USDC, WMON, AUSD, WBTC, cbBTC, WETH and shMON, each re-screened at deploy time, with the A-67 feed bounds; screener anvil account 3",
-  ],
-  protocol_registry_v3: [
-    "0x4eB383cA21819119fB9852a23F4f173208CAC098",
-    19718,
-    "Eight core pools on Uniswap v3, PancakeSwap v3 and hookless Uniswap v4, each confirmed by its venue",
-  ],
-  oracle_adapter_v3: [
-    "0x82df37a295f0387e9d83788213CfC70E944EEaBD",
-    10235,
-    "One feed per class F token with its own staleness bound; on the fork every class F feed is kept fresh (D-237, F-U3 step 0)",
+    "Core lane seeded with USDC, WMON, AUSD, WBTC, cbBTC, WETH and shMON, each re-screened at deploy time, with the A-67 feed bounds; screener anvil account 3; read by Executor v3, its registry and its oracle",
   ],
   route_adapter_v3: [
     "0x509450abceD1123007F1DafCeFe4F38B9817dFb7",
     12727,
-    "Demo executor anvil account 0, not registered; F-U4 deploys and registers the adapter bound to Executor v3",
+    "Demo adapter with anvil account 0 as its executor, over the F-U2 registry; not registered. Executor v3's own adapter is executor_route_adapter_v3",
   ],
 };
 const FUND_LOCAL: readonly AddressEntry[] = FUND_IDS.map(([id, label]) => {
@@ -1371,10 +1364,86 @@ const FUND_LOCAL: readonly AddressEntry[] = FUND_IDS.map(([id, label]) => {
   };
 });
 /**
- * F-U3: the custody core v3, AccountFactoryV3 and its PersonalAccountV3
- * implementation, bound to the v3 set above. Deterministic CREATE2 with the
- * `account-factory.v3` salt (scripts/lib/custody-v3.js); the Executor is unset
- * until F-U4 deploys Executor v3 and this factory again with it given.
+ * F-U4: Executor v3 and the set it trades through (D-361, D-363): the Executor
+ * (CREATE2, `executor.v3`), its RouteAdapter and a ProtocolRegistryV3 that
+ * lists the adapter as active from its construction (both from one
+ * ExecutorSetDeployer, CREATE2 `executor-set.v3`, at its nonces 1 and 2), and
+ * an OracleAdapterV3 over that registry (CREATE2, `fund-oracle.v3` with the new
+ * registry). Every address follows from the arguments, so `pnpm
+ * deploy:executor-v3` lands the same contracts on the playtest fork and on
+ * `pnpm test:fork`'s fork; the launch policy's hash is
+ * 0xb5a9fa71ad68d9ba87761d235f535f9d9a6f2088b2476e43b81468573c59a3bb.
+ */
+const EXECUTOR_V3_SOURCE = "Planv2/FINAL_PLAN.md > 0.4 Contract changes on Monad, 4.1.7 Executor";
+const EXECUTOR_V3_IDS = [
+  ["executor_v3", "Executor v3"],
+  ["executor_route_adapter_v3", "RouteAdapter (Executor v3's)"],
+  ["protocol_registry_v3", "ProtocolRegistryV3"],
+  ["oracle_adapter_v3", "OracleAdapterV3"],
+] as const;
+const EXECUTOR_V3_LOCAL_FACTS: Readonly<
+  Record<(typeof EXECUTOR_V3_IDS)[number][0], readonly [Address, number, string]>
+> = {
+  executor_v3: [
+    "0xe88959BAA4511E3a5Cf74E6b8777dd2491aA02c8",
+    39165,
+    "Launch policy: 10% per trade, 40% per token, 10% USDC floor, 0.5% and 1% slippage, class A 15% and 50% by basis, 20 trades and 100% turnover per rolling day, 120 s deadlines; bound to account_factory_v3 and protocol_registry_v3; admin anvil account 0, guardian anvil account 4",
+  ],
+  executor_route_adapter_v3: [
+    "0xb56Ba7888F4F8C6Fe6F2B6A7C5ddD4B7B17d7B3A",
+    12727,
+    'Executor v3\'s adapter, active in protocol_registry_v3 from its construction under keccak256("route-adapter") (D-363); only the Executor may call it',
+  ],
+  protocol_registry_v3: [
+    "0xDd230457289fe2988F44E0c760DA80e00825d191",
+    19718,
+    "Eight core pools on Uniswap v3, PancakeSwap v3 and hookless Uniswap v4, each confirmed by its venue, and Executor v3's RouteAdapter active from construction; admin anvil 0, guardian anvil 4, screener anvil 3",
+  ],
+  oracle_adapter_v3: [
+    "0xA5eB497331f28728D4f3e97dC0aF9d99CB3469f0",
+    10235,
+    "One feed per class F token with its own staleness bound, over the registry above; on the fork every class F feed is kept fresh (D-237, F-U3 step 0)",
+  ],
+};
+const EXECUTOR_V3_LOCAL: readonly AddressEntry[] = EXECUTOR_V3_IDS.map(([id, label]) => {
+  const [address, codeSize, note] = EXECUTOR_V3_LOCAL_FACTS[id];
+  return {
+    id,
+    label,
+    kind: "platform",
+    address,
+    status: "verified",
+    verification: {
+      chainId: LOCAL_FORK_CHAIN_ID,
+      block: FORK_BLOCK,
+      codeSize,
+      deployedBy: "pnpm deploy:executor-v3",
+    },
+    source: EXECUTOR_V3_SOURCE,
+    openQuestion: null,
+    note,
+  };
+});
+const executorV3Undeployed = (note: string): AddressEntry[] =>
+  EXECUTOR_V3_IDS.map(([id, label]) => ({
+    id,
+    label,
+    kind: "platform",
+    address: null,
+    status: "unverified",
+    verification: null,
+    source: EXECUTOR_V3_SOURCE,
+    openQuestion: null,
+    note,
+  }));
+/**
+ * F-U3 and F-U4: the custody core v3, AccountFactoryV3 and its
+ * PersonalAccountV3 implementation. Deterministic CREATE2 with the
+ * `account-factory.v3` salt (scripts/lib/custody-v3.js), the arguments being
+ * the registry, the oracle and the Executor: F-U4 deployed the factory again
+ * with Executor v3 and its oracle given (D-361), so the F-U3 factory at
+ * 0x8A7F8C0bc4C8f00Cbdab8EAAa130B8767058B9d5 (Executor unset) and its
+ * implementation stay on the playtest fork unused.
  */
 const CUSTODY_V3_SOURCE =
   "Planv2/FINAL_PLAN.md > 0.4 Contract changes on Monad, 4.1.6 Custody core";
@@ -1386,14 +1455,14 @@ const CUSTODY_V3_LOCAL_FACTS: Readonly<
   Record<(typeof CUSTODY_V3_IDS)[number][0], readonly [Address, number, string]>
 > = {
   account_factory_v3: [
-    "0x8A7F8C0bc4C8f00Cbdab8EAAa130B8767058B9d5",
+    "0x8fd715548256E1b5919bc336Ac120337b84b9697",
     11645,
-    "Bound to the v3 TokenRegistry and OracleAdapterV3 with anvil roles, 100/2,000 USDC caps and anvil accounts 6 to 9 allowed; Executor unset until F-U4",
+    "Bound to the v3 TokenRegistry, oracle_adapter_v3 and executor_v3 at deployment, with anvil roles, 100/2,000 USDC caps and anvil accounts 6 to 9 allowed",
   ],
   personal_account_v3_implementation: [
-    "0x84a1233476BC5F494Cf15BF4d9fc161EB1E278aD",
+    "0x2D1E785ECF940adcd89790517F994bf01d114Cc5",
     41205,
-    "Deployed by AccountFactoryV3's constructor; every PersonalAccountV3 is a clone of it, holding up to 16 registered tokens",
+    "Deployed by AccountFactoryV3's constructor; every PersonalAccountV3 is a clone of it, holding up to 16 registered tokens, traded only by executor_v3",
   ],
 };
 const CUSTODY_V3_LOCAL: readonly AddressEntry[] = CUSTODY_V3_IDS.map(([id, label]) => {
@@ -1408,7 +1477,7 @@ const CUSTODY_V3_LOCAL: readonly AddressEntry[] = CUSTODY_V3_IDS.map(([id, label
       chainId: LOCAL_FORK_CHAIN_ID,
       block: FORK_BLOCK,
       codeSize,
-      deployedBy: "pnpm deploy:custody-v3",
+      deployedBy: "pnpm deploy:executor-v3",
     },
     source: CUSTODY_V3_SOURCE,
     openQuestion: null,
@@ -1441,7 +1510,14 @@ const fundUndeployed = (note: string): AddressEntry[] =>
   }));
 
 export const ADDRESS_BOOK: Readonly<Record<EnvironmentId, readonly AddressEntry[]>> = {
-  local: [...MAINNET, AGENT_NFT_LOCAL, ...CUSTODY_LOCAL, ...FUND_LOCAL, ...CUSTODY_V3_LOCAL],
+  local: [
+    ...MAINNET,
+    AGENT_NFT_LOCAL,
+    ...CUSTODY_LOCAL,
+    ...FUND_LOCAL,
+    ...EXECUTOR_V3_LOCAL,
+    ...CUSTODY_V3_LOCAL,
+  ],
   testnet: [
     ...TESTNET.filter((e) => !TESTNET_DEPLOYED.some((d) => d.id === e.id)),
     ...TESTNET_DEPLOYED,
@@ -1457,6 +1533,7 @@ export const ADDRESS_BOOK: Readonly<Record<EnvironmentId, readonly AddressEntry[
       note: "Not deployed on testnet: testnet has no Uniswap v3 (D-248)",
     },
     ...fundUndeployed("The v3 set reaches testnet in F-U13"),
+    ...executorV3Undeployed("Executor v3 and its set reach testnet in F-U13"),
     ...custodyV3Undeployed("The custody core v3 reaches testnet in F-U13"),
   ],
   beta: [
@@ -1464,6 +1541,7 @@ export const ADDRESS_BOOK: Readonly<Record<EnvironmentId, readonly AddressEntry[
     agentNftUndeployed("Mainnet deployment belongs to PB-U1"),
     ...custodyUndeployed("Mainnet deployment belongs to PB-U1"),
     ...fundUndeployed("Mainnet deployment belongs to PB-U1"),
+    ...executorV3Undeployed("Mainnet deployment belongs to PB-U1"),
     ...custodyV3Undeployed("Mainnet deployment belongs to PB-U1"),
   ],
   // The P2-EC mainnet canary (D-250, D-251): mainnet's external entries and its own throwaway contracts.
@@ -1471,6 +1549,7 @@ export const ADDRESS_BOOK: Readonly<Record<EnvironmentId, readonly AddressEntry[
     ...MAINNET,
     ...CANARY_DEPLOYED,
     ...fundUndeployed("Not part of P2-EC's canary; F-U13 reruns the canary with the v3 set"),
+    ...executorV3Undeployed("Not part of P2-EC's canary; F-U13 reruns the canary with the v3 set"),
     ...custodyV3Undeployed("Not part of P2-EC's canary; F-U13 reruns the canary with the v3 set"),
   ],
 };

@@ -44,7 +44,7 @@ contract DeployFund is DeployScope {
         address pool;
     }
 
-    function run() external {
+    function run() external virtual {
         string memory json = vm.envString("FUND_CONFIG");
         TokenRegistry tokens = _deployTokens(json);
         ProtocolRegistryV3 pools = _deployPools(json, tokens);
