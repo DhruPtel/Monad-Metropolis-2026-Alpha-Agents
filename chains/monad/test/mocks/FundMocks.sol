@@ -87,6 +87,7 @@ contract MockV3Pool {
 
     function swap(address recipient, bool zeroForOne, int256 amountSpecified, uint160, bytes calldata data)
         external
+        virtual
         returns (int256 amount0, int256 amount1)
     {
         require(amountSpecified > 0, "exact input only");
