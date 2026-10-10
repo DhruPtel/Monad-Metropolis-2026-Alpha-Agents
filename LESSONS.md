@@ -1420,3 +1420,17 @@ What happened: The trade flow's v3 unit tests refused the first v3 swap with `GA
 Cause: The gas blocker now prices the route's own limit, so v3 swaps cost two to six times a v2 swap's gas at the same fee; the fixture kept the v2 figure.
 Fix: The v3 tests fund the key for three times the swap's cost; the fork tests top the key up as the local flow does.
 Lesson: When a limit becomes a function of the request, every fixture that encoded the old constant has to move with it; put the figure behind the same function the code uses (`executorV3SwapGasLimit`) instead of a literal.
+
+## L-190: A second decision shape with the same kind broke every Zoom out
+Unit: F-U6 (2026-10-10)
+What happened: After the Zoom out's decision schema gained a second `PROPOSE` variant (a target portfolio beside the two-asset plan), every cycle test failed at `complete_stage` with the tool server's `INTERNAL` error, and the deterministic Test's own refusals never reached the agent.
+Cause: The decision was a zod `discriminatedUnion("kind", ...)`, and both proposal shapes carry `kind: "PROPOSE"`; zod refuses a discriminator value that two members share, so parsing the tool's input threw a plain error, which the tool server reports as `INTERNAL` and the cycle as a failed stage.
+Fix: The decision is a plain `z.union` of the three shapes, which zod tries in order; the two proposals differ by `template` (services/platform-tools/src/briefs.ts).
+Lesson: A discriminated union needs one member per discriminator value; when two shapes share a kind, discriminate on the next field or use a plain union, and keep one test that parses every variant of a tool's input.
+
+## L-191: A method added to the orchestrator source never reached the page
+Unit: F-U6 (2026-10-10)
+What happened: The console's "Check plan" and the portfolio "Set plan" answered "The orchestrator is not configured" in the e2e run, while the fixture answered the routes correctly when called directly. The toast disappeared before the failure's snapshot, so the first run only showed that no findings appeared.
+Cause: `apiAgentsSource` composes the agents source by naming each of the orchestrator source's methods one by one; the two new methods were added to the inner object and not to that list, so the server actions found them undefined. No unit test checked the composition.
+Fix: The two methods are listed in the composition, and a unit test now calls them through the composed source and checks their routes (apps/console/src/app/agents/extension.ts, extension.test.ts). The e2e test also asserts the toast's text right after the click, so a failure names what the page said.
+Lesson: When a source is composed by naming methods, add every new method to the composition and to a test that reaches it through the composed object; and in a browser test, assert the message a failure shows before asserting what success renders, so the message survives the timeout.
