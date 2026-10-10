@@ -55,6 +55,8 @@
     "deploy:account-factory": "node scripts/deploy-account-factory.js",
     "deploy:fund": "node scripts/deploy-fund.js",
     "fund:demo": "node scripts/fund-demo.js",
+    "deploy:custody-v3": "node scripts/deploy-custody-v3.js",
+    "custody:v3:demo": "node scripts/custody-v3-demo.js",
     "deploy:testnet": "node scripts/deploy-testnet.js",
     "verify:testnet": "node scripts/verify-testnet.js",
     "rpc:probe": "node scripts/rpc-probe.js",

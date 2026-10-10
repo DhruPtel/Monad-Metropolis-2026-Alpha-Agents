@@ -69,6 +69,8 @@ export const ADDRESS_BOOK_IDS = [
   "protocol_registry_v3",
   "oracle_adapter_v3",
   "route_adapter_v3",
+  "account_factory_v3",
+  "personal_account_v3_implementation",
 ] as const;
 export type AddressBookId = (typeof ADDRESS_BOOK_IDS)[number];
 
@@ -1368,6 +1370,63 @@ const FUND_LOCAL: readonly AddressEntry[] = FUND_IDS.map(([id, label]) => {
     note,
   };
 });
+/**
+ * F-U3: the custody core v3, AccountFactoryV3 and its PersonalAccountV3
+ * implementation, bound to the v3 set above. Deterministic CREATE2 with the
+ * `account-factory.v3` salt (scripts/lib/custody-v3.js); the Executor is unset
+ * until F-U4 deploys Executor v3 and this factory again with it given.
+ */
+const CUSTODY_V3_SOURCE =
+  "Planv2/FINAL_PLAN.md > 0.4 Contract changes on Monad, 4.1.6 Custody core";
+const CUSTODY_V3_IDS = [
+  ["account_factory_v3", "AccountFactoryV3"],
+  ["personal_account_v3_implementation", "PersonalAccountV3 implementation"],
+] as const;
+const CUSTODY_V3_LOCAL_FACTS: Readonly<
+  Record<(typeof CUSTODY_V3_IDS)[number][0], readonly [Address, number, string]>
+> = {
+  account_factory_v3: [
+    "0x8A7F8C0bc4C8f00Cbdab8EAAa130B8767058B9d5",
+    11645,
+    "Bound to the v3 TokenRegistry and OracleAdapterV3 with anvil roles, 100/2,000 USDC caps and anvil accounts 6 to 9 allowed; Executor unset until F-U4",
+  ],
+  personal_account_v3_implementation: [
+    "0x84a1233476BC5F494Cf15BF4d9fc161EB1E278aD",
+    41205,
+    "Deployed by AccountFactoryV3's constructor; every PersonalAccountV3 is a clone of it, holding up to 16 registered tokens",
+  ],
+};
+const CUSTODY_V3_LOCAL: readonly AddressEntry[] = CUSTODY_V3_IDS.map(([id, label]) => {
+  const [address, codeSize, note] = CUSTODY_V3_LOCAL_FACTS[id];
+  return {
+    id,
+    label,
+    kind: "platform",
+    address,
+    status: "verified",
+    verification: {
+      chainId: LOCAL_FORK_CHAIN_ID,
+      block: FORK_BLOCK,
+      codeSize,
+      deployedBy: "pnpm deploy:custody-v3",
+    },
+    source: CUSTODY_V3_SOURCE,
+    openQuestion: null,
+    note,
+  };
+});
+const custodyV3Undeployed = (note: string): AddressEntry[] =>
+  CUSTODY_V3_IDS.map(([id, label]) => ({
+    id,
+    label,
+    kind: "platform",
+    address: null,
+    status: "unverified",
+    verification: null,
+    source: CUSTODY_V3_SOURCE,
+    openQuestion: null,
+    note,
+  }));
 const fundUndeployed = (note: string): AddressEntry[] =>
   FUND_IDS.map(([id, label]) => ({
     id,
@@ -1382,7 +1441,7 @@ const fundUndeployed = (note: string): AddressEntry[] =>
   }));
 
 export const ADDRESS_BOOK: Readonly<Record<EnvironmentId, readonly AddressEntry[]>> = {
-  local: [...MAINNET, AGENT_NFT_LOCAL, ...CUSTODY_LOCAL, ...FUND_LOCAL],
+  local: [...MAINNET, AGENT_NFT_LOCAL, ...CUSTODY_LOCAL, ...FUND_LOCAL, ...CUSTODY_V3_LOCAL],
   testnet: [
     ...TESTNET.filter((e) => !TESTNET_DEPLOYED.some((d) => d.id === e.id)),
     ...TESTNET_DEPLOYED,
@@ -1398,18 +1457,21 @@ export const ADDRESS_BOOK: Readonly<Record<EnvironmentId, readonly AddressEntry[
       note: "Not deployed on testnet: testnet has no Uniswap v3 (D-248)",
     },
     ...fundUndeployed("The v3 set reaches testnet in F-U13"),
+    ...custodyV3Undeployed("The custody core v3 reaches testnet in F-U13"),
   ],
   beta: [
     ...MAINNET,
     agentNftUndeployed("Mainnet deployment belongs to PB-U1"),
     ...custodyUndeployed("Mainnet deployment belongs to PB-U1"),
     ...fundUndeployed("Mainnet deployment belongs to PB-U1"),
+    ...custodyV3Undeployed("Mainnet deployment belongs to PB-U1"),
   ],
   // The P2-EC mainnet canary (D-250, D-251): mainnet's external entries and its own throwaway contracts.
   canary: [
     ...MAINNET,
     ...CANARY_DEPLOYED,
     ...fundUndeployed("Not part of P2-EC's canary; F-U13 reruns the canary with the v3 set"),
+    ...custodyV3Undeployed("Not part of P2-EC's canary; F-U13 reruns the canary with the v3 set"),
   ],
 };
 

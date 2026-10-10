@@ -42,8 +42,8 @@ export function runForge(args, env) {
   });
 }
 
-/** Gas price args from the fork's own latest block. @param {string} url */
-async function feeArgs(url) {
+/** Gas price args from the fork's own latest block (L-43). @param {string} url */
+export async function feeArgs(url) {
   const res = await fetch(url, {
     method: "POST",
     headers: { "content-type": "application/json" },

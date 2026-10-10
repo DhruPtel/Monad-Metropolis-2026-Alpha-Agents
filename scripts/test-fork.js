@@ -15,6 +15,7 @@ const { loadLocalConfig, loadRootEnv } = await import("./lib/config.js");
 const { deployLocal, isTransientForkError } = await import("./lib/agent-nft.js");
 const { deployAccountFactoryLocal } = await import("./lib/account-factory.js");
 const { deployFundLocal } = await import("./lib/fund.js");
+const { deployCustodyV3Local } = await import("./lib/custody-v3.js");
 const { verifyAddressBook } = await import("./lib/verify-addresses.js");
 const { MONAD_DIR } = await import("./lib/paths.js");
 
@@ -96,6 +97,13 @@ try {
     console.log(
       `${fund.tokenRegistry}\n${fund.protocolRegistry}\n${fund.oracle}\n${fund.routeAdapter}`,
     );
+    // F-U3: the custody core v3, bound to that set.
+    console.log("\nAccountFactoryV3 and the PersonalAccountV3 implementation on the test fork:");
+    const custodyV3 = await deployCustodyV3Local({
+      quiet: true,
+      fund: { tokenRegistry: fund.tokenRegistry, oracle: fund.oracle },
+    });
+    console.log(`${custodyV3.factory}\n${custodyV3.implementation}`);
   } catch (err) {
     deployed = false;
     console.error(`error: ${err instanceof Error ? err.message : String(err)}`);
