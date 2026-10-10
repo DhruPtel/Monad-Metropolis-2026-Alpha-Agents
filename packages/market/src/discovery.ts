@@ -1,9 +1,11 @@
 import {
+  CLASS_F_FEEDS,
   type ClassFFeed,
   type ListedToken,
   MONAD_BASE_TOKENS,
   NATIVE_MON,
   type PriceClass,
+  REVIEWED_TOKENS,
   classFFeed,
   foldName,
 } from "@alpha-agents/domain";
@@ -37,6 +39,7 @@ import {
   fetchCoinGeckoMonad,
   guardedListings,
 } from "./token-lists.ts";
+import { fetchGtSearch, fetchGtTokenPools, probeBasePools } from "./token-pools.ts";
 import { MarketError, TokenBucket } from "./upstream.ts";
 
 /**
@@ -60,6 +63,11 @@ export const DISCOVERY_DEFAULTS = {
   /** Onchain reads at once: low, so a first pass's few hundred reads never crowd the free RPC plan. */
   concurrency: 2,
 } as const;
+
+/** Every token on the reviewed list or the class F feed map: discovery reads each one's own pools. */
+export const REVIEWED_AND_CLASS_F: readonly string[] = [
+  ...new Set([...CLASS_F_FEEDS, ...REVIEWED_TOKENS].map((t) => t.address)),
+];
 
 export interface DiscoveredPool extends VerifiedPool {
   readonly name: string;
@@ -129,6 +137,24 @@ export interface TokenDiscoveryOptions {
   readonly volumePages?: number;
   readonly txPages?: number;
   readonly minPoolUsd?: number;
+  /** Tokens whose own pools each pass reads; the reviewed and class F tokens by default. */
+  readonly byTokenAddresses?: readonly string[];
+}
+
+/** One token found on demand: its record and its pools, whether or not discovery ever saw it. */
+export interface TokenLookup {
+  readonly token: DiscoveredToken | null;
+  readonly pools: readonly DiscoveredPool[];
+  readonly block: string;
+  readonly sources: Readonly<Record<string, SourceStatus>>;
+}
+
+/** A token a search turned up, before anything is read onchain. */
+export interface TokenCandidate {
+  readonly address: string;
+  readonly symbol: string;
+  readonly name: string;
+  readonly sources: readonly ("coingecko" | "geckoterminal")[];
 }
 
 async function limited<T, R>(
@@ -221,16 +247,21 @@ export class TokenDiscovery {
 
   /** GeckoTerminal's pools for the three venues, and its newest pools. */
   private async gtPools(sources: Record<string, SourceStatus>) {
-    const pools = new Map<string, GtPool & { listedAsNew: boolean }>();
+    const pools = new Map<string, GtPool & { listedAsNew: boolean; byToken: boolean }>();
     const tokens = new Map<string, GtToken>();
     const add = (
       page: { pools: readonly GtPool[]; tokens: readonly GtToken[] },
       isNew: boolean,
+      byToken = false,
     ) => {
       for (const t of page.tokens) tokens.set(t.address, t);
       for (const p of page.pools) {
         const had = pools.get(p.poolId);
-        pools.set(p.poolId, { ...p, listedAsNew: isNew || (had?.listedAsNew ?? false) });
+        pools.set(p.poolId, {
+          ...p,
+          listedAsNew: isNew || (had?.listedAsNew ?? false),
+          byToken: byToken || (had?.byToken ?? false),
+        });
       }
     };
     const reqs: { dex: Dex; page: number; sort: GtSort }[] = [];
@@ -255,6 +286,30 @@ export class TokenDiscovery {
         lastError = message(err);
       }
     }
+    // F-U2 Step 0: every reviewed and class F token's own pools, so deep but quiet pools count too.
+    let byToken = 0;
+    for (const address of this.o.byTokenAddresses ?? REVIEWED_AND_CLASS_F) {
+      try {
+        const body = await this.o.market.cache.get(
+          cacheKey("geckoterminal", "tokenPools", { address }),
+          DISCOVERY_DEFAULTS.ttlMs * 3,
+          () => fetchGtTokenPools(address, this.deps(this.gt)),
+        );
+        const page = parseGtPools(body.value, this.ctx());
+        add(
+          { pools: page.pools.filter((p) => DEXES.includes(p.dex)), tokens: page.tokens },
+          false,
+          true,
+        );
+        byToken++;
+      } catch (err) {
+        lastError = message(err);
+      }
+    }
+    sources["geckoterminal:byToken"] = {
+      ok: byToken > 0 || (this.o.byTokenAddresses ?? REVIEWED_AND_CLASS_F).length === 0,
+      detail: `${byToken} tokens' own pools read`,
+    };
     sources.geckoterminal =
       ok > 0
         ? {
@@ -306,7 +361,8 @@ export class TokenDiscovery {
       );
     const min = this.o.minPoolUsd ?? DISCOVERY_DEFAULTS.minPoolUsd;
     const candidates = [...gtPools.values()].filter(
-      (p) => p.listedAsNew || (p.liquidityUsd ?? 0) >= min,
+      // New pools and a reviewed or class F token's own pools are kept whatever their size.
+      (p) => p.listedAsNew || p.byToken || (p.liquidityUsd ?? 0) >= min,
     );
 
     const block = await client.getBlock();
@@ -346,6 +402,188 @@ export class TokenDiscovery {
     const addrs = [
       ...new Set(pools.flatMap((p) => [p.token0, p.token1]).filter((a) => a !== NATIVE_MON)),
     ];
+    const { tokens, listings } = await this.aggregate(
+      client,
+      addrs,
+      pools,
+      gtPools,
+      gtTokens,
+      nowSeconds,
+      known,
+      sources,
+    );
+    tokens.sort((x, y) => y.liquidityUsd - x.liquidityUsd);
+    return {
+      at: new Date(nowSeconds * 1000).toISOString(),
+      block: block.number.toString(),
+      pools,
+      tokens,
+      listings,
+      sources,
+      rejectedPools: rejected,
+    };
+  }
+
+  private requireClient(): PublicClient {
+    const client = this.o.client;
+    if (!client)
+      throw new MarketError(
+        "UPSTREAM_UNAVAILABLE",
+        "monad",
+        "Monad mainnet reads are not configured.",
+        {
+          retryable: false,
+        },
+      );
+    return client;
+  }
+
+  /**
+   * One token's pools on the supported venues and its record, found from the
+   * token itself (F-U2 Step 0, D-360): GeckoTerminal's pools for the token,
+   * each confirmed onchain, plus the onchain probes against USDC, WMON and
+   * MON, so a token no list has seen is found too. Null `token` when the
+   * address does not answer as an ERC-20.
+   */
+  async poolsForToken(
+    address: string,
+    known: KnownState = { pools: new Map(), tokens: new Map() },
+  ): Promise<TokenLookup> {
+    const client = this.requireClient();
+    const a = address.toLowerCase();
+    const sources: Record<string, SourceStatus> = {};
+    const gtPools = new Map<string, GtPool>();
+    const gtTokens = new Map<string, GtToken>();
+    try {
+      const body = await this.o.market.cache.get(
+        cacheKey("geckoterminal", "tokenPools", { address: a }),
+        DISCOVERY_DEFAULTS.ttlMs,
+        () => fetchGtTokenPools(a, this.deps(this.gt)),
+      );
+      const page = parseGtPools(body.value, this.ctx());
+      for (const t of page.tokens) gtTokens.set(t.address, t);
+      for (const p of page.pools) if (DEXES.includes(p.dex)) gtPools.set(p.poolId, p);
+      sources.geckoterminal = { ok: true, detail: `${gtPools.size} pools on the supported venues` };
+    } catch (err) {
+      sources.geckoterminal = { ok: false, detail: message(err) };
+    }
+    const block = await client.getBlock();
+    const listed = await limited(
+      [...gtPools.values()],
+      DISCOVERY_DEFAULTS.concurrency,
+      async (p) => {
+        const k = known.pools.get(p.poolId);
+        try {
+          const v = k ?? (await verifyPool(client, p));
+          return v
+            ? {
+                ...v,
+                name: p.name,
+                liquidityUsd: p.liquidityUsd ?? 0,
+                volume24hUsd: p.volume24hUsd ?? 0,
+                createdAt: p.createdAt,
+                listedAsNew: false,
+              }
+            : null;
+        } catch {
+          return null;
+        }
+      },
+    );
+    const pools: DiscoveredPool[] = listed.filter((p): p is DiscoveredPool => p !== null);
+    const probed = await probeBasePools(client, a, DISCOVERY_DEFAULTS.concurrency);
+    for (const p of probed) {
+      if (pools.some((x) => x.poolId === p.poolId)) continue;
+      pools.push({
+        ...p,
+        name: "",
+        liquidityUsd: p.onchainLiquidityUsd ?? 0,
+        volume24hUsd: 0,
+        // Not on GeckoTerminal: its creation time is unknown, which the screen's age check refuses.
+        createdAt: null,
+        listedAsNew: false,
+      });
+    }
+    sources.chain = {
+      ok: true,
+      detail: `${pools.length} pools confirmed at block ${block.number} (${probed.length} found onchain)`,
+    };
+    const { tokens } = await this.aggregate(
+      client,
+      [a],
+      pools,
+      gtPools,
+      gtTokens,
+      Number(block.timestamp),
+      known,
+      sources,
+    );
+    return { token: tokens[0] ?? null, pools, block: block.number.toString(), sources };
+  }
+
+  /**
+   * Tokens matching a symbol or name (D-360): CoinGecko's Monad coins and
+   * GeckoTerminal's pool search, folded the way look-alikes are. Nothing is
+   * read onchain until the agent picks one and looks it up by address.
+   */
+  async search(query: string, limit = 10): Promise<TokenCandidate[]> {
+    const q = foldName(query);
+    if (q.length < 2) return [];
+    const out = new Map<string, TokenCandidate>();
+    const add = (c: Omit<TokenCandidate, "sources">, source: "coingecko" | "geckoterminal") => {
+      const had = out.get(c.address);
+      // CoinGecko writes symbols in lower case; GeckoTerminal keeps the token's own.
+      const keep = had && source === "coingecko" ? had : c;
+      out.set(c.address, {
+        address: c.address,
+        symbol: keep.symbol,
+        name: keep.name,
+        sources: had ? [...new Set([...had.sources, source])] : [source],
+      });
+    };
+    const { coingecko } = await this.listings();
+    for (const c of coingecko)
+      if (foldName(c.symbol) === q || foldName(c.name) === q)
+        add({ address: c.address, symbol: c.symbol, name: c.name }, "coingecko");
+    try {
+      const body = await this.o.market.cache.get(
+        cacheKey("geckoterminal", "search", { q }),
+        DISCOVERY_DEFAULTS.ttlMs,
+        () => fetchGtSearch(query, this.deps(this.gt)),
+      );
+      const page = parseGtPools(body.value, this.ctx());
+      for (const t of page.tokens)
+        if (t.address !== NATIVE_MON && (foldName(t.symbol) === q || foldName(t.name) === q))
+          add({ address: t.address, symbol: t.symbol, name: t.name }, "geckoterminal");
+      // The search answers pools without token records: each side's symbol is in the pool's name.
+      for (const p of page.pools) {
+        const [base, quote] = p.name.split(" / ").map((x) => x.split(" ")[0]?.trim() ?? "");
+        for (const [symbol, address] of [
+          [base, p.base],
+          [quote, p.quote],
+        ] as const)
+          if (symbol && address !== NATIVE_MON && foldName(symbol) === q && !out.has(address))
+            add({ address, symbol, name: symbol }, "geckoterminal");
+          else if (symbol && foldName(symbol) === q && out.has(address))
+            add({ address, symbol, name: out.get(address)?.name ?? symbol }, "geckoterminal");
+      }
+    } catch {
+      // Search is a convenience: CoinGecko's answer stands alone.
+    }
+    return [...out.values()].slice(0, limit);
+  }
+
+  /** Each token's record from its confirmed pools: its own metadata, class, listings and depth. */
+  private async aggregate(
+    client: PublicClient,
+    addrs: readonly string[],
+    pools: readonly DiscoveredPool[],
+    gtPools: ReadonlyMap<string, GtPool>,
+    gtTokens: ReadonlyMap<string, GtToken>,
+    nowSeconds: number,
+    known: KnownState,
+    sources: Record<string, SourceStatus>,
+  ): Promise<{ tokens: DiscoveredToken[]; listings: ListedToken[] }> {
     const metas = await limited(addrs, DISCOVERY_DEFAULTS.concurrency, async (a) => ({
       a,
       m: known.tokens.get(a) ?? (await readTokenMeta(client, a)),
@@ -404,15 +642,6 @@ export class TokenDiscovery {
         priceUsd,
       });
     }
-    tokens.sort((x, y) => y.liquidityUsd - x.liquidityUsd);
-    return {
-      at: new Date(nowSeconds * 1000).toISOString(),
-      block: block.number.toString(),
-      pools,
-      tokens,
-      listings: guardedListings(coingecko, cmcTop, cmcMap),
-      sources,
-      rejectedPools: rejected,
-    };
+    return { tokens, listings: guardedListings(coingecko, cmcTop, cmcMap) };
   }
 }

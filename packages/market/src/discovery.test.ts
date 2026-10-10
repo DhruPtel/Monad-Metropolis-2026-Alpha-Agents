@@ -25,7 +25,13 @@ const WMON = "0x3bd359c1119da7da1d913d1c4d2b7c461115433a";
 const SOL_ON_MONAD = "0xea17e5a9efebf1477db45082d67010e2245217f1";
 
 function discovery(
-  o: { down?: string[]; spoof?: string[]; staleFeeds?: string[]; cmc?: boolean } = {},
+  o: {
+    down?: string[];
+    spoof?: string[];
+    staleFeeds?: string[];
+    cmc?: boolean;
+    byToken?: string[];
+  } = {},
 ) {
   const f = tokenFixtureFetch({ down: o.down ?? [] });
   // GeckoTerminal's rate bucket waits; the clock moves when the code sleeps.
@@ -45,6 +51,7 @@ function discovery(
     cmcApiKey: o.cmc === false ? null : "test-key-not-real",
     client: chain,
     txPages: 0,
+    byTokenAddresses: o.byToken ?? [],
   });
   return { d, f, chain, market };
 }
@@ -230,5 +237,57 @@ describe("token discovery (F-U1)", () => {
     await expect(discovery({ down: ["geckoterminal"] }).d.discover()).rejects.toThrow(
       /GeckoTerminal/,
     );
+  });
+});
+
+describe("pools by token and agent lookups (F-U2 Step 0, D-360)", () => {
+  const USDT0 = "0xe7cd86e13ac4309349f30b3435a9d337750fc82d";
+  const LV = "0x1001ff13bf368aa4fa85f21043648079f00e1001";
+
+  it("reads every reviewed and class F token's own pools, so a quiet token's pools are found", async () => {
+    const without = await discovery().d.discover();
+    const withByToken = await discovery({ byToken: [USDT0] }).d.discover();
+    const count = (r: typeof without) =>
+      r.pools.filter((p) => p.token0 === USDT0 || p.token1 === USDT0).length;
+    expect(count(withByToken)).toBeGreaterThan(count(without));
+    expect(withByToken.sources["geckoterminal:byToken"]).toEqual({
+      ok: true,
+      detail: "1 tokens' own pools read",
+    });
+    // Curve, Trader Joe and Uniswap v2 pools are not supported venues and are dropped.
+    expect(
+      withByToken.pools.every((p) =>
+        ["uniswap_v3", "uniswap_v4", "pancakeswap_v3"].includes(p.dex),
+      ),
+    ).toBe(true);
+  });
+
+  it("looks up a token's pools from the token itself, with GeckoTerminal's figures where it has them", async () => {
+    const r = await discovery().d.poolsForToken(USDT0);
+    expect(r.token).toMatchObject({ symbol: "USDT0", priceClass: "F" });
+    expect(r.pools.length).toBeGreaterThan(3);
+    expect(r.sources.geckoterminal?.ok).toBe(true);
+    expect(r.pools.every((p) => p.token0 === USDT0 || p.token1 === USDT0)).toBe(true);
+  });
+
+  it("finds a token's pools onchain when no list has them, with unknown age", async () => {
+    // GeckoTerminal has no pools-by-token answer for LV here: the onchain probes alone find its WMON pool.
+    const r = await discovery({ down: ["/tokens/"] }).d.poolsForToken(LV);
+    expect(r.sources.geckoterminal?.ok).toBe(false);
+    expect(r.token?.symbol).toBe("LV");
+    const lvWmon = r.pools.find(
+      (p) => p.dex === "pancakeswap_v3" && [p.token0, p.token1].includes(WMON),
+    );
+    expect(lvWmon).toMatchObject({ createdAt: null, routable: true, fee: 2500 });
+    // Twice the 25,000 WMON it holds, at the fake feed's 1.00 USD.
+    expect(lvWmon?.liquidityUsd).toBeCloseTo(50_000, 6);
+    expect(r.token?.liquidityUsd).toBeCloseTo(50_000, 6);
+  });
+
+  it("finds tokens by symbol from CoinGecko and GeckoTerminal's search", async () => {
+    const found = await discovery().d.search("usdt0");
+    expect(found[0]).toMatchObject({ address: USDT0, symbol: "USDT0" });
+    expect([...(found[0]?.sources ?? [])].sort()).toEqual(["coingecko", "geckoterminal"]);
+    expect(await discovery().d.search("x")).toEqual([]);
   });
 });

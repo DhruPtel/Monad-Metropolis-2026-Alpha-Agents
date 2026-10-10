@@ -133,6 +133,8 @@ const TOKEN_ROUTES: readonly [RegExp, string][] = [
     "gt-pancakeswap-v3-monad-volume-2.json",
   ],
   [/networks\/monad\/new_pools\?page=1/, "gt-new-1.json"],
+  [/tokens\/0xe7cd86e13ac4309349f30b3435a9d337750fc82d\/pools/, "gt-tokenpools-usdt0.json"],
+  [/search\/pools\?query=usdt0/i, "gt-search-usdt0.json"],
   [/api\.coingecko\.com\/api\/v3\/coins\/list/, "coingecko-list.json"],
   [/cryptocurrency\/map/, "cmc-map.json"],
   [/cryptocurrency\/listings\/latest/, "cmc-top.json"],
@@ -174,6 +176,7 @@ export function fakeTokenChain(
   const tokens = new Map<string, { symbol: string; name: string; decimals: number }>();
   const files = TOKEN_ROUTES.map(([, f]) => f).filter((f) => f.startsWith("gt-"));
   const used = new Set<string>();
+  const v4Ids = new Set<string>();
   for (const f of files) {
     const b = tokenFixture(f) as {
       data: {
@@ -192,6 +195,7 @@ export function fakeTokenChain(
       });
     for (const p of b.data) {
       const id = p.attributes.address.toLowerCase();
+      if (id.length === 66) v4Ids.add(id);
       if (id.length !== 42 || pools.has(id)) continue;
       const a = p.relationships.base_token?.data.id.slice(6) ?? "";
       const q = p.relationships.quote_token?.data.id.slice(6) ?? "";
@@ -225,10 +229,17 @@ export function fakeTokenChain(
       case "getLiquidity":
         return 10n ** 18n;
       case "getSlot0":
-        return [2n ** 96n, 0, 0, 0];
+        // Only the recorded v4 pools are initialized; any other ID has no price.
+        return [v4Ids.has(String(args.args?.[0]).toLowerCase()) ? 2n ** 96n : 0n, 0, 0, 0];
+      case "balanceOf":
+        // Each pool holds 25,000 of its base asset (USDC at 6 decimals, WMON at 18).
+        return a === "0x754704bc059f8c67012fed69bc8a327a5aafb603"
+          ? 25_000n * 10n ** 6n
+          : 25_000n * 10n ** 18n;
       case "getPool": {
-        const [x, y, f] = args.args as [string, string, number];
-        const id = byKey.get(`${x.toLowerCase()}|${y.toLowerCase()}|${f}`) ?? "";
+        const [x0, y0, f] = args.args as [string, string, number];
+        const [x, y] = [x0.toLowerCase(), y0.toLowerCase()].sort() as [string, string];
+        const id = byKey.get(`${x}|${y}|${f}`) ?? "";
         return o.spoof?.includes(id) || !id ? "0x0000000000000000000000000000000000000000" : id;
       }
     }
