@@ -1,0 +1,171 @@
+{
+  "at": "2026-10-10T17:40:46.895Z",
+  "toolsPerServer": {
+    "chain": 11,
+    "data": 14,
+    "platform": 5
+  },
+  "toolCount": 30,
+  "results": [
+    {
+      "alias": "scan-cheap",
+      "model": "claude-haiku-4-5-20251001",
+      "stage": "SCAN (routine)",
+      "status": 400,
+      "inputTokens": null,
+      "errorType": "invalid_request_error",
+      "message": "Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.",
+      "requestId": "req_011Cfty3vPrAgpsUTPWBvrp5"
+    },
+    {
+      "alias": "scan-cheap",
+      "model": "claude-haiku-4-5-20251001",
+      "stage": "SCAN (activation)",
+      "status": 400,
+      "inputTokens": null,
+      "errorType": "invalid_request_error",
+      "message": "Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.",
+      "requestId": "req_011Cfty3wByKAPDCoBcGmPEQ"
+    },
+    {
+      "alias": "scan-cheap",
+      "model": "claude-haiku-4-5-20251001",
+      "stage": "DIVE",
+      "status": 400,
+      "inputTokens": null,
+      "errorType": "invalid_request_error",
+      "message": "Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.",
+      "requestId": "req_011Cfty3x5KD9WTFFSMfEocn"
+    },
+    {
+      "alias": "scan-cheap",
+      "model": "claude-haiku-4-5-20251001",
+      "stage": "CHALLENGE",
+      "status": 400,
+      "inputTokens": null,
+      "errorType": "invalid_request_error",
+      "message": "Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.",
+      "requestId": "req_011Cfty3y36WkkwBNpQZTuXX"
+    },
+    {
+      "alias": "scan-cheap",
+      "model": "claude-haiku-4-5-20251001",
+      "stage": "ZOOM_OUT (activation)",
+      "status": 400,
+      "inputTokens": null,
+      "errorType": "invalid_request_error",
+      "message": "Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.",
+      "requestId": "req_011Cfty3ygo4JEWuaxcziTqL"
+    },
+    {
+      "alias": "narrator",
+      "model": "claude-haiku-4-5-20251001",
+      "stage": "narrator entry",
+      "status": 400,
+      "inputTokens": null,
+      "errorType": "invalid_request_error",
+      "message": "Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.",
+      "requestId": "req_011Cfty3zNiNQ6DbXAZX6z2M"
+    },
+    {
+      "alias": "research-strong",
+      "model": "claude-sonnet-5-5",
+      "stage": "SCAN (routine)",
+      "status": 400,
+      "inputTokens": null,
+      "errorType": "invalid_request_error",
+      "message": "Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.",
+      "requestId": "req_011Cfty413QGKL3GTUwaA9M4"
+    },
+    {
+      "alias": "research-strong",
+      "model": "claude-sonnet-5-5",
+      "stage": "SCAN (activation)",
+      "status": 400,
+      "inputTokens": null,
+      "errorType": "invalid_request_error",
+      "message": "Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.",
+      "requestId": "req_011Cfty41s1iic5pULcJ5ug4"
+    },
+    {
+      "alias": "research-strong",
+      "model": "claude-sonnet-5-5",
+      "stage": "DIVE",
+      "status": 400,
+      "inputTokens": null,
+      "errorType": "invalid_request_error",
+      "message": "Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.",
+      "requestId": "req_011Cfty42avaDv2BGdLTyZXT"
+    },
+    {
+      "alias": "research-strong",
+      "model": "claude-sonnet-5-5",
+      "stage": "CHALLENGE",
+      "status": 400,
+      "inputTokens": null,
+      "errorType": "invalid_request_error",
+      "message": "Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.",
+      "requestId": "req_011Cfty43M4hSrb7ijYUqbay"
+    },
+    {
+      "alias": "research-strong",
+      "model": "claude-sonnet-5-5",
+      "stage": "ZOOM_OUT (activation)",
+      "status": 400,
+      "inputTokens": null,
+      "errorType": "invalid_request_error",
+      "message": "Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.",
+      "requestId": "req_011Cfty443UyZNbt8xtuNLmB"
+    },
+    {
+      "alias": "research-deep",
+      "model": "claude-opus-5-5",
+      "stage": "SCAN (routine)",
+      "status": 400,
+      "inputTokens": null,
+      "errorType": "invalid_request_error",
+      "message": "Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.",
+      "requestId": "req_011Cfty44fgvrYqxEjdf3nQJ"
+    },
+    {
+      "alias": "research-deep",
+      "model": "claude-opus-5-5",
+      "stage": "SCAN (activation)",
+      "status": 400,
+      "inputTokens": null,
+      "errorType": "invalid_request_error",
+      "message": "Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.",
+      "requestId": "req_011Cfty45M7ueJrBd3ZuDA2q"
+    },
+    {
+      "alias": "research-deep",
+      "model": "claude-opus-5-5",
+      "stage": "DIVE",
+      "status": 400,
+      "inputTokens": null,
+      "errorType": "invalid_request_error",
+      "message": "Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.",
+      "requestId": "req_011Cfty464H2nAYoayUJhZvs"
+    },
+    {
+      "alias": "research-deep",
+      "model": "claude-opus-5-5",
+      "stage": "CHALLENGE",
+      "status": 400,
+      "inputTokens": null,
+      "errorType": "invalid_request_error",
+      "message": "Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.",
+      "requestId": "req_011Cfty46pB6PQ7jyMdZPMHL"
+    },
+    {
+      "alias": "research-deep",
+      "model": "claude-opus-5-5",
+      "stage": "ZOOM_OUT (activation)",
+      "status": 400,
+      "inputTokens": null,
+      "errorType": "invalid_request_error",
+      "message": "Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.",
+      "requestId": "req_011Cfty47WqsBx6CUjzr869B"
+    }
+  ]
+}

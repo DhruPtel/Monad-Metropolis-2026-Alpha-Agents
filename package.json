@@ -40,6 +40,8 @@
     "test:web:live:agents": "node scripts/web-e2e.js --app web --live --agents",
     "test:web:live:portfolio": "node scripts/web-e2e.js --app web --live --portfolio",
     "test:orchestrator:live": "node services/orchestrator/src/live.ts",
+    "test:anthropic:dry-run": "node services/orchestrator/src/anthropic-dry-run.ts",
+    "test:live:pending": "node scripts/live-pending.js",
     "test:skills:selection": "node services/orchestrator/src/skills-selection.ts",
     "dev:console": "node scripts/console.js dev",
     "dev:all": "node scripts/dev-all.js",
