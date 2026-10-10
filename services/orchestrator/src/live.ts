@@ -858,14 +858,16 @@ async function main(): Promise<number> {
   {
     // Discovery pages through GeckoTerminal at its rate limit and can run past the five minutes a
     // fetch waits for headers (L-197), so the request is started and the run watched in the database.
+    // The registry may answer from the pass it ran at its own start, so the latest run counts,
+    // whenever it started, once it is no longer running.
     const discoveryStarted = new Date();
     void api("/v1/tokens/discover", { method: "POST" }).catch(() => undefined);
+    await sleep(5_000);
     const run = await waitFor("discovery to finish", 25 * 60_000, async () => {
       const row = await t.db
         .selectFrom("platform.token_discovery_runs")
         .selectAll()
         .where("chain_id", "=", 143143)
-        .where("started_at", ">=", discoveryStarted)
         .orderBy("started_at", "desc")
         .executeTakeFirst();
       return row && row.status !== "running" ? row : null;
