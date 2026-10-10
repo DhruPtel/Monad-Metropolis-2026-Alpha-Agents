@@ -109,6 +109,15 @@ describe("goal translator (P3-U1, F-U7)", () => {
     expect(c.brief).toContain("Consider anything that passes the safety check");
     expect(c.brief).toContain("opted into the screened lane");
     expect(c.brief).toContain(`Never buy these tokens, whatever the research says: ${WBTC}.`);
+    // With the registry's symbols the brief names the token; an unknown one keeps its address.
+    const other = "0x00000000000000000000000000000000000c0de5";
+    const named = translateGoal(goal({ excludedTokens: [WBTC, other] }), undefined, {
+      symbols: { [WBTC]: "WBTC" },
+    });
+    if (!named.ok) throw new Error("goal");
+    expect(named.config.brief).toContain(
+      `Never buy these tokens, whatever the research says: WBTC, ${other}.`,
+    );
     expect(briefOf(goal({ aggressiveness: "CONSERVATIVE" }))).toContain("class F tokens only");
     // Exclusions are kept lowercase and once each, so the hash does not depend on how they were typed.
     const upper = ok(goal({ excludedTokens: [WBTC.toUpperCase().replace("0X", "0x"), WBTC] }));

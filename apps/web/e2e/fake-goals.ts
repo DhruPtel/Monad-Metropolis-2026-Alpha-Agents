@@ -10,6 +10,8 @@ const GOAL_FORM_TOKENS = [
   { address: "0x0555e30da8f98308edb960aa94c0db47230d2b9c", symbol: "WBTC", priceClass: "F" },
   { address: "0x00000000000000000000000000000000000c0de5", symbol: "CHOG", priceClass: "A" },
 ];
+/** The brief names an excluded token by its symbol (F-U9 follow-up of F-U7). */
+const SYMBOLS = Object.fromEntries(GOAL_FORM_TOKENS.map((t) => [t.address, t.symbol]));
 
 /**
  * The goal routes for the screenshot suite (P3-U1), answered with the real
@@ -36,7 +38,7 @@ export class FakeGoals {
 
   /** Saves a goal as the API would; returns the translator's refusal when there is one. */
   save(agentId: bigint, body: unknown, owner: string) {
-    const t = translateGoal(body);
+    const t = translateGoal(body, undefined, { symbols: SYMBOLS });
     if (!t.ok) return { ok: false as const, errors: goalErrorsJson(t.errors) };
     const old = this.saved.get(agentId);
     const entry: SavedGoal = {
@@ -113,7 +115,7 @@ export class FakeGoals {
   }
 
   preview(body: unknown) {
-    const t = translateGoal(body);
+    const t = translateGoal(body, undefined, { symbols: SYMBOLS });
     return t.ok
       ? { ok: true, config: configJson(t.config), errors: [] }
       : { ok: false, config: null, errors: goalErrorsJson(t.errors) };

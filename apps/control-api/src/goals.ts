@@ -34,6 +34,23 @@ import type { AgentGoalView, StoredGoal } from "@alpha-agents/trading";
 /** The activation sweep's shown maximum per model tier (A-51, A-75), for the cost preview. */
 const SWEEP_MAX_USDC_E6 = { LOW: 2_000_000n, MEDIUM: 4_000_000n, HIGH: 7_500_000n } as const;
 
+/** The registry's symbols for the given token addresses (lowercase), for the brief; unknown ones are left out. */
+export async function tokenSymbols(
+  db: Db | null,
+  chainId: number | null,
+  addresses: readonly string[],
+): Promise<Record<string, string>> {
+  const wanted = [...new Set(addresses.map((a) => a.toLowerCase()))];
+  if (!db || chainId === null || wanted.length === 0) return {};
+  const rows = await db
+    .selectFrom("platform.tokens")
+    .select(["address", "symbol"])
+    .where("chain_id", "=", chainId)
+    .where("address", "in", wanted)
+    .execute();
+  return Object.fromEntries(rows.map((r) => [r.address.toLowerCase(), r.symbol]));
+}
+
 /** Every bound the form needs, from the hard limits, the levels and the registry (D-293, D-299, D-345). */
 export async function goalForm(db: Db | null = null, chainId: number | null = null) {
   const ranges = ownerLimitRanges();

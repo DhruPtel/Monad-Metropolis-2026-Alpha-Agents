@@ -221,9 +221,16 @@ function limitError(f: OwnerLimitField, value: number, hard: number): GoalError 
 }
 
 /** Turns the owner's goal into configuration, or names every field that is refused. */
+/** What the translator may know beyond the goal (F-U9 follow-up): each excluded token's symbol. */
+export interface TranslateOptions {
+  /** Symbols by lowercase address; a token missing here is named by its address in the brief. */
+  readonly symbols?: Readonly<Record<string, string>>;
+}
+
 export function translateGoal(
   input: unknown,
   limits: PolicyLimits = LAUNCH_LIMITS,
+  options: TranslateOptions = {},
 ): GoalTranslation {
   const parsed = GoalInputSchema.safeParse(input);
   if (!parsed.success)
@@ -294,7 +301,7 @@ export function translateGoal(
     goal,
     aggressiveness: goal.aggressiveness,
     envelope,
-    brief: briefOf(goal),
+    brief: briefOf(goal, options.symbols),
     template: { id: "rebalance_bands@1" as const, params },
     targetRange: { minBps, maxBps },
     researchTriggerBps: envelope.reviewTriggerBps,
@@ -325,14 +332,16 @@ export function translateGoal(
  * The brief the agent interprets (D-333, D-345): the level's fixed text, then
  * the owner's screened-lane choice and exclusions. Never the owner's words.
  */
-export function briefOf(goal: GoalInput): string {
+export function briefOf(goal: GoalInput, symbols: TranslateOptions["symbols"] = {}): string {
+  // A known token by its symbol, with the address only as the fallback (F-U9 follow-up of F-U7).
+  const name = (address: string) => symbols[address.toLowerCase()] ?? address;
   const lane = goal.screenedOptIn
     ? "The owner opted into the screened lane: tokens that passed the platform's safety screen may be held under the class A caps, beside the core lane."
     : "Hold core-lane tokens only; the owner has not opted into the screened lane.";
   const excluded =
     goal.excludedTokens.length === 0
       ? "No token is excluded."
-      : `Never buy these tokens, whatever the research says: ${goal.excludedTokens.join(", ")}.`;
+      : `Never buy these tokens, whatever the research says: ${goal.excludedTokens.map(name).join(", ")}.`;
   return `${AGGRESSIVENESS_FACTS[goal.aggressiveness].brief} ${lane} ${excluded}`;
 }
 

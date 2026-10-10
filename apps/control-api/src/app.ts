@@ -30,7 +30,14 @@ import {
   revokeCall,
 } from "@alpha-agents/trading";
 import { TtlCache } from "./cache.ts";
-import { goalErrorsJson, goalForm, goalSummaryJson, goalViewJson, configJson } from "./goals.ts";
+import {
+  goalErrorsJson,
+  goalForm,
+  goalSummaryJson,
+  goalViewJson,
+  configJson,
+  tokenSymbols,
+} from "./goals.ts";
 import type { ChainReader } from "./chain.ts";
 import { type ClaimSigner, ELIGIBILITY_MESSAGES, type Eligibility, signClaim } from "./claims.ts";
 import type { Identity, VerifiedSession } from "./identity.ts";
@@ -289,6 +296,12 @@ export function createApp(deps: ApiDeps): Hono {
    * this agent, and a fresh chain read that still shows the session's wallet
    * as owner at the session's ownership epoch.
    */
+  /** The excluded token addresses a goal body names, for the brief's symbols; nothing else is read. */
+  const excludedAddresses = (body: unknown): string[] => {
+    const list = (body as { excludedTokens?: unknown } | null)?.excludedTokens;
+    return Array.isArray(list) ? list.filter((t): t is string => typeof t === "string") : [];
+  };
+
   async function ownerOnly(
     c: Context,
     agentId: bigint,
@@ -386,7 +399,9 @@ export function createApp(deps: ApiDeps): Hono {
     if (owner instanceof Response) return owner;
     const body = await jsonBody(c);
     if (body === null) return fail(c, 400, "bad_request", "Send the goal as JSON.");
-    const translated = translateGoal(body);
+    const translated = translateGoal(body, undefined, {
+      symbols: await tokenSymbols(deps.db, chainId, excludedAddresses(body)),
+    });
     if (!translated.ok)
       return c.json(
         {
@@ -422,7 +437,9 @@ export function createApp(deps: ApiDeps): Hono {
   app.post("/v1/goal/preview", async (c) => {
     const body = await jsonBody(c);
     if (body === null) return fail(c, 400, "bad_request", "Send the goal as JSON.");
-    const translated = translateGoal(body);
+    const translated = translateGoal(body, undefined, {
+      symbols: await tokenSymbols(deps.db, chainId, excludedAddresses(body)),
+    });
     return translated.ok
       ? c.json({ ok: true, config: configJson(translated.config), errors: [] })
       : c.json({ ok: false, config: null, errors: goalErrorsJson(translated.errors) });
