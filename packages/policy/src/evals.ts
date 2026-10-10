@@ -1,5 +1,16 @@
 import { readFileSync } from "node:fs";
+import type { Hex } from "viem";
+import { valueE6 } from "./custody.ts";
 import type { RebalanceBandsParams } from "./goals.ts";
+import {
+  type PortfolioDecision,
+  type PortfolioState,
+  type PortfolioToken,
+  TARGET_PORTFOLIO_ID,
+  TARGET_PORTFOLIO_V1,
+  amountForValue,
+  portfolioParamsFromJson,
+} from "./portfolio.ts";
 import { type BandsState, STRATEGY_TEMPLATE_RULES, type TemplateDecision } from "./templates.ts";
 
 /**
@@ -79,6 +90,94 @@ export function evalPasses(s: EvalScenario, d: TemplateDecision): boolean {
   return (
     d.action === "trade" &&
     d.leg.sell === s.expect.sell &&
+    d.leg.amountIn === BigInt(s.expect.amountIn)
+  );
+}
+
+/**
+ * The evals of `target_portfolio@1` (F-U6): the same idea over many tokens.
+ * A scenario is every registered token with the account's holding of it, the
+ * plan, the quote for the expected leg, and the action the rule must give.
+ */
+export interface PortfolioEvalToken {
+  readonly token: Hex;
+  readonly symbol: string;
+  readonly decimals: number;
+  readonly balanceRaw: string;
+  readonly priceE18: string | null;
+  readonly priceClass: PortfolioToken["priceClass"];
+  readonly status: PortfolioToken["status"];
+  readonly capBps: number;
+  readonly screenFresh: boolean | null;
+  readonly volatility24hPct: number | null;
+}
+
+export interface PortfolioEvalScenario {
+  readonly name: string;
+  readonly description: string;
+  readonly params: Record<string, unknown>;
+  readonly state: {
+    readonly usdc: Hex;
+    readonly wmon: Hex;
+    readonly tokens: readonly PortfolioEvalToken[];
+    readonly limits: PortfolioState["limits"];
+  };
+  /** The venue's output for the expected leg, raw units of the token bought; null when no leg is expected. */
+  readonly quote: string | null;
+  readonly expect:
+    | { readonly action: "hold"; readonly code: string }
+    | {
+        readonly action: "trade";
+        readonly sell: string;
+        readonly buy: string;
+        readonly amountIn: string;
+      };
+}
+
+export interface PortfolioEvalFile {
+  readonly template: typeof TARGET_PORTFOLIO_ID;
+  readonly format: 2;
+  readonly note: string;
+  readonly scenarios: readonly PortfolioEvalScenario[];
+}
+
+export function loadPortfolioEvals(): PortfolioEvalFile {
+  return JSON.parse(
+    readFileSync(new URL(`../evals/${TARGET_PORTFOLIO_ID}.json`, import.meta.url), "utf8"),
+  ) as PortfolioEvalFile;
+}
+
+/** Runs one portfolio scenario: the plan, then the cost check on the recorded quote. */
+export function runPortfolioEval(s: PortfolioEvalScenario): PortfolioDecision {
+  const params = portfolioParamsFromJson(s.params);
+  const state: PortfolioState = {
+    usdc: s.state.usdc,
+    wmon: s.state.wmon,
+    limits: s.state.limits,
+    tokens: s.state.tokens.map((t) => ({
+      ...t,
+      balanceRaw: BigInt(t.balanceRaw),
+      priceE18: t.priceE18 === null ? null : BigInt(t.priceE18),
+    })),
+  };
+  const d = TARGET_PORTFOLIO_V1.plan(params, state);
+  if (d.action !== "trade" || s.quote === null) return d;
+  const sold = state.tokens.find((t) => t.token === d.leg.sell);
+  const bought = state.tokens.find((t) => t.token === d.leg.buy);
+  if (!sold?.priceE18 || !bought?.priceE18) return d;
+  const oracleOut =
+    d.leg.direction === "buy"
+      ? amountForValue(d.leg.amountIn, bought.priceE18, bought.decimals)
+      : valueE6(d.leg.amountIn, sold.priceE18, sold.decimals);
+  return TARGET_PORTFOLIO_V1.checkCost(params, d, { oracleOut, quotedOut: BigInt(s.quote) });
+}
+
+export function portfolioEvalPasses(s: PortfolioEvalScenario, d: PortfolioDecision): boolean {
+  if (s.expect.action === "hold") return d.action === "hold" && d.code === s.expect.code;
+  return (
+    d.action === "trade" &&
+    d.leg.sellSymbol === s.expect.sell &&
+    d.leg.buySymbol === s.expect.buy &&
     d.leg.amountIn === BigInt(s.expect.amountIn)
   );
 }

@@ -15,6 +15,11 @@ export const RUNNER_HOLD_CODES = [
   "NO_PLAN",
   "PLAN_NOT_APPROVED",
   "STRATEGY_EPOCH_STALE",
+  // F-U6: the target portfolio's own reasons (D-344).
+  "SCREEN_STALE",
+  "ATTESTATION_UNAVAILABLE",
+  "CAP_REACHED",
+  "CASH_FLOOR",
 ] as const;
 export type RunnerHoldCode = (typeof RUNNER_HOLD_CODES)[number];
 
@@ -84,5 +89,29 @@ export const RUNNER_HOLD_FACTS: Readonly<
       "The owner changed the goal after this plan was set, so the plan no longer trades until a new one is set.",
     clears: "by_the_owner",
     hint: "The owner, or the console, sets a plan under the current goal.",
+  },
+  SCREEN_STALE: {
+    message:
+      "The token the plan would buy has no passing safety screen from the last six hours, so the buy waits for a fresh one.",
+    clears: "by_the_platform",
+    hint: "Clears when the platform's next screen of the token passes.",
+  },
+  ATTESTATION_UNAVAILABLE: {
+    message:
+      "The token the plan would buy is priced by a platform attestation, and no attestor is live yet, so the buy waits.",
+    clears: "by_the_platform",
+    hint: "Clears when the price attestor is live for the token.",
+  },
+  CAP_REACHED: {
+    message:
+      "The position the plan would add to is at its cap, or the registry no longer lets this account buy the token, so the buy waits.",
+    clears: "by_waiting",
+    hint: "Clears as the position's share falls below its cap, or when the plan lowers its target.",
+  },
+  CASH_FLOOR: {
+    message:
+      "Buying more would take the account's USDC below its floor, so buys wait until a sale or a deposit frees cash.",
+    clears: "by_waiting",
+    hint: "Clears when a sale or a deposit brings USDC above the floor.",
   },
 });

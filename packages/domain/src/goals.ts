@@ -11,6 +11,10 @@ import { z } from "zod";
 /** Strategy templates. `dca@1` is listed and shown as "available later" until W-2. */
 export const STRATEGY_TEMPLATES = ["rebalance_bands@1", "dca@1"] as const;
 export type StrategyTemplate = (typeof STRATEGY_TEMPLATES)[number];
+
+/** The templates a plan may run on (F-U6, D-344): the two-asset bands, or a target portfolio over any registered tokens. */
+export const PLAN_TEMPLATES = ["rebalance_bands@1", "target_portfolio@1"] as const;
+export type PlanTemplate = (typeof PLAN_TEMPLATES)[number];
 export const AVAILABLE_TEMPLATES: readonly StrategyTemplate[] = ["rebalance_bands@1"];
 
 export const TEMPLATE_FACTS: Readonly<
