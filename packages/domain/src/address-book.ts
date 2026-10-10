@@ -1385,22 +1385,22 @@ const EXECUTOR_V3_LOCAL_FACTS: Readonly<
   Record<(typeof EXECUTOR_V3_IDS)[number][0], readonly [Address, number, string]>
 > = {
   executor_v3: [
-    "0xe88959BAA4511E3a5Cf74E6b8777dd2491aA02c8",
-    39165,
+    "0x3443dbBd29E19CF17853732C260C6abDb6dC0658",
+    39226,
     "Launch policy: 10% per trade, 40% per token, 10% USDC floor, 0.5% and 1% slippage, class A 15% and 50% by basis, 20 trades and 100% turnover per rolling day, 120 s deadlines; bound to account_factory_v3 and protocol_registry_v3; admin anvil account 0, guardian anvil account 4",
   ],
   executor_route_adapter_v3: [
-    "0xb56Ba7888F4F8C6Fe6F2B6A7C5ddD4B7B17d7B3A",
+    "0x9bA3aF3a1A591EF1D6d92FD5Ca26eCD0C6e76974",
     12727,
     'Executor v3\'s adapter, active in protocol_registry_v3 from its construction under keccak256("route-adapter") (D-363); only the Executor may call it',
   ],
   protocol_registry_v3: [
-    "0xDd230457289fe2988F44E0c760DA80e00825d191",
+    "0x16B3C81d48510a1b7e98D048C7904b56E387611c",
     19718,
     "Eight core pools on Uniswap v3, PancakeSwap v3 and hookless Uniswap v4, each confirmed by its venue, and Executor v3's RouteAdapter active from construction; admin anvil 0, guardian anvil 4, screener anvil 3",
   ],
   oracle_adapter_v3: [
-    "0xA5eB497331f28728D4f3e97dC0aF9d99CB3469f0",
+    "0xeeB91f3371Db0d409bbE0Ffa9ea901E09A783a43",
     10235,
     "One feed per class F token with its own staleness bound, over the registry above; on the fork every class F feed is kept fresh (D-237, F-U3 step 0)",
   ],
@@ -1455,12 +1455,12 @@ const CUSTODY_V3_LOCAL_FACTS: Readonly<
   Record<(typeof CUSTODY_V3_IDS)[number][0], readonly [Address, number, string]>
 > = {
   account_factory_v3: [
-    "0x8fd715548256E1b5919bc336Ac120337b84b9697",
+    "0x5ebF58520f9bAa847959DcF69716030a1583BCDb",
     11645,
     "Bound to the v3 TokenRegistry, oracle_adapter_v3 and executor_v3 at deployment, with anvil roles, 100/2,000 USDC caps and anvil accounts 6 to 9 allowed",
   ],
   personal_account_v3_implementation: [
-    "0x2D1E785ECF940adcd89790517F994bf01d114Cc5",
+    "0x2Ec618e51FcD7562Fe1EBeF16536d48E60b5b994",
     41205,
     "Deployed by AccountFactoryV3's constructor; every PersonalAccountV3 is a clone of it, holding up to 16 registered tokens, traded only by executor_v3",
   ],
