@@ -12,3 +12,5 @@ export const ENV_PATH = join(ROOT, ".env");
 export const DEV_DIR = join(ROOT, ".dev");
 export const ANVIL_PID_PATH = join(DEV_DIR, "anvil.pid");
 export const ANVIL_LOG_PATH = join(DEV_DIR, "anvil.log");
+/** The fork's state as anvil saves it every minute and on exit, and loads on the next start (D-364). */
+export const ANVIL_STATE_PATH = join(DEV_DIR, "anvil-state.json");

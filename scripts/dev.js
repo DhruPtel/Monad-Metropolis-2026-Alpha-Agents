@@ -17,7 +17,13 @@ import {
 } from "@alpha-agents/devenv";
 import { ANVIL_URL, loadLocalConfig, loadRootEnv } from "./lib/config.js";
 import { stopRecorded } from "./lib/dev-all.js";
-import { ANVIL_LOG_PATH, ANVIL_PID_PATH, COMPOSE_FILE, ROOT } from "./lib/paths.js";
+import {
+  ANVIL_LOG_PATH,
+  ANVIL_PID_PATH,
+  ANVIL_STATE_PATH,
+  COMPOSE_FILE,
+  ROOT,
+} from "./lib/paths.js";
 
 loadRootEnv();
 
@@ -163,7 +169,7 @@ async function reset() {
   requireDocker();
   const rl = createInterface({ input: process.stdin, output: process.stdout });
   const answer = await rl.question(
-    "This stops everything and deletes the local Postgres and Redis volumes.\nType 'reset' to continue: ",
+    "This stops everything and deletes the local Postgres and Redis volumes and the saved fork state.\nType 'reset' to continue: ",
   );
   rl.close();
   if (answer.trim() !== "reset") {
@@ -171,6 +177,8 @@ async function reset() {
     return;
   }
   await stopAnvil();
+  rmSync(ANVIL_STATE_PATH, { force: true });
+  console.log("Saved fork state deleted: the next pnpm dev:up starts a fresh fork.");
   if (!runInherit("docker", [...composeArgs, "down", "--volumes"])) {
     fail("docker compose down --volumes failed");
   }

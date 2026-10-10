@@ -2,10 +2,31 @@
 // Runs anvil as a child process, writes its output to .dev/anvil.log with the
 // RPC URL redacted, and stops anvil when this process is told to stop.
 // Started detached by `pnpm dev:up`; not meant to be run by hand.
+//
+// The fork's state is saved to .dev/anvil-state.json every minute and when
+// anvil stops, and loaded again on the next start (D-364), so a hang, a reboot
+// or `pnpm dev:down` keeps the fork's deployments, mints and balances. A saved
+// state that is not what anvil wrote, or is from before the pinned block, is
+// moved aside and the fork starts fresh. Delete the file for a fresh fork on purpose.
 import { spawn } from "node:child_process";
-import { createWriteStream, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import {
+  createWriteStream,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  renameSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from "node:fs";
 import { ANVIL_HOST, ANVIL_PORT, loadRootEnv, readForkConfig } from "./lib/config.js";
-import { ANVIL_LOG_PATH, ANVIL_PID_PATH, DEV_DIR, MONAD_DIR } from "./lib/paths.js";
+import {
+  ANVIL_LOG_PATH,
+  ANVIL_PID_PATH,
+  ANVIL_STATE_PATH,
+  DEV_DIR,
+  MONAD_DIR,
+} from "./lib/paths.js";
 import { LOCAL_FORK_CHAIN_ID } from "@alpha-agents/config";
 import {
   FORK_START_ATTEMPTS,
@@ -16,11 +37,15 @@ import {
   startUpstreamProxy,
 } from "@alpha-agents/devenv";
 
+/** How often anvil writes the fork's state to disk: a hang or a reboot loses at most this much (D-364). */
+const STATE_INTERVAL_SECONDS = 60;
+
 loadRootEnv();
 const { upstreams, dropped } = await checkedForkUpstreams(process.env);
 const { blockNumber } = readForkConfig();
 mkdirSync(DEV_DIR, { recursive: true });
 const log = createWriteStream(ANVIL_LOG_PATH, { flags: "w" });
+checkSavedState();
 // A configured upstream on another chain is never used (P2-EC).
 for (const d of dropped) log.write(`not using ${d}\n`);
 writeFileSync(ANVIL_PID_PATH, String(process.pid));
@@ -47,6 +72,36 @@ const proxy =
   upstreams.length > 0
     ? await startUpstreamProxy({ upstreams, log: (line) => log.write(`${line}\n`) })
     : null;
+
+/**
+ * Says which fork the start will give: the saved state (its head and when it
+ * was written) or a fresh one. A file anvil could not have written, or one
+ * whose head is below the pinned block, is moved aside rather than loaded.
+ */
+function checkSavedState() {
+  if (!existsSync(ANVIL_STATE_PATH)) {
+    log.write(
+      `no saved fork state at ${ANVIL_STATE_PATH}: starting a fresh fork at block ${blockNumber}\n`,
+    );
+    return;
+  }
+  try {
+    const parsed = JSON.parse(readFileSync(ANVIL_STATE_PATH, "utf8"));
+    const head = Number(parsed?.block?.number);
+    if (!Number.isFinite(head) || head < blockNumber) {
+      throw new Error(
+        `its head ${String(parsed?.block?.number)} is not past the pinned block ${blockNumber}`,
+      );
+    }
+    const saved = statSync(ANVIL_STATE_PATH).mtime.toISOString();
+    log.write(`restoring the fork from ${ANVIL_STATE_PATH} (head ${head}, saved ${saved})\n`);
+  } catch (err) {
+    const aside = `${ANVIL_STATE_PATH}.unusable-${Date.now()}`;
+    renameSync(ANVIL_STATE_PATH, aside);
+    const why = err instanceof Error ? err.message : String(err);
+    log.write(`saved fork state not loaded (${why}); moved to ${aside}; starting a fresh fork\n`);
+  }
+}
 
 /** True once anvil answers on its port as the local fork. */
 async function answers() {
@@ -107,6 +162,14 @@ async function launch(attempt) {
       // The proxy may retry for up to about 35 s; anvil waits longer than that for it.
       "--timeout",
       "90000",
+      // The fork's state on disk: loaded now if saved, written every minute and
+      // on exit, with the states of the blocks mined here so reads at those
+      // blocks still answer after a restore (D-364).
+      "--state",
+      ANVIL_STATE_PATH,
+      "--state-interval",
+      String(STATE_INTERVAL_SECONDS),
+      "--preserve-historical-states",
     ],
     {
       cwd: MONAD_DIR,
