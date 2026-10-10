@@ -78,3 +78,7 @@ Alpha Agents is an onchain financial management platform on Monad where AI agent
 4. A LOGS.md entry is added, and a LESSONS.md entry for every bug fixed.
 5. The handoff is posted in the format above.
 6. Then stop and wait for the owner. Do not continue, do not start new work, and do not schedule follow-up tasks or loops.
+
+## Long-running commands
+- Run deploys and other long commands in the foreground with a timeout. Never end a turn waiting on a background task.
+- After every forge run against a fork, confirm that every transaction sent was mined. A transaction unmined after ten seconds will not mine: drop it, resend, and record it.
