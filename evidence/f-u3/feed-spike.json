@@ -1,0 +1,609 @@
+{
+  "at": "2026-10-10T02:27:18.547Z",
+  "rule": "MON/USD 300 s (D-151); every other leg its published heartbeat plus a grace of 300 s for a heartbeat of up to an hour and 3,600 s for a longer one (A-67); a leg passes when every measured gap is under its bound",
+  "roundsPerLeg": 48,
+  "tokens": [
+    {
+      "symbol": "WMON",
+      "address": "0x3bd359c1119da7da1d913d1c4d2b7c461115433a",
+      "kind": "underlying",
+      "passes": true,
+      "legs": [
+        {
+          "description": "MON / USD",
+          "proxy": "0xbcd78f76005b7515837af6b50c7c52bcf73822fb",
+          "heartbeatSeconds": 3600,
+          "graceSeconds": 0,
+          "maxAgeSeconds": 300,
+          "rounds": 48,
+          "gapsSeconds": {
+            "p50": 30,
+            "p90": 91,
+            "max": 120
+          },
+          "worstLatenessSeconds": 0,
+          "marginSeconds": 180,
+          "ageNowSeconds": 56,
+          "passes": true,
+          "note": "every gap in 48 rounds is under the 300 s bound"
+        }
+      ]
+    },
+    {
+      "symbol": "USDC",
+      "address": "0x754704bc059f8c67012fed69bc8a327a5aafb603",
+      "kind": "direct",
+      "passes": true,
+      "legs": [
+        {
+          "description": "USDC / USD",
+          "proxy": "0xf5f15f188abcb0d165d1edb7f37f7d6fa2fcebec",
+          "heartbeatSeconds": 3600,
+          "graceSeconds": 300,
+          "maxAgeSeconds": 3900,
+          "rounds": 48,
+          "gapsSeconds": {
+            "p50": 3606,
+            "p90": 3607,
+            "max": 3607
+          },
+          "worstLatenessSeconds": 7,
+          "marginSeconds": 293,
+          "ageNowSeconds": 3552,
+          "passes": true,
+          "note": "every gap in 48 rounds is under the 3900 s bound"
+        }
+      ]
+    },
+    {
+      "symbol": "USDT0",
+      "address": "0xe7cd86e13ac4309349f30b3435a9d337750fc82d",
+      "kind": "direct",
+      "passes": true,
+      "legs": [
+        {
+          "description": "USDT0 / USD",
+          "proxy": "0x731efd09d87128787787947cc21be835620e765e",
+          "heartbeatSeconds": 3600,
+          "graceSeconds": 300,
+          "maxAgeSeconds": 3900,
+          "rounds": 48,
+          "gapsSeconds": {
+            "p50": 3601,
+            "p90": 3602,
+            "max": 3602
+          },
+          "worstLatenessSeconds": 2,
+          "marginSeconds": 298,
+          "ageNowSeconds": 816,
+          "passes": true,
+          "note": "every gap in 48 rounds is under the 3900 s bound"
+        }
+      ]
+    },
+    {
+      "symbol": "AUSD",
+      "address": "0x00000000efe302beaa2b3e6e1b18d08d69a9012a",
+      "kind": "direct",
+      "passes": true,
+      "legs": [
+        {
+          "description": "AUSD / USD",
+          "proxy": "0xe20751c7b5867bcbef815ffc1b284c3f412a9e13",
+          "heartbeatSeconds": 3600,
+          "graceSeconds": 300,
+          "maxAgeSeconds": 3900,
+          "rounds": 48,
+          "gapsSeconds": {
+            "p50": 3601,
+            "p90": 3602,
+            "max": 3602
+          },
+          "worstLatenessSeconds": 2,
+          "marginSeconds": 298,
+          "ageNowSeconds": 3534,
+          "passes": true,
+          "note": "every gap in 48 rounds is under the 3900 s bound"
+        }
+      ]
+    },
+    {
+      "symbol": "USD1",
+      "address": "0x111111d2bf19e43c34263401e0cad979ed1cdb61",
+      "kind": "direct",
+      "passes": true,
+      "legs": [
+        {
+          "description": "USD1 / USD",
+          "proxy": "0xa63564f2a626f69130c1cca87f984351b26cf2f1",
+          "heartbeatSeconds": 3600,
+          "graceSeconds": 300,
+          "maxAgeSeconds": 3900,
+          "rounds": 48,
+          "gapsSeconds": {
+            "p50": 3606,
+            "p90": 3607,
+            "max": 3607
+          },
+          "worstLatenessSeconds": 7,
+          "marginSeconds": 293,
+          "ageNowSeconds": 307,
+          "passes": true,
+          "note": "every gap in 48 rounds is under the 3900 s bound"
+        }
+      ]
+    },
+    {
+      "symbol": "USDe",
+      "address": "0x5d3a1ff2b6bab83b63cd9ad0787074081a52ef34",
+      "kind": "direct",
+      "passes": true,
+      "legs": [
+        {
+          "description": "USDE / USD",
+          "proxy": "0x6b5902eabce27c23fc97ea136504395b4d22c1fd",
+          "heartbeatSeconds": 3600,
+          "graceSeconds": 300,
+          "maxAgeSeconds": 3900,
+          "rounds": 48,
+          "gapsSeconds": {
+            "p50": 3601,
+            "p90": 3602,
+            "max": 3630
+          },
+          "worstLatenessSeconds": 30,
+          "marginSeconds": 270,
+          "ageNowSeconds": 407,
+          "passes": true,
+          "note": "every gap in 48 rounds is under the 3900 s bound"
+        }
+      ]
+    },
+    {
+      "symbol": "sUSDe",
+      "address": "0x211cc4dd073734da055fbf44a2b4667d5e5fe5d2",
+      "kind": "direct",
+      "passes": true,
+      "legs": [
+        {
+          "description": "SUSDE / USD",
+          "proxy": "0xb7e7a36a0fc6543c10f4f9b60e942f1b628f2a13",
+          "heartbeatSeconds": 3600,
+          "graceSeconds": 300,
+          "maxAgeSeconds": 3900,
+          "rounds": 48,
+          "gapsSeconds": {
+            "p50": 3601,
+            "p90": 3602,
+            "max": 3620
+          },
+          "worstLatenessSeconds": 20,
+          "marginSeconds": 280,
+          "ageNowSeconds": 1776,
+          "passes": true,
+          "note": "every gap in 48 rounds is under the 3900 s bound"
+        }
+      ]
+    },
+    {
+      "symbol": "WETH",
+      "address": "0xee8c0e9f1bffb4eb878d8f15f368a02a35481242",
+      "kind": "underlying",
+      "passes": true,
+      "legs": [
+        {
+          "description": "ETH / USD",
+          "proxy": "0x1b1414782b859871781ba3e4b0979b9ca57a0a04",
+          "heartbeatSeconds": 3600,
+          "graceSeconds": 300,
+          "maxAgeSeconds": 3900,
+          "rounds": 48,
+          "gapsSeconds": {
+            "p50": 270,
+            "p90": 691,
+            "max": 1803
+          },
+          "worstLatenessSeconds": 0,
+          "marginSeconds": 2097,
+          "ageNowSeconds": 701,
+          "passes": true,
+          "note": "every gap in 48 rounds is under the 3900 s bound"
+        }
+      ]
+    },
+    {
+      "symbol": "WBTC",
+      "address": "0x0555e30da8f98308edb960aa94c0db47230d2b9c",
+      "kind": "direct",
+      "passes": true,
+      "legs": [
+        {
+          "description": "WBTC / USD",
+          "proxy": "0x2d1df1bd061aac38c22407ad69d69bcc3c62edbd",
+          "heartbeatSeconds": 3600,
+          "graceSeconds": 300,
+          "maxAgeSeconds": 3900,
+          "rounds": 48,
+          "gapsSeconds": {
+            "p50": 450,
+            "p90": 1950,
+            "max": 3602
+          },
+          "worstLatenessSeconds": 2,
+          "marginSeconds": 298,
+          "ageNowSeconds": 82,
+          "passes": true,
+          "note": "every gap in 48 rounds is under the 3900 s bound"
+        }
+      ]
+    },
+    {
+      "symbol": "cbBTC",
+      "address": "0xd18b7ec58cdf4876f6afebd3ed1730e4ce10414b",
+      "kind": "direct",
+      "passes": true,
+      "legs": [
+        {
+          "description": "CBBTC / USD",
+          "proxy": "0x3ddc1bae752aaee31b577bf844c799c349a1d6bd",
+          "heartbeatSeconds": 3600,
+          "graceSeconds": 300,
+          "maxAgeSeconds": 3900,
+          "rounds": 48,
+          "gapsSeconds": {
+            "p50": 334,
+            "p90": 1560,
+            "max": 3211
+          },
+          "worstLatenessSeconds": 0,
+          "marginSeconds": 689,
+          "ageNowSeconds": 319,
+          "passes": true,
+          "note": "every gap in 48 rounds is under the 3900 s bound"
+        }
+      ]
+    },
+    {
+      "symbol": "wstETH",
+      "address": "0x10aeaf63194db8d453d4d85a06e5efe1dd0b5417",
+      "kind": "direct",
+      "passes": true,
+      "legs": [
+        {
+          "description": "WSTETH / USD",
+          "proxy": "0xe6cd21b31948503db54a07875999979722504b9a",
+          "heartbeatSeconds": 3600,
+          "graceSeconds": 300,
+          "maxAgeSeconds": 3900,
+          "rounds": 48,
+          "gapsSeconds": {
+            "p50": 270,
+            "p90": 1021,
+            "max": 3211
+          },
+          "worstLatenessSeconds": 0,
+          "marginSeconds": 689,
+          "ageNowSeconds": 702,
+          "passes": true,
+          "note": "every gap in 48 rounds is under the 3900 s bound"
+        }
+      ]
+    },
+    {
+      "symbol": "weETH",
+      "address": "0xa3d68b74bf0528fdd07263c60d6488749044914b",
+      "kind": "direct",
+      "passes": true,
+      "legs": [
+        {
+          "description": "WEETH / USD",
+          "proxy": "0x42dd36b9d6938dccff8fe4e9770589aba614fcbb",
+          "heartbeatSeconds": 3600,
+          "graceSeconds": 300,
+          "maxAgeSeconds": 3900,
+          "rounds": 48,
+          "gapsSeconds": {
+            "p50": 270,
+            "p90": 991,
+            "max": 3182
+          },
+          "worstLatenessSeconds": 0,
+          "marginSeconds": 718,
+          "ageNowSeconds": 278,
+          "passes": true,
+          "note": "every gap in 48 rounds is under the 3900 s bound"
+        }
+      ]
+    },
+    {
+      "symbol": "LINK",
+      "address": "0x76f257b1dda5cc71bee4ef637fbdde4c801310a9",
+      "kind": "direct",
+      "passes": true,
+      "legs": [
+        {
+          "description": "LINK / USD",
+          "proxy": "0x5c266b5c655664d6c99a13ff0d7f1f7eaf4ac9ba",
+          "heartbeatSeconds": 3600,
+          "graceSeconds": 300,
+          "maxAgeSeconds": 3900,
+          "rounds": 48,
+          "gapsSeconds": {
+            "p50": 60,
+            "p90": 150,
+            "max": 241
+          },
+          "worstLatenessSeconds": 0,
+          "marginSeconds": 3659,
+          "ageNowSeconds": 82,
+          "passes": true,
+          "note": "every gap in 48 rounds is under the 3900 s bound"
+        }
+      ]
+    },
+    {
+      "symbol": "sMON",
+      "address": "0xa3227c5969757783154c60bf0bc1944180ed81b9",
+      "kind": "composite",
+      "passes": true,
+      "legs": [
+        {
+          "description": "SMON / MON Exchange Rate",
+          "proxy": "0x0bd1d6e72b9cd91442360f0e9c40eef0bc480e75",
+          "heartbeatSeconds": 86400,
+          "graceSeconds": 3600,
+          "maxAgeSeconds": 90000,
+          "rounds": 48,
+          "gapsSeconds": {
+            "p50": 86403,
+            "p90": 86420,
+            "max": 86425
+          },
+          "worstLatenessSeconds": 25,
+          "marginSeconds": 3575,
+          "ageNowSeconds": 33678,
+          "passes": true,
+          "note": "every gap in 48 rounds is under the 90000 s bound"
+        },
+        {
+          "description": "MON / USD",
+          "proxy": "0xbcd78f76005b7515837af6b50c7c52bcf73822fb",
+          "heartbeatSeconds": 3600,
+          "graceSeconds": 0,
+          "maxAgeSeconds": 300,
+          "rounds": 48,
+          "gapsSeconds": {
+            "p50": 30,
+            "p90": 91,
+            "max": 120
+          },
+          "worstLatenessSeconds": 0,
+          "marginSeconds": 180,
+          "ageNowSeconds": 56,
+          "passes": true,
+          "note": "every gap in 48 rounds is under the 300 s bound"
+        }
+      ]
+    },
+    {
+      "symbol": "gMON",
+      "address": "0x8498312a6b3cbd158bf0c93abdcf29e6e4f55081",
+      "kind": "composite",
+      "passes": true,
+      "legs": [
+        {
+          "description": "GMON / MON Exchange Rate",
+          "proxy": "0x256376e2ec4a8290e2ebfaee7c71bb7ef6b60221",
+          "heartbeatSeconds": 86400,
+          "graceSeconds": 3600,
+          "maxAgeSeconds": 90000,
+          "rounds": 48,
+          "gapsSeconds": {
+            "p50": 86404,
+            "p90": 86422,
+            "max": 86430
+          },
+          "worstLatenessSeconds": 30,
+          "marginSeconds": 3570,
+          "ageNowSeconds": 53627,
+          "passes": true,
+          "note": "every gap in 48 rounds is under the 90000 s bound"
+        },
+        {
+          "description": "MON / USD",
+          "proxy": "0xbcd78f76005b7515837af6b50c7c52bcf73822fb",
+          "heartbeatSeconds": 3600,
+          "graceSeconds": 0,
+          "maxAgeSeconds": 300,
+          "rounds": 48,
+          "gapsSeconds": {
+            "p50": 30,
+            "p90": 91,
+            "max": 120
+          },
+          "worstLatenessSeconds": 0,
+          "marginSeconds": 180,
+          "ageNowSeconds": 56,
+          "passes": true,
+          "note": "every gap in 48 rounds is under the 300 s bound"
+        }
+      ]
+    },
+    {
+      "symbol": "aprMON",
+      "address": "0x0c65a0bc65a5d819235b71f554d210d3f80e0852",
+      "kind": "composite",
+      "passes": true,
+      "legs": [
+        {
+          "description": "APRMON / MON Exchange Rate",
+          "proxy": "0x11b34d7aad41931bb4effc716d7d20be6e6d1542",
+          "heartbeatSeconds": 3600,
+          "graceSeconds": 300,
+          "maxAgeSeconds": 3900,
+          "rounds": 48,
+          "gapsSeconds": {
+            "p50": 3601,
+            "p90": 3602,
+            "max": 3602
+          },
+          "worstLatenessSeconds": 2,
+          "marginSeconds": 298,
+          "ageNowSeconds": 3209,
+          "passes": true,
+          "note": "every gap in 48 rounds is under the 3900 s bound"
+        },
+        {
+          "description": "MON / USD",
+          "proxy": "0xbcd78f76005b7515837af6b50c7c52bcf73822fb",
+          "heartbeatSeconds": 3600,
+          "graceSeconds": 0,
+          "maxAgeSeconds": 300,
+          "rounds": 48,
+          "gapsSeconds": {
+            "p50": 30,
+            "p90": 91,
+            "max": 120
+          },
+          "worstLatenessSeconds": 0,
+          "marginSeconds": 180,
+          "ageNowSeconds": 56,
+          "passes": true,
+          "note": "every gap in 48 rounds is under the 300 s bound"
+        }
+      ]
+    },
+    {
+      "symbol": "shMON",
+      "address": "0x1b68626dca36c7fe922fd2d55e4f631d962de19c",
+      "kind": "composite",
+      "passes": true,
+      "legs": [
+        {
+          "description": "SHMON / MON Exchange Rate",
+          "proxy": "0x2dc0b316e3d4e673c7f9a809e80a3e60b26d7774",
+          "heartbeatSeconds": 86400,
+          "graceSeconds": 3600,
+          "maxAgeSeconds": 90000,
+          "rounds": 48,
+          "gapsSeconds": {
+            "p50": 86403,
+            "p90": 86424,
+            "max": 86467
+          },
+          "worstLatenessSeconds": 67,
+          "marginSeconds": 3533,
+          "ageNowSeconds": 32202,
+          "passes": true,
+          "note": "every gap in 48 rounds is under the 90000 s bound"
+        },
+        {
+          "description": "MON / USD",
+          "proxy": "0xbcd78f76005b7515837af6b50c7c52bcf73822fb",
+          "heartbeatSeconds": 3600,
+          "graceSeconds": 0,
+          "maxAgeSeconds": 300,
+          "rounds": 48,
+          "gapsSeconds": {
+            "p50": 30,
+            "p90": 91,
+            "max": 120
+          },
+          "worstLatenessSeconds": 0,
+          "marginSeconds": 180,
+          "ageNowSeconds": 56,
+          "passes": true,
+          "note": "every gap in 48 rounds is under the 300 s bound"
+        }
+      ]
+    },
+    {
+      "symbol": "syrupUSDC",
+      "address": "0xab6e5a0c3799d020c790d34f7b2c02639e238af7",
+      "kind": "composite",
+      "passes": true,
+      "legs": [
+        {
+          "description": "SYRUPUSDC / USDC Exchange Rate",
+          "proxy": "0xaec21ef8f7aa33687c647bfedaa8cd7f7855973f",
+          "heartbeatSeconds": 86400,
+          "graceSeconds": 3600,
+          "maxAgeSeconds": 90000,
+          "rounds": 48,
+          "gapsSeconds": {
+            "p50": 86404,
+            "p90": 86426,
+            "max": 86463
+          },
+          "worstLatenessSeconds": 63,
+          "marginSeconds": 3537,
+          "ageNowSeconds": 25534,
+          "passes": true,
+          "note": "every gap in 48 rounds is under the 90000 s bound"
+        },
+        {
+          "description": "USDC / USD",
+          "proxy": "0xf5f15f188abcb0d165d1edb7f37f7d6fa2fcebec",
+          "heartbeatSeconds": 3600,
+          "graceSeconds": 300,
+          "maxAgeSeconds": 3900,
+          "rounds": 48,
+          "gapsSeconds": {
+            "p50": 3606,
+            "p90": 3607,
+            "max": 3607
+          },
+          "worstLatenessSeconds": 7,
+          "marginSeconds": 293,
+          "ageNowSeconds": 3552,
+          "passes": true,
+          "note": "every gap in 48 rounds is under the 3900 s bound"
+        }
+      ]
+    },
+    {
+      "symbol": "SolvBTC",
+      "address": "0xae4efbc7736f963982aacb17efa37fcbab924cb3",
+      "kind": "composite",
+      "passes": true,
+      "legs": [
+        {
+          "description": "SOLVBTC / BTC Exchange Rate",
+          "proxy": "0x8caede99d5253457e3bd7a52697c99d00549d04a",
+          "heartbeatSeconds": 86400,
+          "graceSeconds": 3600,
+          "maxAgeSeconds": 90000,
+          "rounds": 48,
+          "gapsSeconds": {
+            "p50": 86403,
+            "p90": 86420,
+            "max": 86426
+          },
+          "worstLatenessSeconds": 26,
+          "marginSeconds": 3574,
+          "ageNowSeconds": 69776,
+          "passes": true,
+          "note": "every gap in 48 rounds is under the 90000 s bound"
+        },
+        {
+          "description": "BTC / USD",
+          "proxy": "0xc1d4c3331635184fa4c3c22fb92211b2ac9e0546",
+          "heartbeatSeconds": 3600,
+          "graceSeconds": 300,
+          "maxAgeSeconds": 3900,
+          "rounds": 48,
+          "gapsSeconds": {
+            "p50": 79,
+            "p90": 370,
+            "max": 711
+          },
+          "worstLatenessSeconds": 0,
+          "marginSeconds": 3189,
+          "ageNowSeconds": 178,
+          "passes": true,
+          "note": "every gap in 48 rounds is under the 3900 s bound"
+        }
+      ]
+    }
+  ]
+}

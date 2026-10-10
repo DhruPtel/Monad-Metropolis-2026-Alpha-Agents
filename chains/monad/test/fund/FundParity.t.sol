@@ -142,7 +142,7 @@ contract FundParityTest is FundBase {
             rateFeed.setRound(7, int256(c.rateAnswer), c.rateUpdatedAt, 7);
             MockToken t = new MockToken("T", 18);
             FeedLeg memory rateLeg;
-            if (c.hasRate) rateLeg = FeedLeg(address(rateFeed), 18, 86_700);
+            if (c.hasRate) rateLeg = FeedLeg(address(rateFeed), 18, 90_000);
             TokenRegistry.CoreSeed[] memory seeds = new TokenRegistry.CoreSeed[](1);
             seeds[0] = TokenRegistry.CoreSeed(
                 address(t), PriceClass.F, 1_000, FeedConfig(FeedLeg(address(usdFeed), 8, 300), rateLeg)

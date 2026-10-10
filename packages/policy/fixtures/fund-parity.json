@@ -78,34 +78,34 @@
       "updatedAtOut": "1790872525"
     },
     {
-      "name": "a rate 86,699 s old",
+      "name": "a rate 89,999 s old",
       "legDecimals": 18,
-      "maxAge": "86700",
+      "maxAge": "90000",
       "reverts": false,
       "decimals": 18,
       "roundId": "7",
       "answer": "1116108835704729169",
-      "updatedAt": "1790789726",
+      "updatedAt": "1790786426",
       "answeredInRound": "7",
       "time": "1790876425",
       "reason": 0,
       "valueE18": "1116108835704729169",
-      "updatedAtOut": "1790789726"
+      "updatedAtOut": "1790786426"
     },
     {
-      "name": "a rate exactly 86,700 s old",
+      "name": "a rate exactly 90,000 s old",
       "legDecimals": 18,
-      "maxAge": "86700",
+      "maxAge": "90000",
       "reverts": false,
       "decimals": 18,
       "roundId": "7",
       "answer": "1116108835704729169",
-      "updatedAt": "1790789725",
+      "updatedAt": "1790786425",
       "answeredInRound": "7",
       "time": "1790876425",
       "reason": 9,
       "valueE18": "0",
-      "updatedAtOut": "1790789725"
+      "updatedAtOut": "1790786425"
     },
     {
       "name": "a feed that reverts",
@@ -245,17 +245,17 @@
     {
       "name": "random 0",
       "legDecimals": 18,
-      "maxAge": "86700",
+      "maxAge": "90000",
       "reverts": false,
       "decimals": 18,
       "roundId": "7",
       "answer": "1123316093000000000",
-      "updatedAt": "1790835518",
+      "updatedAt": "1790833963",
       "answeredInRound": "7",
       "time": "1790876425",
       "reason": 0,
       "valueE18": "1123316093000000000",
-      "updatedAtOut": "1790835518"
+      "updatedAtOut": "1790833963"
     },
     {
       "name": "random 1",
@@ -380,17 +380,17 @@
     {
       "name": "random 9",
       "legDecimals": 18,
-      "maxAge": "86700",
+      "maxAge": "90000",
       "reverts": false,
       "decimals": 18,
       "roundId": "7",
       "answer": "1341946950000000000",
-      "updatedAt": "1790809765",
+      "updatedAt": "1790807230",
       "answeredInRound": "7",
       "time": "1790876425",
       "reason": 0,
       "valueE18": "1341946950000000000",
-      "updatedAtOut": "1790809765"
+      "updatedAtOut": "1790807230"
     },
     {
       "name": "random 10",
@@ -455,32 +455,32 @@
     {
       "name": "random 14",
       "legDecimals": 18,
-      "maxAge": "86700",
+      "maxAge": "90000",
       "reverts": false,
       "decimals": 18,
       "roundId": "7",
       "answer": "1926327574000000000",
-      "updatedAt": "1790840112",
+      "updatedAt": "1790838732",
       "answeredInRound": "7",
       "time": "1790876425",
       "reason": 0,
       "valueE18": "1926327574000000000",
-      "updatedAtOut": "1790840112"
+      "updatedAtOut": "1790838732"
     },
     {
       "name": "random 15",
       "legDecimals": 18,
-      "maxAge": "86700",
+      "maxAge": "90000",
       "reverts": false,
       "decimals": 18,
       "roundId": "7",
       "answer": "78426020000000000",
-      "updatedAt": "1790855203",
+      "updatedAt": "1790854396",
       "answeredInRound": "7",
       "time": "1790876425",
       "reason": 0,
       "valueE18": "78426020000000000",
-      "updatedAtOut": "1790855203"
+      "updatedAtOut": "1790854396"
     },
     {
       "name": "random 16",
@@ -545,17 +545,17 @@
     {
       "name": "random 20",
       "legDecimals": 18,
-      "maxAge": "86700",
+      "maxAge": "90000",
       "reverts": false,
       "decimals": 18,
       "roundId": "7",
       "answer": "831383395000000000",
-      "updatedAt": "1790849951",
+      "updatedAt": "1790848945",
       "answeredInRound": "7",
       "time": "1790876425",
       "reason": 0,
       "valueE18": "831383395000000000",
-      "updatedAtOut": "1790849951"
+      "updatedAtOut": "1790848945"
     },
     {
       "name": "random 21",
@@ -620,12 +620,12 @@
     {
       "name": "random 25",
       "legDecimals": 18,
-      "maxAge": "86700",
+      "maxAge": "90000",
       "reverts": false,
       "decimals": 8,
       "roundId": "7",
       "answer": "1076513372000000000",
-      "updatedAt": "1790875842",
+      "updatedAt": "1790875820",
       "answeredInRound": "7",
       "time": "1790876425",
       "reason": 4,
@@ -650,17 +650,17 @@
     {
       "name": "random 27",
       "legDecimals": 18,
-      "maxAge": "86700",
+      "maxAge": "90000",
       "reverts": false,
       "decimals": 18,
       "roundId": "7",
       "answer": "1595649282000000000",
-      "updatedAt": "1790799954",
+      "updatedAt": "1790797047",
       "answeredInRound": "7",
       "time": "1790876425",
       "reason": 0,
       "valueE18": "1595649282000000000",
-      "updatedAtOut": "1790799954"
+      "updatedAtOut": "1790797047"
     },
     {
       "name": "random 28",
@@ -887,11 +887,11 @@
       "usdUpdatedAt": "1790876415",
       "hasRate": true,
       "rateAnswer": "1100000000000000000",
-      "rateUpdatedAt": "1790789725",
+      "rateUpdatedAt": "1790786425",
       "time": "1790876425",
       "reason": 9,
       "priceE18": "0",
-      "updatedAtOut": "1790789725"
+      "updatedAtOut": "1790786425"
     },
     {
       "name": "composite with a zero rate",

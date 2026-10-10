@@ -78,7 +78,7 @@ contract FundForkTest is Test {
         seeds[3] = _seed(CBBTC, FeedLeg(0x3dDc1bAE752aaEe31b577bF844c799C349A1d6BD, 8, 3_900), none);
         seeds[4] = _seed(WETH, FeedLeg(0x1B1414782B859871781bA3E4B0979b9ca57A0A04, 8, 3_900), none);
         seeds[5] = _seed(AUSD, FeedLeg(0xE20751C7B5867bCBef815ffc1b284c3f412a9e13, 8, 3_900), none);
-        seeds[6] = _seed(SHMON, monUsd, FeedLeg(0x2dC0b316e3d4e673C7F9A809e80a3e60b26d7774, 18, 86_700));
+        seeds[6] = _seed(SHMON, monUsd, FeedLeg(0x2dC0b316e3d4e673C7F9A809e80a3e60b26d7774, 18, 90_000));
         tokens = new TokenRegistry(address(this), address(this), address(this), seeds);
 
         ProtocolRegistryV3.PoolSeed[] memory ps = new ProtocolRegistryV3.PoolSeed[](7);

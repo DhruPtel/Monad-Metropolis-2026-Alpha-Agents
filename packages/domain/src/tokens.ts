@@ -307,18 +307,35 @@ export const CLASS_F_FEEDS: readonly ClassFFeed[] = [
 
 /** MON/USD's proxy: the one feed held to 300 seconds, since it updates about every 30 (D-151, P2-U0). */
 export const MON_USD_FEED_PROXY = "0xbcd78f76005b7515837af6b50c7c52bcf73822fb" as const;
-/** What a heartbeat-driven feed's bound adds to its heartbeat (P2-U0's USDC/USD rule). */
+/** The grace a feed with a heartbeat of up to an hour gets past its heartbeat (P2-U0's USDC/USD rule). */
 export const FEED_HEARTBEAT_GRACE_SECONDS = 300;
+/** The grace a feed with a longer (daily) heartbeat gets: one hour (F-U3 step 0). */
+export const FEED_DAILY_GRACE_SECONDS = 3_600;
 
 /**
- * The staleness bound OracleAdapterV3 uses for one feed leg (F-U2): 300
- * seconds for MON/USD, and the published heartbeat plus 300 seconds for every
- * other feed. The feed spike checks each bound against the leg's measured gaps.
+ * How late past its heartbeat a feed leg's answer may be before it is stale:
+ * 5 minutes for a heartbeat of up to an hour, an hour for a longer heartbeat.
+ * Measured on Monad mainnet (evidence/f-u3/feed-spike.json), hourly legs run
+ * at most about 30 seconds late and daily exchange-rate legs about 70 seconds
+ * late, so each grace is at least ten times the worst lateness seen, and a
+ * daily exchange rate (a liquid staking token's) moves far too slowly for an
+ * extra hour to matter in value.
+ */
+export function feedGraceSeconds(heartbeatSeconds: number): number {
+  return heartbeatSeconds <= 3_600 ? FEED_HEARTBEAT_GRACE_SECONDS : FEED_DAILY_GRACE_SECONDS;
+}
+
+/**
+ * The staleness bound OracleAdapterV3 uses for one feed leg (F-U2, A-67): 300
+ * seconds for MON/USD (the trade gate, D-151), and for every other leg its
+ * published heartbeat plus `feedGraceSeconds`: 3,900 seconds for an hourly
+ * leg, 90,000 for a daily one. The feed spike checks each bound against the
+ * leg's measured gaps.
  */
 export function feedMaxAgeSeconds(leg: FeedLeg): number {
   return leg.proxy === MON_USD_FEED_PROXY
     ? 300
-    : leg.heartbeatSeconds + FEED_HEARTBEAT_GRACE_SECONDS;
+    : leg.heartbeatSeconds + feedGraceSeconds(leg.heartbeatSeconds);
 }
 
 export function classFFeed(token: string): ClassFFeed | null {

@@ -246,7 +246,7 @@ const round = (
 function legCases() {
   const MON: LegSpec = { decimals: 8, maxAge: 300n };
   const HOURLY: LegSpec = { decimals: 8, maxAge: 3_900n };
-  const DAILY_RATE: LegSpec = { decimals: 18, maxAge: 86_700n };
+  const DAILY_RATE: LegSpec = { decimals: 18, maxAge: 90_000n };
   const p = 2_422_263n;
   const cases: LegCaseInput[] = [
     { name: "MON/USD fresh", leg: MON, answer: round(8, p, T0 - 10n), now: T0 },
@@ -265,15 +265,15 @@ function legCases() {
       now: T0,
     },
     {
-      name: "a rate 86,699 s old",
+      name: "a rate 89,999 s old",
       leg: DAILY_RATE,
-      answer: round(18, 1_116_108_835_704_729_169n, T0 - 86_699n),
+      answer: round(18, 1_116_108_835_704_729_169n, T0 - 89_999n),
       now: T0,
     },
     {
-      name: "a rate exactly 86,700 s old",
+      name: "a rate exactly 90,000 s old",
       leg: DAILY_RATE,
-      answer: round(18, 1_116_108_835_704_729_169n, T0 - 86_700n),
+      answer: round(18, 1_116_108_835_704_729_169n, T0 - 90_000n),
       now: T0,
     },
     { name: "a feed that reverts", leg: HOURLY, answer: null, now: T0 },
@@ -311,7 +311,7 @@ function priceCases() {
   const usd = (answer: bigint, age: bigint, maxAge = 300n) =>
     readLegV3(round(8, answer, T0 - age), { decimals: 8, maxAge }, T0);
   const rate = (answer: bigint, age: bigint) =>
-    readLegV3(round(18, answer, T0 - age), { decimals: 18, maxAge: 86_700n }, T0);
+    readLegV3(round(18, answer, T0 - age), { decimals: 18, maxAge: 90_000n }, T0);
   const cases = [
     {
       name: "direct",
@@ -342,7 +342,7 @@ function priceCases() {
       usdAnswer: 2_422_263n,
       usdAge: 10n,
       rateAnswer: 1_100_000_000_000_000_000n,
-      rateAge: 86_700n,
+      rateAge: 90_000n,
       hasRate: true,
     },
     {

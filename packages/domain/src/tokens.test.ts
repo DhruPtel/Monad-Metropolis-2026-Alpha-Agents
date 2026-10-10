@@ -1,10 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
   CLASS_F_FEEDS,
+  MON_USD_FEED_PROXY,
   REVIEWED_TOKENS,
   SCREEN_CHECK_CODES,
   type ScreenCheck,
   classFFeed,
+  feedGraceSeconds,
+  feedMaxAgeSeconds,
   foldName,
   lookAlike,
   reviewedToken,
@@ -89,5 +92,43 @@ describe("the token screen's rules (F-U1)", () => {
     }
     expect(reviewedToken("0x754704BC059F8C67012FED69BC8A327A5AAFB603")?.issuer).toBe("Circle");
     expect(classFFeed("0x0000000000000000000000000000000000000001")).toBeNull();
+  });
+});
+
+describe("the staleness bound of a feed leg (F-U2, F-U3 step 0, A-67)", () => {
+  const leg = (proxy: string, heartbeatSeconds: number) => ({
+    proxy: proxy as `0x${string}`,
+    description: "X / USD",
+    decimals: 8,
+    heartbeatSeconds,
+    deviationPct: 0.05,
+  });
+
+  it("holds MON/USD to 300 seconds whatever its heartbeat", () => {
+    expect(feedMaxAgeSeconds(leg(MON_USD_FEED_PROXY, 3600))).toBe(300);
+  });
+
+  it("gives an hourly leg five minutes of grace and a daily leg one hour", () => {
+    expect(feedGraceSeconds(3600)).toBe(300);
+    expect(feedGraceSeconds(86_400)).toBe(3600);
+    expect(feedMaxAgeSeconds(leg("0x0000000000000000000000000000000000000001", 3600))).toBe(3900);
+    expect(feedMaxAgeSeconds(leg("0x0000000000000000000000000000000000000001", 86_400))).toBe(
+      90_000,
+    );
+  });
+
+  it("bounds every reviewed leg by that rule, and every grace is at least ten times the worst lateness measured", () => {
+    for (const f of CLASS_F_FEEDS) {
+      for (const l of f.legs) {
+        const expected =
+          l.proxy === MON_USD_FEED_PROXY
+            ? 300
+            : l.heartbeatSeconds + feedGraceSeconds(l.heartbeatSeconds);
+        expect(feedMaxAgeSeconds(l)).toBe(expected);
+      }
+    }
+    // Measured in evidence/f-u3/feed-spike.json: hourly legs at most 30 s late, daily legs at most 67 s.
+    expect(feedGraceSeconds(3600)).toBeGreaterThanOrEqual(10 * 30);
+    expect(feedGraceSeconds(86_400)).toBeGreaterThanOrEqual(10 * 67);
   });
 });

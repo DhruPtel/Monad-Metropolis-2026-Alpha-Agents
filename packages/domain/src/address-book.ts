@@ -1312,8 +1312,11 @@ const CANARY_DEPLOYED: readonly AddressEntry[] = [
  * F-U2: the fund agent's v3 set, beside v1 and v2. Deterministic CREATE2 with
  * the `fund-<name>.v3` salts; the addresses follow from the seeds, all seven
  * core candidates having passed their screens at deploy time
- * (scripts/lib/fund.js). The RouteAdapter's executor is anvil account 0 until
- * F-U4 deploys the adapter bound to Executor v3.
+ * (scripts/lib/fund.js). F-U3 step 0 moved the daily exchange-rate legs' bound
+ * from 86,700 to 90,000 seconds (A-67), which changed the seeds and so every
+ * address: the set is deployed again beside F-U2's, which stays on the playtest
+ * fork unused. The RouteAdapter's executor is anvil account 0 until F-U4
+ * deploys the adapter bound to Executor v3.
  */
 const FUND_SOURCE = "Planv2/FINAL_PLAN.md > 0.4 Contract changes on Monad";
 const FUND_IDS = [
@@ -1326,22 +1329,22 @@ const FUND_LOCAL_FACTS: Readonly<
   Record<(typeof FUND_IDS)[number][0], readonly [Address, number, string]>
 > = {
   token_registry_v3: [
-    "0x544E6dF6E70C1404A7e8a4827F8d9A58FD2D24f8",
+    "0x171F36056B2449F0FBB9923676AffAb14A1cf55C",
     19517,
-    "Core lane seeded with USDC, WMON, AUSD, WBTC, cbBTC, WETH and shMON, each re-screened at deploy time; screener anvil account 3",
+    "Core lane seeded with USDC, WMON, AUSD, WBTC, cbBTC, WETH and shMON, each re-screened at deploy time, with the A-67 feed bounds; screener anvil account 3",
   ],
   protocol_registry_v3: [
-    "0x94F24a3dbbCdD64859466a461DA22444cbC7e606",
+    "0x4eB383cA21819119fB9852a23F4f173208CAC098",
     19718,
     "Eight core pools on Uniswap v3, PancakeSwap v3 and hookless Uniswap v4, each confirmed by its venue",
   ],
   oracle_adapter_v3: [
-    "0x697C4A9154AE5731A54C13FA36D2EFcD84205E65",
+    "0x82df37a295f0387e9d83788213CfC70E944EEaBD",
     10235,
-    "One feed per class F token with its own staleness bound; on the fork only MON/USD and USDC/USD are kept fresh (D-237)",
+    "One feed per class F token with its own staleness bound; on the fork every class F feed is kept fresh (D-237, F-U3 step 0)",
   ],
   route_adapter_v3: [
-    "0xA13d903f83Dd8685ce3a49a8C0C28ECc9b8b72C5",
+    "0x509450abceD1123007F1DafCeFe4F38B9817dFb7",
     12727,
     "Demo executor anvil account 0, not registered; F-U4 deploys and registers the adapter bound to Executor v3",
   ],

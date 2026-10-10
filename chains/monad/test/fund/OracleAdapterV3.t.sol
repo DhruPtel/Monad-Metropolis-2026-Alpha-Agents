@@ -51,7 +51,7 @@ contract OracleAdapterV3Test is FundBase {
 
     function test_AStaleRateLegBlocksTheCompositeAlone() public {
         // The rate leg's bound is a day; MON/USD stays fresh by pushing again.
-        vm.warp(block.timestamp + 86_700);
+        vm.warp(block.timestamp + 90_000);
         monUsd.push(2e8);
         (, PriceReason r) = _price(address(tokB));
         assertEq(uint8(r), uint8(PriceReason.STALE));

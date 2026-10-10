@@ -39,7 +39,7 @@ abstract contract FundBase is Test {
 
     MockFeed internal monUsd; // 8 decimals, 300 s
     MockFeed internal aUsd; // 8 decimals, 3,900 s
-    MockFeed internal bRate; // 18 decimals, 86,700 s
+    MockFeed internal bRate; // 18 decimals, 90,000 s
 
     TokenRegistry internal tokens;
     ProtocolRegistryV3 internal pools;
@@ -79,7 +79,7 @@ abstract contract FundBase is Test {
         TokenRegistry.CoreSeed[] memory seeds = new TokenRegistry.CoreSeed[](4);
         seeds[0] = _seed(address(wmon), PriceClass.F, _feed(monUsd, 8, 300), _noLeg());
         seeds[1] = _seed(address(tokA), PriceClass.F, _feed(aUsd, 8, 3_900), _noLeg());
-        seeds[2] = _seed(address(tokB), PriceClass.F, _feed(monUsd, 8, 300), _feed(bRate, 18, 86_700));
+        seeds[2] = _seed(address(tokB), PriceClass.F, _feed(monUsd, 8, 300), _feed(bRate, 18, 90_000));
         seeds[3] = _seed(address(tokC), PriceClass.A, _noLeg(), _noLeg());
         tokens = new TokenRegistry(ADMIN, GUARDIAN, SCREENER, _withUsdc(seeds));
 
