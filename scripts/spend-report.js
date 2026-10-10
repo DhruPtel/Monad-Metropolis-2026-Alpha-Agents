@@ -19,6 +19,7 @@ try {
 }
 const url = /** @type {import("@alpha-agents/config").Secret} */ (config.values.DATABASE_URL);
 const db = createDb(url.reveal(), { max: 2 });
+/** @param {unknown} v */
 const usd = (v) => Number(v ?? 0).toFixed(3);
 /** @param {string} title @param {readonly string[]} head @param {readonly (readonly unknown[])[]} rows */
 const table = (title, head, rows) => {
@@ -28,7 +29,7 @@ const table = (title, head, rows) => {
   if (rows.length === 0) console.log("(none)");
 };
 const since = new Date(Date.now() - days * 86_400_000);
-const q = async (/** @type {import("kysely").RawBuilder<unknown>} */ query) =>
+const q = async (/** @type {ReturnType<typeof sql>} */ query) =>
   /** @type {Record<string, unknown>[]} */ ((await query.execute(db)).rows);
 
 const total = await q(
@@ -36,17 +37,17 @@ const total = await q(
       from litellm."LiteLLM_SpendLogs" where "startTime" >= ${since}`,
 );
 console.log(
-  `Model spend over the last ${days} days: ${usd(total[0]?.usd)} USD in ${String(total[0]?.calls)} calls (${String(total[0]?.first ?? "-").slice(0, 24)} to ${String(total[0]?.last ?? "-").slice(0, 24)}).`,
+  `Model spend over the last ${days} days: ${usd(total[0]?.usd)} USD in ${String(total[0]?.calls)} calls (${String(total[0]?.first ?? "-").slice(4, 24)} to ${String(total[0]?.last ?? "-").slice(4, 24)}).`,
 );
 table(
   "by day (UTC)",
   ["day", "calls", "USD"],
   (
     await q(
-      sql`select date_trunc('day', "startTime")::date d, count(*)::int calls, sum(spend) usd
+      sql`select to_char(date_trunc('day', "startTime"), 'YYYY-MM-DD') d, count(*)::int calls, sum(spend) usd
           from litellm."LiteLLM_SpendLogs" where "startTime" >= ${since} group by 1 order by 1`,
     )
-  ).map((r) => [String(r.d).slice(0, 10), r.calls, usd(r.usd)]),
+  ).map((r) => [r.d, r.calls, usd(r.usd)]),
 );
 table(
   "by kind of caller",
