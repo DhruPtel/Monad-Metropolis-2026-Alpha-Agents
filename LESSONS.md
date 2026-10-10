@@ -1294,3 +1294,31 @@ What happened: Two live runs ended with "timed out waiting for the token check t
 Cause: The live run's `waitFor` treats any thrown error as "not yet", so a refusal that would never clear looked like a slow start. The gate was run as `gate.sh | tail -1 && git commit`, and a pipeline's status is tail's, not the gate's.
 Fix: Before the token check the owner tops up the agent's credits when it is restricted or low, and a timeout now names the last answer it received (fad246e). The gate now gates the commit directly (`gate.sh && git commit`). A failed check run also records Hermes's own failure reason (fd8d627), which is how the fourth run showed the real blocker: the model provider's account was out of credit.
 Lesson: A wait loop must report the last refusal it swallowed, or every failure looks like a timeout; and never pipe a gate whose exit status decides a commit.
+
+## L-172: The demo's deploy stalled its own fork, and the error blamed the chain ID
+Unit: F-U2
+What happened: `pnpm fund:demo` started a fork on port 8585 and then ran the forge deploy, which failed with "failed to retrieve chain ID" against a fork that had just answered. Run against the playtest fork, the same deploy worked.
+Cause: L-109 again. The demo starts anvil from its own process and drains anvil's log there; the deploy ran forge through spawnSync, which blocks that process, so anvil's output pipe filled and anvil stopped answering mid-script. Forge then reported the first call it could not complete.
+Fix: Forge runs through an async spawn everywhere in the v3 scripts (`runForge` in scripts/lib/fund.js), with a comment pointing at L-109 (0402f49).
+Lesson: Any script that starts anvil itself must never block its own event loop while anvil runs. Before writing a spawnSync in a script, check whether that process owns a child's pipes; a lesson that names a pattern is worth a grep for the pattern in new scripts.
+
+## L-173: The Tokens page scrolled sideways at phone width, and no test looked for it
+Unit: F-U2
+What happened: After the discovery sources gained a by-token line, the Tokens page at 380 pixels was 443 pixels wide: the source badges and their details sat in one row that could not wrap. The screenshot baseline from F-U1 had passed because the overflow was off screen.
+Cause: The sources were laid out as a single row of badge and text; a longer detail pushed it past the viewport. Screenshot tests compare what is painted inside the viewport, so content wider than it went unnoticed.
+Fix: Each source is a list item with its badge and a wrapping detail, from existing design system parts, and the console e2e now checks on every page that the document is no wider than the viewport (0603738).
+Lesson: A screenshot baseline cannot see horizontal overflow. Every page at phone width needs an explicit check that scrollWidth does not exceed the viewport.
+
+## L-174: A v4 hop trusted that what it sent was what PoolManager counted as paid
+Unit: F-U2
+What happened: Slither flagged that the RouteAdapter ignored the return value of PoolManager's settle(). For a token that takes a fee on transfer, settle() counts less than the hop owes, and the adapter carried on as if the debt were paid; the swap then failed late, when PoolManager refused to close the unlock with a debt open, with a reason that named neither the token nor the hop.
+Cause: The settle sequence (sync, transfer, settle) was written for plain tokens, and its return value read as informational.
+Fix: The adapter requires settle()'s paid amount to equal the amount owed, reverting SettledShort otherwise, with a fee-on-transfer test (810af35).
+Lesson: In a flash-accounting protocol, the amount the counterparty credits is the only amount that counts. Check every settlement's return against what is owed, and test with a token that delivers less than it was asked to send.
+
+## L-175: Slips in F-U2, caught by its own checks
+Unit: F-U2
+What happened: Gitleaks read three more public addresses as API keys (a bridge constant named with TOKEN, `token1` in a test, and `token0`/`token1` keys in the core pool list); hand-written checksummed addresses in Solidity were wrong; DeployFund and DemoFund hit "stack too deep"; GeckoTerminal's search returned no included tokens, so the search read no symbols; CoinGecko's lowercase symbols overrode GeckoTerminal's casing; a token's own pools under the $10,000 minimum were dropped by the filter meant for top-volume pages; and one fork test failed once on an upstream timeout.
+Cause: New code meeting existing rules (the secrets scan, the compiler's checksum check, the EVM's 16 stack slots) and an upstream answer shaped differently from the endpoint it resembled.
+Fix: Renamed the constant, used a USDC constant and a `pair` tuple; took each checksum from the compiler's suggestion; split the scripts into functions over state variables; parse symbols from the search's pool names; prefer GeckoTerminal's casing; mark pools read for a token as `byToken` and keep them regardless of the minimum. The fork test passed on retry with no change.
+Lesson: Record a real answer from every upstream endpoint before writing its parser, even one that looks like a sibling; and in this repo, never put "token" in an identifier next to an address literal.
