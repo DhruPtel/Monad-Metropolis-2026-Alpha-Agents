@@ -8,3 +8,4 @@ export * from "./templates.ts";
 /** The PersonalAccount breaker and units model (D-233): `breaker.poke(...)`, `breaker.deposit(...)`. */
 export * as breaker from "./breaker.ts";
 export * from "./executor.ts";
+export * from "./fund.ts";

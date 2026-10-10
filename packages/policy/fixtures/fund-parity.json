@@ -1,0 +1,2072 @@
+{
+  "comment": "F-U2: what packages/policy answers for each case; chains/monad/test/fund/FundParity.t.sol makes the contracts answer the same. Regenerate with pnpm policy:parity.",
+  "legCaseCount": 56,
+  "legCases": [
+    {
+      "name": "MON/USD fresh",
+      "legDecimals": 8,
+      "maxAge": "300",
+      "reverts": false,
+      "decimals": 8,
+      "roundId": "7",
+      "answer": "2422263",
+      "updatedAt": "1790876415",
+      "answeredInRound": "7",
+      "time": "1790876425",
+      "reason": 0,
+      "valueE18": "24222630000000000",
+      "updatedAtOut": "1790876415"
+    },
+    {
+      "name": "MON/USD 299 s old",
+      "legDecimals": 8,
+      "maxAge": "300",
+      "reverts": false,
+      "decimals": 8,
+      "roundId": "7",
+      "answer": "2422263",
+      "updatedAt": "1790876126",
+      "answeredInRound": "7",
+      "time": "1790876425",
+      "reason": 0,
+      "valueE18": "24222630000000000",
+      "updatedAtOut": "1790876126"
+    },
+    {
+      "name": "MON/USD exactly 300 s old",
+      "legDecimals": 8,
+      "maxAge": "300",
+      "reverts": false,
+      "decimals": 8,
+      "roundId": "7",
+      "answer": "2422263",
+      "updatedAt": "1790876125",
+      "answeredInRound": "7",
+      "time": "1790876425",
+      "reason": 9,
+      "valueE18": "0",
+      "updatedAtOut": "1790876125"
+    },
+    {
+      "name": "USDC/USD 3,899 s old",
+      "legDecimals": 8,
+      "maxAge": "3900",
+      "reverts": false,
+      "decimals": 8,
+      "roundId": "7",
+      "answer": "99985957",
+      "updatedAt": "1790872526",
+      "answeredInRound": "7",
+      "time": "1790876425",
+      "reason": 0,
+      "valueE18": "999859570000000000",
+      "updatedAtOut": "1790872526"
+    },
+    {
+      "name": "USDC/USD exactly 3,900 s old",
+      "legDecimals": 8,
+      "maxAge": "3900",
+      "reverts": false,
+      "decimals": 8,
+      "roundId": "7",
+      "answer": "99985957",
+      "updatedAt": "1790872525",
+      "answeredInRound": "7",
+      "time": "1790876425",
+      "reason": 9,
+      "valueE18": "0",
+      "updatedAtOut": "1790872525"
+    },
+    {
+      "name": "a rate 86,699 s old",
+      "legDecimals": 18,
+      "maxAge": "86700",
+      "reverts": false,
+      "decimals": 18,
+      "roundId": "7",
+      "answer": "1116108835704729169",
+      "updatedAt": "1790789726",
+      "answeredInRound": "7",
+      "time": "1790876425",
+      "reason": 0,
+      "valueE18": "1116108835704729169",
+      "updatedAtOut": "1790789726"
+    },
+    {
+      "name": "a rate exactly 86,700 s old",
+      "legDecimals": 18,
+      "maxAge": "86700",
+      "reverts": false,
+      "decimals": 18,
+      "roundId": "7",
+      "answer": "1116108835704729169",
+      "updatedAt": "1790789725",
+      "answeredInRound": "7",
+      "time": "1790876425",
+      "reason": 9,
+      "valueE18": "0",
+      "updatedAtOut": "1790789725"
+    },
+    {
+      "name": "a feed that reverts",
+      "legDecimals": 8,
+      "maxAge": "3900",
+      "reverts": true,
+      "decimals": 8,
+      "roundId": "1",
+      "answer": "0",
+      "updatedAt": "0",
+      "answeredInRound": "1",
+      "time": "1790876425",
+      "reason": 3,
+      "valueE18": "0",
+      "updatedAtOut": "0"
+    },
+    {
+      "name": "decimals changed",
+      "legDecimals": 8,
+      "maxAge": "3900",
+      "reverts": false,
+      "decimals": 18,
+      "roundId": "7",
+      "answer": "2422263",
+      "updatedAt": "1790876425",
+      "answeredInRound": "7",
+      "time": "1790876425",
+      "reason": 4,
+      "valueE18": "0",
+      "updatedAtOut": "0"
+    },
+    {
+      "name": "zero answer",
+      "legDecimals": 8,
+      "maxAge": "3900",
+      "reverts": false,
+      "decimals": 8,
+      "roundId": "7",
+      "answer": "0",
+      "updatedAt": "1790876425",
+      "answeredInRound": "7",
+      "time": "1790876425",
+      "reason": 5,
+      "valueE18": "0",
+      "updatedAtOut": "1790876425"
+    },
+    {
+      "name": "negative answer",
+      "legDecimals": 8,
+      "maxAge": "3900",
+      "reverts": false,
+      "decimals": 8,
+      "roundId": "7",
+      "answer": "-5",
+      "updatedAt": "1790876425",
+      "answeredInRound": "7",
+      "time": "1790876425",
+      "reason": 5,
+      "valueE18": "0",
+      "updatedAtOut": "1790876425"
+    },
+    {
+      "name": "largest 8-decimal answer that fits",
+      "legDecimals": 8,
+      "maxAge": "3900",
+      "reverts": false,
+      "decimals": 8,
+      "roundId": "7",
+      "answer": "34028236692093846346337460743",
+      "updatedAt": "1790876425",
+      "answeredInRound": "7",
+      "time": "1790876425",
+      "reason": 0,
+      "valueE18": "340282366920938463463374607430000000000",
+      "updatedAtOut": "1790876425"
+    },
+    {
+      "name": "one above it",
+      "legDecimals": 8,
+      "maxAge": "3900",
+      "reverts": false,
+      "decimals": 8,
+      "roundId": "7",
+      "answer": "34028236692093846346337460744",
+      "updatedAt": "1790876425",
+      "answeredInRound": "7",
+      "time": "1790876425",
+      "reason": 6,
+      "valueE18": "0",
+      "updatedAtOut": "1790876425"
+    },
+    {
+      "name": "updatedAt zero",
+      "legDecimals": 8,
+      "maxAge": "3900",
+      "reverts": false,
+      "decimals": 8,
+      "roundId": "7",
+      "answer": "2422263",
+      "updatedAt": "0",
+      "answeredInRound": "7",
+      "time": "1790876425",
+      "reason": 7,
+      "valueE18": "0",
+      "updatedAtOut": "0"
+    },
+    {
+      "name": "an earlier round's answer",
+      "legDecimals": 8,
+      "maxAge": "3900",
+      "reverts": false,
+      "decimals": 8,
+      "roundId": "9",
+      "answer": "2422263",
+      "updatedAt": "1790876425",
+      "answeredInRound": "8",
+      "time": "1790876425",
+      "reason": 7,
+      "valueE18": "0",
+      "updatedAtOut": "1790876425"
+    },
+    {
+      "name": "from the future",
+      "legDecimals": 8,
+      "maxAge": "3900",
+      "reverts": false,
+      "decimals": 8,
+      "roundId": "7",
+      "answer": "2422263",
+      "updatedAt": "1790876426",
+      "answeredInRound": "7",
+      "time": "1790876425",
+      "reason": 8,
+      "valueE18": "0",
+      "updatedAtOut": "1790876426"
+    },
+    {
+      "name": "random 0",
+      "legDecimals": 18,
+      "maxAge": "86700",
+      "reverts": false,
+      "decimals": 18,
+      "roundId": "7",
+      "answer": "1123316093000000000",
+      "updatedAt": "1790835518",
+      "answeredInRound": "7",
+      "time": "1790876425",
+      "reason": 0,
+      "valueE18": "1123316093000000000",
+      "updatedAtOut": "1790835518"
+    },
+    {
+      "name": "random 1",
+      "legDecimals": 8,
+      "maxAge": "3900",
+      "reverts": false,
+      "decimals": 8,
+      "roundId": "7",
+      "answer": "1755621006",
+      "updatedAt": "1790874189",
+      "answeredInRound": "7",
+      "time": "1790876425",
+      "reason": 0,
+      "valueE18": "17556210060000000000",
+      "updatedAtOut": "1790874189"
+    },
+    {
+      "name": "random 2",
+      "legDecimals": 8,
+      "maxAge": "300",
+      "reverts": false,
+      "decimals": 8,
+      "roundId": "7",
+      "answer": "1512381107",
+      "updatedAt": "1790876278",
+      "answeredInRound": "7",
+      "time": "1790876425",
+      "reason": 0,
+      "valueE18": "15123811070000000000",
+      "updatedAtOut": "1790876278"
+    },
+    {
+      "name": "random 3",
+      "legDecimals": 8,
+      "maxAge": "3900",
+      "reverts": false,
+      "decimals": 8,
+      "roundId": "7",
+      "answer": "1954864276",
+      "updatedAt": "1790873562",
+      "answeredInRound": "7",
+      "time": "1790876425",
+      "reason": 0,
+      "valueE18": "19548642760000000000",
+      "updatedAtOut": "1790873562"
+    },
+    {
+      "name": "random 4",
+      "legDecimals": 8,
+      "maxAge": "300",
+      "reverts": false,
+      "decimals": 8,
+      "roundId": "7",
+      "answer": "529588066",
+      "updatedAt": "1790876257",
+      "answeredInRound": "7",
+      "time": "1790876425",
+      "reason": 0,
+      "valueE18": "5295880660000000000",
+      "updatedAtOut": "1790876257"
+    },
+    {
+      "name": "random 5",
+      "legDecimals": 8,
+      "maxAge": "300",
+      "reverts": false,
+      "decimals": 8,
+      "roundId": "7",
+      "answer": "809080439",
+      "updatedAt": "1790876161",
+      "answeredInRound": "7",
+      "time": "1790876425",
+      "reason": 0,
+      "valueE18": "8090804390000000000",
+      "updatedAtOut": "1790876161"
+    },
+    {
+      "name": "random 6",
+      "legDecimals": 8,
+      "maxAge": "3900",
+      "reverts": false,
+      "decimals": 8,
+      "roundId": "7",
+      "answer": "1573922330",
+      "updatedAt": "1790875915",
+      "answeredInRound": "7",
+      "time": "1790876425",
+      "reason": 0,
+      "valueE18": "15739223300000000000",
+      "updatedAtOut": "1790875915"
+    },
+    {
+      "name": "random 7",
+      "legDecimals": 8,
+      "maxAge": "300",
+      "reverts": false,
+      "decimals": 8,
+      "roundId": "7",
+      "answer": "445106262",
+      "updatedAt": "1790876366",
+      "answeredInRound": "7",
+      "time": "1790876425",
+      "reason": 0,
+      "valueE18": "4451062620000000000",
+      "updatedAtOut": "1790876366"
+    },
+    {
+      "name": "random 8",
+      "legDecimals": 8,
+      "maxAge": "300",
+      "reverts": false,
+      "decimals": 8,
+      "roundId": "7",
+      "answer": "730094736",
+      "updatedAt": "1790876134",
+      "answeredInRound": "7",
+      "time": "1790876425",
+      "reason": 0,
+      "valueE18": "7300947360000000000",
+      "updatedAtOut": "1790876134"
+    },
+    {
+      "name": "random 9",
+      "legDecimals": 18,
+      "maxAge": "86700",
+      "reverts": false,
+      "decimals": 18,
+      "roundId": "7",
+      "answer": "1341946950000000000",
+      "updatedAt": "1790809765",
+      "answeredInRound": "7",
+      "time": "1790876425",
+      "reason": 0,
+      "valueE18": "1341946950000000000",
+      "updatedAtOut": "1790809765"
+    },
+    {
+      "name": "random 10",
+      "legDecimals": 8,
+      "maxAge": "300",
+      "reverts": false,
+      "decimals": 8,
+      "roundId": "7",
+      "answer": "352976076",
+      "updatedAt": "1790876206",
+      "answeredInRound": "7",
+      "time": "1790876425",
+      "reason": 0,
+      "valueE18": "3529760760000000000",
+      "updatedAtOut": "1790876206"
+    },
+    {
+      "name": "random 11",
+      "legDecimals": 8,
+      "maxAge": "300",
+      "reverts": false,
+      "decimals": 8,
+      "roundId": "7",
+      "answer": "331799249",
+      "updatedAt": "1790876328",
+      "answeredInRound": "7",
+      "time": "1790876425",
+      "reason": 0,
+      "valueE18": "3317992490000000000",
+      "updatedAtOut": "1790876328"
+    },
+    {
+      "name": "random 12",
+      "legDecimals": 8,
+      "maxAge": "3900",
+      "reverts": false,
+      "decimals": 8,
+      "roundId": "7",
+      "answer": "469805804",
+      "updatedAt": "1790876125",
+      "answeredInRound": "7",
+      "time": "1790876425",
+      "reason": 0,
+      "valueE18": "4698058040000000000",
+      "updatedAtOut": "1790876125"
+    },
+    {
+      "name": "random 13",
+      "legDecimals": 8,
+      "maxAge": "3900",
+      "reverts": false,
+      "decimals": 8,
+      "roundId": "7",
+      "answer": "1929315545",
+      "updatedAt": "1790875138",
+      "answeredInRound": "7",
+      "time": "1790876425",
+      "reason": 0,
+      "valueE18": "19293155450000000000",
+      "updatedAtOut": "1790875138"
+    },
+    {
+      "name": "random 14",
+      "legDecimals": 18,
+      "maxAge": "86700",
+      "reverts": false,
+      "decimals": 18,
+      "roundId": "7",
+      "answer": "1926327574000000000",
+      "updatedAt": "1790840112",
+      "answeredInRound": "7",
+      "time": "1790876425",
+      "reason": 0,
+      "valueE18": "1926327574000000000",
+      "updatedAtOut": "1790840112"
+    },
+    {
+      "name": "random 15",
+      "legDecimals": 18,
+      "maxAge": "86700",
+      "reverts": false,
+      "decimals": 18,
+      "roundId": "7",
+      "answer": "78426020000000000",
+      "updatedAt": "1790855203",
+      "answeredInRound": "7",
+      "time": "1790876425",
+      "reason": 0,
+      "valueE18": "78426020000000000",
+      "updatedAtOut": "1790855203"
+    },
+    {
+      "name": "random 16",
+      "legDecimals": 8,
+      "maxAge": "300",
+      "reverts": false,
+      "decimals": 8,
+      "roundId": "7",
+      "answer": "1795119813",
+      "updatedAt": "1790876333",
+      "answeredInRound": "7",
+      "time": "1790876425",
+      "reason": 0,
+      "valueE18": "17951198130000000000",
+      "updatedAtOut": "1790876333"
+    },
+    {
+      "name": "random 17",
+      "legDecimals": 8,
+      "maxAge": "300",
+      "reverts": false,
+      "decimals": 8,
+      "roundId": "7",
+      "answer": "1423831210",
+      "updatedAt": "1790876372",
+      "answeredInRound": "7",
+      "time": "1790876425",
+      "reason": 0,
+      "valueE18": "14238312100000000000",
+      "updatedAtOut": "1790876372"
+    },
+    {
+      "name": "random 18",
+      "legDecimals": 8,
+      "maxAge": "300",
+      "reverts": false,
+      "decimals": 8,
+      "roundId": "7",
+      "answer": "1244197354",
+      "updatedAt": "1790876089",
+      "answeredInRound": "7",
+      "time": "1790876425",
+      "reason": 9,
+      "valueE18": "0",
+      "updatedAtOut": "1790876089"
+    },
+    {
+      "name": "random 19",
+      "legDecimals": 8,
+      "maxAge": "3900",
+      "reverts": false,
+      "decimals": 8,
+      "roundId": "7",
+      "answer": "697587379",
+      "updatedAt": "1790875750",
+      "answeredInRound": "7",
+      "time": "1790876425",
+      "reason": 0,
+      "valueE18": "6975873790000000000",
+      "updatedAtOut": "1790875750"
+    },
+    {
+      "name": "random 20",
+      "legDecimals": 18,
+      "maxAge": "86700",
+      "reverts": false,
+      "decimals": 18,
+      "roundId": "7",
+      "answer": "831383395000000000",
+      "updatedAt": "1790849951",
+      "answeredInRound": "7",
+      "time": "1790876425",
+      "reason": 0,
+      "valueE18": "831383395000000000",
+      "updatedAtOut": "1790849951"
+    },
+    {
+      "name": "random 21",
+      "legDecimals": 8,
+      "maxAge": "3900",
+      "reverts": false,
+      "decimals": 8,
+      "roundId": "7",
+      "answer": "1408425304",
+      "updatedAt": "1790874435",
+      "answeredInRound": "7",
+      "time": "1790876425",
+      "reason": 0,
+      "valueE18": "14084253040000000000",
+      "updatedAtOut": "1790874435"
+    },
+    {
+      "name": "random 22",
+      "legDecimals": 8,
+      "maxAge": "3900",
+      "reverts": false,
+      "decimals": 8,
+      "roundId": "7",
+      "answer": "760150967",
+      "updatedAt": "1790875709",
+      "answeredInRound": "7",
+      "time": "1790876425",
+      "reason": 0,
+      "valueE18": "7601509670000000000",
+      "updatedAtOut": "1790875709"
+    },
+    {
+      "name": "random 23",
+      "legDecimals": 8,
+      "maxAge": "300",
+      "reverts": false,
+      "decimals": 8,
+      "roundId": "7",
+      "answer": "1214993340",
+      "updatedAt": "1790876094",
+      "answeredInRound": "7",
+      "time": "1790876425",
+      "reason": 9,
+      "valueE18": "0",
+      "updatedAtOut": "1790876094"
+    },
+    {
+      "name": "random 24",
+      "legDecimals": 8,
+      "maxAge": "300",
+      "reverts": false,
+      "decimals": 8,
+      "roundId": "7",
+      "answer": "1158648299",
+      "updatedAt": "1790876040",
+      "answeredInRound": "7",
+      "time": "1790876425",
+      "reason": 9,
+      "valueE18": "0",
+      "updatedAtOut": "1790876040"
+    },
+    {
+      "name": "random 25",
+      "legDecimals": 18,
+      "maxAge": "86700",
+      "reverts": false,
+      "decimals": 8,
+      "roundId": "7",
+      "answer": "1076513372000000000",
+      "updatedAt": "1790875842",
+      "answeredInRound": "7",
+      "time": "1790876425",
+      "reason": 4,
+      "valueE18": "0",
+      "updatedAtOut": "0"
+    },
+    {
+      "name": "random 26",
+      "legDecimals": 8,
+      "maxAge": "3900",
+      "reverts": false,
+      "decimals": 8,
+      "roundId": "7",
+      "answer": "1177296225",
+      "updatedAt": "1790873002",
+      "answeredInRound": "7",
+      "time": "1790876425",
+      "reason": 0,
+      "valueE18": "11772962250000000000",
+      "updatedAtOut": "1790873002"
+    },
+    {
+      "name": "random 27",
+      "legDecimals": 18,
+      "maxAge": "86700",
+      "reverts": false,
+      "decimals": 18,
+      "roundId": "7",
+      "answer": "1595649282000000000",
+      "updatedAt": "1790799954",
+      "answeredInRound": "7",
+      "time": "1790876425",
+      "reason": 0,
+      "valueE18": "1595649282000000000",
+      "updatedAtOut": "1790799954"
+    },
+    {
+      "name": "random 28",
+      "legDecimals": 8,
+      "maxAge": "3900",
+      "reverts": false,
+      "decimals": 8,
+      "roundId": "7",
+      "answer": "338085025",
+      "updatedAt": "1790875825",
+      "answeredInRound": "7",
+      "time": "1790876425",
+      "reason": 0,
+      "valueE18": "3380850250000000000",
+      "updatedAtOut": "1790875825"
+    },
+    {
+      "name": "random 29",
+      "legDecimals": 8,
+      "maxAge": "3900",
+      "reverts": false,
+      "decimals": 8,
+      "roundId": "7",
+      "answer": "261622559",
+      "updatedAt": "1790875750",
+      "answeredInRound": "7",
+      "time": "1790876425",
+      "reason": 0,
+      "valueE18": "2616225590000000000",
+      "updatedAtOut": "1790875750"
+    },
+    {
+      "name": "random 30",
+      "legDecimals": 8,
+      "maxAge": "300",
+      "reverts": false,
+      "decimals": 8,
+      "roundId": "7",
+      "answer": "1722428327",
+      "updatedAt": "1790876079",
+      "answeredInRound": "7",
+      "time": "1790876425",
+      "reason": 9,
+      "valueE18": "0",
+      "updatedAtOut": "1790876079"
+    },
+    {
+      "name": "random 31",
+      "legDecimals": 8,
+      "maxAge": "3900",
+      "reverts": false,
+      "decimals": 8,
+      "roundId": "7",
+      "answer": "1954372609",
+      "updatedAt": "1790875021",
+      "answeredInRound": "7",
+      "time": "1790876425",
+      "reason": 0,
+      "valueE18": "19543726090000000000",
+      "updatedAtOut": "1790875021"
+    },
+    {
+      "name": "random 32",
+      "legDecimals": 8,
+      "maxAge": "3900",
+      "reverts": false,
+      "decimals": 8,
+      "roundId": "7",
+      "answer": "300758163",
+      "updatedAt": "1790874435",
+      "answeredInRound": "7",
+      "time": "1790876425",
+      "reason": 0,
+      "valueE18": "3007581630000000000",
+      "updatedAtOut": "1790874435"
+    },
+    {
+      "name": "random 33",
+      "legDecimals": 8,
+      "maxAge": "300",
+      "reverts": false,
+      "decimals": 8,
+      "roundId": "7",
+      "answer": "1306488452",
+      "updatedAt": "1790876172",
+      "answeredInRound": "7",
+      "time": "1790876425",
+      "reason": 0,
+      "valueE18": "13064884520000000000",
+      "updatedAtOut": "1790876172"
+    },
+    {
+      "name": "random 34",
+      "legDecimals": 8,
+      "maxAge": "3900",
+      "reverts": false,
+      "decimals": 8,
+      "roundId": "7",
+      "answer": "1813781929",
+      "updatedAt": "1790875449",
+      "answeredInRound": "7",
+      "time": "1790876425",
+      "reason": 0,
+      "valueE18": "18137819290000000000",
+      "updatedAtOut": "1790875449"
+    },
+    {
+      "name": "random 35",
+      "legDecimals": 8,
+      "maxAge": "3900",
+      "reverts": false,
+      "decimals": 8,
+      "roundId": "7",
+      "answer": "1370983103",
+      "updatedAt": "1790875500",
+      "answeredInRound": "7",
+      "time": "1790876425",
+      "reason": 0,
+      "valueE18": "13709831030000000000",
+      "updatedAtOut": "1790875500"
+    },
+    {
+      "name": "random 36",
+      "legDecimals": 8,
+      "maxAge": "3900",
+      "reverts": false,
+      "decimals": 8,
+      "roundId": "7",
+      "answer": "973308388",
+      "updatedAt": "1790875504",
+      "answeredInRound": "7",
+      "time": "1790876425",
+      "reason": 0,
+      "valueE18": "9733083880000000000",
+      "updatedAtOut": "1790875504"
+    },
+    {
+      "name": "random 37",
+      "legDecimals": 8,
+      "maxAge": "3900",
+      "reverts": false,
+      "decimals": 8,
+      "roundId": "7",
+      "answer": "1389932381",
+      "updatedAt": "1790873046",
+      "answeredInRound": "7",
+      "time": "1790876425",
+      "reason": 0,
+      "valueE18": "13899323810000000000",
+      "updatedAtOut": "1790873046"
+    },
+    {
+      "name": "random 38",
+      "legDecimals": 8,
+      "maxAge": "300",
+      "reverts": false,
+      "decimals": 8,
+      "roundId": "7",
+      "answer": "404592640",
+      "updatedAt": "1790876129",
+      "answeredInRound": "7",
+      "time": "1790876425",
+      "reason": 0,
+      "valueE18": "4045926400000000000",
+      "updatedAtOut": "1790876129"
+    },
+    {
+      "name": "random 39",
+      "legDecimals": 8,
+      "maxAge": "300",
+      "reverts": false,
+      "decimals": 8,
+      "roundId": "7",
+      "answer": "1847070751",
+      "updatedAt": "1790876156",
+      "answeredInRound": "7",
+      "time": "1790876425",
+      "reason": 0,
+      "valueE18": "18470707510000000000",
+      "updatedAtOut": "1790876156"
+    }
+  ],
+  "priceCaseCount": 6,
+  "priceCases": [
+    {
+      "name": "direct",
+      "usdAnswer": "2422263",
+      "usdUpdatedAt": "1790876415",
+      "hasRate": false,
+      "rateAnswer": "0",
+      "rateUpdatedAt": "1790876425",
+      "time": "1790876425",
+      "reason": 0,
+      "priceE18": "24222630000000000",
+      "updatedAtOut": "1790876415"
+    },
+    {
+      "name": "composite",
+      "usdAnswer": "2422263",
+      "usdUpdatedAt": "1790876415",
+      "hasRate": true,
+      "rateAnswer": "1633334254878552670",
+      "rateUpdatedAt": "1790866425",
+      "time": "1790876425",
+      "reason": 0,
+      "priceE18": "39563651322248876",
+      "updatedAtOut": "1790866425"
+    },
+    {
+      "name": "composite with a stale USD leg",
+      "usdAnswer": "2422263",
+      "usdUpdatedAt": "1790876125",
+      "hasRate": true,
+      "rateAnswer": "1633334254878552670",
+      "rateUpdatedAt": "1790876415",
+      "time": "1790876425",
+      "reason": 9,
+      "priceE18": "0",
+      "updatedAtOut": "1790876125"
+    },
+    {
+      "name": "composite with a stale rate",
+      "usdAnswer": "2422263",
+      "usdUpdatedAt": "1790876415",
+      "hasRate": true,
+      "rateAnswer": "1100000000000000000",
+      "rateUpdatedAt": "1790789725",
+      "time": "1790876425",
+      "reason": 9,
+      "priceE18": "0",
+      "updatedAtOut": "1790789725"
+    },
+    {
+      "name": "composite with a zero rate",
+      "usdAnswer": "2422263",
+      "usdUpdatedAt": "1790876415",
+      "hasRate": true,
+      "rateAnswer": "0",
+      "rateUpdatedAt": "1790876415",
+      "time": "1790876425",
+      "reason": 5,
+      "priceE18": "0",
+      "updatedAtOut": "1790876415"
+    },
+    {
+      "name": "composite that floors to zero",
+      "usdAnswer": "1",
+      "usdUpdatedAt": "1790876415",
+      "hasRate": true,
+      "rateAnswer": "1",
+      "rateUpdatedAt": "1790876415",
+      "time": "1790876425",
+      "reason": 6,
+      "priceE18": "0",
+      "updatedAtOut": "1790876415"
+    }
+  ],
+  "buyCaseCount": 30,
+  "buyCases": [
+    {
+      "lane": 1,
+      "status": 1,
+      "account": "eoa",
+      "buyable": true,
+      "sellable": true
+    },
+    {
+      "lane": 1,
+      "status": 1,
+      "account": "reverts",
+      "buyable": true,
+      "sellable": true
+    },
+    {
+      "lane": 1,
+      "status": 1,
+      "account": "opted in",
+      "buyable": true,
+      "sellable": true
+    },
+    {
+      "lane": 1,
+      "status": 1,
+      "account": "not opted in",
+      "buyable": true,
+      "sellable": true
+    },
+    {
+      "lane": 1,
+      "status": 1,
+      "account": "opted-in vault",
+      "buyable": true,
+      "sellable": true
+    },
+    {
+      "lane": 1,
+      "status": 2,
+      "account": "eoa",
+      "buyable": false,
+      "sellable": true
+    },
+    {
+      "lane": 1,
+      "status": 2,
+      "account": "reverts",
+      "buyable": false,
+      "sellable": true
+    },
+    {
+      "lane": 1,
+      "status": 2,
+      "account": "opted in",
+      "buyable": false,
+      "sellable": true
+    },
+    {
+      "lane": 1,
+      "status": 2,
+      "account": "not opted in",
+      "buyable": false,
+      "sellable": true
+    },
+    {
+      "lane": 1,
+      "status": 2,
+      "account": "opted-in vault",
+      "buyable": false,
+      "sellable": true
+    },
+    {
+      "lane": 1,
+      "status": 3,
+      "account": "eoa",
+      "buyable": false,
+      "sellable": false
+    },
+    {
+      "lane": 1,
+      "status": 3,
+      "account": "reverts",
+      "buyable": false,
+      "sellable": false
+    },
+    {
+      "lane": 1,
+      "status": 3,
+      "account": "opted in",
+      "buyable": false,
+      "sellable": false
+    },
+    {
+      "lane": 1,
+      "status": 3,
+      "account": "not opted in",
+      "buyable": false,
+      "sellable": false
+    },
+    {
+      "lane": 1,
+      "status": 3,
+      "account": "opted-in vault",
+      "buyable": false,
+      "sellable": false
+    },
+    {
+      "lane": 2,
+      "status": 1,
+      "account": "eoa",
+      "buyable": false,
+      "sellable": true
+    },
+    {
+      "lane": 2,
+      "status": 1,
+      "account": "reverts",
+      "buyable": false,
+      "sellable": true
+    },
+    {
+      "lane": 2,
+      "status": 1,
+      "account": "opted in",
+      "buyable": true,
+      "sellable": true
+    },
+    {
+      "lane": 2,
+      "status": 1,
+      "account": "not opted in",
+      "buyable": false,
+      "sellable": true
+    },
+    {
+      "lane": 2,
+      "status": 1,
+      "account": "opted-in vault",
+      "buyable": false,
+      "sellable": true
+    },
+    {
+      "lane": 2,
+      "status": 2,
+      "account": "eoa",
+      "buyable": false,
+      "sellable": true
+    },
+    {
+      "lane": 2,
+      "status": 2,
+      "account": "reverts",
+      "buyable": false,
+      "sellable": true
+    },
+    {
+      "lane": 2,
+      "status": 2,
+      "account": "opted in",
+      "buyable": false,
+      "sellable": true
+    },
+    {
+      "lane": 2,
+      "status": 2,
+      "account": "not opted in",
+      "buyable": false,
+      "sellable": true
+    },
+    {
+      "lane": 2,
+      "status": 2,
+      "account": "opted-in vault",
+      "buyable": false,
+      "sellable": true
+    },
+    {
+      "lane": 2,
+      "status": 3,
+      "account": "eoa",
+      "buyable": false,
+      "sellable": false
+    },
+    {
+      "lane": 2,
+      "status": 3,
+      "account": "reverts",
+      "buyable": false,
+      "sellable": false
+    },
+    {
+      "lane": 2,
+      "status": 3,
+      "account": "opted in",
+      "buyable": false,
+      "sellable": false
+    },
+    {
+      "lane": 2,
+      "status": 3,
+      "account": "not opted in",
+      "buyable": false,
+      "sellable": false
+    },
+    {
+      "lane": 2,
+      "status": 3,
+      "account": "opted-in vault",
+      "buyable": false,
+      "sellable": false
+    }
+  ],
+  "moveCaseCount": 9,
+  "moveCases": [
+    {
+      "current": 1,
+      "next": 1,
+      "canTighten": false,
+      "canRestore": false
+    },
+    {
+      "current": 1,
+      "next": 2,
+      "canTighten": true,
+      "canRestore": false
+    },
+    {
+      "current": 1,
+      "next": 3,
+      "canTighten": true,
+      "canRestore": false
+    },
+    {
+      "current": 2,
+      "next": 1,
+      "canTighten": false,
+      "canRestore": true
+    },
+    {
+      "current": 2,
+      "next": 2,
+      "canTighten": false,
+      "canRestore": false
+    },
+    {
+      "current": 2,
+      "next": 3,
+      "canTighten": true,
+      "canRestore": false
+    },
+    {
+      "current": 3,
+      "next": 1,
+      "canTighten": false,
+      "canRestore": true
+    },
+    {
+      "current": 3,
+      "next": 2,
+      "canTighten": false,
+      "canRestore": true
+    },
+    {
+      "current": 3,
+      "next": 3,
+      "canTighten": false,
+      "canRestore": false
+    }
+  ],
+  "routeCaseCount": 52,
+  "routeCases": [
+    {
+      "tokenIn": "WMON",
+      "tokenOut": "USDC",
+      "hops": [
+        "usdcWmon"
+      ],
+      "poolStatuses": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "ok": true,
+      "failure": "",
+      "hop": 0
+    },
+    {
+      "tokenIn": "A",
+      "tokenOut": "USDC",
+      "hops": [
+        "aWmon",
+        "usdcWmon"
+      ],
+      "poolStatuses": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "ok": true,
+      "failure": "",
+      "hop": 0
+    },
+    {
+      "tokenIn": "A",
+      "tokenOut": "B",
+      "hops": [
+        "aWmon",
+        "usdcWmon",
+        "bUsdc"
+      ],
+      "poolStatuses": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "ok": true,
+      "failure": "",
+      "hop": 0
+    },
+    {
+      "tokenIn": "C",
+      "tokenOut": "USDC",
+      "hops": [
+        "monC",
+        "usdcWmon"
+      ],
+      "poolStatuses": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "ok": true,
+      "failure": "",
+      "hop": 0
+    },
+    {
+      "tokenIn": "A",
+      "tokenOut": "USDC",
+      "hops": [
+        "usdcWmon"
+      ],
+      "poolStatuses": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "ok": false,
+      "failure": "BrokenRoute",
+      "hop": 0
+    },
+    {
+      "tokenIn": "A",
+      "tokenOut": "USDC",
+      "hops": [
+        "aWmon"
+      ],
+      "poolStatuses": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "ok": false,
+      "failure": "BrokenRoute",
+      "hop": 1
+    },
+    {
+      "tokenIn": "WMON",
+      "tokenOut": "A",
+      "hops": [
+        "usdcWmon",
+        "usdcWmon",
+        "aWmon"
+      ],
+      "poolStatuses": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "ok": false,
+      "failure": "BrokenRoute",
+      "hop": 1
+    },
+    {
+      "tokenIn": "USDC",
+      "tokenOut": "USDC",
+      "hops": [
+        "usdcWmon"
+      ],
+      "poolStatuses": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "ok": false,
+      "failure": "BadRoute",
+      "hop": 0
+    },
+    {
+      "tokenIn": "A",
+      "tokenOut": "B",
+      "hops": [
+        "aWmon",
+        "usdcWmon",
+        "bUsdc",
+        "bUsdc"
+      ],
+      "poolStatuses": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "ok": false,
+      "failure": "BadRoute",
+      "hop": 0
+    },
+    {
+      "tokenIn": "USDC",
+      "tokenOut": "WMON",
+      "hops": [
+        "usdcWmon"
+      ],
+      "poolStatuses": [
+        2,
+        1,
+        1,
+        1
+      ],
+      "ok": false,
+      "failure": "PoolUnusable",
+      "hop": 0
+    },
+    {
+      "tokenIn": "WMON",
+      "tokenOut": "USDC",
+      "hops": [
+        "usdcWmon"
+      ],
+      "poolStatuses": [
+        2,
+        1,
+        1,
+        1
+      ],
+      "ok": true,
+      "failure": "",
+      "hop": 0
+    },
+    {
+      "tokenIn": "A",
+      "tokenOut": "USDC",
+      "hops": [
+        "aWmon",
+        "usdcWmon"
+      ],
+      "poolStatuses": [
+        1,
+        3,
+        1,
+        1
+      ],
+      "ok": false,
+      "failure": "PoolUnusable",
+      "hop": 0
+    },
+    {
+      "tokenIn": "USDC",
+      "tokenOut": "A",
+      "hops": [
+        "monC",
+        "monC",
+        "usdcWmon"
+      ],
+      "poolStatuses": [
+        3,
+        3,
+        3,
+        1
+      ],
+      "ok": false,
+      "failure": "PoolUnusable",
+      "hop": 0
+    },
+    {
+      "tokenIn": "B",
+      "tokenOut": "WMON",
+      "hops": [
+        "monC"
+      ],
+      "poolStatuses": [
+        1,
+        2,
+        3,
+        1
+      ],
+      "ok": false,
+      "failure": "PoolUnusable",
+      "hop": 0
+    },
+    {
+      "tokenIn": "A",
+      "tokenOut": "USDC",
+      "hops": [
+        "monC",
+        "usdcWmon",
+        "monC"
+      ],
+      "poolStatuses": [
+        2,
+        2,
+        1,
+        3
+      ],
+      "ok": false,
+      "failure": "BrokenRoute",
+      "hop": 0
+    },
+    {
+      "tokenIn": "A",
+      "tokenOut": "USDC",
+      "hops": [
+        "aWmon",
+        "monC",
+        "aWmon"
+      ],
+      "poolStatuses": [
+        1,
+        1,
+        1,
+        3
+      ],
+      "ok": false,
+      "failure": "BrokenRoute",
+      "hop": 2
+    },
+    {
+      "tokenIn": "WMON",
+      "tokenOut": "C",
+      "hops": [
+        "bUsdc",
+        "usdcWmon",
+        "monC"
+      ],
+      "poolStatuses": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "ok": false,
+      "failure": "BrokenRoute",
+      "hop": 0
+    },
+    {
+      "tokenIn": "B",
+      "tokenOut": "WMON",
+      "hops": [
+        "aWmon"
+      ],
+      "poolStatuses": [
+        1,
+        2,
+        1,
+        1
+      ],
+      "ok": false,
+      "failure": "PoolUnusable",
+      "hop": 0
+    },
+    {
+      "tokenIn": "USDC",
+      "tokenOut": "B",
+      "hops": [
+        "usdcWmon",
+        "monC"
+      ],
+      "poolStatuses": [
+        2,
+        1,
+        1,
+        1
+      ],
+      "ok": false,
+      "failure": "PoolUnusable",
+      "hop": 0
+    },
+    {
+      "tokenIn": "WMON",
+      "tokenOut": "A",
+      "hops": [
+        "aWmon"
+      ],
+      "poolStatuses": [
+        1,
+        1,
+        2,
+        2
+      ],
+      "ok": true,
+      "failure": "",
+      "hop": 0
+    },
+    {
+      "tokenIn": "C",
+      "tokenOut": "WMON",
+      "hops": [
+        "bUsdc"
+      ],
+      "poolStatuses": [
+        1,
+        2,
+        2,
+        1
+      ],
+      "ok": false,
+      "failure": "BrokenRoute",
+      "hop": 0
+    },
+    {
+      "tokenIn": "A",
+      "tokenOut": "USDC",
+      "hops": [
+        "aWmon",
+        "aWmon"
+      ],
+      "poolStatuses": [
+        1,
+        1,
+        3,
+        1
+      ],
+      "ok": false,
+      "failure": "BrokenRoute",
+      "hop": 1
+    },
+    {
+      "tokenIn": "C",
+      "tokenOut": "B",
+      "hops": [
+        "bUsdc",
+        "aWmon"
+      ],
+      "poolStatuses": [
+        3,
+        1,
+        2,
+        1
+      ],
+      "ok": false,
+      "failure": "BrokenRoute",
+      "hop": 0
+    },
+    {
+      "tokenIn": "USDC",
+      "tokenOut": "C",
+      "hops": [
+        "monC",
+        "bUsdc"
+      ],
+      "poolStatuses": [
+        2,
+        1,
+        3,
+        1
+      ],
+      "ok": false,
+      "failure": "PoolUnusable",
+      "hop": 0
+    },
+    {
+      "tokenIn": "B",
+      "tokenOut": "WMON",
+      "hops": [
+        "monC",
+        "aWmon",
+        "usdcWmon"
+      ],
+      "poolStatuses": [
+        3,
+        1,
+        1,
+        1
+      ],
+      "ok": false,
+      "failure": "BrokenRoute",
+      "hop": 0
+    },
+    {
+      "tokenIn": "A",
+      "tokenOut": "A",
+      "hops": [
+        "aWmon",
+        "usdcWmon",
+        "monC"
+      ],
+      "poolStatuses": [
+        1,
+        1,
+        1,
+        2
+      ],
+      "ok": false,
+      "failure": "BadRoute",
+      "hop": 0
+    },
+    {
+      "tokenIn": "USDC",
+      "tokenOut": "C",
+      "hops": [
+        "bUsdc"
+      ],
+      "poolStatuses": [
+        2,
+        3,
+        3,
+        2
+      ],
+      "ok": false,
+      "failure": "PoolUnusable",
+      "hop": 0
+    },
+    {
+      "tokenIn": "USDC",
+      "tokenOut": "C",
+      "hops": [
+        "aWmon"
+      ],
+      "poolStatuses": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "ok": false,
+      "failure": "BrokenRoute",
+      "hop": 0
+    },
+    {
+      "tokenIn": "USDC",
+      "tokenOut": "WMON",
+      "hops": [
+        "monC"
+      ],
+      "poolStatuses": [
+        3,
+        1,
+        2,
+        1
+      ],
+      "ok": false,
+      "failure": "PoolUnusable",
+      "hop": 0
+    },
+    {
+      "tokenIn": "B",
+      "tokenOut": "WMON",
+      "hops": [
+        "aWmon",
+        "usdcWmon",
+        "bUsdc"
+      ],
+      "poolStatuses": [
+        3,
+        3,
+        1,
+        3
+      ],
+      "ok": false,
+      "failure": "PoolUnusable",
+      "hop": 0
+    },
+    {
+      "tokenIn": "USDC",
+      "tokenOut": "A",
+      "hops": [
+        "monC",
+        "usdcWmon"
+      ],
+      "poolStatuses": [
+        1,
+        1,
+        2,
+        1
+      ],
+      "ok": false,
+      "failure": "PoolUnusable",
+      "hop": 0
+    },
+    {
+      "tokenIn": "C",
+      "tokenOut": "WMON",
+      "hops": [
+        "bUsdc",
+        "bUsdc"
+      ],
+      "poolStatuses": [
+        1,
+        2,
+        1,
+        1
+      ],
+      "ok": false,
+      "failure": "BrokenRoute",
+      "hop": 0
+    },
+    {
+      "tokenIn": "C",
+      "tokenOut": "C",
+      "hops": [
+        "monC",
+        "monC"
+      ],
+      "poolStatuses": [
+        1,
+        2,
+        3,
+        3
+      ],
+      "ok": false,
+      "failure": "BadRoute",
+      "hop": 0
+    },
+    {
+      "tokenIn": "A",
+      "tokenOut": "C",
+      "hops": [
+        "usdcWmon",
+        "aWmon"
+      ],
+      "poolStatuses": [
+        3,
+        3,
+        2,
+        2
+      ],
+      "ok": false,
+      "failure": "PoolUnusable",
+      "hop": 0
+    },
+    {
+      "tokenIn": "B",
+      "tokenOut": "B",
+      "hops": [
+        "bUsdc"
+      ],
+      "poolStatuses": [
+        3,
+        1,
+        1,
+        2
+      ],
+      "ok": false,
+      "failure": "BadRoute",
+      "hop": 0
+    },
+    {
+      "tokenIn": "B",
+      "tokenOut": "C",
+      "hops": [
+        "aWmon"
+      ],
+      "poolStatuses": [
+        2,
+        3,
+        1,
+        3
+      ],
+      "ok": false,
+      "failure": "PoolUnusable",
+      "hop": 0
+    },
+    {
+      "tokenIn": "C",
+      "tokenOut": "WMON",
+      "hops": [
+        "usdcWmon",
+        "bUsdc"
+      ],
+      "poolStatuses": [
+        3,
+        1,
+        1,
+        3
+      ],
+      "ok": false,
+      "failure": "PoolUnusable",
+      "hop": 0
+    },
+    {
+      "tokenIn": "WMON",
+      "tokenOut": "B",
+      "hops": [
+        "bUsdc",
+        "usdcWmon",
+        "usdcWmon"
+      ],
+      "poolStatuses": [
+        2,
+        1,
+        2,
+        3
+      ],
+      "ok": false,
+      "failure": "PoolUnusable",
+      "hop": 0
+    },
+    {
+      "tokenIn": "WMON",
+      "tokenOut": "WMON",
+      "hops": [
+        "monC"
+      ],
+      "poolStatuses": [
+        2,
+        1,
+        3,
+        1
+      ],
+      "ok": false,
+      "failure": "BadRoute",
+      "hop": 0
+    },
+    {
+      "tokenIn": "WMON",
+      "tokenOut": "A",
+      "hops": [
+        "aWmon",
+        "monC",
+        "usdcWmon"
+      ],
+      "poolStatuses": [
+        1,
+        1,
+        3,
+        2
+      ],
+      "ok": false,
+      "failure": "PoolUnusable",
+      "hop": 1
+    },
+    {
+      "tokenIn": "USDC",
+      "tokenOut": "A",
+      "hops": [
+        "monC"
+      ],
+      "poolStatuses": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "ok": false,
+      "failure": "BrokenRoute",
+      "hop": 0
+    },
+    {
+      "tokenIn": "B",
+      "tokenOut": "C",
+      "hops": [
+        "bUsdc",
+        "aWmon",
+        "usdcWmon"
+      ],
+      "poolStatuses": [
+        3,
+        1,
+        1,
+        1
+      ],
+      "ok": false,
+      "failure": "BrokenRoute",
+      "hop": 1
+    },
+    {
+      "tokenIn": "A",
+      "tokenOut": "WMON",
+      "hops": [
+        "bUsdc",
+        "bUsdc",
+        "bUsdc"
+      ],
+      "poolStatuses": [
+        2,
+        1,
+        1,
+        2
+      ],
+      "ok": false,
+      "failure": "PoolUnusable",
+      "hop": 0
+    },
+    {
+      "tokenIn": "A",
+      "tokenOut": "WMON",
+      "hops": [
+        "aWmon"
+      ],
+      "poolStatuses": [
+        3,
+        1,
+        1,
+        1
+      ],
+      "ok": true,
+      "failure": "",
+      "hop": 0
+    },
+    {
+      "tokenIn": "WMON",
+      "tokenOut": "WMON",
+      "hops": [
+        "monC",
+        "usdcWmon"
+      ],
+      "poolStatuses": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "ok": false,
+      "failure": "BadRoute",
+      "hop": 0
+    },
+    {
+      "tokenIn": "C",
+      "tokenOut": "WMON",
+      "hops": [
+        "aWmon",
+        "usdcWmon",
+        "usdcWmon"
+      ],
+      "poolStatuses": [
+        1,
+        3,
+        1,
+        1
+      ],
+      "ok": false,
+      "failure": "PoolUnusable",
+      "hop": 0
+    },
+    {
+      "tokenIn": "WMON",
+      "tokenOut": "WMON",
+      "hops": [
+        "usdcWmon"
+      ],
+      "poolStatuses": [
+        1,
+        3,
+        1,
+        3
+      ],
+      "ok": false,
+      "failure": "BadRoute",
+      "hop": 0
+    },
+    {
+      "tokenIn": "C",
+      "tokenOut": "A",
+      "hops": [
+        "usdcWmon",
+        "aWmon"
+      ],
+      "poolStatuses": [
+        3,
+        2,
+        1,
+        3
+      ],
+      "ok": false,
+      "failure": "PoolUnusable",
+      "hop": 0
+    },
+    {
+      "tokenIn": "A",
+      "tokenOut": "USDC",
+      "hops": [
+        "monC"
+      ],
+      "poolStatuses": [
+        1,
+        3,
+        1,
+        3
+      ],
+      "ok": false,
+      "failure": "BrokenRoute",
+      "hop": 0
+    },
+    {
+      "tokenIn": "A",
+      "tokenOut": "B",
+      "hops": [
+        "usdcWmon"
+      ],
+      "poolStatuses": [
+        1,
+        2,
+        3,
+        1
+      ],
+      "ok": false,
+      "failure": "BrokenRoute",
+      "hop": 0
+    },
+    {
+      "tokenIn": "A",
+      "tokenOut": "C",
+      "hops": [
+        "aWmon"
+      ],
+      "poolStatuses": [
+        1,
+        1,
+        1,
+        3
+      ],
+      "ok": false,
+      "failure": "BrokenRoute",
+      "hop": 1
+    },
+    {
+      "tokenIn": "USDC",
+      "tokenOut": "B",
+      "hops": [
+        "monC",
+        "monC"
+      ],
+      "poolStatuses": [
+        1,
+        1,
+        1,
+        2
+      ],
+      "ok": false,
+      "failure": "BrokenRoute",
+      "hop": 0
+    }
+  ]
+}
