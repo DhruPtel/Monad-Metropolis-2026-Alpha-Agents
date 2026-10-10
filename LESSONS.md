@@ -1399,3 +1399,24 @@ What happened: After the first real restore (D-364), reads at the pinned block 1
 Cause: The dump holds the fork's own blocks and their states (`--preserve-historical-states`); the state at the fork point itself is not among them, and a restored anvil does not go to the upstream for it.
 Fix: None in code. Our own contracts were checked at latest (every entry matches; the three Chainlink feeds show the LocalFeed's 688 bytes at latest by design, D-237), and `pnpm test:fork` ran the full check on a fresh fork. Recorded in D-364.
 Lesson: On a restored playtest fork, read at latest or at a block the fork mined, never at the pinned block; anything that needs the pinned block's state runs on a fresh fork.
+
+## L-187: The policy mirror said "no route" when the real reason was the token's lane
+Unit: F-U5 (2026-10-10)
+What happened: In the v3 tool tests, `tradable_now` for a screened token the account had not opted into, and for a pool the registry had set to exit only, answered `ROUTE_INVALID`, while Executor v3 refuses the same swap with `NOT_OPTED_IN` or `VENUE_NOT_ALLOWED`. The agent would have been told no pool connects the pair when the pools exist and only the account's own rules keep it off them.
+Cause: The route enumeration applied the account's lane rules first, so when they left no route the mirror was handed an empty route and could only report that no route exists.
+Fix: `assessTradeV3` also enumerates the registered routes with the lane rules off and hands the first of those to the mirror when the account's own rules leave none; the mirror then names the lane. A quote is only sought along the routes the account may use (services/chain-tools/src/logic-v3.ts).
+Lesson: A pre-check that mirrors a contract must see what the contract sees: the pool is there, and the account is kept off it. Order the checks as the contract does and keep the data the later checks need, or the first reason the agent reads is the wrong one.
+
+## L-188: Mixed-case addresses as map keys made the mirror miss every token
+Unit: F-U5 (2026-10-10)
+What happened: The v3 pre-check's first runs refused every trade as if no token were registered and no price existed: the mirror's market view keyed tokens and prices by the addresses the reader returned (checksummed) and looked them up by the intent's (lowercase, or the other way around).
+Cause: Addresses compared as strings in two casings; viem's `isAddressEqual` had been used in the reader but plain object keys in the mirror's view.
+Fix: `executorMarketV3` lowercases every key it writes and every key it reads (tokens, prices, sides, pools' tokens), as the ledger's journal does for token assets.
+Lesson: Any map keyed by an address lowercases the key at the one place it is built and the one place it is read; comparisons elsewhere use `isAddressEqual`. A test with a checksummed and a lowercase address for the same token catches it.
+
+## L-189: A fixture funded for a v2 swap's gas refused every v3 swap
+Unit: F-U5 (2026-10-10)
+What happened: The trade flow's v3 unit tests refused the first v3 swap with `GAS_UNFUNDED`: the fake chain's key balance covered one v2 swap's gas (1.3 million), while a two-hop route into a third held token needs 1,000,000 + 150,000 x 2 + 400,000 x 3, 2,500,000 (A-69).
+Cause: The gas blocker now prices the route's own limit, so v3 swaps cost two to six times a v2 swap's gas at the same fee; the fixture kept the v2 figure.
+Fix: The v3 tests fund the key for three times the swap's cost; the fork tests top the key up as the local flow does.
+Lesson: When a limit becomes a function of the request, every fixture that encoded the old constant has to move with it; put the figure behind the same function the code uses (`executorV3SwapGasLimit`) instead of a literal.

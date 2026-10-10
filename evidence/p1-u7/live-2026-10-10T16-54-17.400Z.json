@@ -1,0 +1,100 @@
+{
+  "unit": "P1-U5, P1-U6 and P1-U7",
+  "namespace": "live-2b8d41",
+  "runTag": "2026-10-10T16-54-17.400Z",
+  "checks": {
+    "mint leads to reveal and provisioning with no manual step": true,
+    "rendered config matches the tier on chain": true,
+    "the agent has its own LiteLLM key": true,
+    "with no credits the agent is RESTRICTED and an LLM task is refused": true,
+    "USDC sent to the funding address appears as credits with no other action": true,
+    "no-op task succeeded with a structured result": false,
+    "the model answered through the gate": false,
+    "the sandbox stopped": true
+  },
+  "provisioning": {
+    "agentId": 1,
+    "msFromMint": 20002,
+    "runtime": {
+      "agentId": "1",
+      "generation": 1,
+      "status": "ready",
+      "tier": "pro",
+      "species": 14,
+      "slots": 8,
+      "playbook": "tier-pro@1",
+      "configHash": "dec11134fed7af30b9bec74e84a526ee8792776455a65b142d88283e6584b43f",
+      "keyAlias": "aa-live-2b8d41-143143-1-g1",
+      "budgetUsd": "0.000000",
+      "lastError": null,
+      "provisionedAt": "2026-10-10T16:54:50.048Z",
+      "updatedAt": "2026-10-10T16:54:50.048Z",
+      "lease": null,
+      "latestTask": null
+    }
+  },
+  "deposit": {
+    "msToCredit": 3061,
+    "credited": {
+      "agentId": "1",
+      "fundingAddress": "0xf1f1cbfc8b13e1018beab249b14b926f128a11c4",
+      "creditsUsdcE6": "1000000",
+      "spendableUsdcE6": "1000000",
+      "heldUsdcE6": "0",
+      "unsettledUsdcE6": "0",
+      "fundingAddressUsdcE6": "1000000",
+      "restricted": false,
+      "spent24hUsdcE6": "0",
+      "toolSpent24hUsdcE6": "0",
+      "recent": [
+        {
+          "kind": "credits_received",
+          "creditsDeltaUsdcE6": "1000000",
+          "at": "2026-10-10T16:54:52.000Z"
+        }
+      ]
+    },
+    "budgetUsd": "0.800000"
+  },
+  "noop": {
+    "taskId": "973ee965-c6f2-4d43-bca7-e7759c51aaa1",
+    "agentId": "1",
+    "kind": "noop",
+    "status": "failed",
+    "result": {
+      "kind": "noop",
+      "tier": "pro",
+      "runId": "run_d75ac2b880af43469ccff70b94afadbf",
+      "slots": 8,
+      "agentId": 1,
+      "leaseId": "fdd19ec3-1523-4588-b70f-eeca1a52f671",
+      "replied": "",
+      "playbook": "tier-pro@1",
+      "runStatus": "failed",
+      "sandboxId": "iodusxvfzat05yfn8842b",
+      "timingsMs": {
+        "run": 8069,
+        "total": 34980,
+        "sandbox": 678,
+        "hermesBoot": 18495
+      },
+      "configHash": "dec11134fed7af30b9bec74e84a526ee8792776455a65b142d88283e6584b43f",
+      "gatedCalls": [
+        "POST /v1/chat/completions 400"
+      ],
+      "generation": 1,
+      "modelCalls": 1,
+      "stopReason": "failed",
+      "modelCallsOk": 0,
+      "answeredNoopOk": false,
+      "sandboxStopped": true,
+      "modelCallsRefusedForCredits": 0
+    },
+    "error": "the Hermes run ended failed: HTTP 400: litellm.BadRequestError: AnthropicException - b'{\"type\":\"error\",\"error\":{\"type\":\"invalid_request_error\",\"message\":\"Your credit balance is too low to access the Anthropic API. Please go to Pl",
+    "createdAt": "2026-10-10T16:54:53.403Z",
+    "startedAt": "2026-10-10T16:54:53.409Z",
+    "finishedAt": "2026-10-10T16:55:28.391Z"
+  },
+  "error": "timed out waiting for metering",
+  "passed": false
+}
