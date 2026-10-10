@@ -1364,3 +1364,38 @@ What happened: To try the new Executor fork test quickly, I ran `forge test --ma
 Cause: A burst of parallel fork-mode fetches against an anvil that is itself a fork (every cache miss a request to the upstream) left the anvil process hung. Whether anvil deadlocked inside or stalled on an upstream request that never returned, the playtest fork was never meant to serve forge's fork mode: `pnpm test:fork` starts its own anvil for exactly this (D-200, L-63), and L-109 already recorded anvil stopping mid-run under load from a test.
 Fix: The fork test ran through `pnpm test:fork` on its own fork from then on (twice, both green). The playtest fork's revival is the owner's decision.
 Lesson: Never point forge's fork mode, or any parallel test, at the playtest fork on 8545; use `pnpm test:fork` (or a fork of your own on another port) for anything that reads real chain state in bulk. Treat 8545 as the owner's live environment: deployments and single calls only.
+
+## L-182: A playtest-fork deploy stalled on three transactions anvil accepted and never mined
+Unit: F-U4 (repair session, 2026-10-10)
+What happened: The second `deploy:fund` of the rebuilt playtest fork sent four transactions in a burst from one deployer (nonces 645 to 648). anvil 1.8.3 mined the first alone in block 109670009 and never mined the other three; its pool kept them, forge polled their receipts about four times a second for seven hours (111,310 `eth_getTransactionReceipt` lines in .dev/anvil.log, every one forwarded to the upstream), and the session, which had ended its turn to wait for the background deploy chain, was never woken and sat idle until the owner stopped it. Nothing explained it: the block gas limit is 150M and an earlier burst of 22M had mined in one block, the base fee fell every block (94.9 to 35.5 gwei), and the nonces were sequential after a mined one. The restart from the saved state (D-364) emptied the pool.
+Cause: anvil accepts a transaction it will never mine and answers nothing about it; a deploy that waits for its receipt waits forever, and a session that ends its turn on such a task has no way back. The fork looked slow; it was a stall.
+Fix: CLAUDE.md "Long-running commands": deploys run in the foreground with a timeout, and after every forge run the count of `eth_sendTransaction` lines in .dev/anvil.log must have grown by the same number as the count of `    Transaction:` lines, with `txpool_status` empty. This session's five deploys were checked that way (3, 1, 5, 1 and 0 sent, the same mined).
+Lesson: A transaction unmined on anvil after ten seconds will not mine on its own: drop it (the console's stuck-transactions card, or `anvil_dropAllTransactions`), resend, and record it. Never end a turn waiting on a background deploy.
+
+## L-183: A readiness check compared the chain ID against the wrong constant and burned nine minutes
+Unit: F-U4 (repair session, 2026-10-10)
+What happened: The throwaway proof of the state-dump flags (D-364) started anvil on port 8599 and waited for `eth_chainId` to answer `0x22f17`. The fork answers `0x22f27` (143143), so three attempts timed out after one, two and a half, and two and a half minutes while anvil had been ready in two seconds; the fourth attempt, with the right value, passed.
+Cause: A hex constant typed by hand instead of derived from the number.
+Fix: The proof was rerun with the right value; the runner's own readiness check in packages/devenv was never affected.
+Lesson: Derive readiness constants from the source of truth (`LOCAL_FORK_CHAIN_ID` through the config package, or `printf '0x%x'`), and when a readiness loop times out, read what the thing actually answered before retrying.
+
+## L-184: Seeding the core lane from live screens at deploy time left a stray fund set, and the recorded set needs every candidate
+Unit: F-U4 (repair session, 2026-10-10)
+What happened: The first `pnpm deploy:fund` on the rebuilt fork ran ten seconds after dev:all started, when only WMON and WETH had passed the orchestrator's screens, so it deployed a TokenRegistry seeded with two tokens and the three contracts that depend on it at addresses nothing records (0x5040dd42c0a7a21d4dc6befbd7a72184cfaab20b, 0x57d6ecc088354098710daa62b4f7368116b59963, 0xbfcd6860a9ba47abf11cba358f297a5dfb1f18ab, 0x1e687f61c39e88bd8a98e795e63192fc0c778193). The recorded set (the address book, `pnpm test:fork`) seeds all seven candidates. On the next day WBTC's fresh screen was refused, so the normal command would have seeded six and made a third set.
+Cause: `deploy:fund` seeds whatever passes at that moment, and the CREATE2 addresses follow the seeds. The recorded set is the one seeded with every candidate, as `test:fork` deploys it, which no screen gates.
+Fix: The recorded set was deployed with `deployFundLocal({ skipScreens: true })`, the call `test:fork` makes, and the stray set is recorded as unused (A-71). The standalone `pnpm deploy:custody-v3`, run after `deploy:executor-v3` as the prompt ordered, added one more unused contract: an AccountFactoryV3 with the Executor unset over the new oracle (0xf052fd76f450d4d804ab4182167dc329629cd882), since that script passes no Executor on its own.
+Lesson: On the playtest fork, deploy the recorded fund set with the screens skipped and check the four addresses against the address book before going on; run the screens as a separate check, not as the seed. Treat every CREATE2 input (seeds, constructor arguments) as part of the address.
+
+## L-185: A doc comment moved a CREATE2 address through the metadata hash
+Unit: F-U4 (repair session, 2026-10-10)
+What happened: Two comment lines added to RouteAdapter.sol for D-365 changed the compiler's metadata hash, which is appended to the creation code, so the demo RouteAdapter landed at 0x7c78a3C0899E723bC77DcB66978a94fBf69B456E instead of the recorded 0x509450abceD1123007F1DafCeFe4F38B9817dFb7, with the same 12,727 bytes of code.
+Cause: foundry.toml sets no `bytecode_hash = "none"`, so the source text, comments included, is part of every CREATE2 address.
+Fix: The committed source was restored byte for byte (f907f34) and the recorded adapter deployed beside the stray one, which stays unused.
+Lesson: Any edit to a deployed contract's source, a comment included, changes its deterministic address; keep explanatory notes in the contract whose bytecode is changing anyway, or accept and record the new addresses.
+
+## L-186: A fork restored from a state dump serves the pinned block as empty
+Unit: F-U4 (repair session, 2026-10-10)
+What happened: After the first real restore (D-364), reads at the pinned block 109670000 answered as on a bare chain: USDC's code `0x`, a feed's `decimals()` `0x`, anvil account 0 with its 10,000 ETH genesis balance. Reads at block 109670001 and later, and at latest, were right, and the pinned block's header still carried the upstream's hash. The address book check, which reads mainnet entries at the pinned block, failed with "expected a hex quantity".
+Cause: The dump holds the fork's own blocks and their states (`--preserve-historical-states`); the state at the fork point itself is not among them, and a restored anvil does not go to the upstream for it.
+Fix: None in code. Our own contracts were checked at latest (every entry matches; the three Chainlink feeds show the LocalFeed's 688 bytes at latest by design, D-237), and `pnpm test:fork` ran the full check on a fresh fork. Recorded in D-364.
+Lesson: On a restored playtest fork, read at latest or at a block the fork mined, never at the pinned block; anything that needs the pinned block's state runs on a fresh fork.

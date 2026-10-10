@@ -1,7 +1,25 @@
 # F-U4 handoff
 
+## Completion, 2026-10-10 (repair session)
+
+Status: done. The playtest fork was restored from its saved state (D-364, first real restore after a WSL reboot), the D-365 sell rule went into Executor v3 before its first deployment there, and one Executor v3 set is on the playtest fork, deployed in the foreground with every transaction sent also mined (L-182). The set's addresses changed with the bytecode and the address book names them; `pnpm test:fork` matches every entry on a fresh fork.
+
+| Contract | Playtest fork and test fork (chain 143143) | Code |
+|---|---|---|
+| Executor v3 | `0x3443dbBd29E19CF17853732C260C6abDb6dC0658` | 39,226 bytes |
+| RouteAdapter (Executor v3's, registered) | `0x9bA3aF3a1A591EF1D6d92FD5Ca26eCD0C6e76974` | 12,727 |
+| ProtocolRegistryV3 (eight core pools) | `0x16B3C81d48510a1b7e98D048C7904b56E387611c` | 19,718 |
+| OracleAdapterV3 | `0xeeB91f3371Db0d409bbE0Ffa9ea901E09A783a43` | 10,235 |
+| AccountFactoryV3 (Executor given) | `0x5ebF58520f9bAa847959DcF69716030a1583BCDb` | 11,645 |
+| PersonalAccountV3 implementation | `0x2Ec618e51FcD7562Fe1EBeF16536d48E60b5b994` | 41,205 |
+| TokenRegistry, F-U2 registry, oracle, demo adapter | `0x171F36...`, `0x4eB383...`, `0x82df37...`, `0x509450...` (unchanged) | |
+
+The policy hash is unchanged (`0xb5a9fa71...`). The LOGS.md entry of the same date has the test results, the unused contracts left by the rebuild (A-71) and the lessons L-182 to L-186. The original handoff follows.
+
+## Original handoff, 2026-10-10 (first session)
+
 Unit: F-U4 Contracts III: Executor v3 and the policy mirror.
-Status: partial. Every acceptance test passes and everything in scope is built, tested, deployed on `pnpm test:fork`'s fork and recorded; the deployment on the playtest fork (8545) is blocked because that fork's anvil stopped answering at 05:15 UTC during the unit (L-181), and reviving it is the owner's decision.
+Status: partial at the time. Every acceptance test passes and everything in scope is built, tested, deployed on `pnpm test:fork`'s fork and recorded; the deployment on the playtest fork (8545) is blocked because that fork's anvil stopped answering at 05:15 UTC during the unit (L-181), and reviving it is the owner's decision.
 
 ## Commits
 
