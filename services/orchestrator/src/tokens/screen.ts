@@ -1,6 +1,8 @@
 import {
+  type BridgedException,
   type ListedToken,
   MONAD_BASE_TOKENS,
+  bridgedException,
   SCREEN_CHECK_CODES,
   SCREEN_RULES,
   type ScreenCheck,
@@ -10,7 +12,7 @@ import {
   screenVerdict,
 } from "@alpha-agents/domain";
 import { GOPLUS_POWER_FLAGS, type GoPlusReport } from "@alpha-agents/market";
-import { parseAbi } from "viem";
+import { type PublicClient, getAddress, parseAbi } from "viem";
 import {
   type ForkSimulator,
   type Route,
@@ -47,6 +49,8 @@ export interface ScreenDeps {
   readonly onFork: <T>(fn: (sim: ForkSimulator, block: bigint) => Promise<T>) => Promise<T>;
   /** GoPlus's report; null when it is unavailable, which skips that check. */
   readonly goplus: (address: string) => Promise<GoPlusReport | null>;
+  /** An issuer's official token list, for reviewed bridged tokens (D-359); none fails such a proof. */
+  readonly tokenList?: (url: string) => Promise<readonly TokenListEntry[]>;
   readonly now: () => number;
 }
 
@@ -277,7 +281,18 @@ export function marketChecks(
   return [liquidity, age];
 }
 
-export function lookAlikeCheck(token: ScreenTarget, listings: readonly ListedToken[]): ScreenCheck {
+export interface BridgeVerification {
+  readonly listedSymbol: string;
+  readonly bridge: string;
+  readonly ok: boolean;
+  readonly detail: string;
+}
+
+export function lookAlikeCheck(
+  token: ScreenTarget,
+  listings: readonly ListedToken[],
+  bridged: BridgeVerification | null = null,
+): ScreenCheck {
   const hit = lookAlike(token, listings);
   const evidence = { symbol: token.symbol, name: token.name, listingsChecked: listings.length };
   if (listings.length === 0)
@@ -294,6 +309,18 @@ export function lookAlikeCheck(token: ScreenTarget, listings: readonly ListedTok
       reason: "Its name and symbol imitate no listed token at another address.",
       evidence,
     };
+  if (bridged?.ok && bridged.listedSymbol.toUpperCase() === hit.listed.symbol.toUpperCase())
+    return {
+      code: "LOOK_ALIKE",
+      status: "pass",
+      reason: `A bridged ${hit.listed.symbol} on the reviewed list, confirmed by ${bridged.bridge}: ${bridged.detail}.`,
+      evidence: {
+        ...evidence,
+        imitates: hit.listed.symbol,
+        bridge: bridged.bridge,
+        bridgeProof: bridged.detail,
+      },
+    };
   return {
     code: "LOOK_ALIKE",
     status: "fail",
@@ -303,8 +330,79 @@ export function lookAlikeCheck(token: ScreenTarget, listings: readonly ListedTok
       imitates: hit.listed.symbol,
       listedAt: hit.listed.monadAddress,
       source: hit.listed.source,
+      bridgeProof: bridged ? `not confirmed: ${bridged.detail}` : null,
     },
   };
+}
+
+const WORMHOLE_ABI = parseAbi([
+  "function isWrappedAsset(address token) view returns (bool)",
+  "function wrappedAsset(uint16 chainId, bytes32 tokenAddress) view returns (address)",
+]);
+
+export interface TokenListEntry {
+  readonly chainId: number;
+  readonly address: string;
+  readonly symbol: string;
+}
+
+/**
+ * Whether a token is the reviewed bridged form of a listed coin: Wormhole's
+ * TokenBridge must call it wrapped and map the coin's origin to this exact
+ * address; an issuer's list must carry this address on Monad under the coin's
+ * symbol. Any read that fails counts as not confirmed.
+ */
+export async function verifyBridged(
+  client: Pick<PublicClient, "readContract">,
+  token: string,
+  exception: BridgedException,
+  tokenList: (url: string) => Promise<readonly TokenListEntry[]>,
+): Promise<BridgeVerification> {
+  const base = { listedSymbol: exception.listedSymbol, bridge: exception.bridge };
+  const p = exception.proof;
+  try {
+    if (p.kind === "wormhole_wrapped") {
+      const bridge = getAddress(p.tokenBridge);
+      const [wrapped, mapped] = await Promise.all([
+        client.readContract({
+          address: bridge,
+          abi: WORMHOLE_ABI,
+          functionName: "isWrappedAsset",
+          args: [getAddress(token)],
+        }),
+        client.readContract({
+          address: bridge,
+          abi: WORMHOLE_ABI,
+          functionName: "wrappedAsset",
+          args: [p.originChain, p.originAddress],
+        }),
+      ]);
+      const ok = wrapped && mapped.toLowerCase() === token.toLowerCase();
+      return {
+        ...base,
+        ok,
+        detail: ok
+          ? `the token bridge maps origin chain ${p.originChain}'s ${exception.listedSymbol} to this address`
+          : "the token bridge does not map this coin's origin to this address",
+      };
+    }
+    const list = await tokenList(p.url);
+    const ok = list.some(
+      (t) =>
+        t.chainId === 143 &&
+        t.address.toLowerCase() === token.toLowerCase() &&
+        t.symbol.toUpperCase() === exception.listedSymbol,
+    );
+    return {
+      ...base,
+      ok,
+      detail: ok
+        ? `${exception.bridge}'s official token list carries this address on Monad`
+        : `${exception.bridge}'s official token list does not carry this address`,
+    };
+  } catch {
+    return { ...base, ok: false, detail: "the bridge's record could not be read" };
+  }
 }
 
 export function goplusCheck(token: string, report: GoPlusReport | null): ScreenCheck {
@@ -369,8 +467,18 @@ export async function runScreen(input: ScreenInput, deps: ScreenDeps): Promise<S
         evidence: { pools: pools.length, routable: pools.filter((p) => p.routable).length },
       };
   const goplus = deps.goplus(token.address).catch(() => null);
+  const imitated = lookAlike(token, listings);
+  const exception = imitated ? bridgedException(imitated.listed.symbol) : null;
   const fork = await deps.onFork(async (sim, block) => {
     const st = await staticChecks(sim.publicClient, token.address, block);
+    const bridged = exception
+      ? await verifyBridged(
+          sim.publicClient,
+          token.address,
+          exception,
+          deps.tokenList ?? (async () => []),
+        )
+      : null;
     let simulation: Simulation | null = null;
     if (route) {
       try {
@@ -379,14 +487,14 @@ export async function runScreen(input: ScreenInput, deps: ScreenDeps): Promise<S
         simulation = null;
       }
     }
-    return { st, simulation, block };
+    return { st, simulation, block, bridged };
   });
   const checks: ScreenCheck[] = [
     routeCheck,
     ...simulationChecks(route, fork.simulation, token),
     ...fork.st.checks,
     ...marketChecks(route, pools, deps.now()),
-    lookAlikeCheck(token, listings),
+    lookAlikeCheck(token, listings, fork.bridged),
     goplusCheck(token.address, await goplus),
   ];
   const ordered = SCREEN_CHECK_CODES.flatMap((c) => checks.filter((x) => x.code === c));

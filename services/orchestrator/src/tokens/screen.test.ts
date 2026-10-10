@@ -1,10 +1,10 @@
-import { SCREEN_CHECK_CODES, type ScreenCheck } from "@alpha-agents/domain";
+import { SCREEN_CHECK_CODES, type ScreenCheck, bridgedException } from "@alpha-agents/domain";
 import type { GoPlusReport } from "@alpha-agents/market";
 import { toFunctionSelector } from "viem";
 import { describe, expect, it } from "vitest";
-import { goplusCheck, lookAlikeCheck, marketChecks, runScreen } from "./screen.ts";
+import { goplusCheck, lookAlikeCheck, marketChecks, runScreen, verifyBridged } from "./screen.ts";
 import { type RoutePool, type Simulation, chooseRoute } from "./simulate.ts";
-import { hasSelector, scanPowers } from "./static-checks.ts";
+import { hasSelector, scanPowers, timelockDelay } from "./static-checks.ts";
 
 const NOW = Date.parse("2026-10-09T20:40:00Z");
 const USDC = "0x754704bc059f8c67012fed69bc8a327a5aafb603";
@@ -222,5 +222,82 @@ describe("the token screen (F-U1)", () => {
     expect(chooseRoute(TOKEN, [native])).toBeNull();
     expect(chooseRoute(TOKEN, [{ ...native, dex: "uniswap_v4" as const }])?.baseSymbol).toBe("MON");
     expect(hasSelector("0x62abcdef", "00abcdef")).toBe(true);
+  });
+});
+
+describe("reviewed bridged tokens and known timelocks (F-U2 Step 0, D-359)", () => {
+  const SOL = "0xea17e5a9efebf1477db45082d67010e2245217f1";
+  const sol = { address: SOL, symbol: "SOL", name: "Wrapped SOL", decimals: 9 };
+  const listings = [
+    { symbol: "SOL", name: "Solana", monadAddress: null, source: "coinmarketcap" as const },
+  ];
+  const wormhole = (mapsTo: string, wrapped = true) =>
+    ({
+      readContract: async (a: { functionName: string }) =>
+        a.functionName === "isWrappedAsset" ? wrapped : mapsTo,
+    }) as unknown as Parameters<typeof verifyBridged>[0];
+
+  it("passes Wormhole's wrapped SOL only when the token bridge maps SOL's origin to it", async () => {
+    const ex = bridgedException("sol");
+    if (!ex) throw new Error("no SOL exception");
+    const ok = await verifyBridged(
+      wormhole(SOL.toUpperCase().replace("0X", "0x")),
+      SOL,
+      ex,
+      async () => [],
+    );
+    expect(ok.ok).toBe(true);
+    expect(lookAlikeCheck(sol, listings, ok)).toMatchObject({ status: "pass" });
+    expect(lookAlikeCheck(sol, listings, ok).reason).toMatch(
+      /^A bridged SOL on the reviewed list, confirmed by Wormhole/,
+    );
+    // A different address claiming SOL is still a look-alike, with why the proof failed.
+    const fake = await verifyBridged(wormhole(SOL), TOKEN, ex, async () => []);
+    expect(fake.ok).toBe(false);
+    const c = lookAlikeCheck({ ...sol, address: TOKEN }, listings, fake);
+    expect(c.status).toBe("fail");
+    expect(c.evidence.bridgeProof).toMatch(/^not confirmed/);
+    // Not wrapped at all: refused.
+    expect((await verifyBridged(wormhole(SOL, false), SOL, ex, async () => [])).ok).toBe(false);
+  });
+
+  it("checks an issuer's bridged coin against the issuer's official list", async () => {
+    const ex = bridgedException("CAKE");
+    if (!ex) throw new Error("no CAKE exception");
+    const CAKE = "0xf59d81cd43f620e722e07f9cb3f6e41b031017a3";
+    const list = async () => [
+      { chainId: 143, address: CAKE.toUpperCase().replace("0X", "0x"), symbol: "Cake" },
+    ];
+    expect((await verifyBridged(wormhole(""), CAKE, ex, list)).ok).toBe(true);
+    expect((await verifyBridged(wormhole(""), TOKEN, ex, list)).ok).toBe(false);
+    expect(
+      (
+        await verifyBridged(wormhole(""), CAKE, ex, async () => {
+          throw new Error("down");
+        })
+      ).detail,
+    ).toBe("the bridge's record could not be read");
+  });
+
+  it("recognizes an Aave Governance v3 executor as a timelock, and a plain owner as none", async () => {
+    const EXECUTOR = "0xa9d0eaff48ce1df468f9eaeb7e628c413343f6a2";
+    const CONTROLLER = "0x442ca936e5e6db875357d0a16481145c96dd9a82";
+    const client = (delay: number, executor = EXECUTOR) => ({
+      readContract: async (a: { address: string; functionName: string; args?: unknown[] }) => {
+        const at = a.address.toLowerCase();
+        if (at === EXECUTOR && a.functionName === "owner") return CONTROLLER;
+        if (at === CONTROLLER && a.functionName === "getExecutorSettingsByAccessControl")
+          return a.args?.[0] === 1
+            ? { executor, delay }
+            : { executor: "0x0000000000000000000000000000000000000000", delay: 0 };
+        throw new Error("execution reverted");
+      },
+    });
+    expect(await timelockDelay(client(86_400) as never, EXECUTOR)).toEqual({
+      seconds: 86_400,
+      kind: "aave_governance_v3",
+    });
+    // A controller that does not name this executor is not its timelock.
+    expect(await timelockDelay(client(86_400, TOKEN) as never, EXECUTOR)).toBeNull();
   });
 });

@@ -131,18 +131,55 @@ export async function ownerOf(client: PublicClient, address: string): Promise<st
   return "unknown";
 }
 
-/** A timelock's delay in seconds, or null when the address is not a timelock. */
-export async function timelockDelay(client: PublicClient, address: string): Promise<number | null> {
-  for (const fn of ["getMinDelay", "delay"] as const) {
+const AAVE_PAYLOADS_ABI = parseAbi([
+  "function getExecutorSettingsByAccessControl(uint8 accessLevel) view returns ((address executor, uint40 delay))",
+]);
+
+/** The timelock kinds the screen recognizes as an upgrade authority's delay (D-359). */
+export type TimelockKind = "openzeppelin" | "compound" | "aave_governance_v3";
+
+/**
+ * An upgrade authority's timelock, or null when it is none the screen knows:
+ * OpenZeppelin's TimelockController (`getMinDelay`), Compound's Timelock
+ * (`delay`), or Aave Governance v3, where the authority is an Executor owned
+ * by a PayloadsController that queues every payload for that executor with a
+ * delay (`getExecutorSettingsByAccessControl`). GHO on Monad is upgraded
+ * through the last: its ProxyAdmin's owner is the level 1 Executor, delayed a
+ * day (read 2026-10-09).
+ */
+export async function timelockDelay(
+  client: PublicClient,
+  address: string,
+): Promise<{ seconds: number; kind: TimelockKind } | null> {
+  for (const [fn, kind] of [
+    ["getMinDelay", "openzeppelin"],
+    ["delay", "compound"],
+  ] as const) {
     try {
       const d = await client.readContract({
         address: getAddress(address),
         abi: TIMELOCK_ABI,
         functionName: fn,
       });
-      return Number(d);
+      return { seconds: Number(d), kind };
     } catch {
       // Not this kind of timelock.
+    }
+  }
+  const controller = await ownerOf(client, address);
+  if (controller === "unknown" || DEAD.has(controller)) return null;
+  for (const level of [1, 2]) {
+    try {
+      const s = await client.readContract({
+        address: getAddress(controller),
+        abi: AAVE_PAYLOADS_ABI,
+        functionName: "getExecutorSettingsByAccessControl",
+        args: [level],
+      });
+      if (s.executor.toLowerCase() === address.toLowerCase())
+        return { seconds: Number(s.delay), kind: "aave_governance_v3" };
+    } catch {
+      return null;
     }
   }
   return null;
@@ -261,13 +298,15 @@ export async function staticChecks(
         reason: "A proxy whose upgrade authority is renounced.",
         evidence,
       };
-    const delay = authority === "unknown" ? null : await timelockDelay(client, authority);
+    const lock = authority === "unknown" ? null : await timelockDelay(client, authority);
+    const delay = lock?.seconds ?? null;
     evidence.timelockSeconds = delay;
-    if (delay !== null && delay >= SCREEN_RULES.minTimelockSeconds)
+    evidence.timelockKind = lock?.kind ?? null;
+    if (lock && lock.seconds >= SCREEN_RULES.minTimelockSeconds)
       return {
         code: "UPGRADEABLE",
         status: "pass",
-        reason: `A proxy upgraded only through a timelock of ${Math.round(delay / 3600)} hours.`,
+        reason: `A proxy upgraded only through a timelock of ${Math.round(lock.seconds / 3600)} hours${lock.kind === "aave_governance_v3" ? " (Aave Governance v3)" : ""}.`,
         evidence,
       };
     return {

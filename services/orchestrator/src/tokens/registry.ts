@@ -11,10 +11,12 @@ import {
   type MarketData,
   TokenBucket,
   type TokenDiscovery,
+  cacheKey,
   fetchGoPlus,
+  getJson,
   guardedListings,
 } from "@alpha-agents/market";
-import { type ScreenOutcome, runScreen } from "./screen.ts";
+import { type ScreenOutcome, type TokenListEntry, runScreen } from "./screen.ts";
 import type { ScreenFork } from "./screen-fork.ts";
 import type { ScreenRecord, TokenFilter, TokenStore } from "./store.ts";
 
@@ -143,6 +145,25 @@ export class TokenRegistry {
     }
   }
 
+  /** An issuer's official token list (D-359), cached for a day; entries without an address are dropped. */
+  private async tokenList(url: string): Promise<TokenListEntry[]> {
+    const r = await this.o.market.cache.get(
+      cacheKey("tokenlist", "list", { url }),
+      24 * 3600_000,
+      () =>
+        getJson({ provider: "tokenlist", url, timeoutMs: 20_000 }, this.o.market.upstreamOptions()),
+    );
+    const tokens = (r.value as { tokens?: unknown[] } | null)?.tokens ?? [];
+    return tokens.flatMap((t) => {
+      const e = t as { chainId?: unknown; address?: unknown; symbol?: unknown };
+      return typeof e.chainId === "number" &&
+        typeof e.address === "string" &&
+        typeof e.symbol === "string"
+        ? [{ chainId: e.chainId, address: e.address, symbol: e.symbol }]
+        : [];
+    });
+  }
+
   /** The latest screen while it is fresh, else null. */
   async freshScreen(address: string): Promise<ScreenRecord | null> {
     const t = await this.o.store.token(this.o.chainId, address);
@@ -189,7 +210,12 @@ export class TokenRegistry {
           pools,
           listings: await this.listings(),
         },
-        { onFork: (fn) => fork.run(fn), goplus: (a) => this.goplus(a), now: this.now },
+        {
+          onFork: (fn) => fork.run(fn),
+          goplus: (a) => this.goplus(a),
+          tokenList: (url) => this.tokenList(url),
+          now: this.now,
+        },
       );
     } catch (err) {
       throw err instanceof MarketError || err instanceof RegistryError

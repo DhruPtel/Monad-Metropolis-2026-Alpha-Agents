@@ -449,3 +449,61 @@ export function lookAlike(
   }
   return null;
 }
+
+/**
+ * Bridged copies of top coins (D-359, Q-68): a token whose name or symbol
+ * matches a listed coin stays refused as a look-alike, unless it is a reviewed
+ * bridged form of that coin and the bridge's own record confirms it on every
+ * screen. Wormhole's record is its TokenBridge contract on Monad
+ * (`isWrappedAsset` and `wrappedAsset(origin chain, origin address)`); an
+ * issuer's own token bridge is checked against the issuer's official token
+ * list. Every other check still applies.
+ */
+export type BridgeProof =
+  | {
+      readonly kind: "wormhole_wrapped";
+      readonly tokenBridge: Address;
+      /** Wormhole's chain ID of the origin (1 is Solana). */
+      readonly originChain: number;
+      readonly originAddress: `0x${string}`;
+    }
+  | { readonly kind: "issuer_token_list"; readonly url: string };
+
+export interface BridgedException {
+  /** The listed coin's symbol this bridged form may share. */
+  readonly listedSymbol: string;
+  readonly bridge: string;
+  readonly proof: BridgeProof;
+  readonly note: string;
+}
+
+export const WORMHOLE_BRIDGE_MONAD = "0x0b2719cda2f10595369e6673cea3ee2edfa13ba7" as const;
+
+export const BRIDGED_EXCEPTIONS: readonly BridgedException[] = [
+  {
+    listedSymbol: "SOL",
+    bridge: "Wormhole",
+    proof: {
+      kind: "wormhole_wrapped",
+      tokenBridge: WORMHOLE_BRIDGE_MONAD,
+      originChain: 1,
+      // The native SOL mint (So11111111111111111111111111111111111111112), as Wormhole writes it.
+      originAddress: "0x069b8857feab8184fb687f634618c035dac439dc1aeb3b5598a0f00000000001",
+    },
+    note: "Wormhole's wrapped SOL; TokenBridge from github.com/monad-crypto/protocols mainnet/wormhole_portal.jsonc",
+  },
+  {
+    listedSymbol: "CAKE",
+    bridge: "PancakeSwap",
+    proof: {
+      kind: "issuer_token_list",
+      url: "https://tokens.pancakeswap.finance/pancakeswap-monad-default.json",
+    },
+    note: "PancakeSwap's own CAKE on Monad, listed in PancakeSwap's official Monad token list",
+  },
+];
+
+export function bridgedException(listedSymbol: string): BridgedException | null {
+  const s = listedSymbol.toUpperCase();
+  return BRIDGED_EXCEPTIONS.find((b) => b.listedSymbol === s) ?? null;
+}
