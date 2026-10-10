@@ -1448,3 +1448,24 @@ What happened: `pnpm skills:lock` and the skills package's test refused the new 
 Cause: S13 was written when the only evals (rebalance_bands@1) named no token address; a per-token rule's evals cannot avoid them.
 Fix: S13 lets a placeholder with at least 32 leading zeros pass (packages/skills/src/audit.ts); every real-looking address must still be known.
 Lesson: When a package format rule requires a generated file, run the audit's rules against the generator's output before writing the package, and widen a rule only for a pattern that cannot be a real address.
+
+## L-194: A piped secrets scan let a commit through again, on a token field the scan reads as a key
+Unit: F-U9 (2026-10-10)
+What happened: Three F-U9 commits went in with `pnpm secrets:scan 2>&1 | tail -1 && git add ...`: the pipeline's exit status is `tail`'s, so the scan's failure did not stop the chain (L-171 again). The scan had flagged two fixture lines where a position's `token` field holds the public WBTC token address, which gitleaks's generic-api-key rule reads as a key; the commit 5a8d92d carries them, and history is never rewritten.
+Cause: The gate's exit status was discarded by the pipe, and the fixtures wrote a 40-hex address straight after a field named `token`.
+Fix: The two findings are recorded by fingerprint in .gitleaksignore with their reason (the value is a public token address), the fixtures name the address through a constant, and the scan passes on the full history again.
+Lesson: Run a gate as its own command before `git add`, never through a pipe; and in fixtures, assign an address to a field named `token` through a named constant.
+
+## L-195: Turning scheduled research off by default broke the live check that proves the scheduler
+Unit: F-U9, P0-SPEND (2026-10-10)
+What happened: The first run of `pnpm test:live:pending` after D-369 failed at "the scheduler queues a Scan for each funded agent": the live run's own orchestrator inherited the new local default `SCHEDULED_RESEARCH=off`, so no Scan was ever queued and the step timed out.
+Cause: The live script proves the scheduler, and the default that protects development from unintended spend applies to every orchestrator start, the live check's included.
+Fix: The live run sets `SCHEDULED_RESEARCH=on` in the environment of the orchestrator it spawns (services/orchestrator/src/live.ts), and nothing else.
+Lesson: When a safety default turns a behaviour off, find every check that proves that behaviour and turn it on there explicitly, in the same commit.
+
+## L-196: The live check's drain call asked for an alias the agent's key no longer serves
+Unit: F-U9 (2026-10-10)
+What happened: In the first live run after the account accepted calls again, "at zero the next call is refused and the run ends as billing" failed: the no-op task completed with its one model call at 200 and only a later `GET /v1/models` was refused. The run's report showed the outside call that was meant to spend the agent's last credits had been answered 403.
+Cause: F-U7 renamed the aliases an agent's key may use to `research-low`, `research-medium` and `research-high`; the drain call still asked LiteLLM for `scan-cheap` with the agent's key, so LiteLLM refused it (403, a model the key may not use) and nothing was spent before the task ran.
+Fix: The drain call uses `research-low` (services/orchestrator/src/live.ts).
+Lesson: When an alias list changes, search every script that names an alias, the live checks first; a 403 from the gateway on a virtual key means the model is not in the key's list.

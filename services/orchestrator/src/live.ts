@@ -617,8 +617,9 @@ async function main(): Promise<number> {
     method: "POST",
     headers: { authorization: `Bearer ${currentKey}`, "content-type": "application/json" },
     // About 600 output tokens: more than the 0.0016 USD of provider cost 0.002 USDC buys.
+    // The agent's key serves the tier aliases only since F-U7 (L-196): the Low tier's is the Scan's.
     body: JSON.stringify({
-      model: "scan-cheap",
+      model: "research-low",
       messages: [{ role: "user", content: "Write about 450 words on how honeybees make honey." }],
       max_tokens: 700,
     }),
