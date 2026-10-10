@@ -1,6 +1,6 @@
 import type { PoolItem, ScreenOutput, TokenItem, TokenSource } from "@alpha-agents/data-tools";
 import { NATIVE_MON, SCREEN_CHECK_LABELS } from "@alpha-agents/domain";
-import type { TokenRegistry } from "./registry.ts";
+import { LOOKUP_FRESH_MS, type TokenRegistry } from "./registry.ts";
 import type { PoolRow, ScreenRecord, TokenRow } from "./store.ts";
 
 /**
@@ -121,6 +121,62 @@ export function registryToolSource(r: TokenRegistry, now: () => number = Date.no
     },
     async newPools(hours, limit) {
       return (await r.newPools(hours, limit)).map((p) => poolItem(p, now()));
+    },
+    async isFresh(address) {
+      const t = await r.store.token(r.chainId, address);
+      return t !== null && now() - Date.parse(t.lastSeenAt) < LOOKUP_FRESH_MS;
+    },
+    async findPools(address, requestedBy) {
+      const found = await r.lookup(address, requestedBy);
+      const symbols = await r.store.symbols(
+        r.chainId,
+        found.pools.flatMap((p) => [p.token0, p.token1]),
+      );
+      return {
+        token: tokenItem(found.token),
+        pools: found.pools.map((p) =>
+          poolItem(
+            {
+              ...p,
+              symbol0: symbols.get(p.token0) ?? null,
+              symbol1: symbols.get(p.token1) ?? null,
+            },
+            now(),
+          ),
+        ),
+        foundBy: found.token.foundBy,
+        cacheHit: found.cacheHit,
+      };
+    },
+    async search(query) {
+      const { registry, candidates } = await r.search(query);
+      return [
+        ...registry.map((t) => {
+          const item = tokenItem(t);
+          return {
+            address: t.address,
+            symbol: item.symbol,
+            name: item.name,
+            inRegistry: true,
+            priceClass: t.priceClass,
+            liquidityUsd: item.liquidityUsd,
+            screen: item.screen,
+            foundBy: t.foundBy,
+            sources: ["registry"],
+          };
+        }),
+        ...candidates.map((c) => ({
+          address: c.address,
+          symbol: c.symbol.slice(0, 32),
+          name: c.name.slice(0, 80),
+          inRegistry: false,
+          priceClass: null,
+          liquidityUsd: null,
+          screen: null,
+          foundBy: null,
+          sources: [...c.sources],
+        })),
+      ];
     },
     async freshScreen(address) {
       const s = await r.freshScreen(address);

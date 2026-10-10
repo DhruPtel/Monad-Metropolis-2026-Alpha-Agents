@@ -47,3 +47,27 @@ export async function discoverTokensAction(): Promise<
     return body.discovery;
   });
 }
+
+/** D-360: looks up any token by address; it joins the shared registry, and its page opens. */
+export async function lookupTokenAction(
+  address: string,
+): Promise<ActionResult<{ address: string; symbol: string }>> {
+  return attempt(async () => {
+    const a = address.trim();
+    if (!/^0x[0-9a-fA-F]{40}$/.test(a))
+      throw new Error("Enter a token address: 0x and 40 hex characters.");
+    const res = await fetch(`${orchestratorUrl()}/v1/tokens/lookup`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ address: a }),
+      cache: "no-store",
+    });
+    const body = (await res.json().catch(() => ({}))) as {
+      token?: { address: string; symbol: string };
+      message?: string;
+    };
+    if (!res.ok || !body.token)
+      throw new Error(body.message ?? `The orchestrator answered ${res.status}.`);
+    return { address: body.token.address, symbol: body.token.symbol };
+  });
+}

@@ -14,19 +14,29 @@ import type { Meter } from "./server.ts";
  * prices: registry reads are free, a new screen costs a little, a cached
  * screen is free (D-322) and does not count toward the run's cap.
  */
-export const TOKEN_DATA_TOOLS = ["list_tokens", "new_pools", "screen_token"] as const;
+export const TOKEN_DATA_TOOLS = [
+  "list_tokens",
+  "new_pools",
+  "screen_token",
+  "lookup_token",
+  "find_pools",
+] as const;
 export type TokenDataTool = (typeof TOKEN_DATA_TOOLS)[number];
 
-/** A-63, micro-USDC per call: registry reads free, a new screen 0.005 USDC. */
+/** A-63, micro-USDC per call: registry reads free, a new screen 0.005 USDC; A-65: a new lookup 0.001 USDC. */
 export const TOKEN_TOOL_PRICES_USDC_E6: Readonly<Record<TokenDataTool, bigint>> = {
   list_tokens: 0n,
   new_pools: 0n,
   screen_token: 5_000n,
+  lookup_token: 1_000n,
+  find_pools: 1_000n,
 };
 
 /** A-63: new screens per run (lease); cached screens do not count. */
 export const TOKEN_TOOL_RUN_CAPS: Readonly<Partial<Record<TokenDataTool, number>>> = {
   screen_token: 3,
+  lookup_token: 10,
+  find_pools: 10,
 };
 
 const Address = z
@@ -62,8 +72,21 @@ export const TokenInputs = {
       .describe("Pools created in the last 24, 72 or 168 hours"),
     limit: z.int().min(1).max(50).default(20),
   }),
+  lookup_token: z.strictObject({
+    query: z
+      .string()
+      .trim()
+      .min(2)
+      .max(64)
+      .describe("A token's address on Monad, or its symbol or name (for example SOL or Chog)"),
+  }),
+  find_pools: z.strictObject({
+    token: Address.describe("Any token's address on Monad, including one you found yourself"),
+  }),
   screen_token: z.strictObject({
-    token: Address.describe("The token's address on Monad, from list_tokens or new_pools"),
+    token: Address.describe(
+      "Any token's address on Monad: from list_tokens, new_pools, lookup_token or your own research",
+    ),
     fresh: z
       .boolean()
       .default(false)
@@ -118,7 +141,36 @@ const Check = z.strictObject({
   evidence: z.record(z.string(), z.union([z.string().max(200), z.number(), z.boolean(), z.null()])),
 });
 
+const Match = z.strictObject({
+  address: z.string(),
+  symbol: z.string().max(32),
+  name: z.string().max(80),
+  inRegistry: z.boolean(),
+  priceClass: z.enum(["F", "A"]).nullable(),
+  liquidityUsd: z.number().nullable(),
+  screen: Screen.nullable(),
+  foundBy: z.string().max(40).nullable(),
+  sources: z.array(z.string().max(20)).max(4),
+});
+
 export const TokenOutputs = {
+  lookup_token: z.strictObject({
+    source: z.enum(["registry", "lookup", "search"]),
+    cacheHit: z.boolean(),
+    query: z.string(),
+    note: z.string(),
+    count: z.int(),
+    matches: z.array(Match).max(20),
+    pools: z.array(Pool).max(30),
+  }),
+  find_pools: z.strictObject({
+    source: z.enum(["registry", "lookup"]),
+    cacheHit: z.boolean(),
+    token: Token,
+    foundBy: z.string().max(40),
+    count: z.int(),
+    pools: z.array(Pool).max(30),
+  }),
   list_tokens: z.strictObject({
     source: z.literal("registry"),
     cacheHit: z.boolean(),
@@ -174,6 +226,15 @@ export interface TokenSource {
     limit: number;
   }): Promise<TokenItem[]>;
   newPools(hours: number, limit: number): Promise<PoolItem[]>;
+  /** Whether the registry holds the token, seen recently enough that a lookup reads nothing upstream. */
+  isFresh(address: string): Promise<boolean>;
+  /** A token by address: found and saved for every agent if the registry never saw it (D-360). */
+  findPools(
+    address: string,
+    requestedBy: string,
+  ): Promise<{ token: TokenItem; pools: PoolItem[]; foundBy: string; cacheHit: boolean }>;
+  /** Tokens by symbol or name: the registry's, then CoinGecko's and GeckoTerminal's. */
+  search(query: string): Promise<z.infer<typeof Match>[]>;
   /** The latest screen while it is fresh, else null. */
   freshScreen(address: string): Promise<Omit<ScreenOutput, "source" | "cacheHit"> | null>;
   /** Runs a new screen now; throws a ToolError or RegistryError-like error with a code. */
@@ -183,11 +244,15 @@ export interface TokenSource {
 
 const DESCRIPTIONS: Readonly<Record<TokenDataTool, string>> = {
   list_tokens:
-    "The tokens on Monad worth considering: each token with a pool of real liquidity on Uniswap v3, Uniswap v4 or PancakeSwap v3, its price class (F: a verified Chainlink feed; A: none), its deepest pool's liquidity, 24-hour volume, oldest pool's age, whether CoinGecko or CoinMarketCap list it, and its latest safety screen. A token can be bought only with a passing screen under six hours old. Free.",
+    "Tokens already in the platform's shared registry: those background discovery and other agents have found in pools of real liquidity on Uniswap v3, Uniswap v4 or PancakeSwap v3, each with its price class (F: a verified Chainlink feed; A: none), its deepest routable pool's liquidity, 24-hour volume, oldest pool's age, listings, and latest safety screen. The registry is a cache that saves requests, never a limit: research any token you like and use lookup_token, find_pools and screen_token for tokens it does not hold. A token can be bought only with a passing screen under six hours old. Free.",
   new_pools:
     "Pools created recently on Monad's Uniswap v3, Uniswap v4 and PancakeSwap v3, newest first, with each pool's pair, liquidity, volume and age. A pool younger than 72 hours always fails the safety screen. Free.",
+  lookup_token:
+    "Look up any token on Monad by address, or by symbol or name. By address: the token's own symbol, name and decimals, its price class, its pools and liquidity on the supported venues and its latest screen, found from the token itself even if no list has it; the result joins the shared registry for every agent. By symbol or name: the matching tokens in the registry, then on CoinGecko and GeckoTerminal, with their addresses (beware look-alikes: several tokens can share a symbol). A lookup that reads upstream costs a little; one the registry answers is free.",
+  find_pools:
+    "The pools and liquidity of any token address on Monad's Uniswap v3, Uniswap v4 and PancakeSwap v3, found from the token itself (GeckoTerminal's pools for it, each confirmed onchain, plus the token's pools against USDC, WMON and MON read straight from the venues), even for a token you found through your own research. The token and its pools join the shared registry for every agent. Costs a little unless the registry saw the token in the last half hour.",
   screen_token:
-    "The safety screen of one token: a simulated buy, transfer and sell through its real route on a fork of the latest block, the owner's powers, upgradeability, pool liquidity and age, look-alike names, and GoPlus as a second opinion. Each check says pass, fail or skipped, with its reason and evidence. Returns a fresh screen (under six hours) for free when one exists; a new screen costs credits and is limited per run. Only tokens in list_tokens or new_pools can be screened.",
+    "The safety screen of any token you found, through your own research or the registry: a simulated buy, transfer and sell through its real route on a fork of the latest block, the owner's powers, upgradeability, pool liquidity and age, look-alike names, and GoPlus as a second opinion. Each check says pass, fail or skipped, with its reason and evidence. The screen is a guardrail, not a whitelist: any token that passes may be bought. Returns a fresh screen (under six hours) for free when one exists; a new screen costs credits and is limited per run. A token the registry never saw is looked up first and joins it.",
 };
 
 function tokenError(err: unknown): ToolError {
@@ -243,7 +308,12 @@ export function registerTokenTools(
         tool,
         input,
         priceUsdcE6: cacheHit ? 0n : TOKEN_TOOL_PRICES_USDC_E6[tool],
-        provider: tool === "screen_token" ? "screen" : "registry",
+        provider:
+          tool === "screen_token"
+            ? "screen"
+            : tool === "list_tokens" || tool === "new_pools"
+              ? "registry"
+              : "lookup",
         cacheHit,
         ...(TOKEN_TOOL_RUN_CAPS[tool] === undefined
           ? {}
@@ -328,6 +398,99 @@ export function registerTokenTools(
           summary: { results: pools.length, hours: input.hours },
         };
       }),
+  );
+
+  mcp.registerTool(
+    "lookup_token",
+    {
+      description: DESCRIPTIONS.lookup_token,
+      inputSchema: TokenInputs.lookup_token,
+      outputSchema: TokenOutputs.lookup_token,
+      annotations: { readOnlyHint: true, openWorldHint: true },
+    },
+    async (input) => {
+      const query = input.query.trim();
+      const byAddress = /^0x[0-9a-fA-F]{40}$/.test(query);
+      if (!byAddress)
+        return run("lookup_token", { query }, true, async (t) => {
+          const matches = (await t.search(query)).slice(0, 20);
+          return {
+            output: {
+              source: "search",
+              cacheHit: true,
+              query,
+              note: "Tokens can share a symbol: confirm the address (lookup_token with it) before relying on one.",
+              count: matches.length,
+              matches,
+              pools: [],
+            },
+            summary: { query, results: matches.length },
+          };
+        });
+      const address = query.toLowerCase();
+      const fresh = (await deps.tokens?.isFresh(address).catch(() => false)) ?? false;
+      return run("lookup_token", { query: address }, fresh, async (t) => {
+        const r = await t.findPools(address, `agent:${identity.agentId}`);
+        return {
+          output: {
+            source: r.cacheHit ? "registry" : "lookup",
+            cacheHit: r.cacheHit,
+            query: address,
+            note: r.cacheHit
+              ? "From the shared registry."
+              : "Found from the token itself and added to the shared registry.",
+            count: 1,
+            matches: [
+              {
+                address: r.token.address,
+                symbol: r.token.symbol,
+                name: r.token.name,
+                inRegistry: true,
+                priceClass: r.token.priceClass,
+                liquidityUsd: r.token.liquidityUsd,
+                screen: r.token.screen,
+                foundBy: r.foundBy,
+                sources: ["registry"],
+              },
+            ],
+            pools: r.pools.slice(0, 30),
+          },
+          summary: {
+            query: address,
+            pools: r.pools.length,
+            reason: r.cacheHit ? "cache" : "lookup",
+          },
+        };
+      });
+    },
+  );
+
+  mcp.registerTool(
+    "find_pools",
+    {
+      description: DESCRIPTIONS.find_pools,
+      inputSchema: TokenInputs.find_pools,
+      outputSchema: TokenOutputs.find_pools,
+      annotations: { readOnlyHint: true, openWorldHint: true },
+    },
+    async (input) => {
+      const address = input.token.toLowerCase();
+      const fresh = (await deps.tokens?.isFresh(address).catch(() => false)) ?? false;
+      return run("find_pools", { token: address }, fresh, async (t) => {
+        const r = await t.findPools(address, `agent:${identity.agentId}`);
+        return {
+          output: {
+            source: r.cacheHit ? "registry" : "lookup",
+            cacheHit: r.cacheHit,
+            token: r.token,
+            foundBy: r.foundBy,
+            count: r.pools.length,
+            pools: r.pools.slice(0, 30),
+          },
+          summary: { token: address, pools: r.pools.length },
+        };
+      });
+    },
   );
 
   mcp.registerTool(

@@ -31,6 +31,8 @@ export interface TokenRow {
   } | null;
   readonly registryLane: "core" | "screened" | null;
   readonly registryStatus: "listed" | "sell_only" | "delisted" | null;
+  /** Who first found the token: `discovery`, `console` or `agent:<id>` (D-360). */
+  readonly foundBy: string;
   readonly firstSeenAt: string;
   readonly lastSeenAt: string;
 }
@@ -107,6 +109,7 @@ interface TokenDb {
   screen_expires_at: Date | null;
   registry_lane: "core" | "screened" | null;
   registry_status: "listed" | "sell_only" | "delisted" | null;
+  found_by: string;
   first_seen_at: Date;
   last_seen_at: Date;
 }
@@ -137,6 +140,7 @@ function tokenRow(r: TokenDb, nowMs: number): TokenRow {
         : null,
     registryLane: r.registry_lane,
     registryStatus: r.registry_status,
+    foundBy: r.found_by,
     firstSeenAt: new Date(r.first_seen_at).toISOString(),
     lastSeenAt: new Date(r.last_seen_at).toISOString(),
   };
@@ -312,7 +316,11 @@ export class TokenStore {
   }
 
   /** Writes a discovery: pools and tokens upserted, with their latest figures. Returns how many pools are new. */
-  async saveDiscovery(chainId: number, d: Discovery): Promise<number> {
+  async saveDiscovery(
+    chainId: number,
+    d: Pick<Discovery, "pools" | "tokens">,
+    foundBy = "discovery",
+  ): Promise<number> {
     const at = new Date(this.now());
     return this.db.transaction().execute(async (tx) => {
       const before = new Set(
@@ -371,7 +379,13 @@ export class TokenStore {
         };
         await tx
           .insertInto("platform.tokens")
-          .values({ chain_id: chainId, address: t.address, ...values, first_seen_at: at })
+          .values({
+            chain_id: chainId,
+            address: t.address,
+            ...values,
+            found_by: foundBy,
+            first_seen_at: at,
+          })
           .onConflict((oc) => oc.columns(["chain_id", "address"]).doUpdateSet(values))
           .execute();
       }
@@ -404,6 +418,20 @@ export class TokenStore {
       .where("address", "=", address.toLowerCase())
       .executeTakeFirst();
     return r ? tokenRow(r as unknown as TokenDb, this.now()) : null;
+  }
+
+  /** Registry tokens whose symbol or name is the query, case-insensitively, deepest first. */
+  async findBySymbol(chainId: number, query: string, limit = 10): Promise<TokenRow[]> {
+    const q = query.trim().toLowerCase();
+    const rows = await this.db
+      .selectFrom("platform.tokens")
+      .selectAll()
+      .where("chain_id", "=", chainId)
+      .where((eb) => eb.or([eb(sql`lower(symbol)`, "=", q), eb(sql`lower(name)`, "=", q)]))
+      .orderBy("liquidity_usd", "desc")
+      .limit(limit)
+      .execute();
+    return rows.map((r) => tokenRow(r as unknown as TokenDb, this.now()));
   }
 
   /** Every pool holding the token; native MON pools count for WMON. */

@@ -62,6 +62,8 @@ export const TOOL_REGISTRY = [
   data("list_tokens", "the token registry: liquid tokens, price class, latest screen (F-U1)"),
   data("new_pools", "pools created recently on Monad's venues (F-U1)"),
   data("screen_token", "the token safety screen, fresh or cached (F-U1, D-339)"),
+  data("lookup_token", "any token by address, symbol or name, found and cached for all (D-360)"),
+  data("find_pools", "any token's pools and liquidity on the supported venues (D-360)"),
   platform("get_goals_and_limits", "goal, template, parameters, live limits"),
   platform("write_thesis", "the Thesis Board"),
   platform("update_thesis", "the Thesis Board"),

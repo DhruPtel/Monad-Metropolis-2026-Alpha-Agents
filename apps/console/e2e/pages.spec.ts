@@ -485,3 +485,12 @@ test("a token's screen shows each check's reason, and an operator can screen it 
   await page.getByRole("button", { name: "Screen now" }).click();
   await expect(page.getByText("LV was refused")).toBeVisible();
 });
+
+test("an operator looks up any token by address and lands on its page", async ({ page }) => {
+  await page.goto("/tokens");
+  await page.getByLabel("Token address").fill("0x1001ff13bf368aa4fa85f21043648079f00e1001");
+  await page.getByRole("button", { name: "Look up" }).click();
+  await expect(page.getByText("LV is in the registry")).toBeVisible();
+  await expect(page).toHaveURL(/token=0x1001ff13bf368aa4fa85f21043648079f00e1001/);
+  await expect(page.getByTestId("screen-result")).toBeVisible();
+});

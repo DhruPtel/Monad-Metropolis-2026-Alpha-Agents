@@ -238,3 +238,77 @@ describe("the token reads' RPC order (F-U2 Step 0)", () => {
     expect(secondaryFirst([])).toEqual([]);
   });
 });
+
+describe.skipIf(!dbUp)(
+  "an agent's own token research in the registry (F-U2 Step 0, D-360, needs Postgres)",
+  { timeout: 120_000 },
+  () => {
+    let t: TestDatabase;
+    let now = TOKENS_FIXTURE_NOW_MS;
+    let registry: TokenRegistry;
+
+    beforeAll(async () => {
+      t = await createTestDatabase("orch_token_lookup");
+      // GeckoTerminal knows nothing of LV's own pools here: only the chain does.
+      const f = tokenFixtureFetch({ down: ["/tokens/"] });
+      const market = new MarketData({
+        cmcApiKey: null,
+        mainnet: null,
+        fetch: f.fetch,
+        sleep: async (ms) => {
+          now += ms;
+        },
+        now: () => now,
+      });
+      registry = new TokenRegistry({
+        chainId: 143,
+        store: new TokenStore(t.db, () => now),
+        market,
+        discovery: new TokenDiscovery({
+          market,
+          cmcApiKey: null,
+          client: fakeTokenChain(),
+          txPages: 0,
+          byTokenAddresses: [],
+        }),
+        fork: fakeFork().fork,
+        goplus: null,
+        now: () => now,
+      });
+    }, 120_000);
+    afterAll(async () => {
+      await t?.drop();
+    }, 60_000);
+
+    it("finds a token discovery never saw, saves it for every agent, and serves it from the cache next", async () => {
+      expect(await registry.store.token(143, LV)).toBeNull();
+      const first = await registry.lookup(LV, "agent:9");
+      expect(first.cacheHit).toBe(false);
+      expect(first.token).toMatchObject({ symbol: "LV", foundBy: "agent:9" });
+      expect(first.pools.some((p) => p.dex === "pancakeswap_v3" && p.createdAt === null)).toBe(
+        true,
+      );
+      // Another agent's lookup within half an hour reads nothing upstream, and keeps who found it.
+      const again = await registry.lookup(LV, "agent:3");
+      expect(again.cacheHit).toBe(true);
+      expect(again.token.foundBy).toBe("agent:9");
+      expect((await registry.list({ minLiquidityUsd: 0 })).map((x) => x.address)).toContain(LV);
+    });
+
+    it("screens any token an agent found, looking it up first, and refuses an address that is no token", async () => {
+      const USDC = "0x754704bc059f8c67012fed69bc8a327a5aafb603";
+      expect(await registry.store.token(143, USDC)).toBeNull();
+      const s = await registry.screen(USDC, "agent:4");
+      expect(s.requestedBy).toBe("agent:4");
+      expect((await registry.store.token(143, USDC))?.foundBy).toBe("agent:4");
+      await expect(
+        registry.screen("0x00000000000000000000000000000000000000ee", "agent:4"),
+      ).rejects.toThrow(/does not answer as an ERC-20/);
+    });
+
+    it("finds tokens by symbol in the registry first", async () => {
+      const r = await registry.search("lv");
+      expect(r.registry.map((x) => x.address)).toEqual([LV]);
+    });
+  },
+);

@@ -8,6 +8,7 @@ import { type ScreenOutput, type TokenSource, TokenOutputs } from "./token-tools
 const ALICE: AgentIdentity = { chainId: 143, agentId: 7, tier: "base", leaseId: "lease-alice" };
 const ALICE_TOKEN = "A".repeat(43);
 const TOKEN = "0x00000000000000000000000000000000000000aa";
+const USDC = "0x754704bc059f8c67012fed69bc8a327a5aafb603";
 
 interface Begin {
   tool: string;
@@ -106,6 +107,52 @@ class FakeTokens implements TokenSource {
   }
   async newPools() {
     return [];
+  }
+  fresh = false;
+  lookups: { address: string; requestedBy: string }[] = [];
+  async isFresh() {
+    return this.fresh;
+  }
+  async findPools(address: string, requestedBy: string) {
+    this.lookups.push({ address, requestedBy });
+    const [token] = await this.list();
+    if (!token) throw new Error("no token");
+    return {
+      token: { ...token, address },
+      pools: [
+        {
+          pool: "0x00000000000000000000000000000000000000b1",
+          dex: "uniswap_v3" as const,
+          pair: "AAA / USDC",
+          token0: address,
+          token1: USDC,
+          fee: 3000,
+          routable: true,
+          routeNote: "Uniswap v3 pool, fee 3000, found from its factory",
+          liquidityUsd: 80_000,
+          volume24hUsd: 0,
+          createdAt: null,
+          ageHours: null,
+        },
+      ],
+      foundBy: requestedBy,
+      cacheHit: this.fresh,
+    };
+  }
+  async search(query: string) {
+    return [
+      {
+        address: TOKEN,
+        symbol: query.toUpperCase(),
+        name: "Token A",
+        inRegistry: false,
+        priceClass: null,
+        liquidityUsd: null,
+        screen: null,
+        foundBy: null,
+        sources: ["coingecko"],
+      },
+    ];
   }
   async freshScreen() {
     return this.cached;
@@ -216,6 +263,50 @@ describe("the token tools (F-U1)", () => {
     expect(meter.begins).toHaveLength(0);
     const bad = await client.callTool({ name: "screen_token", arguments: { token: "USDC" } });
     expect(bad.isError).toBe(true);
+    await client.close();
+  });
+});
+
+describe("an agent's own token research (F-U2 Step 0, D-360)", () => {
+  const NEW = "0x00000000000000000000000000000000000000cc";
+
+  it("looks up a token the registry never saw, charged once, and attributes it to the agent", async () => {
+    const tokens = new FakeTokens();
+    const { meter, client } = await start(tokens);
+    const r = TokenOutputs.lookup_token.parse(
+      structured(await client.callTool({ name: "lookup_token", arguments: { query: NEW } })),
+    );
+    expect(r).toMatchObject({ source: "lookup", cacheHit: false, count: 1 });
+    expect(r.matches[0]).toMatchObject({ address: NEW, inRegistry: true, foundBy: "agent:7" });
+    expect(r.pools[0]?.liquidityUsd).toBe(80_000);
+    expect(tokens.lookups).toEqual([{ address: NEW, requestedBy: "agent:7" }]);
+    expect(meter.begins[0]).toMatchObject({ tool: "lookup_token", price: 1_000n, maxPerLease: 10 });
+    // Once the registry holds it, the same lookup is free.
+    tokens.fresh = true;
+    await client.callTool({ name: "find_pools", arguments: { token: NEW } });
+    expect(meter.begins[1]).toMatchObject({ tool: "find_pools", price: 0n, cacheHit: true });
+    await client.close();
+  });
+
+  it("searches by symbol for free, warning that symbols can be shared", async () => {
+    const { meter, client } = await start(new FakeTokens());
+    const r = TokenOutputs.lookup_token.parse(
+      structured(await client.callTool({ name: "lookup_token", arguments: { query: "sol" } })),
+    );
+    expect(r).toMatchObject({ source: "search", count: 1 });
+    expect(r.note).toMatch(/share a symbol/);
+    expect(meter.begins[0]?.price).toBe(0n);
+    await client.close();
+  });
+
+  it("tells the agent the registry is a cache, not a limit, and that it may screen any token it finds", async () => {
+    const { client } = await start(new FakeTokens());
+    const { tools } = await client.listTools();
+    const desc = (n: string) => tools.find((t) => t.name === n)?.description ?? "";
+    expect(desc("list_tokens")).toMatch(/never a limit/);
+    expect(desc("screen_token")).toMatch(/any token you found/);
+    expect(desc("screen_token")).toMatch(/guardrail, not a whitelist/);
+    expect(desc("find_pools")).toMatch(/your own research/);
     await client.close();
   });
 });

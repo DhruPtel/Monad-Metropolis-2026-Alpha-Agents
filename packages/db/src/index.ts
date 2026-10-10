@@ -21,6 +21,7 @@ import * as templateRunner from "./migrations/0017_template_runner.ts";
 import * as discoveryLoop from "./migrations/0018_discovery_loop.ts";
 import * as tokenRegistry from "./migrations/0019_token_registry.ts";
 import * as tokenCheck from "./migrations/0020_token_check.ts";
+import * as tokenFoundBy from "./migrations/0021_token_found_by.ts";
 import type { Database } from "./schema.ts";
 
 export type * from "./schema.ts";
@@ -51,6 +52,7 @@ export const MIGRATIONS: Readonly<Record<string, Migration>> = {
   "0018_discovery_loop": discoveryLoop,
   "0019_token_registry": tokenRegistry,
   "0020_token_check": tokenCheck,
+  "0021_token_found_by": tokenFoundBy,
 };
 
 const INT8 = 20;

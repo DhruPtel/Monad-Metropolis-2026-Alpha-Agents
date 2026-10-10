@@ -680,6 +680,8 @@ export interface TokenTable {
   screen_expires_at: ColumnType<Date | null, Date | string | null, Date | string | null>;
   registry_lane: "core" | "screened" | null;
   registry_status: "listed" | "sell_only" | "delisted" | null;
+  /** F-U2 Step 0: `discovery`, `console` or `agent:<id>`, whoever first found the token. */
+  found_by: ColumnType<string, string | undefined, string>;
   first_seen_at: Timestamp;
   last_seen_at: Timestamp;
 }

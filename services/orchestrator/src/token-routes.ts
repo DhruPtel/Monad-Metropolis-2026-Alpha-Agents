@@ -112,6 +112,26 @@ export function registerTokenRoutes(
     }
   });
 
+  /** Look up any token by address (D-360): found from the token itself and saved for every agent. */
+  app.post("/v1/tokens/lookup", async (c) => {
+    const r = o.registry;
+    if (!r) return c.json({ configured: false }, 503);
+    const body = (await c.req.json().catch(() => ({}))) as { address?: unknown };
+    const address = typeof body.address === "string" ? body.address.trim() : "";
+    if (!ADDRESS.test(address)) return c.json({ error: "bad_address" }, 400);
+    try {
+      const found = await r.lookup(address, "console");
+      return c.json({ token: found.token, pools: found.pools.length, cacheHit: found.cacheHit });
+    } catch (err) {
+      if (err instanceof RegistryError)
+        return c.json(
+          { error: err.code.toLowerCase(), message: err.message },
+          err.code === "NOT_FOUND" ? 404 : 503,
+        );
+      throw err;
+    }
+  });
+
   /** Run a discovery pass now. */
   app.post("/v1/tokens/discover", async (c) => {
     const r = o.registry;

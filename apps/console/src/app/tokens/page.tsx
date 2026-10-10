@@ -3,7 +3,7 @@ import { ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import { PanelHeader } from "@/components/panel-header";
 import { orchestratorUrl } from "../agents/extension";
-import { DiscoverNowButton, ScreenNowButton } from "./token-controls";
+import { DiscoverNowButton, LookupToken, ScreenNowButton } from "./token-controls";
 import {
   HistoryTable,
   PoolsTable,
@@ -161,6 +161,16 @@ export default async function TokensPage({
       <Section title="Registry" action={r.data.canAct ? <DiscoverNowButton /> : null}>
         <Summary data={r.data} />
       </Section>
+      {r.data.canAct ? (
+        <Section title="Look up any token">
+          <p className="text-sm text-foreground-muted">
+            The registry is a shared cache of what discovery and agents have found, never a limit.
+            Look up any token by address: its pools are found from the token itself, it joins the
+            registry, and it can be screened.
+          </p>
+          <LookupToken />
+        </Section>
+      ) : null}
       <Section title="Tokens">
         <Filters cls={cls} screen={screen} />
         {r.data.tokens.length > 0 ? (

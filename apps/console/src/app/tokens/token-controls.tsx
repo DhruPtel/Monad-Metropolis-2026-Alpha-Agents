@@ -1,9 +1,9 @@
 "use client";
 
-import { Button, toast } from "@alpha-agents/ui";
+import { Button, Field, Input, toast } from "@alpha-agents/ui";
 import { useRouter } from "next/navigation";
-import { useTransition } from "react";
-import { discoverTokensAction, screenTokenAction } from "./actions";
+import { useState, useTransition } from "react";
+import { discoverTokensAction, lookupTokenAction, screenTokenAction } from "./actions";
 
 /** Screens the token now on the screen fork, then shows the new result. */
 export function ScreenNowButton({ address, symbol }: { address: string; symbol: string }) {
@@ -59,5 +59,51 @@ export function DiscoverNowButton() {
     >
       Run discovery now
     </Button>
+  );
+}
+
+/** Looks up any token by address, even one discovery never saw, and opens its page (D-360). */
+export function LookupToken() {
+  const router = useRouter();
+  const [address, setAddress] = useState("");
+  const [pending, start] = useTransition();
+  return (
+    <form
+      className="flex flex-col gap-2 sm:flex-row sm:items-end"
+      onSubmit={(e) => {
+        e.preventDefault();
+        start(async () => {
+          const r = await lookupTokenAction(address);
+          if (!r.ok) {
+            toast.error("The token was not found", { description: r.error });
+            return;
+          }
+          toast.success(`${r.value.symbol} is in the registry`);
+          router.push(`/tokens?token=${r.value.address}`);
+        });
+      }}
+    >
+      <Field label="Token address" className="min-w-0 flex-1">
+        {(control) => (
+          <Input
+            {...control}
+            value={address}
+            onChange={(e) => setAddress(e.target.value)}
+            placeholder="0x..."
+            spellCheck={false}
+            autoComplete="off"
+            className="numeric"
+          />
+        )}
+      </Field>
+      <Button
+        type="submit"
+        variant="secondary"
+        disabled={pending || address.trim().length === 0}
+        loading={pending}
+      >
+        Look up
+      </Button>
+    </form>
   );
 }

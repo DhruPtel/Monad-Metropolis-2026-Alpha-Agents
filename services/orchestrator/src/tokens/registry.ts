@@ -10,6 +10,7 @@ import {
   MarketError,
   type MarketData,
   TokenBucket,
+  type TokenCandidate,
   type TokenDiscovery,
   cacheKey,
   fetchGoPlus,
@@ -18,7 +19,7 @@ import {
 } from "@alpha-agents/market";
 import { type ScreenOutcome, type TokenListEntry, runScreen } from "./screen.ts";
 import type { ScreenFork } from "./screen-fork.ts";
-import type { ScreenRecord, TokenFilter, TokenStore } from "./store.ts";
+import type { PoolRow, ScreenRecord, TokenFilter, TokenRow, TokenStore } from "./store.ts";
 
 /**
  * The platform's token registry (F-U1): discovery passes write tokens and
@@ -66,6 +67,7 @@ export class TokenRegistry {
   private readonly now: () => number;
   private discovering: Promise<DiscoverySummary> | null = null;
   private readonly screening = new Map<string, Promise<ScreenRecord>>();
+  private readonly looking = new Map<string, Promise<TokenLookupResult>>();
   private readonly goplusBucket: TokenBucket;
 
   constructor(o: TokenRegistryOptions) {
@@ -127,6 +129,50 @@ export class TokenRegistry {
       await store.finishRun(runId, { status: "failed", error: message });
       throw err;
     }
+  }
+
+  /**
+   * One token and its pools, whether or not discovery ever saw it (D-360):
+   * fresh registry data when the token was seen in the last half hour,
+   * otherwise its pools are found from the token itself and saved, so the
+   * next agent reuses them. `foundBy` is recorded only the first time.
+   */
+  lookup(address: string, foundBy: string): Promise<TokenLookupResult> {
+    const a = address.toLowerCase();
+    const running = this.looking.get(a);
+    if (running) return running;
+    const job = this.runLookup(a, foundBy).finally(() => this.looking.delete(a));
+    this.looking.set(a, job);
+    return job;
+  }
+
+  private async runLookup(address: string, foundBy: string): Promise<TokenLookupResult> {
+    const { store, chainId } = this.o;
+    const had = await store.token(chainId, address);
+    if (had && this.now() - Date.parse(had.lastSeenAt) < LOOKUP_FRESH_MS)
+      return { token: had, pools: await store.poolsOf(chainId, address), cacheHit: true };
+    const d = this.o.discovery;
+    if (!d) throw new RegistryError("NOT_CONFIGURED", "Token lookups need a Monad mainnet RPC.");
+    const found = await d.poolsForToken(address, await store.knownState(chainId));
+    if (!found.token)
+      throw new RegistryError(
+        "NOT_FOUND",
+        "This address does not answer as an ERC-20 token on Monad.",
+      );
+    await store.saveDiscovery(chainId, { pools: found.pools, tokens: [found.token] }, foundBy);
+    const token = await store.token(chainId, address);
+    if (!token) throw new RegistryError("NOT_FOUND", "The token could not be saved.");
+    return { token, pools: await store.poolsOf(chainId, address), cacheHit: false };
+  }
+
+  /** Tokens matching a symbol or name: the registry's first, then CoinGecko's and GeckoTerminal's. */
+  async search(query: string): Promise<{ registry: TokenRow[]; candidates: TokenCandidate[] }> {
+    const registry = await this.o.store.findBySymbol(this.o.chainId, query);
+    const known = new Set(registry.map((t) => t.address));
+    const candidates = this.o.discovery
+      ? (await this.o.discovery.search(query)).filter((c) => !known.has(c.address))
+      : [];
+    return { registry, candidates };
   }
 
   /** What a look-alike is checked against: the listings, plus the platform's reviewed tokens. */
@@ -205,12 +251,9 @@ export class TokenRegistry {
     const { store, chainId } = this.o;
     const fork = this.o.fork;
     if (!fork) throw new RegistryError("NOT_CONFIGURED", "Token screens need a fork upstream.");
-    const token = await store.token(chainId, address);
-    if (!token)
-      throw new RegistryError(
-        "NOT_FOUND",
-        "This token is not in the registry: only tokens discovery found in a pool can be screened.",
-      );
+    // Any token an agent found can be screened (D-360): one the registry never saw is looked up first.
+    const token =
+      (await store.token(chainId, address)) ?? (await this.lookup(address, requestedBy)).token;
     const pools = await store.poolsOf(chainId, address);
     let outcome: ScreenOutcome;
     try {
@@ -288,6 +331,16 @@ export class TokenRegistry {
   async stop(): Promise<void> {
     await this.o.fork?.stop();
   }
+}
+
+/** A looked-up token is fresh for this long; older, its pools are found again. */
+export const LOOKUP_FRESH_MS = 30 * 60_000;
+
+export interface TokenLookupResult {
+  readonly token: TokenRow;
+  readonly pools: PoolRow[];
+  /** True when the registry answered without reading the chain or GeckoTerminal. */
+  readonly cacheHit: boolean;
 }
 
 export interface DiscoverySummary {

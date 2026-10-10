@@ -27,25 +27,25 @@
     "GOPLUS": "GoPlus (second opinion)"
   },
   "counts": {
-    "tokens": 43,
-    "classF": 10,
-    "classA": 33,
+    "tokens": 45,
+    "classF": 11,
+    "classA": 34,
     "passing": 1,
     "refused": 1,
-    "pools": 58,
-    "routable": 46
+    "pools": 69,
+    "routable": 54
   },
   "runs": [
     {
-      "runId": "4acec0e7-af82-4ecf-9072-8336e8dc014f",
+      "runId": "b7811a25-3605-4c00-a59e-303821935add",
       "status": "completed",
-      "poolsSeen": 58,
-      "tokensSeen": 43,
+      "poolsSeen": 69,
+      "tokensSeen": 45,
       "newPools": 0,
       "sources": {
         "chain": {
           "ok": true,
-          "detail": "58 pools confirmed at block 111990000, 0 not confirmed"
+          "detail": "69 pools confirmed at block 111990000, 0 not confirmed"
         },
         "coingecko": {
           "ok": true,
@@ -53,7 +53,7 @@
         },
         "geckoterminal": {
           "ok": true,
-          "detail": "6 of 6 pages read"
+          "detail": "6 of 6 pages read; geckoterminal answered 503."
         },
         "coinmarketcap:map": {
           "ok": true,
@@ -66,22 +66,26 @@
         "geckoterminal:new": {
           "ok": true,
           "detail": "19 new pools"
+        },
+        "geckoterminal:byToken": {
+          "ok": true,
+          "detail": "1 tokens' own pools read"
         }
       },
       "error": null,
-      "startedAt": "2026-10-09T21:36:46.912Z",
-      "finishedAt": "2026-10-09T20:40:26.667Z"
+      "startedAt": "2026-10-10T00:18:36.273Z",
+      "finishedAt": "2026-10-09T20:56:17.143Z"
     },
     {
-      "runId": "3fb76721-45aa-4825-a7c0-6b531dffa9b9",
+      "runId": "792fbc06-ffd6-4817-890f-3efd68b3e87c",
       "status": "completed",
-      "poolsSeen": 58,
-      "tokensSeen": 43,
-      "newPools": 58,
+      "poolsSeen": 69,
+      "tokensSeen": 45,
+      "newPools": 69,
       "sources": {
         "chain": {
           "ok": true,
-          "detail": "58 pools confirmed at block 111990000, 0 not confirmed"
+          "detail": "69 pools confirmed at block 111990000, 0 not confirmed"
         },
         "coingecko": {
           "ok": true,
@@ -89,7 +93,7 @@
         },
         "geckoterminal": {
           "ok": true,
-          "detail": "6 of 6 pages read"
+          "detail": "6 of 6 pages read; geckoterminal answered 503."
         },
         "coinmarketcap:map": {
           "ok": true,
@@ -102,11 +106,15 @@
         "geckoterminal:new": {
           "ok": true,
           "detail": "19 new pools"
+        },
+        "geckoterminal:byToken": {
+          "ok": true,
+          "detail": "1 tokens' own pools read"
         }
       },
       "error": null,
-      "startedAt": "2026-10-09T21:36:46.694Z",
-      "finishedAt": "2026-10-09T20:40:26.667Z"
+      "startedAt": "2026-10-10T00:18:36.018Z",
+      "finishedAt": "2026-10-09T20:48:34.286Z"
     }
   ],
   "tokens": [
@@ -148,20 +156,21 @@
         "geckoterminalCoingeckoId": "usd-coin"
       },
       "liquidityUsd": 6159879.0899,
-      "volume24hUsd": 16123516.778367834,
+      "volume24hUsd": 16172342.56405361,
       "deepestPool": "0xe24635d96638b80e53d182b1b96809e189b64e5e28002c01381148493cf9fa01",
       "oldestPoolAt": "2025-11-19T16:11:45.000Z",
       "screen": {
-        "screenId": "1d8f3518-2999-46a3-acff-ab99fd1ef7d7",
+        "screenId": "67cc609d-32f7-4013-90ae-e5179a6b48a4",
         "verdict": "passed",
-        "screenedAt": "2026-10-10T02:40:26.668Z",
-        "expiresAt": "2026-10-10T08:40:26.668Z",
+        "screenedAt": "2026-10-10T02:56:17.144Z",
+        "expiresAt": "2026-10-10T08:56:17.144Z",
         "fresh": true
       },
       "registryLane": null,
       "registryStatus": null,
-      "firstSeenAt": "2026-10-09T20:40:26.667Z",
-      "lastSeenAt": "2026-10-09T20:40:26.667Z"
+      "foundBy": "discovery",
+      "firstSeenAt": "2026-10-09T20:48:34.286Z",
+      "lastSeenAt": "2026-10-09T20:56:17.143Z"
     },
     {
       "chainId": 143,
@@ -213,8 +222,9 @@
       "screen": null,
       "registryLane": null,
       "registryStatus": null,
-      "firstSeenAt": "2026-10-09T20:40:26.667Z",
-      "lastSeenAt": "2026-10-09T20:40:26.667Z"
+      "foundBy": "discovery",
+      "firstSeenAt": "2026-10-09T20:48:34.286Z",
+      "lastSeenAt": "2026-10-09T20:56:17.143Z"
     },
     {
       "chainId": 143,
@@ -238,8 +248,9 @@
       "screen": null,
       "registryLane": null,
       "registryStatus": null,
-      "firstSeenAt": "2026-10-09T20:40:26.667Z",
-      "lastSeenAt": "2026-10-09T20:40:26.667Z"
+      "foundBy": "discovery",
+      "firstSeenAt": "2026-10-09T20:48:34.286Z",
+      "lastSeenAt": "2026-10-09T20:56:17.143Z"
     },
     {
       "chainId": 143,
@@ -275,14 +286,15 @@
         "geckoterminalCoingeckoId": "agora-dollar"
       },
       "liquidityUsd": 3501329.1575,
-      "volume24hUsd": 740980.3669079341,
+      "volume24hUsd": 752484.6626385415,
       "deepestPool": "0x092b650478145f0aee73a1b400b342b9c6314db2e07aeb91faf7e75e8159ce72",
       "oldestPoolAt": "2025-11-19T16:11:45.000Z",
       "screen": null,
       "registryLane": null,
       "registryStatus": null,
-      "firstSeenAt": "2026-10-09T20:40:26.667Z",
-      "lastSeenAt": "2026-10-09T20:40:26.667Z"
+      "foundBy": "discovery",
+      "firstSeenAt": "2026-10-09T20:48:34.286Z",
+      "lastSeenAt": "2026-10-09T20:56:17.143Z"
     },
     {
       "chainId": 143,
@@ -324,8 +336,9 @@
       "screen": null,
       "registryLane": null,
       "registryStatus": null,
-      "firstSeenAt": "2026-10-09T20:40:26.667Z",
-      "lastSeenAt": "2026-10-09T20:40:26.667Z"
+      "foundBy": "discovery",
+      "firstSeenAt": "2026-10-09T20:48:34.286Z",
+      "lastSeenAt": "2026-10-09T20:56:17.143Z"
     },
     {
       "chainId": 143,
@@ -367,8 +380,9 @@
       "screen": null,
       "registryLane": null,
       "registryStatus": null,
-      "firstSeenAt": "2026-10-09T20:40:26.667Z",
-      "lastSeenAt": "2026-10-09T20:40:26.667Z"
+      "foundBy": "discovery",
+      "firstSeenAt": "2026-10-09T20:48:34.286Z",
+      "lastSeenAt": "2026-10-09T20:56:17.143Z"
     },
     {
       "chainId": 143,
@@ -410,8 +424,9 @@
       "screen": null,
       "registryLane": null,
       "registryStatus": null,
-      "firstSeenAt": "2026-10-09T20:40:26.667Z",
-      "lastSeenAt": "2026-10-09T20:40:26.667Z"
+      "foundBy": "discovery",
+      "firstSeenAt": "2026-10-09T20:48:34.286Z",
+      "lastSeenAt": "2026-10-09T20:56:17.143Z"
     },
     {
       "chainId": 143,
@@ -447,14 +462,15 @@
         "geckoterminalCoingeckoId": "wrapped-monad"
       },
       "liquidityUsd": 1326109.5877,
-      "volume24hUsd": 6932001.148425308,
+      "volume24hUsd": 6934355.679976233,
       "deepestPool": "0x3783b51e33900eb366a9e8473c76cda441e7170d2e5d96927f30c16a7add93aa",
       "oldestPoolAt": "2025-11-20T22:31:45.000Z",
       "screen": null,
       "registryLane": null,
       "registryStatus": null,
-      "firstSeenAt": "2026-10-09T20:40:26.667Z",
-      "lastSeenAt": "2026-10-09T20:40:26.667Z"
+      "foundBy": "discovery",
+      "firstSeenAt": "2026-10-09T20:48:34.286Z",
+      "lastSeenAt": "2026-10-09T20:56:17.143Z"
     },
     {
       "chainId": 143,
@@ -476,8 +492,9 @@
       "screen": null,
       "registryLane": null,
       "registryStatus": null,
-      "firstSeenAt": "2026-10-09T20:40:26.667Z",
-      "lastSeenAt": "2026-10-09T20:40:26.667Z"
+      "foundBy": "discovery",
+      "firstSeenAt": "2026-10-09T20:48:34.286Z",
+      "lastSeenAt": "2026-10-09T20:56:17.143Z"
     },
     {
       "chainId": 143,
@@ -501,8 +518,9 @@
       "screen": null,
       "registryLane": null,
       "registryStatus": null,
-      "firstSeenAt": "2026-10-09T20:40:26.667Z",
-      "lastSeenAt": "2026-10-09T20:40:26.667Z"
+      "foundBy": "discovery",
+      "firstSeenAt": "2026-10-09T20:48:34.286Z",
+      "lastSeenAt": "2026-10-09T20:56:17.143Z"
     },
     {
       "chainId": 143,
@@ -528,16 +546,17 @@
       "deepestPool": "0x811540cf25394c6dc49e3e3be25315ad917c190b",
       "oldestPoolAt": "2025-12-16T06:24:36.000Z",
       "screen": {
-        "screenId": "54d4f73b-a2ed-46cb-8b48-d30af2b78241",
+        "screenId": "c31132f7-6651-4146-8939-6340a4ddb39a",
         "verdict": "refused",
-        "screenedAt": "2026-10-10T02:40:26.668Z",
-        "expiresAt": "2026-10-10T08:40:26.668Z",
+        "screenedAt": "2026-10-10T02:56:25.716Z",
+        "expiresAt": "2026-10-10T08:56:25.716Z",
         "fresh": true
       },
       "registryLane": null,
       "registryStatus": null,
-      "firstSeenAt": "2026-10-09T20:40:26.667Z",
-      "lastSeenAt": "2026-10-09T20:40:26.667Z"
+      "foundBy": "discovery",
+      "firstSeenAt": "2026-10-09T20:48:34.286Z",
+      "lastSeenAt": "2026-10-09T20:56:17.143Z"
     },
     {
       "chainId": 143,
@@ -561,8 +580,9 @@
       "screen": null,
       "registryLane": null,
       "registryStatus": null,
-      "firstSeenAt": "2026-10-09T20:40:26.667Z",
-      "lastSeenAt": "2026-10-09T20:40:26.667Z"
+      "foundBy": "discovery",
+      "firstSeenAt": "2026-10-09T20:48:34.286Z",
+      "lastSeenAt": "2026-10-09T20:56:17.143Z"
     },
     {
       "chainId": 143,
@@ -614,8 +634,9 @@
       "screen": null,
       "registryLane": null,
       "registryStatus": null,
-      "firstSeenAt": "2026-10-09T20:40:26.667Z",
-      "lastSeenAt": "2026-10-09T20:40:26.667Z"
+      "foundBy": "discovery",
+      "firstSeenAt": "2026-10-09T20:48:34.286Z",
+      "lastSeenAt": "2026-10-09T20:56:17.143Z"
     },
     {
       "chainId": 143,
@@ -639,8 +660,9 @@
       "screen": null,
       "registryLane": null,
       "registryStatus": null,
-      "firstSeenAt": "2026-10-09T20:40:26.667Z",
-      "lastSeenAt": "2026-10-09T20:40:26.667Z"
+      "foundBy": "discovery",
+      "firstSeenAt": "2026-10-09T20:48:34.286Z",
+      "lastSeenAt": "2026-10-09T20:56:17.143Z"
     },
     {
       "chainId": 143,
@@ -664,8 +686,9 @@
       "screen": null,
       "registryLane": null,
       "registryStatus": null,
-      "firstSeenAt": "2026-10-09T20:40:26.667Z",
-      "lastSeenAt": "2026-10-09T20:40:26.667Z"
+      "foundBy": "discovery",
+      "firstSeenAt": "2026-10-09T20:48:34.286Z",
+      "lastSeenAt": "2026-10-09T20:56:17.143Z"
     },
     {
       "chainId": 143,
@@ -721,8 +744,9 @@
       "screen": null,
       "registryLane": null,
       "registryStatus": null,
-      "firstSeenAt": "2026-10-09T20:40:26.667Z",
-      "lastSeenAt": "2026-10-09T20:40:26.667Z"
+      "foundBy": "discovery",
+      "firstSeenAt": "2026-10-09T20:48:34.286Z",
+      "lastSeenAt": "2026-10-09T20:56:17.143Z"
     },
     {
       "chainId": 143,
@@ -744,8 +768,9 @@
       "screen": null,
       "registryLane": null,
       "registryStatus": null,
-      "firstSeenAt": "2026-10-09T20:40:26.667Z",
-      "lastSeenAt": "2026-10-09T20:40:26.667Z"
+      "foundBy": "discovery",
+      "firstSeenAt": "2026-10-09T20:48:34.286Z",
+      "lastSeenAt": "2026-10-09T20:56:17.143Z"
     },
     {
       "chainId": 143,
@@ -762,15 +787,16 @@
         "coinmarketcap": null,
         "geckoterminalCoingeckoId": "tether-gold-tokens"
       },
-      "liquidityUsd": 45751.8466,
-      "volume24hUsd": 9697.0650198561,
+      "liquidityUsd": 46437.7766,
+      "volume24hUsd": 10117.0035322779,
       "deepestPool": "0xa5c3a55af4029724f519ac8d340be9916ac83e45",
       "oldestPoolAt": "2025-11-24T15:03:02.000Z",
       "screen": null,
       "registryLane": null,
       "registryStatus": null,
-      "firstSeenAt": "2026-10-09T20:40:26.667Z",
-      "lastSeenAt": "2026-10-09T20:40:26.667Z"
+      "foundBy": "discovery",
+      "firstSeenAt": "2026-10-09T20:48:34.286Z",
+      "lastSeenAt": "2026-10-09T20:56:17.143Z"
     },
     {
       "chainId": 143,
@@ -805,15 +831,16 @@
         "coinmarketcap": null,
         "geckoterminalCoingeckoId": "usdt0"
       },
-      "liquidityUsd": 45751.8466,
-      "volume24hUsd": 9697.0650198561,
+      "liquidityUsd": 46437.7766,
+      "volume24hUsd": 72802.7304108738,
       "deepestPool": "0xa5c3a55af4029724f519ac8d340be9916ac83e45",
-      "oldestPoolAt": "2025-11-24T15:03:02.000Z",
+      "oldestPoolAt": "2025-11-20T21:45:12.000Z",
       "screen": null,
       "registryLane": null,
       "registryStatus": null,
-      "firstSeenAt": "2026-10-09T20:40:26.667Z",
-      "lastSeenAt": "2026-10-09T20:40:26.667Z"
+      "foundBy": "discovery",
+      "firstSeenAt": "2026-10-09T20:48:34.286Z",
+      "lastSeenAt": "2026-10-09T20:56:17.143Z"
     },
     {
       "chainId": 143,
@@ -837,8 +864,9 @@
       "screen": null,
       "registryLane": null,
       "registryStatus": null,
-      "firstSeenAt": "2026-10-09T20:40:26.667Z",
-      "lastSeenAt": "2026-10-09T20:40:26.667Z"
+      "foundBy": "discovery",
+      "firstSeenAt": "2026-10-09T20:48:34.286Z",
+      "lastSeenAt": "2026-10-09T20:56:17.143Z"
     },
     {
       "chainId": 143,
@@ -860,8 +888,9 @@
       "screen": null,
       "registryLane": null,
       "registryStatus": null,
-      "firstSeenAt": "2026-10-09T20:40:26.667Z",
-      "lastSeenAt": "2026-10-09T20:40:26.667Z"
+      "foundBy": "discovery",
+      "firstSeenAt": "2026-10-09T20:48:34.286Z",
+      "lastSeenAt": "2026-10-09T20:56:17.143Z"
     },
     {
       "chainId": 143,
@@ -885,8 +914,9 @@
       "screen": null,
       "registryLane": null,
       "registryStatus": null,
-      "firstSeenAt": "2026-10-09T20:40:26.667Z",
-      "lastSeenAt": "2026-10-09T20:40:26.667Z"
+      "foundBy": "discovery",
+      "firstSeenAt": "2026-10-09T20:48:34.286Z",
+      "lastSeenAt": "2026-10-09T20:56:17.143Z"
     },
     {
       "chainId": 143,
@@ -908,8 +938,9 @@
       "screen": null,
       "registryLane": null,
       "registryStatus": null,
-      "firstSeenAt": "2026-10-09T20:40:26.667Z",
-      "lastSeenAt": "2026-10-09T20:40:26.667Z"
+      "foundBy": "discovery",
+      "firstSeenAt": "2026-10-09T20:48:34.286Z",
+      "lastSeenAt": "2026-10-09T20:56:17.143Z"
     },
     {
       "chainId": 143,
@@ -931,8 +962,9 @@
       "screen": null,
       "registryLane": null,
       "registryStatus": null,
-      "firstSeenAt": "2026-10-09T20:40:26.667Z",
-      "lastSeenAt": "2026-10-09T20:40:26.667Z"
+      "foundBy": "discovery",
+      "firstSeenAt": "2026-10-09T20:48:34.286Z",
+      "lastSeenAt": "2026-10-09T20:56:17.143Z"
     },
     {
       "chainId": 143,
@@ -954,8 +986,9 @@
       "screen": null,
       "registryLane": null,
       "registryStatus": null,
-      "firstSeenAt": "2026-10-09T20:40:26.667Z",
-      "lastSeenAt": "2026-10-09T20:40:26.667Z"
+      "foundBy": "discovery",
+      "firstSeenAt": "2026-10-09T20:48:34.286Z",
+      "lastSeenAt": "2026-10-09T20:56:17.143Z"
     },
     {
       "chainId": 143,
@@ -977,8 +1010,9 @@
       "screen": null,
       "registryLane": null,
       "registryStatus": null,
-      "firstSeenAt": "2026-10-09T20:40:26.667Z",
-      "lastSeenAt": "2026-10-09T20:40:26.667Z"
+      "foundBy": "discovery",
+      "firstSeenAt": "2026-10-09T20:48:34.286Z",
+      "lastSeenAt": "2026-10-09T20:56:17.143Z"
     },
     {
       "chainId": 143,
@@ -1000,8 +1034,9 @@
       "screen": null,
       "registryLane": null,
       "registryStatus": null,
-      "firstSeenAt": "2026-10-09T20:40:26.667Z",
-      "lastSeenAt": "2026-10-09T20:40:26.667Z"
+      "foundBy": "discovery",
+      "firstSeenAt": "2026-10-09T20:48:34.286Z",
+      "lastSeenAt": "2026-10-09T20:56:17.143Z"
     },
     {
       "chainId": 143,
@@ -1023,8 +1058,9 @@
       "screen": null,
       "registryLane": null,
       "registryStatus": null,
-      "firstSeenAt": "2026-10-09T20:40:26.667Z",
-      "lastSeenAt": "2026-10-09T20:40:26.667Z"
+      "foundBy": "discovery",
+      "firstSeenAt": "2026-10-09T20:48:34.286Z",
+      "lastSeenAt": "2026-10-09T20:56:17.143Z"
     },
     {
       "chainId": 143,
@@ -1046,8 +1082,9 @@
       "screen": null,
       "registryLane": null,
       "registryStatus": null,
-      "firstSeenAt": "2026-10-09T20:40:26.667Z",
-      "lastSeenAt": "2026-10-09T20:40:26.667Z"
+      "foundBy": "discovery",
+      "firstSeenAt": "2026-10-09T20:48:34.286Z",
+      "lastSeenAt": "2026-10-09T20:56:17.143Z"
     },
     {
       "chainId": 143,
@@ -1069,8 +1106,9 @@
       "screen": null,
       "registryLane": null,
       "registryStatus": null,
-      "firstSeenAt": "2026-10-09T20:40:26.667Z",
-      "lastSeenAt": "2026-10-09T20:40:26.667Z"
+      "foundBy": "discovery",
+      "firstSeenAt": "2026-10-09T20:48:34.286Z",
+      "lastSeenAt": "2026-10-09T20:56:17.143Z"
     },
     {
       "chainId": 143,
@@ -1092,8 +1130,9 @@
       "screen": null,
       "registryLane": null,
       "registryStatus": null,
-      "firstSeenAt": "2026-10-09T20:40:26.667Z",
-      "lastSeenAt": "2026-10-09T20:40:26.667Z"
+      "foundBy": "discovery",
+      "firstSeenAt": "2026-10-09T20:48:34.286Z",
+      "lastSeenAt": "2026-10-09T20:56:17.143Z"
     },
     {
       "chainId": 143,
@@ -1115,8 +1154,9 @@
       "screen": null,
       "registryLane": null,
       "registryStatus": null,
-      "firstSeenAt": "2026-10-09T20:40:26.667Z",
-      "lastSeenAt": "2026-10-09T20:40:26.667Z"
+      "foundBy": "discovery",
+      "firstSeenAt": "2026-10-09T20:48:34.286Z",
+      "lastSeenAt": "2026-10-09T20:56:17.143Z"
     },
     {
       "chainId": 143,
@@ -1138,8 +1178,53 @@
       "screen": null,
       "registryLane": null,
       "registryStatus": null,
-      "firstSeenAt": "2026-10-09T20:40:26.667Z",
-      "lastSeenAt": "2026-10-09T20:40:26.667Z"
+      "foundBy": "discovery",
+      "firstSeenAt": "2026-10-09T20:48:34.286Z",
+      "lastSeenAt": "2026-10-09T20:56:17.143Z"
+    },
+    {
+      "chainId": 143,
+      "address": "0x5d3a1ff2b6bab83b63cd9ad0787074081a52ef34",
+      "symbol": "USDe",
+      "name": "USDe",
+      "decimals": 18,
+      "priceClass": "F",
+      "feed": {
+        "ok": true,
+        "kind": "direct",
+        "legs": [
+          {
+            "ok": true,
+            "proxy": "0x6b5902eabce27c23fc97ea136504395b4d22c1fd",
+            "answer": "100000000",
+            "reason": "fresh: updated 60 seconds ago",
+            "updatedAt": "2026-10-09T20:39:00.000Z",
+            "ageSeconds": 60,
+            "description": "USDE / USD",
+            "heartbeatSeconds": 3600
+          }
+        ],
+        "note": "Ethena's USDe",
+        "symbol": "USDe",
+        "priceUsd": 1
+      },
+      "listings": {
+        "coingecko": {
+          "id": "ethena-usde"
+        },
+        "coinmarketcap": null,
+        "geckoterminalCoingeckoId": "ethena-usde"
+      },
+      "liquidityUsd": 219.4508,
+      "volume24hUsd": 0.5712929844,
+      "deepestPool": "0x4f0455fb873a1889e4c05d80f6a044d5e39f1049a1985d08270e64a7bd101226",
+      "oldestPoolAt": "2026-07-15T16:43:46.000Z",
+      "screen": null,
+      "registryLane": null,
+      "registryStatus": null,
+      "foundBy": "discovery",
+      "firstSeenAt": "2026-10-09T20:48:34.286Z",
+      "lastSeenAt": "2026-10-09T20:56:17.143Z"
     },
     {
       "chainId": 143,
@@ -1161,8 +1246,9 @@
       "screen": null,
       "registryLane": null,
       "registryStatus": null,
-      "firstSeenAt": "2026-10-09T20:40:26.667Z",
-      "lastSeenAt": "2026-10-09T20:40:26.667Z"
+      "foundBy": "discovery",
+      "firstSeenAt": "2026-10-09T20:48:34.286Z",
+      "lastSeenAt": "2026-10-09T20:56:17.143Z"
     },
     {
       "chainId": 143,
@@ -1184,8 +1270,9 @@
       "screen": null,
       "registryLane": null,
       "registryStatus": null,
-      "firstSeenAt": "2026-10-09T20:40:26.667Z",
-      "lastSeenAt": "2026-10-09T20:40:26.667Z"
+      "foundBy": "discovery",
+      "firstSeenAt": "2026-10-09T20:48:34.286Z",
+      "lastSeenAt": "2026-10-09T20:56:17.143Z"
     },
     {
       "chainId": 143,
@@ -1207,8 +1294,35 @@
       "screen": null,
       "registryLane": null,
       "registryStatus": null,
-      "firstSeenAt": "2026-10-09T20:40:26.667Z",
-      "lastSeenAt": "2026-10-09T20:40:26.667Z"
+      "foundBy": "discovery",
+      "firstSeenAt": "2026-10-09T20:48:34.286Z",
+      "lastSeenAt": "2026-10-09T20:56:17.143Z"
+    },
+    {
+      "chainId": 143,
+      "address": "0x701193374879131f923532987c7ef363a91a80eb",
+      "symbol": "anvda",
+      "name": "NVIDIA aStock",
+      "decimals": 18,
+      "priceClass": "A",
+      "feed": null,
+      "listings": {
+        "coingecko": {
+          "id": "nvidia-astock"
+        },
+        "coinmarketcap": null,
+        "geckoterminalCoingeckoId": "nvidia-astock"
+      },
+      "liquidityUsd": 0,
+      "volume24hUsd": 0.5426183017,
+      "deepestPool": null,
+      "oldestPoolAt": "2026-09-09T02:47:15.000Z",
+      "screen": null,
+      "registryLane": null,
+      "registryStatus": null,
+      "foundBy": "discovery",
+      "firstSeenAt": "2026-10-09T20:48:34.286Z",
+      "lastSeenAt": "2026-10-09T20:56:17.143Z"
     },
     {
       "chainId": 143,
@@ -1232,8 +1346,9 @@
       "screen": null,
       "registryLane": null,
       "registryStatus": null,
-      "firstSeenAt": "2026-10-09T20:40:26.667Z",
-      "lastSeenAt": "2026-10-09T20:40:26.667Z"
+      "foundBy": "discovery",
+      "firstSeenAt": "2026-10-09T20:48:34.286Z",
+      "lastSeenAt": "2026-10-09T20:56:17.143Z"
     },
     {
       "chainId": 143,
@@ -1255,8 +1370,9 @@
       "screen": null,
       "registryLane": null,
       "registryStatus": null,
-      "firstSeenAt": "2026-10-09T20:40:26.667Z",
-      "lastSeenAt": "2026-10-09T20:40:26.667Z"
+      "foundBy": "discovery",
+      "firstSeenAt": "2026-10-09T20:48:34.286Z",
+      "lastSeenAt": "2026-10-09T20:56:17.143Z"
     },
     {
       "chainId": 143,
@@ -1280,8 +1396,9 @@
       "screen": null,
       "registryLane": null,
       "registryStatus": null,
-      "firstSeenAt": "2026-10-09T20:40:26.667Z",
-      "lastSeenAt": "2026-10-09T20:40:26.667Z"
+      "foundBy": "discovery",
+      "firstSeenAt": "2026-10-09T20:48:34.286Z",
+      "lastSeenAt": "2026-10-09T20:56:17.143Z"
     },
     {
       "chainId": 143,
@@ -1305,8 +1422,9 @@
       "screen": null,
       "registryLane": null,
       "registryStatus": null,
-      "firstSeenAt": "2026-10-09T20:40:26.667Z",
-      "lastSeenAt": "2026-10-09T20:40:26.667Z"
+      "foundBy": "discovery",
+      "firstSeenAt": "2026-10-09T20:48:34.286Z",
+      "lastSeenAt": "2026-10-09T20:56:17.143Z"
     },
     {
       "chainId": 143,
@@ -1328,8 +1446,9 @@
       "screen": null,
       "registryLane": null,
       "registryStatus": null,
-      "firstSeenAt": "2026-10-09T20:40:26.667Z",
-      "lastSeenAt": "2026-10-09T20:40:26.667Z"
+      "foundBy": "discovery",
+      "firstSeenAt": "2026-10-09T20:48:34.286Z",
+      "lastSeenAt": "2026-10-09T20:56:17.143Z"
     },
     {
       "chainId": 143,
@@ -1351,8 +1470,9 @@
       "screen": null,
       "registryLane": null,
       "registryStatus": null,
-      "firstSeenAt": "2026-10-09T20:40:26.667Z",
-      "lastSeenAt": "2026-10-09T20:40:26.667Z"
+      "foundBy": "discovery",
+      "firstSeenAt": "2026-10-09T20:48:34.286Z",
+      "lastSeenAt": "2026-10-09T20:56:17.143Z"
     },
     {
       "chainId": 143,
@@ -1374,8 +1494,9 @@
       "screen": null,
       "registryLane": null,
       "registryStatus": null,
-      "firstSeenAt": "2026-10-09T20:40:26.667Z",
-      "lastSeenAt": "2026-10-09T20:40:26.667Z"
+      "foundBy": "discovery",
+      "firstSeenAt": "2026-10-09T20:48:34.286Z",
+      "lastSeenAt": "2026-10-09T20:56:17.143Z"
     }
   ],
   "canAct": true

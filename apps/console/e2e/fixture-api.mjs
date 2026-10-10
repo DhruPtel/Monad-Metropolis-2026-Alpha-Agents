@@ -635,6 +635,10 @@ const routes = {
   ],
   "GET /v1/tokens": [200, tokensFixture],
   [`GET /v1/tokens/${FIXTURE_TOKEN}`]: [200, tokenDetailFixture],
+  "POST /v1/tokens/lookup": [
+    200,
+    JSON.stringify({ token: JSON.parse(tokenDetailFixture).token, pools: 2, cacheHit: false }),
+  ],
   [`POST /v1/tokens/${FIXTURE_TOKEN}/screen`]: [
     200,
     JSON.stringify({ screen: JSON.parse(tokenDetailFixture).screens[0] }),

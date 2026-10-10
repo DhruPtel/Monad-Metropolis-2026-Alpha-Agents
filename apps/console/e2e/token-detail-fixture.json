@@ -23,16 +23,17 @@
     "deepestPool": "0x811540cf25394c6dc49e3e3be25315ad917c190b",
     "oldestPoolAt": "2025-12-16T06:24:36.000Z",
     "screen": {
-      "screenId": "54d4f73b-a2ed-46cb-8b48-d30af2b78241",
+      "screenId": "c31132f7-6651-4146-8939-6340a4ddb39a",
       "verdict": "refused",
-      "screenedAt": "2026-10-10T02:40:26.668Z",
-      "expiresAt": "2026-10-10T08:40:26.668Z",
+      "screenedAt": "2026-10-10T02:56:25.716Z",
+      "expiresAt": "2026-10-10T08:56:25.716Z",
       "fresh": true
     },
     "registryLane": null,
     "registryStatus": null,
-    "firstSeenAt": "2026-10-09T20:40:26.667Z",
-    "lastSeenAt": "2026-10-09T20:40:26.667Z"
+    "foundBy": "discovery",
+    "firstSeenAt": "2026-10-09T20:48:34.286Z",
+    "lastSeenAt": "2026-10-09T20:56:17.143Z"
   },
   "pools": [
     {
@@ -47,7 +48,7 @@
       "liquidityUsd": 294522,
       "volume24hUsd": 419,
       "createdAt": "2025-12-20T07:11:55.000Z",
-      "ageHours": 7046
+      "ageHours": 7049
     },
     {
       "pool": "0x276664da3b25af7cd13eb4d3294d9840b60e5732",
@@ -61,12 +62,12 @@
       "liquidityUsd": 86105,
       "volume24hUsd": 24,
       "createdAt": "2025-12-16T06:24:36.000Z",
-      "ageHours": 7143
+      "ageHours": 7145
     }
   ],
   "screens": [
     {
-      "screenId": "54d4f73b-a2ed-46cb-8b48-d30af2b78241",
+      "screenId": "c31132f7-6651-4146-8939-6340a4ddb39a",
       "chainId": 143,
       "address": "0x1001ff13bf368aa4fa85f21043648079f00e1001",
       "verdict": "refused",
@@ -205,11 +206,11 @@
       "forkBlock": 111990000,
       "requestedBy": "console",
       "durationMs": 0,
-      "createdAt": "2026-10-10T02:40:26.668Z",
-      "expiresAt": "2026-10-10T08:40:26.668Z"
+      "createdAt": "2026-10-10T02:56:25.716Z",
+      "expiresAt": "2026-10-10T08:56:25.716Z"
     },
     {
-      "screenId": "85a89936-cf19-40ab-bf91-5b2a6907c766",
+      "screenId": "81cb511c-389e-4480-8c19-854af6ec3004",
       "chainId": 143,
       "address": "0x1001ff13bf368aa4fa85f21043648079f00e1001",
       "verdict": "passed",
@@ -359,11 +360,11 @@
       "forkBlock": 111990000,
       "requestedBy": "platform",
       "durationMs": 0,
-      "createdAt": "2026-10-10T02:40:26.668Z",
-      "expiresAt": "2026-10-10T08:40:26.668Z"
+      "createdAt": "2026-10-10T02:56:17.144Z",
+      "expiresAt": "2026-10-10T08:56:17.144Z"
     },
     {
-      "screenId": "6031bb70-a269-4d12-bbd0-09297eec72be",
+      "screenId": "e00c5992-ab21-4b37-bd6e-efe1d008eeda",
       "chainId": 143,
       "address": "0x1001ff13bf368aa4fa85f21043648079f00e1001",
       "verdict": "passed",
@@ -513,8 +514,8 @@
       "forkBlock": 111990000,
       "requestedBy": "agent:7",
       "durationMs": 0,
-      "createdAt": "2026-10-09T20:40:26.667Z",
-      "expiresAt": "2026-10-10T02:40:26.667Z"
+      "createdAt": "2026-10-09T20:56:17.143Z",
+      "expiresAt": "2026-10-10T02:56:17.143Z"
     }
   ],
   "labels": {
