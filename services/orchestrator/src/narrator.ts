@@ -162,6 +162,8 @@ export interface ActivationFacts {
   readonly agent: string;
   readonly activity: "activation";
   readonly event: "started" | "step" | "finished";
+  /** What happened, in one plain sentence, so the narrator paraphrases the right event. */
+  readonly summary: string;
   readonly tier: string;
   readonly ceilingUsdc: string;
   /** The step's label, for a step entry. */

@@ -331,11 +331,20 @@ export class ActivationService {
     f: Pick<ActivationFacts, "event" | "step" | "result" | "status" | "chargedUsdc" | "positions">,
   ): Promise<void> {
     if (!this.o.narrator) return;
+    const tier = MODEL_TIER_FACTS[a.tier].label;
+    const ceilingUsdc = formatUsdc(a.ceilingUsdcE6);
+    const summary =
+      f.event === "started"
+        ? `${agentName(ref.agentId)} started its activation sweep on the ${tier} tier, which may cost at most ${ceilingUsdc} USDC of credits; nothing is traded until the owner approves the plan it ends with.`
+        : f.event === "step"
+          ? `${agentName(ref.agentId)}'s activation sweep finished its step "${f.step ?? ""}": ${f.result ?? "done"}.`
+          : `${agentName(ref.agentId)}'s activation sweep ended: ${f.status ?? "it ended"}. It cost ${f.chargedUsdc ?? "0"} of at most ${ceilingUsdc} USDC.${f.result ? ` ${f.result}` : ""}`;
     const facts: ActivationFacts = {
       agent: agentName(ref.agentId),
       activity: "activation",
-      tier: MODEL_TIER_FACTS[a.tier].label,
-      ceilingUsdc: formatUsdc(a.ceilingUsdcE6),
+      tier,
+      ceilingUsdc,
+      summary,
       ...f,
     };
     const key = `${a.activationId}:${f.event}${f.step ? `:${f.step.toLowerCase().replaceAll(/[^a-z]+/g, "-")}` : ""}`;

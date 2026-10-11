@@ -427,6 +427,7 @@ describe("the activation sweep's entries (F-U10)", () => {
     agent: "Alpha Agent #7",
     activity: "activation",
     event: "started",
+    summary: "Alpha Agent #7 started its activation sweep on the Medium tier, at most 3.8 USDC.",
     tier: "Medium",
     ceilingUsdc: "3.8",
     step: null,

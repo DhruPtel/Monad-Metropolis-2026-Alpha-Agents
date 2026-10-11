@@ -1,0 +1,399 @@
+{
+  "unit": "F-U10",
+  "namespace": "live-act-63f1c7",
+  "runTag": "2026-10-11T02-59-56.980Z",
+  "checks": {
+    "the core tokens were screened before the sweep, and at least one passed": true,
+    "before the grant, every check passes but the grant, named as the step to come, on the Medium tier with a 3.80 USDC ceiling": true,
+    "a start before the grant is refused and names the grant": true,
+    "the grant is on chain and recorded as waiting for its first approval (D-291)": true,
+    "the start is accepted: the sweep is queued and its first step is done at once": true,
+    "the steps ran in order, each after the one before it, and never two at once": true,
+    "no step was charged above its ceiling, and the sweep stayed within the ceiling shown before it started": true,
+    "the deterministic steps recorded their facts: the goal and account, and the pools and prices": true,
+    "the sweep ended with a plan that waits for the owner: the first plan always needs approval": true,
+    "activity entries for the sweep's start, each deterministic step, every stage and the result, each passing the number validator": true,
+    "approving the plan passes the re-check, arms the agent, sets it RUNNING, and the sweep reads as active": true,
+    "with a cash-only plan the runner holds, recording its reason, and sends nothing": true,
+    "no key or token in any log line or API reply": true
+  },
+  "agent": {
+    "agentId": 1,
+    "runtime": {
+      "agentId": "1",
+      "generation": 1,
+      "status": "ready",
+      "tier": "pro",
+      "species": 14,
+      "slots": 8,
+      "playbook": "tier-pro@1",
+      "configHash": "97aaaa7f526a24f701a95acc83df0d809edaf72fc31ebc572a81c4f9fe92c9d0",
+      "keyAlias": "aa-live-act-63f1c7-143143-1-g1",
+      "budgetUsd": "0.000000",
+      "lastError": null,
+      "provisionedAt": "2026-10-11T03:00:57.836Z",
+      "updatedAt": "2026-10-11T03:00:57.836Z",
+      "lease": null,
+      "latestTask": null
+    }
+  },
+  "setup": {
+    "owner": "0x4A930a3CB51613794B92d3C5A1cE8C620E5914cD",
+    "funding": "0xf1f1cbfc8b13e1018beab249b14b926f128a11c4",
+    "account": "0x277C73C93c10DAcC3c5105820c291b576d611519",
+    "creditsUsdcE6": "8000000"
+  },
+  "screens": [
+    {
+      "symbol": "WMON",
+      "verdict": "passed",
+      "ms": 10578
+    },
+    {
+      "symbol": "AUSD",
+      "verdict": "passed",
+      "ms": 8359
+    },
+    {
+      "symbol": "WBTC",
+      "verdict": "refused",
+      "ms": 76530
+    },
+    {
+      "symbol": "cbBTC",
+      "verdict": "passed",
+      "ms": 7102
+    },
+    {
+      "symbol": "WETH",
+      "verdict": "passed",
+      "ms": 6945
+    },
+    {
+      "symbol": "shMON",
+      "verdict": "passed",
+      "ms": 6839
+    }
+  ],
+  "checksBefore": [
+    {
+      "code": "GOAL",
+      "ok": true,
+      "message": "Goal: Balanced on the Medium tier (Claude Sonnet 5.5).",
+      "blocking": true
+    },
+    {
+      "code": "PROVISIONED",
+      "ok": true,
+      "message": "The agent is set up to run.",
+      "blocking": true
+    },
+    {
+      "code": "ACCOUNT",
+      "ok": true,
+      "message": "The trading account is open on the fund agent's set.",
+      "blocking": true
+    },
+    {
+      "code": "ACCOUNT_MODE",
+      "ok": true,
+      "message": "The account is in its normal mode.",
+      "blocking": true
+    },
+    {
+      "code": "TRADING_BALANCE",
+      "ok": true,
+      "message": "The account holds 90.00 USDC to trade with.",
+      "blocking": true
+    },
+    {
+      "code": "CREDITS",
+      "ok": true,
+      "message": "Credits cover the sweep: 8.00 USDC available, at most 3.80 USDC needed.",
+      "blocking": true
+    },
+    {
+      "code": "GRANT",
+      "ok": false,
+      "message": "Your wallet registers the agent's trading permission (30 days at most) when you turn trading on.",
+      "blocking": false
+    },
+    {
+      "code": "NOT_BUSY",
+      "ok": true,
+      "message": "The agent is free to start.",
+      "blocking": true
+    }
+  ],
+  "spendUsd": 0.6158,
+  "sweep": {
+    "view": {
+      "activationId": "act-35a8feb2-7904-41d7-b08a-a979f04f049e",
+      "status": "plan_ready",
+      "tier": {
+        "choice": "MEDIUM",
+        "label": "Medium",
+        "model": "Claude Sonnet 5.5"
+      },
+      "ceilingUsdcE6": "3800000",
+      "chargedUsdcE6": "774745",
+      "steps": [
+        {
+          "key": "account",
+          "label": "Reading your goal and account",
+          "state": "done",
+          "result": "Balanced on the Medium tier; 90.00 USDC to trade with; 8.00 USDC of credits.",
+          "reason": null,
+          "chargedUsdcE6": "0",
+          "ceilingUsdcE6": "0",
+          "startedAt": "2026-10-11T03:03:00.279Z",
+          "finishedAt": "2026-10-11T03:03:00.279Z"
+        },
+        {
+          "key": "scan",
+          "label": "Scanning the market",
+          "state": "done",
+          "result": "4 themes worth a closer look.",
+          "reason": null,
+          "chargedUsdcE6": "154497",
+          "ceilingUsdcE6": "500000",
+          "startedAt": "2026-10-11T03:03:33.130Z",
+          "finishedAt": "2026-10-11T03:04:51.229Z"
+        },
+        {
+          "key": "market",
+          "label": "Reading pools and prices",
+          "state": "done",
+          "result": "6 of 6 tokens priced across 8 pools; 5 safety screens fresh.",
+          "reason": null,
+          "chargedUsdcE6": "0",
+          "ceilingUsdcE6": "0",
+          "startedAt": "2026-10-11T03:05:02.577Z",
+          "finishedAt": "2026-10-11T03:05:02.619Z"
+        },
+        {
+          "key": "dives",
+          "label": "Researching in depth",
+          "state": "done",
+          "result": "2 themes researched: AUSD_YIELD_MONAD, MON_VOLATILITY_REGIME.",
+          "reason": null,
+          "chargedUsdcE6": "422619",
+          "ceilingUsdcE6": "2400000",
+          "startedAt": "2026-10-11T03:05:03.456Z",
+          "finishedAt": "2026-10-11T03:06:18.145Z"
+        },
+        {
+          "key": "challenge",
+          "label": "Checking risk",
+          "state": "done",
+          "result": "0 of 2 theses stand after the skeptic's review.",
+          "reason": null,
+          "chargedUsdcE6": "71685",
+          "ceilingUsdcE6": "300000",
+          "startedAt": "2026-10-11T03:06:33.337Z",
+          "finishedAt": "2026-10-11T03:06:49.765Z"
+        },
+        {
+          "key": "test",
+          "label": "Testing the plan against your limits",
+          "state": "done",
+          "result": "Your limits and the envelope are set for the plan.",
+          "reason": null,
+          "chargedUsdcE6": "0",
+          "ceilingUsdcE6": "0",
+          "startedAt": "2026-10-11T03:07:02.999Z",
+          "finishedAt": "2026-10-11T03:07:03.038Z"
+        },
+        {
+          "key": "plan",
+          "label": "Building a plan",
+          "state": "done",
+          "result": "A portfolio of 0 positions proposed.",
+          "reason": null,
+          "chargedUsdcE6": "125944",
+          "ceilingUsdcE6": "600000",
+          "startedAt": "2026-10-11T03:07:03.946Z",
+          "finishedAt": "2026-10-11T03:07:29.665Z"
+        },
+        {
+          "key": "active",
+          "label": "Active",
+          "state": "running",
+          "result": "Waiting for your approval of the plan.",
+          "reason": null,
+          "chargedUsdcE6": "0",
+          "ceilingUsdcE6": "0",
+          "startedAt": "2026-10-11T03:07:31.572Z",
+          "finishedAt": null
+        }
+      ],
+      "proposalId": "prop-43b9ebf7-8638-40c2-8df8-9ff74f0949e6",
+      "outcome": {
+        "title": "Your approval is needed",
+        "message": "The sweep ended with a plan. Read it below and approve it to turn automatic trading on; decline it and nothing is traded.",
+        "action": "approve"
+      },
+      "startedAt": "2026-10-11T03:03:00.279Z",
+      "finishedAt": "2026-10-11T03:07:31.572Z"
+    },
+    "transitions": [
+      {
+        "at": 2,
+        "key": "account",
+        "state": "done",
+        "result": "Balanced on the Medium tier; 90.00 USDC to trade with; 8.00 USDC of credits."
+      },
+      {
+        "at": 2,
+        "key": "scan",
+        "state": "pending",
+        "result": null
+      },
+      {
+        "at": 2,
+        "key": "market",
+        "state": "pending",
+        "result": null
+      },
+      {
+        "at": 2,
+        "key": "dives",
+        "state": "pending",
+        "result": null
+      },
+      {
+        "at": 2,
+        "key": "challenge",
+        "state": "pending",
+        "result": null
+      },
+      {
+        "at": 2,
+        "key": "test",
+        "state": "pending",
+        "result": null
+      },
+      {
+        "at": 2,
+        "key": "plan",
+        "state": "pending",
+        "result": null
+      },
+      {
+        "at": 2,
+        "key": "active",
+        "state": "pending",
+        "result": null
+      },
+      {
+        "at": 34,
+        "key": "scan",
+        "state": "running",
+        "result": null
+      },
+      {
+        "at": 113,
+        "key": "scan",
+        "state": "done",
+        "result": "4 themes worth a closer look."
+      },
+      {
+        "at": 113,
+        "key": "market",
+        "state": "running",
+        "result": null
+      },
+      {
+        "at": 123,
+        "key": "market",
+        "state": "done",
+        "result": "6 of 6 tokens priced across 8 pools; 5 safety screens fresh."
+      },
+      {
+        "at": 123,
+        "key": "dives",
+        "state": "running",
+        "result": null
+      },
+      {
+        "at": 161,
+        "key": "dives",
+        "state": "done",
+        "result": "1 theme researched: AUSD_YIELD_MONAD."
+      },
+      {
+        "at": 169,
+        "key": "dives",
+        "state": "running",
+        "result": "1 of 2 themes researched."
+      },
+      {
+        "at": 200,
+        "key": "dives",
+        "state": "done",
+        "result": "2 themes researched: AUSD_YIELD_MONAD, MON_VOLATILITY_REGIME."
+      },
+      {
+        "at": 214,
+        "key": "challenge",
+        "state": "running",
+        "result": null
+      },
+      {
+        "at": 230,
+        "key": "challenge",
+        "state": "done",
+        "result": "0 of 2 theses stand after the skeptic's review."
+      },
+      {
+        "at": 244,
+        "key": "test",
+        "state": "done",
+        "result": "Your limits and the envelope are set for the plan."
+      },
+      {
+        "at": 244,
+        "key": "plan",
+        "state": "running",
+        "result": null
+      },
+      {
+        "at": 270,
+        "key": "plan",
+        "state": "done",
+        "result": null
+      },
+      {
+        "at": 272,
+        "key": "active",
+        "state": "running",
+        "result": "Waiting for your approval of the plan."
+      }
+    ],
+    "ms": 273081
+  },
+  "entries": [
+    "activation (narrator): Alpha Agent #1 started its activation sweep on the Medium tier with a maximum credit cost of 3.8 USDC. The owner must approve the plan before any trades execute.",
+    "arming (narrator): Agent #1 was armed with a grant registration that is valid until 2026-10-31.",
+    "activation (narrator): Alpha Agent #1 completed its activation step \"Reading your goal and account\" on the Medium tier with 90 USDC to trade with and 8 USDC of credits available.",
+    "stage (narrator): Agent #1 completed a scan research stage using the research-low model, making 9 model calls and 11 tool calls with 2 paid calls, costing $0.154497 against a $0.5 ceiling.",
+    "activation (narrator): Alpha Agent #1 completed its activation sweep step \"Reading pools and prices,\" successfully pricing 6 of 6 tokens across 8 pools with 5 safety screens fresh.",
+    "stage (narrator): Agent #1 completed a DIVE research stage on AUSD_YIELD_MONAD with no candidates found. The research used 6 model calls and 11 tool calls, costing 0.269298 USDC against a 1.2 USDC ceiling.",
+    "stage (narrator): Agent #1 completed a DIVE research stage on MON_VOLATILITY_REGIME with no candidates found, using 6 model calls and 9 tool calls at a cost of 0.153321 USDC.",
+    "stage (narrator): Agent #1 completed a challenge stage research with no candidates found, using 4 model calls and 5 tool calls at a cost of 0.071685 USDC.",
+    "stage (narrator): Agent #1 completed its TEST stage research with 0 model calls, 0 tool calls, and 0 paid calls, incurring no cost.",
+    "stage (narrator): Agent #1 completed a research stage with a plan change proposed for you. The agent made 6 model calls and 6 tool calls, accepting 3 briefs, at a cost of 0.125944 USDC.",
+    "proposal (narrator): Alpha Agent #1 proposed a plan with mixed evidence strength and requires approval.",
+    "activation (narrator): Alpha Agent #1 completed its activation sweep and proposes a portfolio of 0 positions, awaiting owner approval. The operation cost 0.774745 USDC of the 3.8 USDC limit."
+  ],
+  "approval": {
+    "status": "applied",
+    "armed": true,
+    "plan": "plan-ffa8b12b-67d0-4e0b-a355-044c7a889149"
+  },
+  "firstLeg": {
+    "outcome": "hold",
+    "code": "BELOW_MIN_TRADE"
+  },
+  "passed": true
+}
