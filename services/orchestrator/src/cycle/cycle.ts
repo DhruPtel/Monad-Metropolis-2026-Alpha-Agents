@@ -24,6 +24,7 @@ import {
   utcDayStart,
 } from "./stages.ts";
 import type { Cycle, CycleStore, StageRun, StageStatus } from "./store.ts";
+import { type UniverseRow, type UniverseStore, themeDecisions } from "./universe.ts";
 import { portfolioEnvelope, testEnvelope } from "./test-stage.ts";
 
 /**
@@ -67,6 +68,11 @@ export interface CycleContext extends TaskContext {
   readonly narrator: Narrator | null;
   /** F-U9: turns a Zoom out's decision into a stored proposal or a "no change"; null before it exists. */
   readonly proposals?: ProposalService | null;
+  /** F-U12: the universe the cycle considers, recorded before its first stage; null without the market. */
+  readonly universe?: {
+    readonly store: UniverseStore;
+    snapshot(cycle: Cycle): Promise<UniverseRow[]>;
+  } | null;
   /** How long to wait for metering to settle a stage's model calls (tests shorten it). */
   readonly settleMs?: number;
   /** How long a cycle waits for another task's lease on the agent to end (10 minutes). */
@@ -280,12 +286,40 @@ class Engine {
     return { chainId: this.cycle.chainId, agentId: this.cycle.agentId };
   }
 
+  /** F-U12: the universe the cycle considers; a failure to record it is logged, never fatal. */
+  private async recordUniverse(): Promise<void> {
+    const u = this.ctx.universe;
+    if (!u) return;
+    try {
+      const rows = await u.snapshot(this.cycle);
+      await u.store.record(this.cycle, rows, this.ctx.now?.() ?? new Date());
+    } catch (err) {
+      this.ctx.log(
+        `cycle ${this.cycle.cycleId}: the universe was not recorded: ${errorText(err, this.ctx.redactor)}`,
+      );
+    }
+  }
+
+  private async markThemes(decisions: ReturnType<typeof themeDecisions>): Promise<void> {
+    const u = this.ctx.universe;
+    if (!u) return;
+    try {
+      await u.store.markThemes(this.cycle, decisions, this.ctx.now?.() ?? new Date());
+    } catch (err) {
+      this.ctx.log(
+        `cycle ${this.cycle.cycleId}: the themes' decisions were not recorded: ${errorText(err, this.ctx.redactor)}`,
+      );
+    }
+  }
+
   async run(): Promise<{
     status: "completed" | "stopped" | "failed";
     reason: string;
     message?: string;
   }> {
     const kind = this.cycle.kind;
+    // F-U12: what the agent can see, and what this account may buy, before the first stage.
+    await this.recordUniverse();
     // P3-U10: a review is the Zoom out alone, weighing the briefs on record and the portfolio now.
     if (kind === "REVIEW") return this.zoomOut();
     const scan = await this.modelStage("SCAN", null);
@@ -319,6 +353,17 @@ class Engine {
       divesToday: history.divesToday,
       recentlyDived: history.recentlyDived,
     });
+    // F-U12: why each theme was or was not chosen for a Dive, on the universe's record.
+    await this.markThemes(
+      themeDecisions({
+        kind,
+        themes,
+        chosen: dives,
+        divesPerDay: this.goal.research.divesPerDay,
+        divesToday: history.divesToday,
+        recentlyDived: history.recentlyDived,
+      }),
+    );
     if (dives.length === 0 && kind !== "ACTIVATION")
       return { status: "completed", reason: "NOTHING_MATERIAL" };
 

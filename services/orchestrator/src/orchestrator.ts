@@ -81,6 +81,9 @@ import { ActivationService } from "./activation.ts";
 import { ResearchScheduler, ResearchStore, Watcher } from "./research-loop.ts";
 import { type ResearchWiring, observe, schedulerDeps, watcherDeps } from "./research-wiring.ts";
 import type { Attestor } from "./attestor.ts";
+import { UniverseStore, universeSnapshot } from "./cycle/universe.ts";
+import type { ChainReaderV3 } from "@alpha-agents/chain-tools";
+import type { TokenStore } from "./tokens/store.ts";
 import {
   DEFAULT_RULES,
   type SentinelChain,
@@ -270,6 +273,8 @@ export class Orchestrator {
   private readonly researchWiring: ResearchWiring | null;
   /** F-U12: the price attestor, for the console's and the Research page's views; null without a key. */
   readonly attestor: Attestor | null;
+  /** F-U12: the universe each cycle considered. */
+  readonly universe: UniverseStore;
   /** P4-U2: the Risk Sentinel's actions and watch rows, and the service when configured. */
   readonly sentinelStore: SentinelStore;
   readonly sentinel: Sentinel | null;
@@ -384,6 +389,7 @@ export class Orchestrator {
     this.decisions = new DecisionStore(store.db);
     this.goals = new GoalStore(store.db);
     this.attestor = options.attestor ?? null;
+    this.universe = new UniverseStore(store.db);
     this.loop = new ResearchStore(store.db);
     const research = this.credits
       ? {
@@ -442,6 +448,8 @@ export class Orchestrator {
       skillRuns: this.skillText,
       // F-U6: the Test stage v2 over a target portfolio, on the fund agent's set.
       portfolio: { inputs: (cycle) => this.portfolioTestInputs(cycle) },
+      // F-U12: the Zoom out names every token seen and not proposed; the universe records it.
+      universe: this.universe,
     });
     this.proposals = new ProposalService({
       db: store.db,
@@ -728,6 +736,19 @@ export class Orchestrator {
             narrator: this.narrator,
             proposals: this.proposals,
             hooks: this.activations.hooks(),
+            // F-U12: the universe the cycle considers, from the market and this account's buyability.
+            universe:
+              this.o.chain?.readerV3 && this.o.tokens
+                ? {
+                    store: this.universe,
+                    snapshot: (cycle) =>
+                      universeSnapshot(
+                        this.o.chain?.readerV3 as ChainReaderV3,
+                        this.o.tokens?.registry.store as TokenStore,
+                        cycle,
+                      ),
+                  }
+                : null,
           },
           job.taskId,
         );

@@ -194,6 +194,8 @@ export function registerResearchRoutes(
       cycle.createdAt,
       cycle.finishedAt ?? new Date(),
     );
+    // F-U12: the universe the cycle considered, for its own lines.
+    const universe = await orch.universe.forCycle(cycle.cycleId);
     const usedBefore = usedToday > cycle.chargedUsdcE6 ? usedToday - cycle.chargedUsdcE6 : 0n;
     const events = terminalEvents({
       cycle,
@@ -237,6 +239,18 @@ export function registerResearchRoutes(
         txHash: a.txHash,
         status: a.status,
         createdAt: a.createdAt,
+      })),
+      universe: universe.map((u) => ({
+        symbol: u.symbol,
+        priceClass: u.priceClass,
+        lane: u.lane,
+        buyable: u.buyable,
+        whyNot: u.whyNot,
+        themeCode: u.themeCode,
+        themeReason: u.themeReason,
+        researched: u.researched,
+        proposed: u.proposed,
+        droppedReason: u.droppedReason,
       })),
       budget: goal
         ? {
@@ -352,6 +366,35 @@ export function registerResearchRoutes(
  * stages' costs, and the watcher's snapshot of the market. Brief texts pass
  * the terminal's guard; sources show as domains and tool names.
  */
+/** F-U12: a cycle's universe as the page reads it, or null when the cycle recorded none. */
+async function universeJson(
+  orch: Orchestrator,
+  c: { cycleId: string; kind: string; startedAt: Date | null; createdAt: Date },
+) {
+  const rows = await orch.universe.forCycle(c.cycleId);
+  if (rows.length === 0) return null;
+  return {
+    cycleId: c.cycleId,
+    kind: c.kind,
+    at: (c.startedAt ?? c.createdAt).toISOString(),
+    rows: rows.map((u) => ({
+      token: u.token,
+      symbol: u.symbol,
+      priceClass: u.priceClass,
+      lane: u.lane,
+      status: u.status,
+      buyable: u.buyable,
+      whyNot: u.whyNot,
+      held: u.held,
+      themeCode: u.themeCode,
+      themeReason: u.themeReason,
+      researched: u.researched,
+      proposed: u.proposed,
+      droppedReason: u.droppedReason,
+    })),
+  };
+}
+
 async function researchRecords(orch: Orchestrator, ref: { chainId: number; agentId: number }) {
   const runs = orch.skillText();
   const briefs = await orch.cycles.briefs({ ref, status: "accepted" }, 60);
@@ -379,6 +422,12 @@ async function researchRecords(orch: Orchestrator, ref: { chainId: number; agent
     })),
   );
   const o = await orch.researchSnapshot(ref);
+  // F-U12: the newest cycle's universe, for the "Universe considered" panel.
+  let universe: Awaited<ReturnType<typeof universeJson>> = null;
+  for (const c of cycles.slice(0, 3)) {
+    universe = await universeJson(orch, c);
+    if (universe) break;
+  }
   const scanBody = scanBrief?.body as
     { summary?: unknown; quiet?: unknown; themes?: unknown } | undefined;
   const noChangeBody = noChange?.body as
@@ -426,6 +475,7 @@ async function researchRecords(orch: Orchestrator, ref: { chainId: number; agent
           }
         : null,
     cycles: rows,
+    universe,
     snapshot: o
       ? {
           at: o.at.toISOString(),

@@ -31,6 +31,7 @@ export type TerminalEventKind =
   | "decision"
   | "cost"
   | "sentinel"
+  | "universe"
   | "withheld";
 
 export interface TerminalEvent {
@@ -94,6 +95,20 @@ export interface TerminalSentinelAction {
   readonly createdAt: Date;
 }
 
+/** F-U12: one token of the cycle's universe, as stored. */
+export interface TerminalUniverseRow {
+  readonly symbol: string;
+  readonly priceClass: string;
+  readonly lane: string | null;
+  readonly buyable: boolean;
+  readonly whyNot: string | null;
+  readonly themeCode: string | null;
+  readonly themeReason: string | null;
+  readonly researched: boolean;
+  readonly proposed: boolean;
+  readonly droppedReason: string | null;
+}
+
 export interface TerminalInput {
   readonly cycle: Cycle;
   readonly stages: readonly StageRun[];
@@ -103,6 +118,8 @@ export interface TerminalInput {
   readonly proposals: readonly TerminalProposal[];
   /** P4-U2: the sentinel's actions in the cycle's window, if any. */
   readonly sentinel?: readonly TerminalSentinelAction[];
+  /** F-U12: the universe the cycle considered, if recorded. */
+  readonly universe?: readonly TerminalUniverseRow[];
   /** Today's research budget and what the day's other cycles used before this one; both optional. */
   readonly budget?: { readonly dailyUsdcE6: bigint; readonly usedBeforeUsdcE6: bigint } | null;
   /** Eight-word runs of the mounted skills' text; a line containing one is withheld. */
@@ -664,6 +681,64 @@ export function terminalEvents(i: TerminalInput): TerminalEvent[] {
       tone: "info",
       facts: { status: p.status },
     });
+  }
+
+  // F-U12: the universe at the Scan's start, the themes' decisions after it, the Zoom out's drops at its end.
+  const universe = i.universe ?? [];
+  if (universe.length > 0) {
+    const scanRun = i.stages.find((s) => s.stage === "SCAN");
+    const seenAt = scanRun?.startedAt ?? startedAt;
+    const buyable = universe.filter((u) => u.buyable);
+    const notBuyable = universe.filter((u) => !u.buyable && u.priceClass !== "USDC");
+    push({
+      at: seenAt,
+      order: 2,
+      kind: "universe",
+      stage: "SCAN",
+      text: `Universe: ${universe.length} tokens seen, ${buyable.length} buyable for this account${buyable.length > 0 ? ` (${buyable.map((u) => u.symbol).join(", ")})` : ""}.`,
+      tone: "info",
+      facts: {
+        seen: universe.length,
+        buyable: buyable.length,
+        symbols: buyable.map((u) => u.symbol),
+      },
+    });
+    for (const u of notBuyable.slice(0, 16))
+      push({
+        at: seenAt,
+        order: 2,
+        kind: "universe",
+        stage: "SCAN",
+        text: `Not buyable: ${u.symbol}${u.lane ? ` (${u.lane} lane)` : ""}: ${u.whyNot ?? "no reason recorded"}.`,
+        tone: "info",
+        facts: u,
+      });
+    const decided = universe.filter((u) => u.themeCode !== null);
+    const scanEnd = scanRun?.finishedAt ?? null;
+    if (scanEnd)
+      for (const u of decided)
+        push({
+          at: scanEnd,
+          order: 11,
+          kind: "universe",
+          stage: "SCAN",
+          text: `${u.researched ? "Dive" : "No Dive"} on ${u.symbol} (${u.themeCode}): ${u.themeReason ?? ""}.`,
+          tone: u.researched ? "ok" : "info",
+          facts: u,
+        });
+    const zoom = i.stages.find((s) => s.stage === "ZOOM_OUT");
+    const zoomEnd = zoom?.finishedAt ?? null;
+    if (zoomEnd)
+      for (const u of universe.filter((x) => x.droppedReason !== null))
+        push({
+          at: zoomEnd,
+          order: 7,
+          kind: "universe",
+          stage: "ZOOM_OUT",
+          text: `Not proposed: ${u.symbol}: ${u.droppedReason ?? ""}.`,
+          tone: "info",
+          facts: u,
+        });
   }
 
   for (const a of i.sentinel ?? []) {

@@ -242,6 +242,15 @@ export const RationaleBrief = z
      * whenever it sits outside the level's expected range or is all cash.
      */
     allocationNote: text(400).nullable().optional(),
+    /**
+     * F-U12: every token the cycle dived or the account holds that the plan
+     * does not propose, each with the reason; complete_stage refuses a Zoom
+     * out that leaves one out.
+     */
+    notProposed: z
+      .array(z.strictObject({ token: TokenAddress, symbol, reason: text(200) }))
+      .max(16)
+      .optional(),
   })
   .refine((b) => (b.decision === "NO_CHANGE") === (b.reasonCode !== null), {
     message: "a NO_CHANGE decision needs a reasonCode, and a PROPOSE decision has none",

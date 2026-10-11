@@ -179,6 +179,58 @@ function researchFixture(over: Partial<ResearchJson> = {}): ResearchJson {
       portfolioView: "One position in WMON and the rest in USDC.",
       whatWouldChangeIt: "a second source for the lending figure",
     },
+    universe: {
+      cycleId: CYCLE_OPEN,
+      kind: "ROUTINE",
+      at: "2026-10-11T12:00:01.000Z",
+      rows: [
+        {
+          token: "0x00000000000000000000000000000000000000a1",
+          symbol: "WMON",
+          priceClass: "F",
+          lane: "core",
+          status: "listed",
+          buyable: true,
+          whyNot: null,
+          held: true,
+          themeCode: "TVL_OUTFLOW",
+          themeReason: "chosen for a Dive (high materiality)",
+          researched: true,
+          proposed: false,
+          droppedReason: null,
+        },
+        {
+          token: "0x00000000000000000000000000000000000000a2",
+          symbol: "GHO",
+          priceClass: "A",
+          lane: "screened",
+          status: "listed",
+          buyable: true,
+          whyNot: null,
+          held: false,
+          themeCode: null,
+          themeReason: null,
+          researched: false,
+          proposed: false,
+          droppedReason: null,
+        },
+        {
+          token: "0x00000000000000000000000000000000000000a3",
+          symbol: "CHAOS",
+          priceClass: "A",
+          lane: "screened",
+          status: "listed",
+          buyable: false,
+          whyNot: "in the screened lane; the owner has not opted in on chain",
+          held: false,
+          themeCode: null,
+          themeReason: null,
+          researched: false,
+          proposed: false,
+          droppedReason: null,
+        },
+      ],
+    },
     cycles: [
       {
         cycleId: CYCLE_OPEN,
@@ -386,6 +438,14 @@ test.describe("the Research page and the agent terminal (P3-U10)", () => {
       "0.03 USD · 1.3M USD of liquidity",
     );
     await expect(root.getByTestId("plan-unchanged")).toContainText("the evidence was too thin");
+    // F-U12: the universe the cycle considered, with each token's buyability and why not.
+    const universe = root.getByTestId("universe-panel");
+    await expect(universe).toHaveAttribute("data-rows", "3");
+    await expect(universe).toContainText("2 buyable");
+    await expect(universe.locator('tr[data-buyable="false"]')).toContainText(
+      "no: in the screened lane; the owner has not opted in on chain",
+    );
+    await expect(universe).toContainText("chosen for a Dive (high materiality)");
     await expect(root.getByTestId("why-not-traded")).toBeVisible();
     await capture(page, root, "research-live.png");
     expect(await blockingViolations(page)).toEqual([]);
@@ -463,6 +523,7 @@ test.describe("the Research page and the agent terminal (P3-U10)", () => {
       overview: null,
       themes: null,
       planUnchanged: null,
+      universe: null,
       cycles: [],
       snapshot: null,
       budget: null,

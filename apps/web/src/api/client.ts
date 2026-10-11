@@ -715,6 +715,27 @@ export interface ResearchJson {
       readonly ceilingUsdcE6: string;
     }[];
   }[];
+  /** F-U12: the newest cycle's universe: every token seen, its buyability, its theme and its outcome. */
+  readonly universe: {
+    readonly cycleId: string;
+    readonly kind: string;
+    readonly at: string;
+    readonly rows: readonly {
+      readonly token: string;
+      readonly symbol: string;
+      readonly priceClass: "USDC" | "F" | "A";
+      readonly lane: "core" | "screened" | null;
+      readonly status: "listed" | "sell_only" | "delisted" | null;
+      readonly buyable: boolean;
+      readonly whyNot: string | null;
+      readonly held: boolean;
+      readonly themeCode: string | null;
+      readonly themeReason: string | null;
+      readonly researched: boolean;
+      readonly proposed: boolean;
+      readonly droppedReason: string | null;
+    }[];
+  } | null;
   readonly snapshot: {
     readonly at: string;
     readonly monUsd: string | null;

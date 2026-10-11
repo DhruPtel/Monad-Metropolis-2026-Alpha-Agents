@@ -386,6 +386,72 @@ describe("the agent terminal's events", () => {
     ).toEqual({ kind: "brief", text: "TVL fell 6.8% today.", tone: "ok" });
   });
 
+  it("shows the universe the cycle considered: the count, each token not buyable and why, the themes' decisions and the Zoom out's drops (F-U12)", () => {
+    const u = {
+      priceClass: "F",
+      lane: "core",
+      buyable: true,
+      whyNot: null,
+      themeCode: null,
+      themeReason: null,
+      researched: false,
+      proposed: false,
+      droppedReason: null,
+    };
+    const events = terminalEvents(
+      input({
+        calls: [],
+        briefs: [],
+        records: [],
+        universe: [
+          {
+            ...u,
+            symbol: "WMON",
+            themeCode: "TVL_OUTFLOW",
+            themeReason: "chosen for a Dive (high materiality)",
+            researched: true,
+            droppedReason: "the thesis weakened under challenge",
+          },
+          { ...u, symbol: "GHO", priceClass: "A", lane: "screened" },
+          {
+            ...u,
+            symbol: "CHAOS",
+            priceClass: "A",
+            lane: "screened",
+            buyable: false,
+            whyNot: "in the screened lane; the owner has not opted in on chain",
+            themeCode: "CHAOS_LAUNCH",
+            themeReason: "low materiality: not worth a Dive today",
+          },
+          {
+            ...u,
+            symbol: "USDC",
+            priceClass: "USDC",
+            buyable: false,
+            whyNot: "USDC is the account's cash, never bought",
+          },
+        ],
+      }),
+    );
+    const lines = events.filter((e) => e.kind === "universe");
+    expect(lines.map((e) => e.text)).toEqual([
+      "Universe: 4 tokens seen, 2 buyable for this account (WMON, GHO).",
+      "Not buyable: CHAOS (screened lane): in the screened lane; the owner has not opted in on chain.",
+      "Dive on WMON (TVL_OUTFLOW): chosen for a Dive (high materiality).",
+      "No Dive on CHAOS (CHAOS_LAUNCH): low materiality: not worth a Dive today.",
+      "Not proposed: WMON: the thesis weakened under challenge.",
+    ]);
+    expect(lines.map((e) => e.stage)).toEqual(["SCAN", "SCAN", "SCAN", "SCAN", "ZOOM_OUT"]);
+    // The universe comes right after the Scan starts, the decisions when it ends, the drops when the Zoom out ends.
+    const texts = events.map((e) => e.text);
+    expect(texts.indexOf(lines[0]?.text ?? "")).toBeGreaterThan(
+      texts.findIndex((t) => t.startsWith("Scan started")),
+    );
+    expect(texts.indexOf(lines[2]?.text ?? "")).toBeGreaterThan(
+      texts.findIndex((t) => t.startsWith("Scan finished")),
+    );
+  });
+
   it("shows the sentinel's actions in the cycle's window as their own lines (P4-U2)", () => {
     const events = terminalEvents(
       input({

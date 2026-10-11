@@ -7,6 +7,7 @@ import {
 } from "@alpha-agents/platform-tools";
 import type { AgentIdentity } from "@alpha-agents/tool-server";
 import { ToolError } from "@alpha-agents/tool-server";
+import type { Hex } from "viem";
 import { portfolioParamsFromJson } from "@alpha-agents/policy";
 import {
   type GoalStore,
@@ -24,6 +25,7 @@ import {
   proposalParams,
 } from "./test-stage.ts";
 import { validateBrief } from "./validator.ts";
+import type { UniverseStore } from "./universe.ts";
 
 /**
  * The research cycle behind the platform tools (P3-U4): briefs are validated
@@ -41,6 +43,8 @@ export interface CycleResearchOptions {
   readonly skillRuns: () => ReadonlySet<string>;
   /** F-U6: the Test stage's inputs for a target portfolio on the fund agent's v3 set; null off it. */
   readonly portfolio?: { inputs(cycle: Cycle): Promise<TestInputsV2 | null> } | null;
+  /** F-U12: the universe each cycle considered; the Zoom out names every token seen and not proposed. */
+  readonly universe?: UniverseStore | null;
   readonly now?: () => Date;
 }
 
@@ -353,6 +357,56 @@ export class CycleResearch {
           { reasons },
         );
     }
+    // F-U12: no position names a token this account cannot buy, and every token the cycle dived or
+    // the account holds that the plan does not propose is in the RATIONALE's notProposed with a reason.
+    let outcome: { proposed: Hex[]; dropped: { token: Hex; reason: string }[] } | null = null;
+    if (this.o.universe) {
+      const universe = await this.o.universe.forCycle(cycle.cycleId);
+      if (universe.length > 0) {
+        const byToken = new Map(universe.map((u) => [u.token.toLowerCase(), u]));
+        const proposed: Hex[] =
+          input.decision.kind === "PROPOSE" && input.decision.template === "target_portfolio@1"
+            ? input.decision.params.positions.map((p) => p.token.toLowerCase() as Hex)
+            : universe.filter((u) => u.held).map((u) => u.token);
+        const blocked = proposed
+          .map((t) => byToken.get(t))
+          .filter((u) => u && !u.buyable && !u.held);
+        if (blocked.length > 0)
+          throw new ToolError(
+            "INVALID_INPUT",
+            `The plan proposes a token this account cannot buy: ${blocked.map((u) => `${u?.symbol}: ${u?.whyNot ?? "not buyable"}`).join("; ")}. Propose only tokens get_prices marks buyable, or end with NO_CHANGE.`,
+            false,
+            { blocked: blocked.map((u) => u?.symbol) },
+          );
+        const named = new Map(
+          (
+            (
+              (rationale?.body ?? {}) as {
+                notProposed?: { token: string; symbol: string; reason: string }[];
+              }
+            ).notProposed ?? []
+          ).map((n) => [n.token.toLowerCase(), n]),
+        );
+        const proposedSet = new Set(proposed);
+        const required = universe.filter(
+          (u) => (u.researched || u.held) && !proposedSet.has(u.token.toLowerCase() as Hex),
+        );
+        const missing = required.filter((u) => !named.has(u.token.toLowerCase()));
+        if (missing.length > 0)
+          throw new ToolError(
+            "INVALID_INPUT",
+            `The RATIONALE's notProposed leaves out ${missing.map((u) => u.symbol).join(", ")}: name every token this cycle dived or the account holds that the plan does not propose, each with its reason, then complete_stage again.`,
+            false,
+            { missing: missing.map((u) => u.symbol) },
+          );
+        outcome = {
+          proposed,
+          dropped: [...named.values()]
+            .filter((n) => byToken.has(n.token.toLowerCase()))
+            .map((n) => ({ token: n.token.toLowerCase() as Hex, reason: n.reason })),
+        };
+      }
+    }
     if (input.decision.kind === "PROPOSE") {
       let findings: readonly { code: string; field: string; message: string }[];
       if (input.decision.template === "target_portfolio@1") {
@@ -394,6 +448,8 @@ export class CycleResearch {
           { findings: findings.map((f) => f.code) },
         );
     }
+    if (outcome && this.o.universe)
+      await this.o.universe.markOutcome(cycle, outcome.proposed, outcome.dropped, this.now());
     return stage;
   }
 

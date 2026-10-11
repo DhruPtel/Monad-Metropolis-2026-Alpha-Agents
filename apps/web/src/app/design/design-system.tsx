@@ -60,6 +60,7 @@ import {
   ResearchOverview,
   ResearchScheduleCard,
   SentinelCard,
+  UniversePanel,
   StageTimeline,
   TERMINAL_STATES,
   type TerminalLineView,
@@ -3435,6 +3436,92 @@ function SentinelSection() {
   );
 }
 
+const UNIVERSE_ROWS = [
+  {
+    token: "0x00000000000000000000000000000000000000a1",
+    symbol: "WMON",
+    priceClass: "F" as const,
+    lane: "core" as const,
+    status: "listed" as const,
+    buyable: true,
+    whyNot: null,
+    held: true,
+    themeCode: "TVL_OUTFLOW",
+    themeReason: "chosen for a Dive (high materiality)",
+    researched: true,
+    proposed: true,
+    droppedReason: null,
+  },
+  {
+    token: "0x00000000000000000000000000000000000000a2",
+    symbol: "GHO",
+    priceClass: "A" as const,
+    lane: "screened" as const,
+    status: "listed" as const,
+    buyable: true,
+    whyNot: null,
+    held: false,
+    themeCode: "GHO_PEG",
+    themeReason: "low materiality: not worth a Dive today",
+    researched: false,
+    proposed: false,
+    droppedReason: null,
+  },
+  {
+    token: "0x00000000000000000000000000000000000000a3",
+    symbol: "CHAOS",
+    priceClass: "A" as const,
+    lane: "screened" as const,
+    status: "listed" as const,
+    buyable: false,
+    whyNot: "in the screened lane; the owner has not opted in on chain",
+    held: false,
+    themeCode: null,
+    themeReason: null,
+    researched: false,
+    proposed: false,
+    droppedReason: null,
+  },
+  {
+    token: "0x00000000000000000000000000000000000000a4",
+    symbol: "WBTC",
+    priceClass: "F" as const,
+    lane: "core" as const,
+    status: "sell_only" as const,
+    buyable: false,
+    whyNot: "sell-only in the registry",
+    held: true,
+    themeCode: "BTC_FLOW",
+    themeReason: "chosen for a Dive (medium materiality)",
+    researched: true,
+    proposed: false,
+    droppedReason: "the thesis weakened under challenge",
+  },
+];
+
+function UniverseSection() {
+  return (
+    <Section id="universe" title="Universe considered">
+      <Specimen
+        name="UniversePanel"
+        note="Every token a research cycle could see (F-U12): its lane, whether this account could buy it and why not, which theme researched it and why, and why it was proposed or dropped; and the panel before a cycle ran."
+      >
+        <div className="flex flex-col gap-6" data-testid="universe-panels">
+          <UniversePanel
+            universe={{
+              cycleId: "cycle-1",
+              kind: "ROUTINE",
+              at: "2026-10-11T12:00:00.000Z",
+              rows: UNIVERSE_ROWS,
+            }}
+          />
+          <UniversePanel universe={null} />
+        </div>
+      </Specimen>
+    </Section>
+  );
+}
+
 function DesignSystem() {
   return (
     <div className="flex flex-col gap-10">
@@ -3461,6 +3548,7 @@ function DesignSystem() {
       <ResearchSection />
       <ResearchLoopSection />
       <SentinelSection />
+      <UniverseSection />
     </div>
   );
 }

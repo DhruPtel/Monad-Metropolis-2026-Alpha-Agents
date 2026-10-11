@@ -20,6 +20,7 @@ import {
   StageTimeline,
   ThemesPanel,
   TriggerList,
+  UniversePanel,
   WhyNotTraded,
 } from "@alpha-agents/ui";
 import { ArrowLeft, PlugZap, Wallet } from "lucide-react";
@@ -278,6 +279,8 @@ export function ResearchPage({
         <MarketSnapshotPanel snapshot={research.snapshot} />
         <PlanUnchangedCard view={research.planUnchanged} />
       </div>
+
+      <UniversePanel universe={research.universe ?? null} />
 
       <WhyNotTraded
         reasons={(why?.reasons ?? []).filter((r) => r.code !== "NOT_ARMED")}

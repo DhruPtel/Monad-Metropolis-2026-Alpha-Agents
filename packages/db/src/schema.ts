@@ -563,6 +563,28 @@ export interface ResearchTriggerTable {
   spaced: ColumnType<boolean, boolean | undefined, boolean>;
 }
 
+/** F-U12: one token a research cycle considered: its buyability, its research and its outcome. */
+export interface ResearchUniverseTable {
+  chain_id: number;
+  agent_id: number;
+  cycle_id: string;
+  token: string;
+  symbol: string;
+  price_class: string;
+  lane: string | null;
+  status: string | null;
+  buyable: boolean;
+  why_not: string | null;
+  held: ColumnType<boolean, boolean | undefined, boolean>;
+  theme_code: string | null;
+  theme_reason: string | null;
+  researched: ColumnType<boolean, boolean | undefined, boolean>;
+  proposed: ColumnType<boolean, boolean | undefined, boolean>;
+  dropped_reason: string | null;
+  created_at: Timestamp;
+  updated_at: ColumnType<Date, Date | string | undefined, Date | string>;
+}
+
 /** P4-U2: one action of the Risk Sentinel: the breach, what it set, why, and the transaction. */
 export interface SentinelActionTable {
   action_id: string;
@@ -914,6 +936,7 @@ export interface Database {
   "platform.tokens": TokenTable;
   "platform.research_schedules": ResearchScheduleTable;
   "platform.research_triggers": ResearchTriggerTable;
+  "platform.research_universe": ResearchUniverseTable;
   "platform.sentinel_actions": SentinelActionTable;
   "platform.sentinel_watch": SentinelWatchTable;
   "platform.token_pools": TokenPoolTable;
