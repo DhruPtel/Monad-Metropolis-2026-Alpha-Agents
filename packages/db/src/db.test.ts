@@ -26,6 +26,7 @@ describe.skipIf(!available)("database migrations (needs pnpm dev:up)", () => {
       "indexer.usdc_transfers",
       "indexer.watermarks",
       "platform.account_snapshots",
+      "platform.activations",
       "platform.activity_entries",
       "platform.agent_goals",
       "platform.agent_runtimes",

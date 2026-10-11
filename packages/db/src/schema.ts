@@ -687,6 +687,30 @@ export interface PlanProposalTable {
   expires_at: Timestamp | null;
 }
 
+/**
+ * F-U10: one activation sweep: the arming it belongs to, the ACTIVATION cycle
+ * that runs it, the goal's tier and the ceiling shown before it started, and
+ * the facts of its two deterministic steps. Its progress is read from the
+ * cycle's stage runs and its plan from the plan proposal.
+ */
+export interface ActivationTable {
+  activation_id: string;
+  chain_id: number;
+  agent_id: number;
+  arming_id: string | null;
+  cycle_id: string | null;
+  task_id: string | null;
+  reasoning_alias: string;
+  tier: "LOW" | "MEDIUM" | "HIGH";
+  ceiling_usdc_e6: string;
+  /** The first step's facts: the goal, the account's value and mode, the credits. */
+  checks: ColumnType<Record<string, unknown>, string, string>;
+  /** The third step's facts (tokens priced, pools, screens) or its error; null until it ran. */
+  market: ColumnType<Record<string, unknown> | null, string | null | undefined, string | null>;
+  created_at: Timestamp;
+  updated_at: Timestamp;
+}
+
 /** P3-U3: one of the runner's decisions; a new row only when the outcome or reason changes. */
 export interface RunnerDecisionTable {
   decision_id: Generated<number>;
@@ -817,6 +841,7 @@ export interface Database {
   "platform.stage_runs": StageRunTable;
   "platform.model_calls": ModelCallTable;
   "platform.plan_proposals": PlanProposalTable;
+  "platform.activations": ActivationTable;
   "platform.research_briefs": ResearchBriefTable;
   "platform.tool_results": ToolResultTable;
   "platform.tokens": TokenTable;

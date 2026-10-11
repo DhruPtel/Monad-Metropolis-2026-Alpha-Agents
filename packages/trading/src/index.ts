@@ -10,3 +10,4 @@ export * from "./goals.ts";
 export * from "./plans.ts";
 export * from "./decisions.ts";
 export * from "./proposals.ts";
+export * from "./activation.ts";
