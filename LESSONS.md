@@ -1637,3 +1637,17 @@ What happened: F-U12's live sweeps twice produced a plan the Zoom out's Test acc
 Cause: Two conversions of one decision, and two rule lists (the cost hurdle in one only), with nothing comparing them.
 Fix: One conversion, `targetPortfolioFromDecision`, and one rule set, `checkTargetPortfolio`, for the stage, the evaluator and the console's draft check; a fingerprint of what each read, recorded with the stage's verdict, so a refusal at the evaluator names what changed since; a shared fixture run on every side, with a case whose tokens are checksummed as the model writes them (6f6efd5, then the conversion fix).
 Lesson: Two places that must agree call one function and share one fixture; when they can legitimately differ, the second names exactly what changed. And when a mismatch's cause is a guess, capture the refusing side's own words before fixing the guess.
+
+## L-221: A prank was spent on a view call inside the assertion's arguments
+Unit: P7-U1 (2026-10-11)
+What happened: Several vault tests failed with the wrong caller: `NotAllowlisted(<the test contract>)`, `InsufficientShares(0, ...)`, `NotAgentOwner` for a call the test had pranked as Alice or the buyer. In each, `vm.prank(who)` was followed by `vm.expectRevert(abi.encodeWithSelector(..., sv.principal() + 6e6, ...))` or `sv.redeemInKind(sv.sharesOf(alice), ...)`: the view call inside the arguments is an external call, and it took the prank.
+Cause: `vm.prank` applies to the next external call of any kind, and a view read in an argument expression is one; `vm.expectRevert` likewise binds to the next external call, so `executor.swap(sv, buyParams(10e6))` bound it to the `nft.ownerEpoch` read inside `buyParams`.
+Fix: Every value a pranked or expected call needs is read into a local first; the swap parameters are built before `vm.expectRevert`.
+Lesson: After `vm.prank` or `vm.expectRevert`, the very next external call is the one they mean; read every argument into a local before them.
+
+## L-222: The draft's in-kind exit judged a token's held slot before the transfer
+Unit: P7-U1 (2026-10-11)
+What happened: The uncommitted vault draft freed a token's slot on the held list when `balance == amount` before the transfer, so a token with a credit outstanding (balance above the free balance) kept its slot after everything free had left, and a token whose last slice left with the transfer stayed listed; a listed token with nothing in it would have cost every later valuation and exit a balance read and a feed read.
+Cause: The condition compared the pre-transfer balance to the slice instead of reading what remained, as the core's `withdrawAll` does.
+Fix: After a successful transfer the exit reads the balance again and frees the slot when it is zero (never USDC); the invariant `TheHeldListIsConsistent` checks that every listed token still has something in it.
+Lesson: Decide a token's place on the held list from its balance after the move, never from what the move was meant to take.
