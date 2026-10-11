@@ -171,11 +171,18 @@ function MyAgentCard({ agent, environment }: { agent: AgentView; environment: En
                 />
               }
               tradingAction={
-                <Button asChild size="sm" variant="secondary" className="self-start">
-                  <Link href={`/agents/${agent.id.toString()}/portfolio`}>
-                    {trading?.hasAccount ? "Open portfolio" : "Set up trading"}
-                  </Link>
-                </Button>
+                <span className="flex flex-wrap gap-2">
+                  <Button asChild size="sm" variant="secondary">
+                    <Link href={`/agents/${agent.id.toString()}/portfolio`}>
+                      {trading?.hasAccount ? "Open portfolio" : "Set up trading"}
+                    </Link>
+                  </Button>
+                  {trading?.hasAccount ? (
+                    <Button asChild size="sm" variant="secondary">
+                      <Link href={`/agents/${agent.id.toString()}/window`}>Performance</Link>
+                    </Button>
+                  ) : null}
+                </span>
               }
             />
             <SpendPanel

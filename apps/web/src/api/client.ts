@@ -7,6 +7,13 @@ import type {
   ResearchIntensity,
   Aggressiveness,
 } from "@alpha-agents/domain";
+import type {
+  AssetRow,
+  HundredView,
+  SeriesPoint,
+  TradeMarkView,
+  WindowScores,
+} from "@alpha-agents/ui";
 import { type Address, getAddress } from "viem";
 
 /**
@@ -485,6 +492,40 @@ export interface PortfolioJson {
   readonly wallet: { readonly usdcE6: string; readonly wmonWei: string; readonly monWei: string };
 }
 
+/**
+ * F-U11: the portfolio window as the control API builds it: the holdings
+ * (live, or the latest snapshot dated as such), the value-per-unit series,
+ * the trades as markers, the closed positions, the scores and the $100 figure.
+ */
+export interface WindowJson {
+  readonly agentId: string;
+  readonly account: Address | null;
+  readonly custody: "v2" | "v3" | null;
+  readonly asOf: {
+    readonly at: string;
+    readonly block: string | null;
+    readonly live: boolean;
+  } | null;
+  readonly totalValueUsdcE6: string | null;
+  readonly holdings: readonly (AssetRow & { readonly token: Address | null })[];
+  readonly series: readonly SeriesPoint[];
+  readonly marks: readonly TradeMarkView[];
+  readonly closed: readonly {
+    readonly symbol: string;
+    readonly spentUsdcE6: string;
+    readonly receivedUsdcE6: string;
+    readonly profitable: boolean;
+  }[];
+  readonly scores: WindowScores;
+  readonly hundred: HundredView;
+  readonly history: {
+    readonly points: number;
+    readonly from: string | null;
+    readonly to: string | null;
+    readonly capped: boolean;
+  };
+}
+
 const owner = (session: string, init: RequestInit = {}): RequestInit => ({
   ...init,
   headers: { ...(init.headers as Record<string, string> | undefined), "x-owner-session": session },
@@ -578,6 +619,12 @@ export const tradingApi = {
   /** F-U10: the activation sweep as the owner reads it. Owner only. */
   async activation(agentId: bigint, session: string): Promise<ActivationReadJson> {
     return call<ActivationReadJson>(`/v1/agents/${agentId.toString()}/activation`, owner(session));
+  },
+  /** F-U11: the portfolio window. Owner only. */
+  async window(agentId: bigint, session: string): Promise<WindowJson> {
+    return (
+      await call<{ window: WindowJson }>(`/v1/agents/${agentId.toString()}/window`, owner(session))
+    ).window;
   },
   /** The arming and activation flows' raw calls: they read the status and body themselves. */
   async raw(

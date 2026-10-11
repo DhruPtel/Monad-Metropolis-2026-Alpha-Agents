@@ -408,9 +408,14 @@ export function PortfolioPage({
 
   const header = (
     <div className="flex flex-col gap-2">
-      <Link href="/agents" className="flex items-center gap-1 text-sm text-foreground-muted">
-        <ArrowLeft aria-hidden className="size-4" /> My Agents
-      </Link>
+      <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-foreground-muted">
+        <Link href="/agents" className="flex items-center gap-1">
+          <ArrowLeft aria-hidden className="size-4" /> My Agents
+        </Link>
+        <Link href={`/agents/${agentId.toString()}/window`} data-testid="window-link">
+          Performance window
+        </Link>
+      </div>
       <h1 className="text-2xl font-semibold">{name}: portfolio</h1>
       <p className="max-w-2xl text-sm text-foreground-muted">
         {name}&apos;s trading account on {network}. Only you can withdraw from it; the agent can
@@ -731,7 +736,7 @@ export function PortfolioPage({
               status={<StatusFor status={pf.status} actions={["approve-plan", "reject-plan"]} />}
             />
           ) : null}
-          <section aria-label="Trades" className="flex flex-col gap-3">
+          <section aria-label="Trades" className="flex flex-col gap-3" id="trades">
             <h2 className="text-lg font-semibold">Recent trades</h2>
             <RecentTrades
               trades={pf.intents.slice(0, 10).map((i) => ({
@@ -747,15 +752,17 @@ export function PortfolioPage({
               }))}
             />
           </section>
-          <WhyNotTraded
-            reasons={(pf.why?.reasons ?? []).filter((r) => r.code !== "NOT_ARMED")}
-            armingEnded={
-              armingState === "unarmed"
-                ? (pf.why?.armingEnded?.message ??
-                  "The agent is not armed, so each trade it proposes waits for your approval.")
-                : null
-            }
-          />
+          <div id="why" className="flex flex-col">
+            <WhyNotTraded
+              reasons={(pf.why?.reasons ?? []).filter((r) => r.code !== "NOT_ARMED")}
+              armingEnded={
+                armingState === "unarmed"
+                  ? (pf.why?.armingEnded?.message ??
+                    "The agent is not armed, so each trade it proposes waits for your approval.")
+                  : null
+              }
+            />
+          </div>
         </>
       ) : null}
     </div>
