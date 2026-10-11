@@ -78,22 +78,39 @@ export function ResearchPage({
     </Button>
   );
 
-  if (!wallet.ready)
-    return (
-      <div className="flex flex-col gap-6">
-        {back}
-        <Skeleton className="h-64" />
-      </div>
-    );
-  if (!wallet.address)
+  if (!wallet.ready && wallet.state !== "wrong-chain")
     return (
       <div className="flex flex-col gap-6">
         {back}
         <EmptyState
           icon={Wallet}
           title="Connect your wallet"
-          description="The research page is for the agent's owner."
+          description="The research page appears once you connect the wallet that owns this agent."
+          action={
+            <Button onClick={wallet.connect}>
+              <Wallet aria-hidden /> Connect wallet
+            </Button>
+          }
         />
+      </div>
+    );
+  if (wallet.state === "wrong-chain")
+    return (
+      <div className="flex flex-col gap-6">
+        {back}
+        <EmptyState
+          icon={PlugZap}
+          title={`Switch to ${ENVIRONMENTS[environment].label}`}
+          description="Your wallet is on another network. Switch it to see this agent's research."
+          action={<Button onClick={wallet.switchChain}>Switch network</Button>}
+        />
+      </div>
+    );
+  if (!wallet.address)
+    return (
+      <div className="flex flex-col gap-6">
+        {back}
+        <Skeleton className="h-64" />
       </div>
     );
   if (error)
