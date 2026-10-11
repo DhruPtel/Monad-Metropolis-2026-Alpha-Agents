@@ -317,11 +317,15 @@ export function routeHopsOutput(q: RouteQuoteV3, m: MarketStateV3): RouteHopOutp
 export const QUOTE_VALID_SECONDS_V3 = 10;
 
 /** Each side's price for the floor: USDC 1, a class F feed, a class A token none (until F-U12). */
+/**
+ * A side's price as the Executor will take it: USDC exactly 1, a class F feed, or a class A
+ * token's attested price when the market carries one (F-U12: the attested reader lays the
+ * attestor's price over the market; the plain market reads ATTESTATION_REQUIRED, so 0).
+ */
 function sidePx(m: MarketStateV3, t: TokenInfoV3): bigint {
   if (isAddressEqual(t.token, m.usdc)) return 10n ** 18n;
-  if (t.priceClass === "A") return 0n;
   const p = m.prices[lower(t.token)];
-  return p && p.reason === "OK" ? p.priceE18 : 0n;
+  return p && p.reason === "OK" && p.priceE18 > 0n ? p.priceE18 : 0n;
 }
 
 /** The least output Executor v3 accepts: the implied output less the slippage for the pair's class. */
@@ -465,16 +469,36 @@ export function limitsViewV3(a: AgentStateV3 & { account: Hex }, m: MarketStateV
   };
 }
 
-/** The mirror's hop state for a registered pool: usable by status and code, and its price against the oracle. */
-function hopOf(p: PoolInfoV3, intoUsdc: boolean): executorV3.RouteHopV3 {
+/** The oracle's default pool deviation limit (2%), when the market read did not carry it. */
+const DEFAULT_MAX_DEVIATION_BPS = 200n;
+
+/**
+ * The mirror's hop state for a registered pool: usable by status and code, and
+ * its price against the oracle; or, when the hop prices a class A side the
+ * trade attests (F-U12), the pool's own price against the attested one within
+ * the oracle's deviation limit, as ExecutorV3._checkHopPrice does.
+ */
+function hopOf(
+  p: PoolInfoV3,
+  intoUsdc: boolean,
+  attestedE18: bigint | null = null,
+  maxDeviationBps: bigint = DEFAULT_MAX_DEVIATION_BPS,
+): executorV3.RouteHopV3 {
+  const poolPx = p.poolPriceE18 ?? null;
   const price: executorV3.HopPriceStateV3 =
-    p.priceReason === "OK"
-      ? "OK"
-      : p.priceReason === "POOL_DEVIATION" ||
-          p.priceReason === "POOL_UNREADABLE" ||
-          p.priceReason === "POOL_UNSUPPORTED"
-        ? "POOL_OFF"
-        : "FEED_OFF";
+    attestedE18 !== null
+      ? poolPx !== null &&
+        (poolPx > attestedE18 ? poolPx - attestedE18 : attestedE18 - poolPx) * 10_000n <=
+          attestedE18 * maxDeviationBps
+        ? "OK"
+        : "POOL_OFF"
+      : p.priceReason === "OK"
+        ? "OK"
+        : p.priceReason === "POOL_DEVIATION" ||
+            p.priceReason === "POOL_UNREADABLE" ||
+            p.priceReason === "POOL_UNSUPPORTED"
+          ? "POOL_OFF"
+          : "FEED_OFF";
   return {
     tokenA: lower(p.tokenA),
     tokenB: lower(p.tokenB),
@@ -505,8 +529,15 @@ export function executorMarketV3(
   const sides: Record<string, executorV3.SidePriceV3> = {};
   for (const t of [sell, buy]) {
     if (isAddressEqual(t.token, m.usdc)) continue;
-    if (t.priceClass === "A") sides[lower(t.token)] = { priceE18: 0n, attestation: "NONE" };
-    else {
+    if (t.priceClass === "A") {
+      // F-U12: a class A side is attested when the market carries the attestor's current price
+      // (the attested reader lays it over the market); the trade then carries a fresh attestation.
+      const p = m.prices[lower(t.token)];
+      sides[lower(t.token)] =
+        p && p.reason === "OK" && p.priceE18 > 0n
+          ? { priceE18: p.priceE18, attestation: "VALID" }
+          : { priceE18: 0n, attestation: "NONE" };
+    } else {
       const p = m.prices[lower(t.token)];
       sides[lower(t.token)] = {
         priceE18: p && p.reason === "OK" ? p.priceE18 : 0n,
@@ -537,7 +568,11 @@ export function executorMarketV3(
     optedIn: a.screenedOptIn,
     attestorSet: m.attestorSet,
     sides,
-    route: route.map((p) => hopOf(p, intoUsdc)),
+    route: route.map((p) => {
+      const side = sides[lower(p.pricedToken)];
+      const attested = side?.attestation === "VALID" ? side.priceE18 : null;
+      return hopOf(p, intoUsdc, attested, m.maxDeviationBps ?? DEFAULT_MAX_DEVIATION_BPS);
+    }),
     drawdownBps: a.breaker?.drawdownBps ?? 0n,
     trades: a.trades,
   };

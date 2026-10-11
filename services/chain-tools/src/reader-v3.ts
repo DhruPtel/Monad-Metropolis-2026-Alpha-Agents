@@ -116,6 +116,12 @@ export interface PoolInfoV3 {
   readonly pricedToken: Hex;
   readonly deviationBps: bigint;
   readonly priceReason: PriceReason;
+  /**
+   * F-U12: the pool's own price of the priced token (the oracle's `poolPrice`), or null when
+   * unreadable; the Executor checks a class A side's attestation against it, within the oracle's
+   * deviation limit, since the oracle has no price of its own for class A.
+   */
+  readonly poolPriceE18?: bigint | null;
 }
 
 export interface MarketStateV3 {
@@ -132,6 +138,8 @@ export interface MarketStateV3 {
   readonly attestorSet: boolean;
   /** The attestation verifier the registry names, zero when none (F-U12). */
   readonly verifier?: Hex;
+  /** F-U12: the oracle's pool deviation limit, which an attested price must meet against the pool. */
+  readonly maxDeviationBps?: bigint;
   readonly usdc: Hex;
   readonly wmon: Hex;
   readonly tokens: readonly TokenInfoV3[];
@@ -262,6 +270,8 @@ const POOLS_ABI = parseAbi([
 const ORACLE_ABI = parseAbi([
   "function price(address token) view returns (uint256 priceE18, uint256 updatedAt, uint8 reason)",
   "function poolDeviationBps(address token, bytes32 poolId) view returns (uint256 bps, uint8 reason)",
+  "function poolPrice(address token, bytes32 poolId) view returns (uint256 priceE18, uint8 reason)",
+  "function MAX_DEVIATION_BPS() view returns (uint256)",
 ]);
 const ACCOUNT_ABI = parseAbi([
   "function mode() view returns (uint8)",
@@ -444,6 +454,16 @@ export class ViemChainReaderV3 implements ChainReaderV3 {
             args: [pricedToken, poolId],
           })
           .catch(() => [0n, PRICE_REASONS.indexOf("FEED_REVERTED")] as const);
+        // F-U12: the pool's own price, for a class A side's attestation to be checked against.
+        const poolPx = await this.client
+          .readContract({
+            address: o,
+            abi: ORACLE_ABI,
+            functionName: "poolPrice",
+            args: [pricedToken, poolId],
+          })
+          .then((r) => (reasonOf(Number(r[1])) === "OK" && r[0] > 0n ? r[0] : null))
+          .catch(() => null);
         return {
           poolId,
           venue: (venueOf(rec.venue) === "NONE" ? "UNISWAP_V3" : venueOf(rec.venue)) as VenueV3,
@@ -460,6 +480,7 @@ export class ViemChainReaderV3 implements ChainReaderV3 {
           pricedToken,
           deviationBps: dev[0],
           priceReason: reasonOf(Number(dev[1])),
+          poolPriceE18: poolPx,
         };
       }),
     );
@@ -467,8 +488,8 @@ export class ViemChainReaderV3 implements ChainReaderV3 {
 
   private async readMarket(): Promise<MarketStateV3> {
     const e = this.c.executor_v3;
-    const [block, policy, policyHash, paused, adapter, verifier, tokens, pools] = await Promise.all(
-      [
+    const [block, policy, policyHash, paused, adapter, verifier, tokens, pools, maxDeviationBps] =
+      await Promise.all([
         this.client.getBlock(),
         this.client.readContract({ address: e, abi: EXECUTOR_ABI, functionName: "policy" }),
         this.client.readContract({ address: e, abi: EXECUTOR_ABI, functionName: "policyHash" }),
@@ -486,8 +507,14 @@ export class ViemChainReaderV3 implements ChainReaderV3 {
         }),
         this.readTokens(),
         this.readPools(),
-      ],
-    );
+        this.client
+          .readContract({
+            address: this.c.oracle_adapter_v3,
+            abi: ORACLE_ABI,
+            functionName: "MAX_DEVIATION_BPS",
+          })
+          .catch(() => undefined),
+      ]);
     const o = this.c.oracle_adapter_v3;
     const prices: Record<string, PriceV3> = {};
     await Promise.all(
@@ -512,6 +539,7 @@ export class ViemChainReaderV3 implements ChainReaderV3 {
       adapterAllowed: isAddressEqual(adapter, this.c.executor_route_adapter_v3),
       attestorSet: verifier !== zeroAddress,
       verifier,
+      ...(maxDeviationBps === undefined ? {} : { maxDeviationBps }),
       usdc: this.c.usdc,
       wmon: this.c.wmon,
       tokens,
