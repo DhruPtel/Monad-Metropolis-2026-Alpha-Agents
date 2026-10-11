@@ -299,6 +299,16 @@ abstract contract CustodyCoreV3 is ReentrancyGuard {
     /// Whether `who` may claim credits recorded for them (single-owner mode: the owner).
     function _mayClaim(address who) internal view virtual returns (bool);
 
+    /// Whether `who` may take the account's tokens out directly with `withdraw`
+    /// and `withdrawAll` (single-owner mode: the owner; a public vault: nobody,
+    /// since depositors leave through its exits, P7-U1).
+    function _mayWithdraw(address who) internal view virtual returns (bool) {
+        return _isOwner(who);
+    }
+
+    /// Reverts unless the owner may unpause now (a public vault waits one lockup, D-080).
+    function _checkUnpause() internal view virtual {}
+
     /// Reverts unless the account may trade now under these epochs.
     function _checkTrading(SwapParamsV3 calldata p) internal view virtual;
 
@@ -329,7 +339,8 @@ abstract contract CustodyCoreV3 is ReentrancyGuard {
 
     /// Pays `amount` of any token the account holds to `to`. No mode, pause,
     /// oracle, registry, Executor or platform check: only the owner and the token.
-    function withdraw(address token, uint256 amount, address to) external nonReentrant onlyOwner {
+    function withdraw(address token, uint256 amount, address to) external nonReentrant {
+        if (!_mayWithdraw(msg.sender)) revert NotOwner(msg.sender);
         if (amount == 0) revert ZeroAmount();
         _checkRecipient(to);
         bool held = _records[token].present;
@@ -347,7 +358,8 @@ abstract contract CustodyCoreV3 is ReentrancyGuard {
     /// reverts, or burns more than WITHDRAW_ALL_TRANSFER_GAS, is skipped and
     /// its free balance recorded as the owner's claimable credit, so the other
     /// tokens still come out (D-071).
-    function withdrawAll(address to) external nonReentrant onlyOwner {
+    function withdrawAll(address to) external nonReentrant {
+        if (!_mayWithdraw(msg.sender)) revert NotOwner(msg.sender);
         _checkRecipient(to);
         address[] memory tokens = _held;
         for (uint256 i = 0; i < tokens.length; ++i) {
@@ -407,7 +419,7 @@ abstract contract CustodyCoreV3 is ReentrancyGuard {
     /// token that reverts, returns false or burns its gas is reported as
     /// failed, and only one word of its return data is ever copied, so a
     /// token answering with a huge payload cannot exhaust the exit's gas.
-    function _tryTransfer(address token, address to, uint256 amount) private returns (bool) {
+    function _tryTransfer(address token, address to, uint256 amount) internal returns (bool) {
         bytes memory data = abi.encodeCall(IERC20.transfer, (to, amount));
         uint256 gasLimit = WITHDRAW_ALL_TRANSFER_GAS;
         bool success;
@@ -452,7 +464,7 @@ abstract contract CustodyCoreV3 is ReentrancyGuard {
         return true;
     }
 
-    function _checkRecipient(address to) private view {
+    function _checkRecipient(address to) internal view {
         if (to == address(0) || to == address(this)) revert BadRecipient(to);
     }
 
@@ -519,6 +531,7 @@ abstract contract CustodyCoreV3 is ReentrancyGuard {
     /// sentinel. The breaker's peak starts again from the next observation, so
     /// a drawdown the owner has reviewed does not trip the breaker again at once.
     function unpause() external onlyOwner {
+        _checkUnpause();
         if (mode != AccountMode.NORMAL) _setMode(AccountMode.NORMAL);
         _resetPeaks();
     }
@@ -536,7 +549,7 @@ abstract contract CustodyCoreV3 is ReentrancyGuard {
         revert NotTightener(msg.sender);
     }
 
-    function _setMode(AccountMode next) private {
+    function _setMode(AccountMode next) internal virtual {
         emit ModeChanged(mode, next, msg.sender);
         mode = next;
     }
@@ -730,7 +743,7 @@ abstract contract CustodyCoreV3 is ReentrancyGuard {
 
     /// A withdrawal takes its share of the basis with it, in proportion to the
     /// free balance that left. Rounds the basis kept up, which only tightens the caps.
-    function _reduceBasis(address token, uint256 freeOut, uint256 freeBefore) private {
+    function _reduceBasis(address token, uint256 freeOut, uint256 freeBefore) internal {
         if (token == USDC || freeOut == 0 || freeBefore == 0) return;
         Held storage h = _records[token];
         if (!h.present) return;
@@ -767,7 +780,7 @@ abstract contract CustodyCoreV3 is ReentrancyGuard {
     }
 
     /// Takes a token with no balance off the list (never USDC), freeing its slot.
-    function _removeHeld(address token) private {
+    function _removeHeld(address token) internal {
         Held memory h = _records[token];
         uint256 last = _held.length - 1;
         if (h.index != last) {
@@ -787,6 +800,16 @@ abstract contract CustodyCoreV3 is ReentrancyGuard {
     /// The held list (D-056): what withdrawals and valuation cover, USDC first.
     function heldTokens() external view returns (address[] memory) {
         return _held;
+    }
+
+    /// The held list for the modes' own exits (a vault's in-kind redemption, P7-U1).
+    function _heldList() internal view returns (address[] memory) {
+        return _held;
+    }
+
+    /// Whether `token` is on the held list, for the modes.
+    function _isHeld(address token) internal view returns (bool) {
+        return _records[token].present;
     }
 
     function heldCount() external view returns (uint256) {

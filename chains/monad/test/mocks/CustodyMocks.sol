@@ -111,10 +111,23 @@ contract OwnerWallet {
 contract MockAgentNFT is IAgentNFTView {
     mapping(uint256 => address) internal _owner;
     mapping(uint256 => uint64) internal _epoch;
+    mapping(uint256 => uint64) internal _epochStartedAt;
+    /// When set, every read reverts: the vault's fail-open handover read (P7-U1).
+    bool public broken;
 
     function setOwner(uint256 agentId, address owner) external {
         if (_owner[agentId] != address(0)) _epoch[agentId] += 1;
         _owner[agentId] = owner;
+        _epochStartedAt[agentId] = uint64(block.timestamp);
+    }
+
+    function setBroken(bool b) external {
+        broken = b;
+    }
+
+    function epochStartedAt(uint256 agentId) external view returns (uint64) {
+        require(!broken, "broken");
+        return _epochStartedAt[agentId];
     }
 
     function ownerOf(uint256 agentId) external view returns (address) {
@@ -124,6 +137,7 @@ contract MockAgentNFT is IAgentNFTView {
     }
 
     function ownerEpoch(uint256 agentId) external view returns (uint64) {
+        require(!broken, "broken");
         return _epoch[agentId];
     }
 }
