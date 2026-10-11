@@ -20,6 +20,7 @@ import {
   REJECTED_PROPOSAL,
   planCardFixture,
   proposalFixture,
+  NOW,
 } from "./fake-trading";
 
 /**
@@ -380,17 +381,27 @@ test.describe("the owner's data only", () => {
     await expect(card.getByRole("button")).toHaveCount(0);
     await capture(page, main(page).getByTestId("plan-section"), "portfolio-plan-rejected.png");
     expect(await blockingViolations(page)).toEqual([]);
-    // Declining a waiting proposal keeps the plan; the Zoom out's no-change is shown with its reason.
-    s.trading.planCard = planCardFixture({ pending: proposalFixture(), noChange: NO_CHANGE });
-    await page.reload();
-    await main(page).getByRole("button", { name: "Connect wallet" }).click();
+  });
+
+  test("declining a waiting proposal keeps the plan, and a later no-change decision says why (F-U9)", async ({
+    page,
+  }) => {
+    const s = stack();
+    // The no-change decision came from a cycle after the proposal was made.
+    s.trading.planCard = planCardFixture({
+      pending: proposalFixture(),
+      noChange: { ...NO_CHANGE, createdAt: new Date((NOW - 300) * 1000).toISOString() },
+    });
+    await open(page, s);
     const waiting = main(page).getByTestId("plan-card");
     await expect(waiting).toHaveAttribute("data-status", "pending_owner");
     await waiting.getByRole("button", { name: "Decline" }).click();
     await expect(main(page).getByTestId("plan-section")).toContainText(
       "Declined. The plan stays as it is.",
     );
-    expect(s.trading.decisions.at(-1)).toBe("reject prop-00000000-0000-4000-8000-000000000001");
+    expect(s.trading.decisions).toEqual(["reject prop-00000000-0000-4000-8000-000000000001"]);
+    // The newer no-change decision is what the owner now reads; the declined card gives way to it.
+    await expect(main(page).getByTestId("plan-card")).toHaveCount(0);
     await expect(main(page).getByTestId("plan-no-change")).toContainText("evidence thin");
     await expect(main(page).getByTestId("plan-no-change")).toContainText("What would change it");
   });
