@@ -275,7 +275,7 @@ export interface HoldingsJson {
   readonly owner: Address;
   readonly block: string;
   readonly addresses: readonly {
-    readonly role: "funding" | "token_bound" | "personal_account";
+    readonly role: "funding" | "token_bound" | "personal_account" | "older_account";
     readonly address: Address | null;
     readonly holdings: readonly {
       readonly symbol: string;
@@ -283,7 +283,7 @@ export interface HoldingsJson {
       readonly decimals: number;
       readonly raw: string;
       readonly use: "gas" | "credits" | "trading" | null;
-      readonly status: "in_use" | "movable" | "platform_only" | "stuck";
+      readonly status: "in_use" | "movable" | "platform_only" | "stuck" | "older";
       readonly recoverCall: WalletCallJson | null;
     }[];
   }[];

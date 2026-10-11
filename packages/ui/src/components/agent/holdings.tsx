@@ -13,9 +13,9 @@ import { type WalletActionState, WalletActionStatus } from "./portfolio";
  * sits where it does nothing, plainly so, with a safe way to move it to the
  * owner's wallet when the owner can.
  */
-export type HoldingAddressRole = "funding" | "token_bound" | "personal_account";
+export type HoldingAddressRole = "funding" | "token_bound" | "personal_account" | "older_account";
 export type HoldingUse = "gas" | "credits" | "trading" | null;
-export type HoldingStatus = "in_use" | "movable" | "platform_only" | "stuck";
+export type HoldingStatus = "in_use" | "movable" | "platform_only" | "stuck" | "older";
 
 export interface HoldingLine {
   readonly symbol: string;
@@ -62,8 +62,14 @@ const ROLE_TEXT: Readonly<
   personal_account: {
     title: "Trading account",
     purpose:
-      "Holds what the agent trades with: your deposits in USDC and the WMON it buys. Only you can withdraw from it.",
+      "Holds what the agent trades with: your deposits and the tokens it buys. Only you can withdraw from it.",
     missing: "Not opened yet. Open it on the portfolio page to deposit and trade.",
+  },
+  older_account: {
+    title: "Older trading account",
+    purpose:
+      "The agent's trading account from before the fund set. The agent no longer trades it; what it holds is yours to withdraw from the portfolio page.",
+    missing: "None.",
   },
 };
 
@@ -77,6 +83,7 @@ const STRANDED_TEXT: Readonly<Record<Exclude<HoldingStatus, "in_use">, string>> 
   movable: "Does nothing here. You can move it to your wallet.",
   platform_only: "Does nothing here, and only the platform can move it.",
   stuck: "Does nothing here, and nothing can move it.",
+  older: "Sits in the older account. Withdraw it to your wallet from the portfolio page.",
 };
 
 function Line({

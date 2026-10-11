@@ -84,14 +84,12 @@ export interface CustodyPathReader {
   custodyPath(agentId: number): Promise<CustodyPath | null>;
 }
 
-const FACTORY_READS = parseAbi([
-  "function personalAccountOf(uint256 agentId, address owner) view returns (address)",
-]);
-
 /**
- * An agent is on v3 once its owner opened a PersonalAccountV3; on v2 while it
- * has only a v2 account; on v3 with no account at all (new accounts open on
- * the fund agent's set).
+ * An agent is on v3 wherever the fund agent's set is deployed (A-80, read
+ * after the F-U11 playtest): the activation sweep, the plans and the window
+ * live on that set, so a v2 PersonalAccount the agent still has is an older
+ * account its owner withdraws from, never the path. Null when the agent does
+ * not exist.
  */
 export function rpcCustodyPathReader(
   rpcUrl: string,
@@ -117,19 +115,9 @@ export function rpcCustodyPathReader(
         if (err instanceof Error && /revert/i.test(err.message)) return null;
         throw err;
       }
-      const accountOf = (factory: Hex) =>
-        client.readContract({
-          address: factory,
-          abi: FACTORY_READS,
-          functionName: "personalAccountOf",
-          args: [id, owner],
-        });
-      const [v3, v2] = await Promise.all([
-        accountOf(contracts.accountFactoryV3),
-        accountOf(contracts.accountFactory),
-      ]);
-      if (v3 !== zeroAddress) return "v3";
-      return v2 !== zeroAddress ? "v2" : "v3";
+      // The owner read above is the existence check; the set itself decides the path.
+      void owner;
+      return "v3";
     },
   };
 }

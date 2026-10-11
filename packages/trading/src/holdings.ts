@@ -11,7 +11,7 @@ import type { WalletCall } from "./actions.ts";
  * owner can move it to their own wallet with a call the owner signs: the
  * account's `execute`, which only the agent's current owner may call.
  */
-export type HoldingRole = "funding" | "token_bound" | "personal_account";
+export type HoldingRole = "funding" | "token_bound" | "personal_account" | "older_account";
 
 /** A token the environment's address book knows, and its decimals. */
 export interface HoldingToken {
@@ -22,7 +22,10 @@ export interface HoldingToken {
 
 export interface HoldingsContracts {
   readonly agentNft: Hex;
+  /** The v2 AccountFactory; its account is the trading account where no v3 factory is deployed, else an older account (A-80). */
   readonly accountFactory: Hex | null;
+  /** AccountFactoryV3, where the fund agent's set is deployed. */
+  readonly accountFactoryV3?: Hex | null;
   readonly tokens: readonly HoldingToken[];
 }
 
@@ -55,7 +58,7 @@ export type HoldingUse = "gas" | "credits" | "trading" | null;
  * owner can move it to their wallet. `platform_only`: it does nothing there and
  * only the platform's key can move it. `stuck`: nothing can move it.
  */
-export type HoldingStatus = "in_use" | "movable" | "platform_only" | "stuck";
+export type HoldingStatus = "in_use" | "movable" | "platform_only" | "stuck" | "older";
 
 export interface HoldingJson {
   readonly symbol: string;
@@ -157,8 +160,13 @@ function classify(role: HoldingRole, symbol: string): { use: HoldingUse; status:
     return { use: null, status: "platform_only" };
   }
   if (role === "personal_account") {
-    if (symbol === "USDC" || symbol === "WMON") return { use: "trading", status: "in_use" };
-    return { use: null, status: "stuck" };
+    if (symbol === "MON") return { use: null, status: "stuck" };
+    return { use: "trading", status: "in_use" };
+  }
+  // A-80: what the older v2 account holds is the owner's to withdraw, from the portfolio page.
+  if (role === "older_account") {
+    if (symbol === "MON") return { use: null, status: "stuck" };
+    return { use: null, status: "older" };
   }
   return { use: null, status: "movable" };
 }
@@ -195,17 +203,23 @@ export function rpcHoldingsReader(
         if (err instanceof Error && /revert/i.test(err.message)) return null;
         throw err;
       }
-      const [block, tba, account] = await Promise.all([
+      const accountOf = (factory: Hex | null | undefined) =>
+        factory
+          ? read<Hex>(factory, FACTORY_ABI, "personalAccountOf", [id, owner])
+          : Promise.resolve(ZERO as Hex);
+      const [block, tba, v2, v3] = await Promise.all([
         client.getBlockNumber(),
         read<Hex>(c.agentNft, AGENT_NFT_ABI, "tbaOf", [id]),
-        c.accountFactory
-          ? read<Hex>(c.accountFactory, FACTORY_ABI, "personalAccountOf", [id, owner])
-          : Promise.resolve(ZERO as Hex),
+        accountOf(c.accountFactory),
+        accountOf(c.accountFactoryV3),
       ]);
+      const at = (a: Hex) => (a === ZERO ? null : getAddress(a));
+      // Where the fund set is deployed the v3 account is the trading account and a v2 one is older (A-80).
       const addresses = await Promise.all([
         balances("funding", fundingAddress),
         balances("token_bound", getAddress(tba)),
-        balances("personal_account", account === ZERO ? null : getAddress(account)),
+        balances("personal_account", c.accountFactoryV3 ? at(v3) : at(v2)),
+        ...(c.accountFactoryV3 && v2 !== ZERO ? [balances("older_account", at(v2))] : []),
       ]);
       return { chainId, block, agentId, owner: getAddress(owner), addresses };
     },

@@ -249,7 +249,7 @@ export async function tradingSnapshotV3(url: string, agentId: number): Promise<T
 }
 
 /** Adds a wallet to AccountFactoryV3's deposit allowlist as the factory's owner (instant). */
-async function allowDepositorV3(url: string, depositor: Hex): Promise<boolean> {
+export async function allowDepositorV3(url: string, depositor: Hex): Promise<boolean> {
   const factory = book("account_factory_v3");
   const [enabled, listed] = await Promise.all([
     read<boolean>(url, factory, FACTORY_ABI, "allowlistEnabled"),

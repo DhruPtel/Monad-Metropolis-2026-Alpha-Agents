@@ -411,8 +411,9 @@ describe.skipIf(upstream === null || !dbUp)(
       );
     });
 
-    it("keeps an agent with only a v2 account trading through the v2 Executor on the same stack (D-367)", async () => {
-      expect(await readerV3.custodyPath(v2AgentId)).toBe("v2");
+    it("keeps a v2 arming and a v2 intent trading through the v2 Executor on the same stack, though the agent's path is now v3 (D-367, A-80)", async () => {
+      // A-80: the path is v3 wherever the fund set is deployed; the flow follows the intent's and the arming's own set.
+      expect(await readerV3.custodyPath(v2AgentId)).toBe("v3");
       const f = flow();
       const id = await proposeV2(5_000_000n);
       const record = await armV2();

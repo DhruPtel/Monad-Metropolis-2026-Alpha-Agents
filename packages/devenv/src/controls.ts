@@ -1,3 +1,4 @@
+import { localForkRpcUrl } from "@alpha-agents/config";
 import { type Address, addressEntry } from "@alpha-agents/domain";
 import { assertLocalFork } from "./guard.ts";
 import { hexToBigInt, hexToNumber, rpc, toHex } from "./rpc.ts";
@@ -169,10 +170,67 @@ export async function waitForReceipt(
   }
 }
 
+/** Anvil's ten default accounts: the admin, the roles and the local test owners. */
+export const ANVIL_ACCOUNTS: readonly Address[] = [
+  "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+  "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+  "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC",
+  "0x90F79bf6EB2c4f870365E785982E1f101E93b906",
+  "0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65",
+  "0x9965507D1a55bcC2695C58ba16FB37d819B0A4dc",
+  "0x976EA74026E726554dB657fA54763abd0C3a0aa9",
+  "0x14dC79964da2C08b23698B3D3cc7Ca32193d9955",
+  "0x23618e81E3f5cdF7f54C3d65f7FBc0aBf5B21E8F",
+  "0xa0Ee7A142d267C1f36714E4a8F75612F20a79720",
+];
+
+export class RealWalletError extends Error {
+  constructor(from: string) {
+    super(
+      `Refused: ${from} is a real wallet, and scripts never send as a real wallet on the playtest fork (its nonce must stay the wallet's own; the owner sends from the app).`,
+    );
+    this.name = "RealWalletError";
+  }
+}
+
+/** The playtest fork is the one LOCAL_FORK_PORT names (8545 by default); a test's own fork is another port. */
+function isPlaytestFork(url: string): boolean {
+  try {
+    return new URL(url).port === new URL(localForkRpcUrl(process.env)).port;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * On the playtest fork a script may impersonate anvil's own accounts, the
+ * fork-only test minter, USDC's master minter and contracts, never a real
+ * wallet (after the F-U11 playtest): the owner's wallet sends its own
+ * transactions from the app, and an impersonated one would put its nonce
+ * out of step with the wallet's.
+ */
+async function assertImpersonable(url: string, from: Address): Promise<void> {
+  if (!isPlaytestFork(url)) return;
+  const who = from.toLowerCase();
+  if (ANVIL_ACCOUNTS.some((a) => a.toLowerCase() === who)) return;
+  if (who === TEST_USDC_MINTER.toLowerCase()) return;
+  const code = await rpc(url, "eth_getCode", [from, "latest"]);
+  if (typeof code === "string" && code.length > 2) return;
+  const usdc = localUsdc();
+  const masterMinter = String(
+    await rpc(url, "eth_call", [{ to: usdc, data: SELECTORS.masterMinter }, "latest"]),
+  )
+    .slice(-40)
+    .toLowerCase();
+  if (who.slice(2) === masterMinter) return;
+  throw new RealWalletError(from);
+}
+
 export async function sendAs(url: string, from: Address, to: Address, data: string): Promise<void> {
   // Its own guard (P2-EC): impersonation exists only on the local fork, so
   // nothing is sent anywhere else, whatever the caller checked.
   await assertLocalFork(url);
+  await assertImpersonable(url, from);
   await rpc(url, "anvil_impersonateAccount", [from]);
   try {
     const hash = await rpc(url, "eth_sendTransaction", [{ from, to, data }]);

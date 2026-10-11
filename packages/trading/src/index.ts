@@ -4,6 +4,7 @@ export * from "./actions.ts";
 export * from "./chain.ts";
 export * from "./json.ts";
 export * from "./portfolio.ts";
+export * from "./portfolio-v3.ts";
 export * from "./holdings.ts";
 export * from "./snapshots.ts";
 export * from "./goals.ts";

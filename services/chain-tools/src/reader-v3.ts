@@ -204,9 +204,11 @@ export interface ChainReaderV3 {
   /** The agent's state; null when the agent does not exist on chain. */
   agent(agentId: number): Promise<AgentStateV3 | null>;
   /**
-   * Which custody set serves the agent (D-367): v3 once its owner opened a
-   * PersonalAccountV3; v2 while it has only a v2 account; v3 for an agent
-   * with no account at all. Null when the agent does not exist.
+   * Which custody set serves the agent: v3 wherever the fund agent's set is
+   * deployed (A-80, after the F-U11 playtest; D-367's "v2 while it has only
+   * a v2 account" no longer holds, since the sweep, the plans and the window
+   * live on the v3 set). A v2 account the agent still has is an older account
+   * its owner withdraws from. Null when the agent does not exist.
    */
   custodyPath(agentId: number): Promise<CustodyPath | null>;
   /**
@@ -543,12 +545,7 @@ export class ViemChainReaderV3 implements ChainReaderV3 {
       const id = BigInt(agentId);
       const owner = await this.ownerOf(id);
       if (!owner) return null;
-      const [v3, v2] = await Promise.all([
-        this.accountOf(this.c.account_factory_v3, id, owner),
-        this.accountOf(this.c.account_factory, id, owner),
-      ]);
-      if (v3 !== zeroAddress) return "v3";
-      return v2 !== zeroAddress ? "v2" : "v3";
+      return "v3";
     });
   }
 

@@ -4,7 +4,6 @@ import {
   LimitsOutputV3,
   MemoryCallLog,
   MemoryIntentStore,
-  PortfolioOutput,
   PortfolioOutputV3,
   PricesOutputV3,
   QuoteOutputV3,
@@ -338,11 +337,10 @@ describe.skipIf(upstream === null)(
       await c.close();
     });
 
-    it("keeps an agent with only a v2 account on the v2 tools (D-367)", async () => {
-      expect(await readerV3.custodyPath(v2AgentId)).toBe("v2");
+    it("puts an agent with only a v2 account on the v3 tools, where its older account is not the fund account (A-80)", async () => {
+      expect(await readerV3.custodyPath(v2AgentId)).toBe("v3");
       const { c, call } = await tools(TOKEN_V2);
-      const portfolio = PortfolioOutput.parse(await call("get_portfolio"));
-      expect(portfolio.holdings[0]).toMatchObject({ asset: "USDC", amount: "60" });
+      await expect(call("get_portfolio")).rejects.toThrow(/no fund account/);
       await c.close();
     });
 

@@ -105,6 +105,31 @@ describe("an agent's holdings at every address (D-315)", () => {
     );
   });
 
+  it("marks what the older v2 account holds as the owner's to withdraw from the portfolio page, never as in use nor movable here (A-80)", () => {
+    const j = holdingsJson(
+      reading({
+        addresses: [
+          {
+            role: "older_account",
+            address: ACCOUNT,
+            native: 10n ** 15n,
+            tokens: [
+              { token: USDC, raw: 100_000_000n },
+              { token: WMON, raw: 0n },
+            ],
+          },
+        ],
+      }),
+    );
+    expect(j.addresses[0]).toMatchObject({ role: "older_account", address: ACCOUNT });
+    expect(j.addresses[0]?.holdings.map((h) => [h.symbol, h.status, h.use, h.recoverCall])).toEqual(
+      [
+        ["MON", "stuck", null, null],
+        ["USDC", "older", null, null],
+      ],
+    );
+  });
+
   it("shows an address that does not exist yet as empty, with nothing to move", () => {
     const j = holdingsJson(
       reading({

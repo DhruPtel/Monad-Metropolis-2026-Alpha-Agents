@@ -10,6 +10,7 @@ import {
 } from "viem";
 import { mintTestUsdc, sendAs } from "./controls.ts";
 import { assertLocalFork } from "./guard.ts";
+import { allowDepositorV3 } from "./trading-v3.ts";
 import { RpcError, hexToBigInt, rpc, toHex } from "./rpc.ts";
 
 /**
@@ -149,6 +150,22 @@ export async function addTestDepositor(url: string, depositor: string): Promise<
     encodeFunctionData({ abi: FACTORY_ABI, functionName: "addDepositor", args: [who] }),
   );
   return true;
+}
+
+/**
+ * Adds a wallet to every deposit allowlist the local fork has (after the
+ * F-U11 playtest): the v2 AccountFactory's, and AccountFactoryV3's where the
+ * fund agent's set is deployed, since the app opens v3 accounts there.
+ * Returns which lists it was added to.
+ */
+export async function addTestDepositorEverywhere(
+  url: string,
+  depositor: string,
+): Promise<{ v2: boolean; v3: boolean | null }> {
+  const v2 = await addTestDepositor(url, depositor);
+  const v3Entry = addressEntry("local", "account_factory_v3");
+  const v3 = v3Entry.status === "verified" ? await allowDepositorV3(url, wallet(depositor)) : null;
+  return { v2, v3 };
 }
 
 /**
