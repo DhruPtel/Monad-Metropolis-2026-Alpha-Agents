@@ -166,6 +166,28 @@ export async function refreshLocalFeeds(
   return out;
 }
 
+/**
+ * Moves one feed's answer by a share (P3-U10's market mover, the local fork
+ * only): +800 is a rise of 8%, -1_000 a fall of 10%. The round is re-dated
+ * like a refresh, so the oracle adapters read the new price at once. Returns
+ * the round written, with the answer before it.
+ */
+export async function moveLocalFeed(
+  url: string,
+  feed: Address,
+  bps: number,
+): Promise<{ before: bigint; round: LocalFeedRound }> {
+  if (!Number.isInteger(bps) || Math.abs(bps) > 9_000)
+    throw new Error("a feed moves by a whole number of basis points, at most 90% either way");
+  await assertLocalFork(url);
+  const current = await readRound(url, feed);
+  if (current === null) throw new Error(`no feed at ${feed} on the fork`);
+  const answer = (current.answer * BigInt(10_000 + bps)) / 10_000n;
+  const [round] = await refreshLocalFeeds(url, [feed], { [feed.toLowerCase()]: { answer } });
+  if (!round) throw new Error(`the feed at ${feed} was not written`);
+  return { before: current.answer, round };
+}
+
 /** Whether the feeds at these addresses are already LocalFeed (read-only). */
 export async function localFeedsInstalled(
   url: string,

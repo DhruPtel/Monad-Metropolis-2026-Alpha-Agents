@@ -3,7 +3,8 @@ import { z } from "zod";
 import { cycleJson, stageJson } from "./cycle-routes.ts";
 import { utcDayStart } from "./cycle/stages.ts";
 import type { Orchestrator } from "./orchestrator.ts";
-import { type TerminalCall, terminalEvents } from "./terminal.ts";
+import { type TerminalCall, carriesSkillText, sourceLabel, terminalEvents } from "./terminal.ts";
+import { formatUsdc } from "./narrator.ts";
 import {
   PRICE_TRIGGER_BPS,
   TRIGGER_CODES,
@@ -21,6 +22,29 @@ import {
  * by hand and one pass of the loop now.
  */
 const iso = (d: Date | null) => (d ? d.toISOString() : null);
+
+/** A brief's text as the owner may read it: withheld when it carries playbook text or a link. */
+const safe = (v: unknown, runs: ReadonlySet<string>, max = 600): string => {
+  if (typeof v !== "string") return "";
+  const t = v.replace(/\s+/g, " ").trim().slice(0, max);
+  if (carriesSkillText(t, runs)) return "[withheld: playbook text]";
+  if (/https?:|www\./i.test(t)) return "[withheld: a link]";
+  return t;
+};
+
+const claimsOf = (v: unknown, runs: ReadonlySet<string>) =>
+  Array.isArray(v)
+    ? (v as { text?: unknown; class?: unknown; sources?: unknown }[]).map((c) => ({
+        text: safe(c.text, runs),
+        class: typeof c.class === "string" ? c.class : "source",
+        sources: Array.isArray(c.sources)
+          ? c.sources.filter((x): x is string => typeof x === "string").map(sourceLabel)
+          : [],
+      }))
+    : [];
+
+const priceText = (e18: bigint | null) =>
+  e18 === null ? null : (Number(e18) / 1e18).toFixed(Number(e18) / 1e18 >= 100 ? 0 : 2);
 
 export function registerResearchRoutes(
   app: Hono,
@@ -91,6 +115,7 @@ export function registerResearchRoutes(
       open: open
         ? { ...cycleJson(open), stages: (await orch.cycles.stages(open.cycleId)).map(stageJson) }
         : null,
+      ...(await researchRecords(orch, ref)),
       triggers: (await orch.loop.recent(ref, 20)).map((t) => ({
         triggerId: t.triggerId,
         code: t.code,
@@ -258,6 +283,19 @@ export function registerResearchRoutes(
     return c.json({ agentId: String(ref.agentId), triggerId, code, spaced }, 202);
   });
 
+  const Move = z.strictObject({ bps: z.int().min(-9_000).max(9_000) });
+  /** The market mover (the local fork only): MON/USD by a share, so the watcher's price trigger can be seen. */
+  app.post("/v1/dev/market/move", async (c) => {
+    const body = Move.safeParse(await c.req.json().catch(() => ({})));
+    if (!body.success)
+      return c.json({ error: "bad_request", message: "bps must be a whole number within 90% either way" }, 400);
+    try {
+      return c.json({ bps: body.data.bps, ...(await orch.moveMarket(body.data.bps)) });
+    } catch (err) {
+      return c.json({ error: "mover_off", message: err instanceof Error ? err.message : String(err) }, 409);
+    }
+  });
+
   /** One pass of the watcher and the scheduler now. */
   app.post("/v1/research/tick", async (c) => {
     try {
@@ -266,4 +304,107 @@ export function registerResearchRoutes(
       return c.json({ error: "research_off", message: err instanceof Error ? err.message : String(err) }, 409);
     }
   });
+}
+
+
+/**
+ * The Research page's records: the latest overview, the latest Scan's
+ * themes, the last review that kept the plan, the recent cycles with their
+ * stages' costs, and the watcher's snapshot of the market. Brief texts pass
+ * the terminal's guard; sources show as domains and tool names.
+ */
+async function researchRecords(orch: Orchestrator, ref: { chainId: number; agentId: number }) {
+  const runs = orch.skillText();
+  const briefs = await orch.cycles.briefs({ ref, status: "accepted" }, 60);
+  const overviewBrief = briefs.find((b) => b.kind === "OVERVIEW");
+  const scanBrief = briefs.find((b) => b.kind === "SCAN");
+  const noChange = briefs.find(
+    (b) => b.kind === "RATIONALE" && (b.body as { decision?: unknown }).decision === "NO_CHANGE",
+  );
+  const cycles = await orch.cycles.cycles(ref, 10);
+  const rows = await Promise.all(
+    cycles.map(async (c) => ({
+      cycleId: c.cycleId,
+      kind: c.kind,
+      status: c.status,
+      startedAt: iso(c.startedAt),
+      finishedAt: iso(c.finishedAt),
+      chargedUsdcE6: c.chargedUsdcE6.toString(),
+      stages: (await orch.cycles.stages(c.cycleId)).map((s) => ({
+        stage: s.stage,
+        themeCode: s.themeCode,
+        status: s.status,
+        chargedUsdcE6: s.chargedUsdcE6.toString(),
+        ceilingUsdcE6: s.ceilingUsdcE6.toString(),
+      })),
+    })),
+  );
+  const o = await orch.researchSnapshot(ref);
+  const scanBody = scanBrief?.body as
+    | { summary?: unknown; quiet?: unknown; themes?: unknown }
+    | undefined;
+  const noChangeBody = noChange?.body as
+    | { reasonCode?: unknown; portfolioView?: unknown; whatWouldChangeIt?: unknown }
+    | undefined;
+  return {
+    overview: overviewBrief
+      ? {
+          at: new Date(overviewBrief.createdAt).toISOString(),
+          summary: safe((overviewBrief.body as { summary?: unknown }).summary, runs),
+          points: claimsOf((overviewBrief.body as { points?: unknown }).points, runs),
+        }
+      : null,
+    themes:
+      scanBrief && scanBody
+        ? {
+            at: new Date(scanBrief.createdAt).toISOString(),
+            summary: safe(scanBody.summary, runs),
+            quiet: scanBody.quiet === true,
+            themes: Array.isArray(scanBody.themes)
+              ? (
+                  scanBody.themes as {
+                    code?: unknown;
+                    materiality?: unknown;
+                    scope?: unknown;
+                    symbol?: unknown;
+                    whyNow?: unknown;
+                  }[]
+                ).map((t) => ({
+                  code: String(t.code ?? ""),
+                  materiality: String(t.materiality ?? "low"),
+                  scope: String(t.scope ?? "MARKET"),
+                  symbol: typeof t.symbol === "string" ? t.symbol : null,
+                  whyNow: safe(t.whyNow, runs, 240),
+                }))
+              : [],
+          }
+        : null,
+    planUnchanged:
+      noChange && noChangeBody
+        ? {
+            at: new Date(noChange.createdAt).toISOString(),
+            reasonCode: String(noChangeBody.reasonCode ?? "NO_MATERIAL_CHANGE"),
+            portfolioView: safe(noChangeBody.portfolioView, runs, 400),
+            whatWouldChangeIt: safe(noChangeBody.whatWouldChangeIt, runs, 240),
+          }
+        : null,
+    cycles: rows,
+    snapshot: o
+      ? {
+          at: o.at.toISOString(),
+          monUsd: priceText(o.monUsdE18),
+          volatilityPct: o.volatility24hPct,
+          mode: o.mode,
+          navUsdcE6: o.navUsdcE6 === null ? null : o.navUsdcE6.toString(),
+          navUsdc: o.navUsdcE6 === null ? null : formatUsdc(o.navUsdcE6),
+          held: o.held.map((h) => ({
+            symbol: h.symbol,
+            priceUsd: priceText(h.priceE18),
+            liquidityUsd: h.liquidityUsd,
+            screen: h.screenVerdict,
+            status: h.registryStatus,
+          })),
+        }
+      : null,
+  };
 }

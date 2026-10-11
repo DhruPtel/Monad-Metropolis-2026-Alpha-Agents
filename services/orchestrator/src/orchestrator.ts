@@ -79,7 +79,7 @@ import { registryToolSource } from "./tokens/tool-source.ts";
 import { runTokenCheckTask } from "./token-check.ts";
 import { ActivationService } from "./activation.ts";
 import { ResearchScheduler, ResearchStore, Watcher } from "./research-loop.ts";
-import { schedulerDeps, watcherDeps } from "./research-wiring.ts";
+import { type ResearchWiring, observe, schedulerDeps, watcherDeps } from "./research-wiring.ts";
 
 /** F-U1: discovery every 30 minutes; screens of due tokens every 10 minutes, two at a time. */
 export const TOKEN_DISCOVERY_EVERY_MS = 30 * 60_000;
@@ -237,6 +237,7 @@ export class Orchestrator {
   /** P3-U10: the scheduler and the watcher, with credits; null without them. */
   readonly scheduler: ResearchScheduler | null;
   readonly watcher: Watcher | null;
+  private readonly researchWiring: ResearchWiring | null;
   /** Eight-word runs of every mounted skill's and playbook's text, once per process: the leak checks. */
   readonly skillText: () => ReadonlySet<string>;
   /** F-U9: portfolio proposals from the Zoom out's decisions, evaluated and stored. */
@@ -365,6 +366,7 @@ export class Orchestrator {
       : null;
     this.scheduler = research ? new ResearchScheduler(schedulerDeps(research)) : null;
     this.watcher = research ? new Watcher(watcherDeps(research)) : null;
+    this.researchWiring = research;
     let runs: Set<string> | null = null;
     this.skillText = () =>
       (runs ??= skillRuns(
@@ -1207,6 +1209,20 @@ export class Orchestrator {
       this.o.log(`agent ${r.agentId}: scheduled a Scan`);
     }
     return queued;
+  }
+
+  /** P3-U10: what the watcher sees of the agent now (the Research page's snapshot); null off the set. */
+  async researchSnapshot(ref: AgentRef) {
+    if (!this.researchWiring) return null;
+    return observe(this.researchWiring, ref, new Date(), null).catch(() => null);
+  }
+
+  /** P3-U10's market mover: MON/USD by a share, on the local fork only; refused elsewhere. */
+  async moveMarket(bps: number) {
+    if (!this.o.localFeeds) throw new Error("the market mover exists on the local fork only");
+    const r = await this.o.localFeeds.moveMon(bps);
+    this.o.log(`market mover: MON/USD moved by ${bps} bps`);
+    return r;
   }
 
   /** P3-U10: one pass of the watcher (every agent, now) and then the scheduler, for the dev console. */
