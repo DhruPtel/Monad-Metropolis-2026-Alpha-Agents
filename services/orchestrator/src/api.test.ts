@@ -29,9 +29,26 @@ describe.skipIf(!dbUp)("the orchestrator's internal API (D-205)", { timeout: 60_
   let leases: LeaseManager;
   const queued: string[] = [];
   let scanRefusal: Error | null = null;
+  /** F-U10: what the fake activation service answers a start with. */
+  let activationStart: { ok: true } | { ok: false; code: string; message: string } = { ok: true };
   const orchestrator = {
     runTag: "run-test",
     keeper: null,
+    activations: {
+      view: async (ref: { agentId: number }) => ({
+        agentId: String(ref.agentId),
+        activation: null,
+        checks: [{ code: "GOAL", ok: false, message: "Set a goal first.", blocking: true }],
+        ceilingUsdcE6: "3800000",
+        tier: { choice: "MEDIUM", label: "Medium" },
+      }),
+      start: async (ref: { agentId: number }) => {
+        queued.push(`activation ${ref.agentId}`);
+        return activationStart.ok
+          ? { ok: true, activation: { activationId: "act-1", status: "running" } }
+          : { ...activationStart, checks: [] };
+      },
+    },
     // F-U6: this fake is not on the fund agent's set.
     portfolioPlanView: async () => null,
     checkPortfolioPlan: async () => ({
@@ -118,6 +135,37 @@ describe.skipIf(!dbUp)("the orchestrator's internal API (D-205)", { timeout: 60_
     expect(await refused.json()).toMatchObject({ error: "lease_held" });
     await leases.release(held.lease.leaseId, "test");
     expect(queued).toEqual(["noop 1"]);
+  });
+
+  it("serves the activation sweep (F-U10): the owner's read, a start as 202, and a refusal that names its check", async () => {
+    const read = await api(false).request("/v1/agents/1/activation");
+    expect(read.status).toBe(200);
+    expect(await read.json()).toMatchObject({
+      agentId: "1",
+      activation: null,
+      checks: [{ code: "GOAL", ok: false }],
+      ceilingUsdcE6: "3800000",
+    });
+    expect((await api(false).request("/v1/agents/abc/activation")).status).toBe(400);
+    const started = await api(false).request("/v1/agents/1/activation", { method: "POST" });
+    expect(started.status).toBe(202);
+    expect(await started.json()).toMatchObject({
+      agentId: "1",
+      activation: { activationId: "act-1", status: "running" },
+    });
+    activationStart = { ok: false, code: "CREDITS", message: "Credits are short." };
+    const refused = await api(false).request("/v1/agents/1/activation", { method: "POST" });
+    expect(refused.status).toBe(409);
+    expect(await refused.json()).toMatchObject({
+      error: "activation_credits",
+      message: "Credits are short.",
+      checks: [],
+    });
+    activationStart = { ok: true };
+    expect(queued.filter((q) => q.startsWith("activation"))).toEqual([
+      "activation 1",
+      "activation 1",
+    ]);
   });
 
   it("queues a reset", async () => {

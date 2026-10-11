@@ -412,6 +412,22 @@ export class TradeStore {
     return row ? armingRecord(row) : null;
   }
 
+  /**
+   * The owner approved the activation sweep's plan (F-U10, D-291): the agent
+   * is armed with no first trade. Null if the arming was not waiting.
+   */
+  async markArmedByPlan(armingId: string): Promise<ArmingRecord | null> {
+    const at = this.now();
+    const row = await this.db
+      .updateTable("platform.arming")
+      .set({ status: "armed", armed_at: at, updated_at: at })
+      .where("arming_id", "=", armingId)
+      .where("status", "=", "awaiting_first_trade")
+      .returningAll()
+      .executeTakeFirst();
+    return row ? armingRecord(row) : null;
+  }
+
   /** Marks the renewal reminder sent; false if another worker already did. */
   async markReminded(armingId: string): Promise<boolean> {
     const r = await this.db

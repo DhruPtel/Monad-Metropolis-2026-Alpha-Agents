@@ -152,6 +152,28 @@ export interface StageFacts {
 
 export type { ProposalFacts } from "@alpha-agents/trading";
 
+/**
+ * The activation sweep (F-U10): its start, each deterministic step (the
+ * stages have their own entries) and its end. Every number in the template
+ * comes from the facts: the tier's ceiling, the step's fixed result line
+ * (itself built from records, never model text), the cost.
+ */
+export interface ActivationFacts {
+  readonly agent: string;
+  readonly activity: "activation";
+  readonly event: "started" | "step" | "finished";
+  readonly tier: string;
+  readonly ceilingUsdc: string;
+  /** The step's label, for a step entry. */
+  readonly step: string | null;
+  /** The step's result line, or the plan's line at the end. */
+  readonly result: string | null;
+  /** The sweep's end in words, for the finished entry. */
+  readonly status: string | null;
+  readonly chargedUsdc: string | null;
+  readonly positions: number | null;
+}
+
 export type NarrationFacts =
   | ScanFacts
   | IntentFacts
@@ -160,9 +182,18 @@ export type NarrationFacts =
   | BlockedFacts
   | RunnerFacts
   | StageFacts
-  | ProposalFacts;
+  | ProposalFacts
+  | ActivationFacts;
 export type ActivityKind =
-  "scan" | "intent" | "arming" | "trade" | "blocked" | "runner" | "stage" | "proposal";
+  | "scan"
+  | "intent"
+  | "arming"
+  | "trade"
+  | "blocked"
+  | "runner"
+  | "stage"
+  | "proposal"
+  | "activation";
 
 /** Micro-USDC as a plain decimal with no trailing zeros: 22000 -> "0.022". */
 export function formatUsdc(e6: bigint): string {
@@ -312,6 +343,17 @@ export function templateBlockedEntry(f: BlockedFacts): string {
     0,
     MAX_ENTRY_CHARS,
   );
+}
+
+/** The fixed template for an activation entry (F-U10): every number in it comes from the facts. */
+export function templateActivationEntry(f: ActivationFacts): string {
+  const text =
+    f.event === "started"
+      ? `${f.agent} started its activation sweep on the ${f.tier} tier: at most ${f.ceilingUsdc} USDC of credits, and nothing is traded until the owner approves the plan.`
+      : f.event === "step"
+        ? `${f.agent}'s activation sweep, ${(f.step ?? "a step").toLowerCase()}: ${f.result ?? "done"}.`
+        : `${f.agent}'s activation sweep ended: ${f.status ?? "it ended"}. It cost ${f.chargedUsdc ?? "0"} of at most ${f.ceilingUsdc} USDC.${f.result ? ` ${f.result}` : ""}`;
+  return text.slice(0, MAX_ENTRY_CHARS);
 }
 
 /** The fixed template for a runner entry: every number in it comes from the facts. */
@@ -666,7 +708,7 @@ export class Narrator {
     chainId: number,
     agentId: number,
     key: string,
-    facts: ArmingFacts | TradeFacts | BlockedFacts | RunnerFacts | ProposalFacts,
+    facts: ArmingFacts | TradeFacts | BlockedFacts | RunnerFacts | ProposalFacts | ActivationFacts,
   ): Promise<ActivityEntry | null> {
     const existing = await this.stored(key);
     if (existing) return existing;
@@ -679,7 +721,9 @@ export class Narrator {
             ? (["runner", () => templateRunnerEntry(facts)] as const)
             : facts.activity === "plan_proposal"
               ? (["proposal", () => templateProposalEntry(facts)] as const)
-              : (["blocked", () => templateBlockedEntry(facts)] as const);
+              : facts.activity === "activation"
+                ? (["activation", () => templateActivationEntry(facts)] as const)
+                : (["blocked", () => templateBlockedEntry(facts)] as const);
     await this.write({ chainId, agentId, key, kind, facts, template });
     return (await this.stored(key)) ?? null;
   }

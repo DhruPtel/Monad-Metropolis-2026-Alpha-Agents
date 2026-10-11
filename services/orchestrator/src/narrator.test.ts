@@ -13,8 +13,10 @@ import {
   NARRATOR_MODEL,
   Narrator,
   type NarratorModel,
+  type ActivationFacts,
   type ScanFacts,
   formatUsdc,
+  templateActivationEntry,
   narratorKeyFor,
   numbersIn,
   percentOfBps,
@@ -417,5 +419,51 @@ describe.skipIf(!dbUp)("the narrator (needs Postgres)", { timeout: 60_000 }, () 
     expect(second.entryId).toBe(first.entryId);
     const rows = await t.db.selectFrom("platform.activity_entries").selectAll().execute();
     expect(rows).toHaveLength(1);
+  });
+});
+
+describe("the activation sweep's entries (F-U10)", () => {
+  const base: ActivationFacts = {
+    agent: "Alpha Agent #7",
+    activity: "activation",
+    event: "started",
+    tier: "Medium",
+    ceilingUsdc: "3.8",
+    step: null,
+    result: null,
+    status: null,
+    chargedUsdc: null,
+    positions: null,
+  };
+
+  it("every template's numbers come from its facts, so each passes the validator", () => {
+    const step: ActivationFacts = {
+      ...base,
+      event: "step",
+      step: "Reading pools and prices",
+      result: "11 of 12 tokens priced across 42 pools; 9 safety screens fresh",
+    };
+    const finished: ActivationFacts = {
+      ...base,
+      event: "finished",
+      status: "a plan waits for the owner's approval",
+      chargedUsdc: "2.41",
+      result: "A portfolio of 3 positions proposed.",
+    };
+    for (const f of [base, step, finished]) {
+      const text = templateActivationEntry(f);
+      expect(text.length).toBeLessThanOrEqual(MAX_ENTRY_CHARS);
+      expect(validateNarration(text, f)).toEqual({ ok: true });
+    }
+    expect(templateActivationEntry(step)).toBe(
+      "Alpha Agent #7's activation sweep, reading pools and prices: 11 of 12 tokens priced across 42 pools; 9 safety screens fresh.",
+    );
+    expect(templateActivationEntry(finished)).toBe(
+      "Alpha Agent #7's activation sweep ended: a plan waits for the owner's approval. It cost 2.41 of at most 3.8 USDC. A portfolio of 3 positions proposed.",
+    );
+    // A number not in the facts is caught, as for every other entry.
+    expect(
+      validateNarration(`${templateActivationEntry(base)} It spent 99 USDC.`, base),
+    ).toMatchObject({ ok: false });
   });
 });

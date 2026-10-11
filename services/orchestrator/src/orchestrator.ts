@@ -77,6 +77,7 @@ import { PgIntentStore } from "./tools/chain-store.ts";
 import type { TokenRegistry } from "./tokens/registry.ts";
 import { registryToolSource } from "./tokens/tool-source.ts";
 import { runTokenCheckTask } from "./token-check.ts";
+import { ActivationService } from "./activation.ts";
 
 /** F-U1: discovery every 30 minutes; screens of due tokens every 10 minutes, two at a time. */
 export const TOKEN_DISCOVERY_EVERY_MS = 30 * 60_000;
@@ -231,6 +232,8 @@ export class Orchestrator {
   readonly cycles: CycleStore;
   /** F-U9: portfolio proposals from the Zoom out's decisions, evaluated and stored. */
   readonly proposals: ProposalService;
+  /** F-U10: the activation sweep: its checks, its record and the cycle's hooks. */
+  readonly activations: ActivationService;
   readonly research: CycleResearch;
   /** Phase 2 tuning: value snapshots for W-3's charts, where the chain tools can read. */
   readonly snapshots: SnapshotRecorder | null;
@@ -356,6 +359,18 @@ export class Orchestrator {
       trades: this.trades,
       narrator: this.narrator,
       inputs: (ref) => this.portfolioTestInputs(ref),
+      log,
+    });
+    this.activations = new ActivationService({
+      store,
+      cycles: this.cycles,
+      goals: this.goals,
+      trades: this.trades,
+      credits: this.credits,
+      narrator: this.narrator,
+      readerV3: options.chain?.readerV3 ?? null,
+      inputs: (ref) => this.portfolioTestInputs(ref),
+      enqueueCycle: (ref, kind, requestedBy) => this.enqueueCycle(ref, kind, requestedBy),
       log,
     });
     const trading = options.trading;
@@ -598,6 +613,7 @@ export class Orchestrator {
             credits: this.credits,
             narrator: this.narrator,
             proposals: this.proposals,
+            hooks: this.activations.hooks(),
           },
           job.taskId,
         );

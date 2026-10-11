@@ -38,8 +38,28 @@ import { portfolioEnvelope, testEnvelope } from "./test-stage.ts";
  * stage gets the narrator's entry, and nothing in a cycle trades: a Zoom
  * out's proposal is a draft for P3-U6.
  */
+/**
+ * F-U10: what runs around a cycle for the activation sweep. A cycle without
+ * an activation is left alone by both.
+ */
+export interface CycleHooks {
+  /**
+   * After the Scan's brief is accepted and before any Dive: the activation's
+   * deterministic "pools and prices" step. A refusal halts the cycle with
+   * its reason.
+   */
+  readonly afterScan?: (
+    cycle: Cycle,
+    scan: StageRun,
+  ) => Promise<{ ok: true } | { ok: false; reason: string; message: string }>;
+  /** After the cycle's record is final, whatever its end. */
+  readonly onEnd?: (cycle: Cycle) => Promise<void>;
+}
+
 export interface CycleContext extends TaskContext {
   readonly cycles: CycleStore;
+  /** F-U10: the activation sweep's hooks; null or absent for a plain cycle. */
+  readonly hooks?: CycleHooks | null;
   readonly research: CycleResearch;
   readonly goals: GoalStore;
   readonly plans: PlanStore;
@@ -132,6 +152,7 @@ export async function runCycleTask(ctx: CycleContext, taskId: string): Promise<v
         result: await summary(ctx, cycle.cycleId),
       });
       ctx.log(`task ${taskId}: cycle ${cycle.cycleId} did not start: ${first.code}`);
+      await ended(ctx, cycle);
       return;
     }
 
@@ -178,6 +199,7 @@ export async function runCycleTask(ctx: CycleContext, taskId: string): Promise<v
     ctx.log(
       `task ${taskId}: cycle ${cycle.cycleId} ${stop.status} (${stop.reason}) in ${Date.now() - started} ms`,
     );
+    await ended(ctx, cycle);
   } catch (err) {
     const message = errorText(err, ctx.redactor);
     if (leaseId) await ctx.leases.release(leaseId, "cycle failed");
@@ -185,6 +207,16 @@ export async function runCycleTask(ctx: CycleContext, taskId: string): Promise<v
     const result = await summary(ctx, cycle.cycleId, opened).catch(() => null);
     await ctx.store.finishTask(taskId, result ? { error: message, result } : { error: message });
     ctx.log(`task ${taskId}: cycle failed: ${message}`);
+    await ended(ctx, cycle);
+  }
+}
+
+/** The end hook, after the cycle's record is final; a failure in it never fails the task. */
+async function ended(ctx: CycleContext, cycle: Cycle): Promise<void> {
+  try {
+    await ctx.hooks?.onEnd?.(cycle);
+  } catch (err) {
+    ctx.log(`cycle ${cycle.cycleId}: the end hook failed: ${errorText(err, ctx.redactor)}`);
   }
 }
 
@@ -249,6 +281,15 @@ class Engine {
     // A Scan stopped at a cap before its brief ends the cycle with that cap.
     if (scan.end.status === "capped" && !hasScanBrief)
       return { status: "stopped", reason: scan.end.stopReason };
+    // F-U10: the activation's deterministic read of pools, prices and screens, after the Scan.
+    if (this.ctx.hooks?.afterScan) {
+      const after = await this.ctx.hooks.afterScan(this.cycle, scan.run).catch((err: unknown) => ({
+        ok: false as const,
+        reason: "MARKET_UNAVAILABLE",
+        message: errorText(err, this.ctx.redactor),
+      }));
+      if (!after.ok) return { status: "failed", reason: after.reason, message: after.message };
+    }
     const themes = await this.scanThemes(scan.run);
     const now = this.ctx.now?.() ?? new Date();
     const history = await this.ctx.cycles.diveHistory(this.ref(), now, utcDayStart(now));

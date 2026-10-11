@@ -572,6 +572,30 @@ export function createApi(o: ApiOptions): Hono {
   });
 
   /**
+   * F-U10: the activation sweep for the owner, through the control API: the
+   * newest sweep's steps and status, and the checks before the next may
+   * start; POST turns automatic trading on once the owner's wallet has
+   * registered the grant (D-291). Each refusal names its check.
+   */
+  app.get("/v1/agents/:agentId/activation", async (c) => {
+    const ref = agentRef(c.req.param("agentId"), o.chainId);
+    if (!ref) return c.json({ error: "bad_agent_id" }, 400);
+    return c.json(await o.orchestrator.activations.view(ref));
+  });
+
+  app.post("/v1/agents/:agentId/activation", async (c) => {
+    const ref = agentRef(c.req.param("agentId"), o.chainId);
+    if (!ref) return c.json({ error: "bad_agent_id" }, 400);
+    const r = await o.orchestrator.activations.start(ref);
+    if (!r.ok)
+      return c.json(
+        { error: `activation_${r.code.toLowerCase()}`, message: r.message, checks: r.checks },
+        409,
+      );
+    return c.json({ agentId: String(ref.agentId), activation: r.activation }, 202);
+  });
+
+  /**
    * P2-U4: the signer's outbox, newest first, with each transaction's states,
    * hash, refusal reason code, balances and ledger entry. Never the signed
    * bytes or anything about a key but its address.

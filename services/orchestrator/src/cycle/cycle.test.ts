@@ -839,6 +839,82 @@ describe.skipIf(!dbUp)("the discovery loop engine (needs Postgres)", { timeout: 
     expect(must(stages[0]).ceilingUsdcE6).toBe(500_000n);
   });
 
+  /** The activation's Zoom out: the overview, then the rationale and the decision. */
+  const overviewZoomOut: Script = async (r) => {
+    await start(r);
+    ok(await brief(r.token, rationale));
+    ok(
+      await brief(r.token, {
+        kind: "OVERVIEW",
+        summary: "Monad TVL fell 6.8% in 7 days; lending holds 412 million USD.",
+        points: [
+          {
+            text: "Lending holds 412 million USD.",
+            class: "primary",
+            confidence: "medium",
+            sources: ["https://lending.example/stats"],
+          },
+        ],
+      }),
+    );
+    ok(
+      await complete(r.token, "ZOOM_OUT", {
+        decision: { kind: "NO_CHANGE", reasonCode: "EVIDENCE_THIN" },
+      }),
+    );
+  };
+
+  it("runs the sweep's hooks (F-U10): pools and prices after the Scan and before any Dive, and the end hook once the record is final", async () => {
+    await saveGoal({});
+    scripts.ZOOM_OUT = overviewZoomOut;
+    const calls: string[] = [];
+    ctx = {
+      ...ctx,
+      hooks: {
+        afterScan: async (cycle, scan) => {
+          calls.push(
+            `afterScan ${scan.stage} ${scan.status} after ${startedRuns.map((r) => r.stage).join(",")}`,
+          );
+          expect((await cycles.cycle(cycle.cycleId))?.status).toBe("running");
+          return { ok: true };
+        },
+        onEnd: async (cycle) => {
+          calls.push(`onEnd ${(await cycles.cycle(cycle.cycleId))?.status}`);
+        },
+      },
+    };
+    const { cycle, stages } = await runCycle("ACTIVATION");
+    expect(cycle.status).toBe("completed");
+    expect(stages.map((s) => s.stage)).toEqual(["SCAN", "DIVE", "CHALLENGE", "TEST", "ZOOM_OUT"]);
+    expect(calls).toEqual(["afterScan SCAN completed after SCAN", "onEnd completed"]);
+  });
+
+  it("halts the sweep when the pools and prices cannot be read: no Dive runs, the cycle fails with the reason, the end hook still runs", async () => {
+    await saveGoal({});
+    const ends: string[] = [];
+    ctx = {
+      ...ctx,
+      hooks: {
+        afterScan: async () => ({
+          ok: false,
+          reason: "MARKET_UNAVAILABLE",
+          message: "The pools and prices could not be read.",
+        }),
+        onEnd: async (cycle) => {
+          ends.push(String((await cycles.cycle(cycle.cycleId))?.stopReason));
+        },
+      },
+    };
+    const { cycle, stages, task } = await runCycle("ACTIVATION");
+    expect(cycle.status).toBe("failed");
+    expect(cycle.stopReason).toBe("MARKET_UNAVAILABLE");
+    expect(stages.map((s) => s.stage)).toEqual(["SCAN"]);
+    expect(task.status).toBe("failed");
+    expect(task.error).toBe("The pools and prices could not be read.");
+    expect(ends).toEqual(["MARKET_UNAVAILABLE"]);
+    expect(await store.activeLease(ref)).toBeNull();
+  });
+
   it("refuses a brief with an invented number, a foreign URL or skill text, and accepts the corrected one", async () => {
     await saveGoal({});
     const refusals: string[] = [];

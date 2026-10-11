@@ -508,7 +508,16 @@ export interface ActivityEntryTable {
   chain_id: number;
   agent_id: number;
   task_id: string;
-  kind: "scan" | "intent" | "arming" | "trade" | "blocked" | "runner" | "stage" | "proposal";
+  kind:
+    | "scan"
+    | "intent"
+    | "arming"
+    | "trade"
+    | "blocked"
+    | "runner"
+    | "stage"
+    | "proposal"
+    | "activation";
   text: string;
   rendered_by: "narrator" | "template";
   facts: ColumnType<Record<string, unknown>, string, string>;

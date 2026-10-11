@@ -119,7 +119,7 @@ export function stagePrompt(o: {
         caps,
         ...common,
         o.kind === "ACTIVATION"
-          ? "Write two briefs with mcp__platform__write_research_brief: an OVERVIEW of Monad and the market for this owner, and a RATIONALE."
+          ? "Write two briefs with mcp__platform__write_research_brief: an OVERVIEW of Monad and the market for this owner, and a RATIONALE. This is the activation sweep: the account holds cash and no plan, and the owner is waiting to approve the first one, so propose a target portfolio when the evidence supports at least one position; NO_CHANGE here leaves the agent with no plan until the owner runs another sweep, so use it only when the evidence is weak."
           : "Write one RATIONALE brief with mcp__platform__write_research_brief.",
         "The RATIONALE weighs the whole portfolio against the goal (portfolioView), rates the evidence (evidenceStrength: strong, mixed or weak; weak evidence means NO_CHANGE) and makes one call per position held or proposed: ADD, HOLD, TRIM or EXIT, each tied to a theme.",
         'Then call mcp__platform__complete_stage exactly once, last, with stage ZOOM_OUT, outcome DONE and candidates [], and decision {"kind":"NO_CHANGE","reasonCode":...} or {"kind":"PROPOSE","template":"target_portfolio@1","params":{...}} on the fund agent\'s set (or template rebalance_bands@1 on the two-asset plan) matching the RATIONALE and its position calls. The platform checks a proposal against the Test before the stage may end; a refused proposal says why.',
