@@ -30,6 +30,7 @@ const USE: Readonly<Record<Role, Partial<Record<Symbol, "gas" | "credits" | "tra
   funding: { MON: "gas", USDC: "credits" },
   token_bound: {},
   personal_account: { USDC: "trading", WMON: "trading" },
+  older_account: {},
 };
 
 export class FakeHoldings {

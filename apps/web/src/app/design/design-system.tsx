@@ -61,6 +61,8 @@ import {
   AllocationDonut,
   AssetMakeupTable,
   type AssetRow,
+  FundOverview,
+  OlderAccountCard,
   HundredDollarTile,
   PerformanceChart,
   ScoreTiles,
@@ -820,6 +822,19 @@ function AgentSection() {
                 role: "personal_account",
                 address: null,
                 lines: [],
+              },
+              {
+                role: "older_account",
+                address: SAMPLE_TBA,
+                lines: [
+                  {
+                    symbol: "USDC",
+                    raw: 100_000_000n,
+                    decimals: 6,
+                    use: null,
+                    status: "older",
+                  },
+                ],
               },
             ]}
           />
@@ -1683,6 +1698,54 @@ function PortfolioSection() {
               price: { monUsd: null, ageSeconds: 900, usable: false, reason: "STALE" },
             }}
           />
+        </div>
+      </Specimen>
+      <Specimen
+        name="The account on the fund agent's set"
+        note="After the F-U11 playtest (A-80): the account at a glance across every held token, with the total, the mode, the drawdown and the prices' state; and the older v2 account the agent no longer trades, with one action that moves everything to the owner's wallet, waiting while it runs, and empty once it is."
+      >
+        <div className="flex flex-col gap-6" data-testid="fund-portfolio-specimens">
+          <FundOverview
+            rows={WIN_ROWS}
+            totalValueUsdcE6="104788000"
+            mode="NORMAL"
+            drawdownBps={120}
+            prices={{ priced: 3, held: 4, oldestAgeSeconds: 20 }}
+          />
+          <div className="grid gap-6 lg:grid-cols-3">
+            <OlderAccountCard
+              account={DS_ACCOUNT}
+              lines={[
+                { symbol: "USDC", decimals: 6, raw: 100_000_000n, claimableRaw: 0n },
+                { symbol: "WMON", decimals: 18, raw: 0n, claimableRaw: 2n * 10n ** 18n },
+              ]}
+              mode="NORMAL"
+              busy={false}
+              onWithdrawAll={noop}
+              onClaim={noop}
+            />
+            <OlderAccountCard
+              account={DS_ACCOUNT}
+              lines={[{ symbol: "USDC", decimals: 6, raw: 100_000_000n, claimableRaw: 0n }]}
+              mode="PAUSED"
+              busy
+              onWithdrawAll={noop}
+              status={
+                <WalletActionStatus
+                  state="waiting-wallet"
+                  text="Confirm in your wallet: withdraw 100 USDC to your wallet."
+                  hash={null}
+                />
+              }
+            />
+            <OlderAccountCard
+              account={DS_ACCOUNT}
+              lines={[]}
+              mode={null}
+              busy={false}
+              onWithdrawAll={noop}
+            />
+          </div>
         </div>
       </Specimen>
       <Specimen
