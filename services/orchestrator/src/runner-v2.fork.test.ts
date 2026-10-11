@@ -31,8 +31,10 @@ import {
   DecisionStore,
   GoalStore,
   PlanStore,
+  SnapshotStore,
   TradeStore,
   approveByOwner,
+  buildWindow,
   confirmArming,
   ProposalStore,
 } from "@alpha-agents/trading";
@@ -41,6 +43,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from
 import { approveProposal } from "../../../apps/control-api/src/proposals.ts";
 import { checkPortfolioProposal } from "./cycle/test-stage.ts";
 import { TemplateRunner } from "./runner.ts";
+import { SnapshotRecorder, accountReadJson } from "./snapshots.ts";
 import { Store } from "./store.ts";
 import { PgIntentStore } from "./tools/chain-store.ts";
 import { TradeFlow, swapGasCost } from "./trade-flow.ts";
@@ -54,6 +57,9 @@ import { TradeFlow, swapGasCost } from "./trade-flow.ts";
  * registered pools, until every position sits inside its band; then the
  * guardian moves WBTC to sell-only and the runner sells it first. No model
  * is called anywhere. Skips without MONAD_RPC_URL or Postgres (as in CI).
+ * F-U11: a value snapshot is recorded before the first trade and after each
+ * settled one, and the portfolio window built from them and the live
+ * reading shows every trade and every holding with its cost basis.
  */
 const PORT = 8559;
 const upstream = testForkUpstream();
@@ -284,6 +290,7 @@ describe.skipIf(upstream === null || !dbUp)(
         "platform.runner_decisions",
         "platform.strategy_params",
         "platform.ledger_lines",
+        "platform.account_snapshots",
       ] as const)
         await db.deleteFrom(table).execute();
       await db.deleteFrom("platform.ledger_entries").execute();
@@ -378,6 +385,17 @@ describe.skipIf(upstream === null || !dbUp)(
         setBy: "owner",
         params: { cashTargetBps: PLAN.cashTargetBps },
       });
+      // F-U11: the window's readings, as the orchestrator records them: one before the first trade.
+      const snapshots = new SnapshotStore(db, "local");
+      const recorder = new SnapshotRecorder({
+        chainId: CHAIN,
+        store,
+        snapshots,
+        reader,
+        readerV3,
+        log: () => undefined,
+      });
+      expect(await recorder.observe(agentId, "interval")).toBe(true);
       const record = await armV3();
       expect(record.custody).toBe("v3");
       const usdc = book("usdc");
@@ -398,11 +416,14 @@ describe.skipIf(upstream === null || !dbUp)(
       expect((await trades.intent(CHAIN, agentId, first[0]?.intentId ?? ""))?.status).toBe(
         "reconciled",
       );
+      expect(await recorder.observe(agentId, "trade", first[0]?.intentId ?? "")).toBe(true);
       // Each leg is at most 10% of the account (the plan's cap under the 12% hard limit).
       const legs: { sell: string; buy: string; valueUsdcE6: bigint }[] = [];
       let last = first[0];
       for (let i = 0; i < 12 && last?.code !== "IN_BAND"; i++) {
         last = await step();
+        if (last.outcome === "leg" && last.intentId)
+          await recorder.observe(agentId, "trade", last.intentId);
         if (last.outcome === "leg" && last.leg)
           legs.push({
             sell: last.leg.sell,
@@ -445,6 +466,70 @@ describe.skipIf(upstream === null || !dbUp)(
       expect(await balance(usdc)).toBeGreaterThan(cashBefore);
       const why = await trades.whyNotTraded(CHAIN, agentId);
       expect(why).toBeTruthy();
+      expect(await recorder.observe(agentId, "trade", exit.intentId ?? "")).toBe(true);
+
+      // F-U11: the window shows every settled trade as a marker, in order, and every holding
+      // with its cost basis; the value per unit moved only by what the trades cost; and with
+      // minutes of history every score says not enough data yet.
+      const live = await recorder.read(agentId);
+      if (!live) throw new Error("no live reading");
+      const w = buildWindow({
+        agentId,
+        rows: await snapshots.since(CHAIN, agentId, new Date(0)),
+        intents: await trades.intents(CHAIN, agentId, 50),
+        live: accountReadJson(live),
+        now: new Date(),
+      });
+      const settledAll = (await trades.intents(CHAIN, agentId, 50))
+        .filter((i) => i.status === "reconciled")
+        .sort((a, b) => (a.settledAt?.getTime() ?? 0) - (b.settledAt?.getTime() ?? 0));
+      expect(w.marks.map((m) => [m.side, m.symbol, m.intentId])).toEqual(
+        settledAll.map((i) => [
+          i.sell === "USDC" ? "buy" : "sell",
+          i.sell === "USDC" ? i.buy : i.sell,
+          i.intentId,
+        ]),
+      );
+      expect(w.marks[w.marks.length - 1]).toMatchObject({ side: "sell", symbol: "WBTC" });
+      expect(w.asOf).toMatchObject({ live: true, block: expect.any(String) });
+      expect(w.custody).toBe("v3");
+      const held = Object.fromEntries(w.holdings.map((h) => [h.symbol, h]));
+      expect(held.USDC).toMatchObject({
+        isCash: true,
+        amountRaw: (await balance(usdc)).toString(),
+      });
+      expect(held.WMON).toMatchObject({ amountRaw: (await balance(wmon)).toString() });
+      expect(BigInt(held.WMON?.costBasisUsdcE6 ?? "0")).toBeGreaterThan(0n);
+      expect(BigInt(held.WMON?.valueUsdcE6 ?? "0")).toBeGreaterThan(0n);
+      const wbtcLeft = await balance(WBTC);
+      if (wbtcLeft > 0n) {
+        expect(held.WBTC).toMatchObject({ amountRaw: wbtcLeft.toString() });
+        expect(w.closed).toEqual([]);
+      } else {
+        expect(held.WBTC).toBeUndefined();
+        expect(w.closed.map((c) => c.symbol)).toEqual(["WBTC"]);
+      }
+      const shares = w.holdings.reduce((t, h) => t + (h.shareBps ?? 0), 0);
+      expect(Math.abs(shares - 10_000)).toBeLessThanOrEqual(w.holdings.length);
+      // One reading before the first trade, one per settled trade, and the live reading now.
+      expect(w.series.length).toBe(settledAll.length + 2);
+      expect(w.series[0]?.reason).toBe("interval");
+      expect(w.series.slice(1, -1).every((p) => p.reason === "trade")).toBe(true);
+      for (const p of w.series) {
+        const perUnit = BigInt(p.perUnitE18);
+        expect(perUnit, p.at).toBeLessThanOrEqual(10n ** 18n);
+        expect(perUnit, p.at).toBeGreaterThan(95n * 10n ** 16n);
+      }
+      expect(w.scores.returnSinceStart).toMatchObject({
+        ok: false,
+        reason: expect.stringContaining("hour"),
+      });
+      expect(w.hundred).toMatchObject({ ok: false });
+      expect(w.scores.winShare).toEqual(
+        w.closed.length === 0
+          ? { ok: false, reason: "Not enough data yet: no position has been closed." }
+          : expect.objectContaining({ ok: true, closed: 1 }),
+      );
     });
   },
 );
