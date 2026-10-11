@@ -78,6 +78,8 @@ import type { TokenRegistry } from "./tokens/registry.ts";
 import { registryToolSource } from "./tokens/tool-source.ts";
 import { runTokenCheckTask } from "./token-check.ts";
 import { ActivationService } from "./activation.ts";
+import { ResearchScheduler, ResearchStore, Watcher } from "./research-loop.ts";
+import { schedulerDeps, watcherDeps } from "./research-wiring.ts";
 
 /** F-U1: discovery every 30 minutes; screens of due tokens every 10 minutes, two at a time. */
 export const TOKEN_DISCOVERY_EVERY_MS = 30 * 60_000;
@@ -230,6 +232,11 @@ export class Orchestrator {
   readonly runner: TemplateRunner | null;
   /** P3-U4: research cycles, their stages, briefs and the research behind the platform tools. */
   readonly cycles: CycleStore;
+  /** P3-U10: the research loop's schedule and triggers per agent. */
+  readonly loop: ResearchStore;
+  /** P3-U10: the scheduler and the watcher, with credits; null without them. */
+  readonly scheduler: ResearchScheduler | null;
+  readonly watcher: Watcher | null;
   /** F-U9: portfolio proposals from the Zoom out's decisions, evaluated and stored. */
   readonly proposals: ProposalService;
   /** F-U10: the activation sweep: its checks, its record and the cycle's hooks. */
@@ -336,6 +343,26 @@ export class Orchestrator {
     this.plans = new PlanStore(store.db);
     this.decisions = new DecisionStore(store.db);
     this.goals = new GoalStore(store.db);
+    this.loop = new ResearchStore(store.db);
+    const research = this.credits
+      ? {
+          chainId: options.chainId,
+          db: store.db,
+          research: this.loop,
+          cycles: this.cycles,
+          goals: this.goals,
+          plans: this.plans,
+          credits: this.credits,
+          readerV3: options.chain?.readerV3 ?? null,
+          registry: options.tokens?.registry ?? null,
+          volatility24hPct: options.runner?.volatility24hPct ?? null,
+          enqueue: (ref: AgentRef, kind: CycleKind, wantsOverview: boolean) =>
+            this.enqueueCycle(ref, kind, "schedule", { wantsOverview }),
+          log: options.log,
+        }
+      : null;
+    this.scheduler = research ? new ResearchScheduler(schedulerDeps(research)) : null;
+    this.watcher = research ? new Watcher(watcherDeps(research)) : null;
     let runs: Set<string> | null = null;
     this.research = new CycleResearch({
       cycles: this.cycles,
@@ -504,10 +531,17 @@ export class Orchestrator {
       this.every(2_000, "requested scans", async () => {
         await this.queueRequestedScans();
       });
-    if (this.credits && (this.o.scheduleMs ?? 30_000) > 0)
-      this.every(this.o.scheduleMs ?? 30_000, "scan scheduler", async () => {
-        await this.scheduleScans();
+    // P3-U10: the autonomous loop replaces D-216's scheduled Scans; it runs for RUNNING agents
+    // (an approved plan, armed) at their intensity's cadence, and only when scheduling is on.
+    if (this.scheduler && this.watcher && (this.o.scheduleMs ?? 30_000) > 0) {
+      const { scheduler, watcher } = this;
+      this.every(this.o.scheduleMs ?? 30_000, "research scheduler", async () => {
+        await scheduler.tick();
       });
+      this.every(Math.min(this.o.scheduleMs ?? 30_000, 30_000), "watcher", async () => {
+        await watcher.tick();
+      });
+    }
     if (this.tools) {
       const intents = this.tools.intents;
       this.every(30_000, "intent expiry", async () => {
@@ -1130,7 +1164,12 @@ export class Orchestrator {
     return open !== undefined;
   }
 
-  /** One scheduler pass: queues a Scan for every provisioned agent that is due (D-216). */
+  /**
+   * One pass of D-216's Scan scheduler: queues a Scan for every provisioned
+   * agent that is due. Since P3-U10 no loop calls it: the research loop runs
+   * cycles for activated agents instead, and an agent that is not activated
+   * researches only when its owner asks.
+   */
   async scheduleScans(now = new Date()): Promise<number[]> {
     if (!this.credits) return [];
     const queued: number[] = [];
@@ -1167,6 +1206,14 @@ export class Orchestrator {
     return queued;
   }
 
+  /** P3-U10: one pass of the watcher (every agent, now) and then the scheduler, for the dev console. */
+  async researchTick() {
+    if (!this.scheduler || !this.watcher) throw new Error("credits are not configured");
+    const fired = await this.watcher.tick(true);
+    const queued = await this.scheduler.tick();
+    return { fired, queued };
+  }
+
   async enqueueReset(ref: AgentRef): Promise<void> {
     await this.queue.add({ kind: "reset", ref });
   }
@@ -1184,6 +1231,11 @@ export class Orchestrator {
     await this.tools?.close();
     await this.o.tokens?.registry.stop();
     this.o.log(`stopped ${this.runTag}`);
+  }
+
+  /** P3-U10: whether the research loop runs on its own here (SCHEDULED_RESEARCH, D-369). */
+  get schedulingOn(): boolean {
+    return this.scheduler !== null && (this.o.scheduleMs ?? 30_000) > 0;
   }
 
   /** The gate's URL, for tests. */

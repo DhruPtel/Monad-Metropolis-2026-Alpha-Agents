@@ -336,6 +336,40 @@ export class CycleStore {
     return rows.map((r) => toStage(r as unknown as StageRow));
   }
 
+  /**
+   * When the agent's last Scan and Zoom out completed and its last overview
+   * was accepted (P3-U10): the scheduler reads the records, never a clock of
+   * its own, so a restart changes nothing.
+   */
+  async lastStages(
+    ref: AgentRef,
+  ): Promise<{ scanAt: Date | null; zoomOutAt: Date | null; overviewAt: Date | null }> {
+    const last = async (stage: "SCAN" | "ZOOM_OUT") => {
+      const r = await this.db
+        .selectFrom("platform.stage_runs")
+        .select((eb) => eb.fn.max("finished_at").as("at"))
+        .where("chain_id", "=", ref.chainId)
+        .where("agent_id", "=", ref.agentId)
+        .where("stage", "=", stage)
+        .where("status", "=", "completed")
+        .executeTakeFirst();
+      return r?.at ? new Date(r.at) : null;
+    };
+    const overview = await this.db
+      .selectFrom("platform.research_briefs")
+      .select((eb) => eb.fn.max("created_at").as("at"))
+      .where("chain_id", "=", ref.chainId)
+      .where("agent_id", "=", ref.agentId)
+      .where("kind", "=", "OVERVIEW")
+      .where("status", "=", "accepted")
+      .executeTakeFirst();
+    return {
+      scanAt: await last("SCAN"),
+      zoomOutAt: await last("ZOOM_OUT"),
+      overviewAt: overview?.at ? new Date(overview.at) : null,
+    };
+  }
+
   /** Marks the stage running and makes it the lease's current stage, in one transaction. */
   async beginStage(
     stageRunId: string,

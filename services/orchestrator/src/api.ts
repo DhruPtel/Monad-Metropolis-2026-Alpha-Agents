@@ -14,6 +14,7 @@ import { registerPlanRoutes } from "./plan-routes.ts";
 import { registerTokenRoutes } from "./token-routes.ts";
 import type { TokenRegistry } from "./tokens/registry.ts";
 import { registerCycleRoutes } from "./cycle-routes.ts";
+import { registerResearchRoutes } from "./research-routes.ts";
 import { accountReadJson } from "./snapshots.ts";
 import { mountedSkills } from "./hermes/materialize.ts";
 
@@ -537,6 +538,15 @@ export function createApi(o: ApiOptions): Hono {
     store: o.store,
     agentRef: (raw) => agentRef(raw, o.chainId),
     canStart: o.devActions || o.operatorActions === true,
+  });
+
+  // P3-U10: the research loop's schedule, triggers, pause and the dev console's drive.
+  registerResearchRoutes(app, {
+    orchestrator: o.orchestrator,
+    chainId: o.chainId,
+    agentRef: (raw) => agentRef(raw, o.chainId),
+    canAct: o.devActions || o.operatorActions === true,
+    canDrive: o.devActions,
   });
 
   /** P2-U6: why the agent did not trade: its arming and its recent blocked trades. */

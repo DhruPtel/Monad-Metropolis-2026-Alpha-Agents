@@ -364,10 +364,10 @@ const scheduleScans = env.id !== "testnet" && scheduledResearch;
 if (credits)
   log(
     scheduleScans
-      ? `scheduled Scans every ${scanIntervalMs / 1_000} seconds for agents with credits`
+      ? "the research loop is on (P3-U10): activated agents research at their intensity's cadence under the day's budget, and the watcher's triggers start cycles"
       : env.id === "testnet"
         ? "scheduled Scans off on testnet: a Scan runs only when the owner starts one"
-        : "scheduled research off (D-369): a Scan or cycle runs only when the owner starts one; SCHEDULED_RESEARCH=on turns scheduling on for a session",
+        : "the research loop is off (D-369): a Scan or cycle runs only when the owner starts one; SCHEDULED_RESEARCH=on turns the loop on for a session",
   );
 
 // D-237: on the local fork only, keep the Chainlink feeds fresh so oracle checks pass.
