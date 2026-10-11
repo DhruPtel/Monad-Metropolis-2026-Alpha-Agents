@@ -40,6 +40,12 @@ export interface AccountObservation {
   readonly custody?: "v2" | "v3";
   readonly valueUsdcE6?: bigint | null;
   readonly holdings?: readonly HoldingSnapshot[];
+  /**
+   * F-U11: the value per unit (1e18) from the breaker: deposits mint units and
+   * withdrawals burn them at the going value per unit, so neither moves it.
+   * Null while the breaker's price is unusable.
+   */
+  readonly perUnitE18?: bigint | null;
 }
 
 /** The account's value in USDC base units, or null when WMON is held and has no usable price. */
@@ -62,6 +68,8 @@ export interface SnapshotRow {
   readonly wmon: bigint;
   readonly custody: "v2" | "v3";
   readonly holdings: readonly HoldingSnapshot[] | null;
+  /** F-U11: the value per unit at the snapshot, or null. */
+  readonly perUnit: bigint | null;
   readonly mode: AccountMode;
   readonly reason: "interval" | "trade";
   readonly intentId: string | null;
@@ -102,6 +110,8 @@ export class SnapshotStore {
         wmon_wei: o.wmon.toString(),
         custody: o.custody ?? "v2",
         holdings: o.holdings ? JSON.stringify(o.holdings) : null,
+        per_unit_e18:
+          o.perUnitE18 === undefined || o.perUnitE18 === null ? null : o.perUnitE18.toString(),
         mode: o.mode,
         reason,
         intent_id: intentId,
@@ -138,20 +148,53 @@ export class SnapshotStore {
       .orderBy("created_at", "desc")
       .limit(limit)
       .execute();
-    return rows.map((r) => ({
-      agentId: r.agent_id,
-      account: r.account as Hex,
-      block: BigInt(r.block_number),
-      blockTime: BigInt(r.block_time),
-      valueUsdc: r.value_usdc_e6 === null ? null : BigInt(r.value_usdc_e6),
-      usdc: BigInt(r.usdc_e6),
-      wmon: BigInt(r.wmon_wei),
-      custody: r.custody,
-      holdings: (r.holdings as HoldingSnapshot[] | null) ?? null,
-      mode: r.mode,
-      reason: r.reason,
-      intentId: r.intent_id,
-      createdAt: new Date(r.created_at),
-    }));
+    return rows.map(snapshotRow);
+  }
+
+  /** F-U11: the agent's snapshots since a moment, oldest first, for the window's chart. */
+  async since(chainId: number, agentId: number, from: Date, limit = 4_000): Promise<SnapshotRow[]> {
+    const rows = await this.db
+      .selectFrom("platform.account_snapshots")
+      .selectAll()
+      .where("environment", "=", this.environment)
+      .where("chain_id", "=", chainId)
+      .where("agent_id", "=", agentId)
+      .where("created_at", ">=", from)
+      .orderBy("created_at", "asc")
+      .limit(limit)
+      .execute();
+    return rows.map(snapshotRow);
   }
 }
+
+const snapshotRow = (r: {
+  agent_id: number;
+  account: string;
+  block_number: string;
+  block_time: string;
+  value_usdc_e6: string | null;
+  usdc_e6: string;
+  wmon_wei: string;
+  custody: "v2" | "v3";
+  holdings: Record<string, unknown>[] | null;
+  per_unit_e18: string | null;
+  mode: AccountMode;
+  reason: "interval" | "trade";
+  intent_id: string | null;
+  created_at: Date | string;
+}): SnapshotRow => ({
+  agentId: r.agent_id,
+  account: r.account as Hex,
+  block: BigInt(r.block_number),
+  blockTime: BigInt(r.block_time),
+  valueUsdc: r.value_usdc_e6 === null ? null : BigInt(r.value_usdc_e6),
+  usdc: BigInt(r.usdc_e6),
+  wmon: BigInt(r.wmon_wei),
+  custody: r.custody,
+  holdings: (r.holdings as HoldingSnapshot[] | null) ?? null,
+  perUnit: r.per_unit_e18 === null ? null : BigInt(r.per_unit_e18),
+  mode: r.mode,
+  reason: r.reason,
+  intentId: r.intent_id,
+  createdAt: new Date(r.created_at),
+});

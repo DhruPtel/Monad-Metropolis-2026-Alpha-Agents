@@ -72,6 +72,7 @@ describe.skipIf(!dbUp)("the value snapshot recorder (needs Postgres)", { timeout
       usdc: 30_000_000n,
       wmon: 400n * 10n ** 18n,
       mode: "REDUCE_ONLY",
+      breaker: { nav: 40_000_000n, perUnit: 1_015_000_000_000_000_000n, peak: 0n, drawdownBps: 0n },
     });
     const r = new SnapshotRecorder({
       chainId: CHAIN,
@@ -91,6 +92,8 @@ describe.skipIf(!dbUp)("the value snapshot recorder (needs Postgres)", { timeout
       valueUsdc: 40_000_000n,
       usdc: 30_000_000n,
       mode: "REDUCE_ONLY",
+      // F-U11: the breaker's value per unit travels with the snapshot.
+      perUnit: 1_015_000_000_000_000_000n,
     });
     expect(await snapshots.list(CHAIN, 2)).toEqual([]);
   });
@@ -113,7 +116,13 @@ describe.skipIf(!dbUp)("the value snapshot recorder (needs Postgres)", { timeout
     expect(await r.observe(1, "trade", "intent-x")).toBe(true);
     expect(await r.observe(1, "trade", "intent-x")).toBe(false);
     expect(await snapshots.list(CHAIN, 1)).toEqual([
-      expect.objectContaining({ reason: "trade", intentId: "intent-x", valueUsdc: null }),
+      // Without a breaker reading the value per unit is unknown too (F-U11).
+      expect.objectContaining({
+        reason: "trade",
+        intentId: "intent-x",
+        valueUsdc: null,
+        perUnit: null,
+      }),
     ]);
   });
 });

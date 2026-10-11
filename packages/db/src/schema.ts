@@ -394,6 +394,8 @@ export interface AccountSnapshotTable {
   /** F-U5: the custody set, and for v3 every held token with its amount, price and value. */
   custody: ColumnType<"v2" | "v3", "v2" | "v3" | undefined, "v2" | "v3">;
   holdings: ColumnType<Record<string, unknown>[] | null, string | null | undefined, string | null>;
+  /** F-U11: the account's value per unit (1e18) from the breaker; null before this column or while unusable. */
+  per_unit_e18: ColumnType<string | null, string | null | undefined, string | null>;
   mode: "NORMAL" | "REDUCE_ONLY" | "PAUSED" | "HANDOVER" | "WIND_DOWN";
   reason: "interval" | "trade";
   intent_id: string | null;

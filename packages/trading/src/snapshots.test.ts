@@ -79,4 +79,32 @@ describe.skipIf(!dbUp)("value snapshots (needs Postgres)", { timeout: 60_000 }, 
     // Trade snapshots do not count toward the interval.
     expect(await store.due(CHAIN, 1)).toBe(true);
   });
+
+  it("keeps the value per unit when the breaker gave one, and reads a window oldest first (F-U11)", async () => {
+    const start = clock.getTime();
+    expect(await store.record(CHAIN, obs({ perUnitE18: 10n ** 18n }), "interval")).toBe(true);
+    clock = new Date(start + 15 * 60_000);
+    expect(await store.record(CHAIN, obs({ perUnitE18: null }), "interval")).toBe(true);
+    clock = new Date(start + 30 * 60_000);
+    expect(
+      await store.record(CHAIN, obs({ perUnitE18: 102n * 10n ** 16n }), "trade", "intent-c"),
+    ).toBe(true);
+    clock = new Date(start + 45 * 60_000);
+    expect(await store.record(CHAIN, obs(), "interval")).toBe(true);
+    // Newest first for the list; oldest first, from the moment asked, for the window.
+    expect((await store.list(CHAIN, 1)).map((r) => r.perUnit)).toEqual([
+      null,
+      102n * 10n ** 16n,
+      null,
+      10n ** 18n,
+    ]);
+    const since = await store.since(CHAIN, 1, new Date(start + 15 * 60_000));
+    expect(since.map((r) => [r.reason, r.perUnit, r.createdAt.getTime() - start])).toEqual([
+      ["interval", null, 15 * 60_000],
+      ["trade", 102n * 10n ** 16n, 30 * 60_000],
+      ["interval", null, 45 * 60_000],
+    ]);
+    expect(await store.since(CHAIN, 1, new Date(start), 2)).toHaveLength(2);
+    expect(await store.since(CHAIN, 2, new Date(start))).toEqual([]);
+  });
 });
