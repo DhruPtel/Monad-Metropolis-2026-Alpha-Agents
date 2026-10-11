@@ -130,8 +130,14 @@ export function useTerminal(agentId: bigint, cycleId: string | null = null, enab
         }
         setState(r.live ? "live" : "ended");
         delay = r.live ? LIVE_POLL_MS : ENDED_POLL_MS;
-      } catch {
+      } catch (err) {
         if (!live) return;
+        // No orchestrator on this stack: nothing to follow, not a dropped connection.
+        if (err instanceof ApiError && err.status === 503) {
+          setState("idle");
+          delay = ENDED_POLL_MS;
+          return;
+        }
         failures.current += 1;
         setState("reconnecting");
         delay = RETRY_MS[Math.min(failures.current, RETRY_MS.length) - 1] ?? 8_000;

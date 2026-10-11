@@ -11,6 +11,8 @@ import { useTerminal } from "@/agent/use-research";
  */
 export function ActivationTerminal({ agentId, live }: { agentId: bigint; live: boolean }) {
   const t = useTerminal(agentId, null, true);
+  // Nothing to follow yet (no cycle, or no orchestrator on this stack): the panel stays as it was.
+  if (t.state === "idle") return null;
   return (
     <div className="flex flex-col gap-2" data-testid="activation-terminal">
       <AgentTerminal
