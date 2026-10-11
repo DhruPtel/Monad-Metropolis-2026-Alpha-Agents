@@ -25,6 +25,8 @@ const MEME = "0x00000000000000000000000000000000000000ab" as Hex;
 const WMON = "0x3bd359c1e6a1b7b4c8d1f5a9c4e2b7d6f8a1c3e5" as Hex;
 const USDC = "0x754704bc059f8a3fb1a5ae8d4a2fcb3be0ee1b8e" as Hex;
 const OTHER = "0x00000000000000000000000000000000000000cd" as Hex;
+/** The chain's clock, 30 seconds past the screen's record: the registration is stamped by it. */
+const CHAIN_NOW = BigInt(Date.parse("2026-10-11T12:00:30.000Z") / 1000);
 
 const screen = (verdict: "passed" | "refused"): ScreenRecord => ({
   screenId: "screen-1",
@@ -82,6 +84,7 @@ function fakes(record: { lane: number; status: number }) {
     },
     poolRegistered: async (seed) => registered.has(`${seed.token0}/${seed.token1}/${seed.fee}`),
     tokenRecord: async () => record,
+    now: async () => CHAIN_NOW,
   };
   const market = {
     usdc: USDC,
@@ -125,7 +128,7 @@ describe("the screened-lane registrar", () => {
     ]);
     expect(actions.map((a) => a.action)).toEqual(["ADD_SCREENED", "ADD_POOL", "ADD_POOL"]);
     expect(calls[0]).toBe(
-      `addScreened ${MEME} ${SCREENED_POSITION_BPS} ${screenHashOf(screen("passed")).slice(0, 10)} ${BigInt(Date.parse("2026-10-11T12:00:00.000Z") / 1000)}`,
+      `addScreened ${MEME} ${SCREENED_POSITION_BPS} ${screenHashOf(screen("passed")).slice(0, 10)} ${CHAIN_NOW}`,
     );
     expect(calls.slice(1)).toEqual([
       `addScreenedPool 1 ${MEME}/${USDC} 3000`,

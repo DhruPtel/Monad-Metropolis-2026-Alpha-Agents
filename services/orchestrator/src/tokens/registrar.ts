@@ -75,6 +75,8 @@ export interface ScreenerChain {
   addScreenedPool(seed: PoolSeed): Promise<Hex>;
   poolRegistered(seed: PoolSeed): Promise<boolean>;
   tokenRecord(token: Hex): Promise<{ lane: number; status: number }>;
+  /** The chain's clock (its latest block's timestamp): the screen is stamped by it, since the registry's TTL is. */
+  now(): Promise<bigint>;
 }
 
 export interface PoolSeed {
@@ -161,6 +163,7 @@ export function viemScreenerChain(o: {
       });
       return send(request);
     },
+    now: async () => (await client.getBlock()).timestamp,
     poolRegistered: async (seed) => {
       const id = await client.readContract({
         address: o.protocolRegistry,
@@ -230,7 +233,9 @@ export class Registrar {
   ): Promise<RegistrarAction[]> {
     const out: RegistrarAction[] = [];
     const record = await this.d.chain.tokenRecord(token);
-    const screenedAt = BigInt(Math.floor(new Date(screen.createdAt).getTime() / 1000));
+    // The screen just ran: it is stamped by the chain's clock, which a local fork may hold days
+    // ahead of the wall clock (the registry's SCREEN_TTL counts from block.timestamp, D-339).
+    const screenedAt = await this.d.chain.now();
     const hash = screenHashOf(screen);
     if (screen.verdict === "passed") {
       if (record.lane === 0) {

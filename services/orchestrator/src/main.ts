@@ -47,7 +47,7 @@ import { localSentinelKey, viemSentinelChain } from "./sentinel-chain.ts";
 import { Attestor, attestorKeyFrom, localAttestorKey } from "./attestor.ts";
 import { Registrar, localScreenerKey, viemScreenerChain } from "./tokens/registrar.ts";
 import { geckoTerminalSource, poolQuoteSource } from "./attestor-sources.ts";
-import { withAttestedPrices } from "./attested-reader.ts";
+import { ChainClock, withAttestedPrices } from "./attested-reader.ts";
 import { Redactor, createLog, errorText } from "./secrets.ts";
 import { Store } from "./store.ts";
 import { findCloudflared } from "./tunnel.ts";
@@ -417,6 +417,8 @@ const attestorKey =
     : env.id === "testnet"
       ? ((reveal("TESTNET_ATTESTOR_PRIVATE_KEY") as Hex | undefined) ?? null)
       : null;
+// The attestor's clock is the chain's (a local fork runs days ahead after the verifier's timelock).
+const chainClock = new ChainClock();
 const attestor =
   plainReaderV3 && attestorKey
     ? new Attestor({
@@ -427,11 +429,14 @@ const attestor =
         },
         key: attestorKeyFrom(attestorKey),
         sources: [poolQuoteSource(plainReaderV3), geckoTerminalSource(market)],
+        now: () => chainClock.now(),
         log: createLog("attestor", redactor),
       })
     : null;
 const chainReaderV3 =
-  plainReaderV3 && attestor ? withAttestedPrices(plainReaderV3, attestor) : plainReaderV3;
+  plainReaderV3 && attestor
+    ? withAttestedPrices(plainReaderV3, attestor, chainClock)
+    : plainReaderV3;
 // F-U12: the screened-lane registrar, on the screener key (anvil account 3 locally, D-342): a token
 // that passes its screen joins the screened lane at once with its pools; a refused re-screen moves
 // it to sell-only; the chain's lanes are mirrored into the token table at start and after each act.

@@ -136,8 +136,19 @@ describe("the built-in skills and playbooks (P3-U7)", () => {
       set.packages.find((p) => p.manifest.id === "playbook-challenge")?.skillMd ?? "";
     for (const item of ["Uncertainty is not a break", "REJECTED", "WEAKENED", "STANDS", "broken"])
       expect(challenge, item).toContain(item);
-    for (const id of ["playbook-challenge", "playbook-zoom-out"])
-      expect(set.packages.find((p) => p.manifest.id === id)?.manifest.version, id).toBe("2.1.0");
+    expect(set.packages.find((p) => p.manifest.id === "playbook-challenge")?.manifest.version).toBe(
+      "2.1.0",
+    );
+    // F-U12: the Zoom out names every token seen and not proposed, and never proposes one the account cannot buy.
+    expect(set.packages.find((p) => p.manifest.id === "playbook-zoom-out")?.manifest.version).toBe(
+      "2.2.0",
+    );
+    for (const item of ["notProposed", "not buyable for this account"])
+      expect(zoom, item).toContain(item);
+    // F-U12: the Scan's turn limit is the task's cap.
+    const scanPackage = set.packages.find((p) => p.manifest.id === "playbook-scan");
+    expect(scanPackage?.manifest.version).toBe("2.1.0");
+    expect(scanPackage?.skillMd).toContain("the task names in its caps");
     for (const code of [
       "NO_MATERIAL_CHANGE",
       "EVIDENCE_THIN",

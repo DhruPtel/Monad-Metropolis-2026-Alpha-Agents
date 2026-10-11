@@ -188,7 +188,7 @@
       "id": "playbook-scan",
       "name": "aa-playbook-scan",
       "version": "2.1.0",
-      "contentHash": "1f4d8182628b12103433c57935e1734d5629b98c0c6bb1eb91128ba2f6b60e15",
+      "contentHash": "6e933065d444621ac42aee3e69b16c915f92f70fd6600d1a18a9070593d0b2ef",
       "description": "Runs a Scan: finds what changed and what deserves a Dive. Use when the task is a Scan stage.",
       "tools": [
         "data.market_snapshot@1",
@@ -206,8 +206,8 @@
       "kind": "playbook",
       "id": "playbook-zoom-out",
       "name": "aa-playbook-zoom-out",
-      "version": "2.1.0",
-      "contentHash": "83cf03bc5c8c33512b2869c241274bfd4b6fca0be42e9fff80d34664f6efc1bb",
+      "version": "2.2.0",
+      "contentHash": "25a662e8c391156313ab1664ef48fde9b4b050dc7ff3867849375957c1e4d89d",
       "description": "Runs a Zoom out: decides if the owner's plan must change. Use when the task is a Zoom out or a plan review.",
       "tools": [
         "chain.get_portfolio@1",

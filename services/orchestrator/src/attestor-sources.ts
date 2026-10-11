@@ -55,10 +55,12 @@ export function poolQuoteSource(
 export function geckoTerminalSource(market: MarketData, network = "monad"): PriceSource {
   return {
     name: "geckoterminal",
-    async priceOf(token): Promise<PriceReading | null> {
+    async priceOf(token, now): Promise<PriceReading | null> {
       const r = await market.tokenPriceUsd(network, token);
       if (!r || r.priceUsd <= 0 || !Number.isFinite(r.priceUsd)) return null;
-      return { priceE18: usdToE18(r.priceUsd), observedAt: new Date(r.fetchedAtMs) };
+      // The reading's age, measured against the attestor's clock (the chain's, not the wall's).
+      const ageMs = Math.max(0, Date.now() - r.fetchedAtMs);
+      return { priceE18: usdToE18(r.priceUsd), observedAt: new Date(now.getTime() - ageMs) };
     },
   };
 }
