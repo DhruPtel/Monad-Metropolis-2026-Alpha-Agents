@@ -29,6 +29,12 @@ export const COLOR_TOKENS = [
   { name: "viewer-grid", use: "3D scene: platform grid" },
   { name: "viewer-grid-major", use: "3D scene: platform major grid line" },
   { name: "viewer-wing", use: "3D scene: wing-stroke cue" },
+  { name: "chart-1", use: "Chart series 1, orange (F-U11)" },
+  { name: "chart-2", use: "Chart series 2, green" },
+  { name: "chart-3", use: "Chart series 3, violet" },
+  { name: "chart-4", use: "Chart series 4, gold" },
+  { name: "chart-5", use: "Chart series 5, blue" },
+  { name: "chart-6", use: "Chart series 6, rose" },
 ] as const;
 
 export const TYPE_SCALE = [

@@ -58,6 +58,14 @@ import {
   AddCreditsPanel,
   AllocationBar,
   AllocationChart,
+  AllocationDonut,
+  AssetMakeupTable,
+  type AssetRow,
+  HundredDollarTile,
+  PerformanceChart,
+  ScoreTiles,
+  type SeriesPoint,
+  type TradeMarkView,
   ApprovalCard,
   ArmingCard,
   GasNotice,
@@ -2418,6 +2426,197 @@ function ActivationSection() {
   );
 }
 
+/* F-U11: the portfolio window's pieces, with two days of readings. */
+const WIN_E18 = 10n ** 18n;
+const winAt = (hours: number) =>
+  new Date(Date.parse("2026-10-08T00:00:00.000Z") + hours * 3_600_000).toISOString();
+const winRow = (over: Partial<AssetRow> & { symbol: string }): AssetRow => ({
+  decimals: 18,
+  amountRaw: WIN_E18.toString(),
+  isCash: false,
+  valueUsdcE6: "10000000",
+  shareBps: 1_000,
+  costBasisUsdcE6: "9000000",
+  gainUsdcE6: "1000000",
+  gainBps: 1_111,
+  ...over,
+});
+const WIN_ROWS: AssetRow[] = [
+  winRow({
+    symbol: "USDC",
+    decimals: 6,
+    amountRaw: "58400000",
+    isCash: true,
+    valueUsdcE6: "58400000",
+    shareBps: 5_573,
+    costBasisUsdcE6: "58400000",
+    gainUsdcE6: null,
+    gainBps: null,
+  }),
+  winRow({
+    symbol: "WBTC",
+    decimals: 8,
+    amountRaw: "31000",
+    valueUsdcE6: "34100000",
+    shareBps: 3_254,
+    costBasisUsdcE6: "31000000",
+    gainUsdcE6: "3100000",
+    gainBps: 1_000,
+  }),
+  winRow({
+    symbol: "WMON",
+    amountRaw: (480n * WIN_E18).toString(),
+    valueUsdcE6: "12288000",
+    shareBps: 1_172,
+    costBasisUsdcE6: "13200000",
+    gainUsdcE6: "-912000",
+    gainBps: -690,
+  }),
+  winRow({
+    symbol: "CHOG",
+    amountRaw: (2_000n * WIN_E18).toString(),
+    valueUsdcE6: null,
+    shareBps: null,
+    costBasisUsdcE6: "1500000",
+    gainUsdcE6: null,
+    gainBps: null,
+  }),
+];
+const WIN_MANY: AssetRow[] = [
+  winRow({
+    symbol: "USDC",
+    decimals: 6,
+    amountRaw: "30000000",
+    isCash: true,
+    valueUsdcE6: "30000000",
+    shareBps: 3_000,
+    costBasisUsdcE6: "30000000",
+    gainUsdcE6: null,
+    gainBps: null,
+  }),
+  ...(["WBTC", "WETH", "WMON", "AUSD", "CHOG", "DAK", "YAKI"] as const).map((symbol, i) =>
+    winRow({ symbol, shareBps: 1_600 - i * 200, valueUsdcE6: String(16_000_000 - i * 2_000_000) }),
+  ),
+];
+/** Forty-nine hourly readings: a gentle climb with a dip, no randomness. */
+const WIN_SERIES: SeriesPoint[] = Array.from({ length: 49 }, (_, i) => {
+  const wave = Math.round(Math.sin(i / 5) * 180 + i * 9 - (i > 30 && i < 38 ? 260 : 0));
+  return {
+    at: winAt(i),
+    perUnitE18: (WIN_E18 + BigInt(wave) * 10n ** 14n).toString(),
+    valueUsdcE6: String(100_000_000 + wave * 10_000 + (i >= 20 ? 20_000_000 : 0)),
+    reason: i === 7 || i === 22 || i === 40 ? "trade" : "interval",
+  };
+});
+const WIN_MARKS: TradeMarkView[] = [
+  {
+    at: winAt(7),
+    intentId: "i-1",
+    side: "buy",
+    symbol: "WBTC",
+    amountRaw: "31000",
+    decimals: 8,
+    usdcE6: "31000000",
+    txHash: "0xab",
+  },
+  {
+    at: winAt(22),
+    intentId: "i-2",
+    side: "buy",
+    symbol: "WMON",
+    amountRaw: (600n * WIN_E18).toString(),
+    decimals: 18,
+    usdcE6: "16500000",
+    txHash: "0xcd",
+  },
+  {
+    at: winAt(40),
+    intentId: "i-3",
+    side: "sell",
+    symbol: "WMON",
+    amountRaw: (120n * WIN_E18).toString(),
+    decimals: 18,
+    usdcE6: "3300000",
+    txHash: null,
+  },
+];
+const WIN_WAITING = {
+  returnSinceStart: {
+    ok: false as const,
+    reason: "Not enough data yet: the account needs at least an hour of history.",
+  },
+  maxDrawdown: {
+    ok: false as const,
+    reason: "Not enough data yet: the account needs at least an hour of history.",
+  },
+  winShare: { ok: false as const, reason: "Not enough data yet: no position has been closed." },
+};
+
+function WindowSection() {
+  return (
+    <Section id="window" title="Portfolio window">
+      <Specimen
+        name="Asset makeup"
+        note="Every held token with its amount, value where priced, share of the priced total, cost basis and gain or loss; a token without a usable price stays listed with its share and gain unknown. Stacked on a phone. Beside it, the allocation as a donut: at most six slices and Other, USDC in steel and each token with a colour of its own that follows the token, never its rank."
+      >
+        <div className="grid gap-6 xl:grid-cols-[1fr_auto]" data-testid="window-makeup">
+          <AssetMakeupTable
+            rows={WIN_ROWS}
+            totalValueUsdcE6="104788000"
+            asOf={{ at: winAt(48), live: true }}
+          />
+          <AllocationDonut rows={WIN_ROWS} />
+        </div>
+        <div className="grid gap-6 xl:grid-cols-2" data-testid="window-makeup-states">
+          <AllocationDonut rows={WIN_MANY} />
+          <div className="flex flex-col gap-4">
+            <AssetMakeupTable rows={[]} totalValueUsdcE6={null} asOf={null} />
+            <AllocationDonut rows={[WIN_ROWS[3] as AssetRow]} />
+          </div>
+        </div>
+      </Specimen>
+      <Specimen
+        name="Performance"
+        note="What $100 put in at the start would be worth, on the account's value per unit, so deposits and withdrawals never count: one line with a faint wash, hairline gridlines, a marker per trade ringed in the surface (a buy points up, a sale down), a crosshair and tooltip on hover, and the readings as a table on request. Under two readings it says so."
+      >
+        <div className="flex flex-col gap-6" data-testid="window-performance">
+          <PerformanceChart series={WIN_SERIES} marks={WIN_MARKS} />
+          <PerformanceChart series={WIN_SERIES.slice(0, 1)} marks={[]} />
+        </div>
+      </Specimen>
+      <Specimen
+        name="Scores and the $100 figure"
+        note="The return since the start, the largest fall from a peak and the share of closed positions that made money, each with a plain note; and $100 at the start beside what holding USDC would have given. Every one says not enough data yet, and why, while the history is too short."
+      >
+        <div className="flex flex-col gap-6" data-testid="window-scores">
+          <ScoreTiles
+            scores={{
+              returnSinceStart: { ok: true, bps: 412, since: winAt(0), asOf: winAt(48) },
+              maxDrawdown: { ok: true, bps: 318, peakAt: winAt(29), troughAt: winAt(33) },
+              winShare: { ok: true, bps: 5_000, closed: 2, won: 1 },
+            }}
+          />
+          <div className="grid gap-6 lg:grid-cols-2">
+            <HundredDollarTile
+              hundred={{ ok: true, now: "104.12", usdc: "100.00", since: winAt(0) }}
+            />
+            <HundredDollarTile
+              hundred={{ ok: true, now: "96.40", usdc: "100.00", since: winAt(0) }}
+            />
+          </div>
+          <ScoreTiles scores={WIN_WAITING} />
+          <HundredDollarTile
+            hundred={{
+              ok: false,
+              reason: "Not enough data yet: the account needs at least two readings.",
+            }}
+          />
+        </div>
+      </Specimen>
+    </Section>
+  );
+}
+
 const GOAL_HARD = {
   maxTradeBps: 1_000,
   maxPositionBps: 4_000,
@@ -2700,6 +2899,7 @@ function DesignSystem() {
       <AgentSection />
       <PortfolioSection />
       <ActivationSection />
+      <WindowSection />
       <FormsSection />
       <OverlaysSection />
       <DataSection />

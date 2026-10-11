@@ -45,3 +45,4 @@ export * from "./components/agent/goal";
 export * from "./components/ui/choice-group";
 export * from "./components/agent/plan-card";
 export * from "./components/agent/activation";
+export * from "./components/agent/window";

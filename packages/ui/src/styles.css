@@ -52,6 +52,15 @@
   --palette-cool-light: #9db4e6;
   --palette-olive: #3a4a24;
   --palette-mist: #dde8f5;
+  /* Chart series (F-U11): six categorical hues in a fixed order, validated against
+     the dark surface for lightness, chroma, adjacent-pair colour-blind separation
+     and contrast (the dataviz skill's validator). A seventh series folds into Other. */
+  --palette-chart-orange: #d95926;
+  --palette-chart-green: #199e70;
+  --palette-chart-violet: #9085e9;
+  --palette-chart-gold: #c98500;
+  --palette-chart-blue: #3987e5;
+  --palette-chart-rose: #d55181;
 
   /* Type: dense, with a 13px body (text-sm). */
   --type-2xs: 0.6875rem;
@@ -146,6 +155,15 @@
   --viewer-grid-major: var(--palette-olive);
   --viewer-wing: var(--palette-mist);
 
+  /* Chart series, in their fixed order (F-U11); USDC keeps steel, as the allocation
+     chart has always drawn it. */
+  --chart-1: var(--palette-chart-orange);
+  --chart-2: var(--palette-chart-green);
+  --chart-3: var(--palette-chart-violet);
+  --chart-4: var(--palette-chart-gold);
+  --chart-5: var(--palette-chart-blue);
+  --chart-6: var(--palette-chart-rose);
+
   --focus-ring: var(--palette-lime);
 
   /* Flat by default: shadows only for floating things and selection. */
@@ -194,6 +212,12 @@
   --color-viewer-grid: var(--viewer-grid);
   --color-viewer-grid-major: var(--viewer-grid-major);
   --color-viewer-wing: var(--viewer-wing);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-chart-6: var(--chart-6);
   --color-focus-ring: var(--focus-ring);
   --color-transparent: transparent;
   --color-current: currentColor;
