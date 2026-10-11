@@ -31,6 +31,7 @@ import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import type { ActivationDeps, ActivationReadJson } from "./activation.ts";
 import type { WindowDeps } from "./window.ts";
+import type { ResearchDeps } from "./research.ts";
 import { type ApiDeps, createApp } from "./app.ts";
 import type { ChainReader } from "./chain.ts";
 import type { Identity } from "./identity.ts";
@@ -2231,6 +2232,89 @@ describe.skipIf(!available)("the control API (needs pnpm dev:up for Postgres)", 
         headers: headers(bob),
       });
       expect([noStart.status, (await json(noStart)).error]).toEqual([503, "not_configured"]);
+    });
+  });
+
+  describe("the research loop and the agent terminal (P3-U10)", () => {
+    const headers = (session: string | null): Record<string, string> =>
+      session ? { "x-owner-session": session, "content-type": "application/json" } : {};
+    const session = async (agent: number, token: string) =>
+      (await json(await call(`/v1/agents/${agent}/session`, { method: "POST", token })))
+        .token as string;
+    const calls: string[] = [];
+    const research: ResearchDeps = {
+      read: async (id) => {
+        calls.push(`read ${id}`);
+        return { running: true, schedule: { paused: false }, triggers: [] };
+      },
+      terminal: async (id, cycleId, after) => {
+        calls.push(`terminal ${id} ${cycleId ?? "-"} ${after}`);
+        return { cycle: null, live: false, events: [{ seq: after + 1, text: "a line" }], last: after + 1 };
+      },
+      pause: async (id, paused) => {
+        calls.push(`pause ${id} ${paused}`);
+        return { paused };
+      },
+    };
+
+    it("is owner only, and answers 503 without the orchestrator", async () => {
+      const bob = await session(2, "bob-token");
+      const alice = await session(1, "alice-token");
+      for (const path of ["/v1/agents/2/research", "/v1/agents/2/terminal"]) {
+        expect((await call(path, {}, { research })).status).toBe(401);
+        expect((await call(path, { headers: headers(alice) }, { research })).status).toBe(403);
+        expect((await call(path, { headers: headers(bob) })).status).toBe(503);
+      }
+      const pause = await call("/v1/agents/2/research/pause", {
+        method: "POST",
+        headers: headers(bob),
+        body: JSON.stringify({ paused: true }),
+      });
+      expect(pause.status).toBe(503);
+      expect(calls).toEqual([]);
+    });
+
+    it("passes the read, the terminal's cursor and the pause through to the orchestrator", async () => {
+      const bob = await session(2, "bob-token");
+      const read = await call("/v1/agents/2/research", { headers: headers(bob) }, { research });
+      expect(read.status).toBe(200);
+      expect(await json(read)).toMatchObject({ agentId: "2", running: true, triggers: [] });
+      const t = await call(
+        "/v1/agents/2/terminal?cycleId=cycle-01234567-89ab-cdef-0123-456789abcdef&after=4",
+        { headers: headers(bob) },
+        { research },
+      );
+      expect(t.status).toBe(200);
+      expect(await json(t)).toMatchObject({ agentId: "2", events: [{ seq: 5 }], last: 5 });
+      expect(
+        (await call("/v1/agents/2/terminal?cycleId=nope", { headers: headers(bob) }, { research }))
+          .status,
+      ).toBe(400);
+      expect(
+        (await call("/v1/agents/2/terminal?after=x", { headers: headers(bob) }, { research }))
+          .status,
+      ).toBe(400);
+      const paused = await call(
+        "/v1/agents/2/research/pause",
+        { method: "POST", headers: headers(bob), body: JSON.stringify({ paused: true }) },
+        { research },
+      );
+      expect(paused.status).toBe(200);
+      expect(await json(paused)).toEqual({ agentId: "2", paused: true });
+      expect(
+        (
+          await call(
+            "/v1/agents/2/research/pause",
+            { method: "POST", headers: headers(bob), body: JSON.stringify({ paused: "yes" }) },
+            { research },
+          )
+        ).status,
+      ).toBe(400);
+      expect(calls).toEqual([
+        "read 2",
+        "terminal 2 cycle-01234567-89ab-cdef-0123-456789abcdef 4",
+        "pause 2 true",
+      ]);
     });
   });
 

@@ -17,6 +17,7 @@ import {
 } from "./proposals.ts";
 import type { ActivationDeps } from "./activation.ts";
 import type { WindowDeps } from "./window.ts";
+import type { ResearchDeps } from "./research.ts";
 import { cors } from "hono/cors";
 import { type Address, type Hex, getAddress, isAddress, isAddressEqual } from "viem";
 import { translateGoal } from "@alpha-agents/policy";
@@ -123,6 +124,11 @@ export interface ApiDeps {
    * where none is reachable, and the window shows the latest snapshot instead.
    */
   readonly window?: WindowDeps | null;
+  /**
+   * P3-U10: the research loop and the agent terminal through the orchestrator;
+   * absent where none is reachable, and the routes answer 503.
+   */
+  readonly research?: ResearchDeps | null;
   /** D-315: every balance at the agent's addresses; null where AgentNFT is not deployed. */
   readonly holdings?: HoldingsReader | null;
   /** How long index reads are cached. */
@@ -951,6 +957,54 @@ export function createApp(deps: ApiDeps): Hono {
       ...(await meta()),
       window: buildWindow({ agentId: id, rows, intents, live, now: new Date(deps.now()) }),
     });
+  });
+
+  // --- The research loop and the agent terminal (P3-U10) ---------------------
+
+  const researchOff = (c: Context) =>
+    fail(
+      c,
+      503,
+      "not_configured",
+      "The platform cannot reach the agent's orchestrator right now; try again in a moment.",
+    );
+
+  /** The Research page's read: the schedule, the budget, the triggers, the records and the snapshot. Owner only. */
+  app.get("/v1/agents/:id{[0-9]+}/research", async (c) => {
+    const agentId = BigInt(c.req.param("id"));
+    const owner = await ownerOnly(c, agentId);
+    if (owner instanceof Response) return owner;
+    if (!deps.research) return researchOff(c);
+    const read = await deps.research.read(Number(agentId));
+    return c.json({ ...(await meta()), ...read, agentId: agentId.toString() });
+  });
+
+  /** The agent terminal's events from a sequence on, the open cycle by default. Owner only. */
+  app.get("/v1/agents/:id{[0-9]+}/terminal", async (c) => {
+    const agentId = BigInt(c.req.param("id"));
+    const owner = await ownerOnly(c, agentId);
+    if (owner instanceof Response) return owner;
+    if (!deps.research) return researchOff(c);
+    const cycleId = c.req.query("cycleId") ?? null;
+    if (cycleId !== null && !/^cycle-[0-9a-f-]{36}$/.test(cycleId))
+      return fail(c, 400, "bad_request", "That is not a cycle ID.");
+    const after = c.req.query("after") ?? "0";
+    if (!/^\d{1,9}$/.test(after)) return fail(c, 400, "bad_request", "after is a sequence number.");
+    const read = await deps.research.terminal(Number(agentId), cycleId, Number(after));
+    return c.json({ ...read, agentId: agentId.toString() });
+  });
+
+  /** Pauses or resumes the agent's research loop. Owner only. */
+  app.post("/v1/agents/:id{[0-9]+}/research/pause", async (c) => {
+    const agentId = BigInt(c.req.param("id"));
+    const owner = await ownerOnly(c, agentId);
+    if (owner instanceof Response) return owner;
+    if (!deps.research) return researchOff(c);
+    const body = (await c.req.json().catch(() => null)) as { paused?: unknown } | null;
+    if (!body || typeof body.paused !== "boolean")
+      return fail(c, 400, "bad_request", "paused must be true or false.");
+    const r = await deps.research.pause(Number(agentId), body.paused);
+    return c.json({ agentId: agentId.toString(), paused: r.paused });
   });
 
   /**

@@ -10,6 +10,7 @@ import { privateKeyToAccount } from "viem/accounts";
 import { createApp } from "./app.ts";
 import { orchestratorActivation } from "./activation.ts";
 import { orchestratorWindow } from "./window.ts";
+import { orchestratorResearch } from "./research.ts";
 import {
   rpcAgentViewReader,
   rpcCustodyPathReader,
@@ -277,6 +278,10 @@ const app = createApp({
   // F-U11: the window's live account reading comes from the orchestrator too.
   ...(values.ORCHESTRATOR_URL
     ? { window: orchestratorWindow(String(values.ORCHESTRATOR_URL)) }
+    : {}),
+  // P3-U10: the research loop and the agent terminal, owner-only, through the orchestrator.
+  ...(values.ORCHESTRATOR_URL
+    ? { research: orchestratorResearch(String(values.ORCHESTRATOR_URL)) }
     : {}),
   // P2-EC (D-307): testnet's feeds are re-dated by the orchestrator, which holds the feed key.
   ...(env.id === "testnet" && values.ORCHESTRATOR_URL
