@@ -25,8 +25,10 @@ import type { Narrator } from "../narrator.ts";
 import type { BriefRow, Cycle, CycleStore, StageRun } from "./store.ts";
 import {
   type PlanInputsFingerprint,
+  type TargetPortfolioDecisionParams,
   checkTargetPortfolio,
   stateChangedFinding,
+  targetPortfolioFromDecision,
 } from "./plan-rules.ts";
 import type { TestFindingV2, TestInputsV2 } from "./test-stage.ts";
 
@@ -379,34 +381,9 @@ export class ProposalService {
   }
 }
 
-/** The Zoom out's decision params, as complete_stage accepted them, into the policy's shapes. */
+/** The Zoom out's decision params, as complete_stage accepted them, into the policy's shape: the Test's own conversion (F-T2, L-220). */
 export function portfolioParamsFromDecision(raw: Record<string, unknown>): TargetPortfolioParams {
-  const r = raw as {
-    positions: TargetPortfolioParams["positions"];
-    cashTargetBps: number;
-    minTradeUsdc: string;
-    volatilityBrakeBps: number;
-    costHurdleBps: number;
-    maxLegBps: number;
-  };
-  return {
-    positions: r.positions.map((p) => ({
-      token: p.token as Hex,
-      targetWeightBps: p.targetWeightBps,
-      bandBps: p.bandBps,
-      thesisId: p.thesisId,
-      exit: {
-        killCriterion: p.exit.killCriterion,
-        recheckAt: p.exit.recheckAt,
-        ...(p.exit.trimAboveBps === undefined ? {} : { trimAboveBps: p.exit.trimAboveBps }),
-      },
-    })),
-    cashTargetBps: r.cashTargetBps,
-    minTradeUsdcE6: usdcE6(r.minTradeUsdc),
-    volatilityBrakeBps: r.volatilityBrakeBps,
-    costHurdleBps: r.costHurdleBps,
-    maxLegBps: r.maxLegBps,
-  };
+  return targetPortfolioFromDecision(raw as unknown as TargetPortfolioDecisionParams);
 }
 
 export function bandsParamsFromDecision(raw: Record<string, unknown>): RebalanceBandsParams {

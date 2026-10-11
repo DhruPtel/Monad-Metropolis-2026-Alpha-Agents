@@ -8,7 +8,6 @@ import {
 import type { AgentIdentity } from "@alpha-agents/tool-server";
 import { ToolError } from "@alpha-agents/tool-server";
 import type { Hex } from "viem";
-import { portfolioParamsFromJson } from "@alpha-agents/policy";
 import {
   type GoalStore,
   type PlanStore,
@@ -19,7 +18,9 @@ import {
   type PlanCost,
   type PlanInputsFingerprint,
   type PlanVerdict,
+  type TargetPortfolioDecisionParams,
   checkTargetPortfolio,
+  targetPortfolioFromDecision,
 } from "./plan-rules.ts";
 import { allocationFindings, rationaleFindings } from "./rationale.ts";
 import type { Cycle, CycleStore, StageRun } from "./store.ts";
@@ -451,28 +452,10 @@ export class CycleResearch {
    * proposal evaluator uses (`checkTargetPortfolio`), the decision's params as complete_stage takes them.
    */
   async targetPortfolioVerdict(
-    params: {
-      readonly minTradeUsdc: string;
-      readonly positions: readonly unknown[];
-      readonly cashTargetBps: number;
-      readonly volatilityBrakeBps: number;
-      readonly costHurdleBps: number;
-      readonly maxLegBps: number;
-    },
+    params: TargetPortfolioDecisionParams,
     inputs: TestInputsV2,
   ): Promise<PlanVerdict> {
-    const portfolio = portfolioParamsFromJson({
-      ...params,
-      minTradeUsdcE6: proposalParams({
-        targetWmonBps: 0,
-        bandHalfWidthBps: 0,
-        minTradeUsdc: params.minTradeUsdc,
-        volatilityBrakeBps: 0,
-        costHurdleBps: 0,
-        maxLegBps: 0,
-      }).minTradeUsdcE6.toString(),
-    });
-    return checkTargetPortfolio(portfolio, inputs);
+    return checkTargetPortfolio(targetPortfolioFromDecision(params), inputs);
   }
 
   /** F-U6: the Test stage's inputs for a target portfolio, or null off the fund agent's set. */

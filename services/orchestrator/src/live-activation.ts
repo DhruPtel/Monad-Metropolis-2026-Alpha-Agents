@@ -80,7 +80,10 @@ import { must } from "./testing.ts";
 const ROOT = resolve(import.meta.dirname, "../../..");
 /** F-U12: the open universe: the verifier, an Aggressive goal with the opt-in, a class A token screened. */
 const OPEN = process.argv.includes("--open-universe");
-const UNIT = OPEN ? "F-U12" : "F-U10";
+/** The unit the report is evidence for (`--unit=F-T2`); the report goes to evidence/<unit>/. */
+const UNIT =
+  process.argv.find((a) => a.startsWith("--unit="))?.slice("--unit=".length) ??
+  (OPEN ? "F-U12" : "F-U10");
 /** GHO on Monad: class A (no feed), a hookless v4 pool against USDC; the class A token of the sweep. */
 const GHO = "0xfc421ad3c883bf9e7c4f42de845c4e4405799e73" as Hex;
 const FORK_PORT = 8551;

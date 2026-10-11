@@ -100,6 +100,24 @@
       "expect": []
     },
     {
+      "name": "the same plan with its tokens checksummed, as the model writes them, is one plan on both sides",
+      "positions": [
+        {
+          "token": "0x00000000000000000000000000000000000000C2",
+          "targetWeightBps": 3000
+        },
+        {
+          "token": "0x00000000000000000000000000000000000000C3",
+          "targetWeightBps": 2000
+        },
+        {
+          "token": "0x00000000000000000000000000000000000000C6",
+          "targetWeightBps": 1000
+        }
+      ],
+      "expect": []
+    },
+    {
       "name": "a cost hurdle under the venue's cost is refused by the rules, not only by the evaluator",
       "positions": [
         {

@@ -3,16 +3,12 @@ import {
   checkTargetPortfolio,
   inputsFingerprint,
   stateChangedFinding,
+  targetPortfolioFromDecision,
   whatChanged,
 } from "./plan-rules.ts";
 import { TARGET_PORTFOLIO_ID } from "@alpha-agents/policy";
-import {
-  fixtureDecisionParams,
-  fixtureInputs,
-  fixturePlan,
-  loadPlanFixture,
-} from "./plan-rules.fixture.ts";
-import { ProposalService } from "./proposals.ts";
+import { fixtureDecisionParams, fixtureInputs, loadPlanFixture } from "./plan-rules.fixture.ts";
+import { ProposalService, portfolioParamsFromDecision } from "./proposals.ts";
 import { CycleResearch } from "./research.ts";
 
 /**
@@ -25,7 +21,10 @@ describe("the plan rules on the shared fixture", () => {
   const f = loadPlanFixture();
   for (const c of f.cases)
     it(c.name, async () => {
-      const verdict = await checkTargetPortfolio(fixturePlan(c, f), fixtureInputs(f));
+      const verdict = await checkTargetPortfolio(
+        targetPortfolioFromDecision(fixtureDecisionParams(c, f)),
+        fixtureInputs(f),
+      );
       expect(verdict.findings.map((x) => x.code)).toEqual(c.expect);
       expect(verdict.fingerprint.block).toBe(f.block);
       if (c.positions.length > 0) expect(verdict.cost?.legs).toBeGreaterThan(0);
@@ -60,9 +59,13 @@ describe("both sides give the fixture's codes: the Test stage's verdict and the 
     it(c.name, async () => {
       const onStage = await stage.targetPortfolioVerdict(fixtureDecisionParams(c, f), inputs());
       expect(onStage.findings.map((x) => x.code)).toEqual(c.expect);
+      // The evaluator reads the decision the way the proposal service does (portfolioParamsFromDecision).
       const byEvaluator = await evaluator.evaluate(
         { chainId: f.chainId, agentId: 7 },
-        { template: TARGET_PORTFOLIO_ID, params: fixturePlan(c, f) },
+        {
+          template: TARGET_PORTFOLIO_ID,
+          params: portfolioParamsFromDecision(fixtureDecisionParams(c, f) as never),
+        },
         { tested: onStage.fingerprint },
       );
       // The same codes, and nothing changed since the stage read, so no STATE_CHANGED beside them.
@@ -99,7 +102,10 @@ describe("both sides give the fixture's codes: the Test stage's verdict and the 
     });
     const refused = await later.evaluate(
       { chainId: f.chainId, agentId: 7 },
-      { template: TARGET_PORTFOLIO_ID, params: fixturePlan(c, f) },
+      {
+        template: TARGET_PORTFOLIO_ID,
+        params: portfolioParamsFromDecision(fixtureDecisionParams(c, f) as never),
+      },
       { tested: onStage.fingerprint },
     );
     expect(refused.findings.map((x) => x.code)).toEqual(["NOT_OPTED_IN", "STATE_CHANGED"]);

@@ -145,7 +145,7 @@ export function fixtureInputs(f: PlanFixture = loadPlanFixture()): TestInputsV2 
   };
 }
 
-/** A case's plan in the policy's shape, the stage's and the evaluator's alike. */
+/** A case's plan as its decision carries it, tokens as written (the rule set lowercases them). */
 export function fixturePlan(
   c: PlanFixtureCase,
   f: PlanFixture = loadPlanFixture(),
@@ -154,7 +154,7 @@ export function fixturePlan(
   const [whole = "0", frac = ""] = p.minTradeUsdc.split(".");
   return {
     positions: c.positions.map((pos) => ({
-      token: pos.token.toLowerCase() as Hex,
+      token: pos.token as Hex,
       targetWeightBps: pos.targetWeightBps,
       bandBps: 300,
       thesisId: `t-${pos.token.slice(-2)}`,

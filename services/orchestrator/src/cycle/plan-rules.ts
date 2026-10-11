@@ -1,5 +1,5 @@
 import type { TargetPortfolioParams } from "@alpha-agents/policy";
-import { valueE6 } from "@alpha-agents/policy";
+import { portfolioParamsFromJson, valueE6 } from "@alpha-agents/policy";
 import type { ProposalEvaluation } from "@alpha-agents/trading";
 import { type Hex, isAddressEqual } from "viem";
 import { type TestFindingV2, type TestInputsV2, checkPortfolioProposal } from "./test-stage.ts";
@@ -45,6 +45,35 @@ export interface PlanInputsFingerprint {
 
 const BPS = 10_000n;
 const lower = (a: string) => a.toLowerCase();
+
+/** The decision's params as complete_stage takes them: the minimum trade in USDC text, tokens as the model wrote them. */
+export interface TargetPortfolioDecisionParams {
+  readonly positions: readonly unknown[];
+  readonly cashTargetBps: number;
+  readonly minTradeUsdc: string;
+  readonly volatilityBrakeBps: number;
+  readonly costHurdleBps: number;
+  readonly maxLegBps: number;
+}
+
+/**
+ * A Zoom out's decision params into the policy's shape, the one way (F-T2,
+ * L-220): the minimum trade from USDC text to its 6 decimals, and every
+ * token lowercased, which the bounds require. The Test stage and the
+ * proposal evaluator both read the decision through this.
+ */
+export function targetPortfolioFromDecision(
+  p: TargetPortfolioDecisionParams,
+): TargetPortfolioParams {
+  const [whole = "0", frac = ""] = p.minTradeUsdc.split(".");
+  return portfolioParamsFromJson({
+    ...p,
+    minTradeUsdcE6: (
+      BigInt(whole) * 1_000_000n +
+      BigInt(frac.padEnd(6, "0").slice(0, 6) || "0")
+    ).toString(),
+  });
+}
 
 /** The estimated cost of moving the account to the plan: one leg per token whose value moves by at least the minimum trade. */
 export async function estimateMoveCost(
