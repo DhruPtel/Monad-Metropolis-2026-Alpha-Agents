@@ -141,7 +141,7 @@ export function ResearchPage({
         lines={terminal.lines}
         state={terminal.state}
         cycle={terminal.cycle}
-        maxHeightClass="max-h-[28rem]"
+        maxHeightClass="max-h-112"
       />
 
       <div className="grid gap-6 lg:grid-cols-2">
