@@ -405,6 +405,18 @@ export function PortfolioPage({
     const timer = window.setInterval(() => setNow(new Date().toISOString()), 1_000);
     return () => window.clearInterval(timer);
   }, [sweeping, activation?.activationId]);
+  // F-U11: the window's links name a section (#plan, #trades, #why) that exists only once the
+  // portfolio has loaded, after the browser's own jump; scroll to it then.
+  const loaded = p !== null;
+  useEffect(() => {
+    if (!loaded) return;
+    const hash = window.location.hash.slice(1);
+    if (!hash) return;
+    const frame = window.requestAnimationFrame(() => {
+      document.getElementById(hash)?.scrollIntoView({ block: "start" });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [loaded]);
 
   const header = (
     <div className="flex flex-col gap-2">

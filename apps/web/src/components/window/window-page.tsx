@@ -209,7 +209,7 @@ export function WindowPage({
             page.
           </CardDescription>
         </CardHeader>
-        <CardContent className="flex flex-wrap gap-2">
+        <CardContent className="flex flex-row flex-wrap gap-2">
           <Button asChild variant="secondary" size="sm">
             <Link href={`${portfolio}#plan`}>Current plan</Link>
           </Button>

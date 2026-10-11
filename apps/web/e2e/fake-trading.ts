@@ -16,6 +16,7 @@ import type {
   WhyNotTradedJson,
   PlanCardJson,
   ProposalJson,
+  WindowJson,
 } from "../src/api/client";
 import { ACCOUNT_ABI, ERC20_ABI, FACTORY_ABI } from "../src/agent/custody";
 import type { FakeChain } from "./fake-chain";
@@ -561,6 +562,195 @@ export function activationReadFixture(over: Partial<ActivationReadJson> = {}): A
   };
 }
 
+/* F-U11: the window as the control API builds it. Forty-nine hourly readings end at NOW. */
+const WIN_E18 = 10n ** 18n;
+const winAt = (hoursBeforeNow: number) => iso(NOW - hoursBeforeNow * 3_600);
+const winRow = (over: Partial<WindowJson["holdings"][number]> & { symbol: string }) => ({
+  token: null,
+  decimals: 18,
+  amountRaw: WIN_E18.toString(),
+  isCash: false,
+  valueUsdcE6: "10000000",
+  shareBps: 1_000,
+  costBasisUsdcE6: "9000000",
+  gainUsdcE6: "1000000",
+  gainBps: 1_111,
+  ...over,
+});
+export const WINDOW_HOLDINGS: WindowJson["holdings"] = [
+  winRow({
+    token: USDC,
+    symbol: "USDC",
+    decimals: 6,
+    amountRaw: "58400000",
+    isCash: true,
+    valueUsdcE6: "58400000",
+    shareBps: 5_573,
+    costBasisUsdcE6: "58400000",
+    gainUsdcE6: null,
+    gainBps: null,
+  }),
+  winRow({
+    token: WBTC,
+    symbol: "WBTC",
+    decimals: 8,
+    amountRaw: "31000",
+    valueUsdcE6: "34100000",
+    shareBps: 3_254,
+    costBasisUsdcE6: "31000000",
+    gainUsdcE6: "3100000",
+    gainBps: 1_000,
+  }),
+  winRow({
+    token: WMON,
+    symbol: "WMON",
+    amountRaw: (480n * WIN_E18).toString(),
+    valueUsdcE6: "12288000",
+    shareBps: 1_172,
+    costBasisUsdcE6: "13200000",
+    gainUsdcE6: "-912000",
+    gainBps: -690,
+  }),
+  winRow({
+    token: CHOG,
+    symbol: "CHOG",
+    amountRaw: (2_000n * WIN_E18).toString(),
+    valueUsdcE6: null,
+    shareBps: null,
+    costBasisUsdcE6: "1500000",
+    gainUsdcE6: null,
+    gainBps: null,
+  }),
+];
+export const WINDOW_SERIES: WindowJson["series"] = Array.from({ length: 49 }, (_, i) => {
+  const wave = Math.round(Math.sin(i / 5) * 180 + i * 9 - (i > 30 && i < 38 ? 260 : 0));
+  return {
+    at: winAt(48 - i),
+    perUnitE18: (WIN_E18 + BigInt(wave) * 10n ** 14n).toString(),
+    valueUsdcE6: String(100_000_000 + wave * 10_000 + (i >= 20 ? 20_000_000 : 0)),
+    reason: i === 7 || i === 22 || i === 40 ? "trade" : "interval",
+  };
+});
+export const WINDOW_MARKS: WindowJson["marks"] = [
+  {
+    at: winAt(41),
+    intentId: "intent-w1",
+    side: "buy",
+    symbol: "WBTC",
+    amountRaw: "31000",
+    decimals: 8,
+    usdcE6: "31000000",
+    txHash: "0xab",
+  },
+  {
+    at: winAt(26),
+    intentId: "intent-w2",
+    side: "buy",
+    symbol: "WMON",
+    amountRaw: (600n * WIN_E18).toString(),
+    decimals: 18,
+    usdcE6: "16500000",
+    txHash: "0xcd",
+  },
+  {
+    at: winAt(8),
+    intentId: "intent-w3",
+    side: "sell",
+    symbol: "WMON",
+    amountRaw: (120n * WIN_E18).toString(),
+    decimals: 18,
+    usdcE6: "3300000",
+    txHash: null,
+  },
+];
+
+export function windowFixture(over: Partial<WindowJson> = {}): WindowJson {
+  return {
+    agentId: "7",
+    account: ACCOUNT,
+    custody: "v3",
+    asOf: { at: iso(NOW), block: "109670900", live: true },
+    totalValueUsdcE6: "104788000",
+    holdings: WINDOW_HOLDINGS,
+    series: WINDOW_SERIES,
+    marks: WINDOW_MARKS,
+    closed: [
+      { symbol: "AUSD", spentUsdcE6: "5000000", receivedUsdcE6: "5200000", profitable: true },
+    ],
+    scores: {
+      returnSinceStart: { ok: true, bps: 412, since: winAt(48), asOf: iso(NOW) },
+      maxDrawdown: { ok: true, bps: 318, peakAt: winAt(19), troughAt: winAt(15) },
+      winShare: { ok: true, bps: 10_000, closed: 1, won: 1 },
+    },
+    hundred: { ok: true, now: "104.12", usdc: "100.00", since: winAt(48) },
+    history: { points: 49, from: winAt(48), to: iso(NOW), capped: false },
+    ...over,
+  };
+}
+
+/** A new account: one reading, nothing closed, every score waiting. */
+export const WINDOW_WAITING = (): WindowJson =>
+  windowFixture({
+    asOf: { at: iso(NOW - 600), block: "109670880", live: false },
+    totalValueUsdcE6: "40000000",
+    holdings: [WINDOW_HOLDINGS[0] as WindowJson["holdings"][number]].map((h) => ({
+      ...h,
+      amountRaw: "40000000",
+      valueUsdcE6: "40000000",
+      shareBps: 10_000,
+      costBasisUsdcE6: "40000000",
+    })),
+    series: [
+      {
+        at: iso(NOW - 600),
+        perUnitE18: WIN_E18.toString(),
+        valueUsdcE6: "40000000",
+        reason: "interval",
+      },
+    ],
+    marks: [],
+    closed: [],
+    scores: {
+      returnSinceStart: {
+        ok: false,
+        reason: "Not enough data yet: the account needs at least two readings.",
+      },
+      maxDrawdown: {
+        ok: false,
+        reason: "Not enough data yet: the account needs at least two readings.",
+      },
+      winShare: { ok: false, reason: "Not enough data yet: no position has been closed." },
+    },
+    hundred: { ok: false, reason: "Not enough data yet: the account needs at least two readings." },
+    history: { points: 1, from: iso(NOW - 600), to: iso(NOW - 600), capped: false },
+  });
+
+/** No trading account: the window is empty. */
+export const WINDOW_NO_ACCOUNT = (): WindowJson =>
+  windowFixture({
+    account: null,
+    custody: null,
+    asOf: null,
+    totalValueUsdcE6: null,
+    holdings: [],
+    series: [],
+    marks: [],
+    closed: [],
+    scores: {
+      returnSinceStart: {
+        ok: false,
+        reason: "Not enough data yet: the account needs at least two readings.",
+      },
+      maxDrawdown: {
+        ok: false,
+        reason: "Not enough data yet: the account needs at least two readings.",
+      },
+      winShare: { ok: false, reason: "Not enough data yet: no position has been closed." },
+    },
+    hundred: { ok: false, reason: "Not enough data yet: the account needs at least two readings." },
+    history: { points: 0, from: null, to: null, capped: false },
+  });
+
 export class FakeTrading {
   portfolio: PortfolioJson;
   arming: ArmingJson = UNARMED;
@@ -575,6 +765,8 @@ export class FakeTrading {
   /** Every proposal decision the page sent: "approve <id>" or "reject <id>". */
   readonly decisions: string[] = [];
   intents: IntentJson[] = [];
+  /** F-U11: the window as the owner reads it. */
+  window: WindowJson = windowFixture();
   /** Extra blocked reasons beyond the intents' own (for example NOT_ARMED). */
   readonly calls: string[] = [];
   private readonly owner: Address;
@@ -720,6 +912,8 @@ export class FakeTrading {
     const agentId = id.toString();
     if (rest === "portfolio" && method === "GET")
       return { status: 200, body: { portfolio: this.portfolio } };
+    if (rest === "window" && method === "GET")
+      return { status: 200, body: { window: this.window } };
     if (rest === "plan-card" && method === "GET")
       return this.planCard
         ? { status: 200, body: { agentId, ...this.planCard } }
