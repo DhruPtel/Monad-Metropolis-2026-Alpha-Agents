@@ -15,6 +15,7 @@ import { registerTokenRoutes } from "./token-routes.ts";
 import type { TokenRegistry } from "./tokens/registry.ts";
 import { registerCycleRoutes } from "./cycle-routes.ts";
 import { registerResearchRoutes } from "./research-routes.ts";
+import { registerSentinelRoutes } from "./sentinel-routes.ts";
 import { accountReadJson } from "./snapshots.ts";
 import { mountedSkills } from "./hermes/materialize.ts";
 
@@ -544,6 +545,14 @@ export function createApi(o: ApiOptions): Hono {
   registerResearchRoutes(app, {
     orchestrator: o.orchestrator,
     chainId: o.chainId,
+    agentRef: (raw) => agentRef(raw, o.chainId),
+    canAct: o.devActions || o.operatorActions === true,
+    canDrive: o.devActions,
+  });
+
+  // P4-U2: the Risk Sentinel's view, an operator's clearing, and the dev console's drills.
+  registerSentinelRoutes(app, {
+    orchestrator: o.orchestrator,
     agentRef: (raw) => agentRef(raw, o.chainId),
     canAct: o.devActions || o.operatorActions === true,
     canDrive: o.devActions,

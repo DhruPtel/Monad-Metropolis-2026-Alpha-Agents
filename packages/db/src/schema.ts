@@ -563,6 +563,31 @@ export interface ResearchTriggerTable {
   spaced: ColumnType<boolean, boolean | undefined, boolean>;
 }
 
+/** P4-U2: one action of the Risk Sentinel: the breach, what it set, why, and the transaction. */
+export interface SentinelActionTable {
+  action_id: string;
+  chain_id: number;
+  agent_id: number;
+  code: string;
+  action: string;
+  state: string | null;
+  reason: string;
+  detail: ColumnType<Record<string, unknown>, string, string>;
+  tx_hash: string | null;
+  status: "done" | "failed" | "skipped";
+  created_at: Timestamp;
+}
+
+/** P4-U2: per agent, the conditions in force (code to since) and the sentinel's baselines. */
+export interface SentinelWatchTable {
+  chain_id: number;
+  agent_id: number;
+  active: ColumnType<Record<string, string>, string | undefined, string>;
+  baseline: ColumnType<Record<string, unknown> | null, string | null | undefined, string | null>;
+  last_checked_at: Timestamp | null;
+  updated_at: ColumnType<Date, Date | string | undefined, Date | string>;
+}
+
 export interface ResearchCycleTable {
   cycle_id: string;
   chain_id: number;
@@ -889,6 +914,8 @@ export interface Database {
   "platform.tokens": TokenTable;
   "platform.research_schedules": ResearchScheduleTable;
   "platform.research_triggers": ResearchTriggerTable;
+  "platform.sentinel_actions": SentinelActionTable;
+  "platform.sentinel_watch": SentinelWatchTable;
   "platform.token_pools": TokenPoolTable;
   "platform.token_screens": TokenScreenTable;
   "platform.token_discovery_runs": TokenDiscoveryRunTable;

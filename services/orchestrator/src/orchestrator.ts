@@ -80,6 +80,14 @@ import { runTokenCheckTask } from "./token-check.ts";
 import { ActivationService } from "./activation.ts";
 import { ResearchScheduler, ResearchStore, Watcher } from "./research-loop.ts";
 import { type ResearchWiring, observe, schedulerDeps, watcherDeps } from "./research-wiring.ts";
+import {
+  DEFAULT_RULES,
+  type SentinelChain,
+  type SentinelRules,
+  Sentinel,
+  SentinelStore,
+} from "./sentinel.ts";
+import { type SentinelWiring, sentinelDeps, setAgentState } from "./sentinel-wiring.ts";
 
 /** F-U1: discovery every 30 minutes; screens of due tokens every 10 minutes, two at a time. */
 export const TOKEN_DISCOVERY_EVERY_MS = 30 * 60_000;
@@ -211,6 +219,22 @@ export interface OrchestratorOptions {
     readonly screenEveryMs?: number;
     readonly screensPerTick?: number;
   } | null;
+  /**
+   * P4-U2: the Risk Sentinel. `chain` is the sentinel key's wallet, null
+   * where no key is configured (then only agent states are set); `everyMs`
+   * 0 turns the loop off (tests).
+   */
+  readonly sentinel?: {
+    readonly chain: SentinelChain | null;
+    readonly everyMs?: number;
+    readonly rules?: Partial<SentinelRules>;
+    readonly fundingAddressOf?: (agentId: number) => Promise<Hex | null>;
+    readonly signerAlive?: () => boolean | null;
+    readonly gas?: {
+      readonly balance: (address: Hex) => Promise<bigint>;
+      readonly swapCost: () => Promise<bigint>;
+    };
+  } | null;
 }
 
 export class Orchestrator {
@@ -238,6 +262,10 @@ export class Orchestrator {
   readonly scheduler: ResearchScheduler | null;
   readonly watcher: Watcher | null;
   private readonly researchWiring: ResearchWiring | null;
+  /** P4-U2: the Risk Sentinel's actions and watch rows, and the service when configured. */
+  readonly sentinelStore: SentinelStore;
+  readonly sentinel: Sentinel | null;
+  readonly sentinelRules: SentinelRules;
   /** Eight-word runs of every mounted skill's and playbook's text, once per process: the leak checks. */
   readonly skillText: () => ReadonlySet<string>;
   /** F-U9: portfolio proposals from the Zoom out's decisions, evaluated and stored. */
@@ -367,6 +395,28 @@ export class Orchestrator {
     this.scheduler = research ? new ResearchScheduler(schedulerDeps(research)) : null;
     this.watcher = research ? new Watcher(watcherDeps(research)) : null;
     this.researchWiring = research;
+    this.sentinelStore = new SentinelStore(store.db);
+    this.sentinelRules = { ...DEFAULT_RULES, ...(options.sentinel?.rules ?? {}) };
+    const sentinelWiring: SentinelWiring | null = options.sentinel
+      ? {
+          chainId: options.chainId,
+          db: store.db,
+          store: this.sentinelStore,
+          rules: this.sentinelRules,
+          chain: options.sentinel.chain,
+          readerV3: options.chain?.readerV3 ?? null,
+          registry: options.tokens?.registry ?? null,
+          credits: this.credits,
+          goals: this.goals,
+          plans: this.plans,
+          trades: this.trades,
+          fundingAddressOf: options.sentinel.fundingAddressOf ?? null,
+          gas: options.sentinel.gas ?? null,
+          signerAlive: options.sentinel.signerAlive ?? (() => null),
+          log: options.log,
+        }
+      : null;
+    this.sentinel = sentinelWiring ? new Sentinel(sentinelDeps(sentinelWiring)) : null;
     let runs: Set<string> | null = null;
     this.skillText = () =>
       (runs ??= skillRuns(
@@ -536,6 +586,13 @@ export class Orchestrator {
       this.every(2_000, "requested scans", async () => {
         await this.queueRequestedScans();
       });
+    // P4-U2: the Risk Sentinel, deterministic and free, every half minute (never off unless asked).
+    if (this.sentinel && (this.o.sentinel?.everyMs ?? 30_000) > 0) {
+      const sentinel = this.sentinel;
+      this.every(this.o.sentinel?.everyMs ?? 30_000, "sentinel", async () => {
+        await sentinel.tick();
+      });
+    }
     // P3-U10: the autonomous loop replaces D-216's scheduled Scans; it runs for RUNNING agents
     // (an approved plan, armed) at their intensity's cadence, and only when scheduling is on.
     if (this.scheduler && this.watcher && (this.o.scheduleMs ?? 30_000) > 0) {
@@ -1223,6 +1280,73 @@ export class Orchestrator {
     const r = await this.o.localFeeds.moveMon(bps);
     this.o.log(`market mover: MON/USD moved by ${bps} bps`);
     return r;
+  }
+
+  /** P4-U2: one pass of the sentinel now, for the dev console and the drills. */
+  async sentinelTick() {
+    if (!this.sentinel) throw new Error("the sentinel is not configured");
+    return this.sentinel.tick();
+  }
+
+  /** P4-U2: the sentinel as the owner and the console read it: its actions, the conditions in force, the rules and the key. */
+  async sentinelRead(ref: AgentRef) {
+    const [actions, watch] = await Promise.all([
+      this.sentinelStore.actions(ref, 20),
+      this.sentinelStore.watch(ref),
+    ]);
+    return {
+      configured: this.sentinel !== null,
+      sentinelAddress: this.o.sentinel?.chain?.address ?? null,
+      rules: this.sentinelRules,
+      active: watch.active,
+      lastCheckedAt: watch.lastCheckedAt?.toISOString() ?? null,
+      actions: actions.map((a) => ({
+        actionId: a.actionId,
+        code: a.code,
+        action: a.action,
+        state: a.state,
+        reason: a.reason,
+        detail: a.detail,
+        txHash: a.txHash,
+        status: a.status,
+        at: a.createdAt.toISOString(),
+      })),
+    };
+  }
+
+  /**
+   * P4-U2: an operator clears an INCIDENT or RESTRICTED state the sentinel set, after review
+   * (a human's decision, never the sentinel's); the account's mode stays as it is.
+   */
+  async sentinelClear(ref: AgentRef) {
+    const rest = (await this.plans.active(ref.chainId, ref.agentId)) ? "RUNNING" : "READY";
+    const r = await setAgentState(this.o.store.db, ref, rest, "operator_cleared");
+    const now = new Date();
+    if (r)
+      await this.sentinelStore.record(
+        ref,
+        {
+          code: "STATE",
+          action: "RESUME",
+          state: rest,
+          reason: `an operator cleared the state after review; agent state ${r.from} to ${rest}`,
+          detail: { from: r.from },
+          txHash: null,
+          status: "done",
+        },
+        now,
+      );
+    const watch = await this.sentinelStore.watch(ref);
+    await this.sentinelStore.setWatch(ref, { active: {}, baseline: watch.baseline }, now);
+    return { cleared: r !== null, state: rest };
+  }
+
+  /** P4-U2's feed drill: stalls or restores MON/USD on the local fork only. */
+  async stallMarket(down: boolean) {
+    if (!this.o.localFeeds) throw new Error("the feed drill exists on the local fork only");
+    await this.o.localFeeds.stallMon(down);
+    this.o.log(`feed drill: MON/USD ${down ? "stalled" : "restored"}`);
+    return { down };
   }
 
   /** P3-U10: one pass of the watcher (every agent, now) and then the scheduler, for the dev console. */

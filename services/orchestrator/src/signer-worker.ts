@@ -44,6 +44,8 @@ export class SignerWorker {
   private readonly o: SignerWorkerOptions;
   private timer: NodeJS.Timeout | null = null;
   private running: Promise<void> | null = null;
+  /** When the last pass ended (P4-U2: the sentinel's signer-health check). */
+  lastTickAt: number | null = null;
 
   constructor(o: SignerWorkerOptions) {
     if (o.environment === "beta")
@@ -112,11 +114,19 @@ export class SignerWorker {
           )
           .finally(() => {
             this.running = null;
+            this.lastTickAt = Date.now();
             if (this.timer) loop();
           });
       }, this.o.everyMs ?? 1_000);
     };
     loop();
+  }
+
+  /** Whether a pass ended within the window: the sentinel reads this every pass. */
+  alive(withinMs = 30_000): boolean {
+    return (
+      this.timer !== null && this.lastTickAt !== null && Date.now() - this.lastTickAt < withinMs
+    );
   }
 
   async stop(): Promise<void> {

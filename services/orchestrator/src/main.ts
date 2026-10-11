@@ -43,6 +43,7 @@ import { E2BProvider } from "./sandbox.ts";
 import { type RevealSteering, revealSteeringFor } from "./reveal-steer.ts";
 import { DbSteerStore } from "./reveal-steer-store.ts";
 import { localFeedRefresherFor } from "./local-feeds.ts";
+import { localSentinelKey, viemSentinelChain } from "./sentinel-chain.ts";
 import { Redactor, createLog, errorText } from "./secrets.ts";
 import { Store } from "./store.ts";
 import { findCloudflared } from "./tunnel.ts";
@@ -461,12 +462,50 @@ const trading = chainSigner
   : null;
 if (!trading) log("trade flow: off (no signer); proposals wait and nothing is sent");
 
+// P4-U2: the Risk Sentinel's key: anvil account 5 on the local fork (D-230), the testnet key
+// where set; the beta's KMS key is bound in PB-U1. Without one the sentinel sets agent states only.
+const sentinelKey =
+  env.id === "local"
+    ? localSentinelKey()
+    : env.id === "testnet"
+      ? ((reveal("TESTNET_SENTINEL_PRIVATE_KEY") as Hex | undefined) ?? null)
+      : null;
+const sentinelChain = sentinelKey
+  ? viemSentinelChain({ rpcUrl, chainId: env.chainId, privateKey: sentinelKey })
+  : null;
+log(
+  sentinelChain
+    ? `risk sentinel on: key ${sentinelChain.address} (tighten-only, D-138), every 30 s`
+    : "risk sentinel on without a key: agent states only (set TESTNET_SENTINEL_PRIVATE_KEY to tighten accounts)",
+);
+
 const orchestrator = new Orchestrator({
   store,
   gateway,
   provider,
   keeper,
   localFeeds,
+  sentinel: {
+    chain: sentinelChain,
+    ...(local ? {} : { everyMs: 60_000 }),
+    ...(local ? { rules: { chainMaxAgeSeconds: null } } : {}),
+    ...(signerWorker
+      ? {
+          fundingAddressOf: (agentId: number) => signerWorker.signer.keyAddress(agentId),
+          signerAlive: () => signerWorker.alive(),
+        }
+      : {}),
+    gas: {
+      balance: (address: Hex) => client.getBalance({ address }),
+      swapCost: async () => {
+        const [block, tip] = await Promise.all([
+          client.getBlock(),
+          client.estimateMaxPriorityFeePerGas().catch(() => 0n),
+        ]);
+        return swapGasCost(block.baseFeePerGas ?? 0n, tip);
+      },
+    },
+  },
   chainId: env.chainId,
   namespace,
   redisUrl: reveal("REDIS_URL") ?? "",

@@ -22,6 +22,11 @@ export interface LocalFeedRefresher {
    * next look. Returns the answer before and after, in the feed's decimals.
    */
   moveMon(bps: number): Promise<{ before: string; after: string; decimals: number }>;
+  /**
+   * P4-U2's feed drill (the local fork only): makes MON/USD revert as an
+   * outage would, or brings it back; the next refresh keeps the choice.
+   */
+  stallMon(down: boolean): Promise<void>;
 }
 
 export function localFeedRefresherFor(
@@ -29,17 +34,25 @@ export function localFeedRefresherFor(
   rpcUrl: string,
   refresh: (url: string) => Promise<unknown> = refreshLocalFeeds,
   move: typeof moveLocalFeed = moveLocalFeed,
+  stall: typeof refreshLocalFeeds = refreshLocalFeeds,
 ): LocalFeedRefresher | null {
   if (environment !== "local") return null;
+  const monFeed = () => {
+    const feed = addressEntry("local", "chainlink_mon_usd").address;
+    if (!feed) throw new Error("the address book has no MON/USD feed for the local fork");
+    return feed;
+  };
   return {
+    stallMon: async (down) => {
+      const feed = monFeed();
+      await stall(rpcUrl, [feed], { [feed.toLowerCase()]: { down } });
+    },
     everyMs: LOCAL_FEED_REFRESH_MS,
     refresh: async () => {
       await refresh(rpcUrl);
     },
     moveMon: async (bps) => {
-      const feed = addressEntry("local", "chainlink_mon_usd").address;
-      if (!feed) throw new Error("the address book has no MON/USD feed for the local fork");
-      const r = await move(rpcUrl, feed, bps);
+      const r = await move(rpcUrl, monFeed(), bps);
       return {
         before: r.before.toString(),
         after: r.round.answer.toString(),

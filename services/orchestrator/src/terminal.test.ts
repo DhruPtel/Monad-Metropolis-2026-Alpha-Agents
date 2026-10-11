@@ -386,6 +386,60 @@ describe("the agent terminal's events", () => {
     ).toEqual({ kind: "brief", text: "TVL fell 6.8% today.", tone: "ok" });
   });
 
+  it("shows the sentinel's actions in the cycle's window as their own lines (P4-U2)", () => {
+    const events = terminalEvents(
+      input({
+        calls: [],
+        briefs: [],
+        records: [],
+        sentinel: [
+          {
+            code: "DRAWDOWN_12",
+            action: "REDUCE_ONLY",
+            state: null,
+            reason: "12.5% below the 7-day peak",
+            txHash: "0xa1",
+            status: "done",
+            createdAt: T(25),
+          },
+          {
+            code: "STALE_FEED",
+            action: "INCIDENT",
+            state: "INCIDENT",
+            reason: "agent state RUNNING to INCIDENT",
+            txHash: null,
+            status: "done",
+            createdAt: T(26),
+          },
+          {
+            code: "RESCREEN_FAILED",
+            action: "REDUCE_ONLY",
+            state: null,
+            reason: "WBTC sell only",
+            txHash: null,
+            status: "skipped",
+            createdAt: T(27),
+          },
+        ],
+      }),
+    );
+    const lines = events.filter((e) => e.kind === "sentinel");
+    expect(lines.map((e) => e.text)).toEqual([
+      "Sentinel set the account to reduce-only (sales only): 12.5% below the 7-day peak.",
+      "Sentinel marked the agent an incident: agent state RUNNING to INCIDENT.",
+      "Sentinel set the account to reduce-only (sales only) (nothing to tighten): WBTC sell only.",
+    ]);
+    expect(lines.map((e) => e.tone)).toEqual(["warn", "warn", "warn"]);
+    // In time order among the stages: after the Dive started, before it ended.
+    const texts = events.map((e) => e.text);
+    expect(texts.indexOf(lines[0]?.text ?? "")).toBeGreaterThan(
+      texts.indexOf("Dive on TVL_OUTFLOW started on research-medium; it may cost up to 1.2 USDC."),
+    );
+    expect(texts.indexOf(lines[2]?.text ?? "")).toBeLessThan(
+      texts.indexOf("Dive on TVL_OUTFLOW finished."),
+    );
+  });
+
   it("tells the Challenge's objections, the Test's checks, the plan's calls and the running cost against the ceiling", () => {
     const events = terminalEvents(
       input({

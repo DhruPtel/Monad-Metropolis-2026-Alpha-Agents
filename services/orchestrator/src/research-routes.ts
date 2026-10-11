@@ -188,6 +188,12 @@ export function registerResearchRoutes(
     ]);
     const goal = await orch.goals.currentGoal(ref.chainId, ref.agentId);
     const usedToday = await orch.cycles.usedToday(ref, utcDayStart(new Date()));
+    // P4-U2: the sentinel's actions in the cycle's window, so they show where they happened.
+    const sentinel = await orch.sentinelStore.actionsBetween(
+      ref,
+      cycle.createdAt,
+      cycle.finishedAt ?? new Date(),
+    );
     const usedBefore = usedToday > cycle.chargedUsdcE6 ? usedToday - cycle.chargedUsdcE6 : 0n;
     const events = terminalEvents({
       cycle,
@@ -223,6 +229,15 @@ export function registerResearchRoutes(
       proposals: proposals
         .filter((p) => p.cycleId === cycle.cycleId)
         .map((p) => ({ status: p.status, evaluation: p.evaluation, createdAt: p.createdAt })),
+      sentinel: sentinel.map((a) => ({
+        code: a.code,
+        action: a.action,
+        state: a.state,
+        reason: a.reason,
+        txHash: a.txHash,
+        status: a.status,
+        createdAt: a.createdAt,
+      })),
       budget: goal
         ? {
             dailyUsdcE6: BigInt(goal.config.research.dailyBudgetUsdcE6),

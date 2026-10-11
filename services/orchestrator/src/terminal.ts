@@ -30,6 +30,7 @@ export type TerminalEventKind =
   | "plan"
   | "decision"
   | "cost"
+  | "sentinel"
   | "withheld";
 
 export interface TerminalEvent {
@@ -82,6 +83,17 @@ export interface TerminalProposal {
   readonly createdAt: Date;
 }
 
+/** P4-U2: one action of the Risk Sentinel, as stored. */
+export interface TerminalSentinelAction {
+  readonly code: string;
+  readonly action: string;
+  readonly state: string | null;
+  readonly reason: string;
+  readonly txHash: string | null;
+  readonly status: "done" | "failed" | "skipped";
+  readonly createdAt: Date;
+}
+
 export interface TerminalInput {
   readonly cycle: Cycle;
   readonly stages: readonly StageRun[];
@@ -89,6 +101,8 @@ export interface TerminalInput {
   readonly briefs: readonly TerminalBrief[];
   readonly records: readonly TerminalRecord[];
   readonly proposals: readonly TerminalProposal[];
+  /** P4-U2: the sentinel's actions in the cycle's window, if any. */
+  readonly sentinel?: readonly TerminalSentinelAction[];
   /** Today's research budget and what the day's other cycles used before this one; both optional. */
   readonly budget?: { readonly dailyUsdcE6: bigint; readonly usedBeforeUsdcE6: bigint } | null;
   /** Eight-word runs of the mounted skills' text; a line containing one is withheld. */
@@ -649,6 +663,43 @@ export function terminalEvents(i: TerminalInput): TerminalEvent[] {
               : `The plan is ${p.status.replace(/_/g, " ")}.`,
       tone: "info",
       facts: { status: p.status },
+    });
+  }
+
+  for (const a of i.sentinel ?? []) {
+    const did =
+      a.action === "REDUCE_ONLY"
+        ? "set the account to reduce-only (sales only)"
+        : a.action === "PAUSE"
+          ? "paused new risk (withdrawals stay open)"
+          : a.action === "CLOSE_DEPOSITS"
+            ? "closed deposits"
+            : a.action === "INCIDENT"
+              ? "marked the agent an incident"
+              : a.action === "RESTRICT"
+                ? "restricted the agent's research"
+                : a.action === "RESUME"
+                  ? "let the agent research again"
+                  : "noted";
+    const how =
+      a.status === "failed"
+        ? " (the transaction failed)"
+        : a.status === "skipped"
+          ? " (nothing to tighten)"
+          : "";
+    push({
+      at: a.createdAt,
+      order: 2,
+      kind: "sentinel",
+      stage: null,
+      text: `Sentinel ${did}${how}: ${a.reason}.`,
+      tone:
+        a.status === "failed"
+          ? "bad"
+          : a.action === "NOTE" || a.action === "RESUME"
+            ? "info"
+            : "warn",
+      facts: a,
     });
   }
 
