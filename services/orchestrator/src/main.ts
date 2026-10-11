@@ -55,7 +55,7 @@ import {
 /** F-T2: the registrar's background pass: 30 seconds after the start, then every five minutes. */
 const REGISTRAR_FIRST_SWEEP_MS = 30_000;
 const REGISTRAR_SWEEP_MS = 5 * 60_000;
-import { geckoTerminalSource, poolQuoteSource } from "./attestor-sources.ts";
+import { geckoTerminalSource, poolSpotSource } from "./attestor-sources.ts";
 import { ChainClock, withAttestedPrices } from "./attested-reader.ts";
 import { Redactor, createLog, errorText } from "./secrets.ts";
 import { Store } from "./store.ts";
@@ -437,7 +437,7 @@ const attestor =
           return v && v !== zeroAddress ? v : null;
         },
         key: attestorKeyFrom(attestorKey),
-        sources: [poolQuoteSource(plainReaderV3), geckoTerminalSource(market)],
+        sources: [poolSpotSource(plainReaderV3), geckoTerminalSource(market)],
         now: () => chainClock.now(),
         log: createLog("attestor", redactor),
       })

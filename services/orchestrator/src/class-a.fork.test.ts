@@ -36,7 +36,7 @@ import {
 } from "viem";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { Attestor, type PriceSource, attestorKeyFrom, localAttestorKey } from "./attestor.ts";
-import { fixedSource, poolQuoteSource } from "./attestor-sources.ts";
+import { fixedSource, poolSpotSource } from "./attestor-sources.ts";
 import { withAttestedPrices } from "./attested-reader.ts";
 import {
   MAX_REGISTRAR_GAS,
@@ -488,7 +488,7 @@ describe.skipIf(upstream === null || !dbUp)(
       );
       expect((await readerV3.agent(agentId))?.screenedOptIn).toBe(true);
       // The attestor prices GHO from the pool both ways and an agreeing second source.
-      const att = await attestorWith([poolQuoteSource(readerV3), fixed("fixed", E18)]).attest(GHO);
+      const att = await attestorWith([poolSpotSource(readerV3), fixed("fixed", E18)]).attest(GHO);
       expect(att.ok).toBe(true);
       if (att.ok) {
         expect(att.sources.map((s) => s.name).sort()).toEqual(["fixed", "pool"]);
@@ -506,7 +506,7 @@ describe.skipIf(upstream === null || !dbUp)(
         account,
         encodeFunctionData({ abi: ACCOUNT_ABI, functionName: "setScreenedOptIn", args: [true] }),
       );
-      const f = flow(attestorWith([poolQuoteSource(readerV3), fixed("fixed", E18)]));
+      const f = flow(attestorWith([poolSpotSource(readerV3), fixed("fixed", E18)]));
       // 8 USDC: under the 10% trade limit of an account worth about 85 USDC.
       const first = await propose("USDC", "GHO", 8_000_000n);
       expect(first.hops).toBe(1);
@@ -630,19 +630,16 @@ describe.skipIf(upstream === null || !dbUp)(
           account,
           encodeFunctionData({ abi: ACCOUNT_ABI, functionName: "setScreenedOptIn", args: [true] }),
         );
-        // The attestor: two sources at each token's own pool price (the oracle's `poolPrice`), the
-        // price the Executor checks an attestation against. SAKURA's pool is one-sided enough that
-        // a two-way route quote lands far under its spot, so the quoted source is not used here.
-        const mm = await readerV3.market();
+        // The attestor: the pool's own spot (the source the platform runs, F-T2 Step 0) and a second
+        // source agreeing with it; SAKURA's pool is one-sided, which a two-way quote mispriced (L-219).
+        const spot = poolSpotSource(readerV3);
         const fixedPrices: Record<string, bigint> = {};
         for (const token of [GHO, CHAOS, SAKURA, LV]) {
-          const px = mm.pools.find((x) => isAddressEqual(x.pricedToken, token))?.poolPriceE18 ?? 0n;
+          const px = (await spot.priceOf(token, now()))?.priceE18 ?? 0n;
           expect(px, token).toBeGreaterThan(0n);
           fixedPrices[token] = px;
         }
-        const f = flow(
-          attestorWith([fixedSource("spot-a", fixedPrices), fixedSource("spot-b", fixedPrices)]),
-        );
+        const f = flow(attestorWith([spot, fixedSource("fixed", fixedPrices)]));
         const outcome = async (id: string) => {
           const o = await run(f, id);
           return `${o?.status} ${JSON.stringify(o?.reasonCodes ?? [])}`;
@@ -706,7 +703,7 @@ describe.skipIf(upstream === null || !dbUp)(
         account,
         encodeFunctionData({ abi: ACCOUNT_ABI, functionName: "setScreenedOptIn", args: [true] }),
       );
-      const f = flow(attestorWith([poolQuoteSource(readerV3), fixed("fixed", E18)]));
+      const f = flow(attestorWith([poolSpotSource(readerV3), fixed("fixed", E18)]));
       const first = await propose("USDC", "GHO", 5_000_000n);
       await f.tick();
       await armV3();

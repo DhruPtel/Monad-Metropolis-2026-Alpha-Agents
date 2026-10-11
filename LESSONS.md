@@ -1628,7 +1628,7 @@ Lesson: Each refusal code names one rule; a compound condition that overlaps ano
 Unit: F-T2 (2026-10-11)
 What happened: On the fork, the attestor's pool source priced SAKURA (a Uniswap v3 pool against WMON with 400k USD of liquidity) 45% under the pool's own spot: the sell leg of its 50 USDC round trip fell through thin liquidity below the price, and the buy-sell mid came out far below spot, so the Executor's deviation check refused the trade (ORACLE_POOL_DEVIATION, as it should). The buy itself was 0.36% over spot.
 Cause: The mid of a buy and a sell quote is a fair price only when liquidity sits on both sides of the current tick.
-Fix: None in the source this unit (out of scope); the fork test attests at each pool's own spot price, which is what the Executor checks an attestation against. Recorded as an open issue: the pool source should take the pool's spot (the oracle's `poolPrice`) and keep the round trip as a sanity check, or GeckoTerminal's price alone should decide when the two disagree.
+Fix: In the vault session's Step 0 (F-T2): the pool source is the pool's own spot price as the oracle reads it (`poolSpotSource`, the median over the token's usable pools), the price the Executor checks an attestation against; GeckoTerminal remains the independent source, and the attestor's agreement rule refuses a token whose spot and aggregator price are more than 5% apart, for that stated reason. The fork test's four-token case attests through the same source.
 Lesson: Check a price source against the chain's own spot before trusting a derived figure; a quote that moves the pool is not a price.
 
 ## L-220: The Test stage accepted plans the proposal evaluator refused, on the tokens' letter case
