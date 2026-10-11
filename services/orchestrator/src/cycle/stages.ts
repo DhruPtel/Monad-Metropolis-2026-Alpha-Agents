@@ -7,7 +7,8 @@
 export const STAGES = ["SCAN", "DIVE", "CHALLENGE", "TEST", "ZOOM_OUT"] as const;
 export type Stage = (typeof STAGES)[number];
 
-export const CYCLE_KINDS = ["ROUTINE", "TRIGGERED", "ACTIVATION"] as const;
+/** P3-U10: REVIEW is the Zoom out alone, for the daily review and the triggers that need no Scan. */
+export const CYCLE_KINDS = ["ROUTINE", "TRIGGERED", "ACTIVATION", "REVIEW"] as const;
 export type CycleKind = (typeof CYCLE_KINDS)[number];
 
 /** The Scan's model for every agent (D-285, D-334: the Low tier); the other model stages use the goal's tier. */

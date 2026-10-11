@@ -122,7 +122,10 @@ export function registerCycleRoutes(
     if (!ref) return c.json({ error: "bad_agent_id" }, 400);
     const body = CycleRequest.safeParse(await c.req.json().catch(() => ({})));
     if (!body.success)
-      return c.json({ error: "bad_request", message: "kind must be ROUTINE or ACTIVATION" }, 400);
+      return c.json(
+        { error: "bad_request", message: "kind must be ROUTINE, TRIGGERED, ACTIVATION or REVIEW" },
+        400,
+      );
     if (await o.store.activeLease(ref))
       return c.json(
         { error: "lease_held", message: `Agent ${ref.agentId} already has a sandbox running.` },

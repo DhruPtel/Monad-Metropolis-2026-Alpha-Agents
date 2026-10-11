@@ -1281,6 +1281,70 @@ describe.skipIf(!dbUp)("the discovery loop engine (needs Postgres)", { timeout: 
     expect(answers[1]).toContain("needs the fund agent's set");
   });
 
+  it("runs a review cycle (P3-U10): the Zoom out alone, with a fresh overview when the cycle asks for one", async () => {
+    await saveGoal({});
+    const answers: string[] = [];
+    scripts.ZOOM_OUT = async (r) => {
+      await start(r);
+      // A review has no Scan: the overview's figures come from this stage's own reads.
+      ok(await tool(r.token, "data", "web_search", { query: "monad tvl" }));
+      ok(await brief(r.token, rationale));
+      answers.push(
+        JSON.stringify(
+          (
+            await complete(r.token, "ZOOM_OUT", {
+              decision: { kind: "NO_CHANGE", reasonCode: "EVIDENCE_THIN" },
+            })
+          ).structuredContent,
+        ),
+      );
+      const change = scanBrief("low").changes[0] as {
+        text: string;
+        class: string;
+        sources: string[];
+      };
+      ok(
+        await brief(r.token, {
+          kind: "OVERVIEW",
+          summary: "Monad TVL fell 6.8% in 7 days, a large weekly move for the chain.",
+          points: [
+            {
+              text: change.text,
+              class: change.class,
+              confidence: "medium",
+              sources: change.sources,
+            },
+          ],
+        }),
+      );
+      ok(
+        await complete(r.token, "ZOOM_OUT", {
+          decision: { kind: "NO_CHANGE", reasonCode: "EVIDENCE_THIN" },
+        }),
+      );
+    };
+    const taskId = `task-${Math.random().toString(16).slice(2)}`;
+    await store.insertTask(taskId, ref, "cycle", "console");
+    const goal = must(await goals.currentGoal(CHAIN, 1));
+    const created = await cycles.createCycle({
+      ref,
+      taskId,
+      kind: "REVIEW",
+      reasoningAlias: goal.config.model.alias,
+      wantsOverview: true,
+    });
+    await runCycleTask(ctx, taskId);
+    if (scriptErrors.length) console.log("SCRIPT ERRORS", scriptErrors);
+    const cycle = must(await cycles.cycle(created.cycleId));
+    const stages = await cycles.stages(created.cycleId);
+    expect(cycle).toMatchObject({ kind: "REVIEW", wantsOverview: true, status: "completed" });
+    expect(stages.map((s) => [s.stage, s.status])).toEqual([
+      ["TEST", "completed"],
+      ["ZOOM_OUT", "completed"],
+    ]);
+    expect(answers[0]).toContain("This review refreshes the overview");
+  });
+
   it("stops the cycle at the task's model spend cap (D-369): the Scan stands, the Dive is capped, the task says so", async () => {
     await saveGoal({});
     // Each fake call costs 0.004 USD; the Scan's two calls fit under 0.01, the Dive's second does not.

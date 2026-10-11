@@ -27,6 +27,7 @@ import * as goalV2 from "./migrations/0023_goal_v2.ts";
 import * as planProposals from "./migrations/0024_plan_proposals.ts";
 import * as activation from "./migrations/0025_activation.ts";
 import * as snapshotPerUnit from "./migrations/0026_snapshot_per_unit.ts";
+import * as researchLoop from "./migrations/0027_research_loop.ts";
 import type { Database } from "./schema.ts";
 
 export type * from "./schema.ts";
@@ -63,6 +64,7 @@ export const MIGRATIONS: Readonly<Record<string, Migration>> = {
   "0024_plan_proposals": planProposals,
   "0025_activation": activation,
   "0026_snapshot_per_unit": snapshotPerUnit,
+  "0027_research_loop": researchLoop,
 };
 
 const INT8 = 20;

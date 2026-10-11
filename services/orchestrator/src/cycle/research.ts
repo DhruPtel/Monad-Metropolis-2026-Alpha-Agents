@@ -281,10 +281,12 @@ export class CycleResearch {
         false,
       );
     if (stage.stage !== "ZOOM_OUT") return stage;
-    if (cycle.kind === "ACTIVATION" && !kinds.has("OVERVIEW"))
+    if ((cycle.kind === "ACTIVATION" || cycle.wantsOverview) && !kinds.has("OVERVIEW"))
       throw new ToolError(
         "INVALID_INPUT",
-        "An activation's Zoom out also writes the OVERVIEW brief before complete_stage.",
+        cycle.kind === "ACTIVATION"
+          ? "An activation's Zoom out also writes the OVERVIEW brief before complete_stage."
+          : "This review refreshes the overview: write the OVERVIEW brief before complete_stage.",
         false,
       );
     if (!input.decision)

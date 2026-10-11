@@ -61,6 +61,8 @@ const usdc = (e6: bigint) => (Number(e6) / 1e6).toFixed(2);
 export function stagePrompt(o: {
   readonly stage: Exclude<Stage, "TEST">;
   readonly kind: CycleKind;
+  /** P3-U10: the Zoom out also writes a fresh OVERVIEW brief (an activation always does). */
+  readonly overview?: boolean;
   readonly themeCode: string | null;
   /** F-U8: the token a Dive is about, from the Scan's theme; null for a market theme. */
   readonly token?: { readonly address: string; readonly symbol: string | null } | null;
@@ -119,9 +121,14 @@ export function stagePrompt(o: {
         "get_research_context gives this cycle's briefs and testEnvelope, the deterministic Test's ranges the plan may change within and whether a change may be proposed now. The runner makes every trade from the plan; you never size a trade.",
         caps,
         ...common,
+        o.kind === "REVIEW"
+          ? "This is a review without new research: weigh the briefs on record (get_research_context carries the latest accepted ones), the plan in force and the portfolio now."
+          : "",
         o.kind === "ACTIVATION"
           ? "Write two briefs with mcp__platform__write_research_brief: an OVERVIEW of Monad and the market for this owner, and a RATIONALE. This is the activation sweep: the account holds cash and no plan, and the owner is waiting to approve the first one, so propose a target portfolio when the evidence supports at least one position; NO_CHANGE here leaves the agent with no plan until the owner runs another sweep, so use it only when the evidence is weak."
-          : "Write one RATIONALE brief with mcp__platform__write_research_brief.",
+          : o.overview
+            ? "Write two briefs with mcp__platform__write_research_brief: a fresh OVERVIEW of Monad and the market for this owner (the weekly refresh), and a RATIONALE."
+            : "Write one RATIONALE brief with mcp__platform__write_research_brief.",
         "The RATIONALE weighs the whole portfolio against the goal (portfolioView), rates the evidence (evidenceStrength: strong, mixed or weak; weak evidence carries no position) and makes one call per position held or proposed: ADD, HOLD, TRIM or EXIT, each tied to a theme. A thesis the Challenge weakened still earns a smaller position; only a rejected one earns none.",
         "The goal names the invested share its level expects (get_goals_and_limits, envelope.investedRangeBps). A plan outside that range needs the RATIONALE's allocationNote to say plainly why; a plan of cash only is allowed only when the evidence is weak, and its allocationNote must say why nothing is worth holding and what would change that. The platform refuses complete_stage until the note is there.",
         'Then call mcp__platform__complete_stage exactly once, last, with stage ZOOM_OUT, outcome DONE and candidates [], and decision {"kind":"NO_CHANGE","reasonCode":...} or {"kind":"PROPOSE","template":"target_portfolio@1","params":{...}} on the fund agent\'s set (or template rebalance_bands@1 on the two-asset plan) matching the RATIONALE and its position calls. The platform checks a proposal against the Test before the stage may end; a refused proposal says why.',

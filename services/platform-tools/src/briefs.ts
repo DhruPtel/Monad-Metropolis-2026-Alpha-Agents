@@ -330,7 +330,7 @@ const bps = z.int().min(0).max(10_000);
 /** One bounded digest of what this stage needs (D-287), and nothing from another stage's session. */
 export const GetResearchContextOutput = z.strictObject({
   cycle: z.strictObject({
-    kind: z.enum(["ROUTINE", "TRIGGERED", "ACTIVATION"]),
+    kind: z.enum(["ROUTINE", "TRIGGERED", "ACTIVATION", "REVIEW"]),
     stage: z.enum(["SCAN", "DIVE", "CHALLENGE", "TEST", "ZOOM_OUT"]),
     themeCode: themeCode.nullable(),
     /** F-U8: the token a Dive is about, from the Scan's theme; null for a market theme or another stage. */

@@ -722,7 +722,12 @@ export class Orchestrator {
    * two Dives, Challenge, Test, Zoom out with an overview). It needs the
    * owner's goal and credits; one cycle per agent at a time.
    */
-  async enqueueCycle(ref: AgentRef, kind: CycleKind, requestedBy: TaskRequester = "console") {
+  async enqueueCycle(
+    ref: AgentRef,
+    kind: CycleKind,
+    requestedBy: TaskRequester = "console",
+    opts: { readonly wantsOverview?: boolean } = {},
+  ) {
     const runtime = await this.o.store.runtime(ref);
     if (runtime?.status !== "ready") throw new Error(`agent ${ref.agentId} is not provisioned`);
     if (!this.tools || !this.credits) throw new Error("the tool servers are not running");
@@ -737,7 +742,13 @@ export class Orchestrator {
     await this.provisioner.allowCycleModels(runtime);
     const taskId = randomUUID();
     await this.o.store.insertTask(taskId, ref, "cycle", requestedBy);
-    const cycle = await this.cycles.createCycle({ ref, taskId, kind, reasoningAlias: alias });
+    const cycle = await this.cycles.createCycle({
+      ref,
+      taskId,
+      kind,
+      reasoningAlias: alias,
+      wantsOverview: opts.wantsOverview ?? false,
+    });
     await this.queue.add({ kind: "cycle", ref, taskId });
     return { taskId, cycleId: cycle.cycleId };
   }

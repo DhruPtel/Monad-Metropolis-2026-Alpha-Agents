@@ -50,6 +50,8 @@ export interface Cycle {
   readonly agentId: number;
   readonly taskId: string;
   readonly kind: CycleKind;
+  /** P3-U10: the Zoom out also writes a fresh OVERVIEW brief. */
+  readonly wantsOverview: boolean;
   readonly status: "queued" | "running" | "completed" | "stopped" | "failed";
   readonly stopReason: string | null;
   readonly reasoningAlias: string;
@@ -163,12 +165,14 @@ export class CycleStore {
     taskId: string;
     kind: CycleKind;
     reasoningAlias: string;
+    wantsOverview?: boolean;
   }): Promise<Cycle> {
     const cycleId = `cycle-${randomUUID()}`;
     await this.db
       .insertInto("platform.research_cycles")
       .values({
         cycle_id: cycleId,
+        wants_overview: c.wantsOverview ?? false,
         chain_id: c.ref.chainId,
         agent_id: c.ref.agentId,
         task_id: c.taskId,
@@ -687,6 +691,7 @@ function toCycle(r: {
   agent_id: number;
   task_id: string;
   kind: CycleKind;
+  wants_overview: boolean;
   status: Cycle["status"];
   stop_reason: string | null;
   reasoning_alias: string;
@@ -704,6 +709,7 @@ function toCycle(r: {
     agentId: r.agent_id,
     taskId: r.task_id,
     kind: r.kind,
+    wantsOverview: r.wants_overview,
     status: r.status,
     stopReason: r.stop_reason,
     reasoningAlias: r.reasoning_alias,

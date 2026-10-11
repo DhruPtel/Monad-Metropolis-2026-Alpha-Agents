@@ -79,19 +79,27 @@ export interface CycleContext extends TaskContext {
 /** The cycle's lease: every stage's deadline plus time to boot and settle. */
 export function cycleLeaseMs(kind: CycleKind, dives: number): number {
   const s = (stage: Stage) => stageCaps(stage, kind).seconds * 1_000;
+  if (kind === "REVIEW") return s("ZOOM_OUT") + 15 * 60_000;
   return s("SCAN") + dives * s("DIVE") + s("CHALLENGE") + s("ZOOM_OUT") + 15 * 60_000;
 }
 
 /** The most a cycle can charge, shown before it starts: each stage's ceiling, Dives at their limit. */
 export function cyclePlan(kind: CycleKind, reasoning: ReasoningAlias, divesLeft: number) {
-  const dives = kind === "ACTIVATION" ? 2 : Math.max(0, divesLeft);
-  const stages = [
-    { stage: "SCAN" as const, count: 1 },
-    { stage: "DIVE" as const, count: dives },
-    { stage: "CHALLENGE" as const, count: dives > 0 ? 1 : 0 },
-    { stage: "TEST" as const, count: 1 },
-    { stage: "ZOOM_OUT" as const, count: 1 },
-  ].map((x) => ({
+  const dives = kind === "ACTIVATION" ? 2 : kind === "REVIEW" ? 0 : Math.max(0, divesLeft);
+  const stages = (
+    kind === "REVIEW"
+      ? [
+          { stage: "TEST" as const, count: 1 },
+          { stage: "ZOOM_OUT" as const, count: 1 },
+        ]
+      : [
+          { stage: "SCAN" as const, count: 1 },
+          { stage: "DIVE" as const, count: dives },
+          { stage: "CHALLENGE" as const, count: dives > 0 ? 1 : 0 },
+          { stage: "TEST" as const, count: 1 },
+          { stage: "ZOOM_OUT" as const, count: 1 },
+        ]
+  ).map((x) => ({
     ...x,
     model: stageModel(x.stage, reasoning),
     caps: stageCaps(x.stage, kind),
@@ -133,16 +141,25 @@ export async function runCycleTask(ctx: CycleContext, taskId: string): Promise<v
     const leaseMs = cycleLeaseMs(cycle.kind, cycle.kind === "ACTIVATION" ? 2 : divesLeft);
 
     // The Scan's ceiling must fit before anything starts, so no sandbox opens for nothing.
-    const first = await budgetCheck(ctx, cycle, "SCAN", goal.config);
+    const first = await budgetCheck(
+      ctx,
+      cycle,
+      cycle.kind === "REVIEW" ? "ZOOM_OUT" : "SCAN",
+      goal.config,
+    );
     if (!first.ok) {
       await ctx.cycles.addStage({
         cycle,
         seq: 1,
-        stage: "SCAN",
+        stage: cycle.kind === "REVIEW" ? "ZOOM_OUT" : "SCAN",
         themeCode: null,
-        modelAlias: stageModel("SCAN", reasoning),
-        caps: stageCaps("SCAN", cycle.kind),
-        ceilingUsdcE6: stageCeilingUsdcE6("SCAN", cycle.kind, reasoning),
+        modelAlias: stageModel(cycle.kind === "REVIEW" ? "ZOOM_OUT" : "SCAN", reasoning),
+        caps: stageCaps(cycle.kind === "REVIEW" ? "ZOOM_OUT" : "SCAN", cycle.kind),
+        ceilingUsdcE6: stageCeilingUsdcE6(
+          cycle.kind === "REVIEW" ? "ZOOM_OUT" : "SCAN",
+          cycle.kind,
+          reasoning,
+        ),
         status: "skipped",
         stopReason: first.code,
       });
@@ -269,6 +286,8 @@ class Engine {
     message?: string;
   }> {
     const kind = this.cycle.kind;
+    // P3-U10: a review is the Zoom out alone, weighing the briefs on record and the portfolio now.
+    if (kind === "REVIEW") return this.zoomOut();
     const scan = await this.modelStage("SCAN", null);
     if (
       scan.end.status === "stopped" ||
@@ -325,7 +344,16 @@ class Engine {
       )
         return this.halt(challenge.end);
     } else if (dives.length > 0) await this.skip("CHALLENGE", "NOTHING_MATERIAL");
+    void dived;
+    return this.zoomOut();
+  }
 
+  /** The Test's record and the Zoom out: every cycle ends here, a review starts here. */
+  private async zoomOut(): Promise<{
+    status: "completed" | "stopped" | "failed";
+    reason: string;
+    message?: string;
+  }> {
     await this.testStage();
     const zoom = await this.modelStage("ZOOM_OUT", null);
     if (
@@ -462,6 +490,7 @@ class Engine {
     const prompt = stagePrompt({
       stage,
       kind,
+      overview: this.cycle.wantsOverview,
       themeCode,
       token: theme?.token ? { address: theme.token, symbol: theme.symbol } : null,
       caps,

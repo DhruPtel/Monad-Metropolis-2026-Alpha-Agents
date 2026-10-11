@@ -528,18 +528,49 @@ export interface ActivityEntryTable {
   created_at: Timestamp;
 }
 
-export type CycleKind = "ROUTINE" | "TRIGGERED" | "ACTIVATION";
+export type CycleKind = "ROUTINE" | "TRIGGERED" | "ACTIVATION" | "REVIEW";
 export type StageName = "SCAN" | "DIVE" | "CHALLENGE" | "TEST" | "ZOOM_OUT";
 type Numeric = ColumnType<string, string | undefined, string>;
 type BigintCount = ColumnType<string, number | string | undefined, number | string>;
 
 /** A research cycle (P3-U4): one task, one lease, its stages in order. */
+/** P3-U10: an agent's research schedule, one row per agent, written by the scheduler and the watcher. */
+export interface ResearchScheduleTable {
+  chain_id: number;
+  agent_id: number;
+  paused: ColumnType<boolean, boolean | undefined, boolean>;
+  fast_cadence: ColumnType<boolean, boolean | undefined, boolean>;
+  last_scan_at: Timestamp | null;
+  last_zoom_out_at: Timestamp | null;
+  last_overview_at: Timestamp | null;
+  last_trigger_cycle_at: Timestamp | null;
+  waiting_reason: string | null;
+  waiting_since: Timestamp | null;
+  next_due_at: Timestamp | null;
+  baseline: ColumnType<Record<string, unknown> | null, string | null | undefined, string | null>;
+  updated_at: ColumnType<Date, Date | string | undefined, Date | string>;
+}
+
+/** P3-U10: a trigger the watcher fired, with what it saw, and the cycle it started (or none, spaced). */
+export interface ResearchTriggerTable {
+  trigger_id: string;
+  chain_id: number;
+  agent_id: number;
+  code: string;
+  detail: ColumnType<Record<string, unknown>, string, string>;
+  fired_at: Timestamp;
+  cycle_id: string | null;
+  spaced: ColumnType<boolean, boolean | undefined, boolean>;
+}
+
 export interface ResearchCycleTable {
   cycle_id: string;
   chain_id: number;
   agent_id: number;
   task_id: string;
   kind: CycleKind;
+  /** P3-U10: the Zoom out also writes a fresh OVERVIEW brief (an activation always does). */
+  wants_overview: ColumnType<boolean, boolean | undefined, boolean>;
   status: "queued" | "running" | "completed" | "stopped" | "failed";
   stop_reason: string | null;
   reasoning_alias: string;
@@ -856,6 +887,8 @@ export interface Database {
   "platform.research_briefs": ResearchBriefTable;
   "platform.tool_results": ToolResultTable;
   "platform.tokens": TokenTable;
+  "platform.research_schedules": ResearchScheduleTable;
+  "platform.research_triggers": ResearchTriggerTable;
   "platform.token_pools": TokenPoolTable;
   "platform.token_screens": TokenScreenTable;
   "platform.token_discovery_runs": TokenDiscoveryRunTable;
