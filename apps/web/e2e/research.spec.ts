@@ -31,6 +31,7 @@ const OTHER_WALLET = "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC" as const;
 const main = (page: Page) => page.getByRole("main");
 const walletButton = (page: Page) => page.locator("header [data-slot=wallet-button]");
 
+const FIXED_NOW = new Date("2026-10-11T12:05:00.000Z");
 const CYCLE_OPEN = "cycle-01234567-89ab-cdef-0123-456789abcde0";
 const CYCLE_DONE = "cycle-01234567-89ab-cdef-0123-456789abcde1";
 
@@ -263,6 +264,9 @@ function stack(owner: string = MOCK_WALLET_ADDRESS) {
 async function open(page: Page, s: ReturnType<typeof stack>, path = `/agents/${AGENT}/research`) {
   await s.chain.install(page);
   await s.api.install(page);
+  // The page's relative times ("in 3 h", "20 h ago") are read against a fixed clock, so the
+  // captures are the same on every run; timers still run, so the terminal keeps polling.
+  await page.clock.setFixedTime(FIXED_NOW);
   await page.goto(path);
   await page.evaluate(() => document.fonts.ready);
   await main(page).getByRole("button", { name: "Connect wallet" }).click();
