@@ -29,7 +29,7 @@ import { createDb, migrateToLatest } from "@alpha-agents/db";
 import { localPaths, secretFragments, setMonBalance, startTestFork } from "@alpha-agents/devenv";
 import { MONAD_MAINNET_CHAIN_ID } from "@alpha-agents/config";
 import { SPECIES, addressEntry } from "@alpha-agents/domain";
-import { type Hex, type PublicClient, createPublicClient, http } from "viem";
+import { zeroAddress, type Hex, type PublicClient, createPublicClient, http } from "viem";
 import { createApi } from "./api.ts";
 import { SignerWorker } from "./signer-worker.ts";
 import { FundingKeys } from "./credits/funding.ts";
@@ -44,6 +44,9 @@ import { type RevealSteering, revealSteeringFor } from "./reveal-steer.ts";
 import { DbSteerStore } from "./reveal-steer-store.ts";
 import { localFeedRefresherFor } from "./local-feeds.ts";
 import { localSentinelKey, viemSentinelChain } from "./sentinel-chain.ts";
+import { Attestor, attestorKeyFrom, localAttestorKey } from "./attestor.ts";
+import { geckoTerminalSource, poolQuoteSource } from "./attestor-sources.ts";
+import { withAttestedPrices } from "./attested-reader.ts";
 import { Redactor, createLog, errorText } from "./secrets.ts";
 import { Store } from "./store.ts";
 import { findCloudflared } from "./tunnel.ts";
@@ -396,7 +399,7 @@ if (!chainContracts.ok)
   );
 // F-U5: the fund agent's v3 set; an agent whose owner opened a PersonalAccountV3 gets the v3 tools (D-367).
 const chainContractsV3 = contractsForV3(env.id);
-const chainReaderV3 = chainContractsV3.ok
+const plainReaderV3 = chainContractsV3.ok
   ? new ViemChainReaderV3({
       chainId: env.chainId,
       rpcUrl,
@@ -404,6 +407,35 @@ const chainReaderV3 = chainContractsV3.ok
       contracts: chainContractsV3.contracts,
     })
   : null;
+// F-U12: the price attestor signs class A prices as the median of the chain's own pools and
+// GeckoTerminal, with anvil account 2 on the local fork and the testnet key where set; every
+// reader of the market then sees class A tokens at the attestor's price.
+const attestorKey =
+  env.id === "local"
+    ? localAttestorKey()
+    : env.id === "testnet"
+      ? ((reveal("TESTNET_ATTESTOR_PRIVATE_KEY") as Hex | undefined) ?? null)
+      : null;
+const attestor =
+  plainReaderV3 && attestorKey
+    ? new Attestor({
+        chainId: env.chainId,
+        verifier: async () => {
+          const v = (await plainReaderV3.market()).verifier;
+          return v && v !== zeroAddress ? v : null;
+        },
+        key: attestorKeyFrom(attestorKey),
+        sources: [poolQuoteSource(plainReaderV3), geckoTerminalSource(market)],
+        log: createLog("attestor", redactor),
+      })
+    : null;
+const chainReaderV3 =
+  plainReaderV3 && attestor ? withAttestedPrices(plainReaderV3, attestor) : plainReaderV3;
+log(
+  attestor
+    ? `price attestor on: key ${attestor.address} (class A prices as the median of the pool and GeckoTerminal, 60 s)`
+    : "price attestor off: class A tokens are not tradable here (set TESTNET_ATTESTOR_PRIVATE_KEY on testnet)",
+);
 if (!chainContractsV3.ok)
   log(
     `chain tools v3: not deployed on ${env.label} (${chainContractsV3.missing.join(", ")} not in the address book); agents stay on the v2 tools`,
@@ -485,6 +517,7 @@ const orchestrator = new Orchestrator({
   provider,
   keeper,
   localFeeds,
+  attestor,
   sentinel: {
     chain: sentinelChain,
     ...(local ? {} : { everyMs: 60_000 }),

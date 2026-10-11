@@ -1,4 +1,6 @@
 import { type Cached, MarketCache, cacheKey } from "./cache.ts";
+import { parseGtPools } from "./geckoterminal.ts";
+import { fetchGtTokenPools } from "./token-pools.ts";
 import {
   CMC_DAILY_CREDIT_BUDGET,
   type CmcQuote,
@@ -121,6 +123,9 @@ export const MARKET_TOOL_KEYS = {
 } as const;
 export type MarketTool = keyof typeof MARKET_TOOL_KEYS;
 
+/** How long a GeckoTerminal token price is reused by the attestor's source. */
+const TOKEN_PRICE_TTL_MS = 30_000;
+
 export class MarketData {
   readonly cache: MarketCache;
   readonly cmcBudget: DailyBudget;
@@ -159,6 +164,38 @@ export class MarketData {
         ...(sleep ? { sleep } : {}),
       }),
     };
+  }
+
+  /**
+   * F-U12: a token's USD price from GeckoTerminal's page of its own pools,
+   * the deepest pool's figure for the token's side, cached briefly; null when
+   * GeckoTerminal has none. One of the attestor's independent sources.
+   */
+  async tokenPriceUsd(
+    network: string,
+    address: string,
+  ): Promise<{ priceUsd: number; fetchedAtMs: number; pool: string } | null> {
+    const a = address.toLowerCase();
+    const body = await this.cache.get(
+      cacheKey("geckoterminal", "tokenPrice", { network, address: a }),
+      TOKEN_PRICE_TTL_MS,
+      () => fetchGtTokenPools(a, this.upstreamOptions()),
+    );
+    const page = parseGtPools(body.value, { now: Math.floor(this.now() / 1000) });
+    const mine = page.pools
+      .map((p) => {
+        const base = p.base.toLowerCase() === a;
+        const quote = p.quote.toLowerCase() === a;
+        const price = base ? p.baseTokenPriceUsd : quote ? p.quoteTokenPriceUsd : null;
+        return price !== null && price > 0
+          ? { pool: p.poolId, price, liquidity: p.liquidityUsd ?? 0 }
+          : null;
+      })
+      .filter((x): x is { pool: string; price: number; liquidity: number } => x !== null)
+      .sort((x, y) => y.liquidity - x.liquidity);
+    const best = mine[0];
+    if (!best) return null;
+    return { priceUsd: best.price, fetchedAtMs: body.fetchedAt, pool: best.pool };
   }
 
   /** The upstream options the research sources reuse: the same fetch and sleep as market data. */

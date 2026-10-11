@@ -305,6 +305,28 @@ export const VARIABLES = [
     example: "0x0000000000000000000000000000000000000000000000000000000000000000",
   },
   {
+    name: "TESTNET_ATTESTOR_PRIVATE_KEY",
+    group: "Testnet keys",
+    description:
+      "Testnet price attestor key (F-U12, D-337): signs class A prices and nothing else; separate from every other key",
+    secret: true,
+    firstUsedBy: "F-U12",
+    environments: ["testnet"],
+    ...privateKey,
+    example: "0x0000000000000000000000000000000000000000000000000000000000000000",
+  },
+  {
+    name: "TESTNET_SCREENER_PRIVATE_KEY",
+    group: "Testnet keys",
+    description:
+      "Testnet screener key (F-U12, D-342): registers screened tokens and pools at once and tightens them; separate from the guardian",
+    secret: true,
+    firstUsedBy: "F-U12",
+    environments: ["testnet"],
+    ...privateKey,
+    example: "0x0000000000000000000000000000000000000000000000000000000000000000",
+  },
+  {
     name: "TESTNET_CLAIM_SIGNER_PRIVATE_KEY",
     group: "Testnet keys",
     description:

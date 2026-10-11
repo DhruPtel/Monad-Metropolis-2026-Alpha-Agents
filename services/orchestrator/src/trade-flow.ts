@@ -111,6 +111,12 @@ export interface TradeFlowOptions {
    */
   readonly finalizedBlock: () => Promise<bigint | null>;
   readonly narrator?: TradeFlowNarrator | null;
+  /** F-U12: the price attestor, for a class A side's attestation at submission; null refuses class A trades. */
+  readonly attestor?: {
+    attest(
+      token: Hex,
+    ): Promise<{ ok: true; bytes: Hex } | { ok: false; reason: string; detail: string }>;
+  } | null;
   /** Called once per settled trade (for its value snapshot); errors are logged, never thrown. */
   readonly onSettled?: (i: IntentView) => Promise<unknown>;
   readonly log: (line: string) => void;
@@ -402,6 +408,23 @@ export class TradeFlow {
       return this.refuse(i, "a check changed between proposal and submission", blockers);
     const classA = sell.priceClass === "A" || buy.priceClass === "A";
     const slippageBps = classA ? m.policy.maxSlippageClassABps : m.policy.maxSlippageBps;
+    // F-U12: each class A side carries a fresh attestation; without one the trade waits.
+    let attestationIn: Hex = "0x";
+    let attestationOut: Hex = "0x";
+    for (const side of [sell, buy]) {
+      if (side.priceClass !== "A") continue;
+      const att = this.o.attestor ? await this.o.attestor.attest(side.token) : null;
+      if (!att || !att.ok)
+        return this.refuse(
+          i,
+          att
+            ? `no attested price for ${side.symbol}: ${att.detail}`
+            : "the price attestor is not configured",
+          [blocker("ATTESTOR_UNAVAILABLE", null)],
+        );
+      if (side === sell) attestationIn = att.bytes;
+      else attestationOut = att.bytes;
+    }
     const floor = floorForV3(m, sell, buy, i.amountIn);
     const minAmountOut = minAmountOutFor(quote.amountOut, floor, slippageBps);
     const deadline = m.timestamp + BigInt(m.policy.deadlineSeconds);
@@ -423,8 +446,8 @@ export class TradeFlow {
       minAmountOut,
       deadline,
       route,
-      attestationIn: "0x",
-      attestationOut: "0x",
+      attestationIn,
+      attestationOut,
     };
     const accepted = await this.o.signer.submitSwapV3(
       i.agentId,

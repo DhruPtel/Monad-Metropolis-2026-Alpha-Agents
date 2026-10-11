@@ -80,6 +80,7 @@ import { runTokenCheckTask } from "./token-check.ts";
 import { ActivationService } from "./activation.ts";
 import { ResearchScheduler, ResearchStore, Watcher } from "./research-loop.ts";
 import { type ResearchWiring, observe, schedulerDeps, watcherDeps } from "./research-wiring.ts";
+import type { Attestor } from "./attestor.ts";
 import {
   DEFAULT_RULES,
   type SentinelChain,
@@ -220,6 +221,11 @@ export interface OrchestratorOptions {
     readonly screensPerTick?: number;
   } | null;
   /**
+   * F-U12: the price attestor for class A tokens; null where no attestor key
+   * is configured, and then every class A trade waits for one.
+   */
+  readonly attestor?: Attestor | null;
+  /**
    * P4-U2: the Risk Sentinel. `chain` is the sentinel key's wallet, null
    * where no key is configured (then only agent states are set); `everyMs`
    * 0 turns the loop off (tests).
@@ -262,6 +268,8 @@ export class Orchestrator {
   readonly scheduler: ResearchScheduler | null;
   readonly watcher: Watcher | null;
   private readonly researchWiring: ResearchWiring | null;
+  /** F-U12: the price attestor, for the console's and the Research page's views; null without a key. */
+  readonly attestor: Attestor | null;
   /** P4-U2: the Risk Sentinel's actions and watch rows, and the service when configured. */
   readonly sentinelStore: SentinelStore;
   readonly sentinel: Sentinel | null;
@@ -365,6 +373,7 @@ export class Orchestrator {
             gas: options.trading.gas,
             finalizedBlock: options.trading.finalizedBlock,
             narrator: this.narrator,
+            attestor: options.attestor ?? null,
             ...(recorder
               ? { onSettled: (i) => recorder.observe(i.agentId, "trade", i.intentId) }
               : {}),
@@ -374,6 +383,7 @@ export class Orchestrator {
     this.plans = new PlanStore(store.db);
     this.decisions = new DecisionStore(store.db);
     this.goals = new GoalStore(store.db);
+    this.attestor = options.attestor ?? null;
     this.loop = new ResearchStore(store.db);
     const research = this.credits
       ? {

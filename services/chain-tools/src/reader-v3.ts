@@ -128,8 +128,10 @@ export interface MarketStateV3 {
   readonly paused: boolean;
   /** The Executor's RouteAdapter is registered, active and unchanged. */
   readonly adapterAllowed: boolean;
-  /** The registry names a class A price attestor (F-U12); none yet. */
+  /** The registry names a class A price attestor (F-U12). */
   readonly attestorSet: boolean;
+  /** The attestation verifier the registry names, zero when none (F-U12). */
+  readonly verifier?: Hex;
   readonly usdc: Hex;
   readonly wmon: Hex;
   readonly tokens: readonly TokenInfoV3[];
@@ -509,6 +511,7 @@ export class ViemChainReaderV3 implements ChainReaderV3 {
       paused,
       adapterAllowed: isAddressEqual(adapter, this.c.executor_route_adapter_v3),
       attestorSet: verifier !== zeroAddress,
+      verifier,
       usdc: this.c.usdc,
       wmon: this.c.wmon,
       tokens,

@@ -218,19 +218,24 @@ export function pricesViewV3(m: MarketStateV3): PricesOutputV3 {
         priceE18: p.reason === "OK" ? p.priceE18.toString() : null,
         updatedAt: p.updatedAt === 0n ? null : iso(p.updatedAt),
         ageSeconds: p.updatedAt === 0n ? null : Number(positive(m.timestamp - p.updatedAt)),
+        // F-U12: a class A price is the attestor's current attestation when the market carries one.
         feedStatus: classA
-          ? m.attestorSet
-            ? "ATTESTATION_REQUIRED"
-            : "ATTESTOR_UNAVAILABLE"
-          : p.reason,
-        tradable: usdc || (!classA && p.reason === "OK"),
-        blockedBy: usdc
-          ? null
-          : classA
-            ? m.attestorSet
+          ? p.reason === "OK"
+            ? "OK"
+            : m.attestorSet
               ? "ATTESTATION_REQUIRED"
               : "ATTESTOR_UNAVAILABLE"
-            : oracleBlockV3(p.reason),
+          : p.reason,
+        tradable: usdc || p.reason === "OK",
+        blockedBy: usdc
+          ? null
+          : p.reason === "OK"
+            ? null
+            : classA
+              ? m.attestorSet
+                ? "ATTESTATION_REQUIRED"
+                : "ATTESTOR_UNAVAILABLE"
+              : oracleBlockV3(p.reason),
       };
     }),
     pools: m.pools.map((p) => poolRow(p, m)),
