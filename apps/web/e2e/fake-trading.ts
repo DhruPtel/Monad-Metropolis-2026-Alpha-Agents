@@ -1225,10 +1225,8 @@ export class FakeTrading {
           status: 503,
           body: { error: "not_configured", message: "The orchestrator is not reachable." },
         };
-      const paused =
-        this.pauses.length % 2 === 0
-          ? !this.research.schedule.paused
-          : this.research.schedule.paused;
+      // The page asks for the opposite of what it sees; the body is not read here.
+      const paused = !this.research.schedule.paused;
       this.pauses.push(paused);
       this.research = { ...this.research, schedule: { ...this.research.schedule, paused } };
       return { status: 200, body: { agentId, paused } };

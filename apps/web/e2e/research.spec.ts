@@ -324,7 +324,7 @@ test.describe("the Research page and the agent terminal (P3-U10)", () => {
     await expect(root.getByTestId("budget-meter")).toContainText("1.41 of 3.80 USDC");
     await expect(root.getByTestId("trigger-list")).toContainText("scan ran");
     await expect(root.getByTestId("trigger-list")).toContainText("waiting its turn");
-    await expect(root.getByTestId("stage-timeline").locator("li")).toHaveCount(2);
+    await expect(root.getByTestId("stage-timeline").locator("li[data-cycle]")).toHaveCount(2);
     await expect(root.getByTestId("stage-timeline")).toContainText("Dive TVL_OUTFLOW0.00/1.20");
     await expect(root.getByTestId("research-overview")).toContainText(
       "Lending protocols hold 412 million USD.",
@@ -399,7 +399,7 @@ test.describe("the Research page and the agent terminal (P3-U10)", () => {
     await capture(page, root.getByTestId("agent-terminal"), "research-history.png");
   });
 
-  test("an agent that never researched shows the empty page, waiting says why, and another wallet sees nothing", async ({
+  test("an agent that never researched shows the empty page, and waiting says why", async ({
     page,
   }) => {
     const s = stack();
@@ -441,10 +441,13 @@ test.describe("the Research page and the agent terminal (P3-U10)", () => {
     );
     await capture(page, root, "research-empty.png");
     expect(await blockingViolations(page)).toEqual([]);
-    // Another wallet: the API refuses the owner session, and the page says so.
+  });
+
+  test("another wallet sees none of it: the API refuses the owner session and the page says so", async ({
+    page,
+  }) => {
     const other = stack(OTHER_WALLET);
     other.trading.research = researchFixture();
-    await page.goto("/");
     await open(page, other);
     await expect(main(page).getByText("Research not available")).toBeVisible();
     await expect(main(page).getByTestId("research-page")).toHaveCount(0);
