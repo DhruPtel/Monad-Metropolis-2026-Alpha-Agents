@@ -710,6 +710,14 @@ async function main(): Promise<number> {
     });
     scans.set(row.agent_id, { ...v, taskId: row.task_id });
   }
+  // L-199: the 15-second cadence proved the scheduler; it must not go on scanning both agents for
+  // the rest of the run (7 to 11 Scans an attempt, 3 USD on the Low tier). The orchestrator is
+  // restarted at the default cadence, so no further Scan is due today.
+  await stopChild(orch, "SIGTERM");
+  orch = startOrchestrator("after-scans", []);
+  await waitFor("the orchestrator after the Scans", 60_000, async () =>
+    (await api("/health")).status === 200 ? true : null,
+  );
   const otherScan = must(scans.get(other));
   const os = (otherScan.result ?? {}) as {
     stopReason?: string;
@@ -1642,8 +1650,13 @@ async function main(): Promise<number> {
     leaked.length === 0,
     `${logLines.length} lines`,
   );
+  // LiteLLM writes its spend logs in batches a minute or more after the calls, so the final
+  // figure is read after a settle; pnpm spend:report is the figure of record.
+  await sleep(90_000);
   report.spendUsd = Number((await spentUsd()).toFixed(4));
-  console.log(`\nmodel spend of this run: ${String(report.spendUsd)} USD (cap ${SPEND_CAP_USD})`);
+  console.log(
+    `\nmodel spend of this run: ${String(report.spendUsd)} USD (cap ${SPEND_CAP_USD}), as the gateway's spend logs show it after a settle; pnpm spend:report --days=1 is the figure of record`,
+  );
   return Object.values(checks).every(Boolean) ? 0 : 1;
 }
 

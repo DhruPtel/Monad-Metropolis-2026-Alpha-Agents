@@ -29,7 +29,8 @@ F-U9:
 - `4b78567` fix(agent): the live run deploys the fund set and Executor v3 on its fork (L-198) [F-U9]
 - `2002c33` test(web): the decline flow as its own test, the database's table check, and the re-baselined captures [F-U9]
 - `3b0c555` docs(plans): log P0-SPEND and F-U9, the pending list's results, the live reports and the selection evidence [F-U9]
-- This file's commit: docs(plans): save the F-U9 handoff [F-U9]
+- `441c054` docs(plans): save the F-U9 handoff [F-U9]
+- The last commit: fix(agent): stop the live run's 15-second Scan cadence after the scheduler check, read the spend meters after a settle, and correct the session's spend to the spend report's figure (L-199) [F-U9]
 
 ## Test results
 
@@ -48,7 +49,7 @@ F-U9:
 
 The node vitest project exits 1 from the known unhandled rejection in scan.test.ts (401 after a lease ended). Nothing was sent to the playtest fork; its head stayed at 109670015. dev:all was stopped for the heavy suites and is running again with this unit's code, scheduled research off.
 
-**Model spend of this session: 6.13 USD.** The pending list's first run 0.109 USD, one probe call 0.000015, the live run's attempts 2 to 4 at 0.025 each, the fifth at 1.864, the sixth at 4.085. No task exceeded the 10 USD cap and the gateway's 15 USD day was never reached. `pnpm spend:report --days=1` shows it.
+**Model spend of this session: 16.76 USD**, from `pnpm spend:report` (the figure of record): 12.70 USD on October 10 UTC from 21:48 and 4.06 USD on October 11 UTC to 00:22, all on the live checks' own keys, in six attempts of the live run (about 2.8 to 4.1 USD each from the second on) plus 0.07 USD for the dry run and the selection check. The scripts' own meters had reported 6.13 USD: the gateway's spend logs lag the calls, and each attempt also ran 7 to 11 scheduled Scans at the 15-second cadence the scheduler check sets (L-199, now stopped after the check and the meters read after a settle). No single task exceeded the 10 USD cap and the gateway's 15 USD day was not reached (12.70 on October 10 UTC).
 
 ## What the owner should check or try
 

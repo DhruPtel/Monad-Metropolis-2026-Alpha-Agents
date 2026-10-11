@@ -62,6 +62,8 @@ for (const step of STEPS) {
   const before = await globalSpendUsd();
   const [bin = "node", ...args] = step.cmd;
   const r = spawnSync(bin, args, { cwd: ROOT, stdio: "inherit" });
+  // The gateway writes its spend logs in batches a minute or more after the calls.
+  await new Promise((resolve) => setTimeout(resolve, 90_000));
   const after = await globalSpendUsd();
   const stepSpend = before !== null && after !== null ? after - before : 0;
   spent = spendAtStart !== null && after !== null ? after - spendAtStart : spent + stepSpend;
@@ -75,5 +77,7 @@ for (const o of outcomes)
   console.log(
     `${o.status === null ? "SKIP (spend cap)" : o.status === 0 ? "PASS" : "FAIL"}  ${o.name}${o.status === null ? "" : `  (${o.spendUsd.toFixed(3)} USD)`}`,
   );
-console.log(`model spend of this run: ${spent.toFixed(3)} USD (cap ${SPEND_CAP_USD})`);
+console.log(
+  `model spend of this run: ${spent.toFixed(3)} USD (cap ${SPEND_CAP_USD}), as the gateway's spend logs show it; pnpm spend:report --days=1 is the figure of record`,
+);
 process.exit(outcomes.every((o) => o.status === 0) ? 0 : 1);
