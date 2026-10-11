@@ -1,0 +1,28 @@
+{
+  "unit": "F-U10",
+  "namespace": "live-act-f49a9e",
+  "runTag": "2026-10-11T06-30-23.170Z",
+  "checks": {},
+  "agent": {
+    "agentId": 1,
+    "runtime": {
+      "agentId": "1",
+      "generation": 1,
+      "status": "ready",
+      "tier": "pro",
+      "species": 14,
+      "slots": 8,
+      "playbook": "tier-pro@1",
+      "configHash": "97aaaa7f526a24f701a95acc83df0d809edaf72fc31ebc572a81c4f9fe92c9d0",
+      "keyAlias": "aa-live-act-f49a9e-143143-1-g1",
+      "budgetUsd": "0.000000",
+      "lastError": null,
+      "provisionedAt": "2026-10-11T06:31:29.400Z",
+      "updatedAt": "2026-10-11T06:31:29.400Z",
+      "lease": null,
+      "latestTask": null
+    }
+  },
+  "error": "Refused: 0xC1ad2Ce14C73337Dd1490D6c5B0F89540f42E021 is a real wallet, and scripts never send as a real wallet on the playtest fork (its nonce must stay the wallet's own; the owner sends from the app).",
+  "passed": false
+}
