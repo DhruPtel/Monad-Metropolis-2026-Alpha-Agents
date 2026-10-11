@@ -113,6 +113,8 @@ export interface TradingSummaryView {
   readonly valueUsdcE6: bigint | null;
   /** USDC's share of the value in basis points; null while unknown or absent (Phase 2 tuning). */
   readonly usdcShareBps?: number | null;
+  /** What the rest of the allocation bar is called (A-80: "Other tokens" on the fund set). */
+  readonly restLabel?: string;
   readonly mode?: AccountMode | null;
 }
 
@@ -222,7 +224,10 @@ function FundAgentPanel({
         {trading?.hasAccount ? (
           <div className="flex flex-col gap-2">
             {trading.usdcShareBps !== undefined ? (
-              <AllocationBar usdcShareBps={trading.usdcShareBps} />
+              <AllocationBar
+                usdcShareBps={trading.usdcShareBps}
+                {...(trading.restLabel ? { restLabel: trading.restLabel } : {})}
+              />
             ) : null}
             {trading.mode ? <StatusPill kind="account_mode" value={trading.mode} /> : null}
           </div>

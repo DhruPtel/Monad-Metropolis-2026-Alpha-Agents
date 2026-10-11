@@ -25,6 +25,7 @@ export const FACTORY_ABI = parseAbi([
 export const ACCOUNT_ABI = parseAbi([
   "function deposit(address token, uint256 amount)",
   "function withdraw(address token, uint256 amount, address to)",
+  "function withdrawAll(address to)",
   "function claim(address token, address to)",
   "error ZeroAmount()",
   "error NotHeldAsset(address token)",

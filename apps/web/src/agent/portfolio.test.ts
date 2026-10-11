@@ -16,6 +16,7 @@ const NOW = 1_790_000_000;
 
 export function portfolio(over: Partial<PortfolioJson> = {}): PortfolioJson {
   return {
+    custody: "v2",
     chainId: 143143,
     block: "109670100",
     timestamp: NOW,

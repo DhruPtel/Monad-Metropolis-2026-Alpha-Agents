@@ -51,6 +51,7 @@ const GRANT_ABI = parseAbi([
 
 export function portfolioFixture(owner: Address, over: Partial<PortfolioJson> = {}): PortfolioJson {
   return {
+    custody: "v2",
     chainId: 143143,
     block: "109670100",
     timestamp: NOW,

@@ -6,6 +6,9 @@ import {
   ActivationChecks,
   ActivationPanel,
   ApprovalCard,
+  AssetMakeupTable,
+  FundOverview,
+  OlderAccountCard,
   type ApprovalView,
   ArmingCard,
   Button,
@@ -37,7 +40,13 @@ import {
 import { ArrowLeft, PlugZap, Wallet } from "lucide-react";
 import Link from "next/link";
 import { type ReactNode, useEffect, useState } from "react";
-import type { IntentJson, PlanCardJson, PortfolioJson } from "@/api/client";
+import type {
+  AnyPortfolioJson,
+  IntentJson,
+  PlanCardJson,
+  PortfolioJson,
+  PortfolioV3Json,
+} from "@/api/client";
 import { latestDecided, planCardView } from "@/agent/plan-card";
 import { useWalletSession } from "@/auth/session";
 import {
@@ -53,7 +62,23 @@ import {
   priceUsable,
   withdrawCheck,
 } from "@/agent/portfolio";
-import { type ActionStatus, type PortfolioAction, usePortfolio } from "@/agent/use-portfolio";
+import {
+  type ActionStatus,
+  type PortfolioAction,
+  type TokenRef,
+  usePortfolio,
+} from "@/agent/use-portfolio";
+import {
+  assetRows,
+  capRoomV3,
+  claimablesV3,
+  depositCheckV3,
+  depositTokens,
+  legacyLines,
+  overviewV3,
+  withdrawCheckV3,
+  withdrawable,
+} from "@/agent/portfolio-v3";
 import { walletTxText } from "@/agent/wallet-tx";
 import { AddCreditsSection } from "@/components/credits/add-credits-section";
 import { AgentHoldings } from "@/components/holdings/agent-holdings";
@@ -106,7 +131,7 @@ function positionsView(p: PortfolioJson) {
   };
 }
 
-function capsView(p: PortfolioJson) {
+function capsView(p: AnyPortfolioJson) {
   return {
     personalCapUsdc: BigInt(p.caps.personalUsdcE6),
     principalUsdc: BigInt(p.caps.principalUsdcE6),
@@ -119,7 +144,7 @@ function capsView(p: PortfolioJson) {
 
 function approvalView(
   i: IntentJson,
-  p: PortfolioJson,
+  p: AnyPortfolioJson,
   chainName: string,
   arms: boolean,
 ): ApprovalView {
@@ -382,6 +407,248 @@ function WithdrawForm({
   );
 }
 
+/** A token amount in its own units, with as many decimals as the token has. */
+const tokenUnits = (raw: string | bigint, decimals: number) =>
+  formatAmount(BigInt(raw), decimals, { maxFractionDigits: Math.min(decimals, 8) });
+
+/** Deposit on the fund set (A-80): any depositable token, with every block named before anything is sent. */
+function DepositFormV3({
+  p,
+  busy,
+  status,
+  onDeposit,
+}: {
+  p: PortfolioV3Json;
+  busy: boolean;
+  status: ActionStatus | null;
+  onDeposit: (token: TokenRef, amount: string) => void;
+}) {
+  const tokens = depositTokens(p);
+  const [address, setAddress] = useState<string>(tokens[0]?.address ?? p.contracts.usdc);
+  const [text, setText] = useState("");
+  const token = tokens.find((t) => t.address.toLowerCase() === address.toLowerCase()) ?? tokens[0];
+  const decimals = token?.decimals ?? 6;
+  const amount = parseAmount(text, decimals);
+  const check =
+    token && text !== "" && amount !== null ? depositCheckV3(p, token.address, amount) : null;
+  const walletHeld = BigInt(token?.walletRaw ?? "0");
+  const room = capRoomV3(p).room;
+  const isCash = token ? token.address.toLowerCase() === p.contracts.usdc.toLowerCase() : true;
+  const max = isCash ? (walletHeld < room ? walletHeld : room) : walletHeld;
+  const error =
+    text !== "" && amount === null
+      ? `Enter a number with at most ${decimals} decimals.`
+      : (check?.message ?? undefined);
+  const blockedBefore = token ? depositCheckV3(p, token.address, 1n) : null;
+  const standing =
+    blockedBefore?.block &&
+    [
+      "NOT_ALLOWLISTED",
+      "PAUSED",
+      "DEPOSITS_CLOSED",
+      "USDC_DEPEGGED",
+      "USDC_PRICE_UNAVAILABLE",
+      "HELD_PRICE_UNAVAILABLE",
+    ].includes(blockedBefore.block)
+      ? blockedBefore.message
+      : null;
+  return (
+    <section
+      aria-label="Deposit"
+      className="flex flex-col gap-3"
+      data-testid="deposit-form"
+      data-custody="v3"
+    >
+      <h3 className="text-base font-semibold">Deposit</h3>
+      <p className="text-sm text-foreground-muted">
+        From your wallet into the trading account: USDC or any registered core token with a price.
+        Your wallet approves exactly this amount, then deposits it.
+      </p>
+      {standing ? (
+        <p role="alert" className="text-sm text-warning" data-testid="deposit-block">
+          {standing}
+        </p>
+      ) : null}
+      <div className="flex flex-wrap items-end gap-3">
+        <Field label="Token" className="w-36">
+          {(control) => (
+            <Select value={address} onValueChange={setAddress}>
+              <SelectTrigger {...control}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {tokens.map((t) => (
+                  <SelectItem
+                    key={t.address}
+                    value={t.address}
+                    disabled={
+                      t.address.toLowerCase() !== p.contracts.usdc.toLowerCase() &&
+                      t.price.reason !== "OK"
+                    }
+                  >
+                    {t.symbol}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+        </Field>
+        <Field label="Amount" className="min-w-40 flex-1" {...(error ? { error } : {})}>
+          {(control) => (
+            <Input
+              {...control}
+              inputMode="decimal"
+              placeholder="0.00"
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+            />
+          )}
+        </Field>
+        <Button
+          variant="secondary"
+          disabled={busy || max === 0n}
+          onClick={() => setText(tokenUnits(max, decimals).replace(/,/g, ""))}
+        >
+          Max
+        </Button>
+        <Button
+          disabled={busy || !token || !check?.ok || amount === null}
+          onClick={() => token && amount !== null && onDeposit(token, text.trim())}
+        >
+          Deposit
+        </Button>
+      </div>
+      <p className="text-xs text-foreground-muted">
+        In your wallet: <span className="numeric">{tokenUnits(walletHeld, decimals)}</span>{" "}
+        {token?.symbol ?? "USDC"}
+      </p>
+      <StatusFor status={status} actions={["deposit"]} />
+    </section>
+  );
+}
+
+/** Withdraw on the fund set (A-80): any held token, or everything at once, in every mode. */
+function WithdrawFormV3({
+  p,
+  busy,
+  status,
+  onWithdraw,
+  onWithdrawEverything,
+}: {
+  p: PortfolioV3Json;
+  busy: boolean;
+  status: ActionStatus | null;
+  onWithdraw: (token: TokenRef, amount: string | null) => void;
+  onWithdrawEverything: () => void;
+}) {
+  const held = withdrawable(p);
+  const [address, setAddress] = useState<string>(held[0]?.token ?? p.contracts.usdc);
+  const [text, setText] = useState("");
+  const token = held.find((h) => h.token.toLowerCase() === address.toLowerCase()) ?? held[0];
+  const decimals = token?.decimals ?? 6;
+  const amount = parseAmount(text, decimals);
+  const free = BigInt(token?.freeRaw ?? "0");
+  const error =
+    text === ""
+      ? undefined
+      : amount === null
+        ? `Enter a number with at most ${decimals} decimals.`
+        : token
+          ? (withdrawCheckV3(p, token.token, amount) ?? undefined)
+          : "Nothing is held.";
+  const ref = (h: NonNullable<typeof token>): TokenRef => ({
+    address: h.token,
+    symbol: h.symbol,
+    decimals: h.decimals,
+  });
+  return (
+    <section
+      aria-label="Withdraw"
+      className="flex flex-col gap-3"
+      data-testid="withdraw-form"
+      data-custody="v3"
+    >
+      <h3 className="text-base font-semibold">Withdraw</h3>
+      <p className="text-sm text-foreground-muted">
+        To your wallet, at any time and in every mode, even paused or reduce-only. Withdrawals read
+        no price and need nothing from the platform.
+      </p>
+      {held.length === 0 ? (
+        <p className="text-sm text-foreground-muted" data-testid="withdraw-empty">
+          Nothing is held yet.
+        </p>
+      ) : (
+        <div className="flex flex-wrap items-end gap-3">
+          <Field label="Token" className="w-36">
+            {(control) => (
+              <Select value={address} onValueChange={setAddress}>
+                <SelectTrigger {...control}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {held.map((h) => (
+                    <SelectItem key={h.token} value={h.token}>
+                      {h.symbol}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          </Field>
+          <Field label="Amount" className="min-w-40 flex-1" {...(error ? { error } : {})}>
+            {(control) => (
+              <Input
+                {...control}
+                inputMode="decimal"
+                placeholder="0.00"
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+              />
+            )}
+          </Field>
+          <Button
+            variant="secondary"
+            disabled={busy || !token || free === 0n}
+            onClick={() => token && onWithdraw(ref(token), null)}
+          >
+            Withdraw all {token?.symbol ?? ""}
+          </Button>
+          <Button
+            disabled={busy || !token || amount === null || error !== undefined}
+            onClick={() => token && onWithdraw(ref(token), text.trim())}
+          >
+            Withdraw
+          </Button>
+        </div>
+      )}
+      {token ? (
+        <p className="text-xs text-foreground-muted">
+          Free in the account: <span className="numeric">{tokenUnits(free, decimals)}</span>{" "}
+          {token.symbol}
+          {BigInt(token.amountRaw) > free ? " (the rest is spoken for by a trade in flight)" : ""}
+        </p>
+      ) : null}
+      {held.length > 1 ? (
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            variant="secondary"
+            size="sm"
+            disabled={busy}
+            onClick={onWithdrawEverything}
+            data-testid="withdraw-everything"
+          >
+            Withdraw every token
+          </Button>
+          <span className="text-xs text-foreground-muted">
+            One wallet transaction for all of it.
+          </span>
+        </div>
+      ) : null}
+      <StatusFor status={status} actions={["withdraw"]} />
+    </section>
+  );
+}
+
 export function PortfolioPage({
   environment,
   agentId,
@@ -481,7 +748,24 @@ export function PortfolioPage({
   const allowlisted = !p.allowlist.enabled || p.allowlist.listed;
   const armingState = pf.arming?.arming.state ?? "unarmed";
   const waiting = pf.intents.filter((i) => i.status === "awaiting_approval");
-  const credits = claimables(p);
+  // A-80: on the fund agent's set every section uses the PersonalAccountV3; the v2 account is older.
+  const v3 = p.custody === "v3" ? p : null;
+  const v2 = p.custody === "v2" ? p : null;
+  const credits = v2 ? claimables(v2) : [];
+  const creditsV3 = v3 ? claimablesV3(v3) : [];
+  const legacy = v3 ? legacyLines(v3) : null;
+  const olderAccount =
+    v3?.legacy && legacy ? (
+      <OlderAccountCard
+        account={v3.legacy.account}
+        lines={legacy}
+        mode={v3.legacy.mode}
+        busy={acting}
+        onWithdrawAll={pf.withdrawLegacyAll}
+        onClaim={(symbol) => pf.claimLegacy(symbol as Asset)}
+        status={<StatusFor status={pf.status} actions={["withdraw-legacy", "claim-legacy"]} />}
+      />
+    ) : null;
   // F-U10: a sweep may start when none is under way or waiting for the owner, and none is in force.
   const read = pf.activation?.available ? pf.activation : null;
   const canSweep =
@@ -528,8 +812,9 @@ export function PortfolioPage({
           <CardHeader>
             <CardTitle>Open a trading account</CardTitle>
             <CardDescription>
-              A PersonalAccount on {network} holds {name}&apos;s trading money. Your wallet creates
-              it; only you can withdraw from it, at any time.
+              {v3
+                ? `A trading account on the fund agent's set holds ${name}'s trading money on ${network}: USDC and any registered token the agent buys. Your wallet creates it; only you can withdraw from it, at any time.`
+                : `A PersonalAccount on ${network} holds ${name}'s trading money. Your wallet creates it; only you can withdraw from it, at any time.`}
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
@@ -557,9 +842,64 @@ export function PortfolioPage({
         <div className="grid gap-6 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
           <Card>
             <CardContent className="flex flex-col gap-6 pt-6">
-              <PortfolioOverview positions={positionsView(p)} />
-              <PositionsPanel positions={positionsView(p)} showValue={false} />
-              {credits.length > 0 ? (
+              {v3 ? (
+                <>
+                  <FundOverview {...overviewV3(v3)} />
+                  <section
+                    aria-label="Positions"
+                    className="flex flex-col gap-3"
+                    data-testid="positions"
+                    data-custody="v3"
+                  >
+                    <AssetMakeupTable
+                      rows={assetRows(v3)}
+                      totalValueUsdcE6={v3.navUsdcE6}
+                      asOf={null}
+                    />
+                  </section>
+                  {creditsV3.length > 0 ? (
+                    <section
+                      aria-label="Claimable credits"
+                      className="flex flex-col gap-2"
+                      data-testid="claimable"
+                    >
+                      <h3 className="text-base font-semibold">Held for you to claim</h3>
+                      <p className="text-sm text-foreground-muted">
+                        A transfer out of the account failed, so these tokens are held for you.
+                        Claim them to your wallet.
+                      </p>
+                      {creditsV3.map((c) => (
+                        <div key={c.symbol} className="flex flex-wrap items-center gap-3">
+                          <span className="numeric text-sm">
+                            {tokenUnits(c.amount, c.decimals)} {c.symbol}
+                          </span>
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            disabled={acting}
+                            onClick={() =>
+                              pf.claimToken({
+                                address: c.token,
+                                symbol: c.symbol,
+                                decimals: c.decimals,
+                              })
+                            }
+                          >
+                            Claim {c.symbol}
+                          </Button>
+                        </div>
+                      ))}
+                      <StatusFor status={pf.status} actions={["claim"]} />
+                    </section>
+                  ) : null}
+                </>
+              ) : v2 ? (
+                <>
+                  <PortfolioOverview positions={positionsView(v2)} />
+                  <PositionsPanel positions={positionsView(v2)} showValue={false} />
+                </>
+              ) : null}
+              {v2 && credits.length > 0 ? (
                 <section
                   aria-label="Claimable credits"
                   className="flex flex-col gap-2"
@@ -598,13 +938,33 @@ export function PortfolioPage({
                 lowBelowWei={LOW_GAS_WEI}
                 network={network}
               />
-              <DepositForm p={p} busy={acting} status={pf.status} onDeposit={pf.deposit} />
+              {v3 ? (
+                <DepositFormV3
+                  p={v3}
+                  busy={acting}
+                  status={pf.status}
+                  onDeposit={pf.depositToken}
+                />
+              ) : v2 ? (
+                <DepositForm p={v2} busy={acting} status={pf.status} onDeposit={pf.deposit} />
+              ) : null}
               <CapsPanel caps={capsView(p)} />
-              <WithdrawForm p={p} busy={acting} status={pf.status} onWithdraw={pf.withdraw} />
+              {v3 ? (
+                <WithdrawFormV3
+                  p={v3}
+                  busy={acting}
+                  status={pf.status}
+                  onWithdraw={pf.withdrawToken}
+                  onWithdrawEverything={pf.withdrawEverything}
+                />
+              ) : v2 ? (
+                <WithdrawForm p={v2} busy={acting} status={pf.status} onWithdraw={pf.withdraw} />
+              ) : null}
             </CardContent>
           </Card>
         </div>
       )}
+      {olderAccount}
       {pf.summary ? (
         <Card data-testid="portfolio-credits" id="credits">
           <CardContent className="pt-6">

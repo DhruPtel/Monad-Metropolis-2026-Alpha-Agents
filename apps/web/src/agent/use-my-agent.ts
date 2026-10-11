@@ -1,7 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { type ActivityJson, ApiError, type PortfolioJson, api, tradingApi } from "@/api/client";
+import {
+  type ActivityJson,
+  ApiError,
+  type PortfolioJson,
+  type PortfolioV3Json,
+  api,
+  tradingApi,
+} from "@/api/client";
 import { useWalletSession } from "@/auth/session";
 import { type SummaryView, refundOutcomeText, scanOpen, summaryView } from "./my-agents";
 import { positions } from "./portfolio";
@@ -10,6 +17,8 @@ import { useOwnerSession } from "./use-owner-session";
 /** The trading account as the card shows it (P2-U7): open or not, and its value. */
 export interface TradingSummary {
   readonly hasAccount: boolean;
+  /** A-80: what the rest of the allocation bar is called on the fund set. */
+  readonly restLabel?: string;
   readonly valueUsdcE6: bigint | null;
   /** USDC's share of the value; null while unknown (Phase 2 tuning). */
   readonly usdcShareBps: number | null;
@@ -53,6 +62,15 @@ const words = (err: unknown) =>
  * and the activity feed on a timer. The two owner actions run through the
  * same session, so the API rechecks ownership on chain for each.
  */
+/** USDC's share of a v3 account's value, in basis points; null while the value is unknown. */
+function usdcShareV3(p: PortfolioV3Json): number | null {
+  if (p.navUsdcE6 === null) return null;
+  const nav = BigInt(p.navUsdcE6);
+  if (nav === 0n) return 0;
+  const usdc = p.holdings.find((h) => h.token.toLowerCase() === p.contracts.usdc.toLowerCase());
+  return usdc ? Number((BigInt(usdc.amountRaw) * 10_000n) / nav) : 0;
+}
+
 export function useMyAgent(agentId: bigint): MyAgent {
   const wallet = useWalletSession();
   const [summary, setSummary] = useState<SummaryView | null>(null);
@@ -94,14 +112,22 @@ export function useMyAgent(agentId: bigint): MyAgent {
         setSummary(summaryView(s));
         if (a) setActivity(a);
         setTrading(
-          p
-            ? {
-                hasAccount: p.account !== null,
-                valueUsdcE6: positions(p).totalUsdc,
-                usdcShareBps: positions(p).usdcShareBps,
-                mode: p.mode,
-              }
-            : null,
+          p === null
+            ? null
+            : p.custody === "v3"
+              ? {
+                  hasAccount: p.account !== null,
+                  valueUsdcE6: p.navUsdcE6 === null ? null : BigInt(p.navUsdcE6),
+                  usdcShareBps: usdcShareV3(p),
+                  mode: p.mode,
+                  restLabel: "Other tokens",
+                }
+              : {
+                  hasAccount: p.account !== null,
+                  valueUsdcE6: positions(p).totalUsdc,
+                  usdcShareBps: positions(p).usdcShareBps,
+                  mode: p.mode,
+                },
         );
         setError(null);
       } catch (err) {

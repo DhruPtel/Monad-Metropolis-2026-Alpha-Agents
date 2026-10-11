@@ -70,7 +70,7 @@ export const priceAgeSeconds = (p: PortfolioJson, which: "monUsd" | "usdcUsd" = 
   Math.max(0, p.timestamp - p.prices[which].updatedAt);
 
 /** USDC base units still allowed in under each beta cap. */
-export function capRoom(p: PortfolioJson) {
+export function capRoom(p: Pick<PortfolioJson, "caps">) {
   const personal = BigInt(p.caps.personalUsdcE6) - BigInt(p.caps.principalUsdcE6);
   const platform = BigInt(p.caps.platformUsdcE6) - BigInt(p.caps.platformTotalUsdcE6);
   const clamp = (v: bigint) => (v > 0n ? v : 0n);

@@ -5,10 +5,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { type Address, type Hex, decodeFunctionData } from "viem";
 import {
   type ActivationReadJson,
+  type AnyPortfolioJson,
   type ArmingViewJson,
   ApiError,
   type IntentJson,
-  type PortfolioJson,
   type WhyNotTradedJson,
   api,
   tradingApi,
@@ -43,6 +43,8 @@ export type PortfolioAction =
   | "deposit"
   | "withdraw"
   | "claim"
+  | "withdraw-legacy"
+  | "claim-legacy"
   | "arm"
   | "turn-on"
   | "disarm"
@@ -59,8 +61,16 @@ export interface ActionStatus {
   readonly done: string;
 }
 
+/** A token the v3 forms name: its address, symbol and decimals (A-80). */
+export interface TokenRef {
+  readonly address: Address;
+  readonly symbol: string;
+  readonly decimals: number;
+}
+
 export interface Portfolio {
-  readonly portfolio: PortfolioJson | null;
+  /** The v2 account, or the account on the fund agent's set where it is deployed (A-80). */
+  readonly portfolio: AnyPortfolioJson | null;
   readonly arming: ArmingViewJson | null;
   readonly intents: readonly IntentJson[];
   readonly why: WhyNotTradedJson | null;
@@ -84,6 +94,16 @@ export interface Portfolio {
   /** `null` withdraws everything of that asset. */
   withdraw(asset: Asset, amountText: string | null): void;
   claim(asset: Asset, token: Address): void;
+  /** A-80, the fund set: deposit any depositable token (an exact approval, then the deposit). */
+  depositToken(token: TokenRef, amountText: string): void;
+  /** `null` withdraws all of that token. */
+  withdrawToken(token: TokenRef, amountText: string | null): void;
+  /** Every held token to the wallet in one transaction (CustodyCoreV3.withdrawAll). */
+  withdrawEverything(): void;
+  claimToken(token: TokenRef): void;
+  /** The older v2 account: everything it holds to the wallet in one transaction. */
+  withdrawLegacyAll(): void;
+  claimLegacy(asset: Asset): void;
   arm(): void;
   /** F-U10: registers the grant when needed, then starts the activation sweep. */
   turnOn(): void;
@@ -136,7 +156,7 @@ function armingStatus(p: TurnOnProgress): WalletTxProgress {
 export function usePortfolio(agentId: bigint, environment: EnvironmentId): Portfolio {
   const wallet = useWalletSession();
   const asOwner = useOwnerSession(agentId);
-  const [portfolio, setPortfolio] = useState<PortfolioJson | null>(null);
+  const [portfolio, setPortfolio] = useState<AnyPortfolioJson | null>(null);
   const [arming, setArming] = useState<ArmingViewJson | null>(null);
   const [intents, setIntents] = useState<readonly IntentJson[]>([]);
   const [why, setWhy] = useState<WhyNotTradedJson | null>(null);
@@ -191,9 +211,13 @@ export function usePortfolio(agentId: bigint, environment: EnvironmentId): Portf
         setPortfolio(p);
         // Testnet's feeds are re-dated on demand: a stale price on the owner's money page asks
         // for fresh ones, at most once a minute, and the next read shows them (D-307).
+        const stale =
+          p.custody === "v3"
+            ? p.usdcPeg.reason !== "OK" || p.tokens.some((t) => t.price.reason !== "OK")
+            : p.prices.usdcUsd.reason !== "OK" || p.prices.monUsd.reason !== "OK";
         if (
           environment === "testnet" &&
-          (p.prices.usdcUsd.reason !== "OK" || p.prices.monUsd.reason !== "OK") &&
+          stale &&
           Date.now() - freshAsked.current > FRESH_PRICES_EVERY_MS
         ) {
           freshAsked.current = Date.now();
@@ -257,14 +281,16 @@ export function usePortfolio(agentId: bigint, environment: EnvironmentId): Portf
           },
         },
       ],
-      "Your trading account is open. Deposit USDC to fund it.",
+      portfolio.custody === "v3"
+        ? "Your trading account is open on the fund set. Deposit USDC or a registered token to fund it."
+        : "Your trading account is open. Deposit USDC to fund it.",
     );
   }, [agentId, portfolio, runSteps]);
 
   const deposit = useCallback(
     (asset: Asset, amountText: string) => {
       const amount = parseAmount(amountText, DECIMALS[asset]);
-      if (!portfolio?.account || amount === null) return;
+      if (portfolio?.custody !== "v2" || !portfolio.account || amount === null) return;
       const token = asset === "USDC" ? portfolio.contracts.usdc : portfolio.contracts.wmon;
       // On testnet, fresh prices first, so the deposit's own checks pass (D-307).
       if (environment === "testnet") {
@@ -302,7 +328,7 @@ export function usePortfolio(agentId: bigint, environment: EnvironmentId): Portf
 
   const withdraw = useCallback(
     (asset: Asset, amountText: string | null) => {
-      if (!portfolio?.account || !wallet.address) return;
+      if (portfolio?.custody !== "v2" || !portfolio.account || !wallet.address) return;
       const token = asset === "USDC" ? portfolio.contracts.usdc : portfolio.contracts.wmon;
       const held = BigInt(
         asset === "USDC" ? portfolio.balances.usdcE6 : portfolio.balances.wmonWei,
@@ -349,6 +375,157 @@ export function usePortfolio(agentId: bigint, environment: EnvironmentId): Portf
       );
     },
     [portfolio, runSteps, wallet.address],
+  );
+
+  // A-80: the account on the fund agent's set takes any depositable token and gives back any held one.
+  const v3 = portfolio?.custody === "v3" ? portfolio : null;
+
+  const depositToken = useCallback(
+    (token: TokenRef, amountText: string) => {
+      const amount = parseAmount(amountText, token.decimals);
+      if (!v3?.account || amount === null) return;
+      if (environment === "testnet") {
+        freshAsked.current = Date.now();
+        void asOwner((t) => tradingApi.freshPrices(agentId, t)).catch(() => null);
+      }
+      // Exact approvals only: the account may take this deposit and nothing more.
+      runSteps(
+        "deposit",
+        [
+          {
+            label: `Approve exactly ${amountText} ${token.symbol}`,
+            call: {
+              address: token.address,
+              abi: ERC20_ABI,
+              functionName: "approve",
+              args: [v3.account, amount],
+            },
+          },
+          {
+            label: `Deposit ${amountText} ${token.symbol}`,
+            call: {
+              address: v3.account,
+              abi: ACCOUNT_ABI,
+              functionName: "deposit",
+              args: [token.address, amount],
+            },
+          },
+        ],
+        `Deposited ${amountText} ${token.symbol}.`,
+      );
+    },
+    [agentId, asOwner, environment, runSteps, v3],
+  );
+
+  const withdrawToken = useCallback(
+    (token: TokenRef, amountText: string | null) => {
+      if (!v3?.account || !wallet.address) return;
+      const held = v3.holdings.find((h) => h.token.toLowerCase() === token.address.toLowerCase());
+      const free = held ? BigInt(held.freeRaw) : 0n;
+      const amount = amountText === null ? free : parseAmount(amountText, token.decimals);
+      if (amount === null || amount === 0n) return;
+      const shown = amountText ?? "all";
+      runSteps(
+        "withdraw",
+        [
+          {
+            label: `Withdraw ${shown} ${token.symbol} to your wallet`,
+            call: {
+              address: v3.account,
+              abi: ACCOUNT_ABI,
+              functionName: "withdraw",
+              args: [token.address, amount, wallet.address],
+            },
+          },
+        ],
+        `Withdrew ${shown === "all" ? "all the" : shown} ${token.symbol} to your wallet.`,
+      );
+    },
+    [runSteps, v3, wallet.address],
+  );
+
+  const withdrawEverything = useCallback(() => {
+    if (!v3?.account || !wallet.address) return;
+    runSteps(
+      "withdraw",
+      [
+        {
+          label: "Withdraw every token to your wallet",
+          call: {
+            address: v3.account,
+            abi: ACCOUNT_ABI,
+            functionName: "withdrawAll",
+            args: [wallet.address],
+          },
+        },
+      ],
+      "Withdrew everything to your wallet.",
+    );
+  }, [runSteps, v3, wallet.address]);
+
+  const claimToken = useCallback(
+    (token: TokenRef) => {
+      if (!v3?.account || !wallet.address) return;
+      runSteps(
+        "claim",
+        [
+          {
+            label: `Claim the ${token.symbol} held for you`,
+            call: {
+              address: v3.account,
+              abi: ACCOUNT_ABI,
+              functionName: "claim",
+              args: [token.address, wallet.address],
+            },
+          },
+        ],
+        `Claimed the ${token.symbol} to your wallet.`,
+      );
+    },
+    [runSteps, v3, wallet.address],
+  );
+
+  // The older v2 account (A-80): everything it still holds goes to the wallet in one transaction.
+  const withdrawLegacyAll = useCallback(() => {
+    if (!v3?.legacy || !wallet.address) return;
+    runSteps(
+      "withdraw-legacy",
+      [
+        {
+          label: "Withdraw everything in the older account to your wallet",
+          call: {
+            address: v3.legacy.account,
+            abi: ACCOUNT_ABI,
+            functionName: "withdrawAll",
+            args: [wallet.address],
+          },
+        },
+      ],
+      "The older account is emptied into your wallet. Deposit into the new account below.",
+    );
+  }, [runSteps, v3, wallet.address]);
+
+  const claimLegacy = useCallback(
+    (asset: Asset) => {
+      if (!v3?.legacy || !wallet.address) return;
+      const token = asset === "USDC" ? v3.contracts.usdc : v3.contracts.wmon;
+      runSteps(
+        "claim-legacy",
+        [
+          {
+            label: `Claim the ${asset} the older account holds for you`,
+            call: {
+              address: v3.legacy.account,
+              abi: ACCOUNT_ABI,
+              functionName: "claim",
+              args: [token, wallet.address],
+            },
+          },
+        ],
+        `Claimed the ${asset} to your wallet.`,
+      );
+    },
+    [runSteps, v3, wallet.address],
   );
 
   const armingDeps = useCallback(
@@ -500,6 +677,12 @@ export function usePortfolio(agentId: bigint, environment: EnvironmentId): Portf
     deposit,
     withdraw,
     claim,
+    depositToken,
+    withdrawToken,
+    withdrawEverything,
+    claimToken,
+    withdrawLegacyAll,
+    claimLegacy,
     arm: useCallback(() => runArming("arm"), [runArming]),
     turnOn: useCallback(() => runArming("turn-on"), [runArming]),
     disarm: useCallback(() => runArming("disarm"), [runArming]),

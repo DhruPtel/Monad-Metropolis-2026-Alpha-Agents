@@ -729,10 +729,13 @@ function AllocationChart({
 /** The allocation as one compact bar, for an agent's card. */
 function AllocationBar({
   usdcShareBps,
+  restLabel = "WMON",
   className,
 }: {
-  /** Null while unknown; WMON is the rest. */
+  /** Null while unknown; the rest is WMON on v2, every other token on the fund set. */
   usdcShareBps: number | null;
+  /** What the rest of the bar is called (A-80: "Other tokens" on the fund set). */
+  restLabel?: string;
   className?: string;
 }) {
   if (usdcShareBps === null)
@@ -744,7 +747,7 @@ function AllocationBar({
     <div
       className={cn("flex flex-col gap-1", className)}
       role="img"
-      aria-label={`Allocation by value: USDC ${percent(usdcShareBps)}, WMON ${percent(wmon)}`}
+      aria-label={`Allocation by value: USDC ${percent(usdcShareBps)}, ${restLabel} ${percent(wmon)}`}
       data-testid="allocation-bar"
     >
       <div className="flex h-2 w-full overflow-hidden rounded-full bg-border">
@@ -756,7 +759,7 @@ function AllocationBar({
           USDC <span className="numeric">{percent(usdcShareBps)}</span>
         </span>
         <span>
-          WMON <span className="numeric">{percent(wmon)}</span>
+          {restLabel} <span className="numeric">{percent(wmon)}</span>
         </span>
       </span>
     </div>

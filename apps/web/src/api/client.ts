@@ -454,6 +454,7 @@ export interface ActivationReadJson {
 }
 
 export interface PortfolioJson {
+  readonly custody: "v2";
   readonly chainId: number;
   readonly block: string;
   /** The block's time, unix seconds. */
@@ -526,6 +527,81 @@ export interface WindowJson {
   };
 }
 
+/** One held token of a v3 account as the API values it (A-80). */
+export interface HoldingV3Json {
+  readonly token: Address;
+  readonly symbol: string;
+  readonly decimals: number;
+  readonly amountRaw: string;
+  readonly freeRaw: string;
+  readonly costBasisUsdcE6: string;
+  readonly priceE18: string | null;
+  readonly priceReason: string;
+  readonly valueUsdcE6: string | null;
+  readonly claimableRaw: string;
+}
+
+/** A token the owner may deposit into a v3 account, with the wallet's balance and the oracle's price. */
+export interface DepositTokenJson {
+  readonly symbol: string;
+  readonly address: Address;
+  readonly decimals: number;
+  readonly priceClass: "F" | "A";
+  readonly walletRaw: string;
+  readonly price: PriceJson;
+}
+
+/**
+ * The owner's portfolio on the fund agent's set (A-80): the v3 account or
+ * where it will be, every held token, the depositable tokens, the v3
+ * factory's allowlist and caps, and the v2 account as an older account.
+ */
+export interface PortfolioV3Json {
+  readonly custody: "v3";
+  readonly chainId: number;
+  readonly block: string;
+  readonly timestamp: number;
+  readonly agentId: string;
+  readonly owner: Address;
+  readonly contracts: {
+    readonly agentNft: Address;
+    readonly accountFactory: Address;
+    readonly accountFactoryV2: Address | null;
+    readonly oracle: Address;
+    readonly usdc: Address;
+    readonly wmon: Address;
+    readonly executor: Address;
+  };
+  readonly account: Address | null;
+  readonly predictedAccount: Address;
+  readonly allowlist: { readonly enabled: boolean; readonly listed: boolean };
+  readonly caps: {
+    readonly personalUsdcE6: string;
+    readonly platformUsdcE6: string;
+    readonly platformTotalUsdcE6: string;
+    readonly principalUsdcE6: string;
+  };
+  readonly mode: PortfolioJson["mode"];
+  readonly depositsClosed: boolean;
+  readonly navUsdcE6: string | null;
+  readonly breaker: PortfolioJson["breaker"];
+  readonly peak7dE18: string | null;
+  readonly holdings: readonly HoldingV3Json[];
+  readonly tokens: readonly DepositTokenJson[];
+  readonly usdcPeg: PriceJson;
+  readonly wallet: { readonly monWei: string };
+  readonly legacy: {
+    readonly account: Address;
+    readonly usdcE6: string;
+    readonly wmonWei: string;
+    readonly claimable: { readonly usdcE6: string; readonly wmonWei: string };
+    readonly mode: PortfolioJson["mode"];
+  } | null;
+}
+
+/** The portfolio as the API serves it: on the fund set where it is deployed, else the v2 account. */
+export type AnyPortfolioJson = PortfolioJson | PortfolioV3Json;
+
 const owner = (session: string, init: RequestInit = {}): RequestInit => ({
   ...init,
   headers: { ...(init.headers as Record<string, string> | undefined), "x-owner-session": session },
@@ -533,9 +609,9 @@ const owner = (session: string, init: RequestInit = {}): RequestInit => ({
 
 /** P2-U7: the owner's trading routes; each needs the owner session. */
 export const tradingApi = {
-  async portfolio(agentId: bigint, session: string): Promise<PortfolioJson> {
+  async portfolio(agentId: bigint, session: string): Promise<AnyPortfolioJson> {
     return (
-      await call<{ portfolio: PortfolioJson }>(
+      await call<{ portfolio: AnyPortfolioJson }>(
         `/v1/agents/${agentId.toString()}/portfolio`,
         owner(session),
       )
