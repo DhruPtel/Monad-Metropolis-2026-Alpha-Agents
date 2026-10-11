@@ -42,6 +42,12 @@ export interface AggressivenessEnvelope {
   readonly maxPositions: number;
   /** A held token moving this much triggers a position review (the watcher, P3-U10). */
   readonly reviewTriggerBps: number;
+  /**
+   * F-T1 (A-81): how much of the account the level expects to keep invested
+   * (outside stablecoins), basis points. A Zoom out may go outside it, or
+   * all cash, only with a plain reason in its RATIONALE's allocationNote.
+   */
+  readonly investedRangeBps: { readonly min: number; readonly max: number };
 }
 
 export const AGGRESSIVENESS_ENVELOPES: Readonly<Record<Aggressiveness, AggressivenessEnvelope>> =
@@ -55,6 +61,7 @@ export const AGGRESSIVENESS_ENVELOPES: Readonly<Record<Aggressiveness, Aggressiv
       minStableBps: 3_000,
       maxPositions: 8,
       reviewTriggerBps: 1_000,
+      investedRangeBps: { min: 3_000, max: 7_000 },
     },
     BALANCED: {
       label: "Balanced",
@@ -65,6 +72,7 @@ export const AGGRESSIVENESS_ENVELOPES: Readonly<Record<Aggressiveness, Aggressiv
       minStableBps: 1_500,
       maxPositions: 8,
       reviewTriggerBps: 1_500,
+      investedRangeBps: { min: 5_000, max: 8_500 },
     },
     AGGRESSIVE: {
       label: "Aggressive",
@@ -75,6 +83,7 @@ export const AGGRESSIVENESS_ENVELOPES: Readonly<Record<Aggressiveness, Aggressiv
       minStableBps: 1_000,
       maxPositions: 12,
       reviewTriggerBps: 2_500,
+      investedRangeBps: { min: 6_500, max: 9_000 },
     },
   });
 
@@ -92,19 +101,19 @@ export const AGGRESSIVENESS_FACTS: Readonly<Record<Aggressiveness, Aggressivenes
       label: "Conservative",
       summary: "The largest liquid assets and yield, few positions, long horizons.",
       brief:
-        "Lean to the largest liquid assets on Monad (MON, the majors and stablecoins) and to yield-bearing tokens such as MON's liquid staking tokens. Hold few positions and think in long horizons. Hold class F tokens only: every position has a price feed. Keep at least 30% of the account in stablecoins and no more than 20% in any one position.",
+        "Lean to the largest liquid assets on Monad (MON, the majors and stablecoins) and to yield-bearing tokens such as MON's liquid staking tokens. Hold few positions and think in long horizons. Hold class F tokens only: every position has a price feed. Keep at least 30% of the account in stablecoins and no more than 20% in any one position. Expect to keep between 30% and 70% of the account invested; outside that range, or all in cash, say plainly why.",
     },
     BALANCED: {
       label: "Balanced",
       summary: "Large caps plus a few researched mid caps with a clear thesis.",
       brief:
-        "Hold large caps, plus a few researched mid caps that each have a clear thesis and an exit plan. Attested (class A) tokens may take a small part, at most 8% each and 25% together, once a price attestor is live. Keep at least 15% of the account in stablecoins and no more than 45% in any one position.",
+        "Hold large caps, plus a few researched mid caps that each have a clear thesis and an exit plan. Attested (class A) tokens may take a small part, at most 8% each and 25% together, once a price attestor is live. Keep at least 15% of the account in stablecoins and no more than 45% in any one position. Expect to keep between 50% and 85% of the account invested; outside that range, or all in cash, say plainly why.",
     },
     AGGRESSIVE: {
       label: "Aggressive",
       summary: "Anything that passes the safety check, with exit plans; larger swings.",
       brief:
-        "Consider anything that passes the safety check, newer and high-beta tokens and memecoins included, with smaller positions and a required exit plan for each. Attested (class A) tokens may take up to 15% each and 50% together, once a price attestor is live. Keep at least 10% of the account in stablecoins and no more than 45% in any one position. Expect larger swings.",
+        "Consider anything that passes the safety check, newer and high-beta tokens and memecoins included, with smaller positions and a required exit plan for each. Attested (class A) tokens may take up to 15% each and 50% together, once a price attestor is live. Keep at least 10% of the account in stablecoins and no more than 45% in any one position. Expect larger swings. Expect to keep between 65% and 90% of the account invested; outside that range, or all in cash, say plainly why.",
     },
   });
 

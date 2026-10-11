@@ -18,10 +18,14 @@ For every token the plan holds, and every token a Dive gave a thesis:
 
 - **EXIT** when its kill criterion fired, its screen refused it, its token is sell-only, or the Challenge rejected the thesis it rests on.
 - **TRIM** when the thesis weakened, the pool's depth no longer supports the weight, or the position breaches the envelope or a cap.
-- **ADD** (a new position, or more of one) only on a thesis the Challenge left standing or weakened, with at least two independent sources, one of them onchain or market, a fair weight the depth supports, and room in the envelope.
+- **ADD** (a new position, or more of one) only on a thesis the Challenge left standing or weakened, with at least two independent sources, one of them onchain or market, a fair weight the depth supports, and room in the envelope. A weakened thesis earns a smaller weight (about half its fair weight, or what the depth supports), not no weight; only a rejected thesis earns none.
 - **HOLD** otherwise. Say in one line why.
 
 Then weigh the whole: does the set fit the brief (few large positions for Conservative, a clear thesis per mid cap for Balanced, exits in place for every high-beta position for Aggressive)? Is the stablecoin share above the floor? Are positions, class A and the one-token cap inside the envelope? Does a change clear the cost hurdle at today's quote and depth (`mcp__chain__get_quote`, `mcp__chain__get_pool_depth` at the implied size)? Prefer few, small, reversible moves.
+
+## How much to invest
+
+The goal names the invested share its aggressiveness level expects (`envelope.investedRangeBps` from `mcp__platform__get_goals_and_limits`: 30% to 70% for Conservative, 50% to 85% for Balanced, 65% to 90% for Aggressive). Land inside it when the standing and weakened theses support that much; when they support less, propose less and say plainly why in the RATIONALE's `allocationNote` (which theses fell short, and what would change that). A plan of cash only is allowed only when the evidence is genuinely weak, and its `allocationNote` must say why nothing is worth holding now; the platform refuses `complete_stage` until that note is there. You are never forced into a position, and never forced out of one the evidence supports.
 
 ## Propose or hold
 
@@ -29,13 +33,13 @@ Propose a change only when all of these hold: at least one call is not HOLD; eve
 
 Otherwise the answer is no change, with the first reason that applies: `NO_MATERIAL_CHANGE`, `EVIDENCE_THIN`, `CHALLENGE_REJECTED`, `COOLDOWN`, `COST_HURDLE`, `LIMITS_BIND`, `BUDGET_SHORT`.
 
-Rate the evidence honestly: strong when the calls rest on onchain or market evidence across sources; mixed when a key claim is single-sourced or stale; weak when the cycle has only social or thin evidence, in which case the decision is NO_CHANGE with `EVIDENCE_THIN` and the brief says what would change it.
+Rate the evidence honestly: strong when the calls rest on onchain or market evidence across sources; mixed when a key claim is single-sourced or stale; weak when the cycle has only social or thin evidence, in which case no position is added: the decision is NO_CHANGE with `EVIDENCE_THIN` (or, in an activation sweep, a plan of cash only with its `allocationNote`), and the brief says what would change it.
 
 ## Output: the RATIONALE brief, then complete_stage with the decision
 
 1. You may save working notes with `mcp__platform__write_thesis` (`stage: "ZOOM_OUT"`); they stay private to the platform.
 2. In an activation cycle, first write the OVERVIEW brief with `mcp__platform__write_research_brief`: `brief.kind: "OVERVIEW"`, a `summary` of Monad and the market for this owner (at most 600 characters) and one to six `points`; each claim is `{ text, class, confidence, sources, asOf }`: `class` is onchain, market, primary, news or social; `confidence` is high, medium or low; `sources` are URLs you retrieved or the names of tools you called.
-3. Write the RATIONALE brief: `brief.kind: "RATIONALE"`, `decision` NO_CHANGE or PROPOSE, `reasonCode` for NO_CHANGE (null for PROPOSE), `themeCodes` you weighed, `portfolioView` (the whole portfolio against the goal, in plain words), `evidenceStrength` (strong, mixed or weak), `positions` (one call per token held or proposed: `{ token, symbol, action, themeCode, reason }`), up to five `points` and `whatWouldChangeIt`.
+3. Write the RATIONALE brief: `brief.kind: "RATIONALE"`, `decision` NO_CHANGE or PROPOSE, `reasonCode` for NO_CHANGE (null for PROPOSE), `themeCodes` you weighed, `portfolioView` (the whole portfolio against the goal, in plain words), `evidenceStrength` (strong, mixed or weak), `positions` (one call per token held or proposed: `{ token, symbol, action, themeCode, reason }`), `allocationNote` (why the plan keeps as much invested as it does, required outside the expected range or for cash only), up to five `points` and `whatWouldChangeIt`.
 
    Quote every figure exactly as a tool returned it (rounding is fine), and write in your own words. A refused brief comes back with every reason: fix each one and write it again.
 

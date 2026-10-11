@@ -338,6 +338,8 @@ export interface ProposalJson {
     readonly portfolioView: string;
     readonly evidenceStrength: "strong" | "mixed" | "weak";
     readonly whatWouldChangeIt: string;
+    /** F-T1 (A-81): why this much is invested, when the plan sits outside its level's range or is all cash. */
+    readonly allocationNote?: string | null;
     readonly themeCodes: readonly string[];
   };
   readonly evaluation: {

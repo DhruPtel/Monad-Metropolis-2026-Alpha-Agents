@@ -22,6 +22,7 @@ export function planCardView(card: PlanCardJson, p: ProposalJson): PlanCardView 
     portfolioView: p.rationale.portfolioView,
     evidenceStrength: p.rationale.evidenceStrength,
     whatWouldChangeIt: p.rationale.whatWouldChangeIt,
+    allocationNote: p.rationale.allocationNote ?? null,
     evaluation: p.evaluation
       ? {
           passed: p.evaluation.passed,

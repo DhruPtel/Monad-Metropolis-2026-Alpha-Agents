@@ -313,6 +313,7 @@ export class ProposalService {
       portfolioView: String(raw.portfolioView ?? ""),
       evidenceStrength: (raw.evidenceStrength as ProposalRationale["evidenceStrength"]) ?? "weak",
       whatWouldChangeIt: String(raw.whatWouldChangeIt ?? ""),
+      allocationNote: typeof raw.allocationNote === "string" ? raw.allocationNote : null,
       themeCodes: (raw.themeCodes as string[]) ?? [],
       points: ((raw.points as { text: string; class: string; confidence: string }[]) ?? []).map(
         (p) => ({ text: p.text, class: p.class, confidence: p.confidence }),

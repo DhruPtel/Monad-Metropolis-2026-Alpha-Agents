@@ -14,7 +14,7 @@ import {
   isBandsPlan,
   isPortfolioPlan,
 } from "@alpha-agents/trading";
-import { rationaleFindings } from "./rationale.ts";
+import { allocationFindings, rationaleFindings } from "./rationale.ts";
 import type { Cycle, CycleStore, StageRun } from "./store.ts";
 import {
   type TestInputs,
@@ -325,6 +325,30 @@ export class CycleResearch {
           `The RATIONALE's position calls do not match the proposal: ${findings.join("; ")}. Write the RATIONALE again with one call per position (ADD, HOLD, TRIM or EXIT) that matches the plan you propose.`,
           false,
           { findings },
+        );
+    }
+    // F-T1 (A-81): the invested share against the level's expected range, and cash only with a reason.
+    if (input.decision.kind === "PROPOSE" && input.decision.template === "target_portfolio@1") {
+      const goal = await this.o.goals.currentGoal(cycle.chainId, cycle.agentId);
+      const body = (rationale?.body ?? {}) as {
+        evidenceStrength?: "strong" | "mixed" | "weak";
+        allocationNote?: string | null;
+      };
+      const reasons = goal
+        ? allocationFindings({
+            level: goal.config.aggressiveness,
+            cashTargetBps: input.decision.params.cashTargetBps,
+            positions: input.decision.params.positions.length,
+            evidenceStrength: body.evidenceStrength ?? "weak",
+            allocationNote: body.allocationNote ?? null,
+          })
+        : [];
+      if (reasons.length > 0)
+        throw new ToolError(
+          "INVALID_INPUT",
+          `The allocation needs a reason: ${reasons.join("; ")}. Write the RATIONALE again, then complete_stage.`,
+          false,
+          { reasons },
         );
     }
     if (input.decision.kind === "PROPOSE") {

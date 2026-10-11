@@ -26,8 +26,8 @@
       "contentHash": "74fbe66c2ca3014e19a6404271e88a99dd257451158992d437fa56954605c25f"
     },
     "playbook-challenge": {
-      "version": "2.0.0",
-      "contentHash": "1950294f1f9b01b1cff35c153a911bc76805bcd0802196036f563a096ddfc52b"
+      "version": "2.1.0",
+      "contentHash": "1110c8343fdfbc442f7ddd4371fcb88898b9f33e6aee2a639da774a65886219f"
     },
     "playbook-dive": {
       "version": "2.0.0",
@@ -38,8 +38,8 @@
       "contentHash": "1f4d8182628b12103433c57935e1734d5629b98c0c6bb1eb91128ba2f6b60e15"
     },
     "playbook-zoom-out": {
-      "version": "2.0.0",
-      "contentHash": "83cf03bc5c8c33512b2869c241274bfd4b6fca0be42e9fff80d34664f6efc1bb"
+      "version": "2.1.0",
+      "contentHash": "1471ebc792de4b54c38d8c07caf213e0b0934e9f0273a14cbadbe93aba83d9e7"
     },
     "portfolio-construction": {
       "version": "1.0.0",

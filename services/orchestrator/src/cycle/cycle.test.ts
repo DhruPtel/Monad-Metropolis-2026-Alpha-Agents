@@ -1128,6 +1128,159 @@ describe.skipIf(!dbUp)("the discovery loop engine (needs Postgres)", { timeout: 
     expect((contexts[1] as { cycle: { token: unknown } }).cycle.token).toBeNull();
   });
 
+  it("refuses a target portfolio of cash only unless the evidence is weak and the RATIONALE says why (F-T1, A-81)", async () => {
+    await saveGoal({});
+    const answers: string[] = [];
+    const cashOnly = {
+      positions: [],
+      cashTargetBps: 10_000,
+      minTradeUsdc: "1",
+      volatilityBrakeBps: 20_000,
+      costHurdleBps: 40,
+      maxLegBps: 900,
+    };
+    scripts.ZOOM_OUT = async (r) => {
+      await start(r);
+      // Mixed evidence and no note: the platform names both gaps.
+      ok(
+        await brief(r.token, {
+          ...rationale,
+          decision: "PROPOSE",
+          reasonCode: null,
+          evidenceStrength: "mixed",
+        }),
+      );
+      answers.push(
+        JSON.stringify(
+          (
+            await complete(r.token, "ZOOM_OUT", {
+              decision: { kind: "PROPOSE", template: "target_portfolio@1", params: cashOnly },
+            })
+          ).structuredContent,
+        ),
+      );
+      // Weak evidence with the note: the allocation passes (this stack is not on the fund set, which is the next check).
+      ok(
+        await brief(r.token, {
+          ...rationale,
+          decision: "PROPOSE",
+          reasonCode: null,
+          evidenceStrength: "weak",
+          allocationNote:
+            "Both theses rest on one social source each; a second onchain source for either would change it.",
+        }),
+      );
+      answers.push(
+        JSON.stringify(
+          (
+            await complete(r.token, "ZOOM_OUT", {
+              decision: { kind: "PROPOSE", template: "target_portfolio@1", params: cashOnly },
+            })
+          ).structuredContent,
+        ),
+      );
+      // The stack is not on the fund set, so the stage ends with no change, on a matching brief.
+      ok(await brief(r.token, rationale));
+      ok(
+        await complete(r.token, "ZOOM_OUT", {
+          decision: { kind: "NO_CHANGE", reasonCode: "EVIDENCE_THIN" },
+        }),
+      );
+    };
+    const { cycle } = await runCycle();
+    expect(cycle.status).toBe("completed");
+    expect(answers[0]).toContain("a plan of cash only is allowed only when the evidence is weak");
+    expect(answers[0]).toContain("needs an allocationNote");
+    expect(answers[1]).not.toContain("allocationNote");
+    expect(answers[1]).toContain("needs the fund agent's set");
+  });
+
+  it("refuses a target portfolio outside the level's invested range until the RATIONALE says why (F-T1, A-81)", async () => {
+    await saveGoal({});
+    const answers: string[] = [];
+    const wbtc = "0x0555e30da8f98308edb960aa94c0db47230d2b9c";
+    const thin = {
+      positions: [
+        {
+          token: wbtc,
+          targetWeightBps: 3_000,
+          bandBps: 300,
+          thesisId: "t-wbtc",
+          exit: {
+            killCriterion: "The bridge's reserves fall short",
+            recheckAt: "2026-11-01T00:00:00.000Z",
+          },
+        },
+      ],
+      cashTargetBps: 7_000,
+      minTradeUsdc: "1",
+      volatilityBrakeBps: 20_000,
+      costHurdleBps: 40,
+      maxLegBps: 900,
+    };
+    const calls = [
+      {
+        token: wbtc,
+        symbol: "WBTC",
+        action: "ADD",
+        themeCode: "TVL_OUTFLOW",
+        reason: "A deep pool.",
+      },
+    ];
+    scripts.ZOOM_OUT = async (r) => {
+      await start(r);
+      ok(
+        await brief(r.token, {
+          ...rationale,
+          decision: "PROPOSE",
+          reasonCode: null,
+          evidenceStrength: "mixed",
+          positions: calls,
+        }),
+      );
+      answers.push(
+        JSON.stringify(
+          (
+            await complete(r.token, "ZOOM_OUT", {
+              decision: { kind: "PROPOSE", template: "target_portfolio@1", params: thin },
+            })
+          ).structuredContent,
+        ),
+      );
+      ok(
+        await brief(r.token, {
+          ...rationale,
+          decision: "PROPOSE",
+          reasonCode: null,
+          evidenceStrength: "mixed",
+          positions: calls,
+          allocationNote:
+            "Only the WBTC thesis stands; the second weakened to nothing the depth supports, so 30% is what the evidence carries.",
+        }),
+      );
+      answers.push(
+        JSON.stringify(
+          (
+            await complete(r.token, "ZOOM_OUT", {
+              decision: { kind: "PROPOSE", template: "target_portfolio@1", params: thin },
+            })
+          ).structuredContent,
+        ),
+      );
+      ok(await brief(r.token, rationale));
+      ok(
+        await complete(r.token, "ZOOM_OUT", {
+          decision: { kind: "NO_CHANGE", reasonCode: "EVIDENCE_THIN" },
+        }),
+      );
+    };
+    const { cycle } = await runCycle();
+    expect(cycle.status).toBe("completed");
+    expect(answers[0]).toContain("outside the Balanced range of 50% to 85%");
+    expect(answers[1]).not.toContain("outside the Balanced range");
+    expect(answers[1]).toContain("needs the fund agent's set");
+  });
+
   it("stops the cycle at the task's model spend cap (D-369): the Scan stands, the Dive is capped, the task says so", async () => {
     await saveGoal({});
     // Each fake call costs 0.004 USD; the Scan's two calls fit under 0.01, the Dive's second does not.

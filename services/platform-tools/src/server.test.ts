@@ -185,6 +185,7 @@ describe("platform tools server", () => {
         minStableBps: 1_500,
         maxPositions: 8,
         reviewTriggerBps: 1_500,
+        investedRangeBps: { min: 5_000, max: 8_500 },
       },
       plan: {
         template: "rebalance_bands@1",

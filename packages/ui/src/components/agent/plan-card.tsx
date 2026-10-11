@@ -50,6 +50,8 @@ export interface PlanCardView {
   readonly portfolioView: string;
   readonly evidenceStrength: EvidenceStrength;
   readonly whatWouldChangeIt: string;
+  /** F-T1 (A-81): why this much is invested, when the plan sits outside its level's range or is all cash. */
+  readonly allocationNote?: string | null;
   readonly evaluation: {
     readonly passed: boolean;
     readonly checkedAt: string;
@@ -300,6 +302,12 @@ function PlanCard({
           <p className="text-foreground-muted">Not checked.</p>
         )}
       </div>
+      {v.allocationNote ? (
+        <p className="text-sm" data-testid="plan-allocation-note">
+          <span className="text-foreground-muted">Why this much is invested: </span>
+          {v.allocationNote}
+        </p>
+      ) : null}
       <p className="text-sm text-foreground-muted">What would change it: {v.whatWouldChangeIt}</p>
       {actions ? <div className="flex flex-wrap gap-2">{actions}</div> : null}
       {status}

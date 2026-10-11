@@ -8,6 +8,7 @@ import {
   OWNER_LIMIT_FIELDS,
   isLegacyGoalInput,
   migrateLegacyGoalInput,
+  AGGRESSIVENESS_ENVELOPES,
 } from "@alpha-agents/domain";
 import {
   type EffectiveLimits,
@@ -387,6 +388,10 @@ export function goalsAndLimitsJson(view: AgentGoalView, live: LiveGoalLimits | n
           minStableBps: c.envelope.minStableBps,
           maxPositions: c.envelope.maxPositions,
           reviewTriggerBps: c.envelope.reviewTriggerBps,
+          // F-T1 (A-81): a goal saved before the range existed reads its level's.
+          investedRangeBps:
+            c.envelope.investedRangeBps ??
+            AGGRESSIVENESS_ENVELOPES[c.aggressiveness].investedRangeBps,
         }
       : null,
     plan: c

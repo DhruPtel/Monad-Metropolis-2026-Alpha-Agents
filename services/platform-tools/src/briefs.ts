@@ -237,6 +237,11 @@ export const RationaleBrief = z
     evidenceStrength: z.enum(EVIDENCE_STRENGTHS),
     /** One call per position held or proposed: add, hold, trim or exit. */
     positions: z.array(PositionCall).max(12),
+    /**
+     * F-T1 (A-81): why the plan keeps as much invested as it does, required
+     * whenever it sits outside the level's expected range or is all cash.
+     */
+    allocationNote: text(400).nullable().optional(),
   })
   .refine((b) => (b.decision === "NO_CHANGE") === (b.reasonCode !== null), {
     message: "a NO_CHANGE decision needs a reasonCode, and a PROPOSE decision has none",
@@ -247,11 +252,19 @@ export const RationaleBrief = z
       "a NO_CHANGE decision holds every position; an ADD, TRIM or EXIT needs a PROPOSE decision",
     path: ["positions"],
   })
-  .refine((b) => !(b.evidenceStrength === "weak" && b.decision === "PROPOSE"), {
-    message:
-      "weak evidence cannot carry a proposal: decide NO_CHANGE with EVIDENCE_THIN and say what would change it",
-    path: ["evidenceStrength"],
-  })
+  .refine(
+    (b) =>
+      !(
+        b.evidenceStrength === "weak" &&
+        b.decision === "PROPOSE" &&
+        b.positions.some((p) => p.action === "ADD")
+      ),
+    {
+      message:
+        "weak evidence cannot carry a position: decide NO_CHANGE with EVIDENCE_THIN, or propose cash only with an allocationNote that says why",
+      path: ["evidenceStrength"],
+    },
+  )
   .refine(
     (b) => new Set(b.positions.map((p) => p.token.toLowerCase())).size === b.positions.length,
     { message: "one call per token", path: ["positions"] },

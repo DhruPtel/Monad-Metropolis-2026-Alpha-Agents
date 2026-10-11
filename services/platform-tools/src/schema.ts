@@ -128,6 +128,8 @@ export const GetGoalsAndLimitsOutput = z.strictObject({
       minStableBps: bps,
       maxPositions: z.int().min(1).max(16),
       reviewTriggerBps: bps,
+      /** F-T1 (A-81): the invested share the level expects, outside which the RATIONALE must explain itself. */
+      investedRangeBps: z.strictObject({ min: bps, max: bps }),
     })
     .nullable(),
   plan: z

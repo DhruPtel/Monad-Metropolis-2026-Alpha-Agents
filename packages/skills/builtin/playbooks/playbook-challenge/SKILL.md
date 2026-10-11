@@ -23,9 +23,13 @@ A search with `mcp__data__web_search` is allowed for one specific counter-claim,
 
 ## Verdict
 
+The verdict scales with the evidence. Uncertainty is not a break: a fresh account, a young thesis or a claim that could be stronger is ordinary, and the Zoom out can size for it. Reject only what you can show is broken.
+
 - **STANDS**: no objection would change the conclusion; say which one came closest.
-- **WEAKENED**: the thesis survives but its confidence or its fair weight should drop, or its horizon or kill criterion needs to change; say how.
-- **REJECTED**: at least one objection breaks it (the evidence does not support it, the kill criterion already fired, the screen refused the token, or acting on it would breach a limit).
+- **WEAKENED**: the evidence is moderate. A key claim is single-sourced, stale or social-only; the depth supports a smaller weight than the fair weight; the horizon or the kill criterion needs sharpening; or the thesis is sound but young. Say what should drop (the confidence, the fair weight, the horizon) and what would make it stand. A weakened thesis still earns a smaller position from the Zoom out.
+- **REJECTED**: at least one objection breaks it: the kill criterion already fired, the evidence contradicts a key claim (not merely fails to prove it), the screen refused the token, or acting on it would breach a limit. Name the objection that breaks it and the figure or source that shows it.
+
+A Challenge that rejects every thesis on a fresh account because nothing is proven yet has mistaken uncertainty for a break; weaken those instead and say what would make each stand.
 
 ## Output: a CHALLENGE brief per thesis, then complete_stage
 

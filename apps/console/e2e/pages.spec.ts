@@ -270,8 +270,8 @@ test.describe("agents panel controls (P1-U5)", () => {
     ])
       await expect(table).toContainText(name);
     await expect(table).toContainText("1.0.0");
-    // F-U8: the playbooks are 2.0.0 and the set holds twelve packages.
-    await expect(table).toContainText("2.0.0");
+    // F-U8: the set holds twelve packages; F-T1 (A-81) took the playbooks to 2.1.0.
+    await expect(table).toContainText("2.1.0");
     await expect(skills).toContainText("tier-pro@1");
     await repaint(page);
     await expect(skills).toHaveScreenshot("agents-skills.png");

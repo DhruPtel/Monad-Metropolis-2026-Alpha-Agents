@@ -105,6 +105,7 @@ export function stagePrompt(o: {
     case "CHALLENGE":
       return [
         `CHALLENGE stage of a ${o.kind} research cycle. You are the skeptic for this cycle's Dives on ${(o.diveThemes ?? []).join(", ")}.`,
+        "Verdicts scale with the evidence: REJECTED only for a thesis that is broken (its kill criterion fired, the evidence contradicts a key claim, the screen refused the token, or acting on it would breach a limit); WEAKENED for moderate evidence (a single-sourced, stale or social-only key claim, a depth that supports a smaller weight, ordinary uncertainty on a fresh account), which still earns a smaller position; STANDS otherwise. Uncertainty is not a break.",
         "You see the Dives only as their THEME briefs, through get_research_context; their sessions are not available, by design.",
         "Load your Challenge playbook with skill_view (name aa-playbook-challenge) and follow it: attack the sources, the fundamentals, the kill criterion, the horizon and the fit with this account.",
         caps,
@@ -121,7 +122,8 @@ export function stagePrompt(o: {
         o.kind === "ACTIVATION"
           ? "Write two briefs with mcp__platform__write_research_brief: an OVERVIEW of Monad and the market for this owner, and a RATIONALE. This is the activation sweep: the account holds cash and no plan, and the owner is waiting to approve the first one, so propose a target portfolio when the evidence supports at least one position; NO_CHANGE here leaves the agent with no plan until the owner runs another sweep, so use it only when the evidence is weak."
           : "Write one RATIONALE brief with mcp__platform__write_research_brief.",
-        "The RATIONALE weighs the whole portfolio against the goal (portfolioView), rates the evidence (evidenceStrength: strong, mixed or weak; weak evidence means NO_CHANGE) and makes one call per position held or proposed: ADD, HOLD, TRIM or EXIT, each tied to a theme.",
+        "The RATIONALE weighs the whole portfolio against the goal (portfolioView), rates the evidence (evidenceStrength: strong, mixed or weak; weak evidence carries no position) and makes one call per position held or proposed: ADD, HOLD, TRIM or EXIT, each tied to a theme. A thesis the Challenge weakened still earns a smaller position; only a rejected one earns none.",
+        "The goal names the invested share its level expects (get_goals_and_limits, envelope.investedRangeBps). A plan outside that range needs the RATIONALE's allocationNote to say plainly why; a plan of cash only is allowed only when the evidence is weak, and its allocationNote must say why nothing is worth holding and what would change that. The platform refuses complete_stage until the note is there.",
         'Then call mcp__platform__complete_stage exactly once, last, with stage ZOOM_OUT, outcome DONE and candidates [], and decision {"kind":"NO_CHANGE","reasonCode":...} or {"kind":"PROPOSE","template":"target_portfolio@1","params":{...}} on the fund agent\'s set (or template rebalance_bands@1 on the two-asset plan) matching the RATIONALE and its position calls. The platform checks a proposal against the Test before the stage may end; a refused proposal says why.',
       ].join(" ");
   }

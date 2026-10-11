@@ -77,6 +77,8 @@ export interface ProposalRationale {
   readonly portfolioView: string;
   readonly evidenceStrength: "strong" | "mixed" | "weak";
   readonly whatWouldChangeIt: string;
+  /** F-T1 (A-81): why the plan keeps as much invested as it does, when outside the level's range or all cash. */
+  readonly allocationNote?: string | null;
   readonly themeCodes: readonly string[];
   readonly points: readonly {
     readonly text: string;

@@ -1,6 +1,6 @@
 import type { ZoomOutDecision } from "@alpha-agents/platform-tools";
 import { describe, expect, it } from "vitest";
-import { rationaleFindings } from "./rationale.ts";
+import { allocationFindings, rationaleFindings } from "./rationale.ts";
 
 const A = "0x00000000000000000000000000000000000000a1";
 const B = "0x00000000000000000000000000000000000000b2";
@@ -108,5 +108,76 @@ describe("the Zoom out's position calls against its decision (F-U8)", () => {
     ).toEqual([
       "position calls belong to a target portfolio; a rebalance_bands@1 proposal has none",
     ]);
+  });
+});
+
+describe("the plan's invested share against the level's expected range (F-T1, A-81)", () => {
+  it("passes a plan inside the range without a note, and asks for one outside it", () => {
+    expect(
+      allocationFindings({
+        level: "BALANCED",
+        cashTargetBps: 4_000,
+        positions: 2,
+        evidenceStrength: "mixed",
+        allocationNote: null,
+      }),
+    ).toEqual([]);
+    expect(
+      allocationFindings({
+        level: "BALANCED",
+        cashTargetBps: 7_000,
+        positions: 1,
+        evidenceStrength: "mixed",
+        allocationNote: null,
+      }),
+    ).toEqual([
+      "the plan keeps 30% of the account invested, outside the Balanced range of 50% to 85%; say why in the RATIONALE's allocationNote",
+    ]);
+    expect(
+      allocationFindings({
+        level: "BALANCED",
+        cashTargetBps: 7_000,
+        positions: 1,
+        evidenceStrength: "mixed",
+        allocationNote:
+          "One thesis stands; the second weakened to half its weight, so 30% is what the evidence supports.",
+      }),
+    ).toEqual([]);
+    expect(
+      allocationFindings({
+        level: "CONSERVATIVE",
+        cashTargetBps: 2_000,
+        positions: 3,
+        evidenceStrength: "strong",
+        allocationNote: "  ",
+      }),
+    ).toEqual([
+      "the plan keeps 80% of the account invested, outside the Conservative range of 30% to 70%; say why in the RATIONALE's allocationNote",
+    ]);
+  });
+
+  it("allows cash only with weak evidence and a reason, and names both when they are missing", () => {
+    expect(
+      allocationFindings({
+        level: "BALANCED",
+        cashTargetBps: 10_000,
+        positions: 0,
+        evidenceStrength: "mixed",
+        allocationNote: null,
+      }),
+    ).toEqual([
+      "a plan of cash only is allowed only when the evidence is weak; the RATIONALE rates it mixed, so propose at least one position, or rate the evidence weak and say why nothing is worth holding",
+      "a plan of cash only needs an allocationNote in the RATIONALE: why nothing is worth holding now, and what would change that",
+    ]);
+    expect(
+      allocationFindings({
+        level: "AGGRESSIVE",
+        cashTargetBps: 10_000,
+        positions: 0,
+        evidenceStrength: "weak",
+        allocationNote:
+          "Every thesis rests on one social source; a second onchain source for any of them would change it.",
+      }),
+    ).toEqual([]);
   });
 });

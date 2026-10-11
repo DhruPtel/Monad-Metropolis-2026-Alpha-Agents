@@ -390,6 +390,8 @@ export function canonicalJson(value: unknown): string {
 function soulBlock(c: Omit<GoalConfig, "soulBlock">): string {
   const o = c.ownerLimits;
   const e = c.envelope;
+  // F-T1 (A-81): a goal saved before the range existed reads its level's.
+  const range = e.investedRangeBps ?? AGGRESSIVENESS_ENVELOPES[c.aggressiveness].investedRangeBps;
   const plan =
     c.planChanges.mode === "ASK_FIRST"
       ? "propose them; the owner approves each one first"
@@ -403,6 +405,7 @@ function soulBlock(c: Omit<GoalConfig, "soulBlock">): string {
     `- Aggressiveness: ${AGGRESSIVENESS_FACTS[c.aggressiveness].label}`,
     `- Brief: ${c.brief}`,
     `- Envelope the Test enforces on a target portfolio: at most ${e.maxPositions} positions, at most ${bps(e.maxPositionBps)} in any one, at least ${bps(e.minStableBps)} in stablecoins${e.classAAllowed ? `, class A at most ${bps(e.maxClassAPositionBps)} each and ${bps(e.maxClassATotalBps)} together` : ", class F tokens only"}`,
+    `- Expected invested share for ${AGGRESSIVENESS_FACTS[c.aggressiveness].label}: ${bps(range.min)} to ${bps(range.max)} of the account outside stablecoins; a plan outside it, or all in cash, must say why in its RATIONALE (allocationNote), and all cash only when the evidence is weak`,
     `- Limits: largest trade ${bps(o.maxTradeBps)} of value, at most ${bps(o.maxPositionBps)} in any one token, at least ${bps(o.minUsdcShareBps)} in USDC, slippage at most ${bps(o.maxSlippageBps)}, at most ${o.maxTradesPer24h} trades in 24 hours`,
     `- Two-asset fallback: ${c.template.id}, target WMON ${bps(c.template.params.targetWmonBps)} within ${bps(c.targetRange.minBps)} to ${bps(c.targetRange.maxBps)}`,
     `- Model tier: ${MODEL_TIER_FACTS[c.model.choice].label} (${c.model.alias})`,

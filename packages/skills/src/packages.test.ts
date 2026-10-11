@@ -129,6 +129,15 @@ describe("the built-in skills and playbooks (P3-U7)", () => {
       expect(p.skillMd, p.manifest.id).toMatch(/mcp__platform__write_research_brief/);
     const zoom = set.packages.find((p) => p.manifest.id === "playbook-zoom-out")?.skillMd ?? "";
     expect(zoom).toMatch(/NO_CHANGE/);
+    // F-T1 (A-81): the invested range and the allocation note; a weakened thesis earns a smaller weight.
+    for (const item of ["investedRangeBps", "allocationNote", "cash only", "smaller weight"])
+      expect(zoom, item).toContain(item);
+    const challenge =
+      set.packages.find((p) => p.manifest.id === "playbook-challenge")?.skillMd ?? "";
+    for (const item of ["Uncertainty is not a break", "REJECTED", "WEAKENED", "STANDS", "broken"])
+      expect(challenge, item).toContain(item);
+    for (const id of ["playbook-challenge", "playbook-zoom-out"])
+      expect(set.packages.find((p) => p.manifest.id === id)?.manifest.version, id).toBe("2.1.0");
     for (const code of [
       "NO_MATERIAL_CHANGE",
       "EVIDENCE_THIN",

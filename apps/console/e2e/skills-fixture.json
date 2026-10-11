@@ -135,7 +135,7 @@
       "kind": "playbook",
       "id": "playbook-challenge",
       "name": "aa-playbook-challenge",
-      "version": "2.0.0",
+      "version": "2.1.0",
       "contentHash": "1950294f1f9b01b1cff35c153a911bc76805bcd0802196036f563a096ddfc52b",
       "description": "Runs a Challenge: the skeptic tries to break the thesis. Use for a Challenge stage, a skeptic review or breaking a thesis.",
       "tools": [
@@ -157,7 +157,7 @@
       "kind": "playbook",
       "id": "playbook-dive",
       "name": "aa-playbook-dive",
-      "version": "2.0.0",
+      "version": "2.1.0",
       "contentHash": "94db668a3d9a5d20b6f0abbc7fc09884233d1b3d5954de4fa75a937dcc679912",
       "description": "Runs a Dive: builds one theme into a falsifiable thesis. Use when the task is a Dive stage on a theme.",
       "tools": [
@@ -187,7 +187,7 @@
       "kind": "playbook",
       "id": "playbook-scan",
       "name": "aa-playbook-scan",
-      "version": "2.0.0",
+      "version": "2.1.0",
       "contentHash": "1f4d8182628b12103433c57935e1734d5629b98c0c6bb1eb91128ba2f6b60e15",
       "description": "Runs a Scan: finds what changed and what deserves a Dive. Use when the task is a Scan stage.",
       "tools": [
@@ -206,7 +206,7 @@
       "kind": "playbook",
       "id": "playbook-zoom-out",
       "name": "aa-playbook-zoom-out",
-      "version": "2.0.0",
+      "version": "2.1.0",
       "contentHash": "83cf03bc5c8c33512b2869c241274bfd4b6fca0be42e9fff80d34664f6efc1bb",
       "description": "Runs a Zoom out: decides if the owner's plan must change. Use when the task is a Zoom out or a plan review.",
       "tools": [
