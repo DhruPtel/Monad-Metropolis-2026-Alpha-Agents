@@ -59,6 +59,7 @@ import {
   PlanUnchangedCard,
   ResearchOverview,
   ResearchScheduleCard,
+  SentinelCard,
   StageTimeline,
   TERMINAL_STATES,
   type TerminalLineView,
@@ -3344,6 +3345,96 @@ function ResearchLoopSection() {
   );
 }
 
+const SENTINEL_ACTIONS = [
+  {
+    actionId: "s1",
+    code: "DRAWDOWN_12",
+    text: "the account fell 12% or more from its 7-day peak",
+    action: "REDUCE_ONLY",
+    state: null,
+    reason: "12.5% below the 7-day peak",
+    txHash: "0xa1",
+    status: "done" as const,
+    at: "2026-10-11T12:30:00.000Z",
+  },
+  {
+    actionId: "s2",
+    code: "STALE_FEED",
+    text: "a held token's price feed is stale or unusable",
+    action: "REDUCE_ONLY",
+    state: "INCIDENT",
+    reason: "WBTC: 4000 s old",
+    txHash: null,
+    status: "skipped" as const,
+    at: "2026-10-11T12:45:00.000Z",
+  },
+  {
+    actionId: "s3",
+    code: "STALE_FEED",
+    text: "a held token's price feed is stale or unusable",
+    action: "INCIDENT",
+    state: "INCIDENT",
+    reason: "agent state RUNNING to INCIDENT",
+    txHash: null,
+    status: "done" as const,
+    at: "2026-10-11T12:45:00.000Z",
+  },
+  {
+    actionId: "s4",
+    code: "ZERO_CREDITS",
+    text: "the agent has no credits left",
+    action: "NOTE",
+    state: null,
+    reason: "the condition cleared; the account's mode stays until its owner reviews it",
+    txHash: null,
+    status: "done" as const,
+    at: "2026-10-11T13:00:00.000Z",
+  },
+];
+
+function SentinelSection() {
+  return (
+    <Section id="sentinel" title="Risk sentinel">
+      <Specimen
+        name="SentinelCard"
+        note="What the sentinel watches and every action it took with its reason: nothing wrong, conditions in force with the account tightened, and a stack without the sentinel."
+      >
+        <div className="grid gap-6 lg:grid-cols-2" data-testid="sentinel-cards">
+          <SentinelCard
+            view={{
+              configured: true,
+              active: {},
+              lastCheckedAt: "2026-10-11T13:05:00.000Z",
+              actions: [],
+              mode: "NORMAL",
+            }}
+          />
+          <SentinelCard
+            view={{
+              configured: true,
+              active: {
+                STALE_FEED: "2026-10-11T12:45:00.000Z",
+                DRAWDOWN_12: "2026-10-11T12:30:00.000Z",
+              },
+              lastCheckedAt: "2026-10-11T13:05:00.000Z",
+              actions: SENTINEL_ACTIONS,
+              mode: "REDUCE_ONLY",
+            }}
+            actions={
+              <Button size="sm" variant="secondary">
+                Open the portfolio
+              </Button>
+            }
+          />
+          <SentinelCard
+            view={{ configured: false, active: {}, lastCheckedAt: null, actions: [], mode: null }}
+          />
+        </div>
+      </Specimen>
+    </Section>
+  );
+}
+
 function DesignSystem() {
   return (
     <div className="flex flex-col gap-10">
@@ -3369,6 +3460,7 @@ function DesignSystem() {
       <MarketSection />
       <ResearchSection />
       <ResearchLoopSection />
+      <SentinelSection />
     </div>
   );
 }
