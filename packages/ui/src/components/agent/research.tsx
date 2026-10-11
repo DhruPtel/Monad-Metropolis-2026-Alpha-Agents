@@ -151,7 +151,10 @@ function AgentTerminal({
         aria-label={title}
         aria-live={state === "live" ? "polite" : "off"}
         aria-busy={state === "connecting" || state === "reconnecting"}
-        className={cn("overflow-y-auto font-mono text-xs leading-5 text-foreground", maxHeightClass)}
+        className={cn(
+          "overflow-y-auto font-mono text-xs leading-5 text-foreground",
+          maxHeightClass,
+        )}
         tabIndex={0}
         onScroll={(e) => {
           const el = e.currentTarget;
@@ -159,50 +162,50 @@ function AgentTerminal({
         }}
       >
         <ol className="flex flex-col gap-0.5">
-        {lines.length === 0 ? (
-          <li className="text-foreground-muted">
-            {state === "idle"
-              ? "Nothing has run yet. The terminal fills as the agent researches."
-              : state === "reconnecting"
-                ? "The connection dropped; trying again."
-                : "Waiting for the first line."}
-          </li>
-        ) : null}
-        {lines.map((l) => (
-          <li
-            key={l.seq}
-            data-seq={l.seq}
-            data-kind={l.kind}
-            data-tone={l.tone}
-            className={cn(
-              "grid grid-cols-[auto_auto_auto_1fr] items-baseline gap-x-2",
-              l.kind === "withheld" && "italic text-foreground-muted",
-            )}
-          >
-            <span className="text-foreground-muted">{clock(l.at)}</span>
-            <span
+          {lines.length === 0 ? (
+            <li className="text-foreground-muted">
+              {state === "idle"
+                ? "Nothing has run yet. The terminal fills as the agent researches."
+                : state === "reconnecting"
+                  ? "The connection dropped; trying again."
+                  : "Waiting for the first line."}
+            </li>
+          ) : null}
+          {lines.map((l) => (
+            <li
+              key={l.seq}
+              data-seq={l.seq}
+              data-kind={l.kind}
+              data-tone={l.tone}
               className={cn(
-                "w-3 text-center",
-                l.tone === "ok" && "text-positive",
-                l.tone === "warn" && "text-warning",
-                l.tone === "bad" && "text-negative",
-                l.tone === "info" && "text-foreground-muted",
+                "grid grid-cols-[auto_auto_auto_1fr] items-baseline gap-x-2",
+                l.kind === "withheld" && "italic text-foreground-muted",
               )}
-              aria-hidden="true"
             >
-              {MARK[l.tone]}
-            </span>
-            <span className="w-8 text-foreground-muted">
-              {l.stage ? (STAGE_SHORT[l.stage] ?? l.stage.toLowerCase()) : ""}
-            </span>
-            <span className="whitespace-pre-wrap break-words">{l.text}</span>
-          </li>
-        ))}
-        {state === "reconnecting" && lines.length > 0 ? (
-          <li className="text-warning" data-testid="terminal-reconnecting">
-            The connection dropped; trying again from line {lines[lines.length - 1]?.seq}.
-          </li>
-        ) : null}
+              <span className="text-foreground-muted">{clock(l.at)}</span>
+              <span
+                className={cn(
+                  "w-3 text-center",
+                  l.tone === "ok" && "text-positive",
+                  l.tone === "warn" && "text-warning",
+                  l.tone === "bad" && "text-negative",
+                  l.tone === "info" && "text-foreground-muted",
+                )}
+                aria-hidden="true"
+              >
+                {MARK[l.tone]}
+              </span>
+              <span className="w-8 text-foreground-muted">
+                {l.stage ? (STAGE_SHORT[l.stage] ?? l.stage.toLowerCase()) : ""}
+              </span>
+              <span className="whitespace-pre-wrap break-words">{l.text}</span>
+            </li>
+          ))}
+          {state === "reconnecting" && lines.length > 0 ? (
+            <li className="text-warning" data-testid="terminal-reconnecting">
+              The connection dropped; trying again from line {lines[lines.length - 1]?.seq}.
+            </li>
+          ) : null}
         </ol>
       </div>
     </section>
@@ -240,9 +243,12 @@ const WAITING_TEXT: Readonly<Record<string, string>> = {
 
 /** "every 6 hours", "every day", "every week", "every 2 min". */
 export function everyText(ms: number): string {
-  if (ms % (7 * 86_400_000) === 0) return ms === 7 * 86_400_000 ? "every week" : `every ${ms / (7 * 86_400_000)} weeks`;
-  if (ms % 86_400_000 === 0) return ms === 86_400_000 ? "every day" : `every ${ms / 86_400_000} days`;
-  if (ms % 3_600_000 === 0) return ms === 3_600_000 ? "every hour" : `every ${ms / 3_600_000} hours`;
+  if (ms % (7 * 86_400_000) === 0)
+    return ms === 7 * 86_400_000 ? "every week" : `every ${ms / (7 * 86_400_000)} weeks`;
+  if (ms % 86_400_000 === 0)
+    return ms === 86_400_000 ? "every day" : `every ${ms / 86_400_000} days`;
+  if (ms % 3_600_000 === 0)
+    return ms === 3_600_000 ? "every hour" : `every ${ms / 3_600_000} hours`;
   return `every ${Math.round(ms / 60_000)} min`;
 }
 
@@ -338,8 +344,8 @@ function BudgetMeter({
         fillBps={fill}
       />
       <p className="text-xs text-foreground-muted">
-        {divesToday} of {divesPerDay} {divesPerDay === 1 ? "Dive" : "Dives"} today. A stage that would
-        pass the budget waits for tomorrow.
+        {divesToday} of {divesPerDay} {divesPerDay === 1 ? "Dive" : "Dives"} today. A stage that
+        would pass the budget waits for tomorrow.
       </p>
     </div>
   );
@@ -374,7 +380,11 @@ function TriggerList({
       ) : (
         <ul className="flex flex-col gap-1.5 text-sm">
           {triggers.map((t) => (
-            <li key={t.triggerId} className="flex flex-wrap items-baseline gap-x-2" data-code={t.code}>
+            <li
+              key={t.triggerId}
+              className="flex flex-wrap items-baseline gap-x-2"
+              data-code={t.code}
+            >
               <span className="numeric text-foreground-muted">{relativeText(t.firedAt, now)}</span>
               <span className="text-foreground">{t.text}.</span>
               <Tag tone={t.cycleId ? "accent" : t.spaced ? "warning" : "neutral"}>
@@ -477,7 +487,15 @@ function StageTimeline({
               <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
                 <span className="flex items-center gap-2">
                   <span className="font-medium">{CYCLE_TEXT[c.kind] ?? c.kind}</span>
-                  <Badge tone={c.status === "completed" ? "positive" : c.status === "running" || c.status === "queued" ? "detail" : "negative"}>
+                  <Badge
+                    tone={
+                      c.status === "completed"
+                        ? "positive"
+                        : c.status === "running" || c.status === "queued"
+                          ? "detail"
+                          : "negative"
+                    }
+                  >
                     {c.status}
                   </Badge>
                 </span>
@@ -523,7 +541,13 @@ export interface OverviewView {
   readonly points: readonly ClaimView[];
 }
 
-function ResearchOverview({ overview, className }: { overview: OverviewView | null; className?: string }) {
+function ResearchOverview({
+  overview,
+  className,
+}: {
+  overview: OverviewView | null;
+  className?: string;
+}) {
   return (
     <Card className={className} data-testid="research-overview">
       <CardHeader>
@@ -540,7 +564,10 @@ function ResearchOverview({ overview, className }: { overview: OverviewView | nu
           {overview.points.length > 0 ? (
             <ul className="flex flex-col gap-1.5 text-sm">
               {overview.points.map((p, n) => (
-                <li key={`${n}-${p.text.slice(0, 16)}`} className="flex flex-wrap items-baseline gap-x-2">
+                <li
+                  key={`${n}-${p.text.slice(0, 16)}`}
+                  className="flex flex-wrap items-baseline gap-x-2"
+                >
                   <span>{p.text}</span>
                   <Tag>{p.class}</Tag>
                   {p.sources.length > 0 ? (
@@ -627,9 +654,19 @@ export interface SnapshotView {
 }
 
 const money = (n: number) =>
-  n >= 1_000_000 ? `${(n / 1_000_000).toFixed(1)}M` : n >= 1_000 ? `${(n / 1_000).toFixed(0)}k` : n.toFixed(0);
+  n >= 1_000_000
+    ? `${(n / 1_000_000).toFixed(1)}M`
+    : n >= 1_000
+      ? `${(n / 1_000).toFixed(0)}k`
+      : n.toFixed(0);
 
-function MarketSnapshotPanel({ snapshot, className }: { snapshot: SnapshotView | null; className?: string }) {
+function MarketSnapshotPanel({
+  snapshot,
+  className,
+}: {
+  snapshot: SnapshotView | null;
+  className?: string;
+}) {
   return (
     <Card className={className} data-testid="market-snapshot">
       <CardHeader>
@@ -647,7 +684,9 @@ function MarketSnapshotPanel({ snapshot, className }: { snapshot: SnapshotView |
             <dd className="numeric">{snapshot.monUsd ? `${snapshot.monUsd} USD` : "no price"}</dd>
             <dt className="text-foreground-muted">24h volatility</dt>
             <dd className="numeric">
-              {snapshot.volatilityPct === null ? "unreadable" : `${snapshot.volatilityPct.toFixed(0)}%`}
+              {snapshot.volatilityPct === null
+                ? "unreadable"
+                : `${snapshot.volatilityPct.toFixed(0)}%`}
             </dd>
             <dt className="text-foreground-muted">Account</dt>
             <dd className="numeric">
@@ -658,14 +697,20 @@ function MarketSnapshotPanel({ snapshot, className }: { snapshot: SnapshotView |
           {snapshot.held.length > 0 ? (
             <ul className="flex flex-col gap-1 text-sm">
               {snapshot.held.map((h) => (
-                <li key={h.symbol} className="flex flex-wrap items-baseline gap-x-2" data-symbol={h.symbol}>
+                <li
+                  key={h.symbol}
+                  className="flex flex-wrap items-baseline gap-x-2"
+                  data-symbol={h.symbol}
+                >
                   <span className="font-medium">{h.symbol}</span>
                   <span className="numeric text-foreground-muted">
                     {h.priceUsd ? `${h.priceUsd} USD` : "no price"}
                     {h.liquidityUsd !== null ? ` · ${money(h.liquidityUsd)} USD of liquidity` : ""}
                   </span>
                   {h.status === "sell_only" || h.status === "delisted" || h.screen === "refused" ? (
-                    <Tag tone="warning">{h.screen === "refused" ? "screen refused" : h.status?.replace(/_/g, " ")}</Tag>
+                    <Tag tone="warning">
+                      {h.screen === "refused" ? "screen refused" : h.status?.replace(/_/g, " ")}
+                    </Tag>
                   ) : null}
                 </li>
               ))}
@@ -696,7 +741,13 @@ const NO_CHANGE_TEXT: Readonly<Record<string, string>> = {
   BUDGET_SHORT: "the research budget ran out",
 };
 
-function PlanUnchangedCard({ view, className }: { view: PlanUnchangedView | null; className?: string }) {
+function PlanUnchangedCard({
+  view,
+  className,
+}: {
+  view: PlanUnchangedView | null;
+  className?: string;
+}) {
   return (
     <Card className={className} data-testid="plan-unchanged">
       <CardHeader>

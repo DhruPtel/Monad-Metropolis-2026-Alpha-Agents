@@ -26,7 +26,12 @@
     "watchEveryMs": 300000,
     "refreshesOverview": true
   },
-  "budget": { "dailyBudgetUsdcE6": "3800000", "usedTodayUsdcE6": "1410000", "divesPerDay": 2, "divesToday": 1 },
+  "budget": {
+    "dailyBudgetUsdcE6": "3800000",
+    "usedTodayUsdcE6": "1410000",
+    "divesPerDay": 2,
+    "divesToday": 1
+  },
   "open": null,
   "triggers": [
     {

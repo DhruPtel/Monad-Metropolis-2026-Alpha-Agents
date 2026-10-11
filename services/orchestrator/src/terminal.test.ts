@@ -182,7 +182,13 @@ const input = (over: Partial<TerminalInput> = {}): TerminalInput => ({
           confidence: "medium",
         },
         noThesisReason: null,
-        evidenceFor: [{ text: "Lending holds 412 million USD.", class: "onchain", sources: ["https://defillama.com/x"] }],
+        evidenceFor: [
+          {
+            text: "Lending holds 412 million USD.",
+            class: "onchain",
+            sources: ["https://defillama.com/x"],
+          },
+        ],
         evidenceAgainst: [],
         weakestLink: "one source for the lending figure",
       },
@@ -207,7 +213,7 @@ describe("the agent terminal's events", () => {
     const events = terminalEvents(input());
     expect(events.map((e) => e.seq)).toEqual(events.map((_, n) => n + 1));
     for (let n = 1; n < events.length; n += 1)
-      expect(events[n]!.at >= events[n - 1]!.at).toBe(true);
+      expect((events[n]?.at ?? "") >= (events[n - 1]?.at ?? "")).toBe(true);
     expect(events.map((e) => e.text)).toEqual([
       "Routine research started, reasoning on research-medium.",
       "Scan started on research-medium; it may cost up to 0.5 USDC.",
@@ -272,8 +278,10 @@ describe("the agent terminal's events", () => {
     expect(running.map((e) => e.text)).toEqual(full.slice(0, running.length).map((e) => e.text));
     expect(running.map((e) => e.seq)).toEqual(full.slice(0, running.length).map((e) => e.seq));
     // The client asks for what came after the last sequence it saw.
-    const after = running.at(-1)!.seq;
-    expect(full.filter((e) => e.seq > after).map((e) => e.text)[0]).toBe('x_search: searching X for "monad"');
+    const after = running.at(-1)?.seq ?? 0;
+    expect(full.filter((e) => e.seq > after).map((e) => e.text)[0]).toBe(
+      'x_search: searching X for "monad"',
+    );
   });
 
   it("shows web and X content only as domains and tool names: a page's text in a summary never appears", () => {
@@ -333,7 +341,11 @@ describe("the agent terminal's events", () => {
   it("withholds a line with a link, and a line whose numbers are not in its record", () => {
     const events = terminalEvents(
       input({
-        briefs: [brief({ body: { ...brief({}).body, summary: "See https://news.example/tvl for the figure." } })],
+        briefs: [
+          brief({
+            body: { ...brief({}).body, summary: "See https://news.example/tvl for the figure." },
+          }),
+        ],
         records: [],
       }),
     );
@@ -342,13 +354,33 @@ describe("the agent terminal's events", () => {
     ]);
     expect(
       guard(
-        { at: T(0), order: 0, kind: "brief", stage: null, text: "TVL fell 9.9% today.", tone: "ok", facts: { pct: "6.8" } },
+        {
+          at: T(0),
+          order: 0,
+          kind: "brief",
+          stage: null,
+          text: "TVL fell 9.9% today.",
+          tone: "ok",
+          facts: { pct: "6.8" },
+        },
         runs,
       ),
-    ).toEqual({ kind: "withheld", text: "[a line was withheld: its numbers were not in the record]", tone: "warn" });
+    ).toEqual({
+      kind: "withheld",
+      text: "[a line was withheld: its numbers were not in the record]",
+      tone: "warn",
+    });
     expect(
       guard(
-        { at: T(0), order: 0, kind: "brief", stage: null, text: "TVL fell 6.8% today.", tone: "ok", facts: { pct: "6.8" } },
+        {
+          at: T(0),
+          order: 0,
+          kind: "brief",
+          stage: null,
+          text: "TVL fell 6.8% today.",
+          tone: "ok",
+          facts: { pct: "6.8" },
+        },
         runs,
       ),
     ).toEqual({ kind: "brief", text: "TVL fell 6.8% today.", tone: "ok" });
@@ -369,7 +401,12 @@ describe("the agent terminal's events", () => {
               verdict: "WEAKENED",
               summary: "One source carries the lending figure.",
               objections: [
-                { rank: 1, severity: "high", text: "The lending figure has one source.", sources: ["https://defillama.com/x"] },
+                {
+                  rank: 1,
+                  severity: "high",
+                  text: "The lending figure has one source.",
+                  sources: ["https://defillama.com/x"],
+                },
                 { rank: 2, severity: "low", text: "The window is short.", sources: [] },
               ],
             },
@@ -395,7 +432,11 @@ describe("the agent terminal's events", () => {
           {
             stageRunId: "run-zoom",
             outcome: "PROPOSE",
-            decision: { kind: "PROPOSE", template: "target_portfolio@1", params: { positions: [{}], cashTargetBps: 7000 } },
+            decision: {
+              kind: "PROPOSE",
+              template: "target_portfolio@1",
+              params: { positions: [{}], cashTargetBps: 7000 },
+            },
             createdAt: T(43),
           },
         ],
@@ -413,17 +454,28 @@ describe("the agent terminal's events", () => {
       }),
     );
     const texts = events.map((e) => e.text);
-    expect(texts).toContain("Challenge brief on TVL_OUTFLOW: the thesis WEAKENED. One source carries the lending figure.");
+    expect(texts).toContain(
+      "Challenge brief on TVL_OUTFLOW: the thesis WEAKENED. One source carries the lending figure.",
+    );
     expect(texts).toContain("Objection 1 (high): The lending figure has one source.");
     expect(texts).toContain("Sources, objection: defillama.com.");
-    expect(texts).toContain("Rationale: propose a plan; the evidence is mixed. One position, the rest in USDC.");
+    expect(texts).toContain(
+      "Rationale: propose a plan; the evidence is mixed. One position, the rest in USDC.",
+    );
     expect(texts).toContain("ADD WMON: the rotation thesis");
-    expect(texts).toContain("Why this much is invested: Mixed evidence keeps 30% invested, under the Balanced range.");
-    expect(texts).toContain("Decision: propose a plan with 1 position and 70% in USDC; it goes to the Test and then to the owner.");
+    expect(texts).toContain(
+      "Why this much is invested: Mixed evidence keeps 30% invested, under the Balanced range.",
+    );
+    expect(texts).toContain(
+      "Decision: propose a plan with 1 position and 70% in USDC; it goes to the Test and then to the owner.",
+    );
     expect(texts).toContain("Test checks: the plan failed 1 check: position cap.");
     expect(texts).toContain("Check position cap: WMON at 30% is above the 25% cap.");
     expect(texts).toContain("The plan waits for the owner's approval.");
     expect(texts).toContain("Scan cost 0.19 of at most 0.5 USDC, over 3 model calls.");
-    expect(events.find((e) => e.text.startsWith("Objection 1"))).toMatchObject({ kind: "objection", tone: "warn" });
+    expect(events.find((e) => e.text.startsWith("Objection 1"))).toMatchObject({
+      kind: "objection",
+      tone: "warn",
+    });
   });
 });

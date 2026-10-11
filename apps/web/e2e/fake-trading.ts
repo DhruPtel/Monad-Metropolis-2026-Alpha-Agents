@@ -1189,15 +1189,24 @@ export class FakeTrading {
     if (rest === "research" && method === "GET")
       return this.research
         ? { status: 200, body: { ...this.research, agentId } }
-        : { status: 503, body: { error: "not_configured", message: "The orchestrator is not reachable." } };
+        : {
+            status: 503,
+            body: { error: "not_configured", message: "The orchestrator is not reachable." },
+          };
     if (rest === "terminal" && method === "GET") {
       if (!this.research)
-        return { status: 503, body: { error: "not_configured", message: "The orchestrator is not reachable." } };
+        return {
+          status: 503,
+          body: { error: "not_configured", message: "The orchestrator is not reachable." },
+        };
       const after = Number(query.get("after") ?? "0");
       this.terminalReads.push(after);
       if (this.terminalFailures > 0) {
         this.terminalFailures -= 1;
-        return { status: 502, body: { error: "internal", message: "the orchestrator answered 502" } };
+        return {
+          status: 502,
+          body: { error: "internal", message: "the orchestrator answered 502" },
+        };
       }
       return {
         status: 200,
@@ -1212,8 +1221,14 @@ export class FakeTrading {
     }
     if (rest === "research/pause" && method === "POST") {
       if (!this.research)
-        return { status: 503, body: { error: "not_configured", message: "The orchestrator is not reachable." } };
-      const paused = this.pauses.length % 2 === 0 ? !this.research.schedule.paused : this.research.schedule.paused;
+        return {
+          status: 503,
+          body: { error: "not_configured", message: "The orchestrator is not reachable." },
+        };
+      const paused =
+        this.pauses.length % 2 === 0
+          ? !this.research.schedule.paused
+          : this.research.schedule.paused;
       this.pauses.push(paused);
       this.research = { ...this.research, schedule: { ...this.research.schedule, paused } };
       return { status: 200, body: { agentId, paused } };

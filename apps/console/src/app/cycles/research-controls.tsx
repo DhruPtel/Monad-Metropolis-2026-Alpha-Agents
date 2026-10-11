@@ -69,8 +69,10 @@ const TRIGGERS = [
   "RESCREEN_FAILED",
 ] as const;
 
-const minutes = (ms: number) => (ms >= 3_600_000 ? `${ms / 3_600_000} h` : `${Math.round(ms / 60_000)} min`);
-const when = (iso: string | null) => (iso ? `${iso.slice(0, 10)} ${iso.slice(11, 19)} UTC` : "never");
+const minutes = (ms: number) =>
+  ms >= 3_600_000 ? `${ms / 3_600_000} h` : `${Math.round(ms / 60_000)} min`;
+const when = (iso: string | null) =>
+  iso ? `${iso.slice(0, 10)} ${iso.slice(11, 19)} UTC` : "never";
 
 /**
  * The research loop's playtest tools (P3-U10): the schedule as the
@@ -83,7 +85,10 @@ export function ResearchControls({ agentId, loop }: { agentId: string; loop: Res
   const [pending, start] = useTransition();
   const [code, setCode] = useState<string>("PRICE_MOVE");
   const [move, setMove] = useState<string>("-800");
-  const act = (label: string, run: () => Promise<{ ok: true; value: unknown } | { ok: false; error: string }>) =>
+  const act = (
+    label: string,
+    run: () => Promise<{ ok: true; value: unknown } | { ok: false; error: string }>,
+  ) =>
     start(async () => {
       const r = await run();
       if (!r.ok) {
@@ -192,7 +197,9 @@ export function ResearchControls({ agentId, loop }: { agentId: string; loop: Res
             size="sm"
             variant="secondary"
             disabled={pending}
-            onClick={() => act(`MON/USD moved by ${move} bps`, () => moveMarketAction(Number(move)))}
+            onClick={() =>
+              act(`MON/USD moved by ${move} bps`, () => moveMarketAction(Number(move)))
+            }
           >
             Move the market
           </Button>

@@ -101,9 +101,13 @@ describe("what the scheduler decides", () => {
     const week = { ...base, lastZoomOutAt: at(-25 * HOUR), lastOverviewAt: at(-8 * 24 * HOUR) };
     expect(decideWork(week)).toMatchObject({ kind: "REVIEW", wantsOverview: true });
     expect(decideWork({ ...week, lastOverviewAt: null })).toMatchObject({ wantsOverview: true });
-    expect(decideWork({ ...week, refreshesOverview: false })).toMatchObject({ wantsOverview: false });
+    expect(decideWork({ ...week, refreshesOverview: false })).toMatchObject({
+      wantsOverview: false,
+    });
     // A routine Scan due at the same time carries the wish too, so the Zoom out it ends with refreshes it.
-    expect(decideWork({ ...week, lastZoomOutAt: at(-HOUR), lastScanAt: at(-7 * HOUR) })).toMatchObject({
+    expect(
+      decideWork({ ...week, lastZoomOutAt: at(-HOUR), lastScanAt: at(-7 * HOUR) }),
+    ).toMatchObject({
       kind: "ROUTINE",
       wantsOverview: true,
     });
@@ -191,7 +195,11 @@ describe("what the watcher fires", () => {
   it("MON's price move past the level's trigger: 5%, 7% or 10% by aggressiveness", () => {
     const up = observation({ monUsdE18: 10n ** 18n + 6n * 10n ** 16n });
     expect(fire(up)).toEqual([]);
-    expect(detectTriggers({ o: up, b, aggressiveness: "CONSERVATIVE", brakeBps: BRAKE }).map((t) => t.code)).toEqual(["PRICE_MOVE"]);
+    expect(
+      detectTriggers({ o: up, b, aggressiveness: "CONSERVATIVE", brakeBps: BRAKE }).map(
+        (t) => t.code,
+      ),
+    ).toEqual(["PRICE_MOVE"]);
     const down = observation({ monUsdE18: 92n * 10n ** 16n });
     expect(fire(down)).toEqual(["PRICE_MOVE"]);
     expect(PRICE_TRIGGER_BPS).toEqual({ CONSERVATIVE: 500, BALANCED: 700, AGGRESSIVE: 1_000 });
@@ -226,7 +234,9 @@ describe("what the watcher fires", () => {
 
   it("a held token's price past the level's review trigger, its liquidity halved, its re-screen failed or sell-only", () => {
     const held = (over: Partial<Observation["held"][number]>) =>
-      observation({ held: [{ ...observation().held[0]!, ...over }] });
+      observation({
+        held: [{ ...(observation().held[0] as Observation["held"][number]), ...over }],
+      });
     expect(fire(held({ priceE18: 114n * 10n ** 16n }))).toEqual([]);
     expect(fire(held({ priceE18: 85n * 10n ** 16n }))).toEqual(["POSITION_PRICE_MOVE"]);
     expect(fire(held({ liquidityUsd: 600_000 }))).toEqual([]);
@@ -234,7 +244,15 @@ describe("what the watcher fires", () => {
     expect(fire(held({ screenVerdict: "refused" }))).toEqual(["RESCREEN_FAILED"]);
     expect(fire(held({ registryStatus: "sell_only" }))).toEqual(["RESCREEN_FAILED"]);
     // A token the baseline never saw (bought since) fires nothing until the baseline is taken again.
-    expect(fire(observation({ held: [{ ...observation().held[0]!, token: ALT, priceE18: 1n }] }))).toEqual([]);
+    expect(
+      fire(
+        observation({
+          held: [
+            { ...(observation().held[0] as Observation["held"][number]), token: ALT, priceE18: 1n },
+          ],
+        }),
+      ),
+    ).toEqual([]);
   });
 });
 
@@ -269,16 +287,34 @@ describe.skipIf(!dbUp)("the research loop over Postgres", () => {
 
   it("the loop runs for RUNNING agents only, and the schedule row starts empty", async () => {
     expect(await research.runningAgents(CHAIN)).toEqual([1]);
-    expect(await research.schedule(ref)).toMatchObject({ paused: false, fastCadence: false, baseline: null });
+    expect(await research.schedule(ref)).toMatchObject({
+      paused: false,
+      fastCadence: false,
+      baseline: null,
+    });
     await research.update(ref, { paused: true, nextDueAt: T0 }, T0);
-    expect(await research.schedule(ref)).toMatchObject({ paused: true, nextDueAt: T0, updatedAt: T0 });
+    expect(await research.schedule(ref)).toMatchObject({
+      paused: true,
+      nextDueAt: T0,
+      updatedAt: T0,
+    });
     await research.update(ref, { fastCadence: true }, at(MIN));
     expect(await research.schedule(ref)).toMatchObject({ paused: true, fastCadence: true });
   });
 
   it("records triggers, lists the pending ones oldest first and marks them answered by a cycle", async () => {
-    const a = await research.recordTrigger(ref, { code: "PRICE_MOVE", detail: { moveBps: 800 } }, at(-MIN), false);
-    const b = await research.recordTrigger(ref, { code: "MODE_CHANGED", detail: {} }, at(-2 * MIN), true);
+    const a = await research.recordTrigger(
+      ref,
+      { code: "PRICE_MOVE", detail: { moveBps: 800 } },
+      at(-MIN),
+      false,
+    );
+    const b = await research.recordTrigger(
+      ref,
+      { code: "MODE_CHANGED", detail: {} },
+      at(-2 * MIN),
+      true,
+    );
     expect((await research.pending(ref)).map((p) => p.triggerId)).toEqual([b, a]);
     await research.answered([a], "cycle-1");
     expect((await research.pending(ref)).map((p) => p.code)).toEqual(["MODE_CHANGED"]);
@@ -293,7 +329,11 @@ describe.skipIf(!dbUp)("the research loop over Postgres", () => {
     const deps: SchedulerDeps = {
       chainId: CHAIN,
       research,
-      goalOf: async () => ({ intensity: "STANDARD", aggressiveness: "BALANCED", dailyBudgetUsdcE6: 2_000_000n }),
+      goalOf: async () => ({
+        intensity: "STANDARD",
+        aggressiveness: "BALANCED",
+        dailyBudgetUsdcE6: 2_000_000n,
+      }),
       openCycle: async () => false,
       budgetRoom: async () => ({ fits: true, reason: null }),
       enqueue: async (_ref, kind, wantsOverview) => {
@@ -310,7 +350,11 @@ describe.skipIf(!dbUp)("the research loop over Postgres", () => {
 
   it("queues the cadence's work for a running agent and records what is due next", async () => {
     const { s, queued } = scheduler({
-      lastStages: async () => ({ scanAt: at(-HOUR), zoomOutAt: at(-25 * HOUR), overviewAt: at(-HOUR) }),
+      lastStages: async () => ({
+        scanAt: at(-HOUR),
+        zoomOutAt: at(-25 * HOUR),
+        overviewAt: at(-HOUR),
+      }),
     });
     expect(await s.tick()).toEqual([{ agentId: 1, kind: "REVIEW", cycleId: "cycle-1" }]);
     expect(queued).toEqual([{ kind: "REVIEW", wantsOverview: false }]);
@@ -328,11 +372,17 @@ describe.skipIf(!dbUp)("the research loop over Postgres", () => {
     const { s, queued } = scheduler({ budgetRoom: async () => room });
     expect(await s.tick()).toEqual([]);
     expect(queued).toEqual([]);
-    expect(await research.schedule(ref)).toMatchObject({ waitingReason: "BUDGET_SHORT", waitingSince: T0 });
+    expect(await research.schedule(ref)).toMatchObject({
+      waitingReason: "BUDGET_SHORT",
+      waitingSince: T0,
+    });
     // The same reason keeps its start time on the next pass.
     const later = scheduler({ budgetRoom: async () => room }, { now: at(10 * MIN) });
     await later.s.tick();
-    expect(await research.schedule(ref)).toMatchObject({ waitingReason: "BUDGET_SHORT", waitingSince: T0 });
+    expect(await research.schedule(ref)).toMatchObject({
+      waitingReason: "BUDGET_SHORT",
+      waitingSince: T0,
+    });
     const ok = scheduler({}, { now: at(20 * MIN) });
     expect(await ok.s.tick()).toMatchObject([{ kind: "ROUTINE" }]);
     expect(await research.schedule(ref)).toMatchObject({ waitingReason: null, waitingSince: null });
@@ -346,19 +396,42 @@ describe.skipIf(!dbUp)("the research loop over Postgres", () => {
     expect(await s.tick()).toMatchObject([{ kind: "TRIGGERED" }]);
     expect(queued).toEqual([{ kind: "TRIGGERED", wantsOverview: false }]);
     expect(await research.pending(ref)).toEqual([]);
-    expect((await research.recent(ref))[0]).toMatchObject({ code: "PRICE_MOVE", cycleId: "cycle-1" });
+    expect((await research.recent(ref))[0]).toMatchObject({
+      code: "PRICE_MOVE",
+      cycleId: "cycle-1",
+    });
     expect(await research.schedule(ref)).toMatchObject({ lastTriggerCycleAt: T0 });
     // A trigger an hour later waits for the spacing.
     await research.recordTrigger(ref, { code: "GOAL_CHANGED", detail: {} }, at(HOUR), true);
-    const soon = scheduler({ lastStages: async () => ({ scanAt: at(-HOUR), zoomOutAt: at(-HOUR), overviewAt: at(-HOUR) }) }, { now: at(HOUR) });
+    const soon = scheduler(
+      {
+        lastStages: async () => ({
+          scanAt: at(-HOUR),
+          zoomOutAt: at(-HOUR),
+          overviewAt: at(-HOUR),
+        }),
+      },
+      { now: at(HOUR) },
+    );
     expect(await soon.s.tick()).toEqual([]);
-    const after = scheduler({ lastStages: async () => ({ scanAt: at(-HOUR), zoomOutAt: at(-HOUR), overviewAt: at(-HOUR) }) }, { now: at(2 * HOUR) });
+    const after = scheduler(
+      {
+        lastStages: async () => ({
+          scanAt: at(-HOUR),
+          zoomOutAt: at(-HOUR),
+          overviewAt: at(-HOUR),
+        }),
+      },
+      { now: at(2 * HOUR) },
+    );
     expect(await after.s.tick()).toMatchObject([{ kind: "REVIEW" }]);
   });
 
   it("does nothing for a paused agent, one with a cycle open or one whose start fails, and says why", async () => {
     await research.update(ref, { paused: true });
-    const paused = scheduler({ lastStages: async () => ({ scanAt: null, zoomOutAt: null, overviewAt: null }) });
+    const paused = scheduler({
+      lastStages: async () => ({ scanAt: null, zoomOutAt: null, overviewAt: null }),
+    });
     expect(await paused.s.tick()).toEqual([]);
     await research.update(ref, { paused: false });
     const open = scheduler({ openCycle: async () => true });
@@ -373,7 +446,11 @@ describe.skipIf(!dbUp)("the research loop over Postgres", () => {
     expect(log.at(-1)).toBe("research scheduler: agent 1: ROUTINE did not start: NO_CREDITS");
   });
 
-  function watcher(obs: () => Observation | null, over: Partial<WatcherDeps> = {}, clock: { now: Date } = { now: T0 }) {
+  function watcher(
+    obs: () => Observation | null,
+    over: Partial<WatcherDeps> = {},
+    clock: { now: Date } = { now: T0 },
+  ) {
     const deps: WatcherDeps = {
       chainId: CHAIN,
       research,
@@ -405,9 +482,15 @@ describe.skipIf(!dbUp)("the research loop over Postgres", () => {
     clock.now = at(12 * MIN);
     expect(await w.tick()).toEqual([]);
     // The baseline moved to the fired price, so a further 9% fall from there fires again once answered.
-    expect((await research.schedule(ref)).baseline).toMatchObject({ monUsdE18: (91n * 10n ** 16n).toString() });
+    expect((await research.schedule(ref)).baseline).toMatchObject({
+      monUsdE18: (91n * 10n ** 16n).toString(),
+    });
     // After a Zoom out the baseline is taken again from what the watcher sees then.
-    const w2 = watcher(() => ({ ...observation({ monUsdE18: 50n * 10n ** 16n }), at: clock.now }), { lastZoomOutAt: async () => at(13 * MIN) }, clock);
+    const w2 = watcher(
+      () => ({ ...observation({ monUsdE18: 50n * 10n ** 16n }), at: clock.now }),
+      { lastZoomOutAt: async () => at(13 * MIN) },
+      clock,
+    );
     clock.now = at(20 * MIN);
     expect(await w2.tick()).toEqual([]);
     expect((await research.schedule(ref)).baseline).toMatchObject({
@@ -426,7 +509,11 @@ describe.skipIf(!dbUp)("the research loop over Postgres", () => {
     seen = observation({ mode: "SELL_ONLY" });
     clock.now = at(6 * MIN);
     expect(await w.tick()).toEqual([{ agentId: 1, code: "MODE_CHANGED", spaced: true }]);
-    expect((await research.recent(ref))[0]).toMatchObject({ code: "MODE_CHANGED", spaced: true, detail: { from: "NORMAL", to: "SELL_ONLY" } });
+    expect((await research.recent(ref))[0]).toMatchObject({
+      code: "MODE_CHANGED",
+      spaced: true,
+      detail: { from: "NORMAL", to: "SELL_ONLY" },
+    });
     // The condition is pending: it is not fired again while its cycle has not run.
     clock.now = at(12 * MIN);
     expect(await w.tick()).toEqual([]);

@@ -58,7 +58,11 @@ describe("the agent terminal", () => {
         lines={[
           line(1, { text: "Scan started on research-medium; it may cost up to 0.5 USDC." }),
           line(2, { kind: "tool", text: "web_search: 5 results from news.example.", tone: "ok" }),
-          line(3, { kind: "withheld", text: "[a line was withheld: it carried playbook text]", tone: "warn" }),
+          line(3, {
+            kind: "withheld",
+            text: "[a line was withheld: it carried playbook text]",
+            tone: "warn",
+          }),
         ]}
         state="live"
         cycle={{ kind: "ROUTINE", status: "running" }}
@@ -86,7 +90,9 @@ describe("the agent terminal", () => {
     expect(screen.getByText("Waiting for the first line.")).toBeInTheDocument();
     expect(screen.getByRole("log")).toHaveAttribute("aria-busy", "true");
     rerender(<AgentTerminal lines={[line(1), line(2)]} state="reconnecting" />);
-    expect(screen.getByTestId("terminal-reconnecting")).toHaveTextContent("trying again from line 2");
+    expect(screen.getByTestId("terminal-reconnecting")).toHaveTextContent(
+      "trying again from line 2",
+    );
     expect(screen.getByTestId("terminal-state")).toHaveTextContent("Reconnecting");
     rerender(<AgentTerminal lines={[line(1), line(2)]} state="ended" />);
     expect(screen.queryByTestId("terminal-reconnecting")).toBeNull();
@@ -197,8 +203,20 @@ describe("the timeline and the records", () => {
             finishedAt: null,
             chargedUsdcE6: "0",
             stages: [
-              { stage: "TEST", themeCode: null, status: "completed", chargedUsdcE6: "0", ceilingUsdcE6: "0" },
-              { stage: "ZOOM_OUT", themeCode: null, status: "running", chargedUsdcE6: "0", ceilingUsdcE6: "600000" },
+              {
+                stage: "TEST",
+                themeCode: null,
+                status: "completed",
+                chargedUsdcE6: "0",
+                ceilingUsdcE6: "0",
+              },
+              {
+                stage: "ZOOM_OUT",
+                themeCode: null,
+                status: "running",
+                chargedUsdcE6: "0",
+                ceilingUsdcE6: "600000",
+              },
             ],
           },
           {
@@ -209,8 +227,20 @@ describe("the timeline and the records", () => {
             finishedAt: "2026-10-11T06:05:00.000Z",
             chargedUsdcE6: "410000",
             stages: [
-              { stage: "SCAN", themeCode: null, status: "completed", chargedUsdcE6: "190000", ceilingUsdcE6: "500000" },
-              { stage: "DIVE", themeCode: "TVL_OUTFLOW", status: "capped", chargedUsdcE6: "220000", ceilingUsdcE6: "1200000" },
+              {
+                stage: "SCAN",
+                themeCode: null,
+                status: "completed",
+                chargedUsdcE6: "190000",
+                ceilingUsdcE6: "500000",
+              },
+              {
+                stage: "DIVE",
+                themeCode: "TVL_OUTFLOW",
+                status: "capped",
+                chargedUsdcE6: "220000",
+                ceilingUsdcE6: "1200000",
+              },
             ],
           },
         ]}
@@ -221,7 +251,7 @@ describe("the timeline and the records", () => {
     expect(rows[0]).toHaveAttribute("aria-pressed", "true");
     expect(rows[1]).toHaveTextContent("Dive TVL_OUTFLOW0.22/1.20");
     expect(rows[1]).toHaveTextContent("0.41 USDC");
-    fireEvent.click(rows[1]!);
+    if (rows[1]) fireEvent.click(rows[1]);
     expect(picked).toEqual(["cycle-1"]);
   });
 
@@ -244,7 +274,13 @@ describe("the timeline and the records", () => {
           overview={{
             at: "2026-10-11T06:05:00.000Z",
             summary: "Monad's DEX liquidity is thinning while lending holds.",
-            points: [{ text: "Lending holds 412 million USD.", class: "onchain", sources: ["defillama.com"] }],
+            points: [
+              {
+                text: "Lending holds 412 million USD.",
+                class: "onchain",
+                sources: ["defillama.com"],
+              },
+            ],
           }}
         />
         <ThemesPanel
@@ -252,7 +288,15 @@ describe("the timeline and the records", () => {
             at: "2026-10-11T06:01:00.000Z",
             summary: "TVL fell 6.8% in a week.",
             quiet: false,
-            themes: [{ code: "TVL_OUTFLOW", materiality: "high", scope: "MARKET", symbol: null, whyNow: "A large weekly fall." }],
+            themes: [
+              {
+                code: "TVL_OUTFLOW",
+                materiality: "high",
+                scope: "MARKET",
+                symbol: null,
+                whyNow: "A large weekly fall.",
+              },
+            ],
           }}
         />
         <MarketSnapshotPanel
@@ -262,7 +306,15 @@ describe("the timeline and the records", () => {
             volatilityPct: 110,
             mode: "NORMAL",
             navUsdcE6: "41600000",
-            held: [{ symbol: "WMON", priceUsd: "0.03", liquidityUsd: 1_250_000, screen: "passed", status: "sell_only" }],
+            held: [
+              {
+                symbol: "WMON",
+                priceUsd: "0.03",
+                liquidityUsd: 1_250_000,
+                screen: "passed",
+                status: "sell_only",
+              },
+            ],
           }}
         />
         <PlanUnchangedCard

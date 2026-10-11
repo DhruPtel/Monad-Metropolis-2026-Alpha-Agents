@@ -18,7 +18,10 @@ import type { CycleKind } from "./cycle/stages.ts";
  * queue the work.
  */
 
-export type AgentRef = { readonly chainId: number; readonly agentId: number };
+export interface AgentRef {
+  readonly chainId: number;
+  readonly agentId: number;
+}
 
 /** A trigger the watcher looks for; its kind says which cycle it starts. */
 export const TRIGGER_CODES = [
@@ -118,15 +121,13 @@ export interface ScheduleInput {
   readonly refreshesOverview: boolean;
 }
 
-export type Work =
-  | {
-      readonly kind: Extract<CycleKind, "TRIGGERED" | "REVIEW" | "ROUTINE">;
-      readonly wantsOverview: boolean;
-      /** The triggers this cycle answers, or none for the cadence's own work. */
-      readonly triggers: readonly PendingTrigger[];
-      readonly reason: string;
-    }
-  | null;
+export type Work = {
+  readonly kind: Extract<CycleKind, "TRIGGERED" | "REVIEW" | "ROUTINE">;
+  readonly wantsOverview: boolean;
+  /** The triggers this cycle answers, or none for the cadence's own work. */
+  readonly triggers: readonly PendingTrigger[];
+  readonly reason: string;
+} | null;
 
 /**
  * What to run now, by priority: a triggered review (cheapest, the Zoom out
@@ -137,7 +138,8 @@ export type Work =
 export function decideWork(i: ScheduleInput): Work {
   if (i.paused || i.openCycle) return null;
   const c = cadence(i.intensity, i.fast);
-  const since = (at: Date | null) => (at ? i.now.getTime() - at.getTime() : Number.POSITIVE_INFINITY);
+  const since = (at: Date | null) =>
+    at ? i.now.getTime() - at.getTime() : Number.POSITIVE_INFINITY;
   const overviewDue = i.refreshesOverview && since(i.lastOverviewAt) >= c.overviewEveryMs;
   const spaced = since(i.lastTriggerCycleAt) < c.triggerSpacingMs;
   if (i.pending.length > 0 && !spaced) {
@@ -166,7 +168,12 @@ export function decideWork(i: ScheduleInput): Work {
       reason: overviewDue ? "the daily review, with the overview refreshed" : "the daily review",
     };
   if (since(i.lastScanAt) >= c.scanEveryMs)
-    return { kind: "ROUTINE", wantsOverview: overviewDue, triggers: [], reason: "the routine Scan" };
+    return {
+      kind: "ROUTINE",
+      wantsOverview: overviewDue,
+      triggers: [],
+      reason: "the routine Scan",
+    };
   return null;
 }
 
@@ -203,7 +210,11 @@ export interface Observation {
     readonly registryStatus: string | null;
   }[];
   /** The plan's positions with their recheck times. */
-  readonly rechecks: readonly { readonly token: string; readonly symbol: string; readonly at: Date }[];
+  readonly rechecks: readonly {
+    readonly token: string;
+    readonly symbol: string;
+    readonly at: Date;
+  }[];
 }
 
 /** The watcher's baselines, taken at the last Zoom out (or the first pass) and kept in the schedule row. */
@@ -231,7 +242,9 @@ export function baselineFrom(o: Observation, brakeBps: number | null): Baseline 
     navUsdcE6: o.navUsdcE6 === null ? null : o.navUsdcE6.toString(),
     goalEpoch: o.goalEpoch,
     prices: Object.fromEntries(
-      o.held.filter((h) => h.priceE18 !== null).map((h) => [h.token.toLowerCase(), String(h.priceE18)]),
+      o.held
+        .filter((h) => h.priceE18 !== null)
+        .map((h) => [h.token.toLowerCase(), String(h.priceE18)]),
     ),
     liquidityUsd: Object.fromEntries(
       o.held
@@ -272,7 +285,10 @@ export function detectTriggers(i: {
   if (o.monUsdE18 !== null && b.monUsdE18 !== null) {
     const bps = moveBps(o.monUsdE18, BigInt(b.monUsdE18));
     if (bps >= PRICE_TRIGGER_BPS[i.aggressiveness])
-      out.push({ code: "PRICE_MOVE", detail: { moveBps: bps, triggerBps: PRICE_TRIGGER_BPS[i.aggressiveness] } });
+      out.push({
+        code: "PRICE_MOVE",
+        detail: { moveBps: bps, triggerBps: PRICE_TRIGGER_BPS[i.aggressiveness] },
+      });
   }
   if (o.volatility24hPct !== null && i.brakeBps !== null && b.volatilityAboveBrake !== null) {
     const above = o.volatility24hPct * 100 > i.brakeBps;
@@ -287,7 +303,10 @@ export function detectTriggers(i: {
   if (o.navUsdcE6 !== null && b.navUsdcE6 !== null && o.settledSinceBaseline === 0) {
     const bps = moveBps(o.navUsdcE6, BigInt(b.navUsdcE6));
     if (bps >= 2_000)
-      out.push({ code: "FLOW_MOVED", detail: { moveBps: bps, fromUsdcE6: b.navUsdcE6, toUsdcE6: o.navUsdcE6.toString() } });
+      out.push({
+        code: "FLOW_MOVED",
+        detail: { moveBps: bps, fromUsdcE6: b.navUsdcE6, toUsdcE6: o.navUsdcE6.toString() },
+      });
   }
   if (o.goalEpoch !== b.goalEpoch)
     out.push({ code: "GOAL_CHANGED", detail: { from: b.goalEpoch, to: o.goalEpoch } });
@@ -296,7 +315,10 @@ export function detectTriggers(i: {
   for (const r of o.rechecks) {
     const key = r.token.toLowerCase();
     if (r.at.getTime() <= o.at.getTime() && b.rechecked[key] !== r.at.toISOString())
-      out.push({ code: "THESIS_RECHECK", detail: { token: r.token, symbol: r.symbol, recheckAt: r.at.toISOString() } });
+      out.push({
+        code: "THESIS_RECHECK",
+        detail: { token: r.token, symbol: r.symbol, recheckAt: r.at.toISOString() },
+      });
   }
   for (const h of o.held) {
     const key = h.token.toLowerCase();
@@ -304,17 +326,36 @@ export function detectTriggers(i: {
     if (h.priceE18 !== null && then !== undefined) {
       const bps = moveBps(h.priceE18, BigInt(then));
       if (bps >= env.reviewTriggerBps)
-        out.push({ code: "POSITION_PRICE_MOVE", detail: { token: h.token, symbol: h.symbol, moveBps: bps, triggerBps: env.reviewTriggerBps } });
+        out.push({
+          code: "POSITION_PRICE_MOVE",
+          detail: {
+            token: h.token,
+            symbol: h.symbol,
+            moveBps: bps,
+            triggerBps: env.reviewTriggerBps,
+          },
+        });
     }
     const liq = b.liquidityUsd[key];
     if (h.liquidityUsd !== null && liq !== undefined && liq > 0 && h.liquidityUsd <= liq / 2)
-      out.push({ code: "LIQUIDITY_DROP", detail: { token: h.token, symbol: h.symbol, fromUsd: liq, toUsd: h.liquidityUsd } });
+      out.push({
+        code: "LIQUIDITY_DROP",
+        detail: { token: h.token, symbol: h.symbol, fromUsd: liq, toUsd: h.liquidityUsd },
+      });
     const failed =
       h.screenVerdict === "refused" ||
       h.registryStatus === "sell_only" ||
       h.registryStatus === "delisted";
     if (failed && b.screened[key] !== screenKey(h))
-      out.push({ code: "RESCREEN_FAILED", detail: { token: h.token, symbol: h.symbol, verdict: h.screenVerdict, status: h.registryStatus } });
+      out.push({
+        code: "RESCREEN_FAILED",
+        detail: {
+          token: h.token,
+          symbol: h.symbol,
+          verdict: h.screenVerdict,
+          status: h.registryStatus,
+        },
+      });
   }
   return out;
 }
@@ -558,7 +599,9 @@ export class ResearchScheduler {
         const q = await this.tickAgent(ref, now);
         if (q) queued.push({ agentId, ...q });
       } catch (err) {
-        this.d.log(`research scheduler: agent ${agentId}: ${err instanceof Error ? err.message.slice(0, 160) : String(err)}`);
+        this.d.log(
+          `research scheduler: agent ${agentId}: ${err instanceof Error ? err.message.slice(0, 160) : String(err)}`,
+        );
       }
     }
     return queued;
@@ -624,7 +667,11 @@ export class ResearchScheduler {
       const reason: WaitReason = /credits/i.test(err instanceof Error ? err.message : "")
         ? "NO_CREDITS"
         : "CANNOT_START";
-      await this.d.research.update(ref, { waitingReason: reason, waitingSince: now, nextDueAt: due }, now);
+      await this.d.research.update(
+        ref,
+        { waitingReason: reason, waitingSince: now, nextDueAt: due },
+        now,
+      );
       this.d.log(`research scheduler: agent ${ref.agentId}: ${work.kind} did not start: ${reason}`);
       return null;
     }
@@ -682,7 +729,9 @@ export class Watcher {
       try {
         for (const f of await this.watchAgent(ref, now, force)) fired.push({ agentId, ...f });
       } catch (err) {
-        this.d.log(`watcher: agent ${agentId}: ${err instanceof Error ? err.message.slice(0, 160) : String(err)}`);
+        this.d.log(
+          `watcher: agent ${agentId}: ${err instanceof Error ? err.message.slice(0, 160) : String(err)}`,
+        );
       }
     }
     return fired;
@@ -710,11 +759,17 @@ export class Watcher {
       await this.d.research.update(ref, { baseline: baselineFrom(o, goal.brakeBps) }, now);
       return [];
     }
-    const found = detectTriggers({ o, b: row.baseline as Baseline, aggressiveness: goal.aggressiveness, brakeBps: goal.brakeBps });
+    const found = detectTriggers({
+      o,
+      b: row.baseline as Baseline,
+      aggressiveness: goal.aggressiveness,
+      brakeBps: goal.brakeBps,
+    });
     if (found.length === 0) return [];
     const pending = await this.d.research.pending(ref);
     const spaced =
-      row.lastTriggerCycleAt !== null && now.getTime() - row.lastTriggerCycleAt.getTime() < c.triggerSpacingMs;
+      row.lastTriggerCycleAt !== null &&
+      now.getTime() - row.lastTriggerCycleAt.getTime() < c.triggerSpacingMs;
     const out: { code: TriggerCode; spaced: boolean }[] = [];
     const b = row.baseline as Baseline;
     const rechecked: Record<string, string> = { ...b.rechecked };
@@ -730,15 +785,45 @@ export class Watcher {
     // A fired condition becomes the new baseline for its own kind, so it fires once.
     const next: Baseline = {
       ...b,
-      monUsdE18: found.some((t) => t.code === "PRICE_MOVE") ? (o.monUsdE18 === null ? b.monUsdE18 : o.monUsdE18.toString()) : b.monUsdE18,
+      monUsdE18: found.some((t) => t.code === "PRICE_MOVE")
+        ? o.monUsdE18 === null
+          ? b.monUsdE18
+          : o.monUsdE18.toString()
+        : b.monUsdE18,
       volatilityAboveBrake: found.some((t) => t.code === "VOLATILITY_CROSSED")
-        ? (o.volatility24hPct !== null && goal.brakeBps !== null ? o.volatility24hPct * 100 > goal.brakeBps : b.volatilityAboveBrake)
+        ? o.volatility24hPct !== null && goal.brakeBps !== null
+          ? o.volatility24hPct * 100 > goal.brakeBps
+          : b.volatilityAboveBrake
         : b.volatilityAboveBrake,
       mode: found.some((t) => t.code === "MODE_CHANGED") ? o.mode : b.mode,
-      navUsdcE6: found.some((t) => t.code === "FLOW_MOVED") ? (o.navUsdcE6 === null ? b.navUsdcE6 : o.navUsdcE6.toString()) : b.navUsdcE6,
+      navUsdcE6: found.some((t) => t.code === "FLOW_MOVED")
+        ? o.navUsdcE6 === null
+          ? b.navUsdcE6
+          : o.navUsdcE6.toString()
+        : b.navUsdcE6,
       goalEpoch: found.some((t) => t.code === "GOAL_CHANGED") ? o.goalEpoch : b.goalEpoch,
-      prices: { ...b.prices, ...Object.fromEntries(found.filter((t) => t.code === "POSITION_PRICE_MOVE").map((t) => [String(t.detail.token).toLowerCase(), String(o.held.find((h) => h.token.toLowerCase() === String(t.detail.token).toLowerCase())?.priceE18 ?? b.prices[String(t.detail.token).toLowerCase()])])) },
-      liquidityUsd: { ...b.liquidityUsd, ...Object.fromEntries(found.filter((t) => t.code === "LIQUIDITY_DROP").map((t) => [String(t.detail.token).toLowerCase(), Number(t.detail.toUsd)])) },
+      prices: {
+        ...b.prices,
+        ...Object.fromEntries(
+          found
+            .filter((t) => t.code === "POSITION_PRICE_MOVE")
+            .map((t) => [
+              String(t.detail.token).toLowerCase(),
+              String(
+                o.held.find((h) => h.token.toLowerCase() === String(t.detail.token).toLowerCase())
+                  ?.priceE18 ?? b.prices[String(t.detail.token).toLowerCase()],
+              ),
+            ]),
+        ),
+      },
+      liquidityUsd: {
+        ...b.liquidityUsd,
+        ...Object.fromEntries(
+          found
+            .filter((t) => t.code === "LIQUIDITY_DROP")
+            .map((t) => [String(t.detail.token).toLowerCase(), Number(t.detail.toUsd)]),
+        ),
+      },
       screened: {
         ...b.screened,
         ...Object.fromEntries(

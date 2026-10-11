@@ -34,7 +34,11 @@ const walletButton = (page: Page) => page.locator("header [data-slot=wallet-butt
 const CYCLE_OPEN = "cycle-01234567-89ab-cdef-0123-456789abcde0";
 const CYCLE_DONE = "cycle-01234567-89ab-cdef-0123-456789abcde1";
 
-const line = (seq: number, text: string, over: Partial<TerminalEventJson> = {}): TerminalEventJson => ({
+const line = (
+  seq: number,
+  text: string,
+  over: Partial<TerminalEventJson> = {},
+): TerminalEventJson => ({
   seq,
   at: `2026-10-11T12:00:${String(seq).padStart(2, "0")}.000Z`,
   kind: "stage",
@@ -45,22 +49,42 @@ const line = (seq: number, text: string, over: Partial<TerminalEventJson> = {}):
 });
 
 const LINES: TerminalEventJson[] = [
-  line(1, "Routine research started, reasoning on research-medium.", { kind: "cycle", stage: null }),
+  line(1, "Routine research started, reasoning on research-medium.", {
+    kind: "cycle",
+    stage: null,
+  }),
   line(2, "Scan started on research-medium; it may cost up to 0.5 USDC."),
   line(3, 'web_search: searching the web for "monad tvl"', { kind: "tool" }),
   line(4, "web_search: 5 results from news.example, defillama.com.", { kind: "tool", tone: "ok" }),
-  line(5, "Scan brief: Monad TVL fell 6.8% in 7 days, a large weekly move for the chain.", { kind: "brief", tone: "ok" }),
+  line(5, "Scan brief: Monad TVL fell 6.8% in 7 days, a large weekly move for the chain.", {
+    kind: "brief",
+    tone: "ok",
+  }),
   line(6, "Sources, news: news.example; source: web_search.", { kind: "source" }),
   line(7, "Scan cost 0.19 of at most 0.5 USDC, over 3 model calls.", { kind: "cost" }),
 ];
 const MORE: TerminalEventJson[] = [
-  line(8, "Dive on TVL_OUTFLOW started on research-medium; it may cost up to 1.2 USDC.", { stage: "DIVE" }),
-  line(9, "[a line was withheld: it carried playbook text]", { kind: "withheld", stage: "DIVE", tone: "warn" }),
-  line(10, "Thesis (medium confidence): The outflow is a rotation into lending, not an exit. It fails if lending TVL falls with DEX TVL for 3 days.", { kind: "thesis", stage: "DIVE", tone: "ok" }),
+  line(8, "Dive on TVL_OUTFLOW started on research-medium; it may cost up to 1.2 USDC.", {
+    stage: "DIVE",
+  }),
+  line(9, "[a line was withheld: it carried playbook text]", {
+    kind: "withheld",
+    stage: "DIVE",
+    tone: "warn",
+  }),
+  line(
+    10,
+    "Thesis (medium confidence): The outflow is a rotation into lending, not an exit. It fails if lending TVL falls with DEX TVL for 3 days.",
+    { kind: "thesis", stage: "DIVE", tone: "ok" },
+  ),
 ];
 const END: TerminalEventJson[] = [
   line(11, "Decision: no change (evidence thin).", { kind: "decision", stage: "ZOOM_OUT" }),
-  line(12, "Routine research completed (completed): 0.41 USDC in total. Today's research used 1.41 of its 3.8 USDC budget.", { kind: "cycle", stage: null, tone: "ok" }),
+  line(
+    12,
+    "Routine research completed (completed): 0.41 USDC in total. Today's research used 1.41 of its 3.8 USDC budget.",
+    { kind: "cycle", stage: null, tone: "ok" },
+  ),
 ];
 
 function researchFixture(over: Partial<ResearchJson> = {}): ResearchJson {
@@ -92,7 +116,12 @@ function researchFixture(over: Partial<ResearchJson> = {}): ResearchJson {
       watchEveryMs: 5 * 60_000,
       refreshesOverview: true,
     },
-    budget: { dailyBudgetUsdcE6: "3800000", usedTodayUsdcE6: "1410000", divesPerDay: 2, divesToday: 1 },
+    budget: {
+      dailyBudgetUsdcE6: "3800000",
+      usedTodayUsdcE6: "1410000",
+      divesPerDay: 2,
+      divesToday: 1,
+    },
     open: { cycleId: CYCLE_OPEN, kind: "ROUTINE", status: "running" },
     triggers: [
       {
@@ -119,13 +148,27 @@ function researchFixture(over: Partial<ResearchJson> = {}): ResearchJson {
     overview: {
       at: "2026-10-11T06:05:00.000Z",
       summary: "Monad's DEX liquidity is thinning while lending holds its share.",
-      points: [{ text: "Lending protocols hold 412 million USD.", class: "onchain", sources: ["defillama.com"] }],
+      points: [
+        {
+          text: "Lending protocols hold 412 million USD.",
+          class: "onchain",
+          sources: ["defillama.com"],
+        },
+      ],
     },
     themes: {
       at: "2026-10-11T06:01:00.000Z",
       summary: "Monad TVL fell 6.8% in 7 days, a large weekly move for the chain.",
       quiet: false,
-      themes: [{ code: "TVL_OUTFLOW", materiality: "high", scope: "MARKET", symbol: null, whyNow: "A 6.8% weekly fall is large for the chain." }],
+      themes: [
+        {
+          code: "TVL_OUTFLOW",
+          materiality: "high",
+          scope: "MARKET",
+          symbol: null,
+          whyNow: "A 6.8% weekly fall is large for the chain.",
+        },
+      ],
     },
     planUnchanged: {
       at: "2026-10-11T06:05:00.000Z",
@@ -142,8 +185,20 @@ function researchFixture(over: Partial<ResearchJson> = {}): ResearchJson {
         finishedAt: null,
         chargedUsdcE6: "190000",
         stages: [
-          { stage: "SCAN", themeCode: null, status: "completed", chargedUsdcE6: "190000", ceilingUsdcE6: "500000" },
-          { stage: "DIVE", themeCode: "TVL_OUTFLOW", status: "running", chargedUsdcE6: "0", ceilingUsdcE6: "1200000" },
+          {
+            stage: "SCAN",
+            themeCode: null,
+            status: "completed",
+            chargedUsdcE6: "190000",
+            ceilingUsdcE6: "500000",
+          },
+          {
+            stage: "DIVE",
+            themeCode: "TVL_OUTFLOW",
+            status: "running",
+            chargedUsdcE6: "0",
+            ceilingUsdcE6: "1200000",
+          },
         ],
       },
       {
@@ -154,8 +209,20 @@ function researchFixture(over: Partial<ResearchJson> = {}): ResearchJson {
         finishedAt: "2026-10-10T12:03:00.000Z",
         chargedUsdcE6: "140000",
         stages: [
-          { stage: "TEST", themeCode: null, status: "completed", chargedUsdcE6: "0", ceilingUsdcE6: "0" },
-          { stage: "ZOOM_OUT", themeCode: null, status: "completed", chargedUsdcE6: "140000", ceilingUsdcE6: "600000" },
+          {
+            stage: "TEST",
+            themeCode: null,
+            status: "completed",
+            chargedUsdcE6: "0",
+            ceilingUsdcE6: "0",
+          },
+          {
+            stage: "ZOOM_OUT",
+            themeCode: null,
+            status: "completed",
+            chargedUsdcE6: "140000",
+            ceilingUsdcE6: "600000",
+          },
         ],
       },
     ],
@@ -165,7 +232,15 @@ function researchFixture(over: Partial<ResearchJson> = {}): ResearchJson {
       volatilityPct: 110,
       mode: "NORMAL",
       navUsdcE6: "41600000",
-      held: [{ symbol: "WMON", priceUsd: "0.03", liquidityUsd: 1_250_000, screen: "passed", status: "listed" }],
+      held: [
+        {
+          symbol: "WMON",
+          priceUsd: "0.03",
+          liquidityUsd: 1_250_000,
+          screen: "passed",
+          status: "listed",
+        },
+      ],
     },
     ...over,
   };
@@ -176,7 +251,11 @@ function stack(owner: string = MOCK_WALLET_ADDRESS) {
   chain.mint(AGENT, owner as `0x${string}`, BEE);
   const api = new FakeApi(chain);
   api.dashboards.set(AGENT, fundedDashboard());
-  const trading = new FakeTrading(chain, MOCK_WALLET_ADDRESS, portfolioFixture(MOCK_WALLET_ADDRESS));
+  const trading = new FakeTrading(
+    chain,
+    MOCK_WALLET_ADDRESS,
+    portfolioFixture(MOCK_WALLET_ADDRESS),
+  );
   api.trading.set(AGENT, trading);
   return { chain, api, trading };
 }
@@ -235,7 +314,10 @@ test.describe("the Research page and the agent terminal (P3-U10)", () => {
     await expect(terminal).toHaveAttribute("data-lines", "7");
     await expect(terminal).toContainText('web_search: searching the web for "monad tvl"');
     // The schedule, the budget, the triggers, the timeline and the records.
-    await expect(root.getByTestId("research-schedule")).toHaveAttribute("data-state", "On schedule");
+    await expect(root.getByTestId("research-schedule")).toHaveAttribute(
+      "data-state",
+      "On schedule",
+    );
     await expect(root.getByTestId("research-schedule")).toContainText(
       "Standard intensity: a Scan every 6 hours, a review every day, the overview refreshed every week.",
     );
@@ -244,9 +326,13 @@ test.describe("the Research page and the agent terminal (P3-U10)", () => {
     await expect(root.getByTestId("trigger-list")).toContainText("waiting its turn");
     await expect(root.getByTestId("stage-timeline").locator("li")).toHaveCount(2);
     await expect(root.getByTestId("stage-timeline")).toContainText("Dive TVL_OUTFLOW0.00/1.20");
-    await expect(root.getByTestId("research-overview")).toContainText("Lending protocols hold 412 million USD.");
+    await expect(root.getByTestId("research-overview")).toContainText(
+      "Lending protocols hold 412 million USD.",
+    );
     await expect(root.getByTestId("themes-panel")).toContainText("TVL_OUTFLOW");
-    await expect(root.getByTestId("market-snapshot")).toContainText("0.03 USD · 1.3M USD of liquidity");
+    await expect(root.getByTestId("market-snapshot")).toContainText(
+      "0.03 USD · 1.3M USD of liquidity",
+    );
     await expect(root.getByTestId("plan-unchanged")).toContainText("the evidence was too thin");
     await expect(root.getByTestId("why-not-traded")).toBeVisible();
     await capture(page, root, "research-live.png");
@@ -267,14 +353,18 @@ test.describe("the Research page and the agent terminal (P3-U10)", () => {
     s.trading.terminalCycle = { cycleId: CYCLE_OPEN, kind: "ROUTINE", status: "completed" };
     await expect(terminal).toHaveAttribute("data-state", "ended", { timeout: 20_000 });
     await expect(terminal.locator("li[data-seq]")).toHaveCount(12);
-    const seqs = await terminal.locator("li[data-seq]").evaluateAll((els) => els.map((e) => e.getAttribute("data-seq")));
+    const seqs = await terminal
+      .locator("li[data-seq]")
+      .evaluateAll((els) => els.map((e) => e.getAttribute("data-seq")));
     expect(seqs).toEqual(["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"]);
     // Every read asked from the cursor it had: no read ever asked from 0 twice.
     expect(s.trading.terminalReads.filter((n) => n === 0)).toHaveLength(1);
     expect(Math.max(...s.trading.terminalReads)).toBe(10);
   });
 
-  test("pauses and resumes research, and picks a finished cycle's history in the terminal", async ({ page }) => {
+  test("pauses and resumes research, and picks a finished cycle's history in the terminal", async ({
+    page,
+  }) => {
     const s = stack();
     s.trading.research = researchFixture({ open: null });
     s.trading.terminalCycle = { cycleId: CYCLE_DONE, kind: "REVIEW", status: "completed" };
@@ -283,16 +373,29 @@ test.describe("the Research page and the agent terminal (P3-U10)", () => {
     const root = main(page).getByTestId("research-page");
     await expect(root.getByTestId("agent-terminal")).toHaveAttribute("data-state", "ended");
     await root.getByTestId("research-pause").click();
-    await expect(root.getByTestId("research-schedule")).toHaveAttribute("data-state", "Paused", { timeout: 15_000 });
+    await expect(root.getByTestId("research-schedule")).toHaveAttribute("data-state", "Paused", {
+      timeout: 15_000,
+    });
     expect(s.trading.pauses).toEqual([true]);
     await expect(root.getByTestId("research-pause")).toHaveText("Resume research");
     await root.getByTestId("research-pause").click();
-    await expect(root.getByTestId("research-schedule")).toHaveAttribute("data-state", "On schedule", { timeout: 15_000 });
+    await expect(root.getByTestId("research-schedule")).toHaveAttribute(
+      "data-state",
+      "On schedule",
+      { timeout: 15_000 },
+    );
     expect(s.trading.pauses).toEqual([true, false]);
     // Picking the finished review reads its history.
-    await root.getByTestId("stage-timeline").locator(`li[data-cycle="${CYCLE_DONE}"] button`).click();
-    await expect(root.getByTestId("stage-timeline").locator(`li[data-cycle="${CYCLE_DONE}"] button`)).toHaveAttribute("aria-pressed", "true");
-    await expect(root.getByTestId("agent-terminal")).toContainText("review · completed", { timeout: 15_000 });
+    await root
+      .getByTestId("stage-timeline")
+      .locator(`li[data-cycle="${CYCLE_DONE}"] button`)
+      .click();
+    await expect(
+      root.getByTestId("stage-timeline").locator(`li[data-cycle="${CYCLE_DONE}"] button`),
+    ).toHaveAttribute("aria-pressed", "true");
+    await expect(root.getByTestId("agent-terminal")).toContainText("review · completed", {
+      timeout: 15_000,
+    });
     await capture(page, root.getByTestId("agent-terminal"), "research-history.png");
   });
 
@@ -325,11 +428,17 @@ test.describe("the Research page and the agent terminal (P3-U10)", () => {
     await open(page, s);
     const root = main(page).getByTestId("research-page");
     await expect(root.getByTestId("agent-terminal")).toHaveAttribute("data-state", "idle");
-    await expect(root.getByTestId("research-schedule")).toContainText("runs once a plan is approved");
-    await expect(root.getByTestId("research-waiting")).toContainText("Waiting for tomorrow's research budget.");
+    await expect(root.getByTestId("research-schedule")).toContainText(
+      "runs once a plan is approved",
+    );
+    await expect(root.getByTestId("research-waiting")).toContainText(
+      "Waiting for tomorrow's research budget.",
+    );
     await expect(root.getByTestId("stage-timeline")).toHaveCount(0);
     await expect(root.getByText("No research yet")).toBeVisible();
-    await expect(root.getByTestId("research-overview")).toContainText("writes its overview when it is activated");
+    await expect(root.getByTestId("research-overview")).toContainText(
+      "writes its overview when it is activated",
+    );
     await capture(page, root, "research-empty.png");
     expect(await blockingViolations(page)).toEqual([]);
     // Another wallet: the API refuses the owner session, and the page says so.
@@ -349,7 +458,9 @@ test.describe("the Research page and the agent terminal (P3-U10)", () => {
     await expect(main(page).getByText(/orchestrator is not reachable/)).toBeVisible();
   });
 
-  test("the terminal runs inside the activation panel while the sweep runs, with a link to the page", async ({ page }) => {
+  test("the terminal runs inside the activation panel while the sweep runs, with a link to the page", async ({
+    page,
+  }) => {
     const s = stack();
     s.trading.activation = activationReadFixture();
     s.trading.activationScript = [
@@ -378,6 +489,9 @@ test.describe("the Research page and the agent terminal (P3-U10)", () => {
     await expect(main(page).getByTestId("research-page")).toBeVisible();
     // The portfolio's header links there too.
     await page.goto(`/agents/${AGENT}/portfolio`);
-    await expect(main(page).getByTestId("research-link")).toHaveAttribute("href", `/agents/${AGENT}/research`);
+    await expect(main(page).getByTestId("research-link")).toHaveAttribute(
+      "href",
+      `/agents/${AGENT}/research`,
+    );
   });
 });

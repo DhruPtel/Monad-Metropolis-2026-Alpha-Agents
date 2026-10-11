@@ -63,7 +63,11 @@ export function schedulerDeps(w: ResearchWiring): SchedulerDeps {
       const stage = kind === "REVIEW" ? "ZOOM_OUT" : "SCAN";
       const alias = goal.config.model.alias;
       const ceiling = /^research-(low|medium|high)$/.test(alias)
-        ? stageCeilingUsdcE6(stage, kind, alias as "research-low" | "research-medium" | "research-high")
+        ? stageCeilingUsdcE6(
+            stage,
+            kind,
+            alias as "research-low" | "research-medium" | "research-high",
+          )
         : 0n;
       const now = new Date();
       const check = stageMayStart({
@@ -126,7 +130,9 @@ export async function observe(
   const held = [];
   for (const h of a.holdings) {
     if (h.balance === 0n || h.token.toLowerCase() === usdc) continue;
-    const row = w.registry ? await w.registry.store.token(w.chainId, h.token).catch(() => null) : null;
+    const row = w.registry
+      ? await w.registry.store.token(w.chainId, h.token).catch(() => null)
+      : null;
     held.push({
       token: h.token,
       symbol: tokenInfo(m, h.token)?.symbol ?? row?.symbol ?? h.token,

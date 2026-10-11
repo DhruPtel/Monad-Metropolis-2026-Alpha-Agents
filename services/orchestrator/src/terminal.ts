@@ -173,7 +173,8 @@ export function hostOf(v: unknown): string {
 function tokenOf(i: Record<string, unknown>): string {
   const s = plain(i.symbol);
   if (s) return s;
-  const a = typeof i.address === "string" ? i.address : typeof i.token === "string" ? i.token : null;
+  const a =
+    typeof i.address === "string" ? i.address : typeof i.token === "string" ? i.token : null;
   return a && /^0x[0-9a-fA-F]{40}$/.test(a) ? `${a.slice(0, 6)}…${a.slice(-4)}` : "a token";
 }
 
@@ -223,7 +224,11 @@ const usdc = (e6: bigint | string) => formatUsdc(typeof e6 === "bigint" ? e6 : B
 export function guard(d: Draft, runs: ReadonlySet<string>): Pick<Draft, "kind" | "text" | "tone"> {
   const text = fit(d.text);
   if (carriesSkillText(text, runs))
-    return { kind: "withheld", text: "[a line was withheld: it carried playbook text]", tone: "warn" };
+    return {
+      kind: "withheld",
+      text: "[a line was withheld: it carried playbook text]",
+      tone: "warn",
+    };
   if (/https?:|www\./i.test(text))
     return { kind: "withheld", text: "[a line was withheld: it carried a link]", tone: "warn" };
   const allowed = new Set(numbersIn(JSON.stringify(d.facts)));
@@ -244,7 +249,9 @@ export function terminalEvents(i: TerminalInput): TerminalEvent[] {
   const c = i.cycle;
   const stageOf = new Map(i.stages.map((s) => [s.stageRunId, s]));
   const nameOf = (s: StageRun | undefined) =>
-    s ? `${STAGE_NAMES[s.stage] ?? s.stage}${s.themeCode ? ` on ${s.themeCode}` : ""}` : "the cycle";
+    s
+      ? `${STAGE_NAMES[s.stage] ?? s.stage}${s.themeCode ? ` on ${s.themeCode}` : ""}`
+      : "the cycle";
   const stageName = (id: string | null) => (id ? (stageOf.get(id)?.stage ?? null) : null);
 
   const startedAt = c.startedAt ?? c.createdAt;
@@ -325,7 +332,9 @@ export function terminalEvents(i: TerminalInput): TerminalEvent[] {
       const cost = charged > 0n ? `; charged ${usdc(charged)} USDC` : "";
       const cached = call.cacheHit ? " (cached)" : "";
       const sum = call.summary ?? {};
-      const hosts = Array.isArray(sum.hosts) ? sum.hosts.filter((h) => typeof h === "string").map((h) => hostOf(h)) : [];
+      const hosts = Array.isArray(sum.hosts)
+        ? sum.hosts.filter((h) => typeof h === "string").map((h) => hostOf(h))
+        : [];
       const parts: string[] = [];
       if (typeof sum.results === "number") parts.push(`${sum.results} results`);
       if (typeof sum.chars === "number") parts.push(`${sum.chars} characters read`);
@@ -365,9 +374,7 @@ export function terminalEvents(i: TerminalInput): TerminalEvent[] {
     }
     const body = b.body;
     const claims = (v: unknown) =>
-      Array.isArray(v)
-        ? (v as { text?: unknown; class?: unknown; sources?: unknown }[])
-        : [];
+      Array.isArray(v) ? (v as { text?: unknown; class?: unknown; sources?: unknown }[]) : [];
     const sourcesOf = (list: { class?: unknown; sources?: unknown }[]) => {
       const by = new Map<string, Set<string>>();
       for (const cl of list) {
@@ -422,7 +429,11 @@ export function terminalEvents(i: TerminalInput): TerminalEvent[] {
         break;
       }
       case "THEME": {
-        const thesis = body.thesis as { statement?: unknown; confidence?: unknown; killCriterion?: unknown } | null;
+        const thesis = body.thesis as {
+          statement?: unknown;
+          confidence?: unknown;
+          killCriterion?: unknown;
+        } | null;
         push({
           at,
           order: 5,
@@ -468,7 +479,12 @@ export function terminalEvents(i: TerminalInput): TerminalEvent[] {
           facts: body,
         });
         const objections = Array.isArray(body.objections)
-          ? (body.objections as { rank?: unknown; severity?: unknown; text?: unknown; sources?: unknown }[])
+          ? (body.objections as {
+              rank?: unknown;
+              severity?: unknown;
+              text?: unknown;
+              sources?: unknown;
+            }[])
           : [];
         for (const ob of objections)
           push({
@@ -480,7 +496,10 @@ export function terminalEvents(i: TerminalInput): TerminalEvent[] {
             tone: ob.severity === "high" ? "warn" : "info",
             facts: ob,
           });
-        sourceLine(objections.map((ob) => ({ class: "objection", sources: ob.sources })), 7);
+        sourceLine(
+          objections.map((ob) => ({ class: "objection", sources: ob.sources })),
+          7,
+        );
         break;
       }
       case "OVERVIEW": {
@@ -542,19 +561,33 @@ export function terminalEvents(i: TerminalInput): TerminalEvent[] {
         break;
       }
       default:
-        push({ at, order: 5, kind: "brief", stage, text: `${name} written.`, tone: "ok", facts: {} });
+        push({
+          at,
+          order: 5,
+          kind: "brief",
+          stage,
+          text: `${name} written.`,
+          tone: "ok",
+          facts: {},
+        });
     }
   }
 
   for (const r of i.records) {
     const stage = stageName(r.stageRunId);
-    const d = r.decision as
-      | { kind?: unknown; reasonCode?: unknown; template?: unknown; params?: { positions?: unknown[]; cashTargetBps?: unknown } }
-      | null;
+    const d = r.decision as {
+      kind?: unknown;
+      reasonCode?: unknown;
+      template?: unknown;
+      params?: { positions?: unknown[]; cashTargetBps?: unknown };
+    } | null;
     if (!d) continue;
     if (d.kind === "PROPOSE") {
       const n = Array.isArray(d.params?.positions) ? d.params.positions.length : 0;
-      const cash = typeof d.params?.cashTargetBps === "number" ? `${(d.params.cashTargetBps / 100).toFixed(0)}%` : null;
+      const cash =
+        typeof d.params?.cashTargetBps === "number"
+          ? `${(d.params.cashTargetBps / 100).toFixed(0)}%`
+          : null;
       push({
         at: r.createdAt,
         order: 8,

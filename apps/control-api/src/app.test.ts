@@ -2249,7 +2249,12 @@ describe.skipIf(!available)("the control API (needs pnpm dev:up for Postgres)", 
       },
       terminal: async (id, cycleId, after) => {
         calls.push(`terminal ${id} ${cycleId ?? "-"} ${after}`);
-        return { cycle: null, live: false, events: [{ seq: after + 1, text: "a line" }], last: after + 1 };
+        return {
+          cycle: null,
+          live: false,
+          events: [{ seq: after + 1, text: "a line" }],
+          last: after + 1,
+        };
       },
       pause: async (id, paused) => {
         calls.push(`pause ${id} ${paused}`);

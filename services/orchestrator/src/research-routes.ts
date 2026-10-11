@@ -147,7 +147,13 @@ export function registerResearchRoutes(
       ? await orch.cycles.cycle(wanted)
       : ((await orch.cycles.openCycle(ref)) ?? (await orch.cycles.cycles(ref, 1))[0] ?? null);
     if (!cycle || cycle.chainId !== ref.chainId || cycle.agentId !== ref.agentId)
-      return c.json({ agentId: String(ref.agentId), cycle: null, live: false, events: [], last: 0 });
+      return c.json({
+        agentId: String(ref.agentId),
+        cycle: null,
+        live: false,
+        events: [],
+        last: 0,
+      });
     const stages = await orch.cycles.stages(cycle.cycleId);
     const ids = stages.map((s) => s.stageRunId);
     const none = ["-"];
@@ -186,22 +192,20 @@ export function registerResearchRoutes(
     const events = terminalEvents({
       cycle,
       stages,
-      calls: calls.map(
-        (r): TerminalCall => ({
-          callId: r.call_id,
-          stageRunId: r.stage_run_id,
-          server: r.server,
-          tool: r.tool,
-          input: r.input,
-          status: r.status,
-          errorCode: r.error_code,
-          chargeUsdcE6: r.charge_usdc_e6,
-          cacheHit: r.cache_hit,
-          summary: r.summary,
-          startedAt: new Date(r.started_at),
-          finishedAt: r.finished_at ? new Date(r.finished_at) : null,
-        }),
-      ),
+      calls: calls.map((r): TerminalCall => ({
+        callId: r.call_id,
+        stageRunId: r.stage_run_id,
+        server: r.server,
+        tool: r.tool,
+        input: r.input,
+        status: r.status,
+        errorCode: r.error_code,
+        chargeUsdcE6: r.charge_usdc_e6,
+        cacheHit: r.cache_hit,
+        summary: r.summary,
+        startedAt: new Date(r.started_at),
+        finishedAt: r.finished_at ? new Date(r.finished_at) : null,
+      })),
       briefs: briefs.map((b) => ({
         stageRunId: b.stageRunId,
         kind: b.kind,
@@ -220,7 +224,10 @@ export function registerResearchRoutes(
         .filter((p) => p.cycleId === cycle.cycleId)
         .map((p) => ({ status: p.status, evaluation: p.evaluation, createdAt: p.createdAt })),
       budget: goal
-        ? { dailyUsdcE6: BigInt(goal.config.research.dailyBudgetUsdcE6), usedBeforeUsdcE6: usedBefore }
+        ? {
+            dailyUsdcE6: BigInt(goal.config.research.dailyBudgetUsdcE6),
+            usedBeforeUsdcE6: usedBefore,
+          }
         : null,
       skillRuns: orch.skillText(),
     });
@@ -241,8 +248,13 @@ export function registerResearchRoutes(
     const ref = o.agentRef(c.req.param("agentId"));
     if (!ref) return c.json({ error: "bad_agent_id" }, 400);
     const body = Pause.safeParse(await c.req.json().catch(() => ({})));
-    if (!body.success) return c.json({ error: "bad_request", message: "paused must be a boolean" }, 400);
-    await orch.loop.update(ref, { paused: body.data.paused, waitingReason: null, waitingSince: null });
+    if (!body.success)
+      return c.json({ error: "bad_request", message: "paused must be a boolean" }, 400);
+    await orch.loop.update(ref, {
+      paused: body.data.paused,
+      waitingReason: null,
+      waitingSince: null,
+    });
     return c.json({ agentId: String(ref.agentId), paused: body.data.paused });
   });
 
@@ -254,7 +266,8 @@ export function registerResearchRoutes(
     const ref = o.agentRef(c.req.param("agentId"));
     if (!ref) return c.json({ error: "bad_agent_id" }, 400);
     const body = Cadence.safeParse(await c.req.json().catch(() => ({})));
-    if (!body.success) return c.json({ error: "bad_request", message: "fast must be a boolean" }, 400);
+    if (!body.success)
+      return c.json({ error: "bad_request", message: "fast must be a boolean" }, 400);
     await orch.loop.update(ref, { fastCadence: body.data.fast });
     return c.json({ agentId: String(ref.agentId), fastCadence: body.data.fast });
   });
@@ -265,7 +278,10 @@ export function registerResearchRoutes(
     if (!ref) return c.json({ error: "bad_agent_id" }, 400);
     const code = c.req.param("code");
     if (!(TRIGGER_CODES as readonly string[]).includes(code))
-      return c.json({ error: "bad_trigger", message: `code must be one of ${TRIGGER_CODES.join(", ")}` }, 400);
+      return c.json(
+        { error: "bad_trigger", message: `code must be one of ${TRIGGER_CODES.join(", ")}` },
+        400,
+      );
     const row = await orch.loop.schedule(ref);
     const goal = await orch.goals.currentGoal(ref.chainId, ref.agentId);
     const spacing = goal
@@ -288,11 +304,17 @@ export function registerResearchRoutes(
   app.post("/v1/dev/market/move", async (c) => {
     const body = Move.safeParse(await c.req.json().catch(() => ({})));
     if (!body.success)
-      return c.json({ error: "bad_request", message: "bps must be a whole number within 90% either way" }, 400);
+      return c.json(
+        { error: "bad_request", message: "bps must be a whole number within 90% either way" },
+        400,
+      );
     try {
       return c.json({ bps: body.data.bps, ...(await orch.moveMarket(body.data.bps)) });
     } catch (err) {
-      return c.json({ error: "mover_off", message: err instanceof Error ? err.message : String(err) }, 409);
+      return c.json(
+        { error: "mover_off", message: err instanceof Error ? err.message : String(err) },
+        409,
+      );
     }
   });
 
@@ -301,11 +323,13 @@ export function registerResearchRoutes(
     try {
       return c.json(await orch.researchTick());
     } catch (err) {
-      return c.json({ error: "research_off", message: err instanceof Error ? err.message : String(err) }, 409);
+      return c.json(
+        { error: "research_off", message: err instanceof Error ? err.message : String(err) },
+        409,
+      );
     }
   });
 }
-
 
 /**
  * The Research page's records: the latest overview, the latest Scan's
@@ -341,11 +365,9 @@ async function researchRecords(orch: Orchestrator, ref: { chainId: number; agent
   );
   const o = await orch.researchSnapshot(ref);
   const scanBody = scanBrief?.body as
-    | { summary?: unknown; quiet?: unknown; themes?: unknown }
-    | undefined;
+    { summary?: unknown; quiet?: unknown; themes?: unknown } | undefined;
   const noChangeBody = noChange?.body as
-    | { reasonCode?: unknown; portfolioView?: unknown; whatWouldChangeIt?: unknown }
-    | undefined;
+    { reasonCode?: unknown; portfolioView?: unknown; whatWouldChangeIt?: unknown } | undefined;
   return {
     overview: overviewBrief
       ? {

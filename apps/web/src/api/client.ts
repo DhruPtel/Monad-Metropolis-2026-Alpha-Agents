@@ -613,7 +613,11 @@ export interface TerminalEventJson {
 
 export interface TerminalJson {
   readonly agentId: string;
-  readonly cycle: { readonly cycleId: string; readonly kind: string; readonly status: string } | null;
+  readonly cycle: {
+    readonly cycleId: string;
+    readonly kind: string;
+    readonly status: string;
+  } | null;
   readonly live: boolean;
   readonly events: readonly TerminalEventJson[];
   readonly last: number;
@@ -654,7 +658,11 @@ export interface ResearchJson {
     readonly divesPerDay: number;
     readonly divesToday: number;
   } | null;
-  readonly open: { readonly cycleId: string; readonly kind: string; readonly status: string } | null;
+  readonly open: {
+    readonly cycleId: string;
+    readonly kind: string;
+    readonly status: string;
+  } | null;
   readonly triggers: readonly {
     readonly triggerId: string;
     readonly code: string;
@@ -668,7 +676,11 @@ export interface ResearchJson {
   readonly overview: {
     readonly at: string;
     readonly summary: string;
-    readonly points: readonly { readonly text: string; readonly class: string; readonly sources: readonly string[] }[];
+    readonly points: readonly {
+      readonly text: string;
+      readonly class: string;
+      readonly sources: readonly string[];
+    }[];
   } | null;
   readonly themes: {
     readonly at: string;

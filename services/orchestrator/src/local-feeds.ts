@@ -40,7 +40,11 @@ export function localFeedRefresherFor(
       const feed = addressEntry("local", "chainlink_mon_usd").address;
       if (!feed) throw new Error("the address book has no MON/USD feed for the local fork");
       const r = await move(rpcUrl, feed, bps);
-      return { before: r.before.toString(), after: r.round.answer.toString(), decimals: r.round.decimals };
+      return {
+        before: r.before.toString(),
+        after: r.round.answer.toString(),
+        decimals: r.round.decimals,
+      };
     },
   };
 }
