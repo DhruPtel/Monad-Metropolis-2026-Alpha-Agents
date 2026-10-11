@@ -201,9 +201,7 @@ describe("the performance chart (F-U11)", () => {
     const marks = screen.getAllByTestId("trade-mark");
     expect(marks.map((m) => m.dataset.side)).toEqual(["buy", "sell"]);
     expect(
-      within(marks[0] as SVGElement as unknown as HTMLElement).getByText(
-        /Bought 0.0003 WBTC for 28.00 USDC/,
-      ),
+      within(marks[0] as HTMLElement).getByText(/Bought 0.0003 WBTC for 28.00 USDC/),
     ).toBeInTheDocument();
     expect(screen.queryByTestId("performance-tooltip")).not.toBeInTheDocument();
     // The chart falls back to a 640px width before it is measured; the far right is the last reading.
