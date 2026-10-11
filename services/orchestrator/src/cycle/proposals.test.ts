@@ -3,6 +3,7 @@ import { type TargetPortfolioParams, amountForValue, executorV3 } from "@alpha-a
 import type { Hex } from "viem";
 import { describe, expect, it } from "vitest";
 import {
+  ProposalService,
   bandsParamsFromDecision,
   estimateMoveCost,
   portfolioParamsFromDecision,
@@ -290,5 +291,92 @@ describe("portfolio proposals (F-U9)", () => {
       costHurdleBps: 40,
       maxLegBps: 900,
     });
+  });
+});
+
+/**
+ * F-U9 follow-up (D-291, A-77): the rule that decides whether a proposal
+ * waits for the owner, on its own. The first plan after an arming began
+ * always waits, whatever the goal says about plan changes; a plan set since
+ * the arming began lets "apply and tell me" apply the next one at once.
+ */
+describe("the first plan after arming always needs approval (F-U9, D-291)", () => {
+  const ref = { chainId: 143143, agentId: 7 };
+  const at = (iso: string) => new Date(iso);
+  const service = (o: {
+    goal: "ask_first" | "apply" | null;
+    arming: Date | null;
+    plan: Date | null;
+  }) =>
+    new ProposalService({
+      db: {} as never,
+      cycles: {} as never,
+      goals: {
+        currentGoal: async () =>
+          o.goal === null
+            ? null
+            : {
+                config: {
+                  planChanges: {
+                    mode: o.goal === "ask_first" ? "ASK_FIRST" : "APPLY_AND_TELL",
+                    workflowMode: o.goal === "ask_first" ? "require_approval" : "notify",
+                  },
+                },
+              },
+      } as never,
+      plans: {
+        active: async () => (o.plan ? { createdAt: o.plan } : null),
+      } as never,
+      trades: {
+        openArming: async () => (o.arming ? { createdAt: o.arming } : null),
+      } as never,
+      narrator: null,
+      inputs: async () => null,
+      log: () => undefined,
+    });
+
+  it("waits when the goal says ask first, armed or not, plan or no plan", async () => {
+    expect(await service({ goal: "ask_first", arming: null, plan: null }).approvalNeeded(ref)).toBe(
+      "ask_first",
+    );
+    expect(
+      await service({
+        goal: "ask_first",
+        arming: at("2026-10-10T10:00:00Z"),
+        plan: at("2026-10-10T11:00:00Z"),
+      }).approvalNeeded(ref),
+    ).toBe("ask_first");
+  });
+
+  it("waits for the first plan after the arming began, even under apply and tell me", async () => {
+    const arming = at("2026-10-10T10:00:00Z");
+    expect(await service({ goal: "apply", arming, plan: null }).approvalNeeded(ref)).toBe(
+      "first_plan_after_arming",
+    );
+    // A plan from before this arming does not count: the owner approves the first one under it.
+    expect(
+      await service({ goal: "apply", arming, plan: at("2026-10-09T09:00:00Z") }).approvalNeeded(
+        ref,
+      ),
+    ).toBe("first_plan_after_arming");
+  });
+
+  it("applies at once under apply and tell me once a plan has been set since the arming began", async () => {
+    expect(
+      await service({
+        goal: "apply",
+        arming: at("2026-10-10T10:00:00Z"),
+        plan: at("2026-10-10T12:00:00Z"),
+      }).approvalNeeded(ref),
+    ).toBeNull();
+  });
+
+  it("applies at once under apply and tell me while the agent is not armed, and waits with no goal", async () => {
+    expect(
+      await service({ goal: "apply", arming: null, plan: null }).approvalNeeded(ref),
+    ).toBeNull();
+    expect(await service({ goal: null, arming: null, plan: null }).approvalNeeded(ref)).toBe(
+      "ask_first",
+    );
   });
 });
