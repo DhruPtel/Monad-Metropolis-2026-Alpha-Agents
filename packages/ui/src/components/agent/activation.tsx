@@ -199,12 +199,15 @@ function ActivationPanel({
   now,
   actions,
   status,
+  terminal,
   className,
 }: {
   view: ActivationPanelView;
   now: string;
   actions?: ReactNode;
   status?: ReactNode;
+  /** P3-U10: the agent terminal while the sweep runs, below the steps. */
+  terminal?: ReactNode;
   className?: string;
 }) {
   const r = ACTIVATION_STATUS_RENDERING[v.status];
@@ -241,6 +244,7 @@ function ActivationPanel({
           <Step key={s.key} step={s} now={now} />
         ))}
       </ol>
+      {terminal}
       <div
         className={cn(
           "flex flex-col gap-1 rounded-md border p-3",

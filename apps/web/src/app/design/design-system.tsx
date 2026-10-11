@@ -53,6 +53,17 @@ import {
   RuntimeStatusBadge,
   TaskResult,
   ActivityFeed,
+  AgentTerminal,
+  BudgetMeter,
+  MarketSnapshotPanel,
+  PlanUnchangedCard,
+  ResearchOverview,
+  ResearchScheduleCard,
+  StageTimeline,
+  TERMINAL_STATES,
+  type TerminalLineView,
+  ThemesPanel,
+  TriggerList,
   TOOL_CALL_STATUSES,
   ToolCallStatusBadge,
   AddCreditsPanel,
@@ -2945,6 +2956,130 @@ QUIET: no.`}
   );
 }
 
+const TERM_LINES: readonly TerminalLineView[] = [
+  { seq: 1, at: "2026-10-11T12:00:01.000Z", kind: "cycle", stage: null, text: "Routine research started, reasoning on research-medium.", tone: "info" },
+  { seq: 2, at: "2026-10-11T12:00:02.000Z", kind: "stage", stage: "SCAN", text: "Scan started on research-medium; it may cost up to 0.5 USDC.", tone: "info" },
+  { seq: 3, at: "2026-10-11T12:00:03.000Z", kind: "tool", stage: "SCAN", text: 'web_search: searching the web for "monad tvl"', tone: "info" },
+  { seq: 4, at: "2026-10-11T12:00:04.000Z", kind: "tool", stage: "SCAN", text: "web_search: 5 results from news.example, defillama.com.", tone: "ok" },
+  { seq: 5, at: "2026-10-11T12:00:10.000Z", kind: "brief", stage: "SCAN", text: "Scan brief: Monad TVL fell 6.8% in 7 days, a large weekly move for the chain.", tone: "ok" },
+  { seq: 6, at: "2026-10-11T12:00:10.000Z", kind: "source", stage: "SCAN", text: "Sources, news: news.example; source: web_search.", tone: "info" },
+  { seq: 7, at: "2026-10-11T12:00:20.000Z", kind: "cost", stage: "SCAN", text: "Scan cost 0.19 of at most 0.5 USDC, over 3 model calls.", tone: "info" },
+  { seq: 8, at: "2026-10-11T12:00:22.000Z", kind: "tool", stage: "DIVE", text: "x_search: refused (run_cap).", tone: "warn" },
+  { seq: 9, at: "2026-10-11T12:00:30.000Z", kind: "thesis", stage: "DIVE", text: "Thesis (medium confidence): The outflow is a rotation into lending, not an exit. It fails if lending TVL falls with DEX TVL for 3 days.", tone: "ok" },
+  { seq: 10, at: "2026-10-11T12:00:31.000Z", kind: "objection", stage: "CHALLENGE", text: "Objection 1 (high): The lending figure has one source.", tone: "warn" },
+  { seq: 11, at: "2026-10-11T12:00:40.000Z", kind: "withheld", stage: "ZOOM_OUT", text: "[a line was withheld: it carried playbook text]", tone: "warn" },
+  { seq: 12, at: "2026-10-11T12:00:44.000Z", kind: "check", stage: "TEST", text: "Test checks: the plan failed 1 check: position cap.", tone: "warn" },
+];
+const RESEARCH_NOW = "2026-10-11T12:05:00.000Z";
+const RESEARCH_SCHEDULE = {
+  running: true,
+  schedulingOn: true,
+  paused: false,
+  fastCadence: false,
+  intensity: "STANDARD",
+  nextDueAt: "2026-10-11T15:00:00.000Z",
+  lastScanAt: "2026-10-11T09:00:00.000Z",
+  lastZoomOutAt: "2026-10-10T12:30:00.000Z",
+  lastOverviewAt: "2026-10-05T12:30:00.000Z",
+  waitingReason: null,
+  waitingSince: null,
+  scanEveryMs: 6 * 3_600_000,
+  zoomOutEveryMs: 24 * 3_600_000,
+  overviewEveryMs: 7 * 24 * 3_600_000,
+  triggerSpacingMs: 2 * 3_600_000,
+  refreshesOverview: true,
+};
+
+function ResearchLoopSection() {
+  return (
+    <Section id="research-loop" title="Research loop">
+      <Specimen
+        name="AgentTerminal"
+        note="A live, monospace feed of what the agent is doing, one plain line per event: stage starts and ends with the cost against the ceiling, tool calls and their results as counts and domains, briefs, theses, objections, checks and decisions. Lines the owner may not see are withheld and say so. Every state: connecting, live, ended, reconnecting from the last line, and nothing yet."
+      >
+        <div className="grid gap-6 xl:grid-cols-2" data-testid="agent-terminals">
+          <AgentTerminal lines={TERM_LINES} state="live" cycle={{ kind: "ROUTINE", status: "running" }} />
+          <AgentTerminal lines={TERM_LINES.slice(0, 7)} state="reconnecting" cycle={{ kind: "ROUTINE", status: "running" }} />
+          <AgentTerminal lines={TERM_LINES} state="ended" cycle={{ kind: "ROUTINE", status: "completed" }} />
+          <AgentTerminal lines={[]} state="idle" />
+        </div>
+        <p className="text-xs text-foreground-muted">
+          States: {TERMINAL_STATES.join(", ")}.
+        </p>
+      </Specimen>
+      <Specimen
+        name="ResearchScheduleCard and BudgetMeter"
+        note="The cadence from the goal's intensity, the next due time, the last work, why the loop waits, paused, not running, and the loop off; the day's budget with the Dives used."
+      >
+        <div className="grid gap-6 lg:grid-cols-2" data-testid="research-schedules">
+          <ResearchScheduleCard view={RESEARCH_SCHEDULE} now={RESEARCH_NOW} actions={<Button size="sm" variant="secondary">Pause research</Button>} />
+          <ResearchScheduleCard view={{ ...RESEARCH_SCHEDULE, waitingReason: "BUDGET_SHORT", waitingSince: "2026-10-11T10:00:00.000Z" }} now={RESEARCH_NOW} />
+          <ResearchScheduleCard view={{ ...RESEARCH_SCHEDULE, paused: true }} now={RESEARCH_NOW} actions={<Button size="sm">Resume research</Button>} />
+          <ResearchScheduleCard view={{ ...RESEARCH_SCHEDULE, running: false }} now={RESEARCH_NOW} />
+          <ResearchScheduleCard view={{ ...RESEARCH_SCHEDULE, schedulingOn: false, fastCadence: true }} now={RESEARCH_NOW} />
+          <BudgetMeter usedUsdcE6="1410000" dailyUsdcE6="3800000" divesToday={1} divesPerDay={2} />
+        </div>
+      </Specimen>
+      <Specimen
+        name="TriggerList and StageTimeline"
+        note="The triggers the watcher fired, each answered by a cycle, queued or waiting its turn; the cycles with their stages' cost against the ceiling, one selectable."
+      >
+        <div className="grid gap-6 lg:grid-cols-2" data-testid="research-timeline">
+          <TriggerList
+            now={RESEARCH_NOW}
+            triggers={[
+              { triggerId: "t1", code: "PRICE_MOVE", text: "MON's price moved past the goal's trigger since the last Zoom out", kind: "TRIGGERED", firedAt: "2026-10-11T11:00:00.000Z", cycleId: "cycle-1", spaced: false },
+              { triggerId: "t2", code: "MODE_CHANGED", text: "the account's mode changed", kind: "REVIEW", firedAt: "2026-10-11T11:30:00.000Z", cycleId: null, spaced: true },
+              { triggerId: "t3", code: "THESIS_RECHECK", text: "a thesis reached its recheck time", kind: "TRIGGERED", firedAt: "2026-10-11T11:50:00.000Z", cycleId: null, spaced: false },
+            ]}
+          />
+          <StageTimeline
+            selected="cycle-2"
+            onSelect={() => undefined}
+            cycles={[
+              { cycleId: "cycle-2", kind: "REVIEW", status: "running", startedAt: "2026-10-11T11:40:00.000Z", finishedAt: null, chargedUsdcE6: "0", stages: [
+                { stage: "TEST", themeCode: null, status: "completed", chargedUsdcE6: "0", ceilingUsdcE6: "0" },
+                { stage: "ZOOM_OUT", themeCode: null, status: "running", chargedUsdcE6: "0", ceilingUsdcE6: "600000" },
+              ] },
+              { cycleId: "cycle-1", kind: "ROUTINE", status: "completed", startedAt: "2026-10-11T06:00:00.000Z", finishedAt: "2026-10-11T06:05:00.000Z", chargedUsdcE6: "410000", stages: [
+                { stage: "SCAN", themeCode: null, status: "completed", chargedUsdcE6: "190000", ceilingUsdcE6: "500000" },
+                { stage: "DIVE", themeCode: "TVL_OUTFLOW", status: "capped", chargedUsdcE6: "220000", ceilingUsdcE6: "1200000" },
+                { stage: "CHALLENGE", themeCode: "TVL_OUTFLOW", status: "completed", chargedUsdcE6: "80000", ceilingUsdcE6: "300000" },
+                { stage: "TEST", themeCode: null, status: "completed", chargedUsdcE6: "0", ceilingUsdcE6: "0" },
+                { stage: "ZOOM_OUT", themeCode: null, status: "skipped", chargedUsdcE6: "0", ceilingUsdcE6: "600000" },
+              ] },
+            ]}
+          />
+        </div>
+      </Specimen>
+      <Specimen
+        name="ResearchOverview, ThemesPanel, MarketSnapshotPanel and PlanUnchangedCard"
+        note="The records around the terminal, filled and empty: the market overview with its sourced points, the last Scan's themes, the watcher's snapshot of the market and the account, and why the last review kept the plan."
+      >
+        <div className="grid gap-6 lg:grid-cols-2" data-testid="research-records">
+          <ResearchOverview overview={{ at: "2026-10-11T06:05:00.000Z", summary: "Monad's DEX liquidity is thinning while lending holds its share; MON's price has drifted with the wider market.", points: [
+            { text: "Lending protocols hold 412 million USD.", class: "onchain", sources: ["defillama.com"] },
+            { text: "DEX TVL fell 6.8% over 7 days.", class: "news", sources: ["news.example"] },
+          ] }} />
+          <ThemesPanel themes={{ at: "2026-10-11T06:01:00.000Z", summary: "Monad TVL fell 6.8% in 7 days, a large weekly move for the chain.", quiet: false, themes: [
+            { code: "TVL_OUTFLOW", materiality: "high", scope: "MARKET", symbol: null, whyNow: "A 6.8% weekly fall is large for the chain." },
+            { code: "WMON_CORE_ALLOCATION", materiality: "medium", scope: "TOKEN", symbol: "WMON", whyNow: "The core token's share of the account against its range." },
+          ] }} />
+          <MarketSnapshotPanel snapshot={{ at: "2026-10-11T12:04:00.000Z", monUsd: "0.03", volatilityPct: 110, mode: "NORMAL", navUsdcE6: "41600000", held: [
+            { symbol: "WMON", priceUsd: "0.03", liquidityUsd: 1_250_000, screen: "passed", status: "listed" },
+            { symbol: "WBTC", priceUsd: "61240", liquidityUsd: 310_000, screen: "passed", status: "sell_only" },
+          ] }} />
+          <PlanUnchangedCard view={{ at: "2026-10-11T06:05:00.000Z", reasonCode: "EVIDENCE_THIN", portfolioView: "One position in WMON and the rest in USDC; the lending thesis rests on one source.", whatWouldChangeIt: "a second source for the lending figure" }} />
+          <ResearchOverview overview={null} />
+          <ThemesPanel themes={null} />
+          <MarketSnapshotPanel snapshot={null} />
+          <PlanUnchangedCard view={null} />
+        </div>
+      </Specimen>
+    </Section>
+  );
+}
+
 function DesignSystem() {
   return (
     <div className="flex flex-col gap-10">
@@ -2969,6 +3104,7 @@ function DesignSystem() {
       <GoalSection />
       <MarketSection />
       <ResearchSection />
+      <ResearchLoopSection />
     </div>
   );
 }
