@@ -7,6 +7,7 @@ import {
   GoalStore,
   PlanStore,
   type PortfolioReading,
+  type PortfolioReadingV3,
   ProposalStore,
   type ProposalRationale,
   TradeStore,
@@ -119,6 +120,93 @@ const PORTFOLIO: PortfolioReading = {
     usdcUsd: { priceE18: 10n ** 18n, updatedAt: 1_789_999_400n, reason: "OK" },
   },
   wallet: { usdc: 5_000_000n, wmon: 0n, mon: 10n ** 18n },
+};
+
+/** Agent 2 on the fund agent's set (A-80): a v3 account holding USDC and WMON, and its older v2 account with 100 USDC. */
+const PORTFOLIO_V3: PortfolioReadingV3 = {
+  custody: "v3",
+  chainId: env.chainId,
+  block: 109_670_100n,
+  timestamp: 1_790_000_000n,
+  agentId: 2,
+  owner: BOB,
+  contracts: {
+    agentNft: NFT,
+    accountFactory: "0x5ebF58520f9bAa847959DcF69716030a1583BCDb",
+    accountFactoryV2: "0xC898A55c814a629653f6CD7aC007edd6b63ac0De",
+    oracle: "0xeeB91f3371Db0d409bbE0Ffa9ea901E09A783a43",
+    usdc: "0x754704Bc059F8C67012fEd69BC8A327a5aafb603",
+    wmon: "0x3bd359C1119dA7Da1D913D1C4D2B7c461115433A",
+    executor: "0x3443dbBd29E19CF17853732C260C6abDb6dC0658",
+  },
+  account: "0x00000000000000000000000000000000000ac0f3",
+  predictedAccount: "0x00000000000000000000000000000000000ac0f3",
+  allowlist: { enabled: true, listed: true },
+  caps: {
+    personal: 100_000_000n,
+    platform: 2_000_000_000n,
+    platformTotal: 250_000_000n,
+    principal: 40_000_000n,
+  },
+  mode: "NORMAL",
+  depositsClosed: false,
+  navUsdc: 40_000_000n,
+  breaker: { navUsdc: 40_000_000n, perUnit: 10n ** 18n, peak: 10n ** 18n, drawdownBps: 0n },
+  peak7d: 10n ** 18n,
+  holdings: [
+    {
+      token: "0x754704Bc059F8C67012fEd69BC8A327a5aafb603",
+      symbol: "USDC",
+      decimals: 6,
+      balance: 30_000_000n,
+      free: 30_000_000n,
+      costBasis: 0n,
+      priceE18: 10n ** 18n,
+      priceReason: "OK",
+      valueUsdc: 30_000_000n,
+      claimable: 0n,
+    },
+    {
+      token: "0x3bd359C1119dA7Da1D913D1C4D2B7c461115433A",
+      symbol: "WMON",
+      decimals: 18,
+      balance: 400n * 10n ** 18n,
+      free: 400n * 10n ** 18n,
+      costBasis: 9_500_000n,
+      priceE18: 25_000_000_000_000_000n,
+      priceReason: "OK",
+      valueUsdc: 10_000_000n,
+      claimable: 0n,
+    },
+  ],
+  tokens: [
+    {
+      symbol: "USDC",
+      address: "0x754704Bc059F8C67012fEd69BC8A327a5aafb603",
+      decimals: 6,
+      priceClass: "F",
+      wallet: 5_000_000n,
+      price: { priceE18: 10n ** 18n, updatedAt: 1_789_999_400n, reason: "OK" },
+    },
+    {
+      symbol: "WMON",
+      address: "0x3bd359C1119dA7Da1D913D1C4D2B7c461115433A",
+      decimals: 18,
+      priceClass: "F",
+      wallet: 0n,
+      price: { priceE18: 25_000_000_000_000_000n, updatedAt: 1_789_999_980n, reason: "OK" },
+    },
+  ],
+  usdcPeg: { priceE18: 10n ** 18n, updatedAt: 1_789_999_400n, reason: "OK" },
+  wallet: { mon: 10n ** 18n },
+  legacy: {
+    account: "0xF8322887Dd39EF54737b8Eb222d8F5b4D039B0e7",
+    usdc: 100_000_000n,
+    wmon: 0n,
+    claimableUsdc: 0n,
+    claimableWmon: 0n,
+    mode: "NORMAL",
+  },
 };
 
 describe.skipIf(!available)("the control API (needs pnpm dev:up for Postgres)", () => {
@@ -955,6 +1043,80 @@ describe.skipIf(!available)("the control API (needs pnpm dev:up for Postgres)", 
         expect(await json(rejected)).toMatchObject({ intent: { status: "cancelled" } });
         const again = await owner(session, `/v1/agents/2/intents/${id}/reject`, "POST");
         expect([again.status, (await json(again)).error]).toEqual([409, "not_waiting"]);
+      });
+
+      it("serves the portfolio on the fund agent's set where it is deployed, with the v2 account as an older one, to the owner only (A-80)", async () => {
+        const session = await bobSession();
+        const v3Reads: number[] = [];
+        const v3 = {
+          executor: "0x3443dbBd29E19CF17853732C260C6abDb6dC0658" as Address,
+          reader: { agent: async (id: number) => views.get(id) ?? null },
+          paths: { custodyPath: async () => "v3" as const },
+          portfolio: {
+            portfolio: async (id: number) => {
+              v3Reads.push(id);
+              return id === 2 ? PORTFOLIO_V3 : null;
+            },
+          },
+        };
+        portfolioReads.length = 0;
+        const res = await call(
+          "/v1/agents/2/portfolio",
+          { headers: { "x-owner-session": session } },
+          { trading: { ...trading, v3 } },
+        );
+        expect(res.status).toBe(200);
+        const p = (await json(res)).portfolio as Record<string, unknown>;
+        expect(p).toMatchObject({
+          custody: "v3",
+          account: PORTFOLIO_V3.account,
+          allowlist: { enabled: true, listed: true },
+          caps: { personalUsdcE6: "100000000", principalUsdcE6: "40000000" },
+          mode: "NORMAL",
+          navUsdcE6: "40000000",
+          usdcPeg: { reason: "OK" },
+          legacy: {
+            account: "0xF8322887Dd39EF54737b8Eb222d8F5b4D039B0e7",
+            usdcE6: "100000000",
+            wmonWei: "0",
+            mode: "NORMAL",
+          },
+        });
+        expect(
+          (p.holdings as { symbol: string; amountRaw: string; valueUsdcE6: string }[]).map((h) => [
+            h.symbol,
+            h.amountRaw,
+            h.valueUsdcE6,
+          ]),
+        ).toEqual([
+          ["USDC", "30000000", "30000000"],
+          ["WMON", (400n * 10n ** 18n).toString(), "10000000"],
+        ]);
+        expect(
+          (p.tokens as { symbol: string; walletRaw: string }[]).map((t) => [t.symbol, t.walletRaw]),
+        ).toEqual([
+          ["USDC", "5000000"],
+          ["WMON", "0"],
+        ]);
+        // The v2 reader is never asked once the fund set is deployed.
+        expect(portfolioReads).toEqual([]);
+        expect(v3Reads).toEqual([2]);
+        const alice = (await json(await start(1, "alice-token"))).token as string;
+        for (const s of [alice, ""]) {
+          const other = await call(
+            "/v1/agents/2/portfolio",
+            { headers: { "x-owner-session": s } },
+            { trading: { ...trading, v3 } },
+          );
+          expect([401, 403]).toContain(other.status);
+        }
+        expect(v3Reads).toEqual([2]);
+        // Without the fund set the v2 reading serves, and it names its custody.
+        const v2 = await owner(session, "/v1/agents/2/portfolio");
+        expect((await json(v2)).portfolio).toMatchObject({
+          custody: "v2",
+          account: PORTFOLIO.account,
+        });
       });
 
       it("serves every balance at the agent's addresses to its owner only (D-315)", async () => {

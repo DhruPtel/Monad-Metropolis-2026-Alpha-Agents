@@ -3,7 +3,7 @@ import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { serve } from "@hono/node-server";
 import { ConfigError, assertChainId, loadConfig, type Secret } from "@alpha-agents/config";
-import { createDb, migrateToLatest } from "@alpha-agents/db";
+import { type Db, createDb, migrateToLatest } from "@alpha-agents/db";
 import { AGENT_NFT_ABI, addressEntry, agentNftDeployment } from "@alpha-agents/domain";
 import { createPublicClient, http, isAddressEqual, type Hex } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
@@ -15,6 +15,7 @@ import {
   rpcCustodyPathReader,
   rpcHoldingsReader,
   rpcPortfolioReader,
+  rpcPortfolioReaderV3,
 } from "@alpha-agents/trading";
 import { rpcChainReader } from "./chain.ts";
 import { MOCK_IDENTITY_FLAG, mockIdentity, privyIdentity } from "./identity.ts";
@@ -100,20 +101,45 @@ const holdingTokens = (["usdc", "wmon", "weth"] as const).flatMap((id) => {
     : [];
 });
 const factoryEntry = addressEntry(env.id, "account_factory");
-const holdings =
-  deployment && rpcUrl
-    ? rpcHoldingsReader(rpcUrl, env.chainId, {
-        agentNft: deployment.address,
-        accountFactory: factoryEntry.status === "verified" ? (factoryEntry.address as Hex) : null,
-        tokens: holdingTokens,
-      })
-    : null;
-
 // P2-U6: the Executor the owner's wallet registers and revokes grants with, where it is deployed.
 const executorEntry = addressEntry(env.id, "executor");
 // F-U5 (D-367): the fund agent's set, where deployed; an agent on it arms against Executor v3.
 const executorV3Entry = addressEntry(env.id, "executor_v3");
 const factoryV3Entry = addressEntry(env.id, "account_factory_v3");
+const oracleV3Entry = addressEntry(env.id, "oracle_adapter_v3");
+const holdings =
+  deployment && rpcUrl
+    ? rpcHoldingsReader(rpcUrl, env.chainId, {
+        agentNft: deployment.address,
+        accountFactory: factoryEntry.status === "verified" ? (factoryEntry.address as Hex) : null,
+        // A-80: where the fund set is deployed the v3 account is the trading account.
+        accountFactoryV3:
+          factoryV3Entry.status === "verified" ? (factoryV3Entry.address as Hex) : null,
+        tokens: holdingTokens,
+      })
+    : null;
+const db = createDb((values.DATABASE_URL as Secret).reveal());
+
+/** The registered tokens the owner may deposit into a v3 account: core lane, class F, listed (PersonalAccountV3.deposit). */
+async function depositableTokens(db: Db) {
+  const rows = await db
+    .selectFrom("platform.tokens")
+    .select(["address", "symbol", "decimals", "price_class"])
+    .where("chain_id", "=", env.chainId)
+    .where("registry_lane", "=", "core")
+    .where("price_class", "=", "F")
+    .where("registry_status", "=", "listed")
+    .orderBy("liquidity_usd", "desc")
+    .limit(50)
+    .execute();
+  return rows.map((t) => ({
+    symbol: t.symbol,
+    address: t.address as Hex,
+    decimals: t.decimals,
+    priceClass: t.price_class,
+  }));
+}
+
 const v3 =
   deployment &&
   rpcUrl &&
@@ -131,6 +157,24 @@ const v3 =
           accountFactory: factoryEntry.address as Hex,
           accountFactoryV3: factoryV3Entry.address as Hex,
         }),
+        // A-80: the owner's portfolio on the fund set, with the v2 account as an older one.
+        portfolio:
+          oracleV3Entry.status === "verified"
+            ? rpcPortfolioReaderV3(
+                rpcUrl,
+                env.chainId,
+                {
+                  agentNft: deployment.address,
+                  accountFactory: factoryV3Entry.address as Hex,
+                  accountFactoryV2: factoryEntry.address as Hex,
+                  oracle: oracleV3Entry.address as Hex,
+                  usdc: addressEntry(env.id, "usdc").address as Hex,
+                  wmon: addressEntry(env.id, "wmon").address as Hex,
+                  executor: executorV3Entry.address as Hex,
+                },
+                { tokens: () => depositableTokens(db) },
+              )
+            : null,
       }
     : null;
 const trading =
@@ -174,7 +218,6 @@ if (rpcUrl) {
 
 const publicUrl = values.APP_PUBLIC_URL ? new URL(String(values.APP_PUBLIC_URL)).origin : null;
 const LOOPBACK = /^http:\/\/(localhost|127\.0\.0\.1)(:\d{1,5})?$/;
-const db = createDb((values.DATABASE_URL as Secret).reveal());
 await migrateToLatest(db);
 
 const app = createApp({

@@ -28,6 +28,8 @@ import {
   type HoldingsReader,
   MAX_GRANT_SECONDS,
   type PortfolioReader,
+  type PortfolioReaderV3,
+  portfolioV3Json,
   TradeStore,
   approveByOwner,
   armingJson,
@@ -139,6 +141,8 @@ export interface ApiDeps {
       readonly executor: Hex;
       readonly reader: AgentViewReader;
       readonly paths: CustodyPathReader;
+      /** A-80: the owner's portfolio on the fund agent's set, which every agent is on where it is deployed. */
+      readonly portfolio?: PortfolioReaderV3 | null;
     } | null;
   } | null;
 }
@@ -905,6 +909,14 @@ export function createApp(deps: ApiDeps): Hono {
     const agentId = BigInt(c.req.param("id"));
     const owner = await ownerOnly(c, agentId);
     if (owner instanceof Response) return owner;
+    // A-80: where the fund agent's set is deployed every agent is on it, and the v2
+    // account, if any, comes along as an older account to withdraw from.
+    const v3 = deps.trading?.v3?.portfolio;
+    if (v3) {
+      const reading = await v3.portfolio(Number(agentId));
+      if (!reading) return fail(c, 404, "not_found", `Agent #${agentId} does not exist.`);
+      return c.json({ ...(await meta()), portfolio: portfolioV3Json(reading) });
+    }
     const reader = deps.trading?.portfolio;
     if (!reader)
       return fail(

@@ -212,6 +212,7 @@ const price = (p: PriceReading) => ({
 /** The reading as JSON: every amount a base-unit string (USDC 6 decimals, WMON and MON 18). */
 export function portfolioJson(r: PortfolioReading) {
   return {
+    custody: "v2" as const,
     chainId: r.chainId,
     block: s(r.block),
     timestamp: Number(r.timestamp),
