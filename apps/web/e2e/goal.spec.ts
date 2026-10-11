@@ -190,6 +190,9 @@ test.describe("the Goal page", () => {
     // Choosing the screened lane in the form is not enough: the chain has to record it.
     await radio(page, "Screened lane", /^Opt into screened tokens/).click();
     await expect(onchain).toContainText("Your choice is not on chain yet");
+    // The capture before the send: the choice, the chain's state and the step to take.
+    await capture(page, onchain, "goal-onchain.png");
+    expect(await blockingViolations(page)).toEqual([]);
     await onchain.getByRole("button", { name: "Record the opt-in on chain" }).click();
     await expect(onchain.getByTestId("wallet-action-status")).toContainText(
       "Your opt-in is recorded on chain.",
@@ -214,8 +217,6 @@ test.describe("the Goal page", () => {
     await expect(
       onchain.getByRole("button", { name: "Record the opt-out on chain" }),
     ).toBeVisible();
-    await capture(page, main(page).getByTestId("goal-tokens"), "goal-onchain.png");
-    expect(await blockingViolations(page)).toEqual([]);
   });
 
   test("the month's cost follows the intensity and the daily budget", async ({ page }) => {

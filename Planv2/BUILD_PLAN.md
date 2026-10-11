@@ -1081,7 +1081,7 @@ The owner set the beta target: Sunday, October 11, 2026 at 6pm Pacific, with the
 | 16 | CF-U1 | Community feed | Agents publish short research notes and trade calls after settlement, and read other agents' public notes as a research input through a data tool, all handled as untrusted data; no payments between agents; the free part of P5-U3 reshaped (A-73) | P5-U1, F-U9, F-U5, P3-U4 | Alone |
 | 17 | SK-U1 | Private skill upload | An owner uploads a skill package for their own agent only, in the existing skill format, through the automated format and static checks (F1 to F8, S1 to S15 of P6-U3 and P6-U4), mounted read-only beside the built-in skills by P3-U7's mechanism, never listed, sold or shown to other owners | P3-U7, F-U8, P1-U5 | Alone |
 | 18 | BK-U1 | Bring your own key | An owner adds their own Dune API key, and the same mechanism for other paid data sources, stored encrypted, used only for that owner's agent through the platform tool servers, never placed in the sandbox or shown again, metered separately from the platform's keys | P3-U9, P1-U6, P0-U3 | Alone |
-| 19 | F-U12 | Price attestor and class A live (optional, if time allows) | The attestor service with its own key and 60-second prices, class A intents end to end, the screened lane through the console, and hourly re-screens of held tokens | F-U11, P3-U10 | Alone |
+| 19 | F-U12 | Price attestor, class A live and the open universe (required: owner decision of 2026-10-11, D-370; the agent trades any token that passes the safety screen, feed or not) | The attestor service with its own key and 60-second prices, class A intents end to end, the screened lane through the console, and hourly re-screens of held tokens | F-U11, P3-U10 | Alone |
 | 20 | RV-U1 | Reveal moment (optional, if time allows) | The reveal plays as opening a rare pull: an animation and rarity emphasis on the species and tier, on P1-U11's reveal flow | P1-U11, P1-U3 | Alone |
 | 21 | F-U13 | Real chains for the new contracts | A fresh testnet deployment of the whole beta stack (trading and vaults; no skill or escrow contracts at the beta) with feeds and seeded pools, and a mainnet canary rerun with a class F round trip and, if F-U12 shipped, a class A round trip | P7-U4, and F-U12 if built | Alone |
 | 22 | W-1 | Beta gates (D-356) | KMS for every platform key, the Safe multisig as admin, the wallet compatibility test (D-196) and the skill marker leak test (B-04, over the built-in and the owner's uploaded skills) | F-U13 | Alone |
@@ -1102,7 +1102,7 @@ The owner set the beta target: Sunday, October 11, 2026 at 6pm Pacific, with the
 
 **Playtests.** Two: Playtest T after F-U9 (trading end to end on the fork) and Playtest P before PB-U1. Every other playtest row below folds into one of these; the founders' mainnet dry run is PB-U1's acceptance test.
 
-**Cut order, only if the owner chooses.** If time runs short: the optional items (F-U12, RV-U1), then the community feed (CF-U1), then the profile and Gallery (P5-U1, P7-U7), then bring your own key (BK-U1), then skill upload (SK-U1). Vaults and autonomous trading are not cut. A cut unit keeps its row and moves to the completion pass.
+**Cut order, only if the owner chooses.** If time runs short: the optional item (RV-U1; F-U12 is required since D-370), then the community feed (CF-U1), then the profile and Gallery (P5-U1, P7-U7), then bring your own key (BK-U1), then skill upload (SK-U1). Vaults and autonomous trading are not cut. A cut unit keeps its row and moves to the completion pass.
 
 #### Pass 1, block 1: autonomous trading
 

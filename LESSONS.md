@@ -1574,3 +1574,38 @@ What happened: In the stalled-feed drill the sentinel noted the 22% drawdown as 
 Cause: "In force" is what the sentinel can see on a pass; a reading it cannot take is not a reading of "fine".
 Fix: The test expects the note and the re-recording; the mode never moved (PAUSED throughout) and the agent stayed an INCIDENT, which is what matters. Recorded here so the next reader of the action log knows a "cleared" note during an outage means unseen, not resolved.
 Lesson: When a condition's reading fails, record the failure as its own breach (the stale feed) and let the dependent condition clear; the mode is never loosened by it, so nothing is lost but a line in the log.
+
+## L-212: The local fork holds two ProtocolRegistryV3 deployments, and only the Executor's counts
+Unit: F-U12 (2026-10-11)
+What happened: The class A fork test registered GHO's pool through the registrar at the address `deployFundLocal` reports as PROTOCOL_REGISTRY_V3_ADDRESS, then found no route: the reader's market listed eight pools and not GHO's. `pnpm deploy:executor-v3` deploys its own ProtocolRegistryV3 (the one in the address book, with the route adapter active from construction, D-363) and binds Executor v3 to it; the fund deploy's registry is a second, unused one with the same core pools.
+Cause: Two scripts each deploy a registry under their own salt; the fund deploy's result names its own.
+Fix: The test takes the registry from `deployExecutorV3Local`'s result and asserts it is the address book's (4b871f6). The orchestrator always used the book's, so production was never wrong.
+Lesson: On the local fork, read every fund set address from the address book (or the Executor deploy's result), never from the fund deploy's output; a tool that writes to the wrong registry succeeds and changes nothing the Executor sees.
+
+## L-213: A fork warped by the verifier's timelock makes wall-clock attestations and screens stale
+Unit: F-U12 (2026-10-11)
+What happened: `pnpm deploy:attestor` sets the verifier by driving the registry's 9-day timelock with evm_increaseTime, so the fork's block.timestamp runs nine days ahead of the wall clock. The attestor signed observedAt and validUntil by the wall clock (expired on chain at once), GeckoTerminal's readings looked nine days stale against the chain, and the registrar stamped a registration with the screen's wall-clock time, which the registry's six-hour SCREEN_TTL refused as stale.
+Cause: Three clocks (the attestor's, a source's, the registrar's) assumed the chain's time is the wall's.
+Fix: The attestor keeps a ChainClock set by every market read and signs by it; an external source's age is measured against that clock; the registrar stamps a registration by the chain's latest block (dfe3469). Testnet and mainnet clocks match the wall's, so nothing changes there.
+Lesson: Anything the chain judges by block.timestamp (an attestation's life, a screen's TTL, a deadline) is stamped by the chain's clock, read from the chain, never by Date.now.
+
+## L-214: The Executor mirror never attested a class A side, so every class A trade was refused before it was sent
+Unit: F-U12 (2026-10-11)
+What happened: With the verifier set, the opt-in on and GHO registered, the trade flow refused the first class A buy with ATTESTATION_REQUIRED. The mirror's market builder set every class A side to `attestation: "NONE"` (written in F-U5 before an attestor existed) and judged the hop by the oracle's deviation, which has no price for class A, so the mirror refused where the contract would have accepted.
+Cause: The mirror's input was built from the plain market; the attestor's price, laid over the market by the attested reader, was not read into the sides or the hop.
+Fix: A class A side is VALID at the market's attested price when the overlay carries one; the hop is judged by the pool's own price (read from the oracle's `poolPrice`, now in the market read) against the attested price within the oracle's deviation limit (also read), as `_checkHopPrice` does; the chain tools' floor prices a class A side the same way, so the flow's minimum output meets the contract's (4b871f6).
+Lesson: A mirror of the contract must take every input the contract takes; when a new input (an attestation) arrives, each place the mirror reads a price is a place to update, and a fork test with the real contract is what finds the ones missed.
+
+## L-215: The flow's minimum output fell a hair under the Executor's floor for a class A pair
+Unit: F-U12 (2026-10-11)
+What happened: After the mirror attested the side, the buy was still refused as SLIPPAGE_TOO_HIGH. The flow's floor read the class A side's price as 0 (the chain tools' `sidePx` returned 0 for class A), so the minimum output was the quote less 1%, while the contract's floor is the value implied by the attested price less 1%; with the attested median a few basis points under the pool's buy price, the quote-based minimum fell 0.02% short of the contract's floor.
+Cause: Two floors from two prices: the quote's and the attestation's.
+Fix: `sidePx` prices a class A side by the market's attested price, so the floor, the implied output, the quote view and the "trade now" intent all follow the attestation the contract will check (4b871f6).
+Lesson: The minimum output sent with a trade is derived from the same price the contract derives its floor from; a quote-based minimum is only a second bound.
+
+## L-216: The token table is keyed by Monad mainnet's chain id, so a mirror keyed by the fork's updated nothing
+Unit: F-U12 (2026-10-11)
+What happened: The live sweep's GHO check read the token table right after the registrar had registered GHO on chain and found no lane, twice; the universe (read from the chain) showed it screened and buyable. The registrar mirrored lanes into `platform.tokens` under the fork's chain id (143143) while the token registry keys every token row by Monad mainnet's id (143), since tokens are discovered on mainnet; the UPDATE matched no row, on the fork and on the dev stack alike ("7 registered tokens' lanes mirrored" counted the market's tokens, not rows changed). The universe's "screen over six hours old" note read the table under the cycle's chain for the same reason.
+Cause: Two chain ids in one process: the chain's (the fork's) for contracts, the registry's (mainnet's) for the token table; the registrar took the first for the second.
+Fix: The registrar and the universe snapshot take the token registry's chain id for every table read or write (this commit); the registrar's own unit test could not see it, since its store is a fake.
+Lesson: When a service holds two chain ids, name which one each store is keyed by at the call site, and let a live check read back what a mirror wrote: a mirror that updates zero rows reports success.
