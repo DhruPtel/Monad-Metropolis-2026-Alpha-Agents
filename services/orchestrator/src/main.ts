@@ -45,7 +45,16 @@ import { DbSteerStore } from "./reveal-steer-store.ts";
 import { localFeedRefresherFor } from "./local-feeds.ts";
 import { localSentinelKey, viemSentinelChain } from "./sentinel-chain.ts";
 import { Attestor, attestorKeyFrom, localAttestorKey } from "./attestor.ts";
-import { Registrar, localScreenerKey, viemScreenerChain } from "./tokens/registrar.ts";
+import {
+  REGISTRATIONS_PER_SWEEP,
+  Registrar,
+  localScreenerKey,
+  viemScreenerChain,
+} from "./tokens/registrar.ts";
+
+/** F-T2: the registrar's background pass: 30 seconds after the start, then every five minutes. */
+const REGISTRAR_FIRST_SWEEP_MS = 30_000;
+const REGISTRAR_SWEEP_MS = 5 * 60_000;
 import { geckoTerminalSource, poolQuoteSource } from "./attestor-sources.ts";
 import { ChainClock, withAttestedPrices } from "./attested-reader.ts";
 import { Redactor, createLog, errorText } from "./secrets.ts";
@@ -616,6 +625,25 @@ const orchestrator = new Orchestrator({
   trading,
 });
 await orchestrator.start();
+// F-T2: the registrar's background pass, with the token loops: every fresh passing token joins the
+// screened lane without waiting for a sweep to screen it, at most REGISTRATIONS_PER_SWEEP a pass.
+if (registrar && tokenLoops) {
+  const pass = () =>
+    registrar
+      .sweep(REGISTRATIONS_PER_SWEEP)
+      .then((actions) => {
+        if (actions.length > 0)
+          log(
+            `registrar: sweep: ${actions.map((a) => `${a.action} ${a.token}${a.gasUsed !== null ? ` (${a.gasUsed} gas)` : ""}`).join(", ")}`,
+          );
+      })
+      .catch((err: unknown) => log(`registrar: sweep failed: ${errorText(err, redactor)}`));
+  setTimeout(() => void pass(), REGISTRAR_FIRST_SWEEP_MS).unref();
+  setInterval(() => void pass(), REGISTRAR_SWEEP_MS).unref();
+  log(
+    `registrar: a background pass every ${REGISTRAR_SWEEP_MS / 60_000} minutes registers up to ${REGISTRATIONS_PER_SWEEP} passing tokens`,
+  );
+}
 if (registrar)
   void registrar
     .sync()

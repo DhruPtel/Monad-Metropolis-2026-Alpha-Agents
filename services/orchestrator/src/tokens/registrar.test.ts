@@ -59,7 +59,15 @@ const pool = (over: Partial<PoolRow> = {}): PoolRow => ({
   ...over,
 });
 
-function fakes(record: { lane: number; status: number }) {
+function fakes(
+  record: { lane: number; status: number },
+  table: {
+    passing?: string[];
+    refused?: string[];
+    screens?: Record<string, ScreenRecord[]>;
+    pools?: Record<string, PoolRow[]>;
+  } = {},
+) {
   const calls: string[] = [];
   const mirrored: string[] = [];
   const registered = new Set<string>();
@@ -67,20 +75,20 @@ function fakes(record: { lane: number; status: number }) {
     address: "0x90F79bf6EB2c4f870365E785982E1f101E93b906",
     addScreened: async (token, cap, hash, at) => {
       calls.push(`addScreened ${token} ${cap} ${hash.slice(0, 10)} ${at}`);
-      return "0xa1";
+      return { hash: "0xa1", gasUsed: 150_000n };
     },
     recordScreen: async (token, hash) => {
       calls.push(`recordScreen ${token} ${hash.slice(0, 10)}`);
-      return "0xa2";
+      return { hash: "0xa2", gasUsed: 40_000n };
     },
     setSellOnly: async (token) => {
       calls.push(`setSellOnly ${token}`);
-      return "0xa3";
+      return { hash: "0xa3", gasUsed: 35_000n };
     },
     addScreenedPool: async (seed) => {
       calls.push(`addScreenedPool ${seed.venue} ${seed.token0}/${seed.token1} ${seed.fee}`);
       registered.add(`${seed.token0}/${seed.token1}/${seed.fee}`);
-      return "0xa4";
+      return { hash: "0xa4", gasUsed: 200_000n };
     },
     poolRegistered: async (seed) => registered.has(`${seed.token0}/${seed.token1}/${seed.fee}`),
     tokenRecord: async () => record,
@@ -105,9 +113,15 @@ function fakes(record: { lane: number; status: number }) {
     ) => {
       mirrored.push(`${address} ${lane} ${status}`);
     },
+    passingUnregistered: async (_c: number, _min: number, limit: number) =>
+      (table.passing ?? []).slice(0, limit),
+    refusedListed: async (_c: number, limit: number) => (table.refused ?? []).slice(0, limit),
+    screens: async (_c: number, address: string, limit: number) =>
+      (table.screens?.[address] ?? []).slice(0, limit),
+    poolsOf: async (_c: number, address: string) => table.pools?.[address] ?? [],
   } as unknown as TokenStore;
   const registrar = new Registrar({ chainId: 143, store, chain, reader, log: () => undefined });
-  return { registrar, calls, mirrored };
+  return { registrar, calls, mirrored, chain };
 }
 
 describe("the screened-lane registrar", () => {
@@ -171,6 +185,52 @@ describe("the screened-lane registrar", () => {
     // Already sell-only: nothing to tighten.
     const already = fakes({ lane: 2, status: 2 });
     expect(await already.registrar.afterScreen(MEME, screen("refused"), [])).toEqual([]);
+  });
+
+  it("sweeps without a screen running: registers every fresh passing token without a lane, bounded per pass, and tightens a refused listed one, each action with its gas (F-T2)", async () => {
+    const other = "0x00000000000000000000000000000000000000ef" as Hex;
+    const t = fakes(
+      { lane: 0, status: 0 },
+      {
+        passing: [MEME, other],
+        screens: { [MEME]: [screen("passed")], [other]: [{ ...screen("passed"), address: other }] },
+        pools: { [MEME]: [pool()], [other]: [pool({ token0: other })] },
+      },
+    );
+    // Bounded: one registration this pass; the other token waits for the next.
+    const first = await t.registrar.sweep(1);
+    expect(first.map((a) => `${a.action} ${a.gasUsed}`)).toEqual([
+      "ADD_SCREENED 150000",
+      "ADD_POOL 200000",
+    ]);
+    expect(t.registrar.gas).toEqual({
+      addScreened: [150_000n],
+      addScreenedPool: [200_000n],
+      recordScreen: [],
+      setSellOnly: [],
+    });
+    expect(t.calls.filter((c) => c.startsWith("addScreened "))).toHaveLength(1);
+    // A listed screened token whose latest screen was refused goes sell-only on the pass.
+    const u = fakes(
+      { lane: 2, status: 1 },
+      { refused: [MEME], screens: { [MEME]: [screen("refused")] } },
+    );
+    const tightened = await u.registrar.sweep();
+    expect(tightened.map((a) => `${a.action} ${a.gasUsed}`)).toEqual(["SELL_ONLY 35000"]);
+    expect(u.mirrored[0]).toBe(`${MEME} screened sell_only`);
+    // A token with no screen on record is skipped; a chain failure on one token is a note, not a stop.
+    const none = fakes({ lane: 0, status: 0 }, { passing: [MEME] });
+    expect(await none.registrar.sweep()).toEqual([]);
+    const failing = fakes(
+      { lane: 0, status: 0 },
+      { passing: [MEME], screens: { [MEME]: [screen("passed")] }, pools: { [MEME]: [pool()] } },
+    );
+    failing.chain.addScreened = async () => {
+      throw new Error("the registrar's transaction would use 1200000 gas, over 1000000");
+    };
+    const noted = await failing.registrar.sweep();
+    expect(noted.map((a) => a.action)).toEqual(["NOTE"]);
+    expect(noted[0]?.detail).toMatch(/over 1000000/);
   });
 
   it("builds a pool seed with sorted tokens, a zero pool for v4, and refuses a hooked pool; the screener key is anvil account 3", () => {

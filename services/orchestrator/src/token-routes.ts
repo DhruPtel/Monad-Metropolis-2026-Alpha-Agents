@@ -112,6 +112,22 @@ export function registerTokenRoutes(
     }
   });
 
+  /** F-T2: the registrar's background pass now: every fresh passing token without a lane, bounded. */
+  app.post("/v1/tokens/registrar/sweep", async (c) => {
+    const registrar = o.registry?.registrar ?? null;
+    if (!registrar) return c.json({ configured: false }, 503);
+    const actions = await registrar.sweep();
+    return c.json({
+      actions: actions.map((a) => ({
+        ...a,
+        gasUsed: a.gasUsed === null ? null : a.gasUsed.toString(),
+      })),
+      gas: Object.fromEntries(
+        Object.entries(registrar.gas).map(([k, v]) => [k, v.map((g) => g.toString())]),
+      ),
+    });
+  });
+
   /** Look up any token by address (D-360): found from the token itself and saved for every agent. */
   app.post("/v1/tokens/lookup", async (c) => {
     const r = o.registry;

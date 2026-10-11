@@ -578,6 +578,37 @@ export class TokenStore {
   }
 
   /** Tokens whose screen is missing or expired, deepest first, above a liquidity floor. */
+  /** F-T2: tokens with a fresh passing screen and no lane yet, deepest first: the registrar's work. */
+  async passingUnregistered(chainId: number, minLiquidityUsd: number, limit: number) {
+    return this.db
+      .selectFrom("platform.tokens")
+      .select(["address", "liquidity_usd"])
+      .where("chain_id", "=", chainId)
+      .where("registry_lane", "is", null)
+      .where("screen_verdict", "=", "passed")
+      .where("screen_expires_at", ">", new Date(this.now()))
+      .where("liquidity_usd", ">=", minLiquidityUsd)
+      .orderBy("liquidity_usd", "desc")
+      .limit(limit)
+      .execute()
+      .then((rows) => rows.map((r) => r.address));
+  }
+
+  /** F-T2: listed screened tokens whose latest screen was refused: the registrar moves them to sell-only. */
+  async refusedListed(chainId: number, limit: number): Promise<string[]> {
+    return this.db
+      .selectFrom("platform.tokens")
+      .select("address")
+      .where("chain_id", "=", chainId)
+      .where("registry_lane", "=", "screened")
+      .where("registry_status", "=", "listed")
+      .where("screen_verdict", "=", "refused")
+      .orderBy("liquidity_usd", "desc")
+      .limit(limit)
+      .execute()
+      .then((rows) => rows.map((r) => r.address));
+  }
+
   async dueForScreen(chainId: number, minLiquidityUsd: number, limit: number): Promise<string[]> {
     const rows = await this.db
       .selectFrom("platform.tokens")

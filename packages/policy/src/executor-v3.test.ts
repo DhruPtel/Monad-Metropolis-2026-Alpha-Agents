@@ -85,6 +85,14 @@ describe("Executor v3 parity with the contract (F-U4)", () => {
     expect(f.policyHash).toBe(ex.LAUNCH_POLICY_HASH);
   });
 
+  it("refuses a buy of a sell-only screened token with that one reason, opted in or not (F-T2)", () => {
+    const st = fixtureStates().find((x) => x.name === "a sell-only token refuses a buy");
+    expect(st).toBeDefined();
+    if (!st) return;
+    expect(ex.blockers(st.intent, { ...st.market, optedIn: true })).toEqual(["TOKEN_SELL_ONLY"]);
+    expect(ex.blockers(st.intent, { ...st.market, optedIn: false })).toEqual(["TOKEN_SELL_ONLY"]);
+  });
+
   it("names its first refusal first in the blockers, on every fixture case", () => {
     for (const st of fixtureStates()) {
       const first = ex.preCheck(st.intent, st.market);

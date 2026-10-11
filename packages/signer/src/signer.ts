@@ -738,6 +738,19 @@ export class Signer {
           if (this.#o.environment !== "local") return null; // a lagging provider: wait for it
           note = `nonce ${nonce} realigned to ${pending}: the local fork was reset`;
           nonce = pending;
+          // F-T2 (L-217): the rows that used the nonces the reset took back keep their history and
+          // hashes, but free their nonce column, or the sequence that starts again at `pending`
+          // would collide with them on the outbox's unique nonce.
+          const freed = await trx
+            .updateTable("platform.signer_outbox")
+            .set({ nonce: null, updated_at: sql`now()` })
+            .where("chain_id", "=", this.chainId)
+            .where("key_address", "=", row.key_address)
+            .where("nonce", ">=", pending)
+            .where("tx_id", "!=", row.tx_id)
+            .executeTakeFirst();
+          if (freed.numUpdatedRows > 0n)
+            note += `; ${freed.numUpdatedRows} earlier row(s) freed their nonce`;
         }
         const tx: TransactionSerializableEIP1559 = {
           type: "eip1559",

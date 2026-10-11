@@ -570,7 +570,8 @@ export function blockers(
   if (rin.lane === "NONE" || rout.lane === "NONE") add("ASSET_NOT_ALLOWED");
   if (rin.status === "FROZEN" || (!intoUsdc && rout.status === "FROZEN")) add("TOKEN_FROZEN");
   if (!intoUsdc && rout.status === "SELL_ONLY") add("TOKEN_SELL_ONLY");
-  if (!intoUsdc && rout.lane === "SCREENED" && !(rout.status === "BUYABLE" && m.optedIn))
+  // F-T2: the opt-in is a reason only for a buyable screened token; a sell-only or frozen one has its own.
+  if (!intoUsdc && rout.lane === "SCREENED" && rout.status === "BUYABLE" && !m.optedIn)
     add("NOT_OPTED_IN");
   if (i.deadline < m.now) add("DEADLINE_EXPIRED");
   if (i.deadline > m.now + BigInt(p.deadlineSeconds)) add("DEADLINE_TOO_FAR");

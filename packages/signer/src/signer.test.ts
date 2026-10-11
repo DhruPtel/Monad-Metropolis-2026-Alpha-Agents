@@ -344,6 +344,38 @@ describe.skipIf(!dbUp)("the signer's outbox (needs Postgres)", { timeout: 60_000
     expect(await nextNonce()).toBe(0);
   });
 
+  it("restarts after the local fork was reset below its recorded nonces without a nonce conflict (F-T2, L-217)", async () => {
+    const first = make();
+    await first.createKey(AGENT);
+    const earlier: string[] = [];
+    for (let i = 0; i < 2; i++) {
+      earlier.push((await first.submitSwap(AGENT, intent())).txId);
+      await ticks(first);
+    }
+    expect(await nextNonce()).toBe(2);
+    const keyAddress = (await row(earlier[0] ?? "")).key_address as Hex;
+    // The fork is restored to a state before those two transactions: the key's nonce is 0 again.
+    chain.mined.set(keyAddress.toLowerCase(), 0);
+    chain.pool.clear();
+    const restarted = make();
+    const c = await restarted.submitSwap(AGENT, intent());
+    await ticks(restarted);
+    expect(await row(c.txId)).toMatchObject({ status: "reconciled", nonce: 0 });
+    expect(JSON.stringify((await row(c.txId)).history)).toMatch(/realigned to 0.*2 earlier row/);
+    expect(logs.some((l) => /duplicate key|signer_outbox_nonce/.test(l))).toBe(false);
+    // The earlier rows keep their history and hashes; only their nonce column is freed.
+    for (const id of earlier) {
+      const r = await row(id);
+      expect(r.status).toBe("reconciled");
+      expect(r.nonce).toBeNull();
+      expect(r.tx_hash).not.toBeNull();
+    }
+    expect(await nextNonce()).toBe(1);
+    const d = await restarted.submitSwap(AGENT, intent());
+    await ticks(restarted);
+    expect(await row(d.txId)).toMatchObject({ status: "reconciled", nonce: 1 });
+  });
+
   it("keeps nonces across a restart: no reuse and no gap", async () => {
     const first = make();
     await first.createKey(AGENT);

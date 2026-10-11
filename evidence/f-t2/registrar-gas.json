@@ -1,0 +1,14 @@
+{
+  "measuredAt": "2026-10-11T21:46:07.917Z",
+  "fork": "a test fork of Monad mainnet at the pinned block, port 8565",
+  "gas": [
+    {
+      "action": "ADD_SCREENED",
+      "gasUsed": "145939"
+    },
+    {
+      "action": "ADD_POOL",
+      "gasUsed": "202968"
+    }
+  ]
+}

@@ -38,7 +38,12 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from
 import { Attestor, type PriceSource, attestorKeyFrom, localAttestorKey } from "./attestor.ts";
 import { fixedSource, poolQuoteSource } from "./attestor-sources.ts";
 import { withAttestedPrices } from "./attested-reader.ts";
-import { Registrar, localScreenerKey, viemScreenerChain } from "./tokens/registrar.ts";
+import {
+  MAX_REGISTRAR_GAS,
+  Registrar,
+  localScreenerKey,
+  viemScreenerChain,
+} from "./tokens/registrar.ts";
 import type { PoolRow, ScreenRecord, TokenStore } from "./tokens/store.ts";
 import { TradeFlow, swapGasCost } from "./trade-flow.ts";
 
@@ -69,10 +74,20 @@ const WBTC = "0x0555e30da8f98308edb960aa94c0db47230d2b9c" as Hex;
 const book = (id: Parameters<typeof addressEntry>[1]) => addressEntry("local", id).address as Hex;
 const ACCOUNT_ABI = parseAbi(["function setScreenedOptIn(bool optIn)"]);
 
-const screenRecord = (verdict: "passed" | "refused"): ScreenRecord => ({
-  screenId: `screen-${verdict}`,
+/** CHAOS on Monad: class A, a 1.1M USD hookless v4 pool against USDC, fee 3000, tick spacing 60. */
+const CHAOS = "0xdcd8114f42fd40db1914de241c75adc9e3c1722e" as Hex;
+/** SAKURA and LV on Monad: class A, SAKURA against WMON on Uniswap v3 (fee 3000), LV on PancakeSwap v3 (fee 2500). */
+const SAKURA = "0x2f68fdad1130e05dc16421553512ebf9e63a50da" as Hex;
+const LV = "0x1001ff13bf368aa4fa85f21043648079f00e1001" as Hex;
+const V3_FACTORY_ABI = parseAbi([
+  "function getPool(address tokenA, address tokenB, uint24 fee) view returns (address pool)",
+]);
+const V3_POOL_ABI = parseAbi(["function tickSpacing() view returns (int24)"]);
+
+const screenRecord = (verdict: "passed" | "refused", address: Hex = GHO): ScreenRecord => ({
+  screenId: `screen-${verdict}-${address.slice(-4)}`,
   chainId: CHAIN,
-  address: GHO,
+  address,
   verdict,
   checks: [],
   route: null,
@@ -179,6 +194,61 @@ describe.skipIf(upstream === null || !dbUp)(
         reader: readerV3,
         log: () => undefined,
       });
+
+    /** A v3 or PancakeSwap v3 pool as discovery records it, its address and tick spacing read from the fork. */
+    async function v3PoolRow(
+      dex: "uniswap_v3" | "pancakeswap_v3",
+      a: Hex,
+      b: Hex,
+      fee: number,
+    ): Promise<PoolRow> {
+      const factory = book(dex === "uniswap_v3" ? "uniswap_v3_factory" : "pancakeswap_v3_factory");
+      const pool = await client().readContract({
+        address: factory,
+        abi: V3_FACTORY_ABI,
+        functionName: "getPool",
+        args: [a, b, fee],
+      });
+      expect(pool, `${dex} pool of ${a}`).not.toBe(zeroAddress);
+      const tickSpacing = await client().readContract({
+        address: pool,
+        abi: V3_POOL_ABI,
+        functionName: "tickSpacing",
+      });
+      const [token0, token1] = a.toLowerCase() < b.toLowerCase() ? [a, b] : [b, a];
+      return {
+        poolId: pool,
+        dex,
+        token0,
+        token1,
+        fee,
+        tickSpacing,
+        hooks: null,
+        routable: true,
+        routeNote: `${dex} pool, fee ${fee}`,
+        liquidityUsd: 100_000,
+        volume24hUsd: 0,
+        createdAt: null,
+        firstSeenAt: new Date().toISOString(),
+      };
+    }
+
+    /** CHAOS's pool as discovery records it: a hookless v4 pool against USDC, fee 3000. */
+    const chaosPool = (): PoolRow => ({
+      poolId: zeroAddress,
+      dex: "uniswap_v4",
+      token0: book("usdc"),
+      token1: CHAOS,
+      fee: 3000,
+      tickSpacing: 60,
+      hooks: null,
+      routable: true,
+      routeNote: "Hookless Uniswap v4 pool, fee 3000, tick spacing 60",
+      liquidityUsd: 1_100_000,
+      volume24hUsd: 0,
+      createdAt: null,
+      firstSeenAt: new Date().toISOString(),
+    });
 
     /** GHO's pool as discovery records it: a hookless v4 pool against USDC. */
     const ghoPool = (): PoolRow => ({
@@ -380,6 +450,25 @@ describe.skipIf(upstream === null || !dbUp)(
       expect(await ghoOnChain()).toBeNull();
       const actions = await registrar().afterScreen(GHO, screenRecord("passed"), [ghoPool()]);
       expect(actions.map((a) => a.action)).toEqual(["ADD_SCREENED", "ADD_POOL"]);
+      // F-T2: each registration's gas, as mined, within the registrar's bound; recorded as evidence.
+      for (const a of actions) {
+        expect(a.gasUsed).not.toBeNull();
+        expect(a.gasUsed ?? 0n).toBeLessThan(MAX_REGISTRAR_GAS);
+      }
+      const { mkdirSync, writeFileSync } = await import("node:fs");
+      mkdirSync("evidence/f-t2", { recursive: true });
+      writeFileSync(
+        "evidence/f-t2/registrar-gas.json",
+        `${JSON.stringify(
+          {
+            measuredAt: new Date().toISOString(),
+            fork: "a test fork of Monad mainnet at the pinned block, port 8565",
+            gas: actions.map((a) => ({ action: a.action, gasUsed: String(a.gasUsed) })),
+          },
+          null,
+          2,
+        )}\n`,
+      );
       const gho = await ghoOnChain();
       expect(gho).toMatchObject({ lane: "SCREENED", status: "BUYABLE", priceClass: "A" });
       expect(mirrored).toContain(`${GHO} screened listed`);
@@ -504,6 +593,109 @@ describe.skipIf(upstream === null || !dbUp)(
       expect(JSON.stringify([none?.reasonCodes, none?.blockers])).toMatch(
         /ATTESTOR_UNAVAILABLE|ATTESTATION_REQUIRED/,
       );
+    });
+
+    it("holds the 50% total class A cap with four screened class A tokens on an account of 100 USDC: each may reach 15%, together no more than 50% (F-T2)", async () => {
+      const custody = await import("../../../scripts/lib/custody.js");
+      const saved = { agentId, account, owner, key };
+      try {
+        // A second owner's agent with 100 USDC only, so half of it can be class A above the USDC floor.
+        owner = custody.testOwner(7) as Hex;
+        agentId = Number(await custody.ownersAgent(book("agent_nft"), owner));
+        account = (await createTestPersonalAccountV3(fork.url, agentId, owner)) as Hex;
+        await fundTestPersonalAccountV3(fork.url, agentId, owner, [
+          { token: book("usdc"), usdcE6: 100_000_000n },
+        ]);
+        key = await signer.createKey(agentId);
+        // Four real class A tokens, each registered by the registrar after a passing screen with its
+        // pool: GHO and CHAOS against USDC on v4, SAKURA against WMON on Uniswap v3, LV on PancakeSwap v3.
+        const sakuraPool = await v3PoolRow("uniswap_v3", SAKURA, book("wmon"), 3000);
+        const lvPool = await v3PoolRow("pancakeswap_v3", LV, book("wmon"), 2500);
+        const r = registrar();
+        for (const [token, pools] of [
+          [GHO, [ghoPool()]],
+          [CHAOS, [chaosPool()]],
+          [SAKURA, [sakuraPool]],
+          [LV, [lvPool]],
+        ] as const) {
+          const actions = await r.afterScreen(token, screenRecord("passed", token), [...pools]);
+          expect(
+            actions.map((a) => a.action),
+            token,
+          ).toEqual(["ADD_SCREENED", "ADD_POOL"]);
+        }
+        await sendAs(
+          fork.url,
+          owner,
+          account,
+          encodeFunctionData({ abi: ACCOUNT_ABI, functionName: "setScreenedOptIn", args: [true] }),
+        );
+        // The attestor: two sources at each token's own pool price (the oracle's `poolPrice`), the
+        // price the Executor checks an attestation against. SAKURA's pool is one-sided enough that
+        // a two-way route quote lands far under its spot, so the quoted source is not used here.
+        const mm = await readerV3.market();
+        const fixedPrices: Record<string, bigint> = {};
+        for (const token of [GHO, CHAOS, SAKURA, LV]) {
+          const px = mm.pools.find((x) => isAddressEqual(x.pricedToken, token))?.poolPriceE18 ?? 0n;
+          expect(px, token).toBeGreaterThan(0n);
+          fixedPrices[token] = px;
+        }
+        const f = flow(
+          attestorWith([fixedSource("spot-a", fixedPrices), fixedSource("spot-b", fixedPrices)]),
+        );
+        const outcome = async (id: string) => {
+          const o = await run(f, id);
+          return `${o?.status} ${JSON.stringify(o?.reasonCodes ?? [])}`;
+        };
+        const first = await propose("USDC", "GHO", 9_900_000n);
+        await f.tick();
+        await armV3();
+        expect(await approveByOwner(trades, CHAIN, agentId, first.id)).toMatchObject({ ok: true });
+        expect(await outcome(first.id)).toBe("reconciled []");
+        // Each token to a basis of 12.5 USDC (9.9 then 2.6, under the 10% trade limit): 50% together.
+        const legs: [Hex, bigint][] = [
+          [GHO, 2_600_000n],
+          [CHAOS, 9_900_000n],
+          [CHAOS, 2_600_000n],
+          [SAKURA, 9_900_000n],
+          [SAKURA, 2_600_000n],
+          [LV, 9_900_000n],
+          [LV, 2_600_000n],
+        ];
+        const symbolOf = { [GHO]: "GHO", [CHAOS]: "CHAOS", [SAKURA]: "SAKURA", [LV]: "LV" };
+        for (const [token, usdcE6] of legs) {
+          const p = await propose("USDC", symbolOf[token] ?? "GHO", usdcE6);
+          await f.tick();
+          await approveByOwner(trades, CHAIN, agentId, p.id);
+          expect(await outcome(p.id), `${symbolOf[token]} ${usdcE6}`).toBe("reconciled []");
+        }
+        const values = (await readerV3.agent(agentId))?.values;
+        expect(values?.classABasis).toBe(50_000_000n);
+        expect(values?.totalBasis).toBe(100_000_000n);
+        const held = await Promise.all([GHO, CHAOS, SAKURA, LV].map((t) => balance(t)));
+        for (const h of held) expect(h).toBeGreaterThan(0n);
+        // One more USDC of GHO: 51% class A together, over the 50% total cap, though GHO itself is at 13.5%.
+        const over = await propose("USDC", "GHO", 1_000_000n);
+        await f.tick();
+        await approveByOwner(trades, CHAIN, agentId, over.id);
+        const refused = await run(f, over.id);
+        expect(refused?.status).not.toBe("reconciled");
+        expect(JSON.stringify([refused?.reasonCodes, refused?.blockers])).toMatch(
+          /CLASS_A_TOTAL_CAP/,
+        );
+        expect(JSON.stringify([refused?.reasonCodes, refused?.blockers])).not.toMatch(
+          /CLASS_A_POSITION_CAP/,
+        );
+        expect(await Promise.all([GHO, CHAOS, SAKURA, LV].map((t) => balance(t)))).toEqual(held);
+        // A sale of half the CHAOS back to USDC (under the 10% trade limit) still goes through: the
+        // cap binds buys, never exits.
+        const sale = await propose("CHAOS", "USDC", (held[1] ?? 0n) / 2n);
+        await f.tick();
+        expect(await outcome(sale.id)).toBe("reconciled []");
+        expect(await balance(CHAOS)).toBeLessThan(held[1] ?? 0n);
+      } finally {
+        ({ agentId, account, owner, key } = saved);
+      }
     });
 
     it("moves a token to sell-only on a refused re-screen: the account sells it and no longer buys it", async () => {

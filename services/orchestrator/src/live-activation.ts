@@ -400,19 +400,32 @@ async function main(): Promise<number> {
   );
   if (OPEN) {
     step(
-      "a class A token looked up and screened: a passing screen registers it in the screened lane (D-342)",
+      "class A tokens looked up and screened: a passing screen registers each in the screened lane (D-342)",
     );
-    const looked = await api("/v1/tokens/lookup", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ address: GHO }),
-    });
-    const at = Date.now();
-    const r = await api(`/v1/tokens/${GHO}/screen`, { method: "POST" });
-    const verdict = (r.body.screen as { verdict?: string } | undefined)?.verdict ?? "error";
-    console.log(
-      `   GHO: lookup ${looked.status}, screen ${verdict} in ${Math.round((Date.now() - at) / 1000)} s${r.status !== 200 ? ` (${r.status} ${String(r.body.message ?? "")})` : ""}`,
-    );
+    // F-T2: three more real class A tokens beside GHO, so the open universe has several buyable ones.
+    const classA: { symbol: string; address: Hex; lookup: number; verdict: string }[] = [];
+    for (const [symbol, address] of [
+      ["GHO", GHO],
+      ["CHAOS", "0xdcd8114f42fd40db1914de241c75adc9e3c1722e" as Hex],
+      ["SAKURA", "0x2f68fdad1130e05dc16421553512ebf9e63a50da" as Hex],
+      ["LV", "0x1001ff13bf368aa4fa85f21043648079f00e1001" as Hex],
+    ] as const) {
+      const lookedUp = await api("/v1/tokens/lookup", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ address }),
+      });
+      const at = Date.now();
+      const r = await api(`/v1/tokens/${address}/screen`, { method: "POST" });
+      const v = (r.body.screen as { verdict?: string } | undefined)?.verdict ?? "error";
+      classA.push({ symbol, address, lookup: lookedUp.status, verdict: v });
+      console.log(
+        `   ${symbol}: lookup ${lookedUp.status}, screen ${v} in ${Math.round((Date.now() - at) / 1000)} s${r.status !== 200 ? ` (${r.status} ${String(r.body.message ?? "")})` : ""}`,
+      );
+    }
+    report.classATokens = classA;
+    const looked = { status: classA[0]?.lookup ?? 0 };
+    const verdict = classA[0]?.verdict ?? "error";
     const view = (await api(`/v1/tokens/${GHO}`)).body as {
       token?: { registryLane?: string | null; registryStatus?: string | null; priceClass?: string };
     };

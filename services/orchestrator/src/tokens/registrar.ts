@@ -61,6 +61,21 @@ export function localScreenerKey(): Hex {
   return `0x${Buffer.from(key).toString("hex")}` as Hex;
 }
 
+/** A registrar transaction as mined: its hash and the gas it used (null when the chain did not say). */
+export interface SentTx {
+  readonly hash: Hex;
+  readonly gasUsed: bigint | null;
+}
+
+/** The most gas one registrar transaction may use (addScreenedPool reads the pool's state). */
+export const MAX_REGISTRAR_GAS = 1_000_000n;
+/** The most the registrar pays per gas, 100 gwei: far above Monad's base fee, a bound not a target. */
+export const MAX_REGISTRAR_FEE_PER_GAS = 100_000_000_000n;
+/** A sweep registers at most this many tokens and tightens at most this many (F-T2, A-85). */
+export const REGISTRATIONS_PER_SWEEP = 3;
+/** The least liquidity a token needs for the sweep to register it (the screen loop's own floor). */
+export const SWEEP_MIN_LIQUIDITY_USD = 50_000;
+
 /** The screener key's chain calls: the registrations and the one tightening. */
 export interface ScreenerChain {
   readonly address: Hex;
@@ -69,10 +84,10 @@ export interface ScreenerChain {
     maxPositionBps: number,
     screenHash: Hex,
     screenedAt: bigint,
-  ): Promise<Hex>;
-  recordScreen(token: Hex, screenHash: Hex, screenedAt: bigint): Promise<Hex>;
-  setSellOnly(token: Hex): Promise<Hex>;
-  addScreenedPool(seed: PoolSeed): Promise<Hex>;
+  ): Promise<SentTx>;
+  recordScreen(token: Hex, screenHash: Hex, screenedAt: bigint): Promise<SentTx>;
+  setSellOnly(token: Hex): Promise<SentTx>;
+  addScreenedPool(seed: PoolSeed): Promise<SentTx>;
   poolRegistered(seed: PoolSeed): Promise<boolean>;
   tokenRecord(token: Hex): Promise<{ lane: number; status: number }>;
   /** The chain's clock (its latest block's timestamp): the screen is stamped by it, since the registry's TTL is. */
@@ -105,12 +120,32 @@ export function viemScreenerChain(o: {
   } as const;
   const wallet = createWalletClient({ account, chain, transport });
   const client = createPublicClient({ chain, transport });
-  const send = async (request: Parameters<typeof wallet.writeContract>[0]): Promise<Hex> => {
-    const hash = await wallet.writeContract(request);
+  /** Sends within the gas bounds: the simulation's gas estimate under MAX_REGISTRAR_GAS, the fee under the cap. */
+  const send = async (request: Parameters<typeof wallet.writeContract>[0]): Promise<SentTx> => {
+    const estimated = (request as { gas?: bigint }).gas ?? null;
+    if (estimated !== null && estimated > MAX_REGISTRAR_GAS)
+      throw new Error(
+        `the registrar's transaction would use ${estimated} gas, over ${MAX_REGISTRAR_GAS}`,
+      );
+    const fees = await client.estimateFeesPerGas().catch(() => null);
+    const maxFeePerGas =
+      fees?.maxFeePerGas !== undefined && fees.maxFeePerGas < MAX_REGISTRAR_FEE_PER_GAS
+        ? fees.maxFeePerGas
+        : MAX_REGISTRAR_FEE_PER_GAS;
+    const maxPriorityFeePerGas =
+      fees?.maxPriorityFeePerGas !== undefined && fees.maxPriorityFeePerGas < maxFeePerGas
+        ? fees.maxPriorityFeePerGas
+        : 0n;
+    const hash = await wallet.writeContract({
+      ...request,
+      gas: estimated ?? MAX_REGISTRAR_GAS,
+      maxFeePerGas,
+      maxPriorityFeePerGas,
+    } as never);
     const receipt = await client.waitForTransactionReceipt({ hash, timeout: 60_000 });
     if (receipt.status !== "success")
       throw new Error(`the registrar's transaction ${hash} reverted`);
-    return hash;
+    return { hash, gasUsed: receipt.gasUsed };
   };
   const seedTuple = (s: PoolSeed) =>
     ({
@@ -200,6 +235,8 @@ export interface RegistrarAction {
   readonly action: "ADD_SCREENED" | "RECORD_SCREEN" | "SELL_ONLY" | "ADD_POOL" | "NOTE";
   readonly detail: string;
   readonly txHash: Hex | null;
+  /** The gas the transaction used, as mined; null for a note. */
+  readonly gasUsed: bigint | null;
 }
 
 export interface RegistrarDeps {
@@ -257,6 +294,7 @@ export class Registrar {
             action: "NOTE",
             detail: "no routable pool against a listed token; not registered",
             txHash: null,
+            gasUsed: null,
           });
           this.d.log(
             `registrar: ${token} passed its screen but has no routable pool against a listed token`,
@@ -266,22 +304,28 @@ export class Registrar {
         const tx = await this.d.chain.addScreened(token, SCREENED_POSITION_BPS, hash, screenedAt);
         // The table learns the lane now, from what was just written: a market read may be cached.
         await this.d.store.setRegistry(this.d.chainId, token, "screened", "listed");
+        this.noteGas("addScreened", tx.gasUsed);
         out.push({
           token,
           action: "ADD_SCREENED",
           detail: `screened lane, cap ${SCREENED_POSITION_BPS} bps`,
-          txHash: tx,
+          txHash: tx.hash,
+          gasUsed: tx.gasUsed,
         });
-        this.d.log(`registrar: ${token} registered in the screened lane (${tx})`);
+        this.d.log(
+          `registrar: ${token} registered in the screened lane (${tx.hash}, ${tx.gasUsed ?? "?"} gas)`,
+        );
         for (const seed of seeds) {
           if (await this.d.chain.poolRegistered(seed)) continue;
           try {
             const ptx = await this.d.chain.addScreenedPool(seed);
+            this.noteGas("addScreenedPool", ptx.gasUsed);
             out.push({
               token,
               action: "ADD_POOL",
               detail: `${seed.venue === 3 ? "uniswap_v4" : seed.venue === 2 ? "pancakeswap_v3" : "uniswap_v3"} ${seed.token0}/${seed.token1} fee ${seed.fee}`,
-              txHash: ptx,
+              txHash: ptx.hash,
+              gasUsed: ptx.gasUsed,
             });
           } catch (err) {
             out.push({
@@ -289,33 +333,99 @@ export class Registrar {
               action: "NOTE",
               detail: `pool not registered: ${err instanceof Error ? err.message.slice(0, 120) : String(err)}`,
               txHash: null,
+              gasUsed: null,
             });
           }
         }
       } else {
         const tx = await this.d.chain.recordScreen(token, hash, screenedAt);
+        this.noteGas("recordScreen", tx.gasUsed);
         out.push({
           token,
           action: "RECORD_SCREEN",
           detail: "a passing screen recorded",
-          txHash: tx,
+          txHash: tx.hash,
+          gasUsed: tx.gasUsed,
         });
       }
     } else if (record.lane === 2 && record.status === 1) {
       const tx = await this.d.chain.setSellOnly(token);
       await this.d.store.setRegistry(this.d.chainId, token, "screened", "sell_only");
-      out.push({ token, action: "SELL_ONLY", detail: `the re-screen was refused`, txHash: tx });
-      this.d.log(`registrar: ${token} moved to sell-only after a refused screen (${tx})`);
+      this.noteGas("setSellOnly", tx.gasUsed);
+      out.push({
+        token,
+        action: "SELL_ONLY",
+        detail: `the re-screen was refused`,
+        txHash: tx.hash,
+        gasUsed: tx.gasUsed,
+      });
+      this.d.log(
+        `registrar: ${token} moved to sell-only after a refused screen (${tx.hash}, ${tx.gasUsed ?? "?"} gas)`,
+      );
     } else if (record.lane === 1 && record.status === 1) {
       out.push({
         token,
         action: "NOTE",
         detail: "a core token's screen was refused; the guardian decides",
         txHash: null,
+        gasUsed: null,
       });
       this.d.log(`registrar: core token ${token} failed its screen; left to the guardian`);
     }
     await this.sync();
+    return out;
+  }
+
+  /** The gas each kind of registrar transaction used, as mined (F-T2, A-85). */
+  readonly gas: Record<
+    "addScreened" | "addScreenedPool" | "recordScreen" | "setSellOnly",
+    bigint[]
+  > = { addScreened: [], addScreenedPool: [], recordScreen: [], setSellOnly: [] };
+
+  private noteGas(kind: keyof Registrar["gas"], used: bigint | null): void {
+    if (used !== null) this.gas[kind].push(used);
+  }
+
+  /**
+   * F-T2: the background pass. Every token with a fresh passing screen and no
+   * lane joins the screened lane (at most `limit` per pass, deepest first,
+   * each within the gas bounds), and every listed screened token whose latest
+   * screen was refused goes sell-only, without waiting for a sweep to screen
+   * it. A failure on one token never stops the others.
+   */
+  async sweep(limit = REGISTRATIONS_PER_SWEEP): Promise<RegistrarAction[]> {
+    const out: RegistrarAction[] = [];
+    const one = async (address: string, pools: boolean) => {
+      const token = address as Hex;
+      const [screen] = await this.d.store.screens(this.d.chainId, address, 1);
+      if (!screen) return;
+      try {
+        out.push(
+          ...(await this.afterScreen(
+            token,
+            screen,
+            pools ? await this.d.store.poolsOf(this.d.chainId, address) : [],
+          )),
+        );
+      } catch (err) {
+        const detail = err instanceof Error ? err.message.slice(0, 160) : String(err);
+        out.push({
+          token,
+          action: "NOTE",
+          detail: `sweep: ${detail}`,
+          txHash: null,
+          gasUsed: null,
+        });
+        this.d.log(`registrar: sweep: ${address}: ${detail}`);
+      }
+    };
+    for (const a of await this.d.store.passingUnregistered(
+      this.d.chainId,
+      SWEEP_MIN_LIQUIDITY_USD,
+      limit,
+    ))
+      await one(a, true);
+    for (const a of await this.d.store.refusedListed(this.d.chainId, limit)) await one(a, false);
     return out;
   }
 
