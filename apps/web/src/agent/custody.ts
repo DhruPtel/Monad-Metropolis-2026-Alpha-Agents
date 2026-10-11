@@ -43,6 +43,17 @@ export const ACCOUNT_ABI = parseAbi([
   "error NothingToClaim(address token)",
 ]);
 
+/**
+ * F-U12: the owner's own calls on the v3 PersonalAccount: the screened-lane
+ * opt-in (D-351) and the unpause after a Sentinel pause (P4-U2 follow-up).
+ */
+export const PERSONAL_ACCOUNT_ABI = parseAbi([
+  "function setScreenedOptIn(bool optIn)",
+  "function screenedOptIn() view returns (bool)",
+  "function unpause()",
+  "error NotOwner(address caller)",
+]);
+
 export const ERC20_ABI = parseAbi([
   "function approve(address spender, uint256 amount) returns (bool)",
   "function transfer(address to, uint256 amount) returns (bool)",

@@ -21,12 +21,14 @@ import {
   ThemesPanel,
   TriggerList,
   UniversePanel,
+  WalletActionStatus,
   WhyNotTraded,
 } from "@alpha-agents/ui";
 import { ArrowLeft, PlugZap, Wallet } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { type SentinelJson, type WhyNotTradedJson, tradingApi } from "@/api/client";
+import { useAccountTx } from "@/agent/use-account-tx";
 import { useResearch, useTerminal } from "@/agent/use-research";
 import { useOwnerSession } from "@/agent/use-owner-session";
 import { useWalletSession } from "@/auth/session";
@@ -54,6 +56,8 @@ export function ResearchPage({
   const [why, setWhy] = useState<WhyNotTradedJson | null>(null);
   const [sentinel, setSentinel] = useState<SentinelJson | null>(null);
   const asOwner = useOwnerSession(agentId);
+  // F-U12 (P4-U2 follow-up): the owner unpauses the account after a Sentinel pause, from their wallet.
+  const unpause = useAccountTx(environment);
   const [now, setNow] = useState(() => new Date().toISOString());
   useEffect(() => {
     const timer = window.setInterval(() => setNow(new Date().toISOString()), 15_000);
@@ -155,6 +159,10 @@ export function ResearchPage({
 
   const c = research.cadence;
   const s = research.schedule;
+  // The account the owner may unpause: the agent's v3 account while its mode is not normal.
+  const pausedAccount =
+    sentinel?.account && sentinel.mode && sentinel.mode !== "NORMAL" ? sentinel.account : null;
+
   return (
     <div className="flex flex-col gap-6" data-testid="research-page" data-agent={id}>
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -264,12 +272,43 @@ export function ResearchPage({
           active: sentinel?.active ?? {},
           lastCheckedAt: sentinel?.lastCheckedAt ?? null,
           actions: sentinel?.actions ?? [],
-          mode: research.snapshot?.mode ?? null,
+          mode: sentinel?.mode ?? research.snapshot?.mode ?? null,
         }}
         actions={
-          <Button asChild size="sm" variant="secondary">
-            <Link href={`/agents/${id}/portfolio`}>Open the portfolio</Link>
-          </Button>
+          <div className="flex flex-col gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <Button asChild size="sm" variant="secondary">
+                <Link href={`/agents/${id}/portfolio`}>Open the portfolio</Link>
+              </Button>
+              {pausedAccount ? (
+                <Button
+                  size="sm"
+                  disabled={unpause.busy}
+                  onClick={() =>
+                    void unpause
+                      .send(
+                        "Unpause the account",
+                        pausedAccount,
+                        { functionName: "unpause", args: [] },
+                        "The account is back to normal. The agent may trade again within its limits.",
+                      )
+                      .then((p) => {
+                        if (p?.state === "confirmed") refresh();
+                      })
+                  }
+                >
+                  Unpause after review
+                </Button>
+              ) : null}
+            </div>
+            {unpause.progress && unpause.text ? (
+              <WalletActionStatus
+                state={unpause.progress.state}
+                text={unpause.text}
+                hash={unpause.progress.hash ?? null}
+              />
+            ) : null}
+          </div>
         }
       />
 

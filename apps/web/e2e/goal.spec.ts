@@ -4,7 +4,8 @@ import { type Locator, type Page, expect, test } from "@playwright/test";
 import { MOCK_WALLET_ADDRESS } from "../src/auth/mock-wallet-constants";
 import { FakeApi, fundedDashboard } from "./fake-api";
 import { FakeChain } from "./fake-chain";
-import { FakeTrading, portfolioFixture } from "./fake-trading";
+import { decodeFunctionData, parseAbi } from "viem";
+import { ACCOUNT_V3, FakeTrading, portfolioFixture } from "./fake-trading";
 
 /**
  * The Goal page (P3-U1) against the test build with the mock wallet, the fake
@@ -175,6 +176,46 @@ test.describe("the Goal page", () => {
     await expect(saveStatus(page)).toContainText("Agent #7 stays Ready");
     expect(s.api.goals.saved.get(AGENT)?.strategyEpoch).toBe(2n);
     expect(s.api.goals.saved.get(AGENT)?.goal.excludedTokens).toEqual([]);
+  });
+
+  test("the screened-lane opt-in is recorded on chain from the owner's wallet (F-U12)", async ({
+    page,
+  }) => {
+    const s = stack();
+    await open(page, s);
+    const onchain = main(page).getByTestId("goal-onchain");
+    await expect(onchain).toHaveAttribute("data-state", "not-opted-in");
+    await expect(onchain).toContainText("The chain records no opt-in");
+    await expect(onchain.getByRole("button")).toHaveCount(0);
+    // Choosing the screened lane in the form is not enough: the chain has to record it.
+    await radio(page, "Screened lane", /^Opt into screened tokens/).click();
+    await expect(onchain).toContainText("Your choice is not on chain yet");
+    await onchain.getByRole("button", { name: "Record the opt-in on chain" }).click();
+    await expect(onchain.getByTestId("wallet-action-status")).toContainText(
+      "Your opt-in is recorded on chain.",
+      { timeout: 15_000 },
+    );
+    await expect(onchain).toHaveAttribute("data-state", "opted-in");
+    await expect(onchain.getByRole("button")).toHaveCount(0);
+    // The call sent was the account's setScreenedOptIn(true), from the owner's wallet.
+    const sent = s.chain.transactions.filter(
+      (t) => !t.reverted && t.to.toLowerCase() === ACCOUNT_V3.toLowerCase(),
+    );
+    expect(sent).toHaveLength(1);
+    expect(
+      decodeFunctionData({
+        abi: parseAbi(["function setScreenedOptIn(bool optIn)"]),
+        data: sent[0]?.data ?? "0x",
+      }),
+    ).toEqual({ functionName: "setScreenedOptIn", args: [true] });
+    // Back to the core lane: the chain still records the opt-in until the opt-out is sent.
+    await radio(page, "Screened lane", /^Core lane only/).click();
+    await expect(onchain).toContainText("The chain still records an opt-in");
+    await expect(
+      onchain.getByRole("button", { name: "Record the opt-out on chain" }),
+    ).toBeVisible();
+    await capture(page, main(page).getByTestId("goal-tokens"), "goal-onchain.png");
+    expect(await blockingViolations(page)).toEqual([]);
   });
 
   test("the month's cost follows the intensity and the daily budget", async ({ page }) => {

@@ -1329,13 +1329,18 @@ export class Orchestrator {
 
   /** P4-U2: the sentinel as the owner and the console read it: its actions, the conditions in force, the rules and the key. */
   async sentinelRead(ref: AgentRef) {
-    const [actions, watch] = await Promise.all([
+    const readerV3 = this.o.chain?.readerV3 ?? null;
+    const [actions, watch, agent] = await Promise.all([
       this.sentinelStore.actions(ref, 20),
       this.sentinelStore.watch(ref),
+      // F-U12: the account and its mode now, so the owner can unpause it after review.
+      readerV3 ? readerV3.agent(ref.agentId).catch(() => null) : Promise.resolve(null),
     ]);
     return {
       configured: this.sentinel !== null,
       sentinelAddress: this.o.sentinel?.chain?.address ?? null,
+      account: agent?.account ?? null,
+      mode: agent?.account ? agent.mode : null,
       rules: this.sentinelRules,
       active: watch.active,
       lastCheckedAt: watch.lastCheckedAt?.toISOString() ?? null,

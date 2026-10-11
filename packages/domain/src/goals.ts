@@ -315,6 +315,16 @@ export const GoalInputSchema = z.strictObject({
 });
 export type GoalInput = z.infer<typeof GoalInputSchema>;
 
+/**
+ * The brief's lane sentence (D-351, F-U12): what the chain records, never the
+ * form's wish alone. The agent reads the one the owner's onchain opt-in says.
+ */
+export function laneSentence(optedIn: boolean): string {
+  return optedIn
+    ? "The owner opted into the screened lane: tokens that passed the platform's safety screen may be held under the class A caps, beside the core lane."
+    : "Hold core-lane tokens only; the owner has not opted into the screened lane.";
+}
+
 /** A new goal's defaults (D-320 as amended by D-345): Balanced, Medium, core lane only, Light. */
 export const DEFAULT_GOAL_INPUT: GoalInput = Object.freeze({
   aggressiveness: "BALANCED",

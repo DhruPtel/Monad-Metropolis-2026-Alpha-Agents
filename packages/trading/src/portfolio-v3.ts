@@ -85,6 +85,8 @@ export interface PortfolioReadingV3 {
     readonly principal: bigint;
   };
   readonly mode: AccountMode | null;
+  /** F-U12: the owner's screened-lane opt-in as the chain records it; null without an account. */
+  readonly screenedOptIn: boolean | null;
   readonly depositsClosed: boolean;
   /** The account's own value, null while a held token's price is unusable. */
   readonly navUsdc: bigint | null;
@@ -136,6 +138,7 @@ const FACTORY_ABI = parseAbi([
 const ACCOUNT_ABI = parseAbi([
   "function principal() view returns (uint256)",
   "function mode() view returns (uint8)",
+  "function screenedOptIn() view returns (bool)",
   "function depositsClosed() view returns (bool)",
   "function holdings() view returns ((address token, uint8 decimals, uint256 balance, uint256 free, uint256 costBasis, uint256 lastPriceE18, uint64 lastPricedAt)[])",
   "function navUsdc() view returns (uint256)",
@@ -283,15 +286,17 @@ export function rpcPortfolioReaderV3(
           ...base,
           caps: { personal, platform, platformTotal, principal: 0n },
           mode: null,
+          screenedOptIn: null,
           depositsClosed: false,
           navUsdc: null,
           breaker: null,
           peak7d: null,
           holdings: [],
         };
-      const [principal, mode, closed, held, nav, breaker, peak7d] = await Promise.all([
+      const [principal, mode, optIn, closed, held, nav, breaker, peak7d] = await Promise.all([
         read<bigint>(account, ACCOUNT_ABI, "principal"),
         read<number>(account, ACCOUNT_ABI, "mode"),
+        read<boolean>(account, ACCOUNT_ABI, "screenedOptIn"),
         read<boolean>(account, ACCOUNT_ABI, "depositsClosed"),
         read<readonly HoldingTuple[]>(account, ACCOUNT_ABI, "holdings"),
         // The views that value the account revert while a held token's price is unusable.
@@ -362,6 +367,7 @@ export function rpcPortfolioReaderV3(
         ...base,
         caps: { personal, platform, platformTotal, principal },
         mode: ACCOUNT_MODES[mode] ?? null,
+        screenedOptIn: optIn === true,
         depositsClosed: closed,
         navUsdc: nav,
         breaker,

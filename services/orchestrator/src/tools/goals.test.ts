@@ -1,8 +1,13 @@
-import type { AgentState, ChainReader, MarketState } from "@alpha-agents/chain-tools";
+import type {
+  AgentState,
+  ChainReader,
+  ChainReaderV3,
+  MarketState,
+} from "@alpha-agents/chain-tools";
 import { type TestDatabase, createTestDatabase, databaseAvailable } from "@alpha-agents/db/testing";
 import { DEFAULT_GOAL_INPUT } from "@alpha-agents/domain";
 import { LAUNCH_EXECUTOR_POLICY, translateGoal } from "@alpha-agents/policy";
-import { GoalStore } from "@alpha-agents/trading";
+import { GoalStore, type GoalsAndLimitsJson } from "@alpha-agents/trading";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { CHAIN } from "../testing.ts";
 import { goalsReader } from "./goals.ts";
@@ -82,6 +87,30 @@ describe.skipIf(!dbUp)("get_goals_and_limits' reader (P3-U1, needs Postgres)", (
       account: { mode: "REDUCE_ONLY", executorPaused: false },
       asOf: { block: "109670100", timestamp: "1790000000" },
     });
+  });
+
+  it("tells the screened-lane opt-in as the chain records it, and the brief follows the chain (F-U12)", async () => {
+    await save(5n, null);
+    const v3 = (optIn: boolean) =>
+      ({
+        agent: async () => ({
+          account: "0x00000000000000000000000000000000000ac007",
+          screenedOptIn: optIn,
+        }),
+      }) as unknown as ChainReaderV3;
+    // The saved goal says core lane only; the chain's opt-in is what the agent reads.
+    const read = async (reader?: ChainReaderV3) =>
+      (await goalsReader(t.db, chain(), reader ?? null).read(IDENTITY)) as GoalsAndLimitsJson;
+    const on = await read(v3(true));
+    expect(on.goal?.screenedOptIn).toBe(false);
+    expect(on.goal?.screenedOptInOnChain).toBe(true);
+    expect(on.brief).toContain("The owner opted into the screened lane");
+    const off = await read(v3(false));
+    expect(off.goal?.screenedOptInOnChain).toBe(false);
+    expect(off.brief).toContain("has not opted into the screened lane");
+    const unknown = await read();
+    expect(unknown.goal?.screenedOptInOnChain).toBeNull();
+    expect(unknown.brief).toContain("has not opted into the screened lane");
   });
 
   it("does not apply a goal another owner saved: the agent reads UNCONFIGURED", async () => {

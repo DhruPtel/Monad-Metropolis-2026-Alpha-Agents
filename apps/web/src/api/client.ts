@@ -757,6 +757,9 @@ export interface SentinelJson {
   readonly agentId: string;
   readonly configured: boolean;
   readonly sentinelAddress: string | null;
+  /** F-U12: the agent's v3 account and its mode now, so the owner can unpause it after review. */
+  readonly account: Address | null;
+  readonly mode: string | null;
   readonly active: Readonly<Record<string, string>>;
   readonly lastCheckedAt: string | null;
   readonly actions: readonly {
@@ -1139,6 +1142,12 @@ export interface GoalViewJson {
 
 export interface GoalPageJson extends GoalViewJson {
   readonly form: GoalFormJson;
+  /** F-U12: the agent's v3 account and the screened-lane opt-in as the chain records it; null off the fund set. */
+  readonly chain: {
+    readonly account: Address | null;
+    readonly screenedOptIn: boolean | null;
+    readonly mode: string | null;
+  } | null;
 }
 
 export interface GoalSavedJson extends GoalViewJson {

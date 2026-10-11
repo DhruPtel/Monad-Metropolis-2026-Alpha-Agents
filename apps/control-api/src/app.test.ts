@@ -150,6 +150,7 @@ const PORTFOLIO_V3: PortfolioReadingV3 = {
     principal: 40_000_000n,
   },
   mode: "NORMAL",
+  screenedOptIn: true,
   depositsClosed: false,
   navUsdc: 40_000_000n,
   breaker: { navUsdc: 40_000_000n, perUnit: 10n ** 18n, peak: 10n ** 18n, drawdownBps: 0n },

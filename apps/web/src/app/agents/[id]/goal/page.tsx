@@ -1,3 +1,4 @@
+import { webEnvironment } from "@alpha-agents/config";
 import { notFound } from "next/navigation";
 import { GoalPage } from "@/components/goal/goal-page";
 
@@ -7,5 +8,5 @@ export const metadata = { title: "Goal · Alpha Agents" };
 export default async function AgentGoalPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   if (!/^[1-9]\d{0,4}$/.test(id)) notFound();
-  return <GoalPage agentId={BigInt(id)} />;
+  return <GoalPage environment={webEnvironment(process.env.APP_ENV)} agentId={BigInt(id)} />;
 }

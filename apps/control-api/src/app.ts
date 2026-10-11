@@ -424,12 +424,18 @@ export function createApp(deps: ApiDeps): Hono {
     const owner = await ownerOnly(c, agentId);
     if (owner instanceof Response) return owner;
     const view = await goals.view(chainId, Number(agentId), owner.epoch);
+    // F-U12: the screened-lane opt-in as the chain records it, for the page's onchain step.
+    const v3 = deps.trading?.v3?.portfolio;
+    const reading = v3 ? await v3.portfolio(Number(agentId)).catch(() => null) : null;
     return c.json({
       ...(await meta()),
       agentId: agentId.toString(),
       ownerEpoch: owner.epoch.toString(),
       ...goalViewJson(view),
       form: await goalForm(deps.db, chainId),
+      chain: reading
+        ? { account: reading.account, screenedOptIn: reading.screenedOptIn, mode: reading.mode }
+        : null,
     });
   });
 

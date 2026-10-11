@@ -110,7 +110,7 @@ export async function startToolServers(o: ToolServersOptions): Promise<ToolServe
     ...(o.probe ? { probe: o.probe } : {}),
   });
   const platformStore = new PgPlatformStore(o.store, o.cycles ?? null);
-  const goals = goalsReader(o.store.db, o.chain?.reader ?? null);
+  const goals = goalsReader(o.store.db, o.chain?.reader ?? null, o.chain?.readerV3 ?? null);
   const platform = await startPlatformTools({
     resolve,
     store: platformStore,

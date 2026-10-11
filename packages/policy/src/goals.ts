@@ -17,6 +17,7 @@ import {
   RESEARCH_INTENSITIES,
   RESEARCH_INTENSITY_FACTS,
   type ResearchIntensity,
+  laneSentence,
 } from "@alpha-agents/domain";
 import { keccak256, toBytes } from "viem";
 import { LAUNCH_LIMITS, type PolicyLimits } from "./limits.ts";
@@ -335,9 +336,7 @@ export function translateGoal(
 export function briefOf(goal: GoalInput, symbols: TranslateOptions["symbols"] = {}): string {
   // A known token by its symbol, with the address only as the fallback (F-U9 follow-up of F-U7).
   const name = (address: string) => symbols[address.toLowerCase()] ?? address;
-  const lane = goal.screenedOptIn
-    ? "The owner opted into the screened lane: tokens that passed the platform's safety screen may be held under the class A caps, beside the core lane."
-    : "Hold core-lane tokens only; the owner has not opted into the screened lane.";
+  const lane = laneSentence(goal.screenedOptIn);
   const excluded =
     goal.excludedTokens.length === 0
       ? "No token is excluded."

@@ -171,6 +171,7 @@ describe("platform tools server", () => {
         aggressiveness,
         modelTier: { choice: "MEDIUM", alias: "research-medium" },
         screenedOptIn: false,
+        screenedOptInOnChain: null,
         excludedTokens: [],
         research: { intensity: "LIGHT", scanEveryHours: 12, divesPerDay: 1, dailyBudgetUsdc: "1" },
         creditReserveUsdc: "1",

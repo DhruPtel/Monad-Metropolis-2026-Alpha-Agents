@@ -9,6 +9,7 @@ import {
   isLegacyGoalInput,
   migrateLegacyGoalInput,
   AGGRESSIVENESS_ENVELOPES,
+  laneSentence,
 } from "@alpha-agents/domain";
 import {
   type EffectiveLimits,
@@ -325,6 +326,8 @@ export interface LiveGoalLimits {
   readonly limits: EffectiveLimits;
   /** Null before the agent has a PersonalAccount. */
   readonly mode: AccountMode | null;
+  /** F-U12: the owner's screened-lane opt-in as the chain records it; null before the agent has a v3 account. */
+  readonly screenedOptIn?: boolean | null;
   readonly executorPaused: boolean;
   readonly block: bigint;
   readonly timestamp: bigint;
@@ -350,6 +353,17 @@ function tighter(a: EffectiveLimits, b: EffectiveLimits): EffectiveLimits {
  * agent trades under: the hard limits, the owner's stricter ones, the
  * Executor's live ones and the tightest of all three, with the account's mode.
  */
+/**
+ * F-U12: the brief with its lane sentence as the chain records the opt-in.
+ * The form's wish is the sentence saved with the goal; the agent reads the
+ * chain's. Unknown (no v3 account yet) leaves the saved brief as it is.
+ */
+export function briefOnChain(brief: string, optedInOnChain: boolean | null): string {
+  if (optedInOnChain === null) return brief;
+  const saved = laneSentence(!optedInOnChain);
+  return brief.includes(saved) ? brief.replace(saved, laneSentence(optedInOnChain)) : brief;
+}
+
 export function goalsAndLimitsJson(view: AgentGoalView, live: LiveGoalLimits | null) {
   const hard = hardGoalLimits();
   const c = view.goal?.config ?? null;
@@ -367,6 +381,8 @@ export function goalsAndLimitsJson(view: AgentGoalView, live: LiveGoalLimits | n
             aggressiveness: c.aggressiveness,
             modelTier: { choice: c.model.choice, alias: c.model.alias },
             screenedOptIn: view.goal.goal.screenedOptIn,
+            // F-U12: what the chain records; the agent may hold screened tokens only when this is true.
+            screenedOptInOnChain: live?.screenedOptIn ?? null,
             excludedTokens: [...view.goal.goal.excludedTokens],
             research: {
               intensity: c.research.intensity,
@@ -378,7 +394,7 @@ export function goalsAndLimitsJson(view: AgentGoalView, live: LiveGoalLimits | n
             planChanges: c.planChanges.mode,
           }
         : null,
-    brief: c?.brief ?? null,
+    brief: c ? briefOnChain(c.brief, live?.screenedOptIn ?? null) : null,
     envelope: c
       ? {
           classAAllowed: c.envelope.classAAllowed,

@@ -105,6 +105,8 @@ export const GetGoalsAndLimitsOutput = z.strictObject({
       aggressiveness: z.enum(AGGRESSIVENESS_LEVELS),
       modelTier: z.strictObject({ choice: z.enum(MODEL_TIERS), alias: z.string() }),
       screenedOptIn: z.boolean(),
+      /** F-U12: the opt-in as the chain records it; screened tokens are buyable only when true. */
+      screenedOptInOnChain: z.boolean().nullable(),
       excludedTokens: z.array(z.string().regex(/^0x[0-9a-f]{40}$/)).max(32),
       research: z.strictObject({
         intensity: z.enum(RESEARCH_INTENSITIES),

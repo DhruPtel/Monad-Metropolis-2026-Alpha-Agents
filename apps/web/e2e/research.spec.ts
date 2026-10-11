@@ -12,6 +12,7 @@ import {
   activationReadFixture,
   planCardFixture,
   portfolioFixture,
+  ACCOUNT_V3,
 } from "./fake-trading";
 
 /**
@@ -306,6 +307,8 @@ function sentinelFixture(): SentinelJson {
     agentId: AGENT.toString(),
     configured: true,
     sentinelAddress: SENTINEL_ADDRESS,
+    account: ACCOUNT_V3,
+    mode: "REDUCE_ONLY",
     active: { DRAWDOWN_12: "2026-10-11T11:30:00.000Z" },
     lastCheckedAt: "2026-10-11T12:04:30.000Z",
     actions: [
@@ -413,6 +416,17 @@ test.describe("the Research page and the agent terminal (P3-U10)", () => {
     await expect(sentinel.getByTestId("sentinel-actions").locator("li")).toHaveCount(2);
     await expect(sentinel).toContainText("Set the account to reduce-only");
     await expect(sentinel).toContainText("12.5% below the 7-day peak");
+    // F-U12: the owner unpauses the account after review, from their wallet: one unpause() call.
+    await sentinel.getByRole("button", { name: "Unpause after review" }).click();
+    await expect(sentinel.getByTestId("wallet-action-status")).toContainText(
+      "The account is back to normal.",
+      { timeout: 15_000 },
+    );
+    expect(
+      s.chain.transactions
+        .filter((t) => t.to.toLowerCase() === ACCOUNT_V3.toLowerCase())
+        .map((t) => t.data),
+    ).toEqual(["0x3f4ba83a"]);
     const terminal = root.getByTestId("agent-terminal");
     await expect(terminal).toHaveAttribute("data-state", "live");
     await expect(terminal).toHaveAttribute("data-lines", "7");

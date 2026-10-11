@@ -2,7 +2,7 @@ import type { AgentState, GoalInput } from "@alpha-agents/domain";
 import { getAddress } from "viem";
 import { configJson, goalErrorsJson, goalForm } from "../../control-api/src/goals";
 import { translateGoal } from "../../../packages/policy/src/goals";
-import { WMON } from "./fake-trading";
+import { ACCOUNT_V3, WMON } from "./fake-trading";
 
 /** The registry's tokens as the form lists them (F-U7): the API reads these from the database. */
 const GOAL_FORM_TOKENS = [
@@ -31,6 +31,8 @@ interface SavedGoal {
 
 export class FakeGoals {
   readonly saved = new Map<bigint, SavedGoal>();
+  /** F-U12: the screened-lane opt-in as the fake chain records it per agent. */
+  readonly chainOptIn = new Map<bigint, boolean>();
   /** Every goal a PUT sent, refused ones included. */
   readonly puts: { agentId: bigint; body: unknown }[] = [];
   /** While set, a save waits for it: for the "saving" capture. */
@@ -64,6 +66,12 @@ export class FakeGoals {
       policyHash: s?.policyHash ?? null,
       savedAt: s?.savedAt ?? null,
       savedBy: s?.savedBy ?? null,
+      // F-U12: the opt-in as the chain records it; the spec flips it through `chainOptIn`.
+      chain: {
+        account: ACCOUNT_V3,
+        screenedOptIn: this.chainOptIn.get(agentId) ?? false,
+        mode: "NORMAL",
+      },
     };
   }
 

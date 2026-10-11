@@ -1,9 +1,9 @@
 import { type TestDatabase, createTestDatabase, databaseAvailable } from "@alpha-agents/db/testing";
-import { DEFAULT_GOAL_INPUT, type GoalInput } from "@alpha-agents/domain";
+import { DEFAULT_GOAL_INPUT, type GoalInput, laneSentence } from "@alpha-agents/domain";
 import { type GoalConfig, translateGoal } from "@alpha-agents/policy";
 import type { Hex } from "viem";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { GoalStore } from "./goals.ts";
+import { GoalStore, briefOnChain } from "./goals.ts";
 
 const dbUp = await databaseAvailable();
 const CHAIN = 143143;
@@ -231,5 +231,17 @@ describe.skipIf(!dbUp)("goals and agent state (P3-U1, needs Postgres)", { timeou
     const after = await store.currentGoal(CHAIN, 9);
     expect(after?.goal).toEqual(expected);
     expect(after?.policyHash).toBe(before?.policyHash);
+  });
+});
+
+describe("the brief as the chain records the opt-in (F-U12)", () => {
+  it("swaps the lane sentence for the chain's, and leaves the brief when the chain is unknown", () => {
+    const core = `Hold large caps. ${laneSentence(false)} No token is excluded.`;
+    const screened = `Hold large caps. ${laneSentence(true)} No token is excluded.`;
+    expect(briefOnChain(core, true)).toBe(screened);
+    expect(briefOnChain(screened, false)).toBe(core);
+    expect(briefOnChain(core, false)).toBe(core);
+    expect(briefOnChain(screened, true)).toBe(screened);
+    expect(briefOnChain(core, null)).toBe(core);
   });
 });

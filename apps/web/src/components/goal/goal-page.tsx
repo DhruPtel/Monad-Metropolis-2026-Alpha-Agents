@@ -31,13 +31,16 @@ import {
   SelectValue,
   Skeleton,
   Tag,
+  WalletActionStatus,
   bpsText,
 } from "@alpha-agents/ui";
+import type { EnvironmentId } from "@alpha-agents/config";
 import { ArrowLeft, PlugZap, ShieldOff, Wallet } from "lucide-react";
 import Link from "next/link";
 import { type ReactNode, useState } from "react";
 import { useWalletSession } from "@/auth/session";
 import { goalChanged, limitValue } from "@/agent/goal";
+import { useAccountTx } from "@/agent/use-account-tx";
 import { useGoal } from "@/agent/use-goal";
 
 /**
@@ -86,11 +89,20 @@ function Section({
   );
 }
 
-export function GoalPage({ agentId }: { agentId: bigint }) {
+export function GoalPage({
+  environment,
+  agentId,
+}: {
+  environment: EnvironmentId;
+  agentId: bigint;
+}) {
   const wallet = useWalletSession();
   const g = useGoal(agentId);
   const name = `Agent #${agentId.toString()}`;
   const [pick, setPick] = useState("");
+  // F-U12: the screened-lane opt-in recorded on the agent's account from the owner's wallet.
+  const tx = useAccountTx(environment);
+  const [recorded, setRecorded] = useState<boolean | null>(null);
 
   const header = (
     <div className="flex flex-col gap-2">
@@ -193,6 +205,33 @@ export function GoalPage({ agentId }: { agentId: bigint }) {
   const available = tokens.filter(
     (t) => !form.excludedTokens.includes(t.address.toLowerCase()) && t.symbol !== "USDC",
   );
+  const chain = page.chain;
+  const onChain = recorded ?? chain?.screenedOptIn ?? null;
+  const wanted = form.screenedOptIn;
+  const onChainState = !chain?.account ? "no-account" : onChain ? "opted-in" : "not-opted-in";
+  const onChainText = !chain?.account
+    ? "The opt-in is recorded on the agent's account. Open the account on the portfolio page first."
+    : onChain === wanted
+      ? wanted
+        ? "The chain records your opt-in: screened tokens are buyable for this agent."
+        : "The chain records no opt-in: the agent holds core-lane tokens only."
+      : wanted
+        ? "Your choice is not on chain yet: the agent holds core-lane tokens only until you record the opt-in from your wallet."
+        : "The chain still records an opt-in: screened tokens stay buyable until you record the opt-out from your wallet.";
+  const recordOnChain = () => {
+    const account = chain?.account;
+    if (!account) return;
+    void tx
+      .send(
+        wanted ? "Record the opt-in on chain" : "Record the opt-out on chain",
+        account,
+        { functionName: "setScreenedOptIn", args: [wanted] },
+        wanted ? "Your opt-in is recorded on chain." : "Your opt-out is recorded on chain.",
+      )
+      .then((p) => {
+        if (p?.state === "confirmed") setRecorded(wanted);
+      });
+  };
   const envelopeLine = (e: (typeof page.form.levels)[number]["envelope"]) =>
     `At most ${e.maxPositions} positions, ${bpsText(e.maxPositionBps)} each, ${bpsText(e.minStableBps)} in stablecoins${e.classAAllowed ? `; class A up to ${bpsText(e.maxClassAPositionBps)} each and ${bpsText(e.maxClassATotalBps)} together` : "; class F tokens only"}`;
 
@@ -246,7 +285,7 @@ export function GoalPage({ agentId }: { agentId: bigint }) {
       >
         <ChoiceGroup
           legend="Screened lane"
-          hint="Screened tokens passed the platform's safety screen but not the core lane's review. Holding them needs your onchain opt-in as well, which the portfolio page asks for."
+          hint="Screened tokens passed the platform's safety screen but not the core lane's review. Holding them needs your onchain opt-in as well, recorded below from your wallet."
           value={form.screenedOptIn ? "SCREENED" : "CORE"}
           onValueChange={(v) => set((f) => ({ ...f, screenedOptIn: v === "SCREENED" }))}
           columns={2}
@@ -265,6 +304,41 @@ export function GoalPage({ agentId }: { agentId: bigint }) {
             },
           ]}
         />
+        <div
+          className="flex flex-col gap-2 text-sm"
+          data-testid="goal-onchain"
+          data-state={onChainState}
+        >
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="font-medium">On chain</span>
+            {chain?.account ? (
+              <Tag tone={onChain ? "accent" : "neutral"}>
+                {onChain ? "opted in" : "not opted in"}
+              </Tag>
+            ) : (
+              <Tag>no account yet</Tag>
+            )}
+          </div>
+          <p className="text-foreground-muted">{onChainText}</p>
+          {chain?.account && onChain !== wanted ? (
+            <Button
+              size="sm"
+              variant="secondary"
+              className="w-fit"
+              disabled={tx.busy}
+              onClick={recordOnChain}
+            >
+              {wanted ? "Record the opt-in on chain" : "Record the opt-out on chain"}
+            </Button>
+          ) : null}
+          {tx.progress && tx.text ? (
+            <WalletActionStatus
+              state={tx.progress.state}
+              text={tx.text}
+              hash={tx.progress.hash ?? null}
+            />
+          ) : null}
+        </div>
         <div className="flex flex-col gap-3" data-testid="goal-excluded">
           <Field
             label="Excluded tokens"

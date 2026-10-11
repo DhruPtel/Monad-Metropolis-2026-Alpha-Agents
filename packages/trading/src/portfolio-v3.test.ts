@@ -111,6 +111,7 @@ function fakeChain(state: {
         const a: Record<string, unknown> = {
           principal: 90_000_000n,
           mode: 0,
+          screenedOptIn: true,
           depositsClosed: false,
           holdings,
           navUsdc: 101_250_000n,
@@ -146,6 +147,8 @@ describe("the v3 portfolio reading (after the F-U11 playtest)", () => {
       1,
     );
     expect(r).not.toBeNull();
+    // F-U12: no account, no opt-in to report.
+    expect(r?.screenedOptIn).toBeNull();
     const j = portfolioV3Json(r as NonNullable<typeof r>);
     expect(j).toMatchObject({
       custody: "v3",
@@ -221,6 +224,8 @@ describe("the v3 portfolio reading (after the F-U11 playtest)", () => {
     const r = await rpcPortfolioReaderV3("http://unused", 143143, c, { tokens, client }).portfolio(
       1,
     );
+    // F-U12: the opt-in as the account records it.
+    expect(r?.screenedOptIn).toBe(true);
     const j = portfolioV3Json(r as NonNullable<typeof r>);
     expect(j).toMatchObject({
       account: ACCOUNT,
