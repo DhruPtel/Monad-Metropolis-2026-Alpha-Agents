@@ -23,6 +23,7 @@ if (!raw || !isAddress(raw, { strict: false })) {
 const wallet = getAddress(raw);
 try {
   const added = await addTestDepositorEverywhere(localForkRpcUrl(process.env), wallet);
+  /** @param {boolean | null} added @param {string} name */
   const say = (added, name) =>
     added === null
       ? `${name}: not deployed on this fork`
