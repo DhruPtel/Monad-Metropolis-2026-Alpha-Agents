@@ -90,6 +90,28 @@ export interface TokenFilter {
 
 const iso = (d: Date | string | null) => (d === null ? null : new Date(d).toISOString());
 
+const discoveryRun = (r: {
+  run_id: string;
+  status: DiscoveryRun["status"];
+  pools_seen: number;
+  tokens_seen: number;
+  new_pools: number;
+  sources: unknown;
+  error: string | null;
+  started_at: Date | string;
+  finished_at: Date | string | null;
+}): DiscoveryRun => ({
+  runId: r.run_id,
+  status: r.status,
+  poolsSeen: r.pools_seen,
+  tokensSeen: r.tokens_seen,
+  newPools: r.new_pools,
+  sources: r.sources as Record<string, SourceStatus>,
+  error: r.error,
+  startedAt: new Date(r.started_at).toISOString(),
+  finishedAt: iso(r.finished_at),
+});
+
 interface TokenDb {
   chain_id: number;
   address: string;
@@ -257,6 +279,16 @@ export class TokenStore {
       .execute();
   }
 
+  /** One discovery run by its ID, or null. */
+  async run(runId: string): Promise<DiscoveryRun | null> {
+    const r = await this.db
+      .selectFrom("platform.token_discovery_runs")
+      .selectAll()
+      .where("run_id", "=", runId)
+      .executeTakeFirst();
+    return r ? discoveryRun(r) : null;
+  }
+
   async runs(chainId: number, limit = 10): Promise<DiscoveryRun[]> {
     const rows = await this.db
       .selectFrom("platform.token_discovery_runs")
@@ -265,17 +297,7 @@ export class TokenStore {
       .orderBy("started_at", "desc")
       .limit(limit)
       .execute();
-    return rows.map((r) => ({
-      runId: r.run_id,
-      status: r.status,
-      poolsSeen: r.pools_seen,
-      tokensSeen: r.tokens_seen,
-      newPools: r.new_pools,
-      sources: r.sources as Record<string, SourceStatus>,
-      error: r.error,
-      startedAt: new Date(r.started_at).toISOString(),
-      finishedAt: iso(r.finished_at),
-    }));
+    return rows.map(discoveryRun);
   }
 
   /** What the registry already confirmed, so discovery reads the chain only for what is new. */

@@ -65,7 +65,8 @@ export const SCREEN_LOOP_MIN_LIQUIDITY_USD = 10_000;
 export class TokenRegistry {
   private readonly o: TokenRegistryOptions;
   private readonly now: () => number;
-  private discovering: Promise<DiscoverySummary> | null = null;
+  /** The discovery pass under way, with the run it writes to, so a second caller watches the same one. */
+  private discovering: { runId: string; done: Promise<DiscoverySummary> } | null = null;
   private readonly screening = new Map<string, Promise<ScreenRecord>>();
   private readonly looking = new Map<string, Promise<TokenLookupResult>>();
   private readonly goplusBucket: TokenBucket;
@@ -90,21 +91,38 @@ export class TokenRegistry {
   }
 
   /** One discovery pass, written to the registry; concurrent callers share it. */
-  discover(): Promise<DiscoverySummary> {
-    if (this.discovering) return this.discovering;
-    const run = this.runDiscovery().finally(() => {
-      this.discovering = null;
-    });
-    this.discovering = run;
-    return run;
+  async discover(): Promise<DiscoverySummary> {
+    return (await this.startDiscovery()).done;
   }
 
-  private async runDiscovery(): Promise<DiscoverySummary> {
+  /**
+   * Starts a discovery pass and answers as soon as its run row exists (the
+   * F-U9 follow-up, L-197): the pass goes on in the background, and a caller
+   * watches its run in the registry instead of holding a request open for a
+   * pass that pages an upstream at its rate limit. A pass already under way
+   * is answered with its own run, `started` false.
+   */
+  async startDiscovery(): Promise<{
+    runId: string;
+    started: boolean;
+    done: Promise<DiscoverySummary>;
+  }> {
+    if (this.discovering) return { ...this.discovering, started: false };
     const d = this.o.discovery;
     if (!d) throw new RegistryError("NOT_CONFIGURED", "Token discovery needs a Monad mainnet RPC.");
     const runId = randomUUID();
+    await this.o.store.startRun(this.o.chainId, runId);
+    const done = this.runDiscovery(runId, d).finally(() => {
+      this.discovering = null;
+    });
+    // A failed pass is recorded on its run; a caller that does not await `done` gets no unhandled rejection.
+    done.catch(() => undefined);
+    this.discovering = { runId, done };
+    return { runId, started: true, done };
+  }
+
+  private async runDiscovery(runId: string, d: TokenDiscovery): Promise<DiscoverySummary> {
     const { store, chainId } = this.o;
-    await store.startRun(chainId, runId);
     try {
       const result = await d.discover(await store.knownState(chainId));
       const newPools = await store.saveDiscovery(chainId, result);

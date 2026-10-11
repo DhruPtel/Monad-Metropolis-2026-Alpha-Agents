@@ -132,15 +132,31 @@ export function registerTokenRoutes(
     }
   });
 
-  /** Run a discovery pass now. */
+  /**
+   * Starts a discovery pass now and answers at once with its run (L-197): a
+   * pass pages GeckoTerminal at its rate limit and can outlast any request,
+   * so the console and the live check watch the run instead. A pass already
+   * under way answers with its own run.
+   */
   app.post("/v1/tokens/discover", async (c) => {
     const r = o.registry;
     if (!r) return c.json({ configured: false }, 503);
     try {
-      return c.json({ discovery: await r.discover() });
+      const s = await r.startDiscovery();
+      return c.json({ runId: s.runId, started: s.started, status: "running" }, 202);
     } catch (err) {
       const message = err instanceof Error ? err.message.slice(0, 300) : "discovery failed";
       return c.json({ error: "discovery_failed", message }, 503);
     }
+  });
+
+  /** One discovery run, for a caller watching the pass it started. */
+  app.get("/v1/tokens/discovery/:runId", async (c) => {
+    const r = o.registry;
+    if (!r) return c.json({ configured: false }, 503);
+    const runId = c.req.param("runId");
+    if (!/^[0-9a-f-]{36}$/.test(runId)) return c.json({ error: "bad_run_id" }, 400);
+    const run = await r.store.run(runId);
+    return run ? c.json({ run }) : c.json({ error: "not_found" }, 404);
   });
 }

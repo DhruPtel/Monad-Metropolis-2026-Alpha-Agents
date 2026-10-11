@@ -30,8 +30,23 @@ export async function screenTokenAction(
   });
 }
 
+/** What a discovery run reports while it runs and once it ends (the orchestrator's run record). */
+export interface DiscoveryRunView {
+  readonly runId: string;
+  readonly status: "running" | "completed" | "failed";
+  readonly tokensSeen: number;
+  readonly poolsSeen: number;
+  readonly newPools: number;
+  readonly error: string | null;
+}
+
+/**
+ * Starts a discovery pass and answers at once with its run (L-197): the pass
+ * can outlast any request, so the button watches the run with
+ * `discoveryRunAction` until it ends. A pass already under way is joined.
+ */
 export async function discoverTokensAction(): Promise<
-  ActionResult<{ tokens: number; pools: number; newPools: number }>
+  ActionResult<{ runId: string; started: boolean }>
 > {
   return attempt(async () => {
     const res = await fetch(`${orchestratorUrl()}/v1/tokens/discover`, {
@@ -39,12 +54,30 @@ export async function discoverTokensAction(): Promise<
       cache: "no-store",
     });
     const body = (await res.json().catch(() => ({}))) as {
-      discovery?: { tokens: number; pools: number; newPools: number };
+      runId?: string;
+      started?: boolean;
       message?: string;
     };
-    if (!res.ok || !body.discovery)
+    if (!res.ok || !body.runId)
       throw new Error(body.message ?? `The orchestrator answered ${res.status}.`);
-    return body.discovery;
+    return { runId: body.runId, started: body.started ?? true };
+  });
+}
+
+/** One discovery run as the registry records it, for the button watching it. */
+export async function discoveryRunAction(runId: string): Promise<ActionResult<DiscoveryRunView>> {
+  return attempt(async () => {
+    if (!/^[0-9a-f-]{36}$/.test(runId)) throw new Error("That is not a discovery run.");
+    const res = await fetch(`${orchestratorUrl()}/v1/tokens/discovery/${runId}`, {
+      cache: "no-store",
+    });
+    const body = (await res.json().catch(() => ({}))) as {
+      run?: DiscoveryRunView;
+      message?: string;
+    };
+    if (!res.ok || !body.run)
+      throw new Error(body.message ?? `The orchestrator answered ${res.status}.`);
+    return body.run;
   });
 }
 

@@ -122,6 +122,31 @@ describe.skipIf(!dbUp)(
       expect(counts.passing).toBe(0);
     });
 
+    it("starts a pass and answers at once with its run; a second caller joins it; the run ends completed (L-197)", async () => {
+      const first = await registry.startDiscovery();
+      expect(first.started).toBe(true);
+      expect(await registry.store.run(first.runId)).toMatchObject({
+        runId: first.runId,
+        status: "running",
+        finishedAt: null,
+      });
+      const second = await registry.startDiscovery();
+      expect(second).toMatchObject({ runId: first.runId, started: false });
+      const summary = await first.done;
+      expect(summary.runId).toBe(first.runId);
+      expect(await registry.store.run(first.runId)).toMatchObject({
+        status: "completed",
+        tokensSeen: summary.tokens,
+        poolsSeen: summary.pools,
+      });
+      expect(await registry.store.run("00000000-0000-4000-8000-000000000000")).toBeNull();
+      // Once the pass has ended, the next call starts a new run.
+      const third = await registry.startDiscovery();
+      expect(third.started).toBe(true);
+      expect(third.runId).not.toBe(first.runId);
+      await third.done;
+    });
+
     it("filters the list by class and liquidity, deepest first", async () => {
       const f = await registry.list({ priceClass: "F", minLiquidityUsd: 50_000 });
       expect(f.length).toBeGreaterThan(5);

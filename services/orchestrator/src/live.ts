@@ -865,18 +865,19 @@ async function main(): Promise<number> {
   // F-U1: discovery once, then a real agent in E2B lists tokens and screens one.
   {
     // Discovery pages through GeckoTerminal at its rate limit and can run past the five minutes a
-    // fetch waits for headers (L-197), so the request is started and the run watched in the database.
-    // The registry may answer from the pass it ran at its own start, so the latest run counts,
-    // whenever it started, once it is no longer running.
+    // fetch waits for headers (L-197), so the route answers at once with the run it started (or
+    // the pass already under way, which may be the one the registry ran at its own start), and the
+    // run is watched in the database until it is no longer running.
     const discoveryStarted = new Date();
-    void api("/v1/tokens/discover", { method: "POST" }).catch(() => undefined);
-    await sleep(5_000);
+    const discovery = await api("/v1/tokens/discover", { method: "POST" });
+    if (discovery.status !== 202)
+      throw new Error(`discovery refused: ${discovery.status} ${String(discovery.body.message)}`);
+    const discoveryRunId = String(discovery.body.runId);
     const run = await waitFor("discovery to finish", 25 * 60_000, async () => {
-      // The registry is keyed by Monad's own chain ID, not the fork's: no chain filter here.
       const row = await t.db
         .selectFrom("platform.token_discovery_runs")
         .selectAll()
-        .orderBy("started_at", "desc")
+        .where("run_id", "=", discoveryRunId)
         .executeTakeFirst();
       return row && row.status !== "running" ? row : null;
     });
