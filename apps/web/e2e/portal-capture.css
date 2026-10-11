@@ -8,3 +8,12 @@ header.sticky {
 [data-elapsed] {
   visibility: hidden !important;
 }
+
+/* F-T2 Step 0: a capture holds every animation and transition still, so a
+ pulsing dot (the Activating badge) or a spinner never decides a pixel. */
+*,
+*::before,
+*::after {
+  animation: none !important;
+  transition: none !important;
+}
