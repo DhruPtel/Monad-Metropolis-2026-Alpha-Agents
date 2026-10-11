@@ -62,7 +62,9 @@ export class FakeHoldings {
               ? ("movable" as const)
               : a.role === "funding"
                 ? ("platform_only" as const)
-                : ("stuck" as const);
+                : a.role === "older_account" && symbol !== "MON"
+                  ? ("older" as const)
+                  : ("stuck" as const);
           const token = symbol === "MON" ? null : HOLDING_TOKENS[symbol].address;
           return [
             {

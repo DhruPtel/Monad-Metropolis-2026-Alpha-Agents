@@ -15,6 +15,7 @@ import type {
   PortfolioJson,
   WhyNotTradedJson,
   PlanCardJson,
+  PortfolioV3Json,
   ProposalJson,
   WindowJson,
 } from "../src/api/client";
@@ -40,6 +41,10 @@ export const FUNDING = getAddress("0x9f8e2b1c0d3a4e5f60718293a4b5c6d7e8f90a1b");
 export const WBTC = "0x0555e30da8f98308edb960aa94c0db47230d2b9c" as const;
 /** A class A token the plan in force holds in the fixtures and the proposal leaves. */
 export const CHOG = "0x00000000000000000000000000000000000c0de5" as const;
+/** The fund agent's set (A-80): AccountFactoryV3, the agent's PersonalAccountV3 and OracleAdapterV3. */
+export const FACTORY_V3 = "0x00000000000000000000000000000000000fac73" as const;
+export const ACCOUNT_V3 = getAddress("0x5d3c9a1b3e5f60718293a4b5c6d7e8f90a1b2c3e");
+export const ORACLE_V3 = "0x000000000000000000000000000000000000043e" as const;
 export const NOW = 1_791_374_400;
 const iso = (s: number) => new Date(s * 1000).toISOString();
 const PX = 25_000_000_000_000_000n;
@@ -92,6 +97,137 @@ export function portfolioFixture(owner: Address, over: Partial<PortfolioJson> = 
     wallet: { usdcE6: "70000000", wmonWei: "0", monWei: "1000000000000000000" },
     ...over,
   };
+}
+
+const E18 = 10n ** 18n;
+const V3_TOKEN = (
+  symbol: string,
+  address: Address,
+  decimals: number,
+  walletRaw: string,
+  priceE18: string,
+) => ({
+  symbol,
+  address,
+  decimals,
+  priceClass: "F" as const,
+  walletRaw,
+  price: { priceE18, updatedAt: NOW - 20, reason: "OK" },
+});
+
+/** Agent 7 on the fund agent's set (A-80): USDC, WMON and WBTC held, with 60 USDC of room under the cap. */
+export function portfolioV3Fixture(
+  owner: Address,
+  over: Partial<PortfolioV3Json> = {},
+): PortfolioV3Json {
+  return {
+    custody: "v3",
+    chainId: 143143,
+    block: "109670100",
+    timestamp: NOW,
+    agentId: "7",
+    owner: getAddress(owner),
+    contracts: {
+      agentNft: "0x60cacA6dE327331b321E140Ae19AcbCc4188Be6E",
+      accountFactory: FACTORY_V3,
+      accountFactoryV2: FACTORY,
+      oracle: ORACLE_V3,
+      usdc: USDC,
+      wmon: WMON,
+      executor: EXECUTOR,
+    },
+    account: ACCOUNT_V3,
+    predictedAccount: ACCOUNT_V3,
+    allowlist: { enabled: true, listed: true },
+    caps: {
+      personalUsdcE6: "100000000",
+      platformUsdcE6: "2000000000",
+      platformTotalUsdcE6: "250000000",
+      principalUsdcE6: "40000000",
+    },
+    mode: "NORMAL",
+    depositsClosed: false,
+    navUsdcE6: "70000000",
+    breaker: {
+      navUsdcE6: "70000000",
+      perUnitE18: "1050000000000000000",
+      peakE18: "1062500000000000000",
+      drawdownBps: 118,
+    },
+    peak7dE18: "1062500000000000000",
+    holdings: [
+      {
+        token: USDC,
+        symbol: "USDC",
+        decimals: 6,
+        amountRaw: "30000000",
+        freeRaw: "30000000",
+        costBasisUsdcE6: "0",
+        priceE18: E18.toString(),
+        priceReason: "OK",
+        valueUsdcE6: "30000000",
+        claimableRaw: "0",
+      },
+      {
+        token: WMON,
+        symbol: "WMON",
+        decimals: 18,
+        amountRaw: (400n * E18).toString(),
+        freeRaw: (400n * E18).toString(),
+        costBasisUsdcE6: "9500000",
+        priceE18: PX.toString(),
+        priceReason: "OK",
+        valueUsdcE6: "10000000",
+        claimableRaw: "0",
+      },
+      {
+        token: WBTC,
+        symbol: "WBTC",
+        decimals: 8,
+        amountRaw: "30000",
+        freeRaw: "30000",
+        costBasisUsdcE6: "28000000",
+        priceE18: (100_000n * E18).toString(),
+        priceReason: "OK",
+        valueUsdcE6: "30000000",
+        claimableRaw: "0",
+      },
+    ],
+    tokens: [
+      V3_TOKEN("USDC", USDC, 6, "70000000", E18.toString()),
+      V3_TOKEN("WMON", WMON, 18, (5n * E18).toString(), PX.toString()),
+      V3_TOKEN("WBTC", WBTC, 8, "0", (100_000n * E18).toString()),
+    ],
+    usdcPeg: { priceE18: E18.toString(), updatedAt: NOW - 600, reason: "OK" },
+    wallet: { monWei: E18.toString() },
+    legacy: null,
+    ...over,
+  };
+}
+
+/** The playtest's case (A-80): no v3 account yet, and the older v2 account still holding 100 USDC. */
+export function olderAccountFixture(owner: Address): PortfolioV3Json {
+  return portfolioV3Fixture(owner, {
+    account: null,
+    caps: {
+      personalUsdcE6: "100000000",
+      platformUsdcE6: "2000000000",
+      platformTotalUsdcE6: "250000000",
+      principalUsdcE6: "0",
+    },
+    mode: null,
+    navUsdcE6: null,
+    breaker: null,
+    peak7dE18: null,
+    holdings: [],
+    legacy: {
+      account: ACCOUNT,
+      usdcE6: "100000000",
+      wmonWei: "0",
+      claimable: { usdcE6: "0", wmonWei: "0" },
+      mode: "NORMAL",
+    },
+  });
 }
 
 /** A portfolio before the owner opens the account. */
@@ -768,6 +904,8 @@ export class FakeTrading {
   intents: IntentJson[] = [];
   /** F-U11: the window as the owner reads it. */
   window: WindowJson = windowFixture();
+  /** A-80: when set, the API serves the fund agent's set and this takes the place of `portfolio`. */
+  portfolioV3: PortfolioV3Json | null = null;
   /** Extra blocked reasons beyond the intents' own (for example NOT_ARMED). */
   readonly calls: string[] = [];
   private readonly owner: Address;
@@ -839,9 +977,126 @@ export class FakeTrading {
     this.portfolio = { ...p, [path]: next } as PortfolioJson;
   }
 
+  /** A-80: a held token's or the wallet's balance on the fund set moves by `delta`. */
+  private v3Add(where: "holdings" | "wallet", token: Address, delta: bigint, value = 0n) {
+    const p = this.portfolioV3;
+    if (!p) return;
+    const same = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
+    if (where === "wallet") {
+      this.portfolioV3 = {
+        ...p,
+        tokens: p.tokens.map((t) =>
+          same(t.address, token)
+            ? { ...t, walletRaw: (BigInt(t.walletRaw) + delta).toString() }
+            : t,
+        ),
+      };
+      return;
+    }
+    const known = p.holdings.find((h) => same(h.token, token));
+    const meta = p.tokens.find((t) => same(t.address, token));
+    const line = known ?? {
+      token,
+      symbol: meta?.symbol ?? "?",
+      decimals: meta?.decimals ?? 18,
+      amountRaw: "0",
+      freeRaw: "0",
+      costBasisUsdcE6: "0",
+      priceE18: meta?.price.priceE18 ?? null,
+      priceReason: "OK",
+      valueUsdcE6: "0",
+      claimableRaw: "0",
+    };
+    const amount = BigInt(line.amountRaw) + delta;
+    const price = line.priceE18 === null ? null : BigInt(line.priceE18);
+    const next = {
+      ...line,
+      amountRaw: amount.toString(),
+      freeRaw: amount.toString(),
+      valueUsdcE6:
+        price === null ? null : ((amount * price) / 10n ** BigInt(12 + line.decimals)).toString(),
+    };
+    const holdings = (
+      known ? p.holdings.map((h) => (same(h.token, token) ? next : h)) : [...p.holdings, next]
+    ).filter((h) => BigInt(h.amountRaw) > 0n);
+    const nav = holdings.reduce((t, h) => t + BigInt(h.valueUsdcE6 ?? "0"), 0n);
+    this.portfolioV3 = {
+      ...p,
+      holdings,
+      navUsdcE6: nav.toString(),
+      caps: {
+        ...p.caps,
+        principalUsdcE6: (BigInt(p.caps.principalUsdcE6) + value).toString(),
+        platformTotalUsdcE6: (BigInt(p.caps.platformTotalUsdcE6) + value).toString(),
+      },
+    };
+  }
+
+  /** A-80: the fund set's factory, account and the older v2 account, as the contracts would apply the wallet's calls. */
+  private onSendV3(to: string, data: Hex): boolean {
+    const p = this.portfolioV3;
+    if (!p) return false;
+    if (to === FACTORY_V3.toLowerCase()) {
+      decodeFunctionData({ abi: FACTORY_ABI, data });
+      this.calls.push("createPersonalAccount:v3");
+      this.portfolioV3 = {
+        ...p,
+        account: ACCOUNT_V3,
+        mode: "NORMAL",
+        navUsdcE6: "0",
+        breaker: {
+          navUsdcE6: "0",
+          perUnitE18: "1000000000000000000",
+          peakE18: "1000000000000000000",
+          drawdownBps: 0,
+        },
+        peak7dE18: "1000000000000000000",
+      };
+      return true;
+    }
+    if (to === ACCOUNT_V3.toLowerCase()) {
+      const call = decodeFunctionData({ abi: ACCOUNT_ABI, data });
+      this.calls.push(`${call.functionName}:v3`);
+      if (call.functionName === "deposit") {
+        const [token, amount] = call.args as readonly [Address, bigint];
+        const meta = p.tokens.find((t) => t.address.toLowerCase() === token.toLowerCase());
+        const value =
+          token.toLowerCase() === USDC.toLowerCase() || !meta
+            ? amount
+            : (amount * BigInt(meta.price.priceE18)) / 10n ** BigInt(12 + meta.decimals);
+        this.v3Add("holdings", token, amount, value);
+        this.v3Add("wallet", token, -amount);
+      } else if (call.functionName === "withdraw") {
+        const [token, amount] = call.args as readonly [Address, bigint, Address];
+        this.v3Add("holdings", token, -amount);
+        this.v3Add("wallet", token, amount);
+      } else if (call.functionName === "withdrawAll") {
+        for (const h of p.holdings) {
+          this.v3Add("wallet", h.token, BigInt(h.amountRaw));
+          this.v3Add("holdings", h.token, -BigInt(h.amountRaw));
+        }
+      }
+      return true;
+    }
+    if (p.legacy && to === p.legacy.account.toLowerCase()) {
+      const call = decodeFunctionData({ abi: ACCOUNT_ABI, data });
+      this.calls.push(`${call.functionName}:older`);
+      if (call.functionName === "withdrawAll") {
+        this.v3Add("wallet", USDC, BigInt(p.legacy.usdcE6));
+        this.v3Add("wallet", WMON, BigInt(p.legacy.wmonWei));
+        const l = this.portfolioV3?.legacy;
+        if (this.portfolioV3 && l)
+          this.portfolioV3 = { ...this.portfolioV3, legacy: { ...l, usdcE6: "0", wmonWei: "0" } };
+      }
+      return true;
+    }
+    return false;
+  }
+
   /** The mock wallet's transactions, as the contracts would apply them. */
   private onSend(tx: { from: Address; to: Address; data: Hex }) {
     const to = tx.to.toLowerCase();
+    if (this.onSendV3(to, tx.data)) return;
     if (to === FACTORY.toLowerCase()) {
       decodeFunctionData({ abi: FACTORY_ABI, data: tx.data });
       this.calls.push("createPersonalAccount");
@@ -912,7 +1167,7 @@ export class FakeTrading {
   answer(id: bigint, rest: string, method: string): { status: number; body: unknown } | null {
     const agentId = id.toString();
     if (rest === "portfolio" && method === "GET")
-      return { status: 200, body: { portfolio: this.portfolio } };
+      return { status: 200, body: { portfolio: this.portfolioV3 ?? this.portfolio } };
     if (rest === "window" && method === "GET")
       return { status: 200, body: { window: this.window } };
     if (rest === "plan-card" && method === "GET")

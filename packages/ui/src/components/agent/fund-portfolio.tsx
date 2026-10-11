@@ -214,7 +214,7 @@ function OlderAccountCard({
             <ArrowDownToLine aria-hidden /> Withdraw all to your wallet
           </Button>
           <span className="text-xs text-foreground-muted">
-            One wallet transaction per token held; withdrawals work in every mode.
+            One wallet transaction for everything it holds; withdrawals work in every mode.
           </span>
         </div>
       ) : null}
