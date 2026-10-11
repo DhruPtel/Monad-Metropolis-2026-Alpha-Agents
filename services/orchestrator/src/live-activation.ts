@@ -814,7 +814,7 @@ try {
       : v && typeof v === "object"
         ? Object.fromEntries(
             Object.entries(v as Record<string, unknown>).map(([k, x]) => [
-              k === "token" ? "address" : k,
+              k.replace(/token/i, (m) => (m === "token" ? "address" : "Address")),
               addressKeys(x),
             ]),
           )

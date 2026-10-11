@@ -1609,3 +1609,31 @@ What happened: The live sweep's GHO check read the token table right after the r
 Cause: Two chain ids in one process: the chain's (the fork's) for contracts, the registry's (mainnet's) for the token table; the registrar took the first for the second.
 Fix: The registrar and the universe snapshot take the token registry's chain id for every table read or write (this commit); the registrar's own unit test could not see it, since its store is a fake.
 Lesson: When a service holds two chain ids, name which one each store is keyed by at the call site, and let a live check read back what a mirror wrote: a mirror that updates zero rows reports success.
+
+## L-217: The signer collided with its own outbox after the local fork was restored below its nonces
+Unit: F-T2 (2026-10-11)
+What happened: On the dev stack's restart after F-U12, the signer logged `duplicate key value violates unique constraint "signer_outbox_nonce"` for agent 1 on every attempt to sign, so the agent could not trade on the playtest fork. The fork had been restored to a state below the nonces the key had used; the signer rightly realigned its next nonce down to the chain's, but the reconciled rows that had used those nonces still held them, and the outbox's unique (chain, key, nonce) refused the new row.
+Cause: The realign (written for a fork reset) moved the sequence back without freeing the nonces the reset had taken back; the unique index spans terminal rows too.
+Fix: When the local realign happens, the key's rows with a nonce at or above the chain's pending nonce keep their history and hashes but free their nonce column, noted on the new row ("2 earlier row(s) freed their nonce"); a test restores the fake chain below two reconciled transactions and restarts the signer (c5b514c).
+Lesson: A sequence that can move backwards must free what it reused; a unique index that covers history as well as the live rows turns a safe realign into a stuck key.
+
+## L-218: The Executor mirror named the opt-in as a second reason for a sell-only token
+Unit: F-T2 (2026-10-11)
+What happened: A buy of a sell-only screened token on an opted-in account was refused with TOKEN_SELL_ONLY and NOT_OPTED_IN together (seen in F-U12's fork test).
+Cause: The findings rule added NOT_OPTED_IN whenever a screened token was not both buyable and opted into, so a sell-only status read as a missing opt-in.
+Fix: NOT_OPTED_IN only for a buyable screened token the account has not opted into; the first-reason check already ordered sell-only first, so the contract parity was never wrong (c5b514c).
+Lesson: Each refusal code names one rule; a compound condition that overlaps another code's rule lists both and misleads the reader.
+
+## L-219: The attestor's two-way pool quote misprices a one-sided pool
+Unit: F-T2 (2026-10-11)
+What happened: On the fork, the attestor's pool source priced SAKURA (a Uniswap v3 pool against WMON with 400k USD of liquidity) 45% under the pool's own spot: the sell leg of its 50 USDC round trip fell through thin liquidity below the price, and the buy-sell mid came out far below spot, so the Executor's deviation check refused the trade (ORACLE_POOL_DEVIATION, as it should). The buy itself was 0.36% over spot.
+Cause: The mid of a buy and a sell quote is a fair price only when liquidity sits on both sides of the current tick.
+Fix: None in the source this unit (out of scope); the fork test attests at each pool's own spot price, which is what the Executor checks an attestation against. Recorded as an open issue: the pool source should take the pool's spot (the oracle's `poolPrice`) and keep the round trip as a sanity check, or GeckoTerminal's price alone should decide when the two disagree.
+Lesson: Check a price source against the chain's own spot before trusting a derived figure; a quote that moves the pool is not a price.
+
+## L-220: The Test stage accepted plans the proposal evaluator refused, on the tokens' letter case
+Unit: F-T2 (2026-10-11)
+What happened: F-U12's live sweeps twice produced a plan the Zoom out's Test accepted and the proposal evaluator then rejected "out of bounds", which ended the activation with "a step failed"; the cost hurdle, which only the evaluator applied, was the suspect. With the evaluator's findings captured (F-T2's first live sweep), the rule named was "A position's token is its lowercase address", three times, beside STATE_CHANGED saying nothing had changed since the Test. The Test read the decision through `portfolioParamsFromJson`, which lowercases every token; the proposal service read the same decision through its own `portfolioParamsFromDecision`, which kept the model's checksummed addresses, and the template's bounds require lowercase.
+Cause: Two conversions of one decision, and two rule lists (the cost hurdle in one only), with nothing comparing them.
+Fix: One conversion, `targetPortfolioFromDecision`, and one rule set, `checkTargetPortfolio`, for the stage, the evaluator and the console's draft check; a fingerprint of what each read, recorded with the stage's verdict, so a refusal at the evaluator names what changed since; a shared fixture run on every side, with a case whose tokens are checksummed as the model writes them (6f6efd5, then the conversion fix).
+Lesson: Two places that must agree call one function and share one fixture; when they can legitimately differ, the second names exactly what changed. And when a mismatch's cause is a guess, capture the refusing side's own words before fixing the guess.
