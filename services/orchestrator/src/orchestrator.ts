@@ -532,7 +532,15 @@ export class Orchestrator {
         provider: this.o.web ?? null,
         market: this.o.market ?? null,
         research: this.o.research ?? null,
-        tokens: this.o.tokens ? registryToolSource(this.o.tokens.registry) : null,
+        tokens: this.o.tokens
+          ? registryToolSource(this.o.tokens.registry, Date.now, async (agentId) => {
+              // F-U12: the account's onchain opt-in decides what the agent may buy.
+              const v3 = this.o.chain?.readerV3;
+              if (!v3) return null;
+              const a = await v3.agent(agentId);
+              return a?.account ? a.screenedOptIn : null;
+            })
+          : null,
         cycles: { store: this.cycles, research: this.research },
         chain: {
           reader: this.o.chain?.reader ?? null,

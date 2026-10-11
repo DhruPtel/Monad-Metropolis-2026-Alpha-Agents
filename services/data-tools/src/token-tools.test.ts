@@ -61,6 +61,11 @@ const screenResult = (
   address: TOKEN,
   symbol: "AAA",
   verdict,
+  lane: null,
+  whyNot:
+    verdict === "passed"
+      ? "passed the screen but is not registered yet"
+      : "the safety screen refused it",
   buyable: verdict === "passed",
   summary: verdict === "passed" ? "Passed every check." : "Refused: SELL failed.",
   screenedAt: "2026-10-09T20:00:00.000Z",
@@ -95,6 +100,10 @@ class FakeTokens implements TokenSource {
         name: "Token A",
         decimals: 18,
         priceClass: "A" as const,
+        lane: null,
+        status: null,
+        buyable: false,
+        whyNot: "not screened yet; a passing safety screen registers it",
         feed: null,
         liquidityUsd: 120_000,
         volume24hUsd: 5_000,
@@ -147,6 +156,10 @@ class FakeTokens implements TokenSource {
         name: "Token A",
         inRegistry: false,
         priceClass: null,
+        lane: null,
+        status: null,
+        buyable: false,
+        whyNot: "not screened yet; a passing safety screen registers it",
         liquidityUsd: null,
         screen: null,
         foundBy: null,

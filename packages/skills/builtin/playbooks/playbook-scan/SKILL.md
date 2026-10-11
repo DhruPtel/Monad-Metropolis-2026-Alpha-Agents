@@ -56,7 +56,7 @@ Tag every claim by what its sources actually are: onchain (the chain tools, the 
 
 ## Work limits
 
-At most 10 turns and the paid data calls the task allows. One snapshot. No more than four themes. Do not research a theme in depth here: that is the Dive's work.
+At most the model turns and the paid data calls the task names in its caps (10 turns and 5 paid calls on a routine Scan, 16 and 10 on the activation sweep). One snapshot. No more than four themes. Do not research a theme in depth here: that is the Dive's work.
 
 ## Never
 

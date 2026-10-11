@@ -66,7 +66,7 @@ export const AGGRESSIVENESS_ENVELOPES: Readonly<Record<Aggressiveness, Aggressiv
     BALANCED: {
       label: "Balanced",
       classAAllowed: true,
-      maxPositionBps: 4_500,
+      maxPositionBps: 4_000,
       maxClassAPositionBps: 800,
       maxClassATotalBps: 2_500,
       minStableBps: 1_500,
@@ -77,7 +77,7 @@ export const AGGRESSIVENESS_ENVELOPES: Readonly<Record<Aggressiveness, Aggressiv
     AGGRESSIVE: {
       label: "Aggressive",
       classAAllowed: true,
-      maxPositionBps: 4_500,
+      maxPositionBps: 4_000,
       maxClassAPositionBps: 1_500,
       maxClassATotalBps: 5_000,
       minStableBps: 1_000,
@@ -107,13 +107,13 @@ export const AGGRESSIVENESS_FACTS: Readonly<Record<Aggressiveness, Aggressivenes
       label: "Balanced",
       summary: "Large caps plus a few researched mid caps with a clear thesis.",
       brief:
-        "Hold large caps, plus a few researched mid caps that each have a clear thesis and an exit plan. Attested (class A) tokens may take a small part, at most 8% each and 25% together, once a price attestor is live. Keep at least 15% of the account in stablecoins and no more than 45% in any one position. Expect to keep between 50% and 85% of the account invested; outside that range, or all in cash, say plainly why.",
+        "Hold large caps, plus a few researched mid caps that each have a clear thesis and an exit plan. Attested (class A) tokens may take a small part, at most 8% each and 25% together, once a price attestor is live. Keep at least 15% of the account in stablecoins and no more than 40% in any one position. Expect to keep between 50% and 85% of the account invested; outside that range, or all in cash, say plainly why.",
     },
     AGGRESSIVE: {
       label: "Aggressive",
       summary: "Anything that passes the safety check, with exit plans; larger swings.",
       brief:
-        "Consider anything that passes the safety check, newer and high-beta tokens and memecoins included, with smaller positions and a required exit plan for each. Attested (class A) tokens may take up to 15% each and 50% together, once a price attestor is live. Keep at least 10% of the account in stablecoins and no more than 45% in any one position. Expect larger swings. Expect to keep between 65% and 90% of the account invested; outside that range, or all in cash, say plainly why.",
+        "Consider anything that passes the safety check, newer and high-beta tokens and memecoins included, with smaller positions and a required exit plan for each. Attested (class A) tokens may take up to 15% each and 50% together, once a price attestor is live. Keep at least 10% of the account in stablecoins and no more than 40% in any one position. Expect larger swings. Expect to keep between 65% and 90% of the account invested; outside that range, or all in cash, say plainly why.",
     },
   });
 

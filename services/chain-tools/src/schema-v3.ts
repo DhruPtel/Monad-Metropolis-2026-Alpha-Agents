@@ -130,6 +130,9 @@ export const PricesOutputV3 = z.strictObject({
       feedStatus: z.enum([...PRICE_REASONS, "ATTESTOR_UNAVAILABLE"]),
       tradable: z.boolean(),
       blockedBy: reasonCode.nullable(),
+      /** F-U12: whether this account may buy it now (the lane, the status, the opt-in), and why not. */
+      buyable: z.boolean(),
+      whyNot: z.string().max(160).nullable(),
     }),
   ),
   pools: z.array(

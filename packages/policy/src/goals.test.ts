@@ -343,7 +343,7 @@ describe("goal translator (P3-U1, F-U7)", () => {
     expect(c.soulBlock).toContain("- Aggressiveness: Balanced");
     expect(c.soulBlock).toContain(`- Brief: ${c.brief}`);
     expect(c.soulBlock).toContain(
-      "- Envelope the Test enforces on a target portfolio: at most 8 positions, at most 45% in any one, at least 15% in stablecoins, class A at most 8% each and 25% together",
+      "- Envelope the Test enforces on a target portfolio: at most 8 positions, at most 40% in any one, at least 15% in stablecoins, class A at most 8% each and 25% together",
     );
     expect(c.soulBlock).toContain("at most 6 trades in 24 hours");
     expect(c.soulBlock).toContain(

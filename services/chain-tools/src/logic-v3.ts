@@ -196,7 +196,35 @@ export const oracleBlockV3 = (
         ? "ORACLE_POOL_DEVIATION"
         : "ORACLE_STALE";
 
-export function pricesViewV3(m: MarketStateV3): PricesOutputV3 {
+/** F-U12: why this account cannot buy a registered token now, or null when it can. */
+export function whyNotBuyableV3(
+  t: Pick<TokenInfoV3, "lane" | "status" | "priceClass">,
+  price: { readonly reason: string } | undefined,
+  optedIn: boolean | null,
+  attestorSet: boolean,
+): string | null {
+  if (t.status === "SELL_ONLY") return "sell-only in the registry: it may be sold, never bought";
+  if (t.status === "FROZEN") return "frozen in the registry";
+  if (t.status !== "BUYABLE") return "not listed in the registry";
+  if (t.lane === "SCREENED") {
+    if (optedIn === null)
+      return "in the screened lane; the account's opt-in is unknown until it opens";
+    if (!optedIn) return "in the screened lane; the owner has not opted in on chain";
+  }
+  if (!price || price.reason !== "OK")
+    return t.priceClass === "A"
+      ? attestorSet
+        ? "no attested price right now: the attestor's sources do not agree or are not fresh"
+        : "no price attestor is set on this chain yet"
+      : "its price feed is not usable right now";
+  return null;
+}
+
+export function pricesViewV3(
+  m: MarketStateV3,
+  account: { readonly screenedOptIn: boolean } | null = null,
+): PricesOutputV3 {
+  const optedIn = account ? account.screenedOptIn : null;
   return {
     asOf: asOfV3(m.block, m.timestamp),
     tokens: m.tokens.map((t) => {
@@ -236,6 +264,10 @@ export function pricesViewV3(m: MarketStateV3): PricesOutputV3 {
                 ? "ATTESTATION_REQUIRED"
                 : "ATTESTOR_UNAVAILABLE"
               : oracleBlockV3(p.reason),
+        buyable: usdc ? false : whyNotBuyableV3(t, p, optedIn, m.attestorSet) === null,
+        whyNot: usdc
+          ? "USDC is the account's cash, never bought"
+          : whyNotBuyableV3(t, p, optedIn, m.attestorSet),
       };
     }),
     pools: m.pools.map((p) => poolRow(p, m)),

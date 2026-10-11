@@ -20,6 +20,7 @@ import {
 import { type ScreenOutcome, type TokenListEntry, runScreen } from "./screen.ts";
 import type { ScreenFork } from "./screen-fork.ts";
 import type { PoolRow, ScreenRecord, TokenFilter, TokenRow, TokenStore } from "./store.ts";
+import type { Registrar } from "./registrar.ts";
 
 /**
  * The platform's token registry (F-U1): discovery passes write tokens and
@@ -46,6 +47,9 @@ export interface TokenRegistryOptions {
   readonly fork: ScreenFork | null;
   /** Replaces GoPlus in tests; null skips the second opinion. */
   readonly goplus?: ((address: string) => Promise<GoPlusReport | null>) | null;
+  /** F-U12: registers a passing token in the screened lane and tightens a refused one; null where no screener key runs. */
+  readonly registrar?: Registrar | null;
+  readonly log?: (line: string) => void;
   readonly now?: () => number;
 }
 
@@ -70,6 +74,7 @@ export class TokenRegistry {
   private readonly screening = new Map<string, Promise<ScreenRecord>>();
   private readonly looking = new Map<string, Promise<TokenLookupResult>>();
   private readonly goplusBucket: TokenBucket;
+  private attached: Registrar | null = null;
 
   constructor(o: TokenRegistryOptions) {
     this.o = o;
@@ -317,7 +322,25 @@ export class TokenRegistry {
       expiresAt: new Date(createdAt.getTime() + SCREEN_RULES.ttlSeconds * 1000).toISOString(),
     };
     await store.saveScreen(record);
+    // F-U12: the chain follows the screen; a failure here never fails the screen itself.
+    const registrar = this.registrar;
+    if (registrar)
+      await registrar.afterScreen(address as `0x${string}`, record, pools).catch((err: unknown) => {
+        this.o.log?.(
+          `registrar: ${address}: ${err instanceof Error ? err.message.slice(0, 160) : String(err)}`,
+        );
+      });
     return record;
+  }
+
+  /** F-U12: the registrar, for the console's view and a sync on request. */
+  get registrar(): Registrar | null {
+    return this.attached ?? this.o.registrar ?? null;
+  }
+
+  /** F-U12: the registrar joins once the chain readers exist (main.ts builds it after the registry). */
+  attachRegistrar(r: Registrar): void {
+    this.attached = r;
   }
 
   /** Screens up to `limit` tokens whose screen is missing or expired, deepest first. */

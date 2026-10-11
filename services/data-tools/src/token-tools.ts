@@ -100,12 +100,21 @@ const Screen = z.strictObject({
   expiresAt: z.string(),
   fresh: z.boolean(),
 });
+/** F-U12: what the chain says of the token and whether this account may buy it now. */
+const Buyability = {
+  lane: z.enum(["core", "screened"]).nullable(),
+  status: z.enum(["listed", "sell_only", "delisted"]).nullable(),
+  buyable: z.boolean(),
+  whyNot: z.string().max(160).nullable(),
+};
+
 const Token = z.strictObject({
   address: z.string(),
   symbol: z.string().max(32),
   name: z.string().max(80),
   decimals: z.int(),
   priceClass: z.enum(["F", "A"]),
+  ...Buyability,
   feed: z
     .strictObject({
       kind: z.string(),
@@ -147,6 +156,7 @@ const Match = z.strictObject({
   name: z.string().max(80),
   inRegistry: z.boolean(),
   priceClass: z.enum(["F", "A"]).nullable(),
+  ...Buyability,
   liquidityUsd: z.number().nullable(),
   screen: Screen.nullable(),
   foundBy: z.string().max(40).nullable(),
@@ -193,7 +203,9 @@ export const TokenOutputs = {
     address: z.string(),
     symbol: z.string().max(32),
     verdict: z.enum(["passed", "refused"]),
+    lane: Buyability.lane,
     buyable: z.boolean(),
+    whyNot: Buyability.whyNot,
     summary: z.string().max(400),
     screenedAt: z.string(),
     expiresAt: z.string(),
@@ -219,12 +231,16 @@ export type PoolItem = z.infer<typeof Pool>;
 /** What the platform gives the token tools; the orchestrator implements it over the registry. */
 export interface TokenSource {
   readonly configured: { readonly discovery: boolean; readonly screen: boolean };
-  list(f: {
-    priceClass?: "F" | "A";
-    minLiquidityUsd: number;
-    screen: "passed" | "refused" | "unscreened" | "expired" | "any";
-    limit: number;
-  }): Promise<TokenItem[]>;
+  list(
+    f: {
+      priceClass?: "F" | "A";
+      minLiquidityUsd: number;
+      screen: "passed" | "refused" | "unscreened" | "expired" | "any";
+      limit: number;
+    },
+    /** F-U12: the calling agent, whose account's opt-in decides what is buyable. */
+    agentId?: number,
+  ): Promise<TokenItem[]>;
   newPools(hours: number, limit: number): Promise<PoolItem[]>;
   /** Whether the registry holds the token, seen recently enough that a lookup reads nothing upstream. */
   isFresh(address: string): Promise<boolean>;
@@ -232,13 +248,21 @@ export interface TokenSource {
   findPools(
     address: string,
     requestedBy: string,
+    agentId?: number,
   ): Promise<{ token: TokenItem; pools: PoolItem[]; foundBy: string; cacheHit: boolean }>;
   /** Tokens by symbol or name: the registry's, then CoinGecko's and GeckoTerminal's. */
-  search(query: string): Promise<z.infer<typeof Match>[]>;
+  search(query: string, agentId?: number): Promise<z.infer<typeof Match>[]>;
   /** The latest screen while it is fresh, else null. */
-  freshScreen(address: string): Promise<Omit<ScreenOutput, "source" | "cacheHit"> | null>;
+  freshScreen(
+    address: string,
+    agentId?: number,
+  ): Promise<Omit<ScreenOutput, "source" | "cacheHit"> | null>;
   /** Runs a new screen now; throws a ToolError or RegistryError-like error with a code. */
-  screen(address: string, requestedBy: string): Promise<Omit<ScreenOutput, "source" | "cacheHit">>;
+  screen(
+    address: string,
+    requestedBy: string,
+    agentId?: number,
+  ): Promise<Omit<ScreenOutput, "source" | "cacheHit">>;
   asOf(): string;
 }
 
@@ -351,12 +375,15 @@ export function registerTokenTools(
     },
     async (input) =>
       run("list_tokens", input, true, async (t) => {
-        const tokens = await t.list({
-          ...(input.priceClass ? { priceClass: input.priceClass } : {}),
-          minLiquidityUsd: input.minLiquidityUsd,
-          screen: input.screen,
-          limit: input.limit,
-        });
+        const tokens = await t.list(
+          {
+            ...(input.priceClass ? { priceClass: input.priceClass } : {}),
+            minLiquidityUsd: input.minLiquidityUsd,
+            screen: input.screen,
+            limit: input.limit,
+          },
+          identity.agentId,
+        );
         return {
           output: {
             source: "registry",
@@ -413,7 +440,7 @@ export function registerTokenTools(
       const byAddress = /^0x[0-9a-fA-F]{40}$/.test(query);
       if (!byAddress)
         return run("lookup_token", { query }, true, async (t) => {
-          const matches = (await t.search(query)).slice(0, 20);
+          const matches = (await t.search(query, identity.agentId)).slice(0, 20);
           return {
             output: {
               source: "search",
@@ -430,7 +457,7 @@ export function registerTokenTools(
       const address = query.toLowerCase();
       const fresh = (await deps.tokens?.isFresh(address).catch(() => false)) ?? false;
       return run("lookup_token", { query: address }, fresh, async (t) => {
-        const r = await t.findPools(address, `agent:${identity.agentId}`);
+        const r = await t.findPools(address, `agent:${identity.agentId}`, identity.agentId);
         return {
           output: {
             source: r.cacheHit ? "registry" : "lookup",
@@ -447,6 +474,10 @@ export function registerTokenTools(
                 name: r.token.name,
                 inRegistry: true,
                 priceClass: r.token.priceClass,
+                lane: r.token.lane,
+                status: r.token.status,
+                buyable: r.token.buyable,
+                whyNot: r.token.whyNot,
                 liquidityUsd: r.token.liquidityUsd,
                 screen: r.token.screen,
                 foundBy: r.foundBy,
@@ -477,7 +508,7 @@ export function registerTokenTools(
       const address = input.token.toLowerCase();
       const fresh = (await deps.tokens?.isFresh(address).catch(() => false)) ?? false;
       return run("find_pools", { token: address }, fresh, async (t) => {
-        const r = await t.findPools(address, `agent:${identity.agentId}`);
+        const r = await t.findPools(address, `agent:${identity.agentId}`, identity.agentId);
         return {
           output: {
             source: r.cacheHit ? "registry" : "lookup",
@@ -517,7 +548,8 @@ export function registerTokenTools(
         { token: address, fresh: input.fresh },
         cached !== null,
         async (t) => {
-          const s = cached ?? (await t.screen(address, `agent:${identity.agentId}`));
+          const s =
+            cached ?? (await t.screen(address, `agent:${identity.agentId}`, identity.agentId));
           return {
             output: { source: "screen", cacheHit: cached !== null, ...s },
             summary: {

@@ -177,8 +177,12 @@ export function registerChainToolsV3(
     },
     async (input) =>
       tool("get_prices", input, async () => {
-        const m = await read((r) => r.market());
-        const out = pricesViewV3(m);
+        const [m, a] = await Promise.all([
+          read((r) => r.market()),
+          read((r) => r.agent(identity.agentId)),
+        ]);
+        // F-U12: every token says whether this account may buy it and why not.
+        const out = pricesViewV3(m, a?.account ? { screenedOptIn: a.screenedOptIn } : null);
         return {
           output: out,
           summary: {

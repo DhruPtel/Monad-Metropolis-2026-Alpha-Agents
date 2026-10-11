@@ -541,6 +541,21 @@ export class TokenStore {
     });
   }
 
+  /** F-U12: the chain's lane and status of a token, as the registrar mirrors them. */
+  async setRegistry(
+    chainId: number,
+    address: string,
+    lane: "core" | "screened" | null,
+    status: "listed" | "sell_only" | "delisted" | null,
+  ): Promise<void> {
+    await this.db
+      .updateTable("platform.tokens")
+      .set({ registry_lane: lane, registry_status: status })
+      .where("chain_id", "=", chainId)
+      .where("address", "=", address.toLowerCase())
+      .execute();
+  }
+
   async screens(chainId: number, address: string, limit = 10): Promise<ScreenRecord[]> {
     const rows = await this.db
       .selectFrom("platform.token_screens")

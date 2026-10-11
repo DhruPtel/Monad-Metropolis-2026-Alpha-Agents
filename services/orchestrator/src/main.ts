@@ -45,6 +45,7 @@ import { DbSteerStore } from "./reveal-steer-store.ts";
 import { localFeedRefresherFor } from "./local-feeds.ts";
 import { localSentinelKey, viemSentinelChain } from "./sentinel-chain.ts";
 import { Attestor, attestorKeyFrom, localAttestorKey } from "./attestor.ts";
+import { Registrar, localScreenerKey, viemScreenerChain } from "./tokens/registrar.ts";
 import { geckoTerminalSource, poolQuoteSource } from "./attestor-sources.ts";
 import { withAttestedPrices } from "./attested-reader.ts";
 import { Redactor, createLog, errorText } from "./secrets.ts";
@@ -431,6 +432,37 @@ const attestor =
     : null;
 const chainReaderV3 =
   plainReaderV3 && attestor ? withAttestedPrices(plainReaderV3, attestor) : plainReaderV3;
+// F-U12: the screened-lane registrar, on the screener key (anvil account 3 locally, D-342): a token
+// that passes its screen joins the screened lane at once with its pools; a refused re-screen moves
+// it to sell-only; the chain's lanes are mirrored into the token table at start and after each act.
+const screenerKey =
+  env.id === "local"
+    ? localScreenerKey()
+    : env.id === "testnet"
+      ? ((reveal("TESTNET_SCREENER_PRIVATE_KEY") as Hex | undefined) ?? null)
+      : null;
+const registrar =
+  plainReaderV3 && screenerKey && chainContractsV3.ok
+    ? new Registrar({
+        chainId: env.chainId,
+        store: tokenRegistry.store,
+        chain: viemScreenerChain({
+          rpcUrl,
+          chainId: env.chainId,
+          privateKey: screenerKey,
+          tokenRegistry: chainContractsV3.contracts.token_registry_v3,
+          protocolRegistry: chainContractsV3.contracts.protocol_registry_v3,
+        }),
+        reader: plainReaderV3,
+        log: createLog("registrar", redactor),
+      })
+    : null;
+if (registrar) tokenRegistry.attachRegistrar(registrar);
+log(
+  registrar
+    ? `screened-lane registrar on: screener ${registrar.address}; a passing screen registers the token at once`
+    : "screened-lane registrar off: a passing screen registers nothing on chain here",
+);
 log(
   attestor
     ? `price attestor on: key ${attestor.address} (class A prices as the median of the pool and GeckoTerminal, 60 s)`
@@ -578,6 +610,11 @@ const orchestrator = new Orchestrator({
   trading,
 });
 await orchestrator.start();
+if (registrar)
+  void registrar
+    .sync()
+    .then((n) => log(`registrar: ${n} registered tokens' lanes mirrored into the token table`))
+    .catch((err: unknown) => log(`registrar: sync failed: ${errorText(err, redactor)}`));
 
 const port = Number(values.ORCHESTRATOR_PORT);
 const api = createApi({
