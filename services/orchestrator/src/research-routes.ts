@@ -3,6 +3,7 @@ import { z } from "zod";
 import { cycleJson, stageJson } from "./cycle-routes.ts";
 import { utcDayStart } from "./cycle/stages.ts";
 import type { Orchestrator } from "./orchestrator.ts";
+import { type TerminalCall, terminalEvents } from "./terminal.ts";
 import {
   PRICE_TRIGGER_BPS,
   TRIGGER_CODES,
@@ -100,6 +101,110 @@ export function registerResearchRoutes(
         cycleId: t.cycleId,
         spaced: t.spaced,
       })),
+    });
+  });
+
+  /**
+   * The agent terminal (P3-U10): a cycle's events as plain lines, the open
+   * cycle by default (else the newest), from the sequence after `after`.
+   * The control API serves it to the owner alone.
+   */
+  app.get("/v1/agents/:agentId/terminal", async (c) => {
+    const ref = o.agentRef(c.req.param("agentId"));
+    if (!ref) return c.json({ error: "bad_agent_id" }, 400);
+    const wanted = c.req.query("cycleId") ?? null;
+    if (wanted !== null && !/^cycle-[0-9a-f-]{36}$/.test(wanted))
+      return c.json({ error: "bad_cycle_id" }, 400);
+    const afterRaw = c.req.query("after") ?? "0";
+    if (!/^\d{1,9}$/.test(afterRaw)) return c.json({ error: "bad_after" }, 400);
+    const after = Number(afterRaw);
+    const cycle = wanted
+      ? await orch.cycles.cycle(wanted)
+      : ((await orch.cycles.openCycle(ref)) ?? (await orch.cycles.cycles(ref, 1))[0] ?? null);
+    if (!cycle || cycle.chainId !== ref.chainId || cycle.agentId !== ref.agentId)
+      return c.json({ agentId: String(ref.agentId), cycle: null, live: false, events: [], last: 0 });
+    const stages = await orch.cycles.stages(cycle.cycleId);
+    const ids = stages.map((s) => s.stageRunId);
+    const none = ["-"];
+    const db = orch.loop.db;
+    const [calls, briefs, records, proposals] = await Promise.all([
+      db
+        .selectFrom("platform.tool_calls")
+        .select([
+          "call_id",
+          "stage_run_id",
+          "server",
+          "tool",
+          "input",
+          "status",
+          "error_code",
+          "charge_usdc_e6",
+          "cache_hit",
+          "summary",
+          "started_at",
+          "finished_at",
+        ])
+        .where("stage_run_id", "in", ids.length ? ids : none)
+        .orderBy("started_at")
+        .execute(),
+      orch.cycles.briefs({ cycleId: cycle.cycleId }, 100),
+      db
+        .selectFrom("platform.stage_records")
+        .select(["stage_run_id", "outcome", "decision", "created_at"])
+        .where("stage_run_id", "in", ids.length ? ids : none)
+        .execute(),
+      orch.proposals.store.list(ref.chainId, ref.agentId, 20),
+    ]);
+    const goal = await orch.goals.currentGoal(ref.chainId, ref.agentId);
+    const usedToday = await orch.cycles.usedToday(ref, utcDayStart(new Date()));
+    const usedBefore = usedToday > cycle.chargedUsdcE6 ? usedToday - cycle.chargedUsdcE6 : 0n;
+    const events = terminalEvents({
+      cycle,
+      stages,
+      calls: calls.map(
+        (r): TerminalCall => ({
+          callId: r.call_id,
+          stageRunId: r.stage_run_id,
+          server: r.server,
+          tool: r.tool,
+          input: r.input,
+          status: r.status,
+          errorCode: r.error_code,
+          chargeUsdcE6: r.charge_usdc_e6,
+          cacheHit: r.cache_hit,
+          summary: r.summary,
+          startedAt: new Date(r.started_at),
+          finishedAt: r.finished_at ? new Date(r.finished_at) : null,
+        }),
+      ),
+      briefs: briefs.map((b) => ({
+        stageRunId: b.stageRunId,
+        kind: b.kind,
+        status: b.status,
+        body: b.body,
+        reasons: b.reasons,
+        createdAt: new Date(b.createdAt),
+      })),
+      records: records.map((r) => ({
+        stageRunId: r.stage_run_id,
+        outcome: r.outcome,
+        decision: r.decision,
+        createdAt: new Date(r.created_at),
+      })),
+      proposals: proposals
+        .filter((p) => p.cycleId === cycle.cycleId)
+        .map((p) => ({ status: p.status, evaluation: p.evaluation, createdAt: p.createdAt })),
+      budget: goal
+        ? { dailyUsdcE6: BigInt(goal.config.research.dailyBudgetUsdcE6), usedBeforeUsdcE6: usedBefore }
+        : null,
+      skillRuns: orch.skillText(),
+    });
+    return c.json({
+      agentId: String(ref.agentId),
+      cycle: cycleJson(cycle),
+      live: cycle.status === "queued" || cycle.status === "running",
+      events: events.filter((e) => e.seq > after),
+      last: events.length,
     });
   });
 

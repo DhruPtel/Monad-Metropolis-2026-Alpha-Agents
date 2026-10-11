@@ -237,6 +237,8 @@ export class Orchestrator {
   /** P3-U10: the scheduler and the watcher, with credits; null without them. */
   readonly scheduler: ResearchScheduler | null;
   readonly watcher: Watcher | null;
+  /** Eight-word runs of every mounted skill's and playbook's text, once per process: the leak checks. */
+  readonly skillText: () => ReadonlySet<string>;
   /** F-U9: portfolio proposals from the Zoom out's decisions, evaluated and stored. */
   readonly proposals: ProposalService;
   /** F-U10: the activation sweep: its checks, its record and the cycle's hooks. */
@@ -364,17 +366,18 @@ export class Orchestrator {
     this.scheduler = research ? new ResearchScheduler(schedulerDeps(research)) : null;
     this.watcher = research ? new Watcher(watcherDeps(research)) : null;
     let runs: Set<string> | null = null;
+    this.skillText = () =>
+      (runs ??= skillRuns(
+        builtinSet().packages.flatMap((p) =>
+          p.files.filter((f) => /\.md$/.test(f.path)).map((f) => f.bytes.toString("utf8")),
+        ),
+      ));
     this.research = new CycleResearch({
       cycles: this.cycles,
       goals: this.goals,
       plans: this.plans,
       // Every mounted skill's and playbook's text, once per process (the brief validator's skill check).
-      skillRuns: () =>
-        (runs ??= skillRuns(
-          builtinSet().packages.flatMap((p) =>
-            p.files.filter((f) => /\.md$/.test(f.path)).map((f) => f.bytes.toString("utf8")),
-          ),
-        )),
+      skillRuns: this.skillText,
       // F-U6: the Test stage v2 over a target portfolio, on the fund agent's set.
       portfolio: { inputs: (cycle) => this.portfolioTestInputs(cycle) },
     });
