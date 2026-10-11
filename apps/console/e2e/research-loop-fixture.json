@@ -1,0 +1,48 @@
+{
+  "agentId": "1",
+  "running": true,
+  "schedulingOn": false,
+  "schedule": {
+    "paused": false,
+    "fastCadence": false,
+    "lastScanAt": "2026-10-11T09:00:00.000Z",
+    "lastZoomOutAt": "2026-10-10T12:30:00.000Z",
+    "lastOverviewAt": null,
+    "lastTriggerCycleAt": null,
+    "waitingReason": null,
+    "waitingSince": null,
+    "nextDueAt": "2026-10-11T15:00:00.000Z",
+    "baselineTakenAt": "2026-10-11T09:05:00.000Z"
+  },
+  "cadence": {
+    "intensity": "STANDARD",
+    "aggressiveness": "BALANCED",
+    "priceTriggerBps": 700,
+    "positionTriggerBps": 1500,
+    "scanEveryMs": 21600000,
+    "zoomOutEveryMs": 86400000,
+    "overviewEveryMs": 604800000,
+    "triggerSpacingMs": 7200000,
+    "watchEveryMs": 300000,
+    "refreshesOverview": true
+  },
+  "budget": { "dailyBudgetUsdcE6": "3800000", "usedTodayUsdcE6": "1410000", "divesPerDay": 2, "divesToday": 1 },
+  "open": null,
+  "triggers": [
+    {
+      "triggerId": "trigger-fixture-1",
+      "code": "PRICE_MOVE",
+      "text": "MON's price moved past the goal's trigger since the last Zoom out",
+      "kind": "TRIGGERED",
+      "detail": { "moveBps": 820, "triggerBps": 700 },
+      "firedAt": "2026-10-11T11:00:00.000Z",
+      "cycleId": "cycle-fixture-1",
+      "spaced": false
+    }
+  ],
+  "overview": null,
+  "themes": null,
+  "planUnchanged": null,
+  "cycles": [],
+  "snapshot": null
+}

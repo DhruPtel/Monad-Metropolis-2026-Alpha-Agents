@@ -766,6 +766,10 @@ const routes = {
     JSON.stringify({ screen: JSON.parse(tokenDetailFixture).screens[0] }),
   ],
   "GET /v1/agents/1/cycles": [200, cyclesFixture],
+  "GET /v1/agents/1/research": [
+    200,
+    readFileSync(new URL("./research-loop-fixture.json", import.meta.url), "utf8"),
+  ],
   [`GET /v1/cycles/${FIXTURE_CYCLE}`]: [200, cycleDetailFixture],
   "POST /v1/agents/1/cycles": [
     409,

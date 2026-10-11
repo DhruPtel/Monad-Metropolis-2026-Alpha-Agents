@@ -12,6 +12,7 @@ import Link from "next/link";
 import { PanelHeader } from "@/components/panel-header";
 import { orchestratorUrl } from "../agents/extension";
 import { CycleControls, LiveRefresh } from "./cycle-controls";
+import { ResearchControls, type ResearchLoopJson } from "./research-controls";
 import { CycleDetail, CyclesTable, PlanCard } from "./cycle-view";
 import { type AgentCyclesJson, type CycleDetailJson, isLive, usdc } from "./cycles";
 
@@ -68,6 +69,8 @@ export default async function CyclesPage({
       </div>
     );
   const cycles = await read<AgentCyclesJson>(`/v1/agents/${agent}/cycles`);
+  // P3-U10: the research loop's state and its playtest tools.
+  const loop = await read<ResearchLoopJson>(`/v1/agents/${agent}/research`);
   const data = "data" in cycles ? cycles.data : null;
   const selected = params.cycle ?? data?.cycles[0]?.cycleId ?? null;
   const detail = selected ? await read<CycleDetailJson>(`/v1/cycles/${selected}`) : null;
@@ -125,6 +128,7 @@ export default async function CyclesPage({
               ) : null}
             </CardContent>
           </Card>
+          {"data" in loop ? <ResearchControls agentId={agent} loop={loop.data} /> : null}
           {data.plans ? (
             <div className="grid gap-4 xl:grid-cols-2">
               <PlanCard plan={data.plans.ROUTINE} />
