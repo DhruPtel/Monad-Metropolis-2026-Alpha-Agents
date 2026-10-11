@@ -340,7 +340,7 @@ export class FakeApi {
         : reply(404, { error: "not_found", message: "No such agent." });
     }
     const trade =
-      /^\/v1\/agents\/(\d+)\/(portfolio|window|arming|disarm|activation|plan-card|proposals\/[\w-]+\/(?:approve|reject)|intents(?:\/[\w-]+\/(?:approve|reject))?)$/.exec(
+      /^\/v1\/agents\/(\d+)\/(portfolio|window|research|terminal|research\/pause|arming|disarm|activation|plan-card|proposals\/[\w-]+\/(?:approve|reject)|intents(?:\/[\w-]+\/(?:approve|reject))?)$/.exec(
         url.pathname,
       );
     if (trade?.[1] && trade[2]) {
@@ -357,7 +357,7 @@ export class FakeApi {
           message: "This owner session is for another agent.",
         });
       const tr = this.trading.get(id);
-      const r = tr?.answer(id, trade[2], request.method());
+      const r = tr?.answer(id, trade[2], request.method(), url.searchParams);
       if (!tr || !r)
         return reply(503, {
           error: "not_deployed",

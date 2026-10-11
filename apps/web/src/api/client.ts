@@ -601,6 +601,124 @@ export interface PortfolioV3Json {
   } | null;
 }
 
+/** P3-U10: one line of the agent terminal. */
+export interface TerminalEventJson {
+  readonly seq: number;
+  readonly at: string;
+  readonly kind: string;
+  readonly stage: string | null;
+  readonly text: string;
+  readonly tone: "info" | "ok" | "warn" | "bad";
+}
+
+export interface TerminalJson {
+  readonly agentId: string;
+  readonly cycle: { readonly cycleId: string; readonly kind: string; readonly status: string } | null;
+  readonly live: boolean;
+  readonly events: readonly TerminalEventJson[];
+  readonly last: number;
+}
+
+/** P3-U10: the Research page's read. */
+export interface ResearchJson {
+  readonly agentId: string;
+  readonly running: boolean;
+  readonly schedulingOn: boolean;
+  readonly schedule: {
+    readonly paused: boolean;
+    readonly fastCadence: boolean;
+    readonly lastScanAt: string | null;
+    readonly lastZoomOutAt: string | null;
+    readonly lastOverviewAt: string | null;
+    readonly lastTriggerCycleAt: string | null;
+    readonly waitingReason: string | null;
+    readonly waitingSince: string | null;
+    readonly nextDueAt: string | null;
+    readonly baselineTakenAt: string | null;
+  };
+  readonly cadence: {
+    readonly intensity: string;
+    readonly aggressiveness: string;
+    readonly priceTriggerBps: number;
+    readonly positionTriggerBps: number;
+    readonly scanEveryMs: number;
+    readonly zoomOutEveryMs: number;
+    readonly overviewEveryMs: number;
+    readonly triggerSpacingMs: number;
+    readonly watchEveryMs: number;
+    readonly refreshesOverview: boolean;
+  } | null;
+  readonly budget: {
+    readonly dailyBudgetUsdcE6: string;
+    readonly usedTodayUsdcE6: string;
+    readonly divesPerDay: number;
+    readonly divesToday: number;
+  } | null;
+  readonly open: { readonly cycleId: string; readonly kind: string; readonly status: string } | null;
+  readonly triggers: readonly {
+    readonly triggerId: string;
+    readonly code: string;
+    readonly text: string;
+    readonly kind: string;
+    readonly detail: Record<string, unknown>;
+    readonly firedAt: string;
+    readonly cycleId: string | null;
+    readonly spaced: boolean;
+  }[];
+  readonly overview: {
+    readonly at: string;
+    readonly summary: string;
+    readonly points: readonly { readonly text: string; readonly class: string; readonly sources: readonly string[] }[];
+  } | null;
+  readonly themes: {
+    readonly at: string;
+    readonly summary: string;
+    readonly quiet: boolean;
+    readonly themes: readonly {
+      readonly code: string;
+      readonly materiality: string;
+      readonly scope: string;
+      readonly symbol: string | null;
+      readonly whyNow: string;
+    }[];
+  } | null;
+  readonly planUnchanged: {
+    readonly at: string;
+    readonly reasonCode: string;
+    readonly portfolioView: string;
+    readonly whatWouldChangeIt: string;
+  } | null;
+  readonly cycles: readonly {
+    readonly cycleId: string;
+    readonly kind: string;
+    readonly status: string;
+    readonly startedAt: string | null;
+    readonly finishedAt: string | null;
+    readonly chargedUsdcE6: string;
+    readonly stages: readonly {
+      readonly stage: string;
+      readonly themeCode: string | null;
+      readonly status: string;
+      readonly chargedUsdcE6: string;
+      readonly ceilingUsdcE6: string;
+    }[];
+  }[];
+  readonly snapshot: {
+    readonly at: string;
+    readonly monUsd: string | null;
+    readonly volatilityPct: number | null;
+    readonly mode: string | null;
+    readonly navUsdcE6: string | null;
+    readonly held: readonly {
+      readonly symbol: string;
+      readonly priceUsd: string | null;
+      readonly liquidityUsd: number | null;
+      readonly screen: string | null;
+      readonly status: string | null;
+    }[];
+  } | null;
+}
+
 /** The portfolio as the API serves it: on the fund set where it is deployed, else the v2 account. */
 export type AnyPortfolioJson = PortfolioJson | PortfolioV3Json;
 
@@ -697,6 +815,35 @@ export const tradingApi = {
   /** F-U10: the activation sweep as the owner reads it. Owner only. */
   async activation(agentId: bigint, session: string): Promise<ActivationReadJson> {
     return call<ActivationReadJson>(`/v1/agents/${agentId.toString()}/activation`, owner(session));
+  },
+  /** P3-U10: the Research page's read. Owner only. */
+  async research(agentId: bigint, session: string): Promise<ResearchJson> {
+    return call<ResearchJson>(`/v1/agents/${agentId.toString()}/research`, owner(session));
+  },
+  /** P3-U10: the agent terminal's events after a sequence, the open cycle by default. Owner only. */
+  async terminal(
+    agentId: bigint,
+    session: string,
+    opts: { cycleId?: string | null; after?: number } = {},
+  ): Promise<TerminalJson> {
+    const q = new URLSearchParams({ after: String(opts.after ?? 0) });
+    if (opts.cycleId) q.set("cycleId", opts.cycleId);
+    return call<TerminalJson>(
+      `/v1/agents/${agentId.toString()}/terminal?${q.toString()}`,
+      owner(session),
+    );
+  },
+  /** P3-U10: pauses or resumes the research loop. Owner only. */
+  async pauseResearch(agentId: bigint, session: string, paused: boolean): Promise<boolean> {
+    const r = await call<{ paused: boolean }>(
+      `/v1/agents/${agentId.toString()}/research/pause`,
+      owner(session, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ paused }),
+      }),
+    );
+    return r.paused;
   },
   /** F-U11: the portfolio window. Owner only. */
   async window(agentId: bigint, session: string): Promise<WindowJson> {

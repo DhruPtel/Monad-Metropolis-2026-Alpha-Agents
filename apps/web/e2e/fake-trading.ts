@@ -7,6 +7,9 @@ import {
   parseAbi,
 } from "viem";
 import type {
+  ResearchJson,
+  TerminalEventJson,
+  TerminalJson,
   ActivationJson,
   ActivationReadJson,
   ActivationStepJson,
@@ -904,6 +907,18 @@ export class FakeTrading {
   intents: IntentJson[] = [];
   /** F-U11: the window as the owner reads it. */
   window: WindowJson = windowFixture();
+  /** P3-U10: the Research page's read; null answers 503 as a stack without the orchestrator would. */
+  research: ResearchJson | null = null;
+  /** P3-U10: the terminal's lines, served from the cursor the page sends; `advanceTerminal` adds more. */
+  terminalLines: TerminalEventJson[] = [];
+  terminalLive = false;
+  terminalCycle: TerminalJson["cycle"] = null;
+  /** Reads of the terminal that fail, for the reconnecting state; each failure answers 502 once. */
+  terminalFailures = 0;
+  /** Every terminal read's cursor, in order. */
+  readonly terminalReads: number[] = [];
+  /** Every pause the page sent. */
+  readonly pauses: boolean[] = [];
   /** A-80: when set, the API serves the fund agent's set and this takes the place of `portfolio`. */
   portfolioV3: PortfolioV3Json | null = null;
   /** Extra blocked reasons beyond the intents' own (for example NOT_ARMED). */
@@ -1164,8 +1179,45 @@ export class FakeTrading {
   }
 
   /** Answers a trading route on an already checked owner session; null when it is not one. */
-  answer(id: bigint, rest: string, method: string): { status: number; body: unknown } | null {
+  answer(
+    id: bigint,
+    rest: string,
+    method: string,
+    query: URLSearchParams = new URLSearchParams(),
+  ): { status: number; body: unknown } | null {
     const agentId = id.toString();
+    if (rest === "research" && method === "GET")
+      return this.research
+        ? { status: 200, body: { ...this.research, agentId } }
+        : { status: 503, body: { error: "not_configured", message: "The orchestrator is not reachable." } };
+    if (rest === "terminal" && method === "GET") {
+      if (!this.research)
+        return { status: 503, body: { error: "not_configured", message: "The orchestrator is not reachable." } };
+      const after = Number(query.get("after") ?? "0");
+      this.terminalReads.push(after);
+      if (this.terminalFailures > 0) {
+        this.terminalFailures -= 1;
+        return { status: 502, body: { error: "internal", message: "the orchestrator answered 502" } };
+      }
+      return {
+        status: 200,
+        body: {
+          agentId,
+          cycle: this.terminalCycle,
+          live: this.terminalLive,
+          events: this.terminalLines.filter((e) => e.seq > after),
+          last: this.terminalLines.at(-1)?.seq ?? 0,
+        },
+      };
+    }
+    if (rest === "research/pause" && method === "POST") {
+      if (!this.research)
+        return { status: 503, body: { error: "not_configured", message: "The orchestrator is not reachable." } };
+      const paused = this.pauses.length % 2 === 0 ? !this.research.schedule.paused : this.research.schedule.paused;
+      this.pauses.push(paused);
+      this.research = { ...this.research, schedule: { ...this.research.schedule, paused } };
+      return { status: 200, body: { agentId, paused } };
+    }
     if (rest === "portfolio" && method === "GET")
       return { status: 200, body: { portfolio: this.portfolioV3 ?? this.portfolio } };
     if (rest === "window" && method === "GET")

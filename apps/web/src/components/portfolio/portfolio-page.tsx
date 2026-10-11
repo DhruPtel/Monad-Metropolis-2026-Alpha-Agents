@@ -48,6 +48,7 @@ import type {
   PortfolioV3Json,
 } from "@/api/client";
 import { latestDecided, planCardView } from "@/agent/plan-card";
+import { ActivationTerminal } from "./activation-terminal";
 import { useWalletSession } from "@/auth/session";
 import {
   type Asset,
@@ -694,6 +695,9 @@ export function PortfolioPage({
         <Link href={`/agents/${agentId.toString()}/window`} data-testid="window-link">
           Performance window
         </Link>
+        <Link href={`/agents/${agentId.toString()}/research`} data-testid="research-link">
+          Research
+        </Link>
       </div>
       <h1 className="text-2xl font-semibold">{name}: portfolio</h1>
       <p className="max-w-2xl text-sm text-foreground-muted">
@@ -1055,6 +1059,11 @@ export function PortfolioPage({
                 ) : undefined
               }
               status={<StatusFor status={pf.status} actions={["arm", "turn-on", "disarm"]} />}
+              terminal={
+                activation.status === "running" ? (
+                  <ActivationTerminal agentId={agentId} live />
+                ) : undefined
+              }
             />
           ) : null}
           {waiting.length > 0 ? (
