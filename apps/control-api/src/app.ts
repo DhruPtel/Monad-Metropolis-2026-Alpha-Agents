@@ -994,6 +994,16 @@ export function createApp(deps: ApiDeps): Hono {
     return c.json({ ...read, agentId: agentId.toString() });
   });
 
+  /** P4-U2: the Risk Sentinel's actions on the agent, with their reasons. Owner only. */
+  app.get("/v1/agents/:id{[0-9]+}/sentinel", async (c) => {
+    const agentId = BigInt(c.req.param("id"));
+    const owner = await ownerOnly(c, agentId);
+    if (owner instanceof Response) return owner;
+    if (!deps.research) return researchOff(c);
+    const read = await deps.research.sentinel(Number(agentId));
+    return c.json({ ...read, agentId: agentId.toString() });
+  });
+
   /** Pauses or resumes the agent's research loop. Owner only. */
   app.post("/v1/agents/:id{[0-9]+}/research/pause", async (c) => {
     const agentId = BigInt(c.req.param("id"));

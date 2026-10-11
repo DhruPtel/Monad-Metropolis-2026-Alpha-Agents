@@ -13,6 +13,8 @@ export interface ResearchDeps {
     after: number,
   ) => Promise<Record<string, unknown>>;
   readonly pause: (agentId: number, paused: boolean) => Promise<{ paused: boolean }>;
+  /** P4-U2: the Risk Sentinel's view of the agent. */
+  readonly sentinel: (agentId: number) => Promise<Record<string, unknown>>;
 }
 
 export function orchestratorResearch(orchestratorUrl: string): ResearchDeps {
@@ -29,6 +31,11 @@ export function orchestratorResearch(orchestratorUrl: string): ResearchDeps {
       const res = await fetch(`${base(agentId)}/terminal?${q.toString()}`, {
         signal: AbortSignal.timeout(30_000),
       });
+      if (!res.ok) throw new Error(`the orchestrator answered ${res.status}`);
+      return (await res.json()) as Record<string, unknown>;
+    },
+    async sentinel(agentId) {
+      const res = await fetch(`${base(agentId)}/sentinel`, { signal: AbortSignal.timeout(30_000) });
       if (!res.ok) throw new Error(`the orchestrator answered ${res.status}`);
       return (await res.json()) as Record<string, unknown>;
     },

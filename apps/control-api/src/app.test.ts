@@ -2260,12 +2260,24 @@ describe.skipIf(!available)("the control API (needs pnpm dev:up for Postgres)", 
         calls.push(`pause ${id} ${paused}`);
         return { paused };
       },
+      sentinel: async (id) => {
+        calls.push(`sentinel ${id}`);
+        return {
+          configured: true,
+          active: {},
+          actions: [{ code: "DRAWDOWN_12", action: "REDUCE_ONLY" }],
+        };
+      },
     };
 
     it("is owner only, and answers 503 without the orchestrator", async () => {
       const bob = await session(2, "bob-token");
       const alice = await session(1, "alice-token");
-      for (const path of ["/v1/agents/2/research", "/v1/agents/2/terminal"]) {
+      for (const path of [
+        "/v1/agents/2/research",
+        "/v1/agents/2/terminal",
+        "/v1/agents/2/sentinel",
+      ]) {
         expect((await call(path, {}, { research })).status).toBe(401);
         expect((await call(path, { headers: headers(alice) }, { research })).status).toBe(403);
         expect((await call(path, { headers: headers(bob) })).status).toBe(503);
@@ -2315,10 +2327,18 @@ describe.skipIf(!available)("the control API (needs pnpm dev:up for Postgres)", 
           )
         ).status,
       ).toBe(400);
+      const sentinel = await call("/v1/agents/2/sentinel", { headers: headers(bob) }, { research });
+      expect(sentinel.status).toBe(200);
+      expect(await json(sentinel)).toMatchObject({
+        agentId: "2",
+        configured: true,
+        actions: [{ code: "DRAWDOWN_12", action: "REDUCE_ONLY" }],
+      });
       expect(calls).toEqual([
         "read 2",
         "terminal 2 cycle-01234567-89ab-cdef-0123-456789abcdef 4",
         "pause 2 true",
+        "sentinel 2",
       ]);
     });
   });
