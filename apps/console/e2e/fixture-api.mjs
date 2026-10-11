@@ -709,6 +709,8 @@ const planView = () => ({
 // P3-U4: one routine cycle as the orchestrator's cycle routes served it after an offline run
 // (services/orchestrator's cycle test writes these with CYCLE_FIXTURE_DIR=apps/console/e2e).
 const cyclesFixture = readFileSync(new URL("./cycles-fixture.json", import.meta.url), "utf8");
+/** Anvil account 5, the local fork's sentinel (a public test address). */
+const SENTINEL_ADDRESS = "0x9965507D1a55bcC2695C58ba16FB37d819B0A4dc";
 const cycleDetailFixture = readFileSync(
   new URL("./cycle-detail-fixture.json", import.meta.url),
   "utf8",
@@ -766,6 +768,30 @@ const routes = {
     JSON.stringify({ screen: JSON.parse(tokenDetailFixture).screens[0] }),
   ],
   "GET /v1/agents/1/cycles": [200, cyclesFixture],
+  "GET /v1/agents/1/sentinel": [
+    200,
+    JSON.stringify({
+      agentId: "1",
+      configured: true,
+      sentinelAddress: SENTINEL_ADDRESS,
+      active: {},
+      lastCheckedAt: "2026-10-11T12:04:30.000Z",
+      actions: [
+        {
+          actionId: "sentinel-fixture-1",
+          code: "DRAWDOWN_12",
+          text: "the account fell 12% or more from its 7-day peak",
+          action: "REDUCE_ONLY",
+          state: null,
+          reason: "12.5% below the 7-day peak",
+          detail: { drawdownBps: 1250 },
+          txHash: "0x00a1",
+          status: "done",
+          at: "2026-10-11T11:30:00.000Z",
+        },
+      ],
+    }),
+  ],
   "GET /v1/agents/1/research": [
     200,
     readFileSync(new URL("./research-loop-fixture.json", import.meta.url), "utf8"),

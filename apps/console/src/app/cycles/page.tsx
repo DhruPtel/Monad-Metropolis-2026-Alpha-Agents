@@ -13,6 +13,7 @@ import { PanelHeader } from "@/components/panel-header";
 import { orchestratorUrl } from "../agents/extension";
 import { CycleControls, LiveRefresh } from "./cycle-controls";
 import { ResearchControls, type ResearchLoopJson } from "./research-controls";
+import { SentinelControls, type SentinelLoopJson } from "./sentinel-controls";
 import { CycleDetail, CyclesTable, PlanCard } from "./cycle-view";
 import { type AgentCyclesJson, type CycleDetailJson, isLive, usdc } from "./cycles";
 
@@ -71,6 +72,8 @@ export default async function CyclesPage({
   const cycles = await read<AgentCyclesJson>(`/v1/agents/${agent}/cycles`);
   // P3-U10: the research loop's state and its playtest tools.
   const loop = await read<ResearchLoopJson>(`/v1/agents/${agent}/research`);
+  // P4-U2: the Risk Sentinel's state and its drills.
+  const sentinel = await read<SentinelLoopJson>(`/v1/agents/${agent}/sentinel`);
   const data = "data" in cycles ? cycles.data : null;
   const selected = params.cycle ?? data?.cycles[0]?.cycleId ?? null;
   const detail = selected ? await read<CycleDetailJson>(`/v1/cycles/${selected}`) : null;
@@ -129,6 +132,7 @@ export default async function CyclesPage({
             </CardContent>
           </Card>
           {"data" in loop ? <ResearchControls agentId={agent} loop={loop.data} /> : null}
+          {"data" in sentinel ? <SentinelControls agentId={agent} view={sentinel.data} /> : null}
           {data.plans ? (
             <div className="grid gap-4 xl:grid-cols-2">
               <PlanCard plan={data.plans.ROUTINE} />
