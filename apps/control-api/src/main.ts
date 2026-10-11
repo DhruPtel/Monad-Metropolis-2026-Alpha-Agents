@@ -8,6 +8,7 @@ import { AGENT_NFT_ABI, addressEntry, agentNftDeployment } from "@alpha-agents/d
 import { createPublicClient, http, isAddressEqual, type Hex } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { createApp } from "./app.ts";
+import { orchestratorActivation } from "./activation.ts";
 import {
   rpcAgentViewReader,
   rpcCustodyPathReader,
@@ -224,6 +225,10 @@ const app = createApp({
           },
         },
       }
+    : {}),
+  // F-U10: the activation sweep is read and started through the orchestrator, which owns it.
+  ...(values.ORCHESTRATOR_URL
+    ? { activation: orchestratorActivation(String(values.ORCHESTRATOR_URL)) }
     : {}),
   // P2-EC (D-307): testnet's feeds are re-dated by the orchestrator, which holds the feed key.
   ...(env.id === "testnet" && values.ORCHESTRATOR_URL

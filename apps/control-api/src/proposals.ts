@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import type { Db } from "@alpha-agents/db";
 import { TARGET_PORTFOLIO_ID, type TargetPortfolioParams, checkPlan } from "@alpha-agents/policy";
 import {
+  type ActivationStore,
   type GoalStore,
   type PlanStore,
   type ProposalEvaluation,
@@ -153,6 +154,8 @@ export interface ProposalStores {
   readonly plans: PlanStore;
   readonly goals: GoalStore;
   readonly trades: TradeStore;
+  /** F-U10: the activation sweeps, so approving a sweep's plan arms the agent (D-291). */
+  readonly activations: ActivationStore;
   readonly recheck: ProposalDeps["recheck"];
   readonly now: () => Date;
 }
@@ -189,7 +192,10 @@ async function waiting(
  * Approve: the evaluator runs again (the Test stage v2 on the fund agent's
  * set for a portfolio, the goal's limits for the two-asset plan); a draft
  * that fails now is stored as rejected with every finding; one that passes
- * becomes the plan the runner follows, set by the owner.
+ * becomes the plan the runner follows, set by the owner. When the proposal
+ * is the activation sweep's, this approval is the one that arms the agent
+ * (F-U10, D-291): the arming registered when trading was turned on moves
+ * from waiting for its first trade to armed, and `armed` says so.
  */
 export async function approveProposal(
   s: ProposalStores,
@@ -197,7 +203,9 @@ export async function approveProposal(
   agentId: number,
   proposalId: string,
   owner: { readonly wallet: Hex; readonly epoch: bigint },
-): Promise<{ ok: true; proposal: StoredProposal; plan: StoredPlan } | ProposalRefusal> {
+): Promise<
+  { ok: true; proposal: StoredProposal; plan: StoredPlan; armed: boolean } | ProposalRefusal
+> {
   const p = await waiting(s, chainId, agentId, proposalId, owner);
   if ("ok" in p) return p;
   if (!p.plan)
@@ -267,7 +275,12 @@ export async function approveProposal(
       now: s.now(),
     })) ?? p;
   await writeProposalEntry(s.db, applied, "approved");
-  return { ok: true, proposal: applied, plan };
+  const activation = p.cycleId ? await s.activations.forCycle(p.cycleId) : null;
+  const armed =
+    activation?.armingId !== null && activation?.armingId !== undefined
+      ? (await s.trades.markArmedByPlan(activation.armingId)) !== null
+      : false;
+  return { ok: true, proposal: applied, plan, armed };
 }
 
 export async function declineProposal(

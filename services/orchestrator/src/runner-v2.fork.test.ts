@@ -27,6 +27,7 @@ import {
 } from "@alpha-agents/policy";
 import { ERC20_ABI, LocalKeyProvider, Signer, ViemChainClient } from "@alpha-agents/signer";
 import {
+  ActivationStore,
   DecisionStore,
   GoalStore,
   PlanStore,
@@ -334,6 +335,7 @@ describe.skipIf(upstream === null || !dbUp)(
           plans,
           goals,
           trades,
+          activations: new ActivationStore(db),
           now: () => new Date(),
           recheck: async (_id, params) => {
             const market = await readerV3.market();

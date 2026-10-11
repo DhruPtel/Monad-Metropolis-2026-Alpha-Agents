@@ -214,7 +214,15 @@ export async function readCredits(
 export interface ActivityJson {
   readonly entryId: string;
   readonly kind:
-    "scan" | "intent" | "arming" | "trade" | "blocked" | "runner" | "stage" | "proposal";
+    | "scan"
+    | "intent"
+    | "arming"
+    | "trade"
+    | "blocked"
+    | "runner"
+    | "stage"
+    | "proposal"
+    | "activation";
   /** The narrator's text, validated against its facts, or the fixed template's (D-217). */
   readonly text: string;
   readonly renderedBy: "narrator" | "template";

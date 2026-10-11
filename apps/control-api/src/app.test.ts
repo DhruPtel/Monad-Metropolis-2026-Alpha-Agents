@@ -2,12 +2,14 @@ import { ENVIRONMENTS } from "@alpha-agents/config";
 import { createTestDatabase, databaseAvailable, type TestDatabase } from "@alpha-agents/db/testing";
 import { CLAIM_TYPES, DEFAULT_GOAL_INPUT, SPECIES, claimDomain } from "@alpha-agents/domain";
 import {
+  ActivationStore,
   type AgentChainView,
   GoalStore,
   PlanStore,
   type PortfolioReading,
   ProposalStore,
   type ProposalRationale,
+  TradeStore,
 } from "@alpha-agents/trading";
 import {
   TARGET_PORTFOLIO_ID,
@@ -24,6 +26,7 @@ import {
 } from "viem";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import type { ActivationDeps, ActivationReadJson } from "./activation.ts";
 import { type ApiDeps, createApp } from "./app.ts";
 import type { ChainReader } from "./chain.ts";
 import type { Identity } from "./identity.ts";
@@ -1484,7 +1487,8 @@ describe.skipIf(!available)("the control API (needs pnpm dev:up for Postgres)", 
     /** A goal for agent 2 (Bob's), then a proposal waiting for him under its epochs. */
     const pendingFor = async (
       plan: ReturnType<typeof portfolio> | ReturnType<typeof bands>,
-      over: { positions?: never } = {},
+      /** F-U10: the cycle the proposal came from, when it is the activation sweep's. */
+      cycleId: string | null = null,
     ) => {
       await call("/v1/agents/2/goal", {
         method: "PUT",
@@ -1494,7 +1498,7 @@ describe.skipIf(!available)("the control API (needs pnpm dev:up for Postgres)", 
       return new ProposalStore(t.db).create({
         chainId: env.chainId,
         agentId: 2,
-        cycleId: null,
+        cycleId,
         stageRunId: null,
         strategyEpoch: await new GoalStore(t.db).strategyEpoch(env.chainId, 2),
         ownerEpoch: 2n,
@@ -1531,7 +1535,6 @@ describe.skipIf(!available)("the control API (needs pnpm dev:up for Postgres)", 
         },
         status: "pending_owner",
         needsApproval: true,
-        ...over,
       });
     };
     let bob = "";
@@ -1626,6 +1629,78 @@ describe.skipIf(!available)("the control API (needs pnpm dev:up for Postgres)", 
       });
     });
 
+    it("approving the activation sweep's plan arms the agent (F-U10, D-291); any other plan's approval leaves the arming as it is", async () => {
+      const trades = new TradeStore(t.db, () => new Date(now));
+      await t.db.deleteFrom("platform.arming").execute();
+      await t.db.deleteFrom("platform.activations").execute();
+      const { record: arming } = await trades.startArming({
+        chainId: env.chainId,
+        agentId: 2,
+        owner: BOB,
+        ownerEpoch: 2n,
+        configEpoch: 0n,
+        sessionKey: "0x00000000000000000000000000000000000f00d2",
+        validUntil: BigInt(Math.floor(now / 1000) + 29 * 86_400),
+        custody: "v3",
+        executor: "0x00000000000000000000000000000000000e0ec3",
+      });
+      expect(arming.status).toBe("awaiting_first_trade");
+      // A plan from an ordinary research cycle: approving it sets the plan but arms nothing.
+      const plain = await pendingFor(portfolio());
+      const over: Partial<ApiDeps> = { proposals: { recheck: async () => [] } };
+      const first = await call(
+        `/v1/agents/2/proposals/${plain.proposalId}/approve`,
+        { method: "POST", headers: headers(bob) },
+        over,
+      );
+      expect(first.status).toBe(200);
+      expect(await json(first)).toMatchObject({ armed: false });
+      expect((await trades.openArming(env.chainId, 2))?.status).toBe("awaiting_first_trade");
+      // The activation sweep's plan: its cycle is the one the activation names.
+      const cycleId = "cycle-00000000-0000-4000-8000-00000000ac71";
+      const activations = new ActivationStore(t.db);
+      const act = await activations.create({
+        chainId: env.chainId,
+        agentId: 2,
+        armingId: arming.armingId,
+        reasoningAlias: "research-medium",
+        tier: "MEDIUM",
+        ceilingUsdcE6: 3_800_000n,
+        checks: {
+          aggressiveness: "BALANCED",
+          tier: "MEDIUM",
+          account: "0x00000000000000000000000000000000000ac002",
+          mode: "NORMAL",
+          tradingValueUsdcE6: "40000000",
+          spendableUsdcE6: "12000000",
+        },
+      });
+      await activations.setCycle(act.activationId, cycleId, "task-act");
+      const sweep = await pendingFor(portfolio(), cycleId);
+      const second = await call(
+        `/v1/agents/2/proposals/${sweep.proposalId}/approve`,
+        { method: "POST", headers: headers(bob) },
+        over,
+      );
+      expect(second.status).toBe(200);
+      expect(await json(second)).toMatchObject({ armed: true, proposal: { status: "applied" } });
+      const armed = await trades.openArming(env.chainId, 2);
+      expect(armed).toMatchObject({ armingId: arming.armingId, status: "armed" });
+      expect(armed?.armedAt).not.toBeNull();
+      expect(armed?.firstIntentId).toBeNull();
+      // Already armed: a further approval reports nothing new.
+      const third = await pendingFor(portfolio(), cycleId);
+      expect(
+        await json(
+          await call(
+            `/v1/agents/2/proposals/${third.proposalId}/approve`,
+            { method: "POST", headers: headers(bob) },
+            over,
+          ),
+        ),
+      ).toMatchObject({ armed: false });
+    });
+
     it("a proposal that fails the evaluator at approval is rejected with every finding and never applied", async () => {
       const p = await pendingFor(portfolio());
       const res = await call(
@@ -1694,6 +1769,100 @@ describe.skipIf(!available)("the control API (needs pnpm dev:up for Postgres)", 
         headers: headers(bob),
       });
       expect([stale.status, (await json(stale)).error]).toEqual([409, "proposal_stale"]);
+    });
+  });
+
+  describe("the activation sweep's routes (F-U10)", () => {
+    const headers = (session: string | null): Record<string, string> =>
+      session ? { "x-owner-session": session } : {};
+    const session = async (agent: number, token: string) =>
+      (await json(await call(`/v1/agents/${agent}/session`, { method: "POST", token })))
+        .token as string;
+    const read: ActivationReadJson = {
+      agentId: "2",
+      activation: null,
+      checks: [{ code: "GOAL", ok: false, message: "Set a goal first.", blocking: true }],
+      ceilingUsdcE6: "3800000",
+      tier: { choice: "MEDIUM", label: "Medium" },
+    };
+    const calls: string[] = [];
+    let answer: Awaited<ReturnType<ActivationDeps["start"]>> = {
+      ok: true,
+      activation: { activationId: "act-1", status: "running" } as never,
+    };
+    const activation: ActivationDeps = {
+      read: async (id) => {
+        calls.push(`read ${id}`);
+        return read;
+      },
+      start: async (id) => {
+        calls.push(`start ${id}`);
+        return answer;
+      },
+    };
+
+    it("is owner only, reads through the orchestrator, starts as 202, and names the check that refused a start", async () => {
+      const bob = await session(2, "bob-token");
+      const alice = await session(1, "alice-token");
+      expect((await call("/v1/agents/2/activation")).status).toBe(401);
+      expect(
+        (await call("/v1/agents/2/activation", { headers: headers(alice) }, { activation })).status,
+      ).toBe(403);
+      expect(
+        (
+          await call(
+            "/v1/agents/2/activation",
+            { method: "POST", headers: headers(alice) },
+            { activation },
+          )
+        ).status,
+      ).toBe(403);
+      const got = await call("/v1/agents/2/activation", { headers: headers(bob) }, { activation });
+      expect(got.status).toBe(200);
+      expect(await json(got)).toMatchObject({
+        agentId: "2",
+        environment: "fork",
+        activation: null,
+        checks: [{ code: "GOAL", ok: false }],
+        ceilingUsdcE6: "3800000",
+        tier: { label: "Medium" },
+      });
+      const started = await call(
+        "/v1/agents/2/activation",
+        { method: "POST", headers: headers(bob) },
+        { activation },
+      );
+      expect(started.status).toBe(202);
+      expect(await json(started)).toMatchObject({
+        agentId: "2",
+        activation: { activationId: "act-1", status: "running" },
+      });
+      answer = {
+        ok: false,
+        error: "activation_credits",
+        message: "Credits are short.",
+        checks: read.checks,
+      };
+      const refused = await call(
+        "/v1/agents/2/activation",
+        { method: "POST", headers: headers(bob) },
+        { activation },
+      );
+      expect(refused.status).toBe(409);
+      expect(await json(refused)).toMatchObject({
+        error: "activation_credits",
+        message: "Credits are short.",
+        checks: [{ code: "GOAL" }],
+      });
+      expect(calls).toEqual(["read 2", "start 2", "start 2"]);
+      // Without an orchestrator the routes say so rather than guessing.
+      const none = await call("/v1/agents/2/activation", { headers: headers(bob) });
+      expect([none.status, (await json(none)).error]).toEqual([503, "not_configured"]);
+      const noStart = await call("/v1/agents/2/activation", {
+        method: "POST",
+        headers: headers(bob),
+      });
+      expect([noStart.status, (await json(noStart)).error]).toEqual([503, "not_configured"]);
     });
   });
 

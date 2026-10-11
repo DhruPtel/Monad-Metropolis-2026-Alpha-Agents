@@ -15,10 +15,12 @@ import {
   planCard,
   proposalJson,
 } from "./proposals.ts";
+import type { ActivationDeps } from "./activation.ts";
 import { cors } from "hono/cors";
 import { type Address, type Hex, getAddress, isAddress, isAddressEqual } from "viem";
 import { translateGoal } from "@alpha-agents/policy";
 import {
+  ActivationStore,
   type AgentViewReader,
   type CustodyPathReader,
   GoalStore,
@@ -104,6 +106,11 @@ export interface ApiDeps {
    * absent where no orchestrator is reachable, and a portfolio approval then waits.
    */
   readonly proposals?: ProposalDeps | null;
+  /**
+   * F-U10: the activation sweep, read and started through the orchestrator;
+   * absent where no orchestrator is reachable, and the routes answer 503.
+   */
+  readonly activation?: ActivationDeps | null;
   /** D-315: every balance at the agent's addresses; null where AgentNFT is not deployed. */
   readonly holdings?: HoldingsReader | null;
   /** How long index reads are cached. */
@@ -738,6 +745,7 @@ export function createApp(deps: ApiDeps): Hono {
     plans: new PlanStore(deps.db),
     goals,
     trades,
+    activations: new ActivationStore(deps.db),
     recheck: deps.proposals?.recheck ?? null,
     now: () => new Date(deps.now()),
   });
@@ -799,9 +807,58 @@ export function createApp(deps: ApiDeps): Hono {
         agentId: agentId.toString(),
         proposal: proposalJson(r.proposal),
         plan: { paramId: r.plan.paramId, strategyEpoch: r.plan.strategyEpoch.toString() },
+        // F-U10 (D-291): approving the activation sweep's plan is what arms the agent.
+        armed: r.armed,
       });
     },
   );
+
+  // --- The activation sweep (F-U10) ------------------------------------------
+
+  /**
+   * The owner's sweep: the newest one with its steps, status and what they
+   * can do, and the checks before the next may start. Owner only, read
+   * through the orchestrator.
+   */
+  app.get("/v1/agents/:id{[0-9]+}/activation", async (c) => {
+    const agentId = BigInt(c.req.param("id"));
+    const owner = await ownerOnly(c, agentId);
+    if (owner instanceof Response) return owner;
+    if (!deps.activation)
+      return fail(
+        c,
+        503,
+        "not_configured",
+        "The platform cannot reach the agent's orchestrator right now; try again in a moment.",
+      );
+    const read = await deps.activation.read(Number(agentId));
+    return c.json({ ...(await meta()), ...read, agentId: agentId.toString() });
+  });
+
+  /**
+   * Turns automatic trading on: the grant must be on chain already (the
+   * owner's wallet registers it first); the orchestrator runs every check,
+   * names the one that fails, and otherwise queues the sweep.
+   */
+  app.post("/v1/agents/:id{[0-9]+}/activation", async (c) => {
+    const agentId = BigInt(c.req.param("id"));
+    const owner = await ownerOnly(c, agentId);
+    if (owner instanceof Response) return owner;
+    if (!deps.activation)
+      return fail(
+        c,
+        503,
+        "not_configured",
+        "The platform cannot reach the agent's orchestrator right now; try again in a moment.",
+      );
+    const r = await deps.activation.start(Number(agentId));
+    if (!r.ok)
+      return c.json(
+        { error: r.error, message: r.message, checks: r.checks, agentId: agentId.toString() },
+        409,
+      );
+    return c.json({ agentId: agentId.toString(), activation: r.activation }, 202);
+  });
 
   app.post("/v1/agents/:id{[0-9]+}/proposals/:proposalId{prop-[0-9a-f-]{36}}/reject", async (c) => {
     const agentId = BigInt(c.req.param("id"));
