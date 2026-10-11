@@ -569,6 +569,9 @@ async function main(): Promise<number> {
         hold ? `${hold.outcome} ${hold.code}` : "no decision within three minutes",
       );
     } else if (approval.ok) {
+      // F-T1: the sweep took minutes on a fork whose feeds do not update on their own; re-date them
+      // before the runner's leg, as the dev stack's refresher would, so the Executor's price check holds.
+      await refreshLocalFeeds(fork.url);
       const leg = await waitFor("the runner's first leg", 6 * 60_000, async () => {
         const all = await trades.intents(CHAIN, agentId, 10);
         return all.find(
