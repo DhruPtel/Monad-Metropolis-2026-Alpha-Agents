@@ -1,0 +1,321 @@
+{
+  "at": "2026-10-10T21:48:52.902Z",
+  "toolsPerServer": {
+    "chain": 11,
+    "data": 14,
+    "platform": 5
+  },
+  "toolCount": 30,
+  "results": [
+    {
+      "alias": "scan-cheap",
+      "model": "claude-haiku-4-5-20251001",
+      "stage": "SCAN (routine)",
+      "status": 200,
+      "inputTokens": 15076,
+      "errorType": null,
+      "message": null,
+      "requestId": "req_011CfuHy5pDdcZisoLA6eLKs"
+    },
+    {
+      "alias": "scan-cheap",
+      "model": "claude-haiku-4-5-20251001",
+      "stage": "SCAN (activation)",
+      "status": 200,
+      "inputTokens": 15102,
+      "errorType": null,
+      "message": null,
+      "requestId": "req_011CfuHy6d5qpBYiL6N9wE1P"
+    },
+    {
+      "alias": "scan-cheap",
+      "model": "claude-haiku-4-5-20251001",
+      "stage": "DIVE",
+      "status": 200,
+      "inputTokens": 15099,
+      "errorType": null,
+      "message": null,
+      "requestId": "req_011CfuHy7NEgwTAFF4ibaHJy"
+    },
+    {
+      "alias": "scan-cheap",
+      "model": "claude-haiku-4-5-20251001",
+      "stage": "CHALLENGE",
+      "status": 200,
+      "inputTokens": 15033,
+      "errorType": null,
+      "message": null,
+      "requestId": "req_011CfuHy87d1X3rZTY2oqyYp"
+    },
+    {
+      "alias": "scan-cheap",
+      "model": "claude-haiku-4-5-20251001",
+      "stage": "ZOOM_OUT (activation)",
+      "status": 200,
+      "inputTokens": 15187,
+      "errorType": null,
+      "message": null,
+      "requestId": "req_011CfuHy8uFossjMgAKi5VJG"
+    },
+    {
+      "alias": "narrator",
+      "model": "claude-haiku-4-5-20251001",
+      "stage": "narrator entry",
+      "status": 200,
+      "inputTokens": 51,
+      "errorType": null,
+      "message": null,
+      "requestId": "req_011CfuHy9bBWmyqgMv495X6h"
+    },
+    {
+      "alias": "research-low",
+      "model": "claude-haiku-4-5-20251001",
+      "stage": "SCAN (routine)",
+      "status": 200,
+      "inputTokens": 15076,
+      "errorType": null,
+      "message": null,
+      "requestId": "req_011CfuHyAFs8nPTogN55Sn2C"
+    },
+    {
+      "alias": "research-low",
+      "model": "claude-haiku-4-5-20251001",
+      "stage": "SCAN (activation)",
+      "status": 200,
+      "inputTokens": 15102,
+      "errorType": null,
+      "message": null,
+      "requestId": "req_011CfuHyAwn7YG9RUvFFkwgY"
+    },
+    {
+      "alias": "research-low",
+      "model": "claude-haiku-4-5-20251001",
+      "stage": "DIVE",
+      "status": 200,
+      "inputTokens": 15099,
+      "errorType": null,
+      "message": null,
+      "requestId": "req_011CfuHyBdxjouKy6uTgtjws"
+    },
+    {
+      "alias": "research-low",
+      "model": "claude-haiku-4-5-20251001",
+      "stage": "CHALLENGE",
+      "status": 200,
+      "inputTokens": 15033,
+      "errorType": null,
+      "message": null,
+      "requestId": "req_011CfuHyCJQ6Z2QdCwBzyeER"
+    },
+    {
+      "alias": "research-low",
+      "model": "claude-haiku-4-5-20251001",
+      "stage": "ZOOM_OUT (activation)",
+      "status": 200,
+      "inputTokens": 15187,
+      "errorType": null,
+      "message": null,
+      "requestId": "req_011CfuHyD3J9gFQginYAnVxE"
+    },
+    {
+      "alias": "research-medium",
+      "model": "claude-sonnet-5-5",
+      "stage": "SCAN (routine)",
+      "status": 200,
+      "inputTokens": 19210,
+      "errorType": null,
+      "message": null,
+      "requestId": "req_011CfuHyDoRsHxAGSx6rvYaw"
+    },
+    {
+      "alias": "research-medium",
+      "model": "claude-sonnet-5-5",
+      "stage": "SCAN (activation)",
+      "status": 200,
+      "inputTokens": 19247,
+      "errorType": null,
+      "message": null,
+      "requestId": "req_011CfuHyEgmR7bHH55fSFQ1B"
+    },
+    {
+      "alias": "research-medium",
+      "model": "claude-sonnet-5-5",
+      "stage": "DIVE",
+      "status": 200,
+      "inputTokens": 19254,
+      "errorType": null,
+      "message": null,
+      "requestId": "req_011CfuHyFYrQjGjsYrf2LFN4"
+    },
+    {
+      "alias": "research-medium",
+      "model": "claude-sonnet-5-5",
+      "stage": "CHALLENGE",
+      "status": 200,
+      "inputTokens": 19178,
+      "errorType": null,
+      "message": null,
+      "requestId": "req_011CfuHyGLUmCcXWCSwsvd2V"
+    },
+    {
+      "alias": "research-medium",
+      "model": "claude-sonnet-5-5",
+      "stage": "ZOOM_OUT (activation)",
+      "status": 200,
+      "inputTokens": 19412,
+      "errorType": null,
+      "message": null,
+      "requestId": "req_011CfuHyHA644n19pqYcvk8o"
+    },
+    {
+      "alias": "research-high",
+      "model": "claude-opus-5-5",
+      "stage": "SCAN (routine)",
+      "status": 200,
+      "inputTokens": 19210,
+      "errorType": null,
+      "message": null,
+      "requestId": "req_011CfuHyHwDzjNaPkWx9JWNS"
+    },
+    {
+      "alias": "research-high",
+      "model": "claude-opus-5-5",
+      "stage": "SCAN (activation)",
+      "status": 200,
+      "inputTokens": 19247,
+      "errorType": null,
+      "message": null,
+      "requestId": "req_011CfuHyJgruueAM85fqWZDC"
+    },
+    {
+      "alias": "research-high",
+      "model": "claude-opus-5-5",
+      "stage": "DIVE",
+      "status": 200,
+      "inputTokens": 19254,
+      "errorType": null,
+      "message": null,
+      "requestId": "req_011CfuHyKagtKnzFTxecqSyu"
+    },
+    {
+      "alias": "research-high",
+      "model": "claude-opus-5-5",
+      "stage": "CHALLENGE",
+      "status": 200,
+      "inputTokens": 19178,
+      "errorType": null,
+      "message": null,
+      "requestId": "req_011CfuHyLN5bRbGVxyce4Tzf"
+    },
+    {
+      "alias": "research-high",
+      "model": "claude-opus-5-5",
+      "stage": "ZOOM_OUT (activation)",
+      "status": 200,
+      "inputTokens": 19412,
+      "errorType": null,
+      "message": null,
+      "requestId": "req_011CfuHyM5F1SMU6dW41PJNx"
+    },
+    {
+      "alias": "research-strong",
+      "model": "claude-sonnet-5-5",
+      "stage": "SCAN (routine)",
+      "status": 200,
+      "inputTokens": 19210,
+      "errorType": null,
+      "message": null,
+      "requestId": "req_011CfuHyMo9BgtKd3AndwikX"
+    },
+    {
+      "alias": "research-strong",
+      "model": "claude-sonnet-5-5",
+      "stage": "SCAN (activation)",
+      "status": 200,
+      "inputTokens": 19247,
+      "errorType": null,
+      "message": null,
+      "requestId": "req_011CfuHyNXYa8CunpajpSvVJ"
+    },
+    {
+      "alias": "research-strong",
+      "model": "claude-sonnet-5-5",
+      "stage": "DIVE",
+      "status": 200,
+      "inputTokens": 19254,
+      "errorType": null,
+      "message": null,
+      "requestId": "req_011CfuHyPEUDonpbQ544sCFT"
+    },
+    {
+      "alias": "research-strong",
+      "model": "claude-sonnet-5-5",
+      "stage": "CHALLENGE",
+      "status": 200,
+      "inputTokens": 19178,
+      "errorType": null,
+      "message": null,
+      "requestId": "req_011CfuHyQ4KjVZEVynbWSyXc"
+    },
+    {
+      "alias": "research-strong",
+      "model": "claude-sonnet-5-5",
+      "stage": "ZOOM_OUT (activation)",
+      "status": 200,
+      "inputTokens": 19412,
+      "errorType": null,
+      "message": null,
+      "requestId": "req_011CfuHyQsSAtpXs7EzMM4d6"
+    },
+    {
+      "alias": "research-deep",
+      "model": "claude-opus-5-5",
+      "stage": "SCAN (routine)",
+      "status": 200,
+      "inputTokens": 19210,
+      "errorType": null,
+      "message": null,
+      "requestId": "req_011CfuHyRf4UiRY4JmvcXNfr"
+    },
+    {
+      "alias": "research-deep",
+      "model": "claude-opus-5-5",
+      "stage": "SCAN (activation)",
+      "status": 200,
+      "inputTokens": 19247,
+      "errorType": null,
+      "message": null,
+      "requestId": "req_011CfuHySTwbEGPd11tj4AAc"
+    },
+    {
+      "alias": "research-deep",
+      "model": "claude-opus-5-5",
+      "stage": "DIVE",
+      "status": 200,
+      "inputTokens": 19254,
+      "errorType": null,
+      "message": null,
+      "requestId": "req_011CfuHyTGooPiADaxnRQA8U"
+    },
+    {
+      "alias": "research-deep",
+      "model": "claude-opus-5-5",
+      "stage": "CHALLENGE",
+      "status": 200,
+      "inputTokens": 19178,
+      "errorType": null,
+      "message": null,
+      "requestId": "req_011CfuHyU9Pu6jk5GYkdhreA"
+    },
+    {
+      "alias": "research-deep",
+      "model": "claude-opus-5-5",
+      "stage": "ZOOM_OUT (activation)",
+      "status": 200,
+      "inputTokens": 19412,
+      "errorType": null,
+      "message": null,
+      "requestId": "req_011CfuHyUronGAhgA5wyEaqR"
+    }
+  ]
+}

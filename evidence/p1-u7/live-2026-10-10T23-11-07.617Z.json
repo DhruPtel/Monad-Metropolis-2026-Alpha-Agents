@@ -1,0 +1,538 @@
+{
+  "unit": "P1-U5, P1-U6 and P1-U7",
+  "namespace": "live-6848e7",
+  "runTag": "2026-10-10T23-11-07.617Z",
+  "checks": {
+    "mint leads to reveal and provisioning with no manual step": true,
+    "rendered config matches the tier on chain": true,
+    "the agent has its own LiteLLM key": true,
+    "with no credits the agent is RESTRICTED and an LLM task is refused": true,
+    "USDC sent to the funding address appears as credits with no other action": true,
+    "no-op task succeeded with a structured result": true,
+    "the model answered through the gate": true,
+    "the sandbox stopped": true,
+    "the task reduced credits by exactly the metered amount, and the ledger balances": true,
+    "a hard kill leaves a sandbox and a tunnel behind (the case L-19 describes)": true,
+    "the startup sweep removed the leftovers": true,
+    "a reset deletes the old key and creates a new one": true,
+    "a refund returns the remaining credits as USDC to the current owner": true,
+    "the signer worker is on, pinned to the local fork's chain": true,
+    "at zero the next call is refused and the run ends as billing, with no retries": true,
+    "afterwards the agent stays RESTRICTED and LLM tasks are refused": true,
+    "the keeper, provisioning and deposits keep working while an agent is restricted": true,
+    "the ledger balances and matches the funding address on chain": true,
+    "the scheduler queued a Scan for each funded agent with no manual step": true,
+    "a funded agent's Scan used web_search and returned a schema-valid result": true,
+    "the Scan loaded its playbook from the read-only skill mount": true,
+    "the scheduled Scan saved substantive notes outside a cycle (its brief's content)": true,
+    "the agent called market_snapshot from its sandbox and it answered": true,
+    "a real agent in E2B ran x_search and got sourced, untrusted posts": true,
+    "Dune is off without a key: the agent's dune_query is refused with no charge": true,
+    "a real agent read a contract, a balance and code on Monad mainnet, typed and free": true,
+    "the X search was charged at its price, or free from the cache, and stayed inside the caps": true
+  },
+  "provisioning": {
+    "agentId": 1,
+    "msFromMint": 19358,
+    "runtime": {
+      "agentId": "1",
+      "generation": 1,
+      "status": "ready",
+      "tier": "pro",
+      "species": 14,
+      "slots": 8,
+      "playbook": "tier-pro@1",
+      "configHash": "97aaaa7f526a24f701a95acc83df0d809edaf72fc31ebc572a81c4f9fe92c9d0",
+      "keyAlias": "aa-live-6848e7-143143-1-g1",
+      "budgetUsd": "0.000000",
+      "lastError": null,
+      "provisionedAt": "2026-10-10T23:11:35.401Z",
+      "updatedAt": "2026-10-10T23:11:35.401Z",
+      "lease": null,
+      "latestTask": null
+    }
+  },
+  "deposit": {
+    "msToCredit": 5009,
+    "credited": {
+      "agentId": "1",
+      "fundingAddress": "0xf1f1cbfc8b13e1018beab249b14b926f128a11c4",
+      "creditsUsdcE6": "1000000",
+      "spendableUsdcE6": "1000000",
+      "heldUsdcE6": "0",
+      "unsettledUsdcE6": "0",
+      "fundingAddressUsdcE6": "1000000",
+      "restricted": false,
+      "spent24hUsdcE6": "0",
+      "toolSpent24hUsdcE6": "0",
+      "recent": [
+        {
+          "kind": "credits_received",
+          "creditsDeltaUsdcE6": "1000000",
+          "at": "2026-10-10T23:11:40.000Z"
+        }
+      ]
+    },
+    "budgetUsd": "0.800000"
+  },
+  "spendUsd": 0.025,
+  "noop": {
+    "taskId": "8417d8f1-d4b2-40bc-ad90-0af3fc044785",
+    "agentId": "1",
+    "kind": "noop",
+    "status": "succeeded",
+    "result": {
+      "kind": "noop",
+      "tier": "pro",
+      "runId": "run_d795d8d53b694185afd06e714f639dba",
+      "slots": 8,
+      "agentId": 1,
+      "leaseId": "c651a354-bad1-4692-96fb-4ea5ce4671b5",
+      "replied": "NOOP_OK",
+      "playbook": "tier-pro@1",
+      "runStatus": "completed",
+      "sandboxId": "igjebn7hopj7y5fn6r5si",
+      "timingsMs": {
+        "run": 8372,
+        "total": 40004,
+        "sandbox": 755,
+        "hermesBoot": 24441
+      },
+      "configHash": "97aaaa7f526a24f701a95acc83df0d809edaf72fc31ebc572a81c4f9fe92c9d0",
+      "gatedCalls": [
+        "POST /v1/chat/completions 200",
+        "GET /v1/models 200"
+      ],
+      "generation": 1,
+      "modelCalls": 2,
+      "stopReason": "completed",
+      "modelCallsOk": 2,
+      "answeredNoopOk": true,
+      "sandboxStopped": true,
+      "modelCallsRefusedForCredits": 0
+    },
+    "error": null,
+    "createdAt": "2026-10-10T23:11:41.151Z",
+    "startedAt": "2026-10-10T23:11:41.159Z",
+    "finishedAt": "2026-10-10T23:12:21.165Z"
+  },
+  "gatewayLog": {
+    "rows": 1,
+    "costed": 1,
+    "gateCallsOk": 2
+  },
+  "metering": {
+    "receipts": 1,
+    "chargedUsdcE6": "27138",
+    "after": {
+      "agentId": "1",
+      "fundingAddress": "0xf1f1cbfc8b13e1018beab249b14b926f128a11c4",
+      "creditsUsdcE6": "972862",
+      "spendableUsdcE6": "972862",
+      "heldUsdcE6": "0",
+      "unsettledUsdcE6": "27138",
+      "fundingAddressUsdcE6": "1000000",
+      "restricted": false,
+      "spent24hUsdcE6": "27138",
+      "toolSpent24hUsdcE6": "0",
+      "recent": [
+        {
+          "kind": "usage_metered",
+          "creditsDeltaUsdcE6": "-27138",
+          "at": "2026-10-10T23:12:18.000Z"
+        },
+        {
+          "kind": "credits_received",
+          "creditsDeltaUsdcE6": "1000000",
+          "at": "2026-10-10T23:11:40.000Z"
+        }
+      ]
+    }
+  },
+  "afterKill": {
+    "sandboxes": 1,
+    "tunnelAlive": true,
+    "leaseActive": true
+  },
+  "afterSweep": {
+    "sandboxes": 0,
+    "tunnelAlive": false,
+    "pidFile": false,
+    "lease": "ended",
+    "task": "failed"
+  },
+  "refund": {
+    "refund": {
+      "refundId": "f1365d54-1582-481c-8584-a9338bba54fb",
+      "agentId": "1",
+      "owner": "0xa82abfc775d0b0731868dae892aa0ca8644da449",
+      "ownerEpoch": "0",
+      "status": "sent",
+      "creditsUsdcE6": "972862",
+      "heldUsdcE6": "0",
+      "txHash": "0x261d11ac3990181cb34121a2d262f651f299e50615d612e3796c9dfde6dad8c9",
+      "reason": null,
+      "createdAt": "2026-10-10T23:12:35.710Z",
+      "updatedAt": "2026-10-10T23:12:38.281Z"
+    },
+    "ownerGainedUsdcE6": "972862"
+  },
+  "drain": {
+    "outsideCall": 200,
+    "task": {
+      "taskId": "d928a25e-a47a-464c-b601-bd2458f02de0",
+      "agentId": "1",
+      "kind": "noop",
+      "status": "failed",
+      "result": {
+        "kind": "noop",
+        "tier": "pro",
+        "runId": "run_d539779cf39e41b99119be4931422139",
+        "slots": 8,
+        "agentId": 1,
+        "leaseId": "89b0fb32-d500-478e-a279-c22394431fdf",
+        "replied": "",
+        "playbook": "tier-pro@1",
+        "runStatus": "failed",
+        "sandboxId": "ibafj1825m6thh8413j7c",
+        "timingsMs": {
+          "run": 4908,
+          "total": 29142,
+          "sandbox": 468,
+          "hermesBoot": 16202
+        },
+        "configHash": "c73552970d0c5ad762e52d4b2daf01f775a8923dca42b9672fb74cc77140e9c5",
+        "gatedCalls": [
+          "POST /v1/chat/completions 402"
+        ],
+        "generation": 2,
+        "modelCalls": 1,
+        "stopReason": "billing",
+        "modelCallsOk": 0,
+        "answeredNoopOk": false,
+        "sandboxStopped": true,
+        "modelCallsRefusedForCredits": 1
+      },
+      "error": "billing: the agent's credits ran out; the gate refused 1 model call with 402 and the run ended failed",
+      "createdAt": "2026-10-10T23:12:41.252Z",
+      "startedAt": "2026-10-10T23:12:41.260Z",
+      "finishedAt": "2026-10-10T23:13:10.403Z"
+    }
+  },
+  "scans": {
+    "1": {
+      "taskId": "d7273179-b619-4c05-863b-eb52fd105254",
+      "agentId": "1",
+      "kind": "scan",
+      "status": "failed",
+      "result": {
+        "kind": "scan",
+        "tier": "pro",
+        "runId": "run_6fc34ef3b35e41c6a927688f70f109f2",
+        "stage": null,
+        "agentId": 1,
+        "leaseId": "fb69f9a5-3853-404e-b803-c68dc61292e9",
+        "runStatus": "stopped",
+        "sandboxId": "i54wzvmdlbqssu0z4uzzr",
+        "timingsMs": {
+          "run": 30397,
+          "total": 57392,
+          "sandbox": 703,
+          "hermesBoot": 18523
+        },
+        "toolCalls": [
+          {
+            "tool": "market_snapshot",
+            "status": "succeeded",
+            "errorCode": null,
+            "chargeUsdcE6": "1000"
+          },
+          {
+            "tool": "web_search",
+            "status": "succeeded",
+            "errorCode": null,
+            "chargeUsdcE6": "10000"
+          },
+          {
+            "tool": "web_search",
+            "status": "succeeded",
+            "errorCode": null,
+            "chargeUsdcE6": "10000"
+          },
+          {
+            "tool": "web_search",
+            "status": "succeeded",
+            "errorCode": null,
+            "chargeUsdcE6": "10000"
+          },
+          {
+            "tool": "read_url",
+            "status": "succeeded",
+            "errorCode": null,
+            "chargeUsdcE6": "2000"
+          }
+        ],
+        "configHash": "c73552970d0c5ad762e52d4b2daf01f775a8923dca42b9672fb74cc77140e9c5",
+        "gatedCalls": [
+          "POST /v1/chat/completions 200",
+          "GET /v1/models 200",
+          "POST /v1/chat/completions 200",
+          "POST /v1/chat/completions 200",
+          "POST /v1/chat/completions 200"
+        ],
+        "generation": 2,
+        "modelCalls": 5,
+        "stopReason": "DEADLINE",
+        "skillsLoaded": [
+          "aa-playbook-scan"
+        ],
+        "sandboxStopped": true,
+        "toolChargeUsdcE6": "33000",
+        "modelCallsRefusedForCredits": 0
+      },
+      "error": "the Scan passed its 6 minute deadline and was stopped",
+      "createdAt": "2026-10-10T23:13:36.539Z",
+      "startedAt": "2026-10-10T23:13:36.556Z",
+      "finishedAt": "2026-10-10T23:14:35.036Z"
+    },
+    "2": {
+      "taskId": "b25e18d7-c1a9-4400-a9d1-b01975e69d43",
+      "agentId": "2",
+      "kind": "scan",
+      "status": "succeeded",
+      "result": {
+        "kind": "scan",
+        "tier": "base",
+        "runId": "run_1ffeb25dc20f426c8843ffdcbb5683a1",
+        "stage": {
+          "outcome": "DONE",
+          "stageId": "stage-d3f28dd6-1d1e-4397-bc37-73a28dffc725",
+          "candidates": [
+            {
+              "asset": "MON",
+              "thesisCode": "MON_UNLOCK_OVERHANG",
+              "confidenceBps": 8500
+            },
+            {
+              "asset": "MARKET",
+              "thesisCode": "DEFI_VOLUME_CONTRACTION",
+              "confidenceBps": 7000
+            },
+            {
+              "asset": "MON",
+              "thesisCode": "MON_PRICE_CONSOLIDATION",
+              "confidenceBps": 6500
+            }
+          ],
+          "schemaValid": true
+        },
+        "agentId": 2,
+        "leaseId": "e17e5a1e-bfeb-4b13-9a01-462cd6b0a9a1",
+        "runStatus": "completed",
+        "sandboxId": "irsfy4so6thzgirn2c6wg",
+        "timingsMs": {
+          "run": 41630,
+          "total": 57152,
+          "sandbox": 657,
+          "hermesBoot": 14457
+        },
+        "toolCalls": [
+          {
+            "tool": "market_snapshot",
+            "status": "succeeded",
+            "errorCode": null,
+            "chargeUsdcE6": "0"
+          },
+          {
+            "tool": "web_search",
+            "status": "succeeded",
+            "errorCode": null,
+            "chargeUsdcE6": "10000"
+          },
+          {
+            "tool": "web_search",
+            "status": "succeeded",
+            "errorCode": null,
+            "chargeUsdcE6": "10000"
+          },
+          {
+            "tool": "web_search",
+            "status": "succeeded",
+            "errorCode": null,
+            "chargeUsdcE6": "10000"
+          },
+          {
+            "tool": "read_url",
+            "status": "succeeded",
+            "errorCode": null,
+            "chargeUsdcE6": "2000"
+          },
+          {
+            "tool": "read_url",
+            "status": "succeeded",
+            "errorCode": null,
+            "chargeUsdcE6": "2000"
+          },
+          {
+            "tool": "write_thesis",
+            "status": "succeeded",
+            "errorCode": null,
+            "chargeUsdcE6": "0"
+          },
+          {
+            "tool": "complete_stage",
+            "status": "succeeded",
+            "errorCode": null,
+            "chargeUsdcE6": "0"
+          }
+        ],
+        "configHash": "a29d39b1af3ce5de8e3af8353b797dbc9e1d45eb368d44ce8775e7c5638ddb3f",
+        "gatedCalls": [
+          "POST /v1/chat/completions 200",
+          "GET /v1/models 200",
+          "POST /v1/chat/completions 200",
+          "POST /v1/chat/completions 200",
+          "POST /v1/chat/completions 200",
+          "POST /v1/chat/completions 200",
+          "POST /v1/chat/completions 200",
+          "POST /v1/chat/completions 200"
+        ],
+        "generation": 1,
+        "modelCalls": 8,
+        "stopReason": "COMPLETED",
+        "skillsLoaded": [
+          "aa-playbook-scan"
+        ],
+        "sandboxStopped": true,
+        "toolChargeUsdcE6": "34000",
+        "modelCallsRefusedForCredits": 0
+      },
+      "error": null,
+      "createdAt": "2026-10-10T23:14:08.317Z",
+      "startedAt": "2026-10-10T23:14:08.321Z",
+      "finishedAt": "2026-10-10T23:15:08.054Z"
+    }
+  },
+  "scanSkills": {
+    "loaded": [
+      "aa-playbook-scan"
+    ],
+    "notes": "SUMMARY:\nMON price declined to $0.02523 (+3.68% in 24h but near cycle lows), while Monad's TVL fell 3.05% over 7 days to $1.001B. DEX volumes dropped 35.6% in one day to $33.9M. All indicators point to consolidation and risk-<redacted> after late-September rally and profit-taking. Major headwinds: November 24 token unlock of 16.61B MON (~140% of current supply), announced October 6 privacy upgrade with unclear monetization, and ecosystem growth story still dependent on adoption.\n\nCHANGES:\n1. DEX volume collapsed 35.6% to $33.9M in 24h (defillama, 2026-10-10) — sharp retreat from typical ranges, suggests retail exit or market rotation. Confidence: high. Materiality: medium.\n\n2. MON 24h volatility 46.36%, 7d volatility 95.49% (computed from DefiLlama, 2026-10-10) — elevated but not extreme for a young token post-rally. Confidence: high. Materiality: medium.\n\n3. TVL down 3.05% in 7 days to $1.001B (defillama, 2026-10-10) — gradual decline consistent with profit-taking, not panic. Confidence: high. Materiality: low.\n\n4. Oracle (Chainlink) $0.02522015 vs. Uniswap v4 pool $0.025207731 with -4.92 bps deviation (2026-10-10) — tight alignment, no slippage risk for two-asset portfolio. Confidence: high. Materiality: low.\n\n5. MON price fell below $0.03 on October 6 from $0.0337 peak October 1 (bitcoinfoundation.org, monad.xyz, 2026-10-10) — profit-taking after 30%+ Sept-to-Oct rally, now testing prior $0.027 breakout level. Confidence: high. Materiality: medium.\n\n6. November 24 token unlo"
+  },
+  "marketSnapshot": [
+    {
+      "status": "succeeded",
+      "charge_usdc_e6": "0",
+      "cache_hit": true,
+      "agent_id": 2
+    }
+  ],
+  "researchCheck": {
+    "status": "succeeded",
+    "error": null,
+    "result": {
+      "kind": "research_check",
+      "agentId": 2,
+      "leaseId": "e201b11c-1259-4e17-992e-5c1946ddac91",
+      "runStatus": "completed",
+      "timingsMs": {
+        "run": 17731,
+        "total": 33037
+      },
+      "toolCalls": [
+        {
+          "tool": "x_search",
+          "status": "succeeded",
+          "cacheHit": false,
+          "errorCode": null,
+          "chargeUsdcE6": "62500"
+        },
+        {
+          "tool": "read_contract",
+          "status": "succeeded",
+          "cacheHit": false,
+          "errorCode": null,
+          "chargeUsdcE6": "0"
+        },
+        {
+          "tool": "balance",
+          "status": "succeeded",
+          "cacheHit": false,
+          "errorCode": null,
+          "chargeUsdcE6": "0"
+        },
+        {
+          "tool": "get_code",
+          "status": "succeeded",
+          "cacheHit": false,
+          "errorCode": null,
+          "chargeUsdcE6": "0"
+        }
+      ],
+      "modelCalls": 3,
+      "runFailure": null,
+      "stopReason": "COMPLETED"
+    },
+    "calls": [
+      {
+        "tool": "x_search",
+        "status": "succeeded",
+        "error_code": null,
+        "charge_usdc_e6": "62500",
+        "cache_hit": false,
+        "summary": {
+          "topic": "monad_news",
+          "reason": "upstream",
+          "results": 10,
+          "windowHours": 24
+        }
+      },
+      {
+        "tool": "read_contract",
+        "status": "succeeded",
+        "error_code": null,
+        "charge_usdc_e6": "0",
+        "cache_hit": false,
+        "summary": {
+          "block": "112311052",
+          "target": "0x754704Bc059F8C67012fEd69BC8A327a5aafb603",
+          "function": "erc20_total_supply"
+        }
+      },
+      {
+        "tool": "balance",
+        "status": "succeeded",
+        "error_code": null,
+        "charge_usdc_e6": "0",
+        "cache_hit": false,
+        "summary": {
+          "asset": "NATIVE",
+          "block": "112311053",
+          "target": "0x3bd359C1119dA7Da1D913D1C4D2B7c461115433A"
+        }
+      },
+      {
+        "tool": "get_code",
+        "status": "succeeded",
+        "error_code": null,
+        "charge_usdc_e6": "0",
+        "cache_hit": false,
+        "summary": {
+          "proxy": "zeppelinos",
+          "target": "0x754704Bc059F8C67012fEd69BC8A327a5aafb603",
+          "hasCode": true
+        }
+      }
+    ],
+    "usage": {
+      "xPostsRead": 10,
+      "xPostsLimit": 300,
+      "duneResultReads": 0,
+      "duneResultReadsLimit": 60,
+      "duneQueryRuns": 0,
+      "duneQueryRunsLimit": 6
+    }
+  },
+  "error": "timed out waiting for discovery to finish",
+  "passed": false
+}
