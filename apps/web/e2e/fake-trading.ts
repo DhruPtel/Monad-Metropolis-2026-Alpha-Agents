@@ -8,6 +8,7 @@ import {
 } from "viem";
 import type {
   ResearchJson,
+  SentinelJson,
   TerminalEventJson,
   TerminalJson,
   ActivationJson,
@@ -909,6 +910,8 @@ export class FakeTrading {
   window: WindowJson = windowFixture();
   /** P3-U10: the Research page's read; null answers 503 as a stack without the orchestrator would. */
   research: ResearchJson | null = null;
+  /** P4-U2: the sentinel's view; served with the research. */
+  sentinel: SentinelJson | null = null;
   /** P3-U10: the terminal's lines, served from the cursor the page sends; `advanceTerminal` adds more. */
   terminalLines: TerminalEventJson[] = [];
   terminalLive = false;
@@ -1189,6 +1192,13 @@ export class FakeTrading {
     if (rest === "research" && method === "GET")
       return this.research
         ? { status: 200, body: { ...this.research, agentId } }
+        : {
+            status: 503,
+            body: { error: "not_configured", message: "The orchestrator is not reachable." },
+          };
+    if (rest === "sentinel" && method === "GET")
+      return this.research && this.sentinel
+        ? { status: 200, body: { ...this.sentinel, agentId } }
         : {
             status: 503,
             body: { error: "not_configured", message: "The orchestrator is not reachable." },

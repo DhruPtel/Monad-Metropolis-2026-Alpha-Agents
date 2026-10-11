@@ -1,7 +1,7 @@
 import { fileURLToPath } from "node:url";
 import AxeBuilder from "@axe-core/playwright";
 import { type Locator, type Page, expect, test } from "@playwright/test";
-import type { ResearchJson, TerminalEventJson } from "../src/api/client";
+import type { ResearchJson, SentinelJson, TerminalEventJson } from "../src/api/client";
 import { MOCK_WALLET_ADDRESS } from "../src/auth/mock-wallet-constants";
 import { FakeApi, fundedDashboard } from "./fake-api";
 import { FakeChain } from "./fake-chain";
@@ -32,6 +32,8 @@ const main = (page: Page) => page.getByRole("main");
 const walletButton = (page: Page) => page.locator("header [data-slot=wallet-button]");
 
 const FIXED_NOW = new Date("2026-10-11T12:05:00.000Z");
+/** Anvil account 5, the local fork's sentinel (a public test address). */
+const SENTINEL_ADDRESS = "0x9965507D1a55bcC2695C58ba16FB37d819B0A4dc";
 const CYCLE_OPEN = "cycle-01234567-89ab-cdef-0123-456789abcde0";
 const CYCLE_DONE = "cycle-01234567-89ab-cdef-0123-456789abcde1";
 
@@ -247,6 +249,42 @@ function researchFixture(over: Partial<ResearchJson> = {}): ResearchJson {
   };
 }
 
+function sentinelFixture(): SentinelJson {
+  return {
+    agentId: AGENT.toString(),
+    configured: true,
+    sentinelAddress: SENTINEL_ADDRESS,
+    active: { DRAWDOWN_12: "2026-10-11T11:30:00.000Z" },
+    lastCheckedAt: "2026-10-11T12:04:30.000Z",
+    actions: [
+      {
+        actionId: "sentinel-2",
+        code: "STALE_FEED",
+        text: "a held token's price feed is stale or unusable",
+        action: "NOTE",
+        state: null,
+        reason: "the condition cleared; the account's mode stays until its owner reviews it",
+        detail: {},
+        txHash: null,
+        status: "done",
+        at: "2026-10-11T11:50:00.000Z",
+      },
+      {
+        actionId: "sentinel-1",
+        code: "DRAWDOWN_12",
+        text: "the account fell 12% or more from its 7-day peak",
+        action: "REDUCE_ONLY",
+        state: null,
+        reason: "12.5% below the 7-day peak",
+        detail: { drawdownBps: 1250 },
+        txHash: "0xa1",
+        status: "done",
+        at: "2026-10-11T11:30:00.000Z",
+      },
+    ],
+  };
+}
+
 function stack(owner: string = MOCK_WALLET_ADDRESS) {
   const chain = new FakeChain();
   chain.mint(AGENT, owner as `0x${string}`, BEE);
@@ -308,11 +346,21 @@ test.describe("the Research page and the agent terminal (P3-U10)", () => {
   }) => {
     const s = stack();
     s.trading.research = researchFixture();
+    s.trading.sentinel = sentinelFixture();
     s.trading.terminalCycle = { cycleId: CYCLE_OPEN, kind: "ROUTINE", status: "running" };
     s.trading.terminalLive = true;
     s.trading.terminalLines = [...LINES];
     await open(page, s);
     const root = main(page).getByTestId("research-page");
+    // P4-U2: the sentinel's card with its conditions and actions.
+    const sentinel = root.getByTestId("sentinel-card");
+    await expect(sentinel).toHaveAttribute("data-state", "tightened");
+    await expect(sentinel.getByTestId("sentinel-active")).toContainText(
+      "drawdown 12 since 2026-10-11 11:30 UTC",
+    );
+    await expect(sentinel.getByTestId("sentinel-actions").locator("li")).toHaveCount(2);
+    await expect(sentinel).toContainText("Set the account to reduce-only");
+    await expect(sentinel).toContainText("12.5% below the 7-day peak");
     const terminal = root.getByTestId("agent-terminal");
     await expect(terminal).toHaveAttribute("data-state", "live");
     await expect(terminal).toHaveAttribute("data-lines", "7");
@@ -371,6 +419,7 @@ test.describe("the Research page and the agent terminal (P3-U10)", () => {
   }) => {
     const s = stack();
     s.trading.research = researchFixture({ open: null });
+    s.trading.sentinel = { ...sentinelFixture(), active: {}, actions: [] };
     s.trading.terminalCycle = { cycleId: CYCLE_DONE, kind: "REVIEW", status: "completed" };
     s.trading.terminalLines = [...LINES, ...END];
     await open(page, s);
@@ -432,6 +481,8 @@ test.describe("the Research page and the agent terminal (P3-U10)", () => {
     await open(page, s);
     const root = main(page).getByTestId("research-page");
     await expect(root.getByTestId("agent-terminal")).toHaveAttribute("data-state", "idle");
+    // No sentinel on the stack: the card says so.
+    await expect(root.getByTestId("sentinel-card")).toContainText("not running on this stack");
     await expect(root.getByTestId("research-schedule")).toContainText(
       "runs once a plan is approved",
     );

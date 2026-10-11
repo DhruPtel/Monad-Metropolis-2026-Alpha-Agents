@@ -731,6 +731,27 @@ export interface ResearchJson {
   } | null;
 }
 
+/** P4-U2: the Risk Sentinel's view of the agent. */
+export interface SentinelJson {
+  readonly agentId: string;
+  readonly configured: boolean;
+  readonly sentinelAddress: string | null;
+  readonly active: Readonly<Record<string, string>>;
+  readonly lastCheckedAt: string | null;
+  readonly actions: readonly {
+    readonly actionId: string;
+    readonly code: string;
+    readonly text: string;
+    readonly action: string;
+    readonly state: string | null;
+    readonly reason: string;
+    readonly detail: Record<string, unknown>;
+    readonly txHash: string | null;
+    readonly status: "done" | "failed" | "skipped";
+    readonly at: string;
+  }[];
+}
+
 /** The portfolio as the API serves it: on the fund set where it is deployed, else the v2 account. */
 export type AnyPortfolioJson = PortfolioJson | PortfolioV3Json;
 
@@ -844,6 +865,10 @@ export const tradingApi = {
       `/v1/agents/${agentId.toString()}/terminal?${q.toString()}`,
       owner(session),
     );
+  },
+  /** P4-U2: the Risk Sentinel's actions on the agent. Owner only. */
+  async sentinel(agentId: bigint, session: string): Promise<SentinelJson> {
+    return call<SentinelJson>(`/v1/agents/${agentId.toString()}/sentinel`, owner(session));
   },
   /** P3-U10: pauses or resumes the research loop. Owner only. */
   async pauseResearch(agentId: bigint, session: string, paused: boolean): Promise<boolean> {

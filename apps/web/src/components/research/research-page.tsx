@@ -15,6 +15,7 @@ import {
   PlanUnchangedCard,
   ResearchOverview,
   ResearchScheduleCard,
+  SentinelCard,
   Skeleton,
   StageTimeline,
   ThemesPanel,
@@ -24,8 +25,9 @@ import {
 import { ArrowLeft, PlugZap, Wallet } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { type WhyNotTradedJson, tradingApi } from "@/api/client";
+import { type SentinelJson, type WhyNotTradedJson, tradingApi } from "@/api/client";
 import { useResearch, useTerminal } from "@/agent/use-research";
+import { useOwnerSession } from "@/agent/use-owner-session";
 import { useWalletSession } from "@/auth/session";
 
 /**
@@ -49,6 +51,8 @@ export function ResearchPage({
   const [selected, setSelected] = useState<string | null>(null);
   const [pausing, setPausing] = useState(false);
   const [why, setWhy] = useState<WhyNotTradedJson | null>(null);
+  const [sentinel, setSentinel] = useState<SentinelJson | null>(null);
+  const asOwner = useOwnerSession(agentId);
   const [now, setNow] = useState(() => new Date().toISOString());
   useEffect(() => {
     const timer = window.setInterval(() => setNow(new Date().toISOString()), 15_000);
@@ -68,6 +72,17 @@ export function ResearchPage({
       live = false;
     };
   }, [agentId]);
+  // P4-U2: the sentinel's actions, re-read with the research.
+  useEffect(() => {
+    if (!research) return;
+    let live = true;
+    void asOwner((t) => tradingApi.sentinel(agentId, t))
+      .then((sv) => live && setSentinel(sv))
+      .catch(() => live && setSentinel(null));
+    return () => {
+      live = false;
+    };
+  }, [agentId, asOwner, research]);
   const id = agentId.toString();
   const back = (
     <Button asChild variant="ghost" size="sm" className="w-fit">
@@ -241,6 +256,21 @@ export function ResearchPage({
           onSelect={(picked) => setSelected(picked === cycleId && open ? null : picked)}
         />
       </section>
+
+      <SentinelCard
+        view={{
+          configured: sentinel?.configured ?? false,
+          active: sentinel?.active ?? {},
+          lastCheckedAt: sentinel?.lastCheckedAt ?? null,
+          actions: sentinel?.actions ?? [],
+          mode: research.snapshot?.mode ?? null,
+        }}
+        actions={
+          <Button asChild size="sm" variant="secondary">
+            <Link href={`/agents/${id}/portfolio`}>Open the portfolio</Link>
+          </Button>
+        }
+      />
 
       <div className="grid gap-6 lg:grid-cols-2">
         <ResearchOverview overview={research.overview} />
