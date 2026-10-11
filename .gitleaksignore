@@ -44,3 +44,16 @@ b5b6d71bc1083380b350478d2839ee2851f4193f:apps/console/e2e/token-detail-fixture.j
 # fixtures now name it through a constant (checked in F-U9).
 5a8d92d433f706b992cc3ad2c4a64e1eec50c2b5:apps/web/e2e/fake-trading.ts:generic-api-key:218
 5a8d92d433f706b992cc3ad2c4a64e1eec50c2b5:packages/ui/src/components/agent/plan-card.test.tsx:generic-api-key:13
+#
+# F-U9 live reports (commit 3b0c555): the JSON fields "token", "sellToken" and "buyToken" hold the
+# public WMON, USDC and WBTC token addresses of the fork's intents and positions, which
+# generic-api-key reads as keys (checked in F-U9).
+3b0c55507af950be7ee42ee50b05652fed662b59:evidence/p1-u7/live-2026-10-10T23-41-54.272Z.json:generic-api-key:631
+3b0c55507af950be7ee42ee50b05652fed662b59:evidence/p1-u7/live-2026-10-10T23-41-54.272Z.json:generic-api-key:875
+3b0c55507af950be7ee42ee50b05652fed662b59:evidence/p1-u7/live-2026-10-10T23-41-54.272Z.json:generic-api-key:876
+3b0c55507af950be7ee42ee50b05652fed662b59:evidence/p1-u7/live-2026-10-10T23-56-57.040Z.json:generic-api-key:651
+3b0c55507af950be7ee42ee50b05652fed662b59:evidence/p1-u7/live-2026-10-10T23-56-57.040Z.json:generic-api-key:876
+3b0c55507af950be7ee42ee50b05652fed662b59:evidence/p1-u7/live-2026-10-10T23-56-57.040Z.json:generic-api-key:877
+3b0c55507af950be7ee42ee50b05652fed662b59:evidence/p1-u7/live-2026-10-10T23-56-57.040Z.json:generic-api-key:915
+3b0c55507af950be7ee42ee50b05652fed662b59:evidence/p1-u7/live-2026-10-10T23-56-57.040Z.json:generic-api-key:916
+3b0c55507af950be7ee42ee50b05652fed662b59:evidence/p1-u7/live-2026-10-10T23-56-57.040Z.json:generic-api-key:1349

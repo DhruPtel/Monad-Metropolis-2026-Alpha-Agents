@@ -30,7 +30,8 @@ F-U9:
 - `2002c33` test(web): the decline flow as its own test, the database's table check, and the re-baselined captures [F-U9]
 - `3b0c555` docs(plans): log P0-SPEND and F-U9, the pending list's results, the live reports and the selection evidence [F-U9]
 - `441c054` docs(plans): save the F-U9 handoff [F-U9]
-- The last commit: fix(agent): stop the live run's 15-second Scan cadence after the scheduler check, read the spend meters after a settle, and correct the session's spend to the spend report's figure (L-199) [F-U9]
+- `3635023` fix(agent): stop the live run's 15-second Scan cadence after the scheduler check, read the spend meters after a settle, and correct the session's spend to the spend report's figure (L-199) [F-U9]
+- The last commit: chore(infra): record the live reports' token-address false positives by fingerprint, and lesson L-200 [F-U9]
 
 ## Test results
 
