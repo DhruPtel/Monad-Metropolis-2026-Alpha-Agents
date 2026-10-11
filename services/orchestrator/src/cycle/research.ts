@@ -8,7 +8,7 @@ import {
 import type { AgentIdentity } from "@alpha-agents/tool-server";
 import { ToolError } from "@alpha-agents/tool-server";
 import type { Hex } from "viem";
-import { portfolioParamsFromJson } from "@alpha-agents/policy";
+import { checkTargetPortfolioParams, portfolioParamsFromJson } from "@alpha-agents/policy";
 import {
   type GoalStore,
   type PlanStore,
@@ -388,14 +388,17 @@ export class CycleResearch {
           ).map((n) => [n.token.toLowerCase(), n]),
         );
         const proposedSet = new Set(proposed);
+        // Every token the Zoom out saw and could have proposed (buyable for this account, dived,
+        // or held) that the plan leaves out has its reason on record.
         const required = universe.filter(
-          (u) => (u.researched || u.held) && !proposedSet.has(u.token.toLowerCase() as Hex),
+          (u) =>
+            (u.buyable || u.researched || u.held) && !proposedSet.has(u.token.toLowerCase() as Hex),
         );
         const missing = required.filter((u) => !named.has(u.token.toLowerCase()));
         if (missing.length > 0)
           throw new ToolError(
             "INVALID_INPUT",
-            `The RATIONALE's notProposed leaves out ${missing.map((u) => u.symbol).join(", ")}: name every token this cycle dived or the account holds that the plan does not propose, each with its reason, then complete_stage again.`,
+            `The RATIONALE's notProposed leaves out ${missing.map((u) => u.symbol).join(", ")}: name every token this account could buy, this cycle dived or the account holds that the plan does not propose, each with its reason, then complete_stage again.`,
             false,
             { missing: missing.map((u) => u.symbol) },
           );
@@ -419,20 +422,27 @@ export class CycleResearch {
             false,
           );
         const params = input.decision.params;
-        findings = await checkPortfolioProposal(
-          portfolioParamsFromJson({
-            ...params,
-            minTradeUsdcE6: proposalParams({
-              targetWmonBps: 0,
-              bandHalfWidthBps: 0,
-              minTradeUsdc: params.minTradeUsdc,
-              volatilityBrakeBps: 0,
-              costHurdleBps: 0,
-              maxLegBps: 0,
-            }).minTradeUsdcE6.toString(),
-          }),
-          inputs,
-        );
+        const portfolio = portfolioParamsFromJson({
+          ...params,
+          minTradeUsdcE6: proposalParams({
+            targetWmonBps: 0,
+            bandHalfWidthBps: 0,
+            minTradeUsdc: params.minTradeUsdc,
+            volatilityBrakeBps: 0,
+            costHurdleBps: 0,
+            maxLegBps: 0,
+          }).minTradeUsdcE6.toString(),
+        });
+        // F-U12: the template's own bounds, as the proposal evaluator checks them, so a plan the
+        // stage accepts is one the evaluator accepts (the live sweep found a plan refused only there).
+        findings = [
+          ...checkTargetPortfolioParams(portfolio).map((e) => ({
+            code: "OUT_OF_BOUNDS" as const,
+            field: e.field,
+            message: e.message,
+          })),
+          ...(await checkPortfolioProposal(portfolio, inputs)),
+        ];
       } else {
         findings = checkProposal(
           proposalParams(input.decision.params),

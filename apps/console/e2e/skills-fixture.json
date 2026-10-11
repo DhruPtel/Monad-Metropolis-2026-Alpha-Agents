@@ -206,8 +206,8 @@
       "kind": "playbook",
       "id": "playbook-zoom-out",
       "name": "aa-playbook-zoom-out",
-      "version": "2.2.0",
-      "contentHash": "25a662e8c391156313ab1664ef48fde9b4b050dc7ff3867849375957c1e4d89d",
+      "version": "2.3.0",
+      "contentHash": "bd0773f71a29123fd7097c4d2dec9341c49b617ce454d0dd636bb6c9f8727de3",
       "description": "Runs a Zoom out: decides if the owner's plan must change. Use when the task is a Zoom out or a plan review.",
       "tools": [
         "chain.get_portfolio@1",

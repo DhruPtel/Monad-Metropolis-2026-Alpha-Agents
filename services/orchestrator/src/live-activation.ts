@@ -27,6 +27,15 @@
  * LITELLM_MASTER_KEY, REVEAL_KEEPER_PRIVATE_KEY, ORCHESTRATOR_SECRET,
  * TAVILY_API_KEY, cloudflared and LiteLLM running. Writes a redacted report
  * to evidence/f-u10/.
+ *
+ * With `--open-universe` (F-U12): the attestation verifier set in the
+ * TokenRegistry through its timelock on the fork's clock, an Aggressive goal
+ * with the screened-lane opt-in, the opt-in recorded on the account from the
+ * owner's address, GHO (a real class A token) looked up and screened so the
+ * registrar puts it in the screened lane with its pool, and, after the sweep,
+ * the universe the cycle considered (every token with its buyability and why
+ * not, the themes' decisions, what was proposed and why not) from the
+ * research read. The report goes to evidence/f-u12/.
  */
 import { type ChildProcess, spawn } from "node:child_process";
 import { randomBytes } from "node:crypto";
@@ -69,6 +78,11 @@ import { Store } from "./store.ts";
 import { must } from "./testing.ts";
 
 const ROOT = resolve(import.meta.dirname, "../../..");
+/** F-U12: the open universe: the verifier, an Aggressive goal with the opt-in, a class A token screened. */
+const OPEN = process.argv.includes("--open-universe");
+const UNIT = OPEN ? "F-U12" : "F-U10";
+/** GHO on Monad: class A (no feed), a hookless v4 pool against USDC; the class A token of the sweep. */
+const GHO = "0xfc421ad3c883bf9e7c4f42de845c4e4405799e73" as Hex;
 const FORK_PORT = 8551;
 const API_PORT = 4251;
 const SCREEN_FORK_PORT = 8582;
@@ -91,7 +105,7 @@ const reveal = (n: keyof typeof config.values) => (config.values[n] as Secret).r
 const namespace = `live-act-${randomBytes(3).toString("hex")}`;
 const runTag = new Date().toISOString().replaceAll(":", "-");
 const checks: Record<string, boolean> = {};
-const report: Record<string, unknown> = { unit: "F-U10", namespace, runTag, checks };
+const report: Record<string, unknown> = { unit: UNIT, namespace, runTag, checks };
 const secrets: string[] = [];
 for (const v of Object.values(config.values))
   if (v instanceof Secret)
@@ -139,6 +153,21 @@ async function main(): Promise<number> {
     tokenRegistry: Hex;
   };
   await deployExecutorV3Local({ quiet: true, tokenRegistry: fund.tokenRegistry });
+  if (OPEN) {
+    // F-U12: the verifier, set through the registry's own timelock, driven on the fork's clock.
+    const { deployAttestationVerifierLocal } = await import("../../../scripts/lib/attestor.js");
+    const v = (await deployAttestationVerifierLocal({
+      url: fork.url,
+      tokenRegistry: fund.tokenRegistry,
+      quiet: true,
+    })) as { verifier: Hex; attestor: Hex; set: boolean; warpedSeconds: number };
+    report.verifier = { address: v.verifier, attestor: v.attestor, warpedSeconds: v.warpedSeconds };
+    check(
+      "the attestation verifier is set in the TokenRegistry through its timelock (SET_VERIFIER, 9 days on the fork's clock)",
+      v.set,
+      `${v.verifier} for attestor ${v.attestor}, ${v.warpedSeconds} s warped`,
+    );
+  }
   await refreshLocalFeeds(fork.url);
   const entry = addressEntry("local", "agent_nft");
   if (entry.status !== "verified") throw new Error("address book: agent_nft");
@@ -309,6 +338,8 @@ async function main(): Promise<number> {
     ...DEFAULT_GOAL_INPUT,
     modelTier: "MEDIUM",
     research: { intensity: "STANDARD", dailyBudgetUsdcE6: "5000000" },
+    // F-U12: an Aggressive goal with the screened-lane opt-in, as the owner tests it.
+    ...(OPEN ? { aggressiveness: "AGGRESSIVE", screenedOptIn: true } : {}),
   } as GoalInput);
   if (!translated.ok) throw new Error("the live goal does not translate");
   const goals = new GoalStore(t.db);
@@ -324,6 +355,26 @@ async function main(): Promise<number> {
     { token: usdc.address, usdcE6: 90_000_000n },
   ]);
   report.setup = { owner, funding, account, creditsUsdcE6: CREDITS_E6.toString() };
+  if (OPEN) {
+    // F-U12: the opt-in recorded on the account from the owner's address, as the Goal page sends it.
+    const ACCOUNT_ABI = parseAbi([
+      "function setScreenedOptIn(bool optIn)",
+      "function screenedOptIn() view returns (bool)",
+    ]);
+    await sendAs(
+      fork.url,
+      owner,
+      account,
+      encodeFunctionData({ abi: ACCOUNT_ABI, functionName: "setScreenedOptIn", args: [true] }),
+    );
+    const optedIn = await client.readContract({
+      address: account as Hex,
+      abi: ACCOUNT_ABI,
+      functionName: "screenedOptIn",
+    });
+    report.optIn = optedIn;
+    check("the owner's screened-lane opt-in is recorded on the account on chain", optedIn === true);
+  }
 
   step("the core tokens' safety screens, as the dev stack's hourly loop keeps them (D-339)");
   interface PlanView {
@@ -347,6 +398,39 @@ async function main(): Promise<number> {
     screened.length > 0 && screened.some((x) => x.verdict === "passed"),
     screened.map((x) => `${x.symbol} ${x.verdict}`).join(", ") || "no core token",
   );
+  if (OPEN) {
+    step(
+      "a class A token looked up and screened: a passing screen registers it in the screened lane (D-342)",
+    );
+    const looked = await api("/v1/tokens/lookup", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ address: GHO }),
+    });
+    const at = Date.now();
+    const r = await api(`/v1/tokens/${GHO}/screen`, { method: "POST" });
+    const verdict = (r.body.screen as { verdict?: string } | undefined)?.verdict ?? "error";
+    console.log(
+      `   GHO: lookup ${looked.status}, screen ${verdict} in ${Math.round((Date.now() - at) / 1000)} s${r.status !== 200 ? ` (${r.status} ${String(r.body.message ?? "")})` : ""}`,
+    );
+    const view = (await api(`/v1/tokens/${GHO}`)).body as {
+      token?: { registryLane?: string | null; registryStatus?: string | null; priceClass?: string };
+    };
+    report.classA = {
+      token: GHO,
+      lookup: looked.status,
+      verdict,
+      lane: view.token?.registryLane ?? null,
+      status: view.token?.registryStatus ?? null,
+    };
+    check(
+      "GHO passed the safety screen and the registrar put it in the screened lane at once, listed",
+      verdict === "passed" &&
+        view.token?.registryLane === "screened" &&
+        view.token?.registryStatus === "listed",
+      `${verdict}, lane ${String(view.token?.registryLane)}, status ${String(view.token?.registryStatus)}`,
+    );
+  }
 
   step("the checks before the sweep, then the grant from the owner's wallet");
   interface Check {
@@ -606,6 +690,64 @@ async function main(): Promise<number> {
     }
   }
 
+  if (OPEN) {
+    step(
+      "the universe the sweep considered: every token, its buyability and why not, what was proposed",
+    );
+    interface UniverseRow {
+      symbol: string;
+      priceClass: string;
+      lane: string | null;
+      buyable: boolean;
+      whyNot: string | null;
+      held: boolean;
+      themeCode: string | null;
+      themeReason: string | null;
+      researched: boolean;
+      proposed: boolean;
+      droppedReason: string | null;
+    }
+    const research = (await api(`/v1/agents/${agentId}/research`)).body as {
+      universe?: { cycleId: string; kind: string; rows: UniverseRow[] } | null;
+    };
+    const rows = research.universe?.rows ?? [];
+    for (const u of rows)
+      console.log(
+        `   ${u.symbol.padEnd(6)} ${u.priceClass} ${(u.lane ?? "none").padEnd(8)} ${u.buyable ? "buyable" : `not buyable: ${u.whyNot ?? ""}`}${u.themeCode ? ` · ${u.researched ? "Dive" : "no Dive"} ${u.themeCode}: ${u.themeReason ?? ""}` : ""}${u.proposed ? " · PROPOSED" : u.droppedReason ? ` · not proposed: ${u.droppedReason}` : ""}`,
+      );
+    report.universe = research.universe ?? null;
+    // The proposal's evaluation, as the plan view records the decisions, so a refusal names its rule.
+    const planAfter = (await api(`/v1/agents/${agentId}/plan`)).body as {
+      decisions?: unknown[];
+    };
+    report.decisions = planAfter.decisions ?? [];
+    for (const d of planAfter.decisions ?? [])
+      console.log(`   decision: ${redactor.redact(JSON.stringify(d)).slice(0, 400)}`);
+    const gho = rows.find((u) => u.symbol === "GHO");
+    check(
+      "the sweep recorded the universe it considered, with a reason for every token this account cannot buy",
+      rows.length > 0 && rows.every((u) => u.buyable || u.whyNot !== null),
+      `${rows.length} tokens, ${rows.filter((u) => u.buyable).length} buyable`,
+    );
+    check(
+      "GHO, in the screened lane, is buyable for this opted-in owner in the universe the agent saw",
+      gho?.buyable === true,
+      gho
+        ? `${gho.lane} ${gho.buyable ? "buyable" : (gho.whyNot ?? "")}`
+        : "GHO not in the universe",
+    );
+    check(
+      "every token the sweep dived or the account holds that the plan leaves out has its reason",
+      rows
+        .filter((u) => (u.researched || u.held) && !u.proposed)
+        .every((u) => u.droppedReason !== null),
+      rows
+        .filter((u) => u.researched || u.held || u.proposed)
+        .map((u) => `${u.symbol}:${u.proposed ? "proposed" : (u.droppedReason ?? "no reason")}`)
+        .join("; ") || "nothing dived or held",
+    );
+  }
+
   const leaked = secrets.filter((s) => s.length >= 8 && logLines.some((l) => l.includes(s)));
   check(
     "no key or token in any log line or API reply",
@@ -642,14 +784,27 @@ try {
   for (const fn of cleanup.reverse()) await fn().catch(() => undefined);
   logStream.end();
   report.passed = code === 0;
+  // A key named "token" beside an address reads as a credential to the secrets scan (L-205).
+  const addressKeys = (v: unknown): unknown =>
+    Array.isArray(v)
+      ? v.map(addressKeys)
+      : v && typeof v === "object"
+        ? Object.fromEntries(
+            Object.entries(v as Record<string, unknown>).map(([k, x]) => [
+              k === "token" ? "address" : k,
+              addressKeys(x),
+            ]),
+          )
+        : v;
   const text = redactor.redact(
-    JSON.stringify(report, (_k, v) => (typeof v === "bigint" ? String(v) : v), 2),
+    JSON.stringify(addressKeys(report), (_k, v) => (typeof v === "bigint" ? String(v) : v), 2),
   );
-  const dir = join(ROOT, "evidence/f-u10");
+  const evidence = `evidence/${UNIT.toLowerCase()}`;
+  const dir = join(ROOT, evidence);
   mkdirSync(dir, { recursive: true });
   writeFileSync(join(dir, `live-${runTag}.json`), `${text}\n`);
   console.log(
-    `\nreport: evidence/f-u10/live-${runTag}.json; orchestrator log: ${logPath.slice(ROOT.length + 1)}`,
+    `\nreport: ${evidence}/live-${runTag}.json; orchestrator log: ${logPath.slice(ROOT.length + 1)}`,
   );
 }
 process.exit(code);

@@ -1,0 +1,534 @@
+{
+  "unit": "F-U12",
+  "namespace": "live-act-f43fd8",
+  "runTag": "2026-10-11T17-50-14.459Z",
+  "checks": {
+    "the attestation verifier is set in the TokenRegistry through its timelock (SET_VERIFIER, 9 days on the fork's clock)": true,
+    "the owner's screened-lane opt-in is recorded on the account on chain": true,
+    "the core tokens were screened before the sweep, and at least one passed": true,
+    "GHO passed the safety screen and the registrar put it in the screened lane at once, listed": false,
+    "before the grant, every check passes but the grant, named as the step to come, on the Medium tier with a 3.80 USDC ceiling": true,
+    "a start before the grant is refused and names the grant": true,
+    "the grant is on chain and recorded as waiting for its first approval (D-291)": true,
+    "the start is accepted: the sweep is queued and its first step is done at once": true,
+    "the steps ran in order, each after the one before it, and never two at once": true,
+    "no step was charged above its ceiling, and the sweep stayed within the ceiling shown before it started": true,
+    "the deterministic steps recorded their facts: the goal and account, and the pools and prices": true,
+    "the sweep ended with a plan that waits for the owner: the first plan always needs approval": false,
+    "activity entries for the sweep's start, each deterministic step, every stage and the result, each passing the number validator": true,
+    "the sweep recorded the universe it considered, with a reason for every token this account cannot buy": true,
+    "GHO, in the screened lane, is buyable for this opted-in owner in the universe the agent saw": true,
+    "every token the sweep dived or the account holds that the plan leaves out has its reason": true,
+    "no key or token in any log line or API reply": true
+  },
+  "verifier": {
+    "address": "0x575bF0478b880500BB6c5A3ab1e86DcD5BC3Bf1E",
+    "attestor": "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC",
+    "warpedSeconds": 777601
+  },
+  "agent": {
+    "agentId": 1,
+    "runtime": {
+      "agentId": "1",
+      "generation": 1,
+      "status": "ready",
+      "tier": "pro",
+      "species": 14,
+      "slots": 8,
+      "playbook": "tier-pro@1",
+      "configHash": "97aaaa7f526a24f701a95acc83df0d809edaf72fc31ebc572a81c4f9fe92c9d0",
+      "keyAlias": "aa-live-act-f43fd8-143143-1-g1",
+      "budgetUsd": "0.000000",
+      "lastError": null,
+      "provisionedAt": "2026-10-11T17:51:22.386Z",
+      "updatedAt": "2026-10-11T17:51:22.386Z",
+      "lease": null,
+      "latestTask": null
+    }
+  },
+  "setup": {
+    "owner": "0x41ABCfDDa836E54CcFD3b43F11ec0ADaFCe7E3b1",
+    "funding": "0xf1f1cbfc8b13e1018beab249b14b926f128a11c4",
+    "account": "0xe7F140739c3D75454CC5E804cA0b94E09655874a",
+    "creditsUsdcE6": "8000000"
+  },
+  "optIn": true,
+  "screens": [
+    {
+      "symbol": "WMON",
+      "verdict": "passed",
+      "ms": 10463
+    },
+    {
+      "symbol": "AUSD",
+      "verdict": "passed",
+      "ms": 7372
+    },
+    {
+      "symbol": "WBTC",
+      "verdict": "passed",
+      "ms": 5728
+    },
+    {
+      "symbol": "cbBTC",
+      "verdict": "passed",
+      "ms": 6994
+    },
+    {
+      "symbol": "WETH",
+      "verdict": "passed",
+      "ms": 6452
+    },
+    {
+      "symbol": "shMON",
+      "verdict": "passed",
+      "ms": 6594
+    }
+  ],
+  "classA": {
+    "address": "0xfc421ad3c883bf9e7c4f42de845c4e4405799e73",
+    "lookup": 200,
+    "verdict": "passed",
+    "lane": null,
+    "status": null
+  },
+  "checksBefore": [
+    {
+      "code": "GOAL",
+      "ok": true,
+      "message": "Goal: Aggressive on the Medium tier (Claude Sonnet 5.5).",
+      "blocking": true
+    },
+    {
+      "code": "PROVISIONED",
+      "ok": true,
+      "message": "The agent is set up to run.",
+      "blocking": true
+    },
+    {
+      "code": "ACCOUNT",
+      "ok": true,
+      "message": "The trading account is open on the fund agent's set.",
+      "blocking": true
+    },
+    {
+      "code": "ACCOUNT_MODE",
+      "ok": true,
+      "message": "The account is in its normal mode.",
+      "blocking": true
+    },
+    {
+      "code": "TRADING_BALANCE",
+      "ok": true,
+      "message": "The account holds 90.00 USDC to trade with.",
+      "blocking": true
+    },
+    {
+      "code": "CREDITS",
+      "ok": true,
+      "message": "Credits cover the sweep: 8.00 USDC available, at most 3.80 USDC needed.",
+      "blocking": true
+    },
+    {
+      "code": "GRANT",
+      "ok": false,
+      "message": "Your wallet registers the agent's trading permission (30 days at most) when you turn trading on.",
+      "blocking": false
+    },
+    {
+      "code": "NOT_BUSY",
+      "ok": true,
+      "message": "The agent is free to start.",
+      "blocking": true
+    }
+  ],
+  "spendUsd": 0.7078,
+  "sweep": {
+    "view": {
+      "activationId": "act-0d530b97-4c46-4e96-a463-55a8f6f7a7a5",
+      "status": "failed",
+      "tier": {
+        "choice": "MEDIUM",
+        "label": "Medium",
+        "model": "Claude Sonnet 5.5"
+      },
+      "ceilingUsdcE6": "3800000",
+      "chargedUsdcE6": "962049",
+      "steps": [
+        {
+          "key": "account",
+          "label": "Reading your goal and account",
+          "state": "done",
+          "result": "Aggressive on the Medium tier; 90.00 USDC to trade with; 8.00 USDC of credits.",
+          "reason": null,
+          "chargedUsdcE6": "0",
+          "ceilingUsdcE6": "0",
+          "startedAt": "2026-10-11T17:52:28.130Z",
+          "finishedAt": "2026-10-11T17:52:28.130Z"
+        },
+        {
+          "key": "scan",
+          "label": "Scanning the market",
+          "state": "done",
+          "result": "4 themes worth a closer look.",
+          "reason": null,
+          "chargedUsdcE6": "129863",
+          "ceilingUsdcE6": "500000",
+          "startedAt": "2026-10-11T17:53:02.403Z",
+          "finishedAt": "2026-10-11T17:54:08.683Z"
+        },
+        {
+          "key": "market",
+          "label": "Reading pools and prices",
+          "state": "done",
+          "result": "7 of 7 tokens priced across 9 pools; 7 safety screens fresh.",
+          "reason": null,
+          "chargedUsdcE6": "0",
+          "ceilingUsdcE6": "0",
+          "startedAt": "2026-10-11T17:54:13.888Z",
+          "finishedAt": "2026-10-11T17:54:13.946Z"
+        },
+        {
+          "key": "dives",
+          "label": "Researching in depth",
+          "state": "done",
+          "result": "2 themes researched: MON_MOMENTUM_VOL, WBTC_WETH_COLLATERAL.",
+          "reason": null,
+          "chargedUsdcE6": "587936",
+          "ceilingUsdcE6": "2400000",
+          "startedAt": "2026-10-11T17:54:14.800Z",
+          "finishedAt": "2026-10-11T17:55:51.099Z"
+        },
+        {
+          "key": "challenge",
+          "label": "Checking risk",
+          "state": "done",
+          "result": "1 of 2 theses stand after the skeptic's review.",
+          "reason": null,
+          "chargedUsdcE6": "78106",
+          "ceilingUsdcE6": "300000",
+          "startedAt": "2026-10-11T17:56:04.302Z",
+          "finishedAt": "2026-10-11T17:56:22.190Z"
+        },
+        {
+          "key": "test",
+          "label": "Testing the plan against your limits",
+          "state": "done",
+          "result": "Your limits and the envelope are set for the plan.",
+          "reason": null,
+          "chargedUsdcE6": "0",
+          "ceilingUsdcE6": "0",
+          "startedAt": "2026-10-11T17:56:31.222Z",
+          "finishedAt": "2026-10-11T17:56:31.274Z"
+        },
+        {
+          "key": "plan",
+          "label": "Building a plan",
+          "state": "done",
+          "result": "A portfolio of 1 position proposed.",
+          "reason": null,
+          "chargedUsdcE6": "166144",
+          "ceilingUsdcE6": "600000",
+          "startedAt": "2026-10-11T17:56:32.192Z",
+          "finishedAt": "2026-10-11T17:57:10.379Z"
+        },
+        {
+          "key": "active",
+          "label": "Active",
+          "state": "skipped",
+          "result": null,
+          "reason": "the plan no longer passed the platform's checks at approval",
+          "chargedUsdcE6": "0",
+          "ceilingUsdcE6": "0",
+          "startedAt": null,
+          "finishedAt": null
+        }
+      ],
+      "proposalId": "prop-dac3333c-6f26-4062-816d-81fd7f6ed718",
+      "outcome": {
+        "title": "The sweep did not finish",
+        "message": "A step failed. Nothing was traded; only the steps that ran were charged. Try again.",
+        "action": "retry"
+      },
+      "startedAt": "2026-10-11T17:52:28.130Z",
+      "finishedAt": "2026-10-11T17:57:17.131Z"
+    },
+    "transitions": [
+      {
+        "at": 2,
+        "key": "account",
+        "state": "done",
+        "result": "Aggressive on the Medium tier; 90.00 USDC to trade with; 8.00 USDC of credits."
+      },
+      {
+        "at": 2,
+        "key": "scan",
+        "state": "pending",
+        "result": null
+      },
+      {
+        "at": 2,
+        "key": "market",
+        "state": "pending",
+        "result": null
+      },
+      {
+        "at": 2,
+        "key": "dives",
+        "state": "pending",
+        "result": null
+      },
+      {
+        "at": 2,
+        "key": "challenge",
+        "state": "pending",
+        "result": null
+      },
+      {
+        "at": 2,
+        "key": "test",
+        "state": "pending",
+        "result": null
+      },
+      {
+        "at": 2,
+        "key": "plan",
+        "state": "pending",
+        "result": null
+      },
+      {
+        "at": 2,
+        "key": "active",
+        "state": "pending",
+        "result": null
+      },
+      {
+        "at": 36,
+        "key": "scan",
+        "state": "running",
+        "result": null
+      },
+      {
+        "at": 102,
+        "key": "scan",
+        "state": "done",
+        "result": "4 themes worth a closer look."
+      },
+      {
+        "at": 102,
+        "key": "market",
+        "state": "running",
+        "result": null
+      },
+      {
+        "at": 106,
+        "key": "market",
+        "state": "done",
+        "result": "7 of 7 tokens priced across 9 pools; 7 safety screens fresh."
+      },
+      {
+        "at": 106,
+        "key": "dives",
+        "state": "running",
+        "result": null
+      },
+      {
+        "at": 151,
+        "key": "dives",
+        "state": "done",
+        "result": "1 theme researched: MON_MOMENTUM_VOL."
+      },
+      {
+        "at": 155,
+        "key": "dives",
+        "state": "running",
+        "result": "1 of 2 themes researched."
+      },
+      {
+        "at": 205,
+        "key": "dives",
+        "state": "done",
+        "result": "2 themes researched: MON_MOMENTUM_VOL, WBTC_WETH_COLLATERAL."
+      },
+      {
+        "at": 217,
+        "key": "challenge",
+        "state": "running",
+        "result": null
+      },
+      {
+        "at": 235,
+        "key": "challenge",
+        "state": "done",
+        "result": "1 of 2 theses stand after the skeptic's review."
+      },
+      {
+        "at": 245,
+        "key": "test",
+        "state": "done",
+        "result": "Your limits and the envelope are set for the plan."
+      },
+      {
+        "at": 245,
+        "key": "plan",
+        "state": "running",
+        "result": null
+      },
+      {
+        "at": 283,
+        "key": "plan",
+        "state": "done",
+        "result": null
+      },
+      {
+        "at": 291,
+        "key": "active",
+        "state": "skipped",
+        "result": null
+      }
+    ],
+    "ms": 292027
+  },
+  "entries": [
+    "activation (narrator): Alpha Agent #1 started its activation sweep on the Medium tier with a maximum credit cost of 3.8 USDC. The owner must approve the plan before any trades execute.",
+    "arming (narrator): Agent #1 was armed with a grant registration that is valid until 2026-11-09.",
+    "activation (narrator): Alpha Agent #1 completed its activation step \"Reading your goal and account\" with an Aggressive strategy on the Medium tier, configured with 90 USDC to trade and 8 USDC of credits.",
+    "stage (narrator): Agent #1 completed a scan research stage using the research-low model, making 8 model calls and 11 tool calls with 1 paid call, costing 0.129863 USDC against a 0.5 USDC ceiling.",
+    "activation (narrator): Alpha Agent #1 completed its activation sweep step \"Reading pools and prices,\" pricing 7 of 7 tokens across 9 pools with 7 fresh safety screens.",
+    "stage (narrator): Agent #1 completed a DIVE research stage on MON_MOMENTUM_VOL using research-medium model, finding no candidates across 8 model calls and 11 tool calls, costing 0.368482 USDC.",
+    "stage (narrator): Agent #1 completed a DIVE research stage on WBTC_WETH_COLLATERAL using research-medium, making 7 model calls and 11 tool calls with 1 paid call, costing 0.219454 USDC against a 1.2 USDC ceiling.",
+    "stage (narrator): Agent #1 completed a challenge stage research activity using the research-medium model, making 4 model calls and 5 tool calls with 2 briefs accepted, costing $0.078106.",
+    "stage (narrator): Agent #1 completed its TEST stage research with 0 model calls, 0 tool calls, and 0 paid calls, incurring no cost.",
+    "stage (narrator): Agent #1 completed a ZOOM_OUT research stage using research-medium model with 7 model calls and 6 tool calls, proposing a plan change for the owner at a cost of 0.166144 USDC.",
+    "proposal (narrator): Alpha Agent #1's plan proposal was rejected due to out of bounds constraints. The proposal sought to add WBTC at 5.00% with 95.00% cash, but evidence strength was mixed and approval is required before resubmission.",
+    "activation (narrator): Alpha Agent #1 activation sweep finished with a step failure, so no plan was created. The operation cost 0.962049 of 3.8 USDC and proposed a portfolio of 1 position."
+  ],
+  "universe": {
+    "cycleId": "cycle-600d88b7-8513-4b95-b517-574e5a9427fb",
+    "kind": "ACTIVATION",
+    "at": "2026-10-11T17:53:02.329Z",
+    "rows": [
+      {
+        "address": "0x00000000efe302beaa2b3e6e1b18d08d69a9012a",
+        "symbol": "AUSD",
+        "priceClass": "F",
+        "lane": "core",
+        "status": "listed",
+        "buyable": true,
+        "whyNot": null,
+        "held": false,
+        "themeCode": "AUSD_YIELD_DEFENSE",
+        "themeReason": "beyond the activation sweep's two Dives, by materiality",
+        "researched": false,
+        "proposed": false,
+        "droppedReason": "Yield-defense theme was not dived; no thesis."
+      },
+      {
+        "address": "0xfc421ad3c883bf9e7c4f42de845c4e4405799e73",
+        "symbol": "GHO",
+        "priceClass": "A",
+        "lane": "screened",
+        "status": "listed",
+        "buyable": true,
+        "whyNot": null,
+        "held": false,
+        "themeCode": null,
+        "themeReason": null,
+        "researched": false,
+        "proposed": false,
+        "droppedReason": null
+      },
+      {
+        "address": "0x0555e30da8f98308edb960aa94c0db47230d2b9c",
+        "symbol": "WBTC",
+        "priceClass": "F",
+        "lane": "core",
+        "status": "listed",
+        "buyable": true,
+        "whyNot": null,
+        "held": false,
+        "themeCode": "WBTC_WETH_COLLATERAL",
+        "themeReason": "chosen for a Dive (medium materiality)",
+        "researched": true,
+        "proposed": true,
+        "droppedReason": null
+      },
+      {
+        "address": "0xee8c0e9f1bffb4eb878d8f15f368a02a35481242",
+        "symbol": "WETH",
+        "priceClass": "F",
+        "lane": "core",
+        "status": "listed",
+        "buyable": true,
+        "whyNot": null,
+        "held": false,
+        "themeCode": null,
+        "themeReason": null,
+        "researched": false,
+        "proposed": false,
+        "droppedReason": "Not dived; no thesis."
+      },
+      {
+        "address": "0x3bd359c1119da7da1d913d1c4d2b7c461115433a",
+        "symbol": "WMON",
+        "priceClass": "F",
+        "lane": "core",
+        "status": "listed",
+        "buyable": true,
+        "whyNot": null,
+        "held": false,
+        "themeCode": null,
+        "themeReason": null,
+        "researched": false,
+        "proposed": false,
+        "droppedReason": "Momentum thesis has no support: falling activity and Nov 24 unlock."
+      },
+      {
+        "address": "0xd18b7ec58cdf4876f6afebd3ed1730e4ce10414b",
+        "symbol": "cbBTC",
+        "priceClass": "F",
+        "lane": "core",
+        "status": "listed",
+        "buyable": true,
+        "whyNot": null,
+        "held": false,
+        "themeCode": null,
+        "themeReason": null,
+        "researched": false,
+        "proposed": false,
+        "droppedReason": "Near-identical to WBTC; one BTC sleeve is enough."
+      },
+      {
+        "address": "0x1b68626dca36c7fe922fd2d55e4f631d962de19c",
+        "symbol": "shMON",
+        "priceClass": "F",
+        "lane": "core",
+        "status": "listed",
+        "buyable": true,
+        "whyNot": null,
+        "held": false,
+        "themeCode": null,
+        "themeReason": null,
+        "researched": false,
+        "proposed": false,
+        "droppedReason": null
+      },
+      {
+        "address": "0x754704bc059f8c67012fed69bc8a327a5aafb603",
+        "symbol": "USDC",
+        "priceClass": "USDC",
+        "lane": "core",
+        "status": "listed",
+        "buyable": false,
+        "whyNot": "USDC is the account's cash, never bought",
+        "held": true,
+        "themeCode": null,
+        "themeReason": null,
+        "researched": false,
+        "proposed": false,
+        "droppedReason": "Cash base and stablecoin floor; held as cash, not a position."
+      }
+    ]
+  },
+  "passed": false
+}

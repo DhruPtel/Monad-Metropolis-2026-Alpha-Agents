@@ -263,6 +263,8 @@ export class Registrar {
           return out;
         }
         const tx = await this.d.chain.addScreened(token, SCREENED_POSITION_BPS, hash, screenedAt);
+        // The table learns the lane now, from what was just written: a market read may be cached.
+        await this.d.store.setRegistry(this.d.chainId, token, "screened", "listed");
         out.push({
           token,
           action: "ADD_SCREENED",
@@ -300,6 +302,7 @@ export class Registrar {
       }
     } else if (record.lane === 2 && record.status === 1) {
       const tx = await this.d.chain.setSellOnly(token);
+      await this.d.store.setRegistry(this.d.chainId, token, "screened", "sell_only");
       out.push({ token, action: "SELL_ONLY", detail: `the re-screen was refused`, txHash: tx });
       this.d.log(`registrar: ${token} moved to sell-only after a refused screen (${tx})`);
     } else if (record.lane === 1 && record.status === 1) {

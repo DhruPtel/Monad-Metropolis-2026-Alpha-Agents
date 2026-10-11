@@ -134,7 +134,9 @@ describe("the screened-lane registrar", () => {
       `addScreenedPool 1 ${MEME}/${USDC} 3000`,
       `addScreenedPool 3 ${MEME}/${WMON} 500`,
     ]);
+    // The registration is mirrored at once, then the chain's lanes (the fake market says sell-only).
     expect(mirrored).toEqual([
+      `${MEME} screened listed`,
       `${USDC} core listed`,
       `${WMON} core listed`,
       `${MEME} screened sell_only`,
@@ -155,11 +157,12 @@ describe("the screened-lane registrar", () => {
   });
 
   it("moves a buyable screened token to sell-only on a refused re-screen, and leaves a core token to the guardian", async () => {
-    const { registrar, calls } = fakes({ lane: 2, status: 1 });
+    const { registrar, calls, mirrored } = fakes({ lane: 2, status: 1 });
     expect((await registrar.afterScreen(MEME, screen("refused"), [])).map((a) => a.action)).toEqual(
       ["SELL_ONLY"],
     );
     expect(calls).toEqual([`setSellOnly ${MEME}`]);
+    expect(mirrored[0]).toBe(`${MEME} screened sell_only`);
     const core = fakes({ lane: 1, status: 1 });
     expect(
       (await core.registrar.afterScreen(MEME, screen("refused"), [])).map((a) => a.action),

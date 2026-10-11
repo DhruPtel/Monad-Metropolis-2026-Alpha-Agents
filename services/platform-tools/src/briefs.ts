@@ -243,13 +243,13 @@ export const RationaleBrief = z
      */
     allocationNote: text(400).nullable().optional(),
     /**
-     * F-U12: every token the cycle dived or the account holds that the plan
-     * does not propose, each with the reason; complete_stage refuses a Zoom
-     * out that leaves one out.
+     * F-U12: every token this account could buy, the cycle dived or the
+     * account holds that the plan does not propose, each with the reason;
+     * complete_stage refuses a Zoom out that leaves one out.
      */
     notProposed: z
       .array(z.strictObject({ token: TokenAddress, symbol, reason: text(200) }))
-      .max(16)
+      .max(32)
       .optional(),
   })
   .refine((b) => (b.decision === "NO_CHANGE") === (b.reasonCode !== null), {
