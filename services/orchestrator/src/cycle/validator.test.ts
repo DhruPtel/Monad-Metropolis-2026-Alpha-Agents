@@ -345,7 +345,7 @@ describe("the brief validator (D-284, P3-U4)", () => {
     expect(theme({ thesis: null, noThesisReason: "Too thin.", fairWeightBps: null }).ok).toBe(true);
   });
 
-  it("parses the Zoom out's rationale: weak evidence never proposes, and NO_CHANGE holds every position (F-U8)", () => {
+  it("parses the Zoom out's rationale: weak evidence never carries a position (cash only, with a note, since A-81), and NO_CHANGE holds every position (F-U8)", () => {
     const wbtc = "0x0555e30da8f98308edb960aa94c0db47230d2b9c";
     const rationale = (over: Record<string, unknown> = {}) =>
       parseBrief({
@@ -371,7 +371,16 @@ describe("the brief validator (D-284, P3-U4)", () => {
     expect(rationale().ok).toBe(true);
     const weak = rationale({ evidenceStrength: "weak" });
     expect(weak.ok).toBe(false);
-    if (!weak.ok) expect(weak.reasons.join(" ")).toContain("weak evidence cannot carry a proposal");
+    if (!weak.ok) expect(weak.reasons.join(" ")).toContain("weak evidence cannot carry a position");
+    // F-T1 (A-81): weak evidence may propose cash only, saying why in the allocation note.
+    expect(
+      rationale({
+        evidenceStrength: "weak",
+        positions: [],
+        themeCodes: [],
+        allocationNote: "Nothing is worth holding yet: every thesis rests on one stale source.",
+      }).ok,
+    ).toBe(true);
     const held = rationale({ decision: "NO_CHANGE", reasonCode: "EVIDENCE_THIN" });
     expect(held.ok).toBe(false);
     if (!held.ok) expect(held.reasons.join(" ")).toContain("holds every position");
