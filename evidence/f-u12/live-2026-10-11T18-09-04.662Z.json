@@ -1,0 +1,139 @@
+{
+  "unit": "F-U12",
+  "namespace": "live-act-51faaa",
+  "runTag": "2026-10-11T18-09-04.662Z",
+  "checks": {
+    "the attestation verifier is set in the TokenRegistry through its timelock (SET_VERIFIER, 9 days on the fork's clock)": true,
+    "the owner's screened-lane opt-in is recorded on the account on chain": true,
+    "the core tokens were screened before the sweep, and at least one passed": true,
+    "GHO passed the safety screen and the registrar put it in the screened lane at once, listed": false,
+    "before the grant, every check passes but the grant, named as the step to come, on the Medium tier with a 3.80 USDC ceiling": true,
+    "a start before the grant is refused and names the grant": true,
+    "the grant is on chain and recorded as waiting for its first approval (D-291)": true,
+    "the start is accepted: the sweep is queued and its first step is done at once": true
+  },
+  "verifier": {
+    "address": "0x575bF0478b880500BB6c5A3ab1e86DcD5BC3Bf1E",
+    "attestor": "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC",
+    "warpedSeconds": 777601
+  },
+  "agent": {
+    "agentId": 1,
+    "runtime": {
+      "agentId": "1",
+      "generation": 1,
+      "status": "ready",
+      "tier": "pro",
+      "species": 14,
+      "slots": 8,
+      "playbook": "tier-pro@1",
+      "configHash": "97aaaa7f526a24f701a95acc83df0d809edaf72fc31ebc572a81c4f9fe92c9d0",
+      "keyAlias": "aa-live-act-51faaa-143143-1-g1",
+      "budgetUsd": "0.000000",
+      "lastError": null,
+      "provisionedAt": "2026-10-11T18:10:20.493Z",
+      "updatedAt": "2026-10-11T18:10:20.493Z",
+      "lease": null,
+      "latestTask": null
+    }
+  },
+  "setup": {
+    "owner": "0x3a25d33100De170E148971ED9590a9332f81613e",
+    "funding": "0xf1f1cbfc8b13e1018beab249b14b926f128a11c4",
+    "account": "0xB7E100974F2e9803022568e7bF2EaD87BE2BBf4e",
+    "creditsUsdcE6": "8000000"
+  },
+  "optIn": true,
+  "screens": [
+    {
+      "symbol": "WMON",
+      "verdict": "passed",
+      "ms": 10397
+    },
+    {
+      "symbol": "AUSD",
+      "verdict": "passed",
+      "ms": 7364
+    },
+    {
+      "symbol": "WBTC",
+      "verdict": "passed",
+      "ms": 5622
+    },
+    {
+      "symbol": "cbBTC",
+      "verdict": "passed",
+      "ms": 6727
+    },
+    {
+      "symbol": "WETH",
+      "verdict": "passed",
+      "ms": 7091
+    },
+    {
+      "symbol": "shMON",
+      "verdict": "passed",
+      "ms": 6594
+    }
+  ],
+  "classA": {
+    "address": "0xfc421ad3c883bf9e7c4f42de845c4e4405799e73",
+    "lookup": 200,
+    "verdict": "passed",
+    "lane": null,
+    "status": null
+  },
+  "checksBefore": [
+    {
+      "code": "GOAL",
+      "ok": true,
+      "message": "Goal: Aggressive on the Medium tier (Claude Sonnet 5.5).",
+      "blocking": true
+    },
+    {
+      "code": "PROVISIONED",
+      "ok": true,
+      "message": "The agent is set up to run.",
+      "blocking": true
+    },
+    {
+      "code": "ACCOUNT",
+      "ok": true,
+      "message": "The trading account is open on the fund agent's set.",
+      "blocking": true
+    },
+    {
+      "code": "ACCOUNT_MODE",
+      "ok": true,
+      "message": "The account is in its normal mode.",
+      "blocking": true
+    },
+    {
+      "code": "TRADING_BALANCE",
+      "ok": true,
+      "message": "The account holds 90.00 USDC to trade with.",
+      "blocking": true
+    },
+    {
+      "code": "CREDITS",
+      "ok": true,
+      "message": "Credits cover the sweep: 8.00 USDC available, at most 3.80 USDC needed.",
+      "blocking": true
+    },
+    {
+      "code": "GRANT",
+      "ok": false,
+      "message": "Your wallet registers the agent's trading permission (30 days at most) when you turn trading on.",
+      "blocking": false
+    },
+    {
+      "code": "NOT_BUSY",
+      "ok": true,
+      "message": "The agent is free to start.",
+      "blocking": true
+    }
+  ],
+  "spendUsd": 0,
+  "error": "timed out waiting for the sweep to end",
+  "passed": false
+}

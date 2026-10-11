@@ -723,6 +723,13 @@ async function main(): Promise<number> {
     report.decisions = planAfter.decisions ?? [];
     for (const d of planAfter.decisions ?? [])
       console.log(`   decision: ${redactor.redact(JSON.stringify(d)).slice(0, 400)}`);
+    // The terminal's check lines: the evaluator's findings on the proposal, each with its rule.
+    const terminal = (await api(`/v1/agents/${agentId}/terminal`)).body as {
+      events?: { kind: string; text: string }[];
+    };
+    const checksSeen = (terminal.events ?? []).filter((e) => e.kind === "check").map((e) => e.text);
+    report.proposalChecks = checksSeen;
+    for (const line of checksSeen) console.log(`   ${redactor.redact(line).slice(0, 300)}`);
     const gho = rows.find((u) => u.symbol === "GHO");
     check(
       "the sweep recorded the universe it considered, with a reason for every token this account cannot buy",

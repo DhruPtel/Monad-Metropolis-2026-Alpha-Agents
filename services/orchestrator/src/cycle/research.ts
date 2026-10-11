@@ -8,7 +8,7 @@ import {
 import type { AgentIdentity } from "@alpha-agents/tool-server";
 import { ToolError } from "@alpha-agents/tool-server";
 import type { Hex } from "viem";
-import { checkTargetPortfolioParams, portfolioParamsFromJson } from "@alpha-agents/policy";
+import { portfolioParamsFromJson } from "@alpha-agents/policy";
 import {
   type GoalStore,
   type PlanStore,
@@ -433,16 +433,7 @@ export class CycleResearch {
             maxLegBps: 0,
           }).minTradeUsdcE6.toString(),
         });
-        // F-U12: the template's own bounds, as the proposal evaluator checks them, so a plan the
-        // stage accepts is one the evaluator accepts (the live sweep found a plan refused only there).
-        findings = [
-          ...checkTargetPortfolioParams(portfolio).map((e) => ({
-            code: "OUT_OF_BOUNDS" as const,
-            field: e.field,
-            message: e.message,
-          })),
-          ...(await checkPortfolioProposal(portfolio, inputs)),
-        ];
+        findings = await checkPortfolioProposal(portfolio, inputs);
       } else {
         findings = checkProposal(
           proposalParams(input.decision.params),
