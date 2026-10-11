@@ -57,3 +57,6 @@ b5b6d71bc1083380b350478d2839ee2851f4193f:apps/console/e2e/token-detail-fixture.j
 3b0c55507af950be7ee42ee50b05652fed662b59:evidence/p1-u7/live-2026-10-10T23-56-57.040Z.json:generic-api-key:915
 3b0c55507af950be7ee42ee50b05652fed662b59:evidence/p1-u7/live-2026-10-10T23-56-57.040Z.json:generic-api-key:916
 3b0c55507af950be7ee42ee50b05652fed662b59:evidence/p1-u7/live-2026-10-10T23-56-57.040Z.json:generic-api-key:1349
+# F-U11: the public USDC and WMON addresses under a `token` key in the window route's test fixture (app.test.ts); the test now names them as constants.
+3e4494370d44a322af644daaac8f448ff1d0b151:apps/control-api/src/app.test.ts:generic-api-key:1809
+3e4494370d44a322af644daaac8f448ff1d0b151:apps/control-api/src/app.test.ts:generic-api-key:1818
