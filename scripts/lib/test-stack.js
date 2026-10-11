@@ -76,6 +76,13 @@ export async function startTestStack({ forkPort, apiPort, orchestrator, trading 
       const { useFreshFeeds } = await import("./oracle.js");
       await deployAccountFactoryLocal({ quiet: true });
       await useFreshFeeds();
+      // F-T1 (A-80): the fund agent's set too, so the portfolio page runs on the v3 account.
+      const { deployFundLocal } = await import("./fund.js");
+      const { deployExecutorV3Local } = await import("./executor-v3.js");
+      const { refreshLocalFeeds } = await import("@alpha-agents/devenv");
+      const fund = await deployFundLocal({ quiet: true, skipScreens: true });
+      await deployExecutorV3Local({ quiet: true, tokenRegistry: fund.tokenRegistry });
+      await refreshLocalFeeds(fork.url);
     }
     await db.db
       .insertInto("platform.mint_allowlist")

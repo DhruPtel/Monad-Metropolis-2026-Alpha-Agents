@@ -1,4 +1,4 @@
-import { localForkRpcUrl } from "@alpha-agents/config";
+import { LOCAL_FORK_RPC_URL } from "@alpha-agents/config";
 import { type Address, addressEntry } from "@alpha-agents/domain";
 import { assertLocalFork } from "./guard.ts";
 import { hexToBigInt, hexToNumber, rpc, toHex } from "./rpc.ts";
@@ -193,24 +193,29 @@ export class RealWalletError extends Error {
   }
 }
 
-/** The playtest fork is the one LOCAL_FORK_PORT names (8545 by default); a test's own fork is another port. */
-function isPlaytestFork(url: string): boolean {
-  try {
-    return new URL(url).port === new URL(localForkRpcUrl(process.env)).port;
-  } catch {
-    return false;
-  }
-}
+/** The playtest fork's port, 8545: a test's own fork never runs there (startTestFork refuses it). */
+const PLAYTEST_FORK_PORT = new URL(LOCAL_FORK_RPC_URL).port;
 
 /**
  * On the playtest fork a script may impersonate anvil's own accounts, the
  * fork-only test minter, USDC's master minter and contracts, never a real
  * wallet (after the F-U11 playtest): the owner's wallet sends its own
  * transactions from the app, and an impersonated one would put its nonce
- * out of step with the wallet's.
+ * out of step with the wallet's. A test's own fork, on any other port, is
+ * left alone, whatever LOCAL_FORK_PORT a live script points at it.
  */
-async function assertImpersonable(url: string, from: Address): Promise<void> {
-  if (!isPlaytestFork(url)) return;
+export async function assertImpersonable(
+  url: string,
+  from: Address,
+  playtestPort: string = PLAYTEST_FORK_PORT,
+): Promise<void> {
+  let port: string;
+  try {
+    port = new URL(url).port;
+  } catch {
+    return;
+  }
+  if (port !== playtestPort) return;
   const who = from.toLowerCase();
   if (ANVIL_ACCOUNTS.some((a) => a.toLowerCase() === who)) return;
   if (who === TEST_USDC_MINTER.toLowerCase()) return;

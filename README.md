@@ -350,7 +350,7 @@ pnpm dev:down            # stop everything when done
 ## Secret scanning
 
 ```sh
-pnpm run secrets:scan   # run before every push
+pnpm run secrets:scan   # run before every push; the commit gate (.githooks/pre-commit, installed by pnpm prepare) runs it on every commit and refuses the commit when it fails
 ```
 
 This runs gitleaks (pinned by image digest, in Docker) over the full history of every branch and over uncommitted and staged changes. Output is redacted, and gitignored files such as `.env` are never read. CI runs the same scan. Rules are the gitleaks defaults (`.gitleaks.toml`); a verified false positive is added to `.gitleaksignore` by fingerprint, with its reason. If a real secret is ever found, rotate it first: removing it from history does not make it safe.

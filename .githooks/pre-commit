@@ -1,0 +1,12 @@
+#!/usr/bin/env sh
+# The commit gate (F-T1, after L-194, L-200, L-203 and L-205): every commit runs
+# the secrets scan on exactly what is staged and on the history, and a failing
+# scan refuses the commit here, so no piped or echoed exit code can let one
+# through. Installed by `pnpm prepare` (scripts/install-hooks.js sets
+# core.hooksPath to this folder). Skip only with SKIP_COMMIT_GATE=1, which the
+# commit message must then say.
+if [ "${SKIP_COMMIT_GATE:-}" = "1" ]; then
+  echo "commit gate: skipped by SKIP_COMMIT_GATE=1 (say so in the commit message)" >&2
+  exit 0
+fi
+exec node scripts/commit-gate.js

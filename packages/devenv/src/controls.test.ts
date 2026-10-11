@@ -1,14 +1,21 @@
 import { type Server, createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import { afterEach, describe, expect, it } from "vitest";
-import { ANVIL_ACCOUNTS, RealWalletError, TEST_USDC_MINTER, sendAs } from "./controls.ts";
+import {
+  ANVIL_ACCOUNTS,
+  RealWalletError,
+  TEST_USDC_MINTER,
+  assertImpersonable,
+  sendAs,
+} from "./controls.ts";
 
 /**
- * The playtest-fork wallet guard (after the F-U11 playtest): on the fork
- * LOCAL_FORK_PORT names, a script may impersonate anvil's accounts, the test
- * minter, USDC's master minter and contracts, never a real wallet, whose
- * nonce must stay its own. On a test's own fork (another port) the guard is
- * off, since nothing real lives there.
+ * The playtest-fork wallet guard (after the F-U11 playtest): on the playtest
+ * fork's port a script may impersonate anvil's accounts, the test minter,
+ * USDC's master minter and contracts, never a real wallet, whose nonce must
+ * stay its own. On a test's own fork (any other port, whatever
+ * LOCAL_FORK_PORT a live script sets) the guard is off, since nothing real
+ * lives there. The fake anvil's port stands in for 8545 here.
  */
 const OWNER = "0x683eE842A16f85e69883F433745263BFe8D55f76" as const;
 const MASTER_MINTER = "0x00000000000000000000000000000000000000bb" as const;
@@ -16,12 +23,9 @@ const CONTRACT = "0x00000000000000000000000000000000000000cc" as const;
 const TO = "0x00000000000000000000000000000000000000dd" as const;
 
 let server: Server | null = null;
-const previousPort = process.env.LOCAL_FORK_PORT;
 afterEach(async () => {
   await new Promise((r) => (server ? server.close(() => r(undefined)) : r(undefined)));
   server = null;
-  if (previousPort === undefined) delete process.env.LOCAL_FORK_PORT;
-  else process.env.LOCAL_FORK_PORT = previousPort;
 });
 
 /** A fake anvil: it answers the guard's reads and records every impersonation and send. */
@@ -70,33 +74,34 @@ async function fakeAnvil(): Promise<{ url: string; port: number; sent: string[] 
 describe("the playtest-fork wallet guard", () => {
   it("refuses a real wallet on the playtest fork, before anything is impersonated or sent", async () => {
     const { url, port, sent } = await fakeAnvil();
-    process.env.LOCAL_FORK_PORT = String(port);
-    await expect(sendAs(url, OWNER, TO, "0x")).rejects.toBeInstanceOf(RealWalletError);
-    await expect(sendAs(url, OWNER, TO, "0x")).rejects.toThrow(/real wallet/);
+    await expect(assertImpersonable(url, OWNER, String(port))).rejects.toBeInstanceOf(
+      RealWalletError,
+    );
+    await expect(assertImpersonable(url, OWNER, String(port))).rejects.toThrow(/real wallet/);
     expect(sent).toEqual([]);
   });
 
   it("lets anvil's accounts, the test minter, USDC's master minter and a contract send on the playtest fork", async () => {
-    const { url, port, sent } = await fakeAnvil();
-    process.env.LOCAL_FORK_PORT = String(port);
+    const { url, port } = await fakeAnvil();
     for (const from of [
       ANVIL_ACCOUNTS[6] as `0x${string}`,
       TEST_USDC_MINTER,
       MASTER_MINTER,
       CONTRACT,
     ])
-      await sendAs(url, from, TO, "0x");
-    expect(sent.filter((s) => s.startsWith("send from")).map((s) => s.slice(10))).toEqual(
-      [ANVIL_ACCOUNTS[6] as string, TEST_USDC_MINTER, MASTER_MINTER, CONTRACT].map((a) =>
-        a.toLowerCase(),
-      ),
-    );
+      await expect(assertImpersonable(url, from, String(port))).resolves.toBeUndefined();
   });
 
-  it("leaves a test's own fork alone: another port is not the playtest fork", async () => {
-    const { url, sent } = await fakeAnvil();
-    process.env.LOCAL_FORK_PORT = "8545";
-    await sendAs(url, OWNER, TO, "0x");
+  it("leaves a test's own fork alone: another port is never the playtest fork, whatever LOCAL_FORK_PORT says", async () => {
+    const { url, port, sent } = await fakeAnvil();
+    const previous = process.env.LOCAL_FORK_PORT;
+    process.env.LOCAL_FORK_PORT = String(port);
+    try {
+      await sendAs(url, OWNER, TO, "0x");
+    } finally {
+      if (previous === undefined) delete process.env.LOCAL_FORK_PORT;
+      else process.env.LOCAL_FORK_PORT = previous;
+    }
     expect(sent.some((s) => s === `send from ${OWNER.toLowerCase()}`)).toBe(true);
   });
 });

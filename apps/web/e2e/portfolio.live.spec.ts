@@ -124,12 +124,16 @@ test("an owner opens an account, deposits, arms, sees a trade settle and one exp
     encoding: "utf8",
   });
   expect(allow.status, allow.stderr).toBe(0);
-  expect(allow.stdout).toContain("can now open a trading account");
+  // A-80: both factories' allowlists; the v3 one is the account the page opens.
+  expect(allow.stdout).toContain("AccountFactoryV3: added");
 
-  // Open the account from the wallet.
+  // Open the account from the wallet: on the fund agent's set (A-80), the PersonalAccountV3.
   await expect(main(page).getByTestId("allowlist-block")).toHaveCount(0, { timeout: 30_000 });
+  await expect(main(page).getByTestId("open-account")).toContainText("fund agent's set");
   await main(page).getByRole("button", { name: "Open trading account" }).click();
   await expect(main(page).getByTestId("positions")).toBeVisible({ timeout: 60_000 });
+  await expect(main(page).getByTestId("positions")).toHaveAttribute("data-custody", "v3");
+  await expect(main(page).getByTestId("deposit-form")).toHaveAttribute("data-custody", "v3");
 
   // Deposit 20 USDC: an exact approval, then the deposit.
   const deposit = main(page).getByTestId("deposit-form");
@@ -139,8 +143,9 @@ test("an owner opens an account, deposits, arms, sees a trade settle and one exp
     timeout: 90_000,
   });
   await expect(main(page).getByTestId("positions")).toContainText("20.00", { timeout: 30_000 });
+  await expect(main(page).getByTestId("caps")).toContainText("20.00 of 100.00 USDC");
 
-  // Arm: the grant from the wallet, then the platform records it.
+  // Arm: the grant from the wallet on Executor v3, then the platform records it.
   const arming = main(page).getByTestId("arming-card");
   await arming.getByRole("button", { name: "Arm", exact: true }).click();
   await expect(arming).toHaveAttribute("data-state", "awaiting_first_trade", { timeout: 90_000 });
@@ -159,15 +164,17 @@ test("an owner opens an account, deposits, arms, sees a trade settle and one exp
   await expect(settled).toContainText("Got");
   await expect(settled).toContainText(/0x[0-9a-f]{64}/);
   await expect(main(page).getByTestId("positions")).toContainText("WMON");
-  // The settled trade's value snapshot is recorded for W-3's charts (Phase 2 tuning).
+  // The settled trade's value snapshot is recorded on the v3 set with every held token (F-U5, F-U11).
   const snapshot = await db
     .selectFrom("platform.account_snapshots")
-    .select(["reason", "usdc_e6", "wmon_wei", "mode", "value_usdc_e6"])
+    .select(["reason", "usdc_e6", "wmon_wei", "mode", "value_usdc_e6", "custody", "per_unit_e18"])
     .where("agent_id", "=", Number(id))
     .where("reason", "=", "trade")
     .executeTakeFirst();
   expect(snapshot?.mode).toBe("NORMAL");
+  expect(snapshot?.custody).toBe("v3");
   expect(BigInt(snapshot?.wmon_wei ?? "0")).toBeGreaterThan(0n);
+  expect(snapshot?.per_unit_e18).not.toBeNull();
 
   // A proposal over the trade size limit is refused at submission and explained.
   await orchestrator(`/v1/agents/${id}/test-over-limit`);
@@ -181,17 +188,18 @@ test("an owner opens an account, deposits, arms, sees a trade settle and one exp
   await expect(arming).toHaveAttribute("data-state", "unarmed", { timeout: 90_000 });
   await expect(arming).toContainText("The owner disarmed the agent.");
 
-  // Withdraw everything back to the wallet, each asset in turn.
+  // Withdraw everything back to the wallet: all of one token, then every token at once (A-80).
   const withdraw = main(page).getByTestId("withdraw-form");
+  await expect(withdraw).toHaveAttribute("data-custody", "v3");
   const usdcBefore = (await balancesOf(MOCK_WALLET_ADDRESS, FORK)).usdcE6;
-  await withdraw.getByRole("button", { name: "Withdraw all" }).click();
+  await withdraw.getByRole("button", { name: "Withdraw all USDC" }).click();
   await expect(status(page, "withdraw-form")).toHaveAttribute("data-state", "confirmed", {
     timeout: 90_000,
   });
   expect((await balancesOf(MOCK_WALLET_ADDRESS, FORK)).usdcE6).toBeGreaterThan(usdcBefore);
-  await withdraw.getByRole("combobox", { name: "Asset" }).click();
+  await withdraw.getByRole("combobox", { name: "Token" }).click();
   await page.getByRole("option", { name: "WMON" }).click();
-  await withdraw.getByRole("button", { name: "Withdraw all" }).click();
+  await withdraw.getByRole("button", { name: "Withdraw all WMON" }).click();
   await expect(status(page, "withdraw-form")).toContainText("WMON", { timeout: 90_000 });
   await expect(status(page, "withdraw-form")).toHaveAttribute("data-state", "confirmed", {
     timeout: 90_000,

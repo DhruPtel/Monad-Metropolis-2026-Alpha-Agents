@@ -921,7 +921,38 @@ export class Orchestrator {
    * submission blocks it with its reasons.
    */
   async proposeOverLimitForTest(ref: AgentRef): Promise<string> {
-    const a = await this.o.chain?.reader?.agent(ref.agentId);
+    // A-80: on the fund agent's set the agent's account is its PersonalAccountV3.
+    const v3 = this.o.chain?.readerV3;
+    const v3State = v3 ? await v3.agent(ref.agentId) : null;
+    const m = v3 && v3State?.account ? await v3.market() : null;
+    const usdcV3 =
+      v3State?.account && m
+        ? (v3State.holdings.find((h) => isAddressEqual(h.token, m.usdc))?.balance ?? 0n)
+        : null;
+    const a =
+      v3State?.account && m && usdcV3 !== null
+        ? {
+            account: v3State.account,
+            usdc: usdcV3,
+            ownerEpoch: v3State.ownerEpoch,
+            configEpoch: v3State.configEpoch,
+            custody: "v3" as const,
+            sellToken: m.usdc,
+            buyToken: m.wmon,
+          }
+        : await this.o.chain?.reader?.agent(ref.agentId).then((x) =>
+            x?.account
+              ? {
+                  account: x.account,
+                  usdc: x.usdc,
+                  ownerEpoch: x.ownerEpoch,
+                  configEpoch: x.configEpoch,
+                  custody: "v2" as const,
+                  sellToken: null,
+                  buyToken: null,
+                }
+              : null,
+          );
     if (!a?.account) throw new Error("The agent has no trading account on this chain.");
     if (a.usdc < 2n) throw new Error("The agent's account holds no USDC to propose with.");
     const intentId = `intent-${randomUUID()}`;
@@ -934,8 +965,11 @@ export class Orchestrator {
         lease_id: "console-over-limit",
         kind: "swap",
         account: a.account.toLowerCase(),
+        custody: a.custody,
         sell: "USDC",
         buy: "WMON",
+        sell_token: a.sellToken ? a.sellToken.toLowerCase() : null,
+        buy_token: a.buyToken ? a.buyToken.toLowerCase() : null,
         amount_in: (a.usdc / 2n).toString(),
         reason: "Dev console: a proposal over the trade size limit.",
         idempotency_key: intentId,
