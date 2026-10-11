@@ -155,7 +155,7 @@ const PORTFOLIO_V3: PortfolioReadingV3 = {
   peak7d: 10n ** 18n,
   holdings: [
     {
-      token: "0x754704Bc059F8C67012fEd69BC8A327a5aafb603",
+      token: PORTFOLIO.contracts.usdc,
       symbol: "USDC",
       decimals: 6,
       balance: 30_000_000n,
@@ -167,7 +167,7 @@ const PORTFOLIO_V3: PortfolioReadingV3 = {
       claimable: 0n,
     },
     {
-      token: "0x3bd359C1119dA7Da1D913D1C4D2B7c461115433A",
+      token: PORTFOLIO.contracts.wmon,
       symbol: "WMON",
       decimals: 18,
       balance: 400n * 10n ** 18n,
