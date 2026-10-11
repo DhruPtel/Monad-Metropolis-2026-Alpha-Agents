@@ -54,11 +54,7 @@ import {
 import type { SwapIntentV3Args } from "@alpha-agents/signer";
 import type { TargetPortfolioParams } from "@alpha-agents/policy";
 import { type Hex, isAddressEqual, keccak256, toBytes } from "viem";
-import {
-  type TestFindingV2,
-  type TestInputsV2,
-  checkPortfolioProposal,
-} from "./cycle/test-stage.ts";
+import { type TestFindingV2, type TestInputsV2 } from "./cycle/test-stage.ts";
 import {
   TradeFlow,
   type TradeFlowGas,
@@ -81,6 +77,7 @@ import { ActivationService } from "./activation.ts";
 import { ResearchScheduler, ResearchStore, Watcher } from "./research-loop.ts";
 import { type ResearchWiring, observe, schedulerDeps, watcherDeps } from "./research-wiring.ts";
 import type { Attestor } from "./attestor.ts";
+import { checkTargetPortfolio } from "./cycle/plan-rules.ts";
 import { UniverseStore, universeSnapshot } from "./cycle/universe.ts";
 import type { ChainReaderV3 } from "@alpha-agents/chain-tools";
 import type { TokenStore } from "./tokens/store.ts";
@@ -975,7 +972,8 @@ export class Orchestrator {
         message:
           "A target portfolio needs the fund agent's set: the agent has no PersonalAccountV3 here, or the set is not deployed.",
       };
-    return { ok: true, findings: await checkPortfolioProposal(params, inputs) };
+    // F-T2: the same rule set as the Test stage and the evaluator, the cost to move included.
+    return { ok: true, findings: (await checkTargetPortfolio(params, inputs)).findings };
   }
 
   /** F-U6: what the console's portfolio form offers: the registered tokens, when the agent is on the v3 set. */

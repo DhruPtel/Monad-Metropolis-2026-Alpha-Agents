@@ -15,15 +15,15 @@ import {
   isBandsPlan,
   isPortfolioPlan,
 } from "@alpha-agents/trading";
+import {
+  type PlanCost,
+  type PlanInputsFingerprint,
+  type PlanVerdict,
+  checkTargetPortfolio,
+} from "./plan-rules.ts";
 import { allocationFindings, rationaleFindings } from "./rationale.ts";
 import type { Cycle, CycleStore, StageRun } from "./store.ts";
-import {
-  type TestInputs,
-  type TestInputsV2,
-  checkPortfolioProposal,
-  checkProposal,
-  proposalParams,
-} from "./test-stage.ts";
+import { type TestInputs, type TestInputsV2, checkProposal, proposalParams } from "./test-stage.ts";
 import { validateBrief } from "./validator.ts";
 import type { UniverseStore } from "./universe.ts";
 
@@ -412,6 +412,7 @@ export class CycleResearch {
     }
     if (input.decision.kind === "PROPOSE") {
       let findings: readonly { code: string; field: string; message: string }[];
+      let verdictRecord: { fingerprint: PlanInputsFingerprint; cost: PlanCost } | null = null;
       if (input.decision.template === "target_portfolio@1") {
         // F-U6: a target portfolio goes through the Test stage v2 on the fund agent's set.
         const inputs = await this.portfolioTestInputs(cycle);
@@ -421,26 +422,17 @@ export class CycleResearch {
             "A target portfolio needs the fund agent's set, which this agent is not on; propose rebalance_bands@1 or end with NO_CHANGE.",
             false,
           );
-        const params = input.decision.params;
-        const portfolio = portfolioParamsFromJson({
-          ...params,
-          minTradeUsdcE6: proposalParams({
-            targetWmonBps: 0,
-            bandHalfWidthBps: 0,
-            minTradeUsdc: params.minTradeUsdc,
-            volatilityBrakeBps: 0,
-            costHurdleBps: 0,
-            maxLegBps: 0,
-          }).minTradeUsdcE6.toString(),
-        });
-        findings = await checkPortfolioProposal(portfolio, inputs);
+        // F-T2: one rule set with the proposal evaluator; the verdict's fingerprint goes on the record.
+        const verdict = await this.targetPortfolioVerdict(input.decision.params, inputs);
+        findings = verdict.findings;
+        verdictRecord = { fingerprint: verdict.fingerprint, cost: verdict.cost };
       } else {
         findings = checkProposal(
           proposalParams(input.decision.params),
           await this.testInputs(cycle),
         );
       }
-      await this.recordCheck(cycle.cycleId, input.decision.params, findings);
+      await this.recordCheck(cycle.cycleId, input.decision.params, findings, verdictRecord);
       if (findings.length > 0)
         throw new ToolError(
           "INVALID_INPUT",
@@ -452,6 +444,35 @@ export class CycleResearch {
     if (outcome && this.o.universe)
       await this.o.universe.markOutcome(cycle, outcome.proposed, outcome.dropped, this.now());
     return stage;
+  }
+
+  /**
+   * F-T2: the Test stage's verdict on a Zoom out's target portfolio, by the one rule set the
+   * proposal evaluator uses (`checkTargetPortfolio`), the decision's params as complete_stage takes them.
+   */
+  async targetPortfolioVerdict(
+    params: {
+      readonly minTradeUsdc: string;
+      readonly positions: readonly unknown[];
+      readonly cashTargetBps: number;
+      readonly volatilityBrakeBps: number;
+      readonly costHurdleBps: number;
+      readonly maxLegBps: number;
+    },
+    inputs: TestInputsV2,
+  ): Promise<PlanVerdict> {
+    const portfolio = portfolioParamsFromJson({
+      ...params,
+      minTradeUsdcE6: proposalParams({
+        targetWmonBps: 0,
+        bandHalfWidthBps: 0,
+        minTradeUsdc: params.minTradeUsdc,
+        volatilityBrakeBps: 0,
+        costHurdleBps: 0,
+        maxLegBps: 0,
+      }).minTradeUsdcE6.toString(),
+    });
+    return checkTargetPortfolio(portfolio, inputs);
   }
 
   /** F-U6: the Test stage's inputs for a target portfolio, or null off the fund agent's set. */
@@ -488,6 +509,7 @@ export class CycleResearch {
     cycleId: string,
     params: unknown,
     findings: readonly { code: string }[],
+    verdict: { fingerprint: PlanInputsFingerprint; cost: PlanCost } | null = null,
   ) {
     const test = (await this.o.cycles.stages(cycleId)).find((s) => s.stage === "TEST");
     if (!test) return;
@@ -505,6 +527,7 @@ export class CycleResearch {
               params,
               passed: findings.length === 0,
               codes: findings.map((f) => f.code),
+              ...(verdict ? { fingerprint: verdict.fingerprint, cost: verdict.cost } : {}),
             },
           ],
         }),

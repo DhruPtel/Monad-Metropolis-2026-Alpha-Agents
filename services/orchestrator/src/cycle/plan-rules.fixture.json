@@ -1,0 +1,164 @@
+{
+  "note": "F-T2: one rule set for plans. The Test stage, the proposal evaluator and the console check must all give each case's codes on these inputs. Addresses are fixtures, not real tokens.",
+  "chainId": 143143,
+  "block": "500",
+  "now": "2026-10-11T12:00:00.000Z",
+  "usdc": "0x00000000000000000000000000000000000000c1",
+  "wmon": "0x00000000000000000000000000000000000000c2",
+  "tokens": [
+    {
+      "token": "0x00000000000000000000000000000000000000c1",
+      "symbol": "USDC",
+      "decimals": 6,
+      "lane": "CORE",
+      "status": "BUYABLE",
+      "priceClass": "USDC",
+      "maxPositionBps": 10000,
+      "priceE18": "1000000000000000000"
+    },
+    {
+      "token": "0x00000000000000000000000000000000000000c2",
+      "symbol": "WMON",
+      "decimals": 18,
+      "lane": "CORE",
+      "status": "BUYABLE",
+      "priceClass": "F",
+      "maxPositionBps": 4500,
+      "priceE18": "25000000000000000"
+    },
+    {
+      "token": "0x00000000000000000000000000000000000000c3",
+      "symbol": "WBTC",
+      "decimals": 8,
+      "lane": "CORE",
+      "status": "BUYABLE",
+      "priceClass": "F",
+      "maxPositionBps": 4500,
+      "priceE18": "100000000000000000000000"
+    },
+    {
+      "token": "0x00000000000000000000000000000000000000c6",
+      "symbol": "SCRN",
+      "decimals": 18,
+      "lane": "SCREENED",
+      "status": "BUYABLE",
+      "priceClass": "A",
+      "maxPositionBps": 1500,
+      "priceE18": "1000000000000000000"
+    },
+    {
+      "token": "0x00000000000000000000000000000000000000c7",
+      "symbol": "SOLD",
+      "decimals": 18,
+      "lane": "SCREENED",
+      "status": "SELL_ONLY",
+      "priceClass": "A",
+      "maxPositionBps": 1500,
+      "priceE18": "1000000000000000000"
+    }
+  ],
+  "agent": {
+    "aggressiveness": "AGGRESSIVE",
+    "mode": "NORMAL",
+    "screenedOptIn": true,
+    "holdings": [
+      {
+        "token": "0x00000000000000000000000000000000000000c1",
+        "decimals": 6,
+        "balance": "100000000",
+        "costBasis": "100000000"
+      }
+    ]
+  },
+  "quotes": {
+    "bpsUnderOracle": 10
+  },
+  "base": {
+    "cashTargetBps": 4000,
+    "minTradeUsdc": "1",
+    "volatilityBrakeBps": 20000,
+    "costHurdleBps": 40,
+    "maxLegBps": 1000
+  },
+  "cases": [
+    {
+      "name": "a plan within every rule passes everywhere",
+      "positions": [
+        {
+          "token": "0x00000000000000000000000000000000000000c2",
+          "targetWeightBps": 3000
+        },
+        {
+          "token": "0x00000000000000000000000000000000000000c3",
+          "targetWeightBps": 2000
+        },
+        {
+          "token": "0x00000000000000000000000000000000000000c6",
+          "targetWeightBps": 1000
+        }
+      ],
+      "expect": []
+    },
+    {
+      "name": "a cost hurdle under the venue's cost is refused by the rules, not only by the evaluator",
+      "positions": [
+        {
+          "token": "0x00000000000000000000000000000000000000c2",
+          "targetWeightBps": 3000
+        }
+      ],
+      "over": {
+        "costHurdleBps": 5,
+        "cashTargetBps": 7000
+      },
+      "expect": ["COST_HURDLE"]
+    },
+    {
+      "name": "a position over the envelope's cap",
+      "positions": [
+        {
+          "token": "0x00000000000000000000000000000000000000c2",
+          "targetWeightBps": 4500
+        }
+      ],
+      "expect": ["ENVELOPE_POSITION"],
+      "over": {
+        "cashTargetBps": 5500
+      }
+    },
+    {
+      "name": "a sell-only token cannot be targeted",
+      "positions": [
+        {
+          "token": "0x00000000000000000000000000000000000000c7",
+          "targetWeightBps": 1000
+        }
+      ],
+      "expect": ["TOKEN_NOT_BUYABLE"],
+      "over": {
+        "cashTargetBps": 9000
+      }
+    },
+    {
+      "name": "a class A position over the Executor's 15% basis cap",
+      "positions": [
+        {
+          "token": "0x00000000000000000000000000000000000000c6",
+          "targetWeightBps": 2000
+        }
+      ],
+      "expect": ["ENVELOPE_CLASS_A", "CLASS_A_COST_BASIS", "ENVELOPE_POSITION"],
+      "over": {
+        "cashTargetBps": 8000
+      }
+    },
+    {
+      "name": "cash only passes the rules",
+      "positions": [],
+      "over": {
+        "cashTargetBps": 10000
+      },
+      "expect": []
+    }
+  ]
+}

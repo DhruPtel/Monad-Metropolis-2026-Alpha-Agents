@@ -5,8 +5,6 @@ import {
   TARGET_PORTFOLIO_ID,
   type TargetPortfolioParams,
   checkPlan,
-  checkTargetPortfolioParams,
-  valueE6,
 } from "@alpha-agents/policy";
 import {
   type GoalStore,
@@ -22,10 +20,17 @@ import {
   type TradeStore,
   isPortfolioPlan,
 } from "@alpha-agents/trading";
-import { type Hex, isAddressEqual } from "viem";
+import type { Hex } from "viem";
 import type { Narrator } from "../narrator.ts";
 import type { BriefRow, Cycle, CycleStore, StageRun } from "./store.ts";
-import { type TestFindingV2, type TestInputsV2, checkPortfolioProposal } from "./test-stage.ts";
+import {
+  type PlanInputsFingerprint,
+  checkTargetPortfolio,
+  stateChangedFinding,
+} from "./plan-rules.ts";
+import type { TestFindingV2, TestInputsV2 } from "./test-stage.ts";
+
+export { estimateMoveCost } from "./plan-rules.ts";
 
 /**
  * Portfolio proposals (F-U9): the Zoom out's decision, read from the cycle's
@@ -56,7 +61,6 @@ export interface AgentRef {
   readonly agentId: number;
 }
 
-const BPS = 10_000n;
 const lower = (t: string) => t.toLowerCase();
 
 /** The classes of every claim a Dive's brief carries, counted. */
@@ -127,72 +131,6 @@ export function proposalPositions(o: {
   });
 }
 
-/**
- * The estimated cost to move the account to the draft: one leg per token
- * whose value must change by at least the plan's minimum trade (buys quoted
- * at today's depth against the oracle, sells counted at the plan's cost
- * hurdle), with the turnover it implies. Null while a held price is unusable.
- */
-export async function estimateMoveCost(
-  p: TargetPortfolioParams,
-  t: TestInputsV2,
-): Promise<ProposalEvaluation["cost"]> {
-  const values = new Map<string, bigint>();
-  let nav = 0n;
-  for (const h of t.agent.holdings) {
-    if (h.balance === 0n) continue;
-    let v: bigint;
-    if (isAddressEqual(h.token as Hex, t.market.usdc)) v = h.balance;
-    else {
-      const price = t.market.prices[lower(h.token)];
-      if (!price || price.priceE18 <= 0n || price.reason !== "OK") return null;
-      v = valueE6(h.balance, price.priceE18, h.decimals);
-    }
-    values.set(lower(h.token), v);
-    nav += v;
-  }
-  if (nav === 0n)
-    return {
-      legs: 0,
-      turnoverUsdcE6: "0",
-      estimatedCostUsdcE6: "0",
-      costBps: 0,
-      basis: "an empty account moves nothing",
-    };
-  let legs = 0;
-  let turnover = 0n;
-  let cost = 0n;
-  const targets = new Map(p.positions.map((x) => [lower(x.token), x]));
-  const tokens = new Set([...values.keys(), ...targets.keys()]);
-  tokens.delete(lower(t.market.usdc));
-  for (const token of tokens) {
-    const target = ((targets.get(token)?.targetWeightBps ?? 0) * Number(nav)) / Number(BPS);
-    const now = Number(values.get(token) ?? 0n);
-    const delta = BigInt(Math.round(target - now));
-    const size = delta < 0n ? -delta : delta;
-    if (size < p.minTradeUsdcE6) continue;
-    legs += 1;
-    turnover += size;
-    if (delta > 0n) {
-      const out = await t.quoteBuy(token as Hex, size);
-      const price = t.market.prices[token];
-      const info = t.market.tokens.find((x) => lower(x.token) === token);
-      if (out !== null && price && price.priceE18 > 0n && info) {
-        const got = valueE6(out, price.priceE18, info.decimals);
-        cost += got < size ? size - got : 0n;
-      } else cost += (size * BigInt(p.costHurdleBps)) / BPS;
-    } else cost += (size * BigInt(p.costHurdleBps)) / BPS;
-  }
-  return {
-    legs,
-    turnoverUsdcE6: turnover.toString(),
-    estimatedCostUsdcE6: cost.toString(),
-    costBps: turnover > 0n ? Number((cost * BPS) / turnover) : 0,
-    basis:
-      "buys quoted at today's depth against the oracle price, sells counted at the plan's cost hurdle; one leg per token whose value moves by at least the minimum trade",
-  };
-}
-
 const finding = (e: GoalError): TestFindingV2 => ({
   code: "HARD_LIMIT",
   field: e.field,
@@ -230,39 +168,43 @@ export class ProposalService {
   }
 
   /** The evaluator: the template's shape, the Test stage v2 and the goal's limits, with the cost to move. */
+  /**
+   * The evaluator: one rule set with the Test stage (F-T2, `checkTargetPortfolio`), with the cost to
+   * move. With `tested`, the fingerprint the Test took when it accepted the plan, a refusal now names
+   * what changed since (STATE_CHANGED), so a plan the Test accepted fails here only for a reason.
+   */
   async evaluate(
     ref: AgentRef,
     plan:
       | { template: typeof TARGET_PORTFOLIO_ID; params: TargetPortfolioParams }
       | { template: "rebalance_bands@1"; params: RebalanceBandsParams },
+    o: { readonly tested?: PlanInputsFingerprint | null } = {},
   ): Promise<ProposalEvaluation> {
     const goal = await this.o.goals.currentGoal(ref.chainId, ref.agentId);
     const approval = await this.approvalNeeded(ref);
     let findings: TestFindingV2[];
     let cost: ProposalEvaluation["cost"] = null;
     if (plan.template === TARGET_PORTFOLIO_ID) {
-      findings = checkTargetPortfolioParams(plan.params).map((e) => ({
-        code: "OUT_OF_BOUNDS" as const,
-        field: e.field,
-        message: e.message,
-      }));
       const inputs = await this.o.inputs(ref);
       if (!inputs)
-        findings.push({
-          code: "VALUES_UNUSABLE",
-          field: "account",
-          message:
-            "A target portfolio needs the fund agent's set: the agent has no PersonalAccountV3 here, or the set is not deployed.",
-        });
+        findings = [
+          {
+            code: "VALUES_UNUSABLE",
+            field: "account",
+            message:
+              "A target portfolio needs the fund agent's set: the agent has no PersonalAccountV3 here, or the set is not deployed.",
+          },
+        ];
       else {
-        findings.push(...(await checkPortfolioProposal(plan.params, inputs)));
-        cost = await estimateMoveCost(plan.params, inputs);
-        if (cost && cost.legs > 0 && cost.costBps > plan.params.costHurdleBps)
-          findings.push({
-            code: "COST_HURDLE",
-            field: "params.costHurdleBps",
-            message: `Moving to this portfolio would cost about ${(cost.costBps / 100).toFixed(2)}% of the ${cost.legs} legs' value at today's depth, above the plan's cost hurdle of ${(plan.params.costHurdleBps / 100).toFixed(2)}%.`,
-          });
+        const verdict = await checkTargetPortfolio(plan.params, inputs);
+        findings = verdict.findings;
+        cost = verdict.cost;
+        if (findings.length > 0 && o.tested) {
+          const symbols = Object.fromEntries(
+            inputs.market.tokens.map((t) => [t.token.toLowerCase(), t.symbol]),
+          );
+          findings.push(stateChangedFinding(o.tested, verdict.fingerprint, symbols));
+        }
       }
     } else if (goal) findings = checkPlan(plan.params, goal.config).map(finding);
     else findings = [{ code: "HARD_LIMIT", field: "goal", message: "The agent has no goal." }];
@@ -355,7 +297,15 @@ export class ProposalService {
             params: bandsParamsFromDecision(decision.params),
           };
     const current = await this.o.plans.active(ref.chainId, ref.agentId);
-    const evaluation = await this.evaluate(ref, plan);
+    // F-T2: the fingerprint the Test took when it accepted this plan, so a refusal now names what changed.
+    const testStage = (await this.o.cycles.stages(cycle.cycleId)).find((s) => s.stage === "TEST");
+    const checked = (
+      (testStage?.outcome ?? {}) as {
+        checked?: { passed: boolean; fingerprint?: PlanInputsFingerprint }[];
+      }
+    ).checked;
+    const tested = [...(checked ?? [])].reverse().find((c) => c.passed)?.fingerprint ?? null;
+    const evaluation = await this.evaluate(ref, plan, { tested });
     const positions =
       plan.template === TARGET_PORTFOLIO_ID
         ? proposalPositions({
