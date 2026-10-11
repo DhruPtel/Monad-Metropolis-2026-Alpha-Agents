@@ -1560,3 +1560,17 @@ What happened: (1) The scheduler would start the daily review before any Scan fo
 Cause: (1) "overdue" treated as "due" without asking whether the work makes sense yet; (2) a template that writes a number its facts do not hold trips the same validator that guards the owner; (3) a name chosen for reading, not for SQL.
 Fix: As above; the number validator stays strict, and every templated number is put in the line's facts.
 Lesson: The boundary validator applies to the platform's own templates too: put every number a template writes into the facts it is checked against, and let the test prove the line comes through.
+
+## L-210: The sentinel's fork drill moved MON by 20% for a 12% drawdown and got under 12%
+Unit: P4-U2 (2026-10-11)
+What happened: The drill funded an account with 40 USDC and 60 USDC worth of WMON, moved MON/USD down 20% and expected the breaker's drawdown at 12% or more; it read under 12% and the sentinel recorded nothing. The WMON was bought through a core pool, so the account held slightly less than 60 USDC of it after the pool's fee and price impact, and 20% of that share is under 12% of the account.
+Cause: A drill that sits exactly on a threshold fails on the first rounding; the bought amount is never the quoted amount.
+Fix: The drill moves MON by 25% and then by 25% again (a 44% fall in all), clearing 12% and 22% with room.
+Lesson: Put a drill's stimulus well past the threshold it tests, and read the threshold back from the chain (`breakerState`) rather than assuming the funded weight.
+
+## L-211: A stalled feed hides the drawdown condition the sentinel had recorded
+Unit: P4-U2 (2026-10-11)
+What happened: In the stalled-feed drill the sentinel noted the 22% drawdown as "cleared" while MON's feed was down, since the breaker view reverts without a price and the condition cannot be seen; when the feed came back the drawdown was recorded again (as already answered by the pause). The first test expected the drawdown to stay in force through the outage.
+Cause: "In force" is what the sentinel can see on a pass; a reading it cannot take is not a reading of "fine".
+Fix: The test expects the note and the re-recording; the mode never moved (PAUSED throughout) and the agent stayed an INCIDENT, which is what matters. Recorded here so the next reader of the action log knows a "cleared" note during an outage means unseen, not resolved.
+Lesson: When a condition's reading fails, record the failure as its own breach (the stale feed) and let the dependent condition clear; the mode is never loosened by it, so nothing is lost but a line in the log.
