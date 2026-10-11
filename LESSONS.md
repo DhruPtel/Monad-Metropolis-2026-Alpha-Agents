@@ -1532,3 +1532,31 @@ What happened: Commit 4c8ebec went in while `pnpm secrets:scan` had failed: the 
 Cause: A gate whose result is printed for a reader is not a gate; only a command chained on it is.
 Fix: The literals became the test's constants, the two findings are in .gitleaksignore with their reason, and every later commit ran `git add ... && pnpm secrets:scan > log && git commit ...`, so a failing scan stops the commit by construction.
 Lesson: Chain the commit on the scan with `&&`, never on an echoed or piped code; and a public address in a fixture is a named constant, never a literal under `token`, `key` or a name like them.
+
+## L-206: The live activation sweep's first leg reverted on chain with the replay passing
+Unit: F-T1 (Step 0 of the P3-U10 and P4-U2 session, 2026-10-11)
+What happened: The calibrated live sweep (Medium tier, Balanced) proposed a one-position plan, the approval re-check passed and armed the agent, and the runner's first leg (USDC to WMON) reverted on chain while the signer's replay of the same calldata passed. The sweep's four stages had taken several minutes, and the live script's own fork re-dates its feeds once at the start, so by the leg the fork's MON/USD round was older than the Executor's staleness window; the replay ran against the latest block and never saw the age.
+Cause: A fork's feeds do not move with time (D-237); the dev stack's refresher re-dates them every minute, but the live script had no refresher between its start and the leg.
+Fix: The live activation script re-dates the fork's feeds before it waits for the runner's first leg, as the dev stack's refresher does.
+Lesson: Anything that sends a transaction on a fork minutes after the fork's feeds were last re-dated must re-date them first; a replay that passes while the send reverts is the staleness window, not the calldata.
+
+## L-207: A hook probe used gitleaks' own documented example key, which gitleaks ignores
+Unit: F-T1 (Step 0 of the P3-U10 and P4-U2 session, 2026-10-11)
+What happened: The first probe of the new pre-commit hook planted gitleaks' documented example AWS key, which gitleaks allowlists as its own sample, so the scan found nothing and the probe commit went in (90925a2); the file was removed in the next commit without rewriting history, and a second probe with a token address under a `token` key was refused as intended.
+Cause: A probe must plant something the scanner is known to flag here (L-194, L-203, L-205 all named public addresses under `token`); a vendor's sample secret is the one string the vendor's scanner ignores.
+Fix: The hook was proven with the address shape that tripped the scan three times before; the mistaken commit stays in history with its removal.
+Lesson: Prove a gate with the exact finding it exists for, taken from the project's own lessons, never with a scanner's documented example.
+
+## L-208: The watcher's re-screen trigger compared the screen verdict alone and missed a sell-only move
+Unit: P3-U10 (2026-10-11)
+What happened: The first version of `detectTriggers` keyed a held token's standing on `screenVerdict ?? registryStatus`, so a token whose screen still said passed and whose registry status moved to sell-only compared equal to its baseline and RESCREEN_FAILED never fired; the unit test for the sell-only case caught it before the commit.
+Cause: Two independent fields folded into one with a fallback, so a change in the second was invisible while the first was set.
+Fix: The baseline keeps both as one key (`verdict/status`), and a change in either fires the trigger once.
+Lesson: When a trigger watches two fields, key the baseline on both; a fallback hides exactly the change the second field exists to show.
+
+## L-209: Two more P3-U10 slips, each caught by its own test
+Unit: P3-U10 (2026-10-11)
+What happened: (1) The scheduler would start the daily review before any Scan for an agent that had never scanned, since a never-run Zoom out counts as overdue; a review needs research to review, so a never-scanned agent now starts with the Scan. (2) The terminal withheld its own "Test checks: the plan failed 1 check" line because the count was not in the facts it was checked against (the number validator found a "1" the evaluation's JSON did not carry); the count is now part of the facts. A third slip was the test database's name with a hyphen (`research-loop`), which Postgres refuses in an unquoted identifier.
+Cause: (1) "overdue" treated as "due" without asking whether the work makes sense yet; (2) a template that writes a number its facts do not hold trips the same validator that guards the owner; (3) a name chosen for reading, not for SQL.
+Fix: As above; the number validator stays strict, and every templated number is put in the line's facts.
+Lesson: The boundary validator applies to the platform's own templates too: put every number a template writes into the facts it is checked against, and let the test prove the line comes through.
