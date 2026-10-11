@@ -746,6 +746,7 @@ export class Orchestrator {
                         this.o.chain?.readerV3 as ChainReaderV3,
                         this.o.tokens?.registry.store as TokenStore,
                         cycle,
+                        this.o.tokens?.registry.chainId ?? cycle.chainId,
                       ),
                   }
                 : null,

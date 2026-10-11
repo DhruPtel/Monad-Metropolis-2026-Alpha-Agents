@@ -181,6 +181,8 @@ export async function universeSnapshot(
   reader: ChainReaderV3,
   tokens: TokenStore,
   cycle: Cycle,
+  /** The token table's chain id: Monad mainnet's (the token registry's), not the cycle's (L-216). */
+  tokenChainId: number,
 ): Promise<UniverseRow[]> {
   const [m, a] = await Promise.all([reader.market(), reader.agent(cycle.agentId)]);
   const optedIn = a?.account ? a.screenedOptIn : null;
@@ -191,7 +193,7 @@ export async function universeSnapshot(
   for (const t of m.tokens) {
     const usdc = isAddressEqual(t.token, m.usdc);
     const price = m.prices[t.token.toLowerCase()];
-    const row = await tokens.token(cycle.chainId, t.token).catch(() => null);
+    const row = await tokens.token(tokenChainId, t.token).catch(() => null);
     const whyNot = usdc
       ? "USDC is the account's cash, never bought"
       : whyNotBuyableV3(t, price, optedIn, m.attestorSet);

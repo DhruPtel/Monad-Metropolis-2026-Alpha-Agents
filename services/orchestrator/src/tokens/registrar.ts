@@ -203,6 +203,7 @@ export interface RegistrarAction {
 }
 
 export interface RegistrarDeps {
+  /** The token table's chain id: Monad mainnet's (the token registry's), not the fork's (L-216). */
   readonly chainId: number;
   readonly store: TokenStore;
   readonly chain: ScreenerChain;

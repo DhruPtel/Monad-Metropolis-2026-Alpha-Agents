@@ -449,7 +449,8 @@ const screenerKey =
 const registrar =
   plainReaderV3 && screenerKey && chainContractsV3.ok
     ? new Registrar({
-        chainId: env.chainId,
+        // The token table is keyed by Monad mainnet's chain id (the registry's), not the fork's (L-216).
+        chainId: tokenRegistry.chainId,
         store: tokenRegistry.store,
         chain: viemScreenerChain({
           rpcUrl,
