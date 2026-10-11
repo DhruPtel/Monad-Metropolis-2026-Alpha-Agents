@@ -6,7 +6,14 @@ import {
 } from "@alpha-agents/chain-tools";
 import { ACCOUNT_MODES, type AccountMode } from "@alpha-agents/domain";
 import { custodyV3 } from "@alpha-agents/policy";
-import { SNAPSHOT_INTERVAL_MS, type SnapshotStore } from "@alpha-agents/trading";
+import {
+  type AccountObservation,
+  type AccountReadJson,
+  type HoldingSnapshot,
+  SNAPSHOT_INTERVAL_MS,
+  type SnapshotStore,
+  accountValueUsdc,
+} from "@alpha-agents/trading";
 import { isAddressEqual } from "viem";
 import type { Store } from "./store.ts";
 
@@ -31,6 +38,30 @@ export interface SnapshotRecorderOptions {
 
 const isMode = (m: string): m is AccountMode => (ACCOUNT_MODES as readonly string[]).includes(m);
 
+/** One reading of an account (F-U11): what a snapshot records, with every held token. */
+export interface AccountRead {
+  readonly observation: AccountObservation;
+  readonly holdings: readonly HoldingSnapshot[];
+}
+
+/** The reading as the orchestrator's account route answers it (packages/trading's AccountReadJson). */
+export function accountReadJson(r: AccountRead): AccountReadJson {
+  const o = r.observation;
+  const value = o.custody === "v3" ? (o.valueUsdcE6 ?? null) : accountValueUsdc(o);
+  return {
+    agentId: String(o.agentId),
+    custody: o.custody ?? "v2",
+    account: o.account,
+    block: o.block.toString(),
+    timestamp: Number(o.timestamp),
+    mode: o.mode,
+    valueUsdcE6: value === null ? null : value.toString(),
+    perUnitE18:
+      o.perUnitE18 === undefined || o.perUnitE18 === null ? null : o.perUnitE18.toString(),
+    holdings: r.holdings,
+  };
+}
+
 export class SnapshotRecorder {
   private readonly o: SnapshotRecorderOptions;
   /** When each agent was last read, so an agent with no account is not re-read every pass. */
@@ -42,38 +73,62 @@ export class SnapshotRecorder {
 
   /** Reads one account and records it; false when the agent has no account (or no known mode). */
   async observe(agentId: number, reason: "interval" | "trade", intentId: string | null = null) {
+    const r = await this.read(agentId);
+    if (!r) return false;
+    return this.o.snapshots.record(this.o.chainId, r.observation, reason, intentId);
+  }
+
+  /**
+   * Reads one account without recording it (F-U11, the window's live
+   * reading): null when the agent has no account or no known mode. A v3
+   * account comes with every held token as the account values it; a v2
+   * account with its two balances.
+   */
+  async read(agentId: number): Promise<AccountRead | null> {
     const v3 = this.o.readerV3;
-    if (v3 && (await v3.custodyPath(agentId)) === "v3")
-      return this.observeV3(v3, agentId, reason, intentId);
+    if (v3 && (await v3.custodyPath(agentId)) === "v3") return this.readV3(v3, agentId);
     const [a, m] = await Promise.all([this.o.reader.agent(agentId), this.o.reader.market()]);
-    if (!a?.account || !isMode(a.mode)) return false;
-    return this.o.snapshots.record(
-      this.o.chainId,
+    if (!a?.account || !isMode(a.mode)) return null;
+    const monUsdE18 = m.monUsd.reason === "OK" ? m.monUsd.priceE18 : null;
+    const observation: AccountObservation = {
+      agentId,
+      account: a.account,
+      block: a.block,
+      timestamp: a.timestamp,
+      usdc: a.usdc,
+      wmon: a.wmon,
+      mode: a.mode,
+      monUsdE18,
+      perUnitE18: a.breaker?.perUnit ?? null,
+    };
+    const holdings: HoldingSnapshot[] = [
       {
-        agentId,
-        account: a.account,
-        block: a.block,
-        timestamp: a.timestamp,
-        usdc: a.usdc,
-        wmon: a.wmon,
-        mode: a.mode,
-        monUsdE18: m.monUsd.reason === "OK" ? m.monUsd.priceE18 : null,
-        perUnitE18: a.breaker?.perUnit ?? null,
+        token: this.o.reader.tokenOf("USDC"),
+        symbol: "USDC",
+        decimals: 6,
+        amountRaw: a.usdc.toString(),
+        priceE18: (10n ** 18n).toString(),
+        valueUsdcE6: a.usdc.toString(),
+        costBasisUsdcE6: null,
       },
-      reason,
-      intentId,
-    );
+      {
+        token: this.o.reader.tokenOf("WMON"),
+        symbol: "WMON",
+        decimals: 18,
+        amountRaw: a.wmon.toString(),
+        priceE18: monUsdE18 === null ? null : monUsdE18.toString(),
+        valueUsdcE6: monUsdE18 === null ? null : ((a.wmon * monUsdE18) / 10n ** 30n).toString(),
+        // The v2 account keeps no cost basis.
+        costBasisUsdcE6: null,
+      },
+    ];
+    return { observation, holdings };
   }
 
   /** A v3 account: its own value and every held token with its price and value as the account values it. */
-  private async observeV3(
-    v3: ChainReaderV3,
-    agentId: number,
-    reason: "interval" | "trade",
-    intentId: string | null,
-  ) {
+  private async readV3(v3: ChainReaderV3, agentId: number): Promise<AccountRead | null> {
     const [a, m] = await Promise.all([v3.agent(agentId), v3.market()]);
-    if (!a?.account || !isMode(a.mode)) return false;
+    if (!a?.account || !isMode(a.mode)) return null;
     const holdings = a.holdings.map((h) => {
       const px = holdingPrice(h, m);
       const priced = px.priceE18 > 0n;
@@ -91,9 +146,8 @@ export class SnapshotRecorder {
     });
     const usdc = a.holdings.find((h) => isAddressEqual(h.token, m.usdc))?.balance ?? 0n;
     const wmon = a.holdings.find((h) => isAddressEqual(h.token, m.wmon))?.balance ?? 0n;
-    return this.o.snapshots.record(
-      this.o.chainId,
-      {
+    return {
+      observation: {
         agentId,
         account: a.account,
         block: a.block,
@@ -107,9 +161,8 @@ export class SnapshotRecorder {
         holdings,
         perUnitE18: a.breaker?.perUnit ?? null,
       },
-      reason,
-      intentId,
-    );
+      holdings,
+    };
   }
 
   /** One interval pass: every indexed agent whose snapshot is due. Returns how many were recorded. */

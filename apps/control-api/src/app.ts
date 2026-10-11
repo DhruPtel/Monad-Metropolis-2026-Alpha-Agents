@@ -16,6 +16,7 @@ import {
   proposalJson,
 } from "./proposals.ts";
 import type { ActivationDeps } from "./activation.ts";
+import type { WindowDeps } from "./window.ts";
 import { cors } from "hono/cors";
 import { type Address, type Hex, getAddress, isAddress, isAddressEqual } from "viem";
 import { translateGoal } from "@alpha-agents/policy";
@@ -40,6 +41,10 @@ import {
   revokeCall,
   PlanStore,
   ProposalStore,
+  SnapshotStore,
+  WINDOW_INTENT_LIMIT,
+  WINDOW_SNAPSHOT_LIMIT,
+  buildWindow,
   isPortfolioPlan,
 } from "@alpha-agents/trading";
 import { TtlCache } from "./cache.ts";
@@ -111,6 +116,11 @@ export interface ApiDeps {
    * absent where no orchestrator is reachable, and the routes answer 503.
    */
   readonly activation?: ActivationDeps | null;
+  /**
+   * F-U11: the window's live account reading through the orchestrator; absent
+   * where none is reachable, and the window shows the latest snapshot instead.
+   */
+  readonly window?: WindowDeps | null;
   /** D-315: every balance at the agent's addresses; null where AgentNFT is not deployed. */
   readonly holdings?: HoldingsReader | null;
   /** How long index reads are cached. */
@@ -589,6 +599,8 @@ export function createApp(deps: ApiDeps): Hono {
   // --- The trade flow (P2-U6) ----------------------------------------------
 
   const trades = new TradeStore(deps.db, () => new Date(deps.now()));
+  // F-U11: the value snapshots the orchestrator records, under this environment's id.
+  const snapshots = new SnapshotStore(deps.db, deps.environment.id, () => new Date(deps.now()));
   const REFUSAL_STATUS = {
     NOT_FOUND: [404, "not_found"],
     NOT_ARMED: [409, "not_armed"],
@@ -904,6 +916,29 @@ export function createApp(deps: ApiDeps): Hono {
     const reading = await reader.portfolio(Number(agentId));
     if (!reading) return fail(c, 404, "not_found", `Agent #${agentId} does not exist.`);
     return c.json({ ...(await meta()), portfolio: portfolioJson(reading) });
+  });
+
+  /**
+   * The portfolio window (F-U11): every held token with its share, value,
+   * cost basis and gain; performance on the account's value per unit, with
+   * the trades as markers; the three scores and the $100 figure. The holdings
+   * are read live through the orchestrator when it answers, else from the
+   * latest snapshot, dated as such. Owner only, like the portfolio.
+   */
+  app.get("/v1/agents/:id{[0-9]+}/window", async (c) => {
+    const agentId = BigInt(c.req.param("id"));
+    const owner = await ownerOnly(c, agentId);
+    if (owner instanceof Response) return owner;
+    const id = Number(agentId);
+    const [live, rows, intents] = await Promise.all([
+      deps.window ? deps.window.account(id).catch(() => null) : Promise.resolve(null),
+      snapshots.since(chainId, id, new Date(0), WINDOW_SNAPSHOT_LIMIT),
+      trades.intents(chainId, id, WINDOW_INTENT_LIMIT),
+    ]);
+    return c.json({
+      ...(await meta()),
+      window: buildWindow({ agentId: id, rows, intents, live, now: new Date(deps.now()) }),
+    });
   });
 
   /**

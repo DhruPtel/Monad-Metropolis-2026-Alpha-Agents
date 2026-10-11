@@ -3,7 +3,9 @@ import { describe, expect, it } from "vitest";
 import type { SnapshotRow } from "./snapshots.ts";
 import type { IntentView } from "./store.ts";
 import {
+  type AccountReadJson,
   MAX_CHART_POINTS,
+  buildWindow,
   closedPositions,
   holdingLines,
   hundredDollars,
@@ -261,44 +263,41 @@ describe("trade markers and closed positions (F-U11)", () => {
 });
 
 describe("the holdings with cost basis and gain (F-U11)", () => {
-  it("values each token at its price, shares the priced total, and reads the gain against the cost basis", () => {
-    const lines = holdingLines(
-      [
-        {
-          token: USDC,
-          symbol: "USDC",
-          decimals: 6,
-          balance: 60_000_000n,
-          costBasisUsdcE6: null,
-          priceE18: E18,
-        },
-        {
-          token: WBTC,
-          symbol: "WBTC",
-          decimals: 8,
-          balance: 20_000n,
-          costBasisUsdcE6: 18_000_000n,
-          priceE18: 100_000n * E18,
-        },
-        {
-          token: WMON,
-          symbol: "WMON",
-          decimals: 18,
-          balance: 800n * E18,
-          costBasisUsdcE6: 20_000_000n,
-          priceE18: null,
-        },
-        {
-          token: "0x00000000000000000000000000000000000000c4",
-          symbol: "AUSD",
-          decimals: 6,
-          balance: 0n,
-          costBasisUsdcE6: 0n,
-          priceE18: E18,
-        },
-      ],
-      USDC,
-    );
+  it("shares the priced total, reads the gain against the cost basis, and keeps an unpriced token without a share", () => {
+    const lines = holdingLines([
+      {
+        token: USDC,
+        symbol: "USDC",
+        decimals: 6,
+        balance: 60_000_000n,
+        costBasisUsdcE6: null,
+        valueUsdcE6: 60_000_000n,
+      },
+      {
+        token: WBTC,
+        symbol: "WBTC",
+        decimals: 8,
+        balance: 20_000n,
+        costBasisUsdcE6: 18_000_000n,
+        valueUsdcE6: 20_000_000n,
+      },
+      {
+        token: WMON,
+        symbol: "WMON",
+        decimals: 18,
+        balance: 800n * E18,
+        costBasisUsdcE6: 20_000_000n,
+        valueUsdcE6: null,
+      },
+      {
+        token: null,
+        symbol: "AUSD",
+        decimals: 6,
+        balance: 0n,
+        costBasisUsdcE6: 0n,
+        valueUsdcE6: 0n,
+      },
+    ]);
     expect(lines.map((l) => l.symbol)).toEqual(["USDC", "WBTC", "WMON"]);
     expect(lines[0]).toMatchObject({
       isCash: true,
@@ -321,6 +320,164 @@ describe("the holdings with cost basis and gain (F-U11)", () => {
       costBasisUsdcE6: "20000000",
       gainUsdcE6: null,
       gainBps: null,
+    });
+    // A loss reads negative.
+    expect(
+      holdingLines([
+        {
+          token: WBTC,
+          symbol: "WBTC",
+          decimals: 8,
+          balance: 20_000n,
+          costBasisUsdcE6: 20_000_000n,
+          valueUsdcE6: 15_000_000n,
+        },
+      ])[0],
+    ).toMatchObject({ gainUsdcE6: "-5000000", gainBps: -2_500, shareBps: 10_000 });
+  });
+});
+
+describe("the window as a whole (F-U11)", () => {
+  const v3 = (minutes: number, perUnit: number, value: bigint): SnapshotRow => ({
+    ...snap(minutes, perUnit, value),
+    holdings: [
+      {
+        token: USDC,
+        symbol: "USDC",
+        decimals: 6,
+        amountRaw: "70000000",
+        priceE18: E18.toString(),
+        valueUsdcE6: "70000000",
+        costBasisUsdcE6: null,
+      },
+      {
+        token: WBTC,
+        symbol: "WBTC",
+        decimals: 8,
+        amountRaw: "30000",
+        priceE18: (100_000n * E18).toString(),
+        valueUsdcE6: "30000000",
+        costBasisUsdcE6: "28000000",
+      },
+    ],
+  });
+  const buy = intent({
+    intentId: "b1",
+    amountIn: 28_000_000n,
+    amountOut: 30_000n,
+    settledAt: at(61),
+  });
+
+  it("reads the holdings live when the orchestrator answered, dated to its block, and adds the live reading to the series", () => {
+    const live: AccountReadJson = {
+      agentId: "7",
+      custody: "v3",
+      account: "0x00000000000000000000000000000000000ac007",
+      block: "109670200",
+      timestamp: Math.floor(at(130).getTime() / 1000),
+      mode: "NORMAL",
+      valueUsdcE6: "103000000",
+      perUnitE18: (103n * 10n ** 16n).toString(),
+      holdings: [
+        {
+          token: USDC,
+          symbol: "USDC",
+          decimals: 6,
+          amountRaw: "70000000",
+          priceE18: E18.toString(),
+          valueUsdcE6: "70000000",
+          costBasisUsdcE6: null,
+        },
+        {
+          token: WBTC,
+          symbol: "WBTC",
+          decimals: 8,
+          amountRaw: "30000",
+          priceE18: (110_000n * E18).toString(),
+          valueUsdcE6: "33000000",
+          costBasisUsdcE6: "28000000",
+        },
+      ],
+    };
+    const w = buildWindow({
+      agentId: 7,
+      rows: [snap(0, 1, 100_000_000n), v3(120, 1.02, 102_000_000n)],
+      intents: [buy],
+      live,
+      now: at(130),
+    });
+    expect(w.asOf).toEqual({ at: at(130).toISOString(), block: "109670200", live: true });
+    expect(w.account).toBe(live.account);
+    expect(w.totalValueUsdcE6).toBe("103000000");
+    expect(w.holdings.map((h) => [h.symbol, h.valueUsdcE6, h.shareBps, h.gainUsdcE6])).toEqual([
+      ["USDC", "70000000", 6_796, null],
+      ["WBTC", "33000000", 3_203, "5000000"],
+    ]);
+    expect(w.series.map((p) => p.perUnitE18)).toEqual([
+      E18.toString(),
+      (102n * 10n ** 16n).toString(),
+      (103n * 10n ** 16n).toString(),
+    ]);
+    expect(w.scores.returnSinceStart).toMatchObject({ ok: true, bps: 300 });
+    expect(w.scores.maxDrawdown).toMatchObject({ ok: true, bps: 0 });
+    expect(w.scores.winShare).toMatchObject({ ok: false });
+    expect(w.hundred).toMatchObject({ ok: true, now: "103.00", usdc: "100.00" });
+    expect(w.marks.map((m) => [m.side, m.symbol])).toEqual([["buy", "WBTC"]]);
+    expect(w.history).toEqual({
+      points: 3,
+      from: at(0).toISOString(),
+      to: at(130).toISOString(),
+      capped: false,
+    });
+  });
+
+  it("falls back to the latest snapshot's holdings, dated as such, and says so; with nothing at all it is empty and every score waits", () => {
+    const w = buildWindow({
+      agentId: 7,
+      rows: [snap(0, 1, 100_000_000n), v3(120, 1.02, 102_000_000n)],
+      intents: [buy],
+      live: null,
+      now: at(130),
+    });
+    expect(w.asOf).toEqual({ at: at(120).toISOString(), block: "1", live: false });
+    expect(w.totalValueUsdcE6).toBe("102000000");
+    expect(w.holdings.map((h) => [h.symbol, h.valueUsdcE6, h.gainUsdcE6])).toEqual([
+      ["USDC", "70000000", null],
+      ["WBTC", "30000000", "2000000"],
+    ]);
+    expect(w.series).toHaveLength(2);
+    // A v2 snapshot carries two balances and no addresses.
+    const v2 = buildWindow({
+      agentId: 7,
+      rows: [
+        snap(0, 1, 100_000_000n),
+        { ...snap(120, 1.0, 100_000_000n), usdc: 75_000_000n, wmon: 1_000n * E18 },
+      ],
+      intents: [],
+      live: null,
+      now: at(130),
+    });
+    expect(v2.holdings.map((h) => [h.symbol, h.token, h.valueUsdcE6, h.shareBps])).toEqual([
+      ["USDC", null, "75000000", 7_500],
+      ["WMON", null, "25000000", 2_500],
+    ]);
+    const empty = buildWindow({ agentId: 7, rows: [], intents: [], live: null, now: at(0) });
+    expect(empty).toMatchObject({
+      account: null,
+      custody: null,
+      asOf: null,
+      totalValueUsdcE6: null,
+      holdings: [],
+      series: [],
+      marks: [],
+      closed: [],
+      scores: {
+        returnSinceStart: { ok: false },
+        maxDrawdown: { ok: false },
+        winShare: { ok: false },
+      },
+      hundred: { ok: false },
+      history: { points: 0, from: null, to: null, capped: false },
     });
   });
 });

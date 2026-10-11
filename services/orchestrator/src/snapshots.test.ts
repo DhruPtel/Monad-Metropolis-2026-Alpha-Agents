@@ -3,7 +3,7 @@ import { type TestDatabase, createTestDatabase, databaseAvailable } from "@alpha
 import { SnapshotStore } from "@alpha-agents/trading";
 import type { Hex } from "viem";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { SnapshotRecorder } from "./snapshots.ts";
+import { SnapshotRecorder, accountReadJson } from "./snapshots.ts";
 import { Store } from "./store.ts";
 import { CHAIN, indexAgent } from "./testing.ts";
 
@@ -96,6 +96,51 @@ describe.skipIf(!dbUp)("the value snapshot recorder (needs Postgres)", { timeout
       perUnit: 1_015_000_000_000_000_000n,
     });
     expect(await snapshots.list(CHAIN, 2)).toEqual([]);
+  });
+
+  it("reads an account without recording it, with its two balances as held tokens (F-U11)", async () => {
+    const reader = new Reader();
+    reader.accounts.set(1, {
+      account: "0x00000000000000000000000000000000000ac001",
+      usdc: 30_000_000n,
+      wmon: 400n * 10n ** 18n,
+      breaker: { nav: 40_000_000n, perUnit: 1_015_000_000_000_000_000n, peak: 0n, drawdownBps: 0n },
+    });
+    const r = new SnapshotRecorder({
+      chainId: CHAIN,
+      store,
+      snapshots,
+      reader,
+      log: () => undefined,
+    });
+    const read = await r.read(1);
+    expect(read).not.toBeNull();
+    expect(accountReadJson(read as NonNullable<typeof read>)).toEqual({
+      agentId: "1",
+      custody: "v2",
+      account: "0x00000000000000000000000000000000000ac001",
+      block: "500",
+      timestamp: Number(NOW),
+      mode: "NORMAL",
+      valueUsdcE6: "40000000",
+      perUnitE18: "1015000000000000000",
+      holdings: [
+        expect.objectContaining({
+          symbol: "USDC",
+          amountRaw: "30000000",
+          valueUsdcE6: "30000000",
+          costBasisUsdcE6: null,
+        }),
+        expect.objectContaining({
+          symbol: "WMON",
+          amountRaw: "400000000000000000000",
+          valueUsdcE6: "10000000",
+          priceE18: PX.toString(),
+        }),
+      ],
+    });
+    expect(await snapshots.list(CHAIN, 1)).toEqual([]);
+    expect(await r.read(2)).toBeNull();
   });
 
   it("records a settled trade's snapshot once, with an unknown value while the price is unusable", async () => {

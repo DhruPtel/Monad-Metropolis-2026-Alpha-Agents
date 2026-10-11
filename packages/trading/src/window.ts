@@ -1,6 +1,6 @@
-import { valueE6 } from "@alpha-agents/policy";
-import { type Hex, isAddressEqual } from "viem";
-import type { SnapshotRow } from "./snapshots.ts";
+import type { AccountMode } from "@alpha-agents/domain";
+import type { Hex } from "viem";
+import type { HoldingSnapshot, SnapshotRow } from "./snapshots.ts";
 import type { IntentView } from "./store.ts";
 
 /**
@@ -28,8 +28,11 @@ export interface PerUnitPoint {
   readonly reason: "interval" | "trade";
 }
 
+/** What the series reads of a snapshot (or of a live reading standing in for one). */
+export type PerUnitReading = Pick<SnapshotRow, "perUnit" | "createdAt" | "valueUsdc" | "reason">;
+
 /** The per-unit readings, oldest first, from the snapshots that have one, thinned to the chart's size. */
-export function perUnitSeries(rows: readonly SnapshotRow[]): PerUnitPoint[] {
+export function perUnitSeries(rows: readonly PerUnitReading[]): PerUnitPoint[] {
   const points = [...rows]
     .filter((r) => r.perUnit !== null && r.perUnit > 0n)
     .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
@@ -226,18 +229,34 @@ export function winShare(
 }
 
 export interface HeldToken {
-  readonly token: Hex;
+  /** Null when the reading did not carry the address (a v2 snapshot). */
+  readonly token: Hex | null;
   readonly symbol: string;
   readonly decimals: number;
   readonly balance: bigint;
-  /** What the held amount cost in USDC (the custody core's cost basis); null for USDC. */
+  /** What the held amount cost in USDC (the custody core's cost basis); null for USDC and on v2. */
   readonly costBasisUsdcE6: bigint | null;
-  /** The price at 1e18 USDC per whole token, or null while unusable. */
-  readonly priceE18: bigint | null;
+  /** The value as the account values it, or null while its price is unusable. */
+  readonly valueUsdcE6: bigint | null;
+}
+
+/** USDC is the cash every trade is priced in; a reading names it by symbol. */
+export const isCashLine = (h: { readonly symbol: string }) => h.symbol.toUpperCase() === "USDC";
+
+/** A held token as a snapshot or the live reading carries it. */
+export function heldFromSnapshot(h: HoldingSnapshot): HeldToken {
+  return {
+    token: h.token,
+    symbol: h.symbol,
+    decimals: h.decimals,
+    balance: BigInt(h.amountRaw),
+    costBasisUsdcE6: h.costBasisUsdcE6 === null ? null : BigInt(h.costBasisUsdcE6),
+    valueUsdcE6: h.valueUsdcE6 === null ? null : BigInt(h.valueUsdcE6),
+  };
 }
 
 export interface HoldingLine {
-  readonly token: Hex;
+  readonly token: Hex | null;
   readonly symbol: string;
   readonly decimals: number;
   readonly amountRaw: string;
@@ -251,17 +270,15 @@ export interface HoldingLine {
 }
 
 /** Every held token with its value, share, cost basis and gain or loss, largest first. */
-export function holdingLines(held: readonly HeldToken[], usdc: Hex): HoldingLine[] {
+export function holdingLines(
+  held: readonly HeldToken[],
+  isCash: (h: HeldToken) => boolean = isCashLine,
+): HoldingLine[] {
   const valued = held
     .filter((h) => h.balance > 0n)
     .map((h) => {
-      const isCash = isAddressEqual(h.token, usdc);
-      const value = isCash
-        ? h.balance
-        : h.priceE18 !== null && h.priceE18 > 0n
-          ? valueE6(h.balance, h.priceE18, h.decimals)
-          : null;
-      return { h, isCash, value };
+      const cash = isCash(h);
+      return { h, isCash: cash, value: cash ? h.balance : h.valueUsdcE6 };
     });
   const total = valued.reduce((t, x) => t + (x.value ?? 0n), 0n);
   return valued
@@ -283,4 +300,150 @@ export function holdingLines(held: readonly HeldToken[], usdc: Hex): HoldingLine
           gain === null || basis === null || basis === 0n ? null : Number((gain * BPS) / basis),
       };
     });
+}
+
+/**
+ * The account as the orchestrator reads it now (its GET /v1/agents/:id/account,
+ * F-U11): the same reading a value snapshot records, with every held token.
+ */
+export interface AccountReadJson {
+  readonly agentId: string;
+  readonly custody: "v2" | "v3";
+  readonly account: Hex;
+  readonly block: string;
+  /** The block's time, unix seconds. */
+  readonly timestamp: number;
+  readonly mode: AccountMode;
+  /** The account's own value, null while unusable. */
+  readonly valueUsdcE6: string | null;
+  readonly perUnitE18: string | null;
+  readonly holdings: readonly HoldingSnapshot[];
+}
+
+/** How many snapshots the window reads, oldest first (about 40 days at the interval, plus trades). */
+export const WINDOW_SNAPSHOT_LIMIT = 4_000;
+/** How many intents the window reads for its trade markers. */
+export const WINDOW_INTENT_LIMIT = 500;
+
+export interface WindowJson {
+  readonly agentId: string;
+  readonly account: Hex | null;
+  readonly custody: "v2" | "v3" | null;
+  /** When the holdings were read: live from the chain, or the latest snapshot. */
+  readonly asOf: {
+    readonly at: string;
+    readonly block: string | null;
+    readonly live: boolean;
+  } | null;
+  /** The account's own value, null while unusable or unknown. */
+  readonly totalValueUsdcE6: string | null;
+  readonly holdings: readonly HoldingLine[];
+  readonly series: readonly PerUnitPoint[];
+  readonly marks: readonly TradeMark[];
+  readonly closed: readonly ClosedPosition[];
+  readonly scores: {
+    readonly returnSinceStart: ReturnType<typeof returnSinceStart>;
+    readonly maxDrawdown: ReturnType<typeof maxDrawdown>;
+    readonly winShare: ReturnType<typeof winShare>;
+  };
+  readonly hundred: ReturnType<typeof hundredDollars>;
+  readonly history: {
+    readonly points: number;
+    readonly from: string | null;
+    readonly to: string | null;
+    /** True when the snapshot limit cut the oldest history off. */
+    readonly capped: boolean;
+  };
+}
+
+/** The held tokens of a v2 snapshot, which carries balances and a value but no addresses. */
+function heldFromV2(row: SnapshotRow): HeldToken[] {
+  const wmonValue = row.valueUsdc === null ? null : row.valueUsdc - row.usdc;
+  return [
+    {
+      token: null,
+      symbol: "USDC",
+      decimals: 6,
+      balance: row.usdc,
+      costBasisUsdcE6: null,
+      valueUsdcE6: row.usdc,
+    },
+    {
+      token: null,
+      symbol: "WMON",
+      decimals: 18,
+      balance: row.wmon,
+      costBasisUsdcE6: null,
+      valueUsdcE6: wmonValue,
+    },
+  ];
+}
+
+/**
+ * The window from what the platform has: the snapshots (oldest first), the
+ * intents, and the live reading when the orchestrator answered. Without a
+ * live reading the holdings are the latest snapshot's, dated as such.
+ */
+export function buildWindow(i: {
+  readonly agentId: number;
+  readonly rows: readonly SnapshotRow[];
+  readonly intents: readonly IntentView[];
+  readonly live: AccountReadJson | null;
+  readonly now: Date;
+}): WindowJson {
+  const latest = i.rows[i.rows.length - 1] ?? null;
+  const live = i.live;
+  const held: HeldToken[] = live
+    ? live.holdings.map(heldFromSnapshot)
+    : latest?.holdings
+      ? latest.holdings.map(heldFromSnapshot)
+      : latest
+        ? heldFromV2(latest)
+        : [];
+  const holdings = holdingLines(held);
+  const readings: PerUnitReading[] = [...i.rows];
+  if (
+    live?.perUnitE18 &&
+    BigInt(live.perUnitE18) > 0n &&
+    (!latest || i.now.getTime() > latest.createdAt.getTime())
+  )
+    readings.push({
+      perUnit: BigInt(live.perUnitE18),
+      createdAt: i.now,
+      valueUsdc: live.valueUsdcE6 === null ? null : BigInt(live.valueUsdcE6),
+      reason: "interval",
+    });
+  const series = perUnitSeries(readings);
+  const marks = tradeMarks(i.intents);
+  const closed = closedPositions(
+    i.intents,
+    holdings.filter((h) => !h.isCash).map((h) => h.symbol),
+  );
+  return {
+    agentId: String(i.agentId),
+    account: live?.account ?? latest?.account ?? null,
+    custody: live?.custody ?? latest?.custody ?? null,
+    asOf: live
+      ? { at: new Date(live.timestamp * 1000).toISOString(), block: live.block, live: true }
+      : latest
+        ? { at: latest.createdAt.toISOString(), block: latest.block.toString(), live: false }
+        : null,
+    totalValueUsdcE6: live ? live.valueUsdcE6 : (latest?.valueUsdc?.toString() ?? null),
+    holdings,
+    series,
+    marks,
+    closed,
+    scores: {
+      returnSinceStart: returnSinceStart(series),
+      maxDrawdown: maxDrawdown(series),
+      winShare: winShare(closed),
+    },
+    hundred: hundredDollars(series),
+    history: {
+      points: series.length,
+      from: series[0]?.at ?? null,
+      to: series[series.length - 1]?.at ?? null,
+      capped: i.rows.length >= WINDOW_SNAPSHOT_LIMIT,
+    },
+  };
 }

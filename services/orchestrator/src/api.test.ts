@@ -168,6 +168,60 @@ describe.skipIf(!dbUp)("the orchestrator's internal API (D-205)", { timeout: 60_
     ]);
   });
 
+  it("serves the account as the window reads it live (F-U11): 503 without chain tools, 404 without an account", async () => {
+    const off = await api(false).request("/v1/agents/1/account");
+    expect([off.status, ((await off.json()) as { error: string }).error]).toEqual([
+      503,
+      "not_available",
+    ]);
+    const reads: number[] = [];
+    const withTools = {
+      ...orchestrator,
+      snapshots: {
+        read: async (agentId: number) => {
+          reads.push(agentId);
+          return agentId === 1
+            ? {
+                observation: {
+                  agentId: 1,
+                  account: "0x00000000000000000000000000000000000ac001",
+                  block: 500n,
+                  timestamp: 1_790_000_000n,
+                  usdc: 30_000_000n,
+                  wmon: 0n,
+                  mode: "NORMAL",
+                  monUsdE18: null,
+                  perUnitE18: 10n ** 18n,
+                },
+                holdings: [],
+              }
+            : null;
+        },
+      },
+    } as unknown as Orchestrator;
+    const app = createApi({ orchestrator: withTools, store, chainId: CHAIN, devActions: false });
+    const got = await app.request("/v1/agents/1/account");
+    expect(got.status).toBe(200);
+    expect(await got.json()).toEqual({
+      agentId: "1",
+      custody: "v2",
+      account: "0x00000000000000000000000000000000000ac001",
+      block: "500",
+      timestamp: 1_790_000_000,
+      mode: "NORMAL",
+      valueUsdcE6: "30000000",
+      perUnitE18: "1000000000000000000",
+      holdings: [],
+    });
+    const none = await app.request("/v1/agents/2/account");
+    expect([none.status, ((await none.json()) as { error: string }).error]).toEqual([
+      404,
+      "no_account",
+    ]);
+    expect((await app.request("/v1/agents/abc/account")).status).toBe(400);
+    expect(reads).toEqual([1, 2]);
+  });
+
   it("queues a reset", async () => {
     const res = await api(true).request("/v1/agents/1/reset", { method: "POST" });
     expect(res.status).toBe(202);

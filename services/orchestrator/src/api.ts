@@ -14,6 +14,7 @@ import { registerPlanRoutes } from "./plan-routes.ts";
 import { registerTokenRoutes } from "./token-routes.ts";
 import type { TokenRegistry } from "./tokens/registry.ts";
 import { registerCycleRoutes } from "./cycle-routes.ts";
+import { accountReadJson } from "./snapshots.ts";
 import { mountedSkills } from "./hermes/materialize.ts";
 
 /**
@@ -569,6 +570,27 @@ export function createApi(o: ApiOptions): Hono {
         at: new Date(r.created_at).toISOString(),
       })),
     });
+  });
+
+  /**
+   * F-U11: the account as the window reads it live, through the control API:
+   * the same reading a value snapshot records, with every held token. 503
+   * where the chain tools are not configured, 404 for an agent without an
+   * account.
+   */
+  app.get("/v1/agents/:agentId/account", async (c) => {
+    const ref = agentRef(c.req.param("agentId"), o.chainId);
+    if (!ref) return c.json({ error: "bad_agent_id" }, 400);
+    const recorder = o.orchestrator.snapshots;
+    if (!recorder)
+      return c.json(
+        { error: "not_available", message: "The chain tools are not configured here." },
+        503,
+      );
+    const read = await recorder.read(ref.agentId);
+    if (!read)
+      return c.json({ error: "no_account", message: "The agent has no trading account." }, 404);
+    return c.json(accountReadJson(read));
   });
 
   /**

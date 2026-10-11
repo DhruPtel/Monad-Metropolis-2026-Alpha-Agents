@@ -10,6 +10,8 @@ import {
   ProposalStore,
   type ProposalRationale,
   TradeStore,
+  SnapshotStore,
+  type AccountReadJson,
 } from "@alpha-agents/trading";
 import {
   TARGET_PORTFOLIO_ID,
@@ -27,6 +29,7 @@ import {
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import type { ActivationDeps, ActivationReadJson } from "./activation.ts";
+import type { WindowDeps } from "./window.ts";
 import { type ApiDeps, createApp } from "./app.ts";
 import type { ChainReader } from "./chain.ts";
 import type { Identity } from "./identity.ts";
@@ -1769,6 +1772,207 @@ describe.skipIf(!available)("the control API (needs pnpm dev:up for Postgres)", 
         headers: headers(bob),
       });
       expect([stale.status, (await json(stale)).error]).toEqual([409, "proposal_stale"]);
+    });
+  });
+
+  describe("the portfolio window (F-U11)", () => {
+    const headers = (session: string | null): Record<string, string> =>
+      session ? { "x-owner-session": session } : {};
+    const session = async (agent: number, token: string) =>
+      (await json(await call(`/v1/agents/${agent}/session`, { method: "POST", token })))
+        .token as string;
+    const T0 = 1_790_000_000_000 - 3 * 3_600_000;
+    const at = (hours: number) => new Date(T0 + hours * 3_600_000);
+    const ACCOUNT = "0x00000000000000000000000000000000000ac002" as Hex;
+    const obs = (usdc: bigint, wmon: bigint, perUnit: bigint, hours: number) => ({
+      agentId: 2,
+      account: ACCOUNT,
+      block: 109_670_000n + BigInt(hours),
+      timestamp: BigInt(Math.floor(at(hours).getTime() / 1000)),
+      usdc,
+      wmon,
+      mode: "NORMAL" as const,
+      monUsdE18: 25_000_000_000_000_000n,
+      perUnitE18: perUnit,
+    });
+    const LIVE: AccountReadJson = {
+      agentId: "2",
+      custody: "v3",
+      account: ACCOUNT,
+      block: "109670900",
+      timestamp: Math.floor(at(3).getTime() / 1000),
+      mode: "NORMAL",
+      valueUsdcE6: "41600000",
+      perUnitE18: "1040000000000000000",
+      holdings: [
+        {
+          token: "0x754704Bc059F8C67012fEd69BC8A327a5aafb603",
+          symbol: "USDC",
+          decimals: 6,
+          amountRaw: "30000000",
+          priceE18: "1000000000000000000",
+          valueUsdcE6: "30000000",
+          costBasisUsdcE6: null,
+        },
+        {
+          token: "0x3bd359C1119dA7Da1D913D1C4D2B7c461115433A",
+          symbol: "WMON",
+          decimals: 18,
+          amountRaw: "400000000000000000000",
+          priceE18: "29000000000000000",
+          valueUsdcE6: "11600000",
+          costBasisUsdcE6: "10000000",
+        },
+      ],
+    };
+
+    beforeEach(async () => {
+      await t.db.deleteFrom("platform.account_snapshots").execute();
+      await t.db.deleteFrom("platform.intents").execute();
+      let clock = at(0);
+      const snapshots = new SnapshotStore(t.db, env.id, () => clock);
+      await snapshots.record(env.chainId, obs(40_000_000n, 0n, 10n ** 18n, 0), "interval");
+      clock = at(1);
+      await snapshots.record(
+        env.chainId,
+        obs(30_000_000n, 400n * 10n ** 18n, 10n ** 18n, 1),
+        "trade",
+        "intent-w1",
+      );
+      clock = at(2);
+      await snapshots.record(
+        env.chainId,
+        obs(30_000_000n, 400n * 10n ** 18n, 1_030_000_000_000_000_000n, 2),
+        "interval",
+      );
+      // Another agent's snapshot never shows in this window.
+      await snapshots.record(
+        env.chainId,
+        { ...obs(1n, 0n, 5n * 10n ** 18n, 2), agentId: 1 },
+        "interval",
+      );
+      await t.db
+        .insertInto("platform.intents")
+        .values({
+          intent_id: "intent-w1",
+          chain_id: env.chainId,
+          agent_id: 2,
+          lease_id: "lease-1",
+          kind: "swap",
+          sell: "USDC",
+          buy: "WMON",
+          amount_in: "10000000",
+          reason: "test",
+          idempotency_key: "k-w1",
+          status: "reconciled",
+          reason_codes: "[]",
+          checks: "{}",
+          owner_epoch: "2",
+          config_epoch: "0",
+          amount_out: "400000000000000000000",
+          tx_hash: "0xw1",
+          settled_at: at(1),
+          created_at: at(1),
+          updated_at: at(1),
+          expires_at: new Date(at(1).getTime() + 1_800_000),
+        })
+        .execute();
+    });
+
+    it("is owner only, and without the orchestrator reads the latest snapshot, dated as such", async () => {
+      now = at(3).getTime();
+      const bob = await session(2, "bob-token");
+      const alice = await session(1, "alice-token");
+      expect((await call("/v1/agents/2/window")).status).toBe(401);
+      expect((await call("/v1/agents/2/window", { headers: headers(alice) })).status).toBe(403);
+      const got = await call("/v1/agents/2/window", { headers: headers(bob) });
+      expect(got.status).toBe(200);
+      const w = (await json(got)).window as Record<string, unknown>;
+      expect(w).toMatchObject({
+        agentId: "2",
+        account: ACCOUNT,
+        custody: "v2",
+        asOf: { at: at(2).toISOString(), block: "109670002", live: false },
+        totalValueUsdcE6: "40000000",
+        scores: {
+          returnSinceStart: { ok: true, bps: 300, since: at(0).toISOString() },
+          maxDrawdown: { ok: true, bps: 0 },
+          winShare: { ok: false },
+        },
+        hundred: { ok: true, now: "103.00", usdc: "100.00" },
+        history: { points: 3, capped: false },
+      });
+      expect(
+        (w.holdings as { symbol: string; valueUsdcE6: string; shareBps: number }[]).map((h) => [
+          h.symbol,
+          h.valueUsdcE6,
+          h.shareBps,
+        ]),
+      ).toEqual([
+        ["USDC", "30000000", 7_500],
+        ["WMON", "10000000", 2_500],
+      ]);
+      expect((w.series as { reason: string }[]).map((p) => p.reason)).toEqual([
+        "interval",
+        "trade",
+        "interval",
+      ]);
+      expect(w.marks).toEqual([
+        expect.objectContaining({
+          intentId: "intent-w1",
+          side: "buy",
+          symbol: "WMON",
+          usdcE6: "10000000",
+          txHash: "0xw1",
+        }),
+      ]);
+    });
+
+    it("reads the holdings live through the orchestrator when it answers, and falls back when it does not", async () => {
+      now = at(3).getTime();
+      const bob = await session(2, "bob-token");
+      const reads: number[] = [];
+      const window: WindowDeps = {
+        account: async (id) => {
+          reads.push(id);
+          return LIVE;
+        },
+      };
+      const got = await call("/v1/agents/2/window", { headers: headers(bob) }, { window });
+      expect(got.status).toBe(200);
+      const w = (await json(got)).window as Record<string, unknown>;
+      expect(w).toMatchObject({
+        custody: "v3",
+        asOf: { at: at(3).toISOString(), block: "109670900", live: true },
+        totalValueUsdcE6: "41600000",
+        scores: { returnSinceStart: { ok: true, bps: 400 } },
+        hundred: { ok: true, now: "104.00" },
+        history: { points: 4 },
+      });
+      expect(
+        (w.holdings as { symbol: string; gainUsdcE6: string | null; gainBps: number | null }[]).map(
+          (h) => [h.symbol, h.gainUsdcE6, h.gainBps],
+        ),
+      ).toEqual([
+        ["USDC", null, null],
+        ["WMON", "1600000", 1_600],
+      ]);
+      expect(reads).toEqual([2]);
+      const down: WindowDeps = {
+        account: async () => {
+          throw new Error("the orchestrator answered 502");
+        },
+      };
+      const fallback = await call(
+        "/v1/agents/2/window",
+        { headers: headers(bob) },
+        { window: down },
+      );
+      expect(fallback.status).toBe(200);
+      expect((await json(fallback)).window).toMatchObject({
+        asOf: { live: false },
+        history: { points: 3 },
+      });
     });
   });
 
