@@ -135,6 +135,11 @@ import {
   TYPE_SCALE,
   NoChangeNotice,
   PlanCard,
+  ACTIVATION_STATUSES,
+  ActivationChecks,
+  ActivationPanel,
+  type ActivationPanelView,
+  ActivationStatusTag,
 } from "@alpha-agents/ui";
 
 // Sample data from the design brief (Planv1/design-brief.md).
@@ -2116,6 +2121,303 @@ function PortfolioSection() {
   );
 }
 
+/** F-U10: the activation sweep's specimens, with the clock held at one moment. */
+const ACT_NOW = "2026-10-10T20:05:00.000Z";
+const actStep = (
+  key: string,
+  label: string,
+  state: ActivationPanelView["steps"][number]["state"],
+  over: Partial<ActivationPanelView["steps"][number]> = {},
+): ActivationPanelView["steps"][number] => ({
+  key,
+  label,
+  state,
+  result: null,
+  reason: null,
+  chargedUsdcE6: "0",
+  ceilingUsdcE6: "0",
+  startedAt: null,
+  finishedAt: null,
+  ...over,
+});
+const ACT_DONE = [
+  actStep("account", "Reading your goal and account", "done", {
+    result: "Balanced on the Medium tier; 90.00 USDC to trade with; 12.00 USDC of credits.",
+  }),
+  actStep("scan", "Scanning the market", "done", {
+    result: "3 themes worth a closer look.",
+    chargedUsdcE6: "210000",
+    ceilingUsdcE6: "500000",
+  }),
+  actStep("market", "Reading pools and prices", "done", {
+    result: "11 of 12 tokens priced across 42 pools; 9 safety screens fresh.",
+  }),
+];
+const ACT_RUNNING: ActivationPanelView = {
+  activationId: "act-design-1",
+  status: "running",
+  tier: { label: "Medium", model: "Claude Sonnet 5.5" },
+  ceilingUsdcE6: "3800000",
+  chargedUsdcE6: "1110000",
+  steps: [
+    ...ACT_DONE,
+    actStep("dives", "Researching in depth", "running", {
+      result: "1 of 2 themes researched.",
+      chargedUsdcE6: "900000",
+      ceilingUsdcE6: "2400000",
+      startedAt: "2026-10-10T20:02:35.000Z",
+    }),
+    actStep("challenge", "Checking risk", "pending"),
+    actStep("test", "Testing the plan against your limits", "pending"),
+    actStep("plan", "Building a plan", "pending"),
+    actStep("active", "Active", "pending"),
+  ],
+  outcome: {
+    title: "Building the first plan",
+    message:
+      "The agent reads the market, researches the most promising tokens, checks the risks and builds a plan for you to approve. Nothing is traded until you approve it.",
+    action: "none",
+  },
+  startedAt: "2026-10-10T20:00:00.000Z",
+  finishedAt: null,
+};
+const ACT_PLAN_READY: ActivationPanelView = {
+  ...ACT_RUNNING,
+  activationId: "act-design-2",
+  status: "plan_ready",
+  chargedUsdcE6: "2660000",
+  steps: [
+    ...ACT_DONE,
+    actStep("dives", "Researching in depth", "done", {
+      result: "2 themes researched: WBTC_ADD, CHOG_ADD.",
+      chargedUsdcE6: "1900000",
+      ceilingUsdcE6: "2400000",
+    }),
+    actStep("challenge", "Checking risk", "done", {
+      result: "1 of 2 theses stand after the skeptic's review.",
+      chargedUsdcE6: "150000",
+      ceilingUsdcE6: "300000",
+    }),
+    actStep("test", "Testing the plan against your limits", "done", {
+      result: "Your limits and the envelope are set for the plan.",
+    }),
+    actStep("plan", "Building a plan", "done", {
+      result: "A portfolio of 2 positions proposed.",
+      chargedUsdcE6: "400000",
+      ceilingUsdcE6: "600000",
+    }),
+    actStep("active", "Active", "running", {
+      result: "Waiting for your approval of the plan.",
+      startedAt: "2026-10-10T20:04:40.000Z",
+    }),
+  ],
+  outcome: {
+    title: "Your approval is needed",
+    message:
+      "The sweep ended with a plan. Read it below and approve it to turn automatic trading on; decline it and nothing is traded.",
+    action: "approve",
+  },
+  finishedAt: "2026-10-10T20:04:40.000Z",
+};
+const ACT_ACTIVE: ActivationPanelView = {
+  ...ACT_PLAN_READY,
+  activationId: "act-design-3",
+  status: "active",
+  steps: [
+    ...ACT_PLAN_READY.steps.slice(0, 7),
+    actStep("active", "Active", "done", {
+      result: "The plan is approved; the agent trades toward it within your limits.",
+    }),
+  ],
+  outcome: {
+    title: "Automatic trading is on",
+    message:
+      "The agent trades toward its plan within your limits, one capped leg at a time, and keeps researching on its own.",
+    action: "none",
+  },
+};
+const ACT_OUT_OF_CREDITS: ActivationPanelView = {
+  ...ACT_RUNNING,
+  activationId: "act-design-4",
+  status: "out_of_credits",
+  steps: [
+    ...ACT_DONE,
+    actStep("dives", "Researching in depth", "failed", {
+      result: "1 of 2 themes researched.",
+      reason: "the credits ran out",
+      chargedUsdcE6: "900000",
+      ceilingUsdcE6: "2400000",
+    }),
+    actStep("challenge", "Checking risk", "skipped"),
+    actStep("test", "Testing the plan against your limits", "skipped"),
+    actStep("plan", "Building a plan", "skipped"),
+    actStep("active", "Active", "skipped"),
+  ],
+  outcome: {
+    title: "The agent ran out of credits",
+    message:
+      '"Researching in depth" failed: the credits ran out. Nothing was traded; only the steps that ran were charged. Add USDC to the funding address, then try again.',
+    action: "add_credits",
+  },
+  finishedAt: "2026-10-10T20:04:00.000Z",
+};
+const ACT_CAPPED: ActivationPanelView = {
+  ...ACT_RUNNING,
+  activationId: "act-design-5",
+  status: "capped",
+  chargedUsdcE6: "480000",
+  steps: [
+    ACT_DONE[0] as ActivationPanelView["steps"][number],
+    actStep("scan", "Scanning the market", "capped", {
+      reason: "the step used all its model turns",
+      chargedUsdcE6: "480000",
+      ceilingUsdcE6: "500000",
+    }),
+    actStep("market", "Reading pools and prices", "skipped"),
+    actStep("dives", "Researching in depth", "skipped"),
+    actStep("challenge", "Checking risk", "skipped"),
+    actStep("test", "Testing the plan against your limits", "skipped"),
+    actStep("plan", "Building a plan", "skipped"),
+    actStep("active", "Active", "skipped"),
+  ],
+  outcome: {
+    title: "The sweep stopped at a limit",
+    message:
+      '"Scanning the market" stopped: the step used all its model turns. Nothing was traded; only the steps that ran were charged. Try again.',
+    action: "retry",
+  },
+  finishedAt: "2026-10-10T20:01:30.000Z",
+};
+const ACT_CHECKS_OK = [
+  {
+    code: "GOAL",
+    ok: true,
+    message: "Goal: Balanced on the Medium tier (Claude Sonnet 5.5).",
+    blocking: true,
+  },
+  { code: "PROVISIONED", ok: true, message: "The agent is set up to run.", blocking: true },
+  {
+    code: "ACCOUNT",
+    ok: true,
+    message: "The trading account is open on the fund agent's set.",
+    blocking: true,
+  },
+  { code: "ACCOUNT_MODE", ok: true, message: "The account is in its normal mode.", blocking: true },
+  {
+    code: "TRADING_BALANCE",
+    ok: true,
+    message: "The account holds 90.00 USDC to trade with.",
+    blocking: true,
+  },
+  {
+    code: "CREDITS",
+    ok: true,
+    message: "Credits cover the sweep: 12.00 USDC available, at most 3.80 USDC needed.",
+    blocking: true,
+  },
+  {
+    code: "GRANT",
+    ok: false,
+    message:
+      "Your wallet registers the agent's trading permission (30 days at most) when you turn trading on.",
+    blocking: false,
+  },
+  { code: "NOT_BUSY", ok: true, message: "The agent is free to start.", blocking: true },
+];
+const ACT_CHECKS_BLOCKED = ACT_CHECKS_OK.map((c) =>
+  c.code === "CREDITS"
+    ? {
+        ...c,
+        ok: false,
+        message:
+          "Credits are short: 3.00 USDC available, the sweep may cost up to 3.80 USDC. Add USDC to the funding address first.",
+      }
+    : c.code === "TRADING_BALANCE"
+      ? {
+          ...c,
+          ok: false,
+          message:
+            "The account holds 4.00 USDC; automatic trading needs at least 5.00 USDC. Deposit more first.",
+        }
+      : c,
+);
+
+/** F-U10: the activation sweep's panel in every state, the checks before it, the status tag and the 2D pulse. */
+function ActivationSection() {
+  return (
+    <Section id="activation" title="Activation sweep">
+      <Specimen
+        name="Before the sweep"
+        note="The checks the owner sees before turning automatic trading on, each named when it fails, and the sweep's ceiling on the goal's tier; the grant is a step to come, not a block."
+      >
+        <div className="grid gap-6 lg:grid-cols-2" data-testid="activation-checks-specimens">
+          <ActivationChecks checks={ACT_CHECKS_OK} ceilingUsdcE6="3800000" tierLabel="Medium" />
+          <ActivationChecks
+            checks={ACT_CHECKS_BLOCKED}
+            ceilingUsdcE6="3800000"
+            tierLabel="Medium"
+          />
+        </div>
+      </Specimen>
+      <Specimen
+        name="The step panel"
+        note="The eight steps with their live states, each step's one-line result and its cost against its ceiling, the sweep's cost against the ceiling shown before it started, and what happened at the end with what the owner can do: running (the clock held still), a plan waiting for approval, active, out of credits, and stopped at a limit."
+      >
+        <div className="grid gap-6 xl:grid-cols-2" data-testid="activation-panels">
+          <ActivationPanel view={ACT_RUNNING} now={ACT_NOW} />
+          <ActivationPanel
+            view={ACT_PLAN_READY}
+            now={ACT_NOW}
+            actions={<Button size="sm">Read the plan</Button>}
+          />
+          <ActivationPanel
+            view={ACT_ACTIVE}
+            now={ACT_NOW}
+            actions={
+              <Button size="sm" variant="danger">
+                Disarm
+              </Button>
+            }
+          />
+          <ActivationPanel
+            view={ACT_OUT_OF_CREDITS}
+            now={ACT_NOW}
+            actions={
+              <>
+                <Button size="sm">Add credits</Button>
+                <Button size="sm" variant="secondary">
+                  Try again
+                </Button>
+              </>
+            }
+          />
+          <ActivationPanel
+            view={ACT_CAPPED}
+            now={ACT_NOW}
+            actions={<Button size="sm">Try again</Button>}
+          />
+        </div>
+      </Specimen>
+      <Specimen
+        name="Status tag and the 2D pulse"
+        note="The sweep's status as the agent viewer's badge, every value; and a species shown in 2D pulses while the sweep runs, since it cannot take off."
+      >
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-wrap gap-2" data-testid="activation-status-tags">
+            {ACTIVATION_STATUSES.map((status) => (
+              <ActivationStatusTag key={status} status={status} />
+            ))}
+          </div>
+          <div className="grid max-w-md grid-cols-2 gap-4" data-testid="species-pulse-specimen">
+            <SpeciesArt image={null} speciesName="Ant" tier="base" slots={3} pulse />
+            <SpeciesArt image={null} speciesName="Ant" tier="base" slots={3} />
+          </div>
+        </div>
+      </Specimen>
+    </Section>
+  );
+}
+
 const GOAL_HARD = {
   maxTradeBps: 1_000,
   maxPositionBps: 4_000,
@@ -2397,6 +2699,7 @@ function DesignSystem() {
       <WalletSection />
       <AgentSection />
       <PortfolioSection />
+      <ActivationSection />
       <FormsSection />
       <OverlaysSection />
       <DataSection />

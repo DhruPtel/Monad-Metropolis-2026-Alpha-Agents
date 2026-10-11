@@ -26,6 +26,11 @@ interface SpeciesArtProps {
    * readers, since the name next to it says the same. Takes no slots.
    */
   readonly compact?: boolean;
+  /**
+   * F-U10: the agent is activating. A species shown in 2D cannot take off, so
+   * a ring pulses around the art instead; it holds still with reduced motion.
+   */
+  readonly pulse?: boolean;
   readonly className?: string;
 }
 
@@ -123,6 +128,7 @@ function SpeciesArt({
   tier,
   slots = 0,
   compact = false,
+  pulse = false,
   className,
 }: SpeciesArtProps) {
   if (compact) {
@@ -144,8 +150,19 @@ function SpeciesArt({
   const alt = speciesName ? `${speciesName} agent` : "Unrevealed agent";
   const caption = !image && slots > 0;
   return (
-    <div data-slot="species-art" className={cn("flex w-full flex-col gap-2", className)}>
+    <div
+      data-slot="species-art"
+      data-pulse={pulse ? "" : undefined}
+      className={cn("flex w-full flex-col gap-2", className)}
+    >
       <div className="relative aspect-square w-full">
+        {pulse ? (
+          <span
+            aria-hidden
+            data-testid="species-pulse"
+            className="pointer-events-none absolute inset-0 rounded-md border border-primary motion-safe:animate-status-pulse"
+          />
+        ) : null}
         {image ? (
           // A plain img: the art is a small static file served by the app.
           <img src={image} alt={alt} className="size-full rounded-md object-cover" />
