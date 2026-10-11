@@ -1822,6 +1822,7 @@ describe.skipIf(!available)("the control API (needs pnpm dev:up for Postgres)", 
       expect(await json(got)).toMatchObject({
         agentId: "2",
         environment: "fork",
+        available: true,
         activation: null,
         checks: [{ code: "GOAL", ok: false }],
         ceilingUsdcE6: "3800000",
@@ -1855,9 +1856,10 @@ describe.skipIf(!available)("the control API (needs pnpm dev:up for Postgres)", 
         checks: [{ code: "GOAL" }],
       });
       expect(calls).toEqual(["read 2", "start 2", "start 2"]);
-      // Without an orchestrator the routes say so rather than guessing.
+      // Without an orchestrator the read says the sweep is not available here, and a start says so.
       const none = await call("/v1/agents/2/activation", { headers: headers(bob) });
-      expect([none.status, (await json(none)).error]).toEqual([503, "not_configured"]);
+      expect(none.status).toBe(200);
+      expect(await json(none)).toMatchObject({ available: false, activation: null, checks: [] });
       const noStart = await call("/v1/agents/2/activation", {
         method: "POST",
         headers: headers(bob),

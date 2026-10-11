@@ -3,6 +3,8 @@
 import type { EnvironmentId } from "@alpha-agents/config";
 import { formatAmount } from "@alpha-agents/domain";
 import {
+  ActivationChecks,
+  ActivationPanel,
   ApprovalCard,
   type ApprovalView,
   ArmingCard,
@@ -34,7 +36,7 @@ import {
 } from "@alpha-agents/ui";
 import { ArrowLeft, PlugZap, Wallet } from "lucide-react";
 import Link from "next/link";
-import { type ReactNode, useState } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import type { IntentJson, PlanCardJson, PortfolioJson } from "@/api/client";
 import { latestDecided, planCardView } from "@/agent/plan-card";
 import { useWalletSession } from "@/auth/session";
@@ -159,7 +161,7 @@ function PlanSection({
   const noChange = card.noChange;
   const showNoChange = noChange !== null && (!shown || noChange.createdAt > shown.createdAt);
   return (
-    <section aria-label="Plan" className="flex flex-col gap-3" data-testid="plan-section">
+    <section aria-label="Plan" className="flex flex-col gap-3" data-testid="plan-section" id="plan">
       <h2 className="text-lg font-semibold">The agent&apos;s plan</h2>
       {shown ? (
         <PlanCard
@@ -393,6 +395,16 @@ export function PortfolioPage({
   const network = wallet.target.name;
   const p = pf.portfolio;
   const acting = pf.acting;
+  // F-U10: the moment the panel's elapsed times count to, ticking while the sweep runs.
+  const activation = pf.activation?.available ? pf.activation.activation : null;
+  const sweeping = activation?.status === "running";
+  const [now, setNow] = useState(() => new Date().toISOString());
+  useEffect(() => {
+    setNow(new Date().toISOString());
+    if (!sweeping) return;
+    const timer = window.setInterval(() => setNow(new Date().toISOString()), 1_000);
+    return () => window.clearInterval(timer);
+  }, [sweeping, activation?.activationId]);
 
   const header = (
     <div className="flex flex-col gap-2">
@@ -453,6 +465,25 @@ export function PortfolioPage({
   const armingState = pf.arming?.arming.state ?? "unarmed";
   const waiting = pf.intents.filter((i) => i.status === "awaiting_approval");
   const credits = claimables(p);
+  // F-U10: a sweep may start when none is under way or waiting for the owner, and none is in force.
+  const read = pf.activation?.available ? pf.activation : null;
+  const canSweep =
+    read !== null &&
+    (activation === null || !["running", "plan_ready", "active"].includes(activation.status));
+  const blocked = read?.checks.some((c) => !c.ok && c.blocking) ?? false;
+  const sweepButton = canSweep ? (
+    <Button
+      disabled={acting || blocked || (armingState === "unarmed" && !pf.arming?.grantCall)}
+      onClick={pf.turnOn}
+      data-testid="turn-on"
+    >
+      {armingState === "unarmed"
+        ? "Turn on automatic trading"
+        : activation
+          ? "Run the sweep again"
+          : "Start the activation sweep"}
+    </Button>
+  ) : null;
 
   return (
     <div className="flex flex-col gap-6" data-testid="portfolio">
@@ -558,7 +589,7 @@ export function PortfolioPage({
         </div>
       )}
       {pf.summary ? (
-        <Card data-testid="portfolio-credits">
+        <Card data-testid="portfolio-credits" id="credits">
           <CardContent className="pt-6">
             <AddCreditsSection
               agentId={agentId}
@@ -584,11 +615,25 @@ export function PortfolioPage({
               endedMessage: pf.arming?.arming.ended?.message ?? null,
               fundingAddress: pf.arming?.fundingAddress ?? null,
             }}
+            {...(read && armingState === "unarmed"
+              ? {
+                  intro:
+                    "Every trade the agent proposes waits for your approval until you turn on automatic trading: your wallet registers its trading permission, the agent runs one activation sweep to build its first plan, and approving that plan arms it.",
+                }
+              : {})}
             actions={
               <>
-                {armingState === "unarmed" || pf.arming?.arming.renewalDue ? (
+                {/* F-U10: with the orchestrator reachable, turning trading on runs the sweep (D-291);
+                    without it, the P2-U6 arming alone, as before. */}
+                {read && !activation ? sweepButton : null}
+                {!read && armingState === "unarmed" ? (
                   <Button disabled={acting || !pf.arming?.grantCall} onClick={pf.arm}>
-                    {armingState === "unarmed" ? "Arm" : "Renew"}
+                    Arm
+                  </Button>
+                ) : null}
+                {armingState !== "unarmed" && pf.arming?.arming.renewalDue ? (
+                  <Button disabled={acting || !pf.arming?.grantCall} onClick={pf.arm}>
+                    Renew
                   </Button>
                 ) : null}
                 {armingState !== "unarmed" ? (
@@ -598,8 +643,43 @@ export function PortfolioPage({
                 ) : null}
               </>
             }
-            status={<StatusFor status={pf.status} actions={["arm", "disarm"]} />}
-          />
+            status={
+              activation ? null : (
+                <StatusFor status={pf.status} actions={["arm", "turn-on", "disarm"]} />
+              )
+            }
+          >
+            {read && canSweep ? (
+              <ActivationChecks
+                checks={read.checks}
+                ceilingUsdcE6={read.ceilingUsdcE6}
+                tierLabel={read.tier.label}
+              />
+            ) : null}
+          </ArmingCard>
+          {activation ? (
+            <ActivationPanel
+              view={activation}
+              now={now}
+              actions={
+                activation.outcome.action === "approve" ? (
+                  <Button asChild size="sm">
+                    <a href="#plan">Read the plan</a>
+                  </Button>
+                ) : activation.outcome.action === "add_credits" ? (
+                  <>
+                    {sweepButton}
+                    <Button asChild size="sm" variant="secondary">
+                      <a href="#credits">Add credits</a>
+                    </Button>
+                  </>
+                ) : activation.outcome.action === "retry" ? (
+                  sweepButton
+                ) : undefined
+              }
+              status={<StatusFor status={pf.status} actions={["arm", "turn-on", "disarm"]} />}
+            />
+          ) : null}
           {waiting.length > 0 ? (
             <div className="flex flex-col gap-4">
               {waiting.slice(0, 3).map((i) => (

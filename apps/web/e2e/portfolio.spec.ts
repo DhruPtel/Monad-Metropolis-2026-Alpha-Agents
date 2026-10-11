@@ -8,11 +8,16 @@ import { FakeApi, fundedDashboard } from "./fake-api";
 import { FakeChain } from "./fake-chain";
 import {
   ACCOUNT,
+  ACTIVATION_CHECKS,
+  ACTIVATION_OUT_OF_CREDITS,
+  ACTIVATION_PLAN_READY,
   BLOCKED,
   EXECUTOR,
   FakeTrading,
   SETTLED,
   USDC,
+  activationFixture,
+  activationReadFixture,
   intentFixture,
   noAccountFixture,
   portfolioFixture,
@@ -278,6 +283,151 @@ test.describe("arming", () => {
     await expect(arming).toContainText("The owner disarmed the agent.");
     expect(s.trading.calls).toEqual(["registerSession", "revokeSession"]);
     expect(await blockingViolations(page)).toEqual([]);
+  });
+});
+
+test.describe("the activation sweep (F-U10)", () => {
+  test("turning on automatic trading registers the grant, starts the sweep, shows its steps live, and approving the plan arms the agent", async ({
+    page,
+  }) => {
+    const s = stack();
+    s.trading.activation = activationReadFixture();
+    s.trading.activationScript = [
+      activationFixture("scan", "running"),
+      activationFixture("dives", "running"),
+      ACTIVATION_PLAN_READY(),
+    ];
+    s.trading.planCard = planCardFixture({ pending: null, recent: [], noChange: null });
+    await open(page, s);
+    const arming = main(page).getByTestId("arming-card");
+    // Before: the checks, each passed, the grant as a step to come, and the ceiling.
+    const checks = arming.getByTestId("activation-checks");
+    await expect(checks).toContainText("at most 3.80 USDC");
+    await expect(checks.getByTestId("activation-check")).toHaveCount(8);
+    await expect(checks.locator('[data-check="GRANT"]')).toHaveAttribute("data-ok", "false");
+    await expect(arming.getByTestId("activation-blocked")).toHaveCount(0);
+    await capture(page, arming, "portfolio-before-sweep.png");
+    await arming.getByTestId("turn-on").click();
+    // The grant from the wallet, then the sweep: step 1 done, the Scan running.
+    const panel = main(page).getByTestId("activation-panel");
+    await expect(panel).toHaveAttribute("data-status", "running", { timeout: 15_000 });
+    expect(s.trading.calls).toEqual(["registerSession"]);
+    expect(s.trading.starts).toBe(1);
+    await expect(arming).toHaveAttribute("data-state", "awaiting_first_trade");
+    const step = (key: string) => panel.locator(`[data-step="${key}"]`);
+    await expect(step("account")).toHaveAttribute("data-state", "done");
+    await expect(step("scan")).toHaveAttribute("data-state", "running");
+    await expect(step("scan")).toContainText("running for");
+    await expect(step("plan")).toHaveAttribute("data-state", "pending");
+    await expect(panel.getByRole("meter", { name: "Cost against the ceiling" })).toHaveAttribute(
+      "aria-valuetext",
+      "0.00 of at most 3.80 USDC",
+    );
+    await capture(page, panel, "portfolio-activating.png");
+    expect(await blockingViolations(page)).toEqual([]);
+    // The page re-reads every two seconds while the sweep runs: the Dives come next.
+    s.trading.advance();
+    await expect(step("dives")).toHaveAttribute("data-state", "running", { timeout: 15_000 });
+    await expect(step("scan")).toContainText("3 themes worth a closer look.");
+    await expect(step("scan")).toContainText("0.21 of at most 0.50 USDC");
+    await expect(step("market")).toContainText("11 of 12 tokens priced across 42 pools");
+    // The sweep ends with a plan waiting for the owner.
+    s.trading.advance();
+    await expect(panel).toHaveAttribute("data-status", "plan_ready", { timeout: 15_000 });
+    await expect(panel.getByTestId("activation-outcome")).toContainText("Your approval is needed");
+    await expect(panel.getByRole("link", { name: "Read the plan" })).toBeVisible();
+    await expect(panel.getByRole("meter", { name: "Cost against the ceiling" })).toHaveAttribute(
+      "aria-valuetext",
+      "2.66 of at most 3.80 USDC",
+    );
+    await capture(page, panel, "portfolio-plan-ready.png");
+    const plan = main(page).getByTestId("plan-section");
+    await expect(plan.getByTestId("plan-card")).toHaveAttribute("data-status", "pending_owner", {
+      timeout: 15_000,
+    });
+    // D-291: approving the sweep's plan is the approval that arms the agent.
+    await plan.getByRole("button", { name: "Approve this plan" }).click();
+    await expect(panel).toHaveAttribute("data-status", "active", { timeout: 15_000 });
+    await expect(arming).toHaveAttribute("data-state", "armed", { timeout: 15_000 });
+    await expect(panel.getByTestId("activation-outcome")).toContainText("Automatic trading is on");
+    await expect(step("active")).toHaveAttribute("data-state", "done");
+    await expect(arming.getByRole("button", { name: "Disarm" })).toBeVisible();
+    await expect(arming.getByTestId("turn-on")).toHaveCount(0);
+    expect(s.trading.decisions).toEqual(["approve prop-00000000-0000-4000-8000-000000000001"]);
+    expect(await blockingViolations(page)).toEqual([]);
+  });
+
+  test("a sweep that ran out of credits says what happened and what to do, and trying again starts a new one without a second grant", async ({
+    page,
+  }) => {
+    const s = stack();
+    s.trading.arm("awaiting_first_trade");
+    s.trading.activation = activationReadFixture({
+      activation: ACTIVATION_OUT_OF_CREDITS(),
+      checks: ACTIVATION_CHECKS.map((c) =>
+        c.code === "GRANT" ? { ...c, ok: true, message: "The trading permission is on chain." } : c,
+      ),
+    });
+    s.trading.activationScript = [activationFixture("scan", "running")];
+    await open(page, s);
+    const panel = main(page).getByTestId("activation-panel");
+    await expect(panel).toHaveAttribute("data-status", "out_of_credits");
+    const step = (key: string) => panel.locator(`[data-step="${key}"]`);
+    await expect(step("dives")).toHaveAttribute("data-state", "failed");
+    await expect(step("dives")).toContainText("the credits ran out");
+    await expect(step("challenge")).toHaveAttribute("data-state", "skipped");
+    await expect(panel.getByTestId("activation-outcome")).toContainText(
+      "The agent ran out of credits",
+    );
+    await expect(panel.getByRole("link", { name: "Add credits" })).toHaveAttribute(
+      "href",
+      "#credits",
+    );
+    await capture(page, panel, "portfolio-sweep-failed.png");
+    expect(await blockingViolations(page)).toEqual([]);
+    await panel.getByTestId("turn-on").click();
+    await expect(panel).toHaveAttribute("data-status", "running", { timeout: 15_000 });
+    expect(s.trading.calls).toEqual([]);
+    expect(s.trading.starts).toBe(1);
+  });
+
+  test("a failing check is named before anything can be turned on, and nothing is sent", async ({
+    page,
+  }) => {
+    const s = stack();
+    s.trading.activation = activationReadFixture({
+      checks: ACTIVATION_CHECKS.map((c) =>
+        c.code === "CREDITS"
+          ? {
+              ...c,
+              ok: false,
+              message:
+                "Credits are short: 3.00 USDC available, the sweep may cost up to 3.80 USDC. Add USDC to the funding address first.",
+            }
+          : c,
+      ),
+    });
+    await open(page, s);
+    const arming = main(page).getByTestId("arming-card");
+    await expect(arming.getByTestId("activation-blocked")).toContainText(
+      "One thing to do before turning trading on.",
+    );
+    await expect(arming.locator('[data-check="CREDITS"]')).toContainText("Credits are short");
+    await expect(arming.getByTestId("turn-on")).toBeDisabled();
+    expect(s.trading.calls).toEqual([]);
+    expect(s.trading.starts).toBe(0);
+    // Without an orchestrator the card offers the P2-U6 arming alone, as before. The mock
+    // wallet's login survives the reload (L-95), so the page comes back connected.
+    s.trading.activation = null;
+    await page.reload();
+    await expect(walletButton(page)).toHaveAttribute("data-state", "connected", {
+      timeout: 15_000,
+    });
+    const card = main(page).getByTestId("arming-card");
+    await expect(card.getByRole("button", { name: "Arm", exact: true })).toBeVisible({
+      timeout: 15_000,
+    });
+    await expect(card.getByTestId("activation-checks")).toHaveCount(0);
   });
 });
 

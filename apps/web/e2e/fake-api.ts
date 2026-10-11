@@ -340,7 +340,7 @@ export class FakeApi {
         : reply(404, { error: "not_found", message: "No such agent." });
     }
     const trade =
-      /^\/v1\/agents\/(\d+)\/(portfolio|arming|disarm|plan-card|proposals\/[\w-]+\/(?:approve|reject)|intents(?:\/[\w-]+\/(?:approve|reject))?)$/.exec(
+      /^\/v1\/agents\/(\d+)\/(portfolio|arming|disarm|activation|plan-card|proposals\/[\w-]+\/(?:approve|reject)|intents(?:\/[\w-]+\/(?:approve|reject))?)$/.exec(
         url.pathname,
       );
     if (trade?.[1] && trade[2]) {

@@ -158,7 +158,7 @@ function Step({ step, now }: { step: ActivationStepView; now: string }) {
             <span className="sr-only">: {STEP_WORD[step.state]}</span>
           </span>
           <span className="numeric text-xs text-foreground-muted">
-            {step.state === "running" && step.startedAt ? (
+            {step.state === "running" && step.startedAt && step.key !== "active" ? (
               <span data-elapsed="">running for {elapsedText(step.startedAt, now)}</span>
             ) : paid ? (
               <>

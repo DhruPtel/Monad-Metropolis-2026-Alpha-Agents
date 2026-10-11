@@ -5,6 +5,7 @@ import { MOCK_WALLET_ADDRESS } from "../src/auth/mock-wallet-constants";
 import { THREE_MARKER, scriptsLoaded } from "./bundles";
 import { FakeApi } from "./fake-api";
 import { FakeChain } from "./fake-chain";
+import { FakeTrading, activationFixture, activationReadFixture } from "./fake-trading";
 import { repaint } from "./repaint";
 import { disableWebgl } from "./webgl";
 
@@ -185,6 +186,58 @@ test.describe("screenshots and accessibility", () => {
     await settled(page);
     await capture(page, "configure-no-webgl.png");
     expect(await blockingViolations(page)).toEqual([]);
+  });
+});
+
+test.describe("the activation sweep on the viewer (F-U10)", () => {
+  test("while the sweep runs the frame says so and a species shown in 2D pulses; once it ends the pulse stops", async ({
+    page,
+  }) => {
+    await disableWebgl(page);
+    const chain = new FakeChain();
+    chain.mint(7n, MOCK_WALLET_ADDRESS, BEE);
+    const api = new FakeApi(chain);
+    const trading = new FakeTrading(chain, MOCK_WALLET_ADDRESS);
+    trading.activation = activationReadFixture({
+      activation: activationFixture("dives", "running"),
+    });
+    api.trading.set(7n, trading);
+    await open(page, chain, "/configure", api);
+    await connect(page);
+    await expect(page.getByTestId("stage-mode")).toHaveAttribute("data-mode", "no-webgl");
+    const viewer = page.getByRole("region", { name: "Agent viewer" });
+    await expect(viewer.getByTestId("activation-status-tag")).toHaveAttribute(
+      "data-status",
+      "running",
+      { timeout: 15_000 },
+    );
+    await expect(viewer.getByTestId("species-pulse")).toBeVisible();
+    await settled(page);
+    // The status tag and the frame's tools never sit on each other (L-34, L-50): on a narrow
+    // frame the tools wrap under the badge row.
+    const tag = await viewer.getByTestId("activation-status-tag").boundingBox();
+    const tools = await viewer.getByText("3D unavailable: showing the 2D art").boundingBox();
+    expect(tag && tools).toBeTruthy();
+    const apart =
+      (tag?.x ?? 0) + (tag?.width ?? 0) <= (tools?.x ?? 0) ||
+      (tag?.y ?? 0) + (tag?.height ?? 0) <= (tools?.y ?? 0) ||
+      (tools?.y ?? 0) + (tools?.height ?? 0) <= (tag?.y ?? 0);
+    expect(apart).toBe(true);
+    await capture(page, "configure-activating.png");
+    expect(await blockingViolations(page)).toEqual([]);
+    // The sweep ends with a plan: the pulse stops and the frame says the plan waits.
+    trading.activation = activationReadFixture({
+      activation: {
+        ...activationFixture("active", "running", { status: "plan_ready" }),
+        proposalId: "prop-00000000-0000-4000-8000-000000000001",
+      },
+    });
+    await expect(viewer.getByTestId("activation-status-tag")).toHaveAttribute(
+      "data-status",
+      "plan_ready",
+      { timeout: 15_000 },
+    );
+    await expect(viewer.getByTestId("species-pulse")).toHaveCount(0);
   });
 });
 

@@ -230,7 +230,7 @@ export function AgentScene({
             url={modelUrl}
             sockets={sockets}
             animation={animation}
-            wingColor={colors.wing}
+            wingColor={animation.hover ? colors.accent : colors.wing}
             anchors={anchors}
           />
         </Suspense>

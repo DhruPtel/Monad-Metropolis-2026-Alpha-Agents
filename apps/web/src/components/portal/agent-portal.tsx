@@ -23,6 +23,7 @@ import { type ReactNode, useMemo, useState } from "react";
 import { useWalletSession } from "@/auth/session";
 import type { AgentView } from "@/agent/chain";
 import { useMint, useOwnedAgents } from "@/agent/use-agents";
+import { useActivationStatus } from "@/agent/use-activation";
 import { AgentStage } from "@/components/viewer/agent-stage";
 
 const TIER_NAME = { base: "Base", medium: "Medium", pro: "Pro" } as const;
@@ -94,6 +95,8 @@ export function AgentPortal({ environment }: { environment: EnvironmentId }) {
     return owned.agents[0] ?? null;
   }, [owned.agents, requested]);
   const info = selected ? describe(selected) : null;
+  // F-U10: the sweep's status for the viewer; null until known or where it cannot be read.
+  const activation = useActivationStatus(selected && info ? selected.id : null);
 
   const revealedAs =
     progress.species !== undefined
@@ -220,6 +223,7 @@ export function AgentPortal({ environment }: { environment: EnvironmentId }) {
       agentKey={selected ? selected.id.toString() : "none"}
       badge={badge}
       overlay={overlay}
+      activation={activation}
     />
   );
 

@@ -7,6 +7,9 @@ import {
   parseAbi,
 } from "viem";
 import type {
+  ActivationJson,
+  ActivationReadJson,
+  ActivationStepJson,
   ArmingJson,
   IntentJson,
   PortfolioJson,
@@ -349,9 +352,224 @@ export function planCardFixture(over: Partial<PlanCardJson> = {}): PlanCardJson 
   };
 }
 
+// ---- F-U10: the activation sweep ----
+
+const actStep = (
+  key: string,
+  label: string,
+  state: ActivationStepJson["state"],
+  over: Partial<ActivationStepJson> = {},
+): ActivationStepJson => ({
+  key,
+  label,
+  state,
+  result: null,
+  reason: null,
+  chargedUsdcE6: "0",
+  ceilingUsdcE6: "0",
+  startedAt: null,
+  finishedAt: null,
+  ...over,
+});
+const ACT_LABELS = [
+  ["account", "Reading your goal and account"],
+  ["scan", "Scanning the market"],
+  ["market", "Reading pools and prices"],
+  ["dives", "Researching in depth"],
+  ["challenge", "Checking risk"],
+  ["test", "Testing the plan against your limits"],
+  ["plan", "Building a plan"],
+  ["active", "Active"],
+] as const;
+
+/** The checks as a configured, funded, idle agent passes them (the grant to come). */
+export const ACTIVATION_CHECKS = [
+  {
+    code: "GOAL",
+    ok: true,
+    message: "Goal: Balanced on the Medium tier (Claude Sonnet 5.5).",
+    blocking: true,
+  },
+  { code: "PROVISIONED", ok: true, message: "The agent is set up to run.", blocking: true },
+  {
+    code: "ACCOUNT",
+    ok: true,
+    message: "The trading account is open on the fund agent's set.",
+    blocking: true,
+  },
+  { code: "ACCOUNT_MODE", ok: true, message: "The account is in its normal mode.", blocking: true },
+  {
+    code: "TRADING_BALANCE",
+    ok: true,
+    message: "The account holds 40.00 USDC to trade with.",
+    blocking: true,
+  },
+  {
+    code: "CREDITS",
+    ok: true,
+    message: "Credits cover the sweep: 4.99 USDC available, at most 3.80 USDC needed.",
+    blocking: true,
+  },
+  {
+    code: "GRANT",
+    ok: false,
+    message:
+      "Your wallet registers the agent's trading permission (30 days at most) when you turn trading on.",
+    blocking: false,
+  },
+  { code: "NOT_BUSY", ok: true, message: "The agent is free to start.", blocking: true },
+];
+
+/**
+ * A sweep at a given point: the steps before `through` done with fixed
+ * result lines, the step at `through` in `state`, the rest pending (or
+ * skipped once the sweep has ended). Running steps start about 42 seconds
+ * before now, so the elapsed text keeps one width across a capture.
+ */
+export function activationFixture(
+  through: (typeof ACT_LABELS)[number][0],
+  state: ActivationStepJson["state"],
+  over: Partial<ActivationJson> = {},
+): ActivationJson {
+  const results: Record<string, Partial<ActivationStepJson>> = {
+    account: {
+      result: "Balanced on the Medium tier; 40.00 USDC to trade with; 4.99 USDC of credits.",
+    },
+    scan: {
+      result: "3 themes worth a closer look.",
+      chargedUsdcE6: "210000",
+      ceilingUsdcE6: "500000",
+    },
+    market: { result: "11 of 12 tokens priced across 42 pools; 9 safety screens fresh." },
+    dives: {
+      result: "2 themes researched: WBTC_ADD, CHOG_ADD.",
+      chargedUsdcE6: "1900000",
+      ceilingUsdcE6: "2400000",
+    },
+    challenge: {
+      result: "1 of 2 theses stand after the skeptic's review.",
+      chargedUsdcE6: "150000",
+      ceilingUsdcE6: "300000",
+    },
+    test: { result: "Your limits and the envelope are set for the plan." },
+    plan: {
+      result: "A portfolio of 2 positions proposed.",
+      chargedUsdcE6: "400000",
+      ceilingUsdcE6: "600000",
+    },
+    active: { result: "The plan is approved; the agent trades toward it within your limits." },
+  };
+  const at = ACT_LABELS.findIndex(([k]) => k === through);
+  const ended = over.status !== undefined && over.status !== "running";
+  const startedAt = new Date(Date.now() - 42_000).toISOString();
+  const steps = ACT_LABELS.map(([key, label], i) =>
+    i < at
+      ? actStep(key, label, "done", { ...results[key], startedAt, finishedAt: startedAt })
+      : i === at
+        ? actStep(key, label, state, {
+            // A running stage has its ceiling and no charge or result yet (it settles at its end).
+            ...(state === "done"
+              ? results[key]
+              : state === "running"
+                ? { ceilingUsdcE6: results[key]?.ceilingUsdcE6 ?? "0", startedAt }
+                : {}),
+          })
+        : actStep(key, label, ended ? "skipped" : "pending"),
+  );
+  const charged = steps.reduce((t, x) => t + BigInt(x.chargedUsdcE6), 0n).toString();
+  return {
+    activationId: "act-00000000-0000-4000-8000-000000000001",
+    status: "running",
+    tier: { choice: "MEDIUM", label: "Medium", model: "Claude Sonnet 5.5" },
+    ceilingUsdcE6: "3800000",
+    chargedUsdcE6: charged,
+    steps,
+    proposalId: null,
+    outcome: {
+      title: "Building the first plan",
+      message:
+        "The agent reads the market, researches the most promising tokens, checks the risks and builds a plan for you to approve. Nothing is traded until you approve it.",
+      action: "none",
+    },
+    startedAt: iso(NOW),
+    finishedAt: null,
+    ...over,
+  };
+}
+
+/** The sweep ended with a plan waiting for the owner. */
+export const ACTIVATION_PLAN_READY = (): ActivationJson => {
+  const v = activationFixture("active", "running", {
+    status: "plan_ready",
+    proposalId: "prop-00000000-0000-4000-8000-000000000001",
+    outcome: {
+      title: "Your approval is needed",
+      message:
+        "The sweep ended with a plan. Read it below and approve it to turn automatic trading on; decline it and nothing is traded.",
+      action: "approve",
+    },
+    finishedAt: iso(NOW + 300),
+  });
+  return {
+    ...v,
+    steps: v.steps.map((s) =>
+      s.key === "active"
+        ? { ...s, result: "Waiting for your approval of the plan.", startedAt: null }
+        : s,
+    ),
+  };
+};
+
+/** The sweep stopped in the Dives when the credits ran out. */
+export const ACTIVATION_OUT_OF_CREDITS = (): ActivationJson => {
+  const v = activationFixture("dives", "failed", {
+    status: "out_of_credits",
+    outcome: {
+      title: "The agent ran out of credits",
+      message:
+        '"Researching in depth" failed: the credits ran out. Nothing was traded; only the steps that ran were charged. Add USDC to the funding address, then try again.',
+      action: "add_credits",
+    },
+    finishedAt: iso(NOW + 240),
+  });
+  return {
+    ...v,
+    chargedUsdcE6: "1110000",
+    steps: v.steps.map((s) =>
+      s.key === "dives"
+        ? {
+            ...s,
+            result: "1 of 2 themes researched.",
+            reason: "the credits ran out",
+            chargedUsdcE6: "900000",
+            ceilingUsdcE6: "2400000",
+          }
+        : s,
+    ),
+  };
+};
+
+export function activationReadFixture(over: Partial<ActivationReadJson> = {}): ActivationReadJson {
+  return {
+    agentId: "7",
+    available: true,
+    activation: null,
+    checks: ACTIVATION_CHECKS,
+    ceilingUsdcE6: "3800000",
+    tier: { choice: "MEDIUM", label: "Medium" },
+    ...over,
+  };
+}
+
 export class FakeTrading {
   portfolio: PortfolioJson;
   arming: ArmingJson = UNARMED;
+  /** F-U10: the sweep as the owner reads it; null answers 503, as a stack without the orchestrator would. */
+  activation: ActivationReadJson | null = null;
+  /** What each later read of the sweep shows, one per `advance()`, once a sweep has started. */
+  activationScript: ActivationJson[] = [];
+  /** How many sweeps the page started. */
+  starts = 0;
   /** F-U9: the plan card; null answers 503 as an agent off the trading set would. */
   planCard: PlanCardJson | null = null;
   /** Every proposal decision the page sent: "approve <id>" or "reject <id>". */
@@ -365,6 +583,18 @@ export class FakeTrading {
     this.owner = owner;
     this.portfolio = portfolio;
     chain.onSend = (tx) => this.onSend(tx);
+  }
+
+  /** F-U10: the sweep moves to its next scripted view; the plan card gains its proposal at the end. */
+  advance() {
+    const next = this.activationScript.shift();
+    if (!next || !this.activation) return;
+    this.activation = { ...this.activation, activation: next };
+    if (next.proposalId && this.planCard && !this.planCard.pending)
+      this.planCard = {
+        ...this.planCard,
+        pending: proposalFixture({ proposalId: next.proposalId }),
+      };
   }
 
   arm(state: ArmingJson["state"], over: Partial<ArmingJson> = {}) {
@@ -507,6 +737,38 @@ export class FakeTrading {
         decidedBy: this.owner,
         decidedAt: iso(NOW),
       };
+      // F-U10 (D-291): approving the sweep's plan arms the agent and ends the sweep as active.
+      const sweep = this.activation?.activation;
+      const arms =
+        action === "approve" &&
+        sweep?.status === "plan_ready" &&
+        sweep.proposalId === proposalId &&
+        this.arming.state === "awaiting_first_trade";
+      if (arms && this.activation && sweep) {
+        this.arm("armed");
+        this.activation = {
+          ...this.activation,
+          activation: {
+            ...sweep,
+            status: "active",
+            steps: sweep.steps.map((s) =>
+              s.key === "active"
+                ? {
+                    ...s,
+                    state: "done",
+                    result: "The plan is approved; the agent trades toward it within your limits.",
+                  }
+                : s,
+            ),
+            outcome: {
+              title: "Automatic trading is on",
+              message:
+                "The agent trades toward its plan within your limits, one capped leg at a time, and keeps researching on its own.",
+              action: "none",
+            },
+          },
+        };
+      }
       this.planCard = {
         ...this.planCard,
         strategyEpoch: action === "approve" ? "2" : this.planCard.strategyEpoch,
@@ -533,7 +795,52 @@ export class FakeTrading {
         pending: null,
         recent: [decided, ...this.planCard.recent],
       };
-      return { status: 200, body: { agentId, proposal: decided } };
+      return { status: 200, body: { agentId, proposal: decided, armed: arms } };
+    }
+    if (rest === "activation" && method === "GET")
+      return this.activation
+        ? { status: 200, body: { ...this.activation, agentId } }
+        : {
+            status: 200,
+            body: {
+              agentId,
+              available: false,
+              activation: null,
+              checks: [],
+              ceilingUsdcE6: "0",
+              tier: { choice: "MEDIUM", label: "Medium" },
+            },
+          };
+    if (rest === "activation" && method === "POST") {
+      if (!this.activation)
+        return {
+          status: 503,
+          body: { error: "not_configured", message: "The orchestrator is not reachable." },
+        };
+      if (this.arming.state === "unarmed")
+        return {
+          status: 409,
+          body: {
+            error: "activation_grant",
+            message:
+              "Register the agent's trading permission from your wallet first; the sweep starts once it is on chain.",
+            checks: this.activation.checks,
+          },
+        };
+      const blocked = this.activation.checks.find((c) => !c.ok && c.blocking);
+      if (blocked)
+        return {
+          status: 409,
+          body: {
+            error: `activation_${blocked.code.toLowerCase()}`,
+            message: blocked.message,
+            checks: this.activation.checks,
+          },
+        };
+      this.starts += 1;
+      const first = this.activationScript.shift() ?? activationFixture("scan", "running");
+      this.activation = { ...this.activation, activation: first };
+      return { status: 202, body: { agentId, activation: first } };
     }
     if (rest === "arming" && method === "GET")
       return {

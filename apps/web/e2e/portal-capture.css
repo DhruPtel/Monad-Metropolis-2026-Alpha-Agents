@@ -3,3 +3,8 @@
 header.sticky {
   visibility: hidden !important;
 }
+
+/* F-U10: the activation panel's elapsed time ticks every second; a capture holds it hidden. */
+[data-elapsed] {
+  visibility: hidden !important;
+}

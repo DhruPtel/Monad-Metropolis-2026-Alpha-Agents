@@ -241,7 +241,7 @@ const ARMING_TEXT: Readonly<Record<ArmingState, string>> = {
   unarmed:
     "Every trade the agent proposes waits for your approval. Arm it to let trades within its hard limits go through on their own.",
   awaiting_first_trade:
-    "Your trading permission is on chain. Approve the agent's first proposed trade to arm it.",
+    "Your trading permission is on chain. Approving the activation sweep's plan (or the agent's first proposed trade) arms it.",
   armed: "Trades within the hard limits go through on their own. You can disarm at any time.",
 };
 
@@ -251,6 +251,8 @@ function ArmingCard({
   agentName,
   actions,
   status,
+  children,
+  intro,
   className,
 }: {
   arming: ArmingView;
@@ -259,6 +261,10 @@ function ArmingCard({
   actions?: ReactNode;
   /** The wallet action's status line, if one is running or just ended. */
   status?: ReactNode;
+  /** F-U10: the checks before the activation sweep, between the text and the actions. */
+  children?: ReactNode;
+  /** F-U10: replaces the state's sentence where turning trading on runs the sweep. */
+  intro?: string;
   className?: string;
 }) {
   return (
@@ -272,7 +278,7 @@ function ArmingCard({
         <SectionLabel as="h3">Automatic trading</SectionLabel>
         <StatusPill kind="arming" value={a.state} />
       </div>
-      <p className="text-sm text-foreground-muted">{ARMING_TEXT[a.state]}</p>
+      <p className="text-sm text-foreground-muted">{intro ?? ARMING_TEXT[a.state]}</p>
       {a.state === "unarmed" && a.endedMessage ? (
         <p className="text-sm text-foreground-muted">Last arming ended: {a.endedMessage}</p>
       ) : null}
@@ -289,6 +295,7 @@ function ArmingCard({
           <AddressDisplay address={a.fundingAddress} label={`Funding address of ${agentName}`} />
         </p>
       ) : null}
+      {children}
       {actions ? <div className="flex flex-wrap gap-2">{actions}</div> : null}
       {status}
     </section>

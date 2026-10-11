@@ -1,7 +1,8 @@
 "use client";
 
 import { type SpeciesAsset, slotsFor } from "@alpha-agents/domain";
-import { Button, SpeciesArt, Tag, ViewerFrame } from "@alpha-agents/ui";
+import { ActivationStatusTag, Button, SpeciesArt, Tag, ViewerFrame } from "@alpha-agents/ui";
+import type { ActivationStatusJson } from "@/api/client";
 import dynamic from "next/dynamic";
 import { type ReactNode, useCallback, useEffect, useState } from "react";
 import type { AnimState } from "./rig";
@@ -41,6 +42,13 @@ interface AgentStageProps {
   readonly badge?: ReactNode;
   readonly overlay?: ReactNode;
   readonly highlightedSlot?: number | null;
+  /**
+   * F-U10: the agent's activation sweep, when its status is known. While it
+   * runs the bee takes off and hovers with its wing cue in the accent (and
+   * lands when it ends), a species shown in 2D pulses instead, and the frame
+   * wears the status; with reduced motion nothing moves.
+   */
+  readonly activation?: ActivationStatusJson | null;
 }
 
 /**
@@ -54,6 +62,7 @@ export function AgentStage({
   badge,
   overlay,
   highlightedSlot = null,
+  activation = null,
 }: AgentStageProps) {
   const reducedMotion = usePrefersReducedMotion();
   const [webgl, setWebgl] = useState<boolean | null>(null);
@@ -70,6 +79,7 @@ export function AgentStage({
   const slots = asset ? slotsFor(asset.species.tier) : 0;
   const mode: StageMode =
     webgl === null ? "checking" : !model ? "2d" : !webgl || failed ? "no-webgl" : "3d";
+  const activating = activation === "running";
 
   const art = (
     <div className="flex size-full items-center justify-center p-10">
@@ -78,6 +88,7 @@ export function AgentStage({
         speciesName={asset?.species.name ?? null}
         tier={asset?.species.tier ?? null}
         slots={slots}
+        pulse={activating && !reducedMotion}
         className="max-w-80"
       />
     </div>
@@ -92,7 +103,14 @@ export function AgentStage({
     <ViewerFrame
       label="Agent viewer"
       className="h-full"
-      badge={badge}
+      badge={
+        badge || activation ? (
+          <span className="flex flex-wrap items-center gap-2">
+            {badge}
+            {activation ? <ActivationStatusTag status={activation} /> : null}
+          </span>
+        ) : undefined
+      }
       overlay={overlay}
       tools={
         mode === "3d" ? (
@@ -124,6 +142,7 @@ export function AgentStage({
           animation={{
             sequenceKey: `${agentKey}:${replay}`,
             enabled: animationOn,
+            hover: activating,
             onStateChange: setAnimState,
           }}
           highlightedSlot={highlightedSlot}

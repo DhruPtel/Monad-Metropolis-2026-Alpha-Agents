@@ -58,8 +58,14 @@ function ViewerFrame({
             {overlay}
           </div>
         ) : null}
-        {badge ? <div className="pointer-events-auto absolute top-3 left-7">{badge}</div> : null}
-        {tools ? <div className="pointer-events-auto absolute top-3 right-7">{tools}</div> : null}
+        {/* One row for the badge and the tools: on a narrow frame the tools wrap under the badge
+            instead of sitting on top of it (F-U10: the activation tag joins the badge). */}
+        {badge || tools ? (
+          <div className="absolute top-3 right-7 left-7 flex flex-wrap items-start justify-between gap-2">
+            <div className="pointer-events-auto">{badge}</div>
+            {tools ? <div className="pointer-events-auto ml-auto">{tools}</div> : null}
+          </div>
+        ) : null}
         {readoutLeft ? (
           <span className="absolute bottom-3 left-7 font-mono text-2xs leading-none text-foreground-muted">
             {readoutLeft}

@@ -382,6 +382,70 @@ export interface PlanCardJson {
   readonly noChange: ProposalJson | null;
 }
 
+/** F-U10: one step of the activation sweep as the panel shows it. */
+export interface ActivationStepJson {
+  readonly key: string;
+  readonly label: string;
+  readonly state: "pending" | "running" | "done" | "failed" | "skipped" | "capped";
+  readonly result: string | null;
+  readonly reason: string | null;
+  readonly chargedUsdcE6: string;
+  readonly ceilingUsdcE6: string;
+  readonly startedAt: string | null;
+  readonly finishedAt: string | null;
+}
+
+export type ActivationStatusJson =
+  | "running"
+  | "plan_ready"
+  | "active"
+  | "off"
+  | "declined"
+  | "expired"
+  | "no_plan"
+  | "failed"
+  | "capped"
+  | "out_of_credits";
+
+export interface ActivationJson {
+  readonly activationId: string;
+  readonly status: ActivationStatusJson;
+  readonly tier: {
+    readonly choice: "LOW" | "MEDIUM" | "HIGH";
+    readonly label: string;
+    readonly model: string;
+  };
+  readonly ceilingUsdcE6: string;
+  readonly chargedUsdcE6: string;
+  readonly steps: readonly ActivationStepJson[];
+  readonly proposalId: string | null;
+  readonly outcome: {
+    readonly title: string;
+    readonly message: string;
+    readonly action: "approve" | "retry" | "add_credits" | "none";
+  };
+  readonly startedAt: string;
+  readonly finishedAt: string | null;
+}
+
+export interface ActivationCheckJson {
+  readonly code: string;
+  readonly ok: boolean;
+  readonly message: string;
+  readonly blocking: boolean;
+}
+
+/** F-U10: the owner's read of the sweep: the newest one, and the checks before the next. */
+export interface ActivationReadJson {
+  readonly agentId: string;
+  /** False where no orchestrator is reachable: the page keeps the P2-U6 arming alone. */
+  readonly available: boolean;
+  readonly activation: ActivationJson | null;
+  readonly checks: readonly ActivationCheckJson[];
+  readonly ceilingUsdcE6: string;
+  readonly tier: { readonly choice: "LOW" | "MEDIUM" | "HIGH"; readonly label: string };
+}
+
 export interface PortfolioJson {
   readonly chainId: number;
   readonly block: string;
@@ -511,10 +575,14 @@ export const tradingApi = {
   async whyNotTraded(agentId: bigint): Promise<WhyNotTradedJson> {
     return call<WhyNotTradedJson>(`/v1/agents/${agentId.toString()}/why-not-traded`);
   },
-  /** The arming flow's raw calls: it reads the status and body itself. */
+  /** F-U10: the activation sweep as the owner reads it. Owner only. */
+  async activation(agentId: bigint, session: string): Promise<ActivationReadJson> {
+    return call<ActivationReadJson>(`/v1/agents/${agentId.toString()}/activation`, owner(session));
+  },
+  /** The arming and activation flows' raw calls: they read the status and body themselves. */
   async raw(
     agentId: bigint,
-    path: "arming" | "disarm",
+    path: "arming" | "disarm" | "activation",
     method: "GET" | "POST",
     session: string,
   ): Promise<{ status: number; body: unknown }> {

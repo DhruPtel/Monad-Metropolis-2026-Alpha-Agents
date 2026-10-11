@@ -4,6 +4,7 @@ import type { EnvironmentId } from "@alpha-agents/config";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { type Address, type Hex, decodeFunctionData } from "viem";
 import {
+  type ActivationReadJson,
   type ArmingViewJson,
   ApiError,
   type IntentJson,
@@ -13,9 +14,10 @@ import {
   tradingApi,
   type PlanCardJson,
 } from "@/api/client";
+import { type TurnOnProgress, runTurnOn } from "./activation-flow";
 import { type SummaryView, summaryView } from "./my-agents";
 import { type ContractWrite, useWalletSession } from "@/auth/session";
-import { type ArmingProgress, runArm, runDisarm } from "./arming-flow";
+import { runArm, runDisarm } from "./arming-flow";
 import {
   ACCOUNT_ABI,
   CUSTODY_REVERT_MESSAGES,
@@ -42,6 +44,7 @@ export type PortfolioAction =
   | "withdraw"
   | "claim"
   | "arm"
+  | "turn-on"
   | "disarm"
   | "approve"
   | "reject"
@@ -63,6 +66,8 @@ export interface Portfolio {
   readonly why: WhyNotTradedJson | null;
   /** F-U9: the plan card, read with the owner session; null before it loads or off the trading set. */
   readonly planCard: PlanCardJson | null;
+  /** F-U10: the activation sweep and the checks before one; null before it loads or where the orchestrator is not reachable. */
+  readonly activation: ActivationReadJson | null;
   /** The agent's credits and funding address, for Add credits (Phase 2 tuning). */
   readonly summary: SummaryView | null;
   /** Re-reads at once. */
@@ -80,6 +85,8 @@ export interface Portfolio {
   withdraw(asset: Asset, amountText: string | null): void;
   claim(asset: Asset, token: Address): void;
   arm(): void;
+  /** F-U10: registers the grant when needed, then starts the activation sweep. */
+  turnOn(): void;
   disarm(): void;
   approve(intentId: string): void;
   reject(intentId: string): void;
@@ -90,9 +97,13 @@ export interface Portfolio {
 const words = (err: unknown) =>
   err instanceof ApiError ? err.message : "Something went wrong; try again.";
 
-/** Arming's states as the shared status line shows them. */
-function armingStatus(p: ArmingProgress): WalletTxProgress {
+/** Arming's states (and turning trading on, F-U10) as the shared status line shows them. */
+function armingStatus(p: TurnOnProgress): WalletTxProgress {
   switch (p.state) {
+    case "starting":
+      return { state: "confirming", message: "Starting the activation sweep" };
+    case "started":
+      return { state: "confirmed" };
     case "checking":
       return { state: "checking" };
     case "signing":
@@ -130,6 +141,7 @@ export function usePortfolio(agentId: bigint, environment: EnvironmentId): Portf
   const [intents, setIntents] = useState<readonly IntentJson[]>([]);
   const [why, setWhy] = useState<WhyNotTradedJson | null>(null);
   const [planCard, setPlanCard] = useState<PlanCardJson | null>(null);
+  const [activation, setActivation] = useState<ActivationReadJson | null>(null);
   const [summary, setSummary] = useState<SummaryView | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<ActionStatus | null>(null);
@@ -150,25 +162,29 @@ export function usePortfolio(agentId: bigint, environment: EnvironmentId): Portf
     setPortfolio(null);
     setArming(null);
     setIntents([]);
+    setActivation(null);
     setError(null);
     if (!running.current) setStatus(null);
   }, [wallet.address, agentId]);
 
   const acting =
     status !== null && ["checking", "waiting-wallet", "confirming"].includes(status.progress.state);
-  const busy = acting || intents.some((i) => MOVING.has(i.status));
+  // F-U10: while the sweep runs the page re-reads every 2 seconds, so the steps show live.
+  const sweeping = activation?.activation?.status === "running";
+  const busy = acting || sweeping || intents.some((i) => MOVING.has(i.status));
 
   useEffect(() => {
     if (!wallet.ready || !wallet.address) return;
     let live = true;
     void (async () => {
       try {
-        const [p, a, i, w, pc] = await Promise.all([
+        const [p, a, i, w, pc, act] = await Promise.all([
           asOwner((t) => tradingApi.portfolio(agentId, t)),
           asOwner((t) => tradingApi.arming(agentId, t)),
           asOwner((t) => tradingApi.intents(agentId, t)),
           tradingApi.whyNotTraded(agentId).catch(() => null),
           asOwner((t) => tradingApi.planCard(agentId, t)).catch(() => null),
+          asOwner((t) => tradingApi.activation(agentId, t)).catch(() => null),
         ]);
         const s = await asOwner((t) => api.summary(agentId, t)).catch(() => null);
         if (!live || !mounted.current) return;
@@ -189,6 +205,7 @@ export function usePortfolio(agentId: bigint, environment: EnvironmentId): Portf
         setIntents(i);
         if (w) setWhy(w);
         setPlanCard(pc);
+        setActivation(act);
         if (s) setSummary(summaryView(s));
         setError(null);
       } catch (err) {
@@ -340,6 +357,7 @@ export function usePortfolio(agentId: bigint, environment: EnvironmentId): Portf
       getArming: () => tradingApi.raw(agentId, "arming", "GET", token),
       confirmArming: () => tradingApi.raw(agentId, "arming", "POST", token),
       disarm: () => tradingApi.raw(agentId, "disarm", "POST", token),
+      startActivation: () => tradingApi.raw(agentId, "activation", "POST", token),
       // The grant or revoke is simulated from the wallet's address first, so a refusal names the
       // Executor's own reason before anything is signed (Phase 2 tuning), then sent from the wallet.
       send: async (call: { to: Hex; data: Hex }) => {
@@ -367,20 +385,27 @@ export function usePortfolio(agentId: bigint, environment: EnvironmentId): Portf
   );
 
   const runArming = useCallback(
-    (action: "arm" | "disarm") => {
+    (action: "arm" | "turn-on" | "disarm") => {
       if (running.current) return;
       running.current = true;
       const done =
         action === "arm"
           ? "Your trading permission is on chain. Approve the agent's first proposed trade to arm it."
-          : "Disarmed. Every proposal waits for your approval again.";
-      const report = (p: ArmingProgress) =>
+          : action === "turn-on"
+            ? "The activation sweep has started. Watch its steps here; nothing is traded until you approve the plan."
+            : "Disarmed. Every proposal waits for your approval again.";
+      const report = (p: TurnOnProgress) =>
         mounted.current && setStatus({ action, progress: armingStatus(p), done });
+      const armingState = arming?.arming.state ?? "unarmed";
       void (async () => {
         try {
           await asOwner(async (token) => {
             const deps = armingDeps(token);
-            await (action === "arm" ? runArm(deps, report) : runDisarm(deps, report));
+            await (action === "arm"
+              ? runArm(deps, report)
+              : action === "turn-on"
+                ? runTurnOn(deps, armingState, report)
+                : runDisarm(deps, report));
           });
         } catch (err) {
           report({ state: "error", message: words(err) });
@@ -390,7 +415,7 @@ export function usePortfolio(agentId: bigint, environment: EnvironmentId): Portf
         }
       })();
     },
-    [armingDeps, asOwner],
+    [arming?.arming.state, armingDeps, asOwner],
   );
 
   const decide = useCallback(
@@ -462,6 +487,7 @@ export function usePortfolio(agentId: bigint, environment: EnvironmentId): Portf
     intents,
     why,
     planCard,
+    activation,
     approveProposal: (proposalId: string) => decidePlan("approve-plan", proposalId),
     rejectProposal: (proposalId: string) => decidePlan("reject-plan", proposalId),
     summary,
@@ -475,6 +501,7 @@ export function usePortfolio(agentId: bigint, environment: EnvironmentId): Portf
     withdraw,
     claim,
     arm: useCallback(() => runArming("arm"), [runArming]),
+    turnOn: useCallback(() => runArming("turn-on"), [runArming]),
     disarm: useCallback(() => runArming("disarm"), [runArming]),
     approve: useCallback((id: string) => decide("approve", id), [decide]),
     reject: useCallback((id: string) => decide("reject", id), [decide]),

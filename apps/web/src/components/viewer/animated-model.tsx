@@ -23,6 +23,7 @@ import {
   stepEase,
   swingLift,
 } from "./rig";
+import { flightState, wantsFlight } from "./flight";
 import { PLATFORM_Y } from "./stage";
 
 export interface AnimationControl {
@@ -30,6 +31,12 @@ export interface AnimationControl {
   readonly sequenceKey: string | null;
   /** Off settles the model grounded at centre with no motion. */
   readonly enabled: boolean;
+  /**
+   * F-U10: true while the agent's activation sweep runs, so the model takes
+   * off and hovers once it has walked in and settled, and lands when it
+   * ends; false or null keeps it on the platform.
+   */
+  readonly hover?: boolean | null;
   readonly onStateChange?: ((state: AnimState) => void) | undefined;
 }
 
@@ -38,6 +45,7 @@ interface AnimatedModelProps {
   /** Socket node names in slot order; a slot marker rides each. */
   readonly sockets: readonly string[];
   readonly animation: AnimationControl;
+  /** The wing cue's colour; the primary accent while the sweep runs (F-U10). */
   readonly wingColor: string;
   /**
    * The slot markers, plain DOM elements in slot order that the viewer owns
@@ -52,8 +60,9 @@ type SeqPhase = "approach" | "settle" | "idle";
 /**
  * One agent model: loaded once by drei (meshopt decoded locally, never Draco
  * from a CDN), then cloned for this viewer so two viewers never share a
- * skeleton. The select sequence walks it in, settles, lifts off and hovers.
- * Each frame, every slot marker is moved to its named socket's position on
+ * skeleton. The select sequence walks it in and settles on the platform; it
+ * lifts off and hovers only while the activation sweep runs, and lands when
+ * it ends (F-U10). Each frame, every slot marker is moved to its named socket's position on
  * screen, so it follows the bone the socket hangs from as the model walks,
  * hovers and the camera orbits. The markers are DOM the viewer owns, not
  * drei Html roots, so mounting and unmounting them never races React.
@@ -88,8 +97,6 @@ export function AnimatedModel({ url, sockets, animation, wingColor, anchors }: A
     t: 0,
     pending: false,
     key: null as string | null,
-    flyArmed: false,
-    fly: false,
     seqT: 0,
     gait: 0,
     gaitAmp: 0,
@@ -102,7 +109,7 @@ export function AnimatedModel({ url, sockets, animation, wingColor, anchors }: A
   useFrame((state, dtRaw) => {
     const dt = Math.min(dtRaw, 0.05);
     const t = state.clock.elapsedTime;
-    const { sequenceKey, enabled, onStateChange } = control.current;
+    const { sequenceKey, enabled, hover, onStateChange } = control.current;
     const C = ANIM_CONFIG;
     const W = C.walk;
     const D = clamp01(C.DEFORM_DAMPING);
@@ -115,13 +122,13 @@ export function AnimatedModel({ url, sockets, animation, wingColor, anchors }: A
     }
     if (S.pending && enabled) {
       S.pending = false;
-      Object.assign(S, { phase: "approach", t: 0, seqT: 0, flyArmed: true, fly: false, travel: 0 });
+      Object.assign(S, { phase: "approach", t: 0, seqT: 0, travel: 0 });
       R.lift.p = 0;
       R.flap.p = 0;
       R.idle.p = 0;
     }
-    if (!enabled && (S.phase !== "idle" || S.flyArmed || S.fly)) {
-      Object.assign(S, { phase: "idle", t: 0, flyArmed: false, fly: false });
+    if (!enabled && S.phase !== "idle") {
+      Object.assign(S, { phase: "idle", t: 0 });
     }
     if (enabled) {
       S.t += dt;
@@ -131,12 +138,6 @@ export function AnimatedModel({ url, sockets, animation, wingColor, anchors }: A
     const hz = W.cycleHz * W.speed;
     const Q = C.sequence;
     const steps = Math.max(1, Math.round(Q.walkSec * hz * 2));
-    const walkEnd = steps / (2 * hz);
-    if (S.flyArmed && S.seqT >= walkEnd - Q.wingLeadSec) {
-      S.flyArmed = false;
-      S.fly = true;
-    }
-    const liftOk = S.fly && S.seqT >= walkEnd + Q.liftDelaySec;
     if (S.phase === "approach") {
       S.gait = S.t * hz;
       if (S.gait * 2 >= steps) {
@@ -165,7 +166,8 @@ export function AnimatedModel({ url, sockets, animation, wingColor, anchors }: A
     const { gait, gaitAmp, travel } = S;
 
     const on = R.enable.step(enabled, dt, C.enable.fadeSec, C.enable.fadeSec);
-    const wantFly = enabled && S.fly;
+    // F-U10: the sweep lifts the model once it stands on the platform; its end lands it.
+    const wantFly = wantsFlight({ enabled, hover, phase: S.phase });
     const flapOn = R.flap.step(
       wantFly || R.lift.p > 0.02,
       dt,
@@ -173,27 +175,14 @@ export function AnimatedModel({ url, sockets, animation, wingColor, anchors }: A
       C.wings.spinDownSec,
     );
     const lift = R.lift.step(
-      wantFly && liftOk && R.flap.p > C.hover.liftAfterFlap,
+      wantFly && R.flap.p > C.hover.liftAfterFlap,
       dt,
       C.hover.takeoffSec,
       C.hover.landSec,
     );
     const idleW = R.idle.step(S.phase === "idle", dt, C.idle.fadeInSec, 0.3) * on;
 
-    const next: AnimState =
-      !wantFly && R.lift.p > 0
-        ? "landing"
-        : R.lift.p > 0
-          ? lift >= 0.98
-            ? "hovering"
-            : "takingOff"
-          : S.phase === "approach"
-            ? "walking"
-            : S.phase === "settle"
-              ? "settling"
-              : wantFly
-                ? "takingOff"
-                : "idle";
+    const next: AnimState = flightState({ wantFly, lift, phase: S.phase });
     if (next !== lastState.current) {
       lastState.current = next;
       onStateChange?.(next);

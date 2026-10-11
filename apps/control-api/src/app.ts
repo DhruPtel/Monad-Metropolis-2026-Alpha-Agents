@@ -824,15 +824,19 @@ export function createApp(deps: ApiDeps): Hono {
     const agentId = BigInt(c.req.param("id"));
     const owner = await ownerOnly(c, agentId);
     if (owner instanceof Response) return owner;
+    // Without an orchestrator the sweep is not offered here: the page keeps the P2-U6 arming alone.
     if (!deps.activation)
-      return fail(
-        c,
-        503,
-        "not_configured",
-        "The platform cannot reach the agent's orchestrator right now; try again in a moment.",
-      );
+      return c.json({
+        ...(await meta()),
+        agentId: agentId.toString(),
+        available: false,
+        activation: null,
+        checks: [],
+        ceilingUsdcE6: "0",
+        tier: { choice: "MEDIUM", label: "Medium" },
+      });
     const read = await deps.activation.read(Number(agentId));
-    return c.json({ ...(await meta()), ...read, agentId: agentId.toString() });
+    return c.json({ ...(await meta()), ...read, agentId: agentId.toString(), available: true });
   });
 
   /**
