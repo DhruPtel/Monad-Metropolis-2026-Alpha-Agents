@@ -1672,3 +1672,24 @@ What happened: The many-token invariant run found a sequence (a sale, a 10^12 US
 Cause: The virtual offset is built against the first depositor inflating the price with a donation after depositing; a donation before any deposit leaves the real supply far below the offset, which then prices later deposits.
 Fix: A first deposit into an empty vault mints at the virtual rate alone (whatever the vault holds goes to that first depositor, the leader), and `setDepositsOpen` needs at least one USDC's worth of shares (`MIN_SUPPLY_TO_OPEN`), so the real supply always dwarfs the offset; `test_AGiftToAnEmptyVaultGoesToTheFirstDepositor` and `test_DepositsOpenNeedAtLeastOneUsdcOfShares`, and the invariant that no flow lowers the price per share (within one unit of valuation rounding per held token) over both handler runs. The reference band, as found in the same run, also refuses deposits after a gift that jumps the share price by more than its day's move.
 Lesson: An invariant stated over value (no flow lowers the price per share) catches what the known-attack test for the same mechanism does not; run it with gifts, stakes and sales in the mix.
+
+## L-226: The vault page judged a lock by the browser's clock
+Unit: P7-U4 (2026-10-12)
+What happened: The vault spec's depositor, locked for an hour past the fixtures' fixed block time, showed as "Free to withdraw": the page compared `unlockAt` with `Date.now()`, days after the fixtures' time, while the contract compares it with the block's time.
+Cause: The page kept its own ticking clock for the lock words instead of the clock the reading already carries (the block's timestamp), which is the one the contract uses.
+Fix: The page takes `now` from the reading's timestamp and re-reads every few seconds, so the lock words follow the chain; the fixtures stay fixed and the screenshots stable.
+Lesson: Anything a contract judges by block time, show by block time: the reading carries it, and a fixture then pins it.
+
+## L-227: A confirmation rendered on the card the confirmed action removes
+Unit: P7-U4 (2026-10-12)
+What happened: Creating the vault from the create card never showed "confirmed": the page re-read the vault while the transaction confirmed, found it, and replaced the create card (and the status inside it) with the vault's page.
+Cause: The action's status lived in the component that the action's success makes disappear.
+Fix: The position card, which stays, shows the creation's status too; the test waits for the vault panel and then for that status.
+Lesson: Put an action's status on something that outlives the action; if the success changes the page's state, the old card is the wrong home for it.
+
+## L-228: An accessibility scan during a dialog's fade read its text through the fade
+Unit: P7-U4 (2026-10-12)
+What happened: The vault spec's axe scan of the open deposit dialog reported a serious color-contrast violation on the dialog's small muted text, though the muted token is 5.09:1 on the raised surface it sits on. The scan ran right after the dialog opened, while its fade-in animation still held the content at a lower opacity, so axe blended the text with what was behind it.
+Cause: The screenshot path freezes animations through its style sheet (Step 0 of the vault session), but the scan has no style sheet and ran mid-animation.
+Fix: The spec's scan first awaits every running animation on the page (`document.getAnimations()`), then runs axe; the finding disappears without any token change.
+Lesson: Scan a page only once its animations have finished, as the capture already waits for its paint; a contrast finding on a token that measures fine is a timing finding.
