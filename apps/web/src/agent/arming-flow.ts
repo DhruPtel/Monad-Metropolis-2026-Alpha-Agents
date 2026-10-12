@@ -1,3 +1,4 @@
+import type { ManagedAccount } from "@alpha-agents/domain";
 import type { Hex } from "viem";
 import { isUserRejection } from "@/auth/session";
 import type { NetworkCheck } from "./network-check";
@@ -25,10 +26,10 @@ export interface WalletCall {
 export interface ArmingFlowDeps {
   /** Confirms the wallet is on the network the app reads, before anything is sent (L-53). */
   readonly checkNetwork: () => Promise<NetworkCheck>;
-  /** GET /v1/agents/:id/arming with the owner session. */
-  readonly getArming: () => Promise<{ status: number; body: unknown }>;
-  /** POST /v1/agents/:id/arming with the owner session, once the grant is on chain. */
-  readonly confirmArming: () => Promise<{ status: number; body: unknown }>;
+  /** GET /v1/agents/:id/arming with the owner session; `?account=` names the account the grant serves (Step 0, 2026-10-12). */
+  readonly getArming: (account?: ManagedAccount) => Promise<{ status: number; body: unknown }>;
+  /** POST /v1/agents/:id/arming with the owner session, once the grant is on chain; the body records the account chosen. */
+  readonly confirmArming: (account?: ManagedAccount) => Promise<{ status: number; body: unknown }>;
   /** POST /v1/agents/:id/disarm with the owner session. */
   readonly disarm: () => Promise<{ status: number; body: unknown }>;
   /** Sends the call from the connected wallet's provider; resolves to the transaction hash. */
@@ -102,6 +103,8 @@ const networkOk = async (deps: ArmingFlowDeps): Promise<NetworkCheck> =>
 export async function runArm(
   deps: ArmingFlowDeps,
   report: (p: ArmingProgress) => void,
+  /** Step 0 (2026-10-12, A-90): which account the agent manages, when the owner chose one. */
+  account?: ManagedAccount,
 ): Promise<ArmingProgress> {
   const finish = (p: ArmingProgress) => {
     report(p);
@@ -113,7 +116,7 @@ export async function runArm(
 
   let call: WalletCall | null;
   try {
-    const { status, body } = await deps.getArming();
+    const { status, body } = await deps.getArming(account);
     if (status !== 200)
       return finish({
         state: "error",
@@ -135,7 +138,7 @@ export async function runArm(
 
   report({ state: "recording", hash: sent });
   try {
-    const { status, body } = await deps.confirmArming();
+    const { status, body } = await deps.confirmArming(account);
     if (status !== 200 && status !== 201)
       return finish({
         state: "error",

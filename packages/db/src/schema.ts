@@ -354,6 +354,20 @@ export interface AgentGoalTable {
   created_at: Timestamp;
 }
 
+/**
+ * Step 0 of the 2026-10-12 session (A-90): which of its accounts an agent
+ * manages when it has a vault, chosen by the owner when turning automatic
+ * trading on. Without a row the vault is managed once it exists (A-87).
+ */
+export interface ManagedAccountTable {
+  chain_id: number;
+  agent_id: number;
+  account: "personal" | "vault";
+  chosen_by: string;
+  chosen_at: Timestamp;
+  updated_at: Timestamp;
+}
+
 /** One arming of an agent by its owner (P2-U6), from the session grant to its end. */
 export interface ArmingTable {
   arming_id: string;
@@ -911,6 +925,7 @@ export interface Database {
   "platform.usage_receipts": UsageReceiptTable;
   "platform.intents": IntentTable;
   "platform.arming": ArmingTable;
+  "platform.managed_accounts": ManagedAccountTable;
   "platform.agent_states": AgentStateTable;
   "platform.agent_state_changes": AgentStateChangeTable;
   "platform.agent_goals": AgentGoalTable;

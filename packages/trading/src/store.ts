@@ -8,6 +8,7 @@ import {
   type AssetId,
   type CustodyPath,
   type IntentState,
+  type ManagedAccount,
   REJECTION_MESSAGES,
   RUNNER_HOLD_FACTS,
   type RejectionCode,
@@ -244,6 +245,48 @@ export class TradeStore {
       .where("agent_id", "=", agentId)
       .executeTakeFirst();
     return row ? BigInt(row.strategy_epoch) : 0n;
+  }
+
+  // ---- the managed account (Step 0, 2026-10-12; A-90) ----
+
+  /** Which of its accounts the agent manages, as the owner chose, or null for the default (the vault once it exists). */
+  async managedAccount(chainId: number, agentId: number): Promise<ManagedAccount | null> {
+    const row = await this.db
+      .selectFrom("platform.managed_accounts")
+      .select("account")
+      .where("chain_id", "=", chainId)
+      .where("agent_id", "=", agentId)
+      .executeTakeFirst();
+    return row?.account ?? null;
+  }
+
+  /** The owner's choice of the account the agent manages; a later choice replaces it. */
+  async setManagedAccount(a: {
+    chainId: number;
+    agentId: number;
+    account: ManagedAccount;
+    chosenBy: Hex;
+  }): Promise<void> {
+    const at = this.now();
+    await this.db
+      .insertInto("platform.managed_accounts")
+      .values({
+        chain_id: a.chainId,
+        agent_id: a.agentId,
+        account: a.account,
+        chosen_by: dbAddress(a.chosenBy),
+        chosen_at: at,
+        updated_at: at,
+      })
+      .onConflict((oc) =>
+        oc.columns(["chain_id", "agent_id"]).doUpdateSet({
+          account: a.account,
+          chosen_by: dbAddress(a.chosenBy),
+          chosen_at: at,
+          updated_at: at,
+        }),
+      )
+      .execute();
   }
 
   // ---- arming ----

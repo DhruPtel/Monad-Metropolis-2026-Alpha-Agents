@@ -360,7 +360,16 @@ export class FakeApi {
           message: "This owner session is for another agent.",
         });
       const tr = this.trading.get(id);
-      const r = tr?.answer(id, trade[2], request.method(), url.searchParams);
+      const posted = request.method() === "POST" ? (request.postData() ?? "") : "";
+      const parsed = ((): Record<string, unknown> | null => {
+        if (!posted) return null;
+        try {
+          return JSON.parse(posted) as Record<string, unknown>;
+        } catch {
+          return null;
+        }
+      })();
+      const r = tr?.answer(id, trade[2], request.method(), url.searchParams, parsed);
       if (!tr || !r)
         return reply(503, {
           error: "not_deployed",

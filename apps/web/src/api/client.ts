@@ -1,3 +1,4 @@
+import type { ManagedAccount } from "@alpha-agents/domain";
 import type {
   AccountMode,
   AgentState,
@@ -249,7 +250,17 @@ export interface ArmingViewJson {
   readonly arming: ArmingJson;
   readonly fundingAddress: Address | null;
   readonly grantCall: WalletCallJson | null;
-  readonly maxGrantDays: number;
+  readonly maxGrantDays: number | null;
+  /**
+   * Step 0 (2026-10-12, A-90): the agent's vault and personal account, which
+   * one the grant would serve, and the owner's stored choice if any.
+   */
+  readonly accounts?: {
+    readonly vault: Address | null;
+    readonly personal: Address | null;
+    readonly managed: ManagedAccount;
+    readonly chosen: ManagedAccount | null;
+  };
 }
 
 export interface WhyNotTradedJson {
@@ -919,11 +930,22 @@ export const tradingApi = {
     path: "arming" | "disarm" | "activation",
     method: "GET" | "POST",
     session: string,
+    /** Step 0 (2026-10-12): a query for a GET, a JSON body for a POST. */
+    options: { query?: Record<string, string>; body?: Record<string, unknown> } = {},
   ): Promise<{ status: number; body: unknown }> {
     try {
+      const query = options.query ? `?${new URLSearchParams(options.query).toString()}` : "";
       const res = await fetch(
-        `${CONTROL_API_URL}/v1/agents/${agentId.toString()}/${path}`,
-        owner(session, { method }),
+        `${CONTROL_API_URL}/v1/agents/${agentId.toString()}/${path}${query}`,
+        owner(session, {
+          method,
+          ...(options.body
+            ? {
+                headers: { "content-type": "application/json" },
+                body: JSON.stringify(options.body),
+              }
+            : {}),
+        }),
       );
       return { status: res.status, body: await res.json().catch(() => null) };
     } catch {

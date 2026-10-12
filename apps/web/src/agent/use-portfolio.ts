@@ -1,5 +1,7 @@
 "use client";
 
+import type { ManagedAccount } from "@alpha-agents/domain";
+
 import type { EnvironmentId } from "@alpha-agents/config";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { type Address, type Hex, decodeFunctionData } from "viem";
@@ -104,9 +106,10 @@ export interface Portfolio {
   /** The older v2 account: everything it holds to the wallet in one transaction. */
   withdrawLegacyAll(): void;
   claimLegacy(asset: Asset): void;
-  arm(): void;
+  /** Step 0 (2026-10-12, A-90): with an account, the owner's choice of the one the agent manages. */
+  arm(account?: ManagedAccount): void;
   /** F-U10: registers the grant when needed, then starts the activation sweep. */
-  turnOn(): void;
+  turnOn(account?: ManagedAccount): void;
   disarm(): void;
   approve(intentId: string): void;
   reject(intentId: string): void;
@@ -531,8 +534,11 @@ export function usePortfolio(agentId: bigint, environment: EnvironmentId): Portf
   const armingDeps = useCallback(
     (token: string) => ({
       checkNetwork,
-      getArming: () => tradingApi.raw(agentId, "arming", "GET", token),
-      confirmArming: () => tradingApi.raw(agentId, "arming", "POST", token),
+      // Step 0 (2026-10-12, A-90): the account the agent manages travels with the grant's read and record.
+      getArming: (account?: ManagedAccount) =>
+        tradingApi.raw(agentId, "arming", "GET", token, account ? { query: { account } } : {}),
+      confirmArming: (account?: ManagedAccount) =>
+        tradingApi.raw(agentId, "arming", "POST", token, account ? { body: { account } } : {}),
       disarm: () => tradingApi.raw(agentId, "disarm", "POST", token),
       startActivation: () => tradingApi.raw(agentId, "activation", "POST", token),
       // The grant or revoke is simulated from the wallet's address first, so a refusal names the
@@ -562,7 +568,7 @@ export function usePortfolio(agentId: bigint, environment: EnvironmentId): Portf
   );
 
   const runArming = useCallback(
-    (action: "arm" | "turn-on" | "disarm") => {
+    (action: "arm" | "turn-on" | "disarm", account?: ManagedAccount) => {
       if (running.current) return;
       running.current = true;
       const done =
@@ -579,9 +585,9 @@ export function usePortfolio(agentId: bigint, environment: EnvironmentId): Portf
           await asOwner(async (token) => {
             const deps = armingDeps(token);
             await (action === "arm"
-              ? runArm(deps, report)
+              ? runArm(deps, report, account)
               : action === "turn-on"
-                ? runTurnOn(deps, armingState, report)
+                ? runTurnOn(deps, armingState, report, account)
                 : runDisarm(deps, report));
           });
         } catch (err) {
@@ -683,8 +689,8 @@ export function usePortfolio(agentId: bigint, environment: EnvironmentId): Portf
     claimToken,
     withdrawLegacyAll,
     claimLegacy,
-    arm: useCallback(() => runArming("arm"), [runArming]),
-    turnOn: useCallback(() => runArming("turn-on"), [runArming]),
+    arm: useCallback((account?: ManagedAccount) => runArming("arm", account), [runArming]),
+    turnOn: useCallback((account?: ManagedAccount) => runArming("turn-on", account), [runArming]),
     disarm: useCallback(() => runArming("disarm"), [runArming]),
     approve: useCallback((id: string) => decide("approve", id), [decide]),
     reject: useCallback((id: string) => decide("reject", id), [decide]),

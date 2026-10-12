@@ -1,6 +1,12 @@
 import { ENVIRONMENTS } from "@alpha-agents/config";
 import { createTestDatabase, databaseAvailable, type TestDatabase } from "@alpha-agents/db/testing";
-import { CLAIM_TYPES, DEFAULT_GOAL_INPUT, SPECIES, claimDomain } from "@alpha-agents/domain";
+import {
+  CLAIM_TYPES,
+  DEFAULT_GOAL_INPUT,
+  SPECIES,
+  claimDomain,
+  managedAccountOf,
+} from "@alpha-agents/domain";
 import {
   ActivationStore,
   type AgentChainView,
@@ -971,6 +977,150 @@ describe.skipIf(!available)("the control API (needs pnpm dev:up for Postgres)", 
         expect((await json(await owner(session, "/v1/agents/2/arming"))).arming).toMatchObject({
           state: "armed",
           firstIntentId: id,
+        });
+      });
+
+      describe("the account the agent manages (Step 0, 2026-10-12; A-90)", () => {
+        const VAULT = getAddress("0x00000000000000000000000000000000000a0a0a");
+        const PERSONAL = getAddress("0x00000000000000000000000000000000000b0b0b");
+        const EXECUTOR_V3 = "0x00000000000000000000000000000000000e0ec3" as Address;
+        const trades = () => new TradeStore(t.db, () => new Date(now));
+        // The reader resolves the account from the store's choice, as main.ts wires the real one.
+        const v3 = {
+          executor: EXECUTOR_V3,
+          reader: {
+            agent: async (id: number) => {
+              const v = views.get(id);
+              if (!v) return null;
+              const r = managedAccountOf({
+                vault: v.vault ?? null,
+                personal: v.personalAccount ?? null,
+                choice: await trades().managedAccount(env.chainId, id),
+              });
+              return { ...v, isVault: r.isVault, managed: r.managed };
+            },
+          },
+          paths: { custodyPath: async () => "v3" as const },
+          portfolio: { portfolio: async () => null },
+        };
+        const asOwner = (
+          session: string,
+          path: string,
+          method = "GET",
+          body?: Record<string, unknown>,
+        ) =>
+          call(
+            path,
+            {
+              method,
+              headers: {
+                "x-owner-session": session,
+                ...(body ? { "content-type": "application/json" } : {}),
+              },
+              ...(body ? { body: JSON.stringify(body) } : {}),
+            },
+            { trading: { ...trading, v3 } },
+          );
+        const decodeGrant = (data: Hex) =>
+          decodeFunctionData({
+            abi: parseAbi([
+              "function registerSession(uint256 agentId, address key, uint64 validUntil)",
+              "function registerVaultSession(uint256 agentId, address key)",
+            ]),
+            data,
+          });
+        beforeEach(async () => {
+          await t.db.deleteFrom("platform.managed_accounts").execute();
+        });
+
+        it("builds the vault's grant without expiry once the agent has a vault, and the 30-day grant for the personal account on request", async () => {
+          const session = await bobSession();
+          grant();
+          const view = views.get(2);
+          if (view) views.set(2, { ...view, vault: VAULT, personalAccount: PERSONAL });
+          const byDefault = await json(await asOwner(session, "/v1/agents/2/arming"));
+          expect(byDefault).toMatchObject({
+            vault: true,
+            maxGrantDays: null,
+            accounts: { vault: VAULT, personal: PERSONAL, managed: "vault", chosen: null },
+          });
+          expect(decodeGrant((byDefault.grantCall as { data: Hex }).data)).toMatchObject({
+            functionName: "registerVaultSession",
+            args: [2n, FUNDING],
+          });
+          const personal = await json(
+            await asOwner(session, "/v1/agents/2/arming?account=personal"),
+          );
+          expect(personal).toMatchObject({
+            vault: false,
+            maxGrantDays: 30,
+            accounts: { managed: "personal", chosen: null },
+          });
+          expect(decodeGrant((personal.grantCall as { data: Hex }).data).functionName).toBe(
+            "registerSession",
+          );
+          const bad = await asOwner(session, "/v1/agents/2/arming?account=both");
+          expect([bad.status, (await json(bad)).error]).toEqual([400, "bad_account"]);
+        });
+
+        it("refuses a choice the agent cannot honour, naming what to do", async () => {
+          const session = await bobSession();
+          grant();
+          const view = views.get(2);
+          if (view) views.set(2, { ...view, vault: null, personalAccount: PERSONAL });
+          const noVault = await asOwner(session, "/v1/agents/2/arming?account=vault");
+          const noVaultBody = await json(noVault);
+          expect([noVault.status, noVaultBody.error]).toEqual([409, "no_vault"]);
+          expect(noVaultBody.message).toMatch(/Create it from the vault page first/);
+          if (view) views.set(2, { ...view, vault: VAULT, personalAccount: null });
+          const noPersonal = await asOwner(session, "/v1/agents/2/arming", "POST", {
+            account: "personal",
+          });
+          const noPersonalBody = await json(noPersonal);
+          expect([noPersonal.status, noPersonalBody.error]).toEqual([409, "no_personal_account"]);
+          expect(await trades().managedAccount(env.chainId, 2)).toBeNull();
+        });
+
+        it("records the choice with the arming, and the grant is then judged for that account", async () => {
+          const session = await bobSession();
+          // The owner chose the personal account: its timed grant is on chain.
+          grant();
+          const v = views.get(2);
+          if (v) views.set(2, { ...v, vault: VAULT, personalAccount: PERSONAL });
+          const chosePersonal = await asOwner(session, "/v1/agents/2/arming", "POST", {
+            account: "personal",
+          });
+          expect(chosePersonal.status).toBe(201);
+          expect(await json(chosePersonal)).toMatchObject({
+            managed: "personal",
+            arming: { state: "awaiting_first_trade" },
+          });
+          expect(await trades().managedAccount(env.chainId, 2)).toBe("personal");
+          expect(
+            (await json(await asOwner(session, "/v1/agents/2/arming"))).accounts,
+          ).toMatchObject({ managed: "personal", chosen: "personal" });
+          // Then the vault: the wallet registered the grant without expiry.
+          grant({ validUntil: 9_007_199_254_740_991n });
+          const v2 = views.get(2);
+          if (v2) views.set(2, { ...v2, vault: VAULT, personalAccount: PERSONAL });
+          const choseVault = await asOwner(session, "/v1/agents/2/arming", "POST", {
+            account: "vault",
+          });
+          // The same key, owner and epochs: the open arming is renewed in place with no expiry.
+          expect(choseVault.status).toBe(200);
+          expect(await json(choseVault)).toMatchObject({
+            managed: "vault",
+            renewed: true,
+            arming: { state: "awaiting_first_trade", noExpiry: true, validUntilDate: null },
+          });
+          expect(await trades().managedAccount(env.chainId, 2)).toBe("vault");
+          // A grant without expiry on an agent managing its personal account is refused (P7-U2).
+          const wrong = await asOwner(session, "/v1/agents/2/arming", "POST", {
+            account: "personal",
+          });
+          const wrongBody = await json(wrong);
+          expect([wrong.status, wrongBody.error]).toEqual([409, "grant_invalid"]);
+          expect(wrongBody.message).toMatch(/vault only/);
         });
       });
 

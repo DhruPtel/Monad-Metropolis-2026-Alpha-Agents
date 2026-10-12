@@ -1,4 +1,9 @@
-import type { ArmingEndReason, ArmingState, CustodyPath } from "@alpha-agents/domain";
+import type {
+  ArmingEndReason,
+  ArmingState,
+  CustodyPath,
+  ManagedAccount,
+} from "@alpha-agents/domain";
 import { type Hex, isAddressEqual } from "viem";
 
 /**
@@ -43,6 +48,11 @@ export interface AgentChainView {
   readonly timestamp: bigint;
   /** P7-U2: the agent's trading account is its StrategyVault, whose grant has no fixed expiry (D-241). */
   readonly isVault?: boolean;
+  /** Step 0 (2026-10-12, A-90): the agent's vault and personal account, where the reader knows them. */
+  readonly vault?: Hex | null;
+  readonly personalAccount?: Hex | null;
+  /** Which kind of account is managed: the owner's choice, or the vault once it exists. */
+  readonly managed?: ManagedAccount;
 }
 
 export type ArmingStatus = "awaiting_first_trade" | "armed" | "ended";

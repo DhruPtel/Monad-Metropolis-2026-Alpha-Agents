@@ -114,6 +114,7 @@ export function fixtureInputs(f: PlanFixture = loadPlanFixture()): TestInputsV2 
     configEpoch: 0n,
     account: "0x00000000000000000000000000000000000ac003",
     isVault: false,
+    managed: "personal",
     vault: null,
     personalAccount: null,
     v2Account: null,

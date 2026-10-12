@@ -5,7 +5,12 @@ import {
 } from "@alpha-agents/accounting";
 import type { Environment } from "@alpha-agents/config";
 import type { Db } from "@alpha-agents/db";
-import type { AgentNftDeployment, CustodyPath } from "@alpha-agents/domain";
+import {
+  type AgentNftDeployment,
+  type CustodyPath,
+  type ManagedAccount,
+  isManagedAccount,
+} from "@alpha-agents/domain";
 import { type Context, Hono } from "hono";
 import {
   type ProposalDeps,
@@ -23,6 +28,7 @@ import { type Address, type Hex, getAddress, isAddress, isAddressEqual } from "v
 import { translateGoal } from "@alpha-agents/policy";
 import {
   ActivationStore,
+  type AgentChainView,
   type AgentViewReader,
   type CustodyPathReader,
   GoalStore,
@@ -180,6 +186,9 @@ export type ApiError =
   | "not_armed"
   | "not_waiting"
   | "grant_invalid"
+  | "bad_account"
+  | "no_vault"
+  | "no_personal_account"
   | "no_funding_address"
   | "goal_refused"
   | Eligibility;
@@ -655,8 +664,42 @@ export function createApp(deps: ApiDeps): Hono {
   }
 
   /**
+   * Step 0 (2026-10-12, A-90): the account the agent will manage under the
+   * grant, from the owner's request (`?account=` or the body), the stored
+   * choice, or the default (the vault once it exists). Refuses a choice the
+   * agent cannot honour, naming what to do.
+   */
+  function managedChoice(
+    c: Context,
+    view: AgentChainView | null,
+    requested: unknown,
+  ): { managed: ManagedAccount; chosen: ManagedAccount | null } | Response {
+    if (requested !== undefined && requested !== null && !isManagedAccount(requested))
+      return fail(c, 400, "bad_account", 'The account is "vault" or "personal".');
+    const chosen = isManagedAccount(requested) ? requested : null;
+    if (chosen === "vault" && !view?.vault)
+      return fail(
+        c,
+        409,
+        "no_vault",
+        "This agent has no vault yet. Create it from the vault page first, then turn on automatic trading for it.",
+      );
+    if (chosen === "personal" && !view?.personalAccount)
+      return fail(
+        c,
+        409,
+        "no_personal_account",
+        "This agent has no personal trading account yet. Set up trading first, then choose it.",
+      );
+    return { managed: chosen ?? view?.managed ?? "personal", chosen };
+  }
+
+  /**
    * The agent's arming for its owner, and the wallet call that arms it: a
-   * session grant to the agent's funding address for at most 30 days.
+   * session grant to the agent's funding address for at most 30 days, or the
+   * vault's grant without expiry (D-241) when the agent manages its vault.
+   * `?account=vault|personal` builds the call for that choice (Step 0,
+   * 2026-10-12); the choice itself is recorded by the POST.
    */
   app.get("/v1/agents/:id{[0-9]+}/arming", async (c) => {
     const agentId = BigInt(c.req.param("id"));
@@ -671,8 +714,10 @@ export function createApp(deps: ApiDeps): Hono {
     const view = path ? await path.reader.agent(id) : null;
     const chainNow = Number(view?.timestamp ?? nowSeconds());
     const validUntil = BigInt(chainNow + MAX_GRANT_SECONDS - 60);
+    const choice = managedChoice(c, view, c.req.query("account"));
+    if (choice instanceof Response) return choice;
     // P7-U2 (D-241): an agent whose trading account is its vault gets the grant without expiry.
-    const vault = path?.custody === "v3" && view?.isVault === true;
+    const vault = path?.custody === "v3" && choice.managed === "vault";
     return c.json({
       ...(await meta()),
       agentId: agentId.toString(),
@@ -680,6 +725,13 @@ export function createApp(deps: ApiDeps): Hono {
       fundingAddress: funding,
       custody: path?.custody ?? null,
       vault,
+      // Step 0 (2026-10-12): both accounts, and which one the grant would serve.
+      accounts: {
+        vault: view?.vault ?? null,
+        personal: view?.personalAccount ?? null,
+        managed: choice.managed,
+        chosen: await trades.managedAccount(chainId, id),
+      },
       grantCall:
         path && funding
           ? vault
@@ -690,7 +742,12 @@ export function createApp(deps: ApiDeps): Hono {
     });
   });
 
-  /** The owner's wallet registered the grant: check it on chain and record the arming. */
+  /**
+   * The owner's wallet registered the grant: check it on chain and record the
+   * arming. `{ "account": "vault" | "personal" }` records which account the
+   * agent manages from now on (Step 0, 2026-10-12); the grant is then judged
+   * for that account.
+   */
   app.post("/v1/agents/:id{[0-9]+}/arming", async (c) => {
     const agentId = BigInt(c.req.param("id"));
     const owner = await ownerOnly(c, agentId);
@@ -700,6 +757,16 @@ export function createApp(deps: ApiDeps): Hono {
       return fail(c, 503, "not_deployed", `Trading is not deployed on ${deps.environment.label}.`);
     const id = Number(agentId);
     const path = await pathOf(t, id);
+    const body = (await c.req.json().catch(() => null)) as { account?: unknown } | null;
+    const choice = managedChoice(c, await path.reader.agent(id), body?.account);
+    if (choice instanceof Response) return choice;
+    if (choice.chosen)
+      await trades.setManagedAccount({
+        chainId,
+        agentId: id,
+        account: choice.chosen,
+        chosenBy: owner.wallet,
+      });
     const r = await confirmArming(trades, await path.reader.agent(id), {
       chainId,
       agentId: id,
@@ -714,6 +781,7 @@ export function createApp(deps: ApiDeps): Hono {
         agentId: agentId.toString(),
         renewed: r.renewed,
         arming: armingJson(r.record, nowSeconds()),
+        managed: choice.managed,
       },
       r.renewed ? 200 : 201,
     );

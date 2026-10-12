@@ -55,6 +55,7 @@ const PX = 25_000_000_000_000_000n;
 
 const GRANT_ABI = parseAbi([
   "function registerSession(uint256 agentId, address key, uint64 validUntil)",
+  "function registerVaultSession(uint256 agentId, address key)",
   "function revokeSession(uint256 agentId)",
 ]);
 
@@ -926,6 +927,16 @@ export class FakeTrading {
   portfolioV3: PortfolioV3Json | null = null;
   /** Extra blocked reasons beyond the intents' own (for example NOT_ARMED). */
   readonly calls: string[] = [];
+  /**
+   * Step 0 (2026-10-12, A-90): the agent's accounts as the arming read serves
+   * them, and the owner's stored choice; a vault makes the page ask which
+   * account to manage, and the vault's grant is the one without expiry.
+   */
+  accounts: {
+    vault: Address | null;
+    personal: Address | null;
+    chosen: "vault" | "personal" | null;
+  } = { vault: null, personal: ACCOUNT, chosen: null };
   private readonly owner: Address;
 
   constructor(chain: FakeChain, owner: Address, portfolio = portfolioFixture(owner)) {
@@ -944,6 +955,13 @@ export class FakeTrading {
         ...this.planCard,
         pending: proposalFixture({ proposalId: next.proposalId }),
       };
+  }
+
+  /** The account the grant would serve: the request, the stored choice, or the vault once it exists (A-90). */
+  managedAccount(requested: string | null): "vault" | "personal" {
+    const choice =
+      requested === "vault" || requested === "personal" ? requested : this.accounts.chosen;
+    return this.accounts.vault && choice !== "personal" ? "vault" : "personal";
   }
 
   arm(state: ArmingJson["state"], over: Partial<ArmingJson> = {}) {
@@ -1187,6 +1205,8 @@ export class FakeTrading {
     rest: string,
     method: string,
     query: URLSearchParams = new URLSearchParams(),
+    /** Step 0 (2026-10-12): a POST's JSON body, where the page sends one. */
+    body: Record<string, unknown> | null = null,
   ): { status: number; body: unknown } | null {
     const agentId = id.toString();
     if (rest === "research" && method === "GET")
@@ -1367,26 +1387,46 @@ export class FakeTrading {
       this.activation = { ...this.activation, activation: first };
       return { status: 202, body: { agentId, activation: first } };
     }
-    if (rest === "arming" && method === "GET")
+    if (rest === "arming" && method === "GET") {
+      const requested = query.get("account");
+      if (requested === "vault" && !this.accounts.vault)
+        return {
+          status: 409,
+          body: { error: "no_vault", message: "This agent has no vault yet." },
+        };
+      const managed = this.managedAccount(requested);
       return {
         status: 200,
         body: {
           arming: this.arming,
           fundingAddress: FUNDING,
+          accounts: { ...this.accounts, managed },
           grantCall: {
             to: EXECUTOR,
-            data: encodeFunctionData({
-              abi: GRANT_ABI,
-              functionName: "registerSession",
-              args: [id, FUNDING, BigInt(NOW + 30 * 86_400 - 60)],
-            }),
+            data:
+              managed === "vault"
+                ? encodeFunctionData({
+                    abi: GRANT_ABI,
+                    functionName: "registerVaultSession",
+                    args: [id, FUNDING],
+                  })
+                : encodeFunctionData({
+                    abi: GRANT_ABI,
+                    functionName: "registerSession",
+                    args: [id, FUNDING, BigInt(NOW + 30 * 86_400 - 60)],
+                  }),
             value: "0",
           },
-          maxGrantDays: 30,
+          maxGrantDays: managed === "vault" ? null : 30,
         },
       };
+    }
     if (rest === "arming" && method === "POST") {
-      if (!this.calls.includes("registerSession"))
+      const chosen = body?.account;
+      if (chosen === "vault" || chosen === "personal") this.accounts.chosen = chosen;
+      const managed = this.managedAccount(null);
+      const expected = managed === "vault" ? "registerVaultSession" : "registerSession";
+      if (!this.calls.includes(expected))
         return {
           status: 409,
           body: {
@@ -1394,8 +1434,11 @@ export class FakeTrading {
             message: "No trading permission is registered for this agent yet.",
           },
         };
-      this.arm("awaiting_first_trade");
-      return { status: 201, body: { agentId, renewed: false, arming: this.arming } };
+      this.arm(
+        "awaiting_first_trade",
+        managed === "vault" ? { validUntil: null, validUntilDate: null } : {},
+      );
+      return { status: 201, body: { agentId, renewed: false, arming: this.arming, managed } };
     }
     if (rest === "disarm" && method === "POST") {
       this.arming = {

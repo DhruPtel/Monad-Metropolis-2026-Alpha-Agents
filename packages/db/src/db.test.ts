@@ -38,6 +38,7 @@ describe.skipIf(!available)("database migrations (needs pnpm dev:up)", () => {
       "platform.intents",
       "platform.ledger_entries",
       "platform.ledger_lines",
+      "platform.managed_accounts",
       "platform.mint_allowlist",
       "platform.mint_claims",
       "platform.model_calls",

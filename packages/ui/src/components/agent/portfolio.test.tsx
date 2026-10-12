@@ -1,8 +1,9 @@
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import {
   ApprovalCard,
   ArmingCard,
+  ManagedAccountChoice,
   CapsPanel,
   PositionsPanel,
   type PositionsView,
@@ -114,6 +115,63 @@ describe("portfolio components (P2-U7)", () => {
     expect(screen.getByTestId("arming-card").textContent).toContain(
       "Last arming ended: The agent changed hands",
     );
+  });
+
+  it("says which account the agent manages, and that a vault grant has no fixed expiry (Step 0, 2026-10-12)", () => {
+    const { unmount } = render(
+      <ArmingCard
+        agentName="Alpha Agent #7"
+        arming={{
+          state: "armed",
+          validUntilDate: null,
+          renewalDue: false,
+          endedMessage: null,
+          fundingAddress: "0x9F8e2B1C0d3a4E5f60718293A4B5c6D7E8f90a1B",
+          managed: "vault",
+        }}
+      />,
+    );
+    const managed = screen.getByTestId("managed-account");
+    expect(managed.textContent).toContain("Manages its vault");
+    expect(managed.textContent).toContain("no fixed expiry");
+    expect(screen.getByTestId("arming-card").textContent).toContain("has no fixed expiry");
+    unmount();
+    render(
+      <ArmingCard
+        agentName="Alpha Agent #7"
+        arming={{
+          state: "unarmed",
+          validUntilDate: null,
+          renewalDue: false,
+          endedMessage: null,
+          fundingAddress: null,
+          managed: "personal",
+        }}
+      />,
+    );
+    expect(screen.getByTestId("managed-account").textContent).toContain(
+      "Will manage your personal account",
+    );
+  });
+
+  it("offers the vault and the personal account, and cannot choose one that does not exist (Step 0, 2026-10-12)", () => {
+    const chosen: string[] = [];
+    render(
+      <ManagedAccountChoice
+        value="vault"
+        onValueChange={(v) => chosen.push(v)}
+        vault={{ address: "0x6A5b3C9d2E1f4a7B8c9D0e1F2a3B4c5D6e7F8091" }}
+        personal={null}
+      />,
+    );
+    const options = screen.getAllByRole("radio");
+    expect(options.map((o) => o.getAttribute("aria-checked"))).toEqual(["true", "false"]);
+    expect(options[1]).toBeDisabled();
+    expect(screen.getByTestId("managed-account-choice").textContent).toContain(
+      "Not set up yet: set up trading first.",
+    );
+    fireEvent.click(options[1] as HTMLElement);
+    expect(chosen).toEqual([]);
   });
 
   it("renders every financial field of the approval card from the intent", () => {

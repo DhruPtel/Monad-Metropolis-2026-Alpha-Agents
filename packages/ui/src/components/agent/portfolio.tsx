@@ -3,6 +3,8 @@ import {
   type AccountMode,
   INTENT_STATES,
   type IntentState,
+  MANAGED_ACCOUNT_WORDS,
+  type ManagedAccount,
   REJECTION_CODES,
   type RejectionCode,
   TRADE_FLOW_CODES,
@@ -13,6 +15,7 @@ import { CircleAlert, CircleCheck, Hourglass, LoaderCircle, Wallet } from "lucid
 import type { ReactNode } from "react";
 import { cn } from "../../lib/utils";
 import { AddressDisplay } from "../address-display";
+import { ChoiceGroup } from "../ui/choice-group";
 import { AmountDisplay } from "../amount-display";
 import { ReasonMessage } from "../reason-message";
 import { StatBar } from "../stat-bar";
@@ -235,7 +238,78 @@ export interface ArmingView {
   readonly endedMessage: string | null;
   /** The key the grant names: the agent's funding address. */
   readonly fundingAddress: string | null;
+  /**
+   * Step 0 (2026-10-12, A-90): which account the agent manages when it has a
+   * vault (the owner's choice, or the vault by default); null or absent when
+   * it has no vault, so there is nothing to choose.
+   */
+  readonly managed?: ManagedAccount | null;
 }
+
+/** One of the agent's accounts as the choice shows it (Step 0, 2026-10-12). */
+export interface ManagedAccountOption {
+  readonly address: string;
+}
+
+/**
+ * The owner's choice of the account the agent manages (Step 0, 2026-10-12,
+ * A-90): its vault (depositors' money; the permission without expiry, D-241)
+ * or the personal account (the owner's own money; a 30-day permission). An
+ * account that does not exist yet is shown but cannot be chosen, with what to
+ * do first. A ChoiceGroup, so arrow keys move the choice.
+ */
+function ManagedAccountChoice({
+  value,
+  onValueChange,
+  vault,
+  personal,
+  disabled = false,
+  className,
+}: {
+  value: ManagedAccount;
+  onValueChange: (value: ManagedAccount) => void;
+  vault: ManagedAccountOption | null;
+  personal: ManagedAccountOption | null;
+  disabled?: boolean;
+  className?: string;
+}) {
+  return (
+    <div data-testid="managed-account-choice" className={className}>
+      <ChoiceGroup<ManagedAccount>
+        legend="Which account should the agent manage?"
+        hint="To change it later, turn automatic trading off and on again."
+        value={value}
+        onValueChange={onValueChange}
+        columns={2}
+        disabled={disabled}
+        options={[
+          {
+            value: "vault",
+            title: MANAGED_ACCOUNT_WORDS.vault.title,
+            description: MANAGED_ACCOUNT_WORDS.vault.detail,
+            detail: vault
+              ? shortAddress(vault.address)
+              : "Not created yet: create it from the vault page first.",
+            disabled: vault === null,
+            ...(vault === null ? { note: "Not created yet" } : {}),
+          },
+          {
+            value: "personal",
+            title: MANAGED_ACCOUNT_WORDS.personal.title,
+            description: MANAGED_ACCOUNT_WORDS.personal.detail,
+            detail: personal
+              ? shortAddress(personal.address)
+              : "Not set up yet: set up trading first.",
+            disabled: personal === null,
+            ...(personal === null ? { note: "Not set up yet" } : {}),
+          },
+        ]}
+      />
+    </div>
+  );
+}
+
+const shortAddress = (a: string) => `${a.slice(0, 6)}…${a.slice(-4)}`;
 
 const ARMING_TEXT: Readonly<Record<ArmingState, string>> = {
   unarmed:
@@ -289,9 +363,21 @@ function ArmingCard({
           {a.renewalDue ? <Badge tone="warning">Ends soon: renew to keep trading</Badge> : null}
         </p>
       ) : null}
+      {a.managed ? (
+        <p className="text-sm" data-testid="managed-account">
+          <span className="text-foreground-muted">
+            {a.state === "unarmed" ? "Will manage" : "Manages"}
+          </span>{" "}
+          <span className="font-medium">
+            {a.managed === "vault" ? "its vault" : "your personal account"}
+          </span>
+          <span className="text-foreground-muted">: {MANAGED_ACCOUNT_WORDS[a.managed].detail}</span>
+        </p>
+      ) : null}
       {a.fundingAddress ? (
         <p className="flex flex-wrap items-center gap-2 text-xs text-foreground-muted">
-          The permission names {agentName}&apos;s funding address, and lasts at most 30 days:
+          The permission names {agentName}&apos;s funding address
+          {a.managed === "vault" ? " and has no fixed expiry" : ", and lasts at most 30 days"}:
           <AddressDisplay address={a.fundingAddress} label={`Funding address of ${agentName}`} />
         </p>
       ) : null}
@@ -875,6 +961,7 @@ export {
   PortfolioOverview,
   ApprovalCard,
   ArmingCard,
+  ManagedAccountChoice,
   CapsPanel,
   PositionsPanel,
   RecentTrades,

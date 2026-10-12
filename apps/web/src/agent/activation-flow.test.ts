@@ -58,6 +58,25 @@ describe("turning automatic trading on (F-U10)", () => {
     expect(d.starts).toBe(1);
   });
 
+  it("passes the chosen account to the grant before the sweep (Step 0, 2026-10-12)", async () => {
+    const asked: (string | undefined)[] = [];
+    const d = deps({
+      getArming: async (account) => {
+        asked.push(account);
+        return { status: 200, body: { grantCall: GRANT } };
+      },
+      confirmArming: async (account) => {
+        asked.push(account);
+        return { status: 201, body: { arming: { state: "awaiting_first_trade" } } };
+      },
+    });
+    const seen: TurnOnProgress[] = [];
+    const result = await runTurnOn(d, "unarmed", (p) => seen.push(p), "personal");
+    expect(result.state).toBe("started");
+    expect(asked).toEqual(["personal", "personal"]);
+    expect(d.starts).toBe(1);
+  });
+
   it("skips the grant when the permission is already on chain", async () => {
     const d = deps();
     const { states } = await run(d, "awaiting_first_trade");

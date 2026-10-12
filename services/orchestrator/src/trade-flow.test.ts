@@ -70,6 +70,7 @@ class FakeChainV3 implements ChainReaderV3 {
       configEpoch: 0n,
       account: ACCOUNT_V3,
       isVault: false,
+      managed: "personal",
       vault: null,
       personalAccount: null,
       v2Account: null,

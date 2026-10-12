@@ -64,6 +64,25 @@ describe.skipIf(!dbUp)("the trade store (needs Postgres)", { timeout: 60_000 }, 
     ...over,
   });
 
+  it("keeps the owner's choice of the account the agent manages, one per agent, the latest winning (Step 0, 2026-10-12)", async () => {
+    expect(await store.managedAccount(CHAIN, 1)).toBeNull();
+    await store.setManagedAccount({
+      chainId: CHAIN,
+      agentId: 1,
+      account: "vault",
+      chosenBy: OWNER,
+    });
+    expect(await store.managedAccount(CHAIN, 1)).toBe("vault");
+    await store.setManagedAccount({
+      chainId: CHAIN,
+      agentId: 1,
+      account: "personal",
+      chosenBy: OWNER,
+    });
+    expect(await store.managedAccount(CHAIN, 1)).toBe("personal");
+    expect(await store.managedAccount(CHAIN, 2)).toBeNull();
+  });
+
   it("starts an arming awaiting its first trade, renews it in place, and replaces a different one", async () => {
     const { record, renewed } = await store.startArming(grant());
     expect(renewed).toBe(false);

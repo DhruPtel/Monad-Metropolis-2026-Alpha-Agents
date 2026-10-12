@@ -74,6 +74,7 @@ const agent = (over: Partial<AgentStateV3> = {}): AgentStateV3 => ({
   configEpoch: 0n,
   account: "0x00000000000000000000000000000000000ac003",
   isVault: false,
+  managed: "personal",
   vault: null,
   personalAccount: null,
   v2Account: null,

@@ -12,6 +12,7 @@ import { orchestratorActivation } from "./activation.ts";
 import { orchestratorWindow } from "./window.ts";
 import { orchestratorResearch } from "./research.ts";
 import {
+  TradeStore,
   rpcAgentViewReader,
   rpcCustodyPathReader,
   rpcHoldingsReader,
@@ -150,12 +151,17 @@ const v3 =
   factoryEntry.status === "verified"
     ? {
         executor: executorV3Entry.address as Hex,
-        reader: rpcAgentViewReader(rpcUrl, {
-          agentNft: deployment.address,
-          executor: executorV3Entry.address as Hex,
-          // P7-U2: an agent with a vault arms it with the grant without expiry (D-241).
-          accountFactoryV3: factoryV3Entry.address as Hex,
-        }),
+        reader: rpcAgentViewReader(
+          rpcUrl,
+          {
+            agentNft: deployment.address,
+            executor: executorV3Entry.address as Hex,
+            // P7-U2: an agent with a vault arms it with the grant without expiry (D-241).
+            accountFactoryV3: factoryV3Entry.address as Hex,
+          },
+          // Step 0 (2026-10-12, A-90): unless its owner chose the personal account.
+          { managedAccount: (agentId) => new TradeStore(db).managedAccount(env.chainId, agentId) },
+        ),
         paths: rpcCustodyPathReader(rpcUrl, {
           agentNft: deployment.address,
           accountFactory: factoryEntry.address as Hex,

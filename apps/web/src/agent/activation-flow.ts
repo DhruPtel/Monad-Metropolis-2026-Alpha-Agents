@@ -1,3 +1,4 @@
+import type { ManagedAccount } from "@alpha-agents/domain";
 import { type ArmingFlowDeps, type ArmingProgress, runArm } from "./arming-flow";
 
 /**
@@ -27,13 +28,15 @@ export async function runTurnOn(
   /** The agent's arming now: unarmed registers the grant first. */
   armingState: "unarmed" | "awaiting_first_trade" | "armed",
   report: (p: TurnOnProgress) => void,
+  /** Step 0 (2026-10-12, A-90): which account the agent manages, when the owner chose one. */
+  account?: ManagedAccount,
 ): Promise<TurnOnProgress> {
   const finish = (p: TurnOnProgress) => {
     report(p);
     return p;
   };
   if (armingState === "unarmed") {
-    const armed = await runArm(deps, report);
+    const armed = await runArm(deps, report, account);
     if (armed.state !== "awaiting-first-trade") return armed;
   }
   report({ state: "starting" });

@@ -48,6 +48,7 @@ import {
 import {
   type CustodyPath,
   INTENT_SCHEMA_VERSION_V3,
+  type ManagedAccount,
   ROUTE_ADAPTER_ID,
   executorV3SwapGasLimit,
 } from "@alpha-agents/domain";
@@ -1022,6 +1023,43 @@ export class Orchestrator {
     if (custody === "v3" && v3) return { custody, executor: v3.executorAddress };
     // The v2 Executor is the environment's one and only; its armings record no address.
     return { custody: "v2", executor: null };
+  }
+
+  /**
+   * Step 0 (2026-10-12, A-90): records which of its accounts the agent manages
+   * when the owner chooses one, and says which is in force: the choice, or
+   * the vault once it exists. A choice the agent cannot honour is refused.
+   */
+  async chooseManagedAccount(
+    ref: AgentRef,
+    owner: Hex,
+    choice: ManagedAccount | null,
+  ): Promise<
+    | { ok: true; account: ManagedAccount }
+    | { ok: false; error: "no_vault" | "no_personal_account"; message: string }
+  > {
+    const v3 = this.o.chain?.readerV3;
+    const view = v3 ? await v3.agent(ref.agentId) : null;
+    if (choice === "vault" && !view?.vault)
+      return {
+        ok: false,
+        error: "no_vault",
+        message: "This agent has no vault yet. Create it from the vault page first.",
+      };
+    if (choice === "personal" && !view?.personalAccount)
+      return {
+        ok: false,
+        error: "no_personal_account",
+        message: "This agent has no personal trading account yet. Set up trading first.",
+      };
+    if (choice)
+      await this.trades.setManagedAccount({
+        chainId: ref.chainId,
+        agentId: ref.agentId,
+        account: choice,
+        chosenBy: owner,
+      });
+    return { ok: true, account: choice ?? view?.managed ?? "personal" };
   }
 
   /** Records the owner's grant once it is on chain (the console's arm, after its wallet call). */

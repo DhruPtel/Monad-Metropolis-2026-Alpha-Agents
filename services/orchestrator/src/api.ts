@@ -1,8 +1,12 @@
 import { type MarketData, type ResearchSources, cleanText } from "@alpha-agents/market";
 import { SCAN_MIN_CREDITS_USDC_E6 } from "@alpha-agents/accounting";
 import { sql } from "@alpha-agents/db";
-import { SPECIES, TIER_IDS } from "@alpha-agents/domain";
-import { revokeTestSessionGrant, registerTestSessionGrant } from "@alpha-agents/devenv";
+import { SPECIES, TIER_IDS, isManagedAccount } from "@alpha-agents/domain";
+import {
+  registerTestSessionGrant,
+  registerTestVaultGrant,
+  revokeTestSessionGrant,
+} from "@alpha-agents/devenv";
 import { armingJson, intentJson } from "@alpha-agents/trading";
 import { Hono } from "hono";
 import { RefundOpenError } from "./credits/refunds.ts";
@@ -855,17 +859,28 @@ export function createApi(o: ApiOptions): Hono {
     /**
      * P2-U6: arm the agent as its owner would: the owner's wallet registers a
      * session grant to the funding address (impersonated on the local fork),
-     * then the grant is checked on chain and recorded. `{ "days"?: 1..30 }`.
+     * then the grant is checked on chain and recorded. `{ "days"?: 1..30,
+     * "account"?: "vault" | "personal" }`: the account names which of its
+     * accounts the agent manages from now on (Step 0, 2026-10-12, A-90); for
+     * the vault the grant is the one without expiry (D-241).
      */
     app.post("/v1/agents/:agentId/arm", async (c) => {
       const ref = agentRef(c.req.param("agentId"), o.chainId);
       if (!ref) return c.json({ error: "bad_agent_id" }, 400);
       if (!o.forkUrl)
         return c.json({ error: "no_fork", message: "Arming here needs the local fork." }, 409);
-      const body = (await c.req.json().catch(() => null)) as { days?: unknown } | null;
+      const body = (await c.req.json().catch(() => null)) as {
+        days?: unknown;
+        account?: unknown;
+      } | null;
       const days = body?.days === undefined ? 30 : Number(body.days);
       if (!Number.isInteger(days) || days < 1 || days > 30)
         return c.json({ error: "bad_days", message: "A grant lasts 1 to 30 days." }, 400);
+      if (body?.account !== undefined && !isManagedAccount(body.account))
+        return c.json(
+          { error: "bad_account", message: 'The account is "vault" or "personal".' },
+          400,
+        );
       const [owner, funding] = await Promise.all([
         o.orchestrator.chainOwner(ref.agentId),
         o.orchestrator.fundingAddress(ref),
@@ -885,18 +900,31 @@ export function createApi(o: ApiOptions): Hono {
         );
       // The grant goes on the Executor of the agent's custody set (D-367).
       const { executor } = await o.orchestrator.executorFor(ref.agentId);
-      await registerTestSessionGrant(
-        o.forkUrl,
-        ref.agentId,
+      const managed = await o.orchestrator.chooseManagedAccount(
+        ref,
         owner,
-        funding,
-        days,
-        ...(executor ? [executor] : []),
+        isManagedAccount(body?.account) ? body.account : null,
       );
+      if (!managed.ok) return c.json({ error: managed.error, message: managed.message }, 409);
+      if (managed.account === "vault" && executor)
+        await registerTestVaultGrant(o.forkUrl, ref.agentId, owner, funding, executor);
+      else
+        await registerTestSessionGrant(
+          o.forkUrl,
+          ref.agentId,
+          owner,
+          funding,
+          days,
+          ...(executor ? [executor] : []),
+        );
       const r = await o.orchestrator.confirmArming(ref, owner);
       if (!r.ok) return c.json({ error: r.code.toLowerCase(), message: r.message }, 409);
       return c.json(
-        { renewed: r.renewed, arming: armingJson(r.record, Math.floor(Date.now() / 1000)) },
+        {
+          renewed: r.renewed,
+          managed: managed.account,
+          arming: armingJson(r.record, Math.floor(Date.now() / 1000)),
+        },
         201,
       );
     });

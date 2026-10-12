@@ -1,5 +1,14 @@
 import { type TestDatabase, createTestDatabase, databaseAvailable } from "@alpha-agents/db/testing";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { registerTestSessionGrant, registerTestVaultGrant } from "@alpha-agents/devenv";
+
+// Step 0 (2026-10-12): the console's arm registers the grant on the fork; here the fork is a fake.
+vi.mock("@alpha-agents/devenv", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@alpha-agents/devenv")>()),
+  registerTestSessionGrant: vi.fn(async () => undefined),
+  registerTestVaultGrant: vi.fn(async () => undefined),
+  revokeTestSessionGrant: vi.fn(async () => undefined),
+}));
 import {
   DecisionStore,
   GoalStore,
@@ -611,3 +620,139 @@ describe.skipIf(!dbUp)("the orchestrator's internal API (D-205)", { timeout: 60_
     );
   });
 });
+
+describe.skipIf(!dbUp)(
+  "the console's arm with the account the agent manages (Step 0, 2026-10-12)",
+  () => {
+    let t: TestDatabase;
+    let store: Store;
+    const OWNER = "0x00000000000000000000000000000000000a11ce";
+    const FUNDING = "0x00000000000000000000000000000000000f00d1";
+    const EXECUTOR_V3 = "0x00000000000000000000000000000000000e0ec3";
+    const chosen: (string | null)[] = [];
+    const confirmed: string[] = [];
+    const view = {
+      vault: null as string | null,
+      personalAccount: "0x0000000000000000000000000000000000000b0b" as string | null,
+      managed: "personal" as "personal" | "vault",
+    };
+    beforeAll(async () => {
+      t = await createTestDatabase("orch_api_arm");
+      store = new Store(t.db);
+      await indexAgent(t.db, 1, "pro", OWNER);
+    });
+    afterAll(async () => {
+      await t?.drop();
+    });
+    const api = () =>
+      createApi({
+        orchestrator: {
+          runTag: "run-test",
+          chainOwner: async () => OWNER,
+          fundingAddress: async () => FUNDING,
+          executorFor: async () => ({ custody: "v3", executor: EXECUTOR_V3 }),
+          chooseManagedAccount: async (
+            _ref: unknown,
+            _owner: string,
+            choice: "vault" | "personal" | null,
+          ) => {
+            chosen.push(choice);
+            if (choice === "vault" && !view.vault)
+              return {
+                ok: false as const,
+                error: "no_vault" as const,
+                message: "This agent has no vault yet.",
+              };
+            if (choice) view.managed = choice;
+            return { ok: true as const, account: choice ?? view.managed };
+          },
+          confirmArming: async () => {
+            confirmed.push(view.managed);
+            return {
+              ok: true as const,
+              renewed: false,
+              record: {
+                armingId: "arming-1",
+                chainId: CHAIN,
+                agentId: 1,
+                custody: "v3",
+                executor: EXECUTOR_V3,
+                owner: OWNER,
+                ownerEpoch: 0n,
+                configEpoch: 0n,
+                sessionKey: FUNDING,
+                validUntil: view.managed === "vault" ? 9_007_199_254_740_991n : 1_900_000_000n,
+                status: "awaiting_first_trade",
+                endedReason: null,
+                firstIntentId: null,
+                revokedOnchain: false,
+                remindedAt: null,
+                armedAt: null,
+                endedAt: null,
+                createdAt: new Date(),
+              },
+            };
+          },
+        } as unknown as Orchestrator,
+        store,
+        chainId: CHAIN,
+        devActions: true,
+        forkUrl: "http://127.0.0.1:1",
+      });
+    const arm = (body: Record<string, unknown>) =>
+      api().request("/v1/agents/1/arm", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(body),
+      });
+
+    it("registers the vault's grant without expiry for the vault, the timed grant for the personal account, and refuses a choice the agent cannot honour", async () => {
+      vi.mocked(registerTestVaultGrant).mockClear();
+      vi.mocked(registerTestSessionGrant).mockClear();
+      // No vault yet: choosing it is refused and nothing is registered.
+      const refused = await arm({ account: "vault" });
+      expect([refused.status, ((await refused.json()) as { error: string }).error]).toEqual([
+        409,
+        "no_vault",
+      ]);
+      expect(vi.mocked(registerTestVaultGrant)).not.toHaveBeenCalled();
+      // The personal account, chosen: the 30-day grant.
+      const personal = await arm({ account: "personal", days: 7 });
+      expect(personal.status).toBe(201);
+      expect((await personal.json()) as Record<string, unknown>).toMatchObject({
+        managed: "personal",
+        arming: { state: "awaiting_first_trade", noExpiry: false },
+      });
+      expect(vi.mocked(registerTestSessionGrant)).toHaveBeenCalledWith(
+        "http://127.0.0.1:1",
+        1,
+        OWNER,
+        FUNDING,
+        7,
+        EXECUTOR_V3,
+      );
+      // With a vault, chosen: the grant without expiry (D-241).
+      view.vault = "0x0000000000000000000000000000000000000a0a";
+      const vault = await arm({ account: "vault" });
+      expect(vault.status).toBe(201);
+      expect((await vault.json()) as Record<string, unknown>).toMatchObject({
+        managed: "vault",
+        arming: { state: "awaiting_first_trade", noExpiry: true, validUntilDate: null },
+      });
+      expect(vi.mocked(registerTestVaultGrant)).toHaveBeenCalledWith(
+        "http://127.0.0.1:1",
+        1,
+        OWNER,
+        FUNDING,
+        EXECUTOR_V3,
+      );
+      expect(chosen).toEqual(["vault", "personal", "vault"]);
+      expect(confirmed).toEqual(["personal", "vault"]);
+      const bad = await arm({ account: "both" });
+      expect([bad.status, ((await bad.json()) as { error: string }).error]).toEqual([
+        400,
+        "bad_account",
+      ]);
+    });
+  },
+);

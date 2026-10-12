@@ -582,3 +582,93 @@ test.describe("the owner's data only", () => {
     await expect(main(page).getByTestId("positions")).toBeVisible();
   });
 });
+
+test.describe("the account the agent manages (Step 0, 2026-10-12; A-90)", () => {
+  const VAULT = getAddress("0x6a5b3c9d2e1f4a7b8c9d0e1f2a3b4c5d6e7f8091");
+  function withVault() {
+    const s = stack();
+    s.trading.activation = activationReadFixture();
+    s.trading.activationScript = [activationFixture("scan", "running")];
+    s.trading.planCard = planCardFixture({ pending: null, recent: [], noChange: null });
+    s.trading.accounts = { vault: VAULT, personal: ACCOUNT, chosen: null };
+    return s;
+  }
+
+  test("with a vault, turning on automatic trading asks which account; the vault gets the permission without expiry", async ({
+    page,
+  }) => {
+    const s = withVault();
+    await open(page, s);
+    const arming = main(page).getByTestId("arming-card");
+    await expect(arming.getByTestId("managed-account")).toContainText("Will manage its vault");
+    await arming.getByTestId("turn-on").click();
+    const dialog = page.getByRole("dialog", { name: "Which account should the agent manage?" });
+    await expect(dialog).toBeVisible();
+    const options = dialog.getByRole("radio");
+    await expect(options).toHaveCount(2);
+    await expect(options.nth(0)).toHaveAttribute("aria-checked", "true");
+    await expect(dialog).toContainText("has no fixed expiry");
+    await page.evaluate(() => Promise.all(document.getAnimations().map((a) => a.finished)));
+    await capture(page, dialog, "portfolio-managed-account-dialog.png");
+    expect(await blockingViolations(page)).toEqual([]);
+    expect(s.chain.transactions).toEqual([]);
+    await dialog.getByTestId("confirm-managed-account").click();
+    await expect(main(page).getByTestId("activation-panel")).toHaveAttribute(
+      "data-status",
+      "running",
+      { timeout: 15_000 },
+    );
+    expect(s.trading.calls).toEqual(["registerVaultSession"]);
+    expect(s.trading.starts).toBe(1);
+    expect(s.trading.accounts.chosen).toBe("vault");
+    await expect(arming).toHaveAttribute("data-state", "awaiting_first_trade");
+    await expect(arming.getByTestId("managed-account")).toContainText("Manages its vault");
+    await expect(arming).toContainText("has no fixed expiry");
+    await expect(arming).not.toContainText("Permission until");
+    await capture(page, arming, "portfolio-managed-vault.png");
+    expect(await blockingViolations(page)).toEqual([]);
+  });
+
+  test("choosing the personal account registers the 30-day permission instead", async ({
+    page,
+  }) => {
+    const s = withVault();
+    await open(page, s);
+    const arming = main(page).getByTestId("arming-card");
+    await arming.getByTestId("turn-on").click();
+    const dialog = page.getByRole("dialog", { name: "Which account should the agent manage?" });
+    await dialog.getByRole("radio", { name: /Your personal account/ }).click();
+    await expect(dialog.getByRole("radio").nth(1)).toHaveAttribute("aria-checked", "true");
+    await dialog.getByTestId("confirm-managed-account").click();
+    await expect(main(page).getByTestId("activation-panel")).toHaveAttribute(
+      "data-status",
+      "running",
+      { timeout: 15_000 },
+    );
+    expect(s.trading.calls).toEqual(["registerSession"]);
+    expect(s.trading.accounts.chosen).toBe("personal");
+    await expect(arming.getByTestId("managed-account")).toContainText(
+      "Manages your personal account",
+    );
+    await expect(arming).toContainText("Permission until");
+    expect(await blockingViolations(page)).toEqual([]);
+  });
+
+  test("without a vault nothing is asked, as before", async ({ page }) => {
+    const s = stack();
+    s.trading.activation = activationReadFixture();
+    s.trading.activationScript = [activationFixture("scan", "running")];
+    s.trading.planCard = planCardFixture({ pending: null, recent: [], noChange: null });
+    await open(page, s);
+    const arming = main(page).getByTestId("arming-card");
+    await expect(arming.getByTestId("managed-account")).toHaveCount(0);
+    await arming.getByTestId("turn-on").click();
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    await expect(main(page).getByTestId("activation-panel")).toHaveAttribute(
+      "data-status",
+      "running",
+      { timeout: 15_000 },
+    );
+    expect(s.trading.calls).toEqual(["registerSession"]);
+  });
+});

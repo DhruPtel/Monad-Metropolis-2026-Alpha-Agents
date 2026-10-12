@@ -58,6 +58,7 @@ const REGISTRAR_SWEEP_MS = 5 * 60_000;
 import { geckoTerminalSource, poolSpotSource } from "./attestor-sources.ts";
 import { ChainClock, withAttestedPrices } from "./attested-reader.ts";
 import { Redactor, createLog, errorText } from "./secrets.ts";
+import { TradeStore } from "@alpha-agents/trading";
 import { Store } from "./store.ts";
 import { findCloudflared } from "./tunnel.ts";
 import { swapGasCost } from "./trade-flow.ts";
@@ -409,12 +410,15 @@ if (!chainContracts.ok)
   );
 // F-U5: the fund agent's v3 set; an agent whose owner opened a PersonalAccountV3 gets the v3 tools (D-367).
 const chainContractsV3 = contractsForV3(env.id);
+// Step 0 (2026-10-12, A-90): the reader resolves the agent's account by the owner's stored choice.
+const managedAccounts = new TradeStore(store.db);
 const plainReaderV3 = chainContractsV3.ok
   ? new ViemChainReaderV3({
       chainId: env.chainId,
       rpcUrl,
       fallbackRpcUrl,
       contracts: chainContractsV3.contracts,
+      managedAccount: (agentId) => managedAccounts.managedAccount(env.chainId, agentId),
     })
   : null;
 // F-U12: the price attestor signs class A prices as the median of the chain's own pools and

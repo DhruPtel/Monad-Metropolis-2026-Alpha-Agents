@@ -18,6 +18,7 @@ import {
   type Aggressiveness,
   MODEL_TIERS,
   MODEL_TIER_FACTS,
+  type ManagedAccount,
 } from "@alpha-agents/domain";
 import { Bot, Boxes, Copy, Eye, Radio, Users } from "lucide-react";
 import { type ReactNode, useState } from "react";
@@ -84,6 +85,7 @@ import {
   type TradeMarkView,
   ApprovalCard,
   ArmingCard,
+  ManagedAccountChoice,
   GasNotice,
   PortfolioOverview,
   CapsPanel,
@@ -1700,6 +1702,7 @@ const DS_POSITIONS: PositionsView = {
 const noop = () => undefined;
 
 function PortfolioSection() {
+  const [managedChoice, setManagedChoice] = useState<ManagedAccount>("vault");
   return (
     <Section id="portfolio" title="Portfolio">
       <Specimen
@@ -1947,6 +1950,7 @@ function PortfolioSection() {
               renewalDue: true,
               endedMessage: null,
               fundingAddress: "0x9F8e2B1C0d3a4E5f60718293A4B5c6D7E8f90a1B",
+              managed: "personal",
             }}
             actions={
               <>
@@ -1957,6 +1961,55 @@ function PortfolioSection() {
                   Disarm
                 </Button>
               </>
+            }
+          />
+        </div>
+      </Specimen>
+      <Specimen
+        name="Managed account choice"
+        note="Step 0 (2026-10-12, A-90): which account the agent manages when it has a vault, asked in a small dialog when the owner turns automatic trading on; an account that does not exist cannot be chosen, with what to do first. The arming card then says which one it manages, and that a vault grant has no fixed expiry."
+      >
+        <div className="grid gap-6 lg:grid-cols-2">
+          <ManagedAccountChoice
+            value={managedChoice}
+            onValueChange={setManagedChoice}
+            vault={{ address: "0x6A5b3C9d2E1f4a7B8c9D0e1F2a3B4c5D6e7F8091" }}
+            personal={{ address: "0x9F8e2B1C0d3a4E5f60718293A4B5c6D7E8f90a1B" }}
+          />
+          <ManagedAccountChoice
+            value="vault"
+            onValueChange={() => undefined}
+            vault={{ address: "0x6A5b3C9d2E1f4a7B8c9D0e1F2a3B4c5D6e7F8091" }}
+            personal={null}
+          />
+        </div>
+        <div className="grid gap-6 lg:grid-cols-2">
+          <ArmingCard
+            agentName="Alpha Agent #7"
+            arming={{
+              state: "unarmed",
+              validUntilDate: null,
+              renewalDue: false,
+              endedMessage: null,
+              fundingAddress: "0x9F8e2B1C0d3a4E5f60718293A4B5c6D7E8f90a1B",
+              managed: "vault",
+            }}
+            actions={<Button size="sm">Turn on automatic trading</Button>}
+          />
+          <ArmingCard
+            agentName="Alpha Agent #7"
+            arming={{
+              state: "armed",
+              validUntilDate: null,
+              renewalDue: false,
+              endedMessage: null,
+              fundingAddress: "0x9F8e2B1C0d3a4E5f60718293A4B5c6D7E8f90a1B",
+              managed: "vault",
+            }}
+            actions={
+              <Button size="sm" variant="danger">
+                Disarm
+              </Button>
             }
           />
         </div>

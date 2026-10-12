@@ -1,7 +1,7 @@
 import { type TestDatabase, createTestDatabase, databaseAvailable } from "@alpha-agents/db/testing";
 import { DEFAULT_GOAL_INPUT, type GoalInput } from "@alpha-agents/domain";
 import { translateGoal } from "@alpha-agents/policy";
-import { GoalStore, ProposalStore, TradeStore } from "@alpha-agents/trading";
+import { GoalStore, ProposalStore, TradeStore, VAULT_GRANT_NO_EXPIRY } from "@alpha-agents/trading";
 import type { Hex } from "viem";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { ActivationService } from "./activation.ts";
@@ -33,6 +33,7 @@ const ref: AgentRef = { chainId: CHAIN, agentId: 1 };
 const OWNER = "0x00000000000000000000000000000000000a11ce" as Hex;
 const KEY = "0x00000000000000000000000000000000000f00d1" as Hex;
 const ACCOUNT = "0x00000000000000000000000000000000000ac001" as Hex;
+const VAULT = "0x00000000000000000000000000000000000a0a0a" as Hex;
 const USDC = "0x00000000000000000000000000000000000000c1" as Hex;
 const WMON = "0x00000000000000000000000000000000000000c2" as Hex;
 const WBTC = "0x00000000000000000000000000000000000000c3" as Hex;
@@ -52,6 +53,9 @@ describe.skipIf(!dbUp)(
       account: ACCOUNT as Hex | null,
       mode: "NORMAL" as "NORMAL" | "REDUCE_ONLY",
       nav: 90_000_000n as bigint | null,
+      // Step 0 (2026-10-12): the reader resolves the vault when the agent manages it.
+      isVault: false,
+      managed: "personal" as "personal" | "vault",
     };
     let inputs: TestInputsV2 | null = null;
     const entries: { key: string; facts: ActivationFacts }[] = [];
@@ -128,6 +132,8 @@ describe.skipIf(!dbUp)(
       agent.account = ACCOUNT;
       agent.mode = "NORMAL";
       agent.nav = 90_000_000n;
+      agent.isVault = false;
+      agent.managed = "personal";
       inputs = okInputs();
       entries.length = 0;
       queued.length = 0;
@@ -149,6 +155,8 @@ describe.skipIf(!dbUp)(
             account: agent.account,
             mode: agent.mode,
             values: agent.nav === null ? null : { nav: agent.nav },
+            isVault: agent.isVault,
+            managed: agent.managed,
           }),
         } as never,
         inputs: async () => inputs,
@@ -299,6 +307,32 @@ describe.skipIf(!dbUp)(
       expect(view.activation?.activationId).toBe(record.activationId);
       expect(view.checks.find((c) => c.code === "NOT_BUSY")?.ok).toBe(false);
       expect(view.checks.find((c) => c.code === "GRANT")?.ok).toBe(true);
+    });
+
+    it("starts the sweep for the agent's vault under the grant without expiry, recording the vault as the account (Step 0, 2026-10-12; D-241)", async () => {
+      await saveGoal();
+      agent.account = VAULT;
+      agent.isVault = true;
+      agent.managed = "vault";
+      await trades.startArming({
+        chainId: CHAIN,
+        agentId: 1,
+        owner: OWNER,
+        ownerEpoch: 0n,
+        configEpoch: 0n,
+        sessionKey: KEY,
+        validUntil: VAULT_GRANT_NO_EXPIRY,
+        custody: "v3",
+        executor: "0x00000000000000000000000000000000000e0ec3",
+      });
+      const before = await service.view(ref);
+      expect(before.checks.find((c) => c.code === "ACCOUNT")).toMatchObject({ ok: true });
+      expect(before.checks.find((c) => c.code === "GRANT")).toMatchObject({ ok: true });
+      const r = await service.start(ref);
+      expect(r.ok).toBe(true);
+      const record = must(await service.store.latest(CHAIN, 1));
+      expect(record.checks).toMatchObject({ account: VAULT, tradingValueUsdcE6: "90000000" });
+      expect(queued).toEqual(["ACTIVATION by owner"]);
     });
 
     it("leaves no record when the cycle cannot be queued, and names why", async () => {

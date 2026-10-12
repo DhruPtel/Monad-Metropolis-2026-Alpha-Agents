@@ -5,8 +5,10 @@ import {
   type AddressBookId,
   type CustodyPath,
   type ExecutorPolicyV3,
+  type ManagedAccount,
   ROUTE_ADAPTER_ID,
   addressEntry,
+  managedAccountOf,
 } from "@alpha-agents/domain";
 import {
   LANES,
@@ -167,13 +169,16 @@ export interface AgentStateV3 {
   /** Executor v3's configuration epoch for the agent. */
   readonly configEpoch: bigint;
   /**
-   * The account the agent trades: its StrategyVaultV3 when it has one (P7-U2),
-   * else the PersonalAccountV3 of the agent and its current owner, or null
-   * before either is opened.
+   * The account the agent trades: its StrategyVaultV3 when it has one (P7-U2)
+   * and its owner has not chosen the personal account (Step 0, 2026-10-12;
+   * A-90), else the PersonalAccountV3 of the agent and its current owner, or
+   * null before either is opened.
    */
   readonly account: Hex | null;
   /** P7-U2: whether `account` is the agent's vault, whose grant has no expiry (D-241). */
   readonly isVault: boolean;
+  /** Which kind of account is managed: the owner's choice, or the vault once it exists. */
+  readonly managed: ManagedAccount;
   /** The agent's StrategyVaultV3, or null (P7-U2). */
   readonly vault: Hex | null;
   /** The current owner's PersonalAccountV3, or null; an older account once the agent has a vault. */
@@ -339,6 +344,12 @@ export interface ViemChainReaderV3Options {
   /** How long market data and quotes are reused (3 s by default, A-44). */
   readonly cacheMs?: number;
   readonly now?: () => number;
+  /**
+   * Step 0 (2026-10-12, A-90): the owner's choice of the account the agent
+   * manages, from the platform's store; null or absent means the vault once
+   * it exists.
+   */
+  readonly managedAccount?: (agentId: number) => Promise<ManagedAccount | null>;
 }
 
 export class ViemChainReaderV3 implements ChainReaderV3 {
@@ -347,6 +358,7 @@ export class ViemChainReaderV3 implements ChainReaderV3 {
   private readonly c: ContractsV3;
   private readonly client: PublicClient;
   private readonly cache: TtlCache;
+  private readonly managedAccount: (agentId: number) => Promise<ManagedAccount | null>;
   /** Symbols never change: read once per token per process. */
   private readonly symbols = new Map<string, Promise<string>>();
 
@@ -356,6 +368,7 @@ export class ViemChainReaderV3 implements ChainReaderV3 {
     this.executorAddress = o.contracts.executor_v3;
     this.client = createPublicClient({ transport: rpcTransport(o.rpcUrl, o.fallbackRpcUrl) });
     this.cache = new TtlCache(o.cacheMs ?? 3_000, o.now ?? Date.now);
+    this.managedAccount = o.managedAccount ?? (async () => null);
   }
 
   market(): Promise<MarketStateV3> {
@@ -597,7 +610,7 @@ export class ViemChainReaderV3 implements ChainReaderV3 {
     const owner = await this.ownerOf(id);
     if (!owner) return null;
     const e = this.c.executor_v3;
-    const [block, ownerEpoch, configEpoch, personal, v2Account, session, vaultRead] =
+    const [block, ownerEpoch, configEpoch, personal, v2Account, session, vaultRead, choice] =
       await Promise.all([
         this.client.getBlock(),
         this.client.readContract({
@@ -626,10 +639,17 @@ export class ViemChainReaderV3 implements ChainReaderV3 {
           functionName: "vaultOf",
           args: [id],
         }),
+        this.managedAccount(agentId),
       ]);
-    // P7-U2: the vault is the agent's trading account once it exists; the personal account stays readable.
+    // P7-U2: the vault is the agent's trading account once it exists, unless its owner chose the
+    // personal account (Step 0, 2026-10-12); the other account stays readable.
     const vault = vaultRead === zeroAddress ? null : vaultRead;
-    const account = vault ?? personal;
+    const resolved = managedAccountOf({
+      vault,
+      personal: personal === zeroAddress ? null : personal,
+      choice,
+    });
+    const account = resolved.account ?? zeroAddress;
     const grant: Grant | null =
       session.key === zeroAddress
         ? null
@@ -645,7 +665,8 @@ export class ViemChainReaderV3 implements ChainReaderV3 {
       owner,
       ownerEpoch,
       configEpoch,
-      isVault: vault !== null,
+      isVault: resolved.isVault,
+      managed: resolved.managed,
       vault,
       personalAccount: personal === zeroAddress ? null : personal,
       v2Account: v2Account === zeroAddress ? null : v2Account,
@@ -675,7 +696,7 @@ export class ViemChainReaderV3 implements ChainReaderV3 {
       this.client.readContract({
         address: account,
         abi: ACCOUNT_ABI,
-        functionName: vault ? "effectiveMode" : "mode",
+        functionName: resolved.isVault ? "effectiveMode" : "mode",
       }),
       this.client.readContract({
         address: account,

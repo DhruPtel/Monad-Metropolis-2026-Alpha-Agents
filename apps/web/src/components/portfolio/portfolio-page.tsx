@@ -1,7 +1,7 @@
 "use client";
 
 import type { EnvironmentId } from "@alpha-agents/config";
-import { formatAmount } from "@alpha-agents/domain";
+import { type ManagedAccount, formatAmount } from "@alpha-agents/domain";
 import {
   ActivationChecks,
   ActivationPanel,
@@ -18,11 +18,17 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
   EmptyState,
   Field,
   GasNotice,
   GoalSummary,
   Input,
+  ManagedAccountChoice,
   PortfolioOverview,
   PositionsPanel,
   RecentTrades,
@@ -667,6 +673,11 @@ export function PortfolioPage({
   const activation = pf.activation?.available ? pf.activation.activation : null;
   const sweeping = activation?.status === "running";
   const [now, setNow] = useState(() => new Date().toISOString());
+  // Step 0 (2026-10-12, A-90): with a vault, turning trading on first asks which account the
+  // agent manages, in a small dialog; the choice travels with the grant.
+  const [choiceOpen, setChoiceOpen] = useState(false);
+  const [choice, setChoice] = useState<ManagedAccount>("vault");
+  const [choiceFor, setChoiceFor] = useState<"arm" | "turn-on">("turn-on");
   useEffect(() => {
     setNow(new Date().toISOString());
     if (!sweeping) return;
@@ -779,10 +790,18 @@ export function PortfolioPage({
     read !== null &&
     (activation === null || !["running", "plan_ready", "active"].includes(activation.status));
   const blocked = read?.checks.some((c) => !c.ok && c.blocking) ?? false;
+  const accounts = pf.arming?.accounts ?? null;
+  // The choice is asked only when there is one to make: the agent has a vault and is not armed.
+  const askAccount = armingState === "unarmed" && accounts?.vault !== null && accounts !== null;
+  const openChoice = (action: "arm" | "turn-on") => {
+    setChoice(accounts?.chosen ?? accounts?.managed ?? "vault");
+    setChoiceFor(action);
+    setChoiceOpen(true);
+  };
   const sweepButton = canSweep ? (
     <Button
       disabled={acting || blocked || (armingState === "unarmed" && !pf.arming?.grantCall)}
-      onClick={pf.turnOn}
+      onClick={() => (askAccount ? openChoice("turn-on") : pf.turnOn())}
       data-testid="turn-on"
     >
       {armingState === "unarmed"
@@ -987,6 +1006,40 @@ export function PortfolioPage({
           </CardContent>
         </Card>
       ) : null}
+      <Dialog open={choiceOpen} onOpenChange={setChoiceOpen}>
+        <DialogContent aria-describedby="managed-account-description">
+          <DialogHeader>
+            <DialogTitle>Which account should the agent manage?</DialogTitle>
+            <DialogDescription id="managed-account-description">
+              This agent has a vault and a personal account. The trading permission your wallet
+              registers next serves the one you choose.
+            </DialogDescription>
+          </DialogHeader>
+          <ManagedAccountChoice
+            value={choice}
+            onValueChange={setChoice}
+            vault={accounts?.vault ? { address: accounts.vault } : null}
+            personal={accounts?.personal ? { address: accounts.personal } : null}
+            disabled={acting}
+          />
+          <div className="flex flex-wrap justify-end gap-2">
+            <Button variant="secondary" onClick={() => setChoiceOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              data-testid="confirm-managed-account"
+              disabled={acting}
+              onClick={() => {
+                setChoiceOpen(false);
+                if (choiceFor === "arm") pf.arm(choice);
+                else pf.turnOn(choice);
+              }}
+            >
+              {choiceFor === "arm" ? "Arm" : "Turn on automatic trading"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
       <AgentHoldings agentId={agentId} environment={environment} card />
       {p.account ? (
         <>
@@ -998,6 +1051,7 @@ export function PortfolioPage({
               renewalDue: pf.arming?.arming.renewalDue ?? false,
               endedMessage: pf.arming?.arming.ended?.message ?? null,
               fundingAddress: pf.arming?.fundingAddress ?? null,
+              managed: accounts?.vault ? accounts.managed : null,
             }}
             {...(read && armingState === "unarmed"
               ? {
@@ -1011,12 +1065,15 @@ export function PortfolioPage({
                     without it, the P2-U6 arming alone, as before. */}
                 {read && !activation ? sweepButton : null}
                 {!read && armingState === "unarmed" ? (
-                  <Button disabled={acting || !pf.arming?.grantCall} onClick={pf.arm}>
+                  <Button
+                    disabled={acting || !pf.arming?.grantCall}
+                    onClick={() => (askAccount ? openChoice("arm") : pf.arm())}
+                  >
                     Arm
                   </Button>
                 ) : null}
                 {armingState !== "unarmed" && pf.arming?.arming.renewalDue ? (
-                  <Button disabled={acting || !pf.arming?.grantCall} onClick={pf.arm}>
+                  <Button disabled={acting || !pf.arming?.grantCall} onClick={() => pf.arm()}>
                     Renew
                   </Button>
                 ) : null}

@@ -148,6 +148,26 @@ describe("arming from the owner's wallet (P2-U6)", () => {
     expect(result.message).toMatch(/different network/);
   });
 
+  it("carries the chosen account to the grant's read and its record (Step 0, 2026-10-12)", async () => {
+    const asked: (string | undefined)[] = [];
+    const d = deps({
+      getArming: async (account) => {
+        asked.push(`get:${account ?? "none"}`);
+        return { status: 200, body: { grantCall: GRANT } };
+      },
+      confirmArming: async (account) => {
+        asked.push(`post:${account ?? "none"}`);
+        return { status: 201, body: { arming: { state: "awaiting_first_trade" } } };
+      },
+    });
+    const seen: ArmingProgress[] = [];
+    expect((await runArm(d, (p) => seen.push(p), "vault")).state).toBe("awaiting-first-trade");
+    expect(asked).toEqual(["get:vault", "post:vault"]);
+    asked.length = 0;
+    await runArm(d, () => undefined);
+    expect(asked).toEqual(["get:none", "post:none"]);
+  });
+
   it("refuses to arm without a grant call (no funding address or contracts)", async () => {
     const d = deps({ getArming: async () => ({ status: 200, body: { grantCall: null } }) });
     expect((await run(runArm, d)).result.state).toBe("error");

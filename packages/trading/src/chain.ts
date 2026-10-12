@@ -1,4 +1,9 @@
-import { AGENT_NFT_ABI, type CustodyPath } from "@alpha-agents/domain";
+import {
+  AGENT_NFT_ABI,
+  type CustodyPath,
+  type ManagedAccount,
+  managedAccountOf,
+} from "@alpha-agents/domain";
 import { type Hex, createPublicClient, http, parseAbi, zeroAddress } from "viem";
 import type { AgentChainView } from "./arming.ts";
 
@@ -17,7 +22,10 @@ const EXECUTOR_READS = parseAbi([
   "function configEpochOf(uint256 agentId) view returns (uint64)",
   "function sessionOf(uint256 agentId) view returns ((address key, uint64 ownerEpoch, uint64 configEpoch, uint64 validUntil))",
 ]);
-const FACTORY_V3_READS = parseAbi(["function vaultOf(uint256 agentId) view returns (address)"]);
+const FACTORY_V3_READS = parseAbi([
+  "function vaultOf(uint256 agentId) view returns (address)",
+  "function personalAccountOf(uint256 agentId, address owner) view returns (address)",
+]);
 
 export function rpcAgentViewReader(
   rpcUrl: string,
@@ -27,8 +35,13 @@ export function rpcAgentViewReader(
     /** P7-U2: AccountFactoryV3, to tell an agent whose trading account is its vault (D-241). */
     readonly accountFactoryV3?: Hex;
   },
+  options: {
+    /** Step 0 (2026-10-12, A-90): the owner's choice of the account the agent manages, from the store. */
+    readonly managedAccount?: (agentId: number) => Promise<ManagedAccount | null>;
+  } = {},
 ): AgentViewReader {
   const client = createPublicClient({ transport: http(rpcUrl) });
+  const choiceOf = options.managedAccount ?? (async () => null);
   return {
     async agent(agentId) {
       const id = BigInt(agentId);
@@ -44,7 +57,7 @@ export function rpcAgentViewReader(
         if (err instanceof Error && /revert/i.test(err.message)) return null;
         throw err;
       }
-      const [block, ownerEpoch, configEpoch, session, vault] = await Promise.all([
+      const [block, ownerEpoch, configEpoch, session, vault, personal, choice] = await Promise.all([
         client.getBlock(),
         client.readContract({
           address: contracts.agentNft,
@@ -72,13 +85,30 @@ export function rpcAgentViewReader(
               args: [id],
             })
           : Promise.resolve(zeroAddress),
+        contracts.accountFactoryV3
+          ? client.readContract({
+              address: contracts.accountFactoryV3,
+              abi: FACTORY_V3_READS,
+              functionName: "personalAccountOf",
+              args: [id, owner],
+            })
+          : Promise.resolve(zeroAddress),
+        choiceOf(agentId),
       ]);
+      const resolved = managedAccountOf({
+        vault: vault === zeroAddress ? null : vault,
+        personal: personal === zeroAddress ? null : personal,
+        choice,
+      });
       return {
         owner,
         ownerEpoch,
         configEpoch,
         timestamp: block.timestamp,
-        isVault: vault !== zeroAddress,
+        isVault: resolved.isVault,
+        managed: resolved.managed,
+        vault: vault === zeroAddress ? null : vault,
+        personalAccount: personal === zeroAddress ? null : personal,
         grant:
           session.key === zeroAddress
             ? null
