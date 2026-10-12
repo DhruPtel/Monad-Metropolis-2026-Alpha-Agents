@@ -45,6 +45,7 @@ describe.skipIf(!available)("database migrations (needs pnpm dev:up)", () => {
       "platform.owner_keys",
       "platform.owner_skills",
       "platform.plan_proposals",
+      "platform.playbook_overrides",
       "platform.provider_usage",
       "platform.refunds",
       "platform.research_briefs",
