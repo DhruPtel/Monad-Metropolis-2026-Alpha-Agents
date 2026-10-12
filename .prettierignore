@@ -10,6 +10,7 @@ coverage/
 out/
 cache/
 broadcast/
+snapshots/
 pnpm-lock.yaml
 
 # Plan documents, tracking files and research are hand-formatted

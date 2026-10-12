@@ -79,7 +79,9 @@ contract DeployTestnetTokens is DeployScope {
     ) internal returns (Token memory out) {
         out.token = _create2(
             salt(name),
-            abi.encodePacked(type(TestnetToken).creationCode, abi.encode(tokenName, symbol, uint8(18), SUPPLY, deployer))
+            abi.encodePacked(
+                type(TestnetToken).creationCode, abi.encode(tokenName, symbol, uint8(18), SUPPLY, deployer)
+            )
         );
         out.feed = _create2(
             salt(string.concat(name, ".feed")),
@@ -88,8 +90,9 @@ contract DeployTestnetTokens is DeployScope {
                 abi.encode(FEED_DECIMALS, writer, string.concat(symbol, " / USD (testnet operator price)"), ONE_USD)
             )
         );
-        PoolKey memory key =
-            PoolKey({currency0: address(0), currency1: out.token, fee: FEE, tickSpacing: TICK_SPACING, hooks: address(0)});
+        PoolKey memory key = PoolKey({
+            currency0: address(0), currency1: out.token, fee: FEE, tickSpacing: TICK_SPACING, hooks: address(0)
+        });
         out.poolId = keccak256(abi.encode(key));
         (uint160 sqrtPrice,,,) = stateView.getSlot0(out.poolId);
         if (sqrtPrice == 0) {

@@ -191,35 +191,55 @@ contract TestnetDeployV3Test is Test {
             ",",
             _seed(more.beta.token, more.beta.feed, 4_000)
         );
-        string memory poolsJson = string.concat(
-            _pool(address(USDC)), ",", _pool(more.alpha.token), ",", _pool(more.beta.token)
-        );
+        string memory poolsJson =
+            string.concat(_pool(address(USDC)), ",", _pool(more.alpha.token), ",", _pool(more.beta.token));
         return string.concat(
-            '{"admin":"', vm.toString(deployer),
-            '","guardian":"', vm.toString(guardian),
-            '","screener":"', vm.toString(screener),
-            '","usdc":"', vm.toString(address(USDC)),
-            '","wmon":"', vm.toString(address(WMON)),
-            '","uniswapV3Factory":"', vm.toString(CREATE2_DEPLOYER),
-            '","pancakeswapV3Factory":"', vm.toString(CREATE2_DEPLOYER),
-            '","poolManager":"', vm.toString(POOL_MANAGER),
-            '","stateView":"', vm.toString(STATE_VIEW),
-            '","demoExecutor":"', vm.toString(deployer),
-            '","maxDeviationBps":200,"seeds":[', seeds, '],"pools":[', poolsJson, "]}"
+            '{"admin":"',
+            vm.toString(deployer),
+            '","guardian":"',
+            vm.toString(guardian),
+            '","screener":"',
+            vm.toString(screener),
+            '","usdc":"',
+            vm.toString(address(USDC)),
+            '","wmon":"',
+            vm.toString(address(WMON)),
+            '","uniswapV3Factory":"',
+            vm.toString(CREATE2_DEPLOYER),
+            '","pancakeswapV3Factory":"',
+            vm.toString(CREATE2_DEPLOYER),
+            '","poolManager":"',
+            vm.toString(POOL_MANAGER),
+            '","stateView":"',
+            vm.toString(STATE_VIEW),
+            '","demoExecutor":"',
+            vm.toString(deployer),
+            '","maxDeviationBps":200,"seeds":[',
+            seeds,
+            '],"pools":[',
+            poolsJson,
+            "]}"
         );
     }
 
     function _seed(address token, address feed, uint256 bps) internal pure returns (string memory) {
         return string.concat(
-            '{"token":"', vm.toString(token), '","maxPositionBps":', vm.toString(bps),
-            ',"usdFeed":"', vm.toString(feed), '","usdDecimals":8,"usdMaxAge":', vm.toString(FEED_MAX_AGE),
+            '{"token":"',
+            vm.toString(token),
+            '","maxPositionBps":',
+            vm.toString(bps),
+            ',"usdFeed":"',
+            vm.toString(feed),
+            '","usdDecimals":8,"usdMaxAge":',
+            vm.toString(FEED_MAX_AGE),
             ',"rateFeed":"0x0000000000000000000000000000000000000000","rateDecimals":0,"rateMaxAge":0}'
         );
     }
 
     function _pool(address token1) internal pure returns (string memory) {
         return string.concat(
-            '{"venue":3,"token0":"0x0000000000000000000000000000000000000000","token1":"', vm.toString(token1),
+            '{"venue":3,"token0":"0x0000000000000000000000000000000000000000","token1":"',
+            vm.toString(token1),
             '","fee":500,"tickSpacing":10,"pool":"0x0000000000000000000000000000000000000000"}'
         );
     }
@@ -329,8 +349,9 @@ contract TestnetDeployV3Test is Test {
     }
 
     function test_GasOfEveryStep() public view {
-        string[7] memory steps =
-            ["1 market", "2 tokens", "3 agent nft", "4 fund set", "5 executor v3", "6 custody v3 and bind", "7 verifier"];
+        string[7] memory steps = [
+            "1 market", "2 tokens", "3 agent nft", "4 fund set", "5 executor v3", "6 custody v3 and bind", "7 verifier"
+        ];
         uint256 total;
         for (uint256 i = 0; i < steps.length; ++i) {
             console.log("GAS", steps[i], gasOf[steps[i]]);
@@ -368,9 +389,8 @@ contract TestnetDeployV3Test is Test {
     ) internal returns (SwapIntentV3 memory) {
         uint8 decIn = TestnetToken(tokenIn).decimals();
         uint8 decOut = TestnetToken(tokenOut).decimals();
-        uint256 floor = executor.floorFor(
-            amountIn, oracle.priceE18(tokenIn), decIn, oracle.priceE18(tokenOut), decOut, 50
-        );
+        uint256 floor =
+            executor.floorFor(amountIn, oracle.priceE18(tokenIn), decIn, oracle.priceE18(tokenOut), decOut, 50);
         return SwapIntentV3({
             schemaVersion: 2,
             chainId: block.chainid,

@@ -63,7 +63,13 @@ contract CanaryDeployV3Test is Test {
             vm.skip(true);
             return;
         }
-        vm.createSelectFork("monad");
+        // Pinned by default to the block before the F-U13 canary deployment, so
+        // the dry run is reproducible: at the latest block the real pools drift
+        // against Chainlink and a 0.3% pool can sit outside the 50 bps floor
+        // (L-246). CANARY_FORK_BLOCK=0 forks the latest block.
+        uint256 forkBlock = vm.envOr("CANARY_FORK_BLOCK", uint256(112_870_000));
+        if (forkBlock == 0) vm.createSelectFork("monad");
+        else vm.createSelectFork("monad", forkBlock);
         owner = vm.addr(ownerKey);
         vm.deal(owner, 10 ether);
         vm.prank(USDC.masterMinter());
@@ -115,38 +121,72 @@ contract CanaryDeployV3Test is Test {
             _seed(address(USDC), USDC_USD, 10_000, 7_800), ",", _seed(address(WMON), MON_USD, 4_000, 600)
         );
         string memory poolsJson = string.concat(
-            _v3Pool(1, UNI_V3_POOL, 3000, 60), ",", _v3Pool(2, CAKE_V3_POOL, 500, 10), ",",
-            '{"venue":3,"token0":"0x0000000000000000000000000000000000000000","token1":"', vm.toString(address(USDC)),
+            _v3Pool(1, UNI_V3_POOL, 3000, 60),
+            ",",
+            _v3Pool(2, CAKE_V3_POOL, 500, 10),
+            ",",
+            '{"venue":3,"token0":"0x0000000000000000000000000000000000000000","token1":"',
+            vm.toString(address(USDC)),
             '","fee":500,"tickSpacing":10,"pool":"0x0000000000000000000000000000000000000000"}'
         );
         return string.concat(
-            '{"admin":"', vm.toString(owner),
-            '","guardian":"', vm.toString(guardian),
-            '","screener":"', vm.toString(owner),
-            '","usdc":"', vm.toString(address(USDC)),
-            '","wmon":"', vm.toString(address(WMON)),
-            '","uniswapV3Factory":"', vm.toString(UNI_V3_FACTORY),
-            '","pancakeswapV3Factory":"', vm.toString(CAKE_V3_FACTORY),
-            '","poolManager":"', vm.toString(POOL_MANAGER),
-            '","stateView":"', vm.toString(STATE_VIEW),
-            '","demoExecutor":"', vm.toString(owner),
-            '","maxDeviationBps":200,"seeds":[', seeds, '],"pools":[', poolsJson, "]}"
+            '{"admin":"',
+            vm.toString(owner),
+            '","guardian":"',
+            vm.toString(guardian),
+            '","screener":"',
+            vm.toString(owner),
+            '","usdc":"',
+            vm.toString(address(USDC)),
+            '","wmon":"',
+            vm.toString(address(WMON)),
+            '","uniswapV3Factory":"',
+            vm.toString(UNI_V3_FACTORY),
+            '","pancakeswapV3Factory":"',
+            vm.toString(CAKE_V3_FACTORY),
+            '","poolManager":"',
+            vm.toString(POOL_MANAGER),
+            '","stateView":"',
+            vm.toString(STATE_VIEW),
+            '","demoExecutor":"',
+            vm.toString(owner),
+            '","maxDeviationBps":200,"seeds":[',
+            seeds,
+            '],"pools":[',
+            poolsJson,
+            "]}"
         );
     }
 
     function _seed(address token, address feed, uint256 bps, uint256 maxAge) internal pure returns (string memory) {
         return string.concat(
-            '{"token":"', vm.toString(token), '","maxPositionBps":', vm.toString(bps),
-            ',"usdFeed":"', vm.toString(feed), '","usdDecimals":8,"usdMaxAge":', vm.toString(maxAge),
+            '{"token":"',
+            vm.toString(token),
+            '","maxPositionBps":',
+            vm.toString(bps),
+            ',"usdFeed":"',
+            vm.toString(feed),
+            '","usdDecimals":8,"usdMaxAge":',
+            vm.toString(maxAge),
             ',"rateFeed":"0x0000000000000000000000000000000000000000","rateDecimals":0,"rateMaxAge":0}'
         );
     }
 
     function _v3Pool(uint256 venue, address pool, uint256 fee, int256 spacing) internal pure returns (string memory) {
         return string.concat(
-            '{"venue":', vm.toString(venue), ',"token0":"', vm.toString(address(WMON)), '","token1":"',
-            vm.toString(address(USDC)), '","fee":', vm.toString(fee), ',"tickSpacing":', vm.toString(spacing),
-            ',"pool":"', vm.toString(pool), '"}'
+            '{"venue":',
+            vm.toString(venue),
+            ',"token0":"',
+            vm.toString(address(WMON)),
+            '","token1":"',
+            vm.toString(address(USDC)),
+            '","fee":',
+            vm.toString(fee),
+            ',"tickSpacing":',
+            vm.toString(spacing),
+            ',"pool":"',
+            vm.toString(pool),
+            '"}'
         );
     }
 
@@ -209,7 +249,8 @@ contract CanaryDeployV3Test is Test {
     {
         uint8 decIn = tokenIn == address(USDC) ? 6 : 18;
         uint8 decOut = tokenOut == address(USDC) ? 6 : 18;
-        uint256 floor = executor.floorFor(amountIn, oracle.priceE18(tokenIn), decIn, oracle.priceE18(tokenOut), decOut, 50);
+        uint256 floor =
+            executor.floorFor(amountIn, oracle.priceE18(tokenIn), decIn, oracle.priceE18(tokenOut), decOut, 50);
         return SwapIntentV3({
             schemaVersion: 2,
             chainId: block.chainid,

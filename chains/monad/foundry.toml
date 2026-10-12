@@ -42,3 +42,8 @@ recursive_deps = false
 forge-std = "1.16.2"
 "@openzeppelin-contracts" = "5.7.0"
 
+
+[fmt]
+# TestnetToken.sol is deployed on testnet by CREATE2 from its init code, whose metadata hash
+# carries the source bytes (L-247): the file stays as deployed until a redeployment.
+ignore = ["script/TestnetToken.sol"]
