@@ -122,8 +122,9 @@ test.describe("agents panel controls (P1-U5)", () => {
     await page.evaluate(() => document.fonts.ready);
   });
 
+  // UI-U2: each agent is a tile, not a table row.
   const row = (page: import("@playwright/test").Page, name: RegExp) =>
-    page.getByRole("row").filter({ has: page.getByText(name) });
+    page.getByTestId("agent-tile").filter({ has: page.getByText(name) });
 
   test("shows each agent's runtime and offers the no-op task only when provisioned", async ({
     page,

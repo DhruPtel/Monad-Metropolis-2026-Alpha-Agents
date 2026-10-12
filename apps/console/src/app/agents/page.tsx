@@ -627,7 +627,7 @@ export default async function AgentsPage() {
     <div className="flex flex-col gap-6">
       <PanelHeader
         title="Agents"
-        description="Every agent on the local stack from the control API's index, with its funding address and credits, its runtime from the orchestrator, its state, spend and last action, and controls to fund it, run the no-op task, a Scan, a chain check or a research check, refund its credits or reset it. Below the table: each provisioned agent's activity entries, tool calls, latest portfolio reading and intents."
+        description="Every agent on the local stack as a tile: its species and tier, its runtime and state, its credits and spend, its last action in plain words, its owner and funding address, and the actions beside them: fund it, run the no-op task, a Scan, a chain check or a research check, refund its credits or reset it. Below the tiles: each provisioned agent's activity entries, tool calls, latest portfolio reading and intents."
       />
       {list === null ? (
         <EmptyState
@@ -654,124 +654,119 @@ export default async function AgentsPage() {
                   : "The orchestrator offers no actions outside the local stack."
                 : "The orchestrator is not running: start it with pnpm dev:orchestrator to see runtimes and run tasks."}
             </p>
-            <Table label="Agents">
-              <TableHeader>
-                <TableRow>
-                  <TableHead scope="col">Agent</TableHead>
-                  <TableHead scope="col">Tier</TableHead>
-                  <TableHead scope="col">Owner and funding address</TableHead>
-                  <TableHead scope="col">Credits</TableHead>
-                  <TableHead scope="col">Runtime and state</TableHead>
-                  <TableHead scope="col">Spend, 24h</TableHead>
-                  <TableHead scope="col">Last action</TableHead>
-                  <TableHead scope="col">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {list.agents.map((a) => (
-                  <TableRow key={a.agentId.toString()}>
-                    <TableCell>
-                      <span className="flex flex-col">
-                        <span className="font-medium whitespace-nowrap">{a.name}</span>
-                        <span className="text-xs whitespace-nowrap text-foreground-muted">
-                          {a.speciesName ?? "Waiting for reveal"}
-                        </span>
+            <ul
+              className="grid gap-4 md:grid-cols-2 xl:grid-cols-3"
+              aria-label="Agents"
+              data-testid="agent-tiles"
+            >
+              {list.agents.map((a) => (
+                <li
+                  key={a.agentId.toString()}
+                  className="flex flex-col gap-4 rounded-lg border bg-surface p-4"
+                  data-testid="agent-tile"
+                  data-agent-id={a.agentId.toString()}
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <span className="flex flex-col">
+                      <span className="text-base font-semibold">{a.name}</span>
+                      <span className="text-xs text-foreground-muted">
+                        {a.speciesName ?? "Waiting for reveal"}
                       </span>
-                    </TableCell>
-                    <TableCell>
-                      {a.tier ? (
-                        <Tag tone={TIER_TONE[a.tier]}>{TIER_NAME[a.tier]}</Tag>
-                      ) : (
-                        <span className="text-xs text-foreground-muted">Unrevealed</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <span className="flex flex-col gap-1">
-                        <AddressDisplay address={a.owner} label={`Owner of ${a.name}`} />
+                    </span>
+                    {a.tier ? (
+                      <Tag tone={TIER_TONE[a.tier]} size="md">
+                        {TIER_NAME[a.tier]}
+                      </Tag>
+                    ) : (
+                      <Tag size="md">Unrevealed</Tag>
+                    )}
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {list.orchestrator ? (
+                      <RuntimeStatusBadge status={a.runtime} />
+                    ) : (
+                      <span className="text-xs text-foreground-muted">Runtime unknown</span>
+                    )}
+                    <StatusPill kind="agent_state" value={a.state} />
+                  </div>
+                  <dl className="grid grid-cols-2 gap-3 text-sm">
+                    <div className="flex flex-col gap-1 rounded-md border border-border p-3">
+                      <dt className="text-xs text-foreground-muted">Credits</dt>
+                      <dd className="flex flex-col gap-1">
                         {a.credits ? (
-                          <AddressDisplay
-                            address={a.credits.fundingAddress}
-                            label={`Funding address of ${a.name}`}
-                          />
+                          <>
+                            <AmountDisplay
+                              value={a.credits.spendable}
+                              decimals={6}
+                              maxFractionDigits={4}
+                              symbol="USDC"
+                            />
+                            {a.credits.held > 0n ? (
+                              <Badge
+                                tone="warning"
+                                title="Deposited above the 50 USDC beta cap; returned by a refund"
+                              >
+                                <AmountDisplay value={a.credits.held} decimals={6} symbol="USDC" />{" "}
+                                held
+                              </Badge>
+                            ) : null}
+                          </>
                         ) : (
-                          <span className="text-xs text-foreground-muted">
-                            No funding address yet
-                          </span>
+                          <span className="text-xs text-foreground-muted">Unknown</span>
                         )}
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      {a.credits ? (
-                        <span className="flex flex-col gap-1">
-                          <AmountDisplay
-                            value={a.credits.spendable}
-                            decimals={6}
-                            maxFractionDigits={4}
-                            symbol="USDC"
-                          />
-                          {a.credits.held > 0n ? (
-                            <Badge
-                              tone="warning"
-                              title="Deposited above the 50 USDC beta cap; returned by a refund"
-                            >
-                              <AmountDisplay value={a.credits.held} decimals={6} symbol="USDC" />{" "}
-                              held
-                            </Badge>
-                          ) : null}
-                        </span>
-                      ) : (
-                        <span className="text-xs text-foreground-muted">Unknown</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <span className="flex flex-col items-start gap-1">
-                        {list.orchestrator ? (
-                          <RuntimeStatusBadge status={a.runtime} />
-                        ) : (
-                          <span className="text-xs text-foreground-muted">Runtime unknown</span>
-                        )}
-                        <StatusPill kind="agent_state" value={a.state} />
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      {/* Model calls cost fractions of a cent: four decimals, truncated, never overstated. */}
-                      <AmountDisplay
-                        value={a.spendUsdcE6}
-                        decimals={6}
-                        maxFractionDigits={4}
-                        symbol="USDC"
+                      </dd>
+                    </div>
+                    <div className="flex flex-col gap-1 rounded-md border border-border p-3">
+                      <dt className="text-xs text-foreground-muted">Spent, 24h</dt>
+                      <dd>
+                        {/* Model calls cost fractions of a cent: four decimals, truncated, never overstated. */}
+                        <AmountDisplay
+                          value={a.spendUsdcE6}
+                          decimals={6}
+                          maxFractionDigits={4}
+                          symbol="USDC"
+                        />
+                      </dd>
+                    </div>
+                  </dl>
+                  <div className="flex flex-col gap-1 text-xs">
+                    <span className="text-foreground-muted">Last action</span>
+                    <span className="line-clamp-3 text-sm" title={a.lastAction ?? undefined}>
+                      {a.lastAction ?? "Nothing yet. Run a Scan to see it work."}
+                    </span>
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <span className="text-xs text-foreground-muted">Owner</span>
+                    <AddressDisplay address={a.owner} label={`Owner of ${a.name}`} />
+                    <span className="mt-1 text-xs text-foreground-muted">Funding address</span>
+                    {a.credits ? (
+                      <AddressDisplay
+                        address={a.credits.fundingAddress}
+                        label={`Funding address of ${a.name}`}
                       />
-                    </TableCell>
-                    <TableCell className="text-xs text-foreground-muted">
-                      {/* The latest activity entry; the whole entry is below the table. */}
-                      <span className="line-clamp-3 max-w-56" title={a.lastAction ?? undefined}>
-                        {a.lastAction ?? "None yet"}
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex flex-col items-start gap-2">
-                        <AgentActions
-                          agentId={a.agentId.toString()}
-                          name={a.name}
-                          runtime={a.runtime}
-                          enabled={list.orchestrator && list.devActions}
-                          restricted={a.credits?.restricted ?? false}
-                          canScan={(a.credits?.spendable ?? 0n) >= SCAN_MIN_CREDITS_USDC_E6}
-                        />
-                        <CreditActions
-                          agentId={a.agentId.toString()}
-                          name={a.name}
-                          enabled={list.orchestrator && list.devActions && a.credits !== null}
-                          hasCredits={
-                            (a.credits?.spendable ?? 0n) > 0n || (a.credits?.held ?? 0n) > 0n
-                          }
-                        />
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                    ) : (
+                      <span className="text-xs text-foreground-muted">No funding address yet</span>
+                    )}
+                  </div>
+                  <div className="mt-auto flex flex-col items-start gap-2 border-t pt-3">
+                    <AgentActions
+                      agentId={a.agentId.toString()}
+                      name={a.name}
+                      runtime={a.runtime}
+                      enabled={list.orchestrator && list.devActions}
+                      restricted={a.credits?.restricted ?? false}
+                      canScan={(a.credits?.spendable ?? 0n) >= SCAN_MIN_CREDITS_USDC_E6}
+                    />
+                    <CreditActions
+                      agentId={a.agentId.toString()}
+                      name={a.name}
+                      enabled={list.orchestrator && list.devActions && a.credits !== null}
+                      hasCredits={(a.credits?.spendable ?? 0n) > 0n || (a.credits?.held ?? 0n) > 0n}
+                    />
+                  </div>
+                </li>
+              ))}
+            </ul>
             <AgentActivity
               agents={list.agents.filter((a) => a.runtime === "ready")}
               enabled={list.orchestrator && list.devActions}
