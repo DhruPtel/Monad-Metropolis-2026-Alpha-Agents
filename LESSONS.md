@@ -1651,3 +1651,10 @@ What happened: The uncommitted vault draft freed a token's slot on the held list
 Cause: The condition compared the pre-transfer balance to the slice instead of reading what remained, as the core's `withdrawAll` does.
 Fix: After a successful transfer the exit reads the balance again and frees the slot when it is zero (never USDC); the invariant `TheHeldListIsConsistent` checks that every listed token still has something in it.
 Lesson: Decide a token's place on the held list from its balance after the move, never from what the move was meant to take.
+
+## L-223: A sentinel value chosen for the chain did not fit the stores that read it back
+Unit: P7-U2 (2026-10-12)
+What happened: The vault grant's "no expiry" was first `type(uint64).max`, which overflows the arming table's bigint column, then `2^63 - 1`, which the column holds but the database driver refuses to read back as a number ("int8 value 9223372036854775807 is not a safe integer"), so the fork test's arming failed on the read after the write. Each change to the constant moved every deterministic address of the Executor set, and the address book had to be recorded twice.
+Cause: The marker was chosen on the contract side alone, without walking it through every store and type that would carry it (a Postgres bigint read as a JavaScript number).
+Fix: NO_EXPIRY is `2^53 - 1` (9,007,199,254,740,991), the largest integer a JavaScript number and a signed 64-bit column both hold exactly, far beyond any timed grant; `packages/trading` names the same constant and the arming test checks it is a safe integer.
+Lesson: Before choosing a sentinel that will cross an ABI into the platform, follow it through every column and type it lands in, then deploy once.
