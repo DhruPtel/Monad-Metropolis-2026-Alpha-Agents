@@ -12,6 +12,7 @@ import {
     IExecutorAccountV3,
     IExecutorFactoryV3,
     IRouteAdapter,
+    IVaultAccountV3,
     PolicyV3,
     ReasonV3,
     SwapIntentV3
@@ -56,6 +57,11 @@ import {OracleAdapterV3} from "./OracleAdapterV3.sol";
 ///   Executor checks the post-trade limits.
 /// - Loosening a limit or unpausing waits the 9-day timelock; tightening and
 ///   pausing are instant for the admin or the guardian.
+/// - A vault (P7-U2, D-241): an agent's StrategyVaultV3 trades under the
+///   same limits with a grant that has no fixed expiry and ends only on a
+///   sale, a configuration change or the owner's revocation; such a grant
+///   serves the vault alone. A vault never buys a class A or a screened token
+///   (D-338), and nothing trades for a vault in handover.
 contract ExecutorV3 is ISwapExecutorV3, RiskTimelock, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
@@ -66,6 +72,10 @@ contract ExecutorV3 is ISwapExecutorV3, RiskTimelock, ReentrancyGuard {
     uint256 public constant RING_SIZE = 20;
     /// The longest a session grant may run (A-35).
     uint256 public constant MAX_SESSION = 30 days;
+    /// A vault grant's `validUntil`: no fixed expiry (D-241). The largest
+    /// signed 64-bit value, so every store the platform keeps grants in can
+    /// hold it; no timed grant can reach it (it is bounded by MAX_SESSION).
+    uint64 public constant NO_EXPIRY = 0x7FFFFFFFFFFFFFFF;
     /// A route's bound (A-62), the RouteAdapter's too.
     uint256 public constant MAX_HOPS = 3;
     /// The account's own class A caps: a policy may be tighter, never looser (D-337).
@@ -252,6 +262,19 @@ contract ExecutorV3 is ISwapExecutorV3, RiskTimelock, ReentrancyGuard {
         emit SessionRegistered(agentId, key, oe, ce, validUntil);
     }
 
+    /// The agent's owner names the session key that may submit intents for the
+    /// agent's vault, with no fixed expiry (D-241): the grant ends only on a
+    /// sale (the ownership epoch), a configuration change, or `revokeSession`,
+    /// and serves the vault alone, never a personal account.
+    function registerVaultSession(uint256 agentId, address key) external {
+        if (AGENT_NFT.ownerOf(agentId) != msg.sender) revert NotAgentOwner(msg.sender);
+        if (key == address(0) || factory.vaultOf(agentId) == address(0)) revert BadSession();
+        uint64 oe = AGENT_NFT.ownerEpoch(agentId);
+        uint64 ce = configEpochOf[agentId];
+        _grants[agentId] = Grant(key, oe, ce, NO_EXPIRY);
+        emit SessionRegistered(agentId, key, oe, ce, NO_EXPIRY);
+    }
+
     /// The agent's owner ends its session grant at once.
     function revokeSession(uint256 agentId) external {
         if (AGENT_NFT.ownerOf(agentId) != msg.sender) revert NotAgentOwner(msg.sender);
@@ -281,10 +304,10 @@ contract ExecutorV3 is ISwapExecutorV3, RiskTimelock, ReentrancyGuard {
     function swap(SwapIntentV3 calldata i) external nonReentrant returns (uint256 amountOut) {
         if (address(factory) == address(0) || address(pools) == address(0)) revert NotBound();
         PolicyV3 memory p = _policy;
-        bool sellsScreened = _checkIntent(i);
-        _checkSession(i);
+        (bool sellsScreened, bool isVault) = _checkIntent(i);
+        _checkSession(i, isVault);
         _checkDeadline(i, p);
-        Measure memory m = _checkMarket(i, p, sellsScreened);
+        Measure memory m = _checkMarket(i, p, sellsScreened, isVault);
         actionUsed[i.account][i.actionId] = true;
 
         m.outBefore = IERC20(i.tokenOut).balanceOf(i.account);
@@ -375,20 +398,26 @@ contract ExecutorV3 is ISwapExecutorV3, RiskTimelock, ReentrancyGuard {
 
     /// The intent's own shape, the global pause, the route's shape, and the
     /// tokens' registry status: listed, not frozen, buyable for this account.
-    /// Returns whether the token sold is in the screened lane: its own pools
-    /// are its way out whether or not the account opted in (D-365).
-    function _checkIntent(SwapIntentV3 calldata i) internal view returns (bool sellsScreened) {
+    /// Returns whether the token sold is in the screened lane (its own pools
+    /// are its way out whether or not the account opted in, D-365) and whether
+    /// the account is the agent's vault, which never buys a class A or a
+    /// screened token (D-338): a vault's value mints and burns shares.
+    function _checkIntent(SwapIntentV3 calldata i) internal view returns (bool sellsScreened, bool isVault) {
         if (paused) _reject(ReasonV3.PAUSED);
         if (i.schemaVersion != SCHEMA_VERSION || i.chainId != block.chainid) _reject(ReasonV3.INTENT_INVALID);
         if (i.amountIn == 0 || i.minAmountOut == 0 || i.tokenIn == i.tokenOut) _reject(ReasonV3.INTENT_INVALID);
         if (i.policyHash != policyHash) _reject(ReasonV3.INTENT_INVALID);
         if (i.route.length == 0 || i.route.length > MAX_HOPS) _reject(ReasonV3.ROUTE_INVALID);
+        isVault = i.account != address(0) && factory.vaultOf(i.agentId) == i.account;
         TokenRecord memory rin = TOKENS.tokenRecord(i.tokenIn);
         if (rin.lane == Lane.NONE) _reject(ReasonV3.ASSET_NOT_ALLOWED);
         if (rin.status == TokenStatus.FROZEN) _reject(ReasonV3.TOKEN_FROZEN);
         TokenRecord memory rout = TOKENS.tokenRecord(i.tokenOut);
         if (rout.lane == Lane.NONE) _reject(ReasonV3.ASSET_NOT_ALLOWED);
         if (i.tokenOut != USDC) {
+            if (isVault && (rout.priceClass != PriceClass.F || rout.lane == Lane.SCREENED)) {
+                _reject(ReasonV3.ASSET_NOT_ALLOWED);
+            }
             if (rout.status == TokenStatus.FROZEN) _reject(ReasonV3.TOKEN_FROZEN);
             if (rout.status == TokenStatus.SELL_ONLY) _reject(ReasonV3.TOKEN_SELL_ONLY);
             if (rout.lane == Lane.SCREENED && !TOKENS.buyableFor(i.tokenOut, i.account)) {
@@ -399,19 +428,27 @@ contract ExecutorV3 is ISwapExecutorV3, RiskTimelock, ReentrancyGuard {
     }
 
     /// The session key, its grant, both epochs, the account and the actionId.
-    function _checkSession(SwapIntentV3 calldata i) internal view {
+    /// A grant without expiry serves the agent's vault alone (D-241); the
+    /// account is the agent's vault or its current owner's personal account.
+    function _checkSession(SwapIntentV3 calldata i, bool isVault) internal view {
         Grant memory g = _grants[i.agentId];
         if (g.key == address(0) || msg.sender != g.key) _reject(ReasonV3.SESSION_UNKNOWN);
-        // forge-lint: disable-next-line(block-timestamp)
-        if (block.timestamp > g.validUntil) _reject(ReasonV3.SESSION_EXPIRED);
+        if (g.validUntil == NO_EXPIRY) {
+            if (!isVault) _reject(ReasonV3.INTENT_INVALID);
+        } else if (block.timestamp > g.validUntil) {
+            // forge-lint: disable-previous-line(block-timestamp)
+            _reject(ReasonV3.SESSION_EXPIRED);
+        }
         uint64 oe = AGENT_NFT.ownerEpoch(i.agentId);
         uint64 ce = configEpochOf[i.agentId];
         if (i.ownerEpoch != oe || g.ownerEpoch != oe || i.configEpoch != ce || g.configEpoch != ce) {
             _reject(ReasonV3.EPOCH_MISMATCH);
         }
-        address owner_ = AGENT_NFT.ownerOf(i.agentId);
-        if (i.account == address(0) || factory.personalAccountOf(i.agentId, owner_) != i.account) {
-            _reject(ReasonV3.INTENT_INVALID);
+        if (!isVault) {
+            address owner_ = AGENT_NFT.ownerOf(i.agentId);
+            if (i.account == address(0) || factory.personalAccountOf(i.agentId, owner_) != i.account) {
+                _reject(ReasonV3.INTENT_INVALID);
+            }
         }
         if (actionUsed[i.account][i.actionId]) _reject(ReasonV3.ACTION_REPLAYED);
     }
@@ -426,7 +463,7 @@ contract ExecutorV3 is ISwapExecutorV3, RiskTimelock, ReentrancyGuard {
     /// Mode, the adapter, both sides' prices, the route and its pools against
     /// the oracle, balance, the breaker, size, rate, turnover, the floor on
     /// `minAmountOut`, and the caps and the USDC floor projected at the prices.
-    function _checkMarket(SwapIntentV3 calldata i, PolicyV3 memory p, bool sellsScreened)
+    function _checkMarket(SwapIntentV3 calldata i, PolicyV3 memory p, bool sellsScreened, bool isVault)
         internal
         view
         returns (Measure memory m)
@@ -435,7 +472,11 @@ contract ExecutorV3 is ISwapExecutorV3, RiskTimelock, ReentrancyGuard {
         bool intoUsdc = i.tokenOut == USDC;
         AccountMode mode = AccountMode(account.mode());
         if (mode == AccountMode.PAUSED) _reject(ReasonV3.PAUSED);
-        if (mode == AccountMode.HANDOVER) _reject(ReasonV3.VAULT_IN_HANDOVER);
+        // A vault's handover is the agent's epoch against the one its management
+        // was accepted at (FINAL_PLAN 4.7.7): nothing trades for it until the new owner accepts.
+        if (mode == AccountMode.HANDOVER || (isVault && IVaultAccountV3(i.account).inHandover())) {
+            _reject(ReasonV3.VAULT_IN_HANDOVER);
+        }
         if (mode != AccountMode.NORMAL && !intoUsdc) _reject(ReasonV3.REDUCE_ONLY_MODE);
 
         m.adapter = IAdapterRegistry(address(pools)).adapterFor(i.adapterId);

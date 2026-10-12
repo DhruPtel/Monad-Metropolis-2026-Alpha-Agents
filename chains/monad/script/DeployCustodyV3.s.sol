@@ -5,6 +5,7 @@ import {console} from "forge-std/Script.sol";
 import {AccountFactoryV3} from "../src/fund/AccountFactoryV3.sol";
 import {OracleAdapterV3} from "../src/fund/OracleAdapterV3.sol";
 import {PersonalAccountV3} from "../src/fund/PersonalAccountV3.sol";
+import {StrategyVaultV3} from "../src/fund/StrategyVaultV3.sol";
 import {IAgentNFTView} from "../src/interfaces/ICustody.sol";
 import {ITokenRegistry, Lane} from "../src/interfaces/IFund.sol";
 import {DeployScope} from "./DeployScope.sol";
@@ -61,6 +62,8 @@ contract DeployCustodyV3 is DeployScope {
         console.log("ACCOUNT_FACTORY_V3_CODE_SIZE", address(factory).code.length);
         console.log("PERSONAL_ACCOUNT_V3_IMPLEMENTATION", factory.PERSONAL_ACCOUNT_IMPLEMENTATION());
         console.log("PERSONAL_ACCOUNT_V3_CODE_SIZE", factory.PERSONAL_ACCOUNT_IMPLEMENTATION().code.length);
+        console.log("STRATEGY_VAULT_V3_IMPLEMENTATION", factory.VAULT_IMPLEMENTATION());
+        console.log("STRATEGY_VAULT_V3_CODE_SIZE", factory.VAULT_IMPLEMENTATION().code.length);
         console.log("ACCOUNT_FACTORY_V3_SALT");
         console.logBytes32(factorySalt);
     }
@@ -91,6 +94,13 @@ contract DeployCustodyV3 is DeployScope {
         require(impl.USDC() == d.usdc, "implementation usdc");
         require(address(impl.TOKENS()) == address(d.tokenRegistry), "implementation registry");
         require(impl.MAX_HELD_TOKENS() == 16, "held list bound");
+        StrategyVaultV3 vaultImpl = StrategyVaultV3(f.VAULT_IMPLEMENTATION());
+        require(address(vaultImpl).code.length > 0, "vault implementation");
+        require(address(vaultImpl.AGENT_NFT()) == address(d.agentNft), "vault agent nft");
+        require(vaultImpl.USDC() == d.usdc, "vault usdc");
+        require(address(vaultImpl.TOKENS()) == address(d.tokenRegistry), "vault registry");
+        require(vaultImpl.MAX_LOCKUP() == 7 days && vaultImpl.MIN_LOCKUP() == 1 days, "vault lockups");
+        require(vaultImpl.RISK_TIMELOCK() == 9 days, "vault timelock");
     }
 
     /// A fresh deployment must be exactly what was intended. A later run

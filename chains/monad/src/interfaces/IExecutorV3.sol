@@ -116,6 +116,14 @@ interface IExecutorFactoryV3 {
     function executor() external view returns (address);
     function oracle() external view returns (address);
     function personalAccountOf(uint256 agentId, address owner) external view returns (address);
+    /// The agent's StrategyVaultV3, or zero (P7-U2).
+    function vaultOf(uint256 agentId) external view returns (address);
+}
+
+/// The part of a StrategyVaultV3 Executor v3 reads beside IExecutorAccountV3 (P7-U2).
+interface IVaultAccountV3 {
+    /// Whether the agent changed hands since the vault's management was accepted (FINAL_PLAN 4.7.7).
+    function inHandover() external view returns (bool);
 }
 
 /// The ProtocolRegistryV3's adapter list, as Executor v3 reads it.

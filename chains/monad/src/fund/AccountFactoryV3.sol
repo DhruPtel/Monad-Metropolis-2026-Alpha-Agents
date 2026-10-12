@@ -5,13 +5,14 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {Ownable2Step} from "@openzeppelin/contracts/access/Ownable2Step.sol";
 import {Clones} from "@openzeppelin/contracts/proxy/Clones.sol";
 import {PersonalAccountV3} from "./PersonalAccountV3.sol";
+import {StrategyVaultV3} from "./StrategyVaultV3.sol";
 import {IAgentNFTView, IDepositLedger} from "../interfaces/ICustody.sol";
 import {ICustodyConfigV3} from "../interfaces/ICustodyV3.sol";
 import {ITokenRegistry, Lane} from "../interfaces/IFund.sol";
 
 /// @title AccountFactoryV3
-/// @notice Deploys PersonalAccountV3 clones and holds what every custody
-/// account v3 reads (FINAL_PLAN 0.4, 4.1.13, F-U3): the Executor, oracle,
+/// @notice Deploys PersonalAccountV3 and StrategyVaultV3 clones and holds what
+/// every custody account v3 reads (FINAL_PLAN 0.4, 4.1.13, F-U3): the Executor, oracle,
 /// guardian and sentinel references, the beta's depositor allowlist and the
 /// per-account and platform-wide deposit caps. The buy list is no longer here:
 /// the TokenRegistry (F-U2), given at deployment and immutable, says what may
@@ -33,6 +34,9 @@ import {ITokenRegistry, Lane} from "../interfaces/IFund.sol";
 ///   allowlist (Q-46). A new depositor is still bound by both caps, which only
 ///   the timelock raises, so an addition cannot raise the platform's exposure.
 /// - Admin is two-step (Ownable2Step) and cannot be renounced.
+/// - One StrategyVaultV3 per agent, deployed by the agent's owner (P7-U2); its
+///   deposits count against the per-account cap until P7-U4 gives vaults a cap
+///   of their own, and the depositor allowlist applies to its depositors.
 contract AccountFactoryV3 is ICustodyConfigV3, IDepositLedger, Ownable2Step {
     /// 9 days: the maximum lockup (7 days) plus notice (2 days) (FINAL_PLAN 4.7.2).
     uint256 public constant RISK_TIMELOCK = 9 days;
@@ -58,8 +62,10 @@ contract AccountFactoryV3 is ICustodyConfigV3, IDepositLedger, Ownable2Step {
     IAgentNFTView public immutable AGENT_NFT;
     address public immutable USDC;
     ITokenRegistry public immutable TOKEN_REGISTRY;
-    /// The PersonalAccountV3 every clone runs.
+    /// The PersonalAccountV3 every personal clone runs.
     address public immutable PERSONAL_ACCOUNT_IMPLEMENTATION;
+    /// The StrategyVaultV3 every vault clone runs (P7-U2).
+    address public immutable VAULT_IMPLEMENTATION;
 
     address public executor;
     address public oracle;
@@ -77,11 +83,14 @@ contract AccountFactoryV3 is ICustodyConfigV3, IDepositLedger, Ownable2Step {
     mapping(address depositor => bool) public isAllowlisted;
 
     mapping(uint256 agentId => mapping(address owner => address)) public personalAccountOf;
+    /// The agent's vault, one for its whole life: a sale hands it over (FINAL_PLAN 4.7.7).
+    mapping(uint256 agentId => address) public vaultOf;
     mapping(address account => bool) public isAccount;
 
     mapping(bytes32 id => Pending) public pending;
 
     event PersonalAccountCreated(uint256 indexed agentId, address indexed owner, address account);
+    event VaultCreated(uint256 indexed agentId, address indexed leader, address vault);
     event DepositRecorded(
         address indexed account, address indexed depositor, uint256 value, uint256 principalAfter, uint256 platformTotal
     );
@@ -102,6 +111,7 @@ contract AccountFactoryV3 is ICustodyConfigV3, IDepositLedger, Ownable2Step {
     error UsdcNotCore(address usdc);
     error NotAgentOwner(address caller, address agentOwner);
     error AccountExists(address account);
+    error VaultExists(address vault);
     error NotAnAccount(address caller);
     error NotAllowlisted(address depositor);
     error PersonalCapExceeded(uint256 principalAfter, uint256 cap);
@@ -139,6 +149,7 @@ contract AccountFactoryV3 is ICustodyConfigV3, IDepositLedger, Ownable2Step {
         USDC = d.usdc;
         TOKEN_REGISTRY = d.tokenRegistry;
         PERSONAL_ACCOUNT_IMPLEMENTATION = address(new PersonalAccountV3(d.agentNft, d.usdc, d.tokenRegistry));
+        VAULT_IMPLEMENTATION = address(new StrategyVaultV3(d.agentNft, d.usdc, d.tokenRegistry));
         guardian = d.guardian;
         sentinel = d.sentinel;
         oracle = d.oracle;
@@ -182,6 +193,29 @@ contract AccountFactoryV3 is ICustodyConfigV3, IDepositLedger, Ownable2Step {
 
     function _salt(uint256 agentId, address owner_) private pure returns (bytes32) {
         return keccak256(abi.encode(agentId, owner_));
+    }
+
+    /// Deploys the agent's one StrategyVaultV3 for its current owner, who is
+    /// its first leader (P7-U2). The address is fixed by the agent alone.
+    function createVault(uint256 agentId) external returns (address vault) {
+        address agentOwner = AGENT_NFT.ownerOf(agentId);
+        if (agentOwner != msg.sender) revert NotAgentOwner(msg.sender, agentOwner);
+        address existing = vaultOf[agentId];
+        if (existing != address(0)) revert VaultExists(existing);
+        vault = Clones.cloneDeterministic(VAULT_IMPLEMENTATION, _vaultSalt(agentId));
+        vaultOf[agentId] = vault;
+        isAccount[vault] = true;
+        emit VaultCreated(agentId, msg.sender, vault);
+        StrategyVaultV3(vault).initialize(agentId, msg.sender);
+    }
+
+    /// Where the agent's StrategyVaultV3 is or will be.
+    function predictVault(uint256 agentId) external view returns (address) {
+        return Clones.predictDeterministicAddress(VAULT_IMPLEMENTATION, _vaultSalt(agentId));
+    }
+
+    function _vaultSalt(uint256 agentId) private pure returns (bytes32) {
+        return keccak256(abi.encode("vault", agentId));
     }
 
     // ---------------------------------------------------------------------
