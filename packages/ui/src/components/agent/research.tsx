@@ -10,6 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui
 import { EmptyState } from "../ui/empty-state";
 import { SectionLabel } from "../ui/section-label";
 import { Tag, type TagTone } from "../ui/tag";
+import { FactTile, TileGrid, type TileTone } from "./tiles";
 
 /**
  * The research loop as the owner reads it (P3-U10): the agent terminal (a
@@ -37,6 +38,156 @@ export function relativeText(iso: string, now: string): string {
           ? `${Math.round(abs / 3_600_000)} h`
           : `${Math.round(abs / 86_400_000)} d`;
   return ms < 0 ? `${unit} ago` : `in ${unit}`;
+}
+
+// ---------------------------------------------------------------------------
+// UI-U2: the loop at a glance
+
+export interface ResearchTilesView {
+  readonly running: boolean;
+  readonly schedulingOn: boolean;
+  readonly paused: boolean;
+  readonly waitingReason: string | null;
+  readonly nextDueAt: string | null;
+  readonly lastScanAt: string | null;
+  readonly intensity: string | null;
+  /** Null without a goal: research then has no budget. */
+  readonly budget: {
+    readonly usedTodayUsdcE6: string;
+    readonly dailyBudgetUsdcE6: string;
+    readonly divesToday: number;
+    readonly divesPerDay: number;
+  } | null;
+  /** Cycles run so far, and whether one is open now. */
+  readonly cycles: number;
+  readonly open: boolean;
+}
+
+/** The plain words each tile says, so the page is tested without a browser. */
+export function researchTileWords(
+  v: ResearchTilesView,
+  now: string,
+): {
+  readonly status: { value: string; note: string; tone: TileTone; state: string };
+  readonly next: { value: string; note: string };
+  readonly spent: { value: string; note: string; tone: TileTone };
+  readonly cycles: { value: string; note: string };
+} {
+  const status = !v.running
+    ? {
+        value: "Not running",
+        note: "The loop runs once a plan is approved and the agent is active. Until then research runs when you start it.",
+        tone: "neutral" as TileTone,
+        state: "Not running",
+      }
+    : !v.schedulingOn
+      ? {
+          value: "By hand",
+          note: "Scheduled research is off on this stack; a cycle runs when it is started.",
+          tone: "neutral" as TileTone,
+          state: "By hand",
+        }
+      : v.paused
+        ? {
+            value: "Paused",
+            note: "Nothing new starts until you resume; safety checks keep running.",
+            tone: "warning" as TileTone,
+            state: "Paused",
+          }
+        : v.waitingReason
+          ? {
+              value: "Waiting",
+              note: v.waitingReason,
+              tone: "warning" as TileTone,
+              state: "Waiting",
+            }
+          : {
+              value: "On schedule",
+              note: v.intensity
+                ? `${v.intensity.charAt(0)}${v.intensity.slice(1).toLowerCase()} intensity.`
+                : "Research runs on its schedule.",
+              tone: "accent" as TileTone,
+              state: "On schedule",
+            };
+  const next = v.open
+    ? { value: "Now", note: "A cycle is running; the terminal follows it." }
+    : v.nextDueAt
+      ? { value: relativeText(v.nextDueAt, now), note: `The next Scan, at ${when(v.nextDueAt)}.` }
+      : { value: "None due", note: "Nothing is scheduled yet." };
+  const spent = v.budget
+    ? {
+        value: `${usdc(v.budget.usedTodayUsdcE6)} USDC`,
+        note: `of ${usdc(v.budget.dailyBudgetUsdcE6)} USDC today, ${v.budget.divesToday} of ${v.budget.divesPerDay} Dive${v.budget.divesPerDay === 1 ? "" : "s"}.`,
+        tone:
+          BigInt(v.budget.usedTodayUsdcE6) >= BigInt(v.budget.dailyBudgetUsdcE6)
+            ? ("warning" as TileTone)
+            : ("neutral" as TileTone),
+      }
+    : { value: "No budget", note: "Set a goal to give research a budget.", tone: "warning" as TileTone };
+  const cycles = {
+    value: String(v.cycles),
+    note:
+      v.cycles === 0
+        ? "No cycle yet."
+        : v.lastScanAt
+          ? `Cycle${v.cycles === 1 ? "" : "s"} so far; the last Scan ${relativeText(v.lastScanAt, now)}.`
+          : `Cycle${v.cycles === 1 ? "" : "s"} so far.`,
+  };
+  return { status, next, spent, cycles };
+}
+
+/**
+ * The research loop at a glance (UI-U2): whether it runs, with Pause or
+ * Resume beside it; when the next Scan is due; what today's research spent
+ * of its budget; and how many cycles ran. Four square tiles.
+ */
+function ResearchTiles({
+  view,
+  now,
+  action,
+  className,
+}: {
+  view: ResearchTilesView;
+  now: string;
+  /** Pause or Resume, where the loop runs. */
+  action?: ReactNode;
+  className?: string;
+}) {
+  const w = researchTileWords(view, now);
+  return (
+    <TileGrid label="Research at a glance" testId="research-tiles" className={className}>
+      <FactTile
+        label="Research is"
+        value={w.status.value}
+        note={w.status.note}
+        action={action}
+        tone={w.status.tone}
+        numeric={false}
+        testId="research-tile-status"
+        state={w.status.state}
+      />
+      <FactTile
+        label="Next Scan"
+        value={w.next.value}
+        note={w.next.note}
+        numeric={false}
+        testId="research-tile-next"
+      />
+      <FactTile
+        label="Spent today"
+        value={w.spent.value}
+        note={w.spent.note}
+        tone={w.spent.tone}
+        testId="research-tile-spent"
+      />
+      <FactTile
+        label="Cycles"
+        value={w.cycles.value}
+        note={w.cycles.note}
+        testId="research-tile-cycles"
+      />
+    </TileGrid>
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -778,6 +929,7 @@ export {
   PlanUnchangedCard,
   ResearchOverview,
   ResearchScheduleCard,
+  ResearchTiles,
   StageTimeline,
   ThemesPanel,
   TriggerList,

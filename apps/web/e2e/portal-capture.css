@@ -17,3 +17,8 @@ header.sticky {
   animation: none !important;
   transition: none !important;
 }
+
+/* UI-U2: the reveal countdown ticks every second; a capture holds it hidden. */
+[data-countdown] {
+  visibility: hidden !important;
+}

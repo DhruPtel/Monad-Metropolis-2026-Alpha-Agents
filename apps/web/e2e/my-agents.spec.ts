@@ -24,9 +24,24 @@ const walletButton = (page: Page) => page.locator("header [data-slot=wallet-butt
 const card = (page: Page, id: number) =>
   page.locator(`[data-testid=my-agent-card][data-agent-id="${id}"]`);
 
-async function open(page: Page, chain: FakeChain, api = new FakeApi(chain)) {
+/**
+ * UI-U2: an agent's reveal stays hidden until its owner clicks Reveal once.
+ * Every test but the reveal's opens with the reveals already seen, as a
+ * returning owner's browser has them.
+ */
+async function open(
+  page: Page,
+  chain: FakeChain,
+  api = new FakeApi(chain),
+  o: { unseen?: readonly number[] } = {},
+) {
   await chain.install(page);
   await api.install(page);
+  await page.addInitScript((unseen: readonly number[]) => {
+    for (let id = 1; id <= 40; id += 1)
+      if (!unseen.includes(id)) localStorage.setItem(`aa:reveal-seen:local:${id}`, "1");
+      else localStorage.removeItem(`aa:reveal-seen:local:${id}`);
+  }, o.unseen ?? []);
   await page.goto("/agents");
   await page.evaluate(() => document.fonts.ready);
   return api;
@@ -130,17 +145,37 @@ test.describe("every state, captured and scanned", () => {
     expect(await blockingViolations(page)).toEqual([]);
   });
 
-  test("an unrevealed agent waits for its reveal, with no Scan", async ({ page }) => {
+  test("an unrevealed agent waits for its reveal with the time left, with no Scan; once drawn, the result hides until Reveal is clicked (UI-U2)", async ({
+    page,
+  }) => {
     const chain = new FakeChain();
     chain.mint(7n, MOCK_WALLET_ADDRESS, 0);
-    await open(page, chain);
+    await open(page, chain, undefined, { unseen: [7] });
     await connect(page);
     const c = card(page, 7);
+    const moment = c.locator("[data-slot=reveal-moment]");
     await expect(c.getByText("Waiting for reveal")).toBeVisible();
     await expect(c.getByTestId("unrevealed-note")).toBeVisible();
+    await expect(moment).toHaveAttribute("data-phase", "waiting");
+    await expect(moment).toContainText(/About \d+ seconds to go|Any moment now/);
     await expect(c.getByRole("button", { name: "Research now" })).toBeDisabled();
     await expect(c.getByTestId("scan-unavailable")).toContainText("revealed");
     await capture(page, main(page), "agents-unrevealed.png");
+    expect(await blockingViolations(page)).toEqual([]);
+    // The chain draws a Bee: the card says it is revealed, and shows nothing of it yet.
+    const agent = chain.agents.get(7n);
+    if (!agent) throw new Error("no agent 7 on the fake chain");
+    agent.species = BEE;
+    await expect(moment).toHaveAttribute("data-phase", "ready", { timeout: 15_000 });
+    await expect(c.getByText("Revealed", { exact: true })).toBeVisible();
+    await expect(c.getByRole("img", { name: "Bee agent" })).toHaveCount(0);
+    await capture(page, main(page), "agents-reveal-ready.png");
+    await moment.getByRole("button", { name: "Reveal" }).click();
+    await expect(moment).toHaveAttribute("data-phase", "revealed", { timeout: 10_000 });
+    await expect(c.getByRole("img", { name: "Bee agent" })).toBeVisible();
+    await expect(moment.getByTestId("one-of-one")).toBeVisible();
+    await expect(moment).toContainText("One of one: no other agent will ever be this species.");
+    await capture(page, main(page), "agents-revealed-moment.png");
     expect(await blockingViolations(page)).toEqual([]);
   });
 

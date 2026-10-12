@@ -267,6 +267,10 @@
   --ease-snap: var(--motion-ease);
   --animate-slot-pulse: slot-pulse 2.4s ease-in-out infinite;
   --animate-status-pulse: status-pulse 1.8s ease-out infinite;
+  /* UI-U2: the reveal moment: the placeholder shakes, the art bursts in, the tier's rays turn. */
+  --animate-reveal-shake: reveal-shake 0.56s ease-in-out both;
+  --animate-reveal-pop: reveal-pop 0.9s cubic-bezier(0.2, 0.9, 0.3, 1.2) both;
+  --animate-reveal-rays: reveal-rays 5s linear infinite;
 
   @keyframes slot-pulse {
     0%,
@@ -283,6 +287,49 @@
     }
     100% {
       box-shadow: 0 0 0 6px transparent;
+    }
+  }
+  @keyframes reveal-shake {
+    0%,
+    100% {
+      transform: translateX(0) rotate(0);
+    }
+    20% {
+      transform: translateX(-4px) rotate(-2deg);
+    }
+    40% {
+      transform: translateX(4px) rotate(2deg);
+    }
+    60% {
+      transform: translateX(-5px) rotate(-3deg);
+    }
+    80% {
+      transform: translateX(5px) rotate(3deg);
+    }
+  }
+  @keyframes reveal-pop {
+    0% {
+      transform: scale(0.55);
+      opacity: 0;
+      filter: brightness(2);
+    }
+    60% {
+      transform: scale(1.08);
+      opacity: 1;
+      filter: brightness(1.25);
+    }
+    100% {
+      transform: scale(1);
+      opacity: 1;
+      filter: brightness(1);
+    }
+  }
+  @keyframes reveal-rays {
+    from {
+      transform: rotate(0deg);
+    }
+    to {
+      transform: rotate(360deg);
     }
   }
 
@@ -347,6 +394,29 @@
 }
 
 /* Numbers, amounts and addresses: monospace with aligned digits. */
+/* UI-U2: the reveal moment's rays behind the art, in the tier's colour. */
+@utility reveal-rays {
+  background: conic-gradient(
+    from 0deg,
+    var(--reveal-ray),
+    transparent 18%,
+    var(--reveal-ray) 36%,
+    transparent 54%,
+    var(--reveal-ray) 72%,
+    transparent 90%,
+    var(--reveal-ray)
+  );
+}
+@utility reveal-rays-base {
+  --reveal-ray: color-mix(in oklab, var(--foreground-muted) 35%, transparent);
+}
+@utility reveal-rays-medium {
+  --reveal-ray: color-mix(in oklab, var(--rare) 55%, transparent);
+}
+@utility reveal-rays-pro {
+  --reveal-ray: color-mix(in oklab, var(--detail) 70%, transparent);
+}
+
 @utility numeric {
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;

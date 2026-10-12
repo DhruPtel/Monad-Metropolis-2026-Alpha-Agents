@@ -9,6 +9,7 @@ import { Skeleton } from "../ui/skeleton";
 import { Tag } from "../ui/tag";
 import { cn } from "../../lib/utils";
 import { MintButton, type MintButtonProps } from "./mint-button";
+import { RevealMoment, type RevealMomentProps } from "./reveal-moment";
 import { type ArtTier, SpeciesArt } from "./species-art";
 
 /**
@@ -75,6 +76,14 @@ interface MintPanelProps {
   readonly maxSupply?: string | undefined;
   /** An extra line under an unrevealed agent, such as how to reveal on a dev chain. */
   readonly revealNote?: ReactNode;
+  /**
+   * UI-U2: the reveal moment for the agent just minted (awaiting-reveal and
+   * revealed): the countdown while pending, then the result hidden until the
+   * owner clicks Reveal. Without it the plain preview shows.
+   */
+  readonly reveal?:
+    | Pick<RevealMomentProps, "speciesIndex" | "secondsLeft" | "seen" | "onSeen" | "durationMs">
+    | undefined;
   readonly onConnect?: (() => void) | undefined;
   readonly onRetry?: (() => void) | undefined;
   readonly className?: string | undefined;
@@ -283,7 +292,19 @@ function MintPanel(props: MintPanelProps) {
       body = (
         <>
           {mint ? <MintButton {...mint} className={cn("sm:max-w-xs", mint.className)} /> : null}
-          {agent ? (
+          {agent && props.reveal ? (
+            <div className="flex flex-col gap-1">
+              <RevealMoment
+                agentId={agent.id}
+                href={agentHref}
+                linkAs={linkAs}
+                {...props.reveal}
+              />
+              {props.reveal.speciesIndex === null && revealNote ? (
+                <span className="text-xs text-foreground-muted">{revealNote}</span>
+              ) : null}
+            </div>
+          ) : agent ? (
             <AgentPreview agent={agent} href={agentHref} revealNote={revealNote} linkAs={linkAs} />
           ) : null}
         </>

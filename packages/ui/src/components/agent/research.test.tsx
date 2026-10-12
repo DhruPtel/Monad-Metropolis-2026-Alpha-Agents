@@ -8,12 +8,14 @@ import {
   ResearchOverview,
   ResearchScheduleCard,
   type ResearchScheduleView,
+  ResearchTiles,
   StageTimeline,
   type TerminalLineView,
   ThemesPanel,
   TriggerList,
   everyText,
   relativeText,
+  researchTileWords,
 } from "./research";
 
 /**
@@ -336,5 +338,76 @@ describe("the timeline and the records", () => {
     expect(screen.getByText("110%")).toBeInTheDocument();
     expect(screen.getByText(/kept the plan because the evidence was too thin/)).toBeInTheDocument();
     expect(screen.getByText(/What would change it: a second source/)).toBeInTheDocument();
+  });
+});
+
+describe("the research loop at a glance as tiles (UI-U2)", () => {
+  const NOW = "2026-10-11T12:05:00.000Z";
+  const base = {
+    running: true,
+    schedulingOn: true,
+    paused: false,
+    waitingReason: null,
+    nextDueAt: "2026-10-11T15:00:00.000Z",
+    lastScanAt: "2026-10-11T09:00:00.000Z",
+    intensity: "STANDARD",
+    budget: {
+      usedTodayUsdcE6: "1410000",
+      dailyBudgetUsdcE6: "3800000",
+      divesToday: 1,
+      divesPerDay: 2,
+    },
+    cycles: 2,
+    open: false,
+  };
+
+  it("says whether the loop runs, when the next Scan is due, what today spent and how many cycles ran", () => {
+    const w = researchTileWords(base, NOW);
+    expect(w.status).toMatchObject({ value: "On schedule", state: "On schedule", tone: "accent" });
+    expect(w.status.note).toBe("Standard intensity.");
+    expect(w.next).toEqual({ value: "in 3 h", note: "The next Scan, at 2026-10-11 15:00 UTC." });
+    expect(w.spent).toEqual({
+      value: "1.41 USDC",
+      note: "of 3.80 USDC today, 1 of 2 Dives.",
+      tone: "neutral",
+    });
+    expect(w.cycles).toEqual({ value: "2", note: "Cycles so far; the last Scan 3 h ago." });
+  });
+
+  it("paused, waiting, by hand and not running each say so, a used-up budget warns, an open cycle is now, no goal has no budget", () => {
+    expect(researchTileWords({ ...base, paused: true }, NOW).status).toMatchObject({
+      value: "Paused",
+      tone: "warning",
+    });
+    expect(researchTileWords({ ...base, waitingReason: "Waiting for tomorrow's budget." }, NOW).status).toMatchObject({
+      value: "Waiting",
+      note: "Waiting for tomorrow's budget.",
+    });
+    expect(researchTileWords({ ...base, schedulingOn: false }, NOW).status.value).toBe("By hand");
+    expect(researchTileWords({ ...base, running: false }, NOW).status.value).toBe("Not running");
+    expect(
+      researchTileWords(
+        { ...base, budget: { ...base.budget, usedTodayUsdcE6: "3800000" } },
+        NOW,
+      ).spent.tone,
+    ).toBe("warning");
+    expect(researchTileWords({ ...base, open: true }, NOW).next.value).toBe("Now");
+    expect(researchTileWords({ ...base, nextDueAt: null }, NOW).next.value).toBe("None due");
+    expect(researchTileWords({ ...base, budget: null, cycles: 0 }, NOW).spent).toEqual({
+      value: "No budget",
+      note: "Set a goal to give research a budget.",
+      tone: "warning",
+    });
+    expect(researchTileWords({ ...base, cycles: 0 }, NOW).cycles.note).toBe("No cycle yet.");
+  });
+
+  it("renders the four tiles with the action on the status tile", () => {
+    render(<ResearchTiles view={base} now={NOW} action={<button type="button">Pause research</button>} />);
+    const tiles = within(screen.getByRole("group", { name: "Research at a glance" }));
+    expect(screen.getByTestId("research-tile-status").getAttribute("data-state")).toBe("On schedule");
+    expect(tiles.getByRole("button", { name: "Pause research" })).toBeTruthy();
+    expect(tiles.getByText("in 3 h")).toBeTruthy();
+    expect(tiles.getByText("1.41 USDC")).toBeTruthy();
+    expect(tiles.getByText("2")).toBeTruthy();
   });
 });

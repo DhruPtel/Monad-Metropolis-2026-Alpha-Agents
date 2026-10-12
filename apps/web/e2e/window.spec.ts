@@ -97,12 +97,21 @@ test.describe("the window, captured and scanned", () => {
     const chart = w.getByTestId("performance-chart");
     await expect(chart.getByTestId("trade-mark")).toHaveCount(3);
     await expect(chart.getByRole("img", { name: /with 3 trades marked/ })).toBeVisible();
+    // UI-U2: the holdings as tiles, the table a click away with the cost basis.
     const makeup = w.getByTestId("asset-makeup");
     await expect(makeup.getByTestId("asset-row")).toHaveCount(4);
     await expect(makeup).toContainText("Total value 104.78 USDC");
     await expect(makeup.locator("[data-symbol=WBTC]")).toContainText("+3.10");
     await expect(makeup.locator("[data-symbol=WMON]")).toContainText("-0.91");
     await expect(makeup.locator("[data-symbol=CHOG]")).toContainText("no usable price");
+    await expect(makeup.getByRole("list", { name: "Positions" })).toBeVisible();
+    await w.getByTestId("makeup-table-toggle").click();
+    const table = w.getByRole("region", { name: "Asset makeup" });
+    await expect(table).toBeVisible();
+    await expect(table).toContainText("Cost basis");
+    await expect(table.getByTestId("asset-row")).toHaveCount(4);
+    await w.getByTestId("makeup-table-toggle").click();
+    await expect(w.getByRole("list", { name: "Positions" })).toBeVisible();
     await expect(
       w.getByRole("img", { name: "Allocation by value: USDC 55.73%, WBTC 32.54%, WMON 11.72%" }),
     ).toBeVisible();

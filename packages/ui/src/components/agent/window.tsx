@@ -1,8 +1,16 @@
 "use client";
 
 import { formatAmount } from "@alpha-agents/domain";
-import { Table2 } from "lucide-react";
-import { type PointerEvent, useEffect, useId, useMemo, useRef, useState } from "react";
+import { LineChart, Table2 } from "lucide-react";
+import {
+  type PointerEvent,
+  type ReactNode,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { cn } from "../../lib/utils";
 import { AmountDisplay } from "../amount-display";
 import { Button } from "../ui/button";
@@ -16,6 +24,7 @@ import {
   TableRow,
 } from "../ui/table";
 import { Tag } from "../ui/tag";
+import { TILE_CLASS } from "./tiles";
 
 /**
  * The portfolio window (F-U11, D-368): what the agent holds and how it is
@@ -440,10 +449,13 @@ function indexAt(times: readonly number[], cents: readonly number[], t: number):
 function PerformanceChart({
   series,
   marks,
+  emptyAction,
   className,
 }: {
   series: readonly SeriesPoint[];
   marks: readonly TradeMarkView[];
+  /** UI-U2: the next action while there is nothing to draw, such as a link to deposit. */
+  emptyAction?: ReactNode;
   className?: string;
 }) {
   const { ref, width } = useWidth();
@@ -454,11 +466,20 @@ function PerformanceChart({
   const first = series[0]?.perUnitE18 ?? "1";
   if (series.length < 2)
     return (
-      <div className={cn("flex flex-col gap-3", className)} data-testid="performance-empty">
-        <p className="text-sm text-foreground-muted">
-          Not enough data yet. The chart draws once the account has at least two readings; the
-          platform records one every 15 minutes and after every trade.
+      <div
+        className={cn(
+          "flex flex-col items-center gap-3 rounded-lg border border-dashed p-6 text-center",
+          className,
+        )}
+        data-testid="performance-empty"
+      >
+        <LineChart aria-hidden className="size-8 text-foreground-subtle" />
+        <p className="text-sm font-medium">Not enough data yet</p>
+        <p className="max-w-md text-sm text-foreground-muted">
+          The line draws once the account has two readings. The platform records one every 15
+          minutes and after every trade, so the first comes within 15 minutes of the first deposit.
         </p>
+        {emptyAction}
       </div>
     );
   const path = series
@@ -715,7 +736,7 @@ function ScoreTile({
 }) {
   return (
     <div
-      className="flex flex-col gap-1 rounded-lg border bg-surface p-4"
+      className={TILE_CLASS}
       data-testid={testId}
       data-state={value === null ? "waiting" : "ready"}
     >
@@ -741,16 +762,34 @@ function ScoreTile({
 }
 
 /**
- * The three scores: the return since the start, the largest fall from a
- * peak, and the share of closed positions that made money, each with its
- * "not enough data yet" state and the plain reason.
+ * The scores as square tiles (UI-U2): the $100 figure first when given,
+ * then the return since the start, the largest fall from a peak, and the
+ * share of closed positions that made money, each with its "not enough data
+ * yet" state and the plain reason. Two across on a phone, four on a desktop.
  */
-function ScoreTiles({ scores, className }: { scores: WindowScores; className?: string }) {
+function ScoreTiles({
+  scores,
+  hundred,
+  className,
+}: {
+  scores: WindowScores;
+  /** The $100 figure, as the first tile; absent for a row of three. */
+  hundred?: HundredView;
+  className?: string;
+}) {
   const r = scores.returnSinceStart;
   const d = scores.maxDrawdown;
   const w = scores.winShare;
   return (
-    <div className={cn("grid gap-4 sm:grid-cols-3", className)} data-testid="score-tiles">
+    <div
+      className={cn(
+        "grid grid-cols-2 gap-3",
+        hundred ? "max-w-4xl sm:grid-cols-4" : "max-w-3xl sm:grid-cols-3",
+        className,
+      )}
+      data-testid="score-tiles"
+    >
+      {hundred ? <HundredDollarTile hundred={hundred} /> : null}
       <ScoreTile
         label="Return since start"
         value={r.ok ? pct(r.bps, true) : null}
@@ -784,46 +823,42 @@ function ScoreTiles({ scores, className }: { scores: WindowScores; className?: s
   );
 }
 
-/** "$100 at the start would be worth $X now", beside what holding USDC would have given. */
+/** "$100 at the start would be worth $X now", with what holding USDC would have given, as a square tile. */
 function HundredDollarTile({ hundred, className }: { hundred: HundredView; className?: string }) {
   const up = hundred.ok ? Number(hundred.now) > Number(hundred.usdc) : false;
   const down = hundred.ok ? Number(hundred.now) < Number(hundred.usdc) : false;
   return (
     <div
-      className={cn("flex flex-col gap-3 rounded-lg border bg-surface p-4", className)}
+      className={cn(TILE_CLASS, className)}
       data-testid="hundred-dollars"
       data-state={hundred.ok ? "ready" : "waiting"}
     >
-      <span className="text-xs text-foreground-muted">If you had put in $100 at the start</span>
+      <span className="text-xs text-foreground-muted">$100 put in at the start</span>
       {hundred.ok ? (
-        <div className="flex flex-wrap items-baseline gap-x-6 gap-y-2">
-          <span className="flex flex-col">
-            <span
-              className={cn(
-                "numeric text-3xl font-semibold",
-                up && "text-positive",
-                down && "text-negative",
-              )}
-            >
-              ${hundred.now}
-            </span>
-            <span className="text-xs text-foreground-muted">
-              with this agent, since {when(hundred.since)}
-            </span>
-          </span>
-          <span className="flex flex-col">
-            <span className="numeric text-xl text-foreground-muted">${hundred.usdc}</span>
-            <span className="text-xs text-foreground-muted">holding USDC instead</span>
-          </span>
-        </div>
+        <span
+          className={cn(
+            "numeric text-2xl font-semibold",
+            up && "text-positive",
+            down && "text-negative",
+          )}
+        >
+          ${hundred.now}
+        </span>
       ) : (
-        <div className="flex flex-col gap-1">
-          <Tag tone="warning" size="md" className="self-start">
-            Not enough data yet
-          </Tag>
-          <span className="text-xs text-foreground-muted">{hundred.reason}</span>
-        </div>
+        <Tag tone="warning" size="md" className="self-start">
+          Not enough data yet
+        </Tag>
       )}
+      <span className="text-xs text-foreground-muted">
+        {hundred.ok ? (
+          <>
+            with this agent since {when(hundred.since)}; <span className="numeric">${hundred.usdc}</span>{" "}
+            holding USDC instead
+          </>
+        ) : (
+          hundred.reason
+        )}
+      </span>
     </div>
   );
 }

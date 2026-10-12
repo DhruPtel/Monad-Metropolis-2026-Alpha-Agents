@@ -30,6 +30,9 @@ import {
   EffectiveLimits,
   GoalSaveStatus,
   GoalSummary,
+  GoalTiles,
+  FactTile,
+  TileGrid,
   LimitField,
   AddressDisplay,
   AgentCard,
@@ -43,6 +46,7 @@ import {
   SLOT_STATES,
   SlotHex,
   SpeciesArt,
+  RevealMoment,
   TierCard,
   ViewerFrame,
   BetaBanner,
@@ -60,6 +64,7 @@ import {
   PlanUnchangedCard,
   ResearchOverview,
   ResearchScheduleCard,
+  ResearchTiles,
   SentinelCard,
   UniversePanel,
   StageTimeline,
@@ -105,6 +110,7 @@ import {
   PageLoading,
   PortfolioHero,
   PositionTiles,
+  MakeupSwitch,
   SetupFlow,
   TradingTile,
   PositionsPanel,
@@ -673,6 +679,41 @@ function AgentSection() {
           <State label="Unrevealed">
             <SpeciesArt image={null} speciesName={null} tier={null} />
           </State>
+        </div>
+      </Specimen>
+      <Specimen
+        name="Reveal moment"
+        note="UI-U2: the onchain reveal stays automatic and fair; the app hides the result until the owner clicks Reveal. Waiting, with the keeper's time remaining; drawn onchain, ready to reveal; revealed, with the rarity said plainly; and a one-of-one, marked as the only one."
+      >
+        <div className="grid gap-4 lg:grid-cols-2" data-testid="reveal-moments">
+          <RevealMoment
+            agentId={21n}
+            speciesIndex={null}
+            secondsLeft={12}
+            seen={false}
+            onSeen={() => undefined}
+          />
+          <RevealMoment
+            agentId={22n}
+            speciesIndex={14}
+            seen={false}
+            onSeen={() => undefined}
+            durationMs={0}
+          />
+          <RevealMoment
+            agentId={7n}
+            speciesIndex={3}
+            seen
+            onSeen={() => undefined}
+            href="/design#agents"
+          />
+          <RevealMoment
+            agentId={15n}
+            speciesIndex={15}
+            seen
+            onSeen={() => undefined}
+            href="/design#agents"
+          />
         </div>
       </Specimen>
       <Specimen
@@ -3046,6 +3087,29 @@ function WindowSection() {
   return (
     <Section id="window" title="Portfolio window">
       <Specimen
+        name="What the agent holds, as tiles with the table on request"
+        note="UI-U2: the holdings as square tiles beside the donut, the full table a click away, and a friendly empty state with the next action."
+      >
+        <div className="flex flex-col gap-6" data-testid="window-makeup-switch">
+          <MakeupSwitch
+            rows={WIN_ROWS}
+            totalValueUsdcE6="104788000"
+            asOf={{ at: winAt(48), live: true }}
+          />
+          <MakeupSwitch
+            rows={[]}
+            totalValueUsdcE6={null}
+            asOf={null}
+            emptyText="The makeup appears after the first deposit into the trading account."
+            emptyAction={
+              <Button asChild size="sm" variant="secondary">
+                <a href="#owner-pages">Deposit on the portfolio page</a>
+              </Button>
+            }
+          />
+        </div>
+      </Specimen>
+      <Specimen
         name="Asset makeup"
         note="Every held token with its amount, value where priced, share of the priced total, cost basis and gain or loss; a token without a usable price stays listed with its share and gain unknown. Stacked on a phone. Beside it, the allocation as a donut: at most six slices and Other, USDC in steel and each token with a colour of its own that follows the token, never its rank."
       >
@@ -3085,22 +3149,20 @@ function WindowSection() {
               maxDrawdown: { ok: true, bps: 318, peakAt: winAt(29), troughAt: winAt(33) },
               winShare: { ok: true, bps: 5_000, closed: 2, won: 1 },
             }}
+            hundred={{ ok: true, now: "104.12", usdc: "100.00", since: winAt(0) }}
           />
-          <div className="grid gap-6 lg:grid-cols-2">
-            <HundredDollarTile
-              hundred={{ ok: true, now: "104.12", usdc: "100.00", since: winAt(0) }}
-            />
+          <div className="grid max-w-4xl grid-cols-2 gap-3 sm:grid-cols-4">
             <HundredDollarTile
               hundred={{ ok: true, now: "96.40", usdc: "100.00", since: winAt(0) }}
             />
+            <HundredDollarTile
+              hundred={{
+                ok: false,
+                reason: "Not enough data yet: the account needs at least two readings.",
+              }}
+            />
           </div>
           <ScoreTiles scores={WIN_WAITING} />
-          <HundredDollarTile
-            hundred={{
-              ok: false,
-              reason: "Not enough data yet: the account needs at least two readings.",
-            }}
-          />
         </div>
       </Specimen>
     </Section>
@@ -3172,6 +3234,42 @@ function OwnerPagesSection() {
   const primary = <Button size="sm">Open portfolio</Button>;
   return (
     <Section id="owner-pages" title="Owner pages">
+      <Specimen
+        name="Fact tiles"
+        note="UI-U2: square tiles for a page's at-a-glance row: a label, one value in big type, a plain note that says what it means, and the next action. Two across on a phone, up to four on a desktop, never a long thin rectangle."
+      >
+        <TileGrid label="Fact tiles" testId="fact-tiles">
+          <FactTile label="Credits" value="4.99 USDC" note="Enough for about 12 days of research." />
+          <FactTile
+            label="Return since start"
+            value="+4.12%"
+            tone="positive"
+            note="On the value per unit, since 2026-10-05."
+          />
+          <FactTile
+            label="Research is"
+            value="Paused"
+            tone="warning"
+            numeric={false}
+            note="Nothing new starts until you resume."
+            action={
+              <Button size="sm" variant="secondary" className="w-fit">
+                Resume research
+              </Button>
+            }
+          />
+          <FactTile
+            label="Positions"
+            value="3"
+            note="USDC, WBTC and WMON."
+            action={
+              <Button asChild size="sm" variant="secondary" className="w-fit">
+                <a href="#window">Open the window</a>
+              </Button>
+            }
+          />
+        </TileGrid>
+      </Specimen>
       <Specimen
         name="The trading account as the centerpiece"
         note="On My Agents: the account's value, the allocation, a small performance line, the agent's state and one obvious primary action; without an account, what it is and 'Set up trading'; while it is read, a loading block."
@@ -3723,6 +3821,27 @@ function GoalSection() {
         </div>
       </Specimen>
       <Specimen
+        name="GoalTiles"
+        note="UI-U2: the goal at a glance on the Goal page, from the form's current values, each tile with Change beside it."
+      >
+        <GoalTiles
+          view={{
+            aggressiveness: "BALANCED",
+            screenedOptIn: true,
+            excludedTokens: 2,
+            intensity: "STANDARD",
+            dailyBudgetUsdcE6: 2_500_000n,
+            modelTierLabel: "Medium",
+            planChanges: "ASK_FIRST",
+          }}
+          action={() => (
+            <Button size="sm" variant="secondary" className="w-fit">
+              Change
+            </Button>
+          )}
+        />
+      </Specimen>
+      <Specimen
         name="GoalSaveStatus"
         note="The save's result: saving, saved, refused with each reason, failed."
       >
@@ -4002,6 +4121,78 @@ function ResearchLoopSection() {
           <AgentTerminal lines={[]} state="idle" />
         </div>
         <p className="text-xs text-foreground-muted">States: {TERMINAL_STATES.join(", ")}.</p>
+      </Specimen>
+      <Specimen
+        name="ResearchTiles"
+        note="UI-U2: the loop at a glance on the Research page: whether it runs, with Pause or Resume beside it; when the next Scan is due; what today spent of its budget; how many cycles ran. On schedule, paused, and not running without a goal."
+      >
+        <div className="flex flex-col gap-4" data-testid="research-tiles-specimens">
+          <ResearchTiles
+            now={RESEARCH_NOW}
+            view={{
+              running: true,
+              schedulingOn: true,
+              paused: false,
+              waitingReason: null,
+              nextDueAt: RESEARCH_SCHEDULE.nextDueAt,
+              lastScanAt: RESEARCH_SCHEDULE.lastScanAt,
+              intensity: "STANDARD",
+              budget: {
+                usedTodayUsdcE6: "1410000",
+                dailyBudgetUsdcE6: "3800000",
+                divesToday: 1,
+                divesPerDay: 2,
+              },
+              cycles: 2,
+              open: false,
+            }}
+            action={
+              <Button size="sm" variant="secondary" className="w-fit">
+                Pause research
+              </Button>
+            }
+          />
+          <ResearchTiles
+            now={RESEARCH_NOW}
+            view={{
+              running: true,
+              schedulingOn: true,
+              paused: true,
+              waitingReason: null,
+              nextDueAt: null,
+              lastScanAt: RESEARCH_SCHEDULE.lastScanAt,
+              intensity: "STANDARD",
+              budget: {
+                usedTodayUsdcE6: "3800000",
+                dailyBudgetUsdcE6: "3800000",
+                divesToday: 2,
+                divesPerDay: 2,
+              },
+              cycles: 5,
+              open: true,
+            }}
+            action={
+              <Button size="sm" className="w-fit">
+                Resume research
+              </Button>
+            }
+          />
+          <ResearchTiles
+            now={RESEARCH_NOW}
+            view={{
+              running: false,
+              schedulingOn: true,
+              paused: false,
+              waitingReason: null,
+              nextDueAt: null,
+              lastScanAt: null,
+              intensity: null,
+              budget: null,
+              cycles: 0,
+              open: false,
+            }}
+          />
+        </div>
       </Specimen>
       <Specimen
         name="ResearchScheduleCard and BudgetMeter"

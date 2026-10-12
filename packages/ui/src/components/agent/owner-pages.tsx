@@ -1,6 +1,16 @@
+"use client";
+
 import { type AccountMode, formatAmount } from "@alpha-agents/domain";
-import { CircleCheck, CircleDot, Clock, Compass, type LucideIcon } from "lucide-react";
-import type { ReactNode } from "react";
+import {
+  CircleCheck,
+  CircleDot,
+  Clock,
+  Compass,
+  LayoutGrid,
+  type LucideIcon,
+  Table2,
+} from "lucide-react";
+import { type ReactNode, useState } from "react";
 import { cn } from "../../lib/utils";
 import { AmountDisplay } from "../amount-display";
 import { StatusPill } from "../status-pill";
@@ -8,7 +18,13 @@ import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { Skeleton } from "../ui/skeleton";
 import { AllocationBar } from "./portfolio";
-import { AllocationDonut, type AssetRow, PerformanceChart, type SeriesPoint } from "./window";
+import {
+  AllocationDonut,
+  type AssetRow,
+  AssetMakeupTable,
+  PerformanceChart,
+  type SeriesPoint,
+} from "./window";
 
 /**
  * The owner's main pages, redesigned (UI-U1, the owner's UI direction):
@@ -232,18 +248,34 @@ function CreditsTile({
 function PositionTiles({
   rows,
   totalValueUsdcE6,
+  emptyText,
+  emptyAction,
   className,
 }: {
   rows: readonly AssetRow[];
   totalValueUsdcE6: string | null;
+  /** UI-U2: the empty state's words and next action, where the page knows them. */
+  emptyText?: string;
+  emptyAction?: ReactNode;
   className?: string;
 }) {
   const held = rows.filter((r) => BigInt(r.amountRaw) > 0n);
   if (held.length === 0)
     return (
-      <p className="text-sm text-foreground-muted" data-testid="asset-makeup-empty">
-        Nothing held yet. Deposit USDC to give the agent something to trade.
-      </p>
+      <div
+        className={cn(
+          "flex flex-col items-center gap-3 rounded-lg border border-dashed p-6 text-center",
+          className,
+        )}
+        data-testid="asset-makeup-empty"
+      >
+        <LayoutGrid aria-hidden className="size-8 text-foreground-subtle" />
+        <p className="text-sm font-medium">Nothing held yet</p>
+        <p className="max-w-md text-sm text-foreground-muted">
+          {emptyText ?? "Deposit USDC to give the agent something to trade."}
+        </p>
+        {emptyAction}
+      </div>
     );
   return (
     <div className={cn("flex flex-col gap-3", className)} data-testid="asset-makeup">
@@ -317,6 +349,61 @@ function PositionTiles({
           );
         })}
       </ul>
+    </div>
+  );
+}
+
+/**
+ * UI-U2: the holdings as tiles, with the full table a click away. The table
+ * carries the cost basis and the exact amounts; the tiles say what matters
+ * at a glance. The donut sits beside either.
+ */
+function MakeupSwitch({
+  rows,
+  totalValueUsdcE6,
+  asOf,
+  emptyText,
+  emptyAction,
+  className,
+}: {
+  rows: readonly AssetRow[];
+  totalValueUsdcE6: string | null;
+  asOf: { readonly at: string; readonly live: boolean } | null;
+  emptyText?: string;
+  emptyAction?: ReactNode;
+  className?: string;
+}) {
+  const [table, setTable] = useState(false);
+  const held = rows.filter((r) => BigInt(r.amountRaw) > 0n);
+  return (
+    <div className={cn("flex flex-col gap-4", className)} data-testid="makeup-switch">
+      {held.length > 0 ? (
+        <div className="flex justify-end">
+          <Button
+            size="sm"
+            variant={table ? "secondary-accent" : "secondary"}
+            aria-pressed={table}
+            onClick={() => setTable((t) => !t)}
+            data-testid="makeup-table-toggle"
+          >
+            {table ? <LayoutGrid aria-hidden /> : <Table2 aria-hidden />}{" "}
+            {table ? "Tiles" : "Table"}
+          </Button>
+        </div>
+      ) : null}
+      <div className="grid gap-6 xl:grid-cols-[1fr_auto]">
+        {table && held.length > 0 ? (
+          <AssetMakeupTable rows={held} totalValueUsdcE6={totalValueUsdcE6} asOf={asOf} />
+        ) : (
+          <PositionTiles
+            rows={rows}
+            totalValueUsdcE6={totalValueUsdcE6}
+            {...(emptyText ? { emptyText } : {})}
+            {...(emptyAction ? { emptyAction } : {})}
+          />
+        )}
+        {held.length > 0 ? <AllocationDonut rows={held} /> : null}
+      </div>
     </div>
   );
 }
@@ -535,6 +622,7 @@ function ComingLater({
 export {
   ComingLater,
   CreditsTile,
+  MakeupSwitch,
   PageLoading,
   PortfolioHero,
   PositionTiles,

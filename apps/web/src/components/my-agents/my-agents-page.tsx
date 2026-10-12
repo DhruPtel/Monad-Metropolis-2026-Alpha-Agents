@@ -21,6 +21,7 @@ import {
   FundAgentPanel,
   GoalSummary,
   PageLoading,
+  RevealMoment,
   RunStatusBadge,
   SectionLabel,
   Skeleton,
@@ -48,6 +49,7 @@ import {
   scanStatusText,
   tradingStateWords,
 } from "@/agent/my-agents";
+import { REVEAL_ETA_SECONDS, useCountdown, useRevealSeen } from "@/agent/reveal-seen";
 import { useOwnedAgents } from "@/agent/use-agents";
 import { type ActionState, useMyAgent } from "@/agent/use-my-agent";
 
@@ -99,6 +101,12 @@ function MyAgentCard({ agent, environment }: { agent: AgentView; environment: En
     refresh,
   } = useMyAgent(agent.id);
   const [creditsOpen, setCreditsOpen] = useState(false);
+  // UI-U2: the reveal moment: the countdown while pending, the result hidden until Reveal, and
+  // the rarity shown until the page is next opened.
+  const { seen, markSeen } = useRevealSeen(environment, agent.id);
+  const [revealedNow, setRevealedNow] = useState(false);
+  const secondsLeft = useCountdown(REVEAL_ETA_SECONDS[environment], species === null);
+  const moment = species === null || !seen || revealedNow;
   const canScan = summary ? scanAvailability(summary) : null;
   const canRefund = summary ? refundAvailability(summary) : null;
   const scanLine = summary ? scanStatusText(summary) : null;
@@ -123,19 +131,35 @@ function MyAgentCard({ agent, environment }: { agent: AgentView; environment: En
       data-agent-id={id}
       aria-labelledby={`agent-${id}-name`}
     >
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
-        <SpeciesArt
-          image={species ? speciesAsset(agent.species).image : null}
-          speciesName={species?.name ?? null}
-          tier={species?.tier ?? null}
-          className="max-w-32 self-center sm:self-start"
+      {moment ? (
+        <RevealMoment
+          agentId={agent.id}
+          speciesIndex={species ? agent.species : null}
+          secondsLeft={secondsLeft}
+          seen={seen}
+          onSeen={() => {
+            markSeen();
+            setRevealedNow(true);
+          }}
+          href={`/configure?agent=${id}`}
+          linkAs={Link}
         />
+      ) : null}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+        {moment ? null : (
+          <SpeciesArt
+            image={species ? speciesAsset(agent.species).image : null}
+            speciesName={species?.name ?? null}
+            tier={species?.tier ?? null}
+            className="max-w-32 self-center sm:self-start"
+          />
+        )}
         <div className="flex min-w-0 flex-1 flex-col gap-2">
           <div className="flex flex-wrap items-center gap-2">
             <h2 id={`agent-${id}-name`} className="text-lg font-semibold">
               {name}
             </h2>
-            {species ? (
+            {species && !moment ? (
               <>
                 <Tag tone={TIER_TONE[species.tier]} size="md">
                   {TIER_NAME[species.tier]}
@@ -143,7 +167,7 @@ function MyAgentCard({ agent, environment }: { agent: AgentView; environment: En
                 <Tag size="md">{species.name}</Tag>
               </>
             ) : (
-              <Tag size="md">Unrevealed</Tag>
+              <Tag size="md">{species ? "Revealed" : "Unrevealed"}</Tag>
             )}
           </div>
           <div className="flex flex-wrap items-center gap-2">

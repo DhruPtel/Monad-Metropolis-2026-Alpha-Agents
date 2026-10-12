@@ -1,8 +1,10 @@
 import { render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 import {
   ComingLater,
   CreditsTile,
+  MakeupSwitch,
   PageLoading,
   PortfolioHero,
   PositionTiles,
@@ -306,5 +308,40 @@ describe("PageLoading and ComingLater (UI-U1)", () => {
       "/agents",
     );
     expect(screen.getByRole("link", { name: "Open Mint" }).getAttribute("href")).toBe("/mint");
+  });
+});
+
+describe("the holdings as tiles with the table on request (UI-U2)", () => {
+  it("shows the tiles and the donut, swaps in the table on the toggle, and back", async () => {
+    render(
+      <MakeupSwitch rows={ROWS} totalValueUsdcE6="70000000" asOf={{ at: "2026-10-11T12:00:00.000Z", live: true }} />,
+    );
+    expect(screen.getByRole("list", { name: "Positions" })).toBeTruthy();
+    expect(screen.queryByRole("region", { name: "Asset makeup" })).toBeNull();
+    const toggle = screen.getByTestId("makeup-table-toggle");
+    expect(toggle.getAttribute("aria-pressed")).toBe("false");
+    await userEvent.click(toggle);
+    expect(screen.getByRole("region", { name: "Asset makeup" })).toBeTruthy();
+    expect(screen.queryByRole("list", { name: "Positions" })).toBeNull();
+    expect(toggle.getAttribute("aria-pressed")).toBe("true");
+    await userEvent.click(toggle);
+    expect(screen.getByRole("list", { name: "Positions" })).toBeTruthy();
+  });
+
+  it("with nothing held, says so in plain words with the next action and no toggle", () => {
+    render(
+      <MakeupSwitch
+        rows={[]}
+        totalValueUsdcE6={null}
+        asOf={null}
+        emptyText="The makeup appears after the first deposit."
+        emptyAction={<a href="#deposit">Deposit on the portfolio page</a>}
+      />,
+    );
+    const empty = within(screen.getByTestId("asset-makeup-empty"));
+    expect(empty.getByText("Nothing held yet")).toBeTruthy();
+    expect(empty.getByText("The makeup appears after the first deposit.")).toBeTruthy();
+    expect(empty.getByRole("link", { name: "Deposit on the portfolio page" })).toBeTruthy();
+    expect(screen.queryByTestId("makeup-table-toggle")).toBeNull();
   });
 });

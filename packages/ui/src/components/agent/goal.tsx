@@ -15,6 +15,7 @@ import { StatusPill } from "../status-pill";
 import { Field, Input } from "../ui/input";
 import { SectionLabel } from "../ui/section-label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../ui/table";
+import { FactTile, TileGrid } from "./tiles";
 
 /**
  * The goal's design system pieces (P3-U1): the stricter-limit field with its
@@ -276,6 +277,109 @@ function GoalSummary({
   );
 }
 
+/**
+ * UI-U2: the goal at a glance, as four square tiles with the next action on
+ * each: the aggressiveness, the token lane, the research intensity and its
+ * daily budget, and what happens to a plan change. The words are the form's
+ * current values, so an unsaved edit shows here at once.
+ */
+export interface GoalTilesView {
+  readonly aggressiveness: Aggressiveness;
+  readonly screenedOptIn: boolean;
+  readonly excludedTokens: number;
+  readonly intensity: ResearchIntensity;
+  /** The daily budget as the owner typed it, or null while it is not a number. */
+  readonly dailyBudgetUsdcE6: bigint | null;
+  readonly modelTierLabel: string;
+  readonly planChanges: "ASK_FIRST" | "APPLY_AND_TELL";
+}
+
+/** The plain words each tile says, so the page is tested without a browser. */
+export function goalTileWords(v: GoalTilesView): {
+  readonly aggressiveness: { value: string; note: string };
+  readonly tokens: { value: string; note: string };
+  readonly research: { value: string; note: string };
+  readonly planChanges: { value: string; note: string };
+} {
+  const a = AGGRESSIVENESS_FACTS[v.aggressiveness];
+  const r = RESEARCH_INTENSITY_FACTS[v.intensity];
+  const excluded =
+    v.excludedTokens === 0
+      ? "nothing excluded"
+      : `${v.excludedTokens} token${v.excludedTokens === 1 ? "" : "s"} excluded`;
+  return {
+    aggressiveness: { value: a.label, note: a.summary },
+    tokens: {
+      value: v.screenedOptIn ? "Core and screened" : "Core lane only",
+      note: v.screenedOptIn
+        ? `Screened tokens too, under the class A caps; ${excluded}.`
+        : `Only tokens the platform reviewed, with a price feed; ${excluded}.`,
+    },
+    research: {
+      value: r.label,
+      note: `A Scan every ${r.scanEveryHours} hours, up to ${r.divesPerDay} Dive${r.divesPerDay === 1 ? "" : "s"} a day, ${
+        v.dailyBudgetUsdcE6 === null ? "a budget to set" : `${usdc(v.dailyBudgetUsdcE6)} USDC a day`
+      }, on the ${v.modelTierLabel} tier.`,
+    },
+    planChanges: {
+      value: v.planChanges === "ASK_FIRST" ? "Ask me first" : "Apply and tell me",
+      note:
+        v.planChanges === "ASK_FIRST"
+          ? "Each plan change waits for your approval."
+          : "A change that passes every check applies at once.",
+    },
+  };
+}
+
+function GoalTiles({
+  view,
+  action,
+  className,
+}: {
+  view: GoalTilesView;
+  /** The next action for a tile: a link to its section on the page. */
+  action: (section: "strategy" | "tokens" | "research" | "plan-changes") => ReactNode;
+  className?: string;
+}) {
+  const w = goalTileWords(view);
+  return (
+    <TileGrid label="Goal at a glance" testId="goal-tiles" className={className}>
+      <FactTile
+        label="Aggressiveness"
+        value={w.aggressiveness.value}
+        note={w.aggressiveness.note}
+        action={action("strategy")}
+        numeric={false}
+        testId="goal-tile-aggressiveness"
+      />
+      <FactTile
+        label="Tokens"
+        value={w.tokens.value}
+        note={w.tokens.note}
+        action={action("tokens")}
+        numeric={false}
+        testId="goal-tile-tokens"
+      />
+      <FactTile
+        label="Research"
+        value={w.research.value}
+        note={w.research.note}
+        action={action("research")}
+        numeric={false}
+        testId="goal-tile-research"
+      />
+      <FactTile
+        label="Plan changes"
+        value={w.planChanges.value}
+        note={w.planChanges.note}
+        action={action("plan-changes")}
+        numeric={false}
+        testId="goal-tile-plan-changes"
+      />
+    </TileGrid>
+  );
+}
+
 export type GoalSaveState = "saving" | "saved" | "refused" | "failed";
 
 const SAVE_TONE: Readonly<Record<GoalSaveState, string>> = {
@@ -324,4 +428,4 @@ function GoalSaveStatus({
   );
 }
 
-export { CostPreview, EffectiveLimits, GoalSaveStatus, GoalSummary, LimitField };
+export { CostPreview, EffectiveLimits, GoalSaveStatus, GoalSummary, GoalTiles, LimitField };

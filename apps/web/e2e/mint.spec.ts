@@ -169,14 +169,37 @@ test.describe("states, screenshots and accessibility", () => {
     await capture(page, panel(page), "mint-awaiting-reveal.png");
     expect(await blockingViolations(page)).toEqual([]);
 
+    // UI-U2: the chain draws the species, and the app hides it until the owner clicks Reveal.
+    const moment = panel(page).locator("[data-slot=reveal-moment]");
+    await expect(moment).toHaveAttribute("data-phase", "waiting");
+    await expect(moment).toContainText("Waiting for its reveal.");
     const agent = chain.agents.get(1n);
     if (!agent) throw new Error("the mint did not reach the fake chain");
     agent.species = ANT;
     await expect(panel(page)).toHaveAttribute("data-state", "revealed", { timeout: 15_000 });
+    await expect(moment).toHaveAttribute("data-phase", "ready");
+    await expect(panel(page).getByRole("status")).toContainText("Agent #1 is revealed");
+    await expect(panel(page).getByRole("status")).not.toContainText("Ant");
+    await expect(panel(page).getByRole("img", { name: "Unrevealed agent" })).toBeVisible();
+    await expect(panel(page).getByRole("img", { name: "Ant agent" })).toHaveCount(0);
+    await capture(page, panel(page), "mint-reveal-ready.png");
+    expect(await blockingViolations(page)).toEqual([]);
+    await moment.getByRole("button", { name: "Reveal" }).click();
+    await expect(moment).toHaveAttribute("data-phase", "revealed", { timeout: 10_000 });
     await expect(panel(page).getByRole("status")).toContainText("Agent #1 is Base · Ant");
     await expect(panel(page).getByRole("img", { name: "Ant agent" })).toBeVisible();
+    await expect(moment).toContainText("One of 83 ant agents in the whole supply.");
+    await expect(moment).toContainText("Base: 500 of 1,000 agents (50%)");
+    await expect(moment.getByRole("link", { name: "Open agent #1" })).toHaveAttribute(
+      "href",
+      "/configure?agent=1",
+    );
     await capture(page, panel(page), "mint-revealed.png");
     expect(await blockingViolations(page)).toEqual([]);
+    // Seen once, the result stays shown after a reload.
+    await page.reload();
+    await page.evaluate(() => document.fonts.ready);
+    await expect(panel(page).getByRole("img", { name: "Ant agent" })).toBeVisible();
   });
 
   test("one minted: the panel shows that agent and still offers the second mint (NFT-U1)", async ({

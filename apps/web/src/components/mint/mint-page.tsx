@@ -28,6 +28,7 @@ import { chainName, useWalletSession } from "@/auth/session";
 import { agentNftDeployment } from "@/agent/agent-nft";
 import { mintPageView } from "@/agent/mint-page-state";
 import { type SupplySummary, type TierSupply, formatCount, formatOdds } from "@/agent/supply";
+import { REVEAL_ETA_SECONDS, useCountdown, useRevealSeen } from "@/agent/reveal-seen";
 import { useMint } from "@/agent/use-agents";
 import { useMintSupply, useWalletMint } from "@/agent/use-mint-page";
 import { STUCK_NONCE_FIX } from "@/agent/stuck-nonce";
@@ -184,11 +185,18 @@ export function MintPage({ environment }: { environment: EnvironmentId }) {
   // The panel may see the reveal through its own read before the mint flow's
   // poll does; the button then follows the panel, so the two never disagree.
   const revealedSpecies = view.state === "revealed" ? view.agent?.species : undefined;
-  const revealedAs = revealedSpecies
-    ? `${TIER_NAME[speciesByIndex(revealedSpecies).tier]} · ${speciesByIndex(revealedSpecies).name}`
-    : undefined;
   const mintState = view.state === "revealed" ? "revealed" : progress.state;
   const agentId = view.agent?.id;
+  // UI-U2: the result stays hidden, in the status line too, until the owner clicks Reveal.
+  const { seen, markSeen } = useRevealSeen(environment, agentId ?? 0n);
+  const secondsLeft = useCountdown(
+    REVEAL_ETA_SECONDS[environment],
+    view.state === "awaiting-reveal",
+  );
+  const revealedAs =
+    revealedSpecies && seen
+      ? `${TIER_NAME[speciesByIndex(revealedSpecies).tier]} · ${speciesByIndex(revealedSpecies).name}`
+      : undefined;
 
   return (
     <div className="flex flex-col gap-6" data-testid="mint-page">
@@ -232,6 +240,16 @@ export function MintPage({ environment }: { environment: EnvironmentId }) {
               onDismiss: reset,
             }}
             agent={view.agent ? panelAgent(view.agent) : undefined}
+            reveal={
+              view.agent
+                ? {
+                    speciesIndex: view.agent.species || null,
+                    secondsLeft,
+                    seen,
+                    onSeen: markSeen,
+                  }
+                : undefined
+            }
             agents={view.agents?.map(panelAgent)}
             mintsLeft={view.mintsLeft}
             agentHref={agentId !== undefined ? `/configure?agent=${agentId.toString()}` : undefined}

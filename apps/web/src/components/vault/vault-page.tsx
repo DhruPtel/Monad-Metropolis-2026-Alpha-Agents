@@ -3,9 +3,7 @@
 import { type EnvironmentId, ENVIRONMENTS } from "@alpha-agents/config";
 import { formatAmount } from "@alpha-agents/domain";
 import {
-  AllocationDonut,
   type AssetRow,
-  AssetMakeupTable,
   Button,
   Card,
   CardContent,
@@ -18,6 +16,7 @@ import {
   DialogHeader,
   DialogTitle,
   EmptyState,
+  MakeupSwitch,
   PerformanceChart,
   ScoreTile,
   Skeleton,
@@ -378,17 +377,25 @@ export function VaultPage({
         <CardHeader>
           <CardTitle>What the vault holds</CardTitle>
           <CardDescription>
-            Every token, what it is worth at the vault&apos;s own prices, its share, what it cost
-            and its gain or loss. An in-kind exit pays your share of each of these.
+            Every token as a tile, worth what the vault&apos;s own prices say, with its share and
+            its gain or loss; the table adds what each cost. An in-kind exit pays your share of
+            each of these.
           </CardDescription>
         </CardHeader>
-        <CardContent className="grid gap-6 xl:grid-cols-[1fr_auto]">
-          <AssetMakeupTable
+        <CardContent>
+          <MakeupSwitch
             rows={rows}
             totalValueUsdcE6={s.navUsdcE6}
             asOf={{ at: new Date(v.timestamp * 1000).toISOString(), live: true }}
+            emptyText="The vault holds nothing yet. The first deposit fills it, and the agent trades from there."
+            emptyAction={
+              viewer && s.depositsOpen ? (
+                <Button size="sm" variant="secondary" onClick={() => setDepositOpen(true)}>
+                  {viewer.isOwner ? "Stake" : "Deposit"}
+                </Button>
+              ) : undefined
+            }
           />
-          <AllocationDonut rows={rows} />
         </CardContent>
       </Card>
 
@@ -413,7 +420,7 @@ export function VaultPage({
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid max-w-2xl grid-cols-2 gap-3">
             <ScoreTile
               label="Return since the start"
               value={ret.ok ? pct(ret.bps, true) : null}

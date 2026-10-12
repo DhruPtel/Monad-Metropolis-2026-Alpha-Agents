@@ -8,8 +8,10 @@ import {
   EffectiveLimits,
   GoalSaveStatus,
   GoalSummary,
+  GoalTiles,
   LimitField,
   bpsText,
+  goalTileWords,
   percentToBps,
 } from "./goal";
 
@@ -186,5 +188,71 @@ describe("goal components (P3-U1)", () => {
     const status = screen.getByRole("status");
     expect(status).toHaveAttribute("data-state", "refused");
     expect(within(status).getByRole("listitem")).toHaveTextContent(/would loosen it/);
+  });
+});
+
+describe("the goal at a glance as tiles (UI-U2)", () => {
+  it("says each choice in plain words, from the form's values, with the budget as typed", () => {
+    const w = goalTileWords({
+      aggressiveness: "BALANCED",
+      screenedOptIn: true,
+      excludedTokens: 2,
+      intensity: "STANDARD",
+      dailyBudgetUsdcE6: 2_500_000n,
+      modelTierLabel: "Medium",
+      planChanges: "ASK_FIRST",
+    });
+    expect(w.aggressiveness).toEqual({
+      value: "Balanced",
+      note: "Large caps plus a few researched mid caps with a clear thesis.",
+    });
+    expect(w.tokens.value).toBe("Core and screened");
+    expect(w.tokens.note).toContain("2 tokens excluded");
+    expect(w.research.value).toBe("Standard");
+    expect(w.research.note).toBe(
+      "A Scan every 6 hours, up to 2 Dives a day, 2.50 USDC a day, on the Medium tier.",
+    );
+    expect(w.planChanges.value).toBe("Ask me first");
+    const plain = goalTileWords({
+      aggressiveness: "CONSERVATIVE",
+      screenedOptIn: false,
+      excludedTokens: 0,
+      intensity: "LIGHT",
+      dailyBudgetUsdcE6: null,
+      modelTierLabel: "Low",
+      planChanges: "APPLY_AND_TELL",
+    });
+    expect(plain.tokens).toEqual({
+      value: "Core lane only",
+      note: "Only tokens the platform reviewed, with a price feed; nothing excluded.",
+    });
+    expect(plain.research.note).toContain("a budget to set");
+    expect(plain.planChanges.value).toBe("Apply and tell me");
+  });
+
+  it("renders four tiles, each with its next action", () => {
+    render(
+      <GoalTiles
+        view={{
+          aggressiveness: "AGGRESSIVE",
+          screenedOptIn: false,
+          excludedTokens: 1,
+          intensity: "DEEP",
+          dailyBudgetUsdcE6: 5_000_000n,
+          modelTierLabel: "High",
+          planChanges: "ASK_FIRST",
+        }}
+        action={(section) => <a href={`#goal-${section}`}>Change {section}</a>}
+      />,
+    );
+    const tiles = within(screen.getByRole("group", { name: "Goal at a glance" }));
+    expect(tiles.getByText("Aggressive")).toBeTruthy();
+    expect(tiles.getByText("Core lane only")).toBeTruthy();
+    expect(tiles.getByText("Deep")).toBeTruthy();
+    expect(tiles.getByText("Ask me first")).toBeTruthy();
+    expect(tiles.getByRole("link", { name: "Change tokens" }).getAttribute("href")).toBe(
+      "#goal-tokens",
+    );
+    expect(tiles.getAllByRole("link")).toHaveLength(4);
   });
 });

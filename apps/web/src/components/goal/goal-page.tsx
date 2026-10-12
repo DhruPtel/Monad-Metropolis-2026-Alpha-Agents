@@ -22,6 +22,7 @@ import {
   Field,
   GoalSaveStatus,
   GoalSummary,
+  GoalTiles,
   Input,
   LimitField,
   Select,
@@ -33,6 +34,7 @@ import {
   Tag,
   WalletActionStatus,
   bpsText,
+  parseUsdc,
 } from "@alpha-agents/ui";
 import type { EnvironmentId } from "@alpha-agents/config";
 import { ArrowLeft, PlugZap, ShieldOff, Wallet } from "lucide-react";
@@ -79,7 +81,7 @@ function Section({
   testId: string;
 }) {
   return (
-    <Card data-testid={testId}>
+    <Card data-testid={testId} id={testId}>
       <CardHeader>
         <CardTitle>{title}</CardTitle>
         <CardDescription>{description}</CardDescription>
@@ -239,6 +241,22 @@ export function GoalPage({
     <div className="flex flex-col gap-6" data-testid="goal-page">
       {header}
       <GoalSummary state={page.state} aggressiveness={page.goal?.aggressiveness ?? null} />
+      <GoalTiles
+        view={{
+          aggressiveness: form.aggressiveness,
+          screenedOptIn: form.screenedOptIn,
+          excludedTokens: form.excludedTokens.length,
+          intensity: form.intensity,
+          dailyBudgetUsdcE6: parseUsdc(form.budgetText),
+          modelTierLabel: page.form.tiers.find((t) => t.id === form.modelTier)?.label ?? form.modelTier,
+          planChanges: form.planChanges,
+        }}
+        action={(section) => (
+          <Button asChild size="sm" variant="secondary" className="w-fit">
+            <a href={`#goal-${section}`}>Change</a>
+          </Button>
+        )}
+      />
 
       <Section
         title="Aggressiveness"

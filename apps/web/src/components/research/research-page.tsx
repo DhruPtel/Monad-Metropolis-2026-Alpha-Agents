@@ -15,6 +15,7 @@ import {
   PlanUnchangedCard,
   ResearchOverview,
   ResearchScheduleCard,
+  ResearchTiles,
   SentinelCard,
   Skeleton,
   StageTimeline,
@@ -178,6 +179,43 @@ export function ResearchPage({
         </p>
       </header>
 
+      <ResearchTiles
+        now={now}
+        view={{
+          running: research.running,
+          schedulingOn: research.schedulingOn,
+          paused: s.paused,
+          waitingReason: s.waitingReason,
+          nextDueAt: s.nextDueAt,
+          lastScanAt: s.lastScanAt,
+          intensity: c?.intensity ?? null,
+          budget: research.budget,
+          cycles: research.cycles.length,
+          open: research.open !== null,
+        }}
+        action={
+          research.running ? (
+            <Button
+              size="sm"
+              variant="secondary"
+              className="w-fit"
+              disabled={pausing}
+              data-testid="research-pause"
+              onClick={async () => {
+                setPausing(true);
+                try {
+                  await pause(!s.paused);
+                } finally {
+                  setPausing(false);
+                }
+              }}
+            >
+              {s.paused ? "Resume research" : "Pause research"}
+            </Button>
+          ) : undefined
+        }
+      />
+
       <AgentTerminal
         lines={terminal.lines}
         state={terminal.state}
@@ -206,26 +244,6 @@ export function ResearchPage({
             triggerSpacingMs: c?.triggerSpacingMs ?? null,
             refreshesOverview: c?.refreshesOverview ?? false,
           }}
-          actions={
-            research.running ? (
-              <Button
-                size="sm"
-                variant="secondary"
-                disabled={pausing}
-                data-testid="research-pause"
-                onClick={async () => {
-                  setPausing(true);
-                  try {
-                    await pause(!s.paused);
-                  } finally {
-                    setPausing(false);
-                  }
-                }}
-              >
-                {s.paused ? "Resume research" : "Pause research"}
-              </Button>
-            ) : undefined
-          }
         />
         <Card>
           <CardHeader>

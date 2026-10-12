@@ -2,8 +2,6 @@
 
 import { type EnvironmentId, ENVIRONMENTS } from "@alpha-agents/config";
 import {
-  AllocationDonut,
-  AssetMakeupTable,
   Button,
   Card,
   CardContent,
@@ -11,7 +9,7 @@ import {
   CardHeader,
   CardTitle,
   EmptyState,
-  HundredDollarTile,
+  MakeupSwitch,
   PerformanceChart,
   ScoreTiles,
   Skeleton,
@@ -169,8 +167,7 @@ export function WindowPage({
       </div>
 
       <section aria-label="Scores" className="flex flex-col gap-4" id="scores">
-        <HundredDollarTile hundred={w.hundred} />
-        <ScoreTiles scores={w.scores} />
+        <ScoreTiles scores={w.scores} hundred={w.hundred} />
       </section>
 
       <Card id="performance">
@@ -183,21 +180,38 @@ export function WindowPage({
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <PerformanceChart series={w.series} marks={w.marks} />
+          <PerformanceChart
+            series={w.series}
+            marks={w.marks}
+            emptyAction={
+              <Button asChild size="sm" variant="secondary">
+                <Link href={portfolio}>Open the portfolio</Link>
+              </Button>
+            }
+          />
         </CardContent>
       </Card>
 
       <Card id="makeup">
         <CardHeader>
-          <CardTitle>Asset makeup</CardTitle>
+          <CardTitle>What the agent holds</CardTitle>
           <CardDescription>
-            Every token the account holds, what it is worth, its share, what it cost and its gain or
-            loss since it was bought.
+            Every token the account holds as a tile: its amount, what it is worth, its share and its
+            gain or loss since it was bought. The table adds what each cost.
           </CardDescription>
         </CardHeader>
-        <CardContent className="grid gap-6 xl:grid-cols-[1fr_auto]">
-          <AssetMakeupTable rows={w.holdings} totalValueUsdcE6={w.totalValueUsdcE6} asOf={w.asOf} />
-          <AllocationDonut rows={w.holdings} />
+        <CardContent>
+          <MakeupSwitch
+            rows={w.holdings}
+            totalValueUsdcE6={w.totalValueUsdcE6}
+            asOf={w.asOf}
+            emptyText="The makeup appears after the first deposit into the trading account."
+            emptyAction={
+              <Button asChild size="sm" variant="secondary">
+                <Link href={portfolio}>Deposit on the portfolio page</Link>
+              </Button>
+            }
+          />
         </CardContent>
       </Card>
 

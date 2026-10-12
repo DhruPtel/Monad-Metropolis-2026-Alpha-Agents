@@ -282,7 +282,7 @@ describe("the scores and the $100 figure (F-U11)", () => {
     );
     expect(screen.getByText("$104.80")).toHaveClass("text-positive");
     expect(screen.getByText("$100.00")).toBeInTheDocument();
-    expect(screen.getByText(/with this agent, since 2026-10-09 00:00 UTC/)).toBeInTheDocument();
+    expect(screen.getByText(/with this agent since 2026-10-09 00:00 UTC/)).toBeInTheDocument();
     rerender(
       <HundredDollarTile hundred={{ ok: true, now: "97.10", usdc: "100.00", since: at(0) }} />,
     );
