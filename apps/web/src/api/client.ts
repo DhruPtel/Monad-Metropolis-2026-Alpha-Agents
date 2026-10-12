@@ -1309,6 +1309,97 @@ export class GoalRefusedError extends Error {
   }
 }
 
+/** SK-U1: one of the agent's skills as the API lists it: a built-in skill or playbook, or the owner's own. */
+export interface SkillJson {
+  readonly id: string;
+  readonly name: string;
+  readonly version: string;
+  readonly description: string;
+  readonly kind: "skill" | "playbook" | "owner";
+  readonly contentHash: string;
+  readonly tools: readonly string[];
+}
+
+export interface SkillFindingJson {
+  readonly rule: string;
+  readonly severity: "block" | "warn";
+  readonly path: string;
+  readonly message: string;
+  readonly means: string;
+  readonly next: string;
+}
+
+export interface OwnerSkillJson extends SkillJson {
+  readonly kind: "owner";
+  readonly manifestHash: string;
+  readonly hermesName: string;
+  readonly warnings: readonly SkillFindingJson[];
+  readonly uploadedAt: string;
+  readonly uploadedAtUtc: string;
+  readonly files: readonly string[];
+}
+
+export interface SkillsJson {
+  readonly agentId: string;
+  readonly builtin: readonly SkillJson[];
+  readonly owner: readonly OwnerSkillJson[];
+  readonly limits: { readonly packageBytes: number };
+}
+
+export interface SkillUploadJson {
+  readonly skill: OwnerSkillJson;
+  readonly blocked: false;
+  readonly findings: readonly SkillFindingJson[];
+  readonly already: boolean;
+  readonly mounted: string;
+}
+
+/** A refused upload: every finding, blocking ones first (422). */
+export class SkillRefusedError extends Error {
+  readonly findings: readonly SkillFindingJson[];
+
+  constructor(message: string, findings: readonly SkillFindingJson[]) {
+    super(message);
+    this.name = "SkillRefusedError";
+    this.findings = findings;
+  }
+}
+
+/** SK-U1: the owner's skill routes; each needs the owner session. */
+export const skillsApi = {
+  async list(agentId: bigint, session: string): Promise<SkillsJson> {
+    return call<SkillsJson>(`/v1/agents/${agentId.toString()}/skills`, owner(session));
+  },
+  async upload(
+    agentId: bigint,
+    files: readonly { path: string; content: string }[],
+    session: string,
+  ): Promise<SkillUploadJson> {
+    try {
+      return await call<SkillUploadJson>(
+        `/v1/agents/${agentId.toString()}/skills`,
+        owner(session, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ files }),
+        }),
+      );
+    } catch (err) {
+      if (err instanceof ApiError && err.code === "skill_refused") {
+        const b = err.body as { findings?: SkillFindingJson[] } | null;
+        throw new SkillRefusedError(err.message, b?.findings ?? []);
+      }
+      throw err;
+    }
+  },
+  async remove(agentId: bigint, skillId: string, session: string): Promise<void> {
+    await call<{ removed: string }>(
+      `/v1/agents/${agentId.toString()}/skills/${encodeURIComponent(skillId)}`,
+      owner(session, { method: "DELETE" }),
+    );
+  },
+};
+
 /** P3-U1: the owner's goal routes, and the public preview. */
 export const goalApi = {
   async get(agentId: bigint, session: string): Promise<GoalPageJson> {

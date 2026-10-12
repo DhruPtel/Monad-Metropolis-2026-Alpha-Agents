@@ -3,7 +3,6 @@ import type { ReactNode } from "react";
 import { cn } from "../../lib/utils";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
-import { SectionLabel } from "../ui/section-label";
 
 /**
  * The agent's skills (SK-U1): the built-in skills and playbooks every agent
@@ -301,7 +300,6 @@ function OwnerSkillsEmpty({ onUpload, className }: { onUpload: () => void; class
       )}
       data-testid="owner-skills-empty"
     >
-      <SectionLabel as="h3">Your own skills</SectionLabel>
       <p className="text-sm text-foreground-muted">
         None yet. A skill is a folder of text the agent reads: skill.json with its description and
         tools, SKILL.md with the instructions, and notes beside them. It passes the same checks as

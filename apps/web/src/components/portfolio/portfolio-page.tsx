@@ -709,6 +709,9 @@ export function PortfolioPage({
         <Link href={`/agents/${agentId.toString()}/vault`} data-testid="vault-link">
           Vault
         </Link>
+        <Link href={`/agents/${agentId.toString()}/skills`} data-testid="skills-link">
+          Skills
+        </Link>
         <Link href={`/agents/${agentId.toString()}/research`} data-testid="research-link">
           Research
         </Link>

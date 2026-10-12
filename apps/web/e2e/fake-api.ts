@@ -17,6 +17,7 @@ import { AGENT_NFT, type FakeChain } from "./fake-chain";
 import { FakeGoals } from "./fake-goals";
 import type { FakeHoldings } from "./fake-holdings";
 import type { FakeTrading } from "./fake-trading";
+import type { FakeSkills } from "./fake-skills";
 import type { FakeVault } from "./fake-vault";
 
 /**
@@ -137,7 +138,7 @@ const same = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
 const CORS = {
   "access-control-allow-origin": "*",
   "access-control-allow-headers": "authorization, content-type, x-owner-session",
-  "access-control-allow-methods": "GET, POST, PUT, OPTIONS",
+  "access-control-allow-methods": "GET, POST, PUT, DELETE, OPTIONS",
 };
 
 export class FakeApi {
@@ -152,6 +153,8 @@ export class FakeApi {
   readonly trading = new Map<bigint, FakeTrading>();
   /** P7-U4: each agent's vault, served to anyone. */
   readonly vaults = new Map<bigint, FakeVault>();
+  /** SK-U1: each agent's skills for its owner. */
+  readonly skills = new Map<bigint, FakeSkills>();
   /** P3-U1: each agent's goal and state. */
   readonly goals = new FakeGoals();
   /** D-315: each agent's holdings at its three addresses. */
@@ -376,6 +379,42 @@ export class FakeApi {
           message: "Trading accounts are not deployed on the local fork.",
         });
       return reply(r.status, { ...meta, ...(r.body as Record<string, unknown>) });
+    }
+    // SK-U1: the owner's skills, on the owner session alone.
+    const skillsRoute = /^\/v1\/agents\/(\d+)\/skills(?:\/([a-z0-9-]+))?$/.exec(url.pathname);
+    if (skillsRoute?.[1]) {
+      const id = BigInt(skillsRoute[1]);
+      const agent = this.chain.agents.get(id);
+      if (!agent) return reply(404, { error: "not_found", message: "No such agent." });
+      this.ownerCalls.push(`skills ${id.toString()}`);
+      const token = request.headers()["x-owner-session"];
+      if (!token)
+        return reply(401, { error: "missing_token", message: "Start an owner session first." });
+      if (token !== this.sessionFor(id))
+        return reply(403, {
+          error: "not_owner",
+          message: "This owner session is for another agent.",
+        });
+      const fs = this.skills.get(id);
+      if (!fs)
+        return reply(503, { error: "not_configured", message: "Skills are not served here." });
+      const method = request.method();
+      if (method === "GET") return reply(200, { ...meta, ...fs.list(id.toString()) });
+      if (method === "POST") {
+        const posted = request.postData() ?? "";
+        let body: { files?: { path: string; content: string }[] } | null = null;
+        try {
+          body = posted ? (JSON.parse(posted) as typeof body) : null;
+        } catch {
+          body = null;
+        }
+        const r = fs.upload(id.toString(), body);
+        return reply(r.status, { ...meta, ...(r.body as Record<string, unknown>) });
+      }
+      if (method === "DELETE" && skillsRoute[2]) {
+        const r = fs.remove(id.toString(), skillsRoute[2]);
+        return reply(r.status, { ...meta, ...(r.body as Record<string, unknown>) });
+      }
     }
     const vaultRoute = /^\/v1\/agents\/(\d+)\/vault$/.exec(url.pathname);
     if (vaultRoute?.[1] && request.method() === "GET") {

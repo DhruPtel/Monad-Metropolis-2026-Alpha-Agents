@@ -182,6 +182,11 @@ function MyAgentCard({ agent, environment }: { agent: AgentView; environment: En
                       <Link href={`/agents/${agent.id.toString()}/window`}>Performance</Link>
                     </Button>
                   ) : null}
+                  <Button asChild size="sm" variant="secondary">
+                    <Link href={`/agents/${agent.id.toString()}/skills`} data-testid="skills-link">
+                      Skills
+                    </Link>
+                  </Button>
                 </span>
               }
             />

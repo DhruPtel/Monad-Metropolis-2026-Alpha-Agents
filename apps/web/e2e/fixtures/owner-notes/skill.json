@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "id": "owner-notes",
+  "name": "Owner notes on Monad",
+  "version": "1.0.0",
+  "type": "research",
+  "publisher": {
+    "id": "me",
+    "address": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+    "key_id": "wallet"
+  },
+  "description": {
+    "model": "The owner's notes on Monad tokens. Use when scanning.",
+    "marketplace": "My own notes, for my own agent."
+  },
+  "required_tools": ["data.web_search@1"],
+  "intents": [],
+  "data_sources": [],
+  "slot_cost": 1,
+  "chains": ["eip155:143"],
+  "privacy": "public"
+}
