@@ -72,3 +72,17 @@ evidence/f-u13/canary-deployment.json:generic-api-key:102
 evidence/f-u13/canary-deployment.json:generic-api-key:126
 evidence/f-u13/canary-deployment.json:generic-api-key:134
 evidence/f-u13/canary-deployment.json:generic-api-key:142
+#
+# F-U13 evidence: the JSON keys "token", "tokenRegistry" and "token1" in the testnet v3
+# deployment record trip generic-api-key; each value is a public token or contract address
+# on Monad testnet (TALPHA, TBETA, USDC, WMON, the TokenRegistry), checked in F-U13.
+evidence/f-u13/testnet-deployment.json:generic-api-key:40
+evidence/f-u13/testnet-deployment.json:generic-api-key:46
+evidence/f-u13/testnet-deployment.json:generic-api-key:61
+evidence/f-u13/testnet-deployment.json:generic-api-key:81
+evidence/f-u13/testnet-deployment.json:generic-api-key:91
+evidence/f-u13/testnet-deployment.json:generic-api-key:101
+evidence/f-u13/testnet-deployment.json:generic-api-key:111
+evidence/f-u13/testnet-deployment.json:generic-api-key:125
+evidence/f-u13/testnet-deployment.json:generic-api-key:133
+evidence/f-u13/testnet-deployment.json:generic-api-key:141

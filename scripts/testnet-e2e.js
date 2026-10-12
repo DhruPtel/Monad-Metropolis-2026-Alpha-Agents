@@ -1,15 +1,17 @@
 // @ts-check
-// pnpm testnet:e2e: P2-EC part 1's end-to-end run on Monad testnet with the
-// throwaway test wallet (TESTNET_TEST_WALLET_PRIVATE_KEY), through the running
-// testnet stack (pnpm testnet:up) exactly as the web app drives it: a Privy
-// login by Sign-In with Ethereum, the control API's mint claim, owner session,
-// arming, approvals and portfolio, and the wallet's own transactions. Steps:
-// mint, the real Pyth Entropy reveal and provisioning; credits and a Scan;
-// open the account, deposit, arm, a proposal approved and settled at the
-// finalized tag; an over-limit proposal refused with its reason; disarm and
-// withdraw everything. Every transaction is measured (gas limit and used, fees,
-// time to receipt, safe and finalized, block time against the wall clock) and
-// written to evidence/p2-ec/e2e-run.json. Prints no key, token or RPC URL.
+// pnpm testnet:e2e: the end-to-end run on Monad testnet with the throwaway
+// test wallet (TESTNET_TEST_WALLET_PRIVATE_KEY), through the running testnet
+// stack (pnpm testnet:up) exactly as the web app drives it: a Privy login by
+// Sign-In with Ethereum, the control API's mint claim, owner session, arming,
+// approvals and portfolio, and the wallet's own transactions. Steps: mint on
+// the new AgentNFT, the real Pyth Entropy reveal and provisioning; credits and
+// a Scan; open the PersonalAccountV3 (F-U13: the API serves the v3 set where
+// the address book has it), deposit, arm on Executor v3, a proposal approved
+// and settled at the finalized tag; an over-limit proposal refused with its
+// reason; disarm and withdraw everything. Every transaction is measured (gas
+// limit and used, fees, time to receipt, safe and finalized, block time against
+// the wall clock) and written to evidence/f-u13/e2e-run-*.json (P2-EC part 1's
+// runs on the v2 set stay in evidence/p2-ec). Prints no key, token or RPC URL.
 //
 //   pnpm testnet:e2e              run every step (resumes an agent the wallet owns)
 //   pnpm testnet:e2e --skip-scan  resume without another Scan
@@ -95,6 +97,19 @@ const step = (name, data = {}) => {
   say(`${name} ${JSON.stringify(data)}`);
 };
 const sleep = (/** @type {number} */ ms) => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * The account's USDC from the portfolio route: a v3 portfolio (F-U13, the
+ * fund set's) lists holdings, a v2 one carries balances.
+ * @param {any} portfolio
+ */
+function usdcHeld(portfolio) {
+  if (portfolio.balances?.usdcE6 !== undefined) return BigInt(portfolio.balances.usdcE6);
+  const usdc = (portfolio.holdings ?? []).find(
+    (/** @type {any} */ h) => h.token?.toLowerCase() === TESTNET.usdc.toLowerCase(),
+  );
+  return BigInt(usdc?.amountRaw ?? "0");
+}
 
 /**
  * Polls until `read` returns something truthy, or fails after `timeoutMs`.
@@ -396,7 +411,7 @@ try {
     );
   }
   const accountAddress = getAddress(portfolio.account);
-  if (BigInt(portfolio.balances.usdcE6) < DEPOSIT_USDC_E6) {
+  if (usdcHeld(portfolio) < DEPOSIT_USDC_E6) {
     const fresh = await api(`/v1/agents/${agentId}/prices/fresh`, { method: "POST", session });
     step("fresh prices before the deposit", fresh.body ?? {});
     await send("approve (exact)", {
@@ -471,7 +486,7 @@ try {
     approveToSettleMs: Date.now() - approvedAt,
   });
   if (settled.txHash)
-    await track(settled.txHash, "swap (signer, Executor, P2-EC pool)", approvedAt);
+    await track(settled.txHash, "swap (signer, Executor v3, the P2-EC USDC/MON pool)", approvedAt);
 
   // 5. A blocked trade with its reason.
   const beforeOver = new Set((await intents()).map((/** @type {any} */ i) => i.intentId));
@@ -513,7 +528,12 @@ try {
     }),
   });
   const left = (await api(`/v1/agents/${agentId}/portfolio`, { session })).body?.portfolio;
-  step("after withdrawal", { balances: left?.balances, mode: left?.mode });
+  step("after withdrawal", {
+    usdcE6: left ? String(usdcHeld(left)) : null,
+    holdings: left?.holdings?.map((/** @type {any} */ h) => [h.symbol, h.amountRaw]) ?? null,
+    balances: left?.balances ?? null,
+    mode: left?.mode,
+  });
   run.finishedAt = new Date().toISOString();
   run.ok = true;
 } catch (err) {
@@ -521,10 +541,10 @@ try {
   run.error = redact(err instanceof Error ? err.message : String(err), secrets);
   say(`FAILED: ${run.error}`);
 }
-mkdirSync(join(ROOT, "evidence/p2-ec"), { recursive: true });
+mkdirSync(join(ROOT, "evidence/f-u13"), { recursive: true });
 const file = join(
   ROOT,
-  "evidence/p2-ec",
+  "evidence/f-u13",
   `e2e-run-${new Date().toISOString().replace(/[:.]/g, "-")}.json`,
 );
 writeFileSync(

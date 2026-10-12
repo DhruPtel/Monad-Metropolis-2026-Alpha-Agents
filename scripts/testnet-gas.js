@@ -12,8 +12,13 @@ import { HDKey, hdKeyToAccount, privateKeyToAccount } from "viem/accounts";
 import { loadRootEnv } from "./lib/config.js";
 import { TESTNET, assertTestnet, reveal, testnetConfig, testnetRpc } from "./lib/testnet.js";
 
-/** Targets in MON: one reveal batch (0.128 fee and gas), on-demand feed re-dates, a few swaps. */
-export const GAS_TARGETS = { keeper: "0.35", feedWriter: "0.15", fundingAddress: "0.5" };
+/**
+ * Targets in MON: one reveal batch (0.128 fee and gas), on-demand feed re-dates,
+ * and two Executor v3 swaps for an agent (F-U13: a v3 swap's limit is 1.95M gas
+ * under F-U4's rule, which the signer prices at twice the base fee, 0.39 MON at
+ * signing, and Monad charges the limit, about 0.2 MON; 0.5 MON covered one swap).
+ */
+export const GAS_TARGETS = { keeper: "0.35", feedWriter: "0.15", fundingAddress: "0.9" };
 
 const agentIds = process.argv.slice(2).map((a) => {
   if (!/^[1-9]\d{0,4}$/.test(a)) {
