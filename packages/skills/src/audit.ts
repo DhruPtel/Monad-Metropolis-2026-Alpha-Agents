@@ -192,6 +192,8 @@ const TEXT = /\.(md|json|ya?ml|csv)$/;
 /** Runs the static rules (and S13 addresses, S15 publisher) over a package's text files. */
 export function auditPackage(pkg: SkillPackage): PackageIssue[] {
   const issues: PackageIssue[] = [];
+  // The manifest's publisher is a wallet, not a token or contract: S13 does not judge it (SK-U1).
+  const publisher = pkg.manifest.publisher.address.toLowerCase();
   for (const f of pkg.files) {
     if (!TEXT.test(f.path)) continue;
     const text = f.bytes.toString("utf8");
@@ -214,7 +216,11 @@ export function auditPackage(pkg: SkillPackage): PackageIssue[] {
       for (const m of line.matchAll(/0x[0-9a-fA-F]{40,}/g)) {
         const hex = m[0];
         if (hex.length !== 42) continue;
-        if (!KNOWN.has(hex.toLowerCase()) && !/^0x0{32,}[0-9a-fA-F]+$/.test(hex))
+        if (
+          !KNOWN.has(hex.toLowerCase()) &&
+          hex.toLowerCase() !== publisher &&
+          !/^0x0{32,}[0-9a-fA-F]+$/.test(hex)
+        )
           issues.push({
             rule: "S13",
             severity: "warn",

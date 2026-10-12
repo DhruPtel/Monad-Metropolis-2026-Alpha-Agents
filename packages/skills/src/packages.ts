@@ -60,6 +60,49 @@ const LIMITS = {
   packageBytes: 2 * 1024 * 1024,
 };
 
+/**
+ * F2 for one path, wherever the file came from (a folder on disk or an
+ * upload, SK-U1): dotfiles, folders a package may not hold, nesting deeper
+ * than one level, and file names outside each folder's allowed kinds.
+ */
+export function pathIssues(rel: string): PackageIssue[] {
+  const parts = rel.split("/");
+  if (parts.some((p) => p === "" || p === "." || p === ".."))
+    return [{ rule: "F2", severity: "block", path: rel, message: "the path is malformed" }];
+  if (parts.some((p) => p.startsWith(".")))
+    return [{ rule: "F2", severity: "block", path: rel, message: "a dotfile is not allowed" }];
+  if (parts.length > 2)
+    return [
+      {
+        rule: "F2",
+        severity: "block",
+        path: rel,
+        message: "this folder is not allowed in a skill package",
+      },
+    ];
+  const [top, file] = parts.length === 2 ? (parts as [string, string]) : [null, parts[0] ?? ""];
+  if (top !== null && !(top in ALLOWED_DIRS))
+    return [
+      {
+        rule: "F2",
+        severity: "block",
+        path: rel,
+        message: "this folder is not allowed in a skill package",
+      },
+    ];
+  const allowed = top === null ? ALLOWED_TOP.has(file) : ALLOWED_DIRS[top]?.test(file) === true;
+  return allowed
+    ? []
+    : [
+        {
+          rule: "F2",
+          severity: "block",
+          path: rel,
+          message: "this file is not allowed in a skill package",
+        },
+      ];
+}
+
 /** Every file under a folder, refusing what a package may never hold (F2). */
 export function readPackageFiles(dir: string): { files: PackageFile[]; issues: PackageIssue[] } {
   const files: PackageFile[] = [];
@@ -79,12 +122,7 @@ export function readPackageFiles(dir: string): { files: PackageFile[]; issues: P
         continue;
       }
       if (name.startsWith(".")) {
-        issues.push({
-          rule: "F2",
-          severity: "block",
-          path: rel,
-          message: "a dotfile is not allowed",
-        });
+        issues.push(...pathIssues(rel));
         continue;
       }
       if (st.isDirectory()) {
@@ -105,15 +143,7 @@ export function readPackageFiles(dir: string): { files: PackageFile[]; issues: P
           path: rel,
           message: "an executable file is not allowed",
         });
-      const [top, file] = rel.includes("/") ? (rel.split("/") as [string, string]) : [null, rel];
-      const allowed = top === null ? ALLOWED_TOP.has(file) : ALLOWED_DIRS[top]?.test(file) === true;
-      if (!allowed)
-        issues.push({
-          rule: "F2",
-          severity: "block",
-          path: rel,
-          message: "this file is not allowed in a skill package",
-        });
+      issues.push(...pathIssues(rel));
       files.push({ path: rel, bytes: readFileSync(abs) });
     }
   };
@@ -193,6 +223,22 @@ export function loadPackage(
   expectedId?: string,
 ): { pkg: SkillPackage | null; issues: PackageIssue[] } {
   const { files, issues } = readPackageFiles(dir);
+  const folder = dir.split(/[\\/]/).filter(Boolean).at(-1);
+  return checkPackage(files, issues, expectedId ?? folder, dir);
+}
+
+/**
+ * The format rules F1 to F8 over a package's files, wherever they came from:
+ * a folder on disk (`loadPackage`) or an upload (SK-U1, `loadPackageFiles`).
+ * `expectedId` is the folder the package sits in, when there is one.
+ */
+export function checkPackage(
+  files: readonly PackageFile[],
+  found: readonly PackageIssue[],
+  expectedId: string | undefined,
+  dir = "",
+): { pkg: SkillPackage | null; issues: PackageIssue[] } {
+  const issues = [...found];
   const byPath = new Map(files.map((f) => [f.path, f]));
   const manifestFile = byPath.get("skill.json");
   const skillFile = byPath.get("SKILL.md");
@@ -239,8 +285,7 @@ export function loadPackage(
     return { pkg: null, issues };
   }
   const m = v.manifest;
-  const folder = dir.split(/[\\/]/).filter(Boolean).at(-1);
-  if (m.id !== (expectedId ?? folder))
+  if (expectedId !== undefined && m.id !== expectedId)
     issues.push({
       rule: "F1",
       severity: "block",
@@ -308,4 +353,25 @@ export function loadPackage(
     skillMd: `${frontmatterFor(m)}${body}`,
   };
   return { pkg, issues };
+}
+
+/**
+ * SK-U1: checks a package given as files in memory (an upload), with the
+ * same F2 path rules the folder reader applies; nothing is read from disk.
+ * The files are sorted by path, so the content hash matches the folder's.
+ */
+export function loadPackageFiles(
+  input: readonly PackageFile[],
+  expectedId?: string,
+): { pkg: SkillPackage | null; issues: PackageIssue[] } {
+  const files = [...input].sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
+  const issues: PackageIssue[] = [];
+  const seen = new Set<string>();
+  for (const f of files) {
+    if (seen.has(f.path))
+      issues.push({ rule: "F2", severity: "block", path: f.path, message: "the path repeats" });
+    seen.add(f.path);
+    issues.push(...pathIssues(f.path));
+  }
+  return checkPackage(files, issues, expectedId);
 }

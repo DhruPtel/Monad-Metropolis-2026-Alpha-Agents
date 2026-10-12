@@ -368,6 +368,34 @@ export interface ManagedAccountTable {
   updated_at: Timestamp;
 }
 
+/**
+ * SK-U1: an owner's own skill, uploaded for one agent, one row per package
+ * version by content hash. The current rows are mounted read-only beside the
+ * built-in skills at the agent's next sandbox; a removed row keeps its history.
+ */
+export interface OwnerSkillTable {
+  chain_id: number;
+  agent_id: number;
+  skill_id: string;
+  content_hash: string;
+  version: string;
+  manifest_hash: string;
+  hermes_name: string;
+  manifest: ColumnType<Record<string, unknown>, string, string>;
+  /** Every file of the package: `{ path, content }`, the content as UTF-8 text. */
+  files: ColumnType<{ path: string; content: string }[], string, string>;
+  /** The findings that did not block: `{ rule, severity, path, message }`. */
+  warnings: ColumnType<
+    { rule: string; severity: string; path: string; message: string }[],
+    string | undefined,
+    string
+  >;
+  current: ColumnType<boolean, boolean | undefined, boolean>;
+  uploaded_by: string;
+  uploaded_at: Timestamp;
+  removed_at: Timestamp | null;
+}
+
 /** One arming of an agent by its owner (P2-U6), from the session grant to its end. */
 export interface ArmingTable {
   arming_id: string;
@@ -926,6 +954,7 @@ export interface Database {
   "platform.intents": IntentTable;
   "platform.arming": ArmingTable;
   "platform.managed_accounts": ManagedAccountTable;
+  "platform.owner_skills": OwnerSkillTable;
   "platform.agent_states": AgentStateTable;
   "platform.agent_state_changes": AgentStateChangeTable;
   "platform.agent_goals": AgentGoalTable;
