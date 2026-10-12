@@ -1827,3 +1827,17 @@ What happened: `forge fmt` reflowed the constructor of script/TestnetToken.sol, 
 Cause: a source change of any kind, whitespace included, changes the metadata hash, and so the init code, of a contract whose deployment is found by its init code.
 Fix: the file was put back byte for byte and listed under `[fmt] ignore` in foundry.toml until the tokens are redeployed.
 Lesson: Once a contract is deployed by CREATE2 on a real chain, its source is frozen until the next deployment; keep formatters off it, and check `git diff` on chains/monad/src and script before every commit after a deployment.
+
+## L-248: the testnet end-to-end script read a v2 portfolio from the v3 stack
+Unit: F-U13
+What happened: with the v3 set in the testnet address book the control API served the v3 portfolio (holdings per token, a NAV) and the end-to-end script, written for P2-EC's v2 set, failed after creating the account on "Cannot read properties of undefined (reading 'usdcE6')": it read `balances.usdcE6`, a v2 field.
+Cause: the script hard-coded one response shape; the API switches shapes with the environment's address book (A-80).
+Fix: the script reads the account's USDC from the v3 holdings by token address, or from `balances` on a v2 portfolio, and records both after the withdrawal.
+Lesson: A script that drives the API must read the portfolio by the shape the environment serves; check the web client's types for the current fields before reusing an older script on a new set.
+
+## L-249: a fresh testnet database has no mint allowlist and the test wallet held less than the run moves
+Unit: F-U13
+What happened: the testnet database was reset for the new AgentNFT (the old index pointed at P2-EC's), and the first end-to-end run was refused at the mint claim as not_allowlisted; after the allowlist was filled, the second run failed at the credits transfer: the test wallet held 0.565 USDC and the run transfers 1 USDC of credits, then deposits 0.5.
+Cause: the mint allowlist lives in the environment's database (platform.mint_allowlist), not on chain, so a reset empties it; and the wallet's balances were assumed from P2-EC's run instead of read.
+Fix: `pnpm allowlist add` with APP_ENV=testnet for the test wallet and the owner's three playtest wallets; 3 USDC sent from the deployer to the test wallet; both recorded in A-96.
+Lesson: After resetting an environment's database, fill the mint allowlist before any mint, and read every wallet the run spends from against the amounts it moves (L-244) before starting it.
