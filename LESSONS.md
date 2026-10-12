@@ -1693,3 +1693,24 @@ What happened: The vault spec's axe scan of the open deposit dialog reported a s
 Cause: The screenshot path freezes animations through its style sheet (Step 0 of the vault session), but the scan has no style sheet and ran mid-animation.
 Fix: The spec's scan first awaits every running animation on the page (`document.getAnimations()`), then runs axe; the finding disappears without any token change.
 Lesson: Scan a page only once its animations have finished, as the capture already waits for its paint; a contrast finding on a token that measures fine is a timing finding.
+
+## L-229: Executor v3 binds once, so a factory that moved cannot be bound on a long-lived fork
+Unit: Step 0 of the SK-U1 session (2026-10-12)
+What happened: The P7-U4 handoff told the owner to run `pnpm deploy:executor-v3` on the playtest fork to land the moved factory. The Executor's code had not changed, so the deploy found the Executor already deployed and bound to the earlier factory; `bind` reverts with `AlreadyBound`, and BindExecutorV3 would have refused with "Executor v3 is bound to another factory". The owner's run had bound the playtest fork's Executor to the P7-U4 factory, and this session's caps moved the factory again.
+Cause: A factory's CREATE2 address depends on its constructor arguments (the caps among them), the Executor's does not, and the Executor binds once by design (D-361).
+Fix: On a local fork alone, the deploy library moves the binding by writing the Executor's `factory` slot (anvil_setStorageAt, the slot read from the compiled layout, never assumed), as a fresh deployment would have bound it, and says so; the earlier factory's accounts become older accounts (A-87). Nothing of the kind exists off the local fork.
+Lesson: When a deterministic set has a once-only binding, changing one member's constructor arguments strands every long-lived deployment; give the local deploy a way through, and say in the handoff what state it leaves the fork in.
+
+## L-230: A redeploy dropped the owner's wallet from the deposit allowlist
+Unit: Step 0 of the SK-U1 session (2026-10-12)
+What happened: After the vault units' redeploy, "Set up trading" failed for the owner's wallet: the new factory's allowlist held the constructor's anvil accounts alone. The wallet had been added by hand with `pnpm custody:allow` on the earlier factory, and that entry died with it.
+Cause: The allowlist lived in two places: the deploy's constants and a by-hand action whose effect belonged to one deployment.
+Fix: chains/monad/local-wallets.json lists the owner's playtest wallets (public addresses), and every local deploy adds each of them to every deposit allowlist it creates or finds (`ensureLocalAllowlist`, as the admin, instant, D-231); the MV-S15 intent includes them, so `pnpm assert:state` fails when one is missing.
+Lesson: Anything a deploy must leave in place belongs in the deploy's own inputs, never in a by-hand step: a redeploy replays inputs, not history.
+
+## L-231: The console rendered a vault grant's no-expiry marker as a date
+Unit: Step 0 of the SK-U1 session (2026-10-12)
+What happened: The console's Trades page showed a vault grant's expiry through `new Date(validUntil * 1000).toISOString()`; the marker is 2^53 - 1 seconds (L-223), far past any date a JavaScript Date can hold, so the page could not show the grant as it was.
+Cause: Every grant's expiry was formatted as a date; the sentinel was known where it is stored and compared (L-223) but not where it is shown.
+Fix: `grantWords` names a grant at the marker as a vault grant with no fixed expiry that ends on a sale, a configuration change or the owner's revocation (D-241), and dates a timed grant as before; with a test.
+Lesson: A sentinel value needs its words wherever it is shown, not only where it is stored and compared.
