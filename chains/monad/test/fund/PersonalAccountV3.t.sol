@@ -85,7 +85,9 @@ contract PersonalAccountV3Test is CustodyV3Base {
             usdc: address(tokD),
             tokenRegistry: ITokenRegistry(address(tokens)),
             personalCap: PERSONAL_CAP,
+            vaultCap: VAULT_CAP,
             platformCap: PLATFORM_CAP,
+            depositsEnabled: false,
             allowlist: allow
         });
         vm.expectRevert(abi.encodeWithSelector(AccountFactoryV3.UsdcNotCore.selector, address(tokD)));
@@ -322,7 +324,9 @@ contract PersonalAccountV3Test is CustodyV3Base {
                 usdc: address(usdc),
                 tokenRegistry: ITokenRegistry(address(tokens)),
                 personalCap: PERSONAL_CAP,
+                vaultCap: VAULT_CAP,
                 platformCap: PLATFORM_CAP,
+                depositsEnabled: false,
                 allowlist: allow
             })
         );

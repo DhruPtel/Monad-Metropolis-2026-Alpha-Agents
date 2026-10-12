@@ -4,12 +4,15 @@ pragma solidity 0.8.37;
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {AccountFactoryV3} from "../../src/fund/AccountFactoryV3.sol";
 import {PersonalAccountV3} from "../../src/fund/PersonalAccountV3.sol";
+import {StrategyVaultV3} from "../../src/fund/StrategyVaultV3.sol";
 import {IAgentNFTView} from "../../src/interfaces/ICustody.sol";
 import {ITokenRegistry} from "../../src/interfaces/IFund.sol";
 import {CustodyV3Base} from "./CustodyV3Base.sol";
 
 /// AccountFactoryV3: caps, allowlist, roles, the registry binding and the
-/// in-contract timelock (F-U3). The buy list is the TokenRegistry's now.
+/// in-contract timelock (F-U3). The buy list is the TokenRegistry's now. The
+/// vault's side (P7-U4): the per-vault cap, the public-deposit launch flag and
+/// the allowlist on vault deposits, with exits never gated by any of them.
 contract AccountFactoryV3Test is CustodyV3Base {
     bytes32 internal constant NONE = bytes32(0);
 
@@ -29,8 +32,11 @@ contract AccountFactoryV3Test is CustodyV3Base {
         assertEq(factory.USDC(), address(usdc));
         assertEq(address(factory.AGENT_NFT()), address(nft));
         assertEq(factory.personalCap(), PERSONAL_CAP);
+        assertEq(factory.vaultCap(), VAULT_CAP);
         assertEq(factory.platformCap(), PLATFORM_CAP);
         assertTrue(factory.allowlistEnabled());
+        assertFalse(factory.depositsEnabled(), "public vault deposits wait the launch decision (Q-29)");
+        assertGt(factory.VAULT_IMPLEMENTATION().code.length, 0);
         assertTrue(factory.isAllowlisted(owner));
         assertFalse(factory.isAllowlisted(stranger));
         assertEq(factory.RISK_TIMELOCK(), 9 days);
@@ -63,16 +69,18 @@ contract AccountFactoryV3Test is CustodyV3Base {
     }
 
     function test_EveryTimelockedActionWaits() public {
-        bytes32[7] memory values = [
+        bytes32[9] memory values = [
             addr(address(executor)),
             addr(makeAddr("new oracle")),
             addr(makeAddr("new guardian")),
             addr(makeAddr("new sentinel")),
             bytes32(uint256(5_000e6)),
             bytes32(uint256(50_000e6)),
+            NONE,
+            bytes32(uint256(7_000e6)),
             NONE
         ];
-        for (uint256 i = 0; i < 7; i++) {
+        for (uint256 i = 0; i < 9; i++) {
             AccountFactoryV3.Action action = AccountFactoryV3.Action(i);
             vm.prank(admin);
             bytes32 id = factory.propose(action, values[i]);
@@ -81,7 +89,7 @@ contract AccountFactoryV3Test is CustodyV3Base {
             factory.execute(action, values[i]);
         }
         vm.warp(block.timestamp + 9 days);
-        for (uint256 i = 0; i < 7; i++) {
+        for (uint256 i = 0; i < 9; i++) {
             factory.execute(AccountFactoryV3.Action(i), values[i]);
         }
         assertEq(factory.executor(), address(executor));
@@ -91,6 +99,8 @@ contract AccountFactoryV3Test is CustodyV3Base {
         assertEq(factory.personalCap(), 5_000e6);
         assertEq(factory.platformCap(), 50_000e6);
         assertFalse(factory.allowlistEnabled());
+        assertEq(factory.vaultCap(), 7_000e6);
+        assertTrue(factory.depositsEnabled());
     }
 
     function test_AMaturedChangeLapses_AndCanBeProposedAgain() public {
@@ -138,6 +148,8 @@ contract AccountFactoryV3Test is CustodyV3Base {
         factory.propose(AccountFactoryV3.Action.SetExecutor, dirty);
         vm.expectRevert(abi.encodeWithSelector(AccountFactoryV3.BadValue.selector, bytes32(uint256(1))));
         factory.propose(AccountFactoryV3.Action.DisableAllowlist, bytes32(uint256(1)));
+        vm.expectRevert(abi.encodeWithSelector(AccountFactoryV3.BadValue.selector, bytes32(uint256(1))));
+        factory.propose(AccountFactoryV3.Action.EnableDeposits, bytes32(uint256(1)));
         vm.stopPrank();
     }
 
@@ -158,9 +170,146 @@ contract AccountFactoryV3Test is CustodyV3Base {
     }
 
     function test_OnlyTheAdminLowersCaps() public {
-        vm.prank(guardian);
+        vm.startPrank(guardian);
         vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, guardian));
         factory.setPersonalCap(0);
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, guardian));
+        factory.setVaultCap(0);
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, guardian));
+        factory.disableDeposits();
+        vm.stopPrank();
+    }
+
+    function test_TheVaultCapLowersAtOnce_AndRaisesOnlyByTimelock() public {
+        vm.startPrank(admin);
+        factory.setVaultCap(VAULT_CAP - 1);
+        vm.expectRevert(AccountFactoryV3.UseTimelock.selector);
+        factory.setVaultCap(VAULT_CAP);
+        vm.stopPrank();
+        assertEq(factory.vaultCap(), VAULT_CAP - 1);
+        timelocked(AccountFactoryV3.Action.RaiseVaultCap, bytes32(uint256(VAULT_CAP + 1)));
+        assertEq(factory.vaultCap(), VAULT_CAP + 1);
+    }
+
+    // ----- vaults (P7-U4): the vault cap, the launch flag, the allowlist, ungated exits -----
+
+    /// The agent's vault with the leader's stake in and deposits open.
+    function newVault(uint256 stake) internal returns (StrategyVaultV3 v) {
+        vm.prank(owner);
+        v = StrategyVaultV3(factory.createVault(AGENT));
+        usdc.mint(owner, stake);
+        vm.startPrank(owner);
+        usdc.approve(address(v), stake);
+        v.deposit(stake, 0);
+        v.setDepositsOpen(true);
+        vm.stopPrank();
+    }
+
+    function vaultDeposit(StrategyVaultV3 v, address who, uint256 amount) internal returns (uint256 shares) {
+        usdc.mint(who, amount);
+        vm.startPrank(who);
+        usdc.approve(address(v), amount);
+        shares = v.deposit(amount, 0);
+        vm.stopPrank();
+    }
+
+    function test_AVaultIsBoundByTheVaultCap_NotThePersonalCap() public {
+        StrategyVaultV3 v = newVault(1_000e6);
+        assertTrue(factory.isVault(address(v)));
+        assertTrue(factory.isAccount(address(v)));
+        assertFalse(factory.isVault(address(account)));
+        assertEq(factory.platformTotal(), 1_000e6, "the leader's stake is principal");
+        address tester = makeAddr("tester");
+        vm.prank(admin);
+        factory.addDepositor(tester);
+        // Over the vault cap by one: refused with the vault's own error; at the cap: taken.
+        usdc.mint(tester, VAULT_CAP);
+        vm.startPrank(tester);
+        usdc.approve(address(v), VAULT_CAP);
+        vm.expectRevert(abi.encodeWithSelector(AccountFactoryV3.VaultCapExceeded.selector, VAULT_CAP + 1, VAULT_CAP));
+        v.deposit(VAULT_CAP - 1_000e6 + 1, 0);
+        v.deposit(VAULT_CAP - 1_000e6, 0);
+        vm.stopPrank();
+        assertEq(v.principal(), VAULT_CAP);
+        assertGt(VAULT_CAP, PERSONAL_CAP, "the vault holds more than one personal account may");
+        // The owner's personal account still has its whole personal cap: the vault's principal is not its own.
+        deposit(usdc, PERSONAL_CAP);
+        assertEq(account.principal(), PERSONAL_CAP);
+        assertEq(factory.platformTotal(), VAULT_CAP + PERSONAL_CAP, "the platform total counts both");
+    }
+
+    function test_TheAllowlistGatesVaultDeposits_AndNeverExits() public {
+        StrategyVaultV3 v = newVault(100e6);
+        address tester = makeAddr("tester");
+        address other = makeAddr("other");
+        usdc.mint(stranger, 10e6);
+        vm.startPrank(stranger);
+        usdc.approve(address(v), 10e6);
+        vm.expectRevert(abi.encodeWithSelector(AccountFactoryV3.NotAllowlisted.selector, stranger));
+        v.deposit(10e6, 0);
+        vm.stopPrank();
+        vm.startPrank(admin);
+        factory.addDepositor(tester);
+        factory.addDepositor(other);
+        vm.stopPrank();
+        uint256 testerShares = vaultDeposit(v, tester, 300e6);
+        uint256 otherShares = vaultDeposit(v, other, 200e6);
+        // Every gate shut after the fact: off the allowlist, the vault cap at zero, public deposits off.
+        vm.startPrank(admin);
+        factory.removeDepositor(tester);
+        factory.removeDepositor(other);
+        factory.setVaultCap(0);
+        factory.disableDeposits();
+        vm.stopPrank();
+        vm.warp(block.timestamp + 1 days + 1);
+        refreshFeeds();
+        uint256 before = usdc.balanceOf(tester);
+        vm.prank(tester);
+        v.redeem(testerShares, tester, 0, uint64(block.timestamp + 1 hours));
+        assertGt(usdc.balanceOf(tester) - before, 298e6, "the USDC exit paid, less the spread");
+        before = usdc.balanceOf(other);
+        vm.prank(other);
+        v.redeemInKind(otherShares, other);
+        assertGt(usdc.balanceOf(other) - before, 198e6, "the in-kind exit paid");
+        assertEq(v.sharesOf(tester) + v.sharesOf(other), 0);
+    }
+
+    function test_PublicVaultDepositsWaitTheLaunchDecision() public {
+        StrategyVaultV3 v = newVault(1_000e6);
+        address tester = makeAddr("tester");
+        vm.prank(admin);
+        factory.addDepositor(tester);
+        timelocked(AccountFactoryV3.Action.DisableAllowlist, NONE);
+        assertFalse(factory.allowlistEnabled());
+        // The allowlist is off, public deposits are not on yet: a stranger is refused by the launch flag alone.
+        usdc.mint(stranger, 10e6);
+        vm.startPrank(stranger);
+        usdc.approve(address(v), 10e6);
+        vm.expectRevert(abi.encodeWithSelector(AccountFactoryV3.PublicDepositsDisabled.selector, stranger));
+        v.deposit(10e6, 0);
+        vm.stopPrank();
+        vaultDeposit(v, tester, 10e6);
+        // A personal account is its owner's own money: the launch flag never gates it.
+        nft.setOwner(9, stranger);
+        vm.prank(stranger);
+        PersonalAccountV3 theirs = PersonalAccountV3(factory.createPersonalAccount(9));
+        vm.startPrank(stranger);
+        usdc.approve(address(theirs), 10e6);
+        theirs.deposit(address(usdc), 10e6);
+        vm.stopPrank();
+        assertEq(theirs.principal(), 10e6);
+        // The launch decision (P9-U5) opens public vault deposits after the timelock; closing is instant.
+        timelocked(AccountFactoryV3.Action.EnableDeposits, NONE);
+        assertTrue(factory.depositsEnabled());
+        vaultDeposit(v, stranger, 5e6);
+        vm.prank(admin);
+        factory.disableDeposits();
+        usdc.mint(stranger, 5e6);
+        vm.startPrank(stranger);
+        usdc.approve(address(v), 5e6);
+        vm.expectRevert(abi.encodeWithSelector(AccountFactoryV3.PublicDepositsDisabled.selector, stranger));
+        v.deposit(5e6, 0);
+        vm.stopPrank();
     }
 
     function test_TheAdminAddsAndRemovesDepositorsAtOnce_AndTurnsTheAllowlistOffOnlyByTimelock() public {
@@ -330,7 +479,9 @@ contract AccountFactoryV3Test is CustodyV3Base {
                 usdc: address(usdc),
                 tokenRegistry: ITokenRegistry(address(tokens)),
                 personalCap: PERSONAL_CAP,
+                vaultCap: VAULT_CAP,
                 platformCap: PLATFORM_CAP,
+                depositsEnabled: false,
                 allowlist: allow
             })
         );
@@ -388,7 +539,9 @@ contract AccountFactoryV3Test is CustodyV3Base {
             usdc: address(usdc),
             tokenRegistry: ITokenRegistry(address(tokens)),
             personalCap: PERSONAL_CAP,
+            vaultCap: VAULT_CAP,
             platformCap: PLATFORM_CAP,
+            depositsEnabled: false,
             allowlist: allow
         });
         vm.expectRevert(AccountFactoryV3.ZeroAddress.selector);

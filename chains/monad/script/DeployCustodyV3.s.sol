@@ -17,7 +17,8 @@ import {DeployScope} from "./DeployScope.sol";
 ///   CUSTODY_V3_AGENT_NFT, CUSTODY_V3_USDC, CUSTODY_V3_TOKEN_REGISTRY,
 ///   CUSTODY_V3_ORACLE, CUSTODY_V3_EXECUTOR (zero until F-U4: Executor v3 is
 ///   its unit, and it deploys this factory again with the Executor given),
-///   CUSTODY_V3_PERSONAL_CAP, CUSTODY_V3_PLATFORM_CAP and
+///   CUSTODY_V3_PERSONAL_CAP, CUSTODY_V3_VAULT_CAP, CUSTODY_V3_PLATFORM_CAP,
+///   CUSTODY_V3_DEPOSITS_ENABLED (P7-U4: false until the launch decision) and
 ///   CUSTODY_V3_ALLOWLIST (comma-separated).
 /// CREATE2 with the `alpha-agents.account-factory.v3` salt: running it again
 /// with the same arguments finds the same contract. The onchain state is
@@ -37,7 +38,9 @@ contract DeployCustodyV3 is DeployScope {
             usdc: vm.envAddress("CUSTODY_V3_USDC"),
             tokenRegistry: ITokenRegistry(vm.envAddress("CUSTODY_V3_TOKEN_REGISTRY")),
             personalCap: vm.envUint("CUSTODY_V3_PERSONAL_CAP"),
+            vaultCap: vm.envUint("CUSTODY_V3_VAULT_CAP"),
             platformCap: vm.envUint("CUSTODY_V3_PLATFORM_CAP"),
+            depositsEnabled: vm.envBool("CUSTODY_V3_DEPOSITS_ENABLED"),
             allowlist: vm.envAddress("CUSTODY_V3_ALLOWLIST", ",")
         });
         _checkReferences(d);
@@ -101,6 +104,7 @@ contract DeployCustodyV3 is DeployScope {
         require(address(vaultImpl.TOKENS()) == address(d.tokenRegistry), "vault registry");
         require(vaultImpl.MAX_LOCKUP() == 7 days && vaultImpl.MIN_LOCKUP() == 1 days, "vault lockups");
         require(vaultImpl.RISK_TIMELOCK() == 9 days, "vault timelock");
+        require(f.EXECUTION_WINDOW() == 7 days, "execution window");
     }
 
     /// A fresh deployment must be exactly what was intended. A later run
@@ -113,8 +117,10 @@ contract DeployCustodyV3 is DeployScope {
         require(f.executor() == d.executor, "executor at deploy");
         require(f.oracle() == d.oracle, "oracle at deploy");
         require(f.personalCap() == d.personalCap && f.platformCap() == d.platformCap, "caps");
+        require(f.vaultCap() == d.vaultCap, "vault cap");
         require(f.platformTotal() == 0, "nothing deposited at deploy");
         require(f.allowlistEnabled(), "allowlist on at deploy");
+        require(f.depositsEnabled() == d.depositsEnabled, "public deposits flag");
         for (uint256 i = 0; i < d.allowlist.length; i++) {
             require(f.isAllowlisted(d.allowlist[i]), "allowlist entry");
         }

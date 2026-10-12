@@ -40,7 +40,14 @@ export const LOCAL_TEST_OWNERS = [
 ];
 
 /** The beta caps (D-133, P2-U1): 100 USDC per account, 2,000 USDC across the platform. */
-export const BETA_CAPS = { personalE6: 100_000_000n, platformE6: 2_000_000_000n };
+export const BETA_CAPS = {
+  personalE6: 100_000_000n,
+  /** P7-U4: the most one vault may hold on the local fork and at the beta (A-89). */
+  vaultE6: 500_000_000n,
+  platformE6: 2_000_000_000n,
+};
+/** P7-U4: vault deposits by wallets off the allowlist stay off until the launch decision (Q-29, P9-U5). */
+export const BETA_DEPOSITS_ENABLED = false;
 
 /**
  * A verified mainnet address from the address book (the local fork shares them).

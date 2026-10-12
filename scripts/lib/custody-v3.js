@@ -8,7 +8,12 @@
 // which deploys this factory again with Executor v3 given at deployment.
 import { assertLocalFork, rpc } from "@alpha-agents/devenv";
 import { addressEntry } from "@alpha-agents/domain";
-import { BETA_CAPS, CUSTODY_ROLES, LOCAL_TEST_OWNERS } from "./account-factory.js";
+import {
+  BETA_CAPS,
+  BETA_DEPOSITS_ENABLED,
+  CUSTODY_ROLES,
+  LOCAL_TEST_OWNERS,
+} from "./account-factory.js";
 import {
   LOCAL_DEPLOY_ATTEMPTS,
   deployLocal as deployAgentNftLocal,
@@ -90,7 +95,9 @@ export async function deployCustodyV3Local(options = {}) {
     CUSTODY_V3_ORACLE: fund.oracle,
     CUSTODY_V3_EXECUTOR: executor,
     CUSTODY_V3_PERSONAL_CAP: BETA_CAPS.personalE6.toString(),
+    CUSTODY_V3_VAULT_CAP: BETA_CAPS.vaultE6.toString(),
     CUSTODY_V3_PLATFORM_CAP: BETA_CAPS.platformE6.toString(),
+    CUSTODY_V3_DEPOSITS_ENABLED: String(BETA_DEPOSITS_ENABLED),
     CUSTODY_V3_ALLOWLIST: LOCAL_TEST_OWNERS.join(","),
   };
   const args = [
@@ -145,7 +152,7 @@ export async function deployCustodyV3Local(options = {}) {
   console.log(`guardian ${CUSTODY_ROLES.guardian} (anvil account 4)`);
   console.log(`sentinel key ${CUSTODY_ROLES.sentinel} (anvil account 5)`);
   console.log(
-    "caps: 100 USDC per account, 2,000 USDC across the platform; allowlist: anvil accounts 6 to 9",
+    "caps: 100 USDC per account, 500 USDC per vault, 2,000 USDC across the platform; allowlist: anvil accounts 6 to 9; public vault deposits off",
   );
   console.log("Try it: pnpm custody:v3:demo (on a fork of its own)");
   return result;

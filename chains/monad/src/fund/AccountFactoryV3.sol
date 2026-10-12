@@ -34,9 +34,13 @@ import {ITokenRegistry, Lane} from "../interfaces/IFund.sol";
 ///   allowlist (Q-46). A new depositor is still bound by both caps, which only
 ///   the timelock raises, so an addition cannot raise the platform's exposure.
 /// - Admin is two-step (Ownable2Step) and cannot be renounced.
-/// - One StrategyVaultV3 per agent, deployed by the agent's owner (P7-U2); its
-///   deposits count against the per-account cap until P7-U4 gives vaults a cap
-///   of their own, and the depositor allowlist applies to its depositors.
+/// - One StrategyVaultV3 per agent, deployed by the agent's owner (P7-U2). Its
+///   principal is bound by the per-vault cap (P7-U4, D-062) and its depositors
+///   by the allowlist while that is on. `depositsEnabled` is the public-deposit
+///   launch parameter (Q-29, P9-U5): while it is off, only an allowlisted wallet
+///   may deposit into a vault, whether or not the allowlist is on; turning it
+///   on waits the timelock, turning it off is instant. Exits are never gated
+///   by any of this: the factory is not consulted on the way out.
 contract AccountFactoryV3 is ICustodyConfigV3, IDepositLedger, Ownable2Step {
     /// 9 days: the maximum lockup (7 days) plus notice (2 days) (FINAL_PLAN 4.7.2).
     uint256 public constant RISK_TIMELOCK = 9 days;
@@ -51,7 +55,9 @@ contract AccountFactoryV3 is ICustodyConfigV3, IDepositLedger, Ownable2Step {
         SetSentinel,
         RaisePersonalCap,
         RaisePlatformCap,
-        DisableAllowlist
+        DisableAllowlist,
+        RaiseVaultCap,
+        EnableDeposits
     }
 
     struct Pending {
@@ -74,6 +80,8 @@ contract AccountFactoryV3 is ICustodyConfigV3, IDepositLedger, Ownable2Step {
 
     /// Most principal one PersonalAccountV3 may hold, in USDC (6 decimals).
     uint256 public personalCap;
+    /// Most principal one StrategyVaultV3 may hold, in USDC (6 decimals) (P7-U4).
+    uint256 public vaultCap;
     /// Most principal across every account, in USDC (6 decimals).
     uint256 public platformCap;
     /// Principal across every account, as accounts report it.
@@ -81,11 +89,16 @@ contract AccountFactoryV3 is ICustodyConfigV3, IDepositLedger, Ownable2Step {
 
     bool public allowlistEnabled = true;
     mapping(address depositor => bool) public isAllowlisted;
+    /// Whether wallets off the allowlist may deposit into vaults (Q-29): the
+    /// public-deposit launch parameter, off until the launch decision (P9-U5).
+    bool public depositsEnabled;
 
     mapping(uint256 agentId => mapping(address owner => address)) public personalAccountOf;
     /// The agent's vault, one for its whole life: a sale hands it over (FINAL_PLAN 4.7.7).
     mapping(uint256 agentId => address) public vaultOf;
     mapping(address account => bool) public isAccount;
+    /// The accounts that are vaults: they report against the vault cap.
+    mapping(address account => bool) public isVault;
 
     mapping(bytes32 id => Pending) public pending;
 
@@ -103,7 +116,9 @@ contract AccountFactoryV3 is ICustodyConfigV3, IDepositLedger, Ownable2Step {
     event GuardianSet(address indexed previous, address indexed current);
     event SentinelSet(address indexed previous, address indexed current);
     event PersonalCapSet(uint256 previous, uint256 current);
+    event VaultCapSet(uint256 previous, uint256 current);
     event PlatformCapSet(uint256 previous, uint256 current);
+    event DepositsEnabledSet(bool previous, bool current);
     event DepositorAllowlistSet(address indexed depositor, bool previous, bool current);
     event AllowlistEnabledSet(bool previous, bool current);
 
@@ -115,7 +130,10 @@ contract AccountFactoryV3 is ICustodyConfigV3, IDepositLedger, Ownable2Step {
     error NotAnAccount(address caller);
     error NotAllowlisted(address depositor);
     error PersonalCapExceeded(uint256 principalAfter, uint256 cap);
+    error VaultCapExceeded(uint256 principalAfter, uint256 cap);
     error PlatformCapExceeded(uint256 totalAfter, uint256 cap);
+    /// A wallet off the allowlist tried to deposit into a vault while public deposits are off.
+    error PublicDepositsDisabled(address depositor);
     error NotAdminOrGuardian(address caller);
     error UseTimelock();
     error AlreadyPending(bytes32 id);
@@ -135,7 +153,9 @@ contract AccountFactoryV3 is ICustodyConfigV3, IDepositLedger, Ownable2Step {
         address usdc;
         ITokenRegistry tokenRegistry;
         uint256 personalCap;
+        uint256 vaultCap;
         uint256 platformCap;
+        bool depositsEnabled;
         address[] allowlist;
     }
 
@@ -155,7 +175,9 @@ contract AccountFactoryV3 is ICustodyConfigV3, IDepositLedger, Ownable2Step {
         oracle = d.oracle;
         executor = d.executor;
         personalCap = d.personalCap;
+        vaultCap = d.vaultCap;
         platformCap = d.platformCap;
+        depositsEnabled = d.depositsEnabled;
         for (uint256 i = 0; i < d.allowlist.length; i++) {
             isAllowlisted[d.allowlist[i]] = true;
             emit DepositorAllowlistSet(d.allowlist[i], false, true);
@@ -165,7 +187,9 @@ contract AccountFactoryV3 is ICustodyConfigV3, IDepositLedger, Ownable2Step {
         emit OracleSet(address(0), d.oracle);
         emit ExecutorSet(address(0), d.executor);
         emit PersonalCapSet(0, d.personalCap);
+        emit VaultCapSet(0, d.vaultCap);
         emit PlatformCapSet(0, d.platformCap);
+        emit DepositsEnabledSet(false, d.depositsEnabled);
     }
 
     // ---------------------------------------------------------------------
@@ -205,6 +229,7 @@ contract AccountFactoryV3 is ICustodyConfigV3, IDepositLedger, Ownable2Step {
         vault = Clones.cloneDeterministic(VAULT_IMPLEMENTATION, _vaultSalt(agentId));
         vaultOf[agentId] = vault;
         isAccount[vault] = true;
+        isVault[vault] = true;
         emit VaultCreated(agentId, msg.sender, vault);
         StrategyVaultV3(vault).initialize(agentId, msg.sender);
     }
@@ -223,10 +248,19 @@ contract AccountFactoryV3 is ICustodyConfigV3, IDepositLedger, Ownable2Step {
     // ---------------------------------------------------------------------
 
     /// @inheritdoc IDepositLedger
+    /// @dev A vault's deposit is bound by the vault cap and, while public deposits
+    /// are off, open to allowlisted wallets alone; a personal account's by the
+    /// personal cap. The allowlist, while on, and the platform cap bind both.
     function recordDeposit(address depositor, uint256 principalAfter, uint256 value) external {
         if (!isAccount[msg.sender]) revert NotAnAccount(msg.sender);
-        if (allowlistEnabled && !isAllowlisted[depositor]) revert NotAllowlisted(depositor);
-        if (principalAfter > personalCap) revert PersonalCapExceeded(principalAfter, personalCap);
+        bool allowed = isAllowlisted[depositor];
+        if (allowlistEnabled && !allowed) revert NotAllowlisted(depositor);
+        if (isVault[msg.sender]) {
+            if (!depositsEnabled && !allowed) revert PublicDepositsDisabled(depositor);
+            if (principalAfter > vaultCap) revert VaultCapExceeded(principalAfter, vaultCap);
+        } else if (principalAfter > personalCap) {
+            revert PersonalCapExceeded(principalAfter, personalCap);
+        }
         uint256 totalAfter = platformTotal + value;
         if (totalAfter > platformCap) revert PlatformCapExceeded(totalAfter, platformCap);
         platformTotal = totalAfter;
@@ -269,11 +303,25 @@ contract AccountFactoryV3 is ICustodyConfigV3, IDepositLedger, Ownable2Step {
         personalCap = cap;
     }
 
+    /// Lowers the per-vault cap at once; raising it waits the timelock.
+    function setVaultCap(uint256 cap) external onlyOwner {
+        if (cap > vaultCap) revert UseTimelock();
+        emit VaultCapSet(vaultCap, cap);
+        vaultCap = cap;
+    }
+
     /// Lowers the platform cap at once; raising it waits the timelock.
     function setPlatformCap(uint256 cap) external onlyOwner {
         if (cap > platformCap) revert UseTimelock();
         emit PlatformCapSet(platformCap, cap);
         platformCap = cap;
+    }
+
+    /// Closes vault deposits to wallets off the allowlist at once; opening
+    /// them (the launch decision, P9-U5) waits the timelock.
+    function disableDeposits() external onlyOwner {
+        emit DepositsEnabledSet(depositsEnabled, false);
+        depositsEnabled = false;
     }
 
     /// Puts a wallet on the depositor allowlist at once (Q-46): beta testers
@@ -333,11 +381,13 @@ contract AccountFactoryV3 is ICustodyConfigV3, IDepositLedger, Ownable2Step {
     }
 
     function _validate(Action action, bytes32 value) private pure {
-        bool isAmount = action == Action.RaisePersonalCap || action == Action.RaisePlatformCap;
+        bool isAmount =
+            action == Action.RaisePersonalCap || action == Action.RaisePlatformCap || action == Action.RaiseVaultCap;
+        bool isFlag = action == Action.DisableAllowlist || action == Action.EnableDeposits;
         // One encoding per change: an address fills the low 160 bits only, and
-        // turning the allowlist off carries no value.
+        // a flag (the allowlist off, public deposits on) carries no value.
         if (!isAmount && uint256(value) >> 160 != 0) revert BadValue(value);
-        if (action == Action.DisableAllowlist && value != bytes32(0)) revert BadValue(value);
+        if (isFlag && value != bytes32(0)) revert BadValue(value);
     }
 
     function _apply(Action action, bytes32 value) private {
@@ -359,6 +409,12 @@ contract AccountFactoryV3 is ICustodyConfigV3, IDepositLedger, Ownable2Step {
         } else if (action == Action.RaisePlatformCap) {
             emit PlatformCapSet(platformCap, uint256(value));
             platformCap = uint256(value);
+        } else if (action == Action.RaiseVaultCap) {
+            emit VaultCapSet(vaultCap, uint256(value));
+            vaultCap = uint256(value);
+        } else if (action == Action.EnableDeposits) {
+            emit DepositsEnabledSet(depositsEnabled, true);
+            depositsEnabled = true;
         } else {
             emit AllowlistEnabledSet(allowlistEnabled, false);
             allowlistEnabled = false;

@@ -34,6 +34,7 @@ abstract contract ExecutorV3Base is FundBase {
     bytes32 internal constant VENUE = keccak256("mock venue");
     uint256 internal constant AGENT = 7;
     uint256 internal constant PERSONAL_CAP = 1_000_000e6;
+    uint256 internal constant VAULT_CAP = 5_000_000e6;
     uint256 internal constant PLATFORM_CAP = 10_000_000e6;
     uint64 internal constant ATTESTATION_LIFE = 60;
     uint256 internal constant PX_USDC = 1e18;
@@ -109,7 +110,9 @@ abstract contract ExecutorV3Base is FundBase {
                 usdc: address(usdc),
                 tokenRegistry: ITokenRegistry(address(tokens)),
                 personalCap: PERSONAL_CAP,
+                vaultCap: VAULT_CAP,
                 platformCap: PLATFORM_CAP,
+                depositsEnabled: false,
                 allowlist: allow
             })
         );

@@ -141,7 +141,9 @@ contract CustodyV3ForkTest is Test {
                 usdc: USDC,
                 tokenRegistry: ITokenRegistry(address(tokens)),
                 personalCap: 1_000e6,
+                vaultCap: 5_000e6,
                 platformCap: 20_000e6,
+                depositsEnabled: false,
                 allowlist: allow
             })
         );

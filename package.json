@@ -25,6 +25,7 @@
     "db:migrate": "node scripts/db.js migrate",
     "db:reset": "node scripts/db.js reset",
     "allowlist": "node scripts/allowlist.js",
+    "assert:state": "node scripts/assert-state.js",
     "test:fork": "node scripts/test-fork.js",
     "test:testnet-fork": "node scripts/test-testnet-fork.js",
     "env:example": "node scripts/env-example.js",

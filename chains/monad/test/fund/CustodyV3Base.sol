@@ -21,6 +21,7 @@ import {FundBase} from "./FundBase.sol";
 /// screened lane). Caps are 1,000 USDC per account and 20,000 across the platform.
 abstract contract CustodyV3Base is FundBase {
     uint256 internal constant PERSONAL_CAP = 1_000e6;
+    uint256 internal constant VAULT_CAP = 5_000e6;
     uint256 internal constant PLATFORM_CAP = 20_000e6;
     uint256 internal constant AGENT = 7;
     uint64 internal constant ATTESTATION_LIFE = 60;
@@ -72,7 +73,9 @@ abstract contract CustodyV3Base is FundBase {
                 usdc: address(usdc),
                 tokenRegistry: ITokenRegistry(address(tokens)),
                 personalCap: PERSONAL_CAP,
+                vaultCap: VAULT_CAP,
                 platformCap: PLATFORM_CAP,
+                depositsEnabled: false,
                 allowlist: allow
             })
         );
