@@ -2,7 +2,7 @@ import { SCAN_MIN_CREDITS_USDC_E6 } from "@alpha-agents/accounting";
 import { CompleteStageOutput } from "@alpha-agents/platform-tools";
 import { modelFailure } from "./gate.ts";
 import type { Narrator } from "./narrator.ts";
-import { type TaskContext, openAgentSandbox, skillsLoaded } from "./noop.ts";
+import { type TaskContext, openAgentSandbox, ownerSkillsPrompt, skillsLoaded } from "./noop.ts";
 import { errorText } from "./secrets.ts";
 import type { AgentRef } from "./store.ts";
 
@@ -113,7 +113,12 @@ export async function runScanTask(ctx: ScanContext, taskId: string): Promise<voi
 
     const t2 = Date.now();
     const agent = `${ref.chainId}-${ref.agentId}`;
-    const run = await runs.start(`${agent}:scan:${taskId}`, SCAN_PROMPT, `${agent}-scan-${taskId}`);
+    // SK-U1: the owner's own skills are named as the playbook is, so the agent opens them.
+    const run = await runs.start(
+      `${agent}:scan:${taskId}`,
+      `${SCAN_PROMPT}${ownerSkillsPrompt(opened.ownerSkills)}`,
+      `${agent}-scan-${taskId}`,
+    );
     let runStatus: string;
     let deadline = false;
     const until = Date.now() + SCAN_DEADLINE_MS;

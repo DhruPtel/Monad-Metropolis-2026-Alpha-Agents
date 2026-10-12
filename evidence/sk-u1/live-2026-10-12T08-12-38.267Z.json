@@ -1,0 +1,127 @@
+{
+  "unit": "SK-U1",
+  "namespace": "live-sk-<redacted>",
+  "runTag": "2026-10-12T08-12-38.267Z",
+  "checks": {
+    "two agents are minted and provisioned with no manual step": true,
+    "the owner's package passes every format and static rule": true,
+    "the package is recorded by its content hash": true,
+    "the orchestrator lists the owner's skill as mounted with kind owner, beside the built-in set": true,
+    "another agent's mount has nothing of it": true,
+    "a Scan is queued for the agent": true,
+    "the Scan ran to the end in a sandbox that booted with the owner's skill under the read-only mount (H-11)": true,
+    "the agent loaded the owner's skill from the mount with skill_view": true,
+    "the Scan's notes carry the OWNER WATCHLIST section the skill asks for, which the prompt never names": true,
+    "the run stayed under the model spend cap": true,
+    "no boot refused the mount as writable": true
+  },
+  "skill": {
+    "id": "owner-monad-watchlist",
+    "contentHash": "fbb2a4e65ae27014264b031562b88cbb2bdbb306e304428c2311083b72dba5a4",
+    "hermesName": "aa-owner-monad-watchlist"
+  },
+  "spendUsd": 0.1727,
+  "scan": {
+    "status": "succeeded",
+    "error": null,
+    "result": {
+      "kind": "scan",
+      "tier": "pro",
+      "runId": "run_e3e2e75b4508420ab01db96febc250a7",
+      "stage": {
+        "outcome": "DONE",
+        "stageId": "stage-1a59ed66-2012-4b93-ad39-14df8fc6aca8",
+        "candidates": [
+          {
+            "asset": "WMON",
+            "thesisCode": "MON_VOLATILITY_ELEVATED",
+            "confidenceBps": 7500
+          },
+          {
+            "asset": "MARKET",
+            "thesisCode": "MONAD_TVL_DECLINE",
+            "confidenceBps": 6000
+          }
+        ],
+        "schemaValid": true
+      },
+      "agentId": 1,
+      "leaseId": "0f9c91b7-9f83-48e6-874d-7b0da29dcee6",
+      "runStatus": "completed",
+      "sandboxId": "i7y77xeues7dpeotd2gst",
+      "timingsMs": {
+        "run": 51169,
+        "total": 76478,
+        "sandbox": 687,
+        "hermesBoot": 17588
+      },
+      "toolCalls": [
+        {
+          "tool": "market_snapshot",
+          "status": "succeeded",
+          "errorCode": null,
+          "chargeUsdcE6": "1000"
+        },
+        {
+          "tool": "web_search",
+          "status": "succeeded",
+          "errorCode": null,
+          "chargeUsdcE6": "10000"
+        },
+        {
+          "tool": "web_search",
+          "status": "succeeded",
+          "errorCode": null,
+          "chargeUsdcE6": "10000"
+        },
+        {
+          "tool": "web_search",
+          "status": "succeeded",
+          "errorCode": null,
+          "chargeUsdcE6": "10000"
+        },
+        {
+          "tool": "read_url",
+          "status": "succeeded",
+          "errorCode": null,
+          "chargeUsdcE6": "2000"
+        },
+        {
+          "tool": "write_thesis",
+          "status": "succeeded",
+          "errorCode": null,
+          "chargeUsdcE6": "0"
+        },
+        {
+          "tool": "complete_stage",
+          "status": "succeeded",
+          "errorCode": null,
+          "chargeUsdcE6": "0"
+        }
+      ],
+      "configHash": "97aaaa7f526a24f701a95acc83df0d809edaf72fc31ebc572a81c4f9fe92c9d0",
+      "gatedCalls": [
+        "POST /v1/chat/completions 200",
+        "GET /v1/models 200",
+        "POST /v1/chat/completions 200",
+        "POST /v1/chat/completions 200",
+        "POST /v1/chat/completions 200",
+        "POST /v1/chat/completions 200",
+        "POST /v1/chat/completions 200",
+        "POST /v1/chat/completions 200"
+      ],
+      "generation": 1,
+      "modelCalls": 8,
+      "stopReason": "COMPLETED",
+      "skillsLoaded": [
+        "aa-playbook-scan",
+        "aa-owner-monad-watchlist"
+      ],
+      "sandboxStopped": true,
+      "toolChargeUsdcE6": "33000",
+      "modelCallsRefusedForCredits": 0
+    }
+  },
+  "notes": "SUMMARY:\nUSDC remains perfectly stable at peg ($0.9999, -0.004% in 24h). MON shows elevated volatility (134% annualized on 24h, 110% on 7d) and is up 3.47% in 24h but down 18.87% over 7 days, with profit-taking documented in web coverage after earlier rally. Monad TVL declined 4.28% over 7d to $997.6M as of Oct 12 00:00. DEX volume dropped 21.96% in the last 24h to $23.8M. Ecosystem activity remains robust with major DeFi deployments (Aave V4, Drake, 1inch, Glider, o1 live), and a major MON unlock is scheduled for November 24 (16.61B MON).\n\nCHANGES:\n- MON 24h volatility at 134.16% annualized; 7d at 109.85%; high but not unprecedented for this asset. Source: market_snapshot (2026-10-12T08:02:56Z). Confidence: high.\n- MON +3.47% in 24h, down 18.87% over 7d, reflecting profit-taking post-rally. Source: market_snapshot (2026-10-12T08:12:02Z). Confidence: high.\n- Monad TVL at $997.6M, down 4.28% over 7d from ~$1.04B early October. Source: market_snapshot (2026-10-12T00:00:00Z). Confidence: high.\n- DEX volume $23.8M in 24h, down 21.96% from prior day. Source: market_snapshot (2026-10-12T08:13:58Z). Confidence: high.\n- MON token unlock event scheduled for November 24 with ~16.61B MON vesting. Source: web_search (2026-10-12T08:14:09Z). Confidence: medium.\n\nTHEMES:\n1. MON_VOLATILITY_ELEVATED (high materiality, MARKET scope): 24h volatility at 134.16% annualized is high but MON is a volatile small-cap. Monad is expanding with real payments integrations (Wenia, Lemon, Vurelo in LATAM, Openreserve and Agora building national banks), so ecosystem risk is lowering. Why now: profit-taking after 30%+ rally in Sept; next watch point is Nov 24 unlock. Sources: market_snapshot, web_search.\n\n2. USDC_PEG_STABLE (low materiality, MARKET scope): USDC at $0.9999, -0.004% in 24h. No bridge stress or depeg risk visible. Remains ideal ballast. Why now: TVL decline and DEX volume drop did not touch stablecoin, confirming its strength. Sources: market_snapshot.\n\n3. MONAD_TVL_DECLINE (medium mat",
+  "modelSpendUsd": 0.1727
+}

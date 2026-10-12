@@ -44,6 +44,7 @@
     "test:orchestrator:live": "node services/orchestrator/src/live.ts",
     "test:activation:live": "node services/orchestrator/src/live-activation.ts",
     "test:vault:live": "node services/orchestrator/src/live-vault.ts",
+    "test:skill:live": "node services/orchestrator/src/live-skill.ts",
     "test:anthropic:dry-run": "node services/orchestrator/src/anthropic-dry-run.ts",
     "test:live:pending": "node scripts/live-pending.js",
     "spend:report": "node scripts/spend-report.js",

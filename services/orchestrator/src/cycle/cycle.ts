@@ -4,7 +4,13 @@ import type { CreditService } from "../credits/service.ts";
 import { type GateLogEntry, modelFailure } from "../gate.ts";
 import type { AgentConfig } from "../hermes/schema.ts";
 import type { Narrator } from "../narrator.ts";
-import { type AgentSandbox, type TaskContext, openAgentSandbox, skillsLoaded } from "../noop.ts";
+import {
+  type AgentSandbox,
+  type TaskContext,
+  openAgentSandbox,
+  ownerSkillsPrompt,
+  skillsLoaded,
+} from "../noop.ts";
 import { errorText } from "../secrets.ts";
 import { type AgentRef, LeaseHeldError } from "../store.ts";
 import { cycleConfig, stagePrompt } from "./config.ts";
@@ -545,7 +551,13 @@ class Engine {
     let end: StageEnd;
     try {
       const deadline = Date.now() + (this.ctx.deadlineMs?.(run) ?? run.caps.seconds * 1_000);
-      const started = await this.sbx.runs.start(run.idempotencyKey, prompt, sessionId, model);
+      // SK-U1: the owner's own skills are named in every stage's prompt, as the playbooks are.
+      const started = await this.sbx.runs.start(
+        run.idempotencyKey,
+        `${prompt}${ownerSkillsPrompt(this.sbx.ownerSkills)}`,
+        sessionId,
+        model,
+      );
       await this.ctx.cycles.setRunId(run.stageRunId, started.runId);
       end = await this.watch(run, started.runId, deadline);
       // A run that ended before its terminal call gets a follow-up turn in the same session

@@ -202,6 +202,28 @@ export async function skillsLoaded(sbx: SandboxHandle): Promise<string[]> {
 }
 
 /** A running agent sandbox under a lease, with Hermes healthy inside it. */
+/** SK-U1: one of the owner's skills as a prompt names it: its mounted name and the model's description. */
+export interface OwnerSkillLine {
+  readonly name: string;
+  readonly description: string;
+}
+
+/**
+ * The line every stage's prompt carries when the owner mounted skills of
+ * their own (SK-U1): Hermes loads a skill when a prompt names it or when its
+ * description fits what the model is doing, and the Scan's prompt names its
+ * playbook the same way; the owner's skills are named here so the agent
+ * opens them, within the same limits as every other skill. Empty without any.
+ */
+export function ownerSkillsPrompt(skills: readonly OwnerSkillLine[]): string {
+  if (skills.length === 0) return "";
+  const named = skills.map((s) => `${s.name} (${s.description})`).join("; ");
+  return (
+    ` The owner mounted ${skills.length === 1 ? "a skill" : "skills"} of their own for you, beside the built-in ones: ${named}.` +
+    " Load each with skill_view before you begin and follow it where it applies, within the same limits as every other skill."
+  );
+}
+
 export interface AgentSandbox {
   readonly runtime: Runtime;
   readonly config: AgentConfig;
@@ -210,6 +232,8 @@ export interface AgentSandbox {
   readonly runs: HermesRuns;
   readonly sandboxMs: number;
   readonly bootMs: number;
+  /** SK-U1: the owner's own skills mounted in this sandbox, for the prompts to name. */
+  readonly ownerSkills: readonly OwnerSkillLine[];
 }
 
 /**
@@ -254,7 +278,19 @@ export async function openAgentSandbox(
   const ownerSkills = ctx.ownerSkills ? await ctx.ownerSkills(ref.agentId) : [];
   const runs = await bootHermes(sbx, config, `https://${host}`, ctx.redactor, ownerSkills);
   await runs.waitHealthy(180_000);
-  return { runtime, config, leaseId, sbx, runs, sandboxMs, bootMs: Date.now() - t1 };
+  return {
+    runtime,
+    config,
+    leaseId,
+    sbx,
+    runs,
+    sandboxMs,
+    bootMs: Date.now() - t1,
+    ownerSkills: ownerSkills.map((p) => ({
+      name: p.hermesName,
+      description: p.manifest.description.model,
+    })),
+  };
 }
 
 export async function runNoopTask(ctx: TaskContext, taskId: string): Promise<void> {

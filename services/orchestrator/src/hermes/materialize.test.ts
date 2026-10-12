@@ -2,7 +2,7 @@ import { checkOwnerSkill } from "@alpha-agents/skills/packages";
 import { describe, expect, it } from "vitest";
 import type { SandboxHandle } from "../sandbox.ts";
 import { Redactor } from "../secrets.ts";
-import { bootHermes } from "../noop.ts";
+import { bootHermes, ownerSkillsPrompt } from "../noop.ts";
 import { builtinSet, materialize, mountedSkills } from "./materialize.ts";
 import { renderAgentConfig } from "./layers.ts";
 import { EQUIPPED_DIR, PLAYBOOKS_DIR } from "./schema.ts";
@@ -129,5 +129,26 @@ describe("the owner's skills in the sandbox mount (SK-U1)", () => {
     await expect(
       bootHermes(sbx, config(), "https://gate.example", new Redactor(), [ownerSkill()]),
     ).rejects.toThrow(/writable/);
+  });
+});
+
+describe("the prompt line that names the owner's skills (SK-U1)", () => {
+  it("is empty without any, and names each skill with its description otherwise", () => {
+    expect(ownerSkillsPrompt([])).toBe("");
+    const one = ownerSkillsPrompt([
+      {
+        name: "aa-owner-notes",
+        description: "The owner's notes on Monad tokens. Use when scanning.",
+      },
+    ]);
+    expect(one).toContain("mounted a skill of their own");
+    expect(one).toContain("aa-owner-notes (The owner's notes on Monad tokens. Use when scanning.)");
+    expect(one).toContain("Load each with skill_view before you begin");
+    expect(
+      ownerSkillsPrompt([
+        { name: "aa-a", description: "A." },
+        { name: "aa-b", description: "B." },
+      ]),
+    ).toContain("skills of their own for you, beside the built-in ones: aa-a (A.); aa-b (B.).");
   });
 });
