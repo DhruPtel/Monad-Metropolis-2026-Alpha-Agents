@@ -1,0 +1,589 @@
+{
+  "runId": "534461ec-b299-4917-af4a-4e5bd35fbc2a",
+  "startedAt": "2026-10-12T22:27:12.690Z",
+  "startWei": "29688058886000000000",
+  "deploymentSpentWei": "7428939980000000000",
+  "done": [
+    "fund the session key and the guardian",
+    "a. open the PersonalAccountV3",
+    "a. deposit 4.99 USDC",
+    "b. register the session grant",
+    "c. buy 0.45 USDC of WMON",
+    "d. sell the WMON back",
+    "e. an oversized buy, refused before signing",
+    "f. the guardian pauses Executor v3",
+    "f. a swap while paused, refused",
+    "f. the owner withdraws while paused",
+    "g. revoke the grant",
+    "g. withdraw everything",
+    "g. sweep the session key into the canary owner",
+    "g. sweep the guardian key into the canary owner"
+  ],
+  "steps": {
+    "fund the session key and the guardian": {
+      "session": "0xd03fee10247ab4a3eb02a807ff450b9b38abeb8d476a6c5f4af8d118f179d1af",
+      "guardian": "0x6bc9b7d87b045f7f46f931926a0bab3bba77f7b6c7287fc520e9e22a752b3f63"
+    },
+    "a. open the PersonalAccountV3": "0x1885a9f8a545382CBfc3d7fFC0E01296D968D873",
+    "a. deposit 4.99 USDC": {
+      "usdc": "4990000"
+    },
+    "b. register the session grant": {
+      "grantedTo": "0x8528B930C390a8115F9Ff4e41387802699fCf50d",
+      "validUntil": 1791929846,
+      "hours": 23.833333333333332
+    },
+    "c. buy 0.45 USDC of WMON": {
+      "hash": "0x69d4987bbd2ceaf9ea38c98fb91246916ea2cdcdc75e20da4aa1c69ea56c56ce",
+      "amountOut": "18231335678371942238",
+      "slippageBps": 22.19
+    },
+    "d. sell the WMON back": {
+      "hash": "0x5895758998f9ff8ccf849fad2728087e0ef9bda0cc57aa57dd75683f60abff5d",
+      "amountOut": "449550",
+      "slippageBps": -12.22
+    },
+    "e. an oversized buy, refused before signing": {
+      "status": "failed",
+      "reasonCode": "TRADE_SIZE_EXCEEDED",
+      "reason": "the Executor would refuse it: the Executor refused: TRADE_SIZE_EXCEEDED",
+      "nothingSigned": true,
+      "sessionNonce": 5,
+      "marketBefore": {
+        "block": 112873815,
+        "blockTime": 1791844054,
+        "monUsd": 0.024628,
+        "monUsdAgeSeconds": 81,
+        "usdcUsd": 0.99986275,
+        "usdcUsdAgeSeconds": 3227,
+        "oracleWmonUsdE18": "24628000000000000",
+        "oracleUsdcUsdE18": "1000000000000000000",
+        "oracleUsdcPerMon": 0.024628,
+        "poolUsdcPerMon": 0.024670426598492,
+        "poolTick": -313348,
+        "poolVsOracleBps": 17.22
+      }
+    },
+    "f. the guardian pauses Executor v3": {
+      "hash": "0x6533e43e6ae38f72fa1e5521629db79a8a9ee3ddb18cccb8a8781aebbf7f3d65"
+    },
+    "f. a swap while paused, refused": {
+      "status": "failed",
+      "reasonCode": "PAUSED",
+      "reason": "the Executor would refuse it: the Executor refused: PAUSED",
+      "nothingSigned": true,
+      "sessionNonce": 5,
+      "marketBefore": {
+        "block": 112873828,
+        "blockTime": 1791844058,
+        "monUsd": 0.024628,
+        "monUsdAgeSeconds": 85,
+        "usdcUsd": 0.99986275,
+        "usdcUsdAgeSeconds": 3231,
+        "oracleWmonUsdE18": "24628000000000000",
+        "oracleUsdcUsdE18": "1000000000000000000",
+        "oracleUsdcPerMon": 0.024628,
+        "poolUsdcPerMon": 0.024670426598492,
+        "poolTick": -313348,
+        "poolVsOracleBps": 17.22
+      }
+    },
+    "f. the owner withdraws while paused": {
+      "hash": "0x4702af87520ef990c02f16eba5704b778e5c115679b99aaee50dee8e43d40f15"
+    },
+    "g. revoke the grant": {
+      "hash": "0xe5d9290624e1149d3c8c79ec1458b983f8c2de6290ce4ae2437ca9d53103904b"
+    },
+    "g. withdraw everything": {
+      "hash": "0xb35d3efeefdcad5e5bd6d89323a3b60d9e9b842814984d95f2de01e8a5157dd4"
+    },
+    "g. sweep the session key into the canary owner": {
+      "hash": "0xd0ef5ae2c8925bee1fdd2e918a81ba319db5956b1a574a447c3956d0fccd5278",
+      "left": "0.00231"
+    },
+    "g. sweep the guardian key into the canary owner": {
+      "hash": "0x487e03814c1cbaebe27228290d93bf9d32b4393addc1819ba613c2bd1b8bc9a3",
+      "left": "0.00231"
+    },
+    "final": {
+      "keys": {
+        "owner": {
+          "mon": "29.110754378",
+          "usdc": "4.999049",
+          "wmon": "0"
+        },
+        "guardian": {
+          "mon": "0.00231",
+          "usdc": "0",
+          "wmon": "0"
+        },
+        "session": {
+          "mon": "0.00231",
+          "usdc": "0",
+          "wmon": "0"
+        }
+      },
+      "account": {
+        "address": "0x1885a9f8a545382CBfc3d7fFC0E01296D968D873",
+        "usdc": "0",
+        "wmon": "0"
+      },
+      "spentWei": "8001624488000000000"
+    }
+  },
+  "transactions": [
+    {
+      "step": "fund session",
+      "role": "owner",
+      "hash": "0xd03fee10247ab4a3eb02a807ff450b9b38abeb8d476a6c5f4af8d118f179d1af",
+      "from": "0x170921ed4d5e221cb2294a8a2f8c4afd4fda2fa8",
+      "to": "0x8528b930c390a8115f9ff4e41387802699fcf50d",
+      "created": null,
+      "block": 112873750,
+      "blockTime": 1791844035,
+      "status": "0x1",
+      "type": "0x2",
+      "gasLimit": "23100",
+      "gasUsed": "23100",
+      "baseFeeWei": "100000000000",
+      "maxFeePerGasWei": "202000000000",
+      "maxPriorityFeePerGasWei": "2000000000",
+      "effectiveGasPriceWei": "102000000000",
+      "paidWei": "2356200000000000",
+      "link": "https://monadvision.com/tx/0xd03fee10247ab4a3eb02a807ff450b9b38abeb8d476a6c5f4af8d118f179d1af",
+      "gasEstimate": "21000",
+      "receiptMs": 918,
+      "safeMs": 1023,
+      "finalizedMs": 1279
+    },
+    {
+      "step": "fund guardian",
+      "role": "owner",
+      "hash": "0x6bc9b7d87b045f7f46f931926a0bab3bba77f7b6c7287fc520e9e22a752b3f63",
+      "from": "0x170921ed4d5e221cb2294a8a2f8c4afd4fda2fa8",
+      "to": "0x7935c37b9e1e85e9d393dbb31d93ec920f4053f8",
+      "created": null,
+      "block": 112873758,
+      "blockTime": 1791844037,
+      "status": "0x1",
+      "type": "0x2",
+      "gasLimit": "23100",
+      "gasUsed": "23100",
+      "baseFeeWei": "100000000000",
+      "maxFeePerGasWei": "202000000000",
+      "maxPriorityFeePerGasWei": "2000000000",
+      "effectiveGasPriceWei": "102000000000",
+      "paidWei": "2356200000000000",
+      "link": "https://monadvision.com/tx/0x6bc9b7d87b045f7f46f931926a0bab3bba77f7b6c7287fc520e9e22a752b3f63",
+      "gasEstimate": "21000",
+      "receiptMs": 578,
+      "safeMs": 944,
+      "finalizedMs": 1201
+    },
+    {
+      "step": "createPersonalAccount",
+      "role": "owner",
+      "hash": "0xa4f67ebb22ef53d31c8fed07490f503b77893231c9645f9b8eb8cf75049ec83e",
+      "from": "0x170921ed4d5e221cb2294a8a2f8c4afd4fda2fa8",
+      "to": "0x2f01ffeb3a6dee52e190fd6578a9382c60b297c4",
+      "created": null,
+      "block": 112873766,
+      "blockTime": 1791844040,
+      "status": "0x1",
+      "type": "0x2",
+      "gasLimit": "368851",
+      "gasUsed": "368851",
+      "baseFeeWei": "100000000000",
+      "maxFeePerGasWei": "202000000000",
+      "maxPriorityFeePerGasWei": "2000000000",
+      "effectiveGasPriceWei": "102000000000",
+      "paidWei": "37622802000000000",
+      "link": "https://monadvision.com/tx/0xa4f67ebb22ef53d31c8fed07490f503b77893231c9645f9b8eb8cf75049ec83e",
+      "gasEstimate": "335319",
+      "receiptMs": 572,
+      "safeMs": 923,
+      "finalizedMs": 1174
+    },
+    {
+      "step": "approve (exact)",
+      "role": "owner",
+      "hash": "0x7cfa8ea9bd6144371e3879fb198e2053947ae5d0c9c1c5671745f9490110d70a",
+      "from": "0x170921ed4d5e221cb2294a8a2f8c4afd4fda2fa8",
+      "to": "0x754704bc059f8c67012fed69bc8a327a5aafb603",
+      "created": null,
+      "block": 112873775,
+      "blockTime": 1791844042,
+      "status": "0x1",
+      "type": "0x2",
+      "gasLimit": "96408",
+      "gasUsed": "96408",
+      "baseFeeWei": "100000000000",
+      "maxFeePerGasWei": "202000000000",
+      "maxPriorityFeePerGasWei": "2000000000",
+      "effectiveGasPriceWei": "102000000000",
+      "paidWei": "9833616000000000",
+      "link": "https://monadvision.com/tx/0x7cfa8ea9bd6144371e3879fb198e2053947ae5d0c9c1c5671745f9490110d70a",
+      "gasEstimate": "87643",
+      "receiptMs": 586,
+      "safeMs": 926,
+      "finalizedMs": 1174
+    },
+    {
+      "step": "deposit",
+      "role": "owner",
+      "hash": "0xa38d9b97059f551e9670f01938ed315bc36134465f73114253b6b157ae4dbbd3",
+      "from": "0x170921ed4d5e221cb2294a8a2f8c4afd4fda2fa8",
+      "to": "0x1885a9f8a545382cbfc3d7ffc0e01296d968d873",
+      "created": null,
+      "block": 112873783,
+      "blockTime": 1791844045,
+      "status": "0x1",
+      "type": "0x2",
+      "gasLimit": "481299",
+      "gasUsed": "481299",
+      "baseFeeWei": "100000000000",
+      "maxFeePerGasWei": "202000000000",
+      "maxPriorityFeePerGasWei": "2000000000",
+      "effectiveGasPriceWei": "102000000000",
+      "paidWei": "49092498000000000",
+      "link": "https://monadvision.com/tx/0xa38d9b97059f551e9670f01938ed315bc36134465f73114253b6b157ae4dbbd3",
+      "gasEstimate": "437544",
+      "receiptMs": 878,
+      "safeMs": 972,
+      "finalizedMs": 1228
+    },
+    {
+      "step": "registerSession",
+      "role": "owner",
+      "hash": "0x1c063eecfb27e33d49e2066955cb71cc061c03293bd046a98885b49a0a0a706e",
+      "from": "0x170921ed4d5e221cb2294a8a2f8c4afd4fda2fa8",
+      "to": "0xe819fc8229db2b404765f4e70f64bc1fe36220a2",
+      "created": null,
+      "block": 112873792,
+      "blockTime": 1791844047,
+      "status": "0x1",
+      "type": "0x2",
+      "gasLimit": "102943",
+      "gasUsed": "102943",
+      "baseFeeWei": "100000000000",
+      "maxFeePerGasWei": "202000000000",
+      "maxPriorityFeePerGasWei": "2000000000",
+      "effectiveGasPriceWei": "102000000000",
+      "paidWei": "10500186000000000",
+      "link": "https://monadvision.com/tx/0x1c063eecfb27e33d49e2066955cb71cc061c03293bd046a98885b49a0a0a706e",
+      "gasEstimate": "93584",
+      "receiptMs": 919,
+      "safeMs": 1029,
+      "finalizedMs": 1526
+    },
+    {
+      "step": "buy",
+      "role": "session (signer, Executor v3)",
+      "hash": "0x69d4987bbd2ceaf9ea38c98fb91246916ea2cdcdc75e20da4aa1c69ea56c56ce",
+      "from": "0x8528b930c390a8115f9ff4e41387802699fcf50d",
+      "to": "0xe819fc8229db2b404765f4e70f64bc1fe36220a2",
+      "created": null,
+      "block": 112873803,
+      "blockTime": 1791844051,
+      "status": "0x1",
+      "type": "0x2",
+      "gasLimit": "1950000",
+      "gasUsed": "1950000",
+      "baseFeeWei": "100000000000",
+      "maxFeePerGasWei": "202000000000",
+      "maxPriorityFeePerGasWei": "2000000000",
+      "effectiveGasPriceWei": "102000000000",
+      "paidWei": "198900000000000000",
+      "link": "https://monadvision.com/tx/0x69d4987bbd2ceaf9ea38c98fb91246916ea2cdcdc75e20da4aa1c69ea56c56ce",
+      "outbox": {
+        "txId": "4cec7a42-10ab-4cb4-9a10-c013a3f37ff7",
+        "history": [
+          "accepted",
+          "signed",
+          "submitted",
+          "confirmed",
+          "reconciled"
+        ],
+        "ledgerEntryId": "30c3c71e-2252-4bb3-890a-dd31f6cfd9f6"
+      },
+      "ledger": [
+        {
+          "account": "personal_account",
+          "asset": "USDC",
+          "amount": "-450000"
+        },
+        {
+          "account": "venue",
+          "asset": "USDC",
+          "amount": "450000"
+        },
+        {
+          "account": "venue",
+          "asset": "WMON",
+          "amount": "-18231335678371942238"
+        },
+        {
+          "account": "personal_account",
+          "asset": "WMON",
+          "amount": "18231335678371942238"
+        }
+      ],
+      "route": [
+        "0x18a9fc874581f3ba12b7898f80a683c66fd5877fd74b26a85ba9a3a79c549954"
+      ],
+      "gasLimitRule": "1950000",
+      "amountIn": "450000",
+      "amountOut": "18231335678371942238",
+      "minAmountOut": "18180526230306967678",
+      "atOraclePrice": "18271885658599967516",
+      "slippageBps": 22.19,
+      "marketBefore": {
+        "block": 112873796,
+        "blockTime": 1791844049,
+        "monUsd": 0.024628,
+        "monUsdAgeSeconds": 76,
+        "usdcUsd": 0.99986275,
+        "usdcUsdAgeSeconds": 3222,
+        "oracleWmonUsdE18": "24628000000000000",
+        "oracleUsdcUsdE18": "1000000000000000000",
+        "oracleUsdcPerMon": 0.024628,
+        "poolUsdcPerMon": 0.02467042658908371,
+        "poolTick": -313348,
+        "poolVsOracleBps": 17.22
+      },
+      "confirmedMs": null,
+      "safeMs": 1766,
+      "finalizedMs": 1766
+    },
+    {
+      "step": "sell",
+      "role": "session (signer, Executor v3)",
+      "hash": "0x5895758998f9ff8ccf849fad2728087e0ef9bda0cc57aa57dd75683f60abff5d",
+      "from": "0x8528b930c390a8115f9ff4e41387802699fcf50d",
+      "to": "0xe819fc8229db2b404765f4e70f64bc1fe36220a2",
+      "created": null,
+      "block": 112873812,
+      "blockTime": 1791844053,
+      "status": "0x1",
+      "type": "0x2",
+      "gasLimit": "1950000",
+      "gasUsed": "1950000",
+      "baseFeeWei": "100000000000",
+      "maxFeePerGasWei": "202000000000",
+      "maxPriorityFeePerGasWei": "2000000000",
+      "effectiveGasPriceWei": "102000000000",
+      "paidWei": "198900000000000000",
+      "link": "https://monadvision.com/tx/0x5895758998f9ff8ccf849fad2728087e0ef9bda0cc57aa57dd75683f60abff5d",
+      "outbox": {
+        "txId": "da5925c8-8f6f-48b7-943c-c96ab412dc3b",
+        "history": [
+          "accepted",
+          "signed",
+          "submitted",
+          "confirmed",
+          "reconciled"
+        ],
+        "ledgerEntryId": "26886e56-8a3a-4c28-8faa-681700a6f60c"
+      },
+      "ledger": [
+        {
+          "account": "personal_account",
+          "asset": "WMON",
+          "amount": "-18231335678371942238"
+        },
+        {
+          "account": "venue",
+          "asset": "WMON",
+          "amount": "18231335678371942238"
+        },
+        {
+          "account": "venue",
+          "asset": "USDC",
+          "amount": "-449550"
+        },
+        {
+          "account": "personal_account",
+          "asset": "USDC",
+          "amount": "449550"
+        }
+      ],
+      "route": [
+        "0x18a9fc874581f3ba12b7898f80a683c66fd5877fd74b26a85ba9a3a79c549954"
+      ],
+      "gasLimitRule": "1950000",
+      "amountIn": "18231335678371942238",
+      "amountOut": "449550",
+      "minAmountOut": "446755",
+      "atOraclePrice": "449001",
+      "slippageBps": -12.22,
+      "marketBefore": {
+        "block": 112873807,
+        "blockTime": 1791844052,
+        "monUsd": 0.024628,
+        "monUsdAgeSeconds": 79,
+        "usdcUsd": 0.99986275,
+        "usdcUsdAgeSeconds": 3225,
+        "oracleWmonUsdE18": "24628000000000000",
+        "oracleUsdcUsdE18": "1000000000000000000",
+        "oracleUsdcPerMon": 0.024628,
+        "poolUsdcPerMon": 0.02467044540567708,
+        "poolTick": -313348,
+        "poolVsOracleBps": 17.23
+      },
+      "confirmedMs": null,
+      "safeMs": 1413,
+      "finalizedMs": 1413
+    },
+    {
+      "step": "pauseAll",
+      "role": "guardian",
+      "hash": "0x6533e43e6ae38f72fa1e5521629db79a8a9ee3ddb18cccb8a8781aebbf7f3d65",
+      "from": "0x7935c37b9e1e85e9d393dbb31d93ec920f4053f8",
+      "to": "0xe819fc8229db2b404765f4e70f64bc1fe36220a2",
+      "created": null,
+      "block": 112873824,
+      "blockTime": 1791844057,
+      "status": "0x1",
+      "type": "0x2",
+      "gasLimit": "57313",
+      "gasUsed": "57313",
+      "baseFeeWei": "100000000000",
+      "maxFeePerGasWei": "202000000000",
+      "maxPriorityFeePerGasWei": "2000000000",
+      "effectiveGasPriceWei": "102000000000",
+      "paidWei": "5845926000000000",
+      "link": "https://monadvision.com/tx/0x6533e43e6ae38f72fa1e5521629db79a8a9ee3ddb18cccb8a8781aebbf7f3d65",
+      "gasEstimate": "52102",
+      "receiptMs": 609,
+      "safeMs": 985,
+      "finalizedMs": 1230
+    },
+    {
+      "step": "withdraw 1 USDC while paused",
+      "role": "owner",
+      "hash": "0x4702af87520ef990c02f16eba5704b778e5c115679b99aaee50dee8e43d40f15",
+      "from": "0x170921ed4d5e221cb2294a8a2f8c4afd4fda2fa8",
+      "to": "0x1885a9f8a545382cbfc3d7ffc0e01296d968d873",
+      "created": null,
+      "block": 112873837,
+      "blockTime": 1791844061,
+      "status": "0x1",
+      "type": "0x2",
+      "gasLimit": "235516",
+      "gasUsed": "235516",
+      "baseFeeWei": "100000000000",
+      "maxFeePerGasWei": "202000000000",
+      "maxPriorityFeePerGasWei": "2000000000",
+      "effectiveGasPriceWei": "102000000000",
+      "paidWei": "24022632000000000",
+      "link": "https://monadvision.com/tx/0x4702af87520ef990c02f16eba5704b778e5c115679b99aaee50dee8e43d40f15",
+      "gasEstimate": "214105",
+      "receiptMs": 893,
+      "safeMs": 1243,
+      "finalizedMs": 1493
+    },
+    {
+      "step": "revokeSession",
+      "role": "owner",
+      "hash": "0xe5d9290624e1149d3c8c79ec1458b983f8c2de6290ce4ae2437ca9d53103904b",
+      "from": "0x170921ed4d5e221cb2294a8a2f8c4afd4fda2fa8",
+      "to": "0xe819fc8229db2b404765f4e70f64bc1fe36220a2",
+      "created": null,
+      "block": 112873845,
+      "blockTime": 1791844063,
+      "status": "0x1",
+      "type": "0x2",
+      "gasLimit": "52118",
+      "gasUsed": "52118",
+      "baseFeeWei": "100000000000",
+      "maxFeePerGasWei": "202000000000",
+      "maxPriorityFeePerGasWei": "2000000000",
+      "effectiveGasPriceWei": "102000000000",
+      "paidWei": "5316036000000000",
+      "link": "https://monadvision.com/tx/0xe5d9290624e1149d3c8c79ec1458b983f8c2de6290ce4ae2437ca9d53103904b",
+      "gasEstimate": "47380",
+      "receiptMs": 578,
+      "safeMs": 931,
+      "finalizedMs": 1189
+    },
+    {
+      "step": "withdrawAll",
+      "role": "owner",
+      "hash": "0xb35d3efeefdcad5e5bd6d89323a3b60d9e9b842814984d95f2de01e8a5157dd4",
+      "from": "0x170921ed4d5e221cb2294a8a2f8c4afd4fda2fa8",
+      "to": "0x1885a9f8a545382cbfc3d7ffc0e01296d968d873",
+      "created": null,
+      "block": 112873853,
+      "blockTime": 1791844066,
+      "status": "0x1",
+      "type": "0x2",
+      "gasLimit": "227706",
+      "gasUsed": "227706",
+      "baseFeeWei": "100000000000",
+      "maxFeePerGasWei": "202000000000",
+      "maxPriorityFeePerGasWei": "2000000000",
+      "effectiveGasPriceWei": "102000000000",
+      "paidWei": "23226012000000000",
+      "link": "https://monadvision.com/tx/0xb35d3efeefdcad5e5bd6d89323a3b60d9e9b842814984d95f2de01e8a5157dd4",
+      "gasEstimate": "207005",
+      "receiptMs": 597,
+      "safeMs": 947,
+      "finalizedMs": 1205
+    },
+    {
+      "step": "sweep session",
+      "role": "session",
+      "hash": "0xd0ef5ae2c8925bee1fdd2e918a81ba319db5956b1a574a447c3956d0fccd5278",
+      "from": "0x8528b930c390a8115f9ff4e41387802699fcf50d",
+      "to": "0x170921ed4d5e221cb2294a8a2f8c4afd4fda2fa8",
+      "created": null,
+      "block": 112873862,
+      "blockTime": 1791844069,
+      "status": "0x1",
+      "type": "0x2",
+      "gasLimit": "23100",
+      "gasUsed": "23100",
+      "baseFeeWei": "100000000000",
+      "maxFeePerGasWei": "202000000000",
+      "maxPriorityFeePerGasWei": "2000000000",
+      "effectiveGasPriceWei": "102000000000",
+      "paidWei": "2356200000000000",
+      "link": "https://monadvision.com/tx/0xd0ef5ae2c8925bee1fdd2e918a81ba319db5956b1a574a447c3956d0fccd5278",
+      "gasEstimate": "21000",
+      "receiptMs": 863,
+      "safeMs": 965,
+      "finalizedMs": 1471
+    },
+    {
+      "step": "sweep guardian",
+      "role": "guardian",
+      "hash": "0x487e03814c1cbaebe27228290d93bf9d32b4393addc1819ba613c2bd1b8bc9a3",
+      "from": "0x7935c37b9e1e85e9d393dbb31d93ec920f4053f8",
+      "to": "0x170921ed4d5e221cb2294a8a2f8c4afd4fda2fa8",
+      "created": null,
+      "block": 112873872,
+      "blockTime": 1791844072,
+      "status": "0x1",
+      "type": "0x2",
+      "gasLimit": "23100",
+      "gasUsed": "23100",
+      "baseFeeWei": "100000000000",
+      "maxFeePerGasWei": "202000000000",
+      "maxPriorityFeePerGasWei": "2000000000",
+      "effectiveGasPriceWei": "102000000000",
+      "paidWei": "2356200000000000",
+      "link": "https://monadvision.com/tx/0x487e03814c1cbaebe27228290d93bf9d32b4393addc1819ba613c2bd1b8bc9a3",
+      "gasEstimate": "21000",
+      "receiptMs": 908,
+      "safeMs": 1009,
+      "finalizedMs": 1266
+    }
+  ],
+  "attempts": {
+    "buy": 1,
+    "sell": 1,
+    "oversized buy": 1,
+    "swap while paused": 1
+  },
+  "ended": "2026-10-12T22:27:54.158Z"
+}
