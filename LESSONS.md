@@ -1714,3 +1714,11 @@ What happened: The console's Trades page showed a vault grant's expiry through `
 Cause: Every grant's expiry was formatted as a date; the sentinel was known where it is stored and compared (L-223) but not where it is shown.
 Fix: `grantWords` names a grant at the marker as a vault grant with no fixed expiry that ends on a sale, a configuration change or the owner's revocation (D-241), and dates a timed grant as before; with a test.
 Lesson: A sentinel value needs its words wherever it is shown, not only where it is stored and compared.
+
+## L-232: The impostor-address rule judged the package's own publisher
+Unit: SK-U1 (2026-10-12)
+What happened: The first owner's package in the unit's tests came back with an S13 warning on skill.json: the publisher's wallet address "is not in the platform address book". Every owner's upload would have carried the warning, since no owner's wallet is in the book.
+Cause: S13 looks for impostor tokens and contracts by checking every 20-byte address in a package against the address book; the manifest's publisher.address is a wallet, not a token, and the built-in packages never met the rule because the platform's publisher address is in the book.
+Fix: The audit exempts the manifest's own publisher address from S13; token and contract addresses in the text are judged as before.
+Lesson: A rule written while only the platform's own packages existed needs a second reading when someone else's first package arrives; test a rule with an input the first author could not have produced.
+
