@@ -112,8 +112,10 @@ function fundConfig() {
     };
   };
   const held = (/** @type {string} */ a) => (a === NATIVE_MON ? wmon : a);
+  /** @type {string[]} */
+  const ours = [usdc, wmon];
   const pools = CORE_POOL_CANDIDATES.filter(
-    (p) => [usdc, wmon].includes(held(p.pair[0])) && [usdc, wmon].includes(held(p.pair[1])),
+    (p) => ours.includes(held(p.pair[0])) && ours.includes(held(p.pair[1])),
   );
   if (pools.length === 0) throw new Error("no USDC/WMON core pool candidate");
   return {

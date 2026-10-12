@@ -105,10 +105,13 @@ describe("address book", () => {
             expect(e.verification.chain?.transaction, e.id).toMatch(/^0x[0-9a-f]{64}$/);
             expect(e.verification.chain?.sourcify).toContain("repo.sourcify.dev/10143/");
           } else if (env === "canary") {
-            // P2-EC part 2's throwaway canary: mainnet, its own transaction and Sourcify link.
+            // P2-EC part 2's throwaway canary and F-U13's v3 rerun on it: mainnet,
+            // its own transaction and Sourcify link.
             expect(e.verification.chain?.transaction, e.id).toMatch(/^0x[0-9a-f]{64}$/);
-            expect(e.verification.chain?.sourcify).toContain("repo.sourcify.dev/143/");
-            expect(e.verification.deployedBy).toBe("pnpm deploy:canary");
+            expect(e.verification.chain?.sourcify, e.id).toContain("repo.sourcify.dev/143/");
+            expect(["pnpm deploy:canary", "pnpm deploy:canary:v3"], e.id).toContain(
+              e.verification.deployedBy,
+            );
           } else {
             expect(e.kind).toBe("platform");
           }

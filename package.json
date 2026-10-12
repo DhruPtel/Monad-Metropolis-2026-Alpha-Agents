@@ -94,7 +94,9 @@
     "deploy:canary": "node scripts/deploy-canary.js",
     "deploy:canary:v3": "node scripts/deploy-canary-v3.js",
     "verify:canary": "node scripts/verify-canary.js",
+    "verify:canary:v3": "node scripts/verify-canary-v3.js",
     "canary:mainnet": "node scripts/canary-mainnet.js",
+    "canary:mainnet:v3": "node scripts/canary-mainnet-v3.js",
     "canary:local-only": "node scripts/canary-local-only.js"
   },
   "devDependencies": {

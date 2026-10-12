@@ -1314,6 +1314,138 @@ const CANARY_DEPLOYED: readonly AddressEntry[] = [
 ];
 
 /**
+ * F-U13's canary rerun of the current trading contracts on P2-EC's
+ * CanaryAgent (D-316's rules; the v3 set, class F only), as observed on Monad
+ * mainnet after `pnpm deploy:canary:v3`: the TokenRegistry seeded with USDC
+ * and WMON on the real Chainlink feeds, Executor v3 with its own
+ * ProtocolRegistryV3 (the three USDC/WMON core pools), OracleAdapterV3 and
+ * RouteAdapter, and AccountFactoryV3 with its two implementations, caps 10
+ * USDC and only the canary owner on the allowlist. Nothing here carries into
+ * the beta. Every transaction is in evidence/f-u13/canary-deployment.json and
+ * every contract is verified on Sourcify (evidence/f-u13/canary-verification.json);
+ * the fund set's own ProtocolRegistryV3 (0x859d0A489CE0eB1CcdcC23053d6f4C48354533bF)
+ * and OracleAdapterV3 (0x9a7f266a89B2DBF10436dfD110A772FA0ab62e00) stay on
+ * mainnet unused, as on the playtest fork (D-363).
+ */
+const CANARY_V3_SOURCE =
+  "evidence/f-u13/canary-deployment.json (F-U13, mainnet canary rerun, throwaway)";
+const CANARY_V3_IDS = [
+  ["token_registry_v3", "TokenRegistry (v3)"],
+  ["route_adapter_v3", "RouteAdapter (v3, fund set)"],
+  ["executor_v3", "Executor v3"],
+  ["executor_route_adapter_v3", "RouteAdapter (Executor v3's)"],
+  ["protocol_registry_v3", "ProtocolRegistryV3"],
+  ["oracle_adapter_v3", "OracleAdapterV3"],
+  ["account_factory_v3", "AccountFactoryV3"],
+  ["personal_account_v3_implementation", "PersonalAccountV3 implementation"],
+  ["strategy_vault_v3_implementation", "StrategyVaultV3 implementation"],
+] as const;
+const CANARY_V3_FACTS: Readonly<
+  Record<
+    (typeof CANARY_V3_IDS)[number][0],
+    readonly [Address, number, number, `0x${string}`, `0x${string}`, string]
+  >
+> = {
+  token_registry_v3: [
+    "0x698A336959825Eb46E30F300F4960e4aef8c13ae",
+    112870185,
+    19517,
+    "0xa7374a470958ea9720d397dd42a8938c1ea90bf3dbb86c8bfe41a6640b32d849",
+    "0x5596e2e7256e21c83de2a9a19357394b8de96c762b2efee9067e511698925748",
+    "Core lane seeded with USDC (Chainlink USDC/USD, 3900 s) and WMON (Chainlink MON/USD, 300 s); admin the canary owner, guardian the canary guardian, screener the canary owner",
+  ],
+  route_adapter_v3: [
+    "0xaCFdA6869557c3FDE7B465A6F65393525134C32a",
+    112870207,
+    12727,
+    "0xba03ab4e7408ee1d7409359d3cb7b473c9d6c9c887508e04c56e2d0d654788b2",
+    "0x7a4e1fbcfc34ce97bfda40286ec621d7186823362269528902e1b212fbb6c4cd",
+    "The fund set's adapter with the canary owner as its executor, over the fund set's registry; not registered. Executor v3's own adapter is executor_route_adapter_v3",
+  ],
+  executor_v3: [
+    "0xE819fC8229db2b404765f4E70F64bC1fE36220a2",
+    112870312,
+    41210,
+    "0x3a68726238ecec2b7f2f01188d370ec790e99cec92d5461924855e904c0d7e2e",
+    "0xbe28422d52ccaebf9ab6709c32e7e589ce28fef393cc9cac6f0ba3cf86a18345",
+    "Launch policy over CanaryAgent; admin the canary owner, guardian the canary guardian; bound to account_factory_v3 and protocol_registry_v3 at block 112870500",
+  ],
+  executor_route_adapter_v3: [
+    "0x6BD5eDb4EceE1f98665350a4bd459EC8924588a6",
+    112870316,
+    12727,
+    "0x77e43cb886e97d9e0811d2437d4e6c8e53eeaad62d19ec0f046a4140e44f7faf",
+    "0xd6ee25ab64b507c352147fe352056cc0f492ffc97ff81a9a927d6a378032802b",
+    'Executor v3\'s adapter, active in protocol_registry_v3 from its construction under keccak256("route-adapter") (D-363); only the Executor may call it',
+  ],
+  protocol_registry_v3: [
+    "0x5218B74144f0f8B21e92ED4f3d4f9946aADCac89",
+    112870316,
+    19718,
+    "0x7038d29505946125b44601712bfb968645b2685c56e503547e8477465402efd3",
+    "0xd6ee25ab64b507c352147fe352056cc0f492ffc97ff81a9a927d6a378032802b",
+    "The three USDC/WMON core pools (Uniswap v3 0.3%, PancakeSwap v3 0.05%, hookless Uniswap v4 native MON/USDC 0.05%), each confirmed by its venue, and Executor v3's RouteAdapter active from construction",
+  ],
+  oracle_adapter_v3: [
+    "0xB252C15BCed2C2F5757D57d3Fc8C378Fc795Fe79",
+    112870320,
+    10235,
+    "0xc3353c1dcfdc26fdbf863874c5db1532ad59efdb63064a2f102decce8f2a449e",
+    "0x3bc9dcc5ba1e983b706f80238ccd18d8e5390832b77227e020df6e328e821b66",
+    "Executor v3's oracle over token_registry_v3 and protocol_registry_v3, 2% pool deviation; no verifier (class A stays unpriced on the canary)",
+  ],
+  account_factory_v3: [
+    "0x2F01ffeB3a6DeE52E190FD6578A9382C60b297c4",
+    112870410,
+    14231,
+    "0x70ebbefa7a27f282eca88dd9d7ce1bc21a51f4ac1ede88b166549bca9a662e96",
+    "0x4e9fed3841147feb9080c4262122b1d222c86c4b906d00e33f0ec1a71168361f",
+    "Caps 10, 10 and 10 USDC; the allowlist on with the canary owner only; public deposits off; sentinel zero; executor_v3 as its executor",
+  ],
+  personal_account_v3_implementation: [
+    "0x32C9F7f63711B0993C4eE8cAE45DA156D36a4A13",
+    112870410,
+    41232,
+    "0xd966b5c0f3c4c2193bfdf35c9cbc70f4cddc960161e9c247f1dfc7bd55b92ceb",
+    "0x4e9fed3841147feb9080c4262122b1d222c86c4b906d00e33f0ec1a71168361f",
+    "Deployed by AccountFactoryV3's constructor; the canary owner's account for agent 1 is a clone of it",
+  ],
+  strategy_vault_v3_implementation: [
+    "0x8Bac3381E4fad941cf9547CA6840Df757382E3df",
+    112870410,
+    61812,
+    "0xec674472d0c86ba84c7a0c1ca15adc31fc5c44f1d0c8a006f40f89601be14501",
+    "0x4e9fed3841147feb9080c4262122b1d222c86c4b906d00e33f0ec1a71168361f",
+    "Deployed by AccountFactoryV3's constructor; no canary vault is opened",
+  ],
+};
+const CANARY_V3_DEPLOYED: readonly AddressEntry[] = CANARY_V3_IDS.map(([id, label]) => {
+  const [address, block, codeSize, codeHash, transaction, note] = CANARY_V3_FACTS[id];
+  return {
+    id,
+    label,
+    kind: "platform",
+    address,
+    status: "verified",
+    verification: {
+      chainId: MONAD_MAINNET_CHAIN_ID,
+      block,
+      codeSize,
+      deployedBy: "pnpm deploy:canary:v3",
+      chain: {
+        codeHash,
+        explorer: `https://monadvision.com/address/${address}`,
+        transaction,
+        sourcify: `https://repo.sourcify.dev/143/${address}`,
+      },
+    },
+    source: CANARY_V3_SOURCE,
+    openQuestion: null,
+    note: `F-U13 mainnet canary rerun, throwaway (D-316): ${note}`,
+  };
+});
+
+/**
  * F-U2: the fund agent's v3 TokenRegistry and the demo RouteAdapter, beside v1
  * and v2. Deterministic CREATE2 with the `fund-<name>.v3` salts; the addresses
  * follow from the seeds, all seven core candidates having passed their screens
@@ -1572,13 +1704,7 @@ export const ADDRESS_BOOK: Readonly<Record<EnvironmentId, readonly AddressEntry[
     ...custodyV3Undeployed("Mainnet deployment belongs to PB-U1"),
   ],
   // The P2-EC mainnet canary (D-250, D-251): mainnet's external entries and its own throwaway contracts.
-  canary: [
-    ...MAINNET,
-    ...CANARY_DEPLOYED,
-    ...fundUndeployed("Not part of P2-EC's canary; F-U13 reruns the canary with the v3 set"),
-    ...executorV3Undeployed("Not part of P2-EC's canary; F-U13 reruns the canary with the v3 set"),
-    ...custodyV3Undeployed("Not part of P2-EC's canary; F-U13 reruns the canary with the v3 set"),
-  ],
+  canary: [...MAINNET, ...CANARY_DEPLOYED, ...CANARY_V3_DEPLOYED],
 };
 
 export function addressEntry(environment: EnvironmentId, id: AddressBookId): AddressEntry {
