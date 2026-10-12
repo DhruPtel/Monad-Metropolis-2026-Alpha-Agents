@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 
@@ -8,6 +9,12 @@ import { expect, test } from "@playwright/test";
  */
 /** The fixture API (playwright.config.ts) that stands in for the API and the orchestrator. */
 const FIXTURE_API = "http://127.0.0.1:4199";
+/** UI-U2: the Scan stage the replay fixture replays, from the orchestrator test's fixture. */
+const REPLAY_STAGE = (
+  JSON.parse(readFileSync(new URL("./replay-fixture.json", import.meta.url), "utf8")) as {
+    stage: { stageRunId: string };
+  }
+).stage.stageRunId;
 
 const PAGES = [
   { path: "/", name: "environment", heading: "Environment" },
@@ -20,6 +27,7 @@ const PAGES = [
   { path: "/market", name: "market", heading: "Market data" },
   { path: "/research", name: "research", heading: "Research sources" },
   { path: "/cycles", name: "cycles", heading: "Research cycles" },
+  { path: `/cycles/replay?stage=${REPLAY_STAGE}`, name: "cycles-replay", heading: "Replay a stage" },
   { path: "/tokens", name: "tokens", heading: "Tokens" },
   {
     path: "/tokens?token=0x1001ff13bf368aa4fa85f21043648079f00e1001",
@@ -528,7 +536,7 @@ test("the cycles page shows each stage's ceiling before it runs, and every stage
   await page.goto("/cycles");
   const routine = page.getByTestId("plan-routine");
   await expect(routine).toContainText("At most 2.4000 USDC");
-  await expect(routine).toContainText("scan-cheap");
+  await expect(routine).toContainText("research-low");
   await expect(page.getByTestId("plan-activation")).toContainText("At most 3.8000 USDC");
   const detail = page.getByTestId("cycle-detail");
   for (const [n, name] of [
@@ -549,6 +557,47 @@ test("the cycles page shows each stage's ceiling before it runs, and every stage
   // Starting a cycle while one is open is refused with the orchestrator's message.
   await page.getByRole("button", { name: "Run routine cycle" }).click();
   await expect(page.getByText("already has a research cycle queued or running")).toBeVisible();
+});
+
+test("the replay tool shows a stored stage's prompt and inputs, its playbook to edit, and the old and new output side by side with the cost (UI-U2)", async ({
+  page,
+}) => {
+  await page.goto("/cycles");
+  // Every model stage of a cycle offers a replay; the deterministic Test does not.
+  const detail = page.getByTestId("cycle-detail");
+  await expect(detail.getByTestId("stage-1").getByRole("link", { name: "Replay this stage" })).toBeVisible();
+  await expect(detail.getByTestId("stage-4").getByRole("link", { name: "Replay this stage" })).toHaveCount(0);
+  await detail.getByTestId("stage-1").getByRole("link", { name: "Replay this stage" }).click();
+  await expect(page.getByRole("heading", { level: 1, name: "Replay a stage" })).toBeVisible();
+  const stage = page.getByTestId("replay-stage");
+  await expect(stage).toContainText("Scan of agent #1");
+  await expect(stage.getByLabel("The prompt the stage was sent, word for word")).toContainText("SCAN stage");
+  // The stored inputs: the platform reads and the web search answer from the store; the writes run again.
+  await expect(stage).toContainText("get_research_context ×1, get_goals_and_limits ×1, web_search ×1");
+  await expect(stage.getByText("Answered from the store")).toHaveCount(3);
+  await expect(stage.getByText("Runs again")).toHaveCount(4);
+  // The playbook, editable; the comparison of the original against the replay with its cost.
+  const texts = page.getByTestId("replay-texts");
+  const playbook = texts.getByLabel("Scan playbook (SKILL.md)");
+  await expect(playbook).toHaveValue(/Scan/);
+  await expect(texts.getByRole("button", { name: "Save as new version" })).toBeDisabled();
+  const compare = page.getByTestId("replay-compare");
+  await expect(compare).toContainText("replay completed");
+  await expect(compare).toContainText("with aa-playbook-scan edited");
+  await expect(compare.getByRole("region", { name: "What changed" })).toContainText("Cost");
+  await expect(compare.getByTestId("output-original")).toContainText("0.0200 USDC");
+  await expect(compare.getByTestId("output-replay")).toContainText("USDC");
+  await expect(compare.getByTestId("output-replay")).toContainText("SCAN accepted");
+  // An edit enables saving and a replay; the replay starts and the page opens it.
+  await playbook.fill("# Scan, edited\n\nName the weakest link of every theme first.\n");
+  await expect(texts.getByText("Edited", { exact: true })).toBeVisible();
+  await expect(texts.getByRole("button", { name: "Save as new version" })).toBeEnabled();
+  await expect(texts).toContainText("1 text changed");
+  await page.getByTestId("run-replay").click();
+  await expect(page.getByText("Replay started")).toBeVisible();
+  await expect(page).toHaveURL(/replay=cycle-/);
+  await texts.getByRole("button", { name: "Save as new version" }).click();
+  await expect(page.getByText("Scan playbook saved as version 1")).toBeVisible();
 });
 
 test("a token's screen shows each check's reason, and an operator can screen it again", async ({

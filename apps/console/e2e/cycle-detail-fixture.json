@@ -1,24 +1,24 @@
 {
   "cycle": {
-    "cycleId": "cycle-970b4b4d-acbe-433a-9986-30e05fac7568",
-    "taskId": "task-2d8bce7597d8f",
+    "cycleId": "cycle-0e6c5b50-6c82-42ec-91f2-5dcac0ad296b",
+    "taskId": "task-9e66b930dd972",
     "kind": "ROUTINE",
     "status": "completed",
     "stopReason": "COMPLETED",
-    "reasoning": "research-strong",
+    "reasoning": "research-medium",
     "chargedUsdcE6": "62000",
     "absorbedUsdcE6": "0",
-    "createdAt": "2026-10-09T15:08:19.291Z",
-    "startedAt": "2026-10-09T15:08:19.308Z",
-    "finishedAt": "2026-10-09T15:08:33.529Z"
+    "createdAt": "2026-10-12T19:57:52.656Z",
+    "startedAt": "2026-10-12T19:57:52.675Z",
+    "finishedAt": "2026-10-12T19:58:06.906Z"
   },
   "stages": [
     {
-      "stageRunId": "stage-run-7bf902ae-fd28-462b-ac29-c34e7516c9f2",
+      "stageRunId": "stage-run-a5cea4f9-4cdf-4b2d-bfd8-6cb3837028a8",
       "seq": 1,
       "stage": "SCAN",
       "themeCode": null,
-      "model": "scan-cheap",
+      "model": "research-low",
       "caps": {
         "turns": 10,
         "tokens": 300000,
@@ -51,15 +51,15 @@
         },
         "skillsLoaded": []
       },
-      "startedAt": "2026-10-09T15:08:19.313Z",
-      "finishedAt": "2026-10-09T15:08:20.832Z",
+      "startedAt": "2026-10-12T19:57:52.683Z",
+      "finishedAt": "2026-10-12T19:57:54.207Z",
       "entry": {
-        "task_id": "stage-run-7bf902ae-fd28-462b-ac29-c34e7516c9f2",
-        "text": "Agent #1's Scan finished. Outcome: done. 1 brief accepted, 7 tool calls, 2 model calls on scan-cheap; cost 0.02 of at most 0.3 USDC.",
+        "task_id": "stage-run-a5cea4f9-4cdf-4b2d-bfd8-6cb3837028a8",
+        "text": "Agent #1's Scan finished. Outcome: done. 1 brief accepted, 7 tool calls, 2 model calls on research-low; cost 0.02 of at most 0.3 USDC.",
         "rendered_by": "template"
       },
       "record": {
-        "stage_run_id": "stage-run-7bf902ae-fd28-462b-ac29-c34e7516c9f2",
+        "stage_run_id": "stage-run-a5cea4f9-4cdf-4b2d-bfd8-6cb3837028a8",
         "outcome": "DONE",
         "candidates": [
           {
@@ -69,35 +69,35 @@
           }
         ],
         "decision": null,
-        "created_at": "2026-10-09T15:08:19.661Z"
+        "created_at": "2026-10-12T19:57:53.087Z"
       },
       "modelCallRecords": [
         {
           "requestId": "chatcmpl-1",
-          "model": "scan-cheap",
+          "model": "research-low",
           "status": 200,
           "inputTokens": 6000,
           "outputTokens": 50,
           "cacheReadTokens": 0,
           "cacheWriteTokens": 5900,
           "costUsd": 0.004,
-          "at": "2026-10-09T15:08:19.342Z"
+          "at": "2026-10-12T19:57:52.717Z"
         },
         {
           "requestId": "chatcmpl-2",
-          "model": "scan-cheap",
+          "model": "research-low",
           "status": 200,
           "inputTokens": 6000,
           "outputTokens": 50,
           "cacheReadTokens": 5900,
           "cacheWriteTokens": 0,
           "costUsd": 0.004,
-          "at": "2026-10-09T15:08:19.476Z"
+          "at": "2026-10-12T19:57:52.871Z"
         }
       ],
       "toolCalls": [
         {
-          "callId": "call-4b5fedb9-dcb3-471f-9725-e27b1e1ccd2b",
+          "callId": "call-71ed5d84-5c37-483c-a3ce-68e8ddeea3de",
           "server": "platform",
           "tool": "get_research_context",
           "input": {},
@@ -108,10 +108,10 @@
           "summary": null,
           "resultStored": true,
           "resultTruncated": false,
-          "startedAt": "2026-10-09T15:08:19.415Z"
+          "startedAt": "2026-10-12T19:57:52.805Z"
         },
         {
-          "callId": "call-c1123a69-5a91-43d3-a8a2-e9853fc21a79",
+          "callId": "call-91d37e38-6ec8-4ee5-a454-02e54ffb6d67",
           "server": "platform",
           "tool": "get_goals_and_limits",
           "input": {},
@@ -122,10 +122,10 @@
           "summary": null,
           "resultStored": true,
           "resultTruncated": false,
-          "startedAt": "2026-10-09T15:08:19.461Z"
+          "startedAt": "2026-10-12T19:57:52.855Z"
         },
         {
-          "callId": "call-012de1ef-eabd-4ab0-a9ba-09e1f03bad86",
+          "callId": "call-0b16ab5d-bd0c-40a6-92df-b379d839e32c",
           "server": "data",
           "tool": "web_search",
           "input": {
@@ -137,15 +137,17 @@
           "chargeUsdcE6": "10000",
           "cacheHit": false,
           "summary": {
-            "hosts": ["news.example"],
+            "hosts": [
+              "news.example"
+            ],
             "results": 1
           },
           "resultStored": true,
           "resultTruncated": false,
-          "startedAt": "2026-10-09T15:08:19.513Z"
+          "startedAt": "2026-10-12T19:57:52.916Z"
         },
         {
-          "callId": "call-100f627e-1d5e-496c-b55a-27c8ec24106d",
+          "callId": "call-67da51f0-c11b-4857-a62e-c4e8fe93ddd6",
           "server": "platform",
           "tool": "write_research_brief",
           "input": {
@@ -158,10 +160,10 @@
           "summary": null,
           "resultStored": false,
           "resultTruncated": false,
-          "startedAt": "2026-10-09T15:08:19.561Z"
+          "startedAt": "2026-10-12T19:57:52.969Z"
         },
         {
-          "callId": "call-c52b0f2e-cca2-430a-a07b-c2038839681b",
+          "callId": "call-52a2a09f-8e92-4984-b566-4551146c120e",
           "server": "platform",
           "tool": "write_thesis",
           "input": {
@@ -177,10 +179,10 @@
           },
           "resultStored": false,
           "resultTruncated": false,
-          "startedAt": "2026-10-09T15:08:19.594Z"
+          "startedAt": "2026-10-12T19:57:53.004Z"
         },
         {
-          "callId": "call-7d1cc7fa-9c78-4661-a748-23f4ae3d2b84",
+          "callId": "call-cce3f08a-6730-4a9a-bc46-26baebf0635b",
           "server": "platform",
           "tool": "write_research_brief",
           "input": {
@@ -193,10 +195,10 @@
           "summary": null,
           "resultStored": false,
           "resultTruncated": false,
-          "startedAt": "2026-10-09T15:08:19.629Z"
+          "startedAt": "2026-10-12T19:57:53.045Z"
         },
         {
-          "callId": "call-9f478505-bc46-4839-8e6e-70f46b00cdf5",
+          "callId": "call-3987a2d3-867c-4e4b-a48a-bf229ccf7c0f",
           "server": "platform",
           "tool": "complete_stage",
           "input": {
@@ -219,20 +221,22 @@
           },
           "resultStored": false,
           "resultTruncated": false,
-          "startedAt": "2026-10-09T15:08:19.661Z"
+          "startedAt": "2026-10-12T19:57:53.087Z"
         }
       ],
       "notes": [
         {
           "title": "TVL",
           "notes": "CHANGED: TVL fell 6.8% over 7 days.\nTHEMES: TVL_OUTFLOW high.",
-          "sources": ["https://news.example/tvl"],
-          "at": "2026-10-09T15:08:19.594Z"
+          "sources": [
+            "https://news.example/tvl"
+          ],
+          "at": "2026-10-12T19:57:53.004Z"
         }
       ],
       "briefs": [
         {
-          "briefId": "brief-885b7069-84ae-4b23-846a-e6dd825a1cf7",
+          "briefId": "brief-9c9a7647-cc73-4053-898a-ce10be51f684",
           "kind": "SCAN",
           "status": "refused",
           "body": {
@@ -241,9 +245,13 @@
             "themes": [
               {
                 "code": "TVL_OUTFLOW",
-                "asset": "WMON",
+                "scope": "MARKET",
+                "token": null,
+                "symbol": null,
                 "whyNow": "A 6.8% weekly fall is large for the chain.",
-                "sources": ["web_search"],
+                "sources": [
+                  "web_search"
+                ],
                 "materiality": "high"
               }
             ],
@@ -251,7 +259,9 @@
               {
                 "text": "Monad TVL fell 6.8% over the 7-day window.",
                 "class": "news",
-                "sources": ["https://news.example/tvl"],
+                "sources": [
+                  "https://news.example/tvl"
+                ],
                 "confidence": "medium"
               }
             ],
@@ -261,10 +271,10 @@
           "reasons": [
             "summary: 12.4 does not appear in any tool result this cycle recorded; quote each figure as a tool returned it, or remove it"
           ],
-          "at": "2026-10-09T15:08:19.559Z"
+          "at": "2026-10-12T19:57:52.967Z"
         },
         {
-          "briefId": "brief-2b6ff881-a7e6-430a-b1b9-98f0b24f5456",
+          "briefId": "brief-d4a8748d-e504-4e9e-a20b-88608de8c5b8",
           "kind": "SCAN",
           "status": "accepted",
           "body": {
@@ -273,9 +283,13 @@
             "themes": [
               {
                 "code": "TVL_OUTFLOW",
-                "asset": "WMON",
+                "scope": "MARKET",
+                "token": null,
+                "symbol": null,
                 "whyNow": "A 6.8% weekly fall is large for the chain.",
-                "sources": ["web_search"],
+                "sources": [
+                  "web_search"
+                ],
                 "materiality": "high"
               }
             ],
@@ -283,7 +297,9 @@
               {
                 "text": "Monad TVL fell 6.8% over the 7-day window.",
                 "class": "news",
-                "sources": ["https://news.example/tvl"],
+                "sources": [
+                  "https://news.example/tvl"
+                ],
                 "confidence": "medium"
               }
             ],
@@ -291,16 +307,16 @@
             "dataGaps": []
           },
           "reasons": [],
-          "at": "2026-10-09T15:08:19.628Z"
+          "at": "2026-10-12T19:57:53.043Z"
         }
       ]
     },
     {
-      "stageRunId": "stage-run-b32cc7ad-70b6-490a-8107-8cbca573a095",
+      "stageRunId": "stage-run-45173f8c-76e4-4e39-8006-e690da77ff4f",
       "seq": 2,
       "stage": "DIVE",
       "themeCode": "TVL_OUTFLOW",
-      "model": "research-strong",
+      "model": "research-medium",
       "caps": {
         "turns": 16,
         "tokens": 600000,
@@ -327,47 +343,47 @@
         },
         "skillsLoaded": []
       },
-      "startedAt": "2026-10-09T15:08:22.876Z",
-      "finishedAt": "2026-10-09T15:08:24.385Z",
+      "startedAt": "2026-10-12T19:57:56.252Z",
+      "finishedAt": "2026-10-12T19:57:57.743Z",
       "entry": {
-        "task_id": "stage-run-b32cc7ad-70b6-490a-8107-8cbca573a095",
-        "text": "Agent #1's Dive on TVL_OUTFLOW finished. Outcome: done. 1 brief accepted, 6 tool calls, 2 model calls on research-strong; cost 0.022 of at most 1.2 USDC.",
+        "task_id": "stage-run-45173f8c-76e4-4e39-8006-e690da77ff4f",
+        "text": "Agent #1's Dive on TVL_OUTFLOW finished. Outcome: done. 1 brief accepted, 6 tool calls, 2 model calls on research-medium; cost 0.022 of at most 1.2 USDC.",
         "rendered_by": "template"
       },
       "record": {
-        "stage_run_id": "stage-run-b32cc7ad-70b6-490a-8107-8cbca573a095",
+        "stage_run_id": "stage-run-45173f8c-76e4-4e39-8006-e690da77ff4f",
         "outcome": "DONE",
         "candidates": [],
         "decision": null,
-        "created_at": "2026-10-09T15:08:23.142Z"
+        "created_at": "2026-10-12T19:57:56.535Z"
       },
       "modelCallRecords": [
         {
           "requestId": "chatcmpl-3",
-          "model": "research-strong",
+          "model": "research-medium",
           "status": 200,
           "inputTokens": 6000,
           "outputTokens": 50,
           "cacheReadTokens": 0,
           "cacheWriteTokens": 5900,
           "costUsd": 0.004,
-          "at": "2026-10-09T15:08:22.884Z"
+          "at": "2026-10-12T19:57:56.264Z"
         },
         {
           "requestId": "chatcmpl-4",
-          "model": "research-strong",
+          "model": "research-medium",
           "status": 200,
           "inputTokens": 6000,
           "outputTokens": 50,
           "cacheReadTokens": 5900,
           "cacheWriteTokens": 0,
           "costUsd": 0.004,
-          "at": "2026-10-09T15:08:22.964Z"
+          "at": "2026-10-12T19:57:56.349Z"
         }
       ],
       "toolCalls": [
         {
-          "callId": "call-bbb00390-2b56-4d84-84e0-e4f16d798792",
+          "callId": "call-ddfaa89e-0168-4491-8d02-4308542ee2a4",
           "server": "platform",
           "tool": "get_research_context",
           "input": {},
@@ -378,10 +394,10 @@
           "summary": null,
           "resultStored": true,
           "resultTruncated": false,
-          "startedAt": "2026-10-09T15:08:22.918Z"
+          "startedAt": "2026-10-12T19:57:56.301Z"
         },
         {
-          "callId": "call-f1f020e6-00bd-4f78-b690-cfa8c2eb3314",
+          "callId": "call-fcebf22c-12a5-4504-b9b7-33ab5df64f12",
           "server": "platform",
           "tool": "get_goals_and_limits",
           "input": {},
@@ -392,10 +408,10 @@
           "summary": null,
           "resultStored": true,
           "resultTruncated": false,
-          "startedAt": "2026-10-09T15:08:22.952Z"
+          "startedAt": "2026-10-12T19:57:56.338Z"
         },
         {
-          "callId": "call-7336a5c5-de3f-4127-968a-92c1a798e267",
+          "callId": "call-908c2385-a7c4-4bc5-ab15-4f105b782312",
           "server": "data",
           "tool": "web_search",
           "input": {
@@ -407,15 +423,17 @@
           "chargeUsdcE6": "10000",
           "cacheHit": false,
           "summary": {
-            "hosts": ["news.example"],
+            "hosts": [
+              "news.example"
+            ],
             "results": 1
           },
           "resultStored": true,
           "resultTruncated": false,
-          "startedAt": "2026-10-09T15:08:22.999Z"
+          "startedAt": "2026-10-12T19:57:56.386Z"
         },
         {
-          "callId": "call-e3ba3c42-ce1a-4c4e-b94c-f0397543359b",
+          "callId": "call-2c36bc80-2ee9-41ea-b579-963d0464b6d6",
           "server": "data",
           "tool": "read_url",
           "input": {
@@ -427,16 +445,18 @@
           "cacheHit": false,
           "summary": {
             "chars": 110,
-            "hosts": ["lending.example"],
+            "hosts": [
+              "lending.example"
+            ],
             "redirects": 0,
             "truncated": false
           },
           "resultStored": true,
           "resultTruncated": false,
-          "startedAt": "2026-10-09T15:08:23.075Z"
+          "startedAt": "2026-10-12T19:57:56.464Z"
         },
         {
-          "callId": "call-1d9a098b-c1a5-45ac-9d30-2d438be4a11d",
+          "callId": "call-6e1e6b35-ffa5-4f6d-9a91-8153174efce7",
           "server": "platform",
           "tool": "write_research_brief",
           "input": {
@@ -449,10 +469,10 @@
           "summary": null,
           "resultStored": false,
           "resultTruncated": false,
-          "startedAt": "2026-10-09T15:08:23.114Z"
+          "startedAt": "2026-10-12T19:57:56.502Z"
         },
         {
-          "callId": "call-d4bc78da-89db-40df-860f-3bc8653fee36",
+          "callId": "call-a36c9a25-faa5-4420-aed2-fe7368321cf2",
           "server": "platform",
           "tool": "complete_stage",
           "input": {
@@ -469,24 +489,35 @@
           },
           "resultStored": false,
           "resultTruncated": false,
-          "startedAt": "2026-10-09T15:08:23.142Z"
+          "startedAt": "2026-10-12T19:57:56.535Z"
         }
       ],
       "notes": [],
       "briefs": [
         {
-          "briefId": "brief-e3ff8485-da41-410a-8ec3-1bd6236ba2c2",
+          "briefId": "brief-41c621cd-04d9-4e02-bb1a-c1a94314a147",
           "kind": "THEME",
           "status": "accepted",
           "body": {
             "kind": "THEME",
+            "risks": [
+              "One report could misread a price move as an outflow."
+            ],
+            "token": null,
+            "screen": {
+              "summary": "A market theme has no token to screen.",
+              "verdict": "NOT_RUN"
+            },
+            "symbol": null,
             "thesis": {
               "statement": "Lending keeps its 412 million USD while DEX TVL falls.",
               "confidence": "low",
               "horizonHours": 72,
               "killCriterion": "Lending TVL falls below 412 million USD."
             },
+            "whyNow": "TVL fell 6.8% in a week, a large move for the chain.",
             "question": "Is the outflow a rotation into lending or an exit?",
+            "whatItIs": "Monad's DEX liquidity as a whole, not one token.",
             "freshness": "Both figures are from today.",
             "themeCode": "TVL_OUTFLOW",
             "forThePlan": "None yet: the evidence is thin.",
@@ -494,32 +525,55 @@
               {
                 "text": "Lending holds 412 million USD.",
                 "class": "primary",
-                "sources": ["https://lending.example/stats"],
+                "sources": [
+                  "https://lending.example/stats"
+                ],
                 "confidence": "medium"
               }
             ],
             "weakestLink": "One news source for the outflow.",
+            "fundamentals": {
+              "tvl": {
+                "asOf": "today",
+                "text": "TVL fell 6.8% in a week.",
+                "class": "news",
+                "sources": [
+                  "web_search"
+                ],
+                "confidence": "low"
+              },
+              "usage": null,
+              "control": null,
+              "catalysts": null,
+              "relativeValue": null,
+              "supplyEmissions": null,
+              "holdersLiquidity": null,
+              "feesRevenueVolume": null
+            },
+            "fairWeightBps": null,
             "noThesisReason": null,
             "evidenceAgainst": [
               {
                 "text": "TVL fell 6.8% in a week.",
                 "class": "news",
-                "sources": ["web_search"],
+                "sources": [
+                  "web_search"
+                ],
                 "confidence": "low"
               }
             ]
           },
           "reasons": [],
-          "at": "2026-10-09T15:08:23.113Z"
+          "at": "2026-10-12T19:57:56.501Z"
         }
       ]
     },
     {
-      "stageRunId": "stage-run-f6e44c01-e8a8-4007-9ba8-8175ee09f225",
+      "stageRunId": "stage-run-7b45b105-c5cf-4413-8e54-afe13745d470",
       "seq": 3,
       "stage": "CHALLENGE",
       "themeCode": null,
-      "model": "research-strong",
+      "model": "research-medium",
       "caps": {
         "turns": 6,
         "tokens": 200000,
@@ -546,47 +600,47 @@
         },
         "skillsLoaded": []
       },
-      "startedAt": "2026-10-09T15:08:26.418Z",
-      "finishedAt": "2026-10-09T15:08:27.927Z",
+      "startedAt": "2026-10-12T19:57:59.775Z",
+      "finishedAt": "2026-10-12T19:58:01.285Z",
       "entry": {
-        "task_id": "stage-run-f6e44c01-e8a8-4007-9ba8-8175ee09f225",
-        "text": "Agent #1's Challenge finished. Outcome: done. 1 brief accepted, 4 tool calls, 2 model calls on research-strong; cost 0.01 of at most 0.3 USDC.",
+        "task_id": "stage-run-7b45b105-c5cf-4413-8e54-afe13745d470",
+        "text": "Agent #1's Challenge finished. Outcome: done. 1 brief accepted, 4 tool calls, 2 model calls on research-medium; cost 0.01 of at most 0.3 USDC.",
         "rendered_by": "template"
       },
       "record": {
-        "stage_run_id": "stage-run-f6e44c01-e8a8-4007-9ba8-8175ee09f225",
+        "stage_run_id": "stage-run-7b45b105-c5cf-4413-8e54-afe13745d470",
         "outcome": "DONE",
         "candidates": [],
         "decision": null,
-        "created_at": "2026-10-09T15:08:26.562Z"
+        "created_at": "2026-10-12T19:57:59.927Z"
       },
       "modelCallRecords": [
         {
           "requestId": "chatcmpl-5",
-          "model": "research-strong",
+          "model": "research-medium",
           "status": 200,
           "inputTokens": 6000,
           "outputTokens": 50,
           "cacheReadTokens": 5900,
           "cacheWriteTokens": 0,
           "costUsd": 0.004,
-          "at": "2026-10-09T15:08:26.426Z"
+          "at": "2026-10-12T19:57:59.784Z"
         },
         {
           "requestId": "chatcmpl-6",
-          "model": "research-strong",
+          "model": "research-medium",
           "status": 200,
           "inputTokens": 6000,
           "outputTokens": 50,
           "cacheReadTokens": 5900,
           "cacheWriteTokens": 0,
           "costUsd": 0.004,
-          "at": "2026-10-09T15:08:26.501Z"
+          "at": "2026-10-12T19:57:59.863Z"
         }
       ],
       "toolCalls": [
         {
-          "callId": "call-c0517859-f00d-429a-99af-44212ac22470",
+          "callId": "call-bb526101-59a4-4d9f-93e5-6ca2cf218650",
           "server": "platform",
           "tool": "get_research_context",
           "input": {},
@@ -597,10 +651,10 @@
           "summary": null,
           "resultStored": true,
           "resultTruncated": false,
-          "startedAt": "2026-10-09T15:08:26.456Z"
+          "startedAt": "2026-10-12T19:57:59.819Z"
         },
         {
-          "callId": "call-614da7b1-e6de-4138-a137-197a472ede8b",
+          "callId": "call-07c67b89-1a8c-4b0b-ada9-bd474d7e0c7b",
           "server": "platform",
           "tool": "get_goals_and_limits",
           "input": {},
@@ -611,10 +665,10 @@
           "summary": null,
           "resultStored": true,
           "resultTruncated": false,
-          "startedAt": "2026-10-09T15:08:26.490Z"
+          "startedAt": "2026-10-12T19:57:59.852Z"
         },
         {
-          "callId": "call-7a2ead85-d40e-49aa-b0df-8345144c09c0",
+          "callId": "call-4e42c8de-d9fd-460a-b0bb-8b4ae232e714",
           "server": "platform",
           "tool": "write_research_brief",
           "input": {
@@ -627,10 +681,10 @@
           "summary": null,
           "resultStored": false,
           "resultTruncated": false,
-          "startedAt": "2026-10-09T15:08:26.534Z"
+          "startedAt": "2026-10-12T19:57:59.895Z"
         },
         {
-          "callId": "call-619755f9-abb9-4f59-93ed-a587ce0aee10",
+          "callId": "call-5b10aaa4-ee9e-4e60-aa52-db82ad5e6d69",
           "server": "platform",
           "tool": "complete_stage",
           "input": {
@@ -647,13 +701,13 @@
           },
           "resultStored": false,
           "resultTruncated": false,
-          "startedAt": "2026-10-09T15:08:26.562Z"
+          "startedAt": "2026-10-12T19:57:59.927Z"
         }
       ],
       "notes": [],
       "briefs": [
         {
-          "briefId": "brief-c35813b3-2744-4367-b049-98ab72547881",
+          "briefId": "brief-a200bdfc-413d-4c59-b3bd-0fe956c61b33",
           "kind": "CHALLENGE",
           "status": "accepted",
           "body": {
@@ -665,18 +719,20 @@
               {
                 "rank": 1,
                 "text": "A single news report is not onchain evidence of an exit.",
-                "sources": ["web_search"],
+                "sources": [
+                  "web_search"
+                ],
                 "severity": "high"
               }
             ]
           },
           "reasons": [],
-          "at": "2026-10-09T15:08:26.532Z"
+          "at": "2026-10-12T19:57:59.894Z"
         }
       ]
     },
     {
-      "stageRunId": "stage-run-a43b5693-e85e-4182-b85e-39fa2a34ed17",
+      "stageRunId": "stage-run-ee1ad1e4-ac35-43d3-a888-ac0947c9b85d",
       "seq": 4,
       "stage": "TEST",
       "themeCode": null,
@@ -702,12 +758,30 @@
         "checked": [],
         "envelope": {
           "ranges": {
-            "maxLegBps": [10, 1000],
-            "minTradeUsdc": ["0.1", "100"],
-            "costHurdleBps": [5, 50],
-            "targetWmonBps": [0, 3000],
-            "bandHalfWidthBps": [100, 1000],
-            "volatilityBrakeBps": [2000, 30000]
+            "maxLegBps": [
+              10,
+              1000
+            ],
+            "minTradeUsdc": [
+              "0.1",
+              "100"
+            ],
+            "costHurdleBps": [
+              5,
+              50
+            ],
+            "targetWmonBps": [
+              0,
+              3000
+            ],
+            "bandHalfWidthBps": [
+              100,
+              1000
+            ],
+            "volatilityBrakeBps": [
+              2000,
+              30000
+            ]
           },
           "template": "rebalance_bands@1",
           "cooldownUntil": null,
@@ -715,10 +789,10 @@
           "currentPlanFindings": []
         }
       },
-      "startedAt": "2026-10-09T15:08:29.961Z",
-      "finishedAt": "2026-10-09T15:08:29.965Z",
+      "startedAt": "2026-10-12T19:58:03.321Z",
+      "finishedAt": "2026-10-12T19:58:03.326Z",
       "entry": {
-        "task_id": "stage-run-a43b5693-e85e-4182-b85e-39fa2a34ed17",
+        "task_id": "stage-run-ee1ad1e4-ac35-43d3-a888-ac0947c9b85d",
         "text": "Agent #1's Test finished. Deterministic, no model, free.",
         "rendered_by": "template"
       },
@@ -729,11 +803,11 @@
       "briefs": []
     },
     {
-      "stageRunId": "stage-run-57fe62e4-10df-407c-8335-29bf70dee74c",
+      "stageRunId": "stage-run-6f2d4ccf-d0a3-45cd-b808-e00783f56323",
       "seq": 5,
       "stage": "ZOOM_OUT",
       "themeCode": null,
-      "model": "research-strong",
+      "model": "research-medium",
       "caps": {
         "turns": 10,
         "tokens": 350000,
@@ -763,50 +837,50 @@
         },
         "skillsLoaded": []
       },
-      "startedAt": "2026-10-09T15:08:29.976Z",
-      "finishedAt": "2026-10-09T15:08:31.485Z",
+      "startedAt": "2026-10-12T19:58:03.337Z",
+      "finishedAt": "2026-10-12T19:58:04.848Z",
       "entry": {
-        "task_id": "stage-run-57fe62e4-10df-407c-8335-29bf70dee74c",
-        "text": "Agent #1's Zoom out finished. Decision: no change (EVIDENCE_THIN). 1 brief accepted, 4 tool calls, 2 model calls on research-strong; cost 0.01 of at most 0.6 USDC.",
+        "task_id": "stage-run-6f2d4ccf-d0a3-45cd-b808-e00783f56323",
+        "text": "Agent #1's Zoom out finished. Decision: no change (EVIDENCE_THIN). 1 brief accepted, 4 tool calls, 2 model calls on research-medium; cost 0.01 of at most 0.6 USDC.",
         "rendered_by": "template"
       },
       "record": {
-        "stage_run_id": "stage-run-57fe62e4-10df-407c-8335-29bf70dee74c",
+        "stage_run_id": "stage-run-6f2d4ccf-d0a3-45cd-b808-e00783f56323",
         "outcome": "DONE",
         "candidates": [],
         "decision": {
           "kind": "NO_CHANGE",
           "reasonCode": "EVIDENCE_THIN"
         },
-        "created_at": "2026-10-09T15:08:30.128Z"
+        "created_at": "2026-10-12T19:58:03.500Z"
       },
       "modelCallRecords": [
         {
           "requestId": "chatcmpl-7",
-          "model": "research-strong",
+          "model": "research-medium",
           "status": 200,
           "inputTokens": 6000,
           "outputTokens": 50,
           "cacheReadTokens": 5900,
           "cacheWriteTokens": 0,
           "costUsd": 0.004,
-          "at": "2026-10-09T15:08:29.984Z"
+          "at": "2026-10-12T19:58:03.348Z"
         },
         {
           "requestId": "chatcmpl-8",
-          "model": "research-strong",
+          "model": "research-medium",
           "status": 200,
           "inputTokens": 6000,
           "outputTokens": 50,
           "cacheReadTokens": 5900,
           "cacheWriteTokens": 0,
           "costUsd": 0.004,
-          "at": "2026-10-09T15:08:30.063Z"
+          "at": "2026-10-12T19:58:03.429Z"
         }
       ],
       "toolCalls": [
         {
-          "callId": "call-8f02ef14-08cc-4bb1-8bf3-e11b6005bf8a",
+          "callId": "call-1fc9d571-a0e5-41c4-84d4-8a665c03f4f7",
           "server": "platform",
           "tool": "get_research_context",
           "input": {},
@@ -817,10 +891,10 @@
           "summary": null,
           "resultStored": true,
           "resultTruncated": false,
-          "startedAt": "2026-10-09T15:08:30.018Z"
+          "startedAt": "2026-10-12T19:58:03.383Z"
         },
         {
-          "callId": "call-499bab8a-cff5-4b0f-b315-fd9b508594f2",
+          "callId": "call-b4fa7ffb-bb17-47bb-a8fd-e944795eab2a",
           "server": "platform",
           "tool": "get_goals_and_limits",
           "input": {},
@@ -831,10 +905,10 @@
           "summary": null,
           "resultStored": true,
           "resultTruncated": false,
-          "startedAt": "2026-10-09T15:08:30.052Z"
+          "startedAt": "2026-10-12T19:58:03.418Z"
         },
         {
-          "callId": "call-1983618b-5e09-4460-a64c-59acf4706559",
+          "callId": "call-cb8a3055-7fe3-42a1-9095-d0a3c3d022e9",
           "server": "platform",
           "tool": "write_research_brief",
           "input": {
@@ -847,10 +921,10 @@
           "summary": null,
           "resultStored": false,
           "resultTruncated": false,
-          "startedAt": "2026-10-09T15:08:30.095Z"
+          "startedAt": "2026-10-12T19:58:03.462Z"
         },
         {
-          "callId": "call-9cfc74cb-411d-4b4e-91a2-c8c4e7bf908f",
+          "callId": "call-febb28d8-2114-4766-9bcc-fe73b15d864d",
           "server": "platform",
           "tool": "complete_stage",
           "input": {
@@ -871,13 +945,13 @@
           },
           "resultStored": false,
           "resultTruncated": false,
-          "startedAt": "2026-10-09T15:08:30.128Z"
+          "startedAt": "2026-10-12T19:58:03.500Z"
         }
       ],
       "notes": [],
       "briefs": [
         {
-          "briefId": "brief-e0c6ccf4-b4c9-44b8-98a4-09c560854f6b",
+          "briefId": "brief-19b295d5-97b2-48c3-a6b4-67779dac72a1",
           "kind": "RATIONALE",
           "status": "accepted",
           "body": {
@@ -886,17 +960,24 @@
               {
                 "text": "The Challenge weakened the only thesis.",
                 "class": "primary",
-                "sources": ["get_research_context"],
+                "sources": [
+                  "get_research_context"
+                ],
                 "confidence": "medium"
               }
             ],
             "decision": "NO_CHANGE",
+            "positions": [],
             "reasonCode": "EVIDENCE_THIN",
-            "themeCodes": ["TVL_OUTFLOW"],
+            "themeCodes": [
+              "TVL_OUTFLOW"
+            ],
+            "portfolioView": "The account sits on the two-asset plan with nothing that argues for moving it.",
+            "evidenceStrength": "weak",
             "whatWouldChangeIt": "Onchain flows that confirm an exit from DEXs."
           },
           "reasons": [],
-          "at": "2026-10-09T15:08:30.094Z"
+          "at": "2026-10-12T19:58:03.461Z"
         }
       ]
     }

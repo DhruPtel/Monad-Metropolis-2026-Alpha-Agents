@@ -716,6 +716,15 @@ const cycleDetailFixture = readFileSync(
   "utf8",
 );
 const FIXTURE_CYCLE = JSON.parse(cyclesFixture).cycles[0].cycleId;
+// UI-U2: the replay tool's view of that cycle's Scan, and the replay of it with an edited playbook,
+// written by the same test.
+const replayFixture = readFileSync(new URL("./replay-fixture.json", import.meta.url), "utf8");
+const replayDetailFixture = readFileSync(
+  new URL("./replay-detail-fixture.json", import.meta.url),
+  "utf8",
+);
+const REPLAY_STAGE = JSON.parse(replayFixture).stage.stageRunId;
+const REPLAY_CYCLE = JSON.parse(replayDetailFixture).cycle.cycleId;
 
 // F-U1: the token registry as the orchestrator's token routes served it after an offline run
 // (services/orchestrator's registry test writes these with TOKENS_FIXTURE_DIR=apps/console/e2e).
@@ -797,6 +806,16 @@ const routes = {
     readFileSync(new URL("./research-loop-fixture.json", import.meta.url), "utf8"),
   ],
   [`GET /v1/cycles/${FIXTURE_CYCLE}`]: [200, cycleDetailFixture],
+  [`GET /v1/stages/${REPLAY_STAGE}/replay`]: [200, replayFixture],
+  [`GET /v1/cycles/${REPLAY_CYCLE}`]: [200, replayDetailFixture],
+  [`POST /v1/stages/${REPLAY_STAGE}/replay`]: [
+    202,
+    JSON.stringify({ taskId: "fixture-replay", cycleId: REPLAY_CYCLE }),
+  ],
+  [`POST /v1/stages/${REPLAY_STAGE}/replay/save`]: [
+    201,
+    JSON.stringify({ ok: true, saved: true, kind: "playbook", version: "1" }),
+  ],
   "POST /v1/agents/1/cycles": [
     409,
     JSON.stringify({

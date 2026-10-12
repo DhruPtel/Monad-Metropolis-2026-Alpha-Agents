@@ -1,0 +1,312 @@
+{
+  "cycle": {
+    "cycleId": "cycle-faeea446-15d6-44ab-8c4e-f413bf06d3a0",
+    "taskId": "task-332082aa3e4a",
+    "kind": "REPLAY",
+    "status": "completed",
+    "stopReason": "COMPLETED",
+    "reasoning": "research-medium",
+    "chargedUsdcE6": "10000",
+    "absorbedUsdcE6": "0",
+    "createdAt": "2026-10-12T19:58:06.957Z",
+    "startedAt": "2026-10-12T19:58:06.982Z",
+    "finishedAt": "2026-10-12T19:58:10.530Z"
+  },
+  "stages": [
+    {
+      "stageRunId": "stage-run-c2ebf583-94fc-47a5-a6b9-9ba83c06a493",
+      "seq": 1,
+      "stage": "SCAN",
+      "themeCode": null,
+      "model": "research-low",
+      "caps": {
+        "turns": 10,
+        "tokens": 300000,
+        "seconds": 300,
+        "paidCalls": 5
+      },
+      "ceilingUsdcE6": "300000",
+      "status": "completed",
+      "stopReason": "COMPLETED",
+      "runId": "run-5",
+      "modelCalls": 2,
+      "inputTokens": 12000,
+      "outputTokens": 100,
+      "cacheReadTokens": 11800,
+      "cacheWriteTokens": 0,
+      "chargedUsdcE6": "10000",
+      "absorbedUsdcE6": "0",
+      "outcome": {
+        "capsHit": [],
+        "stageRecord": {
+          "outcome": "DONE",
+          "decision": null,
+          "candidates": [
+            {
+              "asset": "WMON",
+              "thesisCode": "TVL_OUTFLOW",
+              "confidenceBps": 6000
+            }
+          ]
+        },
+        "skillsLoaded": []
+      },
+      "startedAt": "2026-10-12T19:58:06.988Z",
+      "finishedAt": "2026-10-12T19:58:08.498Z",
+      "entry": null,
+      "record": {
+        "stage_run_id": "stage-run-c2ebf583-94fc-47a5-a6b9-9ba83c06a493",
+        "outcome": "DONE",
+        "candidates": [
+          {
+            "asset": "WMON",
+            "thesisCode": "TVL_OUTFLOW",
+            "confidenceBps": 6000
+          }
+        ],
+        "decision": null,
+        "created_at": "2026-10-12T19:58:07.282Z"
+      },
+      "modelCallRecords": [
+        {
+          "requestId": "chatcmpl-9",
+          "model": "research-low",
+          "status": 200,
+          "inputTokens": 6000,
+          "outputTokens": 50,
+          "cacheReadTokens": 5900,
+          "cacheWriteTokens": 0,
+          "costUsd": 0.004,
+          "at": "2026-10-12T19:58:07.006Z"
+        },
+        {
+          "requestId": "chatcmpl-10",
+          "model": "research-low",
+          "status": 200,
+          "inputTokens": 6000,
+          "outputTokens": 50,
+          "cacheReadTokens": 5900,
+          "cacheWriteTokens": 0,
+          "costUsd": 0.004,
+          "at": "2026-10-12T19:58:07.103Z"
+        }
+      ],
+      "toolCalls": [
+        {
+          "callId": "call-3b0bfc49-191b-4e00-9c1d-94a14e80aef4",
+          "server": "platform",
+          "tool": "get_research_context",
+          "input": {},
+          "status": "succeeded",
+          "errorCode": null,
+          "chargeUsdcE6": "0",
+          "cacheHit": true,
+          "summary": {
+            "reason": "replay"
+          },
+          "resultStored": true,
+          "resultTruncated": false,
+          "startedAt": "2026-10-12T19:58:07.048Z"
+        },
+        {
+          "callId": "call-c7521bd1-d6b5-4329-a922-d2e6e69864e0",
+          "server": "platform",
+          "tool": "get_goals_and_limits",
+          "input": {},
+          "status": "succeeded",
+          "errorCode": null,
+          "chargeUsdcE6": "0",
+          "cacheHit": true,
+          "summary": {
+            "reason": "replay"
+          },
+          "resultStored": true,
+          "resultTruncated": false,
+          "startedAt": "2026-10-12T19:58:07.090Z"
+        },
+        {
+          "callId": "call-0d7ba350-acb5-4a61-bccc-c2a9740b9656",
+          "server": "data",
+          "tool": "web_search",
+          "input": {
+            "query": "monad tvl",
+            "maxResults": 5
+          },
+          "status": "succeeded",
+          "errorCode": null,
+          "chargeUsdcE6": "0",
+          "cacheHit": true,
+          "summary": {
+            "reason": "replay"
+          },
+          "resultStored": true,
+          "resultTruncated": false,
+          "startedAt": "2026-10-12T19:58:07.134Z"
+        },
+        {
+          "callId": "call-58f86d78-86ab-4474-8071-253061831d8c",
+          "server": "platform",
+          "tool": "write_research_brief",
+          "input": {
+            "kind": "SCAN"
+          },
+          "status": "succeeded",
+          "errorCode": null,
+          "chargeUsdcE6": "0",
+          "cacheHit": false,
+          "summary": null,
+          "resultStored": false,
+          "resultTruncated": false,
+          "startedAt": "2026-10-12T19:58:07.170Z"
+        },
+        {
+          "callId": "call-8f737797-b20d-4714-9b12-459b20e898ba",
+          "server": "platform",
+          "tool": "write_thesis",
+          "input": {
+            "stage": "SCAN",
+            "sourceCount": 1
+          },
+          "status": "succeeded",
+          "errorCode": null,
+          "chargeUsdcE6": "0",
+          "cacheHit": false,
+          "summary": {
+            "results": 1
+          },
+          "resultStored": false,
+          "resultTruncated": false,
+          "startedAt": "2026-10-12T19:58:07.202Z"
+        },
+        {
+          "callId": "call-67d55210-116f-435f-bab2-02aec1e60b55",
+          "server": "platform",
+          "tool": "write_research_brief",
+          "input": {
+            "kind": "SCAN"
+          },
+          "status": "succeeded",
+          "errorCode": null,
+          "chargeUsdcE6": "0",
+          "cacheHit": false,
+          "summary": null,
+          "resultStored": false,
+          "resultTruncated": false,
+          "startedAt": "2026-10-12T19:58:07.239Z"
+        },
+        {
+          "callId": "call-c2ae2d5b-0880-4f98-bb5e-aca90ad92f20",
+          "server": "platform",
+          "tool": "complete_stage",
+          "input": {
+            "stage": "SCAN",
+            "outcome": "DONE",
+            "candidates": [
+              {
+                "asset": "WMON",
+                "thesisCode": "TVL_OUTFLOW",
+                "confidenceBps": 6000
+              }
+            ]
+          },
+          "status": "succeeded",
+          "errorCode": null,
+          "chargeUsdcE6": "0",
+          "cacheHit": false,
+          "summary": {
+            "results": 1
+          },
+          "resultStored": false,
+          "resultTruncated": false,
+          "startedAt": "2026-10-12T19:58:07.282Z"
+        }
+      ],
+      "notes": [
+        {
+          "title": "TVL",
+          "notes": "CHANGED: TVL fell 6.8% over 7 days.\nTHEMES: TVL_OUTFLOW high.",
+          "sources": [
+            "https://news.example/tvl"
+          ],
+          "at": "2026-10-12T19:58:07.202Z"
+        }
+      ],
+      "briefs": [
+        {
+          "briefId": "brief-ea535d8d-fc5b-4bcf-82fe-3f77294a98f4",
+          "kind": "SCAN",
+          "status": "refused",
+          "body": {
+            "kind": "SCAN",
+            "quiet": false,
+            "themes": [
+              {
+                "code": "TVL_OUTFLOW",
+                "scope": "MARKET",
+                "token": null,
+                "symbol": null,
+                "whyNow": "A 6.8% weekly fall is large for the chain.",
+                "sources": [
+                  "web_search"
+                ],
+                "materiality": "high"
+              }
+            ],
+            "changes": [
+              {
+                "text": "Monad TVL fell 6.8% over the 7-day window.",
+                "class": "news",
+                "sources": [
+                  "https://news.example/tvl"
+                ],
+                "confidence": "medium"
+              }
+            ],
+            "summary": "Monad TVL fell 12.4% today.",
+            "dataGaps": []
+          },
+          "reasons": [
+            "summary: 12.4 does not appear in any tool result this cycle recorded; quote each figure as a tool returned it, or remove it"
+          ],
+          "at": "2026-10-12T19:58:07.169Z"
+        },
+        {
+          "briefId": "brief-033e2154-5dbf-417e-abf5-92e9fdad7afa",
+          "kind": "SCAN",
+          "status": "accepted",
+          "body": {
+            "kind": "SCAN",
+            "quiet": false,
+            "themes": [
+              {
+                "code": "TVL_OUTFLOW",
+                "scope": "MARKET",
+                "token": null,
+                "symbol": null,
+                "whyNow": "A 6.8% weekly fall is large for the chain.",
+                "sources": [
+                  "web_search"
+                ],
+                "materiality": "high"
+              }
+            ],
+            "changes": [
+              {
+                "text": "Monad TVL fell 6.8% over the 7-day window.",
+                "class": "news",
+                "sources": [
+                  "https://news.example/tvl"
+                ],
+                "confidence": "medium"
+              }
+            ],
+            "summary": "Monad TVL fell 6.8% in 7 days, a large weekly move for the chain.",
+            "dataGaps": []
+          },
+          "reasons": [],
+          "at": "2026-10-12T19:58:07.237Z"
+        }
+      ]
+    }
+  ]
+}

@@ -160,6 +160,13 @@ function StageCard({ s }: { s: StageDetail }) {
           {time(s.startedAt)} · ended {time(s.finishedAt)}
         </p>
         {s.entry ? <p className="text-sm">{s.entry.text}</p> : null}
+        {model && s.status !== "running" && s.status !== "pending" ? (
+          <div>
+            <Button asChild size="sm" variant="secondary">
+              <Link href={`/cycles/replay?stage=${s.stageRunId}`}>Replay this stage</Link>
+            </Button>
+          </div>
+        ) : null}
       </CardHeader>
       <CardContent className="flex flex-col gap-5">
         {model ? (
