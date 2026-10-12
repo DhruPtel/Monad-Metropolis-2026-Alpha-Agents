@@ -74,6 +74,10 @@ contract StrategyVaultV3 is CustodyCoreV3, IRegistryAccount {
     /// The virtual shares behind the supply: 1e12 per USDC base unit (A-06), so a
     /// first deposit mints 1e18 shares per USDC and a donation cannot pay.
     uint256 public constant VIRTUAL_SHARES = 1e12;
+    /// Deposits open only once at least one USDC's worth of shares exist, so the
+    /// real supply always dwarfs the virtual offset and a gift to the vault
+    /// cannot be bought below its value by a later depositor (P7-U3, A-88).
+    uint256 public constant MIN_SUPPLY_TO_OPEN = 1e18;
     /// NAV (6 decimals) × 1e30 / shares (18 decimals) is the price per share scaled by 1e18.
     uint256 internal constant SHARE_PRICE_SCALE = 1e30;
     uint256 internal constant WITHDRAWAL_NOTE_GAS = 50_000;
@@ -170,6 +174,7 @@ contract StrategyVaultV3 is CustodyCoreV3, IRegistryAccount {
     error HandoverTooRecent(uint64 acceptableAt);
     error PauseTooRecent(uint64 unpausableAt);
     error SharesNotTransferable();
+    error SeedTooSmall(uint256 supply, uint256 minimum);
 
     /// The implementation: its own storage is never used, so it is locked.
     constructor(IAgentNFTView agentNft, address usdc, ITokenRegistry tokens) CustodyCoreV3(usdc, tokens) {
@@ -264,9 +269,7 @@ contract StrategyVaultV3 is CustodyCoreV3, IRegistryAccount {
         if (!asIncoming && mode == AccountMode.PAUSED) revert DepositsPaused();
         _band(v.nav);
         uint256 supply = totalSupply;
-        uint256 navBuy = v.nav + Math.mulDiv(v.nav, SPREAD_BPS, BPS, Math.Rounding.Ceil);
-        // Rounded down: the shares out never price above the value put in.
-        shares = Math.mulDiv(assets, supply + VIRTUAL_SHARES, navBuy + 1);
+        shares = _sharesFor(assets, v.nav, supply);
         if (shares < minSharesOut) revert SharesTooFew(shares, minSharesOut);
         if (shares == 0) revert ZeroAmount();
         uint256 priceE18 = Math.mulDiv(assets, SHARE_PRICE_SCALE, shares);
@@ -279,6 +282,17 @@ contract StrategyVaultV3 is CustodyCoreV3, IRegistryAccount {
         uint256 received = IERC20(USDC).balanceOf(address(this)) - before;
         if (received != assets) revert TransferNotExact(received, assets);
         emit Deposited(msg.sender, assets, shares, priceE18, asLeader || asIncoming);
+    }
+
+    /// The shares `assets` mint at `nav` and `supply`: at the value plus the
+    /// spread against the virtual offset, rounded down so the shares out never
+    /// price above the value put in; into an empty vault at the virtual rate
+    /// alone, so anything the vault holds then (a gift, dust) goes to that
+    /// first depositor, the leader, and the real supply dwarfs the offset.
+    function _sharesFor(uint256 assets, uint256 nav, uint256 supply) private pure returns (uint256) {
+        if (supply == 0) return assets * VIRTUAL_SHARES;
+        uint256 navBuy = nav + Math.mulDiv(nav, SPREAD_BPS, BPS, Math.Rounding.Ceil);
+        return Math.mulDiv(assets, supply + VIRTUAL_SHARES, navBuy + 1);
     }
 
     /// The most `who` may deposit now, in USDC: zero while any guard would
@@ -404,13 +418,15 @@ contract StrategyVaultV3 is CustodyCoreV3, IRegistryAccount {
     // The manager: deposits open, the lockup, the fee, wind-down
     // ---------------------------------------------------------------------
 
-    /// Opens deposits once the leader stake is there, or closes them.
+    /// Opens deposits once the leader stake is there and at least one USDC's
+    /// worth of shares exist, or closes them.
     function setDepositsOpen(bool open) external onlyManager {
         if (open) {
             if (windDownAt != 0) revert WindingDown();
             if (leaderShares == 0 || leaderShares * BPS < LEADER_STAKE_BPS * totalSupply) {
                 revert LeaderStakeTooLow(leaderShares, totalSupply);
             }
+            if (totalSupply < MIN_SUPPLY_TO_OPEN) revert SeedTooSmall(totalSupply, MIN_SUPPLY_TO_OPEN);
         }
         emit DepositsOpenSet(depositsOpen, open);
         depositsOpen = open;
@@ -556,9 +572,7 @@ contract StrategyVaultV3 is CustodyCoreV3, IRegistryAccount {
 
     /// Shares for `assets` at the last prices, as a deposit would mint them now.
     function convertToShares(uint256 assets) external view returns (uint256) {
-        uint256 nav = _navAtLastPrices();
-        uint256 navBuy = nav + Math.mulDiv(nav, SPREAD_BPS, BPS, Math.Rounding.Ceil);
-        return Math.mulDiv(assets, totalSupply + VIRTUAL_SHARES, navBuy + 1);
+        return _sharesFor(assets, _navAtLastPrices(), totalSupply);
     }
 
     /// USDC for `shares` at the last prices, as the USDC path would pay them now (before any fee).
@@ -694,23 +708,26 @@ contract StrategyVaultV3 is CustodyCoreV3, IRegistryAccount {
         emit Locked(who, l.lockedShares, l.unlockAt);
     }
 
+    /// Burns `shares` of `who`: the leader's stake first, then an incoming
+    /// leader's stake, then ordinary shares, so every balance a holder has can
+    /// leave (an incoming owner who never accepts leaves like anyone else).
     function _burn(address who, uint256 shares) private {
+        uint256 total = sharesOf(who);
+        if (total < shares) revert InsufficientShares(total, shares);
+        uint256 rest = shares;
         if (who == leader) {
             uint256 stake = leaderShares;
-            if (stake >= shares) {
-                leaderShares = stake - shares;
-            } else {
-                uint256 rest = shares - stake;
-                uint256 b = balanceOf[who];
-                if (b < rest) revert InsufficientShares(stake + b, shares);
-                leaderShares = 0;
-                balanceOf[who] = b - rest;
-            }
-        } else {
-            uint256 b = balanceOf[who];
-            if (b < shares) revert InsufficientShares(b, shares);
-            balanceOf[who] = b - shares;
+            uint256 take = rest < stake ? rest : stake;
+            leaderShares = stake - take;
+            rest -= take;
         }
+        if (rest != 0 && who == incomingLeader) {
+            uint256 stake = incomingShares;
+            uint256 take = rest < stake ? rest : stake;
+            incomingShares = stake - take;
+            rest -= take;
+        }
+        if (rest != 0) balanceOf[who] -= rest;
         totalSupply -= shares;
     }
 

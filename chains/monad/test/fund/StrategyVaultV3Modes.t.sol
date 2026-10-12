@@ -228,6 +228,35 @@ contract StrategyVaultV3ModesTest is StrategyVaultV3Base {
         assertEq(sv.freeShares(buyer), stake);
     }
 
+    /// The incoming owner who never accepts leaves like anyone else: the stake
+    /// burns from `incomingShares` (found by the P7-U3 invariant run, L-224).
+    function test_TheIncomingOwnerCanLeaveWithoutAccepting() public {
+        threeDepositors();
+        nft.setOwner(AGENT, buyer);
+        uint256 stake = stakeAs(buyer, 50e6);
+        assertEq(sv.incomingShares(), stake);
+        assertEq(sv.sharesOf(buyer), stake);
+        // Half in kind, the rest in USDC; locks are waived in the handover.
+        vm.prank(buyer);
+        sv.redeemInKind(stake / 2, buyer);
+        assertEq(sv.incomingShares(), stake - stake / 2);
+        uint256 before = usdcBal(buyer);
+        redeemAs(buyer, sv.sharesOf(buyer));
+        assertGt(usdcBal(buyer), before);
+        assertEq(sv.incomingShares(), 0);
+        assertEq(sv.sharesOf(buyer), 0);
+        assertEq(sv.incomingLeader(), buyer, "the slot stays until another stake or acceptance");
+        // With no stake left, acceptance is refused; a new stake works.
+        warpDays(3);
+        vm.prank(buyer);
+        vm.expectPartialRevert(StrategyVaultV3.LeaderStakeTooLow.selector);
+        sv.acceptManagement();
+        stakeAs(buyer, 50e6);
+        vm.prank(buyer);
+        sv.acceptManagement();
+        assertEq(sv.leader(), buyer);
+    }
+
     function test_AnAgentSoldAndBoughtBackIsStillInHandover_UntilAccepted() public {
         threeDepositors();
         nft.setOwner(AGENT, buyer);

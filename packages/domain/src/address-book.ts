@@ -1471,18 +1471,18 @@ const CUSTODY_V3_LOCAL_FACTS: Readonly<
   Record<(typeof CUSTODY_V3_IDS)[number][0], readonly [Address, number, string]>
 > = {
   account_factory_v3: [
-    "0x6c836E53250cd120d25182313F1cDF8Ae6b4f655",
+    "0xBb5C5283e216d8F9ed6e267a12877A124dFA90e9",
     13026,
     "Bound to the v3 TokenRegistry, oracle_adapter_v3 and executor_v3 at deployment, with anvil roles, 100/2,000 USDC caps and anvil accounts 6 to 9 allowed; deploys one PersonalAccountV3 per agent and owner and one StrategyVaultV3 per agent (P7-U2)",
   ],
   personal_account_v3_implementation: [
-    "0x0457Bff5B22aF3389770A508a06Ea092346751Fa",
+    "0x5C81C3D94B814Cbe91eA5cE50675858175124557",
     41232,
     "Deployed by AccountFactoryV3's constructor; every PersonalAccountV3 is a clone of it, holding up to 16 registered tokens, traded only by executor_v3",
   ],
   strategy_vault_v3_implementation: [
-    "0xB9131B9b52E58D822487eDF95f397FEBA1C1cfD7",
-    61778,
+    "0x3F3217Dc03D534EEcAcfE7F15B20E3354f252948",
+    61812,
     "Deployed by AccountFactoryV3's constructor (P7-U1, P7-U2); every StrategyVaultV3 is a clone of it: USDC and core-lane class F tokens only, shares nobody can transfer, exits that need no oracle, traded only by executor_v3 under a grant without expiry",
   ],
 };

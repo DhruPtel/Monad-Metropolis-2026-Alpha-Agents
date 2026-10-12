@@ -88,6 +88,7 @@ contract StrategyVaultV3Test is StrategyVaultV3Base {
         vm.prank(owner);
         vm.expectRevert(abi.encodeWithSelector(StrategyVaultV3.LeaderStakeTooLow.selector, 0, 0));
         sv.setDepositsOpen(true);
+        assertEq(sv.MIN_SUPPLY_TO_OPEN(), 1e18, "one USDC's worth of shares");
         vm.prank(alice);
         vm.expectRevert(StrategyVaultV3.DepositsNotOpen.selector);
         sv.deposit(50e6, 0);
@@ -263,10 +264,22 @@ contract StrategyVaultV3Test is StrategyVaultV3Base {
 
     /// M-03: inflating the price with a donation after a tiny seed cannot take
     /// a later depositor's value; the virtual shares price the deposit fairly or better.
-    function test_InflationAttackFails() public {
-        // The leader seeds one base unit and donates 10,000 USDC.
+    function test_DepositsOpenNeedAtLeastOneUsdcOfShares() public {
         depositAs(owner, 1);
         assertEq(sv.totalSupply(), 1e12);
+        vm.prank(owner);
+        vm.expectRevert(abi.encodeWithSelector(StrategyVaultV3.SeedTooSmall.selector, 1e12, 1e18));
+        sv.setDepositsOpen(true);
+        depositAs(owner, 2e6);
+        assertGe(sv.totalSupply(), 1e18);
+        vm.prank(owner);
+        sv.setDepositsOpen(true);
+        assertTrue(sv.depositsOpen());
+    }
+
+    function test_InflationAttackFails() public {
+        // The leader seeds the least that opens deposits (two USDC) and donates 10,000 USDC.
+        depositAs(owner, 2e6);
         vm.prank(owner);
         sv.setDepositsOpen(true);
         usdc.mint(address(sv), 10_000e6);
@@ -275,15 +288,41 @@ contract StrategyVaultV3Test is StrategyVaultV3Base {
         passLockup();
         uint256 before = usdcBal(alice);
         redeemInKindAs(alice, shares);
-        assertGe(usdcBal(alice) - before, 1e6 - 1, "the victim keeps the value put in");
+        assertGe(
+            usdcBal(alice) - before, 1e6 - 1e6 * 50 / 10_000 - 1, "the victim keeps the value put in, less the spread"
+        );
         // The attacker gets back at most what they put in and gave.
         uint256 beforeOwner = usdcBal(owner);
         redeemInKindAs(owner, sv.sharesOf(owner));
-        assertLe(usdcBal(owner) - beforeOwner, 10_000e6 + 1);
+        assertLe(usdcBal(owner) - beforeOwner, 10_000e6 + 2e6 + 1e6 * 50 / 10_000, "the gain is at most the spread");
+    }
+
+    /// A gift to an empty vault goes to its first depositor, the leader: the
+    /// first deposit mints at the virtual rate alone, so the real supply always
+    /// dwarfs the offset and no later depositor buys the gift below its value (A-88).
+    function test_AGiftToAnEmptyVaultGoesToTheFirstDepositor() public {
+        usdc.mint(address(sv), 1_000_000e6);
+        uint256 shares = depositAs(owner, 80e6);
+        assertEq(shares, 80e18, "the virtual rate, whatever the vault holds");
+        assertEq(sv.navUsdc(), 1_000_080e6);
+        vm.prank(owner);
+        sv.setDepositsOpen(true);
+        // From here deposits price at the real value: Alice's 400 USDC buys 400 USDC of the vault, less the spread.
+        sv.poke();
+        uint256 before = sv.sharePriceE18();
+        uint256 leaderClaim = sv.convertToAssets(sv.sharesOf(owner));
+        assertApproxEqRel(leaderClaim, 1_000_080e6, 0.006e18, "the gift is the leader's");
+        uint256 aliceShares = depositAs(alice, 400e6);
+        assertGt(aliceShares, 0);
+        uint256 aliceClaim = sv.convertToAssets(aliceShares);
+        assertLe(aliceClaim, 400e6, "at most her deposit");
+        assertGe(aliceClaim, 396e6, "within the spread of it");
+        assertGe(sv.sharePriceE18(), before, "the price per share never falls through a deposit");
+        assertGe(sv.convertToAssets(sv.sharesOf(owner)), leaderClaim, "the leader's claim did not fall");
     }
 
     function testFuzz_InflationAttackFails(uint96 seed, uint96 donation, uint96 victim) public {
-        seed = uint96(bound(seed, 1, 1e6));
+        seed = uint96(bound(seed, 1e6, 1e8));
         donation = uint96(bound(donation, 1, 100_000e6));
         depositAs(owner, seed);
         vm.prank(owner);
