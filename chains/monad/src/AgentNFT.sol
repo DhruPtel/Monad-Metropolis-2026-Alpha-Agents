@@ -15,10 +15,13 @@ import {IERC6551Registry, ITokenboundAccount, IEntropyV2} from "./interfaces/IEx
 
 /// @title AgentNFT
 /// @notice Every Alpha Agent is one token of this contract (FINAL_PLAN 4.1.1).
-/// - Supply is a deck of exact counts: 25 species, 600 base, 300 medium and
-///   100 pro, 1,000 in total (D-172, D-178, D-179). Nothing can change it.
+/// - Supply is a deck of exact counts: 34 species, 500 base, 300 medium and
+///   200 pro, 1,000 in total (D-172, D-178, D-179, revised by NFT-U1). Nothing
+///   can change it.
 /// - Two-step mint (D-180): mint creates an unrevealed agent; a reveal assigns
 ///   its species, and with it the tier, from Pyth Entropy (D-187).
+/// - A wallet mints at most two agents (D-183, revised by NFT-U1); holding more
+///   through the escrow stays allowed.
 /// - Each agent gets its Tokenbound v3 account in the mint transaction.
 /// - The ownership epoch bumps on every transfer, and only the marketplace
 ///   escrow can transfer, once the admin has set it.
@@ -30,11 +33,20 @@ contract AgentNFT is ERC721, ERC2981, IERC4906, Ownable2Step, EIP712 {
     // ---------------------------------------------------------------------
 
     uint256 public constant MAX_SUPPLY = 1000;
-    uint8 public constant SPECIES_COUNT = 25;
+    uint8 public constant SPECIES_COUNT = 34;
+    /// How many agents one wallet may mint (D-183, revised by NFT-U1).
+    uint8 public constant MINTS_PER_WALLET = 2;
 
-    /// Remaining count per species, 8 bits each, species 1 in the lowest byte.
-    /// Must match packages/domain/src/species.ts (species.test.ts checks it).
-    uint256 internal constant INITIAL_DECK = 0x0c0c0c0c0c0c0c0c0101010125252525262626267878787878;
+    /// The deck packs the remaining count of every species into one word, 7
+    /// bits each (a count of at most 127), species 1 in the lowest bits.
+    uint256 internal constant DECK_BITS = 7;
+    uint256 internal constant DECK_MASK = 0x7f;
+    /// Remaining count per species at deployment. Must match
+    /// packages/domain/src/species.ts (species.test.ts checks it).
+    uint256 internal constant INITIAL_DECK = 0x78f366cdd31e3c78f1e3c78f1e3c801020409b366cd9b3870e53a74ea54;
+    /// The tier of every species, 2 bits each in the same order (1 base,
+    /// 2 medium, 3 pro), so a species' tier never depends on its index.
+    uint256 internal constant TIER_TABLE = 0xfa9fffffffeaaa955;
 
     uint8 public constant TIER_BASE = 1;
     uint8 public constant TIER_MEDIUM = 2;
@@ -70,7 +82,7 @@ contract AgentNFT is ERC721, ERC2981, IERC4906, Ownable2Step, EIP712 {
     // ---------------------------------------------------------------------
 
     struct Agent {
-        /// 0 while unrevealed, then 1 to 25 in packages/domain SPECIES order.
+        /// 0 while unrevealed, then 1 to SPECIES_COUNT in packages/domain SPECIES order.
         uint8 species;
         uint64 ownerEpoch;
         uint64 epochStartedAt;
@@ -85,7 +97,8 @@ contract AgentNFT is ERC721, ERC2981, IERC4906, Ownable2Step, EIP712 {
     }
 
     mapping(uint256 agentId => Agent) internal _agents;
-    mapping(address wallet => bool) public hasMinted;
+    /// How many agents a wallet has minted, at most MINTS_PER_WALLET.
+    mapping(address wallet => uint8) public mintsOf;
     mapping(bytes32 nonce => bool) public claimNonceUsed;
 
     uint16 public totalMinted;
@@ -125,7 +138,7 @@ contract AgentNFT is ERC721, ERC2981, IERC4906, Ownable2Step, EIP712 {
     // Errors
     // ---------------------------------------------------------------------
 
-    error AlreadyMinted(address wallet);
+    error MintLimitReached(address wallet, uint8 limit);
     error SoldOut();
     error ClaimIsRequired();
     error ClaimExpired(uint64 deadline);
@@ -187,15 +200,15 @@ contract AgentNFT is ERC721, ERC2981, IERC4906, Ownable2Step, EIP712 {
     // Mint
     // ---------------------------------------------------------------------
 
-    /// Mints the caller's one agent while claim-required mode is off.
+    /// Mints one agent for the caller while claim-required mode is off.
     function mint() external returns (uint256 agentId) {
         if (claimRequired) revert ClaimIsRequired();
         return _mintAgent(msg.sender);
     }
 
-    /// Mints the caller's one agent with a claim signed by the platform signer.
-    /// Works in either mode; the claim names the caller, so it cannot be used
-    /// by another wallet, and its nonce works once.
+    /// Mints one agent for the caller with a claim signed by the platform
+    /// signer. Works in either mode; the claim names the caller, so it cannot
+    /// be used by another wallet, and its nonce works once.
     function mintWithClaim(uint64 deadline, bytes32 nonce, bytes calldata signature)
         external
         returns (uint256 agentId)
@@ -211,9 +224,9 @@ contract AgentNFT is ERC721, ERC2981, IERC4906, Ownable2Step, EIP712 {
     }
 
     function _mintAgent(address to) internal returns (uint256 agentId) {
-        if (hasMinted[to]) revert AlreadyMinted(to);
+        if (mintsOf[to] >= MINTS_PER_WALLET) revert MintLimitReached(to, MINTS_PER_WALLET);
         if (totalMinted >= MAX_SUPPLY) revert SoldOut();
-        hasMinted[to] = true;
+        ++mintsOf[to];
         agentId = ++totalMinted;
         // Timestamps fit in 64 bits for billions of years.
         // forge-lint: disable-next-line(unsafe-typecast)
@@ -308,7 +321,7 @@ contract AgentNFT is ERC721, ERC2981, IERC4906, Ownable2Step, EIP712 {
         while (next <= last && revealed < maxCount) {
             uint256 draw = uint256(keccak256(abi.encode(seed, next))) % remaining;
             uint8 species = _speciesAt(deck, draw);
-            deck -= uint256(1) << (8 * uint256(species - 1));
+            deck -= uint256(1) << (DECK_BITS * uint256(species - 1));
             unchecked {
                 --remaining;
             }
@@ -334,7 +347,7 @@ contract AgentNFT is ERC721, ERC2981, IERC4906, Ownable2Step, EIP712 {
     /// The species whose slots cover position `draw` among the remaining slots.
     function _speciesAt(uint256 deck, uint256 draw) internal pure returns (uint8) {
         for (uint8 s = 0; s < SPECIES_COUNT; ++s) {
-            uint256 count = (deck >> (8 * uint256(s))) & 0xff;
+            uint256 count = (deck >> (DECK_BITS * uint256(s))) & DECK_MASK;
             if (draw < count) return s + 1;
             draw -= count;
         }
@@ -356,7 +369,7 @@ contract AgentNFT is ERC721, ERC2981, IERC4906, Ownable2Step, EIP712 {
         return _agents[agentId].species != 0;
     }
 
-    /// 0 while unrevealed, then 1 to 25.
+    /// 0 while unrevealed, then 1 to SPECIES_COUNT.
     function speciesOf(uint256 agentId) public view returns (uint8) {
         _requireOwned(agentId);
         return _agents[agentId].species;
@@ -392,10 +405,10 @@ contract AgentNFT is ERC721, ERC2981, IERC4906, Ownable2Step, EIP712 {
         return ACCOUNT_REGISTRY.account(ACCOUNT_PROXY, bytes32(0), block.chainid, address(this), agentId);
     }
 
-    /// The remaining slots of a species, 1 to 25.
+    /// The remaining slots of a species, 1 to SPECIES_COUNT.
     function remainingOf(uint8 species) external view returns (uint256) {
         if (species == 0 || species > SPECIES_COUNT) return 0;
-        return (_deck >> (8 * uint256(species - 1))) & 0xff;
+        return (_deck >> (DECK_BITS * uint256(species - 1))) & DECK_MASK;
     }
 
     /// Unrevealed slots left in the deck (1,000 minus revealed agents).
@@ -403,11 +416,10 @@ contract AgentNFT is ERC721, ERC2981, IERC4906, Ownable2Step, EIP712 {
         return MAX_SUPPLY - (nextToReveal - 1);
     }
 
+    /// The species' tier from the packed table; 0 for 0 or an unknown species.
     function _tierOf(uint8 species) internal pure returns (uint8) {
-        if (species == 0) return 0;
-        if (species <= 5) return TIER_BASE;
-        if (species <= 13) return TIER_MEDIUM;
-        return TIER_PRO;
+        if (species == 0 || species > SPECIES_COUNT) return 0;
+        return uint8((TIER_TABLE >> (2 * uint256(species - 1))) & 3);
     }
 
     // ---------------------------------------------------------------------
@@ -467,8 +479,9 @@ contract AgentNFT is ERC721, ERC2981, IERC4906, Ownable2Step, EIP712 {
         return "Pro";
     }
 
-    /// Display name and image slug of a species, 1 to 25. The table must match
-    /// packages/domain/src/species.ts (species.test.ts checks this source).
+    /// Display name and image slug of a species, 1 to SPECIES_COUNT. The table
+    /// must match packages/domain/src/species.ts (species.test.ts checks this
+    /// source).
     function speciesInfo(uint8 s) public pure returns (string memory name, string memory slug) {
         // SPECIES TABLE START
         if (s == 1) return ("Larva grub", "larva-grub");
@@ -496,6 +509,15 @@ contract AgentNFT is ERC721, ERC2981, IERC4906, Ownable2Step, EIP712 {
         if (s == 23) return ("Stag beetle", "stag-beetle");
         if (s == 24) return ("Atlas moth", "atlas-moth");
         if (s == 25) return ("Cicada", "cicada");
+        if (s == 26) return ("Snake", "snake");
+        if (s == 27) return ("Hummingbird", "hummingbird");
+        if (s == 28) return ("Fish", "fish");
+        if (s == 29) return ("Ladybug", "ladybug");
+        if (s == 30) return ("Grasshopper", "grasshopper");
+        if (s == 31) return ("Butterfly", "butterfly");
+        if (s == 32) return ("Leaf insect", "leaf-insect");
+        if (s == 33) return ("Crab", "crab");
+        if (s == 34) return ("Orchid mantis", "orchid-mantis");
         // SPECIES TABLE END
         return ("", "");
     }

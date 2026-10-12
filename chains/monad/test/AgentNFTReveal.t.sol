@@ -22,9 +22,9 @@ contract AgentNFTRevealTest is AgentNFTBase {
             uint8 species = nft.speciesOf(id);
             assertTrue(nft.isRevealed(id));
             assertGe(species, 1);
-            assertLe(species, 25);
+            assertLe(species, SPECIES_COUNT);
             uint8 tier = nft.tierOf(id);
-            assertEq(tier, species <= 5 ? 1 : species <= 13 ? 2 : 3);
+            assertEq(tier, tierOfSpecies(species));
             assertEq(nft.slotsOf(id), tier == 1 ? 3 : tier == 2 ? 5 : 8);
         }
         assertEq(nft.nextToReveal(), 4);
@@ -141,17 +141,22 @@ contract AgentNFTRevealTest is AgentNFTBase {
     }
 
     function _assertExactCounts() internal view {
-        uint256[26] memory counts = speciesCounts();
+        uint256[35] memory counts = speciesCounts();
         uint256[4] memory tiers;
-        for (uint8 s = 1; s <= 25; ++s) {
+        for (uint8 s = 1; s <= SPECIES_COUNT; ++s) {
             assertEq(counts[s], SPECIES_COUNTS[s - 1], "species count");
             assertEq(nft.remainingOf(s), 0);
-            tiers[s <= 5 ? 1 : s <= 13 ? 2 : 3] += counts[s];
+            tiers[tierOfSpecies(s)] += counts[s];
         }
         assertEq(counts[0], 0, "no unrevealed agent left");
-        assertEq(tiers[1], 600);
-        assertEq(tiers[2], 300);
-        assertEq(tiers[3], 100);
+        // The tier table (NFT-U1): every agent's tier is its species' tier in
+        // the domain list, whatever the species' index.
+        for (uint256 id = 1; id <= 1000; ++id) {
+            assertEq(nft.tierOf(id), tierOfSpecies(nft.speciesOf(id)), "tier table");
+        }
+        assertEq(tiers[1], TIER_SUPPLY_BASE);
+        assertEq(tiers[2], TIER_SUPPLY_MEDIUM);
+        assertEq(tiers[3], TIER_SUPPLY_PRO);
     }
 }
 

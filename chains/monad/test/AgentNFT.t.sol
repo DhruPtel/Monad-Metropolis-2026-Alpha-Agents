@@ -49,7 +49,7 @@ contract AgentNFTMintTest is AgentNFTBase {
         assertEq(nft.ownerOf(1), wallet);
         assertEq(nft.totalMinted(), 1);
         assertEq(nft.totalSupply(), 1);
-        assertTrue(nft.hasMinted(wallet));
+        assertEq(nft.mintsOf(wallet), 1);
         assertFalse(nft.isRevealed(1));
         assertEq(nft.speciesOf(1), 0);
         assertEq(nft.tierOf(1), 0);
@@ -80,23 +80,34 @@ contract AgentNFTMintTest is AgentNFTBase {
         assertEq(address(nft).balance, 0);
     }
 
-    function test_OneMintPerWallet() public {
+    /// Two mints per wallet (D-183, revised by NFT-U1): the second claim mints,
+    /// the third is refused in either mode.
+    function test_TwoMintsPerWallet() public {
         address wallet = freshWallet();
+        assertEq(nft.MINTS_PER_WALLET(), 2);
         mintWithValidClaim(wallet);
         bytes32 nonce = keccak256("second nonce");
         uint64 deadline = uint64(block.timestamp + 1 hours);
         bytes memory sig = signClaim(signer.privateKey, wallet, nonce, deadline);
         vm.prank(wallet);
-        vm.expectRevert(abi.encodeWithSelector(AgentNFT.AlreadyMinted.selector, wallet));
-        nft.mintWithClaim(deadline, nonce, sig);
+        assertEq(nft.mintWithClaim(deadline, nonce, sig), 2);
+        assertEq(nft.mintsOf(wallet), 2);
+        assertEq(nft.balanceOf(wallet), 2);
+
+        bytes32 third = keccak256("third nonce");
+        sig = signClaim(signer.privateKey, wallet, third, deadline);
+        vm.prank(wallet);
+        vm.expectRevert(abi.encodeWithSelector(AgentNFT.MintLimitReached.selector, wallet, 2));
+        nft.mintWithClaim(deadline, third, sig);
 
         openMint();
         vm.prank(wallet);
-        vm.expectRevert(abi.encodeWithSelector(AgentNFT.AlreadyMinted.selector, wallet));
+        vm.expectRevert(abi.encodeWithSelector(AgentNFT.MintLimitReached.selector, wallet, 2));
         nft.mint();
+        assertEq(nft.mintsOf(wallet), 2);
     }
 
-    function test_OpenMintWorksWhenClaimModeOffAndIsStillOnePerWallet() public {
+    function test_OpenMintWorksWhenClaimModeOffAndIsStillTwoPerWallet() public {
         address wallet = freshWallet();
         vm.prank(wallet);
         vm.expectRevert(AgentNFT.ClaimIsRequired.selector);
@@ -106,7 +117,9 @@ contract AgentNFTMintTest is AgentNFTBase {
         vm.prank(wallet);
         assertEq(nft.mint(), 1);
         vm.prank(wallet);
-        vm.expectRevert(abi.encodeWithSelector(AgentNFT.AlreadyMinted.selector, wallet));
+        assertEq(nft.mint(), 2);
+        vm.prank(wallet);
+        vm.expectRevert(abi.encodeWithSelector(AgentNFT.MintLimitReached.selector, wallet, 2));
         nft.mint();
     }
 
@@ -344,20 +357,30 @@ contract AgentNFTTransferTest is AgentNFTBase {
         assertEq(nft.ownerEpoch(1), 1);
     }
 
-    function test_WalletMayHoldSeveralAgentsButMintOnlyOnce() public {
+    /// Holding is not minting: a wallet may hold any number of agents through
+    /// the escrow and still has exactly its two mints.
+    function test_WalletMayHoldSeveralAgentsButMintOnlyTwice() public {
         setEscrow();
         escrowMove(1, bob);
         assertEq(nft.balanceOf(bob), 2);
+        assertEq(nft.mintsOf(bob), 1);
         vm.prank(bob);
-        vm.expectRevert(abi.encodeWithSelector(AgentNFT.AlreadyMinted.selector, bob));
+        assertEq(nft.mint(), 3);
+        assertEq(nft.balanceOf(bob), 3);
+        vm.prank(bob);
+        vm.expectRevert(abi.encodeWithSelector(AgentNFT.MintLimitReached.selector, bob, 2));
         nft.mint();
 
-        // A wallet that received an agent but never minted can still mint.
+        // A wallet that received agents but never minted still has both mints.
         address carol = freshWallet();
         escrowMove(2, carol);
+        escrowMove(3, carol);
+        assertEq(nft.mintsOf(carol), 0);
         vm.prank(carol);
-        assertEq(nft.mint(), 3);
-        assertEq(nft.balanceOf(carol), 2);
+        assertEq(nft.mint(), 4);
+        vm.prank(carol);
+        assertEq(nft.mint(), 5);
+        assertEq(nft.balanceOf(carol), 4);
     }
 
     function test_CannotTransferToAnAgentAccount() public {
@@ -426,7 +449,9 @@ contract AgentNFTMetadataTest is AgentNFTBase {
         for (uint256 id = 1; id <= 30; ++id) {
             uint8 species = nft.speciesOf(id);
             (string memory name, string memory slug) = nft.speciesInfo(species);
-            string memory tier = species <= 5 ? "Base" : species <= 13 ? "Medium" : "Pro";
+            uint8 t = tierOfSpecies(species);
+            string memory tier = t == 1 ? "Base" : t == 2 ? "Medium" : "Pro";
+            assertEq(nft.tierOf(id), t);
             string memory json = _json(id);
             assertEq(json.readString(".name"), string.concat("Alpha Agent #", vm.toString(id)));
             assertEq(json.readString(".image"), string.concat(IMAGE_BASE, slug, ".png"));
@@ -439,13 +464,17 @@ contract AgentNFTMetadataTest is AgentNFTBase {
     }
 
     function test_EverySpeciesHasANameAndSlug() public view {
-        for (uint8 s = 1; s <= 25; ++s) {
+        assertEq(nft.SPECIES_COUNT(), SPECIES_COUNT);
+        for (uint8 s = 1; s <= SPECIES_COUNT; ++s) {
             (string memory name, string memory slug) = nft.speciesInfo(s);
             assertGt(bytes(name).length, 0);
             assertGt(bytes(slug).length, 0);
+            assertEq(nft.remainingOf(s), SPECIES_COUNTS[s - 1], "initial deck");
         }
-        (string memory none,) = nft.speciesInfo(26);
+        (string memory none,) = nft.speciesInfo(SPECIES_COUNT + 1);
         assertEq(bytes(none).length, 0);
+        assertEq(nft.remainingOf(0), 0);
+        assertEq(nft.remainingOf(SPECIES_COUNT + 1), 0);
     }
 
     function test_TokenURIRevertsForUnmintedAgent() public {
@@ -679,8 +708,8 @@ contract AgentNFTAdminTest is AgentNFTBase {
         for (uint256 id = 1; id <= 45; ++id) {
             speciesBefore[id - 1] = nft.speciesOf(id);
         }
-        uint256[26] memory remainingBefore;
-        for (uint8 s = 1; s <= 25; ++s) {
+        uint256[35] memory remainingBefore;
+        for (uint8 s = 1; s <= SPECIES_COUNT; ++s) {
             remainingBefore[s] = nft.remainingOf(s);
         }
 
@@ -701,7 +730,7 @@ contract AgentNFTAdminTest is AgentNFTBase {
         for (uint256 id = 1; id <= 45; ++id) {
             assertEq(nft.speciesOf(id), speciesBefore[id - 1]);
         }
-        for (uint8 s = 1; s <= 25; ++s) {
+        for (uint8 s = 1; s <= SPECIES_COUNT; ++s) {
             assertEq(nft.remainingOf(s), remainingBefore[s]);
         }
     }

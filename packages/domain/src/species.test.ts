@@ -2,57 +2,77 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
   AGENT_MAX_SUPPLY,
+  DECK_BITS_PER_SPECIES,
+  MINTS_PER_WALLET,
   SPECIES,
   TIER_IDS,
   TIER_SUPPLY,
+  packedDeck,
+  packedTierTable,
   speciesByIndex,
+  speciesBySlug,
   type Tier,
 } from "./index.ts";
 
-describe("species (D-178, D-179)", () => {
-  it("has 25 species indexed 1 to 25 with unique names and slugs", () => {
-    expect(SPECIES).toHaveLength(25);
-    expect(SPECIES.map((s) => s.index)).toEqual(Array.from({ length: 25 }, (_, i) => i + 1));
-    expect(new Set(SPECIES.map((s) => s.slug)).size).toBe(25);
-    expect(new Set(SPECIES.map((s) => s.name)).size).toBe(25);
+describe("species (D-178, D-179, revised by NFT-U1)", () => {
+  it("has 34 species indexed 1 to 34 with unique names and slugs", () => {
+    expect(SPECIES).toHaveLength(34);
+    expect(SPECIES.map((s) => s.index)).toEqual(Array.from({ length: 34 }, (_, i) => i + 1));
+    expect(new Set(SPECIES.map((s) => s.slug)).size).toBe(34);
+    expect(new Set(SPECIES.map((s) => s.name)).size).toBe(34);
     for (const s of SPECIES) expect(s.slug).toMatch(/^[a-z]+(-[a-z]+)*$/);
   });
 
-  it("adds up to 600 base, 300 medium and 100 pro, 1,000 in total", () => {
+  it("adds up to 500 base, 300 medium and 200 pro, 1,000 in total", () => {
     const byTier = (t: Tier) =>
       SPECIES.filter((s) => s.tier === t).reduce((sum, s) => sum + s.count, 0);
     for (const t of TIER_IDS) expect(byTier(t)).toBe(TIER_SUPPLY[t]);
     expect(SPECIES.reduce((sum, s) => sum + s.count, 0)).toBe(AGENT_MAX_SUPPLY);
   });
 
-  it("lists the owner's exact counts, one of ones included", () => {
-    const count = (name: string) => SPECIES.find((s) => s.name === name)?.count;
-    expect(SPECIES.filter((s) => s.tier === "base").map((s) => s.count)).toEqual(
-      Array(5).fill(120),
-    );
-    expect(["Silkworm", "Ground beetle", "Cricket", "Moth"].map(count)).toEqual([38, 38, 38, 38]);
-    expect(["Firefly", "Centipede", "Water strider", "Earwig"].map(count)).toEqual([
-      37, 37, 37, 37,
-    ]);
-    expect(["Bee", "Praying mantis", "Hercules beetle", "Horseshoe crab"].map(count)).toEqual([
+  it("splits each tier as evenly as it divides, the remainder to its first species (A-94)", () => {
+    const counts = (t: Tier) => SPECIES.filter((s) => s.tier === t).map((s) => s.count);
+    expect(counts("base")).toEqual([84, 84, 83, 83, 83, 83]);
+    expect(counts("medium")).toEqual([28, 28, 28, 27, 27, 27, 27, 27, 27, 27, 27]);
+    expect(counts("pro")).toEqual([1, 1, 1, 1, 16, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15]);
+    expect(["Bee", "Praying mantis", "Hercules beetle", "Horseshoe crab"].map(speciesName)).toEqual([
       1, 1, 1, 1,
     ]);
-    expect(SPECIES.filter((s) => s.tier === "pro" && s.count === 12)).toHaveLength(8);
+    for (const s of SPECIES) expect(s.count).toBeLessThanOrEqual(2 ** DECK_BITS_PER_SPECIES - 1);
   });
 
-  it("keeps tiers in contiguous index ranges: base 1-5, medium 6-13, pro 14-25", () => {
-    expect(SPECIES.slice(0, 5).every((s) => s.tier === "base")).toBe(true);
-    expect(SPECIES.slice(5, 13).every((s) => s.tier === "medium")).toBe(true);
-    expect(SPECIES.slice(13).every((s) => s.tier === "pro")).toBe(true);
-  });
-
-  it("looks up by onchain index and refuses 0 (unrevealed)", () => {
-    expect(speciesByIndex(1).name).toBe("Larva grub");
+  it("keeps every index of the first 25 species and appends the nine new ones", () => {
+    expect(speciesByIndex(14).name).toBe("Bee");
+    expect(speciesByIndex(4).name).toBe("Tick");
     expect(speciesByIndex(25).name).toBe("Cicada");
+    expect(SPECIES.slice(25).map((s) => [s.name, s.tier])).toEqual([
+      ["Snake", "pro"],
+      ["Hummingbird", "pro"],
+      ["Fish", "pro"],
+      ["Ladybug", "base"],
+      ["Grasshopper", "medium"],
+      ["Butterfly", "medium"],
+      ["Leaf insect", "medium"],
+      ["Crab", "pro"],
+      ["Orchid mantis", "pro"],
+    ]);
+  });
+
+  it("looks up by onchain index or slug and refuses 0 (unrevealed)", () => {
+    expect(speciesByIndex(1).name).toBe("Larva grub");
+    expect(speciesByIndex(34).name).toBe("Orchid mantis");
+    expect(speciesBySlug("orchid-mantis")?.index).toBe(34);
+    expect(speciesBySlug("unicorn")).toBeUndefined();
     expect(() => speciesByIndex(0)).toThrow(RangeError);
-    expect(() => speciesByIndex(26)).toThrow(RangeError);
+    expect(() => speciesByIndex(35)).toThrow(RangeError);
+  });
+
+  it("allows two mints per wallet (D-183, revised by NFT-U1)", () => {
+    expect(MINTS_PER_WALLET).toBe(2);
   });
 });
+
+const speciesName = (name: string) => SPECIES.find((s) => s.name === name)?.count;
 
 describe("AgentNFT's species table matches this list", () => {
   const source = readFileSync(
@@ -69,21 +89,21 @@ describe("AgentNFT's species table matches this list", () => {
       (m) => ({ index: Number(m[1]), name: m[2], slug: m[3] }),
     );
     expect(rows).toEqual(SPECIES.map(({ index, name, slug }) => ({ index, name, slug })));
+    expect(source).toContain(`uint8 public constant SPECIES_COUNT = ${SPECIES.length};`);
   });
 
-  it("packs the same counts into the initial deck", () => {
+  it("packs the same counts into the initial deck, 7 bits per species", () => {
     const deck = /INITIAL_DECK = (0x[0-9a-f]+);/.exec(source)?.[1];
-    const expected = SPECIES.reduce(
-      (acc, s) => acc | (BigInt(s.count) << BigInt(8 * (s.index - 1))),
-      0n,
-    );
-    expect(deck && BigInt(deck)).toBe(expected);
+    expect(deck && BigInt(deck)).toBe(packedDeck());
+    expect(source).toContain(`uint256 internal constant DECK_BITS = ${DECK_BITS_PER_SPECIES};`);
   });
 
-  it("puts tier boundaries at species 5 and 13, as the contract does", () => {
-    expect(source).toContain("if (species <= 5) return TIER_BASE;");
-    expect(source).toContain("if (species <= 13) return TIER_MEDIUM;");
-    expect(SPECIES.filter((s) => s.tier === "base").at(-1)?.index).toBe(5);
-    expect(SPECIES.filter((s) => s.tier === "medium").at(-1)?.index).toBe(13);
+  it("packs the same tiers into the tier table, 2 bits per species", () => {
+    const table = /TIER_TABLE = (0x[0-9a-f]+);/.exec(source)?.[1];
+    expect(table && BigInt(table)).toBe(packedTierTable());
+  });
+
+  it("allows the same number of mints per wallet", () => {
+    expect(source).toContain(`uint8 public constant MINTS_PER_WALLET = ${MINTS_PER_WALLET};`);
   });
 });

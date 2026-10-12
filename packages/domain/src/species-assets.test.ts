@@ -13,7 +13,8 @@ describe("species asset manifest (D-188)", () => {
     expect(SPECIES_ASSETS.map((a) => a.species)).toEqual(SPECIES);
     expect(speciesAsset(1).species.slug).toBe("larva-grub");
     expect(() => speciesAsset(0)).toThrow(RangeError);
-    expect(() => speciesAsset(26)).toThrow(RangeError);
+    expect(() => speciesAsset(35)).toThrow(RangeError);
+    expect(speciesAsset(34).species.slug).toBe("orchid-mantis");
   });
 
   it("gives every model enough sockets for its tier, with unique names", () => {

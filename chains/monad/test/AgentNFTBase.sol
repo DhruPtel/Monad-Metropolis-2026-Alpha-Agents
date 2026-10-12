@@ -22,8 +22,50 @@ abstract contract AgentNFTBase is Test {
     address internal constant ACCOUNT_IMPLEMENTATION = address(0x1A1A);
     string internal constant IMAGE_BASE = "ipfs://bafyimages/";
 
-    uint8[25] internal SPECIES_COUNTS =
-        [120, 120, 120, 120, 120, 38, 38, 38, 38, 37, 37, 37, 37, 1, 1, 1, 1, 12, 12, 12, 12, 12, 12, 12, 12];
+    /// packages/domain SPECIES in onchain order (NFT-U1): the counts and tiers
+    /// the tests expect, independent of the contract's own constants.
+    uint8 internal constant SPECIES_COUNT = 34;
+    uint8[34] internal SPECIES_COUNTS = [
+        84,
+        84,
+        83,
+        83,
+        83,
+        28,
+        28,
+        28,
+        27,
+        27,
+        27,
+        27,
+        27,
+        1,
+        1,
+        1,
+        1,
+        16,
+        15,
+        15,
+        15,
+        15,
+        15,
+        15,
+        15,
+        15,
+        15,
+        15,
+        83,
+        27,
+        27,
+        27,
+        15,
+        15
+    ];
+    uint8[34] internal SPECIES_TIERS =
+        [1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 1, 2, 2, 2, 3, 3];
+    uint256 internal constant TIER_SUPPLY_BASE = 500;
+    uint256 internal constant TIER_SUPPLY_MEDIUM = 300;
+    uint256 internal constant TIER_SUPPLY_PRO = 200;
 
     uint256 internal walletCounter;
 
@@ -122,7 +164,12 @@ abstract contract AgentNFTBase is Test {
         escrow.move(nft, from, to, agentId);
     }
 
-    function speciesCounts() internal view returns (uint256[26] memory counts) {
+    /// The tier of a species, 1 to 34, from the test's own table.
+    function tierOfSpecies(uint8 species) internal view returns (uint8) {
+        return SPECIES_TIERS[species - 1];
+    }
+
+    function speciesCounts() internal view returns (uint256[35] memory counts) {
         uint256 last = nft.nextToReveal() - 1;
         for (uint256 id = 1; id <= last; ++id) {
             ++counts[nft.speciesOf(id)];
