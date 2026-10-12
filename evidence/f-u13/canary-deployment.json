@@ -1,0 +1,377 @@
+{
+  "unit": "F-U13",
+  "chainId": 143,
+  "label": "mainnet-canary, throwaway (D-247, D-249, D-250); the v3 trading set on P2-EC's CanaryAgent",
+  "saltScope": "p2ec.canary",
+  "recordedAt": "2026-10-12T22:10:57.051Z",
+  "startBlock": 112870069,
+  "roles": {
+    "owner": "0x170921ED4D5E221CB2294a8a2f8c4afd4FDA2Fa8",
+    "guardian": "0x7935C37B9e1E85E9d393dbB31d93EC920f4053F8",
+    "session": "0x8528B930C390a8115F9Ff4e41387802699fCf50d"
+  },
+  "allowlist": [
+    "0x170921ED4D5E221CB2294a8a2f8c4afd4FDA2Fa8"
+  ],
+  "capsE6": {
+    "personal": "10000000",
+    "vault": "10000000",
+    "platform": "10000000"
+  },
+  "facts": {
+    "block": 112870064,
+    "timestamp": 1791842920,
+    "usdc": {
+      "address": "0x754704Bc059F8C67012fEd69BC8A327a5aafb603",
+      "codeSize": 1798,
+      "codeHash": "0xbb3557cf62a26950fb58073e6ce8e130af371e5aa13e5584856a1ce2ca47dc89",
+      "decimals": 6
+    },
+    "wmon": {
+      "address": "0x3bd359C1119dA7Da1D913D1C4D2B7c461115433A",
+      "codeSize": 3249,
+      "codeHash": "0xa32df4f1226f1bb0d6ce9b917752ed687857899a35ebf902c9992edb73b138b6",
+      "decimals": 18
+    },
+    "chainlink_mon_usd": {
+      "address": "0xBcD78f76005B7515837af6b50c7C52BCf73822fb",
+      "codeSize": 9571,
+      "codeHash": "0xbd6f524cdc4268b6bd1bb6f77a8821faeea9c52ee9e0afa0b6d948ce82c966c2",
+      "decimals": 8,
+      "answer": "2470087",
+      "ageSeconds": 58
+    },
+    "chainlink_usdc_usd": {
+      "address": "0xf5F15f188AbCB0d165D1Edb7f37F7d6fA2fCebec",
+      "codeSize": 9571,
+      "codeHash": "0xbd6f524cdc4268b6bd1bb6f77a8821faeea9c52ee9e0afa0b6d948ce82c966c2",
+      "decimals": 8,
+      "answer": "99986275",
+      "ageSeconds": 2093
+    },
+    "uniswap_v4_pool_manager": {
+      "address": "0x188d586ddcf52439676ca21a244753fa19f9ea8e",
+      "codeSize": 24009,
+      "codeHash": "0xf5d7a45765367807b101f825ec74004078c79bd96c621e481c608ee22f7336d4"
+    },
+    "uniswap_v4_state_view": {
+      "address": "0x77395f3b2e73ae90843717371294fa97cc419d64",
+      "codeSize": 3531,
+      "codeHash": "0x9f14dd3281369ca12d9a58c95a78f3387437dd24fa958631514361d9a52621ed"
+    },
+    "uniswap_v3_swap_router02": {
+      "address": "0xfe31f71c1b106eac32f1a19239c9a9a72ddfb900",
+      "codeSize": 24497,
+      "codeHash": "0xe38b18a40559752e867d4e6039977e65754dddb68c3c254ec46aebb2195391b6"
+    },
+    "create2_deployer": {
+      "address": "0x4e59b44847b379578588920cA78FbF26c0B4956C",
+      "codeSize": 69,
+      "codeHash": "0x2fa86add0aed31f33a762c9d88e807c475bd51d0f52bd0955754b2608f7e4989"
+    },
+    "pool": {
+      "id": "0x18a9fc874581f3ba12b7898f80a683c66fd5877fd74b26a85ba9a3a79c549954",
+      "sqrtPriceX96": "12458304089445022271587",
+      "tick": -313325,
+      "lpFee": 500,
+      "liquidity": "7506580237846476095"
+    }
+  },
+  "canaryAgent": "0x22A4790313067278B0d15C9C5a7Df4e4613b9cA8",
+  "fund": {
+    "tokenRegistry": "0x698A336959825Eb46E30F300F4960e4aef8c13ae",
+    "protocolRegistry": "0x859d0A489CE0eB1CcdcC23053d6f4C48354533bF",
+    "oracle": "0x9a7f266a89B2DBF10436dfD110A772FA0ab62e00",
+    "routeAdapter": "0xaCFdA6869557c3FDE7B465A6F65393525134C32a",
+    "coreTokens": 2,
+    "corePools": 3,
+    "config": {
+      "admin": "0x170921ED4D5E221CB2294a8a2f8c4afd4FDA2Fa8",
+      "guardian": "0x7935C37B9e1E85E9d393dbB31d93EC920f4053F8",
+      "screener": "0x170921ED4D5E221CB2294a8a2f8c4afd4FDA2Fa8",
+      "usdc": "0x754704bc059f8c67012fed69bc8a327a5aafb603",
+      "wmon": "0x3bd359c1119da7da1d913d1c4d2b7c461115433a",
+      "uniswapV3Factory": "0x204faca1764b154221e35c0d20abb3c525710498",
+      "pancakeswapV3Factory": "0x0bfbcf9fa4f9c56b0f40a671ad40e0805a091865",
+      "poolManager": "0x188d586ddcf52439676ca21a244753fa19f9ea8e",
+      "stateView": "0x77395f3b2e73ae90843717371294fa97cc419d64",
+      "demoExecutor": "0x170921ED4D5E221CB2294a8a2f8c4afd4FDA2Fa8",
+      "maxDeviationBps": 200,
+      "seeds": [
+        {
+          "token": "0x754704bc059f8c67012fed69bc8a327a5aafb603",
+          "maxPositionBps": 10000,
+          "usdFeed": "0xf5f15f188abcb0d165d1edb7f37f7d6fa2fcebec",
+          "usdDecimals": 8,
+          "usdMaxAge": 3900,
+          "rateFeed": "0x0000000000000000000000000000000000000000",
+          "rateDecimals": 0,
+          "rateMaxAge": 0
+        },
+        {
+          "token": "0x3bd359c1119da7da1d913d1c4d2b7c461115433a",
+          "maxPositionBps": 4000,
+          "usdFeed": "0xbcd78f76005b7515837af6b50c7c52bcf73822fb",
+          "usdDecimals": 8,
+          "usdMaxAge": 300,
+          "rateFeed": "0x0000000000000000000000000000000000000000",
+          "rateDecimals": 0,
+          "rateMaxAge": 0
+        }
+      ],
+      "pools": [
+        {
+          "venue": 1,
+          "token0": "0x3bd359c1119da7da1d913d1c4d2b7c461115433a",
+          "token1": "0x754704bc059f8c67012fed69bc8a327a5aafb603",
+          "fee": 3000,
+          "tickSpacing": 60,
+          "pool": "0x659bd0bc4167ba25c62e05656f78043e7ed4a9da"
+        },
+        {
+          "venue": 2,
+          "token0": "0x3bd359c1119da7da1d913d1c4d2b7c461115433a",
+          "token1": "0x754704bc059f8c67012fed69bc8a327a5aafb603",
+          "fee": 500,
+          "tickSpacing": 10,
+          "pool": "0x63e48b725540a3db24acf6682a29f877808c53f2"
+        },
+        {
+          "venue": 3,
+          "token0": "0x0000000000000000000000000000000000000000",
+          "token1": "0x754704bc059f8c67012fed69bc8a327a5aafb603",
+          "fee": 500,
+          "tickSpacing": 10,
+          "pool": "0x0000000000000000000000000000000000000000"
+        }
+      ]
+    }
+  },
+  "executorV3": {
+    "executor": "0xE819fC8229db2b404765f4E70F64bC1fE36220a2",
+    "routeAdapter": "0x6BD5eDb4EceE1f98665350a4bd459EC8924588a6",
+    "protocolRegistry": "0x5218B74144f0f8B21e92ED4f3d4f9946aADCac89",
+    "oracle": "0xB252C15BCed2C2F5757D57d3Fc8C378Fc795Fe79",
+    "setDeployer": "0x145F0041F3df6520623b4b58D92c3502AF7b5650",
+    "corePools": 3,
+    "policyHash": "0xb5a9fa71ad68d9ba87761d235f535f9d9a6f2088b2476e43b81468573c59a3bb"
+  },
+  "custodyV3": {
+    "factory": "0x2F01ffeB3a6DeE52E190FD6578A9382C60b297c4",
+    "personalAccountImplementation": "0x32C9F7f63711B0993C4eE8cAE45DA156D36a4A13",
+    "vaultImplementation": "0x8Bac3381E4fad941cf9547CA6840Df757382E3df"
+  },
+  "links": {
+    "canaryAgent": "https://monadvision.com/address/0x22A4790313067278B0d15C9C5a7Df4e4613b9cA8",
+    "tokenRegistry": "https://monadvision.com/address/0x698A336959825Eb46E30F300F4960e4aef8c13ae",
+    "protocolRegistry": "https://monadvision.com/address/0x5218B74144f0f8B21e92ED4f3d4f9946aADCac89",
+    "oracle": "https://monadvision.com/address/0xB252C15BCed2C2F5757D57d3Fc8C378Fc795Fe79",
+    "routeAdapter": "https://monadvision.com/address/0x6BD5eDb4EceE1f98665350a4bd459EC8924588a6",
+    "executor": "https://monadvision.com/address/0xE819fC8229db2b404765f4E70F64bC1fE36220a2",
+    "setDeployer": "https://monadvision.com/address/0x145F0041F3df6520623b4b58D92c3502AF7b5650",
+    "factory": "https://monadvision.com/address/0x2F01ffeB3a6DeE52E190FD6578A9382C60b297c4",
+    "personalAccountImplementation": "https://monadvision.com/address/0x32C9F7f63711B0993C4eE8cAE45DA156D36a4A13",
+    "vaultImplementation": "https://monadvision.com/address/0x8Bac3381E4fad941cf9547CA6840Df757382E3df"
+  },
+  "estimates": {
+    "1 fund set": {
+      "gas": 19940802,
+      "mon": 2.19348822
+    },
+    "2 executor v3": {
+      "gas": 25900744,
+      "mon": 2.84908184
+    },
+    "3 custody v3": {
+      "gas": 34157784,
+      "mon": 3.75735624
+    },
+    "3 bind": {
+      "gas": 117252,
+      "mon": 0.01289772
+    }
+  },
+  "transactions": [
+    {
+      "what": "TokenRegistry",
+      "script": "DeployFund.s.sol",
+      "hash": "0x5596e2e7256e21c83de2a9a19357394b8de96c762b2efee9067e511698925748",
+      "from": "0x170921ed4d5e221cb2294a8a2f8c4afd4fda2fa8",
+      "to": "0x4e59b44847b379578588920ca78fbf26c0b4956c",
+      "created": null,
+      "block": 112870185,
+      "blockTime": 1791842956,
+      "status": "0x1",
+      "type": "0x0",
+      "gasLimit": "5258697",
+      "gasUsed": "5258697",
+      "baseFeeWei": "100000000000",
+      "maxFeePerGasWei": "110000000000",
+      "maxPriorityFeePerGasWei": "0",
+      "effectiveGasPriceWei": "110000000000",
+      "paidWei": "578456670000000000",
+      "link": "https://monadvision.com/tx/0x5596e2e7256e21c83de2a9a19357394b8de96c762b2efee9067e511698925748"
+    },
+    {
+      "what": "ProtocolRegistryV3",
+      "script": "DeployFund.s.sol",
+      "hash": "0x9f50b0e7bb514d391cd2a6dd6daf551ff5b373b0e2901b367e3eeb1fdd20ae96",
+      "from": "0x170921ed4d5e221cb2294a8a2f8c4afd4fda2fa8",
+      "to": "0x4e59b44847b379578588920ca78fbf26c0b4956c",
+      "created": null,
+      "block": 112870193,
+      "blockTime": 1791842959,
+      "status": "0x1",
+      "type": "0x0",
+      "gasLimit": "5617288",
+      "gasUsed": "5617288",
+      "baseFeeWei": "100000000000",
+      "maxFeePerGasWei": "110000000000",
+      "maxPriorityFeePerGasWei": "0",
+      "effectiveGasPriceWei": "110000000000",
+      "paidWei": "617901680000000000",
+      "link": "https://monadvision.com/tx/0x9f50b0e7bb514d391cd2a6dd6daf551ff5b373b0e2901b367e3eeb1fdd20ae96"
+    },
+    {
+      "what": "OracleAdapterV3",
+      "script": "DeployFund.s.sol",
+      "hash": "0xdae5131841b2da41ca1120b9ed8a84e661ed0817ef42c6472e60cc4d2b936fb6",
+      "from": "0x170921ed4d5e221cb2294a8a2f8c4afd4fda2fa8",
+      "to": "0x4e59b44847b379578588920ca78fbf26c0b4956c",
+      "created": null,
+      "block": 112870201,
+      "blockTime": 1791842961,
+      "status": "0x1",
+      "type": "0x0",
+      "gasLimit": "2561256",
+      "gasUsed": "2561256",
+      "baseFeeWei": "100000000000",
+      "maxFeePerGasWei": "110000000000",
+      "maxPriorityFeePerGasWei": "0",
+      "effectiveGasPriceWei": "110000000000",
+      "paidWei": "281738160000000000",
+      "link": "https://monadvision.com/tx/0xdae5131841b2da41ca1120b9ed8a84e661ed0817ef42c6472e60cc4d2b936fb6"
+    },
+    {
+      "what": "RouteAdapter",
+      "script": "DeployFund.s.sol",
+      "hash": "0x7a4e1fbcfc34ce97bfda40286ec621d7186823362269528902e1b212fbb6c4cd",
+      "from": "0x170921ed4d5e221cb2294a8a2f8c4afd4fda2fa8",
+      "to": "0x4e59b44847b379578588920ca78fbf26c0b4956c",
+      "created": null,
+      "block": 112870207,
+      "blockTime": 1791842963,
+      "status": "0x1",
+      "type": "0x0",
+      "gasLimit": "3180609",
+      "gasUsed": "3180609",
+      "baseFeeWei": "100000000000",
+      "maxFeePerGasWei": "110000000000",
+      "maxPriorityFeePerGasWei": "0",
+      "effectiveGasPriceWei": "110000000000",
+      "paidWei": "349866990000000000",
+      "link": "https://monadvision.com/tx/0x7a4e1fbcfc34ce97bfda40286ec621d7186823362269528902e1b212fbb6c4cd"
+    },
+    {
+      "what": "ExecutorV3",
+      "script": "DeployExecutorV3.s.sol",
+      "hash": "0xbe28422d52ccaebf9ab6709c32e7e589ce28fef393cc9cac6f0ba3cf86a18345",
+      "from": "0x170921ed4d5e221cb2294a8a2f8c4afd4fda2fa8",
+      "to": "0x4e59b44847b379578588920ca78fbf26c0b4956c",
+      "created": null,
+      "block": 112870312,
+      "blockTime": 1791842995,
+      "status": "0x1",
+      "type": "0x0",
+      "gasLimit": "10209939",
+      "gasUsed": "10209939",
+      "baseFeeWei": "100000000000",
+      "maxFeePerGasWei": "110000000000",
+      "maxPriorityFeePerGasWei": "0",
+      "effectiveGasPriceWei": "110000000000",
+      "paidWei": "1123093290000000000",
+      "link": "https://monadvision.com/tx/0xbe28422d52ccaebf9ab6709c32e7e589ce28fef393cc9cac6f0ba3cf86a18345"
+    },
+    {
+      "what": "ExecutorSetDeployer",
+      "script": "DeployExecutorV3.s.sol",
+      "hash": "0xd6ee25ab64b507c352147fe352056cc0f492ffc97ff81a9a927d6a378032802b",
+      "from": "0x170921ed4d5e221cb2294a8a2f8c4afd4fda2fa8",
+      "to": "0x4e59b44847b379578588920ca78fbf26c0b4956c",
+      "created": null,
+      "block": 112870316,
+      "blockTime": 1791842996,
+      "status": "0x1",
+      "type": "0x0",
+      "gasLimit": "9144820",
+      "gasUsed": "9144820",
+      "baseFeeWei": "100000000000",
+      "maxFeePerGasWei": "110000000000",
+      "maxPriorityFeePerGasWei": "0",
+      "effectiveGasPriceWei": "110000000000",
+      "paidWei": "1005930200000000000",
+      "link": "https://monadvision.com/tx/0xd6ee25ab64b507c352147fe352056cc0f492ffc97ff81a9a927d6a378032802b"
+    },
+    {
+      "what": "OracleAdapterV3",
+      "script": "DeployExecutorV3.s.sol",
+      "hash": "0x3bc9dcc5ba1e983b706f80238ccd18d8e5390832b77227e020df6e328e821b66",
+      "from": "0x170921ed4d5e221cb2294a8a2f8c4afd4fda2fa8",
+      "to": "0x4e59b44847b379578588920ca78fbf26c0b4956c",
+      "created": null,
+      "block": 112870320,
+      "blockTime": 1791842997,
+      "status": "0x1",
+      "type": "0x0",
+      "gasLimit": "2561256",
+      "gasUsed": "2561256",
+      "baseFeeWei": "100000000000",
+      "maxFeePerGasWei": "110000000000",
+      "maxPriorityFeePerGasWei": "0",
+      "effectiveGasPriceWei": "110000000000",
+      "paidWei": "281738160000000000",
+      "link": "https://monadvision.com/tx/0x3bc9dcc5ba1e983b706f80238ccd18d8e5390832b77227e020df6e328e821b66"
+    },
+    {
+      "what": "AccountFactoryV3",
+      "script": "DeployCustodyV3.s.sol",
+      "hash": "0x4e9fed3841147feb9080c4262122b1d222c86c4b906d00e33f0ec1a71168361f",
+      "from": "0x170921ed4d5e221cb2294a8a2f8c4afd4fda2fa8",
+      "to": "0x4e59b44847b379578588920ca78fbf26c0b4956c",
+      "created": null,
+      "block": 112870410,
+      "blockTime": 1791843024,
+      "status": "0x1",
+      "type": "0x0",
+      "gasLimit": "28902740",
+      "gasUsed": "28902740",
+      "baseFeeWei": "100000000000",
+      "maxFeePerGasWei": "110000000000",
+      "maxPriorityFeePerGasWei": "0",
+      "effectiveGasPriceWei": "110000000000",
+      "paidWei": "3179301400000000000",
+      "link": "https://monadvision.com/tx/0x4e9fed3841147feb9080c4262122b1d222c86c4b906d00e33f0ec1a71168361f"
+    },
+    {
+      "what": "bind(address,address)",
+      "script": "BindExecutorV3.s.sol",
+      "hash": "0x565c43eae130c8af654c7dc0522ed1fe36da54dce3802716d6d324c697a87ffb",
+      "from": "0x170921ed4d5e221cb2294a8a2f8c4afd4fda2fa8",
+      "to": "0xe819fc8229db2b404765f4e70f64bc1fe36220a2",
+      "created": null,
+      "block": 112870500,
+      "blockTime": 1791843051,
+      "status": "0x1",
+      "type": "0x0",
+      "gasLimit": "99213",
+      "gasUsed": "99213",
+      "baseFeeWei": "100000000000",
+      "maxFeePerGasWei": "110000000000",
+      "maxPriorityFeePerGasWei": "0",
+      "effectiveGasPriceWei": "110000000000",
+      "paidWei": "10913430000000000",
+      "link": "https://monadvision.com/tx/0x565c43eae130c8af654c7dc0522ed1fe36da54dce3802716d6d324c697a87ffb"
+    }
+  ],
+  "spentWei": "7428939980000000000"
+}

@@ -60,6 +60,17 @@ export type ContractIdV3 = (typeof CONTRACT_IDS_V3)[number];
 export type ContractsV3 = Readonly<Record<ContractIdV3, Hex>>;
 
 /** The environment's v3 contracts, or the IDs the address book has not verified there. */
+/**
+ * F-U13: the venue quoters a chain may lack. Monad testnet has no Uniswap v3
+ * or PancakeSwap v3, so their quoters resolve to the zero address there; a
+ * route through a pool of that venue is then not quoted, and the registry
+ * lists no such pool on that chain.
+ */
+export const OPTIONAL_CONTRACT_IDS_V3: readonly ContractIdV3[] = [
+  "uniswap_v3_quoter_v2",
+  "pancakeswap_v3_quoter_v2",
+];
+
 export function contractsForV3(
   environment: EnvironmentId,
 ):
@@ -69,8 +80,10 @@ export function contractsForV3(
   const out: Partial<Record<ContractIdV3, Hex>> = {};
   for (const id of CONTRACT_IDS_V3) {
     const e = addressEntry(environment, id);
-    if (e.status !== "verified" || !e.address) missing.push(id);
-    else out[id] = e.address as Hex;
+    if (e.status !== "verified" || !e.address) {
+      if (OPTIONAL_CONTRACT_IDS_V3.includes(id)) out[id] = zeroAddress;
+      else missing.push(id);
+    } else out[id] = e.address as Hex;
   }
   return missing.length > 0 ? { ok: false, missing } : { ok: true, contracts: out as ContractsV3 };
 }
@@ -792,6 +805,9 @@ export class ViemChainReaderV3 implements ChainReaderV3 {
         pool.venue === "PANCAKESWAP_V3"
           ? this.c.pancakeswap_v3_quoter_v2
           : this.c.uniswap_v3_quoter_v2;
+      // F-U13: a chain without this venue's quoter (testnet) cannot quote such a pool.
+      if (isAddressEqual(quoter, zeroAddress))
+        throw new Error(`no ${pool.venue} quoter on this chain; the pool cannot be quoted`);
       const sim = await this.client.simulateContract({
         address: quoter,
         abi: QUOTER_V2_ABI,

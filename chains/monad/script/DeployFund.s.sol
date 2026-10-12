@@ -44,12 +44,22 @@ contract DeployFund is DeployScope {
         address pool;
     }
 
+    /// What the last run deployed or found (F-U13: the testnet fork test reads these).
+    TokenRegistry public deployedTokens;
+    ProtocolRegistryV3 public deployedPools;
+    OracleAdapterV3 public deployedOracle;
+    RouteAdapter public deployedAdapter;
+
     function run() external virtual {
         string memory json = vm.envString("FUND_CONFIG");
         TokenRegistry tokens = _deployTokens(json);
         ProtocolRegistryV3 pools = _deployPools(json, tokens);
         OracleAdapterV3 oracle = _deployOracle(json, tokens, pools);
         RouteAdapter adapter = _deployAdapter(json, pools);
+        deployedTokens = tokens;
+        deployedPools = pools;
+        deployedOracle = oracle;
+        deployedAdapter = adapter;
 
         console.log("TOKEN_REGISTRY_ADDRESS", address(tokens));
         console.log("TOKEN_REGISTRY_CODE_SIZE", address(tokens).code.length);

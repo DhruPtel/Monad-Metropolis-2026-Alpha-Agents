@@ -63,3 +63,12 @@ b5b6d71bc1083380b350478d2839ee2851f4193f:apps/console/e2e/token-detail-fixture.j
 # After the F-U11 playtest: the public USDC and WMON addresses under a `token` key in the v3 portfolio test fixture (app.test.ts, commit 4c8ebec); the test now names them as constants.
 4c8ebec55a8002d68923fb68aefd375db903bab1:apps/control-api/src/app.test.ts:generic-api-key:158
 4c8ebec55a8002d68923fb68aefd375db903bab1:apps/control-api/src/app.test.ts:generic-api-key:170
+#
+# F-U13 evidence: the JSON keys "tokenRegistry", "token" and "token1" in the canary v3
+# deployment record trip generic-api-key; each value is a public contract or token address
+# on Monad mainnet (the canary's TokenRegistry, Circle's USDC), checked in F-U13.
+evidence/f-u13/canary-deployment.json:generic-api-key:82
+evidence/f-u13/canary-deployment.json:generic-api-key:102
+evidence/f-u13/canary-deployment.json:generic-api-key:126
+evidence/f-u13/canary-deployment.json:generic-api-key:134
+evidence/f-u13/canary-deployment.json:generic-api-key:142

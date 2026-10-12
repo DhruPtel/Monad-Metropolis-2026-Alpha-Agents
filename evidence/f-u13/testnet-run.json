@@ -1,0 +1,6 @@
+{
+  "startBlock": 70511453,
+  "startedAt": "2026-10-12T21:52:00.000Z",
+  "balanceBeforeWei": "8276660830966193000",
+  "note": "Written by hand after the first run of pnpm deploy:testnet:v3 (steps 1 to 4 sent, step 5 stopped for funds) ran before the script kept its own start; the balance is the printed figure, exact to the wei the float carried."
+}

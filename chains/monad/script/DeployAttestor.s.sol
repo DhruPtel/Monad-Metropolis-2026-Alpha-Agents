@@ -13,6 +13,9 @@ import {DeployFund} from "./DeployFund.s.sol";
 /// moving the fork's clock, and executing; on a real chain the admin proposes
 /// and anyone executes after the delay.
 contract DeployAttestor is DeployFund {
+    /// The verifier the last run deployed or found (F-U13: the testnet fork test reads it).
+    AttestationVerifier public deployedVerifier;
+
     function run() external override {
         address attestor = vm.envAddress("ATTESTOR_ADDRESS");
         require(attestor != address(0), "ATTESTOR_ADDRESS is zero");
@@ -22,6 +25,7 @@ contract DeployAttestor is DeployFund {
             abi.encodePacked(type(AttestationVerifier).creationCode, args)
         );
         require(AttestationVerifier(verifier).ATTESTOR() == attestor, "verifier has another attestor");
+        deployedVerifier = AttestationVerifier(verifier);
         console.log("ATTESTATION_VERIFIER_ADDRESS", verifier);
         console.log("ATTESTATION_VERIFIER_CODE_SIZE", verifier.code.length);
         console.log("ATTESTOR_ADDRESS", attestor);

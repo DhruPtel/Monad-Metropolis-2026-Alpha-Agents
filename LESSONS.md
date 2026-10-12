@@ -1778,3 +1778,10 @@ What happened: two plain runs of the web suite in a row failed at `next build` w
 Cause: the build's Turbopack cache under `apps/web/.next/cache/turbopack` had gone stale between builds (the many design-system edits in between); the font loader's virtual module could not be resolved from the cached graph, and every later build reused the same cache.
 Fix: `rm -rf apps/web/.next` before the run; the next build compiled in 19 seconds and the suite passed.
 Lesson: When `next build` fails on an internal module that worked before and the network answers, clear `.next` first; a cached Turbopack graph can outlive the sources it was built from.
+
+## L-241: importing a constant from a deploy script ran the script
+Unit: F-U13
+What happened: the new testnet v3 deploy script imported the owner's playtest wallets from scripts/deploy-testnet.js; its first dry run printed P2-EC's "step 3 needs AgentNFT on chain" line, because the import had executed the whole P2-EC deployment script in dry-run mode. Without the flag it would have broadcast P2-EC's steps to testnet.
+Cause: an ES module runs its top-level code on import, and a deploy script is top-level code that reads its flags from argv and sends transactions.
+Fix: the constant moved to scripts/lib/testnet.js, which both scripts import; a script never imports another script.
+Lesson: Keep every shared value in scripts/lib; never import from a file under scripts/ that does work at the top level, and dry-run a new deploy script before its first real run.

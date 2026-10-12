@@ -16,6 +16,7 @@ import { ConfigError } from "@alpha-agents/config";
 import { loadRootEnv } from "./lib/config.js";
 import { ROOT } from "./lib/paths.js";
 import {
+  OWNER_PLAYTEST_WALLETS,
   SALT_SCOPE,
   SEED,
   TESTNET,
@@ -29,13 +30,6 @@ import {
   testnetConfig,
   testnetRpc,
 } from "./lib/testnet.js";
-
-/** The owner's playtest wallets (the local mint allowlist's "playtest" entries), for D-303. */
-export const OWNER_PLAYTEST_WALLETS = [
-  "0x683ee842a16f85e69883f433745263bfe8d55f76",
-  "0x32838fe90541567bbf77fa0570661f3c20e2b152",
-  "0xc8821706961bcac0e95441308083644eff444871",
-];
 
 const dryRun = process.argv.includes("--dry-run");
 loadRootEnv();

@@ -18,11 +18,19 @@ export const TESTNET = {
   entropy: /** @type {`0x${string}`} */ ("0x825c0390f379C631f3Cf11A82a37D20BddF93c07"),
   poolManager: /** @type {`0x${string}`} */ ("0x451D64ab3b650040d2aE1886602b97ed6eDc643d"),
   stateView: /** @type {`0x${string}`} */ ("0xB639209539c61BaF67AC04876315786F8D0b153c"),
+  /** The deterministic CREATE2 deployer, with code on every chain (the book's create2_deployer). */
+  create2Deployer: /** @type {`0x${string}`} */ ("0x4e59b44847b379578588920cA78FbF26c0B4956C"),
   explorer: "https://testnet.monadvision.com",
 };
 
 /** The p2ec salt scope every testnet deployment uses (D-249). */
 export const SALT_SCOPE = "p2ec.testnet";
+/** The owner's playtest wallets (the local mint allowlist's "playtest" entries), for D-303. */
+export const OWNER_PLAYTEST_WALLETS = [
+  "0x683ee842a16f85e69883f433745263bfe8d55f76",
+  "0x32838fe90541567bbf77fa0570661f3c20e2b152",
+  "0xc8821706961bcac0e95441308083644eff444871",
+];
 
 /** The pool seed of D-307: 0.5 MON and 0.5 USDC in about ±1% around 1 MON = 1 USDC. */
 export const SEED = {
@@ -99,10 +107,16 @@ export async function assertTestnet(url) {
  * and returns its output, with the RPC URL and every key redacted from what is
  * printed and returned.
  * @param {string} script e.g. "script/DeployTestnetMarket.s.sol:DeployTestnetMarket"
- * @param {{ url: string, env: Record<string, string>, secrets: string[], broadcast: boolean, scope?: string }} o
+ * @param {{ url: string, env: Record<string, string>, secrets: string[], broadcast: boolean, scope?: string, gasPriceWei?: bigint }} o
+ *   `gasPriceWei` (F-U13): a legacy gas price instead of forge's two-times-base
+ *   EIP-1559 maximum; on Monad the base fee holds at 100 gwei and the chain
+ *   charges the gas limit at the price paid, so the legacy price names what a
+ *   step really costs, and the balance a step needs upfront.
  */
 export function forgeScript(script, o) {
   const args = ["script", script, "--rpc-url", o.url, "--slow"];
+  if (o.gasPriceWei !== undefined)
+    args.push("--legacy", "--with-gas-price", o.gasPriceWei.toString());
   if (o.broadcast)
     args.push("--broadcast", "--gas-estimate-multiplier", String(GAS_ESTIMATE_MULTIPLIER));
   const result = spawnSync("forge", args, {

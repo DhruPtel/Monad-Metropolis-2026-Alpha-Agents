@@ -27,6 +27,8 @@ import {ExecutorSetDeployer} from "./ExecutorSetDeployer.sol";
 /// `alpha-agents.<name>.v3` salts: running it again finds the same contracts.
 contract DeployExecutorV3 is DeployFund {
     bytes32 public constant ROUTER_ID = keccak256("route-adapter");
+    /// The Executor the last run deployed or found (F-U13: the testnet fork test reads it).
+    ExecutorV3 public deployedExecutor;
 
     /// Executor v3's launch policy (FINAL_PLAN 6.3, D-352, D-337): packages/policy's executorV3.LAUNCH_POLICY.
     function launchPolicy() public pure returns (PolicyV3 memory) {
@@ -60,6 +62,11 @@ contract DeployExecutorV3 is DeployFund {
         (RouteAdapter router, ProtocolRegistryV3 pools) = _deploySet(json, tokens, executor);
         OracleAdapterV3 oracle = _deployOracle(json, tokens, pools);
         require(address(oracle.POOLS()) == address(pools), "the oracle reads another registry");
+        deployedExecutor = executor;
+        deployedTokens = tokens;
+        deployedPools = pools;
+        deployedOracle = oracle;
+        deployedAdapter = router;
 
         console.log("EXECUTOR_V3_ADDRESS", address(executor));
         console.log("EXECUTOR_V3_CODE_SIZE", address(executor).code.length);
