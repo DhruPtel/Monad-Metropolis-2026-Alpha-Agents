@@ -98,6 +98,13 @@ import {
   PortfolioOverview,
   CapsPanel,
   FundAgentPanel,
+  ComingLater,
+  CreditsTile,
+  PageLoading,
+  PortfolioHero,
+  PositionTiles,
+  SetupFlow,
+  TradingTile,
   PositionsPanel,
   type PositionsView,
   RecentTrades,
@@ -1056,7 +1063,7 @@ function AgentSection() {
       </Specimen>
       <Specimen
         name="Fund your agent"
-        note="The funding address with its copy button and QR code, the credits it holds, USDC held above the beta cap (P1-U9), and the trading account's value with a link to the portfolio, or that none is open yet (P2-U7)."
+        note="The funding address with its copy button and QR code, for sending from elsewhere, and USDC held above the beta cap (P1-U9). UI-U1: the credits and the trading account have tiles of their own, under Owner pages."
       >
         <div className="grid gap-6 lg:grid-cols-2">
           <FundAgentPanel
@@ -1066,23 +1073,8 @@ function AgentSection() {
               spendableUsdcE6: 4_994_400n,
               heldUsdcE6: 2_000_000n,
             }}
-            trading={{
-              hasAccount: true,
-              valueUsdcE6: 40_000_000n,
-              usdcShareBps: 7_500,
-              mode: "NORMAL",
-            }}
-            tradingAction={
-              <Button size="sm" variant="secondary">
-                Open portfolio
-              </Button>
-            }
           />
-          <FundAgentPanel
-            agentName="Alpha Agent #8"
-            funding={null}
-            trading={{ hasAccount: false, valueUsdcE6: null }}
-          />
+          <FundAgentPanel agentName="Alpha Agent #8" funding={null} />
         </div>
       </Specimen>
       <Specimen
@@ -2513,6 +2505,42 @@ function ActivationSection() {
         </div>
       </Specimen>
       <Specimen
+        name="Every unmet item with its action (UI-U1)"
+        note="Each unmet check says in plain words what it means and carries the exact action beside it: the goal page, a deposit, adding credits; and the trading permission says it is registered by the owner's wallet when they press Turn on automatic trading, with the button right there."
+      >
+        <div className="max-w-3xl" data-testid="activation-checks-actions">
+          <ActivationChecks
+            checks={ACT_CHECKS_BLOCKED.map((c) =>
+              c.code === "GRANT" ? { ...c, ok: false, blocking: false } : c,
+            )}
+            ceilingUsdcE6="3800000"
+            tierLabel="Medium"
+            notes={{
+              GRANT:
+                "The trading permission is not on chain yet. Your wallet registers it when you press Turn on automatic trading.",
+            }}
+            actions={{
+              GOAL: (
+                <Button size="sm" variant="secondary">
+                  Set goal
+                </Button>
+              ),
+              TRADING_BALANCE: (
+                <Button size="sm" variant="secondary">
+                  Deposit
+                </Button>
+              ),
+              CREDITS: (
+                <Button size="sm" variant="secondary">
+                  Add credits
+                </Button>
+              ),
+              GRANT: <Button disabled>Turn on automatic trading</Button>,
+            }}
+          />
+        </div>
+      </Specimen>
+      <Specimen
         name="The step panel"
         note="The eight steps with their live states, each step's one-line result and its cost against its ceiling, the sweep's cost against the ceiling shown before it started, and what happened at the end with what the owner can do: running (the clock held still), a plan waiting for approval, active, out of credits, and stopped at a limit."
       >
@@ -3055,6 +3083,235 @@ const GOAL_COST_ROWS = RESEARCH_INTENSITIES.map((intensity) => ({
 const usdcText = (e6: bigint) => (Number(e6) / 1e6).toFixed(2);
 
 /** BK-U1: the owner's own keys for paid data sources, as tiles, and the one-input form. */
+/**
+ * UI-U1: the owner's main pages, redesigned around tiles. The trading account
+ * as a centerpiece, the credits tile with the research action, positions as
+ * tiles, the portfolio hero, the guided setup flow, the loading block and
+ * the "coming after the beta" page.
+ */
+const OWNER_SERIES = WIN_SERIES;
+const OWNER_STEPS_NEXT = [
+  {
+    key: "open",
+    title: "Open a trading account",
+    state: "done" as const,
+    detail: "Open. Only you can withdraw from it; the agent trades it within its hard limits.",
+  },
+  {
+    key: "deposit",
+    title: "Deposit",
+    state: "next" as const,
+    detail:
+      "At least 5.00 USDC in the account gives the agent something to trade. Your wallet approves exactly the amount, then deposits it.",
+    action: <Button size="sm">Deposit</Button>,
+  },
+  {
+    key: "goal",
+    title: "Set a goal",
+    state: "later" as const,
+    detail: "The goal fixes how boldly the agent trades, its research budget and its hard limits.",
+  },
+  {
+    key: "turnOn",
+    title: "Turn on automatic trading",
+    state: "later" as const,
+    detail:
+      "Your wallet registers the trading permission, the agent runs one activation sweep and builds a plan; approving that plan turns trading on.",
+  },
+];
+const OWNER_STEPS_BLOCKED = [
+  {
+    key: "open",
+    title: "Open a trading account",
+    state: "blocked" as const,
+    detail:
+      "This wallet is not yet allowed to deposit during the beta. Ask the platform to add it, then open the account here.",
+  },
+  ...OWNER_STEPS_NEXT.slice(1).map((s) => ({ ...s, state: "later" as const, action: undefined })),
+];
+
+function OwnerPagesSection() {
+  const primary = <Button size="sm">Open portfolio</Button>;
+  return (
+    <Section id="owner-pages" title="Owner pages">
+      <Specimen
+        name="The trading account as the centerpiece"
+        note="On My Agents: the account's value, the allocation, a small performance line, the agent's state and one obvious primary action; without an account, what it is and 'Set up trading'; while it is read, a loading block."
+      >
+        <div className="grid gap-6 lg:grid-cols-3" data-testid="trading-tiles">
+          <TradingTile
+            agentName="Alpha Agent #7"
+            trading={{
+              hasAccount: true,
+              valueUsdcE6: 104_788_000n,
+              mode: "NORMAL",
+              makeup: WIN_ROWS,
+              series: OWNER_SERIES,
+              state: { label: "Automatic trading on", tone: "positive" },
+            }}
+            primary={primary}
+            secondary={
+              <Button size="sm" variant="secondary">
+                Performance
+              </Button>
+            }
+          />
+          <TradingTile
+            agentName="Alpha Agent #8"
+            trading={{ hasAccount: false, valueUsdcE6: null, mode: null }}
+            primary={<Button size="sm">Set up trading</Button>}
+            className="lg:col-span-1"
+          />
+          <TradingTile
+            agentName="Alpha Agent #9"
+            trading={{
+              hasAccount: true,
+              valueUsdcE6: 40_000_000n,
+              mode: "REDUCE_ONLY",
+              makeup: [WIN_ROWS[0] as AssetRow],
+              series: OWNER_SERIES.slice(0, 1),
+              state: { label: "Automatic trading off: each trade waits for you", tone: "neutral" },
+            }}
+            primary={primary}
+            className="lg:col-span-2"
+          />
+          <TradingTile agentName="Alpha Agent #10" trading={null} primary={primary} />
+        </div>
+      </Specimen>
+      <Specimen
+        name="Credits and the research action"
+        note="Near the top of the card: the balance against the beta cap, 'Add credits' opening a small dialog, a refund, and 'Research now' with one line on what it does and what it costs; paused research says why and what to do."
+      >
+        <div className="grid gap-6 lg:grid-cols-3" data-testid="credits-tiles">
+          <CreditsTile
+            agentName="Alpha Agent #7"
+            creditsUsdcE6={4_994_400n}
+            capUsdcE6={50_000_000n}
+            heldUsdcE6={2_000_000n}
+            addCredits={
+              <>
+                <Button size="sm">Add credits</Button>
+                <Button size="sm" variant="secondary">
+                  Refund credits
+                </Button>
+              </>
+            }
+            research={
+              <Button size="sm" variant="secondary">
+                Research now
+              </Button>
+            }
+            researchLine="Alpha Agent #7 searches the web, reads the most relevant pages and saves its notes. It costs about 0.15 to 0.30 USDC of credits, taken as it runs; if the credits run out, it stops."
+            researchStatus={
+              <p className="text-xs text-foreground-muted">Last research completed at 16:41 UTC.</p>
+            }
+          />
+          <CreditsTile
+            agentName="Alpha Agent #8"
+            creditsUsdcE6={0n}
+            capUsdcE6={50_000_000n}
+            restrictedNote="Research is paused because Alpha Agent #8 has no credits. Safety checks keep running. Add credits to resume."
+            addCredits={<Button size="sm">Add credits</Button>}
+            research={
+              <Button size="sm" variant="secondary" disabled>
+                Research now
+              </Button>
+            }
+            researchLine="Alpha Agent #8 searches the web, reads the most relevant pages and saves its notes. It costs about 0.15 to 0.30 USDC of credits, taken as it runs."
+            researchStatus={
+              <p className="text-xs text-foreground-muted">
+                Research needs at least 0.15 USDC of credits. Add credits first.
+              </p>
+            }
+          />
+        </div>
+      </Specimen>
+      <Specimen
+        name="The portfolio hero"
+        note="The portfolio at a glance: the total value, the mode and the agent's state, the allocation donut, the performance line, a line on the prices, and deposit and withdraw as compact buttons that open small dialogs; a standing block on deposits is named right there."
+      >
+        <div className="flex flex-col gap-6" data-testid="portfolio-heroes">
+          <PortfolioHero
+            totalValueUsdcE6="104788000"
+            rows={WIN_ROWS}
+            series={OWNER_SERIES}
+            mode="NORMAL"
+            state={{ label: "Automatic trading on", tone: "positive" }}
+            custody="v3"
+            note="3 of 4 held tokens priced; the oldest price is 20s old."
+            actions={
+              <>
+                <Button>Deposit</Button>
+                <Button size="sm" variant="secondary">
+                  Withdraw
+                </Button>
+              </>
+            }
+          />
+          <PortfolioHero
+            totalValueUsdcE6={null}
+            rows={[WIN_ROWS[3] as AssetRow]}
+            series={OWNER_SERIES.slice(0, 1)}
+            mode="PAUSED"
+            custody="v2"
+            note="The WMON price is not usable (STALE), 900s old: its value and the total are unknown until a fresh one arrives."
+            actions={
+              <>
+                <Button>Deposit</Button>
+                <Button size="sm" variant="secondary">
+                  Withdraw
+                </Button>
+                <p role="alert" className="w-full text-sm text-warning">
+                  The account is paused, so it takes no deposits. Withdrawals still work.
+                </p>
+              </>
+            }
+          />
+        </div>
+      </Specimen>
+      <Specimen
+        name="Positions as tiles"
+        note="Every held token as a tile: amount, value, share and gain or loss, three across on desktop; a token without a usable price says so; nothing held says what to do."
+      >
+        <div className="flex flex-col gap-6" data-testid="position-tiles">
+          <PositionTiles rows={WIN_ROWS} totalValueUsdcE6="104788000" />
+          <PositionTiles rows={[]} totalValueUsdcE6={null} />
+        </div>
+      </Specimen>
+      <Specimen
+        name="The guided setup"
+        note="Opening the account, depositing, setting a goal and turning on automatic trading as one flow: done steps, the next one with its action, the later ones with what they need, and a blocked first step that says what to do."
+      >
+        <div className="flex flex-col gap-6" data-testid="setup-flows">
+          <SetupFlow steps={OWNER_STEPS_NEXT} />
+          <SetupFlow steps={OWNER_STEPS_BLOCKED} />
+        </div>
+      </Specimen>
+      <Specimen
+        name="Loading, and pages that come after the beta"
+        note="Every page shows this while it loads, never a blank wait; and a path the beta has not built yet says so and points at what works today."
+      >
+        <div className="flex flex-col gap-6" data-testid="page-states">
+          <PageLoading label="Reading the portfolio" />
+          <ComingLater
+            title="The leaderboard comes after the beta"
+            description="Every agent ranked by its window comes after the beta (D-368). Everything that works today is below."
+            links={[
+              {
+                href: "/agents",
+                label: "My Agents",
+                note: "Your agents: their trading account, credits, research and holdings.",
+              },
+              { href: "/mint", label: "Mint", note: "Mint an agent." },
+              { href: "/configure", label: "Configure", note: "Your agent in 3D." },
+            ]}
+          />
+        </div>
+      </Specimen>
+    </Section>
+  );
+}
+
 function SettingsSection() {
   const [draft, setDraft] = useState("");
   const dune = {
@@ -4083,6 +4340,7 @@ function DesignSystem() {
       <VaultSection />
       <SkillsSection />
       <SettingsSection />
+      <OwnerPagesSection />
       <ActivationSection />
       <WindowSection />
       <FormsSection />

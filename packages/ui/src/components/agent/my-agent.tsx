@@ -1,12 +1,8 @@
 import encodeQR from "@paulmillr/qr";
-import type { ReactNode } from "react";
 import { cn } from "../../lib/utils";
 import { AddressDisplay } from "../address-display";
 import { AmountDisplay } from "../amount-display";
-import type { AccountMode } from "@alpha-agents/domain";
-import { StatusPill } from "../status-pill";
 import { Badge, type BadgeTone } from "../ui/badge";
-import { AllocationBar } from "./portfolio";
 import { SectionLabel } from "../ui/section-label";
 
 /**
@@ -105,42 +101,21 @@ export interface FundingView {
   readonly heldUsdcE6: bigint;
 }
 
-/** The agent's trading account in "Fund your agent" (P2-U7): its value, or that none is open. */
-export interface TradingSummaryView {
-  /** Null before the owner opens the account. */
-  readonly hasAccount: boolean;
-  /** The account's value in USDC base units; null while it cannot be priced. */
-  readonly valueUsdcE6: bigint | null;
-  /** USDC's share of the value in basis points; null while unknown or absent (Phase 2 tuning). */
-  readonly usdcShareBps?: number | null;
-  /** What the rest of the allocation bar is called (A-80: "Other tokens" on the fund set). */
-  readonly restLabel?: string;
-  readonly mode?: AccountMode | null;
-}
-
 /**
  * "Fund your agent" (FINAL_PLAN 5.7): send USDC to the funding address and it
- * becomes credits with no other step. Trading capital is a separate balance
- * in the PersonalAccount (P2-U7), which only the owner can withdraw from; the
- * two never mix.
+ * becomes credits with no other step. UI-U1: the credits balance and the
+ * trading account have tiles of their own near the top of the card; this
+ * panel keeps the funding address, its copy button and QR code, for sending
+ * from elsewhere, and what is held above the cap.
  */
 function FundAgentPanel({
   agentName,
   funding,
-  trading,
-  tradingAction,
-  addCredits,
   className,
 }: {
   agentName: string;
   /** Null until the platform has recorded the funding address. */
   funding: FundingView | null;
-  /** The trading account; null while it is being read or where trading is not deployed. */
-  trading?: TradingSummaryView | null;
-  /** A link to the portfolio, as the app routes it. */
-  tradingAction?: ReactNode;
-  /** The add-credits form, as the app wires it (Phase 2 tuning). */
-  addCredits?: ReactNode;
   className?: string;
 }) {
   return (
@@ -159,24 +134,14 @@ function FundAgentPanel({
           />
           <div className="flex min-w-0 flex-col gap-3">
             <div className="flex flex-col gap-1">
-              <span className="text-xs text-foreground-muted">Credits</span>
-              <AmountDisplay
-                value={funding.spendableUsdcE6}
-                decimals={6}
-                maxFractionDigits={4}
-                symbol="USDC"
-                className="text-lg"
-              />
-            </div>
-            <div className="flex flex-col gap-1">
               <span className="text-xs text-foreground-muted">Funding address</span>
               <AddressDisplay
                 address={funding.fundingAddress}
                 label={`Funding address of ${agentName}`}
               />
               <p className="text-xs text-foreground-muted">
-                Send USDC on Monad to this address. It becomes {agentName}&apos;s credits with no
-                other step, and pays for its research.
+                Send USDC on Monad to this address from any wallet. It becomes {agentName}&apos;s
+                credits with no other step, and pays for its research.
               </p>
             </div>
             {funding.heldUsdcE6 > 0n ? (
@@ -195,46 +160,6 @@ function FundAgentPanel({
           The funding address appears here as soon as the platform has set it up.
         </p>
       )}
-      <div
-        className="flex flex-col gap-2 rounded-md border border-border p-3"
-        data-testid="trading-summary"
-      >
-        <span className="text-xs text-foreground-muted">Trading account</span>
-        {trading?.hasAccount ? (
-          trading.valueUsdcE6 === null ? (
-            <p className="text-sm text-foreground-muted">
-              Value unknown while the WMON price is unavailable.
-            </p>
-          ) : (
-            <AmountDisplay
-              value={trading.valueUsdcE6}
-              decimals={6}
-              minFractionDigits={2}
-              symbol="USDC"
-              className="text-lg"
-            />
-          )
-        ) : (
-          <p className="text-sm text-foreground-muted">
-            {trading === undefined || trading === null
-              ? "Trading capital lives in an account only you can withdraw from, separate from credits."
-              : "No trading account yet. Open one to deposit trading capital, separate from credits."}
-          </p>
-        )}
-        {trading?.hasAccount ? (
-          <div className="flex flex-col gap-2">
-            {trading.usdcShareBps !== undefined ? (
-              <AllocationBar
-                usdcShareBps={trading.usdcShareBps}
-                {...(trading.restLabel ? { restLabel: trading.restLabel } : {})}
-              />
-            ) : null}
-            {trading.mode ? <StatusPill kind="account_mode" value={trading.mode} /> : null}
-          </div>
-        ) : null}
-        {tradingAction}
-      </div>
-      {addCredits}
     </section>
   );
 }

@@ -177,7 +177,7 @@ function HoldingsPanel({
           {stranded ? " Some of it does nothing where it is; each line says what you can do." : ""}
         </p>
       </div>
-      <ul className="flex flex-col gap-3">
+      <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {addresses.map((a) => {
           const text = ROLE_TEXT[a.role];
           return (

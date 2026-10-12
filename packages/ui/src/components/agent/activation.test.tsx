@@ -189,3 +189,40 @@ describe("the activation panel (F-U10)", () => {
     expect(elapsedText("2026-10-10T20:00:10.000Z", "2026-10-10T20:00:00.000Z")).toBe("0 s");
   });
 });
+
+describe("ActivationChecks with actions (UI-U1)", () => {
+  it("puts the exact action beside each unmet item and lets a note replace the platform's line", () => {
+    render(
+      <ActivationChecks
+        checks={[
+          { code: "GOAL", ok: true, message: "Goal: Balanced on the Medium tier.", blocking: true },
+          {
+            code: "CREDITS",
+            ok: false,
+            message: "Credits are short: 3.00 USDC available.",
+            blocking: true,
+          },
+          { code: "GRANT", ok: false, message: "The grant is a step to come.", blocking: false },
+        ]}
+        ceilingUsdcE6="3800000"
+        tierLabel="Medium"
+        notes={{ GRANT: "Your wallet registers it when you press Turn on automatic trading." }}
+        actions={{
+          GOAL: <a href="/goal">Set goal</a>,
+          CREDITS: <button type="button">Add credits</button>,
+          GRANT: <button type="button">Turn on automatic trading</button>,
+        }}
+      />,
+    );
+    const row = (code: string) => document.querySelector(`[data-check="${code}"]`) as HTMLElement;
+    // A met item carries no action, even when one is offered for its code.
+    expect(within(row("GOAL")).queryByRole("link")).toBeNull();
+    expect(within(row("CREDITS")).getByRole("button", { name: "Add credits" })).toBeTruthy();
+    expect(row("CREDITS").textContent).toContain("Credits are short");
+    expect(row("GRANT").textContent).toContain("when you press Turn on automatic trading");
+    expect(row("GRANT").textContent).not.toContain("a step to come");
+    expect(
+      within(row("GRANT")).getByRole("button", { name: "Turn on automatic trading" }),
+    ).toBeTruthy();
+  });
+});

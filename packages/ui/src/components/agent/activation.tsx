@@ -276,11 +276,17 @@ function ActivationChecks({
   checks,
   ceilingUsdcE6,
   tierLabel,
+  actions,
+  notes,
   className,
 }: {
   checks: readonly ActivationCheckView[];
   ceilingUsdcE6: string;
   tierLabel: string;
+  /** UI-U1: the exact action for an unmet item, by check code, shown beside it. */
+  actions?: Readonly<Record<string, ReactNode>>;
+  /** UI-U1: plain words for an unmet item, by check code, in place of the platform's line. */
+  notes?: Readonly<Record<string, string>>;
   className?: string;
 }) {
   const blocked = checks.filter((c) => !c.ok && c.blocking);
@@ -295,24 +301,29 @@ function ActivationChecks({
       <ul aria-label="Before the sweep" className="flex flex-col gap-1">
         {checks.map((c) => {
           const Icon = c.ok ? CircleCheck : c.blocking ? CircleAlert : Circle;
+          const action = c.ok ? null : (actions?.[c.code] ?? null);
+          const message = c.ok ? c.message : (notes?.[c.code] ?? c.message);
           return (
             <li
               key={c.code}
-              className="flex items-start gap-2 text-sm"
+              className="flex flex-col gap-1 text-sm sm:flex-row sm:items-start sm:justify-between sm:gap-3"
               data-testid="activation-check"
               data-check={c.code}
               data-ok={c.ok ? "true" : "false"}
             >
-              <Icon
-                aria-hidden
-                className={cn(
-                  "mt-0.5 size-4 shrink-0",
-                  c.ok ? "text-positive" : c.blocking ? "text-warning" : "text-foreground-subtle",
-                )}
-              />
-              <span className={c.ok || !c.blocking ? "text-foreground-muted" : "text-warning"}>
-                {c.message}
+              <span className="flex items-start gap-2">
+                <Icon
+                  aria-hidden
+                  className={cn(
+                    "mt-0.5 size-4 shrink-0",
+                    c.ok ? "text-positive" : c.blocking ? "text-warning" : "text-foreground-subtle",
+                  )}
+                />
+                <span className={c.ok || !c.blocking ? "text-foreground-muted" : "text-warning"}>
+                  {message}
+                </span>
               </span>
+              {action ? <span className="shrink-0 sm:pl-6">{action}</span> : null}
             </li>
           );
         })}

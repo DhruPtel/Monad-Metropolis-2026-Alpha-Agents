@@ -59,7 +59,7 @@ describe("QrCode", () => {
 });
 
 describe("FundAgentPanel", () => {
-  it("shows the funding address with a copy button, a QR code, credits, held USDC and the trading account", () => {
+  it("shows the funding address with a copy button, a QR code and held USDC (UI-U1: credits and trading have tiles of their own)", () => {
     render(
       <FundAgentPanel
         agentName="Alpha Agent #7"
@@ -67,35 +67,12 @@ describe("FundAgentPanel", () => {
       />,
     );
     const panel = screen.getByRole("region", { name: "Fund Alpha Agent #7" });
-    expect(within(panel).getByText("4.9944")).toBeTruthy();
     expect(within(panel).getByRole("img", { name: /QR code/ })).toBeTruthy();
     expect(within(panel).getByRole("button", { name: /Copy/ })).toBeTruthy();
     expect(panel.textContent).toContain("held");
     expect(panel.textContent).toContain("capped at 50 USDC");
-    expect(panel.textContent).toContain("only you can withdraw from");
-  });
-
-  it("shows the trading account's value, or that none is open (P2-U7)", () => {
-    const { unmount } = render(
-      <FundAgentPanel
-        agentName="Alpha Agent #7"
-        funding={null}
-        trading={{ hasAccount: true, valueUsdcE6: 40_000_000n }}
-        tradingAction={<a href="/agents/7/portfolio">Open portfolio</a>}
-      />,
-    );
-    const summary = screen.getByTestId("trading-summary");
-    expect(summary.textContent).toContain("40.00");
-    expect(within(summary).getByRole("link", { name: "Open portfolio" })).toBeTruthy();
-    unmount();
-    render(
-      <FundAgentPanel
-        agentName="Alpha Agent #8"
-        funding={null}
-        trading={{ hasAccount: false, valueUsdcE6: null }}
-      />,
-    );
-    expect(screen.getByTestId("trading-summary").textContent).toContain("No trading account yet");
+    expect(within(panel).queryByText("4.9944")).toBeNull();
+    expect(within(panel).queryByTestId("trading-summary")).toBeNull();
   });
 
   it("says when there is no funding address yet, and shows no held line when nothing is held", () => {

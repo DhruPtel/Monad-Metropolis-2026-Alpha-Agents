@@ -201,8 +201,8 @@ function MintPanel(props: MintPanelProps) {
     case "not-eligible":
       body = (
         <Lead title="This wallet cannot mint">
-          {props.message ?? "This wallet is not on the beta mint allowlist."} Try another wallet, or
-          ask to be added during the beta.
+          {props.message ?? "This wallet is not yet invited to mint during the beta."} Try another
+          wallet, or ask to be added during the beta.
         </Lead>
       );
       break;
