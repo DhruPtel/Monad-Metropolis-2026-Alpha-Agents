@@ -17,6 +17,7 @@ import { AGENT_NFT, type FakeChain } from "./fake-chain";
 import { FakeGoals } from "./fake-goals";
 import type { FakeHoldings } from "./fake-holdings";
 import type { FakeTrading } from "./fake-trading";
+import type { FakeKeys } from "./fake-keys";
 import type { FakeSkills } from "./fake-skills";
 import type { FakeVault } from "./fake-vault";
 
@@ -155,6 +156,8 @@ export class FakeApi {
   readonly vaults = new Map<bigint, FakeVault>();
   /** SK-U1: each agent's skills for its owner. */
   readonly skills = new Map<bigint, FakeSkills>();
+  /** BK-U1: each agent's data keys for its owner. */
+  readonly keys = new Map<bigint, FakeKeys>();
   /** P3-U1: each agent's goal and state. */
   readonly goals = new FakeGoals();
   /** D-315: each agent's holdings at its three addresses. */
@@ -379,6 +382,42 @@ export class FakeApi {
           message: "Trading accounts are not deployed on the local fork.",
         });
       return reply(r.status, { ...meta, ...(r.body as Record<string, unknown>) });
+    }
+    // BK-U1: the owner's data keys, on the owner session alone; the key is taken, never served.
+    const keysRoute = /^\/v1\/agents\/(\d+)\/keys(?:\/([a-z]+))?$/.exec(url.pathname);
+    if (keysRoute?.[1]) {
+      const id = BigInt(keysRoute[1]);
+      const agent = this.chain.agents.get(id);
+      if (!agent) return reply(404, { error: "not_found", message: "No such agent." });
+      this.ownerCalls.push(`keys ${id.toString()}`);
+      const token = request.headers()["x-owner-session"];
+      if (!token)
+        return reply(401, { error: "missing_token", message: "Start an owner session first." });
+      if (token !== this.sessionFor(id))
+        return reply(403, {
+          error: "not_owner",
+          message: "This owner session is for another agent.",
+        });
+      const fk = this.keys.get(id);
+      if (!fk) return reply(503, { error: "not_configured", message: "Keys are not served here." });
+      const method = request.method();
+      if (method === "GET") return reply(200, { ...meta, ...fk.list(id.toString()) });
+      if (method === "PUT" && keysRoute[2]) {
+        const posted = request.postData() ?? "";
+        const body = ((): { key?: unknown } | null => {
+          try {
+            return posted ? (JSON.parse(posted) as { key?: unknown }) : null;
+          } catch {
+            return null;
+          }
+        })();
+        const r = fk.save(id.toString(), keysRoute[2], body);
+        return reply(r.status, { ...meta, ...(r.body as Record<string, unknown>) });
+      }
+      if (method === "DELETE" && keysRoute[2]) {
+        const r = fk.remove(id.toString(), keysRoute[2]);
+        return reply(r.status, { ...meta, ...(r.body as Record<string, unknown>) });
+      }
     }
     // SK-U1: the owner's skills, on the owner session alone.
     const skillsRoute = /^\/v1\/agents\/(\d+)\/skills(?:\/([a-z0-9-]+))?$/.exec(url.pathname);

@@ -55,6 +55,9 @@ export function SkillsPage({
         <Link href={`/agents/${agentId.toString()}/portfolio`} data-testid="portfolio-link">
           Portfolio
         </Link>
+        <Link href={`/agents/${agentId.toString()}/settings`} data-testid="settings-link">
+          Settings
+        </Link>
       </div>
       <h1 className="text-2xl font-semibold">Skills of {name}</h1>
       <p className="text-sm text-foreground-muted">

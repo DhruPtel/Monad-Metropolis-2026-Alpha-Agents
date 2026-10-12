@@ -1309,6 +1309,58 @@ export class GoalRefusedError extends Error {
   }
 }
 
+/** BK-U1: one paid data source and the owner's key for it, as the API lists it: never the key itself. */
+export interface DataKeyJson {
+  readonly provider: string;
+  readonly label: string;
+  readonly gives: string;
+  readonly keyHelp: string;
+  readonly tool: string;
+  readonly present: boolean;
+  readonly hint: string | null;
+  readonly addedAt: string | null;
+}
+
+export interface DataKeysJson {
+  readonly agentId: string;
+  /** Whether the platform can take a key here (its sealing secret is set). */
+  readonly available: boolean;
+  readonly keys: readonly DataKeyJson[];
+}
+
+/** BK-U1: the owner's data key routes; each needs the owner session. */
+export const keysApi = {
+  async list(agentId: bigint, session: string): Promise<DataKeysJson> {
+    return call<DataKeysJson>(`/v1/agents/${agentId.toString()}/keys`, owner(session));
+  },
+  /** Saves the key; the answer carries its hint and nothing else of it. */
+  async save(
+    agentId: bigint,
+    provider: string,
+    key: string,
+    session: string,
+  ): Promise<{ provider: string; present: boolean; hint: string | null; addedAt: string | null }> {
+    return (
+      await call<{
+        key: { provider: string; present: boolean; hint: string | null; addedAt: string | null };
+      }>(
+        `/v1/agents/${agentId.toString()}/keys/${encodeURIComponent(provider)}`,
+        owner(session, {
+          method: "PUT",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ key }),
+        }),
+      )
+    ).key;
+  },
+  async remove(agentId: bigint, provider: string, session: string): Promise<void> {
+    await call<{ removed: string }>(
+      `/v1/agents/${agentId.toString()}/keys/${encodeURIComponent(provider)}`,
+      owner(session, { method: "DELETE" }),
+    );
+  },
+};
+
 /** SK-U1: one of the agent's skills as the API lists it: a built-in skill or playbook, or the owner's own. */
 export interface SkillJson {
   readonly id: string;
