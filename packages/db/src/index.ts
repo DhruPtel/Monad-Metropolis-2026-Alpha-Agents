@@ -32,6 +32,7 @@ import * as sentinel from "./migrations/0028_sentinel.ts";
 import * as researchUniverse from "./migrations/0029_research_universe.ts";
 import * as managedAccounts from "./migrations/0030_managed_accounts.ts";
 import * as ownerSkills from "./migrations/0031_owner_skills.ts";
+import * as ownerKeys from "./migrations/0032_owner_keys.ts";
 import type { Database } from "./schema.ts";
 
 export type * from "./schema.ts";
@@ -73,6 +74,7 @@ export const MIGRATIONS: Readonly<Record<string, Migration>> = {
   "0029_research_universe": researchUniverse,
   "0030_managed_accounts": managedAccounts,
   "0031_owner_skills": ownerSkills,
+  "0032_owner_keys": ownerKeys,
 };
 
 const INT8 = 20;

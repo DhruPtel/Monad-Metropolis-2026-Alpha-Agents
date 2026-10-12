@@ -1,4 +1,5 @@
-import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
+import { openSecret, sealSecret } from "@alpha-agents/trading";
 
 /**
  * Secrets the orchestrator handles: agents' LiteLLM virtual keys (encrypted at
@@ -6,35 +7,9 @@ import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:
  * Every value it creates or reads is registered with a Redactor, and every log
  * line passes through it, so no secret can reach a log (unit acceptance).
  */
-const VERSION = "v1";
-
-function keyFrom(secret: string): Buffer {
-  if (secret.length < 32) throw new Error("ORCHESTRATOR_SECRET must be 32+ characters");
-  return createHash("sha256").update(`alpha-agents/orchestrator/${VERSION}\0${secret}`).digest();
-}
-
-/** AES-256-GCM: `v1.<iv>.<tag>.<ciphertext>`, base64url parts. */
-export function encryptSecret(plaintext: string, secret: string): string {
-  const iv = randomBytes(12);
-  const cipher = createCipheriv("aes-256-gcm", keyFrom(secret), iv);
-  const body = Buffer.concat([cipher.update(plaintext, "utf8"), cipher.final()]);
-  const tag = cipher.getAuthTag();
-  return [VERSION, iv, tag, body]
-    .map((p) => (typeof p === "string" ? p : p.toString("base64url")))
-    .join(".");
-}
-
-export function decryptSecret(sealed: string, secret: string): string {
-  const [version, iv, tag, body] = sealed.split(".");
-  if (version !== VERSION || !iv || !tag || body === undefined)
-    throw new Error("not an orchestrator ciphertext");
-  const decipher = createDecipheriv("aes-256-gcm", keyFrom(secret), Buffer.from(iv, "base64url"));
-  decipher.setAuthTag(Buffer.from(tag, "base64url"));
-  return Buffer.concat([
-    decipher.update(Buffer.from(body, "base64url")),
-    decipher.final(),
-  ]).toString("utf8");
-}
+/** The platform's envelope (packages/trading sealed.ts): the control API seals owners' keys the tool servers open (BK-U1). */
+export const encryptSecret = sealSecret;
+export const decryptSecret = openSecret;
 
 /** 32 random bytes as hex: gate tokens and per-sandbox API server keys. */
 export const randomToken = (): string => randomBytes(32).toString("hex");

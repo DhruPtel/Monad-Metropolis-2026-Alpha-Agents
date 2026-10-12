@@ -42,6 +42,7 @@ describe.skipIf(!available)("database migrations (needs pnpm dev:up)", () => {
       "platform.mint_allowlist",
       "platform.mint_claims",
       "platform.model_calls",
+      "platform.owner_keys",
       "platform.owner_skills",
       "platform.plan_proposals",
       "platform.provider_usage",

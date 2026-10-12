@@ -515,6 +515,23 @@ export interface ToolCallTable {
   finished_at: Timestamp | null;
   /** P3-U4: the cycle's stage run the call was made in; null outside a cycle. */
   stage_run_id: ColumnType<string | null, string | null | undefined, string | null>;
+  /** BK-U1: which key paid the upstream: the platform's, or the owner's own. */
+  paid_by: ColumnType<"platform" | "owner", "platform" | "owner" | undefined, "platform" | "owner">;
+}
+
+/**
+ * BK-U1: an owner's own key for a paid data source, sealed under the
+ * platform's secret; the owner sees its last characters only.
+ */
+export interface OwnerKeyTable {
+  chain_id: number;
+  agent_id: number;
+  provider: "dune";
+  ciphertext: string;
+  key_hint: string;
+  added_by: string;
+  added_at: Timestamp;
+  updated_at: Timestamp;
 }
 
 /** One `complete_stage` call: once per stage run in a cycle, once per stage per lease outside one. */
@@ -955,6 +972,7 @@ export interface Database {
   "platform.arming": ArmingTable;
   "platform.managed_accounts": ManagedAccountTable;
   "platform.owner_skills": OwnerSkillTable;
+  "platform.owner_keys": OwnerKeyTable;
   "platform.agent_states": AgentStateTable;
   "platform.agent_state_changes": AgentStateChangeTable;
   "platform.agent_goals": AgentGoalTable;

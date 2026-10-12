@@ -14,3 +14,5 @@ export * from "./proposals.ts";
 export * from "./activation.ts";
 export * from "./window.ts";
 export * from "./vault-v3.ts";
+export * from "./sealed.ts";
+export * from "./owner-keys.ts";
