@@ -10,7 +10,14 @@ import {
   X_TOPICS,
   X_TOPIC_IDS,
 } from "@alpha-agents/market";
-import { type AgentIdentity, ToolError, errorFrom, okResult } from "@alpha-agents/tool-server";
+import {
+  type AgentIdentity,
+  type ReplayHook,
+  ToolError,
+  errorFrom,
+  okResult,
+  replayed,
+} from "@alpha-agents/tool-server";
 import { z } from "zod";
 import type { Meter } from "./server.ts";
 import { wrapUntrusted } from "./web-content.ts";
@@ -147,6 +154,8 @@ export interface ResearchToolsDeps {
     identity: AgentIdentity,
     provider: PaidDataSourceId,
   ) => Promise<string | null>;
+  /** UI-U2: inside a replayed stage the answer is the stored one; see DataToolsDeps.replay. */
+  readonly replay?: ReplayHook | null;
 }
 
 export function registerResearchTools(
@@ -180,6 +189,21 @@ export function registerResearchTools(
       ownerKey: OwnerSourceKey | null,
     ) => Promise<{ output: Record<string, unknown>; summary: Record<string, unknown> }>,
   ) => {
+    // UI-U2: a replay answers from the stored result. x_search's posts are stored without their
+    // text (P3-U9), so a replayed search carries each post's figures and an empty text.
+    const replay = await replayed(deps.replay, identity, "data", tool, input);
+    if (replay) {
+      const stored = replay.structuredContent as Record<string, unknown> | undefined;
+      if (replay.isError || tool !== "x_search" || !stored) return replay;
+      return okResult({
+        ...stored,
+        notice: X_NOTICE,
+        posts: ((stored.posts ?? []) as Record<string, unknown>[]).map((p) => ({
+          text: "",
+          ...p,
+        })),
+      });
+    }
     const r = deps.research;
     if (!r)
       return errorFrom(

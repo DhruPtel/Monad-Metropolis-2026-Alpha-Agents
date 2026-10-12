@@ -22,7 +22,9 @@ import { Redactor } from "../secrets.ts";
 import { Store } from "../store.ts";
 import { CHAIN, indexAgent, must } from "../testing.ts";
 import { type ToolServers, startToolServers } from "../tools/servers.ts";
-import { builtinSet } from "../hermes/materialize.ts";
+import { HERMES_HOME, builtinSet } from "../hermes/materialize.ts";
+import { PLAYBOOKS_DIR } from "../hermes/schema.ts";
+import { replayView } from "./replay.ts";
 import { writeFileSync } from "node:fs";
 import { Hono } from "hono";
 import { registerCycleRoutes } from "../cycle-routes.ts";
@@ -48,7 +50,10 @@ const ref = { chainId: CHAIN, agentId: 1 };
 
 class FakeWeb implements WebProvider {
   readonly name = "fake";
-  async search(): Promise<SearchHit[]> {
+  /** Every query that reached the provider: a replay must add none (UI-U2). */
+  readonly searches: string[] = [];
+  async search(query: string): Promise<SearchHit[]> {
+    this.searches.push(query);
     return [
       {
         title: "Monad TVL falls",
@@ -227,6 +232,7 @@ describe.skipIf(!dbUp)("the discovery loop engine (needs Postgres)", { timeout: 
   let provider: MemoryProvider;
   let gateway: MemoryGateway;
   let servers: ToolServers;
+  let web: FakeWeb;
   let gate: Gate;
   let cycles: CycleStore;
   let research: CycleResearch;
@@ -431,12 +437,13 @@ describe.skipIf(!dbUp)("the discovery loop engine (needs Postgres)", { timeout: 
     await provisioner.provision(ref);
     await deposit(10_000_000n, 1);
     research = new CycleResearch({ cycles, goals, plans, skillRuns: () => runsOfSkills });
+    web = new FakeWeb();
     servers = await startToolServers({
       store,
       ledger,
       credits,
       environment: "fork",
-      provider: new FakeWeb(),
+      provider: web,
       lookup: async () => ["93.184.215.14"],
       cycles: { store: cycles, research },
       log,
@@ -637,6 +644,32 @@ describe.skipIf(!dbUp)("the discovery loop engine (needs Postgres)", { timeout: 
       task: must(await store.task(taskId)),
       cycle: must(await cycles.cycle(cycle.cycleId)),
       stages: await cycles.stages(cycle.cycleId),
+    };
+  };
+
+  /** UI-U2: a REPLAY cycle of one stored stage, with the edited texts, run to its end. */
+  const runReplay = async (
+    stageRunId: string,
+    overrides: { kind: "playbook" | "owner"; name: string; skillMd: string }[],
+  ) => {
+    const taskId = `task-${Math.random().toString(16).slice(2)}`;
+    await store.insertTask(taskId, ref, "cycle", "console");
+    const original = must(await cycles.cycle(must(await cycles.stageRun(stageRunId)).cycleId));
+    const replay = await cycles.createCycle({
+      ref,
+      taskId,
+      kind: "REPLAY",
+      reasoningAlias: original.reasoningAlias,
+      wantsOverview: original.wantsOverview,
+      replayOf: stageRunId,
+      replayOverrides: overrides,
+    });
+    await runCycleTask(ctx, taskId);
+    if (scriptErrors.length) console.log("SCRIPT ERRORS", scriptErrors);
+    return {
+      task: must(await store.task(taskId)),
+      cycle: must(await cycles.cycle(replay.cycleId)),
+      stages: await cycles.stages(replay.cycleId),
     };
   };
 
@@ -1507,6 +1540,150 @@ describe.skipIf(!dbUp)("the discovery loop engine (needs Postgres)", { timeout: 
     expect((await credits.creditsOf(1)).restricted).toBe(true);
   });
 
+  it("replays a stored stage on its stored inputs with an edited playbook: the same prompt, nothing fetched or charged but the model, an input the stage never sent refused (UI-U2)", async () => {
+    await saveGoal({});
+    const first = await runCycle();
+    const scan = must(first.stages[0]);
+    // Every stage's prompt and the cycle's SOUL.md are stored from now on.
+    expect(scan.prompt).toMatch(/^SCAN stage/);
+    expect(must(first.stages[1]).prompt).toMatch(/^DIVE stage/);
+    expect(must(await cycles.cycle(first.cycle.cycleId)).soul).toContain(first.cycle.canary);
+    const fetched = web.searches.length;
+    const proposalsBefore = (await new ProposalStore(t.db).list(CHAIN, 1)).length;
+    const entriesBefore = await t.db
+      .selectFrom("platform.activity_entries")
+      .select((eb) => eb.fn.countAll<string>().as("n"))
+      .executeTakeFirstOrThrow();
+
+    // The replayed Scan: the calls the Scan made answer from the store; a new one is refused.
+    const prompts: string[] = [];
+    let stored: Record<string, unknown> | null = null;
+    let refused: unknown = null;
+    // The sandbox's files, read while it runs: it is gone once the lease ends.
+    let mounted = new Map<string, string>();
+    scripts.SCAN = async (r) => {
+      prompts.push(r.prompt);
+      mounted = new Map(must([...provider.sandboxes.values()][0]).files);
+      await start(r);
+      stored = ok(await tool(r.token, "data", "web_search", { query: "monad tvl" }));
+      refused = (await tool(r.token, "data", "web_search", { query: "monad gaming" }))
+        .structuredContent;
+      ok(await brief(r.token, scanBrief("high")));
+      ok(
+        await complete(r.token, "SCAN", {
+          candidates: [{ asset: "WMON", thesisCode: "TVL_OUTFLOW", confidenceBps: 6000 }],
+        }),
+      );
+    };
+    const edited = "# Scan, edited\n\nName the weakest link of every theme first.\n";
+    const { task, cycle, stages } = await runReplay(scan.stageRunId, [
+      { kind: "playbook", name: "aa-playbook-scan", skillMd: edited },
+    ]);
+    expect(task.error).toBeNull();
+    expect(cycle).toMatchObject({
+      kind: "REPLAY",
+      status: "completed",
+      stopReason: "COMPLETED",
+      replayOf: scan.stageRunId,
+      replayOverrides: [{ kind: "playbook", name: "aa-playbook-scan", skillMd: edited }],
+    });
+    // One stage, the Scan again, on its own model, caps and ceiling; no Dive, Test or Zoom out.
+    expect(stages.map((x) => [x.stage, x.status, x.modelAlias, x.themeCode])).toEqual([
+      ["SCAN", "completed", scan.modelAlias, null],
+    ]);
+    const again = must(stages[0]);
+    expect(again.caps).toEqual(scan.caps);
+    expect(again.ceilingUsdcE6).toBe(scan.ceilingUsdcE6);
+    // The prompt is the stored one, word for word.
+    expect(prompts).toEqual([scan.prompt]);
+    expect(again.prompt).toBe(scan.prompt);
+    // The sandbox mounted the edited playbook under the built-in frontmatter, and the original
+    // cycle's SOUL.md with the replay's own marker.
+    const skill = must(mounted.get(`${PLAYBOOKS_DIR}/aa-playbook-scan/SKILL.md`));
+    expect(skill.startsWith("---\nname: aa-playbook-scan\n")).toBe(true);
+    expect(skill.endsWith(edited)).toBe(true);
+    const soul = must(mounted.get(`${HERMES_HOME}/SOUL.md`));
+    expect(soul).toContain(cycle.canary);
+    expect(soul).not.toContain(first.cycle.canary);
+    // Nothing reached the web; the stored result came back; the new input was refused with the reason.
+    expect(web.searches).toHaveLength(fetched);
+    expect(stored).toMatchObject({
+      query: "monad tvl",
+      results: [{ url: "https://news.example/tvl" }],
+    });
+    expect(refused).toMatchObject({
+      code: "INVALID_INPUT",
+      message: expect.stringMatching(/Not among the stored inputs of the replayed stage/),
+    });
+    // Every tool call of the replay is free: the stored answers are marked replay, the stage's
+    // own writes (brief, complete_stage) are logged as usual. Only the model was paid.
+    const calls = await t.db
+      .selectFrom("platform.tool_calls")
+      .select(["tool", "status", "provider", "charge_usdc_e6", "error_code"])
+      .where("stage_run_id", "=", again.stageRunId)
+      .orderBy("started_at")
+      .execute();
+    expect(calls.every((c) => c.charge_usdc_e6 === "0")).toBe(true);
+    expect(calls.filter((c) => c.provider === "replay").map((c) => [c.tool, c.status])).toEqual([
+      ["get_research_context", "succeeded"],
+      ["get_goals_and_limits", "succeeded"],
+      ["web_search", "succeeded"],
+      ["web_search", "refused"],
+    ]);
+    expect(calls.find((c) => c.status === "refused")?.error_code).toBe("NOT_STORED");
+    expect(again.modelCalls).toBe(2);
+    expect(again.chargedUsdcE6).toBeGreaterThan(0n);
+    expect(cycle.chargedUsdcE6).toBe(again.chargedUsdcE6);
+    // The replay's brief was checked against the stored figures and accepted.
+    expect(
+      (await cycles.briefs({ stageRunId: again.stageRunId })).map((b) => [b.kind, b.status]),
+    ).toEqual([["SCAN", "accepted"]]);
+    // Nothing else of a cycle happened: no proposal, no narration, no activity.
+    expect(await new ProposalStore(t.db).list(CHAIN, 1)).toHaveLength(proposalsBefore);
+    const entriesAfter = await t.db
+      .selectFrom("platform.activity_entries")
+      .select((eb) => eb.fn.countAll<string>().as("n"))
+      .executeTakeFirstOrThrow();
+    expect(entriesAfter.n).toBe(entriesBefore.n);
+    // The view the console reads: the stage's prompt, its stored inputs, the texts, this replay.
+    const view = must(
+      await replayView({ db: t.db, cycles, replay: servers.replay }, scan.stageRunId),
+    );
+    expect(view.replayable).toBeNull();
+    expect(view.inputs.map((i) => [i.tool, i.stored])).toEqual([
+      ["get_research_context", true],
+      ["get_goals_and_limits", true],
+      ["web_search", true],
+      ["write_thesis", false],
+      ["write_research_brief", false],
+      ["complete_stage", false],
+    ]);
+    expect(view.texts.map((x) => [x.kind, x.name])).toEqual([["playbook", "aa-playbook-scan"]]);
+    expect(view.texts[0]?.skillMd.startsWith("---")).toBe(false);
+    expect(view.replays.map((r) => [r.cycle.cycleId, r.stage?.status, r.overrides])).toEqual([
+      [cycle.cycleId, "completed", [{ kind: "playbook", name: "aa-playbook-scan" }]],
+    ]);
+    // The Test stage and a stage without a stored prompt cannot be replayed, and say why.
+    const test = must(first.stages[3]);
+    expect(
+      must(await replayView({ db: t.db, cycles, replay: servers.replay }, test.stageRunId))
+        .replayable,
+    ).toMatch(/deterministic/);
+    await t.db
+      .updateTable("platform.stage_runs")
+      .set({ prompt: null })
+      .where("stage_run_id", "=", must(first.stages[2]).stageRunId)
+      .execute();
+    expect(
+      must(
+        await replayView(
+          { db: t.db, cycles, replay: servers.replay },
+          must(first.stages[2]).stageRunId,
+        ),
+      ).replayable,
+    ).toMatch(/no stored prompt/);
+  });
+
   it("serves the console's cycle routes: ceilings before a cycle runs, every stage after", async () => {
     await saveGoal({});
     scripts.SCAN = async (r) => {
@@ -1553,6 +1730,102 @@ describe.skipIf(!dbUp)("the discovery loop engine (needs Postgres)", { timeout: 
     if (dir) {
       writeFileSync(`${dir}/cycles-fixture.json`, `${JSON.stringify(list, null, 2)}\n`);
       writeFileSync(`${dir}/cycle-detail-fixture.json`, `${JSON.stringify(detail, null, 2)}\n`);
+    }
+
+    // UI-U2: the replay routes. The view of the Scan, a replay of it with an edited playbook
+    // through the route, and the replay's detail; the console's replay fixtures are these.
+    const scan = must((await cycles.stages(cycle.cycleId))[0]);
+    const enqueued: { stageRunId: string; overrides: unknown }[] = [];
+    const saved: unknown[] = [];
+    const edited = "# Scan, edited\n\nName the weakest link of every theme first.\n";
+    const replayed = await runReplay(scan.stageRunId, [
+      { kind: "playbook", name: "aa-playbook-scan", skillMd: edited },
+    ]);
+    expect(replayed.cycle.status).toBe("completed");
+    const routes = new Hono();
+    registerCycleRoutes(routes, {
+      orchestrator: {
+        goals,
+        cycles,
+        replayView: (id: string) => replayView({ db: t.db, cycles, replay: servers.replay }, id),
+        enqueueReplay: async (stageRunId: string, overrides: unknown) => {
+          enqueued.push({ stageRunId, overrides });
+          return { taskId: "task-x", cycleId: replayed.cycle.cycleId };
+        },
+        saveReplayText: async (_id: string, override: unknown) => {
+          saved.push(override);
+          return { ok: true, saved: true, kind: "playbook", version: "1" };
+        },
+      } as unknown as Orchestrator,
+      store,
+      agentRef: (raw) => ({ chainId: CHAIN, agentId: Number(raw) }),
+      canStart: true,
+    });
+    const view = (await (await routes.request(`/v1/stages/${scan.stageRunId}/replay`)).json()) as {
+      stage: { prompt: string | null };
+      replayable: string | null;
+      inputs: { tool: string; stored: boolean }[];
+      texts: { kind: string; name: string; skillMd: string }[];
+      replays: { cycle: { cycleId: string; kind: string }; overrides: unknown[] }[];
+    };
+    expect(view.stage.prompt).toMatch(/^SCAN stage/);
+    expect(view.replayable).toBeNull();
+    expect(view.inputs.filter((i) => i.stored).map((i) => i.tool)).toEqual([
+      "get_research_context",
+      "get_goals_and_limits",
+      "web_search",
+    ]);
+    expect(view.texts[0]).toMatchObject({ kind: "playbook", name: "aa-playbook-scan" });
+    expect(view.replays[0]).toMatchObject({
+      cycle: { cycleId: replayed.cycle.cycleId, kind: "REPLAY" },
+      overrides: [{ kind: "playbook", name: "aa-playbook-scan" }],
+    });
+    const started = await routes.request(`/v1/stages/${scan.stageRunId}/replay`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        overrides: [{ kind: "playbook", name: "aa-playbook-scan", skillMd: edited }],
+      }),
+    });
+    expect(started.status).toBe(202);
+    expect(enqueued).toEqual([
+      {
+        stageRunId: scan.stageRunId,
+        overrides: [{ kind: "playbook", name: "aa-playbook-scan", skillMd: edited }],
+      },
+    ]);
+    const bad = await routes.request(`/v1/stages/${scan.stageRunId}/replay`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ overrides: [{ kind: "playbook", name: "../etc", skillMd: "x" }] }),
+    });
+    expect(bad.status).toBe(400);
+    const save = await routes.request(`/v1/stages/${scan.stageRunId}/replay/save`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        override: { kind: "playbook", name: "aa-playbook-scan", skillMd: edited },
+        savedFrom: replayed.cycle.cycleId,
+      }),
+    });
+    expect(save.status).toBe(201);
+    expect(saved).toHaveLength(1);
+    // A cycle the console starts is never a REPLAY: that starts from a stored stage.
+    const notACycle = await routes.request("/v1/agents/1/cycles", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ kind: "REPLAY" }),
+    });
+    expect(notACycle.status).toBe(400);
+    if (dir) {
+      writeFileSync(`${dir}/replay-fixture.json`, `${JSON.stringify(view, null, 2)}\n`);
+      const replayDetail = await (
+        await routes.request(`/v1/cycles/${replayed.cycle.cycleId}`)
+      ).json();
+      writeFileSync(
+        `${dir}/replay-detail-fixture.json`,
+        `${JSON.stringify(replayDetail, null, 2)}\n`,
+      );
     }
   });
 });

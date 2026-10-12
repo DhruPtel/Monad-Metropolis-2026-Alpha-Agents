@@ -1,4 +1,10 @@
-import { type BuiltinSet, type SkillPackage, loadBuiltinSet } from "@alpha-agents/skills/packages";
+import {
+  type BuiltinSet,
+  type SkillPackage,
+  frontmatterFor,
+  loadBuiltinSet,
+  stripFrontmatter,
+} from "@alpha-agents/skills/packages";
 import { canonicalJson } from "./layers.ts";
 import { type AgentConfig, EQUIPPED_DIR, PLAYBOOKS_DIR } from "./schema.ts";
 
@@ -37,6 +43,23 @@ export type MountedKind = "skill" | "playbook" | "owner";
 
 /** Where a package of a kind is mounted. */
 const dirFor = (kind: MountedKind) => (kind === "playbook" ? PLAYBOOKS_DIR : EQUIPPED_DIR);
+
+/**
+ * UI-U2: an edited SKILL.md body mounted in place of a package's own, by the
+ * package's kind and mounted name: a replay's edit, or a playbook version the
+ * owner saved. The frontmatter stays generated from the package's manifest,
+ * so Hermes sees the same name, description and version.
+ */
+export interface SkillTextOverride {
+  readonly kind: MountedKind;
+  readonly hermesName: string;
+  readonly skillMd: string;
+}
+
+/** The SKILL.md a package mounts with an override's body, or its own without one. */
+export function skillMdWith(pkg: SkillPackage, override: SkillTextOverride | null): string {
+  return override ? `${frontmatterFor(pkg.manifest)}${stripFrontmatter(override.skillMd)}` : pkg.skillMd;
+}
 
 /**
  * The mounted set as the console and the logs show it: the built-in set, and
@@ -90,6 +113,8 @@ export function materialize(
   runtime: SandboxRuntime,
   /** SK-U1: the owner's own skills for this agent, mounted beside the built-in skills. */
   ownerSkills: readonly SkillPackage[] = [],
+  /** UI-U2: edited SKILL.md bodies mounted in place of the packages' own. */
+  overrides: readonly SkillTextOverride[] = [],
 ): SandboxFiles {
   if (runtime.apiServerKey.length < 32)
     throw new Error("the API server key must be 32+ characters");
@@ -133,7 +158,8 @@ export function materialize(
   const skills: Record<string, string> = {};
   const place = (kind: MountedKind, p: SkillPackage) => {
     const root = `${dirFor(kind)}/${p.hermesName}`;
-    skills[`${root}/SKILL.md`] = p.skillMd;
+    const override = overrides.find((o) => o.kind === kind && o.hermesName === p.hermesName) ?? null;
+    skills[`${root}/SKILL.md`] = skillMdWith(p, override);
     for (const f of p.files)
       if (f.path !== "SKILL.md" && f.path !== "skill.json")
         skills[`${root}/${f.path}`] = f.bytes.toString("utf8");

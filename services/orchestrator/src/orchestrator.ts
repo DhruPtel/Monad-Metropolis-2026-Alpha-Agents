@@ -37,7 +37,12 @@ import {
   confirmArming,
   disarm,
 } from "@alpha-agents/trading";
-import { type SkillPackage, loadPackageFiles } from "@alpha-agents/skills/packages";
+import {
+  type PackageIssue,
+  type SkillPackage,
+  checkOwnerSkill,
+  loadPackageFiles,
+} from "@alpha-agents/skills/packages";
 import { OwnerSkillStore } from "@alpha-agents/skills/store";
 import { SnapshotRecorder } from "./snapshots.ts";
 import {
@@ -70,7 +75,9 @@ import { runCycleTask } from "./cycle/cycle.ts";
 import { ProposalService } from "./cycle/proposals.ts";
 import { CycleResearch } from "./cycle/research.ts";
 import { type CycleKind, isReasoningAlias } from "./cycle/stages.ts";
-import { CycleStore } from "./cycle/store.ts";
+import { CycleStore, type ReplayOverride } from "./cycle/store.ts";
+import { PlaybookOverrideStore, bumpVersion } from "./cycle/playbook-overrides.ts";
+import { PLAYBOOK_OF, type ReplayView, replayView } from "./cycle/replay.ts";
 import { skillRuns } from "./cycle/validator.ts";
 import { builtinSet } from "./hermes/materialize.ts";
 import { PgIntentStore } from "./tools/chain-store.ts";
@@ -117,6 +124,21 @@ export interface CreditsOptions {
 
 /** A Scan was asked for while one is already queued or running for the agent (D-216). */
 export { OpenScanExistsError as ScanOpenError } from "./store.ts";
+
+/** UI-U2: what saving an edited text gave: the new version, or the checks it failed. */
+export type ReplaySave =
+  | { ok: true; saved: boolean; kind: "playbook" | "owner"; version: string }
+  | { ok: false; issues: readonly PackageIssue[] };
+
+/** UI-U2: a replay the stage cannot have, with the reason the console shows. */
+export class ReplayError extends Error {
+  readonly code: "not_found" | "not_replayable" | "bad_override";
+  constructor(code: "not_found" | "not_replayable" | "bad_override", message: string) {
+    super(message);
+    this.name = "ReplayError";
+    this.code = code;
+  }
+}
 
 /** A cycle was asked for while one is already queued or running for the agent (P3-U4). */
 export class CycleOpenError extends Error {
@@ -775,6 +797,9 @@ export class Orchestrator {
       redactor: this.o.redactor,
       log: this.o.log,
       ownerSkills: (agentId) => this.ownerSkillPackages(agentId),
+      // UI-U2: the playbook versions the owner saved from the replay tool, mounted at every start.
+      playbookOverrides: (agentId) =>
+        new PlaybookOverrideStore(this.o.store.db).mounts(this.o.chainId, agentId),
     };
   }
 
@@ -919,6 +944,122 @@ export class Orchestrator {
     });
     await this.queue.add({ kind: "cycle", ref, taskId });
     return { taskId, cycleId: cycle.cycleId };
+  }
+
+  /** UI-U2: the replay tool's view of a stored stage (cycle/replay.ts). */
+  async replayView(stageRunId: string): Promise<ReplayView | null> {
+    return replayView(
+      { db: this.o.store.db, cycles: this.cycles, replay: this.tools?.replay ?? null },
+      stageRunId,
+    );
+  }
+
+  /**
+   * UI-U2: runs a stored stage again on its stored inputs with the edited
+   * texts mounted (none saved): a REPLAY cycle, queued like any other. The
+   * replay pays its model calls alone; every tool answers from the store.
+   */
+  async enqueueReplay(
+    stageRunId: string,
+    overrides: readonly ReplayOverride[],
+    requestedBy: TaskRequester = "console",
+  ) {
+    const stage = await this.cycles.stageRun(stageRunId);
+    if (!stage) throw new ReplayError("not_found", "That stage does not exist.");
+    const original = await this.cycles.cycle(stage.cycleId);
+    if (!original) throw new ReplayError("not_found", "That stage's cycle does not exist.");
+    const view = await this.replayView(stageRunId);
+    if (view?.replayable) throw new ReplayError("not_replayable", view.replayable);
+    const names = new Set((view?.texts ?? []).map((t) => `${t.kind}:${t.name}`));
+    for (const o of overrides)
+      if (!names.has(`${o.kind}:${o.name}`))
+        throw new ReplayError(
+          "bad_override",
+          `${o.name} is not a text this stage's replay may edit.`,
+        );
+    const ref = { chainId: stage.chainId, agentId: stage.agentId };
+    const runtime = await this.o.store.runtime(ref);
+    if (runtime?.status !== "ready") throw new Error(`agent ${ref.agentId} is not provisioned`);
+    if (!this.tools || !this.credits) throw new Error("the tool servers are not running");
+    if ((await this.credits.creditsOf(ref.agentId)).restricted)
+      throw new CreditsExhaustedError(ref.agentId);
+    const goal = await this.goals.currentGoal(ref.chainId, ref.agentId);
+    if (!goal) throw new NoGoalError(ref.agentId);
+    if (await this.cycles.openCycle(ref)) throw new CycleOpenError(ref.agentId);
+    await this.provisioner.allowCycleModels(runtime);
+    const taskId = randomUUID();
+    await this.o.store.insertTask(taskId, ref, "cycle", requestedBy);
+    const cycle = await this.cycles.createCycle({
+      ref,
+      taskId,
+      kind: "REPLAY",
+      reasoningAlias: original.reasoningAlias,
+      wantsOverview: original.wantsOverview,
+      replayOf: stageRunId,
+      replayOverrides: overrides,
+    });
+    await this.queue.add({ kind: "cycle", ref, taskId });
+    return { taskId, cycleId: cycle.cycleId };
+  }
+
+  /**
+   * UI-U2: saves an edited text as a new version, only when the owner
+   * chooses: a playbook's text as the agent's next playbook version, or an
+   * owner skill's SKILL.md as the skill's next version through the same
+   * checks an upload passes.
+   */
+  async saveReplayText(
+    stageRunId: string,
+    override: ReplayOverride,
+    savedFrom: string | null,
+  ): Promise<ReplaySave> {
+    const stage = await this.cycles.stageRun(stageRunId);
+    if (!stage) throw new ReplayError("not_found", "That stage does not exist.");
+    const ref = { chainId: stage.chainId, agentId: stage.agentId };
+    if (override.kind === "playbook") {
+      if (override.name !== PLAYBOOK_OF[stage.stage])
+        throw new ReplayError("bad_override", `${override.name} is not this stage's playbook.`);
+      const r = await new PlaybookOverrideStore(this.o.store.db).save({
+        chainId: ref.chainId,
+        agentId: ref.agentId,
+        hermesName: override.name,
+        skillMd: override.skillMd,
+        savedFrom,
+      });
+      return { ok: true, saved: r.saved, kind: "playbook", version: String(r.version.version) };
+    }
+    const store = new OwnerSkillStore(this.o.store.db);
+    const record = (await store.current(ref.chainId, ref.agentId)).find(
+      (s) => s.hermesName === override.name,
+    );
+    if (!record)
+      throw new ReplayError("bad_override", `${override.name} is not one of the owner's skills.`);
+    const manifest = JSON.parse(
+      record.files.find((f) => f.path === "skill.json")?.content ?? "{}",
+    ) as { version?: string };
+    const version = bumpVersion(manifest.version ?? record.version);
+    const files = record.files.map((f) =>
+      f.path === "skill.json"
+        ? { path: f.path, content: JSON.stringify({ ...manifest, version }, null, 2) }
+        : f.path === "SKILL.md"
+          ? { path: f.path, content: override.skillMd }
+          : f,
+    );
+    const check = checkOwnerSkill(files, {
+      reservedIds: builtinSet().packages.map((p) => p.manifest.id),
+      owner: record.uploadedBy,
+    });
+    if (!check.pkg) return { ok: false, issues: check.issues };
+    const saved = await store.save({
+      chainId: ref.chainId,
+      agentId: ref.agentId,
+      pkg: check.pkg,
+      files,
+      warnings: check.issues,
+      uploadedBy: record.uploadedBy,
+    });
+    if (!saved.ok) return { ok: false, issues: [saved.issue] };
+    return { ok: true, saved: true, kind: "owner", version };
   }
 
   /** An agent's intents, newest first, with expiry applied (the dev console's view). */

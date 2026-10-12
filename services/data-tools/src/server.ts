@@ -3,10 +3,12 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import {
   type AgentIdentity,
   type IdentityResolver,
+  type ReplayHook,
   ToolError,
   type ToolServer,
   errorFrom,
   okResult,
+  replayed,
   startToolServer,
 } from "@alpha-agents/tool-server";
 import { z } from "zod";
@@ -137,6 +139,11 @@ export interface DataToolsDeps {
   ) => Promise<string | null>;
   /** F-U1: the token registry and screen; null where not configured. */
   readonly tokens?: TokenSource | null;
+  /**
+   * UI-U2: inside a replayed stage every tool answers from the original
+   * stage's stored results, before any meter or upstream; null outside one.
+   */
+  readonly replay?: ReplayHook | null;
   readonly lookup?: Lookup;
   /** P3-U9: the fetch the redirect check probes hops with; tests give a fake. */
   readonly probe?: typeof fetch;
@@ -211,6 +218,8 @@ export function registerDataTools(
     },
     async (input) => {
       try {
+        const replay = await replayed(deps.replay, identity, "data", "web_search", input);
+        if (replay) return replay;
         const callId = await deps.meter.begin(identity, {
           tool: "web_search",
           input,
@@ -265,6 +274,8 @@ export function registerDataTools(
     },
     async (input) => {
       try {
+        const replay = await replayed(deps.replay, identity, "data", "read_url", input);
+        if (replay) return replay;
         const first = await checkUrl(input.url, lookup);
         // P3-U9: every redirect hop goes through the guard too, before Tavily follows it.
         const check = first.ok ? await followRedirects(first, lookup, deps.probe ?? fetch) : first;
@@ -333,17 +344,20 @@ export function registerDataTools(
       }
     },
   );
+  const replay = deps.replay ? { replay: deps.replay } : {};
   registerMarketTools(mcp, identity, {
     meter: deps.meter,
     market: deps.market ?? null,
     ...(deps.ownerKey ? { ownerKey: deps.ownerKey } : {}),
+    ...replay,
   });
   registerResearchTools(mcp, identity, {
     meter: deps.meter,
     research: deps.research ?? null,
     ...(deps.ownerKey ? { ownerKey: deps.ownerKey } : {}),
+    ...replay,
   });
-  registerTokenTools(mcp, identity, { meter: deps.meter, tokens: deps.tokens ?? null });
+  registerTokenTools(mcp, identity, { meter: deps.meter, tokens: deps.tokens ?? null, ...replay });
 }
 
 /** Every input schema the server registers, for the identity field lint. */

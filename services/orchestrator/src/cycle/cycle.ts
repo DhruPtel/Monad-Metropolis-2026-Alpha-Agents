@@ -21,6 +21,7 @@ import {
   type ReasoningAlias,
   type ScanTheme,
   type Stage,
+  type StageCaps,
   divesFor,
   isReasoningAlias,
   stageCaps,
@@ -30,6 +31,7 @@ import {
   utcDayStart,
 } from "./stages.ts";
 import type { Cycle, CycleStore, StageRun, StageStatus } from "./store.ts";
+import type { SkillTextOverride } from "../hermes/materialize.ts";
 import { type UniverseRow, type UniverseStore, themeDecisions } from "./universe.ts";
 import { portfolioEnvelope, testEnvelope } from "./test-stage.ts";
 
@@ -150,28 +152,35 @@ export async function runCycleTask(ctx: CycleContext, taskId: string): Promise<v
     if (!isReasoningAlias(reasoning)) throw new Error(`unknown reasoning model ${reasoning}`);
     const { divesToday } = await ctx.cycles.diveHistory(ref, now(ctx), utcDayStart(now(ctx)));
     const divesLeft = Math.max(0, goal.config.research.divesPerDay - divesToday);
-    const leaseMs = cycleLeaseMs(cycle.kind, cycle.kind === "ACTIVATION" ? 2 : divesLeft);
+    // UI-U2: a replay is one stored stage again, under that stage's own caps, ceiling and model.
+    const replay = cycle.kind === "REPLAY" ? await replayPlan(ctx, cycle) : null;
+    const leaseMs = replay
+      ? replay.original.caps.seconds * 1_000 + 15 * 60_000
+      : cycleLeaseMs(cycle.kind, cycle.kind === "ACTIVATION" ? 2 : divesLeft);
+    const firstStage: Stage = replay
+      ? replay.original.stage
+      : cycle.kind === "REVIEW"
+        ? "ZOOM_OUT"
+        : "SCAN";
 
     // The Scan's ceiling must fit before anything starts, so no sandbox opens for nothing.
     const first = await budgetCheck(
       ctx,
       cycle,
-      cycle.kind === "REVIEW" ? "ZOOM_OUT" : "SCAN",
+      firstStage,
       goal.config,
+      replay?.original.ceilingUsdcE6,
     );
     if (!first.ok) {
       await ctx.cycles.addStage({
         cycle,
         seq: 1,
-        stage: cycle.kind === "REVIEW" ? "ZOOM_OUT" : "SCAN",
-        themeCode: null,
-        modelAlias: stageModel(cycle.kind === "REVIEW" ? "ZOOM_OUT" : "SCAN", reasoning),
-        caps: stageCaps(cycle.kind === "REVIEW" ? "ZOOM_OUT" : "SCAN", cycle.kind),
-        ceilingUsdcE6: stageCeilingUsdcE6(
-          cycle.kind === "REVIEW" ? "ZOOM_OUT" : "SCAN",
-          cycle.kind,
-          reasoning,
-        ),
+        stage: firstStage,
+        themeCode: replay?.original.themeCode ?? null,
+        modelAlias: replay?.original.modelAlias ?? stageModel(firstStage, reasoning),
+        caps: replay?.original.caps ?? stageCaps(firstStage, cycle.kind),
+        ceilingUsdcE6:
+          replay?.original.ceilingUsdcE6 ?? stageCeilingUsdcE6(firstStage, cycle.kind, reasoning),
         status: "skipped",
         stopReason: first.code,
       });
@@ -198,12 +207,18 @@ export async function runCycleTask(ctx: CycleContext, taskId: string): Promise<v
           (id) => {
             leaseId = id;
           },
-          (stored: AgentConfig) =>
-            cycleConfig(stored, {
-              kind: cycle.kind,
+          (stored: AgentConfig) => {
+            const config = cycleConfig(stored, {
+              kind: replay ? replay.cycle.kind : cycle.kind,
               goalBlock: goal.soulBlock,
               canary: cycle.canary,
-            }),
+            });
+            // A replay's sandbox gets the SOUL.md the original cycle had, with its own marker.
+            return replay?.cycle.soul
+              ? { ...config, soul: replay.cycle.soul.replaceAll(replay.cycle.canary, cycle.canary) }
+              : config;
+          },
+          replay?.overrides ?? [],
         );
         break;
       } catch (err) {
@@ -213,10 +228,14 @@ export async function runCycleTask(ctx: CycleContext, taskId: string): Promise<v
     }
     leaseId = opened.leaseId;
     await ctx.cycles.startCycle(cycle.cycleId, opened.leaseId);
-    ctx.log(`task ${taskId}: cycle ${cycle.cycleId} (${cycle.kind}) started on ${reasoning}`);
+    // UI-U2: the SOUL.md this sandbox was given, so a replay of any of its stages mounts the same.
+    await ctx.cycles.setSoul(cycle.cycleId, opened.config.soul);
+    ctx.log(
+      `task ${taskId}: cycle ${cycle.cycleId} (${cycle.kind}${replay ? ` of ${replay.original.stage} ${replay.original.stageRunId}` : ""}) started on ${reasoning}`,
+    );
 
     const engine = new Engine(ctx, cycle, opened, reasoning, goal.config);
-    const stop = await engine.run();
+    const stop = replay ? await engine.replay(replay.original) : await engine.run();
     await ctx.leases.release(opened.leaseId, "cycle finished");
     leaseId = null;
     await engine.settleAll();
@@ -253,11 +272,53 @@ const now = (ctx: CycleContext) => ctx.now?.() ?? new Date();
 
 type GoalConfig = NonNullable<Awaited<ReturnType<GoalStore["currentGoal"]>>>["config"];
 
-async function budgetCheck(ctx: CycleContext, cycle: Cycle, stage: Stage, goal: GoalConfig) {
+/**
+ * UI-U2: what a REPLAY cycle runs: the original stage with its stored
+ * prompt, the cycle it belonged to (its kind, SOUL.md and marker), and the
+ * edited texts to mount. A stage without a stored prompt cannot be replayed.
+ */
+export interface ReplayPlan {
+  readonly original: StageRun & { readonly prompt: string };
+  readonly cycle: Cycle;
+  readonly overrides: readonly SkillTextOverride[];
+}
+
+export async function replayPlan(ctx: CycleContext, replay: Cycle): Promise<ReplayPlan> {
+  if (!replay.replayOf) throw new Error("the replay names no stage");
+  const original = await ctx.cycles.stageRun(replay.replayOf);
+  if (!original) throw new Error(`the replayed stage ${replay.replayOf} does not exist`);
+  if (!original.modelAlias)
+    throw new Error("the Test stage is deterministic and free; only model stages replay");
+  if (!original.prompt)
+    throw new Error(
+      "this stage ran before replays existed and has no stored prompt; run a new cycle and replay one of its stages",
+    );
+  const cycle = await ctx.cycles.cycle(original.cycleId);
+  if (!cycle) throw new Error(`the replayed stage's cycle ${original.cycleId} does not exist`);
+  return {
+    original: { ...original, prompt: original.prompt },
+    cycle,
+    overrides: replay.replayOverrides.map((o) => ({
+      kind: o.kind,
+      hermesName: o.name,
+      skillMd: o.skillMd,
+    })),
+  };
+}
+
+async function budgetCheck(
+  ctx: CycleContext,
+  cycle: Cycle,
+  stage: Stage,
+  goal: GoalConfig,
+  /** UI-U2: a replay's ceiling is the original stage's, not the kind's. */
+  ceilingUsdcE6?: bigint,
+) {
   const ref = { chainId: cycle.chainId, agentId: cycle.agentId };
   const credits = await ctx.credits.creditsOf(cycle.agentId);
   return stageMayStart({
-    ceilingUsdcE6: stageCeilingUsdcE6(stage, cycle.kind, cycle.reasoningAlias as ReasoningAlias),
+    ceilingUsdcE6:
+      ceilingUsdcE6 ?? stageCeilingUsdcE6(stage, cycle.kind, cycle.reasoningAlias as ReasoningAlias),
     dailyBudgetUsdcE6: BigInt(goal.research.dailyBudgetUsdcE6),
     usedTodayUsdcE6: await ctx.cycles.usedToday(ref, utcDayStart(now(ctx))),
     spendableUsdcE6: credits.spendable,
@@ -318,12 +379,45 @@ class Engine {
     }
   }
 
+  /**
+   * UI-U2: the replay of one stored stage: the same stage, theme, caps,
+   * ceiling, model and prompt, in a sandbox whose tools answer from the
+   * stored results. Nothing else of a cycle runs: no universe, no Dives
+   * after a Scan, no proposal from a Zoom out, no narration.
+   */
+  async replay(original: StageRun & { readonly prompt: string }): Promise<{
+    status: "completed" | "stopped" | "failed";
+    reason: string;
+    message?: string;
+  }> {
+    const stage = original.stage;
+    if (stage === "TEST") return { status: "failed", reason: "FAILED", message: "no model stage" };
+    const run = await this.modelStage(stage, original.themeCode, [], null, {
+      caps: original.caps,
+      ceilingUsdcE6: original.ceilingUsdcE6,
+      model: original.modelAlias ?? (stageModel(stage, this.reasoning) as string),
+      prompt: original.prompt,
+    });
+    if (
+      run.end.status === "stopped" ||
+      run.end.status === "failed" ||
+      run.end.status === "skipped" ||
+      run.end.stopReason === "TASK_CAP"
+    )
+      return this.halt(run.end);
+    return {
+      status: "completed",
+      reason: run.end.status === "capped" ? run.end.stopReason : "COMPLETED",
+    };
+  }
+
   async run(): Promise<{
     status: "completed" | "stopped" | "failed";
     reason: string;
     message?: string;
   }> {
     const kind = this.cycle.kind;
+    if (kind === "REPLAY") throw new Error("a replay runs through Engine.replay");
     // F-U12: what the agent can see, and what this account may buy, before the first stage.
     await this.recordUniverse();
     // P3-U10: a review is the Zoom out alone, weighing the briefs on record and the portfolio now.
@@ -503,13 +597,20 @@ class Engine {
     themeCode: string | null,
     diveThemes: readonly string[] = [],
     theme: ScanTheme | null = null,
+    /** UI-U2: a replay fixes the stage's caps, ceiling, model and prompt to the original's. */
+    fixed: {
+      readonly caps: StageCaps;
+      readonly ceilingUsdcE6: bigint;
+      readonly model: string;
+      readonly prompt: string;
+    } | null = null,
   ): Promise<{ run: StageRun; end: StageEnd }> {
     this.seq += 1;
     const kind = this.cycle.kind;
-    const caps = stageCaps(stage, kind);
-    const ceiling = stageCeilingUsdcE6(stage, kind, this.reasoning);
-    const model = stageModel(stage, this.reasoning) as string;
-    const check = await budgetCheck(this.ctx, this.cycle, stage, this.goal);
+    const caps = fixed?.caps ?? stageCaps(stage, kind);
+    const ceiling = fixed?.ceilingUsdcE6 ?? stageCeilingUsdcE6(stage, kind, this.reasoning);
+    const model = fixed?.model ?? (stageModel(stage, this.reasoning) as string);
+    const check = await budgetCheck(this.ctx, this.cycle, stage, this.goal, fixed?.ceilingUsdcE6);
     if (!check.ok) {
       const run = await this.ctx.cycles.addStage({
         cycle: this.cycle,
@@ -538,26 +639,25 @@ class Engine {
     const sessionId = `${agent}-${this.cycle.cycleId.slice(6, 14)}-${stage.toLowerCase()}-${this.seq}`;
     const lease = this.sbx.leaseId;
     await this.ctx.cycles.beginStage(run.stageRunId, lease, { sessionId });
-    const prompt = stagePrompt({
-      stage,
-      kind,
-      overview: this.cycle.wantsOverview,
-      themeCode,
-      token: theme?.token ? { address: theme.token, symbol: theme.symbol } : null,
-      caps,
-      ceilingUsdcE6: ceiling,
-      diveThemes,
-    });
+    // SK-U1: the owner's own skills are named in every stage's prompt, as the playbooks are.
+    // UI-U2: a replay sends the stored prompt word for word; every stage's prompt is stored.
+    const prompt =
+      fixed?.prompt ??
+      `${stagePrompt({
+        stage,
+        kind,
+        overview: this.cycle.wantsOverview,
+        themeCode,
+        token: theme?.token ? { address: theme.token, symbol: theme.symbol } : null,
+        caps,
+        ceilingUsdcE6: ceiling,
+        diveThemes,
+      })}${ownerSkillsPrompt(this.sbx.ownerSkills)}`;
+    await this.ctx.cycles.setPrompt(run.stageRunId, prompt);
     let end: StageEnd;
     try {
       const deadline = Date.now() + (this.ctx.deadlineMs?.(run) ?? run.caps.seconds * 1_000);
-      // SK-U1: the owner's own skills are named in every stage's prompt, as the playbooks are.
-      const started = await this.sbx.runs.start(
-        run.idempotencyKey,
-        `${prompt}${ownerSkillsPrompt(this.sbx.ownerSkills)}`,
-        sessionId,
-        model,
-      );
+      const started = await this.sbx.runs.start(run.idempotencyKey, prompt, sessionId, model);
       await this.ctx.cycles.setRunId(run.stageRunId, started.runId);
       end = await this.watch(run, started.runId, deadline);
       // A run that ended before its terminal call gets a follow-up turn in the same session
@@ -747,6 +847,8 @@ class Engine {
   }
 
   private async narrate(run: StageRun): Promise<void> {
+    // UI-U2: a replay is the owner's experiment, not the agent's activity: nothing is narrated.
+    if (this.cycle.kind === "REPLAY") return;
     try {
       await this.ctx.narrator?.narrateStage(run.stageRunId);
     } catch (err) {

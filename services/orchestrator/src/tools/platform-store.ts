@@ -7,7 +7,7 @@ import type {
   WriteThesisInput,
   WriteThesisOutput,
 } from "@alpha-agents/platform-tools";
-import { type AgentIdentity, ToolError } from "@alpha-agents/tool-server";
+import { type AgentIdentity, type ReplayHook, ToolError } from "@alpha-agents/tool-server";
 import type { CycleResearch } from "../cycle/research.ts";
 import type { CycleStore } from "../cycle/store.ts";
 import type { Store } from "../store.ts";
@@ -27,10 +27,17 @@ import type { Store } from "../store.ts";
 export class PgPlatformStore implements PlatformStore {
   private readonly store: Store;
   private readonly cycles: { store: CycleStore; research: CycleResearch } | null;
+  /** UI-U2: inside a replayed stage the research context is the stored one. */
+  private readonly replay: ReplayHook | null;
 
-  constructor(store: Store, cycles: { store: CycleStore; research: CycleResearch } | null = null) {
+  constructor(
+    store: Store,
+    cycles: { store: CycleStore; research: CycleResearch } | null = null,
+    replay: ReplayHook | null = null,
+  ) {
     this.store = store;
     this.cycles = cycles;
+    this.replay = replay;
   }
 
   private async stageRunOf(identity: AgentIdentity) {
@@ -61,6 +68,13 @@ export class PgPlatformStore implements PlatformStore {
         "Research cycles are not configured here.",
         false,
       );
+    const stored = this.replay
+      ? await this.replay(identity, "platform", "get_research_context", {})
+      : null;
+    if (stored) {
+      if (stored.hit) return stored.result;
+      throw new ToolError("INVALID_INPUT", stored.message, false, { replay: true });
+    }
     const context = await this.cycles.research.researchContext(identity);
     await this.recordRead(identity, "get_research_context", context);
     return context;

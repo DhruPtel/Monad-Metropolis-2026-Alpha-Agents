@@ -132,6 +132,54 @@ describe("the owner's skills in the sandbox mount (SK-U1)", () => {
   });
 });
 
+describe("an edited text mounted over a package's SKILL.md (UI-U2)", () => {
+  it("replaces the playbook's body under its generated frontmatter and leaves every other file alone", () => {
+    const edited = "---\nname: whatever\n---\n# My Scan\n\nLook for TVL moves first.\n";
+    const files = materialize(config(), RUNTIME, [ownerSkill()], [
+      { kind: "playbook", hermesName: "aa-playbook-scan", skillMd: edited },
+      { kind: "owner", hermesName: "aa-owner-notes", skillMd: "# Owner notes\n\nMON first.\n" },
+    ]);
+    const scan = files.skills[`${PLAYBOOKS_DIR}/aa-playbook-scan/SKILL.md`] ?? "";
+    const own = files.skills[`${EQUIPPED_DIR}/aa-owner-notes/SKILL.md`] ?? "";
+    // The frontmatter is the package's own (name, description, version), never the edit's.
+    expect(scan.startsWith("---\nname: aa-playbook-scan\n")).toBe(true);
+    expect(scan).not.toContain("name: whatever");
+    expect(scan.endsWith("# My Scan\n\nLook for TVL moves first.\n")).toBe(true);
+    expect(own.startsWith("---\nname: aa-owner-notes\n")).toBe(true);
+    expect(own.endsWith("MON first.\n")).toBe(true);
+    // The other playbooks and the references keep their own text.
+    const plain = materialize(config(), RUNTIME, [ownerSkill()]);
+    expect(files.skills[`${PLAYBOOKS_DIR}/aa-playbook-dive/SKILL.md`]).toBe(
+      plain.skills[`${PLAYBOOKS_DIR}/aa-playbook-dive/SKILL.md`],
+    );
+    expect(files.skills[`${EQUIPPED_DIR}/aa-owner-notes/references/notes.md`]).toBe(
+      plain.skills[`${EQUIPPED_DIR}/aa-owner-notes/references/notes.md`],
+    );
+    // An override naming no mounted package changes nothing.
+    expect(
+      materialize(config(), RUNTIME, [], [
+        { kind: "playbook", hermesName: "aa-playbook-nothing", skillMd: "x" },
+      ]).skills,
+    ).toEqual(materialize(config(), RUNTIME).skills);
+  });
+
+  it("is written into the sandbox like any other skill file, read-only", async () => {
+    const written: { path: string; content: string; user: string }[] = [];
+    const sbx: SandboxHandle = {
+      id: "mem-3",
+      run: async () => ({ exitCode: 0, stdout: "checked\n", stderr: "" }),
+      spawn: async () => undefined,
+      writeFile: async (path, content, user) => void written.push({ path, content, user }),
+    };
+    await bootHermes(sbx, config(), "https://gate.example", new Redactor(), [], [
+      { kind: "playbook", hermesName: "aa-playbook-scan", skillMd: "# Edited scan\n" },
+    ]);
+    const scan = written.find((w) => w.path === `${PLAYBOOKS_DIR}/aa-playbook-scan/SKILL.md`);
+    expect(scan?.user).toBe("root");
+    expect(scan?.content.endsWith("# Edited scan\n")).toBe(true);
+  });
+});
+
 describe("the prompt line that names the owner's skills (SK-U1)", () => {
   it("is empty without any, and names each skill with its description otherwise", () => {
     expect(ownerSkillsPrompt([])).toBe("");

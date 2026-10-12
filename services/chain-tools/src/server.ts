@@ -11,10 +11,12 @@ import {
 import {
   type AgentIdentity,
   type IdentityResolver,
+  type ReplayHook,
   ToolError,
   type ToolServer,
   errorFrom,
   okResult,
+  replayed,
   startToolServer,
 } from "@alpha-agents/tool-server";
 import { type MarketData, MarketError, type ResearchSources } from "@alpha-agents/market";
@@ -173,6 +175,8 @@ export interface ChainToolsOptions {
   readonly market?: MarketData | null;
   /** P3-U9: research's mainnet lookups (read_contract, balance, get_code); none answers "not configured". */
   readonly research?: ResearchSources | null;
+  /** UI-U2: inside a replayed stage every tool answers from the stored results, before any read or log. */
+  readonly replay?: ReplayHook | null;
 }
 
 export const INTENT_TTL_SECONDS = 1_800;
@@ -367,10 +371,16 @@ export type ToolRunner = (
 ) => Promise<CallToolResult>;
 
 /** Logs each call, runs it, and answers in the shared shape (4.4.1). */
-export function toolRunner(identity: AgentIdentity, log: ChainCallLog): ToolRunner {
+export function toolRunner(
+  identity: AgentIdentity,
+  log: ChainCallLog,
+  replay: ReplayHook | null = null,
+): ToolRunner {
   return async (name, input, run) => {
     let callId: string | null = null;
     try {
+      const stored = await replayed(replay, identity, "chain", name, input);
+      if (stored) return stored;
       callId = await log.begin(identity, name, input);
       const { output, summary, cacheHit } = await run();
       await log.finish(callId, {
@@ -409,7 +419,7 @@ export async function registerChainTools(
   identity: AgentIdentity,
   o: Omit<ChainToolsOptions, "resolve" | "port">,
 ): Promise<void> {
-  const tool = toolRunner(identity, o.log);
+  const tool = toolRunner(identity, o.log, o.replay ?? null);
   registerLookupTools(mcp, o, tool);
   const v3 = o.readerV3 ?? null;
   let path: CustodyPath | null = null;

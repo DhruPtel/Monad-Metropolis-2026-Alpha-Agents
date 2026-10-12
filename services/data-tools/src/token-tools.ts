@@ -1,6 +1,13 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { SCREEN_CHECK_CODES } from "@alpha-agents/domain";
-import { type AgentIdentity, ToolError, errorFrom, okResult } from "@alpha-agents/tool-server";
+import {
+  type AgentIdentity,
+  type ReplayHook,
+  ToolError,
+  errorFrom,
+  okResult,
+  replayed,
+} from "@alpha-agents/tool-server";
 import { z } from "zod";
 import type { Meter } from "./server.ts";
 
@@ -297,6 +304,8 @@ function tokenError(err: unknown): ToolError {
 export interface TokenToolsDeps {
   readonly meter: Meter;
   readonly tokens: TokenSource | null;
+  /** UI-U2: inside a replayed stage the answer is the stored one; see DataToolsDeps.replay. */
+  readonly replay?: ReplayHook | null;
 }
 
 const RULES =
@@ -315,6 +324,8 @@ export function registerTokenTools(
       t: TokenSource,
     ) => Promise<{ output: Record<string, unknown>; summary: Record<string, unknown> }>,
   ) => {
+    const replay = await replayed(deps.replay, identity, "data", tool, input);
+    if (replay) return replay;
     const t = deps.tokens;
     if (!t || (tool === "screen_token" ? !t.configured.screen : !t.configured.discovery))
       return errorFrom(

@@ -523,6 +523,21 @@ export interface ToolCallTable {
  * BK-U1: an owner's own key for a paid data source, sealed under the
  * platform's secret; the owner sees its last characters only.
  */
+/** UI-U2: an edited built-in playbook the owner saved as a new version for one agent. */
+export interface PlaybookOverrideTable {
+  override_id: string;
+  chain_id: number;
+  agent_id: number;
+  hermes_name: string;
+  version: number;
+  /** The SKILL.md body as saved; the frontmatter stays generated from the built-in manifest. */
+  skill_md: string;
+  content_hash: string;
+  /** The replay cycle it was saved from, when one. */
+  saved_from: string | null;
+  created_at: Timestamp;
+}
+
 export interface OwnerKeyTable {
   chain_id: number;
   agent_id: number;
@@ -587,7 +602,8 @@ export interface ActivityEntryTable {
   created_at: Timestamp;
 }
 
-export type CycleKind = "ROUTINE" | "TRIGGERED" | "ACTIVATION" | "REVIEW";
+/** UI-U2: REPLAY is one stored stage run again on its stored inputs. */
+export type CycleKind = "ROUTINE" | "TRIGGERED" | "ACTIVATION" | "REVIEW" | "REPLAY";
 export type StageName = "SCAN" | "DIVE" | "CHALLENGE" | "TEST" | "ZOOM_OUT";
 type Numeric = ColumnType<string, string | undefined, string>;
 type BigintCount = ColumnType<string, number | string | undefined, number | string>;
@@ -688,6 +704,15 @@ export interface ResearchCycleTable {
   created_at: Timestamp;
   started_at: Timestamp | null;
   finished_at: Timestamp | null;
+  /** UI-U2: for a REPLAY cycle, the stage run it replays, and the edited text its sandbox mounts. */
+  replay_of: ColumnType<string | null, string | null | undefined, string | null>;
+  replay_overrides: ColumnType<
+    { kind: string; name: string; skillMd: string }[] | null,
+    string | null | undefined,
+    string | null
+  >;
+  /** UI-U2: the SOUL.md the cycle's sandbox was given, so a replay's sandbox gets the same text. */
+  soul: ColumnType<string | null, string | null | undefined, string | null>;
 }
 
 /** One stage of a cycle (P3-U4). */
@@ -716,6 +741,8 @@ export interface StageRunTable {
   charged_usdc_e6: Numeric;
   absorbed_usdc_e6: Numeric;
   created_at: Timestamp;
+  /** UI-U2: the stage's prompt as sent, so a replay sends the same words; null before UI-U2. */
+  prompt: ColumnType<string | null, string | null | undefined, string | null>;
   started_at: Timestamp | null;
   finished_at: Timestamp | null;
 }
@@ -973,6 +1000,7 @@ export interface Database {
   "platform.managed_accounts": ManagedAccountTable;
   "platform.owner_skills": OwnerSkillTable;
   "platform.owner_keys": OwnerKeyTable;
+  "platform.playbook_overrides": PlaybookOverrideTable;
   "platform.agent_states": AgentStateTable;
   "platform.agent_state_changes": AgentStateChangeTable;
   "platform.agent_goals": AgentGoalTable;

@@ -42,6 +42,19 @@ export interface StageRun {
   readonly absorbedUsdcE6: bigint;
   readonly startedAt: Date | null;
   readonly finishedAt: Date | null;
+  /** UI-U2: the prompt the stage was sent, so a replay sends the same words; null before UI-U2. */
+  readonly prompt: string | null;
+}
+
+/**
+ * UI-U2: an edited skill text a replay's sandbox mounts in place of the
+ * package's SKILL.md body: the stage's playbook or one of the owner's skills,
+ * by its mounted name. The frontmatter stays generated.
+ */
+export interface ReplayOverride {
+  readonly kind: "playbook" | "owner";
+  readonly name: string;
+  readonly skillMd: string;
 }
 
 export interface Cycle {
@@ -62,6 +75,11 @@ export interface Cycle {
   readonly createdAt: Date;
   readonly startedAt: Date | null;
   readonly finishedAt: Date | null;
+  /** UI-U2: for a REPLAY cycle, the stage run it replays and the edited texts its sandbox mounts. */
+  readonly replayOf: string | null;
+  readonly replayOverrides: readonly ReplayOverride[];
+  /** UI-U2: the SOUL.md the cycle's sandbox was given; null before UI-U2. */
+  readonly soul: string | null;
 }
 
 export interface BriefRow {
@@ -109,6 +127,7 @@ interface StageRow {
   absorbed_usdc_e6: string;
   started_at: Date | null;
   finished_at: Date | null;
+  prompt: string | null;
 }
 
 const toStage = (r: StageRow): StageRun => ({
@@ -137,6 +156,7 @@ const toStage = (r: StageRow): StageRun => ({
   absorbedUsdcE6: BigInt(r.absorbed_usdc_e6),
   startedAt: r.started_at,
   finishedAt: r.finished_at,
+  prompt: r.prompt,
 });
 
 /** Bounded JSON for a stored result: whole when small, otherwise its text cut at the bound. */
@@ -166,8 +186,13 @@ export class CycleStore {
     kind: CycleKind;
     reasoningAlias: string;
     wantsOverview?: boolean;
+    /** UI-U2: a REPLAY cycle names the stage run it replays and the edited texts it mounts. */
+    replayOf?: string;
+    replayOverrides?: readonly ReplayOverride[];
   }): Promise<Cycle> {
     const cycleId = `cycle-${randomUUID()}`;
+    if ((c.kind === "REPLAY") !== (c.replayOf !== undefined))
+      throw new Error("a REPLAY cycle names the stage it replays, and no other kind does");
     await this.db
       .insertInto("platform.research_cycles")
       .values({
@@ -180,9 +205,32 @@ export class CycleStore {
         status: "queued",
         reasoning_alias: c.reasoningAlias,
         canary: `AACANARY-${randomUUID().replaceAll("-", "").slice(0, 16)}`,
+        replay_of: c.replayOf ?? null,
+        replay_overrides: c.replayOf === undefined ? null : JSON.stringify(c.replayOverrides ?? []),
       })
       .execute();
     return (await this.cycle(cycleId)) as Cycle;
+  }
+
+  /** UI-U2: the SOUL.md the cycle's sandbox was given, kept so a replay mounts the same text. */
+  async setSoul(cycleId: string, soul: string): Promise<void> {
+    await this.db
+      .updateTable("platform.research_cycles")
+      .set({ soul })
+      .where("cycle_id", "=", cycleId)
+      .execute();
+  }
+
+  /** UI-U2: the replays of a stage run, newest first. */
+  async replaysOf(stageRunId: string, limit = 20): Promise<Cycle[]> {
+    const rows = await this.db
+      .selectFrom("platform.research_cycles")
+      .selectAll()
+      .where("replay_of", "=", stageRunId)
+      .orderBy("created_at", "desc")
+      .limit(limit)
+      .execute();
+    return rows.map(toCycle);
   }
 
   async cycle(cycleId: string): Promise<Cycle | null> {
@@ -399,6 +447,15 @@ export class CycleStore {
     await this.db
       .updateTable("platform.stage_runs")
       .set({ run_id: runId })
+      .where("stage_run_id", "=", stageRunId)
+      .execute();
+  }
+
+  /** UI-U2: the prompt the stage was sent, word for word, so a replay sends the same. */
+  async setPrompt(stageRunId: string, prompt: string): Promise<void> {
+    await this.db
+      .updateTable("platform.stage_runs")
+      .set({ prompt })
       .where("stage_run_id", "=", stageRunId)
       .execute();
   }
@@ -736,6 +793,9 @@ function toCycle(r: {
   created_at: Date;
   started_at: Date | null;
   finished_at: Date | null;
+  replay_of: string | null;
+  replay_overrides: { kind: string; name: string; skillMd: string }[] | null;
+  soul: string | null;
 }): Cycle {
   return {
     cycleId: r.cycle_id,
@@ -754,5 +814,13 @@ function toCycle(r: {
     createdAt: r.created_at,
     startedAt: r.started_at,
     finishedAt: r.finished_at,
+    replayOf: r.replay_of,
+    replayOverrides: (r.replay_overrides ?? []).filter(
+      (o): o is ReplayOverride =>
+        (o.kind === "playbook" || o.kind === "owner") &&
+        typeof o.name === "string" &&
+        typeof o.skillMd === "string",
+    ),
+    soul: r.soul,
   };
 }

@@ -8,6 +8,7 @@ import {
   CycleOpenError,
   NoGoalError,
   type Orchestrator,
+  ReplayError,
 } from "./orchestrator.ts";
 import type { Store } from "./store.ts";
 
@@ -20,9 +21,26 @@ import type { Store } from "./store.ts";
  * briefs are operator-only: the detail route exists only where operator
  * actions do, and the orchestrator's API is loopback-only (D-205).
  */
-export const CycleRequest = z.strictObject({ kind: z.enum(CYCLE_KINDS).default("ROUTINE") });
+/** A cycle the console starts: every kind but REPLAY, which starts from a stored stage. */
+export const CycleRequest = z.strictObject({
+  kind: z.enum(CYCLE_KINDS.filter((k) => k !== "REPLAY")).default("ROUTINE"),
+});
 
 const e6 = (v: bigint) => v.toString();
+
+/** UI-U2: an edited text a replay mounts: the stage's playbook or one of the owner's skills. */
+const ReplayOverrideJson = z.strictObject({
+  kind: z.enum(["playbook", "owner"]),
+  name: z.string().regex(/^aa-[a-z0-9-]{1,80}$/),
+  skillMd: z.string().max(40_000),
+});
+export const ReplayRequest = z.strictObject({
+  overrides: z.array(ReplayOverrideJson).max(10).default([]),
+});
+export const ReplaySaveRequest = z.strictObject({
+  override: ReplayOverrideJson,
+  savedFrom: z.string().regex(/^cycle-[0-9a-f-]{36}$/).optional(),
+});
 
 export const cycleJson = (c: Cycle) => ({
   cycleId: c.cycleId,
@@ -114,7 +132,77 @@ export function registerCycleRoutes(
     });
   });
 
+  /**
+   * UI-U2: the replay tool's view of a stored stage: its prompt, every call
+   * it made with whether the result is stored, the texts a replay may edit,
+   * and the replays made so far.
+   */
+  app.get("/v1/stages/:stageRunId/replay", async (c) => {
+    const stageRunId = c.req.param("stageRunId");
+    if (!/^stage-run-[0-9a-f-]{36}$/.test(stageRunId)) return c.json({ error: "bad_stage_id" }, 400);
+    const view = await orch.replayView(stageRunId);
+    if (!view) return c.json({ error: "not_found" }, 404);
+    return c.json({
+      agentId: String(view.stage.agentId),
+      stage: { ...stageJson(view.stage), prompt: view.stage.prompt },
+      cycle: cycleJson(view.cycle),
+      replayable: view.replayable,
+      canStart: o.canStart,
+      inputs: view.inputs,
+      texts: view.texts,
+      replays: view.replays.map((r) => ({
+        cycle: cycleJson(r.cycle),
+        stage: r.stage ? stageJson(r.stage) : null,
+        overrides: r.overrides,
+      })),
+    });
+  });
+
   if (!o.canStart) return;
+
+  /** UI-U2: runs a stored stage again on its stored inputs with the edited texts: 202 with its task and cycle. */
+  app.post("/v1/stages/:stageRunId/replay", async (c) => {
+    const stageRunId = c.req.param("stageRunId");
+    if (!/^stage-run-[0-9a-f-]{36}$/.test(stageRunId)) return c.json({ error: "bad_stage_id" }, 400);
+    const body = ReplayRequest.safeParse(await c.req.json().catch(() => ({})));
+    if (!body.success)
+      return c.json(
+        { error: "bad_request", message: "overrides must name a kind, a name and the text" },
+        400,
+      );
+    try {
+      return c.json(await orch.enqueueReplay(stageRunId, body.data.overrides), 202);
+    } catch (err) {
+      if (err instanceof ReplayError)
+        return c.json({ error: err.code, message: err.message }, err.code === "not_found" ? 404 : 409);
+      if (err instanceof CreditsExhaustedError)
+        return c.json({ error: "credits_exhausted", message: err.message }, 409);
+      if (err instanceof NoGoalError)
+        return c.json({ error: "no_goal", message: err.message }, 409);
+      if (err instanceof CycleOpenError)
+        return c.json({ error: "cycle_open", message: err.message }, 409);
+      if (err instanceof Error && /not provisioned/.test(err.message))
+        return c.json({ error: "not_provisioned", message: err.message }, 409);
+      throw err;
+    }
+  });
+
+  /** UI-U2: saves an edited text as a new version, only when the owner chooses. */
+  app.post("/v1/stages/:stageRunId/replay/save", async (c) => {
+    const stageRunId = c.req.param("stageRunId");
+    if (!/^stage-run-[0-9a-f-]{36}$/.test(stageRunId)) return c.json({ error: "bad_stage_id" }, 400);
+    const body = ReplaySaveRequest.safeParse(await c.req.json().catch(() => ({})));
+    if (!body.success)
+      return c.json({ error: "bad_request", message: "the text needs a kind, a name and a body" }, 400);
+    try {
+      const r = await orch.saveReplayText(stageRunId, body.data.override, body.data.savedFrom ?? null);
+      return r.ok ? c.json(r, 201) : c.json({ error: "blocked", issues: r.issues }, 409);
+    } catch (err) {
+      if (err instanceof ReplayError)
+        return c.json({ error: err.code, message: err.message }, err.code === "not_found" ? 404 : 409);
+      throw err;
+    }
+  });
 
   /** Starts a cycle now (local and testnet operators): 202 with its task and cycle. */
   app.post("/v1/agents/:agentId/cycles", async (c) => {

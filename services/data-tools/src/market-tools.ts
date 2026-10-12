@@ -1,7 +1,14 @@
 import type { PaidDataSourceId } from "@alpha-agents/domain";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { type Cached, type MarketData, MarketError, type MarketTool } from "@alpha-agents/market";
-import { type AgentIdentity, ToolError, errorFrom, okResult } from "@alpha-agents/tool-server";
+import {
+  type AgentIdentity,
+  type ReplayHook,
+  ToolError,
+  errorFrom,
+  okResult,
+  replayed,
+} from "@alpha-agents/tool-server";
 import { z } from "zod";
 import type { Meter } from "./server.ts";
 
@@ -182,6 +189,8 @@ export interface MarketToolsDeps {
     identity: AgentIdentity,
     provider: PaidDataSourceId,
   ) => Promise<string | null>;
+  /** UI-U2: inside a replayed stage the answer is the stored one; see DataToolsDeps.replay. */
+  readonly replay?: ReplayHook | null;
 }
 
 function marketError(err: unknown): ToolError {
@@ -216,6 +225,8 @@ export function registerMarketTools(
       ownerKey: { key: string; scope: string } | null,
     ) => Promise<Record<string, unknown>>,
   ) => {
+    const replay = await replayed(deps.replay, identity, "data", tool, input);
+    if (replay) return replay;
     const m = deps.market;
     if (!m)
       return errorFrom(

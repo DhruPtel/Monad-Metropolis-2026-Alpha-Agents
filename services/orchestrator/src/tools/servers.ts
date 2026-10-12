@@ -15,10 +15,11 @@ import {
 } from "@alpha-agents/chain-tools";
 import type { MarketData, ResearchSources } from "@alpha-agents/market";
 import { startPlatformTools } from "@alpha-agents/platform-tools";
-import type { AgentIdentity } from "@alpha-agents/tool-server";
+import { type AgentIdentity, ToolError } from "@alpha-agents/tool-server";
 import type { Hex } from "viem";
 import type { ToolServer } from "@alpha-agents/tool-server";
 import type { Ledger } from "../credits/ledger.ts";
+import { ReplayStore } from "../cycle/replay.ts";
 import type { CycleResearch } from "../cycle/research.ts";
 import type { CycleStore } from "../cycle/store.ts";
 import type { CreditService } from "../credits/service.ts";
@@ -39,6 +40,8 @@ export interface ToolServers {
   readonly platform: ToolServer;
   readonly chain: ToolServer;
   readonly intents: PgIntentStore;
+  /** UI-U2: the replay tool's stored inputs; null without research cycles. */
+  readonly replay: ReplayStore | null;
   close(): Promise<void>;
 }
 
@@ -105,6 +108,9 @@ export async function startToolServers(o: ToolServersOptions): Promise<ToolServe
     log: o.log,
     ...(o.cycles ? { cycles: o.cycles.store } : {}),
   });
+  // UI-U2: inside a replayed stage every tool answers from the original stage's stored results.
+  const replay = o.cycles ? new ReplayStore(o.store, o.cycles.store) : null;
+  const replayHook = replay ? replay.hook() : null;
   const data = await startDataTools({
     resolve,
     meter,
@@ -113,10 +119,11 @@ export async function startToolServers(o: ToolServersOptions): Promise<ToolServe
     research: o.research ?? null,
     ...(o.ownerKey ? { ownerKey: o.ownerKey } : {}),
     tokens: o.tokens ?? null,
+    replay: replayHook,
     ...(o.lookup ? { lookup: o.lookup } : {}),
     ...(o.probe ? { probe: o.probe } : {}),
   });
-  const platformStore = new PgPlatformStore(o.store, o.cycles ?? null);
+  const platformStore = new PgPlatformStore(o.store, o.cycles ?? null, replayHook);
   const goals = goalsReader(o.store.db, o.chain?.reader ?? null, o.chain?.readerV3 ?? null);
   const platform = await startPlatformTools({
     resolve,
@@ -124,6 +131,13 @@ export async function startToolServers(o: ToolServersOptions): Promise<ToolServe
     goals: {
       // Inside a cycle stage the answer is stored, so a brief may quote the goal and limits.
       read: async (identity) => {
+        const stored = replayHook
+          ? await replayHook(identity, "platform", "get_goals_and_limits", {})
+          : null;
+        if (stored) {
+          if (stored.hit) return stored.result;
+          throw new ToolError("INVALID_INPUT", stored.message, false, { replay: true });
+        }
         const answer = await goals.read(identity);
         await platformStore.recordRead(identity, "get_goals_and_limits", answer);
         return answer;
@@ -141,12 +155,14 @@ export async function startToolServers(o: ToolServersOptions): Promise<ToolServe
     research: o.research ?? null,
     ...(o.chain?.sessionKeyOf ? { sessionKeyOf: o.chain.sessionKeyOf } : {}),
     ...(o.chain?.onProposed ? { onProposed: o.chain.onProposed } : {}),
+    replay: replayHook,
   });
   return {
     data,
     platform,
     chain,
     intents,
+    replay,
     close: async () => {
       await Promise.allSettled([data.close(), platform.close(), chain.close()]);
     },

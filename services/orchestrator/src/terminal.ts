@@ -131,6 +131,7 @@ const CYCLE_NAMES: Readonly<Record<string, string>> = {
   TRIGGERED: "Triggered research",
   ACTIVATION: "Activation research",
   REVIEW: "Review",
+  REPLAY: "Replay",
 };
 const STAGE_NAMES: Readonly<Record<string, string>> = {
   SCAN: "Scan",

@@ -1,7 +1,12 @@
 import type { Gate } from "./gate.ts";
 import { GATE_HEADER } from "./gate.ts";
 import type { SkillPackage } from "@alpha-agents/skills/packages";
-import { API_SERVER_PORT, HERMES_HOME, materialize } from "./hermes/materialize.ts";
+import {
+  API_SERVER_PORT,
+  HERMES_HOME,
+  type SkillTextOverride,
+  materialize,
+} from "./hermes/materialize.ts";
 import { EQUIPPED_DIR, PLAYBOOKS_DIR, SKILLS_ROOT, WORKSPACE_DIR } from "./hermes/schema.ts";
 import type { AgentConfig } from "./hermes/schema.ts";
 import type { LeaseManager } from "./leases.ts";
@@ -68,6 +73,11 @@ export interface TaskContext {
    * absent.
    */
   readonly ownerSkills?: (agentId: number) => Promise<readonly SkillPackage[]>;
+  /**
+   * UI-U2: the playbook versions the owner saved for an agent, mounted in
+   * place of the built-in text at every sandbox start; none when absent.
+   */
+  readonly playbookOverrides?: (agentId: number) => Promise<readonly SkillTextOverride[]>;
 }
 
 const shq = (s: string) => `'${s.replaceAll("'", `'\\''`)}'`;
@@ -113,6 +123,8 @@ export async function bootHermes(
   redactor: Redactor,
   /** SK-U1: the owner's own skills for this agent, mounted beside the built-in ones. */
   ownerSkills: readonly SkillPackage[] = [],
+  /** UI-U2: edited SKILL.md bodies mounted in place of the packages' own. */
+  overrides: readonly SkillTextOverride[] = [],
 ): Promise<HermesRuns> {
   const apiServerKey = randomToken();
   redactor.add(apiServerKey);
@@ -124,6 +136,7 @@ export async function bootHermes(
       apiServerKey,
     },
     ownerSkills,
+    overrides,
   );
   const dirs = new Set([
     PLAYBOOKS_DIR,
@@ -234,6 +247,8 @@ export interface AgentSandbox {
   readonly bootMs: number;
   /** SK-U1: the owner's own skills mounted in this sandbox, for the prompts to name. */
   readonly ownerSkills: readonly OwnerSkillLine[];
+  /** UI-U2: the edited texts mounted in place of packages' own SKILL.md, by kind and name. */
+  readonly overrides: readonly { readonly kind: string; readonly hermesName: string }[];
 }
 
 /**
@@ -250,6 +265,8 @@ export async function openAgentSandbox(
   onLease: (leaseId: string) => void,
   /** P3-U4: a research cycle boots with its own rendered config (models, caps, goal, canary). */
   configFor?: (stored: AgentConfig) => AgentConfig,
+  /** UI-U2: a replay's edited texts, mounted over the saved playbook versions and the packages' own. */
+  overrides: readonly SkillTextOverride[] = [],
 ): Promise<AgentSandbox> {
   const runtime = await ctx.store.runtime(ref);
   if (runtime?.status !== "ready") throw new Error(`agent ${ref.agentId} is not provisioned`);
@@ -276,7 +293,15 @@ export async function openAgentSandbox(
   const t1 = Date.now();
   // SK-U1: the owner's own skills for this agent ride along, read-only beside the built-in ones.
   const ownerSkills = ctx.ownerSkills ? await ctx.ownerSkills(ref.agentId) : [];
-  const runs = await bootHermes(sbx, config, `https://${host}`, ctx.redactor, ownerSkills);
+  // UI-U2: the playbook versions the owner saved, under whatever this task mounts on top.
+  const saved = ctx.playbookOverrides ? await ctx.playbookOverrides(ref.agentId) : [];
+  const mounted = [
+    ...saved.filter(
+      (s) => !overrides.some((o) => o.kind === s.kind && o.hermesName === s.hermesName),
+    ),
+    ...overrides,
+  ];
+  const runs = await bootHermes(sbx, config, `https://${host}`, ctx.redactor, ownerSkills, mounted);
   await runs.waitHealthy(180_000);
   return {
     runtime,
@@ -290,6 +315,7 @@ export async function openAgentSandbox(
       name: p.hermesName,
       description: p.manifest.description.model,
     })),
+    overrides: mounted.map((o) => ({ kind: o.kind, hermesName: o.hermesName })),
   };
 }
 

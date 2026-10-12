@@ -6,6 +6,7 @@ import {
   ToolErrorBody,
   type ToolServer,
   identityFields,
+  type ReplayHook,
 } from "@alpha-agents/tool-server";
 import { connectClient, staticResolver, structured } from "@alpha-agents/tool-server/testing";
 import {
@@ -117,6 +118,8 @@ async function start(
     probe?: typeof fetch;
     /** BK-U1: the owner's own key for a source, per agent. */
     ownerKey?: (identity: AgentIdentity, provider: PaidDataSourceId) => Promise<string | null>;
+    /** UI-U2: the replay's stored answers. */
+    replay?: ReplayHook;
   } = {},
 ) {
   const meter = o.meter ?? new FakeMeter();
@@ -130,6 +133,7 @@ async function start(
     ...(o.market === undefined ? {} : { market: o.market }),
     ...(o.research === undefined ? {} : { research: o.research }),
     ...(o.ownerKey ? { ownerKey: o.ownerKey } : {}),
+    ...(o.replay ? { replay: o.replay } : {}),
   });
   servers.push(server);
   return { server, meter, provider };
@@ -282,6 +286,59 @@ describe("data tools server", () => {
       errorCode: "UPSTREAM_UNAVAILABLE",
     });
     await client.close();
+  });
+
+  it("inside a replay answers from the stored results only: nothing metered, nothing fetched, and an input the stage never sent is refused (UI-U2)", async () => {
+    const asked: { tool: string; input: Record<string, unknown> }[] = [];
+    const stored = {
+      source: "web",
+      untrusted: true,
+      notice: "stored notice",
+      asOf: "2026-10-11T00:00:00.000Z",
+      cacheHit: false,
+      query: "monad tvl",
+      results: [{ title: "Stored", url: "https://news.example/stored", snippet: "stored" }],
+    };
+    const replay: ReplayHook = async (identity, server, tool, input) => {
+      asked.push({ tool, input });
+      // Only Bob's lease is replaying; Alice's calls run as usual.
+      if (identity.agentId !== BOB.agentId) return null;
+      expect(server).toBe("data");
+      return tool === "web_search" && input.query === "monad tvl"
+        ? { hit: true, result: stored }
+        : { hit: false, message: `Not among the stored inputs of the replayed stage: ${tool}` };
+    };
+    const { server, meter, provider } = await start({ replay });
+    const bob = await connectClient(server.url, BOB_TOKEN);
+    const hit = await bob.callTool({ name: "web_search", arguments: { query: "monad tvl" } });
+    expect(hit.isError).toBeFalsy();
+    expect(structured(hit)).toEqual(stored);
+    const miss = await bob.callTool({ name: "web_search", arguments: { query: "something else" } });
+    expect(miss.isError).toBe(true);
+    expect(structured(miss)).toMatchObject({
+      code: "INVALID_INPUT",
+      message: /Not among the stored inputs/,
+      details: { replay: true },
+    });
+    const page = await bob.callTool({ name: "read_url", arguments: { url: "https://news.example/a" } });
+    expect(page.isError).toBe(true);
+    // The hook saw the parsed inputs, with their defaults, as the meter would have.
+    expect(asked.map((a) => [a.tool, a.input])).toEqual([
+      ["web_search", { query: "monad tvl", maxResults: 5 }],
+      ["web_search", { query: "something else", maxResults: 5 }],
+      ["read_url", { url: "https://news.example/a" }],
+    ]);
+    expect(meter.events).toEqual([]);
+    expect(provider.searches).toEqual([]);
+    expect(provider.extracts).toEqual([]);
+    await bob.close();
+    // Alice's lease is not replaying: her search is metered and fetched as before.
+    const alice = await connectClient(server.url, ALICE_TOKEN);
+    const live = await alice.callTool({ name: "web_search", arguments: { query: "monad tvl" } });
+    expect(live.isError).toBeFalsy();
+    expect(provider.searches).toEqual(["monad tvl"]);
+    expect(meter.events.map((e) => e.kind)).toEqual(["begin", "finish"]);
+    await alice.close();
   });
 
   it("rejects invalid input with no charge", async () => {

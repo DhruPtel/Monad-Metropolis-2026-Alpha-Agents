@@ -151,3 +151,39 @@ export function identityFields(schema: z.ZodType): string[] {
   const forbidden = new Set<string>(FORBIDDEN_INPUT_FIELDS);
   return fieldNames(schema).filter((n) => forbidden.has(n));
 }
+
+/**
+ * UI-U2: a replay's answer to a tool call. Inside a replayed stage every tool
+ * answers from the original stage's stored results: a call the original
+ * stage made gets its stored result, free, and any other call is refused, so
+ * only the model call is ever paid. Null outside a replay.
+ */
+export type ReplayAnswer =
+  | { readonly hit: true; readonly result: Record<string, unknown> }
+  | { readonly hit: false; readonly message: string };
+
+export type ReplayHook = (
+  identity: AgentIdentity,
+  server: "data" | "platform" | "chain",
+  tool: string,
+  input: Record<string, unknown>,
+) => Promise<ReplayAnswer | null>;
+
+/**
+ * The replay's result for a call, or null when the hook is absent or the
+ * lease is not replaying: the tool then runs as usual.
+ */
+export async function replayed(
+  hook: ReplayHook | undefined | null,
+  identity: AgentIdentity,
+  server: "data" | "platform" | "chain",
+  tool: string,
+  input: Record<string, unknown>,
+): Promise<CallToolResult | null> {
+  if (!hook) return null;
+  const answer = await hook(identity, server, tool, input);
+  if (!answer) return null;
+  return answer.hit
+    ? okResult(answer.result)
+    : errorFrom(new ToolError("INVALID_INPUT", answer.message, false, { replay: true }));
+}

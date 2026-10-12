@@ -40,6 +40,9 @@ const cycle: Cycle = {
   createdAt: T(0),
   startedAt: T(1),
   finishedAt: T(60),
+  replayOf: null,
+  replayOverrides: [],
+  soul: null,
 };
 
 const stage = (over: Partial<StageRun>): StageRun => ({
@@ -68,6 +71,7 @@ const stage = (over: Partial<StageRun>): StageRun => ({
   absorbedUsdcE6: 0n,
   startedAt: T(2),
   finishedAt: T(20),
+  prompt: null,
   ...over,
 });
 
