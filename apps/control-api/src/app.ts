@@ -60,6 +60,14 @@ import {
   buildWindow,
   isPortfolioPlan,
 } from "@alpha-agents/trading";
+import { OwnerSkillStore } from "@alpha-agents/skills/store";
+import {
+  type OwnerSkillCheck,
+  type UploadedFile,
+  checkOwnerSkill,
+  loadBuiltinSet,
+  ruleWords,
+} from "@alpha-agents/skills/packages";
 import { TtlCache } from "./cache.ts";
 import {
   goalErrorsJson,
@@ -1021,6 +1029,149 @@ export function createApp(deps: ApiDeps): Hono {
     const reading = await reader.portfolio(Number(agentId));
     if (!reading) return fail(c, 404, "not_found", `Agent #${agentId} does not exist.`);
     return c.json({ ...(await meta()), portfolio: portfolioJson(reading) });
+  });
+
+  // --- The owner's own skills (SK-U1) ----------------------------------------
+
+  const ownerSkills = new OwnerSkillStore(deps.db, () => new Date(deps.now()));
+  /** The built-in set's ids, reserved: an owner's skill may not take one. Read once per process. */
+  let reservedIds: readonly string[] | null = null;
+  const reserved = () => (reservedIds ??= loadBuiltinSet().packages.map((p) => p.manifest.id));
+  const whenUtc = (d: Date) => `${d.toISOString().slice(0, 16).replace("T", " ")} UTC`;
+  const findingJson = (i: OwnerSkillCheck["issues"][number]) => ({
+    rule: i.rule,
+    severity: i.severity,
+    path: i.path,
+    message: i.message,
+    ...ruleWords(i.rule),
+  });
+  const ownerSkillJson = (r: Awaited<ReturnType<OwnerSkillStore["current"]>>[number]) => ({
+    id: r.skillId,
+    name: r.manifest.name,
+    version: r.version,
+    description: r.manifest.description.model,
+    kind: "owner" as const,
+    contentHash: r.contentHash,
+    manifestHash: r.manifestHash,
+    hermesName: r.hermesName,
+    tools: r.manifest.required_tools,
+    warnings: r.warnings.map(findingJson),
+    uploadedAt: r.uploadedAt.toISOString(),
+    uploadedAtUtc: whenUtc(r.uploadedAt),
+    files: r.files.map((f) => f.path).sort(),
+  });
+  /** The built-in set as the page shows it beside the owner's: never the owner's business to change. */
+  const builtinJson = () =>
+    loadBuiltinSet().packages.map((p) => ({
+      id: p.manifest.id,
+      name: p.manifest.name,
+      version: p.manifest.version,
+      description: p.manifest.description.model,
+      kind: p.kind,
+      contentHash: p.contentHash,
+      tools: p.manifest.required_tools,
+    }));
+
+  /** The agent's skills for its owner: the built-in set and the owner's own uploads. Owner only. */
+  app.get("/v1/agents/:id{[0-9]+}/skills", async (c) => {
+    const agentId = BigInt(c.req.param("id"));
+    const owner = await ownerOnly(c, agentId);
+    if (owner instanceof Response) return owner;
+    const own = await ownerSkills.current(chainId, Number(agentId));
+    return c.json({
+      ...(await meta()),
+      agentId: agentId.toString(),
+      builtin: builtinJson(),
+      owner: own.map(ownerSkillJson),
+      limits: { packageBytes: 2 * 1024 * 1024 },
+    });
+  });
+
+  /**
+   * The owner uploads a skill package for this agent: `{ files: [{ path,
+   * content }] }`, the files' text as the browser read them. Every format
+   * rule and static rule runs; a blocking finding refuses the package with
+   * every finding named (422), warnings alone mount it (201, or 200 when the
+   * same content was uploaded before). Owner only; the publisher must be
+   * the owner's wallet.
+   */
+  app.post("/v1/agents/:id{[0-9]+}/skills", async (c) => {
+    const agentId = BigInt(c.req.param("id"));
+    const owner = await ownerOnly(c, agentId);
+    if (owner instanceof Response) return owner;
+    const body = (await jsonBody(c)) as { files?: unknown } | null;
+    const raw = Array.isArray(body?.files) ? body.files : null;
+    if (!raw)
+      return fail(
+        c,
+        400,
+        "bad_request",
+        'Send { "files": [{ "path", "content" }] }, the package\'s files as text.',
+      );
+    const files: UploadedFile[] = [];
+    for (const f of raw) {
+      const path = (f as { path?: unknown })?.path;
+      const content = (f as { content?: unknown })?.content;
+      if (
+        typeof path !== "string" ||
+        typeof content !== "string" ||
+        path.length === 0 ||
+        path.length > 200
+      )
+        return fail(c, 400, "bad_request", "Every file needs a path and its content as text.");
+      files.push({ path: path.replace(/\\/g, "/"), content });
+    }
+    const checked = checkOwnerSkill(files, { reservedIds: reserved(), owner: owner.wallet });
+    if (checked.blocked || !checked.pkg)
+      return c.json(
+        {
+          error: "skill_refused",
+          message: "The package was refused. Fix each blocking finding and upload it again.",
+          blocked: true,
+          findings: checked.issues.map(findingJson),
+        },
+        422,
+      );
+    const warnings = checked.issues.filter((i) => i.severity === "warn");
+    const saved = await ownerSkills.save({
+      chainId,
+      agentId: Number(agentId),
+      pkg: checked.pkg,
+      files: files.map((f) => ({ path: f.path, content: f.content })),
+      warnings,
+      uploadedBy: owner.wallet,
+    });
+    if (!saved.ok)
+      return c.json(
+        {
+          error: "skill_refused",
+          message: "The package was refused. Fix each blocking finding and upload it again.",
+          blocked: true,
+          findings: [findingJson(saved.issue)],
+        },
+        422,
+      );
+    return c.json(
+      {
+        agentId: agentId.toString(),
+        skill: ownerSkillJson(saved.record),
+        blocked: false,
+        findings: warnings.map(findingJson),
+        already: saved.already,
+        mounted: "at the agent's next sandbox",
+      },
+      saved.already ? 200 : 201,
+    );
+  });
+
+  /** The owner removes a skill: it leaves the mount at the agent's next sandbox; its history stays. */
+  app.delete("/v1/agents/:id{[0-9]+}/skills/:skillId{[a-z0-9-]+}", async (c) => {
+    const agentId = BigInt(c.req.param("id"));
+    const owner = await ownerOnly(c, agentId);
+    if (owner instanceof Response) return owner;
+    const removed = await ownerSkills.remove(chainId, Number(agentId), c.req.param("skillId"));
+    if (!removed) return fail(c, 404, "not_found", "This agent has no such skill of yours.");
+    return c.json({ agentId: agentId.toString(), removed: c.req.param("skillId") });
   });
 
   /**
