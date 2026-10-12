@@ -78,6 +78,7 @@ import {
   OlderAccountCard,
   HundredDollarTile,
   PerformanceChart,
+  ScoreTile,
   ScoreTiles,
   type SeriesPoint,
   type TradeMarkView,
@@ -2855,6 +2856,42 @@ function VaultSection() {
                 hash="0x1111111111111111111111111111111111111111111111111111111111111111"
               />
             }
+          />
+        </div>
+      </Specimen>
+      <Specimen
+        name="The vault's performance"
+        note="The two scores the vault page shows over the value of one share from the snapshots: the return since the start and the largest fall from a peak, each with its not-enough-data state and the plain reason, as single tiles."
+      >
+        <div
+          className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4"
+          data-testid="vault-score-specimens"
+        >
+          <ScoreTile
+            label="Return since the start"
+            value="+2.50%"
+            tone="positive"
+            note="From the first reading on 2026-10-07 04:00 UTC"
+            testId="ds-vault-score-return"
+          />
+          <ScoreTile
+            label="Largest fall from a peak"
+            value="-1.17%"
+            tone="negative"
+            note="Peak 2026-10-07 09:00 UTC, low 2026-10-07 10:00 UTC"
+            testId="ds-vault-score-drawdown"
+          />
+          <ScoreTile
+            label="Return since the start"
+            value={null}
+            note="Not enough data yet: the account needs at least two readings."
+            testId="ds-vault-score-return-waiting"
+          />
+          <ScoreTile
+            label="Largest fall from a peak"
+            value="0.00%"
+            note="No fall yet: every reading was at or above the one before"
+            testId="ds-vault-score-flat"
           />
         </div>
       </Specimen>

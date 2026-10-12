@@ -22,8 +22,10 @@ describe("MV-S15 compareState", () => {
   it("passes a reading that matches the intent, whatever the case of its addresses and the type of its numbers", () => {
     const actual = matching();
     actual.factory.owner = /** @type {`0x${string}`} */ (actual.factory.owner.toLowerCase());
-    actual.executor.policy = Object.fromEntries(
-      Object.entries(actual.executor.policy).map(([k, v]) => [k, BigInt(v)]),
+    actual.executor.policy = /** @type {typeof actual.executor.policy} */ (
+      /** @type {unknown} */ (
+        Object.fromEntries(Object.entries(actual.executor.policy).map(([k, v]) => [k, BigInt(v)]))
+      )
     );
     expect(compareState(localIntent(A), actual)).toEqual([]);
   });
@@ -33,7 +35,7 @@ describe("MV-S15 compareState", () => {
     actual.factory.vaultCap = 1n;
     actual.factory.depositsEnabled = true;
     actual.executor.guardian = A.usdc;
-    const [first] = Object.keys(actual.factory.allowlisted);
+    const first = Object.keys(actual.factory.allowlisted)[0] ?? "";
     actual.factory.allowlisted[first] = false;
     actual.executor.policy = { ...actual.executor.policy, maxTradeBps: 1_001 };
     const paths = compareState(localIntent(A), actual).map((m) => m.path);
