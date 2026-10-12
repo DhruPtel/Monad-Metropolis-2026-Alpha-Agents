@@ -214,9 +214,11 @@ async function main(): Promise<number> {
       forOwner.state.leaderStakeBps <= 2_600n,
     `${forOwner?.state?.leaderStakeBps ?? "?"} bps`,
   );
+  // Step 0 (2026-10-12): the local fork's caps are the deploy library's LOCAL_CAPS, 10,000 USDC per vault.
+  const { LOCAL_CAPS } = await import("../../../scripts/lib/account-factory.js");
   check(
-    "the reader says the vault cap is 500 USDC and public deposits are off",
-    forOwner?.factory.vaultCap === 500_000_000n && forOwner.factory.depositsEnabled === false,
+    `the reader says the vault cap is ${(LOCAL_CAPS.vaultE6 / 1_000_000n).toLocaleString("en-US")} USDC and public deposits are off`,
+    forOwner?.factory.vaultCap === LOCAL_CAPS.vaultE6 && forOwner.factory.depositsEnabled === false,
   );
   check(
     "a wallet off the allowlist may not deposit, per the reader",

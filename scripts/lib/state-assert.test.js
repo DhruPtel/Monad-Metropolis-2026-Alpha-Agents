@@ -57,12 +57,16 @@ describe("MV-S15 compareState", () => {
     ]);
   });
 
-  it("states the beta's intent: the allowlist on, public vault deposits off, the vault cap between the personal and platform caps", () => {
+  it("states the local fork's intent: the allowlist on with the playtest wallets, public vault deposits off, 10,000 USDC per account and 100,000 across the platform (Step 0, 2026-10-12)", () => {
     const intent = localIntent(A);
     expect(intent.factory.allowlistEnabled).toBe(true);
     expect(intent.factory.depositsEnabled).toBe(false);
-    expect(intent.factory.vaultCap).toBeGreaterThan(intent.factory.personalCap);
-    expect(intent.factory.vaultCap).toBeLessThan(intent.factory.platformCap);
+    expect(intent.factory.personalCap).toBe(10_000_000_000n);
+    expect(intent.factory.vaultCap).toBe(10_000_000_000n);
+    expect(intent.factory.platformCap).toBe(100_000_000_000n);
+    // The anvil test owners from the constructor and the owner's playtest wallets the deploy adds after.
+    expect(Object.keys(intent.factory.allowlisted)).toHaveLength(5);
+    expect(intent.factory.allowlisted["0x683eE842A16f85e69883F433745263BFe8D55f76"]).toBe(true);
     expect(intent.executor.policy.maxTradeBps).toBe(1_000);
   });
 });

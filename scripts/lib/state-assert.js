@@ -9,10 +9,10 @@
 import { executorV3 } from "@alpha-agents/policy";
 import { createPublicClient, getAddress, http, keccak256, parseAbi, toHex } from "viem";
 import {
-  BETA_CAPS,
   BETA_DEPOSITS_ENABLED,
   CUSTODY_ROLES,
-  LOCAL_TEST_OWNERS,
+  LOCAL_ALLOWLIST,
+  LOCAL_CAPS,
 } from "./account-factory.js";
 import { FUND_ROLES } from "./fund.js";
 
@@ -109,7 +109,8 @@ const TOKENS_ABI = parseAbi([
  * @param {SetAddresses} a
  */
 export function localIntent(a) {
-  const allowlisted = Object.fromEntries(LOCAL_TEST_OWNERS.map((w) => [getAddress(w), true]));
+  // The anvil test owners from the constructor, and the owner's playtest wallets the deploy adds after (Step 0, 2026-10-12).
+  const allowlisted = Object.fromEntries(LOCAL_ALLOWLIST.map((w) => [getAddress(w), true]));
   return {
     factory: {
       owner: CUSTODY_ROLES.admin,
@@ -118,9 +119,9 @@ export function localIntent(a) {
       sentinel: CUSTODY_ROLES.sentinel,
       oracle: a.oracle,
       executor: a.executor,
-      personalCap: BETA_CAPS.personalE6,
-      vaultCap: BETA_CAPS.vaultE6,
-      platformCap: BETA_CAPS.platformE6,
+      personalCap: LOCAL_CAPS.personalE6,
+      vaultCap: LOCAL_CAPS.vaultE6,
+      platformCap: LOCAL_CAPS.platformE6,
       allowlistEnabled: true,
       depositsEnabled: BETA_DEPOSITS_ENABLED,
       allowlisted,

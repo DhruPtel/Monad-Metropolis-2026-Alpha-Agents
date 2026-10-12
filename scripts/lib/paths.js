@@ -5,6 +5,8 @@ import { fileURLToPath } from "node:url";
 export const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 export const MONAD_DIR = join(ROOT, "chains/monad");
 export const FORK_CONFIG_PATH = join(MONAD_DIR, "fork.json");
+/** The owner's playtest wallets, re-added to every deposit allowlist by every local deploy (Step 0, 2026-10-12). */
+export const LOCAL_WALLETS_PATH = join(MONAD_DIR, "local-wallets.json");
 export const FOUNDRY_VERSION_PATH = join(ROOT, ".foundry-version");
 export const NVMRC_PATH = join(ROOT, ".nvmrc");
 export const COMPOSE_FILE = join(ROOT, "infra/compose.yaml");

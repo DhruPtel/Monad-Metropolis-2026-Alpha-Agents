@@ -4,8 +4,17 @@
 // only: no unit has authorized a testnet or mainnet deployment of custody.
 // The deployment is deterministic (CREATE2, fixed salt and arguments), so
 // running it again finds the existing contract.
-import { assertLocalFork } from "@alpha-agents/devenv";
+import { readFileSync } from "node:fs";
+import { assertLocalFork, sendAs, setMonBalance } from "@alpha-agents/devenv";
 import { addressEntry, UNISWAP_V4_MON_USDC_POOL } from "@alpha-agents/domain";
+import {
+  createPublicClient,
+  encodeFunctionData,
+  getAddress,
+  http,
+  isAddress,
+  parseAbi,
+} from "viem";
 import {
   deployLocal as deployAgentNftLocal,
   localFeeArgs,
@@ -14,6 +23,7 @@ import {
   runForgeDeploy,
 } from "./agent-nft.js";
 import { ANVIL_URL } from "./config.js";
+import { LOCAL_WALLETS_PATH } from "./paths.js";
 
 /**
  * Anvil's well-known development accounts (public test keys, never funded on
@@ -39,13 +49,68 @@ export const LOCAL_TEST_OWNERS = [
   "0xa0Ee7A142d267C1f36714E4a8F75612F20a79720",
 ];
 
-/** The beta caps (D-133, P2-U1): 100 USDC per account, 2,000 USDC across the platform. */
-export const BETA_CAPS = {
-  personalE6: 100_000_000n,
-  /** P7-U4: the most one vault may hold on the local fork and at the beta (A-89). */
-  vaultE6: 500_000_000n,
-  platformE6: 2_000_000_000n,
+/**
+ * The owner's playtest wallets, from chains/monad/local-wallets.json (Step 0
+ * of the 2026-10-12 session): every local deploy adds each of them to every
+ * deposit allowlist it creates or finds (`ensureLocalAllowlist`), so a
+ * redeploy never drops them again. Public addresses only.
+ * @returns {`0x${string}`[]}
+ */
+export function readLocalWallets() {
+  const raw = /** @type {{ wallets?: unknown }} */ (
+    JSON.parse(readFileSync(LOCAL_WALLETS_PATH, "utf8"))
+  );
+  if (!Array.isArray(raw.wallets))
+    throw new Error(`${LOCAL_WALLETS_PATH} must hold a "wallets" array of addresses`);
+  return raw.wallets.map((w) => {
+    if (typeof w !== "string" || !isAddress(w, { strict: false }))
+      throw new Error(`${LOCAL_WALLETS_PATH}: ${String(w)} is not an address`);
+    return getAddress(w);
+  });
+}
+export const LOCAL_PLAYTEST_WALLETS = readLocalWallets();
+
+/**
+ * Every wallet a local deposit allowlist holds once a deploy has run: the
+ * anvil test owners from the factory's constructor, and the owner's playtest
+ * wallets added right after (the intent `pnpm assert:state` checks against).
+ * @type {`0x${string}`[]}
+ */
+export const LOCAL_ALLOWLIST = [
+  ...LOCAL_TEST_OWNERS,
+  ...LOCAL_PLAYTEST_WALLETS.filter((w) => !LOCAL_TEST_OWNERS.includes(w)),
+];
+
+/**
+ * The local fork's caps (Step 0 of the 2026-10-12 session, after the owner's
+ * playtest): 10,000 USDC per account, personal or vault, and 100,000 USDC
+ * across the platform, so a playtest on the fork is never stopped by a cap.
+ * The v3 factory's address follows from them (CREATE2). The beta's own caps
+ * are BETA_CAPS below.
+ */
+export const LOCAL_CAPS = {
+  personalE6: 10_000_000_000n,
+  vaultE6: 10_000_000_000n,
+  platformE6: 100_000_000_000n,
 };
+/**
+ * The beta's caps as assumed for the owner to confirm at PB-U1 (A-90): 1,000
+ * USDC per account, personal or vault, and 25,000 USDC across the platform.
+ * Nothing deploys them yet; PB-U1's beta deployment reads them from here once
+ * confirmed. They replace the 100, 500 and 2,000 USDC of D-133 and A-89.
+ */
+export const BETA_CAPS = {
+  personalE6: 1_000_000_000n,
+  vaultE6: 1_000_000_000n,
+  platformE6: 25_000_000_000n,
+};
+/**
+ * The v2 AccountFactory's caps as deployed (D-133, P2-U1): 100 USDC per
+ * account and 2,000 across the platform. Its address follows from them, and
+ * the app opens no v2 accounts (A-80: a v2 account is an older account its
+ * owner withdraws from), so they stay as they were.
+ */
+export const V2_CAPS = { personalE6: 100_000_000n, platformE6: 2_000_000_000n };
 /** P7-U4: vault deposits by wallets off the allowlist stay off until the launch decision (Q-29, P9-U5). */
 export const BETA_DEPOSITS_ENABLED = false;
 
@@ -90,8 +155,8 @@ export async function deployAccountFactoryLocal(options = {}) {
       ACCOUNT_FACTORY_AGENT_NFT: agentNft,
       ACCOUNT_FACTORY_USDC: usdc.address,
       ACCOUNT_FACTORY_WMON: wmon.address,
-      ACCOUNT_FACTORY_PERSONAL_CAP: BETA_CAPS.personalE6.toString(),
-      ACCOUNT_FACTORY_PLATFORM_CAP: BETA_CAPS.platformE6.toString(),
+      ACCOUNT_FACTORY_PERSONAL_CAP: V2_CAPS.personalE6.toString(),
+      ACCOUNT_FACTORY_PLATFORM_CAP: V2_CAPS.platformE6.toString(),
       ACCOUNT_FACTORY_ALLOWLIST: LOCAL_TEST_OWNERS.join(","),
       ORACLE_MON_USD_FEED: verified("chainlink_mon_usd"),
       ORACLE_USDC_USD_FEED: verified("chainlink_usdc_usd"),
@@ -123,6 +188,7 @@ export async function deployAccountFactoryLocal(options = {}) {
     venueV4: found("VENUE_V4_ADDRESS"),
     venueV3: found("VENUE_V3_ADDRESS"),
   };
+  const allowed = await ensureLocalAllowlist(ANVIL_URL, result.factory);
   if (options.quiet) return result;
   console.log(`\nAccountFactory on the local fork: ${factory}`);
   console.log(`PersonalAccount implementation: ${implementation}`);
@@ -135,8 +201,71 @@ export async function deployAccountFactoryLocal(options = {}) {
   console.log(`guardian ${CUSTODY_ROLES.guardian} (anvil account 4)`);
   console.log(`sentinel key ${CUSTODY_ROLES.sentinel} (anvil account 5)`);
   console.log(
-    "caps: 100 USDC per account, 2,000 USDC across the platform; allowlist: anvil accounts 6 to 9",
+    `caps: 100 USDC per account, 2,000 USDC across the platform (the v2 set as deployed); allowlist: anvil accounts 6 to 9${allowlistWords(allowed)}`,
   );
   console.log("Try it: pnpm custody:local demo");
   return result;
+}
+
+const ALLOWLIST_ABI = parseAbi([
+  "function owner() view returns (address)",
+  "function allowlistEnabled() view returns (bool)",
+  "function isAllowlisted(address depositor) view returns (bool)",
+  "function addDepositor(address depositor)",
+]);
+
+/**
+ * Adds every wallet of chains/monad/local-wallets.json to a factory's deposit
+ * allowlist on the local fork, as the factory's admin (anvil account 0,
+ * impersonated; D-231: adding is instant), skipping those already on it. Run
+ * by every local deploy after the factory exists, fresh or found, so a
+ * redeploy never leaves the owner's wallet off the list (Step 0, 2026-10-12).
+ * @param {string} url the local fork
+ * @param {`0x${string}`} factory AccountFactory (v2) or AccountFactoryV3
+ * @returns {Promise<{ added: `0x${string}`[], already: `0x${string}`[] }>}
+ */
+export async function ensureLocalAllowlist(url, factory) {
+  await assertLocalFork(url);
+  const client = createPublicClient({ transport: http(url) });
+  const [admin, enabled] = await Promise.all([
+    client.readContract({ address: factory, abi: ALLOWLIST_ABI, functionName: "owner" }),
+    client.readContract({ address: factory, abi: ALLOWLIST_ABI, functionName: "allowlistEnabled" }),
+  ]);
+  /** @type {`0x${string}`[]} */
+  const added = [];
+  /** @type {`0x${string}`[]} */
+  const already = [];
+  for (const wallet of LOCAL_PLAYTEST_WALLETS) {
+    const listed = await client.readContract({
+      address: factory,
+      abi: ALLOWLIST_ABI,
+      functionName: "isAllowlisted",
+      args: [wallet],
+    });
+    if (!enabled || listed) {
+      already.push(wallet);
+      continue;
+    }
+    if ((await client.getBalance({ address: admin })) < 10n ** 17n)
+      await setMonBalance(admin, 10n ** 18n, url);
+    await sendAs(
+      url,
+      admin,
+      factory,
+      encodeFunctionData({ abi: ALLOWLIST_ABI, functionName: "addDepositor", args: [wallet] }),
+    );
+    added.push(wallet);
+  }
+  return { added, already };
+}
+
+/** The summary's words for the playtest wallets' allowlist entries. */
+export function allowlistWords(/** @type {{ added: string[], already: string[] }} */ r) {
+  if (LOCAL_PLAYTEST_WALLETS.length === 0) return "";
+  const list = (/** @type {string[]} */ ws) =>
+    ws.map((w) => `${w.slice(0, 6)}…${w.slice(-4)}`).join(", ");
+  const parts = [];
+  if (r.added.length) parts.push(`${list(r.added)} added`);
+  if (r.already.length) parts.push(`${list(r.already)} already on it`);
+  return `; the playtest wallets of chains/monad/local-wallets.json: ${parts.join("; ")}`;
 }

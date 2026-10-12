@@ -9,10 +9,12 @@
 import { assertLocalFork, rpc } from "@alpha-agents/devenv";
 import { addressEntry } from "@alpha-agents/domain";
 import {
-  BETA_CAPS,
   BETA_DEPOSITS_ENABLED,
   CUSTODY_ROLES,
+  LOCAL_CAPS,
   LOCAL_TEST_OWNERS,
+  allowlistWords,
+  ensureLocalAllowlist,
 } from "./account-factory.js";
 import {
   LOCAL_DEPLOY_ATTEMPTS,
@@ -73,7 +75,7 @@ const redact = (/** @type {string} */ s) =>
  * finds it, on the fork LOCAL_FORK_PORT names (D-200). AgentNFT is deployed
  * first if the fork has none.
  * @param {{ url?: string, quiet?: boolean, fund?: { tokenRegistry: `0x${string}`, oracle: `0x${string}` }, executor?: `0x${string}` }} [options]
- * @returns {Promise<{ factory: `0x${string}`, implementation: `0x${string}`, tokenRegistry: `0x${string}`, oracle: `0x${string}`, executor: `0x${string}` }>}
+ * @returns {Promise<{ factory: `0x${string}`, implementation: `0x${string}`, vaultImplementation: `0x${string}`, tokenRegistry: `0x${string}`, oracle: `0x${string}`, executor: `0x${string}` }>}
  */
 export async function deployCustodyV3Local(options = {}) {
   const url = options.url ?? ANVIL_URL;
@@ -94,9 +96,9 @@ export async function deployCustodyV3Local(options = {}) {
     CUSTODY_V3_TOKEN_REGISTRY: fund.tokenRegistry,
     CUSTODY_V3_ORACLE: fund.oracle,
     CUSTODY_V3_EXECUTOR: executor,
-    CUSTODY_V3_PERSONAL_CAP: BETA_CAPS.personalE6.toString(),
-    CUSTODY_V3_VAULT_CAP: BETA_CAPS.vaultE6.toString(),
-    CUSTODY_V3_PLATFORM_CAP: BETA_CAPS.platformE6.toString(),
+    CUSTODY_V3_PERSONAL_CAP: LOCAL_CAPS.personalE6.toString(),
+    CUSTODY_V3_VAULT_CAP: LOCAL_CAPS.vaultE6.toString(),
+    CUSTODY_V3_PLATFORM_CAP: LOCAL_CAPS.platformE6.toString(),
     CUSTODY_V3_DEPOSITS_ENABLED: String(BETA_DEPOSITS_ENABLED),
     CUSTODY_V3_ALLOWLIST: LOCAL_TEST_OWNERS.join(","),
   };
@@ -135,10 +137,13 @@ export async function deployCustodyV3Local(options = {}) {
   const result = {
     factory: found("ACCOUNT_FACTORY_V3_ADDRESS"),
     implementation: found("PERSONAL_ACCOUNT_V3_IMPLEMENTATION"),
+    vaultImplementation: found("STRATEGY_VAULT_V3_IMPLEMENTATION"),
     tokenRegistry: fund.tokenRegistry,
     oracle: fund.oracle,
     executor,
   };
+  // Step 0 (2026-10-12): the owner's playtest wallets join the allowlist whether the factory is fresh or found.
+  const allowed = await ensureLocalAllowlist(url, result.factory);
   if (options.quiet) return result;
   console.log(`\nAccountFactoryV3 on the local fork: ${result.factory}`);
   console.log(`PersonalAccountV3 implementation: ${result.implementation}`);
@@ -151,8 +156,9 @@ export async function deployCustodyV3Local(options = {}) {
   console.log(`admin ${CUSTODY_ROLES.admin} (anvil account 0)`);
   console.log(`guardian ${CUSTODY_ROLES.guardian} (anvil account 4)`);
   console.log(`sentinel key ${CUSTODY_ROLES.sentinel} (anvil account 5)`);
+  console.log(`StrategyVaultV3 implementation: ${result.vaultImplementation}`);
   console.log(
-    "caps: 100 USDC per account, 500 USDC per vault, 2,000 USDC across the platform; allowlist: anvil accounts 6 to 9; public vault deposits off",
+    `caps: 10,000 USDC per account, personal or vault, 100,000 USDC across the platform (the local fork's, LOCAL_CAPS); allowlist: anvil accounts 6 to 9${allowlistWords(allowed)}; public vault deposits off`,
   );
   console.log("Try it: pnpm custody:v3:demo (on a fork of its own)");
   return result;

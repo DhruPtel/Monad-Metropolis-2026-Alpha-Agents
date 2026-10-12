@@ -8,6 +8,7 @@
 // ExecutorSetDeployer), so running it again finds the same contracts.
 import { assertLocalFork, rpc } from "@alpha-agents/devenv";
 import { CORE_LANE_CANDIDATES, addressEntry } from "@alpha-agents/domain";
+import { createPublicClient, http, isAddressEqual, pad, parseAbi, toHex } from "viem";
 import {
   LOCAL_DEPLOY_ATTEMPTS,
   deployLocal as deployAgentNftLocal,
@@ -67,6 +68,51 @@ async function script(url, target, env) {
     console.log(redact(r.output));
     throw new Error(`forge script failed: ${target}`);
   }
+}
+
+const EXECUTOR_BINDING_ABI = parseAbi(["function factory() view returns (address)"]);
+
+/**
+ * Executor v3 binds once (`AlreadyBound`), so on a long-lived local fork a
+ * factory that moved (its caps or allowlist changed, L-229) cannot be bound by
+ * the script. On the local fork alone the binding is moved by writing the
+ * Executor's `factory` slot (anvil_setStorageAt), as a fresh deployment would
+ * have bound it; the slot is read from the compiled layout, never assumed.
+ * The old factory's accounts become older accounts, as after any redeploy
+ * (A-87). Returns the factory it was bound to, or null when nothing was done.
+ * @param {string} url @param {`0x${string}`} executor @param {`0x${string}`} factory
+ * @returns {Promise<`0x${string}` | null>}
+ */
+async function rebindOnLocalFork(url, executor, factory) {
+  await assertLocalFork(url);
+  const client = createPublicClient({ transport: http(url) });
+  const current = await client.readContract({
+    address: executor,
+    abi: EXECUTOR_BINDING_ABI,
+    functionName: "factory",
+  });
+  if (/^0x0{40}$/.test(current) || isAddressEqual(current, factory)) return null;
+  const layout = await runForge(["inspect", "ExecutorV3", "storageLayout", "--json"], {});
+  if (layout.status !== 0) throw new Error("forge inspect ExecutorV3 storageLayout failed");
+  const json = layout.output.slice(layout.output.indexOf("{"));
+  const storage = /** @type {{ storage: { label: string, slot: string, offset: number }[] }} */ (
+    JSON.parse(json)
+  ).storage;
+  const entry = storage.find((v) => v.label === "factory");
+  if (!entry || entry.offset !== 0)
+    throw new Error("ExecutorV3's factory slot is not where the layout was read");
+  await rpc(url, "anvil_setStorageAt", [
+    executor,
+    toHex(BigInt(entry.slot), { size: 32 }),
+    pad(factory, { size: 32 }),
+  ]);
+  const after = await client.readContract({
+    address: executor,
+    abi: EXECUTOR_BINDING_ABI,
+    functionName: "factory",
+  });
+  if (!isAddressEqual(after, factory)) throw new Error("the Executor's binding did not move");
+  return current;
 }
 
 /** @param {string} output @param {string} name */
@@ -131,6 +177,11 @@ export async function deployExecutorV3Local(options = {}) {
     executor: set.executor,
     quiet: true,
   });
+  const rebound = await rebindOnLocalFork(url, set.executor, custody.factory);
+  if (rebound && !options.quiet)
+    console.log(
+      `Executor v3 was bound to the factory ${rebound}, whose accounts are older accounts now; rebound to ${custody.factory} on this fork (bind is once; a fresh fork never needs this)`,
+    );
   const bound = await script(url, "script/BindExecutorV3.s.sol:BindExecutorV3", {
     EXECUTOR_V3: set.executor,
     EXECUTOR_V3_FACTORY: custody.factory,
@@ -142,6 +193,7 @@ export async function deployExecutorV3Local(options = {}) {
     ...set,
     factory: custody.factory,
     implementation: custody.implementation,
+    vaultImplementation: custody.vaultImplementation,
     tokenRegistry,
   };
   if (options.quiet) return result;
@@ -153,6 +205,7 @@ export async function deployExecutorV3Local(options = {}) {
   console.log(`OracleAdapterV3 over it: ${result.oracle}`);
   console.log(`AccountFactoryV3 with the Executor given: ${result.factory}`);
   console.log(`PersonalAccountV3 implementation: ${result.implementation}`);
+  console.log(`StrategyVaultV3 implementation: ${result.vaultImplementation}`);
   console.log(`TokenRegistry (existing): ${tokenRegistry}`);
   console.log(`policy hash: ${result.policyHash}`);
   console.log(

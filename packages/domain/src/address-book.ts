@@ -1471,17 +1471,17 @@ const CUSTODY_V3_LOCAL_FACTS: Readonly<
   Record<(typeof CUSTODY_V3_IDS)[number][0], readonly [Address, number, string]>
 > = {
   account_factory_v3: [
-    "0xC4D2e1d0056165a0A0cb94d7c6Ee89640A2Ba0fF",
+    "0xFd758fd5f950E022fD10FF040DF6d605f5185338",
     14231,
-    "Bound to the v3 TokenRegistry, oracle_adapter_v3 and executor_v3 at deployment, with anvil roles, 100 USDC per personal account, 500 per vault and 2,000 across the platform, anvil accounts 6 to 9 allowed and public vault deposits off (P7-U4, MV-S15 asserted by pnpm assert:state); deploys one PersonalAccountV3 per agent and owner and one StrategyVaultV3 per agent (P7-U2)",
+    "Bound to the v3 TokenRegistry, oracle_adapter_v3 and executor_v3 at deployment, with anvil roles, the local fork's caps of 10,000 USDC per account, personal or vault, and 100,000 across the platform (Step 0, 2026-10-12; the beta's assumed 1,000 and 25,000 are A-90), anvil accounts 6 to 9 allowed from the constructor and the playtest wallets of chains/monad/local-wallets.json added by every local deploy, public vault deposits off (P7-U4, MV-S15 asserted by pnpm assert:state); deploys one PersonalAccountV3 per agent and owner and one StrategyVaultV3 per agent (P7-U2)",
   ],
   personal_account_v3_implementation: [
-    "0x29D5d5cEf24245BF763334880b149318e541585b",
+    "0x2804c216BE8b170762f718238264eF534b159cAA",
     41232,
     "Deployed by AccountFactoryV3's constructor; every PersonalAccountV3 is a clone of it, holding up to 16 registered tokens, traded only by executor_v3",
   ],
   strategy_vault_v3_implementation: [
-    "0x8DC719ffeACAF6D7FDb6A940753c1a42bf268261",
+    "0x56cfa61Aa46119ba13E8178136C32fA94B5B14C3",
     61812,
     "Deployed by AccountFactoryV3's constructor (P7-U1, P7-U2); every StrategyVaultV3 is a clone of it: USDC and core-lane class F tokens only, shares nobody can transfer, exits that need no oracle, traded only by executor_v3 under a grant without expiry",
   ],
