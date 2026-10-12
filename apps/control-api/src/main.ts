@@ -40,7 +40,7 @@ function loadOrDie() {
   try {
     return loadConfig({
       name: "control API",
-      requires: ["DATABASE_URL", "API_SESSION_SECRET", "CONTROL_API_PORT"],
+      requires: ["DATABASE_URL", "API_SESSION_SECRET", "CONTROL_API_PORT", "ORCHESTRATOR_SECRET"],
     });
   } catch (err) {
     if (!(err instanceof ConfigError)) throw err;
@@ -256,6 +256,8 @@ const app = createApp({
   identity,
   signer,
   sessionSecret,
+  // BK-U1: the owners' own data keys are sealed under the orchestrator's secret, which opens them.
+  keySecret: (values.ORCHESTRATOR_SECRET as Secret).reveal(),
   allowOrigin: (origin) => (env.id === "local" ? LOOPBACK.test(origin) : origin === publicUrl),
   now: () => Date.now(),
   randomNonce: () => `0x${randomBytes(32).toString("hex")}`,

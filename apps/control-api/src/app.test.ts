@@ -11,6 +11,7 @@ import {
   ActivationStore,
   type AgentChainView,
   GoalStore,
+  openSecret,
   PlanStore,
   type PortfolioReading,
   type PortfolioReadingV3,
@@ -810,6 +811,108 @@ describe.skipIf(!available)("the control API (needs pnpm dev:up for Postgres)", 
         chain.owners.set(2n, { owner: CAROL, epoch: 3n });
         expect((await json(await summary(2, session))).error).toBe("session_stale");
         expect((await json(await scan(2, session))).error).toBe("session_stale");
+      });
+    });
+
+    describe("the owner's own data keys (BK-U1)", () => {
+      const KEY = "dune-key-not-real-abcdefghijklmnop";
+      const KEY_SECRET = "test-platform-secret-0123456789abcdef";
+      const bobSession = async () => (await json(await start(2, "bob-token"))).token as string;
+      const aliceSession = async () => (await json(await start(1, "alice-token"))).token as string;
+      const asOwner = (session: string, path: string, method = "GET", body?: unknown) =>
+        call(
+          path,
+          {
+            method,
+            headers: {
+              "x-owner-session": session,
+              ...(body !== undefined ? { "content-type": "application/json" } : {}),
+            },
+            ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+          },
+          { keySecret: KEY_SECRET },
+        );
+
+      beforeEach(async () => {
+        await t.db.deleteFrom("platform.owner_keys").execute();
+      });
+
+      it("lists Dune without a key, with what the key gives and where to get one, to the owner alone", async () => {
+        const session = await bobSession();
+        const res = await asOwner(session, "/v1/agents/2/keys");
+        expect(res.status).toBe(200);
+        expect(await json(res)).toMatchObject({
+          available: true,
+          keys: [
+            {
+              provider: "dune",
+              label: "Dune",
+              tool: "dune_query",
+              present: false,
+              hint: null,
+              addedAt: null,
+            },
+          ],
+        });
+        expect((await asOwner(await aliceSession(), "/v1/agents/2/keys")).status).toBe(403);
+        expect((await call("/v1/agents/2/keys")).status).toBe(401);
+        // Without the platform's secret the API lists but cannot take a key.
+        const off = await call("/v1/agents/2/keys", {
+          headers: { "x-owner-session": session },
+        });
+        expect((await json(off)).available).toBe(false);
+      });
+
+      it("stores the key sealed, shows its last characters only from then on, and never returns it", async () => {
+        const session = await bobSession();
+        const bad = await asOwner(session, "/v1/agents/2/keys/dune", "PUT", { key: "short" });
+        expect([bad.status, (await json(bad)).error]).toEqual([400, "bad_request"]);
+        const unknown = await asOwner(session, "/v1/agents/2/keys/stripe", "PUT", { key: KEY });
+        expect(unknown.status).toBe(404);
+        const put = await asOwner(session, "/v1/agents/2/keys/dune", "PUT", { key: KEY });
+        expect(put.status).toBe(201);
+        const putBody = await json(put);
+        expect(putBody).toMatchObject({
+          key: { provider: "dune", present: true, hint: "••••mnop" },
+        });
+        expect(JSON.stringify(putBody)).not.toContain(KEY);
+        // At rest: sealed under the secret, never the key itself.
+        const row = await t.db
+          .selectFrom("platform.owner_keys")
+          .selectAll()
+          .executeTakeFirstOrThrow();
+        expect(row.ciphertext).not.toContain(KEY);
+        expect(row.ciphertext.startsWith("v1.")).toBe(true);
+        expect(openSecret(row.ciphertext, KEY_SECRET)).toBe(KEY);
+        expect(row.added_by).toBe(BOB.toLowerCase());
+        // Listed by its hint; nothing of the key in the answer; nothing of it for another owner.
+        const listed = await json(await asOwner(session, "/v1/agents/2/keys"));
+        expect(JSON.stringify(listed)).not.toContain(KEY);
+        expect((listed.keys as { hint: string; present: boolean }[])[0]).toMatchObject({
+          present: true,
+          hint: "••••mnop",
+        });
+        const alice = await aliceSession();
+        expect((await asOwner(alice, "/v1/agents/2/keys")).status).toBe(403);
+        expect(
+          (
+            (await json(await asOwner(alice, "/v1/agents/1/keys"))).keys as { present: boolean }[]
+          )[0]?.present,
+        ).toBe(false);
+        // Replaced in place, then deleted outright.
+        const again = await asOwner(session, "/v1/agents/2/keys/dune", "PUT", {
+          key: `${KEY}-two`,
+        });
+        expect([again.status, ((await json(again)).key as { hint: string }).hint]).toEqual([
+          201,
+          "••••-two",
+        ]);
+        expect(await t.db.selectFrom("platform.owner_keys").selectAll().execute()).toHaveLength(1);
+        const removed = await asOwner(session, "/v1/agents/2/keys/dune", "DELETE");
+        expect([removed.status, (await json(removed)).removed]).toEqual([200, "dune"]);
+        expect(await t.db.selectFrom("platform.owner_keys").selectAll().execute()).toEqual([]);
+        expect((await asOwner(session, "/v1/agents/2/keys/dune", "DELETE")).status).toBe(404);
+        expect((await asOwner(alice, "/v1/agents/2/keys/dune", "DELETE")).status).toBe(403);
       });
     });
 

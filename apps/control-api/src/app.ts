@@ -9,7 +9,10 @@ import {
   type AgentNftDeployment,
   type CustodyPath,
   type ManagedAccount,
+  PAID_DATA_SOURCES,
   isManagedAccount,
+  isPaidDataSourceId,
+  ownerKeyProblem,
 } from "@alpha-agents/domain";
 import { type Context, Hono } from "hono";
 import {
@@ -30,6 +33,7 @@ import {
   ActivationStore,
   type AgentChainView,
   type AgentViewReader,
+  OwnerKeyStore,
   type CustodyPathReader,
   GoalStore,
   type HoldingsReader,
@@ -109,6 +113,12 @@ import {
 export interface ApiDeps {
   readonly db: Db;
   readonly environment: Environment;
+  /**
+   * BK-U1: the platform secret the owners' own data keys are sealed under at
+   * rest (ORCHESTRATOR_SECRET, the one the orchestrator's tool servers open
+   * them with); null where the API cannot take keys.
+   */
+  readonly keySecret?: string | null;
   /** AgentNFT here, or null where it is not deployed. */
   readonly deployment: AgentNftDeployment | null;
   readonly chain: ChainReader | null;
@@ -1029,6 +1039,82 @@ export function createApp(deps: ApiDeps): Hono {
     const reading = await reader.portfolio(Number(agentId));
     if (!reading) return fail(c, 404, "not_found", `Agent #${agentId} does not exist.`);
     return c.json({ ...(await meta()), portfolio: portfolioJson(reading) });
+  });
+
+  // --- The owner's own data keys (BK-U1) ---------------------------------------
+
+  const ownerKeys = new OwnerKeyStore(deps.db, () => new Date(deps.now()));
+  /** Every paid source with the owner's key where one is stored: never the key, never its ciphertext. */
+  const keysView = async (agentId: number) => {
+    const stored = await ownerKeys.list(chainId, agentId);
+    return PAID_DATA_SOURCES.map((src) => {
+      const k = stored.find((x) => x.provider === src.id) ?? null;
+      return {
+        provider: src.id,
+        label: src.label,
+        gives: src.gives,
+        keyHelp: src.keyHelp,
+        tool: src.tool,
+        present: k !== null,
+        hint: k?.hint ?? null,
+        addedAt: k?.addedAt ?? null,
+      };
+    });
+  };
+
+  /** The owner's data keys for the agent: present or not, the hint, when added. Owner only. */
+  app.get("/v1/agents/:id{[0-9]+}/keys", async (c) => {
+    const agentId = BigInt(c.req.param("id"));
+    const owner = await ownerOnly(c, agentId);
+    if (owner instanceof Response) return owner;
+    return c.json({
+      ...(await meta()),
+      agentId: agentId.toString(),
+      available: typeof deps.keySecret === "string",
+      keys: await keysView(Number(agentId)),
+    });
+  });
+
+  /**
+   * The owner adds (or replaces) their own key for a paid source: `{ "key" }`.
+   * Sealed at rest, used only by the platform's tool servers for this agent,
+   * never placed in the sandbox and never shown again: the answer carries the
+   * key's last characters and nothing else of it.
+   */
+  app.put("/v1/agents/:id{[0-9]+}/keys/:provider{[a-z]+}", async (c) => {
+    const agentId = BigInt(c.req.param("id"));
+    const owner = await ownerOnly(c, agentId);
+    if (owner instanceof Response) return owner;
+    const provider = c.req.param("provider");
+    if (!isPaidDataSourceId(provider))
+      return fail(c, 404, "not_found", "The platform takes no key for that source.");
+    if (typeof deps.keySecret !== "string")
+      return fail(c, 503, "not_configured", "The platform cannot take data keys here.");
+    const body = (await jsonBody(c)) as { key?: unknown } | null;
+    const problem = ownerKeyProblem(body?.key);
+    if (problem) return fail(c, 400, "bad_request", problem);
+    const saved = await ownerKeys.save({
+      chainId,
+      agentId: Number(agentId),
+      provider,
+      key: body?.key as string,
+      secret: deps.keySecret,
+      addedBy: owner.wallet,
+    });
+    return c.json({ agentId: agentId.toString(), key: saved }, 201);
+  });
+
+  /** The owner deletes their key: nothing of it stays; the source answers "not configured" from the next call. */
+  app.delete("/v1/agents/:id{[0-9]+}/keys/:provider{[a-z]+}", async (c) => {
+    const agentId = BigInt(c.req.param("id"));
+    const owner = await ownerOnly(c, agentId);
+    if (owner instanceof Response) return owner;
+    const provider = c.req.param("provider");
+    if (!isPaidDataSourceId(provider))
+      return fail(c, 404, "not_found", "The platform takes no key for that source.");
+    const removed = await ownerKeys.remove(chainId, Number(agentId), provider);
+    if (!removed) return fail(c, 404, "not_found", "No key of yours is stored for that source.");
+    return c.json({ agentId: agentId.toString(), removed: provider });
   });
 
   // --- The owner's own skills (SK-U1) ----------------------------------------
