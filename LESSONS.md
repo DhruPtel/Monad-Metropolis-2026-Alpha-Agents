@@ -1722,3 +1722,24 @@ Cause: S13 looks for impostor tokens and contracts by checking every 20-byte add
 Fix: The audit exempts the manifest's own publisher address from S13; token and contract addresses in the text are judged as before.
 Lesson: A rule written while only the platform's own packages existed needs a second reading when someone else's first package arrives; test a rule with an input the first author could not have produced.
 
+## L-233: A faded tile failed the contrast check
+Unit: UI-U1 (2026-10-12)
+What happened: The design page's and the portfolio's accessibility scans reported a serious colour-contrast violation on the setup flow's "later" steps, on their step number and their detail text.
+Cause: The whole tile was rendered at 80% opacity to read as not yet reachable, which took its muted text under the required contrast ratio.
+Fix: A dashed border marks a later step; nothing is faded, so every token keeps its contrast.
+Lesson: Never fade a whole block to mean "later" or "inactive"; change a border, an icon or a label instead, and leave text at its token's contrast.
+
+## L-234: An open dialog hid the page from the spec's role queries
+Unit: UI-U1 (2026-10-12)
+What happened: After a deposit confirmed in the new deposit dialog, the spec's `getByRole("main")` matched nothing, so a check on the positions behind the dialog timed out; a `toHaveCount(0)` on the same locator would have passed for the wrong reason.
+Cause: Radix marks everything outside an open dialog aria-hidden, and Playwright's role queries skip hidden elements.
+Fix: The specs close the dialog through one helper before reading the page behind it, and open the next dialog through a helper that closes any open one first.
+Lesson: With a dialog open, assert on the dialog; close it before asserting on the page, and never trust a count of zero on the page while a dialog is open.
+
+## L-235: An axe scan after a capture saw the dialog fading in again
+Unit: UI-U1 (2026-10-12)
+What happened: The v3 portfolio spec's scan of the open deposit dialog reported colour-contrast violations on its labels, its select and its input, although the captured image was fully opaque.
+Cause: toHaveScreenshot with animations disabled fast-forwards the dialog's fade-in for the capture and restores the animation afterwards, so the dialog was mid-fade when axe ran right after the capture.
+Fix: The scan helper in the portfolio, v3 portfolio and My Agents specs waits for every animation to finish before it runs, as the vault and settings specs already did.
+Lesson: Wait for animations inside the scan helper itself, not only before the capture; a capture can restart them.
+
