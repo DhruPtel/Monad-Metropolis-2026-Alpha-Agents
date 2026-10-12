@@ -60,7 +60,8 @@ export const CONSTANTS = Object.freeze({
 export type LaneV3 = "NONE" | "CORE" | "SCREENED";
 export type TokenStatusV3 = "NONE" | "BUYABLE" | "SELL_ONLY" | "FROZEN";
 export type PriceClassV3 = "NONE" | "F" | "A";
-export type AccountModeV3 = "NORMAL" | "REDUCE_ONLY" | "PAUSED" | "HANDOVER";
+/** The account's mode as the Executor reads it; WIND_DOWN (a closing vault) trades as reduce-only (P7-U2). */
+export type AccountModeV3 = "NORMAL" | "REDUCE_ONLY" | "PAUSED" | "HANDOVER" | "WIND_DOWN";
 
 /** A token as the TokenRegistry records it (IFund.TokenRecord). */
 export interface TokenRuleV3 {
@@ -119,6 +120,8 @@ export interface ExecutorMarketV3 {
   readonly now: bigint;
   readonly paused: boolean;
   readonly mode: AccountModeV3;
+  /** P7-U2: the account is the agent's StrategyVault, which never buys a class A or a screened token (D-338). */
+  readonly isVault?: boolean;
   /** The intent's adapter is registered, active and unchanged. */
   readonly adapterAllowed: boolean;
   /** The factory names an oracle (always, after deployment). */
@@ -356,6 +359,9 @@ function measure(i: ExecutorIntentV3, m: ExecutorMarketV3, p: ExecutorPolicyV3):
   const rout = ruleOf(m, i.tokenOut);
   if (rout.lane === "NONE") return { reason: "ASSET_NOT_ALLOWED" };
   if (!intoUsdc) {
+    // P7-U2: a vault's value mints and burns shares, so only feeds may price what it holds (D-338).
+    if (m.isVault && (rout.priceClass !== "F" || rout.lane === "SCREENED"))
+      return { reason: "ASSET_NOT_ALLOWED" };
     if (rout.status === "FROZEN") return { reason: "TOKEN_FROZEN" };
     if (rout.status === "SELL_ONLY") return { reason: "TOKEN_SELL_ONLY" };
     if (rout.lane === "SCREENED" && !(rout.status === "BUYABLE" && m.optedIn))
@@ -568,6 +574,8 @@ export function blockers(
   const rin = ruleOf(m, i.tokenIn);
   const rout = ruleOf(m, i.tokenOut);
   if (rin.lane === "NONE" || rout.lane === "NONE") add("ASSET_NOT_ALLOWED");
+  if (!intoUsdc && m.isVault && (rout.priceClass !== "F" || rout.lane === "SCREENED"))
+    add("ASSET_NOT_ALLOWED");
   if (rin.status === "FROZEN" || (!intoUsdc && rout.status === "FROZEN")) add("TOKEN_FROZEN");
   if (!intoUsdc && rout.status === "SELL_ONLY") add("TOKEN_SELL_ONLY");
   // F-T2: the opt-in is a reason only for a buyable screened token; a sell-only or frozen one has its own.
@@ -577,7 +585,7 @@ export function blockers(
   if (i.deadline > m.now + BigInt(p.deadlineSeconds)) add("DEADLINE_TOO_FAR");
   if (m.mode === "PAUSED") add("PAUSED");
   if (m.mode === "HANDOVER") add("VAULT_IN_HANDOVER");
-  if (m.mode === "REDUCE_ONLY" && !intoUsdc) add("REDUCE_ONLY_MODE");
+  if ((m.mode === "REDUCE_ONLY" || m.mode === "WIND_DOWN") && !intoUsdc) add("REDUCE_ONLY_MODE");
   if (!m.adapterAllowed) add("VENUE_NOT_ALLOWED");
   if (m.oracleSet === false) add("ORACLE_STALE");
   const sideIn = sidePrice(m, i.tokenIn);

@@ -5,10 +5,12 @@ import {
   type ArmingRecord,
   MAX_GRANT_SECONDS,
   RENEWAL_REMINDER_SECONDS,
+  VAULT_GRANT_NO_EXPIRY,
   armingEnd,
   armingState,
   grantDate,
   grantProblem,
+  isNoExpiry,
   renewalDue,
 } from "./arming.ts";
 
@@ -121,5 +123,45 @@ describe("the renewal reminder", () => {
     expect(renewalDue({ ...r, remindedAt: new Date() }, NOW + 10n)).toBe(false);
     expect(renewalDue({ ...r, status: "ended" }, NOW + 10n)).toBe(false);
     expect(grantDate(1_790_000_000n)).toBe("2026-09-21");
+  });
+});
+
+describe("a vault's grant without expiry (P7-U2, D-241)", () => {
+  const vaultGrant = {
+    key: KEY,
+    ownerEpoch: 2n,
+    configEpoch: 5n,
+    validUntil: VAULT_GRANT_NO_EXPIRY,
+  };
+
+  it("fits a signed 64-bit store and is never a timed grant's expiry", () => {
+    expect(VAULT_GRANT_NO_EXPIRY).toBe(9_007_199_254_740_991n);
+    expect(Number.isSafeInteger(Number(VAULT_GRANT_NO_EXPIRY))).toBe(true);
+    expect(isNoExpiry(VAULT_GRANT_NO_EXPIRY)).toBe(true);
+    expect(isNoExpiry(NOW + BigInt(MAX_GRANT_SECONDS))).toBe(false);
+  });
+
+  it("arms a vault, and never a personal account", () => {
+    expect(grantProblem(chain({ grant: vaultGrant, isVault: true }), OWNER, KEY)).toBeNull();
+    expect(grantProblem(chain({ grant: vaultGrant }), OWNER, KEY)).toMatch(/vault only/);
+    expect(grantProblem(chain({ grant: vaultGrant, isVault: false }), OWNER, KEY)).toMatch(
+      /vault only/,
+    );
+    // The other rules still apply to it.
+    expect(grantProblem(chain({ grant: vaultGrant, isVault: true }), BUYER, KEY)).toMatch(/owner/);
+    expect(
+      grantProblem(chain({ grant: { ...vaultGrant, ownerEpoch: 1n }, isVault: true }), OWNER, KEY),
+    ).toMatch(/before/);
+  });
+
+  it("never expires, is never due for renewal, and has no date", () => {
+    const r = arming({ validUntil: VAULT_GRANT_NO_EXPIRY, custody: "v3" });
+    expect(armingEnd(r, chain({ grant: vaultGrant, timestamp: NOW + 400n * 86_400n }))).toBeNull();
+    expect(renewalDue(r, NOW + 400n * 86_400n)).toBe(false);
+    expect(grantDate(VAULT_GRANT_NO_EXPIRY)).toMatch(/no expiry/);
+    // A sale, a change or a revocation still end it.
+    expect(armingEnd(r, chain({ grant: vaultGrant, ownerEpoch: 3n }))).toBe("sold");
+    expect(armingEnd(r, chain({ grant: vaultGrant, configEpoch: 6n }))).toBe("config_changed");
+    expect(armingEnd(r, chain({ grant: null }))).toBe("revoked");
   });
 });

@@ -33,6 +33,8 @@ describe("Executor v3 parity with the contract (F-U4)", () => {
     expect(constant("ACCOUNT_CLASS_A_POSITION_BPS")).toBe(ex.CONSTANTS.accountClassAPositionBps);
     expect(constant("ACCOUNT_CLASS_A_TOTAL_BPS")).toBe(ex.CONSTANTS.accountClassATotalBps);
     expect(src).toContain("MAX_SESSION = 30 days");
+    // P7-U2: a vault grant's "no expiry" is the largest signed 64-bit value (D-241).
+    expect(src).toContain("NO_EXPIRY = 9_007_199_254_740_991");
     expect(src).toContain("drawdown >= 2_000");
     expect(src).toContain("drawdown >= 1_000");
   });
@@ -91,6 +93,38 @@ describe("Executor v3 parity with the contract (F-U4)", () => {
     if (!st) return;
     expect(ex.blockers(st.intent, { ...st.market, optedIn: true })).toEqual(["TOKEN_SELL_ONLY"]);
     expect(ex.blockers(st.intent, { ...st.market, optedIn: false })).toEqual(["TOKEN_SELL_ONLY"]);
+  });
+
+  it("refuses a vault any class A or screened token by name, and nothing else changes for it (P7-U2, D-338)", () => {
+    const states = fixtureStates();
+    const find = (name: string) => {
+      const st = states.find((x) => x.name === name);
+      expect(st, name).toBeDefined();
+      return st as NonNullable<typeof st>;
+    };
+    const classA = find("a class A buy of C");
+    expect(ex.preCheck(classA.intent, classA.market)).toBeNull();
+    expect(ex.preCheck(classA.intent, { ...classA.market, isVault: true })).toBe(
+      "ASSET_NOT_ALLOWED",
+    );
+    expect(ex.blockers(classA.intent, { ...classA.market, isVault: true })).toEqual([
+      "ASSET_NOT_ALLOWED",
+    ]);
+    const screened = find("a screened buy of D with the opt-in");
+    expect(ex.preCheck(screened.intent, { ...screened.market, isVault: true })).toBe(
+      "ASSET_NOT_ALLOWED",
+    );
+    const wmon = find("a valid buy of WMON");
+    expect(ex.preCheck(wmon.intent, { ...wmon.market, isVault: true })).toBe(
+      ex.preCheck(wmon.intent, wmon.market),
+    );
+    // A closing vault trades as reduce-only: a buy is refused, a sale into USDC is not.
+    expect(ex.preCheck(wmon.intent, { ...wmon.market, isVault: true, mode: "WIND_DOWN" })).toBe(
+      "REDUCE_ONLY_MODE",
+    );
+    expect(ex.blockers(wmon.intent, { ...wmon.market, mode: "WIND_DOWN" })).toContain(
+      "REDUCE_ONLY_MODE",
+    );
   });
 
   it("names its first refusal first in the blockers, on every fixture case", () => {

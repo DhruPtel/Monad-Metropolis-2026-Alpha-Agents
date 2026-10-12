@@ -113,7 +113,7 @@ contract ExecutorV3VaultTest is ExecutorV3Base {
         uint64 epoch = nft.ownerEpoch(AGENT);
         vm.prank(owner);
         vm.expectEmit(address(executor));
-        emit ExecutorV3.SessionRegistered(AGENT, vaultKey, epoch, 0, 0x7FFFFFFFFFFFFFFF);
+        emit ExecutorV3.SessionRegistered(AGENT, vaultKey, epoch, 0, 9_007_199_254_740_991);
         executor.registerVaultSession(AGENT, vaultKey);
         ExecutorV3.Grant memory g = executor.sessionOf(AGENT);
         assertEq(g.key, vaultKey);

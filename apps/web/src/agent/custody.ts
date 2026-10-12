@@ -64,6 +64,7 @@ export const ERC20_ABI = parseAbi([
 /** The Executor's grant calls, with its errors, so a refused grant is named (Phase 2 tuning). */
 export const GRANT_ABI = parseAbi([
   "function registerSession(uint256 agentId, address key, uint64 validUntil)",
+  "function registerVaultSession(uint256 agentId, address key)",
   "function revokeSession(uint256 agentId)",
   "error NotAgentOwner(address caller)",
   "error BadSession()",

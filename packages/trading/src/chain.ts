@@ -17,10 +17,16 @@ const EXECUTOR_READS = parseAbi([
   "function configEpochOf(uint256 agentId) view returns (uint64)",
   "function sessionOf(uint256 agentId) view returns ((address key, uint64 ownerEpoch, uint64 configEpoch, uint64 validUntil))",
 ]);
+const FACTORY_V3_READS = parseAbi(["function vaultOf(uint256 agentId) view returns (address)"]);
 
 export function rpcAgentViewReader(
   rpcUrl: string,
-  contracts: { readonly agentNft: Hex; readonly executor: Hex },
+  contracts: {
+    readonly agentNft: Hex;
+    readonly executor: Hex;
+    /** P7-U2: AccountFactoryV3, to tell an agent whose trading account is its vault (D-241). */
+    readonly accountFactoryV3?: Hex;
+  },
 ): AgentViewReader {
   const client = createPublicClient({ transport: http(rpcUrl) });
   return {
@@ -38,7 +44,7 @@ export function rpcAgentViewReader(
         if (err instanceof Error && /revert/i.test(err.message)) return null;
         throw err;
       }
-      const [block, ownerEpoch, configEpoch, session] = await Promise.all([
+      const [block, ownerEpoch, configEpoch, session, vault] = await Promise.all([
         client.getBlock(),
         client.readContract({
           address: contracts.agentNft,
@@ -58,12 +64,21 @@ export function rpcAgentViewReader(
           functionName: "sessionOf",
           args: [id],
         }),
+        contracts.accountFactoryV3
+          ? client.readContract({
+              address: contracts.accountFactoryV3,
+              abi: FACTORY_V3_READS,
+              functionName: "vaultOf",
+              args: [id],
+            })
+          : Promise.resolve(zeroAddress),
       ]);
       return {
         owner,
         ownerEpoch,
         configEpoch,
         timestamp: block.timestamp,
+        isVault: vault !== zeroAddress,
         grant:
           session.key === zeroAddress
             ? null

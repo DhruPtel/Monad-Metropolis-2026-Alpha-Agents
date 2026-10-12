@@ -12,6 +12,16 @@ import { type Hex, isAddressEqual } from "viem";
 
 /** The Executor's MAX_SESSION: a grant lasts at most 30 days. */
 export const MAX_GRANT_SECONDS = 30 * 86_400;
+/**
+ * Executor v3's NO_EXPIRY (P7-U2, D-241): the `validUntil` of a vault grant,
+ * which has no fixed expiry and ends only on a sale, a configuration change or
+ * the owner's revocation. The largest integer a JavaScript number and the
+ * arming store's bigint column both hold exactly (2^53 - 1); no timed grant
+ * can reach it.
+ */
+export const VAULT_GRANT_NO_EXPIRY = 9_007_199_254_740_991n;
+/** Whether a grant's `validUntil` is a vault grant's "no expiry". */
+export const isNoExpiry = (validUntil: bigint): boolean => validUntil >= VAULT_GRANT_NO_EXPIRY;
 /** A-45: the owner is reminded to renew this long before the grant expires. */
 export const RENEWAL_REMINDER_SECONDS = 3 * 86_400;
 
@@ -31,6 +41,8 @@ export interface AgentChainView {
   readonly grant: GrantView | null;
   /** The block's time, unix seconds. */
   readonly timestamp: bigint;
+  /** P7-U2: the agent's trading account is its StrategyVault, whose grant has no fixed expiry (D-241). */
+  readonly isVault?: boolean;
 }
 
 export type ArmingStatus = "awaiting_first_trade" | "armed" | "ended";
@@ -91,6 +103,9 @@ export function grantProblem(
     return "The trading permission names a different key than the agent's funding address.";
   if (g.ownerEpoch !== chain.ownerEpoch || g.configEpoch !== chain.configEpoch)
     return "The trading permission is from before the agent's last sale or change.";
+  // P7-U2: a vault's grant has no expiry (D-241); such a grant serves a vault only.
+  if (isNoExpiry(g.validUntil))
+    return chain.isVault ? null : "A trading permission without expiry serves a vault only.";
   if (g.validUntil <= chain.timestamp) return "The trading permission has already expired.";
   if (g.validUntil > chain.timestamp + BigInt(MAX_GRANT_SECONDS))
     return "A trading permission can last at most 30 days.";
@@ -101,11 +116,14 @@ export function grantProblem(
 export function renewalDue(r: ArmingRecord, nowSeconds: bigint): boolean {
   return (
     r.status !== "ended" &&
+    !isNoExpiry(r.validUntil) &&
     r.remindedAt === null &&
     r.validUntil - nowSeconds <= BigInt(RENEWAL_REMINDER_SECONDS)
   );
 }
 
-/** A grant's last moment as a UTC date, YYYY-MM-DD, for owner-facing text. */
+/** A grant's last moment as a UTC date, YYYY-MM-DD, for owner-facing text; a vault grant has none. */
 export const grantDate = (validUntil: bigint): string =>
-  new Date(Number(validUntil) * 1000).toISOString().slice(0, 10);
+  isNoExpiry(validUntil)
+    ? "no expiry (it ends on a sale, a change or a revocation)"
+    : new Date(Number(validUntil) * 1000).toISOString().slice(0, 10);

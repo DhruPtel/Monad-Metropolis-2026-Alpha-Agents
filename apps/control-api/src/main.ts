@@ -152,6 +152,8 @@ const v3 =
         reader: rpcAgentViewReader(rpcUrl, {
           agentNft: deployment.address,
           executor: executorV3Entry.address as Hex,
+          // P7-U2: an agent with a vault arms it with the grant without expiry (D-241).
+          accountFactoryV3: factoryV3Entry.address as Hex,
         }),
         paths: rpcCustodyPathReader(rpcUrl, {
           agentNft: deployment.address,

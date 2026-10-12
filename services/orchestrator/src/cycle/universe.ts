@@ -196,7 +196,7 @@ export async function universeSnapshot(
     const row = await tokens.token(tokenChainId, t.token).catch(() => null);
     const whyNot = usdc
       ? "USDC is the account's cash, never bought"
-      : whyNotBuyableV3(t, price, optedIn, m.attestorSet);
+      : whyNotBuyableV3(t, price, optedIn, m.attestorSet, a?.isVault ?? false);
     out.push({
       token: t.token,
       symbol: t.symbol,

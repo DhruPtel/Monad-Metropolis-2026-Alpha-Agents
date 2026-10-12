@@ -40,6 +40,7 @@ import {
   intentJson,
   portfolioJson,
   registerCall,
+  registerVaultCall,
   rejectByOwner,
   revokeCall,
   PlanStore,
@@ -662,18 +663,25 @@ export function createApp(deps: ApiDeps): Hono {
     const path = t ? await pathOf(t, id) : null;
     // The Executor checks the expiry against its own block time, so the grant's clock is the
     // chain's (L-105): a fork's time sits at its pinned block, far behind the wall clock.
-    const chainNow = path
-      ? Number((await path.reader.agent(id))?.timestamp ?? nowSeconds())
-      : nowSeconds();
+    const view = path ? await path.reader.agent(id) : null;
+    const chainNow = Number(view?.timestamp ?? nowSeconds());
     const validUntil = BigInt(chainNow + MAX_GRANT_SECONDS - 60);
+    // P7-U2 (D-241): an agent whose trading account is its vault gets the grant without expiry.
+    const vault = path?.custody === "v3" && view?.isVault === true;
     return c.json({
       ...(await meta()),
       agentId: agentId.toString(),
       arming: armingJson(await trades.lastArming(chainId, id), chainNow),
       fundingAddress: funding,
       custody: path?.custody ?? null,
-      grantCall: path && funding ? registerCall(path.executor, id, funding, validUntil) : null,
-      maxGrantDays: MAX_GRANT_SECONDS / 86_400,
+      vault,
+      grantCall:
+        path && funding
+          ? vault
+            ? registerVaultCall(path.executor, id, funding)
+            : registerCall(path.executor, id, funding, validUntil)
+          : null,
+      maxGrantDays: vault ? null : MAX_GRANT_SECONDS / 86_400,
     });
   });
 

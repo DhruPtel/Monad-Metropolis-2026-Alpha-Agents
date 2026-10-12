@@ -182,7 +182,10 @@ export function registerChainToolsV3(
           read((r) => r.agent(identity.agentId)),
         ]);
         // F-U12: every token says whether this account may buy it and why not.
-        const out = pricesViewV3(m, a?.account ? { screenedOptIn: a.screenedOptIn } : null);
+        const out = pricesViewV3(
+          m,
+          a?.account ? { screenedOptIn: a.screenedOptIn, isVault: a.isVault } : null,
+        );
         return {
           output: out,
           summary: {

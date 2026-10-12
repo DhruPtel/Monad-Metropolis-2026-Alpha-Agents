@@ -202,10 +202,14 @@ export function whyNotBuyableV3(
   price: { readonly reason: string } | undefined,
   optedIn: boolean | null,
   attestorSet: boolean,
+  /** P7-U2: the account is a StrategyVault, which holds core-lane class F tokens only (D-338). */
+  isVault = false,
 ): string | null {
   if (t.status === "SELL_ONLY") return "sell-only in the registry: it may be sold, never bought";
   if (t.status === "FROZEN") return "frozen in the registry";
   if (t.status !== "BUYABLE") return "not listed in the registry";
+  if (isVault && (t.priceClass === "A" || t.lane === "SCREENED"))
+    return "a vault holds core-lane class F tokens only: never a class A or a screened token";
   if (t.lane === "SCREENED") {
     if (optedIn === null)
       return "in the screened lane; the account's opt-in is unknown until it opens";
@@ -222,9 +226,10 @@ export function whyNotBuyableV3(
 
 export function pricesViewV3(
   m: MarketStateV3,
-  account: { readonly screenedOptIn: boolean } | null = null,
+  account: { readonly screenedOptIn: boolean; readonly isVault?: boolean } | null = null,
 ): PricesOutputV3 {
   const optedIn = account ? account.screenedOptIn : null;
+  const isVault = account?.isVault ?? false;
   return {
     asOf: asOfV3(m.block, m.timestamp),
     tokens: m.tokens.map((t) => {
@@ -264,10 +269,10 @@ export function pricesViewV3(
                 ? "ATTESTATION_REQUIRED"
                 : "ATTESTOR_UNAVAILABLE"
               : oracleBlockV3(p.reason),
-        buyable: usdc ? false : whyNotBuyableV3(t, p, optedIn, m.attestorSet) === null,
+        buyable: usdc ? false : whyNotBuyableV3(t, p, optedIn, m.attestorSet, isVault) === null,
         whyNot: usdc
           ? "USDC is the account's cash, never bought"
-          : whyNotBuyableV3(t, p, optedIn, m.attestorSet),
+          : whyNotBuyableV3(t, p, optedIn, m.attestorSet, isVault),
       };
     }),
     pools: m.pools.map((p) => poolRow(p, m)),
@@ -549,7 +554,8 @@ export function executorMarketV3(
   return {
     now: a.timestamp,
     paused: m.paused,
-    mode: a.mode === "WIND_DOWN" ? "PAUSED" : a.mode,
+    mode: a.mode,
+    isVault: a.isVault,
     adapterAllowed: m.adapterAllowed,
     oracleSet: true,
     usdc: lower(m.usdc),

@@ -166,8 +166,18 @@ export interface AgentStateV3 {
   readonly ownerEpoch: bigint;
   /** Executor v3's configuration epoch for the agent. */
   readonly configEpoch: bigint;
-  /** The PersonalAccountV3 of the agent and its current owner, or null before one is opened. */
+  /**
+   * The account the agent trades: its StrategyVaultV3 when it has one (P7-U2),
+   * else the PersonalAccountV3 of the agent and its current owner, or null
+   * before either is opened.
+   */
   readonly account: Hex | null;
+  /** P7-U2: whether `account` is the agent's vault, whose grant has no expiry (D-241). */
+  readonly isVault: boolean;
+  /** The agent's StrategyVaultV3, or null (P7-U2). */
+  readonly vault: Hex | null;
+  /** The current owner's PersonalAccountV3, or null; an older account once the agent has a vault. */
+  readonly personalAccount: Hex | null;
   /** The v2 PersonalAccount, if the agent has one, so the path can be told (D-367). */
   readonly v2Account: Hex | null;
   readonly mode: AccountMode;
@@ -242,6 +252,7 @@ const NFT_ABI = parseAbi([
 ]);
 const FACTORY_ABI = parseAbi([
   "function personalAccountOf(uint256 agentId, address owner) view returns (address)",
+  "function vaultOf(uint256 agentId) view returns (address)",
 ]);
 const POLICY_TUPLE =
   "(uint16 maxTradeBps, uint16 maxAssetBps, uint16 minUsdcBps, uint16 maxSlippageBps, uint16 maxSlippageClassABps, uint16 maxClassAPositionBps, uint16 maxClassATotalBps, uint16 maxTurnoverBps, uint8 maxTradesPerWindow, uint32 windowSeconds, uint32 deadlineSeconds)";
@@ -275,6 +286,7 @@ const ORACLE_ABI = parseAbi([
 ]);
 const ACCOUNT_ABI = parseAbi([
   "function mode() view returns (uint8)",
+  "function effectiveMode() view returns (uint8)",
   "function screenedOptIn() view returns (bool)",
   "function holdings() view returns ((address token, uint8 decimals, uint256 balance, uint256 free, uint256 costBasis, uint256 lastPriceE18, uint64 lastPricedAt)[])",
   "function navUsdc() view returns (uint256)",
@@ -585,29 +597,39 @@ export class ViemChainReaderV3 implements ChainReaderV3 {
     const owner = await this.ownerOf(id);
     if (!owner) return null;
     const e = this.c.executor_v3;
-    const [block, ownerEpoch, configEpoch, account, v2Account, session] = await Promise.all([
-      this.client.getBlock(),
-      this.client.readContract({
-        address: this.c.agent_nft,
-        abi: NFT_ABI,
-        functionName: "ownerEpoch",
-        args: [id],
-      }),
-      this.client.readContract({
-        address: e,
-        abi: EXECUTOR_ABI,
-        functionName: "configEpochOf",
-        args: [id],
-      }),
-      this.accountOf(this.c.account_factory_v3, id, owner),
-      this.accountOf(this.c.account_factory, id, owner),
-      this.client.readContract({
-        address: e,
-        abi: EXECUTOR_ABI,
-        functionName: "sessionOf",
-        args: [id],
-      }),
-    ]);
+    const [block, ownerEpoch, configEpoch, personal, v2Account, session, vaultRead] =
+      await Promise.all([
+        this.client.getBlock(),
+        this.client.readContract({
+          address: this.c.agent_nft,
+          abi: NFT_ABI,
+          functionName: "ownerEpoch",
+          args: [id],
+        }),
+        this.client.readContract({
+          address: e,
+          abi: EXECUTOR_ABI,
+          functionName: "configEpochOf",
+          args: [id],
+        }),
+        this.accountOf(this.c.account_factory_v3, id, owner),
+        this.accountOf(this.c.account_factory, id, owner),
+        this.client.readContract({
+          address: e,
+          abi: EXECUTOR_ABI,
+          functionName: "sessionOf",
+          args: [id],
+        }),
+        this.client.readContract({
+          address: this.c.account_factory_v3,
+          abi: FACTORY_ABI,
+          functionName: "vaultOf",
+          args: [id],
+        }),
+      ]);
+    // P7-U2: the vault is the agent's trading account once it exists; the personal account stays readable.
+    const vault = vaultRead === zeroAddress ? null : vaultRead;
+    const account = vault ?? personal;
     const grant: Grant | null =
       session.key === zeroAddress
         ? null
@@ -623,6 +645,9 @@ export class ViemChainReaderV3 implements ChainReaderV3 {
       owner,
       ownerEpoch,
       configEpoch,
+      isVault: vault !== null,
+      vault,
+      personalAccount: personal === zeroAddress ? null : personal,
       v2Account: v2Account === zeroAddress ? null : v2Account,
       grant,
     };
@@ -646,7 +671,12 @@ export class ViemChainReaderV3 implements ChainReaderV3 {
         throw err;
       });
     const [mode, optedIn, holdings, nav, caps, breaker, past, limits] = await Promise.all([
-      this.client.readContract({ address: account, abi: ACCOUNT_ABI, functionName: "mode" }),
+      // A vault's canonical mode includes HANDOVER, which its stored mode never shows (P7-U2).
+      this.client.readContract({
+        address: account,
+        abi: ACCOUNT_ABI,
+        functionName: vault ? "effectiveMode" : "mode",
+      }),
       this.client.readContract({
         address: account,
         abi: ACCOUNT_ABI,

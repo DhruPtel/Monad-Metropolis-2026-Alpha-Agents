@@ -73,9 +73,10 @@ contract ExecutorV3 is ISwapExecutorV3, RiskTimelock, ReentrancyGuard {
     /// The longest a session grant may run (A-35).
     uint256 public constant MAX_SESSION = 30 days;
     /// A vault grant's `validUntil`: no fixed expiry (D-241). The largest
-    /// signed 64-bit value, so every store the platform keeps grants in can
-    /// hold it; no timed grant can reach it (it is bounded by MAX_SESSION).
-    uint64 public constant NO_EXPIRY = 0x7FFFFFFFFFFFFFFF;
+    /// integer every JavaScript number and every signed 64-bit column hold
+    /// exactly (2^53 - 1, the year 285 million), so every store the platform
+    /// keeps grants in holds it as it is; no timed grant can reach it.
+    uint64 public constant NO_EXPIRY = 9_007_199_254_740_991;
     /// A route's bound (A-62), the RouteAdapter's too.
     uint256 public constant MAX_HOPS = 3;
     /// The account's own class A caps: a policy may be tighter, never looser (D-337).

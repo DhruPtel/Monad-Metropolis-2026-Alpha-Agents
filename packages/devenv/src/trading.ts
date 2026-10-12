@@ -251,6 +251,35 @@ export async function revokeTestSessionGrant(
 }
 
 /** The owner registers the signer's session key as the agent's grant, for `days` days (at most 30). */
+/**
+ * P7-U2 (D-241): the owner registers the grant for the agent's vault on
+ * Executor v3, with no fixed expiry; the Executor refuses it for an agent
+ * without a vault.
+ */
+export async function registerTestVaultGrant(
+  url: string,
+  agentId: number,
+  owner: string,
+  key: string,
+  executor: string = book("executor_v3"),
+): Promise<void> {
+  await assertLocalFork(url);
+  const id = agentNumber(agentId);
+  const who = wallet(owner);
+  await requireOwner(url, id, who);
+  await gasFor(url, who);
+  await sendAs(
+    url,
+    who as Address,
+    wallet(executor) as Address,
+    encodeFunctionData({
+      abi: parseAbi(["function registerVaultSession(uint256 agentId, address key)"]),
+      functionName: "registerVaultSession",
+      args: [id, wallet(key)],
+    }),
+  );
+}
+
 export async function registerTestSessionGrant(
   url: string,
   agentId: number,

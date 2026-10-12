@@ -1,6 +1,12 @@
 import { type ArmingState, ARMING_END_MESSAGES } from "@alpha-agents/domain";
 import { formatUnits } from "viem";
-import { type ArmingRecord, RENEWAL_REMINDER_SECONDS, armingState, grantDate } from "./arming.ts";
+import {
+  type ArmingRecord,
+  RENEWAL_REMINDER_SECONDS,
+  armingState,
+  grantDate,
+  isNoExpiry,
+} from "./arming.ts";
 import type { IntentView } from "./store.ts";
 
 /** The trade flow's records as JSON for the control API and the dev console (P2-U6). */
@@ -48,9 +54,14 @@ export function armingJson(last: ArmingRecord | null, nowSeconds: number) {
     armingId: last?.armingId ?? null,
     custody: last?.custody ?? null,
     executor: last?.executor ?? null,
-    validUntil: open ? Number(open.validUntil) : null,
-    validUntilDate: open ? grantDate(open.validUntil) : null,
-    renewalDue: open ? Number(open.validUntil) - nowSeconds <= RENEWAL_REMINDER_SECONDS : false,
+    // P7-U2: a vault grant has no expiry (D-241): no date, no renewal.
+    validUntil: open && !isNoExpiry(open.validUntil) ? Number(open.validUntil) : null,
+    validUntilDate: open && !isNoExpiry(open.validUntil) ? grantDate(open.validUntil) : null,
+    noExpiry: open ? isNoExpiry(open.validUntil) : false,
+    renewalDue:
+      open && !isNoExpiry(open.validUntil)
+        ? Number(open.validUntil) - nowSeconds <= RENEWAL_REMINDER_SECONDS
+        : false,
     armedAt: open?.armedAt?.toISOString() ?? null,
     firstIntentId: open?.firstIntentId ?? null,
     ended:

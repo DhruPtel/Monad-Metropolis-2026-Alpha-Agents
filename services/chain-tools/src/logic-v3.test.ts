@@ -1,6 +1,6 @@
 import type { Hex } from "viem";
 import { describe, expect, it } from "vitest";
-import { executorMarketV3 } from "./logic-v3.ts";
+import { executorMarketV3, whyNotBuyableV3 } from "./logic-v3.ts";
 import type { AgentStateV3, MarketStateV3, PoolInfoV3, TokenInfoV3 } from "./reader-v3.ts";
 
 /**
@@ -113,5 +113,44 @@ describe("the Executor mirror's market for a class A trade", () => {
     ]);
     expect(em.sides[GHO]).toEqual({ priceE18: 0n, attestation: "NONE" });
     expect(em.route[0]?.price).toBe("FEED_OFF");
+  });
+});
+
+describe("a vault's account in the mirror and the buyability (P7-U2, D-338)", () => {
+  const vaultAgent = { ...agent, isVault: true, mode: "WIND_DOWN" } as unknown as AgentStateV3 & {
+    account: Hex;
+  };
+
+  it("carries the vault flag and the canonical mode into the Executor's market", () => {
+    const em = executorMarketV3(
+      vaultAgent,
+      market(E18, E18),
+      token(USDC, "USDC", "F"),
+      token(GHO, "GHO", "A"),
+      [pool(E18)],
+    );
+    expect(em.isVault).toBe(true);
+    expect(em.mode).toBe("WIND_DOWN");
+    const personal = executorMarketV3(
+      agent,
+      market(E18, E18),
+      token(USDC, "USDC", "F"),
+      token(GHO, "GHO", "A"),
+      [pool(E18)],
+    );
+    expect(personal.isVault).toBeFalsy();
+  });
+
+  it("names why a vault cannot buy a class A or a screened token, and lets a core class F one through", () => {
+    const ok = { reason: "OK" };
+    expect(whyNotBuyableV3(token(GHO, "GHO", "A"), ok, true, true, true)).toMatch(
+      /class F tokens only/,
+    );
+    const screenedF = { ...token(GHO, "X", "F"), lane: "SCREENED" } as TokenInfoV3;
+    expect(whyNotBuyableV3(screenedF, ok, true, true, true)).toMatch(/class F tokens only/);
+    expect(whyNotBuyableV3(token(GHO, "WMON", "F"), ok, false, true, true)).toBeNull();
+    // The same tokens for a personal account that opted in are buyable.
+    expect(whyNotBuyableV3(token(GHO, "GHO", "A"), ok, true, true)).toBeNull();
+    expect(whyNotBuyableV3(token(GHO, "GHO", "A"), ok, true, true, false)).toBeNull();
   });
 });

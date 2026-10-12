@@ -24,6 +24,8 @@ import { RpcError, hexToBigInt, rpc, toHex } from "./rpc.ts";
 const FACTORY_ABI = parseAbi([
   "function createPersonalAccount(uint256 agentId) returns (address)",
   "function personalAccountOf(uint256 agentId, address owner) view returns (address)",
+  "function createVault(uint256 agentId) returns (address)",
+  "function vaultOf(uint256 agentId) view returns (address)",
   "function isAllowlisted(address depositor) view returns (bool)",
   "function allowlistEnabled() view returns (bool)",
   "function addDepositor(address depositor)",
@@ -78,7 +80,9 @@ type Abi =
   | typeof EXECUTOR_ABI
   | typeof ADAPTER_ABI
   | typeof REGISTRY_ABI
-  | typeof TOKENS_ABI;
+  | typeof TOKENS_ABI
+  | typeof VAULT_READ_ABI
+  | typeof VAULT_WRITE_ABI;
 
 async function read<T>(url: string, to: Hex, abi: Abi, functionName: string, args: unknown[] = []) {
   const data = encodeFunctionData({ abi, functionName, args } as never);
@@ -289,6 +293,101 @@ export async function createTestPersonalAccountV3(
     encodeFunctionData({ abi: FACTORY_ABI, functionName: "createPersonalAccount", args: [id] }),
   );
   return (await read<Hex>(url, factory, FACTORY_ABI, "personalAccountOf", [id, who])) as Address;
+}
+
+const VAULT_WRITE_ABI = parseAbi([
+  "function deposit(uint256 assets, uint256 minSharesOut) returns (uint256 shares)",
+  "function setDepositsOpen(bool open)",
+]);
+const VAULT_READ_ABI = parseAbi([
+  "function sharesOf(address who) view returns (uint256 shares)",
+  "function totalSupply() view returns (uint256 supply)",
+]);
+
+/** P7-U2: the agent's StrategyVaultV3 on the local fork, or null before its owner creates one. */
+export async function testVaultOf(url: string, agentId: number): Promise<Address | null> {
+  const v = await read<Hex>(url, book("account_factory_v3"), FACTORY_ABI, "vaultOf", [
+    agentNumber(agentId),
+  ]);
+  return v === zeroAddress ? null : (v as Address);
+}
+
+/** P7-U2: the owner creates the agent's StrategyVaultV3 through AccountFactoryV3, or finds it. */
+export async function createTestVault(
+  url: string,
+  agentId: number,
+  owner: string,
+): Promise<Address> {
+  await assertLocalFork(url);
+  const id = agentNumber(agentId);
+  const who = wallet(owner);
+  await requireOwner(url, id, who);
+  const existing = await testVaultOf(url, agentId);
+  if (existing) return existing;
+  await gasFor(url, who);
+  await sendAs(
+    url,
+    who as Address,
+    book("account_factory_v3") as Address,
+    encodeFunctionData({ abi: FACTORY_ABI, functionName: "createVault", args: [id] }),
+  );
+  const v = await testVaultOf(url, agentId);
+  if (!v) throw new Error(`Agent ${id} has no vault after createVault.`);
+  return v;
+}
+
+/**
+ * P7-U2: a wallet deposits test USDC into the agent's vault, allowlisted on
+ * the factory first when needed; the agent's owner's deposits are the leader
+ * stake. Returns the shares minted.
+ */
+export async function depositTestVault(
+  url: string,
+  agentId: number,
+  depositor: string,
+  usdcE6: bigint,
+): Promise<bigint> {
+  await assertLocalFork(url);
+  const vault = await testVaultOf(url, agentId);
+  if (!vault) throw new Error(`Agent ${agentNumber(agentId)} has no vault yet.`);
+  const who = wallet(depositor);
+  await allowDepositorV3(url, who);
+  await gasFor(url, who);
+  await mintTestUsdc(who, usdcE6, url);
+  await sendAs(
+    url,
+    who as Address,
+    book("usdc") as Address,
+    encodeFunctionData({ abi: ERC20_ABI, functionName: "approve", args: [vault, usdcE6] }),
+  );
+  const before = await read<bigint>(url, vault, VAULT_READ_ABI, "sharesOf", [who]);
+  await sendAs(
+    url,
+    who as Address,
+    vault,
+    encodeFunctionData({ abi: VAULT_WRITE_ABI, functionName: "deposit", args: [usdcE6, 0n] }),
+  );
+  return (await read<bigint>(url, vault, VAULT_READ_ABI, "sharesOf", [who])) - before;
+}
+
+/** P7-U2: the vault's manager opens or closes deposits (after the leader stake is in). */
+export async function setTestVaultDepositsOpen(
+  url: string,
+  agentId: number,
+  owner: string,
+  open: boolean,
+): Promise<void> {
+  await assertLocalFork(url);
+  const vault = await testVaultOf(url, agentId);
+  if (!vault) throw new Error(`Agent ${agentNumber(agentId)} has no vault yet.`);
+  const who = wallet(owner);
+  await gasFor(url, who);
+  await sendAs(
+    url,
+    who as Address,
+    vault,
+    encodeFunctionData({ abi: VAULT_WRITE_ABI, functionName: "setDepositsOpen", args: [open] }),
+  );
 }
 
 interface Pool {

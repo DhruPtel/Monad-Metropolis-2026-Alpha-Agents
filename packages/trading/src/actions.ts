@@ -19,6 +19,7 @@ export interface ActionRefusal {
 const REVOKE_ABI = parseAbi(["function revokeSession(uint256 agentId)"]);
 const REGISTER_ABI = parseAbi([
   "function registerSession(uint256 agentId, address key, uint64 validUntil)",
+  "function registerVaultSession(uint256 agentId, address key)",
 ]);
 
 export interface WalletCall {
@@ -52,10 +53,21 @@ export const registerCall = (
   value: "0",
 });
 
+/** P7-U2 (D-241): the grant for an agent's vault, with no fixed expiry, for the owner's wallet to send. */
+export const registerVaultCall = (executor: Hex, agentId: number, key: Hex): WalletCall => ({
+  to: executor,
+  data: encodeFunctionData({
+    abi: REGISTER_ABI,
+    functionName: "registerVaultSession",
+    args: [BigInt(agentId), key],
+  }),
+  value: "0",
+});
+
 /**
  * Records the owner's grant once it is on chain: it must name the agent's
- * funding address, the current epochs, and last at most 30 days. The same
- * grant again renews the open arming.
+ * funding address, the current epochs, and last at most 30 days (a vault's
+ * grant has no expiry, D-241). The same grant again renews the open arming.
  */
 export async function confirmArming(
   store: TradeStore,
