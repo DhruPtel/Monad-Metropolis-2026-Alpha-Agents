@@ -8,7 +8,8 @@ import { type Address, type PublicClient, createPublicClient, http } from "viem"
  * issued or used.
  */
 export interface ChainReader {
-  hasMinted(wallet: Address): Promise<boolean>;
+  /** How many agents the wallet has minted (at most MINTS_PER_WALLET, NFT-U1). */
+  mintsOf(wallet: Address): Promise<number>;
   totalMinted(): Promise<number>;
   maxSupply(): Promise<number>;
   /** The owner and ownership epoch, or null when the agent does not exist. */
@@ -25,7 +26,7 @@ export function rpcChainReader(rpcUrl: string, contract: Address): ChainReader {
       args,
     } as never) as Promise<T>;
   return {
-    hasMinted: (wallet) => read<boolean>("hasMinted", [wallet]),
+    mintsOf: async (wallet) => Number(await read<number>("mintsOf", [wallet])),
     totalMinted: async () => Number(await read<number>("totalMinted")),
     maxSupply: async () => Number(await read<bigint>("MAX_SUPPLY")),
     async ownership(agentId) {

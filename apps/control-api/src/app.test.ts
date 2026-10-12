@@ -70,16 +70,20 @@ const identity: Identity & { down: boolean } = {
 
 /** The chain as a test sets it. */
 const chain = {
+  /** Wallets at the two-mint limit (NFT-U1); `mints` gives a finer count. */
   minted: new Set<string>(),
+  mints: new Map<string, number>(),
   total: 1,
   max: 1000,
   owners: new Map<bigint, { owner: Address; epoch: bigint }>(),
   reads: 0,
 };
 const chainReader: ChainReader = {
-  async hasMinted(wallet) {
+  async mintsOf(wallet) {
     chain.reads++;
-    return chain.minted.has(wallet.toLowerCase());
+    return (
+      chain.mints.get(wallet.toLowerCase()) ?? (chain.minted.has(wallet.toLowerCase()) ? 2 : 0)
+    );
   },
   async totalMinted() {
     chain.reads++;
@@ -335,9 +339,9 @@ describe.skipIf(!available)("the control API (needs pnpm dev:up for Postgres)", 
       const body = await json(await call("/v1/supply"));
       expect(body).toMatchObject({ environment: "fork", maxSupply: 1000, totalMinted: 3 });
       const remaining = body.remaining as number[];
-      expect(remaining).toHaveLength(25);
+      expect(remaining).toHaveLength(SPECIES.length);
       expect(remaining[13]).toBe(0); // the bee, revealed
-      expect(remaining[2]).toBe(119); // one ant revealed
+      expect(remaining[2]).toBe(82); // one ant revealed (83 in the deck, NFT-U1)
       expect(remaining.reduce((a, b) => a + b, 0)).toBe(998); // the unrevealed agent still holds a slot
       expect(remaining.map((r, i) => r <= (SPECIES[i]?.count ?? 0))).not.toContain(false);
       expect((body.watermark as { block: number }).block).toBe(109_670_009);
@@ -383,7 +387,7 @@ describe.skipIf(!available)("the control API (needs pnpm dev:up for Postgres)", 
       expect(await json(await app.request("/v1/supply"))).toEqual(first);
       now += 6_000;
       const later = await json(await app.request("/v1/supply"));
-      expect((later.remaining as number[])[2]).toBe(118);
+      expect((later.remaining as number[])[2]).toBe(81);
       await t.db
         .updateTable("indexer.agents")
         .set({ species: 0, tier: 0 })
@@ -491,16 +495,31 @@ describe.skipIf(!available)("the control API (needs pnpm dev:up for Postgres)", 
       ]);
     });
 
-    it("a wallet that already minted (read fresh from the chain) is refused", async () => {
+    it("a wallet at its two mints (read fresh from the chain) is refused", async () => {
       await allow(ALICE);
       chain.minted.add(ALICE.toLowerCase());
       expect(await json(await eligibility(ALICE))).toMatchObject({
         eligible: false,
         reason: "already_minted",
+        message: "This wallet has minted both of its agents.",
+        mints: { used: 2, limit: 2 },
       });
       const res = await claim(ALICE);
       expect([res.status, (await json(res)).error]).toEqual([409, "already_minted"]);
       expect(await claims()).toEqual([]);
+    });
+
+    it("a wallet that minted once may mint again (two per wallet, NFT-U1)", async () => {
+      await allow(ALICE);
+      chain.mints.set(ALICE.toLowerCase(), 1);
+      expect(await json(await eligibility(ALICE))).toMatchObject({
+        eligible: true,
+        reason: "eligible",
+        mints: { used: 1, limit: 2 },
+      });
+      expect((await claim(ALICE)).status).toBe(200);
+      expect(await claims()).toHaveLength(1);
+      chain.mints.delete(ALICE.toLowerCase());
     });
 
     it("sold out is refused", async () => {

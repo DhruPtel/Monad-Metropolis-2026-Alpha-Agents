@@ -344,7 +344,7 @@ test.describe("owner only", () => {
     await expect(card(page, 7)).toHaveCount(0, { timeout: 15_000 });
     // The wallet minted agent 7, so it is never offered the mint again (P2-EC).
     await expect(
-      main(page).getByText("The agent this wallet minted is no longer in it"),
+      main(page).getByText("The agents this wallet minted are no longer in it"),
     ).toBeVisible();
     await expect(main(page).getByRole("link", { name: "Mint an agent" })).toHaveCount(0);
   });

@@ -8,6 +8,7 @@
 import { randomBytes } from "node:crypto";
 import { LOCAL_FORK_CHAIN_ID } from "@alpha-agents/config";
 import { assertLocalFork, rpc } from "@alpha-agents/devenv";
+import { SPECIES } from "@alpha-agents/domain";
 import {
   createPublicClient,
   createWalletClient,
@@ -150,7 +151,9 @@ export async function revealLocal(nft, want) {
   if (!seedReady) {
     if (want) {
       const deck = /** @type {bigint[]} */ (
-        await Promise.all(Array.from({ length: 25 }, (_, i) => read("remainingOf", [i + 1])))
+        await Promise.all(
+          Array.from({ length: SPECIES.length }, (_, i) => read("remainingOf", [i + 1])),
+        )
       );
       const remaining = /** @type {bigint} */ (await read("remainingSupply"));
       if ((deck[want.species - 1] ?? 0n) === 0n) {

@@ -42,14 +42,23 @@ export interface MintPanelAgent {
   readonly tier: ArtTier | null;
   readonly speciesName: string | null;
   readonly image: string | null;
+  /** Where this agent is configured, for the agents the wallet minted before. */
+  readonly href?: string | undefined;
 }
 
 interface MintPanelProps {
   readonly state: MintPanelState;
   /** The mint control, for ready, awaiting-reveal and revealed. */
   readonly mint?: MintButtonProps | undefined;
-  /** The wallet's agent, for already-minted, awaiting-reveal and revealed. */
+  /** The agent just minted, for awaiting-reveal and revealed. */
   readonly agent?: MintPanelAgent | undefined;
+  /**
+   * The agents the wallet minted before (NFT-U1: up to two per wallet), for
+   * ready, already-minted and sold-out; each with its own href.
+   */
+  readonly agents?: readonly MintPanelAgent[] | undefined;
+  /** How many mints the wallet has left, for ready; 2 when unknown. */
+  readonly mintsLeft?: number | undefined;
   /** Where the agent is configured, for example "/configure?agent=7". */
   readonly agentHref?: string | undefined;
   /** For unavailable and not-eligible: why this wallet cannot mint here. */
@@ -74,7 +83,7 @@ interface MintPanelProps {
 const TIER_TAG = { base: "neutral", medium: "rare", pro: "legendary" } as const;
 const TIER_NAME = { base: "Base", medium: "Medium", pro: "Pro" } as const;
 
-const TERMS = "Free to mint: you pay only gas. One agent per wallet.";
+const TERMS = "Free to mint: you pay only gas. Up to two agents per wallet.";
 
 function AgentPreview({
   agent,
@@ -130,6 +139,28 @@ function AgentPreview({
   );
 }
 
+/** The agents the wallet minted before, each with its link. */
+function MintedBefore({
+  agents,
+  linkAs,
+  revealNote,
+}: {
+  agents: readonly MintPanelAgent[];
+  linkAs?: LinkComponent | undefined;
+  revealNote: ReactNode;
+}) {
+  if (agents.length === 0) return null;
+  return (
+    <ul aria-label="Agents this wallet minted" className="flex flex-col gap-3">
+      {agents.map((a) => (
+        <li key={a.id.toString()}>
+          <AgentPreview agent={a} href={a.href} revealNote={revealNote} linkAs={linkAs} />
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 function Lead({ title, children }: { title: string; children?: ReactNode }) {
   return (
     <div className="flex flex-col gap-1">
@@ -141,6 +172,8 @@ function Lead({ title, children }: { title: string; children?: ReactNode }) {
 
 function MintPanel(props: MintPanelProps) {
   const { state, mint, agent, agentHref, revealNote, linkAs, className } = props;
+  const before = props.agents ?? [];
+  const mintsLeft = props.mintsLeft ?? 2;
   let body: ReactNode;
   switch (state) {
     case "unavailable":
@@ -208,29 +241,40 @@ function MintPanel(props: MintPanelProps) {
       break;
     case "sold-out":
       body = (
-        <Lead title="Sold out">
-          All {props.maxSupply ?? ""} agents are minted. Agents change hands through the
-          marketplace.
-        </Lead>
+        <>
+          <Lead title="Sold out">
+            All {props.maxSupply ?? ""} agents are minted. Agents change hands through the
+            marketplace.
+          </Lead>
+          <MintedBefore agents={before} linkAs={linkAs} revealNote={revealNote} />
+        </>
       );
       break;
     case "already-minted":
       body = (
         <>
-          <Lead title="This wallet has minted its agent">
-            One agent per wallet: this wallet cannot mint again.
+          <Lead title="This wallet has minted both of its agents">
+            Two agents per wallet: this wallet cannot mint again.
           </Lead>
-          {agent ? (
-            <AgentPreview agent={agent} href={agentHref} revealNote={revealNote} linkAs={linkAs} />
-          ) : null}
+          <MintedBefore
+            agents={before.length > 0 ? before : agent ? [agent] : []}
+            linkAs={linkAs}
+            revealNote={revealNote}
+          />
         </>
       );
       break;
     case "ready":
       body = (
         <>
-          <Lead title="Mint your agent">{TERMS} Your tier and species are drawn at reveal.</Lead>
+          <Lead title={before.length > 0 ? "Mint your second agent" : "Mint your agent"}>
+            {TERMS} Your tier and species are drawn at reveal.
+            {before.length > 0
+              ? ` This wallet has ${mintsLeft === 1 ? "one mint" : `${mintsLeft} mints`} left.`
+              : ""}
+          </Lead>
           {mint ? <MintButton {...mint} className={cn("sm:max-w-xs", mint.className)} /> : null}
+          <MintedBefore agents={before} linkAs={linkAs} revealNote={revealNote} />
         </>
       );
       break;

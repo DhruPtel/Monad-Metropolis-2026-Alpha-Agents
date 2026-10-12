@@ -33,8 +33,9 @@ async function run(d: MintFlowDeps) {
   return { result, states: seen.map((p) => p.state) };
 }
 
-function revert(errorName: "AlreadyMinted" | "SoldOut" | "ClaimExpired") {
-  const args = errorName === "AlreadyMinted" ? [WALLET] : errorName === "ClaimExpired" ? [1n] : [];
+function revert(errorName: "MintLimitReached" | "SoldOut" | "ClaimExpired") {
+  const args =
+    errorName === "MintLimitReached" ? [WALLET, 2] : errorName === "ClaimExpired" ? [1n] : [];
   const data = encodeErrorResult({ abi: AGENT_NFT_ABI, errorName, args } as never);
   return new ContractFunctionRevertedError({
     abi: AGENT_NFT_ABI,
@@ -112,10 +113,10 @@ describe("the mint flow", () => {
   });
 
   it("explains AgentNFT's reverts", async () => {
-    const minted = await run(deps({ sendMint: () => Promise.reject(revert("AlreadyMinted")) }));
+    const minted = await run(deps({ sendMint: () => Promise.reject(revert("MintLimitReached")) }));
     expect(minted.result).toEqual({
       state: "claim-refused",
-      message: "This wallet has already minted an agent.",
+      message: "This wallet has minted both of its agents.",
     });
     const expired = await run(deps({ sendMint: () => Promise.reject(revert("ClaimExpired")) }));
     expect(expired.result.state).toBe("error");

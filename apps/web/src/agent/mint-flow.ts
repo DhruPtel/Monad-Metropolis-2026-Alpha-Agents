@@ -39,7 +39,7 @@ export interface MintProgress {
 
 /** Owner-facing text for an AgentNFT revert. */
 const REVERT_MESSAGES: Readonly<Record<string, string>> = {
-  AlreadyMinted: "This wallet has already minted an agent.",
+  MintLimitReached: "This wallet has minted both of its agents.",
   SoldOut: "All 1,000 agents have been minted.",
   ClaimExpired: "The mint claim expired. Mint again to get a fresh one.",
   ClaimNonceUsed: "That mint claim was already used. Mint again to get a fresh one.",
@@ -96,7 +96,7 @@ export async function runMint(
     const name = revertName(error);
     const known = name ? REVERT_MESSAGES[name] : undefined;
     return finish(
-      name === "AlreadyMinted" || name === "SoldOut"
+      name === "MintLimitReached" || name === "SoldOut"
         ? { state: "claim-refused", message: known ?? name }
         : { state: "error", message: known ?? "The wallet could not send the mint." },
     );

@@ -95,6 +95,7 @@ export function useOwnedAgents(environment: EnvironmentId): OwnedAgents {
             pending: a.species === 0 ? "reveal" : null,
             indexed: true,
           })),
+          mints: indexed.length,
           hasMinted: indexed.length > 0,
           indexLagging: false,
         };

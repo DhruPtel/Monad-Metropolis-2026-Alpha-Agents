@@ -36,15 +36,19 @@ import { useStuckNonce } from "@/agent/use-stuck-nonce";
 const TIER_NAME = { base: "Base", medium: "Medium", pro: "Pro" } as const;
 const bps = (part: number, whole: number) => (whole > 0 ? (part / whole) * 10_000 : 0);
 
-/** The agent as the panel shows it, from its onchain species index (0 before reveal). */
+/** An agent as the panel shows it, from its onchain species index (0 before reveal). */
 function panelAgent(agent: { id: bigint; species: number }): MintPanelAgent {
-  if (agent.species === 0) return { id: agent.id, tier: null, speciesName: null, image: null };
+  const href = `/configure?agent=${agent.id.toString()}`;
+  if (agent.species === 0) {
+    return { id: agent.id, tier: null, speciesName: null, image: null, href };
+  }
   const species = speciesByIndex(agent.species);
   return {
     id: agent.id,
     tier: species.tier,
     speciesName: species.name,
     image: speciesAsset(agent.species).image,
+    href,
   };
 }
 
@@ -192,8 +196,9 @@ export function MintPage({ environment }: { environment: EnvironmentId }) {
         <div className="flex max-w-2xl flex-col gap-2">
           <h1 className="text-2xl font-semibold">Mint an agent</h1>
           <p className="text-sm text-foreground-muted">
-            Every agent is free to mint: you pay only gas, one per wallet. Its tier and species are
-            drawn at reveal from what is left, so the tiers below show your chances, not a choice.
+            Every agent is free to mint: you pay only gas, up to two per wallet. Its tier and
+            species are drawn at reveal from what is left, so the tiers below show your chances, not
+            a choice.
           </p>
         </div>
         <Tag size="md">{envLabel}</Tag>
@@ -227,6 +232,8 @@ export function MintPage({ environment }: { environment: EnvironmentId }) {
               onDismiss: reset,
             }}
             agent={view.agent ? panelAgent(view.agent) : undefined}
+            agents={view.agents?.map(panelAgent)}
+            mintsLeft={view.mintsLeft}
             agentHref={agentId !== undefined ? `/configure?agent=${agentId.toString()}` : undefined}
             message={view.message ?? `AgentNFT is not deployed on ${envLabel} yet.`}
             linkAs={Link}

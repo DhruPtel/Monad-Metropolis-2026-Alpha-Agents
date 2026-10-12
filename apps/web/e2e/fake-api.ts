@@ -1,4 +1,4 @@
-import { AGENT_MAX_SUPPLY, SPECIES } from "@alpha-agents/domain";
+import { AGENT_MAX_SUPPLY, MINTS_PER_WALLET, SPECIES } from "@alpha-agents/domain";
 import type { Page, Route } from "@playwright/test";
 import { type Address, type Hex, decodeFunctionData, getAddress } from "viem";
 import { ERC20_ABI } from "../src/agent/custody";
@@ -235,26 +235,29 @@ export class FakeApi {
     };
   }
 
-  private minted(wallet: string): boolean {
-    return [...this.chain.agents.values()].some((a) => same(a.receivedBy[0] ?? "", wallet));
-  }
-
   private eligibility(wallet: string) {
     const allowed = this.allowlist === "everyone" || this.allowlist.some((w) => same(w, wallet));
+    const used = this.chain.mintsOf(wallet);
     const reason = !allowed
       ? "not_allowlisted"
-      : this.minted(wallet)
+      : used >= MINTS_PER_WALLET
         ? "already_minted"
         : this.supply().totalMinted >= AGENT_MAX_SUPPLY
           ? "sold_out"
           : "eligible";
     const message = {
-      eligible: "This wallet can mint one agent.",
+      eligible: "This wallet can mint an agent; each wallet mints up to two.",
       not_allowlisted: "This wallet is not on the beta mint allowlist.",
-      already_minted: "This wallet has already minted an agent.",
+      already_minted: "This wallet has minted both of its agents.",
       sold_out: "All agents have been minted.",
     }[reason];
-    return { wallet: getAddress(wallet), eligible: reason === "eligible", reason, message };
+    return {
+      wallet: getAddress(wallet),
+      eligible: reason === "eligible",
+      reason,
+      message,
+      mints: { used, limit: MINTS_PER_WALLET },
+    };
   }
 
   private async answer(route: Route): Promise<void> {

@@ -49,7 +49,7 @@ const ERC20_ABI = parseAbi([
   "function balanceOf(address who) view returns (uint256)",
 ]);
 
-const NFT_ABI = parseAbi(["function hasMinted(address wallet) view returns (bool)"]);
+const NFT_ABI = parseAbi(["function mintsOf(address wallet) view returns (uint8)"]);
 const MINTED = parseAbiItem(
   "event AgentMinted(uint256 indexed agentId, address indexed owner, address tba)",
 );
@@ -83,7 +83,8 @@ export async function custodyContracts() {
 }
 
 /**
- * The owner's agent: the one it minted, or a new one (one mint per wallet).
+ * The owner's agent: the first one it minted, or a new one when it has not
+ * minted yet (a wallet mints up to two, NFT-U1; the demos use its first).
  * @param {`0x${string}`} nft
  * @param {`0x${string}`} owner
  * @returns {Promise<bigint>}
@@ -92,10 +93,10 @@ export async function ownersAgent(nft, owner) {
   const minted = await client.readContract({
     address: nft,
     abi: NFT_ABI,
-    functionName: "hasMinted",
+    functionName: "mintsOf",
     args: [owner],
   });
-  if (!minted) return (await mintLocal(nft, owner)).agentId;
+  if (minted === 0) return (await mintLocal(nft, owner)).agentId;
   const logs = await client.getLogs({
     address: nft,
     event: MINTED,

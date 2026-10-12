@@ -16,6 +16,8 @@ import { disableWebgl } from "./webgl";
  */
 const ANT = 3;
 const BEE = 14;
+/** The tick has no art yet (NFT-U1): the placeholder with its slots stands in. */
+const TICK = 4;
 const OTHER_WALLET = "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC" as const;
 
 const portal = (page: Page) => page.getByTestId("agent-portal");
@@ -159,11 +161,12 @@ test.describe("screenshots and accessibility", () => {
 
   test("a species without a model shows its 2D art, slots and card", async ({ page }) => {
     const chain = new FakeChain();
-    chain.mint(7n, MOCK_WALLET_ADDRESS, ANT);
+    chain.mint(7n, MOCK_WALLET_ADDRESS, TICK);
     await open(page, chain);
     await connect(page);
     await expect(heading(page, 7)).toBeVisible();
     await expect(page.getByTestId("stage-mode")).toHaveAttribute("data-mode", "2d");
+    await expect(page.getByRole("img", { name: "Tick agent" })).toBeVisible();
     const viewer = page.getByRole("region", { name: "Agent viewer" });
     await expect(viewer.getByRole("list", { name: "Skill slots" }).getByRole("img")).toHaveCount(3);
     await settled(page);

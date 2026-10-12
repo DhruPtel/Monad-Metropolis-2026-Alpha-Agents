@@ -886,13 +886,13 @@ function AgentSection() {
           <TierCard
             tier="base"
             slots={3}
-            total="600"
+            total="500"
             remaining={null}
             remainingBps={0}
             odds={null}
             species={[
-              { name: "Ant", image: null, total: 120, remaining: null },
-              { name: "Tick", image: null, total: 120, remaining: null },
+              { name: "Ant", image: "/species/ant.webp", total: 83, remaining: null },
+              { name: "Tick", image: null, total: 83, remaining: null },
             ]}
           />
           <TierCard
@@ -904,21 +904,26 @@ function AgentSection() {
             odds="0%"
             soldOut
             species={[
-              { name: "Firefly", image: null, total: 37, remaining: 0 },
-              { name: "Moth", image: null, total: 38, remaining: 0 },
+              { name: "Firefly", image: null, total: 27, remaining: 0 },
+              { name: "Moth", image: "/species/moth.webp", total: 27, remaining: 0 },
             ]}
           />
           <TierCard
             tier="pro"
             slots={8}
-            total="100"
-            remaining="98"
-            remainingBps={9800}
-            odds="9.8%"
+            total="200"
+            remaining="198"
+            remainingBps={9900}
+            odds="19.8%"
             species={[
               { name: "Bee", image: "/species/bee.webp", total: 1, remaining: 0 },
-              { name: "Praying mantis", image: null, total: 1, remaining: 1 },
-              { name: "Dragonfly", image: null, total: 12, remaining: 11 },
+              {
+                name: "Praying mantis",
+                image: "/species/praying-mantis.webp",
+                total: 1,
+                remaining: 1,
+              },
+              { name: "Dragonfly", image: "/species/dragonfly.webp", total: 15, remaining: 14 },
             ]}
           />
         </div>
@@ -949,6 +954,37 @@ function AgentSection() {
                     ? { id: 14n, tier: null, speciesName: null, image: null }
                     : { id: 14n, tier: "pro", speciesName: "Bee", image: "/species/bee.webp" }
                 }
+                agents={
+                  state === "ready"
+                    ? [
+                        {
+                          id: 7n,
+                          tier: "base",
+                          speciesName: "Ant",
+                          image: "/species/ant.webp",
+                          href: "/design#agents",
+                        },
+                      ]
+                    : state === "already-minted"
+                      ? [
+                          {
+                            id: 7n,
+                            tier: "base",
+                            speciesName: "Ant",
+                            image: "/species/ant.webp",
+                            href: "/design#agents",
+                          },
+                          {
+                            id: 14n,
+                            tier: "pro",
+                            speciesName: "Bee",
+                            image: "/species/bee.webp",
+                            href: "/design#agents",
+                          },
+                        ]
+                      : undefined
+                }
+                mintsLeft={state === "ready" ? 1 : undefined}
                 agentHref="/design#agents"
                 message={
                   state === "not-eligible"

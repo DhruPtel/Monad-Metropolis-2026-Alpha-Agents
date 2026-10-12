@@ -1,6 +1,7 @@
 "use client";
 
 import type { EnvironmentId } from "@alpha-agents/config";
+import { MINTS_PER_WALLET } from "@alpha-agents/domain";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ApiError, type ApiAgent, type Eligibility, api } from "@/api/client";
 import { useWalletSession } from "@/auth/session";
@@ -57,9 +58,10 @@ export function useMintSupply(environment: EnvironmentId): SupplyStatus & {
 
 /**
  * Whether the connected wallet can mint, from the control API: its
- * eligibility (allowlisted, not yet minted, supply left), asked on login, on
- * an account or chain change and after a mint; and the agent it minted, from
- * the index, re-read every few seconds while it waits for its reveal.
+ * eligibility (allowlisted, mints left of its two, supply left), asked on
+ * login, on an account or chain change and after a mint; and the agents it
+ * minted, from the index, re-read every few seconds while one waits for its
+ * reveal.
  */
 export function useWalletMint(environment: EnvironmentId): {
   readonly read: WalletMintRead;
@@ -75,7 +77,7 @@ export function useWalletMint(environment: EnvironmentId): {
     key: string;
     value: Eligibility | { error: ApiError };
   } | null>(null);
-  const [agent, setAgent] = useState<{ key: string; value: ApiAgent | null } | null>(null);
+  const [agents, setAgents] = useState<{ key: string; value: readonly ApiAgent[] } | null>(null);
   const [tick, setTick] = useState(0);
   const [agentTick, setAgentTick] = useState(0);
   const refresh = useCallback(() => setTick((t) => t + 1), []);
@@ -103,13 +105,14 @@ export function useWalletMint(environment: EnvironmentId): {
     };
   }, [address, deployment, getAccessToken, key, tick]);
 
-  const pending = agent?.key === key && agent.value !== null && agent.value.species === 0;
+  const pending = agents?.key === key && agents.value.some((a) => a.species === 0);
   useEffect(() => {
     if (!address || !deployment) return;
     let live = true;
     api.agents({ minter: address }).then(
-      ([first]) => live && setAgent({ key, value: first ?? null }),
-      () => live && setAgent((a) => (a?.key === key ? a : { key, value: null })),
+      (minted) =>
+        live && setAgents({ key, value: [...minted].sort((a, b) => (a.id < b.id ? -1 : 1)) }),
+      () => live && setAgents((a) => (a?.key === key ? a : { key, value: [] })),
     );
     const timer = window.setTimeout(
       () => setAgentTick((t) => t + 1),
@@ -121,7 +124,7 @@ export function useWalletMint(environment: EnvironmentId): {
     };
   }, [address, deployment, key, pending, tick, agentTick]);
 
-  if (eligibility?.key !== key || agent?.key !== key) {
+  if (eligibility?.key !== key || agents?.key !== key) {
     return { read: { status: "loading" }, refresh };
   }
   const e = eligibility.value;
@@ -132,12 +135,17 @@ export function useWalletMint(environment: EnvironmentId): {
       refresh,
     };
   }
-  const minted = agent.value ? { id: agent.value.id, species: agent.value.species } : undefined;
+  // The chain's count (through the API) and the index's list may differ for a
+  // moment after a mint; the larger is the truth, and the limit is the API's.
+  const limit = e.mints?.limit ?? MINTS_PER_WALLET;
+  const mintsUsed = Math.max(e.mints?.used ?? 0, agents.value.length);
+  const mintsLeft = e.reason === "already_minted" ? 0 : Math.max(0, limit - mintsUsed);
   return {
     read: {
       status: "ready",
-      hasMinted: e.reason === "already_minted" || minted !== undefined,
-      ...(minted ? { agent: minted } : {}),
+      mintsUsed,
+      mintsLeft,
+      agents: agents.value.map((a) => ({ id: a.id, species: a.species })),
       reason: e.reason,
       message: e.message,
     },

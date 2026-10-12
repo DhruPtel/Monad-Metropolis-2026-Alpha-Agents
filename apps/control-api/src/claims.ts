@@ -42,8 +42,8 @@ export async function signClaim(
 export type Eligibility = "eligible" | "not_allowlisted" | "already_minted" | "sold_out";
 
 export const ELIGIBILITY_MESSAGES: Readonly<Record<Eligibility, string>> = {
-  eligible: "This wallet can mint one agent.",
+  eligible: "This wallet can mint an agent; each wallet mints up to two.",
   not_allowlisted: "This wallet is not on the beta mint allowlist.",
-  already_minted: "This wallet has already minted an agent.",
+  already_minted: "This wallet has minted both of its agents.",
   sold_out: "All agents have been minted.",
 };

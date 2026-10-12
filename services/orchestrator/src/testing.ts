@@ -1,14 +1,14 @@
 import { createConnection } from "node:net";
 import type { Db } from "@alpha-agents/db";
 import { loadConfig } from "@alpha-agents/config";
-import { speciesByIndex, TIER_IDS, type Tier } from "@alpha-agents/domain";
+import { SPECIES, speciesByIndex, TIER_IDS, type Tier } from "@alpha-agents/domain";
 
 /** Test helpers: indexed agents written the way the indexer writes them, and a Redis probe. */
 export const CHAIN = 143143;
 
 /** The first species index of a tier, so a test can reveal an agent as that tier. */
 export function speciesOfTier(tier: Tier): number {
-  for (let i = 1; i <= 25; i += 1) if (speciesByIndex(i).tier === tier) return i;
+  for (let i = 1; i <= SPECIES.length; i += 1) if (speciesByIndex(i).tier === tier) return i;
   throw new Error(`no species for ${tier}`);
 }
 

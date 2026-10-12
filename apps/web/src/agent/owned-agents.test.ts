@@ -15,7 +15,7 @@ function chainOf(
   const calls = { ownerOf: 0, agent: 0 };
   const reader: AgentNftReader = {
     totalMinted: async () => BigInt(Object.keys(agents).length),
-    hasMinted: async (w) => minted.some((m) => m.toLowerCase() === w.toLowerCase()),
+    mintsOf: async (w) => minted.filter((m) => m.toLowerCase() === w.toLowerCase()).length,
     ownerOf: async (id) => {
       calls.ownerOf++;
       return agents[Number(id)]?.owner ?? null;
@@ -92,7 +92,7 @@ describe("the wallet's agents when the index lags the chain (P2-EC)", () => {
   it("reports a wallet that minted even when its agent has left it", async () => {
     const { reader } = chainOf({ 1: { owner: OTHER, species: 1 } }, [OWNER]);
     const r = await ownedAgentsWithChain(OWNER, [], 1, reader);
-    expect(r).toMatchObject({ agents: [], hasMinted: true });
+    expect(r).toMatchObject({ agents: [], mints: 1, hasMinted: true });
   });
 
   it("reads at most the newest CHAIN_SCAN_LIMIT agents past the index", async () => {

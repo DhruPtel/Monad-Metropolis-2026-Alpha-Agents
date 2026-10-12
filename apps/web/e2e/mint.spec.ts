@@ -179,14 +179,39 @@ test.describe("states, screenshots and accessibility", () => {
     expect(await blockingViolations(page)).toEqual([]);
   });
 
-  test("already minted: the wallet's agent and its link, and no mint", async ({ page }) => {
+  test("one minted: the panel shows that agent and still offers the second mint (NFT-U1)", async ({
+    page,
+  }) => {
     const chain = new FakeChain();
     chain.mint(7n, MOCK_WALLET_ADDRESS, BEE);
     await open(page, chain);
     await connect(page);
-    await expect(panel(page)).toHaveAttribute("data-state", "already-minted");
-    await expect(panel(page).getByText("This wallet has minted its agent")).toBeVisible();
+    await expect(panel(page)).toHaveAttribute("data-state", "ready");
+    await expect(panel(page).getByText("Mint your second agent")).toBeVisible();
+    await expect(panel(page).getByText(/This wallet has one mint left/)).toBeVisible();
     await expect(panel(page).getByRole("img", { name: "Bee agent" })).toBeVisible();
+    await expect(panel(page).getByRole("link", { name: "Open agent #7" })).toHaveAttribute(
+      "href",
+      "/configure?agent=7",
+    );
+    await expect(panel(page).getByRole("button", { name: "Mint an agent" })).toBeEnabled();
+    await capture(page, panel(page), "mint-one-of-two.png");
+    expect(await blockingViolations(page)).toEqual([]);
+  });
+
+  test("already minted: both of the wallet's agents with their links, and no mint", async ({
+    page,
+  }) => {
+    const chain = new FakeChain();
+    chain.mint(7n, MOCK_WALLET_ADDRESS, BEE);
+    chain.mint(8n, MOCK_WALLET_ADDRESS, ANT);
+    await open(page, chain);
+    await connect(page);
+    await expect(panel(page)).toHaveAttribute("data-state", "already-minted");
+    await expect(panel(page).getByText("This wallet has minted both of its agents")).toBeVisible();
+    await expect(panel(page).getByRole("img", { name: "Bee agent" })).toBeVisible();
+    await expect(panel(page).getByRole("img", { name: "Ant agent" })).toBeVisible();
+    await expect(panel(page).getByRole("link", { name: "Open agent #8" })).toBeVisible();
     await expect(panel(page).getByRole("button", { name: /Mint/ })).toHaveCount(0);
     await capture(page, panel(page), "mint-already-minted.png");
     expect(await blockingViolations(page)).toEqual([]);
@@ -231,18 +256,22 @@ test.describe("supply and odds", () => {
     await expect(supply).toContainText("Waiting for reveal1");
     const meter = (name: string) =>
       tierCard(page, name).getByRole("meter", { name: /Remaining of/ });
-    await expect(meter("Base")).toHaveAttribute("aria-valuetext", "599 of 600");
+    await expect(meter("Base")).toHaveAttribute("aria-valuetext", "499 of 500");
     await expect(meter("Medium")).toHaveAttribute("aria-valuetext", "300 of 300");
-    await expect(meter("Pro")).toHaveAttribute("aria-valuetext", "99 of 100");
-    // 599, 300 and 99 of 998 slots left.
-    await expect(page.getByTestId("tier-odds")).toHaveText(["60.0%", "30.1%", "9.9%"]);
+    await expect(meter("Pro")).toHaveAttribute("aria-valuetext", "199 of 200");
+    // 499, 300 and 199 of 998 slots left (NFT-U1: 500, 300 and 200).
+    await expect(page.getByTestId("tier-odds")).toHaveText(["50.0%", "30.1%", "19.9%"]);
 
     const pro = tierCard(page, "Pro").getByRole("list", { name: "Pro species" });
     const oneOfOnes = pro.locator("li[data-one-of-one]");
     await expect(oneOfOnes).toHaveCount(4);
     await expect(oneOfOnes.filter({ hasText: /^Bee/ })).toContainText("Drawn");
     await expect(oneOfOnes.filter({ hasText: "Praying mantis" })).toContainText("Not drawn yet");
-    await expect(tierCard(page, "Base")).toContainText("119 of 120 left");
+    await expect(tierCard(page, "Base")).toContainText("82 of 83 left");
+    // The nine new species and the per-wallet limit are on the page.
+    await expect(tierCard(page, "Pro")).toContainText("Hummingbird");
+    await expect(tierCard(page, "Base")).toContainText("Ladybug");
+    await expect(mintPage(page)).toContainText("up to two per wallet");
   });
 
   test("a sold-out tier reads 0% and the others share the rest", async ({ page }) => {
@@ -252,7 +281,8 @@ test.describe("supply and odds", () => {
     await open(page, chain);
     await expect(tierCard(page, "Pro")).toContainText("Sold out");
     await expect(tierCard(page, "Base")).not.toContainText("Sold out");
-    await expect(page.getByTestId("tier-odds")).toHaveText(["66.7%", "33.3%", "0%"]);
+    // 500 and 300 of the 800 slots left.
+    await expect(page.getByTestId("tier-odds")).toHaveText(["62.5%", "37.5%", "0%"]);
   });
 });
 

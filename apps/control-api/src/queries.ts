@@ -35,7 +35,7 @@ export interface AgentJson {
 export interface SupplyJson {
   readonly maxSupply: number;
   readonly totalMinted: number;
-  /** Slots left in the deck per species, 1 to 25 in SPECIES order (AgentNFT's remainingOf). */
+  /** Slots left in the deck per species, 1 to SPECIES.length in SPECIES order (AgentNFT's remainingOf). */
   readonly remaining: number[];
 }
 

@@ -54,6 +54,8 @@ export interface Eligibility {
   readonly eligible: boolean;
   readonly reason: EligibilityReason;
   readonly message: string;
+  /** How many agents the wallet has minted, against the per-wallet limit (NFT-U1). */
+  readonly mints?: { readonly used: number; readonly limit: number };
 }
 
 /** An answer the API gave with an error code; the message is safe to show. */

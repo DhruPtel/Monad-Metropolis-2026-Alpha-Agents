@@ -192,7 +192,7 @@ export async function buildModel(
   if (root.listSkins().length > 0) throw new Error(`${slug}: a rigged source needs its own build`);
   const trianglesBefore = triangleCount(doc);
 
-  await doc.transform(weld({ tolerance: 0.0001 }));
+  await doc.transform(weld());
   if (trianglesBefore > TARGET_TRIANGLES) {
     await doc.transform(
       simplify({

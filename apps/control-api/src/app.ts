@@ -9,6 +9,7 @@ import {
   type AgentNftDeployment,
   type CustodyPath,
   type ManagedAccount,
+  MINTS_PER_WALLET,
   PAID_DATA_SOURCES,
   isManagedAccount,
   isPaidDataSourceId,
@@ -1437,7 +1438,10 @@ export function createApp(deps: ApiDeps): Hono {
   async function mintCheck(
     c: Context,
     rawWallet: unknown,
-  ): Promise<{ wallet: Address; session: VerifiedSession; eligibility: Eligibility } | Response> {
+  ): Promise<
+    | { wallet: Address; session: VerifiedSession; eligibility: Eligibility; mintsUsed: number }
+    | Response
+  > {
     if (!deps.deployment || !deps.chain) {
       return fail(
         c,
@@ -1458,11 +1462,13 @@ export function createApp(deps: ApiDeps): Hono {
       return fail(c, 403, "wallet_not_linked", "That wallet is not linked to your login.");
     }
     let eligibility: Eligibility = "eligible";
+    // Read fresh from the chain: a wallet mints up to MINTS_PER_WALLET (NFT-U1).
+    const mintsUsed = await deps.chain.mintsOf(wallet);
     if (!(await isAllowlisted(deps.db, wallet))) eligibility = "not_allowlisted";
-    else if (await deps.chain.hasMinted(wallet)) eligibility = "already_minted";
+    else if (mintsUsed >= MINTS_PER_WALLET) eligibility = "already_minted";
     else if ((await deps.chain.totalMinted()) >= (await deps.chain.maxSupply()))
       eligibility = "sold_out";
-    return { wallet, session, eligibility };
+    return { wallet, session, eligibility, mintsUsed };
   }
 
   app.get("/v1/mint/eligibility", async (c) => {
@@ -1473,6 +1479,7 @@ export function createApp(deps: ApiDeps): Hono {
       eligible: check.eligibility === "eligible",
       reason: check.eligibility,
       message: ELIGIBILITY_MESSAGES[check.eligibility],
+      mints: { used: check.mintsUsed, limit: MINTS_PER_WALLET },
     });
   });
 

@@ -426,8 +426,8 @@ export function MyAgentsPage({ environment }: { environment: EnvironmentId }) {
       ) : state === "minted-elsewhere" ? (
         <EmptyState
           icon={Bot}
-          title="The agent this wallet minted is no longer in it"
-          description="Each wallet mints one agent. Connect the wallet that holds it now to see it here."
+          title="The agents this wallet minted are no longer in it"
+          description="Each wallet mints up to two agents. Connect the wallet that holds them now to see them here."
         />
       ) : (
         <div className="flex flex-col gap-6" data-testid="my-agents">

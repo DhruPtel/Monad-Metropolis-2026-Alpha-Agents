@@ -9,7 +9,8 @@ import { type Address, parseAbi } from "viem";
  */
 export const AGENT_NFT_ABI = parseAbi([
   "function mintWithClaim(uint64 deadline, bytes32 nonce, bytes signature) returns (uint256)",
-  "function hasMinted(address wallet) view returns (bool)",
+  "function mintsOf(address wallet) view returns (uint8)",
+  "function MINTS_PER_WALLET() view returns (uint8)",
   "function claimSigner() view returns (address)",
   "function ownerOf(uint256 agentId) view returns (address)",
   "function ownerEpoch(uint256 agentId) view returns (uint64)",
@@ -20,7 +21,7 @@ export const AGENT_NFT_ABI = parseAbi([
   "function remainingOf(uint8 species) view returns (uint256)",
   "event Transfer(address indexed from, address indexed to, uint256 indexed tokenId)",
   "event AgentMinted(uint256 indexed agentId, address indexed owner, address tba)",
-  "error AlreadyMinted(address wallet)",
+  "error MintLimitReached(address wallet, uint8 limit)",
   "error SoldOut()",
   "error ClaimExpired(uint64 deadline)",
   "error ClaimNonceUsed(bytes32 nonce)",

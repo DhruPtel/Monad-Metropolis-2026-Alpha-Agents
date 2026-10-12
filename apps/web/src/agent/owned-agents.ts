@@ -29,6 +29,8 @@ export interface OwnedAgentView extends ApiAgent {
 
 export interface OwnedAgentsRead {
   readonly agents: readonly OwnedAgentView[];
+  /** AgentNFT's own count of this wallet's mints, whatever the index says (up to two, NFT-U1). */
+  readonly mints: number;
   /** AgentNFT's own record that this wallet minted, whatever the index says. */
   readonly hasMinted: boolean;
   /** The chain has minted more agents than the index has seen. */
@@ -38,7 +40,7 @@ export interface OwnedAgentsRead {
 /** The AgentNFT reads the fallback needs. */
 export interface AgentNftReader {
   totalMinted(): Promise<bigint>;
-  hasMinted(wallet: Address): Promise<boolean>;
+  mintsOf(wallet: Address): Promise<number>;
   /** Null when the agent does not exist. */
   ownerOf(agentId: bigint): Promise<Address | null>;
   agent(agentId: bigint): Promise<{ tba: Address; species: number; ownerEpoch: bigint }>;
@@ -63,7 +65,7 @@ export async function ownedAgentsWithChain(
   indexedMinted: number,
   chain: AgentNftReader,
 ): Promise<OwnedAgentsRead> {
-  const [total, hasMinted] = await Promise.all([chain.totalMinted(), chain.hasMinted(wallet)]);
+  const [total, mints] = await Promise.all([chain.totalMinted(), chain.mintsOf(wallet)]);
   const chainMinted = Number(total);
   const agents: OwnedAgentView[] = [];
   // Indexed agents shown as unrevealed may already be revealed on chain.
@@ -98,7 +100,7 @@ export async function ownedAgentsWithChain(
     });
   }
   agents.sort((x, y) => (x.id < y.id ? -1 : 1));
-  return { agents, hasMinted, indexLagging: chainMinted > indexedMinted };
+  return { agents, mints, hasMinted: mints > 0, indexLagging: chainMinted > indexedMinted };
 }
 
 /** The reader over the build's chain, through the app's public RPC. */
@@ -112,7 +114,7 @@ export function viemAgentNftReader(client: PublicClient, agentNft: Address): Age
     } as never) as Promise<T>;
   return {
     totalMinted: () => read<bigint>("totalMinted"),
-    hasMinted: (wallet) => read<boolean>("hasMinted", [wallet]),
+    mintsOf: async (wallet) => Number(await read<number>("mintsOf", [wallet])),
     ownerOf: async (agentId) => {
       try {
         return await read<Address>("ownerOf", [agentId]);

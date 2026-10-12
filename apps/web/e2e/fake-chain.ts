@@ -1,5 +1,5 @@
 import { LOCAL_FORK_CHAIN_ID } from "@alpha-agents/config";
-import { AGENT_MAX_SUPPLY, SPECIES } from "@alpha-agents/domain";
+import { AGENT_MAX_SUPPLY, MINTS_PER_WALLET, SPECIES } from "@alpha-agents/domain";
 import type { Page, Route } from "@playwright/test";
 import {
   type Address,
@@ -16,7 +16,7 @@ import { AGENT_NFT_ABI, agentNftDeployment } from "../src/agent/agent-nft";
  * A stand-in for the local fork's JSON-RPC, for the screenshot suite, which
  * runs in the pinned Playwright image where no fork is reachable. It answers
  * exactly the reads the portal and the mint page make of AgentNFT (Transfer
- * and AgentMinted logs, ownerOf, speciesOf, tbaOf, ownerEpoch, hasMinted,
+ * and AgentMinted logs, ownerOf, speciesOf, tbaOf, ownerEpoch, mintsOf,
  * totalMinted, MAX_SUPPLY, remainingOf) from an in-memory set of agents,
  * which a test changes to move ownership or reveal an agent. It also takes a
  * `mintWithClaim` sent by the mock wallet, and can hold the receipt so a test
@@ -118,10 +118,16 @@ export class FakeChain {
     return agent;
   }
 
-  /** Sets the supply: the minted count and the deck per species (25 counts). */
+  /** Sets the supply: the minted count and the deck per species (one count per species). */
   setSupply(totalMinted: number, remaining: number[]): void {
-    if (remaining.length !== SPECIES.length) throw new Error("remaining needs 25 counts");
+    if (remaining.length !== SPECIES.length)
+      throw new Error(`remaining needs ${SPECIES.length} counts`);
     this.supply = { totalMinted, remaining };
+  }
+
+  /** How many agents a wallet minted (the first receiver of each), as AgentNFT counts them. */
+  mintsOf(wallet: string): number {
+    return [...this.agents.values()].filter((a) => same(a.receivedBy[0] ?? "", wallet)).length;
   }
 
   private totalMinted(): number {
@@ -252,9 +258,10 @@ export class FakeChain {
     if (functionName === "totalMinted") return encode(this.totalMinted());
     if (functionName === "MAX_SUPPLY") return encode(BigInt(AGENT_MAX_SUPPLY));
     if (functionName === "remainingOf") return encode(BigInt(this.remainingOf(Number(args[0]))));
-    if (functionName === "hasMinted") {
+    if (functionName === "MINTS_PER_WALLET") return encode(MINTS_PER_WALLET);
+    if (functionName === "mintsOf") {
       const wallet = args[0] as Address;
-      return encode([...this.agents.values()].some((a) => same(a.receivedBy[0] ?? "", wallet)));
+      return encode(this.mintsOf(wallet));
     }
     const agent = this.agents.get(args?.[0] as bigint);
     if (!agent) return undefined;

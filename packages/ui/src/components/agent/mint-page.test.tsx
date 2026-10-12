@@ -156,7 +156,9 @@ describe("MintPanel", () => {
   it("ready shows the terms and the mint button", async () => {
     const onMint = vi.fn();
     render(<MintPanel state="ready" mint={{ state: "idle", onMint }} />);
-    expect(screen.getByText(/Free to mint: you pay only gas. One agent per wallet./)).toBeVisible();
+    expect(
+      screen.getByText(/Free to mint: you pay only gas. Up to two agents per wallet./),
+    ).toBeVisible();
     await userEvent.click(screen.getByRole("button", { name: "Mint an agent" }));
     expect(onMint).toHaveBeenCalledOnce();
   });
@@ -172,14 +174,43 @@ describe("MintPanel", () => {
     expect(screen.getByRole("status")).toHaveTextContent("This wallet is not on the allowlist.");
   });
 
-  it("already minted shows the wallet's agent and its link, and no mint button", () => {
-    render(<MintPanel state="already-minted" agent={REVEALED} agentHref="/configure?agent=7" />);
-    expect(screen.getByText("This wallet has minted its agent")).toBeInTheDocument();
+  it("already minted shows both of the wallet's agents with their links, and no mint button", () => {
+    render(
+      <MintPanel
+        state="already-minted"
+        agents={[
+          { ...REVEALED, href: "/configure?agent=7" },
+          { ...PENDING, id: 9n, href: "/configure?agent=9" },
+        ]}
+      />,
+    );
+    expect(screen.getByText("This wallet has minted both of its agents")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Open agent #7" })).toHaveAttribute(
       "href",
       "/configure?agent=7",
     );
+    expect(screen.getByRole("link", { name: "Open agent #9" })).toHaveAttribute(
+      "href",
+      "/configure?agent=9",
+    );
     expect(screen.queryByRole("button", { name: /Mint/ })).toBeNull();
+  });
+
+  it("ready with one agent minted offers the second mint beside that agent (NFT-U1)", async () => {
+    const onMint = vi.fn();
+    render(
+      <MintPanel
+        state="ready"
+        mint={{ state: "idle", onMint }}
+        agents={[{ ...REVEALED, href: "/configure?agent=7" }]}
+        mintsLeft={1}
+      />,
+    );
+    expect(screen.getByText("Mint your second agent")).toBeInTheDocument();
+    expect(screen.getByText(/This wallet has one mint left/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Open agent #7" })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Mint an agent" }));
+    expect(onMint).toHaveBeenCalledOnce();
   });
 
   it("sold out says so with the cap and offers no mint", () => {
@@ -245,8 +276,7 @@ describe("MintPanel", () => {
     render(
       <MintPanel
         state="already-minted"
-        agent={REVEALED}
-        agentHref="/configure?agent=7"
+        agents={[{ ...REVEALED, href: "/configure?agent=7" }]}
         linkAs={AppLink}
       />,
     );

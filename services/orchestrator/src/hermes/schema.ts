@@ -1,4 +1,4 @@
-import { TierSchema } from "@alpha-agents/domain";
+import { SPECIES, TierSchema } from "@alpha-agents/domain";
 import { z } from "zod";
 
 /**
@@ -197,7 +197,7 @@ export const AgentConfigSchema = z
       .object({
         chainId: z.number().int().positive(),
         agentId: z.number().int().positive(),
-        species: z.number().int().min(1).max(25),
+        species: z.number().int().min(1).max(SPECIES.length),
         tier: TierSchema,
         generation: z.number().int().min(1),
       })

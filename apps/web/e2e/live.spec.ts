@@ -287,14 +287,17 @@ test("mint from /mint through the API claim: supply and odds match the contract,
   });
   await expect(page.getByTestId("stage-mode")).toHaveAttribute("data-mode", "2d");
 
-  // A second visit: one per wallet, so the page shows the agent, not a mint.
-  // The login outlives the page load, as Privy's does.
+  // A second visit: two per wallet (NFT-U1), so the page lists the agent it
+  // minted and still offers the second mint. The login outlives the page
+  // load, as Privy's does.
   await page.goto("/mint");
-  await expect(page.locator("[data-slot=mint-panel]")).toHaveAttribute(
-    "data-state",
-    "already-minted",
-    { timeout: 30_000 },
-  );
+  await expect(page.locator("[data-slot=mint-panel]")).toHaveAttribute("data-state", "ready", {
+    timeout: 30_000,
+  });
+  await expect(
+    page.locator("[data-slot=mint-panel]").getByRole("link", { name: `Open agent #${id}` }),
+  ).toBeVisible();
+  await expect(page.locator("[data-slot=mint-panel]")).toContainText("Mint your second agent");
   expect(problems).toEqual([]);
 });
 

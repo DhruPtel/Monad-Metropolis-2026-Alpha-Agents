@@ -16,13 +16,13 @@ const tier = (r: SupplyReading, id: "base" | "medium" | "pro") => {
 const BEE = 14;
 
 describe("summarizeSupply", () => {
-  it("before any mint: 600, 300 and 100 left, at 60%, 30% and 10%", () => {
+  it("before any mint: 500, 300 and 200 left, at 50%, 30% and 20% (NFT-U1)", () => {
     const s = summarizeSupply(reading(fresh(), 0));
     expect(s).toMatchObject({ minted: 0, leftToMint: 1000, awaitingReveal: 0, soldOut: false });
     expect(s.tiers.map((t) => [t.tier, t.slots, t.total, t.remaining, t.odds])).toEqual([
-      ["base", 3, 600, 600, 0.6],
+      ["base", 3, 500, 500, 0.5],
       ["medium", 5, 300, 300, 0.3],
-      ["pro", 8, 100, 100, 0.1],
+      ["pro", 8, 200, 200, 0.2],
     ]);
     expect(s.tiers.map((t) => t.total)).toEqual([
       TIER_SUPPLY.base,
@@ -35,19 +35,29 @@ describe("summarizeSupply", () => {
     const remaining = fresh();
     remaining[BEE - 1] = 0;
     const pro = tier(reading(remaining, 1), "pro");
-    expect(pro.species).toHaveLength(12);
+    expect(pro.species).toHaveLength(17);
     expect(pro.species.find((s) => s.species.slug === "bee")?.remaining).toBe(0);
-    expect(pro.remaining).toBe(99);
+    expect(pro.remaining).toBe(199);
+    // Every species sits under its own tier, each tier in onchain order (the
+    // nine species NFT-U1 appended follow the first 25 within their tiers).
     const all = summarizeSupply(reading(remaining, 1)).tiers.flatMap((t) => t.species);
-    expect(all.map((s) => s.species.index)).toEqual(SPECIES.map((s) => s.index));
+    expect([...all.map((s) => s.species.index)].sort((a, b) => a - b)).toEqual(
+      SPECIES.map((s) => s.index),
+    );
+    for (const t of summarizeSupply(reading(remaining, 1)).tiers) {
+      expect(t.species.every((s) => s.species.tier === t.tier)).toBe(true);
+      expect(t.species.map((s) => s.species.index)).toEqual(
+        SPECIES.filter((s) => s.tier === t.tier).map((s) => s.index),
+      );
+    }
   });
 
   it("odds use the deck left, so a revealed pro lowers the pro odds", () => {
     const remaining = fresh();
     remaining[BEE - 1] = 0;
     const r = reading(remaining, 1);
-    expect(tier(r, "pro").odds).toBeCloseTo(99 / 999, 12);
-    expect(tier(r, "base").odds).toBeCloseTo(600 / 999, 12);
+    expect(tier(r, "pro").odds).toBeCloseTo(199 / 999, 12);
+    expect(tier(r, "base").odds).toBeCloseTo(500 / 999, 12);
     const sum = summarizeSupply(r).tiers.reduce((acc, t) => acc + (t.odds ?? 0), 0);
     expect(sum).toBeCloseTo(1, 12);
   });
@@ -65,8 +75,8 @@ describe("summarizeSupply", () => {
     for (const s of SPECIES) if (s.tier === "pro") remaining[s.index - 1] = 0;
     const r = reading(remaining, 100);
     expect(tier(r, "pro")).toMatchObject({ remaining: 0, odds: 0 });
-    expect(tier(r, "base").odds).toBeCloseTo(600 / 900, 12);
-    expect(tier(r, "medium").odds).toBeCloseTo(300 / 900, 12);
+    expect(tier(r, "base").odds).toBeCloseTo(500 / 800, 12);
+    expect(tier(r, "medium").odds).toBeCloseTo(300 / 800, 12);
     expect(summarizeSupply(r).soldOut).toBe(false);
   });
 
@@ -101,7 +111,7 @@ describe("summarizeSupply", () => {
     expect(s.tiers.map((t) => t.odds)).toEqual([0, 0, 1]);
   });
 
-  it("refuses a reading without all 25 species", () => {
+  it("refuses a reading without every species", () => {
     expect(() => summarizeSupply(reading([1, 2, 3], 0))).toThrow(RangeError);
   });
 });
