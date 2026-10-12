@@ -1398,6 +1398,17 @@ export interface SkillsJson {
   readonly builtin: readonly SkillJson[];
   readonly owner: readonly OwnerSkillJson[];
   readonly limits: { readonly packageBytes: number };
+  /** BC-U1: a task is running now with the set it booted with; a change joins the next one. */
+  readonly taskRunning?: boolean;
+}
+
+/** BC-U1: a package checked without being saved, for the editor's live findings. */
+export interface SkillCheckJson {
+  readonly agentId: string;
+  readonly blocked: boolean;
+  readonly findings: readonly SkillFindingJson[];
+  readonly skillId: string | null;
+  readonly name: string | null;
 }
 
 export interface SkillUploadJson {
@@ -1450,6 +1461,21 @@ export const skillsApi = {
     await call<{ removed: string }>(
       `/v1/agents/${agentId.toString()}/skills/${encodeURIComponent(skillId)}`,
       owner(session, { method: "DELETE" }),
+    );
+  },
+  /** BC-U1: the same checks as an upload, without saving. */
+  async check(
+    agentId: bigint,
+    files: readonly { path: string; content: string }[],
+    session: string,
+  ): Promise<SkillCheckJson> {
+    return call<SkillCheckJson>(
+      `/v1/agents/${agentId.toString()}/skills/check`,
+      owner(session, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ files }),
+      }),
     );
   },
 };

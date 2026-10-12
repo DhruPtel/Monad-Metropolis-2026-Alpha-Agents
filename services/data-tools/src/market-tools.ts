@@ -1,3 +1,4 @@
+import type { PaidDataSourceId } from "@alpha-agents/domain";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { type Cached, type MarketData, MarketError, type MarketTool } from "@alpha-agents/market";
 import { type AgentIdentity, ToolError, errorFrom, okResult } from "@alpha-agents/tool-server";
@@ -176,6 +177,11 @@ const SNAPSHOT_NOTICE =
 export interface MarketToolsDeps {
   readonly meter: Meter;
   readonly market: MarketData | null;
+  /** BC-U1: the owner's own CoinMarketCap key for this agent's calls alone; null when none. */
+  readonly ownerKey?: (
+    identity: AgentIdentity,
+    provider: PaidDataSourceId,
+  ) => Promise<string | null>;
 }
 
 function marketError(err: unknown): ToolError {
@@ -204,7 +210,11 @@ export function registerMarketTools(
   const run = async <T extends MarketDataTool>(
     tool: T,
     input: Record<string, unknown>,
-    read: (m: MarketData) => Promise<Record<string, unknown>>,
+    read: (
+      m: MarketData,
+      /** BC-U1: the owner's own key for the tool's source, when the agent's owner added one. */
+      ownerKey: { key: string; scope: string } | null,
+    ) => Promise<Record<string, unknown>>,
   ) => {
     const m = deps.market;
     if (!m)
@@ -215,6 +225,14 @@ export function registerMarketTools(
           false,
         ),
       );
+    // BC-U1: CoinMarketCap on the owner's own key, for this agent alone (A-92).
+    const owned =
+      tool === "coinmarketcap_prices" && deps.ownerKey
+        ? await deps.ownerKey(identity, "coinmarketcap")
+        : null;
+    const ownerKey = owned
+      ? { key: owned, scope: `${identity.chainId}-${identity.agentId}` }
+      : null;
     // The price is set before the call: an answer the shared cache already holds is free.
     const cacheHit = m.fresh(tool as MarketTool);
     let callId: string;
@@ -222,15 +240,17 @@ export function registerMarketTools(
       callId = await deps.meter.begin(identity, {
         tool,
         input,
-        priceUsdcE6: cacheHit ? 0n : MARKET_TOOL_PRICES_USDC_E6[tool],
+        // The owner's key pays the upstream, so the platform charges nothing (A-92).
+        priceUsdcE6: cacheHit || ownerKey ? 0n : MARKET_TOOL_PRICES_USDC_E6[tool],
         provider: PROVIDER[tool],
         cacheHit,
+        paidBy: ownerKey ? "owner" : "platform",
       });
     } catch (err) {
       return errorFrom(err);
     }
     try {
-      const out = MarketOutputs[tool].parse(plain({ ...(await read(m)), cacheHit }));
+      const out = MarketOutputs[tool].parse(plain({ ...(await read(m, ownerKey)), cacheHit }));
       await deps.meter.finish(callId, {
         status: "succeeded",
         summary: { reason: cacheHit ? "cache" : "upstream" },
@@ -269,7 +289,9 @@ export function registerMarketTools(
       annotations: { readOnlyHint: true, openWorldHint: true },
     },
     async (input) =>
-      run("coinmarketcap_prices", input, async (m) => ({ quotes: only(await m.prices()) })),
+      run("coinmarketcap_prices", input, async (m, ownerKey) => ({
+        quotes: only(await m.prices(ownerKey)),
+      })),
   );
   mcp.registerTool(
     "defillama_tvl",

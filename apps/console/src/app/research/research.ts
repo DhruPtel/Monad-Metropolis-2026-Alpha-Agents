@@ -26,6 +26,8 @@ export interface ResearchJson {
     readonly duneResultReadsLimit: number;
     readonly duneQueryRuns: number;
     readonly duneQueryRunsLimit: number;
+    /** BC-U1: calls today that ran on an owner's own key (BK-U1); absent from an older orchestrator. */
+    readonly ownerPaidCalls?: number;
   };
   readonly recent: readonly ResearchCallJson[];
   readonly cachedX: readonly {
@@ -74,4 +76,11 @@ export function callSubject(c: ResearchCallJson): string {
   if (c.tool === "get_code")
     return `${String(i.target)}${s.hasCode === false ? ", no code" : s.proxy ? `, ${String(s.proxy)}` : ""}`;
   return c.tool;
+}
+
+/** BC-U1: the owners' own keys beside the platform's caps, in one line. */
+export function ownerPaidWords(n: number | undefined): string {
+  if (n === undefined) return "Calls on owners' keys: not reported by this orchestrator";
+  if (n === 0) return "No call on an owner's own key today";
+  return `${n} call${n === 1 ? "" : "s"} on owners' own keys today, charged to no agent`;
 }

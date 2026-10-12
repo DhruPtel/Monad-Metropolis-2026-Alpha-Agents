@@ -99,6 +99,10 @@ export class FakeSkills {
   /** Every upload the page sent: the paths, in order. */
   readonly uploads: string[][] = [];
   readonly removals: string[] = [];
+  /** BC-U1: a task running now, so the page says a change joins the next one. */
+  taskRunning = false;
+  /** BC-U1: every check the editor asked for: the files' paths, in order. */
+  readonly checks: string[][] = [];
 
   list(agentId: string): SkillsJson {
     return {
@@ -106,7 +110,45 @@ export class FakeSkills {
       builtin: BUILTIN_SKILLS,
       owner: this.owner,
       limits: { packageBytes: 2 * 1024 * 1024 },
+      taskRunning: this.taskRunning,
     };
+  }
+
+  /**
+   * BC-U1: the editor's live check. The fake judges the text itself, as the
+   * platform's rules would: a shell command in SKILL.md blocks (S1), an
+   * unknown address in the notes warns (S13); otherwise the package passes.
+   */
+  check(
+    agentId: string,
+    body: { files?: { path: string; content: string }[] } | null,
+  ): { status: number; body: unknown } {
+    const files = body?.files ?? [];
+    this.checks.push(files.map((f) => f.path));
+    const text = (path: string) => files.find((f) => f.path === path)?.content ?? "";
+    const findings: SkillFindingJson[] = [];
+    if (/curl|\bsh\b|```/.test(text("SKILL.md")))
+      findings.push(REFUSED_FINDINGS[0] as SkillFindingJson);
+    if (/0x1111111111111111111111111111111111111111/.test(files.map((f) => f.content).join("\n")))
+      findings.push(REFUSED_FINDINGS[2] as SkillFindingJson);
+    let skillId: string | null = null;
+    let name: string | null = null;
+    try {
+      const m = JSON.parse(text("skill.json")) as { id?: string; name?: string };
+      skillId = m.id ?? null;
+      name = m.name ?? null;
+    } catch {
+      findings.push({
+        rule: "F1",
+        severity: "block",
+        path: "skill.json",
+        message: "skill.json is not valid JSON",
+        means: "The manifest could not be read.",
+        next: "Fix the JSON: every key and string in double quotes, commas between fields.",
+      });
+    }
+    const blocked = findings.some((f) => f.severity === "block");
+    return { status: 200, body: { agentId, blocked, findings, skillId, name } };
   }
 
   upload(

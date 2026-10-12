@@ -2,11 +2,22 @@ import { describe, expect, it } from "vitest";
 import { PAID_DATA_SOURCES, isPaidDataSourceId, keyHint, ownerKeyProblem } from "./owner-keys.ts";
 
 describe("paid data sources an owner may bring a key for (BK-U1)", () => {
-  it("lists Dune with what the key gives and where to get one", () => {
-    expect(PAID_DATA_SOURCES.map((s) => s.id)).toEqual(["dune"]);
-    expect(PAID_DATA_SOURCES[0].tool).toBe("dune_query");
+  it("lists Dune, X and CoinMarketCap with what each key gives, where to get one and the tool it serves (BC-U1)", () => {
+    expect(PAID_DATA_SOURCES.map((s) => [s.id, s.tool])).toEqual([
+      ["dune", "dune_query"],
+      ["x", "x_search"],
+      ["coinmarketcap", "coinmarketcap_prices"],
+    ]);
+    for (const s of PAID_DATA_SOURCES) {
+      expect(s.gives.length).toBeGreaterThan(20);
+      expect(s.keyHelp).toMatch(/paste/i);
+      // The settings route takes the id as a lowercase path segment.
+      expect(s.id).toMatch(/^[a-z]+$/);
+    }
     expect(isPaidDataSourceId("dune")).toBe(true);
-    expect(isPaidDataSourceId("x")).toBe(false);
+    expect(isPaidDataSourceId("x")).toBe(true);
+    expect(isPaidDataSourceId("coinmarketcap")).toBe(true);
+    expect(isPaidDataSourceId("tavily")).toBe(false);
   });
 
   it("shows a stored key by its last four characters only", () => {

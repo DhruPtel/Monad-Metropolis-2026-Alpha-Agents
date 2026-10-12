@@ -294,7 +294,8 @@ export function TradesPanel({
                 One button per step. Each token is bought with test USDC through its real pools and
                 deposited; the deposit cap is {snapV3 ? Number(snapV3.personalCapE6) / 1e6 : 100}{" "}
                 USDC of value in all. The grant registers the signer&apos;s session key on Executor
-                v3 for 30 days.
+                v3: for 30 days on a personal account, and with no fixed expiry on a vault, where a
+                revoke, a sale or a config change ends it (D-241).
               </CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col gap-3">
@@ -399,7 +400,8 @@ export function TradesPanel({
               <CardTitle>Set up</CardTitle>
               <CardDescription>
                 One button per step. The grant registers the signer&apos;s session key for this
-                agent for 30 days; the key itself never leaves the signer.
+                agent, for 30 days on a personal account and with no fixed expiry on a vault; the
+                key itself never leaves the signer.
               </CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col gap-3">

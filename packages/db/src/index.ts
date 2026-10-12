@@ -34,6 +34,7 @@ import * as managedAccounts from "./migrations/0030_managed_accounts.ts";
 import * as ownerSkills from "./migrations/0031_owner_skills.ts";
 import * as ownerKeys from "./migrations/0032_owner_keys.ts";
 import * as revealSteersSpecies from "./migrations/0033_reveal_steers_species.ts";
+import * as ownerKeySources from "./migrations/0034_owner_keys_sources.ts";
 import type { Database } from "./schema.ts";
 
 export type * from "./schema.ts";
@@ -77,6 +78,7 @@ export const MIGRATIONS: Readonly<Record<string, Migration>> = {
   "0031_owner_skills": ownerSkills,
   "0032_owner_keys": ownerKeys,
   "0033_reveal_steers_species": revealSteersSpecies,
+  "0034_owner_keys_sources": ownerKeySources,
 };
 
 const INT8 = 20;

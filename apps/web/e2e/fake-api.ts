@@ -450,7 +450,11 @@ export class FakeApi {
         } catch {
           body = null;
         }
-        const r = fs.upload(id.toString(), body);
+        // BC-U1: the editor's live check saves nothing.
+        const r =
+          skillsRoute[2] === "check"
+            ? fs.check(id.toString(), body)
+            : fs.upload(id.toString(), body);
         return reply(r.status, { ...meta, ...(r.body as Record<string, unknown>) });
       }
       if (method === "DELETE" && skillsRoute[2]) {

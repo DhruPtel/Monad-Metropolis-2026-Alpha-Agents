@@ -1,6 +1,7 @@
 "use client";
 
 import type { EnvironmentId } from "@alpha-agents/config";
+import { SKILL_TEMPLATES } from "@alpha-agents/domain";
 import {
   Button,
   Dialog,
@@ -11,17 +12,20 @@ import {
   EmptyState,
   OwnerSkillsEmpty,
   SectionLabel,
+  SkillEditor,
   SkillFindings,
   SkillGrid,
   SkillTile,
   SkillUploadForm,
   Skeleton,
   WalletActionStatus,
+  WalletNotice,
 } from "@alpha-agents/ui";
 import { ArrowLeft, Puzzle, Wallet } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import type { OwnerSkillJson } from "@/api/client";
+import { useSkillEditor } from "@/agent/use-skill-editor";
 import { useSkills } from "@/agent/use-skills";
 import { useWalletSession } from "@/auth/session";
 
@@ -43,7 +47,14 @@ export function SkillsPage({
   const sk = useSkills(agentId);
   const name = `Agent #${agentId.toString()}`;
   const [uploadOpen, setUploadOpen] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
   const [removing, setRemoving] = useState<OwnerSkillJson | null>(null);
+  // BC-U1: the in-app editor, checked live through the platform while the dialog is open.
+  const editor = useSkillEditor(
+    wallet.ready ? wallet.address : undefined,
+    sk.check,
+    createOpen && wallet.ready && sk.skills !== null,
+  );
   void environment;
 
   const header = (
@@ -114,7 +125,11 @@ export function SkillsPage({
             text={
               st.already
                 ? `${st.skillId} was already uploaded with this content; it stays mounted.`
-                : `${st.skillId} passed every check. It mounts read-only at the agent's next task.`
+                : `${st.skillId} passed every check. It mounts read-only at the agent's next task.${
+                    s?.taskRunning
+                      ? " A task is running now with the set it started with; this skill joins the one after it."
+                      : ""
+                  }`
             }
           />
         );
@@ -122,7 +137,9 @@ export function SkillsPage({
         return (
           <WalletActionStatus
             state="confirmed"
-            text={`${st.skillId} is removed; it leaves the mount at the agent's next task.`}
+            text={`${st.skillId} is removed; it leaves the mount at the agent's next task.${
+              s?.taskRunning ? " The task running now keeps it until it ends." : ""
+            }`}
           />
         );
       case "error":
@@ -140,12 +157,30 @@ export function SkillsPage({
       <section className="flex flex-col gap-3" aria-label="Your own skills">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <SectionLabel as="h2">Your own skills</SectionLabel>
-          {s.owner.length > 0 ? (
-            <Button size="sm" onClick={() => setUploadOpen(true)} data-testid="upload-skill">
-              Upload a skill
+          <div className="flex flex-wrap gap-2">
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => setCreateOpen(true)}
+              data-testid="create-skill"
+            >
+              Create a skill
             </Button>
-          ) : null}
+            {s.owner.length > 0 ? (
+              <Button size="sm" onClick={() => setUploadOpen(true)} data-testid="upload-skill">
+                Upload a skill
+              </Button>
+            ) : null}
+          </div>
         </div>
+        {s.taskRunning ? (
+          <div data-testid="task-running-note">
+            <WalletNotice tone="waiting" title="A task is running now">
+              It keeps the skills it started with. Anything you add or remove here joins the
+              agent&apos;s next task, which starts after this one ends.
+            </WalletNotice>
+          </div>
+        ) : null}
         {s.owner.length === 0 ? (
           <OwnerSkillsEmpty onUpload={() => setUploadOpen(true)} />
         ) : (
@@ -169,8 +204,8 @@ export function SkillsPage({
             ))}
           </SkillGrid>
         )}
-        {!uploadOpen && sk.status.state !== "refused" ? statusLine : null}
-        {!uploadOpen && sk.status.state === "mounted" && findings.length > 0 ? (
+        {!uploadOpen && !createOpen && sk.status.state !== "refused" ? statusLine : null}
+        {!uploadOpen && !createOpen && sk.status.state === "mounted" && findings.length > 0 ? (
           <SkillFindings blocked={false} findings={findings} />
         ) : null}
       </section>
@@ -201,7 +236,7 @@ export function SkillsPage({
             onUpload={sk.upload}
             onClear={sk.clear}
             disabled={sk.busy}
-            status={statusLine}
+            status={uploadOpen ? statusLine : null}
           />
           {sk.status.state === "refused" ? (
             <SkillFindings blocked findings={sk.status.findings} />
@@ -217,6 +252,57 @@ export function SkillsPage({
                 Done
               </Button>
             </div>
+          ) : null}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={createOpen}
+        onOpenChange={(open) => {
+          setCreateOpen(open);
+          if (!open && sk.status.state === "mounted") editor.reset();
+        }}
+      >
+        <DialogContent
+          aria-describedby="skill-create-description"
+          className="max-h-svh overflow-y-auto sm:max-w-3xl"
+        >
+          <DialogHeader>
+            <DialogTitle>Create a skill</DialogTitle>
+            <DialogDescription id="skill-create-description">
+              Start from a template and edit the text; every format and audit rule runs as you type,
+              and Save mounts it for this agent alone through the same path as an upload.
+            </DialogDescription>
+          </DialogHeader>
+          <SkillEditor
+            templates={SKILL_TEMPLATES.map((t) => ({
+              id: t.id,
+              name: t.name,
+              description: t.description,
+            }))}
+            templateId={editor.templateId}
+            onTemplate={editor.setTemplate}
+            files={editor.files}
+            onChange={editor.setFile}
+            check={editor.check}
+            findings={editor.findings}
+            onSave={() => sk.uploadFiles(editor.files)}
+            saving={sk.busy}
+            disabled={!wallet.ready}
+            status={createOpen ? statusLine : null}
+          />
+          {sk.status.state === "mounted" ? (
+            <Button
+              variant="secondary"
+              className="w-fit"
+              onClick={() => {
+                setCreateOpen(false);
+                editor.reset();
+              }}
+              data-testid="create-done"
+            >
+              Done
+            </Button>
           ) : null}
         </DialogContent>
       </Dialog>

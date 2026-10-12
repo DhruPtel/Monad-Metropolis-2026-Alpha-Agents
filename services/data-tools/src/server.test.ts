@@ -1,3 +1,4 @@
+import type { PaidDataSourceId } from "@alpha-agents/domain";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   type AgentIdentity,
@@ -115,7 +116,7 @@ async function start(
     meter?: FakeMeter;
     probe?: typeof fetch;
     /** BK-U1: the owner's own key for a source, per agent. */
-    ownerKey?: (identity: AgentIdentity, provider: "dune") => Promise<string | null>;
+    ownerKey?: (identity: AgentIdentity, provider: PaidDataSourceId) => Promise<string | null>;
   } = {},
 ) {
   const meter = o.meter ?? new FakeMeter();
@@ -389,6 +390,48 @@ describe("data tools server", () => {
       ]);
     });
 
+    it("runs CoinMarketCap on the owner's own key for that agent alone, charging nothing and metered as the owner's (BC-U1)", async () => {
+      const OWNER_KEY = "cmc-owner-key-not-real-0123456789";
+      const seen: string[] = [];
+      const inner = fixtureFetch();
+      const f: typeof fetch = async (input, init) => {
+        if (String(input).includes("coinmarketcap"))
+          seen.push(new Headers(init?.headers).get("X-CMC_PRO_API_KEY") ?? "");
+        return inner.fetch(input, init);
+      };
+      // The platform has no CoinMarketCap key; only Alice's owner added one.
+      const market = new MarketData({
+        cmcApiKey: null,
+        mainnet: fakeMainnet(),
+        fetch: f,
+        sleep: () => Promise.resolve(),
+        now: () => FIXTURE_NOW_MS,
+        usage: new MemoryUsageStore(),
+      });
+      const { server, meter } = await start({
+        market,
+        ownerKey: async (identity, provider) =>
+          identity.agentId === ALICE.agentId && provider === "coinmarketcap" ? OWNER_KEY : null,
+      });
+      const bob = await call(BOB_TOKEN, server, "coinmarketcap_prices");
+      expect(bob.isError).toBe(true);
+      expect(JSON.stringify(bob.content)).toMatch(/not configured/);
+      const alice = await call(ALICE_TOKEN, server, "coinmarketcap_prices");
+      expect(alice.isError).toBeFalsy();
+      expect((structured(alice) as { quotes: unknown[] }).quotes).toHaveLength(2);
+      expect(seen).toEqual([OWNER_KEY]);
+      expect(JSON.stringify(alice)).not.toContain(OWNER_KEY);
+      const owned = begins(meter).find(
+        (b) => b.tool === "coinmarketcap_prices" && b.identity.agentId === ALICE.agentId,
+      );
+      expect(owned).toMatchObject({ price: 0n, provider: "coinmarketcap", paidBy: "owner" });
+      expect(
+        JSON.stringify(meter.events, (_k, v: unknown) =>
+          typeof v === "bigint" ? v.toString() : v,
+        ),
+      ).not.toContain(OWNER_KEY);
+    });
+
     it("refuses an input that names an agent, and says plainly when market data is not configured", async () => {
       const { market } = fixtureMarket();
       const { server, meter } = await start({ market });
@@ -604,6 +647,56 @@ describe("research tools (P3-U9)", () => {
     const gone = await call(ALICE_TOKEN, server, "dune_query", args);
     expect(gone.isError).toBe(true);
     expect(JSON.stringify(gone.content)).toMatch(/not configured/);
+  });
+
+  it("runs X search on the owner's own bearer token for that agent alone, charging nothing and metered as the owner's (BC-U1)", async () => {
+    const OWNER_TOKEN = "x-owner-bearer-not-real-0123456789abcdef";
+    const seen: string[] = [];
+    const inner = researchFetch();
+    const f: typeof fetch = async (input, init) => {
+      seen.push(new Headers(init?.headers).get("authorization") ?? "");
+      return inner.fetch(input, init);
+    };
+    const market = new MarketData({
+      cmcApiKey: null,
+      mainnet: null,
+      fetch: f,
+      sleep: () => Promise.resolve(),
+      now: () => FIXTURE_NOW_MS,
+      usage: new MemoryUsageStore(),
+    });
+    // The platform has no X token; only Alice's owner added one.
+    const research = new ResearchSources({
+      market,
+      xBearerToken: null,
+      duneApiKey: null,
+      lookup: null,
+      duneIds: testDuneIds(),
+    });
+    const { server, meter } = await start({
+      research,
+      ownerKey: async (identity, provider) =>
+        identity.agentId === ALICE.agentId && provider === "x" ? OWNER_TOKEN : null,
+    });
+    const bob = await call(BOB_TOKEN, server, "x_search", { topic: "monad_news" });
+    expect(bob.isError).toBe(true);
+    expect(JSON.stringify(bob.content)).toMatch(/owner can add their own X key/);
+    expect(meter.events).toEqual([]);
+    const alice = await call(ALICE_TOKEN, server, "x_search", { topic: "monad_news" });
+    expect(alice.isError).toBeFalsy();
+    expect((structured(alice) as { posts: unknown[] }).posts).toHaveLength(10);
+    expect(seen).toEqual([`Bearer ${OWNER_TOKEN}`]);
+    expect(JSON.stringify(alice)).not.toContain(OWNER_TOKEN);
+    expect(begins(meter)[0]).toMatchObject({
+      identity: { agentId: ALICE.agentId },
+      tool: "x_search",
+      price: 0n,
+      provider: "x",
+      paidBy: "owner",
+    });
+    expect(
+      JSON.stringify(meter.events, (_k, v: unknown) => (typeof v === "bigint" ? v.toString() : v)),
+    ).not.toContain(OWNER_TOKEN);
   });
 
   it("dune_query runs only a saved query by name: no SQL and no unlisted name reach Dune", async () => {

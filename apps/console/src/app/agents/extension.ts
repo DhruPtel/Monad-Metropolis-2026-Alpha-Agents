@@ -233,6 +233,8 @@ export interface IntentView {
 
 /** The agent's arming (P2-U6, packages/trading's armingJson). */
 export interface ArmingView {
+  /** BC-U1: which account the grant serves, when the orchestrator said. */
+  readonly managed?: "vault" | "personal";
   readonly state: "unarmed" | "awaiting_first_trade" | "armed";
   readonly validUntilDate: string | null;
   readonly renewalDue: boolean;
@@ -354,7 +356,8 @@ export interface AgentsSource {
   refund?(agentId: AgentId): Promise<string>;
   refundStatus?(refundId: string): Promise<RefundView>;
   /** P2-U6: arm as the owner would on the local fork (the grant, then its record). */
-  armAgent?(agentId: AgentId): Promise<ArmingView>;
+  /** BC-U1: the account the agent manages from now on, "vault" or "personal" (A-90); the orchestrator's default when omitted. */
+  armAgent?(agentId: AgentId, account?: "vault" | "personal"): Promise<ArmingView>;
   /** P2-U6: disarm now, and revoke the grant on the local fork. */
   disarmAgent?(agentId: AgentId): Promise<ArmingView>;
   /** P2-U6: record a proposal over the trade size limit (local only); returns its intent ID. */
@@ -499,13 +502,13 @@ export function orchestratorSource(baseUrl: string, fetchFn: typeof fetch = fetc
       const body = await call(`/v1/agents/${agentId.toString()}/runner/run`, { method: "POST" });
       return body.decision as RunnerDecisionView;
     },
-    async armAgent(agentId: AgentId): Promise<ArmingView> {
+    async armAgent(agentId: AgentId, account?: "vault" | "personal"): Promise<ArmingView> {
       const body = await call(`/v1/agents/${agentId.toString()}/arm`, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: "{}",
+        body: JSON.stringify(account ? { account } : {}),
       });
-      return body.arming as ArmingView;
+      return { ...(body.arming as ArmingView), managed: body.managed as "vault" | "personal" };
     },
     async disarmAgent(agentId: AgentId): Promise<ArmingView> {
       const body = await call(`/v1/agents/${agentId.toString()}/disarm`, { method: "POST" });

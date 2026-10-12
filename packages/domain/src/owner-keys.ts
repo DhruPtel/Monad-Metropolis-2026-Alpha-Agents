@@ -3,8 +3,10 @@
  * 5): the key is stored encrypted by the platform, used only for that owner's
  * agent by the platform's tool servers, never placed in the sandbox or shown
  * again, and metered apart from the platform's own keys. Dune first (D-326:
- * the platform never needs a Dune key); the same mechanism takes the next
- * source by adding a row here.
+ * the platform never needs a Dune key); BC-U1 added X and CoinMarketCap on
+ * the same mechanism: with the owner's key the tool runs on it for that
+ * agent alone, charged nothing and counted under the agent's own daily
+ * budget, and without one the platform's key serves as before.
  */
 export const PAID_DATA_SOURCES = [
   {
@@ -17,6 +19,22 @@ export const PAID_DATA_SOURCES = [
     keyHelp: "Create an API key in your Dune account settings and paste it here.",
     /** The tool the key switches on for the agent. */
     tool: "dune_query",
+  },
+  {
+    id: "x",
+    label: "X",
+    gives:
+      "The x_search tool: recent posts on the platform's curated Monad topics, read on your X API plan instead of the platform's shared daily budget.",
+    keyHelp: "Create an app in the X developer portal and paste its bearer token (app-only) here.",
+    tool: "x_search",
+  },
+  {
+    id: "coinmarketcap",
+    label: "CoinMarketCap",
+    gives:
+      "The coinmarketcap_prices tool: the latest MON and USDC quotes, 24-hour change, volume and market cap, on your CoinMarketCap plan's credits.",
+    keyHelp: "Create an API key at pro.coinmarketcap.com and paste it here.",
+    tool: "coinmarketcap_prices",
   },
 ] as const;
 export type PaidDataSourceId = (typeof PAID_DATA_SOURCES)[number]["id"];

@@ -511,3 +511,15 @@ export async function requestScan(
   }
   return { taskId };
 }
+
+/** BC-U1: whether a sandbox is running for the agent now (an active lease), for the skills page's note. */
+export async function hasActiveLease(db: Db, chainId: number, agentId: number): Promise<boolean> {
+  const lease = await db
+    .selectFrom("platform.sandbox_leases")
+    .select("lease_id")
+    .where("chain_id", "=", chainId)
+    .where("agent_id", "=", agentId)
+    .where("status", "=", "active")
+    .executeTakeFirst();
+  return lease !== undefined;
+}

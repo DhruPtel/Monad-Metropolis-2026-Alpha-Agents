@@ -235,9 +235,14 @@ export class MarketData {
     );
   }
 
-  /** MON and USDC from CoinMarketCap: price, 24-hour change, volume, market cap. */
-  async prices(): Promise<Cached<CmcQuote[]>> {
-    const key = this.o.cmcApiKey;
+  /**
+   * MON and USDC from CoinMarketCap: price, 24-hour change, volume, market
+   * cap. BC-U1: with an owner's own key, that key is sent and its credits
+   * count under the owner's scope; the shared cache stays shared, since a
+   * quote is the same whoever paid for it.
+   */
+  async prices(owner: { key: string; scope: string } | null = null): Promise<Cached<CmcQuote[]>> {
+    const key = owner?.key ?? this.o.cmcApiKey;
     if (!key)
       throw new MarketError(
         "UPSTREAM_UNAVAILABLE",
@@ -247,10 +252,19 @@ export class MarketData {
           retryable: false,
         },
       );
+    const budget = owner
+      ? new DailyBudget({
+          provider: `coinmarketcap:owner:${owner.scope}`,
+          limit: CMC_DAILY_CREDIT_BUDGET,
+          unit: "credits",
+          store: this.usage,
+          now: this.now,
+        })
+      : this.cmcBudget;
     const raw = await this.cache.get(
       cacheKey("coinmarketcap", "quotes"),
       MARKET_TTL_MS.coinmarketcap,
-      () => fetchCmcQuotes({ apiKey: key, budget: this.cmcBudget, ...this.deps("coinmarketcap") }),
+      () => fetchCmcQuotes({ apiKey: key, budget, ...this.deps("coinmarketcap") }),
     );
     return { ...raw, value: cmcQuotes(raw.value, this.ctx()) };
   }

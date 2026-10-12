@@ -144,11 +144,16 @@ export async function refundStatusAction(refundId: string): Promise<ActionResult
 }
 
 /** P2-U6: arm the agent as its owner would (the grant on the local fork, then its record). */
-export async function armAgentAction(id: string): Promise<ActionResult<ArmingView>> {
+export async function armAgentAction(
+  id: string,
+  account?: "vault" | "personal",
+): Promise<ActionResult<ArmingView>> {
   return attempt(async () => {
     const source = agentsSource();
     if (!source.armAgent) throw new Error("The orchestrator is not configured.");
-    return source.armAgent(agentId(id));
+    if (account !== undefined && account !== "vault" && account !== "personal")
+      throw new Error('The account is "vault" or "personal".');
+    return source.armAgent(agentId(id), account);
   });
 }
 

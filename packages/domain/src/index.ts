@@ -7,6 +7,7 @@ export * from "./ids.ts";
 export * from "./intents.ts";
 export * from "./managed-account.ts";
 export * from "./owner-keys.ts";
+export * from "./skill-templates.ts";
 export * from "./modes.ts";
 export * from "./reasons.ts";
 export * from "./records.ts";

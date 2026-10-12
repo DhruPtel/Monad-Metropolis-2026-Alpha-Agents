@@ -526,7 +526,7 @@ export interface ToolCallTable {
 export interface OwnerKeyTable {
   chain_id: number;
   agent_id: number;
-  provider: "dune";
+  provider: "dune" | "x" | "coinmarketcap";
   ciphertext: string;
   key_hint: string;
   added_by: string;

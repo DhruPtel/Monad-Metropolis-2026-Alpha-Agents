@@ -100,6 +100,7 @@ import {
   readRefund,
   readSupply,
   readWatermark,
+  hasActiveLease,
 } from "./queries.ts";
 
 /**
@@ -1171,6 +1172,29 @@ export function createApp(deps: ApiDeps): Hono {
       builtin: builtinJson(),
       owner: own.map(ownerSkillJson),
       limits: { packageBytes: 2 * 1024 * 1024 },
+      // BC-U1: a running task keeps the set it booted with; a change joins the next one.
+      taskRunning: await hasActiveLease(deps.db, chainId, Number(agentId)),
+    });
+  });
+
+  /**
+   * BC-U1: checks a package without saving it, for the in-app editor's live
+   * findings: the same rules the upload runs, every finding named with what
+   * it means and what to do next, blocking or not. Owner only.
+   */
+  app.post("/v1/agents/:id{[0-9]+}/skills/check", async (c) => {
+    const agentId = BigInt(c.req.param("id"));
+    const owner = await ownerOnly(c, agentId);
+    if (owner instanceof Response) return owner;
+    const files = uploadedFiles(await jsonBody(c));
+    if (files instanceof Response) return files;
+    const checked = checkOwnerSkill(files, { reservedIds: reserved(), owner: owner.wallet });
+    return c.json({
+      agentId: agentId.toString(),
+      blocked: checked.blocked,
+      findings: checked.issues.map(findingJson),
+      skillId: checked.pkg?.manifest.id ?? null,
+      name: checked.pkg?.manifest.name ?? null,
     });
   });
 
@@ -1182,18 +1206,18 @@ export function createApp(deps: ApiDeps): Hono {
    * same content was uploaded before). Owner only; the publisher must be
    * the owner's wallet.
    */
-  app.post("/v1/agents/:id{[0-9]+}/skills", async (c) => {
-    const agentId = BigInt(c.req.param("id"));
-    const owner = await ownerOnly(c, agentId);
-    if (owner instanceof Response) return owner;
-    const body = (await jsonBody(c)) as { files?: unknown } | null;
-    const raw = Array.isArray(body?.files) ? body.files : null;
+  /** The package's files as the upload and the check routes take them, or the 400 to answer. */
+  const uploadedFiles = (body: unknown): UploadedFile[] | Response => {
+    const raw = Array.isArray((body as { files?: unknown } | null)?.files)
+      ? ((body as { files: unknown[] }).files as unknown[])
+      : null;
     if (!raw)
-      return fail(
-        c,
-        400,
-        "bad_request",
-        'Send { "files": [{ "path", "content" }] }, the package\'s files as text.',
+      return Response.json(
+        {
+          error: "bad_request",
+          message: 'Send { "files": [{ "path", "content" }] }, the package\'s files as text.',
+        },
+        { status: 400 },
       );
     const files: UploadedFile[] = [];
     for (const f of raw) {
@@ -1205,9 +1229,21 @@ export function createApp(deps: ApiDeps): Hono {
         path.length === 0 ||
         path.length > 200
       )
-        return fail(c, 400, "bad_request", "Every file needs a path and its content as text.");
+        return Response.json(
+          { error: "bad_request", message: "Every file needs a path and its content as text." },
+          { status: 400 },
+        );
       files.push({ path: path.replace(/\\/g, "/"), content });
     }
+    return files;
+  };
+
+  app.post("/v1/agents/:id{[0-9]+}/skills", async (c) => {
+    const agentId = BigInt(c.req.param("id"));
+    const owner = await ownerOnly(c, agentId);
+    if (owner instanceof Response) return owner;
+    const files = uploadedFiles(await jsonBody(c));
+    if (files instanceof Response) return files;
     const checked = checkOwnerSkill(files, { reservedIds: reserved(), owner: owner.wallet });
     if (checked.blocked || !checked.pkg)
       return c.json(

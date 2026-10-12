@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { type ResearchCallJson, callSubject, usdc } from "./research";
+import { type ResearchCallJson, callSubject, ownerPaidWords, usdc } from "./research";
 
 const call = (
   tool: string,
@@ -43,5 +43,14 @@ describe("the research view's words (P3-U9)", () => {
     expect(
       callSubject(call("get_code", { target: "0xabc" }, { hasCode: true, proxy: "eip1967" })),
     ).toBe("0xabc, eip1967");
+  });
+});
+
+describe("the owners' own keys beside the platform's caps (BC-U1)", () => {
+  it("says how many calls ran on owners' keys today, or that the orchestrator did not report it", () => {
+    expect(ownerPaidWords(undefined)).toMatch(/not reported/);
+    expect(ownerPaidWords(0)).toBe("No call on an owner's own key today");
+    expect(ownerPaidWords(1)).toBe("1 call on owners' own keys today, charged to no agent");
+    expect(ownerPaidWords(12)).toBe("12 calls on owners' own keys today, charged to no agent");
   });
 });

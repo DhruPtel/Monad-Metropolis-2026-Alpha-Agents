@@ -350,10 +350,20 @@ export function createApi(o: ApiOptions): Hono {
       .limit(50)
       .execute();
     const cached = r.cachedView();
+    // BC-U1: how many calls today ran on an owner's own key (BK-U1), so the
+    // page shows the owners' use beside the platform's caps.
+    const since = new Date();
+    since.setUTCHours(0, 0, 0, 0);
+    const ownerPaid = await o.store.db
+      .selectFrom("platform.tool_calls")
+      .select((eb) => eb.fn.countAll<string>().as("n"))
+      .where("paid_by", "=", "owner")
+      .where("started_at", ">=", since)
+      .executeTakeFirst();
     return c.json({
       configured: true,
       sources: r.configured,
-      usage: await r.usageToday(),
+      usage: { ...(await r.usageToday()), ownerPaidCalls: Number(ownerPaid?.n ?? 0) },
       recent: rows.map((row) => ({
         callId: row.call_id,
         agentId: row.agent_id,

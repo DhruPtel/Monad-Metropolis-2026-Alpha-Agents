@@ -189,19 +189,19 @@ export function registerResearchTools(
           false,
         ),
       );
-    // BK-U1: Dune on the owner's own key, for this agent alone; the platform's key stays for the rest.
-    const owned =
-      tool === "dune_query" && deps.ownerKey ? await deps.ownerKey(identity, "dune") : null;
+    // BK-U1, BC-U1: Dune or X on the owner's own key, for this agent alone; the platform's key stays for the rest.
+    const source: PaidDataSourceId = tool === "x_search" ? "x" : "dune";
+    const owned = deps.ownerKey ? await deps.ownerKey(identity, source) : null;
     const ownerKey: OwnerSourceKey | null = owned
       ? { key: owned, scope: `${identity.chainId}-${identity.agentId}` }
       : null;
     // A source with no key is refused before the meter: nothing is charged or reversed.
-    if (!ownerKey && !r.configured[tool === "x_search" ? "x" : "dune"])
+    if (!ownerKey && !r.configured[source])
       return errorFrom(
         new ToolError(
           "UPSTREAM_UNAVAILABLE",
           tool === "x_search"
-            ? "X search is not configured on this platform."
+            ? "X search is not configured on this platform. The agent's owner can add their own X key in the agent's settings."
             : "Dune is not configured on this platform. The agent's owner can add their own Dune key in the agent's settings.",
           false,
         ),
@@ -253,8 +253,8 @@ export function registerResearchTools(
         "x_search",
         input,
         (r) => r.isCached({ tool: "x_search", topic, windowHours }),
-        async (r) => {
-          const res = await r.xSearch(topic, windowHours);
+        async (r, ownerKey) => {
+          const res = await r.xSearch(topic, windowHours, ownerKey);
           const v = res.value;
           const posts = v.posts.map((p) => ({
             url: `https://x.com/i/web/status/${p.id}`,

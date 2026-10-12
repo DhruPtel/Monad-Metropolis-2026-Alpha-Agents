@@ -509,3 +509,29 @@ describe("target portfolio plans in the console (F-U6)", () => {
     expect(none.checkPortfolioPlan).toBeUndefined();
   });
 });
+
+describe("the console's arm with an account choice (BC-U1)", () => {
+  it("posts the chosen account to the orchestrator and reports which one the grant serves", async () => {
+    const calls: string[] = [];
+    const bodies: string[] = [];
+    const fetchFn = (async (url: string, init?: RequestInit) => {
+      calls.push(`${init?.method ?? "GET"} ${url}`);
+      bodies.push(String(init?.body ?? ""));
+      return new Response(
+        JSON.stringify({
+          managed: "vault",
+          arming: { state: "awaiting_first_trade", validUntilDate: null, renewalDue: false },
+        }),
+        { status: 201 },
+      );
+    }) as unknown as typeof fetch;
+    const orch = orchestratorSource("http://orch", fetchFn);
+    const armed = await orch.armAgent(1n as never, "vault");
+    expect(calls).toEqual(["POST http://orch/v1/agents/1/arm"]);
+    expect(JSON.parse(bodies[0] ?? "{}")).toEqual({ account: "vault" });
+    expect(armed).toMatchObject({ state: "awaiting_first_trade", managed: "vault" });
+    // Without a choice the body is empty and the orchestrator picks its default.
+    await orch.armAgent(1n as never);
+    expect(JSON.parse(bodies[1] ?? "{}")).toEqual({});
+  });
+});

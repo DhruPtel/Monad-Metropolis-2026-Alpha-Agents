@@ -125,17 +125,34 @@ export class ResearchSources {
     }
   }
 
-  async xSearch(topic: XTopic, windowHours: XWindow): Promise<Cached<XSearchResult>> {
-    const token = this.o.xBearerToken;
+  async xSearch(
+    topic: XTopic,
+    windowHours: XWindow,
+    /** BC-U1: the owner's own bearer token takes the platform's place for this call. */
+    owner: OwnerSourceKey | null = null,
+  ): Promise<Cached<XSearchResult>> {
+    const token = owner?.key ?? this.o.xBearerToken;
     if (!token) throw notConfigured("x", "X search");
     const m = this.o.market;
     return xSearch(topic, windowHours, {
       bearerToken: token,
-      budget: this.xPosts,
+      budget: owner ? this.ownerXBudget(owner.scope) : this.xPosts,
       cache: m.cache,
       now: m.now,
       bucket: this.buckets.x,
       ...m.upstreamOptions(),
+    });
+  }
+
+  /** The daily post budget of an owner's own X key, counted under its own scope (BC-U1). */
+  private ownerXBudget(scope: string): DailyBudget {
+    const { usage, now } = this.o.market;
+    return new DailyBudget({
+      provider: `x:owner:${scope}`,
+      limit: X_DAILY_POST_BUDGET,
+      unit: "posts read",
+      store: usage,
+      now,
     });
   }
 

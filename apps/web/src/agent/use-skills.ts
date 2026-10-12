@@ -102,6 +102,43 @@ export function useSkills(agentId: bigint) {
     setStatus({ state: "idle" });
   }, []);
 
+  /** BC-U1: the editor's text through the same upload path as a folder. */
+  const uploadFiles = useCallback(
+    (files: readonly { path: string; content: string }[]) => {
+      if (running.current) return;
+      running.current = true;
+      setStatus({ state: "uploading" });
+      void (async () => {
+        try {
+          const r = await asOwner((t) => skillsApi.upload(agentId, [...files], t));
+          if (!mounted.current) return;
+          setStatus({
+            state: "mounted",
+            skillId: r.skill.id,
+            already: r.already,
+            findings: r.findings,
+          });
+          setTick((t) => t + 1);
+        } catch (err) {
+          if (!mounted.current) return;
+          if (err instanceof SkillRefusedError)
+            setStatus({ state: "refused", findings: err.findings });
+          else setStatus({ state: "error", message: words(err) });
+        } finally {
+          running.current = false;
+        }
+      })();
+    },
+    [agentId, asOwner],
+  );
+
+  /** BC-U1: the editor's live check, on the owner session. */
+  const check = useCallback(
+    (files: readonly { path: string; content: string }[]) =>
+      asOwner((t) => skillsApi.check(agentId, [...files], t)),
+    [agentId, asOwner],
+  );
+
   const upload = useCallback(() => {
     if (running.current) return;
     const problem = pickProblem(picked);
@@ -170,5 +207,7 @@ export function useSkills(agentId: bigint) {
     upload,
     remove,
     refresh: useCallback(() => setTick((t) => t + 1), []),
+    uploadFiles,
+    check,
   };
 }

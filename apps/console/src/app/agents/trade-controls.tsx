@@ -13,7 +13,7 @@ import {
   toast,
 } from "@alpha-agents/ui";
 import { useRouter } from "next/navigation";
-import { useEffect, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import {
   approveIntentAction,
   armAgentAction,
@@ -41,16 +41,22 @@ export function ArmingControls({
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
+  // BC-U1: which account the agent manages (A-90): its personal account, or its vault.
+  const [account, setAccount] = useState<"personal" | "vault">("personal");
 
   const arm = () =>
     start(async () => {
-      const r = await armAgentAction(agentId);
+      const r = await armAgentAction(agentId, account);
       if (!r.ok) {
         toast.error(`${name} was not armed`, { description: r.error });
         return;
       }
+      const managed = r.value.managed ?? account;
       toast.success(`${name} has a trading permission`, {
-        description: `Valid until ${r.value.validUntilDate ?? "unknown"}. Approve its first trade to arm it.`,
+        description:
+          managed === "vault"
+            ? "It manages its vault; the permission has no fixed expiry. Approve its first trade to arm it."
+            : `It manages its personal account. Valid until ${r.value.validUntilDate ?? "unknown"}. Approve its first trade to arm it.`,
       });
       router.refresh();
     });
@@ -89,6 +95,20 @@ export function ArmingControls({
       <Button size="sm" variant="ghost" disabled={!enabled || pending} onClick={overLimit}>
         Propose over-limit trade
       </Button>
+      <label className="flex items-center gap-1 text-xs text-foreground-muted">
+        Manage
+        <select
+          aria-label="The account the agent manages"
+          data-testid="arm-account"
+          className="rounded-md border border-border bg-surface px-2 py-1 text-xs text-foreground"
+          value={account}
+          disabled={!enabled || pending || state !== "unarmed"}
+          onChange={(e) => setAccount(e.currentTarget.value === "vault" ? "vault" : "personal")}
+        >
+          <option value="personal">personal account (30 days)</option>
+          <option value="vault">vault (no fixed expiry)</option>
+        </select>
+      </label>
       <Button
         size="sm"
         variant="secondary"

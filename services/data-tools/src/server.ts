@@ -333,7 +333,11 @@ export function registerDataTools(
       }
     },
   );
-  registerMarketTools(mcp, identity, { meter: deps.meter, market: deps.market ?? null });
+  registerMarketTools(mcp, identity, {
+    meter: deps.meter,
+    market: deps.market ?? null,
+    ...(deps.ownerKey ? { ownerKey: deps.ownerKey } : {}),
+  });
   registerResearchTools(mcp, identity, {
     meter: deps.meter,
     research: deps.research ?? null,

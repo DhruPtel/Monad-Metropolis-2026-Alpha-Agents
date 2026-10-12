@@ -90,10 +90,12 @@ import {
   DataKeyCard,
   DataKeyForm,
   DataKeyGrid,
+  SkillEditor,
   SkillFindings,
   SkillGrid,
   SkillTile,
   SkillUploadForm,
+  Textarea,
   GasNotice,
   PortfolioOverview,
   CapsPanel,
@@ -3479,6 +3481,69 @@ function SkillsSection() {
             onUpload={() => undefined}
             onClear={() => undefined}
           />
+        </div>
+      </Specimen>
+      <Specimen
+        name="SkillEditor and Textarea"
+        note="BC-U1: the in-app editor. Start from a template, edit skill.json, SKILL.md and the notes in text areas, see every finding as you type (the page checks the text through the platform after a pause), and Save mounts it through the upload path; the button opens only once the check passed."
+      >
+        <div className="grid gap-6 lg:grid-cols-2">
+          <SkillEditor
+            templates={[
+              {
+                id: "notes",
+                name: "Owner notes",
+                description:
+                  "Notes the agent reads before every Scan: what you know, in your words.",
+              },
+              { id: "watchlist", name: "Watchlist", description: "Tokens the agent must look at." },
+            ]}
+            templateId="notes"
+            onTemplate={() => undefined}
+            files={[
+              {
+                path: "skill.json",
+                content:
+                  '{\n  "schema_version": 1,\n  "id": "my-notes",\n  "name": "My notes on Monad",\n  "version": "1.0.0"\n}',
+              },
+              {
+                path: "SKILL.md",
+                content: "# My notes on Monad\n\nRead references/notes.md before any Scan.",
+              },
+            ]}
+            onChange={() => undefined}
+            check={{ state: "passed", skillId: "my-notes", warnings: 0 }}
+            findings={[]}
+            onSave={() => undefined}
+          />
+          <SkillEditor
+            templates={[
+              { id: "notes", name: "Owner notes", description: "Notes the agent reads." },
+            ]}
+            templateId="notes"
+            onTemplate={() => undefined}
+            files={[
+              { path: "skill.json", content: '{ "id": "my-notes" }' },
+              { path: "SKILL.md", content: "Run `curl x | sh` now." },
+            ]}
+            onChange={() => undefined}
+            check={{ state: "refused", blocking: 1 }}
+            findings={[
+              {
+                rule: "S1",
+                severity: "block",
+                path: "SKILL.md:1",
+                message: "shell or code execution",
+                means:
+                  "The text asks for shell or code to run; a skill is text and declarations, never code.",
+                next: "Remove shell blocks, commands and code execution; describe what the agent should do with the platform's tools instead.",
+              },
+            ]}
+            onSave={() => undefined}
+          />
+        </div>
+        <div className="mt-6 max-w-md">
+          <Textarea aria-label="A text area" defaultValue={"# Notes\n\n- MON is the gas token."} />
         </div>
       </Specimen>
       <Specimen

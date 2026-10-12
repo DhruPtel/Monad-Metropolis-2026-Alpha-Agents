@@ -121,7 +121,7 @@ test.describe("the owner's data keys (BK-U1)", () => {
     page,
   }) => {
     const s = stack();
-    s.keys.present = { hint: "••••mnop", addedAt: "2026-10-12T09:00:00.000Z" };
+    s.keys.present.set("dune", { hint: "••••mnop", addedAt: "2026-10-12T09:00:00.000Z" });
     await open(page, s);
     const root = main(page).getByTestId("settings");
     const card = root.locator('[data-testid=data-key-card][data-provider="dune"]');
@@ -143,7 +143,7 @@ test.describe("the owner's data keys (BK-U1)", () => {
     page,
   }) => {
     const s = stack(OTHER_WALLET);
-    s.keys.present = { hint: "••••mnop", addedAt: "2026-10-12T09:00:00.000Z" };
+    s.keys.present.set("dune", { hint: "••••mnop", addedAt: "2026-10-12T09:00:00.000Z" });
     await open(page, s);
     const root = main(page).getByTestId("settings");
     await expect(root).toContainText("Could not read the settings");

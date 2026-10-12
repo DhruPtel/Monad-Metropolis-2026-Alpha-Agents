@@ -17,6 +17,7 @@ import {
   type ResearchCallJson,
   type ResearchJson,
   callSubject,
+  ownerPaidWords,
   usdc,
 } from "./research";
 
@@ -156,6 +157,12 @@ export function ResearchView({ data }: { data: ResearchJson }) {
             <span className="numeric text-base font-semibold">{usdc(String(spent))}</span>
           </div>
         </div>
+        <p className="text-xs text-foreground-muted" data-testid="owner-paid-calls">
+          {ownerPaidWords(data.usage.ownerPaidCalls)}: an owner&apos;s own key (Dune, X or
+          CoinMarketCap, added in the agent&apos;s settings) pays its upstream, counts under the
+          agent&apos;s own daily budget and charges the agent nothing (BK-U1); each such call is
+          marked Owner&apos;s key below.
+        </p>
       </Section>
 
       <Section title="Recent X searches and Dune queries">

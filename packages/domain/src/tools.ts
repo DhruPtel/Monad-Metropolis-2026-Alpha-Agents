@@ -118,9 +118,25 @@ export const TOOL_DEFERRALS: Readonly<Partial<Record<ToolId, ToolDeferral>>> = {
     reason: "the Thesis Board, cut from the beta (D-160)",
   },
   "platform.get_thesis@1": { unit: "P3-U5", reason: "the Thesis Board, cut from the beta (D-160)" },
-  "platform.propose_strategy_update@1": { unit: "P3-U6", reason: "parameter proposals" },
-  "platform.no_change@1": { unit: "P3-U6", reason: "parameter proposals" },
-  "platform.check_strategy_params@1": { unit: "P3-U6", reason: "the deterministic Test" },
+  // BC-U1: P3-U6 became F-U9, which carries a proposal in complete_stage's
+  // decision (a Zoom out's target_portfolio@1 draft, D-344) and runs the
+  // deterministic Test as the orchestrator's own stage (D-282, F-U6), so the
+  // beta needs no standalone tool for either; the tools stay for Pass 2.
+  "platform.propose_strategy_update@1": {
+    unit: "W-2",
+    reason:
+      "superseded for the beta by complete_stage's decision (F-U9); a standalone tool is Pass 2",
+  },
+  "platform.no_change@1": {
+    unit: "W-2",
+    reason:
+      "superseded for the beta by complete_stage's decision (F-U9); a standalone tool is Pass 2",
+  },
+  "platform.check_strategy_params@1": {
+    unit: "W-2",
+    reason:
+      "superseded for the beta by the orchestrator's Test stage (F-U6, D-282); a standalone tool is Pass 2",
+  },
   "platform.directory_search@1": { unit: "Phase 5", reason: "agent-to-agent tools" },
   "platform.list_offers@1": { unit: "Phase 5", reason: "agent-to-agent tools" },
   "platform.send_message@1": { unit: "Phase 5", reason: "agent-to-agent tools" },
