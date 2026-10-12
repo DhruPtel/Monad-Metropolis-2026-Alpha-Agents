@@ -1785,3 +1785,45 @@ What happened: the new testnet v3 deploy script imported the owner's playtest wa
 Cause: an ES module runs its top-level code on import, and a deploy script is top-level code that reads its flags from argv and sends transactions.
 Fix: the constant moved to scripts/lib/testnet.js, which both scripts import; a script never imports another script.
 Lesson: Keep every shared value in scripts/lib; never import from a file under scripts/ that does work at the top level, and dry-run a new deploy script before its first real run.
+
+## L-242: the secrets scan flagged public addresses under JSON keys named token
+Unit: F-U13
+What happened: the commit gate refused the canary v3 deployment record five times: gitleaks' generic-api-key rule matched the values of the JSON keys "tokenRegistry", "token" and "token1", which are public contract and token addresses on Monad mainnet.
+Cause: the rule keys on the word "token" in the name beside a long hex value; a 40-hex address under such a key looks like a key to it.
+Fix: the five fingerprints were appended to .gitleaksignore with a comment saying why (the file's path, rule and line), in the same commit.
+Lesson: An evidence record with addresses under keys named token-something trips the scan; add the fingerprints with their reason rather than renaming the keys the scripts write, and never allowlist a whole file.
+
+## L-243: the root typecheck caught what the package checks did not
+Unit: F-U13
+What happened: the F-U13 scripts commit passed the package-level checks and the commit gate, and the root `tsc --noEmit` (the first half of `pnpm typecheck`) then failed on scripts/deploy-canary-v3.js: `[usdc, wmon].includes(held(...))` typed the array by its two literal addresses and refused a string.
+Cause: the scripts are checked by the root tsconfig alone; running vitest, eslint and Prettier on the files is not the typecheck.
+Fix: the array is declared `string[]`; `pnpm typecheck` runs before every commit that touches scripts/.
+Lesson: A JS script with `// @ts-check` is only checked by the root `tsc`; run `pnpm typecheck` (not the package's) before committing a script.
+
+## L-244: the canary owner no longer held the deposit the rerun asked for
+Unit: F-U13
+What happened: the canary v3 round trip was written to deposit 5 USDC like P2-EC's; its read-only check (`--check`) showed the canary owner holding 4.999499 USDC, since P2-EC's two swaps cost 0.000501 USDC between them. The deposit would have reverted on the exact transfer after the approval and the account were paid for.
+Cause: a balance assumed from the earlier run's starting state, not read.
+Fix: the rerun deposits 4.99 USDC (within every limit; the 0.45 USDC trade stays under its 10% and the 1 USDC oversized buy over it), and the check prints the balances first.
+Lesson: Run a canary script's read-only check and compare every amount it will move against the balances it prints before the first real run; a round trip never returns exactly what went in.
+
+## L-245: forge's snapshot output failed the Prettier check from an ignored directory
+Unit: F-U13
+What happened: `pnpm format:check` failed on chains/monad/snapshots/TestnetDeployV3Test.json, a file forge writes when a fork test calls `vm.snapshotGasLastCall`, which chains/monad/.gitignore ignores but Prettier, reading only the root ignore files, does not.
+Cause: a nested .gitignore does not reach Prettier's ignore list.
+Fix: `snapshots/` added to .prettierignore.
+Lesson: When a tool starts writing files under a package, add the directory to the root .prettierignore as well as the package's .gitignore, or the format check fails on a file git never sees.
+
+## L-246: a fork test on the real pools at the latest block failed with the market
+Unit: F-U13
+What happened: the canary v3 fork test, which forks mainnet at the latest block and trades the real USDC/WMON pools through Executor v3, passed before the canary deployment and failed an hour later with Rejected(5), SLIPPAGE_TOO_HIGH, with no change to the contracts: a 0.3% pool had drifted more than 20 bps from Chainlink, which with its 30 bps fee put the trade outside the launch policy's 50 bps floor.
+Cause: a dry run pinned to nothing but "now" takes the market as it is; the floor is the policy's, not the test's to loosen.
+Fix: the test forks a fixed block by default (112,870,000, the block before the canary deployment, where the pools sat within the floor; CANARY_FORK_BLOCK=0 forks the latest block on purpose). The mainnet RPC serves state that far back.
+Lesson: Pin every fork test that trades real pools to a block, and name the block in the test; run it at the latest block only to probe the market, never as the gate.
+
+## L-247: formatting a deployed contract's source would have moved its CREATE2 address
+Unit: F-U13
+What happened: `forge fmt` reflowed the constructor of script/TestnetToken.sol, the token deployed on testnet by CREATE2 two hours earlier. The deploy script finds an earlier deployment by computing the CREATE2 address from the init code it compiles now; solc's metadata hash, appended to that init code, carries the hash of the source bytes, so the reformatted file would have predicted another address, deployed two more tokens on the next run and failed Sourcify's exact match on the first two.
+Cause: a source change of any kind, whitespace included, changes the metadata hash, and so the init code, of a contract whose deployment is found by its init code.
+Fix: the file was put back byte for byte and listed under `[fmt] ignore` in foundry.toml until the tokens are redeployed.
+Lesson: Once a contract is deployed by CREATE2 on a real chain, its source is frozen until the next deployment; keep formatters off it, and check `git diff` on chains/monad/src and script before every commit after a deployment.
