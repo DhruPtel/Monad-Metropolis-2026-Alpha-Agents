@@ -1,0 +1,238 @@
+{
+  "note": "NFT-U1: every file the owner put in assets-incoming/ (gitignored; the originals stay out of git), matched to a species slug of packages/domain SPECIES. Hashes pin exactly which file each committed asset came from. pnpm assets:build-images and pnpm assets:build-models read this file; scripts/assets/incoming.test.ts checks it against the manifest and, when the folder is present, against the files.",
+  "roots": {
+    "images": "assets-incoming/2d/NFT",
+    "models": "assets-incoming/3d/NFT_Model"
+  },
+  "images": {
+    "larva-grub": {
+      "file": "Annotated robotic grub with 虫 glyph.png",
+      "sha256": "c5c01f9372a08f3a2cef56864e61bbde9308af194239c0bb9a7ca2600f7eadf2"
+    },
+    "roly-poly": {
+      "file": "Robotic roly-poly_ annotated shell study.png",
+      "sha256": "6a9262932aa9ce0198f885c1abaadcb36aba6e8dd0d6a8df7174cb0d501472a0"
+    },
+    "ant": {
+      "file": "Bone-armored ant against giant 蟻.png",
+      "sha256": "59eba66c3a200a2b4052dd82aa6030b073774fe8a679c8c4ded6c84456c2e6b9"
+    },
+    "weevil": {
+      "file": "Robotic weevil against a giant Japanese glyph.png",
+      "sha256": "ab7cf2d72026bf1dd48886246d9accbb79c99942bb77042b7490452362bb2d5e"
+    },
+    "silkworm": {
+      "file": "Cropped green caterpillar over giant 芋 glyph.png",
+      "sha256": "285a1cfcb6dc43412ee391220c0ca074a4c589573b702fa04795b34a380b719a"
+    },
+    "moth": {
+      "file": "Pearl-White Robotic Silk Moth (1).png",
+      "sha256": "c6e838aaacba89253673b31c73027126e1d194899008487935a531f1f07387ac"
+    },
+    "centipede": {
+      "file": "Curious Amber Robot Centipede.png",
+      "sha256": "1b50f4c7a250934a74b164790f26bd66d83df63ea6a1ba6f5a9bc889339a4f2f"
+    },
+    "bee": {
+      "file": "Painted mechanical bee with extended wing.png",
+      "sha256": "ac643a2aa82c4364e76363afabad23163970ac9f4801c519711126769af9f292"
+    },
+    "praying-mantis": {
+      "file": "Green Robotic Mantis Close-Up.png",
+      "sha256": "4f2d0891f29eda9d2406bb13ecc4c1e068706b1813df989bc4e8b2acd592f09c"
+    },
+    "hercules-beetle": {
+      "file": "Annotated blue robotic beetle portrait.png",
+      "sha256": "34970380c4ca8cc17f3f5382f5d2e81a8ddad4a97b4b9c78c3ee2b766f754c53"
+    },
+    "jumping-spider": {
+      "file": "Orange Robotic Spider Close-Up.png",
+      "sha256": "c8b93a124d1bcbb47a6ed045781c97b3e46c69877beb6f6f11fe9d37d022dcda"
+    },
+    "mantis-shrimp": {
+      "file": "Turquoise robotic mantis shrimp.png",
+      "sha256": "ed0c5e15dc7436587fde7e42b084f2d4a7ae5fa1e139f81023dadc6cebf622b7"
+    },
+    "dragonfly": {
+      "file": "Teal Dragonfly Close-Up with Cream Wings.png",
+      "sha256": "f8af878263508079aef30a5882cddf905eef5ebe1b59f360456a644990777573"
+    },
+    "scorpion": {
+      "file": "Oxide-red robotic scorpion study.png",
+      "sha256": "7f77c32a9096e57a24415d9aed287d7e26e4af92d3386888cb6fef2415dd762a"
+    },
+    "stag-beetle": {
+      "file": "Mechanical Stag Beetle Close-Up.png",
+      "sha256": "4d38cb322e3dd0ac1d7c7cfb71dc5fdc083f74ee98f5227ecd2414c8d9818567"
+    },
+    "atlas-moth": {
+      "file": "Oxide-red robotic atlas moth (1).png",
+      "sha256": "78a09c040d6e100dc5b0cc3e1d6d1fef0d2f4ada0932abb11e5e008d2b5b2e60"
+    },
+    "snake": {
+      "file": "Crimson mecha snake and gold glyph.png",
+      "sha256": "e29376caf07d0acbc695cf34a09b798c556b61e2bd79c6349b190c903df820f7"
+    },
+    "hummingbird": {
+      "file": "Violet hummingbird and gold 鳥.png",
+      "sha256": "2523d41887ae656b980e680f71eedea133bc522d7d5f0e6318de800a802dea13"
+    },
+    "fish": {
+      "file": "Annotated koi shifted beside a gold glyph.png",
+      "sha256": "fbb84b4022167be9331cd37426d3f5f7ca118c62dcebc8d9aec58a3c966e3f31"
+    },
+    "ladybug": {
+      "file": "Cherry-red robotic ladybug close-up.png",
+      "sha256": "ca8fdc6d16e5de8b991e576ee248a0208eb658bb1dfff8ab324419fa9a0b880d"
+    },
+    "grasshopper": {
+      "file": "Armored Grasshopper Close-Up.png",
+      "sha256": "7f9245372e5f2b2894c30744a9cae2e89f3bac82599ef866cdbfd197009c8f1d"
+    },
+    "butterfly": {
+      "file": "Blue Robotic Butterfly Wing-Hinge Study.png",
+      "sha256": "1fcadf3f8ec9cd1884837ac705197d71adaca012ac9f9f2506a473fa47f072a9"
+    },
+    "leaf-insect": {
+      "file": "Sage leaf insect with 葉 glyph.png",
+      "sha256": "9a58f9768b29d6c17535772a252fcf1d4d4923c72ecc1160a18f016c9639643b"
+    },
+    "crab": {
+      "file": "ChatGPT Image Oct 7, 2026, 12_01_17 AM.png",
+      "sha256": "f0cdc294fc4adf9dd891e5c08e06dfe79fc0780c79a874ed6ab9b9bae704683a"
+    },
+    "orchid-mantis": {
+      "file": "Robotic orchid mantis in bloom.png",
+      "sha256": "7bef6b83beb1c16c1f169a4c050a28d0b109c3ac8e179fc2149b3242b74257ff"
+    }
+  },
+  "models": {
+    "larva-grub": {
+      "file": "Meshy_AI_Armored_Mecha_Larva_1008003006_texture (1).glb",
+      "sha256": "8904f1dfd862cd29ff26ebf825930c08046494084936bf579d7e90391560372c",
+      "yaw": 0
+    },
+    "roly-poly": {
+      "file": "Meshy_AI_Armored_Mecha_Pillbug_1008014541_texture.glb",
+      "sha256": "9712aba3c9351b09e2b077832e5a0ab69d72dfcdd58ce200edc64561d1226447",
+      "yaw": 0
+    },
+    "ant": {
+      "file": "Meshy_AI_Mecha_Ant_Scout_1008023745_texture.glb",
+      "sha256": "ab4cff42a904c807ef03d3aa78f2ce3009090347a0b6f4de13b29a4f5de9298e",
+      "yaw": 0
+    },
+    "weevil": {
+      "file": "Meshy_AI_Azure_Mecha_Beetle_1008035327_texture.glb",
+      "sha256": "53d7577709359fcce85828f5c67f38f951e999b42b9932127e9ec4f350694221",
+      "yaw": 0
+    },
+    "silkworm": {
+      "file": "Meshy_AI_Mecha_Caterpillar_Gre_1008205036_texture.glb",
+      "sha256": "beeb5e4911569ef6e190c392695e3a1dcb26c81328f0720c44c787e5c324de41",
+      "yaw": 0
+    },
+    "moth": {
+      "file": "Meshy_AI_Mecha_Moth_Scout_1009013953_texture.glb",
+      "sha256": "faf3057d947d688a09054a6f817d66f336c4930d9ee076fe144774a5a99ec00a",
+      "yaw": 0
+    },
+    "centipede": {
+      "file": "Meshy_AI_Yellow_Iron_Centipede_1009005150_texture.glb",
+      "sha256": "68c8de6dae12e8a70677a38c3a0ed9338ebe6a47a0c049e549be310be32b5d7e",
+      "yaw": 0
+    },
+    "praying-mantis": {
+      "file": "Meshy_AI_Iron_Mantis_1005010242_texture.glb",
+      "sha256": "7f21e82316c9e23c6e06aa6d0fdf5b43202b4412b8be925f0b547c770765eab3",
+      "yaw": 0
+    },
+    "hercules-beetle": {
+      "file": "Meshy_AI_Mecha_Stag_Beetle_1004172356_texture.glb",
+      "sha256": "06beb6ca4423641bd600b36b852ea1d3a41a69408b2a5b4290b478c772ba407b",
+      "yaw": 0
+    },
+    "jumping-spider": {
+      "file": "Meshy_AI_Arachnobot_16_1006190354_texture.glb",
+      "sha256": "5526a12f87f88480c79c7867838d7f42fbbf29a456e43f9e13e71f5cd2ea492e",
+      "yaw": 0
+    },
+    "mantis-shrimp": {
+      "file": "Meshy_AI_Aqua_Mech_Lobster_1006195222_texture.glb",
+      "sha256": "f03daf319e56fe1478d01b103a91a7775fafc781e06b112d0b1e68cafbb88619",
+      "yaw": 0
+    },
+    "dragonfly": {
+      "file": "Meshy_AI_Mechanical_Dragonfly__1004191239_texture.glb",
+      "sha256": "68d4606e71793deb9dc66154c7482a0af799c653755111b0532dc9b3d4e9ec60",
+      "yaw": 0
+    },
+    "scorpion": {
+      "file": "Meshy_AI_SC_3_Mecha_Scorpion_1005003029_texture.glb",
+      "sha256": "1ed1ebe0ecb7bc61f26d792c4f6a8b69e974fdca6654718c89e50f3683375e77",
+      "yaw": 0
+    },
+    "stag-beetle": {
+      "file": "Meshy_AI_Crimson_Iron_Stag_Bee_1005013131_texture.glb",
+      "sha256": "e6815ca39ae8067bdef40eb70990dc8972d18cc5186b8a6e72172302e6ae9596",
+      "yaw": 0
+    },
+    "atlas-moth": {
+      "file": "Meshy_AI_Crimson_Clockwork_Mot_1007171454_texture (1).glb",
+      "sha256": "db275cbd4892aaec20e2979ac4a68cd205caddda8a410c860e1372679b476a42",
+      "yaw": 0
+    },
+    "snake": {
+      "file": "Meshy_AI_Crimson_Serpent_Mech_1009050042_texture.glb",
+      "sha256": "f04186e701b474835da7f8ce5c2ee09c4f687454b7cb486e42a03748c0ab3701",
+      "yaw": 0
+    },
+    "hummingbird": {
+      "file": "Meshy_AI_Mechanical_Hummingbir_1009033145_texture.glb",
+      "sha256": "c2293903fb0d7fa683190f626aa5aea7cb6ac605d3db6dfc983fd861827cdaf1",
+      "yaw": 0
+    },
+    "fish": {
+      "file": "Meshy_AI_Mecha_Koi_1009051212_texture.glb",
+      "sha256": "b6f0f611cf976bfefa7d4773374f98acee20271b09fe33148a1c90dba34ef084",
+      "yaw": 0
+    },
+    "ladybug": {
+      "file": "Meshy_AI_Ladybug_Mech_1008190626_texture.glb",
+      "sha256": "22b185d4b9a9ec8137f0ec0ef0a7b00a13e26883752a08a294640c2678c60d48",
+      "yaw": 0
+    },
+    "grasshopper": {
+      "file": "Meshy_AI_Mecha_Beetle_GH_8_1008214154_texture.glb",
+      "sha256": "104bb7c4e4f8feb62dd4b9d5ce54abbc64a74683e8d788739cc33a9d4dc5e18d",
+      "yaw": 0
+    },
+    "butterfly": {
+      "file": "Meshy_AI_Mechanical_Monarch_1005022640_texture.glb",
+      "sha256": "2a60384374e0167a2f7aca0075de29ceb187cffa70fbce9d309f838f8144c926",
+      "yaw": 0
+    },
+    "leaf-insect": {
+      "file": "Meshy_AI_Leafblade_Beetle_1008055518_texture.glb",
+      "sha256": "498c7d6b518ff613d992ce320c42ad4304f4d4cba020cb1e650500239b0d6a63",
+      "yaw": 0
+    },
+    "crab": {
+      "file": "Meshy_AI_Crimson_Claw_Mech_1007060112_texture.glb",
+      "sha256": "65cb42ca77ec096e79b622326b13fe75704d89126bfe4d39df72130cdf009c28",
+      "yaw": 0
+    },
+    "orchid-mantis": {
+      "file": "Meshy_AI_Rose_Mantis_Automaton_1007183953_texture.glb",
+      "sha256": "3dcc914290cf2dcf448d045b05b2fcf937566bf1c262333fe204c10c490e0e0b",
+      "yaw": 0
+    }
+  },
+  "unused": [
+    {
+      "file": "Bee.glb",
+      "sha256": "face21b5602f937959b201ae075263f3fbb54a48b03418b45f84532e1014a811",
+      "why": "The unrigged Meshy bee; the bee keeps P1-U11's rigged build of the same mesh (apps/web/public/models/bee.glb), whose walk and hover the viewer animates."
+    }
+  ]
+}

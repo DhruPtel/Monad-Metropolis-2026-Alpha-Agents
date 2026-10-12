@@ -87,8 +87,40 @@ describe("asset checker", () => {
     }
   }, 60_000);
 
-  it("lists only the bee as a model in this unit (D-189)", () => {
-    expect(SPECIES_ASSETS.filter((a) => a.model).map((a) => a.species.slug)).toEqual(["bee"]);
+  it("lists the bee and the 24 unrigged models (NFT-U1)", () => {
+    expect(SPECIES_ASSETS.filter((a) => a.model)).toHaveLength(25);
     expect(speciesAsset(14).species.slug).toBe("bee");
+    expect(SPECIES_ASSETS.filter((a) => a.model && !a.model.rigged)).toHaveLength(24);
   });
+
+  it("places every bounds socket on an unrigged model's shell, standing on the platform", async () => {
+    for (const asset of SPECIES_ASSETS) {
+      if (!asset.model || asset.model.rigged) continue;
+      const doc = await readGlb(readFileSync(new URL(asset.model.path.slice(1), PUBLIC)));
+      const vertices = worldVertices(doc);
+      let minY = Infinity;
+      for (const v of vertices) minY = Math.min(minY, v[1]);
+      // The build stands the model on y = 0 (quantization moves it a hair).
+      expect(Math.abs(minY), asset.species.slug).toBeLessThan(0.02);
+      for (const name of asset.model.sockets) {
+        const p = nodeNamed(doc, name).getWorldTranslation();
+        const nearest = Math.min(
+          ...vertices.map((v) => Math.hypot(v[0] - p[0], v[1] - p[1], v[2] - p[2])),
+        );
+        expect(nearest, `${asset.species.slug} ${name}`).toBeLessThan(0.08);
+      }
+    }
+  }, 300_000);
+
+  it("fails an unrigged model that is listed as rigged", async () => {
+    const asset = SPECIES_ASSETS.find((a) => a.model && !a.model.rigged);
+    if (!asset?.model) throw new Error("no unrigged model");
+    const bytes = readFileSync(new URL(asset.model.path.slice(1), PUBLIC));
+    const report = await checkModelBytes(bytes, {
+      ...asset,
+      model: { ...asset.model, rigged: true },
+    });
+    expect(report.problems).toEqual(["listed as rigged but has no skin"]);
+    expect(report.skinned).toBe(false);
+  }, 30_000);
 });

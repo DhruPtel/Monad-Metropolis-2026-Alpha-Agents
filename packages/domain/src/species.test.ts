@@ -35,9 +35,9 @@ describe("species (D-178, D-179, revised by NFT-U1)", () => {
     expect(counts("base")).toEqual([84, 84, 83, 83, 83, 83]);
     expect(counts("medium")).toEqual([28, 28, 28, 27, 27, 27, 27, 27, 27, 27, 27]);
     expect(counts("pro")).toEqual([1, 1, 1, 1, 16, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15]);
-    expect(["Bee", "Praying mantis", "Hercules beetle", "Horseshoe crab"].map(speciesName)).toEqual([
-      1, 1, 1, 1,
-    ]);
+    expect(["Bee", "Praying mantis", "Hercules beetle", "Horseshoe crab"].map(speciesName)).toEqual(
+      [1, 1, 1, 1],
+    );
     for (const s of SPECIES) expect(s.count).toBeLessThanOrEqual(2 ** DECK_BITS_PER_SPECIES - 1);
   });
 

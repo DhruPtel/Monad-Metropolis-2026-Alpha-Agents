@@ -4,7 +4,8 @@
  * from the skeleton's hierarchy and rest positions, and computes the poses the
  * walk, hover and idle motions apply. The model files carry no animation
  * clips, so all motion is procedural. A model without bones gets none of the
- * bone layers, only the rigid travel, lift and sway.
+ * bone layers, only the rigid travel, lift and sway, plus the pop in and the
+ * idle breath of ANIM_CONFIG.unrigged (NFT-U1).
  *
  * Changes from the prototype: nothing is logged; the rest pose and base offset
  * are kept per cloned scene (every viewer clones its own); colors come from
@@ -92,6 +93,13 @@ export const ANIM_CONFIG = {
   },
   antennae: { swayDeg: 5, swayHz: 0.4 },
   enable: { fadeSec: 0.5 },
+  /**
+   * NFT-U1: a model without a skeleton moves as one body. It enters at
+   * `popFrom` of its size and grows to full size over `popSec` while it
+   * slides in; idle, it breathes: a bob of `bobAmp` units and a sway of
+   * `swayDeg` at `breathHz`.
+   */
+  unrigged: { popFrom: 0.72, popSec: 1.2, bobAmp: 0.03, swayDeg: 1.5, breathHz: 0.25 },
 } as const;
 
 export type AnimState = "walking" | "settling" | "idle" | "takingOff" | "hovering" | "landing";

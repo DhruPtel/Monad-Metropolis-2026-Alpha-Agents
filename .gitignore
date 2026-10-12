@@ -61,6 +61,10 @@ coverage/
 # Lessons file from a different project (Alpha Markets), kept locally only
 Reference/
 
+# The owner's original art (NFT-U1): 1.2 GB of PNGs and Meshy GLBs that
+# scripts/assets/incoming.json maps and the asset builds read; never committed
+assets-incoming/
+
 # Soldeer dependencies, restored from soldeer.lock
 chains/*/dependencies/
 

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   BEE_SOCKETS,
+  BOUNDS_SOCKETS,
   SPECIES,
   SPECIES_ASSETS,
   requiredSockets,
@@ -40,11 +41,25 @@ describe("species asset manifest (D-188)", () => {
     }
   });
 
-  it("puts the bee in 3D with its eight sockets, and every other species in 2D (D-189)", () => {
+  it("puts the rigged bee and 24 unrigged models in 3D, and nine species on the placeholder (NFT-U1)", () => {
     const bee = speciesAsset(14);
     expect(bee.species.tier).toBe("pro");
+    expect(bee.model?.rigged).toBe(true);
     expect(bee.model?.sockets).toEqual(BEE_SOCKETS);
     expect(requiredSockets(bee)).toHaveLength(8);
-    expect(SPECIES_ASSETS.filter((a) => a.model)).toHaveLength(1);
+    const unrigged = SPECIES_ASSETS.filter((a) => a.model && !a.model.rigged);
+    expect(unrigged).toHaveLength(24);
+    for (const a of unrigged) {
+      expect(a.model?.sockets).toEqual(BOUNDS_SOCKETS);
+      expect(a.model?.provenance.rig).toBeNull();
+      expect(a.image).toBe(`/species/${a.species.slug}.webp`);
+    }
+    expect(SPECIES_ASSETS.filter((a) => a.model)).toHaveLength(25);
+    expect(SPECIES_ASSETS.filter((a) => a.image)).toHaveLength(25);
+    expect(SPECIES_ASSETS.filter((a) => !a.image && !a.model)).toHaveLength(9);
+    // Every species in a tier needs at least its tier's slots: 3, 5 or 8 of the 8.
+    for (const a of SPECIES_ASSETS) {
+      if (a.model) expect(requiredSockets(a)).toHaveLength(slotsFor(a.species.tier));
+    }
   });
 });

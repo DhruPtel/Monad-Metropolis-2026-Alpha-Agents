@@ -24,7 +24,12 @@ export interface Species {
   readonly count: number;
 }
 
-const species = (tier: Tier, slug: string, name: string, count: number): Omit<Species, "index"> => ({
+const species = (
+  tier: Tier,
+  slug: string,
+  name: string,
+  count: number,
+): Omit<Species, "index"> => ({
   slug,
   name,
   tier,

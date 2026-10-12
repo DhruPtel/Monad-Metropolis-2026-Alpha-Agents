@@ -66,11 +66,19 @@ type SeqPhase = "approach" | "settle" | "idle";
  * screen, so it follows the bone the socket hangs from as the model walks,
  * hovers and the camera orbits. The markers are DOM the viewer owns, not
  * drei Html roots, so mounting and unmounting them never races React.
+ *
+ * NFT-U1: a model without a skeleton (every species but the bee) gets no
+ * leg, head or wing pose, so the same sequence moves it as one body: it
+ * slides in along +Z while growing from a little under its size to full
+ * size (the pop in), settles, then idles with a slow breath (a small bob
+ * and sway) that the rigged bee does not need; the hover lifts it as it
+ * lifts the bee. With animation off nothing moves.
  */
 export function AnimatedModel({ url, sockets, animation, wingColor, anchors }: AnimatedModelProps) {
   const { scene: shared } = useGLTF(url, false, true);
   const scene = useMemo(() => cloneSkinned(shared), [shared]);
   const rig = useMemo(() => buildRig(scene), [scene]);
+  const unrigged = rig.legs.every((leg) => !leg.hip) && !rig.head;
   const base = useMemo(() => baseOffset(scene), [scene]);
   const cue = useMemo(() => buildWingCue(scene, rig, wingColor), [scene, rig, wingColor]);
   const socketNodes = useMemo(
@@ -210,13 +218,22 @@ export function AnimatedModel({ url, sockets, animation, wingColor, anchors }: A
     const half = gait * 2;
     const stepBump = Math.sin(Math.PI * stepEase(frac(half), W.dwell)) ** 2 * walk;
     const stepSign = Math.floor(half) % 2 === 0 ? 1 : -1;
+    // An unrigged model breathes while idle: a slow bob and sway (NFT-U1).
+    const U = C.unrigged;
+    const breath = unrigged ? idleW : 0;
     if (bodyRef.current) {
       const sway = deg(C.hover.swayDeg) * lift;
       bodyRef.current.rotation.set(
-        sway * 0.6 * Math.sin(t * C.hover.swayHz * 0.7 * TAU + 1),
-        0,
+        sway * 0.6 * Math.sin(t * C.hover.swayHz * 0.7 * TAU + 1) +
+          deg(U.swayDeg) * breath * Math.sin(t * U.breathHz * TAU),
+        deg(U.swayDeg) * 0.5 * breath * Math.sin(t * U.breathHz * 0.6 * TAU + 2),
         deg(W.rollDeg) * stepSign * stepBump + sway * Math.sin(t * C.hover.swayHz * TAU),
       );
+      bodyRef.current.position.y = U.bobAmp * breath * Math.sin(t * U.breathHz * TAU);
+      // The pop in: a little under full size as it enters, full size once settled.
+      const pop =
+        unrigged && S.phase !== "idle" ? U.popFrom + (1 - U.popFrom) * ease(S.seqT / U.popSec) : 1;
+      bodyRef.current.scale.setScalar(pop);
     }
 
     // Head: a nod per step and the occasional turn when idle. Antennae sway.
