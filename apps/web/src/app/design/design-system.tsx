@@ -86,6 +86,11 @@ import {
   ApprovalCard,
   ArmingCard,
   ManagedAccountChoice,
+  OwnerSkillsEmpty,
+  SkillFindings,
+  SkillGrid,
+  SkillTile,
+  SkillUploadForm,
   GasNotice,
   PortfolioOverview,
   CapsPanel,
@@ -3046,6 +3051,137 @@ const GOAL_COST_ROWS = RESEARCH_INTENSITIES.map((intensity) => ({
 }));
 const usdcText = (e6: bigint) => (Number(e6) / 1e6).toFixed(2);
 
+/** SK-U1: the agent's skills as tiles, the owner's upload form and the findings of a refused package. */
+function SkillsSection() {
+  const builtin = {
+    id: "monad-assets-basics",
+    name: "Monad assets basics",
+    version: "1.0.2",
+    description: "What MON, WMON and USDC are on Monad. Use when a token is unfamiliar.",
+    kind: "skill" as const,
+    contentHash: "a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90",
+    tools: ["data.web_search@1"],
+  };
+  return (
+    <Section id="skills" title="Skills">
+      <Specimen
+        name="SkillTile and SkillGrid"
+        note="Every skill the agent mounts as a tile, about three across: the built-in skills and playbooks, and the owner's own uploads marked Yours with their upload time and any audit warnings; the page puts Remove in the owner's tiles."
+      >
+        <SkillGrid>
+          <SkillTile skill={builtin} />
+          <SkillTile
+            skill={{
+              ...builtin,
+              id: "playbook-scan",
+              name: "Scan playbook",
+              kind: "playbook",
+              description: "The Scan stage: broad and cheap. Use when asked to scan the market.",
+              tools: ["data.web_search@1", "data.market_snapshot@1"],
+            }}
+          />
+          <SkillTile
+            skill={{
+              ...builtin,
+              id: "owner-notes",
+              name: "Owner notes on Monad",
+              kind: "owner",
+              version: "1.0.0",
+              description: "The owner's notes on Monad tokens. Use when scanning.",
+              uploadedAt: "2026-10-12 07:40 UTC",
+              warnings: 1,
+            }}
+            actions={
+              <Button size="sm" variant="danger">
+                Remove
+              </Button>
+            }
+          />
+        </SkillGrid>
+      </Specimen>
+      <Specimen
+        name="SkillUploadForm"
+        note="One input, the skill's folder; what was picked, with a plain note when skill.json or SKILL.md is missing; Upload and check only once both are there."
+      >
+        <div className="grid gap-6 lg:grid-cols-2">
+          <SkillUploadForm
+            files={[]}
+            onPick={() => undefined}
+            onUpload={() => undefined}
+            onClear={() => undefined}
+          />
+          <SkillUploadForm
+            files={[
+              { path: "skill.json", bytes: 412 },
+              { path: "SKILL.md", bytes: 1_840 },
+              { path: "references/notes.md", bytes: 3_210 },
+            ]}
+            onPick={() => undefined}
+            onUpload={() => undefined}
+            onClear={() => undefined}
+          />
+        </div>
+      </Specimen>
+      <Specimen
+        name="SkillFindings and OwnerSkillsEmpty"
+        note="A refused package's findings, blocking ones first, each with its rule, file and line, what it means and what to do next; a package that passed with warnings is mounted all the same; and the empty state that says what an upload is."
+      >
+        <div className="grid gap-6 lg:grid-cols-2">
+          <SkillFindings
+            blocked
+            findings={[
+              {
+                rule: "S1",
+                severity: "block",
+                path: "SKILL.md:12",
+                message: "shell or code execution",
+                means:
+                  "The text asks for shell or code to run; a skill is text and declarations, never code.",
+                next: "Remove shell blocks, commands and code execution; describe what the agent should do with the platform's tools instead.",
+              },
+              {
+                rule: "F7",
+                severity: "block",
+                path: "skill.json:publisher.address",
+                message:
+                  "publisher.address must be your wallet, 0x9F8e2B1C0d3a4E5f60718293A4B5c6D7E8f90a1B",
+                means: "The package's publisher is not you.",
+                next: "Set publisher.address in skill.json to the wallet you are signed in with.",
+              },
+              {
+                rule: "S13",
+                severity: "warn",
+                path: "references/notes.md:3",
+                message:
+                  "0x1111111111111111111111111111111111111111 is not in the platform address book",
+                means:
+                  "An address in the text is not in the platform's address book, so it may be an impostor.",
+                next: "Use the registered token and contract addresses from the address book.",
+              },
+            ]}
+          />
+          <div className="flex flex-col gap-6">
+            <SkillFindings
+              blocked={false}
+              findings={[
+                {
+                  rule: "S5",
+                  severity: "warn",
+                  path: "SKILL.md:4",
+                  message: "a network endpoint in the text",
+                  means: "The text names an endpoint the skill did not declare.",
+                  next: "Use the declared data sources and the platform's tools.",
+                },
+              ]}
+            />
+            <OwnerSkillsEmpty onUpload={() => undefined} />
+          </div>
+        </div>
+      </Specimen>
+    </Section>
+  );
+}
+
 /** P3-U1: the Goal page's pieces, every state. */
 function GoalSection() {
   const [preset, setPreset] = useState<Aggressiveness>("BALANCED");
@@ -3879,6 +4015,7 @@ function DesignSystem() {
       <AgentSection />
       <PortfolioSection />
       <VaultSection />
+      <SkillsSection />
       <ActivationSection />
       <WindowSection />
       <FormsSection />
