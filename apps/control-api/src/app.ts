@@ -31,6 +31,9 @@ import {
   type PortfolioReader,
   type PortfolioReaderV3,
   portfolioV3Json,
+  type VaultReaderV3,
+  vaultPerformance,
+  vaultV3Json,
   TradeStore,
   approveByOwner,
   armingJson,
@@ -150,6 +153,8 @@ export interface ApiDeps {
       readonly paths: CustodyPathReader;
       /** A-80: the owner's portfolio on the fund agent's set, which every agent is on where it is deployed. */
       readonly portfolio?: PortfolioReaderV3 | null;
+      /** P7-U4: the agent's vault, public, with a viewer's position when a wallet is named. */
+      readonly vault?: VaultReaderV3 | null;
     } | null;
   } | null;
 }
@@ -948,6 +953,47 @@ export function createApp(deps: ApiDeps): Hono {
     const reading = await reader.portfolio(Number(agentId));
     if (!reading) return fail(c, 404, "not_found", `Agent #${agentId} does not exist.`);
     return c.json({ ...(await meta()), portfolio: portfolioJson(reading) });
+  });
+
+  /**
+   * The agent's vault (P7-U4): where it is or will be, the factory's caps and
+   * flags, its state and holdings valued as the vault values them, the
+   * viewer's own position when `wallet` names one (shares, the lock, the
+   * in-kind slices, the claimable credits, the room to deposit), its
+   * performance from the value snapshots recorded for the vault, and the
+   * agent's funding address and credits for "Fund this agent" (D-242).
+   * Public: every number is on chain, and depositors are not the owner.
+   */
+  app.get("/v1/agents/:id{[0-9]+}/vault", async (c) => {
+    const agentId = Number(c.req.param("id"));
+    const reader = deps.trading?.v3?.vault;
+    if (!reader)
+      return fail(c, 503, "not_deployed", `Vaults are not deployed on ${deps.environment.label}.`);
+    const rawWallet = c.req.query("wallet");
+    if (rawWallet !== undefined && !isAddress(rawWallet, { strict: false }))
+      return fail(c, 400, "bad_request", "wallet must be an address.");
+    const reading = await reader.vault(agentId, rawWallet ? getAddress(rawWallet) : undefined);
+    if (!reading) return fail(c, 404, "not_found", `Agent #${agentId} does not exist.`);
+    const [rows, credits] = await Promise.all([
+      reading.vault
+        ? snapshots.since(chainId, agentId, new Date(0), WINDOW_SNAPSHOT_LIMIT)
+        : Promise.resolve([]),
+      readCredits(deps.db, chainId, agentId),
+    ]);
+    return c.json({
+      ...(await meta()),
+      vault: vaultV3Json(reading),
+      performance: vaultPerformance(rows, reading, new Date(deps.now())),
+      funding: credits
+        ? {
+            fundingAddress: credits.fundingAddress,
+            creditsUsdcE6: credits.creditsUsdcE6,
+            spendableUsdcE6: credits.spendableUsdcE6,
+            heldUsdcE6: credits.heldUsdcE6,
+            creditCapUsdcE6: CREDIT_CAP_USDC_E6.toString(),
+          }
+        : null,
+    });
   });
 
   /**

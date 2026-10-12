@@ -13,3 +13,4 @@ export * from "./decisions.ts";
 export * from "./proposals.ts";
 export * from "./activation.ts";
 export * from "./window.ts";
+export * from "./vault-v3.ts";

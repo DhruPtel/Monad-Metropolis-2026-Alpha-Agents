@@ -13,6 +13,7 @@ import {
   TradeStore,
   SnapshotStore,
   type AccountReadJson,
+  type VaultReadingV3,
 } from "@alpha-agents/trading";
 import {
   TARGET_PORTFOLIO_ID,
@@ -1219,6 +1220,184 @@ describe.skipIf(!available)("the control API (needs pnpm dev:up for Postgres)", 
           armingState: "unarmed",
           reasons: [expect.objectContaining({ code: "NOT_ARMED", clears: "by_the_owner" })],
         });
+      });
+    });
+
+    describe("the vault (P7-U4)", () => {
+      const EXECUTOR = "0x00000000000000000000000000000000000e0ec0" as Address;
+      const VAULT = "0x00000000000000000000000000000000000a0170" as Address;
+      const PERSONAL = "0x00000000000000000000000000000000000ac0f3" as Address;
+      const FUNDING = "0x00000000000000000000000000000000000f00d2";
+      const E18 = 10n ** 18n;
+      const vaultReads: { id: number; viewer: Address | undefined }[] = [];
+      const reading = (viewer: Address | undefined): VaultReadingV3 => ({
+        custody: "v3",
+        chainId: env.chainId,
+        block: 109_670_100n,
+        timestamp: BigInt(Math.floor(now / 1000)),
+        agentId: 2,
+        owner: BOB,
+        contracts: {
+          agentNft: NFT,
+          accountFactory: PERSONAL,
+          oracle: PERSONAL,
+          usdc: PERSONAL,
+          wmon: PERSONAL,
+          executor: EXECUTOR,
+        },
+        vault: VAULT,
+        predictedVault: VAULT,
+        factory: {
+          vaultCap: 500_000_000n,
+          platformCap: 2_000_000_000n,
+          platformTotal: 80_000_000n,
+          allowlistEnabled: true,
+          depositsEnabled: false,
+        },
+        usdcPeg: { priceE18: E18, updatedAt: 1n, reason: "OK" },
+        state: {
+          leader: BOB,
+          leaderShares: 20n * E18,
+          leaderStakeBps: 2_500n,
+          incomingLeader: "0x0000000000000000000000000000000000000000",
+          incomingShares: 0n,
+          totalSupply: 80n * E18,
+          principal: 80_000_000n,
+          navUsdc: 82_000_000n,
+          perUnitE18: 1_025n * 10n ** 15n,
+          breaker: null,
+          mode: "NORMAL",
+          inHandover: false,
+          depositsOpen: true,
+          depositsClosed: false,
+          lockup: 86_400n,
+          feeBps: 0,
+          windDownAt: 0n,
+          pausedAt: 0n,
+          holdings: [],
+          constants: {
+            minLockup: 86_400n,
+            maxLockup: 604_800n,
+            leaderMinBps: 500n,
+            spreadBps: 50n,
+            handoverPeriod: 259_200n,
+          },
+        },
+        viewer: viewer
+          ? {
+              address: viewer,
+              isOwner: viewer === BOB,
+              isLeader: viewer === BOB,
+              allowlisted: true,
+              mayDeposit: true,
+              usdcWallet: 5_000_000n,
+              shares: 30n * E18,
+              freeShares: 0n,
+              lockedShares: 30n * E18,
+              unlockAt: 1n,
+              valueUsdc: 30_000_000n,
+              maxDeposit: 100_000_000n,
+              inKind: [],
+              claimables: [],
+              entryPriceE18: E18,
+            }
+          : null,
+      });
+      const v3 = {
+        executor: EXECUTOR,
+        reader: { agent: async () => null },
+        paths: { custodyPath: async () => "v3" as const },
+        vault: {
+          vault: async (id: number, viewer?: Address) => {
+            vaultReads.push({ id, viewer });
+            return id === 2 ? reading(viewer) : null;
+          },
+        },
+      };
+      const trading = { executor: EXECUTOR, reader: { agent: async () => null }, v3 };
+      const snapshot = async (account: Address, perUnitE18: bigint, minutesAgo: number) => {
+        const store = new SnapshotStore(t.db, env.id, () => new Date(now - minutesAgo * 60_000));
+        await store.record(
+          env.chainId,
+          {
+            agentId: 2,
+            account,
+            block: 1n,
+            timestamp: 1n,
+            usdc: 0n,
+            wmon: 0n,
+            mode: "NORMAL",
+            monUsdE18: null,
+            custody: "v3",
+            valueUsdcE6: 80_000_000n,
+            perUnitE18,
+          },
+          "interval",
+        );
+      };
+
+      beforeEach(async () => {
+        vaultReads.length = 0;
+        await t.db.deleteFrom("platform.account_snapshots").execute();
+        await t.db
+          .insertInto("platform.funding_addresses")
+          .values({
+            chain_id: env.chainId,
+            agent_id: 2,
+            address: FUNDING,
+            derivation_path: "m/44'/60'/0'/0/2",
+          })
+          .execute();
+      });
+
+      it("serves the vault to anyone, with the viewer named by the wallet, the performance from the vault's own snapshots and the funding address", async () => {
+        await snapshot(VAULT, E18, 180);
+        await snapshot(PERSONAL, 2n * E18, 120);
+        await snapshot(VAULT, 102n * 10n ** 16n, 90);
+        const res = await call(`/v1/agents/2/vault?wallet=${CAROL.toLowerCase()}`, {}, { trading });
+        expect(res.status).toBe(200);
+        const body = await json(res);
+        expect(vaultReads).toEqual([{ id: 2, viewer: CAROL }]);
+        expect(body.vault).toMatchObject({
+          vault: VAULT,
+          factory: { vaultCapUsdcE6: "500000000", depositsEnabled: false },
+          state: { leaderStakeBps: 2500, lockupSeconds: 86_400, mode: "NORMAL" },
+          viewer: {
+            address: CAROL,
+            isOwner: false,
+            shares: (30n * E18).toString(),
+            lockedShares: (30n * E18).toString(),
+          },
+        });
+        const performance = body.performance as {
+          series: unknown[];
+          history: { points: number };
+          scores: Record<string, { ok: boolean; bps?: number }>;
+        };
+        expect(performance.history.points).toBe(2);
+        expect(performance.series.length).toBe(3);
+        expect(performance.scores.returnSinceStart).toMatchObject({ ok: true, bps: 250 });
+        expect(body.funding).toMatchObject({
+          fundingAddress: getAddress(FUNDING),
+          creditCapUsdcE6: "50000000",
+        });
+      });
+
+      it("reads no viewer without a wallet, refuses a wallet that is not an address, and knows a missing agent", async () => {
+        expect((await call("/v1/agents/2/vault", {}, { trading })).status).toBe(200);
+        expect(vaultReads).toEqual([{ id: 2, viewer: undefined }]);
+        expect((await call("/v1/agents/2/vault?wallet=bob", {}, { trading })).status).toBe(400);
+        expect((await call("/v1/agents/9/vault", {}, { trading })).status).toBe(404);
+      });
+
+      it("answers 503 where vaults are not deployed", async () => {
+        const res = await call(
+          "/v1/agents/2/vault",
+          {},
+          { trading: { ...trading, v3: { ...v3, vault: null } } },
+        );
+        expect(res.status).toBe(503);
+        expect((await json(res)).error).toBe("not_deployed");
       });
     });
 

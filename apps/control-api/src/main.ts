@@ -17,6 +17,7 @@ import {
   rpcHoldingsReader,
   rpcPortfolioReader,
   rpcPortfolioReaderV3,
+  rpcVaultReaderV3,
 } from "@alpha-agents/trading";
 import { rpcChainReader } from "./chain.ts";
 import { MOCK_IDENTITY_FLAG, mockIdentity, privyIdentity } from "./identity.ts";
@@ -160,6 +161,23 @@ const v3 =
           accountFactory: factoryEntry.address as Hex,
           accountFactoryV3: factoryV3Entry.address as Hex,
         }),
+        // P7-U4: the agent's vault, public, read with the same set.
+        vault:
+          oracleV3Entry.status === "verified"
+            ? rpcVaultReaderV3(
+                rpcUrl,
+                env.chainId,
+                {
+                  agentNft: deployment.address,
+                  accountFactory: factoryV3Entry.address as Hex,
+                  oracle: oracleV3Entry.address as Hex,
+                  usdc: addressEntry(env.id, "usdc").address as Hex,
+                  wmon: addressEntry(env.id, "wmon").address as Hex,
+                  executor: executorV3Entry.address as Hex,
+                },
+                { tokens: () => depositableTokens(db) },
+              )
+            : null,
         // A-80: the owner's portfolio on the fund set, with the v2 account as an older one.
         portfolio:
           oracleV3Entry.status === "verified"
