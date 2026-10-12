@@ -1,4 +1,4 @@
-import { type BuiltinSet, loadBuiltinSet } from "@alpha-agents/skills/packages";
+import { type BuiltinSet, type SkillPackage, loadBuiltinSet } from "@alpha-agents/skills/packages";
 import { canonicalJson } from "./layers.ts";
 import { type AgentConfig, EQUIPPED_DIR, PLAYBOOKS_DIR } from "./schema.ts";
 
@@ -32,19 +32,33 @@ export function builtinSet(): BuiltinSet {
   return set;
 }
 
-/** The mounted set as the console and the logs show it. */
-export function mountedSkills(set: BuiltinSet = builtinSet()) {
+/** SK-U1: a mounted package's kind: a built-in skill, a stage playbook, or the owner's own skill. */
+export type MountedKind = "skill" | "playbook" | "owner";
+
+/** Where a package of a kind is mounted. */
+const dirFor = (kind: MountedKind) => (kind === "playbook" ? PLAYBOOKS_DIR : EQUIPPED_DIR);
+
+/**
+ * The mounted set as the console and the logs show it: the built-in set, and
+ * the owner's own skills beside the built-in skills (SK-U1), which no other
+ * agent's sandbox ever sees.
+ */
+export function mountedSkills(set: BuiltinSet = builtinSet(), owner: readonly SkillPackage[] = []) {
+  const entries = [
+    ...set.packages.map((p) => ({ kind: p.kind as MountedKind, pkg: p as SkillPackage })),
+    ...owner.map((pkg) => ({ kind: "owner" as MountedKind, pkg })),
+  ];
   return {
     setHash: set.setHash,
-    packages: set.packages.map((p) => ({
-      kind: p.kind,
+    packages: entries.map(({ kind, pkg: p }) => ({
+      kind,
       id: p.manifest.id,
       name: p.hermesName,
       version: p.manifest.version,
       contentHash: p.contentHash,
       description: p.manifest.description.model,
       tools: p.manifest.required_tools,
-      mountedAt: `${p.kind === "skill" ? EQUIPPED_DIR : PLAYBOOKS_DIR}/${p.hermesName}`,
+      mountedAt: `${dirFor(kind)}/${p.hermesName}`,
     })),
   };
 }
@@ -71,7 +85,12 @@ export interface SandboxFiles {
   readonly mounted: ReturnType<typeof mountedSkills>;
 }
 
-export function materialize(config: AgentConfig, runtime: SandboxRuntime): SandboxFiles {
+export function materialize(
+  config: AgentConfig,
+  runtime: SandboxRuntime,
+  /** SK-U1: the owner's own skills for this agent, mounted beside the built-in skills. */
+  ownerSkills: readonly SkillPackage[] = [],
+): SandboxFiles {
   if (runtime.apiServerKey.length < 32)
     throw new Error("the API server key must be 32+ characters");
   if (!/^https?:\/\/[^\s]+\/v1$/.test(runtime.gatewayBaseUrl))
@@ -105,14 +124,23 @@ export function materialize(config: AgentConfig, runtime: SandboxRuntime): Sandb
   ].join("\n");
   // D-288: every agent mounts the same built-in set until builds exist, whatever its tier's slots.
   const set = builtinSet();
+  const builtinIds = new Set(set.packages.map((p) => p.manifest.id));
+  for (const o of ownerSkills)
+    if (builtinIds.has(o.manifest.id))
+      throw new Error(
+        `the owner's skill ${o.manifest.id} has a platform skill's id; refusing to mount`,
+      );
   const skills: Record<string, string> = {};
-  for (const p of set.packages) {
-    const root = `${p.kind === "skill" ? EQUIPPED_DIR : PLAYBOOKS_DIR}/${p.hermesName}`;
+  const place = (kind: MountedKind, p: SkillPackage) => {
+    const root = `${dirFor(kind)}/${p.hermesName}`;
     skills[`${root}/SKILL.md`] = p.skillMd;
     for (const f of p.files)
       if (f.path !== "SKILL.md" && f.path !== "skill.json")
         skills[`${root}/${f.path}`] = f.bytes.toString("utf8");
-  }
+  };
+  for (const p of set.packages) place(p.kind, p);
+  // SK-U1: the owner's own skills, read-only like the built-in ones, for this agent alone.
+  for (const p of ownerSkills) place("owner", p);
   return {
     home: {
       "config.yaml": configYaml,
@@ -121,6 +149,6 @@ export function materialize(config: AgentConfig, runtime: SandboxRuntime): Sandb
       ".no-bundled-skills": "",
     },
     skills,
-    mounted: mountedSkills(set),
+    mounted: mountedSkills(set, ownerSkills),
   };
 }

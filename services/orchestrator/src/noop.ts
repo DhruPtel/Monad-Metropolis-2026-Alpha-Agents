@@ -1,5 +1,6 @@
 import type { Gate } from "./gate.ts";
 import { GATE_HEADER } from "./gate.ts";
+import type { SkillPackage } from "@alpha-agents/skills/packages";
 import { API_SERVER_PORT, HERMES_HOME, materialize } from "./hermes/materialize.ts";
 import { EQUIPPED_DIR, PLAYBOOKS_DIR, SKILLS_ROOT, WORKSPACE_DIR } from "./hermes/schema.ts";
 import type { AgentConfig } from "./hermes/schema.ts";
@@ -61,6 +62,12 @@ export interface TaskContext {
   readonly gate: Gate;
   readonly redactor: Redactor;
   readonly log: Log;
+  /**
+   * SK-U1: the owner's own skills for an agent, as checked packages, mounted
+   * read-only beside the built-in skills at every sandbox start; none when
+   * absent.
+   */
+  readonly ownerSkills?: (agentId: number) => Promise<readonly SkillPackage[]>;
 }
 
 const shq = (s: string) => `'${s.replaceAll("'", `'\\''`)}'`;
@@ -104,14 +111,20 @@ export async function bootHermes(
   /** The gate as the sandbox sees it: the model under /v1, the tool servers under /mcp. */
   gateOrigin: string,
   redactor: Redactor,
+  /** SK-U1: the owner's own skills for this agent, mounted beside the built-in ones. */
+  ownerSkills: readonly SkillPackage[] = [],
 ): Promise<HermesRuns> {
   const apiServerKey = randomToken();
   redactor.add(apiServerKey);
-  const files = materialize(config, {
-    gatewayBaseUrl: `${gateOrigin}/v1`,
-    toolsOrigin: gateOrigin,
-    apiServerKey,
-  });
+  const files = materialize(
+    config,
+    {
+      gatewayBaseUrl: `${gateOrigin}/v1`,
+      toolsOrigin: gateOrigin,
+      apiServerKey,
+    },
+    ownerSkills,
+  );
   const dirs = new Set([
     PLAYBOOKS_DIR,
     EQUIPPED_DIR,
@@ -129,10 +142,19 @@ export async function bootHermes(
     `chown -R root:root ${SKILLS_ROOT} && find ${SKILLS_ROOT} -type d -exec chmod 555 {} + && find ${SKILLS_ROOT} -type f -exec chmod 444 {} +`,
     "root",
   );
-  // H-11 at every boot: the agent's user cannot add to or change the mount; a writable mount stops the boot.
+  // H-11 at every boot: the agent's user cannot add to or change the mount; a writable mount stops
+  // the boot. The owner's own skills are probed the same way (SK-U1).
+  const probed = [
+    `${PLAYBOOKS_DIR}/aa-playbook-scan`,
+    ...ownerSkills.map((p) => `${EQUIPPED_DIR}/${p.hermesName}`),
+  ];
   const probe = await sbx.run(
-    `touch ${PLAYBOOKS_DIR}/aa-playbook-scan/probe 2>/dev/null && echo WRITABLE; ` +
-      `(echo x >> ${PLAYBOOKS_DIR}/aa-playbook-scan/SKILL.md) 2>/dev/null && echo WRITABLE; echo checked`,
+    `${probed
+      .map(
+        (dir) =>
+          `touch ${dir}/probe 2>/dev/null && echo WRITABLE; (echo x >> ${dir}/SKILL.md) 2>/dev/null && echo WRITABLE; `,
+      )
+      .join("")}echo checked`,
     { user: "user" },
   );
   if (probe.stdout.includes("WRITABLE"))
@@ -228,7 +250,9 @@ export async function openAgentSandbox(
   ctx.log(`task ${taskId}: sandbox ${sbx.id} started for agent ${ref.agentId}`);
 
   const t1 = Date.now();
-  const runs = await bootHermes(sbx, config, `https://${host}`, ctx.redactor);
+  // SK-U1: the owner's own skills for this agent ride along, read-only beside the built-in ones.
+  const ownerSkills = ctx.ownerSkills ? await ctx.ownerSkills(ref.agentId) : [];
+  const runs = await bootHermes(sbx, config, `https://${host}`, ctx.redactor, ownerSkills);
   await runs.waitHealthy(180_000);
   return { runtime, config, leaseId, sbx, runs, sandboxMs, bootMs: Date.now() - t1 };
 }

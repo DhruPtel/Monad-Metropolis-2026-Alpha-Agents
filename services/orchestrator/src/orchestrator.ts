@@ -37,6 +37,8 @@ import {
   confirmArming,
   disarm,
 } from "@alpha-agents/trading";
+import { type SkillPackage, loadPackageFiles } from "@alpha-agents/skills/packages";
+import { OwnerSkillStore } from "@alpha-agents/skills/store";
 import { SnapshotRecorder } from "./snapshots.ts";
 import {
   assessTradeV3,
@@ -765,7 +767,32 @@ export class Orchestrator {
       gate: this.requireGate(),
       redactor: this.o.redactor,
       log: this.o.log,
+      ownerSkills: (agentId) => this.ownerSkillPackages(agentId),
     };
+  }
+
+  /**
+   * SK-U1: the owner's own skills for an agent as checked packages, from the
+   * platform's records, for the sandbox's read-only mount and the console. A
+   * record that no longer passes the checks (the rules tightened since) is
+   * left out and logged, never mounted.
+   */
+  async ownerSkillPackages(agentId: number): Promise<readonly SkillPackage[]> {
+    const records = await new OwnerSkillStore(this.o.store.db).current(this.o.chainId, agentId);
+    const out: SkillPackage[] = [];
+    for (const r of records) {
+      const { pkg, issues } = loadPackageFiles(
+        r.files.map((f) => ({ path: f.path, bytes: Buffer.from(f.content, "utf8") })),
+      );
+      if (!pkg || issues.some((i) => i.severity === "block") || pkg.contentHash !== r.contentHash) {
+        this.o.log(
+          `agent ${agentId}: the owner's skill ${r.skillId} no longer passes its checks; not mounted`,
+        );
+        continue;
+      }
+      out.push(pkg);
+    }
+    return out;
   }
 
   private requireGate(): Gate {

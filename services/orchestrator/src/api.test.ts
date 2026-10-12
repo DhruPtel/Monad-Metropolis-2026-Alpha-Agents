@@ -43,6 +43,8 @@ describe.skipIf(!dbUp)("the orchestrator's internal API (D-205)", { timeout: 60_
   const orchestrator = {
     runTag: "run-test",
     keeper: null,
+    // SK-U1: this fake agent has no skills of its owner's.
+    ownerSkillPackages: async () => [],
     activations: {
       view: async (ref: { agentId: number }) => ({
         agentId: String(ref.agentId),

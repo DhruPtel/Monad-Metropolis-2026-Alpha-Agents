@@ -518,7 +518,8 @@ export function createApi(o: ApiOptions): Hono {
       provisioned: runtime?.status === "ready",
       tier: tier?.name ?? null,
       tierPlaybook: tier?.playbook?.version ?? null,
-      ...mountedSkills(),
+      // SK-U1: the owner's own skills beside the built-in set, as the sandbox mounts them.
+      ...mountedSkills(undefined, await o.orchestrator.ownerSkillPackages(ref.agentId)),
     });
   });
 
