@@ -16,15 +16,17 @@ import {
 } from "@alpha-agents/ui";
 import { chainName, useWalletSession } from "@/auth/session";
 
+/**
+ * UI-U1: the nav names the pages that work in the beta. The dashboard, the
+ * gallery, the marketplace, the leaderboard and the creator portal come after
+ * it (D-368): their paths show a designed "coming after the beta" page, and
+ * the nav keeps them out of the way.
+ */
 export const NAV_ITEMS = [
-  { href: "/", label: "Dashboard" },
-  { href: "/gallery", label: "Gallery" },
-  { href: "/marketplace", label: "Marketplace" },
-  { href: "/leaderboard", label: "Leaderboard" },
+  { href: "/", label: "Home" },
   { href: "/agents", label: "My Agents" },
   { href: "/mint", label: "Mint" },
   { href: "/configure", label: "Configure" },
-  { href: "/create", label: "Create" },
 ] as const;
 
 const isActive = (pathname: string, href: string) =>

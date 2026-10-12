@@ -43,9 +43,9 @@ export const VAULT_DEPOSIT_BLOCK_MESSAGES: Readonly<Record<VaultDepositBlock, st
   DEPOSITS_CLOSED: "A tightener closed deposits to this vault. Withdrawals still work.",
   DEPOSITS_NOT_OPEN: "The leader has not opened deposits yet.",
   NOT_ALLOWLISTED:
-    "Your wallet is not on the beta deposit allowlist, so the vault would refuse this deposit.",
+    "Your wallet is not yet allowed to deposit during the beta, so the vault would refuse this deposit. Ask the platform to add it, then try again.",
   PUBLIC_DEPOSITS_OFF:
-    "Vault deposits are open to allowlisted wallets only until the launch decision, and your wallet is not on the list.",
+    "Until the launch decision, only wallets the platform has allowed may deposit into a vault, and yours is not yet one of them. Ask the platform to add it, then try again.",
   USDC_PRICE_UNAVAILABLE: "The USDC price is unusable right now, so the vault takes no deposits.",
   USDC_DEPEGGED: "USDC is away from $1 right now, so the vault takes no deposits.",
   HELD_PRICE_UNAVAILABLE:

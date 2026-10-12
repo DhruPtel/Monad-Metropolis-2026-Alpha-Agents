@@ -1,3 +1,4 @@
+import type { AssetRow } from "@alpha-agents/ui";
 import type { Address } from "viem";
 import { staleFeedMessage } from "@alpha-agents/domain";
 import type { PortfolioJson } from "@/api/client";
@@ -97,7 +98,7 @@ export type DepositBlock =
 export const DEPOSIT_BLOCK_MESSAGES: Readonly<Record<DepositBlock, string>> = {
   NO_ACCOUNT: "Open the trading account first.",
   NOT_ALLOWLISTED:
-    "This wallet is not on the beta deposit allowlist yet, so the account would refuse the deposit.",
+    "This wallet is not yet allowed to deposit during the beta, so the account would refuse the deposit. Ask the platform to add it, then try again.",
   ZERO_AMOUNT: "Enter an amount greater than zero.",
   OVER_WALLET: "Your wallet does not hold that much.",
   PAUSED: "The account is paused, so it takes no deposits. Withdrawals still work.",
@@ -197,4 +198,39 @@ export function claimables(p: PortfolioJson): { asset: Asset; token: Address; am
   if (usdc > 0n) out.push({ asset: "USDC", token: p.contracts.usdc, amount: usdc });
   if (wmon > 0n) out.push({ asset: "WMON", token: p.contracts.wmon, amount: wmon });
   return out;
+}
+
+/**
+ * UI-U1: the v2 account's USDC and WMON as asset rows, for the allocation
+ * donut and the position tiles the owner's pages draw; no cost basis is known
+ * for the v2 account, so its gain stays unknown.
+ */
+export function v2AssetRows(p: PortfolioJson): AssetRow[] {
+  const pos = positions(p);
+  const rows: AssetRow[] = [
+    {
+      symbol: "USDC",
+      decimals: 6,
+      amountRaw: pos.usdc.toString(),
+      isCash: true,
+      valueUsdcE6: pos.usdc.toString(),
+      shareBps: pos.usdcShareBps,
+      costBasisUsdcE6: null,
+      gainUsdcE6: null,
+      gainBps: null,
+    },
+  ];
+  if (pos.wmon > 0n)
+    rows.push({
+      symbol: "WMON",
+      decimals: 18,
+      amountRaw: pos.wmon.toString(),
+      isCash: false,
+      valueUsdcE6: pos.wmonValueUsdc === null ? null : pos.wmonValueUsdc.toString(),
+      shareBps: pos.wmonShareBps,
+      costBasisUsdcE6: null,
+      gainUsdcE6: null,
+      gainBps: null,
+    });
+  return rows;
 }

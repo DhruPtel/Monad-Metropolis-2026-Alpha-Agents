@@ -33,17 +33,17 @@ test("the navigation collapses into a menu on narrow screens", async ({ page }, 
   if (testInfo.project.name === "desktop") {
     await expect(menu).toBeHidden();
     await expect(
-      page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Gallery" }),
+      page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Mint" }),
     ).toBeVisible();
     return;
   }
-  await expect(page.getByRole("link", { name: "Gallery" })).toBeHidden();
+  await expect(page.getByRole("link", { name: "Mint" })).toBeHidden();
   await menu.click();
   await expect(page.getByRole("button", { name: "Close menu" })).toHaveAttribute(
     "aria-expanded",
     "true",
   );
-  await expect(page.locator("#mobile-nav").getByRole("link", { name: "Gallery" })).toBeVisible();
+  await expect(page.locator("#mobile-nav").getByRole("link", { name: "Mint" })).toBeVisible();
 });
 
 test("loads every font from its own origin", async ({ page }) => {

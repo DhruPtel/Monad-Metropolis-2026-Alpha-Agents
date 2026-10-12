@@ -12,6 +12,7 @@ import {
   ApiError,
   type IntentJson,
   type WhyNotTradedJson,
+  type WindowJson,
   api,
   tradingApi,
   type PlanCardJson,
@@ -82,6 +83,8 @@ export interface Portfolio {
   readonly activation: ActivationReadJson | null;
   /** The agent's credits and funding address, for Add credits (Phase 2 tuning). */
   readonly summary: SummaryView | null;
+  /** UI-U1: the account's performance series for the hero; null before it loads or without an account. */
+  readonly windowView: WindowJson | null;
   /** Re-reads at once. */
   refresh(): void;
   /** Why the portfolio could not be read, in plain words. */
@@ -166,6 +169,7 @@ export function usePortfolio(agentId: bigint, environment: EnvironmentId): Portf
   const [planCard, setPlanCard] = useState<PlanCardJson | null>(null);
   const [activation, setActivation] = useState<ActivationReadJson | null>(null);
   const [summary, setSummary] = useState<SummaryView | null>(null);
+  const [windowView, setWindowView] = useState<WindowJson | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<ActionStatus | null>(null);
   const [tick, setTick] = useState(0);
@@ -186,6 +190,7 @@ export function usePortfolio(agentId: bigint, environment: EnvironmentId): Portf
     setArming(null);
     setIntents([]);
     setActivation(null);
+    setWindowView(null);
     setError(null);
     if (!running.current) setStatus(null);
   }, [wallet.address, agentId]);
@@ -201,13 +206,15 @@ export function usePortfolio(agentId: bigint, environment: EnvironmentId): Portf
     let live = true;
     void (async () => {
       try {
-        const [p, a, i, w, pc, act] = await Promise.all([
+        const [p, a, i, w, pc, act, win] = await Promise.all([
           asOwner((t) => tradingApi.portfolio(agentId, t)),
           asOwner((t) => tradingApi.arming(agentId, t)),
           asOwner((t) => tradingApi.intents(agentId, t)),
           tradingApi.whyNotTraded(agentId).catch(() => null),
           asOwner((t) => tradingApi.planCard(agentId, t)).catch(() => null),
           asOwner((t) => tradingApi.activation(agentId, t)).catch(() => null),
+          // UI-U1: the performance line for the hero.
+          asOwner((t) => tradingApi.window(agentId, t)).catch(() => null),
         ]);
         const s = await asOwner((t) => api.summary(agentId, t)).catch(() => null);
         if (!live || !mounted.current) return;
@@ -233,6 +240,7 @@ export function usePortfolio(agentId: bigint, environment: EnvironmentId): Portf
         if (w) setWhy(w);
         setPlanCard(pc);
         setActivation(act);
+        setWindowView(win && win.account ? win : null);
         if (s) setSummary(summaryView(s));
         setError(null);
       } catch (err) {
@@ -674,6 +682,7 @@ export function usePortfolio(agentId: bigint, environment: EnvironmentId): Portf
     approveProposal: (proposalId: string) => decidePlan("approve-plan", proposalId),
     rejectProposal: (proposalId: string) => decidePlan("reject-plan", proposalId),
     summary,
+    windowView,
     refresh: useCallback(() => setTick((t) => t + 1), []),
     error,
     status,

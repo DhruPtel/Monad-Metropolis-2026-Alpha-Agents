@@ -34,8 +34,9 @@ test.afterAll(async () => {
 test.setTimeout(20 * 60_000);
 
 const main = (page: Page) => page.getByRole("main");
+/** The form's status line; a form in a dialog (UI-U1) is outside main, so the page is searched. */
 const status = (page: Page, testId: string) =>
-  main(page).getByTestId(testId).getByTestId("wallet-action-status");
+  page.getByTestId(testId).getByTestId("wallet-action-status");
 
 /** Connects the mock wallet on /configure and mints; returns the new agent's ID. */
 async function mintAgent(page: Page): Promise<bigint> {
@@ -79,8 +80,10 @@ test("an owner opens an account, deposits, arms, sees a trade settle and one exp
   await mintTestUsdc(MOCK_WALLET_ADDRESS, 21_000_000n, FORK);
   await setMonBalance(MOCK_WALLET_ADDRESS, 10n ** 19n, FORK);
 
-  // Add credits from the app: one transfer from the wallet to the funding address (Phase 2 tuning).
-  const addCredits = card.getByTestId("add-credits");
+  // Add credits from the app: one transfer from the wallet to the funding address (Phase 2 tuning),
+  // in the small dialog the credits tile opens (UI-U1).
+  await card.getByTestId("open-add-credits").click();
+  const addCredits = page.getByRole("dialog").getByTestId("add-credits");
   await expect(addCredits).toContainText("In your wallet: 21", { timeout: 30_000 });
   await addCredits.getByLabel("Amount (USDC)").fill("1");
   await addCredits.getByRole("button", { name: "Add credits" }).click();
@@ -108,6 +111,7 @@ test("an owner opens an account, deposits, arms, sees a trade settle and one exp
   expect(funding.address).toMatch(/^0x[0-9a-f]{40}$/);
   // Credited, the agent can run again.
   await expect(card.getByText("Ready", { exact: true })).toBeVisible({ timeout: 120_000 });
+  await page.keyboard.press("Escape");
   await expect(card.getByTestId("trading-summary")).toContainText("No trading account yet", {
     timeout: 30_000,
   });
@@ -133,15 +137,17 @@ test("an owner opens an account, deposits, arms, sees a trade settle and one exp
   await main(page).getByRole("button", { name: "Open trading account" }).click();
   await expect(main(page).getByTestId("positions")).toBeVisible({ timeout: 60_000 });
   await expect(main(page).getByTestId("positions")).toHaveAttribute("data-custody", "v3");
-  await expect(main(page).getByTestId("deposit-form")).toHaveAttribute("data-custody", "v3");
 
-  // Deposit 20 USDC: an exact approval, then the deposit.
-  const deposit = main(page).getByTestId("deposit-form");
+  // Deposit 20 USDC in the deposit dialog (UI-U1): an exact approval, then the deposit.
+  await main(page).getByTestId("open-deposit").click();
+  const deposit = page.getByTestId("deposit-form");
+  await expect(deposit).toHaveAttribute("data-custody", "v3");
   await deposit.getByLabel("Amount").fill("20");
   await deposit.getByRole("button", { name: "Deposit", exact: true }).click();
   await expect(status(page, "deposit-form")).toHaveAttribute("data-state", "confirmed", {
     timeout: 90_000,
   });
+  await page.keyboard.press("Escape");
   await expect(main(page).getByTestId("positions")).toContainText("20.00", { timeout: 30_000 });
   await expect(main(page).getByTestId("caps")).toContainText("20.00 of 100.00 USDC");
 

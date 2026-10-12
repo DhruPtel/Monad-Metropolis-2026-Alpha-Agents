@@ -96,14 +96,14 @@ export type Availability =
 /** Whether the owner can run a Scan now, and if not, why, in plain words. */
 export function scanAvailability(v: SummaryView): Availability {
   if (v.runStatus === "awaiting_reveal")
-    return { enabled: false, reason: "Scans start once the agent is revealed and set up." };
+    return { enabled: false, reason: "Research starts once the agent is revealed and set up." };
   if (v.runStatus === "provisioning" || v.runStatus === "failed" || v.runStatus === "stopped")
-    return { enabled: false, reason: "Scans start once the agent is set up." };
-  if (scanOpen(v)) return { enabled: false, reason: "A Scan is already queued or running." };
+    return { enabled: false, reason: "Research starts once the agent is set up." };
+  if (scanOpen(v)) return { enabled: false, reason: "Research is already queued or running." };
   if (v.spendable < v.scanMinimum)
     return {
       enabled: false,
-      reason: `A Scan needs at least ${usdc(v.scanMinimum, 2)} USDC of credits. Add USDC to the funding address.`,
+      reason: `Research needs at least ${usdc(v.scanMinimum, 2)} USDC of credits. Add credits first.`,
     };
   return { enabled: true };
 }
@@ -145,15 +145,15 @@ const STOP_WORDS: Readonly<Record<string, string>> = {
 export function scanStatusText(v: SummaryView): string | null {
   const s = v.latestScan;
   if (!s) return null;
-  if (s.status === "queued") return "Scan queued: it starts within a few seconds.";
-  if (s.status === "running") return "Scan running: the agent is researching now.";
+  if (s.status === "queued") return "Research queued: it starts within a few seconds.";
+  if (s.status === "running") return "Research running: the agent is reading now.";
   const when = (s.finishedAt ?? s.createdAt).slice(11, 16);
   const outcome = s.stopReason
     ? (STOP_WORDS[s.stopReason] ?? "ended")
     : s.status === "succeeded"
       ? "completed"
       : "failed";
-  return `Last Scan ${outcome} at ${when} UTC.`;
+  return `Last research ${outcome} at ${when} UTC.`;
 }
 
 /** A finished refund in plain words; null while it is still on its way. */
@@ -170,3 +170,27 @@ export function refundOutcomeText(
     return { ok: false, text: `The refund failed${r.reason ? `: ${r.reason}` : "."} Try again.` };
   return null;
 }
+
+/** UI-U1: the agent's trading state in plain words, for the trading tile and the portfolio hero. */
+export interface TradingStateWords {
+  readonly label: string;
+  readonly tone: "positive" | "neutral" | "warning";
+}
+export function tradingStateWords(
+  state: "unarmed" | "awaiting_first_trade" | "armed" | null,
+): TradingStateWords | null {
+  switch (state) {
+    case "armed":
+      return { label: "Automatic trading on", tone: "positive" };
+    case "awaiting_first_trade":
+      return { label: "Permission registered: approve its first plan", tone: "neutral" };
+    case "unarmed":
+      return { label: "Automatic trading off: each trade waits for you", tone: "neutral" };
+    default:
+      return null;
+  }
+}
+
+/** UI-U1: what "Research now" does and what it costs, in one line. */
+export const researchLine = (v: SummaryView, name: string): string =>
+  `${name} searches the web, reads the most relevant pages and saves its notes. It costs ${scanCostText(v)} of credits, taken as it runs; if the credits run out, it stops.`;

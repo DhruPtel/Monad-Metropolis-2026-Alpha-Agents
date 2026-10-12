@@ -6,10 +6,12 @@ import {
   refundAmountText,
   refundAvailability,
   refundOutcomeText,
+  researchLine,
   scanAvailability,
   scanCostText,
   scanStatusText,
   summaryView,
+  tradingStateWords,
 } from "./my-agents";
 
 const summary = (
@@ -92,11 +94,11 @@ describe("what an owner can do now", () => {
     });
     expect(scanAvailability(summary({ runStatus: "provisioning" })).enabled).toBe(false);
     expect(scanAvailability(summary({ latestScan: scanTask("running") }))).toMatchObject({
-      reason: "A Scan is already queued or running.",
+      reason: "Research is already queued or running.",
     });
     expect(scanAvailability(summary({}, "149999"))).toMatchObject({
       enabled: false,
-      reason: "A Scan needs at least 0.15 USDC of credits. Add USDC to the funding address.",
+      reason: "Research needs at least 0.15 USDC of credits. Add credits first.",
     });
     expect(scanAvailability(summary({ latestScan: scanTask("succeeded", "COMPLETED") }))).toEqual({
       enabled: true,
@@ -131,10 +133,10 @@ describe("results in plain words", () => {
     expect(scanStatusText(summary({ latestScan: scanTask("queued") }))).toMatch(/queued/);
     expect(scanStatusText(summary({ latestScan: scanTask("running") }))).toMatch(/running/);
     expect(scanStatusText(summary({ latestScan: scanTask("succeeded", "COMPLETED") }))).toBe(
-      "Last Scan completed at 16:41 UTC.",
+      "Last research completed at 16:41 UTC.",
     );
     expect(scanStatusText(summary({ latestScan: scanTask("failed", "BILLING") }))).toBe(
-      "Last Scan stopped: its credits ran out at 16:41 UTC.",
+      "Last research stopped: its credits ran out at 16:41 UTC.",
     );
   });
 
@@ -160,5 +162,20 @@ describe("results in plain words", () => {
       text: "The refund was refused: the agent has a new owner",
     });
     expect(refundOutcomeText(r("failed"))?.ok).toBe(false);
+  });
+});
+
+describe("the owner's pages' words (UI-U1)", () => {
+  it("names the agent's trading state in plain words", () => {
+    expect(tradingStateWords("armed")).toEqual({ label: "Automatic trading on", tone: "positive" });
+    expect(tradingStateWords("awaiting_first_trade")?.label).toContain("approve its first plan");
+    expect(tradingStateWords("unarmed")?.label).toContain("each trade waits for you");
+    expect(tradingStateWords(null)).toBeNull();
+  });
+
+  it("says what Research now does and what it costs in one line", () => {
+    const line = researchLine(summary(), "Alpha Agent #7");
+    expect(line).toContain("Alpha Agent #7 searches the web");
+    expect(line).toContain("about 0.15 to 0.30 USDC of credits");
   });
 });

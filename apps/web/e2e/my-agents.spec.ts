@@ -8,10 +8,12 @@ import { FAKE_USDC, FUNDING_ADDRESS, FakeApi, fundedDashboard } from "./fake-api
 import { FakeChain } from "./fake-chain";
 
 /**
- * My Agents (P1-U9, D-218) against the test build with the mock wallet and the
- * fake API, in the pinned image at 1440px and 380px: every state captured and
- * scanned, the Scan and refund flows, and that another wallet sees nothing of
- * an owner's agents. The live suite runs the page on the real stack.
+ * My Agents (P1-U9, D-218; redesigned in UI-U1) against the test build with
+ * the mock wallet and the fake API, in the pinned image at 1440px and 380px:
+ * every state captured and scanned, the trading tile, the credits tile with
+ * Research now and the add-credits dialog, the refund flow, and that another
+ * wallet sees nothing of an owner's agents. The live suite runs the page on
+ * the real stack.
  */
 const ANT = 3;
 const BEE = 14;
@@ -124,13 +126,13 @@ test.describe("every state, captured and scanned", () => {
     const c = card(page, 7);
     await expect(c.getByText("Waiting for reveal")).toBeVisible();
     await expect(c.getByTestId("unrevealed-note")).toBeVisible();
-    await expect(c.getByRole("button", { name: "Run Scan now" })).toBeDisabled();
+    await expect(c.getByRole("button", { name: "Research now" })).toBeDisabled();
     await expect(c.getByTestId("scan-unavailable")).toContainText("revealed");
     await capture(page, main(page), "agents-unrevealed.png");
     expect(await blockingViolations(page)).toEqual([]);
   });
 
-  test("a funded agent shows its status, funding address, QR code, credits, spend and activity", async ({
+  test("a funded agent shows its trading tile first, its credits and research, then its funding address, spend and activity", async ({
     page,
   }) => {
     const chain = new FakeChain();
@@ -149,9 +151,25 @@ test.describe("every state, captured and scanned", () => {
       "data-qr-value",
       FUNDING_ADDRESS,
     );
-    await expect(fund).toContainText("4.9944");
     await expect(fund).toContainText("held");
-    await expect(fund.getByTestId("trading-summary")).toContainText("only you can withdraw from");
+    // UI-U1: the trading account is the centerpiece with one obvious action; the credits tile
+    // beside it carries the balance against the cap and Research now with its cost.
+    const trading = c.getByTestId("trading-summary");
+    await expect(trading).toContainText("only you can withdraw from");
+    await expect(trading.getByRole("link", { name: "Set up trading" })).toHaveAttribute(
+      "href",
+      "/agents/7/portfolio",
+    );
+    const credits = c.getByRole("region", { name: "Credits of Alpha Agent #7" });
+    await expect(credits).toContainText("4.9944");
+    await expect(credits).toContainText("of 50.00 during the beta");
+    await expect(credits.getByTestId("credits-held-note")).toContainText("2.00 USDC held");
+    await expect(credits.getByRole("button", { name: "Research now" })).toBeEnabled();
+    await expect(credits).toContainText("about 0.15 to 0.30 USDC");
+    const tradingBox = await trading.boundingBox();
+    const fundBox = await fund.boundingBox();
+    if (!tradingBox || !fundBox) throw new Error("the tiles did not render");
+    expect(tradingBox.y).toBeLessThan(fundBox.y);
     const spend = c.getByRole("region", { name: "Spend of Alpha Agent #7" });
     await expect(spend).toContainText("0.1716");
     await expect(spend.getByRole("listitem")).toHaveCount(4);
@@ -162,7 +180,7 @@ test.describe("every state, captured and scanned", () => {
       "href",
       "/configure?agent=7",
     );
-    await expect(c.getByTestId("scan-status")).toHaveText("Last Scan completed at 16:41 UTC.");
+    await expect(c.getByTestId("scan-status")).toHaveText("Last research completed at 16:41 UTC.");
     await capture(page, main(page), "agents-funded.png");
     expect(await blockingViolations(page)).toEqual([]);
   });
@@ -192,7 +210,8 @@ test.describe("every state, captured and scanned", () => {
     const c = card(page, 7);
     await expect(c.getByText("Paused: no credits")).toBeVisible();
     await expect(c.getByTestId("restricted-note")).toContainText("Safety checks keep running");
-    await expect(c.getByRole("button", { name: "Run Scan now" })).toBeDisabled();
+    await expect(c.getByTestId("restricted-note")).toContainText("Add credits to resume");
+    await expect(c.getByRole("button", { name: "Research now" })).toBeDisabled();
     await expect(c.getByRole("button", { name: "Refund credits" })).toBeDisabled();
     await expect(c.getByTestId("scan-unavailable")).toContainText("at least 0.15 USDC");
     await capture(page, main(page), "agents-restricted.png");
@@ -201,7 +220,9 @@ test.describe("every state, captured and scanned", () => {
 });
 
 test.describe("owner actions", () => {
-  test("Run Scan shows its cost, then its result and the new activity entry", async ({ page }) => {
+  test("Research now says what it does and costs, then shows its result and the new activity entry", async ({
+    page,
+  }) => {
     const chain = new FakeChain();
     chain.mint(7n, MOCK_WALLET_ADDRESS, BEE);
     const api = new FakeApi(chain);
@@ -209,13 +230,15 @@ test.describe("owner actions", () => {
     await open(page, chain, api);
     await connect(page);
     const c = card(page, 7);
-    await c.getByRole("button", { name: "Run Scan now" }).click();
-    const dialog = page.getByRole("dialog", { name: "Run a Scan for Alpha Agent #7?" });
-    await expect(dialog).toContainText("about 0.15 to 0.30 USDC");
-    await capture(page, dialog, "agents-scan-dialog.png");
-    await dialog.getByRole("button", { name: "Run Scan" }).click();
-    await expect(c.getByTestId("scan-result")).toContainText("Scan requested");
-    await expect(c.getByTestId("scan-status")).toHaveText("Last Scan completed at 17:02 UTC.", {
+    // UI-U1: one plain button with its line, no confirmation dialog.
+    const credits = c.getByRole("region", { name: "Credits of Alpha Agent #7" });
+    await expect(credits).toContainText("searches the web");
+    await expect(credits).toContainText("about 0.15 to 0.30 USDC");
+    await capture(page, credits, "agents-credits-tile.png");
+    expect(await blockingViolations(page)).toEqual([]);
+    await credits.getByRole("button", { name: "Research now" }).click();
+    await expect(c.getByTestId("scan-result")).toContainText("Research requested");
+    await expect(c.getByTestId("scan-status")).toHaveText("Last research completed at 17:02 UTC.", {
       timeout: 15_000,
     });
     await expect(c.getByRole("list", { name: "Activity entries of Alpha Agent #7" })).toContainText(
@@ -261,8 +284,7 @@ test.describe("owner actions", () => {
     await expect(c.getByText("Ready", { exact: true })).toBeVisible();
     const d = api.dashboards.get(7n);
     if (d?.credits) d.credits.spendableUsdcE6 = "10";
-    await c.getByRole("button", { name: "Run Scan now" }).click();
-    await page.getByRole("dialog").getByRole("button", { name: "Run Scan" }).click();
+    await c.getByRole("button", { name: "Research now" }).click();
     await expect(c.getByTestId("scan-result")).toHaveText(
       "A Scan needs at least 0.15 USDC of credits. Add USDC to the funding address.",
     );
@@ -334,7 +356,11 @@ test.describe("add credits from the app (Phase 2 tuning)", () => {
     });
     await open(page, chain, api);
     await connect(page);
-    return { chain, api, panel: card(page, 7).getByTestId("add-credits") };
+    // UI-U1: the form lives in a small dialog opened from the credits tile.
+    await card(page, 7).getByTestId("open-add-credits").click();
+    const dialog = page.getByRole("dialog", { name: "Add credits to Alpha Agent #7" });
+    await expect(dialog).toBeVisible();
+    return { chain, api, panel: dialog.getByTestId("add-credits") };
   }
 
   test("sends USDC from the wallet to the funding address in one transaction, and shows it credited", async ({

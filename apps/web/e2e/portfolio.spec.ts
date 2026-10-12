@@ -96,16 +96,32 @@ async function blockingViolations(page: Page) {
 
 const sent = (chain: FakeChain) => chain.transactions.filter((t) => !t.reverted);
 
+/** UI-U1: deposit and withdraw live in small dialogs; any open dialog is closed first. */
+async function openDialog(page: Page, which: "deposit" | "withdraw") {
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await main(page).getByTestId(`open-${which}`).click();
+  const form = page.getByTestId(`${which}-form`);
+  await expect(form).toBeVisible();
+  return form;
+}
+
 test.describe("every state, captured and scanned", () => {
   test("a wallet off the allowlist is told before it opens an account", async ({ page }) => {
     const s = stack(noAccountFixture(MOCK_WALLET_ADDRESS, false));
     await open(page, s);
     const card = main(page).getByTestId("open-account");
+    // UI-U1: plain words, what it means and what to do, and the step blocked in the setup flow.
     await expect(card.getByTestId("allowlist-block")).toContainText(
-      "not on the beta deposit allowlist",
+      "not yet allowed to deposit during the beta",
     );
-    await expect(card.getByRole("button", { name: "Open trading account" })).toBeDisabled();
-    await expect(card.getByTestId("caps")).toContainText("not on the beta allowlist");
+    await expect(card.getByTestId("allowlist-block")).toContainText("Ask the platform to add it");
+    await expect(main(page).getByRole("button", { name: "Open trading account" })).toBeDisabled();
+    await expect(card.getByTestId("caps")).toContainText("Not yet allowed to deposit");
+    await expect(main(page).locator('[data-testid=setup-step][data-step="open"]')).toHaveAttribute(
+      "data-state",
+      "blocked",
+    );
     await capture(page, main(page), "portfolio-not-allowlisted.png");
     expect(await blockingViolations(page)).toEqual([]);
     expect(s.chain.transactions).toEqual([]);
@@ -114,11 +130,16 @@ test.describe("every state, captured and scanned", () => {
   test("an allowlisted owner opens the trading account from the wallet", async ({ page }) => {
     const s = stack(noAccountFixture(MOCK_WALLET_ADDRESS));
     await open(page, s);
-    const card = main(page).getByTestId("open-account");
+    // UI-U1: the guided setup flow, its first step next with the action right there.
+    const flow = main(page).getByTestId("setup-flow");
+    await expect(flow).toHaveAttribute("data-done", "0");
+    await expect(flow.locator('[data-step="open"]')).toHaveAttribute("data-state", "next");
     await capture(page, main(page), "portfolio-no-account.png");
-    await card.getByRole("button", { name: "Open trading account" }).click();
+    await flow.getByRole("button", { name: "Open trading account" }).click();
     await expect(main(page).getByTestId("positions")).toBeVisible({ timeout: 15_000 });
     expect(s.trading.calls).toEqual(["createPersonalAccount"]);
+    await expect(flow.locator('[data-step="open"]')).toHaveAttribute("data-state", "done");
+    await expect(flow.locator('[data-step="deposit"]')).toHaveAttribute("data-state", "next");
     expect(await blockingViolations(page)).toEqual([]);
   });
 
@@ -130,8 +151,16 @@ test.describe("every state, captured and scanned", () => {
     await open(page, s);
     const positions = main(page).getByTestId("positions");
     await expect(main(page).getByTestId("portfolio-overview")).toContainText("40.00");
+    await expect(main(page).getByTestId("portfolio-overview")).toContainText("20s old");
+    // UI-U1: positions as tiles, the arming card right under the hero.
+    await expect(positions.getByTestId("asset-row")).toHaveCount(2);
     await expect(positions).toContainText("75.00%");
-    await expect(positions).toContainText("20s old");
+    const heroBox = await main(page).getByTestId("portfolio-overview").boundingBox();
+    const armingBox = await main(page).getByTestId("arming-card").boundingBox();
+    const positionsBox = await positions.boundingBox();
+    if (!heroBox || !armingBox || !positionsBox) throw new Error("the sections did not render");
+    expect(heroBox.y).toBeLessThan(armingBox.y);
+    expect(armingBox.y).toBeLessThan(positionsBox.y);
     await expect(main(page).getByTestId("caps")).toContainText("40.00 of 100.00 USDC");
     await expect(main(page).getByTestId("arming-card")).toHaveAttribute("data-state", "unarmed");
     const approval = main(page).getByTestId("approval-card");
@@ -162,13 +191,16 @@ test.describe("every state, captured and scanned", () => {
       },
     });
     await open(page, s);
-    await expect(main(page).getByTestId("positions")).toContainText("Paused");
+    await expect(main(page).getByTestId("portfolio-overview")).toContainText("Paused");
+    // UI-U1: a standing block on deposits is named on the page, before the dialog opens.
     await expect(main(page).getByTestId("deposit-block")).toContainText("paused");
     await capture(page, main(page), "portfolio-paused.png");
     expect(await blockingViolations(page)).toEqual([]);
-    const withdraw = main(page).getByTestId("withdraw-form");
+    const withdraw = await openDialog(page, "withdraw");
     await withdraw.getByRole("button", { name: "Withdraw all" }).click();
     await expect(status(withdraw)).toHaveAttribute("data-state", "confirmed", { timeout: 15_000 });
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("dialog")).toHaveCount(0);
     const tx = sent(s.chain).at(-1);
     if (!tx) throw new Error("no withdrawal sent");
     const call = decodeFunctionData({ abi: ACCOUNT_ABI, data: tx.data });
@@ -182,14 +214,21 @@ test.describe("every state, captured and scanned", () => {
 });
 
 test.describe("deposits", () => {
-  test("approves exactly the amount, then deposits it", async ({ page }) => {
+  test("approves exactly the amount, then deposits it, and the form shows success with no leftover amount", async ({
+    page,
+  }) => {
     const s = stack();
     await open(page, s);
-    const form = main(page).getByTestId("deposit-form");
+    const form = await openDialog(page, "deposit");
     await form.getByLabel("Amount").fill("25");
     await form.getByRole("button", { name: "Deposit", exact: true }).click();
     await expect(status(form)).toHaveAttribute("data-state", "confirmed", { timeout: 15_000 });
     await expect(status(form)).toContainText("Deposited 25 USDC");
+    // UI-U1: a success clears the amount and any message that went with it.
+    await expect(form.getByLabel("Amount")).toHaveValue("");
+    await expect(form.getByRole("alert")).toHaveCount(0);
+    await capture(page, form, "portfolio-deposit-done.png");
+    expect(await blockingViolations(page)).toEqual([]);
     const [approve, deposit] = sent(s.chain);
     if (!approve || !deposit) throw new Error("expected two transactions");
     expect(decodeFunctionData({ abi: ERC20_ABI, data: approve.data }).args).toEqual([
@@ -209,17 +248,16 @@ test.describe("deposits", () => {
     const p = portfolioFixture(MOCK_WALLET_ADDRESS);
     const s = stack(p);
     await open(page, s);
-    const form = main(page).getByTestId("deposit-form");
+    const form = await openDialog(page, "deposit");
     const deposit = form.getByRole("button", { name: "Deposit", exact: true });
     await form.getByLabel("Amount").fill("61");
     await expect(form).toContainText("past its beta cap");
     await expect(deposit).toBeDisabled();
     s.trading.portfolio = { ...p, caps: { ...p.caps, platformTotalUsdcE6: "1995000000" } };
     await page.reload();
-    await main(page).getByTestId("deposit-form").getByLabel("Amount").fill("6");
-    await expect(main(page).getByTestId("deposit-form")).toContainText(
-      "the platform past its beta cap",
-    );
+    const again = await openDialog(page, "deposit");
+    await again.getByLabel("Amount").fill("6");
+    await expect(again).toContainText("the platform past its beta cap");
     s.trading.portfolio = {
       ...p,
       prices: {
@@ -235,7 +273,11 @@ test.describe("deposits", () => {
     await expect(main(page).getByTestId("deposit-block")).toContainText(
       "more than 1% away from $1",
     );
-    await capture(page, main(page).getByTestId("deposit-form"), "portfolio-deposit-blocked.png");
+    const blockedForm = await openDialog(page, "deposit");
+    await expect(blockedForm.getByTestId("deposit-form-block")).toContainText(
+      "more than 1% away from $1",
+    );
+    await capture(page, blockedForm, "portfolio-deposit-blocked.png");
     expect(s.chain.transactions).toEqual([]);
   });
 
@@ -243,7 +285,7 @@ test.describe("deposits", () => {
     const s = stack();
     await open(page, s);
     await page.evaluate(() => window.__mockWallet?.rejectNextWrite());
-    const form = main(page).getByTestId("deposit-form");
+    const form = await openDialog(page, "deposit");
     await form.getByLabel("Amount").fill("5");
     await form.getByRole("button", { name: "Deposit", exact: true }).click();
     await expect(status(form)).toHaveAttribute("data-state", "rejected");
@@ -305,6 +347,10 @@ test.describe("the activation sweep (F-U10)", () => {
     await expect(checks).toContainText("at most 3.80 USDC");
     await expect(checks.getByTestId("activation-check")).toHaveCount(8);
     await expect(checks.locator('[data-check="GRANT"]')).toHaveAttribute("data-ok", "false");
+    // UI-U1: the permission item says who registers it and when, with the button right there.
+    const grant = checks.locator('[data-check="GRANT"]');
+    await expect(grant).toContainText("Your wallet registers it when you press");
+    await expect(grant.getByTestId("turn-on")).toBeEnabled();
     await expect(arming.getByTestId("activation-blocked")).toHaveCount(0);
     await capture(page, arming, "portfolio-before-sweep.png");
     await arming.getByTestId("turn-on").click();
@@ -379,10 +425,11 @@ test.describe("the activation sweep (F-U10)", () => {
     await expect(panel.getByTestId("activation-outcome")).toContainText(
       "The agent ran out of credits",
     );
-    await expect(panel.getByRole("link", { name: "Add credits" })).toHaveAttribute(
-      "href",
-      "#credits",
-    );
+    // UI-U1: the action opens the add-credits dialog right there.
+    await panel.getByRole("button", { name: "Add credits" }).click();
+    await expect(page.getByRole("dialog", { name: "Add credits to Agent #7" })).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("dialog")).toHaveCount(0);
     await capture(page, panel, "portfolio-sweep-failed.png");
     expect(await blockingViolations(page)).toEqual([]);
     await panel.getByTestId("turn-on").click();
@@ -413,6 +460,10 @@ test.describe("the activation sweep (F-U10)", () => {
       "One thing to do before turning trading on.",
     );
     await expect(arming.locator('[data-check="CREDITS"]')).toContainText("Credits are short");
+    // UI-U1: the unmet item carries its action.
+    await expect(
+      arming.locator('[data-check="CREDITS"]').getByRole("button", { name: "Add credits" }),
+    ).toBeVisible();
     await expect(arming.getByTestId("turn-on")).toBeDisabled();
     expect(s.trading.calls).toEqual([]);
     expect(s.trading.starts).toBe(0);
@@ -444,10 +495,16 @@ test.describe("the overview, gas and named refusals (Phase 2 tuning)", () => {
     await expect(overview).toContainText("40.00");
     await expect(overview).toContainText("Fresh, 20s old");
     await expect(overview).toContainText("Normal");
-    await expect(
-      main(page).getByTestId("portfolio-credits").getByTestId("add-credits"),
-    ).toBeVisible();
     await capture(page, overview, "portfolio-overview.png");
+    // UI-U1: the credits tile opens the add-credits form in a small dialog.
+    const credits = main(page).getByTestId("portfolio-credits");
+    await expect(credits).toContainText("4.9944");
+    await credits.getByRole("button", { name: "Add credits" }).click();
+    const dialog = page.getByRole("dialog", { name: "Add credits to Agent #7" });
+    await expect(dialog.getByTestId("add-credits")).toBeVisible();
+    await page.evaluate(() => Promise.all(document.getAnimations().map((a) => a.finished)));
+    await capture(page, dialog, "portfolio-add-credits-dialog.png");
+    expect(await blockingViolations(page)).toEqual([]);
   });
 
   test("warns when the wallet's MON is too low for gas", async ({ page }) => {

@@ -5,19 +5,13 @@ import { type ManagedAccount, formatAmount } from "@alpha-agents/domain";
 import {
   ActivationChecks,
   ActivationPanel,
+  AmountDisplay,
   ApprovalCard,
-  AssetMakeupTable,
-  FundOverview,
-  OlderAccountCard,
   type ApprovalView,
   ArmingCard,
+  type AssetRow,
   Button,
   CapsPanel,
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
   Dialog,
   DialogContent,
   DialogDescription,
@@ -29,23 +23,26 @@ import {
   GoalSummary,
   Input,
   ManagedAccountChoice,
-  PortfolioOverview,
-  PositionsPanel,
+  NoChangeNotice,
+  OlderAccountCard,
+  PageLoading,
+  PlanCard,
+  PortfolioHero,
+  PositionTiles,
   RecentTrades,
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-  Skeleton,
+  SetupFlow,
   WalletActionStatus,
   WhyNotTraded,
-  NoChangeNotice,
-  PlanCard,
 } from "@alpha-agents/ui";
-import { ArrowLeft, PlugZap, Wallet } from "lucide-react";
+import { ArrowDownToLine, ArrowLeft, ArrowUpFromLine, PlugZap, Plus, Wallet } from "lucide-react";
 import Link from "next/link";
 import { type ReactNode, useEffect, useState } from "react";
+import type { Address } from "viem";
 import type {
   AnyPortfolioJson,
   IntentJson,
@@ -53,7 +50,9 @@ import type {
   PortfolioJson,
   PortfolioV3Json,
 } from "@/api/client";
+import { tradingStateWords } from "@/agent/my-agents";
 import { latestDecided, planCardView } from "@/agent/plan-card";
+import { setupSteps } from "@/agent/setup-flow";
 import { ActivationTerminal } from "./activation-terminal";
 import { useWalletSession } from "@/auth/session";
 import {
@@ -67,6 +66,7 @@ import {
   positions,
   priceAgeSeconds,
   priceUsable,
+  v2AssetRows,
   withdrawCheck,
 } from "@/agent/portfolio";
 import {
@@ -89,19 +89,22 @@ import {
 import { walletTxText } from "@/agent/wallet-tx";
 import { AddCreditsSection } from "@/components/credits/add-credits-section";
 import { AgentHoldings } from "@/components/holdings/agent-holdings";
-import type { Address } from "viem";
 
 /**
- * The portfolio page (P2-U7, FINAL_PLAN 4.10): the owner manages the agent's
- * trading money from their own wallet. Open the account, deposit, see
- * positions, arm the agent, approve or reject its proposals, watch its trades
- * settle, read why it did not trade, and withdraw at any time. Every value is
- * read through the owner session; every money action is the owner's own
- * wallet transaction.
+ * The portfolio page (P2-U7, FINAL_PLAN 4.10; redesigned in UI-U1): the owner
+ * manages the agent's trading money from their own wallet. A visual hero
+ * (the total value, the allocation, the performance line and the mode),
+ * automatic trading right under it with every unmet check linked to its
+ * action, the guided setup flow, positions as tiles, deposit and withdraw in
+ * small dialogs, the plan, the trades and why the agent did not trade. Every
+ * value is read through the owner session; every money action is the owner's
+ * own wallet transaction.
  */
 
 const toUnits = (raw: string, asset: Asset) =>
   formatAmount(BigInt(raw), DECIMALS[asset], { maxFractionDigits: DECIMALS[asset] });
+const usdc2 = (e6: bigint | string) =>
+  formatAmount(BigInt(e6), 6, { maxFractionDigits: 2, minFractionDigits: 2 });
 
 function StatusFor({
   status,
@@ -147,6 +150,41 @@ function capsView(p: AnyPortfolioJson) {
     roomUsdc: capRoom(p).room,
     allowlisted: !p.allowlist.enabled || p.allowlist.listed,
   };
+}
+
+/** The blocks that stand on every deposit, whatever the amount: named on the page before the dialog opens. */
+const STANDING_BLOCKS: readonly string[] = [
+  "NOT_ALLOWLISTED",
+  "PAUSED",
+  "DEPOSITS_CLOSED",
+  "USDC_DEPEGGED",
+  "USDC_PRICE_UNAVAILABLE",
+  "HELD_PRICE_UNAVAILABLE",
+];
+function standingBlock(p: AnyPortfolioJson, token?: Address, asset: Asset = "USDC"): string | null {
+  if (p.custody === "v3") {
+    const first = token ?? depositTokens(p)[0]?.address ?? p.contracts.usdc;
+    const b = depositCheckV3(p, first, 1n);
+    return b.block && STANDING_BLOCKS.includes(b.block) ? b.message : null;
+  }
+  const b = depositCheck(p, asset, 1n);
+  return b.block && STANDING_BLOCKS.includes(b.block) ? b.message : null;
+}
+
+/** The prices' state in one line, for the hero. */
+function pricesNote(p: AnyPortfolioJson): string {
+  if (p.custody === "v3") {
+    const { prices } = overviewV3(p);
+    const oldest =
+      prices.oldestAgeSeconds === null
+        ? ""
+        : `; the oldest price is ${prices.oldestAgeSeconds}s old`;
+    return `${prices.priced} of ${prices.held} held tokens priced${oldest}.`;
+  }
+  const pv = positionsView(p);
+  return pv.price.usable
+    ? `WMON at ${pv.price.monUsd} USD. Fresh, ${pv.price.ageSeconds}s old.`
+    : `The WMON price is not usable (${pv.price.reason}), ${pv.price.ageSeconds}s old: its value and the total are unknown until a fresh one arrives.`;
 }
 
 function approvalView(
@@ -234,6 +272,18 @@ function PlanSection({
   );
 }
 
+/** UI-U1: a form's amount clears the moment its action is confirmed, so no stale value or error outlives a success. */
+function useClearOnSuccess(
+  status: ActionStatus | null,
+  action: PortfolioAction,
+  clear: () => void,
+) {
+  const confirmed = status?.action === action && status.progress.state === "confirmed";
+  useEffect(() => {
+    if (confirmed) clear();
+  }, [confirmed, clear]);
+}
+
 /** Deposit: the asset, the amount with a Max, every block named before anything is sent. */
 function DepositForm({
   p,
@@ -248,6 +298,7 @@ function DepositForm({
 }) {
   const [asset, setAsset] = useState<Asset>("USDC");
   const [text, setText] = useState("");
+  useClearOnSuccess(status, "deposit", () => setText(""));
   const amount = parseAmount(text, DECIMALS[asset]);
   const check = text === "" ? null : amount === null ? null : depositCheck(p, asset, amount);
   const walletHeld = asset === "USDC" ? p.wallet.usdcE6 : p.wallet.wmonWei;
@@ -258,27 +309,11 @@ function DepositForm({
     text !== "" && amount === null
       ? `Enter a number with at most ${DECIMALS[asset]} decimals.`
       : (check?.message ?? undefined);
-  const blockedBefore = depositCheck(p, asset, 1n);
-  const standing =
-    blockedBefore.block &&
-    [
-      "NOT_ALLOWLISTED",
-      "PAUSED",
-      "DEPOSITS_CLOSED",
-      "USDC_DEPEGGED",
-      "USDC_PRICE_UNAVAILABLE",
-    ].includes(blockedBefore.block)
-      ? blockedBefore.message
-      : null;
+  const standing = standingBlock(p, undefined, asset);
   return (
     <section aria-label="Deposit" className="flex flex-col gap-3" data-testid="deposit-form">
-      <h3 className="text-base font-semibold">Deposit</h3>
-      <p className="text-sm text-foreground-muted">
-        From your wallet into the trading account. Your wallet approves exactly this amount, then
-        deposits it.
-      </p>
       {standing ? (
-        <p role="alert" className="text-sm text-warning" data-testid="deposit-block">
+        <p role="alert" className="text-sm text-warning" data-testid="deposit-form-block">
           {standing}
         </p>
       ) : null}
@@ -352,6 +387,7 @@ function WithdrawForm({
 }) {
   const [asset, setAsset] = useState<Asset>("USDC");
   const [text, setText] = useState("");
+  useClearOnSuccess(status, "withdraw", () => setText(""));
   const amount = parseAmount(text, DECIMALS[asset]);
   const held = asset === "USDC" ? p.balances.usdcE6 : p.balances.wmonWei;
   const error =
@@ -362,11 +398,6 @@ function WithdrawForm({
         : (withdrawCheck(p, asset, amount) ?? undefined);
   return (
     <section aria-label="Withdraw" className="flex flex-col gap-3" data-testid="withdraw-form">
-      <h3 className="text-base font-semibold">Withdraw</h3>
-      <p className="text-sm text-foreground-muted">
-        To your wallet, at any time and in every mode, even paused or reduce-only. Withdrawals read
-        no price and need nothing from the platform.
-      </p>
       <div className="flex flex-wrap items-end gap-3">
         <Field label="Asset" className="w-32">
           {(control) => (
@@ -433,6 +464,7 @@ function DepositFormV3({
   const tokens = depositTokens(p);
   const [address, setAddress] = useState<string>(tokens[0]?.address ?? p.contracts.usdc);
   const [text, setText] = useState("");
+  useClearOnSuccess(status, "deposit", () => setText(""));
   const token = tokens.find((t) => t.address.toLowerCase() === address.toLowerCase()) ?? tokens[0];
   const decimals = token?.decimals ?? 6;
   const amount = parseAmount(text, decimals);
@@ -446,19 +478,7 @@ function DepositFormV3({
     text !== "" && amount === null
       ? `Enter a number with at most ${decimals} decimals.`
       : (check?.message ?? undefined);
-  const blockedBefore = token ? depositCheckV3(p, token.address, 1n) : null;
-  const standing =
-    blockedBefore?.block &&
-    [
-      "NOT_ALLOWLISTED",
-      "PAUSED",
-      "DEPOSITS_CLOSED",
-      "USDC_DEPEGGED",
-      "USDC_PRICE_UNAVAILABLE",
-      "HELD_PRICE_UNAVAILABLE",
-    ].includes(blockedBefore.block)
-      ? blockedBefore.message
-      : null;
+  const standing = token ? standingBlock(p, token.address) : null;
   return (
     <section
       aria-label="Deposit"
@@ -466,13 +486,8 @@ function DepositFormV3({
       data-testid="deposit-form"
       data-custody="v3"
     >
-      <h3 className="text-base font-semibold">Deposit</h3>
-      <p className="text-sm text-foreground-muted">
-        From your wallet into the trading account: USDC or any registered core token with a price.
-        Your wallet approves exactly this amount, then deposits it.
-      </p>
       {standing ? (
-        <p role="alert" className="text-sm text-warning" data-testid="deposit-block">
+        <p role="alert" className="text-sm text-warning" data-testid="deposit-form-block">
           {standing}
         </p>
       ) : null}
@@ -551,6 +566,7 @@ function WithdrawFormV3({
   const held = withdrawable(p);
   const [address, setAddress] = useState<string>(held[0]?.token ?? p.contracts.usdc);
   const [text, setText] = useState("");
+  useClearOnSuccess(status, "withdraw", () => setText(""));
   const token = held.find((h) => h.token.toLowerCase() === address.toLowerCase()) ?? held[0];
   const decimals = token?.decimals ?? 6;
   const amount = parseAmount(text, decimals);
@@ -575,14 +591,9 @@ function WithdrawFormV3({
       data-testid="withdraw-form"
       data-custody="v3"
     >
-      <h3 className="text-base font-semibold">Withdraw</h3>
-      <p className="text-sm text-foreground-muted">
-        To your wallet, at any time and in every mode, even paused or reduce-only. Withdrawals read
-        no price and need nothing from the platform.
-      </p>
       {held.length === 0 ? (
         <p className="text-sm text-foreground-muted" data-testid="withdraw-empty">
-          Nothing is held yet.
+          Nothing is held yet. Deposit first; withdrawals come back here at any time.
         </p>
       ) : (
         <div className="flex flex-wrap items-end gap-3">
@@ -656,6 +667,22 @@ function WithdrawFormV3({
   );
 }
 
+/** A tile in the page's bottom grid: credits, limits, gas, the goal. */
+function Tile({
+  children,
+  className,
+  ...rest
+}: { children: ReactNode; className?: string } & Record<string, unknown>) {
+  return (
+    <div
+      className={`flex flex-col gap-3 rounded-lg border border-border bg-surface p-4 ${className ?? ""}`}
+      {...rest}
+    >
+      {children}
+    </div>
+  );
+}
+
 export function PortfolioPage({
   environment,
   agentId,
@@ -678,6 +705,10 @@ export function PortfolioPage({
   const [choiceOpen, setChoiceOpen] = useState(false);
   const [choice, setChoice] = useState<ManagedAccount>("vault");
   const [choiceFor, setChoiceFor] = useState<"arm" | "turn-on">("turn-on");
+  // UI-U1: deposit, withdraw and add credits live in small dialogs opened by compact buttons.
+  const [depositOpen, setDepositOpen] = useState(false);
+  const [withdrawOpen, setWithdrawOpen] = useState(false);
+  const [creditsOpen, setCreditsOpen] = useState(false);
   useEffect(() => {
     setNow(new Date().toISOString());
     if (!sweeping) return;
@@ -762,9 +793,7 @@ export function PortfolioPage({
         {pf.error ? (
           <EmptyState icon={PlugZap} title="Could not read this portfolio" description={pf.error} />
         ) : (
-          <div aria-busy="true" aria-label="Loading the portfolio" className="flex flex-col gap-4">
-            <Skeleton className="h-48 w-full" />
-          </div>
+          <PageLoading label="Reading the portfolio" />
         )}
       </div>
     );
@@ -817,363 +846,349 @@ export function PortfolioPage({
           : "Start the activation sweep"}
     </Button>
   ) : null;
+  // UI-U1: the trading permission item carries the button that registers it; otherwise the
+  // button sits with the card's actions, as before.
+  const grantRow =
+    read !== null &&
+    canSweep &&
+    activation === null &&
+    read.checks.some((c) => c.code === "GRANT" && !c.ok);
+
+  // UI-U1: the hero's rows, total and series.
+  const heroRows: readonly AssetRow[] = v3 ? overviewV3(v3).rows : v2 ? v2AssetRows(v2) : [];
+  const heroTotal = v3
+    ? v3.navUsdcE6
+    : v2
+      ? (positionsView(v2).totalUsdc?.toString() ?? null)
+      : null;
+  const tileRows: readonly AssetRow[] = v3 ? assetRows(v3) : v2 ? v2AssetRows(v2) : [];
+  const stateWords = tradingStateWords(armingState);
+  const standing = p.account ? standingBlock(p) : null;
+  const goalHref = `/agents/${agentId.toString()}/goal`;
+  const steps = setupSteps(
+    {
+      allowlisted,
+      hasAccount: p.account !== null,
+      valueUsdcE6: heroTotal === null ? null : BigInt(heroTotal),
+      goalConfigured: pf.summary?.goal ? pf.summary.goal.configured : null,
+      armingState,
+      custody: p.custody,
+    },
+    {
+      open: (
+        <Button size="sm" disabled={!allowlisted || acting} onClick={pf.openAccount}>
+          Open trading account
+        </Button>
+      ),
+      deposit: (
+        <Button size="sm" onClick={() => setDepositOpen(true)}>
+          <ArrowDownToLine aria-hidden /> Deposit
+        </Button>
+      ),
+      goal: (
+        <Button asChild size="sm">
+          <Link href={goalHref}>Set goal</Link>
+        </Button>
+      ),
+      turnOn: (
+        <Button asChild size="sm" variant="secondary">
+          <a href="#automatic-trading">Go to automatic trading</a>
+        </Button>
+      ),
+    },
+  );
+  const setupDone = steps.every((s) => s.state === "done");
+  const addCreditsButton = (
+    <Button size="sm" variant="secondary" onClick={() => setCreditsOpen(true)}>
+      <Plus aria-hidden /> Add credits
+    </Button>
+  );
 
   return (
     <div className="flex flex-col gap-6" data-testid="portfolio">
       {header}
-      {pf.summary?.goal ? (
-        <GoalSummary
-          state={pf.summary.goal.state}
-          aggressiveness={pf.summary.goal.aggressiveness}
-          action={
-            <Button asChild size="sm" variant="ghost">
-              <Link href={`/agents/${agentId.toString()}/goal`}>
-                {pf.summary.goal.configured ? "Change goal" : "Set goal"}
-              </Link>
-            </Button>
-          }
-        />
-      ) : null}
       {pf.error ? (
         <p role="alert" className="text-sm text-warning">
           {pf.error} The values below are from the last read.
         </p>
       ) : null}
+      {setupDone ? null : <SetupFlow steps={steps} />}
       {!p.account ? (
-        <Card data-testid="open-account">
-          <CardHeader>
-            <CardTitle>Open a trading account</CardTitle>
-            <CardDescription>
-              {v3
-                ? `A trading account on the fund agent's set holds ${name}'s trading money on ${network}: USDC and any registered token the agent buys. Your wallet creates it; only you can withdraw from it, at any time.`
-                : `A PersonalAccount on ${network} holds ${name}'s trading money. Your wallet creates it; only you can withdraw from it, at any time.`}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-4">
-            {allowlisted ? null : (
-              <p role="alert" className="text-sm text-warning" data-testid="allowlist-block">
-                This wallet is not on the beta deposit allowlist yet, so the account could not take
-                deposits. Ask the platform to add it before you open the account.
-              </p>
-            )}
+        <section
+          aria-label="Before you open the account"
+          className="flex flex-col gap-4 rounded-lg border border-border bg-surface p-4"
+          data-testid="open-account"
+        >
+          <p className="text-sm text-foreground-muted">
+            {v3
+              ? `A trading account on the fund agent's set holds ${name}'s trading money on ${network}: USDC and any registered token the agent buys. Your wallet creates it; only you can withdraw from it, at any time.`
+              : `A PersonalAccount on ${network} holds ${name}'s trading money. Your wallet creates it; only you can withdraw from it, at any time.`}
+          </p>
+          {allowlisted ? null : (
+            <p role="alert" className="text-sm text-warning" data-testid="allowlist-block">
+              This wallet is not yet allowed to deposit during the beta, so the account could not
+              take deposits. Ask the platform to add it, then open the account.
+            </p>
+          )}
+          <div className="grid gap-4 md:grid-cols-2">
             <CapsPanel caps={capsView(p)} />
             <GasNotice
               monWei={BigInt(p.wallet.monWei)}
               lowBelowWei={LOW_GAS_WEI}
               network={network}
             />
-            <div className="flex flex-wrap gap-2">
-              <Button disabled={!allowlisted || acting} onClick={pf.openAccount}>
-                Open trading account
-              </Button>
-            </div>
-            <StatusFor status={pf.status} actions={["open"]} />
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="grid gap-6 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
-          <Card>
-            <CardContent className="flex flex-col gap-6 pt-6">
-              {v3 ? (
-                <>
-                  <FundOverview {...overviewV3(v3)} />
-                  <section
-                    aria-label="Positions"
-                    className="flex flex-col gap-3"
-                    data-testid="positions"
-                    data-custody="v3"
-                  >
-                    <AssetMakeupTable
-                      rows={assetRows(v3)}
-                      totalValueUsdcE6={v3.navUsdcE6}
-                      asOf={null}
-                    />
-                  </section>
-                  {creditsV3.length > 0 ? (
-                    <section
-                      aria-label="Claimable credits"
-                      className="flex flex-col gap-2"
-                      data-testid="claimable"
-                    >
-                      <h3 className="text-base font-semibold">Held for you to claim</h3>
-                      <p className="text-sm text-foreground-muted">
-                        A transfer out of the account failed, so these tokens are held for you.
-                        Claim them to your wallet.
-                      </p>
-                      {creditsV3.map((c) => (
-                        <div key={c.symbol} className="flex flex-wrap items-center gap-3">
-                          <span className="numeric text-sm">
-                            {tokenUnits(c.amount, c.decimals)} {c.symbol}
-                          </span>
-                          <Button
-                            size="sm"
-                            variant="secondary"
-                            disabled={acting}
-                            onClick={() =>
-                              pf.claimToken({
-                                address: c.token,
-                                symbol: c.symbol,
-                                decimals: c.decimals,
-                              })
-                            }
-                          >
-                            Claim {c.symbol}
-                          </Button>
-                        </div>
-                      ))}
-                      <StatusFor status={pf.status} actions={["claim"]} />
-                    </section>
-                  ) : null}
-                </>
-              ) : v2 ? (
-                <>
-                  <PortfolioOverview positions={positionsView(v2)} />
-                  <PositionsPanel positions={positionsView(v2)} showValue={false} />
-                </>
-              ) : null}
-              {v2 && credits.length > 0 ? (
-                <section
-                  aria-label="Claimable credits"
-                  className="flex flex-col gap-2"
-                  data-testid="claimable"
-                >
-                  <h3 className="text-base font-semibold">Held for you to claim</h3>
-                  <p className="text-sm text-foreground-muted">
-                    A transfer out of the account failed, so these tokens are held for you. Claim
-                    them to your wallet.
-                  </p>
-                  {credits.map((c) => (
-                    <div key={c.asset} className="flex flex-wrap items-center gap-3">
-                      <span className="numeric text-sm">
-                        {formatAmount(c.amount, DECIMALS[c.asset], { maxFractionDigits: 6 })}{" "}
-                        {c.asset}
-                      </span>
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        disabled={acting}
-                        onClick={() => pf.claim(c.asset, c.token)}
-                      >
-                        Claim {c.asset}
-                      </Button>
-                    </div>
-                  ))}
-                  <StatusFor status={pf.status} actions={["claim"]} />
-                </section>
-              ) : null}
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="flex flex-col gap-6 pt-6">
-              <GasNotice
-                monWei={BigInt(p.wallet.monWei)}
-                lowBelowWei={LOW_GAS_WEI}
-                network={network}
-              />
-              {v3 ? (
-                <DepositFormV3
-                  p={v3}
-                  busy={acting}
-                  status={pf.status}
-                  onDeposit={pf.depositToken}
-                />
-              ) : v2 ? (
-                <DepositForm p={v2} busy={acting} status={pf.status} onDeposit={pf.deposit} />
-              ) : null}
-              <CapsPanel caps={capsView(p)} />
-              {v3 ? (
-                <WithdrawFormV3
-                  p={v3}
-                  busy={acting}
-                  status={pf.status}
-                  onWithdraw={pf.withdrawToken}
-                  onWithdrawEverything={pf.withdrawEverything}
-                />
-              ) : v2 ? (
-                <WithdrawForm p={v2} busy={acting} status={pf.status} onWithdraw={pf.withdraw} />
-              ) : null}
-            </CardContent>
-          </Card>
-        </div>
-      )}
-      {olderAccount}
-      {pf.summary ? (
-        <Card data-testid="portfolio-credits" id="credits">
-          <CardContent className="pt-6">
-            <AddCreditsSection
-              agentId={agentId}
-              agentName={name}
-              environment={environment}
-              fundingAddress={(pf.summary.funding?.fundingAddress as Address | undefined) ?? null}
-              creditsUsdcE6={pf.summary.credits}
-              capUsdcE6={pf.summary.creditCap}
-              onCredited={pf.refresh}
-            />
-          </CardContent>
-        </Card>
-      ) : null}
-      <Dialog open={choiceOpen} onOpenChange={setChoiceOpen}>
-        <DialogContent aria-describedby="managed-account-description">
-          <DialogHeader>
-            <DialogTitle>Which account should the agent manage?</DialogTitle>
-            <DialogDescription id="managed-account-description">
-              This agent has a vault and a personal account. The trading permission your wallet
-              registers next serves the one you choose.
-            </DialogDescription>
-          </DialogHeader>
-          <ManagedAccountChoice
-            value={choice}
-            onValueChange={setChoice}
-            vault={accounts?.vault ? { address: accounts.vault } : null}
-            personal={accounts?.personal ? { address: accounts.personal } : null}
-            disabled={acting}
-          />
-          <div className="flex flex-wrap justify-end gap-2">
-            <Button variant="secondary" onClick={() => setChoiceOpen(false)}>
-              Cancel
-            </Button>
-            <Button
-              data-testid="confirm-managed-account"
-              disabled={acting}
-              onClick={() => {
-                setChoiceOpen(false);
-                if (choiceFor === "arm") pf.arm(choice);
-                else pf.turnOn(choice);
-              }}
-            >
-              {choiceFor === "arm" ? "Arm" : "Turn on automatic trading"}
-            </Button>
           </div>
-        </DialogContent>
-      </Dialog>
-      <AgentHoldings agentId={agentId} environment={environment} card />
-      {p.account ? (
+          <StatusFor status={pf.status} actions={["open"]} />
+        </section>
+      ) : (
         <>
-          <ArmingCard
-            agentName={name}
-            arming={{
-              state: armingState,
-              validUntilDate: pf.arming?.arming.validUntilDate ?? null,
-              renewalDue: pf.arming?.arming.renewalDue ?? false,
-              endedMessage: pf.arming?.arming.ended?.message ?? null,
-              fundingAddress: pf.arming?.fundingAddress ?? null,
-              managed: accounts?.vault ? accounts.managed : null,
-            }}
-            {...(read && armingState === "unarmed"
-              ? {
-                  intro:
-                    "Every trade the agent proposes waits for your approval until you turn on automatic trading: your wallet registers its trading permission, the agent runs one activation sweep to build its first plan, and approving that plan arms it.",
-                }
-              : {})}
+          <PortfolioHero
+            totalValueUsdcE6={heroTotal}
+            rows={heroRows}
+            series={pf.windowView?.series ?? []}
+            mode={p.mode ?? "NORMAL"}
+            {...(stateWords ? { state: stateWords } : {})}
+            custody={p.custody}
+            note={pricesNote(p)}
             actions={
               <>
-                {/* F-U10: with the orchestrator reachable, turning trading on runs the sweep (D-291);
-                    without it, the P2-U6 arming alone, as before. */}
-                {read && !activation ? sweepButton : null}
-                {!read && armingState === "unarmed" ? (
-                  <Button
-                    disabled={acting || !pf.arming?.grantCall}
-                    onClick={() => (askAccount ? openChoice("arm") : pf.arm())}
+                <Button onClick={() => setDepositOpen(true)} data-testid="open-deposit">
+                  <ArrowDownToLine aria-hidden /> Deposit
+                </Button>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => setWithdrawOpen(true)}
+                  data-testid="open-withdraw"
+                >
+                  <ArrowUpFromLine aria-hidden /> Withdraw
+                </Button>
+                {standing ? (
+                  <p
+                    role="alert"
+                    className="w-full text-sm text-warning"
+                    data-testid="deposit-block"
                   >
-                    Arm
-                  </Button>
-                ) : null}
-                {armingState !== "unarmed" && pf.arming?.arming.renewalDue ? (
-                  <Button disabled={acting || !pf.arming?.grantCall} onClick={() => pf.arm()}>
-                    Renew
-                  </Button>
-                ) : null}
-                {armingState !== "unarmed" ? (
-                  <Button variant="danger" disabled={acting} onClick={pf.disarm}>
-                    Disarm
-                  </Button>
+                    {standing}
+                  </p>
                 ) : null}
               </>
             }
-            status={
-              activation ? null : (
-                <StatusFor status={pf.status} actions={["arm", "turn-on", "disarm"]} />
-              )
-            }
-          >
-            {read && canSweep ? (
-              <ActivationChecks
-                checks={read.checks}
-                ceilingUsdcE6={read.ceilingUsdcE6}
-                tierLabel={read.tier.label}
+          />
+          <div id="automatic-trading" className="flex flex-col gap-4">
+            <ArmingCard
+              agentName={name}
+              arming={{
+                state: armingState,
+                validUntilDate: pf.arming?.arming.validUntilDate ?? null,
+                renewalDue: pf.arming?.arming.renewalDue ?? false,
+                endedMessage: pf.arming?.arming.ended?.message ?? null,
+                fundingAddress: pf.arming?.fundingAddress ?? null,
+                managed: accounts?.vault ? accounts.managed : null,
+              }}
+              {...(read && armingState === "unarmed"
+                ? {
+                    intro:
+                      "Every trade the agent proposes waits for your approval until you turn on automatic trading: your wallet registers its trading permission, the agent runs one activation sweep to build its first plan, and approving that plan arms it.",
+                  }
+                : {})}
+              actions={
+                <>
+                  {/* F-U10: with the orchestrator reachable, turning trading on runs the sweep (D-291);
+                      without it, the P2-U6 arming alone, as before. */}
+                  {read && !activation && !grantRow ? sweepButton : null}
+                  {!read && armingState === "unarmed" ? (
+                    <Button
+                      disabled={acting || !pf.arming?.grantCall}
+                      onClick={() => (askAccount ? openChoice("arm") : pf.arm())}
+                    >
+                      Arm
+                    </Button>
+                  ) : null}
+                  {armingState !== "unarmed" && pf.arming?.arming.renewalDue ? (
+                    <Button disabled={acting || !pf.arming?.grantCall} onClick={() => pf.arm()}>
+                      Renew
+                    </Button>
+                  ) : null}
+                  {armingState !== "unarmed" ? (
+                    <Button variant="danger" disabled={acting} onClick={pf.disarm}>
+                      Disarm
+                    </Button>
+                  ) : null}
+                </>
+              }
+              status={
+                activation ? null : (
+                  <StatusFor status={pf.status} actions={["arm", "turn-on", "disarm"]} />
+                )
+              }
+            >
+              {read && canSweep ? (
+                <ActivationChecks
+                  checks={read.checks}
+                  ceilingUsdcE6={read.ceilingUsdcE6}
+                  tierLabel={read.tier.label}
+                  notes={{
+                    GRANT:
+                      "The trading permission is not on chain yet. Your wallet registers it when you press Turn on automatic trading.",
+                  }}
+                  actions={{
+                    GOAL: (
+                      <Button asChild size="sm" variant="secondary">
+                        <Link href={goalHref}>Set goal</Link>
+                      </Button>
+                    ),
+                    TRADING_BALANCE: (
+                      <Button size="sm" variant="secondary" onClick={() => setDepositOpen(true)}>
+                        Deposit
+                      </Button>
+                    ),
+                    CREDITS: addCreditsButton,
+                    GRANT: grantRow ? sweepButton : null,
+                  }}
+                />
+              ) : null}
+            </ArmingCard>
+            {activation ? (
+              <ActivationPanel
+                view={activation}
+                now={now}
+                actions={
+                  activation.outcome.action === "approve" ? (
+                    <Button asChild size="sm">
+                      <a href="#plan">Read the plan</a>
+                    </Button>
+                  ) : activation.outcome.action === "add_credits" ? (
+                    <>
+                      {sweepButton}
+                      {addCreditsButton}
+                    </>
+                  ) : activation.outcome.action === "retry" ? (
+                    sweepButton
+                  ) : undefined
+                }
+                status={<StatusFor status={pf.status} actions={["arm", "turn-on", "disarm"]} />}
+                terminal={
+                  activation.status === "running" ? (
+                    <ActivationTerminal agentId={agentId} live />
+                  ) : undefined
+                }
               />
             ) : null}
-          </ArmingCard>
-          {activation ? (
-            <ActivationPanel
-              view={activation}
-              now={now}
-              actions={
-                activation.outcome.action === "approve" ? (
-                  <Button asChild size="sm">
-                    <a href="#plan">Read the plan</a>
-                  </Button>
-                ) : activation.outcome.action === "add_credits" ? (
-                  <>
-                    {sweepButton}
-                    <Button asChild size="sm" variant="secondary">
-                      <a href="#credits">Add credits</a>
-                    </Button>
-                  </>
-                ) : activation.outcome.action === "retry" ? (
-                  sweepButton
-                ) : undefined
-              }
-              status={<StatusFor status={pf.status} actions={["arm", "turn-on", "disarm"]} />}
-              terminal={
-                activation.status === "running" ? (
-                  <ActivationTerminal agentId={agentId} live />
-                ) : undefined
-              }
-            />
-          ) : null}
-          {waiting.length > 0 ? (
-            <div className="flex flex-col gap-4">
-              {waiting.slice(0, 3).map((i) => (
-                <ApprovalCard
-                  key={i.intentId}
-                  approval={approvalView(i, p, network, armingState === "awaiting_first_trade")}
-                  actions={
-                    armingState === "unarmed" ? (
-                      <>
-                        <span className="text-sm text-foreground-muted">
-                          Arm the agent first; approving needs its trading permission.
-                        </span>
-                        <Button
-                          variant="secondary"
-                          disabled={acting}
-                          onClick={() => pf.reject(i.intentId)}
-                        >
-                          Reject
-                        </Button>
-                      </>
-                    ) : (
-                      <>
-                        <Button disabled={acting} onClick={() => pf.approve(i.intentId)}>
-                          {armingState === "awaiting_first_trade" ? "Approve and arm" : "Approve"}
-                        </Button>
-                        <Button
-                          variant="secondary"
-                          disabled={acting}
-                          onClick={() => pf.reject(i.intentId)}
-                        >
-                          Reject
-                        </Button>
-                      </>
-                    )
-                  }
-                />
-              ))}
+            {waiting.length > 0 ? (
+              <div className="flex flex-col gap-4">
+                {waiting.slice(0, 3).map((i) => (
+                  <ApprovalCard
+                    key={i.intentId}
+                    approval={approvalView(i, p, network, armingState === "awaiting_first_trade")}
+                    actions={
+                      armingState === "unarmed" ? (
+                        <>
+                          <span className="text-sm text-foreground-muted">
+                            Arm the agent first; approving needs its trading permission.
+                          </span>
+                          <Button
+                            variant="secondary"
+                            disabled={acting}
+                            onClick={() => pf.reject(i.intentId)}
+                          >
+                            Reject
+                          </Button>
+                        </>
+                      ) : (
+                        <>
+                          <Button disabled={acting} onClick={() => pf.approve(i.intentId)}>
+                            {armingState === "awaiting_first_trade" ? "Approve and arm" : "Approve"}
+                          </Button>
+                          <Button
+                            variant="secondary"
+                            disabled={acting}
+                            onClick={() => pf.reject(i.intentId)}
+                          >
+                            Reject
+                          </Button>
+                        </>
+                      )
+                    }
+                  />
+                ))}
+                <StatusFor status={pf.status} actions={["approve", "reject"]} />
+              </div>
+            ) : (
               <StatusFor status={pf.status} actions={["approve", "reject"]} />
-            </div>
-          ) : (
-            <StatusFor status={pf.status} actions={["approve", "reject"]} />
-          )}
+            )}
+          </div>
+          <section
+            aria-label="Positions"
+            className="flex flex-col gap-3"
+            data-testid="positions"
+            data-custody={p.custody}
+            id="positions"
+          >
+            <h2 className="text-lg font-semibold">Positions</h2>
+            <PositionTiles rows={tileRows} totalValueUsdcE6={heroTotal} />
+            {creditsV3.length > 0 ? (
+              <section
+                aria-label="Claimable credits"
+                className="flex flex-col gap-2 rounded-lg border border-border bg-surface p-4"
+                data-testid="claimable"
+              >
+                <h3 className="text-base font-semibold">Held for you to claim</h3>
+                <p className="text-sm text-foreground-muted">
+                  A transfer out of the account failed, so these tokens are held for you. Claim them
+                  to your wallet.
+                </p>
+                {creditsV3.map((c) => (
+                  <div key={c.symbol} className="flex flex-wrap items-center gap-3">
+                    <span className="numeric text-sm">
+                      {tokenUnits(c.amount, c.decimals)} {c.symbol}
+                    </span>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      disabled={acting}
+                      onClick={() =>
+                        pf.claimToken({ address: c.token, symbol: c.symbol, decimals: c.decimals })
+                      }
+                    >
+                      Claim {c.symbol}
+                    </Button>
+                  </div>
+                ))}
+                <StatusFor status={pf.status} actions={["claim"]} />
+              </section>
+            ) : null}
+            {v2 && credits.length > 0 ? (
+              <section
+                aria-label="Claimable credits"
+                className="flex flex-col gap-2 rounded-lg border border-border bg-surface p-4"
+                data-testid="claimable"
+              >
+                <h3 className="text-base font-semibold">Held for you to claim</h3>
+                <p className="text-sm text-foreground-muted">
+                  A transfer out of the account failed, so these tokens are held for you. Claim them
+                  to your wallet.
+                </p>
+                {credits.map((c) => (
+                  <div key={c.asset} className="flex flex-wrap items-center gap-3">
+                    <span className="numeric text-sm">
+                      {formatAmount(c.amount, DECIMALS[c.asset], { maxFractionDigits: 6 })}{" "}
+                      {c.asset}
+                    </span>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      disabled={acting}
+                      onClick={() => pf.claim(c.asset, c.token)}
+                    >
+                      Claim {c.asset}
+                    </Button>
+                  </div>
+                ))}
+                <StatusFor status={pf.status} actions={["claim"]} />
+              </section>
+            ) : null}
+          </section>
           {pf.planCard ? (
             <PlanSection
               card={pf.planCard}
@@ -1211,7 +1226,159 @@ export function PortfolioPage({
             />
           </div>
         </>
+      )}
+      <div className="grid gap-4 lg:grid-cols-3">
+        {pf.summary ? (
+          <Tile data-testid="portfolio-credits" id="credits">
+            <span className="text-xs tracking-wide text-foreground-muted uppercase">Credits</span>
+            <div className="flex flex-wrap items-baseline gap-2">
+              <AmountDisplay
+                value={pf.summary.credits}
+                decimals={6}
+                maxFractionDigits={4}
+                symbol="USDC"
+                className="text-2xl font-semibold"
+              />
+              <span className="text-xs text-foreground-muted">
+                of {usdc2(pf.summary.creditCap)} during the beta
+              </span>
+            </div>
+            <p className="text-xs text-foreground-muted">
+              Credits pay for the agent&apos;s research: the activation sweep and every research
+              cycle draw on them, never on the trading account.
+            </p>
+            <div className="mt-auto flex flex-wrap gap-2">{addCreditsButton}</div>
+          </Tile>
+        ) : null}
+        {pf.summary?.goal ? (
+          <Tile aria-label="Goal">
+            <span className="text-xs tracking-wide text-foreground-muted uppercase">Goal</span>
+            <GoalSummary
+              state={pf.summary.goal.state}
+              aggressiveness={pf.summary.goal.aggressiveness}
+              action={
+                <Button asChild size="sm" variant="secondary">
+                  <Link href={goalHref}>
+                    {pf.summary.goal.configured ? "Change goal" : "Set goal"}
+                  </Link>
+                </Button>
+              }
+            />
+          </Tile>
+        ) : null}
+        {p.account ? (
+          <>
+            <Tile>
+              <CapsPanel caps={capsView(p)} />
+            </Tile>
+            <Tile>
+              <GasNotice
+                monWei={BigInt(p.wallet.monWei)}
+                lowBelowWei={LOW_GAS_WEI}
+                network={network}
+              />
+            </Tile>
+          </>
+        ) : null}
+      </div>
+      {olderAccount}
+      <AgentHoldings agentId={agentId} environment={environment} card />
+
+      <Dialog open={depositOpen} onOpenChange={setDepositOpen}>
+        <DialogContent aria-describedby="deposit-description">
+          <DialogHeader>
+            <DialogTitle>Deposit into the trading account</DialogTitle>
+            <DialogDescription id="deposit-description">
+              {v3
+                ? "From your wallet: USDC or any registered core token with a price. Your wallet approves exactly this amount, then deposits it."
+                : "From your wallet into the trading account. Your wallet approves exactly this amount, then deposits it."}
+            </DialogDescription>
+          </DialogHeader>
+          {v3 ? (
+            <DepositFormV3 p={v3} busy={acting} status={pf.status} onDeposit={pf.depositToken} />
+          ) : v2 ? (
+            <DepositForm p={v2} busy={acting} status={pf.status} onDeposit={pf.deposit} />
+          ) : null}
+        </DialogContent>
+      </Dialog>
+      <Dialog open={withdrawOpen} onOpenChange={setWithdrawOpen}>
+        <DialogContent aria-describedby="withdraw-description">
+          <DialogHeader>
+            <DialogTitle>Withdraw to your wallet</DialogTitle>
+            <DialogDescription id="withdraw-description">
+              At any time and in every mode, even paused or reduce-only. Withdrawals read no price
+              and need nothing from the platform.
+            </DialogDescription>
+          </DialogHeader>
+          {v3 ? (
+            <WithdrawFormV3
+              p={v3}
+              busy={acting}
+              status={pf.status}
+              onWithdraw={pf.withdrawToken}
+              onWithdrawEverything={pf.withdrawEverything}
+            />
+          ) : v2 ? (
+            <WithdrawForm p={v2} busy={acting} status={pf.status} onWithdraw={pf.withdraw} />
+          ) : null}
+        </DialogContent>
+      </Dialog>
+      {pf.summary ? (
+        <Dialog open={creditsOpen} onOpenChange={setCreditsOpen}>
+          <DialogContent aria-describedby="credits-description">
+            <DialogHeader>
+              <DialogTitle>Add credits to {name}</DialogTitle>
+              <DialogDescription id="credits-description">
+                Your wallet sends USDC to {name}&apos;s funding address in one transaction, and it
+                becomes credits with no other step.
+              </DialogDescription>
+            </DialogHeader>
+            <AddCreditsSection
+              agentId={agentId}
+              agentName={name}
+              environment={environment}
+              fundingAddress={(pf.summary.funding?.fundingAddress as Address | undefined) ?? null}
+              creditsUsdcE6={pf.summary.credits}
+              capUsdcE6={pf.summary.creditCap}
+              onCredited={pf.refresh}
+            />
+          </DialogContent>
+        </Dialog>
       ) : null}
+      <Dialog open={choiceOpen} onOpenChange={setChoiceOpen}>
+        <DialogContent aria-describedby="managed-account-description">
+          <DialogHeader>
+            <DialogTitle>Which account should the agent manage?</DialogTitle>
+            <DialogDescription id="managed-account-description">
+              This agent has a vault and a personal account. The trading permission your wallet
+              registers next serves the one you choose.
+            </DialogDescription>
+          </DialogHeader>
+          <ManagedAccountChoice
+            value={choice}
+            onValueChange={setChoice}
+            vault={accounts?.vault ? { address: accounts.vault } : null}
+            personal={accounts?.personal ? { address: accounts.personal } : null}
+            disabled={acting}
+          />
+          <div className="flex flex-wrap justify-end gap-2">
+            <Button variant="secondary" onClick={() => setChoiceOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              data-testid="confirm-managed-account"
+              disabled={acting}
+              onClick={() => {
+                setChoiceOpen(false);
+                if (choiceFor === "arm") pf.arm(choice);
+                else pf.turnOn(choice);
+              }}
+            >
+              {choiceFor === "arm" ? "Arm" : "Turn on automatic trading"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

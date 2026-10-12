@@ -69,18 +69,19 @@ test("an owner funds an agent, runs a Scan, reads its entry and refunds it; anot
 
   // A plain USDC transfer to the address becomes credits, with no other step.
   await mintTestUsdc(shown, 1_000_000n, FORK);
-  const fund = card.getByRole("region", { name: `Fund Alpha Agent #${id}` });
-  // The credits amount is the panel's first amount; its symbol is a separate element.
-  await expect(fund.locator("[data-slot=amount]").first()).toHaveText("1USDC", { timeout: 90_000 });
+  // The credits amount is the credits tile's first amount (UI-U1); its symbol is a separate element.
+  const creditsTile = card.getByTestId("credits-tile");
+  await expect(creditsTile.locator("[data-slot=amount]").first()).toHaveText("1USDC", {
+    timeout: 90_000,
+  });
   await expect(card.getByText("Ready", { exact: true })).toBeVisible({ timeout: 30_000 });
 
-  // Run a Scan from the page: the confirmation states the cost; the entry arrives when it ends.
-  await card.getByRole("button", { name: "Run Scan now" }).click();
-  const dialog = page.getByRole("dialog", { name: `Run a Scan for Alpha Agent #${id}?` });
-  await expect(dialog).toContainText("about 0.15 to 0.30 USDC");
-  await dialog.getByRole("button", { name: "Run Scan" }).click();
-  await expect(card.getByTestId("scan-result")).toContainText("Scan requested");
-  await expect(card.getByTestId("scan-status")).toContainText(/Last Scan (completed|stopped)/, {
+  // Research now from the page (UI-U1): its line states the cost; the entry arrives when it ends.
+  const credits = card.getByRole("region", { name: `Credits of Alpha Agent #${id}` });
+  await expect(credits).toContainText("about 0.15 to 0.30 USDC");
+  await credits.getByRole("button", { name: "Research now" }).click();
+  await expect(card.getByTestId("scan-result")).toContainText("Research requested");
+  await expect(card.getByTestId("scan-status")).toContainText(/Last research (completed|stopped)/, {
     timeout: 8 * 60_000,
   });
   await expect(card.getByTestId("scan-status")).toContainText("completed");

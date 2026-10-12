@@ -8,6 +8,7 @@ import {
   ActivityFeed,
   Button,
   Card,
+  CreditsTile,
   Dialog,
   DialogClose,
   DialogContent,
@@ -19,15 +20,19 @@ import {
   EmptyState,
   FundAgentPanel,
   GoalSummary,
+  PageLoading,
   RunStatusBadge,
   SectionLabel,
   Skeleton,
   SpeciesArt,
   SpendPanel,
   Tag,
+  TradingTile,
+  type TradingTileView,
 } from "@alpha-agents/ui";
-import { Bot, PlugZap, RotateCcw, Sparkles, Wallet } from "lucide-react";
+import { Bot, Compass, PlugZap, Plus, RotateCcw, Wallet } from "lucide-react";
 import Link from "next/link";
+import { useState } from "react";
 import type { Address } from "viem";
 import { AddCreditsSection } from "@/components/credits/add-credits-section";
 import { AgentHoldings } from "@/components/holdings/agent-holdings";
@@ -38,9 +43,10 @@ import {
   othersKeepCredits,
   refundAmountText,
   refundAvailability,
+  researchLine,
   scanAvailability,
-  scanCostText,
   scanStatusText,
+  tradingStateWords,
 } from "@/agent/my-agents";
 import { useOwnedAgents } from "@/agent/use-agents";
 import { type ActionState, useMyAgent } from "@/agent/use-my-agent";
@@ -69,22 +75,53 @@ function ActionLine({ action, testId }: { action: ActionState; testId: string })
   );
 }
 
-/** One owned agent: what it is, what it is doing, how to fund it, its spend and its activity. */
+/**
+ * One owned agent (UI-U1, the owner's UI direction): the trading account as
+ * the centerpiece with one obvious action, the credits and the research
+ * action near the top, and the spend, the activity, the funding address and
+ * every holding at the bottom.
+ */
 function MyAgentCard({ agent, environment }: { agent: AgentView; environment: EnvironmentId }) {
-  const name = `Alpha Agent #${agent.id.toString()}`;
+  const id = agent.id.toString();
+  const name = `Alpha Agent #${id}`;
   const species = agent.species === 0 ? null : speciesByIndex(agent.species);
-  const { summary, activity, trading, error, refund, scan, requestRefund, requestScan, refresh } =
-    useMyAgent(agent.id);
+  const {
+    summary,
+    activity,
+    trading,
+    windowView,
+    armingState,
+    error,
+    refund,
+    scan,
+    requestRefund,
+    requestScan,
+    refresh,
+  } = useMyAgent(agent.id);
+  const [creditsOpen, setCreditsOpen] = useState(false);
   const canScan = summary ? scanAvailability(summary) : null;
   const canRefund = summary ? refundAvailability(summary) : null;
   const scanLine = summary ? scanStatusText(summary) : null;
+  const state = trading?.hasAccount ? tradingStateWords(armingState) : null;
+  const tile: TradingTileView | null = trading
+    ? {
+        hasAccount: trading.hasAccount,
+        valueUsdcE6: trading.valueUsdcE6,
+        mode: trading.mode ?? null,
+        makeup: trading.makeup,
+        series: windowView?.series ?? null,
+        usdcShareBps: trading.usdcShareBps,
+        ...(trading.restLabel ? { restLabel: trading.restLabel } : {}),
+        ...(state ? { state } : {}),
+      }
+    : null;
 
   return (
     <Card
       className="flex flex-col gap-5 p-5"
       data-testid="my-agent-card"
-      data-agent-id={agent.id.toString()}
-      aria-labelledby={`agent-${agent.id.toString()}-name`}
+      data-agent-id={id}
+      aria-labelledby={`agent-${id}-name`}
     >
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
         <SpeciesArt
@@ -95,7 +132,7 @@ function MyAgentCard({ agent, environment }: { agent: AgentView; environment: En
         />
         <div className="flex min-w-0 flex-1 flex-col gap-2">
           <div className="flex flex-wrap items-center gap-2">
-            <h2 id={`agent-${agent.id.toString()}-name`} className="text-lg font-semibold">
+            <h2 id={`agent-${id}-name`} className="text-lg font-semibold">
               {name}
             </h2>
             {species ? (
@@ -122,18 +159,12 @@ function MyAgentCard({ agent, environment }: { agent: AgentView; environment: En
               aggressiveness={summary.goal.aggressiveness}
               action={
                 <Button asChild size="sm" variant="ghost">
-                  <Link href={`/agents/${agent.id.toString()}/goal`}>
+                  <Link href={`/agents/${id}/goal`}>
                     {summary.goal.configured ? "Change goal" : "Set goal"}
                   </Link>
                 </Button>
               }
             />
-          ) : null}
-          {summary?.runStatus === "restricted" ? (
-            <p className="text-sm text-foreground-muted" data-testid="restricted-note">
-              Research is paused because {name} has no credits. Safety checks keep running. Send
-              USDC to its funding address to resume.
-            </p>
           ) : null}
           {summary?.runStatus === "awaiting_reveal" ? (
             <p className="text-sm text-foreground-muted" data-testid="unrevealed-note">
@@ -148,56 +179,150 @@ function MyAgentCard({ agent, environment }: { agent: AgentView; environment: En
           ) : null}
         </div>
         <Button asChild variant="secondary" size="sm" className="self-start">
-          <Link href={`/configure?agent=${agent.id.toString()}`}>Configure</Link>
+          <Link href={`/configure?agent=${id}`}>Configure</Link>
         </Button>
       </div>
 
       {summary ? (
         <>
-          <div className="grid gap-6 lg:grid-cols-3">
-            <FundAgentPanel
+          <div className="grid gap-4 lg:grid-cols-3">
+            <TradingTile
               agentName={name}
-              funding={summary.funding}
-              trading={trading}
-              addCredits={
-                <AddCreditsSection
-                  agentId={agent.id}
-                  agentName={name}
-                  environment={environment}
-                  fundingAddress={(summary.funding?.fundingAddress as Address | undefined) ?? null}
-                  creditsUsdcE6={summary.credits}
-                  capUsdcE6={summary.creditCap}
-                  onCredited={refresh}
-                />
+              trading={tile}
+              primary={
+                <Button asChild size="sm">
+                  <Link href={`/agents/${id}/portfolio`}>
+                    {trading?.hasAccount ? "Open portfolio" : "Set up trading"}
+                  </Link>
+                </Button>
               }
-              tradingAction={
-                <span className="flex flex-wrap gap-2">
-                  <Button asChild size="sm" variant="secondary">
-                    <Link href={`/agents/${agent.id.toString()}/portfolio`}>
-                      {trading?.hasAccount ? "Open portfolio" : "Set up trading"}
-                    </Link>
-                  </Button>
+              secondary={
+                <>
                   {trading?.hasAccount ? (
                     <Button asChild size="sm" variant="secondary">
-                      <Link href={`/agents/${agent.id.toString()}/window`}>Performance</Link>
+                      <Link href={`/agents/${id}/window`}>Performance</Link>
                     </Button>
                   ) : null}
-                  <Button asChild size="sm" variant="secondary">
-                    <Link href={`/agents/${agent.id.toString()}/skills`} data-testid="skills-link">
+                  <Button asChild size="sm" variant="ghost">
+                    <Link href={`/agents/${id}/skills`} data-testid="skills-link">
                       Skills
                     </Link>
                   </Button>
-                  <Button asChild size="sm" variant="secondary">
-                    <Link
-                      href={`/agents/${agent.id.toString()}/settings`}
-                      data-testid="settings-link"
-                    >
+                  <Button asChild size="sm" variant="ghost">
+                    <Link href={`/agents/${id}/settings`} data-testid="settings-link">
                       Settings
                     </Link>
                   </Button>
-                </span>
+                </>
               }
             />
+            <CreditsTile
+              agentName={name}
+              creditsUsdcE6={summary.credits}
+              capUsdcE6={summary.creditCap}
+              heldUsdcE6={summary.held}
+              restrictedNote={
+                summary.runStatus === "restricted"
+                  ? `Research is paused because ${name} has no credits. Safety checks keep running. Add credits to resume.`
+                  : null
+              }
+              addCredits={
+                <>
+                  <Dialog open={creditsOpen} onOpenChange={setCreditsOpen}>
+                    <DialogTrigger asChild>
+                      <Button size="sm" data-testid="open-add-credits">
+                        <Plus aria-hidden /> Add credits
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent aria-describedby={`agent-${id}-credits-description`}>
+                      <DialogHeader>
+                        <DialogTitle>Add credits to {name}</DialogTitle>
+                        <DialogDescription id={`agent-${id}-credits-description`}>
+                          Your wallet sends USDC to {name}&apos;s funding address in one
+                          transaction, and it becomes credits with no other step.
+                        </DialogDescription>
+                      </DialogHeader>
+                      <AddCreditsSection
+                        agentId={agent.id}
+                        agentName={name}
+                        environment={environment}
+                        fundingAddress={
+                          (summary.funding?.fundingAddress as Address | undefined) ?? null
+                        }
+                        creditsUsdcE6={summary.credits}
+                        capUsdcE6={summary.creditCap}
+                        onCredited={refresh}
+                      />
+                    </DialogContent>
+                  </Dialog>
+                  <Dialog>
+                    <DialogTrigger asChild>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        disabled={!canRefund?.enabled || refund.state === "working"}
+                      >
+                        <RotateCcw aria-hidden /> Refund credits
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Refund {name}&apos;s credits?</DialogTitle>
+                        <DialogDescription>
+                          Sends {refundAmountText(summary)}, your own share of the credits, from its
+                          funding address to your wallet.{" "}
+                          {othersKeepCredits(summary)
+                            ? "Credits other people contributed stay with the agent. "
+                            : null}
+                          The refund is tied to your ownership (epoch{" "}
+                          <span className="numeric">{summary.ownerEpoch.toString()}</span>): if{" "}
+                          {name} changes hands first, it is refused and the credits stay with the
+                          agent. Research pauses until it is funded again.
+                        </DialogDescription>
+                      </DialogHeader>
+                      <DialogFooter>
+                        <DialogClose asChild>
+                          <Button variant="secondary">Cancel</Button>
+                        </DialogClose>
+                        <DialogClose asChild>
+                          <Button onClick={requestRefund}>Refund</Button>
+                        </DialogClose>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
+                </>
+              }
+              research={
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  disabled={!canScan?.enabled || scan.state === "working"}
+                  onClick={requestScan}
+                >
+                  <Compass aria-hidden /> Research now
+                </Button>
+              }
+              researchLine={researchLine(summary, name)}
+              researchStatus={
+                <>
+                  {canScan && !canScan.enabled ? (
+                    <p className="text-xs text-foreground-muted" data-testid="scan-unavailable">
+                      {canScan.reason}
+                    </p>
+                  ) : null}
+                  {scanLine ? (
+                    <p className="text-xs text-foreground-muted" data-testid="scan-status">
+                      {scanLine}
+                    </p>
+                  ) : null}
+                  <ActionLine action={scan} testId="scan-result" />
+                  <ActionLine action={refund} testId="refund-result" />
+                </>
+              }
+            />
+          </div>
+
+          <div className="grid gap-6 border-t border-border pt-5 lg:grid-cols-3">
             <SpendPanel
               agentName={name}
               spent24hUsdcE6={summary.spent24h}
@@ -208,97 +333,27 @@ function MyAgentCard({ agent, environment }: { agent: AgentView; environment: En
               <ActivityFeed
                 label={`Activity entries of ${name}`}
                 entries={activity.slice(0, 5)}
-                empty="No activity yet. Entries appear after each Scan."
+                empty="No activity yet. Entries appear after each research run."
               />
             </section>
-          </div>
-
-          <div className="flex flex-col gap-2 border-t border-border pt-4">
-            <div className="flex flex-wrap items-center gap-2">
-              <Dialog>
-                <DialogTrigger asChild>
-                  <Button size="sm" disabled={!canScan?.enabled || scan.state === "working"}>
-                    <Sparkles aria-hidden /> Run Scan now
-                  </Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Run a Scan for {name}?</DialogTitle>
-                    <DialogDescription>
-                      {name} searches the web, reads the most relevant pages and saves its notes. A
-                      Scan costs {scanCostText(summary)} of credits, taken as it runs; if its
-                      credits run out, it stops.
-                    </DialogDescription>
-                  </DialogHeader>
-                  <DialogFooter>
-                    <DialogClose asChild>
-                      <Button variant="secondary">Cancel</Button>
-                    </DialogClose>
-                    <DialogClose asChild>
-                      <Button onClick={requestScan}>Run Scan</Button>
-                    </DialogClose>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
-              <Dialog>
-                <DialogTrigger asChild>
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    disabled={!canRefund?.enabled || refund.state === "working"}
-                  >
-                    <RotateCcw aria-hidden /> Refund credits
-                  </Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Refund {name}&apos;s credits?</DialogTitle>
-                    <DialogDescription>
-                      Sends {refundAmountText(summary)}, your own share of the credits, from its
-                      funding address to your wallet.{" "}
-                      {othersKeepCredits(summary)
-                        ? "Credits other people contributed stay with the agent. "
-                        : null}
-                      The refund is tied to your ownership (epoch{" "}
-                      <span className="numeric">{summary.ownerEpoch.toString()}</span>): if {name}{" "}
-                      changes hands first, it is refused and the credits stay with the agent.
-                      Research pauses until it is funded again.
-                    </DialogDescription>
-                  </DialogHeader>
-                  <DialogFooter>
-                    <DialogClose asChild>
-                      <Button variant="secondary">Cancel</Button>
-                    </DialogClose>
-                    <DialogClose asChild>
-                      <Button onClick={requestRefund}>Refund</Button>
-                    </DialogClose>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
-            </div>
-            {canScan && !canScan.enabled ? (
-              <p className="text-xs text-foreground-muted" data-testid="scan-unavailable">
-                {canScan.reason}
-              </p>
-            ) : null}
-            {scanLine ? (
-              <p className="text-xs text-foreground-muted" data-testid="scan-status">
-                {scanLine}
-              </p>
-            ) : null}
-            <ActionLine action={scan} testId="scan-result" />
-            <ActionLine action={refund} testId="refund-result" />
+            <FundAgentPanel agentName={name} funding={summary.funding} />
           </div>
           <AgentHoldings agentId={agent.id} environment={environment} />
         </>
-      ) : null}
+      ) : error ? null : (
+        <div className="grid gap-4 lg:grid-cols-3" aria-busy="true" aria-label={`Reading ${name}`}>
+          <Skeleton className="h-40 w-full lg:col-span-2" />
+          <Skeleton className="h-40 w-full" />
+        </div>
+      )}
     </Card>
   );
 }
 
 /**
- * My Agents (P1-U9, D-218): every agent the connected wallet owns, with its
- * status, funding, spend, activity and owner actions. 3D stays on /configure.
+ * My Agents (P1-U9, D-218; redesigned in UI-U1): every agent the connected
+ * wallet owns, its trading account first, then its credits and research,
+ * and its spend, activity, funding address and holdings. 3D stays on /configure.
  */
 export function MyAgentsPage({ environment }: { environment: EnvironmentId }) {
   const wallet = useWalletSession();
@@ -314,8 +369,8 @@ export function MyAgentsPage({ environment }: { environment: EnvironmentId }) {
       <div className="flex flex-col gap-2">
         <h1 className="text-2xl font-semibold">My Agents</h1>
         <p className="max-w-2xl text-sm text-foreground-muted">
-          Your agents on {wallet.target.name}: what each is doing, how to fund it, what it has spent
-          and what it has been researching.
+          Your agents on {wallet.target.name}: each one&apos;s trading account, its credits and
+          research, and what it holds.
         </p>
       </div>
       {state === "logged-out" || state === "connecting" ? (
@@ -345,9 +400,7 @@ export function MyAgentsPage({ environment }: { environment: EnvironmentId }) {
           description={`AgentNFT is not deployed on ${ENVIRONMENTS[environment].label}.`}
         />
       ) : state === "loading" ? (
-        <div className="flex flex-col gap-4" aria-busy="true" aria-label="Loading your agents">
-          <Skeleton className="h-48 w-full" />
-        </div>
+        <PageLoading label="Reading your agents from the chain" />
       ) : state === "error" ? (
         <EmptyState
           icon={PlugZap}

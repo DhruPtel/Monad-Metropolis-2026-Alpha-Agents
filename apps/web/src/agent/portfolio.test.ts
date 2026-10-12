@@ -9,6 +9,7 @@ import {
   positions,
   priceAgeSeconds,
   withdrawCheck,
+  v2AssetRows,
 } from "./portfolio";
 
 const PX = 25_000_000_000_000_000n; // 0.025 USD per WMON
@@ -215,5 +216,27 @@ describe("withdrawals and credits", () => {
     expect(parseAmount("1.0000001", 6)).toBeNull();
     expect(parseAmount("-1", 6)).toBeNull();
     expect(parseAmount("", 6)).toBeNull();
+  });
+});
+
+describe("v2AssetRows (UI-U1)", () => {
+  it("gives USDC and WMON with their values and shares, and no gain", () => {
+    const rows = v2AssetRows(portfolio());
+    expect(rows.map((r) => r.symbol)).toEqual(["USDC", "WMON"]);
+    expect(rows[0]).toMatchObject({ isCash: true, valueUsdcE6: "30000000", shareBps: 7_500 });
+    expect(rows[1]).toMatchObject({ isCash: false, valueUsdcE6: "10000000", shareBps: 2_500 });
+    expect(rows.every((r) => r.gainUsdcE6 === null && r.costBasisUsdcE6 === null)).toBe(true);
+  });
+
+  it("leaves WMON out when none is held, and values it as unknown without a usable price", () => {
+    const usdcOnly = v2AssetRows(portfolio({ balances: { usdcE6: "30000000", wmonWei: "0" } }));
+    expect(usdcOnly.map((r) => r.symbol)).toEqual(["USDC"]);
+    expect(usdcOnly[0]?.shareBps).toBe(10_000);
+    const base = portfolio();
+    const stale = v2AssetRows({
+      ...base,
+      prices: { ...base.prices, monUsd: { ...base.prices.monUsd, reason: "STALE" } },
+    });
+    expect(stale[1]).toMatchObject({ symbol: "WMON", valueUsdcE6: null, shareBps: null });
   });
 });

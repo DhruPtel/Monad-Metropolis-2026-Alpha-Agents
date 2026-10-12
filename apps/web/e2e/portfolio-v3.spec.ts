@@ -85,6 +85,16 @@ async function blockingViolations(page: Page) {
 
 const sent = (chain: FakeChain) => chain.transactions.filter((t) => !t.reverted);
 
+/** UI-U1: deposit and withdraw live in small dialogs; any open dialog is closed first. */
+async function openDialog(page: Page, which: "deposit" | "withdraw") {
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await main(page).getByTestId(`open-${which}`).click();
+  const form = page.getByTestId(`${which}-form`);
+  await expect(form).toBeVisible();
+  return form;
+}
+
 test.describe("the portfolio on the fund agent's set (A-80)", () => {
   test("a funded account shows every held token, the allocation, the v3 caps and the forms for any token", async ({
     page,
@@ -105,10 +115,19 @@ test.describe("the portfolio on the fund agent's set (A-80)", () => {
     await expect(positions.locator("[data-symbol=WBTC]")).toContainText("+2.00");
     await expect(positions.locator("[data-symbol=WMON]")).toContainText("+0.50");
     await expect(main(page).getByTestId("caps")).toContainText("40.00 of 100.00 USDC");
-    await expect(main(page).getByTestId("deposit-form")).toHaveAttribute("data-custody", "v3");
-    await expect(main(page).getByTestId("withdraw-form")).toHaveAttribute("data-custody", "v3");
     await expect(main(page).getByTestId("older-account")).toHaveCount(0);
     await capture(page, main(page), "portfolio-v3-funded.png");
+    expect(await blockingViolations(page)).toEqual([]);
+    // UI-U1: the forms, in their dialogs, work on the v3 account.
+    const deposit = await openDialog(page, "deposit");
+    await expect(deposit).toHaveAttribute("data-custody", "v3");
+    await page.evaluate(() => Promise.all(document.getAnimations().map((a) => a.finished)));
+    await capture(page, page.getByRole("dialog"), "portfolio-v3-deposit-dialog.png");
+    expect(await blockingViolations(page)).toEqual([]);
+    const withdraw = await openDialog(page, "withdraw");
+    await expect(withdraw).toHaveAttribute("data-custody", "v3");
+    await page.evaluate(() => Promise.all(document.getAnimations().map((a) => a.finished)));
+    await capture(page, page.getByRole("dialog"), "portfolio-v3-withdraw-dialog.png");
     expect(await blockingViolations(page)).toEqual([]);
   });
 
@@ -133,12 +152,12 @@ test.describe("the portfolio on the fund agent's set (A-80)", () => {
     expect(s.trading.calls).toContain("withdrawAll:older");
     expect(sent(s.chain).map((t) => t.to.toLowerCase())).toEqual([ACCOUNT.toLowerCase()]);
     // Then the new account, on the v3 factory.
-    await openCard.getByRole("button", { name: "Open trading account" }).click();
+    await main(page).getByRole("button", { name: "Open trading account" }).click();
     await expect(main(page).getByTestId("positions")).toBeVisible();
     expect(s.trading.calls).toContain("createPersonalAccount:v3");
     expect(s.trading.portfolioV3?.account).toBe(ACCOUNT_V3);
     // And the 170 USDC now in the wallet, up to the cap: an exact approval, then the deposit.
-    const deposit = main(page).getByTestId("deposit-form");
+    const deposit = await openDialog(page, "deposit");
     await deposit.getByRole("button", { name: "Max" }).click();
     await expect(deposit.getByRole("textbox")).toHaveValue("100");
     await deposit.getByRole("button", { name: "Deposit", exact: true }).click();
@@ -158,7 +177,7 @@ test.describe("the portfolio on the fund agent's set (A-80)", () => {
   }) => {
     const s = stack();
     await open(page, s);
-    const deposit = main(page).getByTestId("deposit-form");
+    const deposit = await openDialog(page, "deposit");
     // WMON from the wallet: 5 WMON, valued at the oracle price against the caps.
     await deposit.getByRole("combobox").click();
     await page.getByRole("option", { name: "WMON" }).click();
@@ -179,15 +198,14 @@ test.describe("the portfolio on the fund agent's set (A-80)", () => {
     };
     await page.reload();
     await expect(walletButton(page)).toHaveAttribute("data-state", "connected");
-    await main(page).getByTestId("deposit-form").getByRole("combobox").click();
+    const again = await openDialog(page, "deposit");
+    await again.getByRole("combobox").click();
     await expect(page.getByRole("option", { name: "WBTC" })).toHaveAttribute("data-disabled", "");
     await page.keyboard.press("Escape");
-    await main(page).getByTestId("deposit-form").getByRole("textbox").fill("61");
-    await expect(main(page).getByTestId("deposit-form")).toContainText(
-      "This deposit would take the account past its beta cap.",
-    );
+    await again.getByRole("textbox").fill("61");
+    await expect(again).toContainText("This deposit would take the account past its beta cap.");
     // Withdraw all of one token, then every token in one transaction.
-    const withdraw = main(page).getByTestId("withdraw-form");
+    const withdraw = await openDialog(page, "withdraw");
     await withdraw.getByRole("combobox").click();
     await page.getByRole("option", { name: "WBTC" }).click();
     await withdraw.getByRole("button", { name: "Withdraw all WBTC" }).click();
@@ -197,8 +215,10 @@ test.describe("the portfolio on the fund agent's set (A-80)", () => {
     await withdraw.getByTestId("withdraw-everything").click();
     await expect(status(withdraw)).toHaveAttribute("data-state", "confirmed");
     expect(s.trading.calls).toContain("withdrawAll:v3");
+    await expect(withdraw.getByTestId("withdraw-empty")).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("dialog")).toHaveCount(0);
     await expect(main(page).getByTestId("asset-makeup-empty")).toBeVisible();
-    await expect(main(page).getByTestId("withdraw-empty")).toBeVisible();
     // Nothing went to the older account or the v2 factory.
     expect(sent(s.chain).map((t) => t.to.toLowerCase())).not.toContain(ACCOUNT.toLowerCase());
   });
@@ -235,8 +255,9 @@ test.describe("the portfolio on the fund agent's set (A-80)", () => {
     await open(page, s, "/agents");
     const summary = page.getByTestId("trading-summary");
     await expect(summary).toContainText("70.00", { timeout: 15_000 });
+    // UI-U1: the card's donut names every held token, as the portfolio does.
     await expect(
-      summary.getByRole("img", { name: /USDC 42.85%, Other tokens 57.15%/ }),
+      summary.getByRole("img", { name: /USDC 42.85%, WBTC 42.85%, WMON 14.28%/ }),
     ).toBeVisible();
     await summary.getByRole("link", { name: "Open portfolio" }).click();
     await expect(main(page).getByTestId("positions")).toBeVisible();

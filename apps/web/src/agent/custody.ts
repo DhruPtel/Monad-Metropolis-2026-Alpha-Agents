@@ -119,7 +119,8 @@ export const GRANT_ABI = parseAbi([
 export const CUSTODY_REVERT_MESSAGES: Readonly<Record<string, string>> = {
   NotAgentOwner: "This wallet does not own the agent.",
   AccountExists: "This agent already has a trading account for this wallet.",
-  NotAllowlisted: "This wallet is not on the beta deposit allowlist yet.",
+  NotAllowlisted:
+    "This wallet is not yet allowed to deposit during the beta. Ask the platform to add it, then try again.",
   PersonalCapExceeded: "The deposit would take the account past its beta cap.",
   PlatformCapExceeded: "The deposit would take the platform past its beta cap.",
   ZeroAmount: "Enter an amount greater than zero.",
@@ -139,7 +140,7 @@ export const CUSTODY_REVERT_MESSAGES: Readonly<Record<string, string>> = {
   VaultExists: "This agent already has a vault.",
   VaultCapExceeded: "The deposit would take the vault past its beta cap.",
   PublicDepositsDisabled:
-    "Vault deposits are open to allowlisted wallets only until the launch decision.",
+    "Until the launch decision, only wallets the platform has allowed may deposit into a vault. Ask the platform to add yours, then try again.",
   InHandover:
     "The agent changed hands: the vault takes no deposits until the new owner accepts management.",
   WindingDown: "The vault is winding down and takes no deposits. Withdrawals still work.",
