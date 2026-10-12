@@ -87,6 +87,9 @@ import {
   ArmingCard,
   ManagedAccountChoice,
   OwnerSkillsEmpty,
+  DataKeyCard,
+  DataKeyForm,
+  DataKeyGrid,
   SkillFindings,
   SkillGrid,
   SkillTile,
@@ -3051,6 +3054,69 @@ const GOAL_COST_ROWS = RESEARCH_INTENSITIES.map((intensity) => ({
 }));
 const usdcText = (e6: bigint) => (Number(e6) / 1e6).toFixed(2);
 
+/** BK-U1: the owner's own keys for paid data sources, as tiles, and the one-input form. */
+function SettingsSection() {
+  const [draft, setDraft] = useState("");
+  const dune = {
+    provider: "dune",
+    label: "Dune",
+    gives:
+      "The dune_query tool: the platform's saved Monad analytics (DEX volume, active addresses, MON flows to exchanges), run on your Dune plan.",
+    keyHelp: "Create an API key in your Dune account settings and paste it here.",
+    tool: "dune_query",
+    present: false,
+    hint: null,
+    addedAt: null,
+  };
+  return (
+    <Section id="settings" title="Settings">
+      <Specimen
+        name="DataKeyCard and DataKeyGrid"
+        note="One tile per paid data source: what the owner's key gives, whether one is stored (shown by its last four characters and when it was added), and the page's actions."
+      >
+        <DataKeyGrid>
+          <DataKeyCard source={dune} actions={<Button size="sm">Add key</Button>} />
+          <DataKeyCard
+            source={{ ...dune, present: true, hint: "••••mnop", addedAt: "2026-10-12 09:00 UTC" }}
+            actions={
+              <>
+                <Button size="sm">Replace key</Button>
+                <Button size="sm" variant="danger">
+                  Remove key
+                </Button>
+              </>
+            }
+          />
+        </DataKeyGrid>
+      </Specimen>
+      <Specimen
+        name="DataKeyForm"
+        note="One password input with the source's help and a plain problem when the key cannot be saved as typed; the page clears the value the moment the key is saved."
+      >
+        <div className="grid gap-6 lg:grid-cols-2">
+          <DataKeyForm
+            source={dune}
+            value={draft}
+            onChange={setDraft}
+            onSave={() => undefined}
+            problem={
+              draft.length > 0 && draft.length < 16 ? "That is too short for an API key." : null
+            }
+          />
+          <DataKeyForm
+            source={{ ...dune, present: true, hint: "••••mnop" }}
+            value=""
+            onChange={() => undefined}
+            onSave={() => undefined}
+            problem={null}
+            disabled
+          />
+        </div>
+      </Specimen>
+    </Section>
+  );
+}
+
 /** SK-U1: the agent's skills as tiles, the owner's upload form and the findings of a refused package. */
 function SkillsSection() {
   const builtin = {
@@ -4016,6 +4082,7 @@ function DesignSystem() {
       <PortfolioSection />
       <VaultSection />
       <SkillsSection />
+      <SettingsSection />
       <ActivationSection />
       <WindowSection />
       <FormsSection />

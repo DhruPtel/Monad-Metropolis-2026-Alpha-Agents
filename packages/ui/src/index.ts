@@ -49,6 +49,7 @@ export * from "./components/agent/window";
 export * from "./components/agent/fund-portfolio";
 export * from "./components/agent/vault";
 export * from "./components/agent/skills";
+export * from "./components/agent/settings";
 export * from "./components/agent/research";
 export * from "./components/agent/sentinel";
 export * from "./components/agent/universe";
