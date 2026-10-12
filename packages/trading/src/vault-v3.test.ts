@@ -39,6 +39,11 @@ const c: VaultContractsV3 = {
   executor: EXEC,
 };
 const lower = (a: string) => a.toLowerCase();
+/** A value a test has already shown to be there. */
+function must<T>(v: T | null | undefined): T {
+  if (v === null || v === undefined) throw new Error("expected a value");
+  return v;
+}
 const tokens = async () => [
   { symbol: "USDC", address: USDC, decimals: 6, priceClass: "F" as const },
   { symbol: "WMON", address: WMON, decimals: 18, priceClass: "F" as const },
@@ -192,7 +197,7 @@ describe("the vault reading (P7-U4)", () => {
       mayDeposit: true,
       shares: 0n,
     });
-    const json = vaultV3Json(r!);
+    const json = vaultV3Json(must(r));
     expect(json.factory.vaultCapUsdcE6).toBe("500000000");
     expect(json.state).toBeNull();
     expect(json.viewer?.inKind).toBeNull();
@@ -207,7 +212,7 @@ describe("the vault reading (P7-U4)", () => {
     });
     const reader = rpcVaultReaderV3("http://127.0.0.1:1", 143, c, { tokens, client: chain });
     const r = await reader.vault(1, ALICE);
-    const s = r!.state!;
+    const s = must(must(r).state);
     expect(s).toMatchObject({
       leader: OWNER,
       leaderStakeBps: 2_500n,
@@ -232,7 +237,7 @@ describe("the vault reading (P7-U4)", () => {
       ["USDC", "42000000", "OK"],
       ["WMON", "40000000", "OK"],
     ]);
-    const v = r!.viewer!;
+    const v = must(must(r).viewer);
     expect(v).toMatchObject({
       address: ALICE,
       isOwner: false,
@@ -254,7 +259,7 @@ describe("the vault reading (P7-U4)", () => {
     expect(v.claimables.map((a) => [a.symbol, a.amount.toString()])).toEqual([
       ["WMON", (3n * E18).toString()],
     ]);
-    const json = vaultV3Json(r!);
+    const json = vaultV3Json(must(r));
     expect(json.state?.holdings[1]).toMatchObject({
       symbol: "WMON",
       valueUsdcE6: "40000000",

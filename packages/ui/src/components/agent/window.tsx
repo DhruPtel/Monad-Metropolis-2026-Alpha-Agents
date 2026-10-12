@@ -828,4 +828,11 @@ function HundredDollarTile({ hundred, className }: { hundred: HundredView; class
   );
 }
 
-export { AllocationDonut, AssetMakeupTable, HundredDollarTile, PerformanceChart, ScoreTiles };
+export {
+  AllocationDonut,
+  AssetMakeupTable,
+  HundredDollarTile,
+  PerformanceChart,
+  ScoreTile,
+  ScoreTiles,
+};

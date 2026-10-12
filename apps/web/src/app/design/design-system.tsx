@@ -91,6 +91,13 @@ import {
   type PositionsView,
   RecentTrades,
   WalletActionStatus,
+  ContributeCreditsPanel,
+  VaultCreateCard,
+  VaultDepositForm,
+  VaultPanel,
+  type VaultPanelView,
+  VaultPositionCard,
+  VaultWithdrawForm,
   WhyNotTraded,
   QrCode,
   RUN_STATUSES,
@@ -2628,6 +2635,249 @@ const WIN_WAITING = {
   winShare: { ok: false as const, reason: "Not enough data yet: no position has been closed." },
 };
 
+const DS_VAULT = "0x00000000000000000000000000000000000a0170";
+const DS_VAULT_NOW = 1_791_374_400;
+const DS_VAULT_PANEL: VaultPanelView = {
+  vault: DS_VAULT,
+  mode: "NORMAL",
+  inHandover: false,
+  windDownAt: 0,
+  depositsOpen: true,
+  depositsClosed: false,
+  navUsdcE6: "82000000",
+  totalSupply: "80000000000000000000",
+  perUnitE18: "1025000000000000000",
+  lockupSeconds: 86_400,
+  leaderStakeBps: 2_500,
+  leaderMinBps: 500,
+  feeBps: 0,
+  principalUsdcE6: "80000000",
+  vaultCapUsdcE6: "500000000",
+  allowlistEnabled: true,
+  depositsEnabled: false,
+  handoverPeriodSeconds: 259_200,
+  asOf: DS_VAULT_NOW,
+};
+const DS_IN_KIND = [
+  { symbol: "USDC", decimals: 6, amountRaw: "15750000" },
+  { symbol: "WMON", decimals: 18, amountRaw: "600000000000000000000" },
+  { symbol: "WBTC", decimals: 8, amountRaw: "11250" },
+];
+
+function VaultSection() {
+  return (
+    <Section id="vault" title="Vault">
+      <Specimen
+        name="Create a vault"
+        note="Before a vault exists (P7-U4): the owner reads what a vault is and creates it; anyone else learns there is none yet and is pointed to the agent's credits."
+      >
+        <div className="grid gap-6 lg:grid-cols-2" data-testid="vault-create-specimens">
+          <VaultCreateCard
+            agentName="Agent #7"
+            predictedVault={DS_VAULT}
+            isOwner
+            lockupSeconds={86_400}
+            leaderMinBps={500}
+            vaultCapUsdcE6="500000000"
+            onCreate={noop}
+          />
+          <VaultCreateCard
+            agentName="Agent #7"
+            predictedVault={DS_VAULT}
+            isOwner={false}
+            lockupSeconds={86_400}
+            leaderMinBps={500}
+            vaultCapUsdcE6="500000000"
+          />
+        </div>
+      </Specimen>
+      <Specimen
+        name="The vault at a glance"
+        note="Value, share value, mode, what deposits are doing, the lockup in plain words, the leader's stake against the 5% minimum, the room under the vault cap, the shares and the exit fee, with the unaudited-beta label; then the same vault during a handover, winding down, and paused."
+      >
+        <div className="flex flex-col gap-6" data-testid="vault-panel-specimens">
+          <VaultPanel v={DS_VAULT_PANEL} />
+          <VaultPanel
+            v={{ ...DS_VAULT_PANEL, mode: "HANDOVER", inHandover: true, leaderStakeBps: 0 }}
+          />
+          <VaultPanel
+            v={{
+              ...DS_VAULT_PANEL,
+              mode: "WIND_DOWN",
+              windDownAt: DS_VAULT_NOW - 3_600,
+              depositsOpen: false,
+            }}
+          />
+          <VaultPanel
+            v={{ ...DS_VAULT_PANEL, mode: "PAUSED", navUsdcE6: null, perUnitE18: null }}
+          />
+        </div>
+      </Specimen>
+      <Specimen
+        name="A holder's position"
+        note="Shares, their value now, the lock in plain words with the time left, the in-kind slices, and credits to claim after an exit that could not send a token; the leader's stake is marked."
+      >
+        <div className="grid gap-6 lg:grid-cols-3" data-testid="vault-position-specimens">
+          <VaultPositionCard
+            shares="30000000000000000000"
+            valueUsdcE6="30592500"
+            unlockAt={DS_VAULT_NOW + 7_200}
+            now={DS_VAULT_NOW}
+            inKind={DS_IN_KIND}
+            claimables={[]}
+            isLeader={false}
+            actions={
+              <>
+                <Button size="sm">Deposit</Button>
+                <Button size="sm" variant="secondary" disabled>
+                  Withdraw
+                </Button>
+              </>
+            }
+          />
+          <VaultPositionCard
+            shares="20000000000000000000"
+            valueUsdcE6="20395000"
+            unlockAt={DS_VAULT_NOW - 60}
+            now={DS_VAULT_NOW}
+            inKind={DS_IN_KIND}
+            claimables={[
+              { token: DS_WMON, symbol: "WMON", decimals: 18, amountRaw: "3000000000000000000" },
+            ]}
+            isLeader
+            onClaim={noop}
+            actions={
+              <>
+                <Button size="sm">Stake more</Button>
+                <Button size="sm" variant="secondary">
+                  Withdraw
+                </Button>
+              </>
+            }
+          />
+          <VaultPositionCard
+            shares="0"
+            valueUsdcE6={null}
+            unlockAt={0}
+            now={DS_VAULT_NOW}
+            inKind={null}
+            claimables={[]}
+            isLeader={false}
+            actions={<Button size="sm">Deposit</Button>}
+          />
+        </div>
+      </Specimen>
+      <Specimen
+        name="Deposit"
+        note="The amount, the wallet's USDC, the shares it would mint and when they unlock; a top-up warns that it restarts the lock on everything the wallet holds; a wallet the factory would refuse is told before anything is sent."
+      >
+        <div className="grid gap-6 lg:grid-cols-2" data-testid="vault-deposit-specimens">
+          <VaultDepositForm
+            amountText="25"
+            onAmountChange={noop}
+            onDeposit={noop}
+            walletUsdcE6="120000000"
+            maxUsdcE6="300000000"
+            lockupSeconds={86_400}
+            isLeader={false}
+            spreadBps={50}
+            block={null}
+            topUpWarning="You already hold 30 shares. This deposit locks all of them, old and new, until 2026-10-08 12:00 UTC."
+            previewShares="24268000000000000000"
+            lockUntil={DS_VAULT_NOW + 86_400}
+          />
+          <VaultDepositForm
+            amountText=""
+            onAmountChange={noop}
+            onDeposit={noop}
+            walletUsdcE6="120000000"
+            maxUsdcE6="0"
+            lockupSeconds={86_400}
+            isLeader={false}
+            spreadBps={50}
+            block="Your wallet is not on the beta deposit allowlist, so the vault would refuse this deposit."
+            topUpWarning={null}
+            previewShares={null}
+            lockUntil={DS_VAULT_NOW + 86_400}
+          />
+        </div>
+      </Specimen>
+      <Specimen
+        name="Withdraw"
+        note="Shares to redeem, paid in USDC (less the spread, from the vault's USDC) or in kind (every held token, always works); the USDC path points to the in-kind one when the vault's USDC cannot cover it; locked shares block the form and say until when."
+      >
+        <div className="grid gap-6 lg:grid-cols-3" data-testid="vault-withdraw-specimens">
+          <VaultWithdrawForm
+            method="usdc"
+            onMethodChange={noop}
+            sharesText="30"
+            onSharesChange={noop}
+            freeShares="30000000000000000000"
+            heldShares="30000000000000000000"
+            previewUsdcE6="30592500"
+            previewInKind={DS_IN_KIND}
+            usdcAvailableE6="33800000"
+            block={null}
+            spreadBps={50}
+            onWithdraw={noop}
+          />
+          <VaultWithdrawForm
+            method="in_kind"
+            onMethodChange={noop}
+            sharesText="30"
+            onSharesChange={noop}
+            freeShares="30000000000000000000"
+            heldShares="30000000000000000000"
+            previewUsdcE6="30592500"
+            previewInKind={DS_IN_KIND}
+            usdcAvailableE6="10000000"
+            block={null}
+            spreadBps={50}
+            onWithdraw={noop}
+          />
+          <VaultWithdrawForm
+            method="usdc"
+            onMethodChange={noop}
+            sharesText=""
+            onSharesChange={noop}
+            freeShares="0"
+            heldShares="30000000000000000000"
+            previewUsdcE6={null}
+            previewInKind={null}
+            usdcAvailableE6="33800000"
+            block="Your shares are locked until 2026-10-08 12:00 UTC (23 hours left)."
+            spreadBps={50}
+            onWithdraw={noop}
+            status={
+              <WalletActionStatus
+                state="confirmed"
+                text="Redeemed in kind: 15.75 USDC and 600 WMON are in your wallet."
+                hash="0x1111111111111111111111111111111111111111111111111111111111111111"
+              />
+            }
+          />
+        </div>
+      </Specimen>
+      <Specimen
+        name="Fund this agent"
+        note="For someone who is not the owner (D-242): a contribution to the agent's credits, said plainly to be no deposit and to buy no shares, with the refund rules in one paragraph and the split against the cap before anything is sent."
+      >
+        <div className="max-w-2xl" data-testid="vault-fund-specimen">
+          <ContributeCreditsPanel
+            agentName="Agent #7"
+            creditsUsdcE6={45_000_000n}
+            capUsdcE6={50_000_000n}
+            walletUsdcE6={120_000_000n}
+            amountText="8"
+            onAmountChange={noop}
+            onFund={noop}
+          />
+        </div>
+      </Specimen>
+    </Section>
+  );
+}
+
 function WindowSection() {
   return (
     <Section id="window" title="Portfolio window">
@@ -3538,6 +3788,7 @@ function DesignSystem() {
       <WalletSection />
       <AgentSection />
       <PortfolioSection />
+      <VaultSection />
       <ActivationSection />
       <WindowSection />
       <FormsSection />
