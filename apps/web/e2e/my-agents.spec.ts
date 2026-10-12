@@ -61,6 +61,18 @@ async function capture(page: Page, target: Locator, name: string) {
 }
 
 async function blockingViolations(page: Page) {
+  // A capture restores the animations it fast-forwarded, so an open dialog fades in again:
+  // the scan waits for every finite animation to finish, or its text reads as too faint
+  // (UI-U1); an endless one, such as a running step's pulse, is left alone.
+  await page.evaluate(() =>
+    Promise.all(
+      document.getAnimations().map((a) => {
+        const timing = a.effect?.getTiming();
+        if (!timing || timing.iterations === Number.POSITIVE_INFINITY) return undefined;
+        return a.finished.catch(() => undefined);
+      }),
+    ),
+  );
   const results = await new AxeBuilder({ page })
     .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "best-practice"])
     .analyze();

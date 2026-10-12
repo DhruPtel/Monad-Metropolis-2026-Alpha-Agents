@@ -248,9 +248,11 @@ test.describe("the vault page (P7-U4)", () => {
     await expect(main(page).getByTestId("vault-position")).toHaveAttribute("data-state", "none");
     await main(page).getByTestId("vault-open-deposit").click();
     const d = dialog(page);
+    // UI-U1: plain words, what it means and what to do.
     await expect(d.getByTestId("vault-deposit-block")).toContainText(
-      "not on the beta deposit allowlist",
+      "not yet allowed to deposit during the beta",
     );
+    await expect(d.getByTestId("vault-deposit-block")).toContainText("Ask the platform to add it");
     await expect(d.getByTestId("vault-deposit-submit")).toBeDisabled();
     await capture(page, d, "vault-deposit-blocked.png");
     expect(await blockingViolations(page)).toEqual([]);

@@ -86,6 +86,18 @@ async function capture(page: Page, target: Locator, name: string) {
 }
 
 async function blockingViolations(page: Page) {
+  // A capture restores the animations it fast-forwarded, so an open dialog fades in again:
+  // the scan waits for every finite animation to finish, or its text reads as too faint
+  // (UI-U1); an endless one, such as a running step's pulse, is left alone.
+  await page.evaluate(() =>
+    Promise.all(
+      document.getAnimations().map((a) => {
+        const timing = a.effect?.getTiming();
+        if (!timing || timing.iterations === Number.POSITIVE_INFINITY) return undefined;
+        return a.finished.catch(() => undefined);
+      }),
+    ),
+  );
   const results = await new AxeBuilder({ page })
     .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "best-practice"])
     .analyze();
@@ -96,10 +108,15 @@ async function blockingViolations(page: Page) {
 
 const sent = (chain: FakeChain) => chain.transactions.filter((t) => !t.reverted);
 
-/** UI-U1: deposit and withdraw live in small dialogs; any open dialog is closed first. */
-async function openDialog(page: Page, which: "deposit" | "withdraw") {
+/** UI-U1: an open dialog hides the page from assistive technology, so it is closed before main is read. */
+async function closeDialog(page: Page) {
   await page.keyboard.press("Escape");
   await expect(page.getByRole("dialog")).toHaveCount(0);
+}
+
+/** UI-U1: deposit and withdraw live in small dialogs; any open dialog is closed first. */
+async function openDialog(page: Page, which: "deposit" | "withdraw") {
+  await closeDialog(page);
   await main(page).getByTestId(`open-${which}`).click();
   const form = page.getByTestId(`${which}-form`);
   await expect(form).toBeVisible();
@@ -199,8 +216,7 @@ test.describe("every state, captured and scanned", () => {
     const withdraw = await openDialog(page, "withdraw");
     await withdraw.getByRole("button", { name: "Withdraw all" }).click();
     await expect(status(withdraw)).toHaveAttribute("data-state", "confirmed", { timeout: 15_000 });
-    await page.keyboard.press("Escape");
-    await expect(page.getByRole("dialog")).toHaveCount(0);
+    await closeDialog(page);
     const tx = sent(s.chain).at(-1);
     if (!tx) throw new Error("no withdrawal sent");
     const call = decodeFunctionData({ abi: ACCOUNT_ABI, data: tx.data });
@@ -229,6 +245,7 @@ test.describe("deposits", () => {
     await expect(form.getByRole("alert")).toHaveCount(0);
     await capture(page, form, "portfolio-deposit-done.png");
     expect(await blockingViolations(page)).toEqual([]);
+    await closeDialog(page);
     const [approve, deposit] = sent(s.chain);
     if (!approve || !deposit) throw new Error("expected two transactions");
     expect(decodeFunctionData({ abi: ERC20_ABI, data: approve.data }).args).toEqual([

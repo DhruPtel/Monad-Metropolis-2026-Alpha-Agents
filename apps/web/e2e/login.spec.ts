@@ -72,7 +72,8 @@ test("a wallet on the wrong chain is blocked until it switches", async ({ page }
   await expect(prompt).toContainText("Your wallet is on Ethereum.");
   await expect(walletButton(page)).toHaveAttribute("data-state", "wrong-chain");
   // The page behind the prompt is inert: its link cannot be focused or followed.
-  const pageLink = page.getByRole("link", { name: "Open the design system" });
+  // UI-U1: the home page names the live pages; its first link stands for the page behind the prompt.
+  const pageLink = page.getByRole("link", { name: "Open My Agents" });
   await expect(page.locator("main [inert]")).toHaveCount(1);
   await pageLink.focus();
   await expect(pageLink).not.toBeFocused();

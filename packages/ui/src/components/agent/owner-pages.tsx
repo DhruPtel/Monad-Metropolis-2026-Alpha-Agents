@@ -434,7 +434,7 @@ function SetupFlow({ steps, className }: { steps: readonly SetupStepView[]; clas
                 s.state === "done" && "border-border bg-surface",
                 s.state === "next" && "border-primary bg-surface-overlay",
                 s.state === "blocked" && "border-warning/60 bg-surface",
-                s.state === "later" && "border-border bg-surface opacity-80",
+                s.state === "later" && "border-dashed border-border bg-surface",
               )}
               data-testid="setup-step"
               data-step={s.key}

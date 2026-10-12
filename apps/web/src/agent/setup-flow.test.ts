@@ -21,10 +21,11 @@ describe("setupSteps (UI-U1)", () => {
     expect(steps[0]?.detail).toContain("fund agent's set");
   });
 
-  it("names the allowlist in plain words and blocks the first step without an action", () => {
+  it("names the allowlist in plain words and blocks the first step, which keeps its action for the page to disable", () => {
     const steps = setupSteps(facts({ allowlisted: false }), ACTIONS);
     expect(steps[0]?.state).toBe("blocked");
-    expect(steps[0]?.action).toBeUndefined();
+    expect(steps[0]?.action).toBe("open");
+    expect(steps.slice(1).map((s) => s.action)).toEqual([undefined, undefined, undefined]);
     expect(steps[0]?.detail).toContain("not yet allowed to deposit during the beta");
   });
 

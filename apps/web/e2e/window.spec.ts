@@ -194,7 +194,8 @@ test.describe("reachable both ways", () => {
   test("My Agents and the portfolio both lead to the window", async ({ page }) => {
     const s = stack();
     await open(page, s, "/agents");
-    await page.getByTestId("fund-panel").getByRole("link", { name: "Performance" }).click();
+    // UI-U1: the Performance link sits on the card's trading tile.
+    await page.getByTestId("trading-summary").getByRole("link", { name: "Performance" }).click();
     await expect(page).toHaveURL(new RegExp(`/agents/${AGENT}/window$`));
     await expect(main(page).getByTestId("window")).toBeVisible();
     await main(page).getByRole("link", { name: "Portfolio", exact: true }).click();

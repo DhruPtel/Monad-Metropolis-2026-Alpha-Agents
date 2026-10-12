@@ -33,17 +33,22 @@ test("the navigation collapses into a menu on narrow screens", async ({ page }, 
   if (testInfo.project.name === "desktop") {
     await expect(menu).toBeHidden();
     await expect(
-      page.getByRole("navigation", { name: "Main" }).getByRole("link", { name: "Mint" }),
+      page
+        .getByRole("navigation", { name: "Main" })
+        .getByRole("link", { name: "Mint", exact: true }),
     ).toBeVisible();
     return;
   }
-  await expect(page.getByRole("link", { name: "Mint" })).toBeHidden();
+  // Exact: the Owner pages section's "Open Mint" link is always visible.
+  await expect(page.getByRole("link", { name: "Mint", exact: true })).toBeHidden();
   await menu.click();
   await expect(page.getByRole("button", { name: "Close menu" })).toHaveAttribute(
     "aria-expanded",
     "true",
   );
-  await expect(page.locator("#mobile-nav").getByRole("link", { name: "Mint" })).toBeVisible();
+  await expect(
+    page.locator("#mobile-nav").getByRole("link", { name: "Mint", exact: true }),
+  ).toBeVisible();
 });
 
 test("loads every font from its own origin", async ({ page }) => {

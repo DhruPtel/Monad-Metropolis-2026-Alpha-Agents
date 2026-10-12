@@ -47,8 +47,10 @@ export function setupSteps(
         : k === "open" && !f.allowlisted
           ? "blocked"
           : "next";
+  // The next step carries its action; a blocked first step carries it too, disabled by the page,
+  // so the owner sees what comes after the platform adds the wallet.
   const actionOf = (k: SetupStepKey): ReactNode =>
-    stateOf(k) === "next" ? (actions[k] ?? undefined) : undefined;
+    stateOf(k) === "next" || stateOf(k) === "blocked" ? (actions[k] ?? undefined) : undefined;
   return [
     {
       key: "open",

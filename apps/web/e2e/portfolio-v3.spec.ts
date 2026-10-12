@@ -75,6 +75,18 @@ async function capture(page: Page, target: Locator, name: string) {
 }
 
 async function blockingViolations(page: Page) {
+  // A capture restores the animations it fast-forwarded, so an open dialog fades in again:
+  // the scan waits for every finite animation to finish, or its text reads as too faint
+  // (UI-U1); an endless one, such as a running step's pulse, is left alone.
+  await page.evaluate(() =>
+    Promise.all(
+      document.getAnimations().map((a) => {
+        const timing = a.effect?.getTiming();
+        if (!timing || timing.iterations === Number.POSITIVE_INFINITY) return undefined;
+        return a.finished.catch(() => undefined);
+      }),
+    ),
+  );
   const results = await new AxeBuilder({ page })
     .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "best-practice"])
     .analyze();
@@ -85,10 +97,15 @@ async function blockingViolations(page: Page) {
 
 const sent = (chain: FakeChain) => chain.transactions.filter((t) => !t.reverted);
 
-/** UI-U1: deposit and withdraw live in small dialogs; any open dialog is closed first. */
-async function openDialog(page: Page, which: "deposit" | "withdraw") {
+/** UI-U1: an open dialog hides the page from assistive technology, so it is closed before main is read. */
+async function closeDialog(page: Page) {
   await page.keyboard.press("Escape");
   await expect(page.getByRole("dialog")).toHaveCount(0);
+}
+
+/** UI-U1: deposit and withdraw live in small dialogs; any open dialog is closed first. */
+async function openDialog(page: Page, which: "deposit" | "withdraw") {
+  await closeDialog(page);
   await main(page).getByTestId(`open-${which}`).click();
   const form = page.getByTestId(`${which}-form`);
   await expect(form).toBeVisible();
@@ -166,6 +183,7 @@ test.describe("the portfolio on the fund agent's set (A-80)", () => {
       "approve",
       "deposit:v3",
     ]);
+    await closeDialog(page);
     await expect(main(page).getByTestId("positions").locator("[data-symbol=USDC]")).toContainText(
       "100.00",
     );
@@ -186,6 +204,7 @@ test.describe("the portfolio on the fund agent's set (A-80)", () => {
     await deposit.getByRole("button", { name: "Deposit", exact: true }).click();
     await expect(status(deposit)).toHaveAttribute("data-state", "confirmed");
     expect(s.trading.calls.filter((c) => c === "deposit:v3")).toHaveLength(1);
+    await closeDialog(page);
     await expect(main(page).getByTestId("positions").locator("[data-symbol=WMON]")).toContainText(
       "405",
     );
@@ -211,13 +230,15 @@ test.describe("the portfolio on the fund agent's set (A-80)", () => {
     await withdraw.getByRole("button", { name: "Withdraw all WBTC" }).click();
     await expect(status(withdraw)).toHaveAttribute("data-state", "confirmed");
     expect(s.trading.calls).toContain("withdraw:v3");
+    await closeDialog(page);
+    await expect(main(page).getByTestId("positions").getByTestId("asset-row")).toHaveCount(2);
     await expect(main(page).getByTestId("positions").locator("[data-symbol=WBTC]")).toHaveCount(0);
-    await withdraw.getByTestId("withdraw-everything").click();
-    await expect(status(withdraw)).toHaveAttribute("data-state", "confirmed");
+    const everything = await openDialog(page, "withdraw");
+    await everything.getByTestId("withdraw-everything").click();
+    await expect(status(everything)).toHaveAttribute("data-state", "confirmed");
     expect(s.trading.calls).toContain("withdrawAll:v3");
-    await expect(withdraw.getByTestId("withdraw-empty")).toBeVisible();
-    await page.keyboard.press("Escape");
-    await expect(page.getByRole("dialog")).toHaveCount(0);
+    await expect(everything.getByTestId("withdraw-empty")).toBeVisible();
+    await closeDialog(page);
     await expect(main(page).getByTestId("asset-makeup-empty")).toBeVisible();
     // Nothing went to the older account or the v2 factory.
     expect(sent(s.chain).map((t) => t.to.toLowerCase())).not.toContain(ACCOUNT.toLowerCase());
