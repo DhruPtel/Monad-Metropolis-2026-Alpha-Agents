@@ -695,6 +695,9 @@ export function PortfolioPage({
         <Link href={`/agents/${agentId.toString()}/window`} data-testid="window-link">
           Performance window
         </Link>
+        <Link href={`/agents/${agentId.toString()}/vault`} data-testid="vault-link">
+          Vault
+        </Link>
         <Link href={`/agents/${agentId.toString()}/research`} data-testid="research-link">
           Research
         </Link>

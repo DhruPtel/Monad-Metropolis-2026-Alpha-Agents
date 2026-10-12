@@ -1,4 +1,5 @@
 import type {
+  AccountMode,
   AgentState,
   GoalInput,
   OwnerLimitField,
@@ -939,7 +940,124 @@ export interface CreditsJson {
   readonly creditCapUsdcE6: string;
 }
 
+/** P7-U4: a token amount the vault names, in base units. */
+export interface VaultTokenAmountJson {
+  readonly token: Address;
+  readonly symbol: string;
+  readonly decimals: number;
+  readonly amountRaw: string;
+}
+
+/** P7-U4: the agent's vault as the API serves it to anyone, the viewer's position when a wallet is named. */
+export interface VaultJson {
+  readonly custody: "v3";
+  readonly chainId: number;
+  readonly block: string;
+  readonly timestamp: number;
+  readonly agentId: string;
+  readonly owner: Address;
+  readonly contracts: {
+    readonly agentNft: Address;
+    readonly accountFactory: Address;
+    readonly oracle: Address;
+    readonly usdc: Address;
+    readonly wmon: Address;
+    readonly executor: Address;
+  };
+  readonly vault: Address | null;
+  readonly predictedVault: Address;
+  readonly factory: {
+    readonly vaultCapUsdcE6: string;
+    readonly platformCapUsdcE6: string;
+    readonly platformTotalUsdcE6: string;
+    readonly allowlistEnabled: boolean;
+    readonly depositsEnabled: boolean;
+  };
+  readonly usdcPeg: PriceJson;
+  readonly state: {
+    readonly leader: Address;
+    readonly leaderShares: string;
+    readonly leaderStakeBps: number;
+    readonly incomingLeader: Address;
+    readonly incomingShares: string;
+    readonly totalSupply: string;
+    readonly principalUsdcE6: string;
+    readonly navUsdcE6: string | null;
+    readonly perUnitE18: string | null;
+    readonly breaker: {
+      readonly navUsdcE6: string;
+      readonly perUnitE18: string;
+      readonly peakE18: string;
+      readonly drawdownBps: number;
+    } | null;
+    readonly mode: AccountMode | null;
+    readonly inHandover: boolean;
+    readonly depositsOpen: boolean;
+    readonly depositsClosed: boolean;
+    readonly lockupSeconds: number;
+    readonly feeBps: number;
+    readonly windDownAt: number;
+    readonly pausedAt: number;
+    readonly holdings: readonly Omit<HoldingV3Json, "claimableRaw">[];
+    readonly constants: {
+      readonly minLockupSeconds: number;
+      readonly maxLockupSeconds: number;
+      readonly leaderMinBps: number;
+      readonly spreadBps: number;
+      readonly handoverPeriodSeconds: number;
+    };
+  } | null;
+  readonly viewer: {
+    readonly address: Address;
+    readonly isOwner: boolean;
+    readonly isLeader: boolean;
+    readonly allowlisted: boolean;
+    readonly mayDeposit: boolean;
+    readonly usdcWalletE6: string;
+    readonly shares: string;
+    readonly freeShares: string;
+    readonly lockedShares: string;
+    readonly unlockAt: number;
+    readonly valueUsdcE6: string | null;
+    readonly maxDepositUsdcE6: string;
+    readonly inKind: readonly VaultTokenAmountJson[] | null;
+    readonly claimables: readonly VaultTokenAmountJson[];
+    readonly entryPriceE18: string;
+  } | null;
+}
+
+/** P7-U4: the vault's performance from the value snapshots, as the window scores it. */
+export interface VaultPerformanceJson {
+  readonly series: readonly SeriesPoint[];
+  readonly scores: {
+    readonly returnSinceStart: WindowScores["returnSinceStart"];
+    readonly maxDrawdown: WindowScores["maxDrawdown"];
+  };
+  readonly history: {
+    readonly points: number;
+    readonly from: string | null;
+    readonly to: string | null;
+  };
+}
+
+export interface VaultResponseJson {
+  readonly vault: VaultJson;
+  readonly performance: VaultPerformanceJson;
+  readonly funding: {
+    readonly fundingAddress: Address;
+    readonly creditsUsdcE6: string;
+    readonly spendableUsdcE6: string;
+    readonly heldUsdcE6: string;
+    readonly creditCapUsdcE6: string;
+  } | null;
+}
+
 export const api = {
+  /** P7-U4: the agent's vault, public; the viewer's own position when a wallet is named. */
+  async vault(agentId: bigint, wallet?: Address): Promise<VaultResponseJson> {
+    const q = wallet ? `?wallet=${wallet}` : "";
+    return call<VaultResponseJson>(`/v1/agents/${agentId.toString()}/vault${q}`);
+  },
   async supply(): Promise<ApiSupply> {
     return call<ApiSupply>("/v1/supply");
   },
