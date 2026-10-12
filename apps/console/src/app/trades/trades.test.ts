@@ -4,7 +4,9 @@ import {
   type TransactionView,
   amountOf,
   balanceRows,
+  VAULT_GRANT_NO_EXPIRY,
   describeSwap,
+  grantWords,
   inFlight,
   isV3Swap,
   knownReason,
@@ -119,6 +121,15 @@ describe("the Trades panel's data (P2-U4)", () => {
     );
     expect(amountOf(tx("accepted"), USDC)?.token).toBe(USDC.toLowerCase());
     expect(amountOf(tx("failed", { intent: null }), USDC)).toBeNull();
+  });
+
+  it("says a vault grant has no fixed expiry and what ends it, and dates a timed grant (Step 0, 2026-10-12)", () => {
+    expect(grantWords("1793468425")).toBe("until 2026-10-31T17:40 UTC");
+    expect(grantWords(VAULT_GRANT_NO_EXPIRY)).toMatch(
+      /^no fixed expiry .*ends on a sale, a configuration change or the owner's revocation$/,
+    );
+    // The marker is the largest exact integer (L-223); anything at or above it reads the same.
+    expect(grantWords("9007199254740992")).toBe(grantWords(VAULT_GRANT_NO_EXPIRY));
   });
 
   it("counts the grant only when it names the signer's session key", () => {

@@ -49,6 +49,7 @@ import {
   amountOf,
   balanceRows,
   describeSwap,
+  grantWords,
   inFlight,
   isTransactionState,
   isV3Swap,
@@ -255,12 +256,9 @@ export function TradesPanel({
                 <dt className="text-foreground-muted">Grant</dt>
                 <dd>
                   {(v3 ? snapV3?.grant : snap.grant) ? (
-                    <span className="numeric">
-                      until{" "}
-                      {new Date(Number((v3 ? snapV3?.grant : snap.grant)?.validUntil) * 1000)
-                        .toISOString()
-                        .slice(0, 16)}{" "}
-                      UTC{v3 ? " on Executor v3" : ""}
+                    <span className="numeric" data-testid="grant-words">
+                      {grantWords((v3 ? snapV3?.grant : snap.grant)?.validUntil ?? "0")}
+                      {v3 ? " on Executor v3" : ""}
                     </span>
                   ) : (
                     "none"

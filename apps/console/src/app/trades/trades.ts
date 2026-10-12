@@ -23,6 +23,23 @@ export interface TradingSnapshotView {
   readonly blockNumber: string;
 }
 
+/**
+ * Executor v3's NO_EXPIRY (P7-U2, D-241): a vault grant's `validUntil`, 2^53 - 1,
+ * which no timed grant can reach (the Executor caps those at 30 days).
+ */
+export const VAULT_GRANT_NO_EXPIRY = "9007199254740991";
+
+/**
+ * A grant's end in the console's words (Step 0, 2026-10-12): a vault grant
+ * has no fixed expiry and ends only on a sale, a configuration change or the
+ * owner's revocation (D-241); a timed grant ends at its date.
+ */
+export function grantWords(validUntil: string): string {
+  if (BigInt(validUntil) >= BigInt(VAULT_GRANT_NO_EXPIRY))
+    return "no fixed expiry (a vault grant, D-241): it ends on a sale, a configuration change or the owner's revocation";
+  return `until ${new Date(Number(validUntil) * 1000).toISOString().slice(0, 16)} UTC`;
+}
+
 /** A registered token as the fork lists it (F-U5). */
 export interface RegisteredTokenView {
   readonly symbol: string;
