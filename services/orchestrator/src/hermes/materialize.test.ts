@@ -135,10 +135,15 @@ describe("the owner's skills in the sandbox mount (SK-U1)", () => {
 describe("an edited text mounted over a package's SKILL.md (UI-U2)", () => {
   it("replaces the playbook's body under its generated frontmatter and leaves every other file alone", () => {
     const edited = "---\nname: whatever\n---\n# My Scan\n\nLook for TVL moves first.\n";
-    const files = materialize(config(), RUNTIME, [ownerSkill()], [
-      { kind: "playbook", hermesName: "aa-playbook-scan", skillMd: edited },
-      { kind: "owner", hermesName: "aa-owner-notes", skillMd: "# Owner notes\n\nMON first.\n" },
-    ]);
+    const files = materialize(
+      config(),
+      RUNTIME,
+      [ownerSkill()],
+      [
+        { kind: "playbook", hermesName: "aa-playbook-scan", skillMd: edited },
+        { kind: "owner", hermesName: "aa-owner-notes", skillMd: "# Owner notes\n\nMON first.\n" },
+      ],
+    );
     const scan = files.skills[`${PLAYBOOKS_DIR}/aa-playbook-scan/SKILL.md`] ?? "";
     const own = files.skills[`${EQUIPPED_DIR}/aa-owner-notes/SKILL.md`] ?? "";
     // The frontmatter is the package's own (name, description, version), never the edit's.
@@ -157,9 +162,12 @@ describe("an edited text mounted over a package's SKILL.md (UI-U2)", () => {
     );
     // An override naming no mounted package changes nothing.
     expect(
-      materialize(config(), RUNTIME, [], [
-        { kind: "playbook", hermesName: "aa-playbook-nothing", skillMd: "x" },
-      ]).skills,
+      materialize(
+        config(),
+        RUNTIME,
+        [],
+        [{ kind: "playbook", hermesName: "aa-playbook-nothing", skillMd: "x" }],
+      ).skills,
     ).toEqual(materialize(config(), RUNTIME).skills);
   });
 
@@ -171,9 +179,14 @@ describe("an edited text mounted over a package's SKILL.md (UI-U2)", () => {
       spawn: async () => undefined,
       writeFile: async (path, content, user) => void written.push({ path, content, user }),
     };
-    await bootHermes(sbx, config(), "https://gate.example", new Redactor(), [], [
-      { kind: "playbook", hermesName: "aa-playbook-scan", skillMd: "# Edited scan\n" },
-    ]);
+    await bootHermes(
+      sbx,
+      config(),
+      "https://gate.example",
+      new Redactor(),
+      [],
+      [{ kind: "playbook", hermesName: "aa-playbook-scan", skillMd: "# Edited scan\n" }],
+    );
     const scan = written.find((w) => w.path === `${PLAYBOOKS_DIR}/aa-playbook-scan/SKILL.md`);
     expect(scan?.user).toBe("root");
     expect(scan?.content.endsWith("# Edited scan\n")).toBe(true);

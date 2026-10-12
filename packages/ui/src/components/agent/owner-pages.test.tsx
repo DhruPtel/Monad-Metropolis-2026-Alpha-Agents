@@ -314,7 +314,11 @@ describe("PageLoading and ComingLater (UI-U1)", () => {
 describe("the holdings as tiles with the table on request (UI-U2)", () => {
   it("shows the tiles and the donut, swaps in the table on the toggle, and back", async () => {
     render(
-      <MakeupSwitch rows={ROWS} totalValueUsdcE6="70000000" asOf={{ at: "2026-10-11T12:00:00.000Z", live: true }} />,
+      <MakeupSwitch
+        rows={ROWS}
+        totalValueUsdcE6="70000000"
+        asOf={{ at: "2026-10-11T12:00:00.000Z", live: true }}
+      />,
     );
     expect(screen.getByRole("list", { name: "Positions" })).toBeTruthy();
     expect(screen.queryByRole("region", { name: "Asset makeup" })).toBeNull();

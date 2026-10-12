@@ -53,11 +53,14 @@ const stage = (over: Partial<StageDetail>): StageDetail => ({
 describe("the replay tool's page rules (UI-U2)", () => {
   it("sends only the texts the owner changed, as the replay mounts them", () => {
     const texts = [text("aa-playbook-scan", "# Scan\n"), text("aa-owner-notes", "# Notes\n")];
-    expect(changedTexts(texts, { "aa-playbook-scan": "# Scan\n", "aa-owner-notes": "# Notes\n" })).toEqual(
-      [],
-    );
     expect(
-      changedTexts(texts, { "aa-playbook-scan": "# Scan, edited\n", "aa-owner-notes": "# Notes\n" }),
+      changedTexts(texts, { "aa-playbook-scan": "# Scan\n", "aa-owner-notes": "# Notes\n" }),
+    ).toEqual([]);
+    expect(
+      changedTexts(texts, {
+        "aa-playbook-scan": "# Scan, edited\n",
+        "aa-owner-notes": "# Notes\n",
+      }),
     ).toEqual([{ kind: "playbook", name: "aa-playbook-scan", skillMd: "# Scan, edited\n" }]);
     // A text the page never showed is never sent.
     expect(changedTexts(texts, { "aa-playbook-dive": "x" })).toEqual([]);

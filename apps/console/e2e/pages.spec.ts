@@ -27,7 +27,11 @@ const PAGES = [
   { path: "/market", name: "market", heading: "Market data" },
   { path: "/research", name: "research", heading: "Research sources" },
   { path: "/cycles", name: "cycles", heading: "Research cycles" },
-  { path: `/cycles/replay?stage=${REPLAY_STAGE}`, name: "cycles-replay", heading: "Replay a stage" },
+  {
+    path: `/cycles/replay?stage=${REPLAY_STAGE}`,
+    name: "cycles-replay",
+    heading: "Replay a stage",
+  },
   { path: "/tokens", name: "tokens", heading: "Tokens" },
   {
     path: "/tokens?token=0x1001ff13bf368aa4fa85f21043648079f00e1001",
@@ -566,15 +570,23 @@ test("the replay tool shows a stored stage's prompt and inputs, its playbook to 
   await page.goto("/cycles");
   // Every model stage of a cycle offers a replay; the deterministic Test does not.
   const detail = page.getByTestId("cycle-detail");
-  await expect(detail.getByTestId("stage-1").getByRole("link", { name: "Replay this stage" })).toBeVisible();
-  await expect(detail.getByTestId("stage-4").getByRole("link", { name: "Replay this stage" })).toHaveCount(0);
+  await expect(
+    detail.getByTestId("stage-1").getByRole("link", { name: "Replay this stage" }),
+  ).toBeVisible();
+  await expect(
+    detail.getByTestId("stage-4").getByRole("link", { name: "Replay this stage" }),
+  ).toHaveCount(0);
   await detail.getByTestId("stage-1").getByRole("link", { name: "Replay this stage" }).click();
   await expect(page.getByRole("heading", { level: 1, name: "Replay a stage" })).toBeVisible();
   const stage = page.getByTestId("replay-stage");
   await expect(stage).toContainText("Scan of agent #1");
-  await expect(stage.getByLabel("The prompt the stage was sent, word for word")).toContainText("SCAN stage");
+  await expect(stage.getByLabel("The prompt the stage was sent, word for word")).toContainText(
+    "SCAN stage",
+  );
   // The stored inputs: the platform reads and the web search answer from the store; the writes run again.
-  await expect(stage).toContainText("get_research_context ×1, get_goals_and_limits ×1, web_search ×1");
+  await expect(stage).toContainText(
+    "get_research_context ×1, get_goals_and_limits ×1, web_search ×1",
+  );
   await expect(stage.getByText("Answered from the store")).toHaveCount(3);
   await expect(stage.getByText("Runs again")).toHaveCount(4);
   // The playbook, editable; the comparison of the original against the replay with its cost.

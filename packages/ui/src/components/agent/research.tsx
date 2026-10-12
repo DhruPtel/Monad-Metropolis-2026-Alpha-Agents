@@ -123,7 +123,11 @@ export function researchTileWords(
             ? ("warning" as TileTone)
             : ("neutral" as TileTone),
       }
-    : { value: "No budget", note: "Set a goal to give research a budget.", tone: "warning" as TileTone };
+    : {
+        value: "No budget",
+        note: "Set a goal to give research a budget.",
+        tone: "warning" as TileTone,
+      };
   const cycles = {
     value: String(v.cycles),
     note:

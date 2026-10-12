@@ -225,9 +225,7 @@
         {
           "title": "TVL",
           "notes": "CHANGED: TVL fell 6.8% over 7 days.\nTHEMES: TVL_OUTFLOW high.",
-          "sources": [
-            "https://news.example/tvl"
-          ],
+          "sources": ["https://news.example/tvl"],
           "at": "2026-10-12T19:58:07.202Z"
         }
       ],
@@ -246,9 +244,7 @@
                 "token": null,
                 "symbol": null,
                 "whyNow": "A 6.8% weekly fall is large for the chain.",
-                "sources": [
-                  "web_search"
-                ],
+                "sources": ["web_search"],
                 "materiality": "high"
               }
             ],
@@ -256,9 +252,7 @@
               {
                 "text": "Monad TVL fell 6.8% over the 7-day window.",
                 "class": "news",
-                "sources": [
-                  "https://news.example/tvl"
-                ],
+                "sources": ["https://news.example/tvl"],
                 "confidence": "medium"
               }
             ],
@@ -284,9 +278,7 @@
                 "token": null,
                 "symbol": null,
                 "whyNow": "A 6.8% weekly fall is large for the chain.",
-                "sources": [
-                  "web_search"
-                ],
+                "sources": ["web_search"],
                 "materiality": "high"
               }
             ],
@@ -294,9 +286,7 @@
               {
                 "text": "Monad TVL fell 6.8% over the 7-day window.",
                 "class": "news",
-                "sources": [
-                  "https://news.example/tvl"
-                ],
+                "sources": ["https://news.example/tvl"],
                 "confidence": "medium"
               }
             ],

@@ -39,7 +39,10 @@ export const ReplayRequest = z.strictObject({
 });
 export const ReplaySaveRequest = z.strictObject({
   override: ReplayOverrideJson,
-  savedFrom: z.string().regex(/^cycle-[0-9a-f-]{36}$/).optional(),
+  savedFrom: z
+    .string()
+    .regex(/^cycle-[0-9a-f-]{36}$/)
+    .optional(),
 });
 
 export const cycleJson = (c: Cycle) => ({
@@ -139,7 +142,8 @@ export function registerCycleRoutes(
    */
   app.get("/v1/stages/:stageRunId/replay", async (c) => {
     const stageRunId = c.req.param("stageRunId");
-    if (!/^stage-run-[0-9a-f-]{36}$/.test(stageRunId)) return c.json({ error: "bad_stage_id" }, 400);
+    if (!/^stage-run-[0-9a-f-]{36}$/.test(stageRunId))
+      return c.json({ error: "bad_stage_id" }, 400);
     const view = await orch.replayView(stageRunId);
     if (!view) return c.json({ error: "not_found" }, 404);
     return c.json({
@@ -163,7 +167,8 @@ export function registerCycleRoutes(
   /** UI-U2: runs a stored stage again on its stored inputs with the edited texts: 202 with its task and cycle. */
   app.post("/v1/stages/:stageRunId/replay", async (c) => {
     const stageRunId = c.req.param("stageRunId");
-    if (!/^stage-run-[0-9a-f-]{36}$/.test(stageRunId)) return c.json({ error: "bad_stage_id" }, 400);
+    if (!/^stage-run-[0-9a-f-]{36}$/.test(stageRunId))
+      return c.json({ error: "bad_stage_id" }, 400);
     const body = ReplayRequest.safeParse(await c.req.json().catch(() => ({})));
     if (!body.success)
       return c.json(
@@ -174,7 +179,10 @@ export function registerCycleRoutes(
       return c.json(await orch.enqueueReplay(stageRunId, body.data.overrides), 202);
     } catch (err) {
       if (err instanceof ReplayError)
-        return c.json({ error: err.code, message: err.message }, err.code === "not_found" ? 404 : 409);
+        return c.json(
+          { error: err.code, message: err.message },
+          err.code === "not_found" ? 404 : 409,
+        );
       if (err instanceof CreditsExhaustedError)
         return c.json({ error: "credits_exhausted", message: err.message }, 409);
       if (err instanceof NoGoalError)
@@ -190,16 +198,27 @@ export function registerCycleRoutes(
   /** UI-U2: saves an edited text as a new version, only when the owner chooses. */
   app.post("/v1/stages/:stageRunId/replay/save", async (c) => {
     const stageRunId = c.req.param("stageRunId");
-    if (!/^stage-run-[0-9a-f-]{36}$/.test(stageRunId)) return c.json({ error: "bad_stage_id" }, 400);
+    if (!/^stage-run-[0-9a-f-]{36}$/.test(stageRunId))
+      return c.json({ error: "bad_stage_id" }, 400);
     const body = ReplaySaveRequest.safeParse(await c.req.json().catch(() => ({})));
     if (!body.success)
-      return c.json({ error: "bad_request", message: "the text needs a kind, a name and a body" }, 400);
+      return c.json(
+        { error: "bad_request", message: "the text needs a kind, a name and a body" },
+        400,
+      );
     try {
-      const r = await orch.saveReplayText(stageRunId, body.data.override, body.data.savedFrom ?? null);
+      const r = await orch.saveReplayText(
+        stageRunId,
+        body.data.override,
+        body.data.savedFrom ?? null,
+      );
       return r.ok ? c.json(r, 201) : c.json({ error: "blocked", issues: r.issues }, 409);
     } catch (err) {
       if (err instanceof ReplayError)
-        return c.json({ error: err.code, message: err.message }, err.code === "not_found" ? 404 : 409);
+        return c.json(
+          { error: err.code, message: err.message },
+          err.code === "not_found" ? 404 : 409,
+        );
       throw err;
     }
   });

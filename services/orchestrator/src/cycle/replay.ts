@@ -55,15 +55,7 @@ export class ReplayStore {
     const rows = await this.store.db
       .selectFrom("platform.tool_calls as c")
       .leftJoin("platform.tool_results as r", "r.call_id", "c.call_id")
-      .select([
-        "c.call_id",
-        "c.server",
-        "c.tool",
-        "c.input",
-        "c.status",
-        "r.result",
-        "r.truncated",
-      ])
+      .select(["c.call_id", "c.server", "c.tool", "c.input", "c.status", "r.result", "r.truncated"])
       .where("c.stage_run_id", "=", stageRunId)
       .orderBy("c.started_at")
       .execute();
@@ -201,14 +193,14 @@ export interface ReplayView {
  * skills), and the replays made so far.
  */
 export interface ReplayViewDeps {
-readonly db: Db;
-readonly cycles: CycleStore;
-readonly replay: ReplayStore | null;
+  readonly db: Db;
+  readonly cycles: CycleStore;
+  readonly replay: ReplayStore | null;
 }
 
 export async function replayView(
-deps: ReplayViewDeps,
-stageRunId: string,
+  deps: ReplayViewDeps,
+  stageRunId: string,
 ): Promise<ReplayView | null> {
   const stage = await deps.cycles.stageRun(stageRunId);
   if (!stage) return null;
@@ -250,9 +242,9 @@ stageRunId: string,
 
 /** The texts a replay of the stage may edit: its playbook (the saved version, if any) and the owner's skills. */
 export async function replayTexts(
-db: Db,
-ref: { chainId: number; agentId: number },
-stage: StageRun,
+  db: Db,
+  ref: { chainId: number; agentId: number },
+  stage: StageRun,
 ): Promise<ReplayText[]> {
   const out: ReplayText[] = [];
   const playbookName = PLAYBOOK_OF[stage.stage];
@@ -261,11 +253,7 @@ stage: StageRun,
   );
   if (playbook) {
     const saved = (
-      await new PlaybookOverrideStore(db).versions(
-        ref.chainId,
-        ref.agentId,
-        playbook.hermesName,
-      )
+      await new PlaybookOverrideStore(db).versions(ref.chainId, ref.agentId, playbook.hermesName)
     )[0];
     out.push({
       kind: "playbook",

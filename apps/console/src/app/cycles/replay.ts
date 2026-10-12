@@ -121,8 +121,11 @@ export function compareStages(before: StageDetail, after: StageDetail | null): C
     changed: a !== null && a !== b,
   });
   return [
-    row("Ended", `${before.status} (${before.stopReason ?? "none"})`,
-      after ? `${after.status} (${after.stopReason ?? "none"})` : null),
+    row(
+      "Ended",
+      `${before.status} (${before.stopReason ?? "none"})`,
+      after ? `${after.status} (${after.stopReason ?? "none"})` : null,
+    ),
     row("Cost", usdc4(before.chargedUsdcE6), after ? usdc4(after.chargedUsdcE6) : null),
     row(
       "Model calls",

@@ -58,7 +58,9 @@ export interface SkillTextOverride {
 
 /** The SKILL.md a package mounts with an override's body, or its own without one. */
 export function skillMdWith(pkg: SkillPackage, override: SkillTextOverride | null): string {
-  return override ? `${frontmatterFor(pkg.manifest)}${stripFrontmatter(override.skillMd)}` : pkg.skillMd;
+  return override
+    ? `${frontmatterFor(pkg.manifest)}${stripFrontmatter(override.skillMd)}`
+    : pkg.skillMd;
 }
 
 /**
@@ -158,7 +160,8 @@ export function materialize(
   const skills: Record<string, string> = {};
   const place = (kind: MountedKind, p: SkillPackage) => {
     const root = `${dirFor(kind)}/${p.hermesName}`;
-    const override = overrides.find((o) => o.kind === kind && o.hermesName === p.hermesName) ?? null;
+    const override =
+      overrides.find((o) => o.kind === kind && o.hermesName === p.hermesName) ?? null;
     skills[`${root}/SKILL.md`] = skillMdWith(p, override);
     for (const f of p.files)
       if (f.path !== "SKILL.md" && f.path !== "skill.json")

@@ -33,9 +33,7 @@ describe("the reveal moment (UI-U2)", () => {
     expect(screen.queryByText("Bee")).toBeNull();
     await userEvent.click(screen.getByRole("button", { name: "Reveal" }));
     expect(onSeen).toHaveBeenCalledTimes(1);
-    rerender(
-      <RevealMoment agentId={14n} speciesIndex={14} seen onSeen={onSeen} durationMs={0} />,
-    );
+    rerender(<RevealMoment agentId={14n} speciesIndex={14} seen onSeen={onSeen} durationMs={0} />);
     expect(root?.getAttribute("data-phase")).toBe("revealed");
     expect(screen.getByRole("img", { name: "Bee agent" })).toBeTruthy();
     expect(screen.getByText("Bee")).toBeTruthy();
@@ -45,7 +43,13 @@ describe("the reveal moment (UI-U2)", () => {
 
   it("while the chain has not drawn yet, shows the placeholder with the time left and no Reveal", () => {
     const { container } = render(
-      <RevealMoment agentId={14n} speciesIndex={null} secondsLeft={9} seen={false} onSeen={() => undefined} />,
+      <RevealMoment
+        agentId={14n}
+        speciesIndex={null}
+        secondsLeft={9}
+        seen={false}
+        onSeen={() => undefined}
+      />,
     );
     expect(container.querySelector("[data-slot=reveal-moment]")?.getAttribute("data-phase")).toBe(
       "waiting",

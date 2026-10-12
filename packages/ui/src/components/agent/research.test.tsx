@@ -379,17 +379,17 @@ describe("the research loop at a glance as tiles (UI-U2)", () => {
       value: "Paused",
       tone: "warning",
     });
-    expect(researchTileWords({ ...base, waitingReason: "Waiting for tomorrow's budget." }, NOW).status).toMatchObject({
+    expect(
+      researchTileWords({ ...base, waitingReason: "Waiting for tomorrow's budget." }, NOW).status,
+    ).toMatchObject({
       value: "Waiting",
       note: "Waiting for tomorrow's budget.",
     });
     expect(researchTileWords({ ...base, schedulingOn: false }, NOW).status.value).toBe("By hand");
     expect(researchTileWords({ ...base, running: false }, NOW).status.value).toBe("Not running");
     expect(
-      researchTileWords(
-        { ...base, budget: { ...base.budget, usedTodayUsdcE6: "3800000" } },
-        NOW,
-      ).spent.tone,
+      researchTileWords({ ...base, budget: { ...base.budget, usedTodayUsdcE6: "3800000" } }, NOW)
+        .spent.tone,
     ).toBe("warning");
     expect(researchTileWords({ ...base, open: true }, NOW).next.value).toBe("Now");
     expect(researchTileWords({ ...base, nextDueAt: null }, NOW).next.value).toBe("None due");
@@ -402,9 +402,17 @@ describe("the research loop at a glance as tiles (UI-U2)", () => {
   });
 
   it("renders the four tiles with the action on the status tile", () => {
-    render(<ResearchTiles view={base} now={NOW} action={<button type="button">Pause research</button>} />);
+    render(
+      <ResearchTiles
+        view={base}
+        now={NOW}
+        action={<button type="button">Pause research</button>}
+      />,
+    );
     const tiles = within(screen.getByRole("group", { name: "Research at a glance" }));
-    expect(screen.getByTestId("research-tile-status").getAttribute("data-state")).toBe("On schedule");
+    expect(screen.getByTestId("research-tile-status").getAttribute("data-state")).toBe(
+      "On schedule",
+    );
     expect(tiles.getByRole("button", { name: "Pause research" })).toBeTruthy();
     expect(tiles.getByText("in 3 h")).toBeTruthy();
     expect(tiles.getByText("1.41 USDC")).toBeTruthy();

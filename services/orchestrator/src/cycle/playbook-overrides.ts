@@ -68,7 +68,11 @@ export class PlaybookOverrideStore {
   }
 
   /** Every saved version of one playbook, newest first. */
-  async versions(chainId: number, agentId: number, hermesName: string): Promise<PlaybookOverride[]> {
+  async versions(
+    chainId: number,
+    agentId: number,
+    hermesName: string,
+  ): Promise<PlaybookOverride[]> {
     const rows = await this.db
       .selectFrom("platform.playbook_overrides")
       .selectAll()

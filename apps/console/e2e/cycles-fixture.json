@@ -299,30 +299,12 @@
             "checked": [],
             "envelope": {
               "ranges": {
-                "maxLegBps": [
-                  10,
-                  1000
-                ],
-                "minTradeUsdc": [
-                  "0.1",
-                  "100"
-                ],
-                "costHurdleBps": [
-                  5,
-                  50
-                ],
-                "targetWmonBps": [
-                  0,
-                  3000
-                ],
-                "bandHalfWidthBps": [
-                  100,
-                  1000
-                ],
-                "volatilityBrakeBps": [
-                  2000,
-                  30000
-                ]
+                "maxLegBps": [10, 1000],
+                "minTradeUsdc": ["0.1", "100"],
+                "costHurdleBps": [5, 50],
+                "targetWmonBps": [0, 3000],
+                "bandHalfWidthBps": [100, 1000],
+                "volatilityBrakeBps": [2000, 30000]
               },
               "template": "rebalance_bands@1",
               "cooldownUntil": null,

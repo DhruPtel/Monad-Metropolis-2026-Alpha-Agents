@@ -137,9 +137,7 @@
           "chargeUsdcE6": "10000",
           "cacheHit": false,
           "summary": {
-            "hosts": [
-              "news.example"
-            ],
+            "hosts": ["news.example"],
             "results": 1
           },
           "resultStored": true,
@@ -228,9 +226,7 @@
         {
           "title": "TVL",
           "notes": "CHANGED: TVL fell 6.8% over 7 days.\nTHEMES: TVL_OUTFLOW high.",
-          "sources": [
-            "https://news.example/tvl"
-          ],
+          "sources": ["https://news.example/tvl"],
           "at": "2026-10-12T19:57:53.004Z"
         }
       ],
@@ -249,9 +245,7 @@
                 "token": null,
                 "symbol": null,
                 "whyNow": "A 6.8% weekly fall is large for the chain.",
-                "sources": [
-                  "web_search"
-                ],
+                "sources": ["web_search"],
                 "materiality": "high"
               }
             ],
@@ -259,9 +253,7 @@
               {
                 "text": "Monad TVL fell 6.8% over the 7-day window.",
                 "class": "news",
-                "sources": [
-                  "https://news.example/tvl"
-                ],
+                "sources": ["https://news.example/tvl"],
                 "confidence": "medium"
               }
             ],
@@ -287,9 +279,7 @@
                 "token": null,
                 "symbol": null,
                 "whyNow": "A 6.8% weekly fall is large for the chain.",
-                "sources": [
-                  "web_search"
-                ],
+                "sources": ["web_search"],
                 "materiality": "high"
               }
             ],
@@ -297,9 +287,7 @@
               {
                 "text": "Monad TVL fell 6.8% over the 7-day window.",
                 "class": "news",
-                "sources": [
-                  "https://news.example/tvl"
-                ],
+                "sources": ["https://news.example/tvl"],
                 "confidence": "medium"
               }
             ],
@@ -423,9 +411,7 @@
           "chargeUsdcE6": "10000",
           "cacheHit": false,
           "summary": {
-            "hosts": [
-              "news.example"
-            ],
+            "hosts": ["news.example"],
             "results": 1
           },
           "resultStored": true,
@@ -445,9 +431,7 @@
           "cacheHit": false,
           "summary": {
             "chars": 110,
-            "hosts": [
-              "lending.example"
-            ],
+            "hosts": ["lending.example"],
             "redirects": 0,
             "truncated": false
           },
@@ -500,9 +484,7 @@
           "status": "accepted",
           "body": {
             "kind": "THEME",
-            "risks": [
-              "One report could misread a price move as an outflow."
-            ],
+            "risks": ["One report could misread a price move as an outflow."],
             "token": null,
             "screen": {
               "summary": "A market theme has no token to screen.",
@@ -525,9 +507,7 @@
               {
                 "text": "Lending holds 412 million USD.",
                 "class": "primary",
-                "sources": [
-                  "https://lending.example/stats"
-                ],
+                "sources": ["https://lending.example/stats"],
                 "confidence": "medium"
               }
             ],
@@ -537,9 +517,7 @@
                 "asOf": "today",
                 "text": "TVL fell 6.8% in a week.",
                 "class": "news",
-                "sources": [
-                  "web_search"
-                ],
+                "sources": ["web_search"],
                 "confidence": "low"
               },
               "usage": null,
@@ -556,9 +534,7 @@
               {
                 "text": "TVL fell 6.8% in a week.",
                 "class": "news",
-                "sources": [
-                  "web_search"
-                ],
+                "sources": ["web_search"],
                 "confidence": "low"
               }
             ]
@@ -719,9 +695,7 @@
               {
                 "rank": 1,
                 "text": "A single news report is not onchain evidence of an exit.",
-                "sources": [
-                  "web_search"
-                ],
+                "sources": ["web_search"],
                 "severity": "high"
               }
             ]
@@ -758,30 +732,12 @@
         "checked": [],
         "envelope": {
           "ranges": {
-            "maxLegBps": [
-              10,
-              1000
-            ],
-            "minTradeUsdc": [
-              "0.1",
-              "100"
-            ],
-            "costHurdleBps": [
-              5,
-              50
-            ],
-            "targetWmonBps": [
-              0,
-              3000
-            ],
-            "bandHalfWidthBps": [
-              100,
-              1000
-            ],
-            "volatilityBrakeBps": [
-              2000,
-              30000
-            ]
+            "maxLegBps": [10, 1000],
+            "minTradeUsdc": ["0.1", "100"],
+            "costHurdleBps": [5, 50],
+            "targetWmonBps": [0, 3000],
+            "bandHalfWidthBps": [100, 1000],
+            "volatilityBrakeBps": [2000, 30000]
           },
           "template": "rebalance_bands@1",
           "cooldownUntil": null,
@@ -960,18 +916,14 @@
               {
                 "text": "The Challenge weakened the only thesis.",
                 "class": "primary",
-                "sources": [
-                  "get_research_context"
-                ],
+                "sources": ["get_research_context"],
                 "confidence": "medium"
               }
             ],
             "decision": "NO_CHANGE",
             "positions": [],
             "reasonCode": "EVIDENCE_THIN",
-            "themeCodes": [
-              "TVL_OUTFLOW"
-            ],
+            "themeCodes": ["TVL_OUTFLOW"],
             "portfolioView": "The account sits on the two-asset plan with nothing that argues for moving it.",
             "evidenceStrength": "weak",
             "whatWouldChangeIt": "Onchain flows that confirm an exit from DEXs."

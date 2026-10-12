@@ -248,7 +248,8 @@ export function GoalPage({
           excludedTokens: form.excludedTokens.length,
           intensity: form.intensity,
           dailyBudgetUsdcE6: parseUsdc(form.budgetText),
-          modelTierLabel: page.form.tiers.find((t) => t.id === form.modelTier)?.label ?? form.modelTier,
+          modelTierLabel:
+            page.form.tiers.find((t) => t.id === form.modelTier)?.label ?? form.modelTier,
           planChanges: form.planChanges,
         }}
         action={(section) => (

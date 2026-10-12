@@ -27,7 +27,9 @@ async function post(path: string, body: unknown, expect: number): Promise<Record
       typeof json.message === "string"
         ? json.message
         : Array.isArray(json.issues)
-          ? `The text does not pass the skill checks: ${(json.issues as { rule: string; message: string }[])
+          ? `The text does not pass the skill checks: ${(
+              json.issues as { rule: string; message: string }[]
+            )
               .map((i) => `${i.rule} ${i.message}`)
               .join("; ")}`
           : `The orchestrator answered ${res.status}.`,

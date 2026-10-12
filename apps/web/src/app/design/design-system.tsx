@@ -3239,7 +3239,11 @@ function OwnerPagesSection() {
         note="UI-U2: square tiles for a page's at-a-glance row: a label, one value in big type, a plain note that says what it means, and the next action. Two across on a phone, up to four on a desktop, never a long thin rectangle."
       >
         <TileGrid label="Fact tiles" testId="fact-tiles">
-          <FactTile label="Credits" value="4.99 USDC" note="Enough for about 12 days of research." />
+          <FactTile
+            label="Credits"
+            value="4.99 USDC"
+            note="Enough for about 12 days of research."
+          />
           <FactTile
             label="Return since start"
             value="+4.12%"

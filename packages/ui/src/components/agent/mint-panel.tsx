@@ -294,12 +294,7 @@ function MintPanel(props: MintPanelProps) {
           {mint ? <MintButton {...mint} className={cn("sm:max-w-xs", mint.className)} /> : null}
           {agent && props.reveal ? (
             <div className="flex flex-col gap-1">
-              <RevealMoment
-                agentId={agent.id}
-                href={agentHref}
-                linkAs={linkAs}
-                {...props.reveal}
-              />
+              <RevealMoment agentId={agent.id} href={agentHref} linkAs={linkAs} {...props.reveal} />
               {props.reveal.speciesIndex === null && revealNote ? (
                 <span className="text-xs text-foreground-muted">{revealNote}</span>
               ) : null}

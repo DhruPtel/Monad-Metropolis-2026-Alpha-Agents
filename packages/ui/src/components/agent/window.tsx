@@ -852,8 +852,8 @@ function HundredDollarTile({ hundred, className }: { hundred: HundredView; class
       <span className="text-xs text-foreground-muted">
         {hundred.ok ? (
           <>
-            with this agent since {when(hundred.since)}; <span className="numeric">${hundred.usdc}</span>{" "}
-            holding USDC instead
+            with this agent since {when(hundred.since)};{" "}
+            <span className="numeric">${hundred.usdc}</span> holding USDC instead
           </>
         ) : (
           hundred.reason

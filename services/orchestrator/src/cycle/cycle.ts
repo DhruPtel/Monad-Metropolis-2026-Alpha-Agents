@@ -318,7 +318,8 @@ async function budgetCheck(
   const credits = await ctx.credits.creditsOf(cycle.agentId);
   return stageMayStart({
     ceilingUsdcE6:
-      ceilingUsdcE6 ?? stageCeilingUsdcE6(stage, cycle.kind, cycle.reasoningAlias as ReasoningAlias),
+      ceilingUsdcE6 ??
+      stageCeilingUsdcE6(stage, cycle.kind, cycle.reasoningAlias as ReasoningAlias),
     dailyBudgetUsdcE6: BigInt(goal.research.dailyBudgetUsdcE6),
     usedTodayUsdcE6: await ctx.cycles.usedToday(ref, utcDayStart(now(ctx))),
     spendableUsdcE6: credits.spendable,

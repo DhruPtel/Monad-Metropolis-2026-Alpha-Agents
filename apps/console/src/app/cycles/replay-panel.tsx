@@ -120,11 +120,14 @@ export function ReplayPanel({
           </div>
           <CardDescription>
             Ran {time(view.stage.startedAt)} on {view.stage.model ?? "no model"} for{" "}
-            {usdc(view.stage.chargedUsdcE6)}. A replay sends the same prompt to the same model
-            under the same caps, with your edited text mounted, and answers every tool call from
-            the {inputs.stored} stored result{inputs.stored === 1 ? "" : "s"} below. Nothing is
-            fetched or charged but the model call.{" "}
-            <Link className="underline" href={`/cycles?agent=${view.agentId}&cycle=${view.cycle.cycleId}`}>
+            {usdc(view.stage.chargedUsdcE6)}. A replay sends the same prompt to the same model under
+            the same caps, with your edited text mounted, and answers every tool call from the{" "}
+            {inputs.stored} stored result{inputs.stored === 1 ? "" : "s"} below. Nothing is fetched
+            or charged but the model call.{" "}
+            <Link
+              className="underline"
+              href={`/cycles?agent=${view.agentId}&cycle=${view.cycle.cycleId}`}
+            >
               Back to the cycle
             </Link>
             .
@@ -193,16 +196,18 @@ export function ReplayPanel({
           {view.texts.map((t) => {
             const edited = (edits[t.name] ?? t.skillMd) !== t.skillMd;
             return (
-              <div key={t.name} className="flex flex-col gap-2" data-testid={`replay-text-${t.name}`}>
+              <div
+                key={t.name}
+                className="flex flex-col gap-2"
+                data-testid={`replay-text-${t.name}`}
+              >
                 <div className="flex flex-wrap items-center gap-2">
                   <Tag tone={t.kind === "playbook" ? "accent" : "neutral"}>
                     {t.kind === "playbook" ? "Playbook" : "Owner skill"}
                   </Tag>
                   <span className="text-sm text-foreground-muted">
                     {t.name} · version {t.version}
-                    {t.savedVersions > 0
-                      ? ` (${t.savedVersions} saved for this agent)`
-                      : ""}
+                    {t.savedVersions > 0 ? ` (${t.savedVersions} saved for this agent)` : ""}
                   </span>
                   {edited ? <Badge tone="warning">Edited</Badge> : null}
                 </div>
@@ -253,7 +258,11 @@ export function ReplayPanel({
         </CardContent>
       </Card>
 
-      <section aria-label="Old and new output" className="flex flex-col gap-4" data-testid="replay-compare">
+      <section
+        aria-label="Old and new output"
+        className="flex flex-col gap-4"
+        data-testid="replay-compare"
+      >
         <div className="flex flex-wrap items-center gap-2">
           <h2 className="text-xl font-semibold">Old and new output</h2>
           {selectedReplay ? (
@@ -383,7 +392,9 @@ function OutputCard({ title, s }: { title: string; s: StageDetail }) {
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         {s.record ? (
-          <CodeBlock label={`${title}: stage record`}>{JSON.stringify(s.record, null, 2)}</CodeBlock>
+          <CodeBlock label={`${title}: stage record`}>
+            {JSON.stringify(s.record, null, 2)}
+          </CodeBlock>
         ) : (
           <p className="text-sm text-foreground-muted">No stage record.</p>
         )}
@@ -402,7 +413,9 @@ function OutputCard({ title, s }: { title: string; s: StageDetail }) {
                   ))}
                 </ul>
               ) : null}
-              <CodeBlock label={`${title}: ${b.kind} brief`}>{JSON.stringify(b.body, null, 2)}</CodeBlock>
+              <CodeBlock label={`${title}: ${b.kind} brief`}>
+                {JSON.stringify(b.body, null, 2)}
+              </CodeBlock>
             </div>
           ))}
         {s.notes.map((n) => (

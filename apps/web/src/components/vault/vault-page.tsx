@@ -378,8 +378,8 @@ export function VaultPage({
           <CardTitle>What the vault holds</CardTitle>
           <CardDescription>
             Every token as a tile, worth what the vault&apos;s own prices say, with its share and
-            its gain or loss; the table adds what each cost. An in-kind exit pays your share of
-            each of these.
+            its gain or loss; the table adds what each cost. An in-kind exit pays your share of each
+            of these.
           </CardDescription>
         </CardHeader>
         <CardContent>

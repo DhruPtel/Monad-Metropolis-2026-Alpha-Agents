@@ -320,7 +320,10 @@ describe("data tools server", () => {
       message: /Not among the stored inputs/,
       details: { replay: true },
     });
-    const page = await bob.callTool({ name: "read_url", arguments: { url: "https://news.example/a" } });
+    const page = await bob.callTool({
+      name: "read_url",
+      arguments: { url: "https://news.example/a" },
+    });
     expect(page.isError).toBe(true);
     // The hook saw the parsed inputs, with their defaults, as the meter would have.
     expect(asked.map((a) => [a.tool, a.input])).toEqual([

@@ -38,7 +38,8 @@ export default async function ReplayPage({
       description="Run a stored research stage again on the exact inputs it saw, with its playbook or one of the owner's skills edited in place, and read the old and new output side by side. Every tool call answers from the stored results; only the model call is paid. An edit is saved as a new version only when you choose."
     />
   );
-  const stageId = params.stage && /^stage-run-[0-9a-f-]{36}$/.test(params.stage) ? params.stage : null;
+  const stageId =
+    params.stage && /^stage-run-[0-9a-f-]{36}$/.test(params.stage) ? params.stage : null;
   if (!stageId)
     return (
       <div className="flex flex-col gap-6">
