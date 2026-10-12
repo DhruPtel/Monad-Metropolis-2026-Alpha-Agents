@@ -19,6 +19,8 @@ export const PAID_DATA_SOURCES = [
     keyHelp: "Create an API key in your Dune account settings and paste it here.",
     /** The tool the key switches on for the agent. */
     tool: "dune_query",
+    /** Whether the platform's own key serves the tool without the owner's (D-326: never for Dune). */
+    platformKey: false,
   },
   {
     id: "x",
@@ -27,6 +29,7 @@ export const PAID_DATA_SOURCES = [
       "The x_search tool: recent posts on the platform's curated Monad topics, read on your X API plan instead of the platform's shared daily budget.",
     keyHelp: "Create an app in the X developer portal and paste its bearer token (app-only) here.",
     tool: "x_search",
+    platformKey: true,
   },
   {
     id: "coinmarketcap",
@@ -35,6 +38,7 @@ export const PAID_DATA_SOURCES = [
       "The coinmarketcap_prices tool: the latest MON and USDC quotes, 24-hour change, volume and market cap, on your CoinMarketCap plan's credits.",
     keyHelp: "Create an API key at pro.coinmarketcap.com and paste it here.",
     tool: "coinmarketcap_prices",
+    platformKey: true,
   },
 ] as const;
 export type PaidDataSourceId = (typeof PAID_DATA_SOURCES)[number]["id"];

@@ -1057,6 +1057,7 @@ export function createApp(deps: ApiDeps): Hono {
         gives: src.gives,
         keyHelp: src.keyHelp,
         tool: src.tool,
+        platformKey: src.platformKey,
         present: k !== null,
         hint: k?.hint ?? null,
         addedAt: k?.addedAt ?? null,

@@ -25,6 +25,7 @@ const SOURCES: readonly DataKeyJson[] = PAID_DATA_SOURCES.map((s) => ({
   gives: s.gives,
   keyHelp: s.keyHelp,
   tool: s.tool,
+  platformKey: s.platformKey,
   present: false,
   hint: null,
   addedAt: null,

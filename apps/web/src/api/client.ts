@@ -1318,6 +1318,8 @@ export interface DataKeyJson {
   readonly gives: string;
   readonly keyHelp: string;
   readonly tool: string;
+  /** BC-U1: the platform's own key serves the tool without the owner's (never for Dune). */
+  readonly platformKey?: boolean;
   readonly present: boolean;
   readonly hint: string | null;
   readonly addedAt: string | null;

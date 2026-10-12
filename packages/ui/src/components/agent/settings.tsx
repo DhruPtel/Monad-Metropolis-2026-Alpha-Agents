@@ -22,6 +22,8 @@ export interface DataKeyView {
   readonly keyHelp: string;
   /** The tool the key switches on. */
   readonly tool: string;
+  /** BC-U1: the platform's own key serves the tool without the owner's (never for Dune). */
+  readonly platformKey?: boolean;
   readonly present: boolean;
   /** "••••abcd", or null when none is stored. */
   readonly hint: string | null;
@@ -75,8 +77,9 @@ function DataKeyCard({
         </dl>
       ) : (
         <p className="mt-auto text-2xs text-foreground-muted">
-          Without a key the agent&apos;s {source.tool} tool answers that it is not configured, and
-          nothing else changes.
+          {source.platformKey
+            ? `Without a key the agent's ${source.tool} tool runs on the platform's own key and shared daily budget; with yours it runs on your plan, for this agent alone, and charges it nothing.`
+            : `Without a key the agent's ${source.tool} tool answers that it is not configured, and nothing else changes.`}
         </p>
       )}
       <p className="flex items-center gap-1 text-2xs text-foreground-muted">
