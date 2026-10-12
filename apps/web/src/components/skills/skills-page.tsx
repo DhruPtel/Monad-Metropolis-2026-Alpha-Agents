@@ -183,7 +183,7 @@ export function SkillsPage({
       <Dialog open={uploadOpen} onOpenChange={setUploadOpen}>
         <DialogContent
           aria-describedby="skill-upload-description"
-          className="max-h-[90vh] overflow-y-auto"
+          className="max-h-svh overflow-y-auto"
         >
           <DialogHeader>
             <DialogTitle>Upload a skill</DialogTitle>
