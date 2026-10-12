@@ -335,6 +335,7 @@ export function createApi(o: ApiOptions): Hono {
         "cache_hit",
         "summary",
         "started_at",
+        "paid_by",
       ])
       .where((eb) =>
         eb.or([
@@ -363,6 +364,8 @@ export function createApi(o: ApiOptions): Hono {
         errorCode: row.error_code,
         chargeUsdcE6: row.charge_usdc_e6,
         cacheHit: row.cache_hit,
+        // BK-U1: an owner's own key paid the upstream, so the call is metered apart from the platform's.
+        paidBy: row.paid_by,
         summary: row.summary,
         at: new Date(row.started_at).toISOString(),
       })),

@@ -51,6 +51,7 @@ import {
   type CustodyPath,
   INTENT_SCHEMA_VERSION_V3,
   type ManagedAccount,
+  type PaidDataSourceId,
   ROUTE_ADAPTER_ID,
   executorV3SwapGasLimit,
 } from "@alpha-agents/domain";
@@ -176,6 +177,11 @@ export interface OrchestratorOptions {
   readonly market?: MarketData | null;
   /** P3-U9: the research sources on the same cache, shared by every agent's tools. */
   readonly research?: ResearchSources | null;
+  /** BK-U1: the owner's own key for a paid source, opened from the platform's store for one agent's calls. */
+  readonly ownerKey?: (
+    identity: { readonly chainId: number; readonly agentId: number },
+    provider: PaidDataSourceId,
+  ) => Promise<string | null>;
   /** Minutes between scheduled Scans, as milliseconds (SCAN_INTERVAL_MINUTES, D-216). */
   readonly scanIntervalMs?: number;
   /** How often the scheduler looks for due Scans; 0 turns scheduling off (tests). */
@@ -540,6 +546,7 @@ export class Orchestrator {
         provider: this.o.web ?? null,
         market: this.o.market ?? null,
         research: this.o.research ?? null,
+        ...(this.o.ownerKey ? { ownerKey: this.o.ownerKey } : {}),
         tokens: this.o.tokens
           ? registryToolSource(this.o.tokens.registry, Date.now, async (agentId) => {
               // F-U12: the account's onchain opt-in decides what the agent may buy.

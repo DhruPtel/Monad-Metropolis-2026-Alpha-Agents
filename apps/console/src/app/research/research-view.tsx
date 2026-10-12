@@ -102,6 +102,7 @@ function CallsTable({ label, calls }: { label: string; calls: readonly ResearchC
                   <span className="text-xs text-foreground-muted">{c.errorCode}</span>
                 ) : null}
                 {c.cacheHit ? <Badge tone="detail">From cache</Badge> : null}
+                {c.paidBy === "owner" ? <Badge tone="detail">Owner&apos;s key</Badge> : null}
               </span>
             </TableCell>
             <TableCell label="Charge" className="numeric">

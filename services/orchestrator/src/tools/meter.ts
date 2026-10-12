@@ -190,6 +190,8 @@ export class ToolMeter implements Meter {
         provider: call.provider,
         cache_hit: call.cacheHit ?? false,
         stage_run_id: runId,
+        // BK-U1: an owner's own key pays its upstream; the platform's pays the rest.
+        paid_by: call.paidBy ?? ("platform" as const),
       };
       // Free: no ledger entry, nothing to reverse (MK-S6: a ledger row only for a paid call).
       if (call.priceUsdcE6 === 0n) {

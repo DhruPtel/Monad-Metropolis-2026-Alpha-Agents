@@ -1,3 +1,4 @@
+import type { PaidDataSourceId } from "@alpha-agents/domain";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import {
   type AgentIdentity,
@@ -87,6 +88,8 @@ export interface Meter {
        * free call never counts. Past it: ToolError("RATE_LIMITED").
        */
       maxPerLease?: number;
+      /** BK-U1: the owner's own key paid the upstream, so the platform charges nothing for it. */
+      paidBy?: "platform" | "owner";
     },
   ): Promise<string>;
   /** Records the outcome. A failed call's charge is reversed. */
@@ -123,6 +126,15 @@ export interface DataToolsDeps {
   readonly market?: MarketData | null;
   /** P3-U9: X search and saved Dune queries; null where not configured. */
   readonly research?: ResearchSources | null;
+  /**
+   * BK-U1: the owner's own key for a paid source, for this agent's calls alone,
+   * opened by the platform from its sealed store; null when the owner added
+   * none. The key never reaches the sandbox: it is used here and nowhere else.
+   */
+  readonly ownerKey?: (
+    identity: AgentIdentity,
+    provider: PaidDataSourceId,
+  ) => Promise<string | null>;
   /** F-U1: the token registry and screen; null where not configured. */
   readonly tokens?: TokenSource | null;
   readonly lookup?: Lookup;
@@ -322,7 +334,11 @@ export function registerDataTools(
     },
   );
   registerMarketTools(mcp, identity, { meter: deps.meter, market: deps.market ?? null });
-  registerResearchTools(mcp, identity, { meter: deps.meter, research: deps.research ?? null });
+  registerResearchTools(mcp, identity, {
+    meter: deps.meter,
+    research: deps.research ?? null,
+    ...(deps.ownerKey ? { ownerKey: deps.ownerKey } : {}),
+  });
   registerTokenTools(mcp, identity, { meter: deps.meter, tokens: deps.tokens ?? null });
 }
 

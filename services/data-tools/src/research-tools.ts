@@ -1,8 +1,10 @@
+import type { PaidDataSourceId } from "@alpha-agents/domain";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import {
   DUNE_QUERIES,
   DUNE_QUERY_NAMES,
   type DuneQueryName,
+  type OwnerSourceKey,
   MarketError,
   type ResearchSources,
   X_TOPICS,
@@ -140,6 +142,11 @@ function researchError(err: unknown): ToolError {
 export interface ResearchToolsDeps {
   readonly meter: Meter;
   readonly research: ResearchSources | null;
+  /** BK-U1: the owner's own key for a paid source, for this agent's calls alone; null when none. */
+  readonly ownerKey?: (
+    identity: AgentIdentity,
+    provider: PaidDataSourceId,
+  ) => Promise<string | null>;
 }
 
 export function registerResearchTools(
@@ -169,6 +176,8 @@ export function registerResearchTools(
     cached: (r: ResearchSources) => boolean,
     read: (
       r: ResearchSources,
+      /** BK-U1: the owner's own key for the source, when the agent's owner added one. */
+      ownerKey: OwnerSourceKey | null,
     ) => Promise<{ output: Record<string, unknown>; summary: Record<string, unknown> }>,
   ) => {
     const r = deps.research;
@@ -180,12 +189,20 @@ export function registerResearchTools(
           false,
         ),
       );
+    // BK-U1: Dune on the owner's own key, for this agent alone; the platform's key stays for the rest.
+    const owned =
+      tool === "dune_query" && deps.ownerKey ? await deps.ownerKey(identity, "dune") : null;
+    const ownerKey: OwnerSourceKey | null = owned
+      ? { key: owned, scope: `${identity.chainId}-${identity.agentId}` }
+      : null;
     // A source with no key is refused before the meter: nothing is charged or reversed.
-    if (!r.configured[tool === "x_search" ? "x" : "dune"])
+    if (!ownerKey && !r.configured[tool === "x_search" ? "x" : "dune"])
       return errorFrom(
         new ToolError(
           "UPSTREAM_UNAVAILABLE",
-          `${tool === "x_search" ? "X search" : "Dune"} is not configured on this platform.`,
+          tool === "x_search"
+            ? "X search is not configured on this platform."
+            : "Dune is not configured on this platform. The agent's owner can add their own Dune key in the agent's settings.",
           false,
         ),
       );
@@ -195,16 +212,18 @@ export function registerResearchTools(
       callId = await deps.meter.begin(identity, {
         tool,
         input,
-        priceUsdcE6: cacheHit ? 0n : RESEARCH_TOOL_PRICES_USDC_E6[tool],
+        // The owner's key pays the upstream, so the platform charges nothing (A-92).
+        priceUsdcE6: cacheHit || ownerKey ? 0n : RESEARCH_TOOL_PRICES_USDC_E6[tool],
         provider: PROVIDER[tool],
         cacheHit,
         maxPerLease: RESEARCH_TOOL_RUN_CAPS[tool],
+        paidBy: ownerKey ? "owner" : "platform",
       });
     } catch (err) {
       return errorFrom(err);
     }
     try {
-      const { output, summary } = await read(r);
+      const { output, summary } = await read(r, ownerKey);
       const out = ResearchOutputs[tool].parse(output);
       await deps.meter.finish(callId, {
         status: "succeeded",
@@ -284,8 +303,8 @@ export function registerResearchTools(
         "dune_query",
         input,
         (r) => r.isCached({ tool: "dune_query", name }),
-        async (r) => {
-          const res = await r.dune(name, input.days);
+        async (r, ownerKey) => {
+          const res = await r.dune(name, input.days, ownerKey);
           const v = res.value;
           return {
             output: {

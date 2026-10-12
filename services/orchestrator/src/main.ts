@@ -58,7 +58,7 @@ const REGISTRAR_SWEEP_MS = 5 * 60_000;
 import { geckoTerminalSource, poolSpotSource } from "./attestor-sources.ts";
 import { ChainClock, withAttestedPrices } from "./attested-reader.ts";
 import { Redactor, createLog, errorText } from "./secrets.ts";
-import { TradeStore } from "@alpha-agents/trading";
+import { OwnerKeyStore, TradeStore } from "@alpha-agents/trading";
 import { Store } from "./store.ts";
 import { findCloudflared } from "./tunnel.ts";
 import { swapGasCost } from "./trade-flow.ts";
@@ -412,6 +412,7 @@ if (!chainContracts.ok)
 const chainContractsV3 = contractsForV3(env.id);
 // Step 0 (2026-10-12, A-90): the reader resolves the agent's account by the owner's stored choice.
 const managedAccounts = new TradeStore(store.db);
+const ownerKeys = new OwnerKeyStore(store.db);
 const plainReaderV3 = chainContractsV3.ok
   ? new ViemChainReaderV3({
       chainId: env.chainId,
@@ -604,6 +605,13 @@ const orchestrator = new Orchestrator({
   web,
   market,
   research,
+  // BK-U1: an owner's own Dune key, opened from its sealed row for that agent's calls alone and
+  // registered with the redactor the moment it is opened; it never reaches the sandbox.
+  ownerKey: async (identity, provider) => {
+    const key = await ownerKeys.open(identity.chainId, identity.agentId, provider, secret);
+    if (key) redactor.add(key);
+    return key;
+  },
   tokens: {
     registry: tokenRegistry,
     ...(tokenLoops ? {} : { discoverEveryMs: 0, screenEveryMs: 0 }),

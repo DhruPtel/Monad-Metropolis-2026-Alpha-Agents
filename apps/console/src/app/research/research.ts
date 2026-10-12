@@ -11,6 +11,8 @@ export interface ResearchCallJson {
   readonly errorCode: string | null;
   readonly chargeUsdcE6: string;
   readonly cacheHit: boolean;
+  /** BK-U1: whose key paid the upstream; absent from rows read before the unit. */
+  readonly paidBy?: "platform" | "owner";
   readonly summary: Record<string, unknown> | null;
   readonly at: string;
 }

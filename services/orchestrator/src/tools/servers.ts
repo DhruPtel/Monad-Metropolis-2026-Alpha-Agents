@@ -1,3 +1,4 @@
+import type { PaidDataSourceId } from "@alpha-agents/domain";
 import type { JournalEntry } from "@alpha-agents/accounting";
 import {
   type Lookup,
@@ -69,6 +70,11 @@ export interface ToolServersOptions {
   readonly market?: MarketData | null;
   /** P3-U9: X search, saved Dune queries and mainnet lookups; none answers them "not configured". */
   readonly research?: ResearchSources | null;
+  /** BK-U1: the owner's own key for a paid source, for one agent's calls alone; null when none. */
+  readonly ownerKey?: (
+    identity: AgentIdentity,
+    provider: PaidDataSourceId,
+  ) => Promise<string | null>;
   /** F-U1: the token registry behind list_tokens, new_pools and screen_token; none answers "not configured". */
   readonly tokens?: TokenSource | null;
   /** P3-U4: the research cycles' records; the tools then meter, record and check per stage. */
@@ -105,6 +111,7 @@ export async function startToolServers(o: ToolServersOptions): Promise<ToolServe
     provider: o.provider ?? unconfiguredProvider,
     market: o.market ?? null,
     research: o.research ?? null,
+    ...(o.ownerKey ? { ownerKey: o.ownerKey } : {}),
     tokens: o.tokens ?? null,
     ...(o.lookup ? { lookup: o.lookup } : {}),
     ...(o.probe ? { probe: o.probe } : {}),

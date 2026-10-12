@@ -41,6 +41,8 @@ type MeterEvent =
       price: bigint;
       input: unknown;
       maxPerLease?: number;
+      provider?: string;
+      paidBy?: string;
     }
   | { kind: "finish"; callId: string; status: string; errorCode?: string; summary?: unknown }
   | { kind: "refuse"; identity: AgentIdentity; tool: string; errorCode: string };
@@ -58,6 +60,8 @@ class FakeMeter implements Meter {
       price: call.priceUsdcE6,
       input: call.input,
       ...(call.maxPerLease === undefined ? {} : { maxPerLease: call.maxPerLease }),
+      provider: call.provider,
+      ...(call.paidBy === undefined ? {} : { paidBy: call.paidBy }),
     });
     return `call-${(this.n += 1)}`;
   }
@@ -110,6 +114,8 @@ async function start(
     research?: ResearchSources | null;
     meter?: FakeMeter;
     probe?: typeof fetch;
+    /** BK-U1: the owner's own key for a source, per agent. */
+    ownerKey?: (identity: AgentIdentity, provider: "dune") => Promise<string | null>;
   } = {},
 ) {
   const meter = o.meter ?? new FakeMeter();
@@ -122,6 +128,7 @@ async function start(
     probe: o.probe ?? noRedirects,
     ...(o.market === undefined ? {} : { market: o.market }),
     ...(o.research === undefined ? {} : { research: o.research }),
+    ...(o.ownerKey ? { ownerKey: o.ownerKey } : {}),
   });
   servers.push(server);
   return { server, meter, provider };
@@ -528,6 +535,75 @@ describe("research tools (P3-U9)", () => {
     }
     expect(calls).toEqual([]);
     expect(meter.events).toEqual([]);
+  });
+
+  it("runs Dune on the owner's own key for that agent alone, charging nothing, metered as the owner's, and never shows the key (BK-U1)", async () => {
+    const OWNER_KEY = "dune-owner-key-not-real-0123456789";
+    const seen: { url: string; key: string | null }[] = [];
+    const inner = researchFetch();
+    const f: typeof fetch = async (input, init) => {
+      const h = new Headers(init?.headers);
+      seen.push({ url: String(input), key: h.get("x-dune-api-key") });
+      return inner.fetch(input, init);
+    };
+    const market = new MarketData({
+      cmcApiKey: null,
+      mainnet: null,
+      fetch: f,
+      sleep: () => Promise.resolve(),
+      now: () => FIXTURE_NOW_MS,
+      usage: new MemoryUsageStore(),
+    });
+    // The platform has no Dune key at all (D-326); only Alice's owner added one.
+    const research = new ResearchSources({
+      market,
+      xBearerToken: null,
+      duneApiKey: null,
+      lookup: null,
+      duneIds: testDuneIds(),
+    });
+    let aliceKey: string | null = OWNER_KEY;
+    const asked: string[] = [];
+    const { server, meter } = await start({
+      research,
+      ownerKey: async (identity, provider) => {
+        asked.push(`${identity.agentId}:${provider}`);
+        return identity.agentId === ALICE.agentId ? aliceKey : null;
+      },
+    });
+    const args = { query: "monad_dex_volume_daily", days: 7 };
+    // Bob: no key of his owner's, none of the platform's: refused before the meter, told where a key goes.
+    const bob = await call(BOB_TOKEN, server, "dune_query", args);
+    expect(bob.isError).toBe(true);
+    expect(JSON.stringify(bob.content)).toMatch(/owner can add their own Dune key/);
+    expect(meter.events).toEqual([]);
+    expect(seen).toEqual([]);
+    // Alice: rows from Dune on her owner's key, nothing charged, metered as the owner's.
+    const alice = await call(ALICE_TOKEN, server, "dune_query", args);
+    expect(alice.isError).toBeFalsy();
+    const out = structured(alice) as { rows: unknown[]; source: string };
+    expect(out.source).toBe("dune");
+    expect(out.rows).toHaveLength(7);
+    expect(JSON.stringify(alice)).not.toContain(OWNER_KEY);
+    expect(seen.length).toBeGreaterThan(0);
+    expect(seen.every((r) => r.key === OWNER_KEY)).toBe(true);
+    const begin = begins(meter)[0];
+    expect(begin).toMatchObject({
+      identity: { agentId: ALICE.agentId },
+      tool: "dune_query",
+      price: 0n,
+      provider: "dune",
+      paidBy: "owner",
+    });
+    expect(
+      JSON.stringify(meter.events, (_k, v: unknown) => (typeof v === "bigint" ? v.toString() : v)),
+    ).not.toContain(OWNER_KEY);
+    expect(asked).toEqual([`${BOB.agentId}:dune`, `${ALICE.agentId}:dune`]);
+    // The key deleted: the next call is refused like Bob's, and the cached rows are not handed out on it.
+    aliceKey = null;
+    const gone = await call(ALICE_TOKEN, server, "dune_query", args);
+    expect(gone.isError).toBe(true);
+    expect(JSON.stringify(gone.content)).toMatch(/not configured/);
   });
 
   it("dune_query runs only a saved query by name: no SQL and no unlisted name reach Dune", async () => {

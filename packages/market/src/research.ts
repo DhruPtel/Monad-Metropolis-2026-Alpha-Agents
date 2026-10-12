@@ -52,6 +52,17 @@ export interface ResearchSourcesOptions {
   readonly duneExecutionWaitMs?: number;
 }
 
+/**
+ * BK-U1: an owner's own key for a source, used for that owner's agent alone.
+ * `scope` names the agent, so the key's daily budgets are counted apart from
+ * the platform's (and from other owners'); the shared result cache stays
+ * shared, since a saved query's rows are the same whoever paid for them.
+ */
+export interface OwnerSourceKey {
+  readonly key: string;
+  readonly scope: string;
+}
+
 const notConfigured = (provider: string, what: string) =>
   new MarketError("UPSTREAM_UNAVAILABLE", provider, `${what} is not configured on this platform.`, {
     retryable: false,
@@ -128,14 +139,33 @@ export class ResearchSources {
     });
   }
 
-  async dune(name: DuneQueryName, days: DuneDays): Promise<Cached<DuneResult>> {
-    const key = this.o.duneApiKey;
+  /** The daily budgets of an owner's own Dune key, counted under its own scope (BK-U1). */
+  private ownerDuneBudgets(scope: string): { reads: DailyBudget; executions: DailyBudget } {
+    const { usage, now } = this.o.market;
+    const budget = (provider: string, limit: number, unit: string) =>
+      new DailyBudget({ provider, limit, unit, store: usage, now });
+    return {
+      reads: budget(`dune:owner:${scope}`, DUNE_DAILY_READ_BUDGET, "result reads"),
+      executions: budget(`dune_exec:owner:${scope}`, DUNE_DAILY_EXECUTION_BUDGET, "query runs"),
+    };
+  }
+
+  async dune(
+    name: DuneQueryName,
+    days: DuneDays,
+    /** BK-U1: the owner's own key takes the platform's place for this call. */
+    owner: OwnerSourceKey | null = null,
+  ): Promise<Cached<DuneResult>> {
+    const key = owner?.key ?? this.o.duneApiKey;
     if (!key) throw notConfigured("dune", "Dune");
     const m = this.o.market;
+    const budgets = owner
+      ? this.ownerDuneBudgets(owner.scope)
+      : { reads: this.duneReads, executions: this.duneExecutions };
     const r = await duneQuery(name, {
       apiKey: key,
-      reads: this.duneReads,
-      executions: this.duneExecutions,
+      reads: budgets.reads,
+      executions: budgets.executions,
       cache: m.cache,
       now: m.now,
       bucket: this.buckets.dune,
