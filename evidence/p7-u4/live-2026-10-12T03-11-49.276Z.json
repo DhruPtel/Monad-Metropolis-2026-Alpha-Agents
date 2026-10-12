@@ -1,0 +1,65 @@
+{
+  "unit": "P7-U4",
+  "runTag": "2026-10-12T03-11-49.276Z",
+  "port": 8569,
+  "modelSpendUsd": 0,
+  "checks": {
+    "MV-S15: the deployed set matches the intended configuration": true,
+    "the address book names the deployed factory": true,
+    "the vault exists at the factory's address for the agent": true,
+    "the leader's stake, then two deposits of 30 USDC": true,
+    "the vault is worth the 80 USDC put in": true,
+    "the lockup is a day": true,
+    "a fresh deposit is locked": true,
+    "the reader shows alice's locked shares, her value and her in-kind slice": true,
+    "the reader shows the owner as the leader with a stake of about a quarter": true,
+    "the reader says the vault cap is 500 USDC and public deposits are off": true,
+    "a wallet off the allowlist may not deposit, per the reader": true,
+    "the chain reader shows the vault as the agent's account under the no-expiry grant": true,
+    "the platform records the arming for the vault": true,
+    "the owner approves the first trade": true,
+    "the trade settles through Executor v3 for the vault": true,
+    "the vault spent 5 USDC and holds WMON": true,
+    "the supply of shares did not move with the trade": true,
+    "two snapshot rows for the vault and the live point make the series": true,
+    "the reader values the vault across USDC and WMON after the trade": true,
+    "the reader shows alice free to withdraw": true,
+    "alice holds her slice of the USDC and the WMON, and no shares": true,
+    "bob is paid in USDC, within the spread of the reader's preview": true,
+    "the leader's stake stays": true
+  },
+  "forkBlock": 109670000,
+  "set": {
+    "factory": "0xC4D2e1d0056165a0A0cb94d7c6Ee89640A2Ba0fF",
+    "executor": "0x9C96ca817322AeE0F1a1F776149c8406F2f0a264",
+    "vaultImplementation": "0x29D5d5cEf24245BF763334880b149318e541585b"
+  },
+  "vault": {
+    "address": "0x0F88Fcc0e68D306Dc8cE419Da12c593279576a29",
+    "agentId": 1,
+    "owner": "0x976EA74026E726554dB657fA54763abd0C3a0aa9",
+    "alice": "0x14dC79964da2C08b23698B3D3cc7Ca32193d9955",
+    "bob": "0x23618e81E3f5cdF7f54C3d65f7FBc0aBf5B21E8f"
+  },
+  "trade": {
+    "intentId": "intent-b0f1c6c1-9019-4228-aa50-95da5c2310df",
+    "status": "reconciled",
+    "amountOut": "145396294789258031311",
+    "txHash": "0x0bd89c69337d4f258d804d48e94828c07f4c8956a0b4504a066c9ff05e0f9cf6"
+  },
+  "performance": {
+    "points": 3,
+    "perUnit": [
+      "1004868766929066494",
+      "1004831184837183347",
+      "1004831184837183347"
+    ]
+  },
+  "exits": {
+    "aliceUsdcE6": "28121327",
+    "aliceWmonWei": "54516490857194440062",
+    "bobUsdcE6": "29755896",
+    "bobPreviewUsdcE6": "29755896"
+  },
+  "passed": true
+}
