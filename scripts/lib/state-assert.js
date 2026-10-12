@@ -328,7 +328,8 @@ export function compareState(intent, actual, prefix = "") {
  * @param {ReturnType<typeof localIntent>} [intent]
  */
 export async function assertState(url, addresses, intent = localIntent(addresses)) {
-  const actual = await readState(url, addresses, Object.keys(intent.factory.allowlisted));
+  const allowlist = /** @type {`0x${string}`[]} */ (Object.keys(intent.factory.allowlisted));
+  const actual = await readState(url, addresses, allowlist);
   const mismatches = compareState(intent, actual);
   const checked = countLeaves(intent);
   return { ok: mismatches.length === 0, checked, mismatches, actual };

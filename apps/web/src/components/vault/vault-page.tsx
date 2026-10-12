@@ -34,7 +34,7 @@ import {
 } from "@alpha-agents/ui";
 import { ArrowLeft, PlugZap, RotateCcw, Wallet } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import type { Address } from "viem";
 import type { VaultJson, VaultResponseJson } from "@/api/client";
 import { type VaultAction, type VaultActionStatus, useVault } from "@/agent/use-vault";
@@ -147,11 +147,6 @@ export function VaultPage({
   const vt = useVault(agentId, environment);
   const name = `Agent #${agentId.toString()}`;
   const network = ENVIRONMENTS[environment].label;
-  const [now, setNow] = useState(() => Math.floor(Date.now() / 1000));
-  useEffect(() => {
-    const timer = window.setInterval(() => setNow(Math.floor(Date.now() / 1000)), 30_000);
-    return () => window.clearInterval(timer);
-  }, []);
   const [depositOpen, setDepositOpen] = useState(false);
   const [withdrawOpen, setWithdrawOpen] = useState(false);
   const [amountText, setAmountText] = useState("");
@@ -204,6 +199,8 @@ export function VaultPage({
     );
 
   const v = d.vault;
+  // The lock is against the chain's clock, which the reading carries; the page re-reads every few seconds.
+  const now = v.timestamp;
   const viewer = v.viewer;
   const isOwner = viewer?.isOwner ?? false;
   const connected = wallet.ready && !!wallet.address;
@@ -334,7 +331,7 @@ export function VaultPage({
                     </Button>
                   </>
                 }
-                status={<StatusFor status={vt.status} actions={["claim"]} />}
+                status={<StatusFor status={vt.status} actions={["claim", "create"]} />}
               />
             ) : (
               walletPrompt

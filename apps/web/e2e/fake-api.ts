@@ -17,6 +17,7 @@ import { AGENT_NFT, type FakeChain } from "./fake-chain";
 import { FakeGoals } from "./fake-goals";
 import type { FakeHoldings } from "./fake-holdings";
 import type { FakeTrading } from "./fake-trading";
+import type { FakeVault } from "./fake-vault";
 
 /**
  * A stand-in for the control API (P1-U4) for the screenshot suite, which runs
@@ -149,6 +150,8 @@ export class FakeApi {
   readonly dashboards = new Map<bigint, FakeDashboard>();
   /** P2-U7: each agent's trading backend (portfolio, arming, intents). */
   readonly trading = new Map<bigint, FakeTrading>();
+  /** P7-U4: each agent's vault, served to anyone. */
+  readonly vaults = new Map<bigint, FakeVault>();
   /** P3-U1: each agent's goal and state. */
   readonly goals = new FakeGoals();
   /** D-315: each agent's holdings at its three addresses. */
@@ -364,6 +367,16 @@ export class FakeApi {
           message: "Trading accounts are not deployed on the local fork.",
         });
       return reply(r.status, { ...meta, ...(r.body as Record<string, unknown>) });
+    }
+    const vaultRoute = /^\/v1\/agents\/(\d+)\/vault$/.exec(url.pathname);
+    if (vaultRoute?.[1] && request.method() === "GET") {
+      const fv = this.vaults.get(BigInt(vaultRoute[1]));
+      if (!fv)
+        return reply(503, {
+          error: "not_deployed",
+          message: "Vaults are not deployed on the local fork.",
+        });
+      return reply(200, { ...meta, ...fv.answer(url.searchParams.get("wallet")) });
     }
     const credits = /^\/v1\/agents\/(\d+)\/credits$/.exec(url.pathname);
     if (credits?.[1] && request.method() === "GET") {
