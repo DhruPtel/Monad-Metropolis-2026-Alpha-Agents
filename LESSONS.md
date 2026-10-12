@@ -1658,3 +1658,17 @@ What happened: The vault grant's "no expiry" was first `type(uint64).max`, which
 Cause: The marker was chosen on the contract side alone, without walking it through every store and type that would carry it (a Postgres bigint read as a JavaScript number).
 Fix: NO_EXPIRY is `2^53 - 1` (9,007,199,254,740,991), the largest integer a JavaScript number and a signed 64-bit column both hold exactly, far beyond any timed grant; `packages/trading` names the same constant and the arming test checks it is a safe integer.
 Lesson: Before choosing a sentinel that will cross an ABI into the platform, follow it through every column and type it lands in, then deploy once.
+
+## L-224: An incoming leader's stake could not leave the vault
+Unit: P7-U3 (2026-10-12)
+What happened: The Executor-path invariant run's first failing sequence was a sale, a stake by the buyer, and the M-13 check: with every other contract reverting, the buyer's in-kind exit passed the free-shares check (`sharesOf` counts the incoming stake) and then reverted `InsufficientShares(0, ...)` in `_burn`, which burned only the leader's stake and ordinary balances. An incoming owner who never accepted could not take their stake out at all.
+Cause: `_burn` was written for two balances (the leader's stake and ordinary shares) when the vault keeps three; `sharesOf` and `_checkFreeFailOpen` knew the third.
+Fix: `_burn` checks the total `sharesOf` first and burns the leader's stake, then the incoming stake, then ordinary shares; `test_TheIncomingOwnerCanLeaveWithoutAccepting` covers it, and the two P7-U3 invariant suites exit every holder in kind after every call.
+Lesson: When a holder has more than one balance, every path that spends shares must spend from each of them, and the one check that sums them is the one to test against.
+
+## L-225: A gift to an empty vault let later depositors buy it below its value
+Unit: P7-U3 (2026-10-12)
+What happened: The many-token invariant run found a sequence (a sale, a 10^12 USDC donation to the empty vault, an 80 USDC stake, a 400 USDC deposit) where the deposit lowered the price per share: the first deposit into a vault that already held value was priced by the virtual-offset formula against that value, so it minted a tiny real supply next to the 10^12 virtual shares, and the next depositor's shares were priced almost entirely by the virtual offset, buying a slice of the gift for a few hundred USDC.
+Cause: The virtual offset is built against the first depositor inflating the price with a donation after depositing; a donation before any deposit leaves the real supply far below the offset, which then prices later deposits.
+Fix: A first deposit into an empty vault mints at the virtual rate alone (whatever the vault holds goes to that first depositor, the leader), and `setDepositsOpen` needs at least one USDC's worth of shares (`MIN_SUPPLY_TO_OPEN`), so the real supply always dwarfs the offset; `test_AGiftToAnEmptyVaultGoesToTheFirstDepositor` and `test_DepositsOpenNeedAtLeastOneUsdcOfShares`, and the invariant that no flow lowers the price per share (within one unit of valuation rounding per held token) over both handler runs. The reference band, as found in the same run, also refuses deposits after a gift that jumps the share price by more than its day's move.
+Lesson: An invariant stated over value (no flow lowers the price per share) catches what the known-attack test for the same mechanism does not; run it with gifts, stakes and sales in the mix.
