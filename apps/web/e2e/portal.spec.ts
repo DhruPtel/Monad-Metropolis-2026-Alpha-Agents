@@ -166,8 +166,8 @@ test.describe("screenshots and accessibility", () => {
     await connect(page);
     await expect(heading(page, 7)).toBeVisible();
     await expect(page.getByTestId("stage-mode")).toHaveAttribute("data-mode", "2d");
-    await expect(page.getByRole("img", { name: "Tick agent" })).toBeVisible();
     const viewer = page.getByRole("region", { name: "Agent viewer" });
+    await expect(viewer.getByRole("img", { name: "Tick agent" })).toBeVisible();
     await expect(viewer.getByRole("list", { name: "Skill slots" }).getByRole("img")).toHaveCount(3);
     await settled(page);
     await capture(page, "configure-revealed-2d.png");
@@ -343,7 +343,8 @@ test.describe("bundles", () => {
   test("three.js loads on no page without a model", async ({ page }) => {
     const log = scriptsLoaded(page);
     const chain = new FakeChain();
-    chain.mint(7n, MOCK_WALLET_ADDRESS, ANT);
+    // The tick has no model (NFT-U1), so its page never asks for the 3D stage.
+    chain.mint(7n, MOCK_WALLET_ADDRESS, TICK);
     await chain.install(page);
     await new FakeApi(chain).install(page);
     // Every statically imported chunk loads before the load event; the model's

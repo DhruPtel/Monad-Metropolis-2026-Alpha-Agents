@@ -128,7 +128,7 @@ The address book (`packages/domain/src/address-book.ts`) lists every external co
 
 ## AgentNFT (P1-U3)
 
-`chains/monad/src/AgentNFT.sol` is the agent NFT: 1,000 agents across 25 species, a free two-step mint (mint, then a reveal from Pyth Entropy), one mint per wallet behind a signed claim, a Tokenbound account per agent, ownership epochs, escrow-only transfers, onchain metadata and 5% royalties. The randomness research is `evidence/p1-u3/RANDOMNESS.md` and the gas report `evidence/p1-u3/GAS.md`.
+`chains/monad/src/AgentNFT.sol` is the agent NFT: 1,000 agents across 34 species (500 base, 300 medium, 200 pro), a free two-step mint (mint, then a reveal from Pyth Entropy), two mints per wallet behind a signed claim, a Tokenbound account per agent, ownership epochs, escrow-only transfers, onchain metadata and 5% royalties. The randomness research is `evidence/p1-u3/RANDOMNESS.md` and the gas report `evidence/p1-u3/GAS.md`.
 
 ```sh
 pnpm deploy:agent-nft           # deploy to the local fork (deterministic; a second run finds it)

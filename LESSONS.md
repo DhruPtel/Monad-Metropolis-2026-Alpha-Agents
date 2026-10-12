@@ -1743,3 +1743,17 @@ Cause: toHaveScreenshot with animations disabled fast-forwards the dialog's fade
 Fix: The scan helper in the portfolio, v3 portfolio and My Agents specs waits for every animation to finish before it runs, as the vault and settings specs already did.
 Lesson: Wait for animations inside the scan helper itself, not only before the capture; a capture can restart them.
 
+
+## L-236: prune dropped the socket nodes the build had just added
+Unit: NFT-U1
+What happened: every model built by `pnpm assets:build-models` passed through the pipeline and came out with 0 sockets; `pnpm assets:check` failed all 24 on every missing socket.
+Cause: a socket is an empty leaf node, and glTF Transform's `prune()` removes empty leaf nodes by default; the bee's build never hit this because its sockets hang off bones that carry skin weights.
+Fix: `prune({ keepLeaves: true })` in the model build, so the sockets survive; the checker and the shell test then see all eight on every model.
+Lesson: After any glTF Transform pass over a model that carries marker nodes, assert the markers are still there; `prune` treats an empty node as waste unless told otherwise.
+
+## L-237: the address book edit landed on the mainnet canary's entries
+Unit: NFT-U1
+What happened: after the v2 custody set moved with the new AgentNFT, six local addresses were changed in the address book by searching the file for the old addresses and the fork suite still failed with code 0 at every one of them; the canary's entries of the same ids (chain 143, with explorer links) had been edited instead, and the local entries were untouched.
+Cause: the book carries the same ids for the local fork, testnet and the mainnet canary in separate blocks, and the old addresses from an earlier run's log were matched to whichever block held them, not to the block the local environment resolves.
+Fix: the canary entries were restored, the local entries were found by resolving `addressEntry("local", id)` first and replacing exactly those addresses, and `pnpm test:fork` then matched every verified entry.
+Lesson: Before editing an address in the book, resolve the entry through `addressEntry(environment, id)` and change the address that resolves, never one found by searching the file.
