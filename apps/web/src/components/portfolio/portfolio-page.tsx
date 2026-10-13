@@ -176,7 +176,11 @@ const STANDING_BLOCKS: readonly string[] = [
   "USDC_PRICE_UNAVAILABLE",
   "HELD_PRICE_UNAVAILABLE",
 ];
-export function standingBlock(p: AnyPortfolioJson, token?: Address, asset: Asset = "USDC"): string | null {
+export function standingBlock(
+  p: AnyPortfolioJson,
+  token?: Address,
+  asset: Asset = "USDC",
+): string | null {
   if (p.custody === "v3") {
     const first = token ?? depositTokens(p)[0]?.address ?? p.contracts.usdc;
     const b = depositCheckV3(p, first, 1n);
@@ -1626,7 +1630,7 @@ export function PortfolioPage({
           <DialogHeader>
             <DialogTitle>Which account should the agent manage?</DialogTitle>
             <DialogDescription id="managed-account-description">
-              This agent has a vault and a personal account. The trading permission your wallet
+              This agent has a vault and a trading account. The trading permission your wallet
               registers next serves the one you choose.
             </DialogDescription>
           </DialogHeader>

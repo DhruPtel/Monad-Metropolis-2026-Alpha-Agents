@@ -290,6 +290,28 @@ export function TradingPage({
             ) : null}
           </span>
         </div>
+        {accounts ? (
+          <p className="flex flex-wrap items-center gap-2 text-sm" data-testid="traded-account">
+            <span className="text-foreground-muted">Trades</span>
+            <span className="font-medium">
+              {accounts.managed === "vault" ? "Its vault" : "Trading account"}
+            </span>
+            {accounts.vault ? (
+              <Button
+                variant="ghost"
+                size="sm"
+                disabled={acting || !pf.arming?.grantCall}
+                onClick={() => {
+                  setChoice(accounts.managed === "vault" ? "personal" : "vault");
+                  setChoiceOpen(true);
+                }}
+                data-testid="switch-account"
+              >
+                Switch
+              </Button>
+            ) : null}
+          </p>
+        ) : null}
         <p className="text-sm text-foreground-muted" data-testid="sweep-line">
           {sweepLine}
         </p>
@@ -433,7 +455,7 @@ export function TradingPage({
           <DialogHeader>
             <DialogTitle>Which account should the agent manage?</DialogTitle>
             <DialogDescription id="managed-account-description">
-              This agent has a vault and a personal account. The trading permission your wallet
+              This agent has a vault and a trading account. The trading permission your wallet
               registers next serves the one you choose.
             </DialogDescription>
           </DialogHeader>
@@ -453,11 +475,12 @@ export function TradingPage({
               disabled={acting}
               onClick={() => {
                 setChoiceOpen(false);
-                if (read) pf.turnOn(choice);
-                else pf.arm(choice);
+                // Already on, a switch registers the permission for the chosen account alone.
+                if (on || !read) pf.arm(choice);
+                else pf.turnOn(choice);
               }}
             >
-              Turn on
+              {on ? "Switch" : "Turn on"}
             </Button>
           </div>
         </DialogContent>

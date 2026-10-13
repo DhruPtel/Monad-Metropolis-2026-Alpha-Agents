@@ -369,7 +369,7 @@ function ArmingCard({
             {a.state === "unarmed" ? "Will manage" : "Manages"}
           </span>{" "}
           <span className="font-medium">
-            {a.managed === "vault" ? "its vault" : "your personal account"}
+            {a.managed === "vault" ? "its vault" : "your trading account"}
           </span>
           <span className="text-foreground-muted">: {MANAGED_ACCOUNT_WORDS[a.managed].detail}</span>
         </p>

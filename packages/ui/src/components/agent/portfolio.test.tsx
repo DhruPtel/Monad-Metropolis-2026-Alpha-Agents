@@ -151,7 +151,7 @@ describe("portfolio components (P2-U7)", () => {
       />,
     );
     expect(screen.getByTestId("managed-account").textContent).toContain(
-      "Will manage your personal account",
+      "Will manage your trading account",
     );
   });
 

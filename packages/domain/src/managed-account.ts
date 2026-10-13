@@ -35,8 +35,7 @@ export function managedAccountOf(a: {
   readonly personal: Hex | null;
   readonly choice: ManagedAccount | null;
 }): ManagedAccountResolution {
-  if (a.vault && a.choice === "vault")
-    return { account: a.vault, isVault: true, managed: "vault" };
+  if (a.vault && a.choice === "vault") return { account: a.vault, isVault: true, managed: "vault" };
   return { account: a.personal, isVault: false, managed: "personal" };
 }
 
@@ -50,7 +49,7 @@ export const MANAGED_ACCOUNT_WORDS: Readonly<
       "Depositors' money, yours among it. The trading permission has no fixed expiry: it ends on a sale, a configuration change or when you revoke it.",
   },
   personal: {
-    title: "Your personal account",
+    title: "Your trading account",
     detail: "Your own money only. The trading permission lasts at most 30 days, then you renew it.",
   },
 };
