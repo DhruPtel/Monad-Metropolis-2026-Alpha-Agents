@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { ReportList, type ReportView, ResearchReportDocument } from "./report";
@@ -164,7 +165,7 @@ describe("the research report document (RP-U1)", () => {
 });
 
 describe("the report's print styling, which the PDF uses (RP-U1)", () => {
-  const css = readFileSync(new URL("../../styles.css", import.meta.url), "utf8");
+  const css = readFileSync(join(__dirname, "../../styles.css"), "utf8");
   const print = css.slice(css.indexOf("@media print"));
 
   it("puts a report page on paper tokens and hides the app's header, navigation, banner and actions", () => {

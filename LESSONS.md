@@ -1925,3 +1925,17 @@ What happened: six fork test files failed their setup after CL-U1 with "Cannot d
 Cause: CL-U1's A-99 widened an hourly feed's grace (300 to 900 seconds) in feedMaxAgeSeconds, which scripts/lib/fund.js passes into the fund set's constructor arguments; the CREATE2 init code changed, so a fresh fork deployed a new set at new addresses while every test and the book read the old ones. CL-U1 ran unit tests only.
 Fix: deployedFeedMaxAgeSeconds keeps the deployed sets' bounds for their deploy scripts (fund.js, deploy-canary-v3.js); PB-U1's fresh deployment takes feedMaxAgeSeconds.
 Lesson: Any value that reaches a CREATE2 deployment's constructor is part of the address; after changing one, run the fork tests, or give the deployed sets their own frozen copy.
+
+## L-262: a structured reply cut off by the output limit reads as "not JSON"
+Unit: RP-U1
+What happened: the first live report on testnet failed with "the model's report was not readable JSON" after a 0.13 USD call.
+Cause: the reply ran past its 4,500-token output limit and stopped mid-object, so the first-brace-to-last-brace slice held no complete JSON; the finish reason ("length") was not read.
+Fix: the shape now bounds every field (paragraphs, rows, evidence, risks, objections, the whole reply under 3,000 words), the finish reason is recorded and named in the failure, and a truncated reply is made whole by cutting at its last complete element and closing the open brackets, with the schema filling the rest. The second attempt was written in full.
+Lesson: When a model must return a structure under an output cap, state the size limits per field in the shape, read the finish reason, and make the parser recover a cut-off reply instead of discarding the call it paid for.
+
+## L-263: import.meta.url is not a file URL when the root vitest project runs a package's test
+Unit: RP-U1
+What happened: the report's print-styling test passed in packages/ui and failed in the full run with "The URL must be of scheme file".
+Cause: the test read the stylesheet with `new URL("../../styles.css", import.meta.url)`; under the root project's jsdom environment the module URL is not a file URL.
+Fix: the test reads by path from `__dirname`, as the design-token test does.
+Lesson: In this repo read a package's own files by `join(__dirname, …)` in tests, and run a new test file through the root project once before calling it done.

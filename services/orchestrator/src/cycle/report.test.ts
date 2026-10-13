@@ -371,3 +371,14 @@ describe.skipIf(!dbUp)("the report writer (RP-U1, needs Postgres)", () => {
     });
   });
 });
+
+describe("a report cut off by the output limit (RP-U1)", () => {
+  it("is made whole at its last complete element, and the schema fills the rest", () => {
+    const full = JSON.stringify({ ...base, tokens: [] });
+    const cut = `${full.slice(0, full.indexOf('"universeSummary"') + 30)}`;
+    const r = parseReport(cut);
+    expect(r?.executiveSummary).toBe(base.executiveSummary);
+    expect(r?.market.overview).toBe(base.market.overview);
+    expect(r?.portfolio.stance).toBe("no_change");
+  });
+});
