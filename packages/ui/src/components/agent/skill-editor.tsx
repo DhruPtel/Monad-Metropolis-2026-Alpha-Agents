@@ -113,7 +113,7 @@ function SkillEditor({
             <Button
               key={t.id}
               size="sm"
-              variant={t.id === templateId ? "secondary-accent" : "secondary"}
+              variant="secondary"
               aria-pressed={t.id === templateId}
               onClick={() => onTemplate(t.id)}
               data-testid={`skill-template-${t.id}`}

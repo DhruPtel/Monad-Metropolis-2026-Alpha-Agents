@@ -104,7 +104,7 @@ function WalletButton({
             <span className="hidden sm:inline-flex">
               <ChainChip name="Wrong network" tone="wrong" />
             </span>
-            <Button variant="secondary-accent" size="sm" onClick={onSwitchChain}>
+            <Button variant="secondary" size="sm" onClick={onSwitchChain}>
               Switch network
             </Button>
           </>

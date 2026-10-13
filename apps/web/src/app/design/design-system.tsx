@@ -23,6 +23,14 @@ import {
 import { Bot, Boxes, Copy, Eye, Radio, Users } from "lucide-react";
 import { type ReactNode, useState } from "react";
 import {
+  type Loadout,
+  emptyLoadout,
+  firstFreeSlot,
+  removeSlot,
+  slotsById,
+  toggleSkill,
+} from "@/agent/loadout";
+import {
   ChoiceGroup,
   SourcedFigure,
   CodeBlock,
@@ -45,6 +53,35 @@ import {
   MintPanel,
   SLOT_STATES,
   SlotHex,
+  SkillInventoryCards,
+  HomeHero,
+  type HomeRankedView,
+  FlowPills,
+  HeroVisualSlot,
+  RankedCards,
+  DocumentList,
+  PhaseList,
+  SourceBubbles,
+  RunPicker,
+  ConcentrationPie,
+  DecisionList,
+  FactStrip,
+  PlanSummaryCard,
+  LinkLine,
+  PortfolioInsights,
+  AgentListCard,
+  AgentPageHeader,
+  ExpandableLine,
+  PageTabs,
+  PlanStepper,
+  SidePanel,
+  TokenMark,
+  TradeList,
+  AgentTable,
+  type AgentRowView,
+  SkillSlotButtons,
+  LoadoutUnsavedNote,
+  type LoadoutSkillView,
   SpeciesArt,
   RevealMoment,
   TierCard,
@@ -399,11 +436,10 @@ function TokensSection() {
 }
 
 function ActionsSection() {
-  const variants = ["primary", "secondary", "secondary-accent", "ghost", "danger"] as const;
+  const variants = ["primary", "secondary", "ghost", "danger"] as const;
   const labels = {
     primary: "Deploy build",
     secondary: "Run check",
-    "secondary-accent": "Run agent test",
     ghost: "View profile",
     danger: "Pause agent",
   };
@@ -650,6 +686,46 @@ const MINT_STATE_LABELS: Readonly<Record<(typeof MINT_STATES)[number], string>> 
 /** A token-bound account address for the specimens; not a real agent's. */
 const SAMPLE_TBA = "0x6148e658098A14df34Cc79dB6b4128Dc367C7d3E";
 
+/** UI-FAST: the configure page's skill loadout, editable on screen only; live on this page. */
+const LOADOUT_SKILLS: readonly LoadoutSkillView[] = [
+  { id: "momentum-scanner", name: "Momentum scanner", kind: "skill" },
+  { id: "unlock-watch", name: "Unlock watch", kind: "playbook" },
+  { id: "my-filter", name: "My liquidity filter", kind: "owner" },
+  { id: "news-digest", name: "News digest", kind: "skill" },
+];
+
+function LoadoutSpecimen() {
+  const [loadout, setLoadout] = useState<Loadout>(() => emptyLoadout(3));
+  const [hovered, setHovered] = useState<string | null>(null);
+  const names = new Map(LOADOUT_SKILLS.map((k) => [k.id, k.name]));
+  const hoverSlot = hovered !== null && !loadout.includes(hovered) ? firstFreeSlot(loadout) : null;
+  return (
+    <Specimen
+      name="Skill loadout"
+      note="UI-FAST: the inventory's cards and the slots are buttons. A card goes into the first free slot and comes out again; a filled slot empties when clicked; hovering a card lights the slot it would take. Nothing is saved yet, and the note says so. Try it: three slots, four skills."
+    >
+      <div className="grid gap-4 md:grid-cols-[18rem_1fr]" data-testid="loadout-specimen">
+        <SkillInventoryCards
+          skills={LOADOUT_SKILLS}
+          slotOf={slotsById(loadout)}
+          nextFreeSlot={firstFreeSlot(loadout)}
+          hovered={hovered}
+          onToggle={(id) => setLoadout((l) => toggleSkill(l, id))}
+          onHover={setHovered}
+        />
+        <div className="flex flex-col gap-3">
+          <SkillSlotButtons
+            slots={loadout.map((id) => (id === null ? null : (names.get(id) ?? id)))}
+            highlighted={hoverSlot}
+            onRemove={(slot) => setLoadout((l) => removeSlot(l, slot))}
+          />
+          <LoadoutUnsavedNote />
+        </div>
+      </div>
+    </Specimen>
+  );
+}
+
 function AgentSection() {
   return (
     <Section id="agents" title="Agents">
@@ -665,6 +741,7 @@ function AgentSection() {
           ))}
         </div>
       </Specimen>
+      <LoadoutSpecimen />
       <Specimen
         name="Species art"
         note="The species image, a placeholder styled by tier while a species has no art, and the unrevealed placeholder. With slots, the tier's slots sit on the art."
@@ -692,13 +769,13 @@ function AgentSection() {
       </Specimen>
       <Specimen
         name="Reveal moment"
-        note="UI-U2: the onchain reveal stays automatic and fair; the app hides the result until the owner clicks Reveal. Waiting, with the keeper's time remaining; drawn onchain, ready to reveal; revealed, with the rarity said plainly; and a one-of-one, marked as the only one."
+        note="UI-U2: the onchain reveal stays automatic and fair; the app hides the result until the owner clicks Reveal. Waiting, with Reveal offered at once and where the draw stands onchain (UI-FAST); drawn onchain, ready to reveal; revealed, with the rarity said plainly; and a one-of-one, marked as the only one."
       >
         <div className="grid gap-4 lg:grid-cols-2" data-testid="reveal-moments">
           <RevealMoment
             agentId={21n}
             speciesIndex={null}
-            secondsLeft={12}
+            waitingNote="Randomness was requested from Pyth Entropy at 07:44:10 UTC (request 812); waiting for the number to arrive, usually within seconds."
             seen={false}
             onSeen={() => undefined}
           />
@@ -2718,7 +2795,8 @@ function VaultLayoutSection() {
 
 /** RP-U1: a research cycle's report as a document, and the Research page's list of reports. */
 const REPORT_FIXTURE: ReportView = {
-  title: "Agent #7: research report",
+  title: "Research report: WMON",
+  byline: "Agent #7",
   kindLabel: "Activation sweep",
   writtenAt: "2026-10-13 07:44 UTC",
   costLine:
@@ -2730,9 +2808,9 @@ const REPORT_FIXTURE: ReportView = {
     overview:
       "Monad's TVL fell over the week while DEX volume rose, a mixed picture: activity is up but capital is leaving.",
     snapshot: [
-      { label: "MON price", value: "0.0248 USD", source: "market_snapshot" },
-      { label: "Monad TVL", value: "6.17B USD", source: "market_snapshot" },
-      { label: "DEX volume, 24 hours", value: "1.04B USD", source: "market_snapshot" },
+      { label: "MON price", value: "0.0248 USD", cites: [1] },
+      { label: "Monad TVL", value: "6.17B USD", cites: [1] },
+      { label: "DEX volume, 24 hours", value: "1.04B USD", cites: [1] },
     ],
   },
   universeSummary:
@@ -2763,6 +2841,19 @@ const REPORT_FIXTURE: ReportView = {
       why: "research only: on Base, where this owner has no trading account",
     },
   ],
+  universeGroups: [
+    {
+      outcome: "researched",
+      why: "chosen for a Dive (high materiality)",
+      symbols: ["WMON"],
+    },
+    { outcome: "buyable", why: "The account's cash; never bought.", symbols: ["USDC"] },
+    {
+      outcome: "not buyable",
+      why: "research only: on Base, where this owner has no trading account",
+      symbols: ["AERO (Base)"],
+    },
+  ],
   tokens: [
     {
       symbol: "WMON",
@@ -2781,11 +2872,11 @@ const REPORT_FIXTURE: ReportView = {
         },
         { item: "Revenue", finding: "No protocol revenue figure was found.", status: "unknown" },
       ],
-      evidenceFor: [{ text: "DEX volume rose this week.", sources: ["market_snapshot"] }],
+      evidenceFor: [{ text: "DEX volume rose this week.", cites: [1] }],
       evidenceAgainst: [
         {
           text: "The unlock adds supply ahead of demand.",
-          sources: ["https://tokenomist.ai/monad"],
+          cites: [2],
         },
       ],
       risks: ["Unlock-driven selling", "Falling TVL"],
@@ -2807,10 +2898,31 @@ const REPORT_FIXTURE: ReportView = {
       "The account stays in USDC within the Balanced envelope; nothing clears the cost hurdle today.",
     positions: [],
   },
-  sources: [
-    { source: "market_snapshot", kind: "tool", classes: ["market"], calls: 1 },
-    { source: "list_tokens", kind: "tool", classes: ["onchain", "market"], calls: 2 },
-    { source: "https://tokenomist.ai/monad", kind: "url", classes: ["primary", "news"], calls: 1 },
+  references: [
+    {
+      n: 1,
+      source: "market_snapshot",
+      label: "market_snapshot",
+      href: null,
+      detail: "Tool record, market data, 1 call",
+      cited: true,
+    },
+    {
+      n: 2,
+      source: "https://tokenomist.ai/monad",
+      label: "tokenomist.ai/monad",
+      href: "https://tokenomist.ai/monad",
+      detail: "Web page, primary source, news, retrieved by the cycle",
+      cited: true,
+    },
+    {
+      n: 3,
+      source: "list_tokens",
+      label: "list_tokens",
+      href: null,
+      detail: "Tool record, onchain, market data, 2 calls",
+      cited: false,
+    },
   ],
   stages: [
     { label: "Scan", result: "finished", charged: "0.17 USDC" },
@@ -4920,6 +5032,593 @@ function UniverseSection() {
   );
 }
 
+/** UI-FAST: the home page's parts: the quiet hero with its stats and flow pills, your agents or the mint call to action, and the ranked vaults or agents. */
+const HOME_VAULTS: readonly HomeRankedView[] = [
+  {
+    id: "7",
+    name: "Agent #7",
+    image: "/species/bee.webp",
+    tier: "pro",
+    speciesName: "Bee",
+    value: "1,240.50 USDC",
+    returnText: "+3.20%",
+    research: "14",
+    trades: "6",
+    live: true,
+    href: "#home",
+  },
+  {
+    id: "12",
+    name: "Agent #12",
+    image: null,
+    tier: "medium",
+    speciesName: "Firefly",
+    value: "310.00 USDC",
+    returnText: null,
+    research: "20+",
+    trades: "0",
+    goal: "Balanced",
+    live: false,
+    href: "#home",
+  },
+];
+
+const HOME_ROWS: readonly AgentRowView[] = [
+  {
+    id: "7",
+    name: "Agent #7",
+    image: "/species/bee.webp",
+    tier: "pro",
+    speciesName: "Bee",
+    value: "1,240.50 USDC",
+    returnText: "+3.20%",
+    returnEmpty: "–",
+    series: [1200, 1210, 1205, 1222, 1231, 1240.5],
+    research: "14",
+    trades: "6",
+    age: "3 d",
+    live: true,
+    href: "#home",
+  },
+  {
+    id: "12",
+    name: "Agent #12",
+    image: null,
+    tier: "medium",
+    speciesName: "Firefly",
+    value: "310.00 USDC",
+    returnText: null,
+    returnEmpty: "No deposits",
+    research: "20+",
+    trades: "0",
+    age: "6 h",
+    live: false,
+    href: "#home",
+  },
+];
+
+function AgentTableSpecimen() {
+  const [filter, setFilter] = useState("trending");
+  return (
+    <Specimen
+      name="AgentTable"
+      note="Every agent once, in one dense table with filter buttons (Trending, Top, Gainers, New; the page sorts the rows). A History sparkline column shows only when some row has a value history; an empty return says why. The arrow opens the portfolio."
+    >
+      <AgentTable
+        filters={[
+          { id: "trending", label: "Trending" },
+          { id: "top", label: "Top" },
+          { id: "gainers", label: "Gainers" },
+          { id: "new", label: "New" },
+        ]}
+        filter={filter}
+        onFilter={setFilter}
+        rows={HOME_ROWS}
+      />
+    </Specimen>
+  );
+}
+
+function HomeSection() {
+  return (
+    <Section id="home" title="Home page">
+      <Specimen
+        name="HomeHero, FlowPills and HeroVisualSlot"
+        note="The hero, small and quiet: a modest title, a few lines at body size and one row of tiny inline stats, each one's meaning its tooltip (a count that may run past the activity page reads 20+). Below, the flow in small: thin pills joined by thin lines, a line brightening where work moved. On wide screens the right half is held, empty, for a visual to come."
+      >
+        <HomeHero
+          title="Vivarium"
+          lede="AI agents you own as NFTs, researching and trading onchain inside hard limits our contracts enforce."
+          stats={[
+            { label: "agents", value: "4", meaning: "" },
+            { label: "active today", value: "3", meaning: "" },
+            { label: "managed", value: "11.00 USDC", meaning: "" },
+            { label: "research runs today", value: "3+", meaning: "" },
+            { label: "trade settled", value: "1", meaning: "" },
+          ]}
+          below={
+            <FlowPills
+              steps={[
+                { label: "Deposits", value: "11.00 USDC", active: false },
+                { label: "Research", value: "3+", active: true },
+                { label: "Plans", value: "3+", active: true },
+                { label: "Portfolios", value: "11.00 USDC", active: false },
+              ]}
+            />
+          }
+          visual={<HeroVisualSlot />}
+        />
+      </Specimen>
+      <Specimen
+        name="RankedCards"
+        note="One row of three: the top vaults by return, and while fewer than three vaults exist, the most valuable agents with their trading accounts fill it. Each card says whether it is a vault or an agent; an agent's card adds its goal and links to its portfolio."
+      >
+        <RankedCards items={HOME_VAULTS} />
+      </Specimen>
+      <AgentTableSpecimen />
+    </Section>
+  );
+}
+
+/** UI-FAST: the agent pages' shared parts: the tab bar, the header, the list card, the side panel, the plan stepper, the trade list, the one-line explanation. */
+function AgentPagesSection() {
+  return (
+    <Section id="agent-pages" title="Agent pages">
+      <Specimen
+        name="AgentPageHeader and PageTabs"
+        note="Every agent page shares this header, its art large in its tier's border (gold for Pro), and one tab bar with the goal at its right end; the underline marks the tab you are on."
+      >
+        <div className="flex flex-col gap-4">
+          <AgentPageHeader
+            name="Agent #4"
+            image="/species/jumping-spider.webp"
+            tier="pro"
+            speciesName="Jumping spider"
+            status={<RunStatusBadge status="ready" />}
+          />
+          <PageTabs
+            label="Agent sections"
+            active="overview"
+            tabs={["Overview", "Trading", "Research", "Vault", "Skills", "Keys"].map((l) => ({
+              id: l.toLowerCase(),
+              label: l,
+              href: "#agent-pages",
+            }))}
+            end={
+              <>
+                <span className="text-foreground-muted">Goal</span>
+                <span className="font-medium">Balanced</span>
+                <Button variant="ghost" size="sm">
+                  Change goal
+                </Button>
+              </>
+            }
+          />
+        </div>
+      </Specimen>
+      <Specimen
+        name="AgentListCard"
+        note="One agent on My Agents. The whole card opens the agent; Set goal sits on it while the agent has none."
+      >
+        <ul className="flex flex-col gap-3">
+          <li>
+            <AgentListCard
+              agent={{
+                id: "4",
+                name: "Agent #4",
+                image: "/species/jumping-spider.webp",
+                tier: "pro",
+                speciesName: "Jumping spider",
+                skills: "6 skills",
+                value: "5.00 USDC",
+                goal: "Balanced",
+                href: "#agent-pages",
+              }}
+            />
+          </li>
+          <li>
+            <AgentListCard
+              agent={{
+                id: "9",
+                name: "Agent #9",
+                image: null,
+                tier: "medium",
+                speciesName: "Earwig",
+                skills: "6 skills",
+                value: "No account",
+                goal: null,
+                href: "#agent-pages",
+              }}
+              setGoal={
+                <Button size="sm" variant="secondary">
+                  Set goal
+                </Button>
+              }
+            />
+          </li>
+        </ul>
+      </Specimen>
+      <Specimen
+        name="SidePanel"
+        note="A page's right column: the main panel with more room and a larger figure, smaller panels under it."
+      >
+        <div className="flex max-w-88 flex-col gap-3">
+          <SidePanel
+            title="Trading account"
+            figure="5.00 USDC"
+            emphasis
+            actions={
+              <>
+                <Button size="sm">Deposit</Button>
+                <Button size="sm" variant="secondary">
+                  Withdraw
+                </Button>
+              </>
+            }
+          />
+          <SidePanel
+            title="Credits"
+            figure="0.6671 USDC"
+            note="of 5.00; they pay for research"
+            actions={
+              <>
+                <Button size="sm">Add</Button>
+                <Button size="sm" variant="secondary">
+                  Refund
+                </Button>
+              </>
+            }
+          />
+        </div>
+      </Specimen>
+      <Specimen
+        name="LinkLine"
+        note="One line that asks for attention and leads to where it is handled."
+      >
+        <LinkLine href="#agent-pages" action="Review">
+          A plan is waiting for your approval
+        </LinkLine>
+      </Specimen>
+      <Specimen
+        name="ConcentrationPie"
+        note="Where the account's value sits: every slice labelled with its token and share, and its gain on cost beside it ('PnL –' where unknown). A click opens Trading."
+      >
+        <ConcentrationPie
+          rows={[
+            {
+              symbol: "USDC",
+              decimals: 6,
+              amountRaw: "4000000",
+              isCash: true,
+              valueUsdcE6: "4000000",
+              shareBps: 8000,
+              costBasisUsdcE6: null,
+              gainUsdcE6: null,
+              gainBps: null,
+            },
+            {
+              symbol: "WMON",
+              decimals: 18,
+              amountRaw: "1",
+              isCash: false,
+              valueUsdcE6: "750000",
+              shareBps: 1500,
+              costBasisUsdcE6: "700000",
+              gainUsdcE6: "50000",
+              gainBps: 714,
+            },
+            {
+              symbol: "TALPHA",
+              decimals: 18,
+              amountRaw: "1",
+              isCash: false,
+              valueUsdcE6: "250000",
+              shareBps: 500,
+              costBasisUsdcE6: "300000",
+              gainUsdcE6: "-50000",
+              gainBps: -1667,
+            },
+          ]}
+          pnl={{
+            WMON: { text: "+0.05 USDC", tone: "positive" },
+            TALPHA: { text: "-0.05 USDC", tone: "negative" },
+          }}
+        />
+      </Specimen>
+      <Specimen
+        name="FactStrip"
+        note="Automatic trading's details in one compact row that wraps on a phone; '–' with a muted note where a figure does not exist."
+      >
+        <FactStrip
+          items={[
+            { label: "Status", value: "On, hold" },
+            { label: "Last acted", value: "–", note: "No trade yet" },
+            { label: "Last check", value: "2026-10-13 19:55" },
+            { label: "Next check", value: "2026-10-13 19:56", note: "Every minute" },
+            { label: "Max trade", value: "10% of value" },
+            { label: "Min trade", value: "0.50 USDC" },
+            { label: "Daily loss limit", value: "–", note: "Not a limit this account has" },
+            { label: "Credits", value: "0.60 USDC" },
+          ]}
+        />
+      </Specimen>
+      <Specimen
+        name="PlanSummaryCard and PortfolioInsights"
+        note="The plan as one card: when it came in force, a small status badge, the goal, each move with a thin bar of the share now against the target, and two lines of reasoning with its report. Beside it, the portfolio's figures, '–' with a note where none exists yet. They stack on a phone, the plan first."
+      >
+        <div className="grid gap-4 lg:grid-cols-2">
+          <PlanSummaryCard
+            heading="In force since 2026-10-13"
+            badge={{ label: "Approved", tone: "positive" }}
+            goal="Balanced"
+            rows={[
+              { symbol: "WMON", side: "Buy", targetBps: 2000, currentBps: 1200 },
+              { symbol: "USDC", side: "Hold", targetBps: 8000, currentBps: 8800 },
+            ]}
+            rationale="Use the two-asset band plan: WMON at the 20% target within a 500 bps band, rest in USDC. Deliberately cautious given 100% annualized volatility and no Dive thesis."
+            reportHref="#agent-pages"
+          />
+          <PortfolioInsights
+            items={[
+              { label: "Total value", value: "5.00 USDC" },
+              { label: "Cash / invested", value: "88% / 12%", bar: 8800 },
+              { label: "Positions", value: "1" },
+              {
+                label: "Average position age",
+                value: "–",
+                note: "Positions do not record when they were bought",
+              },
+              { label: "Largest", value: "WMON 12%" },
+              { label: "Smallest", value: "–" },
+              { label: "Best", value: "WMON +2%", tone: "positive" },
+              { label: "Worst", value: "–" },
+              { label: "Realized PnL", value: "–", note: "Not recorded per trade yet" },
+              { label: "Unrealized PnL", value: "+0.01 USDC", tone: "positive" },
+              { label: "Buys, last 30 days", value: "1" },
+              { label: "Sells, last 30 days", value: "0" },
+            ]}
+          />
+        </div>
+      </Specimen>
+      <Specimen
+        name="DecisionList"
+        note="Every decision once, newest first: a type pill (Plan, Trade, Skipped, Refused), the token, the target or amount, one plain line, the time, and a link to its report or transaction. Twenty to a page."
+      >
+        <DecisionList
+          empty="No decisions yet."
+          items={[
+            {
+              id: "s1",
+              kind: "Skipped",
+              token: "WMON",
+              detail: "Target 20%",
+              summary: "Skipped: the trade back to 20% WMON was below the 0.50 USDC minimum.",
+              time: "2026-10-13 19:55",
+              link: null,
+            },
+            {
+              id: "p1",
+              kind: "Plan",
+              token: "WMON",
+              detail: "Target 20%",
+              summary: "Use the two-asset band plan: WMON at the 20% target, rest in USDC.",
+              time: "2026-10-13 17:48",
+              link: { href: "#agent-pages", label: "Report", external: false },
+            },
+            {
+              id: "t1",
+              kind: "Trade",
+              token: "WMON",
+              detail: "Buy 0.02 USDC",
+              summary: "Settled. Rebalance toward the target.",
+              time: "2026-10-13 01:28",
+              link: { href: "#agent-pages", label: "Transaction", external: true },
+            },
+            {
+              id: "r1",
+              kind: "Refused",
+              token: null,
+              detail: null,
+              summary:
+                "Agent #1 did not trade 0.24 USDC for WMON: the trade is larger than 10% of the account's value.",
+              time: "2026-10-13 01:29",
+              link: null,
+            },
+          ]}
+        />
+      </Specimen>
+      <Specimen
+        name="PlanStepper"
+        note="The plan one move at a time: Back and Next, and approve or decline the whole plan on the last card."
+      >
+        <PlanStepper
+          heading="A new plan waits for your approval"
+          reportHref="#agent-pages"
+          moves={[
+            {
+              side: "Buy",
+              symbol: "WMON",
+              amount: "Target 20% (now 0%)",
+              reason: "Deep pools and a clean price; the unlock is priced in.",
+            },
+            {
+              side: "Sell",
+              symbol: "TALPHA",
+              amount: "Sell all (now 3%)",
+              reason: "Its price feed is 9.6 hours old.",
+            },
+          ]}
+          decision={{
+            approve: <Button size="sm">Approve plan</Button>,
+            decline: (
+              <Button size="sm" variant="secondary">
+                Decline
+              </Button>
+            ),
+          }}
+        />
+      </Specimen>
+      <Specimen
+        name="TradeList, ExpandableLine and TokenMark"
+        note="Past trades one dense row each; a one-line explanation that opens; a token's mark until real logos exist."
+      >
+        <div className="flex flex-col gap-4">
+          <TradeList
+            empty="No trades yet."
+            trades={[
+              {
+                id: "t1",
+                symbol: "WMON",
+                side: "Buy",
+                date: "2026-10-13 01:28",
+                amount: "0.02 USDC → 0.01998 WMON",
+                result: "Settled",
+                resultTone: "positive",
+              },
+              {
+                id: "t2",
+                symbol: "WMON",
+                side: "Sell",
+                date: "2026-10-12 21:04",
+                amount: "0.5 WMON",
+                result: "Failed",
+                resultTone: "negative",
+              },
+            ]}
+          />
+          <ExpandableLine summary="Automatic trading is off, so each trade waits for your approval.">
+            <p className="text-sm text-foreground-muted">The full explanation goes here.</p>
+          </ExpandableLine>
+          <span className="flex gap-2">
+            <TokenMark symbol="WMON" />
+            <TokenMark symbol="USDC" />
+            <TokenMark symbol="TALPHA" />
+          </span>
+        </div>
+      </Specimen>
+    </Section>
+  );
+}
+
+/** UI-FAST: the Research page: the run picker, the source bubbles, the phases, the documents. */
+function ResearchLiveSection() {
+  return (
+    <Section id="research-live" title="Research live view">
+      <Specimen
+        name="RunPicker"
+        note="Every run, newest first, with its date, kind, research level, spend and outcome; the open run carries Live."
+      >
+        <RunPicker
+          selected="c2"
+          onSelect={() => undefined}
+          runs={[
+            {
+              id: "c2",
+              date: "2026-10-13 17:46",
+              kind: "Activation",
+              level: "Medium",
+              spend: "0.41 USDC",
+              outcome: "Proposed WMON at 20%, the rest in USDC.",
+              live: false,
+            },
+            {
+              id: "c1",
+              date: "2026-10-13 07:35",
+              kind: "Activation",
+              level: "Medium",
+              spend: "1.03 USDC",
+              outcome: "No change: WMON could not be bought.",
+              live: false,
+            },
+          ]}
+        />
+      </Specimen>
+      <Specimen
+        name="SourceBubbles"
+        note="One bubble per source, its size by its count, each labelled; the stages completed are named under theirs. No connecting lines."
+      >
+        <SourceBubbles
+          items={[
+            { label: "Web searches", count: 1 },
+            { label: "Pages read", count: 0 },
+            { label: "X posts read", count: 0 },
+            { label: "Onchain reads", count: 8 },
+            { label: "Market data calls", count: 5 },
+            {
+              label: "Stages completed",
+              count: 6,
+              names: ["Scan", "Dive", "Challenge", "Test", "Zoom out"],
+            },
+          ]}
+        />
+      </Specimen>
+      <Specimen
+        name="PhaseList"
+        note="The run as phases, each named and explained, said in one or two plain sentences built from its records, its raw entries (each once) behind Details."
+      >
+        <PhaseList
+          empty="No events recorded."
+          phases={[
+            {
+              id: "scan",
+              title: "Scan",
+              explainer: "A quick pass over every token the agent could hold.",
+              summary: [
+                "Looked at 253 tokens across Monad and Base and screened them for safety and liquidity; 3 can be bought by this account (TALPHA, TBETA, WMON).",
+              ],
+              time: "17:46",
+              details: [
+                {
+                  id: "a",
+                  time: "17:46:41",
+                  text: "Universe: 253 tokens seen, 3 buyable for this account (TALPHA, TBETA, WMON).",
+                  tone: "info",
+                },
+              ],
+            },
+            {
+              id: "zoom",
+              title: "Zoom out",
+              explainer: "The whole-portfolio view, and the plan it leads to.",
+              summary: [
+                "Chose WMON at 20% of the account, the rest in USDC.",
+                "Why: Invested share of about 20% is below the expected 50% to 85%.",
+              ],
+              time: "17:47",
+              details: [],
+            },
+          ]}
+        />
+      </Specimen>
+      <Specimen
+        name="DocumentList"
+        note="Every report as a document, newest first: its title, its type, its date and View; a run with no report says why."
+      >
+        <DocumentList
+          empty="No reports yet."
+          rows={[
+            {
+              id: "r2",
+              title: "This was an activation cycle for a fresh account holding only 5 USDC.",
+              type: "Activation sweep",
+              date: "2026-10-13",
+              href: "#research-live",
+            },
+            {
+              id: "r1",
+              title: "Routine research cycle report",
+              type: "Routine research cycle",
+              date: "2026-10-12",
+              href: null,
+              note: "The cycle accepted no brief to report on.",
+            },
+          ]}
+        />
+      </Specimen>
+    </Section>
+  );
+}
+
 function DesignSystem() {
   return (
     <div className="flex flex-col gap-10">
@@ -4934,6 +5633,9 @@ function DesignSystem() {
       <ActionsSection />
       <LabelsSection />
       <WalletSection />
+      <HomeSection />
+      <AgentPagesSection />
+      <ResearchLiveSection />
       <AgentSection />
       <PortfolioSection />
       <VaultSection />

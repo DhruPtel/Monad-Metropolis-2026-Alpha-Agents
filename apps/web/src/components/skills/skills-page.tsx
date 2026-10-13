@@ -21,8 +21,7 @@ import {
   WalletActionStatus,
   WalletNotice,
 } from "@alpha-agents/ui";
-import { ArrowLeft, Puzzle, Wallet } from "lucide-react";
-import Link from "next/link";
+import { Puzzle, Wallet } from "lucide-react";
 import { useState } from "react";
 import type { OwnerSkillJson } from "@/api/client";
 import { useSkillEditor } from "@/agent/use-skill-editor";
@@ -45,7 +44,6 @@ export function SkillsPage({
 }) {
   const wallet = useWalletSession();
   const sk = useSkills(agentId);
-  const name = `Agent #${agentId.toString()}`;
   const [uploadOpen, setUploadOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [removing, setRemoving] = useState<OwnerSkillJson | null>(null);
@@ -57,26 +55,8 @@ export function SkillsPage({
   );
   void environment;
 
-  const header = (
-    <div className="flex flex-col gap-2">
-      <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-foreground-muted">
-        <Link href="/agents" className="flex items-center gap-1">
-          <ArrowLeft aria-hidden className="size-4" /> My Agents
-        </Link>
-        <Link href={`/agents/${agentId.toString()}/portfolio`} data-testid="portfolio-link">
-          Portfolio
-        </Link>
-        <Link href={`/agents/${agentId.toString()}/settings`} data-testid="settings-link">
-          Settings
-        </Link>
-      </div>
-      <h1 className="text-2xl font-semibold">Skills of {name}</h1>
-      <p className="text-sm text-foreground-muted">
-        What the agent knows and may do: the built-in skills every agent mounts, and your own, for
-        this agent alone. Each is a folder of text, mounted read-only in its sandbox.
-      </p>
-    </div>
-  );
+  // UI-FAST: the agent's header and tabs come from its shell.
+  const header = null;
 
   if (!wallet.ready || !wallet.address)
     return (

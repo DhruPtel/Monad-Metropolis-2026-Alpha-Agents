@@ -466,7 +466,7 @@
     --warning: var(--palette-ink-warning);
   }
   body:has(.report-document) header:not(.report-document header),
-  body:has(.report-document) nav,
+  body:has(.report-document) nav:not(.report-document nav),
   body:has(.report-document) [data-slot="beta-banner"],
   body:has(.report-document) [data-print="hide"] {
     display: none !important;
@@ -478,7 +478,9 @@
   .report-document tr {
     break-inside: avoid;
   }
-  .report-section h2 {
+  .report-section h2,
+  .report-token h3,
+  .report-token h4 {
     break-after: avoid;
   }
   .report-document a {

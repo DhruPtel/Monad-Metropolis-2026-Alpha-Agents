@@ -59,34 +59,3 @@ export function useRevealSeen(
   }, [key]);
   return { seen, markSeen };
 }
-
-/**
- * How long the reveal keeper usually takes after a mint, per environment:
- * its batch window plus a couple of blocks (services/orchestrator/src/keeper.ts).
- */
-export const REVEAL_ETA_SECONDS: Readonly<Record<EnvironmentId, number>> = {
-  local: 15,
-  base: 15,
-  testnet: 90,
-  beta: 90,
-  canary: 90,
-};
-
-/** Seconds left of a window that starts when `active` turns on, ticking once a second, never below 0. */
-export function useCountdown(totalSeconds: number, active: boolean): number | null {
-  const [left, setLeft] = useState<number | null>(null);
-  useEffect(() => {
-    if (!active) {
-      setLeft(null);
-      return;
-    }
-    const startedAt = Date.now();
-    setLeft(totalSeconds);
-    const t = window.setInterval(() => {
-      const elapsed = (Date.now() - startedAt) / 1_000;
-      setLeft(Math.max(0, Math.ceil(totalSeconds - elapsed)));
-    }, 1_000);
-    return () => window.clearInterval(t);
-  }, [active, totalSeconds]);
-  return left;
-}

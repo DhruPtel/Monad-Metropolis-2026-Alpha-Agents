@@ -12,6 +12,8 @@ export interface Viewer3DProps {
   readonly sockets: readonly string[];
   readonly animation: AnimationControl;
   readonly highlightedSlot: number | null;
+  /** UI-FAST: the skill shown in each slot on screen (not saved), by slot; null when empty. */
+  readonly slotSkills?: readonly (string | null)[];
   readonly reducedMotion: boolean;
   /** WebGL failed at runtime or the model failed to load: show the 2D fallback. */
   readonly onFailure: () => void;
@@ -31,6 +33,7 @@ export default function Viewer3D({
   sockets,
   animation,
   highlightedSlot,
+  slotSkills = [],
   reducedMotion,
   onFailure,
 }: Viewer3DProps) {
@@ -73,7 +76,11 @@ export default function Viewer3D({
             data-testid={`slot-anchor-${i}`}
             className="invisible absolute top-0 left-0"
           >
-            <SlotHex index={i} state={highlightedSlot === i ? "highlighted" : "empty"} />
+            <SlotHex
+              index={i}
+              state={slotSkills[i] ? "filled" : highlightedSlot === i ? "highlighted" : "empty"}
+              skillName={slotSkills[i] ?? undefined}
+            />
           </div>
         ))}
       </div>

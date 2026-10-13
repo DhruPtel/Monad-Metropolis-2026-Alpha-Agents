@@ -205,21 +205,16 @@ export function usePortfolio(agentId: bigint, environment: EnvironmentId): Portf
   useEffect(() => {
     if (!wallet.ready || !wallet.address) return;
     let live = true;
-    void (async () => {
-      try {
-        const [p, a, i, w, pc, act, win] = await Promise.all([
-          asOwner((t) => tradingApi.portfolio(agentId, t)),
-          asOwner((t) => tradingApi.arming(agentId, t)),
-          asOwner((t) => tradingApi.intents(agentId, t)),
-          tradingApi.whyNotTraded(agentId).catch(() => null),
-          asOwner((t) => tradingApi.planCard(agentId, t)).catch(() => null),
-          asOwner((t) => tradingApi.activation(agentId, t)).catch(() => null),
-          // UI-U1: the performance line for the hero.
-          asOwner((t) => tradingApi.window(agentId, t)).catch(() => null),
-        ]);
-        const s = await asOwner((t) => api.summary(agentId, t)).catch(() => null);
-        if (!live || !mounted.current) return;
+    let cancelPoll: (() => void) | null = null;
+    // UI-FAST: each read lands on the page as it arrives, so a slow one (a rate-limited RPC
+    // behind the API) never holds back the rest; a failed one keeps its last value. The next
+    // round is scheduled only once this one has finished, so slow reads never pile up.
+    const ok = () => live && mounted.current;
+    const portfolioRead = asOwner((t) => tradingApi.portfolio(agentId, t)).then(
+      (p) => {
+        if (!ok()) return;
         setPortfolio(p);
+        setError(null);
         // Testnet's feeds are re-dated on demand: a stale price on the owner's money page asks
         // for fresh ones, at most once a minute, and the next read shows them (D-307).
         const stale =
@@ -236,22 +231,49 @@ export function usePortfolio(agentId: bigint, environment: EnvironmentId): Portf
             .catch(() => null)
             .then(() => mounted.current && setTick((n) => n + 1));
         }
-        setArming(a);
-        setIntents(i);
-        if (w) setWhy(w);
-        setPlanCard(pc);
-        setActivation(act);
-        setWindowView(win && win.account ? win : null);
-        if (s) setSummary(summaryView(s));
-        setError(null);
-      } catch (err) {
-        if (live && mounted.current) setError(words(err));
-      }
-    })();
-    const cancelPoll = schedulePoll(() => setTick((t) => t + 1), busy ? BUSY_POLL_MS : POLL_MS);
+      },
+      (err: unknown) => ok() && setError(words(err)),
+    );
+    const each = <T>(read: Promise<T>, put: (v: T) => void) =>
+      read.then(
+        (v) => ok() && put(v),
+        () => undefined,
+      );
+    void Promise.all([
+      portfolioRead,
+      each(
+        asOwner((t) => tradingApi.arming(agentId, t)),
+        (a) => setArming(a),
+      ),
+      each(
+        asOwner((t) => tradingApi.intents(agentId, t)),
+        (i) => setIntents(i),
+      ),
+      each(tradingApi.whyNotTraded(agentId), (w) => setWhy(w)),
+      each(
+        asOwner((t) => tradingApi.planCard(agentId, t)),
+        (pc) => setPlanCard(pc),
+      ),
+      each(
+        asOwner((t) => tradingApi.activation(agentId, t)),
+        (act) => setActivation(act),
+      ),
+      // UI-U1: the performance line for the hero.
+      each(
+        asOwner((t) => tradingApi.window(agentId, t)),
+        (win) => setWindowView(win && win.account ? win : null),
+      ),
+      each(
+        asOwner((t) => api.summary(agentId, t)),
+        (s) => setSummary(summaryView(s)),
+      ),
+    ]).then(() => {
+      if (live)
+        cancelPoll = schedulePoll(() => setTick((t) => t + 1), busy ? BUSY_POLL_MS : POLL_MS);
+    });
     return () => {
       live = false;
-      cancelPoll();
+      cancelPoll?.();
     };
   }, [agentId, asOwner, busy, environment, tick, wallet.ready, wallet.address]);
 

@@ -75,7 +75,7 @@ function StatTileRow({ tiles, className }: { tiles: readonly StatTile[]; classNa
           <span className="text-xs tracking-wide text-foreground-muted uppercase">{t.label}</span>
           <span
             className={cn(
-              "numeric text-2xl font-semibold",
+              "numeric text-base font-semibold",
               t.value === null ? "text-foreground-muted" : toneClass[t.tone ?? "neutral"],
             )}
           >
@@ -218,12 +218,15 @@ function AccountValueChart({
   defaultMode = "value",
   defaultRange = "30d",
   emptyAction,
+  fixedMode = false,
   className,
 }: {
   series: readonly SeriesPoint[];
   /** What the PnL is measured against; null hides the PnL mode. */
   principalUsdcE6: string | null;
   defaultMode?: ChartMode;
+  /** UI-FAST: show only the default mode, without the Value/PnL toggle. */
+  fixedMode?: boolean;
   defaultRange?: ChartRange;
   emptyAction?: ReactNode;
   className?: string;
@@ -267,10 +270,14 @@ function AccountValueChart({
   }, [points, width]);
   const controls = (
     <div className="flex flex-wrap items-center justify-between gap-2">
-      <div className="flex gap-1" role="group" aria-label="What the chart shows">
+      <div
+        className={cn("flex gap-1", fixedMode && "hidden")}
+        role="group"
+        aria-label="What the chart shows"
+      >
         <Button
           size="sm"
-          variant={mode === "value" ? "secondary-accent" : "secondary"}
+          variant="secondary"
           aria-pressed={mode === "value"}
           onClick={() => setMode("value")}
           data-testid="chart-mode-value"
@@ -279,7 +286,7 @@ function AccountValueChart({
         </Button>
         <Button
           size="sm"
-          variant={mode === "pnl" ? "secondary-accent" : "secondary"}
+          variant="secondary"
           aria-pressed={mode === "pnl"}
           disabled={principal === null}
           onClick={() => setMode("pnl")}
@@ -293,7 +300,7 @@ function AccountValueChart({
           <Button
             key={r}
             size="sm"
-            variant={range === r ? "secondary-accent" : "secondary"}
+            variant="secondary"
             aria-pressed={range === r}
             onClick={() => setRange(r)}
             data-testid={`chart-range-${r}`}

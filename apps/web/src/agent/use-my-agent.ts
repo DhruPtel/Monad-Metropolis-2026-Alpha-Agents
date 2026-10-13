@@ -82,7 +82,20 @@ function usdcShareV3(p: PortfolioV3Json): number | null {
   return usdc ? Number((BigInt(usdc.amountRaw) * 10_000n) / nav) : 0;
 }
 
-export function useMyAgent(agentId: bigint): MyAgent {
+/**
+ * UI-FAST: which reads a page needs. The trading account (its value and makeup) and the
+ * performance line with the arming state are read only where shown, so a page that reads
+ * them elsewhere (the Overview, with usePortfolio) does not read them twice.
+ */
+export interface MyAgentReads {
+  readonly trading?: boolean;
+  readonly performance?: boolean;
+}
+
+export function useMyAgent(
+  agentId: bigint,
+  { trading: readTrading = true, performance: readPerformance = true }: MyAgentReads = {},
+): MyAgent {
   const wallet = useWalletSession();
   const [summary, setSummary] = useState<SummaryView | null>(null);
   const [activity, setActivity] = useState<readonly ActivityJson[]>([]);
@@ -116,52 +129,71 @@ export function useMyAgent(agentId: bigint): MyAgent {
   useEffect(() => {
     if (!wallet.ready) return;
     let live = true;
-    void (async () => {
-      try {
-        const [s, a, p, w, arm] = await Promise.all([
-          asOwner((token) => api.summary(agentId, token)),
-          api.activity(agentId).catch(() => null),
-          asOwner((token) => tradingApi.portfolio(agentId, token)).catch(() => null),
-          // UI-U1: the performance line and the arming state for the card's centerpiece.
-          asOwner((token) => tradingApi.window(agentId, token)).catch(() => null),
-          asOwner((token) => tradingApi.arming(agentId, token)).catch(() => null),
-        ]);
-        if (!live || !mounted.current) return;
-        setSummary(summaryView(s));
-        if (a) setActivity(a);
-        setWindowView(w && w.account ? w : null);
-        setArmingState(arm?.arming.state ?? null);
-        setTrading(
-          p === null
-            ? null
-            : p.custody === "v3"
-              ? {
-                  hasAccount: p.account !== null,
-                  valueUsdcE6: p.navUsdcE6 === null ? null : BigInt(p.navUsdcE6),
-                  usdcShareBps: usdcShareV3(p),
-                  mode: p.mode,
-                  restLabel: "Other tokens",
-                  makeup: p.account === null ? null : assetRows(p),
-                }
-              : {
-                  hasAccount: p.account !== null,
-                  valueUsdcE6: positions(p).totalUsdc,
-                  usdcShareBps: positions(p).usdcShareBps,
-                  mode: p.mode,
-                  makeup: p.account === null ? null : v2AssetRows(p),
-                },
-        );
-        setError(null);
-      } catch (err) {
-        if (live && mounted.current) setError(words(err));
-      }
-    })();
-    const cancelPoll = schedulePoll(() => setTick((t) => t + 1), busy ? BUSY_POLL_MS : POLL_MS);
+    let cancelPoll: (() => void) | null = null;
+    // UI-FAST: each read shows as it lands, a failed one keeps its last value, and the next
+    // round starts only once this one has finished, so slow reads never pile up.
+    const ok = () => live && mounted.current;
+    const each = <T>(read: Promise<T>, put: (v: T) => void) =>
+      read.then(
+        (v) => ok() && put(v),
+        () => undefined,
+      );
+    void Promise.all([
+      asOwner((token) => api.summary(agentId, token)).then(
+        (s) => {
+          if (!ok()) return;
+          setSummary(summaryView(s));
+          setError(null);
+        },
+        (err: unknown) => ok() && setError(words(err)),
+      ),
+      each(api.activity(agentId), (a) => setActivity(a)),
+      readTrading
+        ? each(
+            asOwner((token) => tradingApi.portfolio(agentId, token)),
+            (p) =>
+              setTrading(
+                p.custody === "v3"
+                  ? {
+                      hasAccount: p.account !== null,
+                      valueUsdcE6: p.navUsdcE6 === null ? null : BigInt(p.navUsdcE6),
+                      usdcShareBps: usdcShareV3(p),
+                      mode: p.mode,
+                      restLabel: "Other tokens",
+                      makeup: p.account === null ? null : assetRows(p),
+                    }
+                  : {
+                      hasAccount: p.account !== null,
+                      valueUsdcE6: positions(p).totalUsdc,
+                      usdcShareBps: positions(p).usdcShareBps,
+                      mode: p.mode,
+                      makeup: p.account === null ? null : v2AssetRows(p),
+                    },
+              ),
+          )
+        : null,
+      // UI-U1: the performance line and the arming state for the card's centerpiece.
+      readPerformance
+        ? each(
+            asOwner((token) => tradingApi.window(agentId, token)),
+            (w) => setWindowView(w && w.account ? w : null),
+          )
+        : null,
+      readPerformance
+        ? each(
+            asOwner((token) => tradingApi.arming(agentId, token)),
+            (arm) => setArmingState(arm.arming.state),
+          )
+        : null,
+    ]).then(() => {
+      if (live)
+        cancelPoll = schedulePoll(() => setTick((t) => t + 1), busy ? BUSY_POLL_MS : POLL_MS);
+    });
     return () => {
       live = false;
-      cancelPoll();
+      cancelPoll?.();
     };
-  }, [agentId, asOwner, busy, tick, wallet.ready]);
+  }, [agentId, asOwner, busy, tick, wallet.ready, readTrading, readPerformance]);
 
   const requestRefund = useCallback(() => {
     if (refund.state === "working") return;

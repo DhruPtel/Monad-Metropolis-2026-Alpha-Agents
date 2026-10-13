@@ -9,18 +9,20 @@ import { Tag } from "../ui/tag";
 import { type ArtTier, SpeciesArt } from "./species-art";
 
 /**
- * The reveal moment (UI-U2). The onchain reveal stays automatic and fair:
- * the keeper draws the tier and species from what is left, and nothing here
- * can change the draw. What changes is when the owner sees it. While the
- * reveal is pending, the pre-reveal placeholder counts down the time the
- * keeper usually takes. Once the chain has drawn, the result stays hidden
+ * The reveal moment (UI-U2, reshaped in UI-FAST). The onchain reveal stays
+ * automatic and fair: the keeper draws the tier and species from what is
+ * left, and nothing here can change the draw. What changes is when the owner
+ * sees it. Reveal shows from the moment the agent is minted, with no timer:
+ * clicked before the chain has drawn, the moment waits ("armed") and plays
+ * the instant the draw lands, while the app's note says honestly where the
+ * draw stands onchain. Once the chain has drawn, the result stays hidden
  * until the owner clicks Reveal, which plays a rare-pull moment with the real
  * art: the placeholder shakes, the art bursts in with the tier's rays, and
  * the rarity is said plainly, with a one-of-one marked as the only one.
  * Reduced motion skips the animation. Presentational: the app says whether
  * the owner has seen the reveal, and stores that when the moment ends.
  */
-export type RevealPhase = "waiting" | "ready" | "shaking" | "bursting" | "revealed";
+export type RevealPhase = "waiting" | "armed" | "ready" | "shaking" | "bursting" | "revealed";
 
 /** A link component that takes an href, such as Next's Link. */
 type LinkComponent = ComponentType<{ href: string; children?: ReactNode }>;
@@ -29,8 +31,8 @@ export interface RevealMomentProps {
   readonly agentId: bigint;
   /** The species the chain drew (1 to 34), or null while the reveal is pending. */
   readonly speciesIndex: number | null;
-  /** Seconds until the keeper is expected to reveal, while pending; null when unknown. */
-  readonly secondsLeft?: number | null | undefined;
+  /** Where the draw stands onchain, while pending, in the app's words; null when unknown. */
+  readonly waitingNote?: string | null | undefined;
   /** Whether the owner has already seen this agent's reveal. */
   readonly seen: boolean;
   /** Called when the moment ends: the app remembers the reveal as seen. */
@@ -57,14 +59,6 @@ const TIER_RING: Readonly<Record<ArtTier, string>> = {
   medium: "ring-rare/70",
   pro: "ring-detail/80",
 };
-
-/** The words for the time left: whole seconds at first, then any moment. */
-export function countdownWords(secondsLeft: number | null | undefined): string {
-  if (secondsLeft === null || secondsLeft === undefined) return "The keeper reveals it soon.";
-  const s = Math.max(0, Math.ceil(secondsLeft));
-  if (s === 0) return "Any moment now.";
-  return `About ${s} second${s === 1 ? "" : "s"} to go.`;
-}
 
 /** What a draw means, in plain words: the tier's share and the species' count. */
 export function rarityWords(speciesIndex: number): {
@@ -96,7 +90,7 @@ const reducedMotion = () =>
 function RevealMoment({
   agentId,
   speciesIndex,
-  secondsLeft,
+  waitingNote,
   seen,
   onSeen,
   href,
@@ -105,6 +99,8 @@ function RevealMoment({
   className,
 }: RevealMomentProps) {
   const [playing, setPlaying] = useState<"shaking" | "bursting" | null>(null);
+  // Reveal clicked before the chain drew: the moment plays as soon as it has.
+  const [armed, setArmed] = useState(false);
   const timers = useRef<number[]>([]);
   const onSeenRef = useRef(onSeen);
   onSeenRef.current = onSeen;
@@ -118,10 +114,23 @@ function RevealMoment({
   const LinkAs = linkAs ?? "a";
   const species = speciesIndex && speciesIndex > 0 ? speciesIndex : null;
   const phase: RevealPhase =
-    species === null ? "waiting" : playing ? playing : seen ? "revealed" : "ready";
+    species === null
+      ? armed
+        ? "armed"
+        : "waiting"
+      : playing
+        ? playing
+        : seen
+          ? "revealed"
+          : "ready";
 
   const reveal = () => {
-    if (species === null || playing) return;
+    if (species === null) {
+      setArmed(true);
+      return;
+    }
+    if (playing) return;
+    setArmed(false);
     if (reducedMotion() || durationMs <= 0) {
       onSeenRef.current();
       return;
@@ -137,11 +146,19 @@ function RevealMoment({
     );
   };
 
+  // The draw landed after Reveal was clicked: play the moment now.
+  const play = useRef(reveal);
+  play.current = reveal;
+  useEffect(() => {
+    if (armed && species !== null && !seen) play.current();
+  }, [armed, species, seen]);
+
   const rarity = species ? rarityWords(species) : null;
   const art = species ? speciesAsset(species) : null;
   const showArt = phase === "bursting" || phase === "revealed";
   const open =
-    href && (phase === "waiting" || phase === "ready" || phase === "revealed") ? (
+    href &&
+    (phase === "waiting" || phase === "armed" || phase === "ready" || phase === "revealed") ? (
       <Button asChild variant="secondary" size="sm" className="w-fit">
         <LinkAs href={href}>
           Open agent #{id} <ArrowRight aria-hidden />
@@ -173,7 +190,9 @@ function RevealMoment({
         <div
           className={cn(
             "relative rounded-md",
-            phase === "ready" ? "ring-2 ring-primary motion-safe:animate-status-pulse" : "",
+            phase === "ready" || phase === "armed"
+              ? "ring-2 ring-primary motion-safe:animate-status-pulse"
+              : "",
             phase === "shaking" ? "motion-safe:animate-reveal-shake" : "",
             phase === "bursting" ? "motion-safe:animate-reveal-pop" : "",
             showArt && rarity ? ["ring-2", TIER_RING[rarity.tier]] : "",
@@ -190,14 +209,30 @@ function RevealMoment({
         <p className="flex items-baseline gap-2 text-base font-semibold">
           Alpha Agent <span className="numeric text-primary">#{id}</span>
         </p>
-        {phase === "waiting" ? (
-          <div className="flex flex-col gap-1">
-            <p className="text-sm">Waiting for its reveal.</p>
-            <p className="text-sm text-foreground-muted" aria-live="polite">
-              <span data-countdown>{countdownWords(secondsLeft)}</span> Its tier and species are
-              drawn onchain from what is left; nothing here can change the draw.
+        {phase === "waiting" || phase === "armed" ? (
+          <div className="flex flex-col gap-2">
+            <p className="text-sm">
+              {phase === "armed"
+                ? "Revealing as soon as the chain draws it."
+                : "Minted. Reveal whenever you like."}
             </p>
-            {open}
+            <p className="text-sm text-foreground-muted" aria-live="polite">
+              {waitingNote ? <span data-testid="reveal-status">{waitingNote} </span> : null}
+              Its tier and species are drawn onchain from what is left; nothing here can change the
+              draw.
+            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                variant="primary"
+                className="w-fit"
+                onClick={reveal}
+                disabled={phase === "armed"}
+                data-testid="reveal"
+              >
+                <Sparkles aria-hidden /> {phase === "armed" ? "Waiting for the draw" : "Reveal"}
+              </Button>
+              {open}
+            </div>
           </div>
         ) : null}
         {phase === "ready" ? (

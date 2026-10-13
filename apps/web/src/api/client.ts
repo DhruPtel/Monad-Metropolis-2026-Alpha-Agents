@@ -23,7 +23,11 @@ import { type Address, getAddress } from "viem";
  * index, mint eligibility and the mint claim. The base URL is inlined at build
  * time (next.config.ts); locally it is the API from `pnpm dev:api`.
  */
-export const CONTROL_API_URL = process.env.CONTROL_API_URL || "http://127.0.0.1:4100";
+export const CONTROL_API_URL =
+  // UI-FAST: a dev server proxying the API (dev-api-proxy.ts) gives the browser its own path.
+  (typeof window !== "undefined" && process.env.DEV_API_PROXY_PATH) ||
+  process.env.CONTROL_API_URL ||
+  "http://127.0.0.1:4100";
 
 export interface Watermark {
   readonly block: number;
@@ -38,6 +42,8 @@ export interface ApiAgent {
   /** 0 until revealed, then 1 to 25. */
   readonly species: number;
   readonly ownerEpoch: bigint;
+  /** UI-FAST: the block the agent was minted in, as the index records it. */
+  readonly mintedBlock?: number;
 }
 
 export interface ApiSupply {
@@ -100,6 +106,7 @@ interface AgentJson {
   tba: string;
   species: number;
   ownerEpoch: string;
+  mintedBlock?: number;
 }
 
 const toAgent = (a: AgentJson): ApiAgent => ({
@@ -108,6 +115,7 @@ const toAgent = (a: AgentJson): ApiAgent => ({
   tba: getAddress(a.tba),
   species: a.species,
   ownerEpoch: BigInt(a.ownerEpoch),
+  ...(a.mintedBlock !== undefined ? { mintedBlock: a.mintedBlock } : {}),
 });
 
 export interface OwnerSession {
@@ -273,6 +281,15 @@ export interface WhyNotTradedJson {
     readonly at: string;
   })[];
   readonly waitingForApproval: number;
+  /** The runner's latest decision for the agent, as it recorded it; absent where none is recorded. */
+  readonly runner?: {
+    readonly outcome: string;
+    readonly code: string | null;
+    readonly message: string;
+    readonly since: string;
+    readonly lastAt: string;
+    readonly intentId: string | null;
+  } | null;
 }
 
 export interface PriceJson {
@@ -631,6 +648,12 @@ export interface TerminalJson {
     readonly cycleId: string;
     readonly kind: string;
     readonly status: string;
+    /** UI-FAST: passed through from the orchestrator: the model alias, the spend, the times. */
+    readonly reasoning?: string;
+    readonly chargedUsdcE6?: string;
+    readonly createdAt?: string;
+    readonly startedAt?: string | null;
+    readonly finishedAt?: string | null;
   } | null;
   readonly live: boolean;
   readonly events: readonly TerminalEventJson[];
@@ -1141,6 +1164,15 @@ export const api = {
   /** An agent's credits, public like its funding address's USDC (Phase 2 tuning). */
   async credits(agentId: bigint): Promise<CreditsJson> {
     return call<CreditsJson>(`/v1/agents/${agentId.toString()}/credits`);
+  },
+  /** UI-FAST: whether the agent has a goal and its preset, public (P3-U1). */
+  async goalSummary(
+    agentId: bigint,
+  ): Promise<{ configured: boolean; aggressiveness: string | null }> {
+    const r = await call<{ configured: boolean; aggressiveness?: string | null }>(
+      `/v1/agents/${agentId.toString()}/goal/summary`,
+    );
+    return { configured: r.configured, aggressiveness: r.aggressiveness ?? null };
   },
   /** The narrator's entries, newest first (public, D-217). */
   async activity(agentId: bigint): Promise<ActivityJson[]> {

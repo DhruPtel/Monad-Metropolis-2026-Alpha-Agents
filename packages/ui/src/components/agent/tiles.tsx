@@ -2,13 +2,12 @@ import type { ReactNode } from "react";
 import { cn } from "../../lib/utils";
 
 /**
- * Square fact tiles (UI-U2, the owner's UI direction): a label, one value
- * in big type, a plain note that says what it means, and the next action
- * beside it. About four across on a desktop, two on a phone, never a long
- * thin rectangle. Pages build their at-a-glance rows from these.
+ * Fact tiles (UI-U2, made compact in UI-FAST: no large tiles anywhere): a
+ * label, one value, a plain note that says what it means, and the next
+ * action beside it. About four across on a desktop, two on a phone. Pages
+ * build their at-a-glance rows from these.
  */
-export const TILE_CLASS =
-  "flex min-h-36 flex-col justify-between gap-2 rounded-lg border bg-surface p-4 sm:aspect-square";
+export const TILE_CLASS = "flex flex-col gap-1 rounded-md border bg-surface p-3";
 
 export type TileTone = "neutral" | "positive" | "negative" | "warning" | "accent";
 
@@ -56,7 +55,7 @@ function FactTile({
       <span className="text-xs text-foreground-muted">{label}</span>
       <span
         className={cn(
-          "text-2xl leading-tight font-semibold break-words",
+          "text-base leading-tight font-semibold break-words",
           numeric && "numeric",
           VALUE_TONE[tone],
         )}

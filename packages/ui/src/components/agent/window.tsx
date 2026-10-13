@@ -313,7 +313,16 @@ export function allocationSlices(rows: readonly AssetRow[]): Slice[] {
  * slices and Other, each named with its share beside it, a 2px gap between
  * slices. Unpriced tokens are named under it, since they have no share.
  */
-function AllocationDonut({ rows, className }: { rows: readonly AssetRow[]; className?: string }) {
+function AllocationDonut({
+  rows,
+  onSelect,
+  className,
+}: {
+  rows: readonly AssetRow[];
+  /** UI-FAST: a slice or its legend entry, clicked; the page opens what it is about. */
+  onSelect?: ((label: string) => void) | undefined;
+  className?: string;
+}) {
   const slices = allocationSlices(rows);
   const unpriced = rows.filter((r) => r.shareBps === null && BigInt(r.amountRaw) > 0n);
   const r = 42;
@@ -348,6 +357,9 @@ function AllocationDonut({ rows, className }: { rows: readonly AssetRow[]; class
               strokeDasharray={`${Math.max(0, length - (slices.length > 1 ? gap : 0))} ${c}`}
               strokeDashoffset={-start}
               data-testid="allocation-slice"
+              {...(onSelect
+                ? { onClick: () => onSelect(s.label), className: cn(s.stroke, "cursor-pointer") }
+                : {})}
             />
           );
         })}
@@ -356,13 +368,30 @@ function AllocationDonut({ rows, className }: { rows: readonly AssetRow[]; class
         {slices.length === 0 ? (
           <span className="text-foreground-muted">{label}</span>
         ) : (
-          slices.map((s) => (
-            <span key={s.label} className="flex items-center gap-2">
-              <span aria-hidden className={cn("size-2.5 shrink-0 rounded-full", s.fill)} />
-              <span className="min-w-12">{s.label}</span>
-              <span className="numeric">{pct(s.shareBps)}</span>
-            </span>
-          ))
+          slices.map((s) => {
+            const body = (
+              <>
+                <span aria-hidden className={cn("size-2.5 shrink-0 rounded-full", s.fill)} />
+                <span className="min-w-12">{s.label}</span>
+                <span className="numeric">{pct(s.shareBps)}</span>
+              </>
+            );
+            return onSelect ? (
+              <button
+                key={s.label}
+                type="button"
+                onClick={() => onSelect(s.label)}
+                className="flex items-center gap-2 rounded-sm text-left outline-none hover:text-primary is-focus:focus-ring"
+                data-testid="allocation-legend"
+              >
+                {body}
+              </button>
+            ) : (
+              <span key={s.label} className="flex items-center gap-2">
+                {body}
+              </span>
+            );
+          })
         )}
         {unpriced.length > 0 ? (
           <span className="text-xs text-warning" data-testid="allocation-unpriced">
@@ -523,7 +552,7 @@ function PerformanceChart({
         </span>
         <Button
           size="sm"
-          variant={table ? "secondary-accent" : "secondary"}
+          variant="secondary"
           aria-pressed={table}
           onClick={() => setTable((t) => !t)}
           data-testid="performance-table-toggle"
@@ -741,7 +770,7 @@ function ScoreTile({
       {value !== null ? (
         <span
           className={cn(
-            "numeric text-2xl font-semibold",
+            "numeric text-base font-semibold",
             tone === "positive" && "text-positive",
             tone === "negative" && "text-negative",
           )}
@@ -834,7 +863,7 @@ function HundredDollarTile({ hundred, className }: { hundred: HundredView; class
       {hundred.ok ? (
         <span
           className={cn(
-            "numeric text-2xl font-semibold",
+            "numeric text-base font-semibold",
             up && "text-positive",
             down && "text-negative",
           )}

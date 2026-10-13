@@ -17,14 +17,15 @@ const buttonVariants = cva(
       variant: {
         primary:
           "border-transparent bg-primary text-on-primary is-hover:bg-primary-hover is-hover:shadow-glow",
+        // UI-FAST: one secondary style; a toggle or link that is on shows it with aria-pressed
+        // or aria-current, never with a variant of its own.
         secondary:
-          "border-border-strong bg-surface-raised text-foreground is-hover:border-foreground-subtle is-hover:bg-surface-overlay",
-        "secondary-accent":
-          "border-primary-muted bg-transparent text-primary is-hover:border-primary is-hover:bg-primary/10",
+          "border-border-strong bg-surface-raised text-foreground is-hover:border-foreground-subtle is-hover:bg-surface-overlay aria-pressed:border-primary aria-pressed:text-primary aria-[current=page]:border-primary aria-[current=page]:text-primary",
         ghost:
           "border-transparent bg-transparent text-foreground-muted is-hover:bg-surface-raised is-hover:text-foreground",
+        // UI-FAST: a destructive action keeps the secondary shape, its words in the negative tone.
         danger:
-          "border-negative bg-negative-surface text-negative is-hover:bg-negative is-hover:text-on-negative",
+          "border-border-strong bg-surface-raised text-negative is-hover:border-negative is-hover:bg-negative-surface",
       },
       // 28, 36 and 40px, from the prototype (D-154); icon buttons match md.
       size: {

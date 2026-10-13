@@ -16,8 +16,7 @@ import {
   Skeleton,
   WalletActionStatus,
 } from "@alpha-agents/ui";
-import { ArrowLeft, KeyRound, Wallet } from "lucide-react";
-import Link from "next/link";
+import { KeyRound, Wallet } from "lucide-react";
 import { useState } from "react";
 import type { DataKeyJson } from "@/api/client";
 import { useKeys } from "@/agent/use-keys";
@@ -41,32 +40,12 @@ export function SettingsPage({
 }) {
   const wallet = useWalletSession();
   const ks = useKeys(agentId);
-  const name = `Agent #${agentId.toString()}`;
   const [editing, setEditing] = useState<DataKeyJson | null>(null);
   const [removing, setRemoving] = useState<DataKeyJson | null>(null);
   void environment;
 
-  const header = (
-    <div className="flex flex-col gap-2">
-      <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-foreground-muted">
-        <Link href="/agents" className="flex items-center gap-1">
-          <ArrowLeft aria-hidden className="size-4" /> My Agents
-        </Link>
-        <Link href={`/agents/${agentId.toString()}/portfolio`} data-testid="portfolio-link">
-          Portfolio
-        </Link>
-        <Link href={`/agents/${agentId.toString()}/skills`} data-testid="skills-link">
-          Skills
-        </Link>
-      </div>
-      <h1 className="text-2xl font-semibold">Settings of {name}</h1>
-      <p className="text-sm text-foreground-muted">
-        Your own keys for paid data sources. A key is stored sealed, used only by the
-        platform&apos;s tool servers for this agent, never placed in its sandbox, and never shown
-        again.
-      </p>
-    </div>
-  );
+  // UI-FAST: the agent's header and tabs come from its shell.
+  const header = null;
 
   if (!wallet.ready || !wallet.address)
     return (

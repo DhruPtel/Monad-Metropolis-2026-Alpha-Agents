@@ -392,7 +392,7 @@ function MakeupSwitch({
         <div className="flex justify-end">
           <Button
             size="sm"
-            variant={table ? "secondary-accent" : "secondary"}
+            variant="secondary"
             aria-pressed={table}
             onClick={() => setTable((t) => !t)}
             data-testid="makeup-table-toggle"

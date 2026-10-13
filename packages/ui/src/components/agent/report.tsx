@@ -5,17 +5,20 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from ".
 import { Tag } from "../ui/tag";
 
 /**
- * RP-U1: a research cycle's report as a document: the executive summary,
- * the market, the universe considered, a section per researched token, the
- * skeptic's objections, the recommended portfolio and every source by class.
- * Readable on screen and in print: the `report-document` class carries the
- * print styling (styles.css), so the PDF reads like the page. The component
- * formats what it is given; the platform wrote and checked every sentence.
+ * RP-U1, reshaped in UI-FAST: a research cycle's report laid out like a deep
+ * research report: a title and byline, an executive summary with the bottom
+ * line, contents, numbered sections (the market, the universe considered, a
+ * section per researched token, the challenges, the portfolio, the method)
+ * and numbered references that every citation links to. Readable on screen
+ * and in print: the `report-document` class carries the print styling
+ * (styles.css), so the PDF reads like the page. The component formats what
+ * it is given; the platform wrote and checked every sentence.
  */
 
-export interface ReportEvidenceView {
+export interface ReportCitedTextView {
   readonly text: string;
-  readonly sources: readonly string[];
+  /** Reference numbers, ascending; each links to its entry under References. */
+  readonly cites: readonly number[];
 }
 
 export interface ReportTokenView {
@@ -27,8 +30,8 @@ export interface ReportTokenView {
     readonly finding: string;
     readonly status: "supports" | "concern" | "unknown";
   }[];
-  readonly evidenceFor: readonly ReportEvidenceView[];
-  readonly evidenceAgainst: readonly ReportEvidenceView[];
+  readonly evidenceFor: readonly ReportCitedTextView[];
+  readonly evidenceAgainst: readonly ReportCitedTextView[];
   readonly risks: readonly string[];
   readonly thesis: string;
   readonly killCondition: string;
@@ -44,15 +47,28 @@ export interface ReportUniverseRowView {
   readonly why: string | null;
 }
 
-export interface ReportSourceView {
+/** Universe rows that share an outcome and a reason, as one line of the summary table. */
+export interface ReportUniverseGroupView {
+  readonly outcome: "proposed" | "researched" | "buyable" | "not buyable";
+  readonly why: string | null;
+  readonly symbols: readonly string[];
+}
+
+export interface ReportReferenceView {
+  readonly n: number;
   readonly source: string;
-  readonly kind: "tool" | "url";
-  readonly classes: readonly string[];
-  readonly calls: number;
+  readonly label: string;
+  /** The page's address for a web source; null for a tool record. */
+  readonly href: string | null;
+  readonly detail: string;
+  /** False for a source the cycle used that the text never cites. */
+  readonly cited: boolean;
 }
 
 export interface ReportView {
   readonly title: string;
+  /** Who the report is for: the agent's name. */
+  readonly byline: string;
   /** "Activation sweep", "Routine cycle"; and when it was written. */
   readonly kindLabel: string;
   readonly writtenAt: string;
@@ -64,11 +80,12 @@ export interface ReportView {
     readonly snapshot: readonly {
       readonly label: string;
       readonly value: string;
-      readonly source: string;
+      readonly cites: readonly number[];
     }[];
   };
   readonly universeSummary: string;
   readonly universe: readonly ReportUniverseRowView[];
+  readonly universeGroups: readonly ReportUniverseGroupView[];
   readonly tokens: readonly ReportTokenView[];
   readonly skeptic: readonly {
     readonly theme: string;
@@ -84,7 +101,7 @@ export interface ReportView {
       readonly why: string;
     }[];
   };
-  readonly sources: readonly ReportSourceView[];
+  readonly references: readonly ReportReferenceView[];
   readonly stages: readonly {
     readonly label: string;
     readonly result: string;
@@ -94,14 +111,31 @@ export interface ReportView {
   readonly checksNote: string | null;
 }
 
-function Section({ id, title, children }: { id: string; title: string; children: ReactNode }) {
+function Section({
+  id,
+  number,
+  title,
+  children,
+}: {
+  id: string;
+  number?: number;
+  title: string;
+  children: ReactNode;
+}) {
   return (
     <section
-      aria-labelledby={`report-${id}`}
-      className="report-section flex flex-col gap-3 border-t border-border pt-6"
+      id={`report-${id}`}
+      aria-labelledby={`report-${id}-title`}
+      className="report-section flex scroll-mt-24 flex-col gap-4"
       data-testid={`report-${id}`}
     >
-      <h2 id={`report-${id}`} className="text-xl font-semibold">
+      <h2
+        id={`report-${id}-title`}
+        className="flex items-baseline gap-3 border-b border-border pb-2 text-2xl font-semibold tracking-tight"
+      >
+        {number !== undefined ? (
+          <span className="numeric text-foreground-muted">{number}.</span>
+        ) : null}
         {title}
       </h2>
       {children}
@@ -109,42 +143,54 @@ function Section({ id, title, children }: { id: string; title: string; children:
   );
 }
 
+const PROSE = "max-w-[72ch] text-base leading-7";
+
 const Para = ({ text, empty }: { text: string; empty?: string }) =>
   text ? (
-    <p className="max-w-[72ch] text-sm leading-relaxed">{text}</p>
+    <p className={PROSE}>{text}</p>
   ) : empty ? (
     <p className="text-sm text-foreground-muted">{empty}</p>
   ) : null;
+
+const Muted = ({ children }: { children: ReactNode }) => (
+  <p className="text-sm text-foreground-muted">{children}</p>
+);
 
 const STATUS_TONE = { supports: "positive", concern: "warning", unknown: "neutral" } as const;
 const STATUS_WORD = { supports: "Supports", concern: "Concern", unknown: "Unknown" } as const;
 const CONFIDENCE_TONE = { low: "neutral", medium: "warning", high: "positive" } as const;
 
-function SourceTags({ sources }: { sources: readonly string[] }) {
-  if (sources.length === 0) return null;
+/** Numbered citations, each a link to its reference: [1][3]. */
+function Cites({ cites }: { cites: readonly number[] }) {
+  if (cites.length === 0) return null;
   return (
-    <span className="flex flex-wrap gap-1">
-      {sources.map((s) => (
-        <Tag key={s} tone="neutral" className="max-w-full truncate">
-          {s.replace(/^https?:\/\//, "").slice(0, 60)}
-        </Tag>
+    <sup className="numeric ml-0.5 whitespace-nowrap" data-testid="report-cite">
+      {cites.map((n) => (
+        <a
+          key={n}
+          href={`#report-ref-${n}`}
+          className="text-primary no-underline hover:underline"
+          aria-label={`Reference ${n}`}
+        >
+          [{n}]
+        </a>
       ))}
-    </span>
+    </sup>
   );
 }
 
-function EvidenceList({ title, items }: { title: string; items: readonly ReportEvidenceView[] }) {
+function EvidenceList({ title, items }: { title: string; items: readonly ReportCitedTextView[] }) {
   return (
     <div className="flex flex-col gap-2">
-      <h4 className="text-sm font-semibold">{title}</h4>
+      <h4 className="text-base font-semibold">{title}</h4>
       {items.length === 0 ? (
-        <p className="text-sm text-foreground-muted">None recorded.</p>
+        <Muted>None recorded.</Muted>
       ) : (
-        <ul className="flex list-disc flex-col gap-2 pl-5 text-sm leading-relaxed">
+        <ul className={cn(PROSE, "flex list-disc flex-col gap-2 pl-5")}>
           {items.map((e, i) => (
-            <li key={i} className="flex flex-col gap-1">
-              <span>{e.text}</span>
-              <SourceTags sources={e.sources} />
+            <li key={i}>
+              {e.text}
+              <Cites cites={e.cites} />
             </li>
           ))}
         </ul>
@@ -153,15 +199,20 @@ function EvidenceList({ title, items }: { title: string; items: readonly ReportE
   );
 }
 
-function TokenReport({ t }: { t: ReportTokenView }) {
+function TokenReport({ t, number }: { t: ReportTokenView; number: string }) {
   return (
     <article
-      className="report-token flex flex-col gap-4 rounded-lg border border-border bg-surface p-4"
+      id={`report-token-${t.symbol}`}
+      aria-labelledby={`report-token-${t.symbol}-title`}
+      className="report-token flex scroll-mt-24 flex-col gap-4"
       data-testid="report-token"
       data-symbol={t.symbol}
     >
       <header className="flex flex-wrap items-center gap-2">
-        <h3 className="text-lg font-semibold">{t.symbol}</h3>
+        <h3 id={`report-token-${t.symbol}-title`} className="text-xl font-semibold">
+          <span className="numeric mr-2 text-foreground-muted">{number}</span>
+          {t.symbol}
+        </h3>
         {t.chain ? <Tag tone="neutral">{t.chain}</Tag> : null}
         <Badge tone={CONFIDENCE_TONE[t.confidence]}>{t.confidence} confidence</Badge>
       </header>
@@ -188,21 +239,19 @@ function TokenReport({ t }: { t: ReportTokenView }) {
           </TableBody>
         </Table>
       ) : null}
-      <div className="grid gap-4 md:grid-cols-2">
-        <EvidenceList title="Evidence for" items={t.evidenceFor} />
-        <EvidenceList title="Evidence against" items={t.evidenceAgainst} />
-      </div>
+      <EvidenceList title="The case for" items={t.evidenceFor} />
+      <EvidenceList title="The case against" items={t.evidenceAgainst} />
       {t.risks.length > 0 ? (
         <div className="flex flex-col gap-2">
-          <h4 className="text-sm font-semibold">Risks</h4>
-          <ul className="flex list-disc flex-col gap-1 pl-5 text-sm">
+          <h4 className="text-base font-semibold">Risks</h4>
+          <ul className={cn(PROSE, "flex list-disc flex-col gap-1 pl-5")}>
             {t.risks.map((r, i) => (
               <li key={i}>{r}</li>
             ))}
           </ul>
         </div>
       ) : null}
-      <dl className="grid gap-2 text-sm md:grid-cols-[auto_1fr]">
+      <dl className="grid gap-x-6 gap-y-2 rounded-lg border border-border bg-surface-raised p-4 text-base leading-7 md:grid-cols-[auto_1fr]">
         <dt className="font-semibold">Thesis</dt>
         <dd>{t.thesis || "–"}</dd>
         <dt className="font-semibold">Kill condition</dt>
@@ -212,99 +261,123 @@ function TokenReport({ t }: { t: ReportTokenView }) {
   );
 }
 
-const CLASS_ORDER = ["onchain", "primary", "market", "news", "social", "platform"];
-const CLASS_WORD: Record<string, string> = {
-  onchain: "Onchain",
-  primary: "Primary sources",
-  market: "Market data",
-  news: "News",
-  social: "Social",
-  platform: "The platform's own records",
-};
-
-function SourcesByClass({ sources }: { sources: readonly ReportSourceView[] }) {
-  const groups = new Map<string, ReportSourceView[]>();
-  for (const s of sources) {
-    const cls =
-      s.kind === "url"
-        ? s.classes.includes("social")
-          ? "social"
-          : "primary"
-        : (s.classes[0] ?? "platform");
-    groups.set(cls, [...(groups.get(cls) ?? []), s]);
-  }
-  const order = [...groups.keys()].sort((a, b) => CLASS_ORDER.indexOf(a) - CLASS_ORDER.indexOf(b));
-  if (order.length === 0)
-    return <p className="text-sm text-foreground-muted">No sources recorded.</p>;
+function References({ refs }: { refs: readonly ReportReferenceView[] }) {
+  if (refs.length === 0) return <Muted>No sources recorded.</Muted>;
+  const item = (r: ReportReferenceView) => (
+    <li
+      key={r.n}
+      id={`report-ref-${r.n}`}
+      className="grid scroll-mt-24 grid-cols-[2.5rem_1fr] gap-1 text-sm"
+      data-testid="report-reference"
+    >
+      <span className="numeric text-foreground-muted">[{r.n}]</span>
+      <span className="flex min-w-0 flex-col">
+        {r.href ? (
+          <a
+            href={r.href}
+            className="break-all text-primary underline-offset-4 hover:underline"
+            rel="noreferrer noopener"
+            target="_blank"
+          >
+            {r.label}
+          </a>
+        ) : (
+          <span className="font-mono text-sm">{r.label}</span>
+        )}
+        <span className="text-foreground-muted">{r.detail}</span>
+      </span>
+    </li>
+  );
+  const cited = refs.filter((r) => r.cited);
+  const consulted = refs.filter((r) => !r.cited);
   return (
-    <div className="grid gap-4 md:grid-cols-2">
-      {order.map((cls) => (
-        <div
-          key={cls}
-          className="flex flex-col gap-2"
-          data-testid="report-source-class"
-          data-class={cls}
-        >
-          <h3 className="text-sm font-semibold">{CLASS_WORD[cls] ?? cls}</h3>
-          <ul className="flex flex-col gap-1 text-sm">
-            {(groups.get(cls) ?? []).map((s) => (
-              <li key={s.source} className="break-all">
-                {s.kind === "url" ? (
-                  <a
-                    href={s.source}
-                    className="text-primary underline-offset-4 hover:underline"
-                    rel="noreferrer noopener"
-                    target="_blank"
-                  >
-                    {s.source}
-                  </a>
-                ) : (
-                  <span>
-                    <span className="font-medium">{s.source}</span>{" "}
-                    <span className="text-foreground-muted">
-                      ({s.calls} {s.calls === 1 ? "call" : "calls"})
-                    </span>
-                  </span>
-                )}
-              </li>
-            ))}
-          </ul>
+    <div className="flex flex-col gap-4">
+      {cited.length > 0 ? <ol className="flex flex-col gap-2">{cited.map(item)}</ol> : null}
+      {consulted.length > 0 ? (
+        <div className="flex flex-col gap-2">
+          <h3 className="text-base font-semibold">Also consulted</h3>
+          <ol className="flex flex-col gap-2">{consulted.map(item)}</ol>
         </div>
-      ))}
+      ) : null}
     </div>
   );
 }
 
-function UniverseTable({ rows }: { rows: readonly ReportUniverseRowView[] }) {
-  if (rows.length === 0)
-    return <p className="text-sm text-foreground-muted">The cycle recorded no universe.</p>;
+const OUTCOME_TONE = {
+  proposed: "positive",
+  researched: "positive",
+  buyable: "neutral",
+  "not buyable": "neutral",
+} as const;
+const OUTCOME_WORD = {
+  proposed: "Researched, proposed",
+  researched: "Researched",
+  buyable: "Buyable, not researched",
+  "not buyable": "Not buyable here",
+} as const;
+
+function symbolList(symbols: readonly string[]) {
+  const shown = symbols.slice(0, 8);
+  const more = symbols.length - shown.length;
+  return `${shown.join(", ")}${more > 0 ? ` and ${more} more` : ""}`;
+}
+
+function UniverseTable({ view }: { view: ReportView }) {
+  if (view.universe.length === 0) return <Muted>The cycle recorded no universe.</Muted>;
   return (
-    <Table label="Universe considered" stack data-testid="report-universe-table">
-      <TableHeader>
-        <TableRow>
-          <TableHead>Token</TableHead>
-          <TableHead>Buyable</TableHead>
-          <TableHead>Researched</TableHead>
-          <TableHead>Why</TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {rows.map((r, i) => (
-          <TableRow key={`${r.symbol}-${i}`} data-testid="report-universe-row">
-            <TableCell className="font-medium">{r.symbol}</TableCell>
-            <TableCell>{r.buyable ? "Yes" : "No"}</TableCell>
-            <TableCell>
-              {r.researched ? (
-                <Badge tone="positive">{r.proposed ? "Researched, proposed" : "Researched"}</Badge>
-              ) : (
-                "No"
-              )}
-            </TableCell>
-            <TableCell className="text-foreground-muted">{r.why ?? "–"}</TableCell>
+    <>
+      <Table label="Universe considered" stack data-testid="report-universe-groups">
+        <TableHeader>
+          <TableRow>
+            <TableHead>Outcome</TableHead>
+            <TableHead>Tokens</TableHead>
+            <TableHead className="text-right">Count</TableHead>
+            <TableHead>Reason</TableHead>
           </TableRow>
-        ))}
-      </TableBody>
-    </Table>
+        </TableHeader>
+        <TableBody>
+          {view.universeGroups.map((g, i) => (
+            <TableRow key={i} data-testid="report-universe-group">
+              <TableCell>
+                <Badge tone={OUTCOME_TONE[g.outcome]}>{OUTCOME_WORD[g.outcome]}</Badge>
+              </TableCell>
+              <TableCell className="font-medium">{symbolList(g.symbols)}</TableCell>
+              <TableCell className="numeric text-right">{g.symbols.length}</TableCell>
+              <TableCell className="text-foreground-muted">{g.why ?? "–"}</TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+      <details className="report-universe-all text-sm" data-print="hide">
+        <summary className="cursor-pointer text-foreground-muted">
+          Every token, one per row (<span className="numeric">{view.universe.length}</span>)
+        </summary>
+        <div className="mt-3">
+          <Table label="Every token considered" stack data-testid="report-universe-table">
+            <TableHeader>
+              <TableRow>
+                <TableHead>Token</TableHead>
+                <TableHead>Buyable</TableHead>
+                <TableHead>Researched</TableHead>
+                <TableHead>Why</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {view.universe.map((r, i) => (
+                <TableRow key={`${r.symbol}-${i}`} data-testid="report-universe-row">
+                  <TableCell className="font-medium">{r.symbol}</TableCell>
+                  <TableCell>{r.buyable ? "Yes" : "No"}</TableCell>
+                  <TableCell>
+                    {r.researched ? (r.proposed ? "Researched, proposed" : "Researched") : "No"}
+                  </TableCell>
+                  <TableCell className="text-foreground-muted">{r.why ?? "–"}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      </details>
+    </>
   );
 }
 
@@ -320,41 +393,110 @@ function ResearchReportDocument({
 }) {
   const researched = view.universe.filter((u) => u.researched).length;
   const buyable = view.universe.filter((u) => u.buyable).length;
+  const n = { market: 1, universe: 2, tokens: 3, skeptic: 4, portfolio: 5, method: 6 };
+  const contents: { id: string; label: string; children?: { id: string; label: string }[] }[] = [
+    { id: "summary", label: "Executive summary" },
+    { id: "market", label: `${n.market}. Market overview` },
+    { id: "universe", label: `${n.universe}. Universe considered` },
+    {
+      id: "tokens",
+      label: `${n.tokens}. Token analysis`,
+      children: view.tokens.map((t, i) => ({
+        id: `token-${t.symbol}`,
+        label: `${n.tokens}.${i + 1} ${t.symbol}`,
+      })),
+    },
+    { id: "skeptic", label: `${n.skeptic}. Challenges and answers` },
+    { id: "portfolio", label: `${n.portfolio}. Recommended portfolio` },
+    { id: "method", label: `${n.method}. How this report was made` },
+    { id: "sources", label: "References" },
+  ];
   return (
     <article
-      className={cn("report-document mx-auto flex w-full max-w-4xl flex-col gap-6", className)}
+      className={cn("report-document mx-auto flex w-full max-w-3xl flex-col gap-10", className)}
       data-testid="research-report"
     >
-      <header className="flex flex-col gap-2">
+      <header className="flex flex-col gap-4 border-b border-border pb-6">
         <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="flex flex-col gap-1">
-            <span className="text-xs tracking-wide text-foreground-muted uppercase">
-              {view.kindLabel} · {view.writtenAt}
-            </span>
-            <h1 className="text-3xl font-semibold">{view.title}</h1>
-          </div>
+          <span className="text-xs font-medium tracking-wide text-foreground-muted uppercase">
+            {view.kindLabel}
+          </span>
           {actions ? (
             <div className="report-actions flex flex-wrap gap-2" data-print="hide">
               {actions}
             </div>
           ) : null}
         </div>
+        <h1 className="text-3xl font-semibold tracking-tight">{view.title}</h1>
+        <dl className="flex flex-wrap gap-x-6 gap-y-1 text-sm">
+          <div className="flex gap-2">
+            <dt className="text-foreground-muted">Prepared for</dt>
+            <dd className="font-medium">{view.byline}</dd>
+          </div>
+          <div className="flex gap-2">
+            <dt className="text-foreground-muted">Written</dt>
+            <dd className="numeric font-medium">{view.writtenAt}</dd>
+          </div>
+          <div className="flex gap-2">
+            <dt className="text-foreground-muted">Recommendation</dt>
+            <dd>
+              <Badge tone={view.portfolio.stance === "propose" ? "positive" : "neutral"}>
+                {view.portfolio.stance === "propose" ? "New plan proposed" : "No change"}
+              </Badge>
+            </dd>
+          </div>
+        </dl>
         <p className="text-xs text-foreground-muted">{view.costLine}</p>
       </header>
 
       <Section id="summary" title="Executive summary">
         <Para text={view.executiveSummary} empty="The report has no summary." />
         {view.recommendation ? (
-          <p
-            className="rounded-lg border border-primary-muted bg-surface-raised p-4 text-sm font-medium"
+          <div
+            className="flex flex-col gap-1 rounded-lg border-l-4 border-primary bg-surface-raised p-4"
             data-testid="report-recommendation"
           >
-            {view.recommendation}
-          </p>
+            <span className="text-xs font-semibold tracking-wide text-foreground-muted uppercase">
+              Bottom line
+            </span>
+            <p className="text-base leading-7 font-medium">{view.recommendation}</p>
+          </div>
         ) : null}
       </Section>
 
-      <Section id="market" title="Market overview">
+      <nav aria-label="Contents" className="report-contents flex flex-col gap-2 text-sm">
+        <h2 className="text-xs font-semibold tracking-wide text-foreground-muted uppercase">
+          Contents
+        </h2>
+        <ol className="flex flex-col gap-1">
+          {contents.map((c) => (
+            <li key={c.id}>
+              <a
+                href={`#report-${c.id}`}
+                className="text-foreground underline-offset-4 hover:underline"
+              >
+                {c.label}
+              </a>
+              {c.children && c.children.length > 0 ? (
+                <ol className="mt-1 flex flex-col gap-1 pl-5">
+                  {c.children.map((k) => (
+                    <li key={k.id}>
+                      <a
+                        href={`#report-${k.id}`}
+                        className="text-foreground-muted underline-offset-4 hover:underline"
+                      >
+                        {k.label}
+                      </a>
+                    </li>
+                  ))}
+                </ol>
+              ) : null}
+            </li>
+          ))}
+        </ol>
+      </nav>
+
+      <Section id="market" number={n.market} title="Market overview">
         <Para text={view.market.overview} empty="No market overview was written." />
         {view.market.snapshot.length > 0 ? (
           <Table label="Market snapshot" stack>
@@ -362,15 +504,16 @@ function ResearchReportDocument({
               <TableRow>
                 <TableHead>Figure</TableHead>
                 <TableHead className="text-right">Value</TableHead>
-                <TableHead>Source</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {view.market.snapshot.map((s) => (
                 <TableRow key={s.label}>
                   <TableCell>{s.label}</TableCell>
-                  <TableCell className="numeric text-right">{s.value}</TableCell>
-                  <TableCell className="text-foreground-muted">{s.source}</TableCell>
+                  <TableCell className="numeric text-right">
+                    {s.value}
+                    <Cites cites={s.cites} />
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -378,57 +521,59 @@ function ResearchReportDocument({
         ) : null}
       </Section>
 
-      <Section id="universe" title="Universe considered">
-        <p className="text-sm text-foreground-muted">
+      <Section id="universe" number={n.universe} title="Universe considered">
+        <p className={PROSE}>
           <span className="numeric">{view.universe.length}</span> tokens seen,{" "}
           <span className="numeric">{buyable}</span> buyable by this account,{" "}
           <span className="numeric">{researched}</span> researched in depth.
         </p>
         <Para text={view.universeSummary} />
-        <UniverseTable rows={view.universe} />
+        <UniverseTable view={view} />
       </Section>
 
-      <Section id="tokens" title="Researched tokens">
+      <Section id="tokens" number={n.tokens} title="Token analysis">
         {view.tokens.length === 0 ? (
-          <p className="text-sm text-foreground-muted">
-            This cycle researched no single token in depth.
-          </p>
+          <Muted>This cycle researched no single token in depth.</Muted>
         ) : (
-          view.tokens.map((t) => <TokenReport key={`${t.symbol}-${t.chain}`} t={t} />)
-        )}
-      </Section>
-
-      <Section id="skeptic" title="The skeptic's objections">
-        {view.skeptic.length === 0 ? (
-          <p className="text-sm text-foreground-muted">No objections were recorded.</p>
-        ) : (
-          <ol className="flex flex-col gap-3">
-            {view.skeptic.map((s, i) => (
-              <li
-                key={i}
-                className="flex flex-col gap-1 rounded-lg border border-border p-3 text-sm"
-              >
-                {s.theme ? <Tag tone="neutral">{s.theme}</Tag> : null}
-                <p>
-                  <span className="font-semibold">Objection. </span>
-                  {s.objection}
-                </p>
-                <p>
-                  <span className="font-semibold">Answer. </span>
-                  {s.answer || "Not answered."}
-                </p>
-              </li>
+          <div className="flex flex-col gap-10">
+            {view.tokens.map((t, i) => (
+              <TokenReport key={`${t.symbol}-${t.chain}`} t={t} number={`${n.tokens}.${i + 1}`} />
             ))}
-          </ol>
+          </div>
         )}
       </Section>
 
-      <Section id="portfolio" title="Recommended portfolio">
-        <Badge tone={view.portfolio.stance === "propose" ? "positive" : "neutral"}>
-          {view.portfolio.stance === "propose"
-            ? "A new plan is proposed"
-            : "The plan should not change"}
-        </Badge>
+      <Section id="skeptic" number={n.skeptic} title="Challenges and answers">
+        {view.skeptic.length === 0 ? (
+          <Muted>No objections were recorded.</Muted>
+        ) : (
+          <>
+            <p className={PROSE}>
+              A skeptic step challenged the findings; each objection and how the agent answered it.
+            </p>
+            <Table label="Challenges and answers" stack>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Theme</TableHead>
+                  <TableHead>Objection</TableHead>
+                  <TableHead>Answer</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {view.skeptic.map((s, i) => (
+                  <TableRow key={i}>
+                    <TableCell className="font-medium">{s.theme || "–"}</TableCell>
+                    <TableCell>{s.objection}</TableCell>
+                    <TableCell>{s.answer || "Not answered."}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </>
+        )}
+      </Section>
+
+      <Section id="portfolio" number={n.portfolio} title="Recommended portfolio">
         <Para text={view.portfolio.summary} />
         {view.portfolio.positions.length > 0 ? (
           <Table label="Recommended positions" stack>
@@ -449,15 +594,13 @@ function ResearchReportDocument({
               ))}
             </TableBody>
           </Table>
-        ) : null}
+        ) : (
+          <Muted>No positions are recommended.</Muted>
+        )}
       </Section>
 
-      <Section id="sources" title="Sources">
-        <SourcesByClass sources={view.sources} />
-      </Section>
-
-      <Section id="method" title="How this report was made">
-        <p className="text-sm text-foreground-muted">
+      <Section id="method" number={n.method} title="How this report was made">
+        <p className={PROSE}>
           The agent's research cycle ran these steps; the report was written from their records, and
           every figure in it traces to a tool result the cycle stored.
           {view.checksNote ? ` ${view.checksNote}` : ""}
@@ -480,6 +623,10 @@ function ResearchReportDocument({
             ))}
           </TableBody>
         </Table>
+      </Section>
+
+      <Section id="sources" title="References">
+        <References refs={view.references} />
       </Section>
     </article>
   );

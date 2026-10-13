@@ -121,7 +121,7 @@ import { AgentHoldings } from "@/components/holdings/agent-holdings";
 const toUnits = (raw: string, asset: Asset) =>
   formatAmount(BigInt(raw), DECIMALS[asset], { maxFractionDigits: DECIMALS[asset] });
 
-function StatusFor({
+export function StatusFor({
   status,
   actions,
 }: {
@@ -134,7 +134,7 @@ function StatusFor({
   return <WalletActionStatus state={p.state} text={text} hash={p.hash ?? null} />;
 }
 
-function positionsView(p: PortfolioJson) {
+export function positionsView(p: PortfolioJson) {
   const pos = positions(p);
   const usable = priceUsable(p);
   const priceE18 = BigInt(p.prices.monUsd.priceE18);
@@ -156,7 +156,7 @@ function positionsView(p: PortfolioJson) {
   };
 }
 
-function capsView(p: AnyPortfolioJson) {
+export function capsView(p: AnyPortfolioJson) {
   return {
     personalCapUsdc: BigInt(p.caps.personalUsdcE6),
     principalUsdc: BigInt(p.caps.principalUsdcE6),
@@ -176,7 +176,7 @@ const STANDING_BLOCKS: readonly string[] = [
   "USDC_PRICE_UNAVAILABLE",
   "HELD_PRICE_UNAVAILABLE",
 ];
-function standingBlock(p: AnyPortfolioJson, token?: Address, asset: Asset = "USDC"): string | null {
+export function standingBlock(p: AnyPortfolioJson, token?: Address, asset: Asset = "USDC"): string | null {
   if (p.custody === "v3") {
     const first = token ?? depositTokens(p)[0]?.address ?? p.contracts.usdc;
     const b = depositCheckV3(p, first, 1n);
@@ -187,7 +187,7 @@ function standingBlock(p: AnyPortfolioJson, token?: Address, asset: Asset = "USD
 }
 
 /** The prices' state in one line, for the hero. */
-function pricesNote(p: AnyPortfolioJson): string {
+export function pricesNote(p: AnyPortfolioJson): string {
   if (p.custody === "v3") {
     const { prices } = overviewV3(p);
     const oldest =
@@ -202,7 +202,7 @@ function pricesNote(p: AnyPortfolioJson): string {
     : `The WMON price is not usable (${pv.price.reason}), ${pv.price.ageSeconds}s old: its value and the total are unknown until a fresh one arrives.`;
 }
 
-function approvalView(
+export function approvalView(
   i: IntentJson,
   p: AnyPortfolioJson,
   chainName: string,
@@ -300,7 +300,7 @@ function useClearOnSuccess(
 }
 
 /** Deposit: the asset, the amount with a Max, every block named before anything is sent. */
-function DepositForm({
+export function DepositForm({
   p,
   busy,
   status,
@@ -389,7 +389,7 @@ function DepositForm({
 }
 
 /** Withdraw: always available, in every mode, with no price and no platform needed. */
-function WithdrawForm({
+export function WithdrawForm({
   p,
   busy,
   status,
@@ -465,7 +465,7 @@ const tokenUnits = (raw: string | bigint, decimals: number) =>
   formatAmount(BigInt(raw), decimals, { maxFractionDigits: Math.min(decimals, 8) });
 
 /** Deposit on the fund set (A-80): any depositable token, with every block named before anything is sent. */
-function DepositFormV3({
+export function DepositFormV3({
   p,
   busy,
   status,
@@ -565,7 +565,7 @@ function DepositFormV3({
 }
 
 /** Withdraw on the fund set (A-80): any held token, or everything at once, in every mode. */
-function WithdrawFormV3({
+export function WithdrawFormV3({
   p,
   busy,
   status,
