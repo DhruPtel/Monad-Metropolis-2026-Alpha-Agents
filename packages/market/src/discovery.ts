@@ -1,13 +1,14 @@
+import { MARKET_CHAIN } from "./chain.ts";
 import {
-  CLASS_F_FEEDS,
-  type ClassFFeed,
-  type ListedToken,
+  classFFeedOn,
+  classFFeedsFor,
+  foldName,
   MONAD_BASE_TOKENS,
   NATIVE_MON,
-  type PriceClass,
   REVIEWED_TOKENS,
-  classFFeed,
-  foldName,
+  type ClassFFeed,
+  type ListedToken,
+  type PriceClass,
 } from "@alpha-agents/domain";
 import type { PublicClient } from "viem";
 import { cacheKey } from "./cache.ts";
@@ -66,7 +67,8 @@ export const DISCOVERY_DEFAULTS = {
 
 /** Every token on the reviewed list or the class F feed map: discovery reads each one's own pools. */
 export const REVIEWED_AND_CLASS_F: readonly string[] = [
-  ...new Set([...CLASS_F_FEEDS, ...REVIEWED_TOKENS].map((t) => t.address)),
+  // M-FAST: the chain researched (MARKET_CHAIN): Monad's class F feeds, or Base's.
+  ...new Set([...classFFeedsFor(MARKET_CHAIN.key), ...REVIEWED_TOKENS].map((t) => t.address)),
 ];
 
 export interface DiscoveredPool extends VerifiedPool {
@@ -616,7 +618,7 @@ export class TokenDiscovery {
         : cmcName && cg
           ? { id: cmcName.id, rank: cmcName.rank, match: "symbol_and_name" as const }
           : null;
-      const feedSpec: ClassFFeed | null = classFFeed(a);
+      const feedSpec: ClassFFeed | null = classFFeedOn(MARKET_CHAIN.key, a);
       const feedCheck = feedSpec ? await checkClassFFeed(client, feedSpec, nowSeconds) : null;
       const priceUsd = (() => {
         const p = gtPools.get(deepest?.poolId ?? "");

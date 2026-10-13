@@ -2,7 +2,13 @@ import { randomBytes } from "node:crypto";
 import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { serve } from "@hono/node-server";
-import { ConfigError, assertChainId, loadConfig, type Secret } from "@alpha-agents/config";
+import {
+  ConfigError,
+  assertChainId,
+  loadConfig,
+  type Secret,
+  isForkEnvironment,
+} from "@alpha-agents/config";
 import { type Db, createDb, migrateToLatest } from "@alpha-agents/db";
 import { AGENT_NFT_ABI, addressEntry, agentNftDeployment } from "@alpha-agents/domain";
 import { createPublicClient, http, isAddressEqual, type Hex } from "viem";
@@ -51,7 +57,8 @@ const config = loadOrDie();
 const env = config.environment;
 const values = config.values;
 const sessionSecret = (values.API_SESSION_SECRET as Secret).reveal();
-if (env.id !== "local" && sessionSecret.startsWith("local-fork-only")) {
+// M-FAST: a fork environment (the local or the Base fork) may keep the local default.
+if (!isForkEnvironment(env.id) && sessionSecret.startsWith("local-fork-only")) {
   die(`API_SESSION_SECRET is the local default; set a random one for ${env.label}`);
 }
 
@@ -205,15 +212,19 @@ const v3 =
             : null,
       }
     : null;
+// M-FAST (A-98): where only the v3 set is deployed (the Base fork) Executor v3 stands in for the
+// v2 views, which no agent there takes: every agent on that fork is on the v3 set (A-80).
+const viewExecutor =
+  executorEntry.status === "verified" ? (executorEntry.address as Hex) : (v3?.executor ?? null);
 const trading =
-  deployment && rpcUrl && executorEntry.status === "verified"
+  deployment && rpcUrl && viewExecutor
     ? {
-        executor: executorEntry.address as Hex,
+        executor: viewExecutor,
         reader: rpcAgentViewReader(rpcUrl, {
           agentNft: deployment.address,
-          executor: executorEntry.address as Hex,
+          executor: viewExecutor,
         }),
-        portfolio: portfolioReader(deployment.address, executorEntry.address as Hex),
+        portfolio: portfolioReader(deployment.address, viewExecutor),
         v3,
       }
     : null;

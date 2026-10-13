@@ -144,7 +144,12 @@ export function loadConfig(service: ServiceSpec, source: EnvSource = process.env
     required.add(environment.rpc.variable);
 
   const specs: readonly VariableSpec[] = VARIABLES;
-  const inScope = specs.filter((spec) => spec.environments.includes(environment.id));
+  // M-FAST (A-98): the base environment is a fork like local and reads every variable local does,
+  // plus its own (BASE_RPC_URL); the variable table names local for the fork-only ones.
+  const usedHere = (spec: VariableSpec) =>
+    spec.environments.includes(environment.id) ||
+    (environment.id === "base" && spec.environments.includes("local"));
+  const inScope = specs.filter(usedHere);
   for (const name of required) {
     if (!inScope.some((spec) => spec.name === name)) {
       throw new ConfigError(heading, [

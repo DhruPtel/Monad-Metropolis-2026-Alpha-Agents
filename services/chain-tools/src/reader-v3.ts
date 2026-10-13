@@ -69,6 +69,8 @@ export type ContractsV3 = Readonly<Record<ContractIdV3, Hex>>;
 export const OPTIONAL_CONTRACT_IDS_V3: readonly ContractIdV3[] = [
   "uniswap_v3_quoter_v2",
   "pancakeswap_v3_quoter_v2",
+  // M-FAST: the v2 AccountFactory, absent on the Base fork; the older account is then none.
+  "account_factory",
 ];
 
 export function contractsForV3(
@@ -639,7 +641,9 @@ export class ViemChainReaderV3 implements ChainReaderV3 {
           args: [id],
         }),
         this.accountOf(this.c.account_factory_v3, id, owner),
-        this.accountOf(this.c.account_factory, id, owner),
+        this.c.account_factory === zeroAddress
+          ? Promise.resolve(zeroAddress as Hex)
+          : this.accountOf(this.c.account_factory, id, owner),
         this.client.readContract({
           address: e,
           abi: EXECUTOR_ABI,

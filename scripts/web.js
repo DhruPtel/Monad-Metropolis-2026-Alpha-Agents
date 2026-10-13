@@ -16,8 +16,10 @@ const cwd = join(ROOT, "apps/web");
 const next = join(cwd, "node_modules", "next", "dist", "bin", "next");
 // Privy allows only the origins in its dashboard, and localhost and 127.0.0.1
 // are different origins; open the address the dashboard lists.
-console.log("web app: http://localhost:3000");
-const result = spawnSync(process.execPath, [next, mode, "--port", "3000"], {
+// M-FAST: WEB_PORT picks the port (the Base stack runs beside the dev or testnet web on 3000).
+const port = process.env.WEB_PORT?.trim() || "3000";
+console.log(`web app: http://localhost:${port}`);
+const result = spawnSync(process.execPath, [next, mode, "--port", port], {
   cwd,
   stdio: "inherit",
 });

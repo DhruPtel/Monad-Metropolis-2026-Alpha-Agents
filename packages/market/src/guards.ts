@@ -1,3 +1,4 @@
+import { MARKET_CHAIN } from "./chain.ts";
 import { type Figure, type FigureWarning, type MarketSource, iso, warn } from "./figures.ts";
 
 /**
@@ -10,7 +11,8 @@ import { type Figure, type FigureWarning, type MarketSource, iso, warn } from ".
  * mix-up), not market moves (A-56).
  */
 export const PLAUSIBLE = {
-  monPriceUsd: [0.0001, 100],
+  // M-FAST: the native token's range follows the chain researched (MON, or ETH on Base).
+  monPriceUsd: MARKET_CHAIN.nativePriceRangeUsd,
   usdcPriceUsd: [0.9, 1.1],
   change24hPct: [-95, 1_000],
   volume24hUsd: [0, 100_000_000_000],

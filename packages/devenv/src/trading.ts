@@ -9,7 +9,7 @@ import {
   zeroAddress,
 } from "viem";
 import { mintTestUsdc, sendAs } from "./controls.ts";
-import { assertLocalFork } from "./guard.ts";
+import { assertLocalFork, forkEnvironment } from "./guard.ts";
 import { allowDepositorV3 } from "./trading-v3.ts";
 import { RpcError, hexToBigInt, rpc, toHex } from "./rpc.ts";
 
@@ -43,7 +43,9 @@ const EXECUTOR_ABI = parseAbi([
   "function sessionOf(uint256 agentId) view returns ((address key, uint64 ownerEpoch, uint64 configEpoch, uint64 validUntil))",
 ]);
 
-const book = (id: Parameters<typeof addressEntry>[1]) => addressEntry("local", id).address as Hex;
+/** The fork's own book: the playtest fork's, or the Base fork's under FORK_ENV=base (M-FAST). */
+const book = (id: Parameters<typeof addressEntry>[1]) =>
+  addressEntry(forkEnvironment(), id).address as Hex;
 const GAS = 10n ** 19n; // 10 MON, enough for any of these calls
 
 type Abi = typeof FACTORY_ABI | typeof NFT_ABI | typeof ERC20_ABI | typeof EXECUTOR_ABI;
@@ -163,7 +165,7 @@ export async function addTestDepositorEverywhere(
   depositor: string,
 ): Promise<{ v2: boolean; v3: boolean | null }> {
   const v2 = await addTestDepositor(url, depositor);
-  const v3Entry = addressEntry("local", "account_factory_v3");
+  const v3Entry = addressEntry(forkEnvironment(), "account_factory_v3");
   const v3 = v3Entry.status === "verified" ? await allowDepositorV3(url, wallet(depositor)) : null;
   return { v2, v3 };
 }

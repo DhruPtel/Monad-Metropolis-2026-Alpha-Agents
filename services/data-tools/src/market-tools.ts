@@ -1,6 +1,7 @@
 import type { PaidDataSourceId } from "@alpha-agents/domain";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { type Cached, type MarketData, MarketError, type MarketTool } from "@alpha-agents/market";
+import { MARKET_CHAIN } from "@alpha-agents/market";
 import {
   type AgentIdentity,
   type ReplayHook,
@@ -178,8 +179,7 @@ const DESCRIPTIONS: Readonly<Record<MarketDataTool, string>> = {
     "MON's realized volatility over 24 hours, 7 days and 30 days, annualized, with the method named. Free.",
 };
 
-const SNAPSHOT_NOTICE =
-  "Market data from CoinMarketCap, DefiLlama and Monad mainnet. Figures are checked for plausibility: null means refused or missing, and each warning says why. Two sources for one figure are both shown, never merged.";
+const SNAPSHOT_NOTICE = `Market data from CoinMarketCap, DefiLlama and ${MARKET_CHAIN.name} mainnet; the asset "MON" is this chain's native token (${MARKET_CHAIN.native.symbol}). Figures are checked for plausibility: null means refused or missing, and each warning says why. Two sources for one figure are both shown, never merged.`;
 
 export interface MarketToolsDeps {
   readonly meter: Meter;

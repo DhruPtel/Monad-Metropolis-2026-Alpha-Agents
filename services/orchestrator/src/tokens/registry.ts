@@ -1,9 +1,9 @@
 import { randomUUID } from "node:crypto";
 import {
-  CLASS_F_FEEDS,
-  type ListedToken,
+  classFFeedsFor,
   REVIEWED_TOKENS,
   SCREEN_RULES,
+  type ListedToken,
 } from "@alpha-agents/domain";
 import {
   type GoPlusReport,
@@ -16,6 +16,7 @@ import {
   fetchGoPlus,
   getJson,
   guardedListings,
+  MARKET_CHAIN,
 } from "@alpha-agents/market";
 import { type ScreenOutcome, type TokenListEntry, runScreen } from "./screen.ts";
 import type { ScreenFork } from "./screen-fork.ts";
@@ -200,12 +201,14 @@ export class TokenRegistry {
 
   /** What a look-alike is checked against: the listings, plus the platform's reviewed tokens. */
   async listings(): Promise<ListedToken[]> {
-    const reviewed: ListedToken[] = [...CLASS_F_FEEDS, ...REVIEWED_TOKENS].map((t) => ({
-      symbol: t.symbol,
-      name: t.symbol,
-      monadAddress: t.address,
-      source: "reviewed",
-    }));
+    const reviewed: ListedToken[] = [...classFFeedsFor(MARKET_CHAIN.key), ...REVIEWED_TOKENS].map(
+      (t) => ({
+        symbol: t.symbol,
+        name: t.symbol,
+        monadAddress: t.address,
+        source: "reviewed",
+      }),
+    );
     const d = this.o.discovery;
     if (!d) return reviewed;
     const l = await d.listings();

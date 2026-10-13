@@ -6,7 +6,7 @@ The Scan is the cheap, wide look over everything this account could hold. Its jo
 
 0. Call `mcp__platform__get_research_context` first: the plan in force (its positions, each with a thesis ID and an exit), the latest overview and the themes already open, so you look for what is new.
 1. Call `mcp__platform__get_goals_and_limits` once. Note the aggressiveness level, its brief and its envelope. The brief says what this owner's agent leans to; everything you flag is judged against it, not against the market in general.
-2. Call `mcp__data__market_snapshot` once, first among the data tools: MON's price and volatility, Monad TVL, DEX volumes, top protocols and yields, each with its source, its age and any warning. A null figure was refused or missing: say so, never guess it.
+2. Call `mcp__data__market_snapshot` once, first among the data tools: the native token's price and volatility, the chain's TVL, DEX volumes, top protocols and yields, each with its source, its age and any warning. A null figure was refused or missing: say so, never guess it.
 
 ## Read the universe, then the positions
 
@@ -30,9 +30,9 @@ Compare against the open themes and the latest overview from the research contex
 
 - A held token's kill criterion, recheck date, liquidity or screen.
 - A token whose volume or liquidity rose sharply against its peers, with a reason you can name.
-- MON's price or 24-hour volatility moving far enough to touch the plan's brake or the two-asset fallback's band.
+- The native token's price or 24-hour volatility moving far enough to touch the plan's brake or the two-asset fallback's band.
 - The oracle and a pool drifting apart, or depth thinning at the sizes this account trades.
-- Monad TVL or DEX volume moving sharply over 7 days; an official announcement, an incident, a listing.
+- The chain's TVL or DEX volume moving sharply over 7 days; an official announcement, an incident, a listing.
 - A story spreading on the web while the market has not moved yet.
 
 Materiality is about this account: high when it could change a position or the plan within days; medium when it could matter if it continues; low when it is context only.

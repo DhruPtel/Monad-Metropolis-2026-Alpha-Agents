@@ -85,7 +85,12 @@ export class SignerWorker {
           ...(local || !o.secondaryRpcUrl ? {} : { secondaryUrl: o.secondaryRpcUrl }),
         }),
       keys: new LocalKeyProvider(o.seed),
-      executor: book("executor"),
+      // M-FAST (A-98): the Base fork has no v2 Executor; every agent there is on v3, so the v3
+      // Executor stands in for the v2 paths, which nothing on that fork takes.
+      executor:
+        addressEntry(o.environment, "executor").status === "verified"
+          ? book("executor")
+          : book("executor_v3"),
       // F-U5: Executor v3's swaps, where the fund agent's set is deployed.
       executorV3:
         addressEntry(o.environment, "executor_v3").status === "verified"

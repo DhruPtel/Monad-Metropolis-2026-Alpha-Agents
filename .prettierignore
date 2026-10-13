@@ -6,6 +6,7 @@ coverage/
 .next/
 .next-e2e/
 .next-testnet/
+.next-base/
 .next-beta/
 out/
 cache/

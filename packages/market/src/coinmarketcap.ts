@@ -1,3 +1,4 @@
+import { MARKET_CHAIN } from "./chain.ts";
 import type { Figure } from "./figures.ts";
 import { type GuardContext, guard } from "./guards.ts";
 import { type TokenBucket, type UpstreamDeps, getJson } from "./upstream.ts";
@@ -13,7 +14,8 @@ import type { DailyBudget } from "./usage.ts";
  * restart loop cannot spend the month (A-56). The plan has no history; the
  * history for volatility comes from DefiLlama.
  */
-export const CMC_IDS = { MON: 30495, USDC: 3408 } as const;
+/** "MON" is the chain's native token: MON on Monad, ETH on Base (M-FAST, per MARKET_CHAIN). */
+export const CMC_IDS = { MON: MARKET_CHAIN.nativeCmcId, USDC: 3408 } as const;
 export type CmcAsset = keyof typeof CMC_IDS;
 export const CMC_QUOTES_URL = `https://pro-api.coinmarketcap.com/v2/cryptocurrency/quotes/latest?id=${CMC_IDS.MON},${CMC_IDS.USDC}&convert=USD`;
 /** CoinMarketCap refreshes its quotes about every minute; older than 15 minutes is stale. */

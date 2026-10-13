@@ -1,3 +1,4 @@
+import { MARKET_CHAIN } from "@alpha-agents/market";
 import { type AgentConfig, AgentConfigSchema } from "../hermes/schema.ts";
 import { renderAgentConfig } from "../hermes/layers.ts";
 import {
@@ -80,7 +81,7 @@ export function stagePrompt(o: {
   switch (o.stage) {
     case "SCAN":
       return [
-        `SCAN stage of a ${o.kind} research cycle for this owner's account on Monad.`,
+        `SCAN stage of a ${o.kind} research cycle for this owner's account on ${MARKET_CHAIN.name}.`,
         "Load your Scan playbook with skill_view (name aa-playbook-scan) and follow it: the registry's tokens, the recent pools, the market and the open positions, then at most four themes, each a token worth a Dive, a held position to review, or a market change; load aa-defi-regime-read or aa-narrative-and-flow-tracker only when its description fits what you find.",
         o.kind === "ACTIVATION"
           ? "This is the activation's wide Scan: look broadly, since the Zoom out will build the first plan from this cycle."
@@ -125,9 +126,9 @@ export function stagePrompt(o: {
           ? "This is a review without new research: weigh the briefs on record (get_research_context carries the latest accepted ones), the plan in force and the portfolio now."
           : "",
         o.kind === "ACTIVATION"
-          ? "Write two briefs with mcp__platform__write_research_brief: an OVERVIEW of Monad and the market for this owner, and a RATIONALE. This is the activation sweep: the account holds cash and no plan, and the owner is waiting to approve the first one, so propose a target portfolio when the evidence supports at least one position; NO_CHANGE here leaves the agent with no plan until the owner runs another sweep, so use it only when the evidence is weak."
+          ? `Write two briefs with mcp__platform__write_research_brief: an OVERVIEW of ${MARKET_CHAIN.name} and the market for this owner, and a RATIONALE. This is the activation sweep: the account holds cash and no plan, and the owner is waiting to approve the first one, so propose a target portfolio when the evidence supports at least one position; NO_CHANGE here leaves the agent with no plan until the owner runs another sweep, so use it only when the evidence is weak.`
           : o.overview
-            ? "Write two briefs with mcp__platform__write_research_brief: a fresh OVERVIEW of Monad and the market for this owner (the weekly refresh), and a RATIONALE."
+            ? `Write two briefs with mcp__platform__write_research_brief: a fresh OVERVIEW of ${MARKET_CHAIN.name} and the market for this owner (the weekly refresh), and a RATIONALE.`
             : "Write one RATIONALE brief with mcp__platform__write_research_brief.",
         "The RATIONALE weighs the whole portfolio against the goal (portfolioView), rates the evidence (evidenceStrength: strong, mixed or weak; weak evidence carries no position) and makes one call per position held or proposed: ADD, HOLD, TRIM or EXIT, each tied to a theme. A thesis the Challenge weakened still earns a smaller position; only a rejected one earns none.",
         "Every token this account could buy (get_prices marks it buyable), this cycle dived or the account holds that the plan does not propose goes in the RATIONALE's notProposed with its reason (one entry per token, a short reason each); the platform refuses complete_stage until each is there. A token that is not buyable for this account (get_prices says why) is never proposed.",

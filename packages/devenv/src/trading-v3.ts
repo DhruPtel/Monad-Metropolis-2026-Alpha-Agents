@@ -9,7 +9,7 @@ import {
   zeroAddress,
 } from "viem";
 import { mintTestUsdc, sendAs } from "./controls.ts";
-import { assertLocalFork } from "./guard.ts";
+import { assertLocalFork, forkEnvironment } from "./guard.ts";
 import { RpcError, hexToBigInt, rpc, toHex } from "./rpc.ts";
 
 /**
@@ -69,7 +69,9 @@ const TOKENS_ABI = parseAbi([
   "function tokenRecord(address token) view returns ((uint8 lane, uint8 status, uint8 priceClass, uint8 decimals, uint16 maxPositionBps, uint64 screenedAt, bytes32 screenHash))",
 ]);
 
-const book = (id: Parameters<typeof addressEntry>[1]) => addressEntry("local", id).address as Hex;
+/** The fork's own book: the playtest fork's, or the Base fork's under FORK_ENV=base (M-FAST). */
+const book = (id: Parameters<typeof addressEntry>[1]) =>
+  addressEntry(forkEnvironment(), id).address as Hex;
 const GAS = 10n ** 19n;
 
 type Abi =

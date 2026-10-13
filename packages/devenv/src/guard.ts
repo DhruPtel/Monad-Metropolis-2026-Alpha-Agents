@@ -48,3 +48,14 @@ export async function assertLocalFork(url: string): Promise<void> {
     );
   }
 }
+
+/**
+ * M-FAST: the fork environment a process targets, for the address book its
+ * fork helpers read: "base" when FORK_ENV or APP_ENV says so (the Base fork
+ * stack and its scripts), else "local" (the playtest fork and every test).
+ */
+export function forkEnvironment(env: NodeJS.ProcessEnv = process.env): "local" | "base" {
+  return env.FORK_ENV === "base" || (env.FORK_ENV === undefined && env.APP_ENV === "base")
+    ? "base"
+    : "local";
+}

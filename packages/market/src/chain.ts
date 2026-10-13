@@ -48,6 +48,9 @@ export interface MarketChain {
   readonly tokens: { readonly USDC: `0x${string}`; readonly WMON: `0x${string}` };
   /** Chainlink's native/USD feed on the chain (the book's chainlink_mon_usd). */
   readonly nativeUsdFeed: `0x${string}`;
+  /** CoinMarketCap's id for the native token (MON 30495, ETH 1027) and the plausible USD range of its price. */
+  readonly nativeCmcId: number;
+  readonly nativePriceRangeUsd: readonly [number, number];
   /** The platform name CoinGecko's coin list and CoinMarketCap's map use for this chain, lowercase. */
   readonly coingeckoPlatform: string;
   readonly cmcPlatform: string;
@@ -83,6 +86,8 @@ export const MARKET_CHAINS: Readonly<Record<MarketChainKey, MarketChain>> = {
     defillama: { chain: "Monad" },
     tokens: MONAD_BASE_TOKENS,
     nativeUsdFeed: "0xBcD78f76005B7515837af6b50c7C52BCf73822fb",
+    nativeCmcId: 30495,
+    nativePriceRangeUsd: [0.0001, 100],
     coingeckoPlatform: "monad",
     cmcPlatform: "monad",
     v4NativeUsdcPool: UNISWAP_V4_MON_USDC_POOL,
@@ -106,6 +111,8 @@ export const MARKET_CHAINS: Readonly<Record<MarketChainKey, MarketChain>> = {
     defillama: { chain: "Base" },
     tokens: { USDC: BASE_TOKENS.USDC, WMON: BASE_TOKENS.WETH },
     nativeUsdFeed: "0xa4250cE1aA15Ff4cb5E5a8655293b65694e436Ed",
+    nativeCmcId: 1027,
+    nativePriceRangeUsd: [10, 100_000],
     coingeckoPlatform: "base",
     cmcPlatform: "base",
     v4NativeUsdcPool: UNISWAP_V4_BASE_ETH_USDC_POOL,

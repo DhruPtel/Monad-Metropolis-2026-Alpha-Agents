@@ -62,8 +62,9 @@ export const gtNewPoolsUrl = (page: number) =>
 const str = (v: unknown) => (typeof v === "string" ? v : null);
 const lowerAddress = (id: unknown): string | null => {
   const s = str(id);
-  // Relationship IDs are "monad_<address>".
-  const a = s?.startsWith("monad_") ? s.slice(6) : s;
+  // Relationship IDs are "<network>_<address>": "monad_0x…", or "base_0x…" (M-FAST).
+  const prefix = `${MARKET_CHAIN.geckoterminal.network}_`;
+  const a = s?.startsWith(prefix) ? s.slice(prefix.length) : s;
   return a && /^0x[0-9a-fA-F]{40}$/.test(a) ? a.toLowerCase() : null;
 };
 
