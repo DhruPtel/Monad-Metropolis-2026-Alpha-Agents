@@ -1603,3 +1603,19 @@ Summary: packages/config, packages/domain, packages/signer, packages/devenv, pac
 - Model spend of this unit: three Base sweeps' Scans at about 0.26, 0 and 0.34 USD plus the chain check, under 1 USD; the day's window stood at 4.30 USD before the unit.
 - Dev state: the Base fork on 8590 (chain 84538453, head about 52,534,120, state in .dev/base-anvil-state.json) and the Base stack (4110, 4210, 3010) left running for the owner's demo; agent 1 on the Base fork belongs to anvil account 6 with 1,000 USDC in its PersonalAccountV3, armed, one approved intent waiting; the owner's testnet stack and the playtest fork on 8545 untouched.
 - Suggestions: M-U4 threads the chain through the market constructors instead of the process-level profile; a first Scan on a new chain deserves a larger turn cap or a smaller universe; the trade flow and the snapshot recorder should take the v3 reader alone.
+
+## CL-U1: Cleanup of the open issues inside the beta scope (2026-10-13)
+Status: done, with two items recorded as assumptions for the owner. Started on the owner's instruction after M-FAST, from BUILD_PLAN's CL-U1 row.
+- scan.test.ts: the unhandled rejection that made vitest exit 1 since P7-U2 is fixed (L-257); the node project's exit code is clean.
+- x_search replay (UI-U2): a replayed X search no longer shows empty posts; each post carries an explicit line in place of its text, since the platform stores an X post's figures only (P3-U9, deletions honored). Storing the text was not done (A-100).
+- Feed bounds (F-U13): an hourly feed's grace past its heartbeat is 15 minutes instead of 5, so USDC/USD's bound for PB-U1's deployment is 4,500 seconds (A-99); daily legs keep their hour. The deployed sets keep the bounds they were deployed with.
+- The canary scripts' confirmed timer (F-U13): a row seen first as reconciled counts as confirmed at that poll, in both canary scripts.
+- The testnet stack's start (F-U13, NFT-U2): after the services are up, `pnpm testnet:up` adds the test wallet and the owner's playtest wallets to the mint allowlist (an idempotent upsert) and runs the operator gas script for the keeper and the feed writer; a failed step is reported and the stack keeps running. Not run live: the owner's testnet stack was recording during this unit, so the change is checked by syntax and typecheck only and should be watched at the next start.
+- The skill editor (BC-U1): a browser-side first pass of the format rules that need only the text (F1 presence and manifest, F2 paths, F3 SKILL.md size, F5 and F8 as the platform maps them) runs before each round trip, in the new `quickFindings` of the skills package; a blocking finding shows at once with the platform's words and nothing is sent until it is fixed. The platform's check still decides.
+- The nine species without art stay on the placeholder until the owner's files arrive; no build change.
+- Out of scope and untouched, as the row says: W-2's brief validator rule and gas rule, W-6's vault pieces, the class A round trip that waits for the testnet timelock.
+Summary: services/orchestrator/src/scan.test.ts; services/data-tools/src/research-tools.ts; packages/domain/src/tokens.ts and tokens.test.ts; scripts/canary-mainnet.js, scripts/canary-mainnet-v3.js, scripts/testnet-stack.js; packages/skills (quick-check.ts new, packages.ts, owner.ts, index.ts, quick-check.test.ts, packages.test.ts), apps/web (package.json, src/agent/use-skill-editor.ts); .prettierignore.
+- Bugs fixed: L-257.
+- Checks: pnpm typecheck, pnpm lint and pnpm format:check clean; tests passing in skills, policy, data-tools, domain, the web editor test and scan.test.ts (exit 0). Playwright not run (no page changed its layout; the editor's first pass is covered by the skills and editor tests).
+- Model spend: none (no model call in this unit).
+- Dev state: unchanged from M-FAST's entry; the owner's testnet stack and the Base stack keep running.

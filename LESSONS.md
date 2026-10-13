@@ -1890,3 +1890,10 @@ What happened: after the Scan and Zoom out playbooks were reworded, the next act
 Cause: F1's immutability rule refuses a built-in skill whose version is already locked with another content hash (packages/skills/builtin/versions.json), and the cycle checks every built-in skill before it starts.
 Fix: both playbooks' patch versions bumped and `pnpm skills:lock` run, which records the new hashes.
 Lesson: Any change under packages/skills/builtin needs a version bump and `pnpm skills:lock` before the next cycle; read a failed sweep's reason from the orchestrator's task record (GET /v1/tasks/:id) when the log shows nothing.
+
+## L-257: the scan test's unhandled rejection was the fake sandbox's script refused after its lease ended
+Unit: CL-U1
+What happened: since P7-U2 the node vitest project exited 1 after every run on "Unhandled Rejection: Streamable HTTP error: Error POSTing to endpoint: UNAUTHENTICATED (401)" from scan.test.ts, with every test passing.
+Cause: the scripted sandbox starts the agent script with `void agentScript(token)`; in the test where the Scan never completes, the orchestrator ends the lease and the script's next tool call is refused by the gate (401), so the script's promise rejected with no handler.
+Fix: the script's rejection is caught in the fake sandbox (a refused call after the lease ended is how a stopped run ends); the project exits 0.
+Lesson: A `void promise` in a test double needs its own catch when the code under test can end what the promise waits on; read the serialized error (401 from the gate) before suspecting the orchestrator.
