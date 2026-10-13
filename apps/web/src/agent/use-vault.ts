@@ -8,6 +8,7 @@ import { ERC20_ABI, FACTORY_ABI, VAULT_ABI } from "./custody";
 import { minAssetsOut, minSharesOut } from "./vault-v3";
 import { type WalletStep, type WalletTxProgress, runWalletSteps } from "./wallet-tx";
 import { useWalletTx } from "./use-wallet-tx";
+import { schedulePoll } from "./poll";
 
 /** The vault re-reads itself this often, and faster while an action runs. */
 const POLL_MS = 10_000;
@@ -76,10 +77,10 @@ export function useVault(agentId: bigint, environment: Parameters<typeof useWall
         );
       }
     })();
-    const timer = window.setTimeout(refresh, busy ? BUSY_POLL_MS : POLL_MS);
+    const cancelPoll = schedulePoll(refresh, busy ? BUSY_POLL_MS : POLL_MS);
     return () => {
       live = false;
-      window.clearTimeout(timer);
+      cancelPoll();
     };
   }, [agentId, busy, refresh, tick, wallet.ready, wallet.address]);
 

@@ -6,6 +6,7 @@ import { useWalletSession } from "@/auth/session";
 import { chainClient } from "./chain";
 import type { Rpc } from "./network-check";
 import { type StuckNonce, readNonceReport, stuckNonce } from "./stuck-nonce";
+import { schedulePoll } from "./poll";
 
 /** How often the fork's queue is re-read for the connected wallet. */
 const STUCK_POLL_MS = 5_000;
@@ -30,10 +31,10 @@ export function useStuckNonce(environment: EnvironmentId): StuckNonce | null {
       (r) => live && setResult({ address, stuck: stuckNonce(r) }),
       () => live && setResult({ address, stuck: null }),
     );
-    const timer = window.setTimeout(() => setTick((t) => t + 1), STUCK_POLL_MS);
+    const cancelPoll = schedulePoll(() => setTick((t) => t + 1), STUCK_POLL_MS);
     return () => {
       live = false;
-      window.clearTimeout(timer);
+      cancelPoll();
     };
   }, [address, client, environment, tick]);
 

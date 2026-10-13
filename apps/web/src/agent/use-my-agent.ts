@@ -17,6 +17,7 @@ import { type SummaryView, refundOutcomeText, scanOpen, summaryView } from "./my
 import { positions, v2AssetRows } from "./portfolio";
 import { assetRows } from "./portfolio-v3";
 import { useOwnerSession } from "./use-owner-session";
+import { schedulePoll } from "./poll";
 
 /** The trading account as the card shows it (P2-U7): open or not, and its value. */
 export interface TradingSummary {
@@ -155,10 +156,10 @@ export function useMyAgent(agentId: bigint): MyAgent {
         if (live && mounted.current) setError(words(err));
       }
     })();
-    const timer = window.setTimeout(() => setTick((t) => t + 1), busy ? BUSY_POLL_MS : POLL_MS);
+    const cancelPoll = schedulePoll(() => setTick((t) => t + 1), busy ? BUSY_POLL_MS : POLL_MS);
     return () => {
       live = false;
-      window.clearTimeout(timer);
+      cancelPoll();
     };
   }, [agentId, asOwner, busy, tick, wallet.ready]);
 

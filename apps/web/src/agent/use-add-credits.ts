@@ -9,6 +9,7 @@ import { type ContractWrite, useWalletSession } from "@/auth/session";
 import { type CreditsProgress, runAddCredits } from "./credits-flow";
 import { ERC20_ABI } from "./custody";
 import { useWalletTx } from "./use-wallet-tx";
+import { schedulePoll } from "./poll";
 
 /**
  * Add credits from the app (Phase 2 tuning): the connected wallet's USDC
@@ -53,10 +54,10 @@ export function useAddCredits(
       .then((v) => live && setWalletUsdc(v))
       .catch(() => undefined);
     // Re-read, so USDC that reaches the wallet from elsewhere shows without a reload.
-    const timer = window.setTimeout(() => setTick((n) => n + 1), WALLET_POLL_MS);
+    const cancelPoll = schedulePoll(() => setTick((n) => n + 1), WALLET_POLL_MS);
     return () => {
       live = false;
-      window.clearTimeout(timer);
+      cancelPoll();
     };
   }, [client, usdc, wallet.address, tick]);
 

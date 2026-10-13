@@ -25,10 +25,18 @@ export function rpcChainReader(rpcUrl: string, contract: Address): ChainReader {
       functionName,
       args,
     } as never) as Promise<T>;
+  // MAX_SUPPLY is a constant of the contract: read once, again only after a failed read (CQ-U1).
+  let maxSupply: Promise<number> | null = null;
   return {
     mintsOf: async (wallet) => Number(await read<number>("mintsOf", [wallet])),
     totalMinted: async () => Number(await read<number>("totalMinted")),
-    maxSupply: async () => Number(await read<bigint>("MAX_SUPPLY")),
+    maxSupply: () => {
+      maxSupply ??= read<bigint>("MAX_SUPPLY").then(Number, (err: unknown) => {
+        maxSupply = null;
+        throw err;
+      });
+      return maxSupply;
+    },
     async ownership(agentId) {
       try {
         const [owner, epoch] = await Promise.all([

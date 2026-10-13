@@ -8,6 +8,7 @@ import { useWalletSession } from "@/auth/session";
 import { agentNftDeployment } from "./agent-nft";
 import type { WalletMintRead } from "./mint-page-state";
 import { type SupplySummary, summarizeSupply } from "./supply";
+import { schedulePoll } from "./poll";
 
 /** How often the supply is re-read from the API while the mint page is open. */
 const SUPPLY_POLL_MS = 5_000;
@@ -45,10 +46,10 @@ export function useMintSupply(environment: EnvironmentId): SupplyStatus & {
           return { status: "error", ...(last ? { last } : {}) };
         }),
     );
-    const timer = window.setTimeout(refresh, SUPPLY_POLL_MS);
+    const cancelPoll = schedulePoll(refresh, SUPPLY_POLL_MS);
     return () => {
       live = false;
-      window.clearTimeout(timer);
+      cancelPoll();
     };
   }, [deployment, refresh, tick]);
 
@@ -114,13 +115,13 @@ export function useWalletMint(environment: EnvironmentId): {
         live && setAgents({ key, value: [...minted].sort((a, b) => (a.id < b.id ? -1 : 1)) }),
       () => live && setAgents((a) => (a?.key === key ? a : { key, value: [] })),
     );
-    const timer = window.setTimeout(
+    const cancelPoll = schedulePoll(
       () => setAgentTick((t) => t + 1),
       pending ? REVEAL_POLL_MS : WALLET_POLL_MS,
     );
     return () => {
       live = false;
-      window.clearTimeout(timer);
+      cancelPoll();
     };
   }, [address, deployment, key, pending, tick, agentTick]);
 

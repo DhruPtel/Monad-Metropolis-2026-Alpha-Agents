@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ApiError, type ResearchJson, type TerminalEventJson, tradingApi } from "@/api/client";
 import { useWalletSession } from "@/auth/session";
 import { useOwnerSession } from "./use-owner-session";
+import { schedulePoll } from "./poll";
 
 /** The Research page re-reads itself this often: fast while a cycle is open, rarely otherwise. */
 const OPEN_POLL_MS = 5_000;
@@ -44,10 +45,10 @@ export function useResearch(agentId: bigint) {
         );
       }
     })();
-    const timer = window.setTimeout(refresh, research?.open ? OPEN_POLL_MS : IDLE_POLL_MS);
+    const cancelPoll = schedulePoll(refresh, research?.open ? OPEN_POLL_MS : IDLE_POLL_MS);
     return () => {
       live = false;
-      window.clearTimeout(timer);
+      cancelPoll();
     };
   }, [agentId, asOwner, refresh, tick, wallet.ready, wallet.address, research?.open]);
 
@@ -101,6 +102,7 @@ export function useTerminal(agentId: bigint, cycleId: string | null = null, enab
     if (!enabled || !wallet.ready || !wallet.address) return;
     let live = true;
     let delay = LIVE_POLL_MS;
+    let cancelPoll: (() => void) | null = null;
     void (async () => {
       try {
         const r = await asOwner((t) =>
@@ -142,11 +144,12 @@ export function useTerminal(agentId: bigint, cycleId: string | null = null, enab
         setState("reconnecting");
         delay = RETRY_MS[Math.min(failures.current, RETRY_MS.length) - 1] ?? 8_000;
       } finally {
-        if (live) window.setTimeout(() => setTick((n) => n + 1), delay);
+        if (live) cancelPoll = schedulePoll(() => setTick((n) => n + 1), delay);
       }
     })();
     return () => {
       live = false;
+      cancelPoll?.();
     };
   }, [agentId, asOwner, cycleId, enabled, tick, wallet.ready, wallet.address]);
 

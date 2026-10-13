@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { ApiError, type WindowJson, tradingApi } from "@/api/client";
 import { useWalletSession } from "@/auth/session";
 import { useOwnerSession } from "./use-owner-session";
+import { schedulePoll } from "./poll";
 
 /** The window re-reads itself this often: the platform records a reading every 15 minutes. */
 const POLL_MS = 60_000;
@@ -44,10 +45,10 @@ export function useWindow(agentId: bigint) {
         );
       }
     })();
-    const timer = window.setTimeout(refresh, POLL_MS);
+    const cancelPoll = schedulePoll(refresh, POLL_MS);
     return () => {
       live = false;
-      window.clearTimeout(timer);
+      cancelPoll();
     };
   }, [agentId, asOwner, refresh, tick, wallet.ready, wallet.address]);
 

@@ -27,6 +27,7 @@ import {
 import { createServer, request as httpRequest } from "node:http";
 import { join } from "node:path";
 import { DEV_DIR, ROOT } from "./lib/paths.js";
+import { alive } from "./lib/dev-all.js";
 
 const API = { host: "127.0.0.1", port: 4100 };
 const GUARD_PORT = Number(process.env.HOST_GUARD_PORT ?? 4190);
@@ -183,16 +184,6 @@ function readState() {
     return null;
   }
 }
-/** @param {number} pid */
-function alive(pid) {
-  try {
-    process.kill(pid, 0);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 async function up() {
   mkdirSync(DEV_DIR, { recursive: true });
   const previous = readState();

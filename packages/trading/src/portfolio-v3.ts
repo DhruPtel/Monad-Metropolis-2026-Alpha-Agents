@@ -251,17 +251,21 @@ export function rpcPortfolioReaderV3(
         { symbol: "USDC", address: c.usdc, decimals: 6, priceClass: "F" },
         ...tokens.filter((t) => !isAddressEqual(t.address, c.usdc)),
       ];
+      // USDC's price is read once, for the peg and for its own row (CQ-U1).
+      const usdcPrice = priceOf(c.usdc);
       const [usdcPeg, walletMon, legacyAccount, ...tokenReads] = await Promise.all([
-        priceOf(c.usdc),
+        usdcPrice,
         client.getBalance({ address: owner }),
         c.accountFactoryV2
           ? read<Hex>(c.accountFactoryV2, FACTORY_ABI, "personalAccountOf", [id, owner])
           : Promise.resolve(zeroAddress as Hex),
-        ...depositable.map(async (t) => ({
-          ...t,
-          wallet: await read<bigint>(t.address, ERC20_ABI, "balanceOf", [owner]),
-          price: await priceOf(t.address),
-        })),
+        ...depositable.map(async (t) => {
+          const [wallet, price] = await Promise.all([
+            read<bigint>(t.address, ERC20_ABI, "balanceOf", [owner]),
+            isAddressEqual(t.address, c.usdc) ? usdcPrice : priceOf(t.address),
+          ]);
+          return { ...t, wallet, price };
+        }),
       ]);
       const legacy = await readLegacy(legacyAccount);
       const account = existing === zeroAddress ? null : existing;

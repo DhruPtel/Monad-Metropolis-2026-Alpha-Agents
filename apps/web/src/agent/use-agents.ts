@@ -17,6 +17,7 @@ import {
 import { type Rpc, checkWalletNetwork } from "./network-check";
 import { waitForReceiptOnAppNetwork } from "./receipt-watch";
 import { StuckNonceError, readNonceReport, stuckNonce } from "./stuck-nonce";
+import { schedulePoll } from "./poll";
 
 /** How often the wallet's agents are re-read from the API while the page is open. */
 const OWNERSHIP_POLL_MS = 5_000;
@@ -102,10 +103,10 @@ export function useOwnedAgents(environment: EnvironmentId): OwnedAgents {
       }
       if (live) setResult({ key, status: "ready", agents: read.agents, hasMinted: read.hasMinted });
     })();
-    const timer = window.setTimeout(refresh, OWNERSHIP_POLL_MS);
+    const cancelPoll = schedulePoll(refresh, OWNERSHIP_POLL_MS);
     return () => {
       live = false;
-      window.clearTimeout(timer);
+      cancelPoll();
     };
   }, [address, client, deployment, key, refresh, tick]);
 

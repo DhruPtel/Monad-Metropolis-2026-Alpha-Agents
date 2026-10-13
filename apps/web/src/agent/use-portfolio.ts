@@ -33,6 +33,7 @@ import { type Asset, DECIMALS, parseAmount } from "./portfolio";
 import { useOwnerSession } from "./use-owner-session";
 import { useWalletTx } from "./use-wallet-tx";
 import { type WalletStep, type WalletTxProgress, runWalletSteps } from "./wallet-tx";
+import { schedulePoll } from "./poll";
 
 /** How often the page re-reads, and how often while a trade or an action is moving. */
 const POLL_MS = 5_000;
@@ -247,10 +248,10 @@ export function usePortfolio(agentId: bigint, environment: EnvironmentId): Portf
         if (live && mounted.current) setError(words(err));
       }
     })();
-    const timer = window.setTimeout(() => setTick((t) => t + 1), busy ? BUSY_POLL_MS : POLL_MS);
+    const cancelPoll = schedulePoll(() => setTick((t) => t + 1), busy ? BUSY_POLL_MS : POLL_MS);
     return () => {
       live = false;
-      window.clearTimeout(timer);
+      cancelPoll();
     };
   }, [agentId, asOwner, busy, environment, tick, wallet.ready, wallet.address]);
 

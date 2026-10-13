@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { type ActivationStatusJson, tradingApi } from "@/api/client";
 import { useWalletSession } from "@/auth/session";
 import { useOwnerSession } from "./use-owner-session";
+import { schedulePoll } from "./poll";
 
 /** How often /configure asks after the sweep: every few seconds while it runs, rarely otherwise. */
 const RUNNING_POLL_MS = 3_000;
@@ -32,13 +33,13 @@ export function useActivationStatus(agentId: bigint | null): ActivationStatusJso
         if (live) setStatus(null);
       }
     })();
-    const timer = window.setTimeout(
+    const cancelPoll = schedulePoll(
       () => setTick((n) => n + 1),
       status === "running" ? RUNNING_POLL_MS : IDLE_POLL_MS,
     );
     return () => {
       live = false;
-      window.clearTimeout(timer);
+      cancelPoll();
     };
   }, [agentId, asOwner, status, tick, wallet.ready, wallet.address]);
   return agentId === null ? null : status;

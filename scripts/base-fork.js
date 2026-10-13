@@ -29,6 +29,7 @@ import {
   BASE_ANVIL_STATE_PATH,
   DEV_DIR,
 } from "./lib/paths.js";
+import { alive } from "./lib/dev-all.js";
 
 /** anvil's limit is bytes; 128 KB matches Monad's, so the same contracts deploy. */
 const CODE_SIZE_LIMIT = 131072;
@@ -53,16 +54,6 @@ async function rpc(method, params = []) {
 async function answers() {
   try {
     return Number(await rpc("eth_chainId")) === BASE_FORK_CHAIN_ID;
-  } catch {
-    return false;
-  }
-}
-
-/** @param {number} pid */
-function alive(pid) {
-  try {
-    process.kill(pid, 0);
-    return true;
   } catch {
     return false;
   }

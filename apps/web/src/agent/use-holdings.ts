@@ -15,6 +15,7 @@ import { useWalletSession } from "@/auth/session";
 import { useOwnerSession } from "./use-owner-session";
 import { useWalletTx } from "./use-wallet-tx";
 import { type WalletTxProgress, runWalletSteps, walletTxText } from "./wallet-tx";
+import { schedulePoll } from "./poll";
 
 /** How often the holdings are re-read while the panel is open. */
 const HOLDINGS_POLL_MS = 15_000;
@@ -114,10 +115,10 @@ export function useHoldings(agentId: bigint, environment: EnvironmentId) {
         else setError("Could not read this agent's holdings. Try again in a moment.");
       },
     );
-    const timer = window.setTimeout(() => setTick((n) => n + 1), HOLDINGS_POLL_MS);
+    const cancelPoll = schedulePoll(() => setTick((n) => n + 1), HOLDINGS_POLL_MS);
     return () => {
       live = false;
-      window.clearTimeout(timer);
+      cancelPoll();
     };
   }, [agentId, asOwner, tick, wallet.address, wallet.ready]);
 
