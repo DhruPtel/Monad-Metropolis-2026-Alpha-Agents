@@ -1716,3 +1716,7 @@ Summary: packages/config, packages/ui (lib/format.ts, vault-layout.tsx, five age
 - Checks: pnpm typecheck, lint and format:check clean; vitest node, ui, web and console projects 2,650 passed and 1 skipped; the forks project 70 of 70; pnpm test:fork 54 forge tests and the address book check passing (its deploys on its own fork, each receipt read; the fork stopped after); the web suite 308 passed and 2 skipped on a plain run after the baselines (the axe scans inside it pass); the console suite 122 of 122. The suites ran in the pinned image, whose port 3100 is the container's own, beside the hosted testnet stack on 3000 and another checkout's dev server on the host's 3100.
 - Model spend: none in this unit.
 - Dev state: the testnet stack, the host tunnel and the registrar running (restarted after the reboot); the playtest fork and the Base stack not running and untouched.
+
+## ITER (2026-10-13): Iteration mode
+- CLAUDE.md gains an "Iteration mode" section, the default until the owner calls a cleanup pass. The testnet stack was restarted; the primary testnet and mainnet RPCs answer 429 (monthly capacity), so the signer failed at startup, and the stack now runs with MONAD_TESTNET_RPC_URL set to the secondary provider in the process environment only (.env unchanged).
+- Agent #4 (8.00 USDC) holds SIMULATION_FAILED: the testnet MON/USDC v4 pool (0x40ab892d) quotes at most about 0.466 USDC in before the quoter's not-enough-liquidity revert, below the 0.50 USDC minimum, so its 0.796 USDC WMON buy cannot fill until the pool gets more MON liquidity.
