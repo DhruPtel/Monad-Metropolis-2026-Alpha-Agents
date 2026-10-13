@@ -1841,3 +1841,10 @@ What happened: the testnet database was reset for the new AgentNFT (the old inde
 Cause: the mint allowlist lives in the environment's database (platform.mint_allowlist), not on chain, so a reset empties it; and the wallet's balances were assumed from P2-EC's run instead of read.
 Fix: `pnpm allowlist add` with APP_ENV=testnet for the test wallet and the owner's three playtest wallets; 3 USDC sent from the deployer to the test wallet; both recorded in A-96.
 Lesson: After resetting an environment's database, fill the mint allowlist before any mint, and read every wallet the run spends from against the amounts it moves (L-244) before starting it.
+
+## L-250: a native select's text rendered differently from one capture to the next
+Unit: NFT-U2
+What happened: after the console suite's baselines were updated, two plain runs failed the Agents page capture at 380px on the same 160 by 15 pixel patch, about 1,000 pixels: the text "personal account (30 days)" inside the Manage control, a native `<select>` BC-U1 added, drawn with its glyphs a fraction of a pixel apart from the baseline each time.
+Cause: headless Chromium draws a native select through the system widget path, whose text layout is not pinned by the page's fonts and antialiasing; every other control on the page goes through the design system and rendered identically.
+Fix: the Manage control is the design system's Select (the one the plan and reveal controls already use), so the console renders no native select; the baselines were taken again and two plain runs matched.
+Lesson: Never put a native form control in a page under screenshot tests; use the design system's component, which the frontend rule asks for anyway, and treat a one-patch diff on a form control as rendering drift, not a page change.

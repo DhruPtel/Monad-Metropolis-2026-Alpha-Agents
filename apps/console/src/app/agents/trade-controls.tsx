@@ -10,6 +10,11 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
   toast,
 } from "@alpha-agents/ui";
 import { useRouter } from "next/navigation";
@@ -95,20 +100,27 @@ export function ArmingControls({
       <Button size="sm" variant="ghost" disabled={!enabled || pending} onClick={overLimit}>
         Propose over-limit trade
       </Button>
-      <label className="flex items-center gap-1 text-xs text-foreground-muted">
+      <span className="flex items-center gap-1 text-xs text-foreground-muted">
         Manage
-        <select
-          aria-label="The account the agent manages"
-          data-testid="arm-account"
-          className="rounded-md border border-border bg-surface px-2 py-1 text-xs text-foreground"
+        {/* The design system's Select (NFT-U2, L-250): a native select's text drifted between captures. */}
+        <Select
           value={account}
           disabled={!enabled || pending || state !== "unarmed"}
-          onChange={(e) => setAccount(e.currentTarget.value === "vault" ? "vault" : "personal")}
+          onValueChange={(v) => setAccount(v === "vault" ? "vault" : "personal")}
         >
-          <option value="personal">personal account (30 days)</option>
-          <option value="vault">vault (no fixed expiry)</option>
-        </select>
-      </label>
+          <SelectTrigger
+            aria-label="The account the agent manages"
+            data-testid="arm-account"
+            className="h-8 w-auto min-w-52 text-xs"
+          >
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="personal">personal account (30 days)</SelectItem>
+            <SelectItem value="vault">vault (no fixed expiry)</SelectItem>
+          </SelectContent>
+        </Select>
+      </span>
       <Button
         size="sm"
         variant="secondary"
