@@ -7,10 +7,14 @@ import {
   AgentCard,
   Button,
   EmptyState,
+  LoadoutUnsavedNote,
   MintButton,
   PendingAgentNotice,
+  RevealMoment,
   SectionLabel,
-  SlotHex,
+  Skeleton,
+  SkillInventoryCards,
+  SkillSlotButtons,
   Tabs,
   TabsContent,
   TabsList,
@@ -19,11 +23,22 @@ import {
 } from "@alpha-agents/ui";
 import { Boxes, RotateCcw, Wallet } from "lucide-react";
 import { useSearchParams } from "next/navigation";
-import { type ReactNode, useMemo, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { useWalletSession } from "@/auth/session";
 import type { AgentView } from "@/agent/chain";
 import { useMint, useOwnedAgents } from "@/agent/use-agents";
 import { useActivationStatus } from "@/agent/use-activation";
+import {
+  type Loadout,
+  emptyLoadout,
+  firstFreeSlot,
+  removeSlot,
+  slotsById,
+  toggleSkill,
+} from "@/agent/loadout";
+import { useRevealSeen } from "@/agent/reveal-seen";
+import { useRevealStatus } from "@/agent/reveal-status";
+import { type SkillInventory, useSkillInventory } from "@/agent/use-skill-inventory";
 import { AgentStage } from "@/components/viewer/agent-stage";
 
 const TIER_NAME = { base: "Base", medium: "Medium", pro: "Pro" } as const;
@@ -45,31 +60,52 @@ function Gate({ title, children }: { title: string; children?: ReactNode }) {
   );
 }
 
-/** The agent's skill slots by tier, empty until skills exist (P6). */
-function SlotStrip({ slots }: { slots: number }) {
-  return (
-    <ul aria-label="Skill slots" className="flex flex-wrap items-center gap-3">
-      {Array.from({ length: slots }, (_, i) => (
-        <li key={i} className="flex items-center gap-2">
-          <SlotHex index={i} state="empty" />
-          <span className="font-mono text-2xs text-foreground-muted">
-            Slot {i + 1}
-            <br />
-            empty
-          </span>
-        </li>
-      ))}
-    </ul>
-  );
+/** UI-FAST: the on-screen loadout's controls, shared by the inventory and the slots. */
+interface LoadoutControls {
+  readonly inventory: SkillInventory;
+  readonly loadout: Loadout;
+  readonly hovered: string | null;
+  readonly setHovered: (id: string | null) => void;
+  readonly toggle: (id: string) => void;
 }
 
-function SkillsPanel() {
+function SkillsPanel({ controls }: { controls: LoadoutControls | null }) {
+  const inv = controls?.inventory;
+  if (!controls || !inv || inv.state === "off")
+    return (
+      <EmptyState
+        icon={Boxes}
+        title="No skills yet"
+        description="Your agent's skills show here once it is revealed and your wallet is connected."
+      />
+    );
+  if (inv.state === "reading") return <Skeleton className="h-32" />;
+  if (inv.state === "error")
+    return (
+      <p role="alert" className="text-sm text-negative">
+        {inv.message}
+      </p>
+    );
+  if (inv.skills.length === 0)
+    return (
+      <EmptyState
+        icon={Boxes}
+        title="No skills yet"
+        description="This agent has no skills listed. Equipped skills will appear in your agent's slots."
+      />
+    );
   return (
-    <EmptyState
-      icon={Boxes}
-      title="No skills yet"
-      description="Skills arrive with the marketplace. Equipped skills will appear in your agent's slots."
-    />
+    <div className="flex flex-col gap-3">
+      <SkillInventoryCards
+        skills={inv.skills}
+        slotOf={slotsById(controls.loadout)}
+        nextFreeSlot={firstFreeSlot(controls.loadout)}
+        hovered={controls.hovered}
+        onToggle={controls.toggle}
+        onHover={controls.setHovered}
+      />
+      <LoadoutUnsavedNote />
+    </div>
   );
 }
 
@@ -94,7 +130,40 @@ export function AgentPortal({ environment }: { environment: EnvironmentId }) {
     }
     return owned.agents[0] ?? null;
   }, [owned.agents, requested]);
-  const info = selected ? describe(selected) : null;
+  const drawn = selected ? describe(selected) : null;
+  // UI-FAST: the reveal on this page too. The draw stays hidden here, as on My Agents, until
+  // the owner clicks Reveal; the seen flag is the same one, kept in this browser.
+  const { seen, markSeen } = useRevealSeen(environment, selected?.id ?? 0n);
+  const [revealedNow, setRevealedNow] = useState(false);
+  useEffect(() => setRevealedNow(false), [selected?.id]);
+  const info = drawn && seen ? drawn : null;
+  const revealing = selected !== null && (!drawn || !seen || revealedNow);
+  const waitingNote = useRevealStatus(environment, selected && !drawn ? selected.id : null);
+
+  // UI-FAST: the skill loadout, on screen only; it starts empty for each agent and saves nothing.
+  const inventory = useSkillInventory(info && selected ? selected.id : null);
+  const slotCount = info?.slots ?? 0;
+  const [loadout, setLoadout] = useState<Loadout>(() => emptyLoadout(slotCount));
+  const [hovered, setHovered] = useState<string | null>(null);
+  useEffect(() => {
+    setLoadout(emptyLoadout(slotCount));
+    setHovered(null);
+  }, [selected?.id, slotCount]);
+  const names = useMemo(
+    () => new Map(inventory.state === "ready" ? inventory.skills.map((k) => [k.id, k.name]) : []),
+    [inventory],
+  );
+  const slotNames = loadout.map((id) => (id === null ? null : (names.get(id) ?? id)));
+  const hoverSlot = hovered !== null && !loadout.includes(hovered) ? firstFreeSlot(loadout) : null;
+  const controls: LoadoutControls | null = info
+    ? {
+        inventory,
+        loadout,
+        hovered,
+        setHovered,
+        toggle: (id) => setLoadout((l) => toggleSkill(l, id)),
+      }
+    : null;
   // F-U10: the sweep's status for the viewer; null until known or where it cannot be read.
   const activation = useActivationStatus(selected && info ? selected.id : null);
 
@@ -146,18 +215,33 @@ export function AgentPortal({ environment }: { environment: EnvironmentId }) {
     overlay = (
       <Gate title="No agent in this wallet yet. Mint one to get started.">{mintButton}</Gate>
     );
-  } else if (!info) {
+  } else if (revealing) {
     overlay = (
-      <Gate title={`Agent #${selected.id.toString()} is minted and waiting for its reveal.`}>
-        {environment === "local" ? (
-          <p className="text-xs text-foreground-muted">
-            On the local fork, the reveal keeper in{" "}
-            <span className="numeric whitespace-nowrap">pnpm dev:orchestrator</span> reveals it
-            within about 15 seconds.
-          </p>
+      <div className="flex w-full max-w-xl flex-col gap-2" data-testid="configure-reveal">
+        <RevealMoment
+          agentId={selected.id}
+          speciesIndex={drawn ? selected.species : null}
+          waitingNote={waitingNote}
+          seen={seen}
+          onSeen={() => {
+            markSeen();
+            setRevealedNow(true);
+          }}
+          className="bg-surface/95"
+        />
+        {revealedNow ? (
+          <Button
+            variant="secondary"
+            size="sm"
+            className="self-end"
+            onClick={() => setRevealedNow(false)}
+            data-testid="configure-reveal-done"
+          >
+            Show my agent
+          </Button>
         ) : null}
         {progress.state !== "idle" ? mintButton : null}
-      </Gate>
+      </div>
     );
   }
 
@@ -224,6 +308,8 @@ export function AgentPortal({ environment }: { environment: EnvironmentId }) {
       badge={badge}
       overlay={overlay}
       activation={activation}
+      highlightedSlot={hoverSlot}
+      slotSkills={slotNames}
     />
   );
 
@@ -274,7 +360,7 @@ export function AgentPortal({ environment }: { environment: EnvironmentId }) {
           <SectionLabel as="h2" className="mb-3">
             Skill inventory
           </SectionLabel>
-          <SkillsPanel />
+          <SkillsPanel controls={controls} />
         </aside>
         <div className="h-96 overflow-hidden rounded-lg border lg:order-2 lg:col-span-6 lg:h-auto lg:min-h-120">
           {stage}
@@ -297,7 +383,7 @@ export function AgentPortal({ environment }: { environment: EnvironmentId }) {
             {overview}
           </TabsContent>
           <TabsContent value="skills" className="pt-3">
-            <SkillsPanel />
+            <SkillsPanel controls={controls} />
           </TabsContent>
         </Tabs>
       </div>
@@ -308,7 +394,12 @@ export function AgentPortal({ environment }: { environment: EnvironmentId }) {
           className="flex flex-col gap-3 rounded-lg border bg-surface p-4"
         >
           <SectionLabel as="h2">Skill slots · {TIER_NAME[info.species.tier]} tier</SectionLabel>
-          <SlotStrip slots={info.slots} />
+          <SkillSlotButtons
+            slots={slotNames}
+            highlighted={hoverSlot}
+            onRemove={(slot) => setLoadout((l) => removeSlot(l, slot))}
+          />
+          <LoadoutUnsavedNote />
         </section>
       ) : null}
     </div>

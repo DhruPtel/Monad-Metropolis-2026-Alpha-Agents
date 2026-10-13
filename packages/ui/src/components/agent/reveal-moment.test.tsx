@@ -1,16 +1,9 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
-import { RevealMoment, countdownWords, rarityWords } from "./reveal-moment";
+import { RevealMoment, rarityWords } from "./reveal-moment";
 
 describe("the reveal moment (UI-U2)", () => {
-  it("says the time left in whole seconds, then any moment, and something plain when unknown", () => {
-    expect(countdownWords(12.2)).toBe("About 13 seconds to go.");
-    expect(countdownWords(1)).toBe("About 1 second to go.");
-    expect(countdownWords(0)).toBe("Any moment now.");
-    expect(countdownWords(null)).toBe("The keeper reveals it soon.");
-  });
-
   it("says what a draw means: the tier's share of the supply and the species' count, one-of-ones as the only one", () => {
     const ant = rarityWords(3);
     expect(ant).toMatchObject({ tier: "base", name: "Ant", oneOfOne: false });
@@ -41,12 +34,12 @@ describe("the reveal moment (UI-U2)", () => {
     expect(screen.getByText(/Pro: 200 of 1,000 agents/)).toBeTruthy();
   });
 
-  it("while the chain has not drawn yet, shows the placeholder with the time left and no Reveal", () => {
+  it("offers Reveal from the moment the agent is minted, with the chain's status and no timer", () => {
     const { container } = render(
       <RevealMoment
         agentId={14n}
         speciesIndex={null}
-        secondsLeft={9}
+        waitingNote="Randomness requested from Pyth Entropy; waiting for the number."
         seen={false}
         onSeen={() => undefined}
       />,
@@ -54,7 +47,30 @@ describe("the reveal moment (UI-U2)", () => {
     expect(container.querySelector("[data-slot=reveal-moment]")?.getAttribute("data-phase")).toBe(
       "waiting",
     );
-    expect(screen.getByText("About 9 seconds to go.")).toBeTruthy();
-    expect(screen.queryByRole("button", { name: "Reveal" })).toBeNull();
+    expect(screen.getByTestId("reveal-status")).toHaveTextContent(/waiting for the number/);
+    expect(screen.getByRole("button", { name: "Reveal" })).toBeEnabled();
+    expect(container.textContent).not.toMatch(/seconds? to go/);
+  });
+
+  it("clicked before the draw, waits armed and plays the moment as soon as the species lands", async () => {
+    const onSeen = vi.fn();
+    const { container, rerender } = render(
+      <RevealMoment
+        agentId={14n}
+        speciesIndex={null}
+        seen={false}
+        onSeen={onSeen}
+        durationMs={0}
+      />,
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Reveal" }));
+    const root = container.querySelector("[data-slot=reveal-moment]");
+    expect(root?.getAttribute("data-phase")).toBe("armed");
+    expect(screen.getByRole("button", { name: "Waiting for the draw" })).toBeDisabled();
+    expect(onSeen).not.toHaveBeenCalled();
+    rerender(
+      <RevealMoment agentId={14n} speciesIndex={14} seen={false} onSeen={onSeen} durationMs={0} />,
+    );
+    expect(onSeen).toHaveBeenCalledTimes(1);
   });
 });

@@ -42,6 +42,8 @@ interface AgentStageProps {
   readonly badge?: ReactNode;
   readonly overlay?: ReactNode;
   readonly highlightedSlot?: number | null;
+  /** UI-FAST: the skill shown in each slot on screen (not saved), by slot; null when empty. */
+  readonly slotSkills?: readonly (string | null)[];
   /**
    * F-U10: the agent's activation sweep, when its status is known. While it
    * runs the bee takes off and hovers with its wing cue in the accent (and
@@ -62,6 +64,7 @@ export function AgentStage({
   badge,
   overlay,
   highlightedSlot = null,
+  slotSkills = [],
   activation = null,
 }: AgentStageProps) {
   const reducedMotion = usePrefersReducedMotion();
@@ -131,7 +134,9 @@ export function AgentStage({
       readoutLeft={asset ? `${asset.species.tier} · ${asset.species.name}` : "unrevealed"}
       readoutRight={
         <span data-testid="stage-mode" data-mode={mode} data-anim={animState}>
-          {asset ? `slots 0/${slots}` : "slots after reveal"}
+          {asset
+            ? `slots ${slotSkills.filter((s) => s !== null).length}/${slots}`
+            : "slots after reveal"}
         </span>
       }
     >
@@ -146,6 +151,7 @@ export function AgentStage({
             onStateChange: setAnimState,
           }}
           highlightedSlot={highlightedSlot}
+          slotSkills={slotSkills}
           reducedMotion={reducedMotion}
           onFailure={onFailure}
         />

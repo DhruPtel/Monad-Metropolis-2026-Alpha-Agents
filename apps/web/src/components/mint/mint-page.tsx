@@ -28,7 +28,8 @@ import { chainName, useWalletSession } from "@/auth/session";
 import { agentNftDeployment } from "@/agent/agent-nft";
 import { mintPageView } from "@/agent/mint-page-state";
 import { type SupplySummary, type TierSupply, formatCount, formatOdds } from "@/agent/supply";
-import { REVEAL_ETA_SECONDS, useCountdown, useRevealSeen } from "@/agent/reveal-seen";
+import { useRevealSeen } from "@/agent/reveal-seen";
+import { useRevealStatus } from "@/agent/reveal-status";
 import { useMint } from "@/agent/use-agents";
 import { useMintSupply, useWalletMint } from "@/agent/use-mint-page";
 import { STUCK_NONCE_FIX } from "@/agent/stuck-nonce";
@@ -189,9 +190,9 @@ export function MintPage({ environment }: { environment: EnvironmentId }) {
   const agentId = view.agent?.id;
   // UI-U2: the result stays hidden, in the status line too, until the owner clicks Reveal.
   const { seen, markSeen } = useRevealSeen(environment, agentId ?? 0n);
-  const secondsLeft = useCountdown(
-    REVEAL_ETA_SECONDS[environment],
-    view.state === "awaiting-reveal",
+  const waitingNote = useRevealStatus(
+    environment,
+    view.state === "awaiting-reveal" && agentId !== undefined ? agentId : null,
   );
   const revealedAs =
     revealedSpecies && seen
@@ -244,7 +245,7 @@ export function MintPage({ environment }: { environment: EnvironmentId }) {
               view.agent
                 ? {
                     speciesIndex: view.agent.species || null,
-                    secondsLeft,
+                    waitingNote,
                     seen,
                     onSeen: markSeen,
                   }

@@ -78,11 +78,12 @@ interface MintPanelProps {
   readonly revealNote?: ReactNode;
   /**
    * UI-U2: the reveal moment for the agent just minted (awaiting-reveal and
-   * revealed): the countdown while pending, then the result hidden until the
-   * owner clicks Reveal. Without it the plain preview shows.
+   * revealed): Reveal from the moment it is minted, with where the draw stands
+   * onchain, then the result hidden until the owner clicks Reveal. Without it
+   * the plain preview shows.
    */
   readonly reveal?:
-    | Pick<RevealMomentProps, "speciesIndex" | "secondsLeft" | "seen" | "onSeen" | "durationMs">
+    | Pick<RevealMomentProps, "speciesIndex" | "waitingNote" | "seen" | "onSeen" | "durationMs">
     | undefined;
   readonly onConnect?: (() => void) | undefined;
   readonly onRetry?: (() => void) | undefined;

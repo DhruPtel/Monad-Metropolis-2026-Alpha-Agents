@@ -56,7 +56,8 @@ import {
   scanStatusText,
   tradingStateWords,
 } from "@/agent/my-agents";
-import { REVEAL_ETA_SECONDS, useCountdown, useRevealSeen } from "@/agent/reveal-seen";
+import { useRevealSeen } from "@/agent/reveal-seen";
+import { useRevealStatus } from "@/agent/reveal-status";
 import { useOwnedAgents } from "@/agent/use-agents";
 import { type ActionState, useMyAgent } from "@/agent/use-my-agent";
 
@@ -112,7 +113,7 @@ function MyAgentCard({ agent, environment }: { agent: AgentView; environment: En
   // the rarity shown until the page is next opened.
   const { seen, markSeen } = useRevealSeen(environment, agent.id);
   const [revealedNow, setRevealedNow] = useState(false);
-  const secondsLeft = useCountdown(REVEAL_ETA_SECONDS[environment], species === null);
+  const waitingNote = useRevealStatus(environment, species === null ? agent.id : null);
   const moment = species === null || !seen || revealedNow;
   const canScan = summary ? scanAvailability(summary) : null;
   const canRefund = summary ? refundAvailability(summary) : null;
@@ -142,7 +143,7 @@ function MyAgentCard({ agent, environment }: { agent: AgentView; environment: En
         <RevealMoment
           agentId={agent.id}
           speciesIndex={species ? agent.species : null}
-          secondsLeft={secondsLeft}
+          waitingNote={waitingNote}
           seen={seen}
           onSeen={() => {
             markSeen();

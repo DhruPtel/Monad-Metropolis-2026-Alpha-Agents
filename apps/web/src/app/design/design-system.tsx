@@ -23,6 +23,14 @@ import {
 import { Bot, Boxes, Copy, Eye, Radio, Users } from "lucide-react";
 import { type ReactNode, useState } from "react";
 import {
+  type Loadout,
+  emptyLoadout,
+  firstFreeSlot,
+  removeSlot,
+  slotsById,
+  toggleSkill,
+} from "@/agent/loadout";
+import {
   ChoiceGroup,
   SourcedFigure,
   CodeBlock,
@@ -45,6 +53,10 @@ import {
   MintPanel,
   SLOT_STATES,
   SlotHex,
+  SkillInventoryCards,
+  SkillSlotButtons,
+  LoadoutUnsavedNote,
+  type LoadoutSkillView,
   SpeciesArt,
   RevealMoment,
   TierCard,
@@ -650,6 +662,46 @@ const MINT_STATE_LABELS: Readonly<Record<(typeof MINT_STATES)[number], string>> 
 /** A token-bound account address for the specimens; not a real agent's. */
 const SAMPLE_TBA = "0x6148e658098A14df34Cc79dB6b4128Dc367C7d3E";
 
+/** UI-FAST: the configure page's skill loadout, editable on screen only; live on this page. */
+const LOADOUT_SKILLS: readonly LoadoutSkillView[] = [
+  { id: "momentum-scanner", name: "Momentum scanner", kind: "skill" },
+  { id: "unlock-watch", name: "Unlock watch", kind: "playbook" },
+  { id: "my-filter", name: "My liquidity filter", kind: "owner" },
+  { id: "news-digest", name: "News digest", kind: "skill" },
+];
+
+function LoadoutSpecimen() {
+  const [loadout, setLoadout] = useState<Loadout>(() => emptyLoadout(3));
+  const [hovered, setHovered] = useState<string | null>(null);
+  const names = new Map(LOADOUT_SKILLS.map((k) => [k.id, k.name]));
+  const hoverSlot = hovered !== null && !loadout.includes(hovered) ? firstFreeSlot(loadout) : null;
+  return (
+    <Specimen
+      name="Skill loadout"
+      note="UI-FAST: the inventory's cards and the slots are buttons. A card goes into the first free slot and comes out again; a filled slot empties when clicked; hovering a card lights the slot it would take. Nothing is saved yet, and the note says so. Try it: three slots, four skills."
+    >
+      <div className="grid gap-4 md:grid-cols-[18rem_1fr]" data-testid="loadout-specimen">
+        <SkillInventoryCards
+          skills={LOADOUT_SKILLS}
+          slotOf={slotsById(loadout)}
+          nextFreeSlot={firstFreeSlot(loadout)}
+          hovered={hovered}
+          onToggle={(id) => setLoadout((l) => toggleSkill(l, id))}
+          onHover={setHovered}
+        />
+        <div className="flex flex-col gap-3">
+          <SkillSlotButtons
+            slots={loadout.map((id) => (id === null ? null : (names.get(id) ?? id)))}
+            highlighted={hoverSlot}
+            onRemove={(slot) => setLoadout((l) => removeSlot(l, slot))}
+          />
+          <LoadoutUnsavedNote />
+        </div>
+      </div>
+    </Specimen>
+  );
+}
+
 function AgentSection() {
   return (
     <Section id="agents" title="Agents">
@@ -665,6 +717,7 @@ function AgentSection() {
           ))}
         </div>
       </Specimen>
+      <LoadoutSpecimen />
       <Specimen
         name="Species art"
         note="The species image, a placeholder styled by tier while a species has no art, and the unrevealed placeholder. With slots, the tier's slots sit on the art."
@@ -692,13 +745,13 @@ function AgentSection() {
       </Specimen>
       <Specimen
         name="Reveal moment"
-        note="UI-U2: the onchain reveal stays automatic and fair; the app hides the result until the owner clicks Reveal. Waiting, with the keeper's time remaining; drawn onchain, ready to reveal; revealed, with the rarity said plainly; and a one-of-one, marked as the only one."
+        note="UI-U2: the onchain reveal stays automatic and fair; the app hides the result until the owner clicks Reveal. Waiting, with Reveal offered at once and where the draw stands onchain (UI-FAST); drawn onchain, ready to reveal; revealed, with the rarity said plainly; and a one-of-one, marked as the only one."
       >
         <div className="grid gap-4 lg:grid-cols-2" data-testid="reveal-moments">
           <RevealMoment
             agentId={21n}
             speciesIndex={null}
-            secondsLeft={12}
+            waitingNote="Randomness was requested from Pyth Entropy at 07:44:10 UTC (request 812); waiting for the number to arrive, usually within seconds."
             seen={false}
             onSeen={() => undefined}
           />

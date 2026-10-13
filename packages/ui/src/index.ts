@@ -9,6 +9,7 @@ export * from "./components/agent/activity";
 export * from "./components/agent/slot-hex";
 export * from "./components/agent/species-art";
 export * from "./components/agent/reveal-moment";
+export * from "./components/agent/skill-loadout";
 export * from "./components/agent/tier-card";
 export * from "./components/agent/viewer-frame";
 export * from "./components/amount-display";
