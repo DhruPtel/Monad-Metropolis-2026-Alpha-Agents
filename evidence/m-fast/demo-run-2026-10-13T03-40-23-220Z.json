@@ -1,0 +1,58 @@
+{
+  "owner": "0x976EA74026E726554dB657fA54763abd0C3a0aa9",
+  "startedAt": "2026-10-13T03:40:21.261Z",
+  "steps": [
+    {
+      "name": "stack",
+      "at": "2026-10-13T03:40:21.289Z",
+      "fork": "http://127.0.0.1:8590",
+      "block": 52534016
+    },
+    {
+      "name": "owner prepared",
+      "at": "2026-10-13T03:40:21.306Z",
+      "owner": "0x976EA74026E726554dB657fA54763abd0C3a0aa9",
+      "agentId": 1,
+      "minted": false,
+      "usdc": "5000"
+    },
+    {
+      "name": "indexed",
+      "at": "2026-10-13T03:40:21.315Z",
+      "agentId": 1,
+      "species": 8,
+      "tier": "medium"
+    },
+    {
+      "name": "provisioned",
+      "at": "2026-10-13T03:40:21.320Z",
+      "status": "ready",
+      "tier": "medium"
+    },
+    {
+      "name": "owner session",
+      "at": "2026-10-13T03:40:22.296Z",
+      "wallet": "0x976EA74026E726554dB657fA54763abd0C3a0aa9"
+    },
+    {
+      "name": "goal",
+      "at": "2026-10-13T03:40:22.335Z",
+      "state": "INCIDENT",
+      "aggressiveness": "AGGRESSIVE"
+    },
+    {
+      "name": "fresh prices before the deposit",
+      "at": "2026-10-13T03:40:22.744Z",
+      "status": 200
+    },
+    {
+      "name": "account",
+      "at": "2026-10-13T03:40:23.061Z",
+      "account": "0x328589739A92C598Dc2d4382527960703E339614",
+      "usdc": "1000"
+    }
+  ],
+  "agentId": 1,
+  "ok": false,
+  "error": "arm refused: 500 {\"error\":\"internal\",\"message\":\"Cannot decode zero data (\\\"0x\\\") with ABI parameters.\\n\\nVersion: viem@2.57.2\"}"
+}

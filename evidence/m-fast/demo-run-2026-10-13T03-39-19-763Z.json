@@ -1,0 +1,53 @@
+{
+  "owner": "0x976EA74026E726554dB657fA54763abd0C3a0aa9",
+  "startedAt": "2026-10-13T03:39:08.830Z",
+  "steps": [
+    {
+      "name": "stack",
+      "at": "2026-10-13T03:39:08.865Z",
+      "fork": "http://127.0.0.1:8590",
+      "block": 52534008
+    },
+    {
+      "name": "owner prepared",
+      "at": "2026-10-13T03:39:13.000Z",
+      "owner": "0x976EA74026E726554dB657fA54763abd0C3a0aa9",
+      "agentId": 1,
+      "minted": true,
+      "usdc": "5000"
+    },
+    {
+      "name": "indexed",
+      "at": "2026-10-13T03:39:13.006Z",
+      "agentId": 1,
+      "species": 8,
+      "tier": "medium"
+    },
+    {
+      "name": "provisioned",
+      "at": "2026-10-13T03:39:16.019Z",
+      "status": "ready",
+      "tier": "medium"
+    },
+    {
+      "name": "owner session",
+      "at": "2026-10-13T03:39:17.238Z",
+      "wallet": "0x976EA74026E726554dB657fA54763abd0C3a0aa9"
+    },
+    {
+      "name": "credited",
+      "at": "2026-10-13T03:39:19.710Z",
+      "fundingAddress": "0xF1F1CBfC8B13E1018bEAB249b14B926F128a11c4",
+      "creditLagMs": 2020
+    },
+    {
+      "name": "goal",
+      "at": "2026-10-13T03:39:19.749Z",
+      "state": "READY",
+      "aggressiveness": "AGGRESSIVE"
+    }
+  ],
+  "agentId": 1,
+  "ok": false,
+  "error": "the portfolio route answered nothing"
+}

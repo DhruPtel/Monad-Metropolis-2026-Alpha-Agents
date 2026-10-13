@@ -1848,3 +1848,45 @@ What happened: after the console suite's baselines were updated, two plain runs 
 Cause: headless Chromium draws a native select through the system widget path, whose text layout is not pinned by the page's fonts and antialiasing; every other control on the page goes through the design system and rendered identically.
 Fix: the Manage control is the design system's Select (the one the plan and reveal controls already use), so the console renders no native select; the baselines were taken again and two plain runs matched.
 Lesson: Never put a native form control in a page under screenshot tests; use the design system's component, which the frontend rule asks for anyway, and treat a one-patch diff on a form control as rendering drift, not a page change.
+
+## L-251: forge's optimism network family does not route a broadcast CREATE2 through the factory
+Unit: M-FAST
+What happened: on the Base fork (anvil --optimism, forge 1.8.3 under a profile with `network = "optimism"`), DeployAgentNFT reverted "deployed address differs from prediction": the trace showed `new AgentNFT{salt}` created directly from the sender (the address matched CREATE2 from anvil account 0), while the script predicted the factory's address, and `always_use_create_2_factory` changed nothing.
+Cause: forge rewrites a broadcast CREATE2 into a call to the deterministic deployer in its frame hook; under the optimism family that rewrite never ran, under the plain ethereum family it did on the same fork with the same flags.
+Fix: the base profile runs `network = "ethereum"`; anvil keeps --optimism for Base's deposit transactions, and the deploy script mines one empty block first so the head block forge reads holds none.
+Lesson: When a deterministic deploy lands at the wrong address on a new chain family, compare the address against CREATE2 from the sender and from the factory before touching the scripts: the family's handler, not the script, decides the routing.
+
+## L-252: forge enforces the 24 KB limit on its own script contracts under the ethereum family
+Unit: M-FAST
+What happened: with the ethereum family the AgentNFT deploy passed, then DeployExecutorV3 failed before running with "Failed to deploy script: EvmError: CreateContractSizeLimit"; raising `code_size_limit` to 128 KB fixed the fund deploy but not this one.
+Cause: forge deploys the script contract into its simulation EVM under the same limit as every contract; DeployExecutorV3 and DeployCustodyV3 embed every contract they create and are 131,971 and 148,948 bytes, over 128 KB. The Monad family lifts the limit, which is why the playtest fork never showed it.
+Fix: the base profile's `code_size_limit` is 1 MB; it governs forge's simulation only, and anvil's own limit stays the fork's 128 KB.
+Lesson: A size limit error naming "script" is about the script contract, not the deployment; size the limit from the script artifacts (`out/<Script>.json` deployedBytecode) before guessing.
+
+## L-253: the config loader scopes every variable to named environments, so a new environment reads nothing
+Unit: M-FAST
+What happened: the Base stack's indexer, API and orchestrator all exited at once with "DATABASE_URL is not used by the base environment".
+Cause: the variable table names the environments each variable serves and none named the new base environment; the loader filters by that list before reading anything.
+Fix: the loader lets the base environment read every variable local does (a fork like it) besides its own BASE_RPC_URL; the control API's and orchestrator's "local default secret" guards and the web script's port (WEB_PORT) follow isForkEnvironment and the stack's port instead of `env.id === "local"` and 3000.
+Lesson: A new environment is not only an entry in ENVIRONMENTS: grep every `environments:` list, every `env.id === "local"` and every hardcoded port before starting its stack, and expect the first start to show the ones missed.
+
+## L-254: the fork helpers, the signer, the chain tools and the control API assumed the v2 set
+Unit: M-FAST
+What happened: on the Base fork the signer came up "off: the address book has no verified executor", the control API answered no portfolio and the v3 chain tools said "account_factory not in the address book"; once those were relaxed, arming failed with "Cannot decode zero data" from devenv's grant helper.
+Cause: four places took the v2 set for granted where only v3 is deployed: the signer required the v2 Executor, the v3 reader listed the v2 factory as required, the control API built its trading views only around the v2 Executor, and devenv's fork helpers read the local address book (the playtest fork's AgentNFT) whatever fork they were pointed at.
+Fix: the signer and the control API's views fall back to Executor v3 where v2 is absent (A-98), the v2 factory is optional in the v3 reader (the older account is then none), the custody path and v3 portfolio readers take a null v2 factory, and devenv's helpers read the book of the fork FORK_ENV or APP_ENV names.
+Lesson: "Cannot decode zero data" from viem means a call to an address with no code; check which environment's address book the caller resolved, not the ABI.
+
+## L-255: GeckoTerminal's ids carry the network's own prefix, sliced by Monad's length
+Unit: M-FAST
+What happened: discovery on Base read seven pages from GeckoTerminal and saw 0 pools and 0 tokens, so the agent's universe was empty (list_tokens: 0) and its Scan ran out of turns without a shortlist; its per-token lookups answered 404.
+Cause: the page parser stripped the "monad_" prefix from every relationship id by slicing six characters, so "base_0x…" lost the "0" and failed the address check; the per-token lookups and the class F feed lookup used Monad's token and feed lists.
+Fix: the parser strips `${network}_` by the network's own length, discovery and the registry take the class F feeds of the chain researched, and the Scan and Zoom out prompts and playbooks name the chain researched instead of Monad.
+Lesson: When a parser answers an empty page with nothing refused, a silent `continue` dropped every row; probe the parser against one real page of the new source before running the loop that depends on it.
+
+## L-256: a built-in playbook edited without a version bump fails every cycle at its start
+Unit: M-FAST
+What happened: after the Scan and Zoom out playbooks were reworded, the next activation sweep failed in five seconds with "the built-in skills do not pass their checks: playbook-scan F1 skill.json:version"; the error reached only the task record, since the orchestrator's cycle log lines never reached the stack log.
+Cause: F1's immutability rule refuses a built-in skill whose version is already locked with another content hash (packages/skills/builtin/versions.json), and the cycle checks every built-in skill before it starts.
+Fix: both playbooks' patch versions bumped and `pnpm skills:lock` run, which records the new hashes.
+Lesson: Any change under packages/skills/builtin needs a version bump and `pnpm skills:lock` before the next cycle; read a failed sweep's reason from the orchestrator's task record (GET /v1/tasks/:id) when the log shows nothing.
