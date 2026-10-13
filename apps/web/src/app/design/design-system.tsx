@@ -2718,7 +2718,8 @@ function VaultLayoutSection() {
 
 /** RP-U1: a research cycle's report as a document, and the Research page's list of reports. */
 const REPORT_FIXTURE: ReportView = {
-  title: "Agent #7: research report",
+  title: "Research report: WMON",
+  byline: "Agent #7",
   kindLabel: "Activation sweep",
   writtenAt: "2026-10-13 07:44 UTC",
   costLine:
@@ -2730,9 +2731,9 @@ const REPORT_FIXTURE: ReportView = {
     overview:
       "Monad's TVL fell over the week while DEX volume rose, a mixed picture: activity is up but capital is leaving.",
     snapshot: [
-      { label: "MON price", value: "0.0248 USD", source: "market_snapshot" },
-      { label: "Monad TVL", value: "6.17B USD", source: "market_snapshot" },
-      { label: "DEX volume, 24 hours", value: "1.04B USD", source: "market_snapshot" },
+      { label: "MON price", value: "0.0248 USD", cites: [1] },
+      { label: "Monad TVL", value: "6.17B USD", cites: [1] },
+      { label: "DEX volume, 24 hours", value: "1.04B USD", cites: [1] },
     ],
   },
   universeSummary:
@@ -2763,6 +2764,19 @@ const REPORT_FIXTURE: ReportView = {
       why: "research only: on Base, where this owner has no trading account",
     },
   ],
+  universeGroups: [
+    {
+      outcome: "researched",
+      why: "chosen for a Dive (high materiality)",
+      symbols: ["WMON"],
+    },
+    { outcome: "buyable", why: "The account's cash; never bought.", symbols: ["USDC"] },
+    {
+      outcome: "not buyable",
+      why: "research only: on Base, where this owner has no trading account",
+      symbols: ["AERO (Base)"],
+    },
+  ],
   tokens: [
     {
       symbol: "WMON",
@@ -2781,11 +2795,11 @@ const REPORT_FIXTURE: ReportView = {
         },
         { item: "Revenue", finding: "No protocol revenue figure was found.", status: "unknown" },
       ],
-      evidenceFor: [{ text: "DEX volume rose this week.", sources: ["market_snapshot"] }],
+      evidenceFor: [{ text: "DEX volume rose this week.", cites: [1] }],
       evidenceAgainst: [
         {
           text: "The unlock adds supply ahead of demand.",
-          sources: ["https://tokenomist.ai/monad"],
+          cites: [2],
         },
       ],
       risks: ["Unlock-driven selling", "Falling TVL"],
@@ -2807,10 +2821,31 @@ const REPORT_FIXTURE: ReportView = {
       "The account stays in USDC within the Balanced envelope; nothing clears the cost hurdle today.",
     positions: [],
   },
-  sources: [
-    { source: "market_snapshot", kind: "tool", classes: ["market"], calls: 1 },
-    { source: "list_tokens", kind: "tool", classes: ["onchain", "market"], calls: 2 },
-    { source: "https://tokenomist.ai/monad", kind: "url", classes: ["primary", "news"], calls: 1 },
+  references: [
+    {
+      n: 1,
+      source: "market_snapshot",
+      label: "market_snapshot",
+      href: null,
+      detail: "Tool record, market data, 1 call",
+      cited: true,
+    },
+    {
+      n: 2,
+      source: "https://tokenomist.ai/monad",
+      label: "tokenomist.ai/monad",
+      href: "https://tokenomist.ai/monad",
+      detail: "Web page, primary source, news, retrieved by the cycle",
+      cited: true,
+    },
+    {
+      n: 3,
+      source: "list_tokens",
+      label: "list_tokens",
+      href: null,
+      detail: "Tool record, onchain, market data, 2 calls",
+      cited: false,
+    },
   ],
   stages: [
     { label: "Scan", result: "finished", charged: "0.17 USDC" },

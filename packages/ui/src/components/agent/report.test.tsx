@@ -5,7 +5,8 @@ import { describe, expect, it } from "vitest";
 import { ReportList, type ReportView, ResearchReportDocument } from "./report";
 
 const view: ReportView = {
-  title: "Agent #7: research report",
+  title: "Research report: WMON",
+  byline: "Agent #7",
   kindLabel: "Activation sweep",
   writtenAt: "2026-10-13 07:44 UTC",
   costLine: "Written for 0.18 USDC of credits (ceiling 0.30 USDC).",
@@ -13,7 +14,7 @@ const view: ReportView = {
   recommendation: "Keep the plan.",
   market: {
     overview: "Mixed.",
-    snapshot: [{ label: "MON price", value: "0.0248 USD", source: "market_snapshot" }],
+    snapshot: [{ label: "MON price", value: "0.0248 USD", cites: [1] }],
   },
   universeSummary: "Three tokens seen.",
   universe: [
@@ -42,13 +43,18 @@ const view: ReportView = {
       why: "research only: on Base",
     },
   ],
+  universeGroups: [
+    { outcome: "researched", why: "chosen for a Dive", symbols: ["WMON"] },
+    { outcome: "buyable", why: "cash", symbols: ["USDC"] },
+    { outcome: "not buyable", why: "research only: on Base", symbols: ["AERO (Base)"] },
+  ],
   tokens: [
     {
       symbol: "WMON",
       chain: "Monad",
       whatItIs: "Wrapped MON.",
       fundamentals: [{ item: "Supply", finding: "Unlock due.", status: "concern" }],
-      evidenceFor: [{ text: "Volume rose.", sources: ["market_snapshot"] }],
+      evidenceFor: [{ text: "Volume rose.", cites: [1, 2] }],
       evidenceAgainst: [],
       risks: ["Unlock selling"],
       thesis: "Wait.",
@@ -58,15 +64,37 @@ const view: ReportView = {
   ],
   skeptic: [{ theme: "T", objection: "Priced in.", answer: "No position depends on it." }],
   portfolio: { stance: "no_change", summary: "Stay in USDC.", positions: [] },
-  sources: [
-    { source: "market_snapshot", kind: "tool", classes: ["market"], calls: 1 },
-    { source: "https://x.com/monad/status/1", kind: "url", classes: ["social"], calls: 1 },
+  references: [
+    {
+      n: 1,
+      source: "market_snapshot",
+      label: "market_snapshot",
+      href: null,
+      detail: "Tool record, market data, 1 call",
+      cited: true,
+    },
+    {
+      n: 2,
+      source: "https://x.com/monad/status/1",
+      label: "x.com/monad/status/1",
+      href: "https://x.com/monad/status/1",
+      detail: "Web page, social, retrieved by the cycle",
+      cited: true,
+    },
+    {
+      n: 3,
+      source: "list_tokens",
+      label: "list_tokens",
+      href: null,
+      detail: "Tool record, onchain, 2 calls",
+      cited: false,
+    },
   ],
   stages: [{ label: "Scan", result: "finished", charged: "0.17 USDC" }],
   checksNote: null,
 };
 
-describe("the research report document (RP-U1)", () => {
+describe("the research report document (RP-U1, UI-FAST)", () => {
   it("lays out every section in order, as a document", () => {
     render(<ResearchReportDocument view={view} />);
     const ids = [...screen.getByTestId("research-report").querySelectorAll("section")].map((s) =>
@@ -79,12 +107,11 @@ describe("the research report document (RP-U1)", () => {
       "report-tokens",
       "report-skeptic",
       "report-portfolio",
-      "report-sources",
       "report-method",
+      "report-sources",
     ]);
-    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(
-      "Agent #7: research report",
-    );
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Research report: WMON");
+    expect(screen.getByTestId("research-report")).toHaveTextContent("Prepared forAgent #7");
     expect(screen.getByTestId("report-recommendation")).toHaveTextContent("Keep the plan.");
   });
 
@@ -94,6 +121,7 @@ describe("the research report document (RP-U1)", () => {
     expect(universe).toHaveTextContent(
       "3 tokens seen, 2 buyable by this account, 1 researched in depth.",
     );
+    expect(within(universe).getAllByTestId("report-universe-group")).toHaveLength(3);
     expect(within(universe).getAllByTestId("report-universe-row")).toHaveLength(3);
     expect(universe).toHaveTextContent("research only: on Base");
   });
@@ -113,12 +141,27 @@ describe("the research report document (RP-U1)", () => {
       expect(token).toHaveTextContent(text);
   });
 
-  it("groups the sources by class", () => {
+  it("links each numbered citation to its reference, and a web reference to its page", () => {
     render(<ResearchReportDocument view={view} />);
-    const classes = screen
-      .getAllByTestId("report-source-class")
-      .map((c) => c.getAttribute("data-class"));
-    expect(classes).toEqual(["market", "social"]);
+    const token = screen.getByTestId("report-token");
+    const links = within(token).getAllByRole("link", { name: /Reference/ });
+    expect(links.map((a) => a.getAttribute("href"))).toEqual(["#report-ref-1", "#report-ref-2"]);
+    const refs = screen.getAllByTestId("report-reference");
+    expect(refs.map((r) => r.id)).toEqual(["report-ref-1", "report-ref-2", "report-ref-3"]);
+    expect(within(refs[1] as HTMLElement).getByRole("link")).toHaveAttribute(
+      "href",
+      "https://x.com/monad/status/1",
+    );
+    expect(screen.getByTestId("report-sources")).toHaveTextContent("Also consulted");
+  });
+
+  it("lists the contents, a numbered entry per researched token", () => {
+    render(<ResearchReportDocument view={view} />);
+    const contents = screen.getByRole("navigation", { name: "Contents" });
+    expect(within(contents).getByRole("link", { name: "3.1 WMON" })).toHaveAttribute(
+      "href",
+      "#report-token-WMON",
+    );
   });
 
   it("marks the page's actions to be left out of the PDF", () => {
@@ -174,6 +217,10 @@ describe("the report's print styling, which the PDF uses (RP-U1)", () => {
     expect(print).toMatch(/--foreground: var\(--palette-ink\)/);
     for (const hidden of ["nav", '[data-slot="beta-banner"]', '[data-print="hide"]'])
       expect(print).toContain(`body:has(.report-document) ${hidden}`);
+  });
+
+  it("keeps the report's own contents in the PDF", () => {
+    expect(print).toContain("body:has(.report-document) nav:not(.report-document nav)");
   });
 
   it("keeps a token's section on one page", () => {

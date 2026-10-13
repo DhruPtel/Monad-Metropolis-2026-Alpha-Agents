@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ReportJson } from "@/api/client";
-import { printReport, reportHref, reportListView, reportView } from "./report-view";
+import { figure, printReport, reportHref, reportListView, reportView } from "./report-view";
 
 const report: ReportJson["report"] = {
   cycleId: "cycle-0123abcd-0000-4000-8000-0000000000aa",
@@ -85,7 +85,8 @@ describe("the research report's view (RP-U1)", () => {
   it("names the kind, the time, the cost against the ceiling and what the checks removed", () => {
     const v = reportView(report, "Agent #2");
     expect(v).toMatchObject({
-      title: "Agent #2: research report",
+      title: "Research report",
+      byline: "Agent #2",
       kindLabel: "Activation sweep",
       writtenAt: "2026-10-13 07:44 UTC",
       checksNote:
@@ -101,6 +102,80 @@ describe("the research report's view (RP-U1)", () => {
       ["AERO (Base)", "research only: on Base"],
       ["USDC", "the account's cash"],
     ]);
+  });
+
+  it("numbers the sources in the order the text first cites them, then the ones it never cites", () => {
+    const body = report.body;
+    if (!body) throw new Error("fixture has a body");
+    const cited: typeof report = {
+      ...report,
+      body: {
+        ...body,
+        report: {
+          ...body.report,
+          market: {
+            overview: "Mixed.",
+            snapshot: [{ label: "MON price", value: "0.02504364702970262", source: "get_prices" }],
+          },
+          tokens: [
+            {
+              symbol: "WMON",
+              chain: "Monad",
+              whatItIs: "Wrapped MON.",
+              fundamentals: [],
+              evidenceFor: [{ text: "Deep pools.", sources: ["find_pools", "get_prices"] }],
+              evidenceAgainst: [{ text: "Unlock due.", sources: ["https://tokenomist.ai/monad/"] }],
+              risks: [],
+              thesis: "Wait.",
+              killCondition: "TVL recovers.",
+              confidence: "low",
+            },
+          ],
+        },
+        sources: [
+          { source: "market_snapshot", kind: "tool", classes: ["market"], calls: 3 },
+          { source: "find_pools", kind: "tool", classes: ["onchain", "market"], calls: 1 },
+          {
+            source: "https://tokenomist.ai/monad/",
+            kind: "url",
+            classes: ["primary", "news"],
+            calls: 1,
+          },
+        ],
+      },
+    };
+    const v = reportView(cited, "Agent #2");
+    expect(v?.title).toBe("Research report: WMON");
+    expect(v?.market.snapshot).toEqual([{ label: "MON price", value: "0.02504", cites: [1] }]);
+    expect(v?.tokens[0]?.evidenceFor[0]?.cites).toEqual([1, 2]);
+    expect(v?.tokens[0]?.evidenceAgainst[0]?.cites).toEqual([3]);
+    expect(v?.references.map((r) => [r.n, r.label, r.href, r.cited])).toEqual([
+      [1, "get_prices", null, true],
+      [2, "find_pools", null, true],
+      [3, "tokenomist.ai/monad", "https://tokenomist.ai/monad/", true],
+      [4, "market_snapshot", null, false],
+    ]);
+    expect(v?.references[3]?.detail).toBe("Tool record, market data, 3 calls");
+    // The researched token counts as researched even when the Scan's row says not.
+    expect(v?.universe.find((u) => u.symbol === "WMON")?.researched).toBe(true);
+  });
+
+  it("groups the universe by outcome and reason, researched first", () => {
+    expect(
+      reportView(report, "Agent #2")?.universeGroups.map((g) => [g.outcome, g.symbols]),
+    ).toEqual([
+      ["researched", ["WMON"]],
+      ["buyable", ["USDC"]],
+      ["not buyable", ["AERO (Base)"]],
+    ]);
+  });
+
+  it("reads a bare number at a sensible precision and keeps any other text", () => {
+    expect(figure("0.02504364702970262")).toBe("0.02504");
+    expect(figure("-4.48722235")).toBe("-4.49");
+    expect(figure("1009846222")).toBe("1,009,846,222");
+    expect(figure("102.5%")).toBe("102.5%");
+    expect(figure("33.34M USD, up 39.87%")).toBe("33.34M USD, up 39.87%");
   });
 
   it("words each step's result and its charge", () => {
