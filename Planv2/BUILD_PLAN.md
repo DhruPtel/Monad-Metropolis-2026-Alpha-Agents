@@ -1380,6 +1380,12 @@ Step 1 proves the runtime and 1b runs the venue and oracle spikes early, because
 | 54b | W-8 | Discovery and overview pages | P4-U4 Dashboard (thin, without the workflow runner) and P7-U6 Leaderboard (thin: returns and drawdown only, with the value-per-unit snapshot column), as `BUILD_PLAN.md > 4.5` describes them (D-300) | W-6 |
 | 55 | W-7 | Load and capacity | Tests the design targets of 100,000 users and 1,000 active agents (D-177): concurrent agent cycles against E2B's concurrent sandbox limit (Q-44) and LiteLLM rate limits, database load, and API read traffic; confirms no component assumes a single machine or process, including W-8's public routes. Redesigns credit metering, which polls LiteLLM's spend log for every provisioned agent every 2 seconds (P1-U6) and cannot scale to 1,000 agents: spend webhooks or one batched read per pass. Also the Scan scheduler's per-agent check (D-216), and My Agents, which opens one owner session per agent and polls each card every few seconds (D-218): one session for all of a wallet's agents and a push channel | W-6 |
 
+**Beta gate notes for the mainnet deploy (2026-10-13, owner's direction):**
+
+- Decide the trading limits before deploying: they are set at deploy time, and loosening them afterwards waits the 9-day risk timelock. The owner's direction is a largest trade of about 20 to 25%, a largest position of about 60%, a minimum USDC share of about 5%, slippage of about 1 to 2%, and more than 20 trades a day. That needs contract changes, with their tests, before the mainnet deploy: CustodyCoreV3's MAX_TRADE_BPS (12% today), MAX_ASSET_BPS (45%) and MAX_SLIPPAGE_BPS (1%), and ExecutorV3's RING_SIZE (20), which caps the trades in any window.
+- Each trade spends its full gas limit, 1.95M gas for a v3 swap (about 0.2 MON on testnet), because Monad charges the limit a transaction sets, not the gas it uses. Set the swap's gas limit from an estimate plus a margin instead of the fixed per-route limit.
+- The testnet trading profile (no minimum trade, a 0.5% cost limit with gas counted at MON's market price) applies on Monad testnet alone and must never apply to mainnet or the beta.
+
 ### 4.3 Beta deployment and submission
 
 | # | Unit | Name | One-line goal | Depends on | Hackathon beta |
