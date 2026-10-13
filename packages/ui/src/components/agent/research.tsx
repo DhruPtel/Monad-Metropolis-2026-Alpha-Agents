@@ -1,9 +1,9 @@
 "use client";
 
-import { formatAmount } from "@alpha-agents/domain";
 import { Activity, Radio, Telescope } from "lucide-react";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { cn } from "../../lib/utils";
+import { usdcCents as usdc } from "../../lib/format";
 import { StatBar } from "../stat-bar";
 import { Badge } from "../ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui/card";
@@ -20,8 +20,6 @@ import { FactTile, TileGrid, type TileTone } from "./tiles";
  * market snapshot and why the plan did not change. Every text comes from
  * the platform's guarded records; nothing here renders a model's prose.
  */
-const usdc = (e6: string) =>
-  formatAmount(BigInt(e6), 6, { maxFractionDigits: 2, minFractionDigits: 2 });
 const clock = (iso: string) => iso.slice(11, 19);
 const when = (iso: string) => `${iso.slice(0, 10)} ${iso.slice(11, 16)} UTC`;
 

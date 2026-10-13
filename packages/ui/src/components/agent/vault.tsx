@@ -2,6 +2,7 @@ import { type AccountMode, formatAmount, readableDuration } from "@alpha-agents/
 import { Landmark, Lock, LockOpen, Users } from "lucide-react";
 import type { ReactNode } from "react";
 import { cn } from "../../lib/utils";
+import { usdcCents as usdc } from "../../lib/format";
 import { AddressDisplay } from "../address-display";
 import { AmountDisplay } from "../amount-display";
 import { StatusPill } from "../status-pill";
@@ -20,8 +21,6 @@ import { creditSplit, parseUsdc } from "./credits";
  * words in. Every amount is a base-unit string.
  */
 
-const usdc = (e6: string | bigint) =>
-  formatAmount(BigInt(e6), 6, { minFractionDigits: 2, maxFractionDigits: 2 });
 const shares = (e18: string | bigint) =>
   formatAmount(BigInt(e18), 18, { minFractionDigits: 0, maxFractionDigits: 2 });
 const pct = (bps: number) => `${(bps / 100).toFixed(bps % 100 === 0 ? 0 : 2)}%`;

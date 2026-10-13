@@ -12,6 +12,7 @@ import {
   useState,
 } from "react";
 import { cn } from "../../lib/utils";
+import { percentFromBps as pct, usdcCents as usdc } from "../../lib/format";
 import { AmountDisplay } from "../amount-display";
 import { Button } from "../ui/button";
 import {
@@ -96,10 +97,6 @@ export type HundredView = ScoreView<{
 const when = (iso: string) => `${iso.slice(0, 10)} ${iso.slice(11, 16)} UTC`;
 const day = (iso: string) => iso.slice(5, 10);
 const clock = (iso: string) => iso.slice(11, 16);
-const pct = (bps: number, signed = false) =>
-  `${signed && bps > 0 ? "+" : ""}${(bps / 100).toFixed(2)}%`;
-const usdc = (e6: string) =>
-  formatAmount(BigInt(e6), 6, { maxFractionDigits: 2, minFractionDigits: 2 });
 /** 100 times a reading's growth from the first, in whole cents: "$100 at the start is worth" this. */
 function indexCents(perUnitE18: string, firstE18: string): number {
   const first = BigInt(firstE18);

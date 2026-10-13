@@ -1184,8 +1184,6 @@ export const api = {
 
 // --- The goal (P3-U1) ---
 
-export type GoalInputJson = GoalInput;
-
 export interface GoalErrorJson {
   readonly field: string;
   readonly code: string;

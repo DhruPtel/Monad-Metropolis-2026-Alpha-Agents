@@ -7,6 +7,7 @@ const ignored = [
   "**/.next-e2e/**",
   "**/.next-testnet/**",
   "**/.next-beta/**",
+  "**/.next-base/**",
   "**/dependencies/**",
   "Planv1/**",
   "Planv2/**",
@@ -23,7 +24,6 @@ const FORK_TESTS = [
 export default defineConfig({
   test: {
     passWithNoTests: true,
-    coverage: { reportsDirectory: "coverage" },
     projects: [
       {
         test: {

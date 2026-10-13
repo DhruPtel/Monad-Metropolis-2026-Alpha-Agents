@@ -12,6 +12,7 @@ import {
   useState,
 } from "react";
 import { cn } from "../../lib/utils";
+import { percentFromBps as pct } from "../../lib/format";
 import { Button } from "../ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../ui/table";
@@ -36,8 +37,6 @@ const usdc2 = (e6: bigint | string | number) =>
   });
 const signedUsdc = (e6: bigint | string | number) =>
   `${Number(e6) > 0 ? "+" : Number(e6) < 0 ? "-" : ""}${usdc2(Math.abs(Number(e6)))}`;
-const pct = (bps: number, signed = false) =>
-  `${signed && bps > 0 ? "+" : ""}${(bps / 100).toFixed(2)}%`;
 const toneOf = (n: number): TileTone => (n > 0 ? "positive" : n < 0 ? "negative" : "neutral");
 const toneClass: Record<TileTone, string> = {
   neutral: "text-foreground",

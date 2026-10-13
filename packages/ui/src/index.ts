@@ -37,6 +37,7 @@ export * from "./components/ui/tabs";
 export * from "./components/ui/tag";
 export * from "./components/ui/toast";
 export * from "./components/ui/tooltip";
+export * from "./lib/format";
 export * from "./lib/utils";
 export * from "./tokens";
 export * from "./components/agent/my-agent";

@@ -1,12 +1,7 @@
 import { REJECTION_CODES } from "@alpha-agents/domain";
 import { peakOf } from "./breaker.ts";
 import * as custody from "./custody.ts";
-import {
-  CUSTODY_REFERENCE_PRICES,
-  CUSTODY_TOKEN_SPECS,
-  type CustodyToken,
-  valueE6,
-} from "./custody.ts";
+import { CUSTODY_REFERENCE_PRICES, CUSTODY_TOKEN_SPECS, type CustodyToken } from "./custody.ts";
 import * as ex from "./executor-v3.ts";
 
 /**
@@ -968,7 +963,3 @@ export function buildFixture() {
 }
 
 export const fixtureJson = () => `${JSON.stringify(buildFixture(), null, 2)}\n`;
-
-/** The USDC value of a holding, for tests that read the fixture's states. */
-export const holdingValue = (h: ex.HoldingV3, decimals: number) =>
-  valueE6(h.free, h.priceE18, decimals);

@@ -122,8 +122,6 @@ export interface TradesView {
   readonly ledger: Readonly<Record<string, LedgerEntryView>>;
 }
 
-export const USDC_ADDRESS_HINT = "USDC";
-
 export const isTransactionState = (s: string): s is TransactionState =>
   (TRANSACTION_STATES as readonly string[]).includes(s);
 

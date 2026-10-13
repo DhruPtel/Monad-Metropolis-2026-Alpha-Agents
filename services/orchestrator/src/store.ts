@@ -10,8 +10,6 @@ export interface AgentRef {
   readonly agentId: number;
 }
 
-export const refKey = (r: AgentRef): string => `${r.chainId}-${r.agentId}`;
-
 export interface IndexedAgent extends AgentRef {
   readonly species: number;
   readonly tier: number;

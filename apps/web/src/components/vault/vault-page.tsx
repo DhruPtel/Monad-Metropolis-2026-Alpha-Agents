@@ -34,6 +34,7 @@ import {
   StatTileRow,
   TabbedPanel,
   monthReturnBps,
+  percentFromBps as pct,
 } from "@alpha-agents/ui";
 import { ArrowLeft, PlugZap, RotateCcw, Wallet } from "lucide-react";
 import Link from "next/link";
@@ -140,8 +141,6 @@ function panelView(v: VaultJson): VaultPanelView | null {
   };
 }
 
-const pct = (bps: number, signed = false) =>
-  `${signed && bps > 0 ? "+" : ""}${(bps / 100).toFixed(2)}%`;
 const usdc = (e6: string | bigint) => formatAmount(BigInt(e6), 6, { maxFractionDigits: 6 });
 const shares = (e18: bigint) => formatAmount(e18, 18, { maxFractionDigits: 18 }).replace(/,/g, "");
 

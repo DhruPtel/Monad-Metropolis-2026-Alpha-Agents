@@ -48,8 +48,6 @@ const VENUE: Readonly<Record<PoolRow["dex"], number>> = {
   pancakeswap_v3: 2,
   uniswap_v4: 3,
 };
-const LANES = ["none", "core", "screened"] as const;
-const STATUSES = ["none", "listed", "sell_only", "delisted"] as const;
 
 /** Anvil's mnemonic, index 3: the local fork's screener (scripts/lib/fund.js FUND_ROLES). */
 export const LOCAL_SCREENER_INDEX = 3;
@@ -470,6 +468,3 @@ export function poolSeedOf(p: PoolRow): PoolSeed | null {
     pool: p.dex === "uniswap_v4" ? zeroAddress : (p.poolId as Hex),
   };
 }
-
-export const laneName = (lane: number) => LANES[lane] ?? "none";
-export const statusName = (status: number) => STATUSES[status] ?? "none";

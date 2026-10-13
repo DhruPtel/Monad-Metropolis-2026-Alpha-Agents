@@ -73,7 +73,7 @@ export const VARIABLES = [
     name: "APP_ENV",
     group: "Environment",
     description:
-      "Which environment this process runs in: local, testnet or beta; canary only for pnpm canary:mainnet (D-251)",
+      "Which environment this process runs in: local, testnet or beta; base for the Base fork's stack (M-FAST); canary only for pnpm canary:mainnet (D-251)",
     secret: false,
     firstUsedBy: "P0-U3",
     environments: [...ALL, "canary"],
@@ -209,6 +209,30 @@ export const VARIABLES = [
     example: "8545",
     commented: true,
     localDefault: "8545",
+  },
+  {
+    name: "BASE_FORK_PORT",
+    group: "Local Docker services",
+    description:
+      "Port of the Base mainnet fork (pnpm base:fork:up, M-FAST); the base stack's services read the fork there",
+    secret: false,
+    firstUsedBy: "M-FAST",
+    environments: ["base"],
+    ...port,
+    example: "8590",
+    commented: true,
+  },
+  {
+    name: "FORK_ENV",
+    group: "Local Docker services",
+    description:
+      "Which fork the scripts and devenv's fork helpers use: local (the playtest fork) or base (the Base fork); APP_ENV=base implies base (M-FAST)",
+    secret: false,
+    firstUsedBy: "M-FAST",
+    environments: ["local"],
+    ...oneOf(["local", "base"]),
+    example: "local",
+    commented: true,
   },
 
   // Database and queue
@@ -832,6 +856,18 @@ export const VARIABLES = [
 
   // Research data
   {
+    name: "MARKET_CHAIN",
+    group: "Research data",
+    description:
+      "The chain the market tools research: monad or base; when unset, APP_ENV=base means base, else monad (M-FAST)",
+    secret: false,
+    firstUsedBy: "M-FAST",
+    environments: ALL,
+    ...oneOf(["monad", "base"]),
+    example: "monad",
+    commented: true,
+  },
+  {
     name: "TAVILY_API_KEY",
     group: "Research data",
     description: "Tavily API key for web_search and read_url on the data tools server (D-214)",
@@ -928,7 +964,79 @@ export const VARIABLES = [
     example: "your-pinning-api-key",
   },
 
+  // Hosting (HOST-U1: the testnet app's public link)
+  {
+    name: "HOST_GUARD_PORT",
+    group: "Hosting",
+    description:
+      "Port of the guard pnpm host:up runs in front of the control API; the quick tunnel exposes this port only",
+    secret: false,
+    firstUsedBy: "HOST-U1",
+    environments: ["testnet"],
+    ...port,
+    example: "4190",
+    commented: true,
+  },
+  {
+    name: "HOST_WEB_ORIGINS",
+    group: "Hosting",
+    description:
+      "Comma-separated web origins the guard's CORS allows besides localhost:3000; pnpm host:vercel records the Vercel origins on its own",
+    secret: false,
+    firstUsedBy: "HOST-U1",
+    environments: ["testnet"],
+    ...token,
+    example: "https://your-app.vercel.app",
+    commented: true,
+  },
+  {
+    name: "HOST_API_URL",
+    group: "Hosting",
+    description:
+      "The public control API URL pnpm host:vercel builds the web app with; the running tunnel's URL when unset",
+    secret: false,
+    firstUsedBy: "HOST-U1",
+    environments: ["testnet"],
+    ...httpUrl,
+    example: "https://your-tunnel.trycloudflare.com",
+    commented: true,
+  },
+  {
+    name: "HOST_VERCEL_PROJECT",
+    group: "Hosting",
+    description: "The Vercel project pnpm host:vercel deploys to",
+    secret: false,
+    firstUsedBy: "HOST-U1",
+    environments: ["testnet"],
+    ...token,
+    example: "vivarium-testnet",
+    commented: true,
+  },
+  {
+    name: "VERCEL_TOKEN",
+    group: "Hosting",
+    description:
+      "Vercel access token for pnpm host:vercel; when unset the Vercel CLI's own login is used",
+    secret: true,
+    firstUsedBy: "HOST-U1",
+    environments: ["testnet"],
+    ...token,
+    example: "your-vercel-token",
+  },
+
   // Web
+  {
+    name: "WEB_PORT",
+    group: "Web",
+    description:
+      "Port of the web app's server (scripts/web.js); the Base stack sets 3010 to run beside the web app on 3000 (M-FAST)",
+    secret: false,
+    firstUsedBy: "M-FAST",
+    environments: ["local", "testnet"],
+    ...port,
+    example: "3000",
+    commented: true,
+  },
   {
     name: "APP_PUBLIC_URL",
     group: "Web",

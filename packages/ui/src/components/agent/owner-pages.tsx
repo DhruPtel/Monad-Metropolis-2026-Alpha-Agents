@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { type ReactNode, useState } from "react";
 import { cn } from "../../lib/utils";
+import { percentFromBps as pct, usdcCents as usdc2 } from "../../lib/format";
 import { AmountDisplay } from "../amount-display";
 import { StatusPill } from "../status-pill";
 import { Badge } from "../ui/badge";
@@ -36,10 +37,6 @@ import {
  * the portfolio hero, the guided setup flow, a standard loading block and the
  * "coming after the beta" page.
  */
-const usdc2 = (e6: bigint | string) =>
-  formatAmount(BigInt(e6), 6, { maxFractionDigits: 2, minFractionDigits: 2 });
-const pct = (bps: number, signed = false) =>
-  `${signed && bps > 0 ? "+" : ""}${(bps / 100).toFixed(2)}%`;
 
 /** The trading account as the card's centerpiece: value, allocation, a small performance line, the state, one primary action. */
 export interface TradingTileView {

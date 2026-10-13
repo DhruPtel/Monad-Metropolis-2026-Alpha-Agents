@@ -25,9 +25,6 @@ export const DECIMALS: Readonly<Record<Asset, number>> = { USDC: 6, WMON: 18 };
  */
 export const LOW_GAS_WEI = 100_000_000_000_000_000n;
 
-/** A price older than this reads as stale here; the oracle's own reason is the real rule. */
-export const PRICE_FRESH_SECONDS = 300;
-
 export interface Positions {
   readonly usdc: bigint;
   readonly wmon: bigint;

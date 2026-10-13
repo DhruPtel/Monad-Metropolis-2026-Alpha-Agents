@@ -215,7 +215,6 @@ export function testEnvelope(current: RebalanceBandsParams | null, t: TestInputs
     currentPlanFindings: current ? checkProposal(current, { ...t, lastAgentChangeAt: null }) : [],
   };
 }
-export type TestEnvelope = ReturnType<typeof testEnvelope>;
 
 /** A proposal's parameters as the Zoom out writes them (USDC as a decimal), in the template's units. */
 export function proposalParams(p: {
@@ -569,4 +568,3 @@ export function portfolioEnvelope(
     currentPositions: current?.positions.length ?? 0,
   };
 }
-export type PortfolioEnvelope = ReturnType<typeof portfolioEnvelope>;

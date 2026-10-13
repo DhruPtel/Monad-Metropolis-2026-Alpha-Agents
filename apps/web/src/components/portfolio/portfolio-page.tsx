@@ -9,6 +9,8 @@ import {
 } from "@alpha-agents/domain";
 import {
   ActivationChecks,
+  percentFromBps as pct,
+  usdcCents as usdc2,
   ActivationPanel,
   AmountDisplay,
   ApprovalCard,
@@ -118,11 +120,6 @@ import { AgentHoldings } from "@/components/holdings/agent-holdings";
 
 const toUnits = (raw: string, asset: Asset) =>
   formatAmount(BigInt(raw), DECIMALS[asset], { maxFractionDigits: DECIMALS[asset] });
-const usdc2 = (e6: bigint | string) =>
-  formatAmount(BigInt(e6), 6, { maxFractionDigits: 2, minFractionDigits: 2 });
-/** UX-U1: the top tiles' percent, signed on request. */
-const pct = (bps: number, signed = false) =>
-  `${signed && bps > 0 ? "+" : ""}${(bps / 100).toFixed(2)}%`;
 
 function StatusFor({
   status,

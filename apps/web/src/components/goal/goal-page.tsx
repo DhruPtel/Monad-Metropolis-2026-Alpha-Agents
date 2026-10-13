@@ -6,7 +6,6 @@ import {
   PLAN_CHANGE_MODES,
   RESEARCH_INTENSITIES,
   RESEARCH_INTENSITY_FACTS,
-  formatAmount,
 } from "@alpha-agents/domain";
 import {
   Button,
@@ -35,6 +34,7 @@ import {
   WalletActionStatus,
   bpsText,
   parseUsdc,
+  usdcCents as usdc,
 } from "@alpha-agents/ui";
 import type { EnvironmentId } from "@alpha-agents/config";
 import { ArrowLeft, PlugZap, ShieldOff, Wallet } from "lucide-react";
@@ -54,9 +54,6 @@ import { useGoal } from "@/agent/use-goal";
  * update as the owner edits, from the same translator the save uses; saving
  * moves the agent from Not configured to Ready and says so.
  */
-
-const usdc = (e6: string | bigint) =>
-  formatAmount(BigInt(e6), 6, { minFractionDigits: 2, maxFractionDigits: 2 });
 
 const PLAN_CHANGE_TEXT = {
   ASK_FIRST: {

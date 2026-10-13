@@ -2,7 +2,6 @@ import type { Db } from "@alpha-agents/db";
 import { type ChainReaderV3, tokenInfo } from "@alpha-agents/chain-tools";
 import type { CreditService } from "./credits/service.ts";
 import type { GoalStore, PlanStore } from "@alpha-agents/trading";
-import type { CycleKind } from "./cycle/stages.ts";
 import { stageCeilingUsdcE6, stageMayStart, utcDayStart } from "./cycle/stages.ts";
 import type { CycleStore } from "./cycle/store.ts";
 import type { TokenRegistry } from "./tokens/registry.ts";
@@ -190,6 +189,3 @@ export async function observe(
     rechecks,
   };
 }
-
-/** Which cycle kind the scheduler's first stage runs, for the budget line on the Research page. */
-export const firstStageOf = (kind: CycleKind) => (kind === "REVIEW" ? "ZOOM_OUT" : "SCAN");

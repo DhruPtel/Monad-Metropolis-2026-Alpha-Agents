@@ -2,7 +2,7 @@ import { type Db, sql } from "@alpha-agents/db";
 import { type ChainReaderV3, tokenInfo } from "@alpha-agents/chain-tools";
 import type { AgentState } from "@alpha-agents/domain";
 import type { GoalStore, PlanStore, TradeStore } from "@alpha-agents/trading";
-import { type Hex, isAddressEqual } from "viem";
+import type { Hex } from "viem";
 import type { CreditService } from "./credits/service.ts";
 import type { TokenRegistry } from "./tokens/registry.ts";
 import {
@@ -214,6 +214,3 @@ export async function observe(
     agentState,
   };
 }
-
-/** Whether the token is USDC, for callers that filter holdings. */
-export const isUsdc = (token: Hex, usdc: Hex) => isAddressEqual(token, usdc);
