@@ -12,22 +12,69 @@ Built on Monad, with a Solana version to follow.
 
 Status: unaudited beta. Mainnet access is limited to allowlisted testers with capped funds. Do not deposit funds you cannot afford to lose.
 
-## Repository layout
+The web app is shown to users as **Vivarium**; the code, packages and contracts keep the working name Alpha Agents.
 
-| Folder             | Purpose                                                                                                                                           |
-| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `apps/web`         | Web frontend                                                                                                                                      |
-| `apps/control-api` | Control API and auth                                                                                                                              |
-| `services/`        | Backend services: orchestrator, tool servers, runners, sentinel, signer, indexer                                                                  |
-| `packages/`        | Shared TypeScript packages: domain, policy, skills, workflows, accounting                                                                         |
-| `chains/monad`     | Monad contracts, deployment scripts and chain adapter                                                                                             |
-| `chains/solana`    | Solana version, built after the Monad chain layer                                                                                                 |
-| `infra/`           | Local environment, environment templates and deployment config                                                                                    |
-| `evidence/`        | Evidence bundle: addresses, transaction links, build hashes, test receipts                                                                        |
-| `docs/adr/`        | Architecture decision records                                                                                                                     |
-| `Planv2/`          | The plan: `FINAL_PLAN.md`, `BUILD_PLAN.md`, `DECISIONS_AND_OPEN_QUESTIONS.md`; prompts of units before P0-U4 in `units/` (later units: `LOGS.md`) |
+## Architecture
 
-Build progress is recorded in `LOGS.md` and bugs fixed in `LESSONS.md`.
+```text
+ browser (apps/web, Next.js)          operator (apps/console, Next.js)
+        |  owner session (Privy)               |
+        v                                      v
+ control API (apps/control-api, :4100) ---> orchestrator (services/orchestrator, :4200)
+   owner and public routes, mint claims,      research cycles in E2B sandboxes, the
+   reads the chain through a retrying relay    model gateway (LiteLLM, :4000), the trade
+        |                                      flow and signer, the reveal keeper, the
+        |                                      sentinel, the tool servers (services/*-tools)
+        v                                      |
+ Postgres (:5432) and Redis (:6380)  <---------+
+        ^
+        |  indexer (services/indexer): AgentNFT events and USDC transfers
+        |
+ chain: a Monad mainnet fork (local), Monad testnet, a Base mainnet fork (base)
+   our contracts in chains/monad: AgentNFT, the custody accounts and factories,
+   Executor v3 with its registry and oracle adapter, the fund set
+```
+
+- The web app talks only to the control API. The control API checks the owner's session and reads ownership and balances from the chain before any owner action; it asks the orchestrator for research, activation and the agent's account views.
+- The orchestrator runs every agent's research, turns a plan into trade intents, and sends them through the signer to Executor v3, which enforces the hard limits on chain. The policy package mirrors those limits offchain for early refusals; the contract stays the authority.
+- Every rule shared by more than one service lives in `packages/` (config, domain, policy, trading, market, skills, ui and the rest).
+
+## Where things live
+
+| Folder                  | What is in it                                                                                                                     |
+| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `apps/web`              | The owner app: mint, reveal, configure, My Agents, goal, portfolio, research and reports, vaults, skills, settings, and `/design` |
+| `apps/console`          | The operator console (local only): agents, fork controls, trades, cycles, tokens, the address book                                |
+| `apps/control-api`      | The public and owner HTTP API, sessions and mint claims                                                                           |
+| `services/`             | The orchestrator, the indexer and the tool servers (chain-tools, data-tools, platform-tools)                                      |
+| `packages/`             | Shared TypeScript: config, db, devenv, domain, policy, trading, market, signer, skills, tool-server, ui, accounting, workflows    |
+| `chains/monad`          | Solidity contracts, forge tests and deploy scripts (the Base fork's profile is in its `foundry.toml`)                             |
+| `chains/base`           | The Base fork's pinned block                                                                                                      |
+| `scripts/`              | Stack, deploy, verification, canary, asset and check scripts; shared code in `scripts/lib`                                        |
+| `infra/`                | Docker Compose for Postgres, Redis and LiteLLM, the gateway's config and the E2B sandbox image                                    |
+| `evidence/`             | Each unit's records and handoff: deployments, transaction links, run records                                                      |
+| `Planv2/`               | The plan: `FINAL_PLAN.md`, `BUILD_PLAN.md`, `DECISIONS_AND_OPEN_QUESTIONS.md`                                                     |
+| `LOGS.md`, `LESSONS.md` | The build log, one entry per unit, and every bug fixed with its lesson                                                            |
+
+Each package and service has its own short README.
+
+## Running the stacks
+
+Four stacks exist. Each has its own database and Redis database, so they never share state; the local and testnet stacks share ports, so only one of them runs at a time. Run `pnpm run doctor` first.
+
+| Stack      | Chain                                   | Start                                                      | Stop                                    | Web, API, orchestrator            |
+| ---------- | --------------------------------------- | ---------------------------------------------------------- | --------------------------------------- | --------------------------------- |
+| Local fork | Monad mainnet fork, chain 143143, 8545  | `pnpm dev:all`                                             | `pnpm dev:down`                         | 3000, 4100, 4200 (+ console 3001) |
+| Testnet    | Monad testnet, chain 10143              | `pnpm dev:litellm`, then `pnpm testnet:up`                 | `pnpm testnet:down`                     | 3000, 4100, 4200                  |
+| Hosted     | the testnet stack, public               | `pnpm testnet:up`, `pnpm host:up`, then `pnpm host:vercel` | `pnpm host:down`                        | Vercel, tunnel to 4190            |
+| Base fork  | Base mainnet fork, chain 84538453, 8590 | `pnpm base:fork:up`, `pnpm base:deploy`, `pnpm base:up`    | `pnpm base:down`, `pnpm base:fork:down` | 3010, 4110, 4210                  |
+
+- **Local fork.** `pnpm dev:all` starts Postgres, Redis, LiteLLM, the anvil fork and every service in one terminal (details under "Local environment" below). Deploy our contracts on a fresh fork with the `deploy:*` commands. `pnpm testnet:to-local` stops the testnet stack and starts this one.
+- **Testnet.** `pnpm testnet:up` runs the indexer, control API, orchestrator and web app against Monad testnet with the database `alpha_agents_testnet` and Redis database 1, fills the mint allowlist and checks the operator wallets' gas. It runs in the foreground; start it detached (`setsid nohup pnpm testnet:up > .dev/testnet-up.out 2>&1 &`) to keep it running. The testnet contracts are already deployed (`pnpm deploy:testnet:v3`, verified with `pnpm verify:testnet:v3`).
+- **Hosted.** The testnet stack made public: `pnpm host:up` starts a guard on 127.0.0.1:4190 that forwards only `/health` and `/v1/*` to the control API, a Cloudflare quick tunnel to the guard, and the depositor registrar; `pnpm host:status` shows the tunnel's URL. A quick tunnel gets a new URL at every start, so run `pnpm host:vercel` after every `pnpm host:up`: it builds the web app with that URL and deploys it to Vercel. Add the Vercel origin to Privy's allowed origins once.
+- **Base fork.** `pnpm base:fork:up` forks Base mainnet on 8590, `pnpm base:deploy` deploys the trading set there (recorded in `evidence/m-fast/base-deployment.json`), `pnpm base:up` runs the stack with `APP_ENV=base`, and `pnpm base:demo` funds, mints and arms a demo agent. `WEB_PORT=3000 pnpm base:up` puts its web app on 3000 when nothing else holds it.
+
+The Playwright suites build and serve their own copy of the web app (port 3100, `.next-e2e`), so they can run beside any stack: `pnpm test:web:e2e` and `pnpm test:console:e2e`, with `--update` to retake the screenshots.
 
 ## Development
 
@@ -89,13 +136,15 @@ The fork starts at the block in `chains/monad/fork.json`, so every run sees the 
 
 ## Environments and configuration
 
-Every service runs in one of three environments, chosen by `APP_ENV` (default `local`):
+Every service runs in one environment, chosen by `APP_ENV` (default `local`):
 
-| `APP_ENV` | Label          | Chain                        | Chain RPC                      |
-| --------- | -------------- | ---------------------------- | ------------------------------ |
-| `local`   | `fork`         | anvil fork of 143, as 143143 | `http://127.0.0.1:8545`, fixed |
-| `testnet` | `testnet`      | Monad testnet, 10143         | `MONAD_TESTNET_RPC_URL`        |
-| `beta`    | `mainnet-beta` | Monad mainnet, 143           | `MONAD_RPC_URL`                |
+| `APP_ENV` | Chain                                | Chain RPC                      |
+| --------- | ------------------------------------ | ------------------------------ |
+| `local`   | anvil fork of Monad 143, as 143143   | `http://127.0.0.1:8545`, fixed |
+| `base`    | anvil fork of Base 8453, as 84538453 | `http://127.0.0.1:8590`        |
+| `testnet` | Monad testnet, 10143                 | `MONAD_TESTNET_RPC_URL`        |
+| `beta`    | Monad mainnet, 143                   | `MONAD_RPC_URL`                |
+| `canary`  | Monad mainnet, 143 (the canary only) | `MONAD_RPC_URL`                |
 
 The local fork copies Monad mainnet's state at the pinned block and runs Monad's EVM (`--network monad`, hardfork MonadTen), but answers its own chain ID, **143143**, so no wallet can mistake Monad mainnet for it (D-195, L-53). `chains/monad/fork.json`'s `chainId` is the chain it copies, 143.
 
