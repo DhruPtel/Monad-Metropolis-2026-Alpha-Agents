@@ -1,6 +1,12 @@
 "use client";
 
-import { AGGRESSIVENESS_ENVELOPES, type GoalAllocation } from "@alpha-agents/domain";
+import {
+  AGGRESSIVENESS_ENVELOPES,
+  type GoalAllocation,
+  OWNER_LIMIT_FACTS,
+  OWNER_LIMIT_FIELDS,
+  type OwnerLimitField,
+} from "@alpha-agents/domain";
 import {
   AllocationSliders,
   Button,
@@ -9,16 +15,22 @@ import {
   CardHeader,
   CardTitle,
   ChoiceGroup,
+  CollapsibleCard,
   EmptyState,
-  ExpandableLine,
   GoalPreviewCard,
   GoalSaveStatus,
   LimitField,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
   Skeleton,
   Slider,
   StyleTiles,
   Tag,
   WalletActionStatus,
+  limitText,
 } from "@alpha-agents/ui";
 import type { EnvironmentId } from "@alpha-agents/config";
 import { PlugZap, ShieldOff, Wallet } from "lucide-react";
@@ -26,7 +38,13 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { type ReactNode, useEffect, useState } from "react";
 import { useWalletSession } from "@/auth/session";
-import { type AllocationKey, goalChanged, rebalanceAllocation, withStyle } from "@/agent/goal";
+import {
+  type AllocationKey,
+  goalChanged,
+  limitValue,
+  rebalanceAllocation,
+  withStyle,
+} from "@/agent/goal";
 import { useAccountTx } from "@/agent/use-account-tx";
 import { useGoal } from "@/agent/use-goal";
 
@@ -50,6 +68,15 @@ const ALLOCATION_ROWS: readonly { key: AllocationKey; label: string; line: strin
   { key: "degenBps", label: "Degen", line: "Tokens under $100M market cap." },
   { key: "growthBps", label: "Growth", line: "Tokens from $100M to $1B." },
   { key: "conservativeBps", label: "Conservative", line: "Top assets." },
+];
+
+/** Every limit an owner may tighten, in the order the page lists them; there is no minimum trade size. */
+const LIMIT_ORDER: readonly OwnerLimitField[] = [
+  "maxTradesPer24h",
+  "maxTradeBps",
+  "maxPositionBps",
+  "maxSlippageBps",
+  "minUsdcShareBps",
 ];
 
 const PLAN_CHANGE_WORDS = {
@@ -96,6 +123,7 @@ export function GoalPage({
   // F-U12: the screened-lane opt-in recorded on the agent's account from the owner's wallet.
   const tx = useAccountTx(environment);
   const [recorded, setRecorded] = useState<boolean | null>(null);
+  const [pick, setPick] = useState("");
 
   // Back to where the owner came from once the goal is saved.
   const saved = g.status?.state === "saved";
@@ -192,25 +220,16 @@ export function GoalPage({
         if (p?.state === "confirmed") setRecorded(wanted);
       });
   };
-  const limitField = (field: "maxTradesPer24h" | "maxTradeBps") => {
-    const l = page.form.limits.find((x) => x.field === field);
-    if (!l) return null;
-    const error = errors[`stricterLimits.${field}`];
-    return (
-      <LimitField
-        key={field}
-        field={field}
-        hard={l.hard}
-        valueText={form.limits[field]}
-        onChange={(text) => set((f) => ({ ...f, limits: { ...f.limits, [field]: text } }))}
-        disabled={busy}
-        {...(error ? { error } : {})}
-      />
-    );
-  };
-  const stricter = [form.limits.maxTradesPer24h, form.limits.maxTradeBps].filter(
-    (t) => t.trim() !== "",
-  ).length;
+  const stricter =
+    OWNER_LIMIT_FIELDS.filter((f) => form.limits[f].trim() !== "").length +
+    (form.excludedTokens.length > 0 ? 1 : 0);
+  const tokens = page.form.tokens;
+  const symbolOf = (address: string) =>
+    tokens.find((t) => t.address.toLowerCase() === address.toLowerCase())?.symbol ??
+    `${address.slice(0, 6)}..${address.slice(-4)}`;
+  const available = tokens.filter(
+    (t) => !form.excludedTokens.includes(t.address.toLowerCase()) && t.symbol !== "USDC",
+  );
 
   return (
     <div className="flex flex-col gap-6" data-testid="goal-page">
@@ -230,7 +249,11 @@ export function GoalPage({
             />
           </Block>
 
-          <Block title="Allocation" testId="goal-allocation">
+          <CollapsibleCard
+            title="Allocation"
+            value={split(form.allocation)}
+            testId="goal-allocation"
+          >
             <AllocationSliders
               disabled={busy}
               rows={ALLOCATION_ROWS.map((r) => ({ ...r, bps: form.allocation[r.key] }))}
@@ -244,86 +267,71 @@ export function GoalPage({
             {errors.allocation ? (
               <p className="text-sm text-negative">{errors.allocation}</p>
             ) : null}
-          </Block>
+          </CollapsibleCard>
 
-          <Block title="Positions" testId="goal-positions">
-            <ExpandableLine
-              summary={
-                <span data-testid="goal-positions-line">
-                  Up to {form.maxPositions} positions. The agent decides each one&apos;s weight.
-                </span>
-              }
-            >
-              <div className="flex flex-col gap-2">
-                <Slider
-                  thumbLabel="Most positions"
-                  min={1}
-                  max={styleMax}
-                  step={1}
-                  value={[form.maxPositions]}
-                  disabled={busy}
-                  onValueChange={(v) =>
-                    set((f) => ({ ...f, maxPositions: v[0] ?? f.maxPositions }))
-                  }
-                />
-                <span className="text-xs text-foreground-muted">
-                  1 to {styleMax} for this style.
-                </span>
-              </div>
-            </ExpandableLine>
-          </Block>
-
-          <ExpandableLine
-            summary={
-              <span data-testid="goal-safety-line">
-                Safety: screened tokens {form.screenedOptIn ? "on" : "off"}
-              </span>
-            }
+          <CollapsibleCard
+            title="Positions"
+            value={`Up to ${form.maxPositions}`}
+            testId="goal-positions"
           >
-            <div className="flex flex-col gap-3" data-testid="goal-safety">
-              <ChoiceGroup
-                legend="Screened tokens"
-                hint="Tokens that passed the platform's safety screen, beside the core list. Holding them also needs your onchain opt-in."
-                value={form.screenedOptIn ? "ON" : "OFF"}
-                onValueChange={(v) => set((f) => ({ ...f, screenedOptIn: v === "ON" }))}
-                columns={2}
-                disabled={busy}
-                options={[
-                  { value: "OFF", title: "Off", description: "Core list only." },
-                  { value: "ON", title: "On", description: "Screened tokens too." },
-                ]}
-              />
-              <div className="flex flex-wrap items-center gap-2 text-sm" data-testid="goal-onchain">
-                <span className="text-foreground-muted">On chain</span>
-                {chain?.account ? (
-                  <Tag tone={onChain ? "accent" : "neutral"}>
-                    {onChain ? "opted in" : "not opted in"}
-                  </Tag>
-                ) : (
-                  <Tag>no account yet</Tag>
-                )}
-                {chain?.account && onChain !== wanted ? (
-                  <Button size="sm" variant="secondary" disabled={tx.busy} onClick={recordOnChain}>
-                    {wanted ? "Record the opt-in" : "Record the opt-out"}
-                  </Button>
-                ) : null}
-              </div>
-              {tx.progress && tx.text ? (
-                <WalletActionStatus
-                  state={tx.progress.state}
-                  text={tx.text}
-                  hash={tx.progress.hash ?? null}
-                />
+            <p className="text-sm">The agent decides each one&apos;s weight within your limits.</p>
+            <Slider
+              thumbLabel="Most positions"
+              min={1}
+              max={styleMax}
+              step={1}
+              value={[form.maxPositions]}
+              disabled={busy}
+              onValueChange={(v) => set((f) => ({ ...f, maxPositions: v[0] ?? f.maxPositions }))}
+            />
+            <span className="text-sm">1 to {styleMax} for this style.</span>
+          </CollapsibleCard>
+
+          <CollapsibleCard
+            title="Safety"
+            value={form.screenedOptIn ? "Screened tokens on" : "Core list only"}
+            testId="goal-safety"
+          >
+            <ChoiceGroup
+              legend="Screened tokens"
+              hint="Tokens that passed the platform's safety screen, beside the core list. Holding them also needs your onchain opt-in."
+              value={form.screenedOptIn ? "ON" : "OFF"}
+              onValueChange={(v) => set((f) => ({ ...f, screenedOptIn: v === "ON" }))}
+              columns={2}
+              disabled={busy}
+              options={[
+                { value: "OFF", title: "Off", description: "Core list only." },
+                { value: "ON", title: "On", description: "Screened tokens too." },
+              ]}
+            />
+            <div className="flex flex-wrap items-center gap-2 text-sm" data-testid="goal-onchain">
+              <span>On chain</span>
+              {chain?.account ? (
+                <Tag tone={onChain ? "accent" : "neutral"}>
+                  {onChain ? "opted in" : "not opted in"}
+                </Tag>
+              ) : (
+                <Tag>no account yet</Tag>
+              )}
+              {chain?.account && onChain !== wanted ? (
+                <Button size="sm" variant="secondary" disabled={tx.busy} onClick={recordOnChain}>
+                  {wanted ? "Record the opt-in" : "Record the opt-out"}
+                </Button>
               ) : null}
             </div>
-          </ExpandableLine>
+            {tx.progress && tx.text ? (
+              <WalletActionStatus
+                state={tx.progress.state}
+                text={tx.text}
+                hash={tx.progress.hash ?? null}
+              />
+            ) : null}
+          </CollapsibleCard>
 
-          <ExpandableLine
-            summary={
-              <span data-testid="goal-plan-changes-line">
-                Plan changes: {PLAN_CHANGE_WORDS[form.planChanges]}
-              </span>
-            }
+          <CollapsibleCard
+            title="Plan changes"
+            value={PLAN_CHANGE_WORDS[form.planChanges]}
+            testId="goal-plan-changes"
           >
             <ChoiceGroup
               legend="Plan changes"
@@ -341,20 +349,113 @@ export function GoalPage({
                 },
               ]}
             />
-          </ExpandableLine>
+          </CollapsibleCard>
 
-          <ExpandableLine
-            summary={
-              <span data-testid="goal-limits-line">
-                Stricter limits (optional): {stricter === 0 ? "none" : `${stricter} set`}
-              </span>
-            }
+          <CollapsibleCard
+            title="Stricter limits (optional)"
+            value={stricter === 0 ? "None" : `${stricter} set`}
+            testId="goal-limits"
           >
-            <div className="grid gap-4 sm:grid-cols-2" data-testid="goal-limits">
-              {limitField("maxTradesPer24h")}
-              {limitField("maxTradeBps")}
-            </div>
-          </ExpandableLine>
+            {LIMIT_ORDER.map((field) => {
+              const l = page.form.limits.find((x) => x.field === field);
+              if (!l) return null;
+              const error = errors[`stricterLimits.${field}`];
+              const own = limitValue(field, form.limits[field]);
+              return (
+                <CollapsibleCard
+                  key={field}
+                  title={OWNER_LIMIT_FACTS[field].label}
+                  value={
+                    own === null || own === undefined
+                      ? `Platform limit, ${limitText(field, l.hard)}`
+                      : limitText(field, own)
+                  }
+                  testId={`goal-limit-${field}`}
+                >
+                  <LimitField
+                    field={field}
+                    hard={l.hard}
+                    valueText={form.limits[field]}
+                    onChange={(text) =>
+                      set((f) => ({ ...f, limits: { ...f.limits, [field]: text } }))
+                    }
+                    disabled={busy}
+                    {...(error ? { error } : {})}
+                  />
+                </CollapsibleCard>
+              );
+            })}
+            <CollapsibleCard
+              title="Excluded tokens"
+              value={
+                form.excludedTokens.length === 0
+                  ? "None"
+                  : form.excludedTokens.map(symbolOf).join(", ")
+              }
+              testId="goal-excluded"
+            >
+              {available.length > 0 ? (
+                <div className="flex flex-wrap items-center gap-2">
+                  <Select value={pick} onValueChange={setPick}>
+                    <SelectTrigger aria-label="Token to exclude" className="w-56">
+                      <SelectValue placeholder="Choose a token" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {available.map((t) => (
+                        <SelectItem key={t.address} value={t.address.toLowerCase()}>
+                          {t.symbol}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    disabled={
+                      busy ||
+                      pick === "" ||
+                      form.excludedTokens.length >= page.form.maxExcludedTokens
+                    }
+                    onClick={() => {
+                      set((f) => ({ ...f, excludedTokens: [...f.excludedTokens, pick] }));
+                      setPick("");
+                    }}
+                  >
+                    Exclude
+                  </Button>
+                </div>
+              ) : (
+                <p className="text-sm">
+                  {page.form.tokens.length === 0
+                    ? "No registered tokens to exclude yet."
+                    : "Every registered token is excluded."}
+                </p>
+              )}
+              {form.excludedTokens.length > 0 ? (
+                <ul className="flex flex-wrap gap-2" aria-label="Excluded tokens">
+                  {form.excludedTokens.map((address) => (
+                    <li key={address} className="flex items-center gap-1">
+                      <Tag tone="warning">{symbolOf(address)}</Tag>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        disabled={busy}
+                        aria-label={`Allow ${symbolOf(address)} again`}
+                        onClick={() =>
+                          set((f) => ({
+                            ...f,
+                            excludedTokens: f.excludedTokens.filter((t) => t !== address),
+                          }))
+                        }
+                      >
+                        Remove
+                      </Button>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+            </CollapsibleCard>
+          </CollapsibleCard>
         </div>
 
         <aside className="flex flex-col gap-3 lg:sticky lg:top-4 lg:self-start">

@@ -200,6 +200,7 @@ import {
   Input,
   SectionLabel,
   StepList,
+  CollapsibleCard,
   Select,
   SelectContent,
   SelectItem,
@@ -1541,6 +1542,22 @@ function OverlaysSection() {
           </div>
           <Skeleton className="h-20 w-full" />
         </Card>
+      </Specimen>
+      <Specimen
+        name="Collapsible card"
+        note="A card that folds to its title row, with the same surface, border, padding and full-size title as Card; closed, it shows the current value. Rows can nest inside it."
+      >
+        <CollapsibleCard title="Positions" value="Up to 8">
+          <p className="text-sm">The agent decides each one&apos;s weight within your limits.</p>
+        </CollapsibleCard>
+        <CollapsibleCard title="Stricter limits (optional)" value="1 set" defaultOpen>
+          <CollapsibleCard title="Most trades a day" value="6 trades">
+            <p className="text-sm">Fewer than the platform's 20.</p>
+          </CollapsibleCard>
+          <CollapsibleCard title="Excluded tokens" value="None">
+            <p className="text-sm">No token is excluded.</p>
+          </CollapsibleCard>
+        </CollapsibleCard>
       </Specimen>
       <Specimen
         name="Step list"
