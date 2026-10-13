@@ -193,6 +193,7 @@ import {
   Field,
   Input,
   SectionLabel,
+  StepList,
   Select,
   SelectContent,
   SelectItem,
@@ -1534,6 +1535,50 @@ function OverlaysSection() {
           </div>
           <Skeleton className="h-20 w-full" />
         </Card>
+      </Specimen>
+      <Specimen
+        name="Step list"
+        note="An owner's actions in the order they must happen: numbered, each done, current or blocked, with one plain line for why a blocked step cannot start yet and the current step's button."
+      >
+        <StepList
+          label="Vault setup"
+          steps={[
+            {
+              key: "stake",
+              label: "Stake at least 1 USDC",
+              state: "done",
+              detail: "Your stake: 2.00 USDC.",
+            },
+            {
+              key: "open",
+              label: "Open deposits",
+              state: "current",
+              detail: "Other people can deposit once this is on.",
+              action: (
+                <Button size="sm" variant="secondary">
+                  Open deposits
+                </Button>
+              ),
+            },
+          ]}
+        />
+        <StepList
+          label="Vault setup, not staked"
+          steps={[
+            {
+              key: "stake",
+              label: "Stake at least 1 USDC",
+              state: "current",
+              action: <Button size="sm">Stake</Button>,
+            },
+            {
+              key: "open",
+              label: "Open deposits",
+              state: "blocked",
+              detail: "Stake first: deposits open only once your stake is at least 1 USDC.",
+            },
+          ]}
+        />
       </Specimen>
       <Specimen name="Empty state">
         <EmptyState

@@ -18,7 +18,6 @@ import {
   EmptyState,
   ScoreTile,
   Skeleton,
-  Tag,
   VaultCreateCard,
   VaultDepositForm,
   VaultPanel,
@@ -32,6 +31,7 @@ import {
   BalancesTable,
   PositionsTable,
   StatTileRow,
+  StepList,
   TabbedPanel,
   monthReturnBps,
   percentFromBps as pct,
@@ -45,6 +45,7 @@ import { type VaultAction, type VaultActionStatus, useVault } from "@/agent/use-
 import {
   VAULT_DEPOSIT_BLOCK_MESSAGES,
   depositRoom,
+  leaderSetup,
   lockUntil,
   previewInKind,
   previewShares,
@@ -261,6 +262,7 @@ export function VaultPage({
 
   const s = v.state;
   const block = vaultDepositBlock(v);
+  const setup = leaderSetup(v);
   const blockText = block ? VAULT_DEPOSIT_BLOCK_MESSAGES[block] : null;
   const room = depositRoom(v);
   const amount = parseUsdcText(amountText);
@@ -463,23 +465,61 @@ export function VaultPage({
               </CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col gap-3">
-              <p className="text-sm">
-                Deposits are{" "}
-                <Tag tone={s.depositsOpen ? "accent" : "neutral"} size="md">
-                  {s.depositsOpen ? "open" : "not open"}
-                </Tag>
-              </p>
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  disabled={vt.busy || s.inHandover || s.windDownAt !== 0}
-                  onClick={() => vt.setDepositsOpen(!s.depositsOpen)}
-                  data-testid="vault-toggle-deposits"
-                >
-                  {s.depositsOpen ? "Close deposits" : "Open deposits"}
-                </Button>
-              </div>
+              <StepList
+                label="Vault setup"
+                steps={[
+                  {
+                    key: "stake",
+                    label: "Stake at least 1 USDC",
+                    state: setup.staked ? "done" : "current",
+                    detail: setup.staked
+                      ? `Your stake is ${pct(s.leaderStakeBps)} of the vault.`
+                      : `Your deposits are the stake: at least 1 USDC, and at least ${pct(s.constants.leaderMinBps)} of the vault.`,
+                    action: (
+                      <Button
+                        size="sm"
+                        onClick={() => setDepositOpen(true)}
+                        disabled={vt.busy}
+                        data-testid="vault-leader-stake"
+                      >
+                        Stake
+                      </Button>
+                    ),
+                  },
+                  {
+                    key: "open",
+                    label: "Open deposits",
+                    state: s.depositsOpen ? "done" : setup.openBlock ? "blocked" : "current",
+                    detail: s.depositsOpen
+                      ? "Deposits are open: others can deposit."
+                      : (setup.openBlock ?? "Others can deposit once deposits are open."),
+                    action: (
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        disabled={vt.busy}
+                        onClick={() => vt.setDepositsOpen(true)}
+                        data-testid="vault-toggle-deposits"
+                      >
+                        Open deposits
+                      </Button>
+                    ),
+                  },
+                ]}
+              />
+              {s.depositsOpen ? (
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    disabled={vt.busy}
+                    onClick={() => vt.setDepositsOpen(false)}
+                    data-testid="vault-toggle-deposits"
+                  >
+                    Close deposits
+                  </Button>
+                </div>
+              ) : null}
               <StatusFor status={vt.status} actions={["deposits-open"]} />
             </CardContent>
           </Card>

@@ -147,7 +147,7 @@ export const CUSTODY_REVERT_MESSAGES: Readonly<Record<string, string>> = {
   DepositsNotOpen: "The leader has not opened deposits yet.",
   SharesTooFew: "The vault's value moved while you were depositing; try again.",
   LeaderStakeTooLow:
-    "The leader's stake would fall below 5% of the vault; the vault can take less from you now.",
+    "The leader's stake must stay at least 5% of the vault. If you lead this vault, stake first; otherwise the vault can take less from you now.",
   SeedTooSmall: "Stake at least 1 USDC before opening deposits.",
   OutsideBand:
     "The vault's share price moved outside its reference band; deposits and USDC exits wait until it settles. Redeeming in kind still works.",

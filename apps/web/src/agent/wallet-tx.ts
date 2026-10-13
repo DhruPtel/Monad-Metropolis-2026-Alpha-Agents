@@ -29,6 +29,12 @@ export interface WalletTxDeps<C> {
   readonly waitForReceipt: (hash: Hex) => Promise<"success" | "reverted">;
   /** USDC's address, so a stale-feed refusal names USDC/USD rather than MON/USD (L-145). */
   readonly usdc?: Address | undefined;
+  /**
+   * Runs the call as an eth_call from the wallet's address just before it is
+   * sent, and throws the contract's revert; a step that would revert stops
+   * with its reason and the wallet never opens.
+   */
+  readonly simulate?: ((call: C) => Promise<void>) | undefined;
 }
 
 export type WalletTxState =
@@ -81,6 +87,17 @@ export async function runWalletSteps<C>(
   let hash: Hex | undefined;
   for (const [i, s] of steps.entries()) {
     const where = { step: i + 1, steps: steps.length, label: s.label };
+    if (deps.simulate) {
+      try {
+        await deps.simulate(s.call);
+      } catch (error) {
+        return finish({
+          state: "failed",
+          ...where,
+          message: sendFailure(error, s.label, deps.usdc),
+        });
+      }
+    }
     report({ state: "waiting-wallet", ...where });
     try {
       hash = await deps.send(s.call);

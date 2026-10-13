@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { VaultJson } from "@/api/client";
 import {
   depositRoom,
+  leaderSetup,
   minAssetsOut,
   minSharesOut,
   previewInKind,
@@ -246,5 +247,38 @@ describe("what blocks a withdrawal", () => {
     expect(vaultWithdrawBlock(vault({ viewer: null }), NOW)).toBe(
       "Connect your wallet to withdraw.",
     );
+  });
+});
+
+describe("leader setup: stake, then open deposits", () => {
+  it("blocks opening with a plain reason until the leader has staked", () => {
+    const none = leaderSetup(
+      vault({ state: { leaderShares: "0", totalSupply: "0", depositsOpen: false } }),
+    );
+    expect(none.staked).toBe(false);
+    expect(none.openBlock).toMatch(/^Stake first: .*at least 1 USDC.*at least 5% of the vault/);
+  });
+
+  it("asks for more stake under 1 USDC of supply or under 5% of the vault", () => {
+    expect(
+      leaderSetup(
+        vault({
+          state: { leaderShares: (E18 / 2n).toString(), totalSupply: (E18 / 2n).toString() },
+        }),
+      ).openBlock,
+    ).toMatch(/at least 1 USDC of stake/);
+    expect(
+      leaderSetup(
+        vault({
+          state: { leaderShares: (4n * E18).toString(), totalSupply: (100n * E18).toString() },
+        }),
+      ).openBlock,
+    ).toMatch(/at least 5% of the vault/);
+  });
+
+  it("lets a staked leader open, except while winding down or in a handover", () => {
+    expect(leaderSetup(vault())).toEqual({ staked: true, openBlock: null });
+    expect(leaderSetup(vault({ state: { windDownAt: NOW } })).openBlock).toMatch(/winding down/);
+    expect(leaderSetup(vault({ state: { inHandover: true } })).openBlock).toMatch(/handover/);
   });
 });

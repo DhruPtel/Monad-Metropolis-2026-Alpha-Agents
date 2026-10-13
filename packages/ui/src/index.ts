@@ -30,6 +30,7 @@ export * from "./components/ui/empty-state";
 export * from "./components/ui/input";
 export * from "./components/ui/textarea";
 export * from "./components/ui/section-label";
+export * from "./components/ui/step-list";
 export * from "./components/ui/select";
 export * from "./components/ui/skeleton";
 export * from "./components/ui/slider";

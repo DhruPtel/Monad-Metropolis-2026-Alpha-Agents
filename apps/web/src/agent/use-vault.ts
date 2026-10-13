@@ -84,7 +84,7 @@ export function useVault(agentId: bigint, environment: Parameters<typeof useWall
     };
   }, [agentId, busy, refresh, tick, wallet.ready, wallet.address]);
 
-  const { checkNetwork, waitForReceipt } = useWalletTx(environment);
+  const { client, checkNetwork, waitForReceipt } = useWalletTx(environment);
   const runSteps = useCallback(
     (action: VaultAction, steps: WalletStep<ContractWrite>[], done: string) => {
       if (running.current) return;
@@ -95,6 +95,12 @@ export function useVault(agentId: bigint, environment: Parameters<typeof useWall
           send: (c) => wallet.writeContract(c),
           waitForReceipt,
           usdc: data?.vault.contracts.usdc,
+          // A step that would revert stops with its reason before the wallet opens.
+          simulate: async (c) => {
+            const account = wallet.address as Address | undefined;
+            if (!account) return;
+            await client.simulateContract({ ...c, account } as never);
+          },
         },
         steps,
         (progress) => mounted.current && setStatus({ action, progress, done }),
@@ -103,7 +109,7 @@ export function useVault(agentId: bigint, environment: Parameters<typeof useWall
         if (mounted.current) setTick((t) => t + 1);
       });
     },
-    [checkNetwork, data?.vault.contracts.usdc, waitForReceipt, wallet],
+    [checkNetwork, client, data?.vault.contracts.usdc, waitForReceipt, wallet],
   );
 
   const v = data?.vault ?? null;

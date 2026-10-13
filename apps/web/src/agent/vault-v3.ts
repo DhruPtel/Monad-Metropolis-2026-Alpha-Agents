@@ -170,3 +170,37 @@ export function vaultWithdrawBlock(v: VaultJson, now: number): string | null {
     return `Your shares are ${lockWords(v.viewer.unlockAt, now).toLowerCase()}.`;
   return null;
 }
+
+/** The vault's least supply before deposits may open: 1 USDC of stake (StrategyVaultV3.MIN_SUPPLY_TO_OPEN). */
+const MIN_SUPPLY_TO_OPEN = E18;
+
+/**
+ * The leader's setup in the order the vault requires it (StrategyVaultV3's
+ * setDepositsOpen): a stake of at least 1 USDC that is at least the leader
+ * minimum of the vault, then open deposits. `openBlock` is the plain reason
+ * opening would revert now, or null when it would go through.
+ */
+export function leaderSetup(v: VaultJson): { staked: boolean; openBlock: string | null } {
+  const s = v.state;
+  if (!s) return { staked: false, openBlock: "Create the vault first." };
+  const stake = BigInt(s.leaderShares);
+  const supply = BigInt(s.totalSupply);
+  const staked =
+    stake > 0n &&
+    supply >= MIN_SUPPLY_TO_OPEN &&
+    stake * BPS >= BigInt(s.constants.leaderMinBps) * supply;
+  const min = `${s.constants.leaderMinBps / 100}%`;
+  const openBlock =
+    s.windDownAt !== 0
+      ? "The vault is winding down, so deposits cannot open."
+      : s.inHandover
+        ? "The vault is in a handover: deposits open once the new owner stakes and accepts management."
+        : stake === 0n
+          ? `Stake first: deposits open only once you have staked at least 1 USDC and your stake is at least ${min} of the vault.`
+          : !staked
+            ? supply < MIN_SUPPLY_TO_OPEN
+              ? "Stake more first: the vault needs at least 1 USDC of stake before deposits open."
+              : `Stake more first: your stake must be at least ${min} of the vault before deposits open.`
+            : null;
+  return { staked, openBlock };
+}

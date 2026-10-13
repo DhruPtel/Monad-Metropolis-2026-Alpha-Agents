@@ -1,6 +1,6 @@
 import { ContractFunctionRevertedError, encodeErrorResult } from "viem";
 import { describe, expect, it } from "vitest";
-import { ACCOUNT_ABI } from "./custody";
+import { ACCOUNT_ABI, VAULT_ABI } from "./custody";
 import { SentElsewhereError } from "./receipt-watch";
 import {
   type WalletTxDeps,
@@ -99,6 +99,35 @@ describe("wallet transactions (P2-U7)", () => {
       state: "failed",
       step: 2,
       message: "The account is paused, so it takes no deposits. Withdrawals still work.",
+    });
+  });
+
+  it("simulates each step first and never opens the wallet for one that would revert", async () => {
+    const data = encodeErrorResult({
+      abi: VAULT_ABI,
+      errorName: "SeedTooSmall",
+      args: [0n, 10n ** 18n],
+    });
+    const revert = new ContractFunctionRevertedError({
+      abi: VAULT_ABI,
+      data,
+      functionName: "setDepositsOpen",
+    });
+    const simulated: string[] = [];
+    const { d, sent } = deps({
+      simulate: async (c) => {
+        simulated.push(c);
+        if (c === "deposit") throw revert;
+      },
+    });
+    const { result, seen } = await run(d);
+    expect(simulated).toEqual(["approve", "deposit"]);
+    expect(sent).toEqual(["approve"]);
+    expect(seen.filter((p) => p.state === "waiting-wallet").map((p) => p.step)).toEqual([1]);
+    expect(result).toMatchObject({
+      state: "failed",
+      step: 2,
+      message: "Stake at least 1 USDC before opening deposits.",
     });
   });
 
