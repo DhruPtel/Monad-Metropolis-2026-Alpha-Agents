@@ -1,7 +1,13 @@
 "use client";
 
 import { type EnvironmentId, ENVIRONMENTS } from "@alpha-agents/config";
-import { slotsFor, speciesAsset, speciesByIndex } from "@alpha-agents/domain";
+import {
+  CHAIN_NAMES,
+  chainOfEnvironment,
+  slotsFor,
+  speciesAsset,
+  speciesByIndex,
+} from "@alpha-agents/domain";
 import {
   PendingAgentNotice,
   AgentCard,
@@ -30,6 +36,7 @@ import {
   Tag,
   TradingTile,
   type TradingTileView,
+  MakeupSwitch,
 } from "@alpha-agents/ui";
 import { Bot, Compass, PlugZap, Plus, RotateCcw, Wallet } from "lucide-react";
 import Link from "next/link";
@@ -345,6 +352,16 @@ function MyAgentCard({ agent, environment }: { agent: AgentView; environment: En
               }
             />
           </div>
+          {trading?.hasAccount && windowView ? (
+            // UX-U1: the positions as the portfolio's tiles, on the dashboard too.
+            <MakeupSwitch
+              rows={windowView.holdings}
+              totalValueUsdcE6={windowView.totalValueUsdcE6}
+              asOf={windowView.asOf}
+              chain={CHAIN_NAMES[chainOfEnvironment(environment)]}
+              emptyText="The positions appear after the first deposit into the trading account."
+            />
+          ) : null}
 
           <div className="grid gap-6 border-t border-border pt-5 lg:grid-cols-3">
             <SpendPanel

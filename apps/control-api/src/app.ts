@@ -221,6 +221,42 @@ function bearer(c: Context): string | null {
   return match?.[1] ?? null;
 }
 
+/**
+ * UX-U1: what to tell the owner when a chain read failed. The testnet
+ * provider answers 429 under the stack's load (the cause of "the control
+ * API hit an error" on every owner route); a reverted read names its
+ * function. Neither carries a URL.
+ */
+export function chainReadFailure(err: unknown): { code: string; message: string } | null {
+  const chain: unknown[] = [];
+  for (let e: unknown = err; e && chain.length < 6; e = (e as { cause?: unknown }).cause)
+    chain.push(e);
+  const text = chain
+    .map(
+      (e) =>
+        `${(e as { name?: string }).name ?? ""} ${(e as { details?: string }).details ?? ""} ${(e as { shortMessage?: string }).shortMessage ?? ""}`,
+    )
+    .join(" ");
+  if (
+    /HttpRequestError|Too Many Requests|429|rate limit|TimeoutError|fetch failed|ECONNRESET|ECONNREFUSED/i.test(
+      text,
+    )
+  )
+    return {
+      code: "rpc_unavailable",
+      message:
+        "The chain's RPC provider is refusing reads right now (rate limited or unavailable), so this could not be read. Try again in a moment.",
+    };
+  if (chain.some((e) => (e as { name?: string }).name === "ContractFunctionExecutionError")) {
+    const fn = /function[:\s]+"?([A-Za-z0-9_]+)\(/.exec(text)?.[1] ?? "a contract";
+    return {
+      code: "chain_read_failed",
+      message: `A read of the chain failed (${fn}). The contract refused it or the provider could not serve it; try again in a moment.`,
+    };
+  }
+  return null;
+}
+
 export function createApp(deps: ApiDeps): Hono {
   const app = new Hono();
   const chainId = deps.environment.chainId;
@@ -1564,7 +1600,16 @@ export function createApp(deps: ApiDeps): Hono {
 
   app.notFound((c) => fail(c, 404, "not_found", "No such route."));
   app.onError((err, c) => {
-    // The message of an internal error can name a database or RPC; never send it.
+    // UX-U1: a chain read the RPC refused (a rate limit, an outage) or a contract reverted is
+    // said in plain words, with the function's name and nothing else (never the RPC or a key).
+    const read = chainReadFailure(err);
+    if (read) {
+      console.error(
+        `control-api: ${c.req.method} ${c.req.path} failed: ${err.name} (${read.code})`,
+      );
+      return c.json({ error: read.code, message: read.message }, 503);
+    }
+    // The message of any other internal error can name a database or RPC; never send it.
     console.error(`control-api: ${c.req.method} ${c.req.path} failed: ${err.name}`);
     return c.json({ error: "internal", message: "The control API hit an error." }, 500);
   });

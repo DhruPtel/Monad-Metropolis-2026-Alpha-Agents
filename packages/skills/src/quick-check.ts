@@ -75,36 +75,98 @@ export const RULE_WORDS: Readonly<
 > = {
   F1: {
     means: "The package's shape or its skill.json is not what the format expects.",
-    next: "Check skill.json against the format: every required field, an id that is a lowercase slug equal to the folder name, a semantic version, and SKILL.md beside it.",
+    next: "Check skill.json against the format: every required field, an id that is a lowercase slug, a semver version; keep the same id and bump the version when the content changes.",
   },
   F2: {
     means: "A file or folder in the package is not one a skill may hold.",
-    next: "Keep skill.json, SKILL.md and CHANGELOG.md at the top, Markdown under references, JSON, CSV or YAML under data, examples under examples, and evals.yaml under evals.",
+    next: "Keep skill.json, SKILL.md and CHANGELOG.md at the top, Markdown under references/, JSON, CSV or YAML under data/, examples/ and evals/evals.yaml; remove dotfiles, scripts, executables and anything else.",
   },
   F3: {
     means: "The package or one of its files is too large.",
-    next: "Keep SKILL.md under 500 lines and 40,000 characters, references under 100 KB each and 40 files, data under 256 KB each and 20 files, and the package under 2 MB.",
+    next: "Keep SKILL.md under 500 lines and 40,000 characters, references under 40 files of 100 KB, data under 20 files of 256 KB, and the whole package under 2 MB.",
   },
   F4: {
     means:
-      "The description the model reads does not say in its first 57 characters what the skill is for.",
-    next: "Start description.model with a sentence that stands on its own: what the skill does and when to use it.",
+      "The model sees only the first 57 characters of the description, and they do not stand alone.",
+    next: 'Rewrite description.model so its first 57 characters end at a word, in the form "Does X. Use when Y."',
   },
   F5: {
     means: "The skill names a tool or an intent the platform does not have.",
-    next: "Use only the tool and intent IDs the platform lists; a retired research ID has a replacement in the tool registry.",
+    next: "Use only registry tool IDs with a major version, such as data.web_search@1, and registry intents; drop retired research IDs.",
   },
   F6: {
     means: "A strategy skill is missing its evals or a template's params file.",
-    next: "Add evals/evals.yaml with at least one case, and for a template skill the params file its template needs.",
+    next: "Add evals/evals.yaml and the params file each compatible template names, or make the skill a research or protocol skill.",
   },
   F7: {
-    means: "The frontmatter in SKILL.md does not match skill.json.",
-    next: "Leave the frontmatter out: the platform writes it from skill.json when the package is mounted.",
+    means: "The package's publisher is not you.",
+    next: "Set publisher.address in skill.json to the wallet you are signed in with; publisher.id and key_id are yours to choose.",
   },
   F8: {
-    means: "The privacy setting does not fit the skill's type.",
-    next: "Only a strategy skill can be private; set privacy to public for a protocol or research skill.",
+    means: "A private skill must be a strategy skill.",
+    next: 'Set privacy to "public", or make the skill a strategy skill with its evals.',
+  },
+  S1: {
+    means: "The text asks for shell or code to run; a skill is text and declarations, never code.",
+    next: "Remove shell blocks, commands and code execution; describe what the agent should do with the platform's tools instead.",
+  },
+  S2: {
+    means: "The text asks to install something; nothing is installed in an agent's sandbox.",
+    next: "Remove install steps (npm, pip, brew, skills add, MCP servers); the platform's tools are already there.",
+  },
+  S3: {
+    means: "The text loads instructions from the network at run time, which no skill may do.",
+    next: "Put the instructions in the package itself; drop links to Markdown, llms.txt, raw repositories and re-fetching.",
+  },
+  S4: {
+    means: "The text mentions credentials or secrets; a skill never holds or asks for them.",
+    next: "Remove every key, mnemonic, token or password and anything that asks the agent for one.",
+  },
+  S5: {
+    means: "The text names an endpoint the skill did not declare.",
+    next: "Use the declared data sources and the platform's tools; remove undeclared URLs and hosts.",
+  },
+  S6: {
+    means: "The text asks the agent to sign or send on its own.",
+    next: "Trades go through typed intents the Executor checks; remove signing, raw transactions and calldata.",
+  },
+  S7: {
+    means: "The text asks for an unlimited approval or a delegation.",
+    next: "Remove approvals, allowances and delegations; the account's contracts set what may move.",
+  },
+  S8: {
+    means:
+      "The text schedules work or keeps state across runs, which belongs to a workflow, not a skill.",
+    next: "Remove cron, timers, loops that wait, and files meant to persist between runs.",
+  },
+  S9: {
+    means: "The text tries to get around the owner's approval or the hard limits.",
+    next: "Remove anything that skips approval, raises caps or tells the agent to ignore a refusal.",
+  },
+  S10: {
+    means: "The text hides its own instructions or asks the agent to conceal what it does.",
+    next: "Say plainly what the skill does; remove instructions to hide, obfuscate or keep from the owner.",
+  },
+  S11: {
+    means: "The text contains an override phrase that tries to replace the agent's instructions.",
+    next: 'Remove phrases such as "ignore previous instructions" and "you are now"; a skill adds knowledge, it does not take over.',
+  },
+  S12: {
+    means: "The text has hidden content: invisible characters, HTML comments or zero-width marks.",
+    next: "Remove comments, zero-width and control characters; everything in a skill is meant to be read.",
+  },
+  S13: {
+    means:
+      "An address in the text is not in the platform's address book, so it may be an impostor.",
+    next: "Use the registered token and contract addresses from the address book, or name the token by symbol and let the tools resolve it.",
+  },
+  S14: {
+    means: "The text asks the agent to change itself, its skills or its configuration.",
+    next: "Remove self-modification: skills are read-only in the sandbox and configuration changes come from the owner.",
+  },
+  S15: {
+    means: "The name claims to be the platform's or impersonates someone.",
+    next: "Name the skill as yours; the platform's brand and other publishers' names are not for a skill to claim.",
   },
 };
 

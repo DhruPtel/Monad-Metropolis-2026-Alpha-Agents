@@ -963,6 +963,12 @@ export function PortfolioPage({
                 >
                   <ArrowUpFromLine aria-hidden /> Withdraw
                 </Button>
+                {/* UX-U1: the goal is set from the top of the page, beside the hero's actions. */}
+                <Button asChild size="sm" variant="secondary" data-testid="hero-set-goal">
+                  <Link href={goalHref}>
+                    {pf.summary?.goal?.configured ? "Change goal" : "Set goal"}
+                  </Link>
+                </Button>
                 {standing ? (
                   <p
                     role="alert"

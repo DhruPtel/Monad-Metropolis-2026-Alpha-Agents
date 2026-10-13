@@ -13,6 +13,7 @@
   "dependencies": {
     "@alpha-agents/accounting": "workspace:^",
     "@alpha-agents/config": "workspace:^",
+    "@alpha-agents/devenv": "workspace:*",
     "@alpha-agents/db": "workspace:^",
     "@alpha-agents/domain": "workspace:^",
     "@alpha-agents/policy": "workspace:^",

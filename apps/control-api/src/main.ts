@@ -10,6 +10,7 @@ import {
   isForkEnvironment,
 } from "@alpha-agents/config";
 import { type Db, createDb, migrateToLatest } from "@alpha-agents/db";
+import { startUpstreamProxy } from "@alpha-agents/devenv";
 import { AGENT_NFT_ABI, addressEntry, agentNftDeployment } from "@alpha-agents/domain";
 import { createPublicClient, http, isAddressEqual, type Hex } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
@@ -80,7 +81,25 @@ const signer = values.CLAIM_SIGNER_PRIVATE_KEY
   : null;
 
 const deployment = agentNftDeployment(env.id);
-const rpcUrl = config.rpcUrl?.reveal();
+const chainRpcUrl = config.rpcUrl?.reveal();
+// UX-U1: off the fork every read goes through the retrying relay over the environment's
+// providers (the second one when set, D-254): the testnet provider answers 429 under the
+// stack's load, and one refused call failed a whole owner route with "the control API hit an
+// error". The relay retries rate limits, server errors and dropped connections with backoff,
+// alternating providers, and logs by method and reason only (never a URL).
+const secondaryRpcUrl = (values.MONAD_RPC_URL_SECONDARY as Secret | undefined)?.reveal() ?? null;
+const relay =
+  chainRpcUrl && !isForkEnvironment(env.id)
+    ? await startUpstreamProxy({
+        upstreams: secondaryRpcUrl ? [chainRpcUrl, secondaryRpcUrl] : [chainRpcUrl],
+        attempts: 6,
+        baseDelayMs: 300,
+        log: (line: string) => log(`rpc relay: ${line}`),
+      })
+    : null;
+if (relay)
+  log(`rpc relay on: ${secondaryRpcUrl ? "two providers" : "one provider"}, retries with backoff`);
+const rpcUrl = relay?.url ?? chainRpcUrl;
 const chain = deployment && rpcUrl ? rpcChainReader(rpcUrl, deployment.address) : null;
 // P2-U7: the owner's portfolio, where every custody contract is in this environment's book.
 function portfolioReader(agentNft: Hex, executor: Hex) {
