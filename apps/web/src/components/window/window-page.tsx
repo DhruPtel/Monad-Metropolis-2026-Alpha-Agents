@@ -18,6 +18,7 @@ import {
 import { ArrowLeft, PlugZap, RotateCcw, Wallet } from "lucide-react";
 import Link from "next/link";
 import { useWindow } from "@/agent/use-window";
+import { CHAIN_NAMES, chainOfEnvironment } from "@alpha-agents/domain";
 import { useWalletSession } from "@/auth/session";
 
 const when = (iso: string) => `${iso.slice(0, 10)} ${iso.slice(11, 16)} UTC`;
@@ -205,6 +206,7 @@ export function WindowPage({
             rows={w.holdings}
             totalValueUsdcE6={w.totalValueUsdcE6}
             asOf={w.asOf}
+            chain={CHAIN_NAMES[chainOfEnvironment(environment)]}
             emptyText="The makeup appears after the first deposit into the trading account."
             emptyAction={
               <Button asChild size="sm" variant="secondary">

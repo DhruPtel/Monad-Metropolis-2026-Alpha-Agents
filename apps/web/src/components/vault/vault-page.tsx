@@ -1,7 +1,7 @@
 "use client";
 
 import { type EnvironmentId, ENVIRONMENTS } from "@alpha-agents/config";
-import { formatAmount } from "@alpha-agents/domain";
+import { CHAIN_NAMES, chainOfEnvironment, formatAmount } from "@alpha-agents/domain";
 import {
   type AssetRow,
   Button,
@@ -386,6 +386,7 @@ export function VaultPage({
           <MakeupSwitch
             rows={rows}
             totalValueUsdcE6={s.navUsdcE6}
+            chain={CHAIN_NAMES[chainOfEnvironment(environment)]}
             asOf={{ at: new Date(v.timestamp * 1000).toISOString(), live: true }}
             emptyText="The vault holds nothing yet. The first deposit fills it, and the agent trades from there."
             emptyAction={

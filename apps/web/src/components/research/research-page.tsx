@@ -32,6 +32,7 @@ import { type SentinelJson, type WhyNotTradedJson, tradingApi } from "@/api/clie
 import { useAccountTx } from "@/agent/use-account-tx";
 import { useResearch, useTerminal } from "@/agent/use-research";
 import { useOwnerSession } from "@/agent/use-owner-session";
+import { CHAIN_NAMES, chainOfEnvironment } from "@alpha-agents/domain";
 import { useWalletSession } from "@/auth/session";
 
 /**
@@ -220,6 +221,7 @@ export function ResearchPage({
         lines={terminal.lines}
         state={terminal.state}
         cycle={terminal.cycle}
+        chain={CHAIN_NAMES[chainOfEnvironment(environment)]}
         maxHeightClass="max-h-112"
       />
 

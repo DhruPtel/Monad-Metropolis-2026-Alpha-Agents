@@ -1070,7 +1070,7 @@ export function PortfolioPage({
                 status={<StatusFor status={pf.status} actions={["arm", "turn-on", "disarm"]} />}
                 terminal={
                   activation.status === "running" ? (
-                    <ActivationTerminal agentId={agentId} live />
+                    <ActivationTerminal agentId={agentId} live environment={environment} />
                   ) : undefined
                 }
               />

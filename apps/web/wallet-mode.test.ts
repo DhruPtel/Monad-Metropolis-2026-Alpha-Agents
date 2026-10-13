@@ -16,6 +16,7 @@ describe("the wallet a web build contains", () => {
   it.each([
     ["testnet", ".next-testnet"],
     ["beta", ".next-beta"],
+    ["base", ".next-base"],
   ])("builds %s into its own %s, never over the local build", (appEnv, distDir) => {
     expect(walletBuildMode({ APP_ENV: appEnv }).distDir).toBe(distDir);
   });

@@ -14,7 +14,7 @@ export interface WalletBuildMode {
   readonly mock: boolean;
   /** The module that "#wallet-provider" resolves to, relative to apps/web. */
   readonly providerModule: string;
-  readonly distDir: ".next" | ".next-e2e" | ".next-testnet" | ".next-beta";
+  readonly distDir: ".next" | ".next-e2e" | ".next-testnet" | ".next-beta" | ".next-base";
 }
 
 /**

@@ -242,6 +242,7 @@ function AgentTerminal({
   state,
   title = "Agent terminal",
   cycle,
+  chain,
   maxHeightClass = "max-h-96",
   className,
 }: {
@@ -250,6 +251,8 @@ function AgentTerminal({
   title?: string;
   /** The cycle the lines belong to, named in the header. */
   cycle?: { readonly kind: string; readonly status: string } | null;
+  /** M-FAST: the chain the agent researches and trades on, named in the header. */
+  chain?: string;
   maxHeightClass?: string;
   className?: string;
 }) {
@@ -284,6 +287,11 @@ function AgentTerminal({
         <div className="flex items-center gap-2">
           <Radio className="size-4 text-foreground-muted" aria-hidden="true" />
           <SectionLabel as="h4">{title}</SectionLabel>
+          {chain ? (
+            <Tag tone="neutral" data-testid="terminal-chain">
+              {chain}
+            </Tag>
+          ) : null}
           {cycle ? (
             <span className="text-xs text-foreground-muted">
               {cycle.kind.toLowerCase().replace(/_/g, " ")} · {cycle.status}

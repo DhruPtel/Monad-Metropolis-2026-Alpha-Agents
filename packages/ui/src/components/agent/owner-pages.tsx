@@ -17,6 +17,7 @@ import { StatusPill } from "../status-pill";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { Skeleton } from "../ui/skeleton";
+import { Tag } from "../ui/tag";
 import { AllocationBar } from "./portfolio";
 import {
   AllocationDonut,
@@ -250,6 +251,7 @@ function PositionTiles({
   totalValueUsdcE6,
   emptyText,
   emptyAction,
+  chain,
   className,
 }: {
   rows: readonly AssetRow[];
@@ -257,6 +259,8 @@ function PositionTiles({
   /** UI-U2: the empty state's words and next action, where the page knows them. */
   emptyText?: string;
   emptyAction?: ReactNode;
+  /** M-FAST: the chain every position here is on, tagged on each tile ("Monad", "Base"). */
+  chain?: string;
   className?: string;
 }) {
   const held = rows.filter((r) => BigInt(r.amountRaw) > 0n);
@@ -302,7 +306,14 @@ function PositionTiles({
               data-symbol={r.symbol}
             >
               <div className="flex items-start justify-between gap-2">
-                <span className="text-sm font-semibold">{r.symbol}</span>
+                <span className="flex items-center gap-2 text-sm font-semibold">
+                  {r.symbol}
+                  {chain ? (
+                    <Tag tone="neutral" data-testid="position-chain">
+                      {chain}
+                    </Tag>
+                  ) : null}
+                </span>
                 {r.isCash ? <Badge tone="neutral">Cash</Badge> : null}
               </div>
               <span className="numeric text-lg">
@@ -364,6 +375,7 @@ function MakeupSwitch({
   asOf,
   emptyText,
   emptyAction,
+  chain,
   className,
 }: {
   rows: readonly AssetRow[];
@@ -371,6 +383,8 @@ function MakeupSwitch({
   asOf: { readonly at: string; readonly live: boolean } | null;
   emptyText?: string;
   emptyAction?: ReactNode;
+  /** M-FAST: the chain the positions are on, tagged on every tile. */
+  chain?: string;
   className?: string;
 }) {
   const [table, setTable] = useState(false);
@@ -400,6 +414,7 @@ function MakeupSwitch({
             totalValueUsdcE6={totalValueUsdcE6}
             {...(emptyText ? { emptyText } : {})}
             {...(emptyAction ? { emptyAction } : {})}
+            {...(chain ? { chain } : {})}
           />
         )}
         {held.length > 0 ? <AllocationDonut rows={held} /> : null}
