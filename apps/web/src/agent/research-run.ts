@@ -1,4 +1,4 @@
-import type { TerminalEventJson } from "@/api/client";
+import type { StoredReportJson, TerminalEventJson } from "@/api/client";
 
 /**
  * UI-FAST: one research run, read from its terminal events (the platform's
@@ -110,7 +110,18 @@ export function plain(text: string): string {
     .replace(/\bfallback\b/g, "default");
 }
 
-const SYMBOLS = new Set(["MON", "WMON", "USDC", "AAVE", "ETH", "BTC"]);
+const SYMBOLS = new Set([
+  "MON",
+  "WMON",
+  "USDC",
+  "AAVE",
+  "ETH",
+  "BTC",
+  "WETH",
+  "WBTC",
+  "DEX",
+  "TVL",
+]);
 const themeWords = (code: string) =>
   code
     .split("_")
@@ -286,6 +297,224 @@ export function phases(
       summary: summary.length > 0 ? summary : ["Nothing more was recorded in this phase."],
       time: list[0]?.at.slice(11, 16) ?? "",
       details,
+    });
+  }
+  return out;
+}
+
+/** One line of the branch chart: a stage that ran or a source the run used, with each call on it. */
+export interface BranchView {
+  readonly id: string;
+  readonly label: string;
+  readonly kind: "stage" | "source";
+  /** Each call or read on this line, in time order; the label is what it read. */
+  readonly calls: readonly { readonly id: string; readonly label: string }[];
+}
+
+const STAGE_ORDER = ["SCAN", "DIVE", "CHALLENGE", "TEST", "ZOOM_OUT"] as const;
+const SOURCE_LINES: readonly { lane: LaneId; label: string }[] = [
+  { lane: "web", label: "Web" },
+  { lane: "x", label: "X" },
+  { lane: "onchain", label: "Onchain" },
+  { lane: "market", label: "Market data" },
+];
+
+/**
+ * 2026-10-13: the branch chart's lines from the run's events: one per stage that ran (Scan,
+ * Dive, Challenge, Test, Zoom out) and one per source used (web, X, onchain, market data),
+ * each with every call on it in time order, labeled with what it read. A call shows on its
+ * stage's line and on its source's line.
+ */
+export function branches(events: readonly TerminalEventJson[]): BranchView[] {
+  const ran = new Set<string>();
+  const byStage = new Map<string, { id: string; label: string }[]>();
+  const byLane = new Map<LaneId, { id: string; label: string }[]>();
+  for (const e of events) {
+    if (e.kind === "stage" && e.stage) ran.add(e.stage);
+    if (e.kind !== "tool" || e.tone !== "info") continue;
+    const tool = toolOf(e.text);
+    const call = { id: `c-${e.seq}`, label: plain(capital(rest(e.text, `${tool ?? ""}:`))) };
+    if (e.stage) {
+      ran.add(e.stage);
+      byStage.set(e.stage, [...(byStage.get(e.stage) ?? []), call]);
+    }
+    const lane = tool ? LANE_OF[tool] : undefined;
+    if (lane) byLane.set(lane, [...(byLane.get(lane) ?? []), call]);
+  }
+  const out: BranchView[] = [];
+  for (const s of STAGE_ORDER)
+    if (ran.has(s))
+      out.push({
+        id: `stage-${s}`,
+        label: STAGE_NAME[s] ?? s,
+        kind: "stage",
+        calls: byStage.get(s) ?? [],
+      });
+  for (const l of SOURCE_LINES) {
+    const calls = byLane.get(l.lane);
+    if (calls && calls.length > 0)
+      out.push({ id: `source-${l.lane}`, label: l.label, kind: "source", calls });
+  }
+  return out;
+}
+
+const NO_FACTS = "No facts were recorded for this phase.";
+
+/** A whole number of US dollars in short words: 1,031,240,420 as "$1.0B". */
+function usdShort(n: number): string {
+  if (n >= 1e9) return `$${(n / 1e9).toFixed(1)}B`;
+  if (n >= 1e6) return `$${(n / 1e6).toFixed(1)}M`;
+  if (n >= 1e3) return `$${(n / 1e3).toFixed(1)}K`;
+  return `$${n.toFixed(0)}`;
+}
+const num = (s: string | undefined) => {
+  const m = /-?[\d,]+(?:\.\d+)?/.exec(s ?? "");
+  return m ? Number(m[0].replaceAll(",", "")) : null;
+};
+const listWords = (xs: readonly string[]) =>
+  xs.length <= 1 ? (xs[0] ?? "") : `${xs.slice(0, -1).join(", ")} and ${xs.at(-1)}`;
+const round1 = (n: number) => Number(n.toFixed(1)).toString();
+
+/**
+ * 2026-10-13: each phase of a run as a plain description built from the report's structured
+ * facts (the market snapshot's figures, the token universe, the researched tokens' evidence,
+ * the skeptic's objections, the stages' outcomes and the chosen positions), never from the
+ * model's prose or reworded notes. A phase with no facts says so in one line. No model call.
+ */
+export function factSummaries(
+  body: StoredReportJson | null,
+): Readonly<Record<string, readonly string[]>> {
+  if (!body) return {};
+  const r = body.report;
+  const snap = (label: RegExp) => r.market.snapshot.find((x) => label.test(x.label))?.value;
+  const out: Record<string, string[]> = {};
+
+  // The market, from the snapshot's figures.
+  const market: string[] = [];
+  const tvl = num(snap(/TVL/i));
+  if (tvl !== null) market.push(`Monad's total value locked is about ${usdShort(tvl)}`);
+  const change = num(snap(/MON 24h change/i));
+  if (change !== null)
+    market.push(
+      Math.abs(change) < 0.05
+        ? "MON was flat today"
+        : `MON ${change < 0 ? "fell" : "rose"} ${round1(Math.abs(change))}% today`,
+    );
+  const dexRaw = snap(/DEX volume/i);
+  const dex = num(dexRaw);
+  const dexChange = /\(([+-]?[\d.]+)%\)/.exec(dexRaw ?? "")?.[1];
+  if (dex !== null)
+    market.push(
+      `DEX trading was ${usdShort(dex)} over the last day${dexChange ? `, ${Number(dexChange) < 0 ? "down" : "up"} ${round1(Math.abs(Number(dexChange)))}%` : ""}`,
+    );
+  const vol = num(snap(/volatility/i));
+  if (vol !== null) market.push(`MON's price swings about ${Math.round(vol)}% a year`);
+  if (market.length > 0) out.overview = [`Read the market: ${listWords(market)}.`];
+
+  // The Scan, from the universe of tokens.
+  const u = body.universe;
+  if (u.length > 0) {
+    const base = u.some((t) => /on Base/.test(t.whyNot ?? ""));
+    const buyable = u.filter((t) => t.buyable);
+    const scan = [
+      `Screened ${u.length} tokens across ${base ? "Monad and Base" : "Monad"}; ${buyable.length} can be bought by this account${buyable.length > 0 && buyable.length <= 5 ? ` (${buyable.map((t) => t.symbol).join(", ")})` : ""}.`,
+    ];
+    const themes = [...new Set(u.map((t) => t.themeCode).filter((c): c is string => !!c))];
+    if (themes.length > 0)
+      scan.push(
+        `Picked ${themes.length} ${themes.length === 1 ? "theme" : "themes"} to research: ${listWords(themes.map(themeWords))}.`,
+      );
+    out.scan = scan;
+  }
+
+  // The Dive, from each researched token's evidence.
+  const dove = body.stages.filter((s) => s.stage === "DIVE" && s.status === "completed").length;
+  if (r.tokens.length > 0)
+    out.dive = r.tokens.map(
+      (t) =>
+        `Researched ${t.symbol} in depth: ${t.evidenceFor.length} ${t.evidenceFor.length === 1 ? "point" : "points"} for, ${t.evidenceAgainst.length} against, with ${t.confidence} confidence.`,
+    );
+  else if (dove > 0)
+    out.dive = [
+      `Ran ${dove} deep ${dove === 1 ? "dive" : "dives"}; none found a token worth a case.`,
+    ];
+
+  // The Challenge, from the skeptic's objections.
+  if (r.skeptic.length > 0) {
+    const on = [...new Set(r.skeptic.map((s) => themeWords(s.theme)).filter(Boolean))];
+    out.challenge = [
+      `A skeptic raised ${r.skeptic.length} ${r.skeptic.length === 1 ? "objection" : "objections"}${on.length > 0 ? ` about ${listWords(on)}` : ""}, each answered in the report.`,
+    ];
+  }
+
+  // The Test, from its stage's outcome.
+  const test = body.stages.find((s) => s.stage === "TEST");
+  if (test)
+    out.test = [
+      r.portfolio.stance === "no_change"
+        ? "There was no new plan to check."
+        : test.status === "completed"
+          ? "Checked the plan against every limit; it passed."
+          : `The plan did not pass the limit check${test.stopReason ? ` (${plain(test.stopReason)})` : ""}.`,
+    ];
+
+  // The Zoom out, from the chosen positions and the facts above.
+  const positions = r.portfolio.positions;
+  if (r.portfolio.stance === "no_change") out.zoom = ["Kept the plan as it is."];
+  else if (positions.length > 0) {
+    const cash = positions.find((p) => p.symbol === "USDC");
+    const held = positions.filter((p) => p.symbol !== "USDC");
+    const chose = held.map((p) => `${p.symbol} for ${p.weight}`);
+    const why: string[] = [];
+    if (vol !== null && vol >= 50 && held.some((p) => /MON/.test(p.symbol)))
+      why.push("MON is volatile");
+    const buyableHeld = u.filter((t) => t.buyable && t.symbol !== "USDC");
+    const unproposed = buyableHeld.filter((t) => !t.proposed);
+    if (u.length > 0 && unproposed.length === 0) why.push("no other token can be bought here yet");
+    else if (unproposed.length > 0)
+      why.push(
+        `no other token had a strong enough case (${unproposed.map((t) => t.symbol).join(", ")} ${unproposed.length === 1 ? "was" : "were"} left out)`,
+      );
+    out.zoom = [
+      `Chose ${listWords(chose)} of the account${cash ? ` and kept ${cash.weight} in USDC` : ""}${why.length > 0 ? `, because ${listWords(why)}` : ""}.`,
+    ];
+  }
+  return out;
+}
+
+/**
+ * The run's phases with each summary from the report's facts; while a run has no report
+ * yet, or a phase has no facts, one plain line says so. The phases and their details are
+ * the terminal's own, and a phase the facts cover shows even when the terminal has none.
+ */
+export function factPhases(
+  events: readonly TerminalEventJson[],
+  finishedAt: string | null,
+  body: StoredReportJson | null,
+): PhaseView[] {
+  const facts = factSummaries(body);
+  const fromEvents = new Map(phases(events, finishedAt).map((p) => [p.id, p]));
+  const out: PhaseView[] = [];
+  for (const p of PHASES) {
+    const seen = fromEvents.get(p.id);
+    const f = facts[p.id];
+    if (!seen && !f) continue;
+    out.push({
+      id: p.id,
+      title: p.id === "overview" ? "Market" : p.title,
+      explainer: p.explainer,
+      summary:
+        p.id === "approval"
+          ? (seen?.summary ?? [NO_FACTS])
+          : f && f.length > 0
+            ? f
+            : [
+                body
+                  ? NO_FACTS
+                  : "The facts for this phase come with the report when the run ends.",
+              ],
+      time: seen?.time ?? "",
+      details: seen?.details ?? [],
     });
   }
   return out;

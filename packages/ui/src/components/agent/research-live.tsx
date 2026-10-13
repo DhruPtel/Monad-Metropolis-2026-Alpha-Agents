@@ -1,7 +1,7 @@
 "use client";
 
 import { FileText } from "lucide-react";
-import type { ComponentType, ReactNode } from "react";
+import { type ComponentType, type ReactNode, useId } from "react";
 import { cn } from "../../lib/utils";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
@@ -284,4 +284,182 @@ function DocumentList({
   );
 }
 
-export { DocumentList, PhaseList, RunPicker, SourceBubbles };
+/**
+ * 2026-10-13: when the next research is due, at the top of the Research tab,
+ * with the owner's Research now beside it and its status under it.
+ */
+function NextResearchStrip({
+  line,
+  action,
+  status,
+  className,
+}: {
+  /** "Next research: 2026-10-14 05:47 UTC", or "Scheduled research is off." */
+  line: string;
+  action?: ReactNode;
+  status?: ReactNode;
+  className?: string;
+}) {
+  return (
+    <section
+      aria-label="Next research"
+      className={cn("flex flex-col gap-2 rounded-md border border-border px-4 py-3", className)}
+      data-testid="next-research"
+    >
+      <div className="flex flex-wrap items-center gap-3">
+        <p className="text-sm font-medium">{line}</p>
+        {action ? <span className="ml-auto flex flex-wrap gap-2">{action}</span> : null}
+      </div>
+      {status}
+    </section>
+  );
+}
+
+/** One line of the branch chart: a stage that ran or a source used, and each call on it in time order. */
+export interface ResearchBranchView {
+  readonly id: string;
+  readonly label: string;
+  readonly kind: "stage" | "source";
+  readonly calls: readonly { readonly id: string; readonly label: string }[];
+}
+
+const ROW = 30;
+const ROOT_R = 22;
+const LINE_X = 120;
+const CHART_W = 640;
+const TICK = 7;
+
+/**
+ * 2026-10-13: a research run as branches. The agent's art is the root on the
+ * left; from it one straight line runs right per stage that ran and per
+ * source used, with a short sub-branch for every call on it in time order
+ * (its label on hover or focus) and the count at the line's end. It grows as
+ * a live run adds calls.
+ */
+function ResearchBranchChart({
+  art,
+  branches,
+  empty,
+  className,
+}: {
+  /** The agent's art for the root; null draws a plain circle. */
+  art: string | null;
+  branches: readonly ResearchBranchView[];
+  empty: string;
+  className?: string;
+}) {
+  const clip = `branch-root-${useId().replaceAll(":", "")}`;
+  if (branches.length === 0)
+    return <p className={cn("text-sm text-foreground-muted", className)}>{empty}</p>;
+  const h = Math.max(branches.length * ROW + 16, ROOT_R * 2 + 16);
+  const rootY = h / 2;
+  const most = Math.max(1, ...branches.map((b) => b.calls.length));
+  const end = CHART_W - 48;
+  const step = Math.min(16, (end - LINE_X - 12) / most);
+  return (
+    <figure className={cn("flex flex-col gap-2", className)} data-testid="branch-chart">
+      <svg
+        viewBox={`0 0 ${CHART_W} ${h}`}
+        className="w-full"
+        role="img"
+        aria-label={`The run's branches: ${branches.map((b) => `${b.label} ${b.calls.length}`).join(", ")}`}
+      >
+        <defs>
+          <clipPath id={clip}>
+            <circle cx={ROOT_R + 4} cy={rootY} r={ROOT_R} />
+          </clipPath>
+        </defs>
+        {branches.map((b, i) => {
+          const y = 8 + ROW * i + ROW / 2;
+          const tone = b.kind === "stage" ? "text-primary" : "text-detail";
+          return (
+            <g
+              key={b.id}
+              className={tone}
+              data-testid="branch"
+              data-kind={b.kind}
+              data-calls={b.calls.length}
+            >
+              <line
+                x1={ROOT_R * 2 + 4}
+                y1={rootY}
+                x2={LINE_X - 64}
+                y2={y}
+                stroke="currentColor"
+                strokeOpacity={0.4}
+              />
+              <text
+                x={LINE_X - 60}
+                y={y + 4}
+                className="fill-foreground-muted text-2xs"
+                fontSize={11}
+              >
+                {b.label}
+              </text>
+              <line
+                x1={LINE_X}
+                y1={y}
+                x2={LINE_X + Math.max(b.calls.length, 1) * step + 8}
+                y2={y}
+                stroke="currentColor"
+                strokeWidth={2}
+              />
+              {b.calls.map((c, j) => {
+                const x = LINE_X + 8 + j * step;
+                return (
+                  <g key={c.id} tabIndex={0} aria-label={c.label} data-testid="branch-call">
+                    <title>{c.label}</title>
+                    <line x1={x} y1={y} x2={x + TICK} y2={y - TICK} stroke="currentColor" />
+                    <circle cx={x + TICK} cy={y - TICK} r={2} fill="currentColor" />
+                  </g>
+                );
+              })}
+              <text
+                x={LINE_X + Math.max(b.calls.length, 1) * step + 16}
+                y={y + 4}
+                className="numeric fill-foreground"
+                fontSize={11}
+              >
+                {b.calls.length}
+              </text>
+            </g>
+          );
+        })}
+        {art ? (
+          <image
+            href={art}
+            x={4}
+            y={rootY - ROOT_R}
+            width={ROOT_R * 2}
+            height={ROOT_R * 2}
+            clipPath={`url(#${clip})`}
+            preserveAspectRatio="xMidYMid slice"
+          />
+        ) : null}
+        <circle
+          cx={ROOT_R + 4}
+          cy={rootY}
+          r={ROOT_R}
+          className="text-border-strong"
+          fill={art ? "none" : "currentColor"}
+          fillOpacity={art ? 0 : 0.2}
+          stroke="currentColor"
+        />
+      </svg>
+      <figcaption className="flex flex-wrap gap-4 text-xs text-foreground-muted">
+        <span className="text-primary">Stages</span>
+        <span className="text-detail">Sources</span>
+        <span>Each short branch is one call or read; hover or focus it for what it read.</span>
+      </figcaption>
+    </figure>
+  );
+}
+
+export {
+  DocumentList,
+  NextResearchStrip,
+  PhaseList,
+  ResearchBranchChart,
+  RunPicker,
+  SourceBubbles,
+};

@@ -62,6 +62,8 @@ import {
   DocumentList,
   PhaseList,
   SourceBubbles,
+  NextResearchStrip,
+  ResearchBranchChart,
   RunPicker,
   ConcentrationPie,
   DecisionList,
@@ -5631,6 +5633,79 @@ function ResearchLiveSection() {
               spend: "1.03 USDC",
               outcome: "No change: WMON could not be bought.",
               live: false,
+            },
+          ]}
+        />
+      </Specimen>
+      <Specimen
+        name="NextResearchStrip"
+        note="At the top of the Research tab: when the next scheduled research is due, or that it is off, with the owner's Research now and its status."
+      >
+        <NextResearchStrip
+          line="Next research: 2026-10-14 05:47 UTC"
+          action={<Button size="sm">Research now</Button>}
+        />
+        <NextResearchStrip
+          line="Scheduled research is off."
+          action={<Button size="sm">Research now</Button>}
+          status={
+            <p className="text-xs text-foreground-muted">
+              Scan started. Its themes and notes show here when it ends, in a few minutes.
+            </p>
+          }
+        />
+      </Specimen>
+      <Specimen
+        name="ResearchBranchChart"
+        note="A run as branches: the agent's art as the root, one straight line per stage that ran and per source used, a short sub-branch per call in time order (hover or focus for what it read) and the count at each line's end. It grows during a live run."
+      >
+        <ResearchBranchChart
+          art={null}
+          empty="No calls recorded."
+          branches={[
+            {
+              id: "s1",
+              label: "Scan",
+              kind: "stage",
+              calls: [
+                { id: "a", label: "Reading the market snapshot" },
+                { id: "b", label: "Listing the registry's tokens" },
+                { id: "c", label: 'Searching the web for "MON unlock"' },
+              ],
+            },
+            {
+              id: "s2",
+              label: "Dive",
+              kind: "stage",
+              calls: [
+                { id: "d", label: "Finding pools" },
+                { id: "e", label: "Reading a page" },
+              ],
+            },
+            { id: "s3", label: "Test", kind: "stage", calls: [] },
+            {
+              id: "w",
+              label: "Web",
+              kind: "source",
+              calls: [
+                { id: "c2", label: 'Searching the web for "MON unlock"' },
+                { id: "e2", label: "Reading a page" },
+              ],
+            },
+            {
+              id: "o",
+              label: "Onchain",
+              kind: "source",
+              calls: [
+                { id: "b2", label: "Listing the registry's tokens" },
+                { id: "d2", label: "Finding pools" },
+              ],
+            },
+            {
+              id: "m",
+              label: "Market data",
+              kind: "source",
+              calls: [{ id: "a2", label: "Reading the market snapshot" }],
             },
           ]}
         />

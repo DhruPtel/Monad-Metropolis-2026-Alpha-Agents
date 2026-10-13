@@ -1,14 +1,21 @@
 "use client";
 
 import type { EnvironmentId } from "@alpha-agents/config";
+import { speciesAsset } from "@alpha-agents/domain";
 import {
   BudgetMeter,
   Button,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
   EmptyState,
   DocumentList,
+  NextResearchStrip,
   PhaseList,
+  ResearchBranchChart,
   ResearchScheduleCard,
-  SourceBubbles,
   type RunOptionView,
   RunPicker,
   SectionLabel,
@@ -20,9 +27,9 @@ import {
 import { PlugZap, Wallet } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { type SentinelJson, tradingApi } from "@/api/client";
+import { ApiError, type SentinelJson, type StoredReportJson, api, tradingApi } from "@/api/client";
 import { kindLabel, reportHref } from "@/agent/report-view";
-import { levelOf, phases, sourceCounts } from "@/agent/research-run";
+import { branches, factPhases, levelOf } from "@/agent/research-run";
 import { useAccountTx } from "@/agent/use-account-tx";
 import { useOwnerSession } from "@/agent/use-owner-session";
 import { useReports } from "@/agent/use-reports";
@@ -38,6 +45,9 @@ const KIND_WORD: Readonly<Record<string, string>> = {
 };
 const minute = (iso: string | null | undefined) =>
   iso ? `${iso.slice(0, 10)} ${iso.slice(11, 16)}` : "–";
+/** A Scan's cost shown before the owner starts one (A-31); D-222's minimum to start. */
+const SCAN_COST_TEXT =
+  "A Scan reads the market, searches the web and saves its notes. It costs about 0.15 to 0.30 USDC of credits, taken as it runs, and needs at least 0.15 USDC to start.";
 
 /**
  * The Research page (P3-U10, rebuilt in UI-FAST around a live view of one
@@ -77,12 +87,65 @@ export function ResearchPage({
   const cycleId = selected ?? open ?? newest;
   const terminal = useTerminal(agentId, cycleId, research !== null && cycleId !== null);
   const shownCycle = research?.cycles.find((c) => c.cycleId === cycleId) ?? null;
-  const counts = useMemo(() => sourceCounts(terminal.lines), [terminal.lines]);
-  const runPhases = useMemo(
-    () => phases(terminal.lines, shownCycle?.finishedAt ?? null),
-    [terminal.lines, shownCycle?.finishedAt],
-  );
+  const lines = useMemo(() => branches(terminal.lines), [terminal.lines]);
   const live = terminal.state === "live";
+
+  // 2026-10-13: the shown run's report, whose structured facts write What happened.
+  const [reportBody, setReportBody] = useState<StoredReportJson | null>(null);
+  const finished = shownCycle?.finishedAt ?? null;
+  useEffect(() => {
+    setReportBody(null);
+    if (!cycleId || !finished) return;
+    let on = true;
+    void asOwner((t) => tradingApi.report(agentId, cycleId, t)).then(
+      (r) => on && setReportBody(r.report.body),
+      () => undefined,
+    );
+    return () => {
+      on = false;
+    };
+  }, [agentId, asOwner, cycleId, finished]);
+  const runPhases = useMemo(
+    () => factPhases(terminal.lines, finished, reportBody),
+    [terminal.lines, finished, reportBody],
+  );
+
+  // The agent's art, the branch chart's root.
+  const [art, setArt] = useState<string | null>(null);
+  useEffect(() => {
+    let on = true;
+    void api.agent(agentId).then(
+      (a) => on && setArt(a && a.species > 0 ? speciesAsset(a.species).image : null),
+      () => undefined,
+    );
+    return () => {
+      on = false;
+    };
+  }, [agentId]);
+
+  // Research now: the owner's Scan, its cost shown first.
+  const [scanAsk, setScanAsk] = useState(false);
+  const [scan, setScan] = useState<{ state: "working" | "done" | "error"; text: string } | null>(
+    null,
+  );
+  const startScan = async () => {
+    setScanAsk(false);
+    setScan({ state: "working", text: "Asking for a Scan." });
+    try {
+      await asOwner((t) => api.requestScan(agentId, t));
+      setScan({
+        state: "done",
+        text: "Scan started. Its themes and notes show here when it ends, in a few minutes.",
+      });
+      refresh();
+    } catch (err) {
+      setScan({
+        state: "error",
+        text:
+          err instanceof ApiError || err instanceof Error ? err.message : "Could not start a Scan.",
+      });
+    }
+  };
 
   // Each run's research level, from its terminal header: read once per run, one at a time.
   const [levels, setLevels] = useState<Readonly<Record<string, string>>>({});
@@ -183,8 +246,58 @@ export function ResearchPage({
       live: cy.cycleId === open,
     };
   });
+  const nextLine = !research.schedulingOn
+    ? "Scheduled research is off."
+    : s.paused
+      ? "Scheduled research is paused."
+      : s.nextDueAt
+        ? `Next research: ${minute(s.nextDueAt)} UTC`
+        : "Next research: not scheduled yet.";
   return (
     <div className="flex flex-col gap-6" data-testid="research-page" data-agent={id}>
+      <NextResearchStrip
+        line={nextLine}
+        action={
+          <Button
+            size="sm"
+            disabled={scan?.state === "working" || research.open !== null}
+            onClick={() => setScanAsk(true)}
+            data-testid="research-now"
+          >
+            Research now
+          </Button>
+        }
+        status={
+          research.open !== null ? (
+            <p className="text-xs text-foreground-muted">A run is going on now.</p>
+          ) : scan ? (
+            <p
+              className={
+                scan.state === "error" ? "text-xs text-negative" : "text-xs text-foreground-muted"
+              }
+              data-testid="research-now-status"
+            >
+              {scan.text}
+            </p>
+          ) : null
+        }
+      />
+      <Dialog open={scanAsk} onOpenChange={setScanAsk}>
+        <DialogContent aria-describedby="research-now-description">
+          <DialogHeader>
+            <DialogTitle>Research now</DialogTitle>
+            <DialogDescription id="research-now-description">{SCAN_COST_TEXT}</DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-wrap justify-end gap-2">
+            <Button variant="secondary" onClick={() => setScanAsk(false)}>
+              Cancel
+            </Button>
+            <Button onClick={() => void startScan()} data-testid="research-now-confirm">
+              Start the Scan
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
       <section aria-label="Runs" className="flex flex-col gap-2">
         <div className="flex flex-wrap items-center gap-2">
           <SectionLabel as="h2">Runs</SectionLabel>
@@ -213,28 +326,19 @@ export function ResearchPage({
 
       {cycleId ? (
         <>
-          <section aria-label="Sources" className="flex flex-col gap-2">
+          <section aria-label="How the run went" className="flex flex-col gap-2">
             <div className="flex flex-wrap items-center gap-2">
-              <SectionLabel as="h2">Sources</SectionLabel>
+              <SectionLabel as="h2">How the run went</SectionLabel>
               {live ? (
                 <span className="text-xs text-positive" data-testid="run-live">
                   Live
                 </span>
               ) : null}
             </div>
-            <SourceBubbles
-              items={[
-                { label: "Web searches", count: counts.webSearches },
-                { label: "Pages read", count: counts.pagesRead },
-                { label: "X posts read", count: counts.xPosts },
-                { label: "Onchain reads", count: counts.onchainReads },
-                { label: "Market data calls", count: counts.marketCalls },
-                {
-                  label: "Stages completed",
-                  count: counts.stages.length,
-                  names: [...new Set(counts.stages)],
-                },
-              ]}
+            <ResearchBranchChart
+              art={art}
+              branches={lines}
+              empty={terminal.state === "connecting" ? "Reading the run." : "No calls recorded."}
             />
           </section>
 
