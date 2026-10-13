@@ -54,6 +54,14 @@ import {
   SLOT_STATES,
   SlotHex,
   SkillInventoryCards,
+  HomeHero,
+  type HomeVaultView,
+  MintCallout,
+  MoneyFlowMap,
+  NoVaults,
+  VaultCards,
+  VaultList,
+  YourAgentsStrip,
   SkillSlotButtons,
   LoadoutUnsavedNote,
   type LoadoutSkillView,
@@ -5008,6 +5016,152 @@ function UniverseSection() {
   );
 }
 
+/** UI-FAST: the home page's parts: the hero's stats, the money-flow map, your agents or the mint call to action, and the vaults. */
+const HOME_VAULTS: readonly HomeVaultView[] = [
+  {
+    id: "7",
+    name: "Agent #7",
+    image: "/species/bee.webp",
+    tier: "pro",
+    speciesName: "Bee",
+    value: "1,240.50 USDC",
+    returnText: "+3.20%",
+    research: "14",
+    trades: "6",
+    live: true,
+    href: "#home",
+  },
+  {
+    id: "12",
+    name: "Agent #12",
+    image: null,
+    tier: "medium",
+    speciesName: "Firefly",
+    value: "310.00 USDC",
+    returnText: null,
+    research: "20+",
+    trades: "0",
+    live: false,
+    href: "#home",
+  },
+];
+
+function HomeSection() {
+  return (
+    <Section id="home" title="Home page">
+      <Specimen
+        name="HomeHero"
+        note="The name, one line on what it is, and five live figures; each figure's meaning is its tooltip. A count that may run past the activity page reads 20+."
+      >
+        <HomeHero
+          title="Vivarium"
+          lede="AI agents you own as NFTs, researching and trading onchain inside hard limits our contracts enforce."
+          stats={[
+            { label: "Agents active today", value: "2 of 4", meaning: "" },
+            { label: "Vaults", value: "1", meaning: "" },
+            { label: "Total value", value: "1,551.50 USDC", meaning: "" },
+            { label: "Research runs today", value: "3", meaning: "" },
+            { label: "Trades settled", value: "20+", meaning: "" },
+          ]}
+        />
+      </Specimen>
+      <Specimen
+        name="MoneyFlowMap"
+        note="The centerpiece: deposits fan out to the agents, research fans in, plans form, trades settle into portfolios. Edge width follows the amount or count; edges with activity carry moving dashes, idle ones are dotted. A live dot marks activity in the last hour; agents past eight fold into +N more."
+      >
+        <MoneyFlowMap
+          deposits={{ label: "Deposits", value: "1,500.00 USDC" }}
+          research={{ label: "Research", value: "34 runs" }}
+          plans={{ label: "Plans", value: "5" }}
+          portfolios={{ label: "Portfolios", value: "1,551.50 USDC" }}
+          agents={[
+            {
+              id: "7",
+              label: "#7",
+              image: "/species/bee.webp",
+              depositText: "1,200.00 USDC",
+              deposit: 1200,
+              research: 14,
+              live: true,
+            },
+            {
+              id: "12",
+              label: "#12",
+              image: null,
+              depositText: "300.00 USDC",
+              deposit: 300,
+              research: 20,
+              live: false,
+            },
+            {
+              id: "15",
+              label: "#15",
+              image: null,
+              depositText: "no deposit",
+              deposit: 0,
+              research: 0,
+              live: false,
+            },
+          ]}
+          planCount={5}
+          tradeCount={6}
+          caption="Latest, 4 min ago: Agent #7 sold 20.00 USDC for WMON. The trade is settled."
+        />
+      </Specimen>
+      <Specimen
+        name="YourAgentsStrip and MintCallout"
+        note="With a wallet connected, the owner's agents, each linking to its portfolio; without one, or with no agent, a single call to action."
+      >
+        <div className="flex flex-col gap-4">
+          <YourAgentsStrip
+            agents={[
+              {
+                id: "7",
+                name: "Agent #7",
+                image: "/species/bee.webp",
+                tier: "pro",
+                speciesName: "Bee",
+                goal: "Balanced",
+                value: "1,240.50 USDC",
+                lastResearch: "4 min ago",
+                href: "#home",
+                live: true,
+              },
+              {
+                id: "9",
+                name: "Agent #9",
+                image: null,
+                tier: null,
+                speciesName: null,
+                goal: "No goal set",
+                value: "0.00 USDC",
+                lastResearch: "never",
+                href: "#home",
+                live: false,
+              },
+            ]}
+          />
+          <MintCallout
+            title="Own an agent"
+            description="Free to mint: you pay only gas. Connect a wallet to see yours here."
+            action={<Button>Mint an agent</Button>}
+          />
+        </div>
+      </Specimen>
+      <Specimen
+        name="VaultCards, VaultList and NoVaults"
+        note="The top vaults as cards, every vault as a dense row linking to it, and the one empty state while none is open."
+      >
+        <div className="flex flex-col gap-4">
+          <VaultCards vaults={HOME_VAULTS} />
+          <VaultList vaults={HOME_VAULTS} />
+          <NoVaults />
+        </div>
+      </Specimen>
+    </Section>
+  );
+}
+
 function DesignSystem() {
   return (
     <div className="flex flex-col gap-10">
@@ -5022,6 +5176,7 @@ function DesignSystem() {
       <ActionsSection />
       <LabelsSection />
       <WalletSection />
+      <HomeSection />
       <AgentSection />
       <PortfolioSection />
       <VaultSection />

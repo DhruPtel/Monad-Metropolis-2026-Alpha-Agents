@@ -62,3 +62,5 @@ export * from "./components/agent/research";
 export * from "./components/agent/report";
 export * from "./components/agent/sentinel";
 export * from "./components/agent/universe";
+export * from "./components/home/home";
+export * from "./components/home/money-flow";

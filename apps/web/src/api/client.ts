@@ -1146,6 +1146,15 @@ export const api = {
   async credits(agentId: bigint): Promise<CreditsJson> {
     return call<CreditsJson>(`/v1/agents/${agentId.toString()}/credits`);
   },
+  /** UI-FAST: whether the agent has a goal and its preset, public (P3-U1). */
+  async goalSummary(
+    agentId: bigint,
+  ): Promise<{ configured: boolean; aggressiveness: string | null }> {
+    const r = await call<{ configured: boolean; aggressiveness?: string | null }>(
+      `/v1/agents/${agentId.toString()}/goal/summary`,
+    );
+    return { configured: r.configured, aggressiveness: r.aggressiveness ?? null };
+  },
   /** The narrator's entries, newest first (public, D-217). */
   async activity(agentId: bigint): Promise<ActivityJson[]> {
     return (await call<{ entries: ActivityJson[] }>(`/v1/agents/${agentId.toString()}/activity`))
