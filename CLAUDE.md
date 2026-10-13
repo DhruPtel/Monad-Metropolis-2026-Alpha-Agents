@@ -3,6 +3,15 @@
 ## Project
 Alpha Agents is an onchain financial management platform on Monad where AI agents are NFTs. Owners fund agents, set goals, and customize them with skill NFTs shown as parts on a 3D model. Agents research and trade within hard limits enforced by our own contracts. The hackathon target is a guarded mainnet beta for Monad Metropolis (deadline October 13, 2026).
 
+## Iteration mode (default until the owner says "cleanup pass")
+- This section overrides the rules below where they conflict, until the owner calls a cleanup pass.
+- Per change: typecheck and lint what you touched, run only the tests for touched files, commit with a short message, and add one or two lines to LOGS.md.
+- No full suites, screenshots, accessibility sweeps, LESSONS entries, or handoff files until the owner says "cleanup pass".
+- Contracts stay off limits.
+- Runner and trade-path changes are allowed only for getting agent #4 to trade on testnet, with the runner tests for each change.
+- Never print keys or RPC URLs.
+- Run commands in the foreground, except dev servers and stack services.
+
 ## Sources of truth
 - Planv2/FINAL_PLAN.md, Planv2/BUILD_PLAN.md, Planv2/DECISIONS_AND_OPEN_QUESTIONS.md are the plan. Follow them.
 - Planv1/ is historical. Open it only if Planv2 points to something you need.
