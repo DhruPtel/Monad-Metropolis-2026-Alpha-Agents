@@ -12,16 +12,21 @@
 import { spawn } from "node:child_process";
 import { assertLocalFork } from "@alpha-agents/devenv";
 import {
-  CLASS_F_FEEDS,
-  CORE_LANE_CANDIDATES,
-  CORE_POOL_CANDIDATES,
   NATIVE_MON,
   addressEntry,
+  classFFeedsFor,
+  coreLaneCandidatesFor,
+  corePoolCandidatesFor,
   feedMaxAgeSeconds,
 } from "@alpha-agents/domain";
 import { CUSTODY_ROLES } from "./account-factory.js";
 import { LOCAL_DEPLOY_ATTEMPTS, isTransientForkError } from "./agent-nft.js";
-import { ANVIL_URL } from "./config.js";
+import { ANVIL_URL, FORK_CHAIN, FORK_ENV } from "./config.js";
+
+// M-FAST: the fork's chain decides the tokens, feeds and pools (Monad's or Base's).
+const CLASS_F_FEEDS = classFFeedsFor(FORK_CHAIN);
+const CORE_LANE_CANDIDATES = coreLaneCandidatesFor(FORK_CHAIN);
+const CORE_POOL_CANDIDATES = corePoolCandidatesFor(FORK_CHAIN);
 import { MONAD_DIR } from "./paths.js";
 
 /**
@@ -81,7 +86,7 @@ export const FUND_ROLES = {
 
 /** @param {import("@alpha-agents/domain").AddressBookId} id */
 function verified(id) {
-  const e = addressEntry("local", id);
+  const e = addressEntry(FORK_ENV, id);
   if (e.status !== "verified")
     throw new Error(`the address book has no verified ${id} for the local fork`);
   return e.address;

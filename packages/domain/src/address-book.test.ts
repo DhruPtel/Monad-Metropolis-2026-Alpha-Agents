@@ -111,7 +111,8 @@ describe("address book", () => {
         if (e.status === "verified" && e.verification.deployedBy !== undefined) {
           // Our own deployments: the local fork's, or P2-EC's on testnet with
           // their deployment transaction and Sourcify link (D-254, D-256).
-          expect(["local", "testnet", "canary"], e.id).toContain(env);
+          // M-FAST: the Base fork's own set, deployed by pnpm base:deploy, fork only.
+          expect(["local", "testnet", "canary", "base"], e.id).toContain(env);
           if (env === "testnet") {
             expect(e.verification.chain?.transaction, e.id).toMatch(/^0x[0-9a-f]{64}$/);
             expect(e.verification.chain?.sourcify).toContain("repo.sourcify.dev/10143/");

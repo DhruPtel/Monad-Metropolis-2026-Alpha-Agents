@@ -1,0 +1,67 @@
+{
+  "unit": "M-FAST",
+  "chainId": 84538453,
+  "forkOf": 8453,
+  "label": "Base fork (anvil), the current trading set with AgentNFT as the fork-only ownership stand-in",
+  "recordedAt": "2026-10-13T02:57:43.298Z",
+  "startBlock": 52534004,
+  "endBlock": 52534008,
+  "fundSet": {
+    "tokenRegistry": "0xc0b897113eda60B5d3B103e02321668CA6ce8851",
+    "protocolRegistry": "0x7090618fAd896a2ff76a2FcFa9AC1EC4a3A10850",
+    "oracle": "0xc891F678F0E71192a1110E3BC1A3d7741D9EC797",
+    "routeAdapter": "0x3431338eE8093b8CB4E3496ADa9a05E85978CA3e",
+    "coreTokens": 10,
+    "corePools": 16
+  },
+  "fundSetProtocolRegistry": "0x7090618fAd896a2ff76a2FcFa9AC1EC4a3A10850",
+  "fundSetOracle": "0xc891F678F0E71192a1110E3BC1A3d7741D9EC797",
+  "executorSet": {
+    "setDeployer": "0x42e7F9dfb107E720696CE38D92DD5AB2F14D9a63",
+    "policyHash": "0xb5a9fa71ad68d9ba87761d235f535f9d9a6f2088b2476e43b81468573c59a3bb",
+    "corePools": 16,
+    "leftOut": 0
+  },
+  "contracts": {
+    "agent_nft": {
+      "address": "0x6c0513F03430Bdc4230C64Ca40172caFD32c2415",
+      "codeSize": 35802
+    },
+    "token_registry_v3": {
+      "address": "0xc0b897113eda60B5d3B103e02321668CA6ce8851",
+      "codeSize": 19517
+    },
+    "route_adapter_v3": {
+      "address": "0x3431338eE8093b8CB4E3496ADa9a05E85978CA3e",
+      "codeSize": 12727
+    },
+    "executor_v3": {
+      "address": "0x473CBa589711AD60fa4F7399244eEcFBCf09F43e",
+      "codeSize": 41210
+    },
+    "executor_route_adapter_v3": {
+      "address": "0x6409994c9A7e5Bbb239a58c8b8f9b8c28e45c9AD",
+      "codeSize": 12727
+    },
+    "protocol_registry_v3": {
+      "address": "0xB96c0a926eD8Eb7A918580E1E3b0f548F6A90059",
+      "codeSize": 19718
+    },
+    "oracle_adapter_v3": {
+      "address": "0x8a621CE51c2695Aec1Ed418554Ed218937993bc1",
+      "codeSize": 10235
+    },
+    "account_factory_v3": {
+      "address": "0x493A374A9f1ebB9E7254E37d4ddcda4D5f4bB7a5",
+      "codeSize": 14231
+    },
+    "personal_account_v3_implementation": {
+      "address": "0x4d64Afa2d19b9499a46eC51De69BFC4a98C573cE",
+      "codeSize": 41232
+    },
+    "strategy_vault_v3_implementation": {
+      "address": "0xB3Cf629fcf776FeA86C1B50E6B2f65A76a4e2A5D",
+      "codeSize": 61812
+    }
+  }
+}

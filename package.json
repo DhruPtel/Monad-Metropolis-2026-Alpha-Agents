@@ -98,7 +98,14 @@
     "verify:canary:v3": "node scripts/verify-canary-v3.js",
     "canary:mainnet": "node scripts/canary-mainnet.js",
     "canary:mainnet:v3": "node scripts/canary-mainnet-v3.js",
-    "canary:local-only": "node scripts/canary-local-only.js"
+    "canary:local-only": "node scripts/canary-local-only.js",
+    "base:fork:up": "node scripts/base-fork.js up",
+    "base:fork:down": "node scripts/base-fork.js down",
+    "base:deploy": "node scripts/base-deploy.js",
+    "base:up": "node scripts/base-stack.js up",
+    "base:down": "node scripts/base-stack.js down",
+    "base:demo": "node scripts/base-demo.js",
+    "test:base-fork": "cd chains/monad && FOUNDRY_PROFILE=base forge test --match-path 'test/base/*' -vv"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

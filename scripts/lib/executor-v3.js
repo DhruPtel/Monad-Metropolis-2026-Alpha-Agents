@@ -7,20 +7,20 @@
 // follows from the arguments (CREATE2, and CREATE from a CREATE2-deployed
 // ExecutorSetDeployer), so running it again finds the same contracts.
 import { assertLocalFork, rpc } from "@alpha-agents/devenv";
-import { CORE_LANE_CANDIDATES, addressEntry } from "@alpha-agents/domain";
+import { addressEntry, coreLaneCandidatesFor } from "@alpha-agents/domain";
 import { createPublicClient, http, isAddressEqual, pad, parseAbi, toHex } from "viem";
 import {
   LOCAL_DEPLOY_ATTEMPTS,
   deployLocal as deployAgentNftLocal,
   isTransientForkError,
 } from "./agent-nft.js";
-import { ANVIL_URL } from "./config.js";
+import { ANVIL_URL, FORK_CHAIN, FORK_ENV } from "./config.js";
 import { deployCustodyV3Local } from "./custody-v3.js";
 import { FUND_ROLES, feeArgs, fundConfig, runForge } from "./fund.js";
 
 /** @param {import("@alpha-agents/domain").AddressBookId} id */
 function verified(id) {
-  const e = addressEntry("local", id);
+  const e = addressEntry(FORK_ENV, id);
   if (e.status !== "verified")
     throw new Error(`the address book has no verified ${id} for the local fork`);
   return e.address;
@@ -148,7 +148,7 @@ export async function deployExecutorV3Local(options = {}) {
       `the TokenRegistry ${tokenRegistry} has no code on this fork; run pnpm deploy:fund first`,
     );
   // Every candidate pool; the script keeps those whose tokens the registry lists.
-  const config = fundConfig(CORE_LANE_CANDIDATES.map((c) => c.address));
+  const config = fundConfig(coreLaneCandidatesFor(FORK_CHAIN).map((c) => c.address));
   const out = await script(url, "script/DeployExecutorV3.s.sol:DeployExecutorV3", {
     FUND_CONFIG: JSON.stringify(config),
     EXECUTOR_V3_TOKEN_REGISTRY: tokenRegistry,

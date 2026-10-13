@@ -16,3 +16,10 @@ export const ANVIL_PID_PATH = join(DEV_DIR, "anvil.pid");
 export const ANVIL_LOG_PATH = join(DEV_DIR, "anvil.log");
 /** The fork's state as anvil saves it every minute and on exit, and loads on the next start (D-364). */
 export const ANVIL_STATE_PATH = join(DEV_DIR, "anvil-state.json");
+
+/** M-FAST: the Base fork beside the playtest fork, with its own pin, log, pid and saved state. */
+export const BASE_DIR = join(ROOT, "chains/base");
+export const BASE_FORK_CONFIG_PATH = join(BASE_DIR, "fork.json");
+export const BASE_ANVIL_PID_PATH = join(DEV_DIR, "base-anvil.pid");
+export const BASE_ANVIL_LOG_PATH = join(DEV_DIR, "base-anvil.log");
+export const BASE_ANVIL_STATE_PATH = join(DEV_DIR, "base-anvil-state.json");

@@ -104,3 +104,7 @@ evidence/nft-u2/testnet-deployment.json:generic-api-key:111
 evidence/nft-u2/testnet-deployment.json:generic-api-key:125
 evidence/nft-u2/testnet-deployment.json:generic-api-key:133
 evidence/nft-u2/testnet-deployment.json:generic-api-key:141
+# M-FAST: the Base fork deployment record's TokenRegistry address, a public contract address on the fork.
+evidence/m-fast/base-deployment.json:generic-api-key:10
+# M-FAST: the Tokenbound v3 implementation's public address on Base mainnet, a constant in the fork test.
+chains/monad/test/base/BaseFork.t.sol:generic-api-key:60

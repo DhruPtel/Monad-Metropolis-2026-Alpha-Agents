@@ -8,7 +8,7 @@ import { spawnSync } from "node:child_process";
 import { variableSpec } from "@alpha-agents/config";
 import { assertLocalFork, hexToNumber, rpc } from "@alpha-agents/devenv";
 import { privateKeyToAccount } from "viem/accounts";
-import { ANVIL_URL } from "./config.js";
+import { ANVIL_URL, FORK_ENV } from "./config.js";
 import { MONAD_DIR } from "./paths.js";
 
 /**
@@ -25,9 +25,11 @@ export const LOCAL_ROLES = {
 /** Placeholder until the 25 species images and the placeholder are on IPFS. */
 export const PENDING_IMAGE_BASE_URI = "ipfs://alpha-agents-images-pending/";
 
-/** @type {{ local: `0x${string}`, testnet: `0x${string}` }} */
+/** @type {{ local: `0x${string}`, base: `0x${string}`, testnet: `0x${string}` }} */
 export const ENTROPY = {
   local: "0xD458261E832415CFd3BAE5E416FdF3230ce6F134",
+  // M-FAST: Pyth's Base Entropy proxy; the Base fork impersonates it as the Monad fork does its own.
+  base: "0x6E7D74FA7d5c90FEF9F0512987605a6d546181Bb",
   testnet: "0x825c0390f379C631f3Cf11A82a37D20BddF93c07",
 };
 
@@ -144,7 +146,7 @@ export async function deployLocal(options = {}) {
       AGENT_NFT_CLAIM_SIGNER: LOCAL_ROLES.claimSigner,
       AGENT_NFT_TREASURY: LOCAL_ROLES.treasury,
       AGENT_NFT_IMAGE_BASE_URI: PENDING_IMAGE_BASE_URI,
-      AGENT_NFT_ENTROPY: ENTROPY.local,
+      AGENT_NFT_ENTROPY: ENTROPY[FORK_ENV],
     },
     options.quiet,
     LOCAL_DEPLOY_ATTEMPTS,

@@ -18,6 +18,9 @@ import {Script} from "forge-std/Script.sol";
 abstract contract DeployScope is Script {
     /// The local fork's own chain ID (D-195).
     uint256 internal constant LOCAL_FORK_CHAIN_ID = 143143;
+    /// The Base fork's own chain ID (M-FAST): an anvil fork of Base mainnet on this machine, never
+    /// Base's 8453, with the unscoped salts like the local fork; no real chain answers it.
+    uint256 internal constant BASE_FORK_CHAIN_ID = 84538453;
     uint256 internal constant MONAD_TESTNET_CHAIN_ID = 10143;
     uint256 internal constant MONAD_MAINNET_CHAIN_ID = 143;
     string internal constant P2EC_TESTNET_SCOPE = "p2ec.testnet";
@@ -27,8 +30,8 @@ abstract contract DeployScope is Script {
     /// `p2ec.canary` on mainnet behind the canary's gate.
     function saltScope() public view returns (string memory scope) {
         scope = vm.envOr("DEPLOY_SALT_SCOPE", string(""));
-        if (block.chainid == LOCAL_FORK_CHAIN_ID) {
-            require(bytes(scope).length == 0, "the local fork uses the unscoped salts; unset DEPLOY_SALT_SCOPE");
+        if (block.chainid == LOCAL_FORK_CHAIN_ID || block.chainid == BASE_FORK_CHAIN_ID) {
+            require(bytes(scope).length == 0, "a local fork uses the unscoped salts; unset DEPLOY_SALT_SCOPE");
         } else if (block.chainid == MONAD_TESTNET_CHAIN_ID) {
             require(
                 keccak256(bytes(scope)) == keccak256(bytes(P2EC_TESTNET_SCOPE)),
@@ -44,7 +47,9 @@ abstract contract DeployScope is Script {
                 "the canary deploys to Monad mainnet only with CANARY_SIGNING_ENABLED=true (D-251)"
             );
         } else {
-            revert("not the local fork (143143), Monad testnet (10143) or the mainnet canary (143)");
+            revert(
+                "not the local fork (143143), the Base fork (84538453), Monad testnet (10143) or the mainnet canary (143)"
+            );
         }
     }
 

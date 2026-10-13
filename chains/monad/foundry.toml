@@ -19,6 +19,22 @@ fs_permissions = [
   { access = "read", path = "../../services/orchestrator/src/tokens/screen-token-code.ts" },
 ]
 
+# M-FAST: the profile the scripts select (FOUNDRY_PROFILE=base) when FORK_ENV=base,
+# for the Base mainnet fork only. The fork runs anvil with --optimism (Base is an
+# OP Stack chain), but forge runs the scripts under the plain ethereum family:
+# under forge 1.8.3's optimism family a broadcast `new{salt}` is not routed
+# through the CREATE2 factory (the trace shows a direct CREATE2 from the sender),
+# so the deterministic addresses the scripts predict would never match. The
+# ethereum family routes it; the deploy script mines an empty block first so
+# the head block forge reads holds no deposit transaction.
+# The size limit is the fork-only exception M-FAST records: the current set is
+# over EIP-170's 24,576 bytes and Base enforces it (FINAL_PLAN 0.8.2), so this
+# profile exists only for a chain id no real chain uses (DeployScope accepts the
+# salts for 84538453 alone) and M-U0 splits the contracts before any Base deployment.
+[profile.base]
+network = "ethereum"
+code_size_limit = 1048576
+
 [profile.default.invariant]
 # Each run mints up to 40 agents per call and the invariants read every
 # agent, so fewer, deeper runs keep the suite to a few minutes.

@@ -4,7 +4,11 @@
 // and the minter, impersonated, sends mintWithClaim. The fork is the one
 // LOCAL_FORK_PORT names (the playtest fork by default, D-200).
 import { randomBytes } from "node:crypto";
-import { LOCAL_FORK_CHAIN_ID } from "@alpha-agents/config";
+import { ENVIRONMENTS } from "@alpha-agents/config";
+import { FORK_ENV } from "./config.js";
+
+/** The fork's own chain id (M-FAST: the Monad fork's or the Base fork's). */
+const FORK_CHAIN_ID = ENVIRONMENTS[FORK_ENV].chainId;
 import { rpc } from "@alpha-agents/devenv";
 import { CLAIM_TYPES, claimDomain } from "@alpha-agents/domain";
 import { parseAbi, parseEventLogs } from "viem";
@@ -38,7 +42,7 @@ export async function mintLocal(nft, minter = privateKeyToAccount(generatePrivat
   const now = Math.max(Math.floor(Date.now() / 1000), Number(BigInt(block.timestamp)));
   const deadline = BigInt(now + 3600);
   const signature = await signer.signTypedData({
-    domain: claimDomain(LOCAL_FORK_CHAIN_ID, nft),
+    domain: claimDomain(FORK_CHAIN_ID, nft),
     types: CLAIM_TYPES,
     primaryType: "MintClaim",
     message: { wallet: minter, nonce, deadline },

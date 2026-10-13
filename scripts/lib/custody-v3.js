@@ -21,14 +21,14 @@ import {
   deployLocal as deployAgentNftLocal,
   isTransientForkError,
 } from "./agent-nft.js";
-import { ANVIL_URL } from "./config.js";
+import { ANVIL_URL, FORK_ENV } from "./config.js";
 import { feeArgs, runForge } from "./fund.js";
 
 const ZERO = "0x0000000000000000000000000000000000000000";
 
 /** @param {import("@alpha-agents/domain").AddressBookId} id */
 function verified(id) {
-  const e = addressEntry("local", id);
+  const e = addressEntry(FORK_ENV, id);
   if (e.status !== "verified")
     throw new Error(`the address book has no verified ${id} for the local fork`);
   return e.address;

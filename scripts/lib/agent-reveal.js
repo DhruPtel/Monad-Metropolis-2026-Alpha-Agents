@@ -6,7 +6,7 @@
 // Local fork only: every call goes through the local-fork guard first. The
 // real reveal keeper is P1-U5's.
 import { randomBytes } from "node:crypto";
-import { LOCAL_FORK_CHAIN_ID } from "@alpha-agents/config";
+import { ENVIRONMENTS } from "@alpha-agents/config";
 import { assertLocalFork, rpc } from "@alpha-agents/devenv";
 import { SPECIES } from "@alpha-agents/domain";
 import {
@@ -18,7 +18,10 @@ import {
   keccak256,
   parseAbi,
 } from "viem";
-import { ANVIL_URL } from "./config.js";
+import { ANVIL_URL, FORK_ENV } from "./config.js";
+
+/** The fork's own chain id (M-FAST: the Monad fork's or the Base fork's). */
+const FORK_CHAIN_ID = ENVIRONMENTS[FORK_ENV].chainId;
 import { ENTROPY, LOCAL_ROLES } from "./agent-nft.js";
 
 export const ENTROPY_PROVIDER = "0x52DeaA1c84233F7bb8C8A45baeDE41091c616506";
@@ -37,7 +40,7 @@ export const REVEAL_ABI = parseAbi([
 const ENTROPY_ABI = parseAbi(["function getFeeV2() view returns (uint128)"]);
 
 const chain = defineChain({
-  id: LOCAL_FORK_CHAIN_ID,
+  id: FORK_CHAIN_ID,
   name: "Monad (local fork)",
   nativeCurrency: { name: "MON", symbol: "MON", decimals: 18 },
   rpcUrls: { default: { http: [ANVIL_URL] } },
@@ -78,7 +81,7 @@ export function simulateReveal({ randomNumber, sequence, nft, first, last, deck,
   const seed = keccak256(
     encodeAbiParameters(
       [{ type: "bytes32" }, { type: "uint64" }, { type: "uint256" }, { type: "address" }],
-      [randomNumber, sequence, BigInt(LOCAL_FORK_CHAIN_ID), nft],
+      [randomNumber, sequence, BigInt(FORK_CHAIN_ID), nft],
     ),
   );
   const counts = [...deck];
@@ -130,7 +133,7 @@ export async function revealLocal(nft, want) {
   if (sequence === 0n) {
     if (next > minted) return null;
     const fee = await publicClient.readContract({
-      address: ENTROPY.local,
+      address: ENTROPY[FORK_ENV],
       abi: ENTROPY_ABI,
       functionName: "getFeeV2",
     });
@@ -166,14 +169,14 @@ export async function revealLocal(nft, want) {
         randomNumber = `0x${randomBytes(32).toString("hex")}`;
       }
     }
-    await impersonate(ENTROPY.local);
-    await send(ENTROPY.local, {
+    await impersonate(ENTROPY[FORK_ENV]);
+    await send(ENTROPY[FORK_ENV], {
       address: nft,
       abi: REVEAL_ABI,
       functionName: "_entropyCallback",
       args: [sequence, ENTROPY_PROVIDER, randomNumber],
     });
-    await rpc(ANVIL_URL, "anvil_stopImpersonatingAccount", [ENTROPY.local]);
+    await rpc(ANVIL_URL, "anvil_stopImpersonatingAccount", [ENTROPY[FORK_ENV]]);
   }
   await send(LOCAL_ROLES.admin, {
     address: nft,

@@ -111,7 +111,7 @@ contract TestnetScriptsTest is Test {
         assertEq(custody.salt("protocol-registry"), keccak256("alpha-agents.protocol-registry.v1"));
 
         vm.setEnv("DEPLOY_SALT_SCOPE", "p2ec.testnet");
-        vm.expectRevert(bytes("the local fork uses the unscoped salts; unset DEPLOY_SALT_SCOPE"));
+        vm.expectRevert(bytes("a local fork uses the unscoped salts; unset DEPLOY_SALT_SCOPE"));
         custody.salt("executor");
 
         vm.chainId(10143);
