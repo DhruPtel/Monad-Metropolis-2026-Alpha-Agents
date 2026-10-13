@@ -80,7 +80,7 @@ function AppShell({ environment, children }: { environment: string; children: Re
           >
             <span aria-hidden className="size-3 rotate-45 rounded-sm border-2 border-primary" />
             <span className="text-base font-semibold tracking-tight whitespace-nowrap">
-              Alpha Agents
+              Vivarium
             </span>
           </Link>
           {/* Inline from xl: below 1280px the links and the wallet controls do not fit

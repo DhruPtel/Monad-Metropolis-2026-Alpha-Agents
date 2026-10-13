@@ -2,7 +2,7 @@ import { webEnvironment } from "@alpha-agents/config";
 import { notFound } from "next/navigation";
 import { PortfolioPage } from "@/components/portfolio/portfolio-page";
 
-export const metadata = { title: "Portfolio · Alpha Agents" };
+export const metadata = { title: "Portfolio · Vivarium" };
 
 /** One agent's portfolio for its owner (P2-U7): reached from its card on My Agents. */
 export default async function AgentPortfolioPage({ params }: { params: Promise<{ id: string }> }) {

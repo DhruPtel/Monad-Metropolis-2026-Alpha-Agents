@@ -2,7 +2,7 @@ import { webEnvironment } from "@alpha-agents/config";
 import { notFound } from "next/navigation";
 import { GoalPage } from "@/components/goal/goal-page";
 
-export const metadata = { title: "Goal · Alpha Agents" };
+export const metadata = { title: "Goal · Vivarium" };
 
 /** One agent's goal for its owner (P3-U1, D-295): reached from its card, its portfolio and /configure. */
 export default async function AgentGoalPage({ params }: { params: Promise<{ id: string }> }) {

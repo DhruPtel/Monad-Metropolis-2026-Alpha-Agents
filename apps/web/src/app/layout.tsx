@@ -9,8 +9,8 @@ import { inter, jetbrainsMono } from "./fonts";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Alpha Agents",
-  description: "Alpha Agents, unaudited beta",
+  title: "Vivarium",
+  description: "Vivarium, unaudited beta",
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

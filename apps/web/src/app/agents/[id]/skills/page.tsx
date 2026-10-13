@@ -2,7 +2,7 @@ import { webEnvironment } from "@alpha-agents/config";
 import { notFound } from "next/navigation";
 import { SkillsPage } from "@/components/skills/skills-page";
 
-export const metadata = { title: "Skills · Alpha Agents" };
+export const metadata = { title: "Skills · Vivarium" };
 
 /** One agent's skills for its owner (SK-U1): the built-in set and the owner's own uploads; reached from the portfolio and My Agents. */
 export default async function AgentSkillsPage({ params }: { params: Promise<{ id: string }> }) {

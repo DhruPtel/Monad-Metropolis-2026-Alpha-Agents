@@ -1,6 +1,6 @@
 import { ComingLaterPage } from "@/components/shell/coming-later-page";
 
-export const metadata = { title: "Alpha Agents" };
+export const metadata = { title: "Vivarium" };
 
 /** The home page (UI-U1): the dashboard comes after the beta; here is what works today. */
 export default function HomePage() {

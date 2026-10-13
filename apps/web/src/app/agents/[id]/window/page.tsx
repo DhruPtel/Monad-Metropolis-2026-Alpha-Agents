@@ -2,7 +2,7 @@ import { webEnvironment } from "@alpha-agents/config";
 import { notFound } from "next/navigation";
 import { WindowPage } from "@/components/window/window-page";
 
-export const metadata = { title: "Performance window · Alpha Agents" };
+export const metadata = { title: "Performance window · Vivarium" };
 
 /** One agent's portfolio window for its owner (F-U11): reached from its card on My Agents and its portfolio. */
 export default async function AgentWindowPage({ params }: { params: Promise<{ id: string }> }) {

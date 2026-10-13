@@ -1619,3 +1619,9 @@ Summary: services/orchestrator/src/scan.test.ts; services/data-tools/src/researc
 - Checks: pnpm typecheck, pnpm lint and pnpm format:check clean; tests passing in skills, policy, data-tools, domain, the web editor test and scan.test.ts (exit 0). Playwright not run (no page changed its layout; the editor's first pass is covered by the skills and editor tests).
 - Model spend: none (no model call in this unit).
 - Dev state: unchanged from M-FAST's entry; the owner's testnet stack and the Base stack keep running.
+
+## REN-U1 (quick part): the web app shows "Vivarium" (2026-10-13)
+Status: done for the submission; the full REN-U1 runs after it. Every name the web app shows changed from "Alpha Agents" to "Vivarium": the header brand (app-shell), the root layout's title and description, and every page's metadata title (home, mint, configure, My Agents, design system, goal, portfolio, research, settings, skills, vault, performance window), 14 files. Left as they are, by the task's rule: the contracts and AgentNFT's onchain name, every code identifier (the @alpha-agents packages, ids, test ids), the web package's description, the README and the design system's source comment, for the full REN-U1.
+- Checks: pnpm typecheck, pnpm lint and pnpm format:check clean; the web unit tests (28 files, 226) and the design system's (621) pass. Playwright not run, as the task asked: the console and web screenshot baselines that carry the old brand in the header will need a retake in the full REN-U1.
+- Dev state: the running dev stack and the playtest fork untouched; nothing restarted.
+- Model spend: none.

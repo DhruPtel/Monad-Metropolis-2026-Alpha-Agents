@@ -2,7 +2,7 @@ import { webEnvironment } from "@alpha-agents/config";
 import { notFound } from "next/navigation";
 import { SettingsPage } from "@/components/settings/settings-page";
 
-export const metadata = { title: "Settings · Alpha Agents" };
+export const metadata = { title: "Settings · Vivarium" };
 
 /** One agent's settings for its owner (BK-U1): the owner's own keys for paid data sources. */
 export default async function AgentSettingsPage({ params }: { params: Promise<{ id: string }> }) {
