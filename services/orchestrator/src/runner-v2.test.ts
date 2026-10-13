@@ -11,7 +11,9 @@ import { type TestDatabase, createTestDatabase, databaseAvailable } from "@alpha
 import { DEFAULT_GOAL_INPUT } from "@alpha-agents/domain";
 import {
   TARGET_PORTFOLIO_ID,
+  TESTNET_TRADING_PROFILE,
   type TargetPortfolioParams,
+  type TradingProfile,
   executorV3,
   translateGoal,
 } from "@alpha-agents/policy";
@@ -250,7 +252,13 @@ describe.skipIf(!dbUp)(
       tokenOf: () => USDC,
     } as unknown as ChainReader;
 
-    const runner = () =>
+    const runner = (
+      over: {
+        profile?: TradingProfile;
+        gasMonUsdE18?: () => Promise<bigint | null>;
+        gasWei?: bigint;
+      } = {},
+    ) =>
       new TemplateRunner({
         chainId: CHAIN,
         reader: v2,
@@ -264,7 +272,12 @@ describe.skipIf(!dbUp)(
         volatility24hPct: async () => 110,
         volatilityOf: async () => null,
         screenFresh: async (token) => screens[token.toLowerCase()] ?? null,
-        gas: null,
+        gas:
+          over.gasWei === undefined
+            ? null
+            : { balance: async () => E18, swapCost: async () => over.gasWei as bigint },
+        ...(over.profile ? { profile: over.profile } : {}),
+        gasMonUsdE18: over.gasMonUsdE18 ?? null,
         narrator: {
           narrateEvent: async (_c, _a, key, facts) => {
             narrated.push({ key, facts });
@@ -367,6 +380,71 @@ describe.skipIf(!dbUp)(
       // The leg is capped at the plan's largest leg, 10% of the account's value.
       expect(i1?.amountIn).toBeLessThanOrEqual(10_000_000n);
       expect(i1?.amountIn).toBeGreaterThanOrEqual(500_000n);
+    });
+
+    const smallBandPlan = async () => {
+      await saveGoal();
+      await plans.set({
+        chainId: CHAIN,
+        agentId: 1,
+        template: "rebalance_bands@1",
+        params: {
+          targetWmonBps: 2_000,
+          bandHalfWidthBps: 500,
+          minTradeUsdcE6: 500_000n,
+          volatilityBrakeBps: 20_000,
+          costHurdleBps: 40,
+          maxLegBps: 1_000,
+        },
+        setBy: "console",
+      });
+      await arm();
+      // 3 USDC: a 10% leg is 0.30 USDC, under the plan's 0.50 minimum.
+      chain.holdings = { [USDC]: 3_000_000n };
+    };
+    // 0.2 MON of gas, as a testnet swap costs.
+    const GAS_WEI = 200_000_000_000_000_000n;
+
+    it("testnet profile: the launch profile holds a 0.30 USDC leg under the plan's minimum; the testnet profile buys it when its gas is cheap", async () => {
+      await smallBandPlan();
+      const [launch] = await runner({ gasWei: GAS_WEI }).tick();
+      expect(launch).toMatchObject({ outcome: "hold", code: "BELOW_MIN_TRADE" });
+      // At 0.001 USD a MON the gas is 0.0002 USDC, 7 bps of the leg; with 10 bps of impact
+      // it is within the testnet limit of 50 bps.
+      const [testnet] = await runner({
+        profile: TESTNET_TRADING_PROFILE,
+        gasWei: GAS_WEI,
+        gasMonUsdE18: async () => 1_000_000_000_000_000n,
+      }).tick();
+      expect(testnet).toMatchObject({ outcome: "leg", leg: { sell: "USDC", buy: "WMON" } });
+    });
+
+    it("testnet profile: counts gas at MON's price with price impact and fees, and holds COST_HURDLE when the total passes 0.5%", async () => {
+      await smallBandPlan();
+      // At 0.024 USD a MON the gas is 0.0048 USDC, about 160 bps of a 0.30 USDC leg (rounded up).
+      const [d] = await runner({
+        profile: TESTNET_TRADING_PROFILE,
+        gasWei: GAS_WEI,
+        gasMonUsdE18: async () => 24_000_000_000_000_000n,
+      }).tick();
+      expect(d).toMatchObject({ outcome: "hold", code: "COST_HURDLE" });
+      expect(d?.facts).toMatchObject({
+        gasUsdcE6: "4800",
+        gasBps: 161,
+        costHurdleBps: 50,
+      });
+      expect((d?.facts as { costWithGasBps: number }).costWithGasBps).toBeGreaterThan(160);
+      expect(await intents()).toEqual([]);
+    });
+
+    it("testnet profile: without a reading of MON's price, a leg is judged on impact and fees alone", async () => {
+      await smallBandPlan();
+      const [d] = await runner({
+        profile: TESTNET_TRADING_PROFILE,
+        gasWei: GAS_WEI,
+        gasMonUsdE18: async () => null,
+      }).tick();
+      expect(d).toMatchObject({ outcome: "leg" });
     });
 
     it("RUN-FIX: a band plan becomes the equivalent one-position portfolio plan, every parameter kept", () => {

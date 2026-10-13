@@ -443,6 +443,7 @@ export function GoalPage({
           owner={ownerLimits}
           refused={OWNER_LIMIT_FIELDS.filter((f) => errors[`stricterLimits.${f}`] !== undefined)}
           effective={preview?.ownerLimits ?? page.form.hardLimits}
+          testnet={environment === "testnet"}
         />
       </Section>
 

@@ -103,6 +103,7 @@ function EffectiveLimits({
   owner,
   effective,
   refused = [],
+  testnet = false,
   className,
 }: {
   hard: GoalLimits;
@@ -111,6 +112,8 @@ function EffectiveLimits({
   effective: GoalLimits;
   /** Fields whose typed value was refused: shown as not accepted, never as applying. */
   refused?: readonly OwnerLimitField[];
+  /** Monad testnet: also shows the testnet trading profile's rules, marked as testnet limits. */
+  testnet?: boolean;
   className?: string;
 }) {
   const fields = Object.keys(OWNER_LIMIT_FACTS) as OwnerLimitField[];
@@ -156,6 +159,26 @@ function EffectiveLimits({
           })}
         </TableBody>
       </Table>
+      {testnet ? (
+        <div
+          className="flex flex-col gap-1 rounded-md border border-warning p-3"
+          data-testid="testnet-limits"
+        >
+          <p className="text-sm font-medium">Testnet limits: these apply on Monad testnet only</p>
+          <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
+            <dt className="text-foreground-muted">Smallest trade</dt>
+            <dd>None: gas decides how small a trade can go.</dd>
+            <dt className="text-foreground-muted">Most a trade may cost</dt>
+            <dd className="numeric">
+              0.5% of its value, counting price impact, pool fees and gas at MON&apos;s market
+              price.
+            </dd>
+          </dl>
+          <p className="text-xs text-foreground-muted">
+            Mainnet keeps a 0.50 USDC smallest trade and the plan&apos;s own cost limit.
+          </p>
+        </div>
+      ) : null}
     </section>
   );
 }

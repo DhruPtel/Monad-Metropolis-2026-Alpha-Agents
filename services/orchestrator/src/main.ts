@@ -30,7 +30,15 @@ import { TavilyProvider } from "@alpha-agents/data-tools";
 import { createDb, migrateToLatest } from "@alpha-agents/db";
 import { localPaths, secretFragments, setMonBalance, startTestFork } from "@alpha-agents/devenv";
 import { SPECIES, addressEntry } from "@alpha-agents/domain";
-import { zeroAddress, type Hex, type PublicClient, createPublicClient, http } from "viem";
+import { tradingProfileFor } from "@alpha-agents/policy";
+import {
+  zeroAddress,
+  type Hex,
+  type PublicClient,
+  createPublicClient,
+  http,
+  parseUnits,
+} from "viem";
 import { createApi } from "./api.ts";
 import { SignerWorker } from "./signer-worker.ts";
 import { FundingKeys } from "./credits/funding.ts";
@@ -652,6 +660,15 @@ const orchestrator = new Orchestrator({
     volatility24hPct: async () => {
       const f = (await market.volatility()).value.windows["24h"];
       return f.value === null || f.warnings.some((w) => w.code === "STALE") ? null : f.value;
+    },
+    // 2026-10-13: the testnet profile on testnet alone (no minimum trade, gas in the cost);
+    // never on mainnet or the beta. Gas is priced at MON's real price, mainnet Chainlink MON/USD,
+    // since the testnet feed's MON price is not a market price.
+    profile: tradingProfileFor(env.id),
+    gasMonUsdE18: async () => {
+      const f = (await market.oracleVsPool()).value.chainlinkMonUsd;
+      if (f.value === null || f.warnings.some((w) => w.code === "STALE")) return null;
+      return parseUnits(f.value.toFixed(12), 18);
     },
   },
   scanIntervalMs,

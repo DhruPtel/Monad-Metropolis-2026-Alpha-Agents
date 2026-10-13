@@ -4243,7 +4243,7 @@ function GoalSection() {
       </Specimen>
       <Specimen
         name="EffectiveLimits"
-        note="The hard limit, the owner's, and the tighter of the two."
+        note="The hard limit, the owner's, and the tighter of the two; on Monad testnet, with the testnet trading profile's rules marked as testnet limits."
       >
         <EffectiveLimits
           hard={GOAL_HARD}
@@ -4267,6 +4267,18 @@ function GoalSection() {
           }}
           refused={["maxTradeBps"]}
           effective={GOAL_HARD}
+        />
+        <EffectiveLimits
+          hard={GOAL_HARD}
+          owner={{
+            maxTradeBps: null,
+            maxPositionBps: null,
+            minUsdcShareBps: null,
+            maxSlippageBps: null,
+            maxTradesPer24h: null,
+          }}
+          effective={GOAL_HARD}
+          testnet
         />
       </Specimen>
       <Specimen

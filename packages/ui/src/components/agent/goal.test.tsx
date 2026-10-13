@@ -142,6 +142,23 @@ describe("goal components (P3-U1)", () => {
     expect(row).not.toHaveTextContent("12%");
   });
 
+  it("EffectiveLimits marks the testnet trading rules as testnet limits, on testnet only", () => {
+    const owner = {
+      maxTradeBps: null,
+      maxPositionBps: null,
+      minUsdcShareBps: null,
+      maxSlippageBps: null,
+      maxTradesPer24h: null,
+    };
+    const { rerender } = render(<EffectiveLimits hard={HARD} owner={owner} effective={HARD} />);
+    expect(screen.queryByTestId("testnet-limits")).toBeNull();
+    rerender(<EffectiveLimits hard={HARD} owner={owner} effective={HARD} testnet />);
+    const box = screen.getByTestId("testnet-limits");
+    expect(box).toHaveTextContent("Testnet limits: these apply on Monad testnet only");
+    expect(box).toHaveTextContent(/Smallest trade\s*None: gas decides/);
+    expect(box).toHaveTextContent(/0\.5% of its value, counting price impact, pool fees and gas/);
+  });
+
   it("CostPreview gives a month's cost at each intensity and marks the chosen one (D-299)", () => {
     render(
       <CostPreview

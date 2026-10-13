@@ -62,7 +62,7 @@ import {
   executorV3SwapGasLimit,
 } from "@alpha-agents/domain";
 import type { SwapIntentV3Args } from "@alpha-agents/signer";
-import type { TargetPortfolioParams } from "@alpha-agents/policy";
+import type { TargetPortfolioParams, TradingProfile } from "@alpha-agents/policy";
 import { type Hex, isAddressEqual, keccak256, toBytes } from "viem";
 import { type TestFindingV2, type TestInputsV2 } from "./cycle/test-stage.ts";
 import {
@@ -260,6 +260,10 @@ export interface OrchestratorOptions {
     /** MON's annualized 24-hour realized volatility in percent, null when unreadable. */
     readonly volatility24hPct: () => Promise<number | null>;
     readonly everyMs?: number;
+    /** The offchain trading profile (2026-10-13); the launch profile when absent. */
+    readonly profile?: TradingProfile;
+    /** MON's real USD price (18 decimals) for a leg's gas under a profile that counts it. */
+    readonly gasMonUsdE18?: (() => Promise<bigint | null>) | null;
   } | null;
   /**
    * F-U1: the token registry. Discovery runs every `discoverEveryMs` and
@@ -539,6 +543,8 @@ export class Orchestrator {
             intents: new PgIntentStore(store),
             sessionKeyOf: (agentId) => trading.signer.createKey(agentId),
             volatility24hPct: options.runner.volatility24hPct,
+            ...(options.runner.profile ? { profile: options.runner.profile } : {}),
+            gasMonUsdE18: options.runner.gasMonUsdE18 ?? null,
             // F-U6: a target portfolio runs on the fund agent's set, with the platform's screens.
             readerV3: options.chain?.readerV3 ?? null,
             screenFresh: (token) => this.screenFresh(token),

@@ -6,6 +6,7 @@ export * from "./oracle.ts";
 export * from "./state.ts";
 export * from "./templates.ts";
 export * from "./portfolio.ts";
+export * from "./trading-profile.ts";
 /** The PersonalAccount breaker and units model (D-233): `breaker.poke(...)`, `breaker.deposit(...)`. */
 export * as breaker from "./breaker.ts";
 export * from "./executor.ts";

@@ -26,8 +26,13 @@ import {
   TARGET_PORTFOLIO_ID,
   TARGET_PORTFOLIO_V1,
   type TemplateDecision,
+  type TradingProfile,
+  LAUNCH_TRADING_PROFILE,
   amountForValue,
+  gasCostUsdcE6,
+  legCostWithGas,
   valueE6,
+  withTradingProfile,
 } from "@alpha-agents/policy";
 import {
   type DecisionStore,
@@ -132,6 +137,13 @@ export interface TemplateRunnerOptions {
   readonly gas?: TradeFlowGas | null;
   readonly narrator?: RunnerNarrator | null;
   readonly now?: () => Date;
+  /**
+   * The offchain trading profile (2026-10-13): the testnet profile on testnet alone, the
+   * launch profile (the plan's own parameters, gas not counted) everywhere else.
+   */
+  readonly profile?: TradingProfile;
+  /** MON's real USD price (18 decimals) for a leg's gas, when the profile counts gas; null when unreadable. */
+  readonly gasMonUsdE18?: (() => Promise<bigint | null>) | null;
   readonly log: (line: string) => void;
 }
 
@@ -277,7 +289,7 @@ export class TemplateRunner {
         a.block,
       );
 
-    const params = plan.params;
+    const params = withTradingProfile(plan.params, this.profile);
     const priceE18 = m.monUsd.priceE18 > 0n ? m.monUsd.priceE18 : null;
     const volatility = await this.o.volatility24hPct().catch(() => null);
     let d: TemplateDecision = REBALANCE_BANDS_V1.plan(params, {
@@ -302,6 +314,8 @@ export class TemplateRunner {
       });
       if (d.action === "hold") return hold(d.code, { ...d.facts }, undefined, a.block);
     }
+    const gasCost = await this.gasCostHold(d.leg.valueUsdcE6, d.facts.costBps, params, undefined);
+    if (gasCost) return hold("COST_HURDLE", { ...d.facts, ...gasCost }, undefined, a.block);
     // Every check propose_swap runs, on the same reads (the Executor's rules, slots, the grant).
     const [key, reserved] = await Promise.all([
       this.o.sessionKeyOf(agentId),
@@ -432,7 +446,8 @@ export class TemplateRunner {
         minUsdcBps: Math.max(m.policy.minUsdcBps, Number(owner.minUsdcShareBps)),
       },
     };
-    let d: PortfolioDecision = TARGET_PORTFOLIO_V1.plan(plan.params, state);
+    const params = withTradingProfile(plan.params, this.profile);
+    let d: PortfolioDecision = TARGET_PORTFOLIO_V1.plan(params, state);
     if (d.action === "hold") return hold(d.code, { ...d.facts }, undefined, a.block);
 
     // The leg along its best registered route, through the same pre-check as propose_swap.
@@ -458,7 +473,7 @@ export class TemplateRunner {
         leg.direction === "buy"
           ? amountForValue(leg.amountIn, bought.priceE18, bought.decimals)
           : valueE6(leg.amountIn, sold.priceE18, sold.decimals);
-      d = TARGET_PORTFOLIO_V1.checkCost(plan.params, d, { oracleOut, quotedOut: quote.amountOut });
+      d = TARGET_PORTFOLIO_V1.checkCost(params, d, { oracleOut, quotedOut: quote.amountOut });
       if (d.action === "hold") return hold(d.code, { ...d.facts }, undefined, a.block);
     }
     const blockers: Blocker[] = assessed ? [...assessed.blockers] : [];
@@ -473,6 +488,8 @@ export class TemplateRunner {
       a.holdings.filter((h) => h.balance > 0n).length +
       (a.holdings.some((h) => isAddressEqual(h.token, leg.buy) && h.balance > 0n) ? 0 : 1);
     const gasLimit = executorV3SwapGasLimit(hops, Math.min(Math.max(heldAfter, 1), 16));
+    const gasCost = await this.gasCostHold(leg.valueUsdcE6, d.facts.costBps, params, gasLimit);
+    if (gasCost) return hold("COST_HURDLE", { ...d.facts, ...gasCost }, undefined, a.block);
     const unfunded = await this.gasHold(key, gasLimit);
     if (unfunded) return hold("GAS_UNFUNDED", { ...d.facts, ...unfunded }, undefined, a.block);
 
@@ -561,6 +578,46 @@ export class TemplateRunner {
   }
 
   /** Off the fork a funding address short of gas MON would only be refused at submission. */
+  private get profile(): TradingProfile {
+    return this.o.profile ?? LAUNCH_TRADING_PROFILE;
+  }
+
+  /**
+   * The testnet profile's cost with gas (2026-10-13): the leg's gas in USDC at MON's real price,
+   * added to its price impact and fees, against the cost limit. The facts of a leg that costs
+   * too much, or null when it passes or the profile does not count gas. Without a reading of
+   * MON's price the leg is judged on impact and fees alone.
+   */
+  private async gasCostHold(
+    legValueUsdcE6: bigint,
+    costBps: number | null,
+    params: { readonly costHurdleBps: number },
+    gasLimit: bigint | undefined,
+  ): Promise<Record<string, unknown> | null> {
+    const gas = this.o.gas;
+    if (!this.profile.countsGas || !gas || !this.o.gasMonUsdE18) return null;
+    const [wei, monUsdE18] = await Promise.all([
+      gas.swapCost(gasLimit).catch(() => null),
+      this.o.gasMonUsdE18().catch(() => null),
+    ]);
+    if (wei === null || monUsdE18 === null || monUsdE18 <= 0n) return null;
+    const gasUsdcE6 = gasCostUsdcE6(wei, monUsdE18);
+    const r = legCostWithGas({
+      legValueUsdcE6,
+      costBps: costBps ?? 0,
+      gasUsdcE6,
+      hurdleBps: params.costHurdleBps,
+    });
+    return r.passes
+      ? null
+      : {
+          gasUsdcE6: gasUsdcE6.toString(),
+          gasBps: r.gasBps,
+          costWithGasBps: r.totalBps,
+          costHurdleBps: params.costHurdleBps,
+        };
+  }
+
   private async gasHold(
     key: Hex | null,
     gasLimit: bigint | undefined,
