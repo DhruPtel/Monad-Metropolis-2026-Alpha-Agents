@@ -16,6 +16,7 @@ import { createPublicClient, http, isAddressEqual, type Hex } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { createApp } from "./app.ts";
 import { orchestratorActivation } from "./activation.ts";
+import { orchestratorResearchRun } from "./research-run.ts";
 import { orchestratorWindow } from "./window.ts";
 import { orchestratorResearch } from "./research.ts";
 import {
@@ -354,6 +355,10 @@ const app = createApp({
   // F-U10: the activation sweep is read and started through the orchestrator, which owns it.
   ...(values.ORCHESTRATOR_URL
     ? { activation: orchestratorActivation(String(values.ORCHESTRATOR_URL)) }
+    : {}),
+  // 2026-10-13: the owner's Research now, a full research cycle through the orchestrator.
+  ...(values.ORCHESTRATOR_URL
+    ? { researchRun: orchestratorResearchRun(String(values.ORCHESTRATOR_URL)) }
     : {}),
   // F-U11: the window's live account reading comes from the orchestrator too.
   ...(values.ORCHESTRATOR_URL

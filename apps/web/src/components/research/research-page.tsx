@@ -45,9 +45,12 @@ const KIND_WORD: Readonly<Record<string, string>> = {
 };
 const minute = (iso: string | null | undefined) =>
   iso ? `${iso.slice(0, 10)} ${iso.slice(11, 16)}` : "–";
-/** A Scan's cost shown before the owner starts one (A-31); D-222's minimum to start. */
-const SCAN_COST_TEXT =
-  "A Scan reads the market, searches the web and saves its notes. It costs about 0.15 to 0.30 USDC of credits, taken as it runs, and needs at least 0.15 USDC to start.";
+/**
+ * The full research run's cost shown before the owner starts one (2026-10-13): agent #4's
+ * activation runs on testnet charged 0.41 and 0.79 USDC of credits.
+ */
+const RUN_COST_TEXT =
+  "A full research run scans the market, researches the strongest themes in depth, has a skeptic challenge them, checks the result against your limits and ends with a plan for your approval. It costs about 0.40 to 0.80 USDC of credits, taken as it runs.";
 
 /**
  * The Research page (P3-U10, rebuilt in UI-FAST around a live view of one
@@ -123,26 +126,29 @@ export function ResearchPage({
     };
   }, [agentId]);
 
-  // Research now: the owner's Scan, its cost shown first.
+  // Research now: the owner's full research run, its cost shown first.
   const [scanAsk, setScanAsk] = useState(false);
   const [scan, setScan] = useState<{ state: "working" | "done" | "error"; text: string } | null>(
     null,
   );
   const startScan = async () => {
     setScanAsk(false);
-    setScan({ state: "working", text: "Asking for a Scan." });
+    setScan({ state: "working", text: "Starting a research run." });
     try {
-      await asOwner((t) => api.requestScan(agentId, t));
+      const r = await asOwner((t) => tradingApi.requestResearchRun(agentId, t));
+      setSelected(r.cycleId);
       setScan({
         state: "done",
-        text: "Scan started. Its themes and notes show here when it ends, in a few minutes.",
+        text: "Research run started. It shows live below, and its plan waits for your approval on the Trading tab when it ends, in a few minutes.",
       });
       refresh();
     } catch (err) {
       setScan({
         state: "error",
         text:
-          err instanceof ApiError || err instanceof Error ? err.message : "Could not start a Scan.",
+          err instanceof ApiError || err instanceof Error
+            ? err.message
+            : "Could not start a research run.",
       });
     }
   };
@@ -286,14 +292,14 @@ export function ResearchPage({
         <DialogContent aria-describedby="research-now-description">
           <DialogHeader>
             <DialogTitle>Research now</DialogTitle>
-            <DialogDescription id="research-now-description">{SCAN_COST_TEXT}</DialogDescription>
+            <DialogDescription id="research-now-description">{RUN_COST_TEXT}</DialogDescription>
           </DialogHeader>
           <div className="flex flex-wrap justify-end gap-2">
             <Button variant="secondary" onClick={() => setScanAsk(false)}>
               Cancel
             </Button>
             <Button onClick={() => void startScan()} data-testid="research-now-confirm">
-              Start the Scan
+              Start the run
             </Button>
           </div>
         </DialogContent>

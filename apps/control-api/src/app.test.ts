@@ -38,6 +38,7 @@ import {
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import type { ActivationDeps, ActivationReadJson } from "./activation.ts";
+import type { ResearchRunDeps } from "./research-run.ts";
 import type { WindowDeps } from "./window.ts";
 import type { ResearchDeps } from "./research.ts";
 import { type ApiDeps, createApp } from "./app.ts";
@@ -2819,6 +2820,46 @@ describe.skipIf(!available)("the control API (needs pnpm dev:up for Postgres)", 
         asOf: { live: false },
         history: { points: 3 },
       });
+    });
+  });
+
+  describe("Research now (2026-10-13)", () => {
+    const headers = (session: string | null): Record<string, string> =>
+      session ? { "x-owner-session": session } : {};
+    const session = async (agent: number, token: string) =>
+      (await json(await call(`/v1/agents/${agent}/session`, { method: "POST", token })))
+        .token as string;
+    const started: number[] = [];
+    let answer: Awaited<ReturnType<ResearchRunDeps["start"]>> = { ok: true, cycleId: "cycle-9" };
+    const researchRun: ResearchRunDeps = {
+      start: async (id) => {
+        started.push(id);
+        return answer;
+      },
+    };
+    const post = (
+      session: string | null,
+      deps: { researchRun?: ResearchRunDeps } = { researchRun },
+    ) => call("/v1/agents/2/research-run", { method: "POST", headers: headers(session) }, deps);
+
+    it("is owner only, starts the full research run as 202, and passes on why the orchestrator refused", async () => {
+      const bob = await session(2, "bob-token");
+      const alice = await session(1, "alice-token");
+      expect((await post(null)).status).toBe(401);
+      expect((await post(alice)).status).toBe(403);
+      expect(started).toEqual([]);
+      const ok = await post(bob);
+      expect(ok.status).toBe(202);
+      expect(await json(ok)).toEqual({ agentId: "2", cycleId: "cycle-9" });
+      for (const error of ["credits_exhausted", "demo_refused", "cycle_open"]) {
+        answer = { ok: false, error, message: `refused: ${error}` };
+        const r = await post(bob);
+        expect(r.status).toBe(409);
+        expect(await json(r)).toMatchObject({ error, message: `refused: ${error}` });
+      }
+      expect(started).toEqual([2, 2, 2, 2]);
+      const none = await post(bob, {});
+      expect([none.status, (await json(none)).error]).toEqual([503, "not_configured"]);
     });
   });
 

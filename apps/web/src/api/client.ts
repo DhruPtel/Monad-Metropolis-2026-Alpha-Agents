@@ -914,6 +914,13 @@ export const tradingApi = {
   async research(agentId: bigint, session: string): Promise<ResearchJson> {
     return call<ResearchJson>(`/v1/agents/${agentId.toString()}/research`, owner(session));
   },
+  /** 2026-10-13: Research now, the full research cycle ending with a plan for approval. Owner only. */
+  async requestResearchRun(agentId: bigint, session: string): Promise<{ cycleId: string }> {
+    return call<{ cycleId: string }>(
+      `/v1/agents/${agentId.toString()}/research-run`,
+      owner(session, { method: "POST" }),
+    );
+  },
   /** RP-U1: the agent's research reports, newest first, and where the activation's and the plan's are. Owner only. */
   async reports(agentId: bigint, session: string): Promise<ReportsJson> {
     return call<ReportsJson>(`/v1/agents/${agentId.toString()}/reports`, owner(session));

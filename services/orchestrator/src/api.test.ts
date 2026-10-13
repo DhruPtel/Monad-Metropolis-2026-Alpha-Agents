@@ -21,7 +21,14 @@ import { translateGoal } from "@alpha-agents/policy";
 import { createApi } from "./api.ts";
 import { MemoryGateway } from "./gateway-admin.ts";
 import { LeaseManager } from "./leases.ts";
-import { CreditsExhaustedError, type Orchestrator, ScanOpenError } from "./orchestrator.ts";
+import {
+  CreditsExhaustedError,
+  CycleOpenError,
+  DemoRefusedError,
+  NoGoalError,
+  type Orchestrator,
+  ScanOpenError,
+} from "./orchestrator.ts";
 import { Provisioner } from "./provisioner.ts";
 import { RevealSteering } from "./reveal-steer.ts";
 import { DbSteerStore } from "./reveal-steer-store.ts";
@@ -38,6 +45,7 @@ describe.skipIf(!dbUp)("the orchestrator's internal API (D-205)", { timeout: 60_
   let leases: LeaseManager;
   const queued: string[] = [];
   let scanRefusal: Error | null = null;
+  let cycleRefusal: Error | null = null;
   /** F-U10: what the fake activation service answers a start with. */
   let activationStart: { ok: true } | { ok: false; code: string; message: string } = { ok: true };
   const orchestrator = {
@@ -73,6 +81,11 @@ describe.skipIf(!dbUp)("the orchestrator's internal API (D-205)", { timeout: 60_
     },
     enqueueReset: async (ref: { agentId: number }) => {
       queued.push(`reset ${ref.agentId}`);
+    },
+    enqueueCycle: async (ref: { agentId: number }, kind: string, by: string) => {
+      if (cycleRefusal) throw cycleRefusal;
+      queued.push(`cycle ${ref.agentId} ${kind} ${by}`);
+      return { taskId: "task-c", cycleId: "cycle-1" };
     },
     enqueueScan: async (ref: { agentId: number }) => {
       if (scanRefusal) throw scanRefusal;
@@ -237,6 +250,29 @@ describe.skipIf(!dbUp)("the orchestrator's internal API (D-205)", { timeout: 60_
     const res = await api(true).request("/v1/agents/1/reset", { method: "POST" });
     expect(res.status).toBe(202);
     expect(queued.at(-1)).toBe("reset 1");
+  });
+
+  it("starts the owner's full research run (2026-10-13) on any environment, and names why one is refused", async () => {
+    const post = (devActions: boolean, id = "1") =>
+      api(devActions).request(`/v1/agents/${id}/research-run`, { method: "POST" });
+    const ok = await post(false);
+    expect(ok.status).toBe(202);
+    expect(await ok.json()).toEqual({ agentId: "1", taskId: "task-c", cycleId: "cycle-1" });
+    expect(queued.at(-1)).toBe("cycle 1 ACTIVATION owner");
+    for (const [err, code] of [
+      [new CreditsExhaustedError(1), "credits_exhausted"],
+      [new NoGoalError(1), "no_goal"],
+      [new CycleOpenError(1), "cycle_open"],
+      [new DemoRefusedError("The demo's model budget for today is used up."), "demo_refused"],
+      [new Error("agent 1 is not provisioned"), "not_provisioned"],
+    ] as const) {
+      cycleRefusal = err;
+      const r = await post(true);
+      expect(r.status).toBe(409);
+      expect(await r.json()).toMatchObject({ error: code });
+    }
+    cycleRefusal = null;
+    expect((await post(false, "abc")).status).toBe(400);
   });
 
   it("queues a Scan, and names why one is refused", async () => {

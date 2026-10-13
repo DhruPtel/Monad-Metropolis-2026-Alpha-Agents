@@ -25,6 +25,7 @@ import {
   proposalJson,
 } from "./proposals.ts";
 import type { ActivationDeps } from "./activation.ts";
+import type { ResearchRunDeps } from "./research-run.ts";
 import { listReports, readReport, reportLinks } from "./reports.ts";
 import type { WindowDeps } from "./window.ts";
 import type { ResearchDeps } from "./research.ts";
@@ -152,6 +153,8 @@ export interface ApiDeps {
    * absent where no orchestrator is reachable, and the routes answer 503.
    */
   readonly activation?: ActivationDeps | null;
+  /** 2026-10-13: the owner's Research now, a full research cycle through the orchestrator. */
+  readonly researchRun?: ResearchRunDeps | null;
   /**
    * F-U11: the window's live account reading through the orchestrator; absent
    * where none is reachable, and the window shows the latest snapshot instead.
@@ -1030,6 +1033,28 @@ export function createApp(deps: ApiDeps): Hono {
         409,
       );
     return c.json({ agentId: agentId.toString(), activation: r.activation }, 202);
+  });
+
+  /**
+   * 2026-10-13: Research now. The owner starts the full research cycle the operator route
+   * runs, ending with a plan for their approval; the orchestrator applies the demo's
+   * spending guard and the credit check and names why it refuses.
+   */
+  app.post("/v1/agents/:id{[0-9]+}/research-run", async (c) => {
+    const agentId = BigInt(c.req.param("id"));
+    const owner = await ownerOnly(c, agentId);
+    if (owner instanceof Response) return owner;
+    if (!deps.researchRun)
+      return fail(
+        c,
+        503,
+        "not_configured",
+        "The platform cannot reach the agent's orchestrator right now; try again in a moment.",
+      );
+    const r = await deps.researchRun.start(Number(agentId));
+    if (!r.ok)
+      return c.json({ error: r.error, message: r.message, agentId: agentId.toString() }, 409);
+    return c.json({ agentId: agentId.toString(), cycleId: r.cycleId }, 202);
   });
 
   app.post("/v1/agents/:id{[0-9]+}/proposals/:proposalId{prop-[0-9a-f-]{36}}/reject", async (c) => {

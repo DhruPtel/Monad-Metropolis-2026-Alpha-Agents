@@ -12,6 +12,8 @@ import { Hono } from "hono";
 import { RefundOpenError } from "./credits/refunds.ts";
 import {
   CreditsExhaustedError,
+  CycleOpenError,
+  NoGoalError,
   type Orchestrator,
   ScanOpenError,
   DemoRefusedError,
@@ -657,6 +659,47 @@ export function createApi(o: ApiOptions): Hono {
         409,
       );
     return c.json({ agentId: String(ref.agentId), activation: r.activation }, 202);
+  });
+
+  /**
+   * 2026-10-13: the owner's Research now, as the control API asks for it once it has
+   * checked the owner: the full research cycle the operator route runs (Scan, Dive,
+   * Challenge, Test and Zoom out, ending with a plan for the owner's approval), under
+   * the demo's spending guard and the credit check enqueueCycle applies.
+   */
+  app.post("/v1/agents/:agentId/research-run", async (c) => {
+    const ref = agentRef(c.req.param("agentId"), o.chainId);
+    if (!ref) return c.json({ error: "bad_agent_id" }, 400);
+    if (await o.store.activeLease(ref))
+      return c.json(
+        {
+          error: "lease_held",
+          message: `Agent #${ref.agentId} is working on something now; try again in a few minutes.`,
+        },
+        409,
+      );
+    try {
+      const r = await o.orchestrator.enqueueCycle(ref, "ACTIVATION", "owner");
+      return c.json({ agentId: String(ref.agentId), ...r }, 202);
+    } catch (err) {
+      const refuse = (error: string, message: string) => c.json({ error, message }, 409);
+      if (err instanceof CreditsExhaustedError)
+        return refuse(
+          "credits_exhausted",
+          `Agent #${ref.agentId} has no spendable credits; add credits first.`,
+        );
+      if (err instanceof NoGoalError)
+        return refuse("no_goal", `Agent #${ref.agentId} has no goal yet; set one first.`);
+      if (err instanceof CycleOpenError)
+        return refuse("cycle_open", `Agent #${ref.agentId} already has a research run going.`);
+      if (err instanceof DemoRefusedError) return refuse("demo_refused", err.message);
+      if (err instanceof Error && /not provisioned/.test(err.message))
+        return refuse(
+          "not_provisioned",
+          `Agent #${ref.agentId} is not set up to run yet; try again in a minute.`,
+        );
+      throw err;
+    }
   });
 
   /**
