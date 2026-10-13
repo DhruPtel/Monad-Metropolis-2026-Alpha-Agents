@@ -30,11 +30,15 @@ describe("species (D-178, D-179, revised by NFT-U1)", () => {
     expect(SPECIES.reduce((sum, s) => sum + s.count, 0)).toBe(AGENT_MAX_SUPPLY);
   });
 
-  it("splits each tier as evenly as it divides, the remainder to its first species (A-94)", () => {
+  it("carries the owner's counts: 84 and 83 base, 30 medium, 1 and 14 pro (NFT-U2, D-376)", () => {
     const counts = (t: Tier) => SPECIES.filter((s) => s.tier === t).map((s) => s.count);
     expect(counts("base")).toEqual([84, 84, 83, 83, 83, 83]);
-    expect(counts("medium")).toEqual([28, 28, 28, 27, 27, 27, 27, 27, 27, 27, 27]);
-    expect(counts("pro")).toEqual([1, 1, 1, 1, 16, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15]);
+    expect(counts("medium")).toEqual([30, 30, 30, 30, 30, 30, 30, 30, 30, 30]);
+    expect(counts("pro")).toEqual([
+      1, 1, 1, 1, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14,
+    ]);
+    expect(SPECIES.find((s) => s.slug === "butterfly")?.tier).toBe("pro");
+    expect(SPECIES.find((s) => s.slug === "orchid-mantis")?.tier).toBe("pro");
     expect(["Bee", "Praying mantis", "Hercules beetle", "Horseshoe crab"].map(speciesName)).toEqual(
       [1, 1, 1, 1],
     );
@@ -51,7 +55,7 @@ describe("species (D-178, D-179, revised by NFT-U1)", () => {
       ["Fish", "pro"],
       ["Ladybug", "base"],
       ["Grasshopper", "medium"],
-      ["Butterfly", "medium"],
+      ["Butterfly", "pro"],
       ["Leaf insect", "medium"],
       ["Crab", "pro"],
       ["Orchid mantis", "pro"],

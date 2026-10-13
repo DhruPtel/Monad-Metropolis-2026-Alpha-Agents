@@ -947,8 +947,8 @@ function AgentSection() {
             odds="0%"
             soldOut
             species={[
-              { name: "Firefly", image: null, total: 27, remaining: 0 },
-              { name: "Moth", image: "/species/moth.webp", total: 27, remaining: 0 },
+              { name: "Firefly", image: null, total: 30, remaining: 0 },
+              { name: "Moth", image: "/species/moth.webp", total: 30, remaining: 0 },
             ]}
           />
           <TierCard
@@ -966,7 +966,7 @@ function AgentSection() {
                 total: 1,
                 remaining: 1,
               },
-              { name: "Dragonfly", image: "/species/dragonfly.webp", total: 15, remaining: 14 },
+              { name: "Dragonfly", image: "/species/dragonfly.webp", total: 14, remaining: 13 },
             ]}
           />
         </div>

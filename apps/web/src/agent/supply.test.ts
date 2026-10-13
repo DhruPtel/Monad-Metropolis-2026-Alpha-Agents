@@ -35,7 +35,8 @@ describe("summarizeSupply", () => {
     const remaining = fresh();
     remaining[BEE - 1] = 0;
     const pro = tier(reading(remaining, 1), "pro");
-    expect(pro.species).toHaveLength(17);
+    // The four one of ones and fourteen others, Butterfly among them since NFT-U2 (D-376).
+    expect(pro.species).toHaveLength(18);
     expect(pro.species.find((s) => s.species.slug === "bee")?.remaining).toBe(0);
     expect(pro.remaining).toBe(199);
     // Every species sits under its own tier, each tier in onchain order (the
