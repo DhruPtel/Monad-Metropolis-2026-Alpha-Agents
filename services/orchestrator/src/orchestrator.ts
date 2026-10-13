@@ -1,3 +1,4 @@
+import { MONAD_TESTNET_CHAIN_ID } from "@alpha-agents/config";
 import type { MarketData, ResearchSources } from "@alpha-agents/market";
 import { randomUUID } from "node:crypto";
 import type { JournalEntry } from "@alpha-agents/accounting";
@@ -1192,6 +1193,9 @@ export class Orchestrator {
   async screenFresh(token: Hex): Promise<boolean | null> {
     const registry = this.o.tokens?.registry;
     if (!registry) return null;
+    const tracked =
+      (await registry.store.token(registry.chainId, token).catch(() => null)) !== null;
+    if (!screenApplies(this.o.chainId, registry.chainId, tracked)) return null;
     const r = await registry.freshScreen(token).catch(() => null);
     return r !== null && r.verdict === "passed";
   }
@@ -1753,3 +1757,19 @@ const unavailableProvider: SandboxProvider = {
   kill: () => Promise.resolve(),
   list: () => Promise.resolve([]),
 };
+
+/**
+ * RUN-FIX (testnet only): whether the market chain's safety screen applies to a token traded on
+ * this chain. On Monad testnet the registry screens Monad mainnet's tokens, so testnet's own
+ * tokens are never screened; there, a token the registry does not track has no screen to apply,
+ * as on a stack with no registry. Everywhere else the screen always applies.
+ */
+export function screenApplies(
+  tradingChainId: number,
+  registryChainId: number,
+  trackedByRegistry: boolean,
+): boolean {
+  if (tradingChainId === MONAD_TESTNET_CHAIN_ID && registryChainId !== tradingChainId)
+    return trackedByRegistry;
+  return true;
+}

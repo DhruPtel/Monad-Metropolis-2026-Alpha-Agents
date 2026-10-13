@@ -19,6 +19,7 @@ import { DecisionStore, GoalStore, PlanStore, TradeStore } from "@alpha-agents/t
 import { type Hex, getAddress } from "viem";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { type RunnerFacts, templateRunnerEntry } from "./narrator.ts";
+import { screenApplies } from "./orchestrator.ts";
 import { TemplateRunner, bandsAsPortfolio } from "./runner.ts";
 import { Store } from "./store.ts";
 import { CHAIN } from "./testing.ts";
@@ -536,3 +537,15 @@ describe.skipIf(!dbUp)(
     });
   },
 );
+
+describe("RUN-FIX: the market chain's screen on Monad testnet", () => {
+  it("does not apply to a testnet token the market-chain registry never tracks, and applies everywhere else", () => {
+    // Monad testnet trading, Monad mainnet's registry: testnet WMON has no screen to apply.
+    expect(screenApplies(10_143, 143, false)).toBe(false);
+    // A token the registry does track keeps its screen, even on testnet.
+    expect(screenApplies(10_143, 143, true)).toBe(true);
+    // The local fork, mainnet beta and the Base fork screen the chain they trade.
+    expect(screenApplies(143, 143, false)).toBe(true);
+    expect(screenApplies(8_453, 8_453, false)).toBe(true);
+  });
+});
