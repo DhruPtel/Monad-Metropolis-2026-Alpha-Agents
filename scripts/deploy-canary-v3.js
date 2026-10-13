@@ -26,7 +26,7 @@ import {
   CORE_POOL_CANDIDATES,
   MONAD_BASE_TOKENS,
   NATIVE_MON,
-  feedMaxAgeSeconds,
+  deployedFeedMaxAgeSeconds,
 } from "@alpha-agents/domain";
 import {
   CANARY_LIMITS,
@@ -92,7 +92,7 @@ function fundConfig() {
     if (!f) throw new Error(`no reviewed feed for ${symbol}`);
     const usd = f.legs[f.legs.length - 1];
     if (!usd) throw new Error(`no USD leg for ${symbol}`);
-    return { proxy: usd.proxy, decimals: usd.decimals, maxAge: feedMaxAgeSeconds(usd) };
+    return { proxy: usd.proxy, decimals: usd.decimals, maxAge: deployedFeedMaxAgeSeconds(usd) };
   };
   const seed = (
     /** @type {string} */ token,

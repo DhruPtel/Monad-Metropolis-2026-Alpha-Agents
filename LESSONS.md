@@ -1911,3 +1911,17 @@ What happened: `vercel deploy --prebuilt` from apps/web refused the build with "
 Cause: Next traces every file a server function needs relative to the project root, and pnpm keeps the store under the repo's node_modules, not the app's; linked and built from apps/web the CLI looked for the store one level too deep. The registrar read the testnet provider directly, which answers 429 under the stack's load (L-258).
 Fix: the project's root directory is apps/web (set through Vercel's API with the CLI's login), the link and the build run from the repo root, and only the prebuilt output is uploaded; the registrar reads through a fallback over both providers with retries.
 Lesson: For a workspace app, set the Vercel project's root directory and run every CLI step from the repo root; and every script that reads the testnet chain takes both providers.
+
+## L-260: the activation sweep was budgeted by the day's research budget it could never fit
+Unit: P-SWEEP
+What happened: on testnet every activation sweep stopped after its Scan: the Dive was skipped with BUDGET_SHORT, the panel said "the sweep stopped at a limit" and "Try again", and trying again ended the same way, which the owner saw as a stuck sweep.
+Cause: each stage's start was checked against the goal's daily research budget (D-293; 1.00 USDC at the default Light intensity), while the sweep's own ceiling (3.80 USDC on Medium, A-51) is what the owner was shown and accepted. After a 0.17 to 0.31 USDC Scan, the Dive's 1.20 ceiling never fit.
+Fix: an activation cycle's stages budget against the sweep's ceiling and what that cycle has charged (A-101); routine research keeps the daily budget. A sweep left queued or running for over an hour is ended as STALLED with the owner's words.
+Lesson: When two budgets can govern one run, test the default configuration end to end: a cap shown to the owner must be the cap the engine applies, or the first real run stops at a limit nobody chose.
+
+## L-261: a staleness bound passed to a constructor moves every deterministic address
+Unit: P-SWEEP (from CL-U1)
+What happened: six fork test files failed their setup after CL-U1 with "Cannot decode zero data" and one expected the address book's ProtocolRegistryV3 at 0xBc29… and got 0x4420….
+Cause: CL-U1's A-99 widened an hourly feed's grace (300 to 900 seconds) in feedMaxAgeSeconds, which scripts/lib/fund.js passes into the fund set's constructor arguments; the CREATE2 init code changed, so a fresh fork deployed a new set at new addresses while every test and the book read the old ones. CL-U1 ran unit tests only.
+Fix: deployedFeedMaxAgeSeconds keeps the deployed sets' bounds for their deploy scripts (fund.js, deploy-canary-v3.js); PB-U1's fresh deployment takes feedMaxAgeSeconds.
+Lesson: Any value that reaches a CREATE2 deployment's constructor is part of the address; after changing one, run the fork tests, or give the deployed sets their own frozen copy.

@@ -17,7 +17,7 @@ import {
   classFFeedsFor,
   coreLaneCandidatesFor,
   corePoolCandidatesFor,
-  feedMaxAgeSeconds,
+  deployedFeedMaxAgeSeconds,
 } from "@alpha-agents/domain";
 import { CUSTODY_ROLES } from "./account-factory.js";
 import { LOCAL_DEPLOY_ATTEMPTS, isTransientForkError } from "./agent-nft.js";
@@ -153,10 +153,10 @@ export function fundConfig(seeded) {
       maxPositionBps: c.maxPositionBps,
       usdFeed: usd.proxy,
       usdDecimals: usd.decimals,
-      usdMaxAge: feedMaxAgeSeconds(usd),
+      usdMaxAge: deployedFeedMaxAgeSeconds(usd),
       rateFeed: rate?.proxy ?? NATIVE_MON,
       rateDecimals: rate?.decimals ?? 0,
-      rateMaxAge: rate ? feedMaxAgeSeconds(rate) : 0,
+      rateMaxAge: rate ? deployedFeedMaxAgeSeconds(rate) : 0,
     };
   });
   const pools = CORE_POOL_CANDIDATES.filter(

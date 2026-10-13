@@ -344,6 +344,22 @@ export function feedMaxAgeSeconds(leg: FeedLeg): number {
     : leg.heartbeatSeconds + feedGraceSeconds(leg.heartbeatSeconds);
 }
 
+/**
+ * P-SWEEP: the bound the sets already deployed carry (the playtest fork's, the canary's,
+ * testnet's and the Base fork's): an hourly leg's heartbeat plus 5 minutes, as before A-99.
+ * Their deploy scripts rebuild the same set at the same CREATE2 addresses only with these
+ * bounds; PB-U1's fresh deployment takes `feedMaxAgeSeconds` (A-99's 15 minutes).
+ */
+export const DEPLOYED_FEED_HEARTBEAT_GRACE_SECONDS = 300;
+export function deployedFeedMaxAgeSeconds(leg: FeedLeg): number {
+  return leg.proxy === MON_USD_FEED_PROXY
+    ? 300
+    : leg.heartbeatSeconds +
+        (leg.heartbeatSeconds <= 3_600
+          ? DEPLOYED_FEED_HEARTBEAT_GRACE_SECONDS
+          : FEED_DAILY_GRACE_SECONDS);
+}
+
 export function classFFeed(token: string): ClassFFeed | null {
   const t = token.toLowerCase();
   return CLASS_F_FEEDS.find((f) => f.address === t) ?? null;
