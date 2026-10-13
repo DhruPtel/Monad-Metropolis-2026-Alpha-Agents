@@ -5,12 +5,13 @@ const VAULT = "0x0000000000000000000000000000000000000a11" as const;
 const PERSONAL = "0x0000000000000000000000000000000000000b22" as const;
 
 describe("the account an agent manages (Step 0, 2026-10-12)", () => {
-  it("manages the vault once it exists unless the owner chose the personal account", () => {
+  it("RUN-FIX: manages the trading account by default, and the vault only when the owner chose it", () => {
     expect(managedAccountOf({ vault: VAULT, personal: PERSONAL, choice: null })).toEqual({
-      account: VAULT,
-      isVault: true,
-      managed: "vault",
+      account: PERSONAL,
+      isVault: false,
+      managed: "personal",
     });
+    expect(managedAccountOf({ vault: VAULT, personal: null, choice: null }).account).toBe(null);
     expect(managedAccountOf({ vault: VAULT, personal: PERSONAL, choice: "vault" }).account).toBe(
       VAULT,
     );

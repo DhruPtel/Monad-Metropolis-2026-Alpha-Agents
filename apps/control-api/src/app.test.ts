@@ -1388,32 +1388,30 @@ describe.skipIf(!available)("the control API (needs pnpm dev:up for Postgres)", 
           await t.db.deleteFrom("platform.managed_accounts").execute();
         });
 
-        it("builds the vault's grant without expiry once the agent has a vault, and the 30-day grant for the personal account on request", async () => {
+        it("RUN-FIX: builds the trading account's 30-day grant by default, and the vault's grant without expiry on request", async () => {
           const session = await bobSession();
           grant();
           const view = views.get(2);
           if (view) views.set(2, { ...view, vault: VAULT, personalAccount: PERSONAL });
           const byDefault = await json(await asOwner(session, "/v1/agents/2/arming"));
           expect(byDefault).toMatchObject({
+            vault: false,
+            maxGrantDays: 30,
+            accounts: { vault: VAULT, personal: PERSONAL, managed: "personal", chosen: null },
+          });
+          expect(decodeGrant((byDefault.grantCall as { data: Hex }).data).functionName).toBe(
+            "registerSession",
+          );
+          const vault = await json(await asOwner(session, "/v1/agents/2/arming?account=vault"));
+          expect(vault).toMatchObject({
             vault: true,
             maxGrantDays: null,
-            accounts: { vault: VAULT, personal: PERSONAL, managed: "vault", chosen: null },
+            accounts: { managed: "vault", chosen: null },
           });
-          expect(decodeGrant((byDefault.grantCall as { data: Hex }).data)).toMatchObject({
+          expect(decodeGrant((vault.grantCall as { data: Hex }).data)).toMatchObject({
             functionName: "registerVaultSession",
             args: [2n, FUNDING],
           });
-          const personal = await json(
-            await asOwner(session, "/v1/agents/2/arming?account=personal"),
-          );
-          expect(personal).toMatchObject({
-            vault: false,
-            maxGrantDays: 30,
-            accounts: { managed: "personal", chosen: null },
-          });
-          expect(decodeGrant((personal.grantCall as { data: Hex }).data).functionName).toBe(
-            "registerSession",
-          );
           const bad = await asOwner(session, "/v1/agents/2/arming?account=both");
           expect([bad.status, (await json(bad)).error]).toEqual([400, "bad_account"]);
         });

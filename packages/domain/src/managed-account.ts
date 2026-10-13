@@ -5,8 +5,9 @@ import type { Hex } from "viem";
  * 2026-10-12 session, A-90). An agent may have a personal account (its
  * owner's own money) and a vault (depositors' money); the owner chooses which
  * one the agent trades when turning automatic trading on, and the choice is
- * kept by the platform. Without a choice the vault is managed once it exists
- * (A-87), as before.
+ * kept by the platform. Without a choice the personal account (the trading
+ * account) is managed; the vault only when the owner chose it (RUN-FIX,
+ * 2026-10-13, replacing A-87's vault-first default).
  */
 export const MANAGED_ACCOUNTS = ["personal", "vault"] as const;
 export type ManagedAccount = (typeof MANAGED_ACCOUNTS)[number];
@@ -24,17 +25,17 @@ export interface ManagedAccountResolution {
 }
 
 /**
- * The account the agent trades: its vault when it has one and the owner has
- * not chosen the personal account, else the personal account (null before it
- * is opened). A choice of "vault" without a vault falls back to the personal
- * account, since a vault, once created, never goes away.
+ * The account the agent trades: its vault only when the owner chose it and it
+ * exists, else the personal account, the trading account (null before it is
+ * opened). A choice of "vault" without a vault falls back to the personal
+ * account.
  */
 export function managedAccountOf(a: {
   readonly vault: Hex | null;
   readonly personal: Hex | null;
   readonly choice: ManagedAccount | null;
 }): ManagedAccountResolution {
-  if (a.vault && a.choice !== "personal")
+  if (a.vault && a.choice === "vault")
     return { account: a.vault, isVault: true, managed: "vault" };
   return { account: a.personal, isVault: false, managed: "personal" };
 }
