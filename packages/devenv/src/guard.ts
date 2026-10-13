@@ -1,4 +1,4 @@
-import { LOCAL_FORK_CHAIN_ID, MONAD_MAINNET_CHAIN_ID } from "@alpha-agents/config";
+import { FORK_CHAIN_IDS, LOCAL_FORK_CHAIN_ID, MONAD_MAINNET_CHAIN_ID } from "@alpha-agents/config";
 import { hexToNumber, rpc } from "./rpc.ts";
 
 /**
@@ -37,11 +37,14 @@ export async function assertLocalFork(url: string): Promise<void> {
     throw new NotLocalForkError("the node is not anvil");
   }
   const chainId = hexToNumber(await rpc(url, "eth_chainId", [], 3_000));
-  if (chainId !== LOCAL_FORK_CHAIN_ID) {
+  // M-FAST: a fork on this machine answers one of the fork chain ids (Monad's 143143, Base's 84538453), never a real chain's.
+  if (!FORK_CHAIN_IDS.includes(chainId)) {
     const hint =
       chainId === MONAD_MAINNET_CHAIN_ID
         ? "; this fork was started as chain 143, restart it with pnpm dev:down then pnpm dev:up"
         : "";
-    throw new NotLocalForkError(`chain ID is ${chainId}, not ${LOCAL_FORK_CHAIN_ID}${hint}`);
+    throw new NotLocalForkError(
+      `chain ID is ${chainId}, not one of ${FORK_CHAIN_IDS.join(", ")}${hint}`,
+    );
   }
 }

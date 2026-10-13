@@ -343,6 +343,200 @@ export function classFFeed(token: string): ClassFFeed | null {
   return CLASS_F_FEEDS.find((f) => f.address === t) ?? null;
 }
 
+// ---------------------------------------------------------------------------
+// M-FAST: Base, on a fork of Base mainnet for the Colosseum demo. The chain
+// a fork environment stands for, its tokens, its Chainlink feeds (each leg's
+// heartbeat from Chainlink's directory and its description read onchain on
+// 2026-10-13) and the core pools between them, found on Base mainnet by
+// reading the Uniswap v3 and PancakeSwap v3 factories and the v4 StateView.
+// ---------------------------------------------------------------------------
+
+/** The chain a trading environment runs on: Monad (the local fork, testnet, the beta, the canary) or Base (the Base fork). */
+export type ChainKey = "monad" | "base";
+
+/** The chain of an environment id. */
+export function chainOfEnvironment(environment: string): ChainKey {
+  return environment === "base" ? "base" : "monad";
+}
+
+/** The chain's native and wrapped-native symbols, for words and feeds. */
+export const CHAIN_NATIVE: Readonly<
+  Record<ChainKey, { readonly native: string; readonly wrapped: string }>
+> = {
+  monad: { native: "MON", wrapped: "WMON" },
+  base: { native: "ETH", wrapped: "WETH" },
+};
+
+export const BASE_TOKENS = {
+  USDC: "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
+  WETH: "0x4200000000000000000000000000000000000006",
+  CBBTC: "0xcbb7c0000ab88b473b1f5afd9ef808440eed33bf",
+  AERO: "0x940181a94a35a4569e4529a3cdfb74e38fd98631",
+  VIRTUAL: "0x0b3e328455c4059eeb9e3f84b5543f74e24e7e1b",
+  DEGEN: "0x4ed4e862860bed51a9570b96d89af5e1b0efefed",
+  LINK: "0x88fb150bdc53a65fe94dea0c9ba0a6daf8c6e196",
+  USDT: "0xfde4c96c8593536e31f229ea8f37b2ada2699bb2",
+  DAI: "0x50c5725949a6f0c72e6c4a641f24049a917db0cb",
+  EURC: "0x60a3e35cc302bfa44cb288bc5a4f316fdb1adb42",
+} as const satisfies Record<string, Address>;
+
+const baseUsd = (
+  proxy: Address,
+  description: string,
+  heartbeatSeconds: number,
+  deviationPct: number,
+): FeedLeg => ({ proxy, description, decimals: 8, heartbeatSeconds, deviationPct });
+
+/** Base's feeds the demo core lane prices with (Chainlink's Base directory, the SVR ETH/USD being the only ETH/USD it lists). */
+export const BASE_ETH_USD = baseUsd(
+  "0xa4250ce1aa15ff4cb5e5a8655293b65694e436ed",
+  "ETH / USD",
+  1200,
+  0.15,
+);
+const BASE_USDC_USD = baseUsd(
+  "0x7e860098f58bbfc8648a4311b374b1d669a2bc6b",
+  "USDC / USD",
+  86_400,
+  0.3,
+);
+const BASE_CBBTC_USD = baseUsd(
+  "0x07da0e54543a844a80abe69c8a12f22b3aa59f9d",
+  "cbBTC / USD",
+  1200,
+  0.3,
+);
+const BASE_AERO_USD = baseUsd(
+  "0x4ec5970fc728c5f65ba413992cd5ff6fd70fcff0",
+  "AERO / USD",
+  86_400,
+  0.5,
+);
+const BASE_VIRTUAL_USD = baseUsd(
+  "0xeaf310161c9ef7c813a14f8fef6fb271434019f7",
+  "VIRTUAL / USD",
+  86_400,
+  0.5,
+);
+const BASE_DEGEN_USD = baseUsd(
+  "0xe62bce5d7cb9d16ab8b4d622538bc0a50a5799c2",
+  "DEGEN / USD",
+  86_400,
+  0.5,
+);
+const BASE_LINK_USD = baseUsd(
+  "0x17cab8fe31e32f08326e5e27412894e49b0f9d65",
+  "LINK / USD",
+  86_400,
+  0.5,
+);
+const BASE_USDT_USD = baseUsd(
+  "0xf19d560eb8d2adf07bd6d13ed03e1d11215721f9",
+  "USDT / USD",
+  86_400,
+  0.3,
+);
+const BASE_DAI_USD = baseUsd(
+  "0x591e79239a7d679378ec8c847e5038150364c78f",
+  "DAI / USD",
+  86_400,
+  0.3,
+);
+const BASE_EURC_USD = baseUsd(
+  "0x9867186e52d2f1c2c565cda6e747101fa56501e0",
+  "EURC / USD",
+  3600,
+  0.1,
+);
+
+export const BASE_CLASS_F_FEED_SOURCE =
+  "https://reference-data-directory.vercel.app/feeds-ethereum-mainnet-base-1.json; each proxy answered its description and decimals on Base mainnet on 2026-10-13 (M-FAST)";
+
+/** The class F feed map for Base (M-FAST): the ten core tokens the demo fork seeds, each with one direct feed. */
+export const BASE_CLASS_F_FEEDS: readonly ClassFFeed[] = [
+  {
+    address: BASE_TOKENS.WETH,
+    symbol: "WETH",
+    kind: "underlying",
+    legs: [BASE_ETH_USD],
+    note: "Wrapped ETH at ETH's price; WETH is a 1:1 deposit contract",
+  },
+  {
+    address: BASE_TOKENS.USDC,
+    symbol: "USDC",
+    kind: "direct",
+    legs: [BASE_USDC_USD],
+    note: "Circle's native USDC on Base; the feed updates daily, so its bound is the daily grace",
+  },
+  {
+    address: BASE_TOKENS.CBBTC,
+    symbol: "cbBTC",
+    kind: "direct",
+    legs: [BASE_CBBTC_USD],
+    note: "Coinbase wrapped BTC",
+  },
+  {
+    address: BASE_TOKENS.AERO,
+    symbol: "AERO",
+    kind: "direct",
+    legs: [BASE_AERO_USD],
+    note: "Aerodrome's token; deepest on Aerodrome, traded here on Uniswap v3",
+  },
+  {
+    address: BASE_TOKENS.VIRTUAL,
+    symbol: "VIRTUAL",
+    kind: "direct",
+    legs: [BASE_VIRTUAL_USD],
+    note: "Virtuals Protocol",
+  },
+  {
+    address: BASE_TOKENS.DEGEN,
+    symbol: "DEGEN",
+    kind: "direct",
+    legs: [BASE_DEGEN_USD],
+    note: "Degen",
+  },
+  {
+    address: BASE_TOKENS.LINK,
+    symbol: "LINK",
+    kind: "direct",
+    legs: [BASE_LINK_USD],
+    note: "Chainlink's token on Base",
+  },
+  {
+    address: BASE_TOKENS.USDT,
+    symbol: "USDT",
+    kind: "direct",
+    legs: [BASE_USDT_USD],
+    note: "Tether on Base",
+  },
+  {
+    address: BASE_TOKENS.DAI,
+    symbol: "DAI",
+    kind: "direct",
+    legs: [BASE_DAI_USD],
+    note: "Dai on Base",
+  },
+  {
+    address: BASE_TOKENS.EURC,
+    symbol: "EURC",
+    kind: "direct",
+    legs: [BASE_EURC_USD],
+    note: "Circle's euro coin",
+  },
+];
+
+/** The class F feeds of a chain. */
+export function classFFeedsFor(chain: ChainKey): readonly ClassFFeed[] {
+  return chain === "base" ? BASE_CLASS_F_FEEDS : CLASS_F_FEEDS;
+}
+
+/** The class F feed of a token on a chain, or null. */
+export function classFFeedOn(chain: ChainKey, token: string): ClassFFeed | null {
+  const t = token.toLowerCase();
+  return classFFeedsFor(chain).find((f) => f.address === t) ?? null;
+}
+
 /** A power a reviewed token holds that the screen accepts for it. */
 export type ReviewedPower = "owner_powers" | "upgradeable";
 
@@ -644,3 +838,96 @@ export const CORE_POOL_CANDIDATES: readonly CorePoolSeed[] = [
     pool: NATIVE_MON,
   },
 ];
+
+/** Base's core lane for the demo fork (M-FAST): USDC may be the whole account; every other core token is capped at 45%. */
+export const BASE_CORE_LANE_CANDIDATES: readonly {
+  readonly address: Address;
+  readonly maxPositionBps: number;
+}[] = [
+  { address: BASE_TOKENS.USDC, maxPositionBps: 10_000 },
+  { address: BASE_TOKENS.WETH, maxPositionBps: 4_500 },
+  { address: BASE_TOKENS.CBBTC, maxPositionBps: 4_500 },
+  { address: BASE_TOKENS.AERO, maxPositionBps: 4_500 },
+  { address: BASE_TOKENS.VIRTUAL, maxPositionBps: 4_500 },
+  { address: BASE_TOKENS.DEGEN, maxPositionBps: 4_500 },
+  { address: BASE_TOKENS.LINK, maxPositionBps: 4_500 },
+  { address: BASE_TOKENS.USDT, maxPositionBps: 4_500 },
+  { address: BASE_TOKENS.DAI, maxPositionBps: 4_500 },
+  { address: BASE_TOKENS.EURC, maxPositionBps: 4_500 },
+];
+
+const bpair = (a: Address, b: Address): readonly [Address, Address] =>
+  a.toLowerCase() < b.toLowerCase() ? [a, b] : [b, a];
+const bv3 = (
+  a: Address,
+  b: Address,
+  fee: number,
+  tickSpacing: number,
+  pool: Address,
+): CorePoolSeed => ({
+  venue: FUND_VENUE.UNISWAP_V3,
+  pair: bpair(a, b),
+  fee,
+  tickSpacing,
+  pool,
+});
+const bcake = (
+  a: Address,
+  b: Address,
+  fee: number,
+  tickSpacing: number,
+  pool: Address,
+): CorePoolSeed => ({
+  venue: FUND_VENUE.PANCAKESWAP_V3,
+  pair: bpair(a, b),
+  fee,
+  tickSpacing,
+  pool,
+});
+
+/**
+ * Base's core pools for the demo fork (M-FAST), each read from its factory on
+ * Base mainnet on 2026-10-13 with real reserves (the deepest fee tier per
+ * pair, a second where it is deep too); the v4 pools are the hookless native
+ * ETH pools, confirmed by the StateView's liquidity.
+ */
+export const BASE_CORE_POOL_CANDIDATES: readonly CorePoolSeed[] = [
+  bv3(BASE_TOKENS.USDC, BASE_TOKENS.WETH, 500, 10, "0xd0b53d9277642d899df5c87a3966a349a798f224"),
+  bv3(BASE_TOKENS.USDC, BASE_TOKENS.WETH, 3000, 60, "0x6c561b446416e1a00e8e93e221854d6ea4171372"),
+  bv3(BASE_TOKENS.CBBTC, BASE_TOKENS.WETH, 500, 10, "0x7aea2e8a3843516afa07293a10ac8e49906dabd1"),
+  bv3(BASE_TOKENS.CBBTC, BASE_TOKENS.USDC, 500, 10, "0xfbb6eed8e7aa03b138556eedaf5d271a5e1e43ef"),
+  bv3(BASE_TOKENS.AERO, BASE_TOKENS.WETH, 3000, 60, "0x3d5d143381916280ff91407febeb52f2b60f33cf"),
+  bv3(BASE_TOKENS.AERO, BASE_TOKENS.USDC, 500, 10, "0xe5b5f522e98b5a2baae212d4da66b865b781db97"),
+  bv3(BASE_TOKENS.VIRTUAL, BASE_TOKENS.WETH, 500, 10, "0x9c087eb773291e50cf6c6a90ef0f4500e349b903"),
+  bv3(BASE_TOKENS.DEGEN, BASE_TOKENS.WETH, 3000, 60, "0xc9034c3e7f58003e6ae0c8438e7c8f4598d5acaa"),
+  bv3(BASE_TOKENS.LINK, BASE_TOKENS.WETH, 3000, 60, "0x224a5d3f2155f2f85af70b6d72aea61a15273ff4"),
+  bv3(BASE_TOKENS.USDT, BASE_TOKENS.USDC, 100, 1, "0xd56da2b74ba826f19015e6b7dd9dae1903e85da1"),
+  bv3(BASE_TOKENS.DAI, BASE_TOKENS.USDC, 100, 1, "0xc18f50d6a832f12f6dcaaeee8d0c87a65b96787e"),
+  bv3(BASE_TOKENS.EURC, BASE_TOKENS.USDC, 500, 10, "0x7279c08a36333e12c3fc81747963264c100d66fb"),
+  bcake(BASE_TOKENS.USDC, BASE_TOKENS.WETH, 100, 1, "0x72ab388e2e2f6facef59e3c3fa2c4e29011c2d38"),
+  bcake(BASE_TOKENS.CBBTC, BASE_TOKENS.USDC, 100, 1, "0xb94b22332abf5f89877a14cc88f2abc48c34b3df"),
+  {
+    venue: FUND_VENUE.UNISWAP_V4,
+    pair: [NATIVE_MON, BASE_TOKENS.USDC],
+    fee: 500,
+    tickSpacing: 10,
+    pool: NATIVE_MON,
+  },
+  {
+    venue: FUND_VENUE.UNISWAP_V4,
+    pair: [NATIVE_MON, BASE_TOKENS.CBBTC],
+    fee: 500,
+    tickSpacing: 10,
+    pool: NATIVE_MON,
+  },
+];
+
+/** The core lane candidates of a chain. */
+export function coreLaneCandidatesFor(chain: ChainKey) {
+  return chain === "base" ? BASE_CORE_LANE_CANDIDATES : CORE_LANE_CANDIDATES;
+}
+
+/** The core pool candidates of a chain. */
+export function corePoolCandidatesFor(chain: ChainKey): readonly CorePoolSeed[] {
+  return chain === "base" ? BASE_CORE_POOL_CANDIDATES : CORE_POOL_CANDIDATES;
+}

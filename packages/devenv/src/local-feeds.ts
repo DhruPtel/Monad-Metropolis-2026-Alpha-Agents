@@ -1,4 +1,9 @@
-import { type Address, CLASS_F_FEEDS, addressEntry } from "@alpha-agents/domain";
+import {
+  type Address,
+  addressEntry,
+  chainOfEnvironment,
+  classFFeedsFor,
+} from "@alpha-agents/domain";
 import { assertLocalFork } from "./guard.ts";
 import { LOCAL_FEED_RUNTIME_CODE } from "./local-feed-code.ts";
 import { hexToBigInt, hexToNumber, rpc } from "./rpc.ts";
@@ -43,15 +48,16 @@ export interface LocalFeedRound {
  * reviewed class F feed map (OracleAdapterV3's, F-U2), each proxy once. So the
  * v3 oracle prices every core token on the playtest fork, not only WMON.
  */
-export function localFeedAddresses(): readonly Address[] {
+export function localFeedAddresses(environment: "local" | "base" = "local"): readonly Address[] {
   const launch = (["chainlink_mon_usd", "chainlink_usdc_usd"] as const).map((id) => {
-    const e = addressEntry("local", id);
-    if (e.address === null) throw new Error(`the address book has no ${id} for the local fork`);
+    const e = addressEntry(environment, id);
+    if (e.address === null) throw new Error(`the address book has no ${id} for ${environment}`);
     return e.address;
   });
   const seen = new Set(launch.map((a) => a.toLowerCase()));
   const rest: Address[] = [];
-  for (const f of CLASS_F_FEEDS) {
+  // M-FAST: the Base fork's feeds are Base's class F map.
+  for (const f of classFFeedsFor(chainOfEnvironment(environment))) {
     for (const leg of f.legs) {
       if (seen.has(leg.proxy.toLowerCase())) continue;
       seen.add(leg.proxy.toLowerCase());

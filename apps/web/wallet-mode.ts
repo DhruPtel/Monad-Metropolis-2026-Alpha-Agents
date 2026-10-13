@@ -39,7 +39,14 @@ export function walletBuildMode(
     return {
       mock: false,
       providerModule: "./src/auth/privy-wallet-provider.tsx",
-      distDir: appEnv === "testnet" ? ".next-testnet" : appEnv === "beta" ? ".next-beta" : ".next",
+      distDir:
+        appEnv === "testnet"
+          ? ".next-testnet"
+          : appEnv === "beta"
+            ? ".next-beta"
+            : appEnv === "base"
+              ? ".next-base"
+              : ".next",
     };
   }
   if (flag !== "1") throw new Error(`${MOCK_WALLET_FLAG} must be 1 or unset, not "${flag}"`);

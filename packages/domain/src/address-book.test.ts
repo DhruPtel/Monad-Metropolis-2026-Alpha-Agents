@@ -1,4 +1,6 @@
 import {
+  BASE_FORK_CHAIN_ID,
+  BASE_MAINNET_CHAIN_ID,
   ENVIRONMENT_IDS,
   LOCAL_FORK_CHAIN_ID,
   MONAD_MAINNET_CHAIN_ID,
@@ -52,12 +54,18 @@ describe("address book", () => {
         // only on the local fork, chain 143143 (D-195); testnet entries were
         // observed on testnet itself, 10143 (P2-EC).
         // The canary's own contracts were observed on mainnet itself (P2-EC part 2).
+        // M-FAST: the Base fork's external entries were observed on Base mainnet (8453);
+        // its own contracts live only on the Base fork (84538453).
         expect(e.verification.chainId).toBe(
           env === "testnet"
             ? MONAD_TESTNET_CHAIN_ID
-            : e.kind === "platform" && env !== "canary"
-              ? LOCAL_FORK_CHAIN_ID
-              : MONAD_MAINNET_CHAIN_ID,
+            : env === "base"
+              ? e.kind === "platform"
+                ? BASE_FORK_CHAIN_ID
+                : BASE_MAINNET_CHAIN_ID
+              : e.kind === "platform" && env !== "canary"
+                ? LOCAL_FORK_CHAIN_ID
+                : MONAD_MAINNET_CHAIN_ID,
         );
         expect(e.verification.codeSize).toBeGreaterThan(0);
       }
@@ -78,6 +86,9 @@ describe("address book", () => {
         } else if (env === "canary" && e.kind === "platform") {
           expect(e.verification.chain?.codeHash, e.id).toMatch(/^0x[0-9a-f]{64}$/);
           expect(e.verification.chain?.explorer).toMatch(/^https:\/\/monadvision\.com\/address\//);
+        } else if (env === "base" && e.kind !== "platform") {
+          expect(e.verification.chain?.codeHash, e.id).toMatch(/^0x[0-9a-f]{64}$/);
+          expect(e.verification.chain?.explorer).toMatch(/^https:\/\/basescan\.org\/address\//);
         } else {
           expect(e.verification.chain, `${env} ${e.id}`).toBeUndefined();
         }

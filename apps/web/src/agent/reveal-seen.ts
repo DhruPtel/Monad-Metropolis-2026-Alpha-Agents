@@ -66,6 +66,7 @@ export function useRevealSeen(
  */
 export const REVEAL_ETA_SECONDS: Readonly<Record<EnvironmentId, number>> = {
   local: 15,
+  base: 15,
   testnet: 90,
   beta: 90,
   canary: 90,

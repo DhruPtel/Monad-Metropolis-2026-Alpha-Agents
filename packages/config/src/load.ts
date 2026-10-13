@@ -2,9 +2,11 @@ import {
   DEFAULT_ENVIRONMENT,
   ENVIRONMENTS,
   ENVIRONMENT_IDS,
-  type Environment,
+  forkRpcUrl,
   isEnvironmentId,
+  isForkEnvironment,
   localForkRpcUrl,
+  type Environment,
 } from "./environments.ts";
 import { createHash } from "node:crypto";
 import { Secret } from "./secret.ts";
@@ -155,7 +157,7 @@ export function loadConfig(service: ServiceSpec, source: EnvSource = process.env
   for (const spec of inScope) {
     if (spec.name === "APP_ENV") continue;
     const isRequired = required.has(spec.name);
-    const localDefault = environment.id === "local" ? spec.localDefault : undefined;
+    const localDefault = isForkEnvironment(environment.id) ? spec.localDefault : undefined;
     // On testnet a key with a testnet source is read only from it (D-254).
     const sourceName =
       environment.id === "testnet" && spec.testnetSource ? spec.testnetSource : spec.name;
@@ -203,7 +205,7 @@ export function loadConfig(service: ServiceSpec, source: EnvSource = process.env
 
   const rpcUrl =
     "fixedUrl" in environment.rpc
-      ? new Secret(localForkRpcUrl(source))
+      ? new Secret(forkRpcUrl(environment.id === "base" ? "base" : "local", source))
       : ((values[environment.rpc.variable as VariableName] as Secret | undefined) ?? null);
   return {
     environment,
@@ -217,6 +219,8 @@ export function loadConfig(service: ServiceSpec, source: EnvSource = process.env
 
 /** The mainnet RPC variables research reads from, in failover order. */
 export const RESEARCH_RPC_VARIABLES = ["MONAD_RPC_URL", "MONAD_RPC_URL_SECONDARY"] as const;
+/** The base environment's research RPC variables (M-FAST). */
+export const BASE_RESEARCH_RPC_VARIABLES = ["BASE_RPC_URL"] as const;
 
 /**
  * Research's mainnet RPCs (D-289). Read from the mainnet variables' own names in
@@ -231,7 +235,9 @@ function researchRpcs(
 ): Secret[] {
   if (environment.id === "canary") return [];
   const urls: Secret[] = [];
-  for (const name of RESEARCH_RPC_VARIABLES) {
+  // M-FAST: the base environment researches Base through BASE_RPC_URL (the public endpoint when unset).
+  const variables = environment.id === "base" ? BASE_RESEARCH_RPC_VARIABLES : RESEARCH_RPC_VARIABLES;
+  for (const name of variables) {
     const spec = VARIABLES.find((v) => v.name === name);
     if (!spec) continue;
     const raw = classify(spec, source[name]);

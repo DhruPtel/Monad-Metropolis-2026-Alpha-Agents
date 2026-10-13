@@ -6,13 +6,19 @@
  * `label` is the environment ID stamped on records and shown in the UI and the
  * API environment field (D-030, D-145); `id` is the short value of APP_ENV.
  */
-export const ENVIRONMENT_IDS = ["local", "testnet", "beta", "canary"] as const;
+export const ENVIRONMENT_IDS = ["local", "base", "testnet", "beta", "canary"] as const;
 export type EnvironmentId = (typeof ENVIRONMENT_IDS)[number];
 
 export const DEFAULT_ENVIRONMENT: EnvironmentId = "local";
 
 /** The environment ID stamped on every record, by APP_ENV value. */
-export const ENVIRONMENT_LABELS = ["fork", "testnet", "mainnet-beta", "mainnet-canary"] as const;
+export const ENVIRONMENT_LABELS = [
+  "fork",
+  "base-fork",
+  "testnet",
+  "mainnet-beta",
+  "mainnet-canary",
+] as const;
 export type EnvironmentLabel = (typeof ENVIRONMENT_LABELS)[number];
 
 export const MONAD_MAINNET_CHAIN_ID = 143;
@@ -28,6 +34,25 @@ export const MONAD_TESTNET_CHAIN_ID = 10143;
  * accounts use it too.
  */
 export const LOCAL_FORK_CHAIN_ID = 143143;
+/** Base mainnet (M-FAST). */
+export const BASE_MAINNET_CHAIN_ID = 8453;
+/**
+ * The Base fork's own chain id (M-FAST): never Base's 8453, for the reason
+ * LESSONS "Wallets and networks" gives (a fork that shares a real chain's id
+ * lets a wallet send a local transaction to the real chain, L-53).
+ */
+export const BASE_FORK_CHAIN_ID = 84538453;
+/** The Base fork's default port, beside the playtest fork on 8545 and the test forks. */
+export const BASE_FORK_PORT = 8590;
+export const BASE_FORK_RPC_URL = `http://127.0.0.1:${BASE_FORK_PORT}`;
+/** The environments that are anvil forks on this machine: local-only features and dev actions run there. */
+export const FORK_ENVIRONMENT_IDS = ["local", "base"] as const;
+export type ForkEnvironmentId = (typeof FORK_ENVIRONMENT_IDS)[number];
+export function isForkEnvironment(id: string): id is ForkEnvironmentId {
+  return (FORK_ENVIRONMENT_IDS as readonly string[]).includes(id);
+}
+/** The chain ids a fork on this machine answers. */
+export const FORK_CHAIN_IDS: readonly number[] = [LOCAL_FORK_CHAIN_ID, BASE_FORK_CHAIN_ID];
 
 /** The anvil fork started by `pnpm dev:up`: the playtest fork. */
 export const LOCAL_FORK_RPC_URL = "http://127.0.0.1:8545";
@@ -52,6 +77,27 @@ export function localForkRpcUrl(
   return `http://127.0.0.1:${port}`;
 }
 
+/** The Base fork's RPC URL (M-FAST): port 8590, or BASE_FORK_PORT; always loopback. */
+export function baseForkRpcUrl(
+  source: Readonly<Record<string, string | undefined>> = process.env,
+): string {
+  const raw = source.BASE_FORK_PORT?.trim();
+  if (!raw) return BASE_FORK_RPC_URL;
+  const port = Number(raw);
+  if (!/^\d{1,5}$/.test(raw) || port < 1 || port > 65535) {
+    throw new Error("BASE_FORK_PORT must be a port number from 1 to 65535");
+  }
+  return `http://127.0.0.1:${port}`;
+}
+
+/** A fork environment's RPC URL from the environment variables (the port overrides). */
+export function forkRpcUrl(
+  id: ForkEnvironmentId,
+  source: Readonly<Record<string, string | undefined>> = process.env,
+): string {
+  return id === "base" ? baseForkRpcUrl(source) : localForkRpcUrl(source);
+}
+
 export interface Environment {
   readonly id: EnvironmentId;
   readonly label: EnvironmentLabel;
@@ -73,6 +119,14 @@ export const ENVIRONMENTS: Readonly<Record<EnvironmentId, Environment>> = {
     description:
       "anvil fork of Monad mainnet at the pinned block, on this machine, as chain 143143",
     rpc: { fixedUrl: LOCAL_FORK_RPC_URL },
+  },
+  base: {
+    id: "base",
+    label: "base-fork",
+    chainId: BASE_FORK_CHAIN_ID,
+    description:
+      "anvil fork of Base mainnet at the pinned block, on this machine, as chain 84538453 (M-FAST: development on a fork, not a Base deployment)",
+    rpc: { fixedUrl: BASE_FORK_RPC_URL },
   },
   testnet: {
     id: "testnet",

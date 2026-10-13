@@ -31,6 +31,7 @@ import {
 /** The chain each environment's signer will sign for (D-195, D-243). */
 export const CHAIN_PINS: Readonly<Record<EnvironmentId, number>> = {
   local: ENVIRONMENTS.local.chainId,
+  base: ENVIRONMENTS.base.chainId,
   testnet: ENVIRONMENTS.testnet.chainId,
   beta: ENVIRONMENTS.beta.chainId,
   canary: ENVIRONMENTS.canary.chainId,

@@ -1,9 +1,10 @@
 import {
+  BASE_FORK_RPC_URL,
   DEFAULT_ENVIRONMENT,
   ENVIRONMENTS,
-  type EnvironmentId,
-  isEnvironmentId,
   LOCAL_FORK_RPC_URL,
+  isEnvironmentId,
+  type EnvironmentId,
 } from "./environments.ts";
 
 /**
@@ -30,6 +31,7 @@ export interface AppChain {
 }
 
 const MON = { name: "MON", symbol: "MON", decimals: 18 } as const;
+const ETH = { name: "Ether", symbol: "ETH", decimals: 18 } as const;
 
 export const APP_CHAINS: Readonly<Record<EnvironmentId, AppChain>> = {
   local: {
@@ -38,6 +40,14 @@ export const APP_CHAINS: Readonly<Record<EnvironmentId, AppChain>> = {
     name: "Monad (local fork)",
     nativeCurrency: MON,
     browserRpcUrl: LOCAL_FORK_RPC_URL,
+    testnet: true,
+  },
+  base: {
+    environment: "base",
+    id: ENVIRONMENTS.base.chainId,
+    name: "Base (local fork)",
+    nativeCurrency: ETH,
+    browserRpcUrl: BASE_FORK_RPC_URL,
     testnet: true,
   },
   testnet: {

@@ -131,6 +131,17 @@ export const VARIABLES = [
     testnetSource: "MONAD_TESTNET_RPC_URL_SECONDARY",
   },
   {
+    name: "BASE_RPC_URL",
+    group: "Chain RPC",
+    description:
+      "Base mainnet RPC (chain 8453): the Base fork's upstream and the research reads of the base environment (M-FAST). Base's public endpoint stands in when unset; a keyed archive endpoint keeps the fork steady",
+    secret: true,
+    firstUsedBy: "M-FAST",
+    environments: ["base"],
+    ...httpUrl,
+    example: "https://your-base-mainnet-rpc.example/your-api-key",
+  },
+  {
     name: "MONAD_TESTNET_RPC_URL",
     group: "Chain RPC",
     description: "Monad testnet RPC (chain 10143); never a mainnet URL",

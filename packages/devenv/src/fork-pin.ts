@@ -18,18 +18,21 @@ export interface ForkPin {
 }
 
 /** Parses and validates the committed fork pin, chains/monad/fork.json. */
-export function parseForkConfig(text: string): ForkPin {
+export function parseForkConfig(
+  text: string,
+  expectedChainId = MONAD_MAINNET_CHAIN_ID,
+  minPlausibleBlock = MIN_PLAUSIBLE_BLOCK,
+): ForkPin {
   const data: unknown = JSON.parse(text);
   if (typeof data !== "object" || data === null) throw new Error("fork.json must be a JSON object");
   const { chainId, blockNumber } = data as Record<string, unknown>;
-  if (chainId !== MONAD_MAINNET_CHAIN_ID)
-    throw new Error(`fork.json chainId must be ${MONAD_MAINNET_CHAIN_ID}`);
+  if (chainId !== expectedChainId) throw new Error(`fork.json chainId must be ${expectedChainId}`);
   if (typeof blockNumber !== "number" || !Number.isSafeInteger(blockNumber)) {
     throw new Error("fork.json blockNumber must be an integer");
   }
-  if (blockNumber < MIN_PLAUSIBLE_BLOCK) {
+  if (blockNumber < minPlausibleBlock) {
     throw new Error(
-      `fork.json blockNumber is below ${MIN_PLAUSIBLE_BLOCK}; it looks like a placeholder`,
+      `fork.json blockNumber is below ${minPlausibleBlock}; it looks like a placeholder`,
     );
   }
   return { chainId, blockNumber };

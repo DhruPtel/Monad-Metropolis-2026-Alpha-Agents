@@ -72,7 +72,7 @@ describe("local-fork guard", () => {
 
   it("refuses an anvil still on Monad mainnet's 143 and says to restart it", async () => {
     await expect(assertLocalFork(oldForkUrl)).rejects.toThrow(
-      /chain ID is 143, not 143143; this fork was started as chain 143, restart it/,
+      /chain ID is 143, not one of 143143, 84538453; this fork was started as chain 143, restart it/,
     );
   });
 

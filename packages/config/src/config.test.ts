@@ -61,7 +61,7 @@ describe("environment selection", () => {
 
   it.each([
     ["", /APP_ENV is set but empty/],
-    ["mainnet", /APP_ENV must be one of local, testnet, beta/],
+    ["mainnet", /APP_ENV must be one of local, base, testnet, beta/],
   ])("rejects APP_ENV=%j", (value, message) => {
     expect(() => loadConfig({ name: "test" }, { APP_ENV: value })).toThrow(message);
   });
@@ -159,7 +159,7 @@ describe("missing and invalid variables", () => {
   it.each([
     ["MONAD_RPC_URL", "ftp://rpc.test/x", "an http(s) URL"],
     ["POSTGRES_PORT", "99999", "a port number"],
-    ["APP_ENV", "staging", "one of local, testnet, beta"],
+    ["APP_ENV", "staging", "one of local, base, testnet, beta"],
     ["SCAN_INTERVAL_MINUTES", "2", "from 5 to 100000"],
     ["HERMES_API_SERVER_KEY", "too-short", "32 or more characters"],
   ])("names invalid %s and the expected format", (name, value, expected) => {
@@ -452,7 +452,7 @@ describe("registry and .env.example", () => {
     const names = VARIABLES.map((v) => v.name);
     expect(new Set(names).size).toBe(names.length);
     for (const v of VARIABLES) {
-      expect(v.firstUsedBy, v.name).toMatch(/^(P(\d|B)-(U\d+|EC)|F-U\d+|P0-[A-Z]+)$/);
+      expect(v.firstUsedBy, v.name).toMatch(/^(P(\d|B)-(U\d+|EC)|F-U\d+|P0-[A-Z]+|M-(U\d+|FAST))$/);
       expect(committed).toContain(`${v.name}=`);
     }
     expect(names).toContain("MONAD_TESTNET_RPC_URL");
