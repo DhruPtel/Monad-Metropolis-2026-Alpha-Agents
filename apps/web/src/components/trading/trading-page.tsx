@@ -13,6 +13,7 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
+  DocumentList,
   EmptyState,
   ExpandableLine,
   type FactItem,
@@ -33,7 +34,7 @@ import { latestDecided } from "@/agent/plan-card";
 import { schedulePoll } from "@/agent/poll";
 import { v2AssetRows } from "@/agent/portfolio";
 import { assetRows } from "@/agent/portfolio-v3";
-import { reportHref } from "@/agent/report-view";
+import { kindLabel, reportHref } from "@/agent/report-view";
 import {
   SWEEP_WORDS,
   decisionRows,
@@ -46,6 +47,7 @@ import {
   txHref,
 } from "@/agent/trading-view";
 import { useOwnerSession } from "@/agent/use-owner-session";
+import { useReports } from "@/agent/use-reports";
 import { usePortfolio } from "@/agent/use-portfolio";
 import { useWalletSession } from "@/auth/session";
 import { useAgentSummary } from "@/components/agent-shell/agent-shell";
@@ -84,6 +86,8 @@ export function TradingPage({
   const pf = usePortfolio(agentId, environment);
   const shell = useAgentSummary();
   const asOwner = useOwnerSession(agentId);
+  // 2026-10-13: the newest reports, the same as the Research tab's, one click from the trades.
+  const reportsRead = useReports(agentId);
   const [choiceOpen, setChoiceOpen] = useState(false);
   // 2026-10-13: Automatic trading folds to its state and toggle; the details open on request.
   const [detailsOpen, setDetailsOpen] = useState(false);
@@ -469,6 +473,28 @@ export function TradingPage({
           <PortfolioInsights items={insightRows(holdingRows, total, pf.intents, Date.now())} />
         </div>
       </div>
+
+      <section aria-label="Reports" className="flex flex-col gap-3" data-testid="trading-reports">
+        <SectionLabel as="h2">Reports</SectionLabel>
+        {reportsRead.error ? (
+          <p className="text-sm text-warning">{reportsRead.error}</p>
+        ) : (
+          <DocumentList
+            linkAs={Link}
+            empty="No reports yet: the first is written when a research run ends."
+            rows={(reportsRead.reports?.reports ?? [])
+              .filter((r) => r.status === "written")
+              .slice(0, 5)
+              .map((r) => ({
+                id: r.cycleId,
+                title: r.summary ?? `${kindLabel(r.kind)} report`,
+                type: kindLabel(r.kind),
+                date: r.createdAt.slice(0, 10),
+                href: reportHref(agentId, r.cycleId),
+              }))}
+          />
+        )}
+      </section>
 
       {waiting.length > 0 ? (
         <section aria-label="Waiting for you" className="flex flex-col gap-3">
