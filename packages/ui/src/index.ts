@@ -50,6 +50,7 @@ export * from "./components/agent/activation";
 export * from "./components/agent/window";
 export * from "./components/agent/fund-portfolio";
 export * from "./components/agent/vault";
+export * from "./components/agent/vault-layout";
 export * from "./components/agent/skills";
 export * from "./components/agent/skill-editor";
 export * from "./components/agent/settings";

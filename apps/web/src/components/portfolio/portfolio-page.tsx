@@ -1,7 +1,12 @@
 "use client";
 
 import type { EnvironmentId } from "@alpha-agents/config";
-import { type ManagedAccount, formatAmount } from "@alpha-agents/domain";
+import {
+  type ManagedAccount,
+  formatAmount,
+  CHAIN_NAMES,
+  chainOfEnvironment,
+} from "@alpha-agents/domain";
 import {
   ActivationChecks,
   ActivationPanel,
@@ -28,7 +33,6 @@ import {
   PageLoading,
   PlanCard,
   PortfolioHero,
-  PositionTiles,
   RecentTrades,
   Select,
   SelectContent,
@@ -38,6 +42,15 @@ import {
   SetupFlow,
   WalletActionStatus,
   WhyNotTraded,
+  AccountValueChart,
+  BalancesTable,
+  Card,
+  CardContent,
+  PositionsTable,
+  ScoreTiles,
+  StatTileRow,
+  TabbedPanel,
+  monthReturnBps,
 } from "@alpha-agents/ui";
 import { ArrowDownToLine, ArrowLeft, ArrowUpFromLine, PlugZap, Plus, Wallet } from "lucide-react";
 import Link from "next/link";
@@ -105,6 +118,9 @@ const toUnits = (raw: string, asset: Asset) =>
   formatAmount(BigInt(raw), DECIMALS[asset], { maxFractionDigits: DECIMALS[asset] });
 const usdc2 = (e6: bigint | string) =>
   formatAmount(BigInt(e6), 6, { maxFractionDigits: 2, minFractionDigits: 2 });
+/** UX-U1: the top tiles' percent, signed on request. */
+const pct = (bps: number, signed = false) =>
+  `${signed && bps > 0 ? "+" : ""}${(bps / 100).toFixed(2)}%`;
 
 function StatusFor({
   status,
@@ -865,6 +881,12 @@ export function PortfolioPage({
   const stateWords = tradingStateWords(armingState);
   const standing = p.account ? standingBlock(p) : null;
   const goalHref = `/agents/${agentId.toString()}/goal`;
+  // UX-U1: the top tiles' figures: the month's return on the value per unit, the net deposits
+  // (the fund set's principal) and what the account earned over them.
+  const monthBps = pf.windowView ? monthReturnBps(pf.windowView.series) : null;
+  const principalE6 = v3 ? BigInt(v3.caps.principalUsdcE6) : null;
+  const earnedE6 =
+    principalE6 !== null && heroTotal !== null ? BigInt(heroTotal) - principalE6 : null;
   const steps = setupSteps(
     {
       allowlisted,
@@ -942,6 +964,58 @@ export function PortfolioPage({
         </section>
       ) : (
         <>
+          <StatTileRow
+            tiles={[
+              {
+                label: "Total value",
+                value: heroTotal === null ? null : `${usdc2(heroTotal)} USDC`,
+                note: pf.windowView?.asOf?.live
+                  ? "Read live from the chain"
+                  : "From the latest reading",
+                testId: "tile-total-value",
+              },
+              {
+                label: "Past month",
+                value: monthBps === null ? null : pct(monthBps, true),
+                tone:
+                  monthBps === null
+                    ? "neutral"
+                    : monthBps > 0
+                      ? "positive"
+                      : monthBps < 0
+                        ? "negative"
+                        : "neutral",
+                note:
+                  monthBps === null
+                    ? "Needs two readings over the last 30 days"
+                    : "On the value per unit",
+                testId: "tile-month-return",
+              },
+              {
+                label: "Your deposits",
+                value: principalE6 === null ? null : `${usdc2(principalE6)} USDC`,
+                note: principalE6 === null ? "Known on the fund agent's set" : "Net of withdrawals",
+                testId: "tile-deposits",
+              },
+              {
+                label: "All-time earned",
+                value:
+                  earnedE6 === null
+                    ? null
+                    : `${earnedE6 >= 0n ? "+" : "-"}${usdc2(earnedE6 < 0n ? -earnedE6 : earnedE6)} USDC`,
+                tone:
+                  earnedE6 === null
+                    ? "neutral"
+                    : earnedE6 > 0n
+                      ? "positive"
+                      : earnedE6 < 0n
+                        ? "negative"
+                        : "neutral",
+                note: "Value less your deposits",
+                testId: "tile-earned",
+              },
+            ]}
+          />
           <PortfolioHero
             totalValueUsdcE6={heroTotal}
             rows={heroRows}
@@ -969,6 +1043,9 @@ export function PortfolioPage({
                     {pf.summary?.goal?.configured ? "Change goal" : "Set goal"}
                   </Link>
                 </Button>
+                <Button asChild size="sm" variant="secondary" data-testid="hero-automatic-trading">
+                  <a href="#automatic-trading">Automatic trading</a>
+                </Button>
                 {standing ? (
                   <p
                     role="alert"
@@ -980,6 +1057,251 @@ export function PortfolioPage({
                 ) : null}
               </>
             }
+          />
+          {/* UX-U1: the vault-style layout: the left panel of tabs, the right chart, then the ledger. */}
+          <div className="grid gap-6 lg:grid-cols-[2fr_3fr]">
+            <TabbedPanel
+              testId="portfolio-about"
+              tabs={[
+                {
+                  id: "about",
+                  label: "About",
+                  content: (
+                    <div className="flex flex-col gap-3 text-sm">
+                      <p className="text-foreground-muted">
+                        {name} on {network}:{" "}
+                        {v3 ? "a trading account on the fund agent's set" : "a PersonalAccount"},
+                        traded by the agent within its hard limits; only you can withdraw.
+                      </p>
+                      {pf.summary?.goal ? (
+                        <GoalSummary
+                          state={pf.summary.goal.state}
+                          aggressiveness={pf.summary.goal.aggressiveness}
+                          action={
+                            <Button asChild size="sm" variant="secondary">
+                              <Link href={goalHref}>
+                                {pf.summary.goal.configured ? "Change goal" : "Set goal"}
+                              </Link>
+                            </Button>
+                          }
+                        />
+                      ) : null}
+                      {pf.planCard ? (
+                        <p>
+                          Its strategy is the plan in force:{" "}
+                          <a href="#plan" className="underline">
+                            read the plan
+                          </a>
+                          .
+                        </p>
+                      ) : (
+                        <p className="text-foreground-muted">
+                          Its strategy comes from the activation sweep: the plan appears below once
+                          it runs.
+                        </p>
+                      )}
+                    </div>
+                  ),
+                },
+                {
+                  id: "agent",
+                  label: "Agent performance",
+                  content: pf.windowView ? (
+                    <ScoreTiles scores={pf.windowView.scores} hundred={pf.windowView.hundred} />
+                  ) : (
+                    <p className="text-sm text-foreground-muted">
+                      The scores appear with the first readings.
+                    </p>
+                  ),
+                },
+                {
+                  id: "yours",
+                  label: "Your performance",
+                  content: (
+                    <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
+                      <dt className="text-foreground-muted">Your deposits</dt>
+                      <dd className="numeric">
+                        {principalE6 === null ? "–" : `${usdc2(principalE6)} USDC`}
+                      </dd>
+                      <dt className="text-foreground-muted">Worth now</dt>
+                      <dd className="numeric">
+                        {heroTotal === null ? "–" : `${usdc2(heroTotal)} USDC`}
+                      </dd>
+                      <dt className="text-foreground-muted">Earned</dt>
+                      <dd
+                        className={`numeric ${earnedE6 !== null && earnedE6 > 0n ? "text-positive" : earnedE6 !== null && earnedE6 < 0n ? "text-negative" : ""}`}
+                      >
+                        {earnedE6 === null
+                          ? "–"
+                          : `${earnedE6 >= 0n ? "+" : "-"}${usdc2(earnedE6 < 0n ? -earnedE6 : earnedE6)} USDC`}
+                      </dd>
+                      <dt className="text-foreground-muted">Since</dt>
+                      <dd className="numeric">
+                        {pf.windowView?.history.from
+                          ? pf.windowView.history.from.slice(0, 10)
+                          : "the first reading"}
+                      </dd>
+                    </dl>
+                  ),
+                },
+              ]}
+            />
+            <Card data-testid="portfolio-chart">
+              <CardContent className="pt-6">
+                <AccountValueChart
+                  series={pf.windowView?.series ?? []}
+                  principalUsdcE6={principalE6 === null ? null : principalE6.toString()}
+                  emptyAction={
+                    <Button size="sm" variant="secondary" onClick={() => setDepositOpen(true)}>
+                      Deposit
+                    </Button>
+                  }
+                />
+              </CardContent>
+            </Card>
+          </div>
+          <TabbedPanel
+            testId="portfolio-ledger"
+            defaultTab="positions"
+            tabs={[
+              {
+                id: "balances",
+                label: "Balances",
+                content: (
+                  <BalancesTable
+                    rows={tileRows}
+                    chain={CHAIN_NAMES[chainOfEnvironment(environment)]}
+                  />
+                ),
+              },
+              {
+                id: "positions",
+                label: "Positions",
+                content: (
+                  <section
+                    aria-label="Positions"
+                    className="flex flex-col gap-3"
+                    data-testid="positions"
+                    data-custody={p.custody}
+                    id="positions"
+                  >
+                    <PositionsTable
+                      rows={tileRows}
+                      chain={CHAIN_NAMES[chainOfEnvironment(environment)]}
+                    />
+                    {creditsV3.length > 0 ? (
+                      <section
+                        aria-label="Claimable credits"
+                        className="flex flex-col gap-2 rounded-lg border border-border bg-surface p-4"
+                        data-testid="claimable"
+                      >
+                        <h3 className="text-base font-semibold">Held for you to claim</h3>
+                        <p className="text-sm text-foreground-muted">
+                          A transfer out of the account failed, so these tokens are held for you.
+                          Claim them to your wallet.
+                        </p>
+                        {creditsV3.map((c) => (
+                          <div key={c.symbol} className="flex flex-wrap items-center gap-3">
+                            <span className="numeric text-sm">
+                              {tokenUnits(c.amount, c.decimals)} {c.symbol}
+                            </span>
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              disabled={acting}
+                              onClick={() =>
+                                pf.claimToken({
+                                  address: c.token,
+                                  symbol: c.symbol,
+                                  decimals: c.decimals,
+                                })
+                              }
+                            >
+                              Claim {c.symbol}
+                            </Button>
+                          </div>
+                        ))}
+                        <StatusFor status={pf.status} actions={["claim"]} />
+                      </section>
+                    ) : null}
+                    {v2 && credits.length > 0 ? (
+                      <section
+                        aria-label="Claimable credits"
+                        className="flex flex-col gap-2 rounded-lg border border-border bg-surface p-4"
+                        data-testid="claimable"
+                      >
+                        <h3 className="text-base font-semibold">Held for you to claim</h3>
+                        <p className="text-sm text-foreground-muted">
+                          A transfer out of the account failed, so these tokens are held for you.
+                          Claim them to your wallet.
+                        </p>
+                        {credits.map((c) => (
+                          <div key={c.asset} className="flex flex-wrap items-center gap-3">
+                            <span className="numeric text-sm">
+                              {formatAmount(c.amount, DECIMALS[c.asset], { maxFractionDigits: 6 })}{" "}
+                              {c.asset}
+                            </span>
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              disabled={acting}
+                              onClick={() => pf.claim(c.asset, c.token)}
+                            >
+                              Claim {c.asset}
+                            </Button>
+                          </div>
+                        ))}
+                        <StatusFor status={pf.status} actions={["claim"]} />
+                      </section>
+                    ) : null}
+                  </section>
+                ),
+              },
+              {
+                id: "trades",
+                label: "Trade history",
+                content: (
+                  <section aria-label="Trades" className="flex flex-col gap-3" id="trades">
+                    <RecentTrades
+                      trades={pf.intents.map((i) => ({
+                        intentId: i.intentId,
+                        status: i.status,
+                        sell: { asset: i.sell.asset, amount: BigInt(i.sell.amountRaw) },
+                        buy: i.buy,
+                        amountOut: i.amountOut ? BigInt(i.amountOut.amountRaw) : null,
+                        txHash: i.txHash,
+                        approvedBy: i.approvedBy,
+                        createdAt: i.createdAt,
+                        settledAt: i.settledAt,
+                      }))}
+                    />
+                  </section>
+                ),
+              },
+              {
+                id: "flows",
+                label: "Deposits and withdrawals",
+                content: (
+                  <div className="flex flex-col gap-2 text-sm">
+                    <p>
+                      Net deposits so far:{" "}
+                      <span className="numeric">
+                        {principalE6 === null ? "–" : `${usdc2(principalE6)} USDC`}
+                      </span>
+                      ; the account is worth{" "}
+                      <span className="numeric">
+                        {heroTotal === null ? "–" : `${usdc2(heroTotal)} USDC`}
+                      </span>
+                      .
+                    </p>
+                    <p className="text-foreground-muted">
+                      The list of each deposit and withdrawal, with its date and transaction, comes
+                      with the next unit.
+                    </p>
+                  </div>
+                ),
+              },
+            ]}
           />
           <div id="automatic-trading" className="flex flex-col gap-4">
             <ArmingCard
@@ -1124,77 +1446,6 @@ export function PortfolioPage({
               <StatusFor status={pf.status} actions={["approve", "reject"]} />
             )}
           </div>
-          <section
-            aria-label="Positions"
-            className="flex flex-col gap-3"
-            data-testid="positions"
-            data-custody={p.custody}
-            id="positions"
-          >
-            <h2 className="text-lg font-semibold">Positions</h2>
-            <PositionTiles rows={tileRows} totalValueUsdcE6={heroTotal} />
-            {creditsV3.length > 0 ? (
-              <section
-                aria-label="Claimable credits"
-                className="flex flex-col gap-2 rounded-lg border border-border bg-surface p-4"
-                data-testid="claimable"
-              >
-                <h3 className="text-base font-semibold">Held for you to claim</h3>
-                <p className="text-sm text-foreground-muted">
-                  A transfer out of the account failed, so these tokens are held for you. Claim them
-                  to your wallet.
-                </p>
-                {creditsV3.map((c) => (
-                  <div key={c.symbol} className="flex flex-wrap items-center gap-3">
-                    <span className="numeric text-sm">
-                      {tokenUnits(c.amount, c.decimals)} {c.symbol}
-                    </span>
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      disabled={acting}
-                      onClick={() =>
-                        pf.claimToken({ address: c.token, symbol: c.symbol, decimals: c.decimals })
-                      }
-                    >
-                      Claim {c.symbol}
-                    </Button>
-                  </div>
-                ))}
-                <StatusFor status={pf.status} actions={["claim"]} />
-              </section>
-            ) : null}
-            {v2 && credits.length > 0 ? (
-              <section
-                aria-label="Claimable credits"
-                className="flex flex-col gap-2 rounded-lg border border-border bg-surface p-4"
-                data-testid="claimable"
-              >
-                <h3 className="text-base font-semibold">Held for you to claim</h3>
-                <p className="text-sm text-foreground-muted">
-                  A transfer out of the account failed, so these tokens are held for you. Claim them
-                  to your wallet.
-                </p>
-                {credits.map((c) => (
-                  <div key={c.asset} className="flex flex-wrap items-center gap-3">
-                    <span className="numeric text-sm">
-                      {formatAmount(c.amount, DECIMALS[c.asset], { maxFractionDigits: 6 })}{" "}
-                      {c.asset}
-                    </span>
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      disabled={acting}
-                      onClick={() => pf.claim(c.asset, c.token)}
-                    >
-                      Claim {c.asset}
-                    </Button>
-                  </div>
-                ))}
-                <StatusFor status={pf.status} actions={["claim"]} />
-              </section>
-            ) : null}
-          </section>
           {pf.planCard ? (
             <PlanSection
               card={pf.planCard}
@@ -1204,22 +1455,6 @@ export function PortfolioPage({
               status={<StatusFor status={pf.status} actions={["approve-plan", "reject-plan"]} />}
             />
           ) : null}
-          <section aria-label="Trades" className="flex flex-col gap-3" id="trades">
-            <h2 className="text-lg font-semibold">Recent trades</h2>
-            <RecentTrades
-              trades={pf.intents.slice(0, 10).map((i) => ({
-                intentId: i.intentId,
-                status: i.status,
-                sell: { asset: i.sell.asset, amount: BigInt(i.sell.amountRaw) },
-                buy: i.buy,
-                amountOut: i.amountOut ? BigInt(i.amountOut.amountRaw) : null,
-                txHash: i.txHash,
-                approvedBy: i.approvedBy,
-                createdAt: i.createdAt,
-                settledAt: i.settledAt,
-              }))}
-            />
-          </section>
           <div id="why" className="flex flex-col">
             <WhyNotTraded
               reasons={(pf.why?.reasons ?? []).filter((r) => r.code !== "NOT_ARMED")}

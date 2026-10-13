@@ -16,8 +16,6 @@ import {
   DialogHeader,
   DialogTitle,
   EmptyState,
-  MakeupSwitch,
-  PerformanceChart,
   ScoreTile,
   Skeleton,
   Tag,
@@ -30,6 +28,12 @@ import {
   WalletActionStatus,
   type WithdrawMethod,
   whenUtc,
+  AccountValueChart,
+  BalancesTable,
+  PositionsTable,
+  StatTileRow,
+  TabbedPanel,
+  monthReturnBps,
 } from "@alpha-agents/ui";
 import { ArrowLeft, PlugZap, RotateCcw, Wallet } from "lucide-react";
 import Link from "next/link";
@@ -61,6 +65,12 @@ import { ContributeCreditsSection } from "@/components/credits/contribute-credit
  * and "Fund this agent" for anyone who is not the owner (D-242).
  */
 const BPS = 10_000n;
+
+const usdc2 = (e6: bigint | string) =>
+  (Number(e6) / 1e6).toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
 
 function StatusFor({
   status,
@@ -277,66 +287,189 @@ export function VaultPage({
   const withdrawBlock = vaultWithdrawBlock(v, now);
   const rows = vaultRows(v);
   const perf = d.performance;
+  // UX-U1: the top tiles' figures.
+  const monthBps = monthReturnBps(perf.series);
+  const earnedE6 = rows.reduce<bigint | null>(
+    (acc, r) => (r.gainUsdcE6 === null ? acc : (acc ?? 0n) + BigInt(r.gainUsdcE6)),
+    null,
+  );
   const ret = perf.scores.returnSinceStart;
   const dd = perf.scores.maxDrawdown;
 
   return (
     <div className="flex flex-col gap-6" data-testid="vault-page" data-state="vault">
       {header}
-      <Card>
-        <CardContent>
-          <VaultPanel v={panel} />
-        </CardContent>
-      </Card>
-      <div className="grid gap-6 lg:grid-cols-2">
-        <Card>
+      {/* UX-U1: the vault laid out as a vault page: the top tiles, the left panel of tabs, the chart, the ledger. */}
+      <StatTileRow
+        tiles={[
+          {
+            label: "Vault value",
+            value: s.navUsdcE6 === null ? null : `${usdc2(s.navUsdcE6)} USDC`,
+            note: "Every holding at the vault's own prices",
+            testId: "vault-tile-value",
+          },
+          {
+            label: "Past month",
+            value: monthBps === null ? null : pct(monthBps, true),
+            tone:
+              monthBps === null
+                ? "neutral"
+                : monthBps > 0
+                  ? "positive"
+                  : monthBps < 0
+                    ? "negative"
+                    : "neutral",
+            note:
+              monthBps === null
+                ? "Needs two readings over the last 30 days"
+                : "On the value of one share",
+            testId: "vault-tile-month",
+          },
+          {
+            label: "Your value",
+            value: viewer?.valueUsdcE6 ? `${usdc2(viewer.valueUsdcE6)} USDC` : null,
+            note: viewer ? "Your shares at the vault's prices" : "Connect your wallet",
+            testId: "vault-tile-yours",
+          },
+          {
+            label: "All-time earned",
+            value:
+              earnedE6 === null
+                ? null
+                : `${earnedE6 >= 0n ? "+" : "-"}${usdc2(earnedE6 < 0n ? -earnedE6 : earnedE6)} USDC`,
+            tone:
+              earnedE6 === null
+                ? "neutral"
+                : earnedE6 > 0n
+                  ? "positive"
+                  : earnedE6 < 0n
+                    ? "negative"
+                    : "neutral",
+            note: "The vault's holdings over what they cost",
+            testId: "vault-tile-earned",
+          },
+        ]}
+      />
+      <div className="grid gap-6 lg:grid-cols-[2fr_3fr]">
+        <TabbedPanel
+          testId="vault-about"
+          tabs={[
+            { id: "about", label: "About", content: <VaultPanel v={panel} /> },
+            {
+              id: "agent",
+              label: "Agent performance",
+              content: (
+                <div className="grid max-w-2xl grid-cols-2 gap-3">
+                  <ScoreTile
+                    label="Return since the start"
+                    value={ret.ok ? pct(ret.bps, true) : null}
+                    tone={
+                      ret.ok
+                        ? ret.bps > 0
+                          ? "positive"
+                          : ret.bps < 0
+                            ? "negative"
+                            : "neutral"
+                        : "neutral"
+                    }
+                    note={
+                      ret.ok
+                        ? `From the first reading on ${whenUtc(Math.floor(Date.parse(ret.since) / 1000))}`
+                        : ret.reason
+                    }
+                    testId="vault-score-return"
+                  />
+                  <ScoreTile
+                    label="Largest fall from a peak"
+                    value={dd.ok ? pct(-dd.bps) : null}
+                    tone={dd.ok ? (dd.bps > 0 ? "negative" : "neutral") : "neutral"}
+                    note={
+                      dd.ok
+                        ? `Peak ${whenUtc(Math.floor(Date.parse(dd.peakAt) / 1000))}, low ${whenUtc(Math.floor(Date.parse(dd.troughAt) / 1000))}`
+                        : dd.reason
+                    }
+                    testId="vault-score-drawdown"
+                  />
+                </div>
+              ),
+            },
+            {
+              id: "yours",
+              label: "Your performance",
+              content: (
+                <>
+                  {connected && viewer ? (
+                    <VaultPositionCard
+                      shares={viewer.shares}
+                      valueUsdcE6={viewer.valueUsdcE6}
+                      unlockAt={viewer.unlockAt}
+                      now={now}
+                      inKind={viewer.inKind}
+                      claimables={viewer.claimables}
+                      isLeader={viewer.isLeader}
+                      busy={vt.busy}
+                      onClaim={(token) => {
+                        const c = viewer.claimables.find((x) => x.token === token);
+                        vt.claim(token as Address, c?.symbol ?? "token");
+                      }}
+                      actions={
+                        <>
+                          <Button
+                            size="sm"
+                            onClick={() => setDepositOpen(true)}
+                            disabled={vt.busy}
+                            data-testid="vault-open-deposit"
+                          >
+                            {viewer.isOwner
+                              ? BigInt(viewer.shares) === 0n
+                                ? "Stake"
+                                : "Stake more"
+                              : "Deposit"}
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            onClick={() => setWithdrawOpen(true)}
+                            disabled={vt.busy || BigInt(viewer.shares) === 0n}
+                            data-testid="vault-open-withdraw"
+                          >
+                            Withdraw
+                          </Button>
+                        </>
+                      }
+                      status={<StatusFor status={vt.status} actions={["claim", "create"]} />}
+                    />
+                  ) : (
+                    walletPrompt
+                  )}
+                </>
+              ),
+            },
+          ]}
+        />
+        <Card id="performance" data-testid="vault-performance">
+          <CardHeader>
+            <CardTitle>Value of the vault</CardTitle>
+            <CardDescription>
+              {perf.history.points > 0 && perf.history.from ? (
+                <>
+                  <span className="numeric">{perf.history.points}</span> readings since{" "}
+                  <span className="numeric">
+                    {whenUtc(Math.floor(Date.parse(perf.history.from) / 1000))}
+                  </span>
+                  , one every 15 minutes and after every trade.
+                </>
+              ) : (
+                "No readings yet: the first comes within 15 minutes of the vault's first deposit."
+              )}
+            </CardDescription>
+          </CardHeader>
           <CardContent>
-            {connected && viewer ? (
-              <VaultPositionCard
-                shares={viewer.shares}
-                valueUsdcE6={viewer.valueUsdcE6}
-                unlockAt={viewer.unlockAt}
-                now={now}
-                inKind={viewer.inKind}
-                claimables={viewer.claimables}
-                isLeader={viewer.isLeader}
-                busy={vt.busy}
-                onClaim={(token) => {
-                  const c = viewer.claimables.find((x) => x.token === token);
-                  vt.claim(token as Address, c?.symbol ?? "token");
-                }}
-                actions={
-                  <>
-                    <Button
-                      size="sm"
-                      onClick={() => setDepositOpen(true)}
-                      disabled={vt.busy}
-                      data-testid="vault-open-deposit"
-                    >
-                      {viewer.isOwner
-                        ? BigInt(viewer.shares) === 0n
-                          ? "Stake"
-                          : "Stake more"
-                        : "Deposit"}
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      onClick={() => setWithdrawOpen(true)}
-                      disabled={vt.busy || BigInt(viewer.shares) === 0n}
-                      data-testid="vault-open-withdraw"
-                    >
-                      Withdraw
-                    </Button>
-                  </>
-                }
-                status={<StatusFor status={vt.status} actions={["claim", "create"]} />}
-              />
-            ) : (
-              walletPrompt
-            )}
+            <AccountValueChart series={perf.series} principalUsdcE6={null} />
           </CardContent>
         </Card>
+      </div>
+      <div className="grid gap-6 lg:grid-cols-2">
         {isOwner && viewer ? (
           <Card data-testid="vault-leader-tools">
             <CardHeader>
@@ -372,90 +505,76 @@ export function VaultPage({
           fund
         )}
       </div>
-
-      <Card id="holdings">
-        <CardHeader>
-          <CardTitle>What the vault holds</CardTitle>
-          <CardDescription>
-            Every token as a tile, worth what the vault&apos;s own prices say, with its share and
-            its gain or loss; the table adds what each cost. An in-kind exit pays your share of each
-            of these.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <MakeupSwitch
-            rows={rows}
-            totalValueUsdcE6={s.navUsdcE6}
-            chain={CHAIN_NAMES[chainOfEnvironment(environment)]}
-            asOf={{ at: new Date(v.timestamp * 1000).toISOString(), live: true }}
-            emptyText="The vault holds nothing yet. The first deposit fills it, and the agent trades from there."
-            emptyAction={
-              viewer && s.depositsOpen ? (
-                <Button size="sm" variant="secondary" onClick={() => setDepositOpen(true)}>
-                  {viewer.isOwner ? "Stake" : "Deposit"}
-                </Button>
-              ) : undefined
-            }
-          />
-        </CardContent>
-      </Card>
-
-      <Card id="performance" data-testid="vault-performance">
-        <CardHeader>
-          <CardTitle>Performance</CardTitle>
-          <CardDescription>
-            The value of one share over time, from the readings the platform records every 15
-            minutes and after every trade. Deposits and withdrawals never move this line.
-            {perf.history.points > 0 && perf.history.from ? (
-              <>
-                {" "}
-                <span className="numeric">{perf.history.points}</span> readings since{" "}
-                <span className="numeric">
-                  {whenUtc(Math.floor(Date.parse(perf.history.from) / 1000))}
-                </span>
-                .
-              </>
-            ) : (
-              " No readings yet: the first comes within 15 minutes of the vault's first deposit."
-            )}
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-4">
-          <div className="grid max-w-2xl grid-cols-2 gap-3">
-            <ScoreTile
-              label="Return since the start"
-              value={ret.ok ? pct(ret.bps, true) : null}
-              tone={
-                ret.ok
-                  ? ret.bps > 0
-                    ? "positive"
-                    : ret.bps < 0
-                      ? "negative"
-                      : "neutral"
-                  : "neutral"
-              }
-              note={
-                ret.ok
-                  ? `From the first reading on ${whenUtc(Math.floor(Date.parse(ret.since) / 1000))}`
-                  : ret.reason
-              }
-              testId="vault-score-return"
-            />
-            <ScoreTile
-              label="Largest fall from a peak"
-              value={dd.ok ? pct(-dd.bps) : null}
-              tone={dd.ok ? (dd.bps > 0 ? "negative" : "neutral") : "neutral"}
-              note={
-                dd.ok
-                  ? `Peak ${whenUtc(Math.floor(Date.parse(dd.peakAt) / 1000))}, low ${whenUtc(Math.floor(Date.parse(dd.troughAt) / 1000))}`
-                  : dd.reason
-              }
-              testId="vault-score-drawdown"
-            />
-          </div>
-          <PerformanceChart series={perf.series} marks={[]} />
-        </CardContent>
-      </Card>
+      <div id="holdings">
+        <TabbedPanel
+          testId="vault-ledger"
+          defaultTab="positions"
+          tabs={[
+            {
+              id: "balances",
+              label: "Balances",
+              content: (
+                <BalancesTable rows={rows} chain={CHAIN_NAMES[chainOfEnvironment(environment)]} />
+              ),
+            },
+            {
+              id: "positions",
+              label: "Positions",
+              content: (
+                <PositionsTable rows={rows} chain={CHAIN_NAMES[chainOfEnvironment(environment)]} />
+              ),
+            },
+            {
+              id: "trades",
+              label: "Trade history",
+              content: (
+                <p className="text-sm text-foreground-muted">
+                  The agent&apos;s trades, this vault&apos;s among them, are listed on its{" "}
+                  <Link
+                    href={`/agents/${agentId.toString()}/portfolio#trades`}
+                    className="underline"
+                  >
+                    portfolio page
+                  </Link>
+                  .
+                </p>
+              ),
+            },
+            {
+              id: "flows",
+              label: "Deposits and withdrawals",
+              content: (
+                <p className="text-sm text-foreground-muted">
+                  The list of each deposit and withdrawal, with its date and transaction, comes with
+                  the next unit.
+                </p>
+              ),
+            },
+            {
+              id: "depositors",
+              label: "Depositors",
+              content: (
+                <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
+                  <dt className="text-foreground-muted">Shares in all</dt>
+                  <dd className="numeric">
+                    {formatAmount(BigInt(s.totalSupply), 18, { maxFractionDigits: 4 })}
+                  </dd>
+                  <dt className="text-foreground-muted">The leader&apos;s</dt>
+                  <dd className="numeric">{pct(s.leaderStakeBps)}</dd>
+                  <dt className="text-foreground-muted">Yours</dt>
+                  <dd className="numeric">
+                    {viewer && BigInt(s.totalSupply) > 0n
+                      ? pct(Number((BigInt(viewer.shares) * 10_000n) / BigInt(s.totalSupply)))
+                      : "–"}
+                  </dd>
+                  <dt className="text-foreground-muted">Every depositor</dt>
+                  <dd className="text-foreground-muted">The list comes with the next unit.</dd>
+                </dl>
+              ),
+            },
+          ]}
+        />
+      </div>
 
       {isOwner ? (
         <p className="text-sm text-foreground-muted" data-testid="vault-owner-credits-note">

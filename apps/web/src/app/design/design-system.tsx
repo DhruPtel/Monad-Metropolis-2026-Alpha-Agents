@@ -196,6 +196,12 @@ import {
   ActivationPanel,
   type ActivationPanelView,
   ActivationStatusTag,
+  AccountValueChart,
+  BalancesTable,
+  PositionsTable,
+  StatTileRow,
+  TabbedPanel,
+  type PositionRow,
 } from "@alpha-agents/ui";
 
 // Sample data from the design brief (Planv1/design-brief.md).
@@ -2567,6 +2573,146 @@ const ACT_CHECKS_BLOCKED = ACT_CHECKS_OK.map((c) =>
 );
 
 /** F-U10: the activation sweep's panel in every state, the checks before it, the status tag and the 2D pulse. */
+/** UX-U1: the vault-style layout of the portfolio and the vault pages, with fixtures. */
+const LAYOUT_ROWS: readonly PositionRow[] = [
+  {
+    symbol: "USDC",
+    decimals: 6,
+    amountRaw: "412500000",
+    isCash: true,
+    valueUsdcE6: "412500000",
+    shareBps: 3850,
+    costBasisUsdcE6: null,
+    gainUsdcE6: null,
+    gainBps: null,
+    chain: "Monad",
+  },
+  {
+    symbol: "WMON",
+    decimals: 18,
+    amountRaw: "14200000000000000000000",
+    isCash: false,
+    valueUsdcE6: "352160000",
+    shareBps: 3287,
+    costBasisUsdcE6: "310000000",
+    gainUsdcE6: "42160000",
+    gainBps: 1360,
+    chain: "Monad",
+  },
+  {
+    symbol: "cbBTC",
+    decimals: 8,
+    amountRaw: "280000",
+    isCash: false,
+    valueUsdcE6: "306600000",
+    shareBps: 2863,
+    costBasisUsdcE6: "321000000",
+    gainUsdcE6: "-14400000",
+    gainBps: -449,
+    chain: "Base",
+  },
+];
+const LAYOUT_SERIES: readonly SeriesPoint[] = Array.from({ length: 48 }, (_, i) => {
+  const at = new Date(Date.UTC(2026, 8, 1) + i * 30 * 60 * 60 * 1000).toISOString();
+  const unit = 1 + Math.sin(i / 5) * 0.04 + i * 0.0015;
+  return {
+    at,
+    perUnitE18: String(BigInt(Math.round(unit * 1e6)) * 10n ** 12n),
+    valueUsdcE6: String(Math.round(1_000_000_000 * unit)),
+    reason: i % 9 === 4 ? "trade" : "interval",
+  };
+});
+
+function VaultLayoutSection() {
+  return (
+    <Section id="vault-layout" title="Vault layout">
+      <p className="max-w-3xl text-sm text-foreground-muted">
+        The portfolio and the vault pages laid out as a vault page, adapted for spot holdings: the
+        top tiles, a left panel of tabs, the value or PnL chart with its range, and the bottom tabs
+        of dense tables. Summaries and actions stay tiles and buttons; positions are a table.
+      </p>
+      <Specimen name="StatTileRow" note="Four summary tiles; two columns at phone width.">
+        <StatTileRow
+          tiles={[
+            { label: "Total value", value: "1,071.26 USDC", note: "Read live from the chain" },
+            {
+              label: "Past month",
+              value: "+4.12%",
+              tone: "positive",
+              note: "On the value per unit",
+            },
+            { label: "Your deposits", value: "1,000.00 USDC", note: "Net of withdrawals" },
+            {
+              label: "All-time earned",
+              value: "+71.26 USDC",
+              tone: "positive",
+              note: "Value less deposits",
+            },
+          ]}
+        />
+      </Specimen>
+      <Specimen
+        name="TabbedPanel and AccountValueChart"
+        note="The left panel and the right chart, side by side from 1024px."
+      >
+        <div className="grid gap-6 lg:grid-cols-[2fr_3fr]">
+          <TabbedPanel
+            testId="design-left-panel"
+            tabs={[
+              {
+                id: "about",
+                label: "About",
+                content: (
+                  <p className="text-sm">
+                    Agent #7, a Bee. Balanced; holds core-lane tokens and rebalances within bands.
+                  </p>
+                ),
+              },
+              {
+                id: "agent",
+                label: "Agent performance",
+                content: (
+                  <p className="text-sm">
+                    Return since the start +7.1%, largest fall 2.3%, 4 of 6 closed trades won.
+                  </p>
+                ),
+              },
+              {
+                id: "yours",
+                label: "Your performance",
+                content: (
+                  <p className="text-sm">
+                    You put in 1,000.00 USDC; it is worth 1,071.26 USDC, +71.26 USDC since
+                    2026-09-01.
+                  </p>
+                ),
+              },
+            ]}
+          />
+          <Card>
+            <CardContent className="pt-6">
+              <AccountValueChart series={LAYOUT_SERIES} principalUsdcE6="1000000000" />
+            </CardContent>
+          </Card>
+        </div>
+      </Specimen>
+      <Specimen
+        name="PositionsTable and BalancesTable"
+        note="Dense tables; entry price is the cost basis per unit, PnL green or red."
+      >
+        <TabbedPanel
+          testId="design-ledger"
+          tabs={[
+            { id: "balances", label: "Balances", content: <BalancesTable rows={LAYOUT_ROWS} /> },
+            { id: "positions", label: "Positions", content: <PositionsTable rows={LAYOUT_ROWS} /> },
+          ]}
+          defaultTab="positions"
+        />
+      </Specimen>
+    </Section>
+  );
+}
+
 function ActivationSection() {
   return (
     <Section id="activation" title="Activation sweep">
@@ -4634,6 +4780,7 @@ function DesignSystem() {
       <AgentSection />
       <PortfolioSection />
       <VaultSection />
+      <VaultLayoutSection />
       <SkillsSection />
       <SettingsSection />
       <OwnerPagesSection />
