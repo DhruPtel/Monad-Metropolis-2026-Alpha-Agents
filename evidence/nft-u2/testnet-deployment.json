@@ -1,9 +1,9 @@
 {
   "unit": "F-U13",
-  "partial": true,
-  "stoppedBy": "5 executor v3 needs about 2.8401 MON at the maximum fee and the deployer 0x5C0Fb609931651357dcfd2b985910E3fC5904A4a holds 1.1537 MON: send at least 1.7364 MON to 0x5C0Fb609931651357dcfd2b985910E3fC5904A4a on Monad testnet (chain 10143) and run pnpm deploy:testnet:v3 again; every step so far stands",
   "chainId": 10143,
-  "recordedAt": "2026-10-13T00:13:00.710Z",
+  "label": "testnet, throwaway (D-247, D-249); the whole v3 stack beside P2-EC's v2",
+  "saltScope": "p2ec.testnet",
+  "recordedAt": "2026-10-13T01:11:39.686Z",
   "startBlock": 70536885,
   "roles": {
     "deployer": "0x5C0Fb609931651357dcfd2b985910E3fC5904A4a",
@@ -16,6 +16,18 @@
     "screener": "0xf6B3eb9FE59d7AedDd4e4ACc11912f3b9Aa34941",
     "attestor": "0xa2517B9bf3659e0d4E905C5E1148a4F07F013DeB"
   },
+  "allowlist": [
+    "0xc7fcA8F663b8a20f8aFcCdd92E031678423AC2c8",
+    "0x683ee842a16f85e69883f433745263bfe8d55f76",
+    "0x32838fe90541567bbf77fa0570661f3c20e2b152",
+    "0xc8821706961bcac0e95441308083644eff444871"
+  ],
+  "caps": {
+    "personalE6": "100000000",
+    "vaultE6": "500000000",
+    "platformE6": "2000000000"
+  },
+  "feedMaxAgeSeconds": 2592000,
   "market": {
     "monUsdFeed": "0x4F257aD5E3AE49E0934813c23F5940448d20965E",
     "usdcUsdFeed": "0x94f797988a94c86dF85bC457027eDF7b4673fD9D",
@@ -35,16 +47,125 @@
       "feed": "0x2896cD952b1b5A101e2ad9cCb17b9AE4050DE65a",
       "poolId": "0x40ce0801823100e952681aa05f5816ec8cde1ed39f27b85dbec46a30d2397b1c",
       "poolLiquidity": "100000000000000000000"
+    },
+    "seed": {
+      "monWei": "500000000000000000",
+      "tokenWei": "500000000000000000",
+      "liquidity": "100000000000000000000",
+      "tickLower": -100,
+      "tickUpper": 100
     }
   },
   "agentNft": "0x53704d94AF23CF04D2b6212cc071c6Bda6A4DFEF",
-  "fundSet": {
+  "fund": {
     "tokenRegistry": "0xDe0997ABe3dd6c79f64FeAfd69CCF3FaE58ed5a0",
     "protocolRegistry": "0xD08c641e902eB88459fc808CA32985434c49655A",
     "oracle": "0x87c750D5E5d33425A8eAF36796D6De6333646598",
     "routeAdapter": "0x98954C62ECfcB9ce111a404745EED17b806aD073",
     "coreTokens": 4,
-    "corePools": 3
+    "corePools": 3,
+    "config": {
+      "admin": "0x5C0Fb609931651357dcfd2b985910E3fC5904A4a",
+      "guardian": "0x5f8D9Bcb4479eED4934d51087DEEe157bac1322e",
+      "screener": "0xf6B3eb9FE59d7AedDd4e4ACc11912f3b9Aa34941",
+      "usdc": "0x534b2f3A21130d7a60830c2Df862319e593943A3",
+      "wmon": "0xFb8bf4c1CC7a94c73D209a149eA2AbEa852BC541",
+      "uniswapV3Factory": "0x4e59b44847b379578588920cA78FbF26c0B4956C",
+      "pancakeswapV3Factory": "0x4e59b44847b379578588920cA78FbF26c0B4956C",
+      "poolManager": "0x451D64ab3b650040d2aE1886602b97ed6eDc643d",
+      "stateView": "0xB639209539c61BaF67AC04876315786F8D0b153c",
+      "demoExecutor": "0x5C0Fb609931651357dcfd2b985910E3fC5904A4a",
+      "maxDeviationBps": 200,
+      "seeds": [
+        {
+          "token": "0x534b2f3a21130d7a60830c2df862319e593943a3",
+          "maxPositionBps": 10000,
+          "usdFeed": "0x94f797988a94c86dF85bC457027eDF7b4673fD9D",
+          "usdDecimals": 8,
+          "usdMaxAge": 2592000,
+          "rateFeed": "0x0000000000000000000000000000000000000000",
+          "rateDecimals": 0,
+          "rateMaxAge": 0
+        },
+        {
+          "token": "0xfb8bf4c1cc7a94c73d209a149ea2abea852bc541",
+          "maxPositionBps": 4000,
+          "usdFeed": "0x4F257aD5E3AE49E0934813c23F5940448d20965E",
+          "usdDecimals": 8,
+          "usdMaxAge": 2592000,
+          "rateFeed": "0x0000000000000000000000000000000000000000",
+          "rateDecimals": 0,
+          "rateMaxAge": 0
+        },
+        {
+          "token": "0xd4eb3fef2a9ebe27d59d4188b6d20bb21220c03c",
+          "maxPositionBps": 4000,
+          "usdFeed": "0x14B6Eb96776a5dbD4DfBB73F931edc86Fa17037A",
+          "usdDecimals": 8,
+          "usdMaxAge": 2592000,
+          "rateFeed": "0x0000000000000000000000000000000000000000",
+          "rateDecimals": 0,
+          "rateMaxAge": 0
+        },
+        {
+          "token": "0x57ca16ca75e968bd3ff712c729e6e5f6940cc010",
+          "maxPositionBps": 4000,
+          "usdFeed": "0x2896cD952b1b5A101e2ad9cCb17b9AE4050DE65a",
+          "usdDecimals": 8,
+          "usdMaxAge": 2592000,
+          "rateFeed": "0x0000000000000000000000000000000000000000",
+          "rateDecimals": 0,
+          "rateMaxAge": 0
+        }
+      ],
+      "pools": [
+        {
+          "venue": 3,
+          "token0": "0x0000000000000000000000000000000000000000",
+          "token1": "0x534b2f3a21130d7a60830c2df862319e593943a3",
+          "fee": 500,
+          "tickSpacing": 10,
+          "pool": "0x0000000000000000000000000000000000000000"
+        },
+        {
+          "venue": 3,
+          "token0": "0x0000000000000000000000000000000000000000",
+          "token1": "0xd4eb3fef2a9ebe27d59d4188b6d20bb21220c03c",
+          "fee": 500,
+          "tickSpacing": 10,
+          "pool": "0x0000000000000000000000000000000000000000"
+        },
+        {
+          "venue": 3,
+          "token0": "0x0000000000000000000000000000000000000000",
+          "token1": "0x57ca16ca75e968bd3ff712c729e6e5f6940cc010",
+          "fee": 500,
+          "tickSpacing": 10,
+          "pool": "0x0000000000000000000000000000000000000000"
+        }
+      ]
+    }
+  },
+  "executorV3": {
+    "executor": "0x8727b75ffF16483A462347cF829BF3ffBBcAbfA6",
+    "routeAdapter": "0x6F729E50B7A2Ba738a6a86B595B692cBC2E1a18a",
+    "protocolRegistry": "0x5101D2f94B002e53658aB15Bba411a3Ee16b1650",
+    "oracle": "0xC8b178126a25A4dA9b2E7cc9faF7492051866707",
+    "setDeployer": "0x172D7A40a2DeECB7F10beA4D4a3a32050964f277",
+    "corePools": 3,
+    "policyHash": "0xb5a9fa71ad68d9ba87761d235f535f9d9a6f2088b2476e43b81468573c59a3bb"
+  },
+  "custodyV3": {
+    "factory": "0xD8422359414939b365E12caaE3C5f08A3360b7Aa",
+    "personalAccountImplementation": "0xDD92990D765d3553CfC35EbC19f487e7d1D9819C",
+    "vaultImplementation": "0xeF7890Ce15F50715CD5617D12f97deb7DEbD80D7"
+  },
+  "attestation": {
+    "verifier": "0x6fB101B197dFC3F0C694C457e1E1732982EEF0Ef",
+    "attestor": "0xa2517B9bf3659e0d4E905C5E1148a4F07F013DeB",
+    "proposalTx": null,
+    "executableAt": 1792624513,
+    "timelockSeconds": 777600
   },
   "transactions": [
     {
@@ -65,8 +186,103 @@
       "maxPriorityFeePerGasWei": "0",
       "effectiveGasPriceWei": "110000000000",
       "paidWei": "992882440000000000"
+    },
+    {
+      "what": "ExecutorV3",
+      "script": "DeployExecutorV3.s.sol",
+      "hash": "0xa3e65dba84cd2291eac9a53603c88d7e3f62cebe46b4c4736fd6ce9d3edbdb45",
+      "from": "0x5c0fb609931651357dcfd2b985910e3fc5904a4a",
+      "to": "0x4e59b44847b379578588920ca78fbf26c0b4956c",
+      "created": null,
+      "block": 70548462,
+      "blockTime": 1791853834,
+      "status": "0x1",
+      "type": "0x0",
+      "gasLimit": "10209952",
+      "gasUsed": "10209952",
+      "baseFeeWei": "100000000000",
+      "maxFeePerGasWei": "110000000000",
+      "maxPriorityFeePerGasWei": "0",
+      "effectiveGasPriceWei": "110000000000",
+      "paidWei": "1123094720000000000"
+    },
+    {
+      "what": "ExecutorSetDeployer",
+      "script": "DeployExecutorV3.s.sol",
+      "hash": "0x83a912c0950e13b955acf6369d6a5d8162583b17ab2acd58aa4bb318100cf332",
+      "from": "0x5c0fb609931651357dcfd2b985910e3fc5904a4a",
+      "to": "0x4e59b44847b379578588920ca78fbf26c0b4956c",
+      "created": null,
+      "block": 70548471,
+      "blockTime": 1791853837,
+      "status": "0x1",
+      "type": "0x0",
+      "gasLimit": "9075673",
+      "gasUsed": "9075673",
+      "baseFeeWei": "100000000000",
+      "maxFeePerGasWei": "110000000000",
+      "maxPriorityFeePerGasWei": "0",
+      "effectiveGasPriceWei": "110000000000",
+      "paidWei": "998324030000000000"
+    },
+    {
+      "what": "OracleAdapterV3",
+      "script": "DeployExecutorV3.s.sol",
+      "hash": "0x02295e3a523e30d93415bdd31f25e474cd16896ec45b1579bb57b104586e3a59",
+      "from": "0x5c0fb609931651357dcfd2b985910e3fc5904a4a",
+      "to": "0x4e59b44847b379578588920ca78fbf26c0b4956c",
+      "created": null,
+      "block": 70548474,
+      "blockTime": 1791853838,
+      "status": "0x1",
+      "type": "0x0",
+      "gasLimit": "2561256",
+      "gasUsed": "2561256",
+      "baseFeeWei": "100000000000",
+      "maxFeePerGasWei": "110000000000",
+      "maxPriorityFeePerGasWei": "0",
+      "effectiveGasPriceWei": "110000000000",
+      "paidWei": "281738160000000000"
+    },
+    {
+      "what": "AccountFactoryV3",
+      "script": "DeployCustodyV3.s.sol",
+      "hash": "0xb1204959e9e02d2c641032d24fdb1f50ad8714519014e0f138168673ba942162",
+      "from": "0x5c0fb609931651357dcfd2b985910e3fc5904a4a",
+      "to": "0x4e59b44847b379578588920ca78fbf26c0b4956c",
+      "created": null,
+      "block": 70548552,
+      "blockTime": 1791853861,
+      "status": "0x1",
+      "type": "0x0",
+      "gasLimit": "29025690",
+      "gasUsed": "29025690",
+      "baseFeeWei": "100000000000",
+      "maxFeePerGasWei": "110000000000",
+      "maxPriorityFeePerGasWei": "0",
+      "effectiveGasPriceWei": "110000000000",
+      "paidWei": "3192825900000000000"
+    },
+    {
+      "what": "bind(address,address)",
+      "script": "BindExecutorV3.s.sol",
+      "hash": "0x0136e3988c7224c157d9265688fdec551a78348b8010b107f08b7161e460ded7",
+      "from": "0x5c0fb609931651357dcfd2b985910e3fc5904a4a",
+      "to": "0x8727b75fff16483a462347cf829bf3ffbbcabfa6",
+      "created": null,
+      "block": 70548621,
+      "blockTime": 1791853882,
+      "status": "0x1",
+      "type": "0x0",
+      "gasLimit": "99200",
+      "gasUsed": "99200",
+      "baseFeeWei": "100000000000",
+      "maxFeePerGasWei": "110000000000",
+      "maxPriorityFeePerGasWei": "0",
+      "effectiveGasPriceWei": "110000000000",
+      "paidWei": "10912000000000000"
     }
   ],
-  "deployerMonSpentWei": "992882440000000000",
+  "deployerMonSpentWei": "-3400222750000000000",
   "gasPriceWei": "110000000000"
 }

@@ -93,3 +93,14 @@ evidence/f-u13/testnet-deployment.json:generic-api-key:141
 evidence/nft-u2/testnet-deployment.json:generic-api-key:28
 evidence/nft-u2/testnet-deployment.json:generic-api-key:34
 evidence/nft-u2/testnet-deployment.json:generic-api-key:42
+#
+# NFT-U2 evidence, the completed testnet record: the fund set's config lists the registry's
+# tokens and pools under "token" and "token1"; each value is a public token address on Monad
+# testnet (USDC, WMON, TALPHA, TBETA), checked in NFT-U2.
+evidence/nft-u2/testnet-deployment.json:generic-api-key:81
+evidence/nft-u2/testnet-deployment.json:generic-api-key:91
+evidence/nft-u2/testnet-deployment.json:generic-api-key:101
+evidence/nft-u2/testnet-deployment.json:generic-api-key:111
+evidence/nft-u2/testnet-deployment.json:generic-api-key:125
+evidence/nft-u2/testnet-deployment.json:generic-api-key:133
+evidence/nft-u2/testnet-deployment.json:generic-api-key:141

@@ -967,24 +967,24 @@ const TESTNET_DEPLOYED: readonly AddressEntry[] = [
     id: "agent_nft",
     label: "AgentNFT",
     kind: "platform",
-    address: "0xb70a241EA3964099BF930e3617756FA510BA6992",
+    address: "0x53704d94AF23CF04D2b6212cc071c6Bda6A4DFEF",
     status: "verified",
     verification: {
       chainId: MONAD_TESTNET_CHAIN_ID,
-      block: 70511722,
+      block: 70537008,
       codeSize: 35802,
       deployedBy: "pnpm deploy:testnet:v3",
       chain: {
-        codeHash: "0x47d04b2dc00df78b983e066b01bbe3e8d22ae94b4d4776b357246295e1b2d638",
+        codeHash: "0x3967b3cf7eb92a71d9780597d656a9ad7736142095b68ffaa6ac69f868445927",
         explorer:
-          "https://testnet.monadvision.com/address/0xb70a241EA3964099BF930e3617756FA510BA6992",
-        transaction: "0x3fe7270e1afd63cea0eaad23fb42eb3a7cc68e4d8a17465ebb91dd9c01c97047",
-        sourcify: "https://repo.sourcify.dev/10143/0xb70a241EA3964099BF930e3617756FA510BA6992",
+          "https://testnet.monadvision.com/address/0x53704d94AF23CF04D2b6212cc071c6Bda6A4DFEF",
+        transaction: "0x0d9275573774e4f3af971c0d086faef1ccb754939eff4e9742fc730dd7e0a14b",
+        sourcify: "https://repo.sourcify.dev/10143/0x53704d94AF23CF04D2b6212cc071c6Bda6A4DFEF",
       },
     },
-    source: "evidence/f-u13/testnet-deployment.json (F-U13, testnet v3 stack, throwaway)",
+    source: "evidence/nft-u2/testnet-deployment.json (NFT-U2, testnet v3 stack, throwaway)",
     openQuestion: null,
-    note: "F-U13 testnet, throwaway (D-249): NFT-U1's AgentNFT (34 species, 500/300/200, two mints per wallet) with the p2ec.testnet salt, pending image base, never frozen, claim required; Executor v3 and AccountFactoryV3 read it. P2-EC's AgentNFT at 0x0c2472Ed555836F22FB3eAB7aBC2Cc3AebeaC9ea stays on testnet unused, with the v2 set below still reading it",
+    note: "NFT-U2 testnet, throwaway (D-249): the AgentNFT with the species correction (34 species, the counts and Butterfly's tier of D-376, two mints per wallet) with the p2ec.testnet salt, pending image base, never frozen, claim required; Executor v3 and AccountFactoryV3 read it. F-U13's AgentNFT at 0xb70a241EA3964099BF930e3617756FA510BA6992 (NFT-U1's counts) and P2-EC's at 0x0c2472Ed555836F22FB3eAB7aBC2Cc3AebeaC9ea stay on testnet unused, the v2 set below still reading P2-EC's",
   },
   {
     id: "account_factory",
@@ -1128,7 +1128,11 @@ const TESTNET_DEPLOYED: readonly AddressEntry[] = [
 
 /**
  * F-U13's testnet v3 deployment (the whole current stack beside P2-EC's v2
- * set), as observed on Monad testnet after `pnpm deploy:testnet:v3`: the
+ * set), as observed on Monad testnet after `pnpm deploy:testnet:v3`, and
+ * NFT-U2's redeploy of AgentNFT with the species correction, which moved
+ * Executor v3's set and AccountFactoryV3 with it (the fund set stayed; F-U13's
+ * Executor v3 0x50BF6cf5f27720f32aEeBdB11EC91821d933ecB6 and AccountFactoryV3
+ * 0xE40652172925dbBc63755E1f55EFb8ae91623d5B stay on testnet unused): the
  * TokenRegistry over P2-EC's two TestnetFeeds and the two testnet tokens
  * TALPHA and TBETA with their own feeds and seeded native MON pools, Executor
  * v3 with its own ProtocolRegistryV3, OracleAdapterV3 and RouteAdapter over
@@ -1139,7 +1143,7 @@ const TESTNET_DEPLOYED: readonly AddressEntry[] = [
  * unused, as on the playtest fork (D-363).
  */
 const TESTNET_V3_SOURCE =
-  "evidence/f-u13/testnet-deployment.json (F-U13, testnet v3 stack, throwaway)";
+  "evidence/f-u13/testnet-deployment.json (F-U13) and evidence/nft-u2/testnet-deployment.json (NFT-U2), the testnet v3 stack, throwaway";
 const TESTNET_V3_IDS = [
   ["token_registry_v3", "TokenRegistry (v3)"],
   ["route_adapter_v3", "RouteAdapter (v3, fund set)"],
@@ -1174,59 +1178,59 @@ const TESTNET_V3_FACTS: Readonly<
     "The fund set's adapter with the deployer as its executor, over the fund set's registry; not registered. Executor v3's own adapter is executor_route_adapter_v3",
   ],
   executor_v3: [
-    "0x50BF6cf5f27720f32aEeBdB11EC91821d933ecB6",
-    70525538,
+    "0x8727b75ffF16483A462347cF829BF3ffBBcAbfA6",
+    70548462,
     41210,
-    "0x399a6c11d9a727892d2fafd7e3ecc836c032b3a47f66f514a1a15f571beb5541",
-    "0xa3ee76bf69aa514eab22d9c85885f751607843e73f9b63cce49e0c7217eb67dc",
-    "Launch policy over the new AgentNFT; admin the deployer, guardian TESTNET_GUARDIAN; bound to account_factory_v3 and protocol_registry_v3 at block 70525696",
+    "0x8c26445346c56d6cf1c6296763daf4917c832935b8272bea3d293d7393886e19",
+    "0xa3e65dba84cd2291eac9a53603c88d7e3f62cebe46b4c4736fd6ce9d3edbdb45",
+    "Launch policy over the new AgentNFT; admin the deployer, guardian TESTNET_GUARDIAN; bound to account_factory_v3 and protocol_registry_v3 at block 70548621",
   ],
   executor_route_adapter_v3: [
-    "0xe4070a0aEC5f5F53A182Be3B16B5Dce30600fe96",
-    70525547,
+    "0x6F729E50B7A2Ba738a6a86B595B692cBC2E1a18a",
+    70548471,
     12727,
-    "0x8c151b2270f49a4e845ab4d18673f953f5afd17999bdee9ec0894db16a7ac99b",
-    "0xa551b3f3fc95518a7d1501be70700ecf665f3e6d773bbae89c286a5fa64e627b",
+    "0x4bf381c6cef237e4a7ab9029121170ff486eeaf765db01c3a4794829390c3272",
+    "0x83a912c0950e13b955acf6369d6a5d8162583b17ab2acd58aa4bb318100cf332",
     'Executor v3\'s adapter, active in protocol_registry_v3 from its construction under keccak256("route-adapter") (D-363); only the Executor may call it',
   ],
   protocol_registry_v3: [
-    "0x5d4C69101384f62A14D54A56Bc157fA17432dC5A",
-    70525547,
+    "0x5101D2f94B002e53658aB15Bba411a3Ee16b1650",
+    70548471,
     19718,
     "0x835e75435de8252b9e2e470c51cab8c6ca1bad3f47651234c135ea2e0e833896",
-    "0xa551b3f3fc95518a7d1501be70700ecf665f3e6d773bbae89c286a5fa64e627b",
+    "0x83a912c0950e13b955acf6369d6a5d8162583b17ab2acd58aa4bb318100cf332",
     "Three hookless Uniswap v4 native MON pools (USDC, TALPHA, TBETA), each confirmed by the PoolManager, and Executor v3's RouteAdapter active from construction; the Uniswap v3 and PancakeSwap v3 factories are the CREATE2 deployer as placeholders, since testnet has neither (D-248, A-96)",
   ],
   oracle_adapter_v3: [
-    "0x5e2660fAA23b76c5223E9AA251CD3cF1935a4126",
-    70525550,
+    "0xC8b178126a25A4dA9b2E7cc9faF7492051866707",
+    70548474,
     10235,
-    "0xaf764b1dfbadb959855a7990fccffa1c75e4b9749e60573c95d6c0a13c3e0b56",
-    "0x6876782322bbea5ef42926473d5631bc012f46d5d090915732b90a58537aa6d9",
+    "0x257929070cc894ed13f7d8a06de1a00054692ee7f9d4c10bf8e5a52551cb4135",
+    "0x02295e3a523e30d93415bdd31f25e474cd16896ec45b1579bb57b104586e3a59",
     "Executor v3's oracle over token_registry_v3 and protocol_registry_v3, 2% pool deviation",
   ],
   account_factory_v3: [
-    "0xE40652172925dbBc63755E1f55EFb8ae91623d5B",
-    70525635,
+    "0xD8422359414939b365E12caaE3C5f08A3360b7Aa",
+    70548552,
     14231,
-    "0x984833ef846d1b9a440d829174b608bafcd2d7ad0069953849bd0b51660321ce",
-    "0x58c79b190aa226481fbe43d1ede8b42ed7a8fa155c5f18d4cb94a588ef186154",
+    "0x76304b50a0babe503d2acdec0f057879b3ec41f136ae3a5bb8e1a8b14a0048db",
+    "0xb1204959e9e02d2c641032d24fdb1f50ad8714519014e0f138168673ba942162",
     "Caps 100, 500 and 2,000 USDC (personal, vault, platform); the allowlist on with the test wallet and the owner's three playtest wallets; public vault deposits off; sentinel TESTNET_SENTINEL; executor_v3 as its executor",
   ],
   personal_account_v3_implementation: [
-    "0x50C327ec029A7d08ecE9a7e7Fe1a3b6758ae0E64",
-    70525635,
+    "0xDD92990D765d3553CfC35EbC19f487e7d1D9819C",
+    70548552,
     41232,
-    "0x1e496674a92fd80ce5af3a962f31dddeb1028749b12f995cdd4e4adc463cb9d7",
-    "0x58c79b190aa226481fbe43d1ede8b42ed7a8fa155c5f18d4cb94a588ef186154",
+    "0xa04447b0538a7c0512727ad0b754b9f386b9734dd31e5e6a7cef987f192c87a0",
+    "0xb1204959e9e02d2c641032d24fdb1f50ad8714519014e0f138168673ba942162",
     "Deployed by AccountFactoryV3's constructor; every testnet PersonalAccountV3 is a clone of it",
   ],
   strategy_vault_v3_implementation: [
-    "0xE04d06594C9Bb2B3C4DDbAE262bBC89562C44484",
-    70525635,
+    "0xeF7890Ce15F50715CD5617D12f97deb7DEbD80D7",
+    70548552,
     61812,
-    "0x80b664b8b0475beb35c10afbb43353829a11d44322fbba39f9ab8dda5efce254",
-    "0x58c79b190aa226481fbe43d1ede8b42ed7a8fa155c5f18d4cb94a588ef186154",
+    "0xe243f914d562e2358c3bb03ca75cb706916c353efd4952caf7942db4ae2c3ea2",
+    "0xb1204959e9e02d2c641032d24fdb1f50ad8714519014e0f138168673ba942162",
     "Deployed by AccountFactoryV3's constructor; every testnet StrategyVaultV3 is a clone of it",
   ],
 };
