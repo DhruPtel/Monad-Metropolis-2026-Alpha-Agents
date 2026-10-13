@@ -130,6 +130,8 @@ export interface ApiDeps {
   readonly signer: ClaimSigner | null;
   readonly sessionSecret: string;
   readonly allowOrigin: (origin: string) => boolean;
+  /** HOST-U1 (D-383): any wallet may mint within the per-wallet limit; the allowlist is not read. */
+  readonly mintOpen?: boolean;
   /** Milliseconds. */
   readonly now: () => number;
   readonly randomNonce: () => Hex;
@@ -1537,7 +1539,7 @@ export function createApp(deps: ApiDeps): Hono {
     let eligibility: Eligibility = "eligible";
     // Read fresh from the chain: a wallet mints up to MINTS_PER_WALLET (NFT-U1).
     const mintsUsed = await deps.chain.mintsOf(wallet);
-    if (!(await isAllowlisted(deps.db, wallet))) eligibility = "not_allowlisted";
+    if (!deps.mintOpen && !(await isAllowlisted(deps.db, wallet))) eligibility = "not_allowlisted";
     else if (mintsUsed >= MINTS_PER_WALLET) eligibility = "already_minted";
     else if ((await deps.chain.totalMinted()) >= (await deps.chain.maxSupply()))
       eligibility = "sold_out";

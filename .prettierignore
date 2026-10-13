@@ -36,3 +36,6 @@ packages/policy/fixtures/
 packages/skills/builtin/skills/*/evals/evals.yaml
 # The built-in skills are published by content hash (F1): their bytes stay as locked.
 packages/skills/builtin/
+
+# Vercel's local link and build output (HOST-U1)
+.vercel/

@@ -14,6 +14,7 @@ export default tseslint.config(
       "**/.next-e2e/**",
       "**/.next-testnet/**",
       "**/.next-base/**",
+      "**/.vercel/**",
       "**/.next-beta/**",
       "**/out/**",
       "**/cache/**",

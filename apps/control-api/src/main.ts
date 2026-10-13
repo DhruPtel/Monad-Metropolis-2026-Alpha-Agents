@@ -309,6 +309,8 @@ const app = createApp({
   // BK-U1: the owners' own data keys are sealed under the orchestrator's secret, which opens them.
   keySecret: (values.ORCHESTRATOR_SECRET as Secret).reveal(),
   allowOrigin: (origin) => (env.id === "local" ? LOOPBACK.test(origin) : origin === publicUrl),
+  // HOST-U1 (D-383): the testnet demo lets any wallet mint within the per-wallet limit.
+  mintOpen: values.MINT_OPEN === "on",
   now: () => Date.now(),
   randomNonce: () => `0x${randomBytes(32).toString("hex")}`,
   holdings,

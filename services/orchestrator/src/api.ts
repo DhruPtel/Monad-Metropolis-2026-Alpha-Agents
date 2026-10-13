@@ -10,7 +10,12 @@ import {
 import { armingJson, intentJson } from "@alpha-agents/trading";
 import { Hono } from "hono";
 import { RefundOpenError } from "./credits/refunds.ts";
-import { CreditsExhaustedError, type Orchestrator, ScanOpenError } from "./orchestrator.ts";
+import {
+  CreditsExhaustedError,
+  type Orchestrator,
+  ScanOpenError,
+  DemoRefusedError,
+} from "./orchestrator.ts";
 import type { RevealSteering, SteerRecord, SteerTarget } from "./reveal-steer.ts";
 import type { SignerWorker } from "./signer-worker.ts";
 import type { Runtime, Store, Task } from "./store.ts";
@@ -1009,6 +1014,8 @@ export function createApi(o: ApiOptions): Hono {
           );
         if (err instanceof ScanOpenError)
           return c.json({ error: "scan_open", message: err.message }, 409);
+        if (err instanceof DemoRefusedError)
+          return c.json({ error: "demo_refused", message: err.message }, 409);
         throw err;
       }
     });

@@ -167,6 +167,14 @@ export class CreditsExhaustedError extends Error {
   }
 }
 
+/** HOST-U1: research refused by the demo guard, with the owner's words. */
+export class DemoRefusedError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "DemoRefusedError";
+  }
+}
+
 export interface OrchestratorOptions {
   readonly store: Store;
   readonly gateway: GatewayAdmin;
@@ -224,6 +232,15 @@ export interface OrchestratorOptions {
    * P2-U6: what the trade flow sends swaps with. Without it (or without a chain
    * reader) proposals wait and nothing is ever sent.
    */
+  /**
+   * HOST-U1: the demo's spending guard. Research (a sweep, a Scan, a cycle)
+   * runs only for agents whose owner is on the allowlist, and only while the
+   * day's model spend (platform.model_calls, UTC) is under the daily budget.
+   */
+  readonly demo?: {
+    readonly allowlist: readonly Hex[] | null;
+    readonly dailyBudgetUsd: number | null;
+  };
   readonly trading?: {
     readonly signer: TradeFlowSigner;
     readonly gas: TradeFlowGas;
@@ -915,12 +932,38 @@ export class Orchestrator {
    * two Dives, Challenge, Test, Zoom out with an overview). It needs the
    * owner's goal and credits; one cycle per agent at a time.
    */
+  /** HOST-U1: refuses research the demo guard does not allow; null when it may run. */
+  private async demoGate(ref: AgentRef): Promise<void> {
+    const demo = this.o.demo;
+    if (!demo) return;
+    if (demo.allowlist) {
+      const owner = await this.chainOwner(ref.agentId);
+      if (!owner || !demo.allowlist.some((w) => w.toLowerCase() === owner.toLowerCase()))
+        throw new DemoRefusedError(
+          "During the demo, research runs only for agents whose owner is on the demo allowlist; this agent's owner is not. Trading, deposits and withdrawals work as usual.",
+        );
+    }
+    if (demo.dailyBudgetUsd !== null) {
+      const row = await this.o.store.db
+        .selectFrom("platform.model_calls")
+        .select((eb) => eb.fn.coalesce(eb.fn.sum<number>("cost_usd"), eb.val(0)).as("spent"))
+        .where("at", ">=", new Date(new Date().toISOString().slice(0, 10)))
+        .executeTakeFirst();
+      const spent = Number(row?.spent ?? 0);
+      if (spent >= demo.dailyBudgetUsd)
+        throw new DemoRefusedError(
+          `The demo's model budget for today (${demo.dailyBudgetUsd.toFixed(2)} USD) is used up; research starts again tomorrow (UTC).`,
+        );
+    }
+  }
+
   async enqueueCycle(
     ref: AgentRef,
     kind: CycleKind,
     requestedBy: TaskRequester = "console",
     opts: { readonly wantsOverview?: boolean } = {},
   ) {
+    await this.demoGate(ref);
     const runtime = await this.o.store.runtime(ref);
     if (runtime?.status !== "ready") throw new Error(`agent ${ref.agentId} is not provisioned`);
     if (!this.tools || !this.credits) throw new Error("the tool servers are not running");
@@ -1440,6 +1483,7 @@ export class Orchestrator {
    * Refused without enough credits or while one is already open.
    */
   async enqueueScan(ref: AgentRef, requestedBy: TaskRequester = "console"): Promise<string> {
+    await this.demoGate(ref);
     const runtime = await this.o.store.runtime(ref);
     if (runtime?.status !== "ready") throw new Error(`agent ${ref.agentId} is not provisioned`);
     if (!this.credits) throw new Error("credits are not configured");

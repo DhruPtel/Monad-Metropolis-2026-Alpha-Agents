@@ -29,6 +29,7 @@ import { createDb, sql } from "@alpha-agents/db";
 import { privateKeyToAccount } from "viem/accounts";
 import { LOCAL_PLAYTEST_WALLETS } from "./lib/account-factory.js";
 import { loadRootEnv } from "./lib/config.js";
+import { OWNER_PLAYTEST_WALLETS } from "./lib/testnet.js";
 import {
   MIN_AVAILABLE_BYTES,
   alive,
@@ -51,6 +52,15 @@ export const TESTNET_DATABASE = "alpha_agents_testnet";
  * same across restarts, because the orchestrator encrypts each agent's stored gateway key
  * with its secret (P2-EC: a fresh secret per start left every stored key unreadable).
  */
+/** HOST-U1: the owner's playtest wallets and the test wallet, for the demo research allowlist. */
+function demoAllowlistDefault() {
+  const wallets = [...OWNER_PLAYTEST_WALLETS];
+  const testKey = process.env.TESTNET_TEST_WALLET_PRIVATE_KEY?.trim();
+  if (testKey && /^0x[0-9a-fA-F]{64}$/.test(testKey))
+    wallets.push(privateKeyToAccount(/** @type {`0x${string}`} */ (testKey)).address);
+  return wallets.join(",");
+}
+
 function testnetEnv() {
   return {
     APP_ENV: "testnet",
@@ -62,6 +72,11 @@ function testnetEnv() {
     ORCHESTRATOR_PORT: "4200",
     ORCHESTRATOR_URL: "http://127.0.0.1:4200",
     APP_PUBLIC_URL: "http://localhost:3000",
+    // HOST-U1 (D-383): the testnet demo mints for any wallet within the per-wallet limit, and
+    // research runs for the owner's playtest wallets (and whoever .env adds) under 5 USD a day.
+    MINT_OPEN: process.env.MINT_OPEN ?? "on",
+    DEMO_RESEARCH_ALLOWLIST: process.env.DEMO_RESEARCH_ALLOWLIST ?? demoAllowlistDefault(),
+    DEMO_DAILY_MODEL_BUDGET_USD: process.env.DEMO_DAILY_MODEL_BUDGET_USD ?? "5",
     FORCE_COLOR: "0",
     NO_COLOR: "1",
   };

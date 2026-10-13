@@ -452,7 +452,9 @@ describe("registry and .env.example", () => {
     const names = VARIABLES.map((v) => v.name);
     expect(new Set(names).size).toBe(names.length);
     for (const v of VARIABLES) {
-      expect(v.firstUsedBy, v.name).toMatch(/^(P(\d|B)-(U\d+|EC)|F-U\d+|P0-[A-Z]+|M-(U\d+|FAST))$/);
+      expect(v.firstUsedBy, v.name).toMatch(
+        /^(P(\d|B)-(U\d+|EC)|F-U\d+|P0-[A-Z]+|M-(U\d+|FAST)|(HOST|UX|CL|REN)-U\d+)$/,
+      );
       expect(committed).toContain(`${v.name}=`);
     }
     expect(names).toContain("MONAD_TESTNET_RPC_URL");

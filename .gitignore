@@ -77,3 +77,8 @@ next-env.d.ts
 test-results/
 playwright-report/
 blob-report/
+
+# Vercel's local project link and build output (HOST-U1)
+.vercel/
+.vercel
+.env*

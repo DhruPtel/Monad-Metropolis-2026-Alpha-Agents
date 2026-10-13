@@ -567,6 +567,21 @@ log(
     : "risk sentinel on without a key: agent states only (set TESTNET_SENTINEL_PRIVATE_KEY to tighten accounts)",
 );
 
+// HOST-U1: the demo's spending guard, from DEMO_RESEARCH_ALLOWLIST and DEMO_DAILY_MODEL_BUDGET_USD.
+const demoAllowlist = String(values.DEMO_RESEARCH_ALLOWLIST ?? "")
+  .split(",")
+  .map((w) => w.trim())
+  .filter((w) => /^0x[0-9a-fA-F]{40}$/.test(w)) as Hex[];
+const demoBudgetRaw = values.DEMO_DAILY_MODEL_BUDGET_USD;
+const demoBudget = demoBudgetRaw === undefined ? null : Number(demoBudgetRaw);
+const demo =
+  demoAllowlist.length > 0 || demoBudget !== null
+    ? { allowlist: demoAllowlist.length > 0 ? demoAllowlist : null, dailyBudgetUsd: demoBudget }
+    : undefined;
+if (demo)
+  log(
+    `demo guard on: research for ${demo.allowlist ? `${demo.allowlist.length} allowlisted owner wallets` : "every owner"}${demo.dailyBudgetUsd !== null ? `, under ${demo.dailyBudgetUsd} USD of model spend a day` : ""}`,
+  );
 const orchestrator = new Orchestrator({
   store,
   gateway,
@@ -639,6 +654,7 @@ const orchestrator = new Orchestrator({
     ...(chainSigner ? { sessionKeyOf: (agentId: number) => chainSigner.createKey(agentId) } : {}),
   },
   trading,
+  ...(demo ? { demo } : {}),
 });
 await orchestrator.start();
 // F-T2: the registrar's background pass, with the token loops: every fresh passing token joins the

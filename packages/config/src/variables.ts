@@ -581,6 +581,47 @@ export const VARIABLES = [
     localDefault: "off",
   },
   {
+    name: "MINT_OPEN",
+    group: "Agent runtime",
+    description:
+      "Whether any wallet may mint, within the per-wallet limit, instead of the mint allowlist only (HOST-U1, D-383): on for the testnet demo, never on a real chain.",
+    secret: false,
+    firstUsedBy: "HOST-U1",
+    environments: ["local", "testnet"],
+    schema: z.enum(["on", "off"]),
+    expected: "on or off",
+    example: "off",
+    commented: true,
+    localDefault: "off",
+  },
+  {
+    name: "DEMO_RESEARCH_ALLOWLIST",
+    group: "Agent runtime",
+    description:
+      "The wallets whose agents may run research (sweeps, Scans, cycles) during the demo, comma-separated (HOST-U1); unset, every agent may.",
+    secret: false,
+    firstUsedBy: "HOST-U1",
+    environments: ALL,
+    schema: z.string().regex(/^(0x[0-9a-fA-F]{40}(,0x[0-9a-fA-F]{40})*)?$/),
+    expected: "comma-separated wallet addresses, or empty",
+    example:
+      "0x0000000000000000000000000000000000000001,0x0000000000000000000000000000000000000002",
+    commented: true,
+  },
+  {
+    name: "DEMO_DAILY_MODEL_BUDGET_USD",
+    group: "Agent runtime",
+    description:
+      "The most model spend research may add in one UTC day during the demo, in USD, within the gateway's own daily budget (HOST-U1); unset, no demo cap.",
+    secret: false,
+    firstUsedBy: "HOST-U1",
+    environments: ALL,
+    schema: z.string().regex(/^\d+(\.\d+)?$/),
+    expected: "a number of USD",
+    example: "5",
+    commented: true,
+  },
+  {
     name: "ORCHESTRATOR_URL",
     group: "Agent runtime",
     description: "Base URL of the orchestrator's internal API, as the dev console calls it",
