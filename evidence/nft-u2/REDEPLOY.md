@@ -18,11 +18,33 @@ What stayed as it was: the owner's wallets' USDC and MON (each mint cost its wal
 
 ## Monad testnet
 
-`pnpm deploy:testnet:v3 --evidence evidence/nft-u2` (the F-U13 deployment script, continuing on the F-U13 set): the market and the two tokens found, the new AgentNFT deployed, the fund set found (it does not take AgentNFT), then the balance guard stopped the fifth step before anything else was sent. Every transaction sent was mined.
+`pnpm deploy:testnet:v3 --evidence evidence/nft-u2` (the F-U13 deployment script continuing on the F-U13 set), in two runs: the first (2026-10-13, 00:13 UTC) found the market and the two tokens, deployed the new AgentNFT, found the fund set (it does not take AgentNFT) and was stopped by the balance guard before the fifth step, with the deployer at 1.15 MON; the owner then sent 10 MON, and the second run (01:10 UTC) continued at the fifth step and deployed the set that takes AgentNFT at construction. Every transaction sent was mined (`testnet-deployment.json`, 6 transactions from the run's start block 70536885).
 
 | Step | Result |
 | --- | --- |
-| 3 AgentNFT | 0x53704d94AF23CF04D2b6212cc071c6Bda6A4DFEF, transaction 0x0d9275573774e4f3af971c0d086faef1ccb754939eff4e9742fc730dd7e0a14b, block 70537008, 9,026,204 gas, 0.9929 MON at 110 gwei; 35,802 bytes; verified on Sourcify as exact_match (`pnpm verify:testnet:v3 --evidence evidence/nft-u2`, testnet-verification.json) |
-| 5 Executor v3 and its set | stopped: "needs about 2.8401 MON at the maximum fee and the deployer holds 1.1537 MON". Executor v3, AccountFactoryV3 and the binding take AgentNFT at construction, so the whole set must follow the new AgentNFT before the testnet stack can use it: about 2.84 MON (Executor v3, its RouteAdapter and ProtocolRegistryV3, the OracleAdapterV3), 3.76 MON (AccountFactoryV3 with both implementations) and 0.01 MON (the binding), about 6.6 MON in all at 110 gwei; the verifier and the SET_VERIFIER proposal stand (the TokenRegistry did not move) |
+| 3 AgentNFT | 0x53704d94AF23CF04D2b6212cc071c6Bda6A4DFEF, transaction 0x0d9275573774e4f3af971c0d086faef1ccb754939eff4e9742fc730dd7e0a14b, block 70537008, 9,026,204 gas, 0.9929 MON at 110 gwei; 35,802 bytes |
+| 5 Executor v3 and its set | ExecutorV3 0x8727b75ffF16483A462347cF829BF3ffBBcAbfA6 (block 70548462, 10,209,952 gas, 1.1231 MON); the ExecutorSetDeployer 0x172D7A40a2DeECB7F10beA4D4a3a32050964f277 with Executor v3's RouteAdapter 0x6F729E50B7A2Ba738a6a86B595B692cBC2E1a18a and ProtocolRegistryV3 0x5101D2f94B002e53658aB15Bba411a3Ee16b1650 inside (block 70548471, 9,075,673 gas, 0.9983 MON); OracleAdapterV3 0xC8b178126a25A4dA9b2E7cc9faF7492051866707 (block 70548474, 2,561,256 gas, 0.2817 MON) |
+| 6 AccountFactoryV3 and the binding | AccountFactoryV3 0xD8422359414939b365E12caaE3C5f08A3360b7Aa with PersonalAccountV3 0xDD92990D765d3553CfC35EbC19f487e7d1D9819C and StrategyVaultV3 0xeF7890Ce15F50715CD5617D12f97deb7DEbD80D7 inside (block 70548552, 29,025,690 gas, 3.1928 MON); `executor.bind` at block 70548621 (99,200 gas, 0.0109 MON) |
+| 7 The verifier and SET_VERIFIER | found: the AttestationVerifier 0x6fB101B197dFC3F0C694C457e1E1732982EEF0Ef and the TokenRegistry's proposal stand (the registry did not move), executable 2026-10-21 23:15 UTC |
+| Sourcify (`pnpm verify:testnet:v3 --evidence evidence/nft-u2`) | 18 of 18 exact_match: the 8 new contracts verified, the 10 unchanged ones already there |
 
-Until the set follows, the testnet stack and the address book's testnet environment stay on the F-U13 deployment (AgentNFT 0xb70a241EA3964099BF930e3617756FA510BA6992 with NFT-U1's counts), which still works end to end; the new AgentNFT is recorded here and in testnet-deployment.json (a partial record, `partial: true`). The owner sends about 5.5 MON more to the deployer (6 MON recommended) and runs `pnpm deploy:testnet:v3 --evidence evidence/nft-u2` again: it continues at step 5, writes the full record, and the address book's testnet block then moves to the new set (the nine v3 ids and `agent_nft`), after which the testnet database is reset and the mint allowlist filled as in F-U13 (A-96).
+The deployer spent 6.60 MON across the two runs (0.99 and 5.61) and holds about 5.2 MON after the end-to-end run's top-ups. The address book's testnet environment names the new AgentNFT and the new v3 set; the fund set's ids are unchanged; F-U13's Executor v3 (0x50BF6cf5f27720f32aEeBdB11EC91821d933ecB6) and AccountFactoryV3 (0xE40652172925dbBc63755E1f55EFb8ae91623d5B) and its AgentNFT (0xb70a241EA3964099BF930e3617756FA510BA6992) stay on testnet unused, beside P2-EC's.
+
+## The testnet stack end to end on the new set
+
+The testnet database (alpha_agents_testnet) and Redis database 1 were reset for the new AgentNFT (the F-U13 index and its agent belonged to the old contract), the mint allowlist was filled again with the test wallet and the owner's three playtest wallets (A-96), the test wallet received 0.3 MON of gas from the deployer, and the indexer caught up from block 70537009 to the head (about 14,000 blocks in 9 minutes). Then `pnpm testnet:e2e` ran to the end in one attempt (`e2e-run-2026-10-13T01-29-09-065Z.json`, 281 s):
+
+| Step | Measured |
+| --- | --- |
+| Mint on the new AgentNFT (`mintWithClaim`) | block 70551209, 338,165 gas; receipt 419 ms, finalized 1,173 ms; indexed 2.6 s later |
+| Pyth Entropy reveal | `requestReveal` and `reveal` 6 s apart after the keeper's 60-second window; species 13 (Earwig, medium) 76 s after the mint; provisioning ready at once |
+| Credits (1 USDC) | credited 2.0 s after the transfer |
+| Scan | succeeded in 115 s (about 0.5 USD with the chain check) |
+| Gas top-ups (`pnpm testnet:gas 1`) | the keeper back to 0.35 MON, the agent's funding address to 0.9 (A-96) |
+| PersonalAccountV3 opened, the feeds re-dated (6,628 s old), 0.5 USDC deposited | 343,838; 42,601 each; 87,643 and 409,068 gas |
+| Arm on Executor v3 | 110,697 gas; awaiting its first trade |
+| The chain check's proposal (0.02 USDC of WMON) | proposed 42 s after the task was queued, approved, settled through the signer and Executor v3 on the P2-EC USDC/MON pool 8.4 s after the approval; 0.019980 WMON for 0.02 USDC; the outbox reconciled |
+| The over-limit proposal | rejected at submission: TRADE_SIZE_EXCEEDED and CONCENTRATION_CAP (no GAS_UNFUNDED this time: the 0.9 MON target covers a second swap) |
+| Disarm, `withdrawAll` | 55,799 and 321,562 gas; the account 0xEC64A70Fb7Cc88EF0260cBd3DBb77A7cd0b7418b empty, mode NORMAL |
+
+The stack was stopped afterwards (`pnpm testnet:down`); `pnpm testnet:up` starts it again on the same database, where agent 1 is the test wallet's.
