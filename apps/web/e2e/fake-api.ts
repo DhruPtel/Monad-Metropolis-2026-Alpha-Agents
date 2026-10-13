@@ -351,6 +351,20 @@ export class FakeApi {
         ? reply(200, { ...meta, agentId: why[1], ...tr.why() })
         : reply(404, { error: "not_found", message: "No such agent." });
     }
+    // RP-U1: the research reports; none yet in these specs. Not recorded in ownerCalls.
+    const reports = /^\/v1\/agents\/(\d+)\/reports$/.exec(url.pathname);
+    if (reports?.[1]) {
+      const id = BigInt(reports[1]);
+      if (!this.chain.agents.get(id))
+        return reply(404, { error: "not_found", message: "No such agent." });
+      if (request.headers()["x-owner-session"] !== this.sessionFor(id))
+        return reply(403, { error: "not_owner", message: "Start an owner session first." });
+      return reply(200, {
+        agentId: reports[1],
+        reports: [],
+        links: { activation: null, plan: null },
+      });
+    }
     const trade =
       /^\/v1\/agents\/(\d+)\/(portfolio|window|research|terminal|sentinel|research\/pause|arming|disarm|activation|plan-card|proposals\/[\w-]+\/(?:approve|reject)|intents(?:\/[\w-]+\/(?:approve|reject))?)$/.exec(
         url.pathname,

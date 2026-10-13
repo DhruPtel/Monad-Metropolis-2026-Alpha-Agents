@@ -118,6 +118,23 @@ function TabbedPanel({
   className?: string;
 }) {
   const first = defaultTab ?? tabs[0]?.id ?? "";
+  const [value, setValue] = useState(first);
+  // CQ-U1: a link to one of the tabs (the window page's #trades, #positions) opens it and
+  // scrolls to it, as the anchors did before the ledger became tabs.
+  const ids = tabs.map((t) => t.id).join(" ");
+  useEffect(() => {
+    const follow = () => {
+      const id = decodeURIComponent(window.location.hash.slice(1));
+      if (!ids.split(" ").includes(id)) return;
+      setValue(id);
+      window.requestAnimationFrame(() =>
+        document.getElementById(id)?.scrollIntoView({ block: "start" }),
+      );
+    };
+    follow();
+    window.addEventListener("hashchange", follow);
+    return () => window.removeEventListener("hashchange", follow);
+  }, [ids]);
   return (
     <Card className={cn("flex flex-col", className)} data-testid={testId ?? "tabbed-panel"}>
       {title ? (
@@ -127,7 +144,7 @@ function TabbedPanel({
         </CardHeader>
       ) : null}
       <CardContent className={cn("flex flex-1 flex-col gap-4", title ? "" : "pt-6")}>
-        <Tabs defaultValue={first}>
+        <Tabs value={value} onValueChange={setValue}>
           <TabsList className="flex h-auto flex-wrap justify-start gap-1">
             {tabs.map((t) => (
               <TabsTrigger key={t.id} value={t.id} data-testid={`tab-${t.id}`}>

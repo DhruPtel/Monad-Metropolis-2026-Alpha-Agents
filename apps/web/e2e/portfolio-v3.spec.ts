@@ -128,7 +128,8 @@ test.describe("the portfolio on the fund agent's set (A-80)", () => {
     ).toBeVisible();
     const positions = main(page).getByTestId("positions");
     await expect(positions).toHaveAttribute("data-custody", "v3");
-    await expect(positions.getByTestId("asset-row")).toHaveCount(3);
+    // UX-U1: the positions are the ledger's dense table.
+    await expect(positions.getByTestId("position-row")).toHaveCount(3);
     await expect(positions.locator("[data-symbol=WBTC]")).toContainText("+2.00");
     await expect(positions.locator("[data-symbol=WMON]")).toContainText("+0.50");
     await expect(main(page).getByTestId("caps")).toContainText("40.00 of 100.00 USDC");
@@ -231,7 +232,7 @@ test.describe("the portfolio on the fund agent's set (A-80)", () => {
     await expect(status(withdraw)).toHaveAttribute("data-state", "confirmed");
     expect(s.trading.calls).toContain("withdraw:v3");
     await closeDialog(page);
-    await expect(main(page).getByTestId("positions").getByTestId("asset-row")).toHaveCount(2);
+    await expect(main(page).getByTestId("positions").getByTestId("position-row")).toHaveCount(2);
     await expect(main(page).getByTestId("positions").locator("[data-symbol=WBTC]")).toHaveCount(0);
     const everything = await openDialog(page, "withdraw");
     await everything.getByTestId("withdraw-everything").click();
@@ -239,7 +240,7 @@ test.describe("the portfolio on the fund agent's set (A-80)", () => {
     expect(s.trading.calls).toContain("withdrawAll:v3");
     await expect(everything.getByTestId("withdraw-empty")).toBeVisible();
     await closeDialog(page);
-    await expect(main(page).getByTestId("asset-makeup-empty")).toBeVisible();
+    await expect(main(page).getByTestId("positions-table-empty")).toBeVisible();
     // Nothing went to the older account or the v2 factory.
     expect(sent(s.chain).map((t) => t.to.toLowerCase())).not.toContain(ACCOUNT.toLowerCase());
   });

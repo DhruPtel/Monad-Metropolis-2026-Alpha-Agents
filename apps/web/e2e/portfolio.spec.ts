@@ -169,21 +169,24 @@ test.describe("every state, captured and scanned", () => {
     const positions = main(page).getByTestId("positions");
     await expect(main(page).getByTestId("portfolio-overview")).toContainText("40.00");
     await expect(main(page).getByTestId("portfolio-overview")).toContainText("20s old");
-    // UI-U1: positions as tiles, the arming card right under the hero.
-    await expect(positions.getByTestId("asset-row")).toHaveCount(2);
-    await expect(positions).toContainText("75.00%");
+    // UX-U1: positions as the ledger's dense table under the hero, the share in Balances.
+    await expect(positions.getByTestId("position-row")).toHaveCount(2);
+    await main(page).getByTestId("tab-balances").click();
+    await expect(main(page).getByTestId("balances-table")).toContainText("75.00%");
+    await main(page).getByTestId("tab-positions").click();
     const heroBox = await main(page).getByTestId("portfolio-overview").boundingBox();
     const armingBox = await main(page).getByTestId("arming-card").boundingBox();
     const positionsBox = await positions.boundingBox();
     if (!heroBox || !armingBox || !positionsBox) throw new Error("the sections did not render");
+    expect(heroBox.y).toBeLessThan(positionsBox.y);
     expect(heroBox.y).toBeLessThan(armingBox.y);
-    expect(armingBox.y).toBeLessThan(positionsBox.y);
     await expect(main(page).getByTestId("caps")).toContainText("40.00 of 100.00 USDC");
     await expect(main(page).getByTestId("arming-card")).toHaveAttribute("data-state", "unarmed");
     const approval = main(page).getByTestId("approval-card");
     await expect(approval).toContainText("2.50");
     await expect(approval).toContainText("Monad");
     await expect(approval).toContainText("Arm the agent first");
+    await main(page).getByTestId("tab-trades").click();
     await expect(main(page).getByTestId("recent-trades")).toContainText("39.94");
     await expect(main(page).getByTestId("why-not-traded")).toContainText(
       "larger than 10% of the account",

@@ -51,15 +51,30 @@ function depositorVault(over: Partial<FakeVaultState> = {}) {
   return s;
 }
 
+/** UX-U1: opens a tab of the vault's left panel (about, agent, yours). */
+async function tab(page: Page, id: "about" | "agent" | "yours") {
+  await main(page).getByTestId("vault-about").getByTestId(`tab-${id}`).click();
+}
+
 async function open(page: Page, s: ReturnType<typeof stack>, connect = true) {
   await s.chain.install(page);
   await s.api.install(page);
   await page.goto(`/agents/${AGENT}/vault`);
   await page.evaluate(() => document.fonts.ready);
   if (!connect) return;
+  // The connect prompt and the position sit in "Your performance" once a vault exists.
+  await expect(
+    main(page).getByTestId("vault-about").or(main(page).getByTestId("vault-create")),
+  ).toBeVisible();
+  if ((await main(page).getByTestId("vault-about").count()) > 0) await tab(page, "yours");
   await main(page).getByRole("button", { name: "Connect wallet" }).click();
   await page.mouse.move(0, 0);
   await expect(walletButton(page)).toHaveAttribute("data-state", "connected");
+  // The connected read remounts the panel on its first tab; the position is under "yours".
+  if ((await main(page).getByTestId("vault-about").count()) > 0) {
+    await tab(page, "yours");
+    await expect(main(page).getByTestId("vault-position")).toBeVisible();
+  }
 }
 
 /** The same scroll, no hover, every image loaded and a full repaint (L-44, L-65), then the capture. */
@@ -112,6 +127,7 @@ test.describe("the vault page (P7-U4)", () => {
     const panel = main(page).getByTestId("vault-panel");
     await expect(panel.getByTestId("vault-deposits")).toContainText("Not open yet");
     expect(s.vault.calls).toEqual(["createVault"]);
+    await tab(page, "yours");
     const position = main(page).getByTestId("vault-position");
     await expect(position).toHaveAttribute("data-state", "none");
     await expect(status(position)).toHaveAttribute("data-state", "confirmed");
@@ -136,6 +152,7 @@ test.describe("the vault page (P7-U4)", () => {
     const tools = main(page).getByTestId("vault-leader-tools");
     await tools.getByTestId("vault-toggle-deposits").click();
     await expect(status(tools)).toHaveAttribute("data-state", "confirmed");
+    await tab(page, "about");
     await expect(panel.getByTestId("vault-deposits")).toContainText(
       "Open to allowlisted wallets (beta)",
     );
@@ -147,6 +164,7 @@ test.describe("the vault page (P7-U4)", () => {
   }) => {
     const s = stack(depositorVault());
     await open(page, s);
+    await tab(page, "about");
     const panel = main(page).getByTestId("vault-panel");
     await expect(panel).toHaveAttribute("data-mode", "NORMAL");
     await expect(panel.getByTestId("vault-lockup")).toContainText("1 day");
@@ -155,11 +173,13 @@ test.describe("the vault page (P7-U4)", () => {
     );
     await expect(panel.getByTestId("vault-cap")).toContainText("420.00 of 500.00 USDC");
     await expect(panel).toContainText("Unaudited beta");
+    await tab(page, "yours");
     const position = main(page).getByTestId("vault-position");
     await expect(position).toHaveAttribute("data-state", "locked");
     await expect(position.getByTestId("vault-lock")).toContainText("Locked until");
     await expect(position.getByTestId("vault-in-kind")).toContainText("WMON");
-    await expect(main(page).getByTestId("asset-row")).toHaveCount(3);
+    await expect(main(page).getByTestId("position-row")).toHaveCount(3);
+    await tab(page, "agent");
     await expect(main(page).getByTestId("vault-score-return")).toHaveAttribute(
       "data-state",
       "ready",
@@ -168,6 +188,7 @@ test.describe("the vault page (P7-U4)", () => {
     await expect(main(page).getByTestId("vault-leader-tools")).toHaveCount(0);
     await capture(page, main(page), "vault-depositor.png");
     expect(await blockingViolations(page)).toEqual([]);
+    await tab(page, "yours");
     await expect(main(page).getByTestId("vault-open-withdraw")).toBeEnabled();
     await main(page).getByTestId("vault-open-deposit").click();
     const d = dialog(page);
@@ -282,6 +303,7 @@ test.describe("the vault page (P7-U4)", () => {
   }) => {
     const s = stack(depositorVault({ mode: "HANDOVER", inHandover: true, leaderShares: 0n }));
     await open(page, s);
+    await tab(page, "about");
     const panel = main(page).getByTestId("vault-panel");
     await expect(panel).toHaveAttribute("data-mode", "HANDOVER");
     await expect(panel.getByTestId("vault-notice-handover")).toContainText(
@@ -290,6 +312,7 @@ test.describe("the vault page (P7-U4)", () => {
     await expect(panel.getByTestId("vault-deposits")).toContainText("Closed during the handover");
     await capture(page, main(page), "vault-handover.png");
     expect(await blockingViolations(page)).toEqual([]);
+    await tab(page, "yours");
     await main(page).getByTestId("vault-open-deposit").click();
     await expect(dialog(page).getByTestId("vault-deposit-block")).toContainText(
       "The agent changed hands",
@@ -306,6 +329,7 @@ test.describe("the vault page (P7-U4)", () => {
     await expect(main(page).getByTestId("vault-panel").getByTestId("vault-value")).toContainText(
       "82.00",
     );
+    await tab(page, "yours");
     await expect(
       main(page).getByText("Connect to see your own position and to deposit or withdraw."),
     ).toBeVisible();

@@ -301,7 +301,8 @@ test.describe("the Goal page", () => {
     await expect(saveStatus(page)).toHaveAttribute("data-state", "saved");
     await main(page).getByRole("link", { name: "Portfolio" }).click();
     await expect(page).toHaveURL(new RegExp(`/agents/${AGENT}/portfolio$`));
-    const summary = main(page).getByTestId("goal-summary");
+    // UX-U1: the portfolio shows the goal in its About panel and again in the goal card below.
+    const summary = main(page).getByTestId("panel-about").getByTestId("goal-summary");
     await expect(summary).toHaveAttribute("data-state", "READY");
     await expect(summary).toContainText("Goal: Balanced");
     await expect(summary.getByRole("link", { name: "Change goal" })).toHaveAttribute(
