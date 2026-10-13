@@ -739,7 +739,13 @@ try {
       for (let i = 0; i < 400; i++) {
         await signer.tick();
         row = (await signer.outbox(1, 50)).find((r) => r.txId === accepted.txId);
-        if (row?.status === "confirmed" && confirmedMs === null) confirmedMs = ms(t0);
+        // CL-U1: a row that went from submitted to reconciled between two polls was confirmed too.
+        if (
+          row &&
+          confirmedMs === null &&
+          (row.status === "confirmed" || row.status === "reconciled")
+        )
+          confirmedMs = ms(t0);
         if (row && (row.status === "reconciled" || row.status === "failed" || row.reasonCode))
           break;
         await sleep(150);

@@ -1,5 +1,6 @@
 export * from "./launch-skills.ts";
 export * from "./manifest.ts";
+export * from "./quick-check.ts";
 export {
   INTENT_REGISTRY,
   INTENT_TOOL_IDS,

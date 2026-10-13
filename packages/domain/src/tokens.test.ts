@@ -108,10 +108,10 @@ describe("the staleness bound of a feed leg (F-U2, F-U3 step 0, A-67)", () => {
     expect(feedMaxAgeSeconds(leg(MON_USD_FEED_PROXY, 3600))).toBe(300);
   });
 
-  it("gives an hourly leg five minutes of grace and a daily leg one hour", () => {
-    expect(feedGraceSeconds(3600)).toBe(300);
+  it("gives an hourly leg fifteen minutes of grace and a daily leg one hour (CL-U1, A-99)", () => {
+    expect(feedGraceSeconds(3600)).toBe(900);
     expect(feedGraceSeconds(86_400)).toBe(3600);
-    expect(feedMaxAgeSeconds(leg("0x0000000000000000000000000000000000000001", 3600))).toBe(3900);
+    expect(feedMaxAgeSeconds(leg("0x0000000000000000000000000000000000000001", 3600))).toBe(4500);
     expect(feedMaxAgeSeconds(leg("0x0000000000000000000000000000000000000001", 86_400))).toBe(
       90_000,
     );

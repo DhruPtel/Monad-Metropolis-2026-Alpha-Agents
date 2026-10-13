@@ -129,6 +129,10 @@ const DESCRIPTIONS: Readonly<Record<ResearchDataTool, string>> = {
     "Run one of the platform's saved Dune queries for Monad onchain analytics by name, and get its typed rows with when Dune computed them. You choose a query from the list; you cannot write SQL. Results may be up to a day old (warnings say so). Optional: it may answer that Dune is not configured, which costs nothing. Costs credits unless cached; limited per run.",
 };
 
+/** What a replayed X post carries in place of its text, which the platform never stores (P3-U9). */
+export const X_REPLAY_TEXT =
+  "[post text not kept: the platform stores an X post's figures only; this replay shows them without the words]";
+
 const PROVIDER: Readonly<Record<ResearchDataTool, string>> = { x_search: "x", dune_query: "dune" };
 
 function researchError(err: unknown): ToolError {
@@ -190,7 +194,9 @@ export function registerResearchTools(
     ) => Promise<{ output: Record<string, unknown>; summary: Record<string, unknown> }>,
   ) => {
     // UI-U2: a replay answers from the stored result. x_search's posts are stored without their
-    // text (P3-U9), so a replayed search carries each post's figures and an empty text.
+    // text (P3-U9, deletions honored), so a replayed search carries each post's figures and, in
+    // place of the text, a line saying it was not kept (CL-U1, A-100): the model is never shown
+    // an empty post as if it had been empty.
     const replay = await replayed(deps.replay, identity, "data", tool, input);
     if (replay) {
       const stored = replay.structuredContent as Record<string, unknown> | undefined;
@@ -199,8 +205,8 @@ export function registerResearchTools(
         ...stored,
         notice: X_NOTICE,
         posts: ((stored.posts ?? []) as Record<string, unknown>[]).map((p) => ({
-          text: "",
           ...p,
+          text: X_REPLAY_TEXT,
         })),
       });
     }

@@ -1,6 +1,7 @@
 "use client";
 
 import { SKILL_TEMPLATES, type SkillTemplateFile } from "@alpha-agents/domain";
+import { quickFindings } from "@alpha-agents/skills";
 import type { SkillCheckState, SkillEditorFile } from "@alpha-agents/ui";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Address } from "viem";
@@ -99,6 +100,15 @@ export function useSkillEditor(
   useEffect(() => {
     if (!enabled || files.length === 0) return;
     const mine = ++latest.current;
+    // CL-U1: the format rules that need only the text run here first; a blocking finding is
+    // one the platform would give too, so it shows at once and nothing is sent until it is fixed.
+    const quick = quickFindings(files.map((f) => ({ path: f.path, content: f.content })));
+    const blocking = quick.filter((f) => f.severity === "block").length;
+    if (blocking > 0) {
+      setFindings(quick);
+      setCheck({ state: "refused", blocking });
+      return;
+    }
     setCheck({ state: "checking" });
     const timer = window.setTimeout(() => {
       void (async () => {

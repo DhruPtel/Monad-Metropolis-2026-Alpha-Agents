@@ -201,7 +201,11 @@ describe.skipIf(!dbUp)("the Scan task (needs Postgres)", { timeout: 60_000 }, ()
       if (cmd.includes("-X POST") && cmd.includes("/v1/runs") && !cmd.includes("/stop")) {
         const [sandbox] = [...provider.sandboxes.values()];
         const token = must(sandbox?.spec.injectHeaders[GATE_HEADER]);
-        void agentScript(token).finally(() => (runState = "completed"));
+        // CL-U1: a script call refused after its lease ended (401) is the expected end of a
+        // run the orchestrator stopped; it is never an unhandled rejection of the test run.
+        void agentScript(token)
+          .catch(() => undefined)
+          .finally(() => (runState = "completed"));
         return http(202, { run_id: "run-1" });
       }
       if (cmd.includes("/v1/runs/run-1")) return http(200, { status: runState, output: "done" });

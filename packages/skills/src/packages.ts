@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { ALLOWED_DIRS, pathIssues } from "./quick-check.ts";
 import { lstatSync, readFileSync, readdirSync } from "node:fs";
 import { join, relative, sep } from "node:path";
 import { type SkillManifest, validateManifest } from "./manifest.ts";
@@ -35,6 +36,7 @@ export interface SkillPackage {
   readonly skillMd: string;
 }
 
+export { pathIssues } from "./quick-check.ts";
 export interface PackageIssue {
   /** The rule: F1 to F8 format, S1 to S15 static (2.6 of the Bankr platform mapping). */
   readonly rule: string;
@@ -43,13 +45,6 @@ export interface PackageIssue {
   readonly message: string;
 }
 
-const ALLOWED_TOP = new Set(["skill.json", "SKILL.md", "CHANGELOG.md"]);
-const ALLOWED_DIRS: Readonly<Record<string, RegExp>> = {
-  references: /^[A-Za-z0-9_.-]+\.md$/,
-  data: /^[A-Za-z0-9_.-]+\.(json|csv|ya?ml)$/,
-  examples: /^[A-Za-z0-9_.-]+\.(md|json|ya?ml)$/,
-  evals: /^evals\.ya?ml$/,
-};
 const LIMITS = {
   skillMdLines: 500,
   skillMdChars: 40_000,
@@ -59,49 +54,6 @@ const LIMITS = {
   dataFiles: 20,
   packageBytes: 2 * 1024 * 1024,
 };
-
-/**
- * F2 for one path, wherever the file came from (a folder on disk or an
- * upload, SK-U1): dotfiles, folders a package may not hold, nesting deeper
- * than one level, and file names outside each folder's allowed kinds.
- */
-export function pathIssues(rel: string): PackageIssue[] {
-  const parts = rel.split("/");
-  if (parts.some((p) => p === "" || p === "." || p === ".."))
-    return [{ rule: "F2", severity: "block", path: rel, message: "the path is malformed" }];
-  if (parts.some((p) => p.startsWith(".")))
-    return [{ rule: "F2", severity: "block", path: rel, message: "a dotfile is not allowed" }];
-  if (parts.length > 2)
-    return [
-      {
-        rule: "F2",
-        severity: "block",
-        path: rel,
-        message: "this folder is not allowed in a skill package",
-      },
-    ];
-  const [top, file] = parts.length === 2 ? (parts as [string, string]) : [null, parts[0] ?? ""];
-  if (top !== null && !(top in ALLOWED_DIRS))
-    return [
-      {
-        rule: "F2",
-        severity: "block",
-        path: rel,
-        message: "this folder is not allowed in a skill package",
-      },
-    ];
-  const allowed = top === null ? ALLOWED_TOP.has(file) : ALLOWED_DIRS[top]?.test(file) === true;
-  return allowed
-    ? []
-    : [
-        {
-          rule: "F2",
-          severity: "block",
-          path: rel,
-          message: "this file is not allowed in a skill package",
-        },
-      ];
-}
 
 /** Every file under a folder, refusing what a package may never hold (F2). */
 export function readPackageFiles(dir: string): { files: PackageFile[]; issues: PackageIssue[] } {

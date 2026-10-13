@@ -26,6 +26,8 @@ import {
 } from "node:fs";
 import { join } from "node:path";
 import { createDb, sql } from "@alpha-agents/db";
+import { privateKeyToAccount } from "viem/accounts";
+import { LOCAL_PLAYTEST_WALLETS } from "./lib/account-factory.js";
 import { loadRootEnv } from "./lib/config.js";
 import {
   MIN_AVAILABLE_BYTES,
@@ -154,6 +156,41 @@ function ensureSecrets() {
   console.log(`testnet: added ${missing.join(" and ")} to .env (random, testnet only)`);
 }
 
+/**
+ * The playtest steps a reset database needs (CL-U1): the mint allowlist and the
+ * operator gas, through the existing scripts, with the stack's own environment.
+ * @param {Record<string, string | undefined>} env @param {(line: string) => void} out
+ */
+function readyForPlaytest(env, out) {
+  const wallets = [...LOCAL_PLAYTEST_WALLETS];
+  const testKey = env.TESTNET_TEST_WALLET_PRIVATE_KEY?.trim();
+  if (testKey && /^0x[0-9a-fA-F]{64}$/.test(testKey)) {
+    const address = privateKeyToAccount(/** @type {`0x${string}`} */ (testKey)).address;
+    if (!wallets.includes(address)) wallets.unshift(address);
+  }
+  for (const wallet of wallets) {
+    const r = spawnSync(
+      process.execPath,
+      ["scripts/allowlist.js", "add", wallet, "playtest wallet (testnet:up)"],
+      { cwd: ROOT, env, encoding: "utf8" },
+    );
+    const first = `${r.stdout ?? ""}${r.stderr ?? ""}`.trim().split("\n")[0] ?? "";
+    out(
+      r.status === 0
+        ? `testnet: ${first}`
+        : `testnet: the allowlist step failed for ${wallet}: ${first || `exit ${r.status}`}`,
+    );
+  }
+  const gas = spawnSync(process.execPath, ["scripts/testnet-gas.js"], {
+    cwd: ROOT,
+    env,
+    encoding: "utf8",
+  });
+  const lines = `${gas.stdout ?? ""}${gas.stderr ?? ""}`.trim().split("\n").filter(Boolean);
+  if (gas.status === 0) for (const line of lines) out(`testnet: gas: ${line}`);
+  else out(`testnet: the gas step failed: ${lines.at(-1) ?? `exit ${gas.status}`}`);
+}
+
 async function up() {
   mkdirSync(DEV_DIR, { recursive: true });
   ensureSecrets();
@@ -251,6 +288,12 @@ async function up() {
       out(ok ? `testnet: ${service.name} is up` : `testnet: ${service.name} did not answer yet`);
     }
   }
+  // CL-U1: a reset database is ready for a playtest without the two manual steps (L-249,
+  // F-U13): the mint allowlist gets the test wallet and the owner's playtest wallets (an
+  // idempotent upsert), and the operator gas script tops the keeper and the feed writer up
+  // to their targets (it sends nothing to an address already there). A failed step is
+  // reported and the stack keeps running.
+  if (!stopping) readyForPlaytest(env, out);
   if (!stopping)
     out(
       "testnet: everything is started on Monad testnet (chain 10143). Web http://localhost:3000 (put your wallet on Monad Testnet), API http://127.0.0.1:4100. Ctrl-C or pnpm testnet:down stops it; pnpm testnet:to-local goes back to the fork.",

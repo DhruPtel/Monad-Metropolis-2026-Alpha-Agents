@@ -307,14 +307,20 @@ export const CLASS_F_FEEDS: readonly ClassFFeed[] = [
 
 /** MON/USD's proxy: the one feed held to 300 seconds, since it updates about every 30 (D-151, P2-U0). */
 export const MON_USD_FEED_PROXY = "0xbcd78f76005b7515837af6b50c7c52bcf73822fb" as const;
-/** The grace a feed with a heartbeat of up to an hour gets past its heartbeat (P2-U0's USDC/USD rule). */
-export const FEED_HEARTBEAT_GRACE_SECONDS = 300;
+/**
+ * The grace a feed with a heartbeat of up to an hour gets past its heartbeat:
+ * 15 minutes (CL-U1, A-99). P2-U0's 5 minutes gave USDC/USD a stale window
+ * every hour on testnet and mainnet whenever a round landed a little past its
+ * hourly heartbeat (F-U13); 15 minutes is still thirty times the worst
+ * lateness measured and nothing in value for a stablecoin or an hourly leg.
+ */
+export const FEED_HEARTBEAT_GRACE_SECONDS = 900;
 /** The grace a feed with a longer (daily) heartbeat gets: one hour (F-U3 step 0). */
 export const FEED_DAILY_GRACE_SECONDS = 3_600;
 
 /**
  * How late past its heartbeat a feed leg's answer may be before it is stale:
- * 5 minutes for a heartbeat of up to an hour, an hour for a longer heartbeat.
+ * 15 minutes for a heartbeat of up to an hour, an hour for a longer heartbeat.
  * Measured on Monad mainnet (evidence/f-u3/feed-spike.json), hourly legs run
  * at most about 30 seconds late and daily exchange-rate legs about 70 seconds
  * late, so each grace is at least ten times the worst lateness seen, and a
@@ -328,7 +334,7 @@ export function feedGraceSeconds(heartbeatSeconds: number): number {
 /**
  * The staleness bound OracleAdapterV3 uses for one feed leg (F-U2, A-67): 300
  * seconds for MON/USD (the trade gate, D-151), and for every other leg its
- * published heartbeat plus `feedGraceSeconds`: 3,900 seconds for an hourly
+ * published heartbeat plus `feedGraceSeconds`: 4,500 seconds for an hourly
  * leg, 90,000 for a daily one. The feed spike checks each bound against the
  * leg's measured gaps.
  */

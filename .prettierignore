@@ -34,3 +34,5 @@ packages/policy/fixtures/
 
 # Generated from packages/policy/evals as JSON (valid YAML); a formatter must not restyle a hashed skill file (P3-U7).
 packages/skills/builtin/skills/*/evals/evals.yaml
+# The built-in skills are published by content hash (F1): their bytes stay as locked.
+packages/skills/builtin/
