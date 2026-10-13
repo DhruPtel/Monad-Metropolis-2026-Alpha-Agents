@@ -51,7 +51,8 @@ describe("the goal's fields (P3-U1, F-U7)", () => {
       expect(AGGRESSIVENESS_FACTS[level].brief.length).toBeGreaterThan(80);
       expect(AGGRESSIVENESS_FACTS[level].brief).not.toMatch(/—/);
     }
-    expect(AGGRESSIVENESS_ENVELOPES.CONSERVATIVE.maxPositions).toBe(8);
+    // 2026-10-13 (owner): up to 5 positions for Conservative.
+    expect(AGGRESSIVENESS_ENVELOPES.CONSERVATIVE.maxPositions).toBe(5);
     expect(AGGRESSIVENESS_ENVELOPES.AGGRESSIVE.maxPositions).toBe(12);
     for (const i of Object.values(RESEARCH_INTENSITY_FACTS)) {
       expect(i.defaultDailyBudgetUsdcE6).toBeGreaterThanOrEqual(i.minDailyBudgetUsdcE6);

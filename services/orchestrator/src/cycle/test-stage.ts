@@ -271,6 +271,8 @@ export interface TestFindingV2 {
 
 export interface TestInputsV2 {
   readonly aggressiveness: Aggressiveness;
+  /** 2026-10-13: the goal's most positions (the owner's within the style's); absent means the style's. */
+  readonly maxPositions?: number;
   readonly market: MarketStateV3;
   readonly agent: AgentStateV3;
   /** A passing screen no older than the platform's bound exists; null when the platform does not know. */
@@ -314,6 +316,15 @@ function portfolioValues(t: TestInputsV2): { nav: bigint; values: Map<string, bi
  * the implied turnover against the 24-hour cap, the cooldown, and the
  * template's recorded evals. Empty findings means the plan may be set.
  */
+/** The style's envelope with the goal's most positions, never above the style's own. */
+function envelopeOf(t: Pick<TestInputsV2, "aggressiveness" | "maxPositions">) {
+  const base = AGGRESSIVENESS_ENVELOPES[t.aggressiveness];
+  return {
+    ...base,
+    maxPositions: Math.min(base.maxPositions, t.maxPositions ?? base.maxPositions),
+  };
+}
+
 export async function checkPortfolioProposal(
   p: TargetPortfolioParams,
   t: TestInputsV2,
@@ -321,7 +332,7 @@ export async function checkPortfolioProposal(
   const out: TestFindingV2[] = [];
   for (const e of checkTargetPortfolioParams(p))
     out.push({ code: "OUT_OF_BOUNDS", field: e.field, message: e.message });
-  const env = AGGRESSIVENESS_ENVELOPES[t.aggressiveness];
+  const env = envelopeOf(t);
   const m = t.market;
   const policy = m.policy;
   if (p.positions.length > env.maxPositions)
@@ -514,7 +525,10 @@ export async function checkPortfolioProposal(
 /** What the Zoom out may draft a target portfolio within: the envelope, the tokens it may name, and the cooldown. */
 export function portfolioEnvelope(
   current: TargetPortfolioParams | null,
-  t: Pick<TestInputsV2, "aggressiveness" | "market" | "agent" | "lastAgentChangeAt" | "now">,
+  t: Pick<
+    TestInputsV2,
+    "aggressiveness" | "maxPositions" | "market" | "agent" | "lastAgentChangeAt" | "now"
+  >,
 ): {
   template: "target_portfolio@1";
   aggressiveness: Aggressiveness;
@@ -533,7 +547,7 @@ export function portfolioEnvelope(
   mayProposeNow: boolean;
   currentPositions: number;
 } {
-  const env = AGGRESSIVENESS_ENVELOPES[t.aggressiveness];
+  const env = envelopeOf(t);
   const policy = t.market.policy;
   const cooldownUntil =
     t.lastAgentChangeAt && t.now.getTime() - t.lastAgentChangeAt.getTime() < COOLDOWN_MS

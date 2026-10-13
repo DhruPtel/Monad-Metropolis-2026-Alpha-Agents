@@ -1,6 +1,8 @@
 import {
   AGGRESSIVENESS_ENVELOPES,
   AGGRESSIVENESS_FACTS,
+  ALLOCATION_DEFAULTS,
+  type GoalAllocation,
   type Aggressiveness,
   type AggressivenessEnvelope,
   COST_PREVIEW_DAYS,
@@ -156,6 +158,8 @@ export const GOAL_ERROR_CODES = [
   "BUDGET_OUT_OF_RANGE",
   "RESERVE_OUT_OF_RANGE",
   "OUT_OF_TEMPLATE_BOUNDS",
+  "ALLOCATION_SUM",
+  "POSITIONS_OUT_OF_RANGE",
 ] as const;
 export type GoalErrorCode = (typeof GOAL_ERROR_CODES)[number];
 
@@ -274,11 +278,30 @@ export function translateGoal(
       code: "RESERVE_OUT_OF_RANGE",
       message: `The credit reserve is 0.00 to ${usdc(MAX_CREDIT_RESERVE_USDC_E6)}.`,
     });
+  // 2026-10-13: the split by market cap sums to 100%; the owner's most positions stays within the style's.
+  const a = goal.allocation;
+  if (a && a.degenBps + a.growthBps + a.conservativeBps !== 10_000)
+    errors.push({
+      field: "allocation",
+      code: "ALLOCATION_SUM",
+      message: "The allocation must add up to 100%.",
+    });
+  const styleMax = AGGRESSIVENESS_ENVELOPES[goal.aggressiveness].maxPositions;
+  if (goal.maxPositions !== undefined && goal.maxPositions > styleMax)
+    errors.push({
+      field: "maxPositions",
+      code: "POSITIONS_OUT_OF_RANGE",
+      message: `${AGGRESSIVENESS_FACTS[goal.aggressiveness].label} holds at most ${styleMax} positions.`,
+    });
   if (errors.length > 0) return { ok: false, errors };
 
   // The two-asset fallback: the target may move inside the level's range, narrowed by the owner's limits.
   const level = BANDS_DEFAULTS[goal.aggressiveness];
-  const envelope = AGGRESSIVENESS_ENVELOPES[goal.aggressiveness];
+  // The owner's most positions, within the style's, is what the Test enforces.
+  const envelope = {
+    ...AGGRESSIVENESS_ENVELOPES[goal.aggressiveness],
+    maxPositions: goal.maxPositions ?? styleMax,
+  };
   const maxBps = Math.min(level.targetMaxBps, owner.maxPositionBps, 10_000 - owner.minUsdcShareBps);
   const minBps = Math.min(level.targetMinBps, maxBps);
   const params: RebalanceBandsParams = {
@@ -341,7 +364,20 @@ export function briefOf(goal: GoalInput, symbols: TranslateOptions["symbols"] = 
     goal.excludedTokens.length === 0
       ? "No token is excluded."
       : `Never buy these tokens, whatever the research says: ${goal.excludedTokens.map(name).join(", ")}.`;
-  return `${AGGRESSIVENESS_FACTS[goal.aggressiveness].brief} ${lane} ${excluded}`;
+  return `${AGGRESSIVENESS_FACTS[goal.aggressiveness].brief} ${allocationSentence(goal.allocation ?? ALLOCATION_DEFAULTS[goal.aggressiveness])} ${positionsSentence(goal)} ${lane} ${excluded}`;
+}
+
+const pct = (bps: number) => `${bps / 100}%`;
+
+/** 2026-10-13: the owner's split by market cap, as the brief states it. */
+export function allocationSentence(a: GoalAllocation): string {
+  return `Split the invested part by market cap: ${pct(a.degenBps)} in tokens under 100M USD (degen), ${pct(a.growthBps)} in tokens from 100M to 1B USD (growth) and ${pct(a.conservativeBps)} in the top assets (conservative); where a bucket has no buyable token with a strong case, say so and leave that share in the conservative bucket or in cash.`;
+}
+
+/** 2026-10-13: the most positions, the owner's within the style's. */
+function positionsSentence(goal: GoalInput): string {
+  const n = goal.maxPositions ?? AGGRESSIVENESS_ENVELOPES[goal.aggressiveness].maxPositions;
+  return `Hold at most ${n} ${n === 1 ? "position" : "positions"}; choose each one's weight within the limits.`;
 }
 
 /** Each parameter outside `rebalance_bands@1`'s bounds, with its field. */

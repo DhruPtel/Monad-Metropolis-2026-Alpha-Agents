@@ -369,3 +369,44 @@ describe("goal translator (P3-U1, F-U7)", () => {
     expect(REBALANCE_BANDS_V1_BOUNDS.costHurdleBps[1]).toBe(BigInt(LAUNCH_LIMITS.maxSlippageBps));
   });
 });
+
+describe("the allocation split and the most positions (2026-10-13)", () => {
+  it("carries the split and the owner's most positions to the brief and the envelope", () => {
+    const c = ok(
+      goal({
+        aggressiveness: "AGGRESSIVE",
+        allocation: { degenBps: 3_500, growthBps: 4_000, conservativeBps: 2_500 },
+        maxPositions: 6,
+      }),
+    );
+    expect(c.brief).toContain(
+      "Split the invested part by market cap: 35% in tokens under 100M USD (degen), 40% in tokens from 100M to 1B USD (growth) and 25% in the top assets (conservative)",
+    );
+    expect(c.brief).toContain("Hold at most 6 positions");
+    expect(c.envelope.maxPositions).toBe(6);
+    expect(c.soulBlock).toContain("at most 6 positions");
+  });
+
+  it("uses the style's split and most positions on a goal saved without them", () => {
+    const c = ok(goal({ aggressiveness: "CONSERVATIVE" }));
+    expect(c.brief).toContain(
+      "0% in tokens under 100M USD (degen), 20% in tokens from 100M to 1B USD (growth) and 80% in the top assets",
+    );
+    expect(c.brief).toContain("Hold at most 5 positions");
+    expect(c.envelope.maxPositions).toBe(AGGRESSIVENESS_ENVELOPES.CONSERVATIVE.maxPositions);
+  });
+
+  it("refuses a split that is not 100% in 5% steps, and more positions than the style allows", () => {
+    expect(
+      refused(goal({ allocation: { degenBps: 1_000, growthBps: 1_000, conservativeBps: 1_000 } })),
+    ).toEqual([expect.objectContaining({ field: "allocation", code: "ALLOCATION_SUM" })]);
+    expect(
+      refused(
+        goal({ allocation: { degenBps: 1_200, growthBps: 3_800, conservativeBps: 5_000 } }),
+      )[0]?.code,
+    ).toBe("INVALID_FIELD");
+    expect(refused(goal({ aggressiveness: "CONSERVATIVE", maxPositions: 6 }))).toEqual([
+      expect.objectContaining({ field: "maxPositions", code: "POSITIONS_OUT_OF_RANGE" }),
+    ]);
+  });
+});

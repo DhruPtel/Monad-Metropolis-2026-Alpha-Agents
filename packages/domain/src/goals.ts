@@ -59,7 +59,8 @@ export const AGGRESSIVENESS_ENVELOPES: Readonly<Record<Aggressiveness, Aggressiv
       maxClassAPositionBps: 0,
       maxClassATotalBps: 0,
       minStableBps: 3_000,
-      maxPositions: 8,
+      // 2026-10-13 (owner): up to 5 positions for Conservative (was 8).
+      maxPositions: 5,
       reviewTriggerBps: 1_000,
       investedRangeBps: { min: 3_000, max: 7_000 },
     },
@@ -286,6 +287,33 @@ const usdcE6 = z
 const limit = z.number().int().nonnegative().nullable();
 const tokenAddress = z.string().regex(/^0x[0-9a-fA-F]{40}$/, "a token's address");
 
+/**
+ * 2026-10-13 (owner): how the owner splits the invested part by market cap.
+ * Degen is tokens under 100M USD, Growth 100M to 1B USD, Conservative the top
+ * assets. Each in 5% steps; together 100%. The brief carries it to research.
+ */
+export interface GoalAllocation {
+  readonly degenBps: number;
+  readonly growthBps: number;
+  readonly conservativeBps: number;
+}
+
+/** Each style's starting split, which the owner may adjust. */
+export const ALLOCATION_DEFAULTS: Readonly<Record<Aggressiveness, GoalAllocation>> = Object.freeze({
+  CONSERVATIVE: { degenBps: 0, growthBps: 2_000, conservativeBps: 8_000 },
+  BALANCED: { degenBps: 1_000, growthBps: 3_000, conservativeBps: 6_000 },
+  AGGRESSIVE: { degenBps: 3_000, growthBps: 4_000, conservativeBps: 3_000 },
+});
+
+export const ALLOCATION_STEP_BPS = 500;
+
+const allocationShare = z
+  .number()
+  .int()
+  .min(0)
+  .max(10_000)
+  .multipleOf(ALLOCATION_STEP_BPS, "a share in 5% steps");
+
 /** The most tokens an owner may exclude. */
 export const MAX_EXCLUDED_TOKENS = 32;
 
@@ -312,6 +340,16 @@ export const GoalInputSchema = z.strictObject({
   }),
   creditReserveUsdcE6: usdcE6,
   planChanges: z.enum(PLAN_CHANGE_MODES),
+  /** 2026-10-13: the split by market cap; absent on a goal saved before it, which means the style's default. */
+  allocation: z
+    .strictObject({
+      degenBps: allocationShare,
+      growthBps: allocationShare,
+      conservativeBps: allocationShare,
+    })
+    .optional(),
+  /** 2026-10-13: the most positions the owner wants; absent means the style's most. */
+  maxPositions: z.number().int().min(1).max(12).optional(),
 });
 export type GoalInput = z.infer<typeof GoalInputSchema>;
 

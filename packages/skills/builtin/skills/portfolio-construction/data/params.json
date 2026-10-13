@@ -10,7 +10,7 @@
       "costHurdleBps": 30,
       "maxLegBps": 1000,
       "envelope": {
-        "maxPositions": 8,
+        "maxPositions": 5,
         "maxPositionBps": 2000,
         "minStableBps": 3000,
         "classAAllowed": false,

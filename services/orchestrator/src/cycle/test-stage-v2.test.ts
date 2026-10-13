@@ -199,6 +199,11 @@ describe("the Test stage over a target portfolio (F-U6, D-344)", () => {
       cashTargetBps: 7_400,
     });
     expect(await codes(many)).toContain("ENVELOPE_POSITIONS");
+    // 2026-10-13: the goal's most positions narrows the style's: two positions over a cap of one.
+    expect(await codes(plan(), inputs({ maxPositions: 1 }))).toContain("ENVELOPE_POSITIONS");
+    expect(await codes(plan(), inputs({ maxPositions: 2 }))).not.toContain("ENVELOPE_POSITIONS");
+    // A cap above the style's never loosens it.
+    expect(await codes(many, inputs({ maxPositions: 12 }))).toContain("ENVELOPE_POSITIONS");
     // Conservative: class F only, 20% per position, 30% stable.
     const conservative = inputs({ aggressiveness: "CONSERVATIVE" });
     expect(

@@ -1226,6 +1226,7 @@ export class Orchestrator {
     const last = history.find((p) => p.setBy === "agent");
     return {
       aggressiveness: goal.config.aggressiveness,
+      maxPositions: goal.config.envelope.maxPositions,
       market,
       agent,
       screenFresh: (token) => this.screenFresh(token),
