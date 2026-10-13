@@ -37,7 +37,7 @@ import {
   usdcCents as usdc,
 } from "@alpha-agents/ui";
 import type { EnvironmentId } from "@alpha-agents/config";
-import { ArrowLeft, PlugZap, ShieldOff, Wallet } from "lucide-react";
+import { PlugZap, ShieldOff, Wallet } from "lucide-react";
 import Link from "next/link";
 import { type ReactNode, useState } from "react";
 import { useWalletSession } from "@/auth/session";
@@ -103,21 +103,8 @@ export function GoalPage({
   const tx = useAccountTx(environment);
   const [recorded, setRecorded] = useState<boolean | null>(null);
 
-  const header = (
-    <div className="flex flex-col gap-2">
-      <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-foreground-muted">
-        <Link href="/agents" className="flex items-center gap-1">
-          <ArrowLeft aria-hidden className="size-4" /> My Agents
-        </Link>
-        <Link href={`/agents/${agentId.toString()}/portfolio`}>Portfolio</Link>
-      </div>
-      <h1 className="text-2xl font-semibold">{name}: goal</h1>
-      <p className="max-w-2xl text-sm text-foreground-muted">
-        Tell {name} what you want. Every choice here is a setting, not a message: the agent reads it
-        as its goal, and the platform holds it to the limits you set.
-      </p>
-    </div>
-  );
+  // UI-FAST: the agent's header and tabs come from its shell; the goal form names itself.
+  const header = <h2 className="text-lg font-semibold">Goal</h2>;
 
   if (!wallet.ready && wallet.state !== "wrong-chain")
     return (

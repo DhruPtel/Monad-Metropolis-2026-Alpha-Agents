@@ -23,6 +23,8 @@ export interface HomeAgentInput {
   readonly account:
     { readonly navUsdcE6: bigint; readonly principalUsdcE6: bigint } | "none" | null;
   readonly goal: { readonly configured: boolean; readonly aggressiveness: string | null } | null;
+  /** When the agent was minted, in unix seconds, from its mint block; null when unread. */
+  readonly mintedAt?: number | null;
 }
 
 export interface CountView {
@@ -53,6 +55,12 @@ export interface HomeAgentView {
   readonly goal: string;
   /** Personal account plus vault, in USDC; null when nothing could be read. */
   readonly valueE6: bigint | null;
+  /** The personal account's value against its principal, as "+1.20%"; null without deposits or a read. */
+  readonly accountReturnText: string | null;
+  readonly accountReturnBps: number | null;
+  readonly mintedAt: number | null;
+  /** Activity entries of any kind in the last 24 hours, for Trending. */
+  readonly activity24h: number;
   /** Principal in the account and the vault; null when the account could not be read. */
   readonly depositedE6: bigint | null;
   readonly lastResearchAt: string | null;
@@ -65,6 +73,7 @@ export interface HomeAgentView {
   readonly vault: {
     readonly navE6: bigint | null;
     readonly returnText: string | null;
+    readonly returnBps: number | null;
   } | null;
 }
 
@@ -80,14 +89,6 @@ export interface HomeView {
     readonly tradesSettled: CountView;
   };
   readonly agents: readonly HomeAgentView[];
-  /** Agents with a vault, the most valuable first. */
-  readonly vaults: readonly HomeAgentView[];
-  /** The newest activity across every agent, for the map's caption. */
-  readonly latest: readonly {
-    readonly agentId: bigint;
-    readonly text: string;
-    readonly at: string;
-  }[];
 }
 
 function count(
@@ -124,6 +125,12 @@ export function homeView(inputs: readonly HomeAgentInput[], now: number): HomeVi
     const account = x.account === "none" ? { navUsdcE6: 0n, principalUsdcE6: 0n } : x.account;
     const valueE6 = account === null ? null : account.navUsdcE6 + (vaultNav ?? 0n);
     const entries = x.activity ?? [];
+    const accountBps =
+      account && account.principalUsdcE6 > 0n
+        ? Number(
+            ((account.navUsdcE6 - account.principalUsdcE6) * 10_000n) / account.principalUsdcE6,
+          )
+        : null;
     const lastResearch = entries.find((e) => RESEARCH_ANY.has(e.kind));
     const newest = entries[0];
     return {
@@ -137,6 +144,10 @@ export function homeView(inputs: readonly HomeAgentInput[], now: number): HomeVi
         ? (GOAL_WORD[x.goal.aggressiveness ?? ""] ?? "Goal set")
         : "No goal set",
       valueE6,
+      accountReturnText: accountBps === null ? null : percentFromBps(accountBps, true),
+      accountReturnBps: accountBps,
+      mintedAt: x.mintedAt ?? null,
+      activity24h: entries.filter((e) => Date.parse(e.at) >= dayAgo).length,
       depositedE6:
         account === null
           ? null
@@ -152,16 +163,11 @@ export function homeView(inputs: readonly HomeAgentInput[], now: number): HomeVi
         ? {
             navE6: vaultNav,
             returnText: score?.ok ? percentFromBps(score.bps, true) : null,
+            returnBps: score?.ok ? score.bps : null,
           }
         : null,
     };
   });
-  const latest = inputs
-    .flatMap((x) =>
-      (x.activity ?? []).map((e) => ({ agentId: x.agent.id, text: e.text, at: e.at })),
-    )
-    .sort((p, q) => Date.parse(q.at) - Date.parse(p.at))
-    .slice(0, 3);
   return {
     stats: {
       activeToday: agents.filter((a) => a.activeToday).length,
@@ -173,10 +179,6 @@ export function homeView(inputs: readonly HomeAgentInput[], now: number): HomeVi
       tradesSettled: sum(agents.map((a) => a.trades)),
     },
     agents,
-    vaults: agents
-      .filter((a) => a.vault !== null)
-      .sort((p, q) => Number((q.vault?.navE6 ?? 0n) - (p.vault?.navE6 ?? 0n))),
-    latest,
   };
 }
 
@@ -190,4 +192,73 @@ export function ago(iso: string | null, now: number): string {
   if (s < 3600) return `${Math.floor(s / 60)} min ago`;
   if (s < 86_400) return `${Math.floor(s / 3600)} h ago`;
   return `${Math.floor(s / 86_400)} d ago`;
+}
+
+export type AgentFilter = "trending" | "top" | "gainers" | "new";
+
+/** A missing number sorts last whichever way the list runs. */
+const desc = (a: number | null, b: number | null) =>
+  a === null ? (b === null ? 0 : 1) : b === null ? -1 : b - a;
+const byId = (a: HomeAgentView, b: HomeAgentView) => Number(a.id - b.id);
+
+/**
+ * The table's order per tab: Trending by activity in the last 24 hours, Top
+ * by value, Gainers by the trading account's return on deposits, New by mint
+ * time. Ties fall back to value, then id.
+ */
+export function sortAgents(
+  agents: readonly HomeAgentView[],
+  filter: AgentFilter,
+): HomeAgentView[] {
+  const value = (a: HomeAgentView) => (a.valueE6 === null ? null : Number(a.valueE6));
+  const key: Record<AgentFilter, (a: HomeAgentView, b: HomeAgentView) => number> = {
+    trending: (a, b) => b.activity24h - a.activity24h,
+    top: () => 0,
+    gainers: (a, b) => desc(a.accountReturnBps, b.accountReturnBps),
+    new: (a, b) => desc(a.mintedAt, b.mintedAt),
+  };
+  return [...agents].sort(
+    (a, b) => key[filter](a, b) || desc(value(a), value(b)) || byId(a, b),
+  );
+}
+
+export type TopCard =
+  | { readonly kind: "vault"; readonly agent: HomeAgentView }
+  | { readonly kind: "agent"; readonly agent: HomeAgentView };
+
+/**
+ * The row of three: vaults ranked by return (then value), and while there are
+ * fewer than three, the most valuable agents whose vault is not already shown.
+ */
+export function topCards(agents: readonly HomeAgentView[], n = 3): TopCard[] {
+  const vaults = agents
+    .filter((a) => a.vault !== null)
+    .sort(
+      (a, b) =>
+        desc(a.vault?.returnBps ?? null, b.vault?.returnBps ?? null) ||
+        desc(
+          a.vault?.navE6 == null ? null : Number(a.vault.navE6),
+          b.vault?.navE6 == null ? null : Number(b.vault.navE6),
+        ) ||
+        byId(a, b),
+    )
+    .slice(0, n)
+    .map((agent): TopCard => ({ kind: "vault", agent }));
+  const shown = new Set(vaults.map((c) => c.agent.id));
+  const fill = sortAgents(
+    agents.filter((a) => !shown.has(a.id)),
+    "top",
+  )
+    .slice(0, n - vaults.length)
+    .map((agent): TopCard => ({ kind: "agent", agent }));
+  return [...vaults, ...fill];
+}
+
+/** "6 h", "3 d": an agent's age from its mint time; "–" when unknown. */
+export function ageText(mintedAt: number | null, now: number): string {
+  if (mintedAt === null) return "–";
+  const s = Math.max(0, Math.round(now / 1000 - mintedAt));
+  if (s < 3600) return `${Math.max(1, Math.floor(s / 60))} min`;
+  if (s < 86_400) return `${Math.floor(s / 3600)} h`;
+  return `${Math.floor(s / 86_400)} d`;
 }

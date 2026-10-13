@@ -1,12 +1,14 @@
-import { webEnvironment } from "@alpha-agents/config";
-import { notFound } from "next/navigation";
-import { PortfolioPage } from "@/components/portfolio/portfolio-page";
+import { redirect } from "next/navigation";
 
-export const metadata = { title: "Portfolio · Vivarium" };
-
-/** One agent's portfolio for its owner (P2-U7): reached from its card on My Agents. */
-export default async function AgentPortfolioPage({ params }: { params: Promise<{ id: string }> }) {
+/**
+ * UI-FAST: the Portfolio page merged into the agent's Overview; an old link
+ * lands there. PortfolioPage's code stays in components/portfolio, unlinked.
+ */
+export default async function AgentPortfolioRedirect({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
   const { id } = await params;
-  if (!/^[1-9]\d{0,4}$/.test(id)) notFound();
-  return <PortfolioPage environment={webEnvironment(process.env.APP_ENV)} agentId={BigInt(id)} />;
+  redirect(`/agents/${id}`);
 }

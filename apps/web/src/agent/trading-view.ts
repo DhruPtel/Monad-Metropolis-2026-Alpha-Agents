@@ -1,0 +1,361 @@
+import { formatAmount } from "@alpha-agents/domain";
+import type {
+  AssetRow,
+  DecisionView,
+  InsightView,
+  PlanMoveView,
+  PlanRowView,
+  TradeRowView,
+} from "@alpha-agents/ui";
+import type {
+  ActivityJson,
+  IntentJson,
+  PlanCardJson,
+  ProposalJson,
+  WhyNotTradedJson,
+} from "@/api/client";
+import { DECIMALS } from "./portfolio";
+
+/** UI-FAST: the Trading tab's words: the plan's moves, the sweep's line, the past trades. */
+
+const pctText = (bps: number) =>
+  `${(bps / 100).toLocaleString("en-US", { maximumFractionDigits: 1 })}%`;
+
+/**
+ * The plan as moves, one per token: each proposed position (Buy to add, Sell to trim or exit,
+ * Hold to keep); a band plan with no position rows (the two-asset template) moves by its own
+ * WMON and cash targets; a position the plan leaves out is sold. The reason is the position's
+ * thesis, or the plan's view of the portfolio.
+ */
+export function planMoves(p: ProposalJson, card?: PlanCardJson | null): PlanMoveView[] {
+  const view = p.rationale.portfolioView;
+  const moves: PlanMoveView[] = p.positions.map((x) => {
+    const now = x.currentWeightBps === null ? "" : ` (now ${pctText(x.currentWeightBps)})`;
+    return {
+      side: x.action === "ADD" ? "Buy" : x.action === "HOLD" ? "Hold" : "Sell",
+      symbol: x.symbol,
+      amount: x.action === "EXIT" ? `Sell all${now}` : `Target ${pctText(x.targetWeightBps)}${now}`,
+      reason: x.thesis ?? x.reason,
+    };
+  });
+  if (p.positions.length === 0 && p.plan) {
+    const target = p.plan.targetWmonBps;
+    if (target !== undefined) {
+      const was = card?.current?.targetWmonBps ?? null;
+      const now = was === null ? "" : ` (plan now ${pctText(was)})`;
+      moves.push({
+        side: was === null || target > was ? "Buy" : target < was ? "Sell" : "Hold",
+        symbol: "WMON",
+        amount: `Target ${pctText(target)}${now}`,
+        reason: view,
+      });
+    }
+    const cash = p.plan.cashTargetBps ?? (target !== undefined ? 10_000 - target : undefined);
+    if (cash !== undefined)
+      moves.push({
+        side: "Hold",
+        symbol: "USDC",
+        amount: `Keep ${pctText(cash)}`,
+        reason: p.rationale.allocationNote ?? "The rest stays in USDC, the account's cash.",
+      });
+  }
+  const kept = new Set(p.positions.map((x) => x.token.toLowerCase()));
+  if (p.positions.length > 0)
+    for (const c of card?.current?.positions ?? [])
+      if (!kept.has(c.token.toLowerCase()))
+        moves.push({
+          side: "Sell",
+          symbol: c.symbol,
+          amount: `Sell all (plan now ${pctText(c.targetWeightBps)})`,
+          reason: "The new plan leaves it out.",
+        });
+  return moves;
+}
+
+export const SWEEP_WORDS: Readonly<Record<string, string>> = {
+  running: "The activation sweep is running",
+  plan_ready: "The latest sweep made a plan that waits for you",
+  active: "The latest sweep's plan is in force",
+  no_plan: "The latest sweep proposed no plan",
+  failed: "The latest sweep failed",
+  capped: "The latest sweep stopped at its cost ceiling",
+  out_of_credits: "The latest sweep stopped: out of credits",
+};
+
+const RESULT: Readonly<Record<string, { text: string; tone: TradeRowView["resultTone"] }>> = {
+  settled: { text: "Settled", tone: "positive" },
+  confirmed: { text: "Settling", tone: "neutral" },
+  submitted: { text: "Sent", tone: "neutral" },
+  approved: { text: "Approved", tone: "neutral" },
+  awaiting_approval: { text: "Waiting for you", tone: "warning" },
+  rejected: { text: "Not sent", tone: "neutral" },
+  cancelled: { text: "Declined", tone: "neutral" },
+  expired: { text: "Expired", tone: "neutral" },
+  failed: { text: "Failed", tone: "negative" },
+};
+
+export function tradeRows(intents: readonly IntentJson[]): TradeRowView[] {
+  const units = (raw: string, asset: "USDC" | "WMON") =>
+    formatAmount(BigInt(raw), DECIMALS[asset], { maxFractionDigits: 6 });
+  return intents.map((i) => {
+    const buying = i.sell.asset === "USDC";
+    const out = i.amountOut ?? i.expectedOut;
+    const r = RESULT[i.status] ?? { text: i.status, tone: "neutral" as const };
+    const at = i.settledAt ?? i.createdAt;
+    return {
+      id: i.intentId,
+      symbol: buying ? i.buy : i.sell.asset,
+      side: buying ? "Buy" : "Sell",
+      date: `${at.slice(0, 10)} ${at.slice(11, 16)}`,
+      amount: `${units(i.sell.amountRaw, i.sell.asset)} ${i.sell.asset}${out ? ` → ${units(out.amountRaw, i.buy)} ${i.buy}` : ""}`,
+      result: r.text,
+      resultTone: r.tone,
+    };
+  });
+}
+
+const minute = (iso: string) => `${iso.slice(0, 10)} ${iso.slice(11, 16)}`;
+
+/**
+ * A few figures about what the account holds and how it traded; "–" where the data does not
+ * exist yet (no position records its first buy, so its age is unknown).
+ */
+export function insights(
+  rows: readonly AssetRow[],
+  intents: readonly IntentJson[],
+  now: number,
+): InsightView[] {
+  const held = rows.filter((r) => !r.isCash && BigInt(r.amountRaw) > 0n);
+  const priced = held.filter((r) => r.shareBps !== null);
+  const byShare = [...priced].sort((a, b) => (b.shareBps ?? 0) - (a.shareBps ?? 0));
+  const gained = held.filter((r) => r.gainBps !== null);
+  const byGain = [...gained].sort((a, b) => (b.gainBps ?? 0) - (a.gainBps ?? 0));
+  const share = (r?: AssetRow) =>
+    r && r.shareBps !== null ? `${r.symbol} ${pctText(r.shareBps)}` : "–";
+  const gain = (r?: AssetRow) =>
+    r && r.gainBps !== null ? `${r.symbol} ${r.gainBps >= 0 ? "+" : ""}${pctText(r.gainBps)}` : "–";
+  const month = now - 30 * 86_400_000;
+  const recent = intents.filter(
+    (i) => i.status === "settled" && Date.parse(i.settledAt ?? i.createdAt) >= month,
+  );
+  const buys = recent.filter((i) => i.sell.asset === "USDC").length;
+  const best = byGain[0];
+  const worst = byGain.length > 1 ? byGain[byGain.length - 1] : undefined;
+  return [
+    { label: "Positions", value: String(held.length) },
+    { label: "Average position age", value: "–" },
+    { label: "Largest", value: share(byShare[0]) },
+    { label: "Smallest", value: byShare.length > 1 ? share(byShare[byShare.length - 1]) : "–" },
+    {
+      label: "Best",
+      value: gain(best),
+      tone:
+        best?.gainBps == null
+          ? "neutral"
+          : best.gainBps > 0
+            ? "positive"
+            : best.gainBps < 0
+              ? "negative"
+              : "neutral",
+    },
+    {
+      label: "Worst",
+      value: gain(worst),
+      tone:
+        worst?.gainBps == null
+          ? "neutral"
+          : worst.gainBps < 0
+            ? "negative"
+            : worst.gainBps > 0
+              ? "positive"
+              : "neutral",
+    },
+    { label: "Buys, last 30 days", value: String(buys) },
+    { label: "Sells, last 30 days", value: String(recent.length - buys) },
+  ];
+}
+
+/** UI-FAST: a transaction on the environment's explorer; null where the chain has none (the forks). */
+export function txHref(environment: string, hash: string): string | null {
+  if (environment === "testnet") return `https://testnet.monadvision.com/tx/${hash}`;
+  if (environment === "beta" || environment === "canary")
+    return `https://monadvision.com/tx/${hash}`;
+  return null;
+}
+
+const usdcText = (e6: string | bigint) =>
+  `${formatAmount(BigInt(e6), 6, { minFractionDigits: 2, maxFractionDigits: 2 })} USDC`;
+
+/** The runner's recorded skip in plain words: what it would have done and why it did not. */
+export function skipWords(
+  runner: NonNullable<WhyNotTradedJson["runner"]>,
+  plan: ProposalJson["plan"] | null,
+): string {
+  if (runner.code === "BELOW_MIN_TRADE" && plan?.targetWmonBps !== undefined && plan.minTradeUsdcE6)
+    return `Skipped: the trade back to ${pctText(plan.targetWmonBps)} WMON was below the ${usdcText(plan.minTradeUsdcE6)} minimum.`;
+  return `Skipped: ${runner.message.charAt(0).toLowerCase()}${runner.message.slice(1)}`;
+}
+
+/**
+ * The Trading tab's decisions, newest first: every plan and no-change decision (linked to its
+ * research report), every trade (linked to its transaction), every trade the limits refused,
+ * and the runner's latest recorded skip.
+ */
+export function decisionRows(input: {
+  card: PlanCardJson | null;
+  intents: readonly IntentJson[];
+  activity: readonly ActivityJson[];
+  runner: WhyNotTradedJson["runner"] | null;
+  reportFor: (cycleId: string) => string;
+  txFor: (hash: string) => string | null;
+}): DecisionView[] {
+  const { card } = input;
+  const proposals = new Map<string, ProposalJson>();
+  for (const p of [card?.pending, card?.noChange, ...(card?.recent ?? [])])
+    if (p) proposals.set(p.proposalId, p);
+  const rows: (DecisionView & { at: string })[] = [];
+  for (const p of proposals.values()) {
+    const move = planMoves(p, card).find((m) => m.symbol !== "USDC");
+    const noChange = p.kind === "no_change";
+    rows.push({
+      id: p.proposalId,
+      kind: "Plan",
+      token: noChange ? null : (move?.symbol ?? null),
+      detail: noChange ? "No change" : (move?.amount ?? null),
+      summary: (noChange ? p.explanation : null) ?? p.rationale.portfolioView,
+      time: minute(p.createdAt),
+      at: p.createdAt,
+      link: p.cycleId
+        ? { href: input.reportFor(p.cycleId), label: "Report", external: false }
+        : null,
+    });
+  }
+  const units = (raw: string, asset: "USDC" | "WMON") =>
+    formatAmount(BigInt(raw), DECIMALS[asset], { maxFractionDigits: 6 });
+  for (const i of input.intents) {
+    const buying = i.sell.asset === "USDC";
+    const at = i.settledAt ?? i.createdAt;
+    const href = i.txHash ? input.txFor(i.txHash) : null;
+    const result = RESULT[i.status]?.text ?? i.status;
+    rows.push({
+      id: i.intentId,
+      kind: "Trade",
+      token: buying ? i.buy : i.sell.asset,
+      detail: `${buying ? "Buy" : "Sell"} ${units(i.sell.amountRaw, i.sell.asset)} ${i.sell.asset}`,
+      summary: `${result}. ${i.reason}`,
+      time: minute(at),
+      at,
+      link: href ? { href, label: "Transaction", external: true } : null,
+    });
+  }
+  for (const e of input.activity.filter((x) => x.kind === "blocked"))
+    rows.push({
+      id: e.entryId,
+      kind: "Refused",
+      token: null,
+      detail: null,
+      summary: e.text,
+      time: minute(e.at),
+      at: e.at,
+      link: null,
+    });
+  const r = input.runner;
+  if (r && r.outcome !== "trade" && r.code) {
+    const plan = (card?.pending ?? latestApplied(card))?.plan ?? null;
+    rows.push({
+      id: `runner-${r.since}`,
+      kind: "Skipped",
+      token: plan?.targetWmonBps !== undefined ? "WMON" : null,
+      detail: plan?.targetWmonBps !== undefined ? `Target ${pctText(plan.targetWmonBps)}` : null,
+      summary: skipWords(r, plan),
+      time: minute(r.lastAt),
+      at: r.lastAt,
+      link: null,
+    });
+  }
+  return rows
+    .sort((a, b) => Date.parse(b.at) - Date.parse(a.at))
+    .map((d) => {
+      const { at, ...view } = d;
+      void at;
+      return view;
+    });
+}
+
+/** The plan in force: the latest applied proposal. */
+export function latestApplied(card: PlanCardJson | null): ProposalJson | null {
+  return card?.recent.find((p) => p.status === "applied") ?? null;
+}
+
+/** The plan's moves as rows: each token's target and its share now (from the holdings). */
+export function planRows(
+  p: ProposalJson,
+  card: PlanCardJson | null,
+  holdings: readonly AssetRow[],
+): PlanRowView[] {
+  // With priced holdings, a token the account does not hold is 0% of it, not unknown.
+  const priced = holdings.some((h) => h.shareBps !== null);
+  const shareOf = (symbol: string) => {
+    const h = holdings.find((x) => x.symbol === symbol);
+    return h ? h.shareBps : priced ? 0 : null;
+  };
+  const targetOf = (symbol: string): number | null => {
+    const pos = p.positions.find((x) => x.symbol === symbol);
+    if (pos) return pos.action === "EXIT" ? 0 : pos.targetWeightBps;
+    if (symbol === "WMON" && p.plan?.targetWmonBps !== undefined) return p.plan.targetWmonBps;
+    if (symbol === "USDC") {
+      if (p.plan?.cashTargetBps !== undefined) return p.plan.cashTargetBps;
+      if (p.plan?.targetWmonBps !== undefined) return 10_000 - p.plan.targetWmonBps;
+    }
+    return null;
+  };
+  return planMoves(p, card).map((m) => ({
+    symbol: m.symbol,
+    side: m.side,
+    targetBps: targetOf(m.symbol),
+    currentBps: shareOf(m.symbol),
+  }));
+}
+
+/** The expanded insights: value, cash against invested, positions, gains, trades, age. */
+export function insightRows(
+  rows: readonly AssetRow[],
+  totalUsdcE6: string | null,
+  intents: readonly IntentJson[],
+  now: number,
+): InsightView[] {
+  const base = insights(rows, intents, now);
+  const by = (label: string) => base.find((b) => b.label === label) ?? { label, value: "–" };
+  const cashBps = rows.filter((r) => r.isCash).reduce((t, r) => t + (r.shareBps ?? 0), 0);
+  const priced = rows.some((r) => r.shareBps !== null);
+  const withBasis = rows.filter((r) => !r.isCash && r.gainUsdcE6 !== null);
+  const unrealized = withBasis.reduce((t, r) => t + BigInt(r.gainUsdcE6 as string), 0n);
+  const signed = (e6: bigint) => `${e6 >= 0n ? "+" : "-"}${usdcText(e6 < 0n ? -e6 : e6)}`;
+  return [
+    { label: "Total value", value: totalUsdcE6 === null ? "–" : usdcText(totalUsdcE6) },
+    priced
+      ? {
+          label: "Cash / invested",
+          value: `${pctText(cashBps)} / ${pctText(10_000 - cashBps)}`,
+          bar: cashBps,
+          barKind: "split" as const,
+        }
+      : { label: "Cash / invested", value: "–", note: "No priced holdings yet" },
+    by("Positions"),
+    { ...by("Average position age"), note: "Positions do not record when they were bought" },
+    by("Largest"),
+    by("Smallest"),
+    by("Best"),
+    by("Worst"),
+    { label: "Realized PnL", value: "–", note: "Not recorded per trade yet" },
+    withBasis.length > 0
+      ? {
+          label: "Unrealized PnL",
+          value: signed(unrealized),
+          tone: unrealized > 0n ? "positive" : unrealized < 0n ? "negative" : "neutral",
+        }
+      : { label: "Unrealized PnL", value: "–", note: "No cost basis yet" },
+    by("Buys, last 30 days"),
+    by("Sells, last 30 days"),
+  ];
+}

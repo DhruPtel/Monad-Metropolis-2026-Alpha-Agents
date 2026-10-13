@@ -286,10 +286,15 @@ export function AgentPortal({ environment }: { environment: EnvironmentId }) {
               <li key={a.id.toString()}>
                 <Button
                   asChild
-                  variant={a.id === selected.id ? "secondary-accent" : "secondary"}
+                  variant="secondary"
                   size="sm"
                 >
-                  <a href={`/configure?agent=${a.id.toString()}`}>#{a.id.toString()}</a>
+                  <a
+                    href={`/configure?agent=${a.id.toString()}`}
+                    aria-current={a.id === selected.id ? "page" : undefined}
+                  >
+                    #{a.id.toString()}
+                  </a>
                 </Button>
               </li>
             ))}

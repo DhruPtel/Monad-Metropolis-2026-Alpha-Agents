@@ -2,32 +2,40 @@
 
 import { type EnvironmentId, ENVIRONMENTS } from "@alpha-agents/config";
 import {
-  Button,
+  AgentTable,
+  type AgentRowView,
   EmptyState,
-  type FlowAgentNode,
-  type HomeAgentCardView,
+  type FlowPillView,
+  FlowPills,
+  HeroVisualSlot,
   HomeHero,
+  type HomeRankedView,
   type HomeStatView,
-  type HomeVaultView,
-  MintCallout,
-  MoneyFlowMap,
-  NoVaults,
+  RankedCards,
   SectionLabel,
   Skeleton,
-  VaultCards,
-  VaultList,
-  YourAgentsStrip,
 } from "@alpha-agents/ui";
-import { PlugZap, Wallet } from "lucide-react";
+import { PlugZap } from "lucide-react";
 import Link from "next/link";
-import { useWalletSession } from "@/auth/session";
-import { type HomeAgentView, type HomeView, ago, countText, usdcText } from "@/agent/home-view";
+import { useState } from "react";
+import {
+  type AgentFilter,
+  type HomeAgentView,
+  type HomeView,
+  ageText,
+  countText,
+  sortAgents,
+  topCards,
+  usdcText,
+} from "@/agent/home-view";
 import { useHome } from "@/agent/use-home";
 
-/** How many agents the map draws before folding the rest into "+N more". */
-const MAP_AGENTS = 8;
-/** How many vaults get a card; the list below holds every one. */
-const TOP_VAULTS = 3;
+const FILTERS: readonly { id: AgentFilter; label: string }[] = [
+  { id: "trending", label: "Trending" },
+  { id: "top", label: "Top" },
+  { id: "gainers", label: "Gainers" },
+  { id: "new", label: "New" },
+];
 
 const LEDE =
   "AI agents you own as NFTs, researching and trading onchain inside hard limits our contracts enforce.";
@@ -36,66 +44,49 @@ const LEDE =
 const partialUsdc = (e6: bigint, partial: boolean) =>
   !partial ? usdcText(e6) : e6 === 0n ? "–" : `at least ${usdcText(e6)}`;
 
+const plural = (n: number, one: string, many: string) => (n === 1 ? one : many);
+
 function stats(v: HomeView, network: string): HomeStatView[] {
   const s = v.stats;
-  return [
+  const list: HomeStatView[] = [
     {
-      label: "Agents active today",
-      value: `${s.activeToday} of ${s.agents}`,
-      meaning: `Agents with any recorded activity in the last 24 hours, of every agent minted on ${network}.`,
+      label: plural(s.agents, "agent", "agents"),
+      value: s.agents.toLocaleString("en-US"),
+      meaning: `Every agent minted on ${network}.`,
     },
     {
-      label: "Vaults",
-      value: s.vaults.toLocaleString("en-US"),
-      meaning: "Strategy vaults open for deposits.",
+      label: "active today",
+      value: s.activeToday.toLocaleString("en-US"),
+      meaning: "Agents with any recorded activity in the last 24 hours.",
     },
     {
-      label: "Total value",
+      label: "managed",
       value: partialUsdc(s.totalValueE6, s.valuePartial),
       meaning: `Every agent's trading account and vault, valued onchain in USDC${s.valuePartial ? "; some accounts could not be read and are left out" : ""}.`,
     },
     {
-      label: "Research runs today",
+      label: plural(s.researchToday.n, "research run today", "research runs today"),
       value: countText(s.researchToday),
       meaning: "Scans and research cycles finished in the last 24 hours.",
     },
     {
-      label: "Trades settled",
+      label: plural(s.tradesSettled.n, "trade settled", "trades settled"),
       value: countText(s.tradesSettled),
       meaning: "Trades settled onchain, from each agent's latest activity.",
     },
   ];
+  if (s.vaults > 0)
+    list.splice(2, 0, {
+      label: plural(s.vaults, "vault", "vaults"),
+      value: s.vaults.toLocaleString("en-US"),
+      meaning: "Strategy vaults open for deposits.",
+    });
+  return list;
 }
 
-function flowAgents(v: HomeView): { nodes: FlowAgentNode[]; more: number } {
-  const ranked = [...v.agents].sort(
-    (a, b) =>
-      Number((b.depositedE6 ?? 0n) - (a.depositedE6 ?? 0n)) ||
-      b.research.n - a.research.n ||
-      Number(a.id - b.id),
-  );
+function vaultCard(a: HomeAgentView): HomeRankedView {
   return {
-    nodes: ranked.slice(0, MAP_AGENTS).map((a) => ({
-      id: a.id.toString(),
-      label: `#${a.id.toString()}`,
-      image: a.image,
-      depositText:
-        a.depositedE6 === null
-          ? "unread"
-          : a.depositedE6 > 0n
-            ? usdcText(a.depositedE6)
-            : "no deposit",
-      deposit: Number(a.depositedE6 ?? 0n) / 1e6,
-      research: a.research.n,
-      live: a.live,
-    })),
-    more: Math.max(0, ranked.length - MAP_AGENTS),
-  };
-}
-
-function vaultView(a: HomeAgentView): HomeVaultView {
-  return {
-    id: a.id.toString(),
+    id: `vault-${a.id.toString()}`,
     name: a.name,
     image: a.image,
     tier: a.tier,
@@ -104,8 +95,47 @@ function vaultView(a: HomeAgentView): HomeVaultView {
     returnText: a.vault?.returnText ?? null,
     research: countText(a.research),
     trades: countText(a.trades),
+    kindLabel: "Vault",
     live: a.live,
     href: `/agents/${a.id.toString()}/vault`,
+  };
+}
+
+/** An agent and its trading account as a card, linking to its portfolio. */
+function agentCard(a: HomeAgentView): HomeRankedView {
+  return {
+    id: `agent-${a.id.toString()}`,
+    name: a.name,
+    image: a.image,
+    tier: a.tier,
+    speciesName: a.speciesName,
+    value: usdcText(a.valueE6),
+    returnText: a.accountReturnText,
+    returnEmpty: a.valueE6 === null ? "–" : "No deposits",
+    research: countText(a.research),
+    trades: countText(a.trades),
+    goal: a.goal,
+    kindLabel: "Agent",
+    live: a.live,
+    href: `/agents/${a.id.toString()}`,
+  };
+}
+
+function agentRow(a: HomeAgentView, at: number): AgentRowView {
+  return {
+    id: a.id.toString(),
+    name: a.name,
+    image: a.image,
+    tier: a.tier,
+    speciesName: a.speciesName,
+    value: usdcText(a.valueE6),
+    returnText: a.accountReturnText,
+    returnEmpty: a.valueE6 === null ? "–" : "No deposits",
+    research: countText(a.research),
+    trades: countText(a.trades),
+    age: ageText(a.mintedAt, at),
+    live: a.live,
+    href: `/agents/${a.id.toString()}`,
   };
 }
 
@@ -118,126 +148,74 @@ function HomeBody({
   at: number;
   environment: EnvironmentId;
 }) {
-  const wallet = useWalletSession();
+  const [filter, setFilter] = useState<AgentFilter>("trending");
   const network = ENVIRONMENTS[environment].label;
-  const { nodes, more } = flowAgents(view);
   const sum = (pick: (a: HomeAgentView) => { n: number; atLeast: boolean }) =>
     countText({
       n: view.agents.reduce((s, a) => s + pick(a).n, 0),
       atLeast: view.agents.some((a) => pick(a).atLeast),
     });
   const deposited = view.agents.reduce((s, a) => s + (a.depositedE6 ?? 0n), 0n);
-  const latest = view.latest[0];
-  const mine: HomeAgentCardView[] = wallet.address
-    ? view.agents
-        .filter((a) => a.owner.toLowerCase() === wallet.address?.toLowerCase())
-        .map((a) => ({
-          id: a.id.toString(),
-          name: a.name,
-          image: a.image,
-          tier: a.tier,
-          speciesName: a.speciesName,
-          goal: a.goal,
-          value: usdcText(a.valueE6),
-          lastResearch: ago(a.lastResearchAt, at),
-          href: `/agents/${a.id.toString()}/portfolio`,
-          live: a.live,
-        }))
-    : [];
-  const mintLink = (
-    <Button asChild>
-      <Link href="/mint">Mint an agent</Link>
-    </Button>
+  const research = view.agents.reduce((s, a) => s + a.research.n, 0);
+  const plans = view.agents.reduce((s, a) => s + a.plans.n, 0);
+  const trades = view.agents.reduce((s, a) => s + a.trades.n, 0);
+  const flowSteps: FlowPillView[] = [
+    {
+      label: "Deposits",
+      value: partialUsdc(deposited, view.stats.valuePartial),
+      active: false,
+    },
+    { label: "Research", value: sum((a) => a.research), active: research > 0 },
+    { label: "Plans", value: sum((a) => a.plans), active: plans > 0 },
+    {
+      label: "Portfolios",
+      value: partialUsdc(view.stats.totalValueE6, view.stats.valuePartial),
+      active: trades > 0,
+    },
+  ];
+  const cards = topCards(view.agents).map((c) =>
+    c.kind === "vault" ? vaultCard(c.agent) : agentCard(c.agent),
   );
+  const vaultCount = view.stats.vaults;
 
   return (
     <>
-      <HomeHero title="Vivarium" lede={LEDE} stats={stats(view, network)} />
+      <HomeHero
+        title="Vivarium"
+        lede={LEDE}
+        stats={stats(view, network)}
+        below={<FlowPills steps={flowSteps} />}
+        visual={<HeroVisualSlot />}
+      />
 
-      <section aria-labelledby="home-flow" className="flex flex-col gap-3">
-        <SectionLabel as="h2" id="home-flow">
-          Where the money goes
+      <section aria-labelledby="home-top" className="flex flex-col gap-3">
+        <SectionLabel as="h2" id="home-top">
+          {vaultCount >= 3 ? "Top vaults" : vaultCount > 0 ? "Top vaults and agents" : "Top agents"}
         </SectionLabel>
-        <MoneyFlowMap
-          deposits={{
-            label: "Deposits",
-            value: partialUsdc(deposited, view.stats.valuePartial),
-          }}
-          research={{ label: "Research", value: `${sum((a) => a.research)} runs` }}
-          plans={{ label: "Plans", value: sum((a) => a.plans) }}
-          portfolios={{
-            label: "Portfolios",
-            value: partialUsdc(view.stats.totalValueE6, view.stats.valuePartial),
-          }}
-          agents={nodes}
-          moreAgents={more}
-          planCount={view.agents.reduce((s, a) => s + a.plans.n, 0)}
-          tradeCount={view.agents.reduce((s, a) => s + a.trades.n, 0)}
-          caption={
-            latest ? (
-              <span data-testid="flow-latest">
-                Latest, {ago(latest.at, at)}: {latest.text}
-              </span>
-            ) : (
-              "No activity recorded yet."
-            )
-          }
+        {cards.length === 0 ? (
+          <p className="text-xs text-foreground-muted">No agents yet.</p>
+        ) : (
+          <RankedCards items={cards} linkAs={Link} />
+        )}
+      </section>
+
+      <section aria-labelledby="home-all" className="flex flex-col gap-2">
+        <SectionLabel as="h2" id="home-all">
+          All agents
+        </SectionLabel>
+        <AgentTable
+          filters={FILTERS}
+          filter={filter}
+          onFilter={(id) => setFilter(id as AgentFilter)}
+          rows={sortAgents(view.agents, filter).map((a) => agentRow(a, at))}
+          linkAs={Link}
         />
-      </section>
-
-      <section aria-labelledby="home-yours" className="flex flex-col gap-3">
-        <SectionLabel as="h2" id="home-yours">
-          Your agents
-        </SectionLabel>
-        {!wallet.ready ? (
-          <MintCallout
-            title="Own an agent"
-            description="Free to mint: you pay only gas. Connect a wallet to see yours here."
-            action={
-              wallet.state === "logged-out" ? (
-                <span className="flex gap-2">
-                  <Button variant="secondary" onClick={wallet.connect}>
-                    <Wallet aria-hidden /> Connect
-                  </Button>
-                  {mintLink}
-                </span>
-              ) : (
-                mintLink
-              )
-            }
-          />
-        ) : mine.length === 0 ? (
-          <MintCallout
-            title="No agent in this wallet yet"
-            description="Free to mint: you pay only gas, up to two per wallet."
-            action={mintLink}
-          />
-        ) : (
-          <YourAgentsStrip agents={mine} linkAs={Link} />
-        )}
-      </section>
-
-      <section aria-labelledby="home-vaults" className="flex flex-col gap-3">
-        <SectionLabel as="h2" id="home-vaults">
-          Top vaults
-        </SectionLabel>
-        {view.vaults.length === 0 ? (
-          <NoVaults />
-        ) : (
-          <>
-            <VaultCards vaults={view.vaults.slice(0, TOP_VAULTS).map(vaultView)} linkAs={Link} />
-            <SectionLabel as="h3" className="pt-2">
-              All vaults
-            </SectionLabel>
-            <VaultList vaults={view.vaults.map(vaultView)} linkAs={Link} />
-          </>
-        )}
       </section>
     </>
   );
 }
 
-/** UI-FAST: the home page: the hero, the money-flow map, your agents, and the vaults. */
+/** UI-FAST: the home page: the quiet hero with its flow pills, your agents, and the vaults or agents. */
 export function HomePage({ environment }: { environment: EnvironmentId }) {
   const home = useHome(environment);
   return (

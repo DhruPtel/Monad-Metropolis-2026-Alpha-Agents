@@ -1,14 +1,15 @@
-import { ArrowRight, Vault } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import type { ComponentType, ReactNode } from "react";
 import { cn } from "../../lib/utils";
 import { type ArtTier, SpeciesArt } from "../agent/species-art";
-import { EmptyState } from "../ui/empty-state";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../ui/table";
 import { Tag } from "../ui/tag";
 
 /**
  * UI-FAST: the home page's parts around its centerpiece: the hero with live
- * stats, the connected owner's agents (or one mint call to action), the top
- * vaults as cards and every vault as a dense list. Presentational: the app
+ * stats, the connected owner's agents (or one mint call to action), and the
+ * top vaults or agents as cards with every one as a dense list (RankedCards,
+ * RankedList: a vault, or an agent and its trading account). Presentational: the app
  * gives every figure, already written.
  */
 
@@ -53,150 +54,142 @@ function LiveDot({
   );
 }
 
+/**
+ * The hero, small and quiet: a modest title, a few lines at body size, one
+ * row of tiny inline stats, and below them whatever the page puts there (the
+ * flow pills). On wide screens the right half is held for a visual to come.
+ */
 function HomeHero({
   title,
   lede,
   stats,
+  below,
+  visual,
   className,
 }: {
   title: string;
   lede: string;
   stats: readonly HomeStatView[];
+  below?: ReactNode;
+  /** The right side; HeroVisualSlot reserves it until the visual exists. */
+  visual?: ReactNode;
   className?: string;
 }) {
   return (
-    <header className={cn("flex flex-col gap-5", className)} data-testid="home-hero">
-      <div className="flex max-w-2xl flex-col gap-2">
-        <h1 className="text-3xl font-semibold tracking-tight">{title}</h1>
-        <p className="text-base text-foreground-muted">{lede}</p>
+    <header
+      className={cn("grid items-center gap-10 py-6 lg:grid-cols-2 lg:py-12", className)}
+      data-testid="home-hero"
+    >
+      <div className="flex flex-col gap-6">
+        <div className="flex max-w-md flex-col gap-3">
+          <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
+          <p className="text-sm leading-relaxed text-foreground-muted">{lede}</p>
+        </div>
+        <ul className="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-xs" aria-label="Network">
+          {stats.map((s, i) => (
+            <li
+              key={s.label}
+              className="flex items-baseline gap-1"
+              title={s.meaning}
+              data-testid="home-stat"
+            >
+              <span className="numeric font-semibold text-foreground">{s.value}</span>
+              <span className="text-foreground-muted">{s.label}</span>
+              {i < stats.length - 1 ? (
+                <span aria-hidden className="pl-1 text-foreground-subtle">
+                  ·
+                </span>
+              ) : null}
+            </li>
+          ))}
+        </ul>
+        {below}
       </div>
-      <dl className="grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-3 lg:grid-cols-5">
-        {stats.map((s) => (
-          <div
-            key={s.label}
-            className="flex flex-col gap-0.5"
-            title={s.meaning}
-            data-testid="home-stat"
-          >
-            <dt className="text-xs text-foreground-muted">{s.label}</dt>
-            <dd className="numeric text-2xl font-semibold">{s.value}</dd>
-          </div>
-        ))}
-      </dl>
+      {visual}
     </header>
   );
 }
 
-export interface HomeAgentCardView {
-  readonly id: string;
-  readonly name: string;
-  readonly image: string | null;
-  readonly tier: ArtTier | null;
-  readonly speciesName: string | null;
-  readonly goal: string;
-  readonly value: string;
-  readonly lastResearch: string;
-  readonly href: string;
-  readonly live: boolean;
-}
-
-/** The connected owner's agents, side by side, each linking to its portfolio. */
-function YourAgentsStrip({
-  agents,
-  linkAs,
-  className,
-}: {
-  agents: readonly HomeAgentCardView[];
-  linkAs?: LinkComponent;
-  className?: string;
-}) {
-  const LinkAs = linkAs ?? "a";
-  return (
-    <ul
-      className={cn("grid gap-3 sm:grid-cols-2 lg:grid-cols-3", className)}
-      data-testid="your-agents"
-    >
-      {agents.map((a) => (
-        <li key={a.id}>
-          <LinkAs
-            href={a.href}
-            className="flex items-center gap-3 rounded-lg border bg-surface p-3 outline-none transition-colors hover:border-primary-muted is-focus:focus-ring"
-          >
-            <SpeciesArt
-              compact
-              image={a.image}
-              speciesName={a.speciesName}
-              tier={a.tier}
-              className="w-16 shrink-0"
-            />
-            <span className="flex min-w-0 flex-1 flex-col gap-1">
-              <span className="flex items-center gap-2">
-                <span className="truncate text-sm font-semibold">{a.name}</span>
-                <LiveDot live={a.live} />
-              </span>
-              <span className="numeric text-base font-semibold">{a.value}</span>
-              <span className="truncate text-2xs text-foreground-muted">
-                {a.goal} · researched {a.lastResearch}
-              </span>
-            </span>
-            <ArrowRight aria-hidden className="size-4 shrink-0 text-foreground-muted" />
-          </LinkAs>
-        </li>
-      ))}
-    </ul>
-  );
-}
-
-/** One call to action in place of the strip: connect, or mint. */
-function MintCallout({
-  title,
-  description,
-  action,
-  className,
-}: {
-  title: string;
-  description: string;
-  action: ReactNode;
-  className?: string;
-}) {
+/** Holds the hero's right side, square, for a visual to come; a faint ring marks it. */
+function HeroVisualSlot({ className }: { className?: string }) {
   return (
     <div
+      aria-hidden
+      data-testid="hero-visual-slot"
       className={cn(
-        "flex flex-col items-start justify-between gap-3 rounded-lg border border-primary-muted bg-surface p-4 sm:flex-row sm:items-center",
+        "relative hidden aspect-square w-full max-w-120 items-center justify-center justify-self-end lg:flex",
         className,
       )}
-      data-testid="mint-callout"
     >
-      <div className="flex flex-col gap-0.5">
-        <p className="text-base font-semibold">{title}</p>
-        <p className="text-sm text-foreground-muted">{description}</p>
-      </div>
-      {action}
+      <span className="absolute inset-6 rounded-full border border-dashed border-border" />
+      <span className="absolute inset-20 rounded-full border border-border/50" />
     </div>
   );
 }
 
-export interface HomeVaultView {
+export interface FlowPillView {
+  readonly label: string;
+  readonly value: string;
+  /** Whether money or work moved into this step recently; its line in brightens. */
+  readonly active: boolean;
+}
+
+/** The flow in small: thin pills joined by thin lines, each with its number. */
+function FlowPills({ steps, className }: { steps: readonly FlowPillView[]; className?: string }) {
+  return (
+    <ol
+      className={cn("flex flex-wrap items-center gap-1.5 sm:gap-x-0 sm:gap-y-2", className)}
+      aria-label="Where the money goes"
+      data-testid="flow-pills"
+    >
+      {steps.map((s, i) => (
+        <li key={s.label} className="flex items-center" data-testid="flow-pill">
+          {i > 0 ? (
+            <span
+              aria-hidden
+              className={cn(
+                "hidden h-px sm:block sm:w-8",
+                s.active ? "bg-primary-muted motion-safe:animate-slot-pulse" : "bg-border",
+              )}
+            />
+          ) : null}
+          <span className="flex items-baseline gap-1 rounded-full border px-2 py-0.5 text-2xs sm:gap-1.5 sm:px-2.5">
+            <span className="text-foreground-muted">{s.label}</span>
+            <span className="numeric font-semibold text-foreground">{s.value}</span>
+          </span>
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+export interface HomeRankedView {
   readonly id: string;
   readonly name: string;
   readonly image: string | null;
   readonly tier: ArtTier | null;
   readonly speciesName: string | null;
   readonly value: string;
-  /** "+1.20%", or null while there is not enough history. */
+  /** "+1.20%", or null while there is not enough history or nothing deposited. */
   readonly returnText: string | null;
   readonly research: string;
   readonly trades: string;
+  /** What to say in place of a missing return; "Not enough data" when left out. */
+  readonly returnEmpty?: string | undefined;
+  /** "Vault" or "Agent", when a row mixes both. */
+  readonly kindLabel?: string | undefined;
+  /** The agent's goal, for an agent's card ("Balanced"); left out for a vault. */
+  readonly goal?: string | undefined;
   readonly live: boolean;
   readonly href: string;
 }
 
-function VaultCards({
-  vaults,
+function RankedCards({
+  items,
   linkAs,
   className,
 }: {
-  vaults: readonly HomeVaultView[];
+  items: readonly HomeRankedView[];
   linkAs?: LinkComponent;
   className?: string;
 }) {
@@ -204,13 +197,13 @@ function VaultCards({
   return (
     <ul
       className={cn("grid gap-3 sm:grid-cols-2 lg:grid-cols-3", className)}
-      data-testid="vault-cards"
+      data-testid="ranked-cards"
     >
-      {vaults.map((v) => (
+      {items.map((v) => (
         <li key={v.id}>
           <LinkAs
             href={v.href}
-            className="flex flex-col gap-3 rounded-lg border bg-surface p-4 outline-none transition-colors hover:border-primary-muted is-focus:focus-ring"
+            className="flex flex-col gap-2 rounded-md border border-border bg-transparent p-3 outline-none transition-colors hover:border-primary-muted is-focus:focus-ring"
           >
             <span className="flex items-center gap-3">
               <SpeciesArt
@@ -218,25 +211,38 @@ function VaultCards({
                 image={v.image}
                 speciesName={v.speciesName}
                 tier={v.tier}
-                className="w-14 shrink-0"
+                className="w-10 shrink-0"
               />
               <span className="flex min-w-0 flex-1 flex-col gap-1">
                 <span className="flex items-center gap-2">
-                  <span className="truncate text-sm font-semibold">{v.name}</span>
+                  <span className="truncate text-xs font-medium">{v.name}</span>
                   {v.tier ? (
                     <Tag tone={TIER_TONE[v.tier]} size="sm">
                       {TIER_NAME[v.tier]}
                     </Tag>
                   ) : null}
+                  {v.kindLabel ? (
+                    <span
+                      className="ml-auto text-2xs text-foreground-muted"
+                      data-testid="card-kind"
+                    >
+                      {v.kindLabel}
+                    </span>
+                  ) : null}
                 </span>
-                <LiveDot live={v.live} />
+                <span className="flex items-center gap-2">
+                  <LiveDot live={v.live} />
+                  {v.goal ? <span className="text-2xs text-foreground-muted">{v.goal}</span> : null}
+                </span>
               </span>
             </span>
-            <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
+            <dl className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-xs">
               <dt className="text-foreground-muted">Value</dt>
               <dd className="numeric text-right font-semibold">{v.value}</dd>
               <dt className="text-foreground-muted">Return</dt>
-              <dd className="numeric text-right">{v.returnText ?? "Not enough data"}</dd>
+              <dd className="numeric text-right">
+                {v.returnText ?? v.returnEmpty ?? "Not enough data"}
+              </dd>
               <dt className="text-foreground-muted">Research runs</dt>
               <dd className="numeric text-right">{v.research}</dd>
               <dt className="text-foreground-muted">Trades</dt>
@@ -249,60 +255,179 @@ function VaultCards({
   );
 }
 
-/** Every vault as one dense row each, linking to the vault. */
-function VaultList({
-  vaults,
+export interface AgentRowView {
+  readonly id: string;
+  readonly name: string;
+  readonly image: string | null;
+  readonly tier: ArtTier | null;
+  readonly speciesName: string | null;
+  readonly value: string;
+  /** "+1.20%"; null shows the row's `returnEmpty` ("No deposits", "–"). */
+  readonly returnText: string | null;
+  readonly returnEmpty: string;
+  /** Values over time for a sparkline; the column shows only when some row has one. */
+  readonly series?: readonly number[] | undefined;
+  readonly research: string;
+  readonly trades: string;
+  readonly age: string;
+  readonly live: boolean;
+  readonly href: string;
+}
+
+export interface AgentTableFilter {
+  readonly id: string;
+  readonly label: string;
+}
+
+/** A tiny line of a value over time, drawn in the cell's own colour. */
+function Sparkline({ points, label }: { points: readonly number[]; label: string }) {
+  if (points.length < 2) return <span className="text-foreground-subtle">–</span>;
+  const min = Math.min(...points);
+  const span = Math.max(...points) - min || 1;
+  const d = points
+    .map(
+      (p, i) =>
+        `${i === 0 ? "M" : "L"} ${(i / (points.length - 1)) * 64} ${16 - ((p - min) / span) * 14 - 1}`,
+    )
+    .join(" ");
+  return (
+    <svg
+      viewBox="0 0 64 16"
+      className="h-4 w-16 text-foreground-muted"
+      role="img"
+      aria-label={label}
+    >
+      <path d={d} fill="none" stroke="currentColor" strokeWidth={1.25} />
+    </svg>
+  );
+}
+
+/**
+ * Every agent once, in one dense table with filter tabs (Trending, Top,
+ * Gainers, New): art, name and tier, value, return, a sparkline when any
+ * history exists, research runs, trades, age, and an arrow to the portfolio.
+ * The app sorts the rows for the chosen filter.
+ */
+function AgentTable({
+  filters,
+  filter,
+  onFilter,
+  rows,
   linkAs,
   className,
 }: {
-  vaults: readonly HomeVaultView[];
+  filters: readonly AgentTableFilter[];
+  filter: string;
+  onFilter: (id: string) => void;
+  rows: readonly AgentRowView[];
   linkAs?: LinkComponent;
   className?: string;
 }) {
   const LinkAs = linkAs ?? "a";
+  const sparks = rows.some((r) => (r.series?.length ?? 0) > 1);
   return (
-    <ul
-      className={cn("flex flex-col divide-y rounded-lg border bg-surface", className)}
-      data-testid="vault-list"
-    >
-      {vaults.map((v) => (
-        <li key={v.id}>
-          <LinkAs
-            href={v.href}
-            className="grid grid-cols-[1fr_auto] items-center gap-x-4 gap-y-0.5 px-3 py-2 text-sm outline-none hover:bg-surface-raised is-focus:focus-ring sm:grid-cols-[1.5fr_1fr_1fr_1fr_1fr_auto]"
-            data-testid="vault-row"
+    <div className={cn("flex flex-col gap-2", className)} data-testid="agent-table">
+      <div role="group" aria-label="Sort agents" className="flex flex-wrap gap-1">
+        {filters.map((f) => (
+          <button
+            key={f.id}
+            type="button"
+            aria-pressed={f.id === filter}
+            onClick={() => onFilter(f.id)}
+            data-testid="agent-filter"
+            className={cn(
+              "rounded-md px-2.5 py-1 text-xs outline-none transition-colors is-focus:focus-ring",
+              f.id === filter
+                ? "bg-surface-raised font-medium text-foreground"
+                : "text-foreground-muted hover:text-foreground",
+            )}
           >
-            <span className="flex items-center gap-2 font-medium">
-              <LiveDot live={v.live} hideLabel />
-              {v.name}
-            </span>
-            <span className="numeric text-right font-semibold">{v.value}</span>
-            <span className="numeric hidden text-right sm:block">{v.returnText ?? "–"}</span>
-            <span className="numeric hidden text-right text-foreground-muted sm:block">
-              {v.research} research
-            </span>
-            <span className="numeric hidden text-right text-foreground-muted sm:block">
-              {v.trades} trades
-            </span>
-            <ArrowRight aria-hidden className="hidden size-4 text-foreground-muted sm:block" />
-          </LinkAs>
-        </li>
-      ))}
-    </ul>
+            {f.label}
+          </button>
+        ))}
+      </div>
+      <Table label="All agents" className="text-xs">
+        <TableHeader>
+          <TableRow>
+            <TableHead>Agent</TableHead>
+            <TableHead className="text-right">Value</TableHead>
+            <TableHead className="text-right">Return</TableHead>
+            {sparks ? <TableHead className="hidden sm:table-cell">History</TableHead> : null}
+            <TableHead className="hidden sm:table-cell text-right">Research</TableHead>
+            <TableHead className="hidden sm:table-cell text-right">Trades</TableHead>
+            <TableHead className="hidden sm:table-cell text-right">Age</TableHead>
+            <TableHead>
+              <span className="sr-only">Open</span>
+            </TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {rows.map((r) => (
+            <TableRow key={r.id} data-testid="agent-row" data-agent={r.id}>
+              <TableCell className="py-1.5">
+                <span className="flex items-center gap-2.5">
+                  <SpeciesArt
+                    compact
+                    image={r.image}
+                    speciesName={r.speciesName}
+                    tier={r.tier}
+                    className="w-7 shrink-0"
+                  />
+                  <span className="flex min-w-0 flex-col">
+                    <span className="flex items-center gap-1.5">
+                      <span className="truncate font-medium">{r.name}</span>
+                      <LiveDot live={r.live} hideLabel />
+                    </span>
+                    <span className="text-2xs text-foreground-muted">
+                      {r.tier ? TIER_NAME[r.tier] : "Unrevealed"}
+                    </span>
+                  </span>
+                </span>
+              </TableCell>
+              <TableCell
+                label="Value"
+                className="numeric py-1.5 text-right font-semibold whitespace-nowrap"
+              >
+                {r.value}
+              </TableCell>
+              <TableCell label="Return" className="numeric py-1.5 text-right whitespace-nowrap">
+                {r.returnText ?? <span className="text-foreground-muted">{r.returnEmpty}</span>}
+              </TableCell>
+              {sparks ? (
+                <TableCell label="History" className="hidden sm:table-cell py-1.5">
+                  <Sparkline points={r.series ?? []} label={`${r.name} value over time`} />
+                </TableCell>
+              ) : null}
+              <TableCell
+                label="Research"
+                className="numeric hidden sm:table-cell py-1.5 text-right"
+              >
+                {r.research}
+              </TableCell>
+              <TableCell label="Trades" className="numeric hidden sm:table-cell py-1.5 text-right">
+                {r.trades}
+              </TableCell>
+              <TableCell
+                label="Age"
+                className="numeric hidden sm:table-cell py-1.5 text-right text-foreground-muted"
+              >
+                {r.age}
+              </TableCell>
+              <TableCell className="py-1.5 text-right">
+                <LinkAs
+                  href={r.href}
+                  className="inline-flex rounded-sm p-1 text-foreground-muted outline-none hover:text-foreground is-focus:focus-ring"
+                >
+                  <ArrowRight aria-hidden className="size-4" />
+                  <span className="sr-only">Open {r.name}'s portfolio</span>
+                </LinkAs>
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </div>
   );
 }
 
-/** Said once where the vault cards and list would be, while no vault exists. */
-function NoVaults({ action, className }: { action?: ReactNode; className?: string }) {
-  return (
-    <EmptyState
-      icon={Vault}
-      title="No vaults yet"
-      description="An agent's owner opens a vault from the agent's Vault page; open vaults show here with their value and return."
-      {...(action ? { action } : {})}
-      {...(className ? { className } : {})}
-    />
-  );
-}
-
-export { HomeHero, LiveDot, MintCallout, NoVaults, VaultCards, VaultList, YourAgentsStrip };
+export { AgentTable, FlowPills, HeroVisualSlot, HomeHero, LiveDot, RankedCards, Sparkline };

@@ -36,7 +36,7 @@ import {
   monthReturnBps,
   percentFromBps as pct,
 } from "@alpha-agents/ui";
-import { ArrowLeft, PlugZap, RotateCcw, Wallet } from "lucide-react";
+import { PlugZap, RotateCcw, Wallet } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import type { Address } from "viem";
@@ -161,25 +161,8 @@ export function VaultPage({
   const [sharesText, setSharesText] = useState("");
   const [method, setMethod] = useState<WithdrawMethod>("usdc");
 
-  const header = (
-    <div className="flex flex-col gap-2">
-      <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-foreground-muted">
-        <Link href="/agents" className="flex items-center gap-1">
-          <ArrowLeft aria-hidden className="size-4" /> My Agents
-        </Link>
-        <Link href={`/agents/${agentId.toString()}/portfolio`} data-testid="portfolio-link">
-          Portfolio
-        </Link>
-        <Link href={`/agents/${agentId.toString()}/window`}>Performance window</Link>
-      </div>
-      <h1 className="text-2xl font-semibold">{name}: vault</h1>
-      <p className="max-w-2xl text-sm text-foreground-muted">
-        A pool on {network} that {name} trades within its hard limits, through the same Executor as
-        its own account. Anyone on the beta allowlist may deposit; anyone may leave at any time, in
-        USDC or in kind, whatever the agent, the platform or the market is doing.
-      </p>
-    </div>
-  );
+  // UI-FAST: the agent's header and tabs come from its shell.
+  const header = null;
 
   const d: VaultResponseJson | null = vt.data;
   if (!d)
@@ -529,10 +512,7 @@ export function VaultPage({
               content: (
                 <p className="text-sm text-foreground-muted">
                   The agent&apos;s trades, this vault&apos;s among them, are listed on its{" "}
-                  <Link
-                    href={`/agents/${agentId.toString()}/portfolio#trades`}
-                    className="underline"
-                  >
+                  <Link href={`/agents/${agentId.toString()}/trading`} className="underline">
                     portfolio page
                   </Link>
                   .
@@ -578,7 +558,7 @@ export function VaultPage({
       {isOwner ? (
         <p className="text-sm text-foreground-muted" data-testid="vault-owner-credits-note">
           Credits for this agent&apos;s work are added from its{" "}
-          <Link href={`/agents/${agentId.toString()}/portfolio#credits`} className="underline">
+          <Link href={`/agents/${agentId.toString()}`} className="underline">
             portfolio
           </Link>
           ; other people fund it here.

@@ -42,6 +42,8 @@ export interface ApiAgent {
   /** 0 until revealed, then 1 to 25. */
   readonly species: number;
   readonly ownerEpoch: bigint;
+  /** UI-FAST: the block the agent was minted in, as the index records it. */
+  readonly mintedBlock?: number;
 }
 
 export interface ApiSupply {
@@ -104,6 +106,7 @@ interface AgentJson {
   tba: string;
   species: number;
   ownerEpoch: string;
+  mintedBlock?: number;
 }
 
 const toAgent = (a: AgentJson): ApiAgent => ({
@@ -112,6 +115,7 @@ const toAgent = (a: AgentJson): ApiAgent => ({
   tba: getAddress(a.tba),
   species: a.species,
   ownerEpoch: BigInt(a.ownerEpoch),
+  ...(a.mintedBlock !== undefined ? { mintedBlock: a.mintedBlock } : {}),
 });
 
 export interface OwnerSession {
@@ -277,6 +281,15 @@ export interface WhyNotTradedJson {
     readonly at: string;
   })[];
   readonly waitingForApproval: number;
+  /** The runner's latest decision for the agent, as it recorded it; absent where none is recorded. */
+  readonly runner?: {
+    readonly outcome: string;
+    readonly code: string | null;
+    readonly message: string;
+    readonly since: string;
+    readonly lastAt: string;
+    readonly intentId: string | null;
+  } | null;
 }
 
 export interface PriceJson {
@@ -635,6 +648,12 @@ export interface TerminalJson {
     readonly cycleId: string;
     readonly kind: string;
     readonly status: string;
+    /** UI-FAST: passed through from the orchestrator: the model alias, the spend, the times. */
+    readonly reasoning?: string;
+    readonly chargedUsdcE6?: string;
+    readonly createdAt?: string;
+    readonly startedAt?: string | null;
+    readonly finishedAt?: string | null;
   } | null;
   readonly live: boolean;
   readonly events: readonly TerminalEventJson[];

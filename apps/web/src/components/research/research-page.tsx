@@ -1,51 +1,53 @@
 "use client";
 
-import { type EnvironmentId, ENVIRONMENTS } from "@alpha-agents/config";
+import type { EnvironmentId } from "@alpha-agents/config";
 import {
-  AgentTerminal,
   BudgetMeter,
   Button,
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
   EmptyState,
-  MarketSnapshotPanel,
-  PlanUnchangedCard,
-  ResearchOverview,
+  DocumentList,
+  PhaseList,
   ResearchScheduleCard,
-  ResearchTiles,
+  SourceBubbles,
+  type RunOptionView,
+  RunPicker,
+  SectionLabel,
   SentinelCard,
   Skeleton,
-  StageTimeline,
-  ThemesPanel,
-  TriggerList,
-  UniversePanel,
   WalletActionStatus,
-  WhyNotTraded,
-  ReportList,
+  usdcCents,
 } from "@alpha-agents/ui";
-import { ArrowLeft, PlugZap, Wallet } from "lucide-react";
+import { PlugZap, Wallet } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useState } from "react";
-import { type SentinelJson, type WhyNotTradedJson, tradingApi } from "@/api/client";
+import { useEffect, useMemo, useState } from "react";
+import { type SentinelJson, tradingApi } from "@/api/client";
+import { kindLabel, reportHref } from "@/agent/report-view";
+import { levelOf, phases, sourceCounts } from "@/agent/research-run";
 import { useAccountTx } from "@/agent/use-account-tx";
-import { useResearch, useTerminal } from "@/agent/use-research";
 import { useOwnerSession } from "@/agent/use-owner-session";
-import { CHAIN_NAMES, chainOfEnvironment } from "@alpha-agents/domain";
-import { useWalletSession } from "@/auth/session";
-import { reportListView } from "@/agent/report-view";
 import { useReports } from "@/agent/use-reports";
+import { useResearch, useTerminal } from "@/agent/use-research";
+import { useWalletSession } from "@/auth/session";
+
+const KIND_WORD: Readonly<Record<string, string>> = {
+  ACTIVATION: "Activation",
+  ROUTINE: "Routine",
+  TRIGGERED: "Triggered",
+  REVIEW: "Plan review",
+  REPLAY: "Replay",
+};
+const minute = (iso: string | null | undefined) =>
+  iso ? `${iso.slice(0, 10)} ${iso.slice(11, 16)}` : "–";
 
 /**
- * The Research page (P3-U10): what the agent's research loop is doing and
- * why, for its owner. The agent terminal follows the open cycle live and
- * shows the chosen cycle's history after; around it the schedule and the
- * budget, the triggers the watcher fired, the stage timeline with each
- * stage's cost, the market overview and the last Scan's themes, the
- * watcher's snapshot, why the plan did not change and why the agent did not
- * trade. Every text comes from the platform's guarded records.
+ * The Research page (P3-U10, rebuilt in UI-FAST around a live view of one
+ * run): a run picker; a branch chart of the run's steps by source with live
+ * counters beside it; the run's events as a searchable feed; how it ended,
+ * with its report; and every past report. While a run goes on the chart, the
+ * counters and the feed grow with a Live badge; when it ends they stay as its
+ * record. Every line is the platform's guarded record: never a skill or
+ * playbook text, a prompt, raw reasoning, or pasted web or X text. The
+ * schedule, the budget and the Risk Sentinel stay below.
  */
 export function ResearchPage({
   environment,
@@ -59,7 +61,6 @@ export function ResearchPage({
   const { research, error, refresh, pause } = useResearch(agentId);
   const [selected, setSelected] = useState<string | null>(null);
   const [pausing, setPausing] = useState(false);
-  const [why, setWhy] = useState<WhyNotTradedJson | null>(null);
   const [sentinel, setSentinel] = useState<SentinelJson | null>(null);
   const asOwner = useOwnerSession(agentId);
   // F-U12 (P4-U2 follow-up): the owner unpauses the account after a Sentinel pause, from their wallet.
@@ -69,20 +70,49 @@ export function ResearchPage({
     const timer = window.setInterval(() => setNow(new Date().toISOString()), 15_000);
     return () => window.clearInterval(timer);
   }, []);
-  // The terminal follows the open cycle unless the reader picked one from the timeline.
+
+  // The run shown: the one picked, else the open run, else the newest.
   const open = research?.open?.cycleId ?? null;
-  const cycleId = selected ?? open;
-  const terminal = useTerminal(agentId, cycleId, research !== null);
+  const newest = research?.cycles[0]?.cycleId ?? null;
+  const cycleId = selected ?? open ?? newest;
+  const terminal = useTerminal(agentId, cycleId, research !== null && cycleId !== null);
+  const shownCycle = research?.cycles.find((c) => c.cycleId === cycleId) ?? null;
+  const counts = useMemo(() => sourceCounts(terminal.lines), [terminal.lines]);
+  const runPhases = useMemo(
+    () => phases(terminal.lines, shownCycle?.finishedAt ?? null),
+    [terminal.lines, shownCycle?.finishedAt],
+  );
+  const live = terminal.state === "live";
+
+  // Each run's research level, from its terminal header: read once per run, one at a time.
+  const [levels, setLevels] = useState<Readonly<Record<string, string>>>({});
+  const runIds = (research?.cycles ?? [])
+    .slice(0, 10)
+    .map((c) => c.cycleId)
+    .join(",");
   useEffect(() => {
+    if (!runIds) return;
     let live = true;
-    void tradingApi
-      .whyNotTraded(agentId)
-      .then((w) => live && setWhy(w))
-      .catch(() => live && setWhy(null));
+    void (async () => {
+      for (const id of runIds.split(",")) {
+        if (!live) return;
+        try {
+          const t = await asOwner((tok) =>
+            tradingApi.terminal(agentId, tok, { cycleId: id, after: 999_999_999 }),
+          );
+          if (live) setLevels((l) => ({ ...l, [id]: levelOf(t.cycle?.reasoning) }));
+        } catch {
+          // Left "–": the picker says the level is unknown.
+        }
+      }
+    })();
     return () => {
       live = false;
     };
-  }, [agentId]);
+  }, [agentId, asOwner, runIds]);
+
+  const reports = reportsRead.reports?.reports ?? [];
+
   // P4-U2: the sentinel's actions, re-read with the research.
   useEffect(() => {
     if (!research) return;
@@ -95,115 +125,74 @@ export function ResearchPage({
     };
   }, [agentId, asOwner, research]);
   const id = agentId.toString();
-  const back = (
-    <Button asChild variant="ghost" size="sm" className="w-fit">
-      <Link href={`/agents/${id}/portfolio`}>
-        <ArrowLeft aria-hidden="true" />
-        Back to the portfolio
-      </Link>
-    </Button>
-  );
 
   if (!wallet.ready && wallet.state !== "wrong-chain")
     return (
-      <div className="flex flex-col gap-6">
-        {back}
-        <EmptyState
-          icon={Wallet}
-          title="Connect your wallet"
-          description="The research page appears once you connect the wallet that owns this agent."
-          action={
-            <Button onClick={wallet.connect}>
-              <Wallet aria-hidden /> Connect wallet
-            </Button>
-          }
-        />
-      </div>
+      <EmptyState
+        icon={Wallet}
+        title="Connect your wallet"
+        description="The research view opens once you connect the wallet that owns this agent."
+        action={
+          <Button onClick={wallet.connect}>
+            <Wallet aria-hidden /> Connect wallet
+          </Button>
+        }
+      />
     );
   if (wallet.state === "wrong-chain")
     return (
-      <div className="flex flex-col gap-6">
-        {back}
-        <EmptyState
-          icon={PlugZap}
-          title={`Switch to ${ENVIRONMENTS[environment].label}`}
-          description="Your wallet is on another network. Switch it to see this agent's research."
-          action={<Button onClick={wallet.switchChain}>Switch network</Button>}
-        />
-      </div>
-    );
-  if (!wallet.address)
-    return (
-      <div className="flex flex-col gap-6">
-        {back}
-        <Skeleton className="h-64" />
-      </div>
+      <EmptyState
+        icon={PlugZap}
+        title={`Switch to ${wallet.target.name}`}
+        description="Your wallet is on another network. Switch it to read this agent's research."
+        action={<Button onClick={wallet.switchChain}>Switch network</Button>}
+      />
     );
   if (error)
     return (
-      <div className="flex flex-col gap-6">
-        {back}
-        <EmptyState
-          icon={PlugZap}
-          title="Research not available"
-          description={error}
-          action={
-            <Button variant="secondary" onClick={refresh}>
-              Try again
-            </Button>
-          }
-        />
-      </div>
+      <EmptyState
+        icon={PlugZap}
+        title="Research not available"
+        description={error}
+        action={
+          <Button variant="secondary" onClick={refresh}>
+            Try again
+          </Button>
+        }
+      />
     );
-  if (!research)
-    return (
-      <div className="flex flex-col gap-6">
-        {back}
-        <Skeleton className="h-64" />
-      </div>
-    );
+  if (!research) return <ResearchSkeleton />;
 
   const c = research.cadence;
   const s = research.schedule;
-  // The account the owner may unpause: the agent's v3 account while its mode is not normal.
   const pausedAccount =
     sentinel?.account && sentinel.mode && sentinel.mode !== "NORMAL" ? sentinel.account : null;
 
+  const runs: RunOptionView[] = research.cycles.map((cy) => {
+    const rep = reports.find((r) => r.cycleId === cy.cycleId);
+    return {
+      id: cy.cycleId,
+      date: minute(cy.startedAt),
+      kind: KIND_WORD[cy.kind] ?? "Research",
+      level: levels[cy.cycleId] ?? "–",
+      spend: `${usdcCents(cy.chargedUsdcE6)} USDC`,
+      outcome:
+        rep?.summary ??
+        rep?.reason ??
+        (cy.status === "running" || cy.cycleId === open ? "Running now" : cy.status),
+      live: cy.cycleId === open,
+    };
+  });
   return (
     <div className="flex flex-col gap-6" data-testid="research-page" data-agent={id}>
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        {back}
-        <span className="text-xs text-foreground-muted">
-          {ENVIRONMENTS[environment].label} · agent #{id}
-        </span>
-      </div>
-      <header className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold">Research</h1>
-        <p className="text-sm text-foreground-muted">
-          What your agent is looking at, what it found and what it decided, as it happens.
-        </p>
-      </header>
-
-      <ResearchTiles
-        now={now}
-        view={{
-          running: research.running,
-          schedulingOn: research.schedulingOn,
-          paused: s.paused,
-          waitingReason: s.waitingReason,
-          nextDueAt: s.nextDueAt,
-          lastScanAt: s.lastScanAt,
-          intensity: c?.intensity ?? null,
-          budget: research.budget,
-          cycles: research.cycles.length,
-          open: research.open !== null,
-        }}
-        action={
-          research.running ? (
+      <section aria-label="Runs" className="flex flex-col gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <SectionLabel as="h2">Runs</SectionLabel>
+          {research.running ? (
             <Button
               size="sm"
               variant="secondary"
-              className="w-fit"
+              className="ml-auto"
               disabled={pausing}
               data-testid="research-pause"
               onClick={async () => {
@@ -217,36 +206,75 @@ export function ResearchPage({
             >
               {s.paused ? "Resume research" : "Pause research"}
             </Button>
-          ) : undefined
-        }
-      />
+          ) : null}
+        </div>
+        <RunPicker runs={runs} selected={cycleId} onSelect={setSelected} />
+      </section>
 
-      <AgentTerminal
-        lines={terminal.lines}
-        state={terminal.state}
-        cycle={terminal.cycle}
-        chain={CHAIN_NAMES[chainOfEnvironment(environment)]}
-        maxHeightClass="max-h-112"
-      />
+      {cycleId ? (
+        <>
+          <section aria-label="Sources" className="flex flex-col gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <SectionLabel as="h2">Sources</SectionLabel>
+              {live ? (
+                <span className="text-xs text-positive" data-testid="run-live">
+                  Live
+                </span>
+              ) : null}
+            </div>
+            <SourceBubbles
+              items={[
+                { label: "Web searches", count: counts.webSearches },
+                { label: "Pages read", count: counts.pagesRead },
+                { label: "X posts read", count: counts.xPosts },
+                { label: "Onchain reads", count: counts.onchainReads },
+                { label: "Market data calls", count: counts.marketCalls },
+                {
+                  label: "Stages completed",
+                  count: counts.stages.length,
+                  names: [...new Set(counts.stages)],
+                },
+              ]}
+            />
+          </section>
 
-      <Card data-testid="research-reports">
-        <CardHeader>
-          <CardTitle>Research reports</CardTitle>
-          <CardDescription>
-            Each research cycle ends with a report: what the agent concluded, the market, every
-            token it considered, the tokens it researched, the skeptic&apos;s objections and the
-            portfolio it recommends, with every source. Each opens as a document you can download as
-            a PDF.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {reportsRead.error ? (
-            <p className="text-sm text-warning">{reportsRead.error}</p>
-          ) : (
-            <ReportList items={reportListView(agentId, reportsRead.reports?.reports ?? [])} />
-          )}
-        </CardContent>
-      </Card>
+          <section aria-label="What happened" className="flex flex-col gap-2">
+            <SectionLabel as="h2">What happened</SectionLabel>
+            <PhaseList
+              phases={runPhases}
+              empty={terminal.state === "connecting" ? "Reading the run." : "No events recorded."}
+            />
+          </section>
+        </>
+      ) : (
+        <p className="text-sm text-foreground-muted">
+          No research run yet: the first comes with the activation sweep.
+        </p>
+      )}
+
+      <section
+        aria-label="Documents"
+        className="flex flex-col gap-2"
+        data-testid="research-reports"
+      >
+        <SectionLabel as="h2">Documents</SectionLabel>
+        {reportsRead.error ? (
+          <p className="text-sm text-warning">{reportsRead.error}</p>
+        ) : (
+          <DocumentList
+            linkAs={Link}
+            empty="No reports yet: the first is written when a research run ends."
+            rows={reports.map((r) => ({
+              id: r.cycleId,
+              title: r.summary ?? `${kindLabel(r.kind)} report`,
+              type: kindLabel(r.kind),
+              date: r.createdAt.slice(0, 10),
+              href: r.status === "written" ? reportHref(agentId, r.cycleId) : null,
+              note: r.status === "written" ? null : (r.reason ?? "No report was written."),
+            }))}
+          />
+        )}
+      </section>
 
       <div className="grid gap-6 lg:grid-cols-2">
         <ResearchScheduleCard
@@ -270,44 +298,20 @@ export function ResearchPage({
             refreshesOverview: c?.refreshesOverview ?? false,
           }}
         />
-        <Card>
-          <CardHeader>
-            <CardTitle>Budget and triggers</CardTitle>
-            <CardDescription>
-              Research spends from the agent's credits under the goal's daily budget; triggers are
-              free and start a cycle only when something material moved.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-4">
-            {research.budget ? (
-              <BudgetMeter
-                usedUsdcE6={research.budget.usedTodayUsdcE6}
-                dailyUsdcE6={research.budget.dailyBudgetUsdcE6}
-                divesToday={research.budget.divesToday}
-                divesPerDay={research.budget.divesPerDay}
-              />
-            ) : (
-              <p className="text-sm text-foreground-muted">Set a goal to give research a budget.</p>
-            )}
-            <TriggerList now={now} triggers={research.triggers} />
-          </CardContent>
-        </Card>
+        <div className="flex flex-col gap-3 rounded-md border border-border p-4">
+          <SectionLabel as="h2">Budget today</SectionLabel>
+          {research.budget ? (
+            <BudgetMeter
+              usedUsdcE6={research.budget.usedTodayUsdcE6}
+              dailyUsdcE6={research.budget.dailyBudgetUsdcE6}
+              divesToday={research.budget.divesToday}
+              divesPerDay={research.budget.divesPerDay}
+            />
+          ) : (
+            <p className="text-sm text-foreground-muted">Set a goal to give research a budget.</p>
+          )}
+        </div>
       </div>
-
-      <section aria-labelledby="timeline-title" className="flex flex-col gap-3">
-        <h2 id="timeline-title" className="text-lg font-semibold">
-          Research cycles
-        </h2>
-        <p className="text-sm text-foreground-muted">
-          Each cycle's stages with what they cost against their ceiling. Pick one to read it in the
-          terminal.
-        </p>
-        <StageTimeline
-          cycles={research.cycles}
-          selected={cycleId}
-          onSelect={(picked) => setSelected(picked === cycleId && open ? null : picked)}
-        />
-      </section>
 
       <SentinelCard
         view={{
@@ -318,14 +322,12 @@ export function ResearchPage({
           mode: sentinel?.mode ?? research.snapshot?.mode ?? null,
         }}
         actions={
-          <div className="flex flex-col gap-2">
-            <div className="flex flex-wrap items-center gap-2">
-              <Button asChild size="sm" variant="secondary">
-                <Link href={`/agents/${id}/portfolio`}>Open the portfolio</Link>
-              </Button>
+          pausedAccount || unpause.progress ? (
+            <div className="flex flex-col gap-2">
               {pausedAccount ? (
                 <Button
                   size="sm"
+                  className="w-fit"
                   disabled={unpause.busy}
                   onClick={() =>
                     void unpause
@@ -343,31 +345,31 @@ export function ResearchPage({
                   Unpause after review
                 </Button>
               ) : null}
+              {unpause.progress && unpause.text ? (
+                <WalletActionStatus
+                  state={unpause.progress.state}
+                  text={unpause.text}
+                  hash={unpause.progress.hash ?? null}
+                />
+              ) : null}
             </div>
-            {unpause.progress && unpause.text ? (
-              <WalletActionStatus
-                state={unpause.progress.state}
-                text={unpause.text}
-                hash={unpause.progress.hash ?? null}
-              />
-            ) : null}
-          </div>
+          ) : undefined
         }
       />
+    </div>
+  );
+}
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <ResearchOverview overview={research.overview} />
-        <ThemesPanel themes={research.themes} />
-        <MarketSnapshotPanel snapshot={research.snapshot} />
-        <PlanUnchangedCard view={research.planUnchanged} />
+/** The page's layout while its first read is out. */
+function ResearchSkeleton() {
+  return (
+    <div className="flex flex-col gap-6" aria-busy="true" data-testid="research-loading">
+      <Skeleton className="h-20 w-full" />
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_18rem]">
+        <Skeleton className="h-64 w-full" />
+        <Skeleton className="h-64 w-full" />
       </div>
-
-      <UniversePanel universe={research.universe ?? null} />
-
-      <WhyNotTraded
-        reasons={(why?.reasons ?? []).filter((r) => r.code !== "NOT_ARMED")}
-        armingEnded={why?.armingEnded?.message ?? null}
-      />
+      <Skeleton className="h-48 w-full" />
     </div>
   );
 }

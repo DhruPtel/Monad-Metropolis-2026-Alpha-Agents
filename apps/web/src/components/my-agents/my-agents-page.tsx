@@ -1,71 +1,31 @@
 "use client";
 
 import { type EnvironmentId, ENVIRONMENTS } from "@alpha-agents/config";
+import { slotsFor, speciesAsset, speciesByIndex } from "@alpha-agents/domain";
 import {
-  CHAIN_NAMES,
-  chainOfEnvironment,
-  slotsFor,
-  speciesAsset,
-  speciesByIndex,
-} from "@alpha-agents/domain";
-import {
-  PendingAgentNotice,
   AgentCard,
-  ActivityFeed,
+  AgentListCard,
   Button,
-  Card,
-  CreditsTile,
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
   EmptyState,
-  FundAgentPanel,
-  GoalSummary,
   PageLoading,
+  PendingAgentNotice,
   RevealMoment,
-  RunStatusBadge,
-  SectionLabel,
-  Skeleton,
-  SpeciesArt,
-  SpendPanel,
-  Tag,
-  TradingTile,
-  type TradingTileView,
-  MakeupSwitch,
+  usdcCents,
 } from "@alpha-agents/ui";
-import { Bot, Compass, PlugZap, Plus, RotateCcw, Wallet } from "lucide-react";
+import { Bot, PlugZap, RotateCcw, Wallet } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
-import type { Address } from "viem";
-import { AddCreditsSection } from "@/components/credits/add-credits-section";
-import { AgentHoldings } from "@/components/holdings/agent-holdings";
 import { useWalletSession } from "@/auth/session";
 import type { AgentView } from "@/agent/chain";
-import {
-  myAgentsPageState,
-  othersKeepCredits,
-  refundAmountText,
-  refundAvailability,
-  researchLine,
-  scanAvailability,
-  scanStatusText,
-  tradingStateWords,
-} from "@/agent/my-agents";
+import { myAgentsPageState } from "@/agent/my-agents";
 import { useRevealSeen } from "@/agent/reveal-seen";
 import { useRevealStatus } from "@/agent/reveal-status";
 import { useOwnedAgents } from "@/agent/use-agents";
 import { type ActionState, useMyAgent } from "@/agent/use-my-agent";
-
-const TIER_TONE = { base: "neutral", medium: "rare", pro: "legendary" } as const;
-const TIER_NAME = { base: "Base", medium: "Medium", pro: "Pro" } as const;
+import { useSkillInventory } from "@/agent/use-skill-inventory";
 
 /** One action's outcome, said once, for screen readers too. */
-function ActionLine({ action, testId }: { action: ActionState; testId: string }) {
+export function ActionLine({ action, testId }: { action: ActionState; testId: string }) {
   if (action.state === "idle") return null;
   return (
     <p
@@ -85,60 +45,39 @@ function ActionLine({ action, testId }: { action: ActionState; testId: string })
   );
 }
 
+const GOAL_WORD: Readonly<Record<string, string>> = {
+  CONSERVATIVE: "Conservative",
+  BALANCED: "Balanced",
+  AGGRESSIVE: "Aggressive",
+};
+
 /**
- * One owned agent (UI-U1, the owner's UI direction): the trading account as
- * the centerpiece with one obvious action, the credits and the research
- * action near the top, and the spend, the activity, the funding address and
- * every holding at the bottom.
+ * One owned agent on My Agents (UI-FAST): a card with its art, name, tier,
+ * skills, value and goal; the card opens the agent's page, and Set goal sits
+ * on it while the agent has none. An agent not yet revealed, or whose reveal
+ * the owner has not seen, shows its reveal moment above the card.
  */
-function MyAgentCard({ agent, environment }: { agent: AgentView; environment: EnvironmentId }) {
+function MyAgentItem({ agent, environment }: { agent: AgentView; environment: EnvironmentId }) {
   const id = agent.id.toString();
-  const name = `Alpha Agent #${id}`;
   const species = agent.species === 0 ? null : speciesByIndex(agent.species);
-  const {
-    summary,
-    activity,
-    trading,
-    windowView,
-    armingState,
-    error,
-    refund,
-    scan,
-    requestRefund,
-    requestScan,
-    refresh,
-  } = useMyAgent(agent.id);
-  const [creditsOpen, setCreditsOpen] = useState(false);
-  // UI-U2: the reveal moment: the countdown while pending, the result hidden until Reveal, and
-  // the rarity shown until the page is next opened.
+  const { summary, trading } = useMyAgent(agent.id, { performance: false });
+  const skills = useSkillInventory(species ? agent.id : null);
   const { seen, markSeen } = useRevealSeen(environment, agent.id);
   const [revealedNow, setRevealedNow] = useState(false);
   const waitingNote = useRevealStatus(environment, species === null ? agent.id : null);
   const moment = species === null || !seen || revealedNow;
-  const canScan = summary ? scanAvailability(summary) : null;
-  const canRefund = summary ? refundAvailability(summary) : null;
-  const scanLine = summary ? scanStatusText(summary) : null;
-  const state = trading?.hasAccount ? tradingStateWords(armingState) : null;
-  const tile: TradingTileView | null = trading
-    ? {
-        hasAccount: trading.hasAccount,
-        valueUsdcE6: trading.valueUsdcE6,
-        mode: trading.mode ?? null,
-        makeup: trading.makeup,
-        series: windowView?.series ?? null,
-        usdcShareBps: trading.usdcShareBps,
-        ...(trading.restLabel ? { restLabel: trading.restLabel } : {}),
-        ...(state ? { state } : {}),
-      }
+  const shown = species && !moment ? species : null;
+  const goal = summary?.goal?.configured
+    ? (GOAL_WORD[summary.goal.aggressiveness ?? ""] ?? "Goal set")
     : null;
-
+  const value =
+    trading === null || trading.valueUsdcE6 === null
+      ? trading?.hasAccount === false
+        ? "No account"
+        : "–"
+      : `${usdcCents(trading.valueUsdcE6)} USDC`;
   return (
-    <Card
-      className="flex flex-col gap-5 p-5"
-      data-testid="my-agent-card"
-      data-agent-id={id}
-      aria-labelledby={`agent-${id}-name`}
-    >
+    <li className="flex flex-col gap-2" data-testid="my-agent-item" data-agent-id={id}>
       {moment ? (
         <RevealMoment
           agentId={agent.id}
@@ -149,246 +88,35 @@ function MyAgentCard({ agent, environment }: { agent: AgentView; environment: En
             markSeen();
             setRevealedNow(true);
           }}
-          href={`/configure?agent=${id}`}
+          href={`/agents/${id}`}
           linkAs={Link}
         />
       ) : null}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
-        {moment ? null : (
-          <SpeciesArt
-            image={species ? speciesAsset(agent.species).image : null}
-            speciesName={species?.name ?? null}
-            tier={species?.tier ?? null}
-            className="max-w-32 self-center sm:self-start"
-          />
-        )}
-        <div className="flex min-w-0 flex-1 flex-col gap-2">
-          <div className="flex flex-wrap items-center gap-2">
-            <h2 id={`agent-${id}-name`} className="text-lg font-semibold">
-              {name}
-            </h2>
-            {species && !moment ? (
-              <>
-                <Tag tone={TIER_TONE[species.tier]} size="md">
-                  {TIER_NAME[species.tier]}
-                </Tag>
-                <Tag size="md">{species.name}</Tag>
-              </>
-            ) : (
-              <Tag size="md">{species ? "Revealed" : "Unrevealed"}</Tag>
-            )}
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            {summary ? (
-              <RunStatusBadge status={summary.runStatus} />
-            ) : error ? null : (
-              <Skeleton className="h-5 w-28" />
-            )}
-          </div>
-          {summary?.goal ? (
-            <GoalSummary
-              state={summary.goal.state}
-              aggressiveness={summary.goal.aggressiveness}
-              action={
-                <Button asChild size="sm" variant="ghost">
-                  <Link href={`/agents/${id}/goal`}>
-                    {summary.goal.configured ? "Change goal" : "Set goal"}
-                  </Link>
-                </Button>
-              }
-            />
-          ) : null}
-          {summary?.runStatus === "awaiting_reveal" ? (
-            <p className="text-sm text-foreground-muted" data-testid="unrevealed-note">
-              Minted and waiting for its reveal, which draws its species and tier. It is set up to
-              run right after.
-            </p>
-          ) : null}
-          {error ? (
-            <p role="alert" className="text-sm text-negative" data-testid="card-error">
-              {error}
-            </p>
-          ) : null}
-        </div>
-        <Button asChild variant="secondary" size="sm" className="self-start">
-          <Link href={`/configure?agent=${id}`}>Configure</Link>
-        </Button>
-      </div>
-
-      {summary ? (
-        <>
-          <div className="grid gap-4 lg:grid-cols-3">
-            <TradingTile
-              agentName={name}
-              trading={tile}
-              primary={
-                <Button asChild size="sm">
-                  <Link href={`/agents/${id}/portfolio`}>
-                    {trading?.hasAccount ? "Open portfolio" : "Set up trading"}
-                  </Link>
-                </Button>
-              }
-              secondary={
-                <>
-                  {trading?.hasAccount ? (
-                    <Button asChild size="sm" variant="secondary">
-                      <Link href={`/agents/${id}/window`}>Performance</Link>
-                    </Button>
-                  ) : null}
-                  <Button asChild size="sm" variant="ghost">
-                    <Link href={`/agents/${id}/skills`} data-testid="skills-link">
-                      Skills
-                    </Link>
-                  </Button>
-                  <Button asChild size="sm" variant="ghost">
-                    <Link href={`/agents/${id}/settings`} data-testid="settings-link">
-                      Settings
-                    </Link>
-                  </Button>
-                </>
-              }
-            />
-            <CreditsTile
-              agentName={name}
-              creditsUsdcE6={summary.credits}
-              capUsdcE6={summary.creditCap}
-              heldUsdcE6={summary.held}
-              restrictedNote={
-                summary.runStatus === "restricted"
-                  ? `Research is paused because ${name} has no credits. Safety checks keep running. Add credits to resume.`
-                  : null
-              }
-              addCredits={
-                <>
-                  <Dialog open={creditsOpen} onOpenChange={setCreditsOpen}>
-                    <DialogTrigger asChild>
-                      <Button size="sm" data-testid="open-add-credits">
-                        <Plus aria-hidden /> Add credits
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent aria-describedby={`agent-${id}-credits-description`}>
-                      <DialogHeader>
-                        <DialogTitle>Add credits to {name}</DialogTitle>
-                        <DialogDescription id={`agent-${id}-credits-description`}>
-                          Your wallet sends USDC to {name}&apos;s funding address in one
-                          transaction, and it becomes credits with no other step.
-                        </DialogDescription>
-                      </DialogHeader>
-                      <AddCreditsSection
-                        agentId={agent.id}
-                        agentName={name}
-                        environment={environment}
-                        fundingAddress={
-                          (summary.funding?.fundingAddress as Address | undefined) ?? null
-                        }
-                        creditsUsdcE6={summary.credits}
-                        capUsdcE6={summary.creditCap}
-                        onCredited={refresh}
-                      />
-                    </DialogContent>
-                  </Dialog>
-                  <Dialog>
-                    <DialogTrigger asChild>
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        disabled={!canRefund?.enabled || refund.state === "working"}
-                      >
-                        <RotateCcw aria-hidden /> Refund credits
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent>
-                      <DialogHeader>
-                        <DialogTitle>Refund {name}&apos;s credits?</DialogTitle>
-                        <DialogDescription>
-                          Sends {refundAmountText(summary)}, your own share of the credits, from its
-                          funding address to your wallet.{" "}
-                          {othersKeepCredits(summary)
-                            ? "Credits other people contributed stay with the agent. "
-                            : null}
-                          The refund is tied to your ownership (epoch{" "}
-                          <span className="numeric">{summary.ownerEpoch.toString()}</span>): if{" "}
-                          {name} changes hands first, it is refused and the credits stay with the
-                          agent. Research pauses until it is funded again.
-                        </DialogDescription>
-                      </DialogHeader>
-                      <DialogFooter>
-                        <DialogClose asChild>
-                          <Button variant="secondary">Cancel</Button>
-                        </DialogClose>
-                        <DialogClose asChild>
-                          <Button onClick={requestRefund}>Refund</Button>
-                        </DialogClose>
-                      </DialogFooter>
-                    </DialogContent>
-                  </Dialog>
-                </>
-              }
-              research={
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  disabled={!canScan?.enabled || scan.state === "working"}
-                  onClick={requestScan}
-                >
-                  <Compass aria-hidden /> Research now
-                </Button>
-              }
-              researchLine={researchLine(summary, name)}
-              researchStatus={
-                <>
-                  {canScan && !canScan.enabled ? (
-                    <p className="text-xs text-foreground-muted" data-testid="scan-unavailable">
-                      {canScan.reason}
-                    </p>
-                  ) : null}
-                  {scanLine ? (
-                    <p className="text-xs text-foreground-muted" data-testid="scan-status">
-                      {scanLine}
-                    </p>
-                  ) : null}
-                  <ActionLine action={scan} testId="scan-result" />
-                  <ActionLine action={refund} testId="refund-result" />
-                </>
-              }
-            />
-          </div>
-          {trading?.hasAccount && windowView ? (
-            // UX-U1: the positions as the portfolio's tiles, on the dashboard too.
-            <MakeupSwitch
-              rows={windowView.holdings}
-              totalValueUsdcE6={windowView.totalValueUsdcE6}
-              asOf={windowView.asOf}
-              chain={CHAIN_NAMES[chainOfEnvironment(environment)]}
-              emptyText="The positions appear after the first deposit into the trading account."
-            />
-          ) : null}
-
-          <div className="grid gap-6 border-t border-border pt-5 lg:grid-cols-3">
-            <SpendPanel
-              agentName={name}
-              spent24hUsdcE6={summary.spent24h}
-              charges={summary.charges.slice(0, 8)}
-            />
-            <section aria-label={`Activity of ${name}`} className="flex flex-col gap-3">
-              <SectionLabel as="h4">Activity</SectionLabel>
-              <ActivityFeed
-                label={`Activity entries of ${name}`}
-                entries={activity.slice(0, 5)}
-                empty="No activity yet. Entries appear after each research run."
-              />
-            </section>
-            <FundAgentPanel agentName={name} funding={summary.funding} />
-          </div>
-          <AgentHoldings agentId={agent.id} environment={environment} />
-        </>
-      ) : error ? null : (
-        <div className="grid gap-4 lg:grid-cols-3" aria-busy="true" aria-label={`Reading ${name}`}>
-          <Skeleton className="h-40 w-full lg:col-span-2" />
-          <Skeleton className="h-40 w-full" />
-        </div>
-      )}
-    </Card>
+      <AgentListCard
+        agent={{
+          id,
+          name: `Agent #${id}`,
+          image: shown ? speciesAsset(agent.species).image : null,
+          tier: shown?.tier ?? null,
+          speciesName: shown?.name ?? null,
+          skills:
+            skills.state === "ready"
+              ? `${skills.skills.length} ${skills.skills.length === 1 ? "skill" : "skills"}`
+              : "– skills",
+          value,
+          goal,
+          href: `/agents/${id}`,
+        }}
+        setGoal={
+          summary ? (
+            <Button asChild size="sm" variant="secondary">
+              <Link href={`/agents/${id}/goal`}>Set goal</Link>
+            </Button>
+          ) : undefined
+        }
+        linkAs={Link}
+      />
+    </li>
   );
 }
 
@@ -410,10 +138,7 @@ export function MyAgentsPage({ environment }: { environment: EnvironmentId }) {
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-2">
         <h1 className="text-2xl font-semibold">My Agents</h1>
-        <p className="max-w-2xl text-sm text-foreground-muted">
-          Your agents on {wallet.target.name}: each one&apos;s trading account, its credits and
-          research, and what it holds.
-        </p>
+        <p className="text-sm text-foreground-muted">Your agents on {wallet.target.name}.</p>
       </div>
       {state === "logged-out" || state === "connecting" ? (
         <EmptyState
@@ -472,14 +197,14 @@ export function MyAgentsPage({ environment }: { environment: EnvironmentId }) {
           description="Each wallet mints up to two agents. Connect the wallet that holds them now to see them here."
         />
       ) : (
-        <div className="flex flex-col gap-6" data-testid="my-agents">
+        <ul className="flex flex-col gap-3" data-testid="my-agents">
           {owned.agents.map((a) =>
             a.indexed ? (
-              <MyAgentCard key={a.id.toString()} agent={a} environment={environment} />
+              <MyAgentItem key={a.id.toString()} agent={a} environment={environment} />
             ) : (
               // Read only from the chain (P2-EC): no platform record yet, so no owner
               // controls; the full card replaces it when the index catches up.
-              <div key={a.id.toString()} className="flex flex-col gap-3">
+              <li key={a.id.toString()} className="flex flex-col gap-3">
                 <PendingAgentNotice agentId={a.id} stage={a.pending ?? "indexing"} />
                 <AgentCard
                   agentId={a.id}
@@ -492,10 +217,10 @@ export function MyAgentsPage({ environment }: { environment: EnvironmentId }) {
                   ownerEpoch={a.ownerEpoch}
                   environment={ENVIRONMENTS[environment].label}
                 />
-              </div>
+              </li>
             ),
           )}
-        </div>
+        </ul>
       )}
     </div>
   );

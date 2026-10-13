@@ -168,7 +168,7 @@ describe("Button", () => {
   });
 });
 
-describe("Button sizes and the secondary-accent variant", () => {
+describe("Button sizes and the one secondary style (UI-FAST)", () => {
   it.each([
     ["sm", "h-7"],
     ["md", "h-9"],
@@ -179,12 +179,21 @@ describe("Button sizes and the secondary-accent variant", () => {
     expect(screen.getByRole("button", { name: "Run" })).toHaveClass(height);
   });
 
-  it("secondary-accent is a lime outline on a transparent fill", () => {
-    render(<Button variant="secondary-accent">Run agent test</Button>);
-    expect(screen.getByRole("button", { name: "Run agent test" })).toHaveClass(
-      "border-primary-muted",
-      "bg-transparent",
-      "text-primary",
+  it("a toggle that is on keeps the secondary style and shows its state through aria-pressed", () => {
+    render(
+      <Button variant="secondary" aria-pressed>
+        Table
+      </Button>,
+    );
+    const b = screen.getByRole("button", { name: "Table" });
+    expect(b).toHaveClass("bg-surface-raised", "aria-pressed:border-primary");
+  });
+
+  it("a destructive action keeps the secondary shape in the negative tone", () => {
+    render(<Button variant="danger">Disarm</Button>);
+    expect(screen.getByRole("button", { name: "Disarm" })).toHaveClass(
+      "bg-surface-raised",
+      "text-negative",
     );
   });
 });

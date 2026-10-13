@@ -15,7 +15,7 @@ import {
   Skeleton,
   Tag,
 } from "@alpha-agents/ui";
-import { ArrowLeft, PlugZap, RotateCcw, Wallet } from "lucide-react";
+import { PlugZap, RotateCcw, Wallet } from "lucide-react";
 import Link from "next/link";
 import { useWindow } from "@/agent/use-window";
 import { CHAIN_NAMES, chainOfEnvironment } from "@alpha-agents/domain";
@@ -40,26 +40,11 @@ export function WindowPage({
 }) {
   const wallet = useWalletSession();
   const { window: w, error, refresh } = useWindow(agentId);
-  const name = `Agent #${agentId.toString()}`;
   const network = ENVIRONMENTS[environment].label;
-  const portfolio = `/agents/${agentId.toString()}/portfolio`;
+  const portfolio = `/agents/${agentId.toString()}`;
 
-  const header = (
-    <div className="flex flex-col gap-2">
-      <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-foreground-muted">
-        <Link href="/agents" className="flex items-center gap-1">
-          <ArrowLeft aria-hidden className="size-4" /> My Agents
-        </Link>
-        <Link href={portfolio}>Portfolio</Link>
-        <Link href={`/agents/${agentId.toString()}/goal`}>Goal</Link>
-      </div>
-      <h1 className="text-2xl font-semibold">{name}: performance window</h1>
-      <p className="max-w-2xl text-sm text-foreground-muted">
-        What {name} holds on {network} and how it is doing, on the account&apos;s value per unit:
-        your deposits and withdrawals never count as gains or losses.
-      </p>
-    </div>
-  );
+  // UI-FAST: the agent's header and tabs come from its shell; the window is reached by link.
+  const header = <h2 className="text-lg font-semibold">Performance window</h2>;
 
   if (!wallet.ready && wallet.state !== "wrong-chain")
     return (

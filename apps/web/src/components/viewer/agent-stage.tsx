@@ -118,7 +118,7 @@ export function AgentStage({
       tools={
         mode === "3d" ? (
           <Button
-            variant={animationOn ? "secondary-accent" : "secondary"}
+            variant="secondary"
             size="sm"
             aria-pressed={animationOn}
             onClick={toggleAnimation}

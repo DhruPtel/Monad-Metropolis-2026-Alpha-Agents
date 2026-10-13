@@ -21,6 +21,9 @@ const ACCOUNT_ABI = parseAbi([
   "function principal() view returns (uint256)",
 ]);
 
+/** A mint block's time never changes, so each is read once per page load. */
+const blockTimes = new Map<number, number>();
+
 export type HomeStatus =
   | { readonly state: "not-deployed" }
   | { readonly state: "loading" }
@@ -86,6 +89,20 @@ export function useHome(environment: EnvironmentId): HomeStatus {
         return agents.map(() => null);
       }
     };
+    const mintTimes = async (agents: readonly ApiAgent[]) => {
+      const missing = [
+        ...new Set(agents.flatMap((a) => (a.mintedBlock === undefined ? [] : [a.mintedBlock]))),
+      ].filter((b) => !blockTimes.has(b));
+      // One at a time: a public RPC limits bursts, and each block is read only once.
+      for (const b of missing) {
+        try {
+          const block = await client.getBlock({ blockNumber: BigInt(b) });
+          blockTimes.set(b, Number(block.timestamp));
+        } catch {
+          // Left unread: the age shows "–" and the next refresh tries again.
+        }
+      }
+    };
     void (async () => {
       try {
         const agents = await api.agents({});
@@ -101,9 +118,14 @@ export function useHome(environment: EnvironmentId): HomeStatus {
         );
         const factory = reads.find((r) => r.vault)?.vault?.vault.contracts.accountFactory ?? null;
         const onchain = await accounts(agents, factory);
+        await mintTimes(agents);
         const inputs: HomeAgentInput[] = reads.map((r, i) => ({
           ...r,
           account: onchain[i] ?? null,
+          mintedAt:
+            r.agent.mintedBlock === undefined
+              ? null
+              : (blockTimes.get(r.agent.mintedBlock) ?? null),
         }));
         if (live) setStatus({ state: "ready", view: homeView(inputs, Date.now()), at: Date.now() });
       } catch {
