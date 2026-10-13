@@ -1,5 +1,9 @@
 import {
+  AGGRESSIVENESS_ENVELOPES,
+  ALLOCATION_DEFAULTS,
+  ALLOCATION_STEP_BPS,
   type Aggressiveness,
+  type GoalAllocation,
   type GoalInput,
   type ModelTier,
   OWNER_LIMIT_FACTS,
@@ -29,6 +33,53 @@ export interface GoalForm {
   readonly budgetText: string;
   readonly reserveText: string;
   readonly planChanges: PlanChangeMode;
+  /** 2026-10-13: the split by market cap, in 5% steps that add up to 100%. */
+  readonly allocation: GoalAllocation;
+  /** 2026-10-13: the most positions, at most the style's. */
+  readonly maxPositions: number;
+}
+
+export type AllocationKey = keyof GoalAllocation;
+
+/**
+ * One share moved to `value` (in 5% steps); the other two take the rest in
+ * their old proportion, so the three always add up to 100%.
+ */
+export function rebalanceAllocation(
+  a: GoalAllocation,
+  key: AllocationKey,
+  value: number,
+): GoalAllocation {
+  const step = ALLOCATION_STEP_BPS;
+  const v = Math.min(10_000, Math.max(0, Math.round(value / step) * step));
+  const [k1, k2] = (["degenBps", "growthBps", "conservativeBps"] as const).filter(
+    (k) => k !== key,
+  ) as [AllocationKey, AllocationKey];
+  const rest = 10_000 - v;
+  const was = a[k1] + a[k2];
+  const first =
+    was === 0 ? Math.round(rest / 2 / step) * step : Math.round((a[k1] * rest) / was / step) * step;
+  return { ...a, [key]: v, [k1]: first, [k2]: rest - first } as GoalAllocation;
+}
+
+/** What picking a style sets (2026-10-13): its split, its most positions, and the safety opt-in on for Aggressive. */
+export function withStyle(f: GoalForm, style: Aggressiveness): GoalForm {
+  return {
+    ...f,
+    aggressiveness: style,
+    allocation: ALLOCATION_DEFAULTS[style],
+    maxPositions: AGGRESSIVENESS_ENVELOPES[style].maxPositions,
+    screenedOptIn: style === "AGGRESSIVE" ? true : f.screenedOptIn,
+  };
+}
+
+/** A saved goal as the form reads it: a goal saved before the split had none, which means the style's. */
+function filled(goal: GoalInput): GoalInput {
+  return {
+    ...goal,
+    allocation: goal.allocation ?? ALLOCATION_DEFAULTS[goal.aggressiveness],
+    maxPositions: goal.maxPositions ?? AGGRESSIVENESS_ENVELOPES[goal.aggressiveness].maxPositions,
+  };
 }
 
 // Budgets and reserves stay under 1,000 USDC, so the text never carries a grouping comma.
@@ -41,7 +92,8 @@ function limitInput(field: OwnerLimitField, value: number | null): string {
   return OWNER_LIMIT_FACTS[field].unit === "bps" ? (value / 100).toString() : value.toString();
 }
 
-export function formFromGoal(goal: GoalInput): GoalForm {
+export function formFromGoal(saved: GoalInput): GoalForm {
+  const goal = filled(saved);
   const limits = {} as Record<OwnerLimitField, string>;
   for (const f of OWNER_LIMIT_FIELDS) limits[f] = limitInput(f, goal.stricterLimits[f]);
   return {
@@ -54,6 +106,8 @@ export function formFromGoal(goal: GoalInput): GoalForm {
     budgetText: usdcText(goal.research.dailyBudgetUsdcE6),
     reserveText: usdcText(goal.creditReserveUsdcE6),
     planChanges: goal.planChanges,
+    allocation: goal.allocation ?? ALLOCATION_DEFAULTS[goal.aggressiveness],
+    maxPositions: goal.maxPositions ?? AGGRESSIVENESS_ENVELOPES[goal.aggressiveness].maxPositions,
   };
 }
 
@@ -103,6 +157,8 @@ export function goalFromForm(
       research: { intensity: f.intensity, dailyBudgetUsdcE6: budget.toString() },
       creditReserveUsdcE6: reserve.toString(),
       planChanges: f.planChanges,
+      allocation: f.allocation,
+      maxPositions: f.maxPositions,
     },
     errors: null,
   };
@@ -133,6 +189,9 @@ export function goalChanged(form: GoalForm, saved: GoalInput | null): boolean {
   return (
     parsed.goal === null ||
     stable(parsed.goal) !==
-      stable({ ...saved, excludedTokens: saved.excludedTokens.map((t) => t.toLowerCase()) })
+      stable({
+        ...filled(saved),
+        excludedTokens: saved.excludedTokens.map((t) => t.toLowerCase()),
+      })
   );
 }

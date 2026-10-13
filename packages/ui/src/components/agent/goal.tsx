@@ -8,11 +8,12 @@ import {
   type ResearchIntensity,
   formatAmount,
 } from "@alpha-agents/domain";
-import { CircleAlert, CircleCheck, LoaderCircle } from "lucide-react";
+import { CircleAlert, CircleCheck, ImageIcon, LoaderCircle } from "lucide-react";
 import type { ReactNode } from "react";
 import { cn } from "../../lib/utils";
 import { StatusPill } from "../status-pill";
 import { Field, Input } from "../ui/input";
+import { Slider } from "../ui/slider";
 import { SectionLabel } from "../ui/section-label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../ui/table";
 import { FactTile, TileGrid } from "./tiles";
@@ -451,4 +452,183 @@ function GoalSaveStatus({
   );
 }
 
-export { CostPreview, EffectiveLimits, GoalSaveStatus, GoalSummary, GoalTiles, LimitField };
+/** One square style tile (2026-10-13): a slot for its art, the name and one line. */
+export interface StyleTileView {
+  readonly value: Aggressiveness;
+  readonly title: string;
+  readonly line: string;
+  /** The tile's art; null shows the empty slot until the art is made. */
+  readonly art?: string | null;
+}
+
+/**
+ * The goal's style as three square tiles (2026-10-13), one chosen: each with a
+ * slot for its art, its name and one short line. A radio group: arrow keys move.
+ */
+function StyleTiles({
+  value,
+  onValueChange,
+  tiles,
+  disabled,
+  className,
+}: {
+  value: Aggressiveness;
+  onValueChange: (v: Aggressiveness) => void;
+  tiles: readonly StyleTileView[];
+  disabled?: boolean;
+  className?: string;
+}) {
+  return (
+    <div
+      role="radiogroup"
+      aria-label="Style"
+      className={cn("grid grid-cols-3 gap-3", className)}
+      data-testid="style-tiles"
+    >
+      {tiles.map((t, i) => {
+        const on = t.value === value;
+        return (
+          <button
+            key={t.value}
+            type="button"
+            role="radio"
+            aria-checked={on}
+            tabIndex={on ? 0 : -1}
+            disabled={disabled}
+            onClick={() => onValueChange(t.value)}
+            onKeyDown={(e) => {
+              const step =
+                e.key === "ArrowRight" || e.key === "ArrowDown"
+                  ? 1
+                  : e.key === "ArrowLeft" || e.key === "ArrowUp"
+                    ? -1
+                    : 0;
+              if (!step) return;
+              e.preventDefault();
+              const next = tiles[(i + step + tiles.length) % tiles.length];
+              if (next) onValueChange(next.value);
+            }}
+            className={cn(
+              "flex aspect-square flex-col items-center justify-center gap-2 rounded-md border p-3 text-center outline-none transition-colors is-focus:focus-ring disabled:opacity-50",
+              on ? "border-primary bg-surface-raised" : "border-border hover:border-border-strong",
+            )}
+            data-testid="style-tile"
+            data-value={t.value}
+          >
+            {t.art ? (
+              <img src={t.art} alt="" className="size-12 rounded-md object-cover" />
+            ) : (
+              <span
+                aria-hidden
+                className="flex size-12 items-center justify-center rounded-md border border-dashed border-border-strong text-foreground-subtle"
+              >
+                <ImageIcon className="size-5" />
+              </span>
+            )}
+            <span className="text-sm font-medium">{t.title}</span>
+            <span className="text-xs text-foreground-muted">{t.line}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+export interface AllocationRowView {
+  readonly key: string;
+  readonly label: string;
+  readonly line: string;
+  readonly bps: number;
+}
+
+/** Three shares as sliders in 5% steps that always add up to 100% (2026-10-13); the page rebalances them. */
+function AllocationSliders({
+  rows,
+  onChange,
+  disabled,
+  className,
+}: {
+  rows: readonly AllocationRowView[];
+  onChange: (key: string, bps: number) => void;
+  disabled?: boolean;
+  className?: string;
+}) {
+  return (
+    <div className={cn("flex flex-col gap-4", className)} data-testid="allocation">
+      {rows.map((r) => (
+        <div
+          key={r.key}
+          className="flex flex-col gap-1.5"
+          data-testid="allocation-row"
+          data-key={r.key}
+        >
+          <div className="flex items-baseline justify-between gap-3">
+            <span className="text-sm font-medium">{r.label}</span>
+            <span className="numeric text-sm" data-testid="allocation-value">
+              {r.bps / 100}%
+            </span>
+          </div>
+          <Slider
+            thumbLabel={r.label}
+            min={0}
+            max={10_000}
+            step={500}
+            value={[r.bps]}
+            disabled={disabled ?? false}
+            onValueChange={(v) => onChange(r.key, v[0] ?? 0)}
+          />
+          <span className="text-xs text-foreground-muted">{r.line}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** The goal as a short summary with its save (2026-10-13): a few labeled rows, then the action and its status. */
+function GoalPreviewCard({
+  rows,
+  note,
+  action,
+  status,
+  className,
+}: {
+  rows: readonly { readonly label: string; readonly value: string }[];
+  /** One plain line on what saving does. */
+  note: string;
+  action: ReactNode;
+  status?: ReactNode;
+  className?: string;
+}) {
+  return (
+    <section
+      aria-label="Preview"
+      className={cn("flex flex-col gap-4 rounded-md border border-border p-4", className)}
+      data-testid="goal-preview"
+    >
+      <SectionLabel as="h3">Preview</SectionLabel>
+      <dl className="flex flex-col gap-2 text-sm">
+        {rows.map((r) => (
+          <div key={r.label} className="flex items-baseline justify-between gap-3">
+            <dt className="text-foreground-muted">{r.label}</dt>
+            <dd className="text-right font-medium">{r.value}</dd>
+          </div>
+        ))}
+      </dl>
+      <p className="text-xs text-foreground-muted">{note}</p>
+      {action}
+      {status}
+    </section>
+  );
+}
+
+export {
+  AllocationSliders,
+  CostPreview,
+  EffectiveLimits,
+  GoalPreviewCard,
+  GoalSaveStatus,
+  GoalSummary,
+  GoalTiles,
+  LimitField,
+  StyleTiles,
+};

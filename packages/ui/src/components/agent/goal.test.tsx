@@ -4,14 +4,17 @@ import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { ChoiceGroup } from "../ui/choice-group";
 import {
+  AllocationSliders,
   CostPreview,
   EffectiveLimits,
+  GoalPreviewCard,
   GoalSaveStatus,
   GoalSummary,
   GoalTiles,
   LimitField,
   bpsText,
   goalTileWords,
+  StyleTiles,
   percentToBps,
 } from "./goal";
 
@@ -271,5 +274,66 @@ describe("the goal at a glance as tiles (UI-U2)", () => {
       "#goal-tokens",
     );
     expect(tiles.getAllByRole("link")).toHaveLength(4);
+  });
+});
+
+describe("the Set goal page's parts (2026-10-13)", () => {
+  it("StyleTiles is a radio group of square tiles with an art slot; a click or an arrow key picks", async () => {
+    const picked: string[] = [];
+    render(
+      <StyleTiles
+        value="BALANCED"
+        onValueChange={(v) => picked.push(v)}
+        tiles={[
+          { value: "CONSERVATIVE", title: "Conservative", line: "Top assets." },
+          { value: "BALANCED", title: "Balanced", line: "Plus growth." },
+          { value: "AGGRESSIVE", title: "Aggressive", line: "Small caps too." },
+        ]}
+      />,
+    );
+    const group = screen.getByRole("radiogroup", { name: "Style" });
+    const radios = within(group).getAllByRole("radio");
+    expect(radios.map((r) => r.getAttribute("aria-checked"))).toEqual(["false", "true", "false"]);
+    await userEvent.click(radios[2] as HTMLElement);
+    radios[1]?.focus();
+    await userEvent.keyboard("{ArrowLeft}");
+    expect(picked).toEqual(["AGGRESSIVE", "CONSERVATIVE"]);
+  });
+
+  it("AllocationSliders shows each share and its line; GoalPreviewCard the summary and the save", () => {
+    // Radix's slider measures its track; jsdom has no ResizeObserver.
+    const none = () => undefined;
+    globalThis.ResizeObserver ??= class {
+      observe = none;
+      unobserve = none;
+      disconnect = none;
+    } as unknown as typeof ResizeObserver;
+    render(
+      <>
+        <AllocationSliders
+          onChange={() => undefined}
+          rows={[
+            { key: "degen", label: "Degen", line: "Tokens under $100M market cap.", bps: 1_000 },
+            { key: "growth", label: "Growth", line: "Tokens from $100M to $1B.", bps: 3_000 },
+          ]}
+        />
+        <GoalPreviewCard
+          rows={[{ label: "Positions", value: "Up to 8" }]}
+          note="Saving starts a new plan."
+          action={<button type="button">Save</button>}
+        />
+      </>,
+    );
+    expect(screen.getAllByTestId("allocation-value").map((e) => e.textContent)).toEqual([
+      "10%",
+      "30%",
+    ]);
+    expect(screen.getAllByRole("slider").map((s) => s.getAttribute("aria-label"))).toEqual([
+      "Degen",
+      "Growth",
+    ]);
+    expect(screen.getByTestId("goal-preview")).toHaveTextContent(
+      "PreviewPositionsUp to 8Saving starts a new plan.Save",
+    );
   });
 });

@@ -36,6 +36,9 @@ import {
   CodeBlock,
   CostPreview,
   EffectiveLimits,
+  StyleTiles,
+  AllocationSliders,
+  GoalPreviewCard,
   GoalSaveStatus,
   GoalSummary,
   GoalTiles,
@@ -4243,6 +4246,49 @@ function GoalSection() {
             disabled
           />
         </div>
+      </Specimen>
+      <Specimen
+        name="StyleTiles"
+        note="The goal's style as three square tiles, one chosen, each with a slot for its art (dashed until the art is made), its name and one line. A radio group: arrow keys move the choice."
+      >
+        <StyleTiles
+          value="BALANCED"
+          onValueChange={() => undefined}
+          tiles={[
+            { value: "CONSERVATIVE", title: "Conservative", line: "Top assets, few positions." },
+            { value: "BALANCED", title: "Balanced", line: "Top assets plus researched growth." },
+            { value: "AGGRESSIVE", title: "Aggressive", line: "Small caps too, larger swings." },
+          ]}
+        />
+      </Specimen>
+      <Specimen
+        name="AllocationSliders"
+        note="Three shares in 5% steps that always add up to 100%, each with one plain line; the page moves the other two when one changes."
+      >
+        <AllocationSliders
+          onChange={() => undefined}
+          rows={[
+            { key: "degen", label: "Degen", line: "Tokens under $100M market cap.", bps: 1_000 },
+            { key: "growth", label: "Growth", line: "Tokens from $100M to $1B.", bps: 3_000 },
+            { key: "conservative", label: "Conservative", line: "Top assets.", bps: 6_000 },
+          ]}
+        />
+      </Specimen>
+      <Specimen
+        name="GoalPreviewCard"
+        note="The goal as a short summary beside the form, with one line on what saving does, the save and its status."
+      >
+        <GoalPreviewCard
+          rows={[
+            { label: "Style", value: "Balanced" },
+            { label: "Degen / Growth / Conservative", value: "10% / 30% / 60%" },
+            { label: "Positions", value: "Up to 8" },
+            { label: "Safety", value: "Core list only" },
+            { label: "Plan changes", value: "Ask me first" },
+          ]}
+          note="Saving starts a new plan: the agent's next research run makes one under this goal and asks you before it trades."
+          action={<Button>Save</Button>}
+        />
       </Specimen>
       <Specimen
         name="EffectiveLimits"

@@ -1,79 +1,74 @@
 "use client";
 
+import { AGGRESSIVENESS_ENVELOPES, type GoalAllocation } from "@alpha-agents/domain";
 import {
-  OWNER_LIMIT_FIELDS,
-  type OwnerLimitField,
-  PLAN_CHANGE_MODES,
-  RESEARCH_INTENSITIES,
-  RESEARCH_INTENSITY_FACTS,
-} from "@alpha-agents/domain";
-import {
+  AllocationSliders,
   Button,
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
   ChoiceGroup,
-  CostPreview,
-  EffectiveLimits,
   EmptyState,
-  Field,
+  ExpandableLine,
+  GoalPreviewCard,
   GoalSaveStatus,
-  GoalSummary,
-  GoalTiles,
-  Input,
   LimitField,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
   Skeleton,
+  Slider,
+  StyleTiles,
   Tag,
   WalletActionStatus,
-  bpsText,
-  parseUsdc,
-  usdcCents as usdc,
 } from "@alpha-agents/ui";
 import type { EnvironmentId } from "@alpha-agents/config";
 import { PlugZap, ShieldOff, Wallet } from "lucide-react";
 import Link from "next/link";
-import { type ReactNode, useState } from "react";
+import { useRouter } from "next/navigation";
+import { type ReactNode, useEffect, useState } from "react";
 import { useWalletSession } from "@/auth/session";
-import { goalChanged, limitValue } from "@/agent/goal";
+import { type AllocationKey, goalChanged, rebalanceAllocation, withStyle } from "@/agent/goal";
 import { useAccountTx } from "@/agent/use-account-tx";
 import { useGoal } from "@/agent/use-goal";
 
 /**
- * The Goal page (P3-U1, F-U7, D-295, D-345): the owner tells the agent what
- * they want through structured fields only. One choice of aggressiveness
- * produces the brief the agent interprets and the envelope the deterministic
- * Test enforces; the model tier, the screened-lane opt-in and excluded tokens
- * are the other choices. The limits that apply and a month's research cost
- * update as the owner edits, from the same translator the save uses; saving
- * moves the agent from Not configured to Ready and says so.
+ * The Set goal page (2026-10-13, rebuilt after the owner's model of a compact
+ * launch form): a main column of short cards, the style as three square tiles,
+ * the allocation split by market cap, the most positions, and Safety, Plan
+ * changes and Stricter limits folded to one line each; on the right, a live
+ * preview with the save. The research settings live on the Research tab.
+ * Fields the page no longer shows (excluded tokens, the other stricter limits)
+ * keep their saved values.
  */
 
-const PLAN_CHANGE_TEXT = {
-  ASK_FIRST: {
-    title: "Ask me first",
-    description: "The agent proposes each plan change and waits for your approval.",
-  },
-  APPLY_AND_TELL: {
-    title: "Apply and tell me",
-    description: "A plan change that passes every check applies at once, and you are told.",
-  },
+const STYLE_LINE = {
+  CONSERVATIVE: "Top assets, few positions.",
+  BALANCED: "Top assets plus researched growth.",
+  AGGRESSIVE: "Small caps too, larger swings.",
 } as const;
 
-function Section({
+const ALLOCATION_ROWS: readonly { key: AllocationKey; label: string; line: string }[] = [
+  { key: "degenBps", label: "Degen", line: "Tokens under $100M market cap." },
+  { key: "growthBps", label: "Growth", line: "Tokens from $100M to $1B." },
+  { key: "conservativeBps", label: "Conservative", line: "Top assets." },
+];
+
+const PLAN_CHANGE_WORDS = {
+  ASK_FIRST: "Ask me first",
+  APPLY_AND_TELL: "Apply and tell me",
+} as const;
+
+/** How long the saved message shows before the page returns to where the owner came from. */
+const RETURN_AFTER_MS = 1_500;
+
+const split = (a: GoalAllocation) =>
+  `${a.degenBps / 100}% / ${a.growthBps / 100}% / ${a.conservativeBps / 100}%`;
+
+function Block({
   title,
-  description,
   children,
   testId,
 }: {
   title: string;
-  description: string;
   children: ReactNode;
   testId: string;
 }) {
@@ -81,9 +76,8 @@ function Section({
     <Card data-testid={testId} id={testId}>
       <CardHeader>
         <CardTitle>{title}</CardTitle>
-        <CardDescription>{description}</CardDescription>
       </CardHeader>
-      <CardContent className="flex flex-col gap-5">{children}</CardContent>
+      <CardContent className="flex flex-col gap-3">{children}</CardContent>
     </Card>
   );
 }
@@ -97,14 +91,24 @@ export function GoalPage({
 }) {
   const wallet = useWalletSession();
   const g = useGoal(agentId);
+  const router = useRouter();
   const name = `Agent #${agentId.toString()}`;
-  const [pick, setPick] = useState("");
   // F-U12: the screened-lane opt-in recorded on the agent's account from the owner's wallet.
   const tx = useAccountTx(environment);
   const [recorded, setRecorded] = useState<boolean | null>(null);
 
-  // UI-FAST: the agent's header and tabs come from its shell; the goal form names itself.
-  const header = <h2 className="text-lg font-semibold">Goal</h2>;
+  // Back to where the owner came from once the goal is saved.
+  const saved = g.status?.state === "saved";
+  useEffect(() => {
+    if (!saved) return;
+    const timer = setTimeout(() => {
+      if (window.history.length > 1) router.back();
+      else router.push(`/agents/${agentId.toString()}`);
+    }, RETURN_AFTER_MS);
+    return () => clearTimeout(timer);
+  }, [agentId, router, saved]);
+
+  const header = <h2 className="text-lg font-semibold">Set goal</h2>;
 
   if (!wallet.ready && wallet.state !== "wrong-chain")
     return (
@@ -165,45 +169,15 @@ export function GoalPage({
       </div>
     );
 
-  const { page, form, preview, fieldErrors: errors } = g;
+  const { page, form, fieldErrors: errors } = g;
   const set = g.setForm;
   const busy = g.saving;
-  const ownerLimits = Object.fromEntries(
-    OWNER_LIMIT_FIELDS.map((f) => [f, limitValue(f, form.limits[f]) ?? null]),
-  ) as Record<OwnerLimitField, number | null>;
-  const intensityFacts = page.form.intensities;
-  const costRows = RESEARCH_INTENSITIES.map((intensity) => {
-    const chosenBudget =
-      intensity === form.intensity && preview ? BigInt(preview.research.dailyBudgetUsdcE6) : null;
-    const facts = intensityFacts.find((i) => i.id === intensity);
-    return {
-      intensity,
-      dailyBudgetUsdcE6: chosenBudget ?? BigInt(facts?.defaultDailyBudgetUsdcE6 ?? "0"),
-    };
-  });
-  const chosenIntensity = intensityFacts.find((i) => i.id === form.intensity);
-  const level = page.form.levels.find((l) => l.id === form.aggressiveness);
   const changed = goalChanged(form, page.goal);
-  const tokens = page.form.tokens;
-  const symbolOf = (address: string) =>
-    tokens.find((t) => t.address.toLowerCase() === address.toLowerCase())?.symbol ??
-    `${address.slice(0, 6)}..${address.slice(-4)}`;
-  const available = tokens.filter(
-    (t) => !form.excludedTokens.includes(t.address.toLowerCase()) && t.symbol !== "USDC",
-  );
+  const styleMax = AGGRESSIVENESS_ENVELOPES[form.aggressiveness].maxPositions;
+
   const chain = page.chain;
   const onChain = recorded ?? chain?.screenedOptIn ?? null;
   const wanted = form.screenedOptIn;
-  const onChainState = !chain?.account ? "no-account" : onChain ? "opted-in" : "not-opted-in";
-  const onChainText = !chain?.account
-    ? "The opt-in is recorded on the agent's account. Open the account on the portfolio page first."
-    : onChain === wanted
-      ? wanted
-        ? "The chain records your opt-in: screened tokens are buyable for this agent."
-        : "The chain records no opt-in: the agent holds core-lane tokens only."
-      : wanted
-        ? "Your choice is not on chain yet: the agent holds core-lane tokens only until you record the opt-in from your wallet."
-        : "The chain still records an opt-in: screened tokens stay buyable until you record the opt-out from your wallet.";
   const recordOnChain = () => {
     const account = chain?.account;
     if (!account) return;
@@ -218,351 +192,216 @@ export function GoalPage({
         if (p?.state === "confirmed") setRecorded(wanted);
       });
   };
-  const envelopeLine = (e: (typeof page.form.levels)[number]["envelope"]) =>
-    `At most ${e.maxPositions} positions, ${bpsText(e.maxPositionBps)} each, ${bpsText(e.minStableBps)} in stablecoins${e.classAAllowed ? `; class A up to ${bpsText(e.maxClassAPositionBps)} each and ${bpsText(e.maxClassATotalBps)} together` : "; class F tokens only"}`;
+  const limitField = (field: "maxTradesPer24h" | "maxTradeBps") => {
+    const l = page.form.limits.find((x) => x.field === field);
+    if (!l) return null;
+    const error = errors[`stricterLimits.${field}`];
+    return (
+      <LimitField
+        key={field}
+        field={field}
+        hard={l.hard}
+        valueText={form.limits[field]}
+        onChange={(text) => set((f) => ({ ...f, limits: { ...f.limits, [field]: text } }))}
+        disabled={busy}
+        {...(error ? { error } : {})}
+      />
+    );
+  };
+  const stricter = [form.limits.maxTradesPer24h, form.limits.maxTradeBps].filter(
+    (t) => t.trim() !== "",
+  ).length;
 
   return (
     <div className="flex flex-col gap-6" data-testid="goal-page">
       {header}
-      <GoalSummary state={page.state} aggressiveness={page.goal?.aggressiveness ?? null} />
-      <GoalTiles
-        view={{
-          aggressiveness: form.aggressiveness,
-          screenedOptIn: form.screenedOptIn,
-          excludedTokens: form.excludedTokens.length,
-          intensity: form.intensity,
-          dailyBudgetUsdcE6: parseUsdc(form.budgetText),
-          modelTierLabel:
-            page.form.tiers.find((t) => t.id === form.modelTier)?.label ?? form.modelTier,
-          planChanges: form.planChanges,
-        }}
-        action={(section) => (
-          <Button asChild size="sm" variant="secondary" className="w-fit">
-            <a href={`#goal-${section}`}>Change</a>
-          </Button>
-        )}
-      />
-
-      <Section
-        title="Aggressiveness"
-        description="One choice. It becomes the brief the agent reads and the envelope every plan is checked against; the agent decides what to buy inside them."
-        testId="goal-strategy"
-      >
-        <ChoiceGroup
-          legend="Aggressiveness"
-          hint="How much risk the agent may take. Each level says what it leans to and what the platform enforces."
-          value={form.aggressiveness}
-          onValueChange={(v) => set((f) => ({ ...f, aggressiveness: v }))}
-          disabled={busy}
-          options={page.form.levels.map((l) => ({
-            value: l.id,
-            title: l.label,
-            description: l.summary,
-            detail: envelopeLine(l.envelope),
-            ...(l.id === "BALANCED" ? { note: "Default" } : {}),
-          }))}
-        />
-        <p className="text-sm text-foreground-muted" data-testid="goal-brief">
-          <span className="font-medium text-foreground">The agent reads: </span>
-          {preview?.brief ?? level?.brief ?? ""}
-        </p>
-        {preview ? (
-          <p className="text-sm text-foreground-muted" data-testid="goal-plan-line">
-            Until the agent proposes a portfolio, the two-asset fallback starts at{" "}
-            <span className="numeric text-foreground">
-              {bpsText(preview.template.params.targetWmonBps)}
-            </span>{" "}
-            WMON and may move between{" "}
-            <span className="numeric text-foreground">{bpsText(preview.targetRange.minBps)}</span>{" "}
-            and{" "}
-            <span className="numeric text-foreground">{bpsText(preview.targetRange.maxBps)}</span>,
-            within your limits below.
-          </p>
-        ) : null}
-      </Section>
-
-      <Section
-        title="Tokens"
-        description="Which tokens the agent may hold: the core lane always; screened tokens only if you opt in; never the ones you exclude."
-        testId="goal-tokens"
-      >
-        <ChoiceGroup
-          legend="Screened lane"
-          hint="Screened tokens passed the platform's safety screen but not the core lane's review. Holding them needs your onchain opt-in as well, recorded below from your wallet."
-          value={form.screenedOptIn ? "SCREENED" : "CORE"}
-          onValueChange={(v) => set((f) => ({ ...f, screenedOptIn: v === "SCREENED" }))}
-          columns={2}
-          disabled={busy}
-          options={[
-            {
-              value: "CORE",
-              title: "Core lane only",
-              description: "Tokens the platform's reviewers added, with a price feed.",
-              note: "Default",
-            },
-            {
-              value: "SCREENED",
-              title: "Opt into screened tokens",
-              description: "Also tokens that passed the safety screen, under the class A caps.",
-            },
-          ]}
-        />
-        <div
-          className="flex flex-col gap-2 text-sm"
-          data-testid="goal-onchain"
-          data-state={onChainState}
-        >
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="font-medium">On chain</span>
-            {chain?.account ? (
-              <Tag tone={onChain ? "accent" : "neutral"}>
-                {onChain ? "opted in" : "not opted in"}
-              </Tag>
-            ) : (
-              <Tag>no account yet</Tag>
-            )}
-          </div>
-          <p className="text-foreground-muted">{onChainText}</p>
-          {chain?.account && onChain !== wanted ? (
-            <Button
-              size="sm"
-              variant="secondary"
-              className="w-fit"
-              disabled={tx.busy}
-              onClick={recordOnChain}
-            >
-              {wanted ? "Record the opt-in on chain" : "Record the opt-out on chain"}
-            </Button>
-          ) : null}
-          {tx.progress && tx.text ? (
-            <WalletActionStatus
-              state={tx.progress.state}
-              text={tx.text}
-              hash={tx.progress.hash ?? null}
+      <div className="grid gap-6 lg:grid-cols-3">
+        <div className="flex min-w-0 flex-col gap-4 lg:col-span-2">
+          <Block title="Style" testId="goal-style">
+            <StyleTiles
+              value={form.aggressiveness}
+              onValueChange={(v) => set((f) => withStyle(f, v))}
+              disabled={busy}
+              tiles={page.form.levels.map((l) => ({
+                value: l.id,
+                title: l.label,
+                line: STYLE_LINE[l.id],
+              }))}
             />
-          ) : null}
-        </div>
-        <div className="flex flex-col gap-3" data-testid="goal-excluded">
-          <Field
-            label="Excluded tokens"
-            hint={`Tokens the agent never buys, whatever its research says. Up to ${page.form.maxExcludedTokens}.`}
-          >
-            {(control) =>
-              available.length > 0 ? (
-                <div className="flex flex-wrap items-center gap-2">
-                  <Select value={pick} onValueChange={setPick}>
-                    <SelectTrigger {...control} className="w-56">
-                      <SelectValue placeholder="Choose a token" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {available.map((t) => (
-                        <SelectItem key={t.address} value={t.address.toLowerCase()}>
-                          {t.symbol} ({t.priceClass === "A" ? "attested" : "feed"})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    disabled={
-                      busy ||
-                      pick === "" ||
-                      form.excludedTokens.length >= page.form.maxExcludedTokens
-                    }
-                    onClick={() => {
-                      set((f) => ({ ...f, excludedTokens: [...f.excludedTokens, pick] }));
-                      setPick("");
-                    }}
-                  >
-                    Exclude
-                  </Button>
-                </div>
-              ) : (
-                <p {...control} className="text-sm text-foreground-muted">
-                  {tokens.length === 0
-                    ? "No registered tokens to exclude yet."
-                    : "Every registered token is excluded."}
-                </p>
-              )
+          </Block>
+
+          <Block title="Allocation" testId="goal-allocation">
+            <AllocationSliders
+              disabled={busy}
+              rows={ALLOCATION_ROWS.map((r) => ({ ...r, bps: form.allocation[r.key] }))}
+              onChange={(key, bps) =>
+                set((f) => ({
+                  ...f,
+                  allocation: rebalanceAllocation(f.allocation, key as AllocationKey, bps),
+                }))
+              }
+            />
+            {errors.allocation ? (
+              <p className="text-sm text-negative">{errors.allocation}</p>
+            ) : null}
+          </Block>
+
+          <Block title="Positions" testId="goal-positions">
+            <ExpandableLine
+              summary={
+                <span data-testid="goal-positions-line">
+                  Up to {form.maxPositions} positions. The agent decides each one&apos;s weight.
+                </span>
+              }
+            >
+              <div className="flex flex-col gap-2">
+                <Slider
+                  thumbLabel="Most positions"
+                  min={1}
+                  max={styleMax}
+                  step={1}
+                  value={[form.maxPositions]}
+                  disabled={busy}
+                  onValueChange={(v) =>
+                    set((f) => ({ ...f, maxPositions: v[0] ?? f.maxPositions }))
+                  }
+                />
+                <span className="text-xs text-foreground-muted">
+                  1 to {styleMax} for this style.
+                </span>
+              </div>
+            </ExpandableLine>
+          </Block>
+
+          <ExpandableLine
+            summary={
+              <span data-testid="goal-safety-line">
+                Safety: screened tokens {form.screenedOptIn ? "on" : "off"}
+              </span>
             }
-          </Field>
-          {form.excludedTokens.length > 0 ? (
-            <ul className="flex flex-wrap gap-2" aria-label="Excluded tokens">
-              {form.excludedTokens.map((address) => (
-                <li key={address} className="flex items-center gap-1">
-                  <Tag tone="warning">{symbolOf(address)}</Tag>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    disabled={busy}
-                    aria-label={`Allow ${symbolOf(address)} again`}
-                    onClick={() =>
-                      set((f) => ({
-                        ...f,
-                        excludedTokens: f.excludedTokens.filter((t) => t !== address),
-                      }))
-                    }
-                  >
-                    Remove
+          >
+            <div className="flex flex-col gap-3" data-testid="goal-safety">
+              <ChoiceGroup
+                legend="Screened tokens"
+                hint="Tokens that passed the platform's safety screen, beside the core list. Holding them also needs your onchain opt-in."
+                value={form.screenedOptIn ? "ON" : "OFF"}
+                onValueChange={(v) => set((f) => ({ ...f, screenedOptIn: v === "ON" }))}
+                columns={2}
+                disabled={busy}
+                options={[
+                  { value: "OFF", title: "Off", description: "Core list only." },
+                  { value: "ON", title: "On", description: "Screened tokens too." },
+                ]}
+              />
+              <div className="flex flex-wrap items-center gap-2 text-sm" data-testid="goal-onchain">
+                <span className="text-foreground-muted">On chain</span>
+                {chain?.account ? (
+                  <Tag tone={onChain ? "accent" : "neutral"}>
+                    {onChain ? "opted in" : "not opted in"}
+                  </Tag>
+                ) : (
+                  <Tag>no account yet</Tag>
+                )}
+                {chain?.account && onChain !== wanted ? (
+                  <Button size="sm" variant="secondary" disabled={tx.busy} onClick={recordOnChain}>
+                    {wanted ? "Record the opt-in" : "Record the opt-out"}
                   </Button>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="text-sm text-foreground-muted">No token is excluded.</p>
-          )}
-        </div>
-      </Section>
+                ) : null}
+              </div>
+              {tx.progress && tx.text ? (
+                <WalletActionStatus
+                  state={tx.progress.state}
+                  text={tx.text}
+                  hash={tx.progress.hash ?? null}
+                />
+              ) : null}
+            </div>
+          </ExpandableLine>
 
-      <Section
-        title="Stricter limits"
-        description="Optional. Each one can only tighten the platform's hard limit, never loosen it."
-        testId="goal-limits"
-      >
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {page.form.limits.map((l) => {
-            const error = errors[`stricterLimits.${l.field}`];
-            return (
-              <LimitField
-                key={l.field}
-                field={l.field}
-                hard={l.hard}
-                valueText={form.limits[l.field]}
-                onChange={(text) =>
-                  set((f) => ({ ...f, limits: { ...f.limits, [l.field]: text } }))
-                }
-                disabled={busy}
-                {...(error ? { error } : {})}
-              />
-            );
-          })}
-        </div>
-        <EffectiveLimits
-          hard={page.form.hardLimits}
-          owner={ownerLimits}
-          refused={OWNER_LIMIT_FIELDS.filter((f) => errors[`stricterLimits.${f}`] !== undefined)}
-          effective={preview?.ownerLimits ?? page.form.hardLimits}
-          testnet={environment === "testnet"}
-        />
-      </Section>
-
-      <Section
-        title="Research"
-        description="How the agent researches, and the most it may spend on it. Research is paid from credits."
-        testId="goal-research"
-      >
-        <ChoiceGroup
-          legend="Model tier"
-          hint="The model for deep research, the skeptic's check and the plan review. Scans always use the Low tier's model."
-          value={form.modelTier}
-          onValueChange={(v) => set((f) => ({ ...f, modelTier: v }))}
-          disabled={busy}
-          options={page.form.tiers.map((t) => ({
-            value: t.id,
-            title: `${t.label}: ${t.model}`,
-            description: t.note,
-            ...(t.id === "MEDIUM" ? { note: "Default" } : {}),
-          }))}
-        />
-        <ChoiceGroup
-          legend="Research intensity"
-          hint="How often the agent researches. More research costs more each day."
-          value={form.intensity}
-          onValueChange={(v) => set((f) => ({ ...f, intensity: v }))}
-          disabled={busy}
-          options={RESEARCH_INTENSITIES.map((id) => {
-            const f = RESEARCH_INTENSITY_FACTS[id];
-            const facts = intensityFacts.find((i) => i.id === id);
-            return {
-              value: id,
-              title: f.label,
-              ...(id === "LIGHT" ? { note: "Default" } : {}),
-              description: `A Scan every ${f.scanEveryHours} hours, up to ${f.divesPerDay} Dive${f.divesPerDay === 1 ? "" : "s"} a day.`,
-              detail: `${usdc(facts?.defaultDailyBudgetUsdcE6 ?? "0")} USDC a day, at most ${usdc(facts?.monthlyAtDefaultUsdcE6 ?? "0")} a month`,
-            };
-          })}
-        />
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Field
-            label="Daily research budget (USDC)"
-            hint={`The most research may spend in a day; a stage that would go past it waits for the next day. At ${RESEARCH_INTENSITY_FACTS[form.intensity].label}: ${usdc(chosenIntensity?.minDailyBudgetUsdcE6 ?? "0")} to ${usdc(chosenIntensity?.maxDailyBudgetUsdcE6 ?? "0")}.`}
-            {...(errors["research.dailyBudgetUsdcE6"]
-              ? { error: errors["research.dailyBudgetUsdcE6"] }
-              : {})}
+          <ExpandableLine
+            summary={
+              <span data-testid="goal-plan-changes-line">
+                Plan changes: {PLAN_CHANGE_WORDS[form.planChanges]}
+              </span>
+            }
           >
-            {(control) => (
-              <Input
-                {...control}
-                inputMode="decimal"
-                value={form.budgetText}
-                disabled={busy}
-                onChange={(e) => set((f) => ({ ...f, budgetText: e.target.value }))}
-                data-testid="goal-budget"
-              />
-            )}
-          </Field>
-          <Field
-            label="Credit reserve (USDC)"
-            hint={`Credits research never spends, kept for the agent's gas. 0.00 to ${usdc(page.form.maxCreditReserveUsdcE6)}.`}
-            {...(errors.creditReserveUsdcE6 ? { error: errors.creditReserveUsdcE6 } : {})}
+            <ChoiceGroup
+              legend="Plan changes"
+              hint="Either way, a change passes every check first."
+              value={form.planChanges}
+              onValueChange={(v) => set((f) => ({ ...f, planChanges: v }))}
+              columns={2}
+              disabled={busy}
+              options={[
+                { value: "ASK_FIRST", title: "Ask me first", description: "You approve each one." },
+                {
+                  value: "APPLY_AND_TELL",
+                  title: "Apply and tell me",
+                  description: "It applies, then you're told.",
+                },
+              ]}
+            />
+          </ExpandableLine>
+
+          <ExpandableLine
+            summary={
+              <span data-testid="goal-limits-line">
+                Stricter limits (optional): {stricter === 0 ? "none" : `${stricter} set`}
+              </span>
+            }
           >
-            {(control) => (
-              <Input
-                {...control}
-                inputMode="decimal"
-                value={form.reserveText}
-                disabled={busy}
-                onChange={(e) => set((f) => ({ ...f, reserveText: e.target.value }))}
-                data-testid="goal-reserve"
-              />
-            )}
-          </Field>
+            <div className="grid gap-4 sm:grid-cols-2" data-testid="goal-limits">
+              {limitField("maxTradesPer24h")}
+              {limitField("maxTradeBps")}
+            </div>
+          </ExpandableLine>
         </div>
-        <CostPreview
-          rows={costRows}
-          selected={form.intensity}
-          days={page.form.costPreviewDays}
-          sweepMaxUsdcE6={BigInt(page.form.sweepMaxUsdcE6[form.modelTier])}
-        />
-      </Section>
 
-      <Section
-        title="Plan changes"
-        description="When the agent finds a reason to change its plan, what happens next."
-        testId="goal-plan-changes"
-      >
-        <ChoiceGroup
-          legend="Plan changes"
-          hint="Either way, a change must pass every check first: your limits, a 24-hour cooldown and its cost."
-          value={form.planChanges}
-          onValueChange={(v) => set((f) => ({ ...f, planChanges: v }))}
-          columns={2}
-          disabled={busy}
-          options={PLAN_CHANGE_MODES.map((id) => ({
-            value: id,
-            ...PLAN_CHANGE_TEXT[id],
-            ...(id === "ASK_FIRST" ? { note: "Default" } : {}),
-          }))}
-        />
-      </Section>
-
-      <div className="flex flex-col gap-3" data-testid="goal-save">
-        <div className="flex flex-wrap items-center gap-3">
-          <Button onClick={g.save} loading={busy} disabled={busy || !changed}>
-            {page.goal ? "Save changes" : "Save goal"}
-          </Button>
-          <span className="text-sm text-foreground-muted">
-            {page.goal
-              ? changed
-                ? "Saving a change starts a new plan period; trades proposed before it are not sent."
-                : "No changes to save."
-              : "Saving moves the agent from Not configured to Ready."}
-          </span>
-        </div>
-        {g.status ? (
-          <GoalSaveStatus state={g.status.state} text={g.status.text} reasons={g.status.reasons} />
-        ) : null}
+        <aside className="flex flex-col gap-3 lg:sticky lg:top-4 lg:self-start">
+          <GoalPreviewCard
+            rows={[
+              {
+                label: "Style",
+                value:
+                  page.form.levels.find((l) => l.id === form.aggressiveness)?.label ??
+                  form.aggressiveness,
+              },
+              { label: "Degen / Growth / Conservative", value: split(form.allocation) },
+              { label: "Positions", value: `Up to ${form.maxPositions}` },
+              {
+                label: "Safety",
+                value: form.screenedOptIn ? "Screened tokens on" : "Core list only",
+              },
+              { label: "Plan changes", value: PLAN_CHANGE_WORDS[form.planChanges] },
+            ]}
+            note={
+              page.goal
+                ? form.planChanges === "ASK_FIRST"
+                  ? "Saving starts a new plan: the agent's next research run makes one under this goal and asks you before it trades."
+                  : "Saving starts a new plan: the agent's next research run makes one under this goal and applies it, then tells you."
+                : "Saving sets the agent's first goal; its first research run makes the plan."
+            }
+            action={
+              <Button
+                onClick={g.save}
+                loading={busy}
+                disabled={busy || !changed}
+                data-testid="goal-save"
+              >
+                {changed ? "Save" : "No changes"}
+              </Button>
+            }
+            status={
+              g.status ? (
+                <GoalSaveStatus
+                  state={g.status.state}
+                  text={saved ? `${g.status.text} Taking you back.` : g.status.text}
+                  reasons={g.status.reasons}
+                />
+              ) : null
+            }
+          />
+        </aside>
       </div>
     </div>
   );

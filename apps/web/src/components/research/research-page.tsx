@@ -35,6 +35,7 @@ import { useOwnerSession } from "@/agent/use-owner-session";
 import { useReports } from "@/agent/use-reports";
 import { useResearch, useTerminal } from "@/agent/use-research";
 import { useWalletSession } from "@/auth/session";
+import { ResearchSettings } from "./research-settings";
 
 const KIND_WORD: Readonly<Record<string, string>> = {
   ACTIVATION: "Activation",
@@ -386,7 +387,8 @@ export function ResearchPage({
         )}
       </section>
 
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid gap-6 lg:grid-cols-3">
+        <ResearchSettings agentId={agentId} />
         <ResearchScheduleCard
           now={now}
           view={{
