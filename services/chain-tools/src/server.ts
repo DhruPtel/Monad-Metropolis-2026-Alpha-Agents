@@ -19,7 +19,12 @@ import {
   replayed,
   startToolServer,
 } from "@alpha-agents/tool-server";
-import { type MarketData, MarketError, type ResearchSources } from "@alpha-agents/market";
+import {
+  MARKET_CHAIN,
+  type MarketData,
+  MarketError,
+  type ResearchSources,
+} from "@alpha-agents/market";
 import type { Hex } from "viem";
 import {
   amountOf,
@@ -59,6 +64,15 @@ import {
   TradableOutput,
   TradeInput,
 } from "./schema.ts";
+
+/** M-FAST: the tool text names the chain this process researches (Monad, or Base under MARKET_CHAIN=base). */
+const described = (text: string) =>
+  text
+    .replaceAll("Monad mainnet", `${MARKET_CHAIN.name} mainnet`)
+    .replaceAll("native MON", `native ${MARKET_CHAIN.native.symbol}`)
+    .replaceAll("WMON", MARKET_CHAIN.native.wrappedSymbol)
+    .replaceAll("MON/USDC", `${MARKET_CHAIN.native.symbol}/USDC`)
+    .replaceAll("Monad", MARKET_CHAIN.name);
 
 /**
  * The chain tools server (FINAL_PLAN 4.4.2, P2-U5): the agent's reads of its
@@ -217,8 +231,9 @@ export function registerLookupTools(
   mcp.registerTool(
     "get_pool_depth",
     {
-      description:
+      description: described(
         "The launch venue's depth on Monad mainnet: its mid price, active liquidity, and the price impact of buying and selling MON at 10, 100, 1,000 and 10,000 USD, with and without the 0.05% fee. Research reads mainnet; your own trades use your environment's pool, so check get_quote before proposing.",
+      ),
       inputSchema: EmptyInput,
       outputSchema: PoolDepthOutput,
       annotations: { readOnlyHint: true },
@@ -242,7 +257,7 @@ export function registerLookupTools(
         const out = PoolDepthOutput.parse(
           JSON.parse(
             JSON.stringify({
-              chain: "monad-mainnet",
+              chain: MARKET_CHAIN.label,
               venue: "Uniswap v4 MON/USDC 0.05%",
               ...depth.value,
               cacheHit: depth.cacheHit,
@@ -260,7 +275,7 @@ export function registerLookupTools(
     if (!r)
       throw new ToolError(
         "UPSTREAM_UNAVAILABLE",
-        "Monad mainnet reads are not configured on this platform.",
+        described("Monad mainnet reads are not configured on this platform."),
         false,
       );
     try {
@@ -270,14 +285,16 @@ export function registerLookupTools(
       throw err;
     }
   };
-  const LOOKUP_NOTE =
-    "Read on Monad mainnet for research. Integers are decimal strings in raw units; a string or bytes value is given only as its length and keccak256 hash.";
+  const LOOKUP_NOTE = described(
+    "Read on Monad mainnet for research. Integers are decimal strings in raw units; a string or bytes value is given only as its length and keccak256 hash.",
+  );
 
   mcp.registerTool(
     "read_contract",
     {
-      description:
+      description: described(
         "Call one read-only function from a curated list on any contract on Monad mainnet (`target`): ERC-20 supply, decimals, balance, name and symbol (as hashes), owner, paused, EIP-1967 proxy slots, a Chainlink feed's latest round, or a Uniswap v4 pool's state through StateView. Returns typed values only; strings never come back as text. Free; limited per run.",
+      ),
       inputSchema: ReadContractInput,
       outputSchema: ReadContractOutput,
       annotations: { readOnlyHint: true },
@@ -293,7 +310,7 @@ export function registerLookupTools(
         const out = ReadContractOutput.parse(
           JSON.parse(
             JSON.stringify({
-              chain: "monad-mainnet",
+              chain: MARKET_CHAIN.label,
               ...res.value,
               cacheHit: res.cacheHit,
               note: LOOKUP_NOTE,
@@ -311,8 +328,9 @@ export function registerLookupTools(
   mcp.registerTool(
     "balance",
     {
-      description:
+      description: described(
         "The USDC, WMON or native MON balance of any address on Monad mainnet (`target`), as a decimal string with the raw amount. Free; limited per run.",
+      ),
       inputSchema: BalanceInput,
       outputSchema: BalanceOutput,
       annotations: { readOnlyHint: true },
@@ -321,7 +339,7 @@ export function registerLookupTools(
       tool("balance", input, async () => {
         const res = await research((r) => r.balance(input.target as Hex, input.asset));
         const out = BalanceOutput.parse({
-          chain: "monad-mainnet",
+          chain: MARKET_CHAIN.label,
           ...res.value,
           cacheHit: res.cacheHit,
         });
@@ -336,8 +354,9 @@ export function registerLookupTools(
   mcp.registerTool(
     "get_code",
     {
-      description:
+      description: described(
         "Whether an address on Monad mainnet (`target`) holds contract code: its size, its keccak256 hash, and the proxy pattern detected (EIP-1967, beacon, the older ZeppelinOS slot, EIP-1167 minimal proxy, or an EIP-7702 delegation) with the implementation it points to. An address with no code says so. Free; limited per run.",
+      ),
       inputSchema: GetCodeInput,
       outputSchema: GetCodeOutput,
       annotations: { readOnlyHint: true },
@@ -346,7 +365,7 @@ export function registerLookupTools(
       tool("get_code", input, async () => {
         const res = await research((r) => r.code(input.target as Hex));
         const out = GetCodeOutput.parse({
-          chain: "monad-mainnet",
+          chain: MARKET_CHAIN.label,
           ...res.value,
           proxy: { ...res.value.proxy },
           cacheHit: res.cacheHit,
@@ -467,8 +486,9 @@ function registerTradeToolsV2(
   mcp.registerTool(
     "get_portfolio",
     {
-      description:
+      description: described(
         "Your trading account: USDC and WMON held, their value in USDC and share of the total, the account mode, and the circuit breaker's drawdown from its 7-day peak.",
+      ),
       inputSchema: EmptyInput,
       outputSchema: PortfolioOutput,
       annotations: { readOnlyHint: true },
@@ -494,8 +514,9 @@ function registerTradeToolsV2(
   mcp.registerTool(
     "get_prices",
     {
-      description:
+      description: described(
         "The oracle prices (MON/USD and USDC/USD) with their age, the trading pool's price, how far the pool is from the oracle, and whether trading is allowed on these prices now.",
+      ),
       inputSchema: EmptyInput,
       outputSchema: PricesOutput,
       annotations: { readOnlyHint: true },
@@ -514,8 +535,9 @@ function registerTradeToolsV2(
   mcp.registerTool(
     "get_quote",
     {
-      description:
+      description: described(
         "What selling an amount of USDC or WMON would return on the trading venue now, compared with the oracle price, and whether it is inside the slippage limit. Indicative: it reserves nothing.",
+      ),
       inputSchema: TradeInput,
       outputSchema: QuoteOutput,
       annotations: { readOnlyHint: true },
@@ -540,8 +562,9 @@ function registerTradeToolsV2(
   mcp.registerTool(
     "get_limits",
     {
-      description:
+      description: described(
         "What your limits leave room for now, read from the Executor: the largest trade, room before the 40% cap on WMON, USDC above the 10% floor, trades and turnover left in the rolling 24 hours, and when your trading permission expires.",
+      ),
       inputSchema: EmptyInput,
       outputSchema: LimitsOutput,
       annotations: { readOnlyHint: true },
@@ -579,8 +602,9 @@ function registerTradeToolsV2(
   mcp.registerTool(
     "tradable_now",
     {
-      description:
+      description: described(
         "Whether a swap of this direction and size could go through right now. If not, every rule that blocks it, the owner-facing reason, and whether it clears by waiting (and when), by changing the trade, or only by the owner or the platform.",
+      ),
       inputSchema: TradeInput,
       outputSchema: TradableOutput,
       annotations: { readOnlyHint: true },
@@ -609,8 +633,9 @@ function registerTradeToolsV2(
   mcp.registerTool(
     "propose_swap",
     {
-      description:
+      description: described(
         "Propose a swap from your trading account. It is checked against every limit at once: if it passes it waits for the owner's approval and is never sent before; if not, you get every reason code. Returns an intent ID, never a transaction.",
+      ),
       inputSchema: ProposeSwapInput,
       outputSchema: IntentOutput,
       annotations: { idempotentHint: true },
@@ -671,8 +696,9 @@ function registerTradeToolsV2(
   mcp.registerTool(
     "get_intent_status",
     {
-      description:
+      description: described(
         "The state of one of your intents: awaiting approval, rejected (with every reason), expired, or sent, with the transaction hash once it is sent.",
+      ),
       inputSchema: IntentStatusInput,
       outputSchema: IntentOutput,
       annotations: { readOnlyHint: true },

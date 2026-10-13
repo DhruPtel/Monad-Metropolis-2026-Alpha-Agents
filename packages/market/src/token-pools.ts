@@ -1,4 +1,5 @@
-import { MONAD_BASE_TOKENS, NATIVE_MON } from "@alpha-agents/domain";
+import { MARKET_CHAIN } from "./chain.ts";
+import { NATIVE_MON } from "@alpha-agents/domain";
 import { type Hex, type PublicClient, getAddress, parseAbi } from "viem";
 import { GT_BASE } from "./geckoterminal.ts";
 import { type VerifiedPool, V3_FACTORIES, V4_STATE_VIEW, v4PoolId } from "./pool-verify.ts";
@@ -22,7 +23,7 @@ import { type UpstreamDeps, getJson } from "./upstream.ts";
 export const gtTokenPoolsUrl = (address: string) =>
   `${GT_BASE}/tokens/${address.toLowerCase()}/pools?page=1&include=base_token,quote_token`;
 export const gtSearchUrl = (query: string) =>
-  `https://api.geckoterminal.com/api/v2/search/pools?query=${encodeURIComponent(query)}&network=monad&include=base_token,quote_token`;
+  `https://api.geckoterminal.com/api/v2/search/pools?query=${encodeURIComponent(query)}&network=${MARKET_CHAIN.geckoterminal.network}&include=base_token,quote_token`;
 
 export async function fetchGtTokenPools(address: string, deps: UpstreamDeps): Promise<unknown> {
   return getJson({ provider: "geckoterminal", url: gtTokenPoolsUrl(address) }, deps);
@@ -59,7 +60,9 @@ const ERC20_ABI = parseAbi(["function balanceOf(address) view returns (uint256)"
 const FEED_ABI = parseAbi([
   "function latestRoundData() view returns (uint80, int256, uint256, uint256, uint80)",
 ]);
-const MON_USD_FEED = "0xBcD78f76005B7515837af6b50c7C52BCf73822fb" as const;
+/** The chain's native/USD feed and its USDC and wrapped native token (M-FAST: per MARKET_CHAIN). */
+const MON_USD_FEED = MARKET_CHAIN.nativeUsdFeed;
+const MONAD_BASE_TOKENS = MARKET_CHAIN.tokens;
 const ZERO = "0x0000000000000000000000000000000000000000";
 
 export interface ProbedPool extends VerifiedPool {

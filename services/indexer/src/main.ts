@@ -1,6 +1,12 @@
 import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { ConfigError, assertChainId, loadConfig, type Secret } from "@alpha-agents/config";
+import {
+  ConfigError,
+  assertChainId,
+  isForkEnvironment,
+  loadConfig,
+  type Secret,
+} from "@alpha-agents/config";
 import { createDb, migrateToLatest } from "@alpha-agents/db";
 import { addressEntry } from "@alpha-agents/domain";
 import type { Hex } from "viem";
@@ -33,7 +39,7 @@ if (nft.status !== "verified") {
   process.exit(0);
 }
 const usdc = addressEntry(env.id, "usdc");
-const remote = env.id !== "local";
+const remote = !isForkEnvironment(env.id);
 
 // P2-EC: the environment's second provider takes over when the first fails (D-254).
 const fallback = (config.values.MONAD_RPC_URL_SECONDARY as Secret | undefined)?.reveal();

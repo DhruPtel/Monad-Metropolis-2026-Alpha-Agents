@@ -43,6 +43,12 @@ export const BASE_MAINNET_CHAIN_ID = 8453;
  */
 export const BASE_FORK_CHAIN_ID = 84538453;
 /** The Base fork's default port, beside the playtest fork on 8545 and the test forks. */
+/**
+ * Base's public endpoint (M-FAST, A-98): the Base fork's upstream and the
+ * base environment's research reads when BASE_RPC_URL is unset. Rate limited
+ * and not an archive node; the owner adds a keyed endpoint for a steadier fork.
+ */
+export const BASE_PUBLIC_RPC_URL = "https://mainnet.base.org";
 export const BASE_FORK_PORT = 8590;
 export const BASE_FORK_RPC_URL = `http://127.0.0.1:${BASE_FORK_PORT}`;
 /** The environments that are anvil forks on this machine: local-only features and dev actions run there. */

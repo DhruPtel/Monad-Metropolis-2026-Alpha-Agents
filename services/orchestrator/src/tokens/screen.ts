@@ -11,7 +11,7 @@ import {
   reviewedToken,
   screenVerdict,
 } from "@alpha-agents/domain";
-import { GOPLUS_POWER_FLAGS, type GoPlusReport } from "@alpha-agents/market";
+import { GOPLUS_POWER_FLAGS, type GoPlusReport, MARKET_CHAIN } from "@alpha-agents/market";
 import { type PublicClient, getAddress, parseAbi } from "viem";
 import {
   type ForkSimulator,
@@ -389,7 +389,7 @@ export async function verifyBridged(
     const list = await tokenList(p.url);
     const ok = list.some(
       (t) =>
-        t.chainId === 143 &&
+        t.chainId === MARKET_CHAIN.chainId &&
         t.address.toLowerCase() === token.toLowerCase() &&
         t.symbol.toUpperCase() === exception.listedSymbol,
     );
@@ -397,7 +397,7 @@ export async function verifyBridged(
       ...base,
       ok,
       detail: ok
-        ? `${exception.bridge}'s official token list carries this address on Monad`
+        ? `${exception.bridge}'s official token list carries this address on ${MARKET_CHAIN.name}`
         : `${exception.bridge}'s official token list does not carry this address`,
     };
   } catch {

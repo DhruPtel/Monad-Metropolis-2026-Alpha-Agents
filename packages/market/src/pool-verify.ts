@@ -1,3 +1,4 @@
+import { MARKET_CHAIN } from "./chain.ts";
 import { type ClassFFeed, NATIVE_MON, addressEntry } from "@alpha-agents/domain";
 import {
   type Address,
@@ -29,7 +30,7 @@ import type { Dex } from "./geckoterminal.ts";
  * transport in the service, a fork in tests.
  */
 const book = (id: Parameters<typeof addressEntry>[1]) => {
-  const e = addressEntry("beta", id);
+  const e = addressEntry(MARKET_CHAIN.book, id);
   if (!e.address) throw new Error(`${id} has no mainnet address`);
   return getAddress(e.address);
 };

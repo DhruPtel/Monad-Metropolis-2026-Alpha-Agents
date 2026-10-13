@@ -1,3 +1,4 @@
+import { MARKET_CHAIN } from "./chain.ts";
 import type { ListedToken } from "@alpha-agents/domain";
 import { type UpstreamDeps, getJson } from "./upstream.ts";
 import type { DailyBudget } from "./usage.ts";
@@ -48,7 +49,7 @@ export function parseCoinGeckoMonad(body: unknown): CoinGeckoMonadCoin[] {
   const out: CoinGeckoMonadCoin[] = [];
   for (const c of body) {
     const e = c as { id?: unknown; symbol?: unknown; name?: unknown; platforms?: unknown };
-    const a = (e.platforms as Record<string, unknown> | null)?.monad;
+    const a = (e.platforms as Record<string, unknown> | null)?.[MARKET_CHAIN.coingeckoPlatform];
     if (typeof a !== "string" || !ADDRESS.test(a)) continue;
     if (typeof e.id !== "string" || typeof e.symbol !== "string" || typeof e.name !== "string")
       continue;
@@ -73,7 +74,8 @@ export function parseCmcCoins(body: unknown): CmcCoin[] {
     if (typeof e.id !== "number" || typeof e.symbol !== "string" || typeof e.name !== "string")
       continue;
     const onMonad =
-      typeof e.platform?.name === "string" && e.platform.name.toLowerCase() === "monad";
+      typeof e.platform?.name === "string" &&
+      e.platform.name.toLowerCase() === MARKET_CHAIN.cmcPlatform;
     const addr =
       onMonad && typeof e.platform?.token_address === "string" ? e.platform.token_address : "";
     const rank = Number(e.cmc_rank ?? e.rank);

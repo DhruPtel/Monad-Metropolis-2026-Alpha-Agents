@@ -1,3 +1,4 @@
+import { isForkEnvironment } from "@alpha-agents/config";
 import { randomBytes } from "node:crypto";
 import { AGENT_MAX_SUPPLY, SPECIES } from "@alpha-agents/domain";
 import { type Hex, encodeAbiParameters, keccak256 } from "viem";
@@ -300,6 +301,6 @@ export function revealSteeringFor(
   store: SteerStore,
   chainId: number,
 ): RevealSteering | null {
-  if (environment !== "local") return null;
+  if (!isForkEnvironment(environment)) return null;
   return new RevealSteering(speciesFromSlug(firstSpeciesSlug ?? "bee"), store, chainId);
 }

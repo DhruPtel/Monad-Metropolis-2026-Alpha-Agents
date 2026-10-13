@@ -1,4 +1,5 @@
-import { UNISWAP_V4_MON_USDC_POOL, addressEntry } from "@alpha-agents/domain";
+import { MARKET_CHAIN } from "./chain.ts";
+import { addressEntry } from "@alpha-agents/domain";
 import { type PublicClient, createPublicClient, parseAbi } from "viem";
 import { type Figure, iso } from "./figures.ts";
 import { type GuardContext, guard } from "./guards.ts";
@@ -12,12 +13,14 @@ import { MarketError } from "./upstream.ts";
  * StateView, and the price impact of buys and sells at reference sizes through
  * the v4 Quoter, all at one block of chain 143.
  */
-export const MAINNET_CHAIN_ID = 143;
+/** The chain research reads (M-FAST: Monad's 143, or Base's 8453 under MARKET_CHAIN=base). */
+export const MAINNET_CHAIN_ID = MARKET_CHAIN.chainId;
+const POOL = MARKET_CHAIN.v4NativeUsdcPool;
 /** Reference trade sizes in USD for depth (A-56): from a small leg to far past the beta caps. */
 export const DEPTH_SIZES_USD = [10, 100, 1_000, 10_000] as const;
 /** Chainlink's own bound for MON/USD (D-151): older than this is stale. */
 export const CHAINLINK_MAX_AGE_SECONDS = 300;
-const POOL_FEE_BPS = UNISWAP_V4_MON_USDC_POOL.fee / 100;
+const POOL_FEE_BPS = POOL.fee / 100;
 
 const FEED_ABI = parseAbi([
   "function latestRoundData() view returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound)",
@@ -32,7 +35,7 @@ const QUOTER_ABI = parseAbi([
 ]);
 
 const book = (id: Parameters<typeof addressEntry>[1]) =>
-  addressEntry("beta", id).address as `0x${string}`;
+  addressEntry(MARKET_CHAIN.book, id).address as `0x${string}`;
 
 export interface DepthRow {
   readonly sizeUsd: number;
@@ -90,9 +93,9 @@ export function viemMainnetReader(
   const key = {
     currency0: "0x0000000000000000000000000000000000000000" as `0x${string}`,
     currency1: book("usdc"),
-    fee: UNISWAP_V4_MON_USDC_POOL.fee,
-    tickSpacing: UNISWAP_V4_MON_USDC_POOL.tickSpacing,
-    hooks: UNISWAP_V4_MON_USDC_POOL.hooks,
+    fee: POOL.fee,
+    tickSpacing: POOL.tickSpacing,
+    hooks: POOL.hooks,
   };
 
   async function head() {
@@ -101,7 +104,7 @@ export function viemMainnetReader(
       throw new MarketError(
         "UPSTREAM_UNAVAILABLE",
         "monad",
-        `The mainnet RPC serves chain ${chainId}, not 143.`,
+        `The mainnet RPC serves chain ${chainId}, not ${expectChainId}.`,
         {
           retryable: false,
         },
@@ -114,7 +117,7 @@ export function viemMainnetReader(
       address: book("uniswap_v4_state_view"),
       abi: STATE_VIEW_ABI,
       functionName: "getSlot0",
-      args: [UNISWAP_V4_MON_USDC_POOL.id],
+      args: [POOL.id],
       blockNumber,
     });
   }
@@ -174,7 +177,7 @@ export function viemMainnetReader(
             address: book("uniswap_v4_state_view"),
             abi: STATE_VIEW_ABI,
             functionName: "getLiquidity",
-            args: [UNISWAP_V4_MON_USDC_POOL.id],
+            args: [POOL.id],
             blockNumber: b.number,
           }),
         ]);

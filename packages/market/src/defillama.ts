@@ -1,3 +1,4 @@
+import { MARKET_CHAIN } from "./chain.ts";
 import { type Figure, iso } from "./figures.ts";
 import { type GuardContext, guard } from "./guards.ts";
 import { cleanText } from "./text.ts";
@@ -10,13 +11,12 @@ import type { PricePoint } from "./volatility.ts";
  * chart URL is DefiLlama's own coin identifier; no CoinGecko API is called.
  */
 export const LLAMA_URLS = {
-  chainTvl: "https://api.llama.fi/v2/historicalChainTvl/Monad",
+  chainTvl: `https://api.llama.fi/v2/historicalChainTvl/${MARKET_CHAIN.defillama.chain}`,
   protocols: "https://api.llama.fi/protocols",
   yields: "https://yields.llama.fi/pools",
-  dexVolumes:
-    "https://api.llama.fi/overview/dexs/Monad?excludeTotalDataChart=true&excludeTotalDataChartBreakdown=true",
-  chartHourly: "https://coins.llama.fi/chart/coingecko:monad?span=169&period=1h",
-  chart4h: "https://coins.llama.fi/chart/coingecko:monad?span=181&period=4h",
+  dexVolumes: `https://api.llama.fi/overview/dexs/${MARKET_CHAIN.defillama.chain}?excludeTotalDataChart=true&excludeTotalDataChartBreakdown=true`,
+  chartHourly: `https://coins.llama.fi/chart/${MARKET_CHAIN.native.llamaCoin}?span=169&period=1h`,
+  chart4h: `https://coins.llama.fi/chart/${MARKET_CHAIN.native.llamaCoin}?span=181&period=4h`,
 } as const;
 
 /** Freshness rules: TVL history is daily, so two days; the hourly price chart two hours. */
@@ -132,7 +132,12 @@ export function monadYields(
     guard(field, v, "defillama", fetchedAtUnix, 3_600, ctx);
   return data
     .map((p) => p as Record<string, unknown>)
-    .filter((p) => p.chain === "Monad" && typeof p.pool === "string" && POOL_ID.test(p.pool))
+    .filter(
+      (p) =>
+        p.chain === MARKET_CHAIN.defillama.chain &&
+        typeof p.pool === "string" &&
+        POOL_ID.test(p.pool),
+    )
     .filter((p) => {
       if (!o.asset) return true;
       const sym = String(p.symbol ?? "").toUpperCase();

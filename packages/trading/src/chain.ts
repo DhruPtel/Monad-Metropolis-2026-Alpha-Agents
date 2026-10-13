@@ -140,7 +140,8 @@ export function rpcCustodyPathReader(
   rpcUrl: string,
   contracts: {
     readonly agentNft: Hex;
-    readonly accountFactory: Hex;
+    /** The v2 AccountFactory; null where v2 custody is not deployed (the Base fork, M-FAST). */
+    readonly accountFactory: Hex | null;
     readonly accountFactoryV3: Hex;
   },
 ): CustodyPathReader {

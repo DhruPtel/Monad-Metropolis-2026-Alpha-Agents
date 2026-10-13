@@ -1,3 +1,4 @@
+import { MARKET_CHAIN } from "./chain.ts";
 import { type Transport, fallback, http } from "viem";
 import { MarketError } from "./upstream.ts";
 
@@ -30,7 +31,7 @@ export function readOnlyTransport(rpcUrls: readonly string[], timeoutMs = 15_000
           throw new MarketError(
             "UPSTREAM_UNAVAILABLE",
             "monad",
-            `The research connection to Monad mainnet is read-only; ${args.method} is refused.`,
+            `The research connection to ${MARKET_CHAIN.name} mainnet is read-only; ${args.method} is refused.`,
             { retryable: false },
           );
         return t.request(args as never);

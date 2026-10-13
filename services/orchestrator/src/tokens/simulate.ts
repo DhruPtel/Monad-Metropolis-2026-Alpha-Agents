@@ -1,6 +1,9 @@
-import { MONAD_BASE_TOKENS, NATIVE_MON, addressEntry } from "@alpha-agents/domain";
+import { NATIVE_MON, addressEntry } from "@alpha-agents/domain";
 import { assertLocalFork, mintTestUsdc } from "@alpha-agents/devenv";
-import type { Dex } from "@alpha-agents/market";
+import { type Dex, MARKET_CHAIN } from "@alpha-agents/market";
+
+/** The chain's USDC and wrapped native token (M-FAST: per MARKET_CHAIN). */
+const MONAD_BASE_TOKENS = MARKET_CHAIN.tokens;
 import {
   type Address,
   type Hex,
@@ -32,7 +35,7 @@ import {
  * quoter by `eth_call`.
  */
 const book = (id: Parameters<typeof addressEntry>[1]): Address => {
-  const e = addressEntry("beta", id);
+  const e = addressEntry(MARKET_CHAIN.book, id);
   if (!e.address) throw new Error(`${id} has no mainnet address`);
   return getAddress(e.address);
 };

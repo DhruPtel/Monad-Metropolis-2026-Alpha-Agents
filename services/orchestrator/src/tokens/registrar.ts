@@ -1,3 +1,4 @@
+import { MARKET_CHAIN } from "@alpha-agents/market";
 import type { ChainReaderV3 } from "@alpha-agents/chain-tools";
 import {
   type Hex,
@@ -114,8 +115,12 @@ export function viemScreenerChain(o: {
   const account = privateKeyToAccount(o.privateKey);
   const chain = {
     id: o.chainId,
-    name: "Monad",
-    nativeCurrency: { name: "MON", symbol: "MON", decimals: 18 },
+    name: MARKET_CHAIN.name,
+    nativeCurrency: {
+      name: MARKET_CHAIN.native.symbol,
+      symbol: MARKET_CHAIN.native.symbol,
+      decimals: 18,
+    },
     rpcUrls: { default: { http: [] } },
   } as const;
   const wallet = createWalletClient({ account, chain, transport });

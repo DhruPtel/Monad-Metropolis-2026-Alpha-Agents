@@ -1,6 +1,6 @@
-import type { EnvironmentId } from "@alpha-agents/config";
+import { type EnvironmentId, isForkEnvironment } from "@alpha-agents/config";
 import { addressEntry } from "@alpha-agents/domain";
-import { moveLocalFeed, refreshLocalFeeds } from "@alpha-agents/devenv";
+import { localFeedAddresses, moveLocalFeed, refreshLocalFeeds } from "@alpha-agents/devenv";
 
 /**
  * Keeps the local fork's Chainlink feeds fresh (P2-U2 step 0, D-237): every
@@ -32,14 +32,16 @@ export interface LocalFeedRefresher {
 export function localFeedRefresherFor(
   environment: EnvironmentId,
   rpcUrl: string,
-  refresh: (url: string) => Promise<unknown> = refreshLocalFeeds,
+  refresh: (url: string, feeds: readonly `0x${string}`[]) => Promise<unknown> = refreshLocalFeeds,
   move: typeof moveLocalFeed = moveLocalFeed,
   stall: typeof refreshLocalFeeds = refreshLocalFeeds,
 ): LocalFeedRefresher | null {
-  if (environment !== "local") return null;
+  if (!isForkEnvironment(environment)) return null;
+  // M-FAST: the Base fork re-dates Base's feeds (its chainlink_mon_usd is ETH/USD).
+  const feeds = localFeedAddresses(environment);
   const monFeed = () => {
-    const feed = addressEntry("local", "chainlink_mon_usd").address;
-    if (!feed) throw new Error("the address book has no MON/USD feed for the local fork");
+    const feed = addressEntry(environment, "chainlink_mon_usd").address;
+    if (!feed) throw new Error(`the address book has no native USD feed for ${environment}`);
     return feed;
   };
   return {
@@ -49,7 +51,7 @@ export function localFeedRefresherFor(
     },
     everyMs: LOCAL_FEED_REFRESH_MS,
     refresh: async () => {
-      await refresh(rpcUrl);
+      await refresh(rpcUrl, feeds);
     },
     moveMon: async (bps) => {
       const r = await move(rpcUrl, monFeed(), bps);

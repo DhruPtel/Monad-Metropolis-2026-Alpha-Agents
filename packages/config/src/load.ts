@@ -5,8 +5,8 @@ import {
   forkRpcUrl,
   isEnvironmentId,
   isForkEnvironment,
-  localForkRpcUrl,
   type Environment,
+  BASE_PUBLIC_RPC_URL,
 } from "./environments.ts";
 import { createHash } from "node:crypto";
 import { Secret } from "./secret.ts";
@@ -236,7 +236,8 @@ function researchRpcs(
   if (environment.id === "canary") return [];
   const urls: Secret[] = [];
   // M-FAST: the base environment researches Base through BASE_RPC_URL (the public endpoint when unset).
-  const variables = environment.id === "base" ? BASE_RESEARCH_RPC_VARIABLES : RESEARCH_RPC_VARIABLES;
+  const variables =
+    environment.id === "base" ? BASE_RESEARCH_RPC_VARIABLES : RESEARCH_RPC_VARIABLES;
   for (const name of variables) {
     const spec = VARIABLES.find((v) => v.name === name);
     if (!spec) continue;
@@ -250,6 +251,8 @@ function researchRpcs(
     }
     if (!urls.some((u) => u.reveal() === raw.value)) urls.push(new Secret(raw.value));
   }
+  // M-FAST (A-98): without BASE_RPC_URL the base environment researches Base through its public endpoint.
+  if (environment.id === "base" && urls.length === 0) urls.push(new Secret(BASE_PUBLIC_RPC_URL));
   return urls;
 }
 

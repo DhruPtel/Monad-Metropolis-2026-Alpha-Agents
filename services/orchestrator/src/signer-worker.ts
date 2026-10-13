@@ -1,4 +1,4 @@
-import type { EnvironmentId } from "@alpha-agents/config";
+import { type EnvironmentId, isForkEnvironment } from "@alpha-agents/config";
 import type { Db } from "@alpha-agents/db";
 import { setMonBalance } from "@alpha-agents/devenv";
 import { AGENT_NFT_ABI, ASSET_DECIMALS, addressEntry, parseAmount } from "@alpha-agents/domain";
@@ -57,7 +57,7 @@ export class SignerWorker {
         throw new Error(`the address book has no verified ${id} on ${o.environment}`);
       return e.address as Hex;
     };
-    const local = o.environment === "local";
+    const local = isForkEnvironment(o.environment);
     const agentNft = book("agent_nft");
     const reader = createPublicClient({ transport: http(o.rpcUrl) });
     // The only refund recipient: the agent's owner as the chain says now.
@@ -142,7 +142,8 @@ export class SignerWorker {
     amountText: string,
     breakLimit: string | undefined,
   ) {
-    if (this.o.environment !== "local") throw new Error("test swaps are for the local fork only");
+    if (!isForkEnvironment(this.o.environment))
+      throw new Error("test swaps are for a local fork only");
     if (breakLimit !== undefined && !(BREAKABLE_LIMITS as readonly string[]).includes(breakLimit))
       throw new RangeError(`unknown limit ${breakLimit}`);
     const decimals = direction === "buy" ? ASSET_DECIMALS.USDC : ASSET_DECIMALS.WMON;

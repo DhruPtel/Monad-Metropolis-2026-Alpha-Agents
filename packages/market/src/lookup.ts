@@ -1,3 +1,4 @@
+import { MARKET_CHAIN } from "./chain.ts";
 import { addressEntry } from "@alpha-agents/domain";
 import {
   type Abi,
@@ -308,7 +309,8 @@ export function viemMainnetLookup(
           raw = await client.getBalance({ address: target, blockNumber: h.number });
         else
           raw = (await client.readContract({
-            address: addressEntry("beta", asset === "USDC" ? "usdc" : "wmon").address as Address,
+            address: addressEntry(MARKET_CHAIN.book, asset === "USDC" ? "usdc" : "wmon")
+              .address as Address,
             abi: parseAbi(["function balanceOf(address) view returns (uint256)"]),
             functionName: "balanceOf",
             args: [target],

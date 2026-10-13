@@ -1,3 +1,4 @@
+import { MARKET_CHAIN } from "./chain.ts";
 import { type Cached, type MarketCache, cacheKey } from "./cache.ts";
 import { type TokenBucket, type UpstreamDeps, getJson } from "./upstream.ts";
 import type { DailyBudget } from "./usage.ts";
@@ -26,34 +27,37 @@ export const X_DAILY_POST_BUDGET = 300;
 export const X_POST_READ_COST_USD_E6 = 5_000;
 
 /** The project's official accounts, the only accounts the platform ever names (no individuals). */
-export const X_OFFICIAL_ACCOUNTS = ["monad", "monad_dev", "monad_eco"] as const;
+export const X_OFFICIAL_ACCOUNTS: readonly string[] = MARKET_CHAIN.x.accounts;
+const CHAIN = MARKET_CHAIN.name.toLowerCase();
+const TICKER = MARKET_CHAIN.x.ticker;
+const NATIVE = MARKET_CHAIN.native.symbol;
 
 const NO_ECHO = "-is:retweet -is:reply lang:en";
 
 /** The curated topics. The agent names one; the platform owns the query text. */
 export const X_TOPICS = {
   monad_news: {
-    label: "News and announcements about Monad and MON",
-    query: `(monad OR #monad OR $MON) ${NO_ECHO}`,
+    label: `News and announcements about ${MARKET_CHAIN.name} and ${NATIVE}`,
+    query: `(${CHAIN} OR #${CHAIN} OR ${TICKER}) ${NO_ECHO}`,
   },
   monad_defi: {
-    label: "DeFi on Monad: DEXs, liquidity, yields, lending, TVL",
-    query: `monad (defi OR dex OR liquidity OR yield OR lending OR tvl) ${NO_ECHO}`,
+    label: `DeFi on ${MARKET_CHAIN.name}: DEXs, liquidity, yields, lending, TVL`,
+    query: `${CHAIN} (defi OR dex OR liquidity OR yield OR lending OR tvl) ${NO_ECHO}`,
   },
   mon_market: {
-    label: "Market talk about the MON token: price, listings, flows",
-    query: `($MON OR "MON token" OR "monad price") ${NO_ECHO}`,
+    label: `Market talk about the ${NATIVE} token: price, listings, flows`,
+    query: `(${TICKER} OR "${NATIVE} token" OR "${CHAIN} price") ${NO_ECHO}`,
   },
   monad_ecosystem: {
-    label: "Launches, integrations, upgrades and partnerships on Monad",
-    query: `monad (launch OR launches OR integration OR upgrade OR partnership OR mainnet) ${NO_ECHO}`,
+    label: `Launches, integrations, upgrades and partnerships on ${MARKET_CHAIN.name}`,
+    query: `${CHAIN} (launch OR launches OR integration OR upgrade OR partnership OR mainnet) ${NO_ECHO}`,
   },
   monad_risk: {
-    label: "Reported risks on Monad: exploits, outages, depegs",
-    query: `monad (exploit OR hack OR hacked OR outage OR halted OR depeg OR drained) -is:retweet lang:en`,
+    label: `Reported risks on ${MARKET_CHAIN.name}: exploits, outages, depegs`,
+    query: `${CHAIN} (exploit OR hack OR hacked OR outage OR halted OR depeg OR drained) -is:retweet lang:en`,
   },
   official: {
-    label: "Posts from Monad's official accounts",
+    label: `Posts from ${MARKET_CHAIN.name}'s official accounts`,
     query: `(${X_OFFICIAL_ACCOUNTS.map((a) => `from:${a}`).join(" OR ")}) -is:retweet`,
   },
 } as const;

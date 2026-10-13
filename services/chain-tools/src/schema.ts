@@ -219,7 +219,7 @@ const DepthFigure = z.strictObject({
     .max(5),
 });
 export const PoolDepthOutput = z.strictObject({
-  chain: z.literal("monad-mainnet"),
+  chain: z.enum(["monad-mainnet", "base-mainnet"]),
   venue: z.string(),
   block: z.string(),
   asOf: z.string(),
@@ -305,7 +305,7 @@ const TypedValue = z.union([
 ]);
 
 export const ReadContractOutput = z.strictObject({
-  chain: z.literal("monad-mainnet"),
+  chain: z.enum(["monad-mainnet", "base-mainnet"]),
   function: z.enum(READ_FUNCTION_NAMES as [ReadFunction, ...ReadFunction[]]),
   target: z.string(),
   outputs: z.record(z.string().max(32), TypedValue),
@@ -315,7 +315,7 @@ export const ReadContractOutput = z.strictObject({
 });
 
 export const BalanceOutput = z.strictObject({
-  chain: z.literal("monad-mainnet"),
+  chain: z.enum(["monad-mainnet", "base-mainnet"]),
   target: z.string(),
   asset: z.enum(["USDC", "WMON", "NATIVE"]),
   amount: z.string(),
@@ -326,7 +326,7 @@ export const BalanceOutput = z.strictObject({
 });
 
 export const GetCodeOutput = z.strictObject({
-  chain: z.literal("monad-mainnet"),
+  chain: z.enum(["monad-mainnet", "base-mainnet"]),
   target: z.string(),
   hasCode: z.boolean(),
   sizeBytes: z.int().min(0),

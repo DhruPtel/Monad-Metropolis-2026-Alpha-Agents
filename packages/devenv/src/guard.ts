@@ -1,4 +1,4 @@
-import { FORK_CHAIN_IDS, LOCAL_FORK_CHAIN_ID, MONAD_MAINNET_CHAIN_ID } from "@alpha-agents/config";
+import { FORK_CHAIN_IDS, MONAD_MAINNET_CHAIN_ID } from "@alpha-agents/config";
 import { hexToNumber, rpc } from "./rpc.ts";
 
 /**

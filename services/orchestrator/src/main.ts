@@ -5,6 +5,7 @@ import {
   viemMainnetReader,
   TokenDiscovery,
   readOnlyTransport,
+  MARKET_CHAIN,
 } from "@alpha-agents/market";
 import { PgUsageStore } from "./usage-store.ts";
 import { existsSync } from "node:fs";
@@ -12,10 +13,11 @@ import { fileURLToPath } from "node:url";
 import { serve } from "@hono/node-server";
 import {
   ConfigError,
-  type ConfigValue,
   Secret,
   assertChainId,
+  isForkEnvironment,
   loadConfig,
+  type ConfigValue,
 } from "@alpha-agents/config";
 import {
   ViemChainReader,
@@ -27,7 +29,6 @@ import {
 import { TavilyProvider } from "@alpha-agents/data-tools";
 import { createDb, migrateToLatest } from "@alpha-agents/db";
 import { localPaths, secretFragments, setMonBalance, startTestFork } from "@alpha-agents/devenv";
-import { MONAD_MAINNET_CHAIN_ID } from "@alpha-agents/config";
 import { SPECIES, addressEntry } from "@alpha-agents/domain";
 import { zeroAddress, type Hex, type PublicClient, createPublicClient, http } from "viem";
 import { createApi } from "./api.ts";
@@ -129,13 +130,14 @@ const env = config.environment;
 const namespace = arg("namespace") ?? env.id;
 if (!NAMESPACE_PATTERN.test(namespace)) die(`invalid --namespace ${namespace}`);
 const secret = reveal("ORCHESTRATOR_SECRET") ?? die("ORCHESTRATOR_SECRET is not set");
-if (env.id !== "local" && secret.startsWith("local-fork-only"))
+if (!isForkEnvironment(env.id) && secret.startsWith("local-fork-only"))
   die(`ORCHESTRATOR_SECRET is the local default; set a random one for ${env.label}`);
 
 // P2-EC: off the fork the environment's second provider takes over when the first fails
 // (D-254); on testnet config reads it from MONAD_TESTNET_RPC_URL_SECONDARY.
-const fallbackRpcUrl =
-  config.environment.id === "local" ? null : (reveal("MONAD_RPC_URL_SECONDARY") ?? null);
+const fallbackRpcUrl = isForkEnvironment(config.environment.id)
+  ? null
+  : (reveal("MONAD_RPC_URL_SECONDARY") ?? null);
 if (fallbackRpcUrl) protect(fallbackRpcUrl);
 const client = createPublicClient({ transport: rpcTransport(rpcUrl, fallbackRpcUrl) });
 try {
@@ -209,17 +211,17 @@ else {
     agentNft: nft.address as Hex,
     entropy: entropy.address as Hex,
     privateKey: keeperKey as Hex,
-    localFork: env.id === "local",
+    localFork: isForkEnvironment(env.id),
     ...(steering ? { steering } : {}),
     log: createLog("keeper", redactor),
   });
   keeper = new RevealKeeper({
     chain,
-    policy: env.id === "local" ? KEEPER_POLICY.local : KEEPER_POLICY.remote,
+    policy: isForkEnvironment(env.id) ? KEEPER_POLICY.local : KEEPER_POLICY.remote,
     log: createLog("keeper", redactor),
     redactor,
   });
-  log(`reveal keeper on: wallet ${chain.address}, window ${env.id === "local" ? 10 : 60} s`);
+  log(`reveal keeper on: wallet ${chain.address}, window ${isForkEnvironment(env.id) ? 10 : 60} s`);
 }
 
 const seed = env.id === "beta" ? undefined : reveal("FUNDING_ADDRESS_SEED");
@@ -338,8 +340,9 @@ const tokenDiscovery =
 const screenForkPort = Number(arg("screen-fork-port") ?? SCREEN_FORK_PORT);
 if (!Number.isInteger(screenForkPort) || screenForkPort <= 8545 || screenForkPort > 65_535)
   die("--screen-fork-port takes a port above 8545");
+// M-FAST (A-98): devenv's test fork is a fork of Monad; the base environment runs no screens.
 const screenFork =
-  mainnetUrls.length > 0
+  mainnetUrls.length > 0 && MARKET_CHAIN.key === "monad"
     ? new ScreenFork({
         start: () =>
           startTestFork({
@@ -353,7 +356,8 @@ const screenFork =
       })
     : null;
 const tokenRegistry = new TokenRegistry({
-  chainId: MONAD_MAINNET_CHAIN_ID,
+  // M-FAST: the chain researched (Monad's 143, or Base's 8453), the token table's chain id (L-216).
+  chainId: MARKET_CHAIN.chainId,
   store: new TokenStore(db),
   market,
   discovery: tokenDiscovery,
@@ -365,7 +369,10 @@ log(
   `token registry on: discovery ${tokenDiscovery ? "configured" : "not configured"}, screens ${screenFork ? `on a latest-block fork at port ${screenForkPort}` : "not configured"}, loops ${tokenLoops ? "on" : "off"}; GoPlus has no API key and runs keyless`,
 );
 const scanSeconds = arg("scan-interval-seconds");
-if (scanSeconds !== undefined && (env.id !== "local" || !/^[1-9]\d{0,5}$/.test(scanSeconds)))
+if (
+  scanSeconds !== undefined &&
+  (!isForkEnvironment(env.id) || !/^[1-9]\d{0,5}$/.test(scanSeconds))
+)
   die("--scan-interval-seconds takes a whole number of seconds, and only with APP_ENV=local");
 const scanIntervalMs =
   scanSeconds !== undefined
@@ -425,12 +432,11 @@ const plainReaderV3 = chainContractsV3.ok
 // F-U12: the price attestor signs class A prices as the median of the chain's own pools and
 // GeckoTerminal, with anvil account 2 on the local fork and the testnet key where set; every
 // reader of the market then sees class A tokens at the attestor's price.
-const attestorKey =
-  env.id === "local"
-    ? localAttestorKey()
-    : env.id === "testnet"
-      ? ((reveal("TESTNET_ATTESTOR_PRIVATE_KEY") as Hex | undefined) ?? null)
-      : null;
+const attestorKey = isForkEnvironment(env.id)
+  ? localAttestorKey()
+  : env.id === "testnet"
+    ? ((reveal("TESTNET_ATTESTOR_PRIVATE_KEY") as Hex | undefined) ?? null)
+    : null;
 // The attestor's clock is the chain's (a local fork runs days ahead after the verifier's timelock).
 const chainClock = new ChainClock();
 const attestor =
@@ -454,12 +460,11 @@ const chainReaderV3 =
 // F-U12: the screened-lane registrar, on the screener key (anvil account 3 locally, D-342): a token
 // that passes its screen joins the screened lane at once with its pools; a refused re-screen moves
 // it to sell-only; the chain's lanes are mirrored into the token table at start and after each act.
-const screenerKey =
-  env.id === "local"
-    ? localScreenerKey()
-    : env.id === "testnet"
-      ? ((reveal("TESTNET_SCREENER_PRIVATE_KEY") as Hex | undefined) ?? null)
-      : null;
+const screenerKey = isForkEnvironment(env.id)
+  ? localScreenerKey()
+  : env.id === "testnet"
+    ? ((reveal("TESTNET_SCREENER_PRIVATE_KEY") as Hex | undefined) ?? null)
+    : null;
 const registrar =
   plainReaderV3 && screenerKey && chainContractsV3.ok
     ? new Registrar({
@@ -518,7 +523,7 @@ const toolsReader =
 
 // The trade flow (P2-U6) sends swaps through the signer; the local fork tops gas up and
 // treats its receipts as final, every other chain settles a trade only once finalized.
-const local = env.id === "local";
+const local = isForkEnvironment(env.id);
 // P2-EC: off the fork every read is metered by the RPC provider, and the 2-second loops of the
 // fork (the keeper, credits, the trade flow) together with the indexer exceeded a free plan's
 // rate limit on testnet. Real chains poll these every 5 seconds.
@@ -548,12 +553,11 @@ if (!trading) log("trade flow: off (no signer); proposals wait and nothing is se
 
 // P4-U2: the Risk Sentinel's key: anvil account 5 on the local fork (D-230), the testnet key
 // where set; the beta's KMS key is bound in PB-U1. Without one the sentinel sets agent states only.
-const sentinelKey =
-  env.id === "local"
-    ? localSentinelKey()
-    : env.id === "testnet"
-      ? ((reveal("TESTNET_SENTINEL_PRIVATE_KEY") as Hex | undefined) ?? null)
-      : null;
+const sentinelKey = isForkEnvironment(env.id)
+  ? localSentinelKey()
+  : env.id === "testnet"
+    ? ((reveal("TESTNET_SENTINEL_PRIVATE_KEY") as Hex | undefined) ?? null)
+    : null;
 const sentinelChain = sentinelKey
   ? viemSentinelChain({ rpcUrl, chainId: env.chainId, privateKey: sentinelKey })
   : null;
@@ -667,7 +671,7 @@ const api = createApi({
   orchestrator,
   store,
   chainId: env.chainId,
-  devActions: env.id === "local",
+  devActions: isForkEnvironment(env.id),
   operatorActions: env.id !== "beta",
   feeds: testnetFeeds,
   signer: signerWorker,
@@ -678,7 +682,7 @@ const api = createApi({
 });
 const server = serve({ fetch: api.fetch, port, hostname: "127.0.0.1" });
 log(
-  `internal API on http://127.0.0.1:${port} (dev actions ${env.id === "local" ? "on" : "off"}, operator actions ${env.id === "beta" ? "off" : "on"})`,
+  `internal API on http://127.0.0.1:${port} (dev actions ${isForkEnvironment(env.id) ? "on" : "off"}, operator actions ${env.id === "beta" ? "off" : "on"})`,
 );
 
 let stopping = false;

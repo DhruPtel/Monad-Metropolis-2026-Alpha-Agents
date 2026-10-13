@@ -360,6 +360,9 @@ export function chainOfEnvironment(environment: string): ChainKey {
 }
 
 /** The chain's native and wrapped-native symbols, for words and feeds. */
+/** The chain's name as the app shows it next to a position or a terminal (M-FAST). */
+export const CHAIN_NAMES: Readonly<Record<ChainKey, string>> = { monad: "Monad", base: "Base" };
+
 export const CHAIN_NATIVE: Readonly<
   Record<ChainKey, { readonly native: string; readonly wrapped: string }>
 > = {

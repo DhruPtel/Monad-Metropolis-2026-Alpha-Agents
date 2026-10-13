@@ -146,9 +146,9 @@ async function depositableTokens(db: Db) {
 const v3 =
   deployment &&
   rpcUrl &&
+  // M-FAST: the v2 factory is optional; the Base fork has only the v3 set.
   executorV3Entry.status === "verified" &&
-  factoryV3Entry.status === "verified" &&
-  factoryEntry.status === "verified"
+  factoryV3Entry.status === "verified"
     ? {
         executor: executorV3Entry.address as Hex,
         reader: rpcAgentViewReader(
@@ -164,7 +164,7 @@ const v3 =
         ),
         paths: rpcCustodyPathReader(rpcUrl, {
           agentNft: deployment.address,
-          accountFactory: factoryEntry.address as Hex,
+          accountFactory: factoryEntry.status === "verified" ? (factoryEntry.address as Hex) : null,
           accountFactoryV3: factoryV3Entry.address as Hex,
         }),
         // P7-U4: the agent's vault, public, read with the same set.
@@ -193,7 +193,8 @@ const v3 =
                 {
                   agentNft: deployment.address,
                   accountFactory: factoryV3Entry.address as Hex,
-                  accountFactoryV2: factoryEntry.address as Hex,
+                  accountFactoryV2:
+                    factoryEntry.status === "verified" ? (factoryEntry.address as Hex) : null,
                   oracle: oracleV3Entry.address as Hex,
                   usdc: addressEntry(env.id, "usdc").address as Hex,
                   wmon: addressEntry(env.id, "wmon").address as Hex,

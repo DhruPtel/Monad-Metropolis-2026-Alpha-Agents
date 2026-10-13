@@ -1,4 +1,5 @@
 export * from "./cache.ts";
+export * from "./chain.ts";
 export * from "./coinmarketcap.ts";
 export * from "./defillama.ts";
 export * from "./discovery.ts";

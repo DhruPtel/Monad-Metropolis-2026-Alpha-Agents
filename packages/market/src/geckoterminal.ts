@@ -1,3 +1,4 @@
+import { MARKET_CHAIN } from "./chain.ts";
 import { NATIVE_MON } from "@alpha-agents/domain";
 import { type GuardContext, guard } from "./guards.ts";
 import { type UpstreamDeps, getJson } from "./upstream.ts";
@@ -11,15 +12,11 @@ import { type UpstreamDeps, getJson } from "./upstream.ts";
  * is its pool ID. Native MON appears as the zero address. Every number goes
  * through the plausibility guards; a refused liquidity counts as none.
  */
-export const GT_BASE = "https://api.geckoterminal.com/api/v2/networks/monad";
+export const GT_BASE = `https://api.geckoterminal.com/api/v2/networks/${MARKET_CHAIN.geckoterminal.network}`;
 
 export const DEXES = ["uniswap_v3", "uniswap_v4", "pancakeswap_v3"] as const;
 export type Dex = (typeof DEXES)[number];
-export const GT_DEX_IDS: Readonly<Record<Dex, string>> = {
-  uniswap_v3: "uniswap-v3-monad",
-  uniswap_v4: "uniswap-v4-monad",
-  pancakeswap_v3: "pancakeswap-v3-monad",
-};
+export const GT_DEX_IDS: Readonly<Record<Dex, string>> = MARKET_CHAIN.geckoterminal.dexes;
 const DEX_BY_GT_ID = Object.fromEntries(
   Object.entries(GT_DEX_IDS).map(([k, v]) => [v, k as Dex]),
 ) as Record<string, Dex>;
