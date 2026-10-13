@@ -25,6 +25,7 @@ import {
   proposalJson,
 } from "./proposals.ts";
 import type { ActivationDeps } from "./activation.ts";
+import { listReports, readReport, reportLinks } from "./reports.ts";
 import type { WindowDeps } from "./window.ts";
 import type { ResearchDeps } from "./research.ts";
 import { cors } from "hono/cors";
@@ -1418,6 +1419,29 @@ export function createApp(deps: ApiDeps): Hono {
     if (!deps.research) return researchOff(c);
     const read = await deps.research.read(Number(agentId));
     return c.json({ ...(await meta()), ...read, agentId: agentId.toString() });
+  });
+
+  /** RP-U1: the agent's research reports, newest first, with where the activation's and the plan's are. Owner only. */
+  app.get("/v1/agents/:id{[0-9]+}/reports", async (c) => {
+    const agentId = BigInt(c.req.param("id"));
+    const owner = await ownerOnly(c, agentId);
+    if (owner instanceof Response) return owner;
+    return c.json({
+      ...(await meta()),
+      agentId: agentId.toString(),
+      reports: await listReports(deps.db, chainId, Number(agentId)),
+      links: await reportLinks(deps.db, chainId, Number(agentId)),
+    });
+  });
+
+  /** RP-U1: one cycle's research report. Owner only. */
+  app.get("/v1/agents/:id{[0-9]+}/reports/:cycleId{cycle-[0-9a-f-]{36}}", async (c) => {
+    const agentId = BigInt(c.req.param("id"));
+    const owner = await ownerOnly(c, agentId);
+    if (owner instanceof Response) return owner;
+    const report = await readReport(deps.db, chainId, Number(agentId), c.req.param("cycleId"));
+    if (!report) return fail(c, 404, "not_found", "This cycle has no report.");
+    return c.json({ ...(await meta()), agentId: agentId.toString(), report });
   });
 
   /** The agent terminal's events from a sequence on, the open cycle by default. Owner only. */

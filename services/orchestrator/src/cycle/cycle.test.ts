@@ -1775,7 +1775,7 @@ describe.skipIf(!dbUp)("the discovery loop engine (needs Postgres)", { timeout: 
       cycles: { cycleId: string; stages: unknown[] }[];
     };
     // Standard allows 2 Dives a day and this cycle used one: Scan, one Dive, Challenge, Zoom out.
-    expect(list.plans.ROUTINE.maxUsdcE6).toBe("2400000");
+    expect(list.plans.ROUTINE.maxUsdcE6).toBe("2600000");
     expect(list.cycles[0]).toMatchObject({ cycleId: cycle.cycleId });
     expect(list.cycles[0]?.stages).toHaveLength(5);
     const detail = (await (await app.request(`/v1/cycles/${cycle.cycleId}`)).json()) as {

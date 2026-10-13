@@ -99,6 +99,18 @@
   --motion-medium: 180ms;
   --motion-ease: cubic-bezier(0.2, 0, 0, 1);
 
+  /* RP-U1: paper, for printing a research report (light on white, ink-dark text). */
+  --palette-paper: #ffffff;
+  --palette-paper-tint: #f3f4f6;
+  --palette-ink: #111418;
+  --palette-ink-muted: #4a505a;
+  --palette-ink-subtle: #6b7280;
+  --palette-rule: #d6d9de;
+  --palette-rule-strong: #9aa0a8;
+  --palette-ink-positive: #2f6b14;
+  --palette-ink-negative: #a32020;
+  --palette-ink-warning: #8a5a00;
+
   /* Layout widths */
   --layout-content: 80rem;
   --layout-dialog: 30rem;
@@ -425,4 +437,52 @@
 /* The 3D viewer's background: a soft radial glow from the centre (P1-U11). */
 @utility viewer-surface {
   background: radial-gradient(ellipse at 50% 45%, var(--viewer-glow), var(--background) 72%);
+}
+
+/*
+ * RP-U1: printing a research report (the PDF): the page's own semantic tokens
+ * on paper, the app's header, navigation, banner and actions hidden, and no
+ * token section split across pages. Only a page holding a report changes.
+ */
+@media print {
+  @page {
+    margin: 16mm 14mm;
+  }
+  :root:has(.report-document),
+  :root:has(.report-document) [data-theme] {
+    color-scheme: light;
+    --background: var(--palette-paper);
+    --surface: var(--palette-paper);
+    --surface-raised: var(--palette-paper-tint);
+    --foreground: var(--palette-ink);
+    --foreground-muted: var(--palette-ink-muted);
+    --foreground-subtle: var(--palette-ink-subtle);
+    --border: var(--palette-rule);
+    --border-strong: var(--palette-rule-strong);
+    --primary: var(--palette-ink);
+    --primary-muted: var(--palette-rule-strong);
+    --positive: var(--palette-ink-positive);
+    --negative: var(--palette-ink-negative);
+    --warning: var(--palette-ink-warning);
+  }
+  body:has(.report-document) header:not(.report-document header),
+  body:has(.report-document) nav,
+  body:has(.report-document) [data-slot="beta-banner"],
+  body:has(.report-document) [data-print="hide"] {
+    display: none !important;
+  }
+  .report-document {
+    max-width: none;
+  }
+  .report-token,
+  .report-document tr {
+    break-inside: avoid;
+  }
+  .report-section h2 {
+    break-after: avoid;
+  }
+  .report-document a {
+    color: var(--palette-ink);
+    text-decoration: underline;
+  }
 }

@@ -660,6 +660,23 @@ export interface ResearchUniverseTable {
   updated_at: ColumnType<Date, Date | string | undefined, Date | string>;
 }
 
+/** RP-U1: a cycle's research report. */
+export interface ResearchReportTable {
+  cycle_id: string;
+  chain_id: number;
+  agent_id: number;
+  status: string;
+  reason: string | null;
+  body: ColumnType<unknown, string | null, string | null> | null;
+  checks: ColumnType<Record<string, unknown>, string | undefined, string>;
+  model: string | null;
+  request_id: string | null;
+  cost_usd: ColumnType<number, number | undefined, number>;
+  charged_usdc_e6: ColumnType<string, string | undefined, string>;
+  ceiling_usdc_e6: ColumnType<string, string | undefined, string>;
+  created_at: Timestamp;
+}
+
 /** P4-U2: one action of the Risk Sentinel: the breach, what it set, why, and the transaction. */
 export interface SentinelActionTable {
   action_id: string;
@@ -1027,6 +1044,7 @@ export interface Database {
   "platform.research_schedules": ResearchScheduleTable;
   "platform.research_triggers": ResearchTriggerTable;
   "platform.research_universe": ResearchUniverseTable;
+  "platform.research_reports": ResearchReportTable;
   "platform.sentinel_actions": SentinelActionTable;
   "platform.sentinel_watch": SentinelWatchTable;
   "platform.token_pools": TokenPoolTable;

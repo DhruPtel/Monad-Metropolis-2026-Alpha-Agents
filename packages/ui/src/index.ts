@@ -57,5 +57,6 @@ export * from "./components/agent/settings";
 export * from "./components/agent/owner-pages";
 export * from "./components/agent/tiles";
 export * from "./components/agent/research";
+export * from "./components/agent/report";
 export * from "./components/agent/sentinel";
 export * from "./components/agent/universe";

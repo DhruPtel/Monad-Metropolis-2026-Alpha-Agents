@@ -71,10 +71,10 @@ import {
   minAmountOutFor,
 } from "./trade-flow.ts";
 import { RUNNER_EVERY_MS, TemplateRunner } from "./runner.ts";
-import { runCycleTask } from "./cycle/cycle.ts";
+import { runCycleTask, cyclePlan } from "./cycle/cycle.ts";
 import { ProposalService } from "./cycle/proposals.ts";
 import { CycleResearch } from "./cycle/research.ts";
-import { type CycleKind, isReasoningAlias } from "./cycle/stages.ts";
+import { type CycleKind, type ReasoningAlias, isReasoningAlias } from "./cycle/stages.ts";
 import { CycleStore, type ReplayOverride } from "./cycle/store.ts";
 import { PlaybookOverrideStore, bumpVersion } from "./cycle/playbook-overrides.ts";
 import { PLAYBOOK_OF, type ReplayView, replayView } from "./cycle/replay.ts";
@@ -90,6 +90,7 @@ import { type ResearchWiring, observe, schedulerDeps, watcherDeps } from "./rese
 import type { Attestor } from "./attestor.ts";
 import { checkTargetPortfolio } from "./cycle/plan-rules.ts";
 import { UniverseStore, universeSnapshot, type ResearchChain } from "./cycle/universe.ts";
+import { LiteLLMReportModel, type ReportModel, ReportWriter } from "./cycle/report.ts";
 import type { ChainReaderV3 } from "@alpha-agents/chain-tools";
 import type { TokenStore } from "./tokens/store.ts";
 import {
@@ -187,6 +188,8 @@ export interface OrchestratorOptions {
   readonly redisUrl: string;
   readonly secret: string;
   readonly litellmUrl: string;
+  /** RP-U1: replaces the report's model, for tests. */
+  readonly reportModel?: ReportModel;
   readonly devDir: string;
   readonly cloudflared: string | null;
   readonly startingBudgetUsd: number;
@@ -328,6 +331,8 @@ export class Orchestrator {
   readonly sentinelRules: SentinelRules;
   /** Eight-word runs of every mounted skill's and playbook's text, once per process: the leak checks. */
   readonly skillText: () => ReadonlySet<string>;
+  /** RP-U1: the research report writer; null without credits or a gateway. */
+  readonly reports: ReportWriter | null;
   /** F-U9: portfolio proposals from the Zoom out's decisions, evaluated and stored. */
   readonly proposals: ProposalService;
   /** F-U10: the activation sweep: its checks, its record and the cycle's hooks. */
@@ -553,6 +558,33 @@ export class Orchestrator {
       startingBudgetUsd: options.startingBudgetUsd,
       ...(this.credits ? { credits: this.credits } : {}),
     });
+    this.reports =
+      this.credits && options.litellmUrl
+        ? new ReportWriter({
+            db: store.db,
+            cycles: this.cycles,
+            universe: this.universe,
+            credits: this.credits,
+            model: options.reportModel ?? new LiteLLMReportModel(options.litellmUrl),
+            keyOf: async (ref) => {
+              const runtime = await store.runtime(ref);
+              return runtime ? this.provisioner.virtualKey(runtime) : null;
+            },
+            budgetOf: async (ref) => {
+              const goal = await this.goals.currentGoal(ref.chainId, ref.agentId);
+              return goal
+                ? {
+                    daily: BigInt(goal.config.research.dailyBudgetUsdcE6),
+                    reserve: BigInt(goal.config.creditReserveUsdcE6),
+                  }
+                : null;
+            },
+            cycleCeiling: (cycle) =>
+              BigInt(cyclePlan("ACTIVATION", cycle.reasoningAlias as ReasoningAlias, 2).maxUsdcE6),
+            skillText: () => this.skillText(),
+            log: options.log,
+          })
+        : null;
     this.queue = new OrchestratorQueue({ redisUrl: options.redisUrl, namespace, log, redactor });
   }
 
@@ -773,7 +805,7 @@ export class Orchestrator {
         return runTokenCheckTask(this.taskContext(), job.taskId);
       case "cycle": {
         if (!this.credits) throw new Error("credits are not configured");
-        return runCycleTask(
+        await runCycleTask(
           {
             ...this.taskContext(),
             cycles: this.cycles,
@@ -802,8 +834,34 @@ export class Orchestrator {
           },
           job.taskId,
         );
+        // RP-U1: the cycle's report, once the cycle has ended; never fails the task.
+        await this.writeReport(job.taskId);
+        return;
       }
     }
+  }
+
+  /** RP-U1: writes the report of the cycle a task ran, when it ended with something to report. */
+  async writeReport(taskId: string): Promise<void> {
+    const writer = this.reports;
+    if (!writer) return;
+    const cycle = await this.cycles.cycleForTask(taskId);
+    if (
+      !cycle ||
+      cycle.kind === "REPLAY" ||
+      cycle.status === "queued" ||
+      cycle.status === "running"
+    )
+      return;
+    await writer.write(cycle);
+  }
+
+  /** RP-U1: writes (again) the report of one finished cycle, for the operator. */
+  async writeReportFor(cycleId: string): Promise<string> {
+    const cycle = await this.cycles.cycle(cycleId);
+    if (!cycle) return "not_found";
+    if (!this.reports) return "not_configured";
+    return this.reports.write(cycle);
   }
 
   private taskContext(): TaskContext {

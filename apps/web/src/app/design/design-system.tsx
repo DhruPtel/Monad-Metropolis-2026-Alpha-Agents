@@ -202,6 +202,9 @@ import {
   StatTileRow,
   TabbedPanel,
   type PositionRow,
+  ReportList,
+  ResearchReportDocument,
+  type ReportView,
 } from "@alpha-agents/ui";
 
 // Sample data from the design brief (Planv1/design-brief.md).
@@ -2713,6 +2716,160 @@ function VaultLayoutSection() {
   );
 }
 
+/** RP-U1: a research cycle's report as a document, and the Research page's list of reports. */
+const REPORT_FIXTURE: ReportView = {
+  title: "Agent #7: research report",
+  kindLabel: "Activation sweep",
+  writtenAt: "2026-10-13 07:44 UTC",
+  costLine:
+    "Written by research-medium for 0.1820 USDC of credits (ceiling 0.30 USDC), from cycle cycle-0000.",
+  executiveSummary:
+    "The agent found MON's supply unlock the main risk this month and kept the account mostly in USDC. Large-cap tokens with Chainlink feeds remain the only buyable set; none cleared the bar for a new position at today's prices.",
+  recommendation: "Keep the plan unchanged and review after the unlock on 2026-11-24.",
+  market: {
+    overview:
+      "Monad's TVL fell over the week while DEX volume rose, a mixed picture: activity is up but capital is leaving.",
+    snapshot: [
+      { label: "MON price", value: "0.0248 USD", source: "market_snapshot" },
+      { label: "Monad TVL", value: "6.17B USD", source: "market_snapshot" },
+      { label: "DEX volume, 24 hours", value: "1.04B USD", source: "market_snapshot" },
+    ],
+  },
+  universeSummary:
+    "The Scan read 150 tokens: three buyable on this account, 47 more on Monad mainnet and 100 on Base for research only.",
+  universe: [
+    {
+      symbol: "USDC",
+      buyable: true,
+      researched: false,
+      proposed: false,
+      themeCode: null,
+      why: "The account's cash; never bought.",
+    },
+    {
+      symbol: "WMON",
+      buyable: true,
+      researched: true,
+      proposed: false,
+      themeCode: "MON_SUPPLY_UNLOCK",
+      why: "chosen for a Dive (high materiality)",
+    },
+    {
+      symbol: "AERO (Base)",
+      buyable: false,
+      researched: false,
+      proposed: false,
+      themeCode: null,
+      why: "research only: on Base, where this owner has no trading account",
+    },
+  ],
+  tokens: [
+    {
+      symbol: "WMON",
+      chain: "Monad",
+      whatItIs: "Wrapped MON, the network's native token as an ERC-20.",
+      fundamentals: [
+        {
+          item: "Supply and unlocks",
+          finding: "A large unlock is scheduled for November.",
+          status: "concern",
+        },
+        {
+          item: "Liquidity",
+          finding: "Deep pools on Uniswap v4 and PancakeSwap v3.",
+          status: "supports",
+        },
+        { item: "Revenue", finding: "No protocol revenue figure was found.", status: "unknown" },
+      ],
+      evidenceFor: [{ text: "DEX volume rose this week.", sources: ["market_snapshot"] }],
+      evidenceAgainst: [
+        {
+          text: "The unlock adds supply ahead of demand.",
+          sources: ["https://tokenomist.ai/monad"],
+        },
+      ],
+      risks: ["Unlock-driven selling", "Falling TVL"],
+      thesis: "Hold off until the unlock has passed and liquidity absorbs it.",
+      killCondition: "TVL recovers above its 30-day average before the unlock.",
+      confidence: "medium",
+    },
+  ],
+  skeptic: [
+    {
+      theme: "MON_SUPPLY_UNLOCK",
+      objection: "Unlocks are often priced in well before the date.",
+      answer: "The agent sized no position either way, so the plan does not depend on the timing.",
+    },
+  ],
+  portfolio: {
+    stance: "no_change",
+    summary:
+      "The account stays in USDC within the Balanced envelope; nothing clears the cost hurdle today.",
+    positions: [],
+  },
+  sources: [
+    { source: "market_snapshot", kind: "tool", classes: ["market"], calls: 1 },
+    { source: "list_tokens", kind: "tool", classes: ["onchain", "market"], calls: 2 },
+    { source: "https://tokenomist.ai/monad", kind: "url", classes: ["primary", "news"], calls: 1 },
+  ],
+  stages: [
+    { label: "Scan", result: "finished", charged: "0.17 USDC" },
+    { label: "Dive (MON_SUPPLY_UNLOCK)", result: "finished", charged: "0.27 USDC" },
+    { label: "Zoom out", result: "finished", charged: "0.22 USDC" },
+  ],
+  checksNote: "The checks removed 1 sentence the records could not support.",
+};
+
+function ReportSection() {
+  return (
+    <Section id="report" title="Research report">
+      <p className="max-w-3xl text-sm text-foreground-muted">
+        Each research cycle ends with a report, read as a document and printable as a PDF: the print
+        styling puts it on paper colours and hides the app's header and actions.
+      </p>
+      <Specimen name="ReportList" note="The Research page's list; a skipped report says why.">
+        <ReportList
+          items={[
+            {
+              cycleId: "cycle-1",
+              href: "#report",
+              kindLabel: "Activation sweep",
+              writtenAt: "2026-10-13 07:44 UTC",
+              status: "written",
+              summary: REPORT_FIXTURE.executiveSummary,
+              reason: null,
+              tokens: 1,
+            },
+            {
+              cycleId: "cycle-2",
+              href: "#report",
+              kindLabel: "Routine research cycle",
+              writtenAt: "2026-10-12 21:00 UTC",
+              status: "skipped",
+              summary: null,
+              reason: "the cycle accepted no brief to report on",
+              tokens: 0,
+            },
+          ]}
+        />
+      </Specimen>
+      <Specimen
+        name="ResearchReportDocument"
+        note="The document at reading width; sections stack on a phone."
+      >
+        <ResearchReportDocument
+          view={REPORT_FIXTURE}
+          actions={
+            <Button size="sm" variant="secondary">
+              Download as PDF
+            </Button>
+          }
+        />
+      </Specimen>
+    </Section>
+  );
+}
+
 function ActivationSection() {
   return (
     <Section id="activation" title="Activation sweep">
@@ -4781,6 +4938,7 @@ function DesignSystem() {
       <PortfolioSection />
       <VaultSection />
       <VaultLayoutSection />
+      <ReportSection />
       <SkillsSection />
       <SettingsSection />
       <OwnerPagesSection />

@@ -3026,6 +3026,52 @@ describe.skipIf(!available)("the control API (needs pnpm dev:up for Postgres)", 
         "sentinel 2",
       ]);
     });
+
+    it("serves the research reports to the owner only (RP-U1)", async () => {
+      const cycleId = "cycle-0123abcd-0000-4000-8000-0000000000aa";
+      await t.db
+        .insertInto("platform.research_reports")
+        .values({
+          cycle_id: cycleId,
+          chain_id: 143143,
+          agent_id: 2,
+          status: "written",
+          reason: null,
+          body: JSON.stringify({
+            version: 1,
+            report: { executiveSummary: "Hold USDC.", tokens: [{}] },
+          }),
+          checks: JSON.stringify({ removedSentences: 0 }),
+          charged_usdc_e6: "182000",
+          ceiling_usdc_e6: "300000",
+        })
+        .onConflict((oc) => oc.column("cycle_id").doNothing())
+        .execute();
+      const bob = await session(2, "bob-token");
+      const alice = await session(1, "alice-token");
+      for (const path of ["/v1/agents/2/reports", `/v1/agents/2/reports/${cycleId}`]) {
+        expect((await call(path, {})).status, path).toBe(401);
+        expect((await call(path, { headers: headers(alice) })).status, path).toBe(403);
+      }
+      const list = await call("/v1/agents/2/reports", { headers: headers(bob) });
+      expect(list.status).toBe(200);
+      expect(await json(list)).toMatchObject({
+        reports: [
+          { cycleId, status: "written", tokens: 1, summary: "Hold USDC.", chargedUsdcE6: "182000" },
+        ],
+        links: { activation: null, plan: null },
+      });
+      const one = await call(`/v1/agents/2/reports/${cycleId}`, { headers: headers(bob) });
+      expect(one.status).toBe(200);
+      expect(await json(one)).toMatchObject({
+        report: { cycleId, status: "written", body: { version: 1 } },
+      });
+      // Another agent's report is never found through this agent's route.
+      const other = await call("/v1/agents/2/reports/cycle-0123abcd-0000-4000-8000-0000000000bb", {
+        headers: headers(bob),
+      });
+      expect(other.status).toBe(404);
+    });
   });
 
   describe("CORS and errors", () => {

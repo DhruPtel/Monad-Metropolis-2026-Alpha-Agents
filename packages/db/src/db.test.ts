@@ -50,6 +50,7 @@ describe.skipIf(!available)("database migrations (needs pnpm dev:up)", () => {
       "platform.refunds",
       "platform.research_briefs",
       "platform.research_cycles",
+      "platform.research_reports",
       "platform.research_schedules",
       "platform.research_triggers",
       "platform.research_universe",

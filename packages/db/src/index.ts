@@ -36,6 +36,7 @@ import * as ownerKeys from "./migrations/0032_owner_keys.ts";
 import * as revealSteersSpecies from "./migrations/0033_reveal_steers_species.ts";
 import * as ownerKeySources from "./migrations/0034_owner_keys_sources.ts";
 import * as replay from "./migrations/0035_replay.ts";
+import * as researchReports from "./migrations/0036_research_reports.ts";
 import type { Database } from "./schema.ts";
 
 export type * from "./schema.ts";
@@ -81,6 +82,7 @@ export const MIGRATIONS: Readonly<Record<string, Migration>> = {
   "0033_reveal_steers_species": revealSteersSpecies,
   "0034_owner_keys_sources": ownerKeySources,
   "0035_replay": replay,
+  "0036_research_reports": researchReports,
 };
 
 const INT8 = 20;

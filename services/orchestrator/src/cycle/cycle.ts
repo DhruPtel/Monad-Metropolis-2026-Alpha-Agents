@@ -14,6 +14,7 @@ import {
 import { errorText } from "../secrets.ts";
 import { type AgentRef, LeaseHeldError } from "../store.ts";
 import { cycleConfig, stagePrompt } from "./config.ts";
+import { REPORT_CEILING_USDC_E6, REPORT_MODEL } from "./report.ts";
 import type { ProposalService } from "./proposals.ts";
 import type { CycleResearch } from "./research.ts";
 import {
@@ -120,7 +121,15 @@ export function cyclePlan(kind: CycleKind, reasoning: ReasoningAlias, divesLeft:
     ceilingUsdcE6: stageCeilingUsdcE6(x.stage, kind, reasoning).toString(),
   }));
   const max = stages.reduce((sum, x) => sum + BigInt(x.ceilingUsdcE6) * BigInt(x.count), 0n);
-  return { kind, reasoning, stages, maxUsdcE6: max.toString() };
+  // RP-U1: the report written at the end has its own ceiling, part of the cycle's shown maximum.
+  const report = { model: REPORT_MODEL, ceilingUsdcE6: REPORT_CEILING_USDC_E6.toString() };
+  return {
+    kind,
+    reasoning,
+    stages,
+    report,
+    maxUsdcE6: (max + REPORT_CEILING_USDC_E6).toString(),
+  };
 }
 
 const POLL_MS = 1_500;

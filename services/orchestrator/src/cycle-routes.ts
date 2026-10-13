@@ -224,6 +224,15 @@ export function registerCycleRoutes(
   });
 
   /** Starts a cycle now (local and testnet operators): 202 with its task and cycle. */
+  /** RP-U1: writes (again) the research report of a finished cycle (operator, the live check). */
+  app.post("/v1/cycles/:cycleId/report", async (c) => {
+    const cycleId = c.req.param("cycleId");
+    if (!/^cycle-[0-9a-f-]{36}$/.test(cycleId)) return c.json({ error: "bad_cycle_id" }, 400);
+    if (!o.canStart) return c.json({ error: "not_allowed" }, 403);
+    const outcome = await orch.writeReportFor(cycleId);
+    return c.json({ cycleId, outcome }, outcome === "not_found" ? 404 : 200);
+  });
+
   app.post("/v1/agents/:agentId/cycles", async (c) => {
     const ref = o.agentRef(c.req.param("agentId"));
     if (!ref) return c.json({ error: "bad_agent_id" }, 400);

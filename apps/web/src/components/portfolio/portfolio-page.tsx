@@ -67,6 +67,8 @@ import { tradingStateWords } from "@/agent/my-agents";
 import { latestDecided, planCardView } from "@/agent/plan-card";
 import { setupSteps } from "@/agent/setup-flow";
 import { ActivationTerminal } from "./activation-terminal";
+import { reportHref } from "@/agent/report-view";
+import { useReports } from "@/agent/use-reports";
 import { useWalletSession } from "@/auth/session";
 import {
   type Asset,
@@ -707,6 +709,8 @@ export function PortfolioPage({
   agentId: bigint;
 }) {
   const wallet = useWalletSession();
+  // RP-U1: where the activation's and the plan's research reports are.
+  const reportLinks = useReports(agentId).reports?.links ?? null;
   const pf = usePortfolio(agentId, environment);
   const name = `Agent #${agentId.toString()}`;
   const network = wallet.target.name;
@@ -1383,9 +1387,33 @@ export function PortfolioPage({
                 now={now}
                 actions={
                   activation.outcome.action === "approve" ? (
-                    <Button asChild size="sm">
-                      <a href="#plan">Read the plan</a>
-                    </Button>
+                    <>
+                      <Button asChild size="sm">
+                        <a href="#plan">Read the plan</a>
+                      </Button>
+                      {reportLinks?.activation ? (
+                        <Button
+                          asChild
+                          size="sm"
+                          variant="secondary"
+                          data-testid="activation-report"
+                        >
+                          <Link href={reportHref(agentId, reportLinks.activation)}>
+                            Read the research report
+                          </Link>
+                        </Button>
+                      ) : null}
+                    </>
+                  ) : activation.status !== "running" && reportLinks?.activation ? (
+                    <>
+                      <Button asChild size="sm" variant="secondary" data-testid="activation-report">
+                        <Link href={reportHref(agentId, reportLinks.activation)}>
+                          Read the research report
+                        </Link>
+                      </Button>
+                      {activation.outcome.action === "retry" ? sweepButton : null}
+                      {activation.outcome.action === "add_credits" ? addCreditsButton : null}
+                    </>
                   ) : activation.outcome.action === "add_credits" ? (
                     <>
                       {sweepButton}
@@ -1446,6 +1474,16 @@ export function PortfolioPage({
               <StatusFor status={pf.status} actions={["approve", "reject"]} />
             )}
           </div>
+          {reportLinks?.plan ? (
+            <p className="text-sm" data-testid="plan-report">
+              <Link
+                href={reportHref(agentId, reportLinks.plan)}
+                className="text-primary underline-offset-4 hover:underline"
+              >
+                Read the research report behind this plan
+              </Link>
+            </p>
+          ) : null}
           {pf.planCard ? (
             <PlanSection
               card={pf.planCard}

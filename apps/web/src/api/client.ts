@@ -891,6 +891,17 @@ export const tradingApi = {
   async research(agentId: bigint, session: string): Promise<ResearchJson> {
     return call<ResearchJson>(`/v1/agents/${agentId.toString()}/research`, owner(session));
   },
+  /** RP-U1: the agent's research reports, newest first, and where the activation's and the plan's are. Owner only. */
+  async reports(agentId: bigint, session: string): Promise<ReportsJson> {
+    return call<ReportsJson>(`/v1/agents/${agentId.toString()}/reports`, owner(session));
+  },
+  /** RP-U1: one cycle's research report. Owner only. */
+  async report(agentId: bigint, cycleId: string, session: string): Promise<ReportJson> {
+    return call<ReportJson>(
+      `/v1/agents/${agentId.toString()}/reports/${encodeURIComponent(cycleId)}`,
+      owner(session),
+    );
+  },
   /** P3-U10: the agent terminal's events after a sequence, the open cycle by default. Owner only. */
   async terminal(
     agentId: bigint,
@@ -1513,3 +1524,103 @@ export const goalApi = {
     });
   },
 };
+
+/** RP-U1: one line of an agent's report list. */
+export interface ReportListItemJson {
+  readonly cycleId: string;
+  readonly kind: string;
+  readonly status: "written" | "skipped" | "failed";
+  readonly reason: string | null;
+  readonly createdAt: string;
+  readonly chargedUsdcE6: string;
+  readonly ceilingUsdcE6: string;
+  readonly tokens: number;
+  readonly summary: string | null;
+}
+
+export interface ReportsJson {
+  readonly agentId: string;
+  readonly reports: readonly ReportListItemJson[];
+  readonly links: { readonly activation: string | null; readonly plan: string | null };
+}
+
+/** RP-U1: a cycle's report as the orchestrator stored it (version 1). */
+export interface StoredReportJson {
+  readonly version: 1;
+  readonly cycle: {
+    readonly cycleId: string;
+    readonly kind: string;
+    readonly status: string;
+    readonly stopReason: string | null;
+    readonly createdAt: string;
+  };
+  readonly stages: readonly {
+    readonly stage: string;
+    readonly themeCode: string | null;
+    readonly status: string;
+    readonly stopReason: string | null;
+    readonly chargedUsdcE6: string;
+  }[];
+  readonly report: {
+    readonly executiveSummary: string;
+    readonly recommendation: string;
+    readonly market: {
+      readonly overview: string;
+      readonly snapshot: readonly { label: string; value: string; source: string }[];
+    };
+    readonly universeSummary: string;
+    readonly tokens: readonly {
+      readonly symbol: string;
+      readonly chain: string;
+      readonly whatItIs: string;
+      readonly fundamentals: readonly {
+        item: string;
+        finding: string;
+        status: "supports" | "concern" | "unknown";
+      }[];
+      readonly evidenceFor: readonly { text: string; sources: readonly string[] }[];
+      readonly evidenceAgainst: readonly { text: string; sources: readonly string[] }[];
+      readonly risks: readonly string[];
+      readonly thesis: string;
+      readonly killCondition: string;
+      readonly confidence: "low" | "medium" | "high";
+    }[];
+    readonly skeptic: readonly { theme: string; objection: string; answer: string }[];
+    readonly portfolio: {
+      readonly stance: "propose" | "no_change";
+      readonly summary: string;
+      readonly positions: readonly { symbol: string; weight: string; why: string }[];
+    };
+  };
+  readonly universe: readonly {
+    readonly symbol: string;
+    readonly buyable: boolean;
+    readonly whyNot: string | null;
+    readonly themeCode: string | null;
+    readonly themeReason: string | null;
+    readonly researched: boolean;
+    readonly proposed: boolean;
+    readonly droppedReason: string | null;
+  }[];
+  readonly sources: readonly {
+    source: string;
+    kind: "tool" | "url";
+    classes: readonly string[];
+    calls: number;
+  }[];
+}
+
+export interface ReportJson {
+  readonly agentId: string;
+  readonly report: {
+    readonly cycleId: string;
+    readonly status: "written" | "skipped" | "failed";
+    readonly reason: string | null;
+    readonly createdAt: string;
+    readonly model: string | null;
+    readonly chargedUsdcE6: string;
+    readonly ceilingUsdcE6: string;
+    readonly checks: { removedSentences?: number; droppedSources?: number };
+    readonly body: StoredReportJson | null;
+  };
+}

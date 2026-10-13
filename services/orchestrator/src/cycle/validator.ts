@@ -293,13 +293,101 @@ export interface BriefCheck {
   readonly reasons: string[];
 }
 
-export function validateBrief(brief: ResearchBrief, ctx: BriefContext): BriefCheck {
-  const reasons: string[] = [];
+/** What the text checks read, prepared once from a cycle's context (RP-U1: the brief and the report share them). */
+export interface PreparedContext {
+  readonly known: ReadonlySet<string>;
+  readonly values: readonly number[];
+  readonly urls: ReadonlySet<string>;
+  readonly tools: ReadonlySet<string>;
+  readonly skillRuns: ReadonlySet<string>;
+  /** RP-U1: runs of PASTE_RUN_WORDS words of the web pages, search snippets and X posts the cycle read. */
+  readonly pastedRuns?: ReadonlySet<string>;
+}
+
+export function prepareContext(ctx: BriefContext): PreparedContext {
   const known = new Set<string>();
   for (const r of ctx.results) for (const n of numbersIn(JSON.stringify(r.result))) known.add(n);
-  const values = [...known].map(Number).filter(Number.isFinite);
-  const urls = new Set(ctx.urls.map(normalizeUrl));
-  const tools = new Set(ctx.results.map((r) => r.tool));
+  return {
+    known,
+    values: [...known].map(Number).filter(Number.isFinite),
+    urls: new Set(ctx.urls.map(normalizeUrl)),
+    tools: new Set(ctx.results.map((r) => r.tool)),
+    skillRuns: ctx.skillRuns,
+  };
+}
+
+/** RP-U1: a pasted passage is this many consecutive words of a page, a snippet or a post. */
+export const PASTE_RUN_WORDS = 12;
+
+/** RP-U1: every run of PASTE_RUN_WORDS words in the text a cycle read from the web and X. */
+export function pastedRuns(results: BriefContext["results"]): Set<string> {
+  const texts: string[] = [];
+  const walk = (v: unknown) => {
+    if (typeof v === "string") texts.push(v);
+    else if (Array.isArray(v)) for (const x of v) walk(x);
+    else if (v && typeof v === "object") for (const x of Object.values(v)) walk(x);
+  };
+  for (const r of results)
+    if (r.tool === "read_url" || r.tool === "web_search" || r.tool === "x_search") walk(r.result);
+  const runs = new Set<string>();
+  for (const t of texts) {
+    const w = words(t);
+    for (let i = 0; i + PASTE_RUN_WORDS <= w.length; i += 1)
+      runs.add(w.slice(i, i + PASTE_RUN_WORDS).join(" "));
+  }
+  return runs;
+}
+
+/**
+ * The checks on one text field: every number traces to a stored result, every
+ * URL was retrieved, no run of a skill's wording, and (RP-U1) no pasted run of
+ * a page, snippet or post. Each reason names the path.
+ */
+export function textReasons(path: string, text: string, p: PreparedContext): string[] {
+  const reasons: string[] = [];
+  const plain = text.replace(WINDOW, " ").replace(URL_RE, " ");
+  const scaled = scaledTraces(plain, p.values, p.known);
+  const invented = [
+    ...scaled.filter((x) => !x.ok).map((x) => x.written),
+    ...numbersIn(plain.replace(SCALED, " ")).filter((n) => !numberTraces(n, p.known, p.values)),
+  ];
+  if (invented.length > 0)
+    reasons.push(
+      `${path}: ${[...new Set(invented)].join(", ")} does not appear in any tool result this cycle recorded; quote each figure as a tool returned it, or remove it`,
+    );
+  for (const m of text.matchAll(URL_RE))
+    if (!p.urls.has(normalizeUrl(m[0])))
+      reasons.push(
+        `${path}: ${m[0].slice(0, 120)} is not a URL this cycle retrieved; cite only pages you read or links a search returned`,
+      );
+  const w = words(text);
+  for (let i = 0; i + SKILL_RUN_WORDS <= w.length; i += 1) {
+    const run = w.slice(i, i + SKILL_RUN_WORDS).join(" ");
+    if (p.skillRuns.has(run)) {
+      reasons.push(
+        `${path}: "${run}" repeats a skill's wording; write the point in your own words`,
+      );
+      break;
+    }
+  }
+  if (p.pastedRuns) {
+    const w = words(text);
+    for (let i = 0; i + PASTE_RUN_WORDS <= w.length; i += 1) {
+      if (p.pastedRuns.has(w.slice(i, i + PASTE_RUN_WORDS).join(" "))) {
+        reasons.push(
+          `${path}: a passage is pasted from a page or post the cycle read; say it in your own words`,
+        );
+        break;
+      }
+    }
+  }
+  return reasons;
+}
+
+export function validateBrief(brief: ResearchBrief, ctx: BriefContext): BriefCheck {
+  const reasons: string[] = [];
+  const prepared = prepareContext(ctx);
+  const { urls, tools } = prepared;
   const raw = JSON.stringify(brief);
 
   if (raw.includes(ctx.canary) || raw.includes(CANARY_PREFIX))
@@ -307,33 +395,7 @@ export function validateBrief(brief: ResearchBrief, ctx: BriefContext): BriefChe
       "the brief contains the platform's internal marker; remove it, it is never research",
     );
 
-  for (const [path, text] of briefTexts(brief)) {
-    const plain = text.replace(WINDOW, " ").replace(URL_RE, " ");
-    const scaled = scaledTraces(plain, values, known);
-    const invented = [
-      ...scaled.filter((x) => !x.ok).map((x) => x.written),
-      ...numbersIn(plain.replace(SCALED, " ")).filter((n) => !numberTraces(n, known, values)),
-    ];
-    if (invented.length > 0)
-      reasons.push(
-        `${path}: ${[...new Set(invented)].join(", ")} does not appear in any tool result this cycle recorded; quote each figure as a tool returned it, or remove it`,
-      );
-    for (const m of text.matchAll(URL_RE))
-      if (!urls.has(normalizeUrl(m[0])))
-        reasons.push(
-          `${path}: ${m[0].slice(0, 120)} is not a URL this cycle retrieved; cite only pages you read or links a search returned`,
-        );
-    const w = words(text);
-    for (let i = 0; i + SKILL_RUN_WORDS <= w.length; i += 1) {
-      const run = w.slice(i, i + SKILL_RUN_WORDS).join(" ");
-      if (ctx.skillRuns.has(run)) {
-        reasons.push(
-          `${path}: "${run}" repeats a skill's wording; write the point in your own words`,
-        );
-        break;
-      }
-    }
-  }
+  for (const [path, text] of briefTexts(brief)) reasons.push(...textReasons(path, text, prepared));
 
   for (const [path, claim] of briefClaims(brief)) {
     const given = claim.sources.map((src) => [src, sourceClasses(src)] as const);

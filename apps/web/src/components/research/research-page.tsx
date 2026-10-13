@@ -24,6 +24,7 @@ import {
   UniversePanel,
   WalletActionStatus,
   WhyNotTraded,
+  ReportList,
 } from "@alpha-agents/ui";
 import { ArrowLeft, PlugZap, Wallet } from "lucide-react";
 import Link from "next/link";
@@ -34,6 +35,8 @@ import { useResearch, useTerminal } from "@/agent/use-research";
 import { useOwnerSession } from "@/agent/use-owner-session";
 import { CHAIN_NAMES, chainOfEnvironment } from "@alpha-agents/domain";
 import { useWalletSession } from "@/auth/session";
+import { reportListView } from "@/agent/report-view";
+import { useReports } from "@/agent/use-reports";
 
 /**
  * The Research page (P3-U10): what the agent's research loop is doing and
@@ -51,6 +54,7 @@ export function ResearchPage({
   environment: EnvironmentId;
   agentId: bigint;
 }) {
+  const reportsRead = useReports(agentId);
   const wallet = useWalletSession();
   const { research, error, refresh, pause } = useResearch(agentId);
   const [selected, setSelected] = useState<string | null>(null);
@@ -224,6 +228,25 @@ export function ResearchPage({
         chain={CHAIN_NAMES[chainOfEnvironment(environment)]}
         maxHeightClass="max-h-112"
       />
+
+      <Card data-testid="research-reports">
+        <CardHeader>
+          <CardTitle>Research reports</CardTitle>
+          <CardDescription>
+            Each research cycle ends with a report: what the agent concluded, the market, every
+            token it considered, the tokens it researched, the skeptic&apos;s objections and the
+            portfolio it recommends, with every source. Each opens as a document you can download as
+            a PDF.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {reportsRead.error ? (
+            <p className="text-sm text-warning">{reportsRead.error}</p>
+          ) : (
+            <ReportList items={reportListView(agentId, reportsRead.reports?.reports ?? [])} />
+          )}
+        </CardContent>
+      </Card>
 
       <div className="grid gap-6 lg:grid-cols-2">
         <ResearchScheduleCard

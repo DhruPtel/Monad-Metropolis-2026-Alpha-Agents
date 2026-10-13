@@ -54,9 +54,9 @@ describe("stage rules (P3-U4)", () => {
     expect(stageCeilingUsdcE6("CHALLENGE", "ROUTINE", "research-high")).toBe(usdc(0.6));
     expect(stageCeilingUsdcE6("ZOOM_OUT", "ROUTINE", "research-medium")).toBe(usdc(0.6));
     expect(stageCeilingUsdcE6("TEST", "ACTIVATION", "research-high")).toBe(0n);
-    // The sweep's ceiling as BUILD_PLAN states it: 3.80 USDC with Sonnet 5.5, 7.10 with Opus 5.5.
-    expect(cyclePlan("ACTIVATION", "research-medium", 0).maxUsdcE6).toBe("3800000");
-    expect(cyclePlan("ACTIVATION", "research-high", 0).maxUsdcE6).toBe("7100000");
+    // The sweep's ceiling as BUILD_PLAN states it (3.80 USDC with Sonnet 5.5, 7.10 with Opus 5.5) plus the report's 0.20 (RP-U1, A-102).
+    expect(cyclePlan("ACTIVATION", "research-medium", 0).maxUsdcE6).toBe("4000000");
+    expect(cyclePlan("ACTIVATION", "research-high", 0).maxUsdcE6).toBe("7300000");
     expect(cycleLeaseMs("ROUTINE", 1)).toBe((5 + 10 + 4 + 6 + 15) * 60_000);
   });
 
