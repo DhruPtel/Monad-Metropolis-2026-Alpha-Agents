@@ -23,7 +23,11 @@ import { type Address, getAddress } from "viem";
  * index, mint eligibility and the mint claim. The base URL is inlined at build
  * time (next.config.ts); locally it is the API from `pnpm dev:api`.
  */
-export const CONTROL_API_URL = process.env.CONTROL_API_URL || "http://127.0.0.1:4100";
+export const CONTROL_API_URL =
+  // UI-FAST: a dev server proxying the API (dev-api-proxy.ts) gives the browser its own path.
+  (typeof window !== "undefined" && process.env.DEV_API_PROXY_PATH) ||
+  process.env.CONTROL_API_URL ||
+  "http://127.0.0.1:4100";
 
 export interface Watermark {
   readonly block: number;
