@@ -505,4 +505,84 @@ function PlanSummaryCard({
   );
 }
 
-export { ConcentrationPie, DecisionList, FactStrip, PlanSummaryCard, PortfolioInsights };
+/** One leg of the plan as it happens (2026-10-13): the trade, where it stands, and its transaction. */
+export interface LiveTradeView {
+  readonly id: string;
+  readonly side: "Buy" | "Sell";
+  readonly token: string;
+  /** The amount in the owner's words ("0.80 USDC", "1.2 WMON"). */
+  readonly amount: string;
+  readonly status: "pending" | "settled" | "failed";
+  readonly time: string;
+  /** The transaction on the explorer; null until it is sent. */
+  readonly txHref: string | null;
+}
+
+const LIVE_TONE = { pending: "warning", settled: "positive", failed: "negative" } as const;
+
+/**
+ * The legs of the approved plan as they happen, newest first: buy or sell,
+ * the token, the amount, pending then settled or failed, the time and the
+ * transaction. A runner hold reads as one plain line above them.
+ */
+function LiveTrades({
+  items,
+  holding,
+  empty,
+  className,
+}: {
+  items: readonly LiveTradeView[];
+  /** "Holding: ..." while the runner holds; null while it trades or has nothing to say. */
+  holding: string | null;
+  empty: string;
+  className?: string;
+}) {
+  return (
+    <div className={cn("flex flex-col gap-2", className)} data-testid="live-trades">
+      {holding ? (
+        <p className="text-sm text-foreground-muted" data-testid="live-trades-holding">
+          {holding}
+        </p>
+      ) : null}
+      {items.length === 0 ? (
+        <p className="text-sm text-foreground-muted">{empty}</p>
+      ) : (
+        <ol className="flex flex-col divide-y divide-border rounded-md border border-border">
+          {items.map((t) => (
+            <li
+              key={t.id}
+              className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2 text-xs"
+              data-testid="live-trade"
+              data-status={t.status}
+            >
+              <span className="font-medium">{t.side}</span>
+              <span className="flex items-center gap-1.5">
+                <TokenMark symbol={t.token} className="size-5" />
+                <span className="font-medium">{t.token}</span>
+              </span>
+              <span className="numeric text-foreground-muted">{t.amount}</span>
+              <Badge tone={LIVE_TONE[t.status]}>{t.status}</Badge>
+              <span className="numeric ml-auto text-foreground-subtle">{t.time}</span>
+              {t.txHref ? (
+                <a href={t.txHref} target="_blank" rel="noreferrer noopener" className={LINK_CLASS}>
+                  Transaction <ArrowUpRight aria-hidden className="size-3" />
+                </a>
+              ) : (
+                <span className="text-foreground-subtle">Not sent yet</span>
+              )}
+            </li>
+          ))}
+        </ol>
+      )}
+    </div>
+  );
+}
+
+export {
+  ConcentrationPie,
+  DecisionList,
+  FactStrip,
+  LiveTrades,
+  PlanSummaryCard,
+  PortfolioInsights,
+};

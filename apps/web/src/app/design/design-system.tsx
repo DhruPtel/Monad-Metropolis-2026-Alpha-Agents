@@ -66,6 +66,7 @@ import {
   ConcentrationPie,
   DecisionList,
   FactStrip,
+  LiveTrades,
   PlanSummaryCard,
   LinkLine,
   PortfolioInsights,
@@ -5398,6 +5399,49 @@ function AgentPagesSection() {
             { label: "Daily loss limit", value: "–", note: "Not a limit this account has" },
             { label: "Credits", value: "0.60 USDC" },
           ]}
+        />
+      </Specimen>
+      <Specimen
+        name="LiveTrades"
+        note="The approved plan's legs as they happen, newest first: buy or sell, the token, the amount, pending then settled or failed, the time and the transaction; a hold reads as one plain line above them."
+      >
+        <LiveTrades
+          holding="Holding: the next trade would cost more than the 0.5% limit."
+          empty="No trades since this plan was approved yet."
+          items={[
+            {
+              id: "c",
+              side: "Buy",
+              token: "WMON",
+              amount: "0.80 USDC",
+              status: "pending",
+              time: "2026-10-13 22:26",
+              txHref: null,
+            },
+            {
+              id: "b",
+              side: "Buy",
+              token: "WMON",
+              amount: "0.80 USDC",
+              status: "settled",
+              time: "2026-10-13 22:25",
+              txHref: "#live-trades",
+            },
+            {
+              id: "a",
+              side: "Sell",
+              token: "WMON",
+              amount: "0.40 WMON",
+              status: "failed",
+              time: "2026-10-13 22:24",
+              txHref: "#live-trades",
+            },
+          ]}
+        />
+        <LiveTrades
+          holding={null}
+          empty="Trades show here as they happen, once a plan is approved."
+          items={[]}
         />
       </Specimen>
       <Specimen

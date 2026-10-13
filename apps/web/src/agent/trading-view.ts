@@ -3,6 +3,7 @@ import type {
   AssetRow,
   DecisionView,
   InsightView,
+  LiveTradeView,
   PlanMoveView,
   PlanRowView,
   TradeRowView,
@@ -358,4 +359,59 @@ export function insightRows(
     by("Buys, last 30 days"),
     by("Sells, last 30 days"),
   ];
+}
+
+const PENDING = new Set(["awaiting_approval", "approved", "submitted", "confirmed"]);
+const SETTLED = new Set(["settled", "reconciled"]);
+
+/** Where a leg stands in the owner's words: pending until it settles or fails. */
+export function liveStatus(status: string): LiveTradeView["status"] {
+  return SETTLED.has(status) ? "settled" : PENDING.has(status) ? "pending" : "failed";
+}
+
+/** Whether any leg is still on its way, so the panel keeps refreshing. */
+export function tradesInFlight(intents: readonly IntentJson[]): boolean {
+  return intents.some((i) => PENDING.has(i.status) && i.status !== "awaiting_approval");
+}
+
+/**
+ * The approved plan's legs as they happen (2026-10-13), newest first: every
+ * leg created since the plan was approved, except one still waiting for the
+ * owner (those show under "Waiting for you").
+ */
+export function liveTradeRows(
+  intents: readonly IntentJson[],
+  since: string | null,
+  txFor: (hash: string) => string | null,
+): LiveTradeView[] {
+  return intents
+    .filter((i) => i.status !== "awaiting_approval" && (since === null || i.createdAt >= since))
+    .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))
+    .map((i) => {
+      const buy = i.sell.asset === "USDC";
+      return {
+        id: i.intentId,
+        side: buy ? "Buy" : "Sell",
+        token: buy ? i.buy : i.sell.asset,
+        amount: `${i.sell.amount} ${i.sell.asset}`,
+        status: liveStatus(i.status),
+        time: minute(i.settledAt ?? i.submittedAt ?? i.createdAt),
+        txHref: i.txHash ? txFor(i.txHash) : null,
+      };
+    });
+}
+
+/**
+ * The runner's hold as one plain line ("Holding: ..."), or null while it
+ * trades. A cost hold names the limit: the plan's, or the testnet profile's.
+ */
+export function holdingLine(
+  runner: WhyNotTradedJson["runner"] | null | undefined,
+  costLimitBps: number | null,
+): string | null {
+  if (!runner || runner.outcome !== "hold") return null;
+  if (runner.code === "COST_HURDLE" && costLimitBps !== null)
+    return `Holding: the next trade would cost more than the ${(costLimitBps / 100).toLocaleString("en-US", { maximumFractionDigits: 2 })}% limit.`;
+  const m = runner.message.trim();
+  return m ? `Holding: ${m.charAt(0).toLowerCase()}${m.slice(1)}` : "Holding.";
 }

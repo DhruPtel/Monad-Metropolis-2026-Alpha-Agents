@@ -2,12 +2,15 @@ import { describe, expect, it } from "vitest";
 import type { ActivityJson, IntentJson, PlanCardJson, ProposalJson } from "@/api/client";
 import {
   decisionRows,
+  holdingLine,
   insightRows,
   insights,
+  liveTradeRows,
   planMoves,
   planRows,
   skipWords,
   tradeRows,
+  tradesInFlight,
 } from "./trading-view";
 
 const position = (over: Partial<ProposalJson["positions"][number]>) =>
@@ -245,5 +248,81 @@ describe("the Trading tab's words (UI-FAST)", () => {
     expect(by["Cash / invested"]).toMatchObject({ value: "100% / 0%", bar: 10_000 });
     expect(by["Realized PnL"]).toMatchObject({ value: "–", note: "Not recorded per trade yet" });
     expect(by["Unrealized PnL"]).toMatchObject({ value: "–", note: "No cost basis yet" });
+  });
+});
+
+describe("live trades on the Trading tab (2026-10-13)", () => {
+  const leg = (over: Partial<IntentJson>): IntentJson =>
+    ({
+      intentId: "intent-1",
+      status: "submitted",
+      sell: { asset: "USDC", amount: "0.80", amountRaw: "800000" },
+      buy: "WMON",
+      txHash: null,
+      createdAt: "2026-10-13T22:24:19.000Z",
+      submittedAt: null,
+      settledAt: null,
+      ...over,
+    }) as unknown as IntentJson;
+  const tx = (h: string) => `https://testnet.monadvision.com/tx/${h}`;
+
+  it("shows each leg since the plan's approval, newest first, pending then settled or failed, with its transaction", () => {
+    const rows = liveTradeRows(
+      [
+        leg({ intentId: "old", createdAt: "2026-10-13T20:00:00.000Z", status: "settled" }),
+        leg({
+          intentId: "a",
+          status: "reconciled",
+          txHash: "0x11",
+          settledAt: "2026-10-13T22:24:39.000Z",
+        }),
+        leg({
+          intentId: "b",
+          createdAt: "2026-10-13T22:25:19.000Z",
+          sell: { asset: "WMON", amount: "1.5", amountRaw: "1500000000000000000" },
+          buy: "USDC",
+        }),
+        leg({ intentId: "c", createdAt: "2026-10-13T22:26:00.000Z", status: "failed" }),
+        leg({ intentId: "w", createdAt: "2026-10-13T22:27:00.000Z", status: "awaiting_approval" }),
+      ],
+      "2026-10-13T22:22:47.000Z",
+      tx,
+    );
+    expect(rows.map((r) => [r.id, r.side, r.token, r.amount, r.status])).toEqual([
+      ["c", "Buy", "WMON", "0.80 USDC", "failed"],
+      ["b", "Sell", "WMON", "1.5 WMON", "pending"],
+      ["a", "Buy", "WMON", "0.80 USDC", "settled"],
+    ]);
+    expect(rows[2]).toMatchObject({ time: "2026-10-13 22:24", txHref: tx("0x11") });
+    expect(rows[1]?.txHref).toBeNull();
+  });
+
+  it("keeps refreshing while a leg is on its way, not for one waiting for the owner", () => {
+    expect(tradesInFlight([leg({ status: "submitted" })])).toBe(true);
+    expect(tradesInFlight([leg({ status: "awaiting_approval" }), leg({ status: "settled" })])).toBe(
+      false,
+    );
+  });
+
+  it("says a hold in one plain line, naming the cost limit", () => {
+    const runner = {
+      outcome: "hold",
+      code: "COST_HURDLE",
+      message: "The trade would cost more against the oracle than the plan allows.",
+      since: "",
+      lastAt: "",
+      intentId: null,
+    };
+    expect(holdingLine(runner, 200)).toBe(
+      "Holding: the next trade would cost more than the 2% limit.",
+    );
+    expect(holdingLine(runner, 50)).toBe(
+      "Holding: the next trade would cost more than the 0.5% limit.",
+    );
+    expect(
+      holdingLine({ ...runner, code: "IN_BAND", message: "Every position is in its band." }, 50),
+    ).toBe("Holding: every position is in its band.");
+    expect(holdingLine({ ...runner, outcome: "leg" }, 50)).toBeNull();
+    expect(holdingLine(null, 50)).toBeNull();
   });
 });

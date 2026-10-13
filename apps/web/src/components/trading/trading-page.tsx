@@ -17,6 +17,7 @@ import {
   ExpandableLine,
   type FactItem,
   FactStrip,
+  LiveTrades,
   ManagedAccountChoice,
   PlanSummaryCard,
   PortfolioInsights,
@@ -24,7 +25,7 @@ import {
   Skeleton,
   usdcCents,
 } from "@alpha-agents/ui";
-import { PlugZap, Wallet } from "lucide-react";
+import { ChevronDown, PlugZap, Wallet } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { type ActivityJson, type GoalPageJson, api, goalApi } from "@/api/client";
@@ -36,9 +37,12 @@ import { reportHref } from "@/agent/report-view";
 import {
   SWEEP_WORDS,
   decisionRows,
+  holdingLine,
   insightRows,
   latestApplied,
+  liveTradeRows,
   planRows,
+  tradesInFlight,
   txHref,
 } from "@/agent/trading-view";
 import { useOwnerSession } from "@/agent/use-owner-session";
@@ -49,6 +53,10 @@ import { StatusFor, approvalView } from "@/components/portfolio/portfolio-page";
 
 /** How often the runner checks an armed agent (services/orchestrator/src/runner.ts, RUNNER_EVERY_MS). */
 const RUNNER_EVERY_MS = 60_000;
+/** The testnet trading profile's cost limit (packages/policy TESTNET_TRADING_PROFILE): 0.5%. */
+const TESTNET_COST_LIMIT_BPS = 50;
+/** How often Live trades refreshes while a leg is on its way. */
+const IN_FLIGHT_POLL_MS = 2_500;
 const GOAL_WORD: Readonly<Record<string, string>> = {
   CONSERVATIVE: "Conservative",
   BALANCED: "Balanced",
@@ -77,6 +85,8 @@ export function TradingPage({
   const shell = useAgentSummary();
   const asOwner = useOwnerSession(agentId);
   const [choiceOpen, setChoiceOpen] = useState(false);
+  // 2026-10-13: Automatic trading folds to its state and toggle; the details open on request.
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const [choice, setChoice] = useState<ManagedAccount>("vault");
   // The agent's public activity (the trades its limits refused): every 30 s, one read at a time.
   const [activity, setActivity] = useState<readonly ActivityJson[]>([]);
@@ -111,6 +121,15 @@ export function TradingPage({
       live = false;
     };
   }, [agentId, asOwner, wallet.ready]);
+
+  // Live trades refreshes every few seconds while a leg is on its way.
+  const inFlight = tradesInFlight(pf.intents);
+  const { refresh } = pf;
+  useEffect(() => {
+    if (!inFlight) return;
+    const id = setInterval(refresh, IN_FLIGHT_POLL_MS);
+    return () => clearInterval(id);
+  }, [inFlight, refresh]);
 
   const network = wallet.target.name;
   const p = pf.portfolio;
@@ -221,9 +240,11 @@ export function TradingPage({
     maxTrade === null
       ? { label: "Max trade", value: "–" }
       : { label: "Max trade", value: `${pctText(maxTrade)} of value` },
-    planParams?.minTradeUsdcE6
-      ? { label: "Min trade", value: `${usdcCents(planParams.minTradeUsdcE6)} USDC` }
-      : { label: "Min trade", value: "–", note: "No plan yet" },
+    environment === "testnet"
+      ? { label: "Min trade", value: "None", note: "Testnet: gas decides" }
+      : planParams?.minTradeUsdcE6
+        ? { label: "Min trade", value: `${usdcCents(planParams.minTradeUsdcE6)} USDC` }
+        : { label: "Min trade", value: "–", note: "No plan yet" },
     { label: "Daily loss limit", value: "–", note: "Not a limit this account has" },
     shell?.summary
       ? { label: "Credits", value: `${usdcCents(shell.summary.credits)} USDC` }
@@ -239,6 +260,13 @@ export function TradingPage({
     txFor: (hash) => txHref(environment, hash),
   });
   const waitingPlan = pending !== null && shown?.proposalId === pending.proposalId;
+  const live = liveTradeRows(pf.intents, applied?.decidedAt ?? null, (hash) =>
+    txHref(environment, hash),
+  );
+  const holding = holdingLine(
+    runner,
+    environment === "testnet" ? TESTNET_COST_LIMIT_BPS : (planParams?.costHurdleBps ?? null),
+  );
 
   return (
     <div className="flex flex-col gap-6" data-testid="trading">
@@ -248,7 +276,7 @@ export function TradingPage({
         data-testid="automatic-trading"
       >
         <div className="flex flex-wrap items-center gap-3">
-          <span className="text-sm font-medium">Automatic trading</span>
+          <span className="text-sm font-medium">Automatic trading:</span>
           {pf.arming === null ? (
             <Skeleton className="h-5 w-16" data-testid="trading-state-loading" />
           ) : (
@@ -288,63 +316,94 @@ export function TradingPage({
                 Turn on
               </Button>
             ) : null}
+            <Button
+              size="sm"
+              variant="ghost"
+              aria-expanded={detailsOpen}
+              aria-controls="automatic-trading-details"
+              onClick={() => setDetailsOpen((o) => !o)}
+              data-testid="automatic-trading-toggle-details"
+            >
+              {detailsOpen ? "Hide details" : "Details"}
+              <ChevronDown aria-hidden className={detailsOpen ? "size-4 rotate-180" : "size-4"} />
+            </Button>
           </span>
         </div>
-        {accounts ? (
-          <p className="flex flex-wrap items-center gap-2 text-sm" data-testid="traded-account">
-            <span className="text-foreground-muted">Trades</span>
-            <span className="font-medium">
-              {accounts.managed === "vault" ? "Its vault" : "Trading account"}
-            </span>
-            {accounts.vault ? (
-              <Button
-                variant="ghost"
-                size="sm"
-                disabled={acting || !pf.arming?.grantCall}
-                onClick={() => {
-                  setChoice(accounts.managed === "vault" ? "personal" : "vault");
-                  setChoiceOpen(true);
-                }}
-                data-testid="switch-account"
-              >
-                Switch
-              </Button>
-            ) : null}
+        <div
+          id="automatic-trading-details"
+          hidden={!detailsOpen}
+          className="flex flex-col gap-3"
+          data-testid="automatic-trading-details"
+        >
+          {accounts ? (
+            <p className="flex flex-wrap items-center gap-2 text-sm" data-testid="traded-account">
+              <span className="text-foreground-muted">Trades</span>
+              <span className="font-medium">
+                {accounts.managed === "vault" ? "Its vault" : "Trading account"}
+              </span>
+              {accounts.vault ? (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  disabled={acting || !pf.arming?.grantCall}
+                  onClick={() => {
+                    setChoice(accounts.managed === "vault" ? "personal" : "vault");
+                    setChoiceOpen(true);
+                  }}
+                  data-testid="switch-account"
+                >
+                  Switch
+                </Button>
+              ) : null}
+            </p>
+          ) : null}
+          <p className="text-sm text-foreground-muted" data-testid="sweep-line">
+            {sweepLine}
           </p>
-        ) : null}
-        <p className="text-sm text-foreground-muted" data-testid="sweep-line">
-          {sweepLine}
-        </p>
-        <FactStrip items={facts} className="border-t border-border pt-3" />
-        {!on && unmet.length > 0 && read ? (
-          <ExpandableLine
-            summary={`${unmet.length} ${unmet.length === 1 ? "thing" : "things"} to do before it can start`}
-          >
-            <ActivationChecks
-              checks={read.checks}
-              ceilingUsdcE6={read.ceilingUsdcE6}
-              tierLabel={read.tier.label}
-              actions={{
-                GOAL: (
-                  <Button asChild size="sm" variant="secondary">
-                    <Link href={`/agents/${agentId.toString()}/goal`}>Set goal</Link>
-                  </Button>
-                ),
-                TRADING_BALANCE: (
-                  <Button asChild size="sm" variant="secondary">
-                    <Link href={`/agents/${agentId.toString()}`}>Deposit</Link>
-                  </Button>
-                ),
-                CREDITS: (
-                  <Button asChild size="sm" variant="secondary">
-                    <Link href={`/agents/${agentId.toString()}`}>Add credits</Link>
-                  </Button>
-                ),
-              }}
-            />
-          </ExpandableLine>
-        ) : null}
+          <FactStrip items={facts} className="border-t border-border pt-3" />
+          {!on && unmet.length > 0 && read ? (
+            <ExpandableLine
+              summary={`${unmet.length} ${unmet.length === 1 ? "thing" : "things"} to do before it can start`}
+            >
+              <ActivationChecks
+                checks={read.checks}
+                ceilingUsdcE6={read.ceilingUsdcE6}
+                tierLabel={read.tier.label}
+                actions={{
+                  GOAL: (
+                    <Button asChild size="sm" variant="secondary">
+                      <Link href={`/agents/${agentId.toString()}/goal`}>Set goal</Link>
+                    </Button>
+                  ),
+                  TRADING_BALANCE: (
+                    <Button asChild size="sm" variant="secondary">
+                      <Link href={`/agents/${agentId.toString()}`}>Deposit</Link>
+                    </Button>
+                  ),
+                  CREDITS: (
+                    <Button asChild size="sm" variant="secondary">
+                      <Link href={`/agents/${agentId.toString()}`}>Add credits</Link>
+                    </Button>
+                  ),
+                }}
+              />
+            </ExpandableLine>
+          ) : null}
+        </div>
         <StatusFor status={pf.status} actions={["arm", "turn-on", "disarm"]} />
+      </section>
+
+      <section aria-label="Live trades" className="flex flex-col gap-3">
+        <SectionLabel as="h2">Live trades</SectionLabel>
+        <LiveTrades
+          items={live}
+          holding={holding}
+          empty={
+            applied
+              ? "No trades since this plan was approved yet: each one shows here as it happens."
+              : "Trades show here as they happen, once a plan is approved."
+          }
+        />
       </section>
 
       <div className="grid gap-6 lg:grid-cols-2">
