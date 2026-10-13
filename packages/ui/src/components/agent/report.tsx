@@ -267,10 +267,10 @@ function References({ refs }: { refs: readonly ReportReferenceView[] }) {
     <li
       key={r.n}
       id={`report-ref-${r.n}`}
-      className="grid scroll-mt-24 grid-cols-[2.5rem_1fr] gap-1 text-sm"
+      className="grid scroll-mt-24 grid-cols-[auto_1fr] gap-1 text-sm"
       data-testid="report-reference"
     >
-      <span className="numeric text-foreground-muted">[{r.n}]</span>
+      <span className="numeric w-10 text-foreground-muted">[{r.n}]</span>
       <span className="flex min-w-0 flex-col">
         {r.href ? (
           <a

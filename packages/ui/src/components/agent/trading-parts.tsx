@@ -234,28 +234,30 @@ function DecisionList({
         {shown.map((d) => (
           <li
             key={d.id}
-            className="grid grid-cols-[auto_1fr_auto] items-center gap-x-3 gap-y-1 px-3 py-2 text-xs md:grid-cols-[5.5rem_minmax(8rem,auto)_minmax(0,1fr)_8.5rem_6rem]"
+            className="grid grid-cols-[auto_1fr_auto] items-center gap-x-3 gap-y-1 px-3 py-2 text-xs md:grid-cols-[auto_auto_minmax(0,1fr)_auto_auto]"
             data-testid="decision"
             data-kind={d.kind}
           >
-            <Badge tone={KIND_TONE[d.kind]} className="w-fit">
+            <Badge tone={KIND_TONE[d.kind]} className="w-fit md:w-20 md:justify-center">
               {d.kind}
             </Badge>
-            <span className="flex min-w-0 items-center gap-1.5">
+            <span className="flex min-w-0 items-center gap-1.5 md:w-44">
               {d.token ? <TokenMark symbol={d.token} className="size-5" /> : null}
               <span className="font-medium">{d.token ?? "–"}</span>
               {d.detail ? (
                 <span className="numeric truncate text-foreground-muted">{d.detail}</span>
               ) : null}
             </span>
-            <span className="numeric text-right text-foreground-subtle md:order-4">{d.time}</span>
+            <span className="numeric text-right text-foreground-subtle md:order-4 md:w-32">
+              {d.time}
+            </span>
             <span
               className="col-span-3 truncate text-foreground-muted md:order-3 md:col-span-1"
               title={d.summary}
             >
               {d.summary}
             </span>
-            <span className="col-span-3 md:order-5 md:col-span-1 md:text-right">
+            <span className="col-span-3 md:order-5 md:col-span-1 md:w-24 md:text-right">
               {d.link ? (
                 d.link.external ? (
                   <a

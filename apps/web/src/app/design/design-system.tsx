@@ -704,8 +704,9 @@ function LoadoutSpecimen() {
       name="Skill loadout"
       note="UI-FAST: the inventory's cards and the slots are buttons. A card goes into the first free slot and comes out again; a filled slot empties when clicked; hovering a card lights the slot it would take. Nothing is saved yet, and the note says so. Try it: three slots, four skills."
     >
-      <div className="grid gap-4 md:grid-cols-[18rem_1fr]" data-testid="loadout-specimen">
+      <div className="grid gap-4 md:grid-cols-[auto_1fr]" data-testid="loadout-specimen">
         <SkillInventoryCards
+          className="md:w-72"
           skills={LOADOUT_SKILLS}
           slotOf={slotsById(loadout)}
           nextFreeSlot={firstFreeSlot(loadout)}

@@ -365,7 +365,7 @@ function ResearchSkeleton() {
   return (
     <div className="flex flex-col gap-6" aria-busy="true" data-testid="research-loading">
       <Skeleton className="h-20 w-full" />
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_18rem]">
+      <div className="grid gap-4 lg:grid-cols-2">
         <Skeleton className="h-64 w-full" />
         <Skeleton className="h-64 w-full" />
       </div>

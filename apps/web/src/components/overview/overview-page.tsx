@@ -279,7 +279,7 @@ export function OverviewPage({
           A plan is waiting for your approval
         </LinkLine>
       ) : null}
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_auto]">
         <div className="flex min-w-0 flex-col gap-4">
           {p.account ? (
             <>
@@ -357,7 +357,7 @@ export function OverviewPage({
             </section>
           )}
         </div>
-        <aside className="flex flex-col gap-3" aria-label="Trading account and credits">
+        <aside className="flex flex-col gap-3 lg:w-88" aria-label="Trading account and credits">
           {account}
           {credits}
         </aside>
@@ -533,7 +533,7 @@ function RefundDialog({
 function OverviewSkeleton() {
   return (
     <div className="flex flex-col gap-6" data-testid="overview-loading" aria-busy="true">
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_18rem]">
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_auto]">
         <div className="flex min-w-0 flex-col gap-4">
           <Skeleton className="h-72 w-full" />
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">

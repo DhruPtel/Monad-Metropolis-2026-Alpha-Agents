@@ -430,4 +430,4 @@ function AgentTable({
   );
 }
 
-export { AgentTable, FlowPills, HeroVisualSlot, HomeHero, LiveDot, RankedCards, Sparkline };
+export { AgentTable, FlowPills, HeroVisualSlot, HomeHero, RankedCards };
