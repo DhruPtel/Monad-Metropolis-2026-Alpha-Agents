@@ -88,13 +88,32 @@ const chainRpcUrl = config.rpcUrl?.reveal();
 // error". The relay retries rate limits, server errors and dropped connections with backoff,
 // alternating providers, and logs by method and reason only (never a URL).
 const secondaryRpcUrl = (values.MONAD_RPC_URL_SECONDARY as Secret | undefined)?.reveal() ?? null;
+// One line a minute with the retries' count and reasons, not one per retry (the testnet
+// provider refuses most first attempts, so the stack log would carry little else).
+const relayReasons = new Map<string, number>();
+let relayLogged = Date.now();
+const relayLog = (line: string) => {
+  const reason = line
+    .replace(/attempt \d+/, "")
+    .replace(/after \d+ ms/, "")
+    .trim();
+  relayReasons.set(reason, (relayReasons.get(reason) ?? 0) + 1);
+  if (Date.now() - relayLogged < 60_000) return;
+  relayLogged = Date.now();
+  const total = [...relayReasons.values()].reduce((a, b) => a + b, 0);
+  const top = [...relayReasons.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3);
+  relayReasons.clear();
+  log(
+    `rpc relay: ${total} retries in the last minute (${top.map(([r, n]) => `${n}: ${r}`).join("; ")})`,
+  );
+};
 const relay =
   chainRpcUrl && !isForkEnvironment(env.id)
     ? await startUpstreamProxy({
         upstreams: secondaryRpcUrl ? [chainRpcUrl, secondaryRpcUrl] : [chainRpcUrl],
         attempts: 6,
         baseDelayMs: 300,
-        log: (line: string) => log(`rpc relay: ${line}`),
+        log: relayLog,
       })
     : null;
 if (relay)
