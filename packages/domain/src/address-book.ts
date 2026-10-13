@@ -772,7 +772,7 @@ const AGENT_NFT_LOCAL: AddressEntry = {
   id: "agent_nft",
   label: "AgentNFT",
   kind: "platform",
-  address: "0xAabdac6bF7B25F0a2190241D735A7014fDf92F14",
+  address: "0x3Dc0b5Aa055eB5B91baD59382bC593ab964370E7",
   status: "verified",
   verification: {
     chainId: LOCAL_FORK_CHAIN_ID,
@@ -782,7 +782,7 @@ const AGENT_NFT_LOCAL: AddressEntry = {
   },
   source: AGENT_NFT_SOURCE,
   openQuestion: null,
-  note: "Deterministic CREATE2 deployment with anvil roles (P1-U3); local fork only. NFT-U1 redeployed it with 34 species, 500/300/200 and two mints per wallet, so its address moved with its code; the P1-U3 contract at 0x60cacA6dE327331b321E140Ae19AcbCc4188Be6E stays on the playtest fork unused, with the owner's two agents minted again here as the same bee and tick",
+  note: "Deterministic CREATE2 deployment with anvil roles (P1-U3); local fork only. NFT-U1 redeployed it with 34 species, 500/300/200 and two mints per wallet, and NFT-U2 again with the owner's counts and Butterfly as pro (D-376), so its address moved with its code each time; the P1-U3 contract at 0x60cacA6dE327331b321E140Ae19AcbCc4188Be6E and NFT-U1's at 0xAabdac6bF7B25F0a2190241D735A7014fDf92F14 stay on the playtest fork unused, with the owner's two agents minted again here as the same bee and tick",
 };
 const agentNftUndeployed = (note: string): AddressEntry => ({
   id: "agent_nft",
@@ -837,14 +837,14 @@ const CUSTODY_LOCAL: readonly AddressEntry[] = [
   custodyLocal(
     "account_factory",
     "AccountFactory",
-    "0xC9092605a6d10A42eE868b2C89a0BcC56e324CC3" as Address,
+    "0xD198e95a92Cc56a8Ef413Df3a46A6E42b2059e77" as Address,
     12557,
     "Deterministic CREATE2 deployment with anvil roles, 100/2,000 USDC caps (P2-U1), salt v2 since the USDC/USD age moved to 7,200 s (D-317); local fork only",
   ),
   custodyLocal(
     "personal_account_implementation",
     "PersonalAccount implementation",
-    "0xC488182332b2536Adf81a5e87A59A614f4B54Cfe" as Address,
+    "0x3f0c0eC0604110EEC4133391342A870Ffdb08Ce1" as Address,
     23514,
     "Deployed by AccountFactory's constructor; every PersonalAccount is a clone of it",
   ),
@@ -858,28 +858,28 @@ const CUSTODY_LOCAL: readonly AddressEntry[] = [
   custodyLocal(
     "executor",
     "Executor",
-    "0x34Bb57e5eD723964B08CecF3e9CeC8E16269176D" as Address,
+    "0x75017d46de8C03dC15E4A93075D220906BA4359A" as Address,
     28590,
     "Deterministic CREATE2 deployment with the launch policy (P2-U2); bound to the factory and registry",
   ),
   custodyLocal(
     "protocol_registry",
     "ProtocolRegistry",
-    "0x177d7152fE86f70c2F5AEfadABFcc274D3d088FE" as Address,
+    "0xF40444bec74c0F4E051803d9b83A1d882790B2D6" as Address,
     9211,
     "Lists the v4 adapter as active and the v3 fallback as paused (P2-U2)",
   ),
   custodyLocal(
     "venue_uniswap_v4_mon_usdc",
     "Uniswap v4 MON/USDC 0.05% adapter",
-    "0x3A753D33c41bF42887c74d128192b7Ac1A3D2a54" as Address,
+    "0x7Eae23589af7D8dD908A49A50369BF9320786EF4" as Address,
     7589,
     "The launch venue (D-166): unwraps, swaps native MON and rewraps (D-167)",
   ),
   custodyLocal(
     "venue_uniswap_v3_usdc_wmon",
     "Uniswap v3 USDC/WMON 0.3% adapter",
-    "0xF1CccA7C351bdE02BFC2fDaD4DDc56cA3CbBEd93" as Address,
+    "0xA29731cdd9419dA8Bf4eD33fc9c3e0f9ace5490E" as Address,
     3394,
     "The fallback venue (D-166), registered paused; activating it waits the timelock",
   ),
@@ -1646,8 +1646,9 @@ const FUND_LOCAL: readonly AddressEntry[] = FUND_IDS.map(([id, label]) => {
  * 0xeeB91f3371Db0d409bbE0Ffa9ea901E09A783a43) stays on the playtest fork unused
  * until `pnpm deploy:executor-v3` runs there again and lands this set beside it.
  *
- * NFT-U1 redeployed the set again: AgentNFT is a constructor argument of the
- * Executor and the factory, so the new AgentNFT moved the whole set (the
+ * NFT-U1 redeployed the set again, and NFT-U2 once more with the species
+ * correction (D-376): AgentNFT is a constructor argument of the
+ * Executor and the factory, so each new AgentNFT moved the whole set (the
  * P7-U2 Executor at 0x9C96ca817322AeE0F1a1F776149c8406F2f0a264 and the Step 0
  * factory at 0xFd758fd5f950E022fD10FF040DF6d605f5185338 stay on the playtest
  * fork unused); the Executor was rebound to the new factory there (L-229).
@@ -1663,22 +1664,22 @@ const EXECUTOR_V3_LOCAL_FACTS: Readonly<
   Record<(typeof EXECUTOR_V3_IDS)[number][0], readonly [Address, number, string]>
 > = {
   executor_v3: [
-    "0x7e1f02615472e845F339Baf189EF6096737d3f35",
+    "0x9B39732cCD833204A12f940e48bdc0f67a45D9B5",
     41210,
     "Launch policy: 10% per trade, 40% per token, 10% USDC floor, 0.5% and 1% slippage, class A 15% and 50% by basis, 20 trades and 100% turnover per rolling day, 120 s deadlines; bound to account_factory_v3 and protocol_registry_v3; admin anvil account 0, guardian anvil account 4",
   ],
   executor_route_adapter_v3: [
-    "0xbD8f9E8A3db35B9004d9F75927cD159247c04E74",
+    "0x2006F4b8b5D2b66648Fc5981432161c2a0aA19F3",
     12727,
     'Executor v3\'s adapter, active in protocol_registry_v3 from its construction under keccak256("route-adapter") (D-363); only the Executor may call it',
   ],
   protocol_registry_v3: [
-    "0xe0482Ce574Bd72b5D0472e13068205540fE4BC42",
+    "0xBc29a9D783faa2F90C13adA440F9A7fB3dAfdb88",
     19718,
     "Eight core pools on Uniswap v3, PancakeSwap v3 and hookless Uniswap v4, each confirmed by its venue, and Executor v3's RouteAdapter active from construction; admin anvil 0, guardian anvil 4, screener anvil 3",
   ],
   oracle_adapter_v3: [
-    "0xFac9B8360eA2363afB7A6d34B11BBd78c07387BD",
+    "0x534cc6Fa4183bd4eB670D306711738b9677cAa47",
     10235,
     "One feed per class F token with its own staleness bound, over the registry above; on the fork every class F feed is kept fresh (D-237, F-U3 step 0)",
   ],
@@ -1739,17 +1740,17 @@ const CUSTODY_V3_LOCAL_FACTS: Readonly<
   Record<(typeof CUSTODY_V3_IDS)[number][0], readonly [Address, number, string]>
 > = {
   account_factory_v3: [
-    "0x53aE163F6545e94B3c1afAbe47F3FEc44A4D65C9",
+    "0x3Ba5CB3d7ced2cA135Da5C2Ebe13463d3ab66E9e",
     14231,
     "Bound to the v3 TokenRegistry, oracle_adapter_v3 and executor_v3 at deployment, with anvil roles, the local fork's caps of 10,000 USDC per account, personal or vault, and 100,000 across the platform (Step 0, 2026-10-12; the beta's assumed 1,000 and 25,000 are A-90), anvil accounts 6 to 9 allowed from the constructor and the playtest wallets of chains/monad/local-wallets.json added by every local deploy, public vault deposits off (P7-U4, MV-S15 asserted by pnpm assert:state); deploys one PersonalAccountV3 per agent and owner and one StrategyVaultV3 per agent (P7-U2)",
   ],
   personal_account_v3_implementation: [
-    "0x8962AAe666B5840C7BFE0f2D3786242544BEa43d",
+    "0xE1180b624EfFaC5A6ecaCbb709Ef3Bef3A40f426",
     41232,
     "Deployed by AccountFactoryV3's constructor; every PersonalAccountV3 is a clone of it, holding up to 16 registered tokens, traded only by executor_v3",
   ],
   strategy_vault_v3_implementation: [
-    "0x2D6bbc6a5193d2D48018fe29791420f4a5F81Dad",
+    "0xDE47493a0FF37683865f1fA76655640bb7B8e4c0",
     61812,
     "Deployed by AccountFactoryV3's constructor (P7-U1, P7-U2); every StrategyVaultV3 is a clone of it: USDC and core-lane class F tokens only, shares nobody can transfer, exits that need no oracle, traded only by executor_v3 under a grant without expiry",
   ],

@@ -86,3 +86,10 @@ evidence/f-u13/testnet-deployment.json:generic-api-key:111
 evidence/f-u13/testnet-deployment.json:generic-api-key:125
 evidence/f-u13/testnet-deployment.json:generic-api-key:133
 evidence/f-u13/testnet-deployment.json:generic-api-key:141
+#
+# NFT-U2 evidence: the JSON keys "token" and "tokenRegistry" in the testnet redeploy's partial
+# record trip generic-api-key; each value is a public token or contract address on Monad
+# testnet (TALPHA, TBETA, the TokenRegistry), checked in NFT-U2.
+evidence/nft-u2/testnet-deployment.json:generic-api-key:28
+evidence/nft-u2/testnet-deployment.json:generic-api-key:34
+evidence/nft-u2/testnet-deployment.json:generic-api-key:42

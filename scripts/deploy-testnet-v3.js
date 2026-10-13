@@ -78,8 +78,19 @@ const TESTNET_FEED_MAX_AGE = 30 * 24 * 3600;
  */
 const GAS_PRICE_WEI = 110_000_000_000n;
 /** The first run's start block, kept so a rerun's record still lists every step's transactions. */
-const RUN_STATE = join(ROOT, "evidence/f-u13/testnet-run.json");
 const dryRun = process.argv.includes("--dry-run");
+/**
+ * Where the run's state and record go: evidence/f-u13 (the first deployment)
+ * unless `--evidence <dir>` names another unit's directory, as NFT-U2's
+ * redeploy of AgentNFT and the set that takes it does.
+ */
+const EVIDENCE_DIR = join(
+  ROOT,
+  process.argv.includes("--evidence")
+    ? /** @type {string} */ (process.argv[process.argv.indexOf("--evidence") + 1])
+    : "evidence/f-u13",
+);
+const RUN_STATE = join(EVIDENCE_DIR, "testnet-run.json");
 loadRootEnv();
 
 let config;
@@ -186,6 +197,9 @@ function estimate(output) {
   return gas ? { gas: Number(gas), mon: Number(mon ?? 0) } : null;
 }
 
+/** The balance guard's stop: every step so far stands, and the record says where it stopped. */
+class GuardStop extends Error {}
+
 /**
  * The owner's rule for F-U13: nothing is spent before the balance is checked
  * against the estimate. Each step is simulated first; when the deployer
@@ -207,7 +221,7 @@ async function guardedStep(name, script, env) {
   if (!e || dryRun) return { output: simulated, estimate: e };
   const balance = Number(await testnetRpc(url, "eth_getBalance", [deployer, "latest"])) / 1e18;
   if (balance < e.mon)
-    throw new Error(
+    throw new GuardStop(
       `${name} needs about ${e.mon.toFixed(4)} MON at the maximum fee and the deployer ${deployer} holds ${balance.toFixed(4)} MON: send at least ${(e.mon - balance + 0.05).toFixed(4)} MON to ${deployer} on Monad testnet (chain 10143) and run pnpm deploy:testnet:v3 again; every step so far stands`,
     );
   console.log(
@@ -219,6 +233,30 @@ async function guardedStep(name, script, env) {
   };
 }
 
+/** What the steps so far deployed, for the record a guard stop leaves (NFT-U2). */
+/** @type {Record<string, unknown>} */
+const progress = {};
+/** @type {number} */
+let runStartBlock = 0;
+/** @type {bigint} */
+let runBalanceBefore = 0n;
+const ALL_SCRIPTS = [
+  "DeployTestnetMarket.s.sol",
+  "DeployTestnetTokens.s.sol",
+  "DeployAgentNFT.s.sol",
+  "DeployFund.s.sol",
+  "DeployExecutorV3.s.sol",
+  "DeployCustodyV3.s.sol",
+  "BindExecutorV3.s.sol",
+  "DeployAttestor.s.sol",
+];
+async function transactionsSince(/** @type {number} */ block) {
+  /** @type {any[]} */
+  const all = [];
+  for (const script of ALL_SCRIPTS) all.push(...(await broadcastRecords(url, script)));
+  return all.filter((t) => t.block >= block);
+}
+
 try {
   await assertTestnet(url);
   const nowBlock = Number(await testnetRpc(url, "eth_blockNumber"));
@@ -227,8 +265,10 @@ try {
   const balanceNow = BigInt(await testnetRpc(url, "eth_getBalance", [deployer, "latest"]));
   const startBlock = earlier?.startBlock ?? nowBlock;
   const balanceBefore = earlier ? BigInt(earlier.balanceBeforeWei) : balanceNow;
+  runStartBlock = startBlock;
+  runBalanceBefore = balanceBefore;
   if (!earlier && !dryRun) {
-    mkdirSync(join(ROOT, "evidence/f-u13"), { recursive: true });
+    mkdirSync(EVIDENCE_DIR, { recursive: true });
     writeFileSync(
       RUN_STATE,
       `${JSON.stringify({ startBlock, startedAt: new Date().toISOString(), balanceBeforeWei: balanceNow.toString() }, null, 2)}\n`,
@@ -270,6 +310,7 @@ try {
     poolId: loggedBytes32(marketOut, "POOL_ID"),
     poolLiquidity: logged(marketOut, "POOL_LIQUIDITY"),
   };
+  progress.market = market;
   if (market.seeder.toLowerCase() !== String(P2EC.market.seeder).toLowerCase())
     throw new Error("the pool seeder found is not P2-EC's");
 
@@ -306,6 +347,7 @@ try {
       poolLiquidity: logged(tokensOut, "TESTNET_POOL_BETA_LIQUIDITY"),
     },
   };
+  progress.tokens = tokens;
 
   console.log("\n3. AgentNFT (34 species, 500/300/200, two mints per wallet)");
   const nftStep = await guardedStep("3 agent nft", "script/DeployAgentNFT.s.sol:DeployAgentNFT", {
@@ -319,6 +361,7 @@ try {
   const nftOut = nftStep.output;
   estimates.agentNft = nftStep.estimate;
   const agentNft = logged(nftOut, "AGENT_NFT_ADDRESS");
+  progress.agentNft = agentNft;
   const hasCode = async (/** @type {string} */ a) =>
     (await testnetRpc(url, "eth_getCode", [a, "latest"])) !== "0x";
   if (dryRun && !((await hasCode(tokens.alpha.token)) && (await hasCode(agentNft)))) {
@@ -348,6 +391,7 @@ try {
     coreTokens: Number(logged(fundOut, "CORE_TOKENS")),
     corePools: Number(logged(fundOut, "CORE_POOLS")),
   };
+  progress.fundSet = fundSet;
 
   console.log(
     "\n5. Executor v3, its RouteAdapter and ProtocolRegistryV3, and the OracleAdapterV3 over it",
@@ -373,6 +417,7 @@ try {
     corePools: Number(logged(execOut, "CORE_POOLS")),
     policyHash: loggedBytes32(execOut, "EXECUTOR_V3_POLICY_HASH"),
   };
+  progress.executorSet = executorSet;
 
   console.log("\n6. AccountFactoryV3 with the Executor given, and the Executor's binding");
   const custodyStep = await guardedStep(
@@ -402,6 +447,7 @@ try {
     personalAccountImplementation: logged(custodyOut, "PERSONAL_ACCOUNT_V3_IMPLEMENTATION"),
     vaultImplementation: logged(custodyOut, "STRATEGY_VAULT_V3_IMPLEMENTATION"),
   };
+  progress.custody = custody;
   const bindStep = await guardedStep("6 bind", "script/BindExecutorV3.s.sol:BindExecutorV3", {
     ...keyEnv,
     EXECUTOR_V3: executorSet.executor,
@@ -425,6 +471,7 @@ try {
   const verifierOut = verifierStep.output;
   estimates.verifier = verifierStep.estimate;
   const verifier = logged(verifierOut, "ATTESTATION_VERIFIER_ADDRESS");
+  progress.verifier = verifier;
   const client = createPublicClient({ transport: http(url, { retryCount: 0 }) });
   const registry = /** @type {`0x${string}`} */ (fundSet.tokenRegistry);
   const action = await client.readContract({
@@ -501,16 +548,7 @@ try {
     process.exit(0);
   }
 
-  const transactions = [
-    ...(await broadcastRecords(url, "DeployTestnetMarket.s.sol")),
-    ...(await broadcastRecords(url, "DeployTestnetTokens.s.sol")),
-    ...(await broadcastRecords(url, "DeployAgentNFT.s.sol")),
-    ...(await broadcastRecords(url, "DeployFund.s.sol")),
-    ...(await broadcastRecords(url, "DeployExecutorV3.s.sol")),
-    ...(await broadcastRecords(url, "DeployCustodyV3.s.sol")),
-    ...(await broadcastRecords(url, "BindExecutorV3.s.sol")),
-    ...(await broadcastRecords(url, "DeployAttestor.s.sol")),
-  ].filter((t) => t.block >= startBlock);
+  const transactions = await transactionsSince(startBlock);
   const balanceAfter = BigInt(await testnetRpc(url, "eth_getBalance", [deployer, "latest"]));
   const record = {
     unit: "F-U13",
@@ -554,7 +592,7 @@ try {
     deployerMonSpentWei: (balanceBefore - balanceAfter).toString(),
     gasPriceWei: GAS_PRICE_WEI.toString(),
   };
-  const dir = join(ROOT, "evidence/f-u13");
+  const dir = EVIDENCE_DIR;
   mkdirSync(dir, { recursive: true });
   const file = join(dir, "testnet-deployment.json");
   if (transactions.length > 0) writeFileSync(file, `${JSON.stringify(record, null, 2)}\n`);
@@ -566,6 +604,38 @@ try {
   );
   if (transactions.length > 0) console.log(`recorded in ${file}`);
 } catch (err) {
+  if (err instanceof GuardStop && !dryRun) {
+    // Every step so far stands: record what is on chain, so the handoff and
+    // the verification have it before the run continues.
+    try {
+      const transactions = await transactionsSince(runStartBlock);
+      const balanceAfter = BigInt(await testnetRpc(url, "eth_getBalance", [deployer, "latest"]));
+      const partial = {
+        unit: "F-U13",
+        partial: true,
+        stoppedBy: err.message.replaceAll(url, "<rpc>"),
+        chainId: TESTNET.chainId,
+        recordedAt: new Date().toISOString(),
+        startBlock: runStartBlock,
+        roles,
+        ...progress,
+        transactions,
+        deployerMonSpentWei: (runBalanceBefore - balanceAfter).toString(),
+        gasPriceWei: GAS_PRICE_WEI.toString(),
+      };
+      mkdirSync(EVIDENCE_DIR, { recursive: true });
+      const file = join(EVIDENCE_DIR, "testnet-deployment.json");
+      writeFileSync(file, `${JSON.stringify(partial, null, 2)}\n`);
+      console.log(`partial record (${transactions.length} transactions so far) in ${file}`);
+    } catch (recordErr) {
+      console.error(
+        `the partial record could not be written: ${recordErr instanceof Error ? recordErr.message : String(recordErr)}`.replaceAll(
+          url,
+          "<rpc>",
+        ),
+      );
+    }
+  }
   console.error(
     `error: ${(err instanceof Error ? err.message : String(err)).replaceAll(url, "<rpc>")}`,
   );

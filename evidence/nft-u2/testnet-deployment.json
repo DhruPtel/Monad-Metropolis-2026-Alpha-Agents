@@ -1,0 +1,72 @@
+{
+  "unit": "F-U13",
+  "partial": true,
+  "stoppedBy": "5 executor v3 needs about 2.8401 MON at the maximum fee and the deployer 0x5C0Fb609931651357dcfd2b985910E3fC5904A4a holds 1.1537 MON: send at least 1.7364 MON to 0x5C0Fb609931651357dcfd2b985910E3fC5904A4a on Monad testnet (chain 10143) and run pnpm deploy:testnet:v3 again; every step so far stands",
+  "chainId": 10143,
+  "recordedAt": "2026-10-13T00:13:00.710Z",
+  "startBlock": 70536885,
+  "roles": {
+    "deployer": "0x5C0Fb609931651357dcfd2b985910E3fC5904A4a",
+    "admin": "0x5C0Fb609931651357dcfd2b985910E3fC5904A4a",
+    "guardian": "0x5f8D9Bcb4479eED4934d51087DEEe157bac1322e",
+    "sentinel": "0x6a1DDe374e166C01CC3d85964Fc7496F9B16D96e",
+    "claimSigner": "0xc82a7CDf5494B9E56E6604263BeBF41Eb5b4C490",
+    "feedWriter": "0xB501c40e5dDAa3dF9f32B3e04Db9b04fC1f6292a",
+    "testWallet": "0xc7fcA8F663b8a20f8aFcCdd92E031678423AC2c8",
+    "screener": "0xf6B3eb9FE59d7AedDd4e4ACc11912f3b9Aa34941",
+    "attestor": "0xa2517B9bf3659e0d4E905C5E1148a4F07F013DeB"
+  },
+  "market": {
+    "monUsdFeed": "0x4F257aD5E3AE49E0934813c23F5940448d20965E",
+    "usdcUsdFeed": "0x94f797988a94c86dF85bC457027eDF7b4673fD9D",
+    "seeder": "0xA4adD8Adbb6C04De71dC313322913b7084a9424A",
+    "poolId": "0x40ab892dad820a1b57392a8a6e7c783e108a2285e83d3a6dbf1dd44902a19972",
+    "poolLiquidity": "95902508421861"
+  },
+  "tokens": {
+    "alpha": {
+      "token": "0xD4EB3FeF2A9eBE27D59D4188B6D20Bb21220c03c",
+      "feed": "0x14B6Eb96776a5dbD4DfBB73F931edc86Fa17037A",
+      "poolId": "0x1ef9a330198d0abfd0a655ef79354c60e17391f53fd1ec00ccc3dbddbdbc1704",
+      "poolLiquidity": "100000000000000000000"
+    },
+    "beta": {
+      "token": "0x57ca16ca75E968Bd3FF712C729e6e5F6940Cc010",
+      "feed": "0x2896cD952b1b5A101e2ad9cCb17b9AE4050DE65a",
+      "poolId": "0x40ce0801823100e952681aa05f5816ec8cde1ed39f27b85dbec46a30d2397b1c",
+      "poolLiquidity": "100000000000000000000"
+    }
+  },
+  "agentNft": "0x53704d94AF23CF04D2b6212cc071c6Bda6A4DFEF",
+  "fundSet": {
+    "tokenRegistry": "0xDe0997ABe3dd6c79f64FeAfd69CCF3FaE58ed5a0",
+    "protocolRegistry": "0xD08c641e902eB88459fc808CA32985434c49655A",
+    "oracle": "0x87c750D5E5d33425A8eAF36796D6De6333646598",
+    "routeAdapter": "0x98954C62ECfcB9ce111a404745EED17b806aD073",
+    "coreTokens": 4,
+    "corePools": 3
+  },
+  "transactions": [
+    {
+      "what": "AgentNFT",
+      "script": "DeployAgentNFT.s.sol",
+      "hash": "0x0d9275573774e4f3af971c0d086faef1ccb754939eff4e9742fc730dd7e0a14b",
+      "from": "0x5c0fb609931651357dcfd2b985910e3fc5904a4a",
+      "to": "0x4e59b44847b379578588920ca78fbf26c0b4956c",
+      "created": null,
+      "block": 70537008,
+      "blockTime": 1791850339,
+      "status": "0x1",
+      "type": "0x0",
+      "gasLimit": "9026204",
+      "gasUsed": "9026204",
+      "baseFeeWei": "100000000000",
+      "maxFeePerGasWei": "110000000000",
+      "maxPriorityFeePerGasWei": "0",
+      "effectiveGasPriceWei": "110000000000",
+      "paidWei": "992882440000000000"
+    }
+  ],
+  "deployerMonSpentWei": "992882440000000000",
+  "gasPriceWei": "110000000000"
+}

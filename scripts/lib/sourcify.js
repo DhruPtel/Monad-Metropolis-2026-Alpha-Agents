@@ -45,8 +45,8 @@ async function create2Inits(url, transactions) {
   return inits;
 }
 
-/** @param {number} chainId @param {string} address */
-async function sourcifyMatch(chainId, address) {
+/** What Sourcify holds for a contract, or null when it has nothing. @param {number} chainId @param {string} address */
+export async function sourcifyMatch(chainId, address) {
   const res = await fetch(`${SOURCIFY}/v2/contract/${chainId}/${address}`, {
     signal: AbortSignal.timeout(20_000),
   });
