@@ -1939,3 +1939,17 @@ What happened: the report's print-styling test passed in packages/ui and failed 
 Cause: the test read the stylesheet with `new URL("../../styles.css", import.meta.url)`; under the root project's jsdom environment the module URL is not a file URL.
 Fix: the test reads by path from `__dirname`, as the design-token test does.
 Lesson: In this repo read a package's own files by `join(__dirname, …)` in tests, and run a new test file through the root project once before calling it done.
+
+## L-264: the window page's links landed on a closed tab
+Unit: CQ-U1 (from UX-U1)
+What happened: the web suite's "reachable both ways" test failed: the window page's "Recent trades" link went to the portfolio's #trades and no trades showed; the same held for #positions.
+Cause: UX-U1 moved the trades and positions into the ledger's TabbedPanel, which opened its default tab only; a closed Radix tab renders no content, so the anchor had nothing to land on. UX-U1's log said the anchors still resolve; no browser test ran to check it.
+Fix: TabbedPanel opens the tab named by the URL's hash, on load and on every hash change, and scrolls to it.
+Lesson: When content moves into tabs, every link into that content must open its tab; check each existing anchor in the browser, not by grepping for the id.
+
+## L-265: two units shipped page changes with the web suite unrun, and 26 of its tests failed
+Unit: CQ-U1 (from UX-U1 and RP-U1)
+What happened: the first web suite run since UX-U1 failed 26 tests (the goal, portfolio, portfolio-v3, vault and window specs at both widths), and every Research capture showed "No such route." under Research reports.
+Cause: UX-U1 redesigned the portfolio and vault pages and RP-U1 added a route the Research page calls, both with Playwright skipped; the specs still looked for the old tiles and open sections, and the e2e fake API had no reports route.
+Fix: the specs follow the tabbed layout (they open the tab they check), the fake API serves the reports route, and the baselines were retaken after checking each capture.
+Lesson: A unit that changes a page's layout or makes a page call a new route updates the specs and the e2e fake in the same unit; when the suite cannot run, its handoff names the specs it will break.
