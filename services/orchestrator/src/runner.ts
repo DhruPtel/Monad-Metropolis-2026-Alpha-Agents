@@ -23,6 +23,7 @@ import {
   type PortfolioState,
   type PortfolioToken,
   REBALANCE_BANDS_V1,
+  TARGET_PORTFOLIO_ID,
   TARGET_PORTFOLIO_V1,
   type TemplateDecision,
   amountForValue,
@@ -236,9 +237,22 @@ export class TemplateRunner {
     const refused = await this.lastRefusedLeg(agentId, plan.paramId);
     if (refused) return hold(refused.code, refused.facts, refused.codes);
 
-    return isPortfolioPlan(plan)
-      ? this.decidePortfolio(plan, goal, hold, base)
+    if (isPortfolioPlan(plan)) return this.decidePortfolio(plan, goal, hold, base);
+    // RUN-FIX: a band plan for an agent whose money is in a fund-set account runs through the
+    // fund set's path, as the equivalent one-position portfolio plan; the v2 path would read
+    // the older account, find nothing there and hold with BELOW_MIN_TRADE forever.
+    const wmon = await this.fundSetWmon(agentId);
+    return wmon
+      ? this.decidePortfolio(bandsAsPortfolio(plan, wmon), goal, hold, base)
       : this.decideBands(plan, goal, hold, base);
+  }
+
+  /** WMON's address on the fund agent's set when the agent has an account there; null otherwise. */
+  private async fundSetWmon(agentId: number): Promise<Hex | null> {
+    const reader = this.o.readerV3;
+    if (!reader) return null;
+    const [m, a] = await Promise.all([reader.market(), reader.agent(agentId)]);
+    return a?.account ? m.wmon : null;
   }
 
   /** The two-asset template on the v2 set (P3-U3). */
@@ -696,4 +710,44 @@ export class TemplateRunner {
       buy: d.leg?.buy ?? null,
     };
   }
+}
+
+/**
+ * RUN-FIX: a band plan as the fund set's portfolio plan: WMON at the band's target, the band as
+ * the position's range, the rest in USDC, and the same minimum trade, brake, cost hurdle and
+ * largest leg. The thesis and exit fields are the portfolio check's, never read by its rule;
+ * they name the band plan so a record built from them says where they came from.
+ */
+export function bandsAsPortfolio(plan: StoredBandsPlan, wmon: Hex): StoredPortfolioPlan {
+  const p = plan.params;
+  return {
+    paramId: plan.paramId,
+    chainId: plan.chainId,
+    agentId: plan.agentId,
+    paramsHash: plan.paramsHash,
+    strategyEpoch: plan.strategyEpoch,
+    setBy: plan.setBy,
+    setByAddress: plan.setByAddress,
+    createdAt: plan.createdAt,
+    template: TARGET_PORTFOLIO_ID,
+    params: {
+      positions: [
+        {
+          token: wmon.toLowerCase() as Hex,
+          targetWeightBps: p.targetWmonBps,
+          bandBps: p.bandHalfWidthBps,
+          thesisId: `band-plan:${plan.paramId}`,
+          exit: {
+            killCriterion: "the band plan's own range",
+            recheckAt: new Date(plan.createdAt.getTime() + 30 * 86_400_000).toISOString(),
+          },
+        },
+      ],
+      cashTargetBps: 10_000 - p.targetWmonBps,
+      minTradeUsdcE6: p.minTradeUsdcE6,
+      volatilityBrakeBps: p.volatilityBrakeBps,
+      costHurdleBps: p.costHurdleBps,
+      maxLegBps: p.maxLegBps,
+    },
+  };
 }

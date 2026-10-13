@@ -19,7 +19,7 @@ import { DecisionStore, GoalStore, PlanStore, TradeStore } from "@alpha-agents/t
 import { type Hex, getAddress } from "viem";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { type RunnerFacts, templateRunnerEntry } from "./narrator.ts";
-import { TemplateRunner } from "./runner.ts";
+import { TemplateRunner, bandsAsPortfolio } from "./runner.ts";
 import { Store } from "./store.ts";
 import { CHAIN } from "./testing.ts";
 import { PgIntentStore } from "./tools/chain-store.ts";
@@ -334,6 +334,86 @@ describe.skipIf(!dbUp)(
       chain = new FakeChainV3();
       screens = { [USDC]: true, [WMON]: true, [WBTC]: true };
       narrated = [];
+    });
+
+    it("RUN-FIX: a band plan for an agent with a fund-set account buys WMON toward its target as a v3 intent, never reading the v2 set", async () => {
+      await saveGoal();
+      const plan = await plans.set({
+        chainId: CHAIN,
+        agentId: 1,
+        template: "rebalance_bands@1",
+        params: {
+          targetWmonBps: 2_000,
+          bandHalfWidthBps: 500,
+          minTradeUsdcE6: 500_000n,
+          volatilityBrakeBps: 20_000,
+          costHurdleBps: 40,
+          maxLegBps: 1_000,
+        },
+        setBy: "console",
+      });
+      await arm();
+      // All 100 USDC in the fund-set account: 0% WMON against a 20% target, outside its 5% range.
+      const [first] = await runner().tick();
+      expect(first).toMatchObject({
+        outcome: "leg",
+        leg: { sell: "USDC", buy: "WMON", sellToken: USDC, buyToken: WMON },
+        paramId: plan.paramId,
+        strategyEpoch: plan.strategyEpoch,
+      });
+      const [i1] = await intents();
+      expect(i1).toMatchObject({ custody: "v3", sell: "USDC", buy: "WMON", source: "template" });
+      // The leg is capped at the plan's largest leg, 10% of the account's value.
+      expect(i1?.amountIn).toBeLessThanOrEqual(10_000_000n);
+      expect(i1?.amountIn).toBeGreaterThanOrEqual(500_000n);
+    });
+
+    it("RUN-FIX: a band plan becomes the equivalent one-position portfolio plan, every parameter kept", () => {
+      const band = {
+        paramId: "p-1",
+        chainId: CHAIN,
+        agentId: 4,
+        paramsHash: "0xab" as Hex,
+        strategyEpoch: 3n,
+        setBy: "proposal",
+        setByAddress: null,
+        createdAt: new Date("2026-10-13T19:50:38.000Z"),
+        template: "rebalance_bands@1",
+        params: {
+          targetWmonBps: 2_000,
+          bandHalfWidthBps: 500,
+          minTradeUsdcE6: 500_000n,
+          volatilityBrakeBps: 20_000,
+          costHurdleBps: 40,
+          maxLegBps: 1_000,
+        },
+      } as const;
+      const p = bandsAsPortfolio(band as never, getAddress(WMON));
+      expect(p).toMatchObject({
+        paramId: "p-1",
+        agentId: 4,
+        strategyEpoch: 3n,
+        template: TARGET_PORTFOLIO_ID,
+        params: {
+          cashTargetBps: 8_000,
+          minTradeUsdcE6: 500_000n,
+          volatilityBrakeBps: 20_000,
+          costHurdleBps: 40,
+          maxLegBps: 1_000,
+        },
+      });
+      expect(p.params.positions).toEqual([
+        {
+          token: WMON,
+          targetWeightBps: 2_000,
+          bandBps: 500,
+          thesisId: "band-plan:p-1",
+          exit: {
+            killCriterion: "the band plan's own range",
+            recheckAt: "2026-11-12T19:50:38.000Z",
+          },
+        },
+      ]);
     });
 
     it("stores a target portfolio plan with its template, hash and epoch, and reads it back", async () => {
