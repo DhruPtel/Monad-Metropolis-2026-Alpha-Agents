@@ -633,6 +633,17 @@ const orchestrator = new Orchestrator({
   },
   tokens: {
     registry: tokenRegistry,
+    // P-SWEEP (D-384): research also studies Base's tokens (scripts' research discovery writes them).
+    researchChains:
+      MARKET_CHAIN.key === "monad"
+        ? [
+            {
+              chainId: 8453,
+              name: "Base",
+              whyNot: "research only: on Base, where this owner has no trading account (D-384)",
+            },
+          ]
+        : [],
     ...(tokenLoops ? {} : { discoverEveryMs: 0, screenEveryMs: 0 }),
   },
   // P3-U3: the runner's buy brake reads MON's 24-hour volatility from the shared market data

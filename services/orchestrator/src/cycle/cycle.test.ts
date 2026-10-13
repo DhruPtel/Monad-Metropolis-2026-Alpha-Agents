@@ -872,6 +872,65 @@ describe.skipIf(!dbUp)("the discovery loop engine (needs Postgres)", { timeout: 
     expect(must(stages[0]).ceilingUsdcE6).toBe(500_000n);
   });
 
+  it("runs the activation sweep within its own ceiling, past a daily budget already used up (P-SWEEP, A-101)", async () => {
+    // Light research: 1.00 USDC a day, 0.90 of it charged by an earlier cycle today. Checked against
+    // the day's budget the sweep stopped after its Scan (BUDGET_SHORT); its ceiling governs it now.
+    await saveGoal({ dailyBudgetUsdcE6: "1000000" });
+    const earlier = await cycles.createCycle({
+      ref,
+      taskId: "earlier-today",
+      kind: "ROUTINE",
+      reasoningAlias: "research-medium",
+    });
+    const done = await cycles.addStage({
+      cycle: earlier,
+      seq: 1,
+      stage: "SCAN",
+      themeCode: null,
+      modelAlias: "research-low",
+      caps: { turns: 10, paidCalls: 5, tokens: 1, seconds: 1 },
+      ceilingUsdcE6: 300_000n,
+    });
+    await t.db
+      .updateTable("platform.stage_runs")
+      .set({ status: "completed", started_at: new Date(), charged_usdc_e6: "900000" })
+      .where("stage_run_id", "=", done.stageRunId)
+      .execute();
+    scripts.ZOOM_OUT = async (r) => {
+      await start(r);
+      ok(await brief(r.token, rationale));
+      // The activation's Zoom out also writes the overview before it may end.
+      const early = await complete(r.token, "ZOOM_OUT", {
+        decision: { kind: "NO_CHANGE", reasonCode: "EVIDENCE_THIN" },
+      });
+      expect(JSON.stringify(early.structuredContent)).toContain("OVERVIEW");
+      ok(
+        await brief(r.token, {
+          kind: "OVERVIEW",
+          summary: "Monad TVL fell 6.8% in 7 days; lending holds 412 million USD.",
+          points: [
+            {
+              text: "Lending holds 412 million USD.",
+              class: "primary",
+              confidence: "medium",
+              sources: ["https://lending.example/stats"],
+            },
+          ],
+        }),
+      );
+      ok(
+        await complete(r.token, "ZOOM_OUT", {
+          decision: { kind: "NO_CHANGE", reasonCode: "EVIDENCE_THIN" },
+        }),
+      );
+    };
+    const { cycle, stages } = await runCycle("ACTIVATION");
+    expect(cycle.status).toBe("completed");
+    expect(stages.map((s) => s.stage)).toEqual(["SCAN", "DIVE", "CHALLENGE", "TEST", "ZOOM_OUT"]);
+    expect(must(stages[0]).caps).toMatchObject({ turns: 16, paidCalls: 10 });
+    expect(must(stages[0]).ceilingUsdcE6).toBe(500_000n);
+  });
+
   /** The activation's Zoom out: the overview, then the rationale and the decision. */
   const overviewZoomOut: Script = async (r) => {
     await start(r);

@@ -80,6 +80,13 @@ export type ActivationStart =
 
 const agentName = (agentId: number) => `Alpha Agent #${agentId}`;
 
+/**
+ * How long a sweep may stay queued or running before it is ended as STALLED:
+ * the Scan, two Dives, the Challenge and the Zoom out at their deadlines
+ * (8 + 10 + 10 + 4 + 6 minutes, A-51) and the lease wait, rounded up.
+ */
+export const ACTIVATION_STALL_MS = 60 * 60_000;
+
 export class ActivationService {
   readonly store: ActivationStore;
   private readonly o: ActivationServiceOptions;
@@ -140,10 +147,28 @@ export class ActivationService {
     };
   }
 
+  /**
+   * P-SWEEP: a sweep whose cycle is still queued or running after the longest
+   * the whole sweep may take (every stage's deadline, the Dives twice, plus a
+   * margin) has stalled: a worker that died, a queue job that was lost. It is
+   * ended as STALLED, so the owner reads why and may start again, instead of
+   * watching a sweep that never moves.
+   */
+  private async endIfStalled(cycleId: string | null): Promise<void> {
+    if (!cycleId) return;
+    const cycle = await this.o.cycles.cycle(cycleId);
+    if (!cycle || (cycle.status !== "queued" && cycle.status !== "running")) return;
+    const since = (cycle.startedAt ?? cycle.createdAt).getTime();
+    if (this.now().getTime() - since < ACTIVATION_STALL_MS) return;
+    await this.o.cycles.finishCycle(cycleId, "failed", "STALLED");
+    this.o.log(`cycle ${cycleId}: the activation sweep stalled; ended as STALLED`);
+  }
+
   /** The owner's read: the newest sweep as the panel shows it, and the checks before the next. */
   async view(ref: AgentRef): Promise<ActivationRead> {
     const { input } = await this.facts(ref);
     const latest = await this.store.latest(ref.chainId, ref.agentId);
+    if (latest) await this.endIfStalled(latest.cycleId);
     const activation = latest ? activationView(await this.store.inputs(latest)) : null;
     const tier = input.goal?.tier ?? "MEDIUM";
     return {

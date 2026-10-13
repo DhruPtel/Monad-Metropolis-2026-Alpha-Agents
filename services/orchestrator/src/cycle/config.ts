@@ -86,6 +86,7 @@ export function stagePrompt(o: {
         o.kind === "ACTIVATION"
           ? "This is the activation's wide Scan: look broadly, since the Zoom out will build the first plan from this cycle."
           : "",
+        "Read the whole universe: call mcp__data__list_tokens with chain all and limit 50, then again with minLiquidityUsd 0 if the first call returned 50, and weigh every token it lists, Monad's and Base's; Base's are for research only, since this account trades on Monad. The platform records every token you saw and why it was or was not researched.",
         "A Scan never searches X; X search is for Dives.",
         caps,
         ...common,

@@ -89,7 +89,7 @@ import { ResearchScheduler, ResearchStore, Watcher } from "./research-loop.ts";
 import { type ResearchWiring, observe, schedulerDeps, watcherDeps } from "./research-wiring.ts";
 import type { Attestor } from "./attestor.ts";
 import { checkTargetPortfolio } from "./cycle/plan-rules.ts";
-import { UniverseStore, universeSnapshot } from "./cycle/universe.ts";
+import { UniverseStore, universeSnapshot, type ResearchChain } from "./cycle/universe.ts";
 import type { ChainReaderV3 } from "@alpha-agents/chain-tools";
 import type { TokenStore } from "./tokens/store.ts";
 import {
@@ -263,6 +263,8 @@ export interface OrchestratorOptions {
    * `screenEveryMs` (`screensPerTick` at a time); 0 turns a loop off.
    */
   readonly tokens?: {
+    /** P-SWEEP (D-384): chains whose tokens are studied for research only (Base). */
+    readonly researchChains?: readonly ResearchChain[];
     readonly registry: TokenRegistry;
     readonly discoverEveryMs?: number;
     readonly screenEveryMs?: number;
@@ -793,6 +795,7 @@ export class Orchestrator {
                         this.o.tokens?.registry.store as TokenStore,
                         cycle,
                         this.o.tokens?.registry.chainId ?? cycle.chainId,
+                        this.o.tokens?.researchChains ?? [],
                       ),
                   }
                 : null,

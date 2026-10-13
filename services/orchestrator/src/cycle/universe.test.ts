@@ -3,7 +3,7 @@ import type { Hex } from "viem";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { ScanTheme } from "./stages.ts";
 import type { Cycle } from "./store.ts";
-import { type UniverseRow, UniverseStore, themeDecisions } from "./universe.ts";
+import { type UniverseRow, UniverseStore, themeDecisions, universeSnapshot } from "./universe.ts";
 
 /**
  * The universe a cycle considered (F-U12): why each theme was or was not
@@ -157,7 +157,13 @@ describe.skipIf(!dbUp)("the universe store", () => {
     );
     const rows = await store.forCycle(cycle.cycleId);
     expect(rows.map((r) => r.symbol)).toEqual(["CHAOS", "GHO", "WMON"]);
-    expect(rows.find((r) => r.symbol === "CHAOS")).toMatchObject({ buyable: true, whyNot: null });
+    expect(rows.find((r) => r.symbol === "CHAOS")).toMatchObject({
+      buyable: true,
+      whyNot: null,
+      // P-SWEEP: a token with no theme still says why it was not researched.
+      themeCode: null,
+      themeReason: "seen at the Scan; not one of its themes this cycle",
+    });
     expect(rows.find((r) => r.symbol === "WMON")).toMatchObject({
       held: true,
       themeCode: "TVL_OUTFLOW",
@@ -172,5 +178,44 @@ describe.skipIf(!dbUp)("the universe store", () => {
       droppedReason: null,
     });
     expect(await store.forCycle("cycle-00000000-0000-4000-8000-000000000002")).toEqual([]);
+  });
+});
+
+describe("the research universe beyond the registry (P-SWEEP, D-384)", () => {
+  it("adds every research token on Monad and Base as research-only rows, once each", async () => {
+    const reader = {
+      market: async () => ({ tokens: [], usdc: WMON, prices: {}, attestorSet: false }),
+      agent: async () => null,
+    } as unknown as Parameters<typeof universeSnapshot>[0];
+    const listed: Record<number, { address: string; symbol: string; priceClass: "F" | "A" }[]> = {
+      143: [
+        { address: GHO, symbol: "GHO", priceClass: "A" },
+        { address: WMON, symbol: "WMON", priceClass: "F" },
+      ],
+      8453: [
+        { address: CHAOS, symbol: "AERO", priceClass: "F" },
+        { address: GHO, symbol: "GHO", priceClass: "A" },
+      ],
+    };
+    const tokens = {
+      token: async () => null,
+      listTokens: async (chainId: number) => listed[chainId] ?? [],
+    } as unknown as Parameters<typeof universeSnapshot>[1];
+    const rows = await universeSnapshot(reader, tokens, cycle, 143, [
+      { chainId: 8453, name: "Base", whyNot: "research only: on Base" },
+    ]);
+    expect(rows.map((r) => [r.symbol, r.buyable, r.whyNot])).toEqual([
+      [
+        "GHO",
+        false,
+        "research only: not in this account's token registry, so not buyable here yet",
+      ],
+      [
+        "WMON",
+        false,
+        "research only: not in this account's token registry, so not buyable here yet",
+      ],
+      ["AERO (Base)", false, "research only: on Base"],
+    ]);
   });
 });

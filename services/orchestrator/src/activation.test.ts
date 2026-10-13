@@ -4,7 +4,7 @@ import { translateGoal } from "@alpha-agents/policy";
 import { GoalStore, ProposalStore, TradeStore, VAULT_GRANT_NO_EXPIRY } from "@alpha-agents/trading";
 import type { Hex } from "viem";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { ActivationService } from "./activation.ts";
+import { ACTIVATION_STALL_MS, ActivationService } from "./activation.ts";
 import type { CreditService } from "./credits/service.ts";
 import { CycleStore } from "./cycle/store.ts";
 import type { TestInputsV2 } from "./cycle/test-stage.ts";
@@ -307,6 +307,35 @@ describe.skipIf(!dbUp)(
       expect(view.activation?.activationId).toBe(record.activationId);
       expect(view.checks.find((c) => c.code === "NOT_BUSY")?.ok).toBe(false);
       expect(view.checks.find((c) => c.code === "GRANT")?.ok).toBe(true);
+    });
+
+    it("ends a sweep whose cycle has sat queued for over an hour as STALLED, with the owner's words (P-SWEEP)", async () => {
+      await saveGoal();
+      await grant();
+      const r = await service.start(ref);
+      if (!r.ok) throw new Error(r.message);
+      const record = must(await service.store.latest(CHAIN, 1));
+      const cycleId = must(record.cycleId);
+      // Still queued after 30 minutes: left alone.
+      await store.db
+        .updateTable("platform.research_cycles")
+        .set({ created_at: new Date(Date.now() - 30 * 60_000) })
+        .where("cycle_id", "=", cycleId)
+        .execute();
+      expect((await service.view(ref)).activation?.status).toBe("running");
+      // Queued for over an hour: a lost worker; the sweep ends and says so.
+      await store.db
+        .updateTable("platform.research_cycles")
+        .set({ created_at: new Date(Date.now() - ACTIVATION_STALL_MS - 60_000) })
+        .where("cycle_id", "=", cycleId)
+        .execute();
+      const view = must((await service.view(ref)).activation);
+      expect(view.status).toBe("failed");
+      expect(view.outcome.message).toMatch(/stopped moving for an hour/);
+      expect(await cycles.cycle(cycleId)).toMatchObject({
+        status: "failed",
+        stopReason: "STALLED",
+      });
     });
 
     it("starts the sweep for the agent's vault under the grant without expiry, recording the vault as the account (Step 0, 2026-10-12; D-241)", async () => {

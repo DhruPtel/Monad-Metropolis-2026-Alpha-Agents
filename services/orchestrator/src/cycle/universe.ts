@@ -14,6 +14,16 @@ import type { Cycle } from "./store.ts";
  * row per token per cycle, written as the cycle goes, read by the Research
  * page's "Universe considered" panel and the agent terminal.
  */
+/** P-SWEEP (D-384): a chain whose tokens are studied for research only. */
+export interface ResearchChain {
+  readonly chainId: number;
+  readonly name: string;
+  readonly whyNot: string;
+}
+
+/** The most tokens per chain a cycle's universe records, by liquidity. */
+export const RESEARCH_UNIVERSE_LIMIT = 200;
+
 export interface UniverseRow {
   readonly token: Hex;
   readonly symbol: string;
@@ -125,6 +135,17 @@ export class UniverseStore {
         .where("token", "=", d.token.toLowerCase())
         .execute();
     }
+    // P-SWEEP: every other token seen says why it was not researched, so no cycle quietly drops one.
+    await this.db
+      .updateTable("platform.research_universe")
+      .set({
+        theme_reason: "seen at the Scan; not one of its themes this cycle",
+        updated_at: now,
+      })
+      .where("cycle_id", "=", cycle.cycleId)
+      .where("theme_code", "is", null)
+      .where("theme_reason", "is", null)
+      .execute();
   }
 
   /** The Zoom out's outcome: proposed tokens, and every other token seen with its reason. */
@@ -183,6 +204,12 @@ export async function universeSnapshot(
   cycle: Cycle,
   /** The token table's chain id: Monad mainnet's (the token registry's), not the cycle's (L-216). */
   tokenChainId: number,
+  /**
+   * P-SWEEP (D-384): the research universe beyond the account's registry: every token the
+   * research table holds on Monad mainnet and on each chain named here (Base), as
+   * research-only rows with why they cannot be bought.
+   */
+  researchChains: readonly ResearchChain[] = [],
 ): Promise<UniverseRow[]> {
   const [m, a] = await Promise.all([reader.market(), reader.agent(cycle.agentId)]);
   const optedIn = a?.account ? a.screenedOptIn : null;
@@ -223,6 +250,40 @@ export async function universeSnapshot(
       proposed: false,
       droppedReason: null,
     });
+  }
+  const seen = new Set(out.map((r) => r.token.toLowerCase()));
+  const chains: ResearchChain[] = [
+    {
+      chainId: tokenChainId,
+      name: "Monad",
+      whyNot: "research only: not in this account's token registry, so not buyable here yet",
+    },
+    ...researchChains,
+  ];
+  for (const c of chains) {
+    const rows = await tokens
+      .listTokens(c.chainId, { limit: RESEARCH_UNIVERSE_LIMIT })
+      .catch(() => []);
+    for (const t of rows) {
+      const key = t.address.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push({
+        token: key as Hex,
+        symbol: c.chainId === tokenChainId ? t.symbol : `${t.symbol} (${c.name})`,
+        priceClass: t.priceClass === "A" ? "A" : "F",
+        lane: null,
+        status: null,
+        buyable: false,
+        whyNot: c.whyNot,
+        held: false,
+        themeCode: null,
+        themeReason: null,
+        researched: false,
+        proposed: false,
+        droppedReason: null,
+      });
+    }
   }
   return out;
 }

@@ -117,6 +117,9 @@ export function screenView(
   };
 }
 
+/** P-SWEEP (D-384): Base mainnet's chain id, whose tokens the research table also holds. */
+export const BASE_RESEARCH_CHAIN_ID = 8453;
+
 export function registryToolSource(
   r: TokenRegistry,
   now: () => number = Date.now,
@@ -139,14 +142,34 @@ export function registryToolSource(
       return r.configured;
     },
     async list(f, agentId) {
-      const rows = await r.list({
+      const filter = {
         ...(f.priceClass ? { priceClass: f.priceClass } : {}),
         minLiquidityUsd: f.minLiquidityUsd,
         ...(f.screen === "any" ? {} : { screen: f.screen }),
         limit: f.limit,
-      });
+      };
+      const chain = f.chain ?? "all";
       const optedIn = await optIn(agentId);
-      return rows.map((t) => tokenItem(t, optedIn));
+      const own =
+        chain === "base"
+          ? []
+          : (await r.list(filter)).map((t) => ({
+              ...tokenItem(t, optedIn),
+              chain: "monad-mainnet" as const,
+            }));
+      // P-SWEEP (D-384): Base's tokens, for research only; this account cannot buy them.
+      const base =
+        chain === "monad" || r.chainId === BASE_RESEARCH_CHAIN_ID
+          ? []
+          : (await r.store.listTokens(BASE_RESEARCH_CHAIN_ID, filter)).map((t) => ({
+              ...tokenItem(t, null),
+              lane: null,
+              status: null,
+              buyable: false,
+              whyNot: "research only: on Base, where this owner has no trading account",
+              chain: "base-mainnet" as const,
+            }));
+      return [...own, ...base].sort((a, b) => b.liquidityUsd - a.liquidityUsd).slice(0, f.limit);
     },
     async newPools(hours, limit) {
       return (await r.newPools(hours, limit)).map((p) => poolItem(p, now()));

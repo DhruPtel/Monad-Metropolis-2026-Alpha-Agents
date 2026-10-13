@@ -91,6 +91,13 @@ const SERVICES = [
     ready: "http://127.0.0.1:4200/health",
   },
   { name: "web", args: ["scripts/web.js", "dev"], ready: "http://localhost:3000/" },
+  // P-SWEEP (D-384): Base's tokens in the research table, for research only, every hour.
+  {
+    name: "research-base",
+    args: ["services/orchestrator/src/research-discovery.ts"],
+    ready: null,
+    env: { MARKET_CHAIN: "base" },
+  },
 ];
 
 /** @returns {{ supervisor: number, services: { name: string, pid: number }[] } | null} */
@@ -273,7 +280,7 @@ async function up() {
       cwd: ROOT,
       detached: true,
       stdio: ["ignore", "pipe", "pipe"],
-      env,
+      env: { ...env, ...("env" in service ? service.env : {}) },
     });
     if (!child.pid) fail(`${service.name} did not start`);
     state.services.push({ name: service.name, pid: /** @type {number} */ (child.pid) });

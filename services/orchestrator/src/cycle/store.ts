@@ -645,6 +645,19 @@ export class CycleStore {
    * that started today (UTC), with a running stage counted at its whole
    * ceiling, which it reserves until it ends.
    */
+  /** P-SWEEP: what one cycle's stages have charged, or hold while running. */
+  async usedInCycle(cycleId: string): Promise<bigint> {
+    const rows = await this.db
+      .selectFrom("platform.stage_runs")
+      .select(["status", "ceiling_usdc_e6", "charged_usdc_e6"])
+      .where("cycle_id", "=", cycleId)
+      .execute();
+    let used = 0n;
+    for (const r of rows)
+      used += r.status === "running" ? BigInt(r.ceiling_usdc_e6) : BigInt(r.charged_usdc_e6);
+    return used;
+  }
+
   async usedToday(ref: AgentRef, dayStart: Date): Promise<bigint> {
     const rows = await this.db
       .selectFrom("platform.stage_runs")

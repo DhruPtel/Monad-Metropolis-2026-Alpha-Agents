@@ -71,6 +71,12 @@ export const TokenInputs = {
         "Filter by the latest screen: passed or refused (still fresh), unscreened, expired",
       ),
     limit: z.int().min(1).max(50).default(25),
+    chain: z
+      .enum(["monad", "base", "all"])
+      .default("all")
+      .describe(
+        "monad: Monad mainnet's tokens (this account trades on Monad); base: Base's, for research only; all: both, by liquidity",
+      ),
   }),
   new_pools: z.strictObject({
     hours: z
@@ -117,6 +123,8 @@ const Buyability = {
 
 const Token = z.strictObject({
   address: z.string(),
+  /** P-SWEEP (D-384): the chain the token lives on; Base's are research only. */
+  chain: z.enum(["monad-mainnet", "base-mainnet"]).optional(),
   symbol: z.string().max(32),
   name: z.string().max(80),
   decimals: z.int(),
@@ -244,6 +252,8 @@ export interface TokenSource {
       minLiquidityUsd: number;
       screen: "passed" | "refused" | "unscreened" | "expired" | "any";
       limit: number;
+      /** P-SWEEP: which chain's tokens; "all" by default. */
+      chain?: "monad" | "base" | "all";
     },
     /** F-U12: the calling agent, whose account's opt-in decides what is buyable. */
     agentId?: number,
@@ -275,7 +285,7 @@ export interface TokenSource {
 
 const DESCRIPTIONS: Readonly<Record<TokenDataTool, string>> = {
   list_tokens:
-    "Tokens already in the platform's shared registry: those background discovery and other agents have found in pools of real liquidity on Uniswap v3, Uniswap v4 or PancakeSwap v3, each with its price class (F: a verified Chainlink feed; A: none), its deepest routable pool's liquidity, 24-hour volume, oldest pool's age, listings, and latest safety screen. The registry is a cache that saves requests, never a limit: research any token you like and use lookup_token, find_pools and screen_token for tokens it does not hold. A token can be bought only with a passing screen under six hours old. Free.",
+    "Tokens already in the platform's shared registry, on Monad mainnet and, for research only, on Base (each token names its chain; chain picks one or both): those background discovery and other agents have found in pools of real liquidity on Uniswap v3, Uniswap v4 or PancakeSwap v3, each with its price class (F: a verified Chainlink feed; A: none), its deepest routable pool's liquidity, 24-hour volume, oldest pool's age, listings, and latest safety screen. The registry is a cache that saves requests, never a limit: research any token you like and use lookup_token, find_pools and screen_token for tokens it does not hold. A token can be bought only with a passing screen under six hours old. Free.",
   new_pools:
     "Pools created recently on Monad's Uniswap v3, Uniswap v4 and PancakeSwap v3, newest first, with each pool's pair, liquidity, volume and age. A pool younger than 72 hours always fails the safety screen. Free.",
   lookup_token:
@@ -392,6 +402,7 @@ export function registerTokenTools(
             minLiquidityUsd: input.minLiquidityUsd,
             screen: input.screen,
             limit: input.limit,
+            chain: input.chain,
           },
           identity.agentId,
         );
@@ -408,6 +419,7 @@ export function registerTokenTools(
             results: tokens.length,
             priceClass: input.priceClass ?? "any",
             screen: input.screen,
+            chain: input.chain,
           },
         };
       }),

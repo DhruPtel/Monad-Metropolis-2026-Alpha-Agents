@@ -316,12 +316,21 @@ async function budgetCheck(
 ) {
   const ref = { chainId: cycle.chainId, agentId: cycle.agentId };
   const credits = await ctx.credits.creditsOf(cycle.agentId);
+  // P-SWEEP (A-101): the activation sweep runs within the ceiling its owner saw and accepted
+  // when turning automatic trading on (A-51, up to 4.00 USDC); the goal's daily research
+  // budget (D-293, 1.00 USDC at Light) governs routine research. Checked against the day's
+  // budget, every sweep stopped after its Scan (BUDGET_SHORT) and never built a plan.
+  const activation = cycle.kind === "ACTIVATION";
   return stageMayStart({
     ceilingUsdcE6:
       ceilingUsdcE6 ??
       stageCeilingUsdcE6(stage, cycle.kind, cycle.reasoningAlias as ReasoningAlias),
-    dailyBudgetUsdcE6: BigInt(goal.research.dailyBudgetUsdcE6),
-    usedTodayUsdcE6: await ctx.cycles.usedToday(ref, utcDayStart(now(ctx))),
+    dailyBudgetUsdcE6: activation
+      ? BigInt(cyclePlan("ACTIVATION", cycle.reasoningAlias as ReasoningAlias, 2).maxUsdcE6)
+      : BigInt(goal.research.dailyBudgetUsdcE6),
+    usedTodayUsdcE6: activation
+      ? await ctx.cycles.usedInCycle(cycle.cycleId)
+      : await ctx.cycles.usedToday(ref, utcDayStart(now(ctx))),
     spendableUsdcE6: credits.spendable,
     creditReserveUsdcE6: BigInt(goal.creditReserveUsdcE6),
   });

@@ -552,6 +552,7 @@ export const STOP_REASON_TEXT: Readonly<Record<string, string>> = {
   MARKET_UNAVAILABLE: "the pools and prices could not be read",
   FAILED: "the step failed",
   INTERRUPTED: "the platform restarted during the step",
+  STALLED: "the sweep stopped moving for an hour (its worker was lost); start it again",
 };
 
 const reasonText = (code: string | null): string | null =>
