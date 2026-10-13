@@ -1180,7 +1180,28 @@ The owner set the beta target: Sunday, October 11, 2026 at 6pm Pacific, with the
 | | Playtest B | | The beta dry run on mainnet by the founders, then by the allowlisted testers | after PB-U1 |
 | 34 | PB-U2 | Hackathon submission deliverables | Repo access, videos, link, logo and the evidence bundle labeled beta | PB-U1 |
 
-After the submission, unchanged in content: the rest of Pass 2 (W-2 to W-8, with the other deferred checks that W-1 does not hold), multi-chain (M-U1 Base contracts and the ownership mirror, M-U2 Base adapters and feeds, M-U3 Base indexer and tools, D-346), the completion pass of 4.4, Phase 9 and the Solana track.
+After the submission, unchanged in content: the rest of Pass 2 (W-2 to W-8, with the other deferred checks that W-1 does not hold), the completion pass of 4.4, Phase 9 and the Solana track. Multi-chain was replanned on 2026-10-13 (the owner's direction: agents trade on Monad, Base and Arbitrum at once; D-377 to D-379, FINAL_PLAN 0.8): the M-U units below replace the earlier M-U1 to M-U3.
+
+#### Pass 2, multi-chain: Base and Arbitrum (planned 2026-10-13, D-377)
+
+One unit per session. *Connector* units change configuration, RPC endpoints, token lists, feeds and data sources only; they are safe to batch into one session. *Alone* units touch contracts, custody, the signer or real chains and run on their own with their gate. Every unit reads LESSONS.md and the "Wallets and networks" rules first; nothing points at the playtest fork on 8545 but the playtest stack.
+
+| # | Unit | Kind | Name | One-line goal | Depends on |
+|---|---|---|---|---|---|
+| M-U0 | M-U0 | alone (contracts) | The 24 KB restructuring | ExecutorV3 split into ExecutorV3 and ExecutorPolicy with the ExecutorChecks library, StrategyVaultV3 with the VaultGovernance library, CustodyCoreV3 with CustodyLib (FINAL_PLAN 0.8.2); the `l2` foundry profile; every suite and both parity fixtures passing under both profiles; sizes recorded in evidence/m-u0/SIZES.md (every piece under 24,576 with margin) | PB-U2 |
+| M-U1 | M-U1 | alone (contracts) | The ownership mirror | OwnershipMirror with records, heartbeats, the guardian's freeze and the attester change through the timelock; `MIRROR_STALE` in Executor v3 and the reason tables; the mirror as `agentNft` in the deploy scripts for a remote chain; a Base fork dry run of the whole set with the mirror | M-U0 |
+| M-U2 | M-U2 | connector (batch) | Chains, addresses, tokens and feeds | Base and Arbitrum in packages/config (environments carrying several chains, RPC variables, explorers, chain pins per chain), the address book per chain with the verified external addresses of FINAL_PLAN 0.8.1, the core lane seeds per chain with their Chainlink feeds and per-chain staleness bounds from each feed's heartbeat, the token table per chain, the liquid-token count measured | nothing (may run before M-U0) |
+| M-U3 | M-U3 | connector (batch) | Data sources per chain | Quotes through each chain's Uniswap v3 and v4 quoters and Base's Slipstream quoter (Camelot on Arbitrum as a read), the data tools' `chain` parameter, CoinMarketCap and Dune by platform, the registrar's screen per chain, the research playbooks naming the chains | M-U2 |
+| M-U4 | M-U4 | alone (signer) | The multi-chain signer | One session key per agent on every chain (KMS), a chain client, outbox, nonce and chain pin per chain, EIP-1559 fees with each chain's caps and the L1 data fee in the cost check, gas limits measured per chain, the fake chain per chain in the unit suite, the fork suite on the Base and Arbitrum forks | M-U1, M-U2 |
+| M-U5 | M-U5 | alone (custody) | The ownership relay and the per-chain index | The relay service (records per transfer, heartbeat every 5 minutes, reconciliation of every mirror against Monad every minute, alarms on divergence), its key under KMS, the per-chain indexer for AccountFactoryV3 and USDC events, the platform-side stop on a transfer across every chain | M-U1, M-U4 |
+| M-U6 | M-U6 | alone (trading) | The cross-chain plan and runner | Positions as (chain, token, weight), the plan evaluator's per-chain and combined limits (one asset across chains, class A in total, the per-chain share), the runner's legs per chain through the per-chain signer, the chain tools per chain and combined (`get_portfolio`, `propose_swap`, `tradable_now` with `chain`), the activation sweep across chains, the live check on three forks | M-U3, M-U4, M-U5 |
+| M-U7 | M-U7 | alone (web) | The owner's pages across chains | Accounts per chain (open, deposit with a CCTP link, arm, withdraw, the wallet switching networks), the portfolio window combined with the per-chain breakdown behind each tile, the goal's chain choices, the research page's universe by chain, the console's chain selector and address book per chain; the Playwright suites at 1440px and 380px with the accessibility scan | M-U6 |
+| M-U8 | M-U8 | alone (real chain) | Base: fork dry run and mainnet canary | The set, the mirror and the relay on a Base fork, then the canary on Base mainnet under the rules of FINAL_PLAN 0.8.5 (5 USDC, 0.02 ETH; the round trip on Uniswap v4 and Aerodrome, the refusals, the stale-mirror stop, the epoch bump, the sweeps), verified on Sourcify, the readings in evidence/m-u8 | M-U7 |
+| M-U9 | M-U9 | alone (real chain) | Arbitrum: fork dry run and mainnet canary | The same on Arbitrum One (Uniswap v4 and v3), the readings in evidence/m-u9 | M-U8 |
+| M-U10 | M-U10 | alone (real chain) | The beta on Base and Arbitrum | The beta deployment per chain with allowlists, caps, the Safe as admin, the mirror and the relay in production, alerts and the kill switch per chain; the Rehearsal across the three chains; the address book's beta blocks | M-U9, W-1, PB-U1 |
+| | Solana | track | Solana joins the model | The mirror as a program fed by the relay's Ed25519 key, the accounts and the Executor equivalent as programs (FINAL_PLAN 4.11), the same combined portfolio | M-U10, S-U1 |
+
+Batching: M-U2 and M-U3 may run in one session, and M-U2 may run before M-U0 since it changes no contract. Every other unit runs alone. Owner prerequisites by unit: the keyed RPC endpoints before M-U2 (forks need them from M-U1's dry run), the canary funds before M-U8 and M-U9, the Safes, KMS and the gas treasuries before M-U10 (FINAL_PLAN 0.8.7).
 
 #### Restored units, adapted to the fund agent
 
@@ -1233,7 +1254,7 @@ After the submission, unchanged in content: the rest of Pass 2 (W-2 to W-8, with
 | W-2 to W-8 | Keep | After the submission |
 | P3-U5, P5-U2, P8-U4, the landing page | Keep (cut from the beta by D-160, as before) | Completion pass |
 | Rehearsal, PB-U1, PB-U2 | Keep | On the v3 stack |
-| Solana track | Keep | Unchanged, after multi-chain EVM |
+| Solana track | Keep | After multi-chain EVM (M-U0 to M-U10, D-377), joining the same model |
 
 #### What must be redeployed
 
