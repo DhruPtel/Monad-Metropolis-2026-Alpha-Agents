@@ -13,6 +13,7 @@ node_modules/
 .next-testnet/
 .next-base/
 .next-beta/
+.next-dev-*/
 dist/
 build/
 

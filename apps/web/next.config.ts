@@ -15,7 +15,12 @@ export default function config(phase: string): NextConfig {
     agentRules: false,
     // Workspace packages ship TypeScript source; Next compiles them with the app.
     transpilePackages: ["@alpha-agents/ui", "@alpha-agents/domain", "@alpha-agents/config"],
-    distDir: wallet.distDir,
+    // UI-FAST: a second dev server from the same checkout (3100 beside the testnet stack's
+    // 3000) needs its own build folder; only `next dev` reads WEB_DIST_DIR, never a build.
+    distDir:
+      phase === "phase-development-server" && process.env.WEB_DIST_DIR?.trim()
+        ? process.env.WEB_DIST_DIR.trim()
+        : wallet.distDir,
     // Inlined at build time: a test build points the browser at the test fork
     // and the test stack's control API (D-200); a normal build uses the defaults.
     env: {
