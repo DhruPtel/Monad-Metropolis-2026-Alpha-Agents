@@ -1198,10 +1198,24 @@ One unit per session. *Connector* units change configuration, RPC endpoints, tok
 | M-U7 | M-U7 | alone (web) | The owner's pages across chains | Accounts per chain (open, deposit with a CCTP link, arm, withdraw, the wallet switching networks), the portfolio window combined with the per-chain breakdown behind each tile, the goal's chain choices, the research page's universe by chain, the console's chain selector and address book per chain; the Playwright suites at 1440px and 380px with the accessibility scan | M-U6 |
 | M-U8 | M-U8 | alone (real chain) | Base: fork dry run and mainnet canary | The set, the mirror and the relay on a Base fork, then the canary on Base mainnet under the rules of FINAL_PLAN 0.8.5 (5 USDC, 0.02 ETH; the round trip on Uniswap v4 and Aerodrome, the refusals, the stale-mirror stop, the epoch bump, the sweeps), verified on Sourcify, the readings in evidence/m-u8 | M-U7 |
 | M-U9 | M-U9 | alone (real chain) | Arbitrum: fork dry run and mainnet canary | The same on Arbitrum One (Uniswap v4 and v3), the readings in evidence/m-u9 | M-U8 |
-| M-U10 | M-U10 | alone (real chain) | The beta on Base and Arbitrum | The beta deployment per chain with allowlists, caps, the Safe as admin, the mirror and the relay in production, alerts and the kill switch per chain; the Rehearsal across the three chains; the address book's beta blocks | M-U9, W-1, PB-U1 |
+| M-U11 | M-U11 | alone (contracts) | The mirror mint | `AgentTwin` per remote chain (FINAL_PLAN 0.8.8, D-381): an ERC-721 twin with the agent's ID, species and art, minted by the mirror's owner on the mirror's attested record, bound (ERC-5192), following the new owner through `sync` after a sale and invalid while the mirror is stale or the agent frozen; the shared species table; the relay's species records and syncs; the My Agents action per chain; the unit, fork and Playwright tests | M-U9 |
+| M-U10 | M-U10 | alone (real chain) | The beta on Base and Arbitrum | The beta deployment per chain with allowlists, caps, the Safe as admin, the mirror, the relay and the twins in production, alerts and the kill switch per chain; the Rehearsal across the three chains; the address book's beta blocks | M-U11, W-1, PB-U1 |
 | | Solana | track | Solana joins the model | The mirror as a program fed by the relay's Ed25519 key, the accounts and the Executor equivalent as programs (FINAL_PLAN 4.11), the same combined portfolio | M-U10, S-U1 |
 
 Batching: M-U2 and M-U3 may run in one session, and M-U2 may run before M-U0 since it changes no contract. Every other unit runs alone. Owner prerequisites by unit: the keyed RPC endpoints before M-U2 (forks need them from M-U1's dry run), the canary funds before M-U8 and M-U9, the Safes, KMS and the gas treasuries before M-U10 (FINAL_PLAN 0.8.7).
+
+#### The order from here (2026-10-13, D-382)
+
+One focused unit per session, in this order. The owner's rule: features are built in order, whatever is done by the deadline is shown, and the rest is presented as next; no feature leaves the plan because of time.
+
+| Step | Unit | What | Waits for |
+|---|---|---|---|
+| a | CL-U1 Cleanup | The open issues inside the beta scope from the recent handoffs: the scan.test.ts unhandled rejection that makes vitest exit 1 (reported since P7-U2); x_search posts stored without their text, so a replayed Dive sees empty posts (UI-U2); the USDC/USD and other feed bounds taken from each feed's heartbeat plus a margin, for PB-U1's deployment (F-U13); the canary scripts' confirmed timer that misses a row settling between two polls (F-U13); the testnet gas and allowlist steps folded into the stack's start so a reset database is ready for a playtest (F-U13, NFT-U2); the skill editor's browser-side first pass of the format rules (BC-U1); the nine species without art kept on the placeholder until the owner's files arrive (no build change). Out of scope and left where they are: W-2's brief validator rule and gas rule, W-6's vault pieces, the class A round trip that waits for the testnet timelock | nothing |
+| b | W-1, Playtest P, PB-U1, PB-U2 (first draft) | The beta gates, the playtest, the Monad mainnet beta and the first draft of the submission | the owner's AWS account for KMS, the Safe on Monad, the IPFS pinning service and the mainnet funds (FINAL_PLAN 0.9, A-90) |
+| c | M-U0 to M-U9 | The multi-chain units in the plan's order, M-U2 and M-U3 allowed in one session; the owner's research tuning sessions fit between units | b, and the keyed RPC endpoints and canary funds of FINAL_PLAN 0.8.7 |
+| d | M-U11 | The mirror mint | M-U9 |
+| e | M-U10 | The beta on Base and Arbitrum | M-U11, and the Safes, KMS and gas treasuries per chain |
+
 
 #### Restored units, adapted to the fund agent
 
