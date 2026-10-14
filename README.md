@@ -77,6 +77,7 @@ Its Overview, Trading and Research tabs open for its owner's wallet.
 - **Works today, on Monad testnet:** minting and reveal, goals with an allocation split, research runs with live progress and reports, plans with approval, automatic trading through Executor v3 with live trade status, deposits, withdrawals, vaults, research credits, and the hosted demo.
 - **Testnet-only:** the loosened trading profile, the demo's research allowlist and model-spend guard, and test tokens (Circle's testnet USDC, WMON and two test tokens on thin pools).
 - **Verified on mainnet:** the trade path, through the capped canary above (Executor v3 paused afterwards).
+- **Known issue, testnet only (CO-U1):** the strategy vault (StrategyVaultV3) is deployed on Monad testnet with a known donation issue: under the 60% position cap, a token sent straight to a vault followed by deposits can lower the vault's share price (StrategyVaultV3ManyTokensInvariant fails). It must be fixed before any mainnet vault. Base Sepolia and Arbitrum Sepolia have no vaults.
 - **Next:** the Base deploy (BUILD_PLAN rows OP-U1, the open trading profile, and RS-U1, the three-document research), the final species catalog, and the owner trade panel (OT-U1).
 
 ## Developer reference: architecture

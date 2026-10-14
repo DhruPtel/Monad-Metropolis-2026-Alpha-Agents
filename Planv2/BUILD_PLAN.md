@@ -1388,6 +1388,8 @@ Step 1 proves the runtime and 1b runs the venue and oracle spikes early, because
 - The open trading profile (OP-U1) is for the Base deploy and a mainnet preview only; the public beta keeps today's token rules and must re-decide this before it may turn on.
 - For tomorrow's Base deploy (owner, 2026-10-13): AgentNFT ships the final catalog, the 25 species with the owner's art. Testnet's AgentNFT (0x53704d94AF23CF04D2b6212cc071c6Bda6A4DFEF) still draws all 34 (SPECIES_COUNT and the counts are constants): Tick 82 left, Ground beetle 30, Cricket 30, Firefly 30, Water strider 29, Earwig 29, Trilobite 14, Cicada 14 and the one of one Horseshoe crab 1, beside the one of ones Bee, Praying mantis and Hercules beetle (1 each). The Base deploy needs AgentNFT's species list and counts for the 25 (with its tests, and the counts decided before deploying), and the trading limits already noted above (the larger trade, position and slippage backstops and more than 20 trades a day).
 
+- Before any mainnet vault (owner, 2026-10-14, CO-U1): fix StrategyVaultV3's donation issue. Under the owner's 60% position cap, a token donated to a vault followed by deposits can lower the share price (StrategyVaultV3ManyTokensInvariant's counterexample: a donation, then two deposits). The vault ships on Monad testnet with it, testnet only.
+
 ### 4.3 Beta deployment and submission
 
 | # | Unit | Name | One-line goal | Depends on | Hackathon beta |
