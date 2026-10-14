@@ -101,6 +101,20 @@ export interface ReportView {
       readonly why: string;
     }[];
   };
+  /**
+   * 2026-10-13: what the agent would buy across the real tokens it researched, as if all were
+   * tradable; the report leads with it. Null on a report written before it existed.
+   */
+  readonly mainDecision?: {
+    readonly summary: string;
+    readonly positions: readonly {
+      readonly symbol: string;
+      readonly weight: string;
+      readonly why: string;
+    }[];
+  } | null;
+  /** On a test network: how the plan actually executes there, beside the main decision. */
+  readonly testnet?: { readonly executesAs: string } | null;
   readonly references: readonly ReportReferenceView[];
   readonly stages: readonly {
     readonly label: string;
@@ -448,6 +462,48 @@ function ResearchReportDocument({
         </dl>
         <p className="text-xs text-foreground-muted">{view.costLine}</p>
       </header>
+
+      {view.mainDecision &&
+      (view.mainDecision.summary || view.mainDecision.positions.length > 0) ? (
+        <Section id="decision" title="Decision">
+          <Para text={view.mainDecision.summary} />
+          {view.mainDecision.positions.length > 0 ? (
+            <Table label="What the agent would buy" stack>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Token</TableHead>
+                  <TableHead className="text-right">Weight</TableHead>
+                  <TableHead>Why</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {view.mainDecision.positions.map((p) => (
+                  <TableRow key={p.symbol}>
+                    <TableCell className="font-medium">{p.symbol}</TableCell>
+                    <TableCell className="numeric text-right">{p.weight}</TableCell>
+                    <TableCell>{p.why}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          ) : null}
+          {view.testnet ? (
+            <div
+              className="flex flex-col gap-1 rounded-lg border border-warning p-4"
+              data-testid="report-testnet"
+            >
+              <span className="text-xs font-semibold tracking-wide uppercase">Monad testnet</span>
+              <p className="text-sm">
+                On Monad testnet these tokens don&apos;t exist, so this plan executes as:{" "}
+                {view.testnet.executesAs}
+              </p>
+              <p className="text-sm text-foreground-muted">
+                On mainnet it would buy the main decision above.
+              </p>
+            </div>
+          ) : null}
+        </Section>
+      ) : null}
 
       <Section id="summary" title="Executive summary">
         <Para text={view.executiveSummary} empty="The report has no summary." />

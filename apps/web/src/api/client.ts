@@ -1655,6 +1655,11 @@ export interface StoredReportJson {
       readonly summary: string;
       readonly positions: readonly { symbol: string; weight: string; why: string }[];
     };
+    /** 2026-10-13: what the agent would buy if every researched token were tradable; absent on older reports. */
+    readonly mainDecision?: {
+      readonly summary: string;
+      readonly positions: readonly { symbol: string; weight: string; why: string }[];
+    };
   };
   readonly universe: readonly {
     readonly symbol: string;

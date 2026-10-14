@@ -110,7 +110,11 @@ function numberSources(b: StoredReportJson): {
   return { references, cite };
 }
 
-export function reportView(r: ReportJson["report"], agentName: string): ReportView | null {
+export function reportView(
+  r: ReportJson["report"],
+  agentName: string,
+  environment: string | null = null,
+): ReportView | null {
   const b: StoredReportJson | null = r.body;
   if (!b) return null;
   const removed = r.checks.removedSentences ?? 0;
@@ -163,6 +167,17 @@ export function reportView(r: ReportJson["report"], agentName: string): ReportVi
     })),
     skeptic: b.report.skeptic,
     portfolio: b.report.portfolio,
+    // 2026-10-13: the main decision leads; on testnet, how the plan actually executes there.
+    mainDecision: b.report.mainDecision ?? null,
+    testnet:
+      environment === "testnet" && b.report.mainDecision
+        ? {
+            executesAs:
+              b.report.portfolio.positions.length > 0
+                ? `${b.report.portfolio.positions.map((x) => `${x.symbol} ${x.weight}`.trim()).join(", ")}.`
+                : "holding USDC.",
+          }
+        : null,
     references,
     stages: b.stages.map((s) => ({
       label: `${STAGE_LABEL[s.stage] ?? s.stage}${s.themeCode ? ` (${s.themeCode})` : ""}`,

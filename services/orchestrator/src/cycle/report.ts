@@ -101,6 +101,21 @@ export const ReportBody = z.object({
         .catch([]),
     })
     .catch({ stance: "no_change", summary: "", positions: [] }),
+  /**
+   * 2026-10-13 (owner): what the agent would buy across the real tokens it researched, as if
+   * every one could be traded here; the report leads with it. The plan in force may differ
+   * where a token cannot be traded on this network.
+   */
+  mainDecision: z
+    .object({
+      summary: z.string().catch(""),
+      positions: z
+        .array(
+          z.object({ symbol: z.string(), weight: z.string().catch(""), why: z.string().catch("") }),
+        )
+        .catch([]),
+    })
+    .catch({ summary: "", positions: [] }),
 });
 export type ReportBodyT = z.infer<typeof ReportBody>;
 
@@ -214,7 +229,8 @@ const SHAPE = `{
   "universeSummary": "a paragraph on the universe considered: how many tokens, which could be bought, why most were not researched",
   "tokens": [{ "symbol": "", "chain": "Monad or Base", "whatItIs": "", "fundamentals": [{ "item": "", "finding": "", "status": "supports|concern|unknown" }], "evidenceFor": [{ "text": "", "sources": ["tool or URL"] }], "evidenceAgainst": [{ "text": "", "sources": [] }], "risks": [""], "thesis": "", "killCondition": "", "confidence": "low|medium|high" }],
   "skeptic": [{ "theme": "", "objection": "", "answer": "how the agent answered it" }],
-  "portfolio": { "stance": "propose|no_change", "summary": "the recommended portfolio and why, or why the plan should not change", "positions": [{ "symbol": "", "weight": "as the plan gives it", "why": "" }] }
+  "portfolio": { "stance": "propose|no_change", "summary": "the recommended portfolio and why, or why the plan should not change", "positions": [{ "symbol": "", "weight": "as the plan gives it", "why": "" }] },
+  "mainDecision": { "summary": "2 to 3 sentences: what you would buy across the real tokens this cycle researched if every one could be traded here, and why", "positions": [{ "symbol": "a researched token or USDC", "weight": "a whole percentage such as 30%, all positions adding to 100%", "why": "one sentence" }] }
 }`;
 
 const compact = (v: unknown, max: number) => {
@@ -385,6 +401,14 @@ export function checkReport(
         answer: clean(`skeptic[${i}].answer`, s.answer),
       }))
       .filter((s) => s.objection.length > 0),
+    // The main decision's weights are the agent's own call, not figures from a tool: only its
+    // sentences are checked, and a weight must be a plain whole percentage.
+    mainDecision: {
+      summary: clean("mainDecision.summary", report.mainDecision.summary),
+      positions: report.mainDecision.positions
+        .filter((x) => /^\d{1,3}%$/.test(x.weight.trim()) && x.symbol.trim().length > 0)
+        .map((x, i) => ({ ...x, why: clean(`mainDecision.positions[${i}]`, x.why) })),
+    },
     portfolio: {
       stance: report.portfolio.stance,
       summary: clean("portfolio.summary", report.portfolio.summary),

@@ -92,7 +92,7 @@ export function ReportPage({
         <Skeleton className="h-96" />
       </div>
     );
-  const view = reportView(report, name);
+  const view = reportView(report, name, environment);
   if (!view)
     return (
       <div className="flex flex-col gap-6" data-testid="report-not-written">

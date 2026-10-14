@@ -169,6 +169,33 @@ describe("the report's guardrails (RP-U1)", () => {
     expect(why).toMatch(/internal marker/);
   });
 
+  it("keeps the main decision's whole-percentage weights as the agent's call, and checks its sentences (2026-10-13)", () => {
+    const withMain = ReportBody.parse({
+      ...base,
+      mainDecision: {
+        summary: "The agent would hold WETH and keep the rest in USDC. MON trades at 0.09 USD.",
+        positions: [
+          { symbol: "WETH", weight: "30%", why: "Deep pools and a clear case." },
+          { symbol: "USDC", weight: "70%", why: "Cash while the evidence is mixed." },
+          { symbol: "PEPE", weight: "about a third", why: "Not a weight." },
+        ],
+      },
+    });
+    const { report } = checkReport(withMain, prepared(), CANARY);
+    expect(report.mainDecision.summary).toBe(
+      "The agent would hold WETH and keep the rest in USDC.",
+    );
+    expect(report.mainDecision.positions.map((x) => [x.symbol, x.weight])).toEqual([
+      ["WETH", "30%"],
+      ["USDC", "70%"],
+    ]);
+    // A report written before the main decision existed reads as an empty one.
+    expect(ReportBody.parse({ ...base, mainDecision: undefined }).mainDecision).toEqual({
+      summary: "",
+      positions: [],
+    });
+  });
+
   it("drops a cited source the cycle never retrieved or called, and keeps the rest", () => {
     const { report, checks } = checkReport(base, prepared(), CANARY);
     expect(report.tokens[0]?.evidenceFor[0]?.sources).toEqual(["market_snapshot"]);

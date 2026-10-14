@@ -228,3 +228,35 @@ describe("Download as PDF (RP-U1)", () => {
     expect(target.document.title).toBe("Research report · Vivarium");
   });
 });
+
+describe("the report's decision (2026-10-13)", () => {
+  it("leads with what the agent would buy, and on testnet says how the plan executes there", () => {
+    const body = report.body as NonNullable<typeof report.body>;
+    const withMain: ReportJson["report"] = {
+      ...report,
+      body: {
+        ...body,
+        report: {
+          ...body.report,
+          mainDecision: {
+            summary: "The agent would hold WETH and USDC.",
+            positions: [
+              { symbol: "WETH", weight: "30%", why: "Deep pools." },
+              { symbol: "USDC", weight: "70%", why: "Cash." },
+            ],
+          },
+          portfolio: {
+            stance: "propose",
+            summary: "",
+            positions: [{ symbol: "WMON", weight: "30%", why: "" }],
+          },
+        },
+      },
+    };
+    const testnet = reportView(withMain, "Agent #4", "testnet");
+    expect(testnet?.mainDecision?.positions.map((x) => x.symbol)).toEqual(["WETH", "USDC"]);
+    expect(testnet?.testnet).toEqual({ executesAs: "WMON 30%." });
+    expect(reportView(withMain, "Agent #4", "beta")?.testnet).toBeNull();
+    expect(reportView(report, "Agent #4", "testnet")?.testnet).toBeNull();
+  });
+});
