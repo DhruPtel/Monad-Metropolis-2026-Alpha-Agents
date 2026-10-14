@@ -27,7 +27,7 @@ describe("the configure page's skill cards (2026-10-13)", () => {
     ]);
     expect(risk).toMatchObject({
       category: "Research",
-      publisher: "Alpha Agents",
+      publisher: "Vivarium",
       verified: true,
       stage: "Dive",
       tools: ["safety screen", "token lookup"],

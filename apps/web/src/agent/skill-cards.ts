@@ -75,7 +75,7 @@ export function skillCards(skills: readonly SkillJson[]): SkillCardView[] {
   return skills.map((k) => ({
     id: k.id,
     name: k.name,
-    publisher: k.kind === "owner" ? "You" : "Alpha Agents",
+    publisher: k.kind === "owner" ? "You" : "Vivarium",
     verified: k.kind !== "owner",
     category: categoryOf(k),
     description: k.description,

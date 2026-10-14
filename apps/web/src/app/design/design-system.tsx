@@ -5787,7 +5787,7 @@ function ResearchLiveSection() {
             {
               id: "token-risk-screen",
               name: "Token risk screen",
-              publisher: "Alpha Agents",
+              publisher: "Vivarium",
               verified: true,
               category: "Research",
               description: "Reads a token's safety screen: each check, its reason and evidence.",
@@ -5798,7 +5798,7 @@ function ResearchLiveSection() {
             {
               id: "portfolio-construction",
               name: "Portfolio construction",
-              publisher: "Alpha Agents",
+              publisher: "Vivarium",
               verified: true,
               category: "Strategy",
               description: "Drafts a target portfolio: weights, bands, cash and exits.",
@@ -5809,7 +5809,7 @@ function ResearchLiveSection() {
             {
               id: "uniswap-v4-swap",
               name: "Uniswap v4 swap",
-              publisher: "Alpha Agents",
+              publisher: "Vivarium",
               verified: true,
               category: "Protocol",
               description: "Reads Uniswap v4 MON/USDC quotes, depth and trading cost.",
@@ -5823,7 +5823,7 @@ function ResearchLiveSection() {
           skill={{
             id: "token-risk-screen",
             name: "Token risk screen",
-            publisher: "Alpha Agents",
+            publisher: "Vivarium",
             verified: true,
             category: "Research",
             description: "Reads a token's safety screen: each check, its reason and evidence.",

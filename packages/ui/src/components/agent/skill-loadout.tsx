@@ -165,6 +165,8 @@ function LoadoutUnsavedNote({ className }: { className?: string }) {
 
 /** 2026-10-13: what a skill is for, by its manifest type. */
 export type SkillCategory = "Research" | "Strategy" | "Execution" | "Protocol";
+/** Skill cards per page of the catalog (2026-10-13): two columns of three. */
+const PAGE_SIZE = 6;
 export const SKILL_CATEGORIES: readonly SkillCategory[] = [
   "Research",
   "Strategy",
@@ -222,7 +224,13 @@ function SkillCatalog({
   className?: string;
 }) {
   const [filter, setFilter] = useState<SkillCategory | "All">("All");
-  const shown = filter === "All" ? skills : skills.filter((s) => s.category === filter);
+  // 2026-10-13: a grid of two columns in pages of six, so the inventory never grows taller
+  // than the viewer beside it.
+  const [page, setPage] = useState(0);
+  const all = filter === "All" ? skills : skills.filter((s) => s.category === filter);
+  const pages = Math.max(1, Math.ceil(all.length / PAGE_SIZE));
+  const at = Math.min(page, pages - 1);
+  const shown = all.slice(at * PAGE_SIZE, (at + 1) * PAGE_SIZE);
   return (
     <div className={cn("flex flex-col gap-3", className)} data-testid="skill-catalog">
       <div role="group" aria-label="Filter skills" className="flex flex-wrap gap-1">
@@ -232,7 +240,10 @@ function SkillCatalog({
             size="sm"
             variant="secondary"
             aria-pressed={filter === c}
-            onClick={() => setFilter(c)}
+            onClick={() => {
+              setFilter(c);
+              setPage(0);
+            }}
             data-testid={`skill-filter-${c}`}
           >
             {c}
@@ -242,7 +253,7 @@ function SkillCatalog({
       {shown.length === 0 ? (
         <p className="text-sm text-foreground-muted">No skills in this category.</p>
       ) : (
-        <ul className="flex flex-col gap-2">
+        <ul className="grid grid-cols-2 gap-2" data-testid="skill-grid">
           {shown.map((s) => {
             const slot = slotOf[s.id];
             return (
@@ -255,7 +266,7 @@ function SkillCatalog({
                   data-skill={s.id}
                   data-category={s.category}
                   className={cn(
-                    "flex w-full flex-col gap-1.5 rounded-md border border-l-4 bg-surface p-3 text-left outline-none transition-colors",
+                    "flex h-full w-full flex-col gap-1.5 rounded-md border border-l-4 bg-surface p-3 text-left outline-none transition-colors",
                     "hover:border-primary-muted is-focus:focus-ring",
                     CATEGORY_EDGE[s.category],
                     selected === s.id && "bg-surface-raised",
@@ -295,6 +306,24 @@ function SkillCatalog({
           })}
         </ul>
       )}
+      {pages > 1 ? (
+        <div className="flex items-center justify-between gap-2" data-testid="skill-pages">
+          <Button size="sm" variant="secondary" disabled={at === 0} onClick={() => setPage(at - 1)}>
+            Previous
+          </Button>
+          <span className="numeric text-xs text-foreground-muted">
+            Page {at + 1} of {pages}
+          </span>
+          <Button
+            size="sm"
+            variant="secondary"
+            disabled={at >= pages - 1}
+            onClick={() => setPage(at + 1)}
+          >
+            Next
+          </Button>
+        </div>
+      ) : null}
     </div>
   );
 }

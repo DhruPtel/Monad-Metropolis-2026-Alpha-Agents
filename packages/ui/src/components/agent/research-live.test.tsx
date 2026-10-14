@@ -103,7 +103,7 @@ describe("SkillCatalog and SkillDetailPanel (2026-10-13)", () => {
       {
         id: "a",
         name: "Token risk screen",
-        publisher: "Alpha Agents",
+        publisher: "Vivarium",
         verified: true,
         category: "Research" as const,
         description: "Reads a screen.",
@@ -114,7 +114,7 @@ describe("SkillCatalog and SkillDetailPanel (2026-10-13)", () => {
       {
         id: "b",
         name: "Portfolio construction",
-        publisher: "Alpha Agents",
+        publisher: "Vivarium",
         verified: true,
         category: "Strategy" as const,
         description: "Drafts weights.",
@@ -154,5 +154,36 @@ describe("SkillCatalog and SkillDetailPanel (2026-10-13)", () => {
     expect(screen.getByTestId("skill-detail")).toHaveTextContent("Used inDive");
     await userEvent.click(screen.getByTestId("skill-detail-toggle"));
     expect(toggled).toEqual(["a"]);
+  });
+});
+
+describe("SkillCatalog pages (2026-10-13)", () => {
+  it("shows two columns of six per page with Previous, Next and the page count", async () => {
+    const { SkillCatalog } = await import("./skill-loadout");
+    const { default: userEvent } = await import("@testing-library/user-event");
+    const cards = Array.from({ length: 14 }, (_, i) => ({
+      id: `s${i}`,
+      name: `Skill ${i}`,
+      publisher: "Vivarium",
+      verified: true,
+      category: (i < 10 ? "Research" : "Protocol") as "Research" | "Protocol",
+      description: "Does a thing.",
+      version: "1.0.0",
+      tools: [],
+      stage: null,
+    }));
+    render(<SkillCatalog skills={cards} slotOf={{}} selected={null} onSelect={() => undefined} />);
+    expect(screen.getByTestId("skill-grid")).toHaveClass("grid-cols-2");
+    expect(screen.getAllByTestId("skill-card")).toHaveLength(6);
+    expect(screen.getByTestId("skill-pages")).toHaveTextContent("Page 1 of 3");
+    expect(screen.getByRole("button", { name: "Previous" })).toBeDisabled();
+    await userEvent.click(screen.getByRole("button", { name: "Next" }));
+    await userEvent.click(screen.getByRole("button", { name: "Next" }));
+    expect(screen.getByTestId("skill-pages")).toHaveTextContent("Page 3 of 3");
+    expect(screen.getAllByTestId("skill-card")).toHaveLength(2);
+    // A filter starts again at its first page.
+    await userEvent.click(screen.getByTestId("skill-filter-Protocol"));
+    expect(screen.getAllByTestId("skill-card")).toHaveLength(4);
+    expect(screen.queryByTestId("skill-pages")).toBeNull();
   });
 });

@@ -104,6 +104,7 @@ function SkillsPanel({ controls }: { controls: LoadoutControls | null }) {
   const card = picked ? cards.find((c) => c.id === picked) : undefined;
   return (
     <div className="flex flex-col gap-3">
+      {/* 2026-10-13: an open skill takes the grid's place, so the column keeps its height. */}
       {card ? (
         <SkillDetailPanel
           skill={card}
@@ -113,14 +114,17 @@ function SkillsPanel({ controls }: { controls: LoadoutControls | null }) {
           onClose={() => setPicked(null)}
           note={<LoadoutUnsavedNote />}
         />
-      ) : null}
-      <SkillCatalog
-        skills={cards}
-        slotOf={slotOf}
-        selected={picked}
-        onSelect={(id) => setPicked((x) => (x === id ? null : id))}
-      />
-      <LoadoutUnsavedNote />
+      ) : (
+        <>
+          <SkillCatalog
+            skills={cards}
+            slotOf={slotOf}
+            selected={picked}
+            onSelect={(id) => setPicked((x) => (x === id ? null : id))}
+          />
+          <LoadoutUnsavedNote />
+        </>
+      )}
     </div>
   );
 }
@@ -427,14 +431,14 @@ export function AgentPortal({ environment }: { environment: EnvironmentId }) {
       <div className="grid gap-4 lg:grid-cols-12">
         <aside
           aria-label="Skill inventory"
-          className="hidden rounded-lg border bg-surface p-4 lg:order-1 lg:col-span-3 lg:block"
+          className="hidden self-start rounded-lg border bg-surface p-4 lg:order-1 lg:col-span-4 lg:block"
         >
           <SectionLabel as="h2" className="mb-3">
             Skill inventory
           </SectionLabel>
           <SkillsPanel controls={controls} />
         </aside>
-        <div className="flex flex-col gap-3 lg:order-2 lg:col-span-6">
+        <div className="flex flex-col gap-3 lg:order-2 lg:col-span-5">
           {viewSwitch}
           {collapsed ? null : (
             <div className="h-96 overflow-hidden rounded-lg border lg:h-auto lg:min-h-120">
