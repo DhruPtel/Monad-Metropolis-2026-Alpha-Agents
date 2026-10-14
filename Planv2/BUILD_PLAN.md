@@ -1386,6 +1386,7 @@ Step 1 proves the runtime and 1b runs the venue and oracle spikes early, because
 - Each trade spends its full gas limit, 1.95M gas for a v3 swap (about 0.2 MON on testnet), because Monad charges the limit a transaction sets, not the gas it uses. Set the swap's gas limit from an estimate plus a margin instead of the fixed per-route limit.
 - The testnet trading profile (no minimum trade, a 0.5% cost limit with gas counted at MON's market price) applies on Monad testnet alone and must never apply to mainnet or the beta.
 - The open trading profile (OP-U1) is for the Base deploy and a mainnet preview only; the public beta keeps today's token rules and must re-decide this before it may turn on.
+- For tomorrow's Base deploy (owner, 2026-10-13): AgentNFT ships the final catalog, the 25 species with the owner's art. Testnet's AgentNFT (0x53704d94AF23CF04D2b6212cc071c6Bda6A4DFEF) still draws all 34 (SPECIES_COUNT and the counts are constants): Tick 82 left, Ground beetle 30, Cricket 30, Firefly 30, Water strider 29, Earwig 29, Trilobite 14, Cicada 14 and the one of one Horseshoe crab 1, beside the one of ones Bee, Praying mantis and Hercules beetle (1 each). The Base deploy needs AgentNFT's species list and counts for the 25 (with its tests, and the counts decided before deploying), and the trading limits already noted above (the larger trade, position and slippage backstops and more than 20 trades a day).
 
 ### 4.3 Beta deployment and submission
 
