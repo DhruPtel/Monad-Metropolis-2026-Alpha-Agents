@@ -31,13 +31,49 @@ describe("species (D-178, D-179, revised by NFT-U1)", () => {
     expect(SPECIES.reduce((sum, s) => sum + s.count, 0)).toBe(AGENT_MAX_SUPPLY);
   });
 
-  it("carries the final catalog's counts: the 25 species with art, no one of ones (CO-U1)", () => {
-    const counts = (t: Tier) => SPECIES.filter((s) => s.tier === t).map((s) => s.count);
-    expect(counts("base")).toEqual([100, 100, 100, 0, 100, 100]);
-    expect(counts("medium")).toEqual([60, 0, 0, 60, 0, 60, 0, 0, 60, 60]);
-    expect(counts("pro")).toEqual([
-      13, 13, 13, 0, 14, 14, 14, 14, 0, 14, 13, 0, 13, 13, 13, 13, 13, 13,
+  it("carries the owner's final NFT-U2 catalog: 25 species with art, no one of ones (CO-U1)", () => {
+    const counts = (t: Tier) => SPECIES.filter((s) => s.tier === t).map((s) => [s.slug, s.count]);
+    expect(counts("base").filter(([, c]) => c)).toEqual([
+      ["larva-grub", 100],
+      ["roly-poly", 100],
+      ["ant", 100],
+      ["weevil", 100],
+      ["ladybug", 100],
     ]);
+    expect(
+      counts("medium")
+        .filter(([, c]) => c)
+        .map(([s]) => s)
+        .sort(),
+    ).toEqual([
+      "centipede",
+      "dragonfly",
+      "grasshopper",
+      "hercules-beetle",
+      "jumping-spider",
+      "leaf-insect",
+      "mantis-shrimp",
+      "moth",
+      "silkworm",
+      "stag-beetle",
+    ]);
+    expect(
+      counts("medium")
+        .filter(([, c]) => c)
+        .every(([, c]) => c === 30),
+    ).toBe(true);
+    expect(Object.fromEntries(counts("pro").filter(([, c]) => c))).toEqual({
+      bee: 27,
+      "praying-mantis": 27,
+      scorpion: 27,
+      "atlas-moth": 26,
+      snake: 5,
+      hummingbird: 5,
+      fish: 5,
+      butterfly: 26,
+      crab: 26,
+      "orchid-mantis": 26,
+    });
     expect(SPECIES.find((s) => s.slug === "butterfly")?.tier).toBe("pro");
     expect(SPECIES.find((s) => s.slug === "orchid-mantis")?.tier).toBe("pro");
     // Exactly the catalog is drawn, and no species is a one of one.
@@ -78,8 +114,6 @@ describe("species (D-178, D-179, revised by NFT-U1)", () => {
     expect(MINTS_PER_WALLET).toBe(2);
   });
 });
-
-const speciesName = (name: string) => SPECIES.find((s) => s.name === name)?.count;
 
 describe("AgentNFT's species table matches this list", () => {
   const source = readFileSync(

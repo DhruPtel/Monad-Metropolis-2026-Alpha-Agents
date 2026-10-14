@@ -17,9 +17,9 @@ import {IERC6551Registry, ITokenboundAccount, IEntropyV2} from "./interfaces/IEx
 /// @notice Every Alpha Agent is one token of this contract (FINAL_PLAN 4.1.1).
 /// - Supply is a deck of exact counts: 34 species indexes, 500 base, 300 medium
 ///   and 200 pro, 1,000 in total (D-172, D-178, D-179, revised by NFT-U1 and
-///   NFT-U2, D-376). CO-U1: only the final catalog's 25 species are drawn, with
-///   no one of ones; the other nine keep their index at a count of 0. Nothing
-///   can change it.
+///   NFT-U2, D-376). CO-U1: only the owner's final catalog of 25 species is
+///   drawn, with its tiers; the other nine keep their index at a count of 0.
+///   Nothing can change it.
 /// - Two-step mint (D-180): mint creates an unrevealed agent; a reveal assigns
 ///   its species, and with it the tier, from Pyth Entropy (D-187).
 /// - A wallet mints at most two agents (D-183, revised by NFT-U1); holding more
@@ -45,10 +45,10 @@ contract AgentNFT is ERC721, ERC2981, IERC4906, Ownable2Step, EIP712 {
     uint256 internal constant DECK_MASK = 0x7f;
     /// Remaining count per species at deployment. Must match
     /// packages/domain/src/species.ts (species.test.ts checks it).
-    uint256 internal constant INITIAL_DECK = 0x68d7835e641a346801a3800e1c387001a3468000f003c0001e640193264;
+    uint256 internal constant INITIAL_DECK = 0xd1a3c68f640a14280347801b3c78f003c6cd80007801e0000f640193264;
     /// The tier of every species, 2 bits each in the same order (1 base,
     /// 2 medium, 3 pro), so a species' tier never depends on its index.
-    uint256 internal constant TIER_TABLE = 0xfb9fffffffeaaa955;
+    uint256 internal constant TIER_TABLE = 0xfb9ffefabbeaaa955;
 
     uint8 public constant TIER_BASE = 1;
     uint8 public constant TIER_MEDIUM = 2;

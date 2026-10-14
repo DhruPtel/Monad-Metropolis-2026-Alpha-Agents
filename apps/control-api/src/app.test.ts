@@ -342,8 +342,8 @@ describe.skipIf(!available)("the control API (needs pnpm dev:up for Postgres)", 
       expect(body).toMatchObject({ environment: "fork", maxSupply: 1000, totalMinted: 3 });
       const remaining = body.remaining as number[];
       expect(remaining).toHaveLength(SPECIES.length);
-      expect(remaining[13]).toBe(0); // the bee, revealed
-      expect(remaining[2]).toBe(82); // one ant revealed (83 in the deck, NFT-U1)
+      expect(remaining[13]).toBe(26); // a bee revealed (27 in the deck, CO-U1)
+      expect(remaining[2]).toBe(99); // one ant revealed (100 in the deck, CO-U1)
       expect(remaining.reduce((a, b) => a + b, 0)).toBe(998); // the unrevealed agent still holds a slot
       expect(remaining.map((r, i) => r <= (SPECIES[i]?.count ?? 0))).not.toContain(false);
       expect((body.watermark as { block: number }).block).toBe(109_670_009);
@@ -389,7 +389,7 @@ describe.skipIf(!available)("the control API (needs pnpm dev:up for Postgres)", 
       expect(await json(await app.request("/v1/supply"))).toEqual(first);
       now += 6_000;
       const later = await json(await app.request("/v1/supply"));
-      expect((later.remaining as number[])[2]).toBe(81);
+      expect((later.remaining as number[])[2]).toBe(98);
       await t.db
         .updateTable("indexer.agents")
         .set({ species: 0, tier: 0 })

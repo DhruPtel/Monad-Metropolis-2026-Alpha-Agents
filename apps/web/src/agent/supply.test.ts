@@ -33,11 +33,11 @@ describe("summarizeSupply", () => {
 
   it("lists every species under its tier with its own remaining count", () => {
     const remaining = fresh();
-    remaining[BEE - 1] = 0;
+    remaining[BEE - 1] -= 1;
     const pro = tier(reading(remaining, 1), "pro");
-    // The four one of ones and fourteen others, Butterfly among them since NFT-U2 (D-376).
-    expect(pro.species).toHaveLength(18);
-    expect(pro.species.find((s) => s.species.slug === "bee")?.remaining).toBe(0);
+    // CO-U1: ten drawn pro species and three at a count of 0, Butterfly among the drawn.
+    expect(pro.species).toHaveLength(13);
+    expect(pro.species.find((s) => s.species.slug === "bee")?.remaining).toBe(26);
     expect(pro.remaining).toBe(199);
     // Every species sits under its own tier, each tier in onchain order (the
     // nine species NFT-U1 appended follow the first 25 within their tiers).
@@ -55,7 +55,7 @@ describe("summarizeSupply", () => {
 
   it("odds use the deck left, so a revealed pro lowers the pro odds", () => {
     const remaining = fresh();
-    remaining[BEE - 1] = 0;
+    remaining[BEE - 1] -= 1;
     const r = reading(remaining, 1);
     expect(tier(r, "pro").odds).toBeCloseTo(199 / 999, 12);
     expect(tier(r, "base").odds).toBeCloseTo(500 / 999, 12);
@@ -65,7 +65,7 @@ describe("summarizeSupply", () => {
 
   it("counts minted agents that are not revealed yet", () => {
     const remaining = fresh();
-    remaining[BEE - 1] = 0;
+    remaining[BEE - 1] -= 1;
     // Three minted, one revealed: the deck has 999 slots and two are pending.
     const s = summarizeSupply(reading(remaining, 3));
     expect(s).toMatchObject({ minted: 3, leftToMint: 997, awaitingReveal: 2 });
