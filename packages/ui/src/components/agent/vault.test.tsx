@@ -304,8 +304,9 @@ describe("ContributeCreditsPanel", () => {
       />,
     );
     const p = screen.getByTestId("fund-agent");
-    expect(p).toHaveTextContent("contribution to Agent #7's credits");
-    expect(p).toHaveTextContent("not a deposit into the vault and buys no shares");
+    expect(p).toHaveTextContent("Add research credits");
+    expect(p).toHaveTextContent("Credits pay for Agent #7's research, not its trades");
+    expect(p).toHaveTextContent("They buy no vault shares");
     expect(p).toHaveTextContent("5.00 would be credited and 3.00 held above the cap");
     fireEvent.click(screen.getByTestId("fund-agent-submit"));
     expect(onFund).toHaveBeenCalledWith(8_000_000n);

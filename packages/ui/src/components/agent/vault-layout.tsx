@@ -218,10 +218,17 @@ function AccountValueChart({
   defaultMode = "value",
   defaultRange = "30d",
   emptyAction,
+  fewText,
   fixedMode = false,
   className,
 }: {
   series: readonly SeriesPoint[];
+  /**
+   * 2026-10-13: with fewer than two readings, the readings that exist are listed and this
+   * line follows them (such as "More history builds as the vault runs."); absent keeps the
+   * empty state.
+   */
+  fewText?: string;
   /** What the PnL is measured against; null hides the PnL mode. */
   principalUsdcE6: string | null;
   defaultMode?: ChartMode;
@@ -311,6 +318,38 @@ function AccountValueChart({
       </div>
     </div>
   );
+  if (points.length < 2 && fewText) {
+    const valued = series.filter((p) => p.valueUsdcE6 !== null);
+    return (
+      <div className={cn("flex flex-col gap-3", className)} data-testid="account-chart">
+        {valued.length > 0 ? (
+          <ul className="flex flex-col divide-y divide-border rounded-md border border-border">
+            {valued.map((p) => (
+              <li
+                key={p.at}
+                className="flex items-center justify-between gap-3 px-3 py-2 text-sm"
+                data-testid="account-chart-point"
+              >
+                <span className="numeric text-foreground-muted">
+                  {p.at.slice(0, 10)} {p.at.slice(11, 16)} UTC
+                </span>
+                <span className="numeric font-medium">
+                  {(Number(p.valueUsdcE6) / 1e6).toLocaleString("en-US", {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}{" "}
+                  USDC
+                </span>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+        <p className="text-sm text-foreground-muted" data-testid="account-chart-few">
+          {fewText}
+        </p>
+      </div>
+    );
+  }
   if (points.length < 2)
     return (
       <div className={cn("flex flex-col gap-3", className)} data-testid="account-chart">

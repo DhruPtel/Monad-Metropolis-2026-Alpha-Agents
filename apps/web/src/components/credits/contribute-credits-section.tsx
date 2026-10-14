@@ -12,7 +12,7 @@ import { walletTxText } from "@/agent/wallet-tx";
 const usdc = (v: bigint) => formatAmount(v, 6, { maxFractionDigits: 6 });
 
 /**
- * "Fund this agent" on the vault page for someone who is not the owner
+ * "Add research credits" on the vault page for someone who is not the owner
  * (D-242, P7-U4): one USDC transfer from the connected wallet to the agent's
  * funding address, named plainly as a contribution to its credits, followed
  * until the platform has credited it. The same flow as the owner's "Add

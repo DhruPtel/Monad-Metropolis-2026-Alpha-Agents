@@ -677,7 +677,7 @@ export function parseShares(text: string): bigint | null {
   return BigInt(whole) * 10n ** 18n + BigInt(frac.padEnd(18, "0") || "0");
 }
 
-/** "Fund this agent" for someone who is not the owner (D-242): a contribution to the agent's credits, in plain words (the owner's own panel is my-agent's FundAgentPanel). */
+/** "Add research credits" (was "Fund this agent") for someone who is not the owner (D-242): a contribution to the agent's credits, in plain words (the owner's own panel is my-agent's FundAgentPanel). */
 function ContributeCreditsPanel({
   agentName,
   creditsUsdcE6,
@@ -714,20 +714,17 @@ function ContributeCreditsPanel({
           : undefined;
   return (
     <section
-      aria-label="Fund this agent"
+      aria-label="Add research credits"
       className={cn("flex flex-col gap-3", className)}
       data-testid="fund-agent"
     >
       <div className="flex items-center gap-2">
         <Users aria-hidden className="size-4 text-detail" />
-        <h3 className="text-base font-semibold">Fund this agent</h3>
+        <h3 className="text-base font-semibold">Add research credits</h3>
       </div>
       <p className="text-sm text-foreground-muted">
-        This is a contribution to {agentName}&apos;s credits, which pay for its research and trading
-        work. It is not a deposit into the vault and buys no shares. Credits stay with the agent
-        while it is active; when its owner retires it, what is left goes back to every contributor
-        in proportion to what they sent, after a 7-day cooldown. A sale of the agent returns
-        nothing: the credits stay with it.
+        Credits pay for {agentName}&apos;s research, not its trades. They buy no vault shares; if
+        the owner retires the agent, what is left goes back to contributors.
       </p>
       <div className="grid grid-cols-2 gap-3 text-sm">
         <div className="flex flex-col gap-1 rounded-md border border-border p-3">

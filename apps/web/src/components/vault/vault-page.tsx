@@ -20,7 +20,6 @@ import {
   Skeleton,
   VaultCreateCard,
   VaultDepositForm,
-  VaultPanel,
   type VaultPanelView,
   VaultPositionCard,
   VaultWithdrawForm,
@@ -28,6 +27,10 @@ import {
   type WithdrawMethod,
   whenUtc,
   AccountValueChart,
+  AddressDisplay,
+  InfoList,
+  StatusPill,
+  lockupWords,
   BalancesTable,
   PositionsTable,
   StatTileRow,
@@ -38,9 +41,9 @@ import {
 } from "@alpha-agents/ui";
 import { PlugZap, RotateCcw, Wallet } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { Address } from "viem";
-import type { VaultJson, VaultResponseJson } from "@/api/client";
+import { type VaultJson, type VaultResponseJson, api } from "@/api/client";
 import { type VaultAction, type VaultActionStatus, useVault } from "@/agent/use-vault";
 import {
   VAULT_DEPOSIT_BLOCK_MESSAGES,
@@ -57,6 +60,7 @@ import {
 } from "@/agent/vault-v3";
 import { walletTxText } from "@/agent/wallet-tx";
 import { useWalletSession } from "@/auth/session";
+import { AgentActivity } from "@/components/activity/agent-activity";
 import { ContributeCreditsSection } from "@/components/credits/contribute-credits-section";
 
 /**
@@ -64,7 +68,7 @@ import { ContributeCreditsSection } from "@/components/credits/contribute-credit
  * The vault at a glance, the holder's position with the lockup in plain
  * words, the deposit and withdraw dialogs, the leader's tools, the holdings
  * valued as the vault values them, the performance from the value snapshots,
- * and "Fund this agent" for anyone who is not the owner (D-242).
+ * and "Add research credits" for anyone who is not the owner (D-242).
  */
 const BPS = 10_000n;
 
@@ -158,6 +162,18 @@ export function VaultPage({
   const network = ENVIRONMENTS[environment].label;
   const [depositOpen, setDepositOpen] = useState(false);
   const [withdrawOpen, setWithdrawOpen] = useState(false);
+  // 2026-10-13: when the vault was created, for About.
+  const [created, setCreated] = useState<string | null>(null);
+  useEffect(() => {
+    let on = true;
+    void api.moneyEvents(agentId).then(
+      (r) => on && setCreated(r.created.vault),
+      () => undefined,
+    );
+    return () => {
+      on = false;
+    };
+  }, [agentId]);
   const [amountText, setAmountText] = useState("");
   const [sharesText, setSharesText] = useState("");
   const [method, setMethod] = useState<WithdrawMethod>("usdc");
@@ -279,6 +295,81 @@ export function VaultPage({
   );
   const ret = perf.scores.returnSinceStart;
   const dd = perf.scores.maxDrawdown;
+  const valued = perf.series.filter((p) => p.valueUsdcE6 !== null);
+  // 2026-10-13: About as a plain list, with the next step as its one main action.
+  const setupNow = leaderSetup(v);
+  const hasShares = viewer !== null && viewer !== undefined && BigInt(viewer.shares) > 0n;
+  const primary =
+    isOwner && viewer ? (
+      !setupNow.staked ? (
+        <Button size="sm" onClick={() => setDepositOpen(true)} disabled={vt.busy}>
+          Stake
+        </Button>
+      ) : !s.depositsOpen && setupNow.openBlock === null ? (
+        <Button size="sm" onClick={() => vt.setDepositsOpen(true)} disabled={vt.busy}>
+          Open deposits
+        </Button>
+      ) : null
+    ) : viewer && s.depositsOpen ? (
+      <Button size="sm" onClick={() => setDepositOpen(true)} disabled={vt.busy}>
+        Deposit
+      </Button>
+    ) : null;
+  const about = (
+    <InfoList
+      testId="vault-about-list"
+      rows={[
+        {
+          label: "Leader",
+          value: (
+            <span className="inline-flex items-center gap-2">
+              <AddressDisplay address={s.leader} label="Leader" />
+              {isOwner ? <span className="text-xs">(you)</span> : null}
+            </span>
+          ),
+        },
+        {
+          label: "Status",
+          value: s.inHandover ? (
+            "In a handover"
+          ) : s.windDownAt !== 0 ? (
+            "Winding down"
+          ) : s.mode ? (
+            <StatusPill kind="account_mode" value={s.mode} />
+          ) : (
+            "Unknown"
+          ),
+        },
+        { label: "Lockup", value: lockupWords(s.lockupSeconds) },
+        {
+          label: "Fees",
+          value: s.feeBps === 0 ? "No exit fee" : `${pct(s.feeBps)} of gains, on exit`,
+        },
+        {
+          label: "Leader stake",
+          value: `${pct(s.leaderStakeBps)} (at least ${pct(s.constants.leaderMinBps)})`,
+        },
+        { label: "Deposits", value: s.depositsOpen ? "Open" : "Closed" },
+        {
+          label: "Created",
+          value: created ? whenUtc(Math.floor(Date.parse(created) / 1000)) : "–",
+        },
+      ]}
+      primary={primary}
+      secondary={
+        hasShares ? (
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() => setWithdrawOpen(true)}
+            disabled={vt.busy}
+          >
+            Withdraw
+          </Button>
+        ) : null
+      }
+    />
+  );
 
   return (
     <div className="flex flex-col gap-6" data-testid="vault-page" data-state="vault">
@@ -337,8 +428,9 @@ export function VaultPage({
       <div className="grid gap-6 lg:grid-cols-[2fr_3fr]">
         <TabbedPanel
           testId="vault-about"
+          defaultTab="yours"
           tabs={[
-            { id: "about", label: "About", content: <VaultPanel v={panel} /> },
+            { id: "about", label: "About", content: about },
             {
               id: "agent",
               label: "Agent performance",
@@ -379,7 +471,7 @@ export function VaultPage({
             },
             {
               id: "yours",
-              label: "Your performance",
+              label: "Deposit",
               content: (
                 <>
                   {connected && viewer ? (
@@ -435,11 +527,12 @@ export function VaultPage({
           <CardHeader>
             <CardTitle>Value of the vault</CardTitle>
             <CardDescription>
-              {perf.history.points > 0 && perf.history.from ? (
+              {valued.length > 0 && valued[0] ? (
                 <>
-                  <span className="numeric">{perf.history.points}</span> readings since{" "}
+                  <span className="numeric">{valued.length}</span>{" "}
+                  {valued.length === 1 ? "reading" : "readings"} with a value since{" "}
                   <span className="numeric">
-                    {whenUtc(Math.floor(Date.parse(perf.history.from) / 1000))}
+                    {whenUtc(Math.floor(Date.parse(valued[0].at) / 1000))}
                   </span>
                   , one every 15 minutes and after every trade.
                 </>
@@ -449,7 +542,11 @@ export function VaultPage({
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <AccountValueChart series={perf.series} principalUsdcE6={null} />
+            <AccountValueChart
+              series={perf.series}
+              principalUsdcE6={null}
+              fewText="More history builds as the vault runs."
+            />
           </CardContent>
         </Card>
       </div>
@@ -560,16 +657,6 @@ export function VaultPage({
               ),
             },
             {
-              id: "flows",
-              label: "Deposits and withdrawals",
-              content: (
-                <p className="text-sm text-foreground-muted">
-                  The list of each deposit and withdrawal, with its date and transaction, comes with
-                  the next unit.
-                </p>
-              ),
-            },
-            {
               id: "depositors",
               label: "Depositors",
               content: (
@@ -594,6 +681,8 @@ export function VaultPage({
           ]}
         />
       </div>
+
+      <AgentActivity agentId={agentId} environment={environment} />
 
       {isOwner ? (
         <p className="text-sm text-foreground-muted" data-testid="vault-owner-credits-note">
