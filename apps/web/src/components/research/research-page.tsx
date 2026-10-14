@@ -47,11 +47,11 @@ const KIND_WORD: Readonly<Record<string, string>> = {
 const minute = (iso: string | null | undefined) =>
   iso ? `${iso.slice(0, 10)} ${iso.slice(11, 16)}` : "–";
 /**
- * The full research run's cost shown before the owner starts one (2026-10-13): agent #4's
- * activation runs on testnet charged 0.41 and 0.79 USDC of credits.
+ * The full research run's cost shown before the owner starts one (2026-10-13): a Medium run with
+ * three token Dives is expected near 1.2 USDC, at most 1.75 with its report (the stage ceilings).
  */
 const RUN_COST_TEXT =
-  "A full research run scans the market, researches the strongest themes in depth, has a skeptic challenge them, checks the result against your limits and ends with a plan for your approval. It costs about 0.40 to 0.80 USDC of credits, taken as it runs.";
+  "A full research run reads the market, picks tokens across your allocation, researches each in depth (web and X included), has a skeptic challenge them, checks the result against your limits and ends with a plan for your approval. On the Medium tier it costs about 1.20 USDC of credits, at most 1.75, taken as it runs.";
 
 /**
  * The Research page (P3-U10, rebuilt in UI-FAST around a live view of one
