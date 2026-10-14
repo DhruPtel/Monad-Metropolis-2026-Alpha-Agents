@@ -1,0 +1,66 @@
+{
+  "unit": "CO-U1",
+  "chain": "arbitrum-sepolia",
+  "chainId": 421614,
+  "recordedAt": "2026-10-14T22:08:52.647Z",
+  "startBlock": 319219681,
+  "endBlock": 319220552,
+  "policyHash": "0x809a2045d6d25b0b1f9fec10a6408672a35ded06382297eefb22066967c17449",
+  "contracts": {
+    "usdc": {
+      "address": "0xB9f81f8aD949Ed369f56003Da3d98d097224Ebda",
+      "codeSize": 2149
+    },
+    "agent_nft": {
+      "address": "0x6Fbf9065B5aE69a9618F898ba6A89C9c0b1397db",
+      "codeSize": 5241
+    },
+    "uniswap_v3_pool_usdc_weth_500": {
+      "address": "0xD28c624100d877e49f3259d968D0B9Fc01c94977",
+      "codeSize": 22142
+    },
+    "token_registry_v3": {
+      "address": "0x33B8a07970f1267ef002cC3C3d1AB43775247CDF",
+      "codeSize": 9499
+    },
+    "route_adapter_v3": {
+      "address": "0xb5B1B79B99f33042da3182834956FfC47dfAE10e",
+      "codeSize": 6135
+    },
+    "executor_v3": {
+      "address": "0x6774Bd3d2fEfF7Af1c0F0C92781FDE108fAd7bD6",
+      "codeSize": 24139
+    },
+    "executor_route_adapter_v3": {
+      "address": "0x4879d324e300dC32230BdaC985cbfF0a05c940a2",
+      "codeSize": 6135
+    },
+    "protocol_registry_v3": {
+      "address": "0x61404cE7DBdBF5fA4d08d1afd399AEd77B30436c",
+      "codeSize": 11478
+    },
+    "oracle_adapter_v3": {
+      "address": "0x90361606Af8A366bc1489920f0e3d3b4e0d98aC4",
+      "codeSize": 5286
+    },
+    "account_factory_v3": {
+      "address": "0xfC835eb947F2a4b33bfE702ea2129b21566CB12E",
+      "codeSize": 7056
+    },
+    "personal_account_v3_implementation": {
+      "address": "0xAEa5C65231e976c95681D82eB19fBd6bDb6871E9",
+      "codeSize": 22344
+    }
+  },
+  "external": {
+    "wmon": "0x980B62Da83eFf3D4576C647993b0c1D7faf17c73",
+    "chainlink_eth_usd": "0xd30e2101a97dcbAeBCBC04F14C3f624E67A35165",
+    "chainlink_usdc_usd": "0x0153002d20B96532C639313c2d54c3dA09109309",
+    "uniswap_v3_factory": "0x248AB79Bbb9bC29bB72f7Cd42F17e054Fc40188e",
+    "uniswap_v3_swap_router02": "0x101F443B4d1b059569D643917553c771E1b9663E",
+    "uniswap_v3_quoter_v2": "0x2779a0CC1c3e0E44D2542EC3e79e3864Ae93Ef0B",
+    "uniswap_v3_position_manager": "0x6b2937Bde17889EDCf8fbD8dE31C3C2a70Bc4d65",
+    "pyth_entropy": "0x549Ebba8036Ab746611B4fFA1423eb0A4Df61440",
+    "create2_deployer": "0x4e59b44847b379578588920cA78FbF26c0B4956C"
+  }
+}
