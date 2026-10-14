@@ -482,7 +482,13 @@ contract AccountFactoryV3Test is CustodyV3Base {
                 vaultCap: VAULT_CAP,
                 platformCap: PLATFORM_CAP,
                 depositsEnabled: false,
-                allowlist: allow
+                allowlist: allow,
+                personalImplementation: address(
+                    new PersonalAccountV3(IAgentNFTView(address(nft)), address(usdc), ITokenRegistry(address(tokens)))
+                ),
+                vaultImplementation: address(
+                    new StrategyVaultV3(IAgentNFTView(address(nft)), address(usdc), ITokenRegistry(address(tokens)))
+                )
             })
         );
     }
@@ -542,7 +548,13 @@ contract AccountFactoryV3Test is CustodyV3Base {
             vaultCap: VAULT_CAP,
             platformCap: PLATFORM_CAP,
             depositsEnabled: false,
-            allowlist: allow
+            allowlist: allow,
+            personalImplementation: address(
+                new PersonalAccountV3(IAgentNFTView(address(0)), address(usdc), ITokenRegistry(address(tokens)))
+            ),
+            vaultImplementation: address(
+                new StrategyVaultV3(IAgentNFTView(address(0)), address(usdc), ITokenRegistry(address(tokens)))
+            )
         });
         vm.expectRevert(AccountFactoryV3.ZeroAddress.selector);
         new AccountFactoryV3(d);
@@ -550,5 +562,43 @@ contract AccountFactoryV3Test is CustodyV3Base {
         d.tokenRegistry = ITokenRegistry(address(0));
         vm.expectRevert(AccountFactoryV3.ZeroAddress.selector);
         new AccountFactoryV3(d);
+        // CO-U1: the personal implementation is required and must have code.
+        d.tokenRegistry = ITokenRegistry(address(tokens));
+        d.personalImplementation = address(0);
+        vm.expectRevert(AccountFactoryV3.ZeroAddress.selector);
+        new AccountFactoryV3(d);
+    }
+
+    /// CO-U1: a factory given no vault implementation (Base and Arbitrum) offers personal
+    /// accounts only and refuses every vault.
+    function test_AFactoryWithoutAVaultImplementationRefusesVaults() public {
+        address[] memory allow = new address[](0);
+        AccountFactoryV3 f = new AccountFactoryV3(
+            AccountFactoryV3.Deployment({
+                admin: admin,
+                guardian: guardian,
+                sentinel: sentinel,
+                oracle: address(oracle),
+                executor: address(0),
+                agentNft: IAgentNFTView(address(nft)),
+                usdc: address(usdc),
+                tokenRegistry: ITokenRegistry(address(tokens)),
+                personalCap: PERSONAL_CAP,
+                vaultCap: VAULT_CAP,
+                platformCap: PLATFORM_CAP,
+                depositsEnabled: false,
+                allowlist: allow,
+                personalImplementation: address(
+                    new PersonalAccountV3(IAgentNFTView(address(nft)), address(usdc), ITokenRegistry(address(tokens)))
+                ),
+                vaultImplementation: address(0)
+            })
+        );
+        assertEq(f.VAULT_IMPLEMENTATION(), address(0));
+        vm.prank(owner);
+        vm.expectRevert(AccountFactoryV3.VaultsNotOffered.selector);
+        f.createVault(AGENT);
+        vm.prank(owner);
+        assertTrue(f.createPersonalAccount(AGENT) != address(0));
     }
 }

@@ -35,6 +35,18 @@ fs_permissions = [
 network = "ethereum"
 code_size_limit = 1048576
 
+# CO-U1: Base Sepolia and Arbitrum Sepolia enforce EIP-170 (24,576 bytes) and EIP-3860. The
+# optimizer at one run with via-IR and no metadata hash brings Executor v3 (about 24.2 KB),
+# PersonalAccountV3 and AgentNFT under it; StrategyVaultV3 stays Monad-only. Prague, which both
+# chains run. Monad's own deployments keep the default profile.
+[profile.l2]
+network = "ethereum"
+optimizer = true
+optimizer_runs = 1
+via_ir = true
+bytecode_hash = "none"
+evm_version = "prague"
+
 [profile.default.invariant]
 # Each run mints up to 40 agents per call and the invariants read every
 # agent, so fewer, deeper runs keep the suite to a few minutes.

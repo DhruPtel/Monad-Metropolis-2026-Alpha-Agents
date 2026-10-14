@@ -41,7 +41,13 @@ contract DeployCustodyV3 is DeployScope {
             vaultCap: vm.envUint("CUSTODY_V3_VAULT_CAP"),
             platformCap: vm.envUint("CUSTODY_V3_PLATFORM_CAP"),
             depositsEnabled: vm.envBool("CUSTODY_V3_DEPOSITS_ENABLED"),
-            allowlist: vm.envAddress("CUSTODY_V3_ALLOWLIST", ",")
+            allowlist: vm.envAddress("CUSTODY_V3_ALLOWLIST", ","),
+            personalImplementation: _implementation(
+                "personal-account-implementation", type(PersonalAccountV3).creationCode
+            ),
+            vaultImplementation: vm.envOr("CUSTODY_V3_VAULTS", true)
+                ? _implementation("vault-implementation", type(StrategyVaultV3).creationCode)
+                : address(0)
         });
         _checkReferences(d);
 
@@ -71,6 +77,26 @@ contract DeployCustodyV3 is DeployScope {
         console.logBytes32(factorySalt);
     }
 
+    /// CO-U1: an account implementation, deployed beforehand by CREATE2 (found again on a rerun),
+    /// so the factory's own initcode stays under Base's and Arbitrum's limits.
+    function _implementation(string memory name, bytes memory creationCode) internal returns (address impl) {
+        bytes memory initCode = abi.encodePacked(
+            creationCode,
+            abi.encode(
+                vm.envAddress("CUSTODY_V3_AGENT_NFT"),
+                vm.envAddress("CUSTODY_V3_USDC"),
+                vm.envAddress("CUSTODY_V3_TOKEN_REGISTRY")
+            )
+        );
+        bytes32 implSalt = salt(name, SALT_VERSION);
+        impl = vm.computeCreate2Address(implSalt, keccak256(initCode), CREATE2_FACTORY);
+        if (impl.code.length > 0) return impl;
+        _startBroadcast();
+        (bool ok,) = CREATE2_FACTORY.call(abi.encodePacked(implSalt, initCode));
+        vm.stopBroadcast();
+        require(ok && impl.code.length != 0, string.concat(name, ": CREATE2 deployment failed"));
+    }
+
     /// The set this factory binds to must exist and agree with itself.
     function _checkReferences(AccountFactoryV3.Deployment memory d) internal view {
         require(address(d.agentNft).code.length > 0, "AgentNFT missing: run pnpm deploy:agent-nft");
@@ -97,6 +123,10 @@ contract DeployCustodyV3 is DeployScope {
         require(impl.USDC() == d.usdc, "implementation usdc");
         require(address(impl.TOKENS()) == address(d.tokenRegistry), "implementation registry");
         require(impl.MAX_HELD_TOKENS() == 16, "held list bound");
+        require(f.VAULT_IMPLEMENTATION() == d.vaultImplementation, "vault implementation given");
+        require(f.EXECUTION_WINDOW() == 7 days, "execution window");
+        // CO-U1: no vaults where none was given (Base and Arbitrum).
+        if (d.vaultImplementation == address(0)) return;
         StrategyVaultV3 vaultImpl = StrategyVaultV3(f.VAULT_IMPLEMENTATION());
         require(address(vaultImpl).code.length > 0, "vault implementation");
         require(address(vaultImpl.AGENT_NFT()) == address(d.agentNft), "vault agent nft");

@@ -6,6 +6,7 @@ import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 import {AccountFactoryV3} from "../../src/fund/AccountFactoryV3.sol";
 import {ExecutorV3} from "../../src/fund/ExecutorV3.sol";
 import {PersonalAccountV3} from "../../src/fund/PersonalAccountV3.sol";
+import {StrategyVaultV3} from "../../src/fund/StrategyVaultV3.sol";
 import {ProtocolRegistryV3} from "../../src/fund/ProtocolRegistryV3.sol";
 import {RouteAdapter} from "../../src/fund/RouteAdapter.sol";
 import {AccountMode, IAgentNFTView} from "../../src/interfaces/ICustody.sol";
@@ -113,7 +114,13 @@ abstract contract ExecutorV3Base is FundBase {
                 vaultCap: VAULT_CAP,
                 platformCap: PLATFORM_CAP,
                 depositsEnabled: false,
-                allowlist: allow
+                allowlist: allow,
+                personalImplementation: address(
+                    new PersonalAccountV3(IAgentNFTView(address(nft)), address(usdc), ITokenRegistry(address(tokens)))
+                ),
+                vaultImplementation: address(
+                    new StrategyVaultV3(IAgentNFTView(address(nft)), address(usdc), ITokenRegistry(address(tokens)))
+                )
             })
         );
         vm.prank(admin);

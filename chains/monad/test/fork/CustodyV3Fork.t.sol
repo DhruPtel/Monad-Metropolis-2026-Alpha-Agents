@@ -7,6 +7,7 @@ import {AccountFactoryV3} from "../../src/fund/AccountFactoryV3.sol";
 import {CustodyCoreV3} from "../../src/fund/CustodyCoreV3.sol";
 import {OracleAdapterV3} from "../../src/fund/OracleAdapterV3.sol";
 import {PersonalAccountV3} from "../../src/fund/PersonalAccountV3.sol";
+import {StrategyVaultV3} from "../../src/fund/StrategyVaultV3.sol";
 import {ProtocolRegistryV3} from "../../src/fund/ProtocolRegistryV3.sol";
 import {RouteAdapter} from "../../src/fund/RouteAdapter.sol";
 import {TokenRegistry} from "../../src/fund/TokenRegistry.sol";
@@ -144,7 +145,13 @@ contract CustodyV3ForkTest is Test {
                 vaultCap: 5_000e6,
                 platformCap: 20_000e6,
                 depositsEnabled: false,
-                allowlist: allow
+                allowlist: allow,
+                personalImplementation: address(
+                    new PersonalAccountV3(IAgentNFTView(address(nft)), USDC, ITokenRegistry(address(tokens)))
+                ),
+                vaultImplementation: address(
+                    new StrategyVaultV3(IAgentNFTView(address(nft)), USDC, ITokenRegistry(address(tokens)))
+                )
             })
         );
         vm.prank(owner);

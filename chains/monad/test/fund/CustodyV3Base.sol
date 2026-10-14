@@ -3,6 +3,7 @@ pragma solidity 0.8.37;
 
 import {AccountFactoryV3} from "../../src/fund/AccountFactoryV3.sol";
 import {PersonalAccountV3} from "../../src/fund/PersonalAccountV3.sol";
+import {StrategyVaultV3} from "../../src/fund/StrategyVaultV3.sol";
 import {TokenRegistry} from "../../src/fund/TokenRegistry.sol";
 import {AccountMode, IAgentNFTView} from "../../src/interfaces/ICustody.sol";
 import {SwapParamsV3} from "../../src/interfaces/ICustodyV3.sol";
@@ -76,7 +77,13 @@ abstract contract CustodyV3Base is FundBase {
                 vaultCap: VAULT_CAP,
                 platformCap: PLATFORM_CAP,
                 depositsEnabled: false,
-                allowlist: allow
+                allowlist: allow,
+                personalImplementation: address(
+                    new PersonalAccountV3(IAgentNFTView(address(nft)), address(usdc), ITokenRegistry(address(tokens)))
+                ),
+                vaultImplementation: address(
+                    new StrategyVaultV3(IAgentNFTView(address(nft)), address(usdc), ITokenRegistry(address(tokens)))
+                )
             })
         );
         nft.setOwner(AGENT, owner);

@@ -5,6 +5,7 @@ import {AccountFactoryV3} from "../../src/fund/AccountFactoryV3.sol";
 import {CustodyCoreV3} from "../../src/fund/CustodyCoreV3.sol";
 import {OracleAdapterV3} from "../../src/fund/OracleAdapterV3.sol";
 import {PersonalAccountV3} from "../../src/fund/PersonalAccountV3.sol";
+import {StrategyVaultV3} from "../../src/fund/StrategyVaultV3.sol";
 import {TokenRegistry} from "../../src/fund/TokenRegistry.sol";
 import {AccountMode, IAgentNFTView} from "../../src/interfaces/ICustody.sol";
 import {FeedConfig, ITokenRegistry, PriceClass, PriceReason} from "../../src/interfaces/IFund.sol";
@@ -88,7 +89,13 @@ contract PersonalAccountV3Test is CustodyV3Base {
             vaultCap: VAULT_CAP,
             platformCap: PLATFORM_CAP,
             depositsEnabled: false,
-            allowlist: allow
+            allowlist: allow,
+            personalImplementation: address(
+                new PersonalAccountV3(IAgentNFTView(address(nft)), address(tokD), ITokenRegistry(address(tokens)))
+            ),
+            vaultImplementation: address(
+                new StrategyVaultV3(IAgentNFTView(address(nft)), address(tokD), ITokenRegistry(address(tokens)))
+            )
         });
         vm.expectRevert(abi.encodeWithSelector(AccountFactoryV3.UsdcNotCore.selector, address(tokD)));
         new AccountFactoryV3(d);
@@ -327,7 +334,13 @@ contract PersonalAccountV3Test is CustodyV3Base {
                 vaultCap: VAULT_CAP,
                 platformCap: PLATFORM_CAP,
                 depositsEnabled: false,
-                allowlist: allow
+                allowlist: allow,
+                personalImplementation: address(
+                    new PersonalAccountV3(IAgentNFTView(address(nft)), address(usdc), ITokenRegistry(address(tokens)))
+                ),
+                vaultImplementation: address(
+                    new StrategyVaultV3(IAgentNFTView(address(nft)), address(usdc), ITokenRegistry(address(tokens)))
+                )
             })
         );
         nft.setOwner(8, owner);

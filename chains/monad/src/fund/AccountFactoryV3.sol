@@ -70,7 +70,7 @@ contract AccountFactoryV3 is ICustodyConfigV3, IDepositLedger, Ownable2Step {
     ITokenRegistry public immutable TOKEN_REGISTRY;
     /// The PersonalAccountV3 every personal clone runs.
     address public immutable PERSONAL_ACCOUNT_IMPLEMENTATION;
-    /// The StrategyVaultV3 every vault clone runs (P7-U2).
+    /// The StrategyVaultV3 every vault clone runs (P7-U2); zero where vaults are not offered (CO-U1).
     address public immutable VAULT_IMPLEMENTATION;
 
     address public executor;
@@ -142,6 +142,7 @@ contract AccountFactoryV3 is ICustodyConfigV3, IDepositLedger, Ownable2Step {
     error Lapsed(uint64 expiresAt);
     error BadValue(bytes32 value);
     error RenounceDisabled();
+    error VaultsNotOffered();
 
     struct Deployment {
         address admin;
@@ -157,6 +158,10 @@ contract AccountFactoryV3 is ICustodyConfigV3, IDepositLedger, Ownable2Step {
         uint256 platformCap;
         bool depositsEnabled;
         address[] allowlist;
+        /// CO-U1: deployed beforehand, so the factory's own code stays under the 24 KB and
+        /// initcode limits of Base and Arbitrum. The vault may be zero: no vaults there.
+        address personalImplementation;
+        address vaultImplementation;
     }
 
     constructor(Deployment memory d) Ownable(d.admin) {
@@ -168,8 +173,9 @@ contract AccountFactoryV3 is ICustodyConfigV3, IDepositLedger, Ownable2Step {
         AGENT_NFT = d.agentNft;
         USDC = d.usdc;
         TOKEN_REGISTRY = d.tokenRegistry;
-        PERSONAL_ACCOUNT_IMPLEMENTATION = address(new PersonalAccountV3(d.agentNft, d.usdc, d.tokenRegistry));
-        VAULT_IMPLEMENTATION = address(new StrategyVaultV3(d.agentNft, d.usdc, d.tokenRegistry));
+        if (d.personalImplementation.code.length == 0) revert ZeroAddress();
+        PERSONAL_ACCOUNT_IMPLEMENTATION = d.personalImplementation;
+        VAULT_IMPLEMENTATION = d.vaultImplementation;
         guardian = d.guardian;
         sentinel = d.sentinel;
         oracle = d.oracle;
@@ -226,6 +232,7 @@ contract AccountFactoryV3 is ICustodyConfigV3, IDepositLedger, Ownable2Step {
         if (agentOwner != msg.sender) revert NotAgentOwner(msg.sender, agentOwner);
         address existing = vaultOf[agentId];
         if (existing != address(0)) revert VaultExists(existing);
+        if (VAULT_IMPLEMENTATION == address(0)) revert VaultsNotOffered();
         vault = Clones.cloneDeterministic(VAULT_IMPLEMENTATION, _vaultSalt(agentId));
         vaultOf[agentId] = vault;
         isAccount[vault] = true;
