@@ -74,25 +74,25 @@ contract StrategyVaultV3BackstopsTest is StrategyVaultV3Base {
     }
 
     function test_TheBackstopsHoldAtTheirThresholds() public {
-        // 12% of 300 is 36: a 36.000001 USDC trade is refused.
-        SwapParamsV3 memory over = params(address(usdc), address(tokA), 36e6 + 1);
-        vm.expectRevert(abi.encodeWithSelector(CustodyCoreV3.TradeTooLarge.selector, 36e6 + 1, 300e6));
+        // CO-U1: 25% of 300 is 75: a 75.000001 USDC trade is refused.
+        SwapParamsV3 memory over = params(address(usdc), address(tokA), 75e6 + 1);
+        vm.expectRevert(abi.encodeWithSelector(CustodyCoreV3.TradeTooLarge.selector, 75e6 + 1, 300e6));
         executor.swap(sv, over);
-        executor.swap(sv, params(address(usdc), address(tokA), 36e6));
-        // 45% by value: A at 96 of 300 now; 40 more passes 45%.
-        SwapParamsV3 memory heavy = params(address(usdc), address(tokA), 36e6);
+        executor.swap(sv, params(address(usdc), address(tokA), 75e6));
+        // 60% by value: A at 135 of 300 now; 45 more reaches 60%, and 1 more passes it.
+        SwapParamsV3 memory heavy = params(address(usdc), address(tokA), 45e6);
         executor.swap(sv, heavy);
-        SwapParamsV3 memory tooHeavy = params(address(usdc), address(tokA), 36e6);
+        SwapParamsV3 memory tooHeavy = params(address(usdc), address(tokA), 1e6);
         vm.expectRevert(
-            abi.encodeWithSelector(CustodyCoreV3.ConcentrationTooHigh.selector, address(tokA), 168e6, 300e6)
+            abi.encodeWithSelector(CustodyCoreV3.ConcentrationTooHigh.selector, address(tokA), 180_999_999, 299_999_999)
         );
         executor.swap(sv, tooHeavy);
-        // 1% against the reference prices on a sale.
+        // 2% against the reference prices on a sale.
         SwapParamsV3 memory sale = params(address(tokA), address(usdc), 5e18);
-        executor.setOutputBps(9_900);
+        executor.setOutputBps(9_800);
         executor.swap(sv, sale);
-        executor.setOutputBps(9_899);
-        vm.expectRevert(abi.encodeWithSelector(CustodyCoreV3.SlippageTooHigh.selector, 30e6, 29.697e6));
+        executor.setOutputBps(9_799);
+        vm.expectRevert(abi.encodeWithSelector(CustodyCoreV3.SlippageTooHigh.selector, 30e6, 29.397e6));
         executor.swap(sv, sale);
     }
 

@@ -718,7 +718,7 @@ contract StrategyVaultV3ModesTest is StrategyVaultV3Base {
         assertFalse(tokens.buyableFor(address(tokD), address(sv)));
         // Class F core tokens trade, within the core's backstops.
         executor.swap(sv, buyParams(10e6));
-        SwapParamsV3 memory large = buyParams(13e6);
+        SwapParamsV3 memory large = buyParams(26e6);
         vm.expectPartialRevert(CustodyCoreV3.TradeTooLarge.selector);
         executor.swap(sv, large);
     }

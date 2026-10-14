@@ -21,7 +21,7 @@ import {
   ownerLimitRanges,
   translateGoal,
 } from "./goals.ts";
-import { LAUNCH_LIMITS } from "./limits.ts";
+import { GOAL_LIMITS } from "./limits.ts";
 
 const WBTC = "0x0555e30da8f98308edb960aa94c0db47230d2b9c";
 
@@ -59,7 +59,7 @@ describe("goal translator (P3-U1, F-U7)", () => {
         minTradeUsdcE6: 500_000n,
         volatilityBrakeBps: 20_000,
         costHurdleBps: 40,
-        maxLegBps: 1_000,
+        maxLegBps: 2_500,
       },
     });
     expect(c.targetRange).toEqual({ minBps: 0, maxBps: 3_000 });
@@ -88,7 +88,7 @@ describe("goal translator (P3-U1, F-U7)", () => {
       expect(c.template.params.bandHalfWidthBps).toBe(f.bandHalfWidthBps);
       expect(c.targetRange).toEqual({ minBps: f.targetMinBps, maxBps: f.targetMaxBps });
       expect(c.researchTriggerBps).toBe(AGGRESSIVENESS_ENVELOPES[level].reviewTriggerBps);
-      expect(f.targetMaxBps).toBeLessThanOrEqual(LAUNCH_LIMITS.maxAssetBps);
+      expect(f.targetMaxBps).toBeLessThanOrEqual(GOAL_LIMITS.maxAssetBps);
       expect(c.envelope).toEqual(AGGRESSIVENESS_ENVELOPES[level]);
     },
   );
@@ -155,11 +155,11 @@ describe("goal translator (P3-U1, F-U7)", () => {
 
     it("gives each limit's range from its tightest value to its hard limit", () => {
       expect(ranges).toEqual({
-        maxTradeBps: { min: 10, max: 1_000 },
-        maxPositionBps: { min: 0, max: 4_000 },
-        minUsdcShareBps: { min: 1_000, max: 10_000 },
-        maxSlippageBps: { min: 10, max: 50 },
-        maxTradesPer24h: { min: 1, max: 20 },
+        maxTradeBps: { min: 10, max: 2_500 },
+        maxPositionBps: { min: 0, max: 6_000 },
+        minUsdcShareBps: { min: 500, max: 10_000 },
+        maxSlippageBps: { min: 10, max: 150 },
+        maxTradesPer24h: { min: 1, max: 48 },
       });
     });
 
@@ -194,11 +194,11 @@ describe("goal translator (P3-U1, F-U7)", () => {
       const errors = refused(
         goal({
           stricterLimits: {
-            maxTradeBps: 1_001,
-            maxPositionBps: 4_001,
-            minUsdcShareBps: 999,
-            maxSlippageBps: 51,
-            maxTradesPer24h: 21,
+            maxTradeBps: 2_501,
+            maxPositionBps: 6_001,
+            minUsdcShareBps: 499,
+            maxSlippageBps: 151,
+            maxTradesPer24h: 49,
           },
         }),
       );
@@ -207,7 +207,7 @@ describe("goal translator (P3-U1, F-U7)", () => {
       );
       expect(new Set(errors.map((e) => e.code))).toEqual(new Set(["LOOSER_THAN_HARD_LIMIT"]));
       expect(errors[0]?.message).toBe(
-        "Largest trade can only tighten the hard limit of 10%; 10.01% would loosen it.",
+        "Largest trade can only tighten the hard limit of 25%; 25.01% would loosen it.",
       );
     });
   });
@@ -364,9 +364,9 @@ describe("goal translator (P3-U1, F-U7)", () => {
   });
 
   it("keeps the template's bounds inside the hard limits", () => {
-    expect(REBALANCE_BANDS_V1_BOUNDS.targetWmonBps[1]).toBe(BigInt(LAUNCH_LIMITS.maxAssetBps));
-    expect(REBALANCE_BANDS_V1_BOUNDS.maxLegBps[1]).toBe(BigInt(LAUNCH_LIMITS.maxTradeBps));
-    expect(REBALANCE_BANDS_V1_BOUNDS.costHurdleBps[1]).toBe(BigInt(LAUNCH_LIMITS.maxSlippageBps));
+    expect(REBALANCE_BANDS_V1_BOUNDS.targetWmonBps[1]).toBe(BigInt(GOAL_LIMITS.maxAssetBps));
+    expect(REBALANCE_BANDS_V1_BOUNDS.maxLegBps[1]).toBe(BigInt(GOAL_LIMITS.maxTradeBps));
+    expect(REBALANCE_BANDS_V1_BOUNDS.costHurdleBps[1]).toBe(BigInt(GOAL_LIMITS.maxSlippageBps));
   });
 });
 

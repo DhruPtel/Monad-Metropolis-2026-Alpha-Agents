@@ -9,7 +9,7 @@
  * The onchain limits (the Executor's policy and the trading account's
  * backstops) are not here: they stay as deployed in every environment.
  */
-import { LAUNCH_LIMITS } from "./limits.ts";
+import { GOAL_LIMITS } from "./limits.ts";
 
 export interface TradingProfile {
   readonly id: "launch" | "testnet";
@@ -35,7 +35,7 @@ export const LAUNCH_TRADING_PROFILE: TradingProfile = Object.freeze({
 export const TESTNET_TRADING_PROFILE: TradingProfile = Object.freeze({
   id: "testnet",
   minTradeUsdcE6: 1n,
-  costHurdleBps: LAUNCH_LIMITS.maxSlippageBps,
+  costHurdleBps: GOAL_LIMITS.maxSlippageBps,
   countsGas: true,
 });
 

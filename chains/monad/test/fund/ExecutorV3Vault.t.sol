@@ -261,9 +261,9 @@ contract ExecutorV3VaultTest is ExecutorV3Base {
 
     function test_TheVaultsOwnBackstopsStandBehindTheExecutor() public view {
         // The core's constants are the vault's: looser than the policy, never checked on exits.
-        assertEq(sv.MAX_TRADE_BPS(), 1_200);
-        assertEq(sv.MAX_ASSET_BPS(), 4_500);
-        assertEq(sv.MAX_SLIPPAGE_BPS(), 100);
+        assertEq(sv.MAX_TRADE_BPS(), 2_500);
+        assertEq(sv.MAX_ASSET_BPS(), 6_000);
+        assertEq(sv.MAX_SLIPPAGE_BPS(), 200);
         assertGt(sv.MAX_TRADE_BPS(), executor.policy().maxTradeBps);
         assertGt(sv.MAX_ASSET_BPS(), executor.policy().maxAssetBps);
         assertGt(sv.MAX_SLIPPAGE_BPS(), executor.policy().maxSlippageBps);

@@ -185,32 +185,35 @@ contract CustodyV3TradingTest is CustodyV3Base {
         swap(p);
     }
 
-    function test_SlippageBackstopAtOnePercent() public {
+    function test_SlippageBackstopAtTwoPercent() public {
         tradingAccount();
         SwapParamsV3 memory p = params(address(tokA), address(usdc), 15e18); // 90 USDC
-        executor.setOutputBps(9_900);
+        executor.setOutputBps(9_800);
         swap(p);
-        executor.setOutputBps(9_899);
-        vm.expectRevert(abi.encodeWithSelector(CustodyCoreV3.SlippageTooHigh.selector, 90e6, 89.091e6));
+        executor.setOutputBps(9_799);
+        vm.expectRevert(abi.encodeWithSelector(CustodyCoreV3.SlippageTooHigh.selector, 90e6, 88.191e6));
         swap(p);
     }
 
-    function test_TradeSizeBackstopAtTwelvePercent() public {
+    function test_TradeSizeBackstopAtTwentyFivePercent() public {
         tradingAccount();
-        // NAV 900 USDC: a sale worth 108.000001 is refused; one worth exactly 108 passes.
-        SwapParamsV3 memory over = params(address(tokA), address(usdc), 18_000_000_166_666_666_667);
-        vm.expectRevert(abi.encodeWithSelector(CustodyCoreV3.TradeTooLarge.selector, 108_000_001, 900e6));
+        // NAV 900 USDC: a sale worth 225.000001 is refused; one worth exactly 225 passes.
+        SwapParamsV3 memory over = params(address(tokA), address(usdc), 37_500_000_166_666_666_667);
+        vm.expectRevert(abi.encodeWithSelector(CustodyCoreV3.TradeTooLarge.selector, 225_000_001, 900e6));
         swap(over);
-        swap(params(address(tokA), address(usdc), 18e18));
+        swap(params(address(tokA), address(usdc), 37.5e18));
     }
 
-    function test_ConcentrationBackstopAtFortyFivePercentByValueForClassF() public {
+    function test_ConcentrationBackstopAtSixtyPercentByValueForClassF() public {
         tradingAccount();
-        // A is 300 of 900: buying 105 more reaches exactly 45%, then any more is refused.
-        swap(params(address(usdc), address(tokA), 105e6));
+        // A is 300 of 900: buying 240 more (in two trades under 25%; the second rounds the value
+        // down by one unit) reaches 60%, then any
+        // more is refused.
+        swap(params(address(usdc), address(tokA), 200e6));
+        swap(params(address(usdc), address(tokA), 40e6));
         SwapParamsV3 memory more = params(address(usdc), address(tokA), 1.2e6);
         vm.expectRevert(
-            abi.encodeWithSelector(CustodyCoreV3.ConcentrationTooHigh.selector, address(tokA), 406.2e6, 900e6)
+            abi.encodeWithSelector(CustodyCoreV3.ConcentrationTooHigh.selector, address(tokA), 541_199_999, 899_999_999)
         );
         swap(more);
         // Selling into USDC is never limited by concentration.
@@ -285,8 +288,9 @@ contract CustodyV3TradingTest is CustodyV3Base {
         // 465 USDC, 300 of A, and the 250.875 C (250 bought at 0.40, 0.875 at 40)
         // at the lower of their 135 basis and their 1.0035 value.
         assertEq(capped, 766.0035e6);
-        SwapParamsV3 memory sale = params(address(tokA), address(usdc), 15_333_333_333_333_333_334);
-        vm.expectRevert(abi.encodeWithSelector(CustodyCoreV3.TradeTooLarge.selector, 92_000_000, 766.0035e6));
+        // CO-U1: 25% of 766.0035 is 191.500875; a sale worth 191.500876 is refused.
+        SwapParamsV3 memory sale = params(address(tokA), address(usdc), 31_916_812_666_666_666_667);
+        vm.expectRevert(abi.encodeWithSelector(CustodyCoreV3.TradeTooLarge.selector, 191_500_876, 766.0035e6));
         swap(sale);
     }
 

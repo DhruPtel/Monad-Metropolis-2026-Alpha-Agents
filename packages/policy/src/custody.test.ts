@@ -138,7 +138,7 @@ describe("the custody core v3 model (F-U3)", () => {
     expect(
       swap(
         s,
-        { tokenIn: "A", tokenOut: "USDC", amountIn: 15n * E18, outputBps: 9_899n, reference },
+        { tokenIn: "A", tokenOut: "USDC", amountIn: 15n * E18, outputBps: 9_799n, reference },
         ctx(),
       ).outcome,
     ).toEqual({ ok: false, failure: "SlippageTooHigh" });
@@ -148,16 +148,23 @@ describe("the custody core v3 model (F-U3)", () => {
         {
           tokenIn: "A",
           tokenOut: "USDC",
-          amountIn: 18_000_000_166_666_666_667n,
+          amountIn: 37_500_000_166_666_666_667n,
           outputBps: 10_000n,
           reference,
         },
         ctx(),
       ).outcome,
     ).toEqual({ ok: false, failure: "TradeTooLarge" });
-    const near = swap(
+    // CO-U1: A at 300 of 900 USDC; 240 USDC more reaches 60% exactly, in two buys under 25%.
+    const half = swap(
       s,
-      { tokenIn: "USDC", tokenOut: "A", amountIn: 105n * E6, outputBps: 10_000n, reference },
+      { tokenIn: "USDC", tokenOut: "A", amountIn: 200n * E6, outputBps: 10_000n, reference },
+      ctx(),
+    );
+    expect(half.outcome).toEqual({ ok: true });
+    const near = swap(
+      half.state,
+      { tokenIn: "USDC", tokenOut: "A", amountIn: 40n * E6, outputBps: 10_000n, reference },
       ctx(),
     );
     expect(near.outcome).toEqual({ ok: true });

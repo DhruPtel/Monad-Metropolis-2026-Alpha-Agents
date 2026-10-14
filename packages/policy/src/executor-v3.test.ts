@@ -84,7 +84,7 @@ describe("Executor v3 parity with the contract (F-U4)", () => {
       REJECTION_CODES.indexOf("NOT_OPTED_IN"),
     );
     expect(byName("a sell-only token still sells")).toBe(255);
-    expect(f.policyHash).toBe(ex.LAUNCH_POLICY_HASH);
+    expect(f.policyHash).toBe(ex.PARITY_POLICY_HASH);
   });
 
   it("refuses a buy of a sell-only screened token with that one reason, opted in or not (F-T2)", () => {

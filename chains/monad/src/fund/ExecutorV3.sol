@@ -67,9 +67,9 @@ contract ExecutorV3 is ISwapExecutorV3, RiskTimelock, ReentrancyGuard {
 
     uint16 public constant SCHEMA_VERSION = 2;
     uint256 public constant BPS = 10_000;
-    /// The ring buffer of past trades per account: 20 slots, never reset by an
-    /// epoch or policy change (FINAL_PLAN 4.1.7).
-    uint256 public constant RING_SIZE = 20;
+    /// The ring buffer of past trades per account: 48 slots (CO-U1: more than 20 trades a
+    /// day), never reset by an epoch or policy change (FINAL_PLAN 4.1.7).
+    uint256 public constant RING_SIZE = 48;
     /// The longest a session grant may run (A-35).
     uint256 public constant MAX_SESSION = 30 days;
     /// A vault grant's `validUntil`: no fixed expiry (D-241). The largest
@@ -122,7 +122,7 @@ contract ExecutorV3 is ISwapExecutorV3, RiskTimelock, ReentrancyGuard {
     }
 
     struct Ring {
-        PastTrade[20] trades;
+        PastTrade[RING_SIZE] trades;
         uint8 next;
     }
 
@@ -793,7 +793,7 @@ contract ExecutorV3 is ISwapExecutorV3, RiskTimelock, ReentrancyGuard {
         }
     }
 
-    function pastTrades(address account) external view returns (PastTrade[20] memory) {
+    function pastTrades(address account) external view returns (PastTrade[RING_SIZE] memory) {
         return _rings[account].trades;
     }
 

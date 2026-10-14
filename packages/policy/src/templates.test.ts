@@ -55,12 +55,12 @@ describe("the template's parameters and immutability", () => {
   it("accepts a set inside the bounds and refuses each parameter outside them", () => {
     expect(REBALANCE_BANDS_V1.check(ok)).toEqual([]);
     const bad: [keyof RebalanceBandsParams, number | bigint][] = [
-      ["targetWmonBps", 4_001],
+      ["targetWmonBps", 6_001],
       ["bandHalfWidthBps", 99],
       ["minTradeUsdcE6", 99_999n],
       ["volatilityBrakeBps", 30_001],
-      ["costHurdleBps", 51],
-      ["maxLegBps", 1_001],
+      ["costHurdleBps", 151],
+      ["maxLegBps", 2_501],
     ];
     for (const [k, v] of bad)
       expect(REBALANCE_BANDS_V1.check({ ...ok, [k]: v }).map((e) => e.field)).toEqual([
@@ -83,7 +83,7 @@ describe("the template's parameters and immutability", () => {
     expect(Object.isFrozen(REBALANCE_BANDS_V1)).toBe(true);
     expect(Object.isFrozen(STRATEGY_TEMPLATE_RULES)).toBe(true);
     expect(templateFingerprint(REBALANCE_BANDS_V1 as never)).toBe(
-      "0x82fff8be0efafffe8b3b01d5f57b4f80982c5b13f8336c59f4379f3abfe2ba97",
+      "0xa2ef603e63c78476480124a42eaececf720c4031b7e68632ac1546d1ab7f5a4e",
     );
   });
 

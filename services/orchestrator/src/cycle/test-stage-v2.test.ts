@@ -149,7 +149,7 @@ describe("the Test stage over a target portfolio (F-U6, D-344)", () => {
 
   it("refuses the template's own bounds and shape", async () => {
     expect(await codes(plan({ cashTargetBps: 5_000 }))).toContain("OUT_OF_BOUNDS");
-    expect(await codes(plan({ maxLegBps: 1_300 }))).toEqual(
+    expect(await codes(plan({ maxLegBps: 2_600 }))).toEqual(
       expect.arrayContaining(["OUT_OF_BOUNDS", "HARD_LIMIT"]),
     );
   });
@@ -271,12 +271,12 @@ describe("the Test stage over a target portfolio (F-U6, D-344)", () => {
     expect(
       await codes(
         plan({
-          positions: [position(WMON, 4_500), position(WBTC, 1_000), position(AUSD, 4_000)],
-          cashTargetBps: 500,
+          positions: [position(WMON, 4_500), position(WBTC, 1_000), position(AUSD, 4_100)],
+          cashTargetBps: 400,
         }),
       ),
     ).toContain("HARD_LIMIT");
-    expect(await codes(plan({ costHurdleBps: 150 }))).toContain("HARD_LIMIT");
+    expect(await codes(plan({ costHurdleBps: 201 }))).toContain("HARD_LIMIT");
   });
 
   it("checks depth at the slippage limit and the implied turnover against the 24-hour cap", async () => {
@@ -331,7 +331,7 @@ describe("the Test stage over a target portfolio (F-U6, D-344)", () => {
     const byToken = Object.fromEntries(e.tokens.map((t) => [t.symbol, t]));
     expect(byToken.WMON).toMatchObject({
       buyable: true,
-      capBps: Math.min(4_500, executorV3.LAUNCH_POLICY.maxAssetBps),
+      capBps: Math.min(4_000, executorV3.LAUNCH_POLICY.maxAssetBps),
     });
     expect(byToken.WBTC).toMatchObject({ buyable: true, capBps: 1_500 });
     expect(byToken.TOKA).toMatchObject({ buyable: true, class: "A" });

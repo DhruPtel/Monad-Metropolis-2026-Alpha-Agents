@@ -95,8 +95,9 @@ function marketState(): MarketStateV3 {
     chainId: 143143,
     block: 500n,
     timestamp: NOW,
-    policy: { ...executorV3.LAUNCH_POLICY },
-    policyHash: executorV3.LAUNCH_POLICY_HASH,
+    // The F-U4 values its cases sit at (CO-U1: executorV3.PARITY_POLICY).
+    policy: { ...executorV3.PARITY_POLICY },
+    policyHash: executorV3.PARITY_POLICY_HASH,
     paused: false,
     adapterAllowed: true,
     attestorSet: false,

@@ -22,8 +22,8 @@
       "contentHash": "a8ec2aa53fcaf37f43d9a26f4f6240a355d1e6a424c9f3b5804b343ba4d550f0"
     },
     "usdc-wmon-band-rebalancer": {
-      "version": "1.1.0",
-      "contentHash": "74fbe66c2ca3014e19a6404271e88a99dd257451158992d437fa56954605c25f"
+      "version": "1.1.1",
+      "contentHash": "9f87ee1ab76d7265bd94e3391b7b55e11367ecfe1101a88eb9b8fb02aef38bca"
     },
     "playbook-challenge": {
       "version": "2.1.0",
@@ -42,8 +42,8 @@
       "contentHash": "0159ef7e11567dedfb0d19f016058c1b82b6fbe7fe7623854753887d240541d1"
     },
     "portfolio-construction": {
-      "version": "1.0.2",
-      "contentHash": "ea38d5cb28dec95cc65b5bdba4f74091337c87db79d88fdcbea95c5ebdef619b"
+      "version": "1.0.3",
+      "contentHash": "e8179b719dfb75a0907e35df5c2d9c9025e9daafc312e79d479586906f087a3b"
     },
     "token-risk-screen": {
       "version": "1.0.0",

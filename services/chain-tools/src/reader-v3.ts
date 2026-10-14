@@ -282,7 +282,7 @@ const EXECUTOR_ABI = parseAbi([
   "function paused() view returns (bool)",
   "function configEpochOf(uint256 agentId) view returns (uint64)",
   "function sessionOf(uint256 agentId) view returns ((address key, uint64 ownerEpoch, uint64 configEpoch, uint64 validUntil))",
-  "function pastTrades(address account) view returns ((uint64 tradedAt, uint192 valueUsdc)[20])",
+  "function pastTrades(address account) view returns ((uint64 tradedAt, uint192 valueUsdc)[48])",
   `function limits(address account) view returns (${POLICY_TUPLE} p, uint256 tradesLeft, uint256 nextSlotFreesAt, uint256 turnoverUsed)`,
 ]);
 const TOKENS_ABI = parseAbi([

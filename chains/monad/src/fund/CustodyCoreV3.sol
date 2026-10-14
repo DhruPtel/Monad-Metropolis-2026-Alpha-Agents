@@ -57,16 +57,16 @@ abstract contract CustodyCoreV3 is ReentrancyGuard {
     // ---------------------------------------------------------------------
 
     uint256 public constant BPS = 10_000;
-    /// One trade's input may be worth at most 12% of the account (the Executor allows 10%).
-    uint256 public constant MAX_TRADE_BPS = 1_200;
-    /// After a trade, one class F asset other than USDC may be at most 45% of the account by value.
-    uint256 public constant MAX_ASSET_BPS = 4_500;
+    /// One trade's input may be worth at most 25% of the account (CO-U1, the owner's limits).
+    uint256 public constant MAX_TRADE_BPS = 2_500;
+    /// After a trade, one class F asset other than USDC may be at most 60% of the account by value.
+    uint256 public constant MAX_ASSET_BPS = 6_000;
     /// One class A position's cost basis may be at most 15% of the account's basis (D-337).
     uint256 public constant MAX_CLASS_A_POSITION_BPS = 1_500;
     /// All class A positions' cost basis together at most 50% of the account's basis (D-337).
     uint256 public constant MAX_CLASS_A_TOTAL_BPS = 5_000;
-    /// A trade's output must be worth at least 99% of its input at the reference prices.
-    uint256 public constant MAX_SLIPPAGE_BPS = 100;
+    /// A trade's output must be worth at least 98% of its input at the reference prices.
+    uint256 public constant MAX_SLIPPAGE_BPS = 200;
     /// Deposits stop while USDC/USD is more than 1% from 1 (A-34); valuation and exits never read it.
     uint256 public constant MAX_DEPEG_BPS = 100;
     /// The held list's bound (A-62).

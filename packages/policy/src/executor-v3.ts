@@ -27,6 +27,29 @@ import { valueE6 } from "./custody.ts";
 
 /** Executor v3's launch policy: the v2 limits, 1% against an attested price, the class A caps (D-337, D-352). */
 export const LAUNCH_POLICY: ExecutorPolicyV3 = Object.freeze({
+  maxTradeBps: 2_500,
+  maxAssetBps: 6_000,
+  minUsdcBps: 500,
+  maxSlippageBps: 150,
+  maxSlippageClassABps: 200,
+  maxClassAPositionBps: 1_500,
+  maxClassATotalBps: 5_000,
+  maxTurnoverBps: 20_000,
+  maxTradesPerWindow: 48,
+  windowSeconds: 86_400,
+  deadlineSeconds: 120,
+});
+
+/** The hash every launch intent names. */
+export const LAUNCH_POLICY_HASH = executorPolicyHashV3(LAUNCH_POLICY);
+
+/**
+ * CO-U1: the policy the contract parity suite runs under (executor-v3-parity.ts and
+ * chains/monad/test/fund/ExecutorV3Base.sol's launchPolicy): F-U4's launch values, whose cases
+ * sit at their thresholds. Parity proves the contract and this model agree under one policy;
+ * the deployments use LAUNCH_POLICY, the owner's limits.
+ */
+export const PARITY_POLICY: ExecutorPolicyV3 = Object.freeze({
   maxTradeBps: 1_000,
   maxAssetBps: 4_000,
   minUsdcBps: 1_000,
@@ -39,15 +62,13 @@ export const LAUNCH_POLICY: ExecutorPolicyV3 = Object.freeze({
   windowSeconds: 86_400,
   deadlineSeconds: 120,
 });
-
-/** The hash every launch intent names. */
-export const LAUNCH_POLICY_HASH = executorPolicyHashV3(LAUNCH_POLICY);
+export const PARITY_POLICY_HASH = executorPolicyHashV3(PARITY_POLICY);
 
 /** ExecutorV3's constants, checked against the contract by the parity test. */
 export const CONSTANTS = Object.freeze({
   schemaVersion: 2,
   maxHops: 3,
-  ringSize: 20,
+  ringSize: 48,
   maxSessionSeconds: 30 * 86_400,
   /** The account's own class A caps, which a policy may tighten but never loosen. */
   accountClassAPositionBps: 1_500,

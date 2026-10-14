@@ -88,7 +88,7 @@ describe("target_portfolio@1's evals (F-U6, D-344)", () => {
   it("is frozen, and its published fingerprint never changes (a new rule is a new version)", () => {
     expect(Object.isFrozen(TARGET_PORTFOLIO_V1)).toBe(true);
     expect(portfolioFingerprint()).toBe(
-      "0x26e28815c22ca30018cd7f9077ade45a9eed9700ddcdb94a55d9635bd31b17fd",
+      "0x4225ed4acf3828da58251d25d34cadfe19924eb29f882beaf42dff6e4dedc519",
     );
   });
 
@@ -129,7 +129,7 @@ describe("target_portfolio@1's evals (F-U6, D-344)", () => {
       "positions.0.exit.killCriterion",
       "positions.0.exit.recheckAt",
     ]);
-    expect(checkTargetPortfolioParams({ ...ok, maxLegBps: 1_300 }).map((e) => e.field)).toEqual([
+    expect(checkTargetPortfolioParams({ ...ok, maxLegBps: 2_600 }).map((e) => e.field)).toEqual([
       "maxLegBps",
     ]);
     expect(

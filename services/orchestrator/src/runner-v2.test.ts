@@ -410,7 +410,7 @@ describe.skipIf(!dbUp)(
       const [launch] = await runner({ gasWei: GAS_WEI }).tick();
       expect(launch).toMatchObject({ outcome: "hold", code: "BELOW_MIN_TRADE" });
       // At 0.001 USD a MON the gas is 0.0002 USDC, 7 bps of the leg; with 10 bps of impact
-      // it is within the testnet limit of 50 bps.
+      // it is within the testnet limit of 150 bps.
       const [testnet] = await runner({
         profile: TESTNET_TRADING_PROFILE,
         gasWei: GAS_WEI,
@@ -419,7 +419,7 @@ describe.skipIf(!dbUp)(
       expect(testnet).toMatchObject({ outcome: "leg", leg: { sell: "USDC", buy: "WMON" } });
     });
 
-    it("testnet profile: counts gas at MON's price with price impact and fees, and holds COST_HURDLE when the total passes 0.5%", async () => {
+    it("testnet profile: counts gas at MON's price with price impact and fees, and holds COST_HURDLE when the total passes 1.5%", async () => {
       await smallBandPlan();
       // At 0.024 USD a MON the gas is 0.0048 USDC, about 160 bps of a 0.30 USDC leg (rounded up).
       const [d] = await runner({
@@ -431,7 +431,7 @@ describe.skipIf(!dbUp)(
       expect(d?.facts).toMatchObject({
         gasUsdcE6: "4800",
         gasBps: 161,
-        costHurdleBps: 50,
+        costHurdleBps: 150,
       });
       expect((d?.facts as { costWithGasBps: number }).costWithGasBps).toBeGreaterThan(160);
       expect(await intents()).toEqual([]);

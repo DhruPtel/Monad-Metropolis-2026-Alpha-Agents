@@ -22,7 +22,7 @@ import {
   laneSentence,
 } from "@alpha-agents/domain";
 import { keccak256, toBytes } from "viem";
-import { LAUNCH_LIMITS, type PolicyLimits } from "./limits.ts";
+import { GOAL_LIMITS, type PolicyLimits } from "./limits.ts";
 
 /**
  * The goal translator (P3-U1, F-U7; FINAL_PLAN 0.6, 4.3.6, D-098, D-345): a
@@ -56,12 +56,12 @@ type Bound = readonly [min: bigint, max: bigint];
 /** The template's own bounds; a parameter set outside them is never configuration. */
 export const REBALANCE_BANDS_V1_BOUNDS: Readonly<Record<keyof RebalanceBandsParams, Bound>> =
   Object.freeze({
-    targetWmonBps: [0n, BigInt(LAUNCH_LIMITS.maxAssetBps)],
+    targetWmonBps: [0n, BigInt(GOAL_LIMITS.maxAssetBps)],
     bandHalfWidthBps: [100n, 1_000n],
     minTradeUsdcE6: [100_000n, 100_000_000n],
     volatilityBrakeBps: [2_000n, 30_000n],
-    costHurdleBps: [5n, BigInt(LAUNCH_LIMITS.maxSlippageBps)],
-    maxLegBps: [10n, BigInt(LAUNCH_LIMITS.maxTradeBps)],
+    costHurdleBps: [5n, BigInt(GOAL_LIMITS.maxSlippageBps)],
+    maxLegBps: [10n, BigInt(GOAL_LIMITS.maxTradeBps)],
   });
 
 /**
@@ -175,7 +175,7 @@ export type GoalTranslation =
   | { readonly ok: false; readonly errors: readonly GoalError[] };
 
 /** The hard limits as the goal names them. */
-export function hardGoalLimits(limits: PolicyLimits = LAUNCH_LIMITS): EffectiveLimits {
+export function hardGoalLimits(limits: PolicyLimits = GOAL_LIMITS): EffectiveLimits {
   return {
     maxTradeBps: limits.maxTradeBps,
     maxPositionBps: limits.maxAssetBps,
@@ -187,7 +187,7 @@ export function hardGoalLimits(limits: PolicyLimits = LAUNCH_LIMITS): EffectiveL
 
 /** Each stricter limit's accepted range: from its tightest value to its hard limit. */
 export function ownerLimitRanges(
-  limits: PolicyLimits = LAUNCH_LIMITS,
+  limits: PolicyLimits = GOAL_LIMITS,
 ): Readonly<Record<OwnerLimitField, { readonly min: number; readonly max: number }>> {
   const hard = hardGoalLimits(limits);
   const out = {} as Record<OwnerLimitField, { min: number; max: number }>;
@@ -234,7 +234,7 @@ export interface TranslateOptions {
 
 export function translateGoal(
   input: unknown,
-  limits: PolicyLimits = LAUNCH_LIMITS,
+  limits: PolicyLimits = GOAL_LIMITS,
   options: TranslateOptions = {},
 ): GoalTranslation {
   const parsed = GoalInputSchema.safeParse(input);

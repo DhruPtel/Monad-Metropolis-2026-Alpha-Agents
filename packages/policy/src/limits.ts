@@ -91,3 +91,19 @@ export const CUSTODY_BACKSTOPS = Object.freeze({
   maxAssetBps: 4_500,
   maxSlippageBps: 100,
 });
+
+/**
+ * CO-U1: the hard limits an owner's goal works within on the fund agent's v3 set, as Executor
+ * v3's launch policy sets them (executor-v3.ts LAUNCH_POLICY, the owner's limits): a largest
+ * trade of 25%, a largest position of 60%, at least 5% USDC, 1.5% slippage and 48 trades a
+ * day. The v2 set keeps LAUNCH_LIMITS, which its contract's parity fixes.
+ */
+export const GOAL_LIMITS: PolicyLimits = Object.freeze({
+  ...LAUNCH_LIMITS,
+  maxTradeBps: 2_500,
+  maxAssetBps: 6_000,
+  minUsdcBps: 500,
+  maxSlippageBps: 150,
+  maxTradesPerWindow: 48,
+  maxTurnoverBps: 20_000,
+});

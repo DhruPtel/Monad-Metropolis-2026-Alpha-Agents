@@ -2102,8 +2102,8 @@ describe.skipIf(!available)("the control API (needs pnpm dev:up for Postgres)", 
         direction: "max",
         unit: "bps",
         min: 10,
-        max: 1_000,
-        hard: 1_000,
+        max: 2_500,
+        hard: 2_500,
       });
       expect(
         (form.intensities as { id: string; monthlyAtDefaultUsdcE6: string }[]).map((i) => [
@@ -2163,8 +2163,8 @@ describe.skipIf(!available)("the control API (needs pnpm dev:up for Postgres)", 
         goal({
           stricterLimits: {
             ...DEFAULT_GOAL_INPUT.stricterLimits,
-            maxTradeBps: 1_001,
-            minUsdcShareBps: 999,
+            maxTradeBps: 2_501,
+            minUsdcShareBps: 499,
           },
         }),
       );

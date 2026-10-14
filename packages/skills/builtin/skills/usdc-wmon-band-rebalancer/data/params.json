@@ -9,7 +9,7 @@
       "minTradeUsdcE6": "500000",
       "volatilityBrakeBps": 15000,
       "costHurdleBps": 30,
-      "maxLegBps": 1000
+      "maxLegBps": 2500
     },
     "BALANCED": {
       "targetWmonBps": 2000,
@@ -18,7 +18,7 @@
       "minTradeUsdcE6": "500000",
       "volatilityBrakeBps": 20000,
       "costHurdleBps": 40,
-      "maxLegBps": 1000
+      "maxLegBps": 2500
     },
     "AGGRESSIVE": {
       "targetWmonBps": 3000,
@@ -27,15 +27,15 @@
       "minTradeUsdcE6": "500000",
       "volatilityBrakeBps": 25000,
       "costHurdleBps": 50,
-      "maxLegBps": 1000
+      "maxLegBps": 2500
     }
   },
   "bounds": {
-    "targetWmonBps": [0, 4000],
+    "targetWmonBps": [0, 6000],
     "bandHalfWidthBps": [100, 1000],
     "minTradeUsdcE6": ["100000", "100000000"],
     "volatilityBrakeBps": [2000, 30000],
-    "costHurdleBps": [5, 50],
-    "maxLegBps": [10, 1000]
+    "costHurdleBps": [5, 150],
+    "maxLegBps": [10, 2500]
   }
 }

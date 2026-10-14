@@ -20,11 +20,11 @@ import { breakerMode } from "./checks.ts";
 
 /** The core's constants (CustodyCoreV3), checked against the contract by the parity test. */
 export const CUSTODY_V3 = Object.freeze({
-  maxTradeBps: 1_200,
-  maxAssetBps: 4_500,
+  maxTradeBps: 2_500,
+  maxAssetBps: 6_000,
   maxClassAPositionBps: 1_500,
   maxClassATotalBps: 5_000,
-  maxSlippageBps: 100,
+  maxSlippageBps: 200,
   maxDepegBps: 100,
   maxHeldTokens: 16,
   attestedPriceTtlSeconds: 86_400,
@@ -686,8 +686,16 @@ function newClock(): Clock {
 function replay(name: string, ops: readonly Op[]) {
   let state = emptyCustody();
   const c = newClock();
-  const steps = ops.map((o) => {
-    const r = step(state, c, o);
+  const steps = ops.map((o, i) => {
+    let r;
+    try {
+      r = step(state, c, o);
+    } catch (err) {
+      throw new Error(
+        `replay "${name}" step ${i}: ${err instanceof Error ? err.message : String(err)}`,
+        { cause: err },
+      );
+    }
     state = r.state;
     return r.record;
   });
@@ -893,12 +901,14 @@ export function buildCustodyCases() {
       dep("WMON", 3n * ONE_E18),
       POKE,
     ]),
-    replay("the 12% trade and 45% value backstops at their thresholds", [
+    // CO-U1: the owner's limits. 900 USDC of value: 25% is 225 USDC, 37.5 A at 6 USDC; then
+    // A at 975 of 1,800 USDC, so a 105 USDC buy reaches 60% exactly and 1.2 USDC more passes it.
+    replay("the 25% trade and 60% value backstops at their thresholds", [
       dep("USDC", 600n * E6),
       dep("A", 50n * ONE_E18),
-      sw("A", "USDC", 18_000_000_166_666_666_667n),
-      sw("A", "USDC", 18n * ONE_E18),
-      dep("A", 18n * ONE_E18),
+      sw("A", "USDC", 37_500_000_166_666_666_667n),
+      sw("A", "USDC", 37_500_000_000_000_000_000n),
+      dep("A", 150n * ONE_E18),
       sw("USDC", "A", 105n * E6),
       sw("USDC", "A", 1_200_000n),
       sw("A", "USDC", 10n * ONE_E18),
@@ -913,11 +923,11 @@ export function buildCustodyCases() {
       sw("D", "USDC", 5n * E6),
       wd("D", 20n * E6),
     ]),
-    replay("selling a token entirely removes it and its basis; a slow fill is refused at 1%", [
+    replay("selling a token entirely removes it and its basis; a slow fill is refused at 2%", [
       dep("USDC", 600n * E6),
       sw("USDC", "B", 40n * E6),
-      sw("B", "USDC", E8, 9_899n),
-      sw("B", "USDC", E8, 9_900n),
+      sw("B", "USDC", E8, 9_799n),
+      sw("B", "USDC", E8, 9_800n),
       sw("USDC", "A", 60n * E6, 9_950n),
       POKE,
     ]),

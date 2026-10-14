@@ -1,7 +1,12 @@
 import type { AgentState, ChainReader, MarketState } from "@alpha-agents/chain-tools";
 import { type TestDatabase, createTestDatabase, databaseAvailable } from "@alpha-agents/db/testing";
 import { DEFAULT_GOAL_INPUT } from "@alpha-agents/domain";
-import { LAUNCH_EXECUTOR_POLICY, LAUNCH_POLICY_HASH, translateGoal } from "@alpha-agents/policy";
+import {
+  LAUNCH_EXECUTOR_POLICY,
+  LAUNCH_LIMITS,
+  LAUNCH_POLICY_HASH,
+  translateGoal,
+} from "@alpha-agents/policy";
 import { DecisionStore, GoalStore, PlanStore, TradeStore } from "@alpha-agents/trading";
 import { type Hex, getAddress } from "viem";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
@@ -140,7 +145,8 @@ describe.skipIf(!dbUp)("the template runner (needs Postgres)", { timeout: 60_000
     });
 
   const goal = () => {
-    const r = translateGoal(DEFAULT_GOAL_INPUT);
+    // The v2 set's own limits (CO-U1: goals default to the v3 set's GOAL_LIMITS).
+    const r = translateGoal(DEFAULT_GOAL_INPUT, LAUNCH_LIMITS);
     if (!r.ok) throw new Error("goal");
     return r.config;
   };

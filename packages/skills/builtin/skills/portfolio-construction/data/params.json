@@ -53,12 +53,12 @@
   },
   "bounds": {
     "positions": [0, 12],
-    "targetWeightBps": [0, 4500],
+    "targetWeightBps": [0, 6000],
     "bandBps": [50, 2000],
     "cashTargetBps": [0, 10000],
     "minTradeUsdcE6": ["100000", "100000000"],
     "volatilityBrakeBps": [2000, 30000],
-    "costHurdleBps": [5, 100],
-    "maxLegBps": [10, 1200]
+    "costHurdleBps": [5, 200],
+    "maxLegBps": [10, 2500]
   }
 }

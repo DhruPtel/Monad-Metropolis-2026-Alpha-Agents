@@ -33,15 +33,15 @@ contract DeployExecutorV3 is DeployFund {
     /// Executor v3's launch policy (FINAL_PLAN 6.3, D-352, D-337): packages/policy's executorV3.LAUNCH_POLICY.
     function launchPolicy() public pure returns (PolicyV3 memory) {
         return PolicyV3({
-            maxTradeBps: 1_000,
-            maxAssetBps: 4_000,
-            minUsdcBps: 1_000,
-            maxSlippageBps: 50,
-            maxSlippageClassABps: 100,
+            maxTradeBps: 2_500,
+            maxAssetBps: 6_000,
+            minUsdcBps: 500,
+            maxSlippageBps: 150,
+            maxSlippageClassABps: 200,
             maxClassAPositionBps: 1_500,
             maxClassATotalBps: 5_000,
-            maxTurnoverBps: 10_000,
-            maxTradesPerWindow: 20,
+            maxTurnoverBps: 20_000,
+            maxTradesPerWindow: 48,
             windowSeconds: 86_400,
             deadlineSeconds: 120
         });
