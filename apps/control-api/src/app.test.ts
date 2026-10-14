@@ -2827,6 +2827,7 @@ describe.skipIf(!available)("the control API (needs pnpm dev:up for Postgres)", 
   describe("deposits and withdrawals (2026-10-13)", () => {
     it("lists them for anyone, read only, and says so where they are not read", async () => {
       const moneyEvents: MoneyEventsDeps = {
+        blockTime: async (b) => 1_790_000_000n + b,
         list: async (id) => [
           {
             kind: "deposit",
@@ -2843,6 +2844,34 @@ describe.skipIf(!available)("the control API (needs pnpm dev:up for Postgres)", 
           },
         ],
       };
+      // A credit top-up the indexer recorded on agent 7's funding address.
+      await t.db
+        .insertInto("indexer.usdc_transfers")
+        .values({
+          chain_id: env.chainId,
+          block_number: 900,
+          block_hash: `0x${"9".repeat(64)}`,
+          tx_hash: `0x${"7".repeat(64)}`,
+          log_index: 0,
+          from_address: "0x00000000000000000000000000000000000a11ce",
+          to_address: "0x00000000000000000000000000000000000f00d0",
+          value: "1500000",
+          agent_id: 7,
+          direction: "in",
+          account: "funding",
+        })
+        .execute();
+      const seven = await json(await call("/v1/agents/7/money-events", {}, { moneyEvents }));
+      expect(seven.events).toEqual([
+        expect.objectContaining({ kind: "deposit", account: "vault" }),
+        expect.objectContaining({
+          kind: "credit_top_up",
+          account: "credits",
+          amount: "1.5",
+          valueUsdcE6: "1500000",
+          at: new Date((1_790_000_000 + 900) * 1000).toISOString(),
+        }),
+      ]);
       const got = await call("/v1/agents/2/money-events", {}, { moneyEvents });
       expect(got.status).toBe(200);
       expect(await json(got)).toMatchObject({

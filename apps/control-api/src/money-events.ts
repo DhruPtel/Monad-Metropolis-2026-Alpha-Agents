@@ -20,8 +20,9 @@ import {
  */
 
 export interface MoneyEventJson {
-  readonly kind: "deposit" | "withdrawal";
-  readonly account: "trading" | "vault";
+  readonly kind: "deposit" | "withdrawal" | "credit_top_up";
+  /** Where the money went: the trading account, the vault, or the agent's research credits. */
+  readonly account: "trading" | "vault" | "credits";
   /** Who deposited or redeemed (the vault's depositor; the trading account's owner side is implied). */
   readonly who: Hex | null;
   readonly symbol: string;
@@ -40,6 +41,8 @@ export interface MoneyEventJson {
 
 export interface MoneyEventsDeps {
   readonly list: (agentId: number) => Promise<readonly MoneyEventJson[]>;
+  /** A block's time, for events the indexer recorded by block alone (credit top-ups). */
+  readonly blockTime: (block: bigint) => Promise<bigint>;
 }
 
 const NFT_ABI = parseAbi(["function ownerOf(uint256 agentId) view returns (address)"]);
@@ -191,6 +194,7 @@ export function moneyEvents(chain: MoneyEventsChain, o: MoneyEventsOptions): Mon
   }
 
   return {
+    blockTime: timeOf,
     async list(agentId) {
       const owner = (await chain.read({
         address: o.agentNft,

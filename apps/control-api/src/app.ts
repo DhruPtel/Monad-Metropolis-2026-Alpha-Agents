@@ -26,12 +26,12 @@ import {
 } from "./proposals.ts";
 import type { ActivationDeps } from "./activation.ts";
 import type { ResearchRunDeps } from "./research-run.ts";
-import type { MoneyEventsDeps } from "./money-events.ts";
+import type { MoneyEventJson, MoneyEventsDeps } from "./money-events.ts";
 import { listReports, readReport, reportLinks } from "./reports.ts";
 import type { WindowDeps } from "./window.ts";
 import type { ResearchDeps } from "./research.ts";
 import { cors } from "hono/cors";
-import { type Address, type Hex, getAddress, isAddress, isAddressEqual } from "viem";
+import { type Address, type Hex, formatUnits, getAddress, isAddress, isAddressEqual } from "viem";
 import { translateGoal } from "@alpha-agents/policy";
 import {
   ActivationStore,
@@ -1052,7 +1052,34 @@ export function createApp(deps: ApiDeps): Hono {
         "not_configured",
         "Deposits and withdrawals are not read on this network.",
       );
-    const events = await deps.moneyEvents.list(Number(agentId));
+    const m = deps.moneyEvents;
+    // Credit top-ups: USDC into the agent's funding address, as the indexer recorded it.
+    const topUps = await deps.db
+      .selectFrom("indexer.usdc_transfers")
+      .select(["block_number", "tx_hash", "value", "from_address"])
+      .where("chain_id", "=", chainId)
+      .where("agent_id", "=", Number(agentId))
+      .where("account", "=", "funding")
+      .where("direction", "=", "in")
+      .execute();
+    const credits: MoneyEventJson[] = await Promise.all(
+      topUps.map(async (t) => ({
+        kind: "credit_top_up" as const,
+        account: "credits" as const,
+        who: t.from_address as Hex,
+        symbol: "USDC",
+        amount: formatUnits(BigInt(t.value), 6),
+        valueUsdcE6: BigInt(t.value).toString(),
+        inKind: false,
+        leaderStake: false,
+        txHash: t.tx_hash as Hex,
+        block: String(t.block_number),
+        at: new Date(Number(await m.blockTime(BigInt(t.block_number))) * 1000).toISOString(),
+      })),
+    );
+    const events = [...(await m.list(Number(agentId))), ...credits].sort((x, y) =>
+      x.at === y.at ? 0 : x.at < y.at ? 1 : -1,
+    );
     return c.json({ ...(await meta()), agentId: agentId.toString(), events });
   });
 
