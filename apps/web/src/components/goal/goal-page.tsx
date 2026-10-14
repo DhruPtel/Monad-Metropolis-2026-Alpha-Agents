@@ -245,6 +245,8 @@ export function GoalPage({
                 value: l.id,
                 title: l.label,
                 line: STYLE_LINE[l.id],
+                // 2026-10-13: the owner's style icons (public/icons/goal).
+                art: `/icons/goal/${l.id.toLowerCase()}.png`,
               }))}
             />
           </Block>

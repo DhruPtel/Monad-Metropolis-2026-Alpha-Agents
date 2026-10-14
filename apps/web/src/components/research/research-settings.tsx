@@ -22,6 +22,7 @@ import {
   SelectValue,
   usdcCents as usdc,
 } from "@alpha-agents/ui";
+import Image from "next/image";
 import { goalChanged } from "@/agent/goal";
 import { useGoal } from "@/agent/use-goal";
 
@@ -59,7 +60,17 @@ export function ResearchSettings({ agentId }: { agentId: bigint }) {
                 <SelectContent>
                   {page.form.tiers.map((t) => (
                     <SelectItem key={t.id} value={t.id}>
-                      {t.label}: {t.model}
+                      <span className="flex items-center gap-2">
+                        {/* 2026-10-13: the owner's intelligence icons (public/icons/intelligence). */}
+                        <Image
+                          src={`/icons/intelligence/${t.id.toLowerCase()}.svg`}
+                          alt=""
+                          width={20}
+                          height={20}
+                          className="size-5"
+                        />
+                        {t.label}: {t.model}
+                      </span>
                     </SelectItem>
                   ))}
                 </SelectContent>

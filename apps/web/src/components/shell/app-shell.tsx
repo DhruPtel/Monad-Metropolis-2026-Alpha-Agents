@@ -1,6 +1,7 @@
 "use client";
 
 import { Bell, Menu, X } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { type ReactNode, useState } from "react";
@@ -78,7 +79,14 @@ function AppShell({ environment, children }: { environment: string; children: Re
             href="/"
             className="flex items-center gap-2 rounded-md outline-none is-focus:focus-ring"
           >
-            <span aria-hidden className="size-3 rotate-45 rounded-sm border-2 border-primary" />
+            <Image
+              src="/brand/vivarium-logo.png"
+              alt=""
+              width={28}
+              height={28}
+              className="size-7"
+              priority
+            />
             <span className="text-base font-semibold tracking-tight whitespace-nowrap">
               Vivarium
             </span>

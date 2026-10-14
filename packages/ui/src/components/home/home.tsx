@@ -65,10 +65,13 @@ function HomeHero({
   stats,
   below,
   visual,
+  action,
   className,
 }: {
   title: string;
   lede: string;
+  /** 2026-10-13: the hero's main action under the description ("Mint an agent"). */
+  action?: ReactNode;
   stats: readonly HomeStatView[];
   below?: ReactNode;
   /** The right side; HeroVisualSlot reserves it until the visual exists. */
@@ -85,6 +88,7 @@ function HomeHero({
           <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
           <p className="text-sm leading-relaxed text-foreground-muted">{lede}</p>
         </div>
+        {action ? <div className="flex flex-wrap gap-2">{action}</div> : null}
         <ul className="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-xs" aria-label="Network">
           {stats.map((s, i) => (
             <li
@@ -110,11 +114,11 @@ function HomeHero({
   );
 }
 
-/** Holds the hero's right side, square, for a visual to come; a faint ring marks it. */
-function HeroVisualSlot({ className }: { className?: string }) {
+/** Holds the hero's right side, square; a faint ring marks it, around the visual when one is given. */
+function HeroVisualSlot({ children, className }: { children?: ReactNode; className?: string }) {
   return (
     <div
-      aria-hidden
+      aria-hidden={children ? undefined : true}
       data-testid="hero-visual-slot"
       className={cn(
         "relative hidden aspect-square w-full max-w-120 items-center justify-center justify-self-end lg:flex",
@@ -123,6 +127,9 @@ function HeroVisualSlot({ className }: { className?: string }) {
     >
       <span className="absolute inset-6 rounded-full border border-dashed border-border" />
       <span className="absolute inset-20 rounded-full border border-border/50" />
+      {children ? (
+        <div className="relative flex size-2/3 items-center justify-center">{children}</div>
+      ) : null}
     </div>
   );
 }
@@ -138,7 +145,7 @@ export interface FlowPillView {
 function FlowPills({ steps, className }: { steps: readonly FlowPillView[]; className?: string }) {
   return (
     <ol
-      className={cn("flex flex-wrap items-center gap-1.5 sm:gap-x-0 sm:gap-y-2", className)}
+      className={cn("flex flex-wrap items-center gap-2 sm:gap-x-0 sm:gap-y-3", className)}
       aria-label="Where the money goes"
       data-testid="flow-pills"
     >
@@ -148,12 +155,12 @@ function FlowPills({ steps, className }: { steps: readonly FlowPillView[]; class
             <span
               aria-hidden
               className={cn(
-                "hidden h-px sm:block sm:w-8",
+                "hidden h-px sm:block sm:w-10",
                 s.active ? "bg-primary-muted motion-safe:animate-slot-pulse" : "bg-border",
               )}
             />
           ) : null}
-          <span className="flex items-baseline gap-1 rounded-full border px-2 py-0.5 text-2xs sm:gap-1.5 sm:px-2.5">
+          <span className="flex items-baseline gap-1.5 rounded-full border px-3 py-1 text-sm sm:gap-2 sm:px-4 sm:py-1.5">
             <span className="text-foreground-muted">{s.label}</span>
             <span className="numeric font-semibold text-foreground">{s.value}</span>
           </span>

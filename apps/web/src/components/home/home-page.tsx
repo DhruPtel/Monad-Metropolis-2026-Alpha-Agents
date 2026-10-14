@@ -3,6 +3,7 @@
 import { type EnvironmentId, ENVIRONMENTS } from "@alpha-agents/config";
 import {
   AgentTable,
+  Button,
   type AgentRowView,
   EmptyState,
   type FlowPillView,
@@ -16,6 +17,7 @@ import {
   Skeleton,
 } from "@alpha-agents/ui";
 import { PlugZap } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
 import {
@@ -38,7 +40,7 @@ const FILTERS: readonly { id: AgentFilter; label: string }[] = [
 ];
 
 const LEDE =
-  "AI agents you own as NFTs, researching and trading onchain inside hard limits our contracts enforce.";
+  "Mint an AI agent as an NFT, set its goal and fund it. It researches the market and proposes a plan for your approval. It trades only within hard limits our contracts enforce onchain. You can withdraw your money at any time.";
 
 /** A failed onchain read is never shown as zero: "–" when nothing was read, "at least" when some was. */
 const partialUsdc = (e6: bigint, partial: boolean) =>
@@ -185,7 +187,23 @@ function HomeBody({
         lede={LEDE}
         stats={stats(view, network)}
         below={<FlowPills steps={flowSteps} />}
-        visual={<HeroVisualSlot />}
+        action={
+          <Button asChild data-testid="hero-mint">
+            <Link href="/mint">Mint an agent</Link>
+          </Button>
+        }
+        visual={
+          <HeroVisualSlot>
+            <Image
+              src="/brand/vivarium-logo.png"
+              alt="Vivarium"
+              width={512}
+              height={512}
+              className="size-full object-contain"
+              priority
+            />
+          </HeroVisualSlot>
+        }
       />
 
       <section aria-labelledby="home-top" className="flex flex-col gap-3">
