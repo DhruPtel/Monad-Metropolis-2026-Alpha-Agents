@@ -1,0 +1,7 @@
+[Unit]
+Description=Vivarium nightly database backup
+After=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/opt/vivarium/src/infra/server/backup.sh

@@ -12,6 +12,8 @@
 //   pnpm host:up      starts the guard, the tunnel and the registrar; prints the public URL
 //   pnpm host:down    stops them
 //   pnpm host:status  the public URL and whether each part runs
+//   node scripts/host-tunnel.js guard  the guard alone, in the foreground (the
+//                     cloud server, docs/HOSTING.md: Caddy in front, no tunnel)
 //
 // HOST_WEB_ORIGINS (comma-separated) names the web app's origins besides
 // localhost:3000, such as the Vercel deployment's. Prints no key or RPC URL.
@@ -31,6 +33,8 @@ import { alive } from "./lib/dev-all.js";
 
 const API = { host: "127.0.0.1", port: 4100 };
 const GUARD_PORT = Number(process.env.HOST_GUARD_PORT ?? 4190);
+// The cloud server's guard listens where Caddy, in another container, reaches it.
+const GUARD_HOST = process.env.HOST_GUARD_HOST?.trim() || "127.0.0.1";
 const STATE_PATH = join(DEV_DIR, "host.json");
 const LOG_PATH = join(DEV_DIR, "host.log");
 const TUNNEL_LOG_PATH = join(DEV_DIR, "host-tunnel.log");
@@ -171,7 +175,7 @@ function startGuard() {
   });
   return new Promise((resolve, reject) => {
     server.on("error", reject);
-    server.listen(GUARD_PORT, "127.0.0.1", () => resolve(server));
+    server.listen(GUARD_PORT, GUARD_HOST, () => resolve(server));
   });
 }
 
@@ -318,7 +322,12 @@ const command = process.argv[2];
 if (command === "up") await up();
 else if (command === "down") down();
 else if (command === "status") status();
-else {
-  console.error("usage: node scripts/host-tunnel.js up | down | status");
+else if (command === "guard") {
+  await startGuard();
+  console.log(
+    `guard on ${GUARD_HOST}:${GUARD_PORT} forwarding /health and /v1/* to the control API on ${API.port}; CORS allows localhost:3000${readOrigins().length ? ` and ${readOrigins().join(", ")}` : ""}`,
+  );
+} else {
+  console.error("usage: node scripts/host-tunnel.js up | down | status | guard");
   process.exit(2);
 }

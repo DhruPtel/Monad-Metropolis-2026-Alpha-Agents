@@ -1,0 +1,7 @@
+[Unit]
+Description=Vivarium monitor (services, public API, operator wallet balances)
+After=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/opt/vivarium/src/infra/server/monitor.sh

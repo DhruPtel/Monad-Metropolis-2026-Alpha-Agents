@@ -1,0 +1,203 @@
+# The testnet backend on the cloud server (docs/HOSTING.md): the services `pnpm testnet:up` and
+# `pnpm host:up` run on the laptop, with Caddy in place of the quick tunnel. Run from
+# /opt/vivarium/src with `docker compose --env-file /opt/vivarium/.env -f infra/server/compose.yaml`.
+# /opt/vivarium/.env (root only, mode 600) holds the secrets; it is mounted read-only as each app
+# service's .env, which the services load themselves (process.loadEnvFile never overrides the
+# values set here). Only Caddy publishes ports (80 and 443); nothing else is reachable from outside.
+name: vivarium
+
+x-app: &app
+  image: vivarium-backend:${VIVARIUM_REVISION:-latest}
+  restart: always
+  init: true
+  # The app services share one network namespace (app-net's), so they reach each other on
+  # 127.0.0.1 exactly as on the laptop; the orchestrator's internal API stays loopback-only.
+  network_mode: service:app-net
+  volumes:
+    - /opt/vivarium/.env:/app/.env:ro
+    - app-dev:/app/.dev
+  environment: &app-env
+    APP_ENV: testnet
+    DATABASE_URL: postgres://alpha:${POSTGRES_PASSWORD:?}@postgres:5432/alpha_agents_testnet
+    REDIS_URL: redis://redis:6379/1
+    LITELLM_BASE_URL: http://litellm:4000
+    CONTROL_API_PORT: "4100"
+    CONTROL_API_URL: http://127.0.0.1:4100
+    ORCHESTRATOR_PORT: "4200"
+    ORCHESTRATOR_URL: http://127.0.0.1:4200
+    APP_PUBLIC_URL: https://vivarium-testnet.vercel.app
+    MINT_OPEN: "on"
+    # The owner's playtest wallets and the test wallet (scripts/testnet-stack.js's default).
+    DEMO_RESEARCH_ALLOWLIST: ${DEMO_RESEARCH_ALLOWLIST:-0x683ee842a16f85e69883f433745263bfe8d55f76,0x32838fe90541567bbf77fa0570661f3c20e2b152,0xc8821706961bcac0e95441308083644eff444871,0xc7fcA8F663b8a20f8aFcCdd92E031678423AC2c8}
+    DEMO_DAILY_MODEL_BUDGET_USD: ${DEMO_DAILY_MODEL_BUDGET_USD:-5}
+  depends_on:
+    app-net:
+      condition: service_started
+    postgres:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+  healthcheck: &app-health
+    interval: 30s
+    timeout: 15s
+    retries: 4
+    start_period: 120s
+
+services:
+  postgres:
+    image: postgres:16.15-alpine3.24@sha256:721873c34ceb9f8d8fc265984940dc982404c105f19ad51be9fdc5970a6080ea
+    restart: always
+    environment:
+      POSTGRES_USER: alpha
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?}
+      POSTGRES_DB: alpha_agents
+    mem_limit: 512m
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - /opt/vivarium/backups:/backups
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U alpha -d alpha_agents_testnet"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7.4.11-alpine3.21@sha256:858f009f9709ce576febc734aa78b8f6d624b82571f9ddb6bda4377c833b3499
+    command: ["redis-server", "--appendonly", "yes"]
+    restart: always
+    mem_limit: 256m
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  # The model gateway, as `pnpm dev:litellm` runs it; virtual keys and spend live in the
+  # litellm schema of the alpha_agents database (restored from the laptop).
+  litellm:
+    image: ghcr.io/berriai/litellm:v1.103.2@sha256:f63fb81b831b170ec16851e23c36ac5bf52ef106b271406429524a2ed730bbfd
+    command: ["--config", "/etc/litellm/config.yaml", "--port", "4000"]
+    restart: always
+    environment:
+      LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY:?}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:?}
+      DATABASE_URL: postgresql://alpha:${POSTGRES_PASSWORD:?}@postgres:5432/alpha_agents?schema=litellm
+      LITELLM_TELEMETRY: "False"
+    mem_limit: 1g
+    volumes:
+      - ../litellm:/etc/litellm:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          'python3 -c "import urllib.request; urllib.request.urlopen(''http://127.0.0.1:4000/health/liveliness'')"',
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 120s
+
+  # Holds the app services' shared network namespace; it does nothing else, so it never restarts
+  # under them.
+  app-net:
+    image: vivarium-backend:${VIVARIUM_REVISION:-latest}
+    command: ["node", "-e", "setInterval(() => {}, 1 << 30)"]
+    restart: always
+    init: true
+    mem_limit: 64m
+    healthcheck:
+      test: ["CMD", "node", "-e", "0"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+
+  indexer:
+    <<: *app
+    command: ["node", "services/indexer/src/main.ts"]
+    mem_limit: 512m
+    healthcheck:
+      <<: *app-health
+      test: ["CMD", "node", "scripts/server-health.js", "indexer"]
+
+  api:
+    <<: *app
+    command: ["node", "apps/control-api/src/main.ts"]
+    mem_limit: 512m
+    healthcheck:
+      <<: *app-health
+      test: ["CMD", "node", "scripts/server-health.js", "http", "http://127.0.0.1:4100/health"]
+
+  # The keeper, the signer, the trade flow, credits, the token registrar and the on-demand feed
+  # re-dates all run inside the orchestrator, as on the laptop.
+  orchestrator:
+    <<: *app
+    command: ["node", "services/orchestrator/src/main.ts"]
+    mem_limit: 1g
+    healthcheck:
+      <<: *app-health
+      test: ["CMD", "node", "scripts/server-health.js", "http", "http://127.0.0.1:4200/health"]
+
+  # P-SWEEP (D-384): Base's tokens in the research table, every hour.
+  research-base:
+    <<: *app
+    command: ["node", "services/orchestrator/src/research-discovery.ts"]
+    environment:
+      <<: *app-env
+      MARKET_CHAIN: base
+    mem_limit: 384m
+    healthcheck:
+      <<: *app-health
+      test: ["CMD", "node", "scripts/server-health.js", "db"]
+
+  # The testnet depositor registrar (pnpm host:up's): agent owners join the factory allowlist.
+  registrar:
+    <<: *app
+    command: ["node", "scripts/testnet-depositors.js", "watch"]
+    mem_limit: 256m
+    healthcheck:
+      <<: *app-health
+      test: ["CMD", "node", "scripts/server-health.js", "db"]
+
+  # The public guard (pnpm host:up's, without the tunnel): /health and /v1/* only, CORS, rate limits.
+  guard:
+    <<: *app
+    command: ["node", "scripts/host-tunnel.js", "guard"]
+    environment:
+      HOST_GUARD_HOST: 0.0.0.0
+      HOST_WEB_ORIGINS: https://vivarium-testnet.vercel.app
+    mem_limit: 256m
+    healthcheck:
+      <<: *app-health
+      test: ["CMD", "node", "scripts/server-health.js", "http", "http://127.0.0.1:4190/health"]
+
+  caddy:
+    image: caddy:2.10.2-alpine
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      # Directories, not single files, so a deploy that replaces the file is seen on restart.
+      - ./caddy:/etc/caddy:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    mem_limit: 128m
+    depends_on:
+      - app-net
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:2019/config/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  postgres-data:
+  redis-data:
+  app-dev:
+  caddy-data:
+  caddy-config:
