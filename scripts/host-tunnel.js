@@ -24,6 +24,7 @@ import {
   rmSync,
   writeFileSync,
 } from "node:fs";
+import { timingSafeEqual } from "node:crypto";
 import { createServer, request as httpRequest } from "node:http";
 import { join } from "node:path";
 import { DEV_DIR, ROOT } from "./lib/paths.js";
@@ -88,8 +89,28 @@ function overLimit(key, perMinute) {
   hits.set(key, list);
   return false;
 }
+/**
+ * 2026-10-14: the hosted site forwards its visitors' requests from Vercel's addresses, adding
+ * each visitor's own IP and PROXY_SHARED_SECRET (apps/web/src/api/proxy.ts). The forwarded IP
+ * counts only with the right secret; anything else, a direct call included, is limited by the
+ * address it comes from. The secret is never logged or passed on.
+ */
+const CLIENT_IP_HEADER = "x-vivarium-client-ip";
+const PROXY_SECRET_HEADER = "x-vivarium-proxy-secret";
+const PROXY_SECRET = Buffer.from(process.env.PROXY_SHARED_SECRET?.trim() ?? "");
+/** @param {import("node:http").IncomingMessage} req @returns {string | null} */
+function proxiedClient(req) {
+  const got = req.headers[PROXY_SECRET_HEADER];
+  if (PROXY_SECRET.length === 0 || typeof got !== "string") return null;
+  const given = Buffer.from(got);
+  if (given.length !== PROXY_SECRET.length || !timingSafeEqual(given, PROXY_SECRET)) return null;
+  const ip = req.headers[CLIENT_IP_HEADER];
+  return typeof ip === "string" && /^[0-9a-fA-F:.]{3,45}$/.test(ip.trim()) ? ip.trim() : null;
+}
 /** @param {import("node:http").IncomingMessage} req */
 function clientOf(req) {
+  const proxied = proxiedClient(req);
+  if (proxied) return `${proxied} (via the site)`;
   const cf = req.headers["cf-connecting-ip"];
   const fwd = req.headers["x-forwarded-for"];
   const raw =
@@ -150,6 +171,8 @@ function startGuard() {
     const headers = { ...req.headers };
     delete headers.host;
     delete headers.origin;
+    delete headers["x-vivarium-client-ip"];
+    delete headers["x-vivarium-proxy-secret"];
     const upstream = httpRequest(
       { host: API.host, port: API.port, method, path: req.url ?? "/", headers },
       (up) => {

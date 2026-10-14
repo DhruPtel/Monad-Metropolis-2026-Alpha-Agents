@@ -26,12 +26,9 @@ describe("the hosted build's same-origin API path (2026-10-14)", () => {
   const hosted = { WEB_API_PROXY: "1", CONTROL_API_URL: "https://api.example.test/" };
 
   it.each(["phase-production-build", "phase-production-server", DEV])(
-    "forwards /api to the control API in %s when asked",
+    "gives the browser /api in %s when asked, forwarded by the route, not a rewrite",
     (phase) => {
-      expect(devApiProxy(phase, hosted)).toEqual({
-        browserPath: "/api",
-        rewrites: [{ source: "/api/:path*", destination: "https://api.example.test/:path*" }],
-      });
+      expect(devApiProxy(phase, hosted)).toEqual({ browserPath: "/api", rewrites: [] });
     },
   );
 
