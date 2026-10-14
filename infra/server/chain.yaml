@@ -13,6 +13,12 @@ x-app: &app
   restart: always
   init: true
   network_mode: service:app-net
+  # CO-U1: a chain's own keys where it must not share the Monad stack's (the new Monad stack's
+  # funding seed and reveal keeper, so its agents' funding addresses never meet the old ones').
+  # Root only, mode 600; values here win over the shared .env.
+  env_file:
+    - path: /opt/vivarium/chain-${CHAIN:?}.env
+      required: false
   volumes:
     - /opt/vivarium/.env:/app/.env:ro
     - app-dev:/app/.dev
