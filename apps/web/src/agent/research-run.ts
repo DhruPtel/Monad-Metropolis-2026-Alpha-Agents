@@ -494,11 +494,16 @@ export function factPhases(
 ): PhaseView[] {
   const facts = factSummaries(body);
   const fromEvents = new Map(phases(events, finishedAt).map((p) => [p.id, p]));
+  // 2026-10-13: each phase also explains itself live, from its calls as they land.
+  const calls = runCalls(events);
+  const live = (id: string) =>
+    liveSummary(calls.filter((c) => PHASE_OF_STAGE[c.stage ?? ""] === id)).slice(-4);
   const out: PhaseView[] = [];
   for (const p of PHASES) {
     const seen = fromEvents.get(p.id);
     const f = facts[p.id];
-    if (!seen && !f) continue;
+    const now = live(p.id);
+    if (!seen && !f && now.length === 0) continue;
     out.push({
       id: p.id,
       title: p.id === "overview" ? "Market" : p.title,
@@ -508,14 +513,217 @@ export function factPhases(
           ? (seen?.summary ?? [NO_FACTS])
           : f && f.length > 0
             ? f
-            : [
-                body
-                  ? NO_FACTS
-                  : "The facts for this phase come with the report when the run ends.",
-              ],
+            : now.length > 0
+              ? now
+              : [body ? NO_FACTS : "Nothing recorded in this phase yet."],
       time: seen?.time ?? "",
       details: seen?.details ?? [],
     });
   }
   return out;
 }
+
+/** One call of a run (2026-10-13): its request line paired with its result line. */
+export interface RunCall {
+  readonly id: string;
+  readonly at: string;
+  readonly stage: string | null;
+  /** The Dive's token symbol, when the stage is a Dive on one. */
+  readonly token: string | null;
+  readonly tool: string;
+  readonly lane: LaneId | null;
+  /** What it asked for: the query, or the request line in plain words. */
+  readonly request: string;
+  /** What came back, as the platform recorded it; null while it runs. */
+  readonly result: string | null;
+  readonly failed: boolean;
+  readonly chargeUsdc: number;
+  /** The sites a search's results came from. */
+  readonly sites: readonly string[];
+  readonly count: number | null;
+}
+
+const quoted = (s: string) => /"([^"]+)"/.exec(s)?.[1] ?? null;
+
+/** Every data call of the run, request paired with result, in time order (platform calls left out). */
+export function runCalls(events: readonly TerminalEventJson[]): RunCall[] {
+  const out: RunCall[] = [];
+  const open = new Map<string, number>();
+  let dive: string | null = null;
+  for (const e of events) {
+    if (e.kind === "stage" && e.stage === "DIVE") {
+      const t = /Dive on TOKEN_([A-Z0-9]+)/.exec(e.text)?.[1];
+      if (t) dive = t;
+    }
+    if (e.kind !== "tool") continue;
+    const tool = toolOf(e.text);
+    if (!tool || !LANE_OF[tool]) continue;
+    const body = rest(e.text, `${tool}:`);
+    const key = `${e.stage ?? ""}:${tool}`;
+    if (e.tone === "info") {
+      out.push({
+        id: `c-${e.seq}`,
+        at: e.at,
+        stage: e.stage,
+        token: e.stage === "DIVE" ? dive : null,
+        tool,
+        lane: LANE_OF[tool] ?? null,
+        request: body,
+        result: null,
+        failed: false,
+        chargeUsdc: 0,
+        sites: [],
+        count: null,
+      });
+      open.set(key, out.length - 1);
+      continue;
+    }
+    // A result line: the latest open call of the same tool in the stage, or one of its own.
+    const i = open.get(key);
+    const charge = Number(/charged ([\d.]+) USDC/.exec(body)?.[1] ?? 0);
+    const sites =
+      /results? from ([^;]+)/
+        .exec(body)?.[1]
+        ?.split(/,\s*/)
+        .map((x) => x.trim()) ?? [];
+    const count = Number(/^(\d+) results?/.exec(body)?.[1] ?? Number.NaN);
+    const patch = {
+      result: body,
+      failed: e.tone === "bad" || e.tone === "warn",
+      chargeUsdc: charge,
+      sites,
+      count: Number.isNaN(count) ? null : count,
+    };
+    if (i !== undefined && out[i] && out[i].result === null) {
+      out[i] = { ...out[i], ...patch };
+      open.delete(key);
+    } else
+      out.push({
+        id: `c-${e.seq}`,
+        at: e.at,
+        stage: e.stage,
+        token: e.stage === "DIVE" ? dive : null,
+        tool,
+        lane: LANE_OF[tool] ?? null,
+        request: "",
+        ...patch,
+      });
+  }
+  return out;
+}
+
+const STAGE_WHY: Readonly<Record<string, string>> = {
+  SCAN: "for the market read and to choose the tokens to research",
+  DIVE: "to research the token in depth",
+  CHALLENGE: "to test the research",
+  ZOOM_OUT: "for the whole-portfolio view",
+};
+
+/** A call in two or three plain sentences: what it looked up and why, and what came back. */
+export function describeCall(c: RunCall): { what: string; got: string | null } {
+  const why = c.token ? `to research ${c.token}` : (STAGE_WHY[c.stage ?? ""] ?? "for the research");
+  const q = quoted(c.request);
+  const what =
+    c.tool === "web_search"
+      ? `Searched the web for "${q ?? c.request}" ${why}.`
+      : c.tool === "x_search"
+        ? `Searched X for "${q ?? c.request}" for what people are saying now, ${why}.`
+        : c.tool === "read_url"
+          ? `Read a page ${why}.`
+          : c.tool === "market_snapshot"
+            ? "Read the overall market: MON's price and 24-hour move, Monad's total value locked, DEX volume and the biggest protocols."
+            : c.tool === "list_tokens"
+              ? "Listed the tokens the platform tracks, with their CoinMarketCap rank, liquidity and volume, to sort them into degen, growth and conservative."
+              : c.tool === "new_pools"
+                ? "Read the pools created in the last three days, to spot new tokens."
+                : c.tool === "screen_token"
+                  ? `Ran the safety screen${c.token ? ` on ${c.token}` : ""}: a simulated buy and sell, the owner's powers and the pool.`
+                  : c.tool === "lookup_token"
+                    ? `Looked up ${c.token ?? "the token"}: what it is, its pools and liquidity.`
+                    : c.tool === "find_pools"
+                      ? `Found ${c.token ?? "the token"}'s pools and their liquidity.`
+                      : c.tool === "get_portfolio"
+                        ? "Read the account's holdings."
+                        : `${capital(c.tool.replaceAll("_", " "))} ${why}.`;
+  if (c.result === null) return { what, got: null };
+  if (c.failed) return { what, got: `It did not answer: ${plain(c.result)}` };
+  const got =
+    c.sites.length > 0
+      ? `${c.count ?? c.sites.length} results came back, from ${c.sites.join(", ")}.`
+      : c.tool === "x_search" && c.count !== null
+        ? `${c.count} posts came back.`
+        : c.count !== null
+          ? `${c.count} came back.`
+          : /verdict (\w+)/.test(c.result)
+            ? `The screen ${/verdict (\w+)/.exec(c.result)?.[1]}.`
+            : "It answered.";
+  return { what, got };
+}
+
+/** A phase's live description: the plain sentence of each of its calls, in order, each once. */
+export function liveSummary(calls: readonly RunCall[]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const c of calls) {
+    const s = describeCall(c).what;
+    if (!seen.has(s)) {
+      seen.add(s);
+      out.push(s);
+    }
+  }
+  return out;
+}
+
+const PHASE_OF_STAGE: Readonly<Record<string, string>> = {
+  SCAN: "scan",
+  DIVE: "dive",
+  CHALLENGE: "challenge",
+  ZOOM_OUT: "zoom",
+  TEST: "test",
+};
+
+/** The research record over the chart: steps, sources read, tokens examined, cost and time. */
+export function runRecord(
+  events: readonly TerminalEventJson[],
+  o: {
+    readonly chargedUsdcE6: string | null;
+    readonly startedAt: string | null;
+    readonly finishedAt: string | null;
+    readonly now: string;
+  },
+) {
+  const calls = runCalls(events);
+  const sources = calls
+    .filter((c) => c.lane === "web" || c.lane === "x")
+    .reduce((n, c) => n + (c.count ?? c.sites.length), 0);
+  const tokens = new Set(
+    events
+      .filter((e) => e.kind === "stage" && e.stage === "DIVE")
+      .map((e) => /Dive on TOKEN_([A-Z0-9]+)/.exec(e.text)?.[1])
+      .filter(Boolean),
+  );
+  const end = o.finishedAt ? Date.parse(o.finishedAt) : Date.parse(o.now);
+  const ms = o.startedAt ? Math.max(0, end - Date.parse(o.startedAt)) : null;
+  return {
+    steps: calls.length,
+    sourcesRead: sources,
+    tokensExamined: tokens.size,
+    costUsdc: o.chargedUsdcE6 === null ? null : Number(o.chargedUsdcE6) / 1e6,
+    elapsed:
+      ms === null ? null : `${Math.floor(ms / 60_000)} min ${Math.floor((ms % 60_000) / 1000)} s`,
+  };
+}
+
+/** What a live run is doing now (2026-10-13): its stage and its latest call, in a few words. */
+export function currentStep(events: readonly TerminalEventJson[]): string | null {
+  const calls = runCalls(events);
+  const last = calls.at(-1);
+  const stage = [...events].reverse().find((e) => e.kind === "stage" && e.stage)?.stage ?? null;
+  if (!stage) return null;
+  const name = STAGE_NAME[stage] ?? stage;
+  if (!last || last.stage !== stage) return `${name}: starting`;
+  const what = describeCall(last).what.replace(/\.$/, "");
+  return `${name}: ${what.charAt(0).toLowerCase()}${what.slice(1)}`;
+}
+
+export { PHASE_OF_STAGE };

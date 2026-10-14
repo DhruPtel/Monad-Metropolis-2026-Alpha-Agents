@@ -4,7 +4,7 @@ import { type EnvironmentId, ENVIRONMENTS } from "@alpha-agents/config";
 import { Button, EmptyState, ResearchReportDocument, Skeleton } from "@alpha-agents/ui";
 import { ArrowLeft, Download, PlugZap, Wallet } from "lucide-react";
 import Link from "next/link";
-import { useCallback } from "react";
+import { useCallback, useEffect } from "react";
 import { printReport, reportView } from "@/agent/report-view";
 import { useReport } from "@/agent/use-reports";
 
@@ -24,6 +24,18 @@ export function ReportPage({
   cycleId: string;
 }) {
   const { report, error, wallet } = useReport(agentId, cycleId);
+  // 2026-10-13: this browser remembers the report was opened, so the Research tab drops its New badge.
+  useEffect(() => {
+    if (!report) return;
+    try {
+      const key = `aa-reports-opened-${agentId.toString()}`;
+      const seen = JSON.parse(localStorage.getItem(key) ?? "[]") as string[];
+      if (!seen.includes(cycleId))
+        localStorage.setItem(key, JSON.stringify([...seen, cycleId].slice(-50)));
+    } catch {
+      // A browser without storage shows the badge again; nothing else depends on it.
+    }
+  }, [agentId, cycleId, report]);
   const name = `Agent #${agentId.toString()}`;
   const download = useCallback(() => {
     printReport(window, name, cycleId);

@@ -2,6 +2,10 @@ import { describe, expect, it } from "vitest";
 import type { StoredReportJson, TerminalEventJson } from "@/api/client";
 import {
   branches,
+  currentStep,
+  describeCall,
+  runCalls,
+  runRecord,
   factPhases,
   factSummaries,
   levelOf,
@@ -305,8 +309,11 @@ describe("What happened, from the report's facts (2026-10-13)", () => {
 
   it("says so in one line when a phase has no facts, or the run has no report yet", () => {
     const none = factPhases(events, "2026-10-13T17:48:40.000Z", null);
+    // Without a report, a phase explains itself from its calls as they land.
     expect(none.find((p) => p.id === "scan")?.summary).toEqual([
-      "The facts for this phase come with the report when the run ends.",
+      "Read the overall market: MON's price and 24-hour move, Monad's total value locked, DEX volume and the biggest protocols.",
+      "Listed the tokens the platform tracks, with their CoinMarketCap rank, liquidity and volume, to sort them into degen, growth and conservative.",
+      'Searched the web for "MON unlock" for the market read and to choose the tokens to research.',
     ]);
     const thin = factPhases(events, "2026-10-13T17:48:40.000Z", {
       ...body,
@@ -315,5 +322,70 @@ describe("What happened, from the report's facts (2026-10-13)", () => {
     } as StoredReportJson);
     expect(thin.find((p) => p.id === "scan")?.summary[0]).toMatch(/^Screened 253 tokens/);
     expect(thin.find((p) => p.id === "challenge")).toBeUndefined();
+  });
+});
+
+describe("the live run, from its calls (2026-10-13)", () => {
+  const live: TerminalEventJson[] = [
+    ev("01:23:05", "SCAN", "stage", "Scan started on research-low; it may cost up to 0.3 USDC."),
+    ev("01:23:36", "SCAN", "tool", 'web_search: searching the web for "Monad TVL October"'),
+    ev(
+      "01:23:38",
+      "SCAN",
+      "tool",
+      "web_search: 5 results from defillama.com, allium.so; charged 0.01 USDC.",
+      "ok",
+    ),
+    ev("01:23:38", "SCAN", "tool", 'x_search: searching X for "monad_news"'),
+    ev("01:23:38", "SCAN", "tool", "x_search: 10 results; charged 0.0625 USDC.", "ok"),
+    ev(
+      "01:26:19",
+      "DIVE",
+      "stage",
+      "Dive on TOKEN_WETH started on research-medium; it may cost up to 0.3 USDC.",
+    ),
+    ev("01:26:27", "DIVE", "tool", "screen_token: verdict passed (cached).", "ok"),
+    ev("01:26:28", "DIVE", "tool", 'web_search: searching the web for "WETH Monad risk"'),
+  ];
+
+  it("pairs each call with its result: query, sites, count and charge", () => {
+    const calls = runCalls(live);
+    expect(
+      calls.map((c) => [c.tool, c.stage, c.token, c.count, c.chargeUsdc, c.result === null]),
+    ).toEqual([
+      ["web_search", "SCAN", null, 5, 0.01, false],
+      ["x_search", "SCAN", null, 10, 0.0625, false],
+      ["screen_token", "DIVE", "WETH", null, 0, false],
+      ["web_search", "DIVE", "WETH", null, 0, true],
+    ]);
+    expect(calls[0]?.sites).toEqual(["defillama.com", "allium.so"]);
+    expect(describeCall(calls[0] as never)).toEqual({
+      what: 'Searched the web for "Monad TVL October" for the market read and to choose the tokens to research.',
+      got: "5 results came back, from defillama.com, allium.so.",
+    });
+    expect(describeCall(calls[1] as never).got).toBe("10 posts came back.");
+    expect(describeCall(calls[2] as never).got).toBe("The screen passed.");
+    expect(describeCall(calls[3] as never)).toEqual({
+      what: 'Searched the web for "WETH Monad risk" to research WETH.',
+      got: null,
+    });
+  });
+
+  it("says what a live run is doing and keeps its record", () => {
+    expect(currentStep(live)).toBe('Dive: searched the web for "WETH Monad risk" to research WETH');
+    expect(
+      runRecord(live, {
+        chargedUsdcE6: "770680",
+        startedAt: "2026-10-14T01:23:05.000Z",
+        finishedAt: "2026-10-14T01:28:06.000Z",
+        now: "2026-10-14T02:00:00.000Z",
+      }),
+    ).toEqual({
+      steps: 4,
+      sourcesRead: 15,
+      tokensExamined: 1,
+      costUsdc: 0.77068,
+      elapsed: "5 min 1 s",
+    });
   });
 });

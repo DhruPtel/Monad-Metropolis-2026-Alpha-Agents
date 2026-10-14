@@ -1,6 +1,6 @@
 "use client";
 
-import { FileText } from "lucide-react";
+import { CircleCheck, FileText, LoaderCircle } from "lucide-react";
 import { type ComponentType, type ReactNode, useId } from "react";
 import { cn } from "../../lib/utils";
 import { Badge } from "../ui/badge";
@@ -225,8 +225,10 @@ export interface DocumentRowView {
   readonly date: string;
   /** Null for a report that was not written. */
   readonly href: string | null;
-  /** Why there is no document, when there is none. */
+  /** Why there is no document, when there is none; or which run it came from. */
   readonly note?: string | null;
+  /** 2026-10-13: "New" until the owner opens it. */
+  readonly badge?: string | null;
 }
 
 /** Every report as a document, newest first: title, type, date, View. */
@@ -262,6 +264,11 @@ function DocumentList({
           <span className="min-w-0 flex-1">
             <span className="block truncate font-medium" title={r.title}>
               {r.title}
+              {r.badge ? (
+                <Badge tone="positive" className="ml-2 align-middle">
+                  {r.badge}
+                </Badge>
+              ) : null}
             </span>
             {r.note ? (
               <span className="block truncate text-xs text-foreground-muted">{r.note}</span>
@@ -340,14 +347,38 @@ function ResearchBranchChart({
   art,
   branches,
   empty,
+  selected = null,
+  onSelectBranch,
+  onSelectCall,
   className,
 }: {
   /** The agent's art for the root; null draws a plain circle. */
   art: string | null;
   branches: readonly ResearchBranchView[];
   empty: string;
+  /** 2026-10-13: the branch or call picked, drawn heavier. */
+  selected?: string | null;
+  /** A click on a line (its label or the line itself). */
+  onSelectBranch?: (id: string) => void;
+  /** A click on one call's sub-branch. */
+  onSelectCall?: (id: string) => void;
   className?: string;
 }) {
+  const press = (fn: (() => void) | undefined) =>
+    fn
+      ? {
+          role: "button",
+          tabIndex: 0,
+          style: { cursor: "pointer" },
+          onClick: fn,
+          onKeyDown: (e: { key: string; preventDefault: () => void }) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              fn();
+            }
+          },
+        }
+      : {};
   const clip = `branch-root-${useId().replaceAll(":", "")}`;
   if (branches.length === 0)
     return <p className={cn("text-sm text-foreground-muted", className)}>{empty}</p>;
@@ -388,29 +419,50 @@ function ResearchBranchChart({
                 stroke="currentColor"
                 strokeOpacity={0.4}
               />
-              <text
-                x={LINE_X - 60}
-                y={y + 4}
-                className="fill-foreground-muted text-2xs"
-                fontSize={11}
+              <g
+                {...press(onSelectBranch ? () => onSelectBranch(b.id) : undefined)}
+                aria-label={`${b.label}: ${b.calls.length} calls`}
+                aria-pressed={onSelectBranch ? selected === b.id : undefined}
+                data-testid="branch-line"
               >
-                {b.label}
-              </text>
-              <line
-                x1={LINE_X}
-                y1={y}
-                x2={LINE_X + Math.max(b.calls.length, 1) * step + 8}
-                y2={y}
-                stroke="currentColor"
-                strokeWidth={2}
-              />
+                <text
+                  x={LINE_X - 60}
+                  y={y + 4}
+                  className={cn(
+                    "text-2xs",
+                    selected === b.id ? "fill-foreground font-semibold" : "fill-foreground-muted",
+                  )}
+                  fontSize={11}
+                >
+                  {b.label}
+                </text>
+                <line
+                  x1={LINE_X}
+                  y1={y}
+                  x2={LINE_X + Math.max(b.calls.length, 1) * step + 8}
+                  y2={y}
+                  stroke="currentColor"
+                  strokeWidth={selected === b.id ? 4 : 2}
+                />
+              </g>
               {b.calls.map((c, j) => {
                 const x = LINE_X + 8 + j * step;
                 return (
-                  <g key={c.id} tabIndex={0} aria-label={c.label} data-testid="branch-call">
+                  <g
+                    key={c.id}
+                    tabIndex={0}
+                    aria-label={c.label}
+                    data-testid="branch-call"
+                    {...press(onSelectCall ? () => onSelectCall(c.id) : undefined)}
+                  >
                     <title>{c.label}</title>
                     <line x1={x} y1={y} x2={x + TICK} y2={y - TICK} stroke="currentColor" />
-                    <circle cx={x + TICK} cy={y - TICK} r={2} fill="currentColor" />
+                    <circle
+                      cx={x + TICK}
+                      cy={y - TICK}
+                      r={selected === c.id ? 4 : 2}
+                      fill="currentColor"
+                    />
                   </g>
                 );
               })}
@@ -455,7 +507,107 @@ function ResearchBranchChart({
   );
 }
 
+/** Where the agent's research run stands (2026-10-13), always shown on the Research tab. */
+export type RunStatusState = "running" | "writing" | "done" | "idle";
+
+function RunStatusStrip({
+  state,
+  line,
+  detail,
+  action,
+  notice,
+  className,
+}: {
+  state: RunStatusState;
+  /** "Running: Scan: reading the market", "Writing the report", "Finished at 22:41 UTC, 1.18 USDC, report ready". */
+  line: string;
+  /** The timer and the cost so far, while it runs. */
+  detail?: string | null;
+  action?: ReactNode;
+  /** "New report ready", when a run finished while the page was open. */
+  notice?: ReactNode;
+  className?: string;
+}) {
+  return (
+    <section
+      aria-label="Run status"
+      aria-live="polite"
+      className={cn("flex flex-col gap-2 rounded-md border border-border px-4 py-3", className)}
+      data-testid="run-status"
+      data-state={state}
+    >
+      <div className="flex flex-wrap items-center gap-3">
+        {state === "running" || state === "writing" ? (
+          <LoaderCircle aria-hidden className="size-4 text-primary motion-safe:animate-spin" />
+        ) : state === "done" ? (
+          <CircleCheck aria-hidden className="size-4 text-positive" />
+        ) : null}
+        <p className="text-sm font-medium">{line}</p>
+        {detail ? <span className="numeric text-sm text-foreground-muted">{detail}</span> : null}
+        {action ? <span className="ml-auto flex gap-2">{action}</span> : null}
+      </div>
+      {notice}
+    </section>
+  );
+}
+
+/** One call of a run, as the side panel tells it (2026-10-13). */
+export interface CallDetailView {
+  readonly title: string;
+  /** What it looked up and why. */
+  readonly what: string;
+  /** What came back: titles' sites, counts, the verdict; never pasted page text. */
+  readonly got: string | null;
+  readonly time: string;
+  readonly cost: string;
+  readonly links: readonly { readonly label: string; readonly href: string }[];
+}
+
+/** The side panel for one step of a run: what it did, what came back, its time, cost and sources. */
+function CallDetailPanel({
+  view,
+  onClose,
+  className,
+}: {
+  view: CallDetailView;
+  onClose: () => void;
+  className?: string;
+}) {
+  return (
+    <aside
+      aria-label={view.title}
+      className={cn("flex flex-col gap-3 rounded-md border border-border p-4", className)}
+      data-testid="call-detail"
+    >
+      <div className="flex items-start justify-between gap-2">
+        <h3 className="text-base font-semibold">{view.title}</h3>
+        <Button size="sm" variant="ghost" onClick={onClose}>
+          Close
+        </Button>
+      </div>
+      <p className="text-sm">{view.what}</p>
+      {view.got ? <p className="text-sm">{view.got}</p> : null}
+      <p className="numeric text-xs text-foreground-muted">
+        {view.time} · {view.cost}
+      </p>
+      {view.links.length > 0 ? (
+        <ul className="flex flex-wrap gap-2 text-xs">
+          {view.links.map((l) => (
+            <li key={l.href}>
+              <a href={l.href} target="_blank" rel="noreferrer noopener" className="underline">
+                {l.label}
+              </a>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </aside>
+  );
+}
+
 export {
+  CallDetailPanel,
+  RunStatusStrip,
   DocumentList,
   NextResearchStrip,
   PhaseList,

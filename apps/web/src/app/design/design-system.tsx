@@ -66,6 +66,8 @@ import {
   PhaseList,
   SourceBubbles,
   NextResearchStrip,
+  RunStatusStrip,
+  CallDetailPanel,
   ResearchBranchChart,
   RunPicker,
   ConcentrationPie,
@@ -5769,6 +5771,50 @@ function ResearchLiveSection() {
               live: false,
             },
           ]}
+        />
+      </Specimen>
+      <Specimen
+        name="RunStatusStrip"
+        note="Where the research run stands, always shown on the Research tab: running with its stage, timer and cost so far, writing the report, or done with its time, cost and report; a run that finished while the page was open adds a notice."
+      >
+        <RunStatusStrip
+          state="running"
+          line='Running: Scan: searched X for "monad_news"'
+          detail="1:42 · 0.31 of at most 1.75 USDC"
+        />
+        <RunStatusStrip
+          state="writing"
+          line="Writing the report"
+          detail="4:58 · 0.77 of at most 1.75 USDC"
+        />
+        <RunStatusStrip
+          state="done"
+          line="Finished at 01:28 UTC, 0.77 USDC, report ready"
+          action={
+            <Button size="sm" variant="secondary">
+              View report
+            </Button>
+          }
+          notice={<p className="text-sm text-positive">New report ready: read it</p>}
+        />
+      </Specimen>
+      <Specimen
+        name="CallDetailPanel"
+        note="One step of a run, opened from its branch: what it looked up and why, what came back (sites and counts, never page text), its time and cost, and links to its sources."
+      >
+        <CallDetailPanel
+          onClose={() => undefined}
+          view={{
+            title: "web search",
+            what: 'Searched the web for "Monad protocol TVL DEX volume October 2026" for the market read and to choose the tokens to research.',
+            got: "5 results came back, from defillama.com, allium.so.",
+            time: "01:23:36 UTC",
+            cost: "0.01 USDC",
+            links: [
+              { label: "defillama.com", href: "https://defillama.com" },
+              { label: "allium.so", href: "https://allium.so" },
+            ],
+          }}
         />
       </Specimen>
       <Specimen
