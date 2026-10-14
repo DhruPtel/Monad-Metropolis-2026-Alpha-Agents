@@ -39,7 +39,7 @@ for chain in "${CHAINS[@]}"; do
   case "$chain" in
     base-sepolia) db=alpha_agents_base_sepolia redis=2 site=https://vivarium-base.vercel.app ;;
     arbitrum-sepolia) db=alpha_agents_arbitrum_sepolia redis=3 site=https://vivarium-arbitrum.vercel.app ;;
-    monad) db=alpha_agents_monad redis=4 site=https://vivarium-monad.vercel.app ;;
+    monad) db=alpha_agents_monad redis=4 site=https://vivarium-testnet.vercel.app ;;
     *) echo "deploy: unknown chain $chain" >&2; exit 2 ;;
   esac
   market=base

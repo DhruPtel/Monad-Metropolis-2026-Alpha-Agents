@@ -5,7 +5,7 @@ import { TESTNET_CHAIN, TESTNET_CHAINS, type TestnetChainKey } from "@alpha-agen
  * their sites. Each site's API is its own chain's stack on the server.
  */
 export const NETWORK_SITES: Readonly<Record<TestnetChainKey, string>> = {
-  monad: "https://vivarium-monad.vercel.app",
+  monad: "https://vivarium-testnet.vercel.app",
   "base-sepolia": "https://vivarium-base.vercel.app",
   "arbitrum-sepolia": "https://vivarium-arbitrum.vercel.app",
 };
