@@ -210,6 +210,9 @@ if (steering)
 let keeper: RevealKeeper | null = null;
 const keeperKey = env.id === "beta" ? undefined : reveal("REVEAL_KEEPER_PRIVATE_KEY");
 if (process.argv.includes("--no-keeper")) log("reveal keeper off (--no-keeper)");
+// CO-U1: an L2 testnet's agents are the platform's copies, revealed at mint; nothing to reveal.
+else if (env.id === "testnet" && TESTNET_CHAIN.key !== "monad")
+  log(`reveal keeper off: agents on ${TESTNET_CHAIN.name} are copies, revealed at mint`);
 else if (!keeperKey) log("REVEAL_KEEPER_PRIVATE_KEY is not set: the reveal keeper is off");
 else if (entropy.status !== "verified")
   log(`no Pyth Entropy on ${env.label}: the reveal keeper is off`);

@@ -71,6 +71,8 @@ export const OPTIONAL_CONTRACT_IDS_V3: readonly ContractIdV3[] = [
   "pancakeswap_v3_quoter_v2",
   // M-FAST: the v2 AccountFactory, absent on the Base fork; the older account is then none.
   "account_factory",
+  // CO-U1: Base Sepolia and Arbitrum Sepolia trade through Uniswap v3 only; no v4 pool is listed.
+  "uniswap_v4_quoter",
 ];
 
 export function contractsForV3(
