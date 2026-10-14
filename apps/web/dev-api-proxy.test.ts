@@ -21,3 +21,24 @@ describe("the dev-only control API proxy (UI-FAST)", () => {
       expect(devApiProxy(DEV, { ...env, WEB_DEV_API_PROXY: flag }).browserPath).toBe("");
   });
 });
+
+describe("the hosted build's same-origin API path (2026-10-14)", () => {
+  const hosted = { WEB_API_PROXY: "1", CONTROL_API_URL: "https://api.example.test/" };
+
+  it.each(["phase-production-build", "phase-production-server", DEV])(
+    "forwards /api to the control API in %s when asked",
+    (phase) => {
+      expect(devApiProxy(phase, hosted)).toEqual({
+        browserPath: "/api",
+        rewrites: [{ source: "/api/:path*", destination: "https://api.example.test/:path*" }],
+      });
+    },
+  );
+
+  it("is off unless the flag is 1", () => {
+    for (const flag of [undefined, "", "0", "true"])
+      expect(
+        devApiProxy("phase-production-build", { ...hosted, WEB_API_PROXY: flag }).browserPath,
+      ).toBe("");
+  });
+});
