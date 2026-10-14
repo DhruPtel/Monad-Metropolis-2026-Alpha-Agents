@@ -9,6 +9,7 @@ import {
 } from "@alpha-agents/config";
 import { DEPLOYMENT as ARBITRUM_SEPOLIA_DEPLOYMENT } from "./deployments/arbitrum-sepolia.ts";
 import { DEPLOYMENT as BASE_SEPOLIA_DEPLOYMENT } from "./deployments/base-sepolia.ts";
+import { DEPLOYMENT as MONAD_REDEPLOYMENT } from "./deployments/monad.ts";
 import type { Address } from "./ids.ts";
 
 /**
@@ -2645,6 +2646,51 @@ function l2Book(name: string, d: L2Deployment | null): readonly AddressEntry[] {
     };
   });
 }
+/**
+ * CO-U1: Monad testnet's clean redeploy (evidence/co-u1-monad): its contracts replace the earlier
+ * sets' in the book, and the v2 set, which no current account uses, is left out.
+ */
+const V2_SET_IDS: readonly AddressBookId[] = [
+  "account_factory",
+  "personal_account_implementation",
+  "oracle_adapter",
+  "executor",
+  "protocol_registry",
+  "venue_uniswap_v4_mon_usdc",
+  "venue_uniswap_v3_usdc_wmon",
+];
+function monadRedeployed(
+  book: readonly AddressEntry[],
+  d: L2Deployment | null,
+): readonly AddressEntry[] {
+  if (!d) return book;
+  return book.map((e): AddressEntry => {
+    const ours = d.contracts[e.id];
+    if (ours)
+      return {
+        ...e,
+        address: ours.address as Address,
+        status: "verified",
+        verification: {
+          chainId: d.chainId,
+          block: d.block,
+          codeSize: ours.codeSize,
+          deployedBy: "pnpm deploy:testnet:v3 (co.testnet)",
+        },
+        note: "CO-U1: the clean Monad testnet redeploy",
+      };
+    if (V2_SET_IDS.includes(e.id))
+      return {
+        ...e,
+        address: null,
+        status: "unverified",
+        verification: null,
+        note: "CO-U1: left out of the clean Monad testnet redeploy",
+      };
+    return e;
+  });
+}
+
 const TESTNET_BOOK: readonly AddressEntry[] =
   TESTNET_CHAIN.key === "base-sepolia"
     ? l2Book("Base Sepolia", BASE_SEPOLIA_DEPLOYMENT as L2Deployment | null)
@@ -2665,22 +2711,25 @@ export const ADDRESS_BOOK: Readonly<Record<EnvironmentId, readonly AddressEntry[
   testnet:
     TESTNET_BOOK.length > 0
       ? TESTNET_BOOK
-      : [
-          ...TESTNET.filter((e) => !TESTNET_DEPLOYED.some((d) => d.id === e.id)),
-          ...TESTNET_DEPLOYED,
-          {
-            id: "venue_uniswap_v3_usdc_wmon",
-            label: "Uniswap v3 USDC/WMON 0.3% adapter",
-            kind: "platform",
-            address: null,
-            status: "unverified",
-            verification: null,
-            source: CUSTODY_SOURCE,
-            openQuestion: null,
-            note: "Not deployed on testnet: testnet has no Uniswap v3 (D-248)",
-          },
-          ...TESTNET_V3_DEPLOYED,
-        ],
+      : monadRedeployed(
+          [
+            ...TESTNET.filter((e) => !TESTNET_DEPLOYED.some((d) => d.id === e.id)),
+            ...TESTNET_DEPLOYED,
+            {
+              id: "venue_uniswap_v3_usdc_wmon",
+              label: "Uniswap v3 USDC/WMON 0.3% adapter",
+              kind: "platform",
+              address: null,
+              status: "unverified",
+              verification: null,
+              source: CUSTODY_SOURCE,
+              openQuestion: null,
+              note: "Not deployed on testnet: testnet has no Uniswap v3 (D-248)",
+            },
+            ...TESTNET_V3_DEPLOYED,
+          ],
+          MONAD_REDEPLOYMENT as L2Deployment | null,
+        ),
   beta: [
     ...MAINNET,
     agentNftUndeployed("Mainnet deployment belongs to PB-U1"),
