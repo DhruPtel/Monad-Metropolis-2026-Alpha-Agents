@@ -1,3 +1,4 @@
+import { CATALOG_SPECIES } from "./species-assets.ts";
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
@@ -30,18 +31,20 @@ describe("species (D-178, D-179, revised by NFT-U1)", () => {
     expect(SPECIES.reduce((sum, s) => sum + s.count, 0)).toBe(AGENT_MAX_SUPPLY);
   });
 
-  it("carries the owner's counts: 84 and 83 base, 30 medium, 1 and 14 pro (NFT-U2, D-376)", () => {
+  it("carries the final catalog's counts: the 25 species with art, no one of ones (CO-U1)", () => {
     const counts = (t: Tier) => SPECIES.filter((s) => s.tier === t).map((s) => s.count);
-    expect(counts("base")).toEqual([84, 84, 83, 83, 83, 83]);
-    expect(counts("medium")).toEqual([30, 30, 30, 30, 30, 30, 30, 30, 30, 30]);
+    expect(counts("base")).toEqual([100, 100, 100, 0, 100, 100]);
+    expect(counts("medium")).toEqual([60, 0, 0, 60, 0, 60, 0, 0, 60, 60]);
     expect(counts("pro")).toEqual([
-      1, 1, 1, 1, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14,
+      13, 13, 13, 0, 14, 14, 14, 14, 0, 14, 13, 0, 13, 13, 13, 13, 13, 13,
     ]);
     expect(SPECIES.find((s) => s.slug === "butterfly")?.tier).toBe("pro");
     expect(SPECIES.find((s) => s.slug === "orchid-mantis")?.tier).toBe("pro");
-    expect(["Bee", "Praying mantis", "Hercules beetle", "Horseshoe crab"].map(speciesName)).toEqual(
-      [1, 1, 1, 1],
+    // Exactly the catalog is drawn, and no species is a one of one.
+    expect(SPECIES.filter((s) => s.count > 0).map((s) => s.index)).toEqual(
+      CATALOG_SPECIES.map((s) => s.index),
     );
+    expect(SPECIES.some((s) => s.count === 1)).toBe(false);
     for (const s of SPECIES) expect(s.count).toBeLessThanOrEqual(2 ** DECK_BITS_PER_SPECIES - 1);
   });
 

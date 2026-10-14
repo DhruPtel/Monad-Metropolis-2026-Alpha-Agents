@@ -40,49 +40,50 @@ const medium = (slug: string, name: string, count: number) => species("medium", 
 const pro = (slug: string, name: string, count: number) => species("pro", slug, name, count);
 
 /**
- * The counts, as the owner set them (NFT-U2, D-376, resolving A-94): base,
- * six species over 500, 84 for the first two and 83 for the rest; medium, ten
- * species over 300, 30 each; pro, the four one of ones and 14 each for the
- * other fourteen (196). Butterfly is pro since NFT-U2; Orchid mantis stays pro.
+ * The counts (CO-U1, the final catalog): only the 25 species with the owner's art are drawn
+ * (species-assets.ts CATALOG_SPECIES), with no one of ones; the other nine keep their index
+ * and name at a count of 0. Each tier keeps its supply: base, five species at 100 (500);
+ * medium, five at 60 (300); pro, fifteen species, five at 14 and ten at 13 (200). Earlier:
+ * NFT-U2's counts (D-376). Butterfly and Orchid mantis are pro.
  */
 export const SPECIES: readonly Species[] = [
-  base("larva-grub", "Larva grub", 84),
-  base("roly-poly", "Roly-poly", 84),
-  base("ant", "Ant", 83),
-  base("tick", "Tick", 83),
-  base("weevil", "Weevil", 83),
-  medium("silkworm", "Silkworm", 30),
-  medium("ground-beetle", "Ground beetle", 30),
-  medium("cricket", "Cricket", 30),
-  medium("moth", "Moth", 30),
-  medium("firefly", "Firefly", 30),
-  medium("centipede", "Centipede", 30),
-  medium("water-strider", "Water strider", 30),
-  medium("earwig", "Earwig", 30),
-  pro("bee", "Bee", 1),
-  pro("praying-mantis", "Praying mantis", 1),
-  pro("hercules-beetle", "Hercules beetle", 1),
-  pro("horseshoe-crab", "Horseshoe crab", 1),
+  base("larva-grub", "Larva grub", 100),
+  base("roly-poly", "Roly-poly", 100),
+  base("ant", "Ant", 100),
+  base("tick", "Tick", 0),
+  base("weevil", "Weevil", 100),
+  medium("silkworm", "Silkworm", 60),
+  medium("ground-beetle", "Ground beetle", 0),
+  medium("cricket", "Cricket", 0),
+  medium("moth", "Moth", 60),
+  medium("firefly", "Firefly", 0),
+  medium("centipede", "Centipede", 60),
+  medium("water-strider", "Water strider", 0),
+  medium("earwig", "Earwig", 0),
+  pro("bee", "Bee", 13),
+  pro("praying-mantis", "Praying mantis", 13),
+  pro("hercules-beetle", "Hercules beetle", 13),
+  pro("horseshoe-crab", "Horseshoe crab", 0),
   pro("jumping-spider", "Jumping spider", 14),
   pro("mantis-shrimp", "Mantis shrimp", 14),
   pro("dragonfly", "Dragonfly", 14),
   pro("scorpion", "Scorpion", 14),
-  pro("trilobite", "Trilobite", 14),
+  pro("trilobite", "Trilobite", 0),
   pro("stag-beetle", "Stag beetle", 14),
-  pro("atlas-moth", "Atlas moth", 14),
-  pro("cicada", "Cicada", 14),
+  pro("atlas-moth", "Atlas moth", 13),
+  pro("cicada", "Cicada", 0),
   // NFT-U1: the owner's three new pro species.
-  pro("snake", "Snake", 14),
-  pro("hummingbird", "Hummingbird", 14),
-  pro("fish", "Fish", 14),
+  pro("snake", "Snake", 13),
+  pro("hummingbird", "Hummingbird", 13),
+  pro("fish", "Fish", 13),
   // NFT-U1: the six animals the incoming art holds that no listed species
   // names; NFT-U2 (D-376) moved Butterfly to pro and set every count.
-  base("ladybug", "Ladybug", 83),
-  medium("grasshopper", "Grasshopper", 30),
-  pro("butterfly", "Butterfly", 14),
-  medium("leaf-insect", "Leaf insect", 30),
-  pro("crab", "Crab", 14),
-  pro("orchid-mantis", "Orchid mantis", 14),
+  base("ladybug", "Ladybug", 100),
+  medium("grasshopper", "Grasshopper", 60),
+  pro("butterfly", "Butterfly", 13),
+  medium("leaf-insect", "Leaf insect", 60),
+  pro("crab", "Crab", 13),
+  pro("orchid-mantis", "Orchid mantis", 13),
 ].map((s, i) => ({ ...s, index: i + 1 }));
 
 /** Supply per tier (D-178, revised by NFT-U1): 500 base, 300 medium, 200 pro. */
