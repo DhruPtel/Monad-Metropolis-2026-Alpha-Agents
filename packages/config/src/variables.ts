@@ -162,6 +162,43 @@ export const VARIABLES = [
     ...httpUrl,
     example: "https://your-second-monad-testnet-rpc.example/your-api-key",
   },
+  {
+    name: "TESTNET_CHAIN",
+    group: "Chain RPC",
+    description:
+      "Which testnet APP_ENV=testnet runs on (Colosseum): monad (the default), base-sepolia or arbitrum-sepolia. Each runs as its own stack with its own database",
+    secret: false,
+    firstUsedBy: "CO-U1",
+    environments: ["testnet"],
+    schema: z.enum(["monad", "base-sepolia", "arbitrum-sepolia"]),
+    expected: "monad, base-sepolia or arbitrum-sepolia",
+    example: "monad",
+    commented: true,
+  },
+  {
+    name: "BASE_SEPOLIA_RPC_URL",
+    group: "Chain RPC",
+    description:
+      "Base Sepolia RPC (chain 84532), for TESTNET_CHAIN=base-sepolia; never a mainnet URL",
+    secret: true,
+    firstUsedBy: "CO-U1",
+    environments: ["testnet"],
+    ...httpUrl,
+    example: "https://sepolia.base.org",
+    commented: true,
+  },
+  {
+    name: "ARBITRUM_SEPOLIA_RPC_URL",
+    group: "Chain RPC",
+    description:
+      "Arbitrum Sepolia RPC (chain 421614), for TESTNET_CHAIN=arbitrum-sepolia; never a mainnet URL",
+    secret: true,
+    firstUsedBy: "CO-U1",
+    environments: ["testnet"],
+    ...httpUrl,
+    example: "https://sepolia-rollup.arbitrum.io/rpc",
+    commented: true,
+  },
 
   // Local Docker services
   {

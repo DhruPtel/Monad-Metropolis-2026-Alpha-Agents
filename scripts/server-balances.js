@@ -8,7 +8,7 @@ import { createDb, sql } from "@alpha-agents/db";
 import { redact } from "@alpha-agents/devenv";
 import { formatEther, getAddress, parseEther } from "viem";
 import { loadRootEnv } from "./lib/config.js";
-import { addressOf, reveal, testnetConfig, testnetRpc } from "./lib/testnet.js";
+import { TESTNET, addressOf, reveal, testnetConfig, testnetRpc } from "./lib/testnet.js";
 
 /**
  * Alert floors in MON. The keeper and the feed writer sit at about a third of their gas targets
@@ -90,7 +90,7 @@ const db = createDb(
 try {
   const { rows } = await sql`
     select distinct on (agent_id) agent_id, session_key from platform.arming
-    where chain_id = 10143 order by agent_id`.execute(db);
+    where chain_id = ${TESTNET.chainId} order by agent_id`.execute(db);
   for (const r of /** @type {{ agent_id: number, session_key: string }[]} */ (rows))
     wallets.push({
       label: `signer: agent ${r.agent_id}'s session key`,

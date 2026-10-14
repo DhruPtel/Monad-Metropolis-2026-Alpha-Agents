@@ -13,6 +13,7 @@ import { fileURLToPath } from "node:url";
 import { serve } from "@hono/node-server";
 import {
   ConfigError,
+  TESTNET_CHAIN,
   Secret,
   assertChainId,
   isForkEnvironment,
@@ -554,8 +555,17 @@ const trading = chainSigner
           ? { topUp: (address: Hex, wei: bigint) => setMonBalance(address, wei, rpcUrl) }
           : {}),
       },
+      // CO-U1: an L2's finalized block trails by L1 finality (about 20 minutes on Base and
+      // Arbitrum Sepolia), so a trade there settles at the safe block instead.
       finalizedBlock: async () =>
-        local ? null : (await client.getBlock({ blockTag: "finalized" })).number,
+        local
+          ? null
+          : (
+              await client.getBlock({
+                blockTag:
+                  env.id === "testnet" && TESTNET_CHAIN.key !== "monad" ? "safe" : "finalized",
+              })
+            ).number,
     }
   : null;
 if (!trading) log("trade flow: off (no signer); proposals wait and nothing is sent");

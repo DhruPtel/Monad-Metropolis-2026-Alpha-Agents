@@ -3,6 +3,7 @@ import {
   DEFAULT_ENVIRONMENT,
   ENVIRONMENTS,
   LOCAL_FORK_RPC_URL,
+  TESTNET_CHAIN,
   isEnvironmentId,
   type EnvironmentId,
 } from "./environments.ts";
@@ -53,9 +54,9 @@ export const APP_CHAINS: Readonly<Record<EnvironmentId, AppChain>> = {
   testnet: {
     environment: "testnet",
     id: ENVIRONMENTS.testnet.chainId,
-    name: "Monad Testnet",
-    nativeCurrency: MON,
-    browserRpcUrl: "https://testnet-rpc.monad.xyz",
+    name: TESTNET_CHAIN.name,
+    nativeCurrency: TESTNET_CHAIN.native === "MON" ? MON : ETH,
+    browserRpcUrl: TESTNET_CHAIN.browserRpcUrl,
     testnet: true,
   },
   beta: {

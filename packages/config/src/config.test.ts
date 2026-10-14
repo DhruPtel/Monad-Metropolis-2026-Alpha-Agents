@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { inspect, parseEnv } from "node:util";
 import { describe, expect, it } from "vitest";
 import {
+  testnetChainFor,
   ConfigError,
   LOCAL_FORK_RPC_URL,
   Secret,
@@ -453,7 +454,7 @@ describe("registry and .env.example", () => {
     expect(new Set(names).size).toBe(names.length);
     for (const v of VARIABLES) {
       expect(v.firstUsedBy, v.name).toMatch(
-        /^(P(\d|B)-(U\d+|EC)|F-U\d+|P0-[A-Z]+|M-(U\d+|FAST)|(HOST|UX|CL|REN)-U\d+)$/,
+        /^(P(\d|B)-(U\d+|EC)|F-U\d+|P0-[A-Z]+|M-(U\d+|FAST)|(HOST|UX|CL|REN|CO)-U\d+)$/,
       );
       expect(committed).toContain(`${v.name}=`);
     }
@@ -734,5 +735,19 @@ describe("testnet keys (P2-EC, D-254)", () => {
       },
     );
     expect(ok.environment.id).toBe("testnet");
+  });
+});
+
+describe("the testnet chain selector (CO-U1)", () => {
+  it("is Monad testnet when TESTNET_CHAIN is unset, and each named testnet otherwise", () => {
+    expect(testnetChainFor(undefined).chainId).toBe(10143);
+    expect(testnetChainFor("").key).toBe("monad");
+    expect(testnetChainFor("base-sepolia")).toMatchObject({
+      chainId: 84532,
+      rpcVariable: "BASE_SEPOLIA_RPC_URL",
+      secondaryRpcVariable: null,
+    });
+    expect(testnetChainFor("arbitrum-sepolia").chainId).toBe(421614);
+    expect(() => testnetChainFor("sepolia")).toThrow(/TESTNET_CHAIN must be one of/);
   });
 });

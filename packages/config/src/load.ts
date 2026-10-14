@@ -7,6 +7,7 @@ import {
   isForkEnvironment,
   type Environment,
   BASE_PUBLIC_RPC_URL,
+  TESTNET_CHAIN,
 } from "./environments.ts";
 import { createHash } from "node:crypto";
 import { Secret } from "./secret.ts";
@@ -164,9 +165,14 @@ export function loadConfig(service: ServiceSpec, source: EnvSource = process.env
     const isRequired = required.has(spec.name);
     const localDefault = isForkEnvironment(environment.id) ? spec.localDefault : undefined;
     // On testnet a key with a testnet source is read only from it (D-254).
+    // Colosseum: the second testnet provider is the selected chain's, or none.
+    const testnetSource =
+      spec.testnetSource === "MONAD_TESTNET_RPC_URL_SECONDARY"
+        ? TESTNET_CHAIN.secondaryRpcVariable
+        : spec.testnetSource;
     const sourceName =
-      environment.id === "testnet" && spec.testnetSource ? spec.testnetSource : spec.name;
-    const raw = classify(spec, source[sourceName]);
+      environment.id === "testnet" && spec.testnetSource ? testnetSource : spec.name;
+    const raw = classify(spec, sourceName ? source[sourceName] : undefined);
 
     let text: string;
     if (raw.state === "set") {

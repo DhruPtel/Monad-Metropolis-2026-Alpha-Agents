@@ -5,14 +5,15 @@
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { ConfigError, loadConfig, MONAD_TESTNET_CHAIN_ID } from "@alpha-agents/config";
+import { ConfigError, loadConfig, TESTNET_CHAIN } from "@alpha-agents/config";
 import { redact } from "@alpha-agents/devenv";
 import { privateKeyToAccount } from "viem/accounts";
 import { MONAD_DIR } from "./paths.js";
 
 /** Testnet facts re-checked at the start of P2-EC (D-248). */
 export const TESTNET = {
-  chainId: MONAD_TESTNET_CHAIN_ID,
+  // CO-U1: the selected testnet (TESTNET_CHAIN), Monad testnet by default.
+  chainId: TESTNET_CHAIN.chainId,
   usdc: /** @type {`0x${string}`} */ ("0x534b2f3A21130d7a60830c2Df862319e593943A3"),
   wmon: /** @type {`0x${string}`} */ ("0xFb8bf4c1CC7a94c73D209a149eA2AbEa852BC541"),
   entropy: /** @type {`0x${string}`} */ ("0x825c0390f379C631f3Cf11A82a37D20BddF93c07"),
@@ -98,7 +99,7 @@ export async function testnetRpc(url, method, params = []) {
 export async function assertTestnet(url) {
   const chainId = Number(await testnetRpc(url, "eth_chainId"));
   if (chainId !== TESTNET.chainId) {
-    throw new Error(`MONAD_TESTNET_RPC_URL serves chain ${chainId}, not ${TESTNET.chainId}`);
+    throw new Error(`${TESTNET_CHAIN.rpcVariable} serves chain ${chainId}, not ${TESTNET.chainId}`);
   }
 }
 

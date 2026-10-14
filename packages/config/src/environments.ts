@@ -33,6 +33,75 @@ export const MONAD_TESTNET_CHAIN_ID = 10143;
  * the fork see this ID in block.chainid, so EIP-712 claims and Tokenbound
  * accounts use it too.
  */
+export const BASE_SEPOLIA_CHAIN_ID = 84532;
+export const ARBITRUM_SEPOLIA_CHAIN_ID = 421614;
+
+/**
+ * Colosseum (2026-10-14): APP_ENV=testnet runs on one of three testnets, chosen per process by
+ * TESTNET_CHAIN (Monad testnet when unset, so every existing testnet process is unchanged). Each
+ * stack is siloed: its own database, its own address book, the same testnet operator keys.
+ */
+export const TESTNET_CHAIN_KEYS = ["monad", "base-sepolia", "arbitrum-sepolia"] as const;
+export type TestnetChainKey = (typeof TESTNET_CHAIN_KEYS)[number];
+export interface TestnetChain {
+  readonly key: TestnetChainKey;
+  readonly chainId: number;
+  readonly name: string;
+  readonly native: "MON" | "ETH";
+  /** The RPC variable services read, and the optional second provider's. */
+  readonly rpcVariable: string;
+  readonly secondaryRpcVariable: string | null;
+  /** The public RPC a browser wallet is offered. */
+  readonly browserRpcUrl: string;
+  /** A transaction's page on the chain's explorer, before the hash. */
+  readonly explorerTxUrl: string;
+}
+export const TESTNET_CHAINS: Readonly<Record<TestnetChainKey, TestnetChain>> = {
+  monad: {
+    key: "monad",
+    chainId: 10143,
+    name: "Monad Testnet",
+    native: "MON",
+    rpcVariable: "MONAD_TESTNET_RPC_URL",
+    secondaryRpcVariable: "MONAD_TESTNET_RPC_URL_SECONDARY",
+    browserRpcUrl: "https://testnet-rpc.monad.xyz",
+    explorerTxUrl: "https://testnet.monadvision.com/tx/",
+  },
+  "base-sepolia": {
+    key: "base-sepolia",
+    chainId: BASE_SEPOLIA_CHAIN_ID,
+    name: "Base Sepolia",
+    native: "ETH",
+    rpcVariable: "BASE_SEPOLIA_RPC_URL",
+    secondaryRpcVariable: null,
+    browserRpcUrl: "https://sepolia.base.org",
+    explorerTxUrl: "https://sepolia.basescan.org/tx/",
+  },
+  "arbitrum-sepolia": {
+    key: "arbitrum-sepolia",
+    chainId: ARBITRUM_SEPOLIA_CHAIN_ID,
+    name: "Arbitrum Sepolia",
+    native: "ETH",
+    rpcVariable: "ARBITRUM_SEPOLIA_RPC_URL",
+    secondaryRpcVariable: null,
+    browserRpcUrl: "https://sepolia-rollup.arbitrum.io/rpc",
+    explorerTxUrl: "https://sepolia.arbiscan.io/tx/",
+  },
+};
+export const TESTNET_CHAIN_IDS: readonly number[] = TESTNET_CHAIN_KEYS.map(
+  (k) => TESTNET_CHAINS[k].chainId,
+);
+export function testnetChainFor(raw: string | undefined): TestnetChain {
+  const key = raw?.trim() || "monad";
+  if (!(TESTNET_CHAIN_KEYS as readonly string[]).includes(key))
+    throw new Error(`TESTNET_CHAIN must be one of ${TESTNET_CHAIN_KEYS.join(", ")}, not "${key}"`);
+  return TESTNET_CHAINS[key as TestnetChainKey];
+}
+/** This process's testnet. The web build inlines TESTNET_CHAIN (next.config.ts). */
+export const TESTNET_CHAIN: TestnetChain = testnetChainFor(
+  typeof process === "undefined" ? undefined : process.env.TESTNET_CHAIN,
+);
+
 export const LOCAL_FORK_CHAIN_ID = 143143;
 /** Base mainnet (M-FAST). */
 export const BASE_MAINNET_CHAIN_ID = 8453;
@@ -137,9 +206,9 @@ export const ENVIRONMENTS: Readonly<Record<EnvironmentId, Environment>> = {
   testnet: {
     id: "testnet",
     label: "testnet",
-    chainId: MONAD_TESTNET_CHAIN_ID,
-    description: "Monad testnet",
-    rpc: { variable: "MONAD_TESTNET_RPC_URL" },
+    chainId: TESTNET_CHAIN.chainId,
+    description: TESTNET_CHAIN.key === "monad" ? "Monad testnet" : TESTNET_CHAIN.name,
+    rpc: { variable: TESTNET_CHAIN.rpcVariable },
   },
   beta: {
     id: "beta",

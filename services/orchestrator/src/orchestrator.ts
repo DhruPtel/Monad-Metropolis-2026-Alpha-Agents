@@ -1,4 +1,4 @@
-import { MONAD_TESTNET_CHAIN_ID } from "@alpha-agents/config";
+import { TESTNET_CHAIN_IDS } from "@alpha-agents/config";
 import type { MarketData, ResearchSources } from "@alpha-agents/market";
 import { randomUUID } from "node:crypto";
 import type { JournalEntry } from "@alpha-agents/accounting";
@@ -1784,7 +1784,7 @@ export function screenApplies(
   registryChainId: number,
   trackedByRegistry: boolean,
 ): boolean {
-  if (tradingChainId === MONAD_TESTNET_CHAIN_ID && registryChainId !== tradingChainId)
+  if (TESTNET_CHAIN_IDS.includes(tradingChainId) && registryChainId !== tradingChainId)
     return trackedByRegistry;
   return true;
 }
