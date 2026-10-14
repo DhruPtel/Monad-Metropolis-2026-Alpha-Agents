@@ -6,6 +6,7 @@
 //   node scripts/server-health.js indexer     the indexer's watermark moved in the last 15 minutes
 //   node scripts/server-health.js db          the database answers
 import { existsSync } from "node:fs";
+import { get } from "node:http";
 import { createDb, sql } from "@alpha-agents/db";
 import { ENV_PATH } from "./lib/paths.js";
 
@@ -21,10 +22,18 @@ const unhealthy = (line) => {
 if (mode === "http") {
   if (!target || !/^http:\/\/127\.0\.0\.1:\d{2,5}\//.test(target))
     unhealthy("give a loopback URL, such as http://127.0.0.1:4100/health");
-  const res = await fetch(target, { signal: AbortSignal.timeout(10_000) }).catch(() => null);
-  if (!res) unhealthy(`${target} did not answer`);
-  if (res.status >= 500) unhealthy(`${target} answered ${res.status}`);
-  console.log(`healthy: ${target} answered ${res.status}`);
+  // node:http, not fetch: fetch refuses the guard's port, 4190, as a "bad port" (ManageSieve).
+  const status = await new Promise((resolve) => {
+    const req = get(target, { timeout: 10_000 }, (res) => {
+      res.resume();
+      resolve(res.statusCode ?? 0);
+    });
+    req.on("timeout", () => req.destroy());
+    req.on("error", () => resolve(null));
+  });
+  if (status === null) unhealthy(`${target} did not answer`);
+  if (status >= 500) unhealthy(`${target} answered ${status}`);
+  console.log(`healthy: ${target} answered ${status}`);
 } else if (mode === "indexer" || mode === "db") {
   if (existsSync(ENV_PATH)) process.loadEnvFile(ENV_PATH);
   const url = process.env.DATABASE_URL;
