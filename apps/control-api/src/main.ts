@@ -17,6 +17,7 @@ import { privateKeyToAccount } from "viem/accounts";
 import { createApp } from "./app.ts";
 import { orchestratorActivation } from "./activation.ts";
 import { orchestratorResearchRun } from "./research-run.ts";
+import { rpcMoneyEvents } from "./money-events.ts";
 import { orchestratorWindow } from "./window.ts";
 import { orchestratorResearch } from "./research.ts";
 import {
@@ -355,6 +356,16 @@ const app = createApp({
   // F-U10: the activation sweep is read and started through the orchestrator, which owns it.
   ...(values.ORCHESTRATOR_URL
     ? { activation: orchestratorActivation(String(values.ORCHESTRATOR_URL)) }
+    : {}),
+  // 2026-10-13: deposits and withdrawals from the trading account's and the vault's logs.
+  ...(deployment && rpcUrl && factoryV3Entry.status === "verified"
+    ? {
+        moneyEvents: rpcMoneyEvents(rpcUrl, {
+          agentNft: deployment.address,
+          accountFactoryV3: factoryV3Entry.address as Hex,
+          usdc: addressEntry(env.id, "usdc").address as Hex,
+        }),
+      }
     : {}),
   // 2026-10-13: the owner's Research now, a full research cycle through the orchestrator.
   ...(values.ORCHESTRATOR_URL

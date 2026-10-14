@@ -39,6 +39,7 @@ import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import type { ActivationDeps, ActivationReadJson } from "./activation.ts";
 import type { ResearchRunDeps } from "./research-run.ts";
+import type { MoneyEventsDeps } from "./money-events.ts";
 import type { WindowDeps } from "./window.ts";
 import type { ResearchDeps } from "./research.ts";
 import { type ApiDeps, createApp } from "./app.ts";
@@ -2820,6 +2821,36 @@ describe.skipIf(!available)("the control API (needs pnpm dev:up for Postgres)", 
         asOf: { live: false },
         history: { points: 3 },
       });
+    });
+  });
+
+  describe("deposits and withdrawals (2026-10-13)", () => {
+    it("lists them for anyone, read only, and says so where they are not read", async () => {
+      const moneyEvents: MoneyEventsDeps = {
+        list: async (id) => [
+          {
+            kind: "deposit",
+            account: "vault",
+            who: "0x00000000000000000000000000000000000a11ce",
+            symbol: "USDC",
+            amount: "2",
+            valueUsdcE6: "2000000",
+            inKind: false,
+            leaderStake: id === 2,
+            txHash: `0x${"ab".repeat(32)}`,
+            block: "10",
+            at: "2026-10-13T23:55:12.000Z",
+          },
+        ],
+      };
+      const got = await call("/v1/agents/2/money-events", {}, { moneyEvents });
+      expect(got.status).toBe(200);
+      expect(await json(got)).toMatchObject({
+        agentId: "2",
+        events: [{ kind: "deposit", account: "vault", amount: "2", leaderStake: true }],
+      });
+      const none = await call("/v1/agents/2/money-events");
+      expect([none.status, (await json(none)).error]).toEqual([503, "not_configured"]);
     });
   });
 

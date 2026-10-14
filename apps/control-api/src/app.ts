@@ -26,6 +26,7 @@ import {
 } from "./proposals.ts";
 import type { ActivationDeps } from "./activation.ts";
 import type { ResearchRunDeps } from "./research-run.ts";
+import type { MoneyEventsDeps } from "./money-events.ts";
 import { listReports, readReport, reportLinks } from "./reports.ts";
 import type { WindowDeps } from "./window.ts";
 import type { ResearchDeps } from "./research.ts";
@@ -153,6 +154,8 @@ export interface ApiDeps {
    * absent where no orchestrator is reachable, and the routes answer 503.
    */
   readonly activation?: ActivationDeps | null;
+  /** 2026-10-13: the agent's deposits and withdrawals from the chain's logs (read only). */
+  readonly moneyEvents?: MoneyEventsDeps | null;
   /** 2026-10-13: the owner's Research now, a full research cycle through the orchestrator. */
   readonly researchRun?: ResearchRunDeps | null;
   /**
@@ -1033,6 +1036,24 @@ export function createApp(deps: ApiDeps): Hono {
         409,
       );
     return c.json({ agentId: agentId.toString(), activation: r.activation }, 202);
+  });
+
+  /**
+   * 2026-10-13: the agent's deposits and withdrawals, its trading account's and its vault's,
+   * newest first, from the chain's own event logs. Public and read only: the chain already
+   * shows them to anyone.
+   */
+  app.get("/v1/agents/:id{[0-9]+}/money-events", async (c) => {
+    const agentId = BigInt(c.req.param("id"));
+    if (!deps.moneyEvents)
+      return fail(
+        c,
+        503,
+        "not_configured",
+        "Deposits and withdrawals are not read on this network.",
+      );
+    const events = await deps.moneyEvents.list(Number(agentId));
+    return c.json({ ...(await meta()), agentId: agentId.toString(), events });
   });
 
   /**
