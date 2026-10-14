@@ -2,14 +2,19 @@
 
 import type { LoadoutSkillView } from "@alpha-agents/ui";
 import { useEffect, useState } from "react";
-import { ApiError, skillsApi } from "@/api/client";
+import { ApiError, type SkillJson, skillsApi } from "@/api/client";
 import { useWalletSession } from "@/auth/session";
 import { useOwnerSession } from "./use-owner-session";
 
 export type SkillInventory =
   | { readonly state: "off" }
   | { readonly state: "reading" }
-  | { readonly state: "ready"; readonly skills: readonly LoadoutSkillView[] }
+  | {
+      readonly state: "ready";
+      readonly skills: readonly LoadoutSkillView[];
+      /** 2026-10-13: the full records, for the catalog cards and the detail panel. */
+      readonly records: readonly SkillJson[];
+    }
   | { readonly state: "error"; readonly message: string };
 
 /**
@@ -36,6 +41,7 @@ export function useSkillInventory(agentId: bigint | null): SkillInventory {
         setInv({
           state: "ready",
           skills: [...s.builtin, ...s.owner].map((k) => ({ id: k.id, name: k.name, kind: k.kind })),
+          records: [...s.builtin, ...s.owner],
         }),
       (err: unknown) =>
         live &&

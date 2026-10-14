@@ -94,3 +94,65 @@ describe("the live run's parts (2026-10-13)", () => {
     expect(picked).toEqual(["branch stage-SCAN", "call c-1"]);
   });
 });
+
+describe("SkillCatalog and SkillDetailPanel (2026-10-13)", () => {
+  it("filters cards by category, marks the equipped one, and opens a skill's detail", async () => {
+    const { SkillCatalog, SkillDetailPanel } = await import("./skill-loadout");
+    const { default: userEvent } = await import("@testing-library/user-event");
+    const cards = [
+      {
+        id: "a",
+        name: "Token risk screen",
+        publisher: "Alpha Agents",
+        verified: true,
+        category: "Research" as const,
+        description: "Reads a screen.",
+        version: "1.0.0",
+        tools: ["safety screen"],
+        stage: "Dive",
+      },
+      {
+        id: "b",
+        name: "Portfolio construction",
+        publisher: "Alpha Agents",
+        verified: true,
+        category: "Strategy" as const,
+        description: "Drafts weights.",
+        version: "1.0.2",
+        tools: [],
+        stage: "Zoom out",
+      },
+    ];
+    const picked: string[] = [];
+    render(
+      <SkillCatalog
+        skills={cards}
+        slotOf={{ b: 0 }}
+        selected={null}
+        onSelect={(id) => picked.push(id)}
+      />,
+    );
+    expect(screen.getAllByTestId("skill-card")).toHaveLength(2);
+    expect(screen.getAllByTestId("skill-card")[1]).toHaveTextContent("Equipped");
+    expect(screen.getAllByTestId("skill-card")[0]).toHaveTextContent("Free");
+    await userEvent.click(screen.getByTestId("skill-filter-Strategy"));
+    expect(screen.getAllByTestId("skill-card").map((c) => c.getAttribute("data-skill"))).toEqual([
+      "b",
+    ]);
+    await userEvent.click(screen.getByTestId("skill-card"));
+    expect(picked).toEqual(["b"]);
+    const toggled: string[] = [];
+    render(
+      <SkillDetailPanel
+        skill={cards[0] as never}
+        equippedSlot={null}
+        canEquip
+        onToggle={() => toggled.push("a")}
+        onClose={() => undefined}
+      />,
+    );
+    expect(screen.getByTestId("skill-detail")).toHaveTextContent("Used inDive");
+    await userEvent.click(screen.getByTestId("skill-detail-toggle"));
+    expect(toggled).toEqual(["a"]);
+  });
+});

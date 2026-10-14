@@ -67,6 +67,8 @@ import {
   SourceBubbles,
   NextResearchStrip,
   RunStatusStrip,
+  SkillCatalog,
+  SkillDetailPanel,
   CallDetailPanel,
   ResearchBranchChart,
   RunPicker,
@@ -5771,6 +5773,68 @@ function ResearchLiveSection() {
               live: false,
             },
           ]}
+        />
+      </Specimen>
+      <Specimen
+        name="SkillCatalog and SkillDetailPanel"
+        note="The configure page's skill inventory: the publisher's mark and name (checked when built in or verified), the skill, its category, a short description, Free and Equipped, with a colored left edge by category and filter chips; a card opens its detail with Equip or Unequip."
+      >
+        <SkillCatalog
+          selected={null}
+          onSelect={() => undefined}
+          slotOf={{ "portfolio-construction": 0 }}
+          skills={[
+            {
+              id: "token-risk-screen",
+              name: "Token risk screen",
+              publisher: "Alpha Agents",
+              verified: true,
+              category: "Research",
+              description: "Reads a token's safety screen: each check, its reason and evidence.",
+              version: "1.0.0",
+              tools: ["safety screen"],
+              stage: "Dive",
+            },
+            {
+              id: "portfolio-construction",
+              name: "Portfolio construction",
+              publisher: "Alpha Agents",
+              verified: true,
+              category: "Strategy",
+              description: "Drafts a target portfolio: weights, bands, cash and exits.",
+              version: "1.0.2",
+              tools: [],
+              stage: "Zoom out",
+            },
+            {
+              id: "uniswap-v4-swap",
+              name: "Uniswap v4 swap",
+              publisher: "Alpha Agents",
+              verified: true,
+              category: "Protocol",
+              description: "Reads Uniswap v4 MON/USDC quotes, depth and trading cost.",
+              version: "1.0.0",
+              tools: ["swap quotes"],
+              stage: null,
+            },
+          ]}
+        />
+        <SkillDetailPanel
+          skill={{
+            id: "token-risk-screen",
+            name: "Token risk screen",
+            publisher: "Alpha Agents",
+            verified: true,
+            category: "Research",
+            description: "Reads a token's safety screen: each check, its reason and evidence.",
+            version: "1.0.0",
+            tools: ["safety screen", "token lookup"],
+            stage: "Dive",
+          }}
+          equippedSlot={null}
+          canEquip
+          onToggle={() => undefined}
+          onClose={() => undefined}
         />
       </Specimen>
       <Specimen

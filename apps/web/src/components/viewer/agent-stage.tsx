@@ -51,6 +51,8 @@ interface AgentStageProps {
    * wears the status; with reduced motion nothing moves.
    */
   readonly activation?: ActivationStatusJson | null;
+  /** 2026-10-13: the owner's choice of view; 2D shows the art even when a model exists. */
+  readonly view?: "2d" | "3d";
 }
 
 /**
@@ -65,6 +67,7 @@ export function AgentStage({
   overlay,
   highlightedSlot = null,
   slotSkills = [],
+  view = "3d",
   activation = null,
 }: AgentStageProps) {
   const reducedMotion = usePrefersReducedMotion();
@@ -81,7 +84,17 @@ export function AgentStage({
   const model = asset?.model ?? null;
   const slots = asset ? slotsFor(asset.species.tier) : 0;
   const mode: StageMode =
-    webgl === null ? "checking" : !model ? "2d" : !webgl || failed ? "no-webgl" : "3d";
+    view === "2d"
+      ? "2d"
+      : webgl === null
+        ? "checking"
+        : !model
+          ? "2d"
+          : !webgl || failed
+            ? "no-webgl"
+            : "3d";
+  // 2026-10-13: the slot markers and skill tabs can be hidden to look at the model alone.
+  const [showSlots, setShowSlots] = useState(true);
   const activating = activation === "running";
 
   const art = (
@@ -117,14 +130,25 @@ export function AgentStage({
       overlay={overlay}
       tools={
         mode === "3d" ? (
-          <Button
-            variant="secondary"
-            size="sm"
-            aria-pressed={animationOn}
-            onClick={toggleAnimation}
-          >
-            Animation {animationOn ? "on" : "off"}
-          </Button>
+          <span className="flex flex-wrap gap-2">
+            <Button
+              variant="secondary"
+              size="sm"
+              aria-pressed={showSlots}
+              onClick={() => setShowSlots((v) => !v)}
+              data-testid="toggle-slots"
+            >
+              {showSlots ? "Hide skill slots" : "Show skill slots"}
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              aria-pressed={animationOn}
+              onClick={toggleAnimation}
+            >
+              Animation {animationOn ? "on" : "off"}
+            </Button>
+          </span>
         ) : mode === "no-webgl" ? (
           <Tag tone="warning" size="md">
             3D unavailable: showing the 2D art
@@ -152,6 +176,7 @@ export function AgentStage({
           }}
           highlightedSlot={highlightedSlot}
           slotSkills={slotSkills}
+          showSlots={showSlots}
           reducedMotion={reducedMotion}
           onFailure={onFailure}
         />

@@ -13,7 +13,8 @@ import {
   RevealMoment,
   SectionLabel,
   Skeleton,
-  SkillInventoryCards,
+  SkillCatalog,
+  SkillDetailPanel,
   SkillSlotButtons,
   Tabs,
   TabsContent,
@@ -22,6 +23,7 @@ import {
   Tag,
 } from "@alpha-agents/ui";
 import { Boxes, RotateCcw, Wallet } from "lucide-react";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { useWalletSession } from "@/auth/session";
@@ -39,6 +41,7 @@ import {
 import { useRevealSeen } from "@/agent/reveal-seen";
 import { useRevealStatus } from "@/agent/reveal-status";
 import { type SkillInventory, useSkillInventory } from "@/agent/use-skill-inventory";
+import { skillCards } from "@/agent/skill-cards";
 import { AgentStage } from "@/components/viewer/agent-stage";
 
 const TIER_NAME = { base: "Base", medium: "Medium", pro: "Pro" } as const;
@@ -71,6 +74,8 @@ interface LoadoutControls {
 
 function SkillsPanel({ controls }: { controls: LoadoutControls | null }) {
   const inv = controls?.inventory;
+  // 2026-10-13: a card opens its detail panel; Equip or Unequip from there (preview only).
+  const [picked, setPicked] = useState<string | null>(null);
   if (!controls || !inv || inv.state === "off")
     return (
       <EmptyState
@@ -94,15 +99,26 @@ function SkillsPanel({ controls }: { controls: LoadoutControls | null }) {
         description="This agent has no skills listed. Equipped skills will appear in your agent's slots."
       />
     );
+  const cards = skillCards(inv.records);
+  const slotOf = slotsById(controls.loadout);
+  const card = picked ? cards.find((c) => c.id === picked) : undefined;
   return (
     <div className="flex flex-col gap-3">
-      <SkillInventoryCards
-        skills={inv.skills}
-        slotOf={slotsById(controls.loadout)}
-        nextFreeSlot={firstFreeSlot(controls.loadout)}
-        hovered={controls.hovered}
-        onToggle={controls.toggle}
-        onHover={controls.setHovered}
+      {card ? (
+        <SkillDetailPanel
+          skill={card}
+          equippedSlot={slotOf[card.id] ?? null}
+          canEquip={firstFreeSlot(controls.loadout) !== null}
+          onToggle={() => controls.toggle(card.id)}
+          onClose={() => setPicked(null)}
+          note={<LoadoutUnsavedNote />}
+        />
+      ) : null}
+      <SkillCatalog
+        skills={cards}
+        slotOf={slotOf}
+        selected={picked}
+        onSelect={(id) => setPicked((x) => (x === id ? null : id))}
       />
       <LoadoutUnsavedNote />
     </div>
@@ -120,6 +136,10 @@ export function AgentPortal({ environment }: { environment: EnvironmentId }) {
   const { progress, mint, reset } = useMint(environment, owned.refresh);
   const params = useSearchParams();
   const [tab, setTab] = useState("agent");
+  // 2026-10-13: the owner's view: the NFT art large (2D) or the model (3D); the 3D window can
+  // collapse so the page works with the 2D view alone.
+  const [view, setView] = useState<"2d" | "3d">("3d");
+  const [collapsed, setCollapsed] = useState(false);
   const envLabel = ENVIRONMENTS[environment].label;
 
   const requested = params.get("agent");
@@ -284,11 +304,7 @@ export function AgentPortal({ environment }: { environment: EnvironmentId }) {
           <ul className="flex flex-wrap gap-2">
             {owned.agents.map((a) => (
               <li key={a.id.toString()}>
-                <Button
-                  asChild
-                  variant="secondary"
-                  size="sm"
-                >
+                <Button asChild variant="secondary" size="sm">
                   <a
                     href={`/configure?agent=${a.id.toString()}`}
                     aria-current={a.id === selected.id ? "page" : undefined}
@@ -306,8 +322,59 @@ export function AgentPortal({ environment }: { environment: EnvironmentId }) {
     <p className="text-sm text-foreground-muted">Your agent will appear here.</p>
   );
 
+  const agentHref = selected ? `/agents/${selected.id.toString()}` : null;
+  const quickLinks = agentHref ? (
+    <nav aria-label="This agent's pages" data-testid="agent-quick-links">
+      <ul className="flex flex-col gap-1 text-sm">
+        {[
+          ["Overview", ""],
+          ["Trading", "/trading"],
+          ["Research", "/research"],
+          ["Set goal", "/goal"],
+          ["Vault", "/vault"],
+          ["Keys", "/settings"],
+        ].map(([label, path]) => (
+          <li key={label}>
+            <Link href={`${agentHref}${path}`} className="underline-offset-2 hover:underline">
+              {label}
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </nav>
+  ) : null;
+  const viewSwitch = (
+    <div role="group" aria-label="View" className="flex flex-wrap items-center gap-1">
+      {(["2d", "3d"] as const).map((v) => (
+        <Button
+          key={v}
+          size="sm"
+          variant="secondary"
+          aria-pressed={view === v && !collapsed}
+          onClick={() => {
+            setView(v);
+            setCollapsed(false);
+          }}
+          data-testid={`view-${v}`}
+        >
+          {v.toUpperCase()}
+        </Button>
+      ))}
+      <Button
+        size="sm"
+        variant="ghost"
+        aria-pressed={collapsed}
+        onClick={() => setCollapsed((c) => !c)}
+        data-testid="view-collapse"
+      >
+        {collapsed ? "Show viewer" : "Collapse viewer"}
+      </Button>
+    </div>
+  );
+
   const stage = (
     <AgentStage
+      view={view}
       asset={info?.asset ?? null}
       agentKey={selected ? selected.id.toString() : "none"}
       badge={badge}
@@ -367,8 +434,14 @@ export function AgentPortal({ environment }: { environment: EnvironmentId }) {
           </SectionLabel>
           <SkillsPanel controls={controls} />
         </aside>
-        <div className="h-96 overflow-hidden rounded-lg border lg:order-2 lg:col-span-6 lg:h-auto lg:min-h-120">
-          {stage}
+        <div className="flex flex-col gap-3 lg:order-2 lg:col-span-6">
+          {viewSwitch}
+          {collapsed ? null : (
+            <div className="h-96 overflow-hidden rounded-lg border lg:h-auto lg:min-h-120">
+              {stage}
+            </div>
+          )}
+          {view === "2d" || collapsed ? quickLinks : null}
         </div>
         <aside
           aria-label="Agent overview"

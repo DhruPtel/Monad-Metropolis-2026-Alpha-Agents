@@ -1,6 +1,6 @@
 "use client";
 
-import { SlotHex } from "@alpha-agents/ui";
+import { SlotHex, cn } from "@alpha-agents/ui";
 import { Canvas } from "@react-three/fiber";
 import { useEffect, useRef, useState } from "react";
 import type { AnimationControl } from "./animated-model";
@@ -14,6 +14,8 @@ export interface Viewer3DProps {
   readonly highlightedSlot: number | null;
   /** UI-FAST: the skill shown in each slot on screen (not saved), by slot; null when empty. */
   readonly slotSkills?: readonly (string | null)[];
+  /** 2026-10-13: false hides the slot markers and their skill tabs, to look at the model alone. */
+  readonly showSlots?: boolean;
   readonly reducedMotion: boolean;
   /** WebGL failed at runtime or the model failed to load: show the 2D fallback. */
   readonly onFailure: () => void;
@@ -34,6 +36,7 @@ export default function Viewer3D({
   animation,
   highlightedSlot,
   slotSkills = [],
+  showSlots = true,
   reducedMotion,
   onFailure,
 }: Viewer3DProps) {
@@ -66,7 +69,14 @@ export default function Viewer3D({
           onLoadingChange={setLoading}
         />
       </Canvas>
-      <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
+      <div
+        aria-hidden
+        className={cn(
+          "pointer-events-none absolute inset-0 overflow-hidden",
+          !showSlots && "hidden",
+        )}
+        data-testid="slot-overlay"
+      >
         {sockets.map((socket, i) => (
           <div
             key={socket}
