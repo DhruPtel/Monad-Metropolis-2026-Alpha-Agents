@@ -6,6 +6,8 @@ import {
   insightRows,
   insights,
   liveTradeRows,
+  planOfTrade,
+  runLabel,
   planMoves,
   planRows,
   skipWords,
@@ -324,5 +326,27 @@ describe("live trades on the Trading tab (2026-10-13)", () => {
     ).toBe("Holding: every position is in its band.");
     expect(holdingLine({ ...runner, outcome: "leg" }, 50)).toBeNull();
     expect(holdingLine(null, 50)).toBeNull();
+  });
+});
+
+describe("which run a plan and a trade came from (2026-10-13)", () => {
+  const plans = [
+    {
+      cycleId: "cycle-a",
+      createdAt: "2026-10-13T22:10:06.000Z",
+      decidedAt: "2026-10-13T22:22:47.000Z",
+    },
+    {
+      cycleId: "cycle-b",
+      createdAt: "2026-10-14T01:28:03.000Z",
+      decidedAt: "2026-10-14T01:40:00.000Z",
+    },
+  ];
+  it("names the run by its time, and gives a trade the plan approved before it", () => {
+    expect(runLabel(plans[1])).toBe("From the research run of 2026-10-14 01:28 UTC");
+    expect(runLabel({ cycleId: null, createdAt: "x" })).toBeNull();
+    expect(planOfTrade({ createdAt: "2026-10-13T22:24:19.000Z" }, plans)?.cycleId).toBe("cycle-a");
+    expect(planOfTrade({ createdAt: "2026-10-14T02:00:00.000Z" }, plans)?.cycleId).toBe("cycle-b");
+    expect(planOfTrade({ createdAt: "2026-10-13T20:00:00.000Z" }, plans)).toBeNull();
   });
 });

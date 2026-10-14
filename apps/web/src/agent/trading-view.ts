@@ -379,10 +379,31 @@ export function tradesInFlight(intents: readonly IntentJson[]): boolean {
  * leg created since the plan was approved, except one still waiting for the
  * owner (those show under "Waiting for you").
  */
+/** "From the research run of 2026-10-14 01:28 UTC": the run a plan came from, by its proposal's time. */
+export function runLabel(
+  p: Pick<ProposalJson, "createdAt" | "cycleId"> | null | undefined,
+): string | null {
+  if (!p?.cycleId) return null;
+  return `From the research run of ${minute(p.createdAt)} UTC`;
+}
+
+/** The approved plan a trade came from: the latest approval before the trade. */
+export function planOfTrade(
+  i: Pick<IntentJson, "createdAt">,
+  approved: readonly Pick<ProposalJson, "decidedAt" | "createdAt" | "cycleId">[],
+) {
+  return (
+    [...approved]
+      .filter((p) => p.decidedAt !== null && (p.decidedAt as string) <= i.createdAt)
+      .sort((a, b) => ((a.decidedAt as string) < (b.decidedAt as string) ? 1 : -1))[0] ?? null
+  );
+}
+
 export function liveTradeRows(
   intents: readonly IntentJson[],
   since: string | null,
   txFor: (hash: string) => string | null,
+  approved: readonly Pick<ProposalJson, "decidedAt" | "createdAt" | "cycleId">[] = [],
 ): LiveTradeView[] {
   return intents
     .filter((i) => i.status !== "awaiting_approval" && (since === null || i.createdAt >= since))
@@ -397,6 +418,11 @@ export function liveTradeRows(
         status: liveStatus(i.status),
         time: minute(i.settledAt ?? i.submittedAt ?? i.createdAt),
         txHref: i.txHash ? txFor(i.txHash) : null,
+        source:
+          runLabel(planOfTrade(i, approved))?.replace(
+            "From the research run",
+            "Plan from the run",
+          ) ?? null,
       };
     });
 }

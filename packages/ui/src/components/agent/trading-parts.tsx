@@ -427,6 +427,7 @@ function PlanSummaryCard({
   rows,
   rationale,
   reportHref,
+  source,
   actions,
   linkAs,
   className,
@@ -438,6 +439,8 @@ function PlanSummaryCard({
   rows: readonly PlanRowView[];
   rationale: string;
   reportHref?: string | null;
+  /** 2026-10-13: the research run the plan came from ("From the research run of 2026-10-14 01:28 UTC"). */
+  source?: string | null;
   /** Approve and decline, while the plan waits. */
   actions?: ReactNode;
   linkAs?: LinkComponent;
@@ -455,6 +458,11 @@ function PlanSummaryCard({
         {badge ? <Badge tone={badge.tone}>{badge.label}</Badge> : null}
         <span className="ml-auto text-xs text-foreground-muted">Goal: {goal}</span>
       </div>
+      {source ? (
+        <p className="text-xs text-foreground-muted" data-testid="plan-source">
+          {source}
+        </p>
+      ) : null}
       {rows.length === 0 ? (
         <p className="text-sm text-foreground-muted">The plan moves nothing.</p>
       ) : (
@@ -516,6 +524,8 @@ export interface LiveTradeView {
   readonly time: string;
   /** The transaction on the explorer; null until it is sent. */
   readonly txHref: string | null;
+  /** 2026-10-13: the plan and run the trade came from. */
+  readonly source?: string | null;
 }
 
 const LIVE_TONE = { pending: "warning", settled: "positive", failed: "negative" } as const;
@@ -562,6 +572,11 @@ function LiveTrades({
               </span>
               <span className="numeric text-foreground-muted">{t.amount}</span>
               <Badge tone={LIVE_TONE[t.status]}>{t.status}</Badge>
+              {t.source ? (
+                <span className="text-foreground-muted" data-testid="live-trade-source">
+                  {t.source}
+                </span>
+              ) : null}
               <span className="numeric ml-auto text-foreground-subtle">{t.time}</span>
               {t.txHref ? (
                 <a href={t.txHref} target="_blank" rel="noreferrer noopener" className={LINK_CLASS}>

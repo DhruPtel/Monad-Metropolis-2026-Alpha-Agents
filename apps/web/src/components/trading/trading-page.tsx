@@ -42,6 +42,7 @@ import {
   insightRows,
   latestApplied,
   liveTradeRows,
+  runLabel,
   planRows,
   tradesInFlight,
   txHref,
@@ -264,8 +265,12 @@ export function TradingPage({
     txFor: (hash) => txHref(environment, hash),
   });
   const waitingPlan = pending !== null && shown?.proposalId === pending.proposalId;
-  const live = liveTradeRows(pf.intents, applied?.decidedAt ?? null, (hash) =>
-    txHref(environment, hash),
+  const approvedPlans = [...(card?.recent ?? [])].filter((p) => p.status === "applied");
+  const live = liveTradeRows(
+    pf.intents,
+    applied?.decidedAt ?? null,
+    (hash) => txHref(environment, hash),
+    approvedPlans,
   );
   const holding = holdingLine(
     runner,
@@ -433,6 +438,7 @@ export function TradingPage({
               rows={planRows(shown, card, holdingRows)}
               rationale={shown.rationale.portfolioView}
               reportHref={shown.cycleId ? reportHref(agentId, shown.cycleId) : null}
+              source={runLabel(shown)}
               linkAs={Link}
               actions={
                 waitingPlan ? (
