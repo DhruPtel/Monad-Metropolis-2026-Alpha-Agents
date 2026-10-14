@@ -84,8 +84,15 @@ function testnetEnv() {
 }
 
 const SERVICES = [
-  { name: "indexer", args: ["services/indexer/src/main.ts"], ready: null },
-  { name: "api", args: ["apps/control-api/src/main.ts"], ready: "http://127.0.0.1:4100/health" },
+  // 2026-10-14: the indexer and the API exit when the chain RPC is unreachable at start, as it
+  // is right after a reboot, so they are started again like the orchestrator.
+  { name: "indexer", args: ["services/indexer/src/main.ts"], ready: null, restart: true },
+  {
+    name: "api",
+    args: ["apps/control-api/src/main.ts"],
+    ready: "http://127.0.0.1:4100/health",
+    restart: true,
+  },
   {
     name: "orchestrator",
     args: ["services/orchestrator/src/main.ts"],
