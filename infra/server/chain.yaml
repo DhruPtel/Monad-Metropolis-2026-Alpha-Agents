@@ -115,6 +115,8 @@ services:
       HOST_GUARD_HOST: 0.0.0.0
       HOST_WEB_ORIGINS: ${SITE:?}
       PROXY_SHARED_SECRET: ${PROXY_SHARED_SECRET:-}
+      # Owner, 2026-10-14: no per-client rate limits on the testnets.
+      HOST_RATE_LIMITS: "off"
     mem_limit: 256m
     healthcheck:
       <<: *app-health

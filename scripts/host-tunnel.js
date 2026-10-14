@@ -81,8 +81,14 @@ const LIMITS = {
 };
 /** @type {Map<string, number[]>} */
 const hits = new Map();
+/**
+ * CO-U1 (owner, 2026-10-14): HOST_RATE_LIMITS=off lifts every per-client limit; the guard still
+ * forwards only /health and /v1/*, with CORS for the sites and the proxy secret's check.
+ */
+const RATE_LIMITS_ON = process.env.HOST_RATE_LIMITS?.trim() !== "off";
 /** @param {string} key @param {number} perMinute */
 function overLimit(key, perMinute) {
+  if (!RATE_LIMITS_ON) return false;
   const now = Date.now();
   const list = (hits.get(key) ?? []).filter((t) => now - t < 60_000);
   if (list.length >= perMinute) {

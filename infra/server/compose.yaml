@@ -165,12 +165,17 @@ services:
   # The public guard (pnpm host:up's, without the tunnel): /health and /v1/* only, CORS, rate limits.
   guard:
     <<: *app
+    # The guard is a proxy with no chain state: it runs the newest image even while the stack's
+    # services stay pinned (VIVARIUM_REVISION).
+    image: vivarium-backend:${VIVARIUM_GUARD_REVISION:-latest}
     command: ["node", "scripts/host-tunnel.js", "guard"]
     environment:
       HOST_GUARD_HOST: 0.0.0.0
       HOST_WEB_ORIGINS: https://vivarium-testnet.vercel.app
       # The site's /api route sends it with each visitor's IP; the guard trusts that IP only then.
       PROXY_SHARED_SECRET: ${PROXY_SHARED_SECRET:-}
+      # Owner, 2026-10-14: no per-client rate limits on the testnets.
+      HOST_RATE_LIMITS: "off"
     mem_limit: 256m
     healthcheck:
       <<: *app-health
