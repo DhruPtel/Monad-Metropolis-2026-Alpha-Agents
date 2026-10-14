@@ -2,8 +2,9 @@ import { parseAbi } from "viem";
 
 /**
  * Every event AgentNFT emits, its own and inherited (ERC-721, ERC-4906,
- * Ownable2Step, EIP-712), copied from the compiled ABI. events.test.ts checks
- * this list against `forge inspect` so a new event can never go unindexed.
+ * Ownable2Step, EIP-712), copied from the compiled ABI, and AgentCopyNFT's (CO-U1: its
+ * MinterSet; the rest are AgentNFT's). events.test.ts checks this list against `forge
+ * inspect` of both so a new event can never go unindexed.
  */
 export const AGENT_NFT_EVENTS_ABI = parseAbi([
   "event AgentMinted(uint256 indexed agentId, address indexed owner, address tba)",
@@ -16,6 +17,7 @@ export const AGENT_NFT_EVENTS_ABI = parseAbi([
   "event ContractURIUpdated()",
   "event EIP712DomainChanged()",
   "event EscrowSet(address indexed escrow)",
+  "event MinterSet(address indexed previousMinter, address indexed newMinter)",
   "event ImageBaseURIFrozen(string uri)",
   "event ImageBaseURISet(string uri)",
   "event MetadataUpdate(uint256 _tokenId)",

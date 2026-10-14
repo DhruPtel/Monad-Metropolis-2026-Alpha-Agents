@@ -11,16 +11,24 @@ describe("AgentNFT's events", () => {
   it.skipIf(forge.status !== 0)(
     "match the compiled contract exactly, so none goes unindexed",
     () => {
-      const out = spawnSync("forge", ["inspect", "src/AgentNFT.sol:AgentNFT", "abi", "--json"], {
-        cwd: MONAD_DIR,
-        encoding: "utf8",
-        timeout: 240_000,
-      });
-      expect(out.status).toBe(0);
-      const compiled = (JSON.parse(out.stdout) as { type: string }[])
-        .filter((e) => e.type === "event")
-        .map((e) => toEventSignature(e as never))
-        .sort();
+      const eventsOf = (contract: string) => {
+        const out = spawnSync("forge", ["inspect", contract, "abi", "--json"], {
+          cwd: MONAD_DIR,
+          encoding: "utf8",
+          timeout: 240_000,
+        });
+        expect(out.status).toBe(0);
+        return (JSON.parse(out.stdout) as { type: string }[])
+          .filter((e) => e.type === "event")
+          .map((e) => toEventSignature(e as never));
+      };
+      // CO-U1: AgentNFT on Monad, AgentCopyNFT on the L2 testnets.
+      const compiled = [
+        ...new Set([
+          ...eventsOf("src/AgentNFT.sol:AgentNFT"),
+          ...eventsOf("src/AgentCopyNFT.sol:AgentCopyNFT"),
+        ]),
+      ].sort();
       expect(AGENT_NFT_EVENTS_ABI.map((e) => toEventSignature(e)).sort()).toEqual(compiled);
     },
     300_000,
