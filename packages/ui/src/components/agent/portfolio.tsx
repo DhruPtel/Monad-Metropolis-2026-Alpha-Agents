@@ -521,7 +521,16 @@ const SETTLEMENT: Readonly<Partial<Record<IntentState, string>>> = {
 };
 
 /** The agent's recent trades and proposals, each with its state, amounts, hash and settlement. */
-function RecentTrades({ trades, className }: { trades: readonly TradeItem[]; className?: string }) {
+function RecentTrades({
+  trades,
+  txHref,
+  className,
+}: {
+  trades: readonly TradeItem[];
+  /** 2026-10-13: the explorer page of a transaction; without it the hash shows as text. */
+  txHref?: (hash: string) => string | null;
+  className?: string;
+}) {
   if (trades.length === 0)
     return (
       <p className={cn("text-sm text-foreground-muted", className)} data-testid="recent-trades">
@@ -576,7 +585,16 @@ function RecentTrades({ trades, className }: { trades: readonly TradeItem[]; cla
               )}
             </TableCell>
             <TableCell label="Transaction" className="align-top">
-              {t.txHash ? (
+              {t.txHash && txHref?.(t.txHash) ? (
+                <a
+                  href={txHref(t.txHash) ?? undefined}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  className="numeric text-xs break-all underline"
+                >
+                  View transaction
+                </a>
+              ) : t.txHash ? (
                 <span className="numeric text-xs break-all text-foreground-muted">{t.txHash}</span>
               ) : (
                 <span className="text-xs text-foreground-muted">None</span>

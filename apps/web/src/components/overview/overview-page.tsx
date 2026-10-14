@@ -48,6 +48,7 @@ import { useAgentSummary } from "@/components/agent-shell/agent-shell";
 import { usePortfolio } from "@/agent/use-portfolio";
 import { useWalletSession } from "@/auth/session";
 import { AddCreditsSection } from "@/components/credits/add-credits-section";
+import { txHref } from "@/agent/trading-view";
 import { AgentActivity } from "@/components/activity/agent-activity";
 import { AgentHoldings } from "@/components/holdings/agent-holdings";
 import { ActionLine } from "@/components/my-agents/my-agents-page";
@@ -382,6 +383,7 @@ export function OverviewPage({
             label: "Trade history",
             content: (
               <RecentTrades
+                txHref={(hash) => txHref(environment, hash)}
                 trades={pf.intents.map((i) => ({
                   intentId: i.intentId,
                   status: i.status,

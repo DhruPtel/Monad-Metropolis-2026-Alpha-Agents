@@ -237,6 +237,30 @@ describe("portfolio components (P2-U7)", () => {
     expect(row.textContent).toContain("approved while armed");
     expect(row.textContent).toContain("7d7d");
     unmount();
+    // 2026-10-13: with the explorer's address, each settled trade links to its transaction.
+    const linked = render(
+      <RecentTrades
+        txHref={(h) => `https://testnet.monadvision.com/tx/${h}`}
+        trades={[
+          {
+            intentId: "t2",
+            status: "reconciled",
+            sell: { asset: "USDC", amount: 1_000_000n },
+            buy: "WMON",
+            amountOut: null,
+            txHash: `0x${"7d".repeat(32)}`,
+            approvedBy: "auto",
+            createdAt: "2026-10-07T11:58:00.000Z",
+            settledAt: "2026-10-07T11:58:09.000Z",
+          },
+        ]}
+      />,
+    );
+    expect(screen.getByRole("link", { name: "View transaction" })).toHaveAttribute(
+      "href",
+      `https://testnet.monadvision.com/tx/0x${"7d".repeat(32)}`,
+    );
+    linked.unmount();
     render(<RecentTrades trades={[]} />);
     expect(screen.getByTestId("recent-trades").textContent).toContain("No trades yet");
   });
