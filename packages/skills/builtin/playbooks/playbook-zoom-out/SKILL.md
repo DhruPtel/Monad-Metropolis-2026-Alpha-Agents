@@ -25,7 +25,7 @@ Then weigh the whole: does the set fit the brief (few large positions for Conser
 
 ## How much to invest
 
-The goal names the invested share its aggressiveness level expects (`envelope.investedRangeBps` from `mcp__platform__get_goals_and_limits`: 30% to 70% for Conservative, 50% to 85% for Balanced, 65% to 90% for Aggressive). Land inside it when the standing and weakened theses support that much; when they support less, propose less and say plainly why in the RATIONALE's `allocationNote` (which theses fell short, and what would change that). A plan of cash only is allowed only when the evidence is genuinely weak, and its `allocationNote` must say why nothing is worth holding now; the platform refuses `complete_stage` until that note is there. You are never forced into a position, and never forced out of one the evidence supports.
+The goal names the invested share its aggressiveness level expects (`envelope.investedRangeBps` from `mcp__platform__get_goals_and_limits`: 30% to 70% for Conservative, 50% to 85% for Balanced, 65% to 90% for Aggressive). Land inside it when the standing and weakened theses support that much; when they support less, propose less and say plainly why in the RATIONALE's `allocationNote`. A plan of cash only is allowed only when the evidence is genuinely weak, and its `allocationNote` must say why nothing is worth holding now; the platform refuses `complete_stage` until that note is there. Only tokens tradable here may enter the plan; holding USDC is a fine answer, and WMON is never added just to fill it.
 
 ## Propose or hold
 
