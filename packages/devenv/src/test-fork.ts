@@ -143,14 +143,20 @@ export async function startTestFork(options: TestForkOptions = {}): Promise<Test
 
   let blockNumber = readForkConfig(paths.forkConfig).blockNumber;
   const log = createWriteStream(join(paths.devDir, `test-fork-${port}.log`), { flags: "w" });
-  const write = (chunk: Buffer) => log.write(redact(chunk.toString("utf8"), upstreams));
+  // 2026-10-14: the proxy process can still print after a fork that gave up has closed the log;
+  // a write after end is an unhandled error that took the whole orchestrator down.
+  const write = (chunk: Buffer) => {
+    if (!log.writableEnded) log.write(redact(chunk.toString("utf8"), upstreams));
+  };
   const deadline = Date.now() + (options.timeoutMs ?? 180_000);
   // anvil reaches the upstream through a retrying proxy (L-91): a node that
   // answers the pinned block as missing is asked again, not believed.
   // In a process of its own: a caller blocked in spawnSync (forge) must not stall anvil.
   const proxy = await startUpstreamProxyProcess({
     upstreams,
-    log: (line) => log.write(`${line}\n`),
+    log: (line) => {
+      if (!log.writableEnded) log.write(`${line}\n`);
+    },
   });
   const giveUp = () => {
     void proxy.stop();
