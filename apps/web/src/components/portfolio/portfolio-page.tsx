@@ -66,6 +66,7 @@ import type {
   PortfolioV3Json,
 } from "@/api/client";
 import { tradingStateWords } from "@/agent/my-agents";
+import { ALLOWLIST_WAIT_MESSAGE } from "@/agent/custody";
 import { latestDecided, planCardView } from "@/agent/plan-card";
 import { setupSteps } from "@/agent/setup-flow";
 import { ActivationTerminal } from "./activation-terminal";
@@ -953,8 +954,7 @@ export function PortfolioPage({
           </p>
           {allowlisted ? null : (
             <p role="alert" className="text-sm text-warning" data-testid="allowlist-block">
-              This wallet is not yet allowed to deposit during the beta, so the account could not
-              take deposits. Ask the platform to add it, then open the account.
+              {ALLOWLIST_WAIT_MESSAGE}
             </p>
           )}
           <div className="grid gap-4 md:grid-cols-2">

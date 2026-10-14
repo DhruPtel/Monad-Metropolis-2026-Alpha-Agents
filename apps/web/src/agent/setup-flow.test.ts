@@ -26,7 +26,7 @@ describe("setupSteps (UI-U1)", () => {
     expect(steps[0]?.state).toBe("blocked");
     expect(steps[0]?.action).toBe("open");
     expect(steps.slice(1).map((s) => s.action)).toEqual([undefined, undefined, undefined]);
-    expect(steps[0]?.detail).toContain("not yet allowed to deposit during the beta");
+    expect(steps[0]?.detail).toBe("Your wallet is being enabled for deposits, about a minute.");
   });
 
   it("moves to the deposit once the account is open, and counts 5 USDC as enough", () => {

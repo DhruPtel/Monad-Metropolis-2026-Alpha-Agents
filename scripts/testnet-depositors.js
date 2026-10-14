@@ -10,7 +10,15 @@
 import { ConfigError } from "@alpha-agents/config";
 import { createDb } from "@alpha-agents/db";
 import { addressEntry } from "@alpha-agents/domain";
-import { createPublicClient, createWalletClient, fallback, getAddress, http, parseAbi } from "viem";
+import {
+  createPublicClient,
+  createWalletClient,
+  fallback,
+  formatEther,
+  getAddress,
+  http,
+  parseAbi,
+} from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { loadRootEnv } from "./lib/config.js";
 import { TESTNET, reveal, testnetConfig } from "./lib/testnet.js";
@@ -103,6 +111,25 @@ async function pass() {
       args: [owner],
     });
     if (allowed) continue;
+    // 2026-10-14: Monad charges the whole gas limit, so name a short balance plainly instead of
+    // the provider's "Missing or invalid parameters".
+    const [gas, price, balance] = await Promise.all([
+      client.estimateContractGas({
+        account: deployer,
+        address: factory,
+        abi: FACTORY_ABI,
+        functionName: "addDepositor",
+        args: [owner],
+      }),
+      client.getGasPrice(),
+      client.getBalance({ address: deployer.address }),
+    ]);
+    if (balance < gas * price) {
+      say(
+        `${owner} waits: the deployer ${deployer.address} holds ${formatEther(balance)} MON and one add costs ${formatEther(gas * price)} MON`,
+      );
+      break;
+    }
     const hash = await wallet.writeContract({
       address: factory,
       abi: FACTORY_ABI,

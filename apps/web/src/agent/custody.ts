@@ -115,12 +115,19 @@ export const GRANT_ABI = parseAbi([
   "error BadSession()",
 ]);
 
+/**
+ * What a wallet off the factory's depositor allowlist sees (2026-10-14): on testnet the
+ * depositor registrar (scripts/testnet-depositors.js) adds every agent owner within a minute,
+ * and the page's poll picks the change up by itself.
+ */
+export const ALLOWLIST_WAIT_MESSAGE = "Your wallet is being enabled for deposits, about a minute.";
+
 /** Owner-facing text for each custody revert. */
 export const CUSTODY_REVERT_MESSAGES: Readonly<Record<string, string>> = {
   NotAgentOwner: "This wallet does not own the agent.",
   AccountExists: "This agent already has a trading account for this wallet.",
-  NotAllowlisted:
-    "This wallet is not yet allowed to deposit during the beta. Ask the platform to add it, then try again.",
+  // 2026-10-14: on testnet the depositor registrar adds every agent owner within a minute.
+  NotAllowlisted: ALLOWLIST_WAIT_MESSAGE,
   PersonalCapExceeded: "The deposit would take the account past its beta cap.",
   PlatformCapExceeded: "The deposit would take the platform past its beta cap.",
   ZeroAmount: "Enter an amount greater than zero.",

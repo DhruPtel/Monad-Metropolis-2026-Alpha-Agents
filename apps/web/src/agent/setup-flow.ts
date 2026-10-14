@@ -1,6 +1,7 @@
 import { formatAmount } from "@alpha-agents/domain";
 import type { SetupStepView } from "@alpha-agents/ui";
 import type { ReactNode } from "react";
+import { ALLOWLIST_WAIT_MESSAGE } from "./custody";
 
 /**
  * The portfolio's guided setup (UI-U1): opening the account, depositing,
@@ -59,7 +60,7 @@ export function setupSteps(
       detail: done.open
         ? "Open. Only you can withdraw from it; the agent trades it within its hard limits."
         : !f.allowlisted
-          ? "This wallet is not yet allowed to deposit during the beta. Ask the platform to add it, then open the account here."
+          ? ALLOWLIST_WAIT_MESSAGE
           : f.custody === "v3"
             ? "Your wallet creates an account on the fund agent's set. Only you can withdraw from it, at any time."
             : "Your wallet creates the account. Only you can withdraw from it, at any time.",

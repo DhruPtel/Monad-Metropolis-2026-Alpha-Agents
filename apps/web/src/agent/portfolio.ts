@@ -2,6 +2,7 @@ import type { AssetRow } from "@alpha-agents/ui";
 import type { Address } from "viem";
 import { staleFeedMessage } from "@alpha-agents/domain";
 import type { PortfolioJson } from "@/api/client";
+import { ALLOWLIST_WAIT_MESSAGE } from "./custody";
 
 /**
  * The portfolio page's arithmetic and rules (P2-U7), pure so every state is
@@ -94,8 +95,7 @@ export type DepositBlock =
 
 export const DEPOSIT_BLOCK_MESSAGES: Readonly<Record<DepositBlock, string>> = {
   NO_ACCOUNT: "Open the trading account first.",
-  NOT_ALLOWLISTED:
-    "This wallet is not yet allowed to deposit during the beta, so the account would refuse the deposit. Ask the platform to add it, then try again.",
+  NOT_ALLOWLISTED: ALLOWLIST_WAIT_MESSAGE,
   ZERO_AMOUNT: "Enter an amount greater than zero.",
   OVER_WALLET: "Your wallet does not hold that much.",
   PAUSED: "The account is paused, so it takes no deposits. Withdrawals still work.",

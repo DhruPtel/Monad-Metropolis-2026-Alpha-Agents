@@ -3783,8 +3783,7 @@ const OWNER_STEPS_BLOCKED = [
     key: "open",
     title: "Open a trading account",
     state: "blocked" as const,
-    detail:
-      "This wallet is not yet allowed to deposit during the beta. Ask the platform to add it, then open the account here.",
+    detail: "Your wallet is being enabled for deposits, about a minute.",
   },
   ...OWNER_STEPS_NEXT.slice(1).map((s) => ({ ...s, state: "later" as const, action: undefined })),
 ];

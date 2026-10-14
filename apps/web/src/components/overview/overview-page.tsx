@@ -41,6 +41,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import type { Address } from "viem";
 import { othersKeepCredits, refundAmountText, refundAvailability } from "@/agent/my-agents";
+import { ALLOWLIST_WAIT_MESSAGE } from "@/agent/custody";
 import { LOW_GAS_WEI, v2AssetRows } from "@/agent/portfolio";
 import { assetRows, overviewV3 } from "@/agent/portfolio-v3";
 import { setupSteps } from "@/agent/setup-flow";
@@ -370,8 +371,7 @@ export function OverviewPage({
               </p>
               {allowlisted ? null : (
                 <p role="alert" className="text-sm text-warning" data-testid="allowlist-block">
-                  This wallet is not yet allowed to deposit during the beta. Ask the platform to add
-                  it, then open the account.
+                  {ALLOWLIST_WAIT_MESSAGE}
                 </p>
               )}
               <CapsPanel caps={caps} />
