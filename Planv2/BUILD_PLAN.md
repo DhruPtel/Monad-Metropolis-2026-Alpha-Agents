@@ -1609,6 +1609,7 @@ Dropped from the register as Zodiac-only: ZR-2, ZR-4l, ZR-6B to ZR-6D, ZR-Z03, Z
 
 | Feature | Left out because | Trigger for adding it | Source |
 |---|---|---|---|
+| AgentNFT owner reserve mint and a gift path for reserved agents | Skipped for the Colosseum testnet redeploy (owner, 2026-10-14): AgentNFT mints only to the caller, two per wallet, and transfers go through the escrow alone, so a reserve needs a new AgentNFT and the sets bound to it | The mainnet AgentNFT deploy: an owner-only mint of a set number of agents to one address, outside the per-wallet limit and inside the 1,000 supply, revealed like any mint, plus a one-time gift transfer for reserved agents | CO-U1 |
 | WETH and a liquid staking token as tradable assets | Thin liquidity (about 5,700 USDC in the v3 USDC/WETH pool); no feed validation | Measured depth at the reference size inside 0.5% and a feed passing M-33; LST pricing by market feed versus redemption rate decided | `conversation decision`, `notes/morpho-vault.md > 8` |
 | Second venue | One venue keeps the adapter surface small | The first venue's full position lifecycle passes conformance and the depth spike shows the second venue is needed | `conversation decision` |
 | Lending, borrowing, leverage, LP positions, perps | No exit and valuation support at launch | Each venue's whole position lifecycle (enter, read, value, exit, worst case, residual obligations) passes conformance; lending exit probes pass | `conversation decision`, `preview.html > Revised technical plan > 6` |

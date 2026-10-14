@@ -2592,7 +2592,10 @@ interface L2Deployment {
   readonly chainId: number;
   readonly block: number;
   readonly contracts: Readonly<
-    Record<string, { readonly address: string; readonly codeSize: number }>
+    Record<
+      string,
+      { readonly address: string; readonly codeSize: number; readonly codeHash?: string }
+    >
   >;
   readonly external: Readonly<Record<string, string>>;
 }
@@ -2676,6 +2679,14 @@ function monadRedeployed(
           block: d.block,
           codeSize: ours.codeSize,
           deployedBy: "pnpm deploy:testnet:v3 (co.testnet)",
+          ...(ours.codeHash
+            ? {
+                chain: {
+                  codeHash: ours.codeHash as `0x${string}`,
+                  explorer: `https://testnet.monadvision.com/address/${ours.address}`,
+                },
+              }
+            : {}),
         },
         note: "CO-U1: the clean Monad testnet redeploy",
       };

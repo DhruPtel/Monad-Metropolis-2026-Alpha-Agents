@@ -6,6 +6,7 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ConfigError } from "@alpha-agents/config";
+import { keccak256 } from "viem";
 import { loadRootEnv } from "./lib/config.js";
 import { ROOT } from "./lib/paths.js";
 import { TESTNET, testnetConfig, testnetRpc } from "./lib/testnet.js";
@@ -37,13 +38,19 @@ const ids = {
   personal_account_v3_implementation: d.custodyV3.personalAccountImplementation,
   strategy_vault_v3_implementation: d.custodyV3.vaultImplementation,
 };
-/** @type {Record<string, { address: string, codeSize: number }>} */
+/** @type {Record<string, { address: string, codeSize: number, codeHash: string }>} */
 const contracts = {};
 for (const [id, address] of Object.entries(ids)) {
-  const code = await testnetRpc(url, "eth_getCode", [address, "latest"]);
+  // The provider rate-limits at times; ask again before giving up.
+  let code;
+  for (let i = 0; i < 6 && typeof code !== "string"; i++) {
+    code = await testnetRpc(url, "eth_getCode", [address, "latest"]).catch(() => undefined);
+    if (typeof code !== "string") await new Promise((r) => setTimeout(r, 3_000 * (i + 1)));
+  }
+  if (typeof code !== "string") throw new Error(`no code read for ${id}`);
   const codeSize = (code.length - 2) / 2;
   if (codeSize === 0) throw new Error(`${id} at ${address} has no code`);
-  contracts[id] = { address, codeSize };
+  contracts[id] = { address, codeSize, codeHash: keccak256(code) };
 }
 const out = { chainId: TESTNET.chainId, block: d.startBlock, contracts, external: {} };
 writeFileSync(

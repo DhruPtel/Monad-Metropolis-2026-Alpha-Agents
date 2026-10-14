@@ -140,9 +140,22 @@ export function forgeScript(script, o) {
  * @param {string} url @param {string} hash
  */
 export async function chainTransaction(url, hash) {
-  const tx = await testnetRpc(url, "eth_getTransactionByHash", [hash]);
-  const r = await testnetRpc(url, "eth_getTransactionReceipt", [hash]);
-  const block = await testnetRpc(url, "eth_getBlockByNumber", [r.blockNumber, false]);
+  // CO-U1: a provider under load can answer null for a mined transaction's receipt or block;
+  // ask again a few times before giving up.
+  /** @param {string} method @param {unknown[]} params */
+  const read = async (method, params) => {
+    for (let i = 0; ; i++) {
+      const v = await testnetRpc(url, method, params).catch((err) => {
+        if (i >= 5) throw err;
+        return null;
+      });
+      if (v || i >= 5) return v;
+      await new Promise((r) => setTimeout(r, 2_000 * (i + 1)));
+    }
+  };
+  const tx = await read("eth_getTransactionByHash", [hash]);
+  const r = await read("eth_getTransactionReceipt", [hash]);
+  const block = await read("eth_getBlockByNumber", [r.blockNumber, false]);
   const gasLimit = BigInt(tx.gas);
   const gasUsed = BigInt(r.gasUsed);
   const price = BigInt(r.effectiveGasPrice);

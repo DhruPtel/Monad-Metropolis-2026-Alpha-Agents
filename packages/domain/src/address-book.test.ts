@@ -113,7 +113,9 @@ describe("address book", () => {
           // their deployment transaction and Sourcify link (D-254, D-256).
           // M-FAST: the Base fork's own set, deployed by pnpm base:deploy, fork only.
           expect(["local", "testnet", "canary", "base"], e.id).toContain(env);
-          if (env === "testnet") {
+          // CO-U1: the clean Monad testnet redeploy records its code hash and explorer link; it is
+          // not verified on Sourcify, so no match is claimed for it.
+          if (env === "testnet" && !e.note.startsWith("CO-U1")) {
             expect(e.verification.chain?.transaction, e.id).toMatch(/^0x[0-9a-f]{64}$/);
             expect(e.verification.chain?.sourcify).toContain("repo.sourcify.dev/10143/");
           } else if (env === "canary") {
@@ -173,9 +175,11 @@ describe("the mainnet canary's entries (P2-EC part 2)", () => {
 describe("signing block for unverified addresses", () => {
   it("returns testnet's own verified addresses (P2-EC)", () => {
     expect(signingAddress("testnet", "usdc")).toBe("0x534b2f3A21130d7a60830c2Df862319e593943A3");
-    expect(signingAddress("testnet", "executor")).toBe(
-      "0xc127997711a3D26a0967724897BCc365934DeC7c",
+    // CO-U1: the clean redeploy's Executor v3; the v2 set is left out of the book.
+    expect(signingAddress("testnet", "executor_v3")).toBe(
+      "0xd34a0842BCc88bca0a311Dec017C896ecf128935",
     );
+    expect(() => signingAddress("testnet", "executor")).toThrow(/unverified/);
   });
 
   it("returns a verified address", () => {

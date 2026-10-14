@@ -110,3 +110,15 @@ evidence/m-fast/base-deployment.json:generic-api-key:10
 chains/monad/test/base/BaseFork.t.sol:generic-api-key:60
 # UI-FAST: WMON's public token contract address on Monad testnet, a fixture in the Trading tab's plan test.
 apps/web/src/agent/trading-view.test.ts:generic-api-key:15
+
+# CO-U1: the clean Monad testnet redeploy's record; public contract addresses under a "token" key, checked false positives (as F-U13's above)
+evidence/co-u1-monad/testnet-deployment.json:generic-api-key:101
+evidence/co-u1-monad/testnet-deployment.json:generic-api-key:111
+evidence/co-u1-monad/testnet-deployment.json:generic-api-key:125
+evidence/co-u1-monad/testnet-deployment.json:generic-api-key:133
+evidence/co-u1-monad/testnet-deployment.json:generic-api-key:141
+evidence/co-u1-monad/testnet-deployment.json:generic-api-key:40
+evidence/co-u1-monad/testnet-deployment.json:generic-api-key:46
+evidence/co-u1-monad/testnet-deployment.json:generic-api-key:61
+evidence/co-u1-monad/testnet-deployment.json:generic-api-key:81
+evidence/co-u1-monad/testnet-deployment.json:generic-api-key:91
