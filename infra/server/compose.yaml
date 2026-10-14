@@ -171,6 +171,8 @@ services:
     environment:
       HOST_GUARD_HOST: 0.0.0.0
       HOST_WEB_ORIGINS: https://vivarium-testnet.vercel.app
+      # The site's /api route sends it with each visitor's IP; the guard trusts that IP only then.
+      PROXY_SHARED_SECRET: ${PROXY_SHARED_SECRET:-}
     mem_limit: 256m
     healthcheck:
       <<: *app-health

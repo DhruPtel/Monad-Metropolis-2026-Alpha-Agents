@@ -85,6 +85,10 @@ dc up -d --force-recreate           # the services read it at start
 
 Only the keys the backend needs are there. The canary keys, the guardian key, the test wallet's key and the local fork's keys stay on the laptop.
 
+## The site's API proxy and rate limits
+
+The web app's browser code calls the site's own `/api/*`; the route `apps/web/src/app/api/[...path]/route.ts` forwards each request to the API with the visitor's IP and `PROXY_SHARED_SECRET`. The guard limits a request by that IP only when the secret matches; any other request, a direct call to the sslip.io address included, is limited by the address it comes from. The secret is in `/opt/vivarium/.env` and in the Vercel project's production environment (never printed, not in git). To rotate it, put one new random value in both (`vercel env rm PROXY_SHARED_SECRET production`, then `vercel env add PROXY_SHARED_SECRET production`), then run `dc up -d guard` and redeploy the web app. Until both match, site visitors are limited by Vercel's addresses again, as before the fix.
+
 ## Wallet balances
 
 ```sh
