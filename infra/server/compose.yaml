@@ -137,7 +137,8 @@ services:
   orchestrator:
     <<: *app
     command: ["node", "services/orchestrator/src/main.ts"]
-    mem_limit: 1g
+    # The token screens' anvil fork runs inside this container too.
+    mem_limit: 1536m
     healthcheck:
       <<: *app-health
       test: ["CMD", "node", "scripts/server-health.js", "http", "http://127.0.0.1:4200/health"]

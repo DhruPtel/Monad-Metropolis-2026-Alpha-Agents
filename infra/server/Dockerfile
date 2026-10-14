@@ -12,6 +12,12 @@ RUN curl -fsSL -o /usr/local/bin/cloudflared \
     "https://github.com/cloudflare/cloudflared/releases/download/${CLOUDFLARED_VERSION}/cloudflared-linux-amd64" \
   && chmod +x /usr/local/bin/cloudflared \
   && cloudflared --version
+# anvil: the token registry screens tokens on a latest-block fork it starts itself, on testnet
+# too (packages/devenv/src/test-fork.ts). The version is the repo's .foundry-version.
+ARG FOUNDRY_VERSION=v1.8.3
+RUN curl -fsSL "https://github.com/foundry-rs/foundry/releases/download/${FOUNDRY_VERSION}/foundry_${FOUNDRY_VERSION}_linux_amd64.tar.gz" \
+    | tar -xz -C /usr/local/bin anvil \
+  && anvil --version
 RUN corepack enable && corepack prepare pnpm@9.14.4 --activate
 
 WORKDIR /app
