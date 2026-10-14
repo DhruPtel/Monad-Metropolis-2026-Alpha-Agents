@@ -335,12 +335,19 @@ export function ResearchPage({
               ? `Finished at ${newestCycle.finishedAt.slice(11, 16)} UTC, ${usdcCents(newestCycle.chargedUsdcE6)} USDC, report ready`
               : `Finished at ${newestCycle.finishedAt.slice(11, 16)} UTC, ${usdcCents(newestCycle.chargedUsdcE6)} USDC; ${newestReport ? "no report was written" : "writing the report"}`,
           detail: null,
-          action:
-            newestReport?.status === "written" ? (
-              <Button asChild size="sm" variant="secondary">
-                <Link href={reportHref(agentId, newestCycle.cycleId)}>View report</Link>
+          // 2026-10-13: the plan a run made waits on the Trading tab; Review plan leads there.
+          action: (
+            <>
+              <Button asChild size="sm" data-testid="review-plan">
+                <Link href={`/agents/${id}/trading#plan`}>Review plan</Link>
               </Button>
-            ) : null,
+              {newestReport?.status === "written" ? (
+                <Button asChild size="sm" variant="secondary">
+                  <Link href={reportHref(agentId, newestCycle.cycleId)}>View report</Link>
+                </Button>
+              ) : null}
+            </>
+          ),
         }
       : { state: "idle" as const, line: "No research run yet.", detail: null, action: null };
   // The research record over the chart, and the panel for a picked call.
@@ -403,12 +410,18 @@ export function ResearchPage({
         notice={
           finishedNow &&
           reports.some((r) => r.cycleId === finishedNow && r.status === "written") ? (
-            <p className="text-sm text-positive" data-testid="new-report-notice">
-              New report ready:{" "}
-              <Link href={reportHref(agentId, finishedNow)} className="underline">
-                read it
-              </Link>
-            </p>
+            <div
+              className="flex flex-wrap items-center gap-2 text-sm text-positive"
+              data-testid="new-report-notice"
+            >
+              <span>New report ready.</span>
+              <Button asChild size="sm">
+                <Link href={`/agents/${id}/trading#plan`}>Review plan</Link>
+              </Button>
+              <Button asChild size="sm" variant="secondary">
+                <Link href={reportHref(agentId, finishedNow)}>View report</Link>
+              </Button>
+            </div>
           ) : null
         }
       />
