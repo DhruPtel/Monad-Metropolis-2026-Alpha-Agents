@@ -1,0 +1,119 @@
+# CO-U1: one more testnet's backend beside the Monad testnet stack (compose.yaml), siloed: its own
+# database and Redis database, its own address book (TESTNET_CHAIN), the same Postgres, Redis and
+# LiteLLM, and its own guard, which Caddy serves at its own host. Run as its own project:
+#
+#   CHAIN=base-sepolia DB=alpha_agents_base_sepolia REDIS_DB=2 SITE=https://vivarium-base.vercel.app \
+#     docker compose -p vivarium-base-sepolia --env-file /opt/vivarium/.env -f infra/server/chain.yaml up -d
+#
+# scripts/server-deploy.sh does this for each chain it is given (docs/HOSTING.md).
+name: vivarium-${CHAIN:?}
+
+x-app: &app
+  image: vivarium-backend:${VIVARIUM_CHAIN_REVISION:-latest}
+  restart: always
+  init: true
+  network_mode: service:app-net
+  volumes:
+    - /opt/vivarium/.env:/app/.env:ro
+    - app-dev:/app/.dev
+  environment: &app-env
+    APP_ENV: testnet
+    TESTNET_CHAIN: ${CHAIN:?}
+    # Research reads Base mainnet's market for every L2 testnet; Monad's for Monad testnet.
+    MARKET_CHAIN: ${MARKET_CHAIN:-base}
+    DATABASE_URL: postgres://alpha:${POSTGRES_PASSWORD:?}@postgres:5432/${DB:?}
+    REDIS_URL: redis://redis:6379/${REDIS_DB:?}
+    LITELLM_BASE_URL: http://litellm:4000
+    CONTROL_API_PORT: "4100"
+    CONTROL_API_URL: http://127.0.0.1:4100
+    ORCHESTRATOR_PORT: "4200"
+    ORCHESTRATOR_URL: http://127.0.0.1:4200
+    APP_PUBLIC_URL: ${SITE:?}
+    MINT_OPEN: "on"
+    DEMO_DAILY_MODEL_BUDGET_USD: ${DEMO_DAILY_MODEL_BUDGET_USD:-25}
+  depends_on:
+    app-net:
+      condition: service_started
+  healthcheck: &app-health
+    interval: 30s
+    timeout: 15s
+    retries: 4
+    start_period: 120s
+
+services:
+  # Joins the Monad stack's network, where Postgres, Redis, LiteLLM and Caddy are; Caddy reaches
+  # this stack's guard as app-net-<chain>.
+  app-net:
+    image: vivarium-backend:${VIVARIUM_CHAIN_REVISION:-latest}
+    command: ["node", "-e", "setInterval(() => {}, 1 << 30)"]
+    restart: always
+    init: true
+    mem_limit: 64m
+    networks:
+      shared:
+        aliases: ["app-net-${CHAIN:?}"]
+    healthcheck:
+      test: ["CMD", "node", "-e", "0"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+
+  indexer:
+    <<: *app
+    command: ["node", "services/indexer/src/main.ts"]
+    mem_limit: 512m
+    healthcheck:
+      <<: *app-health
+      test: ["CMD", "node", "scripts/server-health.js", "indexer"]
+
+  api:
+    <<: *app
+    command: ["node", "apps/control-api/src/main.ts"]
+    mem_limit: 512m
+    healthcheck:
+      <<: *app-health
+      test: ["CMD", "node", "scripts/server-health.js", "http", "http://127.0.0.1:4100/health"]
+
+  orchestrator:
+    <<: *app
+    command: ["node", "services/orchestrator/src/main.ts"]
+    mem_limit: 1536m
+    healthcheck:
+      <<: *app-health
+      test: ["CMD", "node", "scripts/server-health.js", "http", "http://127.0.0.1:4200/health"]
+
+  research-base:
+    <<: *app
+    command: ["node", "services/orchestrator/src/research-discovery.ts"]
+    mem_limit: 384m
+    healthcheck:
+      <<: *app-health
+      test: ["CMD", "node", "scripts/server-health.js", "db"]
+
+  registrar:
+    <<: *app
+    command: ["node", "scripts/testnet-depositors.js", "watch"]
+    mem_limit: 256m
+    healthcheck:
+      <<: *app-health
+      test: ["CMD", "node", "scripts/server-health.js", "db"]
+
+  guard:
+    <<: *app
+    command: ["node", "scripts/host-tunnel.js", "guard"]
+    environment:
+      HOST_GUARD_HOST: 0.0.0.0
+      HOST_WEB_ORIGINS: ${SITE:?}
+      PROXY_SHARED_SECRET: ${PROXY_SHARED_SECRET:-}
+    mem_limit: 256m
+    healthcheck:
+      <<: *app-health
+      test: ["CMD", "node", "scripts/server-health.js", "http", "http://127.0.0.1:4190/health"]
+
+networks:
+  shared:
+    name: vivarium_default
+    external: true
+
+volumes:
+  app-dev:
