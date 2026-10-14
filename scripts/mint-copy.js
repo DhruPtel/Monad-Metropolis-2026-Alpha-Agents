@@ -20,9 +20,9 @@ const { privateKeyToAccount } = await import("viem/accounts");
 const { loadRootEnv } = await import("./lib/config.js");
 const { TESTNET, reveal, testnetConfig } = await import("./lib/testnet.js");
 
-/** Monad testnet's AgentNFT, whose agents get copies (MONAD_AGENT_NFT overrides it). */
+/** The clean Monad testnet AgentNFT (CO-U1), whose agents get copies; MONAD_AGENT_NFT overrides it (the Metropolis AgentNFT, 0x53704d94..., for agents minted there). */
 const MONAD_AGENT_NFT = /** @type {`0x${string}`} */ (
-  process.env.MONAD_AGENT_NFT?.trim() || "0x53704d94AF23CF04D2b6212cc071c6Bda6A4DFEF"
+  process.env.MONAD_AGENT_NFT?.trim() || "0xf5a2Aa3Da4f937fe46c8387266293ef9c5d25E9A"
 );
 const MONAD_ABI = parseAbi([
   "function ownerOf(uint256) view returns (address)",

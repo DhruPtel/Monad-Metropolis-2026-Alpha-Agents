@@ -1,3 +1,4 @@
+import { TESTNET_CHAIN } from "@alpha-agents/config";
 import { speciesByIndex } from "@alpha-agents/domain";
 import type { AgentTable } from "@alpha-agents/db";
 
@@ -79,8 +80,11 @@ export function applyEvents(
       case "AgentRevealed": {
         draft = draftFor(map, num(e.args.agentId), e);
         const species = num(e.args.species);
-        // The tier follows from the species (D-178); the event's tier must agree.
-        const tier = TIER_CODE[speciesByIndex(species).tier];
+        // The tier follows from the species (D-178); the event's tier must agree. CO-U1: on the
+        // L2 testnets an agent is a copy carrying the tier its Monad AgentNFT assigned, which an
+        // earlier catalog may have set; the copy's own tier stands there.
+        const copy = process.env.APP_ENV === "testnet" && TESTNET_CHAIN.key !== "monad";
+        const tier = copy ? num(e.args.tier) : TIER_CODE[speciesByIndex(species).tier];
         if (num(e.args.tier) !== tier) {
           throw new Error(
             `agent ${draft.agentId} revealed as species ${species} with tier ${num(e.args.tier)}`,
