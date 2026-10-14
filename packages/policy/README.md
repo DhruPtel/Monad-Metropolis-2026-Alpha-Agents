@@ -27,3 +27,8 @@ Rules every check follows:
 - All arithmetic is bigint; no amount passes through floating point.
 
 `BREACH_FIXTURES` holds one swap per limit that breaches exactly that limit by one unit, for the server pre-checks and, later, the contract tests.
+
+## Since 2026-10-13
+
+- `src/trading-profile.ts`: the offchain trading profile. On testnet alone, no minimum trade, a cost limit at the onchain slippage limit, and each leg's gas counted in its cost; every other environment keeps the launch profile.
+- `src/goals.ts`: the goal's allocation split by market cap and the owner's most positions reach the brief and the envelope.

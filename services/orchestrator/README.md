@@ -18,3 +18,11 @@ The agent orchestrator: it provisions agent runtimes and sandbox leases, hosts t
 - `pnpm dev:orchestrator` runs `src/main.ts`; the dev stacks in `scripts/` start it too.
 - Live checks (they spend model credit): `pnpm test:orchestrator:live`, `pnpm test:activation:live`, `pnpm test:vault:live`, `pnpm test:skill:live`; also `pnpm test:anthropic:dry-run`, `pnpm test:skills:selection` and `pnpm registry:check`.
 - Tests: `pnpm vitest run --project node services/orchestrator`; the fork tests run with `pnpm vitest run --project forks services/orchestrator`.
+
+## Since 2026-10-13
+
+- Research: the Scan picks tokens across the goal's allocation split (degen, growth, conservative) and chooses exactly as many as the run's Dives (Low 2, Medium 3, High 4), or says why it found fewer; each Dive researches one named token. A Scan and each Dive must call web search and X search before `complete_stage` (`src/cycle/research.ts`, `REQUIRED_SOURCES`). Stage ceilings: Scan 0.45, Dive 0.45 (0.90 on High), Challenge 0.10, Zoom out 0.25 USDC (`src/cycle/stages.ts`).
+- The report leads with a main decision across the real tokens researched, and on testnet a box saying how the plan executes there (`src/cycle/report.ts`).
+- `POST /v1/agents/:id/research-run` starts the owner's full research cycle (the control API checks the owner first), under the demo guard and the credit check.
+- The runner applies the trading profile (`profile`, `gasMonUsdE18`): on testnet no minimum trade and gas counted in the cost check.
+- Tests: `pnpm vitest run services/orchestrator/src/cycle services/orchestrator/src/runner-v2.test.ts`.

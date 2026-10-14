@@ -1,20 +1,85 @@
-# Alpha Agents
+# Vivarium
 
-An onchain financial management platform where AI agents are NFTs.
+Vivarium is an onchain trading platform on Monad where each AI agent is an NFT you own. You mint an agent, set its goal and fund its trading account; it researches the market, proposes a plan for your approval, and trades only through our Executor contract, which checks every trade against an oracle price and hard limits before the account lets it settle. It never holds your keys, and you can withdraw from the contract at any time. It is live on Monad testnet at **https://vivarium-testnet.vercel.app**, and the same trade path ran end to end on Monad mainnet in a capped canary: a 0.45 USDC buy of WMON ([0x69d4987b…](https://monadvision.com/tx/0x69d4987bbd2ceaf9ea38c98fb91246916ea2cdcdc75e20da4aa1c69ea56c56ce)) and its sale back ([0x58957559…](https://monadvision.com/tx/0x5895758998f9ff8ccf849fad2728087e0ef9bda0cc57aa57dd75683f60abff5d)), with the pause, the withdrawal while paused and the full exit in the same run ([evidence/f-u13/canary-run.json](evidence/f-u13/canary-run.json)).
 
-Mint an agent, fund it, and set your goals. The agent acts as your onchain CFO: it researches opportunities, builds a portfolio around your goals, and trades within hard limits enforced by smart contracts. It never holds your keys, and you can always withdraw directly from the contract.
+Status: unaudited beta on testnet. The code, packages and contracts keep the working name Alpha Agents.
 
-Agents get better by equipping skill NFTs, which add new tools, data, and knowledge. Skills appear as robotic components on the agent's 3D model, so customizing an agent feels like building a game character. Developers and protocols can publish skills to the marketplace.
+## For judges: try it in 5 minutes
 
-Other users can watch agents, follow their trades, and deposit into public vaults run by agents that perform well. Agents can also discover each other and pay for each other's signals.
+1. **Testnet MON.** Get some from the Monad testnet faucet (https://faucet.monad.xyz) for gas.
+2. **Connect.** Open https://vivarium-testnet.vercel.app and connect MetaMask or OKX; the site switches your wallet to Monad Testnet (chain 10143), or tells you how.
+3. **Mint and reveal.** On Mint, mint an agent: free, gas only, up to two per wallet. The platform's reveal keeper draws its species with Pyth Entropy; press Reveal when it is ready.
+4. **Set a goal.** On the agent's Set goal page, pick a style, adjust the allocation and save.
+5. **Deposit test USDC.** The app has no faucet button. Vivarium uses Circle's testnet USDC on Monad testnet (`0x534b2f3A21130d7a60830c2Df862319e593943A3`); get some from Circle's faucet (https://faucet.circle.com, network Monad Testnet), then deposit it into the agent's trading account from its Overview.
+6. **Add research credits.** On Overview, add a few USDC of research credits (a Medium research run costs about 1.50 USDC, at most 2.35). Credits pay for research, not trades.
+7. **Research now.** On the Research tab, press Research now and watch the run live (stage, cost, the branch chart). On the shared demo, research runs only for allowlisted wallets under a daily model-spend guard (decision D-383): send us your address to be added.
+8. **Approve and trade.** When the run finishes, press Review plan, turn on Automatic trading on the Trading tab (your wallet registers the agent's trading permission), approve the plan, and watch Live trades: each trade shows Waiting, Sending, Confirming, then Settled with its transaction.
 
-Built on Monad, with a Solana version to follow.
+**Just looking (no wallet).** The home page lists agents and vaults with their values. Agent #4's Vault tab is public: its value, its About panel and its Activity (deposits, withdrawals and credit top-ups read from the chain's own logs). Agent #4's two settled testnet trades, each 0.796 USDC of WMON through Executor v3:
 
-Status: unaudited beta. Mainnet access is limited to allowlisted testers with capped funds. Do not deposit funds you cannot afford to lose.
+- [0x110bc6d514a1c281fe462135e530eae19bcc0c73c211b91b7e3fd5161b78955e](https://testnet.monadvision.com/tx/0x110bc6d514a1c281fe462135e530eae19bcc0c73c211b91b7e3fd5161b78955e)
+- [0x4a92492573a22c7f1745e8d49465b6d3c35685638a313066943a976c611ea10d](https://testnet.monadvision.com/tx/0x4a92492573a22c7f1745e8d49465b6d3c35685638a313066943a976c611ea10d)
 
-The web app is shown to users as **Vivarium**; the code, packages and contracts keep the working name Alpha Agents.
+Its Overview, Trading and Research tabs open for its owner's wallet.
+
+## How Vivarium fits the track (Markets and trading)
+
+**Technical execution.** Every trade settles onchain through Executor v3 (`chains/monad/src/fund/ExecutorV3.sol`): the runner turns the approved plan into one capped leg at a time, the signer sends it with the agent's session key, and the Executor refuses it unless the price is within the slippage bound of the oracle (OracleAdapterV3) and the trade fits the per-trade, per-position, cash and trades-per-day limits; the account (`CustodyCoreV3`) re-checks its own backstops. The trades above, and the mainnet canary's buy and sell, are the evidence.
+
+**Design and craft.** Risk is shown in plain words: the goal page lists every limit that can only tighten, the Trading tab says why the agent is holding ("Holding: the next trade would cost more than the limit") and shows each trade's live status, the research run explains each step as it happens, and Withdraw is always there because the contract allows it at any time.
+
+**Originality.** The agent is an owned financial primitive: an NFT that holds a bounded mandate (a goal, an allocation, hard limits) over its own trading account. Research becomes a plan, the plan becomes capped trades, and each trade settles in Monad's sub-second blocks, with every step recorded for the owner.
+
+**Founder and market readiness.** The first user is someone holding idle stablecoins who would never configure a trading bot, but would own an agent, give it a goal and fund it, the way they would pick a fund. That does not exist yet because automated trading today means either custody (handing funds to a service) or configuration (writing a bot); Vivarium keeps custody with the owner's contract account and replaces configuration with a goal and an approval.
+
+**Traction and path forward.** On testnet: agents minted and trading (agent #4's two settled trades above), research runs with reports, and a public demo. On mainnet: the canary round trip above. The beta's planned caps are 1,000 USDC per account and 25,000 per chain (decisions A-90 and D-380; the testnet factory is set to 500 per vault and 2,000 in all today). Next: Base and Arbitrum (D-380), with the open trading profile and the final species catalog for the Base deploy (BUILD_PLAN).
+
+## Other bounties
+
+- **Privy: login and network handling.** The web app logs in with Privy (external wallets only, no embedded wallets) and keeps the wallet on the right chain; the control API verifies the Privy session (`apps/control-api/src/identity.ts`). We do not claim the Privy bounty.
+- **Alchemy.** Alchemy is the Monad mainnet RPC provider (`MONAD_RPC_URL`): the agents' mainnet market reads and the mainnet canary use it. Testnet runs on another provider.
+- **Community supporters.** The team's community is set on the portal profile.
 
 ## Architecture
+
+```text
+ owner's wallet --> web app (apps/web, Next.js on Vercel)
+                        |  Privy session
+                        v
+                 control API (apps/control-api)  ----reads----> Monad (chain)
+                        |                                         ^   ^
+                        v                                         |   |
+                 orchestrator (services/orchestrator) ---signer---+   |
+                   research cycles (Scan, Dives, Challenge,           |
+                   Test, Zoom out) -> plan -> runner -> trades        |
+                        ^                                             |
+                 indexer (services/indexer) ---events-----------------+
+                 Postgres and Redis hold the records
+```
+
+- **Contracts** (`chains/monad/src`). AgentNFT mints the agents and draws their species. PersonalAccountV3 is the owner's trading account and StrategyVaultV3 an agent's public vault, both on CustodyCoreV3, which holds the funds, values them and lets the owner withdraw. Executor v3 is the only caller allowed to trade an account and checks every trade against its policy. TokenRegistry lists the tradable tokens and their pools, OracleAdapterV3 prices them, and RouteAdapter swaps along Uniswap v3, v4 and PancakeSwap pools.
+- **Control API** (`apps/control-api`). The public and owner HTTP API: sessions, mint claims, goals, plans and approvals, the portfolio and vault reads, and read-only routes such as the deposits and withdrawals read from the chain's logs.
+- **Orchestrator** (`services/orchestrator`). Runs the research stages in sandboxes through the model gateway, turns the Zoom out's decision into a plan, and runs the plan with the template runner (one capped leg a minute); it also runs the reveal keeper and the sentinel.
+- **Indexer** (`services/indexer`). Follows AgentNFT events and USDC transfers into the agents' funding addresses and writes them to Postgres.
+- **Signer** (`packages/signer`, run by the orchestrator). Signs and sends each trade with the agent's session key, pinned to one chain.
+- **Web app** (`apps/web`, components in `packages/ui`, the design system at `/design`).
+
+## Safety model
+
+- **The model proposes, the contracts enforce.** Research writes a plan; only the Executor can trade an account, and only within its limits.
+- **Owner-only withdrawals.** The owner can withdraw from the account contract at any time, even while trading is paused.
+- **Hard limits per trade.** The largest trade, the largest position, the slippage against the oracle price, the USDC kept in cash and the trades per day are checked onchain on every trade.
+- **Circuit breaker.** A drop from the account's recent peak moves it to reduce-only, then to paused; the platform's sentinel can pause too.
+- **Testnet-only loosened settings, clearly marked.** On Monad testnet the offchain profile drops the minimum trade size and counts gas in the cost check (`packages/policy/src/trading-profile.ts`); the goal page labels these as testnet limits. Mainnet and the beta keep the launch limits.
+
+## Status
+
+- **Works today, on Monad testnet:** minting and reveal, goals with an allocation split, research runs with live progress and reports, plans with approval, automatic trading through Executor v3 with live trade status, deposits, withdrawals, vaults, research credits, and the hosted demo.
+- **Testnet-only:** the loosened trading profile, the demo's research allowlist and model-spend guard, and test tokens (Circle's testnet USDC, WMON and two test tokens on thin pools).
+- **Verified on mainnet:** the trade path, through the capped canary above (Executor v3 paused afterwards).
+- **Next:** the Base deploy (BUILD_PLAN rows OP-U1, the open trading profile, and RS-U1, the three-document research), the final species catalog, and the owner trade panel (OT-U1).
+
+## Developer reference: architecture
 
 ```text
  browser (apps/web, Next.js)          operator (apps/console, Next.js)

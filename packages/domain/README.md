@@ -12,3 +12,8 @@ Core types shared by every service:
 - `records.ts`: record and event schemas, each carrying the environment label.
 - `tokenbound.ts`: `tokenboundAccountAddress`, the ERC-6551 address of an agent's account, checked against @tokenbound/sdk and the canonical registry on the fork.
 - `address-book.ts`: every external address per environment, with source, status and open question. Only `signingAddress` returns a `VerifiedAddress`, and it refuses unverified entries. `pnpm test:fork` re-checks every verified entry against the local fork.
+
+## Since 2026-10-13
+
+- `src/goals.ts`: the goal's optional `allocation` (degen, growth, conservative in 5% steps) and `maxPositions`; Conservative holds up to 5 positions.
+- `src/species-assets.ts`: `CATALOG_SPECIES`, the final catalog of the 25 species with art.
