@@ -102,6 +102,21 @@ export const TESTNET_CHAIN: TestnetChain = testnetChainFor(
   typeof process === "undefined" ? undefined : process.env.TESTNET_CHAIN,
 );
 
+/**
+ * CO-U1: the wrapped native token's symbol, and the name and native token of the market this
+ * process's agents research: WETH and Base on the L2 testnets (whose research reads Base's
+ * market) and the Base fork, WMON and Monad otherwise.
+ */
+const ETH_MARKET =
+  (typeof process !== "undefined" && process.env.APP_ENV === "base") ||
+  (typeof process !== "undefined" &&
+    process.env.APP_ENV === "testnet" &&
+    TESTNET_CHAIN.native === "ETH");
+export const WRAPPED_NATIVE_SYMBOL: "WETH" | "WMON" = ETH_MARKET ? "WETH" : "WMON";
+export const RESEARCH_MARKET: { readonly name: string; readonly native: string } = ETH_MARKET
+  ? { name: "Base", native: "ETH" }
+  : { name: "Monad", native: "MON" };
+
 export const LOCAL_FORK_CHAIN_ID = 143143;
 /** Base mainnet (M-FAST). */
 export const BASE_MAINNET_CHAIN_ID = 8453;

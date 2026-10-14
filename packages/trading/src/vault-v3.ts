@@ -1,3 +1,4 @@
+import { WRAPPED_NATIVE_SYMBOL } from "@alpha-agents/domain";
 import { ACCOUNT_MODES, type AccountMode } from "@alpha-agents/domain";
 import { custodyV3 } from "@alpha-agents/policy";
 import { type Hex, createPublicClient, http, isAddressEqual, parseAbi, zeroAddress } from "viem";
@@ -270,7 +271,7 @@ export function rpcVaultReaderV3(
         const known = tokens.find((t) => isAddressEqual(t.address, token));
         if (known) return { symbol: known.symbol, decimals: known.decimals };
         if (isAddressEqual(token, c.usdc)) return { symbol: "USDC", decimals: 6 };
-        if (isAddressEqual(token, c.wmon)) return { symbol: "WMON", decimals: 18 };
+        if (isAddressEqual(token, c.wmon)) return { symbol: WRAPPED_NATIVE_SYMBOL, decimals: 18 };
         return { symbol: `${token.slice(0, 6)}…${token.slice(-4)}`, decimals: 18 };
       };
       const base = {

@@ -1,3 +1,4 @@
+import { WRAPPED_NATIVE_SYMBOL } from "@alpha-agents/domain";
 import { ACCOUNT_MODES, AGENT_NFT_ABI, type AccountMode } from "@alpha-agents/domain";
 import { custodyV3 } from "@alpha-agents/policy";
 import { type Hex, createPublicClient, http, isAddressEqual, parseAbi, zeroAddress } from "viem";
@@ -321,7 +322,7 @@ export function rpcPortfolioReaderV3(
           const symbol =
             known?.symbol ??
             (isAddressEqual(h.token, c.wmon)
-              ? "WMON"
+              ? WRAPPED_NATIVE_SYMBOL
               : `${h.token.slice(0, 6)}…${h.token.slice(-4)}`);
           const claimable = await read<bigint>(account, ACCOUNT_ABI, "claimable", [h.token, owner]);
           if (isAddressEqual(h.token, c.usdc))

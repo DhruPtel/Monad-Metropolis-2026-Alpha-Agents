@@ -1,3 +1,4 @@
+import { RESEARCH_MARKET } from "@alpha-agents/config";
 import { z } from "zod";
 
 /**
@@ -102,7 +103,8 @@ export const AGGRESSIVENESS_FACTS: Readonly<Record<Aggressiveness, Aggressivenes
       label: "Conservative",
       summary: "The largest liquid assets and yield, few positions, long horizons.",
       brief:
-        "Lean to the largest liquid assets on Monad (MON, the majors and stablecoins) and to yield-bearing tokens such as MON's liquid staking tokens. Hold few positions and think in long horizons. Hold class F tokens only: every position has a price feed. Keep at least 30% of the account in stablecoins and no more than 20% in any one position. Expect to keep between 30% and 70% of the account invested; outside that range, or all in cash, say plainly why.",
+        `Lean to the largest liquid assets on ${RESEARCH_MARKET.name} (${RESEARCH_MARKET.native}, the majors and stablecoins) and to yield-bearing tokens such as ${RESEARCH_MARKET.native}'s liquid staking tokens.` +
+        " Hold few positions and think in long horizons. Hold class F tokens only: every position has a price feed. Keep at least 30% of the account in stablecoins and no more than 20% in any one position. Expect to keep between 30% and 70% of the account invested; outside that range, or all in cash, say plainly why.",
     },
     BALANCED: {
       label: "Balanced",

@@ -23,3 +23,4 @@ export * from "./feeds.ts";
 export * from "./goals.ts";
 export * from "./transactions.ts";
 export * from "./runner.ts";
+export { RESEARCH_MARKET, WRAPPED_NATIVE_SYMBOL } from "@alpha-agents/config";
