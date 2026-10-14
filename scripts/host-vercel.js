@@ -54,6 +54,8 @@ const PUBLIC_ENV = {
   // 2026-10-14: the browser calls the site's own /api/*, forwarded to CONTROL_API_URL, so a
   // network that filters the API's host still reaches it (apps/web/dev-api-proxy.ts).
   WEB_API_PROXY: "1",
+  // CO-U1: the testnet this site's build runs on (monad, base-sepolia or arbitrum-sepolia).
+  TESTNET_CHAIN: process.env.TESTNET_CHAIN?.trim() || "monad",
 };
 const base = {
   PATH: process.env.PATH,
@@ -101,7 +103,7 @@ for (const [name, value] of Object.entries(PUBLIC_ENV)) {
     process.exit(added.status ?? 1);
   }
 }
-console.log(`Vercel: APP_ENV, CONTROL_API_URL, PRIVY_APP_ID and WEB_API_PROXY set for ${target}`);
+console.log(`Vercel: APP_ENV, CONTROL_API_URL, PRIVY_APP_ID, WEB_API_PROXY and TESTNET_CHAIN set for ${target}`);
 const built = vercel(["build", ...(preview ? [] : ["--prod"]), "--yes"]);
 if (built.status !== 0) {
   console.error("error: the build failed; see the output above");
