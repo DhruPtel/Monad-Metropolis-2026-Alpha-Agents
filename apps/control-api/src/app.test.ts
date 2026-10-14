@@ -2828,6 +2828,7 @@ describe.skipIf(!available)("the control API (needs pnpm dev:up for Postgres)", 
     it("lists them for anyone, read only, and says so where they are not read", async () => {
       const moneyEvents: MoneyEventsDeps = {
         blockTime: async (b) => 1_790_000_000n + b,
+        created: async () => ({ trading: null, vault: "2026-10-13T23:50:00.000Z" }),
         list: async (id) => [
           {
             kind: "deposit",

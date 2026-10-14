@@ -78,12 +78,13 @@ describe("deposits and withdrawals from the chain's logs (2026-10-13)", () => {
         ],
       },
     });
-    const ev = await moneyEvents(c, {
+    const m4 = moneyEvents(c, {
       agentNft: NFT,
       accountFactoryV3: FACTORY,
       usdc: USDC,
       chunk: 1_000,
-    }).list(4);
+    });
+    const ev = await m4.list(4);
     expect(ev.map((e) => [e.account, e.kind, e.amount, e.symbol, e.inKind, e.leaderStake])).toEqual(
       [
         ["vault", "withdrawal", "0.5", "shares", true, false],
@@ -93,6 +94,10 @@ describe("deposits and withdrawals from the chain's logs (2026-10-13)", () => {
         ["trading", "deposit", "5", "USDC", false, false],
       ],
     );
+    expect(await m4.created(4)).toEqual({
+      trading: new Date((1_790_000_000 + 1_200) * 1000).toISOString(),
+      vault: new Date((1_790_000_000 + 3_100) * 1000).toISOString(),
+    });
     expect(ev[4]).toMatchObject({
       valueUsdcE6: "5000000",
       txHash: tx(13_000),

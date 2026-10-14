@@ -43,6 +43,8 @@ export interface MoneyEventsDeps {
   readonly list: (agentId: number) => Promise<readonly MoneyEventJson[]>;
   /** A block's time, for events the indexer recorded by block alone (credit top-ups). */
   readonly blockTime: (block: bigint) => Promise<bigint>;
+  /** When the agent's trading account and vault were created (their code's first block), after a `list`. */
+  readonly created: (agentId: number) => Promise<{ trading: string | null; vault: string | null }>;
 }
 
 const NFT_ABI = parseAbi(["function ownerOf(uint256 agentId) view returns (address)"]);
@@ -193,8 +195,17 @@ export function moneyEvents(chain: MoneyEventsChain, o: MoneyEventsOptions): Mon
     return t;
   }
 
+  const accounts = new Map<number, { personal: Hex; vault: Hex }>();
+  const createdAt = async (address: Hex | undefined) => {
+    const s = address ? scans.get(address.toLowerCase()) : undefined;
+    return s ? new Date(Number(await timeOf(s.from)) * 1000).toISOString() : null;
+  };
   return {
     blockTime: timeOf,
+    async created(agentId) {
+      const a = accounts.get(agentId);
+      return { trading: await createdAt(a?.personal), vault: await createdAt(a?.vault) };
+    },
     async list(agentId) {
       const owner = (await chain.read({
         address: o.agentNft,
@@ -216,6 +227,7 @@ export function moneyEvents(chain: MoneyEventsChain, o: MoneyEventsOptions): Mon
           args: [BigInt(agentId)],
         }),
       ])) as [Hex, Hex];
+      accounts.set(agentId, { personal, vault });
       const out: (MoneyEventJson & { logIndex: number })[] = [];
       const base = async (l: ScannedLog) => ({
         txHash: l.transactionHash,

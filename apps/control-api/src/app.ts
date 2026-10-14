@@ -1080,7 +1080,12 @@ export function createApp(deps: ApiDeps): Hono {
     const events = [...(await m.list(Number(agentId))), ...credits].sort((x, y) =>
       x.at === y.at ? 0 : x.at < y.at ? 1 : -1,
     );
-    return c.json({ ...(await meta()), agentId: agentId.toString(), events });
+    return c.json({
+      ...(await meta()),
+      agentId: agentId.toString(),
+      events,
+      created: await m.created(Number(agentId)),
+    });
   });
 
   /**
