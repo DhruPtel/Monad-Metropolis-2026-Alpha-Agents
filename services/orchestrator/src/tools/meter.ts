@@ -28,12 +28,11 @@ import type { Store } from "../store.ts";
 export const MAX_PAID_CALLS_PER_LEASE = 20;
 
 /**
- * Data tools a stage may not call, whatever its prompt or skills say (D-330):
- * a Scan never searches X; X search belongs to the Dive. Keyed by stage.
+ * Data tools a stage may not call, whatever its prompt or skills say, keyed by stage. D-330 kept
+ * X search out of the Scan; since 2026-10-13 (owner) the Scan must search X for the market read,
+ * so no stage is denied a data tool today.
  */
-export const STAGE_DENIED_TOOLS: Readonly<Record<string, readonly DataTool[]>> = {
-  SCAN: ["x_search"],
-};
+export const STAGE_DENIED_TOOLS: Readonly<Record<string, readonly DataTool[]>> = {};
 
 /** The refusal for a tool its stage may not call, or null. Pure, so the rule is tested alone. */
 export function stageToolRefusal(stage: string | null, tool: DataTool): string | null {

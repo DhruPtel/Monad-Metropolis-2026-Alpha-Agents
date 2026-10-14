@@ -1,6 +1,6 @@
 # Dive playbook
 
-A Dive takes one theme from the Scan, usually one token, and does the fundamental work: what it is, why it might be worth owning now, the evidence for and against, the risks, a falsifiable thesis with its kill condition and horizon, and a fair weight given the pool's depth. Or it concludes that there is no thesis. Every claim carries its source class, confidence and age; the case against is searched as hard as the case for.
+A Dive researches one token the Scan chose and does the fundamental work: what it is, why it might be worth owning now, the evidence for and against, the risks, a falsifiable thesis with its kill condition and horizon, and a fair weight given the pool's depth. Or it concludes that there is no thesis. Every claim carries its source class, confidence and age; the case against is searched as hard as the case for.
 
 ## Before you start
 
@@ -8,6 +8,8 @@ A Dive takes one theme from the Scan, usually one token, and does the fundamenta
 1. Call `mcp__platform__get_goals_and_limits` once: the aggressiveness brief and the envelope decide what kind of thesis matters and how large a position may be.
 2. Call `mcp__data__market_snapshot` once for today's figures.
 3. Write the question in one sentence before searching. For a token: "Does X earn a place in this account now, at what weight, and what would prove that wrong?"
+4. Required: a `mcp__data__web_search` and a `mcp__data__x_search` on this token; `complete_stage` is refused until both ran. An X error goes in the data gaps.
+5. `mcp__data__lookup_token` says if it is buyable here; if not, research it anyway and say it is not tradable here.
 
 ## The fundamentals checklist (a token theme)
 
@@ -15,12 +17,12 @@ Work through every item with the tools that reach it. A null item is honest; an 
 
 1. What it does and who uses it: `mcp__data__lookup_token` for its identity, listings and pools; `mcp__data__read_url` on its official page; `mcp__data__web_search` for independent descriptions.
 2. Fees, revenue and volume trends: `mcp__data__find_pools` for 24-hour volume per pool; `mcp__data__dune_query` for the saved volume queries (it may answer that Dune is not configured, at no cost); `mcp__data__coinmarketcap_prices` for volume and market cap.
-3. TVL and its direction: `mcp__data__defillama_tvl` for the protocol behind the token; `mcp__data__defillama_yields` where the token earns.
+3. TVL and its direction: `mcp__data__defillama_tvl`; `mcp__data__defillama_yields` where it earns.
 4. Holder concentration and liquidity depth: `mcp__chain__get_pool_depth` at this account's leg size; `mcp__data__find_pools` for how many pools carry the liquidity and their age; `mcp__data__screen_token` for the concentration and look-alike checks.
-5. Supply and emissions: `mcp__chain__read_contract` for total supply and the owner; the documentation for the schedule; `mcp__chain__balance` for a public treasury's holding.
+5. Supply and emissions: `mcp__chain__read_contract` for total supply and the owner; the documentation for the schedule.
 6. Team, treasury and contract control: the screen's OWNER_POWERS, UPGRADEABLE and GOPLUS checks, and `mcp__chain__get_code` for the proxy pattern. Load `aa-token-risk-screen` to read them.
-7. Catalysts and their dates: `mcp__data__web_search` and `mcp__data__read_url` for dated announcements; `mcp__data__x_search` on the fitting topic for the attention around them (social only).
-8. Relative value: compare market cap, volume and TVL ratios with two or three comparable tokens from `mcp__data__list_tokens` or `mcp__data__coinmarketcap_prices`, and say what the comparison rests on.
+7. Catalysts and their dates: `mcp__data__web_search` and `mcp__data__read_url` for announcements; `mcp__data__x_search` for the attention around them (social only).
+8. Relative value: compare market cap, volume and TVL with two or three peers from `mcp__data__list_tokens`.
 
 For a POSITION theme, check the kill criterion first, then the items that bear on the thesis. For a MARKET theme the items are null and the evidence carries the Dive.
 
@@ -36,7 +38,7 @@ Use at least three sources from at least two source classes, the strongest you c
 | news    | reporting found with `mcp__data__web_search`                                              | medium; check the date and whether it repeats one source |
 | social  | `mcp__data__x_search` posts                                                               | weak; attention and sentiment only                       |
 
-Tag each claim by what its sources are, not by what it is about: a TVL figure from an aggregator is market; a page is primary or news; a post is social. Give every claim an `asOf` and separate fresh from stale: a week-old article about a price is history. Search for disconfirming evidence on purpose, with at least one query phrased against your view.
+Tag each claim by what its sources are: an aggregator's TVL is market; a page is primary or news; a post is social. Give every claim an `asOf`; a week-old article about a price is history. Search for disconfirming evidence on purpose, with at least one query phrased against your view.
 
 ## How aggressiveness shapes the thesis
 

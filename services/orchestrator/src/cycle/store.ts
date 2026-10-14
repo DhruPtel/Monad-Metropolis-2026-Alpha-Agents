@@ -544,6 +544,17 @@ export class CycleStore {
     return { paidCalls: Number(r?.paid ?? 0), chargeUsdcE6: BigInt(r?.charge ?? "0") };
   }
 
+  /** 2026-10-13: the data tools a stage has called, any outcome, for its required sources. */
+  async toolsCalled(stageRunId: string): Promise<Set<string>> {
+    const rows = await this.db
+      .selectFrom("platform.tool_calls")
+      .select("tool")
+      .distinct()
+      .where("stage_run_id", "=", stageRunId)
+      .execute();
+    return new Set(rows.map((r) => r.tool));
+  }
+
   /** Model charges metered for a stage so far: what the agent paid and what was absorbed. */
   async meteredModel(stageRunId: string): Promise<{ charged: bigint; absorbed: bigint }> {
     const r = await this.db

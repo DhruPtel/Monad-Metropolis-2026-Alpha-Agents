@@ -869,7 +869,7 @@ describe.skipIf(!dbUp)("the discovery loop engine (needs Postgres)", { timeout: 
     expect(cycle.status).toBe("completed");
     expect(stages.map((s) => s.stage)).toEqual(["SCAN", "DIVE", "CHALLENGE", "TEST", "ZOOM_OUT"]);
     expect(must(stages[0]).caps).toMatchObject({ turns: 16, paidCalls: 10 });
-    expect(must(stages[0]).ceilingUsdcE6).toBe(500_000n);
+    expect(must(stages[0]).ceilingUsdcE6).toBe(300_000n);
   });
 
   it("runs the activation sweep within its own ceiling, past a daily budget already used up (P-SWEEP, A-101)", async () => {
@@ -928,7 +928,7 @@ describe.skipIf(!dbUp)("the discovery loop engine (needs Postgres)", { timeout: 
     expect(cycle.status).toBe("completed");
     expect(stages.map((s) => s.stage)).toEqual(["SCAN", "DIVE", "CHALLENGE", "TEST", "ZOOM_OUT"]);
     expect(must(stages[0]).caps).toMatchObject({ turns: 16, paidCalls: 10 });
-    expect(must(stages[0]).ceilingUsdcE6).toBe(500_000n);
+    expect(must(stages[0]).ceilingUsdcE6).toBe(300_000n);
   });
 
   /** The activation's Zoom out: the overview, then the rationale and the decision. */
@@ -1029,7 +1029,7 @@ describe.skipIf(!dbUp)("the discovery loop engine (needs Postgres)", { timeout: 
         r.token,
         scanBrief("high", {
           summary:
-            "The Scan is the cheap, wide look. Its job is to notice what changed since TVL fell 6.8%.",
+            "The Scan is the cheap, wide look over everything this account could hold, since TVL fell 6.8%.",
         }),
       );
       refusals.push(JSON.stringify(copied.structuredContent));
@@ -1774,8 +1774,9 @@ describe.skipIf(!dbUp)("the discovery loop engine (needs Postgres)", { timeout: 
       plans: { ROUTINE: { maxUsdcE6: string } };
       cycles: { cycleId: string; stages: unknown[] }[];
     };
-    // Standard allows 2 Dives a day and this cycle used one: Scan, one Dive, Challenge, Zoom out.
-    expect(list.plans.ROUTINE.maxUsdcE6).toBe("2600000");
+    // Standard allows 2 Dives a day and this cycle used one: Scan, one Dive, Challenge, Zoom out,
+    // and the report (2026-10-13 ceilings: 0.30 + 0.30 + 0.10 + 0.25 + 0.20).
+    expect(list.plans.ROUTINE.maxUsdcE6).toBe("1150000");
     expect(list.cycles[0]).toMatchObject({ cycleId: cycle.cycleId });
     expect(list.cycles[0]?.stages).toHaveLength(5);
     const detail = (await (await app.request(`/v1/cycles/${cycle.cycleId}`)).json()) as {

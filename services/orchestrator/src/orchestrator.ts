@@ -256,6 +256,8 @@ export interface OrchestratorOptions {
    * the runner turns each agent's plan into legs every minute; without it, or
    * without trading, plans are stored and nothing trades.
    */
+  /** 2026-10-13: the sources each research stage must call (main sets the owner's rule). */
+  readonly requiredSources?: Readonly<Record<string, readonly string[]>>;
   readonly runner?: {
     /** MON's annualized 24-hour realized volatility in percent, null when unreadable. */
     readonly volatility24hPct: () => Promise<number | null>;
@@ -507,6 +509,8 @@ export class Orchestrator {
       portfolio: { inputs: (cycle) => this.portfolioTestInputs(cycle) },
       // F-U12: the Zoom out names every token seen and not proposed; the universe records it.
       universe: this.universe,
+      // 2026-10-13: the web and X searches a Scan and each Dive must make.
+      ...(options.requiredSources ? { requiredSources: options.requiredSources } : {}),
     });
     this.proposals = new ProposalService({
       db: store.db,

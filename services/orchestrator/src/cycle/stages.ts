@@ -83,14 +83,17 @@ export function stageCeilingUsdcE6(
 ): bigint {
   const deep = reasoning === "research-high" ? 2 : 1;
   switch (stage) {
+    // 2026-10-13 (owner): a Medium run with three Dives costs about 1.2 USDC and at most 1.75
+    // with its report (0.30 + 3 x 0.30 + 0.10 + 0.25 + 0.20). A stage stops at its ceiling, so
+    // each keeps room for its required web and X searches.
     case "SCAN":
-      return usdc(kind === "ACTIVATION" ? 0.5 : 0.3);
+      return usdc(0.3);
     case "DIVE":
-      return usdc(1.2 * deep);
-    case "CHALLENGE":
       return usdc(0.3 * deep);
+    case "CHALLENGE":
+      return usdc(0.1 * deep);
     case "ZOOM_OUT":
-      return usdc(0.6 * deep);
+      return usdc(0.25 * deep);
     case "TEST":
       return 0n;
   }
@@ -127,8 +130,17 @@ const RANK: Readonly<Record<Materiality, number>> = { high: 3, medium: 2, low: 1
  * dived in the last 48 hours, up to the Dives the day has left; an activation
  * cycle Dives on its two most material themes whatever their level (the sweep).
  */
+/** 2026-10-13 (owner): Dives per run by the goal's model tier, each on one named token. */
+export const DIVES_PER_RUN: Readonly<Record<ReasoningAlias, number>> = {
+  "research-low": 2,
+  "research-medium": 3,
+  "research-high": 4,
+};
+
 export function divesFor(o: {
   readonly kind: CycleKind;
+  /** The run's reasoning tier; absent counts as Medium. */
+  readonly reasoning?: ReasoningAlias;
   readonly themes: readonly ScanTheme[];
   readonly divesPerDay: number;
   readonly divesToday: number;
@@ -137,8 +149,9 @@ export function divesFor(o: {
 }): ScanTheme[] {
   const sorted = [...o.themes].sort((a, b) => RANK[b.materiality] - RANK[a.materiality]);
   const unique = sorted.filter((t, i) => sorted.findIndex((u) => u.code === t.code) === i);
-  if (o.kind === "ACTIVATION") return unique.slice(0, 2);
-  const left = Math.max(0, o.divesPerDay - o.divesToday);
+  const perRun = DIVES_PER_RUN[o.reasoning ?? "research-medium"];
+  if (o.kind === "ACTIVATION") return unique.slice(0, perRun);
+  const left = Math.min(perRun, Math.max(0, o.divesPerDay - o.divesToday));
   return unique
     .filter(
       (t) =>

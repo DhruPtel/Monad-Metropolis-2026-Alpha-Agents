@@ -23,6 +23,7 @@ import {
   type ScanTheme,
   type Stage,
   type StageCaps,
+  DIVES_PER_RUN,
   divesFor,
   isReasoningAlias,
   stageCaps,
@@ -100,7 +101,13 @@ export function cycleLeaseMs(kind: CycleKind, dives: number): number {
 
 /** The most a cycle can charge, shown before it starts: each stage's ceiling, Dives at their limit. */
 export function cyclePlan(kind: CycleKind, reasoning: ReasoningAlias, divesLeft: number) {
-  const dives = kind === "ACTIVATION" ? 2 : kind === "REVIEW" ? 0 : Math.max(0, divesLeft);
+  const perRun = DIVES_PER_RUN[reasoning];
+  const dives =
+    kind === "ACTIVATION"
+      ? perRun
+      : kind === "REVIEW"
+        ? 0
+        : Math.min(perRun, Math.max(0, divesLeft));
   const stages = (
     kind === "REVIEW"
       ? [
@@ -335,7 +342,7 @@ async function budgetCheck(
       ceilingUsdcE6 ??
       stageCeilingUsdcE6(stage, cycle.kind, cycle.reasoningAlias as ReasoningAlias),
     dailyBudgetUsdcE6: activation
-      ? BigInt(cyclePlan("ACTIVATION", cycle.reasoningAlias as ReasoningAlias, 2).maxUsdcE6)
+      ? BigInt(cyclePlan("ACTIVATION", cycle.reasoningAlias as ReasoningAlias, 0).maxUsdcE6)
       : BigInt(goal.research.dailyBudgetUsdcE6),
     usedTodayUsdcE6: activation
       ? await ctx.cycles.usedInCycle(cycle.cycleId)
@@ -467,6 +474,7 @@ class Engine {
     const history = await this.ctx.cycles.diveHistory(this.ref(), now, utcDayStart(now));
     const dives = divesFor({
       kind,
+      reasoning: this.cycle.reasoningAlias as ReasoningAlias,
       themes,
       divesPerDay: this.goal.research.divesPerDay,
       divesToday: history.divesToday,

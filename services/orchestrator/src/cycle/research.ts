@@ -46,6 +46,8 @@ export interface CycleResearchOptions {
   readonly portfolio?: { inputs(cycle: Cycle): Promise<TestInputsV2 | null> } | null;
   /** F-U12: the universe each cycle considered; the Zoom out names every token seen and not proposed. */
   readonly universe?: UniverseStore | null;
+  /** 2026-10-13: the sources each stage must call before complete_stage; none when absent. */
+  readonly requiredSources?: Readonly<Record<string, readonly string[]>>;
   readonly now?: () => Date;
 }
 
@@ -57,6 +59,21 @@ export const BRIEF_RULES = [
 ] as const;
 
 const iso = (d: Date | null) => (d ?? new Date(0)).toISOString();
+
+/** 2026-10-13 (owner): the sources a stage must call at least once. */
+export const REQUIRED_SOURCES: Readonly<Record<string, readonly string[]>> = {
+  SCAN: ["web_search", "x_search"],
+  DIVE: ["web_search", "x_search"],
+};
+
+/** The required sources a stage has not called yet. */
+export function missingSources(
+  stage: string,
+  called: ReadonlySet<string>,
+  required: Readonly<Record<string, readonly string[]>> = REQUIRED_SOURCES,
+): string[] {
+  return (required[stage] ?? []).filter((t) => !called.has(t));
+}
 
 export class CycleResearch {
   private readonly o: CycleResearchOptions;
@@ -278,6 +295,21 @@ export class CycleResearch {
         (b) => b.kind,
       ),
     );
+    // 2026-10-13 (owner): a Scan and each Dive search the web and X at least once; a call that
+    // failed still counts, and the report says when X could not run.
+    const missing = this.o.requiredSources
+      ? missingSources(
+          stage.stage,
+          await this.o.cycles.toolsCalled(stage.stageRunId),
+          this.o.requiredSources,
+        )
+      : [];
+    if (missing.length > 0)
+      throw new ToolError(
+        "INVALID_INPUT",
+        `This ${stage.stage === "SCAN" ? "Scan" : "Dive"} must call ${missing.join(" and ")} at least once before complete_stage.`,
+        false,
+      );
     const required = REQUIRED_BRIEF[stage.stage as keyof typeof REQUIRED_BRIEF];
     if (required && !kinds.has(required))
       throw new ToolError(

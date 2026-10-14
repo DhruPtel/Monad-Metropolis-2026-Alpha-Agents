@@ -30,12 +30,12 @@
       "contentHash": "1110c8343fdfbc442f7ddd4371fcb88898b9f33e6aee2a639da774a65886219f"
     },
     "playbook-dive": {
-      "version": "2.0.0",
-      "contentHash": "94db668a3d9a5d20b6f0abbc7fc09884233d1b3d5954de4fa75a937dcc679912"
+      "version": "2.1.0",
+      "contentHash": "36bdf6a62679a072f695e5064925bcc2afd21db71932411fe3e7b633ec43fac7"
     },
     "playbook-scan": {
-      "version": "2.1.2",
-      "contentHash": "a54ccc0d57c14e8edb644ea926712e21dbde31bb12a77376f448b9a14b753060"
+      "version": "2.2.0",
+      "contentHash": "24134b40cd0e67c0b744ff897f1f1aec897f448fd6efbe6902d1659489297aac"
     },
     "playbook-zoom-out": {
       "version": "2.3.2",

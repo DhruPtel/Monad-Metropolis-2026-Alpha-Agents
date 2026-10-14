@@ -1,6 +1,6 @@
 # Scan playbook
 
-The Scan is the cheap, wide look over everything this account could hold. Its job is to notice what changed since the agent last looked, judge what it means for this owner's goal, and flag at most four themes that deserve a Dive: a token worth owning, a held position that needs a review, or a market change that bears on the plan. It builds no thesis and never decides a trade.
+The Scan is the cheap, wide look over everything this account could hold. Its job is to read the market, list candidate tokens across the owner's allocation split, and choose the tokens that deserve a Dive: each Dive researches one named token. It builds no thesis and never decides a trade.
 
 ## Before you start
 
@@ -8,19 +8,26 @@ The Scan is the cheap, wide look over everything this account could hold. Its jo
 1. Call `mcp__platform__get_goals_and_limits` once. Note the aggressiveness level, its brief and its envelope. The brief says what this owner's agent leans to; everything you flag is judged against it, not against the market in general.
 2. Call `mcp__data__market_snapshot` once, first among the data tools: the native token's price and volatility, the chain's TVL, DEX volumes, top protocols and yields, each with its source, its age and any warning. A null figure was refused or missing: say so, never guess it.
 
-## Read the universe, then the positions
+## Read the market (required: web and X)
 
-3. Call `mcp__data__list_tokens` (free): the registry's liquid tokens with their price class, deepest pool, 24-hour volume, oldest pool's age, listings and latest screen. Call `mcp__data__new_pools` (free) for pools created in the last 72 hours; a pool under 72 hours old always fails the safety screen, so a new pool is a watch item, never a candidate yet.
-4. For each position the plan holds, ask: has its kill criterion fired or come close, has its recheck date passed, has its pool's liquidity thinned, has its token moved to sell-only or been refused by a fresh screen? Any of these makes a POSITION theme, and it comes first.
-5. One to three `mcp__data__web_search` calls with focused queries about what the figures suggest, and at most two `mcp__data__read_url` calls, only for a primary source a search points to. A Scan never searches X; attention on X is checked in a Dive.
+3. At least one `mcp__data__web_search` on what Monad and MON are doing now (price moves, TVL and the biggest protocols, news), and at least one `mcp__data__x_search` on Monad or MON for sentiment. Both are required: the platform refuses `complete_stage` until each has been called once. If X answers with an error, note it in `dataGaps` ("X search could not run") and go on. At most two `mcp__data__read_url` calls, for a primary source a search points to.
 
-Stop when you have enough to rank the themes. A quiet market is a valid result.
+## List candidate tokens across the allocation split
+
+4. The goal's brief states the owner's split by market cap: degen (under 100M USD), growth (100M to 1B USD) and conservative (over 1B USD). Call `mcp__data__list_tokens` (free) and, for each category with a share above 0%, list about five candidate tokens. The list gives no market cap; use its CoinMarketCap rank as the stand-in (roughly: rank 1 to 100 is over 1B USD, 101 to 500 is 100M to 1B, beyond 500 or unranked is under 100M) together with liquidity and volume, and confirm a borderline one with your web search. Save the candidates, with their category and the figures you used, in a `mcp__platform__write_thesis` note.
+5. A token that is research only (on Base, or not in this account's registry) may still be a candidate: it is researched and marked "not tradable here"; only a buyable one can enter the plan.
+6. For each position the plan holds, check its kill criterion, recheck date, liquidity and screen; a held token with a problem is a POSITION theme and comes first.
+7. Call `mcp__data__new_pools` (free) for context; a pool under 72 hours old always fails the safety screen, so a new token is a watch item, never a candidate yet.
+
+## Choose the Dives
+
+8. Pick the tokens to Dive on, most promising for this owner first, spreading across the categories with the larger shares: the run Dives on as many as its tier allows (two, three or four). Each chosen token is one theme with scope TOKEN, its address and symbol, and a code `TOKEN_<SYMBOL>` (such as `TOKEN_WBTC`). A MARKET theme is allowed only when no candidate deserves a Dive.
 
 ## How aggressiveness shapes what you flag
 
 - Conservative: the largest, most liquid, longest-listed tokens with a price feed, and yield. A candidate needs a deep pool and a long record. Few themes; quiet is the usual answer.
 - Balanced: large caps, plus a mid cap when there is a clear reason to own it now.
-- Aggressive: a newer or high-beta token may be flagged when it passed the screen and its pool is deep enough for this account's legs. Say in `whyNow` that it is high beta: its Dive must give it an exit plan.
+- Aggressive: a newer or high-beta token may be chosen when its pool is deep enough for this account's legs. Say in `whyNow` that it is high beta: its Dive must give it an exit plan.
 
 Never flag a token the owner excluded, nor a screened-lane token for an owner who has not opted in; the goal's brief names both.
 
@@ -47,7 +54,7 @@ Tag every claim by what its sources actually are: onchain (the chain tools, the 
 2. Write the brief your owner reads with `mcp__platform__write_research_brief`, `brief.kind: "SCAN"`:
    - `summary`: two or three sentences on what changed, at most 400 characters.
    - `changes`: up to six claims; each claim is `{ text, class, confidence, sources, asOf }`: `class` is onchain, market, primary, news or social; `confidence` is high, medium or low; `sources` are URLs you retrieved or the names of tools you called, such as `list_tokens`.
-   - `themes`: up to four, most material first, each `{ code, materiality, scope, token, symbol, whyNow, sources }`: `scope` is TOKEN (a candidate to own), POSITION (a held token to review) or MARKET (a chain-wide change); `token` is the token's address for TOKEN and POSITION and null for MARKET, with its `symbol`; codes are upper case with underscores, such as `WBTC_DEPTH_UP` or `MON_VOL_SPIKE`.
+   - `themes`: up to four, the chosen tokens first, each `{ code, materiality, scope, token, symbol, whyNow, sources }`: `scope` is TOKEN (a chosen candidate), POSITION (a held token to review) or MARKET (only when no token deserves a Dive); `token` is the token's address for TOKEN and POSITION and null for MARKET, with its `symbol`; a TOKEN code is `TOKEN_<SYMBOL>`. `whyNow` names its category (degen, growth or conservative).
    - `quiet`: true when nothing material changed; `dataGaps`: refused, missing or stale figures (an empty list when none).
 
    Quote every figure exactly as a tool returned it (rounding is fine), and write in your own words. A refused brief comes back with every reason: fix each one and write it again.
@@ -56,7 +63,7 @@ Tag every claim by what its sources actually are: onchain (the chain tools, the 
 
 ## Work limits
 
-At most the model turns and the paid data calls the task names in its caps (10 turns and 5 paid calls on a routine Scan, 16 and 10 on the activation sweep). One snapshot. No more than four themes. Do not research a theme in depth here: that is the Dive's work.
+At most the model turns and the paid data calls the task names in its caps (10 turns and 5 paid calls on a routine Scan, 16 and 10 on the activation sweep). One snapshot. No more than four themes. Do not research a token in depth here: that is the Dive's work.
 
 ## Never
 

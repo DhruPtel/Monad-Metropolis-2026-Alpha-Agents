@@ -48,15 +48,18 @@ describe("stage rules (P3-U4)", () => {
   it("sets ceilings per stage, doubling the reasoning stages on Opus 5.5, and the Test is free", () => {
     const usdc = (n: number) => BigInt(Math.round(n * 1e6));
     expect(stageCeilingUsdcE6("SCAN", "ROUTINE", "research-high")).toBe(usdc(0.3));
-    expect(stageCeilingUsdcE6("SCAN", "ACTIVATION", "research-medium")).toBe(usdc(0.5));
-    expect(stageCeilingUsdcE6("DIVE", "ROUTINE", "research-medium")).toBe(usdc(1.2));
-    expect(stageCeilingUsdcE6("DIVE", "ROUTINE", "research-high")).toBe(usdc(2.4));
-    expect(stageCeilingUsdcE6("CHALLENGE", "ROUTINE", "research-high")).toBe(usdc(0.6));
-    expect(stageCeilingUsdcE6("ZOOM_OUT", "ROUTINE", "research-medium")).toBe(usdc(0.6));
+    expect(stageCeilingUsdcE6("SCAN", "ACTIVATION", "research-medium")).toBe(usdc(0.3));
+    expect(stageCeilingUsdcE6("DIVE", "ROUTINE", "research-medium")).toBe(usdc(0.3));
+    expect(stageCeilingUsdcE6("DIVE", "ROUTINE", "research-high")).toBe(usdc(0.6));
+    expect(stageCeilingUsdcE6("CHALLENGE", "ROUTINE", "research-high")).toBe(usdc(0.2));
+    expect(stageCeilingUsdcE6("ZOOM_OUT", "ROUTINE", "research-medium")).toBe(usdc(0.25));
     expect(stageCeilingUsdcE6("TEST", "ACTIVATION", "research-high")).toBe(0n);
-    // The sweep's ceiling as BUILD_PLAN states it (3.80 USDC with Sonnet 5.5, 7.10 with Opus 5.5) plus the report's 0.20 (RP-U1, A-102).
-    expect(cyclePlan("ACTIVATION", "research-medium", 0).maxUsdcE6).toBe("4000000");
-    expect(cyclePlan("ACTIVATION", "research-high", 0).maxUsdcE6).toBe("7300000");
+    // 2026-10-13 (owner): Medium with three Dives at most 1.75 USDC with the report's 0.20; High with four, 3.60.
+    expect(cyclePlan("ACTIVATION", "research-medium", 0).maxUsdcE6).toBe("1750000");
+    expect(cyclePlan("ACTIVATION", "research-high", 0).maxUsdcE6).toBe("3600000");
+    expect(
+      cyclePlan("ACTIVATION", "research-low", 0).stages.find((x) => x.stage === "DIVE")?.count,
+    ).toBe(2);
     expect(cycleLeaseMs("ROUTINE", 1)).toBe((5 + 10 + 4 + 6 + 15) * 60_000);
   });
 
@@ -113,7 +116,8 @@ describe("stage rules (P3-U4)", () => {
         recentlyDived: [],
       }),
     ).toEqual([]);
-    // The sweep Dives on its two most material themes whatever their level or the day's count.
+    // The sweep Dives on as many of its most material themes as its tier allows (Medium: three),
+    // whatever their level or the day's count.
     expect(
       divesFor({
         kind: "ACTIVATION",
@@ -122,7 +126,7 @@ describe("stage rules (P3-U4)", () => {
         divesToday: 1,
         recentlyDived: ["MED_SEEN"],
       }).map((t) => t.code),
-    ).toEqual(["HIGH_ONE", "MED_FRESH"]);
+    ).toEqual(["HIGH_ONE", "MED_FRESH", "MED_SEEN"]);
   });
 
   it("starts a stage only when the day's budget and the credits above the reserve cover its whole ceiling", () => {
