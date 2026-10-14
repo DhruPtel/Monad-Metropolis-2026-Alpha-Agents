@@ -9,6 +9,7 @@ import {
 } from "@alpha-agents/db";
 import { AGENT_MAX_SUPPLY, SPECIES, speciesByIndex } from "@alpha-agents/domain";
 import { getAddress } from "viem";
+import type { DeckSpecies } from "./chain.ts";
 
 /**
  * Reads from the indexer's projections (P1-U4). Every answer carries the
@@ -37,6 +38,24 @@ export interface SupplyJson {
   readonly totalMinted: number;
   /** Slots left in the deck per species, 1 to SPECIES.length in SPECIES order (AgentNFT's remainingOf). */
   readonly remaining: number[];
+  /**
+   * CO-U1: the deck read from AgentNFT itself, when the chain answers: every species index with
+   * its onchain name and remaining count, its tier (packages/domain's table, which
+   * species.test.ts checks against the contract's packed tier table), and whether the deck draws
+   * it at all (remaining plus revealed above 0).
+   */
+  readonly deck?: readonly DeckSpeciesJson[];
+  readonly source: "chain" | "index";
+}
+
+export interface DeckSpeciesJson {
+  readonly index: number;
+  readonly name: string;
+  readonly slug: string;
+  readonly tier: string;
+  readonly remaining: number;
+  readonly revealed: number;
+  readonly drawn: boolean;
 }
 
 export async function readWatermark(db: Db, chainId: number): Promise<WatermarkView | null> {
@@ -121,7 +140,11 @@ export async function getAgent(
  * full count less the agents revealed as it. The deck shrinks at reveal, as
  * on chain, so this equals remainingOf for every species.
  */
-export async function readSupply(db: Db, chainId: number): Promise<SupplyJson> {
+export async function readSupply(
+  db: Db,
+  chainId: number,
+  onchainDeck?: () => Promise<readonly DeckSpecies[] | null>,
+): Promise<SupplyJson> {
   const rows = await db
     .selectFrom("indexer.agents")
     .select(["species", (eb) => eb.fn.countAll<string>().as("n")])
@@ -130,10 +153,27 @@ export async function readSupply(db: Db, chainId: number): Promise<SupplyJson> {
     .execute();
   const bySpecies = new Map(rows.map((r) => [r.species, Number(r.n)]));
   const totalMinted = rows.reduce((sum, r) => sum + Number(r.n), 0);
+  const fromIndex = SPECIES.map((s) => s.count - (bySpecies.get(s.index) ?? 0));
+  const deck = await onchainDeck?.().catch(() => null);
+  if (!deck || deck.length === 0)
+    return { maxSupply: AGENT_MAX_SUPPLY, totalMinted, remaining: fromIndex, source: "index" };
   return {
     maxSupply: AGENT_MAX_SUPPLY,
     totalMinted,
-    remaining: SPECIES.map((s) => s.count - (bySpecies.get(s.index) ?? 0)),
+    remaining: deck.map((d) => d.remaining),
+    deck: deck.map((d) => {
+      const revealed = bySpecies.get(d.index) ?? 0;
+      return {
+        index: d.index,
+        name: d.name,
+        slug: d.slug,
+        tier: speciesByIndex(d.index).tier,
+        remaining: d.remaining,
+        revealed,
+        drawn: d.remaining + revealed > 0,
+      };
+    }),
+    source: "chain",
   };
 }
 

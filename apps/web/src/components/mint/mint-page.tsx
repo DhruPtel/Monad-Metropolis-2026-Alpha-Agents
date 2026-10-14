@@ -59,8 +59,11 @@ function TierCards({ supply }: { supply: SupplySummary | null }) {
     <div className="grid items-start gap-4 lg:grid-cols-3">
       {TIER_IDS.map((tier: Tier) => {
         const t: TierSupply | undefined = supply?.tiers.find((x) => x.tier === tier);
-        // 2026-10-13: the final catalog only; the tier's totals stay the deck's own.
-        const species = CATALOG_SPECIES.filter((s) => s.tier === tier);
+        // CO-U1: the species the contract's deck draws, read from it (t.species); before the
+        // first read, the final catalog.
+        const species = t
+          ? t.species.map((x) => ({ index: x.species.index, name: x.name, count: x.total }))
+          : CATALOG_SPECIES.filter((s) => s.tier === tier);
         const total = species.reduce((sum, s) => sum + s.count, 0);
         return (
           <TierCard

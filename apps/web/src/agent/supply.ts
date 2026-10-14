@@ -16,10 +16,25 @@ export interface SupplyReading {
   readonly totalMinted: number;
   /** `remainingOf(species)` for species 1 to 25, in SPECIES order. */
   readonly remaining: readonly number[];
+  /**
+   * CO-U1: the deck read from AgentNFT itself (the control API's /v1/supply). When present the
+   * species list, names and counts come from it, so the page never drifts from the contract.
+   */
+  readonly deck?: readonly {
+    readonly index: number;
+    readonly name: string;
+    readonly remaining: number;
+    readonly revealed: number;
+    readonly drawn: boolean;
+  }[];
 }
 
 export interface SpeciesSupply {
   readonly species: Species;
+  /** The species' name, as the contract names it when the deck was read from it. */
+  readonly name: string;
+  /** Its full count in the deck: remaining plus revealed onchain, else the domain table's. */
+  readonly total: number;
   readonly remaining: number;
 }
 
@@ -55,16 +70,25 @@ export function summarizeSupply(reading: SupplyReading): SupplySummary {
   const leftToMint = Math.max(0, reading.maxSupply - reading.totalMinted);
   const soldOut = leftToMint === 0;
   const revealed = reading.maxSupply - deck;
+  const onchain = reading.deck ? new Map(reading.deck.map((d) => [d.index, d])) : null;
   const tiers = TIER_IDS.map((tier): TierSupply => {
-    const species = SPECIES.filter((s) => s.tier === tier).map((s) => ({
-      species: s,
-      remaining: reading.remaining[s.index - 1] ?? 0,
-    }));
+    const species = SPECIES.filter((s) => s.tier === tier)
+      // CO-U1: with the onchain deck, only the species it draws.
+      .filter((s) => !onchain || onchain.get(s.index)?.drawn === true)
+      .map((s) => {
+        const d = onchain?.get(s.index);
+        return {
+          species: s,
+          name: d?.name ?? s.name,
+          total: d ? d.remaining + d.revealed : s.count,
+          remaining: reading.remaining[s.index - 1] ?? 0,
+        };
+      });
     const remaining = species.reduce((sum, s) => sum + s.remaining, 0);
     return {
       tier,
       slots: slotsFor(tier),
-      total: species.reduce((sum, s) => sum + s.species.count, 0),
+      total: species.reduce((sum, s) => sum + s.total, 0),
       remaining,
       odds: soldOut || deck === 0 ? null : remaining / deck,
       species,

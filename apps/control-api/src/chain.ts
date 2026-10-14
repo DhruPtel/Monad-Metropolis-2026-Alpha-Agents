@@ -14,6 +14,19 @@ export interface ChainReader {
   maxSupply(): Promise<number>;
   /** The owner and ownership epoch, or null when the agent does not exist. */
   ownership(agentId: bigint): Promise<{ owner: Address; epoch: bigint } | null>;
+  /**
+   * CO-U1: the deck as AgentNFT holds it, every species index with its onchain name, slug and
+   * remaining count, so the mint page lists what the contract draws. Null where the contract
+   * has no deck (an L2 testnet's AgentCopyNFT).
+   */
+  deck?(): Promise<DeckSpecies[] | null>;
+}
+
+export interface DeckSpecies {
+  readonly index: number;
+  readonly name: string;
+  readonly slug: string;
+  readonly remaining: number;
 }
 
 export function rpcChainReader(rpcUrl: string, contract: Address): ChainReader {
@@ -36,6 +49,24 @@ export function rpcChainReader(rpcUrl: string, contract: Address): ChainReader {
         throw err;
       });
       return maxSupply;
+    },
+    async deck() {
+      let count: number;
+      try {
+        count = Number(await read<number>("SPECIES_COUNT"));
+      } catch {
+        return null;
+      }
+      const indexes = Array.from({ length: count }, (_, i) => i + 1);
+      return Promise.all(
+        indexes.map(async (index) => {
+          const [[name, slug], remaining] = await Promise.all([
+            read<readonly [string, string]>("speciesInfo", [index]),
+            read<bigint>("remainingOf", [index]),
+          ]);
+          return { index, name, slug, remaining: Number(remaining) };
+        }),
+      );
     },
     async ownership(agentId) {
       try {

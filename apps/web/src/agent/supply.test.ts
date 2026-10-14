@@ -1,4 +1,4 @@
-import { AGENT_MAX_SUPPLY, SPECIES, TIER_SUPPLY } from "@alpha-agents/domain";
+import { TIER_IDS, AGENT_MAX_SUPPLY, SPECIES, TIER_SUPPLY } from "@alpha-agents/domain";
 import { describe, expect, it } from "vitest";
 import { type SupplyReading, formatOdds, summarizeSupply } from "./supply";
 
@@ -33,7 +33,7 @@ describe("summarizeSupply", () => {
 
   it("lists every species under its tier with its own remaining count", () => {
     const remaining = fresh();
-    remaining[BEE - 1] -= 1;
+    remaining[BEE - 1] = (remaining[BEE - 1] ?? 0) - 1;
     const pro = tier(reading(remaining, 1), "pro");
     // CO-U1: ten drawn pro species and three at a count of 0, Butterfly among the drawn.
     expect(pro.species).toHaveLength(13);
@@ -55,7 +55,7 @@ describe("summarizeSupply", () => {
 
   it("odds use the deck left, so a revealed pro lowers the pro odds", () => {
     const remaining = fresh();
-    remaining[BEE - 1] -= 1;
+    remaining[BEE - 1] = (remaining[BEE - 1] ?? 0) - 1;
     const r = reading(remaining, 1);
     expect(tier(r, "pro").odds).toBeCloseTo(199 / 999, 12);
     expect(tier(r, "base").odds).toBeCloseTo(500 / 999, 12);
@@ -65,10 +65,31 @@ describe("summarizeSupply", () => {
 
   it("counts minted agents that are not revealed yet", () => {
     const remaining = fresh();
-    remaining[BEE - 1] -= 1;
+    remaining[BEE - 1] = (remaining[BEE - 1] ?? 0) - 1;
     // Three minted, one revealed: the deck has 999 slots and two are pending.
     const s = summarizeSupply(reading(remaining, 3));
     expect(s).toMatchObject({ minted: 3, leftToMint: 997, awaitingReveal: 2 });
+  });
+
+  it("lists only the species the onchain deck draws, with its names and counts (CO-U1)", () => {
+    const remaining = fresh();
+    const deck = SPECIES.map((s) => ({
+      index: s.index,
+      name: `${s.name} onchain`,
+      remaining: remaining[s.index - 1] ?? 0,
+      revealed: 0,
+      drawn: s.count > 0,
+    }));
+    const r = { ...reading(remaining, 0), deck };
+    const all = summarizeSupply(r).tiers.flatMap((t) => t.species);
+    expect(all.map((s) => s.species.index)).toEqual(
+      SPECIES.filter((s) => s.count > 0)
+        .sort((a, b) => TIER_IDS.indexOf(a.tier) - TIER_IDS.indexOf(b.tier))
+        .map((s) => s.index),
+    );
+    expect(all).toHaveLength(25);
+    expect(all[0]?.name).toBe(`${SPECIES[0]?.name} onchain`);
+    expect(summarizeSupply(r).tiers.map((t) => t.total)).toEqual([500, 300, 200]);
   });
 
   it("a sold-out tier has 0% odds while the others share the rest", () => {

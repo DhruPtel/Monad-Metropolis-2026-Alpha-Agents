@@ -79,6 +79,8 @@ const chain = {
   max: 1000,
   owners: new Map<bigint, { owner: Address; epoch: bigint }>(),
   reads: 0,
+  /** CO-U1: the deck AgentNFT holds, when a test sets it; null reads as a contract without one. */
+  deck: null as { index: number; name: string; slug: string; remaining: number }[] | null,
 };
 const chainReader: ChainReader = {
   async mintsOf(wallet) {
@@ -97,6 +99,9 @@ const chainReader: ChainReader = {
   async ownership(agentId) {
     chain.reads++;
     return chain.owners.get(agentId) ?? null;
+  },
+  async deck() {
+    return chain.deck;
   },
 };
 
@@ -335,6 +340,33 @@ describe.skipIf(!available)("the control API (needs pnpm dev:up for Postgres)", 
       const body = await json(await call("/health"));
       expect(body).toMatchObject({ ok: true, environment: "fork", chainId: 143143, agentNft: NFT });
       expect(body.watermark).toMatchObject({ block: 109_670_009, hash: "0xabc" });
+    });
+
+    it("supply: the deck as AgentNFT holds it, with each species' tier and whether it is drawn (CO-U1)", async () => {
+      chain.deck = SPECIES.map((sp) => ({
+        index: sp.index,
+        name: `${sp.name} (onchain)`,
+        slug: sp.slug,
+        remaining: sp.index === 4 ? 0 : 7,
+      }));
+      try {
+        now += 6_000;
+        const body = await json(await call("/v1/supply"));
+        expect(body.source).toBe("chain");
+        const deck = body.deck as { index: number; name: string; tier: string; drawn: boolean }[];
+        expect(deck).toHaveLength(SPECIES.length);
+        expect(deck[0]).toMatchObject({
+          index: 1,
+          name: `${SPECIES[0]?.name} (onchain)`,
+          tier: SPECIES[0]?.tier,
+        });
+        // Tick (index 4): nothing left and none revealed, so the deck does not draw it.
+        expect(deck[3]).toMatchObject({ index: 4, drawn: false });
+        expect((body.remaining as number[])[1]).toBe(7);
+      } finally {
+        chain.deck = null;
+        now += 6_000;
+      }
     });
 
     it("supply: minted count and each species' remaining slots, as remainingOf would say", async () => {

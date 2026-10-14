@@ -353,7 +353,8 @@ export function createApp(deps: ApiDeps): Hono {
   // --- Index reads ---------------------------------------------------------
 
   app.get("/v1/supply", async (c) => {
-    const supply = await cached<SupplyJson>("supply", () => readSupply(deps.db, chainId));
+    const deck = deps.chain?.deck?.bind(deps.chain);
+    const supply = await cached<SupplyJson>("supply", () => readSupply(deps.db, chainId, deck));
     c.header("cache-control", "public, max-age=1");
     return c.json({ ...(await meta()), ...supply });
   });

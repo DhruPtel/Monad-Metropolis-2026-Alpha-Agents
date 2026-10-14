@@ -46,10 +46,23 @@ export interface ApiAgent {
   readonly mintedBlock?: number;
 }
 
+/** CO-U1: one species of the deck as AgentNFT holds it (the control API reads the contract). */
+export interface ApiDeckSpecies {
+  readonly index: number;
+  readonly name: string;
+  readonly slug: string;
+  readonly tier: string;
+  readonly remaining: number;
+  readonly revealed: number;
+  readonly drawn: boolean;
+}
+
 export interface ApiSupply {
   readonly maxSupply: number;
   readonly totalMinted: number;
   readonly remaining: readonly number[];
+  /** The onchain deck, when the chain answered; the mint page lists exactly what it draws. */
+  readonly deck?: readonly ApiDeckSpecies[];
   readonly watermark: Watermark | null;
 }
 
