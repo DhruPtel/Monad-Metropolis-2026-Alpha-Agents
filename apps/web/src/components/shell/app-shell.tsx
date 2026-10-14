@@ -8,6 +8,11 @@ import { type ReactNode, useState } from "react";
 import {
   BetaBanner,
   Button,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
   Tag,
   toast,
   WalletButton,
@@ -16,6 +21,7 @@ import {
   cn,
 } from "@alpha-agents/ui";
 import { chainName, useWalletSession } from "@/auth/session";
+import { CURRENT_NETWORK, NETWORK_OPTIONS } from "@/network-sites";
 
 /**
  * UI-U1: the nav names the pages that work in the beta. The dashboard, the
@@ -47,6 +53,34 @@ function ChainIndicator({ environment }: { environment: string }) {
       Monad
       <span className="numeric text-foreground-subtle">{environment}</span>
     </span>
+  );
+}
+
+/**
+ * CO-U1: the testnet this site runs on, and the other testnets' sites. Each network is its own
+ * site with its own agents' copies, accounts and trades; nothing bridges between them.
+ */
+function NetworkSwitcher() {
+  return (
+    <Select
+      value={CURRENT_NETWORK}
+      onValueChange={(key) => {
+        const site = NETWORK_OPTIONS.find((o) => o.key === key)?.site;
+        if (site && key !== CURRENT_NETWORK) window.location.assign(site);
+      }}
+    >
+      <SelectTrigger aria-label="Network" className="h-8 w-44 text-xs">
+        <span aria-hidden className="size-1.5 rounded-full bg-positive" />
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        {NETWORK_OPTIONS.map((o) => (
+          <SelectItem key={o.key} value={o.key}>
+            {o.name}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   );
 }
 
@@ -98,7 +132,11 @@ function AppShell({ environment, children }: { environment: string; children: Re
           </nav>
           <div className="ml-auto flex items-center gap-2">
             <span className="hidden sm:inline-flex">
-              <ChainIndicator environment={environment} />
+              {environment === "testnet" ? (
+                <NetworkSwitcher />
+              ) : (
+                <ChainIndicator environment={environment} />
+              )}
             </span>
             <Button
               variant="ghost"

@@ -26,6 +26,8 @@ export default function config(phase: string): NextConfig {
     env: {
       LOCAL_FORK_PORT: process.env.LOCAL_FORK_PORT ?? "",
       CONTROL_API_URL: process.env.CONTROL_API_URL ?? "",
+      // CO-U1: which testnet a testnet build runs on (monad, base-sepolia or arbitrum-sepolia).
+      TESTNET_CHAIN: process.env.TESTNET_CHAIN ?? "",
       DEV_API_PROXY_PATH: proxy.browserPath,
     },
     ...(proxy.rewrites.length > 0 ? { rewrites: async () => [...proxy.rewrites] } : {}),

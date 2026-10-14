@@ -1,3 +1,4 @@
+import { TESTNET_CHAIN } from "@alpha-agents/config";
 import { formatAmount } from "@alpha-agents/domain";
 import type {
   AssetRow,
@@ -178,7 +179,8 @@ export function insights(
 
 /** UI-FAST: a transaction on the environment's explorer; null where the chain has none (the forks). */
 export function txHref(environment: string, hash: string): string | null {
-  if (environment === "testnet") return `https://testnet.monadvision.com/tx/${hash}`;
+  // CO-U1: the explorer of the testnet this build runs on.
+  if (environment === "testnet") return `${TESTNET_CHAIN.explorerTxUrl}${hash}`;
   if (environment === "beta" || environment === "canary")
     return `https://monadvision.com/tx/${hash}`;
   return null;
