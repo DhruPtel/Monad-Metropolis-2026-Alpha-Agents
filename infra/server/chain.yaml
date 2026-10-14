@@ -91,6 +91,10 @@ services:
   research-base:
     <<: *app
     command: ["node", "services/orchestrator/src/research-discovery.ts"]
+    # P-SWEEP (D-384): Base's tokens in the research table, on every stack.
+    environment:
+      <<: *app-env
+      MARKET_CHAIN: base
     mem_limit: 384m
     healthcheck:
       <<: *app-health
