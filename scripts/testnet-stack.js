@@ -29,6 +29,7 @@ import { createDb, sql } from "@alpha-agents/db";
 import { privateKeyToAccount } from "viem/accounts";
 import { LOCAL_PLAYTEST_WALLETS } from "./lib/account-factory.js";
 import { loadRootEnv } from "./lib/config.js";
+import { MAX_RESTARTS, keepLog, restartDelayMs } from "./lib/stack-restart.js";
 import { OWNER_PLAYTEST_WALLETS } from "./lib/testnet.js";
 import {
   MIN_AVAILABLE_BYTES,
@@ -89,6 +90,8 @@ const SERVICES = [
     name: "orchestrator",
     args: ["services/orchestrator/src/main.ts"],
     ready: "http://127.0.0.1:4200/health",
+    // 2026-10-13: an orchestrator that exits on its own is started again (see restartDelayMs).
+    restart: true,
   },
   { name: "web", args: ["scripts/web.js", "dev"], ready: "http://localhost:3000/" },
   // P-SWEEP (D-384): Base's tokens in the research table, for research only, every hour.
@@ -113,21 +116,24 @@ function readState() {
 async function stop() {
   const state = readState();
   if (!state) return [];
+  // 2026-10-13: what was running before anything is signalled. The supervisor stops services
+  // itself on SIGTERM, so a list taken afterwards left out the ones it stopped first, which
+  // read as services that had stopped on their own.
+  const running = state.services.filter((s) => alive(s.pid)).map((s) => s.name);
   if (state.supervisor !== process.pid && alive(state.supervisor)) {
     try {
       process.kill(state.supervisor, "SIGTERM");
     } catch {
       // gone
     }
-    await new Promise((r) => setTimeout(r, 500));
+    for (let i = 0; i < 100 && alive(state.supervisor); i += 1)
+      await new Promise((r) => setTimeout(r, 200));
   }
-  const stopped = [];
-  for (const s of [...state.services].reverse()) {
-    if (alive(s.pid)) {
-      await stopGroup(s.pid);
-      stopped.push(s.name);
-    }
-  }
+  for (const s of [...state.services].reverse()) if (alive(s.pid)) await stopGroup(s.pid);
+  const stopped = [...state.services]
+    .reverse()
+    .map((s) => s.name)
+    .filter((n) => running.includes(n));
   rmSync(STATE_PATH, { force: true });
   return stopped;
 }
@@ -241,6 +247,8 @@ async function up() {
         `nothing listens on ${port} (Postgres 5432, Redis 6380, LiteLLM 4000); start them with pnpm dev:up and pnpm dev:litellm`,
       );
 
+  // 2026-10-13: the last run's log is kept under its time, not wiped.
+  keepLog(LOG_PATH);
   writeFileSync(LOG_PATH, "");
   /** @param {string} line */
   const out = (line) => {
@@ -274,8 +282,11 @@ async function up() {
   process.on("SIGINT", () => void shutdown("interrupted"));
   process.on("SIGTERM", () => void shutdown("asked to stop"));
 
-  for (const service of SERVICES) {
-    if (stopping) break;
+  /** Starts one service, records its PID, labels its output, and restarts it if it should. */
+  const launch = (
+    /** @type {(typeof SERVICES)[number]} */ service,
+    /** @type {number} */ restarts,
+  ) => {
     const child = spawn(process.execPath, service.args, {
       cwd: ROOT,
       detached: true,
@@ -283,7 +294,9 @@ async function up() {
       env: { ...env, ...("env" in service ? service.env : {}) },
     });
     if (!child.pid) fail(`${service.name} did not start`);
-    state.services.push({ name: service.name, pid: /** @type {number} */ (child.pid) });
+    const entry = state.services.find((x) => x.name === service.name);
+    if (entry) entry.pid = /** @type {number} */ (child.pid);
+    else state.services.push({ name: service.name, pid: /** @type {number} */ (child.pid) });
     writeFileSync(STATE_PATH, `${JSON.stringify(state, null, 2)}\n`);
     for (const stream of [child.stdout, child.stderr]) {
       let rest = "";
@@ -293,10 +306,29 @@ async function up() {
         for (const line of r.lines) out(line);
       });
     }
+    const startedAt = Date.now();
     child.on("exit", (code, signal) => {
-      if (!stopping)
-        out(`testnet: ${service.name} exited (${signal ?? `code ${code}`}); the rest keep running`);
+      if (stopping) return;
+      out(`testnet: ${service.name} exited (${signal ?? `code ${code}`}); the rest keep running`);
+      if (!("restart" in service && service.restart)) return;
+      // A run that lasted a while starts the count again; a crash loop backs off and gives up.
+      const n = Date.now() - startedAt > 10 * 60_000 ? 0 : restarts + 1;
+      if (n > MAX_RESTARTS) {
+        out(`testnet: ${service.name} exited ${n} times in a row; not restarting it again`);
+        return;
+      }
+      const delay = restartDelayMs(n);
+      out(`testnet: restarting ${service.name} in ${Math.round(delay / 1000)} s`);
+      setTimeout(() => {
+        if (!stopping) launch(service, n);
+      }, delay);
     });
+    return child;
+  };
+
+  for (const service of SERVICES) {
+    if (stopping) break;
+    launch(service, 0);
     if (service.ready) {
       const deadline = Date.now() + (service.name === "web" ? 240_000 : 90_000);
       let ok = false;
