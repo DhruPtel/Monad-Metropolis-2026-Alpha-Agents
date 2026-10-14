@@ -174,6 +174,26 @@ export interface AgentSummaryJson {
   };
 }
 
+/** 2026-10-13: a deposit, withdrawal or credit top-up, from the chain's logs and the indexer. */
+export interface MoneyEventJson {
+  readonly kind: "deposit" | "withdrawal" | "credit_top_up";
+  readonly account: "trading" | "vault" | "credits";
+  readonly who: Address | null;
+  readonly symbol: string;
+  readonly amount: string;
+  readonly valueUsdcE6: string | null;
+  readonly inKind: boolean;
+  readonly leaderStake: boolean;
+  readonly txHash: string;
+  readonly block: string;
+  readonly at: string;
+}
+
+export interface MoneyEventsJson {
+  readonly events: readonly MoneyEventJson[];
+  readonly created: { readonly trading: string | null; readonly vault: string | null };
+}
+
 export interface ActivityJson {
   readonly entryId: string;
   readonly kind: string;
@@ -1182,6 +1202,13 @@ export const api = {
     return { configured: r.configured, aggressiveness: r.aggressiveness ?? null };
   },
   /** The narrator's entries, newest first (public, D-217). */
+  /**
+   * 2026-10-13: the agent's deposits, withdrawals and credit top-ups, newest first, and when its
+   * trading account and vault were created. Public.
+   */
+  async moneyEvents(agentId: bigint): Promise<MoneyEventsJson> {
+    return call<MoneyEventsJson>(`/v1/agents/${agentId.toString()}/money-events`);
+  },
   async activity(agentId: bigint): Promise<ActivityJson[]> {
     return (await call<{ entries: ActivityJson[] }>(`/v1/agents/${agentId.toString()}/activity`))
       .entries;

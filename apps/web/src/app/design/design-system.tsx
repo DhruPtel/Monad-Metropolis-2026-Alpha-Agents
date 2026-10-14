@@ -201,6 +201,8 @@ import {
   SectionLabel,
   StepList,
   CollapsibleCard,
+  InfoList,
+  ActivityPanel,
   Select,
   SelectContent,
   SelectItem,
@@ -1542,6 +1544,75 @@ function OverlaysSection() {
           </div>
           <Skeleton className="h-20 w-full" />
         </Card>
+      </Specimen>
+      <Specimen
+        name="InfoList"
+        note="A plain listed panel of facts, a label and value per row, then at most one main and one secondary action; the vault's About."
+      >
+        <InfoList
+          rows={[
+            { label: "Leader", value: "0x683e…5f76 (you)" },
+            { label: "Status", value: "Normal" },
+            { label: "Lockup", value: "1 day" },
+            { label: "Fees", value: "No exit fee" },
+            { label: "Leader stake", value: "28.57% (at least 5%)" },
+            { label: "Deposits", value: "Open" },
+            { label: "Created", value: "2026-10-13 23:50 UTC" },
+          ]}
+          primary={<Button size="sm">Open deposits</Button>}
+          secondary={
+            <Button size="sm" variant="secondary">
+              Withdraw
+            </Button>
+          }
+        />
+      </Specimen>
+      <Specimen
+        name="ActivityPanel"
+        note="Everything the agent and its owners do, newest first: deposits, withdrawals, trades, research runs with their cost, credit top-ups and plan approvals, each with its type, amount, time and link; tabs filter to trades, deposits or research."
+      >
+        <ActivityPanel
+          empty="Nothing here yet."
+          note="The agent's trades, research runs and plan approvals show here for its owner."
+          rows={[
+            {
+              id: "a",
+              type: "Deposit",
+              filter: "deposits",
+              title: "Deposit into the vault",
+              amount: "5 USDC",
+              time: "2026-10-13 23:59",
+              link: { href: "#activity", label: "Transaction", external: true },
+            },
+            {
+              id: "b",
+              type: "Trade",
+              filter: "trades",
+              title: "Buy WMON",
+              amount: "0.796 USDC",
+              time: "2026-10-13 22:24",
+              link: { href: "#activity", label: "Transaction", external: true },
+            },
+            {
+              id: "c",
+              type: "Research",
+              filter: "research",
+              title: "Activation research",
+              amount: "0.79 USDC",
+              time: "2026-10-13 22:10",
+              link: { href: "#activity", label: "Report", external: false },
+            },
+            {
+              id: "d",
+              type: "Credits",
+              filter: "deposits",
+              title: "Research credits added",
+              amount: "5 USDC",
+              time: "2026-10-13 17:41",
+              link: null,
+            },
+          ]}
+        />
       </Specimen>
       <Specimen
         name="Collapsible card"
@@ -3548,7 +3619,7 @@ function VaultSection() {
         </div>
       </Specimen>
       <Specimen
-        name="Fund this agent"
+        name="Add research credits"
         note="For someone who is not the owner (D-242): a contribution to the agent's credits, said plainly to be no deposit and to buy no shares, with the refund rules in one paragraph and the split against the cap before anything is sent."
       >
         <div className="max-w-2xl" data-testid="vault-fund-specimen">

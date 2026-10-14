@@ -48,6 +48,7 @@ import { useAgentSummary } from "@/components/agent-shell/agent-shell";
 import { usePortfolio } from "@/agent/use-portfolio";
 import { useWalletSession } from "@/auth/session";
 import { AddCreditsSection } from "@/components/credits/add-credits-section";
+import { AgentActivity } from "@/components/activity/agent-activity";
 import { AgentHoldings } from "@/components/holdings/agent-holdings";
 import { ActionLine } from "@/components/my-agents/my-agents-page";
 import {
@@ -396,20 +397,6 @@ export function OverviewPage({
             ),
           },
           {
-            id: "flows",
-            label: "Deposits and withdrawals",
-            content: (
-              <p className="text-sm">
-                Net deposits so far:{" "}
-                <span className="numeric">
-                  {principalE6 === null ? "–" : `${usdc2(principalE6)} USDC`}
-                </span>
-                . The list of each deposit and withdrawal, with its date and transaction, is not
-                recorded yet.
-              </p>
-            ),
-          },
-          {
             id: "spend",
             label: "Spend activity",
             content: me?.summary ? (
@@ -425,6 +412,7 @@ export function OverviewPage({
         ]}
       />
       <AgentHoldings agentId={agentId} environment={environment} card />
+      <AgentActivity agentId={agentId} environment={environment} />
 
       <Dialog open={depositOpen} onOpenChange={setDepositOpen}>
         <DialogContent aria-describedby="deposit-description">
