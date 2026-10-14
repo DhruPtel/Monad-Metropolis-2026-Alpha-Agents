@@ -14,3 +14,28 @@ api.161.35.99.236.sslip.io {
 		format console
 	}
 }
+
+# CO-U1: each further testnet's guard (infra/server/chain.yaml), at its own host.
+api-base.161.35.99.236.sslip.io {
+	encode gzip
+	reverse_proxy app-net-base-sepolia:4190 {
+		header_up -Cf-Connecting-Ip
+		header_up X-Forwarded-For {remote_host}
+	}
+}
+
+api-arbitrum.161.35.99.236.sslip.io {
+	encode gzip
+	reverse_proxy app-net-arbitrum-sepolia:4190 {
+		header_up -Cf-Connecting-Ip
+		header_up X-Forwarded-For {remote_host}
+	}
+}
+
+api-monad.161.35.99.236.sslip.io {
+	encode gzip
+	reverse_proxy app-net-monad:4190 {
+		header_up -Cf-Connecting-Ip
+		header_up X-Forwarded-For {remote_host}
+	}
+}
