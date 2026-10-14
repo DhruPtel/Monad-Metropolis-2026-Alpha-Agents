@@ -17,7 +17,6 @@ import {
   Skeleton,
 } from "@alpha-agents/ui";
 import { PlugZap } from "lucide-react";
-import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
 import {
@@ -31,6 +30,7 @@ import {
   usdcText,
 } from "@/agent/home-view";
 import { useHome } from "@/agent/use-home";
+import { HeroVisual } from "./hero-visual";
 
 const FILTERS: readonly { id: AgentFilter; label: string }[] = [
   { id: "trending", label: "Trending" },
@@ -193,15 +193,10 @@ function HomeBody({
           </Button>
         }
         visual={
-          <HeroVisualSlot>
-            <Image
-              src="/brand/vivarium-logo.png"
-              alt="Vivarium"
-              width={512}
-              height={512}
-              className="size-full object-contain"
-              priority
-            />
+          // 2026-10-14: no taller than the text column and level with its top, so the model
+          // sits beside the title and description and never past the hero.
+          <HeroVisualSlot className="max-w-100 lg:self-start">
+            <HeroVisual />
           </HeroVisualSlot>
         }
       />

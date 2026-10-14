@@ -225,7 +225,13 @@ function ActivationPanel({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <SectionLabel as="h4">Activation sweep</SectionLabel>
         <div className="flex flex-wrap items-center gap-1.5">
-          <Tag>
+          <Tag className="gap-1">
+            {/* 2026-10-14: the owner's intelligence icon for the model tier (public/icons/intelligence). */}
+            <img
+              src={`/icons/intelligence/${v.tier.label.toLowerCase()}.svg`}
+              alt=""
+              className="size-4"
+            />
             {v.tier.label} tier · {v.tier.model}
           </Tag>
           <Badge tone={r.tone} data-testid="activation-status">
