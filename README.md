@@ -66,6 +66,8 @@ Its Overview, Trading and Research tabs open for its owner's wallet.
 
 ## Safety model
 
+Every contract, what it checks and where it is deployed is explained in plain words in [docs/CONTRACTS.md](docs/CONTRACTS.md).
+
 - **The model proposes, the contracts enforce.** Research writes a plan; only the Executor can trade an account, and only within its limits.
 - **Owner-only withdrawals.** The owner can withdraw from the account contract at any time, even while trading is paused.
 - **Hard limits per trade.** The largest trade, the largest position, the slippage against the oracle price, the USDC kept in cash and the trades per day are checked onchain on every trade.

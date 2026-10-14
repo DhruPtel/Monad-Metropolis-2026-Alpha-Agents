@@ -2,6 +2,8 @@
 
 Monad contracts, Foundry project, deployment scripts and the Monad chain adapter.
 
+For a plain-words guide to every contract, how a trade flows through them, and the deployed addresses per chain, see [docs/CONTRACTS.md](../../docs/CONTRACTS.md).
+
 - `foundry.toml`: Foundry config. `network = "monad"` makes forge use the Monad EVM; without it, forking chain 143 fails. Dependencies install with Soldeer into `dependencies/` (gitignored); `soldeer.lock` pins them.
 - `fork.json`: the pinned Monad mainnet fork block used by the local anvil fork and the fork tests.
 - `src/AgentNFT.sol`: the agent NFT (P1-U3), on OpenZeppelin 5.7.0 from Soldeer. `src/interfaces/IExternal.sol` holds the minimal interfaces to the ERC-6551 registry, Tokenbound accounts and Pyth Entropy.
