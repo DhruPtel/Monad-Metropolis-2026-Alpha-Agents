@@ -165,3 +165,16 @@ export function requiredSockets(asset: SpeciesAsset): readonly string[] {
   if (!asset.model) return [];
   return asset.model.sockets.slice(0, slotsFor(asset.species.tier));
 }
+
+/**
+ * 2026-10-13 (owner): the final catalog the front end shows: the species with the owner's
+ * art (25 of 34). The onchain deck of the testnet AgentNFT still holds the other nine (Tick,
+ * Ground beetle, Cricket, Firefly, Water strider, Earwig, Horseshoe crab, Trilobite, Cicada);
+ * an agent that drew one keeps its real name over the placeholder art.
+ */
+export const CATALOG_SPECIES = SPECIES.filter((s) => speciesAsset(s.index).image !== null);
+
+/** Whether a species is in the final catalog. */
+export function inCatalog(index: number): boolean {
+  return CATALOG_SPECIES.some((s) => s.index === index);
+}

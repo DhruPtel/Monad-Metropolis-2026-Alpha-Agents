@@ -34,7 +34,7 @@ describe("TierCard", () => {
     expect(card).not.toHaveTextContent("Sold out");
   });
 
-  it("marks one-of-ones and says whether each is drawn", () => {
+  it("says whether each one-of-one is drawn, with no 1 of 1 badge (2026-10-13)", () => {
     render(
       <TierCard
         tier="pro"
@@ -49,11 +49,11 @@ describe("TierCard", () => {
     const list = screen.getByRole("list", { name: "Pro species" });
     const rows = within(list).getAllByRole("listitem");
     expect(rows).toHaveLength(3);
-    expect(rows[0]).toHaveTextContent("Bee1 of 1Drawn");
-    expect(rows[1]).toHaveTextContent("Praying mantis1 of 1Not drawn yet");
+    expect(rows[0]).toHaveTextContent("BeeDrawn");
+    expect(rows[1]).toHaveTextContent("Praying mantisNot drawn yet");
     expect(rows[2]).toHaveTextContent("Dragonfly11 of 12 left");
     expect(rows.map((r) => r.hasAttribute("data-one-of-one"))).toEqual([true, true, false]);
-    expect(within(rows[2] as HTMLElement).queryByText("1 of 1")).toBeNull();
+    expect(rows.some((r) => within(r as HTMLElement).queryByText("1 of 1"))).toBe(false);
   });
 
   it("says when the tier is sold out", () => {

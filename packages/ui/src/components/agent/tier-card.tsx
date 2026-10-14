@@ -61,10 +61,7 @@ function SpeciesRow({ tier, species }: { tier: ArtTier; species: TierCardSpecies
         className="size-9 shrink-0"
       />
       <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <span className="flex flex-wrap items-center gap-2 text-sm">
-          {species.name}
-          {oneOfOne ? <Tag tone="legendary">1 of 1</Tag> : null}
-        </span>
+        <span className="flex flex-wrap items-center gap-2 text-sm">{species.name}</span>
         {left === null ? (
           <Skeleton className="h-3 w-20" />
         ) : (

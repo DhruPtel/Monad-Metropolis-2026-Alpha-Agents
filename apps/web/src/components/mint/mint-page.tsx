@@ -2,7 +2,7 @@
 
 import { type EnvironmentId, ENVIRONMENTS } from "@alpha-agents/config";
 import {
-  SPECIES,
+  CATALOG_SPECIES,
   TIER_IDS,
   type Tier,
   slotsFor,
@@ -59,7 +59,8 @@ function TierCards({ supply }: { supply: SupplySummary | null }) {
     <div className="grid items-start gap-4 lg:grid-cols-3">
       {TIER_IDS.map((tier: Tier) => {
         const t: TierSupply | undefined = supply?.tiers.find((x) => x.tier === tier);
-        const species = SPECIES.filter((s) => s.tier === tier);
+        // 2026-10-13: the final catalog only; the tier's totals stay the deck's own.
+        const species = CATALOG_SPECIES.filter((s) => s.tier === tier);
         const total = species.reduce((sum, s) => sum + s.count, 0);
         return (
           <TierCard

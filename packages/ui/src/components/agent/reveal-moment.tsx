@@ -258,11 +258,6 @@ function RevealMoment({
                 {TIER_NAME[rarity.tier]}
               </Tag>
               <span className="text-base font-semibold">{rarity.name}</span>
-              {rarity.oneOfOne ? (
-                <Tag tone="legendary" size="md" data-testid="one-of-one">
-                  <Sparkles aria-hidden className="size-3" /> 1 of 1
-                </Tag>
-              ) : null}
             </span>
             <p
               className={cn(

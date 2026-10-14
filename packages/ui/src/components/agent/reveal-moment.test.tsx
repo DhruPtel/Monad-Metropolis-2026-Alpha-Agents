@@ -30,7 +30,8 @@ describe("the reveal moment (UI-U2)", () => {
     expect(root?.getAttribute("data-phase")).toBe("revealed");
     expect(screen.getByRole("img", { name: "Bee agent" })).toBeTruthy();
     expect(screen.getByText("Bee")).toBeTruthy();
-    expect(screen.getByTestId("one-of-one")).toBeTruthy();
+    // 2026-10-13: no "1 of 1" badge; the species line still says it is the only one.
+    expect(screen.queryByTestId("one-of-one")).toBeNull();
     expect(screen.getByText(/Pro: 200 of 1,000 agents/)).toBeTruthy();
   });
 

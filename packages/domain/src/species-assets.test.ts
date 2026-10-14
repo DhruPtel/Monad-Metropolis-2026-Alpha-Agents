@@ -63,3 +63,23 @@ describe("species asset manifest (D-188)", () => {
     }
   });
 });
+
+describe("the final catalog (2026-10-13)", () => {
+  it("is the 25 species with the owner's art; the nine without art are left out", async () => {
+    const { CATALOG_SPECIES, inCatalog } = await import("./species-assets.ts");
+    const { SPECIES } = await import("./species.ts");
+    expect(CATALOG_SPECIES).toHaveLength(25);
+    const out = SPECIES.filter((s) => !inCatalog(s.index)).map((s) => s.name);
+    expect(out).toEqual([
+      "Tick",
+      "Ground beetle",
+      "Cricket",
+      "Firefly",
+      "Water strider",
+      "Earwig",
+      "Horseshoe crab",
+      "Trilobite",
+      "Cicada",
+    ]);
+  });
+});
