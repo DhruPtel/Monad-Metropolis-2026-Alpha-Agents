@@ -310,12 +310,31 @@ export function planRows(
     }
     return null;
   };
-  return planMoves(p, card).map((m) => ({
-    symbol: m.symbol,
-    side: m.side,
-    targetBps: targetOf(m.symbol),
-    currentBps: shareOf(m.symbol),
-  }));
+  // 2026-10-13: the side comes from the account's share now against the target and its range,
+  // as the runner judges it; comparing with the previous plan's target showed a Sell the
+  // runner had no reason to make.
+  const bandOf = (symbol: string): number => {
+    const pos = p.positions.find((x) => x.symbol === symbol);
+    return pos?.bandBps ?? p.plan?.bandHalfWidthBps ?? 500;
+  };
+  return planMoves(p, card).map((m) => {
+    const targetBps = targetOf(m.symbol);
+    const currentBps = shareOf(m.symbol);
+    const side =
+      m.symbol === "USDC" || targetBps === null || currentBps === null
+        ? m.side
+        : Math.abs(currentBps - targetBps) <= bandOf(m.symbol)
+          ? "Hold"
+          : currentBps < targetBps
+            ? "Buy"
+            : "Sell";
+    return { symbol: m.symbol, side, targetBps, currentBps };
+  });
+}
+
+/** 2026-10-13: a plan the account already matches: every move a Hold, so approving it trades nothing. */
+export function planIsMet(rows: readonly PlanRowView[]): boolean {
+  return rows.length > 0 && rows.every((r) => r.side === "Hold");
 }
 
 /** The expanded insights: value, cash against invested, positions, gains, trades, age. */

@@ -377,6 +377,8 @@ export interface ProposalJson {
   readonly plan: {
     readonly cashTargetBps?: number;
     readonly targetWmonBps?: number;
+    /** The two-token plan's range around its target. */
+    readonly bandHalfWidthBps?: number;
     readonly minTradeUsdcE6: string;
     readonly volatilityBrakeBps: number;
     readonly costHurdleBps: number;

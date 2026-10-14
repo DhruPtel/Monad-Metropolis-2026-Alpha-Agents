@@ -43,6 +43,7 @@ import {
   insightRows,
   latestApplied,
   liveTradeRows,
+  planIsMet,
   runLabel,
   tradeHistory,
   planRows,
@@ -283,6 +284,9 @@ export function TradingPage({
     txFor: (hash) => txHref(environment, hash),
   });
   const waitingPlan = pending !== null && shown?.proposalId === pending.proposalId;
+  // 2026-10-13: a plan the account already matches is a Hold: approving it trades nothing.
+  const shownRows = shown ? planRows(shown, card, holdingRows) : [];
+  const shownMet = planIsMet(shownRows);
   const approvedPlans = [...(card?.recent ?? [])].filter((p) => p.status === "applied");
   const live = liveTradeRows(
     pf.intents,
@@ -466,7 +470,9 @@ export function TradingPage({
             <PlanSummaryCard
               heading={
                 waitingPlan
-                  ? "Waiting for your approval"
+                  ? shownMet
+                    ? "Waiting for your approval: Hold, no trade needed"
+                    : "Waiting for your approval"
                   : `In force since ${(shown.decidedAt ?? shown.createdAt).slice(0, 10)}`
               }
               badge={
@@ -477,10 +483,14 @@ export function TradingPage({
                     : { label: shown.status.replaceAll("_", " "), tone: "neutral" }
               }
               goal={goalWord}
-              rows={planRows(shown, card, holdingRows)}
+              rows={shownRows}
+              source={
+                shownMet
+                  ? `${runLabel(shown) ?? "From research"}. The account already matches this plan: approving it keeps the plan in force current, and no trade is made.`
+                  : runLabel(shown)
+              }
               rationale={shown.rationale.portfolioView}
               reportHref={shown.cycleId ? reportHref(agentId, shown.cycleId) : null}
-              source={runLabel(shown)}
               linkAs={Link}
               actions={
                 waitingPlan ? (
@@ -491,7 +501,7 @@ export function TradingPage({
                       onClick={() => pf.approveProposal(pending.proposalId)}
                       data-testid="approve-plan"
                     >
-                      Approve plan
+                      {shownMet ? "Approve (no trades)" : "Approve plan"}
                     </Button>
                     <Button
                       size="sm"

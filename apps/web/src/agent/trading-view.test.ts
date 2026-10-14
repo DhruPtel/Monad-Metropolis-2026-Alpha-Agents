@@ -10,6 +10,7 @@ import {
   liveTradeRows,
   planBanner,
   tradeHistory,
+  planIsMet,
   planOfTrade,
   runLabel,
   planMoves,
@@ -442,5 +443,43 @@ describe("trading toward a plan (2026-10-13)", () => {
       "Sending",
       "Waiting for the next check",
     ]);
+  });
+});
+
+describe("a plan's side from the account's share (2026-10-13)", () => {
+  const proposal = (target: number) =>
+    ({
+      proposalId: "p",
+      status: "pending_owner",
+      positions: [],
+      plan: {
+        targetWmonBps: target,
+        bandHalfWidthBps: 500,
+        minTradeUsdcE6: "500000",
+        volatilityBrakeBps: 25_000,
+        costHurdleBps: 50,
+        maxLegBps: 1_000,
+      },
+      rationale: { portfolioView: "", allocationNote: null },
+    }) as unknown as ProposalJson;
+  const card = { current: { targetWmonBps: 3_000 } } as unknown as PlanCardJson;
+  const rows = (wmonBps: number) =>
+    [
+      { symbol: "WMON", shareBps: wmonBps },
+      { symbol: "USDC", shareBps: 10_000 - wmonBps, isCash: true },
+    ] as never;
+
+  it("holds when the account is already within the plan's range, whatever the previous plan said", () => {
+    // The previous plan targeted 30%; the account holds 19.9% WMON and the new plan targets 20%.
+    const met = planRows(proposal(2_000), card, rows(1_990));
+    expect(met.find((r) => r.symbol === "WMON")?.side).toBe("Hold");
+    expect(planIsMet(met)).toBe(true);
+    expect(
+      planRows(proposal(3_000), card, rows(1_000)).find((r) => r.symbol === "WMON")?.side,
+    ).toBe("Buy");
+    expect(
+      planRows(proposal(1_000), card, rows(3_000)).find((r) => r.symbol === "WMON")?.side,
+    ).toBe("Sell");
+    expect(planIsMet(planRows(proposal(3_000), card, rows(1_000)))).toBe(false);
   });
 });
