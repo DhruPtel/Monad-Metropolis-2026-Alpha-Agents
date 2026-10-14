@@ -29,7 +29,8 @@ export interface SnapshotRecorderOptions {
   readonly chainId: number;
   readonly store: Store;
   readonly snapshots: SnapshotStore;
-  readonly reader: ChainReader;
+  /** The v2 set's reader; null where only the fund agent's v3 set is deployed (CO-U1: Base, Arbitrum). */
+  readonly reader: ChainReader | null;
   /** F-U5: the fund agent's v3 set; an agent on it is snapshotted with every held token (D-367). */
   readonly readerV3?: ChainReaderV3 | null;
   readonly everyMs?: number;
@@ -87,7 +88,9 @@ export class SnapshotRecorder {
   async read(agentId: number): Promise<AccountRead | null> {
     const v3 = this.o.readerV3;
     if (v3 && (await v3.custodyPath(agentId)) === "v3") return this.readV3(v3, agentId);
-    const [a, m] = await Promise.all([this.o.reader.agent(agentId), this.o.reader.market()]);
+    const v2 = this.o.reader;
+    if (!v2) return null;
+    const [a, m] = await Promise.all([v2.agent(agentId), v2.market()]);
     if (!a?.account || !isMode(a.mode)) return null;
     const monUsdE18 = m.monUsd.reason === "OK" ? m.monUsd.priceE18 : null;
     const observation: AccountObservation = {
@@ -103,7 +106,7 @@ export class SnapshotRecorder {
     };
     const holdings: HoldingSnapshot[] = [
       {
-        token: this.o.reader.tokenOf("USDC"),
+        token: v2.tokenOf("USDC"),
         symbol: "USDC",
         decimals: 6,
         amountRaw: a.usdc.toString(),
@@ -112,7 +115,7 @@ export class SnapshotRecorder {
         costBasisUsdcE6: null,
       },
       {
-        token: this.o.reader.tokenOf("WMON"),
+        token: v2.tokenOf("WMON"),
         symbol: "WMON",
         decimals: 18,
         amountRaw: a.wmon.toString(),

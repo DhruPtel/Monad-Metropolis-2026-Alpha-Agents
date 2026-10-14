@@ -117,7 +117,8 @@ export interface RunnerNarrator {
 
 export interface TemplateRunnerOptions {
   readonly chainId: number;
-  readonly reader: ChainReader;
+  /** The v2 set's reader; null where only the fund agent's v3 set is deployed (CO-U1: Base, Arbitrum). */
+  readonly reader: ChainReader | null;
   /** F-U6: the fund agent's v3 set, which a target portfolio runs on; null where it is not deployed. */
   readonly readerV3?: ChainReaderV3 | null;
   readonly plans: PlanStore;
@@ -275,7 +276,9 @@ export class TemplateRunner {
     base: Pick<NewDecision, "chainId" | "agentId" | "paramId" | "strategyEpoch">,
   ): Promise<RunnerDecision> {
     const agentId = plan.agentId;
-    const [m, a] = await Promise.all([this.o.reader.market(), this.o.reader.agent(agentId)]);
+    const v2 = this.o.reader;
+    if (!v2) return hold("NO_PLAN", { reason: "the v2 set is not deployed here" });
+    const [m, a] = await Promise.all([v2.market(), v2.agent(agentId)]);
     if (!a) return hold("NO_PLAN", { reason: "the agent is not on this chain" });
     // The owner's limits from the goal: each the hard limit or a stricter value (P3-U1).
     const owner = goal.config.ownerLimits;
@@ -306,7 +309,7 @@ export class TemplateRunner {
     if (d.action === "hold") return hold(d.code, { ...d.facts }, undefined, a.block);
 
     const leg = d.leg;
-    const quote = await this.o.reader.quote(leg.sell, leg.amountIn).catch(() => null);
+    const quote = await v2.quote(leg.sell, leg.amountIn).catch(() => null);
     if (quote && priceE18 !== null) {
       d = REBALANCE_BANDS_V1.checkCost(params, d, {
         oracleOut: oracleImplied(leg.sell, leg.amountIn, priceE18),

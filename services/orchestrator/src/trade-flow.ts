@@ -99,7 +99,8 @@ export interface TradeFlowNarrator {
 export interface TradeFlowOptions {
   readonly chainId: number;
   readonly store: TradeStore;
-  readonly reader: ChainReader;
+  /** The v2 set's reader; null where only the fund agent's v3 set is deployed (CO-U1: Base, Arbitrum). */
+  readonly reader: ChainReader | null;
   /** F-U5: the fund agent's v3 set; v3 intents and armings read and send through it (D-367). */
   readonly readerV3?: ChainReaderV3 | null;
   readonly signer: TradeFlowSigner;
@@ -183,7 +184,8 @@ export class TradeFlow {
   /** The chain view for a grant's own custody set: Executor v3's for a v3 arming, v2's otherwise. */
   private agentView(custody: CustodyPath, agentId: number) {
     const v3 = this.o.readerV3;
-    return custody === "v3" && v3 ? v3.agent(agentId) : this.o.reader.agent(agentId);
+    if (custody === "v3" && v3) return v3.agent(agentId);
+    return this.o.reader ? this.o.reader.agent(agentId) : Promise.resolve(null);
   }
 
   async upkeepArmings(): Promise<ArmingRecord[]> {
@@ -281,6 +283,11 @@ export class TradeFlow {
         blocker("NOT_ARMED", null),
       ]);
     if (i.custody === "v3") return this.submitV3(i);
+    const v2 = this.o.reader;
+    if (!v2)
+      return this.refuse(i, "the v2 set is not deployed here", [
+        blocker("VENUE_NOT_ALLOWED", null),
+      ]);
     // Proposed under an earlier goal: never sent, and the arming stays open (D-281).
     const strategyEpoch = await this.o.store.strategyEpoch(chainId, i.agentId);
     if ((i.strategyEpoch ?? 0n) !== strategyEpoch)
@@ -292,7 +299,7 @@ export class TradeFlow {
     const key = await this.o.signer.createKey(i.agentId);
     const reserved = await this.o.store.reservedSlots(chainId, i.agentId, i);
     const { sell, buy } = v2Pair(i);
-    const assessed = await assessTrade(this.o.reader, i.agentId, sell, i.amountIn, key, reserved);
+    const assessed = await assessTrade(v2, i.agentId, sell, i.amountIn, key, reserved);
     if (!assessed)
       return this.refuse(i, "the agent has no trading account", [blocker("INTENT_INVALID", null)]);
     const { m, a, quote } = assessed;
@@ -327,8 +334,8 @@ export class TradeFlow {
       configEpoch: a.configEpoch,
       policyHash: m.policyHash,
       adapterId: m.venue.adapterId,
-      tokenIn: this.o.reader.tokenOf(sell),
-      tokenOut: this.o.reader.tokenOf(buy),
+      tokenIn: v2.tokenOf(sell),
+      tokenOut: v2.tokenOf(buy),
       amountIn: i.amountIn,
       minAmountOut,
       deadline,

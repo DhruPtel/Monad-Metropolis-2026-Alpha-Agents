@@ -417,19 +417,20 @@ export class Orchestrator {
     this.trades = new TradeStore(store.db);
     const reader = options.chain?.reader ?? null;
     const snapshotReader = options.snapshotReader ?? reader;
-    this.snapshots = snapshotReader
-      ? new SnapshotRecorder({
-          chainId: options.chainId,
-          store,
-          snapshots: new SnapshotStore(store.db, options.credits?.environment ?? "local"),
-          reader: snapshotReader,
-          readerV3: options.chain?.readerV3 ?? null,
-          log,
-        })
-      : null;
+    this.snapshots =
+      snapshotReader || options.chain?.readerV3
+        ? new SnapshotRecorder({
+            chainId: options.chainId,
+            store,
+            snapshots: new SnapshotStore(store.db, options.credits?.environment ?? "local"),
+            reader: snapshotReader ?? null,
+            readerV3: options.chain?.readerV3 ?? null,
+            log,
+          })
+        : null;
     const recorder = this.snapshots;
     this.tradeFlow =
-      reader && options.trading
+      (reader || options.chain?.readerV3) && options.trading
         ? new TradeFlow({
             chainId: options.chainId,
             store: this.trades,
@@ -540,7 +541,7 @@ export class Orchestrator {
     });
     const trading = options.trading;
     this.runner =
-      reader && trading && options.runner
+      (reader || options.chain?.readerV3) && trading && options.runner
         ? new TemplateRunner({
             chainId: options.chainId,
             reader,
