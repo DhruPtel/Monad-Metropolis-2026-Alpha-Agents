@@ -27,9 +27,7 @@ x-app: &app
     ORCHESTRATOR_URL: http://127.0.0.1:4200
     APP_PUBLIC_URL: https://vivarium-testnet.vercel.app
     MINT_OPEN: "on"
-    # The owner's playtest wallets and the test wallet (scripts/testnet-stack.js's default).
-    DEMO_RESEARCH_ALLOWLIST: ${DEMO_RESEARCH_ALLOWLIST:-0x683ee842a16f85e69883f433745263bfe8d55f76,0x32838fe90541567bbf77fa0570661f3c20e2b152,0xc8821706961bcac0e95441308083644eff444871,0xc7fcA8F663b8a20f8aFcCdd92E031678423AC2c8}
-    DEMO_DAILY_MODEL_BUDGET_USD: ${DEMO_DAILY_MODEL_BUDGET_USD:-5}
+    DEMO_DAILY_MODEL_BUDGET_USD: ${DEMO_DAILY_MODEL_BUDGET_USD:-25}
   depends_on:
     app-net:
       condition: service_started

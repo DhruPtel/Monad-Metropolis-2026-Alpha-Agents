@@ -37,9 +37,9 @@ model_list:
       api_key: os.environ/ANTHROPIC_API_KEY
 
 litellm_settings:
-  # P0-SPEND (D-369): a proxy-wide budget of 15 USD a day, whatever any other cap says. LiteLLM
+  # P0-SPEND (D-369): a proxy-wide budget of 25 USD a day, whatever any other cap says. LiteLLM
   # refuses every call once the day's spend reaches it and resets it after a day.
-  max_budget: 15
+  max_budget: 25
   budget_duration: 1d
   # Hermes sends optional parameters (reasoning effort, for example) that some routes reject.
   drop_params: true
