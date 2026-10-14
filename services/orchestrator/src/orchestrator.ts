@@ -258,6 +258,8 @@ export interface OrchestratorOptions {
    */
   /** 2026-10-13: the sources each research stage must call (main sets the owner's rule). */
   readonly requiredSources?: Readonly<Record<string, readonly string[]>>;
+  /** 2026-10-13: the Scan chooses as many tokens as the run's Dives (main turns it on). */
+  readonly requireScanTokens?: boolean;
   readonly runner?: {
     /** MON's annualized 24-hour realized volatility in percent, null when unreadable. */
     readonly volatility24hPct: () => Promise<number | null>;
@@ -511,6 +513,8 @@ export class Orchestrator {
       universe: this.universe,
       // 2026-10-13: the web and X searches a Scan and each Dive must make.
       ...(options.requiredSources ? { requiredSources: options.requiredSources } : {}),
+      // 2026-10-13: the Scan chooses as many tokens as the run's Dives, or says why not.
+      ...(options.requireScanTokens ? { requireScanTokens: true } : {}),
     });
     this.proposals = new ProposalService({
       db: store.db,

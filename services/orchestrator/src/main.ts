@@ -675,6 +675,7 @@ const orchestrator = new Orchestrator({
   scanIntervalMs,
   // 2026-10-13 (owner): a Scan and each Dive search the web and X at least once.
   requiredSources: REQUIRED_SOURCES,
+  requireScanTokens: true,
   ...(scheduleScans ? {} : { scheduleMs: 0 }),
   ...(local ? {} : { keeperMs: REMOTE_POLL_MS, creditsMs: REMOTE_POLL_MS }),
   revealSteering: steering,

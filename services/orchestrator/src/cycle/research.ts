@@ -26,6 +26,7 @@ import { allocationFindings, rationaleFindings } from "./rationale.ts";
 import type { Cycle, CycleStore, StageRun } from "./store.ts";
 import { type TestInputs, type TestInputsV2, checkProposal, proposalParams } from "./test-stage.ts";
 import { validateBrief } from "./validator.ts";
+import { DIVES_PER_RUN, type ReasoningAlias } from "./stages.ts";
 import type { UniverseStore } from "./universe.ts";
 
 /**
@@ -46,6 +47,11 @@ export interface CycleResearchOptions {
   readonly portfolio?: { inputs(cycle: Cycle): Promise<TestInputsV2 | null> } | null;
   /** F-U12: the universe each cycle considered; the Zoom out names every token seen and not proposed. */
   readonly universe?: UniverseStore | null;
+  /**
+   * 2026-10-13 (owner): a Scan chooses exactly as many tokens as its run's Dives, or says why it
+   * found fewer (fewerTokensReason); off when absent.
+   */
+  readonly requireScanTokens?: boolean;
   /** 2026-10-13: the sources each stage must call before complete_stage; none when absent. */
   readonly requiredSources?: Readonly<Record<string, readonly string[]>>;
   readonly now?: () => Date;
@@ -65,6 +71,29 @@ export const REQUIRED_SOURCES: Readonly<Record<string, readonly string[]>> = {
   SCAN: ["web_search", "x_search"],
   DIVE: ["web_search", "x_search"],
 };
+
+/**
+ * Why a Scan may not end yet (2026-10-13): it must choose exactly `want` tokens (TOKEN themes, each
+ * a different token), or fewer with a fewerTokensReason; null when it may end.
+ */
+export function scanTokenShortfall(
+  brief: {
+    themes?: readonly { scope?: string; token?: string | null }[];
+    fewerTokensReason?: string | null;
+  },
+  want: number,
+): string | null {
+  const tokens = new Set(
+    (brief.themes ?? [])
+      .filter((t) => t.scope === "TOKEN" && t.token)
+      .map((t) => (t.token as string).toLowerCase()),
+  ).size;
+  if (tokens > want)
+    return `This run Dives on ${want} tokens: choose exactly ${want} TOKEN themes, not ${tokens}, and write the SCAN brief again.`;
+  if (tokens < want && !brief.fewerTokensReason?.trim())
+    return `This run Dives on ${want} tokens and the Scan chose ${tokens}: choose ${want} tokens spread across the goal's split, or, if there are fewer real candidates, say why in the SCAN brief's fewerTokensReason, then write it again.`;
+  return null;
+}
 
 /** The required sources a stage has not called yet. */
 export function missingSources(
@@ -310,6 +339,21 @@ export class CycleResearch {
         `This ${stage.stage === "SCAN" ? "Scan" : "Dive"} must call ${missing.join(" and ")} at least once before complete_stage.`,
         false,
       );
+    if (this.o.requireScanTokens && stage.stage === "SCAN") {
+      const scan = (
+        await this.o.cycles.briefs({ stageRunId: stage.stageRunId, status: "accepted" })
+      ).find((b) => b.kind === "SCAN");
+      if (scan) {
+        const shortfall = scanTokenShortfall(
+          scan.body as {
+            themes?: { scope?: string; token?: string | null }[];
+            fewerTokensReason?: string | null;
+          },
+          DIVES_PER_RUN[cycle.reasoningAlias as ReasoningAlias] ?? 3,
+        );
+        if (shortfall) throw new ToolError("INVALID_INPUT", shortfall, false);
+      }
+    }
     const required = REQUIRED_BRIEF[stage.stage as keyof typeof REQUIRED_BRIEF];
     if (required && !kinds.has(required))
       throw new ToolError(

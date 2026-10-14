@@ -869,7 +869,7 @@ describe.skipIf(!dbUp)("the discovery loop engine (needs Postgres)", { timeout: 
     expect(cycle.status).toBe("completed");
     expect(stages.map((s) => s.stage)).toEqual(["SCAN", "DIVE", "CHALLENGE", "TEST", "ZOOM_OUT"]);
     expect(must(stages[0]).caps).toMatchObject({ turns: 16, paidCalls: 10 });
-    expect(must(stages[0]).ceilingUsdcE6).toBe(300_000n);
+    expect(must(stages[0]).ceilingUsdcE6).toBe(450_000n);
   });
 
   it("runs the activation sweep within its own ceiling, past a daily budget already used up (P-SWEEP, A-101)", async () => {
@@ -928,7 +928,7 @@ describe.skipIf(!dbUp)("the discovery loop engine (needs Postgres)", { timeout: 
     expect(cycle.status).toBe("completed");
     expect(stages.map((s) => s.stage)).toEqual(["SCAN", "DIVE", "CHALLENGE", "TEST", "ZOOM_OUT"]);
     expect(must(stages[0]).caps).toMatchObject({ turns: 16, paidCalls: 10 });
-    expect(must(stages[0]).ceilingUsdcE6).toBe(300_000n);
+    expect(must(stages[0]).ceilingUsdcE6).toBe(450_000n);
   });
 
   /** The activation's Zoom out: the overview, then the rationale and the decision. */
@@ -1519,7 +1519,7 @@ describe.skipIf(!dbUp)("the discovery loop engine (needs Postgres)", { timeout: 
 
   it("never charges a stage above its ceiling: the gate stops it and metering absorbs the excess", async () => {
     await saveGoal({});
-    // Each call costs 0.2 USD, 0.25 USDC with the markup: the 0.30 Scan ceiling is passed on the second.
+    // Each call costs 0.2 USD, 0.25 USDC with the markup: the 0.45 Scan ceiling is passed on the second.
     usage = () => ({ tokens: 6_000, cost: 0.2 });
     scripts.SCAN = async (r) => {
       for (let i = 0; i < 4; i += 1) await chat(r.token, r.model);
@@ -1528,10 +1528,10 @@ describe.skipIf(!dbUp)("the discovery loop engine (needs Postgres)", { timeout: 
     const { cycle, stages } = await runCycle();
     const scan = must(stages[0]);
     expect(scan).toMatchObject({ status: "capped", stopReason: "CEILING", modelCalls: 2 });
-    expect(scan.chargedUsdcE6).toBe(300_000n);
-    expect(scan.absorbedUsdcE6).toBe(200_000n);
-    expect(before - (await credits.creditsOf(1)).spendable).toBe(300_000n);
-    expect(cycle).toMatchObject({ chargedUsdcE6: 300_000n, absorbedUsdcE6: 200_000n });
+    expect(scan.chargedUsdcE6).toBe(450_000n);
+    expect(scan.absorbedUsdcE6).toBe(50_000n);
+    expect(before - (await credits.creditsOf(1)).spendable).toBe(450_000n);
+    expect(cycle).toMatchObject({ chargedUsdcE6: 450_000n, absorbedUsdcE6: 50_000n });
     expect(await ledger.balanced(CHAIN)).toBe(true);
   });
 
@@ -1775,8 +1775,8 @@ describe.skipIf(!dbUp)("the discovery loop engine (needs Postgres)", { timeout: 
       cycles: { cycleId: string; stages: unknown[] }[];
     };
     // Standard allows 2 Dives a day and this cycle used one: Scan, one Dive, Challenge, Zoom out,
-    // and the report (2026-10-13 ceilings: 0.30 + 0.30 + 0.10 + 0.25 + 0.20).
-    expect(list.plans.ROUTINE.maxUsdcE6).toBe("1150000");
+    // and the report (2026-10-13 ceilings: 0.45 + 0.45 + 0.10 + 0.25 + 0.20).
+    expect(list.plans.ROUTINE.maxUsdcE6).toBe("1450000");
     expect(list.cycles[0]).toMatchObject({ cycleId: cycle.cycleId });
     expect(list.cycles[0]?.stages).toHaveLength(5);
     const detail = (await (await app.request(`/v1/cycles/${cycle.cycleId}`)).json()) as {

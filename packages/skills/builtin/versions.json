@@ -34,8 +34,8 @@
       "contentHash": "36bdf6a62679a072f695e5064925bcc2afd21db71932411fe3e7b633ec43fac7"
     },
     "playbook-scan": {
-      "version": "2.2.0",
-      "contentHash": "24134b40cd0e67c0b744ff897f1f1aec897f448fd6efbe6902d1659489297aac"
+      "version": "2.3.0",
+      "contentHash": "4bb36f155e362213dbc958844ebe03b319524d38cb274c7df9d1a9317b62391f"
     },
     "playbook-zoom-out": {
       "version": "2.4.0",

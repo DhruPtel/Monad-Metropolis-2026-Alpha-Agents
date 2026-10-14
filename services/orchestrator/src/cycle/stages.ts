@@ -83,13 +83,13 @@ export function stageCeilingUsdcE6(
 ): bigint {
   const deep = reasoning === "research-high" ? 2 : 1;
   switch (stage) {
-    // 2026-10-13 (owner): a Medium run with three Dives costs about 1.2 USDC and at most 1.75
-    // with its report (0.30 + 3 x 0.30 + 0.10 + 0.25 + 0.20). A stage stops at its ceiling, so
-    // each keeps room for its required web and X searches.
+    // 2026-10-13 (owner): Scan 0.45 and each Dive 0.45 (0.90 on High), so a Medium run with
+    // three Dives is at most 2.35 USDC with its report (0.45 + 3 x 0.45 + 0.10 + 0.25 + 0.20).
+    // A stage stops at its ceiling, so each keeps room for its required searches.
     case "SCAN":
-      return usdc(0.3);
+      return usdc(0.45);
     case "DIVE":
-      return usdc(0.3 * deep);
+      return usdc(0.45 * deep);
     case "CHALLENGE":
       return usdc(0.1 * deep);
     case "ZOOM_OUT":

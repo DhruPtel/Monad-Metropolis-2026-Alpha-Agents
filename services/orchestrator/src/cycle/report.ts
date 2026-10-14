@@ -226,7 +226,7 @@ const SHAPE = `{
   "executiveSummary": "3 to 5 sentences: what the agent concluded and what it recommends",
   "recommendation": "one sentence",
   "market": { "overview": "a paragraph", "snapshot": [{ "label": "", "value": "a figure as a tool returned it", "source": "tool name" }] },
-  "universeSummary": "a paragraph on the universe considered: how many tokens, which could be bought, why most were not researched",
+  "universeSummary": "a paragraph on the universe considered: how many tokens, which could be bought, why most were not researched, and, when the Scan chose fewer tokens than the run could research, its fewerTokensReason",
   "tokens": [{ "symbol": "", "chain": "Monad or Base", "whatItIs": "", "fundamentals": [{ "item": "", "finding": "", "status": "supports|concern|unknown" }], "evidenceFor": [{ "text": "", "sources": ["tool or URL"] }], "evidenceAgainst": [{ "text": "", "sources": [] }], "risks": [""], "thesis": "", "killCondition": "", "confidence": "low|medium|high" }],
   "skeptic": [{ "theme": "", "objection": "", "answer": "how the agent answered it" }],
   "portfolio": { "stance": "propose|no_change", "summary": "the recommended portfolio and why, or why the plan should not change", "positions": [{ "symbol": "", "weight": "as the plan gives it", "why": "" }] },

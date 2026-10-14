@@ -47,16 +47,16 @@ describe("stage rules (P3-U4)", () => {
 
   it("sets ceilings per stage, doubling the reasoning stages on Opus 5.5, and the Test is free", () => {
     const usdc = (n: number) => BigInt(Math.round(n * 1e6));
-    expect(stageCeilingUsdcE6("SCAN", "ROUTINE", "research-high")).toBe(usdc(0.3));
-    expect(stageCeilingUsdcE6("SCAN", "ACTIVATION", "research-medium")).toBe(usdc(0.3));
-    expect(stageCeilingUsdcE6("DIVE", "ROUTINE", "research-medium")).toBe(usdc(0.3));
-    expect(stageCeilingUsdcE6("DIVE", "ROUTINE", "research-high")).toBe(usdc(0.6));
+    expect(stageCeilingUsdcE6("SCAN", "ROUTINE", "research-high")).toBe(usdc(0.45));
+    expect(stageCeilingUsdcE6("SCAN", "ACTIVATION", "research-medium")).toBe(usdc(0.45));
+    expect(stageCeilingUsdcE6("DIVE", "ROUTINE", "research-medium")).toBe(usdc(0.45));
+    expect(stageCeilingUsdcE6("DIVE", "ROUTINE", "research-high")).toBe(usdc(0.9));
     expect(stageCeilingUsdcE6("CHALLENGE", "ROUTINE", "research-high")).toBe(usdc(0.2));
     expect(stageCeilingUsdcE6("ZOOM_OUT", "ROUTINE", "research-medium")).toBe(usdc(0.25));
     expect(stageCeilingUsdcE6("TEST", "ACTIVATION", "research-high")).toBe(0n);
-    // 2026-10-13 (owner): Medium with three Dives at most 1.75 USDC with the report's 0.20; High with four, 3.60.
-    expect(cyclePlan("ACTIVATION", "research-medium", 0).maxUsdcE6).toBe("1750000");
-    expect(cyclePlan("ACTIVATION", "research-high", 0).maxUsdcE6).toBe("3600000");
+    // 2026-10-13 (owner): Medium with three Dives at most 2.35 USDC with the report's 0.20; High with four, 4.95.
+    expect(cyclePlan("ACTIVATION", "research-medium", 0).maxUsdcE6).toBe("2350000");
+    expect(cyclePlan("ACTIVATION", "research-high", 0).maxUsdcE6).toBe("4950000");
     expect(
       cyclePlan("ACTIVATION", "research-low", 0).stages.find((x) => x.stage === "DIVE")?.count,
     ).toBe(2);

@@ -14,14 +14,14 @@ The Scan is the cheap, wide look over everything this account could hold. Its jo
 
 ## List candidate tokens across the allocation split
 
-4. The goal's brief states the owner's split by market cap: degen (under 100M USD), growth (100M to 1B USD) and conservative (over 1B USD). Call `mcp__data__list_tokens` (free) and, for each category with a share above 0%, list about five candidate tokens. The list gives no market cap; use its CoinMarketCap rank as the stand-in (roughly: rank 1 to 100 is over 1B USD, 101 to 500 is 100M to 1B, beyond 500 or unranked is under 100M) together with liquidity and volume, and confirm a borderline one with your web search. Save the candidates, with their category and the figures you used, in a `mcp__platform__write_thesis` note.
-5. A token that is research only (on Base, or not in this account's registry) may still be a candidate: it is researched and marked "not tradable here"; only a buyable one can enter the plan.
+4. The brief states the split by market cap: degen (under 100M USD), growth (100M to 1B) and conservative (over 1B). Call `mcp__data__list_tokens` (free) and list about five candidates per category with a share. With no market cap in the list, use its CoinMarketCap rank as the stand-in (roughly: rank 1 to 100 is over 1B USD, 101 to 500 is 100M to 1B, beyond 500 or unranked is under 100M) together with liquidity and volume, and confirm a borderline one with your web search. Save the candidates and their figures in a `mcp__platform__write_thesis` note.
+5. A research-only token (on Base, or not in this account's registry) may still be chosen; only a buyable one can enter the plan.
 6. For each position the plan holds, check its kill criterion, recheck date, liquidity and screen; a held token with a problem is a POSITION theme and comes first.
-7. Call `mcp__data__new_pools` (free) for context; a pool under 72 hours old always fails the safety screen, so a new token is a watch item, never a candidate yet.
+7. Call `mcp__data__new_pools` (free) for context; a pool under 72 hours old fails the safety screen, so its token is no candidate yet.
 
 ## Choose the Dives
 
-8. Pick the tokens to Dive on, most promising for this owner first, spreading across the categories with the larger shares: the run Dives on as many as its tier allows (two, three or four). Each chosen token is one theme with scope TOKEN, its address and symbol, and a code `TOKEN_<SYMBOL>` (such as `TOKEN_WBTC`). A MARKET theme is allowed only when no candidate deserves a Dive.
+8. Choose exactly as many tokens as this run Dives on: two on the Low model tier, three on Medium, four on High (`get_goals_and_limits` names the tier). Spread them across the categories with a share, larger shares first. Each is a TOKEN theme with its address, symbol and code `TOKEN_<SYMBOL>`. The platform refuses `complete_stage` until the brief names that many different tokens. Only when there truly are fewer real candidates, choose those and say why in `fewerTokensReason`.
 
 ## How aggressiveness shapes what you flag
 
@@ -56,6 +56,7 @@ Tag every claim by what its sources actually are: onchain (the chain tools, the 
    - `changes`: up to six claims; each claim is `{ text, class, confidence, sources, asOf }`: `class` is onchain, market, primary, news or social; `confidence` is high, medium or low; `sources` are URLs you retrieved or the names of tools you called, such as `list_tokens`.
    - `themes`: up to four, the chosen tokens first, each `{ code, materiality, scope, token, symbol, whyNow, sources }`: `scope` is TOKEN (a chosen candidate), POSITION (a held token to review) or MARKET (only when no token deserves a Dive); `token` is the token's address for TOKEN and POSITION and null for MARKET, with its `symbol`; a TOKEN code is `TOKEN_<SYMBOL>`. `whyNow` names its category (degen, growth or conservative).
    - `quiet`: true when nothing material changed; `dataGaps`: refused, missing or stale figures (an empty list when none).
+   - `fewerTokensReason`: null, unless you chose fewer tokens than the run Dives on; then one or two sentences on why.
 
    Quote every figure exactly as a tool returned it (rounding is fine), and write in your own words. A refused brief comes back with every reason: fix each one and write it again.
 

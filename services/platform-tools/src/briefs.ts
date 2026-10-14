@@ -84,6 +84,8 @@ export const ScanBrief = z.strictObject({
   themes: z.array(ScanThemeSchema).max(4),
   quiet: z.boolean(),
   dataGaps: z.array(text(160)).max(5),
+  /** 2026-10-13: why the Scan chose fewer tokens than the run's Dives, when it did; the report says it. */
+  fewerTokensReason: text(300).nullable().optional(),
 });
 
 /**
