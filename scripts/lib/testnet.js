@@ -24,8 +24,8 @@ export const TESTNET = {
   explorer: "https://testnet.monadvision.com",
 };
 
-/** The p2ec salt scope every testnet deployment uses (D-249). */
-export const SALT_SCOPE = "p2ec.testnet";
+/** The salt scope of testnet deployments: p2ec.testnet (D-249), or co.testnet for CO-U1's clean redeploy (TESTNET_SALT_SCOPE). */
+export const SALT_SCOPE = process.env.TESTNET_SALT_SCOPE?.trim() || "p2ec.testnet";
 /** The owner's playtest wallets (the local mint allowlist's "playtest" entries), for D-303. */
 export const OWNER_PLAYTEST_WALLETS = [
   "0x683ee842a16f85e69883f433745263bfe8d55f76",

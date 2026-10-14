@@ -37,9 +37,11 @@ abstract contract DeployScope is Script {
         if (block.chainid == LOCAL_FORK_CHAIN_ID || block.chainid == BASE_FORK_CHAIN_ID) {
             require(bytes(scope).length == 0, "a local fork uses the unscoped salts; unset DEPLOY_SALT_SCOPE");
         } else if (block.chainid == MONAD_TESTNET_CHAIN_ID) {
+            // CO-U1: the clean Monad testnet redeploy takes fresh addresses under co.testnet.
             require(
-                keccak256(bytes(scope)) == keccak256(bytes(P2EC_TESTNET_SCOPE)),
-                "Monad testnet deployments use DEPLOY_SALT_SCOPE=p2ec.testnet (D-249)"
+                keccak256(bytes(scope)) == keccak256(bytes(P2EC_TESTNET_SCOPE))
+                    || keccak256(bytes(scope)) == keccak256(bytes(CO_TESTNET_SCOPE)),
+                "Monad testnet deployments use DEPLOY_SALT_SCOPE=p2ec.testnet (D-249) or co.testnet (CO-U1)"
             );
         } else if (block.chainid == BASE_SEPOLIA_CHAIN_ID || block.chainid == ARBITRUM_SEPOLIA_CHAIN_ID) {
             require(

@@ -209,13 +209,14 @@ class GuardStop extends Error {}
  * @param {string} name @param {string} script @param {Record<string, string>} env
  * @returns {Promise<{ output: string, estimate: { gas: number, mon: number } | null }>}
  */
-async function guardedStep(name, script, env) {
+async function guardedStep(name, script, env, scope = SALT_SCOPE) {
   const simulated = forgeScript(script, {
     url,
     secrets,
     broadcast: false,
     env,
     gasPriceWei: GAS_PRICE_WEI,
+    scope,
   });
   const e = estimate(simulated);
   if (!e || dryRun) return { output: simulated, estimate: e };
@@ -228,7 +229,14 @@ async function guardedStep(name, script, env) {
     `   estimate ${e.gas} gas, at most ${e.mon.toFixed(4)} MON; the deployer holds ${balance.toFixed(4)} MON`,
   );
   return {
-    output: forgeScript(script, { url, secrets, broadcast: true, env, gasPriceWei: GAS_PRICE_WEI }),
+    output: forgeScript(script, {
+      url,
+      secrets,
+      broadcast: true,
+      env,
+      gasPriceWei: GAS_PRICE_WEI,
+      scope,
+    }),
     estimate: e,
   };
 }
@@ -300,6 +308,9 @@ try {
       SEED_TICK_LOWER: String(seed.tickLower),
       SEED_TICK_UPPER: String(seed.tickUpper),
     },
+    // CO-U1: the market and its tokens are found under P2-EC's scope; a clean redeploy
+    // (TESTNET_SALT_SCOPE=co.testnet) takes fresh addresses for everything after them.
+    "p2ec.testnet",
   );
   const marketOut = marketStep.output;
   estimates.market = marketStep.estimate;
@@ -330,6 +341,7 @@ try {
       TOKEN_SEED_TICK_LOWER: String(TOKEN_SEED.tickLower),
       TOKEN_SEED_TICK_UPPER: String(TOKEN_SEED.tickUpper),
     },
+    "p2ec.testnet",
   );
   const tokensOut = tokensStep.output;
   estimates.tokens = tokensStep.estimate;
