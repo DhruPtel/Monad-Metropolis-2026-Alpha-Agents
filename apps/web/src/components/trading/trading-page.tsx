@@ -13,6 +13,7 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
+  CollapsibleCard,
   DocumentList,
   EmptyState,
   ExpandableLine,
@@ -28,7 +29,7 @@ import {
 } from "@alpha-agents/ui";
 import { ChevronDown, PlugZap, Wallet } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { type ActivityJson, type GoalPageJson, api, goalApi } from "@/api/client";
 import { latestDecided } from "@/agent/plan-card";
 import { schedulePoll } from "@/agent/poll";
@@ -43,6 +44,7 @@ import {
   latestApplied,
   liveTradeRows,
   runLabel,
+  tradeHistory,
   planRows,
   tradesInFlight,
   txHref,
@@ -92,6 +94,22 @@ export function TradingPage({
   const [choiceOpen, setChoiceOpen] = useState(false);
   // 2026-10-13: Automatic trading folds to its state and toggle; the details open on request.
   const [detailsOpen, setDetailsOpen] = useState(false);
+  // 2026-10-13: after an approval the page stays here, scrolls to Live trades and says so.
+  const liveRef = useRef<HTMLElement | null>(null);
+  const [approvedNotice, setApprovedNotice] = useState(false);
+  const approvedNow =
+    pf.status?.action === "approve-plan" && pf.status.progress.state === "confirmed";
+  useEffect(() => {
+    if (!approvedNow) return;
+    setApprovedNotice(true);
+    liveRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [approvedNow]);
+  // A link to #plan (Review plan, from the Research tab) lands on the plan once it has loaded.
+  const planLoaded = pf.planCard !== null;
+  useEffect(() => {
+    if (planLoaded && window.location.hash === "#plan")
+      document.getElementById("plan")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [planLoaded]);
   const [choice, setChoice] = useState<ManagedAccount>("vault");
   // The agent's public activity (the trades its limits refused): every 30 s, one read at a time.
   const [activity, setActivity] = useState<readonly ActivityJson[]>([]);
@@ -272,6 +290,7 @@ export function TradingPage({
     (hash) => txHref(environment, hash),
     approvedPlans,
   );
+  const history = tradeHistory(pf.intents, (hash) => txHref(environment, hash), Date.now());
   const holding = holdingLine(
     runner,
     environment === "testnet" ? TESTNET_COST_LIMIT_BPS : (planParams?.costHurdleBps ?? null),
@@ -402,11 +421,34 @@ export function TradingPage({
         <StatusFor status={pf.status} actions={["arm", "turn-on", "disarm"]} />
       </section>
 
-      <section aria-label="Live trades" className="flex flex-col gap-3">
+      <CollapsibleCard title="Trade history" value={history.line} testId="trade-history">
+        <div className="max-h-80 overflow-y-auto">
+          <LiveTrades
+            items={history.rows}
+            holding={null}
+            empty="No trades yet: each one the agent makes is listed here."
+          />
+        </div>
+      </CollapsibleCard>
+
+      <section
+        aria-label="Live trades"
+        className="flex flex-col gap-3"
+        id="live-trades"
+        ref={liveRef}
+      >
         <SectionLabel as="h2">Live trades</SectionLabel>
+        {approvedNotice ? (
+          <p className="text-sm text-positive" data-testid="plan-approved-notice">
+            Plan approved. The agent is trading toward it; each trade appears below.
+          </p>
+        ) : null}
         <LiveTrades
           items={live}
           holding={holding}
+          progress={
+            applied ? planRows(applied, card, holdingRows).filter((r) => r.targetBps !== null) : []
+          }
           empty={
             applied
               ? "No trades since this plan was approved yet: each one shows here as it happens."

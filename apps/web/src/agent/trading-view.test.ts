@@ -5,7 +5,11 @@ import {
   holdingLine,
   insightRows,
   insights,
+  ago,
+  legsLeft,
   liveTradeRows,
+  planBanner,
+  tradeHistory,
   planOfTrade,
   runLabel,
   planMoves,
@@ -348,5 +352,95 @@ describe("which run a plan and a trade came from (2026-10-13)", () => {
     expect(planOfTrade({ createdAt: "2026-10-13T22:24:19.000Z" }, plans)?.cycleId).toBe("cycle-a");
     expect(planOfTrade({ createdAt: "2026-10-14T02:00:00.000Z" }, plans)?.cycleId).toBe("cycle-b");
     expect(planOfTrade({ createdAt: "2026-10-13T20:00:00.000Z" }, plans)).toBeNull();
+  });
+});
+
+describe("trading toward a plan (2026-10-13)", () => {
+  const intent = (over: Partial<IntentJson>): IntentJson =>
+    ({
+      intentId: "i",
+      status: "reconciled",
+      sell: { asset: "USDC", amount: "0.80", amountRaw: "800000" },
+      buy: "WMON",
+      amountOut: { asset: "WMON", amount: "0.795", amountRaw: "795000000000000000" },
+      txHash: "0x11",
+      failure: null,
+      blockers: [],
+      reason: "",
+      createdAt: "2026-10-14T02:10:00.000Z",
+      submittedAt: null,
+      settledAt: "2026-10-14T02:10:20.000Z",
+      ...over,
+    }) as unknown as IntentJson;
+  const now = Date.parse("2026-10-14T02:14:20.000Z");
+
+  it("counts the legs a plan still needs, and says how far it has come", () => {
+    const rows = [
+      { targetBps: 3_000, currentBps: 1_000 },
+      { targetBps: 7_000, currentBps: 9_000 },
+      { targetBps: null, currentBps: 500 },
+    ];
+    expect(legsLeft(rows, 1_000, 500)).toBe(4);
+    expect(legsLeft([{ targetBps: 2_000, currentBps: 1_900 }], 1_000, 500)).toBe(0);
+    expect(
+      planBanner({
+        approvedAt: "2026-10-14T02:07:37.000Z",
+        intents: [intent({})],
+        rows: [{ targetBps: 3_000, currentBps: 1_800 }],
+        maxLegBps: 1_000,
+        bandBps: 500,
+      }),
+    ).toBe("Trading toward the new plan: 1 of 3 trades done");
+    expect(
+      planBanner({
+        approvedAt: "2026-10-14T02:07:37.000Z",
+        intents: [],
+        rows: [{ targetBps: 2_000, currentBps: 2_000 }],
+        maxLegBps: 1_000,
+        bandBps: 500,
+      }),
+    ).toBeNull();
+  });
+
+  it("lists every trade with its price and says how many and how long ago", () => {
+    const h = tradeHistory(
+      [
+        intent({}),
+        intent({
+          intentId: "f",
+          status: "failed",
+          txHash: null,
+          failure: "The pool moved.",
+          createdAt: "2026-10-14T02:12:00.000Z",
+        }),
+        intent({ intentId: "w", status: "awaiting_approval" }),
+      ],
+      (x) => `https://x/tx/${x}`,
+      now,
+    );
+    expect(h.line).toBe("1 trade · last 4 min ago");
+    expect(h.rows.map((r) => [r.id, r.stage, r.reason])).toEqual([
+      ["f", "Failed", "The pool moved."],
+      ["i", "Settled", null],
+    ]);
+    expect(h.rows[1]?.amount).toBe("0.80 USDC at 1.0063 USDC");
+    expect(ago("2026-10-14T00:14:20.000Z", now)).toBe("2 h ago");
+  });
+
+  it("names each live leg's state in words", () => {
+    const rows = liveTradeRows(
+      [
+        intent({ intentId: "a", status: "approved", createdAt: "2026-10-14T02:11:00.000Z" }),
+        intent({ intentId: "b", status: "submitted", createdAt: "2026-10-14T02:12:00.000Z" }),
+        intent({ intentId: "c", status: "confirmed", createdAt: "2026-10-14T02:13:00.000Z" }),
+      ],
+      null,
+      (x) => x,
+    );
+    expect(rows.map((r) => r.stage)).toEqual([
+      "Confirming",
+      "Sending",
+      "Waiting for the next check",
+    ]);
   });
 });

@@ -48,7 +48,7 @@ import { useAgentSummary } from "@/components/agent-shell/agent-shell";
 import { usePortfolio } from "@/agent/use-portfolio";
 import { useWalletSession } from "@/auth/session";
 import { AddCreditsSection } from "@/components/credits/add-credits-section";
-import { txHref } from "@/agent/trading-view";
+import { latestApplied, planBanner, planRows, txHref } from "@/agent/trading-view";
 import { AgentActivity } from "@/components/activity/agent-activity";
 import { AgentHoldings } from "@/components/holdings/agent-holdings";
 import { ActionLine } from "@/components/my-agents/my-agents-page";
@@ -268,8 +268,28 @@ export function OverviewPage({
     </SidePanel>
   ) : null;
 
+  // 2026-10-13: while a plan is being traded, one line says how far it has come.
+  const appliedPlan = latestApplied(pf.planCard);
+  const banner = appliedPlan
+    ? planBanner({
+        approvedAt: appliedPlan.decidedAt,
+        intents: pf.intents,
+        rows: planRows(appliedPlan, pf.planCard, tableRows),
+        maxLegBps: appliedPlan.plan?.maxLegBps ?? 1_000,
+        bandBps: 500,
+      })
+    : null;
   return (
     <div className="flex flex-col gap-6" data-testid="overview">
+      {banner ? (
+        <Link
+          href={`/agents/${agentId.toString()}/trading#live-trades`}
+          className="rounded-md border border-primary px-4 py-2 text-sm underline-offset-2 hover:underline"
+          data-testid="plan-banner"
+        >
+          {banner}
+        </Link>
+      ) : null}
       {pf.error ? (
         <p role="alert" className="text-sm text-warning">
           {pf.error} The values below are from the last read.

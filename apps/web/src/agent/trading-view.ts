@@ -362,6 +362,32 @@ export function insightRows(
 }
 
 const PENDING = new Set(["awaiting_approval", "approved", "submitted", "confirmed"]);
+/** 2026-10-13: a leg's state in words, from its intent's status. */
+const LEG_STAGE: Readonly<Record<string, string>> = {
+  approved: "Waiting for the next check",
+  submitted: "Sending",
+  confirmed: "Confirming",
+  settled: "Settled",
+  reconciled: "Settled",
+};
+
+/**
+ * How many legs a plan still needs (2026-10-13): for each token outside its range, the gap to
+ * its target in legs of at most `maxLegBps`.
+ */
+export function legsLeft(
+  rows: readonly { readonly targetBps: number | null; readonly currentBps: number | null }[],
+  maxLegBps: number,
+  bandBps: number,
+): number {
+  let n = 0;
+  for (const r of rows) {
+    if (r.targetBps === null || r.currentBps === null) continue;
+    const gap = Math.abs(r.targetBps - r.currentBps);
+    if (gap > bandBps) n += Math.ceil(gap / Math.max(1, maxLegBps));
+  }
+  return n;
+}
 const SETTLED = new Set(["settled", "reconciled"]);
 
 /** Where a leg stands in the owner's words: pending until it settles or fails. */
@@ -423,6 +449,11 @@ export function liveTradeRows(
             "From the research run",
             "Plan from the run",
           ) ?? null,
+        stage: LEG_STAGE[i.status] ?? (liveStatus(i.status) === "failed" ? "Failed" : null),
+        reason:
+          liveStatus(i.status) === "failed"
+            ? (i.failure ?? i.blockers?.[0]?.message ?? (i.reason || null))
+            : null,
       };
     });
 }
@@ -440,4 +471,82 @@ export function holdingLine(
     return `Holding: the next trade would cost more than the ${(costLimitBps / 100).toLocaleString("en-US", { maximumFractionDigits: 2 })}% limit.`;
   const m = runner.message.trim();
   return m ? `Holding: ${m.charAt(0).toLowerCase()}${m.slice(1)}` : "Holding.";
+}
+
+/** "4 min ago", "2 h ago", "3 days ago": how long since an instant. */
+export function ago(iso: string, nowMs: number): string {
+  const s = Math.max(0, Math.round((nowMs - Date.parse(iso)) / 1000));
+  if (s < 60) return "just now";
+  if (s < 3_600) return `${Math.floor(s / 60)} min ago`;
+  if (s < 86_400) return `${Math.floor(s / 3_600)} h ago`;
+  const d = Math.floor(s / 86_400);
+  return `${d} ${d === 1 ? "day" : "days"} ago`;
+}
+
+/**
+ * 2026-10-13: every trade the agent made, newest first, for the Trade history section: side,
+ * token, amount with the price it filled at, time and transaction; and the one-line summary.
+ */
+export function tradeHistory(
+  intents: readonly IntentJson[],
+  txFor: (hash: string) => string | null,
+  nowMs: number,
+): { rows: LiveTradeView[]; line: string } {
+  const done = intents
+    .filter((i) => SETTLED.has(i.status) || liveStatus(i.status) === "failed")
+    .filter((i) => i.status !== "awaiting_approval")
+    .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+  const rows = done.map((i): LiveTradeView => {
+    const buy = i.sell.asset === "USDC";
+    const token = buy ? i.buy : i.sell.asset;
+    const inAmt = Number(i.sell.amount);
+    const outAmt = i.amountOut ? Number(i.amountOut.amount) : null;
+    const price = outAmt && inAmt > 0 ? (buy ? inAmt / outAmt : outAmt / inAmt) : null;
+    return {
+      id: i.intentId,
+      side: buy ? "Buy" : "Sell",
+      token,
+      amount: `${i.sell.amount} ${i.sell.asset}${
+        price === null
+          ? ""
+          : ` at ${price.toLocaleString("en-US", { maximumFractionDigits: 4 })} USDC`
+      }`,
+      status: liveStatus(i.status),
+      time: minute(i.settledAt ?? i.createdAt),
+      txHref: i.txHash ? txFor(i.txHash) : null,
+      stage: SETTLED.has(i.status) ? "Settled" : "Failed",
+      reason: SETTLED.has(i.status) ? null : (i.failure ?? i.blockers?.[0]?.message ?? null),
+    };
+  });
+  const settled = done.filter((i) => SETTLED.has(i.status));
+  const last = settled[0]?.settledAt ?? settled[0]?.createdAt ?? null;
+  const line =
+    settled.length === 0
+      ? "No trades yet"
+      : `${settled.length} ${settled.length === 1 ? "trade" : "trades"}${last ? ` · last ${ago(last, nowMs)}` : ""}`;
+  return { rows, line };
+}
+
+/**
+ * 2026-10-13: the Overview's one-line banner while a plan is being traded: trades settled since
+ * its approval against the legs still needed; null when nothing is left or no plan is approved.
+ */
+export function planBanner(o: {
+  readonly approvedAt: string | null;
+  readonly intents: readonly IntentJson[];
+  readonly rows: readonly {
+    readonly targetBps: number | null;
+    readonly currentBps: number | null;
+  }[];
+  readonly maxLegBps: number;
+  readonly bandBps: number;
+}): string | null {
+  if (!o.approvedAt) return null;
+  const since = o.intents.filter((i) => i.createdAt >= (o.approvedAt as string));
+  const done = since.filter((i) => SETTLED.has(i.status)).length;
+  const moving = since.some((i) => PENDING.has(i.status) && i.status !== "awaiting_approval");
+  const left = legsLeft(o.rows, o.maxLegBps, o.bandBps);
+  if (left === 0 && !moving) return null;
+  const total = done + Math.max(left, moving ? 1 : 0);
+  return `Trading toward the new plan: ${done} of ${total} ${total === 1 ? "trade" : "trades"} done`;
 }

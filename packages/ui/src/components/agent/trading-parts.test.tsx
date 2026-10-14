@@ -50,3 +50,34 @@ describe("LiveTrades (2026-10-13)", () => {
     expect(screen.queryByTestId("live-trades-holding")).toBeNull();
   });
 });
+
+describe("LiveTrades toward a plan (2026-10-13)", () => {
+  it("shows each token's share against its target and each leg's state and reason", () => {
+    render(
+      <LiveTrades
+        holding={null}
+        empty="none"
+        progress={[{ symbol: "WMON", currentBps: 1_000, targetBps: 2_000 }]}
+        items={[
+          {
+            id: "f",
+            side: "Buy",
+            token: "WMON",
+            amount: "0.80 USDC",
+            status: "failed",
+            stage: "Failed",
+            reason: "The pool moved.",
+            time: "2026-10-14 02:12",
+            txHref: null,
+          },
+        ]}
+      />,
+    );
+    expect(screen.getByRole("progressbar", { name: "WMON toward its target" })).toHaveAttribute(
+      "aria-valuenow",
+      "50",
+    );
+    expect(screen.getByTestId("live-trades-progress")).toHaveTextContent("WMON10.0% of 20.0%");
+    expect(screen.getByTestId("live-trade-reason")).toHaveTextContent("The pool moved.");
+  });
+});

@@ -526,6 +526,10 @@ export interface LiveTradeView {
   readonly txHref: string | null;
   /** 2026-10-13: the plan and run the trade came from. */
   readonly source?: string | null;
+  /** 2026-10-13: where the leg stands in words: Waiting for the next check, Sending, Confirming, Settled, Failed. */
+  readonly stage?: string | null;
+  /** Why a leg failed, in plain words. */
+  readonly reason?: string | null;
 }
 
 const LIVE_TONE = { pending: "warning", settled: "positive", failed: "negative" } as const;
@@ -539,9 +543,16 @@ function LiveTrades({
   items,
   holding,
   empty,
+  progress = [],
   className,
 }: {
   items: readonly LiveTradeView[];
+  /** 2026-10-13: each token's share now against the plan's target. */
+  progress?: readonly {
+    readonly symbol: string;
+    readonly currentBps: number | null;
+    readonly targetBps: number | null;
+  }[];
   /** "Holding: ..." while the runner holds; null while it trades or has nothing to say. */
   holding: string | null;
   empty: string;
@@ -549,6 +560,38 @@ function LiveTrades({
 }) {
   return (
     <div className={cn("flex flex-col gap-2", className)} data-testid="live-trades">
+      {progress.length > 0 ? (
+        <ul className="flex flex-col gap-2" data-testid="live-trades-progress">
+          {progress.map((p) => {
+            const fill =
+              p.targetBps && p.currentBps !== null
+                ? Math.min(100, (p.currentBps / p.targetBps) * 100)
+                : 0;
+            return (
+              <li key={p.symbol} className="flex items-center gap-3 text-xs">
+                <span className="w-16 font-medium">{p.symbol}</span>
+                <span
+                  className="relative h-1.5 flex-1 overflow-hidden rounded-full bg-surface-overlay"
+                  role="progressbar"
+                  aria-label={`${p.symbol} toward its target`}
+                  aria-valuenow={Math.round(fill)}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                >
+                  <span
+                    className="absolute inset-y-0 left-0 rounded-full bg-primary"
+                    style={{ width: `${fill}%` }}
+                  />
+                </span>
+                <span className="numeric text-foreground-muted">
+                  {p.currentBps === null ? "–" : `${(p.currentBps / 100).toFixed(1)}%`} of{" "}
+                  {p.targetBps === null ? "–" : `${(p.targetBps / 100).toFixed(1)}%`}
+                </span>
+              </li>
+            );
+          })}
+        </ul>
+      ) : null}
       {holding ? (
         <p className="text-sm text-foreground-muted" data-testid="live-trades-holding">
           {holding}
@@ -571,7 +614,12 @@ function LiveTrades({
                 <span className="font-medium">{t.token}</span>
               </span>
               <span className="numeric text-foreground-muted">{t.amount}</span>
-              <Badge tone={LIVE_TONE[t.status]}>{t.status}</Badge>
+              <Badge tone={LIVE_TONE[t.status]}>{t.stage ?? t.status}</Badge>
+              {t.reason ? (
+                <span className="text-negative" data-testid="live-trade-reason">
+                  {t.reason}
+                </span>
+              ) : null}
               {t.source ? (
                 <span className="text-foreground-muted" data-testid="live-trade-source">
                   {t.source}
