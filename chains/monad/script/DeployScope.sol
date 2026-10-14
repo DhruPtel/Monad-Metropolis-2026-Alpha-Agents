@@ -25,6 +25,10 @@ abstract contract DeployScope is Script {
     uint256 internal constant MONAD_MAINNET_CHAIN_ID = 143;
     string internal constant P2EC_TESTNET_SCOPE = "p2ec.testnet";
     string internal constant P2EC_CANARY_SCOPE = "p2ec.canary";
+    /// CO-U1: Base Sepolia and Arbitrum Sepolia, the Colosseum testnets.
+    uint256 internal constant BASE_SEPOLIA_CHAIN_ID = 84532;
+    uint256 internal constant ARBITRUM_SEPOLIA_CHAIN_ID = 421614;
+    string internal constant CO_TESTNET_SCOPE = "co.testnet";
 
     /// The scope in force, checked against the chain: "" on the fork, `p2ec.testnet` on testnet,
     /// `p2ec.canary` on mainnet behind the canary's gate.
@@ -37,6 +41,11 @@ abstract contract DeployScope is Script {
                 keccak256(bytes(scope)) == keccak256(bytes(P2EC_TESTNET_SCOPE)),
                 "Monad testnet deployments use DEPLOY_SALT_SCOPE=p2ec.testnet (D-249)"
             );
+        } else if (block.chainid == BASE_SEPOLIA_CHAIN_ID || block.chainid == ARBITRUM_SEPOLIA_CHAIN_ID) {
+            require(
+                keccak256(bytes(scope)) == keccak256(bytes(CO_TESTNET_SCOPE)),
+                "Base Sepolia and Arbitrum Sepolia deployments use DEPLOY_SALT_SCOPE=co.testnet (CO-U1)"
+            );
         } else if (block.chainid == MONAD_MAINNET_CHAIN_ID) {
             require(
                 keccak256(bytes(scope)) == keccak256(bytes(P2EC_CANARY_SCOPE)),
@@ -48,7 +57,7 @@ abstract contract DeployScope is Script {
             );
         } else {
             revert(
-                "not the local fork (143143), the Base fork (84538453), Monad testnet (10143) or the mainnet canary (143)"
+                "not the local fork (143143), the Base fork (84538453), Monad testnet (10143), Base Sepolia (84532), Arbitrum Sepolia (421614) or the mainnet canary (143)"
             );
         }
     }

@@ -4,8 +4,11 @@ import {
   LOCAL_FORK_CHAIN_ID,
   MONAD_MAINNET_CHAIN_ID,
   MONAD_TESTNET_CHAIN_ID,
+  TESTNET_CHAIN,
   type EnvironmentId,
 } from "@alpha-agents/config";
+import { DEPLOYMENT as ARBITRUM_SEPOLIA_DEPLOYMENT } from "./deployments/arbitrum-sepolia.ts";
+import { DEPLOYMENT as BASE_SEPOLIA_DEPLOYMENT } from "./deployments/base-sepolia.ts";
 import type { Address } from "./ids.ts";
 
 /**
@@ -2579,6 +2582,76 @@ const BASE_DEPLOYED: readonly AddressEntry[] = [
 ];
 const BASE_DEPLOYED_IDS = new Set(BASE_DEPLOYED.map((e) => e.id));
 
+/**
+ * CO-U1: an L2 testnet's book, from what `pnpm deploy:l2 <chain>` recorded
+ * (packages/domain/src/deployments): our contracts and the chain's own (WETH in the wrapped
+ * native's slot, Chainlink's feeds, Uniswap v3), every other id unverified.
+ */
+interface L2Deployment {
+  readonly chainId: number;
+  readonly block: number;
+  readonly contracts: Readonly<
+    Record<string, { readonly address: string; readonly codeSize: number }>
+  >;
+  readonly external: Readonly<Record<string, string>>;
+}
+const L2_LABELS: Partial<Record<AddressBookId, [string, AddressKind, number?]>> = {
+  usdc: ["USDC", "token", 6],
+  wmon: ["WETH", "token", 18],
+  chainlink_eth_usd: ["Chainlink ETH/USD", "price_feed", 8],
+  chainlink_usdc_usd: ["Chainlink USDC/USD", "price_feed", 8],
+  uniswap_v3_factory: ["Uniswap v3 factory", "venue"],
+  uniswap_v3_swap_router02: ["Uniswap v3 SwapRouter02", "venue"],
+  uniswap_v3_quoter_v2: ["Uniswap v3 QuoterV2", "venue"],
+  uniswap_v3_position_manager: ["Uniswap v3 position manager", "venue"],
+  pyth_entropy: ["Pyth Entropy", "randomness"],
+  create2_deployer: ["CREATE2 deployer", "infrastructure"],
+  agent_nft: ["AgentCopyNFT", "platform"],
+};
+function l2Book(name: string, d: L2Deployment | null): readonly AddressEntry[] {
+  return ADDRESS_BOOK_IDS.map((id): AddressEntry => {
+    const ours = d?.contracts[id];
+    const theirs = d?.external[id];
+    const [label, kind, decimals] = L2_LABELS[id] ?? [id, ours ? "platform" : "infrastructure"];
+    const address = ours?.address ?? theirs;
+    if (!d || !address)
+      return {
+        id,
+        label,
+        kind,
+        address: null,
+        status: "unverified",
+        verification: null,
+        source: "evidence/co-u1",
+        openQuestion: null,
+        note: `Not deployed on ${name} (CO-U1)`,
+      };
+    return {
+      id,
+      label,
+      kind,
+      address: address as Address,
+      status: "verified",
+      verification: {
+        chainId: d.chainId,
+        block: d.block,
+        codeSize: ours?.codeSize ?? 0,
+        ...(decimals === undefined ? {} : { decimals }),
+        ...(ours ? { deployedBy: "pnpm deploy:l2" } : {}),
+      },
+      source: "evidence/co-u1",
+      openQuestion: null,
+      note: ours ? `Deployed on ${name} by pnpm deploy:l2 (CO-U1)` : `${name}'s own contract`,
+    };
+  });
+}
+const TESTNET_BOOK: readonly AddressEntry[] =
+  TESTNET_CHAIN.key === "base-sepolia"
+    ? l2Book("Base Sepolia", BASE_SEPOLIA_DEPLOYMENT as L2Deployment | null)
+    : TESTNET_CHAIN.key === "arbitrum-sepolia"
+      ? l2Book("Arbitrum Sepolia", ARBITRUM_SEPOLIA_DEPLOYMENT as L2Deployment | null)
+      : [];
+
 export const ADDRESS_BOOK: Readonly<Record<EnvironmentId, readonly AddressEntry[]>> = {
   local: [
     ...MAINNET,
@@ -2588,22 +2661,26 @@ export const ADDRESS_BOOK: Readonly<Record<EnvironmentId, readonly AddressEntry[
     ...EXECUTOR_V3_LOCAL,
     ...CUSTODY_V3_LOCAL,
   ],
-  testnet: [
-    ...TESTNET.filter((e) => !TESTNET_DEPLOYED.some((d) => d.id === e.id)),
-    ...TESTNET_DEPLOYED,
-    {
-      id: "venue_uniswap_v3_usdc_wmon",
-      label: "Uniswap v3 USDC/WMON 0.3% adapter",
-      kind: "platform",
-      address: null,
-      status: "unverified",
-      verification: null,
-      source: CUSTODY_SOURCE,
-      openQuestion: null,
-      note: "Not deployed on testnet: testnet has no Uniswap v3 (D-248)",
-    },
-    ...TESTNET_V3_DEPLOYED,
-  ],
+  // CO-U1: Monad testnet unless TESTNET_CHAIN names an L2 testnet.
+  testnet:
+    TESTNET_BOOK.length > 0
+      ? TESTNET_BOOK
+      : [
+          ...TESTNET.filter((e) => !TESTNET_DEPLOYED.some((d) => d.id === e.id)),
+          ...TESTNET_DEPLOYED,
+          {
+            id: "venue_uniswap_v3_usdc_wmon",
+            label: "Uniswap v3 USDC/WMON 0.3% adapter",
+            kind: "platform",
+            address: null,
+            status: "unverified",
+            verification: null,
+            source: CUSTODY_SOURCE,
+            openQuestion: null,
+            note: "Not deployed on testnet: testnet has no Uniswap v3 (D-248)",
+          },
+          ...TESTNET_V3_DEPLOYED,
+        ],
   beta: [
     ...MAINNET,
     agentNftUndeployed("Mainnet deployment belongs to PB-U1"),

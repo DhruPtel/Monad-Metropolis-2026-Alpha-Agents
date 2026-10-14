@@ -46,6 +46,9 @@ optimizer_runs = 1
 via_ir = true
 bytecode_hash = "none"
 evm_version = "prague"
+# forge's simulation only (L-252: the script contracts embed what they deploy); the chains keep
+# their own 24 KB limit, which every contract above fits.
+code_size_limit = 1048576
 
 [profile.default.invariant]
 # Each run mints up to 40 agents per call and the invariants read every
