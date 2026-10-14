@@ -4,7 +4,9 @@ api.161.35.99.236.sslip.io {
 	encode gzip
 	# Only the guard is reachable: it forwards /health and /v1/* to the control API with CORS for
 	# the Vercel site and per-client rate limits (scripts/host-tunnel.js guard).
-	reverse_proxy app-net:4190 {
+	# CO-U1: by its container's own name; the chain stacks' app-net services join the same network,
+	# so the bare service name "app-net" would answer from any stack.
+	reverse_proxy vivarium-app-net-1:4190 {
 		# The guard keys its rate limits on these; a client must not set them itself.
 		header_up -Cf-Connecting-Ip
 		header_up X-Forwarded-For {remote_host}
