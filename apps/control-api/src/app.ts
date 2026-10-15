@@ -26,6 +26,7 @@ import {
 } from "./proposals.ts";
 import type { ActivationDeps } from "./activation.ts";
 import type { ResearchRunDeps } from "./research-run.ts";
+import { BRING_CHAINS, type BringChain, BringRefused, type BringDeps } from "./bring.ts";
 import type { MoneyEventJson, MoneyEventsDeps } from "./money-events.ts";
 import { listReports, readReport, reportLinks } from "./reports.ts";
 import type { WindowDeps } from "./window.ts";
@@ -158,6 +159,8 @@ export interface ApiDeps {
   readonly moneyEvents?: MoneyEventsDeps | null;
   /** 2026-10-13: the owner's Research now, a full research cycle through the orchestrator. */
   readonly researchRun?: ResearchRunDeps | null;
+  /** CO-U1: "Bring to Base / Arbitrum", the agent's copy on an L2 testnet (the Monad stack only). */
+  readonly bring?: BringDeps | null;
   /**
    * F-U11: the window's live account reading through the orchestrator; absent
    * where none is reachable, and the window shows the latest snapshot instead.
@@ -1094,6 +1097,26 @@ export function createApp(deps: ApiDeps): Hono {
    * runs, ending with a plan for their approval; the orchestrator applies the demo's
    * spending guard and the credit check and names why it refuses.
    */
+  // CO-U1: "Bring to Base / Arbitrum": the owner's agent copied to an L2 testnet, same number.
+  app.post("/v1/agents/:id{[0-9]+}/bring", async (c) => {
+    const agentId = BigInt(c.req.param("id"));
+    const owner = await ownerOnly(c, agentId);
+    if (owner instanceof Response) return owner;
+    if (!deps.bring)
+      return fail(c, 404, "not_found", "Bringing agents to another chain is not offered here.");
+    const body = (await jsonBody(c)) as { chain?: unknown } | null;
+    const chain = body?.chain;
+    if (typeof chain !== "string" || !(BRING_CHAINS as readonly string[]).includes(chain))
+      return fail(c, 400, "bad_request", "Name the chain: base-sepolia or arbitrum-sepolia.");
+    try {
+      const r = await deps.bring.bring(chain as BringChain, agentId, owner.wallet);
+      return c.json({ ...(await meta()), ...r });
+    } catch (err) {
+      if (err instanceof BringRefused) return fail(c, 409, err.code as never, err.message);
+      throw err;
+    }
+  });
+
   app.post("/v1/agents/:id{[0-9]+}/research-run", async (c) => {
     const agentId = BigInt(c.req.param("id"));
     const owner = await ownerOnly(c, agentId);

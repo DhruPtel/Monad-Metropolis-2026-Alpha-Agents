@@ -52,6 +52,8 @@ import { AddCreditsSection } from "@/components/credits/add-credits-section";
 import { latestApplied, planBanner, planRows, txHref } from "@/agent/trading-view";
 import { AgentActivity } from "@/components/activity/agent-activity";
 import { AgentHoldings } from "@/components/holdings/agent-holdings";
+import { BringCard } from "@/components/overview/bring-card";
+import { CURRENT_NETWORK } from "@/network-sites";
 import { ActionLine } from "@/components/my-agents/my-agents-page";
 import {
   DepositForm,
@@ -301,6 +303,9 @@ export function OverviewPage({
         <LinkLine href={tradingHref} action="Review" linkAs={Link}>
           A plan is waiting for your approval
         </LinkLine>
+      ) : null}
+      {environment === "testnet" && CURRENT_NETWORK === "monad" ? (
+        <BringCard agentId={agentId} />
       ) : null}
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_auto]">
         <div className="flex min-w-0 flex-col gap-4">

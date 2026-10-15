@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import { serve } from "@hono/node-server";
 import {
   ConfigError,
+  TESTNET_CHAIN,
   assertChainId,
   loadConfig,
   type Secret,
@@ -17,6 +18,7 @@ import { privateKeyToAccount } from "viem/accounts";
 import { createApp } from "./app.ts";
 import { orchestratorActivation } from "./activation.ts";
 import { orchestratorResearchRun } from "./research-run.ts";
+import { chainBring } from "./bring.ts";
 import { rpcMoneyEvents } from "./money-events.ts";
 import { orchestratorWindow } from "./window.ts";
 import { orchestratorResearch } from "./research.ts";
@@ -364,6 +366,21 @@ const app = createApp({
           agentNft: deployment.address,
           accountFactoryV3: factoryV3Entry.address as Hex,
           usdc: addressEntry(env.id, "usdc").address as Hex,
+        }),
+      }
+    : {}),
+  // CO-U1: "Bring to Base / Arbitrum" on the Monad testnet stack, with the deployer as minter.
+  ...(env.id === "testnet" &&
+  TESTNET_CHAIN.key === "monad" &&
+  deployment &&
+  rpcUrl &&
+  /^0x[0-9a-fA-F]{64}$/.test(process.env.TESTNET_DEPLOYER_PRIVATE_KEY?.trim() ?? "")
+    ? {
+        bring: chainBring({
+          monadRpcUrl: rpcUrl,
+          monadAgentNft: deployment.address,
+          deployerKey: process.env.TESTNET_DEPLOYER_PRIVATE_KEY?.trim() as Hex,
+          env: process.env,
         }),
       }
     : {}),

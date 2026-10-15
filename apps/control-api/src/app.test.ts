@@ -39,6 +39,7 @@ import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import type { ActivationDeps, ActivationReadJson } from "./activation.ts";
 import type { ResearchRunDeps } from "./research-run.ts";
+import type { BringDeps } from "./bring.ts";
 import type { MoneyEventsDeps } from "./money-events.ts";
 import type { WindowDeps } from "./window.ts";
 import type { ResearchDeps } from "./research.ts";
@@ -2953,6 +2954,47 @@ describe.skipIf(!available)("the control API (needs pnpm dev:up for Postgres)", 
       expect(started).toEqual([2, 2, 2, 2]);
       const none = await post(bob, {});
       expect([none.status, (await json(none)).error]).toEqual([503, "not_configured"]);
+    });
+  });
+
+  describe("Bring to Base / Arbitrum (CO-U1)", () => {
+    const headers = (session: string | null): Record<string, string> =>
+      session ? { "x-owner-session": session, "content-type": "application/json" } : {};
+    const session = async (agent: number, token: string) =>
+      (await json(await call(`/v1/agents/${agent}/session`, { method: "POST", token })))
+        .token as string;
+    const brought: { chain: string; agentId: bigint; owner: string }[] = [];
+    const bring: BringDeps = {
+      bring: async (chain, agentId, owner) => {
+        brought.push({ chain, agentId, owner });
+        return { chain, agentId: agentId.toString(), status: "minted", txHash: "0xabc" };
+      },
+    };
+    const post = (session: string | null, body: unknown, deps: { bring?: BringDeps } = { bring }) =>
+      call(
+        "/v1/agents/2/bring",
+        { method: "POST", headers: headers(session), body: JSON.stringify(body) },
+        deps,
+      );
+
+    it("copies the owner's agent to the chain named, for the owner alone, with the same number", async () => {
+      const bob = await session(2, "bob-token");
+      const alice = await session(1, "alice-token");
+      expect((await post(null, { chain: "base-sepolia" })).status).toBe(401);
+      expect((await post(alice, { chain: "base-sepolia" })).status).toBe(403);
+      expect((await post(bob, { chain: "mainnet" })).status).toBe(400);
+      expect(brought).toEqual([]);
+      const ok = await post(bob, { chain: "arbitrum-sepolia" });
+      expect(ok.status).toBe(200);
+      expect(await json(ok)).toMatchObject({
+        chain: "arbitrum-sepolia",
+        agentId: "2",
+        status: "minted",
+      });
+      expect(brought).toHaveLength(1);
+      expect(brought[0]).toMatchObject({ chain: "arbitrum-sepolia", agentId: 2n });
+      const none = await post(bob, { chain: "base-sepolia" }, {});
+      expect(none.status).toBe(404);
     });
   });
 

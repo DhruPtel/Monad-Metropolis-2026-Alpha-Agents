@@ -949,6 +949,26 @@ export const tradingApi = {
   async research(agentId: bigint, session: string): Promise<ResearchJson> {
     return call<ResearchJson>(`/v1/agents/${agentId.toString()}/research`, owner(session));
   },
+  /** CO-U1: "Bring to Base / Arbitrum": the agent's copy on that chain, same number. Owner only. */
+  async bring(
+    agentId: bigint,
+    chain: "base-sepolia" | "arbitrum-sepolia",
+    session: string,
+  ): Promise<{
+    chain: string;
+    agentId: string;
+    status: "minted" | "moved" | "already";
+    txHash: string | null;
+  }> {
+    return call(
+      `/v1/agents/${agentId.toString()}/bring`,
+      owner(session, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ chain }),
+      }),
+    );
+  },
   /** 2026-10-13: Research now, the full research cycle ending with a plan for approval. Owner only. */
   async requestResearchRun(agentId: bigint, session: string): Promise<{ cycleId: string }> {
     return call<{ cycleId: string }>(
