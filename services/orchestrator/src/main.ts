@@ -38,9 +38,11 @@ import {
   type Hex,
   type PublicClient,
   createPublicClient,
+  createWalletClient,
   http,
   parseUnits,
 } from "viem";
+import { privateKeyToAccount } from "viem/accounts";
 import { createApi } from "./api.ts";
 import { SignerWorker } from "./signer-worker.ts";
 import { FundingKeys } from "./credits/funding.ts";
@@ -541,6 +543,42 @@ const local = isForkEnvironment(env.id);
 // fork (the keeper, credits, the trade flow) together with the indexer exceeded a free plan's
 // rate limit on testnet. Real chains poll these every 5 seconds.
 const REMOTE_POLL_MS = 5_000;
+/**
+ * CO-U1 (owner, 2026-10-14): on the testnet stacks the deployer tops an agent's session key up
+ * when it cannot pay a swap's gas, as the fork's balance setter does, so an armed agent trades
+ * without an operator. The trade flow asks for ten swaps' worth; testnet sends a fifth of that
+ * (two swaps), and only the difference from what the key holds.
+ */
+const testnetDeployerKey =
+  env.id === "testnet" ? (reveal("TESTNET_DEPLOYER_PRIVATE_KEY") as Hex | undefined) : undefined;
+const testnetTopUp = testnetDeployerKey
+  ? (() => {
+      const deployer = createWalletClient({
+        account: privateKeyToAccount(testnetDeployerKey),
+        chain: {
+          id: env.chainId,
+          name: env.label,
+          nativeCurrency: {
+            name: TESTNET_CHAIN.native,
+            symbol: TESTNET_CHAIN.native,
+            decimals: 18,
+          },
+          rpcUrls: { default: { http: [] } },
+        },
+        transport: rpcTransport(rpcUrl, fallbackRpcUrl),
+      });
+      return async (address: Hex, wei: bigint) => {
+        const target = wei / 5n;
+        const have = await client.getBalance({ address });
+        if (have >= target) return;
+        const hash = await deployer.sendTransaction({ to: address, value: target - have });
+        const receipt = await client.waitForTransactionReceipt({ hash, timeout: 120_000 });
+        if (receipt.status !== "success") throw new Error(`the gas top-up ${hash} reverted`);
+        log(`gas: topped ${address} up to ${target} wei from the deployer (${hash})`);
+      };
+    })()
+  : null;
+
 const trading = chainSigner
   ? {
       signer: chainSigner,
@@ -556,7 +594,9 @@ const trading = chainSigner
         },
         ...(local
           ? { topUp: (address: Hex, wei: bigint) => setMonBalance(address, wei, rpcUrl) }
-          : {}),
+          : testnetTopUp
+            ? { topUp: testnetTopUp }
+            : {}),
       },
       // CO-U1: an L2's finalized block trails by L1 finality (about 20 minutes on Base and
       // Arbitrum Sepolia), so a trade there settles at the safe block instead.
