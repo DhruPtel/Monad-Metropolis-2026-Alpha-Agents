@@ -87,6 +87,26 @@ describe("the Trading tab's words (UI-FAST)", () => {
     });
   });
 
+  it("CO-U1: formats a Base intent's tUSDC and WETH instead of crashing (agent #2's first leg)", () => {
+    const [row] = tradeRows([
+      {
+        intentId: "i2",
+        status: "awaiting_approval",
+        sell: { asset: "tUSDC", amountRaw: "7462500" },
+        buy: "WETH",
+        amountOut: null,
+        expectedOut: { asset: "WETH", amountRaw: "3140000000000000" },
+        createdAt: "2026-10-15T05:12:29.000Z",
+        settledAt: null,
+      } as unknown as IntentJson,
+    ]);
+    expect(row).toMatchObject({
+      symbol: "WETH",
+      side: "Buy",
+      amount: "7.4625 tUSDC → 0.00314 WETH",
+    });
+  });
+
   it("moves a band plan with no position rows by its own targets (agent #4's waiting plan)", () => {
     const band = {
       positions: [],
