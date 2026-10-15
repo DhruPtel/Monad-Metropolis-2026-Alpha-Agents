@@ -89,10 +89,12 @@ const STRANDED_TEXT: Readonly<Record<Exclude<HoldingStatus, "in_use">, string>> 
 function Line({
   line,
   network,
+  gasSymbol,
   onMove,
 }: {
   line: HoldingLine;
   network: string;
+  gasSymbol: string;
   onMove: (() => void) | undefined;
 }) {
   const busy =
@@ -134,7 +136,7 @@ function Line({
             Move {line.symbol} to my wallet
           </Button>
           <span className="text-xs text-foreground-muted">
-            You sign it in your wallet on {network}; it costs a little MON for gas.
+            You sign it in your wallet on {network}; it costs a little {gasSymbol} for gas.
           </span>
         </div>
       ) : null}
@@ -153,12 +155,15 @@ function Line({
 function HoldingsPanel({
   addresses,
   network,
+  gasSymbol = "MON",
   onMove,
   className,
 }: {
   readonly addresses: readonly HoldingAddress[];
   /** The wallet's network, for example "Monad Testnet". */
   readonly network: string;
+  /** CO-U1: the network's gas token, ETH on Base and Arbitrum, MON on Monad. */
+  readonly gasSymbol?: string;
   /** Moves a movable line to the owner's wallet; absent where the viewer cannot sign. */
   readonly onMove?: (role: HoldingAddressRole, symbol: string) => void;
   readonly className?: string;
@@ -193,7 +198,9 @@ function HoldingsPanel({
                     <AddressDisplay address={a.address} label={`${text.title} address`} />
                   ) : null}
                 </div>
-                <p className="text-xs text-foreground-muted">{text.purpose}</p>
+                <p className="text-xs text-foreground-muted">
+                  {text.purpose.replace("MON here pays the gas", `${gasSymbol} here pays the gas`)}
+                </p>
               </div>
               {!a.address ? (
                 <p className="text-sm text-foreground-muted">{text.missing}</p>
@@ -206,6 +213,7 @@ function HoldingsPanel({
                       key={line.symbol}
                       line={line}
                       network={network}
+                      gasSymbol={gasSymbol}
                       onMove={onMove ? () => onMove(a.role, line.symbol) : undefined}
                     />
                   ))}

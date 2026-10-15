@@ -936,23 +936,33 @@ function PortfolioOverview({
 }
 
 /**
- * The wallet's MON for gas (Phase 2 tuning), with a warning when it is too
+ * The wallet's gas token (Phase 2 tuning), with a warning when it is too
  * low to arm, deposit or withdraw. Every one of those is a wallet transaction
- * the wallet pays gas for.
+ * the wallet pays gas for. CO-U1: `symbol` is the chain's gas token (ETH on
+ * Base and Arbitrum, MON on Monad); the floor comes with it.
  */
 function GasNotice({
   monWei,
   lowBelowWei,
   network,
+  symbol = "MON",
   className,
 }: {
   monWei: bigint;
   lowBelowWei: bigint;
   network: string;
+  symbol?: string;
   className?: string;
 }) {
   const low = monWei < lowBelowWei;
-  const amount = <AmountDisplay value={monWei} decimals={18} maxFractionDigits={4} symbol="MON" />;
+  const amount = (
+    <AmountDisplay
+      value={monWei}
+      decimals={18}
+      maxFractionDigits={symbol === "ETH" ? 6 : 4}
+      symbol={symbol}
+    />
+  );
   return (
     <p
       className={cn("text-sm", low ? "text-warning" : "text-foreground-muted", className)}
@@ -962,7 +972,7 @@ function GasNotice({
     >
       {low ? (
         <>
-          Your wallet has {amount} for gas, too little to arm, deposit or withdraw. Add MON on{" "}
+          Your wallet has {amount} for gas, too little to arm, deposit or withdraw. Add {symbol} on{" "}
           {network} first.
         </>
       ) : (

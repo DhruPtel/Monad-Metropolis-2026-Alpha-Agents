@@ -1,3 +1,4 @@
+import { TESTNET_CHAIN } from "@alpha-agents/config";
 import type { AssetRow } from "@alpha-agents/ui";
 import type { Address } from "viem";
 import { staleFeedMessage } from "@alpha-agents/domain";
@@ -23,8 +24,13 @@ export const DECIMALS: Readonly<Record<Asset, number>> = { USDC: 6, WMON: 18 };
  * 0.0090, a deposit 0.0392, arming 0.0114, a withdrawal 0.0281 and a mint
  * 0.0348, so 0.1 MON covers a first account, deposit and arming (0.084).
  * The old 0.05 MON did not cover one deposit with its approval and arming.
+ * CO-U1 (owner, 2026-10-15): on the ETH testnets (Base and Arbitrum Sepolia) gas is ETH at a
+ * fraction of a gwei, so the floor is 0.0005 ETH, which covers the same steps many times over.
  */
-export const LOW_GAS_WEI = 100_000_000_000_000_000n;
+export const LOW_GAS_WEI =
+  TESTNET_CHAIN.native === "ETH" ? 500_000_000_000_000n : 100_000_000_000_000_000n;
+/** The gas token's symbol on this build's chain: ETH on Base and Arbitrum, MON on Monad. */
+export const GAS_SYMBOL: "ETH" | "MON" = TESTNET_CHAIN.native;
 
 export interface Positions {
   readonly usdc: bigint;

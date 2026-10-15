@@ -76,6 +76,7 @@ import { useWalletSession } from "@/auth/session";
 import {
   type Asset,
   DECIMALS,
+  GAS_SYMBOL,
   LOW_GAS_WEI,
   capRoom,
   claimables,
@@ -966,6 +967,7 @@ export function PortfolioPage({
             <GasNotice
               monWei={BigInt(p.wallet.monWei)}
               lowBelowWei={LOW_GAS_WEI}
+              symbol={GAS_SYMBOL}
               network={network}
             />
           </div>
@@ -1559,6 +1561,7 @@ export function PortfolioPage({
               <GasNotice
                 monWei={BigInt(p.wallet.monWei)}
                 lowBelowWei={LOW_GAS_WEI}
+                symbol={GAS_SYMBOL}
                 network={network}
               />
             </Tile>

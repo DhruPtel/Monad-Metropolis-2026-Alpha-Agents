@@ -42,7 +42,7 @@ import { useState } from "react";
 import type { Address } from "viem";
 import { othersKeepCredits, refundAmountText, refundAvailability } from "@/agent/my-agents";
 import { ALLOWLIST_WAIT_MESSAGE } from "@/agent/custody";
-import { LOW_GAS_WEI, v2AssetRows } from "@/agent/portfolio";
+import { GAS_SYMBOL, LOW_GAS_WEI, v2AssetRows } from "@/agent/portfolio";
 import { assetRows, overviewV3 } from "@/agent/portfolio-v3";
 import { setupSteps } from "@/agent/setup-flow";
 import { useAgentSummary } from "@/components/agent-shell/agent-shell";
@@ -267,7 +267,12 @@ export function OverviewPage({
             : Number((caps.principalUsdc * 10_000n) / caps.personalCapUsdc)
         }
       />
-      <GasNotice monWei={BigInt(p.wallet.monWei)} lowBelowWei={LOW_GAS_WEI} network={network} />
+      <GasNotice
+        monWei={BigInt(p.wallet.monWei)}
+        lowBelowWei={LOW_GAS_WEI}
+        symbol={GAS_SYMBOL}
+        network={network}
+      />
     </SidePanel>
   ) : null;
 

@@ -2,6 +2,7 @@
 
 import type { EnvironmentId } from "@alpha-agents/config";
 import { Card, CardContent, HoldingsPanel, Skeleton } from "@alpha-agents/ui";
+import { GAS_SYMBOL } from "@/agent/portfolio";
 import { useHoldings } from "@/agent/use-holdings";
 
 /**
@@ -21,7 +22,12 @@ export function AgentHoldings({
   const h = useHoldings(agentId, environment);
   if (h.unavailable) return null;
   const body = h.addresses ? (
-    <HoldingsPanel addresses={h.addresses} network={h.network} onMove={h.move} />
+    <HoldingsPanel
+      addresses={h.addresses}
+      network={h.network}
+      gasSymbol={GAS_SYMBOL}
+      onMove={h.move}
+    />
   ) : h.error ? (
     <p className="text-sm text-foreground-muted">{h.error}</p>
   ) : (
