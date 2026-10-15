@@ -214,7 +214,7 @@ export function approvalView(
   chainName: string,
   arms: boolean,
 ): ApprovalView {
-  const token = (a: Asset) => (a === "USDC" ? p.contracts.usdc : p.contracts.wmon);
+  const token = (a: string) => (/USDC$/i.test(a) ? p.contracts.usdc : p.contracts.wmon);
   return {
     intentId: i.intentId,
     account: p.account ?? p.predictedAccount,

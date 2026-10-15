@@ -31,9 +31,14 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from ".
  * wallet action. Presentational: the web app passes chain and API values in.
  */
 
-type PortfolioAsset = "USDC" | "WMON";
-const DECIMALS: Readonly<Record<PortfolioAsset, number>> = { USDC: 6, WMON: 18 };
-const DIGITS: Readonly<Record<PortfolioAsset, number>> = { USDC: 2, WMON: 4 };
+/**
+ * CO-U1 (2026-10-15): an asset is the chain's symbol (USDC and WMON on Monad, tUSDC and WETH on
+ * the L2 testnets); a USDC-like symbol has 6 decimals, any other 18, never undefined.
+ */
+type PortfolioAsset = string;
+const usdcLike = (asset: string) => /USDC$/i.test(asset);
+const decimalsOf = (asset: string) => (usdcLike(asset) ? 6 : 18);
+const digitsOf = (asset: string) => (usdcLike(asset) ? 2 : 4);
 
 /** A fixed, timezone-free rendering, so a page reads the same everywhere. */
 const when = (iso: string) => `${iso.slice(0, 10)} ${iso.slice(11, 16)} UTC`;
@@ -51,9 +56,9 @@ function Amount({
   return (
     <AmountDisplay
       value={value}
-      decimals={DECIMALS[asset]}
-      minFractionDigits={asset === "USDC" ? 2 : 0}
-      maxFractionDigits={DIGITS[asset]}
+      decimals={decimalsOf(asset)}
+      minFractionDigits={usdcLike(asset) ? 2 : 0}
+      maxFractionDigits={digitsOf(asset)}
       symbol={asset}
       {...(className ? { className } : {})}
     />

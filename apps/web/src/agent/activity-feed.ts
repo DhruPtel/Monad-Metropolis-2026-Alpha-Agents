@@ -63,7 +63,7 @@ export function activityRows(s: ActivitySources): ActivityRowView[] {
   }
   for (const i of s.intents ?? []) {
     if (i.status === "awaiting_approval") continue;
-    const buy = i.sell.asset === "USDC";
+    const buy = /USDC$/i.test(i.sell.asset);
     const state = SETTLED.has(i.status) ? "" : FAILED.has(i.status) ? " (failed)" : " (pending)";
     const at = i.settledAt ?? i.submittedAt ?? i.createdAt;
     rows.push({

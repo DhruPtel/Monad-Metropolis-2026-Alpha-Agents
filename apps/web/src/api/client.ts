@@ -229,7 +229,8 @@ const auth = (token: string | null): HeadersInit =>
 
 /** An amount as the API gives it: decimal text and base units (P2-U6 intentJson). */
 export interface TokenAmountJson {
-  readonly asset: "USDC" | "WMON";
+  /** CO-U1: the chain's symbol, e.g. tUSDC and WETH on the L2 testnets. */
+  readonly asset: string;
   readonly amount: string;
   readonly amountRaw: string;
 }
@@ -247,7 +248,7 @@ export interface IntentJson {
   readonly intentId: string;
   readonly status: string;
   readonly sell: TokenAmountJson;
-  readonly buy: "USDC" | "WMON";
+  readonly buy: string;
   readonly expectedOut: TokenAmountJson | null;
   readonly minAmountOut: TokenAmountJson | null;
   readonly amountOut: TokenAmountJson | null;

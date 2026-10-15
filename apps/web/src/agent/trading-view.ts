@@ -98,10 +98,10 @@ const RESULT: Readonly<Record<string, { text: string; tone: TradeRowView["result
 };
 
 export function tradeRows(intents: readonly IntentJson[]): TradeRowView[] {
-  const units = (raw: string, asset: "USDC" | "WMON") =>
-    formatAmount(BigInt(raw), DECIMALS[asset], { maxFractionDigits: 6 });
+  const units = (raw: string, asset: string) =>
+    formatAmount(BigInt(raw), assetDecimals(asset), { maxFractionDigits: 6 });
   return intents.map((i) => {
-    const buying = i.sell.asset === "USDC";
+    const buying = isUsdc(i.sell.asset);
     const out = i.amountOut ?? i.expectedOut;
     const r = RESULT[i.status] ?? { text: i.status, tone: "neutral" as const };
     const at = i.settledAt ?? i.createdAt;
@@ -116,6 +116,15 @@ export function tradeRows(intents: readonly IntentJson[]): TradeRowView[] {
     };
   });
 }
+
+/**
+ * CO-U1 (2026-10-15): an intent names its assets by the chain's symbols (tUSDC and WETH on the
+ * L2 testnets), not only USDC and WMON; a symbol the table does not know is a USDC (6 decimals)
+ * or an 18-decimal token, never undefined, which crashed the page.
+ */
+const isUsdc = (asset: string) => /USDC$/i.test(asset);
+const assetDecimals = (asset: string): number =>
+  DECIMALS[asset as keyof typeof DECIMALS] ?? (isUsdc(asset) ? 6 : 18);
 
 const minute = (iso: string) => `${iso.slice(0, 10)} ${iso.slice(11, 16)}`;
 
@@ -141,7 +150,7 @@ export function insights(
   const recent = intents.filter(
     (i) => i.status === "settled" && Date.parse(i.settledAt ?? i.createdAt) >= month,
   );
-  const buys = recent.filter((i) => i.sell.asset === "USDC").length;
+  const buys = recent.filter((i) => isUsdc(i.sell.asset)).length;
   const best = byGain[0];
   const worst = byGain.length > 1 ? byGain[byGain.length - 1] : undefined;
   return [
@@ -234,10 +243,10 @@ export function decisionRows(input: {
         : null,
     });
   }
-  const units = (raw: string, asset: "USDC" | "WMON") =>
-    formatAmount(BigInt(raw), DECIMALS[asset], { maxFractionDigits: 6 });
+  const units = (raw: string, asset: string) =>
+    formatAmount(BigInt(raw), assetDecimals(asset), { maxFractionDigits: 6 });
   for (const i of input.intents) {
-    const buying = i.sell.asset === "USDC";
+    const buying = isUsdc(i.sell.asset);
     const at = i.settledAt ?? i.createdAt;
     const href = i.txHash ? input.txFor(i.txHash) : null;
     const result = RESULT[i.status]?.text ?? i.status;
