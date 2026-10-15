@@ -60,15 +60,22 @@ if (factoryEntry.status !== "verified")
 const factory = getAddress(factoryEntry.address);
 const chain = {
   id: TESTNET.chainId,
-  name: "Monad Testnet",
-  nativeCurrency: { name: "MON", symbol: "MON", decimals: 18 },
+  name: TESTNET.chainId === 10143 ? "Monad Testnet" : "testnet",
+  nativeCurrency:
+    TESTNET.chainId === 10143
+      ? { name: "MON", symbol: "MON", decimals: 18 }
+      : { name: "Ether", symbol: "ETH", decimals: 18 },
   rpcUrls: { default: { http: [] } },
 };
 // Both providers with retries: the testnet primary answers 429 under the stack's load (L-258).
+// CO-U1: the secondary is a Monad provider, so only Monad testnet uses it; on an L2 a fallback
+// to it sent the add to the wrong chain, where it never mined.
 const secondary =
-  /** @type {import("@alpha-agents/config").Secret | undefined} */ (
-    config.values.MONAD_RPC_URL_SECONDARY ?? config.values.MONAD_TESTNET_RPC_URL_SECONDARY
-  )?.reveal() ?? null;
+  TESTNET.chainId !== 10143
+    ? null
+    : /** @type {import("@alpha-agents/config").Secret | undefined} */ ((
+        config.values.MONAD_RPC_URL_SECONDARY ?? config.values.MONAD_TESTNET_RPC_URL_SECONDARY
+      )?.reveal() ?? null);
 const transport = fallback(
   [url, ...(secondary ? [secondary] : [])].map((u) => http(u, { retryCount: 4, retryDelay: 500 })),
 );
