@@ -722,6 +722,9 @@ const orchestrator = new Orchestrator({
     // CO-U1 (owner): on the testnet stacks a missing MON volatility reading defaults to 100%
     // annualized, with a warning, and buys go ahead; elsewhere it still holds them.
     fallbackVolatility24hPct: env.id === "testnet" ? 100 : null,
+    // CO-U1 (owner, 2026-10-15): on the testnet stacks the runner looks every 10 seconds, so the
+    // next leg goes out within seconds of the previous one confirming; elsewhere every minute.
+    ...(env.id === "testnet" ? { everyMs: 10_000 } : {}),
     gasMonUsdE18: async () => {
       const f = (await market.oracleVsPool()).value.chainlinkMonUsd;
       if (f.value === null || f.warnings.some((w) => w.code === "STALE")) return null;
