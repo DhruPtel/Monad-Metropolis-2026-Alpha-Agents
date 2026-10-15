@@ -36,13 +36,13 @@ describe("stage rules (P3-U4)", () => {
       seconds: 240,
     });
     expect(stageCaps("ZOOM_OUT", "ROUTINE")).toMatchObject({
-      turns: 10,
+      turns: 20,
       paidCalls: 2,
-      seconds: 360,
+      seconds: 600,
     });
     expect(stageCaps("TEST", "ROUTINE")).toEqual({ turns: 0, paidCalls: 0, tokens: 0, seconds: 0 });
     // Hermes takes turns and time only from config: the cycle's is its largest stage's.
-    expect(cycleEnvelope("ROUTINE")).toEqual({ maxTurns: 16, runBudgetSeconds: 600 });
+    expect(cycleEnvelope("ROUTINE")).toEqual({ maxTurns: 20, runBudgetSeconds: 600 });
   });
 
   it("sets ceilings per stage, doubling the reasoning stages on Opus 5.5, and the Test is free", () => {
@@ -60,7 +60,7 @@ describe("stage rules (P3-U4)", () => {
     expect(
       cyclePlan("ACTIVATION", "research-low", 0).stages.find((x) => x.stage === "DIVE")?.count,
     ).toBe(2);
-    expect(cycleLeaseMs("ROUTINE", 1)).toBe((5 + 10 + 4 + 6 + 15) * 60_000);
+    expect(cycleLeaseMs("ROUTINE", 1)).toBe((5 + 10 + 4 + 10 + 15) * 60_000);
   });
 
   it("Dives on high themes and medium ones not dived in 48 hours, up to the day's Dives", () => {

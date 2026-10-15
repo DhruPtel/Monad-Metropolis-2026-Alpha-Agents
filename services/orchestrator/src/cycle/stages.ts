@@ -63,7 +63,9 @@ export function stageCaps(stage: Stage, kind: CycleKind): StageCaps {
     case "CHALLENGE":
       return { turns: 6, paidCalls: 2, tokens: 200_000, seconds: 4 * 60 };
     case "ZOOM_OUT":
-      return { turns: 10, paidCalls: 2, tokens: 350_000, seconds: 6 * 60 };
+      // CO-U1 (2026-10-15): 10 turns ran out on Base Sepolia while the model drafted and tested a
+      // plan before complete_stage (TURN_CAP, no proposal); the plan is the cycle's point.
+      return { turns: 20, paidCalls: 2, tokens: 500_000, seconds: 10 * 60 };
     case "TEST":
       return NO_CAPS;
   }
