@@ -60,8 +60,8 @@ import { StatusFor, approvalView } from "@/components/portfolio/portfolio-page";
 /** How often the runner checks an armed agent (services/orchestrator/src/runner.ts, RUNNER_EVERY_MS). */
 const RUNNER_EVERY_MS = 60_000;
 /** The testnet trading profile's cost limit (packages/policy TESTNET_TRADING_PROFILE): 0.5%. */
-// CO-U1: the launch policy's slippage limit (1.5%).
-const TESTNET_COST_LIMIT_BPS = 150;
+// CO-U1 (owner, 2026-10-14): the testnet profile's 3% cost limit, gas left out.
+const TESTNET_COST_LIMIT_BPS = 300;
 /** How often Live trades refreshes while a leg is on its way. */
 const IN_FLIGHT_POLL_MS = 2_500;
 const GOAL_WORD: Readonly<Record<string, string>> = {

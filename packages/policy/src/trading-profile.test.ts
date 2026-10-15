@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import { GOAL_LIMITS } from "./limits.ts";
 import {
   LAUNCH_TRADING_PROFILE,
   TESTNET_TRADING_PROFILE,
@@ -21,14 +20,14 @@ describe("trading profile", () => {
     expect(LAUNCH_TRADING_PROFILE.countsGas).toBe(false);
   });
 
-  it("drops the minimum trade on testnet and sets the cost limit at the onchain slippage limit", () => {
+  it("drops the minimum trade on testnet, sets a 3% cost limit and leaves gas out (CO-U1)", () => {
     expect(withTradingProfile(params, TESTNET_TRADING_PROFILE)).toEqual({
       minTradeUsdcE6: 1n,
-      costHurdleBps: GOAL_LIMITS.maxSlippageBps,
+      costHurdleBps: 300,
       targetWmonBps: 2_000,
     });
-    expect(TESTNET_TRADING_PROFILE.costHurdleBps).toBe(150);
-    expect(TESTNET_TRADING_PROFILE.countsGas).toBe(true);
+    expect(TESTNET_TRADING_PROFILE.costHurdleBps).toBe(300);
+    expect(TESTNET_TRADING_PROFILE.countsGas).toBe(false);
   });
 
   it("prices gas in USDC, rounded up", () => {

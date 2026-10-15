@@ -475,11 +475,11 @@ describe.skipIf(!dbUp)(
       expect(testnet).toMatchObject({ outcome: "leg", leg: { sell: "USDC", buy: "WMON" } });
     });
 
-    it("testnet profile: counts gas at MON's price with price impact and fees, and holds COST_HURDLE when the total passes 1.5%", async () => {
+    it("a gas-counting profile counts gas at MON's price with price impact and fees, and holds COST_HURDLE past its limit; the testnet profile leaves gas out and buys (CO-U1)", async () => {
       await smallBandPlan();
       // At 0.024 USD a MON the gas is 0.0048 USDC, about 160 bps of a 0.30 USDC leg (rounded up).
       const [d] = await runner({
-        profile: TESTNET_TRADING_PROFILE,
+        profile: { ...TESTNET_TRADING_PROFILE, countsGas: true, costHurdleBps: 150 },
         gasWei: GAS_WEI,
         gasMonUsdE18: async () => 24_000_000_000_000_000n,
       }).tick();
@@ -491,6 +491,13 @@ describe.skipIf(!dbUp)(
       });
       expect((d?.facts as { costWithGasBps: number }).costWithGasBps).toBeGreaterThan(160);
       expect(await intents()).toEqual([]);
+      // CO-U1: the testnet profile itself leaves gas out under a 3% limit: the same leg buys.
+      const [testnet] = await runner({
+        profile: TESTNET_TRADING_PROFILE,
+        gasWei: GAS_WEI,
+        gasMonUsdE18: async () => 24_000_000_000_000_000n,
+      }).tick();
+      expect(testnet).toMatchObject({ outcome: "leg", leg: { sell: "USDC", buy: "WMON" } });
     });
 
     it("testnet profile: without a reading of MON's price, a leg is judged on impact and fees alone", async () => {

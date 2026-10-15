@@ -9,7 +9,6 @@
  * The onchain limits (the Executor's policy and the trading account's
  * backstops) are not here: they stay as deployed in every environment.
  */
-import { GOAL_LIMITS } from "./limits.ts";
 
 export interface TradingProfile {
   readonly id: "launch" | "testnet";
@@ -29,14 +28,17 @@ export const LAUNCH_TRADING_PROFILE: TradingProfile = Object.freeze({
 });
 
 /**
- * Testnet only. No minimum trade (one USDC base unit, so a leg is never empty),
- * a cost limit at the onchain slippage limit, and gas counted in the cost.
+ * Testnet only. No minimum trade (one USDC base unit, so a leg is never empty), a 3% cost
+ * limit and gas left out of the cost (owner, 2026-10-14, CO-U1: small testnet trades go
+ * through; testnet gas is not real money). The Executor still refuses onchain any fill worse
+ * than its slippage limit plus pool fees.
  */
+export const TESTNET_COST_HURDLE_BPS = 300;
 export const TESTNET_TRADING_PROFILE: TradingProfile = Object.freeze({
   id: "testnet",
   minTradeUsdcE6: 1n,
-  costHurdleBps: GOAL_LIMITS.maxSlippageBps,
-  countsGas: true,
+  costHurdleBps: TESTNET_COST_HURDLE_BPS,
+  countsGas: false,
 });
 
 /** The profile for an environment id: the testnet profile on testnet alone. */
