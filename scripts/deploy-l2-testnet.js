@@ -133,6 +133,20 @@ await assertTestnet(url);
 const startBlock = Number(await testnetRpc(url, "eth_blockNumber"));
 console.log(`${chainKey} (chain ${TESTNET.chainId}) at block ${startBlock}; deployer ${deployer}`);
 
+// A rerun finds the pool seeded already: only an empty pool takes the ETH wrapped for it.
+const { existsSync, readFileSync } = await import("node:fs");
+const recordPath = join(ROOT, `evidence/co-u1/${chainKey}-deployment.json`);
+let poolSeeded = false;
+if (existsSync(recordPath)) {
+  const pool = JSON.parse(readFileSync(recordPath, "utf8")).contracts?.uniswap_v3_pool_usdc_weth_500
+    ?.address;
+  if (pool) {
+    // liquidity() is 0x1a686502.
+    const liq = await testnetRpc(url, "eth_call", [{ to: pool, data: "0x1a686502" }, "latest"]);
+    poolSeeded = BigInt(liq ?? "0x0") > 0n;
+  }
+}
+
 console.log("\n1. TestUSDC, the agents' copy NFT and the WETH/tUSDC pool");
 const marketOut = await step(
   "1 market",
@@ -146,8 +160,11 @@ const marketOut = await step(
     L2_COPY_MINTER: deployer,
     L2_COPY_IMAGE_BASE_URI: "https://vivarium-testnet.vercel.app/species/",
     L2_POOL_WETH: POOL_WETH_WEI.toString(),
+    // CO-U1: a fresh AgentCopyNFT (and the sets bound to it) under a new salt version, e.g. to
+    // mirror the clean Monad AgentNFT's agents; TestUSDC and the pool are found again.
+    L2_COPY_SALT_VERSION: process.env.L2_COPY_SALT_VERSION?.trim() || "1",
   },
-  POOL_WETH_WEI,
+  poolSeeded ? 0n : POOL_WETH_WEI,
 );
 const market = {
   usdc: logged(marketOut, "TEST_USDC_ADDRESS"),

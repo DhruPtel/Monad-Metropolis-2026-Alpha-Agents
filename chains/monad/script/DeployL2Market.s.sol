@@ -72,7 +72,7 @@ contract DeployL2Market is DeployScope {
         );
         AgentCopyNFT nft = AgentCopyNFT(
             _create2(
-                salt("agent-copy-nft", 1),
+                salt("agent-copy-nft", vm.envOr("L2_COPY_SALT_VERSION", uint256(1))),
                 abi.encodePacked(
                     type(AgentCopyNFT).creationCode,
                     abi.encode(deployer, vm.envAddress("L2_COPY_MINTER"), vm.envString("L2_COPY_IMAGE_BASE_URI"))
