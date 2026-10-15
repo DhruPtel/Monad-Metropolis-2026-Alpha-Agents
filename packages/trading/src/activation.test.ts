@@ -40,6 +40,25 @@ const ready = (): ActivationCheckInput => ({
 });
 
 describe("the checks before an activation sweep (F-U10, A-53)", () => {
+  it("CO-U1: a failed account read fails the account and balance checks without blocking", () => {
+    const checks = activationChecks({
+      ...ready(),
+      account: null,
+      accountUnread: true,
+      tradingValueUsdcE6: null,
+    });
+    const account = checks.find((c) => c.code === "ACCOUNT");
+    expect(account).toMatchObject({ ok: false, blocking: false });
+    expect(account?.message).toContain("could not be read");
+    expect(checks.find((c) => c.code === "TRADING_BALANCE")).toMatchObject({ blocking: false });
+    expect(blockingCheck(checks)).toBeNull();
+    // With no failed read, a missing account still blocks.
+    expect(
+      blockingCheck(activationChecks({ ...ready(), account: null, tradingValueUsdcE6: null }))
+        ?.code,
+    ).toBe("ACCOUNT");
+  });
+
   it("passes every check for a configured, funded, idle agent; the grant is a step to come, not a block", () => {
     const checks = activationChecks(ready());
     expect(checks.map((c) => c.code)).toEqual([

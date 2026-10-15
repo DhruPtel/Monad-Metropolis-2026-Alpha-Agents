@@ -121,8 +121,13 @@ export class ActivationService {
     const credits = this.o.credits
       ? await this.o.credits.creditsOf(ref.agentId)
       : { spendable: 0n, restricted: true };
+    // CO-U1 (owner, 2026-10-15): a failed read is told apart from no account, so it never blocks.
+    let accountUnread = false;
     const agent = this.o.readerV3
-      ? await this.o.readerV3.agent(ref.agentId).catch(() => null)
+      ? await this.o.readerV3.agent(ref.agentId).catch(() => {
+          accountUnread = true;
+          return null;
+        })
       : null;
     const rawAlias = goal?.config.model.alias ?? null;
     const alias = rawAlias && isReasoningAlias(rawAlias) ? rawAlias : null;
@@ -133,6 +138,7 @@ export class ActivationService {
           : null,
         provisioned: runtime?.status === "ready",
         account: agent?.account ?? null,
+        accountUnread,
         mode: agent?.account ? agent.mode : null,
         tradingValueUsdcE6: agent?.account ? (agent.values?.nav ?? null) : null,
         spendableUsdcE6: credits.spendable,

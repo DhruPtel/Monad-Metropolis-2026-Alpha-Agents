@@ -62,6 +62,12 @@ export interface ActivationCheckInput {
   readonly provisioned: boolean;
   /** The agent's trading account on the fund agent's set, or null before it is opened. */
   readonly account: Hex | null;
+  /**
+   * CO-U1 (owner, 2026-10-15): the chain read for the account failed. The account, its mode and
+   * its balance then fail without blocking: the owner may turn trading on, and the contracts
+   * enforce the real checks.
+   */
+  readonly accountUnread?: boolean;
   readonly mode: AccountMode | null;
   /** The account's value in USDC base units; null while a held token has no usable price. */
   readonly tradingValueUsdcE6: bigint | null;
@@ -113,12 +119,18 @@ export function activationChecks(i: ActivationCheckInput): ActivationCheck[] {
       ? "The agent is set up to run."
       : "The agent is not set up to run yet; try again in a minute.",
   );
+  const unread = i.accountUnread === true && i.account === null;
+  const UNREAD =
+    "The trading account could not be read just now; you can still turn trading on, and the contracts check it.";
   push(
     "ACCOUNT",
     i.account !== null,
-    i.account
-      ? "The trading account is open on the fund agent's set."
-      : "Open the trading account and deposit USDC first.",
+    unread
+      ? UNREAD
+      : i.account
+        ? "The trading account is open on the fund agent's set."
+        : "Open the trading account and deposit USDC first.",
+    !unread,
   );
   push(
     "ACCOUNT_MODE",
@@ -133,13 +145,16 @@ export function activationChecks(i: ActivationCheckInput): ActivationCheck[] {
   push(
     "TRADING_BALANCE",
     value !== null && value >= ACTIVATION_MIN_TRADING_USDC_E6,
-    value === null
-      ? i.account
-        ? "The account's value cannot be read right now: a held token has no usable price."
-        : `The account needs at least ${usdc(ACTIVATION_MIN_TRADING_USDC_E6)} to trade with.`
-      : value >= ACTIVATION_MIN_TRADING_USDC_E6
-        ? `The account holds ${usdc(value)} to trade with.`
-        : `The account holds ${usdc(value)}; automatic trading needs at least ${usdc(ACTIVATION_MIN_TRADING_USDC_E6)}. Deposit more first.`,
+    unread
+      ? UNREAD
+      : value === null
+        ? i.account
+          ? "The account's value cannot be read right now: a held token has no usable price."
+          : `The account needs at least ${usdc(ACTIVATION_MIN_TRADING_USDC_E6)} to trade with.`
+        : value >= ACTIVATION_MIN_TRADING_USDC_E6
+          ? `The account holds ${usdc(value)} to trade with.`
+          : `The account holds ${usdc(value)}; automatic trading needs at least ${usdc(ACTIVATION_MIN_TRADING_USDC_E6)}. Deposit more first.`,
+    !unread,
   );
   const creditsOk = !i.restricted && i.spendableUsdcE6 >= i.ceilingUsdcE6;
   push(
