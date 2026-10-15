@@ -59,6 +59,7 @@ import {
   type ManagedAccount,
   type PaidDataSourceId,
   ROUTE_ADAPTER_ID,
+  addressEntry,
   executorV3SwapGasLimit,
 } from "@alpha-agents/domain";
 import type { SwapIntentV3Args } from "@alpha-agents/signer";
@@ -1213,7 +1214,16 @@ export class Orchestrator {
     if (!registry) return null;
     const tracked =
       (await registry.store.token(registry.chainId, token).catch(() => null)) !== null;
-    if (!screenApplies(this.o.chainId, registry.chainId, tracked)) return null;
+    const standIn = testnetWrappedNative(this.o.chainId);
+    if (
+      !screenApplies(
+        this.o.chainId,
+        registry.chainId,
+        tracked,
+        standIn !== null && isAddressEqual(standIn, token),
+      )
+    )
+      return null;
     const r = await registry.freshScreen(token).catch(() => null);
     return r !== null && r.verdict === "passed";
   }
@@ -1782,13 +1792,25 @@ const unavailableProvider: SandboxProvider = {
  * this chain. On Monad testnet the registry screens Monad mainnet's tokens, so testnet's own
  * tokens are never screened; there, a token the registry does not track has no screen to apply,
  * as on a stack with no registry. Everywhere else the screen always applies.
+ * CO-U1 (2026-10-15): a testnet's own wrapped native stand-in (the book's wmon entry) is never
+ * held to the market chain's screen, even when the registry tracks the same address: Base
+ * Sepolia's WETH predeploy shares Base mainnet's 0x4200...0006, which has no screen there, so
+ * every buy held SCREEN_STALE.
  */
 export function screenApplies(
   tradingChainId: number,
   registryChainId: number,
   trackedByRegistry: boolean,
+  testnetStandIn = false,
 ): boolean {
   if (TESTNET_CHAIN_IDS.includes(tradingChainId) && registryChainId !== tradingChainId)
-    return trackedByRegistry;
+    return trackedByRegistry && !testnetStandIn;
   return true;
+}
+
+/** The testnet's wrapped native stand-in (the address book's wmon entry), or null off testnet. */
+function testnetWrappedNative(tradingChainId: number): Hex | null {
+  if (!TESTNET_CHAIN_IDS.includes(tradingChainId)) return null;
+  const entry = addressEntry("testnet", "wmon");
+  return entry.status === "verified" ? (entry.address as Hex) : null;
 }

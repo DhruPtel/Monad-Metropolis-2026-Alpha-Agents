@@ -689,4 +689,12 @@ describe("RUN-FIX: the market chain's screen on Monad testnet", () => {
     expect(screenApplies(143, 143, false)).toBe(true);
     expect(screenApplies(8_453, 8_453, false)).toBe(true);
   });
+
+  it("CO-U1: never holds a testnet's wrapped native stand-in to the market chain's screen", () => {
+    // Base Sepolia's WETH shares Base mainnet's address, which the Base registry tracks.
+    expect(screenApplies(84_532, 8_453, true, true)).toBe(false);
+    // Any other tracked token keeps its screen on testnet, and the stand-in flag changes nothing off testnet.
+    expect(screenApplies(84_532, 8_453, true, false)).toBe(true);
+    expect(screenApplies(8_453, 8_453, true, true)).toBe(true);
+  });
 });
