@@ -268,6 +268,8 @@ export interface OrchestratorOptions {
     readonly profile?: TradingProfile;
     /** MON's real USD price (18 decimals) for a leg's gas under a profile that counts it. */
     readonly gasMonUsdE18?: (() => Promise<bigint | null>) | null;
+    /** CO-U1: MON's volatility when the reading is missing (testnet stacks only). */
+    readonly fallbackVolatility24hPct?: number | null;
   } | null;
   /**
    * F-U1: the token registry. Discovery runs every `discoverEveryMs` and
@@ -554,6 +556,7 @@ export class Orchestrator {
             volatility24hPct: options.runner.volatility24hPct,
             ...(options.runner.profile ? { profile: options.runner.profile } : {}),
             gasMonUsdE18: options.runner.gasMonUsdE18 ?? null,
+            fallbackVolatility24hPct: options.runner.fallbackVolatility24hPct ?? null,
             // F-U6: a target portfolio runs on the fund agent's set, with the platform's screens.
             readerV3: options.chain?.readerV3 ?? null,
             screenFresh: (token) => this.screenFresh(token),

@@ -257,6 +257,9 @@ describe.skipIf(!dbUp)(
         profile?: TradingProfile;
         gasMonUsdE18?: () => Promise<bigint | null>;
         gasWei?: bigint;
+        volatility?: number | null;
+        fallbackVolatility?: number | null;
+        log?: (line: string) => void;
       } = {},
     ) =>
       new TemplateRunner({
@@ -269,7 +272,8 @@ describe.skipIf(!dbUp)(
         trades,
         intents: new PgIntentStore(store),
         sessionKeyOf: async () => KEY,
-        volatility24hPct: async () => 110,
+        volatility24hPct: async () => (over.volatility === undefined ? 110 : over.volatility),
+        fallbackVolatility24hPct: over.fallbackVolatility ?? null,
         volatilityOf: async () => null,
         screenFresh: async (token) => screens[token.toLowerCase()] ?? null,
         gas:
@@ -283,7 +287,7 @@ describe.skipIf(!dbUp)(
             narrated.push({ key, facts });
           },
         },
-        log: () => undefined,
+        log: over.log ?? (() => undefined),
       });
 
     const goal = () => {
@@ -380,6 +384,58 @@ describe.skipIf(!dbUp)(
       // The leg is capped at the plan's largest leg, 10% of the account's value.
       expect(i1?.amountIn).toBeLessThanOrEqual(10_000_000n);
       expect(i1?.amountIn).toBeGreaterThanOrEqual(500_000n);
+    });
+
+    it("CO-U1: a missing MON volatility holds the buy, unless the testnet fallback is set: then it buys, with a warning", async () => {
+      await saveGoal();
+      await plans.set({
+        chainId: CHAIN,
+        agentId: 1,
+        template: "rebalance_bands@1",
+        params: {
+          targetWmonBps: 2_000,
+          bandHalfWidthBps: 500,
+          minTradeUsdcE6: 500_000n,
+          volatilityBrakeBps: 20_000,
+          costHurdleBps: 40,
+          maxLegBps: 1_000,
+        },
+        setBy: "console",
+      });
+      await arm();
+      const [held] = await runner({ volatility: null }).tick();
+      expect(held).toMatchObject({ outcome: "hold", code: "VOLATILITY_UNAVAILABLE" });
+      const lines: string[] = [];
+      const [leg] = await runner({
+        volatility: null,
+        fallbackVolatility: 100,
+        log: (l) => lines.push(l),
+      }).tick();
+      expect(leg).toMatchObject({ outcome: "leg", leg: { sell: "USDC", buy: "WMON" } });
+      expect(
+        lines.some((l) => /warning: MON's volatility could not be read; using 100%/.test(l)),
+      ).toBe(true);
+    });
+
+    it("CO-U1: the fallback never lifts the brake: a fallback above the plan's brake still holds", async () => {
+      await saveGoal();
+      await plans.set({
+        chainId: CHAIN,
+        agentId: 1,
+        template: "rebalance_bands@1",
+        params: {
+          targetWmonBps: 2_000,
+          bandHalfWidthBps: 500,
+          minTradeUsdcE6: 500_000n,
+          volatilityBrakeBps: 5_000,
+          costHurdleBps: 40,
+          maxLegBps: 1_000,
+        },
+        setBy: "console",
+      });
+      await arm();
+      const [d] = await runner({ volatility: null, fallbackVolatility: 100 }).tick();
+      expect(d).toMatchObject({ outcome: "hold", code: "VOLATILITY_BRAKE" });
     });
 
     const smallBandPlan = async () => {

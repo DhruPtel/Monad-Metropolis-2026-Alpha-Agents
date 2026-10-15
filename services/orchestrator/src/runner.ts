@@ -130,6 +130,12 @@ export interface TemplateRunnerOptions {
   readonly sessionKeyOf: (agentId: number) => Promise<Hex | null>;
   /** MON's annualized 24-hour realized volatility in percent, or null when it cannot be read. */
   readonly volatility24hPct: () => Promise<number | null>;
+  /**
+   * CO-U1 (testnet stacks only): MON's volatility, annualized percent, used when the reading is
+   * missing, so a buy goes ahead with a logged warning instead of holding VOLATILITY_UNAVAILABLE.
+   * Unset (mainnet and the beta), a missing reading still holds buys.
+   */
+  readonly fallbackVolatility24hPct?: number | null;
   /** F-U6: another token's 24-hour volatility, or null without a reading; WMON's comes from `volatility24hPct`. */
   readonly volatilityOf?: ((token: Hex, symbol: string) => Promise<number | null>) | null;
   /** F-U6: whether a passing screen no older than the platform's bound exists for the token; null when unknown. */
@@ -294,7 +300,7 @@ export class TemplateRunner {
 
     const params = withTradingProfile(plan.params, this.profile);
     const priceE18 = m.monUsd.priceE18 > 0n ? m.monUsd.priceE18 : null;
-    const volatility = await this.o.volatility24hPct().catch(() => null);
+    const volatility = await this.monVolatility(plan.agentId);
     let d: TemplateDecision = REBALANCE_BANDS_V1.plan(params, {
       usdcRaw: a.usdc,
       wmonRaw: a.wmon,
@@ -573,9 +579,20 @@ export class TemplateRunner {
     });
   }
 
+  /** MON's reading, or the testnet fallback with a warning when it is missing (CO-U1). */
+  private async monVolatility(agentId: number | null): Promise<number | null> {
+    const reading = await this.o.volatility24hPct().catch(() => null);
+    const fallback = this.o.fallbackVolatility24hPct ?? null;
+    if (reading !== null || fallback === null) return reading;
+    this.o.log(
+      `runner${agentId === null ? "" : `: agent ${agentId}`}: warning: MON's volatility could not be read; using ${fallback}% annualized (testnet fallback) instead of holding buys`,
+    );
+    return fallback;
+  }
+
   /** A token's 24-hour volatility: MON's reading for WMON, the per-token source for the rest. */
   private async volatilityOf(token: Hex, symbol: string, wmon: Hex): Promise<number | null> {
-    if (isAddressEqual(token, wmon)) return this.o.volatility24hPct().catch(() => null);
+    if (isAddressEqual(token, wmon)) return this.monVolatility(null);
     const source = this.o.volatilityOf;
     return source ? source(token, symbol).catch(() => null) : null;
   }

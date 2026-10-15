@@ -679,6 +679,9 @@ const orchestrator = new Orchestrator({
     // never on mainnet or the beta. Gas is priced at MON's real price, mainnet Chainlink MON/USD,
     // since the testnet feed's MON price is not a market price.
     profile: tradingProfileFor(env.id),
+    // CO-U1 (owner): on the testnet stacks a missing MON volatility reading defaults to 100%
+    // annualized, with a warning, and buys go ahead; elsewhere it still holds them.
+    fallbackVolatility24hPct: env.id === "testnet" ? 100 : null,
     gasMonUsdE18: async () => {
       const f = (await market.oracleVsPool()).value.chainlinkMonUsd;
       if (f.value === null || f.warnings.some((w) => w.code === "STALE")) return null;
