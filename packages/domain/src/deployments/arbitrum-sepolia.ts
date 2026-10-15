@@ -1,14 +1,14 @@
 // Written by pnpm deploy:l2 arbitrum-sepolia (CO-U1); do not edit by hand.
 export const DEPLOYMENT = {
   chainId: 421614,
-  block: 319219681,
+  block: 319283424,
   contracts: {
     usdc: {
       address: "0xB9f81f8aD949Ed369f56003Da3d98d097224Ebda",
       codeSize: 2149,
     },
     agent_nft: {
-      address: "0x6Fbf9065B5aE69a9618F898ba6A89C9c0b1397db",
+      address: "0x72852661A5c857bFb519b1141f70dAb7EccBF7c5",
       codeSize: 5241,
     },
     uniswap_v3_pool_usdc_weth_500: {
@@ -24,27 +24,27 @@ export const DEPLOYMENT = {
       codeSize: 6135,
     },
     executor_v3: {
-      address: "0x6774Bd3d2fEfF7Af1c0F0C92781FDE108fAd7bD6",
+      address: "0x464d4A70B5c83610Ffa94194f680afDdD37871C7",
       codeSize: 24139,
     },
     executor_route_adapter_v3: {
-      address: "0x4879d324e300dC32230BdaC985cbfF0a05c940a2",
+      address: "0xc3B66bb9a0Ef70a8519Fa0Cd5F4980a8e9145B9c",
       codeSize: 6135,
     },
     protocol_registry_v3: {
-      address: "0x61404cE7DBdBF5fA4d08d1afd399AEd77B30436c",
+      address: "0xb70b4B1E4B1457cc5D83e16e700dBa57Cae6d198",
       codeSize: 11478,
     },
     oracle_adapter_v3: {
-      address: "0x90361606Af8A366bc1489920f0e3d3b4e0d98aC4",
+      address: "0x3fe68be706a486ce9fc75f97734Cc6e8004013d8",
       codeSize: 5286,
     },
     account_factory_v3: {
-      address: "0xfC835eb947F2a4b33bfE702ea2129b21566CB12E",
+      address: "0x116578F7B579C8ceCC0D5135B8E900fcfb7f1c92",
       codeSize: 7056,
     },
     personal_account_v3_implementation: {
-      address: "0xAEa5C65231e976c95681D82eB19fBd6bDb6871E9",
+      address: "0x43D4fe98751596338b52d224C066D64ff5bB345F",
       codeSize: 22344,
     },
   },
