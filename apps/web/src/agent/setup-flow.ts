@@ -41,17 +41,13 @@ export function setupSteps(
   const order: readonly SetupStepKey[] = ["open", "deposit", "goal", "turnOn"];
   const nextKey = order.find((k) => !done[k]) ?? null;
   const stateOf = (k: SetupStepKey): SetupStepView["state"] =>
-    done[k]
-      ? "done"
-      : k !== nextKey
-        ? "later"
-        : k === "open" && !f.allowlisted
-          ? "blocked"
-          : "next";
-  // The next step carries its action; a blocked first step carries it too, disabled by the page,
-  // so the owner sees what comes after the platform adds the wallet.
+    done[k] ? "done" : k !== nextKey ? "later" : "next";
+  // The next step carries its action. CO-U1 (owner, 2026-10-15): the allowlist never blocks
+  // opening an account (the factory checks it on deposits only); while the registrar adds the
+  // wallet, the open and deposit steps say so and the page's poll picks the change up.
   const actionOf = (k: SetupStepKey): ReactNode =>
-    stateOf(k) === "next" || stateOf(k) === "blocked" ? (actions[k] ?? undefined) : undefined;
+    stateOf(k) === "next" ? (actions[k] ?? undefined) : undefined;
+  const waiting = (text: string) => (f.allowlisted ? text : `${text} ${ALLOWLIST_WAIT_MESSAGE}`);
   return [
     {
       key: "open",
@@ -59,11 +55,11 @@ export function setupSteps(
       state: stateOf("open"),
       detail: done.open
         ? "Open. Only you can withdraw from it; the agent trades it within its hard limits."
-        : !f.allowlisted
-          ? ALLOWLIST_WAIT_MESSAGE
-          : f.custody === "v3"
-            ? "Your wallet creates an account on the fund agent's set. Only you can withdraw from it, at any time."
-            : "Your wallet creates the account. Only you can withdraw from it, at any time.",
+        : waiting(
+            f.custody === "v3"
+              ? "Your wallet creates an account on the fund agent's set. Only you can withdraw from it, at any time."
+              : "Your wallet creates the account. Only you can withdraw from it, at any time.",
+          ),
       action: actionOf("open"),
     },
     {
@@ -72,9 +68,11 @@ export function setupSteps(
       state: stateOf("deposit"),
       detail: done.deposit
         ? `${usdc(value)} USDC in the account.`
-        : f.hasAccount && value > 0n
-          ? `${usdc(value)} USDC in the account; at least ${usdc(MIN_TRADING_USDC_E6)} USDC gives the agent something to trade.`
-          : `At least ${usdc(MIN_TRADING_USDC_E6)} USDC in the account gives the agent something to trade. Your wallet approves exactly the amount, then deposits it.`,
+        : waiting(
+            f.hasAccount && value > 0n
+              ? `${usdc(value)} USDC in the account; at least ${usdc(MIN_TRADING_USDC_E6)} USDC gives the agent something to trade.`
+              : `At least ${usdc(MIN_TRADING_USDC_E6)} USDC in the account gives the agent something to trade. Your wallet approves exactly the amount, then deposits it.`,
+          ),
       action: actionOf("deposit"),
     },
     {

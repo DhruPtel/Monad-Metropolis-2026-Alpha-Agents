@@ -152,7 +152,7 @@ export function OverviewPage({
     },
     {
       open: (
-        <Button size="sm" disabled={!allowlisted || acting} onClick={pf.openAccount}>
+        <Button size="sm" disabled={acting} onClick={pf.openAccount}>
           Open trading account
         </Button>
       ),
@@ -375,7 +375,11 @@ export function OverviewPage({
                 creates it; only you can withdraw from it, at any time.
               </p>
               {allowlisted ? null : (
-                <p role="alert" className="text-sm text-warning" data-testid="allowlist-block">
+                <p
+                  role="status"
+                  className="text-sm text-foreground-muted"
+                  data-testid="allowlist-block"
+                >
                   {ALLOWLIST_WAIT_MESSAGE}
                 </p>
               )}

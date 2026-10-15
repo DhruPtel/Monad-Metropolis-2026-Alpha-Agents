@@ -1,5 +1,6 @@
 import { lockWords, lockupWords, whenUtc } from "@alpha-agents/ui";
 import type { VaultJson } from "@/api/client";
+import { ALLOWLIST_WAIT_MESSAGE } from "./custody";
 
 /**
  * The vault page's decisions (P7-U4), pure so tests drive every state: what
@@ -42,8 +43,7 @@ export const VAULT_DEPOSIT_BLOCK_MESSAGES: Readonly<Record<VaultDepositBlock, st
   PAUSED: "The vault is paused, so it takes no deposits. Withdrawals still work.",
   DEPOSITS_CLOSED: "A tightener closed deposits to this vault. Withdrawals still work.",
   DEPOSITS_NOT_OPEN: "The leader has not opened deposits yet.",
-  NOT_ALLOWLISTED:
-    "Your wallet is not yet allowed to deposit during the beta, so the vault would refuse this deposit. Ask the platform to add it, then try again.",
+  NOT_ALLOWLISTED: ALLOWLIST_WAIT_MESSAGE,
   PUBLIC_DEPOSITS_OFF:
     "Until the launch decision, only wallets the platform has allowed may deposit into a vault, and yours is not yet one of them. Ask the platform to add it, then try again.",
   USDC_PRICE_UNAVAILABLE: "The USDC price is unusable right now, so the vault takes no deposits.",

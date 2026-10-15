@@ -255,7 +255,7 @@ describe("the report's decision (2026-10-13)", () => {
     };
     const testnet = reportView(withMain, "Agent #4", "testnet");
     expect(testnet?.mainDecision?.positions.map((x) => x.symbol)).toEqual(["WETH", "USDC"]);
-    expect(testnet?.testnet).toEqual({ executesAs: "WMON 30%." });
+    expect(testnet?.testnet).toEqual({ network: "Monad Testnet", executesAs: "WMON 30%." });
     expect(reportView(withMain, "Agent #4", "beta")?.testnet).toBeNull();
     expect(reportView(report, "Agent #4", "testnet")?.testnet).toBeNull();
   });

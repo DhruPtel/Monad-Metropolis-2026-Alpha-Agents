@@ -120,7 +120,7 @@ export const GRANT_ABI = parseAbi([
  * depositor registrar (scripts/testnet-depositors.js) adds every agent owner within a minute,
  * and the page's poll picks the change up by itself.
  */
-export const ALLOWLIST_WAIT_MESSAGE = "Your wallet is being enabled for deposits, about a minute.";
+export const ALLOWLIST_WAIT_MESSAGE = "Enabling deposits for your wallet, about a minute.";
 
 /** Owner-facing text for each custody revert. */
 export const CUSTODY_REVERT_MESSAGES: Readonly<Record<string, string>> = {

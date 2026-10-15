@@ -78,7 +78,7 @@ describe("portfolio components (P2-U7)", () => {
     expect(caps.textContent).toContain("250.00 of 2,000.00 USDC");
     expect(caps.textContent).toContain("Room for up to 60.00");
     // UI-U1: plain words, what it means and what to do.
-    expect(caps.textContent).toContain("Not yet allowed to deposit (beta): ask the platform");
+    expect(caps.textContent).toContain("Enabling deposits for your wallet, about a minute");
   });
 
   it("gives the arming card's states, expiry, renewal reminder and why arming ended", () => {

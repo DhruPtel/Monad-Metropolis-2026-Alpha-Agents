@@ -222,7 +222,7 @@ function CapsPanel({ caps: c, className }: { caps: CapsView; className?: string 
       <p className="flex flex-wrap items-center gap-1 text-sm text-foreground-muted">
         Room for up to {usdc(c.roomUsdc)} more.
         {c.allowlisted ? null : (
-          <Badge tone="warning">Not yet allowed to deposit (beta): ask the platform</Badge>
+          <Badge tone="detail">Enabling deposits for your wallet, about a minute</Badge>
         )}
       </p>
     </section>

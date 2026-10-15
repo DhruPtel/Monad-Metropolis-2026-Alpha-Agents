@@ -130,10 +130,10 @@ test.describe("every state, captured and scanned", () => {
     const card = main(page).getByTestId("open-account");
     // UI-U1: plain words, what it means and what to do, and the step blocked in the setup flow.
     await expect(card.getByTestId("allowlist-block")).toContainText(
-      "Your wallet is being enabled for deposits, about a minute.",
+      "Enabling deposits for your wallet, about a minute.",
     );
     await expect(main(page).getByRole("button", { name: "Open trading account" })).toBeDisabled();
-    await expect(card.getByTestId("caps")).toContainText("Not yet allowed to deposit");
+    await expect(card.getByTestId("caps")).toContainText("Enabling deposits for your wallet");
     await expect(main(page).locator('[data-testid=setup-step][data-step="open"]')).toHaveAttribute(
       "data-state",
       "blocked",

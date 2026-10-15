@@ -3783,7 +3783,7 @@ const OWNER_STEPS_BLOCKED = [
     key: "open",
     title: "Open a trading account",
     state: "blocked" as const,
-    detail: "Your wallet is being enabled for deposits, about a minute.",
+    detail: "Enabling deposits for your wallet, about a minute.",
   },
   ...OWNER_STEPS_NEXT.slice(1).map((s) => ({ ...s, state: "later" as const, action: undefined })),
 ];

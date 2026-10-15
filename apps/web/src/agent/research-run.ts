@@ -1,4 +1,5 @@
 import type { StoredReportJson, TerminalEventJson } from "@/api/client";
+import { WRAPPED_NATIVE } from "./wrapped-native";
 
 /**
  * UI-FAST: one research run, read from its terminal events (the platform's
@@ -253,13 +254,16 @@ export function phases(
       );
     } else if (p.id === "zoom") {
       const decision = has("Decision:");
-      const target = texts.map((t) => /WMON at the (\d+)% target/.exec(t)?.[1]).find(Boolean);
+      const target = texts
+        .map((t) => /(?:WMON|WETH) at the (\d+)% target/.exec(t)?.[1])
+        .find(Boolean);
       const why = has("Why this much is invested:");
       if (decision?.startsWith("Decision: no change"))
         summary.push(
           `Kept the plan as it is${/limits bind/.test(decision) ? ": its limits allow no change" : ""}.`,
         );
-      else if (target) summary.push(`Chose WMON at ${target}% of the account, the rest in USDC.`);
+      else if (target)
+        summary.push(`Chose ${WRAPPED_NATIVE} at ${target}% of the account, the rest in USDC.`);
       else if (decision) summary.push(plain(decision.replace(/^Decision:\s*/, "Decided to ")));
       if (why) summary.push(plain(`Why: ${clause(rest(why, "Why this much is invested:"))}`));
     } else if (p.id === "test") {

@@ -21,12 +21,16 @@ describe("setupSteps (UI-U1)", () => {
     expect(steps[0]?.detail).toContain("fund agent's set");
   });
 
-  it("names the allowlist in plain words and blocks the first step, which keeps its action for the page to disable", () => {
+  it("never blocks opening an account on the allowlist, and says the wallet is being enabled", () => {
     const steps = setupSteps(facts({ allowlisted: false }), ACTIONS);
-    expect(steps[0]?.state).toBe("blocked");
+    expect(steps[0]?.state).toBe("next");
     expect(steps[0]?.action).toBe("open");
     expect(steps.slice(1).map((s) => s.action)).toEqual([undefined, undefined, undefined]);
-    expect(steps[0]?.detail).toBe("Your wallet is being enabled for deposits, about a minute.");
+    expect(steps[0]?.detail).toContain("Enabling deposits for your wallet, about a minute.");
+    expect(
+      setupSteps(facts({ allowlisted: false, hasAccount: true, valueUsdcE6: 0n }), ACTIONS)[1]
+        ?.detail,
+    ).toContain("Enabling deposits");
   });
 
   it("moves to the deposit once the account is open, and counts 5 USDC as enough", () => {

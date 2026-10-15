@@ -114,7 +114,7 @@ export interface ReportView {
     }[];
   } | null;
   /** On a test network: how the plan actually executes there, beside the main decision. */
-  readonly testnet?: { readonly executesAs: string } | null;
+  readonly testnet?: { readonly executesAs: string; readonly network?: string } | null;
   readonly references: readonly ReportReferenceView[];
   readonly stages: readonly {
     readonly label: string;
@@ -492,10 +492,12 @@ function ResearchReportDocument({
               className="flex flex-col gap-1 rounded-lg border border-warning p-4"
               data-testid="report-testnet"
             >
-              <span className="text-xs font-semibold tracking-wide uppercase">Monad testnet</span>
+              <span className="text-xs font-semibold tracking-wide uppercase">
+                {view.testnet.network ?? "Monad testnet"}
+              </span>
               <p className="text-sm">
-                On Monad testnet these tokens don&apos;t exist, so this plan executes as:{" "}
-                {view.testnet.executesAs}
+                On {view.testnet.network ?? "Monad testnet"} these tokens don&apos;t exist, so this
+                plan executes as: {view.testnet.executesAs}
               </p>
               <p className="text-sm text-foreground-muted">
                 On mainnet it would buy the main decision above.

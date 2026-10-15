@@ -17,6 +17,7 @@ import type {
   WhyNotTradedJson,
 } from "@/api/client";
 import { DECIMALS } from "./portfolio";
+import { WRAPPED_NATIVE, wrappedLabel } from "./wrapped-native";
 
 /** UI-FAST: the Trading tab's words: the plan's moves, the sweep's line, the past trades. */
 
@@ -47,7 +48,7 @@ export function planMoves(p: ProposalJson, card?: PlanCardJson | null): PlanMove
       const now = was === null ? "" : ` (plan now ${pctText(was)})`;
       moves.push({
         side: was === null || target > was ? "Buy" : target < was ? "Sell" : "Hold",
-        symbol: "WMON",
+        symbol: WRAPPED_NATIVE,
         amount: `Target ${pctText(target)}${now}`,
         reason: view,
       });
@@ -106,10 +107,10 @@ export function tradeRows(intents: readonly IntentJson[]): TradeRowView[] {
     const at = i.settledAt ?? i.createdAt;
     return {
       id: i.intentId,
-      symbol: buying ? i.buy : i.sell.asset,
+      symbol: wrappedLabel(buying ? i.buy : i.sell.asset),
       side: buying ? "Buy" : "Sell",
       date: `${at.slice(0, 10)} ${at.slice(11, 16)}`,
-      amount: `${units(i.sell.amountRaw, i.sell.asset)} ${i.sell.asset}${out ? ` → ${units(out.amountRaw, i.buy)} ${i.buy}` : ""}`,
+      amount: `${units(i.sell.amountRaw, i.sell.asset)} ${wrappedLabel(i.sell.asset)}${out ? ` → ${units(out.amountRaw, i.buy)} ${wrappedLabel(i.buy)}` : ""}`,
       result: r.text,
       resultTone: r.tone,
     };
@@ -195,7 +196,7 @@ export function skipWords(
   plan: ProposalJson["plan"] | null,
 ): string {
   if (runner.code === "BELOW_MIN_TRADE" && plan?.targetWmonBps !== undefined && plan.minTradeUsdcE6)
-    return `Skipped: the trade back to ${pctText(plan.targetWmonBps)} WMON was below the ${usdcText(plan.minTradeUsdcE6)} minimum.`;
+    return `Skipped: the trade back to ${pctText(plan.targetWmonBps)} ${WRAPPED_NATIVE} was below the ${usdcText(plan.minTradeUsdcE6)} minimum.`;
   return `Skipped: ${runner.message.charAt(0).toLowerCase()}${runner.message.slice(1)}`;
 }
 
@@ -243,8 +244,8 @@ export function decisionRows(input: {
     rows.push({
       id: i.intentId,
       kind: "Trade",
-      token: buying ? i.buy : i.sell.asset,
-      detail: `${buying ? "Buy" : "Sell"} ${units(i.sell.amountRaw, i.sell.asset)} ${i.sell.asset}`,
+      token: wrappedLabel(buying ? i.buy : i.sell.asset),
+      detail: `${buying ? "Buy" : "Sell"} ${units(i.sell.amountRaw, i.sell.asset)} ${wrappedLabel(i.sell.asset)}`,
       summary: `${result}. ${i.reason}`,
       time: minute(at),
       at,
@@ -268,7 +269,7 @@ export function decisionRows(input: {
     rows.push({
       id: `runner-${r.since}`,
       kind: "Skipped",
-      token: plan?.targetWmonBps !== undefined ? "WMON" : null,
+      token: plan?.targetWmonBps !== undefined ? WRAPPED_NATIVE : null,
       detail: plan?.targetWmonBps !== undefined ? `Target ${pctText(plan.targetWmonBps)}` : null,
       summary: skipWords(r, plan),
       time: minute(r.lastAt),
@@ -305,7 +306,8 @@ export function planRows(
   const targetOf = (symbol: string): number | null => {
     const pos = p.positions.find((x) => x.symbol === symbol);
     if (pos) return pos.action === "EXIT" ? 0 : pos.targetWeightBps;
-    if (symbol === "WMON" && p.plan?.targetWmonBps !== undefined) return p.plan.targetWmonBps;
+    if (symbol === WRAPPED_NATIVE && p.plan?.targetWmonBps !== undefined)
+      return p.plan.targetWmonBps;
     if (symbol === "USDC") {
       if (p.plan?.cashTargetBps !== undefined) return p.plan.cashTargetBps;
       if (p.plan?.targetWmonBps !== undefined) return 10_000 - p.plan.targetWmonBps;

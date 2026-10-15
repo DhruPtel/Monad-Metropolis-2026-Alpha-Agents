@@ -1,3 +1,4 @@
+import { TESTNET_CHAIN } from "@alpha-agents/config";
 import type {
   ReportListItemView,
   ReportReferenceView,
@@ -6,6 +7,7 @@ import type {
   ReportView,
 } from "@alpha-agents/ui";
 import type { ReportJson, ReportListItemJson, StoredReportJson } from "@/api/client";
+import { wrappedLabel } from "./wrapped-native";
 
 /**
  * RP-U1: the stored report as the document shows it. Pure: the words are
@@ -172,9 +174,10 @@ export function reportView(
     testnet:
       environment === "testnet" && b.report.mainDecision
         ? {
+            network: TESTNET_CHAIN.name,
             executesAs:
               b.report.portfolio.positions.length > 0
-                ? `${b.report.portfolio.positions.map((x) => `${x.symbol} ${x.weight}`.trim()).join(", ")}.`
+                ? `${b.report.portfolio.positions.map((x) => `${wrappedLabel(x.symbol)} ${x.weight}`.trim()).join(", ")}.`
                 : "holding USDC.",
           }
         : null,
