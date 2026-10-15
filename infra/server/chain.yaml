@@ -82,7 +82,10 @@ services:
 
   orchestrator:
     <<: *app
-    command: ["node", "services/orchestrator/src/main.ts"]
+    # CO-U1: each stack's own sweep namespace (key aliases aa-co-<chain>-...), so no stack's
+    # startup sweep deletes another's gateway keys in the shared LiteLLM; never "testnet...",
+    # the Metropolis stack's prefix.
+    command: ["node", "services/orchestrator/src/main.ts", "--namespace=co-${CHAIN:?}"]
     mem_limit: 1536m
     healthcheck:
       <<: *app-health
