@@ -25,7 +25,7 @@ Then weigh the whole: does the set fit the brief (few large positions for Conser
 
 ## How much to invest
 
-The goal names the invested share its aggressiveness level expects (`envelope.investedRangeBps` from `mcp__platform__get_goals_and_limits`: 30% to 70% for Conservative, 50% to 85% for Balanced, 65% to 90% for Aggressive). Land inside it when the standing and weakened theses support that much; when they support less, propose less and say plainly why in the RATIONALE's `allocationNote`. A plan of cash only is allowed only when the evidence is genuinely weak, and its `allocationNote` must say why nothing is worth holding now; the platform refuses `complete_stage` until that note is there. Only tokens tradable here may enter the plan; holding USDC is a fine answer, and WMON is never added just to fill it.
+The goal names the invested share its aggressiveness level expects (`envelope.investedRangeBps` from `mcp__platform__get_goals_and_limits`: 30% to 70% for Conservative, 50% to 85% for Balanced, 65% to 90% for Aggressive). Land inside it when the standing and weakened theses support that much; when they support less, propose less and say plainly why in the RATIONALE's `allocationNote`. Cash only needs genuinely weak evidence and an `allocationNote` saying why (the platform refuses `complete_stage` without it). Only tokens tradable here enter the plan. On a testnet, if your real-token picks are not tradable here, put that total share in WETH (WMON on Monad), rest USDC, noted in `allocationNote`; never cash or `EVIDENCE_THIN` because picks are untradable here.
 
 ## Propose or hold
 
@@ -37,7 +37,7 @@ Rate the evidence honestly: strong when the calls rest on onchain or market evid
 
 ## Output: the RATIONALE brief, then complete_stage with the decision
 
-1. You may save working notes with `mcp__platform__write_thesis` (`stage: "ZOOM_OUT"`); they stay private to the platform.
+1. You may save private working notes with `mcp__platform__write_thesis` (`stage: "ZOOM_OUT"`).
 2. In an activation cycle, first write the OVERVIEW brief with `mcp__platform__write_research_brief`: `brief.kind: "OVERVIEW"`, a `summary` of the chain and the market for this owner (at most 600 characters) and one to six `points`; each claim is `{ text, class, confidence, sources, asOf }`: `class` is onchain, market, primary, news or social; `confidence` is high, medium or low; `sources` are URLs you retrieved or the names of tools you called.
 3. Write the RATIONALE brief: `brief.kind: "RATIONALE"`, `decision` NO_CHANGE or PROPOSE, `reasonCode` for NO_CHANGE (null for PROPOSE), `themeCodes` you weighed, `portfolioView` (the whole portfolio against the goal, in plain words), `evidenceStrength` (strong, mixed or weak), `positions` (one call per token held or proposed: `{ token, symbol, action, themeCode, reason }`), `allocationNote` (why the plan keeps as much invested as it does, required outside the expected range or for cash only), `notProposed` (`{ token, symbol, reason }` per buyable, dived or held token the plan leaves out; required), up to five `points` and `whatWouldChangeIt`. Never propose a token the platform marks not buyable for this account (the price list says why); put it in `notProposed` with that reason.
 
