@@ -34,7 +34,8 @@ export function fixtureFetch(o: { down?: readonly string[] } = {}) {
   const f: typeof fetch = async (input) => {
     const url = String(input);
     calls.push(url);
-    const name = ROUTES[url];
+    // CO-U1: a chart request names its end time; the fixture is the same.
+    const name = ROUTES[url.replace(/&end=\d+$/, "")];
     if (!name || o.down?.some((d) => url.includes(d))) return new Response("{}", { status: 503 });
     return new Response(JSON.stringify(fixture(name)), {
       status: 200,

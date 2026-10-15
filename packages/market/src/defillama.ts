@@ -19,6 +19,18 @@ export const LLAMA_URLS = {
   chart4h: `https://coins.llama.fi/chart/${MARKET_CHAIN.native.llamaCoin}?span=181&period=4h`,
 } as const;
 
+/**
+ * CO-U1: a price chart's URL with its end named. Without `end`, DefiLlama answers a long span
+ * from a cached window: for MON, 110 hourly points ending about 58 hours earlier (2026-10-15),
+ * so 24-hour volatility read as stale; with `end` it answers the latest points.
+ */
+export function llamaUrlNow(method: keyof typeof LLAMA_URLS, nowSeconds: number): string {
+  const url = LLAMA_URLS[method];
+  return method === "chartHourly" || method === "chart4h"
+    ? `${url}&end=${Math.floor(nowSeconds)}`
+    : url;
+}
+
 /** Freshness rules: TVL history is daily, so two days; the hourly price chart two hours. */
 export const LLAMA_MAX_AGE_SECONDS = {
   chainTvl: 2 * 86_400,

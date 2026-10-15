@@ -406,7 +406,7 @@ function market(
   const f: typeof fetch = async (input) => {
     const url = String(input);
     calls.push(url);
-    const name = routes[url];
+    const name = routes[url.replace(/&end=\d+$/, "")];
     return name ? json(fixture(name)) : new Response("{}", { status: 404 });
   };
   const refusals: Refusal[] = [];

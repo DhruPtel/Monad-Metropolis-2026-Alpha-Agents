@@ -12,6 +12,7 @@ import {
   type DexVolumes,
   LLAMA_MAX_AGE_SECONDS,
   LLAMA_URLS,
+  llamaUrlNow,
   type MonadProtocol,
   type MonadYield,
   chainTvl,
@@ -229,7 +230,7 @@ export class MarketData {
   private llama(method: keyof typeof LLAMA_URLS, ttl: keyof typeof MARKET_TTL_MS) {
     return this.cache.get(cacheKey("defillama", method), MARKET_TTL_MS[ttl], () =>
       getJson(
-        { provider: "defillama", url: LLAMA_URLS[method], timeoutMs: 30_000 },
+        { provider: "defillama", url: llamaUrlNow(method, this.ctx().now), timeoutMs: 30_000 },
         this.deps("defillama"),
       ),
     );
