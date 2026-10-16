@@ -14,6 +14,7 @@ import type {
   IntentJson,
   PlanCardJson,
   ProposalJson,
+  ProposalPositionJson,
   WhyNotTradedJson,
 } from "@/api/client";
 import { DECIMALS } from "./portfolio";
@@ -23,6 +24,21 @@ import { WRAPPED_NATIVE, wrappedLabel } from "./wrapped-native";
 
 const pctText = (bps: number) =>
   `${(bps / 100).toLocaleString("en-US", { maximumFractionDigits: 1 })}%`;
+
+/**
+ * 2026-10-15: a position's research line: the researched token a testnet stand-in carries
+ * ("WETH, 35%, executes as WMON on testnet") and the research's conviction; null for neither.
+ */
+export function positionNote(x: ProposalPositionJson): string | null {
+  const parts: string[] = [];
+  if (x.standInFor && x.action !== "EXIT")
+    parts.push(
+      `${x.standInFor.symbol}, ${pctText(x.targetWeightBps)}, executes as ${x.symbol} on testnet`,
+    );
+  if (typeof x.conviction === "number" && x.action !== "EXIT")
+    parts.push(`conviction ${x.conviction}`);
+  return parts.length > 0 ? parts.join(" · ") : null;
+}
 
 /**
  * The plan as moves, one per token: each proposed position (Buy to add, Sell to trim or exit,
@@ -38,7 +54,7 @@ export function planMoves(p: ProposalJson, card?: PlanCardJson | null): PlanMove
       side: x.action === "ADD" ? "Buy" : x.action === "HOLD" ? "Hold" : "Sell",
       symbol: x.symbol,
       amount: x.action === "EXIT" ? `Sell all${now}` : `Target ${pctText(x.targetWeightBps)}${now}`,
-      reason: x.thesis ?? x.reason,
+      reason: [positionNote(x), x.thesis ?? x.reason].filter(Boolean).join(". "),
     };
   });
   if (p.positions.length === 0 && p.plan) {
@@ -341,7 +357,9 @@ export function planRows(
           : currentBps < targetBps
             ? "Buy"
             : "Sell";
-    return { symbol: m.symbol, side, targetBps, currentBps };
+    const pos = p.positions.find((x) => x.symbol === m.symbol);
+    const note = pos ? positionNote(pos) : null;
+    return { symbol: m.symbol, side, targetBps, currentBps, ...(note ? { note } : {}) };
   });
 }
 

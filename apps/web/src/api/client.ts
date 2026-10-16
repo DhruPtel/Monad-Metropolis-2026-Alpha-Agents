@@ -377,6 +377,10 @@ export interface ProposalPositionJson {
   };
   readonly verdict: "STANDS" | "WEAKENED" | "REJECTED" | null;
   readonly reason: string;
+  /** 2026-10-15: the research's conviction, 0 to 100; absent on older proposals. */
+  readonly conviction?: number | null;
+  /** 2026-10-15: on a testnet, the researched token this stand-in carries. */
+  readonly standInFor?: { readonly token: string | null; readonly symbol: string } | null;
 }
 
 export interface ProposalJson {

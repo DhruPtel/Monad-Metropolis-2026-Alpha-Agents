@@ -15,6 +15,7 @@ import {
   runLabel,
   planMoves,
   planRows,
+  positionNote,
   skipWords,
   tradeRows,
   tradesInFlight,
@@ -501,5 +502,24 @@ describe("a plan's side from the account's share (2026-10-13)", () => {
       planRows(proposal(1_000), card, rows(3_000)).find((r) => r.symbol === "WMON")?.side,
     ).toBe("Sell");
     expect(planIsMet(planRows(proposal(3_000), card, rows(1_000)))).toBe(false);
+  });
+
+  it("says which researched token a testnet stand-in carries, and the research's conviction (2026-10-15)", () => {
+    const pos = (over: object) =>
+      ({
+        token: "0x1",
+        symbol: "WMON",
+        targetWeightBps: 3_500,
+        action: "ADD",
+        ...over,
+      }) as never;
+    expect(positionNote(pos({ standInFor: { token: null, symbol: "WETH" }, conviction: 72 }))).toBe(
+      "WETH, 35%, executes as WMON on testnet · conviction 72",
+    );
+    expect(positionNote(pos({ conviction: 40 }))).toBe("conviction 40");
+    expect(positionNote(pos({}))).toBeNull();
+    expect(
+      positionNote(pos({ action: "EXIT", standInFor: { token: null, symbol: "WETH" } })),
+    ).toBeNull();
   });
 });

@@ -410,6 +410,8 @@ export interface PlanRowView {
   readonly targetBps: number | null;
   /** The account's share now, basis points; null when unknown. */
   readonly currentBps: number | null;
+  /** 2026-10-15: "WETH, 35%, executes as WMON on testnet · conviction 72"; null for none. */
+  readonly note?: string | null;
 }
 
 const SIDE_TONE = { Buy: "positive", Sell: "negative", Hold: "neutral" } as const;
@@ -487,6 +489,14 @@ function PlanSummaryCard({
                   <span className="text-foreground">{bpsText(r.currentBps)}</span> now ·{" "}
                   <span className="text-foreground">{bpsText(r.targetBps)}</span> target
                 </span>
+                {r.note ? (
+                  <span
+                    className="col-span-2 col-start-2 text-foreground-muted"
+                    data-testid="plan-row-note"
+                  >
+                    {r.note}
+                  </span>
+                ) : null}
                 <div
                   className="col-span-3 h-1 overflow-hidden rounded-full bg-surface-overlay"
                   aria-hidden
