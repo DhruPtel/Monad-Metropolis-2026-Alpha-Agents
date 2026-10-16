@@ -132,16 +132,16 @@
       "expect": ["COST_HURDLE"]
     },
     {
-      "name": "a position over the envelope's cap",
+      "name": "a position over the deploy's cap (the registry's 45%)",
       "positions": [
         {
           "token": "0x00000000000000000000000000000000000000c2",
-          "targetWeightBps": 4500
+          "targetWeightBps": 5000
         }
       ],
       "expect": ["ENVELOPE_POSITION"],
       "over": {
-        "cashTargetBps": 5500
+        "cashTargetBps": 5000
       }
     },
     {

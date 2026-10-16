@@ -8,7 +8,6 @@ import {
   OWNER_LIMIT_FIELDS,
   isLegacyGoalInput,
   migrateLegacyGoalInput,
-  AGGRESSIVENESS_ENVELOPES,
   laneSentence,
 } from "@alpha-agents/domain";
 import {
@@ -17,7 +16,7 @@ import {
   canonicalJson,
   hardGoalLimits,
   translateGoal,
-  withCurrentPreset,
+  currentBrief,
 } from "@alpha-agents/policy";
 import { type Hex, formatUnits, getAddress } from "viem";
 
@@ -395,21 +394,19 @@ export function goalsAndLimitsJson(view: AgentGoalView, live: LiveGoalLimits | n
             planChanges: c.planChanges.mode,
           }
         : null,
-    brief: c
-      ? briefOnChain(withCurrentPreset(c.brief, c.aggressiveness), live?.screenedOptIn ?? null)
-      : null,
+    brief:
+      view.goal && c
+        ? briefOnChain(currentBrief(c.brief, view.goal.goal), live?.screenedOptIn ?? null)
+        : null,
     envelope: c
       ? {
+          // 2026-10-16 (owner): no invested range, stablecoin minimum or one-token cap by style;
+          // the weights and the cash are the agent's, within the deployed contracts' limits.
           classAAllowed: c.envelope.classAAllowed,
-          maxPositionBps: c.envelope.maxPositionBps,
           maxClassAPositionBps: c.envelope.maxClassAPositionBps,
           maxClassATotalBps: c.envelope.maxClassATotalBps,
-          // 2026-10-15: the level's current preset, as the Test enforces it.
-          minStableBps: AGGRESSIVENESS_ENVELOPES[c.aggressiveness].minStableBps,
           maxPositions: c.envelope.maxPositions,
           reviewTriggerBps: c.envelope.reviewTriggerBps,
-          // 2026-10-15: the level's current range, whatever range the goal was saved under.
-          investedRangeBps: AGGRESSIVENESS_ENVELOPES[c.aggressiveness].investedRangeBps,
         }
       : null,
     plan: c

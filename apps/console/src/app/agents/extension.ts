@@ -147,10 +147,8 @@ export interface PlanView {
     readonly envelope?: {
       readonly label: string;
       readonly classAAllowed: boolean;
-      readonly maxPositionBps: number;
       readonly maxClassAPositionBps: number;
       readonly maxClassATotalBps: number;
-      readonly minStableBps: number;
       readonly maxPositions: number;
     } | null;
   } | null;

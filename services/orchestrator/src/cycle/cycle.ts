@@ -1,4 +1,4 @@
-import { withCurrentPreset } from "@alpha-agents/policy";
+import { currentSoulBlock } from "@alpha-agents/policy";
 import type { GoalStore, PlanStore } from "@alpha-agents/trading";
 import { isBandsPlan, isPortfolioPlan } from "@alpha-agents/trading";
 import type { CreditService } from "../credits/service.ts";
@@ -227,7 +227,7 @@ export async function runCycleTask(ctx: CycleContext, taskId: string): Promise<v
           (stored: AgentConfig) => {
             const config = cycleConfig(stored, {
               kind: replay ? replay.cycle.kind : cycle.kind,
-              goalBlock: withCurrentPreset(goal.soulBlock, goal.config.aggressiveness),
+              goalBlock: currentSoulBlock(goal.soulBlock, goal.goal),
               canary: cycle.canary,
             });
             // A replay's sandbox gets the SOUL.md the original cycle had, with its own marker.
@@ -583,6 +583,9 @@ class Engine {
   }
 
   /** The deterministic Test (D-282): the envelope the Zoom out may change the plan within. */
+  /** 2026-10-16: the deployed contracts' limits the Test read, told to the Zoom out up front. */
+  private contractFacts: string | null = null;
+
   private async testStage(): Promise<void> {
     this.seq += 1;
     const run = await this.ctx.cycles.addStage({
@@ -604,6 +607,7 @@ class Engine {
       const portfolio = inputsV2
         ? portfolioEnvelope(plan && isPortfolioPlan(plan) ? plan.params : null, inputsV2)
         : null;
+      this.contractFacts = portfolio?.contractFacts ?? null;
       await this.ctx.cycles.endStage(run.stageRunId, null, {
         status: "completed",
         stopReason: "COMPLETED",
@@ -680,6 +684,7 @@ class Engine {
         caps,
         ceilingUsdcE6: ceiling,
         diveThemes,
+        contractFacts: stage === "ZOOM_OUT" ? this.contractFacts : null,
       })}${ownerSkillsPrompt(this.sbx.ownerSkills)}`;
     await this.ctx.cycles.setPrompt(run.stageRunId, prompt);
     let end: StageEnd;

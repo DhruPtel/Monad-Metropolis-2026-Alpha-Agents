@@ -17,7 +17,6 @@ import {
   AGGRESSIVENESS_ENVELOPES,
   type Aggressiveness,
   type AggressivenessEnvelope,
-  isStableSymbol,
 } from "@alpha-agents/domain";
 import {
   type TargetPortfolioParams,
@@ -342,7 +341,6 @@ export async function checkPortfolioProposal(
       message: `A ${env.label} plan holds at most ${env.maxPositions} positions, not ${p.positions.length}.`,
     });
   let classATotal = 0;
-  let stable = p.cashTargetBps;
   const sized: {
     token: Hex;
     symbol: string;
@@ -380,7 +378,6 @@ export async function checkPortfolioProposal(
         field: `${f}.token`,
         message: `${name} is in no lane of the registry.`,
       });
-    if (isStableSymbol(name)) stable += pos.targetWeightBps;
     if (token.priceClass === "A") {
       classATotal += pos.targetWeightBps;
       if (!env.classAAllowed)
@@ -402,12 +399,13 @@ export async function checkPortfolioProposal(
           message: `The Executor caps a class A position's cost basis at ${pctOf(policy.maxClassAPositionBps)} of the account; ${name} is ${pctOf(pos.targetWeightBps)}.`,
         });
     }
-    const cap = Math.min(env.maxPositionBps, token.maxPositionBps, policy.maxAssetBps);
+    // 2026-10-16 (owner): the deployed contracts' cap only (the registry's and the Executor's).
+    const cap = Math.min(token.maxPositionBps, policy.maxAssetBps);
     if (pos.targetWeightBps > cap)
       out.push({
         code: "ENVELOPE_POSITION",
         field: `${f}.targetWeightBps`,
-        message: `${name} may weigh at most ${pctOf(cap)} (the ${env.label} envelope, the registry's cap and the hard limit together); the plan says ${pctOf(pos.targetWeightBps)}.`,
+        message: `${name} may weigh at most ${pctOf(cap)} on this deploy (the registry's cap and the Executor's together); the plan says ${pctOf(pos.targetWeightBps)}.`,
       });
     const fresh = await t.screenFresh(token.token);
     if (fresh === false)
@@ -431,12 +429,6 @@ export async function checkPortfolioProposal(
       code: "ENVELOPE_CLASS_A_TOTAL",
       field: "positions",
       message: `A ${env.label} plan holds at most ${pctOf(env.maxClassATotalBps)} in class A tokens together; the plan says ${pctOf(classATotal)}.`,
-    });
-  if (stable < env.minStableBps)
-    out.push({
-      code: "ENVELOPE_STABLE",
-      field: "cashTargetBps",
-      message: `A ${env.label} plan keeps at least ${pctOf(env.minStableBps)} in stablecoins (USDC cash and stablecoin positions); the plan keeps ${pctOf(stable)}.`,
     });
   if (p.cashTargetBps < policy.minUsdcBps)
     out.push({
@@ -546,6 +538,11 @@ export function portfolioEnvelope(
   cooldownUntil: string | null;
   mayProposeNow: boolean;
   currentPositions: number;
+  /**
+   * 2026-10-16 (owner): the deployed contracts' limits in plain words, the only limits on the
+   * plan's weights and cash, told to the Zoom out up front so it plans within them.
+   */
+  contractFacts: string;
 } {
   const env = envelopeOf(t);
   const policy = t.market.policy;
@@ -571,7 +568,7 @@ export function portfolioEnvelope(
         class: x.priceClass,
         lane: x.lane,
         status: x.status,
-        capBps: Math.min(env.maxPositionBps, x.maxPositionBps, policy.maxAssetBps),
+        capBps: Math.min(x.maxPositionBps, policy.maxAssetBps),
         buyable:
           x.status === "BUYABLE" &&
           (x.lane === "CORE" || (x.lane === "SCREENED" && t.agent.screenedOptIn)) &&
@@ -580,5 +577,22 @@ export function portfolioEnvelope(
     cooldownUntil,
     mayProposeNow: cooldownUntil === null,
     currentPositions: current?.positions.length ?? 0,
+    contractFacts: contractFacts(t.market),
   };
+}
+
+/** "On this deploy: no single token above 40%; at least 5% stays in USDC; ..." */
+export function contractFacts(
+  m: Pick<TestInputsV2["market"], "tokens" | "usdc" | "policy">,
+): string {
+  const policy = m.policy;
+  const caps = m.tokens
+    .filter((x) => !isAddressEqual(x.token, m.usdc) && x.status === "BUYABLE")
+    .map((x) => ({ symbol: x.symbol, cap: Math.min(x.maxPositionBps, policy.maxAssetBps) }));
+  const one = new Set(caps.map((c) => c.cap));
+  const perToken =
+    caps.length === 0 || one.size === 1
+      ? `no single token above ${pctOf(caps[0]?.cap ?? policy.maxAssetBps)}`
+      : `no single token above its cap (${caps.map((c) => `${c.symbol} ${pctOf(c.cap)}`).join(", ")})`;
+  return `On this deploy: ${perToken}; at least ${pctOf(policy.minUsdcBps)} of the account stays in USDC; one trade moves at most ${pctOf(policy.maxTradeBps)} of the account (the runner splits a larger move into legs). These are the deployed contracts' limits and the only limits on how much you invest or hold in cash.`;
 }

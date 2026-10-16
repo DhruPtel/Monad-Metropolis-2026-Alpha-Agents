@@ -20,7 +20,8 @@ import {
   hardGoalLimits,
   ownerLimitRanges,
   translateGoal,
-  withCurrentPreset,
+  currentBrief,
+  currentSoulBlock,
 } from "./goals.ts";
 import { GOAL_LIMITS } from "./limits.ts";
 
@@ -49,7 +50,7 @@ describe("goal translator (P3-U1, F-U7)", () => {
     const c = ok(DEFAULT_GOAL_INPUT);
     expect(c.aggressiveness).toBe("BALANCED");
     expect(c.envelope).toEqual(AGGRESSIVENESS_ENVELOPES.BALANCED);
-    expect(c.brief).toContain("Hold large caps");
+    expect(c.brief).toContain("Grow the account with measured risk");
     expect(c.brief).toContain("has not opted into the screened lane");
     expect(c.brief).toContain("No token is excluded");
     expect(c.template).toEqual({
@@ -107,7 +108,7 @@ describe("goal translator (P3-U1, F-U7)", () => {
     const c = ok(
       goal({ aggressiveness: "AGGRESSIVE", screenedOptIn: true, excludedTokens: [WBTC] }),
     );
-    expect(c.brief).toContain("Consider anything that passes the safety check");
+    expect(c.brief).toContain("Concentrate on your highest-conviction ideas");
     expect(c.brief).toContain("opted into the screened lane");
     expect(c.brief).toContain(`Never buy these tokens, whatever the research says: ${WBTC}.`);
     // With the registry's symbols the brief names the token; an unknown one keeps its address.
@@ -119,7 +120,7 @@ describe("goal translator (P3-U1, F-U7)", () => {
     expect(named.config.brief).toContain(
       `Never buy these tokens, whatever the research says: WBTC, ${other}.`,
     );
-    expect(briefOf(goal({ aggressiveness: "CONSERVATIVE" }))).toContain("class F tokens only");
+    expect(briefOf(goal({ aggressiveness: "CONSERVATIVE" }))).toContain("Protect capital first");
     // Exclusions are kept lowercase and once each, so the hash does not depend on how they were typed.
     const upper = ok(goal({ excludedTokens: [WBTC.toUpperCase().replace("0X", "0x"), WBTC] }));
     expect(upper.goal.excludedTokens).toEqual([WBTC]);
@@ -344,7 +345,7 @@ describe("goal translator (P3-U1, F-U7)", () => {
     expect(c.soulBlock).toContain("- Aggressiveness: Balanced");
     expect(c.soulBlock).toContain(`- Brief: ${c.brief}`);
     expect(c.soulBlock).toContain(
-      "- Envelope the Test enforces on a target portfolio: at most 8 positions, at most 40% in any one, at least 15% in stablecoins, class A at most 8% each and 25% together",
+      "- Envelope the Test enforces on a target portfolio: at most 8 positions, class A at most 8% each and 25% together; every weight and the cash are yours to decide, within the deployed contracts' limits",
     );
     expect(c.soulBlock).toContain("at most 6 trades in 24 hours");
     expect(c.soulBlock).toContain(
@@ -372,7 +373,7 @@ describe("goal translator (P3-U1, F-U7)", () => {
 });
 
 describe("the allocation split and the most positions (2026-10-13)", () => {
-  it("carries the split and the owner's most positions to the brief and the envelope", () => {
+  it("carries the owner's most positions to the brief and the envelope, and no split (2026-10-16)", () => {
     const c = ok(
       goal({
         aggressiveness: "AGGRESSIVE",
@@ -380,19 +381,15 @@ describe("the allocation split and the most positions (2026-10-13)", () => {
         maxPositions: 6,
       }),
     );
-    expect(c.brief).toContain(
-      "Split the invested part by market cap: 35% in tokens under 100M USD (degen), 40% in tokens from 100M to 1B USD (growth) and 25% in the top assets (conservative)",
-    );
+    expect(c.brief).not.toContain("Split the invested part");
     expect(c.brief).toContain("Hold at most 6 positions");
     expect(c.envelope.maxPositions).toBe(6);
     expect(c.soulBlock).toContain("at most 6 positions");
   });
 
-  it("uses the style's split and most positions on a goal saved without them", () => {
+  it("uses the style's most positions on a goal saved without them", () => {
     const c = ok(goal({ aggressiveness: "CONSERVATIVE" }));
-    expect(c.brief).toContain(
-      "0% in tokens under 100M USD (degen), 20% in tokens from 100M to 1B USD (growth) and 80% in the top assets",
-    );
+    expect(c.brief).toContain("Protect capital first; prefer the largest, most liquid tokens.");
     expect(c.brief).toContain("Hold at most 5 positions");
     expect(c.envelope.maxPositions).toBe(AGGRESSIVENESS_ENVELOPES.CONSERVATIVE.maxPositions);
   });
@@ -412,23 +409,36 @@ describe("the allocation split and the most positions (2026-10-13)", () => {
   });
 });
 
-describe("a goal saved under an older preset (2026-10-15)", () => {
-  it("reads its level's current invested range and stablecoin minimum, every other word kept", () => {
-    const brief =
-      "Hold large caps. Keep at least 10% of the account in stablecoins and no more than 40% in any one position. Expect to keep between 65% and 90% of the account invested; outside that range, say why.";
-    expect(withCurrentPreset(brief, "AGGRESSIVE")).toBe(
-      "Hold large caps. Keep at least 5% of the account in stablecoins and no more than 40% in any one position. Expect to keep between 70% and 95% of the account invested; outside that range, say why.",
+describe("a goal saved under an older preset (2026-10-16)", () => {
+  it("reads today's mindset and the owner's own choices, with no range, minimum or split", () => {
+    const g = { ...DEFAULT_GOAL_INPUT, aggressiveness: "AGGRESSIVE" as const, maxPositions: 3 };
+    const saved =
+      "Consider anything that passes the safety check. Keep at least 5% of the account in stablecoins and no more than 40% in any one position. Expect to keep between 70% and 95% of the account invested; outside that range, say why. Split the invested part by market cap: 75% in tokens under 100M USD (degen). Hold at most 3 positions; choose each one's weight within the limits. Hold core-lane tokens only. No token is excluded.";
+    expect(currentBrief(saved, g)).toBe(
+      "Your job is to maximize return. Concentrate on your highest-conviction ideas. Cash is a position you must justify from the research. Hold at most 3 positions; you choose each one's weight and how much stays in cash. Hold core-lane tokens only. No token is excluded.",
     );
     const soul = [
-      "- Envelope the Test enforces on a target portfolio: at most 8 positions, at most 40% in any one, at least 15% in stablecoins, class A at most 8% each and 25% together",
-      "- Expected invested share for Balanced: 50% to 85% of the account outside stablecoins; a plan outside it must say why",
+      "- Aggressiveness: Aggressive",
+      `- Brief: ${saved}`,
+      "- Envelope the Test enforces on a target portfolio: at most 3 positions, at most 40% in any one, at least 5% in stablecoins, class A at most 15% each and 50% together",
+      "- Expected invested share for Aggressive: 70% to 95% of the account outside stablecoins; a plan outside it must say why",
+      "- Model tier: Medium (research-medium)",
     ].join("\n");
-    expect(withCurrentPreset(soul, "BALANCED")).toBe(
-      [
-        "- Envelope the Test enforces on a target portfolio: at most 8 positions, at most 40% in any one, at least 15% in stablecoins, class A at most 8% each and 25% together",
-        "- Expected invested share for Balanced: 40% to 70% of the account outside stablecoins; a plan outside it must say why",
-      ].join("\n"),
+    const now = currentSoulBlock(soul, g);
+    expect(now).not.toMatch(/invested share|in stablecoins|in any one|Split the invested/);
+    expect(now).toContain(
+      "- Envelope the Test enforces on a target portfolio: at most 3 positions, class A at most 15% each and 50% together; every weight and the cash are yours to decide, within the deployed contracts' limits",
     );
-    expect(withCurrentPreset("No range here.", "CONSERVATIVE")).toBe("No range here.");
+    expect(now).toContain("- Model tier: Medium (research-medium)");
+  });
+
+  it("writes a new goal's brief and SOUL.md block without a range, a minimum or a split", () => {
+    const t = translateGoal({ ...DEFAULT_GOAL_INPUT, aggressiveness: "BALANCED" });
+    if (!t.ok) throw new Error("refused");
+    expect(t.config.brief).toMatch(
+      /^Grow the account with measured risk; diversify across your best ideas\./,
+    );
+    for (const text of [t.config.brief, t.config.soulBlock])
+      expect(text).not.toMatch(/invested share|Expect to keep|in stablecoins|Split the invested/);
   });
 });

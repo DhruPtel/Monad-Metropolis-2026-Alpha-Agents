@@ -48,10 +48,13 @@ describe("the goal's fields (P3-U1, F-U7)", () => {
     for (const level of AGGRESSIVENESS_LEVELS) {
       const e = AGGRESSIVENESS_ENVELOPES[level];
       expect(e.maxClassAPositionBps).toBeLessThanOrEqual(e.maxClassATotalBps);
-      expect(e.maxClassAPositionBps).toBeLessThanOrEqual(e.maxPositionBps);
       expect(e.classAAllowed).toBe(e.maxClassATotalBps > 0);
-      expect(AGGRESSIVENESS_FACTS[level].brief.length).toBeGreaterThan(80);
-      expect(AGGRESSIVENESS_FACTS[level].brief).not.toMatch(/—/);
+      // 2026-10-16 (owner): the brief is a mindset, never a number.
+      expect(AGGRESSIVENESS_FACTS[level].brief.length).toBeGreaterThan(40);
+      expect(AGGRESSIVENESS_FACTS[level].brief).not.toMatch(/—|\d/);
+      expect(e).not.toHaveProperty("investedRangeBps");
+      expect(e).not.toHaveProperty("minStableBps");
+      expect(e).not.toHaveProperty("maxPositionBps");
     }
     // 2026-10-13 (owner): up to 5 positions for Conservative.
     expect(AGGRESSIVENESS_ENVELOPES.CONSERVATIVE.maxPositions).toBe(5);

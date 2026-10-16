@@ -204,13 +204,17 @@ describe("the Test stage over a target portfolio (F-U6, D-344)", () => {
     expect(await codes(plan(), inputs({ maxPositions: 2 }))).not.toContain("ENVELOPE_POSITIONS");
     // A cap above the style's never loosens it.
     expect(await codes(many, inputs({ maxPositions: 12 }))).toContain("ENVELOPE_POSITIONS");
-    // Conservative: class F only, 20% per position, 30% stable.
+    // Conservative: class F only. 2026-10-16 (owner): no style cap per position or stablecoin
+    // minimum; a weight is capped only by the deploy (the registry's 15% for WBTC here).
     const conservative = inputs({ aggressiveness: "CONSERVATIVE" });
     expect(
       await codes(
         plan({ positions: [position(WMON, 2_500), position(WBTC, 1_000)], cashTargetBps: 6_500 }),
         conservative,
       ),
+    ).not.toContain("ENVELOPE_POSITION");
+    expect(
+      await codes(plan({ positions: [position(WBTC, 2_000)], cashTargetBps: 8_000 }), conservative),
     ).toContain("ENVELOPE_POSITION");
     expect(
       await codes(
@@ -229,10 +233,10 @@ describe("the Test stage over a target portfolio (F-U6, D-344)", () => {
     ).toEqual([]);
     expect(
       await codes(
-        plan({ positions: [position(WMON, 2_000), position(WBTC, 1_000)], cashTargetBps: 2_000 }),
+        plan({ positions: [position(WMON, 4_000), position(WBTC, 1_000)], cashTargetBps: 5_000 }),
         conservative,
       ),
-    ).toContain("ENVELOPE_STABLE");
+    ).not.toContain("ENVELOPE_STABLE");
     // Balanced: class A at most 8% per position and 25% in total.
     expect(
       await codes(
@@ -329,10 +333,15 @@ describe("the Test stage over a target portfolio (F-U6, D-344)", () => {
     expect(e.envelope.maxPositions).toBe(8);
     expect(e.limits.maxTradeBps).toBe(executorV3.LAUNCH_POLICY.maxTradeBps);
     const byToken = Object.fromEntries(e.tokens.map((t) => [t.symbol, t]));
+    // 2026-10-16: the deploy's cap only, and the contracts' limits in plain words.
     expect(byToken.WMON).toMatchObject({
       buyable: true,
-      capBps: Math.min(4_000, executorV3.LAUNCH_POLICY.maxAssetBps),
+      capBps: Math.min(4_500, executorV3.LAUNCH_POLICY.maxAssetBps),
     });
+    expect(e.contractFacts).toMatch(/^On this deploy: no single token above its cap \(WMON /);
+    expect(e.contractFacts).toContain(
+      `at least ${executorV3.LAUNCH_POLICY.minUsdcBps / 100}% of the account stays in USDC`,
+    );
     expect(byToken.WBTC).toMatchObject({ buyable: true, capBps: 1_500 });
     expect(byToken.TOKA).toMatchObject({ buyable: true, class: "A" });
     expect(byToken.SCRN).toMatchObject({ buyable: false, lane: "SCREENED" });

@@ -1310,10 +1310,8 @@ export interface GoalConfigJson {
   readonly envelope: {
     readonly label: string;
     readonly classAAllowed: boolean;
-    readonly maxPositionBps: number;
     readonly maxClassAPositionBps: number;
     readonly maxClassATotalBps: number;
-    readonly minStableBps: number;
     readonly maxPositions: number;
     readonly reviewTriggerBps: number;
   };
@@ -1702,6 +1700,9 @@ export interface StoredReportJson {
       readonly stance: "propose" | "no_change";
       readonly summary: string;
       readonly positions: readonly { symbol: string; weight: string; why: string }[];
+      /** 2026-10-16: why this allocation and why this much cash; absent on older reports. */
+      readonly allocationWhy?: string;
+      readonly cashWhy?: string;
     };
     /** 2026-10-13: what the agent would buy if every researched token were tradable; absent on older reports. */
     readonly mainDecision?: {

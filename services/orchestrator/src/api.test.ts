@@ -586,7 +586,7 @@ describe.skipIf(!dbUp)("the orchestrator's internal API (D-205)", { timeout: 60_
     });
     expect(check.status).toBe(409);
     expect(view).toMatchObject({
-      goal: { aggressiveness: "BALANCED", envelope: { maxPositions: 8, minStableBps: 1_500 } },
+      goal: { aggressiveness: "BALANCED", envelope: { maxPositions: 8 } },
       portfolio: null,
     });
   });

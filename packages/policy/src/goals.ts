@@ -1,8 +1,6 @@
 import {
   AGGRESSIVENESS_ENVELOPES,
   AGGRESSIVENESS_FACTS,
-  ALLOCATION_DEFAULTS,
-  type GoalAllocation,
   type Aggressiveness,
   type AggressivenessEnvelope,
   COST_PREVIEW_DAYS,
@@ -364,20 +362,14 @@ export function briefOf(goal: GoalInput, symbols: TranslateOptions["symbols"] = 
     goal.excludedTokens.length === 0
       ? "No token is excluded."
       : `Never buy these tokens, whatever the research says: ${goal.excludedTokens.map(name).join(", ")}.`;
-  return `${AGGRESSIVENESS_FACTS[goal.aggressiveness].brief} ${allocationSentence(goal.allocation ?? ALLOCATION_DEFAULTS[goal.aggressiveness])} ${positionsSentence(goal)} ${lane} ${excluded}`;
-}
-
-const pct = (bps: number) => `${bps / 100}%`;
-
-/** 2026-10-13: the owner's split by market cap, as the brief states it. */
-export function allocationSentence(a: GoalAllocation): string {
-  return `Split the invested part by market cap: ${pct(a.degenBps)} in tokens under 100M USD (degen), ${pct(a.growthBps)} in tokens from 100M to 1B USD (growth) and ${pct(a.conservativeBps)} in the top assets (conservative); where a bucket has no buyable token with a strong case, say so and leave that share in the conservative bucket or in cash.`;
+  // 2026-10-16 (owner): the level's mindset and the owner's choices; no split, range or minimum.
+  return `${AGGRESSIVENESS_FACTS[goal.aggressiveness].brief} ${positionsSentence(goal)} ${lane} ${excluded}`;
 }
 
 /** 2026-10-13: the most positions, the owner's within the style's. */
 function positionsSentence(goal: GoalInput): string {
   const n = goal.maxPositions ?? AGGRESSIVENESS_ENVELOPES[goal.aggressiveness].maxPositions;
-  return `Hold at most ${n} ${n === 1 ? "position" : "positions"}; choose each one's weight within the limits.`;
+  return `Hold at most ${n} ${n === 1 ? "position" : "positions"}; you choose each one's weight and how much stays in cash.`;
 }
 
 /** Each parameter outside `rebalance_bands@1`'s bounds, with its field. */
@@ -421,41 +413,49 @@ export function canonicalJson(value: unknown): string {
   throw new Error(`canonicalJson: cannot encode a ${typeof value}`);
 }
 
-const PCT = String.raw`\d+(?:\.\d+)?%`;
-
 /**
- * 2026-10-15: a goal saved under an older preset reads its level's current invested range and
- * stablecoin minimum, in its brief and its SOUL.md block, the same values the Test enforces.
- * Every other word of the saved text stays as it was.
+ * 2026-10-16 (owner): a saved goal's brief with today's text: the level's mindset, then the
+ * owner's own choices (positions, lane, exclusions) as they were saved. A goal saved with an
+ * invested range, a stablecoin minimum or a market-cap split no longer carries them.
  */
-export function withCurrentPreset(text: string, level: Aggressiveness): string {
+export function currentBrief(saved: string, goal: GoalInput): string {
+  const i = saved.indexOf("Hold at most ");
+  const own =
+    i >= 0
+      ? saved.slice(i)
+      : briefOf(goal).slice(AGGRESSIVENESS_FACTS[goal.aggressiveness].brief.length + 1);
+  return `${AGGRESSIVENESS_FACTS[goal.aggressiveness].brief} ${own.replace(
+    /choose each one's weight within the limits\./,
+    "you choose each one's weight and how much stays in cash.",
+  )}`;
+}
+
+/** The SOUL.md goal block's envelope line: what the Test still holds a plan to, besides the contracts. */
+function envelopeLine(level: Aggressiveness, maxPositions: number): string {
   const e = AGGRESSIVENESS_ENVELOPES[level];
-  const { min, max } = e.investedRangeBps;
-  return text
-    .replace(
-      new RegExp(`Expect to keep between ${PCT} and ${PCT} of the account invested`),
-      `Expect to keep between ${bps(min)} and ${bps(max)} of the account invested`,
+  return `- Envelope the Test enforces on a target portfolio: at most ${maxPositions} positions${e.classAAllowed ? `, class A at most ${bps(e.maxClassAPositionBps)} each and ${bps(e.maxClassATotalBps)} together` : ", class F tokens only"}; every weight and the cash are yours to decide, within the deployed contracts' limits`;
+}
+
+/** 2026-10-16: a saved SOUL.md goal block with today's brief and envelope, and no invested range. */
+export function currentSoulBlock(saved: string, goal: GoalInput): string {
+  const n = goal.maxPositions ?? AGGRESSIVENESS_ENVELOPES[goal.aggressiveness].maxPositions;
+  return saved
+    .split("\n")
+    .filter((l) => !l.startsWith("- Expected invested share"))
+    .map((l) =>
+      l.startsWith("- Brief: ")
+        ? `- Brief: ${currentBrief(l.slice("- Brief: ".length), goal)}`
+        : l.startsWith("- Envelope the Test enforces")
+          ? envelopeLine(goal.aggressiveness, n)
+          : l,
     )
-    .replace(
-      new RegExp(`(Expected invested share for [A-Za-z]+: )${PCT} to ${PCT}`),
-      `$1${bps(min)} to ${bps(max)}`,
-    )
-    .replace(
-      new RegExp(`Keep at least ${PCT} of the account in stablecoins`),
-      `Keep at least ${bps(e.minStableBps)} of the account in stablecoins`,
-    )
-    .replace(
-      new RegExp(`(in any one, at least )${PCT}( in stablecoins)`),
-      `$1${bps(e.minStableBps)}$2`,
-    );
+    .join("\n");
 }
 
 /** The goal block of SOUL.md, from a fixed template: every value comes from the translated config. */
 function soulBlock(c: Omit<GoalConfig, "soulBlock">): string {
   const o = c.ownerLimits;
   const e = c.envelope;
-  // F-T1 (A-81): a goal saved before the range existed reads its level's.
-  const range = e.investedRangeBps ?? AGGRESSIVENESS_ENVELOPES[c.aggressiveness].investedRangeBps;
   const plan =
     c.planChanges.mode === "ASK_FIRST"
       ? "propose them; the owner approves each one first"
@@ -468,8 +468,7 @@ function soulBlock(c: Omit<GoalConfig, "soulBlock">): string {
     "",
     `- Aggressiveness: ${AGGRESSIVENESS_FACTS[c.aggressiveness].label}`,
     `- Brief: ${c.brief}`,
-    `- Envelope the Test enforces on a target portfolio: at most ${e.maxPositions} positions, at most ${bps(e.maxPositionBps)} in any one, at least ${bps(e.minStableBps)} in stablecoins${e.classAAllowed ? `, class A at most ${bps(e.maxClassAPositionBps)} each and ${bps(e.maxClassATotalBps)} together` : ", class F tokens only"}`,
-    `- Expected invested share for ${AGGRESSIVENESS_FACTS[c.aggressiveness].label}: ${bps(range.min)} to ${bps(range.max)} of the account outside stablecoins; a plan outside it, or all in cash, must say why in its RATIONALE (allocationNote), and all cash only when the evidence is weak`,
+    envelopeLine(c.aggressiveness, e.maxPositions),
     `- Limits: largest trade ${bps(o.maxTradeBps)} of value, at most ${bps(o.maxPositionBps)} in any one token, at least ${bps(o.minUsdcShareBps)} in USDC, slippage at most ${bps(o.maxSlippageBps)}, at most ${o.maxTradesPer24h} trades in 24 hours`,
     `- Two-asset fallback: ${c.template.id}, target WMON ${bps(c.template.params.targetWmonBps)} within ${bps(c.targetRange.minBps)} to ${bps(c.targetRange.maxBps)}`,
     `- Model tier: ${MODEL_TIER_FACTS[c.model.choice].label} (${c.model.alias})`,

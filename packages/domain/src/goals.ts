@@ -1,4 +1,3 @@
-import { RESEARCH_MARKET } from "@alpha-agents/config";
 import { z } from "zod";
 
 /**
@@ -34,60 +33,45 @@ export interface AggressivenessEnvelope {
   readonly label: string;
   /** Whether class A (attested) tokens may be held at all. */
   readonly classAAllowed: boolean;
-  /** The most one position may weigh, basis points of the account's value (the registry's own cap also applies). */
-  readonly maxPositionBps: number;
   readonly maxClassAPositionBps: number;
   readonly maxClassATotalBps: number;
-  /** The least the plan keeps in stablecoins: USDC cash and stablecoin positions together. */
-  readonly minStableBps: number;
   readonly maxPositions: number;
   /** A held token moving this much triggers a position review (the watcher, P3-U10). */
   readonly reviewTriggerBps: number;
-  /**
-   * F-T1 (A-81): how much of the account the level expects to keep invested
-   * (outside stablecoins), basis points. A Zoom out may go outside it, or
-   * all cash, only with a plain reason in its RATIONALE's allocationNote.
-   */
-  readonly investedRangeBps: { readonly min: number; readonly max: number };
 }
 
+/**
+ * 2026-10-16 (owner): the agent decides how much to invest and how much each position weighs,
+ * from its research; no style sets an invested range, a stablecoin minimum or a one-token cap.
+ * The deployed contracts' own limits (the registry's per-token cap, the Executor's minimum cash
+ * and per-trade size) are the only weight limits.
+ */
 export const AGGRESSIVENESS_ENVELOPES: Readonly<Record<Aggressiveness, AggressivenessEnvelope>> =
   Object.freeze({
     CONSERVATIVE: {
       label: "Conservative",
       classAAllowed: false,
-      maxPositionBps: 2_000,
       maxClassAPositionBps: 0,
       maxClassATotalBps: 0,
-      minStableBps: 3_000,
       // 2026-10-13 (owner): up to 5 positions for Conservative (was 8).
       maxPositions: 5,
       reviewTriggerBps: 1_000,
-      // 2026-10-15 (owner): the goal sets an invested range; research places the plan inside it.
-      investedRangeBps: { min: 1_500, max: 4_000 },
     },
     BALANCED: {
       label: "Balanced",
       classAAllowed: true,
-      maxPositionBps: 4_000,
       maxClassAPositionBps: 800,
       maxClassATotalBps: 2_500,
-      minStableBps: 1_500,
       maxPositions: 8,
       reviewTriggerBps: 1_500,
-      investedRangeBps: { min: 4_000, max: 7_000 },
     },
     AGGRESSIVE: {
       label: "Aggressive",
       classAAllowed: true,
-      maxPositionBps: 4_000,
       maxClassAPositionBps: 1_500,
       maxClassATotalBps: 5_000,
-      // 2026-10-15 (owner): up to 95% invested, so the stablecoin minimum is the Executor's 5% floor.
-      minStableBps: 500,
       maxPositions: 12,
       reviewTriggerBps: 2_500,
-      investedRangeBps: { min: 7_000, max: 9_500 },
     },
   });
 
@@ -95,7 +79,7 @@ export interface AggressivenessFacts {
   readonly label: string;
   /** One line for the form and the card. */
   readonly summary: string;
-  /** The brief the agent reads, a fixed text per level (D-345). */
+  /** The brief the agent reads, a fixed text per level (D-345): its mindset, never numbers (2026-10-16). */
   readonly brief: string;
 }
 
@@ -104,21 +88,18 @@ export const AGGRESSIVENESS_FACTS: Readonly<Record<Aggressiveness, Aggressivenes
     CONSERVATIVE: {
       label: "Conservative",
       summary: "The largest liquid assets and yield, few positions, long horizons.",
-      brief:
-        `Lean to the largest liquid assets on ${RESEARCH_MARKET.name} (${RESEARCH_MARKET.native}, the majors and stablecoins) and to yield-bearing tokens such as ${RESEARCH_MARKET.native}'s liquid staking tokens.` +
-        " Hold few positions and think in long horizons. Hold class F tokens only: every position has a price feed. Keep at least 30% of the account in stablecoins and no more than 20% in any one position. Expect to keep between 15% and 40% of the account invested; outside that range, or all in cash, say plainly why.",
+      brief: "Protect capital first; prefer the largest, most liquid tokens.",
     },
     BALANCED: {
       label: "Balanced",
       summary: "Large caps plus a few researched mid caps with a clear thesis.",
-      brief:
-        "Hold large caps, plus a few researched mid caps that each have a clear thesis and an exit plan. Attested (class A) tokens may take a small part, at most 8% each and 25% together, once a price attestor is live. Keep at least 15% of the account in stablecoins and no more than 40% in any one position. Expect to keep between 40% and 70% of the account invested; outside that range, or all in cash, say plainly why.",
+      brief: "Grow the account with measured risk; diversify across your best ideas.",
     },
     AGGRESSIVE: {
       label: "Aggressive",
       summary: "Anything that passes the safety check, with exit plans; larger swings.",
       brief:
-        "Consider anything that passes the safety check, newer and high-beta tokens and memecoins included, with smaller positions and a required exit plan for each. Attested (class A) tokens may take up to 15% each and 50% together, once a price attestor is live. Keep at least 5% of the account in stablecoins and no more than 40% in any one position. Expect larger swings. Expect to keep between 70% and 95% of the account invested; outside that range, or all in cash, say plainly why.",
+        "Your job is to maximize return. Concentrate on your highest-conviction ideas. Cash is a position you must justify from the research.",
     },
   });
 

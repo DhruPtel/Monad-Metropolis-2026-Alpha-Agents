@@ -236,8 +236,7 @@ function AgentPlan({
             </span>
             {g.envelope ? (
               <span className="text-foreground-muted" data-testid="plan-envelope">
-                {g.envelope.label} envelope: at most {g.envelope.maxPositions} positions,{" "}
-                {pct(g.envelope.maxPositionBps)} each, {pct(g.envelope.minStableBps)} in stablecoins
+                {g.envelope.label} envelope: at most {g.envelope.maxPositions} positions
                 {g.envelope.classAAllowed
                   ? `, class A up to ${pct(g.envelope.maxClassATotalBps)}`
                   : ", class F only"}
