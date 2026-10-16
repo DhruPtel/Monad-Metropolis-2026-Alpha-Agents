@@ -84,6 +84,37 @@ export function proposalJson(p: StoredProposal) {
 
 export type ProposalJson = ReturnType<typeof proposalJson>;
 
+/**
+ * 2026-10-16: the symbols the agent's own proposals recorded for the given tokens, for the ones
+ * the token table does not list (a testnet's stand-ins, TALPHA and TBETA), so a card names
+ * every token by its symbol, never its address.
+ */
+export async function proposalSymbols(
+  db: Db | null,
+  chainId: number,
+  agentId: number,
+  tokens: readonly string[],
+): Promise<Record<string, string>> {
+  const wanted = new Set(tokens.map((t) => t.toLowerCase()));
+  if (!db || wanted.size === 0) return {};
+  const rows = await db
+    .selectFrom("platform.plan_proposals")
+    .select(["positions"])
+    .where("chain_id", "=", chainId)
+    .where("agent_id", "=", agentId)
+    .orderBy("created_at", "desc")
+    .limit(20)
+    .execute();
+  const out: Record<string, string> = {};
+  for (const r of rows)
+    for (const p of (r.positions as { token?: string; symbol?: string }[] | null) ?? []) {
+      const token = p.token?.toLowerCase();
+      if (token && wanted.has(token) && p.symbol && !p.symbol.startsWith("0x"))
+        out[token] ??= p.symbol;
+    }
+  return out;
+}
+
 /** The plan in force as the card shows it beside a proposal. */
 export function currentPlanJson(
   plan: StoredPlan | null,

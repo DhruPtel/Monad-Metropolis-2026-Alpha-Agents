@@ -22,6 +22,7 @@ import {
   approveProposal,
   declineProposal,
   planCard,
+  proposalSymbols,
   proposalJson,
 } from "./proposals.ts";
 import type { ActivationDeps } from "./activation.ts";
@@ -947,7 +948,10 @@ export function createApp(deps: ApiDeps): Hono {
       ...(plan && isPortfolioPlan(plan) ? plan.params.positions.map((p) => p.token) : []),
       ...(pending?.positions.map((p) => p.token) ?? []),
     ];
-    const symbols = await tokenSymbols(deps.db, chainId, tokens);
+    const symbols = {
+      ...(await proposalSymbols(deps.db, chainId, Number(agentId), tokens)),
+      ...(await tokenSymbols(deps.db, chainId, tokens)),
+    };
     return c.json({
       ...(await meta()),
       agentId: agentId.toString(),

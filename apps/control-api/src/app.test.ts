@@ -2508,7 +2508,8 @@ describe.skipIf(!available)("the control API (needs pnpm dev:up for Postgres)", 
       const card = await json(await call("/v1/agents/2/plan-card", { headers: headers(bob) }));
       expect(card).toMatchObject({
         pending: null,
-        current: { template: TARGET_PORTFOLIO_ID, positions: [{ symbol: WBTC }] },
+        // 2026-10-16: a token the table does not list reads by the symbol its proposal recorded.
+        current: { template: TARGET_PORTFOLIO_ID, positions: [{ symbol: "WBTC" }] },
         recent: [{ proposalId: p.proposalId, status: "applied" }],
       });
     });
