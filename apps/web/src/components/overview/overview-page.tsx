@@ -34,6 +34,7 @@ import {
   monthReturnBps,
   percentFromBps as pct,
   usdcCents as usdc2,
+  WalletActionStatus,
 } from "@alpha-agents/ui";
 import { ArrowDownToLine, ArrowUpFromLine, PlugZap, Plus, RotateCcw, Wallet } from "lucide-react";
 import Link from "next/link";
@@ -49,6 +50,7 @@ import { useAgentSummary } from "@/components/agent-shell/agent-shell";
 import { usePortfolio } from "@/agent/use-portfolio";
 import { useWalletSession } from "@/auth/session";
 import { AddCreditsSection } from "@/components/credits/add-credits-section";
+import { useTestUsdc } from "@/agent/use-test-usdc";
 import { latestApplied, planBanner, planRows, txHref } from "@/agent/trading-view";
 import { AgentActivity } from "@/components/activity/agent-activity";
 import { AgentHoldings } from "@/components/holdings/agent-holdings";
@@ -94,6 +96,8 @@ export function OverviewPage({
   const [depositOpen, setDepositOpen] = useState(false);
   const [withdrawOpen, setWithdrawOpen] = useState(false);
   const [creditsOpen, setCreditsOpen] = useState(false);
+  // 2026-10-16: the dev stack's "Get test USDC" (its USDC has an open mint).
+  const testUsdc = useTestUsdc(environment);
   const goalHref = `/agents/${agentId.toString()}/goal`;
   const tradingHref = `/agents/${agentId.toString()}/trading`;
 
@@ -201,6 +205,17 @@ export function OverviewPage({
           <Button size="sm" onClick={() => setCreditsOpen(true)} data-testid="open-add-credits">
             <Plus aria-hidden /> Add
           </Button>
+          {testUsdc.available ? (
+            <Button
+              size="sm"
+              variant="secondary"
+              disabled={testUsdc.status.state === "working" || !wallet.address}
+              onClick={() => void testUsdc.get()}
+              data-testid="get-test-usdc"
+            >
+              Get test USDC
+            </Button>
+          ) : null}
           {me?.summary ? (
             <Dialog>
               <DialogTrigger asChild>
@@ -228,6 +243,19 @@ export function OverviewPage({
         <p className="text-xs text-foreground-muted">{canRefund.reason}</p>
       ) : null}
       <ActionLine action={me?.refund ?? { state: "idle" }} testId="refund-result" />
+      {testUsdc.status.state !== "idle" ? (
+        <WalletActionStatus
+          state={
+            testUsdc.status.state === "working"
+              ? "confirming"
+              : testUsdc.status.state === "done"
+                ? "confirmed"
+                : "failed"
+          }
+          text={testUsdc.status.text}
+          hash={testUsdc.status.state === "done" ? testUsdc.status.hash : null}
+        />
+      ) : null}
     </SidePanel>
   ) : null;
 
