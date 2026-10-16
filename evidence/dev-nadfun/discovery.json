@@ -1,6 +1,6 @@
 {
   "unit": "CO-U1",
-  "at": "2026-10-16T21:43:08.903Z",
+  "at": "2026-10-16T23:01:36.608Z",
   "venue": {
     "id": "nadfun",
     "name": "nad.fun",
@@ -23,7 +23,7 @@
       "decimals": 18,
       "pair": "0xbe1a5e7e0bc9454f6abac4f356798583759d0762",
       "base": "WMON",
-      "feePpm": 16000,
+      "feePpm": 16010,
       "depthUsd": 5715.32,
       "roundTripLossPct": 3.17
     },
@@ -34,7 +34,7 @@
       "decimals": 18,
       "pair": "0xee709ea855952fe50d863dcb884b991a1f1f9a80",
       "base": "WMON",
-      "feePpm": 16000,
+      "feePpm": 16010,
       "depthUsd": 5654.76,
       "roundTripLossPct": 3.17
     },
@@ -45,7 +45,7 @@
       "decimals": 18,
       "pair": "0x2f2640b0eb9be61f6b1c2e9842674bce2e87537e",
       "base": "WMON",
-      "feePpm": 16000,
+      "feePpm": 16010,
       "depthUsd": 5199.6,
       "roundTripLossPct": 3.17
     },
@@ -56,7 +56,7 @@
       "decimals": 6,
       "pair": "0x1eb84f1768a9f8524290a0f681d49d5c3a681e65",
       "base": "WMON",
-      "feePpm": 2500,
+      "feePpm": 2510,
       "depthUsd": 3879.28,
       "roundTripLossPct": 0.5
     },
@@ -67,7 +67,7 @@
       "decimals": 18,
       "pair": "0xf18962dfb5a3cac592fc5341ad5e24eda98a7671",
       "base": "WMON",
-      "feePpm": 16000,
+      "feePpm": 16010,
       "depthUsd": 2901.75,
       "roundTripLossPct": 3.17
     },
@@ -78,7 +78,7 @@
       "decimals": 18,
       "pair": "0xb6c38a434d500d7652309a76810d7f55d3840de7",
       "base": "WMON",
-      "feePpm": 16000,
+      "feePpm": 16010,
       "depthUsd": 1469.49,
       "roundTripLossPct": 3.17
     },
@@ -89,7 +89,7 @@
       "decimals": 18,
       "pair": "0xef5af06e56b2cf7aa476eaf01f0cdce7bae5dcef",
       "base": "WMON",
-      "feePpm": 16000,
+      "feePpm": 16010,
       "depthUsd": 1313.73,
       "roundTripLossPct": 3.17
     },
@@ -100,7 +100,7 @@
       "decimals": 18,
       "pair": "0x3850b32da5c53a4ae58be5726e9c41e14e181040",
       "base": "WMON",
-      "feePpm": 16000,
+      "feePpm": 16010,
       "depthUsd": 1254.1,
       "roundTripLossPct": 3.17
     },
@@ -111,7 +111,7 @@
       "decimals": 18,
       "pair": "0x6c19096c384d439c0007b6a3913f58d10b34051f",
       "base": "WMON",
-      "feePpm": 16000,
+      "feePpm": 16010,
       "depthUsd": 1244.33,
       "roundTripLossPct": 3.17
     },
@@ -122,7 +122,7 @@
       "decimals": 18,
       "pair": "0xfcd2bf306c60a5dc4f52155e24897afd547a10fe",
       "base": "WMON",
-      "feePpm": 16000,
+      "feePpm": 16010,
       "depthUsd": 1192.13,
       "roundTripLossPct": 3.17
     },
@@ -133,7 +133,7 @@
       "decimals": 18,
       "pair": "0x327da58ef9447c8ecba4108bf80b43a4bd1ca7f1",
       "base": "WMON",
-      "feePpm": 16000,
+      "feePpm": 16010,
       "depthUsd": 1163.67,
       "roundTripLossPct": 3.17
     },
@@ -144,7 +144,7 @@
       "decimals": 18,
       "pair": "0x7a15d3191f497bd6d29bb7be05bb0277ddef8129",
       "base": "WMON",
-      "feePpm": 16000,
+      "feePpm": 16010,
       "depthUsd": 1144.03,
       "roundTripLossPct": 3.17
     },
@@ -155,7 +155,7 @@
       "decimals": 18,
       "pair": "0x0aca8bd1d9637292de015e8fe20c4ac5e753ba91",
       "base": "WMON",
-      "feePpm": 16000,
+      "feePpm": 16010,
       "depthUsd": 1137.58,
       "roundTripLossPct": 3.17
     },
@@ -166,7 +166,7 @@
       "decimals": 18,
       "pair": "0x28b40e9f873dd045e70345a1d5f853b42d10a090",
       "base": "WMON",
-      "feePpm": 16000,
+      "feePpm": 16010,
       "depthUsd": 1136.28,
       "roundTripLossPct": 3.17
     },
@@ -177,7 +177,7 @@
       "decimals": 18,
       "pair": "0xd7b976c3b161002350a7c91e6850a78e4389b3dc",
       "base": "WMON",
-      "feePpm": 16000,
+      "feePpm": 16010,
       "depthUsd": 1129.73,
       "roundTripLossPct": 3.17
     },
@@ -188,7 +188,7 @@
       "decimals": 18,
       "pair": "0x5ba82fb8a0101ff4219b351087cf573c642eb3bc",
       "base": "WMON",
-      "feePpm": 16000,
+      "feePpm": 16010,
       "depthUsd": 1122.59,
       "roundTripLossPct": 3.17
     },
@@ -199,7 +199,7 @@
       "decimals": 18,
       "pair": "0x4e560c90efc27b36a9165f749a9f6f7ce442a86c",
       "base": "WMON",
-      "feePpm": 16000,
+      "feePpm": 16010,
       "depthUsd": 1119.72,
       "roundTripLossPct": 3.17
     },
@@ -210,7 +210,7 @@
       "decimals": 18,
       "pair": "0x0793c8da4fd2bf3fe865bf8980fba241b033500b",
       "base": "WMON",
-      "feePpm": 16000,
+      "feePpm": 16010,
       "depthUsd": 1115.35,
       "roundTripLossPct": 3.17
     },
@@ -221,7 +221,7 @@
       "decimals": 18,
       "pair": "0xf881d668a57004ce8cae4d2a2aabfdc4f4fe87ba",
       "base": "WMON",
-      "feePpm": 16000,
+      "feePpm": 16010,
       "depthUsd": 1109.12,
       "roundTripLossPct": 3.17
     },
@@ -232,7 +232,7 @@
       "decimals": 18,
       "pair": "0x0fd79b1d705e3ce563c15cba2bb32bc4fbf08cce",
       "base": "WMON",
-      "feePpm": 16000,
+      "feePpm": 16010,
       "depthUsd": 1107.63,
       "roundTripLossPct": 3.17
     },
@@ -243,7 +243,7 @@
       "decimals": 18,
       "pair": "0x48bf053ad09b56858c40ad84d21e817e7281151c",
       "base": "WMON",
-      "feePpm": 16000,
+      "feePpm": 16010,
       "depthUsd": 1106.95,
       "roundTripLossPct": 3.17
     },
@@ -254,7 +254,7 @@
       "decimals": 18,
       "pair": "0xbde0051d82e8964abdd38721fd4e6b61ae731612",
       "base": "WMON",
-      "feePpm": 16000,
+      "feePpm": 16010,
       "depthUsd": 1106.43,
       "roundTripLossPct": 3.17
     },
@@ -265,7 +265,7 @@
       "decimals": 18,
       "pair": "0xce0e899e359b2136a98b5f7232480b827708793f",
       "base": "WMON",
-      "feePpm": 16000,
+      "feePpm": 16010,
       "depthUsd": 1106.43,
       "roundTripLossPct": 3.17
     },
@@ -276,7 +276,7 @@
       "decimals": 18,
       "pair": "0xf67ff757078095561d572430504dfa0adcbf4ffa",
       "base": "WMON",
-      "feePpm": 16000,
+      "feePpm": 16010,
       "depthUsd": 1106.43,
       "roundTripLossPct": 3.17
     },
@@ -287,7 +287,7 @@
       "decimals": 18,
       "pair": "0xca8a0bbf95138f73575d0ca2592310d7f7365e87",
       "base": "WMON",
-      "feePpm": 16000,
+      "feePpm": 16010,
       "depthUsd": 1106.43,
       "roundTripLossPct": 3.17
     },
@@ -298,7 +298,7 @@
       "decimals": 18,
       "pair": "0x52a72e88222f147cb7ab35cd06d986ffbe89e702",
       "base": "WMON",
-      "feePpm": 16000,
+      "feePpm": 16010,
       "depthUsd": 1106.43,
       "roundTripLossPct": 3.17
     },
@@ -309,7 +309,7 @@
       "decimals": 18,
       "pair": "0x2c71b7aaa2c77918ae43f1e3f66be3b1ee9d58a2",
       "base": "WMON",
-      "feePpm": 16000,
+      "feePpm": 16010,
       "depthUsd": 1106.43,
       "roundTripLossPct": 3.17
     },
@@ -320,7 +320,7 @@
       "decimals": 18,
       "pair": "0xdb57a3a8080115097eeb91d01f2cdbfe0c4c077b",
       "base": "WMON",
-      "feePpm": 16000,
+      "feePpm": 16010,
       "depthUsd": 1106.43,
       "roundTripLossPct": 3.17
     },
@@ -331,7 +331,7 @@
       "decimals": 18,
       "pair": "0x85a62b2d197eec170dd7023c24620dc4309e4a60",
       "base": "WMON",
-      "feePpm": 16000,
+      "feePpm": 16010,
       "depthUsd": 1106.43,
       "roundTripLossPct": 3.17
     },
@@ -342,7 +342,7 @@
       "decimals": 18,
       "pair": "0xc81805bd5aea5ecc3cfbda9c5e281dd91fae7787",
       "base": "WMON",
-      "feePpm": 16000,
+      "feePpm": 16010,
       "depthUsd": 1101.75,
       "roundTripLossPct": 3.17
     },
@@ -353,7 +353,7 @@
       "decimals": 18,
       "pair": "0x301d68002772a398e6fcedc85575c51a89c02398",
       "base": "WMON",
-      "feePpm": 16000,
+      "feePpm": 16010,
       "depthUsd": 1100.41,
       "roundTripLossPct": 3.17
     },
@@ -364,7 +364,7 @@
       "decimals": 18,
       "pair": "0x7ccc3bae4e3885d15cac8c064d13f6a1582ddfb7",
       "base": "WMON",
-      "feePpm": 16000,
+      "feePpm": 16010,
       "depthUsd": 1097.77,
       "roundTripLossPct": 3.17
     },
@@ -375,7 +375,7 @@
       "decimals": 18,
       "pair": "0x3a82ed997fba6282dbc609f6b9f5b089b7544eed",
       "base": "WMON",
-      "feePpm": 16000,
+      "feePpm": 16010,
       "depthUsd": 1095.44,
       "roundTripLossPct": 3.17
     },
@@ -386,7 +386,7 @@
       "decimals": 18,
       "pair": "0x584035ba824ed8632dc3c8df31e474c89510a215",
       "base": "WMON",
-      "feePpm": 16000,
+      "feePpm": 16010,
       "depthUsd": 1092.93,
       "roundTripLossPct": 3.17
     },
@@ -397,7 +397,7 @@
       "decimals": 18,
       "pair": "0xbbe66381141debdc258c1bdd481f1afaed716336",
       "base": "WMON",
-      "feePpm": 16000,
+      "feePpm": 16010,
       "depthUsd": 1090.02,
       "roundTripLossPct": 3.17
     },
@@ -408,7 +408,7 @@
       "decimals": 18,
       "pair": "0x284718f417c60be5ba41051106105fee0cbd1108",
       "base": "WMON",
-      "feePpm": 16000,
+      "feePpm": 16010,
       "depthUsd": 1088.05,
       "roundTripLossPct": 3.17
     },
@@ -419,7 +419,7 @@
       "decimals": 18,
       "pair": "0x236fe08036e5a4b19ecd840a8973f4c335e80076",
       "base": "WMON",
-      "feePpm": 16000,
+      "feePpm": 16010,
       "depthUsd": 1088.02,
       "roundTripLossPct": 3.17
     },
@@ -430,7 +430,7 @@
       "decimals": 18,
       "pair": "0xe935f1a544fed005d2995111e083fc8ea0df998c",
       "base": "WMON",
-      "feePpm": 16000,
+      "feePpm": 16010,
       "depthUsd": 1087.16,
       "roundTripLossPct": 3.17
     },
@@ -452,7 +452,7 @@
       "decimals": 18,
       "pair": "0x82f5f09ff90ba6b7d074b6100cbe7b970fda3006",
       "base": "WMON",
-      "feePpm": 2500,
+      "feePpm": 2510,
       "depthUsd": 2.85,
       "roundTripLossPct": 0.5
     },
@@ -463,7 +463,7 @@
       "decimals": 18,
       "pair": "0x56b04e34e88399f85bf03d6068c2ec2ffd597687",
       "base": "WMON",
-      "feePpm": 2500,
+      "feePpm": 2510,
       "depthUsd": 2.83,
       "roundTripLossPct": 0.5
     },
@@ -474,7 +474,7 @@
       "decimals": 18,
       "pair": "0xd303ffe09dac795894c201ecde67556312b611a3",
       "base": "WMON",
-      "feePpm": 2500,
+      "feePpm": 2510,
       "depthUsd": 2.52,
       "roundTripLossPct": 0.5
     },
@@ -485,7 +485,7 @@
       "decimals": 18,
       "pair": "0xe4cbb1718d6d48b358a9fb9d86a063e05aa4279f",
       "base": "WMON",
-      "feePpm": 2500,
+      "feePpm": 2510,
       "depthUsd": 0.03,
       "roundTripLossPct": 0.5
     },
@@ -496,7 +496,7 @@
       "decimals": 18,
       "pair": "0x35a4e8027b49f28eef6375aa5cf7b96f6da90157",
       "base": "WMON",
-      "feePpm": 2500,
+      "feePpm": 2510,
       "depthUsd": 0,
       "roundTripLossPct": 0.5
     },
@@ -507,7 +507,7 @@
       "decimals": 18,
       "pair": "0xf92d94a668498ca3543ce032aff66b59292920bf",
       "base": "WMON",
-      "feePpm": 2500,
+      "feePpm": 2510,
       "depthUsd": 0,
       "roundTripLossPct": 0.5
     }
