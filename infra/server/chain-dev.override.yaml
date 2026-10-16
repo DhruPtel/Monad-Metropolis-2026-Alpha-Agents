@@ -1,0 +1,8 @@
+# 2026-10-16: the monad-dev stack only (CHAIN=monad-dev), on top of chain.yaml. Its control API is
+# published on the server's own loopback, never publicly, so the owner's laptop reaches it through
+# an SSH tunnel (the laptop's network filters *.sslip.io): ssh -L 4410:127.0.0.1:4410. The judged
+# stacks never take this file.
+services:
+  app-net:
+    ports:
+      - "127.0.0.1:4410:4100"
