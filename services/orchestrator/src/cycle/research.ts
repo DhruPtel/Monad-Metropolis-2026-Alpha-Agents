@@ -533,9 +533,12 @@ export class CycleResearch {
         const proposedSet = new Set(proposed);
         // Every token the Zoom out saw and could have proposed (buyable for this account, dived,
         // or held) that the plan leaves out has its reason on record.
+        // 2026-10-16: the dev stack can buy every token on its venue (45 and more, past the list's
+        // 32), so there only what the cycle researched or the account holds needs its reason.
         const required = universe.filter(
           (u) =>
-            (u.buyable || u.researched || u.held) && !proposedSet.has(u.token.toLowerCase() as Hex),
+            (u.researched || u.held || (u.buyable && TESTNET_CHAIN.standIns)) &&
+            !proposedSet.has(u.token.toLowerCase() as Hex),
         );
         const missing = required.filter((u) => !named.has(u.token.toLowerCase()));
         if (missing.length > 0)

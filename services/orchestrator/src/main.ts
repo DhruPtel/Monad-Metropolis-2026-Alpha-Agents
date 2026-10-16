@@ -12,6 +12,7 @@ import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { serve } from "@hono/node-server";
 import {
+  isMonadTestnet,
   ConfigError,
   TESTNET_CHAIN,
   Secret,
@@ -221,7 +222,7 @@ let keeper: RevealKeeper | null = null;
 const keeperKey = env.id === "beta" ? undefined : reveal("REVEAL_KEEPER_PRIVATE_KEY");
 if (process.argv.includes("--no-keeper")) log("reveal keeper off (--no-keeper)");
 // CO-U1: an L2 testnet's agents are the platform's copies, revealed at mint; nothing to reveal.
-else if (env.id === "testnet" && TESTNET_CHAIN.key !== "monad")
+else if (env.id === "testnet" && !isMonadTestnet(TESTNET_CHAIN))
   log(`reveal keeper off: agents on ${TESTNET_CHAIN.name} are copies, revealed at mint`);
 else if (!keeperKey) log("REVEAL_KEEPER_PRIVATE_KEY is not set: the reveal keeper is off");
 else if (entropy.status !== "verified")
@@ -528,7 +529,10 @@ const chainSigner = signerWorker?.signer ?? null;
 
 // P2-EC (D-307): on testnet the TestnetFeeds are re-dated on demand, before every market read
 // of a proposal's or a submission's checks and before an owner's deposit; never on a timer.
-const feedKey = env.id === "testnet" ? reveal("TESTNET_FEED_PRIVATE_KEY") : undefined;
+// 2026-10-16: the dev stack prices by its pairs (QuoteOracleV3) and has no feeds; it must never
+// re-date the judged Monad stack's feeds with the shared feed key.
+const feedKey =
+  env.id === "testnet" && TESTNET_CHAIN.standIns ? reveal("TESTNET_FEED_PRIVATE_KEY") : undefined;
 const feedAddress = (id: "chainlink_mon_usd" | "chainlink_usdc_usd") => {
   const e = addressEntry(env.id, id);
   return e.status === "verified" ? (e.address as Hex) : null;
@@ -539,7 +543,9 @@ const testnetFeeds = testnetFeedsFor(env.id, {
   usdcUsd: feedAddress("chainlink_usdc_usd"),
   log: createLog("feeds", redactor),
 });
-if (env.id === "testnet")
+if (env.id === "testnet" && !TESTNET_CHAIN.standIns)
+  log("testnet feeds: none; the dev stack prices each token by its own pair (QuoteOracleV3)");
+else if (env.id === "testnet")
   log(
     testnetFeeds
       ? "testnet feeds: re-dated on demand before checks, submissions and deposits (D-307)"
@@ -618,7 +624,7 @@ const trading = chainSigner
           : (
               await sendClient.getBlock({
                 blockTag:
-                  env.id === "testnet" && TESTNET_CHAIN.key !== "monad" ? "safe" : "finalized",
+                  env.id === "testnet" && !isMonadTestnet(TESTNET_CHAIN) ? "safe" : "finalized",
               })
             ).number,
     }

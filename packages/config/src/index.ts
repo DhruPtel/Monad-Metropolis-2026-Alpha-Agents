@@ -26,6 +26,7 @@ export {
   RESEARCH_MARKET,
   TESTNET_CHAINS,
   TESTNET_CHAIN_IDS,
+  isMonadTestnet,
   TESTNET_CHAIN_KEYS,
   testnetChainFor,
   type TestnetChain,

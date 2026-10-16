@@ -11,8 +11,10 @@ import {
   reportPrompt,
   reportSources,
   reportTexts,
+  VENUE_TOKENS_NOTE,
   withAllocationWhy,
   withStandIns,
+  withVenueTokens,
 } from "./report.ts";
 import { cyclePlan } from "./cycle.ts";
 import { CycleStore, type Cycle } from "./store.ts";
@@ -512,5 +514,18 @@ describe("a report cut off by the output limit (RP-U1)", () => {
     expect(r?.executiveSummary).toBe(base.executiveSummary);
     expect(r?.market.overview).toBe(base.market.overview);
     expect(r?.portfolio.stance).toBe("no_change");
+  });
+});
+
+describe("the dev stack's report on venue tokens (2026-10-16)", () => {
+  it("says first, once, that its tokens are testnet tokens, and nothing elsewhere", () => {
+    const r = parseReport(
+      JSON.stringify({ portfolio: { stance: "propose", summary: "Three picks.", positions: [] } }),
+    );
+    if (!r) throw new Error("unparsed");
+    const dev = withVenueTokens(r, true);
+    expect(dev.portfolio.summary).toBe(`${VENUE_TOKENS_NOTE} Three picks.`);
+    expect(withVenueTokens(dev, true)).toBe(dev);
+    expect(withVenueTokens(r, false)).toBe(r);
   });
 });

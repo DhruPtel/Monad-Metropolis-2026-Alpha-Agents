@@ -18,7 +18,9 @@ import { loadRootEnv } from "./lib/config.js";
 import { ROOT } from "./lib/paths.js";
 
 const arg = (/** @type {string} */ name, /** @type {string} */ fallback) =>
-  process.argv.includes(name) ? (process.argv[process.argv.indexOf(name) + 1] ?? fallback) : fallback;
+  process.argv.includes(name)
+    ? (process.argv[process.argv.indexOf(name) + 1] ?? fallback)
+    : fallback;
 const venue = V2_VENUES.find((v) => v.id === arg("--venue", "nadfun"));
 if (!venue) throw new Error("unknown venue");
 const MAX = Number(arg("--max", "50"));
@@ -64,11 +66,15 @@ async function many(calls) {
 }
 
 /** The pair's own quote, through the venue's selector, or null. */
-async function pairQuote(/** @type {`0x${string}`} */ pair, /** @type {`0x${string}`} */ tokenIn, /** @type {bigint} */ amountIn) {
+async function pairQuote(
+  /** @type {`0x${string}`} */ pair,
+  /** @type {`0x${string}`} */ tokenIn,
+  /** @type {bigint} */ amountIn,
+) {
   if (!venue?.pairQuoteSelector) return null;
   const data = /** @type {`0x${string}`} */ (
     venue.pairQuoteSelector +
-    encodeAbiParameters([{ type: "address" }, { type: "uint256" }], [tokenIn, amountIn]).slice(2)
+      encodeAbiParameters([{ type: "address" }, { type: "uint256" }], [tokenIn, amountIn]).slice(2)
   );
   try {
     const r = await client.call({ to: pair, data });
@@ -79,7 +85,12 @@ async function pairQuote(/** @type {`0x${string}`} */ pair, /** @type {`0x${stri
 }
 
 /** The pair's fee in millionths, read back from its own quote at a size its rounding ignores. */
-function feeFrom(/** @type {bigint} */ amountIn, /** @type {bigint} */ out, /** @type {bigint} */ rIn, /** @type {bigint} */ rOut) {
+function feeFrom(
+  /** @type {bigint} */ amountIn,
+  /** @type {bigint} */ out,
+  /** @type {bigint} */ rIn,
+  /** @type {bigint} */ rOut,
+) {
   if (out <= 0n || out >= rOut) return null;
   // out = a' rOut / (rIn + a'), a' = amountIn (1 - fee): a' = out rIn / (rOut - out).
   const effective = (out * rIn) / (rOut - out);
@@ -88,7 +99,13 @@ function feeFrom(/** @type {bigint} */ amountIn, /** @type {bigint} */ out, /** 
   return Math.max(1, Math.ceil(ppm / 10) * 10);
 }
 
-const n = Number(await client.readContract({ address: venue.factory, abi: FACTORY, functionName: "allPairsLength" }));
+const n = Number(
+  await client.readContract({
+    address: venue.factory,
+    abi: FACTORY,
+    functionName: "allPairsLength",
+  }),
+);
 const pairs = /** @type {(`0x${string}` | null)[]} */ (
   await many(
     Array.from({ length: n }, (_, i) => ({
@@ -133,18 +150,17 @@ live.forEach((p, i) => {
     rBase: tokenIs0 ? r[1] : r[0],
   });
 });
-if (!basePair) throw new Error("the venue has no USDC/WMON pair: the stack's WMON cannot be priced");
-const bp = /** @type {{ pair: `0x${string}`, r0: bigint, r1: bigint, t0: `0x${string}` }} */ (basePair);
+if (!basePair)
+  throw new Error("the venue has no USDC/WMON pair: the stack's WMON cannot be priced");
+const bp = /** @type {{ pair: `0x${string}`, r0: bigint, r1: bigint, t0: `0x${string}` }} */ (
+  basePair
+);
 const [rWmonBase, rUsdcBase] = bp.t0 === wmon ? [bp.r0, bp.r1] : [bp.r1, bp.r0];
 /** USDC (6 decimals) per whole WMON, as a float, for ranking only. */
 const wmonUsd = Number(rUsdcBase) / 1e6 / (Number(rWmonBase) / 1e18);
 const baseFee =
-  feeFrom(
-    10n ** 18n,
-    (await pairQuote(bp.pair, wmon, 10n ** 18n)) ?? 0n,
-    rWmonBase,
-    rUsdcBase,
-  ) ?? venue.defaultFeePpm;
+  feeFrom(10n ** 18n, (await pairQuote(bp.pair, wmon, 10n ** 18n)) ?? 0n, rWmonBase, rUsdcBase) ??
+  venue.defaultFeePpm;
 
 const meta = await many(
   candidates.flatMap((c) => [
@@ -163,7 +179,8 @@ for (const [i, c] of candidates.entries()) {
   // A small buy: 0.1% of the base side, then the tokens sold back.
   const small = c.rBase / 1000n || 1n;
   const quoted = await pairQuote(c.pair, c.base, small);
-  const fee = (quoted !== null ? feeFrom(small, quoted, c.rBase, c.rToken) : null) ?? venue.defaultFeePpm;
+  const fee =
+    (quoted !== null ? feeFrom(small, quoted, c.rBase, c.rToken) : null) ?? venue.defaultFeePpm;
   const bought = v2AmountOut(small, c.rBase, c.rToken, fee);
   const back = v2AmountOut(bought, c.rToken - bought, c.rBase + small, fee);
   if (bought <= 0n || back <= 0n) continue;
@@ -189,7 +206,9 @@ const record = {
   bases: { usdc, wmon, pair: bp.pair, feePpm: baseFee, wmonUsd },
   workingRoutes: found.length,
   chosen,
-  leftOut: found.slice(MAX).map((t) => ({ token: t.token, symbol: t.symbol, depthUsd: t.depthUsd })),
+  leftOut: found
+    .slice(MAX)
+    .map((t) => ({ token: t.token, symbol: t.symbol, depthUsd: t.depthUsd })),
 };
 mkdirSync(OUT_DIR, { recursive: true });
 writeFileSync(join(OUT_DIR, "discovery.json"), `${JSON.stringify(record, null, 2)}\n`);

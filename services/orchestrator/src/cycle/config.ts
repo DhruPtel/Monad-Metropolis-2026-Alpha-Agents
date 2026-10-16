@@ -1,3 +1,4 @@
+import { TESTNET_CHAIN } from "@alpha-agents/config";
 import { MARKET_CHAIN } from "@alpha-agents/market";
 import { type AgentConfig, AgentConfigSchema } from "../hermes/schema.ts";
 import { renderAgentConfig } from "../hermes/layers.ts";
@@ -73,6 +74,10 @@ export function stagePrompt(o: {
   /** 2026-10-16 (owner): the Zoom out's deployed contracts' limits, in plain words, up front. */
   readonly contractFacts?: string | null;
 }): string {
+  // 2026-10-16: the dev stack trades the tokens that exist on its venue (Monad testnet's nad.fun).
+  const venueTokens = TESTNET_CHAIN.standIns
+    ? ""
+    : "This stack trades the tokens that exist on Monad testnet's nad.fun DEX: test and meme tokens with no market data anywhere else. Research them with mcp__chain__testnet_token_stats (price, liquidity, market cap, the base it takes to move the price 1%, a round trip's cost, and the swaps, volume and price change their pairs recorded) and mcp__chain__get_prices; where a token matches a real asset by name or symbol (WETH, BTC), research that asset too. Size each position so its trades fit its pool (depthFor1PctUsd), and say plainly that these are testnet tokens.";
   const caps = `Caps for this stage: at most ${o.caps.turns} model turns, ${o.caps.paidCalls} paid data calls (cached answers are free) and ${Math.round(o.caps.seconds / 60)} minutes; it may cost at most ${usdc(o.ceilingUsdcE6)} USDC. A stage that reaches a cap is stopped, so finish well inside them.`;
   const common = [
     "Call mcp__platform__get_research_context first, then mcp__platform__get_goals_and_limits: the goal's brief and envelope say how aggressive to be and what the Test enforces.",
@@ -84,6 +89,8 @@ export function stagePrompt(o: {
     case "SCAN":
       return [
         `SCAN stage of a ${o.kind} research cycle for this owner's account on ${MARKET_CHAIN.name}.`,
+        venueTokens &&
+          `${venueTokens} Choose the Dives among the tokens get_prices marks buyable here (the venue's), never a token this stack cannot trade.`,
         "Load your Scan playbook with skill_view (name aa-playbook-scan) and follow it: the registry's tokens, the recent pools, the market and the open positions, then at most four themes, each a token worth a Dive, a held position to review, or a market change; load aa-defi-regime-read or aa-narrative-and-flow-tracker only when its description fits what you find.",
         o.kind === "ACTIVATION"
           ? "This is the activation's wide Scan: look broadly, since the Zoom out will build the first plan from this cycle."
@@ -102,6 +109,7 @@ export function stagePrompt(o: {
         : " (a market theme, not one token)";
       return [
         `DIVE stage of a ${o.kind} research cycle on the theme ${o.themeCode}${about}, which this cycle's Scan flagged (its SCAN brief is in get_research_context).`,
+        venueTokens,
         "Load your Dive playbook with skill_view (name aa-playbook-dive) and follow it: the fundamentals checklist with aa-deep-dive-research, and the token's safety screen read with aa-token-risk-screen.",
         caps,
         ...common,
@@ -121,6 +129,8 @@ export function stagePrompt(o: {
     case "ZOOM_OUT":
       return [
         `ZOOM_OUT stage of a ${o.kind} research cycle.`,
+        venueTokens &&
+          `${venueTokens} Pick several of the tokens you researched and weigh them by conviction; the plan holds only tokens get_prices marks buyable here.`,
         o.contractFacts ?? "",
         "Load your Zoom out playbook with skill_view (name aa-playbook-zoom-out) and follow it; load aa-portfolio-construction when you draft a target portfolio, and aa-usdc-wmon-band-rebalancer when the account is on the two-asset plan.",
         "get_research_context gives this cycle's briefs and testEnvelope: the tokens with their caps, the contracts' limits and whether a change may be proposed now. The runner makes every trade from the plan; you never size a trade.",

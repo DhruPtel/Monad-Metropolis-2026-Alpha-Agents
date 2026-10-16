@@ -1,4 +1,5 @@
 import { chargeFor, usdToPicos } from "@alpha-agents/accounting";
+import { TESTNET_CHAIN } from "@alpha-agents/config";
 import type { Db } from "@alpha-agents/db";
 import { z } from "zod";
 import type { CreditService } from "../credits/service.ts";
@@ -507,6 +508,23 @@ export function withStandIns(
 
 const pctText = (bps: number) => `${Math.round(bps / 100)}%`;
 
+/** 2026-10-16: on the dev stack the report says plainly, first, that its tokens are testnet tokens. */
+export const VENUE_TOKENS_NOTE =
+  "These are testnet tokens on Monad testnet's nad.fun DEX, not real assets: their prices, liquidity and trades are testnet figures.";
+
+export function withVenueTokens(report: ReportBodyT, venueTokens: boolean): ReportBodyT {
+  if (!venueTokens || report.portfolio.summary.startsWith(VENUE_TOKENS_NOTE)) return report;
+  return {
+    ...report,
+    portfolio: {
+      ...report.portfolio,
+      summary: report.portfolio.summary
+        ? `${VENUE_TOKENS_NOTE} ${report.portfolio.summary}`
+        : VENUE_TOKENS_NOTE,
+    },
+  };
+}
+
 /**
  * 2026-10-16 (owner): the report says why this allocation and why this much cash, in the
  * Zoom out's own words from its RATIONALE (allocationNote, cashNote). Briefs come oldest first.
@@ -782,7 +800,10 @@ export class ReportWriter {
       }
       const checked = checkReport(parsed, prepared, cycle.canary);
       const { checks } = checked;
-      const report = withAllocationWhy(withStandIns(checked.report, briefs), briefs);
+      const report = withVenueTokens(
+        withAllocationWhy(withStandIns(checked.report, briefs), briefs),
+        !TESTNET_CHAIN.standIns,
+      );
       const body: StoredReport = {
         version: 1,
         cycle: {
