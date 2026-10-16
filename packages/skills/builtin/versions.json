@@ -34,12 +34,12 @@
       "contentHash": "36bdf6a62679a072f695e5064925bcc2afd21db71932411fe3e7b633ec43fac7"
     },
     "playbook-scan": {
-      "version": "2.3.0",
-      "contentHash": "4bb36f155e362213dbc958844ebe03b319524d38cb274c7df9d1a9317b62391f"
+      "version": "2.4.0",
+      "contentHash": "467180b667bbcf9de77604463be38f873d0d47cf097635027d2c5b3d93170a41"
     },
     "playbook-zoom-out": {
-      "version": "2.8.0",
-      "contentHash": "aecf22cf2ffbe8d99b9b10a0f47be536f3fa97ff42b0edcf6656562c0504cd42"
+      "version": "2.9.0",
+      "contentHash": "6c71bd5c86ea3a3f78433d555ab4996e6f613793eeca7328e6feb0047ab6bc5d"
     },
     "portfolio-construction": {
       "version": "1.0.4",

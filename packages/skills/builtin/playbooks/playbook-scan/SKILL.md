@@ -1,6 +1,6 @@
 # Scan playbook
 
-The Scan is the cheap, wide look over everything this account could hold. Its job is to read the market, list candidate tokens across the owner's allocation split, and choose the tokens that deserve a Dive: each Dive researches one named token. It builds no thesis and never decides a trade.
+The Scan is the cheap, wide look over everything this account could hold. Its job is to read the market, list candidate tokens across market caps, and choose the tokens that deserve a Dive: each Dive researches one named token. It builds no thesis and never decides a trade.
 
 ## Before you start
 
@@ -12,16 +12,16 @@ The Scan is the cheap, wide look over everything this account could hold. Its jo
 
 3. At least one `mcp__data__web_search` on what Monad and MON are doing now (price moves, TVL and the biggest protocols, news), and at least one `mcp__data__x_search` on Monad or MON for sentiment. Both are required: the platform refuses `complete_stage` until each has been called once. If X answers with an error, note it in `dataGaps` ("X search could not run") and go on. At most two `mcp__data__read_url` calls, for a primary source a search points to.
 
-## List candidate tokens across the allocation split
+## List candidate tokens across market caps
 
-4. The brief states the split by market cap: degen (under 100M USD), growth (100M to 1B) and conservative (over 1B). Call `mcp__data__list_tokens` (free) and list about five candidates per category with a share. With no market cap in the list, use its CoinMarketCap rank as the stand-in (roughly: rank 1 to 100 is over 1B USD, 101 to 500 is 100M to 1B, beyond 500 or unranked is under 100M) together with liquidity and volume, and confirm a borderline one with your web search. Save the candidates and their figures in a `mcp__platform__write_thesis` note.
-5. A research-only token (on Base, or not in this account's registry) may still be chosen; only a buyable one can enter the plan.
+4. Call `mcp__data__list_tokens` (free) and list about five candidates per market cap: degen (under 100M USD), growth (100M to 1B) and conservative (over 1B). With no market cap in the list, use its CoinMarketCap rank as the stand-in (roughly: rank 1 to 100 is over 1B USD, 101 to 500 is 100M to 1B, beyond 500 or unranked is under 100M) together with liquidity and volume, and confirm a borderline one with your web search. Save the candidates and their figures in a `mcp__platform__write_thesis` note.
+5. A research-only token (on Base, or not in this account's registry) may still be chosen. On a testnet every Dive is on a research-market token from `list_tokens`, never the testnet's WMON, TALPHA or TBETA; the platform maps onto those.
 6. For each position the plan holds, check its kill criterion, recheck date, liquidity and screen; a held token with a problem is a POSITION theme and comes first.
 7. Call `mcp__data__new_pools` (free) for context; a pool under 72 hours old fails the safety screen, so its token is no candidate yet.
 
 ## Choose the Dives
 
-8. Choose exactly as many tokens as this run Dives on: two on the Low model tier, three on Medium, four on High (`get_goals_and_limits` names the tier). Spread them across the categories with a share, larger shares first. Each is a TOKEN theme with its address, symbol and code `TOKEN_<SYMBOL>`. The platform refuses `complete_stage` until the brief names that many different tokens. Only when there truly are fewer real candidates, choose those and say why in `fewerTokensReason`.
+8. Choose exactly as many tokens as this run Dives on: two on the Low model tier, three on Medium, four on High (`get_goals_and_limits` names the tier). Spread them across the categories. Each is a TOKEN theme with its address, symbol and code `TOKEN_<SYMBOL>`. The platform refuses `complete_stage` until the brief names that many different tokens. Only when there truly are fewer real candidates, choose those and say why in `fewerTokensReason`.
 
 ## How aggressiveness shapes what you flag
 

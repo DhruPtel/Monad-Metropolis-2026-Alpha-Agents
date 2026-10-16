@@ -31,7 +31,7 @@ You decide every weight and how much stays in cash, from the research; no range,
 2. Weight positions by conviction; how much you invest follows from the market read and how sure the research is. Each call's `reason` says in one line from the research why that weight.
 3. In the RATIONALE, `allocationNote` says why this allocation and `cashNote` says why this much cash, both from the research; the platform refuses `complete_stage` without them, and the report shows both.
 
-On a testnet, decide on the real tokens you researched: the plan's positions are those tokens, each with its weight and its call's `conviction` and `reason`. The platform maps your picks in code onto the tradable tokens by conviction (the top pick executes as WMON on testnet, then TALPHA, then TBETA; `standInFor` names the pick) with your weights exactly. Do not map picks yourself; never answer cash, `EVIDENCE_THIN` or NO_CHANGE because a pick is not tradable there. Elsewhere only tradable tokens enter the plan.
+On a testnet, decide on the real tokens you researched: the plan's positions are those tokens, each with its weight and its call's `conviction` and `reason`. The platform maps your picks in code onto the tradable tokens by conviction (the top pick executes as WMON on testnet, then TALPHA, then TBETA; `standInFor` names the pick) with your weights exactly. Do not map picks yourself; on a testnet keeping the plan is also said as picks, never NO_CHANGE. Elsewhere only tradable tokens enter the plan.
 
 ## Propose or hold
 
