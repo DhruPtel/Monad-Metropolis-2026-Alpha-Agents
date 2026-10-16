@@ -8,18 +8,18 @@ The owner's plan on the fund agent's set is the platform template `target_portfo
 | --------------------------------------------- | --------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
 | Target weight per position                    | The share of the account's value the runner holds in the token                                                  | Larger weights mean more of one risk and bigger legs against the pool |
 | Band per position                             | No trade while the position's share is within target plus or minus the band                                     | Narrow bands trade more and pay more cost; wide bands drift           |
-| Cash target                                   | The USDC share the runner keeps, never below the goal's stablecoin floor                                        | More cash means less exposure and dry powder for a better entry       |
+| Cash target                                   | The USDC share the runner keeps, never below this deploy's USDC minimum                                         | More cash means less exposure and dry powder for a better entry       |
 | Thesis and exit                               | The Dive's theme code, its kill criterion, a recheck date and a trim level                                      | A position with no exit plan is not allowed                           |
 | Minimum trade, brake, cost limit, largest leg | Shared with the two-asset plan: dust, buys held in a volatility spike, cost against the oracle, the biggest leg | As in the band rebalancer                                             |
 
-Each aggressiveness level's defaults for the shared fields, and the envelope the Test enforces for it, are in `data/params.json`. The weights are never defaults: they come from the Dives.
+Each aggressiveness level's defaults for the shared fields, and the envelope the Test enforces for it, are in `data/params.json`. The weights and the cash are never defaults: you decide them from the research, within the deployed contracts' limits.
 
 ## From theses to weights
 
 1. Start from each thesis the Challenge left standing or weakened, with its fair weight. A weakened thesis gets a smaller weight than the Dive proposed.
-2. Cap every weight by the envelope's cap per position, the registry's cap for the token (in `testEnvelope.tokens`) and the owner's one-token limit, whichever is lowest; keep class A tokens inside their own caps and total.
+2. Cap every weight by the deploy's cap for the token (`capBps` in `testEnvelope.tokens`) and the owner's one-token limit, whichever is lower; keep class A tokens inside their own caps and total.
 3. Check depth: `mcp__chain__get_pool_depth` at the leg the runner would make (the largest leg times the account's value from `mcp__chain__get_portfolio`) and `mcp__chain__get_quote` for the cost against the oracle. A weight the pool cannot absorb at the cost limit comes down until it can.
-4. Keep the count inside the envelope's positions and the cash target at or above the floor; the weights and the cash sum to the whole.
+4. Keep the count inside the envelope's positions and the cash at or above the deploy's USDC minimum; the weights and the cash sum to the whole, and each has its reason.
 5. Give each position a band that fits its volatility (`mcp__data__volatility` for MON; a wider band for a thinner pool), a kill criterion the platform's tools can observe, a recheck date before the thesis's horizon ends, and a trim level where taking profit is part of the thesis.
 6. Prefer few positions and small, reversible changes. `mcp__data__market_snapshot` gives the regime; in a risk-off regime raise cash rather than add.
 

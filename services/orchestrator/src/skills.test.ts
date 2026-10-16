@@ -128,18 +128,16 @@ describe("the strategy skill matches the runner's template (P3-U7, F6)", () => {
       const env = AGGRESSIVENESS_ENVELOPES[level];
       expect(l.envelope).toEqual({
         maxPositions: env.maxPositions,
-        maxPositionBps: env.maxPositionBps,
-        minStableBps: env.minStableBps,
         classAAllowed: env.classAAllowed,
         maxClassAPositionBps: env.maxClassAPositionBps,
         maxClassATotalBps: env.maxClassATotalBps,
       });
-      // Cash never below the level's stablecoin floor; the brake and the cost limit as the two-asset plan's.
-      expect(l.cashTargetBps).toBeGreaterThanOrEqual(env.minStableBps);
+      // 2026-10-16 (owner): the cash is never a default; the agent decides it.
+      expect(l).not.toHaveProperty("cashTargetBps");
+      // The brake and the cost limit as the two-asset plan's.
       expect(l.volatilityBrakeBps).toBe(BANDS_DEFAULTS[level].volatilityBrakeBps);
       expect(l.costHurdleBps).toBe(BANDS_DEFAULTS[level].costHurdleBps);
       const b = TARGET_PORTFOLIO_V1_BOUNDS;
-      expect(within(BigInt(l.cashTargetBps), b.cashTargetBps)).toBe(true);
       expect(within(BigInt(l.bandBps), b.bandBps)).toBe(true);
       expect(within(BigInt(l.minTradeUsdcE6), b.minTradeUsdcE6)).toBe(true);
       expect(within(BigInt(l.volatilityBrakeBps), b.volatilityBrakeBps)).toBe(true);

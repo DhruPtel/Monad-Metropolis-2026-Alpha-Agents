@@ -129,9 +129,16 @@ describe("the built-in skills and playbooks (P3-U7)", () => {
       expect(p.skillMd, p.manifest.id).toMatch(/mcp__platform__write_research_brief/);
     const zoom = set.packages.find((p) => p.manifest.id === "playbook-zoom-out")?.skillMd ?? "";
     expect(zoom).toMatch(/NO_CHANGE/);
-    // F-T1 (A-81): the invested range and the allocation note; a weakened thesis earns a smaller weight.
-    for (const item of ["investedRangeBps", "allocationNote", "cash only", "smaller weight"])
+    // 2026-10-16 (owner): the agent's own allocation and cash with their reasons, within the contracts' limits.
+    for (const item of [
+      "allocationNote",
+      "cashNote",
+      "contractFacts",
+      "cash only",
+      "WEAKENED cuts it",
+    ])
       expect(zoom, item).toContain(item);
+    expect(zoom).not.toMatch(/investedRangeBps|stablecoin floor|\d+% to \d+%/);
     const challenge =
       set.packages.find((p) => p.manifest.id === "playbook-challenge")?.skillMd ?? "";
     for (const item of ["Uncertainty is not a break", "REJECTED", "WEAKENED", "STANDS", "broken"])
@@ -141,14 +148,12 @@ describe("the built-in skills and playbooks (P3-U7)", () => {
     );
     // F-U12: the Zoom out names every token seen and not proposed, and never proposes one the account cannot buy.
     expect(set.packages.find((p) => p.manifest.id === "playbook-zoom-out")?.manifest.version).toBe(
-      "2.7.0",
+      "2.8.0",
     );
-    // 2026-10-15: the goal sets a range, conviction sets the weights, a testnet pick maps to a stand-in.
+    // 2026-10-16: conviction sets the weights, the agent the cash, a testnet pick maps to a stand-in.
     for (const item of [
-      "15% to 40%",
-      "40% to 70%",
-      "70% to 95%",
-      "no fixed split",
+      "no range, split or minimum",
+      "with your weights exactly",
       "conviction",
       "capBps",
       "standInFor",
