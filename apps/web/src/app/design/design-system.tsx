@@ -113,6 +113,7 @@ import {
   PlanUnchangedCard,
   ResearchOverview,
   ResearchScheduleCard,
+  ResearchShortNotice,
   ResearchTiles,
   SentinelCard,
   UniversePanel,
@@ -4820,6 +4821,31 @@ function ResearchLoopSection() {
               cycles: 0,
               open: false,
             }}
+          />
+        </div>
+      </Specimen>
+      <Specimen
+        name="ResearchShortNotice"
+        note="Research never stops silently (2026-10-16): Research now refused for credits, with what is available above the reserve and what a full run needs; a run stopped for today's budget, with the stage it stopped before. Each carries its fix."
+      >
+        <div className="flex flex-col gap-3" data-testid="research-short-notices">
+          <ResearchShortNotice
+            view={{
+              reason: "CREDITS_SHORT",
+              availableUsdcE6: "170000",
+              neededUsdcE6: "2350000",
+              stage: null,
+            }}
+            action={<Button size="sm">Add credits</Button>}
+          />
+          <ResearchShortNotice
+            view={{
+              reason: "BUDGET_SHORT",
+              usedUsdcE6: "1000000",
+              budgetUsdcE6: "1000000",
+              stage: "DIVE",
+            }}
+            action={<Button size="sm">Raise daily budget</Button>}
           />
         </div>
       </Specimen>

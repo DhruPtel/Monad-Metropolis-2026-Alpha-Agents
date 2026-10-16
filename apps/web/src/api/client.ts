@@ -735,6 +735,11 @@ export interface ResearchJson {
     readonly divesPerDay: number;
     readonly divesToday: number;
   } | null;
+  /** 2026-10-16: the credits a run may spend above the reserve, and a full run's ceiling. */
+  readonly credits?: {
+    readonly availableUsdcE6: string;
+    readonly runNeedsUsdcE6: string;
+  } | null;
   readonly open: {
     readonly cycleId: string;
     readonly kind: string;
@@ -784,10 +789,13 @@ export interface ResearchJson {
     readonly startedAt: string | null;
     readonly finishedAt: string | null;
     readonly chargedUsdcE6: string;
+    /** 2026-10-16: why the run stopped (CREDITS_SHORT, BUDGET_SHORT, ...); absent before. */
+    readonly stopReason?: string | null;
     readonly stages: readonly {
       readonly stage: string;
       readonly themeCode: string | null;
       readonly status: string;
+      readonly stopReason?: string | null;
       readonly chargedUsdcE6: string;
       readonly ceilingUsdcE6: string;
     }[];

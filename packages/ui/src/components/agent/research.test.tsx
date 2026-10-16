@@ -8,6 +8,7 @@ import {
   ResearchOverview,
   ResearchScheduleCard,
   type ResearchScheduleView,
+  ResearchShortNotice,
   ResearchTiles,
   StageTimeline,
   type TerminalLineView,
@@ -15,6 +16,7 @@ import {
   TriggerList,
   everyText,
   relativeText,
+  researchShortText,
   researchTileWords,
 } from "./research";
 
@@ -417,5 +419,37 @@ describe("the research loop at a glance as tiles (UI-U2)", () => {
     expect(tiles.getByText("in 3 h")).toBeTruthy();
     expect(tiles.getByText("1.41 USDC")).toBeTruthy();
     expect(tiles.getByText("2")).toBeTruthy();
+  });
+});
+
+describe("research that cannot start or stopped short (2026-10-16)", () => {
+  it("says the credits, what a run needs and the fix, before a run or at the stage it stopped", () => {
+    expect(
+      researchShortText({
+        reason: "CREDITS_SHORT",
+        availableUsdcE6: "169892",
+        neededUsdcE6: "2350000",
+        stage: null,
+      }),
+    ).toEqual({
+      title: "Not enough research credits: 0.16 USDC available, a run needs about 2.35",
+      body: "The run did not start. Add credits to run research; the reserve for gas stays untouched.",
+    });
+    render(
+      <ResearchShortNotice
+        view={{
+          reason: "BUDGET_SHORT",
+          usedUsdcE6: "1000000",
+          budgetUsdcE6: "1000000",
+          stage: "DIVE",
+        }}
+        action={<button type="button">Raise daily budget</button>}
+      />,
+    );
+    const notice = screen.getByTestId("research-short");
+    expect(notice).toHaveAttribute("data-reason", "BUDGET_SHORT");
+    expect(notice).toHaveTextContent("Today's research budget is used up: 1.00 of 1.00 USDC");
+    expect(notice).toHaveTextContent("The run stopped before its Dive.");
+    expect(within(notice).getByRole("button", { name: "Raise daily budget" })).toBeVisible();
   });
 });

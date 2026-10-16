@@ -1,6 +1,6 @@
 "use client";
 
-import { Activity, Radio, Telescope } from "lucide-react";
+import { Activity, AlertTriangle, Radio, Telescope } from "lucide-react";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { cn } from "../../lib/utils";
 import { usdcCents as usdc } from "../../lib/format";
@@ -932,6 +932,80 @@ function PlanUnchangedCard({
   );
 }
 
+/**
+ * 2026-10-16 (owner): why research did not start or stopped, with the numbers and the fix,
+ * never a silent stop. Credits: what the agent may spend above its reserve against what a
+ * full run needs. Budget: the day's research budget used against its size.
+ */
+export type ResearchShortView =
+  | {
+      readonly reason: "CREDITS_SHORT";
+      readonly availableUsdcE6: string;
+      readonly neededUsdcE6: string;
+      /** The stage a run stopped before; null when Research now did not start. */
+      readonly stage: string | null;
+    }
+  | {
+      readonly reason: "BUDGET_SHORT";
+      readonly usedUsdcE6: string;
+      readonly budgetUsdcE6: string;
+      readonly stage: string | null;
+    };
+
+const STAGE_WORD: Readonly<Record<string, string>> = {
+  SCAN: "Scan",
+  DIVE: "Dive",
+  CHALLENGE: "Challenge",
+  TEST: "Test",
+  ZOOM_OUT: "Zoom out",
+};
+
+export function researchShortText(view: ResearchShortView): { title: string; body: string } {
+  const at = view.stage
+    ? `The run stopped before its ${STAGE_WORD[view.stage] ?? view.stage}. `
+    : "The run did not start. ";
+  return view.reason === "CREDITS_SHORT"
+    ? {
+        title: `Not enough research credits: ${usdc(view.availableUsdcE6)} USDC available, a run needs about ${usdc(view.neededUsdcE6)}`,
+        body: `${at}Add credits to run research; the reserve for gas stays untouched.`,
+      }
+    : {
+        title: `Today's research budget is used up: ${usdc(view.usedUsdcE6)} of ${usdc(view.budgetUsdcE6)} USDC`,
+        body: `${at}Raise the daily budget, or research starts again tomorrow (UTC).`,
+      };
+}
+
+function ResearchShortNotice({
+  view,
+  action,
+  className,
+}: {
+  view: ResearchShortView;
+  /** The fix: Add credits, or Raise daily budget. */
+  action?: ReactNode;
+  className?: string;
+}) {
+  const t = researchShortText(view);
+  return (
+    <div
+      role="status"
+      data-testid="research-short"
+      data-reason={view.reason}
+      className={cn(
+        "flex flex-col gap-3 rounded-lg border border-warning bg-surface p-4 sm:flex-row sm:items-center",
+        className,
+      )}
+    >
+      <AlertTriangle aria-hidden className="size-5 shrink-0 text-warning" />
+      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+        <p className="text-sm font-medium text-foreground">{t.title}</p>
+        <p className="text-sm break-words text-foreground-muted">{t.body}</p>
+      </div>
+      {action ? <div className="flex shrink-0 gap-2">{action}</div> : null}
+    </div>
+  );
+}
+
 export {
   AgentTerminal,
   BudgetMeter,
@@ -939,6 +1013,7 @@ export {
   PlanUnchangedCard,
   ResearchOverview,
   ResearchScheduleCard,
+  ResearchShortNotice,
   ResearchTiles,
   StageTimeline,
   ThemesPanel,

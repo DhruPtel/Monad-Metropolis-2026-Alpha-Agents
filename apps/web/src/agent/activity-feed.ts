@@ -1,5 +1,6 @@
 import type { ActivityRowView } from "@alpha-agents/ui";
 import type { IntentJson, MoneyEventJson, ProposalJson, ResearchJson } from "@/api/client";
+import { stoppedShortText } from "./research-short";
 
 /**
  * 2026-10-13: the shared Activity panel's rows, newest first, from real
@@ -84,7 +85,8 @@ export function activityRows(s: ActivitySources): ActivityRowView[] {
       id: `r-${c.cycleId}`,
       type: "Research",
       filter: "research",
-      title: `${KIND_WORD[c.kind] ?? "Research"}${c.status === "completed" ? "" : ` (${c.status})`}`,
+      // 2026-10-16: a run stopped for credits or budget says where and why.
+      title: `${KIND_WORD[c.kind] ?? "Research"}${c.status === "completed" ? "" : ` (${stoppedShortText(c) ?? c.status})`}`,
       amount: usdc(c.chargedUsdcE6),
       time: minute(at),
       at,

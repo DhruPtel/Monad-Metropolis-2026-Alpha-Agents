@@ -41,7 +41,7 @@ export function ResearchSettings({ agentId }: { agentId: bigint }) {
   const changed = goalChanged(form, page.goal);
   const facts = page.form.intensities.find((i) => i.id === form.intensity);
   return (
-    <Card data-testid="research-settings">
+    <Card id="research-settings" data-testid="research-settings">
       <CardHeader>
         <CardTitle>Research settings</CardTitle>
       </CardHeader>
@@ -111,6 +111,7 @@ export function ResearchSettings({ agentId }: { agentId: bigint }) {
               <Input
                 {...control}
                 inputMode="decimal"
+                data-testid="research-settings-budget"
                 value={form.budgetText}
                 disabled={busy}
                 onChange={(e) => set((f) => ({ ...f, budgetText: e.target.value }))}

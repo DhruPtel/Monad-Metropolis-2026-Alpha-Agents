@@ -19,6 +19,8 @@ import {
   PhaseList,
   ResearchBranchChart,
   ResearchScheduleCard,
+  ResearchShortNotice,
+  type ResearchShortView,
   type RunOptionView,
   RunPicker,
   SectionLabel,
@@ -57,6 +59,10 @@ import { useReports } from "@/agent/use-reports";
 import { useResearch, useTerminal } from "@/agent/use-research";
 import { useWalletSession } from "@/auth/session";
 import { ResearchSettings } from "./research-settings";
+import type { Address } from "viem";
+import { refusedShort, shortNotice } from "@/agent/research-short";
+import { useAgentSummary } from "@/components/agent-shell/agent-shell";
+import { AddCreditsSection } from "@/components/credits/add-credits-section";
 
 const KIND_WORD: Readonly<Record<string, string>> = {
   ACTIVATION: "Activation",
@@ -198,8 +204,13 @@ export function ResearchPage({
   const [scan, setScan] = useState<{ state: "working" | "done" | "error"; text: string } | null>(
     null,
   );
+  // 2026-10-16: Research now refused for credits shows the numbers and Add credits, not a line.
+  const [refused, setRefused] = useState<ResearchShortView | null>(null);
+  const [creditsOpen, setCreditsOpen] = useState(false);
+  const me = useAgentSummary();
   const startScan = async () => {
     setScanAsk(false);
+    setRefused(null);
     setScan({ state: "working", text: "Starting a research run." });
     try {
       const r = await asOwner((t) => tradingApi.requestResearchRun(agentId, t));
@@ -210,6 +221,12 @@ export function ResearchPage({
       });
       refresh();
     } catch (err) {
+      const short = err instanceof ApiError ? refusedShort(err.code, err.body, research) : null;
+      if (short) {
+        setRefused(short);
+        setScan(null);
+        return;
+      }
       setScan({
         state: "error",
         text:
@@ -331,6 +348,8 @@ export function ResearchPage({
     ? (research.cycles.find((x) => x.cycleId === research.open?.cycleId) ?? null)
     : null;
   const newestCycle = research.cycles[0] ?? null;
+  // 2026-10-16: the newest run stopped for credits or budget, or Research now refused for credits.
+  const shortView = refused ?? (research.open ? null : shortNotice(research, newestCycle));
   const newestReport = newestCycle ? reports.find((r) => r.cycleId === newestCycle.cycleId) : null;
   const newestKept = newestCycle !== null && kept?.cycleId === newestCycle.cycleId;
   const zoomDone = openCycle?.stages.some(
@@ -461,6 +480,69 @@ export function ResearchPage({
           ) : null
         }
       />
+      {shortView ? (
+        <ResearchShortNotice
+          view={shortView}
+          action={
+            shortView.reason === "CREDITS_SHORT" ? (
+              me?.summary ? (
+                <Button
+                  size="sm"
+                  onClick={() => setCreditsOpen(true)}
+                  data-testid="short-add-credits"
+                >
+                  Add credits
+                </Button>
+              ) : (
+                <Button asChild size="sm" data-testid="short-add-credits">
+                  <Link href={`/agents/${id}`}>Add credits</Link>
+                </Button>
+              )
+            ) : (
+              <Button
+                size="sm"
+                data-testid="short-raise-budget"
+                onClick={() => {
+                  document
+                    .getElementById("research-settings")
+                    ?.scrollIntoView({ behavior: "smooth", block: "start" });
+                  document
+                    .querySelector<HTMLInputElement>('[data-testid="research-settings-budget"]')
+                    ?.focus({ preventScroll: true });
+                }}
+              >
+                Raise daily budget
+              </Button>
+            )
+          }
+        />
+      ) : null}
+      {me?.summary ? (
+        <Dialog open={creditsOpen} onOpenChange={setCreditsOpen}>
+          <DialogContent aria-describedby="short-credits-description">
+            <DialogHeader>
+              <DialogTitle>Add credits to Agent #{id}</DialogTitle>
+              <DialogDescription id="short-credits-description">
+                Your wallet sends USDC to Agent #{id}&apos;s funding address in one transaction, and
+                it becomes credits with no other step.
+              </DialogDescription>
+            </DialogHeader>
+            <AddCreditsSection
+              agentId={agentId}
+              agentName={`Agent #${id}`}
+              environment={environment}
+              fundingAddress={(me.summary.funding?.fundingAddress as Address | undefined) ?? null}
+              creditsUsdcE6={me.summary.credits}
+              capUsdcE6={me.summary.creditCap}
+              onCredited={() => {
+                setRefused(null);
+                me.refresh();
+                refresh();
+              }}
+            />
+          </DialogContent>
+        </Dialog>
+      ) : null}
       <NextResearchStrip
         line={nextLine}
         action={
