@@ -6,7 +6,7 @@ The platform's runner makes the trades from the plan, one capped leg at a time, 
 
 ## Before you start
 
-1. Call `mcp__platform__get_goals_and_limits` once: the aggressiveness level, its brief, its envelope (positions, the cap per position, class A, the stablecoin floor), the owner's limits, the plan in force and the account mode.
+1. Call `mcp__platform__get_goals_and_limits` once: the aggressiveness level, its brief, its envelope, the owner's limits, the plan in force and the account mode.
 2. Call `mcp__chain__get_portfolio` and `mcp__chain__get_limits` once each: what the account holds now, each position's share, the breaker's drawdown and the headroom. `mcp__data__market_snapshot` once for today's figures.
 3. Call `mcp__platform__get_research_context`: this cycle's SCAN, THEME and CHALLENGE briefs, and `testEnvelope`: the deterministic Test's ranges a plan may move within, the registered tokens with their caps and whether a change may be proposed now (`mayProposeNow`).
 
@@ -25,7 +25,7 @@ Then weigh the whole: does the set fit the brief (few large positions for Conser
 
 ## How much to invest
 
-The goal names the invested share its aggressiveness level expects (`envelope.investedRangeBps` from `mcp__platform__get_goals_and_limits`: 30% to 70% for Conservative, 50% to 85% for Balanced, 65% to 90% for Aggressive). Land inside it when the standing and weakened theses support that much; when they support less, propose less and say plainly why in the RATIONALE's `allocationNote`. Cash only needs genuinely weak evidence and an `allocationNote` saying why (the platform refuses `complete_stage` without it). Only tokens tradable here enter the plan. On a testnet, if your real-token picks are not tradable here, put that total share in WETH (WMON on Monad), rest USDC, noted in `allocationNote`; never cash or `EVIDENCE_THIN` because picks are untradable here.
+The goal's `envelope.investedRangeBps` (from `mcp__platform__get_goals_and_limits`) is the invested share its level expects. Land inside it when the standing and weakened theses support that much; when they support less, propose less and say plainly why in the RATIONALE's `allocationNote`. Cash only needs genuinely weak evidence and an `allocationNote` saying why (the platform refuses `complete_stage` without it). Only tokens tradable here enter the plan. On a testnet the style sets the invested share: about 30% Conservative, about 60% Balanced, about 90% Aggressive, split evenly across the buyable non-USDC `testEnvelope.tokens` (WMON, TALPHA, TBETA on Monad), each at most its `capBps`, the rest USDC. If caps bind, say so in `allocationNote`. Untradable picks go in `notProposed`; never cash or `EVIDENCE_THIN` for that.
 
 ## Propose or hold
 

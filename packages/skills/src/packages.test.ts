@@ -141,8 +141,11 @@ describe("the built-in skills and playbooks (P3-U7)", () => {
     );
     // F-U12: the Zoom out names every token seen and not proposed, and never proposes one the account cannot buy.
     expect(set.packages.find((p) => p.manifest.id === "playbook-zoom-out")?.manifest.version).toBe(
-      "2.4.1",
+      "2.5.0",
     );
+    // 2026-10-15: on a testnet the goal's style sets the invested share, capped per token.
+    for (const item of ["about 30%", "about 60%", "about 90%", "capBps"])
+      expect(zoom, item).toContain(item);
     for (const item of ["notProposed", "not buyable for this account"])
       expect(zoom, item).toContain(item);
     // F-U12: the Scan's turn limit is the task's cap.
