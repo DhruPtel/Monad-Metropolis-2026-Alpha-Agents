@@ -10,8 +10,10 @@ import {
   MODEL_TIER_FACTS,
   RESEARCH_INTENSITY_FACTS,
   SCAN_ALIAS,
+  TESTNET_DAILY_RESEARCH_BUDGET_USDC_E6,
   isLegacyGoalInput,
   migrateLegacyGoalInput,
+  testnetIntensityFacts,
 } from "./goals.ts";
 
 const LITELLM_CONFIG = fileURLToPath(
@@ -58,6 +60,26 @@ describe("the goal's fields (P3-U1, F-U7)", () => {
       expect(i.defaultDailyBudgetUsdcE6).toBeGreaterThanOrEqual(i.minDailyBudgetUsdcE6);
       expect(i.defaultDailyBudgetUsdcE6).toBeLessThanOrEqual(i.maxDailyBudgetUsdcE6);
     }
+  });
+
+  it("defaults every intensity to 10 USDC a day on the testnets, and allows at least that (2026-10-16)", () => {
+    expect(TESTNET_DAILY_RESEARCH_BUDGET_USDC_E6).toBe(10_000_000n);
+    for (const i of Object.values(RESEARCH_INTENSITY_FACTS)) {
+      const t = testnetIntensityFacts(i);
+      expect(t.defaultDailyBudgetUsdcE6).toBe(10_000_000n);
+      expect(t.minDailyBudgetUsdcE6).toBe(i.minDailyBudgetUsdcE6);
+      expect(t.maxDailyBudgetUsdcE6).toBe(
+        i.maxDailyBudgetUsdcE6 > 10_000_000n ? i.maxDailyBudgetUsdcE6 : 10_000_000n,
+      );
+      expect(t.defaultDailyBudgetUsdcE6).toBeGreaterThanOrEqual(t.minDailyBudgetUsdcE6);
+    }
+    // Light's cap was 2.00 USDC; Deep's 12.00 stays.
+    expect(testnetIntensityFacts(RESEARCH_INTENSITY_FACTS.LIGHT).maxDailyBudgetUsdcE6).toBe(
+      10_000_000n,
+    );
+    expect(testnetIntensityFacts(RESEARCH_INTENSITY_FACTS.DEEP).maxDailyBudgetUsdcE6).toBe(
+      12_000_000n,
+    );
   });
 
   it("refuses free text, unknown fields, a bad address and more than 32 exclusions", () => {

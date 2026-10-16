@@ -181,7 +181,32 @@ export interface ResearchIntensityFacts {
 /** D-293, D-299: new goals default to Light. */
 export const DEFAULT_RESEARCH_INTENSITY: ResearchIntensity = "LIGHT";
 
-export const RESEARCH_INTENSITY_FACTS: Readonly<Record<ResearchIntensity, ResearchIntensityFacts>> =
+/**
+ * 2026-10-16 (owner): on the testnets a full research run costs more than Light's 1.00 USDC a
+ * day, so there every intensity defaults to 10.00 USDC a day and allows at least that.
+ */
+export const TESTNET_DAILY_RESEARCH_BUDGET_USDC_E6 = 10_000_000n;
+
+/** The testnet's research budgets: each intensity's default and cap raised to the testnet's. */
+export function testnetIntensityFacts(f: ResearchIntensityFacts): ResearchIntensityFacts {
+  const budget = TESTNET_DAILY_RESEARCH_BUDGET_USDC_E6;
+  return {
+    ...f,
+    defaultDailyBudgetUsdcE6: budget,
+    maxDailyBudgetUsdcE6: f.maxDailyBudgetUsdcE6 > budget ? f.maxDailyBudgetUsdcE6 : budget,
+  };
+}
+
+/**
+ * A testnet build or service: APP_ENV on a server; in the browser, the TESTNET_CHAIN the web
+ * build inlines (next.config.ts), which only a testnet build sets.
+ */
+const ON_TESTNET =
+  typeof process !== "undefined" &&
+  (process.env.APP_ENV === "testnet" ||
+    (process.env.APP_ENV === undefined && Boolean(process.env.TESTNET_CHAIN)));
+
+const BASE_INTENSITY_FACTS: Readonly<Record<ResearchIntensity, ResearchIntensityFacts>> =
   Object.freeze({
     LIGHT: {
       label: "Light",
@@ -208,6 +233,15 @@ export const RESEARCH_INTENSITY_FACTS: Readonly<Record<ResearchIntensity, Resear
       maxDailyBudgetUsdcE6: 12_000_000n,
     },
   });
+
+export const RESEARCH_INTENSITY_FACTS: Readonly<Record<ResearchIntensity, ResearchIntensityFacts>> =
+  ON_TESTNET
+    ? Object.freeze({
+        LIGHT: testnetIntensityFacts(BASE_INTENSITY_FACTS.LIGHT),
+        STANDARD: testnetIntensityFacts(BASE_INTENSITY_FACTS.STANDARD),
+        DEEP: testnetIntensityFacts(BASE_INTENSITY_FACTS.DEEP),
+      })
+    : BASE_INTENSITY_FACTS;
 
 /** A month for the cost preview (D-299): 30 days at the daily budget, which is a hard cap. */
 export const COST_PREVIEW_DAYS = 30;
