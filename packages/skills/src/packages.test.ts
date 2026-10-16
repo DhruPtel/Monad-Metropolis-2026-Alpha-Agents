@@ -141,7 +141,7 @@ describe("the built-in skills and playbooks (P3-U7)", () => {
     );
     // F-U12: the Zoom out names every token seen and not proposed, and never proposes one the account cannot buy.
     expect(set.packages.find((p) => p.manifest.id === "playbook-zoom-out")?.manifest.version).toBe(
-      "2.6.0",
+      "2.7.0",
     );
     // 2026-10-15: the goal sets a range, conviction sets the weights, a testnet pick maps to a stand-in.
     for (const item of [
@@ -153,6 +153,8 @@ describe("the built-in skills and playbooks (P3-U7)", () => {
       "capBps",
       "standInFor",
       "executes as WMON on testnet",
+      "maps your picks in code",
+      "Do not map picks yourself",
     ])
       expect(zoom, item).toContain(item);
     expect(zoom).not.toMatch(/evenly/);

@@ -32,7 +32,7 @@ The goal sets a range, not a number: `envelope.investedRangeBps` from `mcp__plat
 3. Weight positions by conviction within that share, each at most its `capBps` and the envelope's cap; the rest is `cashTargetBps`. Each call's `reason` says in one line from the research why that weight.
 4. Outside the range, or cash only (genuinely weak evidence), say why in `allocationNote`; the platform refuses `complete_stage` without it.
 
-Only tokens tradable here enter the plan. On a testnet, decide on the real tokens with real data, then map each pick in order of conviction to a buyable stand-in in `testEnvelope.tokens`: top pick to the wrapped native (WMON on Monad, WETH elsewhere), next to TALPHA, next to TBETA. The stand-in keeps the pick's weight (within its `capBps`) and conviction, its call's `standInFor` names the pick (`{ token, symbol }`), and the pick goes in `notProposed` as "executes as WMON on testnet". Never cash or `EVIDENCE_THIN` because picks are untradable here.
+On a testnet, decide on the real tokens you researched: the plan's positions are those tokens, each with its weight and its call's `conviction` and `reason`. The platform maps your picks in code onto the tradable tokens by conviction (the top pick executes as WMON on testnet, then TALPHA, then TBETA; `standInFor` names the pick), applies each `capBps` and keeps the plan inside the range. Do not map picks yourself; never answer cash, `EVIDENCE_THIN` or NO_CHANGE because a pick is not tradable there. Elsewhere only tradable tokens enter the plan.
 
 ## Propose or hold
 
