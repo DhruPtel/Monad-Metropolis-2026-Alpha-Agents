@@ -421,6 +421,35 @@ export function canonicalJson(value: unknown): string {
   throw new Error(`canonicalJson: cannot encode a ${typeof value}`);
 }
 
+const PCT = String.raw`\d+(?:\.\d+)?%`;
+
+/**
+ * 2026-10-15: a goal saved under an older preset reads its level's current invested range and
+ * stablecoin minimum, in its brief and its SOUL.md block, the same values the Test enforces.
+ * Every other word of the saved text stays as it was.
+ */
+export function withCurrentPreset(text: string, level: Aggressiveness): string {
+  const e = AGGRESSIVENESS_ENVELOPES[level];
+  const { min, max } = e.investedRangeBps;
+  return text
+    .replace(
+      new RegExp(`Expect to keep between ${PCT} and ${PCT} of the account invested`),
+      `Expect to keep between ${bps(min)} and ${bps(max)} of the account invested`,
+    )
+    .replace(
+      new RegExp(`(Expected invested share for [A-Za-z]+: )${PCT} to ${PCT}`),
+      `$1${bps(min)} to ${bps(max)}`,
+    )
+    .replace(
+      new RegExp(`Keep at least ${PCT} of the account in stablecoins`),
+      `Keep at least ${bps(e.minStableBps)} of the account in stablecoins`,
+    )
+    .replace(
+      new RegExp(`(in any one, at least )${PCT}( in stablecoins)`),
+      `$1${bps(e.minStableBps)}$2`,
+    );
+}
+
 /** The goal block of SOUL.md, from a fixed template: every value comes from the translated config. */
 function soulBlock(c: Omit<GoalConfig, "soulBlock">): string {
   const o = c.ownerLimits;

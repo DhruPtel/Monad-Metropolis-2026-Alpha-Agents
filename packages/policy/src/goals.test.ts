@@ -20,6 +20,7 @@ import {
   hardGoalLimits,
   ownerLimitRanges,
   translateGoal,
+  withCurrentPreset,
 } from "./goals.ts";
 import { GOAL_LIMITS } from "./limits.ts";
 
@@ -408,5 +409,26 @@ describe("the allocation split and the most positions (2026-10-13)", () => {
     expect(refused(goal({ aggressiveness: "CONSERVATIVE", maxPositions: 6 }))).toEqual([
       expect.objectContaining({ field: "maxPositions", code: "POSITIONS_OUT_OF_RANGE" }),
     ]);
+  });
+});
+
+describe("a goal saved under an older preset (2026-10-15)", () => {
+  it("reads its level's current invested range and stablecoin minimum, every other word kept", () => {
+    const brief =
+      "Hold large caps. Keep at least 10% of the account in stablecoins and no more than 40% in any one position. Expect to keep between 65% and 90% of the account invested; outside that range, say why.";
+    expect(withCurrentPreset(brief, "AGGRESSIVE")).toBe(
+      "Hold large caps. Keep at least 5% of the account in stablecoins and no more than 40% in any one position. Expect to keep between 70% and 95% of the account invested; outside that range, say why.",
+    );
+    const soul = [
+      "- Envelope the Test enforces on a target portfolio: at most 8 positions, at most 40% in any one, at least 15% in stablecoins, class A at most 8% each and 25% together",
+      "- Expected invested share for Balanced: 50% to 85% of the account outside stablecoins; a plan outside it must say why",
+    ].join("\n");
+    expect(withCurrentPreset(soul, "BALANCED")).toBe(
+      [
+        "- Envelope the Test enforces on a target portfolio: at most 8 positions, at most 40% in any one, at least 15% in stablecoins, class A at most 8% each and 25% together",
+        "- Expected invested share for Balanced: 40% to 70% of the account outside stablecoins; a plan outside it must say why",
+      ].join("\n"),
+    );
+    expect(withCurrentPreset("No range here.", "CONSERVATIVE")).toBe("No range here.");
   });
 });

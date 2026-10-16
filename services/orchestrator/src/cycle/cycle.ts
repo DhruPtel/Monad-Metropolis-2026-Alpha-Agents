@@ -1,3 +1,4 @@
+import { withCurrentPreset } from "@alpha-agents/policy";
 import type { GoalStore, PlanStore } from "@alpha-agents/trading";
 import { isBandsPlan, isPortfolioPlan } from "@alpha-agents/trading";
 import type { CreditService } from "../credits/service.ts";
@@ -226,7 +227,7 @@ export async function runCycleTask(ctx: CycleContext, taskId: string): Promise<v
           (stored: AgentConfig) => {
             const config = cycleConfig(stored, {
               kind: replay ? replay.cycle.kind : cycle.kind,
-              goalBlock: goal.soulBlock,
+              goalBlock: withCurrentPreset(goal.soulBlock, goal.config.aggressiveness),
               canary: cycle.canary,
             });
             // A replay's sandbox gets the SOUL.md the original cycle had, with its own marker.

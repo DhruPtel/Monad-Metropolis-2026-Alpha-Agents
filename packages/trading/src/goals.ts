@@ -17,6 +17,7 @@ import {
   canonicalJson,
   hardGoalLimits,
   translateGoal,
+  withCurrentPreset,
 } from "@alpha-agents/policy";
 import { type Hex, formatUnits, getAddress } from "viem";
 
@@ -394,20 +395,21 @@ export function goalsAndLimitsJson(view: AgentGoalView, live: LiveGoalLimits | n
             planChanges: c.planChanges.mode,
           }
         : null,
-    brief: c ? briefOnChain(c.brief, live?.screenedOptIn ?? null) : null,
+    brief: c
+      ? briefOnChain(withCurrentPreset(c.brief, c.aggressiveness), live?.screenedOptIn ?? null)
+      : null,
     envelope: c
       ? {
           classAAllowed: c.envelope.classAAllowed,
           maxPositionBps: c.envelope.maxPositionBps,
           maxClassAPositionBps: c.envelope.maxClassAPositionBps,
           maxClassATotalBps: c.envelope.maxClassATotalBps,
-          minStableBps: c.envelope.minStableBps,
+          // 2026-10-15: the level's current preset, as the Test enforces it.
+          minStableBps: AGGRESSIVENESS_ENVELOPES[c.aggressiveness].minStableBps,
           maxPositions: c.envelope.maxPositions,
           reviewTriggerBps: c.envelope.reviewTriggerBps,
-          // F-T1 (A-81): a goal saved before the range existed reads its level's.
-          investedRangeBps:
-            c.envelope.investedRangeBps ??
-            AGGRESSIVENESS_ENVELOPES[c.aggressiveness].investedRangeBps,
+          // 2026-10-15: the level's current range, whatever range the goal was saved under.
+          investedRangeBps: AGGRESSIVENESS_ENVELOPES[c.aggressiveness].investedRangeBps,
         }
       : null,
     plan: c
