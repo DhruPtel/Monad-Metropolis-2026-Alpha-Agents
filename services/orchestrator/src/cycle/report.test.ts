@@ -174,6 +174,37 @@ describe("the report names a testnet stand-in's researched token (2026-10-15)", 
     ]);
     expect(withStandIns(r, briefs.slice(0, 1))).toBe(r);
   });
+
+  it("takes the platform's mapping when it made one: each pick's weight, and a pick the model left out (2026-10-16)", () => {
+    const r = parseReport(
+      JSON.stringify({
+        portfolio: {
+          stance: "propose",
+          summary: "s",
+          positions: [{ symbol: "WMON", weight: "20%", why: "Held." }],
+        },
+      }),
+    );
+    if (!r) throw new Error("unparsed");
+    const briefs = [
+      {
+        kind: "RATIONALE",
+        body: {
+          positions: [],
+          testnetMapping: {
+            pairs: [
+              { real: "WETH", standIn: "WMON", weightBps: 4_500 },
+              { real: "WBTC", standIn: "TALPHA", weightBps: 3_000 },
+            ],
+          },
+        },
+      },
+    ];
+    expect(withStandIns(r, briefs).portfolio.positions).toEqual([
+      { symbol: "WETH", weight: "45%", why: "Executes as WMON on testnet. Held." },
+      { symbol: "WBTC", weight: "30%", why: "Executes as TALPHA on testnet." },
+    ]);
+  });
 });
 
 describe("the report's guardrails (RP-U1)", () => {

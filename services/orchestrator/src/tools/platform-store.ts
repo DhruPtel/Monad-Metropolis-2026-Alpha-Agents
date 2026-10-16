@@ -119,10 +119,13 @@ export class PgPlatformStore implements PlatformStore {
     output: CompleteStageOutput,
   ): Promise<boolean> {
     // Inside a cycle the stage is checked first: a refusal names what to fix.
-    const run =
+    // On a testnet the Zoom out's decision comes back mapped onto the tradable stand-ins.
+    const done =
       this.cycles && (await this.stageRunOf(identity))
         ? await this.cycles.research.completeStage(identity, input)
         : null;
+    const run = done?.run ?? null;
+    const decision = done ? done.decision : input.decision;
     return this.store.db.transaction().execute(async (trx) => {
       const values = {
         stage_id: output.stageId,
@@ -133,7 +136,7 @@ export class PgPlatformStore implements PlatformStore {
         outcome: input.outcome,
         candidates: JSON.stringify(input.candidates),
         stage_run_id: run?.stageRunId ?? null,
-        decision: input.decision ? JSON.stringify(input.decision) : null,
+        decision: decision ? JSON.stringify(decision) : null,
       };
       const inserted = run
         ? await trx

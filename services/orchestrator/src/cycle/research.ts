@@ -5,6 +5,8 @@ import {
   type ResearchBrief,
   STAGE_BRIEFS,
 } from "@alpha-agents/platform-tools";
+import { TESTNET_CHAIN_IDS } from "@alpha-agents/config";
+import { AGGRESSIVENESS_ENVELOPES, isStableSymbol } from "@alpha-agents/domain";
 import type { AgentIdentity } from "@alpha-agents/tool-server";
 import { ToolError } from "@alpha-agents/tool-server";
 import type { Hex } from "viem";
@@ -24,7 +26,14 @@ import {
 } from "./plan-rules.ts";
 import { allocationFindings, rationaleFindings } from "./rationale.ts";
 import type { Cycle, CycleStore, StageRun } from "./store.ts";
-import { type TestInputs, type TestInputsV2, checkProposal, proposalParams } from "./test-stage.ts";
+import { type PickCall, mapToStandIns, standInOrder, testnetInvestedRange } from "./standins.ts";
+import {
+  type TestInputs,
+  type TestInputsV2,
+  checkProposal,
+  portfolioEnvelope,
+  proposalParams,
+} from "./test-stage.ts";
 import { validateBrief } from "./validator.ts";
 import { DIVES_PER_RUN, type ReasoningAlias } from "./stages.ts";
 import type { UniverseStore } from "./universe.ts";
@@ -307,9 +316,13 @@ export class CycleResearch {
    * complete_stage inside a cycle: refuses another stage's name, a stage with
    * no accepted brief, a decision outside the Zoom out, and a proposal the
    * Test refuses (each check is counted on the Test stage's record).
-   * Returns the stage run to record against.
+   * Returns the stage run to record against, and the decision to record: on a testnet, the
+   * Zoom out's picks mapped onto the tradable stand-ins (2026-10-16).
    */
-  async completeStage(identity: AgentIdentity, input: CompleteStageInput): Promise<StageRun> {
+  async completeStage(
+    identity: AgentIdentity,
+    input: CompleteStageInput,
+  ): Promise<{ run: StageRun; decision: CompleteStageInput["decision"] }> {
     const { stage, cycle } = await this.current(identity);
     if (input.stage !== stage.stage)
       throw new ToolError(
@@ -361,7 +374,7 @@ export class CycleResearch {
         `Write this stage's ${required} brief with write_research_brief, and have it accepted, before complete_stage.`,
         false,
       );
-    if (stage.stage !== "ZOOM_OUT") return stage;
+    if (stage.stage !== "ZOOM_OUT") return { run: stage, decision: input.decision };
     if ((cycle.kind === "ACTIVATION" || cycle.wantsOverview) && !kinds.has("OVERVIEW"))
       throw new ToolError(
         "INVALID_INPUT",
@@ -385,15 +398,23 @@ export class CycleResearch {
         `The RATIONALE brief says ${String((rationale.body as { decision?: unknown }).decision)}; the decision must match it.`,
         false,
       );
+    // 2026-10-16 (owner): on a testnet the Zoom out decides on the real tokens it researched, and
+    // this step maps its picks onto the tradable stand-ins in code; every check below reads the
+    // mapped plan and calls.
+    const mapped = TESTNET_CHAIN_IDS.includes(cycle.chainId)
+      ? await this.testnetStandIns(cycle, input.decision, rationale ?? null)
+      : null;
+    const decision = mapped?.decision ?? input.decision;
+    const rationaleBody = mapped?.body ?? rationale?.body ?? null;
     // F-U8: the RATIONALE's position calls must match the proposal and the plan in force.
-    if (rationale && input.decision.kind === "PROPOSE") {
-      const body = rationale.body as {
+    if (rationale && decision.kind === "PROPOSE") {
+      const body = (rationaleBody ?? {}) as {
         positions?: { token: string; symbol: string; action: string }[];
       };
       const plan = await this.o.plans.active(cycle.chainId, cycle.agentId);
       const findings = rationaleFindings({
         positions: (body.positions ?? []) as never,
-        decision: input.decision,
+        decision: decision,
         current:
           plan && isPortfolioPlan(plan)
             ? plan.params.positions.map((p) => ({
@@ -411,17 +432,17 @@ export class CycleResearch {
         );
     }
     // F-T1 (A-81): the invested share against the level's expected range, and cash only with a reason.
-    if (input.decision.kind === "PROPOSE" && input.decision.template === "target_portfolio@1") {
+    if (decision.kind === "PROPOSE" && decision.template === "target_portfolio@1") {
       const goal = await this.o.goals.currentGoal(cycle.chainId, cycle.agentId);
-      const body = (rationale?.body ?? {}) as {
+      const body = (rationaleBody ?? {}) as {
         evidenceStrength?: "strong" | "mixed" | "weak";
         allocationNote?: string | null;
       };
       const reasons = goal
         ? allocationFindings({
             level: goal.config.aggressiveness,
-            cashTargetBps: input.decision.params.cashTargetBps,
-            positions: input.decision.params.positions.length,
+            cashTargetBps: decision.params.cashTargetBps,
+            positions: decision.params.positions.length,
             evidenceStrength: body.evidenceStrength ?? "weak",
             allocationNote: body.allocationNote ?? null,
           })
@@ -442,8 +463,8 @@ export class CycleResearch {
       if (universe.length > 0) {
         const byToken = new Map(universe.map((u) => [u.token.toLowerCase(), u]));
         const proposed: Hex[] =
-          input.decision.kind === "PROPOSE" && input.decision.template === "target_portfolio@1"
-            ? input.decision.params.positions.map((p) => p.token.toLowerCase() as Hex)
+          decision.kind === "PROPOSE" && decision.template === "target_portfolio@1"
+            ? decision.params.positions.map((p) => p.token.toLowerCase() as Hex)
             : universe.filter((u) => u.held).map((u) => u.token);
         const blocked = proposed
           .map((t) => byToken.get(t))
@@ -458,7 +479,7 @@ export class CycleResearch {
         const named = new Map(
           (
             (
-              (rationale?.body ?? {}) as {
+              (rationaleBody ?? {}) as {
                 notProposed?: { token: string; symbol: string; reason: string }[];
               }
             ).notProposed ?? []
@@ -487,10 +508,10 @@ export class CycleResearch {
         };
       }
     }
-    if (input.decision.kind === "PROPOSE") {
+    if (decision.kind === "PROPOSE") {
       let findings: readonly { code: string; field: string; message: string }[];
       let verdictRecord: { fingerprint: PlanInputsFingerprint; cost: PlanCost } | null = null;
-      if (input.decision.template === "target_portfolio@1") {
+      if (decision.template === "target_portfolio@1") {
         // F-U6: a target portfolio goes through the Test stage v2 on the fund agent's set.
         const inputs = await this.portfolioTestInputs(cycle);
         if (!inputs)
@@ -500,16 +521,13 @@ export class CycleResearch {
             false,
           );
         // F-T2: one rule set with the proposal evaluator; the verdict's fingerprint goes on the record.
-        const verdict = await this.targetPortfolioVerdict(input.decision.params, inputs);
+        const verdict = await this.targetPortfolioVerdict(decision.params, inputs);
         findings = verdict.findings;
         verdictRecord = { fingerprint: verdict.fingerprint, cost: verdict.cost };
       } else {
-        findings = checkProposal(
-          proposalParams(input.decision.params),
-          await this.testInputs(cycle),
-        );
+        findings = checkProposal(proposalParams(decision.params), await this.testInputs(cycle));
       }
-      await this.recordCheck(cycle.cycleId, input.decision.params, findings, verdictRecord);
+      await this.recordCheck(cycle.cycleId, decision.params, findings, verdictRecord);
       if (findings.length > 0)
         throw new ToolError(
           "INVALID_INPUT",
@@ -520,7 +538,92 @@ export class CycleResearch {
     }
     if (outcome && this.o.universe)
       await this.o.universe.markOutcome(cycle, outcome.proposed, outcome.dropped, this.now());
-    return stage;
+    return { run: stage, decision };
+  }
+
+  /**
+   * 2026-10-16 (owner): a testnet Zoom out's picks onto the tradable stand-ins (standins.ts),
+   * the RATIONALE's calls and notProposed rewritten to match, with what the model drafted kept
+   * beside them. A testnet plan never invests below the goal's floor there: a NO_CHANGE that
+   * would keep a plan under it is refused (a cooldown aside), and so is a plan with no pick.
+   */
+  async testnetStandIns(
+    cycle: Cycle,
+    decision: NonNullable<CompleteStageInput["decision"]>,
+    rationale: { readonly briefId: string; readonly body: Record<string, unknown> } | null,
+  ): Promise<{
+    decision: NonNullable<CompleteStageInput["decision"]>;
+    body: Record<string, unknown> | null;
+  } | null> {
+    const goal = await this.o.goals.currentGoal(cycle.chainId, cycle.agentId);
+    if (!goal) return null;
+    const level = goal.config.aggressiveness;
+    const label = AGGRESSIVENESS_ENVELOPES[level].label;
+    const range = testnetInvestedRange(level);
+    const pct = (bps: number) => `${Math.round(bps / 100)}%`;
+    const plan = await this.o.plans.active(cycle.chainId, cycle.agentId);
+    const current = plan && isPortfolioPlan(plan) ? plan.params : null;
+    const investedNow = current ? 10_000 - current.cashTargetBps : 0;
+    const propose = `Propose your picks on the real tokens you researched, each with its conviction and weight (target_portfolio@1, the RATIONALE as PROPOSE); the platform maps them onto this testnet's tradable tokens and sizes the plan within the range.`;
+    if (decision.kind === "NO_CHANGE") {
+      if (decision.reasonCode === "COOLDOWN" || investedNow >= range.min) return null;
+      throw new ToolError(
+        "INVALID_INPUT",
+        `On testnet a ${label} plan invests at least ${pct(range.min)}, and the plan in force invests ${pct(investedNow)}. ${propose}`,
+        false,
+      );
+    }
+    if (decision.template !== "target_portfolio@1") return null;
+    const inputs = await this.portfolioTestInputs(cycle);
+    if (!inputs) return null;
+    const standIns = standInOrder(
+      portfolioEnvelope(current, inputs).tokens,
+      inputs.market.wmon,
+      isStableSymbol,
+    );
+    if (standIns.length === 0) return null;
+    if (decision.params.positions.length === 0)
+      throw new ToolError(
+        "INVALID_INPUT",
+        `On testnet a ${label} plan invests at least ${pct(range.min)}; this plan holds nothing. ${propose}`,
+        false,
+      );
+    const universe = this.o.universe ? await this.o.universe.forCycle(cycle.cycleId) : [];
+    const symbols: Record<string, string> = {};
+    for (const t of inputs.market.tokens) symbols[t.token.toLowerCase()] = t.symbol;
+    for (const u of universe) symbols[u.token.toLowerCase()] ??= u.symbol;
+    const body = rationale?.body ?? {};
+    const m = mapToStandIns({
+      level,
+      picks: decision.params.positions,
+      calls: (body.positions as PickCall[] | undefined) ?? [],
+      standIns,
+      current: current?.positions ?? [],
+      symbols,
+    });
+    const mapped = {
+      ...decision,
+      params: { ...decision.params, positions: m.positions, cashTargetBps: m.cashTargetBps },
+    };
+    // A token the mapping speaks for (a pick, a stand-in, a position it exits) takes its reason.
+    const own = [
+      ...m.notProposed,
+      ...m.calls
+        .filter((c) => c.action === "EXIT")
+        .map((c) => ({ token: c.token, symbol: c.symbol, reason: c.reason })),
+    ];
+    const covered = new Set([...own.map((n) => n.token), ...m.calls.map((c) => c.token)]);
+    const kept = ((body.notProposed as { token: string }[] | undefined) ?? []).filter(
+      (n) => !covered.has(n.token.toLowerCase()),
+    );
+    const next = {
+      ...body,
+      positions: m.calls,
+      notProposed: [...kept, ...own],
+      testnetMapping: { lines: m.lines, pairs: m.pairs, drafted: decision.params.positions },
+    };
+    if (rationale) await this.o.cycles.replaceBriefBody(rationale.briefId, next);
+    return { decision: mapped, body: next };
   }
 
   /**

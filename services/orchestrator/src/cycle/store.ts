@@ -776,6 +776,18 @@ export class CycleStore {
     return briefId;
   }
 
+  /**
+   * 2026-10-16: the testnet mapping rewrites a RATIONALE's calls onto the tradable stand-ins,
+   * keeping what the model drafted beside them in the body.
+   */
+  async replaceBriefBody(briefId: string, body: unknown): Promise<void> {
+    await this.db
+      .updateTable("platform.research_briefs")
+      .set({ body: JSON.stringify(body ?? {}) })
+      .where("brief_id", "=", briefId)
+      .execute();
+  }
+
   async briefs(
     filter: { cycleId?: string; stageRunId?: string; ref?: AgentRef; status?: "accepted" },
     limit = 50,

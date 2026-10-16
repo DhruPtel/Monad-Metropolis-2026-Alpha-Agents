@@ -435,27 +435,46 @@ export function withStandIns(
   briefs: readonly { kind: string; body: unknown }[],
 ): ReportBodyT {
   const rationale = [...briefs].reverse().find((b) => b.kind === "RATIONALE");
-  const calls =
-    ((rationale?.body as { positions?: unknown } | undefined)?.positions as
-      { symbol: string; standInFor?: { symbol: string } | null }[] | undefined) ?? [];
-  const pairs = calls.flatMap((c) =>
-    c.standInFor ? [{ real: c.standInFor.symbol, standIn: c.symbol }] : [],
-  );
+  const body = rationale?.body as
+    | {
+        positions?: { symbol: string; standInFor?: { symbol: string } | null }[];
+        testnetMapping?: { pairs?: { real: string; standIn: string; weightBps: number }[] };
+      }
+    | undefined;
+  // 2026-10-16: the platform's own mapping when it made one, with the weight each pick carries.
+  const mapped = body?.testnetMapping?.pairs ?? null;
+  const pairs: { real: string; standIn: string; weight: string | null }[] = mapped
+    ? mapped.map((q) => ({ real: q.real, standIn: q.standIn, weight: pctText(q.weightBps) }))
+    : (body?.positions ?? []).flatMap((c) =>
+        c.standInFor ? [{ real: c.standInFor.symbol, standIn: c.symbol, weight: null }] : [],
+      );
   if (pairs.length === 0) return report;
   const same = (a: string, b: string) => a.trim().toUpperCase() === b.trim().toUpperCase();
-  return {
-    ...report,
-    portfolio: {
-      ...report.portfolio,
-      positions: report.portfolio.positions.map((x) => {
-        const m = pairs.find((q) => same(q.standIn, x.symbol) || same(q.real, x.symbol));
-        if (!m) return x;
-        const note = `Executes as ${m.standIn} on testnet.`;
-        return { ...x, symbol: m.real, why: x.why ? `${note} ${x.why}` : note };
-      }),
-    },
-  };
+  const seen = new Set<string>();
+  const positions = report.portfolio.positions.map((x) => {
+    const m = pairs.find((q) => same(q.standIn, x.symbol) || same(q.real, x.symbol));
+    if (!m) return x;
+    seen.add(m.real);
+    const note = `Executes as ${m.standIn} on testnet.`;
+    return {
+      ...x,
+      symbol: m.real,
+      weight: m.weight ?? x.weight,
+      why: x.why ? `${note} ${x.why}` : note,
+    };
+  });
+  // A mapped pick the model's report left out is still shown, with its weight.
+  for (const m of pairs)
+    if (mapped && !seen.has(m.real))
+      positions.push({
+        symbol: m.real,
+        weight: m.weight ?? "",
+        why: `Executes as ${m.standIn} on testnet.`,
+      });
+  return { ...report, portfolio: { ...report.portfolio, positions } };
 }
+
+const pctText = (bps: number) => `${Math.round(bps / 100)}%`;
 
 /** Every source the cycle used, with its classes: the tools it called and the URLs it retrieved. */
 export function reportSources(
