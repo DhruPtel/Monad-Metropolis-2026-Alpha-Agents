@@ -247,10 +247,12 @@ export const RationaleBrief = z
     /** One call per position held or proposed: add, hold, trim or exit. */
     positions: z.array(PositionCall).max(12),
     /**
-     * F-T1 (A-81): why the plan keeps as much invested as it does, required
-     * whenever it sits outside the level's expected range or is all cash.
+     * 2026-10-16 (owner): why this allocation, these positions at these weights, from the
+     * research; a proposed target portfolio needs it, and the report shows it.
      */
     allocationNote: text(400).nullable().optional(),
+    /** 2026-10-16 (owner): why this much cash, from the research; a proposed target portfolio needs it. */
+    cashNote: text(300).nullable().optional(),
     /**
      * F-U12: every token this account could buy, the cycle dived or the
      * account holds that the plan does not propose, each with the reason;
@@ -289,7 +291,7 @@ export const RationaleBrief = z
       ),
     {
       message:
-        "weak evidence cannot carry a position: decide NO_CHANGE with EVIDENCE_THIN, or propose cash only with an allocationNote that says why",
+        "weak evidence cannot carry a position: decide NO_CHANGE with EVIDENCE_THIN, or propose cash only with an allocationNote and a cashNote that say why",
       path: ["evidenceStrength"],
     },
   )

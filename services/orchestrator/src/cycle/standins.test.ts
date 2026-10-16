@@ -1,11 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  type PickCall,
-  type PickPosition,
-  mapToStandIns,
-  standInOrder,
-  testnetInvestedRange,
-} from "./standins.ts";
+import { type PickCall, type PickPosition, mapToStandIns, standInOrder } from "./standins.ts";
 
 const WMON = "0xfb8bf4c1cc7a94c73d209a149ea2abea852bc541";
 const TALPHA = "0xd4eb3fef2a9ebe27d59d4188b6d20bb21220c03c";
@@ -55,9 +49,8 @@ describe("the testnet stand-in mapping (2026-10-16)", () => {
     expect(order.map((s) => s.symbol)).toEqual(["WMON", "TALPHA", "TBETA"]);
   });
 
-  it("maps picks by conviction, keeps each weight, and says how each executes", () => {
+  it("maps picks by conviction with the model's weights exactly, and says how each executes", () => {
     const m = mapToStandIns({
-      level: "AGGRESSIVE",
       picks: [pick(WBTC, 3_000), pick(WETH, 4_000), pick(AUSD, 2_500)],
       calls: [call(WBTC, "WBTC", 70), call(WETH, "WETH", 85), call(AUSD, "SOL", 60)],
       standIns: STAND_INS,
@@ -79,56 +72,44 @@ describe("the testnet stand-in mapping (2026-10-16)", () => {
     expect(m.notProposed.map((n) => n.symbol)).toEqual(["WETH", "WBTC", "SOL"]);
   });
 
-  it("never invests below the floor on testnet: an Aggressive 20% becomes at least 90%, by conviction then the next stand-in", () => {
-    expect(testnetInvestedRange("AGGRESSIVE")).toEqual({ min: 9_000, max: 9_500 });
-    // The reported case: 20% WMON kept on an Aggressive goal.
+  it("never adds weight: a small plan stays small and the rest stays in cash, no floor (2026-10-16)", () => {
     const kept = mapToStandIns({
-      level: "AGGRESSIVE",
       picks: [pick(WMON, 2_000)],
       calls: [call(WMON, "WMON", 55)],
       standIns: STAND_INS,
       current: [{ token: WMON, targetWeightBps: 2_000 }],
       symbols: { [TALPHA]: "TALPHA", [TBETA]: "TBETA" },
     });
-    expect(weights(kept)).toEqual({ [WMON]: 4_000, [TALPHA]: 2_500, [TBETA]: 2_500 });
-    expect(kept.cashTargetBps).toBe(1_000);
-    expect(kept.calls.map((c) => [c.symbol, c.action])).toEqual([
-      ["WMON", "ADD"],
-      ["TALPHA", "ADD"],
-      ["TBETA", "ADD"],
-    ]);
-    // Two picks: the top pick fills to its cap, the next by conviction, the rest the next stand-in.
-    const two = mapToStandIns({
-      level: "AGGRESSIVE",
-      picks: [pick(WETH, 2_000), pick(WBTC, 1_000)],
-      calls: [call(WETH, "WETH", 80), call(WBTC, "WBTC", 40)],
+    expect(weights(kept)).toEqual({ [WMON]: 2_000 });
+    expect(kept.cashTargetBps).toBe(8_000);
+    expect(kept.calls).toEqual([expect.objectContaining({ symbol: "WMON", action: "HOLD" })]);
+    expect(kept.notProposed.map((n) => n.symbol)).toEqual(["TALPHA", "TBETA"]);
+  });
+
+  it("cuts a weight past the contract's cap to the cap, keeps the cut in cash and says so; never moves it", () => {
+    const m = mapToStandIns({
+      picks: [pick(WETH, 6_000), pick(WBTC, 3_000)],
+      calls: [call(WETH, "WETH", 90), call(WBTC, "WBTC", 70)],
       standIns: STAND_INS,
       current: [],
       symbols: { [TBETA]: "TBETA" },
     });
-    expect(weights(two)).toEqual({ [WMON]: 4_000, [TALPHA]: 4_000, [TBETA]: 1_000 });
-    expect(two.cashTargetBps).toBe(1_000);
-    expect(two.calls.find((c) => c.token === TBETA)).toMatchObject({
-      standInFor: null,
-      conviction: null,
-      reason: "Fills the goal's invested range on testnet; it carries no pick of its own.",
+    expect(weights(m)).toEqual({ [WMON]: 4_000, [TALPHA]: 3_000 });
+    expect(m.cashTargetBps).toBe(3_000);
+    expect(m.pairs[0]).toEqual({
+      real: "WETH",
+      standIn: "WMON",
+      weightBps: 4_000,
+      cappedFromBps: 6_000,
     });
-    // A Balanced plan only lifts to its range's floor.
-    const balanced = mapToStandIns({
-      level: "BALANCED",
-      picks: [pick(WETH, 1_000)],
-      calls: [call(WETH, "WETH", 80)],
-      standIns: STAND_INS,
-      current: [],
-      symbols: {},
-    });
-    expect(balanced.cashTargetBps).toBe(6_000);
+    expect(m.calls[0]?.reason).toContain(
+      "Capped at 40% from 60% by this deploy's per-token limit; the rest stays in cash.",
+    );
   });
 
-  it("caps each stand-in, trims the lowest conviction past the range's top, and lets an extra pick's weight go to the others", () => {
+  it("leaves a pick with no stand-in left out, its weight in cash", () => {
     const m = mapToStandIns({
-      level: "AGGRESSIVE",
-      picks: [pick(WETH, 6_000), pick(WBTC, 3_500), pick(SOL, 3_000), pick(AUSD, 1_000)],
+      picks: [pick(WETH, 3_000), pick(WBTC, 3_000), pick(SOL, 2_000), pick(AUSD, 1_000)],
       calls: [
         call(WETH, "WETH", 90),
         call(WBTC, "WBTC", 70),
@@ -139,15 +120,13 @@ describe("the testnet stand-in mapping (2026-10-16)", () => {
       current: [],
       symbols: {},
     });
-    // WETH capped at 40%; 40 + 35 + 30 = 105% is past 95%, so SOL gives 10 points back.
-    expect(weights(m)).toEqual({ [WMON]: 4_000, [TALPHA]: 3_500, [TBETA]: 2_000 });
-    expect(m.cashTargetBps).toBe(500);
-    expect(m.notProposed.find((n) => n.symbol === "AUSD")?.reason).toMatch(/No tradable stand-in/);
+    expect(weights(m)).toEqual({ [WMON]: 3_000, [TALPHA]: 3_000, [TBETA]: 2_000 });
+    expect(m.cashTargetBps).toBe(2_000);
+    expect(m.notProposed.find((n) => n.symbol === "AUSD")?.reason).toMatch(/stays in cash/);
   });
 
-  it("keeps a stand-in the model picked on its own token, and fills from a held stand-in no pick maps to", () => {
+  it("keeps a stand-in the model picked on its own token, and exits a held one no pick maps to", () => {
     const m = mapToStandIns({
-      level: "AGGRESSIVE",
       picks: [pick(TBETA, 3_000), pick(WETH, 4_000)],
       calls: [call(TBETA, "TBETA", 50), call(WETH, "WETH", 80)],
       standIns: STAND_INS,
@@ -157,33 +136,16 @@ describe("the testnet stand-in mapping (2026-10-16)", () => {
       ],
       symbols: { [TALPHA]: "TALPHA" },
     });
-    // WETH takes WMON; TBETA stays TBETA and fills to its cap; the last 10 points go to TALPHA.
-    expect(weights(m)).toEqual({ [WMON]: 4_000, [TALPHA]: 1_000, [TBETA]: 4_000 });
+    expect(weights(m)).toEqual({ [WMON]: 4_000, [TBETA]: 3_000 });
     expect(m.calls.find((c) => c.token === TBETA)).toMatchObject({
       standInFor: null,
-      action: "ADD",
+      action: "HOLD",
     });
-    expect(m.calls.find((c) => c.token === TALPHA)).toMatchObject({
-      action: "TRIM",
-      standInFor: null,
-    });
-  });
-
-  it("exits a held stand-in the plan no longer needs", () => {
-    const m = mapToStandIns({
-      level: "AGGRESSIVE",
-      picks: [pick(WETH, 4_000), pick(WBTC, 4_000), pick(SOL, 1_000)],
-      calls: [call(WETH, "WETH", 80), call(WBTC, "WBTC", 70), call(SOL, "SOL", 60)],
-      standIns: STAND_INS.slice(0, 3),
-      current: [{ token: "0x1111111111111111111111111111111111111111", targetWeightBps: 2_000 }],
-      symbols: { "0x1111111111111111111111111111111111111111": "OLD" },
-    });
-    expect(m.calls.find((c) => c.symbol === "OLD")).toMatchObject({ action: "EXIT" });
+    expect(m.calls.find((c) => c.token === TALPHA)).toMatchObject({ action: "EXIT" });
   });
 
   it("writes symbols, never addresses, wherever a call names a token", () => {
     const m = mapToStandIns({
-      level: "AGGRESSIVE",
       picks: [pick(WETH, 9_000)],
       calls: [call(WETH, "WETH", 80)],
       standIns: STAND_INS,

@@ -6,7 +6,7 @@ import {
   STAGE_BRIEFS,
 } from "@alpha-agents/platform-tools";
 import { TESTNET_CHAIN_IDS } from "@alpha-agents/config";
-import { AGGRESSIVENESS_ENVELOPES, isStableSymbol } from "@alpha-agents/domain";
+import { isStableSymbol } from "@alpha-agents/domain";
 import type { AgentIdentity } from "@alpha-agents/tool-server";
 import { ToolError } from "@alpha-agents/tool-server";
 import type { Hex } from "viem";
@@ -26,7 +26,7 @@ import {
 } from "./plan-rules.ts";
 import { allocationFindings, rationaleFindings } from "./rationale.ts";
 import type { Cycle, CycleStore, StageRun } from "./store.ts";
-import { type PickCall, mapToStandIns, standInOrder, testnetInvestedRange } from "./standins.ts";
+import { type PickCall, mapToStandIns, standInOrder } from "./standins.ts";
 import {
   type TestInputs,
   type TestInputsV2,
@@ -431,26 +431,20 @@ export class CycleResearch {
           { findings },
         );
     }
-    // F-T1 (A-81): the invested share against the level's expected range, and cash only with a reason.
+    // 2026-10-16 (owner): the agent's own allocation and cash, each with its reason from the research.
     if (decision.kind === "PROPOSE" && decision.template === "target_portfolio@1") {
-      const goal = await this.o.goals.currentGoal(cycle.chainId, cycle.agentId);
       const body = (rationaleBody ?? {}) as {
-        evidenceStrength?: "strong" | "mixed" | "weak";
         allocationNote?: string | null;
+        cashNote?: string | null;
       };
-      const reasons = goal
-        ? allocationFindings({
-            level: goal.config.aggressiveness,
-            cashTargetBps: decision.params.cashTargetBps,
-            positions: decision.params.positions.length,
-            evidenceStrength: body.evidenceStrength ?? "weak",
-            allocationNote: body.allocationNote ?? null,
-          })
-        : [];
+      const reasons = allocationFindings({
+        allocationNote: body.allocationNote ?? null,
+        cashNote: body.cashNote ?? null,
+      });
       if (reasons.length > 0)
         throw new ToolError(
           "INVALID_INPUT",
-          `The allocation needs a reason: ${reasons.join("; ")}. Write the RATIONALE again, then complete_stage.`,
+          `The plan needs its reasons: ${reasons.join("; ")}. Write the RATIONALE again, then complete_stage.`,
           false,
           { reasons },
         );
@@ -543,9 +537,8 @@ export class CycleResearch {
 
   /**
    * 2026-10-16 (owner): a testnet Zoom out's picks onto the tradable stand-ins (standins.ts),
-   * the RATIONALE's calls and notProposed rewritten to match, with what the model drafted kept
-   * beside them. A testnet plan never invests below the goal's floor there: a NO_CHANGE that
-   * would keep a plan under it is refused (a cooldown aside), and so is a plan with no pick.
+   * mapping only: the model's weights and cash stand, a contract cap aside. The RATIONALE's
+   * calls and notProposed are rewritten to match, with what the model drafted kept beside them.
    */
   async testnetStandIns(
     cycle: Cycle,
@@ -555,25 +548,9 @@ export class CycleResearch {
     decision: NonNullable<CompleteStageInput["decision"]>;
     body: Record<string, unknown> | null;
   } | null> {
-    const goal = await this.o.goals.currentGoal(cycle.chainId, cycle.agentId);
-    if (!goal) return null;
-    const level = goal.config.aggressiveness;
-    const label = AGGRESSIVENESS_ENVELOPES[level].label;
-    const range = testnetInvestedRange(level);
-    const pct = (bps: number) => `${Math.round(bps / 100)}%`;
+    if (decision.kind !== "PROPOSE" || decision.template !== "target_portfolio@1") return null;
     const plan = await this.o.plans.active(cycle.chainId, cycle.agentId);
     const current = plan && isPortfolioPlan(plan) ? plan.params : null;
-    const investedNow = current ? 10_000 - current.cashTargetBps : 0;
-    const propose = `Propose your picks on the real tokens you researched, each with its conviction and weight (target_portfolio@1, the RATIONALE as PROPOSE); the platform maps them onto this testnet's tradable tokens and sizes the plan within the range.`;
-    if (decision.kind === "NO_CHANGE") {
-      if (decision.reasonCode === "COOLDOWN" || investedNow >= range.min) return null;
-      throw new ToolError(
-        "INVALID_INPUT",
-        `On testnet a ${label} plan invests at least ${pct(range.min)}, and the plan in force invests ${pct(investedNow)}. ${propose}`,
-        false,
-      );
-    }
-    if (decision.template !== "target_portfolio@1") return null;
     const inputs = await this.portfolioTestInputs(cycle);
     if (!inputs) return null;
     const standIns = standInOrder(
@@ -582,19 +559,12 @@ export class CycleResearch {
       isStableSymbol,
     );
     if (standIns.length === 0) return null;
-    if (decision.params.positions.length === 0)
-      throw new ToolError(
-        "INVALID_INPUT",
-        `On testnet a ${label} plan invests at least ${pct(range.min)}; this plan holds nothing. ${propose}`,
-        false,
-      );
     const universe = this.o.universe ? await this.o.universe.forCycle(cycle.cycleId) : [];
     const symbols: Record<string, string> = {};
     for (const t of inputs.market.tokens) symbols[t.token.toLowerCase()] = t.symbol;
     for (const u of universe) symbols[u.token.toLowerCase()] ??= u.symbol;
     const body = rationale?.body ?? {};
     const m = mapToStandIns({
-      level,
       picks: decision.params.positions,
       calls: (body.positions as PickCall[] | undefined) ?? [],
       standIns,

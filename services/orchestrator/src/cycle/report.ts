@@ -99,8 +99,11 @@ export const ReportBody = z.object({
           z.object({ symbol: z.string(), weight: z.string().catch(""), why: z.string().catch("") }),
         )
         .catch([]),
+      /** 2026-10-16 (owner): why this allocation and why this much cash, from the RATIONALE. */
+      allocationWhy: z.string().catch(""),
+      cashWhy: z.string().catch(""),
     })
-    .catch({ stance: "no_change", summary: "", positions: [] }),
+    .catch({ stance: "no_change", summary: "", positions: [], allocationWhy: "", cashWhy: "" }),
   /**
    * 2026-10-13 (owner): what the agent would buy across the real tokens it researched, as if
    * every one could be traded here; the report leads with it. The plan in force may differ
@@ -417,6 +420,9 @@ export function checkReport(
         .filter(
           (x) => textReasons("portfolio.positions", `${x.symbol} ${x.weight}`, p).length === 0,
         ),
+      // Filled from the RATIONALE after the checks (withAllocationWhy), never by the model.
+      allocationWhy: "",
+      cashWhy: "",
     },
   };
   return {
@@ -438,15 +444,40 @@ export function withStandIns(
   const body = rationale?.body as
     | {
         positions?: { symbol: string; standInFor?: { symbol: string } | null }[];
-        testnetMapping?: { pairs?: { real: string; standIn: string; weightBps: number }[] };
+        testnetMapping?: {
+          pairs?: {
+            real: string;
+            standIn: string;
+            weightBps: number;
+            cappedFromBps?: number | null;
+          }[];
+        };
       }
     | undefined;
   // 2026-10-16: the platform's own mapping when it made one, with the weight each pick carries.
   const mapped = body?.testnetMapping?.pairs ?? null;
-  const pairs: { real: string; standIn: string; weight: string | null }[] = mapped
-    ? mapped.map((q) => ({ real: q.real, standIn: q.standIn, weight: pctText(q.weightBps) }))
+  const pairs: { real: string; standIn: string; weight: string | null; note: string }[] = mapped
+    ? mapped.map((q) => ({
+        real: q.real,
+        standIn: q.standIn,
+        weight: pctText(q.weightBps),
+        note:
+          `Executes as ${q.standIn} on testnet.` +
+          (q.cappedFromBps
+            ? ` Capped at ${pctText(q.weightBps)} from ${pctText(q.cappedFromBps)} by this deploy's per-token limit; the rest stays in cash.`
+            : ""),
+      }))
     : (body?.positions ?? []).flatMap((c) =>
-        c.standInFor ? [{ real: c.standInFor.symbol, standIn: c.symbol, weight: null }] : [],
+        c.standInFor
+          ? [
+              {
+                real: c.standInFor.symbol,
+                standIn: c.symbol,
+                weight: null,
+                note: `Executes as ${c.symbol} on testnet.`,
+              },
+            ]
+          : [],
       );
   if (pairs.length === 0) return report;
   const same = (a: string, b: string) => a.trim().toUpperCase() === b.trim().toUpperCase();
@@ -455,7 +486,7 @@ export function withStandIns(
     const m = pairs.find((q) => same(q.standIn, x.symbol) || same(q.real, x.symbol));
     if (!m) return x;
     seen.add(m.real);
-    const note = `Executes as ${m.standIn} on testnet.`;
+    const note = m.note;
     return {
       ...x,
       symbol: m.real,
@@ -469,12 +500,33 @@ export function withStandIns(
       positions.push({
         symbol: m.real,
         weight: m.weight ?? "",
-        why: `Executes as ${m.standIn} on testnet.`,
+        why: m.note,
       });
   return { ...report, portfolio: { ...report.portfolio, positions } };
 }
 
 const pctText = (bps: number) => `${Math.round(bps / 100)}%`;
+
+/**
+ * 2026-10-16 (owner): the report says why this allocation and why this much cash, in the
+ * Zoom out's own words from its RATIONALE (allocationNote, cashNote). Briefs come oldest first.
+ */
+export function withAllocationWhy(
+  report: ReportBodyT,
+  briefs: readonly { kind: string; body: unknown }[],
+): ReportBodyT {
+  const rationale = [...briefs].reverse().find((b) => b.kind === "RATIONALE");
+  const body = (rationale?.body ?? {}) as { allocationNote?: unknown; cashNote?: unknown };
+  const text = (v: unknown) => (typeof v === "string" ? v.trim() : "");
+  return {
+    ...report,
+    portfolio: {
+      ...report.portfolio,
+      allocationWhy: text(body.allocationNote),
+      cashWhy: text(body.cashNote),
+    },
+  };
+}
 
 /** Every source the cycle used, with its classes: the tools it called and the URLs it retrieved. */
 export function reportSources(
@@ -730,7 +782,7 @@ export class ReportWriter {
       }
       const checked = checkReport(parsed, prepared, cycle.canary);
       const { checks } = checked;
-      const report = withStandIns(checked.report, briefs);
+      const report = withAllocationWhy(withStandIns(checked.report, briefs), briefs);
       const body: StoredReport = {
         version: 1,
         cycle: {

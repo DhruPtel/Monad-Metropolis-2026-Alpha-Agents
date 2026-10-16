@@ -70,6 +70,8 @@ export function stagePrompt(o: {
   readonly caps: StageCaps;
   readonly ceilingUsdcE6: bigint;
   readonly diveThemes?: readonly string[];
+  /** 2026-10-16 (owner): the Zoom out's deployed contracts' limits, in plain words, up front. */
+  readonly contractFacts?: string | null;
 }): string {
   const caps = `Caps for this stage: at most ${o.caps.turns} model turns, ${o.caps.paidCalls} paid data calls (cached answers are free) and ${Math.round(o.caps.seconds / 60)} minutes; it may cost at most ${usdc(o.ceilingUsdcE6)} USDC. A stage that reaches a cap is stopped, so finish well inside them.`;
   const common = [
@@ -119,8 +121,9 @@ export function stagePrompt(o: {
     case "ZOOM_OUT":
       return [
         `ZOOM_OUT stage of a ${o.kind} research cycle.`,
+        o.contractFacts ?? "",
         "Load your Zoom out playbook with skill_view (name aa-playbook-zoom-out) and follow it; load aa-portfolio-construction when you draft a target portfolio, and aa-usdc-wmon-band-rebalancer when the account is on the two-asset plan.",
-        "get_research_context gives this cycle's briefs and testEnvelope, the deterministic Test's ranges the plan may change within and whether a change may be proposed now. The runner makes every trade from the plan; you never size a trade.",
+        "get_research_context gives this cycle's briefs and testEnvelope: the tokens with their caps, the contracts' limits and whether a change may be proposed now. The runner makes every trade from the plan; you never size a trade.",
         caps,
         ...common,
         o.kind === "REVIEW"
@@ -133,7 +136,7 @@ export function stagePrompt(o: {
             : "Write one RATIONALE brief with mcp__platform__write_research_brief.",
         "The RATIONALE weighs the whole portfolio against the goal (portfolioView), rates the evidence (evidenceStrength: strong, mixed or weak; weak evidence carries no position) and makes one call per position held or proposed: ADD, HOLD, TRIM or EXIT, each tied to a theme. A thesis the Challenge weakened still earns a smaller position; only a rejected one earns none.",
         "Every token this account could buy (get_prices marks it buyable), this cycle dived or the account holds that the plan does not propose goes in the RATIONALE's notProposed with its reason (one entry per token, a short reason each); the platform refuses complete_stage until each is there. A token that is not buyable for this account (get_prices says why) is never proposed.",
-        "The goal names the invested share its level expects (get_goals_and_limits, envelope.investedRangeBps). A plan outside that range needs the RATIONALE's allocationNote to say plainly why; a plan of cash only is allowed only when the evidence is weak, and its allocationNote must say why nothing is worth holding and what would change that. The platform refuses complete_stage until the note is there.",
+        "You decide every weight and how much stays in cash, from the research: no range, split or minimum is set for you, and the goal's brief is your mindset. The RATIONALE's allocationNote says why this allocation and its cashNote why this much cash, both from the research; the platform refuses a proposal's complete_stage until both are there, and the report shows them.",
         'Then call mcp__platform__complete_stage exactly once, last, with stage ZOOM_OUT, outcome DONE and candidates [], and decision {"kind":"NO_CHANGE","reasonCode":...} or {"kind":"PROPOSE","template":"target_portfolio@1","params":{...}} on the fund agent\'s set (or template rebalance_bands@1 on the two-asset plan) matching the RATIONALE and its position calls. The platform checks a proposal against the Test before the stage may end; a refused proposal says why.',
       ].join(" ");
   }

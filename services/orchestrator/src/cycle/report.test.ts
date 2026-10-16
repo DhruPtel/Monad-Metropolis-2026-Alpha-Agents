@@ -11,6 +11,7 @@ import {
   reportPrompt,
   reportSources,
   reportTexts,
+  withAllocationWhy,
   withStandIns,
 } from "./report.ts";
 import { cyclePlan } from "./cycle.ts";
@@ -173,6 +174,41 @@ describe("the report names a testnet stand-in's researched token (2026-10-15)", 
       { symbol: "USDC", weight: "45%", why: "Dry powder." },
     ]);
     expect(withStandIns(r, briefs.slice(0, 1))).toBe(r);
+  });
+
+  it("says why this allocation, why this much cash, and when a contract cap cut a weight (2026-10-16)", () => {
+    const r = parseReport(
+      JSON.stringify({
+        portfolio: {
+          stance: "propose",
+          summary: "s",
+          positions: [{ symbol: "WMON", weight: "40%", why: "" }],
+        },
+      }),
+    );
+    if (!r) throw new Error("unparsed");
+    const briefs = [
+      {
+        kind: "RATIONALE",
+        body: {
+          allocationNote: " WETH carries the strongest thesis. ",
+          cashNote: "Risk-off: 60% waits in USDC.",
+          testnetMapping: {
+            pairs: [{ real: "WETH", standIn: "WMON", weightBps: 4_000, cappedFromBps: 6_000 }],
+          },
+        },
+      },
+    ];
+    const out = withAllocationWhy(withStandIns(r, briefs), briefs);
+    expect(out.portfolio.allocationWhy).toBe("WETH carries the strongest thesis.");
+    expect(out.portfolio.cashWhy).toBe("Risk-off: 60% waits in USDC.");
+    expect(out.portfolio.positions).toEqual([
+      {
+        symbol: "WETH",
+        weight: "40%",
+        why: "Executes as WMON on testnet. Capped at 40% from 60% by this deploy's per-token limit; the rest stays in cash.",
+      },
+    ]);
   });
 
   it("takes the platform's mapping when it made one: each pick's weight, and a pick the model left out (2026-10-16)", () => {

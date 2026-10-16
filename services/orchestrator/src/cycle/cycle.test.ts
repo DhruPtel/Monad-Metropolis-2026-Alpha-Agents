@@ -1221,7 +1221,7 @@ describe.skipIf(!dbUp)("the discovery loop engine (needs Postgres)", { timeout: 
     expect((contexts[1] as { cycle: { token: unknown } }).cycle.token).toBeNull();
   });
 
-  it("refuses a target portfolio of cash only unless the evidence is weak and the RATIONALE says why (F-T1, A-81)", async () => {
+  it("takes a plan of cash only once the RATIONALE says why this allocation and why this much cash (2026-10-16)", async () => {
     await saveGoal({});
     const answers: string[] = [];
     const cashOnly = {
@@ -1234,7 +1234,7 @@ describe.skipIf(!dbUp)("the discovery loop engine (needs Postgres)", { timeout: 
     };
     scripts.ZOOM_OUT = async (r) => {
       await start(r);
-      // Mixed evidence and no note: the platform names both gaps.
+      // No reasons: the platform asks for both.
       ok(
         await brief(r.token, {
           ...rationale,
@@ -1252,15 +1252,16 @@ describe.skipIf(!dbUp)("the discovery loop engine (needs Postgres)", { timeout: 
           ).structuredContent,
         ),
       );
-      // Weak evidence with the note: the allocation passes (this stack is not on the fund set, which is the next check).
+      // Mixed evidence with both reasons: the agent's own call passes (this stack is not on the
+      // fund set, which is the next check).
       ok(
         await brief(r.token, {
           ...rationale,
           decision: "PROPOSE",
           reasonCode: null,
-          evidenceStrength: "weak",
-          allocationNote:
-            "Both theses rest on one social source each; a second onchain source for either would change it.",
+          evidenceStrength: "mixed",
+          allocationNote: "Neither thesis is worth a position at today's prices.",
+          cashNote: "Both theses rest on one source each; cash waits for a second onchain source.",
         }),
       );
       answers.push(
@@ -1282,13 +1283,13 @@ describe.skipIf(!dbUp)("the discovery loop engine (needs Postgres)", { timeout: 
     };
     const { cycle } = await runCycle();
     expect(cycle.status).toBe("completed");
-    expect(answers[0]).toContain("a plan of cash only is allowed only when the evidence is weak");
-    expect(answers[0]).toContain("needs an allocationNote");
+    expect(answers[0]).toContain("say why this allocation in the RATIONALE's allocationNote");
+    expect(answers[0]).toContain("say why this much cash in the RATIONALE's cashNote");
     expect(answers[1]).not.toContain("allocationNote");
     expect(answers[1]).toContain("needs the fund agent's set");
   });
 
-  it("refuses a target portfolio outside the level's invested range until the RATIONALE says why (F-T1, A-81)", async () => {
+  it("never judges the share invested: 30% on a Balanced goal passes once the cash has its reason (2026-10-16)", async () => {
     await saveGoal({});
     const answers: string[] = [];
     const wbtc = "0x0555e30da8f98308edb960aa94c0db47230d2b9c";
@@ -1350,6 +1351,7 @@ describe.skipIf(!dbUp)("the discovery loop engine (needs Postgres)", { timeout: 
           positions: calls,
           allocationNote:
             "Only the WBTC thesis stands; the second weakened to nothing the depth supports, so 30% is what the evidence carries.",
+          cashNote: "The market read is risk-off, so 70% waits in USDC.",
         }),
       );
       answers.push(
@@ -1370,8 +1372,9 @@ describe.skipIf(!dbUp)("the discovery loop engine (needs Postgres)", { timeout: 
     };
     const { cycle } = await runCycle();
     expect(cycle.status).toBe("completed");
-    expect(answers[0]).toContain("outside the Balanced range of 40% to 70%");
-    expect(answers[1]).not.toContain("outside the Balanced range");
+    expect(answers[0]).not.toContain("range");
+    expect(answers[0]).toContain("say why this allocation");
+    expect(answers[1]).not.toMatch(/range|allocationNote|cashNote/);
     expect(answers[1]).toContain("needs the fund agent's set");
   });
 

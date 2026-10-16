@@ -100,6 +100,9 @@ export interface ReportView {
       readonly weight: string;
       readonly why: string;
     }[];
+    /** 2026-10-16: why this allocation and why this much cash, in the agent's words. */
+    readonly allocationWhy?: string | undefined;
+    readonly cashWhy?: string | undefined;
   };
   /**
    * 2026-10-13: what the agent would buy across the real tokens it researched, as if all were
@@ -633,6 +636,12 @@ function ResearchReportDocument({
 
       <Section id="portfolio" number={n.portfolio} title="Recommended portfolio">
         <Para text={view.portfolio.summary} />
+        {view.portfolio.allocationWhy ? (
+          <Para text={`Why this allocation: ${view.portfolio.allocationWhy}`} />
+        ) : null}
+        {view.portfolio.cashWhy ? (
+          <Para text={`Why this much cash: ${view.portfolio.cashWhy}`} />
+        ) : null}
         {view.portfolio.positions.length > 0 ? (
           <Table label="Recommended positions" stack>
             <TableHeader>

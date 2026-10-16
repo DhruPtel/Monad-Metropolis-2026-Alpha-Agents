@@ -111,72 +111,22 @@ describe("the Zoom out's position calls against its decision (F-U8)", () => {
   });
 });
 
-describe("the plan's invested share against the level's expected range (F-T1, A-81)", () => {
-  it("passes a plan inside the range without a note, and asks for one outside it", () => {
-    expect(
-      allocationFindings({
-        level: "BALANCED",
-        cashTargetBps: 4_000,
-        positions: 2,
-        evidenceStrength: "mixed",
-        allocationNote: null,
-      }),
-    ).toEqual([]);
-    expect(
-      allocationFindings({
-        level: "BALANCED",
-        cashTargetBps: 7_000,
-        positions: 1,
-        evidenceStrength: "mixed",
-        allocationNote: null,
-      }),
-    ).toEqual([
-      "the plan keeps 30% of the account invested, outside the Balanced range of 40% to 70%; say why in the RATIONALE's allocationNote",
+describe("the agent's own allocation and cash, each with its reason (2026-10-16)", () => {
+  it("asks for why this allocation and why this much cash, whatever the share invested", () => {
+    expect(allocationFindings({ allocationNote: null, cashNote: null })).toEqual([
+      "say why this allocation in the RATIONALE's allocationNote: why these positions at these weights, from the research",
+      "say why this much cash in the RATIONALE's cashNote, from the research",
     ]);
     expect(
       allocationFindings({
-        level: "BALANCED",
-        cashTargetBps: 7_000,
-        positions: 1,
-        evidenceStrength: "mixed",
-        allocationNote:
-          "One thesis stands; the second weakened to half its weight, so 30% is what the evidence supports.",
+        allocationNote: "WETH carries the strongest thesis, so it takes the most weight.",
+        cashNote: "  ",
       }),
-    ).toEqual([]);
+    ).toEqual(["say why this much cash in the RATIONALE's cashNote, from the research"]);
     expect(
       allocationFindings({
-        level: "CONSERVATIVE",
-        cashTargetBps: 2_000,
-        positions: 3,
-        evidenceStrength: "strong",
-        allocationNote: "  ",
-      }),
-    ).toEqual([
-      "the plan keeps 80% of the account invested, outside the Conservative range of 15% to 40%; say why in the RATIONALE's allocationNote",
-    ]);
-  });
-
-  it("allows cash only with weak evidence and a reason, and names both when they are missing", () => {
-    expect(
-      allocationFindings({
-        level: "BALANCED",
-        cashTargetBps: 10_000,
-        positions: 0,
-        evidenceStrength: "mixed",
-        allocationNote: null,
-      }),
-    ).toEqual([
-      "a plan of cash only is allowed only when the evidence is weak; the RATIONALE rates it mixed, so propose at least one position, or rate the evidence weak and say why nothing is worth holding",
-      "a plan of cash only needs an allocationNote in the RATIONALE: why nothing is worth holding now, and what would change that",
-    ]);
-    expect(
-      allocationFindings({
-        level: "AGGRESSIVE",
-        cashTargetBps: 10_000,
-        positions: 0,
-        evidenceStrength: "weak",
-        allocationNote:
-          "Every thesis rests on one social source; a second onchain source for any of them would change it.",
+        allocationNote: "One thesis stands; the second weakened to half its weight.",
+        cashNote: "The market read is risk-off, so 70% waits in USDC for a better entry.",
       }),
     ).toEqual([]);
   });
