@@ -100,7 +100,33 @@ export function mapToStandIns(o: {
   readonly current: readonly { token: string; targetWeightBps: number }[];
   /** Symbols for tokens a call does not name (held tokens, stand-ins). */
   readonly symbols: Readonly<Record<string, string>>;
+  /**
+   * 2026-10-16: the real token a stand-in carries where it has one (the testnet's WMON is MON).
+   * A pick on that stand-in counts as a pick of the real token, ranked by conviction with the rest.
+   */
+  readonly realOf?: Readonly<Record<string, { readonly token: string; readonly symbol: string }>>;
 }): StandInMapping {
+  const realOf = new Map(
+    Object.entries(o.realOf ?? {}).map(([k, v]) => [
+      lower(k),
+      { token: lower(v.token), symbol: v.symbol },
+    ]),
+  );
+  const asReal = <T extends { token: string; symbol?: string }>(x: T): T => {
+    const r = realOf.get(lower(x.token));
+    return r
+      ? { ...x, token: r.token, ...(x.symbol !== undefined ? { symbol: r.symbol } : {}) }
+      : x;
+  };
+  o = {
+    ...o,
+    picks: o.picks.map((p) => asReal(p)),
+    calls: o.calls.map((c) => asReal(c)),
+    symbols: {
+      ...o.symbols,
+      ...Object.fromEntries([...realOf.values()].map((r) => [r.token, r.symbol])),
+    },
+  };
   const callOf = new Map(o.calls.map((c) => [lower(c.token), c]));
   const symbolOf = (t: string) => callOf.get(lower(t))?.symbol ?? o.symbols[lower(t)] ?? t;
   const picks = o.picks

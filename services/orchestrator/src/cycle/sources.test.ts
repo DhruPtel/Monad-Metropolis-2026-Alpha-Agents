@@ -39,4 +39,29 @@ describe("the Scan's token count (2026-10-13)", () => {
       scanTokenShortfall({ themes: [theme("0xa"), theme("0xA"), theme(null, "MARKET")] }, 2),
     ).toMatch(/chose 1/);
   });
+
+  it("on a testnet counts only the research market's tokens, and takes no reason for fewer (2026-10-16)", () => {
+    const testnet = { standIns: new Set(["0xwmon", "0xtalpha"]) };
+    // The reported run: a POSITION theme on the held stand-in and two market themes.
+    expect(
+      scanTokenShortfall(
+        {
+          themes: [theme("0xwmon", "POSITION"), theme(null, "MARKET"), theme(null, "MARKET")],
+          fewerTokensReason: "Only MON matters this week.",
+        },
+        3,
+        testnet,
+      ),
+    ).toMatch(/the Scan chose 0 real ones: on a testnet choose 3 TOKEN themes/);
+    expect(
+      scanTokenShortfall({ themes: [theme("0xwmon"), theme("0xa"), theme("0xb")] }, 3, testnet),
+    ).toMatch(/chose 2 real ones/);
+    expect(
+      scanTokenShortfall(
+        { themes: [theme("0xwmon", "POSITION"), theme("0xa"), theme("0xb"), theme("0xc")] },
+        3,
+        testnet,
+      ),
+    ).toBeNull();
+  });
 });

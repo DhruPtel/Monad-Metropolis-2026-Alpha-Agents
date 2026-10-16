@@ -156,4 +156,25 @@ describe("the testnet stand-in mapping (2026-10-16)", () => {
     for (const n of m.notProposed) expect(n.symbol).not.toMatch(/^0x/);
     expect(m.lines.join(" ")).not.toMatch(/0x/);
   });
+
+  it("counts a pick on the testnet's WMON as MON, ranked by conviction with the rest (2026-10-16)", () => {
+    const MON = "0x3bd359c1119da7da1d913d1c4d2b7c461115433a";
+    const m = mapToStandIns({
+      picks: [pick(WMON, 2_000), pick(WETH, 5_000)],
+      calls: [call(WMON, "WMON", 35), call(WETH, "WETH", 80)],
+      standIns: STAND_INS,
+      current: [{ token: WMON, targetWeightBps: 2_000 }],
+      symbols: {},
+      realOf: { [WMON]: { token: MON, symbol: "MON" } },
+    });
+    // WETH leads, so it executes as WMON; MON follows on TALPHA, never kept on its old slot.
+    expect(m.lines).toEqual([
+      "WETH 40%, executes as WMON on testnet",
+      "MON 20%, executes as TALPHA on testnet",
+    ]);
+    expect(m.calls.find((c) => c.token === WMON)).toMatchObject({
+      action: "ADD",
+      standInFor: { symbol: "WETH" },
+    });
+  });
 });

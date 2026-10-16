@@ -5,8 +5,8 @@ import {
   type ResearchBrief,
   STAGE_BRIEFS,
 } from "@alpha-agents/platform-tools";
-import { TESTNET_CHAIN_IDS } from "@alpha-agents/config";
-import { isStableSymbol } from "@alpha-agents/domain";
+import { TESTNET_CHAINS, TESTNET_CHAIN_IDS } from "@alpha-agents/config";
+import { MONAD_BASE_TOKENS, isStableSymbol } from "@alpha-agents/domain";
 import type { AgentIdentity } from "@alpha-agents/tool-server";
 import { ToolError } from "@alpha-agents/tool-server";
 import type { Hex } from "viem";
@@ -91,16 +91,25 @@ export function scanTokenShortfall(
     fewerTokensReason?: string | null;
   },
   want: number,
+  /**
+   * 2026-10-16 (owner): on a testnet the Dives research the market's real tokens: a testnet
+   * stand-in (WMON, TALPHA, TBETA) never counts, and fewer tokens is no answer there, since
+   * the research market has many.
+   */
+  testnet?: { readonly standIns: ReadonlySet<string> },
 ): string | null {
   const tokens = new Set(
     (brief.themes ?? [])
       .filter((t) => t.scope === "TOKEN" && t.token)
-      .map((t) => (t.token as string).toLowerCase()),
+      .map((t) => (t.token as string).toLowerCase())
+      .filter((t) => !testnet?.standIns.has(t)),
   ).size;
   if (tokens > want)
     return `This run Dives on ${want} tokens: choose exactly ${want} TOKEN themes, not ${tokens}, and write the SCAN brief again.`;
+  if (tokens < want && testnet)
+    return `This run Dives on ${want} tokens and the Scan chose ${tokens} real ones: on a testnet choose ${want} TOKEN themes on the research market's tokens (list_tokens), never the testnet's own WMON, TALPHA or TBETA (a held one is a POSITION theme, beside them), then write the SCAN brief again.`;
   if (tokens < want && !brief.fewerTokensReason?.trim())
-    return `This run Dives on ${want} tokens and the Scan chose ${tokens}: choose ${want} tokens spread across the goal's split, or, if there are fewer real candidates, say why in the SCAN brief's fewerTokensReason, then write it again.`;
+    return `This run Dives on ${want} tokens and the Scan chose ${tokens}: choose ${want} tokens across market caps, or, if there are fewer real candidates, say why in the SCAN brief's fewerTokensReason, then write it again.`;
   return null;
 }
 
@@ -112,6 +121,19 @@ export function missingSources(
 ): string[] {
   return (required[stage] ?? []).filter((t) => !called.has(t));
 }
+
+/** Base's WETH, the OP stack's predeploy. */
+const BASE_WETH = "0x4200000000000000000000000000000000000006";
+
+/**
+ * 2026-10-16: the research market's native token each testnet's wrapped native stands for: on
+ * Monad testnet WMON is MON (Monad's WMON); the L2 testnets research Base, where it is WETH.
+ */
+const TESTNET_NATIVE_PICK: Readonly<Record<number, { token: string; symbol: string }>> = {
+  [TESTNET_CHAINS.monad.chainId]: { token: MONAD_BASE_TOKENS.WMON, symbol: "MON" },
+  [TESTNET_CHAINS["base-sepolia"].chainId]: { token: BASE_WETH, symbol: "WETH" },
+  [TESTNET_CHAINS["arbitrum-sepolia"].chainId]: { token: BASE_WETH, symbol: "WETH" },
+};
 
 export class CycleResearch {
   private readonly o: CycleResearchOptions;
@@ -357,12 +379,18 @@ export class CycleResearch {
         await this.o.cycles.briefs({ stageRunId: stage.stageRunId, status: "accepted" })
       ).find((b) => b.kind === "SCAN");
       if (scan) {
+        const inputs = TESTNET_CHAIN_IDS.includes(cycle.chainId)
+          ? await this.portfolioTestInputs(cycle)
+          : null;
         const shortfall = scanTokenShortfall(
           scan.body as {
             themes?: { scope?: string; token?: string | null }[];
             fewerTokensReason?: string | null;
           },
           DIVES_PER_RUN[cycle.reasoningAlias as ReasoningAlias] ?? 3,
+          inputs
+            ? { standIns: new Set(inputs.market.tokens.map((t) => t.token.toLowerCase())) }
+            : undefined,
         );
         if (shortfall) throw new ToolError("INVALID_INPUT", shortfall, false);
       }
@@ -548,17 +576,49 @@ export class CycleResearch {
     decision: NonNullable<CompleteStageInput["decision"]>;
     body: Record<string, unknown> | null;
   } | null> {
-    if (decision.kind !== "PROPOSE" || decision.template !== "target_portfolio@1") return null;
-    const plan = await this.o.plans.active(cycle.chainId, cycle.agentId);
-    const current = plan && isPortfolioPlan(plan) ? plan.params : null;
     const inputs = await this.portfolioTestInputs(cycle);
     if (!inputs) return null;
+    const asPicks =
+      "state your allocation as picks on the real tokens you researched (target_portfolio@1, each with its weight, and the cash), the RATIONALE as PROPOSE; the platform maps them onto this testnet's tradable tokens, and a plan that matches the one in force is recorded as kept";
+    // 2026-10-16 (owner): one path on a testnet. The two-asset WMON band plan is retired there,
+    // and keeping the plan is said as picks too, so a kept plan is the model's real allocation.
+    if (decision.kind === "NO_CHANGE") {
+      if (decision.reasonCode === "COOLDOWN") return null;
+      throw new ToolError(
+        "INVALID_INPUT",
+        `On a testnet a Zoom out never ends with NO_CHANGE (a cooldown aside): ${asPicks}.`,
+        false,
+      );
+    }
+    if (decision.template !== "target_portfolio@1")
+      throw new ToolError(
+        "INVALID_INPUT",
+        `The two-asset WMON band plan (rebalance_bands@1) is retired on a testnet: ${asPicks}.`,
+        false,
+      );
+    const plan = await this.o.plans.active(cycle.chainId, cycle.agentId);
+    const current = plan && isPortfolioPlan(plan) ? plan.params : null;
     const standIns = standInOrder(
       portfolioEnvelope(current, inputs).tokens,
       inputs.market.wmon,
       isStableSymbol,
     );
     if (standIns.length === 0) return null;
+    // The testnet's wrapped native carries the research market's native token; TALPHA and TBETA
+    // carry no market of their own, so a pick never names them.
+    const native = TESTNET_NATIVE_PICK[cycle.chainId];
+    const realOf = native ? { [inputs.market.wmon.toLowerCase()]: native } : {};
+    const bare = decision.params.positions.filter(
+      (p) =>
+        standIns.some((x) => x.token === p.token.toLowerCase()) &&
+        !(p.token.toLowerCase() in realOf),
+    );
+    if (bare.length > 0)
+      throw new ToolError(
+        "INVALID_INPUT",
+        `${bare.map((p) => standIns.find((x) => x.token === p.token.toLowerCase())?.symbol).join(" and ")} ${bare.length === 1 ? "is a" : "are"} testnet stand-in${bare.length === 1 ? "" : "s"} with no market of its own: pick the real tokens you researched instead; the platform maps them. ${native ? `The testnet's WMON stands for ${native.symbol} (${native.token}).` : ""}`.trim(),
+        false,
+      );
     const universe = this.o.universe ? await this.o.universe.forCycle(cycle.cycleId) : [];
     const symbols: Record<string, string> = {};
     for (const t of inputs.market.tokens) symbols[t.token.toLowerCase()] = t.symbol;
@@ -570,6 +630,7 @@ export class CycleResearch {
       standIns,
       current: current?.positions ?? [],
       symbols,
+      realOf,
     });
     const mapped = {
       ...decision,
