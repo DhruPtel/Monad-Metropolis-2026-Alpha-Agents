@@ -140,9 +140,13 @@ export function homeView(inputs: readonly HomeAgentInput[], now: number): HomeVi
       speciesName: species?.name ?? null,
       image: species ? speciesAsset(a.species).image : null,
       owner: a.owner,
-      goal: x.goal?.configured
-        ? (GOAL_WORD[x.goal.aggressiveness ?? ""] ?? "Goal set")
-        : "No goal set",
+      // 2026-10-14: a failed goal read is "–", never "No goal set".
+      goal:
+        x.goal === null
+          ? "–"
+          : x.goal.configured
+            ? (GOAL_WORD[x.goal.aggressiveness ?? ""] ?? "Goal set")
+            : "No goal set",
       valueE6,
       accountReturnText: accountBps === null ? null : percentFromBps(accountBps, true),
       accountReturnBps: accountBps,
@@ -206,10 +210,7 @@ const byId = (a: HomeAgentView, b: HomeAgentView) => Number(a.id - b.id);
  * by value, Gainers by the trading account's return on deposits, New by mint
  * time. Ties fall back to value, then id.
  */
-export function sortAgents(
-  agents: readonly HomeAgentView[],
-  filter: AgentFilter,
-): HomeAgentView[] {
+export function sortAgents(agents: readonly HomeAgentView[], filter: AgentFilter): HomeAgentView[] {
   const value = (a: HomeAgentView) => (a.valueE6 === null ? null : Number(a.valueE6));
   const key: Record<AgentFilter, (a: HomeAgentView, b: HomeAgentView) => number> = {
     trending: (a, b) => b.activity24h - a.activity24h,
@@ -217,9 +218,7 @@ export function sortAgents(
     gainers: (a, b) => desc(a.accountReturnBps, b.accountReturnBps),
     new: (a, b) => desc(a.mintedAt, b.mintedAt),
   };
-  return [...agents].sort(
-    (a, b) => key[filter](a, b) || desc(value(a), value(b)) || byId(a, b),
-  );
+  return [...agents].sort((a, b) => key[filter](a, b) || desc(value(a), value(b)) || byId(a, b));
 }
 
 export type TopCard =

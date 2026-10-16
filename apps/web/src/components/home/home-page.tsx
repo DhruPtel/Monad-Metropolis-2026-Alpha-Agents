@@ -15,8 +15,10 @@ import {
   RankedCards,
   SectionLabel,
   Skeleton,
+  Wordmark,
 } from "@alpha-agents/ui";
 import { PlugZap } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
 import {
@@ -183,7 +185,10 @@ function HomeBody({
   return (
     <>
       <HomeHero
-        title="Vivarium"
+        // 2026-10-14: the viewport less the nav and the Top agents row, so the first screen is
+        // the hero and that row; at least 26rem on short screens.
+        className="min-h-[max(26rem,calc(100svh-21rem))]"
+        title={<Wordmark src="/brand/vivarium-wordmark.webp" className="h-7" />}
         lede={LEDE}
         stats={stats(view, network)}
         below={<FlowPills steps={flowSteps} />}
@@ -191,6 +196,30 @@ function HomeBody({
           <Button asChild data-testid="hero-mint">
             <Link href="/mint">Mint an agent</Link>
           </Button>
+        }
+        background={
+          // 2026-10-14: the hero scene as atmosphere: darkened overall (more on phones, where the
+          // text spans the width), a light shade on the left, focused up on the fish, and a short
+          // fade into the page. HomeHero puts the text in a panel.
+          <>
+            {/* On wide screens, a little smaller than the hero and shifted right, its left edge
+                fading into the page: the snake stays in view on the right, and the mantis stands
+                between the text panel and the logo. */}
+            <div className="absolute inset-y-0 left-0 w-full lg:left-[10%] lg:w-[95%] lg:[mask-image:linear-gradient(to_right,transparent,rgb(0_0_0/0.15)_12%,rgb(0_0_0/0.55)_25%,black_40%)]">
+              <Image
+                src="/images/home/hero-scene.webp"
+                alt=""
+                fill
+                priority
+                sizes="100vw"
+                quality={70}
+                className="object-cover object-[50%_45%]"
+              />
+            </div>
+            <div className="absolute inset-0 bg-background/80 lg:bg-background/62" />
+            <div className="absolute inset-0 hidden bg-linear-to-r from-background from-5% via-background/70 via-20% to-transparent to-45% lg:block" />
+            <div className="absolute inset-x-0 bottom-0 h-10 bg-linear-to-b from-transparent to-background" />
+          </>
         }
         visual={
           // 2026-10-14: no taller than the text column and level with its top, so the model

@@ -65,10 +65,12 @@ function HomeHero({
   stats,
   below,
   visual,
+  background,
   action,
   className,
 }: {
-  title: string;
+  /** The hero's heading: text, or a Wordmark (2026-10-14). */
+  title: ReactNode;
   lede: string;
   /** 2026-10-13: the hero's main action under the description ("Mint an agent"). */
   action?: ReactNode;
@@ -76,14 +78,39 @@ function HomeHero({
   below?: ReactNode;
   /** The right side; HeroVisualSlot reserves it until the visual exists. */
   visual?: ReactNode;
+  /**
+   * 2026-10-14: a full-width backdrop behind the hero, from the page's top edge to the hero's
+   * bottom; the page's shell clips its horizontal overflow.
+   */
+  background?: ReactNode;
   className?: string;
 }) {
   return (
     <header
-      className={cn("grid items-center gap-10 py-6 lg:grid-cols-2 lg:py-12", className)}
+      className={cn(
+        "relative isolate grid items-center gap-10 py-6 lg:grid-cols-2 lg:py-12",
+        className,
+      )}
       data-testid="home-hero"
     >
-      <div className="flex flex-col gap-6">
+      {background ? (
+        <div
+          aria-hidden
+          className="pointer-events-none absolute -top-8 -bottom-5 left-1/2 -z-10 w-screen -translate-x-1/2 overflow-hidden"
+          data-testid="home-hero-background"
+        >
+          {background}
+        </div>
+      ) : null}
+      <div
+        className={cn(
+          "flex flex-col gap-6",
+          // 2026-10-14: over a backdrop, the text sits in a panel sized to its content.
+          background &&
+            "w-fit rounded-2xl border border-primary/25 bg-background/80 p-6 backdrop-blur-sm lg:p-8",
+        )}
+        data-testid="home-hero-text"
+      >
         <div className="flex max-w-md flex-col gap-3">
           <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
           <p className="text-sm leading-relaxed text-foreground-muted">{lede}</p>
@@ -160,7 +187,7 @@ function FlowPills({ steps, className }: { steps: readonly FlowPillView[]; class
               )}
             />
           ) : null}
-          <span className="flex items-baseline gap-1.5 rounded-full border px-3 py-1 text-sm sm:gap-2 sm:px-4 sm:py-1.5">
+          <span className="flex items-baseline gap-1.5 rounded-full border bg-background/70 px-3 py-1 text-sm sm:gap-2 sm:px-4 sm:py-1.5">
             <span className="text-foreground-muted">{s.label}</span>
             <span className="numeric font-semibold text-foreground">{s.value}</span>
           </span>

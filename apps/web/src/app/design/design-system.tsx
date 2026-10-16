@@ -97,6 +97,7 @@ import {
   TierCard,
   ViewerFrame,
   BetaBanner,
+  Wordmark,
   DemandCounter,
   ReasonMessage,
   RISK_LEVELS,
@@ -1987,6 +1988,16 @@ function DataSection() {
       </Specimen>
       <Specimen name="Beta banner" note="The app shell shows it on every page.">
         <BetaBanner environment="fork" className="rounded-md border" />
+      </Specimen>
+      <Specimen
+        name="Wordmark"
+        note="The written-out logo, sized by height; the word as text without an image or when it fails."
+      >
+        <div className="flex flex-wrap items-center gap-6">
+          <Wordmark src="/brand/vivarium-wordmark.webp" className="h-7" />
+          <Wordmark src="/brand/vivarium-wordmark.webp" className="h-5" />
+          <Wordmark className="text-2xl" />
+        </div>
       </Specimen>
     </Section>
   );

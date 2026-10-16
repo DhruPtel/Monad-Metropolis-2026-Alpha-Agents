@@ -65,7 +65,7 @@ describe("the home page's figures (UI-FAST)", () => {
           vault: vault("120000000", 250),
           activity: [entry("trade", 30)],
         }),
-        input({ agent: agent(3, 0) }),
+        input({ agent: agent(3, 0), goal: { configured: false, aggressiveness: null } }),
       ],
       NOW,
     );
@@ -80,6 +80,8 @@ describe("the home page's figures (UI-FAST)", () => {
     expect(countText(v.stats.tradesSettled)).toBe("1");
     expect(v.agents[0]).toMatchObject({ goal: "Balanced", speciesName: "Weevil", live: false });
     expect(v.agents[2]).toMatchObject({ image: null, tier: null, goal: "No goal set" });
+    // A failed goal read is unknown, not "No goal set".
+    expect(homeView([input({ agent: agent(5, 0) })], NOW).agents[0]?.goal).toBe("–");
     expect(topCards(v.agents).map((c) => [c.kind, c.agent.id, c.agent.vault?.returnText])).toEqual([
       ["vault", 4n, "+2.50%"],
       ["agent", 2n, undefined],

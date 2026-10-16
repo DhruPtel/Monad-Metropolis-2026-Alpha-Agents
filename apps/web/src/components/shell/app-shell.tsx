@@ -19,6 +19,7 @@ import {
   WalletNotice,
   WrongChainPrompt,
   cn,
+  Wordmark,
 } from "@alpha-agents/ui";
 import { chainName, useWalletSession } from "@/auth/session";
 import { CURRENT_NETWORK, NETWORK_OPTIONS } from "@/network-sites";
@@ -105,7 +106,7 @@ function AppShell({ environment, children }: { environment: string; children: Re
     ));
 
   return (
-    <div className="flex min-h-screen flex-col">
+    <div className="flex min-h-screen flex-col overflow-x-clip">
       <BetaBanner environment={environment} />
       <header className="sticky top-0 z-40 border-b bg-background">
         <div className="mx-auto flex h-16 max-w-content items-center gap-4 px-4 md:px-6">
@@ -121,9 +122,8 @@ function AppShell({ environment, children }: { environment: string; children: Re
               className="size-7"
               priority
             />
-            <span className="text-base font-semibold tracking-tight whitespace-nowrap">
-              Vivarium
-            </span>
+            {/* 2026-10-14: the written-out logo; the word as text if the image fails. */}
+            <Wordmark src="/brand/vivarium-wordmark.webp" className="h-5 text-base" />
           </Link>
           {/* Inline from xl: below 1280px the links and the wallet controls do not fit
               on one row, so the menu holds the links. */}
