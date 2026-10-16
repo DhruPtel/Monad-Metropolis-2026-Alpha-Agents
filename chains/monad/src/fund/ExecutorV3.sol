@@ -61,6 +61,11 @@ import {OracleAdapterV3} from "./OracleAdapterV3.sol";
 ///   same limits with a grant that has no fixed expiry and ends only on a
 ///   sale, a configuration change or the owner's revocation; such a grant
 ///   serves the vault alone. A vault never buys a class A or a screened token
+/// The route adapter's quote for the testnet price mode (RouteAdapter.quoteRoute).
+interface IRouteQuoter {
+    function quoteRoute(address tokenIn, uint256 amountIn, bytes32[] calldata route) external view returns (uint256);
+}
+
 ///   (D-338), and nothing trades for a vault in handover.
 contract ExecutorV3 is ISwapExecutorV3, RiskTimelock, ReentrancyGuard {
     using SafeERC20 for IERC20;
@@ -510,14 +515,25 @@ contract ExecutorV3 is ISwapExecutorV3, RiskTimelock, ReentrancyGuard {
         if ((turnover + m.valueIn) * BPS > m.capped * p.maxTurnoverBps) _reject(ReasonV3.TURNOVER_CAP);
 
         m.slippageBps = m.classAIn || m.classAOut ? p.maxSlippageClassABps : p.maxSlippageBps;
-        if (i.minAmountOut < floorFor(i.amountIn, m.pxIn, m.decIn, m.pxOut, m.decOut, m.slippageBps)) {
-            _reject(ReasonV3.SLIPPAGE_TOO_HIGH);
-        }
+        if (i.minAmountOut < _floor(i, m, oracle)) _reject(ReasonV3.SLIPPAGE_TOO_HIGH);
 
         // The trade at the prices, before it is made: a buy that would break a
         // cap or the floor is named here, before the account's own looser
         // backstop could refuse it with its own error (L-108).
         if (!intoUsdc) _projectCaps(i, p, m, account);
+    }
+
+    /// The least the trade may pay: the prices' implied output less the slippage
+    /// limit, or, in the testnet price mode (2026-10-16), the route's own quote
+    /// from the adapter less the limit, so the fill is checked against the venue.
+    function _floor(SwapIntentV3 calldata i, Measure memory m, OracleAdapterV3 oracle) internal view returns (uint256) {
+        if (!oracle.quoteMode()) return floorFor(i.amountIn, m.pxIn, m.decIn, m.pxOut, m.decOut, m.slippageBps);
+        try IRouteQuoter(m.adapter).quoteRoute(i.tokenIn, i.amountIn, i.route) returns (uint256 quoted) {
+            return Math.mulDiv(quoted, BPS - m.slippageBps, BPS);
+        } catch {
+            _reject(ReasonV3.ROUTE_INVALID);
+        }
+        return 0;
     }
 
     /// A side's price and class: USDC exactly 1, class F from its feed, class A

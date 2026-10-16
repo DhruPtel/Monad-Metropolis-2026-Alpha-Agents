@@ -5,6 +5,7 @@ import {IPoolRegistry, ITokenRegistry, Lane, PoolRecord, PoolStatus, TokenRecord
 import {PoolKey} from "../interfaces/IUniswap.sol";
 import {IUniswapV3FactoryView, IUniswapV3PoolView} from "../interfaces/IUniswapV3.sol";
 import {IUniswapV4StateView} from "../interfaces/IOracle.sol";
+import {IUniswapV2Factory, IUniswapV2Pair} from "../interfaces/IUniswapV2.sol";
 import {LaneRegistry} from "./LaneRegistry.sol";
 
 /// @title ProtocolRegistryV3
@@ -23,6 +24,10 @@ import {LaneRegistry} from "./LaneRegistry.sol";
 ///   the screener, usable only by opted-in personal accounts. Pausing or
 ///   setting a pool exit-only is instant for the screener, the guardian and the
 ///   admin; activating waits the timelock.
+/// - The Uniswap v2 family (2026-10-16): any v2 fork whose factory is listed,
+///   by the constructor or through the timelock, so another fork is
+///   configuration, not code. A pair must be what its listed factory returns,
+///   and is pinned by its own code hash and its factory's.
 contract ProtocolRegistryV3 is LaneRegistry, IPoolRegistry {
     /// Most pools the registry holds, so the list stays enumerable in one call.
     uint256 public constant MAX_POOLS = 256;
@@ -34,6 +39,9 @@ contract ProtocolRegistryV3 is LaneRegistry, IPoolRegistry {
     uint8 public constant ACTIVATE_ADAPTER = 4;
     uint8 public constant SET_SCREENER = 5;
     uint8 public constant SET_GUARDIAN = 6;
+    uint8 public constant ADD_V2_FACTORY = 7;
+    /// A v2 pair's fee is in millionths and below this (10%).
+    uint24 public constant MAX_V2_FEE = 100_000;
 
     struct AdapterEntry {
         address adapter;
@@ -66,11 +74,15 @@ contract ProtocolRegistryV3 is LaneRegistry, IPoolRegistry {
     bytes32[] public poolIds;
     mapping(bytes32 adapterId => AdapterEntry) internal _adapters;
     bytes32[] public adapterIds;
+    /// The listed Uniswap v2 family factories, each pinned by its code hash.
+    mapping(address factory => bytes32) public v2FactoryHash;
+    address[] public v2Factories;
 
     event PoolAdded(bytes32 indexed poolId, Lane lane, Venue venue, address token0, address token1, uint24 fee);
     event PoolStatusSet(bytes32 indexed poolId, PoolStatus previous, PoolStatus current, address indexed by);
     event AdapterAdded(bytes32 indexed adapterId, address indexed adapter, bytes32 codeHash);
     event AdapterStatusSet(bytes32 indexed adapterId, bool active, address indexed by);
+    event V2FactoryAdded(address indexed factory, bytes32 codeHash);
 
     error ZeroAddress();
     error UnknownPool(bytes32 poolId);
@@ -83,6 +95,7 @@ contract ProtocolRegistryV3 is LaneRegistry, IPoolRegistry {
     error AdapterExists(bytes32 adapterId);
     error NotStricter(PoolStatus current, PoolStatus next);
     error BadPayload();
+    error V2FactoryExists(address factory);
 
     struct Venues {
         address uniswapV3Factory;
@@ -91,6 +104,8 @@ contract ProtocolRegistryV3 is LaneRegistry, IPoolRegistry {
         IUniswapV4StateView stateView;
         address wmon;
         address usdc;
+        /// Uniswap v2 family factories listed at deploy (2026-10-16); may be empty.
+        address[] v2Factories;
     }
 
     constructor(
@@ -119,6 +134,9 @@ contract ProtocolRegistryV3 is LaneRegistry, IPoolRegistry {
         UNISWAP_V3_FACTORY_HASH = v.uniswapV3Factory.codehash;
         PANCAKESWAP_V3_FACTORY_HASH = v.pancakeswapV3Factory.codehash;
         POOL_MANAGER_HASH = v.poolManager.codehash;
+        for (uint256 i = 0; i < v.v2Factories.length; ++i) {
+            _addV2Factory(v.v2Factories[i]);
+        }
         for (uint256 i = 0; i < seeds.length; ++i) {
             (bytes32 id, PoolRecord memory r) = _checkPool(seeds[i], Lane.CORE);
             _addPool(id, r);
@@ -140,6 +158,10 @@ contract ProtocolRegistryV3 is LaneRegistry, IPoolRegistry {
         return poolIds.length;
     }
 
+    function v2FactoryCount() external view returns (uint256) {
+        return v2Factories.length;
+    }
+
     function adapter(bytes32 adapterId) external view returns (AdapterEntry memory) {
         return _adapters[adapterId];
     }
@@ -159,7 +181,7 @@ contract ProtocolRegistryV3 is LaneRegistry, IPoolRegistry {
         if (!statusOk || !laneOk || !_codeIntact(r)) revert PoolUnusable(poolId);
     }
 
-    /// The ID a pool is registered under: a v3 pool's address, or a v4 pool's ID.
+    /// The ID a pool is registered under: a v3 pool's or v2 pair's address, or a v4 pool's ID.
     function poolIdOf(PoolSeed memory s) public pure returns (bytes32) {
         if (s.venue == Venue.UNISWAP_V4) {
             return keccak256(
@@ -230,6 +252,10 @@ contract ProtocolRegistryV3 is LaneRegistry, IPoolRegistry {
             if (_adapters[id].adapter == address(0)) revert UnknownAdapter(id);
         } else if (action == SET_SCREENER || action == SET_GUARDIAN) {
             abi.decode(data, (address));
+        } else if (action == ADD_V2_FACTORY) {
+            address f = abi.decode(data, (address));
+            if (f == address(0) || f.code.length == 0) revert ZeroAddress();
+            if (v2FactoryHash[f] != bytes32(0)) revert V2FactoryExists(f);
         } else {
             revert BadPayload();
         }
@@ -256,6 +282,8 @@ contract ProtocolRegistryV3 is LaneRegistry, IPoolRegistry {
             emit AdapterStatusSet(id, true, msg.sender);
         } else if (action == SET_SCREENER) {
             _setScreener(abi.decode(data, (address)));
+        } else if (action == ADD_V2_FACTORY) {
+            _addV2Factory(abi.decode(data, (address)));
         } else {
             _setGuardian(abi.decode(data, (address)));
         }
@@ -286,6 +314,17 @@ contract ProtocolRegistryV3 is LaneRegistry, IPoolRegistry {
             if (p.token0() != s.token0 || p.token1() != s.token1 || p.fee() != s.fee) revert NotAPool(id);
             if (p.tickSpacing() != s.tickSpacing) revert NotAPool(id);
             codeHash = s.pool.codehash;
+        } else if (s.venue == Venue.UNISWAP_V2) {
+            if (s.pool == address(0) || s.pool.code.length == 0) revert NotAPool(id);
+            if (s.tickSpacing != 0 || s.fee == 0 || s.fee >= MAX_V2_FEE) revert BadPayload();
+            IUniswapV2Pair pair = IUniswapV2Pair(s.pool);
+            address factory = pair.factory();
+            if (v2FactoryHash[factory] == bytes32(0) || factory.codehash != v2FactoryHash[factory]) {
+                revert NotAPool(id);
+            }
+            if (IUniswapV2Factory(factory).getPair(s.token0, s.token1) != s.pool) revert NotAPool(id);
+            if (pair.token0() != s.token0 || pair.token1() != s.token1) revert NotAPool(id);
+            codeHash = s.pool.codehash;
         } else {
             revert BadPayload();
         }
@@ -313,6 +352,12 @@ contract ProtocolRegistryV3 is LaneRegistry, IPoolRegistry {
         if (r.venue == Venue.UNISWAP_V4) {
             return POOL_MANAGER.codehash == POOL_MANAGER_HASH && r.codeHash == POOL_MANAGER_HASH;
         }
+        if (r.venue == Venue.UNISWAP_V2) {
+            if (r.pool.codehash != r.codeHash) return false;
+            address factory = IUniswapV2Pair(r.pool).factory();
+            bytes32 pinned = v2FactoryHash[factory];
+            return pinned != bytes32(0) && factory.codehash == pinned;
+        }
         bytes32 factoryHash =
             r.venue == Venue.UNISWAP_V3 ? UNISWAP_V3_FACTORY.codehash : PANCAKESWAP_V3_FACTORY.codehash;
         bytes32 pinned = r.venue == Venue.UNISWAP_V3 ? UNISWAP_V3_FACTORY_HASH : PANCAKESWAP_V3_FACTORY_HASH;
@@ -332,6 +377,14 @@ contract ProtocolRegistryV3 is LaneRegistry, IPoolRegistry {
         if (uint8(next) <= uint8(r.status)) revert NotStricter(r.status, next);
         emit PoolStatusSet(id, r.status, next, msg.sender);
         r.status = next;
+    }
+
+    function _addV2Factory(address f) internal {
+        if (f == address(0) || f.code.length == 0) revert ZeroAddress();
+        if (v2FactoryHash[f] != bytes32(0)) revert V2FactoryExists(f);
+        v2FactoryHash[f] = f.codehash;
+        v2Factories.push(f);
+        emit V2FactoryAdded(f, f.codehash);
     }
 
     function _addAdapter(bytes32 id, address a, bool active) internal {

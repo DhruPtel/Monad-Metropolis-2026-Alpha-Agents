@@ -100,7 +100,8 @@ contract DeployFund is DeployScope {
             poolManager: vm.parseJsonAddress(json, ".poolManager"),
             stateView: IUniswapV4StateView(vm.parseJsonAddress(json, ".stateView")),
             wmon: vm.parseJsonAddress(json, ".wmon"),
-            usdc: vm.parseJsonAddress(json, ".usdc")
+            usdc: vm.parseJsonAddress(json, ".usdc"),
+            v2Factories: new address[](0)
         });
     }
 

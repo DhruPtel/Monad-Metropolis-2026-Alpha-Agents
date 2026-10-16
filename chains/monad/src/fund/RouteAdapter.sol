@@ -7,20 +7,22 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol
 import {IPoolRegistry, PoolRecord, Venue} from "../interfaces/IFund.sol";
 import {IPoolManager, IUnlockCallback, IWMON, PoolKey, V4SwapParams} from "../interfaces/IUniswap.sol";
 import {IUniswapV3PoolActions, IV3SwapCallbacks} from "../interfaces/IUniswapV3.sol";
+import {IUniswapV2Pair} from "../interfaces/IUniswapV2.sol";
 
 /// @title RouteAdapter
 /// @notice The fund agent's generic venue adapter (FINAL_PLAN 0.4, D-341,
 /// D-354), written clean-room: one exact-input route of up to three hops
-/// through pools the ProtocolRegistryV3 lists, on Uniswap v3, PancakeSwap v3
-/// and hookless Uniswap v4, in any mix.
+/// through pools the ProtocolRegistryV3 lists, on Uniswap v3, PancakeSwap v3,
+/// hookless Uniswap v4 and the Uniswap v2 family (any listed v2 fork), in any mix.
 ///
 /// - Only the Executor may call `swapRoute`, after transferring exactly
 ///   `amountIn` of `tokenIn` here. A route is a list of registered pool IDs: no
 ///   router, target, selector or calldata comes from the caller.
 /// - v3 pools are swapped directly and paid inside their callback, which only
 ///   the pool being swapped may make. v4 hops run inside PoolManager's unlock
-///   and settle by transfer or value. So no approval is ever given, and none
-///   can be left behind.
+///   and settle by transfer or value. A v2 pair is paid by transfer first, then
+///   swapped for the output its reserves and its registered fee give. So no
+///   approval is ever given, and none can be left behind.
 /// - Accounts hold WMON, never native MON (D-167): a v4 hop whose pool holds
 ///   native MON unwraps WMON going in and wraps MON coming out.
 /// - The output goes only to `recipient`, and so does any input or
@@ -63,6 +65,8 @@ contract RouteAdapter is IUnlockCallback, IV3SwapCallbacks, ReentrancyGuard {
     error FundsLeft(address token, uint256 amount);
     error AmountTooLarge();
     error SettledShort(uint256 paid, uint256 owed);
+    error QuoteUnsupported(uint256 hop);
+    error V2InputShort(uint256 arrived, uint256 sent);
 
     constructor(IPoolRegistry registry, IPoolManager poolManager, address wmon, address usdc, address executor) {
         if (
@@ -124,9 +128,10 @@ contract RouteAdapter is IUnlockCallback, IV3SwapCallbacks, ReentrancyGuard {
 
         uint256 amount = amountIn;
         for (uint256 i = 0; i < pools.length; ++i) {
-            amount = pools[i].venue == Venue.UNISWAP_V4
+            Venue v = pools[i].venue;
+            amount = v == Venue.UNISWAP_V4
                 ? _swapV4(pools[i], path[i], amount)
-                : _swapV3(pools[i], path[i], amount);
+                : v == Venue.UNISWAP_V2 ? _swapV2(pools[i], path[i], amount) : _swapV3(pools[i], path[i], amount);
         }
         if (amount < minAmountOut) revert OutputTooLow(amount, minAmountOut);
         amountOut = amount;
@@ -140,6 +145,51 @@ contract RouteAdapter is IUnlockCallback, IV3SwapCallbacks, ReentrancyGuard {
             if (held != before[i]) revert FundsLeft(path[i], held);
         }
         emit RouteSwapped(tokenIn, tokenOut, amountIn, amountOut, recipient);
+    }
+
+    /// What `route` pays for `amountIn` of `tokenIn` at the pools' reserves now,
+    /// for the testnet price mode (2026-10-16): Uniswap v2 family hops only;
+    /// any other venue reverts QuoteUnsupported.
+    function quoteRoute(address tokenIn, uint256 amountIn, bytes32[] calldata route)
+        external
+        view
+        returns (uint256 amount)
+    {
+        if (route.length == 0 || route.length > MAX_HOPS) revert BadRoute();
+        amount = amountIn;
+        address token = tokenIn;
+        for (uint256 i = 0; i < route.length; ++i) {
+            PoolRecord memory p = REGISTRY.pool(route[i]);
+            if (p.venue != Venue.UNISWAP_V2) revert QuoteUnsupported(i);
+            if (token != p.token0 && token != p.token1) revert BrokenRoute(i);
+            amount = _v2Out(p, token, amount);
+            token = token == p.token0 ? p.token1 : p.token0;
+        }
+    }
+
+    // ---------------------------------------------------------------------
+    // The Uniswap v2 family
+    // ---------------------------------------------------------------------
+
+    /// One v2 hop: the input goes to the pair, which pays the output its
+    /// reserves and the pool's registered fee give. A token that takes a fee on
+    /// transfer fails by name: the pair must receive exactly what was sent.
+    function _swapV2(PoolRecord memory p, address tokenIn, uint256 amount) internal returns (uint256 out) {
+        out = _v2Out(p, tokenIn, amount);
+        (uint112 r0, uint112 r1,) = IUniswapV2Pair(p.pool).getReserves();
+        IERC20(tokenIn).safeTransfer(p.pool, amount);
+        uint256 arrived = IERC20(tokenIn).balanceOf(p.pool) - (tokenIn == p.token0 ? r0 : r1);
+        if (arrived != amount) revert V2InputShort(arrived, amount);
+        if (tokenIn == p.token0) IUniswapV2Pair(p.pool).swap(0, out, address(this), "");
+        else IUniswapV2Pair(p.pool).swap(out, 0, address(this), "");
+    }
+
+    /// The v2 formula: out = in * (1 - fee) * reserveOut / (reserveIn + in * (1 - fee)), fee in millionths.
+    function _v2Out(PoolRecord memory p, address tokenIn, uint256 amount) internal view returns (uint256) {
+        (uint112 r0, uint112 r1,) = IUniswapV2Pair(p.pool).getReserves();
+        (uint256 rIn, uint256 rOut) = tokenIn == p.token0 ? (uint256(r0), uint256(r1)) : (uint256(r1), uint256(r0));
+        uint256 inAfterFee = amount * (1_000_000 - uint256(p.fee));
+        return inAfterFee * rOut / (rIn * 1_000_000 + inAfterFee);
     }
 
     // ---------------------------------------------------------------------

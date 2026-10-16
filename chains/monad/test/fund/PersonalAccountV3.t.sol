@@ -91,10 +91,12 @@ contract PersonalAccountV3Test is CustodyV3Base {
             depositsEnabled: false,
             allowlist: allow,
             personalImplementation: address(
-                new PersonalAccountV3(IAgentNFTView(address(nft)), address(tokD), ITokenRegistry(address(tokens)))
+                new PersonalAccountV3(
+                    IAgentNFTView(address(nft)), address(tokD), ITokenRegistry(address(tokens)), 6_000
+                )
             ),
             vaultImplementation: address(
-                new StrategyVaultV3(IAgentNFTView(address(nft)), address(tokD), ITokenRegistry(address(tokens)))
+                new StrategyVaultV3(IAgentNFTView(address(nft)), address(tokD), ITokenRegistry(address(tokens)), 6_000)
             )
         });
         vm.expectRevert(abi.encodeWithSelector(AccountFactoryV3.UsdcNotCore.selector, address(tokD)));
@@ -336,10 +338,14 @@ contract PersonalAccountV3Test is CustodyV3Base {
                 depositsEnabled: false,
                 allowlist: allow,
                 personalImplementation: address(
-                    new PersonalAccountV3(IAgentNFTView(address(nft)), address(usdc), ITokenRegistry(address(tokens)))
+                    new PersonalAccountV3(
+                        IAgentNFTView(address(nft)), address(usdc), ITokenRegistry(address(tokens)), 6_000
+                    )
                 ),
                 vaultImplementation: address(
-                    new StrategyVaultV3(IAgentNFTView(address(nft)), address(usdc), ITokenRegistry(address(tokens)))
+                    new StrategyVaultV3(
+                        IAgentNFTView(address(nft)), address(usdc), ITokenRegistry(address(tokens)), 6_000
+                    )
                 )
             })
         );

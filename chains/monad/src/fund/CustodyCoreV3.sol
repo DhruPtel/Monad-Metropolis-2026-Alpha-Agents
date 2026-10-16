@@ -59,8 +59,9 @@ abstract contract CustodyCoreV3 is ReentrancyGuard {
     uint256 public constant BPS = 10_000;
     /// One trade's input may be worth at most 25% of the account (CO-U1, the owner's limits).
     uint256 public constant MAX_TRADE_BPS = 2_500;
-    /// After a trade, one class F asset other than USDC may be at most 60% of the account by value.
-    uint256 public constant MAX_ASSET_BPS = 6_000;
+    /// After a trade, one class F asset other than USDC may be at most this share of the account by
+    /// value: 60% on every deploy but a testnet dev deploy, which may set up to 100% (2026-10-16).
+    uint256 public immutable MAX_ASSET_BPS;
     /// One class A position's cost basis may be at most 15% of the account's basis (D-337).
     uint256 public constant MAX_CLASS_A_POSITION_BPS = 1_500;
     /// All class A positions' cost basis together at most 50% of the account's basis (D-337).
@@ -283,10 +284,13 @@ abstract contract CustodyCoreV3 is ReentrancyGuard {
     error ClassAPositionTooLarge(address token, uint256 basis, uint256 totalBasis);
     error ClassATooLarge(uint256 classABasis, uint256 totalBasis);
     error LengthMismatch();
+    error BadAssetCap(uint256 maxAssetBps);
 
-    constructor(address usdc, ITokenRegistry tokens) {
+    constructor(address usdc, ITokenRegistry tokens, uint256 maxAssetBps) {
+        if (maxAssetBps == 0 || maxAssetBps > BPS) revert BadAssetCap(maxAssetBps);
         USDC = usdc;
         TOKENS = tokens;
+        MAX_ASSET_BPS = maxAssetBps;
     }
 
     // ---------------------------------------------------------------------

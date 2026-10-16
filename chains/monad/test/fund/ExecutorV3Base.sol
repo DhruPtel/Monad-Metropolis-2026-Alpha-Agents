@@ -116,10 +116,14 @@ abstract contract ExecutorV3Base is FundBase {
                 depositsEnabled: false,
                 allowlist: allow,
                 personalImplementation: address(
-                    new PersonalAccountV3(IAgentNFTView(address(nft)), address(usdc), ITokenRegistry(address(tokens)))
+                    new PersonalAccountV3(
+                        IAgentNFTView(address(nft)), address(usdc), ITokenRegistry(address(tokens)), 6_000
+                    )
                 ),
                 vaultImplementation: address(
-                    new StrategyVaultV3(IAgentNFTView(address(nft)), address(usdc), ITokenRegistry(address(tokens)))
+                    new StrategyVaultV3(
+                        IAgentNFTView(address(nft)), address(usdc), ITokenRegistry(address(tokens)), 6_000
+                    )
                 )
             })
         );

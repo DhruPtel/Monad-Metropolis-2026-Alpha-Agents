@@ -131,7 +131,8 @@ contract ExecutorV3ForkTest is Test {
                     poolManager: POOL_MANAGER,
                     stateView: IUniswapV4StateView(STATE_VIEW),
                     wmon: WMON,
-                    usdc: USDC
+                    usdc: USDC,
+                    v2Factories: new address[](0)
                 }),
                 pools: ps,
                 adapterId: ROUTER,
@@ -181,10 +182,10 @@ contract ExecutorV3ForkTest is Test {
                 depositsEnabled: false,
                 allowlist: allow,
                 personalImplementation: address(
-                    new PersonalAccountV3(IAgentNFTView(address(nft)), USDC, ITokenRegistry(address(tokens)))
+                    new PersonalAccountV3(IAgentNFTView(address(nft)), USDC, ITokenRegistry(address(tokens)), 6_000)
                 ),
                 vaultImplementation: address(
-                    new StrategyVaultV3(IAgentNFTView(address(nft)), USDC, ITokenRegistry(address(tokens)))
+                    new StrategyVaultV3(IAgentNFTView(address(nft)), USDC, ITokenRegistry(address(tokens)), 6_000)
                 )
             })
         );

@@ -100,7 +100,8 @@ contract FundForkTest is Test {
                 poolManager: POOL_MANAGER,
                 stateView: IUniswapV4StateView(STATE_VIEW),
                 wmon: WMON,
-                usdc: USDC
+                usdc: USDC,
+                v2Factories: new address[](0)
             }),
             ps,
             new bytes32[](0),

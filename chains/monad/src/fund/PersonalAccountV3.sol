@@ -72,7 +72,9 @@ contract PersonalAccountV3 is CustodyCoreV3, IRegistryAccount {
     error AccountValueZero();
 
     /// The implementation: its own storage is never used, so it is locked.
-    constructor(IAgentNFTView agentNft, address usdc, ITokenRegistry tokens) CustodyCoreV3(usdc, tokens) {
+    constructor(IAgentNFTView agentNft, address usdc, ITokenRegistry tokens, uint256 maxAssetBps)
+        CustodyCoreV3(usdc, tokens, maxAssetBps)
+    {
         AGENT_NFT = agentNft;
         _initialized = true;
     }

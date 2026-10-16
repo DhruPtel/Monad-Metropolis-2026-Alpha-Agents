@@ -80,8 +80,15 @@ contract OracleAdapterV3 {
     // ---------------------------------------------------------------------
 
     /// A token's oracle price, the oldest leg's update time, and why it is unusable, if it is.
-    function price(address token) public view returns (uint256 priceE18_, uint256 updatedAt, PriceReason reason) {
-        if (token == USDC) return (ONE_E18, block.timestamp, PriceReason.OK);
+    function price(address token)
+        public
+        view
+        virtual
+        returns (uint256 priceE18_, uint256 updatedAt, PriceReason reason)
+    {
+        if (token == USDC) {
+            return (ONE_E18, block.timestamp, PriceReason.OK);
+        }
         TokenRecord memory r = TOKENS.tokenRecord(token);
         if (r.priceClass == PriceClass.NONE) return (0, 0, PriceReason.UNKNOWN_ASSET);
         if (r.priceClass == PriceClass.A) return (0, 0, PriceReason.ATTESTATION_REQUIRED);
@@ -139,10 +146,18 @@ contract OracleAdapterV3 {
         } else {
             return (0, PriceReason.POOL_UNSUPPORTED);
         }
-        uint256 sqrtPriceX96 = _sqrtPrice(p, poolId);
-        if (sqrtPriceX96 == 0 || sqrtPriceX96 > type(uint160).max) return (0, PriceReason.POOL_UNREADABLE);
         uint256 tokenUnit = 10 ** uint256(TOKENS.tokenRecord(token).decimals);
         uint256 otherUnit = 10 ** uint256(other == USDC ? 6 : 18);
+        if (p.venue == Venue.UNISWAP_V2) {
+            // 2026-10-16: a v2 pair's spot from its reserves, other per token.
+            (uint256 rToken, uint256 rOther) = _v2Reserves(p, token == a);
+            if (rToken == 0 || rOther == 0) return (0, PriceReason.POOL_UNREADABLE);
+            priceE18_ = Math.mulDiv(rOther * tokenUnit, otherPrice, rToken * otherUnit);
+            if (priceE18_ == 0 || priceE18_ > MAX_PRICE_E18) return (0, PriceReason.POOL_UNREADABLE);
+            return (priceE18_, PriceReason.OK);
+        }
+        uint256 sqrtPriceX96 = _sqrtPrice(p, poolId);
+        if (sqrtPriceX96 == 0 || sqrtPriceX96 > type(uint160).max) return (0, PriceReason.POOL_UNREADABLE);
         if (token == a) {
             // other per token, raw, times 2^96.
             uint256 ratioX96 = Math.mulDiv(sqrtPriceX96, sqrtPriceX96, Q96);
@@ -160,6 +175,12 @@ contract OracleAdapterV3 {
     /// OK, POOL_DEVIATION, or why either price is unusable. Checked exactly.
     function poolDeviationBps(address token, bytes32 poolId) public view returns (uint256 bps, PriceReason reason) {
         (, bps, reason) = _deviation(token, poolId);
+    }
+
+    /// 2026-10-16: whether trades are priced by the venue's own quote (a testnet
+    /// price mode, QuoteOracleV3); this oracle prices by its feeds.
+    function quoteMode() external pure virtual returns (bool) {
+        return false;
     }
 
     // ---------------------------------------------------------------------
@@ -221,6 +242,14 @@ contract OracleAdapterV3 {
         }
         if (!ok || ret.length < 32) return 0;
         return abi.decode(ret, (uint256));
+    }
+
+    /// A v2 pair's reserves as (the priced token's, the other's), zero when unreadable.
+    function _v2Reserves(PoolRecord memory p, bool tokenIs0) internal view returns (uint256, uint256) {
+        (bool ok, bytes memory ret) = p.pool.staticcall(abi.encodeWithSignature("getReserves()"));
+        if (!ok || ret.length < 64) return (0, 0);
+        (uint256 r0, uint256 r1) = abi.decode(ret, (uint256, uint256));
+        return tokenIs0 ? (r0, r1) : (r1, r0);
     }
 
     function _held(address currency) internal view returns (address) {

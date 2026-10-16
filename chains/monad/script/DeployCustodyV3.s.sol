@@ -85,7 +85,9 @@ contract DeployCustodyV3 is DeployScope {
             abi.encode(
                 vm.envAddress("CUSTODY_V3_AGENT_NFT"),
                 vm.envAddress("CUSTODY_V3_USDC"),
-                vm.envAddress("CUSTODY_V3_TOKEN_REGISTRY")
+                vm.envAddress("CUSTODY_V3_TOKEN_REGISTRY"),
+                // 2026-10-16: 60% everywhere; a testnet dev deploy may set up to 100%.
+                vm.envOr("CUSTODY_V3_MAX_ASSET_BPS", uint256(6_000))
             )
         );
         bytes32 implSalt = salt(name, SALT_VERSION);

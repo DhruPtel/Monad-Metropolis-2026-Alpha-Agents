@@ -38,11 +38,14 @@ enum PriceClass {
 }
 
 /// The venues a route may cross. Uniswap v4 pools are hookless only (Q-35).
+/// UNISWAP_V2 is the Uniswap v2 family: any v2 fork whose factory the
+/// ProtocolRegistryV3 lists (2026-10-16), each pair with its own fee.
 enum Venue {
     NONE,
     UNISWAP_V3,
     PANCAKESWAP_V3,
-    UNISWAP_V4
+    UNISWAP_V4,
+    UNISWAP_V2
 }
 
 /// Why a price was refused, or OK. The order matches PRICE_REASONS in
@@ -105,9 +108,11 @@ struct TokenRecord {
     bytes32 screenHash;
 }
 
-/// One pool in the ProtocolRegistryV3. `pool` is the v3 pool's address, zero
-/// for v4; `codeHash` pins the v3 pool's code, or v4's PoolManager's. Uniswap
-/// v4 pools carry their key's fee and tick spacing; their hooks are always zero.
+/// One pool in the ProtocolRegistryV3. `pool` is the v3 pool's or v2 pair's
+/// address, zero for v4; `codeHash` pins the v3 pool's or v2 pair's code, or
+/// v4's PoolManager's. Uniswap v4 pools carry their key's fee and tick spacing;
+/// their hooks are always zero. A v2 pair's `fee` is its swap fee in
+/// millionths (3000 is 0.3%), and its tick spacing is zero.
 struct PoolRecord {
     Lane lane;
     PoolStatus status;
