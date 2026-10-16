@@ -1,7 +1,8 @@
 import type { Hono } from "hono";
 import { z } from "zod";
 import { cycleJson, stageJson } from "./cycle-routes.ts";
-import { utcDayStart } from "./cycle/stages.ts";
+import { cyclePlan } from "./cycle/cycle.ts";
+import { type ReasoningAlias, isReasoningAlias, utcDayStart } from "./cycle/stages.ts";
 import type { Orchestrator } from "./orchestrator.ts";
 import { type TerminalCall, carriesSkillText, sourceLabel, terminalEvents } from "./terminal.ts";
 import { formatUsdc } from "./narrator.ts";
@@ -72,6 +73,7 @@ export function registerResearchRoutes(
     const history = await orch.cycles.diveHistory(ref, now, day);
     const open = await orch.cycles.openCycle(ref);
     const cad = goal ? cadence(goal.config.research.intensity, row.fastCadence) : null;
+    const credits = orch.credits;
     return c.json({
       agentId: String(ref.agentId),
       /** The loop runs for a RUNNING agent: an approved plan, armed. */
@@ -112,6 +114,23 @@ export function registerResearchRoutes(
             divesToday: history.divesToday,
           }
         : null,
+      // 2026-10-16: the credits a run may spend (above the reserve) and what a full owner run
+      // needs, so a run stopped for credits can say both numbers.
+      credits:
+        goal && credits && isReasoningAlias(goal.config.model.alias)
+          ? await (async () => {
+              const spendable = (await credits.creditsOf(ref.agentId)).spendable;
+              const available = spendable - BigInt(goal.config.creditReserveUsdcE6);
+              return {
+                availableUsdcE6: (available > 0n ? available : 0n).toString(),
+                runNeedsUsdcE6: cyclePlan(
+                  "ACTIVATION",
+                  goal.config.model.alias as ReasoningAlias,
+                  0,
+                ).maxUsdcE6,
+              };
+            })()
+          : null,
       open: open
         ? { ...cycleJson(open), stages: (await orch.cycles.stages(open.cycleId)).map(stageJson) }
         : null,
@@ -412,10 +431,13 @@ async function researchRecords(orch: Orchestrator, ref: { chainId: number; agent
       startedAt: iso(c.startedAt),
       finishedAt: iso(c.finishedAt),
       chargedUsdcE6: c.chargedUsdcE6.toString(),
+      // 2026-10-16: why a run stopped (CREDITS_SHORT, BUDGET_SHORT, ...), and at which stage.
+      stopReason: c.stopReason,
       stages: (await orch.cycles.stages(c.cycleId)).map((s) => ({
         stage: s.stage,
         themeCode: s.themeCode,
         status: s.status,
+        stopReason: s.stopReason,
         chargedUsdcE6: s.chargedUsdcE6.toString(),
         ceilingUsdcE6: s.ceilingUsdcE6.toString(),
       })),

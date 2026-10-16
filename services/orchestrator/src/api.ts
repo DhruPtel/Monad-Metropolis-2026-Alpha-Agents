@@ -12,6 +12,7 @@ import { Hono } from "hono";
 import { RefundOpenError } from "./credits/refunds.ts";
 import {
   CreditsExhaustedError,
+  CreditsShortError,
   CycleOpenError,
   NoGoalError,
   type Orchestrator,
@@ -687,6 +688,16 @@ export function createApi(o: ApiOptions): Hono {
         return refuse(
           "credits_exhausted",
           `Agent #${ref.agentId} has no spendable credits; add credits first.`,
+        );
+      if (err instanceof CreditsShortError)
+        return c.json(
+          {
+            error: "credits_short",
+            message: `Not enough research credits: ${(Number(err.availableUsdcE6) / 1e6).toFixed(2)} USDC available, a run needs about ${(Number(err.neededUsdcE6) / 1e6).toFixed(2)}.`,
+            availableUsdcE6: err.availableUsdcE6.toString(),
+            neededUsdcE6: err.neededUsdcE6.toString(),
+          },
+          409,
         );
       if (err instanceof NoGoalError)
         return refuse("no_goal", `Agent #${ref.agentId} has no goal yet; set one first.`);

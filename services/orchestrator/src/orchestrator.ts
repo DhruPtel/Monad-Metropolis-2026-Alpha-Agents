@@ -170,6 +170,23 @@ export class CreditsExhaustedError extends Error {
   }
 }
 
+/**
+ * 2026-10-16 (owner): a run the owner asked for starts only when the credits above the
+ * reserve cover its whole ceiling, so it never stops after a stage for want of credits.
+ */
+export class CreditsShortError extends Error {
+  /** Credits above the reserve, USDC base units. */
+  readonly availableUsdcE6: bigint;
+  /** The run's ceiling: every stage at its limit and the report. */
+  readonly neededUsdcE6: bigint;
+  constructor(agentId: number, availableUsdcE6: bigint, neededUsdcE6: bigint) {
+    super(`Agent ${agentId} has too few credits for a full research run.`);
+    this.name = "CreditsShortError";
+    this.availableUsdcE6 = availableUsdcE6;
+    this.neededUsdcE6 = neededUsdcE6;
+  }
+}
+
 /** HOST-U1: research refused by the demo guard, with the owner's words. */
 export class DemoRefusedError extends Error {
   constructor(message: string) {
@@ -1056,6 +1073,14 @@ export class Orchestrator {
     const alias = goal.config.model.alias;
     if (!isReasoningAlias(alias))
       throw new Error(`the goal's model ${alias} is not a reasoning model`);
+    if (requestedBy === "owner") {
+      // The same credits the stages check (cycle.ts budgetCheck), against the whole run.
+      const needed = BigInt(cyclePlan(kind, alias, Number.MAX_SAFE_INTEGER).maxUsdcE6);
+      const credits = await this.credits.creditsOf(ref.agentId);
+      const available = credits.spendable - BigInt(goal.config.creditReserveUsdcE6);
+      if (available < needed)
+        throw new CreditsShortError(ref.agentId, available > 0n ? available : 0n, needed);
+    }
     await this.provisioner.allowCycleModels(runtime);
     const taskId = randomUUID();
     await this.o.store.insertTask(taskId, ref, "cycle", requestedBy);

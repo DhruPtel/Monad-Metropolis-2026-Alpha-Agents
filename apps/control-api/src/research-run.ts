@@ -6,7 +6,14 @@
  */
 export type ResearchRunStartJson =
   | { readonly ok: true; readonly cycleId: string }
-  | { readonly ok: false; readonly error: string; readonly message: string };
+  | {
+      readonly ok: false;
+      readonly error: string;
+      readonly message: string;
+      /** 2026-10-16: with credits_short, the credits above the reserve and a run's ceiling. */
+      readonly availableUsdcE6?: string;
+      readonly neededUsdcE6?: string;
+    };
 
 export interface ResearchRunDeps {
   readonly start: (agentId: number) => Promise<ResearchRunStartJson>;
@@ -27,6 +34,9 @@ export function orchestratorResearchRun(orchestratorUrl: string): ResearchRunDep
           ok: false,
           error: String(body.error ?? "refused"),
           message: String(body.message ?? "The research run could not start."),
+          ...(typeof body.availableUsdcE6 === "string" && typeof body.neededUsdcE6 === "string"
+            ? { availableUsdcE6: body.availableUsdcE6, neededUsdcE6: body.neededUsdcE6 }
+            : {}),
         };
       throw new Error(`the orchestrator answered ${res.status}`);
     },

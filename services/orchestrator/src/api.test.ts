@@ -23,6 +23,7 @@ import { MemoryGateway } from "./gateway-admin.ts";
 import { LeaseManager } from "./leases.ts";
 import {
   CreditsExhaustedError,
+  CreditsShortError,
   CycleOpenError,
   DemoRefusedError,
   NoGoalError,
@@ -271,6 +272,16 @@ describe.skipIf(!dbUp)("the orchestrator's internal API (D-205)", { timeout: 60_
       expect(r.status).toBe(409);
       expect(await r.json()).toMatchObject({ error: code });
     }
+    // 2026-10-16: too few credits for a full run says both numbers.
+    cycleRefusal = new CreditsShortError(1, 170_000n, 2_350_000n);
+    const short = await post(true);
+    expect(short.status).toBe(409);
+    expect(await short.json()).toEqual({
+      error: "credits_short",
+      message: "Not enough research credits: 0.17 USDC available, a run needs about 2.35.",
+      availableUsdcE6: "170000",
+      neededUsdcE6: "2350000",
+    });
     cycleRefusal = null;
     expect((await post(false, "abc")).status).toBe(400);
   });

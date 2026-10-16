@@ -1130,7 +1130,17 @@ export function createApp(deps: ApiDeps): Hono {
       );
     const r = await deps.researchRun.start(Number(agentId));
     if (!r.ok)
-      return c.json({ error: r.error, message: r.message, agentId: agentId.toString() }, 409);
+      return c.json(
+        {
+          error: r.error,
+          message: r.message,
+          ...(r.availableUsdcE6 && r.neededUsdcE6
+            ? { availableUsdcE6: r.availableUsdcE6, neededUsdcE6: r.neededUsdcE6 }
+            : {}),
+          agentId: agentId.toString(),
+        },
+        409,
+      );
     return c.json({ agentId: agentId.toString(), cycleId: r.cycleId }, 202);
   });
 
