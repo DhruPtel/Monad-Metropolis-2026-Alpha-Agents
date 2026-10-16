@@ -1541,7 +1541,8 @@ export class Orchestrator {
       (a.holdings.some((h) => isAddressEqual(h.token, buy.token) && h.balance > 0n) ? 0 : 1);
     const gas = executorV3SwapGasLimit(hops, Math.min(Math.max(heldAfter, 1), 16));
     const classA = sell.priceClass === "A" || buy.priceClass === "A";
-    const floor = floorForV3(m, sell, buy, amountIn);
+    // 2026-10-16: the testnet price mode checks the fill against the route's quote, not the prices.
+    const floor = m.quoteMode ? 0n : floorForV3(m, sell, buy, amountIn);
     const minAmountOut = minAmountOutFor(
       quote.amountOut,
       floor,

@@ -350,6 +350,11 @@ export const GetCodeOutput = z.strictObject({
   cacheHit: z.boolean(),
 });
 
+/** 2026-10-16: testnet_token_stats: how many minutes of the venue's history to read (at most 120). */
+export const TokenStatsInput = z.strictObject({
+  windowMinutes: z.int().min(5).max(120).optional(),
+});
+
 export const CHAIN_TOOL_INPUTS = {
   get_portfolio: EmptyInput,
   get_prices: EmptyInput,
@@ -362,6 +367,9 @@ export const CHAIN_TOOL_INPUTS = {
   read_contract: ReadContractInput,
   balance: BalanceInput,
   get_code: GetCodeInput,
+  testnet_token_stats: TokenStatsInput,
 } as const;
 export type ChainTool = keyof typeof CHAIN_TOOL_INPUTS;
 export const CHAIN_TOOLS = Object.keys(CHAIN_TOOL_INPUTS) as ChainTool[];
+/** Tools only the fund agent's v3 set serves (2026-10-16: the v2 family venue's token stats). */
+export const V3_ONLY_CHAIN_TOOLS: readonly ChainTool[] = ["testnet_token_stats"];

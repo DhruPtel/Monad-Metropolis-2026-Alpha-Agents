@@ -34,6 +34,7 @@ export const TOOL_REGISTRY = [
   chain("get_limits", "live limits, headroom, mode"),
   chain("tradable_now", "every rule that blocks a trade now, and when each clears"),
   chain("get_pool_depth", "depth at the reference size"),
+  chain("testnet_token_stats", "a venue token's onchain market: price, liquidity, swaps, volume"),
   chain("simulate_rebalance", "dry run of targets"),
   chain("read_contract", "curated read-only calls on any target"),
   chain("balance", "token or native balance of any target"),

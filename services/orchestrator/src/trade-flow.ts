@@ -432,7 +432,8 @@ export class TradeFlow {
       if (side === sell) attestationIn = att.bytes;
       else attestationOut = att.bytes;
     }
-    const floor = floorForV3(m, sell, buy, i.amountIn);
+    // 2026-10-16: the testnet price mode checks the fill against the route's quote, not the prices.
+    const floor = m.quoteMode ? 0n : floorForV3(m, sell, buy, i.amountIn);
     const minAmountOut = minAmountOutFor(quote.amountOut, floor, slippageBps);
     const deadline = m.timestamp + BigInt(m.policy.deadlineSeconds);
     const actionId = actionIdOf(chainId, i.intentId);

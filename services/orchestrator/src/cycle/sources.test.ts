@@ -64,4 +64,23 @@ describe("the Scan's token count (2026-10-13)", () => {
       ),
     ).toBeNull();
   });
+
+  it("on the dev stack counts only the tokens it can trade, and takes no reason for fewer (2026-10-16)", () => {
+    const dev = { tradable: new Set(["0xa", "0xb", "0xc"]) };
+    expect(
+      scanTokenShortfall(
+        {
+          themes: [theme("0xa"), theme("0xmainnet"), theme(null, "MARKET")],
+          fewerTokensReason: "quiet",
+        },
+        3,
+        dev,
+      ),
+    ).toMatch(
+      /the Scan chose 1 this stack can trade: choose 3 TOKEN themes among the tokens get_prices marks buyable/,
+    );
+    expect(
+      scanTokenShortfall({ themes: [theme("0xa"), theme("0xb"), theme("0xc")] }, 3, dev),
+    ).toBeNull();
+  });
 });

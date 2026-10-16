@@ -1,7 +1,7 @@
 import { ACCOUNT_MODES, REJECTION_CODES, TRADE_FLOW_CODES } from "@alpha-agents/domain";
 import { LANES, POOL_STATUSES, PRICE_REASONS, TOKEN_STATUSES } from "@alpha-agents/policy";
 import { z } from "zod";
-import { Blocker } from "./schema.ts";
+import { Blocker, TokenStatsInput } from "./schema.ts";
 
 /**
  * The chain tools' schemas for the fund agent's v3 set (F-U5): any registered
@@ -66,7 +66,7 @@ const reasonCode = z.enum([...REJECTION_CODES, ...TRADE_FLOW_CODES]);
 const tokenClass = z.enum(["USDC", "F", "A", "NONE"]);
 const lane = z.enum(LANES);
 const tokenStatus = z.enum(TOKEN_STATUSES);
-const priceSource = z.enum(["usdc", "chainlink", "attestation"]);
+const priceSource = z.enum(["usdc", "chainlink", "attestation", "pool"]);
 
 export const PortfolioOutputV3 = z.strictObject({
   asOf: AsOf,
@@ -138,7 +138,7 @@ export const PricesOutputV3 = z.strictObject({
   pools: z.array(
     z.strictObject({
       poolId: z.string(),
-      venue: z.enum(["uniswap_v3", "pancakeswap_v3", "uniswap_v4"]),
+      venue: z.enum(["uniswap_v3", "pancakeswap_v3", "uniswap_v4", "uniswap_v2"]),
       pair: z.string(),
       feeBps: z.number().int(),
       lane,
@@ -154,7 +154,7 @@ export type PricesOutputV3 = z.infer<typeof PricesOutputV3>;
 
 export const RouteHopOutput = z.strictObject({
   poolId: z.string(),
-  venue: z.enum(["uniswap_v3", "pancakeswap_v3", "uniswap_v4"]),
+  venue: z.enum(["uniswap_v3", "pancakeswap_v3", "uniswap_v4", "uniswap_v2"]),
   feeBps: z.number().int(),
   lane,
   sell: TokenAmount,
@@ -281,3 +281,31 @@ export const CHAIN_TOOL_INPUTS_V3 = {
   tradable_now: TradeInputV3,
   propose_swap: ProposeSwapInputV3,
 } as const;
+
+export const TokenStatsInputV3 = TokenStatsInput;
+
+/** 2026-10-16: each Uniswap v2 family token's onchain market, for research on tokens with no other data. */
+export const TokenStatsOutputV3 = z.strictObject({
+  asOf: AsOf,
+  windowMinutes: z.int(),
+  note: z.string(),
+  tokens: z.array(
+    z.strictObject({
+      token: z.string(),
+      tokenAddress: z.string(),
+      pairedWith: z.string(),
+      poolId: z.string(),
+      feeBps: z.number(),
+      priceUsd: z.string().nullable(),
+      liquidityUsd: z.string().nullable(),
+      marketCapUsd: z.string().nullable(),
+      totalSupply: z.string().nullable(),
+      depthFor1PctUsd: z.string().nullable(),
+      roundTripCostPct: z.string(),
+      swaps: z.int(),
+      volumeUsd: z.string().nullable(),
+      priceChangePct: z.string().nullable(),
+      holders: z.null(),
+    }),
+  ),
+});

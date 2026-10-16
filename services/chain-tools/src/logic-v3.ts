@@ -17,6 +17,7 @@ import type {
   PoolInfoV3,
   RouteQuoteV3,
   TokenInfoV3,
+  V2TokenStatV3,
 } from "./reader-v3.ts";
 import { candidateRoutes, routeTokens } from "./routes.ts";
 import type { Blocker } from "./schema.ts";
@@ -103,7 +104,8 @@ export function requireAccountV3(agent: AgentStateV3 | null): AgentStateV3 & { a
 }
 
 /** The class a holding is priced by: USDC itself, a feed (F) or an attestation (A). */
-export type PriceSource = "usdc" | "chainlink" | "attestation";
+/** 2026-10-16: "pool" in the testnet price mode, where a token's own pair prices it. */
+export type PriceSource = "usdc" | "chainlink" | "attestation" | "pool";
 
 /**
  * The price the account's views use for a held token now: USDC exactly 1, a
@@ -125,7 +127,7 @@ export function holdingPrice(
   return {
     priceE18: p && p.reason === "OK" ? p.priceE18 : 0n,
     usable: !!p && p.reason === "OK",
-    source: "chainlink",
+    source: m.quoteMode ? "pool" : "chainlink",
   };
 }
 
@@ -246,7 +248,7 @@ export function pricesViewV3(
         class: usdc ? "USDC" : t.priceClass,
         lane: t.lane,
         status: t.status,
-        source: usdc ? "usdc" : classA ? "attestation" : "chainlink",
+        source: usdc ? "usdc" : classA ? "attestation" : m.quoteMode ? "pool" : "chainlink",
         price: p.reason === "OK" ? formatUnits(p.priceE18, 18) : null,
         priceE18: p.reason === "OK" ? p.priceE18.toString() : null,
         updatedAt: p.updatedAt === 0n ? null : iso(p.updatedAt),
@@ -279,8 +281,16 @@ export function pricesViewV3(
   };
 }
 
-const venueName = (v: PoolInfoV3["venue"]): "uniswap_v3" | "pancakeswap_v3" | "uniswap_v4" =>
-  v === "UNISWAP_V3" ? "uniswap_v3" : v === "PANCAKESWAP_V3" ? "pancakeswap_v3" : "uniswap_v4";
+const venueName = (
+  v: PoolInfoV3["venue"],
+): "uniswap_v3" | "pancakeswap_v3" | "uniswap_v4" | "uniswap_v2" =>
+  v === "UNISWAP_V3"
+    ? "uniswap_v3"
+    : v === "PANCAKESWAP_V3"
+      ? "pancakeswap_v3"
+      : v === "UNISWAP_V2"
+        ? "uniswap_v2"
+        : "uniswap_v4";
 
 function poolRow(p: PoolInfoV3, m: MarketStateV3): PricesOutputV3["pools"][number] {
   const sym = (t: Hex) => tokenInfo(m, t)?.symbol ?? `${t.slice(0, 6)}…${t.slice(-4)}`;
@@ -346,6 +356,24 @@ export function floorForV3(
   const classA = sell.priceClass === "A" || buy.priceClass === "A";
   const slippage = classA ? m.policy.maxSlippageClassABps : m.policy.maxSlippageBps;
   return executorV3.floor(amountIn, pxIn, sell.decimals, pxOut, buy.decimals, slippage);
+}
+
+/**
+ * The least output Executor v3 accepts for this trade: in the testnet price mode the route's own
+ * quote less the slippage limit (2026-10-16), else the oracle floor.
+ */
+export function minAmountOutV3(
+  m: MarketStateV3,
+  sell: TokenInfoV3,
+  buy: TokenInfoV3,
+  amountIn: bigint,
+  quotedOut: bigint | null,
+): bigint {
+  if (!m.quoteMode) return floorForV3(m, sell, buy, amountIn);
+  if (quotedOut === null) return 0n;
+  const classA = sell.priceClass === "A" || buy.priceClass === "A";
+  const slippage = classA ? m.policy.maxSlippageClassABps : m.policy.maxSlippageBps;
+  return (quotedOut * (10_000n - BigInt(slippage))) / 10_000n;
 }
 
 export function impliedOutV3(
@@ -521,6 +549,8 @@ export function executorMarketV3(
   sell: TokenInfoV3,
   buy: TokenInfoV3,
   route: readonly PoolInfoV3[],
+  /** 2026-10-16: the route's own quote, which the testnet price mode checks a fill against. */
+  quotedOut: bigint | null = null,
 ): executorV3.ExecutorMarketV3 {
   const tokens: Record<string, executorV3.TokenRuleV3> = {};
   for (const t of m.tokens)
@@ -552,6 +582,7 @@ export function executorMarketV3(
   }
   const intoUsdc = isAddressEqual(buy.token, m.usdc);
   return {
+    ...(m.quoteMode && quotedOut !== null ? { quotedOut } : {}),
     now: a.timestamp,
     paused: m.paused,
     mode: a.mode,
@@ -594,8 +625,10 @@ export function tradeNowV3(
   sell: TokenInfoV3,
   buy: TokenInfoV3,
   amountIn: bigint,
+  /** 2026-10-16: the route's own quote: the testnet price mode's floor is it less the slippage. */
+  quotedOut: bigint | null = null,
 ): executorV3.ExecutorIntentV3 {
-  const floor = floorForV3(m, sell, buy, amountIn);
+  const floor = minAmountOutV3(m, sell, buy, amountIn, quotedOut);
   return {
     tokenIn: lower(sell.token),
     tokenOut: lower(buy.token),
@@ -633,8 +666,9 @@ export function blockersForV3(
 ): Blocker[] {
   const routeExists = anyRoute !== null;
   const route = quote?.route ?? anyRoute ?? [];
-  const market = executorMarketV3(a, m, sell, buy, route);
-  const trade = tradeNowV3(m, sell, buy, amountIn);
+  const quotedOut = quote?.amountOut ?? null;
+  const market = executorMarketV3(a, m, sell, buy, route, quotedOut);
+  const trade = tradeNowV3(m, sell, buy, amountIn, quotedOut);
   const executorCodes = executorV3.blockers(trade, market, m.policy);
   // Executor v3 checks the pause, the intent's shape and the tokens first, then the session, then the rest.
   const shape: RejectionCode[] = [
@@ -806,3 +840,66 @@ export const messageFor = (code: RejectionCode | TradeFlowCode): string =>
   code in REJECTION_MESSAGES
     ? REJECTION_MESSAGES[code as RejectionCode]
     : TRADE_FLOW_MESSAGES[code as TradeFlowCode];
+
+/**
+ * 2026-10-16: testnet_token_stats's answer: each v2 family token's price, liquidity (both sides of
+ * its pair at the base's price), market cap, the base it takes to move its price 1%, a round trip's
+ * cost at a small size (the pair's fee both ways), and its swaps, volume and price change in the
+ * window. Holders are not readable from the chain cheaply, so they are null and the note says so.
+ */
+export function tokenStatsViewV3(
+  stats: readonly V2TokenStatV3[],
+  m: MarketStateV3,
+  windowMinutes: number,
+) {
+  const usd = (e18: bigint | null) =>
+    e18 === null ? null : Number(formatUnits(e18, 18)).toFixed(2);
+  const basePx = (base: Hex) =>
+    isAddressEqual(base, m.usdc) ? 10n ** 18n : (m.prices[lower(base)]?.priceE18 ?? 0n);
+  const baseDec = (base: Hex) => (isAddressEqual(base, m.usdc) ? 6 : 18);
+  const valueE18 = (raw: bigint, decimals: number, px: bigint) =>
+    (raw * px) / 10n ** BigInt(decimals);
+  return {
+    asOf: asOfV3(m.block, m.timestamp),
+    windowMinutes,
+    note: "Testnet tokens on the venue (nad.fun): no other market data exists for them. Holders are not readable from the chain cheaply, so they are null. Swaps and volume are what the pair recorded in the window; most pairs trade rarely.",
+    tokens: stats.map((s) => {
+      const bp = basePx(s.baseToken);
+      const bd = baseDec(s.baseToken);
+      const px = m.prices[lower(s.token)];
+      const priceE18 = px && px.reason === "OK" ? px.priceE18 : null;
+      const baseSide = bp > 0n ? valueE18(s.reserveBase, bd, bp) : null;
+      // A constant-product pair moves 1% for about 0.4988% of its base side.
+      const depth = baseSide === null ? null : (baseSide * 4_988n) / 1_000_000n;
+      const startPrice =
+        s.startReserves && s.startReserves.token > 0n && s.reserveToken > 0n
+          ? Number(s.startReserves.base) / Number(s.startReserves.token)
+          : null;
+      const nowPrice = s.reserveToken > 0n ? Number(s.reserveBase) / Number(s.reserveToken) : null;
+      const fee = Number(s.pool.fee) / 1_000_000;
+      return {
+        token: s.symbol,
+        tokenAddress: s.token,
+        pairedWith: isAddressEqual(s.baseToken, m.usdc) ? "USDC" : "WMON",
+        poolId: s.pool.poolId,
+        feeBps: Math.ceil(Number(s.pool.fee) / 100),
+        priceUsd: priceE18 === null ? null : formatUnits(priceE18, 18),
+        liquidityUsd: usd(baseSide === null ? null : baseSide * 2n),
+        marketCapUsd:
+          priceE18 === null || s.totalSupply === null
+            ? null
+            : usd(valueE18(s.totalSupply, s.decimals, priceE18)),
+        totalSupply: s.totalSupply === null ? null : formatUnits(s.totalSupply, s.decimals),
+        depthFor1PctUsd: usd(depth),
+        roundTripCostPct: ((1 - (1 - fee) * (1 - fee)) * 100).toFixed(2),
+        swaps: s.swaps,
+        volumeUsd: bp > 0n ? usd(valueE18(s.baseVolume, bd, bp)) : null,
+        priceChangePct:
+          startPrice === null || nowPrice === null || startPrice === 0
+            ? null
+            : (((nowPrice - startPrice) / startPrice) * 100).toFixed(2),
+        holders: null,
+      };
+    }),
+  };
+}

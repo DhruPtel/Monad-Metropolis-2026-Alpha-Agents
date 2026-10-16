@@ -8,7 +8,13 @@ import { connectClient, staticResolver, structured } from "@alpha-agents/tool-se
 import type { Hex } from "viem";
 import { executorMarketOf, tradeNow } from "./logic.ts";
 import type { AgentState, ChainReader, MarketState, Quote } from "./reader.ts";
-import { CHAIN_TOOL_INPUTS, CHAIN_TOOLS, IntentOutput, TradableOutput } from "./schema.ts";
+import {
+  CHAIN_TOOL_INPUTS,
+  CHAIN_TOOLS,
+  V3_ONLY_CHAIN_TOOLS,
+  IntentOutput,
+  TradableOutput,
+} from "./schema.ts";
 import {
   type ChainToolsOptions,
   MemoryCallLog,
@@ -137,7 +143,9 @@ describe("chain tools server (P2-U5)", () => {
   it("lists its tools with output schemas, no identity fields, and every tool is in the registry", async () => {
     const { alice } = await start();
     const { tools } = await alice.listTools();
-    expect(tools.map((t) => t.name).sort()).toEqual([...CHAIN_TOOLS].sort());
+    expect(tools.map((t) => t.name).sort()).toEqual(
+      CHAIN_TOOLS.filter((t) => !V3_ONLY_CHAIN_TOOLS.includes(t)).sort(),
+    );
     for (const t of tools) {
       expect(t.outputSchema, t.name).toBeDefined();
       expect(t.description?.length, t.name).toBeGreaterThan(40);

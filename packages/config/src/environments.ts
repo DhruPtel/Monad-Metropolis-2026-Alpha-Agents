@@ -41,7 +41,12 @@ export const ARBITRUM_SEPOLIA_CHAIN_ID = 421614;
  * TESTNET_CHAIN (Monad testnet when unset, so every existing testnet process is unchanged). Each
  * stack is siloed: its own database, its own address book, the same testnet operator keys.
  */
-export const TESTNET_CHAIN_KEYS = ["monad", "base-sepolia", "arbitrum-sepolia"] as const;
+export const TESTNET_CHAIN_KEYS = [
+  "monad",
+  "base-sepolia",
+  "arbitrum-sepolia",
+  "monad-dev",
+] as const;
 export type TestnetChainKey = (typeof TESTNET_CHAIN_KEYS)[number];
 export interface TestnetChain {
   readonly key: TestnetChainKey;
@@ -55,6 +60,12 @@ export interface TestnetChain {
   readonly browserRpcUrl: string;
   /** A transaction's page on the chain's explorer, before the hash. */
   readonly explorerTxUrl: string;
+  /**
+   * Whether the stack's tradable tokens stand in for researched mainnet tokens (the judged
+   * testnets: WMON, TALPHA, TBETA), or are themselves what research picks (2026-10-16: the
+   * monad-dev stack trades the tokens that exist on Monad testnet's nad.fun).
+   */
+  readonly standIns: boolean;
 }
 export const TESTNET_CHAINS: Readonly<Record<TestnetChainKey, TestnetChain>> = {
   monad: {
@@ -66,6 +77,7 @@ export const TESTNET_CHAINS: Readonly<Record<TestnetChainKey, TestnetChain>> = {
     secondaryRpcVariable: "MONAD_TESTNET_RPC_URL_SECONDARY",
     browserRpcUrl: "https://testnet-rpc.monad.xyz",
     explorerTxUrl: "https://testnet.monadvision.com/tx/",
+    standIns: true,
   },
   "base-sepolia": {
     key: "base-sepolia",
@@ -76,6 +88,7 @@ export const TESTNET_CHAINS: Readonly<Record<TestnetChainKey, TestnetChain>> = {
     secondaryRpcVariable: null,
     browserRpcUrl: "https://sepolia.base.org",
     explorerTxUrl: "https://sepolia.basescan.org/tx/",
+    standIns: true,
   },
   "arbitrum-sepolia": {
     key: "arbitrum-sepolia",
@@ -86,8 +99,23 @@ export const TESTNET_CHAINS: Readonly<Record<TestnetChainKey, TestnetChain>> = {
     secondaryRpcVariable: null,
     browserRpcUrl: "https://sepolia-rollup.arbitrum.io/rpc",
     explorerTxUrl: "https://sepolia.arbiscan.io/tx/",
+    standIns: true,
+  },
+  // 2026-10-16: the dev stack on Monad testnet, its own contracts (co.dev), trading nad.fun's tokens.
+  "monad-dev": {
+    key: "monad-dev",
+    chainId: 10143,
+    name: "Monad Testnet (dev)",
+    native: "MON",
+    rpcVariable: "MONAD_TESTNET_RPC_URL",
+    secondaryRpcVariable: "MONAD_TESTNET_RPC_URL_SECONDARY",
+    browserRpcUrl: "https://testnet-rpc.monad.xyz",
+    explorerTxUrl: "https://testnet.monadvision.com/tx/",
+    standIns: false,
   },
 };
+/** Whether this testnet is Monad testnet (the judged stack or the dev stack beside it). */
+export const isMonadTestnet = (c: TestnetChain): boolean => c.chainId === 10143;
 export const TESTNET_CHAIN_IDS: readonly number[] = TESTNET_CHAIN_KEYS.map(
   (k) => TESTNET_CHAINS[k].chainId,
 );
@@ -222,7 +250,9 @@ export const ENVIRONMENTS: Readonly<Record<EnvironmentId, Environment>> = {
     id: "testnet",
     label: "testnet",
     chainId: TESTNET_CHAIN.chainId,
-    description: TESTNET_CHAIN.key === "monad" ? "Monad testnet" : TESTNET_CHAIN.name,
+    description: isMonadTestnet(TESTNET_CHAIN)
+      ? TESTNET_CHAIN.name.replace("Monad Testnet", "Monad testnet")
+      : TESTNET_CHAIN.name,
     rpc: { variable: TESTNET_CHAIN.rpcVariable },
   },
   beta: {

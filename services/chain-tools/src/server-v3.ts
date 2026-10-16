@@ -18,6 +18,7 @@ import {
   resolveToken,
   routeHopsOutput,
   routeTokensOf,
+  tokenStatsViewV3,
 } from "./logic-v3.ts";
 import type { ChainReaderV3, MarketStateV3, RouteQuoteV3, TokenInfoV3 } from "./reader-v3.ts";
 import {
@@ -27,6 +28,8 @@ import {
   PricesOutputV3,
   ProposeSwapInputV3,
   QuoteOutputV3,
+  TokenStatsInputV3,
+  TokenStatsOutputV3,
   TradableOutputV3,
   TradeInputV3,
 } from "./schema-v3.ts";
@@ -161,6 +164,35 @@ export function registerChainToolsV3(
             totalValueUsdc: out.totalValueUsdc?.amount ?? null,
             mode: out.mode,
             drawdownBps: out.breaker.drawdownBps,
+          },
+        };
+      }),
+  );
+
+  // 2026-10-16: on a stack whose venue is the Uniswap v2 family (the dev stack's nad.fun), each
+  // token's onchain market, the only data its tokens have.
+  mcp.registerTool(
+    "testnet_token_stats",
+    {
+      description:
+        "Each token this stack trades on its Uniswap v2 family venue (nad.fun on the dev stack): price, liquidity, market cap, the base it takes to move the price 1%, a round trip's cost at a small size, and the swaps, volume and price change its pair recorded in the last windowMinutes (default 60, at most 120). These are testnet tokens with no other market data: research them by these figures.",
+      inputSchema: TokenStatsInputV3,
+      outputSchema: TokenStatsOutputV3,
+      annotations: { readOnlyHint: true },
+    },
+    async (input) =>
+      tool("testnet_token_stats", input, async () => {
+        const windowMinutes = input.windowMinutes ?? 60;
+        const [m, stats] = await Promise.all([
+          read((r) => r.market()),
+          read((r) => (r.v2TokenStats ? r.v2TokenStats(windowMinutes) : Promise.resolve([]))),
+        ]);
+        const out = tokenStatsViewV3(stats, m, windowMinutes);
+        return {
+          output: out,
+          summary: {
+            tokens: out.tokens.length,
+            traded: out.tokens.filter((t) => t.swaps > 0).length,
           },
         };
       }),

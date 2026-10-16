@@ -138,6 +138,11 @@ export interface RouteHopV3 {
 }
 
 export interface ExecutorMarketV3 {
+  /**
+   * 2026-10-16: the route's own quote in the testnet price mode (QuoteOracleV3), which the
+   * Executor checks a fill against instead of the prices; absent elsewhere.
+   */
+  readonly quotedOut?: bigint | null;
   readonly now: bigint;
   readonly paused: boolean;
   readonly mode: AccountModeV3;
@@ -200,6 +205,24 @@ export function impliedOut(
 }
 
 /** The least `minAmountOut` the Executor accepts: the implied output less the slippage (ExecutorV3.floorFor). */
+/**
+ * The least the Executor accepts (ExecutorV3._floor): the route's own quote less the slippage
+ * limit in the testnet price mode, else the prices' implied output less it.
+ */
+export function slippageFloor(
+  i: { readonly amountIn: bigint },
+  m: Pick<ExecutorMarketV3, "quotedOut">,
+  pxIn: bigint,
+  decIn: number,
+  pxOut: bigint,
+  decOut: number,
+  slippageBps: number,
+): bigint {
+  if (m.quotedOut !== undefined && m.quotedOut !== null)
+    return (m.quotedOut * (BPS - BigInt(slippageBps))) / BPS;
+  return floor(i.amountIn, pxIn, decIn, pxOut, decOut, slippageBps);
+}
+
 export function floor(
   amountIn: bigint,
   pxIn: bigint,
@@ -419,7 +442,7 @@ function measure(i: ExecutorIntentV3, m: ExecutorMarketV3, p: ExecutorPolicyV3):
   if ((w.turnover + valueIn) * BPS > values.capped * BigInt(p.maxTurnoverBps))
     return { reason: "TURNOVER_CAP" };
   const slippageBps = sideIn.classA || sideOut.classA ? p.maxSlippageClassABps : p.maxSlippageBps;
-  if (i.minAmountOut < floor(i.amountIn, sideIn.px, decIn, sideOut.px, decOut, slippageBps))
+  if (i.minAmountOut < slippageFloor(i, m, sideIn.px, decIn, sideOut.px, decOut, slippageBps))
     return { reason: "SLIPPAGE_TOO_HIGH" };
   let capOutBps = 0n;
   if (!intoUsdc) {
@@ -632,7 +655,7 @@ export function blockers(
   if (w.count >= p.maxTradesPerWindow) add("DAILY_TRADE_LIMIT");
   if ((w.turnover + valueIn) * BPS > values.capped * BigInt(p.maxTurnoverBps)) add("TURNOVER_CAP");
   const slippageBps = sideIn.classA || sideOut.classA ? p.maxSlippageClassABps : p.maxSlippageBps;
-  if (i.minAmountOut < floor(i.amountIn, sideIn.px, decIn, sideOut.px, decOut, slippageBps))
+  if (i.minAmountOut < slippageFloor(i, m, sideIn.px, decIn, sideOut.px, decOut, slippageBps))
     add("SLIPPAGE_TOO_HIGH");
   if (!intoUsdc) {
     const freeIn = freeOf(m, i.tokenIn);

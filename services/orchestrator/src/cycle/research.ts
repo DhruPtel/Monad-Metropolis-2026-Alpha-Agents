@@ -5,7 +5,7 @@ import {
   type ResearchBrief,
   STAGE_BRIEFS,
 } from "@alpha-agents/platform-tools";
-import { TESTNET_CHAINS, TESTNET_CHAIN_IDS } from "@alpha-agents/config";
+import { TESTNET_CHAIN, TESTNET_CHAINS, TESTNET_CHAIN_IDS } from "@alpha-agents/config";
 import { MONAD_BASE_TOKENS, isStableSymbol } from "@alpha-agents/domain";
 import type { AgentIdentity } from "@alpha-agents/tool-server";
 import { ToolError } from "@alpha-agents/tool-server";
@@ -96,16 +96,27 @@ export function scanTokenShortfall(
    * stand-in (WMON, TALPHA, TBETA) never counts, and fewer tokens is no answer there, since
    * the research market has many.
    */
-  testnet?: { readonly standIns: ReadonlySet<string> },
+  testnet?:
+    | { readonly standIns: ReadonlySet<string> }
+    /** 2026-10-16: the dev stack Dives only on the tokens it can trade (its registry's). */
+    | { readonly tradable: ReadonlySet<string> },
 ): string | null {
   const tokens = new Set(
     (brief.themes ?? [])
       .filter((t) => t.scope === "TOKEN" && t.token)
       .map((t) => (t.token as string).toLowerCase())
-      .filter((t) => !testnet?.standIns.has(t)),
+      .filter((t) =>
+        !testnet
+          ? true
+          : "standIns" in testnet
+            ? !testnet.standIns.has(t)
+            : testnet.tradable.has(t),
+      ),
   ).size;
   if (tokens > want)
     return `This run Dives on ${want} tokens: choose exactly ${want} TOKEN themes, not ${tokens}, and write the SCAN brief again.`;
+  if (tokens < want && testnet && "tradable" in testnet)
+    return `This run Dives on ${want} tokens and the Scan chose ${tokens} this stack can trade: choose ${want} TOKEN themes among the tokens get_prices marks buyable here (the venue's tokens, read with testnet_token_stats), then write the SCAN brief again.`;
   if (tokens < want && testnet)
     return `This run Dives on ${want} tokens and the Scan chose ${tokens} real ones: on a testnet choose ${want} TOKEN themes on the research market's tokens (list_tokens), never the testnet's own WMON, TALPHA or TBETA (a held one is a POSITION theme, beside them), then write the SCAN brief again.`;
   if (tokens < want && !brief.fewerTokensReason?.trim())
@@ -382,14 +393,25 @@ export class CycleResearch {
         const inputs = TESTNET_CHAIN_IDS.includes(cycle.chainId)
           ? await this.portfolioTestInputs(cycle)
           : null;
+        const registered = inputs
+          ? new Set(
+              inputs.market.tokens
+                .filter((t) => t.token.toLowerCase() !== inputs.market.usdc.toLowerCase())
+                .map((t) => t.token.toLowerCase()),
+            )
+          : null;
+        // A stand-in testnet Dives on the research market's tokens; the dev stack (2026-10-16)
+        // Dives on the tokens it trades, which exist only on its venue.
         const shortfall = scanTokenShortfall(
           scan.body as {
             themes?: { scope?: string; token?: string | null }[];
             fewerTokensReason?: string | null;
           },
           DIVES_PER_RUN[cycle.reasoningAlias as ReasoningAlias] ?? 3,
-          inputs
-            ? { standIns: new Set(inputs.market.tokens.map((t) => t.token.toLowerCase())) }
+          registered
+            ? TESTNET_CHAIN.standIns
+              ? { standIns: registered }
+              : { tradable: registered }
             : undefined,
         );
         if (shortfall) throw new ToolError("INVALID_INPUT", shortfall, false);
@@ -429,9 +451,10 @@ export class CycleResearch {
     // 2026-10-16 (owner): on a testnet the Zoom out decides on the real tokens it researched, and
     // this step maps its picks onto the tradable stand-ins in code; every check below reads the
     // mapped plan and calls.
-    const mapped = TESTNET_CHAIN_IDS.includes(cycle.chainId)
-      ? await this.testnetStandIns(cycle, input.decision, rationale ?? null)
-      : null;
+    const mapped =
+      TESTNET_CHAIN_IDS.includes(cycle.chainId) && TESTNET_CHAIN.standIns
+        ? await this.testnetStandIns(cycle, input.decision, rationale ?? null)
+        : null;
     const decision = mapped?.decision ?? input.decision;
     const rationaleBody = mapped?.body ?? rationale?.body ?? null;
     // F-U8: the RATIONALE's position calls must match the proposal and the plan in force.

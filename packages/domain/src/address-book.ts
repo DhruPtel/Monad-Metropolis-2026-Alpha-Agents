@@ -10,6 +10,7 @@ import {
 import { DEPLOYMENT as ARBITRUM_SEPOLIA_DEPLOYMENT } from "./deployments/arbitrum-sepolia.ts";
 import { DEPLOYMENT as BASE_SEPOLIA_DEPLOYMENT } from "./deployments/base-sepolia.ts";
 import { DEPLOYMENT as MONAD_REDEPLOYMENT } from "./deployments/monad.ts";
+import { DEPLOYMENT as MONAD_DEV_DEPLOYMENT } from "./deployments/monad-dev.ts";
 import type { Address } from "./ids.ts";
 
 /**
@@ -2702,6 +2703,41 @@ function monadRedeployed(
   });
 }
 
+/**
+ * 2026-10-16: the monad-dev stack (TESTNET_CHAIN=monad-dev), its own set on Monad testnet
+ * (co.dev, evidence/dev-nadfun), trading nad.fun's tokens: its contracts replace Monad testnet's,
+ * its USDC and WMON are the venue's (nad.fun's mintable test USDC and its WMON), and no v3 or v4
+ * quoter serves it (its venue is the Uniswap v2 family, quoted through the route adapter).
+ */
+const DEV_NOT_HERE: readonly AddressBookId[] = [
+  "uniswap_v3_quoter_v2",
+  "pancakeswap_v3_quoter_v2",
+  "uniswap_v4_quoter",
+];
+function monadDev(book: readonly AddressEntry[], d: L2Deployment | null): readonly AddressEntry[] {
+  if (!d) return book;
+  return monadRedeployed(book, d).map((e): AddressEntry => {
+    const external = d.external[e.id];
+    if (external)
+      return {
+        ...e,
+        address: external.toLowerCase() as Address,
+        status: "verified",
+        verification: { chainId: d.chainId, block: d.block, codeSize: 1 },
+        note: "2026-10-16: the monad-dev stack's own (nad.fun's)",
+      };
+    if (DEV_NOT_HERE.includes(e.id))
+      return {
+        ...e,
+        address: null,
+        status: "unverified",
+        verification: null,
+        note: "2026-10-16: not on the monad-dev stack (its venue is the Uniswap v2 family)",
+      };
+    return e;
+  });
+}
+
 const TESTNET_BOOK: readonly AddressEntry[] =
   TESTNET_CHAIN.key === "base-sepolia"
     ? l2Book("Base Sepolia", BASE_SEPOLIA_DEPLOYMENT as L2Deployment | null)
@@ -2722,7 +2758,7 @@ export const ADDRESS_BOOK: Readonly<Record<EnvironmentId, readonly AddressEntry[
   testnet:
     TESTNET_BOOK.length > 0
       ? TESTNET_BOOK
-      : monadRedeployed(
+      : (TESTNET_CHAIN.key === "monad-dev" ? monadDev : monadRedeployed)(
           [
             ...TESTNET.filter((e) => !TESTNET_DEPLOYED.some((d) => d.id === e.id)),
             ...TESTNET_DEPLOYED,
@@ -2739,7 +2775,9 @@ export const ADDRESS_BOOK: Readonly<Record<EnvironmentId, readonly AddressEntry[
             },
             ...TESTNET_V3_DEPLOYED,
           ],
-          MONAD_REDEPLOYMENT as L2Deployment | null,
+          (TESTNET_CHAIN.key === "monad-dev"
+            ? MONAD_DEV_DEPLOYMENT
+            : MONAD_REDEPLOYMENT) as L2Deployment | null,
         ),
   beta: [
     ...MAINNET,

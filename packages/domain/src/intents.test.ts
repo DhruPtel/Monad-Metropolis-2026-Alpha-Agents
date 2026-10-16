@@ -49,8 +49,8 @@ const rebalance = {
 };
 
 describe("tool registry (FINAL_PLAN 4.4.5)", () => {
-  it("lists 54 unique, well-formed tool IDs", () => {
-    expect(TOOL_IDS).toHaveLength(54);
+  it("lists 55 unique, well-formed tool IDs", () => {
+    expect(TOOL_IDS).toHaveLength(55);
     expect(new Set(TOOL_IDS).size).toBe(TOOL_IDS.length);
     for (const t of TOOL_REGISTRY) {
       const parsed = parseToolId(t.id);
@@ -60,9 +60,10 @@ describe("tool registry (FINAL_PLAN 4.4.5)", () => {
     }
   });
 
-  it("has 17 chain, 21 data and 16 platform tools", () => {
+  it("has 18 chain, 21 data and 16 platform tools", () => {
     const count = (s: string) => TOOL_REGISTRY.filter((t) => t.server === s).length;
-    expect([count("chain"), count("data"), count("platform")]).toEqual([17, 21, 16]);
+    // 2026-10-16: chain.testnet_token_stats, a v2 family venue's token market.
+    expect([count("chain"), count("data"), count("platform")]).toEqual([18, 21, 16]);
   });
 
   it("maps every intent to a registered tool", () => {

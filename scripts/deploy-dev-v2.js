@@ -100,7 +100,9 @@ const venue = NADFUN_TESTNET;
 const usdc = venue.bases.usdc;
 const wmon = venue.bases.wmon;
 const sorted = (/** @type {string} */ a, /** @type {string} */ b) =>
-  a.toLowerCase() < b.toLowerCase() ? [a.toLowerCase(), b.toLowerCase()] : [b.toLowerCase(), a.toLowerCase()];
+  a.toLowerCase() < b.toLowerCase()
+    ? [a.toLowerCase(), b.toLowerCase()]
+    : [b.toLowerCase(), a.toLowerCase()];
 
 /** A class F seed whose "feed" is its pricing pair (the testnet price mode). */
 const seed = (/** @type {string} */ token, /** @type {string} */ pricingPair) => ({
@@ -113,13 +115,26 @@ const seed = (/** @type {string} */ token, /** @type {string} */ pricingPair) =>
   rateDecimals: 0,
   rateMaxAge: 0,
 });
-const v2Pool = (/** @type {string} */ a, /** @type {string} */ b, /** @type {string} */ pair, /** @type {number} */ fee) => {
+const v2Pool = (
+  /** @type {string} */ a,
+  /** @type {string} */ b,
+  /** @type {string} */ pair,
+  /** @type {number} */ fee,
+) => {
   const [token0, token1] = sorted(a, b);
-  return { venue: FUND_VENUE.UNISWAP_V2, token0, token1, fee, tickSpacing: 0, pool: pair.toLowerCase() };
+  return {
+    venue: FUND_VENUE.UNISWAP_V2,
+    token0,
+    token1,
+    fee,
+    tickSpacing: 0,
+    pool: pair.toLowerCase(),
+  };
 };
-const chosen = /** @type {{ token: string, symbol: string, pair: string, base: "USDC" | "WMON", feePpm: number }[]} */ (
-  discovery.chosen
-);
+const chosen =
+  /** @type {{ token: string, symbol: string, pair: string, base: "USDC" | "WMON", feePpm: number }[]} */ (
+    discovery.chosen
+  );
 const fund = {
   admin: roles.admin,
   guardian: roles.guardian,
@@ -157,22 +172,46 @@ function estimate(output) {
 }
 
 /** Each step simulated first; nothing is sent unless the deployer covers forge's own estimate. */
-async function step(/** @type {string} */ name, /** @type {string} */ script, /** @type {Record<string, string>} */ env) {
-  const simulated = forgeScript(script, { url: /** @type {string} */ (url), secrets, broadcast: false, env, gasPriceWei: GAS_PRICE_WEI, scope: SCOPE });
+async function step(
+  /** @type {string} */ name,
+  /** @type {string} */ script,
+  /** @type {Record<string, string>} */ env,
+) {
+  const simulated = forgeScript(script, {
+    url: /** @type {string} */ (url),
+    secrets,
+    broadcast: false,
+    env,
+    gasPriceWei: GAS_PRICE_WEI,
+    scope: SCOPE,
+  });
   const e = estimate(simulated);
   if (/Error|revert/i.test(simulated) && !/Script ran successfully/.test(simulated))
     throw new Error(`${name}: the simulation failed:\n${simulated.slice(-1500)}`);
   if (!e || dryRun) {
-    console.log(`   ${name}: ${e ? `${e.gas} gas, about ${e.mon.toFixed(4)} MON` : "nothing to send"}`);
+    console.log(
+      `   ${name}: ${e ? `${e.gas} gas, about ${e.mon.toFixed(4)} MON` : "nothing to send"}`,
+    );
     return { output: simulated, estimate: e };
   }
-  const balance = Number(await testnetRpc(/** @type {string} */ (url), "eth_getBalance", [deployer, "latest"])) / 1e18;
+  const balance =
+    Number(await testnetRpc(/** @type {string} */ (url), "eth_getBalance", [deployer, "latest"])) /
+    1e18;
   if (balance < e.mon)
     throw new Error(
       `BLOCKED: ${name} needs about ${e.mon.toFixed(4)} MON and the deployer ${deployer} holds ${balance.toFixed(4)}: send at least ${(e.mon - balance + 0.05).toFixed(4)} MON on Monad testnet and run pnpm deploy:dev again; every step so far stands`,
     );
-  console.log(`   ${name}: ${e.gas} gas, at most ${e.mon.toFixed(4)} MON; the deployer holds ${balance.toFixed(4)}`);
-  const output = forgeScript(script, { url: /** @type {string} */ (url), secrets, broadcast: true, env, gasPriceWei: GAS_PRICE_WEI, scope: SCOPE });
+  console.log(
+    `   ${name}: ${e.gas} gas, at most ${e.mon.toFixed(4)} MON; the deployer holds ${balance.toFixed(4)}`,
+  );
+  const output = forgeScript(script, {
+    url: /** @type {string} */ (url),
+    secrets,
+    broadcast: true,
+    env,
+    gasPriceWei: GAS_PRICE_WEI,
+    scope: SCOPE,
+  });
   return { output, estimate: e };
 }
 
@@ -203,8 +242,16 @@ try {
     FUND_CONFIG: JSON.stringify(fundOnly),
   });
   const tokenRegistry = logged(fundStep.output, "TOKEN_REGISTRY_ADDRESS");
+  const fundSet = {
+    tokenRegistry,
+    protocolRegistry: logged(fundStep.output, "PROTOCOL_REGISTRY_V3_ADDRESS"),
+    oracle: logged(fundStep.output, "ORACLE_ADAPTER_V3_ADDRESS"),
+    routeAdapter: logged(fundStep.output, "ROUTE_ADAPTER_ADDRESS"),
+  };
 
-  console.log("\n3. Executor v3, its RouteAdapter and ProtocolRegistryV3 (nad.fun listed), and the QuoteOracleV3");
+  console.log(
+    "\n3. Executor v3, its RouteAdapter and ProtocolRegistryV3 (nad.fun listed), and the QuoteOracleV3",
+  );
   const exec = await step("executor v3", "script/DeployExecutorV3.s.sol:DeployExecutorV3", {
     ...keyEnv,
     FUND_CONFIG: JSON.stringify(fund),
@@ -251,7 +298,10 @@ try {
     EXECUTOR_V3_FACTORY: custody.factory,
     EXECUTOR_V3_POOLS: executorSet.protocolRegistry,
   });
-  if (!dryRun && logged(bind.output, "EXECUTOR_V3_BOUND_FACTORY").toLowerCase() !== custody.factory.toLowerCase())
+  if (
+    !dryRun &&
+    logged(bind.output, "EXECUTOR_V3_BOUND_FACTORY").toLowerCase() !== custody.factory.toLowerCase()
+  )
     throw new Error("Executor v3 is bound to another factory");
 
   const balanceAfter = BigInt(await testnetRpc(url, "eth_getBalance", [deployer, "latest"]));
@@ -259,7 +309,8 @@ try {
     unit: "CO-U1",
     stack: "monad-dev",
     chainId: TESTNET.chainId,
-    label: "the monad-dev stack: nad.fun's tokens through the Uniswap v2 family venue, the testnet price mode",
+    label:
+      "the monad-dev stack: nad.fun's tokens through the Uniswap v2 family venue, the testnet price mode",
     saltScope: SCOPE,
     recordedAt: new Date().toISOString(),
     startBlock,
@@ -268,10 +319,18 @@ try {
     caps: Object.fromEntries(Object.entries(CAPS).map(([k, v]) => [k, v.toString()])),
     policy: DEV_POLICY,
     maxDeviationBps: MAX_DEVIATION_BPS,
-    venue: { id: venue.id, name: venue.name, factory: venue.factory, usdc, wmon, basePair: discovery.bases.pair },
+    venue: {
+      id: venue.id,
+      name: venue.name,
+      factory: venue.factory,
+      usdc,
+      wmon,
+      basePair: discovery.bases.pair,
+    },
     tokens: chosen,
     agentNft,
     tokenRegistry,
+    fund: fundSet,
     executorV3: executorSet,
     custodyV3: custody,
     deployerMonSpentWei: (balanceBefore - balanceAfter).toString(),
@@ -279,13 +338,18 @@ try {
   };
   if (!dryRun) {
     mkdirSync(EVIDENCE_DIR, { recursive: true });
-    writeFileSync(join(EVIDENCE_DIR, rpcEnv ? "fork-deployment.json" : "deployment.json"), `${JSON.stringify(record, null, 2)}\n`);
+    writeFileSync(
+      join(EVIDENCE_DIR, rpcEnv ? "fork-deployment.json" : "deployment.json"),
+      `${JSON.stringify(record, null, 2)}\n`,
+    );
   }
   console.log(
     `\n${dryRun ? "dry run: nothing was sent" : `the deployer spent ${Number(balanceBefore - balanceAfter) / 1e18} MON`}\nAgentNFT ${agentNft}\nTokenRegistry ${tokenRegistry}\nExecutor v3 ${executorSet.executor}\nAccountFactoryV3 ${custody.factory}\nQuoteOracleV3 ${executorSet.oracle}`,
   );
   void existsSync;
 } catch (err) {
-  console.error(`error: ${(err instanceof Error ? err.message : String(err)).replaceAll(url, "<rpc>")}`);
+  console.error(
+    `error: ${(err instanceof Error ? err.message : String(err)).replaceAll(url, "<rpc>")}`,
+  );
   process.exit(1);
 }

@@ -92,9 +92,10 @@ export function contractsForV3(
   return missing.length > 0 ? { ok: false, missing } : { ok: true, contracts: out as ContractsV3 };
 }
 
-export type VenueV3 = "UNISWAP_V3" | "PANCAKESWAP_V3" | "UNISWAP_V4";
+/** 2026-10-16: UNISWAP_V2 is the Uniswap v2 family (any listed v2 fork, nad.fun first). */
+export type VenueV3 = "UNISWAP_V3" | "PANCAKESWAP_V3" | "UNISWAP_V4" | "UNISWAP_V2";
 export type PoolStatusV3 = (typeof POOL_STATUSES)[number];
-const VENUES = ["NONE", "UNISWAP_V3", "PANCAKESWAP_V3", "UNISWAP_V4"] as const;
+export const VENUES = ["NONE", "UNISWAP_V3", "PANCAKESWAP_V3", "UNISWAP_V4", "UNISWAP_V2"] as const;
 
 /** A registered token, as the TokenRegistry records it, with its symbol. */
 export interface TokenInfoV3 {
@@ -155,6 +156,11 @@ export interface MarketStateV3 {
   readonly adapterAllowed: boolean;
   /** The registry names a class A price attestor (F-U12). */
   readonly attestorSet: boolean;
+  /**
+   * 2026-10-16: the testnet price mode (QuoteOracleV3): prices come from each token's own pair
+   * and the Executor checks a fill against the route's own quote, not against the prices.
+   */
+  readonly quoteMode?: boolean;
   /** The attestation verifier the registry names, zero when none (F-U12). */
   readonly verifier?: Hex;
   /** F-U12: the oracle's pool deviation limit, which an attested price must meet against the pool. */
@@ -266,6 +272,32 @@ export interface ChainReaderV3 {
   ): Promise<RouteQuoteV3 | null>;
   /** The quote along one given route (the one an intent stored), or null when a hop cannot be quoted. */
   quoteRoute(route: readonly Hex[], tokenIn: Hex, amountIn: bigint): Promise<RouteQuoteV3 | null>;
+  /**
+   * 2026-10-16: each Uniswap v2 family token's onchain market over the last `windowMinutes`:
+   * its pair's reserves, its supply, and the swaps its pair recorded (the dev stack's research
+   * on tokens that exist only on its venue). Absent where no v2 venue is listed.
+   */
+  v2TokenStats?(windowMinutes: number): Promise<V2TokenStatV3[]>;
+}
+
+/** One Uniswap v2 family token's onchain market (2026-10-16). */
+export interface V2TokenStatV3 {
+  readonly token: Hex;
+  readonly symbol: string;
+  readonly decimals: number;
+  readonly pool: PoolInfoV3;
+  /** The pair's base side (USDC or WMON) and the token's side, raw. */
+  readonly baseToken: Hex;
+  readonly reserveBase: bigint;
+  readonly reserveToken: bigint;
+  readonly totalSupply: bigint | null;
+  /** Swaps the pair recorded in the window, and the base side they moved, raw. */
+  readonly swaps: number;
+  readonly baseVolume: bigint;
+  /** The reserves at the window's first recorded swap, or null when none happened. */
+  readonly startReserves: { readonly base: bigint; readonly token: bigint } | null;
+  readonly fromBlock: bigint;
+  readonly toBlock: bigint;
 }
 
 const NFT_ABI = parseAbi([
@@ -300,7 +332,23 @@ const POOLS_ABI = parseAbi([
   "function usablePool(bytes32 poolId, bool allowScreened, bool toUsdc) view returns ((uint8 lane, uint8 status, uint8 venue, address token0, address token1, uint24 fee, int24 tickSpacing, address pool, bytes32 codeHash))",
   "function adapterFor(bytes32 adapterId) view returns (address)",
 ]);
+/** 2026-10-16: a Uniswap v2 family pair's reads and events, and a token's supply. */
+const V2_PAIR_ABI = parseAbi([
+  "function getReserves() view returns (uint112 reserve0, uint112 reserve1, uint32 blockTimestampLast)",
+  "function totalSupply() view returns (uint256)",
+]);
+const V2_EVENTS = parseAbi([
+  "event Swap(address indexed sender, uint256 amount0In, uint256 amount1In, uint256 amount0Out, uint256 amount1Out, address indexed to)",
+  "event Sync(uint112 reserve0, uint112 reserve1)",
+]);
+
+/** 2026-10-16: the route adapter's own quote, for Uniswap v2 family hops. */
+const ADAPTER_QUOTE_ABI = parseAbi([
+  "function quoteRoute(address tokenIn, uint256 amountIn, bytes32[] route) view returns (uint256)",
+]);
+
 const ORACLE_ABI = parseAbi([
+  "function quoteMode() view returns (bool)",
   "function price(address token) view returns (uint256 priceE18, uint256 updatedAt, uint8 reason)",
   "function poolDeviationBps(address token, bytes32 poolId) view returns (uint256 bps, uint8 reason)",
   "function poolPrice(address token, bytes32 poolId) view returns (uint256 priceE18, uint8 reason)",
@@ -530,33 +578,51 @@ export class ViemChainReaderV3 implements ChainReaderV3 {
 
   private async readMarket(): Promise<MarketStateV3> {
     const e = this.c.executor_v3;
-    const [block, policy, policyHash, paused, adapter, verifier, tokens, pools, maxDeviationBps] =
-      await Promise.all([
-        this.client.getBlock(),
-        this.client.readContract({ address: e, abi: EXECUTOR_ABI, functionName: "policy" }),
-        this.client.readContract({ address: e, abi: EXECUTOR_ABI, functionName: "policyHash" }),
-        this.client.readContract({ address: e, abi: EXECUTOR_ABI, functionName: "paused" }),
-        this.client.readContract({
-          address: this.c.protocol_registry_v3,
-          abi: POOLS_ABI,
-          functionName: "adapterFor",
-          args: [ROUTE_ADAPTER_ID],
-        }),
-        this.client.readContract({
-          address: this.c.token_registry_v3,
-          abi: TOKENS_ABI,
-          functionName: "verifier",
-        }),
-        this.readTokens(),
-        this.readPools(),
-        this.client
-          .readContract({
-            address: this.c.oracle_adapter_v3,
-            abi: ORACLE_ABI,
-            functionName: "MAX_DEVIATION_BPS",
-          })
-          .catch(() => undefined),
-      ]);
+    const [
+      block,
+      policy,
+      policyHash,
+      paused,
+      adapter,
+      verifier,
+      tokens,
+      pools,
+      maxDeviationBps,
+      quoteMode,
+    ] = await Promise.all([
+      this.client.getBlock(),
+      this.client.readContract({ address: e, abi: EXECUTOR_ABI, functionName: "policy" }),
+      this.client.readContract({ address: e, abi: EXECUTOR_ABI, functionName: "policyHash" }),
+      this.client.readContract({ address: e, abi: EXECUTOR_ABI, functionName: "paused" }),
+      this.client.readContract({
+        address: this.c.protocol_registry_v3,
+        abi: POOLS_ABI,
+        functionName: "adapterFor",
+        args: [ROUTE_ADAPTER_ID],
+      }),
+      this.client.readContract({
+        address: this.c.token_registry_v3,
+        abi: TOKENS_ABI,
+        functionName: "verifier",
+      }),
+      this.readTokens(),
+      this.readPools(),
+      this.client
+        .readContract({
+          address: this.c.oracle_adapter_v3,
+          abi: ORACLE_ABI,
+          functionName: "MAX_DEVIATION_BPS",
+        })
+        .catch(() => undefined),
+      // An oracle before the testnet price mode has no quoteMode: it prices by its feeds.
+      this.client
+        .readContract({
+          address: this.c.oracle_adapter_v3,
+          abi: ORACLE_ABI,
+          functionName: "quoteMode",
+        })
+        .catch(() => false),
+    ]);
     const o = this.c.oracle_adapter_v3;
     const prices: Record<string, PriceV3> = {};
     await Promise.all(
@@ -582,12 +648,103 @@ export class ViemChainReaderV3 implements ChainReaderV3 {
       attestorSet: verifier !== zeroAddress,
       verifier,
       ...(maxDeviationBps === undefined ? {} : { maxDeviationBps }),
+      ...(quoteMode ? { quoteMode: true } : {}),
       usdc: this.c.usdc,
       wmon: this.c.wmon,
       tokens,
       prices,
       pools,
     };
+  }
+
+  async v2TokenStats(windowMinutes: number): Promise<V2TokenStatV3[]> {
+    const m = await this.market();
+    const pools = m.pools.filter((p) => p.venue === "UNISWAP_V2" && p.pool !== zeroAddress);
+    if (pools.length === 0) return [];
+    const isBase = (t: Hex) => isAddressEqual(t, m.usdc) || isAddressEqual(t, m.wmon);
+    const tokenSide = pools.map((p) =>
+      isBase(p.tokenA) && !isBase(p.tokenB) ? p.tokenB : isBase(p.tokenB) ? p.tokenA : p.tokenB,
+    );
+    const multicallAddress = "0xcA11bde05977b3631167028862bE2a173976CA11" as const;
+    const [reserves, supplies] = await Promise.all([
+      this.client.multicall({
+        allowFailure: true,
+        multicallAddress,
+        contracts: pools.map(
+          (p) => ({ address: p.pool, abi: V2_PAIR_ABI, functionName: "getReserves" }) as const,
+        ),
+      }),
+      this.client.multicall({
+        allowFailure: true,
+        multicallAddress,
+        contracts: tokenSide.map(
+          (t) => ({ address: t, abi: V2_PAIR_ABI, functionName: "totalSupply" }) as const,
+        ),
+      }),
+    ]);
+    // Monad testnet makes a block about every 0.3 s; a chunk of logs is at most 1,000 blocks.
+    const toBlock = m.block;
+    const span = BigInt(Math.max(1, Math.round((Math.min(windowMinutes, 120) * 60) / 0.3)));
+    const fromBlock = toBlock > span ? toBlock - span : 0n;
+    const swaps = new Map<
+      string,
+      { n: number; volume: bigint; first: { r0: bigint; r1: bigint } | null }
+    >();
+    const addresses = pools.map((p) => p.pool);
+    for (let start = fromBlock; start <= toBlock; start += 1_000n) {
+      const end = start + 999n < toBlock ? start + 999n : toBlock;
+      const logs = await this.client
+        .getLogs({ address: addresses, events: V2_EVENTS, fromBlock: start, toBlock: end })
+        .catch(() => []);
+      for (const l of logs) {
+        const key = lower(l.address);
+        const s = swaps.get(key) ?? { n: 0, volume: 0n, first: null };
+        if (l.eventName === "Sync" && s.first === null)
+          s.first = { r0: BigInt(l.args.reserve0 ?? 0n), r1: BigInt(l.args.reserve1 ?? 0n) };
+        if (l.eventName === "Swap") {
+          s.n += 1;
+          swaps.set(key, s);
+          const pool = pools.find((p) => isAddressEqual(p.pool, l.address));
+          if (pool) {
+            const base0 = isBase(pool.currency0);
+            const a = l.args;
+            s.volume += base0
+              ? BigInt(a.amount0In ?? 0n) + BigInt(a.amount0Out ?? 0n)
+              : BigInt(a.amount1In ?? 0n) + BigInt(a.amount1Out ?? 0n);
+          }
+        }
+        swaps.set(key, s);
+      }
+    }
+    return pools.map((p, i) => {
+      const token = tokenSide[i] as Hex;
+      const info = m.tokens.find((t) => isAddressEqual(t.token, token));
+      const r =
+        reserves[i]?.status === "success"
+          ? (reserves[i]?.result as readonly [bigint, bigint, number])
+          : null;
+      const base0 = isBase(p.currency0);
+      const s = swaps.get(lower(p.pool));
+      const supply = supplies[i]?.status === "success" ? (supplies[i]?.result as bigint) : null;
+      return {
+        token,
+        symbol: info?.symbol ?? token,
+        decimals: info?.decimals ?? 18,
+        pool: p,
+        baseToken: base0 ? p.currency0 : p.currency1,
+        reserveBase: r ? (base0 ? r[0] : r[1]) : 0n,
+        reserveToken: r ? (base0 ? r[1] : r[0]) : 0n,
+        totalSupply: supply,
+        swaps: s?.n ?? 0,
+        baseVolume: s?.volume ?? 0n,
+        startReserves:
+          s?.first && s.n > 0
+            ? { base: base0 ? s.first.r0 : s.first.r1, token: base0 ? s.first.r1 : s.first.r0 }
+            : null,
+        fromBlock,
+        toBlock,
+      };
+    });
   }
 
   private async ownerOf(agentId: bigint): Promise<Hex | null> {
@@ -783,6 +940,15 @@ export class ViemChainReaderV3 implements ChainReaderV3 {
     return this.cache.get(`hop:${pool.poolId}:${lower(tokenIn)}:${amountIn}`, async () => {
       const inIsA = isAddressEqual(tokenIn, pool.tokenA);
       const tokenOut = inIsA ? pool.tokenB : pool.tokenA;
+      // 2026-10-16: a Uniswap v2 family hop is quoted by the route adapter itself (the fork's own
+      // pair quote when it has one), exactly what the Executor checks a fill against.
+      if (pool.venue === "UNISWAP_V2")
+        return this.client.readContract({
+          address: this.c.executor_route_adapter_v3,
+          abi: ADAPTER_QUOTE_ABI,
+          functionName: "quoteRoute",
+          args: [tokenIn, amountIn, [pool.poolId]],
+        });
       if (pool.venue === "UNISWAP_V4") {
         // Native MON is currency0 when the key names the zero address; WMON trades as MON there.
         const currencyIn = inIsA ? pool.currency0 : pool.currency1;

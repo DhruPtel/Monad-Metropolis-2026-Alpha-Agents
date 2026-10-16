@@ -1,7 +1,14 @@
 import type { Hex } from "viem";
 import { describe, expect, it } from "vitest";
-import { executorMarketV3, whyNotBuyableV3 } from "./logic-v3.ts";
-import type { AgentStateV3, MarketStateV3, PoolInfoV3, TokenInfoV3 } from "./reader-v3.ts";
+import { executorV3 } from "@alpha-agents/policy";
+import { executorMarketV3, minAmountOutV3, tokenStatsViewV3, whyNotBuyableV3 } from "./logic-v3.ts";
+import type {
+  AgentStateV3,
+  MarketStateV3,
+  PoolInfoV3,
+  TokenInfoV3,
+  V2TokenStatV3,
+} from "./reader-v3.ts";
 
 /**
  * The Executor mirror's market for a class A trade (F-U12): a class A side
@@ -152,5 +159,86 @@ describe("a vault's account in the mirror and the buyability (P7-U2, D-338)", ()
     // The same tokens for a personal account that opted in are buyable.
     expect(whyNotBuyableV3(token(GHO, "GHO", "A"), ok, true, true)).toBeNull();
     expect(whyNotBuyableV3(token(GHO, "GHO", "A"), ok, true, true, false)).toBeNull();
+  });
+});
+
+describe("the testnet price mode and a v2 family venue's tokens (2026-10-16)", () => {
+  const WMON = "0x5a4e0bfdef88c9032cb4d24338c5eb3d3870bfdd" as Hex;
+  const TOK = "0xfa3fcbebfbd3160731caa3ab868e073777da7777" as Hex;
+  const quoteMarket = {
+    ...market(E18, E18),
+    quoteMode: true,
+    wmon: WMON,
+    policy: { maxSlippageBps: 300, maxSlippageClassABps: 300 },
+    tokens: [token(USDC, "USDC", "F"), token(WMON, "WMON", "F"), token(TOK, "TTT", "F")],
+    prices: {
+      [USDC]: { priceE18: E18, updatedAt: 1n, reason: "OK" },
+      [WMON]: { priceE18: 25n * 10n ** 15n, updatedAt: 1n, reason: "OK" },
+      [TOK]: { priceE18: 10n ** 13n, updatedAt: 1n, reason: "OK" },
+    },
+  } as unknown as MarketStateV3;
+
+  it("takes the route's own quote less the slippage limit as the least out, never the prices' floor", () => {
+    const sell = token(USDC, "USDC", "F");
+    const buy = token(TOK, "TTT", "F");
+    expect(minAmountOutV3(quoteMarket, sell, buy, 10_000_000n, 1_000_000n)).toBe(970_000n);
+    expect(minAmountOutV3(quoteMarket, sell, buy, 10_000_000n, null)).toBe(0n);
+    // The mirror applies the same floor when the market carries the quote.
+    expect(
+      executorV3.slippageFloor(
+        { amountIn: 10_000_000n },
+        { quotedOut: 1_000_000n },
+        E18,
+        6,
+        E18,
+        18,
+        300,
+      ),
+    ).toBe(970_000n);
+    expect(executorV3.slippageFloor({ amountIn: 10n ** 6n }, {}, E18, 6, E18, 6, 300)).toBe(
+      970_000n,
+    );
+  });
+
+  it("reads a token's market from its pair: price, liquidity, depth, round trip, swaps and change", () => {
+    const pool = {
+      poolId: `0x${"cd".repeat(32)}`,
+      venue: "UNISWAP_V2",
+      currency0: WMON,
+      currency1: TOK,
+      fee: 16_000,
+    } as unknown as PoolInfoV3;
+    const stat: V2TokenStatV3 = {
+      token: TOK,
+      symbol: "TTT",
+      decimals: 18,
+      pool,
+      baseToken: WMON,
+      reserveBase: 200_000n * E18,
+      reserveToken: 500_000_000n * E18,
+      totalSupply: 1_000_000_000n * E18,
+      swaps: 3,
+      baseVolume: 1_000n * E18,
+      startReserves: { base: 190_000n * E18, token: 500_000_000n * E18 },
+      fromBlock: 1n,
+      toBlock: 2n,
+    };
+    const out = tokenStatsViewV3([stat], quoteMarket, 60);
+    expect(out.tokens[0]).toMatchObject({
+      token: "TTT",
+      pairedWith: "WMON",
+      feeBps: 160,
+      priceUsd: "0.00001",
+      // Both sides of 200,000 WMON at 0.025 USD.
+      liquidityUsd: "10000.00",
+      marketCapUsd: "10000.00",
+      depthFor1PctUsd: "24.94",
+      roundTripCostPct: "3.17",
+      swaps: 3,
+      volumeUsd: "25.00",
+      priceChangePct: "5.26",
+      holders: null,
+    });
+    expect(out.note).toMatch(/Testnet tokens/);
   });
 });
