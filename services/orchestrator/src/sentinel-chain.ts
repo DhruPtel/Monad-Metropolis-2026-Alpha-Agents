@@ -1,4 +1,5 @@
-import { type Hex, createPublicClient, createWalletClient, http, parseAbi } from "viem";
+import { rpcTransport } from "@alpha-agents/chain-tools";
+import { type Hex, createPublicClient, createWalletClient, parseAbi } from "viem";
 import { mnemonicToAccount, privateKeyToAccount } from "viem/accounts";
 import type { SentinelChain } from "./sentinel.ts";
 
@@ -30,11 +31,13 @@ export function localSentinelKey(): Hex {
 
 export function viemSentinelChain(o: {
   readonly rpcUrl: string;
+  /** Taken when the first provider fails (a 429 included). */
+  readonly fallbackRpcUrl?: string | null;
   readonly chainId: number;
   readonly privateKey: Hex;
   readonly chainName?: string;
 }): SentinelChain {
-  const transport = http(o.rpcUrl);
+  const transport = rpcTransport(o.rpcUrl, o.fallbackRpcUrl);
   const account = privateKeyToAccount(o.privateKey);
   const chain = {
     id: o.chainId,

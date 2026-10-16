@@ -152,6 +152,14 @@ const fallbackRpcUrl = isForkEnvironment(config.environment.id)
   : (reveal("MONAD_RPC_URL_SECONDARY") ?? null);
 if (fallbackRpcUrl) protect(fallbackRpcUrl);
 const client = createPublicClient({ transport: rpcTransport(rpcUrl, fallbackRpcUrl) });
+// 2026-10-16: off the fork the keeper, the signer and trade flow, and the sentinel take the second
+// provider first, so their sends and receipt polls stop competing with the indexer and research
+// for the first provider's rate limit (429s on Monad testnet); the first stays their fallback.
+const sendRpcUrl = fallbackRpcUrl ?? rpcUrl;
+const sendFallbackRpcUrl = fallbackRpcUrl ? rpcUrl : null;
+const sendClient = fallbackRpcUrl
+  ? createPublicClient({ transport: rpcTransport(sendRpcUrl, sendFallbackRpcUrl) })
+  : client;
 try {
   assertChainId(config, await client.getChainId());
   // The fallback must serve the same chain, or it is never used (P2-EC).
@@ -220,8 +228,8 @@ else if (entropy.status !== "verified")
   log(`no Pyth Entropy on ${env.label}: the reveal keeper is off`);
 else {
   const chain = new ViemRevealChain({
-    rpcUrl,
-    fallbackRpcUrl,
+    rpcUrl: sendRpcUrl,
+    fallbackRpcUrl: sendFallbackRpcUrl,
     chainId: env.chainId,
     agentNft: nft.address as Hex,
     entropy: entropy.address as Hex,
@@ -253,8 +261,12 @@ else {
     signerWorker = new SignerWorker({
       db,
       environment: env.id,
-      rpcUrl,
-      ...(secondary ? { secondaryRpcUrl: secondary } : {}),
+      rpcUrl: sendRpcUrl,
+      ...(sendFallbackRpcUrl
+        ? { secondaryRpcUrl: sendFallbackRpcUrl }
+        : secondary
+          ? { secondaryRpcUrl: secondary }
+          : {}),
       seed: seed as Hex,
       ...(treasury ? { treasury: treasury as Hex } : {}),
       log: createLog("signer", redactor),
@@ -565,14 +577,14 @@ const testnetTopUp = testnetDeployerKey
           },
           rpcUrls: { default: { http: [] } },
         },
-        transport: rpcTransport(rpcUrl, fallbackRpcUrl),
+        transport: rpcTransport(sendRpcUrl, sendFallbackRpcUrl),
       });
       return async (address: Hex, wei: bigint) => {
         const target = wei / 5n;
-        const have = await client.getBalance({ address });
+        const have = await sendClient.getBalance({ address });
         if (have >= target) return;
         const hash = await deployer.sendTransaction({ to: address, value: target - have });
-        const receipt = await client.waitForTransactionReceipt({ hash, timeout: 120_000 });
+        const receipt = await sendClient.waitForTransactionReceipt({ hash, timeout: 120_000 });
         if (receipt.status !== "success") throw new Error(`the gas top-up ${hash} reverted`);
         log(`gas: topped ${address} up to ${target} wei from the deployer (${hash})`);
       };
@@ -584,11 +596,11 @@ const trading = chainSigner
       signer: chainSigner,
       ...(local ? {} : { everyMs: REMOTE_POLL_MS }),
       gas: {
-        balance: (address: Hex) => client.getBalance({ address }),
+        balance: (address: Hex) => sendClient.getBalance({ address }),
         swapCost: async (gas?: bigint) => {
           const [block, tip] = await Promise.all([
-            client.getBlock(),
-            client.estimateMaxPriorityFeePerGas().catch(() => 0n),
+            sendClient.getBlock(),
+            sendClient.estimateMaxPriorityFeePerGas().catch(() => 0n),
           ]);
           return swapGasCost(block.baseFeePerGas ?? 0n, tip, gas);
         },
@@ -604,7 +616,7 @@ const trading = chainSigner
         local
           ? null
           : (
-              await client.getBlock({
+              await sendClient.getBlock({
                 blockTag:
                   env.id === "testnet" && TESTNET_CHAIN.key !== "monad" ? "safe" : "finalized",
               })
@@ -621,7 +633,12 @@ const sentinelKey = isForkEnvironment(env.id)
     ? ((reveal("TESTNET_SENTINEL_PRIVATE_KEY") as Hex | undefined) ?? null)
     : null;
 const sentinelChain = sentinelKey
-  ? viemSentinelChain({ rpcUrl, chainId: env.chainId, privateKey: sentinelKey })
+  ? viemSentinelChain({
+      rpcUrl: sendRpcUrl,
+      fallbackRpcUrl: sendFallbackRpcUrl,
+      chainId: env.chainId,
+      privateKey: sentinelKey,
+    })
   : null;
 log(
   sentinelChain
@@ -662,11 +679,11 @@ const orchestrator = new Orchestrator({
         }
       : {}),
     gas: {
-      balance: (address: Hex) => client.getBalance({ address }),
+      balance: (address: Hex) => sendClient.getBalance({ address }),
       swapCost: async () => {
         const [block, tip] = await Promise.all([
-          client.getBlock(),
-          client.estimateMaxPriorityFeePerGas().catch(() => 0n),
+          sendClient.getBlock(),
+          sendClient.estimateMaxPriorityFeePerGas().catch(() => 0n),
         ]);
         return swapGasCost(block.baseFeePerGas ?? 0n, tip);
       },
