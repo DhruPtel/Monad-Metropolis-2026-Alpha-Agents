@@ -60,14 +60,19 @@ abstract contract CustodyCoreV3 is ReentrancyGuard {
     /// One trade's input may be worth at most 25% of the account (CO-U1, the owner's limits).
     uint256 public constant MAX_TRADE_BPS = 2_500;
     /// After a trade, one class F asset other than USDC may be at most this share of the account by
-    /// value: 60% on every deploy but a testnet dev deploy, which may set up to 100% (2026-10-16).
+    /// value: DEFAULT_MAX_ASSET_BPS (60%) on every deploy but a testnet dev deploy, which may set
+    /// up to 100% (2026-10-16).
+    uint256 public constant DEFAULT_MAX_ASSET_BPS = 6_000;
     uint256 public immutable MAX_ASSET_BPS;
     /// One class A position's cost basis may be at most 15% of the account's basis (D-337).
     uint256 public constant MAX_CLASS_A_POSITION_BPS = 1_500;
     /// All class A positions' cost basis together at most 50% of the account's basis (D-337).
     uint256 public constant MAX_CLASS_A_TOTAL_BPS = 5_000;
-    /// A trade's output must be worth at least 98% of its input at the reference prices.
-    uint256 public constant MAX_SLIPPAGE_BPS = 200;
+    /// A trade's output must be worth at least 98% of its input at the reference prices
+    /// (DEFAULT_MAX_SLIPPAGE_BPS); a testnet dev deploy whose venue charges more may set up to
+    /// 20% (2026-10-16: nad.fun's launch pairs charge 1.6% a hop).
+    uint256 public constant DEFAULT_MAX_SLIPPAGE_BPS = 200;
+    uint256 public immutable MAX_SLIPPAGE_BPS;
     /// Deposits stop while USDC/USD is more than 1% from 1 (A-34); valuation and exits never read it.
     uint256 public constant MAX_DEPEG_BPS = 100;
     /// The held list's bound (A-62).
@@ -285,12 +290,16 @@ abstract contract CustodyCoreV3 is ReentrancyGuard {
     error ClassATooLarge(uint256 classABasis, uint256 totalBasis);
     error LengthMismatch();
     error BadAssetCap(uint256 maxAssetBps);
+    error BadSlippageCap(uint256 maxSlippageBps);
 
-    constructor(address usdc, ITokenRegistry tokens, uint256 maxAssetBps) {
-        if (maxAssetBps == 0 || maxAssetBps > BPS) revert BadAssetCap(maxAssetBps);
+    /// `maxAssetBps` and `maxSlippageBps` of zero take the defaults (every deploy but a dev one).
+    constructor(address usdc, ITokenRegistry tokens, uint256 maxAssetBps, uint256 maxSlippageBps) {
+        if (maxAssetBps > BPS) revert BadAssetCap(maxAssetBps);
+        if (maxSlippageBps > 2_000) revert BadSlippageCap(maxSlippageBps);
         USDC = usdc;
         TOKENS = tokens;
-        MAX_ASSET_BPS = maxAssetBps;
+        MAX_ASSET_BPS = maxAssetBps == 0 ? DEFAULT_MAX_ASSET_BPS : maxAssetBps;
+        MAX_SLIPPAGE_BPS = maxSlippageBps == 0 ? DEFAULT_MAX_SLIPPAGE_BPS : maxSlippageBps;
     }
 
     // ---------------------------------------------------------------------

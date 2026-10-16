@@ -184,8 +184,16 @@ contract RouteAdapter is IUnlockCallback, IV3SwapCallbacks, ReentrancyGuard {
         else IUniswapV2Pair(p.pool).swap(out, 0, address(this), "");
     }
 
-    /// The v2 formula: out = in * (1 - fee) * reserveOut / (reserveIn + in * (1 - fee)), fee in millionths.
+    /// What a v2 hop pays: the fork's own pair quote when the registry names one (exact for a fork
+    /// whose pairs charge differently), else the v2 formula,
+    /// out = in * (1 - fee) * reserveOut / (reserveIn + in * (1 - fee)), fee in millionths.
     function _v2Out(PoolRecord memory p, address tokenIn, uint256 amount) internal view returns (uint256) {
+        bytes4 quote = REGISTRY.v2QuoteSelector(IUniswapV2Pair(p.pool).factory());
+        if (quote != bytes4(0)) {
+            (bool ok, bytes memory ret) = p.pool.staticcall(abi.encodeWithSelector(quote, tokenIn, amount));
+            if (!ok || ret.length < 32) revert QuoteUnsupported(type(uint256).max);
+            return abi.decode(ret, (uint256));
+        }
         (uint112 r0, uint112 r1,) = IUniswapV2Pair(p.pool).getReserves();
         (uint256 rIn, uint256 rOut) = tokenIn == p.token0 ? (uint256(r0), uint256(r1)) : (uint256(r1), uint256(r0));
         uint256 inAfterFee = amount * (1_000_000 - uint256(p.fee));

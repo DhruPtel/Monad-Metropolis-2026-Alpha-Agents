@@ -158,4 +158,7 @@ interface IPoolRegistry {
 
     /// The pool's record when a route may use it now, else reverts.
     function usablePool(bytes32 poolId, bool allowScreened, bool toUsdc) external view returns (PoolRecord memory);
+
+    /// A listed Uniswap v2 family fork's own pair quote selector, or zero for the plain v2 formula.
+    function v2QuoteSelector(address factory) external view returns (bytes4);
 }

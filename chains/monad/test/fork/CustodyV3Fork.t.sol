@@ -105,7 +105,8 @@ contract CustodyV3ForkTest is Test {
                 stateView: IUniswapV4StateView(STATE_VIEW),
                 wmon: WMON,
                 usdc: USDC,
-                v2Factories: new address[](0)
+                v2Factories: new address[](0),
+                v2QuoteSelectors: new bytes4[](0)
             }),
             ps,
             new bytes32[](0),
@@ -148,10 +149,10 @@ contract CustodyV3ForkTest is Test {
                 depositsEnabled: false,
                 allowlist: allow,
                 personalImplementation: address(
-                    new PersonalAccountV3(IAgentNFTView(address(nft)), USDC, ITokenRegistry(address(tokens)), 6_000)
+                    new PersonalAccountV3(IAgentNFTView(address(nft)), USDC, ITokenRegistry(address(tokens)), 0, 0)
                 ),
                 vaultImplementation: address(
-                    new StrategyVaultV3(IAgentNFTView(address(nft)), USDC, ITokenRegistry(address(tokens)), 6_000)
+                    new StrategyVaultV3(IAgentNFTView(address(nft)), USDC, ITokenRegistry(address(tokens)), 0, 0)
                 )
             })
         );

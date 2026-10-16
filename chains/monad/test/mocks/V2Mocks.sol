@@ -22,6 +22,16 @@ contract MockV2Pair {
         feePpm = fee;
     }
 
+    /// The pair's own quote, as a fork like nad.fun offers it: a hair under the v2 formula here,
+    /// so a test sees the adapter take this, not the formula.
+    function quoteOut(address tokenIn, uint256 amountIn) external view returns (uint256) {
+        (uint256 rIn, uint256 rOut) =
+            tokenIn == token0 ? (uint256(reserve0), uint256(reserve1)) : (uint256(reserve1), uint256(reserve0));
+        uint256 inAfterFee = amountIn * (1_000_000 - feePpm);
+        uint256 out = inAfterFee * rOut / (rIn * 1_000_000 + inAfterFee);
+        return out - out / 10_000;
+    }
+
     function getReserves() external view returns (uint112, uint112, uint32) {
         return (reserve0, reserve1, 0);
     }

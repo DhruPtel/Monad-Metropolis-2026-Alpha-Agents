@@ -6,6 +6,7 @@ import {FeedConfig, FeedLeg, IPoolRegistry, ITokenRegistry, Lane, PriceClass, Ve
 import {IPoolManager} from "../src/interfaces/IUniswap.sol";
 import {IUniswapV4StateView} from "../src/interfaces/IOracle.sol";
 import {OracleAdapterV3} from "../src/fund/OracleAdapterV3.sol";
+import {QuoteOracleV3} from "../src/fund/QuoteOracleV3.sol";
 import {ProtocolRegistryV3} from "../src/fund/ProtocolRegistryV3.sol";
 import {RouteAdapter} from "../src/fund/RouteAdapter.sol";
 import {TokenRegistry} from "../src/fund/TokenRegistry.sol";
@@ -93,7 +94,7 @@ contract DeployFund is DeployScope {
         require(tokens.owner() == admin && tokens.screener() == screener, "token registry roles");
     }
 
-    function _venues(string memory json) internal pure returns (ProtocolRegistryV3.Venues memory) {
+    function _venues(string memory json) internal view returns (ProtocolRegistryV3.Venues memory) {
         return ProtocolRegistryV3.Venues({
             uniswapV3Factory: vm.parseJsonAddress(json, ".uniswapV3Factory"),
             pancakeswapV3Factory: vm.parseJsonAddress(json, ".pancakeswapV3Factory"),
@@ -101,8 +102,22 @@ contract DeployFund is DeployScope {
             stateView: IUniswapV4StateView(vm.parseJsonAddress(json, ".stateView")),
             wmon: vm.parseJsonAddress(json, ".wmon"),
             usdc: vm.parseJsonAddress(json, ".usdc"),
-            v2Factories: new address[](0)
+            // 2026-10-16: the Uniswap v2 family factories a dev deploy lists (nad.fun first); none elsewhere.
+            v2Factories: vm.keyExistsJson(json, ".v2Factories")
+                ? vm.parseJsonAddressArray(json, ".v2Factories")
+                : new address[](0),
+            v2QuoteSelectors: _quoteSelectors(json)
         });
+    }
+
+    /// Each listed v2 fork's own pair quote selector ("0x" for the plain v2 formula), in order.
+    function _quoteSelectors(string memory json) internal view returns (bytes4[] memory out) {
+        if (!vm.keyExistsJson(json, ".v2QuoteSelectors")) return new bytes4[](0);
+        bytes[] memory raw = vm.parseJsonBytesArray(json, ".v2QuoteSelectors");
+        out = new bytes4[](raw.length);
+        for (uint256 i = 0; i < raw.length; ++i) {
+            out[i] = bytes4(raw[i]);
+        }
     }
 
     function _deployPools(string memory json, TokenRegistry tokens) internal returns (ProtocolRegistryV3 pools) {
@@ -138,6 +153,14 @@ contract DeployFund is DeployScope {
             vm.parseJsonAddress(json, ".wmon"),
             vm.parseJsonUint(json, ".maxDeviationBps")
         );
+        // 2026-10-16: a dev deploy's testnet price mode prices each token by its own pair.
+        if (vm.keyExistsJson(json, ".quoteMode") && vm.parseJsonBool(json, ".quoteMode")) {
+            return OracleAdapterV3(
+                _create2(
+                    salt("fund-quote-oracle", SALT_VERSION), abi.encodePacked(type(QuoteOracleV3).creationCode, args)
+                )
+            );
+        }
         return OracleAdapterV3(
             _create2(salt("fund-oracle", SALT_VERSION), abi.encodePacked(type(OracleAdapterV3).creationCode, args))
         );

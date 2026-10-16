@@ -41,7 +41,7 @@ contract VaultHarnessFactory is ICustodyConfigV3, IDepositLedger {
         address guardian_,
         address sentinel_
     ) {
-        VAULT_IMPLEMENTATION = address(new StrategyVaultV3(nft, usdc, tokens, 6_000));
+        VAULT_IMPLEMENTATION = address(new StrategyVaultV3(nft, usdc, tokens, 0, 0));
         AGENT_NFT = nft;
         oracle = oracle_;
         guardian = guardian_;

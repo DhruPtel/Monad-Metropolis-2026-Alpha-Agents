@@ -87,7 +87,8 @@ contract UniswapV2FamilyTest is Test {
                 stateView: IUniswapV4StateView(address(new MockStateViewAny())),
                 wmon: address(wmon),
                 usdc: address(usdc),
-                v2Factories: v2
+                v2Factories: v2,
+                v2QuoteSelectors: new bytes4[](1)
             }),
             ps,
             new bytes32[](0),
@@ -153,7 +154,8 @@ contract UniswapV2FamilyTest is Test {
     }
 
     function test_AddsAnotherV2ForkByConfigurationThroughTheTimelock() public {
-        bytes memory data = abi.encode(address(otherFactory));
+        // otherFactory's pairs quote themselves (a fork like nad.fun): the adapter takes the pair's quote.
+        bytes memory data = abi.encode(address(otherFactory), MockV2Pair.quoteOut.selector);
         uint8 action = pools.ADD_V2_FACTORY();
         vm.prank(ADMIN);
         pools.propose(action, data);
@@ -168,6 +170,14 @@ contract UniswapV2FamilyTest is Test {
         vm.prank(SCREENER);
         bytes32 id = pools.addScreenedPool(s);
         assertEq(uint8(pools.pool(id).venue), uint8(Venue.UNISWAP_V2));
+        assertEq(pools.v2QuoteSelector(address(otherFactory)), MockV2Pair.quoteOut.selector);
+        bytes32[] memory route = new bytes32[](1);
+        route[0] = id;
+        uint256 quoted = adapter.quoteRoute(address(usdc), 50e6, route);
+        assertEq(quoted, p.quoteOut(address(usdc), 50e6), "the pair's own quote");
+        assertLt(quoted, _v2Out(50e6, 100_000e6, 1_000e18, 3_000), "not the formula");
+        usdc.mint(address(adapter), 50e6);
+        assertEq(adapter.swapRoute(address(usdc), address(tok), 50e6, quoted, makeAddr("to"), route, true), quoted);
     }
 
     function test_FailsClosedWhenAFactorysCodeChanges() public {
@@ -269,6 +279,15 @@ contract UniswapV2FamilyTest is Test {
         assertEq(uint8(r3), uint8(PriceReason.OK));
     }
 
+    function test_ReadsUsdcsOwnLegAsExactlyOneDollarAndNoOtherLeg() public view {
+        (uint256 v, uint256 at, PriceReason r) = oracle.readLeg(tokens.feedOf(address(usdc)).usd);
+        assertEq(v, 1e18);
+        assertEq(at, block.timestamp);
+        assertEq(uint8(r), uint8(PriceReason.OK));
+        (,, PriceReason other) = oracle.readLeg(tokens.feedOf(address(tok)).usd);
+        assertEq(uint8(other), uint8(PriceReason.FEED_REVERTED));
+    }
+
     function test_TheFeedOracleIsNotInQuoteMode() public {
         OracleAdapterV3 feeds = new OracleAdapterV3(
             ITokenRegistry(address(tokens)),
@@ -285,14 +304,20 @@ contract UniswapV2FamilyTest is Test {
     // The custody cap
     // ---------------------------------------------------------------------
 
-    function test_ACustodyCapUpTo100PercentForADevDeployOnly() public {
-        PersonalAccountV3 wide =
-            new PersonalAccountV3(IAgentNFTView(address(1)), address(usdc), ITokenRegistry(address(tokens)), 10_000);
+    function test_ACustodyCapUpTo100PercentAndAWiderSlippageBackstopForADevDeployOnly() public {
+        PersonalAccountV3 wide = new PersonalAccountV3(
+            IAgentNFTView(address(1)), address(usdc), ITokenRegistry(address(tokens)), 10_000, 800
+        );
         assertEq(wide.MAX_ASSET_BPS(), 10_000);
-        vm.expectRevert(abi.encodeWithSelector(CustodyCoreV3.BadAssetCap.selector, 0));
-        new PersonalAccountV3(IAgentNFTView(address(1)), address(usdc), ITokenRegistry(address(tokens)), 0);
+        assertEq(wide.MAX_SLIPPAGE_BPS(), 800);
+        PersonalAccountV3 standard =
+            new PersonalAccountV3(IAgentNFTView(address(1)), address(usdc), ITokenRegistry(address(tokens)), 0, 0);
+        assertEq(standard.MAX_ASSET_BPS(), 6_000);
+        assertEq(standard.MAX_SLIPPAGE_BPS(), 200);
         vm.expectRevert(abi.encodeWithSelector(CustodyCoreV3.BadAssetCap.selector, 10_001));
-        new PersonalAccountV3(IAgentNFTView(address(1)), address(usdc), ITokenRegistry(address(tokens)), 10_001);
+        new PersonalAccountV3(IAgentNFTView(address(1)), address(usdc), ITokenRegistry(address(tokens)), 10_001, 0);
+        vm.expectRevert(abi.encodeWithSelector(CustodyCoreV3.BadSlippageCap.selector, 2_001));
+        new PersonalAccountV3(IAgentNFTView(address(1)), address(usdc), ITokenRegistry(address(tokens)), 0, 2_001);
     }
 
     // ---------------------------------------------------------------------

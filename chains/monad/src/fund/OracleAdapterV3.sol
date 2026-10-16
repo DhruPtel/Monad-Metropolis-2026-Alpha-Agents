@@ -104,7 +104,12 @@ contract OracleAdapterV3 {
     }
 
     /// One feed leg, every check in a fixed order (packages/policy's `readLegV3` checks in the same order).
-    function readLeg(FeedLeg memory leg) public view returns (uint256 valueE18, uint256 updatedAt, PriceReason reason) {
+    function readLeg(FeedLeg memory leg)
+        public
+        view
+        virtual
+        returns (uint256 valueE18, uint256 updatedAt, PriceReason reason)
+    {
         (bool ok, bytes memory ret) = leg.feed.staticcall(abi.encodeCall(IChainlinkFeed.decimals, ()));
         if (!ok || ret.length < 32) return (0, 0, PriceReason.FEED_REVERTED);
         if (abi.decode(ret, (uint256)) != leg.decimals) return (0, 0, PriceReason.DECIMALS_MISMATCH);

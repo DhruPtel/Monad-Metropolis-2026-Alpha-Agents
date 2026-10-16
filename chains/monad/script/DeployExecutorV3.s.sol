@@ -47,6 +47,26 @@ contract DeployExecutorV3 is DeployFund {
         });
     }
 
+    /// The policy to deploy with: the config's `.policy` on a dev deploy (2026-10-16), else the launch policy.
+    function policyFor(string memory json) public view returns (PolicyV3 memory) {
+        if (!vm.keyExistsJson(json, ".policy")) return launchPolicy();
+        // forge-lint: disable-start(unsafe-typecast)
+        return PolicyV3({
+            maxTradeBps: uint16(vm.parseJsonUint(json, ".policy.maxTradeBps")),
+            maxAssetBps: uint16(vm.parseJsonUint(json, ".policy.maxAssetBps")),
+            minUsdcBps: uint16(vm.parseJsonUint(json, ".policy.minUsdcBps")),
+            maxSlippageBps: uint16(vm.parseJsonUint(json, ".policy.maxSlippageBps")),
+            maxSlippageClassABps: uint16(vm.parseJsonUint(json, ".policy.maxSlippageClassABps")),
+            maxClassAPositionBps: uint16(vm.parseJsonUint(json, ".policy.maxClassAPositionBps")),
+            maxClassATotalBps: uint16(vm.parseJsonUint(json, ".policy.maxClassATotalBps")),
+            maxTurnoverBps: uint16(vm.parseJsonUint(json, ".policy.maxTurnoverBps")),
+            maxTradesPerWindow: uint8(vm.parseJsonUint(json, ".policy.maxTradesPerWindow")),
+            windowSeconds: uint32(vm.parseJsonUint(json, ".policy.windowSeconds")),
+            deadlineSeconds: uint32(vm.parseJsonUint(json, ".policy.deadlineSeconds"))
+        });
+        // forge-lint: disable-end(unsafe-typecast)
+    }
+
     function run() external override {
         string memory json = vm.envString("FUND_CONFIG");
         TokenRegistry tokens = TokenRegistry(vm.envAddress("EXECUTOR_V3_TOKEN_REGISTRY"));
@@ -94,13 +114,13 @@ contract DeployExecutorV3 is DeployFund {
             ITokenRegistry(address(tokens)),
             vm.parseJsonAddress(json, ".usdc"),
             vm.parseJsonAddress(json, ".wmon"),
-            launchPolicy()
+            policyFor(json)
         );
         executor =
             ExecutorV3(_create2(salt("executor", SALT_VERSION), abi.encodePacked(type(ExecutorV3).creationCode, args)));
         require(executor.owner() == admin && executor.guardian() == guardian, "executor roles");
         require(address(executor.TOKENS()) == address(tokens), "executor registry");
-        require(executor.policyHash() == keccak256(abi.encode(launchPolicy())), "executor policy");
+        require(executor.policyHash() == keccak256(abi.encode(policyFor(json))), "executor policy");
     }
 
     /// The adapter and the registry from one ExecutorSetDeployer, itself deployed by CREATE2 from its arguments.

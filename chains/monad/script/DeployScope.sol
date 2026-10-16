@@ -29,6 +29,8 @@ abstract contract DeployScope is Script {
     uint256 internal constant BASE_SEPOLIA_CHAIN_ID = 84532;
     uint256 internal constant ARBITRUM_SEPOLIA_CHAIN_ID = 421614;
     string internal constant CO_TESTNET_SCOPE = "co.testnet";
+    /// 2026-10-16: the monad-dev stack's own fresh set on Monad testnet (nad.fun, the testnet price mode).
+    string internal constant CO_DEV_SCOPE = "co.dev";
 
     /// The scope in force, checked against the chain: "" on the fork, `p2ec.testnet` on testnet,
     /// `p2ec.canary` on mainnet behind the canary's gate.
@@ -40,8 +42,9 @@ abstract contract DeployScope is Script {
             // CO-U1: the clean Monad testnet redeploy takes fresh addresses under co.testnet.
             require(
                 keccak256(bytes(scope)) == keccak256(bytes(P2EC_TESTNET_SCOPE))
-                    || keccak256(bytes(scope)) == keccak256(bytes(CO_TESTNET_SCOPE)),
-                "Monad testnet deployments use DEPLOY_SALT_SCOPE=p2ec.testnet (D-249) or co.testnet (CO-U1)"
+                    || keccak256(bytes(scope)) == keccak256(bytes(CO_TESTNET_SCOPE))
+                    || keccak256(bytes(scope)) == keccak256(bytes(CO_DEV_SCOPE)),
+                "Monad testnet deployments use DEPLOY_SALT_SCOPE=p2ec.testnet (D-249), co.testnet (CO-U1) or co.dev"
             );
         } else if (block.chainid == BASE_SEPOLIA_CHAIN_ID || block.chainid == ARBITRUM_SEPOLIA_CHAIN_ID) {
             require(

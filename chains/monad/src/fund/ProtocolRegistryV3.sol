@@ -77,12 +77,16 @@ contract ProtocolRegistryV3 is LaneRegistry, IPoolRegistry {
     /// The listed Uniswap v2 family factories, each pinned by its code hash.
     mapping(address factory => bytes32) public v2FactoryHash;
     address[] public v2Factories;
+    /// A listed fork's own per-pair quote, `(tokenIn, amountIn) -> amountOut`, by selector, when
+    /// its pairs do not follow the plain v2 formula (nad.fun charges a sell's fee on its output);
+    /// zero for a fork whose pairs follow it.
+    mapping(address factory => bytes4) public v2QuoteSelector;
 
     event PoolAdded(bytes32 indexed poolId, Lane lane, Venue venue, address token0, address token1, uint24 fee);
     event PoolStatusSet(bytes32 indexed poolId, PoolStatus previous, PoolStatus current, address indexed by);
     event AdapterAdded(bytes32 indexed adapterId, address indexed adapter, bytes32 codeHash);
     event AdapterStatusSet(bytes32 indexed adapterId, bool active, address indexed by);
-    event V2FactoryAdded(address indexed factory, bytes32 codeHash);
+    event V2FactoryAdded(address indexed factory, bytes32 codeHash, bytes4 quoteSelector);
 
     error ZeroAddress();
     error UnknownPool(bytes32 poolId);
@@ -106,6 +110,8 @@ contract ProtocolRegistryV3 is LaneRegistry, IPoolRegistry {
         address usdc;
         /// Uniswap v2 family factories listed at deploy (2026-10-16); may be empty.
         address[] v2Factories;
+        /// Each one's own pair quote selector, or zero (the plain v2 formula); one per factory.
+        bytes4[] v2QuoteSelectors;
     }
 
     constructor(
@@ -134,8 +140,9 @@ contract ProtocolRegistryV3 is LaneRegistry, IPoolRegistry {
         UNISWAP_V3_FACTORY_HASH = v.uniswapV3Factory.codehash;
         PANCAKESWAP_V3_FACTORY_HASH = v.pancakeswapV3Factory.codehash;
         POOL_MANAGER_HASH = v.poolManager.codehash;
+        if (v.v2QuoteSelectors.length != v.v2Factories.length) revert BadPayload();
         for (uint256 i = 0; i < v.v2Factories.length; ++i) {
-            _addV2Factory(v.v2Factories[i]);
+            _addV2Factory(v.v2Factories[i], v.v2QuoteSelectors[i]);
         }
         for (uint256 i = 0; i < seeds.length; ++i) {
             (bytes32 id, PoolRecord memory r) = _checkPool(seeds[i], Lane.CORE);
@@ -253,7 +260,7 @@ contract ProtocolRegistryV3 is LaneRegistry, IPoolRegistry {
         } else if (action == SET_SCREENER || action == SET_GUARDIAN) {
             abi.decode(data, (address));
         } else if (action == ADD_V2_FACTORY) {
-            address f = abi.decode(data, (address));
+            (address f,) = abi.decode(data, (address, bytes4));
             if (f == address(0) || f.code.length == 0) revert ZeroAddress();
             if (v2FactoryHash[f] != bytes32(0)) revert V2FactoryExists(f);
         } else {
@@ -283,7 +290,8 @@ contract ProtocolRegistryV3 is LaneRegistry, IPoolRegistry {
         } else if (action == SET_SCREENER) {
             _setScreener(abi.decode(data, (address)));
         } else if (action == ADD_V2_FACTORY) {
-            _addV2Factory(abi.decode(data, (address)));
+            (address f, bytes4 quoteSelector) = abi.decode(data, (address, bytes4));
+            _addV2Factory(f, quoteSelector);
         } else {
             _setGuardian(abi.decode(data, (address)));
         }
@@ -379,12 +387,13 @@ contract ProtocolRegistryV3 is LaneRegistry, IPoolRegistry {
         r.status = next;
     }
 
-    function _addV2Factory(address f) internal {
+    function _addV2Factory(address f, bytes4 quoteSelector) internal {
         if (f == address(0) || f.code.length == 0) revert ZeroAddress();
         if (v2FactoryHash[f] != bytes32(0)) revert V2FactoryExists(f);
         v2FactoryHash[f] = f.codehash;
+        v2QuoteSelector[f] = quoteSelector;
         v2Factories.push(f);
-        emit V2FactoryAdded(f, f.codehash);
+        emit V2FactoryAdded(f, f.codehash, quoteSelector);
     }
 
     function _addAdapter(bytes32 id, address a, bool active) internal {

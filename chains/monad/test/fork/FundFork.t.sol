@@ -101,7 +101,8 @@ contract FundForkTest is Test {
                 stateView: IUniswapV4StateView(STATE_VIEW),
                 wmon: WMON,
                 usdc: USDC,
-                v2Factories: new address[](0)
+                v2Factories: new address[](0),
+                v2QuoteSelectors: new bytes4[](0)
             }),
             ps,
             new bytes32[](0),

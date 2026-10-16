@@ -132,7 +132,8 @@ abstract contract FundBase is Test {
                 stateView: IUniswapV4StateView(address(stateView)),
                 wmon: address(wmon),
                 usdc: address(usdc),
-                v2Factories: new address[](0)
+                v2Factories: new address[](0),
+                v2QuoteSelectors: new bytes4[](0)
             }),
             ps,
             new bytes32[](0),

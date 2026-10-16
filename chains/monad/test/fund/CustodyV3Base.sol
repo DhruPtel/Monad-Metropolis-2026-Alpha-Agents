@@ -80,12 +80,12 @@ abstract contract CustodyV3Base is FundBase {
                 allowlist: allow,
                 personalImplementation: address(
                     new PersonalAccountV3(
-                        IAgentNFTView(address(nft)), address(usdc), ITokenRegistry(address(tokens)), 6_000
+                        IAgentNFTView(address(nft)), address(usdc), ITokenRegistry(address(tokens)), 0, 0
                     )
                 ),
                 vaultImplementation: address(
                     new StrategyVaultV3(
-                        IAgentNFTView(address(nft)), address(usdc), ITokenRegistry(address(tokens)), 6_000
+                        IAgentNFTView(address(nft)), address(usdc), ITokenRegistry(address(tokens)), 0, 0
                     )
                 )
             })

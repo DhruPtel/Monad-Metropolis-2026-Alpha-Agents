@@ -485,12 +485,12 @@ contract AccountFactoryV3Test is CustodyV3Base {
                 allowlist: allow,
                 personalImplementation: address(
                     new PersonalAccountV3(
-                        IAgentNFTView(address(nft)), address(usdc), ITokenRegistry(address(tokens)), 6_000
+                        IAgentNFTView(address(nft)), address(usdc), ITokenRegistry(address(tokens)), 0, 0
                     )
                 ),
                 vaultImplementation: address(
                     new StrategyVaultV3(
-                        IAgentNFTView(address(nft)), address(usdc), ITokenRegistry(address(tokens)), 6_000
+                        IAgentNFTView(address(nft)), address(usdc), ITokenRegistry(address(tokens)), 0, 0
                     )
                 )
             })
@@ -554,10 +554,10 @@ contract AccountFactoryV3Test is CustodyV3Base {
             depositsEnabled: false,
             allowlist: allow,
             personalImplementation: address(
-                new PersonalAccountV3(IAgentNFTView(address(0)), address(usdc), ITokenRegistry(address(tokens)), 6_000)
+                new PersonalAccountV3(IAgentNFTView(address(0)), address(usdc), ITokenRegistry(address(tokens)), 0, 0)
             ),
             vaultImplementation: address(
-                new StrategyVaultV3(IAgentNFTView(address(0)), address(usdc), ITokenRegistry(address(tokens)), 6_000)
+                new StrategyVaultV3(IAgentNFTView(address(0)), address(usdc), ITokenRegistry(address(tokens)), 0, 0)
             )
         });
         vm.expectRevert(AccountFactoryV3.ZeroAddress.selector);
@@ -594,7 +594,7 @@ contract AccountFactoryV3Test is CustodyV3Base {
                 allowlist: allow,
                 personalImplementation: address(
                     new PersonalAccountV3(
-                        IAgentNFTView(address(nft)), address(usdc), ITokenRegistry(address(tokens)), 6_000
+                        IAgentNFTView(address(nft)), address(usdc), ITokenRegistry(address(tokens)), 0, 0
                     )
                 ),
                 vaultImplementation: address(0)
