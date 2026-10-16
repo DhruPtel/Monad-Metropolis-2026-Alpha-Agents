@@ -21,6 +21,7 @@ import {
   FactStrip,
   LiveTrades,
   ManagedAccountChoice,
+  PlanKeptCard,
   PlanSummaryCard,
   PortfolioInsights,
   SectionLabel,
@@ -31,7 +32,7 @@ import { ChevronDown, PlugZap, Wallet } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { type ActivityJson, type GoalPageJson, api, goalApi } from "@/api/client";
-import { latestDecided } from "@/agent/plan-card";
+import { latestDecided, planKept } from "@/agent/plan-card";
 import { schedulePoll } from "@/agent/poll";
 import { v2AssetRows } from "@/agent/portfolio";
 import { assetRows } from "@/agent/portfolio-v3";
@@ -301,8 +302,19 @@ export function TradingPage({
     environment === "testnet" ? TESTNET_COST_LIMIT_BPS : (planParams?.costHurdleBps ?? null),
   );
 
+  // 2026-10-15: the newest research run kept the plan; said first, before anything else.
+  const kept = planKept(card);
   return (
     <div className="flex flex-col gap-6" data-testid="trading">
+      {kept ? (
+        <PlanKeptCard
+          date={kept.date}
+          allocation={kept.allocation}
+          reason={kept.reason}
+          reportHref={kept.cycleId ? reportHref(agentId, kept.cycleId) : null}
+          linkAs={Link}
+        />
+      ) : null}
       <section
         aria-label="Automatic trading"
         className="flex flex-col gap-3 rounded-md border border-border p-4"

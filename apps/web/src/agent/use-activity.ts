@@ -51,7 +51,13 @@ export function useActivity(agentId: bigint, environment: EnvironmentId) {
           money,
           intents,
           cycles: research?.cycles ?? null,
-          proposals: card ? [...(card.pending ? [card.pending] : []), ...card.recent] : null,
+          proposals: card
+            ? [
+                ...(card.pending ? [card.pending] : []),
+                ...card.recent,
+                ...(card.noChange ? [card.noChange] : []),
+              ]
+            : null,
           txFor: (hash) => txHref(environment, hash),
           reportFor: (cycleId) => reportHref(agentId, cycleId),
         }),

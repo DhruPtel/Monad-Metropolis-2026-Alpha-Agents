@@ -76,6 +76,7 @@ import {
   DecisionList,
   FactStrip,
   LiveTrades,
+  PlanKeptCard,
   PlanSummaryCard,
   LinkLine,
   PortfolioInsights,
@@ -5592,6 +5593,17 @@ function AgentPagesSection() {
           holding={null}
           empty="Trades show here as they happen, once a plan is approved."
           items={[]}
+        />
+      </Specimen>
+      <Specimen
+        name="PlanKeptCard"
+        note="A research run that kept the plan, first on the Trading tab: the date, the plan in force as shares, one line on why, and the run's report."
+      >
+        <PlanKeptCard
+          date="2026-10-15"
+          allocation="20% WMON, 80% USDC"
+          reason="The account already sits at its targets and nothing in the research moved the picture."
+          reportHref="#agent-pages"
         />
       </Specimen>
       <Specimen

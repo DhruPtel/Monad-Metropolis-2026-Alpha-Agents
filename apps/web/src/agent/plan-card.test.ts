@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { PlanCardJson, ProposalJson } from "@/api/client";
-import { latestDecided, planCardView } from "./plan-card";
+import { allocationText, latestDecided, planCardView, planKept } from "./plan-card";
 
 const WMON = "0x3bd359c1119da7da1d913d1c4d2b7c461115433a";
 const WBTC = "0x0555e30da8f98308edb960aa94c0db47230d2b9c";
@@ -135,5 +135,64 @@ describe("the plan card's view (F-U9)", () => {
       ),
     ).toBe(rejected);
     expect(latestDecided(card({ pending: null, recent: [] }))).toBeNull();
+  });
+
+  it("says a run kept the plan when its no-change is the newest decision and nothing waits (2026-10-15)", () => {
+    const applied = proposal({ status: "applied", createdAt: "2026-10-14T10:00:00.000Z" });
+    const noChange = proposal({
+      kind: "no_change",
+      status: "recorded",
+      reasonCode: "NO_MATERIAL_CHANGE",
+      cycleId: "cycle-9",
+      createdAt: "2026-10-15T08:00:00.000Z",
+    });
+    expect(planKept(card({ pending: null, recent: [applied], noChange }))).toMatchObject({
+      date: "2026-10-15",
+      allocation: "20% WMON, 80% USDC",
+      cycleId: "cycle-9",
+    });
+    // A plan waiting, a newer proposal, or no no-change: nothing to say.
+    expect(planKept(card({ recent: [applied], noChange }))).toBeNull();
+    expect(
+      planKept(
+        card({
+          pending: null,
+          recent: [{ ...applied, createdAt: "2026-10-15T09:00:00.000Z" }],
+          noChange,
+        }),
+      ),
+    ).toBeNull();
+    expect(planKept(card({ pending: null, noChange: null }))).toBeNull();
+    expect(planKept(null)).toBeNull();
+  });
+
+  it("writes the plan in force as shares, largest first, the rest in USDC", () => {
+    const current = card().current;
+    expect(allocationText(current)).toBe("20% WMON, 80% USDC");
+    expect(
+      allocationText(
+        current && {
+          ...current,
+          positions: [
+            { token: "0x1", symbol: "TALPHA", targetWeightBps: 1_500, bandBps: 300 },
+            { token: "0x2", symbol: "WMON", targetWeightBps: 1_500, bandBps: 300 },
+            { token: "0x3", symbol: "TBETA", targetWeightBps: 3_000, bandBps: 300 },
+          ],
+          cashTargetBps: 4_000,
+        },
+      ),
+    ).toBe("30% TBETA, 15% TALPHA, 15% WMON, 40% USDC");
+    expect(
+      allocationText(
+        current && {
+          ...current,
+          template: "rebalance_bands@1",
+          positions: [],
+          cashTargetBps: null,
+          targetWmonBps: 2_500,
+        },
+      ),
+    ).toBe("25% WMON, 75% USDC");
+    expect(allocationText(null)).toBeNull();
   });
 });

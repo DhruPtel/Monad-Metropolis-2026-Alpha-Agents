@@ -30,7 +30,15 @@ import {
 import { PlugZap, Wallet } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ApiError, type SentinelJson, type StoredReportJson, api, tradingApi } from "@/api/client";
+import {
+  ApiError,
+  type PlanCardJson,
+  type SentinelJson,
+  type StoredReportJson,
+  api,
+  tradingApi,
+} from "@/api/client";
+import { planKept } from "@/agent/plan-card";
 import { kindLabel, reportHref } from "@/agent/report-view";
 import {
   PHASE_OF_STAGE,
@@ -126,6 +134,21 @@ export function ResearchPage({
     if (wasOpen.current && !openNow) setFinishedNow(wasOpen.current);
     wasOpen.current = openNow;
   }, [openNow]);
+  // 2026-10-15: the plan card, read again as each run ends, says whether the run kept the plan.
+  const newestFinished = research?.cycles[0]?.finishedAt ?? null;
+  const [card, setCard] = useState<PlanCardJson | null>(null);
+  useEffect(() => {
+    if (!wallet.ready) return;
+    let live = true;
+    asOwner((t) => tradingApi.planCard(agentId, t)).then(
+      (c) => live && setCard(c),
+      () => undefined,
+    );
+    return () => {
+      live = false;
+    };
+  }, [agentId, asOwner, wallet.ready, newest, newestFinished, openNow]);
+  const kept = planKept(card);
   // Reports the owner has opened, kept in this browser so a new one shows as New.
   const [opened, setOpened] = useState<readonly string[]>([]);
   useEffect(() => {
@@ -309,6 +332,7 @@ export function ResearchPage({
     : null;
   const newestCycle = research.cycles[0] ?? null;
   const newestReport = newestCycle ? reports.find((r) => r.cycleId === newestCycle.cycleId) : null;
+  const newestKept = newestCycle !== null && kept?.cycleId === newestCycle.cycleId;
   const zoomDone = openCycle?.stages.some(
     (x) => x.stage === "ZOOM_OUT" && x.status === "completed",
   );
@@ -330,16 +354,26 @@ export function ResearchPage({
     : newestCycle && newestCycle.finishedAt
       ? {
           state: "done" as const,
-          line:
-            newestReport?.status === "written"
+          line: newestKept
+            ? "Plan unchanged"
+            : newestReport?.status === "written"
               ? `Finished at ${newestCycle.finishedAt.slice(11, 16)} UTC, ${usdcCents(newestCycle.chargedUsdcE6)} USDC, report ready`
               : `Finished at ${newestCycle.finishedAt.slice(11, 16)} UTC, ${usdcCents(newestCycle.chargedUsdcE6)} USDC; ${newestReport ? "no report was written" : "writing the report"}`,
-          detail: null,
+          // 2026-10-15: a run that kept the plan says so first; the finish moves to the detail.
+          detail: newestKept
+            ? `Finished at ${newestCycle.finishedAt.slice(11, 16)} UTC, ${usdcCents(newestCycle.chargedUsdcE6)} USDC${kept?.allocation ? `; the plan stays ${kept.allocation}` : ""}`
+            : null,
           // 2026-10-13: the plan a run made waits on the Trading tab; Review plan leads there.
           action: (
             <>
-              <Button asChild size="sm" data-testid="review-plan">
-                <Link href={`/agents/${id}/trading#plan`}>Review plan</Link>
+              <Button
+                asChild
+                size="sm"
+                data-testid={newestKept ? "view-current-plan" : "review-plan"}
+              >
+                <Link href={`/agents/${id}/trading#plan`}>
+                  {newestKept ? "View current plan" : "Review plan"}
+                </Link>
               </Button>
               {newestReport?.status === "written" ? (
                 <Button asChild size="sm" variant="secondary">
@@ -414,9 +448,11 @@ export function ResearchPage({
               className="flex flex-wrap items-center gap-2 text-sm text-positive"
               data-testid="new-report-notice"
             >
-              <span>New report ready.</span>
+              <span>{kept?.cycleId === finishedNow ? "Plan unchanged." : "New report ready."}</span>
               <Button asChild size="sm">
-                <Link href={`/agents/${id}/trading#plan`}>Review plan</Link>
+                <Link href={`/agents/${id}/trading#plan`}>
+                  {kept?.cycleId === finishedNow ? "View current plan" : "Review plan"}
+                </Link>
               </Button>
               <Button asChild size="sm" variant="secondary">
                 <Link href={reportHref(agentId, finishedNow)}>View report</Link>

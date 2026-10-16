@@ -5,7 +5,7 @@ import type { IntentJson, MoneyEventJson, ProposalJson, ResearchJson } from "@/a
  * 2026-10-13: the shared Activity panel's rows, newest first, from real
  * records only: deposits, withdrawals and credit top-ups from the chain's logs
  * and the indexer; and, for the owner, the agent's trades, its research runs
- * with their cost and the plans approved.
+ * with their cost, the plans approved and the runs that kept the plan.
  */
 
 const minute = (iso: string) => `${iso.slice(0, 10)} ${iso.slice(11, 16)}`;
@@ -92,6 +92,20 @@ export function activityRows(s: ActivitySources): ActivityRowView[] {
     });
   }
   for (const p of s.proposals ?? []) {
+    // 2026-10-15: a run that kept the plan, said as such.
+    if (p.kind === "no_change") {
+      rows.push({
+        id: `p-${p.proposalId}`,
+        type: "Plan",
+        filter: "research",
+        title: "Plan unchanged",
+        amount: null,
+        time: minute(p.createdAt),
+        at: p.createdAt,
+        link: p.cycleId ? { href: s.reportFor(p.cycleId), label: "Report", external: false } : null,
+      });
+      continue;
+    }
     if (p.status !== "applied" || !p.decidedAt) continue;
     rows.push({
       id: `p-${p.proposalId}`,

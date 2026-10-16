@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowUpRight, FileText } from "lucide-react";
+import { ArrowUpRight, CircleCheck, FileText } from "lucide-react";
 import { type ComponentType, type ReactNode, useState } from "react";
 import { cn } from "../../lib/utils";
 import { Badge } from "../ui/badge";
@@ -641,11 +641,69 @@ function LiveTrades({
   );
 }
 
+/**
+ * 2026-10-15: a research run that kept the plan, said plainly at the top of the Trading tab:
+ * "Research on 2026-10-15 kept your plan: 20% WMON, 80% USDC", why, and its report.
+ */
+function PlanKeptCard({
+  date,
+  allocation,
+  reason,
+  reportHref,
+  linkAs,
+  className,
+}: {
+  /** "2026-10-15". */
+  date: string;
+  /** "20% WMON, 80% USDC", or null when the plan in force is not known. */
+  allocation: string | null;
+  /** One line on why, from the run; null for none. */
+  reason?: string | null;
+  reportHref?: string | null;
+  linkAs?: LinkComponent;
+  className?: string;
+}) {
+  const LinkAs = linkAs ?? "a";
+  return (
+    <section
+      aria-label="Plan unchanged"
+      className={cn(
+        "flex flex-col gap-2 rounded-md border border-primary-muted bg-surface-raised p-4 sm:flex-row sm:items-center sm:gap-4",
+        className,
+      )}
+      data-testid="plan-kept"
+    >
+      <CircleCheck aria-hidden className="size-5 shrink-0 text-primary" />
+      <div className="flex min-w-0 flex-1 flex-col gap-1">
+        <span className="flex flex-wrap items-center gap-2 text-sm font-semibold">
+          Plan unchanged <Badge tone="neutral">Kept</Badge>
+        </span>
+        <p className="text-sm">
+          Research on {date} kept your plan{allocation ? `: ${allocation}.` : "."}
+        </p>
+        {reason ? (
+          <p className="line-clamp-2 text-xs text-foreground-muted" title={reason}>
+            {reason}
+          </p>
+        ) : null}
+      </div>
+      {reportHref ? (
+        <Button asChild size="sm" variant="secondary" className="w-fit shrink-0">
+          <LinkAs href={reportHref}>
+            <FileText aria-hidden /> View report
+          </LinkAs>
+        </Button>
+      ) : null}
+    </section>
+  );
+}
+
 export {
   ConcentrationPie,
   DecisionList,
   FactStrip,
   LiveTrades,
+  PlanKeptCard,
   PlanSummaryCard,
   PortfolioInsights,
 };

@@ -82,11 +82,20 @@ describe("the Activity panel's rows (2026-10-13)", () => {
           cycleId: "cycle-1",
         },
         { proposalId: "p2", status: "pending_owner", decidedAt: null, cycleId: null },
+        {
+          proposalId: "p3",
+          kind: "no_change",
+          status: "recorded",
+          decidedAt: null,
+          createdAt: "2026-10-14T06:10:00.000Z",
+          cycleId: "cycle-2",
+        },
       ] as unknown as ProposalJson[],
       txFor: tx,
       reportFor: (c) => `/agents/4/research/reports/${c}`,
     });
     expect(rows.map((r) => [r.type, r.filter, r.title, r.amount, r.time])).toEqual([
+      ["Plan", "research", "Plan unchanged", null, "2026-10-14 06:10"],
       ["Deposit", "deposits", "Deposit into the vault", "5 USDC", "2026-10-13 23:59"],
       ["Deposit", "deposits", "Leader stake into the vault", "2 USDC", "2026-10-13 23:55"],
       ["Trade", "trades", "Buy WMON", "0.796 USDC", "2026-10-13 22:24"],
@@ -101,8 +110,13 @@ describe("the Activity panel's rows (2026-10-13)", () => {
       ],
       ["Credits", "deposits", "Research credits added", "5 USDC", "2026-10-13 17:41"],
     ]);
-    expect(rows[0]?.link).toEqual({ href: tx("0x11"), label: "Transaction", external: true });
-    expect(rows[4]?.link).toEqual({
+    expect(rows[0]?.link).toEqual({
+      href: "/agents/4/research/reports/cycle-2",
+      label: "Report",
+      external: false,
+    });
+    expect(rows[1]?.link).toEqual({ href: tx("0x11"), label: "Transaction", external: true });
+    expect(rows[5]?.link).toEqual({
       href: "/agents/4/research/reports/cycle-1",
       label: "Report",
       external: false,

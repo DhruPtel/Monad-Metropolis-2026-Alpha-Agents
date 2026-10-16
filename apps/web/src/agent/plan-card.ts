@@ -44,3 +44,46 @@ export function latestDecided(card: PlanCardJson): ProposalJson | null {
   if (card.noChange && card.noChange.createdAt > recent.createdAt) return null;
   return recent;
 }
+
+const pct = (bps: number) =>
+  `${(bps / 100).toLocaleString("en-US", { maximumFractionDigits: 1 })}%`;
+
+/** "20% WMON, 80% USDC": the plan in force, its tokens by weight and the rest in USDC. */
+export function allocationText(current: PlanCardJson["current"]): string | null {
+  if (!current) return null;
+  if (current.positions.length === 0 && current.targetWmonBps !== null)
+    return `${pct(current.targetWmonBps)} WMON, ${pct(10_000 - current.targetWmonBps)} USDC`;
+  const parts = [...current.positions]
+    .sort((a, b) => b.targetWeightBps - a.targetWeightBps)
+    .map((p) => `${pct(p.targetWeightBps)} ${p.symbol}`);
+  const cash =
+    current.cashTargetBps ?? 10_000 - current.positions.reduce((t, p) => t + p.targetWeightBps, 0);
+  if (cash > 0) parts.push(`${pct(cash)} USDC`);
+  return parts.length > 0 ? parts.join(", ") : null;
+}
+
+export interface PlanKept {
+  readonly date: string;
+  readonly allocation: string | null;
+  readonly reason: string | null;
+  readonly cycleId: string | null;
+  readonly at: string;
+}
+
+/**
+ * 2026-10-15: the newest research run kept the plan: its no-change is newer than every
+ * proposal, and nothing waits for the owner. Null otherwise.
+ */
+export function planKept(card: PlanCardJson | null): PlanKept | null {
+  const kept = card?.noChange ?? null;
+  if (!card || !kept || card.pending) return null;
+  const newest = card.recent[0] ?? null;
+  if (newest && newest.createdAt >= kept.createdAt) return null;
+  return {
+    date: kept.createdAt.slice(0, 10),
+    allocation: allocationText(card.current),
+    reason: kept.rationale.portfolioView || null,
+    cycleId: kept.cycleId,
+    at: kept.createdAt,
+  };
+}
