@@ -8,6 +8,7 @@ import {
   estimateMoveCost,
   portfolioParamsFromDecision,
   proposalPositions,
+  sameAllocation,
   sourceCounts,
 } from "./proposals.ts";
 import type { TestInputsV2 } from "./test-stage.ts";
@@ -295,6 +296,70 @@ describe("portfolio proposals (F-U9)", () => {
       costHurdleBps: 40,
       maxLegBps: 900,
     });
+  });
+});
+
+describe("a draft of the allocation in force is the plan kept (2026-10-15)", () => {
+  const TALPHA = "0xd4eb3fef2a9ebe27d59d4188b6d20bb21220c03c";
+  const draft = (weights: Record<string, number>, cash: number, killCriterion = "k") => ({
+    template: "target_portfolio@1" as const,
+    params: portfolioParamsFromDecision({
+      positions: Object.entries(weights).map(([token, targetWeightBps]) => ({
+        token,
+        targetWeightBps,
+        bandBps: 300,
+        thesisId: "T",
+        exit: { killCriterion, recheckAt: "2026-11-01" },
+      })),
+      cashTargetBps: cash,
+      minTradeUsdc: "1",
+      volatilityBrakeBps: 20_000,
+      costHurdleBps: 40,
+      maxLegBps: 900,
+    }),
+  });
+  const stored = (d: ReturnType<typeof draft>) =>
+    ({
+      ...d,
+      paramId: "p",
+      chainId: 10143,
+      agentId: 4,
+      paramsHash: "0x00",
+      strategyEpoch: 1n,
+      setBy: "agent",
+      setByAddress: null,
+      createdAt: new Date(0),
+    }) as never;
+
+  it("matches the same tokens at the same weights and cash, whatever the exits say", () => {
+    const now = stored(draft({ [WMON]: 1_000, [TALPHA]: 1_000 }, 8_000));
+    expect(
+      sameAllocation(
+        draft({ [TALPHA.toUpperCase().replace("0X", "0x")]: 1_000, [WMON]: 1_000 }, 8_000, "other"),
+        now,
+      ),
+    ).toBe(true);
+  });
+
+  it("does not match a new weight, a new token, new cash, another template or no plan", () => {
+    const now = stored(draft({ [WMON]: 2_000 }, 8_000));
+    expect(sameAllocation(draft({ [WMON]: 3_000 }, 7_000), now)).toBe(false);
+    expect(sameAllocation(draft({ [WMON]: 1_000, [TALPHA]: 1_000 }, 8_000), now)).toBe(false);
+    expect(sameAllocation(draft({ [TALPHA]: 2_000 }, 8_000), now)).toBe(false);
+    expect(sameAllocation(draft({ [WMON]: 2_000 }, 8_000), null)).toBe(false);
+    const bands = {
+      template: "rebalance_bands@1" as const,
+      params: bandsParamsFromDecision({
+        targetWmonBps: 2_000,
+        bandHalfWidthBps: 500,
+        minTradeUsdc: "1",
+        volatilityBrakeBps: 20_000,
+        costHurdleBps: 40,
+        maxLegBps: 900,
+      }),
+    };
+    expect(sameAllocation(bands, now)).toBe(false);
+    expect(sameAllocation(bands, stored(bands as never))).toBe(true);
   });
 });
 

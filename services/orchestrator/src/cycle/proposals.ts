@@ -16,6 +16,7 @@ import {
   ProposalStore,
   proposalFacts,
   type SourceCount,
+  type StoredPlan,
   type StoredProposal,
   type TradeStore,
   isPortfolioPlan,
@@ -299,6 +300,28 @@ export class ProposalService {
             params: bandsParamsFromDecision(decision.params),
           };
     const current = await this.o.plans.active(ref.chainId, ref.agentId);
+    // 2026-10-15: a draft of the allocation already in force is the plan kept, said as such.
+    if (sameAllocation(plan, current)) {
+      const stored = await this.store.recordNoChange({
+        ...ref,
+        cycleId: cycle.cycleId,
+        stageRunId: stage.stageRunId,
+        strategyEpoch,
+        ownerEpoch,
+        rationale: { ...rationale, decision: "NO_CHANGE", reasonCode: "NO_MATERIAL_CHANGE" },
+        reasonCode: "NO_MATERIAL_CHANGE",
+        explanation: [
+          "The research kept the plan in force.",
+          rationale.portfolioView,
+          rationale.whatWouldChangeIt && `What would change it: ${rationale.whatWouldChangeIt}`,
+        ]
+          .filter(Boolean)
+          .join(" "),
+        now: this.now(),
+      });
+      await this.narrate(ref, stored, "no_change");
+      return stored;
+    }
     // F-T2: the fingerprint the Test took when it accepted this plan, so a refusal now names what changed.
     const testStage = (await this.o.cycles.stages(cycle.cycleId)).find((s) => s.stage === "TEST");
     const checked = (
@@ -379,6 +402,27 @@ export class ProposalService {
       this.o.log(`agent ${ref.agentId}: proposal narration failed: ${String(err)}`);
     }
   }
+}
+
+/**
+ * 2026-10-15: whether a drafted plan keeps the allocation in force: the same template, the
+ * same tokens at the same target weights and the same cash (or the same WMON target on the
+ * two-asset plan). Exits, bands and trade settings may differ; the owner sees the plan kept.
+ */
+export function sameAllocation(
+  draft:
+    | { readonly template: typeof TARGET_PORTFOLIO_ID; readonly params: TargetPortfolioParams }
+    | { readonly template: "rebalance_bands@1"; readonly params: RebalanceBandsParams },
+  current: StoredPlan | null,
+): boolean {
+  if (!current || current.template !== draft.template) return false;
+  if (draft.template === "rebalance_bands@1")
+    return (current.params as RebalanceBandsParams).targetWmonBps === draft.params.targetWmonBps;
+  const now = current.params as TargetPortfolioParams;
+  if (now.cashTargetBps !== draft.params.cashTargetBps) return false;
+  if (now.positions.length !== draft.params.positions.length) return false;
+  const weights = new Map(now.positions.map((p) => [lower(p.token), p.targetWeightBps]));
+  return draft.params.positions.every((p) => weights.get(lower(p.token)) === p.targetWeightBps);
 }
 
 /** The Zoom out's decision params, as complete_stage accepted them, into the policy's shape: the Test's own conversion (F-T2, L-220). */
