@@ -220,6 +220,13 @@ export const PositionCall = z.strictObject({
   /** The Dive's theme the call rests on; null for a hold with nothing new. */
   themeCode: themeCode.nullable(),
   reason: text(200),
+  /**
+   * 2026-10-15: how strongly the research backs the position, 0 to 100, from its thesis,
+   * risks, market data and the Challenge's verdict; the weight follows it.
+   */
+  conviction: z.number().int().min(0).max(100).nullable().optional(),
+  /** 2026-10-15: on a testnet, the researched token this tradable stand-in carries. */
+  standInFor: z.strictObject({ token: TokenAddress.nullable(), symbol }).nullable().optional(),
 });
 export type PositionCall = z.infer<typeof PositionCall>;
 
@@ -258,6 +265,16 @@ export const RationaleBrief = z
     message: "a NO_CHANGE decision needs a reasonCode, and a PROPOSE decision has none",
     path: ["reasonCode"],
   })
+  .refine(
+    (b) =>
+      b.decision !== "PROPOSE" ||
+      b.positions.every((p) => p.action === "EXIT" || typeof p.conviction === "number"),
+    {
+      message:
+        "a PROPOSE decision gives every position it keeps a conviction from 0 to 100, from the research, and its weight follows that conviction",
+      path: ["positions"],
+    },
+  )
   .refine((b) => b.decision === "PROPOSE" || b.positions.every((p) => p.action === "HOLD"), {
     message:
       "a NO_CHANGE decision holds every position; an ADD, TRIM or EXIT needs a PROPOSE decision",

@@ -158,6 +158,8 @@ describe("portfolio proposals (F-U9)", () => {
             action: "ADD",
             themeCode: "WMON_ADD",
             reason: "Deeper pool.",
+            conviction: 64,
+            standInFor: { token: null, symbol: "WETH" },
           },
         ],
       },
@@ -199,6 +201,8 @@ describe("portfolio proposals (F-U9)", () => {
         sources: { onchain: 1, market: 0, primary: 0, news: 0, social: 0 },
         verdict: "WEAKENED",
         reason: "Deeper pool.",
+        conviction: 64,
+        standInFor: { token: null, symbol: "WETH" },
       },
       {
         token: WBTC,
@@ -216,6 +220,8 @@ describe("portfolio proposals (F-U9)", () => {
         sources: { onchain: 0, market: 0, primary: 0, news: 0, social: 1 },
         verdict: null,
         reason: "",
+        conviction: null,
+        standInFor: null,
       },
     ]);
   });

@@ -364,11 +364,36 @@ describe("the brief validator (D-284, P3-U4)", () => {
             action: "ADD",
             themeCode: "WBTC_ADD",
             reason: "Deep pool.",
+            conviction: 72,
+            standInFor: null,
           },
         ],
         ...over,
       });
     expect(rationale().ok).toBe(true);
+    // 2026-10-15: a proposal scores every position it keeps; a testnet stand-in names its pick.
+    const unscored = rationale({
+      positions: [
+        { token: wbtc, symbol: "WBTC", action: "ADD", themeCode: "WBTC_ADD", reason: "Deep pool." },
+      ],
+    });
+    expect(unscored.ok).toBe(false);
+    if (!unscored.ok) expect(unscored.reasons.join(" ")).toContain("a conviction from 0 to 100");
+    expect(
+      rationale({
+        positions: [
+          {
+            token: wbtc,
+            symbol: "WMON",
+            action: "ADD",
+            themeCode: "WBTC_ADD",
+            reason: "Deep pool.",
+            conviction: 80,
+            standInFor: { token: null, symbol: "WETH" },
+          },
+        ],
+      }).ok,
+    ).toBe(true);
     const weak = rationale({ evidenceStrength: "weak" });
     expect(weak.ok).toBe(false);
     if (!weak.ok) expect(weak.reasons.join(" ")).toContain("weak evidence cannot carry a position");

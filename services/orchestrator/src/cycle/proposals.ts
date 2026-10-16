@@ -94,6 +94,8 @@ export function proposalPositions(o: {
       action: ProposalPosition["action"];
       themeCode: string | null;
       reason: string;
+      conviction?: number | null;
+      standInFor?: { token: string | null; symbol: string } | null;
     }[];
   };
   readonly themes: readonly Record<string, unknown>[];
@@ -130,6 +132,10 @@ export function proposalPositions(o: {
       sources: sourceCounts(theme),
       verdict: verdictOf(code),
       reason: call?.reason ?? "",
+      conviction: call?.conviction ?? null,
+      standInFor: call?.standInFor
+        ? { token: (call.standInFor.token as Hex | null) ?? null, symbol: call.standInFor.symbol }
+        : null,
     };
   });
 }
@@ -251,6 +257,8 @@ export class ProposalService {
         action: ProposalPosition["action"];
         themeCode: string | null;
         reason: string;
+        conviction?: number | null;
+        standInFor?: { token: string | null; symbol: string } | null;
       }[];
     } = {
       decision: decision.kind,

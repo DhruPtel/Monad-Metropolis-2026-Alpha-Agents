@@ -425,6 +425,38 @@ export function checkReport(
   };
 }
 
+/**
+ * 2026-10-15: on a testnet the plan holds stand-ins for the researched picks. Each portfolio
+ * position the RATIONALE maps is named by its researched token and says what it executes as
+ * ("WETH", "35%", "Executes as WMON on testnet. ..."). Briefs come oldest first.
+ */
+export function withStandIns(
+  report: ReportBodyT,
+  briefs: readonly { kind: string; body: unknown }[],
+): ReportBodyT {
+  const rationale = [...briefs].reverse().find((b) => b.kind === "RATIONALE");
+  const calls =
+    ((rationale?.body as { positions?: unknown } | undefined)?.positions as
+      { symbol: string; standInFor?: { symbol: string } | null }[] | undefined) ?? [];
+  const pairs = calls.flatMap((c) =>
+    c.standInFor ? [{ real: c.standInFor.symbol, standIn: c.symbol }] : [],
+  );
+  if (pairs.length === 0) return report;
+  const same = (a: string, b: string) => a.trim().toUpperCase() === b.trim().toUpperCase();
+  return {
+    ...report,
+    portfolio: {
+      ...report.portfolio,
+      positions: report.portfolio.positions.map((x) => {
+        const m = pairs.find((q) => same(q.standIn, x.symbol) || same(q.real, x.symbol));
+        if (!m) return x;
+        const note = `Executes as ${m.standIn} on testnet.`;
+        return { ...x, symbol: m.real, why: x.why ? `${note} ${x.why}` : note };
+      }),
+    },
+  };
+}
+
 /** Every source the cycle used, with its classes: the tools it called and the URLs it retrieved. */
 export function reportSources(
   results: readonly { tool: string }[],
@@ -677,7 +709,9 @@ export class ReportWriter {
         });
         return "failed";
       }
-      const { report, checks } = checkReport(parsed, prepared, cycle.canary);
+      const checked = checkReport(parsed, prepared, cycle.canary);
+      const { checks } = checked;
+      const report = withStandIns(checked.report, briefs);
       const body: StoredReport = {
         version: 1,
         cycle: {

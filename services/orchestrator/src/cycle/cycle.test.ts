@@ -1193,6 +1193,7 @@ describe.skipIf(!dbUp)("the discovery loop engine (needs Postgres)", { timeout: 
               action: "ADD",
               themeCode: "TVL_OUTFLOW",
               reason: "A deep pool.",
+              conviction: 70,
             },
           ],
         }),
@@ -1317,6 +1318,7 @@ describe.skipIf(!dbUp)("the discovery loop engine (needs Postgres)", { timeout: 
         action: "ADD",
         themeCode: "TVL_OUTFLOW",
         reason: "A deep pool.",
+        conviction: 70,
       },
     ];
     scripts.ZOOM_OUT = async (r) => {
@@ -1368,7 +1370,7 @@ describe.skipIf(!dbUp)("the discovery loop engine (needs Postgres)", { timeout: 
     };
     const { cycle } = await runCycle();
     expect(cycle.status).toBe("completed");
-    expect(answers[0]).toContain("outside the Balanced range of 50% to 85%");
+    expect(answers[0]).toContain("outside the Balanced range of 40% to 70%");
     expect(answers[1]).not.toContain("outside the Balanced range");
     expect(answers[1]).toContain("needs the fund agent's set");
   });

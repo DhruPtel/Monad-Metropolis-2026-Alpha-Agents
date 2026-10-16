@@ -131,7 +131,7 @@ describe("the plan's invested share against the level's expected range (F-T1, A-
         allocationNote: null,
       }),
     ).toEqual([
-      "the plan keeps 30% of the account invested, outside the Balanced range of 50% to 85%; say why in the RATIONALE's allocationNote",
+      "the plan keeps 30% of the account invested, outside the Balanced range of 40% to 70%; say why in the RATIONALE's allocationNote",
     ]);
     expect(
       allocationFindings({
@@ -152,7 +152,7 @@ describe("the plan's invested share against the level's expected range (F-T1, A-
         allocationNote: "  ",
       }),
     ).toEqual([
-      "the plan keeps 80% of the account invested, outside the Conservative range of 30% to 70%; say why in the RATIONALE's allocationNote",
+      "the plan keeps 80% of the account invested, outside the Conservative range of 15% to 40%; say why in the RATIONALE's allocationNote",
     ]);
   });
 

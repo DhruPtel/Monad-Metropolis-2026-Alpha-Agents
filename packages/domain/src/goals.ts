@@ -63,7 +63,8 @@ export const AGGRESSIVENESS_ENVELOPES: Readonly<Record<Aggressiveness, Aggressiv
       // 2026-10-13 (owner): up to 5 positions for Conservative (was 8).
       maxPositions: 5,
       reviewTriggerBps: 1_000,
-      investedRangeBps: { min: 3_000, max: 7_000 },
+      // 2026-10-15 (owner): the goal sets an invested range; research places the plan inside it.
+      investedRangeBps: { min: 1_500, max: 4_000 },
     },
     BALANCED: {
       label: "Balanced",
@@ -74,7 +75,7 @@ export const AGGRESSIVENESS_ENVELOPES: Readonly<Record<Aggressiveness, Aggressiv
       minStableBps: 1_500,
       maxPositions: 8,
       reviewTriggerBps: 1_500,
-      investedRangeBps: { min: 5_000, max: 8_500 },
+      investedRangeBps: { min: 4_000, max: 7_000 },
     },
     AGGRESSIVE: {
       label: "Aggressive",
@@ -82,10 +83,11 @@ export const AGGRESSIVENESS_ENVELOPES: Readonly<Record<Aggressiveness, Aggressiv
       maxPositionBps: 4_000,
       maxClassAPositionBps: 1_500,
       maxClassATotalBps: 5_000,
-      minStableBps: 1_000,
+      // 2026-10-15 (owner): up to 95% invested, so the stablecoin minimum is the Executor's 5% floor.
+      minStableBps: 500,
       maxPositions: 12,
       reviewTriggerBps: 2_500,
-      investedRangeBps: { min: 6_500, max: 9_000 },
+      investedRangeBps: { min: 7_000, max: 9_500 },
     },
   });
 
@@ -104,19 +106,19 @@ export const AGGRESSIVENESS_FACTS: Readonly<Record<Aggressiveness, Aggressivenes
       summary: "The largest liquid assets and yield, few positions, long horizons.",
       brief:
         `Lean to the largest liquid assets on ${RESEARCH_MARKET.name} (${RESEARCH_MARKET.native}, the majors and stablecoins) and to yield-bearing tokens such as ${RESEARCH_MARKET.native}'s liquid staking tokens.` +
-        " Hold few positions and think in long horizons. Hold class F tokens only: every position has a price feed. Keep at least 30% of the account in stablecoins and no more than 20% in any one position. Expect to keep between 30% and 70% of the account invested; outside that range, or all in cash, say plainly why.",
+        " Hold few positions and think in long horizons. Hold class F tokens only: every position has a price feed. Keep at least 30% of the account in stablecoins and no more than 20% in any one position. Expect to keep between 15% and 40% of the account invested; outside that range, or all in cash, say plainly why.",
     },
     BALANCED: {
       label: "Balanced",
       summary: "Large caps plus a few researched mid caps with a clear thesis.",
       brief:
-        "Hold large caps, plus a few researched mid caps that each have a clear thesis and an exit plan. Attested (class A) tokens may take a small part, at most 8% each and 25% together, once a price attestor is live. Keep at least 15% of the account in stablecoins and no more than 40% in any one position. Expect to keep between 50% and 85% of the account invested; outside that range, or all in cash, say plainly why.",
+        "Hold large caps, plus a few researched mid caps that each have a clear thesis and an exit plan. Attested (class A) tokens may take a small part, at most 8% each and 25% together, once a price attestor is live. Keep at least 15% of the account in stablecoins and no more than 40% in any one position. Expect to keep between 40% and 70% of the account invested; outside that range, or all in cash, say plainly why.",
     },
     AGGRESSIVE: {
       label: "Aggressive",
       summary: "Anything that passes the safety check, with exit plans; larger swings.",
       brief:
-        "Consider anything that passes the safety check, newer and high-beta tokens and memecoins included, with smaller positions and a required exit plan for each. Attested (class A) tokens may take up to 15% each and 50% together, once a price attestor is live. Keep at least 10% of the account in stablecoins and no more than 40% in any one position. Expect larger swings. Expect to keep between 65% and 90% of the account invested; outside that range, or all in cash, say plainly why.",
+        "Consider anything that passes the safety check, newer and high-beta tokens and memecoins included, with smaller positions and a required exit plan for each. Attested (class A) tokens may take up to 15% each and 50% together, once a price attestor is live. Keep at least 5% of the account in stablecoins and no more than 40% in any one position. Expect larger swings. Expect to keep between 70% and 95% of the account invested; outside that range, or all in cash, say plainly why.",
     },
   });
 
