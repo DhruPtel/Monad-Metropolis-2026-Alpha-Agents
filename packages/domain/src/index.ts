@@ -26,3 +26,4 @@ export * from "./runner.ts";
 export { RESEARCH_MARKET, WRAPPED_NATIVE_SYMBOL } from "@alpha-agents/config";
 export { DEPLOYMENT as BASE_SEPOLIA_DEPLOYMENT } from "./deployments/base-sepolia.ts";
 export { DEPLOYMENT as ARBITRUM_SEPOLIA_DEPLOYMENT } from "./deployments/arbitrum-sepolia.ts";
+export * from "./v2-venues.ts";

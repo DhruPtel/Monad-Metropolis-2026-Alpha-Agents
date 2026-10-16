@@ -67,6 +67,8 @@
     "deploy:executor-v3": "node scripts/deploy-executor-v3.js",
     "deploy:attestor": "node scripts/deploy-attestor.js",
     "deploy:testnet": "node scripts/deploy-testnet.js",
+    "dev:discover": "node scripts/dev-v2-discover.js",
+    "deploy:dev": "node scripts/deploy-dev-v2.js",
     "deploy:testnet:v3": "node scripts/deploy-testnet-v3.js",
     "deploy:l2": "node scripts/deploy-l2-testnet.js",
     "mint:copy": "node scripts/mint-copy.js",

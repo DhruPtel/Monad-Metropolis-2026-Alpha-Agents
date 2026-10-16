@@ -787,7 +787,8 @@ const AUSD = "0x00000000efe302beaa2b3e6e1b18d08d69a9012a" as const;
 const { USDC, WMON } = MONAD_BASE_TOKENS;
 
 /** A venue as the contracts number it (Venue in IFund.sol). */
-export const FUND_VENUE = { UNISWAP_V3: 1, PANCAKESWAP_V3: 2, UNISWAP_V4: 3 } as const;
+/** The fund set's venues, as IFund.sol's Venue enum (2026-10-16: the Uniswap v2 family is 4). */
+export const FUND_VENUE = { UNISWAP_V3: 1, PANCAKESWAP_V3: 2, UNISWAP_V4: 3, UNISWAP_V2: 4 } as const;
 
 export interface CorePoolSeed {
   readonly venue: (typeof FUND_VENUE)[keyof typeof FUND_VENUE];

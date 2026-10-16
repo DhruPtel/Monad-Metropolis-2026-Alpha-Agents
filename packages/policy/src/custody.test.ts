@@ -44,10 +44,11 @@ describe("the custody core v3 model (F-U3)", () => {
           .replaceAll("_", "") ?? NaN,
       );
     expect(constant("MAX_TRADE_BPS")).toBe(CUSTODY_V3.maxTradeBps);
-    expect(constant("MAX_ASSET_BPS")).toBe(CUSTODY_V3.maxAssetBps);
+    // 2026-10-16: the one-token cap and the slippage backstop are settings now; these are their defaults.
+    expect(constant("DEFAULT_MAX_ASSET_BPS")).toBe(CUSTODY_V3.maxAssetBps);
     expect(constant("MAX_CLASS_A_POSITION_BPS")).toBe(CUSTODY_V3.maxClassAPositionBps);
     expect(constant("MAX_CLASS_A_TOTAL_BPS")).toBe(CUSTODY_V3.maxClassATotalBps);
-    expect(constant("MAX_SLIPPAGE_BPS")).toBe(CUSTODY_V3.maxSlippageBps);
+    expect(constant("DEFAULT_MAX_SLIPPAGE_BPS")).toBe(CUSTODY_V3.maxSlippageBps);
     expect(constant("MAX_DEPEG_BPS")).toBe(CUSTODY_V3.maxDepegBps);
     expect(constant("MAX_HELD_TOKENS")).toBe(CUSTODY_V3.maxHeldTokens);
     expect(constant("MAX_DECIMALS")).toBe(CUSTODY_V3.maxDecimals);
