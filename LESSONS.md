@@ -1975,3 +1975,37 @@ Cause: useWalletSession returns a new object on every render (wallet-core.ts bui
 Fix: useSentinel keys the read on values (agent, enabled, a refresh counter, the wallet address) and holds the callback in a ref; the control is a ResumeAccount component in three places with the sentinel's reason.
 Lesson: Never key an effect on a callback whose identity follows an unmemoized context value; key it on the primitives it needs, and when a button depends on a slow read, test it with the read delayed longer than the page's fastest timer.
 
+## L-269: every buy of a multi-token plan crosses the same MON/USDC pool, and only the first 2 USDC of them could fill
+Unit: CO-U1 (2026-10-17)
+What happened: Part D quoted a 1 to 3 USDC buy of each of WMON, TALPHA and TBETA, each under the 1.5% oracle floor, and called the pools ready. Quoting the buys in sequence showed otherwise: after about 2 USDC of buys the next 1.5 USDC leg cost 1.56% against the oracle, so the trade flow would refuse it, while an Aggressive three-token plan from agent #2's 4.8 USDC of cash needs about 4 to 4.5 USDC of buys. The runner would have bought one or two tokens and then held for good.
+Cause: on the stand-in testnet every token trades against USDC through MON (WMON in one hop, TALPHA and TBETA in two hops through MON/USDC), and no arbitrage pulls the pool back to the 1.00 operator price, so each leg starts where the previous one left the price. The Test stage's DEPTH check and Part D's quotes both priced each position's buy alone from the current pool. The 2.5 MON added in Part D sat over 1.0074 to 1.0278, and most of it lay past the 1.5% floor, where no leg may trade.
+Fix: the deployer's position moved into [-276250, -276180] (1.0074 to 1.0145), 3.07 MON with the deployer's spare MON (txs 0xe552833e...5d479672 and 0x5c911fb4...b8a6af1d). Cumulative buys now fill up to about 4.3 USDC: legs of 1.5 USDC at 0.87%, about 1.05% and about 1.3%.
+Lesson: When legs share a pool, size its depth along the cumulative path: quote 1.5, 3 and 4.5 USDC and difference them, never one size alone. Liquidity only helps between the price and the oracle floor; anything beyond the floor is dead weight.
+
+## L-270: on Monad testnet viem's gas estimate came back near 25M, and a MON transfer sent right after another transaction reverted
+Unit: CO-U1 (2026-10-17)
+What happened: moving the deployer's pool position, viem's estimate for removeLiquidity came back at 24.8M gas (the RPC then refused the send, "Missing or invalid parameters" and "Exceeds transaction gas limit") although eth_estimateGas answers 217,286 for the same call. The addLiquidity carrying 3.16 MON, sent a few blocks after the removal, reverted on chain (0.035 MON of gas lost), while the same call succeeds in eth_call at the block before it; the identical add sent 8 seconds later succeeded.
+Cause: viem's estimate on this RPC (it sends fee fields with the call) is not the plain estimate; and Monad's reserve balance rule reverts a transaction whose value takes the sender below its reserve while the sender has another transaction in the last few blocks (an emptying transaction is allowed only on its own). eth_call does not apply that rule, so a simulation cannot catch it.
+Fix: gas from the raw eth_estimateGas (no fee fields) times 1.3, since Monad charges the whole limit, and the MON-moving transaction sent alone, seconds after the previous one, with 0.25 MON kept back.
+Lesson: On Monad, set gas from the plain estimate, never from a wrapper's, and give any transaction that moves most of an account's MON a pause after that key's previous transaction; a successful simulation proves nothing about the reserve rule.
+
+## L-271: the arming's activation sweep was refused for credits 34 seconds before the owner's deposit landed, and nothing ran it again
+Unit: CO-U1 (2026-10-17)
+What happened: the owner turned automatic trading on for agent #2 at 14:49:12 UTC and deposited 8 USDC of credits at 14:49:50. The activation sweep the arming starts ran at 14:49:16 and ended "Agent 2 has too few credits for a full research run." (3.15 USDC of credits, 1.00 reserved; a Medium run needs 2.35 above the reserve). The agent then sat armed with no plan until the sweep was started by hand at 15:19.
+Cause: the sweep starts once, when the arming is created, and its credit check reads the balance at that moment; a deposit afterwards does not start it again.
+Fix: none in code; the sweep was started through the orchestrator's activation route (act-74760a88), and it produced the plan.
+Lesson: A step the owner takes must not assume the owner's other steps came first. When a one-shot run fails for something the owner is likely sending next (credits, gas, a deposit), run it again on that event, or the armed agent stays idle with nothing on screen telling the owner why.
+
+## L-272: localhost:3100 said "Could not reach the platform API" while the server was healthy
+Unit: CO-U1 (2026-10-17)
+What happened: the owner's local dev server on port 3100 showed "Could not reach the platform API". On the server the Monad stack was healthy: disk at 35%, every container healthy, and the public /api/health answered 200.
+Cause: the dev server proxied its API calls to 127.0.0.1:4411, a hand-made SSH tunnel to the server's API container, and the tunnel had died (ECONNREFUSED in the dev server's log). Nothing restarts a tunnel.
+Fix: the dev server proxies to the public API instead (CONTROL_API_URL=https://vivarium-testnet.vercel.app/api with WEB_DEV_API_PROXY=1), with no tunnel; the home page and agent #2's pages load with no failed API call.
+Lesson: Point a local front end at the hosted API's public URL. A tunnel dies silently, and the page then blames the platform.
+
+## L-273: the sentinel key's 0.15 MON was gone within minutes
+Unit: CO-U1 (2026-10-17)
+What happened: the Monad stack's sentinel key (0x6a1D...D96e) was topped up to 0.15 MON on 10-17 and held 0.0092 MON shortly after. Every transaction it sent was poke() (selector 0x18178358) to a watched account, about 0.0186 MON each.
+Cause: the sentinel pokes each watched account once a pass, every 60 seconds off the fork, so the breaker's peak moves with the account's value. The poke is free in the contract, but Monad charges each transaction its whole gas limit (about 182,600 gas at 102 gwei), so one watched account costs about 27 MON a day.
+Fix: none yet. A failed poke does not stop trading (the Executor counts a drawdown nobody poked itself, D-233), but while the key is empty it cannot send setReduceOnly or pause either.
+Lesson: On Monad, price every timer-driven transaction as its gas limit times the passes in a day before shipping it. A call that is free in the contract can be the most expensive line in the service.
