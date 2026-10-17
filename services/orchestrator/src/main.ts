@@ -562,6 +562,11 @@ const local = isForkEnvironment(env.id);
 // rate limit on testnet. Real chains poll these every 5 seconds.
 const REMOTE_POLL_MS = 5_000;
 /**
+ * 2026-10-17: the TestnetFeeds' bound in OracleAdapterV3 on the stand-in testnets (the deployed
+ * sets' usdMaxAge, evidence/co-u1-monad/testnet-deployment.json): 30 days.
+ */
+const TESTNET_SENTINEL_FEED_MAX_AGE_S = 30 * 24 * 3_600;
+/**
  * CO-U1 (owner, 2026-10-14): on the testnet stacks the deployer tops an agent's session key up
  * when it cannot pay a swap's gas, as the fork's balance setter does, so an armed agent trades
  * without an operator. The trade flow asks for ten swaps' worth; testnet sends a fifth of that
@@ -677,7 +682,17 @@ const orchestrator = new Orchestrator({
   sentinel: {
     chain: sentinelChain,
     ...(local ? {} : { everyMs: 60_000 }),
-    ...(local ? { rules: { chainMaxAgeSeconds: null } } : {}),
+    // 2026-10-17: on a stand-in testnet the feeds are TestnetFeeds, re-dated only on demand
+    // before a check or a trade (D-307), so between trades they are hours or days old while
+    // the oracle still accepts them (its bound is 30 days on this deploy). The sentinel judges
+    // them by the oracle's bound, not by the 1-hour rule meant for Chainlink: with the 1-hour
+    // rule it set agent #2's account to reduce-only the morning after its trades (STALE_FEED)
+    // and would do so again right after the owner resumed it.
+    ...(local
+      ? { rules: { chainMaxAgeSeconds: null } }
+      : env.id === "testnet" && TESTNET_CHAIN.standIns
+        ? { rules: { feedMaxAgeSeconds: TESTNET_SENTINEL_FEED_MAX_AGE_S } }
+        : {}),
     ...(signerWorker
       ? {
           fundingAddressOf: (agentId: number) => signerWorker.signer.keyAddress(agentId),
