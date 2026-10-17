@@ -119,6 +119,18 @@ export interface StoredProposal {
 /** How long a proposal waits for the owner before it expires (P3-U6). */
 export const PROPOSAL_TTL_MS = 24 * 60 * 60_000;
 
+/**
+ * 2026-10-17: a waiting proposal a newer plan replaced before the owner decided: stored as
+ * `expired` with this reason code (the status list stays as migrated, so an older image still
+ * reads the table), so only the newest proposal ever waits and a plan card never offers one
+ * that can no longer be approved.
+ */
+export const SUPERSEDED = "SUPERSEDED";
+
+/** True for a proposal a newer plan replaced before the owner decided. */
+export const isSuperseded = (p: Pick<StoredProposal, "status" | "reasonCode">): boolean =>
+  p.status === "expired" && p.reasonCode === SUPERSEDED;
+
 interface Row {
   proposal_id: string;
   chain_id: number;
@@ -222,35 +234,53 @@ export class ProposalStore {
     const now = p.now ?? new Date();
     const { json, hash } = planJsonAndHash(p.plan as PlanParams);
     const id = `prop-${randomUUID()}`;
-    await this.db
-      .insertInto("platform.plan_proposals")
-      .values({
-        proposal_id: id,
-        chain_id: p.chainId,
-        agent_id: p.agentId,
-        cycle_id: p.cycleId,
-        stage_run_id: p.stageRunId,
-        kind: "proposal",
-        strategy_epoch: p.strategyEpoch.toString(),
-        owner_epoch: p.ownerEpoch.toString(),
-        template: p.plan.template,
-        params: json,
-        params_hash: hash,
-        rationale: JSON.stringify(p.rationale),
-        positions: JSON.stringify(p.positions),
-        evaluation: JSON.stringify(p.evaluation),
-        status: p.status,
-        needs_approval: p.needsApproval,
-        reason_code: null,
-        explanation: null,
-        decided_by: null,
-        decided_at: p.status === "applied" ? now : null,
-        plan_param_id: p.planParamId ?? null,
-        created_at: now,
-        expires_at: p.status === "pending_owner" ? new Date(now.getTime() + PROPOSAL_TTL_MS) : null,
-      })
-      .execute();
+    await this.db.transaction().execute(async (trx) => {
+      await trx
+        .insertInto("platform.plan_proposals")
+        .values({
+          proposal_id: id,
+          chain_id: p.chainId,
+          agent_id: p.agentId,
+          cycle_id: p.cycleId,
+          stage_run_id: p.stageRunId,
+          kind: "proposal",
+          strategy_epoch: p.strategyEpoch.toString(),
+          owner_epoch: p.ownerEpoch.toString(),
+          template: p.plan.template,
+          params: json,
+          params_hash: hash,
+          rationale: JSON.stringify(p.rationale),
+          positions: JSON.stringify(p.positions),
+          evaluation: JSON.stringify(p.evaluation),
+          status: p.status,
+          needs_approval: p.needsApproval,
+          reason_code: null,
+          explanation: null,
+          decided_by: null,
+          decided_at: p.status === "applied" ? now : null,
+          plan_param_id: p.planParamId ?? null,
+          created_at: now,
+          expires_at:
+            p.status === "pending_owner" ? new Date(now.getTime() + PROPOSAL_TTL_MS) : null,
+        })
+        .execute();
+      // 2026-10-17: a new plan waiting or applied replaces every proposal still waiting.
+      if (p.status !== "rejected")
+        await supersede(trx as unknown as Db, p.chainId, p.agentId, { except: id, now });
+    });
     return (await this.get(p.chainId, p.agentId, id)) as StoredProposal;
+  }
+
+  /**
+   * Marks the agent's waiting proposals superseded (a newer plan replaced them), all but
+   * `except`, and with `before` only those made before it; returns how many.
+   */
+  async supersedePending(
+    chainId: number,
+    agentId: number,
+    o: { readonly except?: string; readonly before?: Date; readonly now?: Date } = {},
+  ): Promise<number> {
+    return supersede(this.db, chainId, agentId, o);
   }
 
   async recordNoChange(n: NewNoChange): Promise<StoredProposal> {
@@ -311,17 +341,68 @@ export class ProposalStore {
     return rows.map((r) => stored(r as unknown as Row));
   }
 
-  /** The proposal waiting for the owner, if any (at most one is kept waiting). */
-  async pending(chainId: number, agentId: number): Promise<StoredProposal | null> {
+  /**
+   * The proposal waiting for the owner, if any (only the newest waits, 2026-10-17): unexpired,
+   * and with `ownerEpoch` made for the current owner (a sale ends the last owner's proposals).
+   */
+  async pending(
+    chainId: number,
+    agentId: number,
+    o: { readonly ownerEpoch?: bigint; readonly now?: Date } = {},
+  ): Promise<StoredProposal | null> {
+    let q = this.db
+      .selectFrom("platform.plan_proposals")
+      .selectAll()
+      .where("chain_id", "=", chainId)
+      .where("agent_id", "=", agentId)
+      .where("status", "=", "pending_owner");
+    if (o.now) {
+      const now = o.now;
+      q = q.where((eb) => eb.or([eb("expires_at", "is", null), eb("expires_at", ">", now)]));
+    }
+    if (o.ownerEpoch !== undefined) q = q.where("owner_epoch", "=", o.ownerEpoch.toString());
+    const row = await q.orderBy("created_at", "desc").executeTakeFirst();
+    return row ? stored(row as unknown as Row) : null;
+  }
+
+  /** 2026-10-17: the proposal that set a plan (its paramId), if a proposal did. */
+  async forPlan(
+    chainId: number,
+    agentId: number,
+    planParamId: string,
+  ): Promise<StoredProposal | null> {
     const row = await this.db
       .selectFrom("platform.plan_proposals")
       .selectAll()
       .where("chain_id", "=", chainId)
       .where("agent_id", "=", agentId)
-      .where("status", "=", "pending_owner")
+      .where("plan_param_id", "=", planParamId)
       .orderBy("created_at", "desc")
       .executeTakeFirst();
     return row ? stored(row as unknown as Row) : null;
+  }
+
+  /** 2026-10-17: each cycle's newest proposal or no-change record, by cycle. */
+  async forCycles(
+    chainId: number,
+    agentId: number,
+    cycleIds: readonly string[],
+  ): Promise<Map<string, StoredProposal>> {
+    const out = new Map<string, StoredProposal>();
+    if (cycleIds.length === 0) return out;
+    const rows = await this.db
+      .selectFrom("platform.plan_proposals")
+      .selectAll()
+      .where("chain_id", "=", chainId)
+      .where("agent_id", "=", agentId)
+      .where("cycle_id", "in", [...cycleIds])
+      .orderBy("created_at", "desc")
+      .execute();
+    for (const r of rows) {
+      const p = stored(r as unknown as Row);
+      if (p.cycleId && !out.has(p.cycleId)) out.set(p.cycleId, p);
+    }
+    return out;
   }
 
   /** Expires every waiting proposal past its time; returns how many. */
@@ -371,6 +452,30 @@ export class ProposalStore {
     if (Number(r.numUpdatedRows ?? 0n) === 0) return null;
     return this.get(chainId, agentId, proposalId);
   }
+}
+
+/** The update `create` and `supersedePending` share. */
+async function supersede(
+  db: Db,
+  chainId: number,
+  agentId: number,
+  o: { readonly except?: string; readonly before?: Date; readonly now?: Date },
+): Promise<number> {
+  let q = db
+    .updateTable("platform.plan_proposals")
+    .set({
+      status: "expired",
+      reason_code: SUPERSEDED,
+      explanation: "A newer plan replaced it before the owner decided.",
+      decided_at: o.now ?? new Date(),
+    })
+    .where("chain_id", "=", chainId)
+    .where("agent_id", "=", agentId)
+    .where("status", "=", "pending_owner");
+  if (o.except) q = q.where("proposal_id", "!=", o.except);
+  if (o.before) q = q.where("created_at", "<", o.before);
+  const r = await q.executeTakeFirst();
+  return Number(r.numUpdatedRows ?? 0n);
 }
 
 /**

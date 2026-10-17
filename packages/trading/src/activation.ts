@@ -8,6 +8,7 @@ import {
   type ArmingState,
   MODEL_TIER_FACTS,
   type ModelTier,
+  STOP_REASON_TEXT,
 } from "@alpha-agents/domain";
 import type { Hex } from "viem";
 import type { ArmingRecord } from "./arming.ts";
@@ -549,26 +550,8 @@ export interface ActivationViewInput {
   readonly arming: Pick<ArmingRecord, "status" | "endedReason"> | null;
 }
 
-/** Every stop reason a stage or the cycle can end with, in the owner's words. */
-export const STOP_REASON_TEXT: Readonly<Record<string, string>> = {
-  COMPLETED: "finished",
-  TASK_CAP: "the task reached its model spend cap",
-  CEILING: "the step reached its cost ceiling",
-  TURN_CAP: "the step used all its model turns",
-  TOKEN_CAP: "the step used all its tokens",
-  STAGE_CALL_CAP: "the step used all its paid data calls",
-  DEADLINE: "the step ran out of time",
-  BUDGET_SHORT: "the day's research budget could not cover the next step",
-  CREDITS_SHORT: "the credits could not cover the next step",
-  BILLING: "the credits ran out",
-  PROVIDER_OUT_OF_CREDIT: "the model provider refused the call",
-  NO_STAGE_RECORD: "the agent ended the step without recording it",
-  NOTHING_MATERIAL: "nothing was worth a closer look",
-  MARKET_UNAVAILABLE: "the pools and prices could not be read",
-  FAILED: "the step failed",
-  INTERRUPTED: "the platform restarted during the step",
-  STALLED: "the sweep stopped moving for an hour (its worker was lost); start it again",
-};
+/** Every stop reason a stage or the cycle can end with, in the owner's words (one list, 2026-10-17). */
+export { STOP_REASON_TEXT };
 
 const reasonText = (code: string | null): string | null =>
   code === null || code === "COMPLETED"
@@ -627,7 +610,8 @@ export function activationStatus(i: ActivationViewInput): ActivationStatus {
     case "declined":
       return "declined";
     case "expired":
-      return "expired";
+      // 2026-10-17: a newer plan replaced the sweep's before approval; armed once that one was.
+      return p.reasonCode === "SUPERSEDED" && i.arming?.status === "armed" ? "active" : "expired";
     case "rejected":
       return "failed";
     case "recorded":
@@ -882,7 +866,9 @@ export function activationSteps(i: ActivationViewInput): ActivationStepView[] {
                 p?.status === "declined"
                   ? "you declined the plan"
                   : p?.status === "expired"
-                    ? "the plan expired before it was approved"
+                    ? p.reasonCode === "SUPERSEDED"
+                      ? "a newer plan replaced it before it was approved"
+                      : "the plan expired before it was approved"
                     : p?.status === "rejected"
                       ? "the plan no longer passed the platform's checks at approval"
                       : null,
@@ -941,6 +927,13 @@ export function activationOutcome(
         action: "retry",
       };
     case "expired":
+      if (i.proposal?.reasonCode === "SUPERSEDED")
+        return {
+          title: "A newer plan replaced it",
+          message:
+            "A later research run made a newer plan before this one was approved; the plan card shows it.",
+          action: "none",
+        };
       return {
         title: "The plan expired",
         message: "A plan waits 24 hours for your approval. Run the sweep again for a fresh one.",

@@ -11,6 +11,7 @@ export * from "./goals.ts";
 export * from "./plans.ts";
 export * from "./decisions.ts";
 export * from "./proposals.ts";
+export * from "./plan-card.ts";
 export * from "./activation.ts";
 export * from "./window.ts";
 export * from "./vault-v3.ts";
