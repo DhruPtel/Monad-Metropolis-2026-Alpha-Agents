@@ -529,7 +529,10 @@ export class Orchestrator {
       // Every mounted skill's and playbook's text, once per process (the brief validator's skill check).
       skillRuns: this.skillText,
       // F-U6: the Test stage v2 over a target portfolio, on the fund agent's set.
-      portfolio: { inputs: (cycle) => this.portfolioTestInputs(cycle) },
+      portfolio: {
+        inputs: (cycle) => this.portfolioTestInputs(cycle),
+        missing: (cycle) => this.portfolioMissing(cycle),
+      },
       // F-U12: the Zoom out names every token seen and not proposed; the universe records it.
       universe: this.universe,
       // 2026-10-13: the web and X searches a Scan and each Dive must make.
@@ -1290,6 +1293,18 @@ export class Orchestrator {
       lastAgentChangeAt: last?.createdAt ?? null,
       now: new Date(),
     };
+  }
+
+  /** 2026-10-17: why there are no Test v2 inputs for the agent: no trading account, no goal or no set. */
+  async portfolioMissing(ref: {
+    readonly chainId: number;
+    readonly agentId: number;
+  }): Promise<"account" | "goal" | "set"> {
+    const v3 = this.o.chain?.readerV3;
+    if (!v3) return "set";
+    if (!(await this.goals.currentGoal(ref.chainId, ref.agentId))) return "goal";
+    const agent = await v3.agent(ref.agentId).catch(() => null);
+    return agent && !agent.account ? "account" : "set";
   }
 
   /** F-U6: a target portfolio draft through the Test stage v2; refused off the fund agent's set. */

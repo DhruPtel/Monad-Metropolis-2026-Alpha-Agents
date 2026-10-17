@@ -538,7 +538,9 @@ class Engine {
     )
       return this.halt(zoom.end);
     // F-U9: the Zoom out's decision becomes a stored proposal (evaluated) or a stored "no change".
-    if (this.ctx.proposals && zoom.end.status === "completed") {
+    // 2026-10-17: also when the step reached a cap after it decided: a recorded decision stands
+    // (fromZoomOut reads the stage's record and stores nothing when the step left none).
+    if (this.ctx.proposals && (zoom.end.status === "completed" || zoom.end.status === "capped")) {
       try {
         const p = await this.ctx.proposals.fromZoomOut(this.cycle, zoom.run);
         if (p) this.ctx.log(`cycle ${this.cycle.cycleId}: ${p.kind} ${p.proposalId} ${p.status}`);

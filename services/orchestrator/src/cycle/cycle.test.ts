@@ -2,10 +2,22 @@ import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import { type TestDatabase, createTestDatabase, databaseAvailable } from "@alpha-agents/db/testing";
 import type { PageText, SearchHit, WebProvider } from "@alpha-agents/data-tools";
-import { DEFAULT_GOAL_INPUT, type GoalInput } from "@alpha-agents/domain";
+import {
+  DEFAULT_GOAL_INPUT,
+  type GoalInput,
+  finishView,
+  planCardShows,
+} from "@alpha-agents/domain";
 import { translateGoal } from "@alpha-agents/policy";
 import { connectClient } from "@alpha-agents/tool-server/testing";
-import { GoalStore, PlanStore, ProposalStore, TradeStore } from "@alpha-agents/trading";
+import {
+  GoalStore,
+  PlanStore,
+  ProposalStore,
+  TradeStore,
+  planCard,
+  runOutcomes,
+} from "@alpha-agents/trading";
 import { usageEntry } from "@alpha-agents/accounting";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { FundingKeys, ensureFundingAddresses, fundingAddressOf } from "../credits/funding.ts";
@@ -366,6 +378,9 @@ describe.skipIf(!dbUp)("the discovery loop engine (needs Postgres)", { timeout: 
 
   beforeEach(async () => {
     for (const table of [
+      // 2026-10-17: the plan card's tests read every proposal and arming of the agent.
+      "platform.plan_proposals",
+      "platform.arming",
       "platform.activity_entries",
       "platform.tool_results",
       "platform.research_briefs",
@@ -1163,6 +1178,272 @@ describe.skipIf(!dbUp)("the discovery loop engine (needs Postgres)", { timeout: 
       .where("kind", "=", "proposal")
       .executeTakeFirst();
     expect(entry?.text).toContain("set a new portfolio");
+  });
+
+  // ---- 2026-10-17: the Research tab's finish strip and the Trading tab's plan card agree ----
+
+  /**
+   * What the two tabs read after a run: the plan card as the control API serves it (for the
+   * goal's owner) and the run's outcome as the research read carries it, with the strip from both.
+   */
+  const tabs = async (cycleId: string) => {
+    const proposalStore = new ProposalStore(t.db);
+    const card = await planCard(
+      { db: t.db, proposals: proposalStore, plans, goals, now: () => new Date() },
+      CHAIN,
+      1,
+      {},
+      { ownerEpoch: 1n },
+    );
+    const c = must(await cycles.cycle(cycleId));
+    const outcome = must(
+      (
+        await runOutcomes(t.db, proposalStore, CHAIN, 1, [
+          { cycleId, kind: c.kind, status: c.status, stopReason: c.stopReason },
+        ])
+      ).get(cycleId),
+    );
+    const refs = {
+      pendingId: card.pending?.proposalId ?? null,
+      inForceId: card.inForce?.proposalId ?? null,
+      planInForce: card.current !== null,
+    };
+    return { card, outcome, shows: planCardShows(refs), finish: finishView(outcome, refs) };
+  };
+  const bands = (targetWmonBps: number, bandHalfWidthBps = 500) => ({
+    kind: "PROPOSE",
+    template: "rebalance_bands@1",
+    params: {
+      targetWmonBps,
+      bandHalfWidthBps,
+      minTradeUsdc: "1",
+      volatilityBrakeBps: 20_000,
+      costHurdleBps: 40,
+      maxLegBps: 900,
+    },
+  });
+  const proposing = {
+    ...rationale,
+    decision: "PROPOSE",
+    reasonCode: null,
+    evidenceStrength: "mixed",
+  };
+  const overview = {
+    kind: "OVERVIEW",
+    summary: "Monad TVL fell 6.8% in 7 days; lending holds 412 million USD.",
+    points: [
+      {
+        text: "Lending holds 412 million USD.",
+        class: "primary",
+        confidence: "medium",
+        sources: ["https://lending.example/stats"],
+      },
+    ],
+  };
+  /** A Zoom out that proposes the given plan (an activation's writes its overview too). */
+  const proposes =
+    (decision: ReturnType<typeof bands>, activation = false): Script =>
+    async (r) => {
+      await start(r);
+      ok(await brief(r.token, proposing));
+      if (activation) ok(await brief(r.token, overview));
+      ok(await complete(r.token, "ZOOM_OUT", { decision }));
+    };
+
+  it("a brand-new agent's first plan reaches the Trading tab: Review plan and the plan card name one proposal (2026-10-17)", async () => {
+    // A new agent: a goal that asks first, no plan in force, no arming, no run yet.
+    await saveGoal({});
+    const before = await planCard(
+      { db: t.db, proposals: new ProposalStore(t.db), plans, goals, now: () => new Date() },
+      CHAIN,
+      1,
+      {},
+      { ownerEpoch: 1n },
+    );
+    expect(before).toMatchObject({ current: null, pending: null, inForce: null, latestRun: null });
+    // Research now: an activation-shaped run, kind ACTIVATION.
+    scripts.ZOOM_OUT = proposes(bands(3_000), true);
+    const { cycle } = await runCycle("ACTIVATION");
+    expect(cycle.status).toBe("completed");
+    const { card, outcome, shows, finish } = await tabs(cycle.cycleId);
+    expect(outcome).toMatchObject({ kind: "awaiting_approval" });
+    expect(card.pending?.proposalId).toBe(outcome.proposalId);
+    expect(card.pending).toMatchObject({ status: "pending_owner", cycleId: cycle.cycleId });
+    expect(shows).toBe("pending");
+    expect(finish).toMatchObject({
+      button: "review_plan",
+      line: "Plan ready: it waits for your approval",
+    });
+    // The card's own newest run reads the same outcome.
+    expect(card.latestRun).toMatchObject({ cycleId: cycle.cycleId, outcome });
+    // A goal saved since (a new strategy epoch) no longer hides it.
+    await saveGoal({ intensity: "LIGHT", dailyBudgetUsdcE6: "1000000" });
+    const after = await tabs(cycle.cycleId);
+    expect(after.card.pending?.proposalId).toBe(outcome.proposalId);
+    expect(after.finish.button).toBe("review_plan");
+  });
+
+  it("the sweep's case: with trading turned on, the first plan waits for approval even when the goal applies changes at once (2026-10-17)", async () => {
+    await saveGoal({ planChanges: "APPLY_AND_TELL" });
+    await new TradeStore(t.db).startArming({
+      chainId: CHAIN,
+      agentId: 1,
+      owner: "0x00000000000000000000000000000000000000aa",
+      ownerEpoch: 1n,
+      configEpoch: 1n,
+      sessionKey: "0x00000000000000000000000000000000000000bb",
+      validUntil: BigInt(Math.floor(Date.now() / 1000) + 86_400),
+    });
+    scripts.ZOOM_OUT = proposes(bands(3_000), true);
+    const { cycle } = await runCycle("ACTIVATION");
+    const { card, outcome, finish } = await tabs(cycle.cycleId);
+    expect(outcome.kind).toBe("awaiting_approval");
+    expect(card.pending?.proposalId).toBe(outcome.proposalId);
+    expect(card.pending?.evaluation?.approval).toBe("first_plan_after_arming");
+    expect(finish.button).toBe("review_plan");
+  });
+
+  it("applied at once: the strip says Plan applied with View plan, the card shows it in force, nothing to review (2026-10-17)", async () => {
+    await saveGoal({ planChanges: "APPLY_AND_TELL" });
+    scripts.ZOOM_OUT = proposes(bands(2_500));
+    const { cycle } = await runCycle();
+    const { card, outcome, shows, finish } = await tabs(cycle.cycleId);
+    expect(outcome).toMatchObject({ kind: "applied", appliedBy: "agent" });
+    expect(card.pending).toBeNull();
+    expect(card.inForce?.proposalId).toBe(outcome.proposalId);
+    expect(card.current?.paramId).toBe(must(await plans.active(CHAIN, 1)).paramId);
+    expect(shows).toBe("in_force");
+    expect(finish).toMatchObject({
+      button: "view_plan",
+      line: "Plan applied: your goal applies plan changes at once",
+    });
+  });
+
+  it("kept: Plan unchanged with View current plan under a plan in force; with none, the reason and no button (2026-10-17)", async () => {
+    await saveGoal({});
+    // No plan in force: the run's own "no change" (the default Zoom out) is no plan, said so.
+    const first = await runCycle();
+    const none = await tabs(first.cycle.cycleId);
+    expect(none.outcome).toMatchObject({ kind: "kept", reasonCode: "EVIDENCE_THIN" });
+    expect(none.card.pending).toBeNull();
+    expect(none.card.noChange?.proposalId).toBe(none.outcome.proposalId);
+    expect(none.shows).toBe("none");
+    expect(none.finish).toMatchObject({
+      button: null,
+      line: "No plan: the research decided against a change: evidence thin.",
+    });
+    // A plan in force, then a run that keeps it.
+    await plans.set({
+      chainId: CHAIN,
+      agentId: 1,
+      setBy: "owner",
+      setByAddress: "0x00000000000000000000000000000000000000aa",
+      template: "rebalance_bands@1",
+      params: {
+        targetWmonBps: 3_000,
+        bandHalfWidthBps: 500,
+        minTradeUsdcE6: 1_000_000n,
+        volatilityBrakeBps: 20_000,
+        costHurdleBps: 40,
+        maxLegBps: 900,
+      },
+    });
+    const second = await runCycle();
+    const kept = await tabs(second.cycle.cycleId);
+    expect(kept.outcome.kind).toBe("kept");
+    expect(kept.shows).toBe("in_force");
+    expect(kept.finish).toMatchObject({ button: "view_current_plan", line: "Plan unchanged" });
+  });
+
+  it("refused: drafts the Test refused and a plan step that never recorded one: no Review plan, the card says why (2026-10-17)", async () => {
+    await saveGoal({});
+    scripts.ZOOM_OUT = async (r) => {
+      await start(r);
+      ok(await brief(r.token, proposing));
+      // Two drafts out of bounds, then the agent ends without recording a decision.
+      await complete(r.token, "ZOOM_OUT", { decision: bands(3_000, 50) });
+      await complete(r.token, "ZOOM_OUT", { decision: bands(3_000, 40) });
+    };
+    const { cycle } = await runCycle();
+    expect(await new ProposalStore(t.db).list(CHAIN, 1)).toEqual([]);
+    const { card, outcome, shows, finish } = await tabs(cycle.cycleId);
+    expect(outcome).toMatchObject({
+      kind: "refused",
+      reasonCode: "OUT_OF_BOUNDS",
+      proposalId: null,
+    });
+    expect(outcome.reason).toBe(
+      "The platform's checks refused the 2 plans the agent drafted: a weight is outside what the plan may hold; then the plan step stopped: the agent ended the step without recording it.",
+    );
+    // The Test's own words are on record too.
+    expect(outcome.findings[0]?.message).toMatch(/band/i);
+    expect(card.pending).toBeNull();
+    expect(shows).toBe("none");
+    expect(card.latestRun?.outcome.kind).toBe("refused");
+    expect(finish.button).toBeNull();
+    expect(finish.line).toBe(`No plan: t${must(outcome.reason).slice(1)}`);
+  });
+
+  it("names the missing account set when a target portfolio cannot be checked, and the kept run says so (2026-10-17)", async () => {
+    await saveGoal({});
+    const cashOnly = {
+      positions: [],
+      cashTargetBps: 10_000,
+      minTradeUsdc: "1",
+      volatilityBrakeBps: 20_000,
+      costHurdleBps: 40,
+      maxLegBps: 900,
+    };
+    scripts.ZOOM_OUT = async (r) => {
+      await start(r);
+      ok(
+        await brief(r.token, {
+          ...proposing,
+          allocationNote: "Neither thesis is worth a position at today's prices.",
+          cashNote: "Both theses rest on one source each; cash waits for a second onchain source.",
+        }),
+      );
+      await complete(r.token, "ZOOM_OUT", {
+        decision: { kind: "PROPOSE", template: "target_portfolio@1", params: cashOnly },
+      });
+      ok(await brief(r.token, rationale));
+      ok(
+        await complete(r.token, "ZOOM_OUT", {
+          decision: { kind: "NO_CHANGE", reasonCode: "EVIDENCE_THIN" },
+        }),
+      );
+    };
+    const { cycle, stages } = await runCycle();
+    const test = must(stages.find((s) => s.stage === "TEST"));
+    expect((test.outcome as { checked: { codes: string[] }[] }).checked).toEqual([
+      expect.objectContaining({ passed: false, codes: ["NOT_ON_SET"] }),
+    ]);
+    const { outcome, finish } = await tabs(cycle.cycleId);
+    expect(outcome.kind).toBe("kept");
+    expect(outcome.reason).toBe(
+      "The research decided against a change (evidence thin) after the platform's checks refused the plan the agent drafted: the agent is not on the platform's trading contracts.",
+    );
+    expect(finish.button).toBeNull();
+  });
+
+  it("a newer waiting plan replaces the older: the card offers only the newer, the older run says it was replaced (2026-10-17)", async () => {
+    await saveGoal({});
+    scripts.ZOOM_OUT = proposes(bands(3_000));
+    const first = await runCycle();
+    scripts.ZOOM_OUT = proposes(bands(2_000));
+    const second = await runCycle();
+    const older = await tabs(first.cycle.cycleId);
+    const newer = await tabs(second.cycle.cycleId);
+    expect(newer.outcome.kind).toBe("awaiting_approval");
+    expect(newer.card.pending?.proposalId).toBe(newer.outcome.proposalId);
+    expect(newer.finish.button).toBe("review_plan");
+    expect(older.outcome).toMatchObject({ kind: "superseded", reasonCode: "SUPERSEDED" });
+    expect(older.finish).toMatchObject({ button: null, otherWaiting: true });
+    expect(older.finish.line).toBe("Plan replaced: a newer plan replaced it before you decided.");
+    const stored = must(
+      await new ProposalStore(t.db).get(CHAIN, 1, must(older.outcome.proposalId)),
+    );
+    expect(stored).toMatchObject({ status: "expired", reasonCode: "SUPERSEDED" });
   });
 
   it("refuses a proposal whose RATIONALE calls positions the proposal does not carry, then accepts the corrected one (F-U8)", async () => {

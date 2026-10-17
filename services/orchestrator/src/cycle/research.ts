@@ -48,8 +48,14 @@ export interface CycleResearchOptions {
   readonly plans: PlanStore;
   /** Eight-word runs of every mounted skill and playbook (validator.skillRuns). */
   readonly skillRuns: () => ReadonlySet<string>;
-  /** F-U6: the Test stage's inputs for a target portfolio on the fund agent's v3 set; null off it. */
-  readonly portfolio?: { inputs(cycle: Cycle): Promise<TestInputsV2 | null> } | null;
+  /**
+   * F-U6: the Test stage's inputs for a target portfolio on the fund agent's v3 set; null off it.
+   * 2026-10-17: `missing` says why there are none (no trading account, no goal, or no set).
+   */
+  readonly portfolio?: {
+    inputs(cycle: Cycle): Promise<TestInputsV2 | null>;
+    missing?(cycle: Cycle): Promise<"account" | "goal" | "set">;
+  } | null;
   /** F-U12: the universe each cycle considered; the Zoom out names every token seen and not proposed. */
   readonly universe?: UniverseStore | null;
   /**
@@ -141,6 +147,21 @@ const TESTNET_NATIVE_PICK: Readonly<Record<number, { token: string; symbol: stri
   [TESTNET_CHAINS["base-sepolia"].chainId]: { token: BASE_WETH, symbol: "WETH" },
   [TESTNET_CHAINS["arbitrum-sepolia"].chainId]: { token: BASE_WETH, symbol: "WETH" },
 };
+
+/** 2026-10-17: the Test's finding when a target portfolio has nothing to be checked against. */
+const MISSING_INPUTS = {
+  account: {
+    code: "NO_ACCOUNT",
+    field: "account",
+    message: "The agent has no trading account yet, so a plan has nothing to hold it.",
+  },
+  goal: { code: "NO_GOAL", field: "goal", message: "The agent has no goal." },
+  set: {
+    code: "NOT_ON_SET",
+    field: "account",
+    message: "The agent is not on the fund agent's set, so a target portfolio cannot be checked.",
+  },
+} as const;
 
 export class CycleResearch {
   private readonly o: CycleResearchOptions;
@@ -559,12 +580,16 @@ export class CycleResearch {
       if (decision.template === "target_portfolio@1") {
         // F-U6: a target portfolio goes through the Test stage v2 on the fund agent's set.
         const inputs = await this.portfolioTestInputs(cycle);
-        if (!inputs)
+        if (!inputs) {
+          // 2026-10-17: on the Test's record, so the run's outcome names why it made no plan.
+          const missing = (await this.o.portfolio?.missing?.(cycle).catch(() => null)) ?? "set";
+          await this.recordCheck(cycle.cycleId, decision.params, [MISSING_INPUTS[missing]]);
           throw new ToolError(
             "INVALID_INPUT",
             "A target portfolio needs the fund agent's set, which this agent is not on; propose rebalance_bands@1 or end with NO_CHANGE.",
             false,
           );
+        }
         // F-T2: one rule set with the proposal evaluator; the verdict's fingerprint goes on the record.
         const verdict = await this.targetPortfolioVerdict(decision.params, inputs);
         findings = verdict.findings;
@@ -714,7 +739,7 @@ export class CycleResearch {
   private async recordCheck(
     cycleId: string,
     params: unknown,
-    findings: readonly { code: string }[],
+    findings: readonly { code: string; field?: string; message?: string }[],
     verdict: { fingerprint: PlanInputsFingerprint; cost: PlanCost } | null = null,
   ) {
     const test = (await this.o.cycles.stages(cycleId)).find((s) => s.stage === "TEST");
@@ -733,6 +758,12 @@ export class CycleResearch {
               params,
               passed: findings.length === 0,
               codes: findings.map((f) => f.code),
+              // 2026-10-17: the Test's own words, so a run whose drafts were all refused says why.
+              findings: findings.map((f) => ({
+                code: f.code,
+                field: f.field ?? null,
+                message: f.message ?? null,
+              })),
               ...(verdict ? { fingerprint: verdict.fingerprint, cost: verdict.cost } : {}),
             },
           ],

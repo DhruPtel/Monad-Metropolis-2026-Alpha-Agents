@@ -324,6 +324,36 @@ function envelopeOf(t: Pick<TestInputsV2, "aggressiveness" | "maxPositions">) {
   };
 }
 
+/**
+ * 2026-10-17: the largest share of the account (bps, whole percents) a buy of the token fills in
+ * one go within the slippage limit, by halving between nothing and the drafted share: at most
+ * six more quotes, asked only for a position the depth check refused.
+ */
+async function largestFill(
+  t: Pick<TestInputsV2, "quoteBuy">,
+  s: {
+    readonly token: Hex;
+    readonly decimals: number;
+    readonly priceE18: bigint;
+    readonly targetBps: number;
+  },
+  nav: bigint,
+  slippageBps: number,
+): Promise<number> {
+  let lo = 0;
+  let hi = s.targetBps;
+  for (let i = 0; i < 6 && hi - lo > 100; i++) {
+    const mid = Math.floor((lo + hi) / 2);
+    const value = (nav * BigInt(mid)) / BPS;
+    const got = value > 0n ? await t.quoteBuy(s.token, value).catch(() => null) : null;
+    const want = amountForValue(value, s.priceE18, s.decimals);
+    const floor = (want * (BPS - BigInt(slippageBps))) / BPS;
+    if (got !== null && got >= floor) lo = mid;
+    else hi = mid;
+  }
+  return Math.floor(lo / 100) * 100;
+}
+
 export async function checkPortfolioProposal(
   p: TargetPortfolioParams,
   t: TestInputsV2,
@@ -474,17 +504,25 @@ export async function checkPortfolioProposal(
       const out1 = await t.quoteBuy(s.token, target);
       const impliedOut = amountForValue(target, s.priceE18, s.decimals);
       const floor = (impliedOut * (BPS - BigInt(policy.maxSlippageBps))) / BPS;
-      if (out1 === null)
+      if (out1 !== null && out1 >= floor) continue;
+      // 2026-10-17: the largest share that does fit, so the next draft can be sized to the pools
+      // at once (a Zoom out that guessed again ran out of its budget, and the run had no plan).
+      const fits = await largestFill(t, s, v.nav, policy.maxSlippageBps);
+      const room =
+        fits > 0
+          ? ` About ${pctOf(fits)} of this account fits in one go now; size ${s.symbol} at or below that.`
+          : "";
+      if (out1 === null && fits === 0)
         out.push({
           code: "DEPTH",
           field: `positions.${s.symbol}`,
           message: `No registered route reaches ${s.symbol} for a ${pctOf(s.targetBps)} position of this account.`,
         });
-      else if (out1 < floor)
+      else
         out.push({
           code: "DEPTH",
           field: `positions.${s.symbol}`,
-          message: `A ${pctOf(s.targetBps)} position in ${s.symbol} is too large for its pools: buying it in one go would cost more than the ${pctOf(policy.maxSlippageBps)} slippage limit, so the runner could not reach the target.`,
+          message: `A ${pctOf(s.targetBps)} position in ${s.symbol} is too large for its pools: buying it in one go would cost more than the ${pctOf(policy.maxSlippageBps)} slippage limit, so the runner could not reach the target.${room}`,
         });
     }
     // Every token the plan no longer names is sold as well.

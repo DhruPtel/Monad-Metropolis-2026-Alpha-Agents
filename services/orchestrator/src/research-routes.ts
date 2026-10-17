@@ -6,6 +6,7 @@ import { type ReasoningAlias, isReasoningAlias, utcDayStart } from "./cycle/stag
 import type { Orchestrator } from "./orchestrator.ts";
 import { type TerminalCall, carriesSkillText, sourceLabel, terminalEvents } from "./terminal.ts";
 import { formatUsdc } from "./narrator.ts";
+import { runOutcomes } from "@alpha-agents/trading";
 import {
   PRICE_TRIGGER_BPS,
   TRIGGER_CODES,
@@ -423,6 +424,19 @@ async function researchRecords(orch: Orchestrator, ref: { chainId: number; agent
     (b) => b.kind === "RATIONALE" && (b.body as { decision?: unknown }).decision === "NO_CHANGE",
   );
   const cycles = await orch.cycles.cycles(ref, 10);
+  // 2026-10-17: what each run did with the plan, read as the plan card reads it.
+  const outcomes = await runOutcomes(
+    orch.loop.db,
+    orch.proposals.store,
+    ref.chainId,
+    ref.agentId,
+    cycles.map((c) => ({
+      cycleId: c.cycleId,
+      kind: c.kind,
+      status: c.status,
+      stopReason: c.stopReason,
+    })),
+  );
   const rows = await Promise.all(
     cycles.map(async (c) => ({
       cycleId: c.cycleId,
@@ -433,6 +447,7 @@ async function researchRecords(orch: Orchestrator, ref: { chainId: number; agent
       chargedUsdcE6: c.chargedUsdcE6.toString(),
       // 2026-10-16: why a run stopped (CREDITS_SHORT, BUDGET_SHORT, ...), and at which stage.
       stopReason: c.stopReason,
+      outcome: outcomes.get(c.cycleId) ?? null,
       stages: (await orch.cycles.stages(c.cycleId)).map((s) => ({
         stage: s.stage,
         themeCode: s.themeCode,
