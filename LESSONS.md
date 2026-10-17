@@ -2016,3 +2016,52 @@ What happened: after agent #2's four legs settled (on chain TALPHA 34.9%, TBETA 
 Cause: the control API's portfolio read named each held token from the platform's token list (platform.tokens: core lane, class F, listed), which has no rows for chain 10143 on this stack, so a token outside it was named by its short address ("0xD4EB…c03c"). The plan's rows find a holding by symbol, found none, and read 0%. The holdings card read only the address book's USDC, WMON and WETH, so the stand-ins were missing there entirely.
 Fix: both readers name a held token from the list, then the wrapped native's word, then the token's own symbol() from the chain (read once per reader); the holdings card lists every token the v3 account's holdings() view lists; a class A token the list leaves out is valued at its attested price; the plan's rows find a holding by token address first, then by name (f0d63d8, 87934ed). The Monad API runs vivarium-backend:87934ed.
 Lesson: Name what an account holds from the account and the chain, never from a side list that may be empty on a stack, and join a plan's rows to holdings by address, not by a display name.
+
+## L-275: the Research tab said "Review plan" while the Trading tab showed no plan
+Unit: CO-U1 (2026-10-17)
+What happened: after a research run the Research tab's finish strip offered "Review plan", and the Trading tab said "No plan yet: the activation sweep makes the first one." It happened on agent #2 (three runs stopped for credits on 10-16, and runs whose plan applied at once on 10-15) and on a new wallet's agent #6 today (cycle-af9b6bee: the Test refused both plans the Zoom out drafted, then the step hit its 0.25 USDC ceiling, and no proposal was ever written).
+Cause: the strip never read what the run did with the plan. It showed "Review plan" for any finished run that was not the one that kept the plan, so runs that stopped, failed, were refused, found nothing material, or applied their plan at once all claimed a plan waiting. The plan card read the proposals table, so the two tabs answered the same question from different data. While a run ended, the strip could also read a plan card fetched before the run finished.
+Fix: one outcome per run (packages/domain plan-outcome.ts: awaiting approval, applied, kept, refused, declined, expired, superseded, no plan, with the reason), read from the cycle, its stages, the Test's checked drafts and the proposal it wrote, served on the research read and on the plan card's latestRun. The strip shows "Review plan" only when the run's proposal is the one the card shows waiting; a card read before the run ended does not decide it (aefef02, 340454e, c3c0d01).
+Lesson: Two screens that report one fact must compute it with one function over the records that fact lives in. A label inferred from "the run finished" is a guess, and the guess is wrong exactly when something went wrong.
+
+## L-276: the plan card showed a refused or expired proposal under "In force since"
+Unit: CO-U1 (2026-10-17)
+What happened: with no proposal waiting, the Trading tab's card could show a rejected, declined or expired proposal as the plan in force, an applied plan vanished once eight newer records came after it, and a plan the agent applied by itself was badged "Approved". Switching agents could also leave the previous agent's card on screen until the next read landed.
+Cause: the card picked the latest applied proposal among the last eight records, else the latest decided one of any status. Nothing tied "in force" to the plan actually in force. The portfolio hook reset every read on an agent change except the plan card.
+Fix: the API names the proposal that set the plan in force (its plan_param_id is the active plan's); the card shows the waiting proposal, else that one, never a refused or expired one; the badge says Applied or Approved by who decided; the card resets with the agent (aefef02, c3c0d01).
+Lesson: "What is in force" is a join to the active record, never "the newest item of a list". A fallback that shows something rather than nothing can show the wrong thing with full confidence.
+
+## L-277: an older waiting proposal came back after the newer one was decided, and approvals failed as stale after a goal save
+Unit: CO-U1 (2026-10-17)
+What happened: two runs each left a proposal waiting; the card showed the newer, and once the owner decided it the older one reappeared, and its Approve answered 409 proposal_stale. Saving the goal after a proposal had the same effect: the card offered the proposal and the approval refused it.
+Cause: storing a proposal never touched the ones already waiting, and the approval called a proposal stale when its strategy epoch differed from the agent's, which every goal save and every plan set bumps. The card did not filter by that epoch, so it offered what the approval would refuse.
+Fix: storing a proposal as waiting or applied marks every other waiting one superseded (status expired with reason_code SUPERSEDED, so no migration and older images still read it), and so does an approval or a plan set after it; the approval no longer checks the strategy epoch (it re-checks the plan against the goal in force) and still refuses a proposal made for an earlier owner (aefef02, 0cd460e).
+Lesson: When a newer record replaces an older one, mark the older at write time instead of hoping every reader picks the newest. A staleness rule must be the same rule the screen uses to decide what to offer.
+
+## L-278: a capped plan step lost the decision it had recorded, and refused drafts left only codes or no trace at all
+Unit: CO-U1 (2026-10-17)
+What happened: a Zoom out that recorded its decision and was then capped wrote no proposal and no "no change". Drafts the Test refused kept only their codes, and a target portfolio for an agent with no trading account was refused without any record, so a run that made no plan could not say why.
+Cause: the cycle called fromZoomOut only when the Zoom out ended "completed". recordCheck stored codes, and the missing-inputs branch threw before recording anything.
+Fix: a capped Zoom out with a recorded decision is stored like a completed one; each checked draft keeps its findings in the Test's words; a target portfolio with nothing to check against is recorded as NO_ACCOUNT, NO_GOAL or NOT_ON_SET (340454e).
+Lesson: A decision on record stands whatever ends the step afterwards, and every refusal belongs on the record with its words, including the ones that happen before the check can even run.
+
+## L-279: agent #6's first research run made no plan because its positions were larger than the testnet pools can fill
+Unit: CO-U1 (2026-10-17)
+What happened: agent #6's activation sweep (cycle-af9b6bee, 1.41 USDC) drafted WETH 40% (mapped to TALPHA, then WMON), GHO 10% and AUSD 8% on a 10 USDC account. The Test refused the first draft OUT_OF_BOUNDS three times and DEPTH, the second DEPTH, and the Zoom out then reached its 0.25 USDC ceiling without a plan.
+Cause: on the Monad stack the stand-ins buy through the MON/USDC pool, which sits about 1.2% off the 1.00 oracle; at the goal's 1.5% slippage a buy of 0.25 to 1 USDC fills (1.26% to 1.39% off the oracle), and 2 USDC or more finds no route at all (probe at block 71906539). A 40% position on 10 USDC (4 USDC) can never pass, and the Zoom out learns the limit only from a refusal, each costing part of its ceiling.
+Fix: the DEPTH finding now says about how much of the account fits in one go, so the next draft can size to it, and the finish strip and the plan card name the refusal (340454e, c3c0d01). Not fixed: re-centring or deepening the pool (it needs about 5 MON and 5 USDC the platform's testnet keys do not hold), and handing the Zoom out the depth limit before it drafts.
+Lesson: Give the planner the market's capacity before it drafts. A limit learned only through refusals burns the budget the planner needs to recover.
+
+## L-280: the cycle suite's tests saw proposals and armings left by earlier tests
+Unit: CO-U1 (2026-10-17)
+What happened: new plan card tests failed with a superseded proposal no test of theirs had written.
+Cause: the suite's beforeEach cleared every research table but platform.plan_proposals and platform.arming; older tests only read the newest proposal, so the leak never showed.
+Fix: both tables are cleared between tests (340454e).
+Lesson: When a test reads "every row of X", check that the suite's reset lists X; a reset list written for older tests is not proof of isolation.
+
+## L-281: a new agent on the Monad stack stayed unrevealed: the reveal keeper could not pay the Entropy fee
+Unit: CO-U1 (2026-10-17)
+What happened: agent #7, minted at 20:29 UTC for the plan card check, was still unrevealed eight minutes later. The orchestrator logged "keeper: keeper step failed: Missing or invalid parameters" or "HTTP request failed" every five seconds (87 lines in ten minutes), and nothing else said so.
+Cause: each reveal request carries Pyth Entropy's fee as value (0.128 MON) plus gas, and the keeper key (0x98c0...e7af) held 0.013 MON after agent #6's reveal at 19:14. The RPC answers an unaffordable transaction with "Missing or invalid parameters", which does not read as a balance problem.
+Fix: 0.2 MON from the test wallet to the keeper; it revealed agent #7 at 20:45 and now holds 0.060 MON, less than one more reveal, so the next mint on this stack waits until the key gets MON again. Not fixed: no monitor watches the keeper's balance.
+Lesson: Every key that pays a per-mint fee needs a balance alarm set above one fee plus gas, and a keeper should log "cannot pay" in words when its balance is below what the next step costs, instead of retrying a raw RPC error forever.
