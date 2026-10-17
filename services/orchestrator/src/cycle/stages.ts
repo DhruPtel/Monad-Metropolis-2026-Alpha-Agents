@@ -1,3 +1,4 @@
+import { TESTNET_CHAIN } from "@alpha-agents/config";
 /**
  * The discovery loop's stages as data (P3-U4, D-093, D-285, A-51): which model
  * each stage runs on, its work caps and its ceiling, which themes earn a Dive,
@@ -95,7 +96,9 @@ export function stageCeilingUsdcE6(
     case "CHALLENGE":
       return usdc(0.1 * deep);
     case "ZOOM_OUT":
-      return usdc(0.25 * deep);
+      // 2026-10-16: the dev stack's venue lists 45 and more tokens, which every price list,
+      // envelope and token market carries into the Zoom out's context: three times the room.
+      return usdc(0.25 * deep * (TESTNET_CHAIN.standIns ? 1 : 3));
     case "TEST":
       return 0n;
   }

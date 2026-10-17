@@ -62,5 +62,12 @@ export function withAttestedPrices(
     custodyPath: (agentId) => inner.custodyPath(agentId),
     bestRoute: (tokenIn, tokenOut, amountIn, o) => inner.bestRoute(tokenIn, tokenOut, amountIn, o),
     quoteRoute: (route, tokenIn, amountIn) => inner.quoteRoute(route, tokenIn, amountIn),
+    // 2026-10-16: the v2 family venue's token market, passed through (the dev stack's research).
+    ...(inner.v2TokenStats
+      ? {
+          v2TokenStats: (windowMinutes: number) =>
+            inner.v2TokenStats?.(windowMinutes) ?? Promise.resolve([]),
+        }
+      : {}),
   };
 }
