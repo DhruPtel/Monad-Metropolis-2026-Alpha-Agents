@@ -345,7 +345,7 @@ describe("the brief validator (D-284, P3-U4)", () => {
     expect(theme({ thesis: null, noThesisReason: "Too thin.", fairWeightBps: null }).ok).toBe(true);
   });
 
-  it("parses the Zoom out's rationale: weak evidence never carries a position (cash only, with a note, since A-81), and NO_CHANGE holds every position (F-U8)", () => {
+  it("parses the Zoom out's rationale: every kept position carries its sizing inputs (2026-10-17), the evidence rating is no gate, and NO_CHANGE holds every position (F-U8)", () => {
     const wbtc = "0x0555e30da8f98308edb960aa94c0db47230d2b9c";
     const rationale = (over: Record<string, unknown> = {}) =>
       parseBrief({
@@ -365,6 +365,8 @@ describe("the brief validator (D-284, P3-U4)", () => {
             themeCode: "WBTC_ADD",
             reason: "Deep pool.",
             conviction: 72,
+            expectedReturnPct: 18,
+            risks: "A thin holder base; the bridge's governance.",
             standInFor: null,
           },
         ],
@@ -379,6 +381,21 @@ describe("the brief validator (D-284, P3-U4)", () => {
     });
     expect(unscored.ok).toBe(false);
     if (!unscored.ok) expect(unscored.reasons.join(" ")).toContain("a conviction from 0 to 100");
+    // 2026-10-17 (owner): the portfolio manager's inputs, per kept position.
+    const unsized = rationale({
+      positions: [
+        {
+          token: wbtc,
+          symbol: "WBTC",
+          action: "ADD",
+          themeCode: "WBTC_ADD",
+          reason: "Deep pool.",
+          conviction: 72,
+        },
+      ],
+    });
+    expect(unsized.ok).toBe(false);
+    if (!unsized.ok) expect(unsized.reasons.join(" ")).toContain("expectedReturnPct");
     expect(
       rationale({
         positions: [
@@ -389,15 +406,15 @@ describe("the brief validator (D-284, P3-U4)", () => {
             themeCode: "WBTC_ADD",
             reason: "Deep pool.",
             conviction: 80,
+            expectedReturnPct: -5,
+            risks: "ETH beta into the unlock.",
             standInFor: { token: null, symbol: "WETH" },
           },
         ],
       }).ok,
     ).toBe(true);
-    const weak = rationale({ evidenceStrength: "weak" });
-    expect(weak.ok).toBe(false);
-    if (!weak.ok) expect(weak.reasons.join(" ")).toContain("weak evidence cannot carry a position");
-    // F-T1 (A-81): weak evidence may propose cash only, saying why in the allocation note.
+    // 2026-10-17 (owner): the evidence rating is a rating the owner reads, never a gate.
+    expect(rationale({ evidenceStrength: "weak" }).ok).toBe(true);
     expect(
       rationale({
         evidenceStrength: "weak",

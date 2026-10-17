@@ -31,6 +31,9 @@ export interface PickCall {
   readonly themeCode: string | null;
   readonly reason: string;
   readonly conviction?: number | null;
+  /** 2026-10-17: the portfolio manager's sizing inputs, carried onto the stand-in's call. */
+  readonly expectedReturnPct?: number | null;
+  readonly risks?: string | null;
 }
 
 /** A tradable stand-in, in the order picks map onto them, with its cap for one position. */
@@ -47,7 +50,29 @@ export interface MappedCall {
   readonly themeCode: string | null;
   readonly reason: string;
   readonly conviction: number | null;
+  readonly expectedReturnPct: number | null;
+  readonly risks: string | null;
   readonly standInFor: { readonly token: string | null; readonly symbol: string } | null;
+}
+
+/**
+ * 2026-10-17 (owner, A5): on a testnet the only plan is target_portfolio@1 and a Zoom out never
+ * ends with NO_CHANGE but for a cooldown. The refusal's text, "cooldown" for the one allowed
+ * NO_CHANGE, or null when the decision may go on to the mapping. Pure.
+ */
+export function testnetDecisionRefusal(
+  decision:
+    | { readonly kind: "NO_CHANGE"; readonly reasonCode: string }
+    | { readonly kind: "PROPOSE"; readonly template: string },
+  asPicks: string,
+): string | "cooldown" | null {
+  if (decision.kind === "NO_CHANGE")
+    return decision.reasonCode === "COOLDOWN"
+      ? "cooldown"
+      : `On a testnet a Zoom out never ends with NO_CHANGE (a cooldown aside): ${asPicks}.`;
+  if (decision.template !== "target_portfolio@1")
+    return `The two-asset WMON band plan (rebalance_bands@1) is retired on a testnet; only target_portfolio@1 is allowed: ${asPicks}.`;
+  return null;
 }
 
 export interface StandInMapping {
@@ -200,6 +225,8 @@ export function mapToStandIns(o: {
       themeCode: call?.themeCode ?? s.pick.p.thesisId,
       reason: `${call?.reason || `${symbolOf(s.pick.p.token)} at ${pct(s.w)} from the research.`}${capNote(s)}`,
       conviction: call?.conviction ?? null,
+      expectedReturnPct: call?.expectedReturnPct ?? null,
+      risks: call?.risks ?? null,
       standInFor: real ? { token: lower(real), symbol: symbolOf(real) } : null,
     };
   });
@@ -213,6 +240,8 @@ export function mapToStandIns(o: {
         themeCode: null,
         reason: "No research pick maps to it this cycle.",
         conviction: null,
+        expectedReturnPct: null,
+        risks: null,
         standInFor: null,
       });
 

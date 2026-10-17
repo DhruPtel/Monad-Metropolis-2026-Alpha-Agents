@@ -225,6 +225,13 @@ export const PositionCall = z.strictObject({
    * risks, market data and the Challenge's verdict; the weight follows it.
    */
   conviction: z.number().int().min(0).max(100).nullable().optional(),
+  /**
+   * 2026-10-17 (owner): the portfolio manager's sizing inputs. The return expected over the
+   * thesis's horizon, in percent (negative allowed), and the main risks, from the research;
+   * the weight follows expected return times confidence under the goal's mindset.
+   */
+  expectedReturnPct: z.number().min(-100).max(10_000).nullable().optional(),
+  risks: text(240).nullable().optional(),
   /** 2026-10-15: on a testnet, the researched token this tradable stand-in carries. */
   standInFor: z.strictObject({ token: TokenAddress.nullable(), symbol }).nullable().optional(),
 });
@@ -282,17 +289,20 @@ export const RationaleBrief = z
       "a NO_CHANGE decision holds every position; an ADD, TRIM or EXIT needs a PROPOSE decision",
     path: ["positions"],
   })
+  // 2026-10-17 (owner): no caution gate on the evidence rating; a proposal sizes every position
+  // it keeps from its expected return, its risks and its confidence.
   .refine(
     (b) =>
-      !(
-        b.evidenceStrength === "weak" &&
-        b.decision === "PROPOSE" &&
-        b.positions.some((p) => p.action === "ADD")
+      b.decision !== "PROPOSE" ||
+      b.positions.every(
+        (p) =>
+          p.action === "EXIT" ||
+          (typeof p.expectedReturnPct === "number" && (p.risks ?? "").trim().length > 0),
       ),
     {
       message:
-        "weak evidence cannot carry a position: decide NO_CHANGE with EVIDENCE_THIN, or propose cash only with an allocationNote and a cashNote that say why",
-      path: ["evidenceStrength"],
+        "a PROPOSE decision gives every position it keeps its expectedReturnPct over the thesis's horizon and its main risks (risks), from the research",
+      path: ["positions"],
     },
   )
   .refine(
@@ -367,14 +377,17 @@ export const GetResearchContextOutput = z.strictObject({
     token: z.strictObject({ address: z.string(), symbol: z.string().nullable() }).nullable(),
     briefsToWrite: z.array(z.enum(BRIEF_KINDS)),
   }),
-  plan: z
-    .strictObject({
-      template: z.string(),
-      /** The two-asset plan's figures, or a target portfolio's positions and cash target (F-U6). */
-      params: z.record(z.string(), z.unknown()),
-      setAt: z.string(),
-    })
-    .nullable(),
+  /**
+   * 2026-10-17 (owner): the tokens the plan holds, each with its thesis and exit, for reviewing
+   * every holding and computing trades; never a weight to start from, so no weights are given.
+   */
+  holdings: z.array(
+    z.strictObject({
+      token: z.string(),
+      thesisId: z.string().nullable(),
+      exit: z.record(z.string(), z.unknown()).nullable(),
+    }),
+  ),
   latestOverview: z
     .strictObject({ at: z.string(), summary: z.string(), points: z.array(z.string()) })
     .nullable(),

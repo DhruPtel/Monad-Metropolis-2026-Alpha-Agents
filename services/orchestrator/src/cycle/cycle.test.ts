@@ -1194,6 +1194,8 @@ describe.skipIf(!dbUp)("the discovery loop engine (needs Postgres)", { timeout: 
               themeCode: "TVL_OUTFLOW",
               reason: "A deep pool.",
               conviction: 70,
+              expectedReturnPct: 15,
+              risks: "The bridge's reserves.",
             },
           ],
         }),
@@ -1320,6 +1322,8 @@ describe.skipIf(!dbUp)("the discovery loop engine (needs Postgres)", { timeout: 
         themeCode: "TVL_OUTFLOW",
         reason: "A deep pool.",
         conviction: 70,
+        expectedReturnPct: 15,
+        risks: "The bridge's reserves.",
       },
     ];
     scripts.ZOOM_OUT = async (r) => {

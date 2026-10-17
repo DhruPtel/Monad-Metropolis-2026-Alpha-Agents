@@ -409,21 +409,9 @@ export function goalsAndLimitsJson(view: AgentGoalView, live: LiveGoalLimits | n
           reviewTriggerBps: c.envelope.reviewTriggerBps,
         }
       : null,
-    plan: c
-      ? {
-          template: c.template.id,
-          params: {
-            targetWmonBps: c.template.params.targetWmonBps,
-            bandHalfWidthBps: c.template.params.bandHalfWidthBps,
-            minTradeUsdc: usdcText(c.template.params.minTradeUsdcE6),
-            volatilityBrakeBps: c.template.params.volatilityBrakeBps,
-            costHurdleBps: c.template.params.costHurdleBps,
-            maxLegBps: c.template.params.maxLegBps,
-          },
-          targetRange: { minBps: c.targetRange.minBps, maxBps: c.targetRange.maxBps },
-          researchTriggerBps: c.researchTriggerBps,
-        }
-      : null,
+    // 2026-10-17 (owner): the two-asset fallback (its WMON target and range) is never shown to the
+    // agent: it anchored the Zoom out to a WMON weight; the plan is the research's alone.
+    plan: null,
     limits: { hard, owner, live: live?.limits ?? null, effective },
     account: { mode: live?.mode ?? null, executorPaused: live?.executorPaused ?? null },
     asOf: live ? { block: live.block.toString(), timestamp: live.timestamp.toString() } : null,

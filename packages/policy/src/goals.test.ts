@@ -348,9 +348,9 @@ describe("goal translator (P3-U1, F-U7)", () => {
       "- Envelope the Test enforces on a target portfolio: at most 8 positions, class A at most 8% each and 25% together; every weight and the cash are yours to decide, within the deployed contracts' limits",
     );
     expect(c.soulBlock).toContain("at most 6 trades in 24 hours");
-    expect(c.soulBlock).toContain(
-      "- Two-asset fallback: rebalance_bands@1, target WMON 20% within 0% to 30%",
-    );
+    // 2026-10-17: the two-asset fallback's WMON target and range never reach the agent.
+    expect(c.soulBlock).not.toContain("Two-asset fallback");
+    expect(c.soulBlock).not.toMatch(/target WMON/);
     expect(c.soulBlock).toContain("- Model tier: Medium (research-medium)");
     expect(c.soulBlock).toContain("at most 1.00 USDC a day");
     expect(c.soulBlock).toContain(`- Policy hash: ${c.policyHash}`);
@@ -420,12 +420,14 @@ describe("a goal saved under an older preset (2026-10-16)", () => {
     const soul = [
       "- Aggressiveness: Aggressive",
       `- Brief: ${saved}`,
+      "- Two-asset fallback: rebalance_bands@1, target WMON 30% within 0% to 40%",
       "- Envelope the Test enforces on a target portfolio: at most 3 positions, at most 40% in any one, at least 5% in stablecoins, class A at most 15% each and 50% together",
       "- Expected invested share for Aggressive: 70% to 95% of the account outside stablecoins; a plan outside it must say why",
       "- Model tier: Medium (research-medium)",
     ].join("\n");
     const now = currentSoulBlock(soul, g);
     expect(now).not.toMatch(/invested share|in stablecoins|in any one|Split the invested/);
+    expect(now).not.toMatch(/Two-asset fallback|target WMON/);
     expect(now).toContain(
       "- Envelope the Test enforces on a target portfolio: at most 3 positions, class A at most 15% each and 50% together; every weight and the cash are yours to decide, within the deployed contracts' limits",
     );
@@ -440,5 +442,42 @@ describe("a goal saved under an older preset (2026-10-16)", () => {
     );
     for (const text of [t.config.brief, t.config.soulBlock])
       expect(text).not.toMatch(/invested share|Expect to keep|in stablecoins|Split the invested/);
+  });
+
+  // 2026-10-17 (owner): each style's brief is its mindset, word for word, and the owner's
+  // market-cap split, when set, is soft guidance only.
+  it("writes each style's mindset word for word, and the owner's lean as guidance", () => {
+    const text = (over: Partial<GoalInput>) => briefOf(goal(over));
+    expect(text({ aggressiveness: "AGGRESSIVE" })).toMatch(
+      /^Your job is to maximize return\. Concentrate on your highest-conviction ideas\. Cash is a position you must justify from the research\. /,
+    );
+    expect(text({ aggressiveness: "BALANCED" })).toMatch(
+      /^Grow the account with measured risk; diversify across your best ideas\. /,
+    );
+    expect(text({ aggressiveness: "CONSERVATIVE" })).toMatch(
+      /^Protect capital first; prefer the largest, most liquid tokens\. /,
+    );
+    for (const level of ["AGGRESSIVE", "BALANCED", "CONSERVATIVE"] as const)
+      expect(text({ aggressiveness: level })).not.toMatch(
+        /\d+% (to|and) \d+%|at least \d+%|at most \d+% in/,
+      );
+    const lean = text({
+      aggressiveness: "AGGRESSIVE",
+      allocation: { degenBps: 7_500, growthBps: 2_000, conservativeBps: 500 },
+    });
+    expect(lean).toContain(
+      "Cash is a position you must justify from the research. The owner leans about 75% degen, 20% growth, 5% conservative; weigh that against your research. Hold at most",
+    );
+    expect(
+      currentBrief(
+        "Old words. Hold at most 3 positions; choose each one's weight within the limits.",
+        {
+          ...goal({ aggressiveness: "AGGRESSIVE" }),
+          allocation: { degenBps: 7_500, growthBps: 2_000, conservativeBps: 500 },
+        },
+      ),
+    ).toBe(
+      "Your job is to maximize return. Concentrate on your highest-conviction ideas. Cash is a position you must justify from the research. The owner leans about 75% degen, 20% growth, 5% conservative; weigh that against your research. Hold at most 3 positions; you choose each one's weight and how much stays in cash.",
+    );
   });
 });

@@ -363,7 +363,26 @@ export function briefOf(goal: GoalInput, symbols: TranslateOptions["symbols"] = 
       ? "No token is excluded."
       : `Never buy these tokens, whatever the research says: ${goal.excludedTokens.map(name).join(", ")}.`;
   // 2026-10-16 (owner): the level's mindset and the owner's choices; no split, range or minimum.
-  return `${AGGRESSIVENESS_FACTS[goal.aggressiveness].brief} ${positionsSentence(goal)} ${lane} ${excluded}`;
+  // 2026-10-17: the owner's market-cap lean, when set, as soft guidance only.
+  return [
+    AGGRESSIVENESS_FACTS[goal.aggressiveness].brief,
+    leanSentence(goal),
+    positionsSentence(goal),
+    lane,
+    excluded,
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
+
+/**
+ * 2026-10-17 (owner): the owner's market-cap split is soft guidance, never a rule: "the owner
+ * leans about 75% degen, 20% growth, 5% conservative; weigh that against your research".
+ */
+function leanSentence(goal: GoalInput): string {
+  const a = goal.allocation;
+  if (!a) return "";
+  return `The owner leans about ${bps(a.degenBps)} degen, ${bps(a.growthBps)} growth, ${bps(a.conservativeBps)} conservative; weigh that against your research.`;
 }
 
 /** 2026-10-13: the most positions, the owner's within the style's. */
@@ -424,10 +443,16 @@ export function currentBrief(saved: string, goal: GoalInput): string {
     i >= 0
       ? saved.slice(i)
       : briefOf(goal).slice(AGGRESSIVENESS_FACTS[goal.aggressiveness].brief.length + 1);
-  return `${AGGRESSIVENESS_FACTS[goal.aggressiveness].brief} ${own.replace(
-    /choose each one's weight within the limits\./,
-    "you choose each one's weight and how much stays in cash.",
-  )}`;
+  return [
+    AGGRESSIVENESS_FACTS[goal.aggressiveness].brief,
+    leanSentence(goal),
+    own.replace(
+      /choose each one's weight within the limits\./,
+      "you choose each one's weight and how much stays in cash.",
+    ),
+  ]
+    .filter(Boolean)
+    .join(" ");
 }
 
 /** The SOUL.md goal block's envelope line: what the Test still holds a plan to, besides the contracts. */
@@ -439,17 +464,22 @@ function envelopeLine(level: Aggressiveness, maxPositions: number): string {
 /** 2026-10-16: a saved SOUL.md goal block with today's brief and envelope, and no invested range. */
 export function currentSoulBlock(saved: string, goal: GoalInput): string {
   const n = goal.maxPositions ?? AGGRESSIVENESS_ENVELOPES[goal.aggressiveness].maxPositions;
-  return saved
-    .split("\n")
-    .filter((l) => !l.startsWith("- Expected invested share"))
-    .map((l) =>
-      l.startsWith("- Brief: ")
-        ? `- Brief: ${currentBrief(l.slice("- Brief: ".length), goal)}`
-        : l.startsWith("- Envelope the Test enforces")
-          ? envelopeLine(goal.aggressiveness, n)
-          : l,
-    )
-    .join("\n");
+  return (
+    saved
+      .split("\n")
+      // 2026-10-17: nor the two-asset fallback's WMON target and range, an anchor.
+      .filter(
+        (l) => !l.startsWith("- Expected invested share") && !l.startsWith("- Two-asset fallback"),
+      )
+      .map((l) =>
+        l.startsWith("- Brief: ")
+          ? `- Brief: ${currentBrief(l.slice("- Brief: ".length), goal)}`
+          : l.startsWith("- Envelope the Test enforces")
+            ? envelopeLine(goal.aggressiveness, n)
+            : l,
+      )
+      .join("\n")
+  );
 }
 
 /** The goal block of SOUL.md, from a fixed template: every value comes from the translated config. */
@@ -470,7 +500,6 @@ function soulBlock(c: Omit<GoalConfig, "soulBlock">): string {
     `- Brief: ${c.brief}`,
     envelopeLine(c.aggressiveness, e.maxPositions),
     `- Limits: largest trade ${bps(o.maxTradeBps)} of value, at most ${bps(o.maxPositionBps)} in any one token, at least ${bps(o.minUsdcShareBps)} in USDC, slippage at most ${bps(o.maxSlippageBps)}, at most ${o.maxTradesPer24h} trades in 24 hours`,
-    `- Two-asset fallback: ${c.template.id}, target WMON ${bps(c.template.params.targetWmonBps)} within ${bps(c.targetRange.minBps)} to ${bps(c.targetRange.maxBps)}`,
     `- Model tier: ${MODEL_TIER_FACTS[c.model.choice].label} (${c.model.alias})`,
     `- Research: ${RESEARCH_INTENSITY_FACTS[c.research.intensity].label}, a Scan every ${c.research.scanEveryHours} hours, up to ${c.research.divesPerDay} Dive${c.research.divesPerDay === 1 ? "" : "s"} a day, at most ${usdc(c.research.dailyBudgetUsdcE6)} a day`,
     `- Credit reserve kept for gas: ${usdc(c.creditReserveUsdcE6)}`,

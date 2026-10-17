@@ -93,3 +93,33 @@ export function allocationFindings(i: {
     out.push("say why this much cash in the RATIONALE's cashNote, from the research");
   return out;
 }
+
+/**
+ * 2026-10-17 (owner): a proposed target portfolio is a decision, so it never gives every
+ * position the same weight (the sizing from expected return times confidence ranks them), and
+ * it does not repeat the plan the runner follows unless the RATIONALE says why the research
+ * leads to the same allocation again. Pure: plain sentences the agent reads and fixes.
+ */
+export function planShapeFindings(i: {
+  readonly positions: readonly { readonly token: string; readonly targetWeightBps: number }[];
+  /** Whether the draft keeps the allocation in force (the same tokens, weights and cash). */
+  readonly repeatsCurrent: boolean;
+  readonly allocationNote: string | null | undefined;
+  readonly portfolioView: string | null | undefined;
+}): string[] {
+  const out: string[] = [];
+  const weights = new Set(i.positions.map((p) => p.targetWeightBps));
+  if (i.positions.length >= 2 && weights.size === 1)
+    out.push(
+      `every position has the same weight (${i.positions[0]?.targetWeightBps ?? 0} bps): size each from its expected return times your confidence under the goal's mindset, so a stronger idea gets more`,
+    );
+  const said = `${i.allocationNote ?? ""} ${i.portfolioView ?? ""}`;
+  if (
+    i.repeatsCurrent &&
+    !/\b(keep|keeps|kept|unchanged|same|again|repeat|repeats|maintain|still)\b/i.test(said)
+  )
+    out.push(
+      "the plan repeats the plan the runner follows (the same tokens, weights and cash): decide the weights fresh from this cycle's research, or say in allocationNote why the research leads to the same allocation again",
+    );
+  return out;
+}

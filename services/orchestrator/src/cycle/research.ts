@@ -10,12 +10,7 @@ import { MONAD_BASE_TOKENS, isStableSymbol } from "@alpha-agents/domain";
 import type { AgentIdentity } from "@alpha-agents/tool-server";
 import { ToolError } from "@alpha-agents/tool-server";
 import type { Hex } from "viem";
-import {
-  type GoalStore,
-  type PlanStore,
-  isBandsPlan,
-  isPortfolioPlan,
-} from "@alpha-agents/trading";
+import { type GoalStore, type PlanStore, isPortfolioPlan } from "@alpha-agents/trading";
 import {
   type PlanCost,
   type PlanInputsFingerprint,
@@ -24,9 +19,10 @@ import {
   checkTargetPortfolio,
   targetPortfolioFromDecision,
 } from "./plan-rules.ts";
-import { allocationFindings, rationaleFindings } from "./rationale.ts";
+import { portfolioParamsFromDecision, sameAllocation } from "./proposals.ts";
+import { allocationFindings, planShapeFindings, rationaleFindings } from "./rationale.ts";
 import type { Cycle, CycleStore, StageRun } from "./store.ts";
-import { type PickCall, mapToStandIns, standInOrder } from "./standins.ts";
+import { type PickCall, mapToStandIns, standInOrder, testnetDecisionRefusal } from "./standins.ts";
 import {
   type TestInputs,
   type TestInputsV2,
@@ -293,35 +289,16 @@ export class CycleResearch {
         token: theme?.token ? { address: theme.token, symbol: theme.symbol ?? null } : null,
         briefsToWrite: [...briefsToWrite],
       },
-      plan: plan
-        ? {
-            template: plan.template,
-            params: isBandsPlan(plan)
-              ? {
-                  targetWmonBps: plan.params.targetWmonBps,
-                  bandHalfWidthBps: plan.params.bandHalfWidthBps,
-                  minTradeUsdc: (Number(plan.params.minTradeUsdcE6) / 1e6).toString(),
-                  volatilityBrakeBps: plan.params.volatilityBrakeBps,
-                  costHurdleBps: plan.params.costHurdleBps,
-                  maxLegBps: plan.params.maxLegBps,
-                }
-              : {
-                  positions: plan.params.positions.map((x) => ({
-                    token: x.token,
-                    targetWeightBps: x.targetWeightBps,
-                    bandBps: x.bandBps,
-                    thesisId: x.thesisId,
-                    exit: x.exit,
-                  })),
-                  cashTargetBps: plan.params.cashTargetBps,
-                  minTradeUsdc: (Number(plan.params.minTradeUsdcE6) / 1e6).toString(),
-                  volatilityBrakeBps: plan.params.volatilityBrakeBps,
-                  costHurdleBps: plan.params.costHurdleBps,
-                  maxLegBps: plan.params.maxLegBps,
-                },
-            setAt: plan.createdAt.toISOString(),
-          }
-        : null,
+      // 2026-10-17 (owner): the holdings alone, never the plan's weights: every weight is decided
+      // fresh from the research, and the runner trades from the holdings.
+      holdings:
+        plan && isPortfolioPlan(plan)
+          ? plan.params.positions.map((x) => ({
+              token: x.token,
+              thesisId: x.thesisId,
+              exit: x.exit,
+            }))
+          : [],
       latestOverview: overview
         ? {
             at: overview.createdAt.toISOString(),
@@ -499,6 +476,26 @@ export class CycleResearch {
           false,
           { reasons },
         );
+      // 2026-10-17 (owner): a plan is a decision: not every position at the same weight, and not
+      // the plan the runner follows again unless the RATIONALE says why the research leads there.
+      const inForce = await this.o.plans.active(cycle.chainId, cycle.agentId);
+      const shape = planShapeFindings({
+        positions: decision.params.positions,
+        repeatsCurrent: sameAllocation(
+          { template: "target_portfolio@1", params: portfolioParamsFromDecision(decision.params) },
+          inForce,
+        ),
+        allocationNote: body.allocationNote ?? null,
+        portfolioView:
+          (rationaleBody as { portfolioView?: string | null } | null)?.portfolioView ?? null,
+      });
+      if (shape.length > 0)
+        throw new ToolError(
+          "INVALID_INPUT",
+          `The plan is not yet a decision: ${shape.join("; ")}. Write the RATIONALE and the decision again, then complete_stage.`,
+          false,
+          { reasons: shape },
+        );
     }
     // F-U12: no position names a token this account cannot buy, and every token the cycle dived or
     // the account holds that the plan does not propose is in the RATIONALE's notProposed with a reason.
@@ -608,20 +605,10 @@ export class CycleResearch {
       "state your allocation as picks on the real tokens you researched (target_portfolio@1, each with its weight, and the cash), the RATIONALE as PROPOSE; the platform maps them onto this testnet's tradable tokens, and a plan that matches the one in force is recorded as kept";
     // 2026-10-16 (owner): one path on a testnet. The two-asset WMON band plan is retired there,
     // and keeping the plan is said as picks too, so a kept plan is the model's real allocation.
-    if (decision.kind === "NO_CHANGE") {
-      if (decision.reasonCode === "COOLDOWN") return null;
-      throw new ToolError(
-        "INVALID_INPUT",
-        `On a testnet a Zoom out never ends with NO_CHANGE (a cooldown aside): ${asPicks}.`,
-        false,
-      );
-    }
-    if (decision.template !== "target_portfolio@1")
-      throw new ToolError(
-        "INVALID_INPUT",
-        `The two-asset WMON band plan (rebalance_bands@1) is retired on a testnet: ${asPicks}.`,
-        false,
-      );
+    const refusal = testnetDecisionRefusal(decision, asPicks);
+    if (refusal === "cooldown") return null;
+    if (refusal) throw new ToolError("INVALID_INPUT", refusal, false);
+    if (decision.kind !== "PROPOSE" || decision.template !== "target_portfolio@1") return null;
     const plan = await this.o.plans.active(cycle.chainId, cycle.agentId);
     const current = plan && isPortfolioPlan(plan) ? plan.params : null;
     const standIns = standInOrder(

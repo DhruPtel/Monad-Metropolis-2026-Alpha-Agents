@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { type PickCall, type PickPosition, mapToStandIns, standInOrder } from "./standins.ts";
+import {
+  type PickCall,
+  type PickPosition,
+  mapToStandIns,
+  standInOrder,
+  testnetDecisionRefusal,
+} from "./standins.ts";
 
 const WMON = "0xfb8bf4c1cc7a94c73d209a149ea2abea852bc541";
 const TALPHA = "0xd4eb3fef2a9ebe27d59d4188b6d20bb21220c03c";
@@ -176,5 +182,67 @@ describe("the testnet stand-in mapping (2026-10-16)", () => {
       action: "ADD",
       standInFor: { symbol: "WETH" },
     });
+  });
+});
+
+describe("the Zoom out's three real picks on the Monad testnet (2026-10-17, A4 and A6)", () => {
+  const GMON = "0xaeef2f6b429cb59c9b2d7bb2141ada993e8571c3";
+  const sized = (
+    token: string,
+    symbol: string,
+    conviction: number,
+    expectedReturnPct: number,
+  ): PickCall => ({
+    ...call(token, symbol, conviction),
+    expectedReturnPct,
+    risks: `${symbol}: the main risks`,
+  });
+  it("maps the top pick to WMON, the second to TALPHA and the third to TBETA with the weights exactly, cutting one past the 40% cap into cash and saying so", () => {
+    const m = mapToStandIns({
+      // Conviction ranks them: WETH 85 (55%, past the cap), WBTC 70 (25%), gMON 60 (10%); cash 10%.
+      picks: [pick(WBTC, 2_500), pick(WETH, 5_500), pick(GMON, 1_000)],
+      calls: [
+        sized(WBTC, "WBTC", 70, 20),
+        sized(WETH, "WETH", 85, 35),
+        sized(GMON, "gMON", 60, 12),
+      ],
+      standIns: STAND_INS,
+      current: [{ token: WMON, targetWeightBps: 2_000 }],
+      symbols: {},
+    });
+    expect(weights(m)).toEqual({ [WMON]: 4_000, [TALPHA]: 2_500, [TBETA]: 1_000 });
+    // 55% cut to the deploy's 40%: the 15% stays in cash (10% + 15%), nothing moves to another position.
+    expect(m.cashTargetBps).toBe(2_500);
+    expect(m.pairs).toEqual([
+      { real: "WETH", standIn: "WMON", weightBps: 4_000, cappedFromBps: 5_500 },
+      { real: "WBTC", standIn: "TALPHA", weightBps: 2_500, cappedFromBps: null },
+      { real: "gMON", standIn: "TBETA", weightBps: 1_000, cappedFromBps: null },
+    ]);
+    expect(
+      m.calls.map((c) => [c.symbol, c.action, c.conviction, c.expectedReturnPct, c.risks]),
+    ).toEqual([
+      ["WMON", "ADD", 85, 35, "WETH: the main risks"],
+      ["TALPHA", "ADD", 70, 20, "WBTC: the main risks"],
+      ["TBETA", "ADD", 60, 12, "gMON: the main risks"],
+    ]);
+    expect(m.calls[0]?.reason).toContain(
+      "Capped at 40% from 55% by this deploy's per-token limit; the rest stays in cash.",
+    );
+  });
+  it("on a testnet refuses NO_CHANGE but for a cooldown, and the two-asset plan (A5)", () => {
+    expect(testnetDecisionRefusal({ kind: "NO_CHANGE", reasonCode: "COOLDOWN" }, "x")).toBe(
+      "cooldown",
+    );
+    expect(
+      testnetDecisionRefusal({ kind: "NO_CHANGE", reasonCode: "EVIDENCE_THIN" }, "say it as picks"),
+    ).toBe(
+      "On a testnet a Zoom out never ends with NO_CHANGE (a cooldown aside): say it as picks.",
+    );
+    expect(
+      testnetDecisionRefusal({ kind: "PROPOSE", template: "rebalance_bands@1" }, "say it as picks"),
+    ).toContain("rebalance_bands@1) is retired on a testnet; only target_portfolio@1 is allowed");
+    expect(
+      testnetDecisionRefusal({ kind: "PROPOSE", template: "target_portfolio@1" }, "x"),
+    ).toBeNull();
   });
 });

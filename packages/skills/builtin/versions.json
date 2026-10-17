@@ -26,24 +26,24 @@
       "contentHash": "9f87ee1ab76d7265bd94e3391b7b55e11367ecfe1101a88eb9b8fb02aef38bca"
     },
     "playbook-challenge": {
-      "version": "2.1.0",
-      "contentHash": "1110c8343fdfbc442f7ddd4371fcb88898b9f33e6aee2a639da774a65886219f"
+      "version": "2.2.0",
+      "contentHash": "6855fd34b932339f50a84824ec3c2eac38f215227add9c98e1df630771ab6700"
     },
     "playbook-dive": {
-      "version": "2.1.0",
-      "contentHash": "36bdf6a62679a072f695e5064925bcc2afd21db71932411fe3e7b633ec43fac7"
+      "version": "2.3.3",
+      "contentHash": "22ee7214434313324301b5fb1e1a3189bade93f2da032b57c4802c1cff5ce80c"
     },
     "playbook-scan": {
-      "version": "2.4.0",
-      "contentHash": "467180b667bbcf9de77604463be38f873d0d47cf097635027d2c5b3d93170a41"
+      "version": "2.5.3",
+      "contentHash": "6d97448d3d8b3cf4fbe8140f73c401bd04a832f2482724f005c23b7b6f35bac9"
     },
     "playbook-zoom-out": {
-      "version": "2.9.0",
-      "contentHash": "6c71bd5c86ea3a3f78433d555ab4996e6f613793eeca7328e6feb0047ab6bc5d"
+      "version": "3.0.1",
+      "contentHash": "9cf4f938aa7721bb8f5b934faa0000b4f20e8b8f282c2cdf371d0d802de1f984"
     },
     "portfolio-construction": {
-      "version": "1.0.4",
-      "contentHash": "5da05c505b076abd9102b3a63c616b67f8257149a142297711c4e5f0312c3f64"
+      "version": "1.0.6",
+      "contentHash": "63fbce79d0302ff411ed18d23bca400c0236befaf071b7718099bd30b9b62865"
     },
     "token-risk-screen": {
       "version": "1.0.0",

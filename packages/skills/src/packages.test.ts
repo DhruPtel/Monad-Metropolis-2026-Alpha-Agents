@@ -130,29 +130,37 @@ describe("the built-in skills and playbooks (P3-U7)", () => {
     const zoom = set.packages.find((p) => p.manifest.id === "playbook-zoom-out")?.skillMd ?? "";
     expect(zoom).toMatch(/NO_CHANGE/);
     // 2026-10-16 (owner): the agent's own allocation and cash with their reasons, within the contracts' limits.
+    // 2026-10-17 (owner): the portfolio manager's method; the Challenge informs, never vetoes.
     for (const item of [
       "allocationNote",
       "cashNote",
       "contractFacts",
-      "cash only",
-      "WEAKENED cuts it",
+      "expectedReturnPct",
+      "never vetoes a position",
+      "never a starting weight",
+      "cash is a position",
     ])
       expect(zoom, item).toContain(item);
+    expect(zoom).not.toMatch(
+      /Dive-backed thesis|survives Challenge|mixed evidence|hold when|prefer holding|weakened thesis|existing plan|current plan|keep the plan|in force/i,
+    );
     expect(zoom).not.toMatch(/investedRangeBps|stablecoin floor|\d+% to \d+%/);
     const challenge =
       set.packages.find((p) => p.manifest.id === "playbook-challenge")?.skillMd ?? "";
     for (const item of ["Uncertainty is not a break", "REJECTED", "WEAKENED", "STANDS", "broken"])
       expect(challenge, item).toContain(item);
     expect(set.packages.find((p) => p.manifest.id === "playbook-challenge")?.manifest.version).toBe(
-      "2.1.0",
+      "2.2.0",
     );
+    expect(challenge).toContain("never vetoes a position");
+    expect(challenge).toContain("never an objection");
     // F-U12: the Zoom out names every token seen and not proposed, and never proposes one the account cannot buy.
     expect(set.packages.find((p) => p.manifest.id === "playbook-zoom-out")?.manifest.version).toBe(
-      "2.9.0",
+      "3.0.1",
     );
     // 2026-10-16: conviction sets the weights, the agent the cash, a testnet pick maps to a stand-in.
     for (const item of [
-      "no range, split or minimum",
+      "decided fresh from this cycle's research",
       "with your weights exactly",
       "conviction",
       "capBps",
@@ -163,22 +171,21 @@ describe("the built-in skills and playbooks (P3-U7)", () => {
     ])
       expect(zoom, item).toContain(item);
     expect(zoom).not.toMatch(/evenly/);
-    for (const item of ["notProposed", "not buyable for this account"])
-      expect(zoom, item).toContain(item);
+    for (const item of ["notProposed", "marks buyable"]) expect(zoom, item).toContain(item);
     // F-U12: the Scan's turn limit is the task's cap.
     const scanPackage = set.packages.find((p) => p.manifest.id === "playbook-scan");
-    expect(scanPackage?.manifest.version).toBe("2.4.0");
+    expect(scanPackage?.manifest.version).toBe("2.5.3");
+    // 2026-10-17 (owner): on a testnet the Dives are on real tokens, the run's full count.
+    for (const item of ["WETH, cbBTC, gMON, AUSD", "never the testnet's own WMON, TALPHA or TBETA"])
+      expect(scanPackage?.skillMd, item).toContain(item);
+    const divePackage = set.packages.find((p) => p.manifest.id === "playbook-dive");
+    expect(divePackage?.manifest.version).toBe("2.3.3");
+    expect(divePackage?.skillMd).toContain("never a reason for no thesis");
     expect(scanPackage?.skillMd).toContain("the task names in its caps");
-    for (const code of [
-      "NO_MATERIAL_CHANGE",
-      "EVIDENCE_THIN",
-      "CHALLENGE_REJECTED",
-      "COOLDOWN",
-      "COST_HURDLE",
-      "LIMITS_BIND",
-      "BUDGET_SHORT",
-    ])
-      expect(zoom).toContain(code);
+    // 2026-10-17: the one NO_CHANGE left is the cooldown; the caution codes are gone.
+    expect(zoom).toContain("COOLDOWN");
+    for (const code of ["EVIDENCE_THIN", "CHALLENGE_REJECTED", "COST_HURDLE", "LIMITS_BIND"])
+      expect(zoom).not.toContain(code);
     const scan = set.packages.find((p) => p.manifest.id === "playbook-scan")?.skillMd ?? "";
     expect(scan.indexOf("mcp__data__market_snapshot")).toBeLessThan(
       scan.indexOf("mcp__data__web_search"),

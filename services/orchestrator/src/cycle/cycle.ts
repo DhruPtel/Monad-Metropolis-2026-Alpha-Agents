@@ -1,3 +1,4 @@
+import { TESTNET_CHAIN, TESTNET_CHAIN_IDS } from "@alpha-agents/config";
 import { currentSoulBlock } from "@alpha-agents/policy";
 import type { GoalStore, PlanStore } from "@alpha-agents/trading";
 import { isBandsPlan, isPortfolioPlan } from "@alpha-agents/trading";
@@ -685,6 +686,7 @@ class Engine {
         ceilingUsdcE6: ceiling,
         diveThemes,
         contractFacts: stage === "ZOOM_OUT" ? this.contractFacts : null,
+        standIns: TESTNET_CHAIN_IDS.includes(this.cycle.chainId) && TESTNET_CHAIN.standIns,
       })}${ownerSkillsPrompt(this.sbx.ownerSkills)}`;
     await this.ctx.cycles.setPrompt(run.stageRunId, prompt);
     let end: StageEnd;

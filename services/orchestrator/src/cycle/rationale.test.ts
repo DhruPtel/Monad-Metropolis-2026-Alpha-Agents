@@ -1,6 +1,6 @@
 import type { ZoomOutDecision } from "@alpha-agents/platform-tools";
 import { describe, expect, it } from "vitest";
-import { allocationFindings, rationaleFindings } from "./rationale.ts";
+import { allocationFindings, planShapeFindings, rationaleFindings } from "./rationale.ts";
 
 const A = "0x00000000000000000000000000000000000000a1";
 const B = "0x00000000000000000000000000000000000000b2";
@@ -127,6 +127,59 @@ describe("the agent's own allocation and cash, each with its reason (2026-10-16)
       allocationFindings({
         allocationNote: "One thesis stands; the second weakened to half its weight.",
         cashNote: "The market read is risk-off, so 70% waits in USDC for a better entry.",
+      }),
+    ).toEqual([]);
+  });
+});
+
+describe("a plan is a decision (2026-10-17)", () => {
+  const pos = (weights: number[]) =>
+    weights.map((targetWeightBps, i) => ({
+      token: `0x${String(i).padStart(40, "0")}`,
+      targetWeightBps,
+    }));
+  it("refuses every position at the same weight, but not one position or a ranked set", () => {
+    const equal = planShapeFindings({
+      positions: pos([2_500, 2_500, 2_500]),
+      repeatsCurrent: false,
+      allocationNote: "Three ideas.",
+      portfolioView: "Spread.",
+    });
+    expect(equal).toHaveLength(1);
+    expect(equal[0]).toContain("every position has the same weight (2500 bps)");
+    expect(
+      planShapeFindings({
+        positions: pos([4_000, 2_500, 1_500]),
+        repeatsCurrent: false,
+        allocationNote: "Ranked by expected return times confidence.",
+        portfolioView: "x",
+      }),
+    ).toEqual([]);
+    expect(
+      planShapeFindings({
+        positions: pos([2_000]),
+        repeatsCurrent: false,
+        allocationNote: "One.",
+        portfolioView: "x",
+      }),
+    ).toEqual([]);
+  });
+  it("refuses a repeat of the plan in force unless the allocation note says why it is kept", () => {
+    const base = { positions: pos([4_000, 2_000]), repeatsCurrent: true, portfolioView: "x" };
+    const silent = planShapeFindings({ ...base, allocationNote: "WETH leads on expected return." });
+    expect(silent).toHaveLength(1);
+    expect(silent[0]).toContain("repeats the plan the runner follows");
+    expect(
+      planShapeFindings({
+        ...base,
+        allocationNote: "The research leads to the same allocation again: WETH still ranks first.",
+      }),
+    ).toEqual([]);
+    expect(
+      planShapeFindings({
+        ...base,
+        allocationNote: "x",
+        portfolioView: "Nothing changed; the plan is kept.",
       }),
     ).toEqual([]);
   });
