@@ -2009,3 +2009,10 @@ What happened: the Monad stack's sentinel key (0x6a1D...D96e) was topped up to 0
 Cause: the sentinel pokes each watched account once a pass, every 60 seconds off the fork, so the breaker's peak moves with the account's value. The poke is free in the contract, but Monad charges each transaction its whole gas limit (about 182,600 gas at 102 gwei), so one watched account costs about 27 MON a day.
 Fix: none yet. A failed poke does not stop trading (the Executor counts a drawdown nobody poked itself, D-233), but while the key is empty it cannot send setReduceOnly or pause either.
 Lesson: On Monad, price every timer-driven transaction as its gas limit times the passes in a day before shipping it. A call that is free in the contract can be the most expensive line in the service.
+
+## L-274: agent #2's Live trades bars read 0% of target for the tokens it bought
+Unit: CO-U1 (2026-10-17)
+What happened: after agent #2's four legs settled (on chain TALPHA 34.9%, TBETA 24.7%, WMON 15.1%, USDC 25.3%), the Trading tab's Live trades bars showed 0% of target for TALPHA and TBETA, even after a refresh.
+Cause: the control API's portfolio read named each held token from the platform's token list (platform.tokens: core lane, class F, listed), which has no rows for chain 10143 on this stack, so a token outside it was named by its short address ("0xD4EB…c03c"). The plan's rows find a holding by symbol, found none, and read 0%. The holdings card read only the address book's USDC, WMON and WETH, so the stand-ins were missing there entirely.
+Fix: both readers name a held token from the list, then the wrapped native's word, then the token's own symbol() from the chain (read once per reader); the holdings card lists every token the v3 account's holdings() view lists; a class A token the list leaves out is valued at its attested price; the plan's rows find a holding by token address first, then by name (f0d63d8, 87934ed). The Monad API runs vivarium-backend:87934ed.
+Lesson: Name what an account holds from the account and the chain, never from a side list that may be empty on a stack, and join a plan's rows to holdings by address, not by a display name.
