@@ -135,6 +135,8 @@ describe("the fund account's positions (A-80)", () => {
       ["USDC", "30000000", 7_211, null, true],
       ["WMON", "11600000", 2_788, "1600000", false],
     ]);
+    // 2026-10-17: each row carries its token, so a plan's row finds it by address.
+    expect(rows.map((r) => r.token)).toEqual([USDC, WMON]);
     const o = overviewV3(fixture());
     expect(o).toMatchObject({
       totalValueUsdcE6: "41600000",

@@ -35,6 +35,7 @@ export function assetRows(p: PortfolioV3Json): AssetRow[] {
       const gain = !cash && value !== null ? value - BigInt(h.costBasisUsdcE6) : null;
       return {
         symbol: h.symbol,
+        token: h.token,
         decimals: h.decimals,
         amountRaw: h.amountRaw,
         isCash: cash,

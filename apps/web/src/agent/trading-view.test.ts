@@ -523,3 +523,64 @@ describe("a plan's side from the account's share (2026-10-13)", () => {
     ).toBeNull();
   });
 });
+
+describe("the Live trades bars against the account (2026-10-17)", () => {
+  // Agent #2 on Monad testnet after its first three-token plan, as the chain holds it.
+  const TALPHA = "0xD4EB3FeF2A9eBE27D59D4188B6D20Bb21220c03c";
+  const TBETA = "0x57ca16ca75E968Bd3FF712C729e6e5F6940Cc010";
+  const WMON = "0xFb8bf4c1CC7a94c73D209a149eA2AbEa852BC541";
+  const USDC = "0x534b2f3A21130d7a60830c2Df862319e593943A3";
+  const position = (token: string, symbol: string, targetWeightBps: number, action: string) => ({
+    token: token.toLowerCase(),
+    symbol,
+    targetWeightBps,
+    bandBps: 500,
+    action,
+  });
+  const plan = {
+    proposalId: "prop-d1d6b682",
+    status: "applied",
+    positions: [
+      position(WMON, "WMON", 1_500, "TRIM"),
+      position(TALPHA, "TALPHA", 3_500, "ADD"),
+      position(TBETA, "TBETA", 2_500, "ADD"),
+    ],
+    plan: { cashTargetBps: 2_500 },
+    rationale: { portfolioView: "", allocationNote: null },
+  } as unknown as ProposalJson;
+  const row = (symbol: string, token: string, shareBps: number) => ({
+    symbol,
+    token,
+    shareBps,
+    isCash: symbol === "USDC",
+  });
+
+  it("finds each token's share by its address, whatever the holding is called", () => {
+    // Before the fix the portfolio named the stand-ins by their addresses: the bars read 0%.
+    const holdings = [
+      row("USDC", USDC, 2_527),
+      row("WMON", WMON, 1_509),
+      row("0xD4EB…c03c", TALPHA, 3_492),
+      row("0x57ca…c010", TBETA, 2_470),
+    ] as unknown as Parameters<typeof planRows>[2];
+    expect(
+      planRows(plan, null, holdings).map((r) => [r.symbol, r.currentBps, r.targetBps]),
+    ).toEqual([
+      ["WMON", 1_509, 1_500],
+      ["TALPHA", 3_492, 3_500],
+      ["TBETA", 2_470, 2_500],
+    ]);
+  });
+
+  it("still finds a holding by name where the read has no address, and shows a token not held as 0%", () => {
+    const holdings = [
+      { symbol: "USDC", shareBps: 6_000, isCash: true },
+      { symbol: "TALPHA", shareBps: 4_000, isCash: false },
+    ] as unknown as Parameters<typeof planRows>[2];
+    expect(planRows(plan, null, holdings).map((r) => [r.symbol, r.currentBps])).toEqual([
+      ["WMON", 0],
+      ["TALPHA", 4_000],
+      ["TBETA", 0],
+    ]);
+  });
+});

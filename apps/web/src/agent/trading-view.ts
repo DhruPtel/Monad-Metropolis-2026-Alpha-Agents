@@ -324,8 +324,17 @@ export function planRows(
 ): PlanRowView[] {
   // With priced holdings, a token the account does not hold is 0% of it, not unknown.
   const priced = holdings.some((h) => h.shareBps !== null);
+  // 2026-10-17: a row finds its holding by token first, then by name: the plan and the
+  // portfolio may name one token differently (before, a testnet stand-in held showed 0%).
+  const tokenOf = (symbol: string): string | null =>
+    p.positions.find((x) => x.symbol === symbol)?.token ??
+    card?.current?.positions?.find((x) => x.symbol === symbol)?.token ??
+    null;
   const shareOf = (symbol: string) => {
-    const h = holdings.find((x) => x.symbol === symbol);
+    const token = tokenOf(symbol)?.toLowerCase() ?? null;
+    const h =
+      (token === null ? undefined : holdings.find((x) => x.token?.toLowerCase() === token)) ??
+      holdings.find((x) => x.symbol === symbol);
     return h ? h.shareBps : priced ? 0 : null;
   };
   const targetOf = (symbol: string): number | null => {

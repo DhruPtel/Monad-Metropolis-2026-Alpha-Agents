@@ -37,6 +37,8 @@ import { TILE_CLASS } from "./tiles";
  */
 export interface AssetRow {
   readonly symbol: string;
+  /** 2026-10-17: the token's address where the read has it, so a plan's row finds it by token. */
+  readonly token?: string | null;
   readonly decimals: number;
   readonly amountRaw: string;
   readonly isCash: boolean;
