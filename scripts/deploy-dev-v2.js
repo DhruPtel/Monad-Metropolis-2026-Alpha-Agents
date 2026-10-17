@@ -89,7 +89,7 @@ const roles = {
   claimSigner: role("TESTNET_CLAIM_SIGNER_PRIVATE_KEY"),
   screener: role("TESTNET_SCREENER_PRIVATE_KEY"),
   testWallet: role("TESTNET_TEST_WALLET_PRIVATE_KEY"),
-  keeper: role("REVEAL_KEEPER_PRIVATE_KEY"),
+  keeper: role("TESTNET_REVEAL_KEEPER_PRIVATE_KEY"),
   gas: role("DEV_GAS_PRIVATE_KEY"),
 };
 const allowlist = [roles.testWallet, ...OWNER_PLAYTEST_WALLETS];
