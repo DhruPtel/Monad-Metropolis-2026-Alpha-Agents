@@ -7,7 +7,7 @@
 // Research now whose plan applies at once (plan changes: apply and tell) and rebalances. Records
 // evidence/dev-nadfun/e2e-run-*.json. Prints no key, token or RPC URL.
 //
-//   pnpm dev:e2e [--skip-second]
+//   pnpm dev:e2e [--skip-second] [--trades-only]
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { DEFAULT_GOAL_INPUT, NADFUN_TESTNET } from "@alpha-agents/domain";
@@ -32,6 +32,8 @@ const USDC = getAddress(NADFUN_TESTNET.bases.usdc);
 const DEPOSIT_E6 = 100_000_000n;
 const CREDITS_E6 = 20_000_000n;
 const skipSecond = process.argv.includes("--skip-second");
+// --trades-only: no first Research now; wait for the runner's trades on the current plan.
+const tradesOnly = process.argv.includes("--trades-only");
 const devEnv = Object.fromEntries(
   readFileSync(join(ROOT, ".env.monad-dev"), "utf8")
     .split("\n")
@@ -105,6 +107,7 @@ const NFT_ABI = parseAbi([
   "event Transfer(address indexed from, address indexed to, uint256 indexed tokenId)",
 ]);
 const ERC20_ABI = parseAbi([
+  "function balanceOf(address owner) view returns (uint256)",
   "function transfer(address to, uint256 amount) returns (bool)",
   "function approve(address spender, uint256 amount) returns (bool)",
   "function mint(address to, uint256 amount)",
@@ -221,6 +224,24 @@ async function trades(
     async () => {
       const all = (await api(`/v1/agents/${agentId}/intents`, { session })).body?.intents ?? [];
       const mine = all.filter((/** @type {any} */ i) => !since.has(i.intentId));
+      // The owner approves the first trade, which arms the agent (as the web app's card does);
+      // the runner's later trades are approved automatically.
+      const waiting = mine.find((/** @type {any} */ i) => i.status === "awaiting_approval");
+      if (waiting) {
+        const arming = await api(`/v1/agents/${agentId}/arming`, { session });
+        if (arming.body?.arming?.state === "awaiting_first_trade") {
+          const ok = await api(`/v1/agents/${agentId}/intents/${waiting.intentId}/approve`, {
+            method: "POST",
+            session,
+          });
+          step(`${label}: first trade approved`, {
+            intent: waiting.intentId,
+            status: ok.status,
+            armed: ok.body?.armed ?? null,
+            error: ok.body?.error ?? null,
+          });
+        }
+      }
       const open = mine.filter(
         (/** @type {any} */ i) =>
           !["settled", "reconciled", "failed", "rejected", "expired", "cancelled"].includes(
@@ -244,6 +265,34 @@ async function trades(
     })),
   });
   return done;
+}
+
+async function deposit(/** @type {`0x${string}`} */ accountAddress) {
+  await send("mint test USDC", {
+    to: USDC,
+    data: encodeFunctionData({
+      abi: ERC20_ABI,
+      functionName: "mint",
+      args: [account.address, DEPOSIT_E6],
+    }),
+  });
+  await send("approve (exact)", {
+    to: USDC,
+    data: encodeFunctionData({
+      abi: ERC20_ABI,
+      functionName: "approve",
+      args: [accountAddress, DEPOSIT_E6],
+    }),
+  });
+  await send("deposit", {
+    to: accountAddress,
+    data: encodeFunctionData({
+      abi: ACCOUNT_ABI,
+      functionName: "deposit",
+      args: [USDC, DEPOSIT_E6],
+    }),
+  });
+  step("account", { account: accountAddress, depositUsdc: Number(DEPOSIT_E6) / 1e6 });
 }
 
 try {
@@ -305,25 +354,31 @@ try {
     planChanges: "APPLY_AND_TELL",
     research: { intensity: "LIGHT", dailyBudgetUsdcE6: "10000000" },
   };
-  const saved = await api(`/v1/agents/${agentId}/goal`, {
-    method: "PUT",
-    session,
-    body: JSON.stringify(goal),
-  });
-  step("goal", { status: saved.status, error: saved.body?.error, errors: saved.body?.errors });
-  if (saved.status !== 200) throw new Error("the goal was refused");
+  // A saved goal starts a new strategy epoch, which voids waiting trades: --trades-only keeps it.
+  if (!tradesOnly) {
+    const saved = await api(`/v1/agents/${agentId}/goal`, {
+      method: "PUT",
+      session,
+      body: JSON.stringify(goal),
+    });
+    step("goal", { status: saved.status, error: saved.body?.error, errors: saved.body?.errors });
+    if (saved.status !== 200) throw new Error("the goal was refused");
+  }
 
   // 3. Test USDC, credits, the account and a deposit.
-  await send("mint test USDC", {
-    to: USDC,
-    data: encodeFunctionData({
-      abi: ERC20_ABI,
-      functionName: "mint",
-      args: [account.address, DEPOSIT_E6 + CREDITS_E6],
-    }),
-  });
+  // A rerun on the same agent mints, credits and deposits only what is missing.
+  const mint = (/** @type {bigint} */ amount) =>
+    send("mint test USDC", {
+      to: USDC,
+      data: encodeFunctionData({
+        abi: ERC20_ABI,
+        functionName: "mint",
+        args: [account.address, amount],
+      }),
+    });
   const credits = (await api(`/v1/agents/${agentId}/credits`)).body;
   if (BigInt(credits?.creditsUsdcE6 ?? "0") < CREDITS_E6 / 2n) {
+    await mint(CREDITS_E6);
     await send("credits transfer", {
       to: USDC,
       data: encodeFunctionData({
@@ -361,23 +416,14 @@ try {
     );
   }
   const accountAddress = getAddress(portfolio.account);
-  await send("approve (exact)", {
-    to: USDC,
-    data: encodeFunctionData({
-      abi: ERC20_ABI,
-      functionName: "approve",
-      args: [accountAddress, DEPOSIT_E6],
-    }),
+  const held = await client.readContract({
+    address: USDC,
+    abi: ERC20_ABI,
+    functionName: "balanceOf",
+    args: [accountAddress],
   });
-  await send("deposit", {
-    to: accountAddress,
-    data: encodeFunctionData({
-      abi: ACCOUNT_ABI,
-      functionName: "deposit",
-      args: [USDC, DEPOSIT_E6],
-    }),
-  });
-  step("account", { account: accountAddress, depositUsdc: Number(DEPOSIT_E6) / 1e6 });
+  if (held < DEPOSIT_E6) await deposit(accountAddress);
+  else step("account", { account: accountAddress, heldUsdc: Number(held) / 1e6 });
 
   // 4. Arm: automatic trading on.
   const arming = await api(`/v1/agents/${agentId}/arming`, { session });
@@ -390,12 +436,13 @@ try {
   }
 
   // 5. Research now, the first plan approved, and the runner's trades.
+  // A trade already waiting for the owner counts as this run's.
   const before = new Set(
-    ((await api(`/v1/agents/${agentId}/intents`, { session })).body?.intents ?? []).map(
-      (/** @type {any} */ i) => i.intentId,
-    ),
+    ((await api(`/v1/agents/${agentId}/intents`, { session })).body?.intents ?? [])
+      .filter((/** @type {any} */ i) => i.status !== "awaiting_approval")
+      .map((/** @type {any} */ i) => i.intentId),
   );
-  await researchNow(agentId, session, "first run");
+  if (!tradesOnly) await researchNow(agentId, session, "first run");
   let card = await planCard(agentId, session);
   step("first plan", {
     pending: card?.pending
