@@ -6,13 +6,14 @@
 # vivarium-monad-dev project. The stack's keys are in /opt/vivarium/chain-monad-dev.env (600).
 # Nothing of the judged stacks is touched.
 #
-#   scripts/server-deploy-dev.sh [rev] [service ...]   deploy (all services, or the ones named)
+#   scripts/server-deploy-dev.sh [rev]   deploy every service of the stack on one image
+#
+# Always every service: they share app-net's network namespace, so recreating app-net alone (as a
+# one-service deploy does when its image changes) leaves the rest on a namespace that is gone.
 set -euo pipefail
 SERVER=${VIVARIUM_SERVER:-root@161.35.99.236}
 KEY=${VIVARIUM_SSH_KEY:-$HOME/.ssh/vivarium}
 REF=${1:-HEAD}
-shift || true
-SERVICES=("$@")
 cd "$(dirname "$0")/.."
 REV=$(git rev-parse --short "$REF")
 ssh_() { ssh -i "$KEY" -o BatchMode=yes "$SERVER" "$@"; }
@@ -28,7 +29,7 @@ ssh_ "set -e; cd /opt/vivarium/build-$REV
     || docker exec vivarium-postgres-1 psql -U alpha -d alpha_agents -qc 'create database alpha_agents_monad_dev'
   CHAIN=monad-dev DB=alpha_agents_monad_dev REDIS_DB=5 SITE=https://vivarium-dev.vercel.app MARKET_CHAIN=monad VIVARIUM_CHAIN_REVISION=$REV \
     docker compose --env-file /opt/vivarium/.env -f infra/server/chain.yaml -f infra/server/chain-dev.override.yaml \
-    up -d --remove-orphans --wait --wait-timeout 300 ${SERVICES[*]:-}
+    up -d --remove-orphans --wait --wait-timeout 300
   CHAIN=monad-dev DB=alpha_agents_monad_dev REDIS_DB=5 SITE=https://vivarium-dev.vercel.app \
     docker compose --env-file /opt/vivarium/.env -f infra/server/chain.yaml -f infra/server/chain-dev.override.yaml \
     ps --format 'table {{.Service}}\t{{.Image}}\t{{.Status}}'"
