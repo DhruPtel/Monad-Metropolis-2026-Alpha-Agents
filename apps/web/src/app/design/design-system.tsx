@@ -115,6 +115,7 @@ import {
   ResearchScheduleCard,
   ResearchShortNotice,
   ResearchTiles,
+  ResumeAccountPanel,
   SentinelCard,
   UniversePanel,
   StageTimeline,
@@ -5175,6 +5176,42 @@ function SentinelSection() {
           />
           <SentinelCard
             view={{ configured: false, active: {}, lastCheckedAt: null, actions: [], mode: null }}
+          />
+        </div>
+      </Specimen>
+      <Specimen
+        name="ResumeAccountPanel"
+        note="The owner's way back to NORMAL after the sentinel tightened the account (2026-10-17): why, the one button, the wallet action's progress; the reason stands in for the button when the connected wallet cannot resume it. Compact on a checklist line."
+      >
+        <div className="grid gap-6 lg:grid-cols-2" data-testid="resume-account-panels">
+          <ResumeAccountPanel
+            reason="Paused on 2026-10-15 by the safety monitor: the WMON price feed failed. Buys are blocked until you resume; sells and withdrawals still work."
+            blocker={null}
+            busy={false}
+            status={null}
+            onResume={noop}
+          />
+          <ResumeAccountPanel
+            reason="Paused on 2026-10-15 by the safety monitor: the WMON price feed failed. Buys are blocked until you resume; sells and withdrawals still work."
+            blocker="Only the owner wallet (0xe0da…2008) can resume this account; 0x4eBe…bbBF is connected."
+            busy={false}
+            status={null}
+            onResume={noop}
+          />
+          <ResumeAccountPanel
+            reason="Paused on 2026-10-15 by the safety monitor: the WMON price feed failed. Buys are blocked until you resume; sells and withdrawals still work."
+            blocker={null}
+            busy
+            status={{ state: "confirming", text: "Waiting for the network.", hash: "0x1234" }}
+            onResume={noop}
+          />
+          <ResumeAccountPanel
+            compact
+            reason="Paused on 2026-10-15 by the safety monitor: the WMON price feed failed."
+            blocker={null}
+            busy={false}
+            status={null}
+            onResume={noop}
           />
         </div>
       </Specimen>

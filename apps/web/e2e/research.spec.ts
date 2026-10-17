@@ -416,8 +416,12 @@ test.describe("the Research page and the agent terminal (P3-U10)", () => {
     await expect(sentinel.getByTestId("sentinel-actions").locator("li")).toHaveCount(2);
     await expect(sentinel).toContainText("Set the account to reduce-only");
     await expect(sentinel).toContainText("12.5% below the 7-day peak");
-    // F-U12: the owner unpauses the account after review, from their wallet: one unpause() call.
-    await sentinel.getByRole("button", { name: "Unpause after review" }).click();
+    // F-U12: the owner resumes the account after review, from their wallet: one unpause() call.
+    // 2026-10-17: the control is Resume account, with the sentinel's reason above it.
+    await expect(sentinel.getByTestId("resume-account-reason")).toContainText(
+      "by the safety monitor",
+    );
+    await sentinel.getByRole("button", { name: "Resume account" }).click();
     await expect(sentinel.getByTestId("wallet-action-status")).toContainText(
       "The account is back to normal.",
       { timeout: 15_000 },

@@ -50,7 +50,9 @@ import { useAgentSummary } from "@/components/agent-shell/agent-shell";
 import { usePortfolio } from "@/agent/use-portfolio";
 import { useWalletSession } from "@/auth/session";
 import { AddCreditsSection } from "@/components/credits/add-credits-section";
+import { useSentinel } from "@/agent/use-sentinel";
 import { useTestUsdc } from "@/agent/use-test-usdc";
+import { ResumeAccount } from "@/components/account/resume-account";
 import { latestApplied, planBanner, planRows, txHref } from "@/agent/trading-view";
 import { AgentActivity } from "@/components/activity/agent-activity";
 import { AgentHoldings } from "@/components/holdings/agent-holdings";
@@ -98,6 +100,13 @@ export function OverviewPage({
   const [creditsOpen, setCreditsOpen] = useState(false);
   // 2026-10-16: the dev stack's "Get test USDC" (its USDC has an open mint).
   const testUsdc = useTestUsdc(environment);
+  // 2026-10-17: a tightened trading account shows Resume account beside its value.
+  const pfv3 = pf.portfolio?.custody === "v3" ? pf.portfolio : null;
+  const tightened =
+    pfv3?.account && pfv3.mode && pfv3.mode !== "NORMAL"
+      ? { account: pfv3.account, mode: pfv3.mode, owner: pfv3.owner }
+      : null;
+  const sentinel = useSentinel(agentId, tightened !== null);
   const goalHref = `/agents/${agentId.toString()}/goal`;
   const tradingHref = `/agents/${agentId.toString()}/trading`;
 
@@ -281,6 +290,16 @@ export function OverviewPage({
         </>
       }
     >
+      {tightened ? (
+        <ResumeAccount
+          environment={environment}
+          account={tightened.account}
+          mode={tightened.mode}
+          owner={tightened.owner}
+          actions={sentinel?.actions ?? []}
+          onResumed={pf.refresh}
+        />
+      ) : null}
       {standing ? (
         <p role="alert" className="text-xs text-warning" data-testid="deposit-block">
           {standing}

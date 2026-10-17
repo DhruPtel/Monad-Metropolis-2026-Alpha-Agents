@@ -26,20 +26,12 @@ import {
   SectionLabel,
   SentinelCard,
   Skeleton,
-  WalletActionStatus,
   usdcCents,
 } from "@alpha-agents/ui";
 import { PlugZap, Wallet } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
-import {
-  ApiError,
-  type PlanCardJson,
-  type SentinelJson,
-  type StoredReportJson,
-  api,
-  tradingApi,
-} from "@/api/client";
+import { ApiError, type PlanCardJson, type StoredReportJson, api, tradingApi } from "@/api/client";
 import { planKept } from "@/agent/plan-card";
 import { kindLabel, reportHref } from "@/agent/report-view";
 import {
@@ -53,11 +45,12 @@ import {
   runCalls,
   runRecord,
 } from "@/agent/research-run";
-import { useAccountTx } from "@/agent/use-account-tx";
 import { useOwnerSession } from "@/agent/use-owner-session";
 import { useReports } from "@/agent/use-reports";
 import { useResearch, useTerminal } from "@/agent/use-research";
+import { useSentinel } from "@/agent/use-sentinel";
 import { useWalletSession } from "@/auth/session";
+import { ResumeAccount } from "@/components/account/resume-account";
 import { ResearchSettings } from "./research-settings";
 import type { Address } from "viem";
 import { refusedShort, shortNotice } from "@/agent/research-short";
@@ -107,10 +100,11 @@ export function ResearchPage({
   const { research, error, refresh, pause } = useResearch(agentId);
   const [selected, setSelected] = useState<string | null>(null);
   const [pausing, setPausing] = useState(false);
-  const [sentinel, setSentinel] = useState<SentinelJson | null>(null);
   const asOwner = useOwnerSession(agentId);
-  // F-U12 (P4-U2 follow-up): the owner unpauses the account after a Sentinel pause, from their wallet.
-  const unpause = useAccountTx(environment);
+  // P4-U2: the sentinel's actions, read once the research is, and again after a resume
+  // (2026-10-17: keyed on values, so the page's own ticks no longer cancel the read).
+  const [sentinelTick, setSentinelTick] = useState(0);
+  const sentinel = useSentinel(agentId, research !== null, sentinelTick);
   const [now, setNow] = useState(() => new Date().toISOString());
   useEffect(() => {
     // A live run's timer ticks each second; otherwise the clock moves every 15 s.
@@ -266,17 +260,6 @@ export function ResearchPage({
 
   const reports = reportsRead.reports?.reports ?? [];
 
-  // P4-U2: the sentinel's actions, re-read with the research.
-  useEffect(() => {
-    if (!research) return;
-    let live = true;
-    void asOwner((t) => tradingApi.sentinel(agentId, t))
-      .then((sv) => live && setSentinel(sv))
-      .catch(() => live && setSentinel(null));
-    return () => {
-      live = false;
-    };
-  }, [agentId, asOwner, research]);
   const id = agentId.toString();
 
   if (!wallet.ready && wallet.state !== "wrong-chain")
@@ -759,37 +742,19 @@ export function ResearchPage({
           mode: sentinel?.mode ?? research.snapshot?.mode ?? null,
         }}
         actions={
-          pausedAccount || unpause.progress ? (
-            <div className="flex flex-col gap-2">
-              {pausedAccount ? (
-                <Button
-                  size="sm"
-                  className="w-fit"
-                  disabled={unpause.busy}
-                  onClick={() =>
-                    void unpause
-                      .send(
-                        "Unpause the account",
-                        pausedAccount,
-                        { functionName: "unpause", args: [] },
-                        "The account is back to normal. The agent may trade again within its limits.",
-                      )
-                      .then((p) => {
-                        if (p?.state === "confirmed") refresh();
-                      })
-                  }
-                >
-                  Unpause after review
-                </Button>
-              ) : null}
-              {unpause.progress && unpause.text ? (
-                <WalletActionStatus
-                  state={unpause.progress.state}
-                  text={unpause.text}
-                  hash={unpause.progress.hash ?? null}
-                />
-              ) : null}
-            </div>
+          pausedAccount && sentinel?.mode ? (
+            // 2026-10-17: Resume account, the same control as the Trading tab's and the Overview's.
+            <ResumeAccount
+              environment={environment}
+              account={pausedAccount}
+              mode={sentinel.mode}
+              owner={null}
+              actions={sentinel.actions}
+              onResumed={() => {
+                refresh();
+                setSentinelTick((n) => n + 1);
+              }}
+            />
           ) : undefined
         }
       />

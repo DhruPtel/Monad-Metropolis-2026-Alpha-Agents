@@ -64,6 +64,7 @@ export * from "./components/agent/tiles";
 export * from "./components/agent/research";
 export * from "./components/agent/report";
 export * from "./components/agent/sentinel";
+export * from "./components/agent/resume-account";
 export * from "./components/agent/universe";
 export * from "./components/home/home";
 export * from "./components/wordmark";

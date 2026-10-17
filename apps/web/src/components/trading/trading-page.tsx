@@ -51,11 +51,14 @@ import {
   tradesInFlight,
   txHref,
 } from "@/agent/trading-view";
+import { pausedBySentinel, resumeReason } from "@/agent/resume-account";
 import { useOwnerSession } from "@/agent/use-owner-session";
+import { useSentinel } from "@/agent/use-sentinel";
 import { useReports } from "@/agent/use-reports";
 import { usePortfolio } from "@/agent/use-portfolio";
 import { useWalletSession } from "@/auth/session";
 import { useAgentSummary } from "@/components/agent-shell/agent-shell";
+import { ResumeAccount } from "@/components/account/resume-account";
 import { StatusFor, approvalView } from "@/components/portfolio/portfolio-page";
 
 /** How often the runner checks an armed agent (services/orchestrator/src/runner.ts, RUNNER_EVERY_MS). */
@@ -92,6 +95,14 @@ export function TradingPage({
   const pf = usePortfolio(agentId, environment);
   const shell = useAgentSummary();
   const asOwner = useOwnerSession(agentId);
+  // 2026-10-17: a tightened trading account (reduce-only, paused) gets Resume account right on
+  // its checklist line, with the sentinel's own reason; only the owner's wallet can resume it.
+  const pfv3 = pf.portfolio?.custody === "v3" ? pf.portfolio : null;
+  const tightened =
+    pfv3?.account && pfv3.mode && pfv3.mode !== "NORMAL"
+      ? { account: pfv3.account, mode: pfv3.mode, owner: pfv3.owner }
+      : null;
+  const sentinel = useSentinel(agentId, tightened !== null);
   // 2026-10-13: the newest reports, the same as the Research tab's, one click from the trades.
   const reportsRead = useReports(agentId);
   const [choiceOpen, setChoiceOpen] = useState(false);
@@ -430,9 +441,44 @@ export function TradingPage({
                       <Link href={`/agents/${agentId.toString()}`}>Add credits</Link>
                     </Button>
                   ),
+                  ...(tightened
+                    ? {
+                        ACCOUNT_MODE: (
+                          <ResumeAccount
+                            compact
+                            environment={environment}
+                            account={tightened.account}
+                            mode={tightened.mode}
+                            owner={tightened.owner}
+                            actions={sentinel?.actions ?? []}
+                            onResumed={pf.refresh}
+                          />
+                        ),
+                      }
+                    : {}),
                 }}
+                {...(tightened
+                  ? {
+                      notes: {
+                        ACCOUNT_MODE: resumeReason(
+                          tightened.mode,
+                          pausedBySentinel(sentinel?.actions ?? []),
+                        ),
+                      },
+                    }
+                  : {})}
               />
             </ExpandableLine>
+          ) : null}
+          {on && tightened ? (
+            <ResumeAccount
+              environment={environment}
+              account={tightened.account}
+              mode={tightened.mode}
+              owner={tightened.owner}
+              actions={sentinel?.actions ?? []}
+              onResumed={pf.refresh}
+            />
           ) : null}
         </div>
         <StatusFor status={pf.status} actions={["arm", "turn-on", "disarm"]} />
