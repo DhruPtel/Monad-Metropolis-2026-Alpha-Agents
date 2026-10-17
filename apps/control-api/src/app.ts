@@ -943,7 +943,7 @@ export function createApp(deps: ApiDeps): Hono {
     if (owner instanceof Response) return owner;
     const s = proposalStores();
     const plan = await s.plans.active(chainId, Number(agentId));
-    const pending = await s.proposals.pending(chainId, Number(agentId));
+    const pending = await s.proposals.pending(chainId, Number(agentId), { now: s.now() });
     const tokens = [
       ...(plan && isPortfolioPlan(plan) ? plan.params.positions.map((p) => p.token) : []),
       ...(pending?.positions.map((p) => p.token) ?? []),
@@ -952,10 +952,11 @@ export function createApp(deps: ApiDeps): Hono {
       ...(await proposalSymbols(deps.db, chainId, Number(agentId), tokens)),
       ...(await tokenSymbols(deps.db, chainId, tokens)),
     };
+    // 2026-10-17: the proposal waiting is the newest made for this owner, whatever the epoch.
     return c.json({
       ...(await meta()),
       agentId: agentId.toString(),
-      ...(await planCard(s, chainId, Number(agentId), symbols)),
+      ...(await planCard(s, chainId, Number(agentId), symbols, { ownerEpoch: owner.epoch })),
     });
   });
 

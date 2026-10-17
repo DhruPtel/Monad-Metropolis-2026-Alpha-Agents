@@ -10,10 +10,15 @@ import {
   type StoredPlan,
   type StoredProposal,
   type TradeStore,
-  isPortfolioPlan,
+  isSuperseded,
+  planCard as tradingPlanCard,
   proposalFacts,
   templateProposalEntry,
 } from "@alpha-agents/trading";
+
+// 2026-10-17: the card's JSON and the card itself live in @alpha-agents/trading, so the
+// orchestrator's research read and this API read a run's plan outcome with one function.
+export { currentPlanJson, proposalJson, type ProposalJson } from "@alpha-agents/trading";
 import type { Hex } from "viem";
 
 /**
@@ -38,51 +43,6 @@ export interface ProposalDeps {
       ) => Promise<readonly ProposalFinding[] | null>)
     | null;
 }
-
-const bps = (n: number) => n;
-
-export function proposalJson(p: StoredProposal) {
-  return {
-    proposalId: p.proposalId,
-    kind: p.kind,
-    status: p.status,
-    needsApproval: p.needsApproval,
-    strategyEpoch: p.strategyEpoch.toString(),
-    ownerEpoch: p.ownerEpoch.toString(),
-    cycleId: p.cycleId,
-    template: p.plan?.template ?? null,
-    plan:
-      p.plan && p.plan.template === TARGET_PORTFOLIO_ID
-        ? {
-            cashTargetBps: bps(p.plan.params.cashTargetBps),
-            minTradeUsdcE6: p.plan.params.minTradeUsdcE6.toString(),
-            volatilityBrakeBps: p.plan.params.volatilityBrakeBps,
-            costHurdleBps: p.plan.params.costHurdleBps,
-            maxLegBps: p.plan.params.maxLegBps,
-          }
-        : p.plan
-          ? {
-              targetWmonBps: p.plan.params.targetWmonBps,
-              bandHalfWidthBps: p.plan.params.bandHalfWidthBps,
-              minTradeUsdcE6: p.plan.params.minTradeUsdcE6.toString(),
-              volatilityBrakeBps: p.plan.params.volatilityBrakeBps,
-              costHurdleBps: p.plan.params.costHurdleBps,
-              maxLegBps: p.plan.params.maxLegBps,
-            }
-          : null,
-    positions: p.positions,
-    rationale: p.rationale,
-    evaluation: p.evaluation,
-    reasonCode: p.reasonCode,
-    explanation: p.explanation,
-    decidedBy: p.decidedBy,
-    decidedAt: p.decidedAt?.toISOString() ?? null,
-    createdAt: p.createdAt.toISOString(),
-    expiresAt: p.expiresAt?.toISOString() ?? null,
-  };
-}
-
-export type ProposalJson = ReturnType<typeof proposalJson>;
 
 /**
  * 2026-10-16: the symbols the agent's own proposals recorded for the given tokens, for the ones
@@ -113,31 +73,6 @@ export async function proposalSymbols(
         out[token] ??= p.symbol;
     }
   return out;
-}
-
-/** The plan in force as the card shows it beside a proposal. */
-export function currentPlanJson(
-  plan: StoredPlan | null,
-  symbols: Readonly<Record<string, string>>,
-) {
-  if (!plan) return null;
-  return {
-    paramId: plan.paramId,
-    template: plan.template,
-    setBy: plan.setBy,
-    setAt: plan.createdAt.toISOString(),
-    strategyEpoch: plan.strategyEpoch.toString(),
-    positions: isPortfolioPlan(plan)
-      ? plan.params.positions.map((p) => ({
-          token: p.token,
-          symbol: symbols[p.token.toLowerCase()] ?? p.token,
-          targetWeightBps: p.targetWeightBps,
-          bandBps: p.bandBps,
-        }))
-      : [],
-    cashTargetBps: isPortfolioPlan(plan) ? plan.params.cashTargetBps : null,
-    targetWmonBps: isPortfolioPlan(plan) ? null : plan.params.targetWmonBps,
-  };
 }
 
 /** One template entry per event, under the proposal's key, so the owner's activity feed shows it. */
@@ -191,7 +126,12 @@ export interface ProposalStores {
   readonly now: () => Date;
 }
 
-/** The proposal, if it is the owner's to decide now: waiting, unexpired, and from the current epochs. */
+/**
+ * The proposal, if it is the owner's to decide now: waiting, unexpired, made for this owner,
+ * and not replaced by a plan set after it. 2026-10-17: whatever the strategy epoch: a goal saved
+ * since no longer voids it (the plan card offers it), since approving re-checks it against the
+ * goal in force; a plan set since marks it superseded, and a sale (the owner's epoch) ends it.
+ */
 async function waiting(
   s: ProposalStores,
   chainId: number,
@@ -199,22 +139,26 @@ async function waiting(
   proposalId: string,
   owner: { readonly wallet: Hex; readonly epoch: bigint },
 ): Promise<StoredProposal | ProposalRefusal> {
-  await s.proposals.expireDue(chainId, agentId, s.now());
+  const now = s.now();
+  await s.proposals.expireDue(chainId, agentId, now);
+  const plan = await s.plans.active(chainId, agentId);
+  if (plan) await s.proposals.supersedePending(chainId, agentId, { before: plan.createdAt, now });
   const p = await s.proposals.get(chainId, agentId, proposalId);
   if (!p) return { ok: false, code: "NOT_FOUND", message: "No such proposal." };
   if (p.status !== "pending_owner")
     return {
       ok: false,
       code: "NOT_WAITING",
-      message: `This proposal is ${p.status.replace("_", " ")}; only one waiting for you can be decided.`,
+      message: isSuperseded(p)
+        ? "A newer plan replaced this proposal; the plan card shows the one in force or waiting."
+        : `This proposal is ${p.status.replace("_", " ")}; only one waiting for you can be decided.`,
     };
-  const epoch = await s.goals.strategyEpoch(chainId, agentId);
-  if (p.strategyEpoch !== epoch || p.ownerEpoch !== owner.epoch)
+  if (p.ownerEpoch !== owner.epoch)
     return {
       ok: false,
       code: "STALE",
       message:
-        "This proposal was made under an earlier goal or owner; the agent's next cycle makes a fresh one.",
+        "This proposal was made for an earlier owner; the agent's next research run makes a fresh one.",
     };
   return p;
 }
@@ -306,6 +250,8 @@ export async function approveProposal(
       now: s.now(),
     })) ?? p;
   await writeProposalEntry(s.db, applied, "approved");
+  // 2026-10-17: the plan set replaces any other proposal still waiting.
+  await s.proposals.supersedePending(chainId, agentId, { except: proposalId, now: s.now() });
   const activation = p.cycleId ? await s.activations.forCycle(p.cycleId) : null;
   const armed =
     activation?.armingId !== null && activation?.armingId !== undefined
@@ -333,31 +279,13 @@ export async function declineProposal(
   return { ok: true, proposal: declined };
 }
 
-/** Everything the plan card shows: the plan in force, the proposal waiting, recent decisions, why no change. */
+/** Everything the plan card shows (the card itself lives in @alpha-agents/trading). */
 export async function planCard(
   s: ProposalStores,
   chainId: number,
   agentId: number,
   symbols: Readonly<Record<string, string>>,
+  o: { readonly ownerEpoch?: bigint } = {},
 ) {
-  await s.proposals.expireDue(chainId, agentId, s.now());
-  const [plan, pending, recent, goal, epoch] = await Promise.all([
-    s.plans.active(chainId, agentId),
-    s.proposals.pending(chainId, agentId),
-    s.proposals.list(chainId, agentId, 8),
-    s.goals.currentGoal(chainId, agentId),
-    s.goals.strategyEpoch(chainId, agentId),
-  ]);
-  const noChange = recent.find((p) => p.kind === "no_change") ?? null;
-  return {
-    strategyEpoch: epoch.toString(),
-    planChanges: goal?.config.planChanges.mode ?? null,
-    current: currentPlanJson(plan, symbols),
-    pending: pending ? proposalJson(pending) : null,
-    recent: recent
-      .filter((p) => p.kind === "proposal" && p.status !== "pending_owner")
-      .slice(0, 5)
-      .map(proposalJson),
-    noChange: noChange ? proposalJson(noChange) : null,
-  };
+  return tradingPlanCard(s, chainId, agentId, symbols, o);
 }

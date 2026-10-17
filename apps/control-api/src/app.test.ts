@@ -2619,7 +2619,7 @@ describe.skipIf(!available)("the control API (needs pnpm dev:up for Postgres)", 
       expect([none.status, (await json(none)).error]).toEqual([503, "not_configured"]);
     });
 
-    it("the two-asset plan is checked against the goal's limits locally; declining keeps the plan; a new goal makes the proposal stale", async () => {
+    it("the two-asset plan is checked against the goal's limits locally; declining keeps the plan; a goal saved since no longer voids a waiting proposal (2026-10-17)", async () => {
       const p = await pendingFor(bands());
       const declined = await call(`/v1/agents/2/proposals/${p.proposalId}/reject`, {
         method: "POST",
@@ -2639,7 +2639,8 @@ describe.skipIf(!available)("the control API (needs pnpm dev:up for Postgres)", 
         template: "rebalance_bands@1",
         setBy: "owner",
       });
-      // A goal saved after the proposal bumps the strategy epoch: the proposal is stale.
+      // 2026-10-17: a goal saved after the proposal bumps the strategy epoch, but the plan card
+      // still offers the proposal, so approving it checks it against the goal in force and sets it.
       const r = await pendingFor(bands());
       await call("/v1/agents/2/goal", {
         method: "PUT",
@@ -2649,7 +2650,24 @@ describe.skipIf(!available)("the control API (needs pnpm dev:up for Postgres)", 
           aggressiveness: "AGGRESSIVE",
         }),
       });
-      const stale = await call(`/v1/agents/2/proposals/${r.proposalId}/approve`, {
+      const card = await json(await call("/v1/agents/2/plan-card", { headers: headers(bob) }));
+      expect(card.pending).toMatchObject({ proposalId: r.proposalId });
+      const later = await call(`/v1/agents/2/proposals/${r.proposalId}/approve`, {
+        method: "POST",
+        headers: headers(bob),
+      });
+      expect(later.status).toBe(200);
+      expect(await json(later)).toMatchObject({ proposal: { status: "applied" } });
+      // A proposal made for an earlier owner is never offered, and approving it is refused.
+      const sold = await pendingFor(bands());
+      await t.db
+        .updateTable("platform.plan_proposals")
+        .set({ owner_epoch: "1" })
+        .where("proposal_id", "=", sold.proposalId)
+        .execute();
+      const after = await json(await call("/v1/agents/2/plan-card", { headers: headers(bob) }));
+      expect(after.pending).toBeNull();
+      const stale = await call(`/v1/agents/2/proposals/${sold.proposalId}/approve`, {
         method: "POST",
         headers: headers(bob),
       });
