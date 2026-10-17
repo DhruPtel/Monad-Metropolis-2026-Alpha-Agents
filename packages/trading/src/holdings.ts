@@ -1,6 +1,15 @@
 import { AGENT_NFT_ABI } from "@alpha-agents/domain";
-import { type Hex, createPublicClient, encodeFunctionData, getAddress, http, parseAbi } from "viem";
+import {
+  type Hex,
+  createPublicClient,
+  encodeFunctionData,
+  getAddress,
+  http,
+  isAddressEqual,
+  parseAbi,
+} from "viem";
 import type { WalletCall } from "./actions.ts";
+import { ACCOUNT_HOLDINGS_ABI, chainSymbols, heldTokenSymbol } from "./portfolio-v3.ts";
 
 /**
  * Everything an agent holds, at each of its addresses (P2-EC testnet tuning,
@@ -171,26 +180,67 @@ function classify(role: HoldingRole, symbol: string): { use: HoldingUse; status:
   return { use: null, status: "movable" };
 }
 
+/** The reads the holdings reader makes; a test gives a fake, the app a viem client. */
+export interface HoldingsClient {
+  readContract(args: {
+    address: Hex;
+    abi: unknown;
+    functionName: string;
+    args?: unknown[];
+  }): Promise<unknown>;
+  getBalance(args: { address: Hex }): Promise<bigint>;
+  getBlockNumber(): Promise<bigint>;
+}
+
 /** Reads every balance at the agent's addresses, fresh from the chain. */
 export function rpcHoldingsReader(
   rpcUrl: string,
   chainId: number,
   c: HoldingsContracts,
+  injected?: HoldingsClient,
 ): HoldingsReader {
-  const client = createPublicClient({ transport: http(rpcUrl) });
+  const client: HoldingsClient =
+    injected ?? (createPublicClient({ transport: http(rpcUrl) }) as unknown as HoldingsClient);
   const read = <T>(address: Hex, abi: unknown, functionName: string, args: unknown[] = []) =>
-    client.readContract({ address, abi, functionName, args } as never) as Promise<T>;
+    client.readContract({ address, abi, functionName, args }) as Promise<T>;
+  const chainSymbol = chainSymbols(client);
+  /**
+   * 2026-10-17: the v3 trading account's own list of what it holds (the portfolio's read), each
+   * token named as the portfolio names it, so a token the address book does not list (the
+   * testnet stand-ins TALPHA and TBETA) shows here as it does in the portfolio.
+   */
+  const heldByAccount = async (account: Hex) => {
+    const held = await read<readonly { token: Hex; decimals: number; balance: bigint }[]>(
+      account,
+      ACCOUNT_HOLDINGS_ABI,
+      "holdings",
+    );
+    return Promise.all(
+      held
+        .filter((h) => h.balance > 0n && !c.tokens.some((t) => isAddressEqual(t.address, h.token)))
+        .map(async (h) => ({
+          token: {
+            symbol: await heldTokenSymbol(h.token, { listed: c.tokens, chainSymbol }),
+            address: getAddress(h.token),
+            decimals: Number(h.decimals),
+          },
+          raw: h.balance,
+        })),
+    );
+  };
   const balances = async (role: HoldingRole, address: Hex | null): Promise<AddressReading> => {
     if (!address) return { role, address, native: 0n, tokens: [] };
-    const [native, ...raws] = await Promise.all([
+    const v3Account = role === "personal_account" && Boolean(c.accountFactoryV3);
+    const [native, held, ...raws] = await Promise.all([
       client.getBalance({ address }),
+      v3Account ? heldByAccount(address) : Promise.resolve([]),
       ...c.tokens.map((t) => read<bigint>(t.address, ERC20_ABI, "balanceOf", [address])),
     ]);
     return {
       role,
       address,
       native,
-      tokens: c.tokens.map((token, i) => ({ token, raw: raws[i] ?? 0n })),
+      tokens: [...c.tokens.map((token, i) => ({ token, raw: raws[i] ?? 0n })), ...held],
     };
   };
   return {

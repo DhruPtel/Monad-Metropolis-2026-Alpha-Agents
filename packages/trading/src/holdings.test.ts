@@ -1,6 +1,12 @@
 import { decodeFunctionData, parseAbi } from "viem";
 import { describe, expect, it } from "vitest";
-import { type HoldingsReading, holdingsJson, tokenBoundRecoverCall } from "./holdings.ts";
+import {
+  type HoldingsClient,
+  type HoldingsReading,
+  holdingsJson,
+  rpcHoldingsReader,
+  tokenBoundRecoverCall,
+} from "./holdings.ts";
 
 const OWNER = "0x683eE842A16f85e69883F433745263BFe8D55f76" as const;
 const FUNDING = "0x45BB3eC560c7A19bbedad9cB42051401Ecc30d7B" as const;
@@ -148,5 +154,80 @@ describe("an agent's holdings at every address (D-315)", () => {
 
   it("encodes the MON call with value 0: the account pays the MON, not the owner", () => {
     expect(tokenBoundRecoverCall(TBA, OWNER, null, 1n).value).toBe("0");
+  });
+});
+
+describe("the trading account's line on the holdings card (2026-10-17)", () => {
+  const NFT = "0x60cacA6dE327331b321E140Ae19AcbCc4188Be6E" as const;
+  const FACTORY_V3 = "0x5ebF58520f9bAa847959DcF69716030a1583BCDb" as const;
+  const TALPHA = "0xD4EB3FeF2A9eBE27D59D4188B6D20Bb21220c03c" as const;
+  const TBETA = "0x57ca16ca75E968Bd3FF712C729e6e5F6940Cc010" as const;
+  const lower = (a: string) => a.toLowerCase();
+  /** Agent #2's account after its first plan: USDC, WMON and the two stand-ins. */
+  const balanceIn: Record<string, bigint> = {
+    [lower(USDC.address)]: 1_505_996n,
+    [lower(WMON.address)]: 899_149_840_245_530_587n,
+    [lower(TALPHA)]: 2_080_920_225_587_341_937n,
+    [lower(TBETA)]: 1_472_165_830_939_333_516n,
+  };
+  const client = (): HoldingsClient & { reads: string[] } => {
+    const reads: string[] = [];
+    return {
+      reads,
+      async getBalance() {
+        return 0n;
+      },
+      async getBlockNumber() {
+        return 100n;
+      },
+      async readContract({ address, functionName, args = [] }) {
+        reads.push(`${functionName}@${lower(address).slice(0, 8)}`);
+        const at = lower(address);
+        if (at === lower(NFT) && functionName === "ownerOf") return OWNER;
+        if (at === lower(NFT) && functionName === "tbaOf") return TBA;
+        if (at === lower(FACTORY_V3) && functionName === "personalAccountOf") return ACCOUNT;
+        if (functionName === "balanceOf")
+          return lower(String(args[0])) === lower(ACCOUNT) ? (balanceIn[at] ?? 0n) : 0n;
+        if (at === lower(ACCOUNT) && functionName === "holdings")
+          return [USDC.address, WMON.address, TALPHA, TBETA].map((token) => ({
+            token,
+            decimals: token === USDC.address ? 6 : 18,
+            balance: balanceIn[lower(token)] ?? 0n,
+            free: balanceIn[lower(token)] ?? 0n,
+            costBasis: 0n,
+            lastPriceE18: 0n,
+            lastPricedAt: 0n,
+          }));
+        if (functionName === "symbol") {
+          if (at === lower(TALPHA)) return "TALPHA";
+          if (at === lower(TBETA)) return "TBETA";
+        }
+        throw new Error(`unexpected read ${functionName} at ${address}`);
+      },
+    };
+  };
+
+  it("lists every token the account holds, named from the chain, beside the address book's tokens", async () => {
+    const fake = client();
+    const reader = rpcHoldingsReader(
+      "http://unused",
+      10143,
+      { agentNft: NFT, accountFactory: null, accountFactoryV3: FACTORY_V3, tokens: [USDC, WMON] },
+      fake,
+    );
+    const r = await reader.holdings(2, FUNDING);
+    const account = holdingsJson(r as HoldingsReading).addresses.find(
+      (a) => a.role === "personal_account",
+    );
+    expect(account?.holdings.map((h) => `${h.symbol}:${h.raw}:${h.use}`)).toEqual([
+      "USDC:1505996:trading",
+      "WMON:899149840245530587:trading",
+      "TALPHA:2080920225587341937:trading",
+      "TBETA:1472165830939333516:trading",
+    ]);
+    // Only the trading account is read for its own list; the other addresses keep the book's.
+    expect(fake.reads.filter((x) => x.startsWith("holdings@"))).toEqual([
+      `holdings@${lower(ACCOUNT).slice(0, 8)}`,
+    ]);
   });
 });

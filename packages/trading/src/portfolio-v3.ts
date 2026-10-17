@@ -141,7 +141,6 @@ const ACCOUNT_ABI = parseAbi([
   "function mode() view returns (uint8)",
   "function screenedOptIn() view returns (bool)",
   "function depositsClosed() view returns (bool)",
-  "function holdings() view returns ((address token, uint8 decimals, uint256 balance, uint256 free, uint256 costBasis, uint256 lastPriceE18, uint64 lastPricedAt)[])",
   "function navUsdc() view returns (uint256)",
   "function breakerState() view returns (uint256 nav, uint256 perUnit, uint256 peak, uint256 drawdownBps)",
   "function peakPerUnit7d() view returns (uint256)",
@@ -156,6 +155,58 @@ const ORACLE_ABI = parseAbi([
   "function price(address token) view returns (uint256 priceE18, uint256 updatedAt, uint8 reason)",
 ]);
 const ERC20_ABI = parseAbi(["function balanceOf(address who) view returns (uint256)"]);
+const SYMBOL_ABI = parseAbi(["function symbol() view returns (string)"]);
+
+/** PersonalAccountV3's own list of what it holds: the one read every view of the account starts from. */
+export const ACCOUNT_HOLDINGS_ABI = parseAbi([
+  "function holdings() view returns ((address token, uint8 decimals, uint256 balance, uint256 free, uint256 costBasis, uint256 lastPriceE18, uint64 lastPricedAt)[])",
+]);
+
+/**
+ * 2026-10-17: a token's own symbol (ERC20 `symbol()`), read once and kept for the reader's life;
+ * null when the token has none. A failed read is not kept, so the next read asks again.
+ */
+export function chainSymbols(
+  client: Pick<PortfolioClientV3, "readContract">,
+): (token: Hex) => Promise<string | null> {
+  const kept = new Map<string, Promise<string | null>>();
+  return (token) => {
+    const key = token.toLowerCase();
+    const hit = kept.get(key);
+    if (hit) return hit;
+    const read = client
+      .readContract({ address: token, abi: SYMBOL_ABI, functionName: "symbol" })
+      .then(
+        (s) => (typeof s === "string" && s.trim() !== "" ? s.trim() : null),
+        () => null,
+      );
+    kept.set(key, read);
+    void read.then((s) => {
+      if (s === null) kept.delete(key);
+    });
+    return read;
+  };
+}
+
+/**
+ * 2026-10-17: the name a held token shows under, the same in every view of the account: the
+ * platform's token list, the wrapped native's own word, then the token's own symbol from the
+ * chain, and its short address only when it has none. Before, a held token missing from the
+ * list (the testnet stand-ins TALPHA and TBETA) showed as its address, so no plan row found it.
+ */
+export async function heldTokenSymbol(
+  token: Hex,
+  o: {
+    readonly listed: readonly { readonly address: Hex; readonly symbol: string }[];
+    readonly wmon?: Hex | null;
+    readonly chainSymbol: (token: Hex) => Promise<string | null>;
+  },
+): Promise<string> {
+  const listed = o.listed.find((t) => isAddressEqual(t.address, token));
+  if (listed) return listed.symbol;
+  if (o.wmon && isAddressEqual(token, o.wmon)) return WRAPPED_NATIVE_SYMBOL;
+  return (await o.chainSymbol(token)) ?? `${token.slice(0, 6)}…${token.slice(-4)}`;
+}
 
 /** OracleAdapterV3's PriceReason, in the contract's order (packages/policy's PRICE_REASONS). */
 export const PRICE_REASONS_V3 = [
@@ -201,6 +252,7 @@ export function rpcPortfolioReaderV3(
     (createPublicClient({ transport: http(rpcUrl) }) as unknown as PortfolioClientV3);
   const read = <T>(address: Hex, abi: unknown, functionName: string, args: unknown[] = []) =>
     client.readContract({ address, abi, functionName, args }) as Promise<T>;
+  const chainSymbol = chainSymbols(client);
   const priceOf = async (token: Hex): Promise<PriceReadingV3> => {
     if (isAddressEqual(token, c.usdc)) {
       const [p, at, r] = await read<readonly [bigint, bigint, number]>(
@@ -303,7 +355,7 @@ export function rpcPortfolioReaderV3(
         read<number>(account, ACCOUNT_ABI, "mode"),
         read<boolean>(account, ACCOUNT_ABI, "screenedOptIn"),
         read<boolean>(account, ACCOUNT_ABI, "depositsClosed"),
-        read<readonly HoldingTuple[]>(account, ACCOUNT_ABI, "holdings"),
+        read<readonly HoldingTuple[]>(account, ACCOUNT_HOLDINGS_ABI, "holdings"),
         // The views that value the account revert while a held token's price is unusable.
         read<bigint>(account, ACCOUNT_ABI, "navUsdc").catch(() => null),
         read<readonly [bigint, bigint, bigint, bigint]>(account, ACCOUNT_ABI, "breakerState")
@@ -319,12 +371,10 @@ export function rpcPortfolioReaderV3(
       const holdings = await Promise.all(
         held.map(async (h): Promise<HoldingReadingV3> => {
           const known = depositable.find((t) => isAddressEqual(t.address, h.token));
-          const symbol =
-            known?.symbol ??
-            (isAddressEqual(h.token, c.wmon)
-              ? WRAPPED_NATIVE_SYMBOL
-              : `${h.token.slice(0, 6)}…${h.token.slice(-4)}`);
-          const claimable = await read<bigint>(account, ACCOUNT_ABI, "claimable", [h.token, owner]);
+          const [symbol, claimable] = await Promise.all([
+            heldTokenSymbol(h.token, { listed: depositable, wmon: c.wmon, chainSymbol }),
+            read<bigint>(account, ACCOUNT_ABI, "claimable", [h.token, owner]),
+          ]);
           if (isAddressEqual(h.token, c.usdc))
             return {
               token: h.token,
@@ -340,8 +390,9 @@ export function rpcPortfolioReaderV3(
             };
           const attested =
             h.lastPricedAt !== 0n && h.lastPricedAt + ATTESTATION_TTL > block.timestamp;
-          const classA = known?.priceClass === "A";
-          const feed = classA ? null : await priceOf(h.token);
+          // A token the list does not name may still be class A: the oracle then says so.
+          const feed = known?.priceClass === "A" ? null : await priceOf(h.token);
+          const classA = feed === null || feed.reason === "ATTESTATION_REQUIRED";
           const priceE18 = classA
             ? attested
               ? h.lastPriceE18

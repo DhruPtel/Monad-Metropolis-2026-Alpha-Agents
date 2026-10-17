@@ -45,6 +45,10 @@ function fakeChain(state: {
   account: Hex;
   legacy: Hex;
   wmonReason?: number;
+  /** Each token's own symbol(); a token not named here has none (the call reverts). */
+  symbols?: Readonly<Record<string, string>>;
+  /** The oracle's answer for tokens beyond USDC, WMON and WBTC: [price, updatedAt, reason]. */
+  prices?: Readonly<Record<string, readonly [bigint, bigint, number]>>;
   holdings?: readonly {
     token: Hex;
     decimals: number;
@@ -90,7 +94,14 @@ function fakeChain(state: {
         if (token === lower(USDC)) return [E18, NOW - 600n, 0];
         if (token === lower(WMON)) return [25n * 10n ** 15n, NOW - 20n, state.wmonReason ?? 0];
         if (token === lower(WBTC)) return [100_000n * E18, NOW - 30n, 0];
+        const extra = Object.entries(state.prices ?? {}).find(([t]) => lower(t) === token)?.[1];
+        if (extra) return extra;
         throw new Error("execution reverted: UnknownAsset");
+      }
+      if (functionName === "symbol") {
+        const named = Object.entries(state.symbols ?? {}).find(([t]) => lower(t) === at)?.[1];
+        if (named) return named;
+        throw new Error("execution reverted");
       }
       if (functionName === "balanceOf") {
         const who = lower(String(args[0]));
@@ -280,6 +291,103 @@ describe("the v3 portfolio reading (after the F-U11 playtest)", () => {
     });
     expect(j.navUsdcE6).toBeNull();
     expect(j.tokens.find((t) => t.symbol === "WMON")?.price.reason).toBe("STALE");
+  });
+
+  it("names a held token the platform's list leaves out by its own symbol from the chain, values it at the oracle's price, and reads each symbol once (2026-10-17)", async () => {
+    // Agent #2 on Monad testnet after its first plan: the platform's token list is empty there,
+    // so the stand-ins TALPHA and TBETA showed as their addresses and no plan row found them.
+    const TALPHA = "0xD4EB3FeF2A9eBE27D59D4188B6D20Bb21220c03c" as Hex;
+    const TBETA = "0x57ca16ca75E968Bd3FF712C729e6e5F6940Cc010" as Hex;
+    const held = (token: Hex, balance: bigint, costBasis: bigint) => ({
+      token,
+      decimals: 18,
+      balance,
+      free: balance,
+      costBasis,
+      lastPriceE18: 0n,
+      lastPricedAt: 0n,
+    });
+    const client = fakeChain({
+      account: ACCOUNT,
+      legacy: ZERO,
+      symbols: { [TALPHA]: "TALPHA", [TBETA]: "TBETA" },
+      prices: { [TALPHA]: [E18, NOW - 60n, 0], [TBETA]: [E18, NOW - 60n, 0] },
+      holdings: [
+        { ...held(USDC, 1_505_996n, 0n), decimals: 6 },
+        held(TALPHA, 2_080_920_225_587_341_937n, 2_090_000n),
+        held(TBETA, 1_472_165_830_939_333_516n, 1_470_000n),
+      ],
+    });
+    const reader = rpcPortfolioReaderV3("http://unused", 143143, c, {
+      tokens: async () => [],
+      client,
+    });
+    const r = await reader.portfolio(1);
+    const j = portfolioV3Json(r as NonNullable<typeof r>);
+    expect(j.holdings.map((h) => [h.symbol, h.priceReason, h.valueUsdcE6])).toEqual([
+      ["USDC", "OK", "1505996"],
+      ["TALPHA", "OK", "2080920"],
+      ["TBETA", "OK", "1472165"],
+    ]);
+    await reader.portfolio(1);
+    // The symbols do not change: one read each for the reader's life, none for USDC.
+    expect(client.reads.filter((x) => x.startsWith("symbol@"))).toHaveLength(2);
+  });
+
+  it("keeps a token's short address when it has no symbol, and values a class A token the list leaves out at its attested price (2026-10-17)", async () => {
+    const NAMELESS = "0x00000000000000000000000000000000000a11ce" as Hex;
+    const SCREENED = "0x00000000000000000000000000000000005c4eed" as Hex;
+    const STALE = "0x0000000000000000000000000000000000057a1e" as Hex;
+    const client = fakeChain({
+      account: ACCOUNT,
+      legacy: ZERO,
+      symbols: { [SCREENED]: "SCRN", [STALE]: "OLD" },
+      prices: {
+        [NAMELESS]: [2n * E18, NOW - 60n, 0],
+        // ATTESTATION_REQUIRED: a class A token has no oracle price, only its attested one.
+        [SCREENED]: [0n, 0n, 2],
+        [STALE]: [0n, 0n, 2],
+      },
+      holdings: [
+        {
+          token: NAMELESS,
+          decimals: 18,
+          balance: E18,
+          free: E18,
+          costBasis: 0n,
+          lastPriceE18: 0n,
+          lastPricedAt: 0n,
+        },
+        {
+          token: SCREENED,
+          decimals: 18,
+          balance: 5n * E18,
+          free: 5n * E18,
+          costBasis: 0n,
+          lastPriceE18: 3n * E18,
+          lastPricedAt: NOW - 600n,
+        },
+        {
+          token: STALE,
+          decimals: 18,
+          balance: E18,
+          free: E18,
+          costBasis: 0n,
+          lastPriceE18: 3n * E18,
+          lastPricedAt: NOW - 2n * 86_400n,
+        },
+      ],
+    });
+    const r = await rpcPortfolioReaderV3("http://unused", 143143, c, {
+      tokens: async () => [],
+      client,
+    }).portfolio(1);
+    const j = portfolioV3Json(r as NonNullable<typeof r>);
+    expect(j.holdings.map((h) => [h.symbol, h.priceReason, h.valueUsdcE6])).toEqual([
+      ["0x0000…11ce", "OK", "2000000"],
+      ["SCRN", "OK", "15000000"],
+      ["OLD", "ATTESTATION_REQUIRED", null],
+    ]);
   });
 
   it("is null for an agent that does not exist", async () => {
