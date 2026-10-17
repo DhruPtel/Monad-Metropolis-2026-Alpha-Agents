@@ -1,6 +1,15 @@
 import { describe, expect, it } from "vitest";
 import type { PlanCardJson, ProposalJson } from "@/api/client";
-import { allocationText, latestDecided, planCardView, planKept } from "./plan-card";
+import {
+  allocationText,
+  latestDecided,
+  latestRunNote,
+  noPlanLine,
+  planCardView,
+  planKept,
+  runFinish,
+  shownProposal,
+} from "./plan-card";
 
 const WMON = "0x3bd359c1119da7da1d913d1c4d2b7c461115433a";
 const WBTC = "0x0555e30da8f98308edb960aa94c0db47230d2b9c";
@@ -194,5 +203,135 @@ describe("the plan card's view (F-U9)", () => {
       ),
     ).toBe("25% WMON, 75% USDC");
     expect(allocationText(null)).toBeNull();
+  });
+});
+
+describe("the plan card and the finish strip agree (2026-10-17)", () => {
+  const run = (
+    outcome: NonNullable<PlanCardJson["latestRun"]>["outcome"],
+  ): NonNullable<PlanCardJson["latestRun"]> => ({
+    cycleId: "cycle-2",
+    kind: "ACTIVATION",
+    status: "completed",
+    stopReason: "COMPLETED",
+    createdAt: "2026-10-17T19:17:40.000Z",
+    finishedAt: "2026-10-17T19:24:55.000Z",
+    outcome,
+  });
+  const refused = {
+    kind: "refused" as const,
+    proposalId: null,
+    appliedBy: null,
+    reasonCode: "DEPTH",
+    reason:
+      "The platform's checks refused the 2 plans the agent drafted: a position is too large for its pools; then the plan step stopped: the step reached its cost ceiling.",
+    findings: [{ code: "DEPTH", message: "a position is too large for its pools" }],
+  };
+
+  it("never shows a refused, declined or expired proposal as the plan in force", () => {
+    const applied = proposal({ status: "applied", proposalId: "prop-applied" });
+    const rejected = proposal({ status: "rejected", proposalId: "prop-rejected" });
+    // The API names the proposal in force: it is shown, whatever the recent list holds.
+    expect(
+      shownProposal(card({ pending: null, inForce: applied, recent: [rejected, applied] })),
+    ).toBe(applied);
+    // A plan set without a proposal (or none in force): nothing from the recent list stands in.
+    expect(shownProposal(card({ pending: null, inForce: null, recent: [rejected] }))).toBeNull();
+    // An older API without inForce: the latest applied one only while a plan is in force.
+    expect(shownProposal(card({ pending: null, recent: [rejected, applied] }))).toBe(applied);
+    expect(shownProposal(card({ pending: null, current: null, recent: [rejected] }))).toBeNull();
+    // A waiting proposal always comes first.
+    expect(shownProposal(card({ inForce: applied }))?.status).toBe("pending_owner");
+  });
+
+  it("with no plan, the card says why from the newest run, the same reason the strip gives", () => {
+    const c = card({ current: null, pending: null, inForce: null, latestRun: run(refused) });
+    expect(noPlanLine(c)).toBe(
+      "No plan yet: the research run of 2026-10-17 19:17 UTC made no plan: the platform's checks refused the 2 plans the agent drafted: a position is too large for its pools; then the plan step stopped: the step reached its cost ceiling.",
+    );
+    const f = runFinish(refused, c);
+    expect(f?.button).toBeNull();
+    expect(f?.line).toContain("the platform's checks refused the 2 plans");
+    // Before any run.
+    expect(noPlanLine(card({ current: null, pending: null }))).toBe(
+      "No plan yet: the activation sweep makes the first one.",
+    );
+    // A run going now.
+    expect(
+      noPlanLine(
+        card({
+          current: null,
+          pending: null,
+          latestRun: run({
+            kind: "running",
+            proposalId: null,
+            appliedBy: null,
+            reasonCode: null,
+            reason: null,
+            findings: [],
+          }),
+        }),
+      ),
+    ).toBe("No plan yet: a research run is going now; its plan shows here when it ends.");
+  });
+
+  it("under a plan in force, notes a newest run that made no plan; says nothing for one that did", () => {
+    expect(latestRunNote(card({ pending: null, latestRun: run(refused) }))).toBe(
+      "The research run of 2026-10-17 19:17 UTC made no plan: the platform's checks refused the 2 plans the agent drafted: a position is too large for its pools; then the plan step stopped: the step reached its cost ceiling.",
+    );
+    expect(
+      latestRunNote(
+        card({
+          pending: null,
+          latestRun: run({
+            kind: "applied",
+            proposalId: "prop-1",
+            appliedBy: "agent",
+            reasonCode: null,
+            reason: null,
+            findings: [],
+          }),
+        }),
+      ),
+    ).toBeNull();
+  });
+
+  it("Review plan only for the proposal the card shows waiting, also before the card loads", () => {
+    const waiting = {
+      kind: "awaiting_approval" as const,
+      proposalId: "prop-00000000-0000-4000-8000-000000000001",
+      appliedBy: null,
+      reasonCode: null,
+      reason: null,
+      findings: [],
+    };
+    expect(runFinish(waiting, card())?.button).toBe("review_plan");
+    expect(runFinish(waiting, null)?.button).toBe("review_plan");
+    // The card shows another proposal waiting: this run's is no longer offered.
+    const other = runFinish(waiting, card({ pending: proposal({ proposalId: "prop-newer" }) }));
+    expect(other?.button).not.toBe("review_plan");
+    expect(other?.otherWaiting).toBe(true);
+    expect(runFinish(null, card())).toBeNull();
+    // A card read before this run ended (its newest run is another one): the outcome decides,
+    // so the strip never says the plan no longer waits while the card is being read again.
+    const stale = card({
+      pending: null,
+      latestRun: run({
+        kind: "running",
+        proposalId: null,
+        appliedBy: null,
+        reasonCode: null,
+        reason: null,
+        findings: [],
+      }),
+    });
+    expect(runFinish(waiting, stale, "cycle-2")?.button).toBe("review_plan");
+    expect(runFinish(waiting, stale, "cycle-3")?.button).toBe("review_plan");
+    // The card read after it ended, naming the run: the card decides.
+    const fresh = card({ pending: null, latestRun: run(waiting) });
+    expect(runFinish(waiting, fresh, "cycle-2")).toMatchObject({
+      button: "view_current_plan",
+      line: "Its plan no longer waits for you",
+    });
   });
 });

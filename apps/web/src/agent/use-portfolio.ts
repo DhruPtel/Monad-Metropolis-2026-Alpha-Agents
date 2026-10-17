@@ -192,6 +192,8 @@ export function usePortfolio(agentId: bigint, environment: EnvironmentId): Portf
     setIntents([]);
     setActivation(null);
     setWindowView(null);
+    // 2026-10-17: never another agent's plan card while this agent's loads.
+    setPlanCard(null);
     setError(null);
     if (!running.current) setStatus(null);
   }, [wallet.address, agentId]);

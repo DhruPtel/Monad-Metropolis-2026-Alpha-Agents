@@ -32,7 +32,7 @@ import { ChevronDown, PlugZap, Wallet } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { type ActivityJson, type GoalPageJson, api, goalApi } from "@/api/client";
-import { latestDecided, planKept } from "@/agent/plan-card";
+import { latestRunNote, noPlanLine, planKept, shownProposal } from "@/agent/plan-card";
 import { schedulePoll } from "@/agent/poll";
 import { v2AssetRows } from "@/agent/portfolio";
 import { assetRows } from "@/agent/portfolio-v3";
@@ -229,8 +229,10 @@ export function TradingPage({
 
   const card = pf.planCard;
   const pending = card?.pending ?? null;
-  const applied = latestApplied(card);
-  const shown = pending ?? applied ?? (card ? latestDecided(card) : null);
+  // 2026-10-17: the plan in force is the proposal that set it, whatever came after; the card
+  // shows the proposal waiting, else that one, and never a refused or declined one as in force.
+  const applied = card?.inForce !== undefined ? card.inForce : latestApplied(card);
+  const shown = shownProposal(card);
   const planParams = (pending ?? applied)?.plan ?? null;
   const runner = pf.why?.runner ?? null;
   const settled = pf.intents
@@ -314,7 +316,11 @@ export function TradingPage({
   );
 
   // 2026-10-15: the newest research run kept the plan; said first, before anything else.
-  const kept = planKept(card);
+  // 2026-10-17: only while the newest run is the one that kept it.
+  const kept =
+    card?.latestRun === undefined || card.latestRun?.outcome.kind === "kept"
+      ? planKept(card)
+      : null;
   return (
     <div className="flex flex-col gap-6" data-testid="trading">
       {kept ? (
@@ -538,7 +544,7 @@ export function TradingPage({
                 waitingPlan
                   ? { label: "Waiting", tone: "warning" }
                   : shown.status === "applied"
-                    ? { label: "Approved", tone: "positive" }
+                    ? { label: shown.decidedBy ? "Approved" : "Applied", tone: "positive" }
                     : { label: shown.status.replaceAll("_", " "), tone: "neutral" }
               }
               goal={goalWord}
@@ -580,9 +586,14 @@ export function TradingPage({
               className="rounded-md border border-border p-4 text-sm text-foreground-muted"
               data-testid="plan-none"
             >
-              No plan yet: the activation sweep makes the first one.
+              {noPlanLine(card)}
             </p>
           )}
+          {shown && latestRunNote(card) ? (
+            <p className="text-sm text-foreground-muted" data-testid="plan-latest-run">
+              {latestRunNote(card)}
+            </p>
+          ) : null}
           <StatusFor status={pf.status} actions={["approve-plan", "reject-plan"]} />
         </div>
         <div className="flex min-w-0 flex-col gap-3">

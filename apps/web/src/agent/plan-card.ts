@@ -1,3 +1,9 @@
+import {
+  type FinishView,
+  type PlanCardRefs,
+  type RunPlanOutcome,
+  finishView,
+} from "@alpha-agents/domain";
 import type { PlanCardView } from "@alpha-agents/ui";
 import type { PlanCardJson, ProposalJson } from "@/api/client";
 
@@ -86,4 +92,111 @@ export function planKept(card: PlanCardJson | null): PlanKept | null {
     cycleId: kept.cycleId,
     at: kept.createdAt,
   };
+}
+
+/** 2026-10-17: what the plan card shows, reduced to what decides it. */
+export function planCardRefs(card: PlanCardJson | null): PlanCardRefs {
+  return {
+    pendingId: card?.pending?.proposalId ?? null,
+    inForceId: card?.inForce?.proposalId ?? null,
+    planInForce: Boolean(card?.current),
+  };
+}
+
+/**
+ * 2026-10-17: the proposal the plan card shows: the one waiting for the owner, else the one that
+ * set the plan in force. Never a refused, declined, expired or replaced proposal under "In force"
+ * (before, the latest decided one stood in when nothing was applied in the last eight records).
+ * An API from before 2026-10-17 sends no `inForce`: the latest applied one, while a plan is in force.
+ */
+export function shownProposal(card: PlanCardJson | null): ProposalJson | null {
+  if (!card) return null;
+  if (card.pending) return card.pending;
+  if (card.inForce !== undefined) return card.inForce;
+  return card.current ? (card.recent.find((p) => p.status === "applied") ?? null) : null;
+}
+
+/**
+ * The finish strip for a run, from what it did with the plan and what the plan card shows. Until
+ * the card has loaded, or while it was read before this run ended (its newest run is another one,
+ * or still going), from the run's outcome alone.
+ */
+export function runFinish(
+  outcome: RunPlanOutcome | null | undefined,
+  card: PlanCardJson | null,
+  cycleId?: string,
+): FinishView | null {
+  if (!outcome) return null;
+  const latest = card?.latestRun;
+  const fresh =
+    card !== null &&
+    (cycleId === undefined ||
+      latest === undefined ||
+      (latest?.cycleId === cycleId && latest.outcome.kind !== "running"));
+  const refs: PlanCardRefs =
+    card && fresh
+      ? planCardRefs(card)
+      : {
+          pendingId: outcome.kind === "awaiting_approval" ? outcome.proposalId : null,
+          inForceId:
+            outcome.kind === "applied" ? outcome.proposalId : (card?.inForce?.proposalId ?? null),
+          planInForce: card
+            ? outcome.kind === "applied" || Boolean(card.current)
+            : outcome.kind === "applied" || outcome.kind === "kept",
+        };
+  return finishView(outcome, refs);
+}
+
+/** The finish strip's buttons, each leading to the plan card. */
+export const FINISH_BUTTONS: Readonly<
+  Record<FinishView["button"] & string, { readonly label: string; readonly testId: string }>
+> = {
+  review_plan: { label: "Review plan", testId: "review-plan" },
+  view_plan: { label: "View plan", testId: "view-plan" },
+  view_current_plan: { label: "View current plan", testId: "view-current-plan" },
+};
+
+const hhmm = (iso: string) => `${iso.slice(0, 10)} ${iso.slice(11, 16)}`;
+
+/**
+ * 2026-10-17: the plan card's line when it shows no proposal: the plan in force set without
+ * one, a run going now, or why the newest run made no plan, from that run's own outcome.
+ */
+export function noPlanLine(card: PlanCardJson | null): string {
+  const run = card?.latestRun ?? null;
+  const allocation = allocationText(card?.current ?? null);
+  if (card?.current)
+    return `In force since ${card.current.setAt.slice(0, 10)}${allocation ? `: ${allocation}` : ""}.`;
+  if (!run) return "No plan yet: the activation sweep makes the first one.";
+  if (run.outcome.kind === "running")
+    return "No plan yet: a research run is going now; its plan shows here when it ends.";
+  return `No plan yet: ${runSentence(run.createdAt, run.outcome)}`;
+}
+
+const NOT_APPLIED = new Set(["declined", "expired", "superseded"]);
+const lowerFirst = (s: string) => `${s[0]?.toLowerCase() ?? ""}${s.slice(1)}`;
+
+/** "the research run of 2026-10-17 19:17 UTC made no plan: the plan step stopped ..." */
+function runSentence(createdAt: string, o: RunPlanOutcome): string {
+  const reason = o.reason ? lowerFirst(o.reason) : "no reason was recorded.";
+  return NOT_APPLIED.has(o.kind)
+    ? `the plan from the research run of ${hhmm(createdAt)} UTC was not applied: ${reason}`
+    : `the research run of ${hhmm(createdAt)} UTC made no plan: ${reason}`;
+}
+
+/**
+ * 2026-10-17: under a plan the card does show, why the newest run left it as it is, when that
+ * run made no plan of its own (refused, stopped, declined, expired or replaced); else null.
+ */
+export function latestRunNote(card: PlanCardJson | null): string | null {
+  const run = card?.latestRun ?? null;
+  if (!run || !card || (!card.pending && !card.current)) return null;
+  const o = run.outcome;
+  if (o.kind === "running")
+    return "A research run is going now; a new plan from it shows here when it ends.";
+  if (o.kind === "refused" || o.kind === "no_plan" || NOT_APPLIED.has(o.kind)) {
+    const line = runSentence(run.createdAt, o);
+    return `${line[0]?.toUpperCase() ?? ""}${line.slice(1)}`;
+  }
+  return null;
 }

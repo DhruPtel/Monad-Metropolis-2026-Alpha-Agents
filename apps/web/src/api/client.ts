@@ -1,4 +1,4 @@
-import type { ManagedAccount } from "@alpha-agents/domain";
+import type { ManagedAccount, RunPlanOutcome } from "@alpha-agents/domain";
 import type {
   AccountMode,
   AgentState,
@@ -458,8 +458,20 @@ export interface PlanCardJson {
     readonly targetWmonBps: number | null;
   } | null;
   readonly pending: ProposalJson | null;
+  /** 2026-10-17: the proposal that set the plan in force; null when none did. Absent before. */
+  readonly inForce?: ProposalJson | null;
   readonly recent: readonly ProposalJson[];
   readonly noChange: ProposalJson | null;
+  /** 2026-10-17: the newest research run and what it did with the plan. Absent before. */
+  readonly latestRun?: {
+    readonly cycleId: string;
+    readonly kind: string;
+    readonly status: string;
+    readonly stopReason: string | null;
+    readonly createdAt: string;
+    readonly finishedAt: string | null;
+    readonly outcome: RunPlanOutcome;
+  } | null;
 }
 
 /** F-U10: one step of the activation sweep as the panel shows it. */
@@ -791,6 +803,8 @@ export interface ResearchJson {
     readonly chargedUsdcE6: string;
     /** 2026-10-16: why the run stopped (CREDITS_SHORT, BUDGET_SHORT, ...); absent before. */
     readonly stopReason?: string | null;
+    /** 2026-10-17: what the run did with the plan; absent before. */
+    readonly outcome?: RunPlanOutcome | null;
     readonly stages: readonly {
       readonly stage: string;
       readonly themeCode: string | null;
