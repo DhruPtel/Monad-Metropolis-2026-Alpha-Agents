@@ -120,7 +120,7 @@ export interface ProposalStores {
   readonly plans: PlanStore;
   readonly goals: GoalStore;
   readonly trades: TradeStore;
-  /** F-U10: the activation sweeps, so approving a sweep's plan arms the agent (D-291). */
+  /** F-U10: the activation sweeps. */
   readonly activations: ActivationStore;
   readonly recheck: ProposalDeps["recheck"];
   readonly now: () => Date;
@@ -167,10 +167,10 @@ async function waiting(
  * Approve: the evaluator runs again (the Test stage v2 on the fund agent's
  * set for a portfolio, the goal's limits for the two-asset plan); a draft
  * that fails now is stored as rejected with every finding; one that passes
- * becomes the plan the runner follows, set by the owner. When the proposal
- * is the activation sweep's, this approval is the one that arms the agent
- * (F-U10, D-291): the arming registered when trading was turned on moves
- * from waiting for its first trade to armed, and `armed` says so.
+ * becomes the plan the runner follows, set by the owner. 2026-10-18 (owner,
+ * replacing D-291's sweep-only rule): approving any plan arms the agent, so
+ * the plan's legs start without a second approval: an arming registered and
+ * waiting for its first trade moves to armed, and `armed` says so.
  */
 export async function approveProposal(
   s: ProposalStores,
@@ -252,10 +252,10 @@ export async function approveProposal(
   await writeProposalEntry(s.db, applied, "approved");
   // 2026-10-17: the plan set replaces any other proposal still waiting.
   await s.proposals.supersedePending(chainId, agentId, { except: proposalId, now: s.now() });
-  const activation = p.cycleId ? await s.activations.forCycle(p.cycleId) : null;
+  const open = await s.trades.openArming(chainId, agentId);
   const armed =
-    activation?.armingId !== null && activation?.armingId !== undefined
-      ? (await s.trades.markArmedByPlan(activation.armingId)) !== null
+    open?.status === "awaiting_first_trade"
+      ? (await s.trades.markArmedByPlan(open.armingId)) !== null
       : false;
   return { ok: true, proposal: applied, plan, armed };
 }

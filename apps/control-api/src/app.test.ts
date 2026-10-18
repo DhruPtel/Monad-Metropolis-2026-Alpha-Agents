@@ -8,7 +8,6 @@ import {
   managedAccountOf,
 } from "@alpha-agents/domain";
 import {
-  ActivationStore,
   type AgentChainView,
   GoalStore,
   openSecret,
@@ -1341,6 +1340,48 @@ describe.skipIf(!available)("the control API (needs pnpm dev:up for Postgres)", 
         expect([again.status, (await json(again)).renewed]).toEqual([200, true]);
       });
 
+      it("with startTrading, records the grant and arms the agent at once when a plan is in force (2026-10-18)", async () => {
+        const session = await bobSession();
+        grant();
+        const post = (body: object) =>
+          call(
+            "/v1/agents/2/arming",
+            {
+              method: "POST",
+              headers: { "x-owner-session": session, "content-type": "application/json" },
+              body: JSON.stringify(body),
+            },
+            { trading },
+          );
+        await t.db.deleteFrom("platform.strategy_params").execute();
+        // No plan in force: the grant is recorded and waits for its first trade, as before.
+        const early = await post({ startTrading: true });
+        expect(await json(early)).toMatchObject({ arming: { state: "awaiting_first_trade" } });
+        await t.db.deleteFrom("platform.arming").execute();
+        await call("/v1/agents/2/goal", {
+          method: "PUT",
+          headers: { "x-owner-session": session, "content-type": "application/json" },
+          body: JSON.stringify(structuredClone(DEFAULT_GOAL_INPUT)),
+        });
+        const goal = translateGoal(structuredClone(DEFAULT_GOAL_INPUT));
+        if (!goal.ok) throw new Error("goal");
+        await new PlanStore(t.db).set({
+          chainId: env.chainId,
+          agentId: 2,
+          setBy: "owner",
+          template: "rebalance_bands@1",
+          params: goal.config.template.params,
+        });
+        // Without the flag the arming still waits; with it, the agent is armed.
+        const plain = await json(await owner(session, "/v1/agents/2/arming", "POST"));
+        expect(plain).toMatchObject({ arming: { state: "awaiting_first_trade" } });
+        await t.db.deleteFrom("platform.arming").execute();
+        const res = await post({ startTrading: true });
+        expect(res.status).toBe(201);
+        expect(await json(res)).toMatchObject({ arming: { state: "armed" } });
+        await t.db.deleteFrom("platform.strategy_params").execute();
+      });
+
       it("approves a waiting intent only once armed by a grant, and the first approval arms the agent", async () => {
         const session = await bobSession();
         const id = await intent();
@@ -2514,10 +2555,19 @@ describe.skipIf(!available)("the control API (needs pnpm dev:up for Postgres)", 
       });
     });
 
-    it("approving the activation sweep's plan arms the agent (F-U10, D-291); any other plan's approval leaves the arming as it is", async () => {
+    it("approving any plan arms an agent whose arming waits for its first trade, so its legs start at once (2026-10-18, replacing D-291)", async () => {
       const trades = new TradeStore(t.db, () => new Date(now));
       await t.db.deleteFrom("platform.arming").execute();
       await t.db.deleteFrom("platform.activations").execute();
+      const over: Partial<ApiDeps> = { proposals: { recheck: async () => [] } };
+      // No arming at all: approving sets the plan and arms nothing.
+      const unarmed = await pendingFor(portfolio());
+      const zero = await call(
+        `/v1/agents/2/proposals/${unarmed.proposalId}/approve`,
+        { method: "POST", headers: headers(bob) },
+        over,
+      );
+      expect(await json(zero)).toMatchObject({ armed: false, proposal: { status: "applied" } });
       const { record: arming } = await trades.startArming({
         chainId: env.chainId,
         agentId: 2,
@@ -2530,55 +2580,25 @@ describe.skipIf(!available)("the control API (needs pnpm dev:up for Postgres)", 
         executor: "0x00000000000000000000000000000000000e0ec3",
       });
       expect(arming.status).toBe("awaiting_first_trade");
-      // A plan from an ordinary research cycle: approving it sets the plan but arms nothing.
+      // A plan from an ordinary research cycle, not the activation sweep's: approving it arms.
       const plain = await pendingFor(portfolio());
-      const over: Partial<ApiDeps> = { proposals: { recheck: async () => [] } };
       const first = await call(
         `/v1/agents/2/proposals/${plain.proposalId}/approve`,
         { method: "POST", headers: headers(bob) },
         over,
       );
       expect(first.status).toBe(200);
-      expect(await json(first)).toMatchObject({ armed: false });
-      expect((await trades.openArming(env.chainId, 2))?.status).toBe("awaiting_first_trade");
-      // The activation sweep's plan: its cycle is the one the activation names.
-      const cycleId = "cycle-00000000-0000-4000-8000-00000000ac71";
-      const activations = new ActivationStore(t.db);
-      const act = await activations.create({
-        chainId: env.chainId,
-        agentId: 2,
-        armingId: arming.armingId,
-        reasoningAlias: "research-medium",
-        tier: "MEDIUM",
-        ceilingUsdcE6: 3_800_000n,
-        checks: {
-          aggressiveness: "BALANCED",
-          tier: "MEDIUM",
-          account: "0x00000000000000000000000000000000000ac002",
-          mode: "NORMAL",
-          tradingValueUsdcE6: "40000000",
-          spendableUsdcE6: "12000000",
-        },
-      });
-      await activations.setCycle(act.activationId, cycleId, "task-act");
-      const sweep = await pendingFor(portfolio(), cycleId);
-      const second = await call(
-        `/v1/agents/2/proposals/${sweep.proposalId}/approve`,
-        { method: "POST", headers: headers(bob) },
-        over,
-      );
-      expect(second.status).toBe(200);
-      expect(await json(second)).toMatchObject({ armed: true, proposal: { status: "applied" } });
+      expect(await json(first)).toMatchObject({ armed: true, proposal: { status: "applied" } });
       const armed = await trades.openArming(env.chainId, 2);
       expect(armed).toMatchObject({ armingId: arming.armingId, status: "armed" });
       expect(armed?.armedAt).not.toBeNull();
       expect(armed?.firstIntentId).toBeNull();
       // Already armed: a further approval reports nothing new.
-      const third = await pendingFor(portfolio(), cycleId);
+      const again = await pendingFor(portfolio());
       expect(
         await json(
           await call(
-            `/v1/agents/2/proposals/${third.proposalId}/approve`,
+            `/v1/agents/2/proposals/${again.proposalId}/approve`,
             { method: "POST", headers: headers(bob) },
             over,
           ),

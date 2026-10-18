@@ -816,7 +816,9 @@ export function createApp(deps: ApiDeps): Hono {
    * The owner's wallet registered the grant: check it on chain and record the
    * arming. `{ "account": "vault" | "personal" }` records which account the
    * agent manages from now on (Step 0, 2026-10-12); the grant is then judged
-   * for that account.
+   * for that account. 2026-10-18 (owner): `{ "startTrading": true }`, sent by
+   * the plan card's "Start trading", arms the agent at once when a plan is in
+   * force, as approving a plan does, so its legs need no further approval.
    */
   app.post("/v1/agents/:id{[0-9]+}/arming", async (c) => {
     const agentId = BigInt(c.req.param("id"));
@@ -827,7 +829,10 @@ export function createApp(deps: ApiDeps): Hono {
       return fail(c, 503, "not_deployed", `Trading is not deployed on ${deps.environment.label}.`);
     const id = Number(agentId);
     const path = await pathOf(t, id);
-    const body = (await c.req.json().catch(() => null)) as { account?: unknown } | null;
+    const body = (await c.req.json().catch(() => null)) as {
+      account?: unknown;
+      startTrading?: unknown;
+    } | null;
     const choice = managedChoice(c, await path.reader.agent(id), body?.account);
     if (choice instanceof Response) return choice;
     if (choice.chosen)
@@ -846,11 +851,18 @@ export function createApp(deps: ApiDeps): Hono {
       executor: path.custody === "v3" ? path.executor : null,
     });
     if (!r.ok) return refused(c, r);
+    let record = r.record;
+    if (
+      body?.startTrading === true &&
+      record.status === "awaiting_first_trade" &&
+      (await new PlanStore(deps.db).active(chainId, id))
+    )
+      record = (await trades.markArmedByPlan(record.armingId)) ?? record;
     return c.json(
       {
         agentId: agentId.toString(),
         renewed: r.renewed,
-        arming: armingJson(r.record, nowSeconds()),
+        arming: armingJson(record, nowSeconds()),
         managed: choice.managed,
       },
       r.renewed ? 200 : 201,
