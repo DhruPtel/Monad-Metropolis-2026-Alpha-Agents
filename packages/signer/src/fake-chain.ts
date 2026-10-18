@@ -57,6 +57,8 @@ export class FakeChain implements ChainClient {
   readonly mined = new Map<string, number>();
   readonly pool = new Map<Hex, Hex>();
   readonly receipts = new Map<Hex, Receipt>();
+  /** MON per address (lowercase); an address not set holds 1,000 MON. */
+  readonly native = new Map<string, bigint>();
   private readonly balances = new Map<string, { block: bigint; value: bigint }[]>();
 
   constructor(chainId: number, executor: Hex) {
@@ -100,8 +102,8 @@ export class FakeChain implements ChainClient {
   async fees() {
     return { baseFee: this.baseFee, priorityFee: 1_000_000_000n };
   }
-  async nativeBalance() {
-    return 10n ** 21n;
+  async nativeBalance(address: Hex) {
+    return this.native.get(address.toLowerCase()) ?? 10n ** 21n;
   }
   async simulate(): Promise<Simulation> {
     return this.simulation;
@@ -143,6 +145,20 @@ export class FakeChain implements ChainClient {
     this.block += 1n;
     const hash = keccak256(raw);
     const toExecutor = (e: Hex | null) => !!tx.to && !!e && tx.to.toLowerCase() === e.toLowerCase();
+    if (tx.to && (!tx.data || tx.data === "0x")) {
+      // A plain MON transfer (a gas sweep): the value and the whole limit at the max fee leave the sender.
+      const spent = (tx.value ?? 0n) + (tx.gas ?? 0n) * (tx.maxFeePerGas ?? 0n);
+      this.native.set(from, (await this.nativeBalance(from as Hex)) - spent);
+      this.native.set(tx.to.toLowerCase(), (await this.nativeBalance(tx.to)) + (tx.value ?? 0n));
+      this.receipts.set(hash, {
+        status: "success",
+        blockNumber: this.block,
+        blockHash: `0x${this.block.toString(16).padStart(64, "0")}`,
+        gasUsed: tx.gas ?? 0n,
+        logs: [],
+      });
+      return;
+    }
     if (
       toExecutor(this.executorV3) &&
       (tx.data as Hex).slice(0, 10).toLowerCase() === SWAP_V3_SELECTOR

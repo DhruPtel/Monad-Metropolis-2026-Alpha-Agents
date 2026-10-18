@@ -422,6 +422,88 @@ describe.skipIf(!dbUp)("the signer's outbox (needs Postgres)", { timeout: 60_000
     expect(await nextNonce(10143)).toBe(2);
   });
 
+  it("prices the max fee at the base fee plus the tip when the base multiple is 1 (2026-10-18)", async () => {
+    const doubled = make();
+    await doubled.createKey(AGENT);
+    const a = await doubled.submitSwap(AGENT, intent());
+    await ticks(doubled, 1);
+    expect((await row(a.txId)).max_fee_per_gas).toBe(String(2n * chain.baseFee + 1_000_000_000n));
+    const tight = make({ maxFeeBaseMultiple: 1n });
+    const b = await tight.submitSwap(AGENT, intent());
+    await ticks(tight, 1);
+    expect(await row(b.txId)).toMatchObject({
+      status: "reconciled",
+      max_fee_per_gas: String(chain.baseFee + 1_000_000_000n),
+      max_priority_fee_per_gas: "1000000000",
+    });
+  });
+
+  it("sweeps a testnet key's MON above what it keeps to the deployer, and the next swap takes the next nonce", async () => {
+    const DEPLOYER = "0x00000000000000000000000000000000000000d1" as Hex;
+    const MON = 10n ** 18n;
+    const testnet = new FakeChain(10143, EXECUTOR);
+    testnet.setBalance(USDC, ACCOUNT, 100_000_000n);
+    const s = make({
+      environment: "testnet",
+      chain: testnet,
+      maxFeeBaseMultiple: 1n,
+      gasSweepTo: DEPLOYER,
+    });
+    const key = await s.createKey(AGENT);
+    testnet.native.set(key.toLowerCase(), 3n * MON);
+    testnet.native.set(DEPLOYER, 0n);
+    const fee = testnet.baseFee + 1_000_000_000n;
+    const out = await s.sweepGas(AGENT, { keepWei: MON, minWei: MON / 100n });
+    expect(out).toMatchObject({ swept: true, wei: 2n * MON - 21_000n * fee });
+    expect(await testnet.nativeBalance(DEPLOYER)).toBe(2n * MON - 21_000n * fee);
+    expect(await testnet.nativeBalance(key)).toBe(MON);
+    expect(await nextNonce(10143)).toBe(1);
+    // Within what it keeps: nothing is sent.
+    expect(await s.sweepGas(AGENT, { keepWei: MON, minWei: MON / 100n })).toMatchObject({
+      swept: false,
+    });
+    expect(testnet.sent).toHaveLength(1);
+    const swap = await s.submitSwap(AGENT, intent({}, 10143n));
+    await ticks(s);
+    expect(await row(swap.txId)).toMatchObject({ status: "reconciled", nonce: 1 });
+    // Right after a swap the key is left alone (Monad's reserve rule, L-270).
+    testnet.native.set(key.toLowerCase(), 3n * MON);
+    expect(await s.sweepGas(AGENT, { keepWei: MON, minWei: MON / 100n })).toEqual({
+      swept: false,
+      reason: "the key sent a transaction within 30 s",
+    });
+    expect(await s.sweepGas(AGENT, { keepWei: MON, minWei: MON / 100n, quietMs: 0 })).toMatchObject(
+      { swept: true },
+    );
+  });
+
+  it("never sweeps off the testnet stacks, without a sweep address, or with a transaction in flight", async () => {
+    const MON = 10n ** 18n;
+    const DEPLOYER = "0x00000000000000000000000000000000000000d1" as Hex;
+    const local = make({ gasSweepTo: DEPLOYER });
+    await local.createKey(AGENT);
+    expect(await local.sweepGas(AGENT, { keepWei: 0n, minWei: 0n })).toMatchObject({
+      swept: false,
+    });
+    const testnet = new FakeChain(10143, EXECUTOR);
+    expect(
+      await make({ environment: "testnet", chain: testnet }).sweepGas(AGENT, {
+        keepWei: 0n,
+        minWei: 0n,
+      }),
+    ).toMatchObject({ swept: false });
+    const s = make({ environment: "testnet", chain: testnet, gasSweepTo: DEPLOYER });
+    await s.createKey(AGENT);
+    testnet.mode = "timeout-pooled";
+    await s.submitSwap(AGENT, intent({}, 10143n));
+    await ticks(s, 1);
+    expect(await s.sweepGas(AGENT, { keepWei: MON, minWei: 0n, quietMs: 0 })).toEqual({
+      swept: false,
+      reason: "a transaction is in flight",
+    });
+    expect(testnet.sent).toHaveLength(1);
+  });
+
   it("sends one transaction per key at a time", async () => {
     const s = make();
     await s.createKey(AGENT);

@@ -90,6 +90,15 @@ export interface SignerOptions {
   /** RPC URLs, redacted from every stored reason and log line. */
   readonly secrets?: readonly (string | undefined)[];
   readonly log?: (line: string) => void;
+  /**
+   * The base fee's multiple in a transaction's max fee (A-38: 2, room for the
+   * base fee to double before inclusion). 2026-10-18 (owner): 1 on Monad
+   * testnet, whose base fee stays at its floor and which holds the limit at
+   * the max fee against the key's balance, so 2 only parked twice the MON.
+   */
+  readonly maxFeeBaseMultiple?: bigint;
+  /** Testnet only: the one address `sweepGas` returns a key's spare MON to (the deployer that topped it up). */
+  readonly gasSweepTo?: Hex;
   /** Local fork only: gives the key MON for gas (A-19 builds the real top-up). */
   readonly topUpGas?: (address: Hex, wei: bigint) => Promise<void>;
   /** How long a submitted transaction waits for a receipt before it is unknown. */
@@ -100,6 +109,13 @@ export interface SignerOptions {
   readonly dropGraceMs?: number;
   readonly now?: () => Date;
 }
+
+/** A gas sweep's limit: a plain MON transfer, which Monad bills in full. */
+export const GAS_SWEEP_GAS = 21_000n;
+
+export type GasSweep =
+  | { readonly swept: true; readonly hash: Hex; readonly wei: bigint; readonly kept: bigint }
+  | { readonly swept: false; readonly reason: string; readonly hash?: Hex };
 
 export interface AcceptResult {
   readonly txId: string;
@@ -355,6 +371,102 @@ export class Signer {
     if (!to || !this.#o.chain.estimateGas) return null;
     const data = encodeFunctionData({ abi: EXECUTOR_V3_ABI, functionName: "swap", args: [intent] });
     return this.#o.chain.estimateGas(from, to, data);
+  }
+
+  /**
+   * 2026-10-18 (owner): testnet only. Returns the key's MON above `keepWei`
+   * (less the transfer's own gas) to `gasSweepTo`, the deployer that topped it
+   * up, so a key parks at most what its next swap needs. Nothing is sent while
+   * the key has a transaction in flight or sent one within `quietMs` (L-270:
+   * Monad reverts a transaction that takes a key below its reserve a few blocks
+   * after its last one), or when the spare is under `minWei`. The send holds
+   * the key's lock until its receipt and then moves the recorded nonce past it,
+   * so the outbox never signs over it.
+   */
+  async sweepGas(
+    agentId: number,
+    o: { keepWei: bigint; minWei: bigint; quietMs?: number; receiptTimeoutMs?: number },
+  ): Promise<GasSweep> {
+    const to = this.#o.gasSweepTo;
+    if (this.#o.environment !== "testnet" || !to)
+      return { swept: false, reason: "gas sweeps run on the testnet stacks alone" };
+    const row = await this.keyRow(agentId);
+    if (!row) return { swept: false, reason: "the agent has no session key" };
+    const key = await this.#o.keys.key(agentId);
+    if (key.address.toLowerCase() !== row.address)
+      return { swept: false, reason: "the provider's key is not the recorded session key" };
+    const quietS = (o.quietMs ?? 30_000) / 1000;
+    const last = await this.#o.db
+      .selectFrom("platform.signer_outbox")
+      .select([
+        "status",
+        sql<boolean>`updated_at > now() - make_interval(secs => ${quietS})`.as("recent"),
+      ])
+      .where("chain_id", "=", this.chainId)
+      .where("key_address", "=", row.address)
+      .orderBy("updated_at", "desc")
+      .executeTakeFirst();
+    if (last && (IN_FLIGHT as readonly string[]).includes(last.status))
+      return { swept: false, reason: "a transaction is in flight" };
+    if (last?.recent)
+      return { swept: false, reason: `the key sent a transaction within ${quietS} s` };
+    const fees = await this.fees();
+    if (!fees) return { swept: false, reason: "the network's base fee is above the cap" };
+    const balance = await this.#o.chain.nativeBalance(key.address);
+    const value = balance - o.keepWei - GAS_SWEEP_GAS * fees.maxFee;
+    if (value < o.minWei)
+      return { swept: false, reason: `the key holds ${balance} wei, within what it keeps` };
+    const fence = await this.claim(agentId);
+    return withKeyLock(this.#o.db, this.chainId, agentId, async (): Promise<GasSweep> => {
+      const k = await this.keyRow(agentId);
+      if (!k || k.writer_fence !== fence) throw new FencedOutError(agentId);
+      const [pending, latest] = await Promise.all([
+        this.#o.chain.nonce(key.address, "pending"),
+        this.#o.chain.nonce(key.address, "latest"),
+      ]);
+      if (pending !== latest) return { swept: false, reason: "the key has a pending transaction" };
+      if (pending < k.next_nonce)
+        return { swept: false, reason: "the provider's nonce trails the recorded one" };
+      const tx: TransactionSerializableEIP1559 = {
+        type: "eip1559",
+        chainId: this.chainId,
+        nonce: pending,
+        to,
+        data: "0x",
+        value,
+        gas: GAS_SWEEP_GAS,
+        maxFeePerGas: fees.maxFee,
+        maxPriorityFeePerGas: fees.tip,
+      };
+      const sig = await key.signDigest(keccak256(serializeTransaction(tx)));
+      const raw = serializeTransaction(tx, sig);
+      const hash = keccak256(raw);
+      const sent = await this.#o.chain.sendRaw(raw);
+      if (sent.kind === "rejected")
+        return { swept: false, reason: `the node refused it: ${this.clean(sent.detail)}` };
+      const deadline = Date.now() + (o.receiptTimeoutMs ?? 30_000);
+      let receipt = await this.#o.chain.receipt(hash);
+      while (!receipt && Date.now() < deadline) {
+        await new Promise((r) => setTimeout(r, 500));
+        receipt = await this.#o.chain.receipt(hash);
+      }
+      if (!receipt)
+        throw new Error(
+          `agent ${agentId}'s gas sweep ${hash} has no receipt yet (nonce ${pending})`,
+        );
+      await this.#o.db
+        .updateTable("platform.signer_keys")
+        .set({ next_nonce: pending + 1, updated_at: sql`now()` })
+        .where("chain_id", "=", this.chainId)
+        .where("agent_id", "=", agentId)
+        .where("writer_fence", "=", fence)
+        .where("next_nonce", "<=", pending)
+        .execute();
+      if (receipt.status !== "success")
+        return { swept: false, reason: `the sweep ${hash} reverted`, hash };
+      this.log(`agent ${agentId}: swept ${value} wei of gas back to ${to} (${hash})`);
+      return { swept: true, hash, wei: value, kept: balance - value };
+    });
   }
 
   /**
@@ -637,6 +749,18 @@ export class Signer {
   }
 
   /** Is another transaction of this key still between signing and an outcome? */
+  /**
+   * Fees: the base fee times its multiple (2 unless set) plus the tip, within
+   * the caps (A-38); null when the base fee and the tip alone pass the cap.
+   */
+  private async fees(): Promise<{ maxFee: bigint; tip: bigint } | null> {
+    const { baseFee, priorityFee } = await this.#o.chain.fees();
+    const tip = priorityFee < MAX_PRIORITY_FEE_CAP ? priorityFee : MAX_PRIORITY_FEE_CAP;
+    if (baseFee + tip > MAX_FEE_PER_GAS_CAP) return null;
+    const maxFee = baseFee * (this.#o.maxFeeBaseMultiple ?? 2n) + tip;
+    return { maxFee: maxFee > MAX_FEE_PER_GAS_CAP ? MAX_FEE_PER_GAS_CAP : maxFee, tip };
+  }
+
   private async busy(row: Row): Promise<boolean> {
     const other = await this.#o.db
       .selectFrom("platform.signer_outbox")
@@ -671,19 +795,9 @@ export class Signer {
           ? BigInt(request.gasLimit)
           : SWAP_GAS_LIMIT
         : TRANSFER_GAS_LIMIT;
-    // Fees: twice the base fee plus the tip, within the caps (A-38).
-    const { baseFee, priorityFee } = await this.#o.chain.fees();
-    const tip = priorityFee < MAX_PRIORITY_FEE_CAP ? priorityFee : MAX_PRIORITY_FEE_CAP;
-    let maxFee = baseFee * 2n + tip;
-    if (maxFee > MAX_FEE_PER_GAS_CAP) {
-      if (baseFee + tip > MAX_FEE_PER_GAS_CAP)
-        return this.fail(
-          row,
-          "FEE_CAP_EXCEEDED",
-          `the network's base fee ${baseFee} is above the cap`,
-        );
-      maxFee = MAX_FEE_PER_GAS_CAP;
-    }
+    const fees = await this.fees();
+    if (!fees) return this.fail(row, "FEE_CAP_EXCEEDED", "the network's base fee is above the cap");
+    const { maxFee, tip } = fees;
     const sign: SignRequest = {
       chainId: request.chainId,
       to: request.to,
