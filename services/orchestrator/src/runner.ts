@@ -4,10 +4,13 @@ import {
   type ChainReader,
   type ChainReaderV3,
   type IntentStore,
+  type MarketStateV3,
   assessTradeV3,
   blockersFor,
+  minAmountOutV3,
   oracleImplied,
   proposalVerdict,
+  resolveToken,
 } from "@alpha-agents/chain-tools";
 import {
   ASSET_DECIMALS,
@@ -23,6 +26,7 @@ import {
   type PortfolioState,
   type PortfolioToken,
   REBALANCE_BANDS_V1,
+  type TargetPortfolioParams,
   TARGET_PORTFOLIO_ID,
   TARGET_PORTFOLIO_V1,
   type TemplateDecision,
@@ -86,6 +90,39 @@ export const RUNNER_INTENT_TTL_SECONDS = 1_800;
 
 /** The intents of an agent that mean a leg is still on its way. */
 const IN_FLIGHT = new Set(["awaiting_approval", "approved", "submitted", "confirmed"]);
+
+/** Refusals that depend on the leg's size: the next check sizes the leg again at once. */
+const SIZE_REFUSALS = new Set(["SLIPPAGE_TOO_HIGH", "SIMULATION_FAILED"]);
+/** A fitted leg keeps this much of its value clear of the floor, for the pool moving before it lands. */
+const LEG_HEADROOM_BPS = 15n;
+/** The smallest leg the fitter tries, as a share of the leg the plan wants. */
+const LEG_FLOOR_DIVISOR = 16n;
+/** Other buys tried in one check when no size of the first fills. */
+const OTHER_BUYS_TRIED = 2;
+
+/**
+ * 2026-10-17 (owner): the largest leg value up to `value` that `fits` accepts: the whole leg when
+ * it fits, else halving between `floor` and it, at most `steps` more checks; null when not even
+ * `floor` fits.
+ */
+export async function fitLegValue(
+  value: bigint,
+  floor: bigint,
+  fits: (value: bigint) => Promise<boolean>,
+  steps = 6,
+): Promise<bigint | null> {
+  if (await fits(value)) return value;
+  const least = floor > 0n ? floor : 1n;
+  if (least >= value || !(await fits(least))) return null;
+  let lo = least;
+  let hi = value;
+  for (let i = 0; i < steps && hi - lo > 1n; i++) {
+    const mid = (lo + hi) / 2n;
+    if (await fits(mid)) lo = mid;
+    else hi = mid;
+  }
+  return lo;
+}
 
 /** Holds worth an activity entry when they start: what an owner would want to know. */
 const NOTABLE_HOLDS = new Set<string>([
@@ -456,11 +493,16 @@ export class TemplateRunner {
       },
     };
     const params = withTradingProfile(plan.params, this.profile);
-    let d: PortfolioDecision = TARGET_PORTFOLIO_V1.plan(params, state);
-    if (d.action === "hold") return hold(d.code, { ...d.facts }, undefined, a.block);
+    const planned = TARGET_PORTFOLIO_V1.plan(params, state);
+    if (planned.action === "hold")
+      return hold(planned.code, { ...planned.facts }, undefined, a.block);
+    // 2026-10-17 (owner): quote first, then size: a leg larger than its pools fill within the
+    // slippage limit is made smaller, and a buy no size of which fills gives way to the next.
+    const sized = await this.sizeLeg(agentId, m, a.screenedOptIn, params, state, planned);
+    let d: PortfolioDecision = sized.decision;
 
     // The leg along its best registered route, through the same pre-check as propose_swap.
-    const leg = d.leg;
+    const leg = sized.decision.leg;
     const [key, reserved] = await Promise.all([
       this.o.sessionKeyOf(agentId),
       this.o.intents.reservedSlots(this.identity(agentId)),
@@ -526,10 +568,15 @@ export class TemplateRunner {
         buyToken: leg.buy,
         route,
         amountIn: leg.amountIn,
-        reason:
+        reason: `${
           leg.direction === "buy"
             ? `The runner buys ${leg.buySymbol} toward the plan's ${target} target${at}.`
-            : `The runner sells ${leg.sellSymbol} toward the plan's ${target} target${at}.`,
+            : `The runner sells ${leg.sellSymbol} toward the plan's ${target} target${at}.`
+        }${
+          sized.wantedUsdcE6 !== null
+            ? ` A smaller leg than the ${formatUnits(sized.wantedUsdcE6, 6)} USDC the plan wants: the pools fill about ${formatUnits(leg.valueUsdcE6, 6)} USDC within the slippage limit now, and the next legs follow.`
+            : ""
+        }`,
         clientRequestId: `template-${requestId}`,
         status: verdict.status,
         reasonCodes: [],
@@ -577,6 +624,91 @@ export class TemplateRunner {
       },
       block: a.block,
     });
+  }
+
+  /**
+   * 2026-10-17 (owner): the leg sized to what its pools fill within the slippage limit and the
+   * cost limit, the floor kept clear by a little headroom. When no size of a buy fills, the next
+   * underweight buy is tried; when none fills, the plan's own leg goes on, so the pre-check
+   * names the reason it holds. `wantedUsdcE6` is the plan's leg when the sent one is smaller.
+   */
+  private async sizeLeg(
+    agentId: number,
+    m: MarketStateV3,
+    optedIn: boolean,
+    params: TargetPortfolioParams,
+    state: PortfolioState,
+    first: Extract<PortfolioDecision, { action: "trade" }>,
+  ): Promise<{
+    decision: Extract<PortfolioDecision, { action: "trade" }>;
+    wantedUsdcE6: bigint | null;
+  }> {
+    const passed: Hex[] = [];
+    let d = first;
+    for (let tried = 0; tried <= OTHER_BUYS_TRIED; tried++) {
+      const want = d.leg.valueUsdcE6;
+      const floor =
+        want / LEG_FLOOR_DIVISOR > params.minTradeUsdcE6
+          ? want / LEG_FLOOR_DIVISOR
+          : params.minTradeUsdcE6;
+      const fits = this.legFits(m, optedIn, params, state, d.leg);
+      const value = fits ? await fitLegValue(want, floor, fits) : want;
+      if (value !== null) {
+        if (value === want) return { decision: d, wantedUsdcE6: null };
+        return { decision: resizeLeg(d, value, state), wantedUsdcE6: want };
+      }
+      if (d.leg.direction !== "buy") break;
+      passed.push(d.leg.buy);
+      // The same rule with the buys that cannot fill set aside, as a stale screen sets one aside.
+      const next = TARGET_PORTFOLIO_V1.plan(params, {
+        ...state,
+        tokens: state.tokens.map((t) =>
+          passed.some((p) => isAddressEqual(p, t.token)) ? { ...t, screenFresh: false } : t,
+        ),
+      });
+      if (next.action !== "trade") break;
+      this.o.log(
+        `runner: agent ${agentId}: no size of the ${d.leg.buySymbol} buy fills within the slippage limit now; trying ${next.leg.buySymbol}`,
+      );
+      d = next;
+    }
+    return { decision: first, wantedUsdcE6: null };
+  }
+
+  /** Whether a leg of this value fills within the floor (with headroom) and the cost limit; null without prices. */
+  private legFits(
+    m: MarketStateV3,
+    optedIn: boolean,
+    params: TargetPortfolioParams,
+    state: PortfolioState,
+    leg: Extract<PortfolioDecision, { action: "trade" }>["leg"],
+  ): ((value: bigint) => Promise<boolean>) | null {
+    const reader = this.o.readerV3;
+    const sold = state.tokens.find((t) => isAddressEqual(t.token, leg.sell));
+    const bought = state.tokens.find((t) => isAddressEqual(t.token, leg.buy));
+    if (!reader || !sold?.priceE18 || !bought?.priceE18) return null;
+    const sell = resolveToken(m, leg.sell);
+    const buy = resolveToken(m, leg.buy);
+    const rules = {
+      optedIn,
+      intoUsdc: isAddressEqual(leg.buy, m.usdc),
+      sellsScreened: sell.lane === "SCREENED",
+    };
+    return async (value) => {
+      const amountIn = legAmount(leg.direction, value, sold);
+      if (amountIn <= 0n) return false;
+      const q = await reader.bestRoute(leg.sell, leg.buy, amountIn, rules).catch(() => null);
+      if (!q) return false;
+      const oracleOut =
+        leg.direction === "buy"
+          ? amountForValue(amountIn, bought.priceE18 as bigint, bought.decimals)
+          : valueE6(amountIn, sold.priceE18 as bigint, sold.decimals);
+      if (oracleOut <= 0n) return false;
+      const floor = minAmountOutV3(m, sell, buy, amountIn, q.amountOut);
+      if (q.amountOut < floor + (oracleOut * LEG_HEADROOM_BPS) / 10_000n) return false;
+      const lost = oracleOut - q.amountOut;
+      return lost <= 0n || (lost * 10_000n) / oracleOut <= BigInt(params.costHurdleBps);
+    };
   }
 
   /** MON's reading, or the testnet fallback with a warning when it is missing (CO-U1). */
@@ -662,6 +794,8 @@ export class TemplateRunner {
       .executeTakeFirst();
     if ((row?.checks as { paramId?: unknown } | undefined)?.paramId !== paramId) return null;
     const codes = last.blockers.length > 0 ? last.blockers.map((b) => b.code) : ["SEND_FAILED"];
+    // 2026-10-17 (owner): a leg refused for its size is sized again at the next check, smaller.
+    if (codes.every((c) => SIZE_REFUSALS.has(c))) return null;
     const facts = { intentId: last.intentId, refusedAt: last.updatedAt.toISOString() };
     if (last.blockers.some((b) => b.clears === "by_the_owner" || b.clears === "by_the_platform"))
       return { code: codes[0] as string, codes, facts };
@@ -826,5 +960,32 @@ export function bandsAsPortfolio(plan: StoredBandsPlan, wmon: Hex): StoredPortfo
       costHurdleBps: p.costHurdleBps,
       maxLegBps: p.maxLegBps,
     },
+  };
+}
+
+/** The raw amount a leg of this value moves: USDC itself for a buy, the sold token at its price, never above the balance. */
+function legAmount(
+  direction: "buy" | "sell",
+  value: bigint,
+  sold: Pick<PortfolioToken, "priceE18" | "decimals" | "balanceRaw">,
+): bigint {
+  if (direction === "buy") return value;
+  if (!sold.priceE18) return 0n;
+  const amount = amountForValue(value, sold.priceE18, sold.decimals);
+  return amount > sold.balanceRaw ? sold.balanceRaw : amount;
+}
+
+/** The decision with its leg made smaller (2026-10-17). */
+function resizeLeg(
+  d: Extract<PortfolioDecision, { action: "trade" }>,
+  value: bigint,
+  state: PortfolioState,
+): Extract<PortfolioDecision, { action: "trade" }> {
+  const sold = state.tokens.find((t) => isAddressEqual(t.token, d.leg.sell));
+  const amountIn = sold ? legAmount(d.leg.direction, value, sold) : d.leg.amountIn;
+  return {
+    ...d,
+    leg: { ...d.leg, amountIn, valueUsdcE6: value },
+    facts: { ...d.facts, legValueUsdcE6: value.toString() },
   };
 }

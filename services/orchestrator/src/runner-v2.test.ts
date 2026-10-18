@@ -22,7 +22,7 @@ import { type Hex, getAddress } from "viem";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { type RunnerFacts, templateRunnerEntry } from "./narrator.ts";
 import { screenApplies } from "./orchestrator.ts";
-import { TemplateRunner, bandsAsPortfolio } from "./runner.ts";
+import { TemplateRunner, bandsAsPortfolio, fitLegValue } from "./runner.ts";
 import { Store } from "./store.ts";
 import { CHAIN } from "./testing.ts";
 import { PgIntentStore } from "./tools/chain-store.ts";
@@ -57,6 +57,10 @@ class FakeChainV3 implements ChainReaderV3 {
   wbtcStatus: "BUYABLE" | "SELL_ONLY" | "FROZEN" = "BUYABLE";
   quoteBps = 9_990n;
   holdings: Record<string, bigint> = { [USDC]: 100_000_000n };
+  /** 2026-10-17: a USDC buy above this fills 5% short (the pool's depth); null is deep. */
+  fillsUpTo: bigint | null = null;
+  /** Tokens no size of which fills within the slippage limit. */
+  noFill = new Set<Hex>();
 
   private pool(id: string, a: Hex, b: Hex, venue: PoolInfoV3["venue"], fee: number): PoolInfoV3 {
     return {
@@ -185,7 +189,12 @@ class FakeChainV3 implements ChainReaderV3 {
     rules: { optedIn: boolean; intoUsdc: boolean; sellsScreened: boolean },
   ) {
     const [route] = candidateRoutes(await this.market(), tokenIn, tokenOut, rules);
-    return route ? this.along(route, tokenIn, amountIn) : null;
+    if (!route) return null;
+    const q = await this.along(route, tokenIn, amountIn);
+    const short =
+      this.noFill.has(tokenOut) ||
+      (tokenIn === USDC && this.fillsUpTo !== null && amountIn > this.fillsUpTo);
+    return short ? { ...q, amountOut: (q.amountOut * 9_500n) / 10_000n } : q;
   }
   async quoteRoute(route: readonly Hex[], tokenIn: Hex, amountIn: bigint) {
     const m = await this.market();
@@ -668,6 +677,64 @@ describe.skipIf(!dbUp)(
       expect(await intents()).toEqual([]);
     });
 
+    // 2026-10-17 (owner): quote first, then size; a leg too big for the pool gets smaller.
+    it("sizes a leg to what the pool fills within the slippage limit, and sends the next leg once it settles", async () => {
+      await saveGoal();
+      await setPlan();
+      await arm();
+      chain.fillsUpTo = 3_000_000n;
+      const [first] = await runner().tick();
+      expect(first).toMatchObject({ outcome: "leg", leg: { buy: "WMON" } });
+      const sent = BigInt(first?.leg?.amountIn ?? "0");
+      expect(sent).toBeGreaterThan(2_500_000n);
+      expect(sent).toBeLessThanOrEqual(3_000_000n);
+      const [i1] = await intents();
+      expect(i1?.amountIn).toBe(sent);
+      expect(i1?.reason).toContain("A smaller leg than the 9.95 USDC the plan wants");
+      // Settled: the next check sends the next leg, sized again.
+      await setStatus(i1?.intentId ?? "", "reconciled");
+      chain.holdings = { [USDC]: 100_000_000n - sent, [WMON]: (sent * 10n ** 30n) / PX };
+      const [second] = await runner().tick();
+      expect(second).toMatchObject({ outcome: "leg", leg: { buy: "WMON" } });
+      expect(BigInt(second?.leg?.amountIn ?? "0")).toBeLessThanOrEqual(3_000_000n);
+    });
+
+    it("buys the next position when no size of the first one fills, and holds only when none does", async () => {
+      await saveGoal();
+      await setPlan();
+      await arm();
+      chain.noFill.add(WMON);
+      const [d] = await runner().tick();
+      expect(d).toMatchObject({ outcome: "leg", leg: { buy: "WBTC" } });
+      await setStatus((await intents())[0]?.intentId ?? "", "reconciled");
+      chain.noFill.add(WBTC);
+      chain.holdings = { [USDC]: 90_000_000n, [WBTC]: (10_000_000n * 10n ** 20n) / PX_WBTC };
+      const [none] = await runner().tick();
+      expect(none).toMatchObject({ outcome: "hold", code: "COST_HURDLE" });
+    });
+
+    it("sizes a leg the trade flow refused for its size again at the next check, without the 10-minute wait", async () => {
+      await saveGoal();
+      await setPlan();
+      await arm();
+      await runner().tick();
+      const [i1] = await intents();
+      await t.db
+        .updateTable("platform.intents")
+        .set({
+          status: "rejected",
+          blockers: JSON.stringify([
+            { code: "SLIPPAGE_TOO_HIGH", message: "m", clears: "by_waiting", hint: "h" },
+          ]) as never,
+        })
+        .where("intent_id", "=", i1?.intentId ?? "")
+        .execute();
+      chain.fillsUpTo = 2_000_000n;
+      const [again] = await runner().tick();
+      expect(again).toMatchObject({ outcome: "leg", leg: { buy: "WMON" } });
+      expect(BigInt(again?.leg?.amountIn ?? "0")).toBeLessThanOrEqual(2_000_000n);
+    });
+
     it("never reads the v2 set on a portfolio plan, and a plan set under an older goal never trades", async () => {
       await saveGoal();
       await setPlan();
@@ -678,6 +745,33 @@ describe.skipIf(!dbUp)(
     });
   },
 );
+
+describe("fitLegValue (2026-10-17): quote first, then size", () => {
+  const upTo = (max: bigint) => {
+    const asked: bigint[] = [];
+    const fits = async (v: bigint) => {
+      asked.push(v);
+      return v <= max;
+    };
+    return { asked, fits };
+  };
+  it("keeps the whole leg when it fits, with one quote", async () => {
+    const f = upTo(10_000_000n);
+    expect(await fitLegValue(5_000_000n, 312_500n, f.fits)).toBe(5_000_000n);
+    expect(f.asked).toEqual([5_000_000n]);
+  });
+  it("halves down to the largest leg that fits, within eight quotes", async () => {
+    const f = upTo(1_300_000n);
+    const v = await fitLegValue(5_000_000n, 312_500n, f.fits);
+    expect(v).not.toBeNull();
+    expect(v as bigint).toBeLessThanOrEqual(1_300_000n);
+    expect(v as bigint).toBeGreaterThan(1_200_000n);
+    expect(f.asked.length).toBeLessThanOrEqual(8);
+  });
+  it("gives up when not even the floor fills", async () => {
+    expect(await fitLegValue(5_000_000n, 312_500n, upTo(100_000n).fits)).toBeNull();
+  });
+});
 
 describe("RUN-FIX: the market chain's screen on Monad testnet", () => {
   it("does not apply to a testnet token the market-chain registry never tracks, and applies everywhere else", () => {
