@@ -83,6 +83,7 @@ import {
   monadOraclePrice,
   monadRecycleChain,
   recyclePass,
+  retryingReader,
 } from "./pool-recycler.ts";
 import {
   BalanceAlarm,
@@ -879,7 +880,7 @@ if (env.id === "testnet" && isMonadTestnet(TESTNET_CHAIN) && deployerWallet && t
     const run = await recyclePass({
       chain,
       standIns: MONAD_TESTNET_MARKET.standIns,
-      oraclePrice: () => monadOraclePrice(sendClient as PublicClient),
+      oraclePrice: () => monadOraclePrice(retryingReader(sendClient as PublicClient)),
       log,
     });
     if (run.stopped) log(`pool recycler: ${run.plan.why}; stopped: ${run.stopped}`);
@@ -911,7 +912,7 @@ else if (ntfyTopic) {
       (values.NTFY_SERVER as string | undefined) ?? "https://ntfy.sh",
       ntfyTopic,
     ),
-    chainLabel: env.label,
+    chainLabel: TESTNET_CHAIN.name,
     log,
   });
   background("balance alarm", 5 * 60_000, 30_000, async () => {

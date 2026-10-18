@@ -1,4 +1,4 @@
-import type { Hex } from "viem";
+import type { Hex, PublicClient } from "viem";
 import { describe, expect, it } from "vitest";
 import {
   BUY_SIDE_TARGET_WEI,
@@ -12,6 +12,7 @@ import {
   parSale,
   planRecycle,
   recyclePass,
+  retryingReader,
   tickOfPrice,
 } from "./pool-recycler.ts";
 
@@ -183,5 +184,27 @@ describe("recyclePass", () => {
     const sale = await parSale(chain, STAND_INS[0] as StandIn, 10n * MON);
     expect(sale).toBeLessThanOrEqual(3n * MON);
     expect(sale).toBeGreaterThan((3n * MON * 99n) / 100n);
+  });
+});
+
+describe("retryingReader", () => {
+  it("tries a read again after a provider error, but takes a revert as the answer", async () => {
+    let calls = 0;
+    const flaky = {
+      readContract: async () => {
+        calls += 1;
+        if (calls < 3) throw new Error("HTTP request failed. Status: 429");
+        return 7n;
+      },
+      simulateContract: async () => {
+        throw new Error("The contract function reverted");
+      },
+      getBalance: async () => 1n,
+      request: async () => "0x1",
+    } as unknown as PublicClient;
+    const r = retryingReader(flaky, { delayMs: 1 });
+    expect(await r.readContract({} as never)).toBe(7n);
+    expect(calls).toBe(3);
+    await expect(r.simulateContract({} as never)).rejects.toThrow("reverted");
   });
 });

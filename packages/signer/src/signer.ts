@@ -445,10 +445,12 @@ export class Signer {
       if (sent.kind === "rejected")
         return { swept: false, reason: `the node refused it: ${this.clean(sent.detail)}` };
       const deadline = Date.now() + (o.receiptTimeoutMs ?? 30_000);
-      let receipt = await this.#o.chain.receipt(hash);
+      // The sweep is on its way: a provider error while waiting (a 429) is waited out, not thrown.
+      const receiptOf = () => this.#o.chain.receipt(hash).catch(() => null);
+      let receipt = await receiptOf();
       while (!receipt && Date.now() < deadline) {
-        await new Promise((r) => setTimeout(r, 500));
-        receipt = await this.#o.chain.receipt(hash);
+        await new Promise((r) => setTimeout(r, 1_000));
+        receipt = await receiptOf();
       }
       if (!receipt)
         throw new Error(

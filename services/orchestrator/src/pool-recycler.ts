@@ -312,6 +312,35 @@ const FEED_ABI = parseAbi([
   "function decimals() view returns (uint8)",
 ]);
 
+/** A reader whose reads wait 1, 2, 3... seconds and try again after a provider error. */
+export function retryingReader(
+  reader: PublicClient,
+  o: { attempts?: number; delayMs?: number } = {},
+): PublicClient {
+  const attempts = o.attempts ?? 6;
+  const delayMs = o.delayMs ?? 1_000;
+  const retry =
+    <A extends unknown[], R>(fn: (...a: A) => Promise<R>) =>
+    async (...a: A): Promise<R> => {
+      for (let i = 1; ; i++) {
+        try {
+          return await fn(...a);
+        } catch (err) {
+          // A contract's revert is an answer, not a provider error.
+          if (i >= attempts || (err instanceof Error && /revert/i.test(err.message))) throw err;
+          await new Promise((r) => setTimeout(r, delayMs * i));
+        }
+      }
+    };
+  return {
+    ...reader,
+    readContract: retry(reader.readContract.bind(reader)),
+    simulateContract: retry(reader.simulateContract.bind(reader)),
+    getBalance: retry(reader.getBalance.bind(reader)),
+    request: retry(reader.request.bind(reader)),
+  } as PublicClient;
+}
+
 /** USDC per MON at the stand-in feeds. */
 export async function monadOraclePrice(reader: PublicClient): Promise<number> {
   const m = MONAD_TESTNET_MARKET;
@@ -338,7 +367,9 @@ export function monadRecycleChain(o: {
   readonly queue: DeployerQueue;
 }): RecycleChain {
   const m = MONAD_TESTNET_MARKET;
-  const { reader, deployer } = o;
+  const { deployer } = o;
+  // The testnet RPC answers 429 on bursts: every read waits and tries again, up to 6 times.
+  const reader = retryingReader(o.reader);
   const keyOf = (currency1: Hex) => ({
     currency0: NATIVE,
     currency1,
