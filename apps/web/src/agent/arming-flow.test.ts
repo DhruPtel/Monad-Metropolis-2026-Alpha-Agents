@@ -63,6 +63,30 @@ describe("arming from the owner's wallet (P2-U6)", () => {
     expect(d.sent).toEqual([GRANT]);
   });
 
+  it("with startTrading, asks the platform to arm at once and reports armed when it did (2026-10-18)", async () => {
+    const asked: unknown[][] = [];
+    const d = deps({
+      confirmArming: async (...args) => {
+        asked.push(args);
+        return { status: 201, body: { arming: { state: "armed" } } };
+      },
+    });
+    const seen: ArmingProgress[] = [];
+    const result = await runArm(d, (p) => seen.push(p), undefined, { startTrading: true });
+    expect(asked).toEqual([[undefined, true]]);
+    expect(result).toEqual({ state: "armed", hash: HASH });
+    expect(d.sent).toEqual([GRANT]);
+    // Without it the call is unchanged and the arming waits for its first trade.
+    const plain = deps({
+      confirmArming: async (...args) => {
+        asked.push(args);
+        return { status: 201, body: { arming: { state: "awaiting_first_trade" } } };
+      },
+    });
+    expect((await runArm(plain, () => undefined)).state).toBe("awaiting-first-trade");
+    expect(asked.at(-1)).toEqual([undefined]);
+  });
+
   it("sends nothing when the wallet is on another network", async () => {
     const d = deps({
       checkNetwork: async () => ({

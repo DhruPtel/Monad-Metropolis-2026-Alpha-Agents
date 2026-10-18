@@ -21,6 +21,7 @@ import { type TurnOnProgress, runTurnOn } from "./activation-flow";
 import { type SummaryView, summaryView } from "./my-agents";
 import { type ContractWrite, useWalletSession } from "@/auth/session";
 import { runArm, runDisarm } from "./arming-flow";
+import { type ApprovePlanProgress, runApproveAndStart } from "./plan-approve-flow";
 import {
   ACCOUNT_ABI,
   CUSTODY_REVERT_MESSAGES,
@@ -51,6 +52,7 @@ export type PortfolioAction =
   | "claim-legacy"
   | "arm"
   | "turn-on"
+  | "start-trading"
   | "disarm"
   | "approve"
   | "reject"
@@ -114,6 +116,8 @@ export interface Portfolio {
   arm(account?: ManagedAccount): void;
   /** F-U10: registers the grant when needed, then starts the activation sweep. */
   turnOn(account?: ManagedAccount): void;
+  /** 2026-10-18: a plan is in force and the agent has no permission: grant it and arm in one step. */
+  startTrading(): void;
   disarm(): void;
   approve(intentId: string): void;
   reject(intentId: string): void;
@@ -125,10 +129,13 @@ const words = (err: unknown) =>
   err instanceof ApiError ? err.message : "Something went wrong; try again.";
 
 /** Arming's states (and turning trading on, F-U10) as the shared status line shows them. */
-function armingStatus(p: TurnOnProgress): WalletTxProgress {
+function armingStatus(p: TurnOnProgress | ApprovePlanProgress): WalletTxProgress {
   switch (p.state) {
+    case "approving":
+      return { state: "confirming", message: "Approving the plan" };
     case "starting":
       return { state: "confirming", message: "Starting the activation sweep" };
+    case "approved":
     case "started":
       return { state: "confirmed" };
     case "checking":
@@ -140,6 +147,7 @@ function armingStatus(p: TurnOnProgress): WalletTxProgress {
     case "recording":
       return { state: "confirming", ...(p.hash ? { hash: p.hash } : {}), message: "Recording" };
     case "awaiting-first-trade":
+    case "armed":
     case "disarmed":
       return {
         state: "confirmed",
@@ -570,8 +578,21 @@ export function usePortfolio(agentId: bigint, environment: EnvironmentId): Portf
       // Step 0 (2026-10-12, A-90): the account the agent manages travels with the grant's read and record.
       getArming: (account?: ManagedAccount) =>
         tradingApi.raw(agentId, "arming", "GET", token, account ? { query: { account } } : {}),
-      confirmArming: (account?: ManagedAccount) =>
-        tradingApi.raw(agentId, "arming", "POST", token, account ? { body: { account } } : {}),
+      confirmArming: (account?: ManagedAccount, startTrading?: boolean) =>
+        tradingApi.raw(
+          agentId,
+          "arming",
+          "POST",
+          token,
+          account || startTrading
+            ? {
+                body: {
+                  ...(account ? { account } : {}),
+                  ...(startTrading ? { startTrading } : {}),
+                },
+              }
+            : {},
+        ),
       disarm: () => tradingApi.raw(agentId, "disarm", "POST", token),
       startActivation: () => tradingApi.raw(agentId, "activation", "POST", token),
       // The grant or revoke is simulated from the wallet's address first, so a refusal names the
@@ -601,15 +622,17 @@ export function usePortfolio(agentId: bigint, environment: EnvironmentId): Portf
   );
 
   const runArming = useCallback(
-    (action: "arm" | "turn-on" | "disarm", account?: ManagedAccount) => {
+    (action: "arm" | "turn-on" | "start-trading" | "disarm", account?: ManagedAccount) => {
       if (running.current) return;
       running.current = true;
       const done =
         action === "arm"
           ? "Your trading permission is on chain. Approve the agent's first proposed trade to arm it."
-          : action === "turn-on"
-            ? "The activation sweep has started. Watch its steps here; nothing is traded until you approve the plan."
-            : "Disarmed. Every proposal waits for your approval again.";
+          : action === "start-trading"
+            ? "Trading started: the runner sends the plan's legs from its next check."
+            : action === "turn-on"
+              ? "The activation sweep has started. Watch its steps here; nothing is traded until you approve the plan."
+              : "Disarmed. Every proposal waits for your approval again.";
       const report = (p: TurnOnProgress) =>
         mounted.current && setStatus({ action, progress: armingStatus(p), done });
       const armingState = arming?.arming.state ?? "unarmed";
@@ -619,9 +642,11 @@ export function usePortfolio(agentId: bigint, environment: EnvironmentId): Portf
             const deps = armingDeps(token);
             await (action === "arm"
               ? runArm(deps, report, account)
-              : action === "turn-on"
-                ? runTurnOn(deps, armingState, report, account)
-                : runDisarm(deps, report));
+              : action === "start-trading"
+                ? runArm(deps, report, undefined, { startTrading: true })
+                : action === "turn-on"
+                  ? runTurnOn(deps, armingState, report, account)
+                  : runDisarm(deps, report));
           });
         } catch (err) {
           report({ state: "error", message: words(err) });
@@ -677,11 +702,25 @@ export function usePortfolio(agentId: bigint, environment: EnvironmentId): Portf
       void (async () => {
         try {
           if (action === "approve-plan") {
-            await asOwner((t) => tradingApi.approveProposal(agentId, proposalId, t));
-            set(
-              { state: "confirmed" },
-              "Approved: this is now the agent's plan. The runner moves toward it one capped leg at a time.",
-            );
+            // 2026-10-18 (owner): one step: the trading permission when the agent has none (the
+            // one wallet signature), then the approval, which arms the agent.
+            const armingState = arming?.arming.state ?? "unarmed";
+            await asOwner(async (t) => {
+              await runApproveAndStart(
+                {
+                  ...armingDeps(t),
+                  approve: () => tradingApi.approveProposal(agentId, proposalId, t),
+                },
+                armingState,
+                (p) =>
+                  set(
+                    armingStatus(p),
+                    p.state === "approved" && p.trading
+                      ? "Approved and trading: the runner sends the plan's legs from its next check."
+                      : "Approved: this is now the agent's plan.",
+                  ),
+              );
+            });
           } else {
             await asOwner((t) => tradingApi.rejectProposal(agentId, proposalId, t));
             set({ state: "confirmed" }, "Declined. The plan stays as it is.");
@@ -694,7 +733,7 @@ export function usePortfolio(agentId: bigint, environment: EnvironmentId): Portf
         }
       })();
     },
-    [agentId, asOwner],
+    [agentId, arming?.arming.state, armingDeps, asOwner],
   );
 
   return {
@@ -725,6 +764,7 @@ export function usePortfolio(agentId: bigint, environment: EnvironmentId): Portf
     claimLegacy,
     arm: useCallback((account?: ManagedAccount) => runArming("arm", account), [runArming]),
     turnOn: useCallback((account?: ManagedAccount) => runArming("turn-on", account), [runArming]),
+    startTrading: useCallback(() => runArming("start-trading"), [runArming]),
     disarm: useCallback(() => runArming("disarm"), [runArming]),
     approve: useCallback((id: string) => decide("approve", id), [decide]),
     reject: useCallback((id: string) => decide("reject", id), [decide]),

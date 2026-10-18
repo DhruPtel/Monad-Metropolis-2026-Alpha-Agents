@@ -289,7 +289,8 @@ export function decisionRows(input: {
       link: null,
     });
   const r = input.runner;
-  if (r && r.outcome !== "trade" && r.code) {
+  // 2026-10-18: the runner records "hold" or "leg"; a leg is a trade on its way, never a skip.
+  if (r && r.outcome === "hold" && r.code) {
     const plan = (card?.pending ?? latestApplied(card))?.plan ?? null;
     rows.push({
       id: `runner-${r.since}`,
@@ -530,6 +531,71 @@ export function holdingLine(
     return `Holding: the next trade would cost more than the ${(costLimitBps / 100).toLocaleString("en-US", { maximumFractionDigits: 2 })}% limit.`;
   const m = runner.message.trim();
   return m ? `Holding: ${m.charAt(0).toLowerCase()}${m.slice(1)}` : "Holding.";
+}
+
+/** What the plan card says stands between the plan and its trades (2026-10-18). */
+export interface PlanStatusView {
+  readonly tone: "neutral" | "warning" | "negative";
+  readonly title: string;
+  readonly detail: string | null;
+  /** The button that clears it on the card, when the owner can. */
+  readonly action: "start-trading" | null;
+}
+
+const RESTING_HOLDS = new Set(["IN_BAND", "LEG_PENDING"]);
+
+/**
+ * 2026-10-18 (owner): never a silent hold. While a plan waits and the agent
+ * has no trading permission, the card says approving asks for it too; while a
+ * plan is in force without one, it says so beside Start trading; once armed,
+ * the runner's latest hold in plain words with its hint and when it was
+ * checked, re-read with the rest of the page every few seconds.
+ */
+export function planStatus(
+  o: {
+    readonly waiting: boolean;
+    readonly inForce: boolean;
+    /** The plan already matches the account: approving trades nothing. */
+    readonly movesNothing: boolean;
+    readonly armingState: "unarmed" | "awaiting_first_trade" | "armed";
+    readonly why: WhyNotTradedJson | null | undefined;
+    readonly costLimitBps: number | null;
+  },
+  nowMs: number,
+): PlanStatusView | null {
+  const permission =
+    "Your wallet asks for one transaction: the trading permission that lets the agent trade this plan within its limits.";
+  if (o.waiting)
+    return o.armingState === "unarmed" && !o.movesNothing
+      ? {
+          tone: "neutral",
+          title: "Approving also starts trading.",
+          detail: `${permission} The plan's legs start at the runner's next check.`,
+          action: null,
+        }
+      : null;
+  if (!o.inForce) return null;
+  if (o.armingState !== "armed")
+    return {
+      tone: "warning",
+      title: o.why?.armingEnded
+        ? `Not trading: ${o.why.armingEnded.message.charAt(0).toLowerCase()}${o.why.armingEnded.message.slice(1)}`
+        : o.armingState === "unarmed"
+          ? "Not trading: the agent has no trading permission yet."
+          : "Not trading: trading has not been started for this plan.",
+      detail: `Start trading to follow this plan. ${permission}`,
+      action: "start-trading",
+    };
+  const runner = o.why?.runner;
+  const line = holdingLine(runner, o.costLimitBps);
+  if (!runner || !line) return null;
+  const hint = o.why?.reasons.find((r) => r.code === runner.code)?.hint?.trim();
+  return {
+    tone: runner.code && RESTING_HOLDS.has(runner.code) ? "neutral" : "warning",
+    title: line,
+    detail: `${hint ? `${hint} ` : ""}Checked ${ago(runner.lastAt, nowMs)}; the runner checks again every minute.`,
+    action: null,
+  };
 }
 
 /** "4 min ago", "2 h ago", "3 days ago": how long since an instant. */

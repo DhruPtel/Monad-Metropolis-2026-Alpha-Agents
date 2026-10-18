@@ -948,8 +948,8 @@ export const tradingApi = {
     agentId: bigint,
     proposalId: string,
     session: string,
-  ): Promise<{ proposal: ProposalJson }> {
-    return call<{ proposal: ProposalJson }>(
+  ): Promise<{ proposal: ProposalJson; armed?: boolean }> {
+    return call<{ proposal: ProposalJson; armed?: boolean }>(
       `/v1/agents/${agentId.toString()}/proposals/${encodeURIComponent(proposalId)}/approve`,
       owner(session, { method: "POST" }),
     );

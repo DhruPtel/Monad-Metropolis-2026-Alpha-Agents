@@ -47,6 +47,7 @@ import {
   SWEEP_WORDS,
   decisionRows,
   holdingLine,
+  planStatus,
   insightRows,
   latestApplied,
   liveTradeRows,
@@ -264,7 +265,9 @@ export function TradingPage({
       value:
         armingState === "armed"
           ? runner
-            ? `On, ${runner.outcome}`
+            ? runner.outcome === "hold"
+              ? "On, holding"
+              : "On, trading"
             : "On"
           : armingState === "awaiting_first_trade"
             ? "On after your approval"
@@ -317,10 +320,23 @@ export function TradingPage({
     approvedPlans,
   );
   const history = tradeHistory(pf.intents, (hash) => txHref(environment, hash), Date.now());
-  const holding = holdingLine(
-    runner,
-    environment === "testnet" ? TESTNET_COST_LIMIT_BPS : (planParams?.costHurdleBps ?? null),
-  );
+  const costLimitBps =
+    environment === "testnet" ? TESTNET_COST_LIMIT_BPS : (planParams?.costHurdleBps ?? null);
+  const holding = holdingLine(runner, costLimitBps);
+  // 2026-10-18 (owner): what holds the plan back, on its card, live; never a silent hold.
+  const status = shown
+    ? planStatus(
+        {
+          waiting: waitingPlan,
+          inForce: !waitingPlan && shown.status === "applied",
+          movesNothing: shownMet,
+          armingState,
+          why: pf.why,
+          costLimitBps,
+        },
+        Date.now(),
+      )
+    : null;
 
   // 2026-10-15: the newest research run kept the plan; said first, before anything else.
   // 2026-10-17: only while the newest run is the one that kept it.
@@ -564,6 +580,7 @@ export function TradingPage({
               rationale={shown.rationale.portfolioView}
               reportHref={shown.cycleId ? reportHref(agentId, shown.cycleId) : null}
               linkAs={Link}
+              status={status}
               actions={
                 waitingPlan ? (
                   <>
@@ -573,7 +590,7 @@ export function TradingPage({
                       onClick={() => pf.approveProposal(pending.proposalId)}
                       data-testid="approve-plan"
                     >
-                      {shownMet ? "Approve (no trades)" : "Approve plan"}
+                      {shownMet ? "Approve (no trades)" : "Approve and start trading"}
                     </Button>
                     <Button
                       size="sm"
@@ -585,6 +602,15 @@ export function TradingPage({
                       Decline
                     </Button>
                   </>
+                ) : status?.action === "start-trading" ? (
+                  <Button
+                    size="sm"
+                    disabled={acting}
+                    onClick={() => pf.startTrading()}
+                    data-testid="start-trading"
+                  >
+                    Start trading
+                  </Button>
                 ) : undefined
               }
             />
@@ -612,7 +638,10 @@ export function TradingPage({
               {latestRunNote(card)}
             </p>
           ) : null}
-          <StatusFor status={pf.status} actions={["approve-plan", "reject-plan"]} />
+          <StatusFor
+            status={pf.status}
+            actions={["approve-plan", "reject-plan", "start-trading"]}
+          />
         </div>
         <div className="flex min-w-0 flex-col gap-3">
           <SectionLabel as="h2">Portfolio insights</SectionLabel>

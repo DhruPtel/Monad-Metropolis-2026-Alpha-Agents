@@ -430,6 +430,7 @@ function PlanSummaryCard({
   rationale,
   reportHref,
   source,
+  status,
   actions,
   linkAs,
   className,
@@ -443,7 +444,16 @@ function PlanSummaryCard({
   reportHref?: string | null;
   /** 2026-10-13: the research run the plan came from ("From the research run of 2026-10-14 01:28 UTC"). */
   source?: string | null;
-  /** Approve and decline, while the plan waits. */
+  /**
+   * 2026-10-18: what stands between the plan and its trades in plain words, live:
+   * the runner's hold, or a trading permission the owner still has to sign.
+   */
+  status?: {
+    readonly tone: "neutral" | "warning" | "negative";
+    readonly title: string;
+    readonly detail?: string | null;
+  } | null;
+  /** Approve and decline while the plan waits; Start trading while the agent has no permission. */
   actions?: ReactNode;
   linkAs?: LinkComponent;
   className?: string;
@@ -464,6 +474,27 @@ function PlanSummaryCard({
         <p className="text-xs text-foreground-muted" data-testid="plan-source">
           {source}
         </p>
+      ) : null}
+      {status ? (
+        <div
+          role="status"
+          aria-live="polite"
+          data-testid="plan-status"
+          data-tone={status.tone}
+          className={cn(
+            "flex flex-col gap-1 rounded-md border p-3 text-xs",
+            status.tone === "warning" && "border-warning/40 bg-warning/10",
+            status.tone === "negative" && "border-negative/40 bg-negative/10",
+            status.tone === "neutral" && "border-border bg-surface",
+          )}
+        >
+          <span className="font-semibold text-foreground">{status.title}</span>
+          {status.detail ? (
+            <span className="text-foreground-muted" data-testid="plan-status-detail">
+              {status.detail}
+            </span>
+          ) : null}
+        </div>
       ) : null}
       {rows.length === 0 ? (
         <p className="text-sm text-foreground-muted">The plan moves nothing.</p>

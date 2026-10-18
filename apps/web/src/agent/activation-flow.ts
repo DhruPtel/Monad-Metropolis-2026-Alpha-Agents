@@ -37,7 +37,7 @@ export async function runTurnOn(
   };
   if (armingState === "unarmed") {
     const armed = await runArm(deps, report, account);
-    if (armed.state !== "awaiting-first-trade") return armed;
+    if (armed.state !== "awaiting-first-trade" && armed.state !== "armed") return armed;
   }
   report({ state: "starting" });
   let status: number;

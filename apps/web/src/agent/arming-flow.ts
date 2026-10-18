@@ -28,8 +28,15 @@ export interface ArmingFlowDeps {
   readonly checkNetwork: () => Promise<NetworkCheck>;
   /** GET /v1/agents/:id/arming with the owner session; `?account=` names the account the grant serves (Step 0, 2026-10-12). */
   readonly getArming: (account?: ManagedAccount) => Promise<{ status: number; body: unknown }>;
-  /** POST /v1/agents/:id/arming with the owner session, once the grant is on chain; the body records the account chosen. */
-  readonly confirmArming: (account?: ManagedAccount) => Promise<{ status: number; body: unknown }>;
+  /**
+   * POST /v1/agents/:id/arming with the owner session, once the grant is on chain; the body
+   * records the account chosen, and `startTrading` (2026-10-18) arms the agent at once when a
+   * plan is in force.
+   */
+  readonly confirmArming: (
+    account?: ManagedAccount,
+    startTrading?: boolean,
+  ) => Promise<{ status: number; body: unknown }>;
   /** POST /v1/agents/:id/disarm with the owner session. */
   readonly disarm: () => Promise<{ status: number; body: unknown }>;
   /** Sends the call from the connected wallet's provider; resolves to the transaction hash. */
@@ -46,6 +53,7 @@ export type ArmingFlowState =
   | "confirming"
   | "recording"
   | "awaiting-first-trade"
+  | "armed"
   | "disarmed"
   | "rejected"
   | "error";
@@ -105,6 +113,8 @@ export async function runArm(
   report: (p: ArmingProgress) => void,
   /** Step 0 (2026-10-12, A-90): which account the agent manages, when the owner chose one. */
   account?: ManagedAccount,
+  /** 2026-10-18: arm at once when a plan is in force (the plan card's Start trading). */
+  opts: { readonly startTrading?: boolean } = {},
 ): Promise<ArmingProgress> {
   const finish = (p: ArmingProgress) => {
     report(p);
@@ -137,18 +147,22 @@ export async function runArm(
   if (typeof sent !== "string") return finish(sent);
 
   report({ state: "recording", hash: sent });
+  let armed: boolean;
   try {
-    const { status, body } = await deps.confirmArming(account);
+    const { status, body } = await (opts.startTrading
+      ? deps.confirmArming(account, true)
+      : deps.confirmArming(account));
     if (status !== 200 && status !== 201)
       return finish({
         state: "error",
         hash: sent,
         message: messageOf(body, "The platform could not confirm the trading permission."),
       });
+    armed = (body as { arming?: { state?: unknown } } | null)?.arming?.state === "armed";
   } catch {
     return finish({ state: "error", hash: sent, message: "Could not reach the platform." });
   }
-  return finish({ state: "awaiting-first-trade", hash: sent });
+  return finish({ state: armed ? "armed" : "awaiting-first-trade", hash: sent });
 }
 
 export async function runDisarm(

@@ -5604,7 +5604,7 @@ function AgentPagesSection() {
       >
         <FactStrip
           items={[
-            { label: "Status", value: "On, hold" },
+            { label: "Status", value: "On, holding" },
             { label: "Last acted", value: "–", note: "No trade yet" },
             { label: "Last check", value: "2026-10-13 19:55" },
             { label: "Next check", value: "2026-10-13 19:56", note: "Every minute" },
@@ -5671,7 +5671,7 @@ function AgentPagesSection() {
       </Specimen>
       <Specimen
         name="PlanSummaryCard and PortfolioInsights"
-        note="The plan as one card: when it came in force, a small status badge, the goal, each move with a thin bar of the share now against the target, and two lines of reasoning with its report. Beside it, the portfolio's figures, '–' with a note where none exists yet. They stack on a phone, the plan first."
+        note="The plan as one card: when it came in force, a small status badge, the goal, each move with a thin bar of the share now against the target, and two lines of reasoning with its report. Beside it, the portfolio's figures, '–' with a note where none exists yet. They stack on a phone, the plan first. Below: the live status a plan carries while something holds it back (the runner's hold, or a trading permission still to sign), beside the button that clears it."
       >
         <div className="grid gap-4 lg:grid-cols-2">
           <PlanSummaryCard
@@ -5704,6 +5704,40 @@ function AgentPagesSection() {
               { label: "Buys, last 30 days", value: "1" },
               { label: "Sells, last 30 days", value: "0" },
             ]}
+          />
+          <PlanSummaryCard
+            heading="In force since 2026-10-18"
+            badge={{ label: "Approved", tone: "positive" }}
+            goal="Aggressive"
+            rows={[
+              { symbol: "WMON", side: "Buy", targetBps: 4000, currentBps: 0 },
+              { symbol: "USDC", side: "Hold", targetBps: 6000, currentBps: 10000 },
+            ]}
+            rationale="Lean into WMON at 40% while the research holds; the rest stays in USDC."
+            status={{
+              tone: "warning",
+              title: "Not trading yet: the agent needs your trading permission.",
+              detail:
+                "Start trading asks your wallet for one transaction that lets the agent trade this plan within its limits.",
+            }}
+            actions={
+              <Button size="sm" type="button">
+                Start trading
+              </Button>
+            }
+          />
+          <PlanSummaryCard
+            heading="In force since 2026-10-18"
+            badge={{ label: "Approved", tone: "positive" }}
+            goal="Aggressive"
+            rows={[{ symbol: "WMON", side: "Buy", targetBps: 4000, currentBps: 0 }]}
+            rationale="Lean into WMON at 40% while the research holds; the rest stays in USDC."
+            status={{
+              tone: "warning",
+              title: "Holding: a dry run of the trade failed before it was sent.",
+              detail:
+                "The venue could not quote this trade; check again later or trade less. Checked 05:24 UTC; the runner checks again every minute.",
+            }}
           />
         </div>
       </Specimen>
@@ -5776,7 +5810,7 @@ function AgentPagesSection() {
             },
           ]}
           decision={{
-            approve: <Button size="sm">Approve plan</Button>,
+            approve: <Button size="sm">Approve and start trading</Button>,
             decline: (
               <Button size="sm" variant="secondary">
                 Decline

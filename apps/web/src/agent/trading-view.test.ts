@@ -15,6 +15,7 @@ import {
   runLabel,
   planMoves,
   planRows,
+  planStatus,
   positionNote,
   skipWords,
   tradeRows,
@@ -190,6 +191,16 @@ describe("the Trading tab's words (UI-FAST)", () => {
       ["Refused", null, null],
       ["Trade", "WMON", "https://x/tx/0xabc"],
     ]);
+    // 2026-10-18: a leg the runner proposed is a trade on its way, never a Skipped row.
+    const legged = decisionRows({
+      card,
+      intents: [],
+      activity: [],
+      runner: { ...runner, outcome: "leg", code: "LEG" },
+      reportFor: (c) => `/r/${c}`,
+      txFor: (h) => `https://x/tx/${h}`,
+    });
+    expect(legged.some((d) => d.kind === "Skipped")).toBe(false);
   });
 
   it("says what the account holds, with dashes where the data does not exist", () => {
@@ -352,6 +363,93 @@ describe("live trades on the Trading tab (2026-10-13)", () => {
     ).toBe("Holding: every position is in its band.");
     expect(holdingLine({ ...runner, outcome: "leg" }, 50)).toBeNull();
     expect(holdingLine(null, 50)).toBeNull();
+  });
+});
+
+describe("the plan card's status: never a silent hold (2026-10-18)", () => {
+  const NOW = Date.parse("2026-10-18T05:30:00Z");
+  const hold = (code: string, message: string, hint = "") =>
+    ({
+      armingState: "armed",
+      armingEnded: null,
+      waitingForApproval: 0,
+      reasons: [
+        {
+          code,
+          message,
+          clears: "by_waiting",
+          clearsAt: null,
+          hint,
+          intentId: null,
+          at: "2026-10-18T05:28:00Z",
+        },
+      ],
+      runner: {
+        outcome: "hold",
+        code,
+        message,
+        since: "2026-10-18T05:15:33Z",
+        lastAt: "2026-10-18T05:28:00Z",
+        intentId: null,
+      },
+    }) as const;
+  const base = {
+    waiting: false,
+    inForce: true,
+    movesNothing: false,
+    armingState: "armed" as const,
+    why: null,
+    costLimitBps: 150,
+  };
+
+  it("a waiting plan on an unarmed agent says approving also asks for the trading permission", () => {
+    expect(
+      planStatus({ ...base, waiting: true, inForce: false, armingState: "unarmed" }, NOW),
+    ).toMatchObject({ tone: "neutral", title: "Approving also starts trading.", action: null });
+    expect(planStatus({ ...base, waiting: true, inForce: false }, NOW)).toBeNull();
+    expect(
+      planStatus(
+        { ...base, waiting: true, inForce: false, armingState: "unarmed", movesNothing: true },
+        NOW,
+      ),
+    ).toBeNull();
+  });
+
+  it("a plan in force without trading on says so beside Start trading", () => {
+    expect(planStatus({ ...base, armingState: "unarmed" }, NOW)).toMatchObject({
+      tone: "warning",
+      title: "Not trading: the agent has no trading permission yet.",
+      action: "start-trading",
+    });
+    expect(planStatus({ ...base, armingState: "awaiting_first_trade" }, NOW)).toMatchObject({
+      tone: "warning",
+      action: "start-trading",
+    });
+  });
+
+  it("an armed agent's hold in plain words, with its hint and when it was checked", () => {
+    const status = planStatus(
+      {
+        ...base,
+        why: hold(
+          "SIMULATION_FAILED",
+          "A dry run of the trade failed before it was sent.",
+          "The venue could not quote this trade; check again later or trade less.",
+        ),
+      },
+      NOW,
+    );
+    expect(status).toEqual({
+      tone: "warning",
+      title: "Holding: a dry run of the trade failed before it was sent.",
+      detail:
+        "The venue could not quote this trade; check again later or trade less. Checked 2 min ago; the runner checks again every minute.",
+      action: null,
+    });
+    expect(
+      planStatus({ ...base, why: hold("IN_BAND", "Every position is in its band.") }, NOW),
+    ).toMatchObject({ tone: "neutral", title: "Holding: every position is in its band." });
+    expect(planStatus({ ...base, why: { ...hold("X", "x"), runner: null } }, NOW)).toBeNull();
   });
 });
 
