@@ -38,6 +38,7 @@ import { CHAIN } from "./testing.ts";
 import {
   GAS_TOP_UP_LEGS,
   TradeFlow,
+  gasTopUpTarget,
   actionIdOf,
   minAmountOutFor,
   swapGasCost,
@@ -657,7 +658,7 @@ describe.skipIf(!dbUp)("the trade flow (needs Postgres)", { timeout: 60_000 }, (
     });
   });
 
-  it("sets a v3 swap's gas limit from its estimate plus 20%, and tops the key up to three swaps at that limit (2026-10-18)", async () => {
+  it("sets a v3 swap's gas limit from its estimate plus 20%, and tops the key up to what three swaps at that limit need (2026-10-18)", async () => {
     await armV3();
     const id = await proposeV3();
     chainV3.timestamp = NOW + 100n;
@@ -670,7 +671,9 @@ describe.skipIf(!dbUp)("the trade flow (needs Postgres)", { timeout: 60_000 }, (
     expect(estimatedFrom).toEqual([KEY]);
     expect(s.gas).toBe(974_814n);
     expect(s.gas).toBeLessThan(executorV3SwapGasLimit(2, 3));
-    expect(toppedUp).toBe(((cost * 974_814n) / 1_300_000n) * GAS_TOP_UP_LEGS);
+    // This swap at the most it can cost, plus two more at what they are billed (half of it).
+    const most = (cost * 974_814n) / 1_300_000n;
+    expect(toppedUp).toBe(most + (most / 2n) * (GAS_TOP_UP_LEGS - 1n));
     expect(await statusOf(id)).toBe("submitted");
   });
 
@@ -827,7 +830,8 @@ describe.skipIf(!dbUp)("the trade flow (needs Postgres)", { timeout: 60_000 }, (
     const again = await propose(4_000_000n);
     await local.tick();
     expect(await statusOf(again)).toBe("submitted");
-    expect(toppedUp).toBe(cost * GAS_TOP_UP_LEGS);
+    expect(toppedUp).toBe(gasTopUpTarget(cost));
+    expect(gasTopUpTarget(cost)).toBe(cost * 2n);
   });
 
   it("refuses at submission when arming ended after approval, and records a signer refusal", async () => {

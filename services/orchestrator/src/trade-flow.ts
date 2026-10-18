@@ -151,6 +151,18 @@ export const GAS_ESTIMATE_MARGIN_PCT = 20n;
 export const GAS_TOP_UP_LEGS = 3n;
 
 /**
+ * What a top-up brings the key to: the most this swap can cost, which the node
+ * wants on hand before it takes the swap, plus what each further swap is
+ * billed. The most is the limit at the signer's max fee (twice the base fee
+ * plus the tip); Monad bills the limit at the base fee plus the tip, about half
+ * of it (agent #8, 2026-10-18: 202 against 102 gwei). Topping up to three
+ * swaps at the most parked about twice what three swaps spend.
+ */
+export function gasTopUpTarget(cost: bigint): bigint {
+  return cost + (cost / 2n) * (GAS_TOP_UP_LEGS - 1n);
+}
+
+/**
  * A v3 swap's gas limit: its estimate plus the margin, never above what the
  * signer's rule allows; the route's table figure when there is no estimate.
  */
@@ -509,7 +521,7 @@ export class TradeFlow {
     const [balance, cost] = await Promise.all([this.o.gas.balance(key), this.o.gas.swapCost(gas)]);
     if (balance >= cost) return null;
     if (this.o.gas.topUp) {
-      await this.o.gas.topUp(key, cost * GAS_TOP_UP_LEGS);
+      await this.o.gas.topUp(key, gasTopUpTarget(cost));
       return null;
     }
     return blocker("GAS_UNFUNDED", null);
