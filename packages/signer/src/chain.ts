@@ -46,6 +46,12 @@ export interface ChainClient {
   nativeBalance(address: Hex): Promise<bigint>;
   /** The call as the key would make it, against the latest block. */
   simulate(from: Hex, to: Hex, data: Hex): Promise<Simulation>;
+  /**
+   * The gas the call uses, from the node's plain eth_estimateGas with no fee
+   * fields (L-270: a wrapper that sends fees came back near 25M on Monad);
+   * null when the call would revert.
+   */
+  estimateGas?(from: Hex, to: Hex, data: Hex): Promise<bigint | null>;
   sendRaw(raw: Hex): Promise<SendResult>;
   receipt(hash: Hex): Promise<Receipt | null>;
   /** True while a node still holds the transaction (in its pool or mined). */
@@ -207,6 +213,18 @@ export class ViemChainClient implements ChainClient {
     } catch (err) {
       if (unreachable(err)) throw err;
       return { ok: false, ...refusalOf(err) };
+    }
+  }
+
+  async estimateGas(from: Hex, to: Hex, data: Hex): Promise<bigint | null> {
+    try {
+      const gas = await this.read((c) =>
+        c.request({ method: "eth_estimateGas", params: [{ from, to, data }] }),
+      );
+      return BigInt(gas);
+    } catch (err) {
+      if (unreachable(err)) throw err;
+      return null;
     }
   }
 

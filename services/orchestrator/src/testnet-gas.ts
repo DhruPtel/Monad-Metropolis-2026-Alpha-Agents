@@ -3,9 +3,11 @@ import type { Hex } from "viem";
 /**
  * CO-U1 (owner, 2026-10-14): on the testnet stacks the deployer tops an agent's
  * session key up when it cannot pay a swap's gas, as the fork's balance setter
- * does, so an armed agent trades without an operator. The trade flow asks for
- * ten swaps' worth; testnet sends a fifth of that (two swaps), and only the
- * difference from what the key holds.
+ * does, so an armed agent trades without an operator. 2026-10-18 (owner): the
+ * trade flow asks for the next few swaps at the limit and fees of the one that
+ * needs it (GAS_TOP_UP_LEGS, each limit from the swap's estimate), and the
+ * deployer sends only the difference from what the key holds, so one deployer
+ * funds many agents.
  *
  * 2026-10-18 (L-284): Monad checks a transaction's gas against the sender's
  * balance a few blocks back, so a swap signed right after its top-up landed was
@@ -43,7 +45,7 @@ export function testnetGasTopUp(o: {
   const pollMs = o.pollMs ?? 500;
   const settleTimeoutMs = o.settleTimeoutMs ?? 30_000;
   return async (address, wei) => {
-    const target = wei / 5n;
+    const target = wei;
     const have = await o.chain.balance(address);
     if (have >= target) return;
     const value = target - have;

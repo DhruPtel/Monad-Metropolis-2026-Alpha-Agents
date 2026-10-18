@@ -43,6 +43,9 @@ export class FakeChain implements ChainClient {
   baseFee = 50_000_000_000n;
   mode: SendMode = "mine";
   simulation: Simulation = { ok: true };
+  /** What eth_estimateGas answers; null as for a call that would revert. */
+  gasEstimate: bigint | null = null;
+  readonly estimated: { from: Hex; to: Hex; data: Hex }[] = [];
   /** The next mined swap reverts, with this Executor reason. */
   revertNext: string | null = null;
   /** Reconciliation breakers: an extra balance change, or no event at all. */
@@ -77,6 +80,11 @@ export class FakeChain implements ChainClient {
 
   async verifyChain() {
     return this.chainId;
+  }
+
+  async estimateGas(from: Hex, to: Hex, data: Hex): Promise<bigint | null> {
+    this.estimated.push({ from, to, data });
+    return this.gasEstimate;
   }
   async nonce(address: Hex, tag: "latest" | "pending") {
     const mined = this.mined.get(address.toLowerCase()) ?? 0;

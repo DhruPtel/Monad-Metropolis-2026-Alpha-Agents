@@ -593,7 +593,8 @@ const testnetTopUp = testnetDeployerKey
           balance: (address) => sendClient.getBalance({ address }),
           blockNumber: () => sendClient.getBlockNumber({ cacheTime: 0 }),
           send: async (to, value) => {
-            const hash = await deployer.sendTransaction({ to, value });
+            // A plain transfer, and Monad bills the limit: 21,000, never a wrapper's estimate (L-270).
+            const hash = await deployer.sendTransaction({ to, value, gas: 21_000n });
             const receipt = await sendClient.waitForTransactionReceipt({ hash, timeout: 120_000 });
             return { hash, status: receipt.status, blockNumber: receipt.blockNumber };
           },

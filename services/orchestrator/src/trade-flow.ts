@@ -12,6 +12,7 @@ import {
 import {
   ARMING_END_MESSAGES,
   ASSET_DECIMALS,
+  EXECUTOR_V3_GAS_MAX,
   type ArmingEndReason,
   type AssetId,
   type CustodyPath,
@@ -77,13 +78,15 @@ export interface TradeFlowSigner {
    * signer if it has none yet: the signer records keys lazily (L-120, L-126).
    */
   createKey(agentId: number): Promise<Hex>;
+  /** 2026-10-18: the gas a v3 swap from this key uses now; null when it cannot be estimated. */
+  estimateSwapV3?(from: Hex, intent: SwapIntentV3Args): Promise<bigint | null>;
 }
 
 export interface TradeFlowGas {
   balance(address: Hex): Promise<bigint>;
   /** The most one swap's gas can cost now, as the signer would price it; `gas` for a v3 route's limit. */
   swapCost(gas?: bigint): Promise<bigint>;
-  /** Local fork only: funds the key instead of blocking the trade. */
+  /** The fork and the testnet stacks: funds the key up to `wei` instead of blocking the trade. */
   topUp?: (address: Hex, wei: bigint) => Promise<void>;
 }
 
@@ -140,6 +143,21 @@ export function minAmountOutFor(quoteOut: bigint, floor: bigint, maxSlippageBps:
   const fromQuote = (quoteOut * BigInt(10_000 - maxSlippageBps)) / 10_000n;
   const min = fromQuote > floor ? fromQuote : floor;
   return min > 0n ? min : 1n;
+}
+
+/** 2026-10-18 (owner): the margin over a swap's estimate its gas limit carries; Monad bills the whole limit. */
+export const GAS_ESTIMATE_MARGIN_PCT = 20n;
+/** A top-up funds this many swaps at the limit and fees of the one that needs it. */
+export const GAS_TOP_UP_LEGS = 3n;
+
+/**
+ * A v3 swap's gas limit: its estimate plus the margin, never above what the
+ * signer's rule allows; the route's table figure when there is no estimate.
+ */
+export function v3GasLimit(estimate: bigint | null, table: bigint): bigint {
+  if (estimate === null || estimate <= 0n) return table;
+  const limit = (estimate * (100n + GAS_ESTIMATE_MARGIN_PCT) + 99n) / 100n;
+  return limit < EXECUTOR_V3_GAS_MAX ? limit : EXECUTOR_V3_GAS_MAX;
 }
 
 /** A swap's most gas cost at these fees, priced as the signer prices it (A-38); `gas` for a v3 route's limit. */
@@ -398,14 +416,13 @@ export class TradeFlow {
     )
       if (!blockers.some((b) => b.code === "EPOCH_MISMATCH"))
         blockers.push(blocker("EPOCH_MISMATCH", null));
-    // The gas limit: this route's hops, and the held list once the token bought has joined it.
+    // The table's gas limit: this route's hops, and the held list once the token bought has
+    // joined it. It stands in only when the swap cannot be estimated.
     const hops = quote?.route.length ?? 1;
     const heldAfter =
       a.holdings.filter((h) => h.balance > 0n).length +
       (a.holdings.some((h) => isAddressEqual(h.token, buy.token) && h.balance > 0n) ? 0 : 1);
-    const gasLimit = executorV3SwapGasLimit(hops, Math.min(Math.max(heldAfter, 1), 16));
-    const gas = await this.gasBlocker(key, gasLimit);
-    if (gas) blockers.push(gas);
+    const tableGas = executorV3SwapGasLimit(hops, Math.min(Math.max(heldAfter, 1), 16));
     if (
       !quote &&
       !blockers.some((b) => b.code === "SIMULATION_FAILED" || b.code === "ROUTE_INVALID")
@@ -457,6 +474,11 @@ export class TradeFlow {
       attestationIn,
       attestationOut,
     };
+    // 2026-10-18 (owner): the limit is the swap's own estimate plus 20%, not the table's figure.
+    const estimate = (await this.o.signer.estimateSwapV3?.(key, swap)) ?? null;
+    const gasLimit = v3GasLimit(estimate, tableGas);
+    const gas = await this.gasBlocker(key, gasLimit);
+    if (gas) return this.refuse(i, "the funding address cannot pay for the swap's gas", [gas]);
     const accepted = await this.o.signer.submitSwapV3(
       i.agentId,
       swap,
@@ -475,16 +497,19 @@ export class TradeFlow {
       route,
     });
     this.o.log(
-      `agent ${i.agentId}: ${i.intentId} submitted (${formatUnits(i.amountIn, i.sellDecimals)} ${i.sell} for ${i.buy} over ${hops} hop${hops === 1 ? "" : "s"}, gas ${gasLimit}, approved by ${i.approvedBy ?? "?"})`,
+      `agent ${i.agentId}: ${i.intentId} submitted (${formatUnits(i.amountIn, i.sellDecimals)} ${i.sell} for ${i.buy} over ${hops} hop${hops === 1 ? "" : "s"}, gas ${gasLimit} (${estimate === null ? "no estimate, the table's" : `estimate ${estimate}`}; table ${tableGas}), approved by ${i.approvedBy ?? "?"})`,
     );
   }
 
-  /** GAS_UNFUNDED when the funding address cannot pay for the swap; the local fork tops it up. */
+  /**
+   * GAS_UNFUNDED when the funding address cannot pay for the swap; the fork and
+   * the testnet stacks top it up to the next few swaps at this limit and fees.
+   */
   private async gasBlocker(key: Hex, gas?: bigint): Promise<Blocker | null> {
     const [balance, cost] = await Promise.all([this.o.gas.balance(key), this.o.gas.swapCost(gas)]);
     if (balance >= cost) return null;
     if (this.o.gas.topUp) {
-      await this.o.gas.topUp(key, cost * 10n);
+      await this.o.gas.topUp(key, cost * GAS_TOP_UP_LEGS);
       return null;
     }
     return blocker("GAS_UNFUNDED", null);

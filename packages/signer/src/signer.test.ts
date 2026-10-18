@@ -538,6 +538,17 @@ describe.skipIf(!dbUp)("the signer's outbox (needs Postgres)", { timeout: 60_000
       expect(b).toMatchObject({ status: "failed", reasonCode: "GAS_LIMIT_EXCEEDED" });
       expect(chain.sent).toHaveLength(0);
     });
+
+    it("estimates a v3 swap from the key against Executor v3, and answers null without Executor v3 or when the call would revert", async () => {
+      const key = "0x00000000000000000000000000000000000000c6" as Hex;
+      expect(await make().estimateSwapV3(key, intentV3())).toBeNull();
+      const s = make({ executorV3: EXECUTOR_V3 });
+      expect(await s.estimateSwapV3(key, intentV3())).toBeNull();
+      chain.gasEstimate = 812_345n;
+      expect(await s.estimateSwapV3(key, intentV3())).toBe(812_345n);
+      expect(chain.estimated.at(-1)).toMatchObject({ from: key, to: EXECUTOR_V3 });
+      expect(chain.sent).toHaveLength(0);
+    });
   });
 
   it("flags a reconciliation mismatch and writes nothing to the ledger", async () => {

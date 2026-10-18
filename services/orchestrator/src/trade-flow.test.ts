@@ -10,7 +10,12 @@ import type {
 } from "@alpha-agents/chain-tools";
 import { candidateRoutes, floorForV3, tradeNow } from "@alpha-agents/chain-tools";
 import { type TestDatabase, createTestDatabase, databaseAvailable } from "@alpha-agents/db/testing";
-import { DEFAULT_GOAL_INPUT, ROUTE_ADAPTER_ID, executorV3SwapGasLimit } from "@alpha-agents/domain";
+import {
+  DEFAULT_GOAL_INPUT,
+  EXECUTOR_V3_GAS_MAX,
+  ROUTE_ADAPTER_ID,
+  executorV3SwapGasLimit,
+} from "@alpha-agents/domain";
 import {
   LAUNCH_EXECUTOR_POLICY,
   LAUNCH_POLICY_HASH,
@@ -30,7 +35,14 @@ import { type Hex, getAddress } from "viem";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import type { ArmingFacts, BlockedFacts, TradeFacts } from "./narrator.ts";
 import { CHAIN } from "./testing.ts";
-import { TradeFlow, actionIdOf, minAmountOutFor, swapGasCost } from "./trade-flow.ts";
+import {
+  GAS_TOP_UP_LEGS,
+  TradeFlow,
+  actionIdOf,
+  minAmountOutFor,
+  swapGasCost,
+  v3GasLimit,
+} from "./trade-flow.ts";
 
 /**
  * The trade flow (P2-U6) against Postgres with a chain and a signer that the
@@ -296,6 +308,8 @@ describe.skipIf(!dbUp)("the trade flow (needs Postgres)", { timeout: 60_000 }, (
     txId: string;
   }[];
   let refuseNext: string | null;
+  let estimate: bigint | null = null;
+  const estimatedFrom: Hex[] = [];
   let balance: bigint;
   let toppedUp: bigint;
   let finalized: bigint | null;
@@ -315,6 +329,10 @@ describe.skipIf(!dbUp)("the trade flow (needs Postgres)", { timeout: 60_000 }, (
         createKey: async () => {
           keysEnsured += 1;
           return KEY;
+        },
+        estimateSwapV3: async (from) => {
+          estimatedFrom.push(from);
+          return estimate;
         },
         submitSwapV3: async (agentId, intent, gas, routeTokens): Promise<AcceptResult> => {
           n += 1;
@@ -413,6 +431,8 @@ describe.skipIf(!dbUp)("the trade flow (needs Postgres)", { timeout: 60_000 }, (
     sent = [];
     sentV3 = [];
     refuseNext = null;
+    estimate = null;
+    estimatedFrom.length = 0;
     balance = cost;
     toppedUp = 0n;
     finalized = null;
@@ -637,6 +657,31 @@ describe.skipIf(!dbUp)("the trade flow (needs Postgres)", { timeout: 60_000 }, (
     });
   });
 
+  it("sets a v3 swap's gas limit from its estimate plus 20%, and tops the key up to three swaps at that limit (2026-10-18)", async () => {
+    await armV3();
+    const id = await proposeV3();
+    chainV3.timestamp = NOW + 100n;
+    estimate = 812_345n;
+    balance = 0n;
+    const local = make({ topUp: true });
+    await local.tick();
+    const s = sentV3[0];
+    if (!s) throw new Error("nothing sent");
+    expect(estimatedFrom).toEqual([KEY]);
+    expect(s.gas).toBe(974_814n);
+    expect(s.gas).toBeLessThan(executorV3SwapGasLimit(2, 3));
+    expect(toppedUp).toBe(((cost * 974_814n) / 1_300_000n) * GAS_TOP_UP_LEGS);
+    expect(await statusOf(id)).toBe("submitted");
+  });
+
+  it("v3GasLimit: the estimate plus 20% rounded up, capped at the rule's most; the table's figure without an estimate", () => {
+    expect(v3GasLimit(1_000_000n, 2_500_000n)).toBe(1_200_000n);
+    expect(v3GasLimit(1n, 2_500_000n)).toBe(2n);
+    expect(v3GasLimit(null, 2_500_000n)).toBe(2_500_000n);
+    expect(v3GasLimit(0n, 2_500_000n)).toBe(2_500_000n);
+    expect(v3GasLimit(EXECUTOR_V3_GAS_MAX, 2_500_000n)).toBe(EXECUTOR_V3_GAS_MAX);
+  });
+
   it("a v2 grant does not cover a v3 intent, and a v3 refusal at submission reaches why-not-traded with its reason (F-U5)", async () => {
     await arm();
     balance = cost * 3n;
@@ -782,7 +827,7 @@ describe.skipIf(!dbUp)("the trade flow (needs Postgres)", { timeout: 60_000 }, (
     const again = await propose(4_000_000n);
     await local.tick();
     expect(await statusOf(again)).toBe("submitted");
-    expect(toppedUp).toBe(cost * 10n);
+    expect(toppedUp).toBe(cost * GAS_TOP_UP_LEGS);
   });
 
   it("refuses at submission when arming ended after approval, and records a signer refusal", async () => {

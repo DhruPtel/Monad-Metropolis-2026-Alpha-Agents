@@ -37,28 +37,28 @@ function fakeChain(o: { deployer: bigint; key: bigint; status?: "success" | "rev
 }
 
 describe("testnetGasTopUp", () => {
-  it("sends a fifth of the ask less what the key holds, and returns once Monad's delay has passed", async () => {
+  it("sends the ask less what the key holds, and returns once Monad's delay has passed", async () => {
     const c = fakeChain({ deployer: 10n * MON, key: MON / 10n });
-    await c.topUp(KEY, 4n * MON);
-    expect(c.sent).toEqual([{ to: KEY, wei: (8n * MON) / 10n - MON / 10n }]);
+    await c.topUp(KEY, (6n * MON) / 10n);
+    expect(c.sent).toEqual([{ to: KEY, wei: (5n * MON) / 10n }]);
     expect(c.block()).toBe(100n + TOP_UP_SETTLE_BLOCKS);
     expect(c.logs[0]).toContain("topped");
   });
 
   it("sends nothing when the key already holds the target", async () => {
     const c = fakeChain({ deployer: 10n * MON, key: MON });
-    await c.topUp(KEY, 4n * MON);
+    await c.topUp(KEY, (6n * MON) / 10n);
     expect(c.sent).toEqual([]);
   });
 
   it("refuses before sending when the deployer cannot pay the top-up and keep its gas room", async () => {
-    const c = fakeChain({ deployer: (8n * MON) / 10n + DEPLOYER_GAS_ROOM_WEI - 1n, key: 0n });
-    await expect(c.topUp(KEY, 4n * MON)).rejects.toThrow(/too little.*nothing was sent/);
+    const c = fakeChain({ deployer: (6n * MON) / 10n + DEPLOYER_GAS_ROOM_WEI - 1n, key: 0n });
+    await expect(c.topUp(KEY, (6n * MON) / 10n)).rejects.toThrow(/too little.*nothing was sent/);
     expect(c.sent).toEqual([]);
   });
 
   it("throws on a reverted top-up", async () => {
     const c = fakeChain({ deployer: 10n * MON, key: 0n, status: "reverted" });
-    await expect(c.topUp(KEY, 4n * MON)).rejects.toThrow("reverted");
+    await expect(c.topUp(KEY, (6n * MON) / 10n)).rejects.toThrow("reverted");
   });
 });

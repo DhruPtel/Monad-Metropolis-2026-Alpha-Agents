@@ -345,6 +345,19 @@ export class Signer {
   }
 
   /**
+   * 2026-10-18 (owner): the gas an Executor v3 swap from this key uses now, so
+   * the trade flow sets its limit from it instead of the table (Monad bills the
+   * whole limit); null when the chain client cannot estimate or the call would
+   * revert, and the signer's dry run then names the reason.
+   */
+  async estimateSwapV3(from: Hex, intent: SwapIntentV3Args): Promise<bigint | null> {
+    const to = this.#o.executorV3;
+    if (!to || !this.#o.chain.estimateGas) return null;
+    const data = encodeFunctionData({ abi: EXECUTOR_V3_ABI, functionName: "swap", args: [intent] });
+    return this.#o.chain.estimateGas(from, to, data);
+  }
+
+  /**
    * Accepts any requested call into the outbox, refusing it at once, before
    * anything is signed, unless it is an Executor swap for this chain and this
    * agent. A refused request is kept as failed so the refusal is visible.
