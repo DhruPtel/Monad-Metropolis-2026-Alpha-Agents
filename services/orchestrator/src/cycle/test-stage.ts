@@ -280,6 +280,12 @@ export interface TestInputsV2 {
   readonly quoteBuy: (token: Hex, usdcE6: bigint) => Promise<bigint | null>;
   readonly lastAgentChangeAt: Date | null;
   readonly now: Date;
+  /**
+   * 2026-10-17 (owner): on a testnet the runner reaches each target in legs sized to what the
+   * pools fill, so a position larger than one fill, the turnover it takes and its cost in one go
+   * never refuse the plan; the Test estimates the legs instead (estimateLegs).
+   */
+  readonly legsOverDepth?: boolean;
 }
 
 const BPS = 10_000n;
@@ -325,9 +331,9 @@ function envelopeOf(t: Pick<TestInputsV2, "aggressiveness" | "maxPositions">) {
 }
 
 /**
- * 2026-10-17: the largest share of the account (bps, whole percents) a buy of the token fills in
- * one go within the slippage limit, by halving between nothing and the drafted share: at most
- * six more quotes, asked only for a position the depth check refused.
+ * The largest share of the account (bps) a buy of the token fills in one go
+ * within the slippage limit, by halving between nothing and the drafted share: at most six
+ * more quotes. On a testnet it sizes the legs estimate, never the plan.
  */
 async function largestFill(
   t: Pick<TestInputsV2, "quoteBuy">,
@@ -351,7 +357,7 @@ async function largestFill(
     if (got !== null && got >= floor) lo = mid;
     else hi = mid;
   }
-  return Math.floor(lo / 100) * 100;
+  return lo;
 }
 
 export async function checkPortfolioProposal(
@@ -500,19 +506,13 @@ export async function checkPortfolioProposal(
       const target = (v.nav * BigInt(s.targetBps)) / BPS;
       const current = v.values.get(s.token.toLowerCase()) ?? 0n;
       implied += target > current ? target - current : current - target;
-      if (target === 0n) continue;
+      // 2026-10-17 (owner): on a testnet depth only sets how many legs the runner sends.
+      if (target === 0n || t.legsOverDepth) continue;
       const out1 = await t.quoteBuy(s.token, target);
       const impliedOut = amountForValue(target, s.priceE18, s.decimals);
       const floor = (impliedOut * (BPS - BigInt(policy.maxSlippageBps))) / BPS;
       if (out1 !== null && out1 >= floor) continue;
-      // 2026-10-17: the largest share that does fit, so the next draft can be sized to the pools
-      // at once (a Zoom out that guessed again ran out of its budget, and the run had no plan).
-      const fits = await largestFill(t, s, v.nav, policy.maxSlippageBps);
-      const room =
-        fits > 0
-          ? ` About ${pctOf(fits)} of this account fits in one go now; size ${s.symbol} at or below that.`
-          : "";
-      if (out1 === null && fits === 0)
+      if (out1 === null)
         out.push({
           code: "DEPTH",
           field: `positions.${s.symbol}`,
@@ -522,7 +522,7 @@ export async function checkPortfolioProposal(
         out.push({
           code: "DEPTH",
           field: `positions.${s.symbol}`,
-          message: `A ${pctOf(s.targetBps)} position in ${s.symbol} is too large for its pools: buying it in one go would cost more than the ${pctOf(policy.maxSlippageBps)} slippage limit, so the runner could not reach the target.${room}`,
+          message: `A ${pctOf(s.targetBps)} position in ${s.symbol} is too large for its pools: buying it in one go would cost more than the ${pctOf(policy.maxSlippageBps)} slippage limit, so the runner could not reach the target.`,
         });
     }
     // Every token the plan no longer names is sold as well.
@@ -534,7 +534,8 @@ export async function checkPortfolioProposal(
         implied += current;
     const window = (v.nav * BigInt(policy.maxTurnoverBps)) / BPS;
     const left = window > t.agent.turnoverUsed ? window - t.agent.turnoverUsed : 0n;
-    if (implied > left)
+    // On a testnet the Executor's turnover window only spaces the legs out (estimateLegs says so).
+    if (implied > left && !t.legsOverDepth)
       out.push({
         code: "TURNOVER",
         field: "positions",
@@ -550,6 +551,130 @@ export async function checkPortfolioProposal(
       message: `The template no longer passes ${failing.length} of its recorded evals (${failing.map((s) => s.name).join(", ")}).`,
     });
   return out;
+}
+
+/** 2026-10-17 (owner): what reaching a plan takes on a testnet, where the runner trades in legs. */
+export interface LegEstimate {
+  /** The legs the runner is expected to send, sells and buys together. */
+  readonly legs: number;
+  /** About how long they take: one leg per runner check once the previous one settled. */
+  readonly minutes: number;
+  readonly moves: readonly {
+    readonly symbol: string;
+    readonly side: "buy" | "sell";
+    readonly usdcE6: string;
+    readonly legs: number;
+    /** What one buy fills within the slippage limit now (0 when none does); null for a sell. */
+    readonly fillUsdcE6: string | null;
+  }[];
+  /** The 24-hour turnover window leaves less than the moves need, so some legs wait for it. */
+  readonly turnoverWaits: boolean;
+  readonly message: string;
+}
+
+/** The runner checks every minute and sends the next leg once the last one settled. */
+const MINUTES_PER_LEG = 2;
+
+const usdcText = (e6: bigint) => (Number(e6) / 1e6).toFixed(2);
+
+/**
+ * 2026-10-17 (owner): the legs the runner needs to reach a plan: per token, the move in USDC
+ * over the largest leg, the plan's or the Executor's per-trade cap, or what one buy fills within
+ * the slippage limit now when that is less. Legs share the pools, so later legs may fill less:
+ * an estimate, never a limit. Null while the account's values cannot be read.
+ */
+export async function estimateLegs(
+  p: TargetPortfolioParams,
+  t: TestInputsV2,
+): Promise<LegEstimate | null> {
+  const v = portfolioValues(t);
+  if (!v || v.nav === 0n) return null;
+  const m = t.market;
+  const policy = m.policy;
+  const capBps = Math.min(p.maxLegBps, policy.maxTradeBps);
+  const legCap = (v.nav * BigInt(capBps)) / BPS;
+  if (legCap === 0n) return null;
+  const targets = new Map(p.positions.map((x) => [x.token.toLowerCase(), x]));
+  const tokens = new Set([...v.values.keys(), ...targets.keys()]);
+  tokens.delete(m.usdc.toLowerCase());
+  const moves: LegEstimate["moves"][number][] = [];
+  const unfilled: string[] = [];
+  let total = 0n;
+  for (const token of tokens) {
+    const info = m.tokens.find((x) => isAddressEqual(x.token, token as Hex));
+    const symbol = info?.symbol ?? token;
+    const pos = targets.get(token);
+    const target = (v.nav * BigInt(pos?.targetWeightBps ?? 0)) / BPS;
+    const now = v.values.get(token) ?? 0n;
+    const size = target > now ? target - now : now - target;
+    // Inside the position's band the runner does not trade.
+    if (size === 0n || size * BPS <= v.nav * BigInt(pos?.bandBps ?? 0)) continue;
+    const side = target > now ? "buy" : "sell";
+    let per = legCap;
+    let fill: bigint | null = null;
+    const price = m.prices[token];
+    if (side === "buy" && info && price && price.priceE18 > 0n && price.reason === "OK") {
+      const first = size < legCap ? size : legCap;
+      const out = await t.quoteBuy(info.token, first).catch(() => null);
+      const floor =
+        (amountForValue(first, price.priceE18, info.decimals) *
+          (BPS - BigInt(policy.maxSlippageBps))) /
+        BPS;
+      if (out !== null && out >= floor) fill = first;
+      else {
+        const bps = await largestFill(
+          t,
+          {
+            token: info.token,
+            decimals: info.decimals,
+            priceE18: price.priceE18,
+            targetBps: Number((first * BPS) / v.nav),
+          },
+          v.nav,
+          policy.maxSlippageBps,
+        );
+        fill = (v.nav * BigInt(bps)) / BPS;
+      }
+      if (fill > 0n) per = fill < legCap ? fill : legCap;
+      else unfilled.push(symbol);
+    }
+    const legs = Number((size + per - 1n) / per);
+    total += size;
+    moves.push({
+      symbol,
+      side,
+      usdcE6: size.toString(),
+      legs,
+      fillUsdcE6: fill === null ? null : fill.toString(),
+    });
+  }
+  const legs = moves.reduce((n, x) => n + x.legs, 0);
+  const window = (v.nav * BigInt(policy.maxTurnoverBps)) / BPS;
+  const left = window > t.agent.turnoverUsed ? window - t.agent.turnoverUsed : 0n;
+  const turnoverWaits = total > left;
+  const minutes = legs * MINUTES_PER_LEG;
+  const parts = moves.map(
+    (x) =>
+      `${x.side} ${x.symbol} ${usdcText(BigInt(x.usdcE6))} USDC in about ${x.legs} ${x.legs === 1 ? "leg" : "legs"}${x.fillUsdcE6 !== null && BigInt(x.fillUsdcE6) > 0n && BigInt(x.fillUsdcE6) < legCap ? ` (about ${usdcText(BigInt(x.fillUsdcE6))} USDC fills per leg now)` : ""}`,
+  );
+  const message =
+    legs === 0
+      ? "The account already sits at this plan; the runner sends no legs."
+      : [
+          `Reaching this plan takes about ${legs} ${legs === 1 ? "leg" : "legs"} over about ${minutes} minutes: ${parts.join("; ")}.`,
+          "The runner sizes each leg to what the pools fill within the slippage limit and keeps sending legs until every target is reached.",
+          ...(unfilled.length > 0
+            ? [
+                `No buy of ${unfilled.join(" or ")} fills within the ${pctOf(policy.maxSlippageBps)} slippage limit right now, so those legs wait until the pools have depth.`,
+              ]
+            : []),
+          ...(turnoverWaits
+            ? [
+                `The 24-hour turnover limit (${pctOf(policy.maxTurnoverBps)}) leaves ${usdcText(left)} USDC of the ${usdcText(total)} USDC these legs move, so some legs wait for it to free up.`,
+              ]
+            : []),
+        ].join(" ");
+  return { legs, minutes, moves, turnoverWaits, message };
 }
 
 /** What the Zoom out may draft a target portfolio within: the envelope, the tokens it may name, and the cooldown. */

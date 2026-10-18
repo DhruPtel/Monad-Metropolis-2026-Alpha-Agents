@@ -1292,6 +1292,8 @@ export class Orchestrator {
       },
       lastAgentChangeAt: last?.createdAt ?? null,
       now: new Date(),
+      // 2026-10-17 (owner): on a testnet depth sets the runner's legs and never refuses a plan.
+      legsOverDepth: TESTNET_CHAIN_IDS.includes(ref.chainId),
     };
   }
 

@@ -2,7 +2,13 @@ import type { TargetPortfolioParams } from "@alpha-agents/policy";
 import { portfolioParamsFromJson, valueE6 } from "@alpha-agents/policy";
 import type { ProposalEvaluation } from "@alpha-agents/trading";
 import { type Hex, isAddressEqual } from "viem";
-import { type TestFindingV2, type TestInputsV2, checkPortfolioProposal } from "./test-stage.ts";
+import {
+  type LegEstimate,
+  type TestFindingV2,
+  type TestInputsV2,
+  checkPortfolioProposal,
+  estimateLegs,
+} from "./test-stage.ts";
 
 /**
  * One rule set for a target portfolio (F-T2): everything the Test stage v2
@@ -20,6 +26,8 @@ export interface PlanVerdict {
   readonly findings: TestFindingV2[];
   readonly cost: PlanCost;
   readonly fingerprint: PlanInputsFingerprint;
+  /** 2026-10-17: on a testnet, the legs the runner needs to reach the plan; null elsewhere. */
+  readonly legs: LegEstimate | null;
 }
 
 /** What the rules read: the account and the market as of one read, in a comparable form. */
@@ -252,14 +260,19 @@ export async function checkTargetPortfolio(
   t: TestInputsV2,
 ): Promise<PlanVerdict> {
   const findings = await checkPortfolioProposal(p, t);
-  const cost = await estimateMoveCost(p, t);
-  if (cost && cost.legs > 0 && cost.costBps > p.costHurdleBps)
+  // 2026-10-17 (owner): on a testnet the runner judges each leg's cost as it sends it, so the cost
+  // of moving in one go never refuses the plan; the estimate counts every move (the testnet
+  // profile has no minimum trade) and the runner's legs.
+  const legs = t.legsOverDepth ? await estimateLegs(p, t) : null;
+  const moved = await estimateMoveCost(t.legsOverDepth ? { ...p, minTradeUsdcE6: 1n } : p, t);
+  const cost = moved && legs ? { ...moved, legs: legs.legs } : moved;
+  if (cost && cost.legs > 0 && cost.costBps > p.costHurdleBps && !t.legsOverDepth)
     findings.push({
       code: "COST_HURDLE",
       field: "params.costHurdleBps",
       message: `Moving to this portfolio would cost about ${(cost.costBps / 100).toFixed(2)}% of the ${cost.legs} legs' value at today's depth, above the plan's own cost hurdle of ${(p.costHurdleBps / 100).toFixed(2)}%; raise the hurdle, move less, or wait for depth.`,
     });
-  return { findings, cost, fingerprint: inputsFingerprint(t) };
+  return { findings, cost, fingerprint: inputsFingerprint(t), legs };
 }
 
 /** The evaluator's finding when a plan the Test accepted fails now: what changed since, named. */

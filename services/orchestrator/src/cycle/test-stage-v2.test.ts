@@ -2,7 +2,13 @@ import type { AgentStateV3, MarketStateV3, TokenInfoV3 } from "@alpha-agents/cha
 import { type TargetPortfolioParams, amountForValue, executorV3 } from "@alpha-agents/policy";
 import type { Hex } from "viem";
 import { describe, expect, it } from "vitest";
-import { type TestInputsV2, checkPortfolioProposal, portfolioEnvelope } from "./test-stage.ts";
+import { checkTargetPortfolio } from "./plan-rules.ts";
+import {
+  type TestInputsV2,
+  checkPortfolioProposal,
+  estimateLegs,
+  portfolioEnvelope,
+} from "./test-stage.ts";
 
 /**
  * The Test stage v2 (F-U6, D-344): every rule a target portfolio must pass,
@@ -320,6 +326,82 @@ describe("the Test stage over a target portfolio (F-U6, D-344)", () => {
     expect(await codes(plan(), inputs({ market: stale, agent: holding }))).toContain(
       "VALUES_UNUSABLE",
     );
+  });
+
+  it("says what depth refuses without telling the agent how much fits in one go", async () => {
+    const shallow = inputs({
+      quoteBuy: async (t, usdcE6) =>
+        t === WBTC
+          ? (amountForValue(usdcE6, PX_WBTC, 8) * 9_800n) / 10_000n
+          : amountForValue(usdcE6, PX_WMON, 18),
+    });
+    const [depth] = await checkPortfolioProposal(plan(), shallow);
+    expect(depth?.message).toContain("too large for its pools");
+    expect(depth?.message).not.toMatch(/fits in one go|size .* at or below/);
+  });
+
+  // 2026-10-17 (owner): on a testnet the runner reaches a target in legs, so size never refuses.
+  describe("on a testnet, where the runner trades in legs", () => {
+    /** Buys fill within the 1.5% slippage limit up to 3 USDC; past that, 2% short. */
+    const pools = (t: Hex, usdcE6: bigint) => {
+      const m = market();
+      const info = m.tokens.find((x) => x.token === t);
+      const px = m.prices[t]?.priceE18;
+      if (!info || !px) return null;
+      const out = amountForValue(usdcE6, px, info.decimals);
+      return usdcE6 <= 3_000_000n ? out : (out * 9_800n) / 10_000n;
+    };
+    const big = plan({
+      positions: [position(WMON, 4_000), position(AUSD, 3_000)],
+      cashTargetBps: 3_000,
+      maxLegBps: 2_000,
+      costHurdleBps: 40,
+    });
+
+    it("refuses neither depth, turnover nor the cost in one go, and estimates the legs", async () => {
+      const m = market({ policy: { ...executorV3.LAUNCH_POLICY, maxTurnoverBps: 2_500 } });
+      const off = inputs({ market: m, quoteBuy: async (t, v) => pools(t, v) });
+      expect(await codes(big, off)).toEqual(expect.arrayContaining(["DEPTH", "TURNOVER"]));
+      expect((await checkTargetPortfolio(big, off)).legs).toBeNull();
+
+      const on = { ...off, legsOverDepth: true };
+      expect(await codes(big, on)).toEqual([]);
+      const verdict = await checkTargetPortfolio(big, on);
+      expect(verdict.findings).toEqual([]);
+      // 40 USDC of WMON and 30 of AUSD, 2.50 USDC filling per leg by the halving: 16 and 12 legs.
+      expect(verdict.legs?.legs).toBe(28);
+      expect(verdict.cost?.legs).toBe(28);
+      expect(verdict.legs?.minutes).toBe(56);
+      expect(verdict.legs?.turnoverWaits).toBe(true);
+      expect(verdict.legs?.message).toMatch(
+        /^Reaching this plan takes about 28 legs over about 56 minutes: buy WMON 40.00 USDC in about 16 legs \(about 2.50 USDC fills per leg now\)/,
+      );
+      expect(verdict.legs?.message).toContain("keeps sending legs until every target is reached");
+      expect(verdict.legs?.message).toContain("The 24-hour turnover limit (25%) leaves 25.00 USDC");
+    });
+
+    it("still refuses what the contracts refuse: a token the registry does not allow, a weight above its cap", async () => {
+      const on = inputs({ legsOverDepth: true, quoteBuy: async (t, v) => pools(t, v) });
+      const dead = "0x000000000000000000000000000000000000dead" as Hex;
+      expect(
+        await codes(plan({ positions: [position(dead, 3_000), position(WMON, 1_000)] }), on),
+      ).toContain("TOKEN_NOT_REGISTERED");
+      expect(
+        await codes(plan({ positions: [position(WMON, 1_000), position(WBTC, 2_000)] }), on),
+      ).toContain("ENVELOPE_POSITION");
+    });
+
+    it("counts a buy no size of which fills at the leg cap and says its legs wait for depth", async () => {
+      const e = await estimateLegs(big, inputs({ quoteBuy: async () => null }));
+      expect(e?.legs).toBe(4);
+      expect(e?.moves.map((x) => [x.symbol, x.legs, x.fillUsdcE6])).toEqual([
+        ["WMON", 2, "0"],
+        ["AUSD", 2, "0"],
+      ]);
+      expect(e?.message).toContain(
+        "No buy of WMON or AUSD fills within the 1.5% slippage limit right now",
+      );
+    });
   });
 
   it("keeps the 24-hour cooldown after an accepted agent change", async () => {

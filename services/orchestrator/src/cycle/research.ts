@@ -12,8 +12,6 @@ import { ToolError } from "@alpha-agents/tool-server";
 import type { Hex } from "viem";
 import { type GoalStore, type PlanStore, isPortfolioPlan } from "@alpha-agents/trading";
 import {
-  type PlanCost,
-  type PlanInputsFingerprint,
   type PlanVerdict,
   type TargetPortfolioDecisionParams,
   checkTargetPortfolio,
@@ -576,7 +574,7 @@ export class CycleResearch {
     }
     if (decision.kind === "PROPOSE") {
       let findings: readonly { code: string; field: string; message: string }[];
-      let verdictRecord: { fingerprint: PlanInputsFingerprint; cost: PlanCost } | null = null;
+      let verdictRecord: Pick<PlanVerdict, "fingerprint" | "cost" | "legs"> | null = null;
       if (decision.template === "target_portfolio@1") {
         // F-U6: a target portfolio goes through the Test stage v2 on the fund agent's set.
         const inputs = await this.portfolioTestInputs(cycle);
@@ -593,7 +591,11 @@ export class CycleResearch {
         // F-T2: one rule set with the proposal evaluator; the verdict's fingerprint goes on the record.
         const verdict = await this.targetPortfolioVerdict(decision.params, inputs);
         findings = verdict.findings;
-        verdictRecord = { fingerprint: verdict.fingerprint, cost: verdict.cost };
+        verdictRecord = {
+          fingerprint: verdict.fingerprint,
+          cost: verdict.cost,
+          legs: verdict.legs,
+        };
       } else {
         findings = checkProposal(proposalParams(decision.params), await this.testInputs(cycle));
       }
@@ -740,7 +742,7 @@ export class CycleResearch {
     cycleId: string,
     params: unknown,
     findings: readonly { code: string; field?: string; message?: string }[],
-    verdict: { fingerprint: PlanInputsFingerprint; cost: PlanCost } | null = null,
+    verdict: Pick<PlanVerdict, "fingerprint" | "cost" | "legs"> | null = null,
   ) {
     const test = (await this.o.cycles.stages(cycleId)).find((s) => s.stage === "TEST");
     if (!test) return;
@@ -765,6 +767,8 @@ export class CycleResearch {
                 message: f.message ?? null,
               })),
               ...(verdict ? { fingerprint: verdict.fingerprint, cost: verdict.cost } : {}),
+              // 2026-10-17: on a testnet, the legs the runner needs ("about 4 legs over 8 minutes").
+              ...(verdict?.legs ? { legs: verdict.legs } : {}),
             },
           ],
         }),
