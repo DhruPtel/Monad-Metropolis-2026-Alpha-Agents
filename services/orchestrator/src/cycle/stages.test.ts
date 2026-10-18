@@ -52,11 +52,11 @@ describe("stage rules (P3-U4)", () => {
     expect(stageCeilingUsdcE6("DIVE", "ROUTINE", "research-medium")).toBe(usdc(0.45));
     expect(stageCeilingUsdcE6("DIVE", "ROUTINE", "research-high")).toBe(usdc(0.9));
     expect(stageCeilingUsdcE6("CHALLENGE", "ROUTINE", "research-high")).toBe(usdc(0.2));
-    expect(stageCeilingUsdcE6("ZOOM_OUT", "ROUTINE", "research-medium")).toBe(usdc(0.25));
+    expect(stageCeilingUsdcE6("ZOOM_OUT", "ROUTINE", "research-medium")).toBe(usdc(0.75));
     expect(stageCeilingUsdcE6("TEST", "ACTIVATION", "research-high")).toBe(0n);
-    // 2026-10-13 (owner): Medium with three Dives at most 2.35 USDC with the report's 0.20; High with four, 4.95.
-    expect(cyclePlan("ACTIVATION", "research-medium", 0).maxUsdcE6).toBe("2350000");
-    expect(cyclePlan("ACTIVATION", "research-high", 0).maxUsdcE6).toBe("4950000");
+    // 2026-10-17 (owner): the Zoom out at 0.75, so Medium with three Dives is at most 2.85 USDC with the report's 0.20; High with four, 5.95.
+    expect(cyclePlan("ACTIVATION", "research-medium", 0).maxUsdcE6).toBe("2850000");
+    expect(cyclePlan("ACTIVATION", "research-high", 0).maxUsdcE6).toBe("5950000");
     expect(
       cyclePlan("ACTIVATION", "research-low", 0).stages.find((x) => x.stage === "DIVE")?.count,
     ).toBe(2);

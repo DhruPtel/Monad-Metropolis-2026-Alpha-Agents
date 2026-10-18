@@ -227,7 +227,7 @@ describe.skipIf(!dbUp)(
       expect(await refused()).toMatchObject({
         code: "CREDITS",
         message:
-          "Credits are short: 1.00 USDC available, the sweep may cost up to 2.35 USDC. Add USDC to the funding address first.",
+          "Credits are short: 1.00 USDC available, the sweep may cost up to 2.85 USDC. Add USDC to the funding address first.",
       });
       credits.spendable = 12_000_000n;
       expect(await refused()).toMatchObject({
@@ -240,8 +240,8 @@ describe.skipIf(!dbUp)(
       expect(entries).toEqual([]);
       // The High tier doubles the reasoning stages' ceilings (A-51).
       await saveGoal("HIGH");
-      expect((await service.view(ref)).ceilingUsdcE6).toBe("4950000");
-      expect(ActivationService.ceilingFor("research-medium")).toBe(2_350_000n);
+      expect((await service.view(ref)).ceilingUsdcE6).toBe("5950000");
+      expect(ActivationService.ceilingFor("research-medium")).toBe(2_850_000n);
     });
 
     it("starts the sweep: the checks pass, the cycle is queued as the owner's task, the record names it, and the first entries are written", async () => {
@@ -254,7 +254,7 @@ describe.skipIf(!dbUp)(
       expect(record).toMatchObject({
         tier: "MEDIUM",
         reasoningAlias: "research-medium",
-        ceilingUsdcE6: 2_350_000n,
+        ceilingUsdcE6: 2_850_000n,
         cycleId: expect.stringMatching(/^cycle-/),
         taskId: "task-1",
         checks: {
@@ -269,7 +269,7 @@ describe.skipIf(!dbUp)(
       expect(record.armingId).toBe((await trades.openArming(CHAIN, 1))?.armingId);
       expect(r.activation).toMatchObject({
         status: "running",
-        ceilingUsdcE6: "2350000",
+        ceilingUsdcE6: "2850000",
         chargedUsdcE6: "0",
         tier: { choice: "MEDIUM", label: "Medium" },
       });
@@ -292,7 +292,7 @@ describe.skipIf(!dbUp)(
         expect(validateNarration(text, e.facts)).toEqual({ ok: true });
       }
       expect(templateActivationEntry(must(entries[0]).facts)).toBe(
-        "Alpha Agent #1 started its activation sweep on the Medium tier: at most 2.35 USDC of credits, and nothing is traded until the owner approves the plan.",
+        "Alpha Agent #1 started its activation sweep on the Medium tier: at most 2.85 USDC of credits, and nothing is traded until the owner approves the plan.",
       );
       expect(templateActivationEntry(must(entries[1]).facts)).toBe(
         "Alpha Agent #1's activation sweep, reading your goal and account: Balanced on the Medium tier; 90 USDC to trade with; 12 USDC of credits.",
@@ -497,7 +497,7 @@ describe.skipIf(!dbUp)(
       await service.hooks().onEnd?.(must(await cycles.cycle(cycleId)));
       const end = must(entries.find((e) => e.key.endsWith(":finished")));
       expect(templateActivationEntry(end.facts)).toBe(
-        "Alpha Agent #1's activation sweep ended: a plan waits for the owner's approval. It cost 0.41 of at most 2.35 USDC. A portfolio of 0 positions proposed.",
+        "Alpha Agent #1's activation sweep ended: a plan waits for the owner's approval. It cost 0.41 of at most 2.85 USDC. A portfolio of 0 positions proposed.",
       );
       expect(validateNarration(templateActivationEntry(end.facts), end.facts)).toEqual({
         ok: true,

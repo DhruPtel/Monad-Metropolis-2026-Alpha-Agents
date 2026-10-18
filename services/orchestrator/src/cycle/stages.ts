@@ -1,4 +1,3 @@
-import { TESTNET_CHAIN } from "@alpha-agents/config";
 /**
  * The discovery loop's stages as data (P3-U4, D-093, D-285, A-51): which model
  * each stage runs on, its work caps and its ceiling, which themes earn a Dive,
@@ -86,8 +85,9 @@ export function stageCeilingUsdcE6(
 ): bigint {
   const deep = reasoning === "research-high" ? 2 : 1;
   switch (stage) {
-    // 2026-10-13 (owner): Scan 0.45 and each Dive 0.45 (0.90 on High), so a Medium run with
-    // three Dives is at most 2.35 USDC with its report (0.45 + 3 x 0.45 + 0.10 + 0.25 + 0.20).
+    // 2026-10-13 (owner): Scan 0.45 and each Dive 0.45 (0.90 on High); since 2026-10-17 the
+    // Zoom out's 0.75, so a Medium run with three Dives is at most 2.85 USDC with its report
+    // (0.45 + 3 x 0.45 + 0.10 + 0.75 + 0.20).
     // A stage stops at its ceiling, so each keeps room for its required searches.
     case "SCAN":
       return usdc(0.45);
@@ -98,7 +98,9 @@ export function stageCeilingUsdcE6(
     case "ZOOM_OUT":
       // 2026-10-16: the dev stack's venue lists 45 and more tokens, which every price list,
       // envelope and token market carries into the Zoom out's context: three times the room.
-      return usdc(0.25 * deep * (TESTNET_CHAIN.standIns ? 1 : 3));
+      // 2026-10-17 (owner): a multi-token plan needs the same room on the stand-in testnets,
+      // where 0.25 USDC ran out before agent #6's plan was written.
+      return usdc(0.75 * deep);
     case "TEST":
       return 0n;
   }

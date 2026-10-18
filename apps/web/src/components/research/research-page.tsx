@@ -66,17 +66,17 @@ const KIND_WORD: Readonly<Record<string, string>> = {
 };
 /** The browser's record of the reports this owner opened (a per-viewer convenience). */
 const openedKey = (agentId: bigint) => `aa-reports-opened-${agentId.toString()}`;
-/** A run's most at its tier (2026-10-13 ceilings, with the report). */
-const RUN_CEILING: Readonly<Record<string, string>> = { Low: "1.90", Medium: "2.35", High: "4.95" };
+/** A run's most at its tier (the stage ceilings since 2026-10-17, with the report). */
+const RUN_CEILING: Readonly<Record<string, string>> = { Low: "2.40", Medium: "2.85", High: "5.95" };
 
 const minute = (iso: string | null | undefined) =>
   iso ? `${iso.slice(0, 10)} ${iso.slice(11, 16)}` : "–";
 /**
  * The full research run's cost shown before the owner starts one (2026-10-13): a Medium run with
- * three token Dives is expected near 1.5 USDC, at most 2.35 with its report (the stage ceilings).
+ * three token Dives is expected near 1.5 USDC, at most 2.85 with its report (the stage ceilings).
  */
 const RUN_COST_TEXT =
-  "A full research run reads the market, picks tokens across your allocation, researches each in depth (web and X included), has a skeptic challenge them, checks the result against your limits and ends with a plan for your approval. On the Medium tier it costs about 1.50 USDC of credits, at most 2.35, taken as it runs.";
+  "A full research run reads the market, picks tokens across your allocation, researches each in depth (web and X included), has a skeptic challenge them, checks the result against your limits and ends with a plan for your approval. On the Medium tier it costs about 1.50 USDC of credits, at most 2.85, taken as it runs.";
 
 /**
  * The Research page (P3-U10, rebuilt in UI-FAST around a live view of one
@@ -375,7 +375,7 @@ export function ResearchPage({
         line: zoomDone
           ? "Writing the report"
           : `Running: ${(openCycle.cycleId === cycleId ? currentStep(terminal.lines) : null) ?? "starting"}`,
-        detail: `${elapsedOf(openCycle.startedAt)} · ${usdcCents(openCycle.chargedUsdcE6)} of at most ${RUN_CEILING[runLevel] ?? "2.35"} USDC`,
+        detail: `${elapsedOf(openCycle.startedAt)} · ${usdcCents(openCycle.chargedUsdcE6)} of at most ${RUN_CEILING[runLevel] ?? "2.85"} USDC`,
         action: null,
       }
     : newestCycle && newestCycle.finishedAt && finish
