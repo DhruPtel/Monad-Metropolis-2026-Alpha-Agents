@@ -2086,3 +2086,17 @@ What happened: the owner armed agent #6 and approved its first leg (0.6656 USDC 
 Cause: two Monad rules. The deployer held 0.32 MON until the owner's 12 MON arrived, and Monad still includes a transfer of more than the sender holds and reverts it, charging its gas, so every retry burned about 0.004 MON (about 0.09 MON in all). And Monad checks a transaction's gas against the sender's balance a few blocks back, so the key that had just been topped up still looked empty to the node when the swap was signed in the same second.
 Fix: testnetGasTopUp (testnet-gas.ts) checks the deployer can pay the top-up and keep 0.25 MON before sending anything, and returns only once the chain is 5 blocks past the top-up's block (92e0c34). Agent #6's funding address was sent 3 MON by hand, and the leg was tried again after its hold.
 Lesson: On Monad a balance is not spendable the moment its receipt arrives; wait a few blocks before the account spends it. And check a sender can pay before a retried send, since a doomed transaction there still costs gas every time.
+
+## L-285: a new agent's plan was in force and armed, and no leg was ever made: every buy failed its dry run on a drained MON/USDC pool
+Unit: CO-U1 (2026-10-18)
+What happened: agent #8 was minted, armed (05:06 UTC) and its plan approved (05:15:25), and the runner held SIMULATION_FAILED on every check from 05:15:33 ("no size of the WMON buy fills within the slippage limit now; trying TALPHA", then TBETA), so no intent was ever created. The Trading tab said only "On, hold".
+Cause: on the stand-in testnets every buy routes through MON/USDC (a stand-in is bought with MON), and nothing sells MON back. Agent #6's 6.5 USDC of buys an hour earlier took the 6.5 MON the deployer had just added; the pool sat at 1.013 against the 1.00 oracle with no MON left above it, so even 0.25 USDC cost 1.36% and nothing above 0.75 USDC quoted. Agent #6's two-hop buys had left that MON in the TALPHA and TBETA pools.
+Fix: the deployer sold 4 TALPHA and 2.5 TBETA at par for 6.50 MON (the stand-in pools stay at tick -1), lifted the drained buy side, landed the price on its target with a tiny sell and put the MON back above it (recycle.mjs, recenter2.mjs). The plan card now says what holds the plan back, live (7d2f2c0).
+Lesson: A pool every trade crosses one way is a consumable: each agent's buys spend what the next agent needs. On a testnet the market maker's job (selling back what the agents bought, wherever it piled up) has to be done by someone, on a schedule, or each new agent finds the pool empty; and a hold that repeats every minute for the same reason must reach the owner's screen in words, not as "hold".
+
+## L-286: the Trading tab listed a leg the runner had just proposed as "Skipped"
+Unit: CO-U1 (2026-10-18)
+What happened: while the runner proposed a leg, the decision list showed a "Skipped" row for it.
+Cause: decisionRows tested `outcome !== "trade"`, but the runner records "hold" or "leg"; a leg passed the test and was worded as a skip.
+Fix: only a "hold" is a skip (7d2f2c0, with a test).
+Lesson: Match a recorded outcome against the values the writer actually records, not against the word the reader expects; a negative test on a value nobody writes is always true.
