@@ -658,7 +658,7 @@ describe.skipIf(!dbUp)("the trade flow (needs Postgres)", { timeout: 60_000 }, (
     });
   });
 
-  it("sets a v3 swap's gas limit from its estimate plus 20%, and tops the key up to what three swaps at that limit need (2026-10-18)", async () => {
+  it("sets a v3 swap's gas limit from its estimate plus 20%, and tops the key up to what two swaps at that limit need (2026-10-18)", async () => {
     await armV3();
     const id = await proposeV3();
     chainV3.timestamp = NOW + 100n;
@@ -671,10 +671,19 @@ describe.skipIf(!dbUp)("the trade flow (needs Postgres)", { timeout: 60_000 }, (
     expect(estimatedFrom).toEqual([KEY]);
     expect(s.gas).toBe(974_814n);
     expect(s.gas).toBeLessThan(executorV3SwapGasLimit(2, 3));
-    // This swap at the most it can cost, plus two more at what they are billed (half of it).
+    // This swap and the next at the most each can cost.
     const most = (cost * 974_814n) / 1_300_000n;
-    expect(toppedUp).toBe(most + (most / 2n) * (GAS_TOP_UP_LEGS - 1n));
+    expect(toppedUp).toBe(most * GAS_TOP_UP_LEGS);
     expect(await statusOf(id)).toBe("submitted");
+  });
+
+  it("swapGasCost: the limit at twice the base fee plus the tip, or at the base fee plus the tip on Monad testnet (2026-10-18)", () => {
+    expect(swapGasCost(100_000_000_000n, 2_000_000_000n, 1_000_000n)).toBe(
+      1_000_000n * 202_000_000_000n,
+    );
+    expect(swapGasCost(100_000_000_000n, 2_000_000_000n, 1_000_000n, 1n)).toBe(
+      1_000_000n * 102_000_000_000n,
+    );
   });
 
   it("v3GasLimit: the estimate plus 20% rounded up, capped at the rule's most; the table's figure without an estimate", () => {

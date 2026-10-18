@@ -148,18 +148,19 @@ export function minAmountOutFor(quoteOut: bigint, floor: bigint, maxSlippageBps:
 /** 2026-10-18 (owner): the margin over a swap's estimate its gas limit carries; Monad bills the whole limit. */
 export const GAS_ESTIMATE_MARGIN_PCT = 20n;
 /** A top-up funds this many swaps at the limit and fees of the one that needs it. */
-export const GAS_TOP_UP_LEGS = 3n;
+export const GAS_TOP_UP_LEGS = 2n;
 
 /**
- * What a top-up brings the key to: the most this swap can cost, which the node
- * wants on hand before it takes the swap, plus what each further swap is
- * billed. The most is the limit at the signer's max fee (twice the base fee
- * plus the tip); Monad bills the limit at the base fee plus the tip, about half
- * of it (agent #8, 2026-10-18: 202 against 102 gwei). Topping up to three
- * swaps at the most parked about twice what three swaps spend.
+ * What a top-up brings the key to: this swap and the next at the most each can
+ * cost, which the node wants on hand before it takes a swap. 2026-10-18
+ * (owner): on Monad testnet the max fee is the base fee plus the tip, so a
+ * swap is billed its most, and after a leg the key holds about one more swap,
+ * which is all the gas sweep lets it keep (gas-sweeper.ts). The earlier target,
+ * one swap at twice the base fee plus two at what they were billed, parked
+ * about twice what the swaps spent.
  */
 export function gasTopUpTarget(cost: bigint): bigint {
-  return cost + (cost / 2n) * (GAS_TOP_UP_LEGS - 1n);
+  return cost * GAS_TOP_UP_LEGS;
 }
 
 /**
@@ -172,10 +173,19 @@ export function v3GasLimit(estimate: bigint | null, table: bigint): bigint {
   return limit < EXECUTOR_V3_GAS_MAX ? limit : EXECUTOR_V3_GAS_MAX;
 }
 
-/** A swap's most gas cost at these fees, priced as the signer prices it (A-38); `gas` for a v3 route's limit. */
-export function swapGasCost(baseFee: bigint, priorityFee: bigint, gas = SWAP_GAS_LIMIT): bigint {
+/**
+ * A swap's most gas cost at these fees, priced as the signer prices it (A-38);
+ * `gas` for a v3 route's limit, `baseMultiple` the signer's base fee multiple
+ * (1 on Monad testnet, 2026-10-18).
+ */
+export function swapGasCost(
+  baseFee: bigint,
+  priorityFee: bigint,
+  gas = SWAP_GAS_LIMIT,
+  baseMultiple = 2n,
+): bigint {
   const tip = priorityFee < MAX_PRIORITY_FEE_CAP ? priorityFee : MAX_PRIORITY_FEE_CAP;
-  const maxFee = baseFee * 2n + tip;
+  const maxFee = baseFee * baseMultiple + tip;
   return gas * (maxFee > MAX_FEE_PER_GAS_CAP ? MAX_FEE_PER_GAS_CAP : maxFee);
 }
 

@@ -37,6 +37,10 @@ export interface SignerWorkerOptions {
   /** For tests: a chain other than the RPC's. */
   readonly chain?: ChainClient;
   readonly everyMs?: number;
+  /** The signer's base fee multiple in a max fee (1 on Monad testnet, 2026-10-18); 2 when absent. */
+  readonly maxFeeBaseMultiple?: bigint;
+  /** Testnet only: where gas sweeps return a key's spare MON (the deployer). */
+  readonly gasSweepTo?: Hex;
 }
 
 export class SignerWorker {
@@ -102,6 +106,8 @@ export class SignerWorker {
       assets: { [book("usdc").toLowerCase()]: "USDC", [book("wmon").toLowerCase()]: "WMON" },
       secrets: [o.rpcUrl, o.secondaryRpcUrl],
       log: o.log,
+      ...(o.maxFeeBaseMultiple ? { maxFeeBaseMultiple: o.maxFeeBaseMultiple } : {}),
+      ...(o.gasSweepTo ? { gasSweepTo: o.gasSweepTo } : {}),
       ...(local
         ? { topUpGas: (address: Hex, wei: bigint) => setMonBalance(address, wei, o.rpcUrl) }
         : {}),
