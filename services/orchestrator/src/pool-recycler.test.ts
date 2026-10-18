@@ -1,4 +1,6 @@
-import type { Hex, PublicClient } from "viem";
+import type { Hex, PublicClient, WalletClient } from "viem";
+import { privateKeyToAccount } from "viem/accounts";
+import { DeployerQueue } from "./deployer-queue.ts";
 import { describe, expect, it } from "vitest";
 import {
   BUY_SIDE_TARGET_WEI,
@@ -8,6 +10,7 @@ import {
   type StandIn,
   liquidityForMon,
   monAbove,
+  monadRecycleChain,
   monToLower,
   parSale,
   planRecycle,
@@ -206,5 +209,36 @@ describe("retryingReader", () => {
     expect(await r.readContract({} as never)).toBe(7n);
     expect(calls).toBe(3);
     await expect(r.simulateContract({} as never)).rejects.toThrow("reverted");
+  });
+});
+
+describe("monadRecycleChain", () => {
+  it("signs each send with the wallet's own local account, gas from the plain estimate plus 30%", async () => {
+    const account = privateKeyToAccount(`0x${"11".repeat(32)}`);
+    const sent: Record<string, unknown>[] = [];
+    const wallet = {
+      account,
+      chain: { id: 10143 },
+      sendTransaction: async (tx: Record<string, unknown>) => {
+        sent.push(tx);
+        return "0xfeed" as Hex;
+      },
+    } as unknown as WalletClient;
+    const reader = {
+      request: async () => "0x186a0",
+      readContract: async () => 0n,
+      simulateContract: async () => ({ result: [0n, 0n] }),
+      getBalance: async () => 0n,
+      waitForTransactionReceipt: async () => ({ status: "success" }),
+    } as unknown as PublicClient;
+    const chain = monadRecycleChain({
+      reader,
+      wallet,
+      deployer: account.address,
+      queue: new DeployerQueue({ spacingMs: 0 }),
+    });
+    expect(await chain.unwrap(5n)).toBe("0xfeed");
+    expect(sent[0]?.account).toBe(account);
+    expect(sent[0]?.gas).toBe(130_000n);
   });
 });

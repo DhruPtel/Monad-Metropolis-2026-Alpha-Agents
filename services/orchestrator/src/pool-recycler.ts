@@ -385,9 +385,12 @@ export function monadRecycleChain(o: {
           params: [{ from: deployer, to, data, value: `0x${value.toString(16)}` }],
         } as never),
       );
+      // The wallet's own local account signs; a bare address would ask the node to sign (L-289).
+      const account = o.wallet.account;
+      if (!account) throw new Error("the recycler's wallet has no local account");
       const hash = await o.wallet.sendTransaction({
-        account: deployer,
-        chain: null,
+        account,
+        chain: o.wallet.chain ?? null,
         to,
         data,
         value,
