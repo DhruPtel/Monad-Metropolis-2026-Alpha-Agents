@@ -75,6 +75,7 @@ import { Redactor, createLog, errorText } from "./secrets.ts";
 import { OwnerKeyStore, TradeStore } from "@alpha-agents/trading";
 import { Store } from "./store.ts";
 import { findCloudflared } from "./tunnel.ts";
+import { testnetGasTopUp } from "./testnet-gas.ts";
 import { swapGasCost } from "./trade-flow.ts";
 import { testnetFeedsFor, viemFeedChain, withFreshFeeds } from "./testnet-feeds.ts";
 import { TokenRegistry, secondaryFirst } from "./tokens/registry.ts";
@@ -566,18 +567,14 @@ const REMOTE_POLL_MS = 5_000;
  * sets' usdMaxAge, evidence/co-u1-monad/testnet-deployment.json): 30 days.
  */
 const TESTNET_SENTINEL_FEED_MAX_AGE_S = 30 * 24 * 3_600;
-/**
- * CO-U1 (owner, 2026-10-14): on the testnet stacks the deployer tops an agent's session key up
- * when it cannot pay a swap's gas, as the fork's balance setter does, so an armed agent trades
- * without an operator. The trade flow asks for ten swaps' worth; testnet sends a fifth of that
- * (two swaps), and only the difference from what the key holds.
- */
+/** CO-U1: the deployer tops a session key up for a swap's gas on the testnet stacks (testnet-gas.ts). */
 const testnetDeployerKey =
   env.id === "testnet" ? (reveal("TESTNET_DEPLOYER_PRIVATE_KEY") as Hex | undefined) : undefined;
 const testnetTopUp = testnetDeployerKey
   ? (() => {
+      const account = privateKeyToAccount(testnetDeployerKey);
       const deployer = createWalletClient({
-        account: privateKeyToAccount(testnetDeployerKey),
+        account,
         chain: {
           id: env.chainId,
           name: env.label,
@@ -590,15 +587,19 @@ const testnetTopUp = testnetDeployerKey
         },
         transport: rpcTransport(sendRpcUrl, sendFallbackRpcUrl),
       });
-      return async (address: Hex, wei: bigint) => {
-        const target = wei / 5n;
-        const have = await sendClient.getBalance({ address });
-        if (have >= target) return;
-        const hash = await deployer.sendTransaction({ to: address, value: target - have });
-        const receipt = await sendClient.waitForTransactionReceipt({ hash, timeout: 120_000 });
-        if (receipt.status !== "success") throw new Error(`the gas top-up ${hash} reverted`);
-        log(`gas: topped ${address} up to ${target} wei from the deployer (${hash})`);
-      };
+      return testnetGasTopUp({
+        chain: {
+          deployer: account.address,
+          balance: (address) => sendClient.getBalance({ address }),
+          blockNumber: () => sendClient.getBlockNumber({ cacheTime: 0 }),
+          send: async (to, value) => {
+            const hash = await deployer.sendTransaction({ to, value });
+            const receipt = await sendClient.waitForTransactionReceipt({ hash, timeout: 120_000 });
+            return { hash, status: receipt.status, blockNumber: receipt.blockNumber };
+          },
+        },
+        log,
+      });
     })()
   : null;
 
