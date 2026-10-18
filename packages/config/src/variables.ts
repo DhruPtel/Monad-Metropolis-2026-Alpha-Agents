@@ -890,6 +890,31 @@ export const VARIABLES = [
     ...httpUrl,
     example: "https://your-key@your-org.ingest.sentry.example/0",
   },
+  {
+    name: "NTFY_SERVER",
+    group: "Indexer and monitoring",
+    description:
+      "The ntfy server the testnet orchestrator's balance alarm posts to (CO-U1, 2026-10-18); ntfy.sh when unset",
+    secret: false,
+    firstUsedBy: "CO-U1",
+    environments: ["testnet"],
+    ...httpUrl,
+    example: "https://ntfy.sh",
+    commented: true,
+  },
+  {
+    name: "NTFY_TOPIC",
+    group: "Indexer and monitoring",
+    description:
+      "The ntfy topic for the testnet balance alarm (deployer below 2 MON, reveal keeper below 0.5 MON); anyone with it reads the alerts, so it is a secret. Unset, the alarm is off",
+    secret: true,
+    firstUsedBy: "CO-U1",
+    environments: ["testnet"],
+    schema: z.string().regex(/^[A-Za-z0-9_-]{1,64}$/),
+    expected: "an ntfy topic name",
+    example: "vivarium-alerts-example",
+    commented: true,
+  },
 
   // Research data
   {

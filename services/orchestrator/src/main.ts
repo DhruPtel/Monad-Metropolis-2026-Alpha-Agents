@@ -76,6 +76,20 @@ import { OwnerKeyStore, TradeStore } from "@alpha-agents/trading";
 import { Store } from "./store.ts";
 import { findCloudflared } from "./tunnel.ts";
 import { testnetGasTopUp } from "./testnet-gas.ts";
+import { DeployerQueue } from "./deployer-queue.ts";
+import { sweepKeysFrom, sweepPass } from "./gas-sweeper.ts";
+import {
+  MONAD_TESTNET_MARKET,
+  monadOraclePrice,
+  monadRecycleChain,
+  recyclePass,
+} from "./pool-recycler.ts";
+import {
+  BalanceAlarm,
+  DEPLOYER_FLOOR_WEI,
+  KEEPER_FLOOR_WEI,
+  ntfyNotifier,
+} from "./balance-alarm.ts";
 import { swapGasCost } from "./trade-flow.ts";
 import { testnetFeedsFor, viemFeedChain, withFreshFeeds } from "./testnet-feeds.ts";
 import { TokenRegistry, secondaryFirst } from "./tokens/registry.ts";
@@ -249,6 +263,17 @@ else {
   log(`reveal keeper on: wallet ${chain.address}, window ${isForkEnvironment(env.id) ? 10 : 60} s`);
 }
 
+/** CO-U1: the deployer tops a session key up for a swap's gas on the testnet stacks (testnet-gas.ts). */
+const testnetDeployerKey =
+  env.id === "testnet" ? (reveal("TESTNET_DEPLOYER_PRIVATE_KEY") as Hex | undefined) : undefined;
+const testnetDeployer = testnetDeployerKey ? privateKeyToAccount(testnetDeployerKey).address : null;
+/**
+ * 2026-10-18 (owner): Monad testnet's base fee sits at its floor, and the node holds a swap's
+ * limit at its max fee against the key, so the max fee there is the base fee plus the tip;
+ * elsewhere twice the base fee plus the tip (A-38).
+ */
+const feeBaseMultiple = env.id === "testnet" && isMonadTestnet(TESTNET_CHAIN) ? 1n : 2n;
+
 const seed = env.id === "beta" ? undefined : reveal("FUNDING_ADDRESS_SEED");
 // The signer (P2-U4): Executor swaps, and refunds and settlements (D-261), from session keys
 // derived from the funding seed (D-243) on the fork and testnet; the beta waits for KMS keys
@@ -271,6 +296,8 @@ else {
           : {}),
       seed: seed as Hex,
       ...(treasury ? { treasury: treasury as Hex } : {}),
+      maxFeeBaseMultiple: feeBaseMultiple,
+      ...(testnetDeployer ? { gasSweepTo: testnetDeployer } : {}),
       log: createLog("signer", redactor),
     });
     await signerWorker.start();
@@ -567,42 +594,45 @@ const REMOTE_POLL_MS = 5_000;
  * sets' usdMaxAge, evidence/co-u1-monad/testnet-deployment.json): 30 days.
  */
 const TESTNET_SENTINEL_FEED_MAX_AGE_S = 30 * 24 * 3_600;
-/** CO-U1: the deployer tops a session key up for a swap's gas on the testnet stacks (testnet-gas.ts). */
-const testnetDeployerKey =
-  env.id === "testnet" ? (reveal("TESTNET_DEPLOYER_PRIVATE_KEY") as Hex | undefined) : undefined;
-const testnetTopUp = testnetDeployerKey
-  ? (() => {
-      const account = privateKeyToAccount(testnetDeployerKey);
-      const deployer = createWalletClient({
-        account,
-        chain: {
-          id: env.chainId,
-          name: env.label,
-          nativeCurrency: {
-            name: TESTNET_CHAIN.native,
-            symbol: TESTNET_CHAIN.native,
-            decimals: 18,
-          },
-          rpcUrls: { default: { http: [] } },
+const deployerWallet = testnetDeployerKey
+  ? createWalletClient({
+      account: privateKeyToAccount(testnetDeployerKey),
+      chain: {
+        id: env.chainId,
+        name: env.label,
+        nativeCurrency: {
+          name: TESTNET_CHAIN.native,
+          symbol: TESTNET_CHAIN.native,
+          decimals: 18,
         },
-        transport: rpcTransport(sendRpcUrl, sendFallbackRpcUrl),
-      });
-      return testnetGasTopUp({
+        rpcUrls: { default: { http: [] } },
+      },
+      transport: rpcTransport(sendRpcUrl, sendFallbackRpcUrl),
+    })
+  : null;
+// 2026-10-18: the top-ups and the pool recycler send from the one deployer key, one at a time.
+const deployerQueue = new DeployerQueue();
+const testnetTopUp =
+  deployerWallet && testnetDeployer
+    ? testnetGasTopUp({
         chain: {
-          deployer: account.address,
+          deployer: testnetDeployer,
           balance: (address) => sendClient.getBalance({ address }),
           blockNumber: () => sendClient.getBlockNumber({ cacheTime: 0 }),
-          send: async (to, value) => {
-            // A plain transfer, and Monad bills the limit: 21,000, never a wrapper's estimate (L-270).
-            const hash = await deployer.sendTransaction({ to, value, gas: 21_000n });
-            const receipt = await sendClient.waitForTransactionReceipt({ hash, timeout: 120_000 });
-            return { hash, status: receipt.status, blockNumber: receipt.blockNumber };
-          },
+          send: (to, value) =>
+            deployerQueue.run(async () => {
+              // A plain transfer, and Monad bills the limit: 21,000, never a wrapper's estimate (L-270).
+              const hash = await deployerWallet.sendTransaction({ to, value, gas: 21_000n });
+              const receipt = await sendClient.waitForTransactionReceipt({
+                hash,
+                timeout: 120_000,
+              });
+              return { hash, status: receipt.status, blockNumber: receipt.blockNumber };
+            }),
         },
         log,
-      });
-    })()
-  : null;
+      })
+    : null;
 
 const trading = chainSigner
   ? {
@@ -615,7 +645,7 @@ const trading = chainSigner
             sendClient.getBlock(),
             sendClient.estimateMaxPriorityFeePerGas().catch(() => 0n),
           ]);
-          return swapGasCost(block.baseFeePerGas ?? 0n, tip, gas);
+          return swapGasCost(block.baseFeePerGas ?? 0n, tip, gas, feeBaseMultiple);
         },
         ...(local
           ? { topUp: (address: Hex, wei: bigint) => setMonBalance(address, wei, rpcUrl) }
@@ -708,7 +738,7 @@ const orchestrator = new Orchestrator({
           sendClient.getBlock(),
           sendClient.estimateMaxPriorityFeePerGas().catch(() => 0n),
         ]);
-        return swapGasCost(block.baseFeePerGas ?? 0n, tip);
+        return swapGasCost(block.baseFeePerGas ?? 0n, tip, undefined, feeBaseMultiple);
       },
     },
   },
@@ -806,6 +836,88 @@ if (registrar && tokenLoops) {
   log(
     `registrar: a background pass every ${REGISTRAR_SWEEP_MS / 60_000} minutes registers up to ${REGISTRATIONS_PER_SWEEP} passing tokens`,
   );
+}
+// 2026-10-18 (owner): the testnet deployer funds gas only. Each key keeps one leg's most gas
+// (gas-sweeper.ts), the pool recycler keeps Monad testnet's MON/USDC centred from the stand-in
+// pools (pool-recycler.ts), and an ntfy alarm watches the deployer and the reveal keeper.
+const background = (name: string, everyMs: number, firstMs: number, fn: () => Promise<void>) => {
+  let running = false;
+  const pass = () => {
+    if (running) return;
+    running = true;
+    void fn()
+      .catch((err: unknown) => log(`${name}: pass failed: ${errorText(err, redactor)}`))
+      .finally(() => {
+        running = false;
+      });
+  };
+  setTimeout(pass, firstMs).unref();
+  setInterval(pass, everyMs).unref();
+};
+if (env.id === "testnet" && signerWorker && testnetDeployer && trading) {
+  const sweeper = signerWorker.signer;
+  background("gas sweep", 60_000, 20_000, async () => {
+    await sweepPass({
+      keys: () => sweepKeysFrom(db, env.chainId),
+      sweep: (agentId, o) => sweeper.sweepGas(agentId, o),
+      swapCost: (gas) => trading.gas.swapCost(gas),
+      log,
+    });
+  });
+  log(
+    `gas sweep on: every minute, a key's MON above one leg's most gas goes back to ${testnetDeployer}`,
+  );
+}
+if (env.id === "testnet" && isMonadTestnet(TESTNET_CHAIN) && deployerWallet && testnetDeployer) {
+  const chain = monadRecycleChain({
+    reader: sendClient as PublicClient,
+    wallet: deployerWallet,
+    deployer: testnetDeployer,
+    queue: deployerQueue,
+  });
+  background("pool recycler", 5 * 60_000, 2 * 60_000, async () => {
+    const run = await recyclePass({
+      chain,
+      standIns: MONAD_TESTNET_MARKET.standIns,
+      oraclePrice: () => monadOraclePrice(sendClient as PublicClient),
+      log,
+    });
+    if (run.stopped) log(`pool recycler: ${run.plan.why}; stopped: ${run.stopped}`);
+  });
+  log("pool recycler on: every 5 minutes, MON/USDC re-centred from the stand-in pools");
+}
+const ntfyTopic = env.id === "testnet" ? reveal("NTFY_TOPIC") : undefined;
+if (env.id === "testnet" && !ntfyTopic) log("balance alarm off: NTFY_TOPIC is not set");
+else if (ntfyTopic) {
+  redactor.add(ntfyTopic);
+  const watched = [
+    ...(testnetDeployer
+      ? [{ label: "deployer", address: testnetDeployer, floorWei: DEPLOYER_FLOOR_WEI }]
+      : []),
+    ...(keeperKey
+      ? [
+          {
+            label: "reveal keeper",
+            address: privateKeyToAccount(keeperKey as Hex).address,
+            floorWei: KEEPER_FLOOR_WEI,
+          },
+        ]
+      : []),
+  ];
+  const alarm = new BalanceAlarm({
+    watched,
+    balance: (address) => sendClient.getBalance({ address }),
+    notify: ntfyNotifier(
+      (values.NTFY_SERVER as string | undefined) ?? "https://ntfy.sh",
+      ntfyTopic,
+    ),
+    chainLabel: env.label,
+    log,
+  });
+  background("balance alarm", 5 * 60_000, 30_000, async () => {
+    await alarm.check();
+  });
+  log(`balance alarm on: ${watched.map((w) => w.label).join(" and ")}, every 5 minutes`);
 }
 if (registrar)
   void registrar
