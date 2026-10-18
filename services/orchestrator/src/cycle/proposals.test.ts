@@ -3,6 +3,7 @@ import { type TargetPortfolioParams, amountForValue, executorV3 } from "@alpha-a
 import type { Hex } from "viem";
 import { describe, expect, it } from "vitest";
 import {
+  bestCheckedDraft,
   ProposalService,
   bandsParamsFromDecision,
   estimateMoveCost,
@@ -453,5 +454,32 @@ describe("the first plan after arming always needs approval (F-U9, D-291)", () =
     expect(await service({ goal: null, arming: null, plan: null }).approvalNeeded(ref)).toBe(
       "ask_first",
     );
+  });
+});
+
+describe("the best checked draft (2026-10-17)", () => {
+  const portfolio = (cash: number) => ({ positions: [], cashTargetBps: cash });
+  it("takes the newest draft that passed, else the least refused, the newest of equals", () => {
+    expect(bestCheckedDraft([])).toBeNull();
+    expect(
+      bestCheckedDraft([
+        { params: portfolio(1), passed: false, codes: ["DEPTH", "OUT_OF_BOUNDS"] },
+        { params: portfolio(2), passed: false, codes: ["ENVELOPE_POSITION"] },
+        { params: portfolio(3), passed: false, codes: ["TOKEN_NOT_REGISTERED"] },
+        { params: portfolio(4), passed: false, codes: ["HARD_LIMIT", "COOLDOWN"] },
+      ]),
+    ).toEqual({ kind: "PROPOSE", template: "target_portfolio@1", params: portfolio(3) });
+    expect(
+      bestCheckedDraft([
+        { params: portfolio(1), passed: true, codes: [] },
+        { params: portfolio(2), passed: false, codes: ["DEPTH"] },
+      ])?.params,
+    ).toEqual(portfolio(1));
+    expect(
+      bestCheckedDraft([{ params: { targetWmonBps: 2_000 }, passed: false, codes: ["X"] }])
+        ?.template,
+    ).toBe("rebalance_bands@1");
+    // A record without a plan to propose is never a draft.
+    expect(bestCheckedDraft([{ params: null, passed: false, codes: ["NO_ACCOUNT"] }])).toBeNull();
   });
 });

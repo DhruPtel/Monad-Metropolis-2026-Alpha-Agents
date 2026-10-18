@@ -32,7 +32,13 @@ import { ChevronDown, PlugZap, Wallet } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { type ActivityJson, type GoalPageJson, api, goalApi } from "@/api/client";
-import { latestRunNote, noPlanLine, planKept, shownProposal } from "@/agent/plan-card";
+import {
+  latestRunNote,
+  noPlanLine,
+  planKept,
+  refusedDraft,
+  shownProposal,
+} from "@/agent/plan-card";
 import { schedulePoll } from "@/agent/poll";
 import { v2AssetRows } from "@/agent/portfolio";
 import { assetRows } from "@/agent/portfolio-v3";
@@ -233,6 +239,7 @@ export function TradingPage({
   // shows the proposal waiting, else that one, and never a refused or declined one as in force.
   const applied = card?.inForce !== undefined ? card.inForce : latestApplied(card);
   const shown = shownProposal(card);
+  const refused = refusedDraft(card);
   const planParams = (pending ?? applied)?.plan ?? null;
   const runner = pf.why?.runner ?? null;
   const settled = pf.intents
@@ -580,6 +587,17 @@ export function TradingPage({
                   </>
                 ) : undefined
               }
+            />
+          ) : refused ? (
+            <PlanSummaryCard
+              heading="Refused by the platform's checks"
+              badge={{ label: "Refused", tone: "warning" }}
+              goal={goalWord}
+              rows={planRows(refused, card, holdingRows)}
+              source={noPlanLine(card)}
+              rationale={refused.rationale.portfolioView}
+              reportHref={refused.cycleId ? reportHref(agentId, refused.cycleId) : null}
+              linkAs={Link}
             />
           ) : (
             <p

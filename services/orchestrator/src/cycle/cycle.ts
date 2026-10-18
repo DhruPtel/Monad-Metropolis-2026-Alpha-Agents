@@ -530,17 +530,10 @@ class Engine {
   }> {
     await this.testStage();
     const zoom = await this.modelStage("ZOOM_OUT", null);
-    if (
-      zoom.end.status === "stopped" ||
-      zoom.end.status === "failed" ||
-      zoom.end.status === "skipped" ||
-      zoom.end.stopReason === "TASK_CAP"
-    )
-      return this.halt(zoom.end);
     // F-U9: the Zoom out's decision becomes a stored proposal (evaluated) or a stored "no change".
-    // 2026-10-17: also when the step reached a cap after it decided: a recorded decision stands
-    // (fromZoomOut reads the stage's record and stores nothing when the step left none).
-    if (this.ctx.proposals && (zoom.end.status === "completed" || zoom.end.status === "capped")) {
+    // 2026-10-17 (owner): whatever ended the step, a recorded decision stands, and without one the
+    // best draft the Test checked is written (fromZoomOut stores nothing when there is neither).
+    if (this.ctx.proposals && zoom.end.status !== "skipped") {
       try {
         const p = await this.ctx.proposals.fromZoomOut(this.cycle, zoom.run);
         if (p) this.ctx.log(`cycle ${this.cycle.cycleId}: ${p.kind} ${p.proposalId} ${p.status}`);
@@ -550,6 +543,13 @@ class Engine {
         );
       }
     }
+    if (
+      zoom.end.status === "stopped" ||
+      zoom.end.status === "failed" ||
+      zoom.end.status === "skipped" ||
+      zoom.end.stopReason === "TASK_CAP"
+    )
+      return this.halt(zoom.end);
     return {
       status: "completed",
       reason: zoom.end.status === "capped" ? zoom.end.stopReason : "COMPLETED",

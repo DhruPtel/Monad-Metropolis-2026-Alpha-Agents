@@ -7,6 +7,7 @@ import {
   noPlanLine,
   planCardView,
   planKept,
+  refusedDraft,
   runFinish,
   shownProposal,
 } from "./plan-card";
@@ -273,6 +274,39 @@ describe("the plan card and the finish strip agree (2026-10-17)", () => {
         }),
       ),
     ).toBe("No plan yet: a research run is going now; its plan shows here when it ends.");
+  });
+
+  it("with no plan, shows the newest run's refused draft read-only, never one from an older run (2026-10-17)", () => {
+    const rejected = proposal({ status: "rejected", proposalId: "prop-refused" });
+    const own = run({ ...refused, proposalId: "prop-refused" });
+    expect(
+      refusedDraft(
+        card({ current: null, pending: null, inForce: null, recent: [rejected], latestRun: own }),
+      ),
+    ).toBe(rejected);
+    // A run whose drafts left no proposal, or a plan waiting or in force: no refused draft.
+    expect(
+      refusedDraft(
+        card({
+          current: null,
+          pending: null,
+          inForce: null,
+          recent: [rejected],
+          latestRun: run(refused),
+        }),
+      ),
+    ).toBeNull();
+    expect(refusedDraft(card({ recent: [rejected], latestRun: own }))).toBeNull();
+    expect(
+      refusedDraft(
+        card({
+          pending: null,
+          inForce: proposal({ status: "applied", proposalId: "prop-applied" }),
+          recent: [rejected],
+          latestRun: own,
+        }),
+      ),
+    ).toBeNull();
   });
 
   it("under a plan in force, notes a newest run that made no plan; says nothing for one that did", () => {

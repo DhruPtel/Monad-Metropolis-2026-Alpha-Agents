@@ -117,6 +117,17 @@ export function shownProposal(card: PlanCardJson | null): ProposalJson | null {
 }
 
 /**
+ * 2026-10-17 (owner): the newest run's plan the platform's checks refused, for the card to show
+ * read-only with the reasons when no plan waits and none is in force. Null otherwise.
+ */
+export function refusedDraft(card: PlanCardJson | null): ProposalJson | null {
+  if (!card || shownProposal(card)) return null;
+  const o = card.latestRun?.outcome;
+  if (o?.kind !== "refused" || !o.proposalId) return null;
+  return card.recent.find((p) => p.proposalId === o.proposalId && p.status === "rejected") ?? null;
+}
+
+/**
  * The finish strip for a run, from what it did with the plan and what the plan card shows. Until
  * the card has loaded, or while it was read before this run ended (its newest run is another one,
  * or still going), from the run's outcome alone.

@@ -238,12 +238,16 @@ export class ProposalService {
       .select(["decision"])
       .where("stage_run_id", "=", stage.stageRunId)
       .executeTakeFirst();
-    const decision = record?.decision as
-      | { kind: "NO_CHANGE"; reasonCode: string }
-      | { kind: "PROPOSE"; template: string; params: Record<string, unknown> }
-      | null
-      | undefined;
+    const recorded = record?.decision as ZoomOutDecision | null | undefined;
+    // 2026-10-17 (owner): a step that ended without a decision (its ceiling, its turns, every
+    // draft refused) still writes the best plan it drafted, evaluated like any other: it waits
+    // or applies when it passes now, and is stored refused with its reasons when it does not.
+    const decision = recorded ?? (await this.bestDraft(cycle));
     if (!decision) return null;
+    if (!recorded)
+      this.o.log(
+        `cycle ${cycle.cycleId}: the plan step left no decision; its best checked draft is recorded`,
+      );
     const briefs = await this.o.cycles.briefs({ cycleId: cycle.cycleId, status: "accepted" }, 60);
     const bodyOf = (b: BriefRow) => b.body as Record<string, unknown>;
     const rationaleBrief = briefs.find(
@@ -389,6 +393,16 @@ export class ProposalService {
     return stored;
   }
 
+  /**
+   * The best target portfolio the Test checked in this cycle: the newest that passed, else the
+   * one with the fewest findings (the newest of equals). Null when the step drafted none.
+   */
+  async bestDraft(cycle: Cycle): Promise<Extract<ZoomOutDecision, { kind: "PROPOSE" }> | null> {
+    const test = (await this.o.cycles.stages(cycle.cycleId)).find((s) => s.stage === "TEST");
+    const checked = ((test?.outcome ?? {}) as { checked?: CheckedEntry[] }).checked ?? [];
+    return bestCheckedDraft(checked);
+  }
+
   /** The registry's symbols by lowercase address, for a position whose Dive did not name one. */
   async symbols(ref: AgentRef): Promise<Record<string, string>> {
     const inputs = await this.o.inputs(ref).catch(() => null);
@@ -410,6 +424,47 @@ export class ProposalService {
       this.o.log(`agent ${ref.agentId}: proposal narration failed: ${String(err)}`);
     }
   }
+}
+
+type ZoomOutDecision =
+  | { kind: "NO_CHANGE"; reasonCode: string }
+  | { kind: "PROPOSE"; template: string; params: Record<string, unknown> };
+
+/** One draft on the Test's record (research.ts recordCheck). */
+interface CheckedEntry {
+  readonly params?: unknown;
+  readonly passed?: boolean;
+  readonly codes?: readonly string[];
+}
+
+/**
+ * 2026-10-17 (owner): of the drafts the Test checked, the newest that passed, else the least
+ * refused (fewest findings, the newest of equals), as a PROPOSE decision; null when there is
+ * none. A target portfolio's draft carries positions, a two-asset plan's its WMON target.
+ */
+export function bestCheckedDraft(
+  checked: readonly CheckedEntry[],
+): Extract<ZoomOutDecision, { kind: "PROPOSE" }> | null {
+  let best: { entry: CheckedEntry; template: string; misses: number } | null = null;
+  for (const entry of checked) {
+    const params = entry.params as
+      { positions?: unknown; targetWmonBps?: unknown } | null | undefined;
+    const template = Array.isArray(params?.positions)
+      ? TARGET_PORTFOLIO_ID
+      : typeof params?.targetWmonBps === "number"
+        ? "rebalance_bands@1"
+        : null;
+    if (!template) continue;
+    const misses = entry.passed ? 0 : Math.max(1, entry.codes?.length ?? 1);
+    if (!best || misses <= best.misses) best = { entry, template, misses };
+  }
+  return best
+    ? {
+        kind: "PROPOSE",
+        template: best.template,
+        params: best.entry.params as Record<string, unknown>,
+      }
+    : null;
 }
 
 /**

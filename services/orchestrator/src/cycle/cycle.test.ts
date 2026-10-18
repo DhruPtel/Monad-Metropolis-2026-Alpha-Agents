@@ -1355,7 +1355,7 @@ describe.skipIf(!dbUp)("the discovery loop engine (needs Postgres)", { timeout: 
     expect(kept.finish).toMatchObject({ button: "view_current_plan", line: "Plan unchanged" });
   });
 
-  it("refused: drafts the Test refused and a plan step that never recorded one: no Review plan, the card says why (2026-10-17)", async () => {
+  it("refused: drafts the Test refused and a plan step that never recorded one: the least refused draft is written refused, never offered, and the card says why (2026-10-17)", async () => {
     await saveGoal({});
     scripts.ZOOM_OUT = async (r) => {
       await start(r);
@@ -1365,19 +1365,22 @@ describe.skipIf(!dbUp)("the discovery loop engine (needs Postgres)", { timeout: 
       await complete(r.token, "ZOOM_OUT", { decision: bands(3_000, 40) });
     };
     const { cycle } = await runCycle();
-    expect(await new ProposalStore(t.db).list(CHAIN, 1)).toEqual([]);
-    const { card, outcome, shows, finish } = await tabs(cycle.cycleId);
-    expect(outcome).toMatchObject({
-      kind: "refused",
-      reasonCode: "OUT_OF_BOUNDS",
-      proposalId: null,
+    // 2026-10-17 (owner): the run never ends without a plan on record: the newest of the least
+    // refused drafts is stored refused with the checks' findings, so the owner sees it.
+    const [written, ...more] = await new ProposalStore(t.db).list(CHAIN, 1);
+    expect(more).toEqual([]);
+    expect(written).toMatchObject({
+      cycleId: cycle.cycleId,
+      kind: "proposal",
+      status: "rejected",
+      plan: { template: "rebalance_bands@1", params: { bandHalfWidthBps: 40 } },
     });
-    expect(outcome.reason).toBe(
-      "The platform's checks refused the 2 plans the agent drafted: a weight is outside what the plan may hold; then the plan step stopped: the agent ended the step without recording it.",
-    );
-    // The Test's own words are on record too.
-    expect(outcome.findings[0]?.message).toMatch(/band/i);
+    expect(written?.evaluation?.findings.map((f) => f.code)).toContain("HARD_LIMIT");
+    const { card, outcome, shows, finish } = await tabs(cycle.cycleId);
+    expect(outcome).toMatchObject({ kind: "refused", proposalId: written?.proposalId });
+    expect(outcome.reason).toMatch(/^The platform's checks refused the plan: /);
     expect(card.pending).toBeNull();
+    expect(card.recent.map((p) => p.proposalId)).toEqual([written?.proposalId]);
     expect(shows).toBe("none");
     expect(card.latestRun?.outcome.kind).toBe("refused");
     expect(finish.button).toBeNull();
@@ -2065,8 +2068,8 @@ describe.skipIf(!dbUp)("the discovery loop engine (needs Postgres)", { timeout: 
       cycles: { cycleId: string; stages: unknown[] }[];
     };
     // Standard allows 2 Dives a day and this cycle used one: Scan, one Dive, Challenge, Zoom out,
-    // and the report (2026-10-13 ceilings: 0.45 + 0.45 + 0.10 + 0.25 + 0.20).
-    expect(list.plans.ROUTINE.maxUsdcE6).toBe("1450000");
+    // and the report (2026-10-17 ceilings: 0.45 + 0.45 + 0.10 + 0.75 + 0.20).
+    expect(list.plans.ROUTINE.maxUsdcE6).toBe("1950000");
     expect(list.cycles[0]).toMatchObject({ cycleId: cycle.cycleId });
     expect(list.cycles[0]?.stages).toHaveLength(5);
     const detail = (await (await app.request(`/v1/cycles/${cycle.cycleId}`)).json()) as {
