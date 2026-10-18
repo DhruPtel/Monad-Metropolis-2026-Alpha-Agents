@@ -2100,3 +2100,24 @@ What happened: while the runner proposed a leg, the decision list showed a "Skip
 Cause: decisionRows tested `outcome !== "trade"`, but the runner records "hold" or "leg"; a leg passed the test and was worded as a skip.
 Fix: only a "hold" is a skip (7d2f2c0, with a test).
 Lesson: Match a recorded outcome against the values the writer actually records, not against the word the reader expects; a negative test on a value nobody writes is always true.
+
+## L-287: the deployer ran dry while 4.1 MON sat unused in two agents' keys
+Unit: CO-U1 (2026-10-18)
+What happened: after agents #6 and #8 reached their targets, the deployer held 0.30 MON and a BLOCKED notice asked the owner for about 10 MON, while agent #6's key held 2.76 MON and agent #8's 1.35 MON that no leg was going to spend.
+Cause: three things parked MON. The signer priced every max fee at twice the base fee plus the tip (202 gwei on Monad testnet, whose base fee sits at its 100 gwei floor), and Monad holds a swap's whole limit at its max fee against the key, so a key needed twice what a leg is billed (102 gwei). The top-ups were sized to that doubled figure for several legs at once. And nothing ever returned what a key did not spend.
+Fix: on Monad testnet the max fee is the base fee plus the tip (a3e35c4, 3251b99); a top-up funds two swaps at that price; a sweep pass every minute returns a key's MON above one leg's most cost to the deployer, under the signer's key lock and only when the key has been quiet for 30 seconds (Monad's reserve rule, L-270) (a3e35c4, de6d2e0).
+Lesson: Money a platform hands to many accounts has to come back when it is not needed, or the treasury drains into dust. Size what an account must hold from what the chain actually holds against it, not from a padding meant for a busier chain.
+
+## L-288: nobody was told the deployer and the reveal keeper were running out
+Unit: CO-U1 (2026-10-18)
+What happened: the Monad stack's deployer fell to 0.30 MON and its reveal keeper to 0.30 MON (one reveal costs about 0.15) with no alert; the owner learned of it from a session's report.
+Cause: the host monitor (infra/server/monitor.sh) checks balances only in the base stack's API container, with that stack's addresses, and its balance check fails there ("Cannot convert undefined to a BigInt"); the Monad chain stack's wallets were never watched.
+Fix: the Monad orchestrator checks its own deployer (below 2 MON) and reveal keeper (below 0.5 MON) every 5 minutes and posts to the owner's ntfy topic, again every 6 hours while low and once when refilled (3251b99).
+Lesson: Put a wallet's alarm in the process that spends from it, with that process's own addresses; a shared monitor for another stack watches the wrong wallets and fails quietly.
+
+## L-289: the pool recycler's every send was refused with "RPC Request failed"
+Unit: CO-U1 (2026-10-18)
+What happened: on 2b12ad6 every recycler pass failed a second after it started with "RPC Request failed.", while a dry run of the same reads and quotes from the container succeeded on both RPCs and nothing was ever sent.
+Cause: the send passed `account: deployer`, the deployer's address, to a wallet client built with the deployer's local account. viem takes a bare address as a JSON-RPC account and asks the node to sign with eth_sendTransaction, which a public RPC refuses.
+Fix: the send passes the wallet's own local account (6d1517c, with a test that the signed account is the wallet's).
+Lesson: With viem, an address where an account is expected means "let the node sign". Pass the account object, and test the send path against a wallet that records what it was given, not only the reads.
