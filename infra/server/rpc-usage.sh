@@ -60,4 +60,17 @@ fetch("http://127.0.0.1:8899/stats").then((r) => r.json()).then((s) => {
     console.log(`${k.padEnd(62)} ${(n / minutes).toFixed(1).padStart(7)}/min  ${top}`);
   }
   console.log(`total ${(total / minutes).toFixed(1)} calls/min`);
+  // The heaviest eth_call targets (contract and function selector) per container.
+  const calls = new Map();
+  for (const r of Object.values(s.routes))
+    for (const [client, whats] of Object.entries(r.byCallClient ?? {})) {
+      const name = who.get(client) ?? "unattributed";
+      const m = calls.get(name) ?? {};
+      for (const [w, n] of Object.entries(whats)) m[w] = (m[w] ?? 0) + n;
+      calls.set(name, m);
+    }
+  for (const [name, m] of calls) {
+    const top = Object.entries(m).sort((a, b) => b[1] - a[1]).slice(0, 6);
+    console.log(`eth_call ${name}: ${top.map(([w, n]) => `${w} ${(n / minutes).toFixed(1)}`).join("; ")}`);
+  }
 });'

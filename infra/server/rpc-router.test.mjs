@@ -68,6 +68,15 @@ describe("rpc router", () => {
     expect(r.stats.routes.m.byClient["c:1"]).toEqual({ eth_call: 2 });
   });
 
+  it("shares cached reads between routes of one cache group", async () => {
+    const { f, calls } = fakeFetch({ [B]: [ok("0x2a")] });
+    const route = { upstreams: [B], blockMs: 400, cacheGroup: "monad-testnet" };
+    const r = new Router({ routes: { m1: route, m2: { ...route } } }, { fetch: f });
+    await r.handle("m1", "c", req("eth_blockNumber"));
+    await r.handle("m2", "c", req("eth_blockNumber"));
+    expect(calls).toHaveLength(1);
+  });
+
   it("never caches a pending nonce or a send", async () => {
     const { f, calls } = fakeFetch({ [B]: [ok("0x5")] });
     const r = new Router({ routes: { m: { upstreams: [B], blockMs: 400 } } }, { fetch: f });

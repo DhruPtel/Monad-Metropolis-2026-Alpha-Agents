@@ -22,8 +22,15 @@ notify() { # title, priority, body
     -d "$3" "$NTFY_SERVER/$NTFY_TOPIC" -o /dev/null || echo "monitor: could not reach ntfy"
 }
 
+# CO-U1 (2026-10-19, owner): services stopped on purpose are listed in monitor.env as
+# STOPPED_SERVICES="api orchestrator ..."; they are not checked, and with the API stopped neither
+# are the public API nor the balances (they come from it).
+STOPPED_SERVICES=${STOPPED_SERVICES:-}
+stopped() { [[ " $STOPPED_SERVICES " == *" $1 "* ]]; }
+
 problems=()
 for svc in $(dc config --services); do
+  stopped "$svc" && continue
   id=$(dc ps -q "$svc" 2>/dev/null)
   if [ -z "$id" ]; then
     problems+=("service $svc is not running")
@@ -35,14 +42,16 @@ for svc in $(dc config --services); do
     *) problems+=("service $svc is $st") ;;
   esac
 done
-curl -fsS -m 20 -o /dev/null "$PUBLIC_HEALTH" || problems+=("the public API $PUBLIC_HEALTH is not answering")
+stopped api || curl -fsS -m 20 -o /dev/null "$PUBLIC_HEALTH" || problems+=("the public API $PUBLIC_HEALTH is not answering")
 avail=$(df --output=avail -BG / | tail -1 | tr -dc 0-9)
 [ "${avail:-0}" -lt 10 ] && problems+=("only ${avail} GB of disk is free")
 
 # Balances: every 15 minutes, from the API container (it has the keys to derive addresses).
 now=$(date +%s)
 last=$(cat "$STATE/balances-at" 2>/dev/null || echo 0)
-if [ $((now - last)) -ge $BALANCE_EVERY_SECONDS ]; then
+if stopped api; then
+  : > "$STATE/balances.txt"
+elif [ $((now - last)) -ge $BALANCE_EVERY_SECONDS ]; then
   if out=$(dc exec -T api node scripts/server-balances.js 2>&1); then
     printf '%s\n' "$out" > "$STATE/balances.txt"
   else

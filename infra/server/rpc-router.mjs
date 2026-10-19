@@ -107,12 +107,20 @@ export class Stats {
     };
     return this.routes[name];
   }
-  call(route, client, method) {
+  call(route, client, method, req) {
     const r = this.route(route);
     r.calls += 1;
     r.byMethod[method] = (r.byMethod[method] ?? 0) + 1;
     r.byClient[client] ??= {};
     r.byClient[client][method] = (r.byClient[client][method] ?? 0) + 1;
+    // Which contract and function each eth_call reads, so the heavy readers can be named.
+    const tx = method === "eth_call" && Array.isArray(req?.params) ? req.params[0] : null;
+    if (tx && typeof tx === "object") {
+      const what = `${String(tx.to ?? "?").toLowerCase()} ${String(tx.data ?? tx.input ?? "").slice(0, 10)}`;
+      r.byCallClient ??= {};
+      r.byCallClient[client] ??= {};
+      r.byCallClient[client][what] = (r.byCallClient[client][what] ?? 0) + 1;
+    }
   }
   upstream(route, name, outcome) {
     const r = this.route(route);
@@ -125,7 +133,7 @@ export class Stats {
 
 export class Router {
   /**
-   * @param {{ routes: Record<string, { upstreams: string[], blockMs?: number, cache?: boolean }> }} config
+   * @param {{ routes: Record<string, { upstreams: string[], blockMs?: number, cache?: boolean, cacheGroup?: string }> }} config
    * @param {{ fetch?: typeof fetch, now?: () => number, timeoutMs?: number, cooldownMs?: number }} [o]
    */
   constructor(config, o = {}) {
@@ -158,10 +166,14 @@ export class Router {
       ];
     }
     const list = Array.isArray(req) ? req : [req];
-    for (const r of list) this.stats.call(route, client, String(r?.method ?? "?"));
+    for (const r of list) this.stats.call(route, client, String(r?.method ?? "?"), r);
     const ttl =
       !Array.isArray(req) && cfg.cache !== false ? cacheMsFor(req, cfg.blockMs ?? 1_000) : 0;
-    const key = ttl > 0 ? `${route} ${req.method} ${JSON.stringify(req.params ?? [])}` : null;
+    // Routes that name the same cacheGroup (one chain's primary and secondary) share answers.
+    const key =
+      ttl > 0
+        ? `${cfg.cacheGroup ?? route} ${req.method} ${JSON.stringify(req.params ?? [])}`
+        : null;
     if (key) {
       const hit = this.cache.get(key);
       if (hit && hit.until > this.now()) {
@@ -249,15 +261,13 @@ export function serve(config, o = {}) {
       return;
     }
     if (req.method === "GET" && url.pathname === "/stats") {
-      res
-        .writeHead(200, { "content-type": "application/json" })
-        .end(
-          JSON.stringify({
-            since: router.stats.since,
-            now: new Date().toISOString(),
-            routes: router.stats.routes,
-          }),
-        );
+      res.writeHead(200, { "content-type": "application/json" }).end(
+        JSON.stringify({
+          since: router.stats.since,
+          now: new Date().toISOString(),
+          routes: router.stats.routes,
+        }),
+      );
       return;
     }
     if (req.method === "POST" && url.pathname === "/stats/reset") {
