@@ -1,0 +1,32 @@
+# CO-U1 (2026-10-19): the RPC router every stack reaches its chains through (rpc-router.mjs).
+# Its config, /opt/vivarium/rpc-router.json, holds the provider URLs: root only, mode 600, never
+# printed. Run from the server:
+#
+#   VIVARIUM_RPC_REVISION=<image tag> docker compose -f infra/server/rpc-router.yaml up -d
+#
+# The stacks' .env points every RPC variable at http://rpc-router:8899/<route>.
+name: vivarium-rpc
+
+services:
+  rpc-router:
+    image: vivarium-backend:${VIVARIUM_RPC_REVISION:?}
+    command: ["node", "/opt/rpc-router/rpc-router.mjs", "/etc/rpc-router.json"]
+    restart: always
+    init: true
+    mem_limit: 160m
+    volumes:
+      - /opt/vivarium/rpc-router/rpc-router.mjs:/opt/rpc-router/rpc-router.mjs:ro
+      - /opt/vivarium/rpc-router.json:/etc/rpc-router.json:ro
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8899/health').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    networks:
+      default:
+        aliases: ["rpc-router"]
+
+networks:
+  default:
+    name: vivarium_default
+    external: true
