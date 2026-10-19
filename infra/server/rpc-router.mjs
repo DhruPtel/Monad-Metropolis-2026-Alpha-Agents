@@ -93,8 +93,48 @@ export class Stats {
   reset() {
     this.since = new Date().toISOString();
     this.routes = {};
+    /** Per chain (cache group) and kind ("calls" or a provider), the count in each second. */
+    this.seconds = {};
     /** The counts at the last minute line, so each line shows that minute alone. */
     this.prev = {};
+  }
+  /** Counts one call in this second, for the peak and average per second. */
+  tick(group, kind, now) {
+    const sec = Math.floor(now / 1_000);
+    const g = (this.seconds[group] ??= {});
+    const m = (g[kind] ??= new Map());
+    m.set(sec, (m.get(sec) ?? 0) + 1);
+  }
+  /** Peak, 99th and 95th percentile and average calls per second since the reset, per chain and kind. */
+  perSecond(now) {
+    const from = Math.floor(Date.parse(this.since) / 1_000);
+    const to = Math.floor(now / 1_000);
+    const span = Math.max(1, to - from);
+    const out = {};
+    for (const [group, kinds] of Object.entries(this.seconds))
+      for (const [kind, m] of Object.entries(kinds)) {
+        const counts = [];
+        let total = 0;
+        for (let sec = from; sec < to; sec += 1) {
+          const n = m.get(sec) ?? 0;
+          counts.push(n);
+          total += n;
+        }
+        counts.sort((a, b) => a - b);
+        const at = (q) => counts[Math.min(counts.length - 1, Math.floor(q * counts.length))] ?? 0;
+        out[group] ??= {};
+        out[group][kind] = {
+          peak: counts.at(-1) ?? 0,
+          p99: at(0.99),
+          p95: at(0.95),
+          avg: total / span,
+          total,
+          seconds: span,
+        };
+        // Keep an hour.
+        for (const sec of m.keys()) if (sec < to - 3_600) m.delete(sec);
+      }
+    return out;
   }
   route(name) {
     this.routes[name] ??= {
@@ -174,7 +214,10 @@ export class Router {
       ];
     }
     const list = Array.isArray(req) ? req : [req];
-    for (const r of list) this.stats.call(route, client, String(r?.method ?? "?"), r);
+    for (const r of list) {
+      this.stats.call(route, client, String(r?.method ?? "?"), r);
+      this.stats.tick(cfg.cacheGroup ?? route, "calls", this.now());
+    }
     const ttl =
       !Array.isArray(req) && cfg.cache !== false ? cacheMsFor(req, cfg.blockMs ?? 1_000) : 0;
     // Routes that name the same cacheGroup (one chain's primary and secondary) share answers.
@@ -236,6 +279,8 @@ export class Router {
       { jsonrpc: "2.0", id: null, error: { code: -32603, message: "every upstream failed" } },
     ];
     const ups = cfg.upstreams;
+    // One per request that needed a provider (not served from the cache), whichever answered.
+    this.stats.tick(cfg.cacheGroup ?? route, "needed", this.now());
     // Upstreams cooling after a limit go last, not never: when all are cooling, try them anyway.
     const order = ups
       .map((u, i) => ({ u, i, cool: (this.cooling.get(`${route}#${i}`) ?? 0) > this.now() }))
@@ -243,6 +288,7 @@ export class Router {
     for (const [n, { u, i }] of order.entries()) {
       const name = `${i}:${providerOf(u)}`;
       r.upstreamCalls += 1;
+      this.stats.tick(cfg.cacheGroup ?? route, providerOf(u), this.now());
       let status;
       let body = null;
       try {
@@ -301,6 +347,7 @@ export function serve(config, o = {}) {
           since: router.stats.since,
           now: new Date().toISOString(),
           routes: router.stats.routes,
+          perSecond: router.stats.perSecond(Date.now()),
         }),
       );
       return;

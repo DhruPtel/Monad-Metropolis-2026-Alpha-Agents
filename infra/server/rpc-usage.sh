@@ -52,6 +52,10 @@ fetch("http://127.0.0.1:8899/stats").then((r) => r.json()).then((s) => {
     console.log(`route ${route}: ${(r.calls / minutes).toFixed(1)} calls/min, ${(r.upstreamCalls / minutes).toFixed(1)} upstream/min, ${r.cacheHits} cached, ${r.failovers} failovers, upstreams ${JSON.stringify(r.upstreams)}`);
   }
   console.log(`window ${minutes.toFixed(1)} min`);
+  // Per chain: calls from our services, requests that needed a provider, and each provider's calls.
+  for (const [group, kinds] of Object.entries(s.perSecond ?? {}))
+    for (const [kind, v] of Object.entries(kinds))
+      console.log(`per second ${group} ${kind}: peak ${v.peak}, p99 ${v.p99}, p95 ${v.p95}, average ${v.avg.toFixed(2)}, total ${v.total} over ${v.seconds} s`);
   const sorted = [...rows].map(([k, m]) => [k, Object.values(m).reduce((a, b) => a + b, 0), m]).sort((a, b) => b[1] - a[1]);
   let total = 0;
   for (const [k, n, m] of sorted) {

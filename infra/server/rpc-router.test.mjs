@@ -100,6 +100,22 @@ describe("rpc router", () => {
     expect(r2.stats.routes.m.refusedSends).toEqual({ "c:9": { "nonce too low": 1 } });
   });
 
+  it("reports the peak and average calls per second per chain and provider", async () => {
+    let t = 1_000_000;
+    const { f } = fakeFetch({ [B]: [ok("0x1")] });
+    const r = new Router(
+      { routes: { m: { upstreams: [B], cache: false, cacheGroup: "monad" } } },
+      { fetch: f, now: () => t },
+    );
+    r.stats.since = new Date(t).toISOString();
+    for (let i = 0; i < 5; i += 1) await r.handle("m", "c", req("eth_blockNumber"));
+    t += 1_000;
+    await r.handle("m", "c", req("eth_blockNumber"));
+    const s = r.stats.perSecond(t + 9_000);
+    expect(s.monad.calls).toMatchObject({ peak: 5, total: 6, seconds: 10, avg: 0.6 });
+    expect(s.monad["Monad public"]).toMatchObject({ peak: 5, total: 6 });
+  });
+
   it("never caches a pending nonce or a send", async () => {
     const { f, calls } = fakeFetch({ [B]: [ok("0x5")] });
     const r = new Router({ routes: { m: { upstreams: [B], blockMs: 400 } } }, { fetch: f });
