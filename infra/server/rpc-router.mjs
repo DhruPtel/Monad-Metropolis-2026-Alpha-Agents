@@ -191,11 +191,21 @@ export class Router {
     }
     const [status, body] = await this.forward(route, cfg, text);
     // The hash of each transaction sent, per client (public once sent), so the senders can be named.
-    if (!Array.isArray(req) && req.method === "eth_sendRawTransaction" && body?.result) {
+    if (!Array.isArray(req) && req.method === "eth_sendRawTransaction") {
       const r = this.stats.route(route);
-      r.sent ??= {};
-      r.sent[client] ??= [];
-      if (r.sent[client].length < 200) r.sent[client].push(body.result);
+      if (body?.result) {
+        r.sent ??= {};
+        r.sent[client] ??= [];
+        if (r.sent[client].length < 200) r.sent[client].push(body.result);
+      } else {
+        // Why a send was refused, URLs stripped: the first words of the provider's message.
+        const why = String(body?.error?.message ?? `http ${status}`)
+          .replace(/https?:\/\/\S+/g, "<url>")
+          .slice(0, 120);
+        r.refusedSends ??= {};
+        r.refusedSends[client] ??= {};
+        r.refusedSends[client][why] = (r.refusedSends[client][why] ?? 0) + 1;
+      }
     }
     if (
       key &&

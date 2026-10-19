@@ -87,6 +87,17 @@ describe("rpc router", () => {
     const r = new Router({ routes: { m: { upstreams: [B] } } }, { fetch: f });
     await r.handle("m", "c:9", req("eth_sendRawTransaction", ["0xff"]));
     expect(r.stats.routes.m.sent).toEqual({ "c:9": ["0xabc"] });
+    const refused = fakeFetch({
+      [B]: [
+        {
+          status: 200,
+          body: { jsonrpc: "2.0", id: 1, error: { code: -32000, message: "nonce too low" } },
+        },
+      ],
+    });
+    const r2 = new Router({ routes: { m: { upstreams: [B] } } }, { fetch: refused.f });
+    await r2.handle("m", "c:9", req("eth_sendRawTransaction", ["0xff"]));
+    expect(r2.stats.routes.m.refusedSends).toEqual({ "c:9": { "nonce too low": 1 } });
   });
 
   it("never caches a pending nonce or a send", async () => {
