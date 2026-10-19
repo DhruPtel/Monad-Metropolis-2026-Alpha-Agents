@@ -79,7 +79,9 @@ export function shouldFailOver(status, body) {
   const err = one && typeof one === "object" ? one.error : null;
   if (!err) return false;
   if (err.code === -32005 || err.code === -32007 || err.code === 429) return true;
-  return /rate|limit exceeded|capacity|too many|daily|quota|exceeded/i.test(
+  // A provider's own eth_getLogs range cap (Monad public: 100 blocks, -32614): the next may allow more.
+  if (err.code === -32614) return true;
+  return /rate|limit exceeded|capacity|too many|daily|quota|exceeded|limited to a \d+ range|block range/i.test(
     String(err.message ?? ""),
   );
 }
@@ -122,12 +124,16 @@ export class Stats {
       r.byCallClient[client][what] = (r.byCallClient[client][what] ?? 0) + 1;
     }
   }
-  upstream(route, name, outcome) {
+  upstream(route, name, outcome, reason = null) {
     const r = this.route(route);
-    r.upstreams[name] ??= { calls: 0, ok: 0, failedOver: 0 };
-    r.upstreams[name].calls += 1;
-    if (outcome === "ok") r.upstreams[name].ok += 1;
-    else r.upstreams[name].failedOver += 1;
+    r.upstreams[name] ??= { calls: 0, ok: 0, failedOver: 0, reasons: {} };
+    const u = r.upstreams[name];
+    u.calls += 1;
+    if (outcome === "ok") u.ok += 1;
+    else {
+      u.failedOver += 1;
+      u.reasons[reason] = (u.reasons[reason] ?? 0) + 1;
+    }
   }
 }
 
@@ -141,7 +147,9 @@ export class Router {
     this.fetch = o.fetch ?? fetch;
     this.now = o.now ?? Date.now;
     this.timeoutMs = o.timeoutMs ?? 10_000;
-    this.cooldownMs = o.cooldownMs ?? 30_000;
+    // Short: public providers limit per second, and a long rest would hand the paid fallback
+    // every call.
+    this.cooldownMs = o.cooldownMs ?? 5_000;
     this.stats = new Stats();
     this.cache = new Map();
     /** upstream index per route to the time it may be tried again after a limit. */
@@ -246,9 +254,17 @@ export class Router {
         this.stats.upstream(route, name, "ok");
         return [status, body];
       }
-      this.stats.upstream(route, name, "failover");
-      if (status === 429 || (status === 200 && body))
-        this.cooling.set(`${route}#${i}`, this.now() + this.cooldownMs);
+      const one = Array.isArray(body) ? body[0] : body;
+      const code = one && typeof one === "object" ? one.error?.code : undefined;
+      this.stats.upstream(
+        route,
+        name,
+        "failover",
+        code !== undefined ? `rpc ${code}` : `http ${status}`,
+      );
+      // Any failure but a range cap rests the upstream: a limited or failing provider is tried
+      // last for a while instead of first on every call.
+      if (code !== -32614) this.cooling.set(`${route}#${i}`, this.now() + this.cooldownMs);
       if (status !== 0 && body) last = [status === 200 ? 200 : status, body];
       if (n < order.length - 1) r.failovers += 1;
     }

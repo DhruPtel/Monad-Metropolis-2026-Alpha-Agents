@@ -45,6 +45,11 @@ describe("rpc router", () => {
     expect(shouldFailOver(200, { error: { code: -32007, message: "request limit reached" } })).toBe(
       true,
     );
+    expect(
+      shouldFailOver(200, {
+        error: { code: -32614, message: "eth_getLogs is limited to a 100 range" },
+      }),
+    ).toBe(true);
     expect(shouldFailOver(200, { error: { code: 3, message: "execution reverted" } })).toBe(false);
     expect(shouldFailOver(200, { result: "0x1" })).toBe(false);
   });
