@@ -92,7 +92,7 @@ export interface SentinelObservation {
   readonly account: Hex | null;
   readonly mode: AccountMode | null;
   readonly depositsClosed: boolean | null;
-  /** The breaker's drawdown from the 7-day peak after this pass's poke; null while the valuation reverts. */
+  /** The breaker's drawdown from the 7-day peak, valued now (breakerState); null while the valuation reverts. */
   readonly drawdownBps: number | null;
   readonly navReadable: boolean;
   readonly held: readonly HeldObservation[];
@@ -481,8 +481,6 @@ export interface SentinelChain {
   setReduceOnly(account: Hex): Promise<Hex>;
   pause(account: Hex): Promise<Hex>;
   closeDeposits(account: Hex): Promise<Hex>;
-  /** Values the account and records the breaker's peak; reverts while a class F feed is unusable. */
-  poke(account: Hex): Promise<Hex>;
 }
 
 export interface SentinelDeps {
@@ -493,7 +491,7 @@ export interface SentinelDeps {
   readonly chain: SentinelChain | null;
   /** Every agent with a goal or an account; the ones worth a look. */
   readonly agents: () => Promise<number[]>;
-  /** One look at an agent after a poke; null when the agent has no account and nothing to watch. */
+  /** One look at an agent (reads only); null when the agent has no account and nothing to watch. */
   readonly observe: (ref: AgentRef, now: Date) => Promise<SentinelObservation | null>;
   /** Sets the agent state with the sentinel's reason; returns the state before. */
   readonly setState: (
@@ -549,7 +547,7 @@ export class Sentinel {
           (b.action === "REDUCE_ONLY" && mode === "REDUCE_ONLY") ||
           (b.action === "PAUSE" && mode === "PAUSED");
         if (already) {
-          // The breaker tripped on this pass's poke, or the owner tightened first: the same end.
+          // The breaker tripped on a trade's record, or the owner tightened first: the same end.
           await this.d.store.record(
             ref,
             {

@@ -16,7 +16,7 @@ import {
 
 /**
  * The Risk Sentinel's readers over the platform (P4-U2): one observation of
- * an agent after the sentinel's own poke of the account, the agent state
+ * an agent from reads alone (no poke since CO-U1, 2026-10-19), the agent state
  * setter (with its change recorded, as a goal save or a plan does), and the
  * list of agents worth a look. Everything here is a read or a recorded state
  * change; the tightenings themselves go through the sentinel key.
@@ -107,7 +107,7 @@ export async function setAgentState(
   });
 }
 
-/** One look at the agent, after a poke of its account when it has one. */
+/** One look at the agent, from reads alone. */
 export async function observe(
   w: SentinelWiring,
   ref: AgentRef,
@@ -146,22 +146,10 @@ export async function observe(
       ownerEpoch: null,
       agentState,
     };
-  const first = await v3.agent(ref.agentId);
-  if (!first) return null;
-  // The free valuation: moves the breaker's peak and lets it trip on a 10% or 20% drop; it
-  // reverts while a class F feed is unusable, which the stale-feed rule then sees.
-  let pokeFailed = false;
-  if (first.account && w.chain) {
-    try {
-      await w.chain.poke(first.account);
-    } catch {
-      pokeFailed = true;
-    }
-  }
-  const [a, m] = await Promise.all([
-    pokeFailed ? Promise.resolve(first) : v3.agent(ref.agentId),
-    v3.market(),
-  ]);
+  // CO-U1 (2026-10-19, owner): reads only. The account's breakerState values it at current
+  // prices against its recorded peak, so a drawdown shows without a poke; the core's breaker
+  // refuses new risk in an unpoked drawdown, and the sentinel tightens on its own rules.
+  const [a, m] = await Promise.all([v3.agent(ref.agentId), v3.market()]);
   if (!a) return null;
   const usdc = m.usdc.toLowerCase();
   const held = [];

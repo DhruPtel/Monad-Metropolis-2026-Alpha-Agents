@@ -5,17 +5,18 @@ import type { SentinelChain } from "./sentinel.ts";
 
 /**
  * The sentinel key's chain calls (P4-U2, D-138): a wallet on the sentinel
- * key that knows four functions of PersonalAccountV3, the three tightenings
- * the custody core opens to the sentinel and the free valuation `poke`. No
- * other call exists here, so the service cannot unpause, change a policy
- * or move anything even by mistake; the core refuses the sentinel for those
- * too (`unpause` is the owner's alone).
+ * key that knows the three tightenings the custody core opens to the
+ * sentinel. No other call exists here, so the service cannot unpause, change
+ * a policy or move anything even by mistake; the core refuses the sentinel
+ * for those too (`unpause` is the owner's alone). CO-U1 (2026-10-19, owner):
+ * no `poke` either. Each pass sent one per agent (about 518,000 gas, about
+ * 0.05 MON on Monad testnet, every minute); the sentinel now only reads the
+ * account's breakerState, which values it at current prices against its peak.
  */
 const SENTINEL_ABI = parseAbi([
   "function setReduceOnly()",
   "function pause()",
   "function closeDeposits()",
-  "function poke() returns (uint256 nav, uint256 perUnit, uint256 peak)",
 ]);
 
 /** Anvil's mnemonic, index 5: the local fork's sentinel (D-230; scripts/lib/account-factory.js). */
@@ -49,7 +50,7 @@ export function viemSentinelChain(o: {
   const client = createPublicClient({ chain, transport });
   const send = async (
     address: Hex,
-    functionName: "setReduceOnly" | "pause" | "closeDeposits" | "poke",
+    functionName: "setReduceOnly" | "pause" | "closeDeposits",
   ): Promise<Hex> => {
     // Simulated first, so a call the core refuses (NotTightener, a stale feed) never spends gas.
     const { request } = await client.simulateContract({
@@ -68,6 +69,5 @@ export function viemSentinelChain(o: {
     setReduceOnly: (a) => send(a, "setReduceOnly"),
     pause: (a) => send(a, "pause"),
     closeDeposits: (a) => send(a, "closeDeposits"),
-    poke: (a) => send(a, "poke"),
   };
 }

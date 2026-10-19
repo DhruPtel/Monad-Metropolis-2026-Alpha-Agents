@@ -187,10 +187,6 @@ describe.skipIf(!dbUp)("the sentinel service over Postgres", () => {
       calls.push(`closeDeposits ${a}`);
       return "0xa3";
     },
-    poke: async (a) => {
-      calls.push(`poke ${a}`);
-      return "0xa4";
-    },
   };
   const service = (over: Partial<SentinelDeps> = {}, clock: { now: Date } = { now: T0 }) =>
     new Sentinel({
@@ -298,7 +294,7 @@ describe.skipIf(!dbUp)("the sentinel service over Postgres", () => {
     });
   });
 
-  it("a breach the breaker already answered on this pass's poke counts as done", async () => {
+  it("a breach the breaker already answered (a trade's record or the owner) counts as done", async () => {
     const clock = { now: T0 };
     const s = service({}, clock);
     await s.tick();
