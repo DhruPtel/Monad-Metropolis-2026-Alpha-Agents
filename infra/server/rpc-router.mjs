@@ -205,6 +205,8 @@ export class Router {
         r.refusedSends ??= {};
         r.refusedSends[client] ??= {};
         r.refusedSends[client][why] = (r.refusedSends[client][why] ?? 0) + 1;
+        // The last refused signed transaction (public data meant for broadcast), to name its sender.
+        r.refusedSample = req.params?.[0] ?? null;
       }
     }
     if (
