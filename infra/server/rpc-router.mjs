@@ -182,6 +182,13 @@ export class Router {
       }
     }
     const [status, body] = await this.forward(route, cfg, text);
+    // The hash of each transaction sent, per client (public once sent), so the senders can be named.
+    if (!Array.isArray(req) && req.method === "eth_sendRawTransaction" && body?.result) {
+      const r = this.stats.route(route);
+      r.sent ??= {};
+      r.sent[client] ??= [];
+      if (r.sent[client].length < 200) r.sent[client].push(body.result);
+    }
     if (
       key &&
       status === 200 &&

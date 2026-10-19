@@ -69,6 +69,10 @@ fetch("http://127.0.0.1:8899/stats").then((r) => r.json()).then((s) => {
       for (const [w, n] of Object.entries(whats)) m[w] = (m[w] ?? 0) + n;
       calls.set(name, m);
     }
+  // Every transaction hash each container sent, for a chain lookup of sender and target.
+  for (const [route, r] of Object.entries(s.routes))
+    for (const [client, hashes] of Object.entries(r.sent ?? {}))
+      console.log(`sent ${who.get(client) ?? "unattributed"} ${route}: ${hashes.join(" ")}`);
   for (const [name, m] of calls) {
     const top = Object.entries(m).sort((a, b) => b[1] - a[1]).slice(0, 6);
     console.log(`eth_call ${name}: ${top.map(([w, n]) => `${w} ${(n / minutes).toFixed(1)}`).join("; ")}`);

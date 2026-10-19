@@ -77,6 +77,13 @@ describe("rpc router", () => {
     expect(calls).toHaveLength(1);
   });
 
+  it("keeps the hash of each transaction a client sends", async () => {
+    const { f } = fakeFetch({ [B]: [ok("0xabc")] });
+    const r = new Router({ routes: { m: { upstreams: [B] } } }, { fetch: f });
+    await r.handle("m", "c:9", req("eth_sendRawTransaction", ["0xff"]));
+    expect(r.stats.routes.m.sent).toEqual({ "c:9": ["0xabc"] });
+  });
+
   it("never caches a pending nonce or a send", async () => {
     const { f, calls } = fakeFetch({ [B]: [ok("0x5")] });
     const r = new Router({ routes: { m: { upstreams: [B], blockMs: 400 } } }, { fetch: f });
