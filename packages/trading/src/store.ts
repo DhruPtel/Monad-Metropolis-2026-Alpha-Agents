@@ -226,6 +226,8 @@ function runnerJson(
 
 /** How far back "why did the agent not trade" looks for blocked trades. */
 export const WHY_WINDOW_MS = 24 * 3_600_000;
+/** How long after a disarm the trade flow watches the chain for the owner's revoke. */
+export const REVOKE_WATCH_MS = 10 * 60_000;
 
 export class TradeStore {
   readonly db: Db;
@@ -428,7 +430,12 @@ export class TradeStore {
       .execute();
   }
 
-  /** Disarmed armings whose grant may still be on chain, for the worker to watch for the revoke. */
+  /**
+   * Disarmed armings whose grant may still be on chain, for the worker to watch for the revoke.
+   * CO-U1 (2026-10-19, owner): only within REVOKE_WATCH_MS of the disarm, when the owner's wallet
+   * signs the revoke in the same Turn off; after that a disarmed agent costs no chain read, even
+   * with its grant still on chain (a platform pause keeps it there on purpose).
+   */
   async unrevokedDisarmed(chainId: number): Promise<ArmingRecord[]> {
     const rows = await this.db
       .selectFrom("platform.arming")
@@ -437,7 +444,7 @@ export class TradeStore {
       .where("status", "=", "ended")
       .where("ended_reason", "=", "disarmed")
       .where("revoked_onchain", "=", false)
-      .where("ended_at", ">=", new Date(this.now().getTime() - 31 * 86_400_000))
+      .where("ended_at", ">=", new Date(this.now().getTime() - REVOKE_WATCH_MS))
       .execute();
     return rows.map(armingRecord);
   }

@@ -27,12 +27,13 @@ import { SWAP_GAS_LIMIT } from "@alpha-agents/signer";
 import {
   GoalStore,
   RENEWAL_REMINDER_SECONDS,
+  REVOKE_WATCH_MS,
   TradeStore,
   approveByOwner,
   disarm,
 } from "@alpha-agents/trading";
 import { type Hex, getAddress } from "viem";
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ArmingFacts, BlockedFacts, TradeFacts } from "./narrator.ts";
 import { CHAIN } from "./testing.ts";
 import {
@@ -961,6 +962,23 @@ describe.skipIf(!dbUp)("the trade flow (needs Postgres)", { timeout: 60_000 }, (
     await flow.upkeepArmings();
     expect((await trades.lastArming(CHAIN, 1))?.revokedOnchain).toBe(true);
     expect(narrated.some((x) => x.key === `${r.armingId}:ended`)).toBe(false);
+  });
+
+  it("stops reading the chain for a disarmed agent 10 minutes after the disarm, grant or not", async () => {
+    const r = await arm();
+    await disarm(trades, CHAIN, 1);
+    const reads = vi.spyOn(chain, "agent");
+    await flow.upkeepArmings();
+    expect(reads).toHaveBeenCalledTimes(1);
+    await t.db
+      .updateTable("platform.arming")
+      .set({ ended_at: new Date(Date.now() - REVOKE_WATCH_MS - 1_000) })
+      .where("arming_id", "=", r.armingId)
+      .execute();
+    await flow.upkeepArmings();
+    await flow.tick();
+    expect(reads).toHaveBeenCalledTimes(1);
+    expect((await trades.lastArming(CHAIN, 1))?.revokedOnchain).toBe(false);
   });
 
   it("reminds the owner once before expiry, and a renewal on chain moves the expiry", async () => {
