@@ -590,6 +590,9 @@ const local = isForkEnvironment(env.id);
 // fork (the keeper, credits, the trade flow) together with the indexer exceeded a free plan's
 // rate limit on testnet. Real chains poll these every 5 seconds.
 const REMOTE_POLL_MS = 5_000;
+/** CO-U1 (2026-10-19, owner): the trade flow and the runner while a leg is in flight, and idle. */
+const LEG_IN_FLIGHT_POLL_MS = 10_000;
+const IDLE_POLL_MS = 60_000;
 /**
  * 2026-10-17: the TestnetFeeds' bound in OracleAdapterV3 on the stand-in testnets (the deployed
  * sets' usdMaxAge, evidence/co-u1-monad/testnet-deployment.json): 30 days.
@@ -638,7 +641,9 @@ const testnetTopUp =
 const trading = chainSigner
   ? {
       signer: chainSigner,
-      ...(local ? {} : { everyMs: REMOTE_POLL_MS }),
+      // CO-U1 (2026-10-19, owner): off the fork every 10 seconds while a leg is in flight, every
+      // minute otherwise (the database is still checked every 10 seconds).
+      ...(local ? {} : { everyMs: LEG_IN_FLIGHT_POLL_MS, idleMs: IDLE_POLL_MS }),
       gas: {
         balance: (address: Hex) => sendClient.getBalance({ address }),
         swapCost: async (gas?: bigint) => {
@@ -795,7 +800,8 @@ const orchestrator = new Orchestrator({
     fallbackVolatility24hPct: env.id === "testnet" ? 100 : null,
     // CO-U1 (owner, 2026-10-15): on the testnet stacks the runner looks every 10 seconds, so the
     // next leg goes out within seconds of the previous one confirming; elsewhere every minute.
-    ...(env.id === "testnet" ? { everyMs: 10_000 } : {}),
+    // 2026-10-19 (owner): every 10 seconds only while a leg is in flight, else every minute.
+    ...(env.id === "testnet" ? { everyMs: LEG_IN_FLIGHT_POLL_MS, idleMs: IDLE_POLL_MS } : {}),
     gasMonUsdE18: async () => {
       const f = (await market.oracleVsPool()).value.chainlinkMonUsd;
       if (f.value === null || f.warnings.some((w) => w.code === "STALE")) return null;

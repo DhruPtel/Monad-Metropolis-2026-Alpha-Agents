@@ -73,6 +73,7 @@ import {
   minAmountOutFor,
 } from "./trade-flow.ts";
 import { RUNNER_EVERY_MS, TemplateRunner } from "./runner.ts";
+import { cadence } from "./cadence.ts";
 import { runCycleTask, cyclePlan } from "./cycle/cycle.ts";
 import { ProposalService } from "./cycle/proposals.ts";
 import { CycleResearch } from "./cycle/research.ts";
@@ -268,6 +269,11 @@ export interface OrchestratorOptions {
     readonly gas: TradeFlowGas;
     readonly finalizedBlock: () => Promise<bigint | null>;
     readonly everyMs?: number;
+    /**
+     * CO-U1 (2026-10-19): with no intent in flight the flow reads the chain only this often; it
+     * still checks the database every `everyMs`. Absent: every `everyMs`.
+     */
+    readonly idleMs?: number;
   } | null;
   /**
    * P3-U3: the template runner's market input. With trading and a chain reader
@@ -282,6 +288,8 @@ export interface OrchestratorOptions {
     /** MON's annualized 24-hour realized volatility in percent, null when unreadable. */
     readonly volatility24hPct: () => Promise<number | null>;
     readonly everyMs?: number;
+    /** CO-U1 (2026-10-19): with no leg in flight the runner checks only this often. */
+    readonly idleMs?: number;
     /** The offchain trading profile (2026-10-13); the launch profile when absent. */
     readonly profile?: TradingProfile;
     /** MON's real USD price (18 decimals) for a leg's gas under a profile that counts it. */
@@ -763,15 +771,43 @@ export class Orchestrator {
         await recorder.tick();
       });
     }
+    // CO-U1 (2026-10-19, owner): the trade flow and the runner read the chain every `everyMs`
+    // only while a leg is in flight (and once right after), otherwise every `idleMs`.
+    // A proposal waiting for an owner who has not armed the agent is not in flight: it waits up
+    // to half an hour, and the owner's approval turns it into one within `everyMs`.
+    const legInFlight = async () => {
+      const open = await this.trades.intentsIn(this.o.chainId, [
+        "awaiting_approval",
+        "approved",
+        "submitted",
+        "confirmed",
+      ]);
+      if (open.some((i) => i.status !== "awaiting_approval")) return true;
+      if (open.length === 0) return false;
+      const armed = (await this.trades.openArmings(this.o.chainId)).map((r) => r.agentId);
+      return open.some((i) => armed.includes(i.agentId));
+    };
     if (this.tradeFlow) {
       const flow = this.tradeFlow;
-      this.every(this.o.trading?.everyMs ?? 2_000, "trade flow", () => flow.tick());
+      const everyMs = this.o.trading?.everyMs ?? 2_000;
+      const idleMs = this.o.trading?.idleMs;
+      this.every(
+        everyMs,
+        "trade flow",
+        idleMs ? cadence({ idleMs, busy: legInFlight }, () => flow.tick()) : () => flow.tick(),
+      );
     }
     if (this.runner) {
       const runner = this.runner;
-      this.every(this.o.runner?.everyMs ?? RUNNER_EVERY_MS, "template runner", async () => {
+      const tick = async () => {
         await runner.tick();
-      });
+      };
+      const idleMs = this.o.runner?.idleMs;
+      this.every(
+        this.o.runner?.everyMs ?? RUNNER_EVERY_MS,
+        "template runner",
+        idleMs ? cadence({ idleMs, busy: legInFlight }, tick) : tick,
+      );
     }
     if (this.o.localFeeds) {
       const feeds = this.o.localFeeds;
