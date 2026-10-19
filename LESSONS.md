@@ -2121,3 +2121,17 @@ What happened: on 2b12ad6 every recycler pass failed a second after it started w
 Cause: the send passed `account: deployer`, the deployer's address, to a wallet client built with the deployer's local account. viem takes a bare address as a JSON-RPC account and asks the node to sign with eth_sendTransaction, which a public RPC refuses.
 Fix: the send passes the wallet's own local account (6d1517c, with a test that the signed account is the wallet's).
 Lesson: With viem, an address where an account is expected means "let the node sign". Pass the account object, and test the send path against a wallet that records what it was given, not only the reads.
+
+## L-290: every orchestrator restart died at "could not reach the chain RPC" once Alchemy hit its monthly cap
+Unit: CO-U1 (2026-10-19)
+What happened: on the owner's RPC emergency, restarting the Monad, monad-dev and Metropolis orchestrators left them in a restart loop (8 to 10 restarts in four minutes), each stopping at "could not reach the chain RPC". Alchemy, set as each stack's second Monad provider, answered every call with "Monthly capacity limit exceeded".
+Cause: the orchestrator's startup check asks the second provider for its chain id and dies if it cannot answer (P2-EC), and on Monad testnet the keeper, signer, trade flow, sentinel, sweep and recycler sent through the second provider first (the 2026-10-16 change). The fallback had become a hard dependency, and it was the paid provider at its cap. The running stacks had passed the same check at their last start, before the cap was reached, so nothing showed until a restart.
+Fix: every stack reaches its chain through the server's RPC router (infra/server/rpc-router.mjs, c000295 onward). Each route lists the free public RPC first and QuickNode second, with Alchemy removed, so both of the orchestrator's providers answer.
+Lesson: A provider that startup requires is a hard dependency even when it is labeled a fallback. Probe every configured provider before a restart, and put a paid provider behind something that can drop it without touching each service.
+
+## L-291: an idle stack made a thousand RPC calls a minute re-reading every armed agent every 5 seconds
+Unit: CO-U1 (2026-10-19)
+What happened: with no trade in flight, the Monad orchestrator made about 1,650 calls a minute and the Base Sepolia one about 1,150, mostly eth_call. The router's per-contract counts showed the same eight reads (ownerOf, ownerEpoch, configEpochOf, personalAccountOf, sessionOf, vaultOf, limits, pastTrades) at 66 to 90 a minute each. The public Monad RPC refused three of every four calls at that rate.
+Cause: the trade flow's tick (every 5 s off the fork) starts with upkeepArmings, which reads the chain view of every open arming, and the runner checked every 10 s on testnet, whether or not anything was pending.
+Fix: the runner and the trade flow check the database every 10 s and read the chain only while a leg is in flight (an approved, submitted or confirmed intent, or a proposal of an armed agent), once right after it clears, and otherwise every minute (33b4129). The indexer steps every 6 s instead of 2 s (ce04c8c). The Monad orchestrator went from about 1,650 to about 600 calls a minute.
+Lesson: A poll's interval multiplied by the reads it makes per agent is the RPC bill. Measure calls per process and per contract function before choosing intervals, and poll fast only while something is in flight.
