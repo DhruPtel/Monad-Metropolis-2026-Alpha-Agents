@@ -52,7 +52,7 @@ fetch("http://127.0.0.1:8899/stats").then((r) => r.json()).then((s) => {
     console.log(`route ${route}: ${(r.calls / minutes).toFixed(1)} calls/min, ${(r.upstreamCalls / minutes).toFixed(1)} upstream/min, ${r.cacheHits} cached, ${r.failovers} failovers, upstreams ${JSON.stringify(r.upstreams)}`);
   }
   console.log(`window ${minutes.toFixed(1)} min`);
-  // Per chain: calls from our services, requests that needed a provider, and each provider's calls.
+  // Per chain: calls from our services, requests that needed a provider, and the calls to each provider.
   for (const [group, kinds] of Object.entries(s.perSecond ?? {}))
     for (const [kind, v] of Object.entries(kinds))
       console.log(`per second ${group} ${kind}: peak ${v.peak}, p99 ${v.p99}, p95 ${v.p95}, average ${v.avg.toFixed(2)}, total ${v.total} over ${v.seconds} s`);
