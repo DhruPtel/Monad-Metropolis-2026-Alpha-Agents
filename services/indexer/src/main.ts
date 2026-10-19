@@ -40,6 +40,8 @@ if (nft.status !== "verified") {
 }
 const usdc = addressEntry(env.id, "usdc");
 const remote = !isForkEnvironment(env.id);
+/** CO-U1 (2026-10-19, owner): a real chain's indexing step and idle poll. */
+const REMOTE_STEP_MS = 6_000;
 
 // P2-EC: the environment's second provider takes over when the first fails (D-254).
 const fallback = (config.values.MONAD_RPC_URL_SECONDARY as Secret | undefined)?.reveal();
@@ -69,7 +71,9 @@ const indexer = new Indexer({
   // Public Monad RPCs cap eth_getLogs ranges; the indexer halves on refusal anyway.
   maxRange: remote ? 100 : 2_000,
   // P2-EC: at most one indexing step every 2 s on a real chain (about 5 blocks a step).
-  minStepMs: remote ? 2_000 : 0,
+  // CO-U1 (2026-10-19, owner): every 6 s, about 15 Monad blocks a step, well inside the public
+  // RPC's 100-block eth_getLogs cap; a third of the calls.
+  minStepMs: remote ? REMOTE_STEP_MS : 0,
   // While more than a range behind (after downtime), a step every 0.4 s: about 25 blocks a
   // second at a 10-block cap, against the chain's 3.3, within the provider's rate limit.
   catchUpStepMs: remote ? 400 : 0,
@@ -87,7 +91,7 @@ try {
     await indexer.catchUp();
     log(`caught up at block ${(await indexer.watermark()).number}`);
   } else {
-    await indexer.run(controller.signal, remote ? 2_000 : 1_000);
+    await indexer.run(controller.signal, remote ? REMOTE_STEP_MS : 1_000);
   }
 } finally {
   await db.destroy();

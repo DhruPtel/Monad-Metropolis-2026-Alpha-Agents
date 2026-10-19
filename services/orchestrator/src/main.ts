@@ -593,6 +593,8 @@ const REMOTE_POLL_MS = 5_000;
 /** CO-U1 (2026-10-19, owner): the trade flow and the runner while a leg is in flight, and idle. */
 const LEG_IN_FLIGHT_POLL_MS = 10_000;
 const IDLE_POLL_MS = 60_000;
+/** The Risk Sentinel's pass: every minute off the fork (CO-U1, 2026-10-19), 30 seconds on it. */
+const sentinelEveryMs = local ? 30_000 : 60_000;
 /**
  * 2026-10-17: the TestnetFeeds' bound in OracleAdapterV3 on the stand-in testnets (the deployed
  * sets' usdMaxAge, evidence/co-u1-monad/testnet-deployment.json): 30 days.
@@ -691,7 +693,7 @@ const sentinelChain = sentinelKey
   : null;
 log(
   sentinelChain
-    ? `risk sentinel on: key ${sentinelChain.address} (tighten-only, D-138), every 30 s`
+    ? `risk sentinel on: key ${sentinelChain.address} (tighten-only, D-138), every ${sentinelEveryMs / 1_000} s`
     : "risk sentinel on without a key: agent states only (set TESTNET_SENTINEL_PRIVATE_KEY to tighten accounts)",
 );
 
@@ -719,7 +721,7 @@ const orchestrator = new Orchestrator({
   attestor,
   sentinel: {
     chain: sentinelChain,
-    ...(local ? {} : { everyMs: 60_000 }),
+    everyMs: sentinelEveryMs,
     // 2026-10-17: on a stand-in testnet the feeds are TestnetFeeds, re-dated only on demand
     // before a check or a trade (D-307), so between trades they are hours or days old while
     // the oracle still accepts them (its bound is 30 days on this deploy). The sentinel judges
